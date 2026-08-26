@@ -6058,3 +6058,80 @@ both, so the next release supplies the values instead of wiping them; commit
 `0cdc9e2d9` (required variables, no default) is in history. This was also the
 post-roll re-probe the LANDMINES entry instructs. Still owed at the UNPARK: the
 dashboard test event → `billing_events` row round-trip.
+
+## 2026-08-26 (late night) — THE CHAT BOT NOW COMMITS THE BRIEF (owner GO), both halves built, box half LIVE
+
+Owner rulings taken in chat tonight: (1) payment joins a brief by an ORDER
+REFERENCE, never a brief field ("that will change"); (2) build the chat service
+connection; (3) loosen the brief-taking — it fought him when he tried to brief a
+CONTENT site, and an affiliate site fed by a customer's product feed is in-scope
+work, so the bot must not assume a small business.
+
+**Box half — LIVE and proven end to end** (commits `dbd6b9774`, `571cec35b`,
+`c32a5121a`; box provenance-verified at `c32a5121a`):
+- `submit_brief` tool (claude.go gained stdlib tool support; ONE tool round per
+  request), orders store `orders.json` (atomic, BR-XXXXXX references — NOT the
+  voucher WD- prefix), caps 3/conversation + 40–10,000 chars; message cap
+  2000→5000, body 8→16KB (pasted briefs), max_tokens 1024→2048.
+- Conduct rewritten: fits questions to what the site IS, takes a PASTED
+  description as the brief, elicits "where the content comes from", submits only
+  on a clear yes, never invents a reference. All new guards MUTATION-PROVEN
+  (5 mutations, each red, restores md5-verified).
+- Collection contract: `GET /internal/orders` + `POST /internal/orders/ack`,
+  bearer ORDERS_API_TOKEN (generated out-of-band to a scratch file, installed in
+  `/etc/webdesign-chat.env`, never echoed into the session; scratch copy shredded).
+- **LIVE PROBE through the public edge:** a content-site brief pasted in one
+  message → bot tidied it and asked approval (the new conduct behaving) → "yes"
+  → reference **BR-8D2MA3** relayed; internal list showed the full stored row;
+  ack → `{"collected":1}` → list empty; journal line `brief submitted:
+  reference=BR-8D2MA3`. Probe order acked so no collector ever sees it.
+- **WRONG FIRST CUT, corrected same evening:** I built a refuse-CF-header guard
+  on `/internal/` assuming the collector would arrive over WireGuard. MEASURED:
+  cluster pods have NO route to the box wg0 (10.13.13.4) — the tunnel only
+  carries box→cluster. The public edge + bearer IS P4 §2's design. Guard
+  retired, nginx grew two exact-match `/internal/` locations (local proxy, so
+  SYS-094/RFC_054 not in scope), live-verified 401/200/404-at-other-paths.
+  LANDMINE filed ("the tunnel routes ONE WAY").
+
+**Cluster half — BUILT, gated** (commit `da0e6b70d`, council
+`Council-Submitted: aa5a40a2-d01b-4dc4-9a88-cbb6d120ade3`):
+- `collect_external_orders` action (registered; fetchguard client): paid gate
+  (`billing_orders.external_reference` + status='paid', newest paid row),
+  new-domain → `build_queue` (priority 10, direction carries
+  objective/customer_email/customer_name/order_reference for P5), already-queued
+  → ack only, past-queued or NO domain → `needs_human_review`
+  (`order_attention_<ref>`, hung on webdesign.uk). Paid gate proven as a FILTER
+  by mutation (assume-paid → test red, restore md5-verified).
+- `billing_orders.external_reference`: migration **659 APPLIED + recorded**
+  (column-before-binary; the auth-service code that writes it rides the next
+  roll). Dashboard create-order accepts `external_reference`.
+- Migration **661** (_HOLD; BORN 660 — the 394 lane's
+  `660_render_audit_coverage_cursor` took the number first and is applied, so
+  mine moved, commit `8636c4853`): agent `order-intake-collector` + task
+  `order-intake-collect` (900s) **enabled=false, verify ASSERTS disabled**.
+  Apply BY HAND after a chassis roll carries `da0e6b70d`.
+- Token durability: terraform 047 `webdesign_box_orders_token` REQUIRED-no-default
+  (Stripe-pair precedent) → `personae-default-secrets` (the secret the chassis
+  envFrom's — NOT platform-secrets); tfvars.secret line appended from the scratch
+  file; cluster secret patched now (chassis pods see it from their next restart).
+  Rotate as a pair with the box's ORDERS_API_TOKEN.
+- RFC_022 parity: the commit hook caught `collect_external_orders` counted as
+  ZERO in the budget cron literal — regenerated (125 actions), parity test green,
+  overlay re-applied (`bb09f1be9`). Register: CHAT-011 + PAY-010 + index rows,
+  same commit as the code (ordering-exemption condition 2).
+
+**OWED before the collector is ENABLED** (all stated in 661's header):
+1. **P5 seeding** — seed_build_queue writes no site contact details and no
+   evidence_base, so a collected brief builds with the numeric-claims guard
+   UNARMED. The direction payload already carries what P5 needs.
+2. Chassis roll (carries the action + the env) → then apply 661 → then ONE
+   UPDATE flips `order-intake-collect` enabled.
+3. Read the council verdict for aa5a40a2 (budget ~30 min; find by
+   fix_correlation_id, not the printed id).
+
+**The customer flow as it now stands:** chat → brief → submit → BR-ref relayed →
+owner creates the billing order from the dashboard quoting the reference (needs
+the next auth-service roll for the field) → customer pays the checkout link →
+webhook marks paid → (once enabled) collector releases the brief into
+build_queue within 15 min → existing pipeline builds. Nothing is pasted into an
+email at any step.

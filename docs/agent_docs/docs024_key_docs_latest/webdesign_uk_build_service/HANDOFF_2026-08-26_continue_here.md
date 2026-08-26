@@ -146,6 +146,30 @@ measured). Inline LLM steps need a FULL ai_service block (provider/model/api_key
 - The three-aspect supersede cross-join trap: aggregate `retire` to one row before the
   INSERT joins it.
 
+## 7b. ADDED LATE 2026-08-26 NIGHT — the chat bot COMMITS the brief now (owner GO)
+
+Built and shipped after this handoff was written; NOTES tail has the full account.
+**Box half LIVE** (provenance `c32a5121a`): the bot interviews (now content-site
+and affiliate-flexible, takes a PASTED description as the brief), submits on a
+clear yes via a `submit_brief` tool, mints a **BR-XXXXXX** reference and relays
+it; briefs stored on the box; collection = `GET /internal/orders` +
+`POST /internal/orders/ack`, bearer `ORDERS_API_TOKEN`, over the PUBLIC edge —
+**the wg tunnel routes box→cluster ONLY (measured; LANDMINE filed)**. Live-probed
+end to end (BR-8D2MA3, acked as a probe). **Cluster half BUILT, GATED**
+(`da0e6b70d`, `Council-Submitted: aa5a40a2` — READ THE VERDICT):
+`collect_external_orders` releases briefs to `build_queue` only on a PAID
+`billing_orders.external_reference` match (owner ruling: reference, never the
+brief); repeat-domain/no-domain paid orders → `needs_human_review`, never
+dropped. Migration 659 (the column) APPLIED + recorded; **661** (_HOLD, born
+660 — number collision with the 394 lane, renamed) ships agent + 15-min task
+**DISABLED, verify asserts disabled**. Enable owes: **P5 seeding** (contact
+details + evidence_base from direction — the honesty guards are UNARMED until
+then), a chassis roll (action + `WEBDESIGN_BOX_ORDERS_TOKEN` env; terraform 047
+carries the token as a required var, tfvars line already appended), then apply
+661 and flip the task. The owner's dashboard create-order gains
+`external_reference` on the next auth-service roll — until then he can note the
+reference and create the order after the roll.
+
 ## 8. Falsifiers
 
 - Every dated claim above; the roll cadence is daily — re-ask each SERVICE its stamp.
