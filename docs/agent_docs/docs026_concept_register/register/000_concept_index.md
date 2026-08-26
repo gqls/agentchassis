@@ -789,6 +789,7 @@ an ID prefix, or a status word.
 | FTW-025 | Eval gate before promotion | partial | Human deployment_decision required; also the integrity boundary for uploads | finetuning-flywheel.md |
 | HITL-008 | Human change-request work items | deployed | Human-submitted edits enter the same priority-ordered work queue as agent items | hitl.md |
 | SQ-002 | Site-chrome gap hypothesis (relay path lacks chrome rendering) | partial | Hypothesis: relay build path never renders nav/header/footer chrome | site-quality.md |
+| SQ-003 | design-critique-agent (018 taste critic, Phase 1) | built | One render-audit sweep: deterministic findings auto-file, vision taste report for the owner; manual only | site-quality.md |
 | TRF-018 | Global bot-IP blocklist (Thread D) | aspirational | Idea to block illegitimate-crawler IPs globally across all boxes from the access-digest rollup | traffic-analytics.md |
 | ADP-007 | git-adapter new actions (create_branch, create_pull_request) | deployed | Idempotent branch creation and PR-as-human-review-terminal actions | adapters.md |
 | SYS-051 | Sites contact-identity denormalisation | deployed | Identity/contact fields promoted from content_data JSONB to first-class columns | system-architecture.md |
