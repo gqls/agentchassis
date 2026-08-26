@@ -579,34 +579,21 @@ func loadRetractionCandidates(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 }
 
 // loadActivePageFilePaths maps every file path an ACTIVE page on this site
-// derives, to that page's name. The derivation is the shared one, so this
-// answers the question that matters — "would deleting this file remove a live
-// page's artefact?" — rather than the weaker url-equality question.
+// derives, to that page's name — the question guard 3 above asks: "would
+// deleting this file remove a live page's artefact?"
+//
+// HOISTED 2026-08-26 to datahelpers.ActivePageFilePaths, and this is now a
+// one-line delegate. The rule acquired a SECOND consumer with opposite duties:
+// bugs_open/359's `archived_page_still_serving` detector must SKIP exactly the
+// set this action REFUSES, because a 200 at a colliding path is the LIVE page
+// answering — so flagging it would file a work item whose only remedy is this
+// action, which declines to run on it. Two copies of that rule would drift with
+// nothing at either call site to notice: the packages never mention each other,
+// and `discovery_checks` cannot import `actions` at all.
+//
+// Keep the delegation. If you inline this again, the detector and the guard fork.
 func loadActivePageFilePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]string, error) {
-	// The lifecycle arm is the shared helper; for the `=` direction the
-	// COALESCE form it replaces was NULL-identical (both reject a NULL
-	// status). Only the `<>` COMPLEMENT in loadRetractionCandidates differs
-	// on NULL and deliberately keeps its COALESCE spelling.
-	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(name,''), COALESCE(url,'')
-		  FROM pages
-		 WHERE site_id = $1 AND `+datahelpers.PageWantedLivePredicateFor("")+``, siteID)
-	if err != nil {
-		return nil, fmt.Errorf("load active page paths: %w", err)
-	}
-	defer rows.Close()
-
-	out := map[string]string{}
-	for rows.Next() {
-		var name, url string
-		if err := rows.Scan(&name, &url); err != nil {
-			return nil, fmt.Errorf("scan active page: %w", err)
-		}
-		if fp, ok := datahelpers.PageFilePathFromURL(url); ok {
-			out[fp] = name
-		}
-	}
-	return out, rows.Err()
+	return datahelpers.ActivePageFilePaths(ctx, db, siteID)
 }
 
 // sendGitDeleteFileRequest dispatches the retraction to the git-adapter. The
