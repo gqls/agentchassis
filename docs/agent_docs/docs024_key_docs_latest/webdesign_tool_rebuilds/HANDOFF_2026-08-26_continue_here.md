@@ -1,7 +1,19 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 49 of 63 retired (43 serve-confirmed; #44–#49 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
+## STATE: 49 of 63 retired · 44 SERVE-CONFIRMED (#46 confirmed 19:13Z; #44/#45/#47/#48/#49 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
+
+⚠ **GRADE THE SERVED PAGE WITH A GATE, NOT A PRINTOUT.** On #46 the first attempt returned `http=404`
+and **every negative read 0 and "valid"** — a perfect-looking pass off a 3 KB error page. Printing the
+status code alongside the counts is NOT gating on it:
+```bash
+code=$(curl -s -o page.html -D hdr -w '%{http_code}' "$URL")
+[ "$code" != "200" ] && { echo "REFUSING to grade: not 200"; exit 1; }
+```
+The 404 was a propagation blip, proven transient by curling the RECORDED `pages.url` plus two
+untouched siblings (all 200). **A single 404 is not damage; the sibling control is what tells them
+apart.** Also: `date -u -d "" +%s` returns **NOW**, so an empty `last-modified` header compares as
+"landed" — guard on non-empty before comparing.
 
 44 `removed` + 19 `deployed` = 63 (tool pages), verified 2026-08-26 17:32Z, with **zero pages carrying
 both a live ported slot and a live native slot**. Nothing is part-done except the serve-grade below.

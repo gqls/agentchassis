@@ -5108,3 +5108,58 @@ Blocks no longer describe what they removed (the ported one used a different blo
 used `"█".repeat(selected.length)`, preserving the exact length of the secret). Per-category counts
 are shown. Negatives both ways: `alert(` 0/2 · `onclick=` 0/1 · `#333` 0/1 · `innerText` 0/2, all
 valid. 11 × `addEventListener`.
+
+## 2026-08-26 19:13Z — #46 asset-formatter SERVE-CONFIRMED. The chain is closed end-to-end, and two traps fired on the way.
+
+**First serve-grade of this session, and it validates the whole chain for all six rebuilds** (build →
+run-grade → guarded retire → sweep rerender assembles → served page carries the native tool only).
+Assembler `0853324f` completed **19:11:25Z**; artefact landed **19:11:41Z** (16 s later, consistent
+with the runbook's 1–2 min S3 lag).
+
+`[MEASURED 2026-08-26 19:13Z]` **http=200**, 24,654 bytes (up from the stale 17,576 — the native tool
+is larger), `last-modified: 19:12:12 GMT` **>** `completed_at 19:11:25`.
+
+**Negatives, each validated BOTH ways** (served count 0, ported-slot count ≥1, so every zero
+discriminates): `class="ported-page"` 0/1 · `Add your assets` 0/2 · `No assets mapped.` 0/1 ·
+`window.onload` 0/2 · `onclick=` 0/4 · `innerText` 0/6.
+**Positives:** 6 × `addEventListener` · **0** raw `{{.` tags · 5 `<script>` · instruction text present ·
+`id="c-tool-asset-formatter-rows-container"` (instance-scoped, as expected) · and the key-validation
+message **"cannot start with a digit" is in the SERVED bytes**, so the fix I graded at the component
+is the fix the public gets. Remaining five serve-grades still OWED; assemblers queued, do not re-file.
+
+### ⚠ Trap 1: I got `http=404` and every negative read 0 — a PERFECT-LOOKING PASS off an error page
+
+My first grade returned **`http=404`, 3,001 bytes** — and because I printed the counts in the same
+command, all six negatives came back **0 and "valid"**. It reads exactly like a clean pass. It was a
+3 KB 404 page containing none of the strings, which is why they were zero.
+
+**This is precisely what the runbook's "require http=200 before reading any count below" is for, and
+printing the code first is not the same as GATING on it.** I have now made the grade refuse:
+```bash
+code=$(curl -s -o page.html -D hdr -w '%{http_code}' "$URL")
+[ "$code" != "200" ] && { echo "REFUSING to grade: not 200"; exit 1; }
+```
+**Diagnosis of the 404 itself: TRANSIENT, not damage** — a propagation window seconds after the
+publish. Established by the estate's own rule, *curl the RECORDED `pages.url` plus a same-form
+sibling*: `pages.url` is `/tools/asset-formatter/index.html` → 200/24,654; siblings
+`/tools/svg-patterns/index.html` and `/tools/monolith-splitter/index.html` → 200 throughout, so the
+site was never down. (`/tools/asset-formatter` with no trailing segment 404s by design — that is the
+composed-URL trap of `bugs_open/387`, and it is *not* evidence of anything.)
+**A single 404 is not proof of damage any more than a single 200 is proof of health — the sibling
+control is what tells them apart.**
+
+### ⚠ Trap 2: `date -d ""` returns NOW, so an empty header parsed as "landed"
+
+Waiting for S3, I compared `last-modified` against `completed_at` in a loop. One iteration returned
+**no `last-modified` header at all**; `lm` was empty, and **`date -u -d "" +%s` silently returns the
+CURRENT time**, which is trivially greater than `completed_at`. The loop printed
+`LANDED:  (> completed_at …)` — with an empty value where the timestamp should be — and broke out.
+**The absence of the evidence was converted into the strongest possible form of the evidence.**
+Caught only because the printed line had a visible hole in it.
+**Guard every parsed-value comparison on the value being non-empty first:**
+```bash
+[ -z "$lm" ] && { echo "no last-modified — cannot compare"; continue; }
+```
+Re-run with the guard: landed on iteration 1, `last-modified: Wed, 26 Aug 2026 19:11:41 GMT`, a real
+header and genuinely later. Same family as the day's other five — **`date`, like `grep -c` and `head`,
+answers a slightly different question than the one you think you asked when its input is empty.**
