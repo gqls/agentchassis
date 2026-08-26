@@ -90,13 +90,26 @@ commits, so a session mid-fix is invisible.
    a PL/pgSQL body is noise, not a vocabulary size), and was not attempted.
 2. **The stale live prose in (3b)** — needs a migration on a column owned by another lane.
 3. **`bugs_open/375`'s registration** — its call.
-4. **⚠ Council `80f84c54` is DEAD — RESUBMIT IT. It did not fail review; it never got one.**
+4. **Council `80f84c54` — RESUBMITTED 2026-08-26 09:01Z, verdict PENDING. Read it, and act on a REVISE.**
+   Run orchestration `8a6ad1cf-7762-4591-8f75-9e1f1c57d6e5`; the code is already on the shared branch.
+   ```sql
+   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+   WHERE correlation_id='80f84c54-1854-4fb6-a003-11af1889d20d' AND kind='council_report' ORDER BY created_at;
+   ```
+   **⚠ If that returns nothing, check the RUN before assuming it is queued — a DEAD round looks
+   identical to a pending one.**
+   `SELECT current_step, status FROM orchestration_states WHERE orchestration_id='8a6ad1cf-7762-4591-8f75-9e1f1c57d6e5';`
+   `complete_invalid` means it died, and the reason is in `collected_data->>'__step_error'` — the
+   `error` column is NULL (`bugs_open/354`).
+
+   **Why the first attempt died (kept, because the diagnosis is reusable): it did not fail review; it
+   never got one.**
    Its run ended `complete_invalid` with
    *"no reviewer produced a readable opinion (6 abstained, 11 unreadable)"* — the **fleet-wide
    Anthropic provider outage** of 2026-08-26, not anything about the submission.
    **The `Council-Submitted:` trailer on `083d3096e` stays TRUE** (it asserts submission, never a
    verdict), so nothing needs amending — forward-only holds.
-   **Resubmit on the SAME correlation so the trail accumulates:**
+   **Resubmitting is on the SAME correlation so the trail accumulates** (done 09:01Z):
    ```bash
    RESUBMIT_CORR=80f84c54-1854-4fb6-a003-11af1889d20d      ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh      <this lane's submission json>
    ```
