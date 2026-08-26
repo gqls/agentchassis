@@ -619,3 +619,20 @@ here so they don't live only in scrollback):
   maintains from its own source. Direction recorded with the convention
   team's lane; the paused editor jobs stay paused until that mechanism
   exists.
+
+---
+
+2026-08-26, afternoon. Your GitHub error: it was GitHub itself having a
+wobble, not anything we pushed — their own error message says so, the
+workflow definition hadn't changed in three weeks, and runs were succeeding
+again nine minutes later. Better still, that workflow doesn't deliver
+noted.co.uk anyway: your box pulls the site from the repository directly
+every five minutes, and the proof it worked end-to-end is that the analytics
+tag lost this morning is already back on the live page. The push you saw was
+the platform's own re-render wave putting that tag back.
+
+While checking I found one leftover typo in the page's styling from the
+August css-patch saga — measured carefully: it currently breaks nothing
+(the piece it damages is an exact duplicate of a piece that already loaded),
+so I've recorded it with the evidence rather than poking at a surface other
+repair work owns. Nothing for you to do.

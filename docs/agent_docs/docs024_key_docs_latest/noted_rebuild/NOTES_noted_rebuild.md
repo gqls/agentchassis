@@ -2929,3 +2929,45 @@ mechanism; their session's permission layer blocked closing the 11 such items
 not do that write for them** (cross-session permission laundering). The 08-18
 header sibling ab9afa54 (2,385 B) is confirmed NOT theirs — provenance
 unknown, stays on this lane's watchlist.
+
+---
+
+## 2026-08-26 (later) — the GitHub Actions "error" diagnosed: transient, GitHub-side, and inert for noted either way
+
+Owner raised a workflow failure on gqls/vm-sites (run 32984485832, push
+e94e207, `Rerender: guides/tool-write-guide.html`, "Startup failure" with
+GitHub's own "we've been automatically notified" annotation). Diagnosis, all
+verified 2026-08-26 ~15:30Z:
+
+- **Not this thread's push and not any thread's defect.** e94e207 touched ONE
+  file (`noted.co.uk/guides/tool-write-guide.html` — the rerender wave rolling
+  the GTM restore + css fixes through, as the analytics lane forecast). The
+  workflow file last changed 2026-08-05, so the pushes could not have broken
+  startup. The failure window is 15:07–15:14 bracketed by SUCCESS at 14:58
+  and again at 15:23:37 — a transient GitHub-side incident, exactly what the
+  annotation says. One run stuck `queued` 12m from the window; expect GitHub
+  to reap it.
+- **Actions is not in noted's deploy path at all.** The box is pull-model:
+  `sitesync` hard-resets to vm-sites main every 5 minutes. Proven end-to-end:
+  the GTM tag is live on the guide page (2 refs) despite that page's two
+  workflow runs both failing. The "Deploy Sites to VM" workflow serves the
+  push-model domains, not this box.
+
+### Found while looking: ONE stray `*/` survives on the live page — currently harmless, precisely measured
+
+Live `guides/tool-write-guide.html` line 777:
+`p.info-card-grid__subtitle { color: #5a5a4e; } */` — the trailing `*/` is
+outside any comment. Under CSS error recovery a stray `*/` swallows the next
+`{}` block. The swallowed victim here is the line-796 `:root` — which is a
+BYTE-IDENTICAL duplicate of the line-362 `:root` (the page carries the
+tool-portal-light layout twice; `--color-primary`/`--color-primary-text` each
+defined exactly 2×, same values). **Net damage today: zero.** e94e207's diff
+shows the sibling stray on `__card-body` was already cleaned; this one
+remains in the stored stylesheet source, so every rerender reproduces it.
+Residue of the documented 08-15→08-19 empty-theme-row accumulation (the
+in-artefact "BASE RESTORED 2026-08-19" note, base git abe1b617a7).
+**Forward risk, [INFERRED]:** anything later appended directly after line 777
+would be swallowed. One-character fix in the stored stylesheet row — left
+with the evidence rather than hand-applied, because the css-patch surface has
+open fleet items (7 `contrast_failure` unresolved) and a documented history
+of well-intentioned direct fixes propagating the wrong thing.
