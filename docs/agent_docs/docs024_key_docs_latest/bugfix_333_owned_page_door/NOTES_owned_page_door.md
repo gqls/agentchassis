@@ -559,3 +559,14 @@ escalation attempt → skipped_owned_page logged, no needs_page minted).
   told them the three owed steps (regen literal, test, overlay re-apply per RFC_022) rather than
   fixing in parallel with a live busy session. The check that made the difference: `git blame` on the
   exact line BEFORE acting on a count mismatch.
+
+**2026-08-26 ~09:4xZ — parity closed by apis.uk, properly** (`339474ca4`): literal regenerated from a
+committed-HEAD extract (not the working tree), sole delta plan_sections 7→8, overlay re-applied and
+verified at the ARTEFACT (CronJob references the new configmap hash; mounted check.py reads 8, with an
+unchanged neighbour key as control). Re-verified green from this side. **Known red at clean HEAD in
+the `actions` package, NOT this lane's** [true as of 2026-08-26 ~09:4xZ]:
+`TestFindingCodeScanEveryWriteIsRegistered` fails on `WORK_ITEM_STATUS_OVERRIDE_REFUSED` — shipped by
+`2b46afbe6` (the 396/deferred_work_item_park lane) without a `finding_code_registry.json` declaration;
+apis.uk is CONTRIB-ing it to them. Re-establish before obeying this note:
+`go test ./platform/orchestration/actions/ -run TestFindingCodeScanEveryWriteIsRegistered -count=1` —
+and if it is GREEN, this note has expired.
