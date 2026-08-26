@@ -50,6 +50,7 @@ docs/
 # dockerfile — without one the COPY fails at build time, which is the loud
 # direction and how this line got written; the quiet direction would be worse.
 !docs/agent_docs/docs024_key_docs_latest/architecture_review/commit_sha_exposure_acks.json
+!docs/agent_docs/docs024_key_docs_latest/architecture_review/no_change_unreadable_acks.json
 # Third, same argument: finding-code-registry-check (bugs_open/358, DBG-075) ships
 # the finding-code registry inside its image. The registry says which
 # agent_error_log codes the estate has ACCEPTED as human-evidence-only, so it is

@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1340
+IMAGE_TAG ?= v1.0.1341
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -98,7 +98,8 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	github-actions-runner \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	capped-schedule-ordering-check component-source-vocabulary-check \
-	live-declaration-drift-check finding-code-registry-check
+	live-declaration-drift-check finding-code-registry-check \
+	ungraded-completions-check
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -128,6 +129,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	capped-schedule-ordering-check component-source-vocabulary-check \
 	live-declaration-drift-check finding-code-registry-check \
+	ungraded-completions-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
@@ -470,6 +472,10 @@ build-optional-explicit-wires-check: ## Build optional-explicit-wires-check Cron
 .PHONY: build-commit-sha-exposure-check
 build-commit-sha-exposure-check: ## Build commit-sha-exposure-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,commit-sha-exposure-check)
+
+.PHONY: build-ungraded-completions-check
+build-ungraded-completions-check: ## Build ungraded-completions-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,ungraded-completions-check)
 
 # bugs_open/363 phase 2. The DECLARATIONS (platform/livespec) are compiled into
 # this binary, so a stale image is a stale SPEC and the check would keep reporting

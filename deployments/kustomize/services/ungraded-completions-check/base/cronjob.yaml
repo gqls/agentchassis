@@ -1,0 +1,81 @@
+# deployments/kustomize/services/ungraded-completions-check/base/cronjob.yaml
+#
+# The commissioned reader for NO_CHANGE_GATE_UNREADABLE_RESULT (bugs_open/393,
+# owner decision 4, 2026-08-25). The no-change completion gate writes one such
+# row whenever a rostered abstain-policy item_type completes UNGRADED because
+# its handler's result shape drifted from the declared counters — the right
+# failure direction, loudly, and until this job nothing read it: the first
+# instance (dark_section_audit, 11 rows) sat unread for 11 days and was found
+# by a census accident, then began dying on the retention clock.
+#
+# The mode groups the code's rows by item_type and FAILS on any type not
+# acknowledged (with its diagnosis attached) in no_change_unreadable_acks.json,
+# which ships inside the image from committed HEAD — the same ratchet-with-
+# reasoned-exceptions shape as commit-sha-exposure-check, on which this is
+# modelled line for line.
+#
+# WHY A CRONJOB AND NOT A GIT HOOK: the population is a runtime fact
+# (agent_error_log) that changes with no commit at all.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ungraded-completions-check
+  labels:
+    app: ungraded-completions-check
+    component: config-integrity
+spec:
+  # Daily, in the config-integrity window. 07:35 UTC chosen against the REPO
+  # census 2026-08-26 (the committed manifests, not `kubectl get cronjobs` —
+  # the cluster reports a slot free while a committed-but-undeployed manifest
+  # already owns it; finding-code-registry-check's header carries the rule):
+  # finding-code-registry 07:30 · THIS · brief-negation AND instance-scope
+  # both 07:40 · loop-sitewide-item-key 07:55. Not :00 by the same rule.
+  #
+  # Daily is right: drift arrives with a handler or roster change, and the
+  # window that matters is "the morning after it first appears", not minutes.
+  schedule: "35 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Two queries and a JSON file read; hanging past 5 minutes means
+      # something is wrong and it should not block the schedule.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: ungraded-completions-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED for a private repo image. Without it the pull fails with
+          # "insufficient_scope" and the pod sits in ImagePullBackOff — which
+          # this fleet reports as a Job still RUNNING, never FAILED (LANDMINES,
+          # ImagePullSecrets family).
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/ungraded-completions-check:latest
+              # The image's CMD is already:
+              #   ./config-key-audit --ungraded-completions --report \
+              #       --acks /app/no_change_unreadable_acks.json
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
