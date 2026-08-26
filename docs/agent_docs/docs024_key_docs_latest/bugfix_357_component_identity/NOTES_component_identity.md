@@ -1439,3 +1439,27 @@ Step 2's skip is what produced the missing field here, and step 1 is what produc
 always skip an adopted-fragment section, then adoption creates pages that can never be rebuilt,
 and that is a defect in phase 2 itself — not merely in 408 — and it must be fixed before ANY
 repair re-types rows onto that component.
+
+### Cross-lane: analytics_gtm is tagging cv1 — rerender is safe, rebuild is not
+
+The `analytics_gtm` lane (`bugs_open/397`) is applying GTM-PQ3WCTBD to cv1.co.uk, which files
+one `stale_chrome → needs_rerender` and re-renders chrome plus the four pages. **Answered: go
+ahead**, and the answer is measured rather than reasoned.
+
+`page_rerender` has already completed on cv1's adopted pages **six times** [MEASURED
+2026-08-26 from `site_work_items`] — `index` and `tool-example` at 12:03Z and again at 13:47Z
+on 08-25, plus the other two pages. **So the rerender path handles an `adopted-fragment` page
+fine.** That is a genuinely useful fact for this lane too: it means the crash is specific to
+the *rebuild* path, not to adopted rows in general.
+
+⚠ **What I warned them off: anything that sets `build_status='needs_rebuild'` on cv1.** That is
+the path that crashes the pod (`bugs_open/408`). I have cleared the flag I set on `index`.
+
+**I did NOT answer their "is cv1 a throwaway that should not report into GA4?" question.** It
+is a portfolio decision and the owner's to make — I only used the site as a vehicle to prove a
+mechanism. Told them to put it to him and flagged it in my own reply rather than writing a
+guess into `docs024_key_docs_latest/analytics_gtm/`.
+
+Also noted for whoever picks this up: two `page_rerender` items (index, tool-example) have sat
+`triaged` since **07:27Z today**, stranded by the credit outage (23:46Z → 08:58Z). Credit is
+back; they should drain.
