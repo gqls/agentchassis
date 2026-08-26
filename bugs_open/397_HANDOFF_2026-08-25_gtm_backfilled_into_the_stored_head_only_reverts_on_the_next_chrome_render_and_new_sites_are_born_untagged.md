@@ -148,7 +148,22 @@ operator hand-edited chrome and we corrected it", i.e. as the platform doing its
    two-slot runner, ~2 h of queue, on top of the 130 still queued from 08-24. Owner picks the moment.
    `-v UNTAGGED=1` adds the 4 bucket-D sites (280 pages) — "standard for new builds" made true for
    the four that missed it.
-2. **Give new sites the key at birth — the structural half, and an open design question.** No Go
+2. **Give new sites the key at birth — the structural half, and an open design question.**
+   > **REQUIREMENTS LANDED 2026-08-26** (owner ruling relayed by the webdesign.uk lane,
+   > `webdesign_uk_build_service/DECISION_2026-08-26_default_tag_hosted_copy_only.md`): customer
+   > `<slug>.ugg2.com` builds default to the owner's container on the HOSTED copy only; per-site
+   > override (customer id → hosted + ZIP; "none" → no tag anywhere); the ZIP always ships clean of
+   > the owner default. Design consequences adopted here: (a) an explicit `analytics.mode`
+   > (`default|custom|none`) must sit beside the id — once a seeder exists, "none" has to be a
+   > stored fact it honours, not an absence it re-fills; (b) the default value lives in ONE place
+   > read by both the seeder and the ZIP exporter, so "is this the owner default?" is a comparison,
+   > never a literal; (c) the export should re-render with `mode=none` rather than strip markup.
+   > Their doc's "no per-site tag field exists" is a false absence (measured at `sites.settings` +
+   > Go; the seam is `site_specs` — STY-050) — corrected by message, their doc to carry the note.
+   > ⚠ **Collision to put to the owner before customer intake ships:** the pending GA4 publication
+   > goes INTO `GTM-PQ3WCTBD`; from that moment the same container on a hosted customer site sets
+   > `_ga` cookies with no banner — the decision's own §5 re-ruling trigger. A second cookie-light
+   > container for customer sites, Consent Mode, or a re-ruling are the options. No Go
    writer touches `site_config` (every current row is `created_by` a migration or a session), so
    "standard for new builds" needs a seeding step. The seam is right as it is — opt-in per site,
    unsafe default OFF, exactly the shape the 2026-08-02 §2 ruling prescribes — so the fix is *where

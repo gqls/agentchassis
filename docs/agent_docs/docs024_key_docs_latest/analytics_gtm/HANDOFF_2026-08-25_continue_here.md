@@ -83,7 +83,12 @@ Then watch `needs_rerender` items with `item_key='stale_chrome'` appear per site
 B reads 0 at once, served `gtm=2` only after the rebuilds and the deploy queue land. **Tell the lanes
 on those sites first** (397 §9: loanzy, webdesign_uk_build_service, bugfix_357/384, agritec).
 
-**The structural half — not started, council scope:** no Go writer touches `site_config`, so a new
+**The structural half — not started, council scope, REQUIREMENTS NOW SET (2026-08-26):** customer
+builds default to the owner's container on the hosted copy only, per-site override, ZIP clean
+(`webdesign_uk_build_service/DECISION_2026-08-26_default_tag_hosted_copy_only.md`; design notes in
+397 §6.2 incl. the `analytics.mode` field and the one-place default). ⚠ And a collision for the
+owner's consent decision: publishing GA4 into `GTM-PQ3WCTBD` makes hosted CUSTOMER sites set `_ga`
+cookies bannerless — second cookie-light container, Consent Mode, or re-ruling. Previously: no Go writer touches `site_config`, so a new
 site is born without the key. Where the opt-in gets set for our-network sites, and how a
 handed-over (third-party) site is guaranteed never to get it, is the design question. 397 §6.2.
 

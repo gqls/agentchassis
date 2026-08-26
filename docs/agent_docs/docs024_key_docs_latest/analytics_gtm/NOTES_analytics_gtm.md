@@ -454,3 +454,12 @@ lane into this dir as agreed (`CONTRIB_2026-08-26_from_bugs_open_384_owner_rulin
 answered with a fresh measurement, not memory: container re-read 10:50Z, **still version 2 / 0 tags /
 no `G-` id**, so tagged ≠ reporting; nothing reports until he publishes. Plain-English version added
 to README for him. The 384 lane deliberately left the wiring fact to this lane — correct split.
+
+**20.** `[2026-08-26 pm]` webdesign.uk relayed the customer-default ruling (their
+`DECISION_2026-08-26_default_tag_hosted_copy_only.md`): owner default on hosted customer copies
+only, per-site override, ZIP clean. Told them their work-package §1 field ALREADY EXISTS (STY-050 —
+their "no per-site tag field" was measured at `sites.settings`+Go, the 07-31 false-absence class
+again) and adopted their `analytics.mode` idea into 397 §6.2 (a seeder makes "none" need a stored
+representation). **Flagged the collision that is mine to own: GA4 publication into `GTM-PQ3WCTBD`
+makes hosted customer sites set `_ga` with no banner on day one** — second cookie-light container /
+Consent Mode / re-ruling are the options; goes to the owner with the consent decision, not after it.
