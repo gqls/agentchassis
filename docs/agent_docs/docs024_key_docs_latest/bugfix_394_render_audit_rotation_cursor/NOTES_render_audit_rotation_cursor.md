@@ -562,3 +562,82 @@ the defect was not hypothetical: the code was **already committed to the shared 
 verdict landed, which is the ordinary state on this tree and the reason the gate is advisory
 rather than blocking. Had I defended the sample of 25 conforming keys, I would have been arguing
 from the weaker evidence.
+
+---
+
+## 2026-08-26 22:2xZ — the fix is LIVE: deploy proven, 660 applied, and a prediction recorded before the first run
+
+### 1. The binary carries the code — probed on BOTH replicas, with both controls
+
+The provenance log line had already scrolled (`--tail=3000`, empty) — which per CLAUDE.md means
+"not in range", never "unstamped". So: the capability probe, which has no shelf life.
+
+`[MEASURED 2026-08-26 ~22:1xZ]`
+
+| pod | `render_audit_page_cursor` (marker) | `content validation failed` (positive control) | `zzz_invented_marker_xq9` (negative control) |
+|---|---|---|---|
+| `agent-chassis-5864bf97c5-5l8xd` | **3** | 1 | 0 |
+| `agent-chassis-5864bf97c5-68t5h` | **3** | 1 | 0 |
+
+Both replicas, not one — `logs deploy/X` reads one pod of N, and a mixed fleet is the recorded
+trap. The marker is the TABLE NAME, which appears in my three SQL literals and nowhere else in the
+estate; the positive control proves the grep works; the negative control proves it discriminates.
+`rotate_coverage` is present too. **Uniform fleet, no mix.**
+
+### 2. Migration 660 applied — and it took three goes to get right
+
+- **649 → 660.** My migration was renumbered TWICE. I took 646; another lane had committed 646 at
+  16:27 (mine 16:51). I moved to 649; another lane took 649 as well. By then the sequence was at
+  659, so this is 660. **`sql_for_agents` numbers are a shared sequence with no reservation
+  mechanism, and on a busy afternoon a number you picked an hour ago is not yours.** Take
+  `max+1` at the moment you apply, not at the moment you write.
+- **`snapshot_agent('x')` aborted the whole transaction** — the function is overloaded and a bare
+  literal is ambiguous. Safe failure (nothing written, verified), and now a LANDMINE.
+- Applied clean at **22:20:40Z**: `snapshot_agent` NOTICE, `CREATE TABLE`, 4 `COMMENT`,
+  `UPDATE 1`, both `DO` verify blocks, `COMMIT`.
+
+`[MEASURED 2026-08-26 22:2xZ]` post-apply state:
+
+| check | value |
+|---|---|
+| `render_audit_page_cursor` exists | **1** |
+| `render-audit-agent` `rotate_coverage` | **true** |
+| `design-critique-agent` carries the key | **0** ← the verify block's own assertion held |
+| backup in `agent_definitions_backup` | present, `snapshot_taken_at` 22:20:40Z, **`backup_has_flag = f`** |
+
+That last row is the one that matters: **a backup that already contains your change is not a
+backup.** It is the pre-change state, so it is restorable.
+
+> **⚠ CORRECTION to my own first reading, recorded because I nearly filed a bug on it.** I checked
+> the snapshot with `SELECT count(*) FROM agent_definitions WHERE type='render-audit-agent' AND
+> is_snapshot` and got **0**, which reads exactly like "the function reported success and wrote
+> nothing" — the estate's most-repeated defect shape, so I believed it for a minute. It was **my
+> instrument**: the two-arg overload writes to `agent_definitions_backup`, a different table, and
+> RETURNS THE SOURCE ROW'S ID. The one-arg overload is the one that writes `is_snapshot` rows into
+> `agent_definitions`. Full trap in LANDMINES.
+
+### 3. ⚠ PREDICTION, recorded BEFORE the first cursor run
+
+webdesign.co.uk is **151 live pages** now (146 two hours ago — it is still growing). 3 pages carry
+an open `contrast_failure`, so the priority set takes 3 of 60 and the rotation gets **57**.
+
+| field | predicted |
+|---|---|
+| `coverage_mode` | `cursor` |
+| `pages_total` | 151 |
+| `pages_audited` | 60 |
+| `window_first` | `index` |
+| `window_last` | **`tool-head-architect`** |
+| cursor row `after_nav_order` / `after_name` | 100 / **`tool-head-architect`** |
+| `priority_open_items` | 3 |
+| `priority_paths` | `/tools/index.html`, `/learn/accessibility/touch-targets.html`, `/learn/data/cors-scraping.html` |
+
+**`tool-head-architect` is not an arbitrary name.** It is the *exact* page the old prefix cut at —
+the last page the audit had ever seen on this site, measured this afternoon at rank 60. Under the
+cursor it becomes the last page of window 1 and the boundary the next run starts past. If the
+cursor is working, run 2 begins at `tool-html-minifier`, the page that had never been audited and
+never would have been.
+
+This prediction could come out wrong in several ways — a different priority count, a window that
+ignores the priority set, a cursor that lands on a priority page — and it is written down before
+the dispatch so that it can.
