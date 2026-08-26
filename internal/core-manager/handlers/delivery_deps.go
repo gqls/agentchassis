@@ -43,3 +43,32 @@ func (d *dbDeliveryDeps) ConfirmTransfer(c *gin.Context, token string) error {
 
 // Logger satisfies DeliveryDeps.
 func (d *dbDeliveryDeps) Logger() *zap.Logger { return d.logger }
+
+// ZipDownloadURL redeems a zip_download token for its stored presigned URL.
+// The two failure modes reach the handler as distinct errors on purpose:
+// delivery.ErrTokenNotFound gets the uniform failure page (no oracle), and
+// delivery.ErrZipURLStale — reachable only by a VALID token's holder — gets the
+// honest "being refreshed" page, never a redirect to a URL that would 403 as
+// SignatureDoesNotMatch and read like broken credentials.
+func (d *dbDeliveryDeps) ZipDownloadURL(c *gin.Context, token string) (string, error) {
+	return delivery.LookupZipURL(c.Request.Context(), d.db, token, d.now())
+}
+
+// RecordStaleZipLink persists the stale hit where the fleet's sweeps read
+// (agent_error_log — the immune system's triage sweeps recorded failures), so a
+// dead link becomes a row somebody sees rather than a customer's private
+// dead-end (DECISION_2026-08-21b §4's requirement; the full work-item filing
+// rides the refresher build). Errors here are logged and swallowed: failing to
+// RECORD the staleness must not break RENDERING the honest page.
+func (d *dbDeliveryDeps) RecordStaleZipLink(c *gin.Context) {
+	_, err := d.db.ExecContext(c.Request.Context(), `
+		INSERT INTO agent_error_log (agent_type, action, error_message, error_code, severity, context)
+		VALUES ('core-manager', 'zip_download',
+		        'a customer zip_download link was visited but its stored presign has aged out; the refresher has not re-stamped it',
+		        'ZIP_LINK_STALE', 'error',
+		        jsonb_build_object('path', '/d/', 'remedy', 'rerun zip-deliverable-dispatch for the site and re-stamp via delivery.MintZipToken'))
+	`)
+	if err != nil {
+		d.logger.Error("failed to record stale zip link", zap.Error(err))
+	}
+}

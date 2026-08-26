@@ -58,10 +58,11 @@ var deliveryRoutePrefixes = []string{"/c/", "/d/"}
 // no-log-no-metric failure the assertion exists to make impossible, deferred to
 // the day /d/ is built and then invisible.
 //
-// ⚠ When /d/ ships: add "/d/" here IN THE SAME COMMIT as the vhost's /d/
-// location block, or core-manager will refuse to start with the /d/ route
-// registered — which is this list doing its job, not a bug.
-var boxServablePrefixes = []string{"/c/"}
+// /d/ joined 2026-08-26 IN THE SAME COMMIT as the vhost's /d/ location block
+// and the route registration, exactly as this comment used to demand. Any
+// FUTURE prefix repeats that: vhost location + this entry + the route, one
+// commit, or core-manager refuses to start — the list doing its job.
+var boxServablePrefixes = []string{"/c/", "/d/"}
 
 // assertNoDeliveryRoutes is the mechanism behind the comment in setupRoutes.
 //

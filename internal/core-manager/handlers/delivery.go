@@ -100,6 +100,13 @@ type DeliveryHandler struct {
 // SQL; these cover routing, method, status and what a human is shown.
 type DeliveryDeps interface {
 	ConfirmTransfer(c *gin.Context, token string) error
+	// ZipDownloadURL redeems a zip_download token for its stored presigned URL.
+	// delivery.ErrTokenNotFound -> the uniform failure page; delivery.ErrZipURLStale
+	// (reachable only with a VALID token) -> the honest refresh page.
+	ZipDownloadURL(c *gin.Context, token string) (string, error)
+	// RecordStaleZipLink persists a stale hit where the fleet's sweeps read.
+	// Best-effort: recording must never break rendering.
+	RecordStaleZipLink(c *gin.Context)
 	Logger() *zap.Logger
 }
 
@@ -124,6 +131,10 @@ func NewDeliveryHandler(deps DeliveryDeps) *DeliveryHandler {
 func (h *DeliveryHandler) RegisterRoutes(r gin.IRouter) {
 	r.GET("/c/:token", h.HandleConfirmPage)
 	r.POST("/c/:token", h.HandleConfirmTransfer)
+	// GET only, deliberately: a download link is idempotent and scanners
+	// following it can learn nothing and change nothing (LookupZipURL mutates
+	// only use_count, which exists to measure exactly such visits).
+	r.GET("/d/:token", h.HandleZipDownload)
 }
 
 // maxTokenLen bounds what we will even hash. Tokens are 32 random bytes in
@@ -302,6 +313,13 @@ const (
 	// confirmButton is the GET page: the only outcome reached without the
 	// database having been asked anything.
 	confirmButton
+	// zipStale: the download token is VALID but its stored presign has aged
+	// out. Honest, and deliberately different from failure: the holder of a
+	// real link must never be told their files are gone.
+	zipStale
+	// zipFailed: the uniform download failure page. Same no-oracle rule as
+	// confirmFailed: unknown, expired and revoked are one message.
+	zipFailed
 )
 
 // confirmPage is deliberately self-contained: no external stylesheet, no font,
@@ -347,6 +365,40 @@ type confirmView struct {
 	Button string
 }
 
+// HandleZipDownload is GET /d/:token: redeem the token, 302 to the stored
+// presigned URL while it is fresh, and never redirect to a stale one (an
+// expired presign answers 403 SignatureDoesNotMatch, which reads as broken
+// credentials, not an old link).
+func (h *DeliveryHandler) HandleZipDownload(c *gin.Context) {
+	log := h.deps.Logger()
+
+	token := strings.TrimSpace(c.Param("token"))
+	if token == "" || len(token) > maxTokenLen {
+		log.Info("zip-download refused: malformed token", zap.Int("len", len(token)))
+		h.renderConfirm(c, zipFailed)
+		return
+	}
+
+	url, err := h.deps.ZipDownloadURL(c, token)
+	switch {
+	case err == nil:
+		log.Info("zip download redirected")
+		// 302, not 301: the target URL changes every refresh cycle and nothing
+		// downstream may cache the mapping.
+		c.Redirect(http.StatusFound, url)
+	case errors.Is(err, delivery.ErrZipURLStale):
+		log.Warn("zip download link stale: rendering refresh page and recording")
+		h.deps.RecordStaleZipLink(c)
+		h.renderConfirm(c, zipStale)
+	case errors.Is(err, delivery.ErrTokenNotFound):
+		log.Info("zip download refused: token not valid")
+		h.renderConfirm(c, zipFailed)
+	default:
+		log.Error("zip download lookup failed", zap.Error(err))
+		h.renderConfirm(c, confirmError)
+	}
+}
+
 func (h *DeliveryHandler) renderConfirm(c *gin.Context, outcome confirmOutcome) {
 	var v confirmView
 	switch outcome {
@@ -377,6 +429,28 @@ func (h *DeliveryHandler) renderConfirm(c *gin.Context, outcome confirmOutcome) 
 				"Nothing is recorded until you press it.",
 			},
 			Button: "Yes, I have moved everything",
+		}
+	case zipStale:
+		// The holder of a REAL link. Their files are safe; the link's inner
+		// plumbing has aged and the refresher has not caught up. Honest about
+		// the wait, silent about the mechanism, and it invites the retry that
+		// will succeed once re-stamped rather than a support email.
+		v = confirmView{
+			Title: "Your download link is being refreshed.",
+			Paragraphs: []string{
+				"Your files are safe. This link renews itself from time to time, and it is mid renewal right now.",
+				"Please try the same link again a little later. It is the same link; you do not need a new one.",
+			},
+		}
+	case zipFailed:
+		// The uniform download failure. Same no-oracle rule as confirmFailed:
+		// unknown, expired and revoked are one message.
+		v = confirmView{
+			Title: "That download link is no longer active.",
+			Paragraphs: []string{
+				"It may have run out. There is nothing wrong at your end.",
+				"If you still need your files, reply to the email your link arrived in.",
+			},
 		}
 	default:
 		v = confirmView{

@@ -34,7 +34,6 @@ func testLinkConfig() LinkConfig {
 		DomainRentURL:   "https://pay.example/rent",
 		DomainBuyURL:    "https://pay.example/buy",
 		StripePortalURL: "",
-		ZipDownloadPath: false,
 	}
 }
 
@@ -153,10 +152,10 @@ func TestClaimBuildsCustomerLinksOnTheLinksHost(t *testing.T) {
 		t.Errorf("confirm token %q is shorter than the box's own regex admits (20-128 chars)", token)
 	}
 
-	// The ZIP route does not exist yet. An invented URL here would 404 in a
-	// customer's inbox, which is worse than an absent link the copy can explain.
+	// No presign supplied -> no ZIP link, visibly empty; the composer words the
+	// absence. An invented URL would 404 in a customer's inbox.
 	if got.Links.ZipDownload != "" {
-		t.Errorf("ZipDownload = %q, want empty while /d/ is unbuilt", got.Links.ZipDownload)
+		t.Errorf("ZipDownload = %q, want empty when no presign was supplied", got.Links.ZipDownload)
 	}
 	if got.Links.StripePortal != "" {
 		t.Errorf("StripePortal = %q, want empty while no Stripe keys exist", got.Links.StripePortal)
@@ -322,13 +321,48 @@ func TestReviewItemMustBeFiledAtNeedsHumanReview(t *testing.T) {
 	}
 }
 
-func TestReviewItemKeyIsOnePerSite(t *testing.T) {
-	a, b := uuid.New(), uuid.New()
-	if ReviewItemKey(a) == ReviewItemKey(b) {
-		t.Error("two sites share a review item key: the dedup index would collapse them")
+func TestReviewItemKeyPrefixMatchesTheProducer(t *testing.T) {
+	// The producer (the delivery-review-filer seed) files through the
+	// create_work_item action with item_key_prefix = this constant, so the real
+	// key is `delivery_review_<domain>`. If this drifts from the seed, dedup
+	// splits and a site can hold two open reviews.
+	if ReviewItemKeyPrefix != "delivery_review" {
+		t.Errorf("ReviewItemKeyPrefix = %q; the seed files under delivery_review", ReviewItemKeyPrefix)
 	}
-	if !strings.HasPrefix(ReviewItemKey(a), "delivery_review:") {
-		t.Errorf("item key %q does not carry its type prefix", ReviewItemKey(a))
+}
+
+// With a presign supplied, Claim mints the ZIP token CARRYING it, and the link
+// lands on the links host next to the confirm link.
+func TestClaimMintsTheZipTokenWithTheSuppliedPresign(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	now := time.Now()
+	expectReview(mock, siteID, 1)
+	expectStamp(mock, now, false)
+	// confirm token first, then the zip token whose INSERT must carry the
+	// stored_url columns - the regex pins that, because a zip token minted
+	// WITHOUT its presign is a link /d/ correctly reads as stale: born broken.
+	mock.ExpectExec(`INSERT INTO customer_access_tokens`).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(`(?s)INSERT INTO customer_access_tokens.*stored_url`).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	cfg := testLinkConfig()
+	cfg.ZipPresignedURL = "https://bucket.example/zip?sig=abc"
+	cfg.ZipPresignExpiresAt = now.Add(7 * 24 * time.Hour)
+
+	got, err := Claim(context.Background(), db, siteID, cfg, now)
+	if err != nil {
+		t.Fatalf("Claim: %v", err)
+	}
+	if !strings.HasPrefix(got.Links.ZipDownload, "https://links.webdesign.uk/d/") {
+		t.Errorf("zip link is %q, want it on the links host under /d/", got.Links.ZipDownload)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
 	}
 }
 

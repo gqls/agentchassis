@@ -17,12 +17,18 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gqls/agentchassis/internal/core-manager/handlers"
+	"github.com/gqls/agentchassis/platform/delivery"
 	"go.uber.org/zap"
 )
+
+// deliveryErrNotFoundForStub keeps the stub's zip arm on the uniform-failure
+// path without inventing a parallel error vocabulary.
+var deliveryErrNotFoundForStub = delivery.ErrTokenNotFound
 
 // stubDeliveryDeps drives the HTTP layer without a database. The handler
 // package's own tests cover what ConfirmTransfer does; these cover which port
@@ -37,6 +43,10 @@ func (s *stubDeliveryDeps) ConfirmTransfer(c *gin.Context, token string) error {
 	return nil
 }
 
+func (s *stubDeliveryDeps) ZipDownloadURL(c *gin.Context, token string) (string, error) {
+	return "", deliveryErrNotFoundForStub
+}
+func (s *stubDeliveryDeps) RecordStaleZipLink(c *gin.Context) {}
 func (s *stubDeliveryDeps) Logger() *zap.Logger { return s.logger }
 
 func newTestDeliveryHandler() (*handlers.DeliveryHandler, *stubDeliveryDeps) {
@@ -67,7 +77,7 @@ func TestDeliveryEngineServesDeliveryRoutesOnly(t *testing.T) {
 		got[r.Method+" "+r.Path] = true
 	}
 
-	want := []string{"GET /c/:token", "POST /c/:token"}
+	want := []string{"GET /c/:token", "POST /c/:token", "GET /d/:token"}
 	for _, w := range want {
 		if !got[w] {
 			t.Errorf("delivery engine is missing route %q; has %v", w, got)
@@ -253,18 +263,15 @@ func TestDeliveryRoutesMustBeServableThroughTheBox(t *testing.T) {
 	if err := assertRoutesAreBoxServable(canonical); err != nil {
 		t.Fatalf("the canonical route pair was rejected: %v", err)
 	}
-	// /d/ is the sharp case, and the expectation FLIPPED on 2026-08-26: the vhost
-	// has NO /d/ location, so a /d/:token route registered today would pass every
-	// test, serve perfectly from inside the cluster, and 404 at the box for every
-	// customer. The guard must therefore REFUSE it until boxServablePrefixes
-	// gains "/d/" — in the same commit as the vhost's /d/ block.
-	if err := assertRoutesAreBoxServable(gin.RoutesInfo{{Method: http.MethodGet, Path: "/d/:token"}}); err == nil {
-		t.Error("a /d/:token route was vouched for as box-servable, but the vhost has " +
-			"no /d/ location: every download link would 404 at the box with no trace " +
-			"in the cluster")
+	// /d/'s expectation has now moved TWICE, deliberately, tracking the vhost:
+	// refused on 2026-08-26 morning (no /d/ location existed), ACCEPTED from
+	// 2026-08-26 afternoon when the vhost block, the boxServablePrefixes entry
+	// and the route registration landed in one commit — the guard's own rule.
+	if err := assertRoutesAreBoxServable(gin.RoutesInfo{{Method: http.MethodGet, Path: "/d/:token"}}); err != nil {
+		t.Errorf("/d/:token refused as box-servable, but the vhost now carries its location block: %v", err)
 	}
-	// And the admin-router guard must still refuse /d/ there — the two lists
-	// answer different questions and this pair is what keeps them distinct.
+	// The admin-router guard still refuses /d/ there — the two lists answer
+	// different questions and this pair is what keeps them distinct.
 	if err := assertNoDeliveryRoutes(gin.RoutesInfo{{Method: http.MethodGet, Path: "/d/:token"}}); err == nil {
 		t.Error("/d/:token was accepted on the admin router")
 	}
@@ -298,13 +305,21 @@ func TestGetAndPostShareOneDeliveryPath(t *testing.T) {
 	h, _ := newTestDeliveryHandler()
 	engine := mustDeliveryEngine(t, h)
 
-	byMethod := map[string]string{}
+	// /c/ specifically: with /d/ registered (GET-only), a method-keyed map would
+	// collide on GET, so parity is asserted for the confirm path by name.
+	var get, post string
 	for _, r := range engine.Routes() {
-		byMethod[r.Method] = r.Path
+		if strings.HasPrefix(r.Path, "/c/") {
+			switch r.Method {
+			case http.MethodGet:
+				get = r.Path
+			case http.MethodPost:
+				post = r.Path
+			}
+		}
 	}
-	get, post := byMethod[http.MethodGet], byMethod[http.MethodPost]
 	if get == "" || post == "" {
-		t.Fatalf("expected both verbs registered, got %v", byMethod)
+		t.Fatalf("expected both /c/ verbs registered, got %v", engine.Routes())
 	}
 	if get != post {
 		t.Errorf("GET is %q and POST is %q: they must be the SAME path. The box "+

@@ -628,6 +628,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Insert a single work item for pipeline chaining between handler agents",
 		IsLocal:     true,
 	},
+	"send_delivery_email": {
+		Handler:     SendDeliveryEmailAction,
+		Category:    "site",
+		Description: "Claim a site's delivery (owner review gate + once-only handover stamp + customer links) and send the delivery email through platform/mailer",
+		IsLocal:     true,
+	},
 	// Documented in checkpoint_for_review_action.go since its creation but never
 	// registered — any workflow referencing it failed validation with "requires a
 	// topic" (found 2026-07-17 when the claims-auditor tried to use it).

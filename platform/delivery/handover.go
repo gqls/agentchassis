@@ -257,13 +257,12 @@ func IsHandedOver(ctx context.Context, db *sql.DB, siteID uuid.UUID) (bool, erro
 func MintToken(ctx context.Context, db *sql.DB, siteID uuid.UUID, purpose string,
 	expiresAt time.Time, singleUse bool, createdBy string) (string, error) {
 
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", fmt.Errorf("delivery: mint token: %w", err)
+	plaintext, err := mintTokenPlaintext()
+	if err != nil {
+		return "", err
 	}
-	plaintext := base64.RawURLEncoding.EncodeToString(raw)
 
-	_, err := db.ExecContext(ctx, `
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO customer_access_tokens
 		       (site_id, purpose, token_hash, expires_at, single_use, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -274,6 +273,17 @@ func MintToken(ctx context.Context, db *sql.DB, siteID uuid.UUID, purpose string
 		return "", fmt.Errorf("delivery: insert token (purpose %q): %w", purpose, err)
 	}
 	return plaintext, nil
+}
+
+// mintTokenPlaintext is the ONE generation rule: 32 random bytes, base64url,
+// 43 chars of [A-Za-z0-9_-] — the shape the box's anchored regex admits. Every
+// minter shares it so a second token kind cannot drift to a shape the box 404s.
+func mintTokenPlaintext() (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("delivery: mint token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
 // HashToken is the one hashing rule. Exported so a test — or an operator holding a

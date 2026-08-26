@@ -38,15 +38,17 @@ import (
 // bypassing producer. This package deliberately only READS.
 const ReviewItemType = "needs_delivery_review"
 
-// ReviewItemKey is the item_key shape for the review item, stated here because
-// the 2026-08-02 owner ruling requires the producer set and the key shape to be
-// visible in one place rather than rederived per call site.
+// ReviewItemKeyPrefix is the item_key prefix the producer files under, stated
+// here because the 2026-08-02 owner ruling requires the producer set and the key
+// shape visible in one place rather than rederived per call site.
 //
-// One review per site per delivery: the site id IS the key. A second delivery of
-// the same site is not a thing that exists — handover is once (see Claim below).
-func ReviewItemKey(siteID uuid.UUID) string {
-	return "delivery_review:" + siteID.String()
-}
+// ⚠ THE FULL KEY IS `delivery_review_<domain>`, NOT a site-id form — corrected
+// 2026-08-26 when the producer was built: it files through the create_work_item
+// action, whose key convention is `<item_key_prefix>_<domain>`, and the register
+// must state the REAL shape the rows carry, not the shape a helper wished for.
+// One review per site either way (a domain names one site), which is what
+// idx_swi_dedup needs.
+const ReviewItemKeyPrefix = "delivery_review"
 
 var (
 	// ErrNotReviewed means the owner has not approved this site for delivery.
@@ -193,7 +195,17 @@ type LinkConfig struct {
 	DomainRentURL   string
 	DomainBuyURL    string
 	StripePortalURL string
-	ZipDownloadPath bool // true once /d/ exists; false leaves ZipDownload empty
+
+	// ZipPresignedURL + ZipPresignExpiresAt: when set, Claim mints the ZIP token
+	// CARRYING this presign (delivery.MintZipToken), so /d/<token> can 302 to
+	// it. Both empty leaves Links.ZipDownload empty — the composer's problem to
+	// word, never a placeholder URL. The presign comes from zip-deliverer's own
+	// output (it is the only process allowed to mint one, bugs_open/245); this
+	// replaces the earlier ZipDownloadPath bool the day /d/ became real
+	// (2026-08-26): a bool could mint a token with NO stored URL, which /d/
+	// correctly reads as stale — a link born broken that looks retriable.
+	ZipPresignedURL     string
+	ZipPresignExpiresAt time.Time
 }
 
 // Prepared is the result of a successful claim: the handover state, the links,
@@ -267,9 +279,9 @@ func Claim(ctx context.Context, db *sql.DB, siteID uuid.UUID, cfg LinkConfig, no
 		DomainBuy:       cfg.DomainBuyURL,
 		StripePortal:    cfg.StripePortalURL,
 	}
-	if cfg.ZipDownloadPath {
-		zipToken, err := MintToken(ctx, db, siteID, PurposeZipDownload,
-			h.LiveLinkExpiresAt, false /* singleUse */, "delivery-email")
+	if cfg.ZipPresignedURL != "" {
+		zipToken, err := MintZipToken(ctx, db, siteID, h.LiveLinkExpiresAt,
+			cfg.ZipPresignedURL, cfg.ZipPresignExpiresAt, "delivery-email")
 		if err != nil {
 			return Prepared{}, err
 		}

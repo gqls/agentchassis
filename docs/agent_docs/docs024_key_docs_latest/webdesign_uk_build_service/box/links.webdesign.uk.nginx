@@ -105,9 +105,27 @@ server {
         proxy_send_timeout      15s;
     }
 
-    # There is deliberately NO /d/ block yet — the download link's design is
-    # settled but blocked on the refresh mechanism (DECISION_2026-08-21b).
-    # When it is built, it belongs HERE, not on the shopfront.
+    # /d/<token> — the ZIP download (added 2026-08-26, same commit as the
+    # core-manager route and its boxServablePrefixes entry, as the guard
+    # demands). GET only: a download is idempotent, and the handler 302s to a
+    # short-lived presign or renders an honest page; it never mutates state a
+    # scanner could reach. Same anchored token shape as /c/.
+    # ⚠ DO NOT APPLY BEFORE THE ROLL THAT CARRIES THE /d/ ROUTE — same rule as
+    # the header's, same ancestry check; early application 404s at :8090
+    # instead of at the box, which at least leaves a cluster log line.
+    location ~ "^/d/[A-Za-z0-9_-]{20,128}$" {
+        limit_req zone=links_rl burst=3 nodelay;
+        limit_except GET { deny all; }
+        client_max_body_size    4k;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        proxy_pass              http://core-manager.ai-persona-system.svc.cluster.local:8090;
+        proxy_http_version      1.1;
+        proxy_set_header Host   $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout      15s;
+        proxy_send_timeout      15s;
+    }
 
     location / {
         add_header X-Robots-Tag "noindex, nofollow" always;

@@ -37,13 +37,29 @@ import (
 type fakeDeliveryDeps struct {
 	err       error
 	gotTokens []string
+
+	// zip arm: what ZipDownloadURL returns, and whether a stale hit was recorded.
+	zipURL        string
+	zipErr        error
+	staleRecorded int
 }
 
 func (f *fakeDeliveryDeps) ConfirmTransfer(_ *gin.Context, token string) error {
 	f.gotTokens = append(f.gotTokens, token)
 	return f.err
 }
-func (f *fakeDeliveryDeps) Logger() *zap.Logger { return zap.NewNop() }
+func (f *fakeDeliveryDeps) ZipDownloadURL(_ *gin.Context, token string) (string, error) {
+	f.gotTokens = append(f.gotTokens, token)
+	if f.zipErr != nil {
+		return "", f.zipErr
+	}
+	if f.zipURL == "" {
+		return "", delivery.ErrTokenNotFound
+	}
+	return f.zipURL, nil
+}
+func (f *fakeDeliveryDeps) RecordStaleZipLink(_ *gin.Context) { f.staleRecorded++ }
+func (f *fakeDeliveryDeps) Logger() *zap.Logger               { return zap.NewNop() }
 
 // newRouter uses the SAME registration function api/server.go calls, so the
 // route table has one definition and this file cannot drift from production.
@@ -409,5 +425,77 @@ func TestConfirmTransferIgnoresUnrelatedHeaders(t *testing.T) {
 		if !strings.Contains(w.Body.String(), "that is recorded") {
 			t.Errorf("%s: an ordinary press was refused because an unrelated header said %q", hdr, "prefetch")
 		}
+	}
+}
+
+// validToken is a 43-char token-shaped path segment, the shape the box regex
+// admits and mintTokenPlaintext produces.
+var validToken = strings.Repeat("a", 43)
+
+// --- /d/<token>: the ZIP download ---------------------------------------------
+
+// A fresh stored URL 302s; the Location is the stored presign and nothing else.
+func TestZipDownloadRedirectsToTheStoredURL(t *testing.T) {
+	f := &fakeDeliveryDeps{zipURL: "https://bucket.example/zip?sig=abc"}
+	rec := serve(t, f, http.MethodGet, "/d/"+validToken)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("fresh zip link returned %d, want 302", rec.Code)
+	}
+	if got := rec.Header().Get("Location"); got != "https://bucket.example/zip?sig=abc" {
+		t.Errorf("Location = %q, want the stored presign", got)
+	}
+	if f.staleRecorded != 0 {
+		t.Errorf("a fresh hit recorded staleness %d times", f.staleRecorded)
+	}
+}
+
+// A STALE stored URL must never be redirected to: an expired presign answers
+// 403 SignatureDoesNotMatch, which reads as broken credentials. The customer
+// gets the honest refresh page, and the staleness is RECORDED so it becomes a
+// row somebody sees rather than the customer's private dead-end.
+func TestZipDownloadStaleRendersHonestPageAndRecords(t *testing.T) {
+	f := &fakeDeliveryDeps{zipErr: delivery.ErrZipURLStale}
+	rec := serve(t, f, http.MethodGet, "/d/"+validToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("stale zip link returned %d, want 200 (the refresh page)", rec.Code)
+	}
+	if rec.Header().Get("Location") != "" {
+		t.Fatal("stale zip link REDIRECTED: the target would 403 as SignatureDoesNotMatch")
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "being refreshed") {
+		t.Errorf("stale page does not say the link is being refreshed: %q", body[:min(len(body), 200)])
+	}
+	if f.staleRecorded != 1 {
+		t.Errorf("staleness recorded %d times, want exactly 1", f.staleRecorded)
+	}
+}
+
+// Unknown token: the uniform failure page, one message for every cause, and no
+// staleness row (nothing real happened).
+func TestZipDownloadUnknownTokenGetsTheUniformFailurePage(t *testing.T) {
+	f := &fakeDeliveryDeps{zipErr: delivery.ErrTokenNotFound}
+	rec := serve(t, f, http.MethodGet, "/d/"+validToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unknown zip token returned %d, want 200 (the failure page)", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "no longer active") {
+		t.Error("unknown-token page does not carry the uniform failure copy")
+	}
+	if f.staleRecorded != 0 {
+		t.Errorf("an unknown token recorded staleness %d times", f.staleRecorded)
+	}
+}
+
+// POST /d/ must not exist: the route registers GET only, so gin 404s it before
+// any handler runs. This is the shape the box's limit_except GET mirrors.
+func TestZipDownloadRefusesPost(t *testing.T) {
+	f := &fakeDeliveryDeps{zipURL: "https://bucket.example/zip"}
+	rec := serve(t, f, http.MethodPost, "/d/"+validToken)
+	if rec.Code == http.StatusFound || rec.Code == http.StatusOK {
+		t.Fatalf("POST /d/ returned %d; the route must be GET-only", rec.Code)
+	}
+	if len(f.gotTokens) != 0 {
+		t.Errorf("POST /d/ reached the deps: %v", f.gotTokens)
 	}
 }
