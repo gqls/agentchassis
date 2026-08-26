@@ -2054,3 +2054,15 @@ service.* Third stopped-thing of the day, third different cause (a ruling; a dea
 provider) — the surviving frame: **a stopped thing has not yet told you WHY it stopped.**
 Consequence for this lane: any served-bytes verification after 15:37Z reads pre-stall artefacts —
 reassuring for failures, alarming for successes — until the queue drains post-recovery.
+
+**Addendum from the 391 lane's close-out, kept because both pieces sharpen the day's file:** (1) *the
+asymmetry was the clue and it was in hand* — their `gh api` reads worked perfectly WHILE Actions was
+dead; they were querying across the exact broken seam (Git Operations up, Actions down) and read the
+working half as "the platform is fine" when it was naming which half was broken. (2) A failure family
+distinct from badly-designed instruments: **correct instruments read partially** — three instances in
+one day (an enumeration summing 19 against a stated 21; the 30-vs-60 interval asymmetry on screen,
+unread; two of three runner pods read, boundary reported 12 minutes early). The result set was complete
+every time; the reading was not — and nothing in scrollback marks a row as unread. Their check, adopted:
+**say N out loud before interpreting, and make the interpretation account for all N.** Filed by them in
+WRONG_CALLS (the reader's half) and 016b §9 (the system's half: green item + correct commit + unchanged
+site = the CI provider is down; status-page curl FIRST).
