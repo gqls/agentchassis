@@ -5962,3 +5962,21 @@ is the wrong order).
 > *(Correction, same session: the confirmation above was recorded at ~16:2xZ, not "~15:0xZ" — I
 > stamped my own clock guess instead of reading the rows' 16:17:30. Also worth keeping: the rotation's
 > re-file lag was ~2.2 h after the failures, not the "within the hour" §X.65 §2 assumed.)*
+
+> **§X.65 §6 corrections, 2026-08-26 ~17:0xZ, from the 410 fixing lane (peer session) + CLAUDE.md:**
+> 1. **"410" is now a DUPLICATED number** — a second, unrelated `410_HANDOFF_2026-08-26_three_seams_
+>    fail_toward_the_quiet_default…` was filed the same day (concurrent next-number race; CLAUDE.md's
+>    ambiguous-number list already carries it). Ours is `410_…next_fetch_at_stamped_at_fetch_time…` —
+>    **cite by slug, `git log` the file path.**
+> 2. **My bug file §2/§6 overattributed the second gating layer**: `LoadDueSources`
+>    (`feed_actions.go:962/:1007`) has ZERO live workflow callers; the live source-level layer is
+>    `dispatch_feed_sources`' OWN due query. Corrected by the fixing lane in the bug file; noted here
+>    so this lane does not re-quote the :1007 attribution.
+> 3. **§3's "controls" are controls at SITE level only** — dartsonline's own 6 h sources were
+>    themselves phase-skipped by ~40–60 s inside its dispatches; the site was served via its 4 h
+>    source. The census proves per-SITE service cadence, not that 6 h sources on mixed sites fetched
+>    every pass.
+> 4. Fix status (theirs): `201236b2a` + follow-ups — shared half-cadence due predicate in both live
+>    layers (cadence read from `scheduled_tasks`, 3 h fallback) + migration `653_…_HOLD.sql` for the
+>    trigger query, held for hand-apply AFTER the roll (the sequencing warning adopted).
+>    Council-Submitted `04c657d2`, 090 fired pre-build. They record predictions (c)/(d).
