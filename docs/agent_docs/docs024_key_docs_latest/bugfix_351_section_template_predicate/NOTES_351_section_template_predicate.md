@@ -453,3 +453,25 @@ today for a reason that is NOT this lane's — `WORK_ITEM_STATUS_OVERRIDE_REFUSE
 `2b46afbe6`, bugs_open/396 lane) is undeclared in the finding-code registry. Two other lanes have
 already noted it in `bugs_open/396_…undispatchable…`; do not re-report it, and do not mistake it for
 a 541 failure — `discovery_checks` and the filtered registration/gutted tests pass.
+
+### Same day, 13:xx — the FIRST LIVE EXERCISE, verified at the artefact within the hour
+
+Timing gift: the design rotation (`site-discovery-rotation-design`) was re-enabled at **09:20Z**
+after 15 days off (the 08-11 cost-scare pause, `bugs_open/401`) — thirteen minutes after 541
+applied. Its first visit, agritec.uk, ran orchestration `18fe7caa` at 09:20:38Z, and I verified the
+row first-hand rather than trusting the peer report that flagged it (webdesign-tool-rebuilds seat):
+`discovery_result.checks_run` = **24 names with `stylesheet_gutted` present (last, the appended
+position)**, `checks_failed` = **[]**, `failed: 0`, run COMPLETED, `error` NULL. So the
+unregistered-name failure mode is disproven in production, not just at the capability registry, and
+the zero-findings calibration held on the first real visit. `remortgagecalculator.uk` carries NO
+design stamp (checked `site_discovery_rotation`) so it is in the rotation's first six — expect its
+first-ever design visit within ~18 h of the re-enable.
+
+Two cautions from the same hour: (1) my first read of the run used `jsonb_pretty | grep`, and grep
+ADJACENCY put `stylesheet_gutted` under `checks_failed` — extracting the arrays with `#>>` showed
+`checks_failed` empty. Read the array, not the neighbourhood. (2) The peer session initially
+reported the check "had already run on several sites" overnight via improvement-loop design children
+(e.g. webdesign.co.uk 03:46Z) — those runs PRE-DATE the 09:07Z enable, so their zero
+`stylesheet_gutted` items is VACUOUS (23-check roster; the guard `NOT … ? 'stylesheet_gutted'` on
+the 541 UPDATE proves the name was absent until 09:07). Corrected with the peer so their NOTES do
+not bank it as coverage.
