@@ -559,6 +559,14 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	}
 	recordLossyPageMerges(ctx, params, siteIDStr, lossyMerges)
 
+	// Council 4bd35ed8 round-2 advisory (bug_historian, MEDIUM): rule 17's
+	// "subject REQUIRED when a component repeats" was prompt-only — the
+	// decorative-decision pattern (016b §9). This is the structural half:
+	// observe-only, never blocks a plan write.
+	if f := subjectlessRepeatFindings(planRows); len(f) > 0 {
+		LogActionFindings(ctx, params, siteIDStr, "", "write_site_plan", f, params.Logger)
+	}
+
 	// ── 2. Flatten LLM design / content JSON to directive rows ─────────
 	directives := flattenSiteScopeDirectives(params.CollectedData, logger)
 
@@ -1011,6 +1019,65 @@ type sectionEntry struct {
 	// (per-section subjects build, 2026-08-26). Empty = unassigned, the
 	// pre-existing behaviour where same-named sections share one brief.
 	Subject string
+}
+
+// subjectlessRepeatFindings is the structural signal behind seed 640's rule 17:
+// a page holding the SAME component name twice where any of those entries has
+// no subject is exactly the shape that produced apis.uk's six one-topic
+// sections, and prompt compliance is the only other line of defence (an LLM
+// re-guesses a rule every run — 016b §9's decorative-decision pattern).
+//
+// GATED on the plan carrying at least ONE subject anywhere: a pre-rule-17 plan
+// (bare strings everywhere — every plan before seed 640 applies) produces ZERO
+// findings, so this cannot spam the fleet retroactively; it fires only when
+// the planner is demonstrably playing the subject game and missed a repeat.
+// Observe-only: the caller records and the write proceeds unchanged.
+func subjectlessRepeatFindings(planRows []planPageRow) []agenterrors.Finding {
+	anySubject := false
+	for _, r := range planRows {
+		for _, s := range r.Sections {
+			if s.Subject != "" {
+				anySubject = true
+				break
+			}
+		}
+		if anySubject {
+			break
+		}
+	}
+	if !anySubject {
+		return nil
+	}
+	var findings []agenterrors.Finding
+	for _, r := range planRows {
+		repeats := map[string]int{}
+		subjectless := map[string]int{}
+		for _, s := range r.Sections {
+			repeats[s.Name]++
+			if s.Subject == "" {
+				subjectless[s.Name]++
+			}
+		}
+		for name, n := range repeats {
+			if n < 2 || subjectless[name] == 0 {
+				continue
+			}
+			findings = append(findings, agenterrors.Finding{
+				ErrorCode: "SUBJECT_MISSING_ON_REPEATED_COMPONENT",
+				Severity:  "warning",
+				Message: fmt.Sprintf("page %q holds %d %q sections and %d of them carry no subject — they will receive identical briefs (rule 17, seed 640)",
+					r.Name, n, name, subjectless[name]),
+				Context: map[string]interface{}{
+					"page":            r.Name,
+					"component":       name,
+					"repeats":         n,
+					"without_subject": subjectless[name],
+					"remedy":          "replan, or write distinct site_plan_sections.subject values for the repeated rows; the writer cannot differentiate what the plan does not",
+				},
+			})
+		}
+	}
+	return findings
 }
 
 // extractSectionEntries pulls the per-page sections list out of the raw

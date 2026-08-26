@@ -398,3 +398,65 @@ func TestCarrySectionFacts_ObjectRealisedSubjectOnlyFabricatesNoFactsKey(t *test
 		t.Errorf("seed-333 absence record must be unchanged, got %v", absent)
 	}
 }
+
+// ── post-approval advisory (council 4bd35ed8 r2, bug_historian MEDIUM) ──────
+// The structural half of rule 17: repeated components without subjects leave a
+// durable record — but ONLY on plans that carry subjects at all, so every
+// pre-seed-640 plan (bare strings) stays silent. The helper is pure; the
+// recording wire reuses the PLAN_PAGE_MERGE_LOSSY channel one line above it.
+
+func TestSubjectlessRepeatFindings_GateAndDetection(t *testing.T) {
+	page := func(name string, entries ...sectionEntry) planPageRow {
+		return planPageRow{Name: name, Sections: entries}
+	}
+	// (a) No subject anywhere: repeats alone must produce NOTHING — this is
+	// every plan before seed 640 applies, and firing here would spam the
+	// fleet retroactively.
+	if f := subjectlessRepeatFindings([]planPageRow{
+		page("index", sectionEntry{Name: "text"}, sectionEntry{Name: "text"}, sectionEntry{Name: "hero"}),
+	}); len(f) != 0 {
+		t.Fatalf("pre-rule plans must be silent, got %d findings", len(f))
+	}
+	// (b) Subjects present and every repeat has one: nothing.
+	if f := subjectlessRepeatFindings([]planPageRow{
+		page("index",
+			sectionEntry{Name: "text", Subject: "A"},
+			sectionEntry{Name: "text", Subject: "B"},
+			sectionEntry{Name: "hero"}),
+	}); len(f) != 0 {
+		t.Fatalf("compliant repeats must be silent, got %d findings", len(f))
+	}
+	// (c) The planner plays the subject game but misses a repeat: one finding,
+	// carrying page + component + counts.
+	f := subjectlessRepeatFindings([]planPageRow{
+		page("index",
+			sectionEntry{Name: "text", Subject: "A"},
+			sectionEntry{Name: "text"},
+			sectionEntry{Name: "hero"}),
+	})
+	if len(f) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(f))
+	}
+	if f[0].ErrorCode != "SUBJECT_MISSING_ON_REPEATED_COMPONENT" || f[0].Severity != "warning" {
+		t.Errorf("finding shape: %+v", f[0])
+	}
+	if f[0].Context["component"] != "text" || f[0].Context["repeats"] != 2 || f[0].Context["without_subject"] != 1 {
+		t.Errorf("finding context: %#v", f[0].Context)
+	}
+	// (d) A subject on ANOTHER page arms the gate for the whole plan: page two
+	// has bare repeats and must be flagged — post-640 the planner owes every
+	// page object form.
+	f = subjectlessRepeatFindings([]planPageRow{
+		page("about", sectionEntry{Name: "hero", Subject: "Who we are"}),
+		page("index", sectionEntry{Name: "text"}, sectionEntry{Name: "text"}),
+	})
+	if len(f) != 1 || f[0].Context["page"] != "index" {
+		t.Fatalf("plan-level gate must cover sibling pages, got %#v", f)
+	}
+	// (e) A singleton without a subject is fine — only REPEATS owe one.
+	if f := subjectlessRepeatFindings([]planPageRow{
+		page("index", sectionEntry{Name: "text", Subject: "A"}, sectionEntry{Name: "cta"}),
+	}); len(f) != 0 {
+		t.Fatalf("singletons owe no subject, got %d findings", len(f))
+	}
+}

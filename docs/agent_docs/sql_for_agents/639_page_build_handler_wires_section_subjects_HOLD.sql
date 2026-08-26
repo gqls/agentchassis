@@ -17,6 +17,22 @@
 -- unwired, exactly as it is for section_facts: a fallback re-plan has no
 -- authoritative alignment to trust.
 
+--
+-- ── VERIFY THE ROLL FIRST (council 4bd35ed8 r2, debug_historian: "post-roll" is
+--    an assumption until the RUNNING BINARY says so; same-tag rebuilds have
+--    shipped nothing before). Two probes, both against the pod, controls in the
+--    same breath:
+--      kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+--        -> git merge-base --is-ancestor 35905c547 <stamp sha>   (must exit 0)
+--      # fallback if the startup line has scrolled (capability probe + controls):
+--      P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+--      kubectl -n ai-persona-system exec $P -- grep -ac 'section_subjects' /proc/1/exe   # >0 = shipped
+--      kubectl -n ai-persona-system exec $P -- grep -ac 'section_facts' /proc/1/exe      # positive control, must be >0
+--
+-- ── AFTER HAND-APPLYING: _HOLD files never reach the migration ledger, so the
+--    record is THIS FILE — append one line directly below this block and commit
+--    it (pathspec):  -- APPLIED <date> by <session>; roll verified at <stamp sha>
+
 SELECT snapshot_agent('page-build-handler', '639_page_build_handler_wires_section_subjects_HOLD.sql: pre-update');
 
 BEGIN;

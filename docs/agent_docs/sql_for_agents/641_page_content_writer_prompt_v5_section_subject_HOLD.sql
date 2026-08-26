@@ -28,6 +28,26 @@
 -- {{end}}
 -- ── END INSERTED TEXT ─────────────────────────────────────────────────────
 
+--
+-- ── VERIFY THE ROLL FIRST (council 4bd35ed8 r2, debug_historian: "post-roll" is
+--    an assumption until the RUNNING BINARY says so; same-tag rebuilds have
+--    shipped nothing before). Two probes, both against the pod, controls in the
+--    same breath:
+--      kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+--        -> git merge-base --is-ancestor 35905c547 <stamp sha>   (must exit 0)
+--      # fallback if the startup line has scrolled (capability probe + controls):
+--      P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+--      kubectl -n ai-persona-system exec $P -- grep -ac 'section_subjects' /proc/1/exe   # >0 = shipped
+--      kubectl -n ai-persona-system exec $P -- grep -ac 'section_facts' /proc/1/exe      # positive control, must be >0
+--
+-- ── AFTER HAND-APPLYING: _HOLD files never reach the migration ledger, so the
+--    record is THIS FILE — append one line directly below this block and commit
+--    it (pathspec):  -- APPLIED <date> by <session>; roll verified at <stamp sha>
+--
+-- ── RECORD THE OWNER'S READ (gate 2): a dated line in the apis lane's NOTES
+--    quoting his words, and name it in this file's APPLIED line — an unrecorded
+--    read is indistinguishable from a skipped one.
+
 SELECT snapshot_agent('page-content-writer', '641_page_content_writer_prompt_v5_section_subject_HOLD.sql: pre-update');
 
 BEGIN;
