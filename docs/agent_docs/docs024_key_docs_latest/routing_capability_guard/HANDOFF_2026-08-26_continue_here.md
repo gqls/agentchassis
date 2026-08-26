@@ -362,7 +362,9 @@ Copy the files aside first — **`git stash` is FORBIDDEN and hook-blocked on th
 - **`bugs_open/375`'s lane** owns the claim-timeout exclusion migration (needed by gate 1c's promotion,
   **not** by rule 3b). They accepted ownership; the ordering asymmetry is settled in their handoff.
 - **`bugs_open/345`'s lane** owns `retry_feedback`. They are putting a skip-empty guard to their user.
-- ⚠ **HEAD carries one failing test that is nobody's here:** `TestFindingCodeScanEveryWriteIsRegistered`
+- ~~⚠ **HEAD carries one failing test that is nobody's here:** `TestFindingCodeScanEveryWriteIsRegistered`~~
+  **[RESOLVED 2026-08-26 17:00Z — verified PASSING at HEAD with `-v`, so it genuinely ran and is not a `-run`-matched-nothing vacuous ok. The 396 lane declared it. Original note kept below for the trail.]**
+- ⚠ `TestFindingCodeScanEveryWriteIsRegistered`
   — `WORK_ITEM_STATUS_OVERRIDE_REFUSED` was added at `2b46afbe6` without its registry declaration.
   Verified as pre-existing and not caused by this work; the 396 lane owns the declaration choice.
 
