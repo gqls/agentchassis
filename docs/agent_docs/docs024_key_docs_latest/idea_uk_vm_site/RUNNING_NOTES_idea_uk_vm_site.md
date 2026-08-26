@@ -5980,3 +5980,25 @@ is the wrong order).
 >    layers (cadence read from `scheduled_tasks`, 3 h fallback) + migration `653_…_HOLD.sql` for the
 >    trigger query, held for hand-apply AFTER the roll (the sequencing warning adopted).
 >    Council-Submitted `04c657d2`, 090 fired pre-build. They record predictions (c)/(d).
+
+## §X.66 — 2026-08-26 ~18:45Z (post-pause): the churn loop SELF-TERMINATED at two cycles; a second discovery wave; the 410 fix is council-approved and awaits the roll
+
+- **Correction to §X.65 §2 / the cycle-3 note: the loop's period is NOT "one rotation for ever".**
+  Cycle 3 (`9e106d01`/`0fd1c021`, filed 16:17:30) went straight to **`unresolved` — "[unresolved
+  after 2 attempts]"** — the platform counted the prior failed cycles and PARKED the finding instead
+  of re-dispatching. So the burn was: cycle 2's three rebuilds each, once — not hourly for ever. The
+  defect (empty headings, 300/357) remains served and visible; nothing dispatches it now.
+- **A SECOND discovery wave 16:16–16:36Z, loop-carried, not the rotation**: brief-fidelity,
+  content-quality, reader-experience, site-review, offer-analysis, design-discovery,
+  completeness-discovery via `source='discovery'`, + a 29-row `rerender-pages` sweep at 16:35.
+  `site_discovery_rotation` for design-discovery-agent still reads **2026-08-09** — loop visits do
+  not stamp (§X.64 §4 addendum holds; the rotation's own design visit is still pending).
+  Queue 18:42Z: complete 160 · deferred **67** (+30) · triaged **53** · nhr 51 · detected 35 ·
+  unresolved 10 · failed 8.
+- **Tool-improver breadth**: 2 new `tool_fix` section_edits on two MORE tool pages
+  (f79a9185=tool-gtm-channel-fit
+bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) still `triaged` attempt 0 at 18:42 — the
+  fleet backlog has not reached them. Oscillation watch stands.
+- **410 (phase-lock slug) status, theirs**: council **APPROVED r1** (`04c657d2`), fix `201236b2a`
+  awaiting the chassis roll, migration `653_HOLD` hand-applied only after it; they hold the
+  ~20:47Z (c) watch. This lane only observes.
