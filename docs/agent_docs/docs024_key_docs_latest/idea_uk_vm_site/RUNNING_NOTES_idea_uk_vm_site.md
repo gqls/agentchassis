@@ -6031,3 +6031,22 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
 > The practice line ("stamp times from DB `now()`") stands on its own merits, but its justification
 > above is false; the better form: give `date -d` an explicit zone, or poll for the row instead of
 > computing a deadline.
+
+## §X.67 — 2026-08-26 ~23:20Z: an evening claim-timeout storm from repeated pod replacement; one idea.uk casualty, parked terminal
+
+- `[MEASURED 23:18Z]` **28** claim timeouts fleet-wide 21:00→23:16Z vs **2** in the 15:00–21:00
+  control window — 10+ sites, many item types, ongoing; both chassis pods born **~23:09Z** (age 9 min,
+  0 restarts), i.e. pods were REPLACED again well after the ~20:50Z v1.0.1345 roll. Repeated
+  replacement kills claimed work; the retry path re-triages most of it (our `c9ecb707` took one
+  timeout, retries remain). **1** rows fleet-wide exhausted all attempts on timeouts alone.
+- **idea.uk's casualty: `424aa9a5`** — the phantom-links check re-detected the report-example dead
+  anchor (expected while the page serves it) and the fresh item burned all 3 attempts on claim
+  timeouts, never reaching the content (unlike `ade31076`, which reached the floor guard). Failed
+  count now 9. Nothing to do: the finding is already the owner's (`3493b44f`), and the next detector
+  pass post-churn would get real attempts.
+- Not filed as a bug: the mechanism (claims + timeout + retry + park) is the recovery working; the
+  cause is several same-evening rolls on a shared fleet — known territory ("a roll kills in-flight
+  work"). Worth a filing only if the churn recurs without a roll to explain it.
+- Round-2 tool edits landed as real diffs pre-storm: `9bfd140da` (+42/−29, scorecard) and
+  `ed53ee84c` (+19/−5, stage-identifier); served-page oscillation verdict still owed once
+  `c9ecb707`/`bfe8b2cb` finish and the box syncs — ONE artefact pass for all four.
