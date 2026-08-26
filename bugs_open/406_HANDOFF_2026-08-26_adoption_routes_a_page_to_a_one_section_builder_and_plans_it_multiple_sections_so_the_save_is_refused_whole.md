@@ -73,10 +73,40 @@ planned with ≤2 sections — the only ones whose one-section save could ever h
 ≤2 and it saves (mislabelled — that is 357); plan ≥3 and it is refused outright and the page
 stays empty. **357's population is the survivors of this defect.**
 
-**Blast radius, and it is growing.** `save_refused_incomplete` items parked in
-`needs_human_review`: **34 items across 16 domains**, 2026-07-31 → 2026-08-25.
-**That was 32 across ~14 domains 14 hours earlier** — the defect is actively producing
-victims. Named tool pages among them: `webdesign.co.uk/tool-llm-cost-calculator` (1 of 4),
+**Blast radius.**
+
+> ⚠ **CORRECTED 2026-08-26, within the hour, BEFORE anyone quoted it — the first version of
+> this section said "34 items across 16 domains" as though all 34 were this defect. They are
+> not, and I had not classified them when I wrote it.** Classifying every parked item by the
+> cohort numbers in its own reason string:
+>
+> | shape | items | domains |
+> |---|---|---|
+> | **THE 406 SHAPE — `1 of ≥3`** | **6** | **5** |
+> | no cohort captured (older reason format) | 26 | 15 |
+> | other shrinkage (`2 of 5`, `7 of 20`) | 2 | 2 |
+>
+> **Six are demonstrably this defect**, and two of those six are cv1's, which I caused by
+> running the adoptions — so **four pre-existing victims across four domains**:
+> `finetuning.uk/blog` (1 of 3), `fundamentallyai.com/tool-model-approach-selector` (1 of 3),
+> `mortgagecalculator.co.uk/game-fact-finder` (1 of 4),
+> `webdesign.co.uk/tool-llm-cost-calculator` (1 of 4).
+>
+> **The 26 are UNATTRIBUTED, not attributed elsewhere.** Their reason strings predate the
+> `planned sections` cohort, so the numbers simply are not in the record; several are named
+> tool pages (`loanzy.uk/tool-credit-health-check`, `-eligibility-checker`,
+> `-interest-rate-stress-test`, `mortgagecalculator.co.uk/tool-affordability`,
+> `webdesign.co.uk/tool-mind-map`, `ai-agent-orchestration.com/tool-automation-savings-estimator`,
+> `gamesdesign.co.uk/tools-index`) and are *consistent* with this shape without being evidence
+> of it. ⚠ **Do not attribute them by present-day page state** — a page's plan and row count
+> today is a PRESENT-tense census used to explain a PAST event, which is a logged wrong-call
+> shape on this estate. If they matter, attribute them from `page_component_history` or leave
+> them unattributed.
+
+**What IS true of all 34, and is a finding in its own right: nobody reads this queue.** 34
+items sit in `needs_human_review` with no `handler_agent`, spanning 2026-07-31 → 2026-08-25,
+and the count grew from 32 in the fourteen hours I was watching. A refusal that files a work
+item instead of erroring has no other alarm. Named tool pages among them: `webdesign.co.uk/tool-llm-cost-calculator` (1 of 4),
 `fundamentallyai.com/tool-model-approach-selector` (1 of 3),
 `mortgagecalculator.co.uk/game-fact-finder` (1 of 4), `loanzy.uk/tool-credit-health-check`,
 `loanzy.uk/tool-interest-rate-stress-test`, `loanzy.uk/tool-eligibility-checker`,
