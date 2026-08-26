@@ -936,3 +936,43 @@ Note `isAIUnavailable` **does** catch it (`ai_errors.go` matches `"credit"`), so
 ladder releases without burning attempts, and `ai_endpoint_health` correctly reads UNHEALTHY.
 **MDL-044 cannot clear it — and must not: there are no successful calls to clear it with.** The
 flag is telling the truth.
+
+## 2026-08-26 (09:00Z) — RECOVERY, and MDL-044 cleared the flag on a REAL outage, unprompted
+
+Owner purchased credits. The recovery is the best evidence this lane has produced, because
+nobody staged it.
+
+**MDL-044 fired on its own** `[MEASURED 2026-08-26 08:58Z]`:
+
+| field | value |
+|---|---|
+| `last_checked` | `2026-08-26 08:57:45.283` |
+| `last_healthy` | `2026-08-26 08:58:28.925` — **43s LATER** |
+| `error` | `NULL` (was the credit 400) |
+
+`last_healthy` later than `last_checked`, with `error` cleared, is the signature **no other
+writer in the system can produce** — the prober and `update_endpoint_health` both assign the two
+columns in one `NOW()`. The endpoint had been `UNHEALTHY` through a **9-hour** outage, and the
+**first successful call after credits landed cleared it within seconds.** This is the third
+firing, and the first on a genuine outage recovery rather than a forced test.
+
+⚠ **State the size of the win honestly.** With `check_interval_seconds` now at 60s, the prober
+would itself have cleared the flag within ~60s of the next tick — so in *today's* configuration
+MDL-044 saved on the order of **tens of seconds**, not an hour. The hour is what it saves against
+the **pre-fix** configuration (3600s prober, no symmetric writer), which is the comparison that
+matters for the bug but is **not** what was measured here. Do not quote today's recovery as an
+hour saved.
+
+### ⚠ And the recovery produced a MIXED window — the exact condition the outstanding proof needs
+
+`[MEASURED 08:59:49Z and 09:00:16Z]`, over rolling 4-minute windows: **`ok=2 credit=2`** — some
+calls succeeding while others still returned the credit 400. That is a **PARTIAL** provider
+failure, which is precisely what the last unproven claim requires and what this morning's total
+outage could not supply.
+
+Resubmitted the council round into it with `RESUBMIT_CORR=dfde47a4-…` so the trail accumulates
+on one correlation — **and so the `Council-Submitted:` trailer already committed on `182852ef0`
+still resolves.** Minting a fresh correlation would have orphaned that commit in the `098`
+report for ever, which is the trap the 2026-08-19 contribution to `bugs_open/243` records.
+
+Outcome recorded below when the round lands.
