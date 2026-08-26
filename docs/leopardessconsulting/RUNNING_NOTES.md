@@ -3465,3 +3465,28 @@ at save/plan, home `datahelpers/authored_provenance.go`, columns share the CONVE
 storage (companion column, no generic registry). Replied via SendMessage; they build their
 column instance independently citing the ruling. Their gift back: meta_description is
 structurally IMMUTABLE when non-empty (320) — the inverse failure, recorded in 403 as related.
+
+### 2026-08-26, afternoon — the critic's FIRST SUCCESSFUL RUN, and the hero batch published
+
+- **Spawn-path proof:** item `4f1fb87b` (design_critique_run, priority 90 — note the loader
+  sorts `priority ASC`, so LOWER dispatches first; 90 was head of the site queue) claimed at
+  the next leopardess visit; pod `agent-design-critique-agent-b4721b66-gwpgr` spawned with
+  **IMAGE_BUCKET SET** (personae-prod-uk001-images) + GEMINI_API_KEY SET — SQ-003 verify-later
+  item 1 CLOSED. Item `complete`, 0 retries.
+- **First `design-report` note is in `doc_notes`** (site_id set, categories ['design-report']).
+  16 images / 8 pages / 2 viewports. Quality: every finding names page + region + property +
+  direction (018's bar); the palette PRAISED not misread (the corporate-blue trap dodged —
+  live-palette join worked); lead finding = **hero sameness**, i.e. the exact change the batch
+  was shipping — its screenshots predate publication, so this run IS the "before" leg.
+  Actionable list: index bar-charts want containment; services carousel title hierarchy;
+  how-it-works ~700px text column; use-cases card edge definition; case-studies uniform card
+  heights; quiz input contrast; footer line-height + CTA padding nits.
+- **Discrimination test, restructured from held-batch to organic**: the "after" run (to fire
+  once all ten serve) should DROP the sameness finding while the rest stays substantially
+  stable. The stronger mutation form (revert one hero, run, restore) remains available any time.
+- **Hero batch PUBLISHED**: 10/10 rerenders PUBLISH_OK; 7/10 confirmed serving own heroes at
+  first sweep, watcher on the last three (both blog posts + case-studies, published last).
+  Queue note: five `needs_page` "image landed" rerenders (priority 99) were filed by
+  image-build-handler for LISTING pages consuming the new assets (the 384-fix working);
+  all four previously-unchecked target pages GATE-CHECKED CLEAN (both branches 0 rows) before
+  they dispatch — no escalation risk to the hand-seeded trust articles.

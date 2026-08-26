@@ -1358,3 +1358,36 @@ same way, because the fleet's design-checking rotation switched back on this mor
 fortnight off, and it can dispatch automated repairs. If odd design findings appear on the site
 in the next few days, that is the rotation visiting, and the hands-off markers will get their
 first real-world test at the same time.
+
+**2026-08-26, afternoon — the design critic you asked for in July exists, ran, and its first
+report is worth your time.**
+
+The senior-designer review agent is live. Its first full run photographed eight of your pages
+at two screen sizes, filed the mechanical measurements through the existing repair channels,
+and then wrote you a plain-prose critique. Two things about that report deserve notice.
+
+First, its lead finding was that almost every page opens with the same network-node graphic
+and each page should get its own distinct abstract image — which is precisely the work you
+approved on Monday and which was landing while it wrote. The pictures it reviewed were taken
+just before the new images went live, so its next run is the test: that complaint should
+disappear while the rest stays put. A reviewer whose findings move when the site moves is
+measuring something real.
+
+Second, the rest of the report is concrete enough to act on directly: the home page's bar
+charts want a containing card; the services carousel titles need more weight; the how-it-works
+page has a wall of text that wants a ~700px column; the use-cases cards need edge definition
+against the off-white; the case-studies cards want uniform heights; the quiz's dark input
+fields need lighter borders; two small padding nits. No invented problems, and it correctly
+praised the dark-and-gold identity rather than calling it corporate blue — the mistake the
+old design checker used to make, which we specifically built this one to avoid.
+
+Meanwhile the header images themselves: all ten of today's batch are approved (two were
+rejected on sight and regenerated — a stray sketch-marks habit the generator has) and the
+pages are going live as I write; seven of ten confirmed on the live site so far. With
+yesterday's three, every page you named as mattering now opens with its own picture.
+
+One more thing you should know: getting the critic its first successful run found a wrong
+instruction in my own shipped notes — the quick way of firing an agent by message runs it on
+a machine that deliberately has no access to the screenshot store, so the first attempt
+reviewed nothing. The correct route (through the work queue, which spawns a properly equipped
+machine) is now the documented one, with a script. The mistake and its cost are on the record.
