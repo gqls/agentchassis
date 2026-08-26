@@ -5724,3 +5724,30 @@ temporary hosting home): grounded brief + phasing in
 `../site_delivery_and_editor/BRIEF_2026-08-26_domain_find_register_point_service.md` - P1
 (EPP domain:check) + P2 (*.ugg2.com wildcard record; the Worker route already exists) have no
 external gate; P3 registration waits on the pending customer TAG from Nominet.
+
+## 2026-08-26 (night) — wave 5 blocked by TWO fleet conditions; state parked clean
+
+**(1) Dispatch starvation:** the wave-5 index item sat `triaged` 2h+ while build-pipeline-trigger
+ticked per minute. Head-of-queue items (ai-agent-orchestration page_rerender since 19:17,
+3x dartsonline audit_tool since 22:52) sit at attempt 0, never claimed, never errored - the
+same site re-selected every tick, everything behind starves. bugs 030 is CLOSED (this is a
+regression or one of the three FAILED needs_diagnosis rows' mechanisms, 08-18/19/21); filed
+through the 090 loop with FORCE=1 (coverage hits were those failed rows):
+**RUN_CORRELATION 938d6036-4992-4116-b7a5-40b8af171a50** - symptom only, mechanism not asserted.
+
+**(2) AI endpoint outage:** bypassed the queue by direct-firing page-build-handler
+(claim item first; `client_id=system` - an invented client_id fails at spawn with a
+missing per-client schema; both lessons added to the single-page-deploy MEMORY file).
+The bypass ran end to end and the content writer failed:
+`AI endpoint unavailable: provider=anthropic`. Fleet-wide window measured in
+agent_error_log: 1 at 22:00, 41 at 23:00, **204 at 00:00, 140 at 01:00**, last successful
+generate_content 01:37 - intermittent outage/quota, plausibly the same account event as
+this session's own usage-limit pause (MEMORY: the fleet key is not on the default console
+org - check keys' Last used before blaming code).
+
+**Parked state:** index item `f81f0618` back at `triaged` (key held, dedup safe); the
+SERVED site is the verified wave-2/3/4 copy WITH the label - consistent and launch-ready
+minus only the home-points bullets section. **Resume:** when the endpoint is healthy
+(demand-check: one successful generate_content in orchestration_states), claim the item
+and re-fire the proven envelope (scratchpad/wave5b_body.json shape), then RE-PLACE THE
+LABEL and verify bullets + link to /what-you-get.html. Domain service P1/P2 next.
