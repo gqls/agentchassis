@@ -50,6 +50,7 @@ BEGIN
   <div class="container">
     <h1>Gripper Selection Dossier</h1>
     <p>Tell us about one pick-and-place application in a short chat: the part, its weight, the speed, the mounting. We score it deterministically against the same published gripper index that drives every comparison on this site, write up what the numbers say, and email you a link to the finished dossier &mdash; normally within the hour.</p>
+    <p>The dossier is computed and written automatically. Treat it as a shortlisting aid, not an engineering sign-off &mdash; check the numbers that matter against the manufacturer&rsquo;s datasheet before ordering.</p>
     <p>What happens with your details: the email address is used once, to send the link. Chat transcripts are deleted 24 hours after the conversation goes quiet, and the email address is removed from our records 90 days after the request completes.</p>
     <div data-gri-root data-gri-endpoint="https://tools.apis.uk/api/v1/tools/gripper"></div>
     <noscript><p>The intake needs JavaScript. If you would rather not enable it, the contact page works too &mdash; mention the part, weight, jaw opening, material, picks per minute and mounting.</p></noscript>
@@ -63,6 +64,7 @@ BEGIN
   <div class="container">
     <h1>Gripper Selection Dossier</h1>
     <p>Tell us about one pick-and-place application in a short chat: the part, its weight, the speed, the mounting. We score it deterministically against the same published gripper index that drives every comparison on this site, write up what the numbers say, and email you a link to the finished dossier &mdash; normally within the hour.</p>
+    <p>The dossier is computed and written automatically. Treat it as a shortlisting aid, not an engineering sign-off &mdash; check the numbers that matter against the manufacturer&rsquo;s datasheet before ordering.</p>
     <p>What happens with your details: the email address is used once, to send the link. Chat transcripts are deleted 24 hours after the conversation goes quiet, and the email address is removed from our records 90 days after the request completes.</p>
     <div data-gri-root data-gri-endpoint="https://tools.apis.uk/api/v1/tools/gripper"></div>
     <noscript><p>The intake needs JavaScript. If you would rather not enable it, the contact page works too &mdash; mention the part, weight, jaw opening, material, picks per minute and mounting.</p></noscript>
@@ -89,6 +91,17 @@ BEGIN
               'note', 'locked-permanent: rendered_html is the served artefact; content_data is the record'),
             rh, 'pending', 0, now(), '651_robot_hands_gripper_report_page', 'permanent');
   END IF;
+  -- The locked row is guarded by NOT EXISTS above, so a re-apply would never
+  -- heal its markup. The seed is the OWNER of this section's content (owned
+  -- page, section-editor edits only): converge the live row to this file's
+  -- markup on every apply. Added 2026-08-26 with the council round's caveat
+  -- sentence (corr de0068fd, compliance advisory).
+  UPDATE page_components pc
+     SET rendered_html = rh
+    FROM pages p
+   WHERE p.id = pc.page_id AND p.site_id = s AND p.name = 'gripper-report'
+     AND pc.slot_name = 'gripper-report-intake'
+     AND pc.rendered_html IS DISTINCT FROM rh;
 END $$;
 
 INSERT INTO js_snippets (name, description, js_content, applies_to, is_active)
@@ -316,10 +329,10 @@ BEGIN
      AND length(pc.rendered_html) > 500;
   IF n <> 1 THEN RAISE EXCEPTION '651: locked component with mount div missing (count %)', n; END IF;
 
-  SELECT length(js_content) INTO l FROM js_snippets
+  SELECT octet_length(js_content) INTO l FROM js_snippets
    WHERE name = 'gripper-report-intake-widget' AND is_active;
   IF l IS NULL OR l < 4000 OR l > 8192 THEN
-    RAISE EXCEPTION '651: widget snippet missing or out of the <=8KB bound (length %)', l;
+    RAISE EXCEPTION '651: widget snippet missing or out of the <=8KB bound (octet_length %)', l;
   END IF;
 
   -- The bundle-selection join the renderer actually runs (render_js_snippets_
