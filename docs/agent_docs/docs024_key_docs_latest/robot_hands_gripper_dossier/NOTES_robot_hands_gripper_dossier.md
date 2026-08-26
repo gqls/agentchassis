@@ -2387,3 +2387,27 @@ row). Verdict-reading is OWED by this lane.
 **Close criteria for 409 unchanged** (in the bug file): live replay after the swap —
 hedged mounting → asked again (no build spent); volunteered "300 mm travel" →
 clarifying question; 613916a7 happy-path baseline still passes.
+
+## 2026-08-26 (later) — 1342 swapped by owner; replays (a)+(b) PASS live; council r1 REVISE answered in code the same hour; v1.0.1343 staged
+
+- **1342 verified at the container** (revision `45436143b`, hedge literal present
+  with 1340-binary control 0 — busybox grep read 1 vs local 2, the PUB-004
+  multi-word caveat; the label is the stronger evidence), rate limit 2/20 intact,
+  gauntlet 200.
+- **Replays (a)+(b) on the exact session-1 shape: PASS** (session `21e67276…`) —
+  clean partial mounting, no hedge; travel unbound, the discriminating question
+  asked verbatim. (c) baseline submitted, watcher running.
+- **Council r1 = REVISE** (`editquality`, gating, edit 2): finding 2 was
+  guidance-only against my own "a prompt line is not a control". Right call.
+  **r2**: `reconcile()` at the end of `Normalise` (every real path's exit — SQL
+  RETURNING, rescan, submit, inline; no second call site) drops travel > 1.5× the
+  largest geometry number; fail-open; Merge mirrors; boundary 180/181 pinned;
+  mutation-proved. Commit `0419ca584`, resubmitted same corr `70083c99`
+  (run `3f19e25b…`), verdict watcher running.
+- **v1.0.1343** built from `3abb46509` (r2 an ancestor), staged
+  `~/.config/gripper-dossier/tools-api-v1.0.1343.tar.gz`
+  (md5 `1142183f4fa088f6ae4d3dfda4b69eff`). 1340 + 1342 archives kept (rollback).
+- Post-swap probe for the CODE guard (a grep cannot see it — no unique literal):
+  one chat message carrying geometry AND "travel 300 mm" → recorded spec must
+  hold NO travel_mm. That is the capability probe; the revision label is the
+  provenance.

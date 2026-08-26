@@ -489,20 +489,18 @@ milestone read-out.
 
 ## Open, in priority order
 
-1. **409 FIX BUILT same day (chat side) — awaiting the owner's 3-command island swap,
-   then the live replay closes or keeps it.** Commit `eeff5dde6`
-   (`Council-Submitted: 70083c99…`, verdict-reading OWED), image **v1.0.1342**
-   staged at `~/.config/gripper-dossier/tools-api-v1.0.1342.tar.gz` (1340 archive
-   kept = rollback). Owner's commands:
+1. **409: 1342 LIVE (replays a+b PASS), council r1 REVISE answered in code (r2,
+   `0419ca584`), v1.0.1343 staged — ONE more owner swap, then the code-guard probe
+   closes it.** Owner's commands (same three, new tag):
    ```
    scp /home/ant/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/infra/island/docker-compose.yml root@toolsapisuk.vs.mythic-beasts.com:/opt/island/docker-compose.yml
-   ssh root@toolsapisuk.vs.mythic-beasts.com 'gunzip | docker load' < /home/ant/.config/gripper-dossier/tools-api-v1.0.1342.tar.gz
+   ssh root@toolsapisuk.vs.mythic-beasts.com 'gunzip | docker load' < /home/ant/.config/gripper-dossier/tools-api-v1.0.1343.tar.gz
    ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && docker compose up -d tools-api'
    ```
-   Then this lane: verify at container (revision label `45436143b…`, binary literal
-   'not yet specified' > 0) + the three replays in the bug file's close criteria.
-   Original findings: null-based completeness vs phrase-based validator; the
-   "travel"→jaw-span volunteered-value trap.
+   Post-swap this lane owes: revision label = `3abb46509…`; the code-guard
+   capability probe (ONE message with geometry + "travel 300 mm" → no travel_mm
+   recorded); (c) baseline to `emailed`; r2 verdict read (corr `70083c99`, run
+   `3f19e25b…`). Archives 1340/1342 kept as rollback.
 2. **Site widget + `/gripper-report/` page** (DESIGN §2 "Site side", unchanged).
 3. Council resubmit `RESUBMIT_CORR=623da25b…` — still the tools-api build
    session's, deliberately not taken by this lane.
