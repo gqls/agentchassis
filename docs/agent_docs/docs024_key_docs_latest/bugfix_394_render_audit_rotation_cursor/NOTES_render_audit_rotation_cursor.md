@@ -342,3 +342,51 @@ to a full cycle (~9 days on webdesign) to be discovered — versus 3 days today 
 in the prefix, and versus **never** today for the 86 in the tail. So it is a strict improvement
 over the status quo for 86 pages and a regression for at most 60, and the regression window is
 discovery, not confirmation. That is the honest claim and it is the one that goes to the council.
+
+---
+
+## 2026-08-26 — baseline pinned, and the two build-enforced constraints the shipping commit must satisfy
+
+**Green baseline pinned at `4ab76e5e0ea0f4f7d83aceceffb5d87a432370d4`.**
+`go test ./platform/orchestration/actions/ -run 'RenderAudit|Truncat' -count=1` → `ok`.
+Pinned as a SHA rather than as `HEAD`, per the recorded trap that committing kills a
+`git show HEAD:` baseline — and I have committed six times since starting this lane.
+
+### The finding-code registry will make me declare a reader, and it VERIFIES the claim
+
+`RENDER_AUDIT_TRUNCATED`'s current entry in
+`docs/agent_docs/docs024_key_docs_latest/architecture_review/finding_code_registry.json`:
+
+```json
+{ "disposition": "human-evidence",
+  "writer": "platform/orchestration/actions/request_render_audit_action.go:173",
+  "why": "'A capped sweep reporting clean is a false green — the unaudited tail is the SAME
+          pages every run.' A reader/rotation is COMMISSIONED (owner decision 4, 2026-08-25 —
+          bugs_open/394 …); upgraded when it ships. Accepts the retention window it lives
+          under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)." }
+```
+
+`[MEASURED 2026-08-26]` the registry holds **62** codes: 33 `human-evidence`, 15 `operational`,
+7 `consumed`, 7 `instrumented`. The shape a `consumed` entry must take, from a live exemplar:
+
+```json
+{ "disposition": "consumed",
+  "writer": "…:636", "reader": "…:228", "reader_sink": "agent_error_log",
+  "note": "…" }
+```
+
+⚠ **`reader` is not a string you can just type.** `cmd/config-key-audit/findingcodes.go`'s
+`repoSourceReader` OPENS the named file and requires it to mention **both the code and its
+sink** — the field exists because `consumed` was "silently ambiguous" and one entry would
+otherwise have "passed the reader check and read as healthy for ever". So the reader file must
+literally contain `RENDER_AUDIT_TRUNCATED` and `agent_error_log`. Satisfied naturally by the
+planned `cmd/config-key-audit/rendertruncation.go`, but it is a constraint on where the reader
+may live, not a formality — and it is checked at commit time by
+`scripts/check-finding-code-registry.sh` via `.githooks/pre-commit`.
+
+### The roster test is about distinctness, not disposition
+
+`platform/orchestration/actions/finding_code_roster_test.go` reads the same JSON and asserts
+code distinctness, with a vacuity guard that refuses to certify against fewer than 10 codes.
+Keeping the same code string means it is unaffected — checked so I do not discover otherwise
+at commit time.
