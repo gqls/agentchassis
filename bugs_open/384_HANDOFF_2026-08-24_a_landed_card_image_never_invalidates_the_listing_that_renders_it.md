@@ -221,7 +221,7 @@ Go is not — see "what is not live" below). The defect itself is fixed and prov
 | piece | state | proof |
 |---|---|---|
 | the event seam (card lands → consumers re-resolve) | LIVE | induced landing filed exactly N=2 consumer items; `index` chain closed, `escalated=false`, array rewritten `[MEASURED 2026-08-25 09:51Z]` |
-| `page_list_stale` sweep | **ENABLED** (migration `603`, applied by hand 11:37Z) | checks array 44 → 45, verified against the pre-image in `agent_definitions_backup`; check registered on **301 pods** at `4c996e1b5cb9` |
+| `page_list_stale` sweep | **ENABLED and PROVEN LOOKING** (migration `603`, applied by hand 11:37Z) | checks array 44 → 45, verified against the pre-image in `agent_definitions_backup`; registered on **301 pods** at `4c996e1b5cb9`; and `[MEASURED 2026-08-26 08:25Z]` loancalculator `stale:0 / current:**25** / unknown:0` — the `current>0` pass, not the blind zero |
 | `tool-cta` renders the image (decision 4) | LIVE | migrations `614`/`615`; 40 items filed, 0 on archived/owned; 6 pages re-rendered so far, all carrying real card URLs, **0 empty `src`** |
 | `rebuild_blog_listing` blank-image fix (decision 3) | committed, **NOT rolled** | `7720dc76c` + `bafd4411c` |
 | dependency-scoped consumer lookup (decision 2, RFC_052) | committed, **NOT rolled** | `72469c556`; council `e1d32ca2` APPROVED |
@@ -269,10 +269,17 @@ breath.
 
 ## Owed, and honestly still open
 
-- **The sweep's `current > 0` proof.** Two runs so far, both filing zero — but the one summary
-  finding is `consumer_pages:1, stale:0, current:0, unknown:1` on a site whose listing is
-  legitimately EMPTY. That is not the pass; `stale=0` only means something WITH `current>0`, and
-  at a glance it is indistinguishable from the blind case. Watch for a busier site.
+- ~~**The sweep's `current > 0` proof.**~~ **OBTAINED 2026-08-26.** It arrived overnight, once the
+  rotation reached sites with non-empty listings: **loancalculator.co.uk `consumer_pages: 25,
+  stale: 0, current: 25, unknown: 0`** (08:25Z), robot-hands 3/3, finetuning 3/3,
+  loanandmortgagecalculator 2/2, vonc 1/1, webdesign 1/1, garden-tools 1/1. That is the PASS —
+  it looked at 25 listings on one site and found every one current. **Items filed all-time: 0**,
+  which is the predicted and correct result.
+  The earlier `unknown` readings were not faults: lampenkap has ONE page and ZERO `tool` pages,
+  so its `tool-list` array is legitimately empty and an empty resolve is classified UNKNOWN by
+  design. agritec shows the mixed case (`current: 1, unknown: 1`). ⚠ The reporting hazard stands
+  and is worth keeping in mind: `stale=0, current=0, unknown=N` looks identical at a glance to
+  the blind case, and `consumer_pages` is the field that tells you the lookup ran at all.
 - **The escalation rate**, one week on, against the refreshed baseline **1 of 36**
   `section_data_resolved` runs in 14 days. 0 of 5 so far on the tool-cta batch.
 - **Council verdicts**: `7553c120` (decision 4) and `e1d32ca2` (decision 2) APPROVED;
