@@ -241,3 +241,53 @@ would be a cosmetic change to sites nobody reported. They converge on their next
 ⚠ **Two of the three sites are other lanes'** (gaswholesalers.com, robot-hands.com). Included
 because the defect is live there and the repair regenerates no copy — but owner ruling 2026-07-29
 §3 requires **telling** them, and a CONTRIB in each lane's directory is still owed.
+
+## 9. FINAL STATE 2026-08-25 — measured at the artefact, with the control
+
+`scripts/render_audit.py`, after `619` + `630` + `631` and the fan-out drained:
+
+- **Every `1.11:1` hero `H1` failure is GONE** — finetuning.uk `/services.html`, `/about.html`,
+  `/approach.html`, `/contact.html`; gaswholesalers.com and robot-hands.com likewise. All 9
+  fanned-out pages serve **0** occurrences of the invalid declaration.
+- **CONTROL**: `noted.co.uk/contact.html` (solid `cta_bg`, deliberately NOT re-rendered) still
+  carries the declaration and still measures clean — the two facts that together say the repair
+  targeted the right population.
+- **STILL FAILING, expected**: `A.cta-btn` at **1.00:1**. That is the button half, inert until the
+  chassis roll emits `--color-cta-bg-ink`. It is the remaining work, not a regression.
+- **Discount**: the `3.95:1 … (over an image — ratio approximate)` lines. The tool says so itself,
+  they pre-date this and are not what this fixes.
+
+### 9a. A NEIGHBOURING defect, measured and explicitly NOT caused here
+
+`finetuning.uk/contact.html` `BUTTON.form-submit` measures **1.15:1** (white on `rgb(239,239,239)`).
+
+**It is not this change's doing, and the evidence is a before-measurement rather than an argument:**
+the same page measured **1.15:1 on the same selector BEFORE** the fan-out re-rendered it, in this
+session. (The 2026-08-10 detector row recorded `3.01:1` for it, so it has drifted since — by
+something else.) The post-619 census also shows **no** component uses `--color-cta-bg` in a
+`<color>` position, so the contact form's button cannot be an instance of this bug. It looks like
+the hard-coded-ink family VIZ-012 found on oufe's contact form. **Not chased here; recorded so the
+next reader does not attribute it to 398 or assume it was cleared with the rest.**
+
+## 10. Council trail — round 2 also REVISE, and one objection is already discharged
+
+Round 2 (`f0591cb2`, 2026-08-25 21:30) came back **REVISE**, gating objection from `guardian`.
+
+**What the reviewers' own read-only checks CONFIRMED** (all in the verdict note): the stated control
+holds (`case-studies-hero`, `use-cases-hero`, `hero` all `control_ok = true`); `call-to-action`
+does paint the face this change grounds on; the `n_mix` pin of 1 is real; and — a check this lane
+did not think to run — **none of the 9 target pages carries a locked hero component**, so `631`
+could not have silently filed `lock_blocked_change` instead of repairing (0 rows).
+
+**`editquality`, medium, and it was right at submission time:** the plan named the CONTRIB debt to
+gaswholesalers.com and robot-hands.com under owner ruling 2026-07-29 §3 without any edit
+discharging it. **Now discharged** — `CONTRIB_2026-08-25_from_finetuning_your_hero_headings_were_
+invisible_and_are_now_re_rendered.md` is committed into both lanes' directories. The objection
+stands against the plan as submitted and is answered in fact.
+
+> ⚠ **OWED, and stated rather than glossed: the guardian's own objection text has NOT been read.**
+> The `council_report` artifact carries only the decision counters (102 chars of metadata, no
+> `reviews` array), and the `doc_notes` body truncates mid-`reviews` at the `editquality` entry. So
+> the *gating* objection is unread. Do not treat this round as answered. Recover it before the next
+> submission — and note the needle checks now return `false` because 619/630 are **already applied**,
+> which will make any further round read as describing work already done unless the plan says so.
