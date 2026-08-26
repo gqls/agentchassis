@@ -5908,3 +5908,11 @@ halves (claimscan) before applying.
 **Also relayed, observed-not-ruled:** the owner is actively setting up
 webdesign@contactforsales.com (mail server healthy; client config at fault) — reads as
 KEEP for the contact address; one explicit confirm requested in the owner status.
+
+**2026-08-26 — checklist item 4 ANSWERED: contact address = interim keep.** Owner: "I
+will probably set a webdesign.uk address later." So webdesign@contactforsales.com stands
+for launch (owner completing that mailbox; mail server diagnosed healthy by the delivery
+lane's relay), and the domain-mismatch item (a8d6f440) is annotated deliberate-interim,
+re-opened when the webdesign.uk address exists. No copy change now. Owner checklist
+remaining: page rule (after the prominence wave verifies) · customer-container ruling
+(pre-first-hosted-build) · background TAG chase.
