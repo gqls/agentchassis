@@ -359,6 +359,13 @@ operation §7 step 4 used. Verified after: 5 rows, locked row untouched, byte-tw
 fleet-wide, served page zero duplicate ids, and the golden harness reproduces exactly
 (selftest green first). **If you repair damage by hand, grep the queue for detections of
 that damage filed BEFORE your repair — they outlive it and fire when promotion resumes.**
+The triage discriminator, measured on a second site the same day (webdesign.co.uk,
+2026-08-26: 138 pre-resume `detected` rows, ALL inert): only a row whose `item_type`
+has a known **(item_type, handler_agent) pair** can be auto-dispatched by the promoter —
+handler-less types (`capability_gap` and kin) are roadmap rows outside its doors. So
+the dangerous subset is `status='detected' AND created_at < <your repair>` **with a
+handler**; this item fired because `content_duplication` → `deduplicate-sections` is
+such a pair.
 
 **CLOSE CRITERION (what keeps this file in `bugs_open/`):** the fix is live but has not
 been exercised on the arm that failed. One clean **build-arm** rebuild of a locked
