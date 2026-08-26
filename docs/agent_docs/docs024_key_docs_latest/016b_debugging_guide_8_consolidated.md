@@ -256,6 +256,51 @@ title>`, then Symptom / Diagnose / Root cause / Fix, with the SQL and cross-refe
 immediately-prior pattern — the interactive-page clobber — is the final §9 entry in 016
 v2_56; start the next one below.)*
 
+### A green work item plus a correct git commit plus an unchanged live site means the CI PROVIDER is down — ask its status page before you read a single pod log
+
+**Symptom.** A `page_rerender` (or any deploying work item) completes `complete`, its `result`
+carries a real `commit_sha` and `deploy_result.success: true`, the commit genuinely contains the new
+bytes — and the served page does not change. `cf-cache-status` says `DYNAMIC`, so it is not an edge
+cache; the origin file really is old.
+
+**Why it is worth an entry: everything you would naturally check comes back healthy.** Measured
+2026-08-26: `content_data` correct, `rendered_html` correct, the commit correct when read through the
+GitHub **API** — because on that day GitHub's *API Requests*, *Webhooks* and *Git Operations* were
+all `operational` while **Actions was in `major_outage`**. The half of the provider you use to
+investigate was up; the half that deploys was down. That asymmetry reads as "the platform is fine,
+so the fault is mine".
+
+**The check, and it is the FIRST one, not the last:**
+```bash
+curl -s https://www.githubstatus.com/api/v2/summary.json \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['status']['description']); \
+      [print(' ',c['name'],c['status']) for c in d['components'] if c['status']!='operational']"
+```
+Then, and only then, the local evidence: `gh run list --repo <sites repo>` (a deep `queued` count
+with idle runners is a stall, not capacity), and `curl -sI <url> | grep -i last-modified` compared
+against your deploy time — **read that header before you read the body**, or you will call a
+propagation lag a refuted hypothesis.
+
+⚠ **Read EVERY runner pod, not one.** `kubectl get pods | grep runner` listed three on the day; two
+had gone quiet at ~15:25 and the third was still completing jobs at **15:37:11Z**. Taking the max
+across the pods you happened to read puts the boundary minutes early and sends you looking at the
+wrong window. (`logs deploy/X reads one pod of N`, the estate's standing line, applies to runners
+too.)
+
+⚠ **Do NOT bounce the runners.** Against a provider outage a restart deregisters and re-registers
+into the outage — churn with a real downside and no upside — and the queue drains on the provider's
+recovery regardless. The runner list GitHub returns during the outage is mostly stale offline
+registrations from old pod generations, which makes the local picture look worse than it is.
+
+**Blast radius while it lasts:** every lane's repairs land in git and reach no site. Anything
+verified **at the DB** is sound; anything verified **at the served bytes** after the stall is reading
+a pre-stall artefact and will read as "unchanged" whether the work succeeded or failed — the
+reassuring direction for failures and the alarming direction for successes.
+
+**Source:** 2026-08-26, `bugs_open/391` lane + `loanzy_uk_example_site` lane, who found the root
+cause. Two readers spent a combined hour on pods, queues and headers; the answer was a 30-second curl
+of the provider's status page. `WRONG_CALLS.md` has the reading errors.
+
 ### A hand-repair written into a `source:"llm"` field is a loan — rerenders keep paying the interest, and the first content_rewrite forecloses
 
 **Symptom.** Hand-restored or hand-authored content in `page_components.content_data` survives

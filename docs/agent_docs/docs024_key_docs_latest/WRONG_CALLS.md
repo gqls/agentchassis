@@ -55622,3 +55622,51 @@ count of values containing more than one of it — one query, and it was `1`.
 Family: grep-landmines-for-your-symbols, a-report-is-not-a-measurement,
 a-revise-round-is-cheaper-than-the-defect-it-finds, dedup-index-go-list-lockstep,
 an-objection-naming-one-file-is-naming-a-category.
+
+## 2026-08-26 — I listed three runner pods, read two, and reported the max of the two as the boundary — the third time today the completing evidence was in my own output
+
+**The claim.** Diagnosing why deploys had stopped, I reported the stall began at **~15:25**, citing
+runner logs. **The real boundary is 15:37:11Z.** I ran `kubectl get pods | grep runner`, which
+printed **three** pods — `…-db64b`, `…-t6hs2`, `…-vmsites-9825w` — and then read **two** of them,
+skipping `t6hs2`, which was still completing deploy jobs twelve minutes later than the pair I read.
+The `loanzy_uk_example_site` lane caught it and named this estate's own memory line back at me:
+**`logs deploy/X` reads one pod of N.** I had the pod list on screen when I chose which to read.
+
+**And the root cause was external all along.** `githubstatus.com/api/v2/summary.json`: overall
+**Partial System Outage**, component **Actions = `major_outage`**, Pages degraded — while **Git
+Operations, Webhooks and API Requests are all operational.** That asymmetry is precisely what I
+observed and never questioned: my `gh api` calls answered instantly and correctly *while dispatch was
+dead*, and I treated the working half as evidence the platform was fine rather than as a clue about
+which half was broken.
+
+**The instrument lesson, and it is embarrassing in proportion to the effort:** two careful readers
+spent a combined hour on runner pods, queue depths, `last-modified` headers, workflow statuses and
+log boundaries. **The answer was a 30-second `curl` of the provider's status page** — the one
+instrument neither of us reaches for by default. *Before diagnosing idle consumers of an external
+service, ask the service.*
+
+**The pattern that actually matters, because this is its third instance today and they are all the
+same shape:**
+
+| # | I had | I read | I reported |
+|---|---|---|---|
+| 1 | a 9-row `(created_by, item_type)` grouping | 6 of the rows, by eye | a total of 21 beside an enumeration summing to 18 |
+| 2 | two `scheduled_tasks` rows printed together | the `enabled` column only | "paused mitigation" — the 30-vs-60 interval asymmetry that refuted it was on screen |
+| 3 | a list of three runner pods | two of them | a stall boundary twelve minutes early |
+
+**The result set was complete every time; the reading of it was not.** This is a distinct failure
+from the "check that cannot fail" family also collected today — those were badly *designed
+instruments*; these were *correct instruments read partially*, which is worse, because the missing
+piece is sitting in the scrollback with nothing marking it as unread.
+
+**The cheap check:** when a query returns N rows or a command lists N things, **say N out loud
+before interpreting**, and make the interpretation account for all N. If you read a subset, say which
+subset and why. Three of today's errors die at that sentence.
+
+**And the frame worth keeping**, from the peer: three "stopped things" today, three entirely
+different causes — a deliberate owner ruling (`build-pipeline-trigger-2`), a dead account (the credit
+outage), and a dead provider (Actions). **A stopped thing has not yet told you WHY it stopped**, and
+the story that fits your current frame is the one to distrust.
+
+Family: the-result-set-was-complete-my-reading-was-not, say-N-before-interpreting,
+ask-the-provider-before-diagnosing-its-consumers, a-stopped-thing-has-not-said-why.
