@@ -463,3 +463,13 @@ again) and adopted their `analytics.mode` idea into 397 §6.2 (a seeder makes "n
 representation). **Flagged the collision that is mine to own: GA4 publication into `GTM-PQ3WCTBD`
 makes hosted customer sites set `_ga` with no banner on day one** — second cookie-light container /
 Consent Mode / re-ruling are the options; goes to the owner with the consent decision, not after it.
+
+**21.** `[2026-08-26 ~13:10 BST]` Wave progress, measured for the webdesign.uk launch snapshot:
+webdesign.uk's `stale_chrome → needs_rerender` created 12:06:23Z, COMPLETE; head regenerated
+12:17:57Z **with the tag** — first C→A conversion observed end-to-end. Census at the same read:
+see the bucket line committed below. Two loose ends flagged to their lane, not mine: their vm-sites
+census path can't be `gqls/sites/webdesign.uk/` (holds only `assets/`, no HTML — their 5/7 figure
+read something else), and `page_rerender misdirected_cta:what-you-get` unresolved since 12:06:51Z.
+Their question "does the second-container ruling gate your publish?" answered NO with reasons
+(estate publish gated only by the standing consent decision; the ruling gates the FIRST hosted
+customer build) — consistent with 397 §6.2 as banked.
