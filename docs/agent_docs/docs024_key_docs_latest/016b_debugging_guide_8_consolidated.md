@@ -6512,6 +6512,44 @@ page's own deployed `content_data`, in a different file, which the check never c
   reasons until re-detected or closed. Say which, or the queue reads as fixed while the wrong
   sentences sit in it.
 
+### The RANKER and the DRAINER of one queue can order by DIFFERENT KEYS — the ranking row may be one the drainer never takes, and the damage is an ABSENCE no aggregate meter sees
+
+**Symptom.** A container (site, tenant, shard) with plainly eligible work receives no service
+for hours while fleet throughput, distinct-containers-served and failure rates all read
+healthy. `bugs_open/413`: finetuning.uk, 73 items passing every clause of the live selector,
+zero dispatch for 10+ h at 265–278 fleet claims/h.
+
+**Diagnose.** Three moves, cheapest first.
+
+1. **Split "never selected" from "selected-but-took-nothing" — the queue table cannot tell
+   them apart.** Ask the execution record instead (`orchestration_states`: loops per
+   container vs claims per loop). 413: exactly ONE loop in 12 h → selection-side. The
+   inverse result (many loops, zero claims) is `bugs_closed/078`'s dropped-row shape.
+2. **Read BOTH ordering keys from the LIVE artefact and diff them.** The selector picked the
+   container of the globally-oldest eligible row (`ORDER BY created_at`); the loader served
+   the picked container by `ORDER BY priority` with a batch cap. Any row old enough to
+   represent its container but ordered last by the drainer is a PIN: it keeps winning
+   selection for a container it never leaves. Census the pin directly: old rows at the
+   served-last end of the drainer's key, `attempt_count` 0 (never loaded) or climbing
+   (fail-bounce), on containers with recent service at better-ranked rows.
+3. **Validate the model on HISTORY, not the snapshot — the queue is a rolling window.**
+   Rows drain and archive, so a NOW-census of "who stands ahead" cannot explain the
+   afternoon. The cross-check that costs one query: containers stop being served at the
+   exact moments their own old rows drain (413: 35 loops → none after 14:13; 19 → none
+   after 13:59, both matching their last old-row claims).
+
+**Meter it with a per-container FLOOR, never an aggregate.** A starved container contributes
+no failures, no losses, no attempts — only absence (`bugfix-213`'s damage class). Worst
+hours-since-last-service across containers with eligible work is the meter; distinct-
+containers-served structurally cannot fire. RUNBOOK query:
+`dispatch_throughput/RUNBOOK_dispatch_throughput.md` §"Per-site starvation floor".
+
+**The design lesson:** each ordering was locally defensible ("oldest container first";
+"lowest priority number first within a container") — the defect lives at the seam where
+"last within the container" becomes "the container's public age, frozen". When one
+component RANKS containers and another DRAINS them, the ranking key must be computed over
+rows the drainer will actually take next, or an anti-starvation floor must bound the pin.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -6519,6 +6557,15 @@ awaiting a fixing thread (it was `docs024_key_docs_latest/aaa_fails_to_mend/`
 until 2026-07-17; ~23 documents still reference the old path). §9 above holds the
 durable PATTERNS; the files below hold the case detail, evidence and fix
 candidates. Read the file before acting — several are already fixed.
+
+**`413`** — the dispatch selector ranks sites by their oldest eligible row's AGE while the item
+loader serves the picked site by PRIORITY (cap 5), so one old worst-priority row PINS its site —
+winning selection forever while never being loaded — and every younger site is starved of trigger
+dispatch, invisibly to every aggregate meter (`[MEASURED 2026-08-26]` finetuning.uk: 73 eligible,
+zero loops 10+ h at 265–278 fleet claims/h; ~570 rows/13 sites stood ahead, several pinned by
+`audit_tool` @140 attempt 0). Two flavours: never-loaded and fail-bounce. 090 run `250188a7`
+filed with the case. Meter: RUNBOOK per-site starvation floor; fix candidates ranked in the file
+— owned by the dispatch_throughput lane.
 
 **`411`** — `check_image_source_unsatisfiable` states a rendering claim it never verifies;
 `[MEASURED 2026-08-26]` 58 of 67 open items name a field that renders fine (all 46 `site_assets.hero`

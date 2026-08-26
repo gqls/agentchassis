@@ -14,6 +14,12 @@
 > ~60 s; lost-claim share from ~59% → single digits; distinct sites per hour; wait p50/p90 with
 > arrivals held beside) — meters in RUNBOOK; ~30-min AND ~2h reads in NOTES 2026-08-26 (cadence p50 60 s; 22 distinct sites/2h; lost claims 11.4%, post-outage 10.7%; batch cap BINDS at avg 4.66/5). After that:
 > Phase 3 batch-only (5→8 both knobs), then D4. Full ruling + evidence: NOTES 2026-08-26.
+> **ADDED ~15:4xZ: the 24h read MUST include the per-site starvation floor (RUNBOOK §"Per-site
+> starvation floor") — `bugs_open/413`, found via the 391 lane's handover: the selector ranks
+> sites by oldest-row AGE while the loader serves by PRIORITY, so one old worst-priority row
+> pins its site and starves every younger site of trigger dispatch (finetuning.uk: 73 eligible,
+> 10+ h, zero loops), invisibly to every aggregate meter. 090 run `250188a7` in flight at cut
+> time; verdict + Phase 3 interaction notes in the bug file.**
 
 **Read first, in this order:** this file → `NOTES_dispatch_throughput.md` 2026-08-25 session-2
 entry (§1–§7 — the day the lane's central claim fell) → `README_where_we_are.md` 2026-08-25

@@ -197,6 +197,37 @@ SELECT name, md5(pre_query) pq, interval_seconds, target_topic, timeout_seconds,
 FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%';
 ```
 
+## Per-site starvation floor (added 2026-08-26 — bugs_open/413; the aggregate meters CANNOT see this)
+
+```sql
+-- Hours since last claim for every site with eligible work. The 413 mechanism (a pinned
+-- worst-priority old row freezes its site's age and starves younger sites) produces ZERO
+-- failures, losses or attempts — only absence — so claims/h and distinct-sites/h read healthy
+-- through it. Quote the WORST site, not the mean. ⚠ last_claim reads from site_work_items,
+-- a rolling window: a site whose claimed rows have all archived reads NULL — treat NULL as
+-- "long ago", not "never", and confirm at orchestration_states loops for the site.
+SELECT s.domain,
+  (SELECT count(*) FROM site_work_items wi WHERE wi.site_id=s.id
+    AND wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts
+    AND (wi.retry_after IS NULL OR wi.retry_after <= now())) eligible,
+  (SELECT min(wi.created_at) FROM site_work_items wi WHERE wi.site_id=s.id
+    AND wi.status IN ('triaged','approved')) oldest_eligible,
+  (SELECT max(claimed_at) FROM site_work_items c WHERE c.site_id=s.id) last_claim
+FROM sites s
+WHERE EXISTS (SELECT 1 FROM site_work_items wi WHERE wi.site_id=s.id
+   AND wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts
+   AND (wi.retry_after IS NULL OR wi.retry_after <= now()))
+ORDER BY last_claim ASC NULLS FIRST LIMIT 15;
+
+-- The pin census: eligible rows old enough to be their site's representative but at the
+-- served-last end of the loader's ordering, on sites with recent claims at better priorities.
+SELECT s.domain, wi.created_at, wi.priority, wi.item_type, wi.attempt_count
+FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+WHERE wi.status IN ('triaged','approved') AND wi.priority >= 130
+  AND wi.created_at < now()-interval '6 hours'
+ORDER BY wi.created_at LIMIT 20;
+```
+
 ## Council (added 2026-08-25)
 
 ```bash

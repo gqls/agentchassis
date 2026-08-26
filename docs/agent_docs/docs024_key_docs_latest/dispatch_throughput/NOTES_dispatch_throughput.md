@@ -575,3 +575,38 @@ All meters `[MEASURED 2026-08-26 10:50–10:55Z]`, windows as stated; taken now 
   incident validates 637's design choice of keeping the ruling mechanical (2/7) rather than
   documentary: the next session that pattern-matches "disabled = paused" hits a RAISE, not a
   silent regression.
+
+### 2026-08-26 ~15:4xZ — the 391 lane's starvation handover DIAGNOSED: the selector and the loader disagree on ordering → bugs_open/413
+
+The 391 lane handed over (CONTRIB addendum, explicitly undiagnosed): finetuning.uk, 73 eligible
+items, zero claims in 6+ h while the fleet ran 265–278/h. Full evidence and mechanism now in
+`bugs_open/413_HANDOFF_2026-08-26_selector_and_loader_disagree_on_ordering_so_a_pinned_item_starves_younger_sites.md`;
+090 run `250188a7-29ae-4b3d-ace6-638694612c8b` filed BEFORE committing to the root cause
+(07-31 ruling). The investigation path, for the record:
+
+1. **The discriminator the handover couldn't see:** "never selected" vs "selected-but-loaded-zero"
+   are identical in `site_work_items`; `orchestration_states` separates them. finetuning.uk had
+   exactly ONE `build-dispatch-loop` in 12 h (05:08:53) → selection-side. `[MEASURED 15:1xZ]`
+2. **Live selector read from the artefact** (agent_definitions, not a mirror — the 391 lane's
+   mirror was wrong twice today, their own admission): full clause list incl. lock-exception,
+   approval_mode, depends_on, busy-skip. All 73 finetuning items pass EVERY clause (cumulative
+   breakdown 73/73/73; depends_on all NULL — the archived-dependency hypothesis from the
+   [[a-closer-census-cannot-see-what-it-succeeded-at]] memory was checked and is NOT this case).
+3. **The pin, measured:** 13 sites / ~570 eligible rows older than finetuning's oldest; 10 busy at
+   the instant, 2 also starving (gaswholesalers 04:22, loanandmortgagecalculator 04:39). Pinned
+   rows live: audit_tool @prio 140 attempt 0 on mortgagecalculator (created 23:53; the site took
+   22 loops/95 claims in 3 h at prios 30–130 and never touched them), oufe, ai-agent-orchestration;
+   fail-bounce flavour on loancash (@140, attempt_count 2). Sites drop out of service the moment
+   their own old rows drain (fundamentallyai 35 loops → none after 14:13; idea.uk 19 → none after
+   13:59) — the NOW-census can't show their history (rolling window), the loop cessation can.
+4. **Ruled out en route:** loader-drop black hole (bugs_closed/078 shape — every looped site
+   loads ~5/claims ~90%+), the NULL-task_name second producer (real, ~3-4 loops/h fleet-wide,
+   serves some younger sites, neither causes nor masks), and everything the 391 lane had already
+   measured (lock, busy-skip, retry_after/307, attempt exhaustion).
+
+Lane consequences, all applied this entry: RUNBOOK gains §"Per-site starvation floor" (the
+aggregate meters structurally cannot see an absence — quote the WORST site); the 24h post-B read
+spec now includes it (HANDOFF top block); Phase 3 is flagged in 413 as cutting both ways (deeper
+loads reach @140 rows sooner; longer busy windows per pick) — measure the floor across it, do not
+assume. Ruling B neither caused nor cures 413 — pre-B the pair co-picked one deep site 94%, so
+starvation was WORSE, just unmeasured.
