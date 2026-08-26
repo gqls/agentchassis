@@ -6135,3 +6135,41 @@ the next auth-service roll for the field) → customer pays the checkout link �
 webhook marks paid → (once enabled) collector releases the brief into
 build_queue within 15 min → existing pipeline builds. Nothing is pasted into an
 email at any step.
+
+### Council verdict for aa5a40a2 — APPROVED round 1, and what the 6 advisories came to
+
+**APPROVED, 6 advisory objections, none high, 6 seats abstained** (22:34:11Z;
+HEAD `d2e8cfded` verified building with the change in it). Dispositions:
+
+- **prior_art: handler posture — REAL, FIXED.** The LANDMINES entry "A
+  HITL-terminal item type with a NON-EMPTY handler_agent" prescribes EMPTY
+  (voice_tells posture); checkpoint_for_review's 'human-review' literal is that
+  entry's measured safe-by-accident case and I had copied it. `fileOrderAttention`
+  now files with `handlerAgent: ""` — excluded from the detected-item-promoter
+  by construction instead of held-then-escalated-to-a-hand-canary.
+- **prior_art: stale absence claim — RE-VERIFIED at current code.** grep over
+  `seed_build_queue_action.go` (zero site_specs/evidence_base references) +
+  `upsertSite` (domain/name/network_id/status only), 2026-08-26 at HEAD. The
+  disabled-gate rests on tonight's read, not the July plan.
+- **guardian: CreateOrder blast radius — ENUMERATED.** Callers grepped before
+  the change (none outside billing + handlers); whole-repo compile at HEAD via
+  verify-head-builds.sh is the totality check. priority semantics verified in
+  code: seed reads `ORDER BY priority ASC`, so 10 runs ahead of default 100.
+- **editquality/guardian: 661's INSERT spawnability — the sketch elided it; the
+  FILE populates description (the agent_definitions landmine's column) and the
+  verify block asserts the workflow content. At 661 apply time, additionally
+  confirm the row lists in the admin agent surfaces before enabling.
+- **editquality: which secret the chassis envFroms — verified BEFORE building
+  (patch-deployment.yaml: personae-prod-config + personae-default-secrets), and
+  the empty-token refusal is a real error return, tested.
+- **reuse_agent/prior_art: existing collection mechanisms — build_queue IS the
+  reused mechanism (this plan's whole premise); collection_tasks/content-feed
+  poll patterns own different tables and retry semantics. Answered here rather
+  than rebuilt; if a future generic external-collector emerges, this action is
+  one call site to migrate.
+- **architecture: cross-subsystem join key write-up — WRITTEN:**
+  `architecture_review/REVIEW_2026-08-26_external_reference_join_key.md`
+  (semantics, enumerated blast radius, staged rollback, and the refund-timing
+  gap handed explicitly to the refunds lane).
+- **tooling_provenance: close P4 against its plan — DONE:** completion addendum
+  appended to `PLAN_2026-07-31_p4_order_intake.md`.

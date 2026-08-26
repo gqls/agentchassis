@@ -285,15 +285,27 @@ func fileOrderAttention(ctx context.Context, params ActionParams, o boxBriefOrde
 	defer tx.Rollback()
 
 	if _, err := insertWorkItem(ctx, tx, workItem{
-		siteID:       siteID,
-		source:       "order-intake",
-		pipeline:     "build",
-		itemType:     "needs_human_review",
-		severity:     "high",
-		summary:      fmt.Sprintf("Paid order %s needs a human: %s", o.Reference, reason),
-		spec:         string(specJSON),
-		priority:     10,
-		handlerAgent: "human-review",
+		siteID:   siteID,
+		source:   "order-intake",
+		pipeline: "build",
+		itemType: "needs_human_review",
+		severity: "high",
+		summary:  fmt.Sprintf("Paid order %s needs a human: %s", o.Reference, reason),
+		spec:     string(specJSON),
+		priority: 10,
+		// EMPTY on purpose (the voice_tells posture, LANDMINES "A
+		// HITL-terminal item type with a NON-EMPTY handler_agent"): a
+		// descriptive value like 'human-review' is selected by the
+		// detected-item-promoter, held as "handler not a live agent" —
+		// which reads as a routing defect — and after 3 days
+		// held-pair-canary-escalation asks a human to hand-canary the very
+		// thing that must never be auto-dispatched. An empty handler is
+		// excluded by the promoter's scored CTE by construction.
+		// (checkpoint_for_review's 'human-review' literal is the measured
+		// safe-by-accident case that landmine documents — copied here
+		// first, corrected on the council round's prior_art advisory,
+		// corr aa5a40a2.)
+		handlerAgent: "",
 		status:       "needs_human_review",
 		createdBy:    "collect_external_orders",
 		itemKey:      "order_attention_" + o.Reference,

@@ -239,3 +239,30 @@ domain means.
   only; `fetchguard` is the outbound one).
 - `seed_build_queue_action.go`, `site_db_actions.go:1016` (`upsertSite`),
   `validate_page_content.go:302-338` and `:980`.
+
+---
+
+## ✅ P4 BUILT — 2026-08-26 (owner GO that evening), closing this plan's ask
+
+§2's "one action + one scheduled task" exists: `collect_external_orders`
+(commit `da0e6b70d`, council APPROVED round 1, corr `aa5a40a2`) +
+`order-intake-collector`/`order-intake-collect` (migration **661**, _HOLD,
+ships **disabled** — verify asserts it). Every §7 ruling is implemented as
+ruled: 15-min interval; repeat-domain reject-to-a-human via `needs_human_review`
+(EMPTY handler_agent — the landmine-prescribed HITL posture, corrected from
+checkpoint's safe-by-accident literal on the council's advisory); the stateful
+conflict clause reads the existing row's status. §8's box contract exists too,
+built INTO the chat service rather than a P1 engine (`orders.go`: CollectedAt
+marker, authenticated list, idempotent ack) — and the join is the owner-ruled
+**order reference** (`BR-XXXXXX` ↔ `billing_orders.external_reference`,
+migration 659 APPLIED), not box-side paid state: **§2's "asking for orders in a
+paid state" is superseded** — payment truth lives cluster-side in billing, the
+box only ever knows "committed". One premise of §2 was re-measured and fell:
+no cluster→box WireGuard route exists (LANDMINES 2026-08-26, "the tunnel
+routes ONE WAY"), so the transport is §2's own "over HTTPS" via the public
+edge + bearer. **§4 (P5 seeding) remains the open half and gates enabling the
+task**: re-verified against current code 2026-08-26 (grep: zero
+site_specs/evidence_base writes in `seed_build_queue_action.go`; `upsertSite`
+inserts only domain/name/network_id/status). Blast radius + rollback:
+`architecture_review/REVIEW_2026-08-26_external_reference_join_key.md`.
+Full account: NOTES 2026-08-26 (late night).
