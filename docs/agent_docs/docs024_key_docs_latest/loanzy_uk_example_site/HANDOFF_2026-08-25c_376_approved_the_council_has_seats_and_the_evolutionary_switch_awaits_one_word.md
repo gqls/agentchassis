@@ -139,8 +139,8 @@ the 621-convergence of the two park shapes; a real verdict-release surface).
 `recordModeSilenceRule` + `recurrenceExpected` on record rows; council trail `04a3ce1f` ran FOUR
 rounds (r1 REVISE — two right HIGHs; a stale-bytes duplicate of my own, declared; true r2 REVISE —
 the multi-producer pin; r3 REVISE — the reaper interaction, settled by its own pre_query; r4
-dispatched and DECLARED FINAL). Whatever r4 says, the code stands as advisory-reviewed with every
-objection dispositioned; residuals are **RFC_056 FOLLOW-UPS** (six, incl. the post-roll proofs).
+dispatched and DECLARED FINAL). **r4: APPROVED 14:36Z** (5 advisories, none high, all dispositioned); residuals are **RFC_056
+FOLLOW-UPS** (six, incl. the post-roll proofs).
 **Operative rule until the roll: verdict rows are cleared by humans only** (RUNBOOK "verdict queue").
 **apis.uk's finding** (FOLLOW-UP #1): `missing_tools` → tool expansion runs on the mechanical seat
 with no per-site refusal — growth, not defect; the owner's word is needed on a refusal declaration.

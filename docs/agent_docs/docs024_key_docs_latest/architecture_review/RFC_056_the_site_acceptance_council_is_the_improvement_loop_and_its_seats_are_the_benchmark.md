@@ -504,3 +504,12 @@ and holds the exchange in their NOTES — the same-file-passenger remedy, applie
    errors are swallowed inside design-audit-agent; a child failure leaves no seat-failure row.
 6. **A verdict-release surface** beyond the RUNBOOK's SQL (architecture seat, r2) before record
    rows accumulate fleet-wide — 271 as of 2026-08-26 11:00Z.
+
+**TRAIL CLOSED (2026-08-26 14:36Z): round 4 APPROVED** — 5 advisories, none high, every one a
+residual already dispositioned on the trail or in the FOLLOW-UPS above (the audit_source scope
+check the sketch elided exists in code and is what the three-producer pin exercises; the crossed
+test's sign-off is recorded in both lanes; mechanism convergence = FOLLOW-UP 3; future-producer
+enrolment policy = the enrolment contract at the rule + FOLLOW-UP 1's shape; the unindexed jsonb
+scan is one DISTINCT per audit transaction and is the price of a roster-free domain query).
+The five-note trail — REVISE, stale-duplicate, REVISE, REVISE, APPROVED — is the advisory record;
+the Go rides the next roll; the post-roll proofs are FOLLOW-UP 4.
