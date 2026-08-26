@@ -458,3 +458,28 @@ uses.
    call on this payload's path. So "the priority set is what this reply can grade" has one
    member by construction — which is a stronger reason to exclude `undeployed_asset` than my
    NULL-`page_id` measurement was. Both hold; the first is the one that will not rot.
+
+---
+
+## 2026-08-26 — council submitted
+
+`SUBMISSION_CORR = f67593f5-90cb-4a35-9cc0-926254645192`
+(`council_submission_394_r1.json`, 8 edits, 16 `grounded_in` quotes.)
+
+`DRY_RUN=1` passed admission first, so no credits were spent discovering a schema slip. Budget
+~30 minutes, not ~2 — the council itself takes 2-5 but the dispatch queues behind the fleet.
+
+Verdict:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+ WHERE correlation_id='f67593f5-90cb-4a35-9cc0-926254645192' AND kind='council_report'
+ ORDER BY created_at;
+```
+
+Committing code before the verdict lands uses **`Council-Submitted:`**, never
+`Council-Reviewed:` — the latter on an unread verdict is what `098` buckets as MISMATCH, the
+coverage report's dishonesty surface. `098` resolves the correlation at report time, so the
+commit is credited automatically once it turns approved.
+
+Ownership re-checked at this phase boundary (RUNBOOK §7): `who-owns.py` names this lane, and
+`git status` shows no other session in `request_render_audit_action.go` or `work_items_common.go`.
