@@ -390,3 +390,71 @@ may live, not a formality — and it is checked at commit time by
 code distinctness, with a vacuity guard that refuses to certify against fewer than 10 codes.
 Keeping the same code string means it is unaffected — checked so I do not discover otherwise
 at commit time.
+
+---
+
+## 2026-08-26 — CORRECTION to my own priority-set census: right number, wrong predicate
+
+> **⚠ CORRECTED 2026-08-26.** The census two sections above filtered
+> `status NOT IN ('complete','cancelled','rejected')`. **That is not the platform's closed
+> set.** The grader uses `workItemClosedStatuses` (`work_items_common.go:85-91`):
+>
+> ```
+> terminal (dedup / ON CONFLICT):  complete verified rejected wont_fix cancelled failed unresolved
+> closed   (retraction):           complete verified rejected wont_fix cancelled
+> ```
+>
+> — and the difference is deliberate (RFC_010, owner ruling 2026-08-02 "Decision 2:
+> `unresolved` is OPEN"): `unresolved` and `failed` mean "we gave up" and "the handler
+> errored", never "this stopped being a problem". My filter omitted `verified` and
+> `wont_fix`, so it counted two settled statuses as open.
+
+Caught by the planning agent reading `work_item_retraction.go:118-128` — the grader's actual
+candidate query — rather than by me.
+
+**Re-measured with the exact predicate**, `[MEASURED 2026-08-26]`, and keyed on the path
+recovered from `item_key` (which is what the grader matches on — NOT `page_id`):
+
+```sql
+SELECT s.domain, count(*) AS open_items,
+       count(DISTINCT split_part(replace(wi.item_key,'contrast_failure:',''),'#',1)) AS distinct_paths
+FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+WHERE wi.item_type = 'contrast_failure'
+  AND wi.status NOT IN ('complete','verified','rejected','wont_fix','cancelled')
+GROUP BY 1 ORDER BY 2 DESC;
+```
+
+| domain | open items | distinct paths |
+|---|---|---|
+| robot-hands.com | 23 | **17** ← fleet max |
+| idea.uk | 20 | 7 |
+| loancash.co.uk | 10 | 10 |
+| … | | |
+| **webdesign.co.uk** | **3** | **3** |
+
+**The number did not move: webdesign is still 3 and 3.** It happens to carry no `verified` or
+`wont_fix` contrast rows, so the wrong predicate and the right one agree on the one site the
+figure was about.
+
+**That agreement is not a vindication and I am recording it as a near-miss rather than a
+footnote.** A figure that comes out the same under a wrong predicate has not been checked by
+that agreement — it has been checked by luck, and the luck is site-specific. Had I run the same
+census on idea.uk or robot-hands to justify the design, the two predicates could have differed
+and I would have had no way to notice, because the number would still have looked plausible.
+The design conclusion stands; the evidence for it now rests on the predicate the grader actually
+uses.
+
+### Two things the planning agent established that I had assumed
+
+1. **The page identity is the path inside `item_key`, not `page_id`.**
+   `workItemKey("contrast_failure", path+"#"+selector)` (`work_items_common.go:510-512`), and
+   the grader prefix-matches it against `urlPath(u)` of the measured URL. My census keyed on
+   `page_id`, which happens to be populated on all 111 open contrast rows — but the grader has
+   never read it, so a priority query keyed on `page_id` would have been a second, divergent
+   notion of "which page" living beside the real one. It must key on `item_key`.
+2. **The drain grades exactly ONE item type on this path**:
+   `write_render_audit_findings_action.go:791` calls
+   `loadAuditRetractionCandidates(ctx, tx, siteID, "contrast_failure")` and that is the only
+   call on this payload's path. So "the priority set is what this reply can grade" has one
+   member by construction — which is a stronger reason to exclude `undeployed_asset` than my
+   NULL-`page_id` measurement was. Both hold; the first is the one that will not rot.
