@@ -1149,3 +1149,38 @@ seam exists for customer sites yet, 0 having ever been built); wire the action s
 later automatic trigger can call the same thing.
 
 **DKIM/DMARC** stay owed at the HOST before any real customer send (NOTES entry above).
+
+## 2026-08-26 (night) — THE REMAINING PATH BUILT: producer + /d/ + the email. Phase 4's code is COMPLETE.
+
+Owner: "please go ahead with the remaining path." Done, in dependency order, one commit +
+one council round (`Council-Submitted: 5a33a174`), everything mutation-proved and green at
+HEAD `98aff4d7e`. Register: **DGH-018**; DGH-017's key shape corrected
+(`delivery_review_<domain>` — what `create_work_item` actually files, not what my helper
+wished for).
+
+**The producer is ZERO new Go.** `create_work_item` already documents `needs_human_review`
++ no handler as the HITL idiom and takes `spec_literal` — so `delivery-review-filer` is a
+seed (651, _HOLD). The admin console could NOT substitute (hardcodes `triaged`, which the
+approve button 400s).
+
+**/d/ is DB→302 with no standing credentials.** Migration 650 stores zip-deliverer's
+presign ON the token row; `LookupZipURL` is one statement; stale NEVER redirects (an
+expired presign 403s as SignatureDoesNotMatch — the landmine) — honest refresh page +
+`ZIP_LINK_STALE` persisted to `agent_error_log`, the swept channel. **Stated deviation**
+from 21b §4's literal "file a work item": that rides the REFRESHER, which is the one
+remaining unbuilt half. The vhost `/d/` block + `boxServablePrefixes` + the route landed
+in ONE commit, as the SYS-095 guard demands — the /d/ test flipped back to accepted.
+
+**The email's order is the design.** Sender constructed BEFORE the claim; template
+validated against producible links BEFORE the claim (the gap my own dead test line
+exposed: `{{zip_link}}` with no presign FILLS AS EMPTY — "Your files:" then nothing —
+invisible post-fill because the fill succeeded); then Claim (gate + once-only stamp +
+minting); then fill the closed vocabulary, refuse survivors with an error that names the
+recovery recipe. Copy is DB config in seed 651, owner-editable without a roll, figures
+from the attested register.
+
+**Owed before the first real send, in order:** apply 650 → roll → apply 651 →
+`DELIVERY_SMTP_*` env + secretKeyRef on the chassis (owner holds the password) → DKIM +
+DMARC at the HOST (still absent tonight) → box vhost re-apply (the /d/ block, gated on the
+roll per its own header) → then the flow in 651's header: file review → owner edits +
+approves → cut ZIP → dispatch the email. **The refresher is the follow-up build.**
