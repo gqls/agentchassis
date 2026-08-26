@@ -606,3 +606,37 @@ same detail once they pinned it root-first.
 > nothing errors, and duplicate keys only misbehave while polling.
 
 Handoff for the next session: `HANDOFF_2026-08-26_continue_here.md`.
+
+### 2026-08-26 (later) — §2 success-arm test AUTHORISED and IN PROGRESS: `customer_access_tokens` will be briefly non-zero, DELIBERATELY
+
+**Written BEFORE minting anything, as the handoff requires.** The owner authorised the §2
+success-arm test this session and chose **indoorplanters.co.uk**
+(`31278598-5cb1-4af4-86d6-11480ab0f96a`, status `test` — the redemption path never reads
+`sites.status`, verified at `platform/delivery/handover.go` `RedeemToken`/`ConfirmTransfer`,
+so a test-status site proves the identical code with nothing customer-facing at stake).
+
+While this entry is the newest thing in this file, the following are EXPECTED, not an incident:
+one `customer_access_tokens` row with `created_by='verify-second-click-2026-08-26'`
+(purpose `confirm_transfer`, single_use, 1-hour expiry), and — transiently —
+`transfer_confirmed_at` non-NULL on that one site. The recipe ends by deleting the token row
+and clearing the stamp; a results entry follows below. If the results entry is missing and the
+row is still there, the session died mid-test: delete the token row by `created_by` and
+`UPDATE sites SET transfer_confirmed_at = NULL WHERE id = '31278598-5cb1-4af4-86d6-11480ab0f96a'`.
+
+### 2026-08-26 (later still) — §2 DONE: the success arm is PROVEN at the live endpoint, and everything is back to zero
+
+The last unexercised arm of the confirmation flow ran in production `[MEASURED 2026-08-26]`,
+against build `v1.0.1341` / core-manager stamp `2fb40a960`, token row
+`110d8c3f-f80f-42c9-9d3d-74fdc6dad761`, from the public internet:
+
+| step | result |
+|---|---|
+| baseline | `use_count` 0, `used_at` NULL, `transfer_confirmed_at` NULL |
+| `GET` ×2, real token | **200** confirm page both times; DB identical to baseline after — the page render mutates NOTHING even for a live token |
+| `POST` ×1 | **200** `<h1>Thank you, that is recorded.</h1>`; `use_count` 0→1, `used_at` AND `sites.transfer_confirmed_at` stamped `2026-08-26 08:57:10.26625+00` — the two timestamps are IDENTICAL, which is `ConfirmTransfer` threading one `now` through both writes, as the code says |
+| `POST` ×2 | **200** `<h1>That link is no longer active.</h1>`; `use_count` held at 1 — single-use enforced at the endpoint, not just in the unit test |
+| cleanup | token row deleted by id, stamp cleared; `customer_access_tokens` **0**, `transfer_confirmed_at` **0**, `handed_over_at` **0** |
+
+Every claim in the flow is now proven at the live endpoint: GET is read-only, POST redeems
+exactly once, the stamp lands, the second click is refused. **Nothing in this lane is unproven
+any more.** The transient non-zero window announced above lasted ~3 minutes and is closed.

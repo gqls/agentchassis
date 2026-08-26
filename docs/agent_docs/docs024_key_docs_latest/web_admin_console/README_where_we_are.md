@@ -363,3 +363,20 @@ was one query that takes seconds. Nothing errored. The screen looked right the w
 The only thing still outstanding is the one I flagged yesterday: I have not tested a real
 working link end to end, because that stamps a real site as "customer has moved". Tell me which
 site and I will do it and clear it afterwards.
+
+## 2026-08-26, later — you authorised the real-link test; it passed cleanly and everything is back to zero
+
+You picked indoorplanters.co.uk and I ran the full thing: made one real link, opened its page
+twice (nothing recorded, as designed — opening is not confirming), pressed the button once, and
+watched the confirmation land on the site's record at that instant. Pressed it a second time and
+got "That link is no longer active", which is the single-use protection working on the real
+system, not just in tests. Then I removed the link and cleared the confirmation stamp, and
+double-checked the counts: no customer links exist, no site is marked confirmed, nothing is
+marked handed over.
+
+I used that site because it is one of the two marked "test" — the confirmation machinery treats
+every site identically, so it proves the same thing with nothing customer-facing involved.
+
+That was the last unproven piece. The whole confirmation flow — page, button, recording,
+refusing a second press — has now been exercised for real, end to end, from the public
+internet. This lane has nothing outstanding.

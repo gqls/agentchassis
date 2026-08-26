@@ -32,7 +32,14 @@ all pods (a release can straddle — check per service, never fleet-wide).
 | delivery listener wiring survived the roll | `SERVICE_SERVER_DELIVERY_PORT` = `8090` in the pod; live egress policy allows `core-manager: 8088 8090` |
 | Builds screen in the served bundle | dashboard `v1.0.1341`, bundle greps for this lane's strings **and** the other session's new terminate copy, control string absent |
 
-## 2. THE ONE OPEN ITEM — needs the owner, not a session
+## 2. ~~THE ONE OPEN ITEM~~ — **DONE 2026-08-26, owner-authorised: the success arm is PROVEN live**
+
+> **CLOSED later the same day.** The owner chose `indoorplanters.co.uk` (status `test`; the
+> redemption path never reads `sites.status`). Recipe run exactly as written below, announced in
+> NOTES first: GET ×2 mutated nothing, POST stamped `use_count`/`used_at`/`transfer_confirmed_at`
+> in one breath, second POST refused with the spent-link page, then token deleted and stamp
+> cleared — falsifiers back to **0/0/0**. Full table: `NOTES_web_admin_console.md`, 2026-08-26
+> "later still" entry. **This lane now has NO open items.**
 
 **The SUCCESS arm of the confirmation flow has never been run at the live endpoint:** minting a
 real token, pressing the button, and seeing `transfer_confirmed_at` stamped. Everything around it
