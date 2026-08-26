@@ -1,0 +1,7 @@
+{
+  "name": "_owner_voice_seed",
+  "task": "De-AI-ify a stiff draft into the owner's own register (dataset 3, copy style) — SEED ONLY, not trainable",
+  "provenance": "our-own-material",
+  "provenance_detail": "ONE pair, and it is the only fully attributable before/after in the estate. Source: docs024_key_docs_latest/travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v2.md, 'Worked example'. The 'before' is the v1 pitch-deck copy; the 'after' is the hand-edited rewrite the owner judged genuinely more readable, withheld from four blind agents during the original exercise. Owner permission to use his writing granted 2026-08-26. NOT ENOUGH TO TRAIN ON — see ../PROVENANCE.md for the measurement that says why.",
+  "owner_decision": "2026-08-26 — 'yes we can use my writing'"
+}

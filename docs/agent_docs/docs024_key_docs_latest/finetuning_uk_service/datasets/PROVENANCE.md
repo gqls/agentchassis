@@ -19,6 +19,15 @@ teacher.
 **This does not affect dataset 6** (internal-doc summarisation): its target is a summary in a house
 FORMAT, not a voice, and our own long documents are fine for that.
 
+> ## ✅ RESOLVED 2026-08-26 — permission GRANTED, and it was never the constraint
+>
+> **Owner, 2026-08-26: *"yes we can use my writing"*** — option 1 below, approved.
+>
+> **And then the material turned out not to exist.** See §"The corpus measurement" at the foot of
+> this file. The honest total of attributable owner prose in the estate is **117 words** plus **one**
+> before/after pair. The three voice datasets are still blocked — **on material, not on permission**,
+> and only he can unblock them now by sending it. What to send is listed at the end.
+
 **Three ways forward, and this one is the owner's call:**
 
 1. **Use his own writing** — the `README_where_we_are.md` entries and his own messages are plain,
@@ -61,3 +70,47 @@ the failure this refuses for free.
 
 `provenance` is a required field precisely because no machine can check it. Whose words these are
 is a question a person has to answer before anything is published.
+
+---
+
+## The corpus measurement, 2026-08-26 — and the near-miss that produced it
+
+Permission was granted, so the next step was to find his writing. It is not there, and the way that
+was nearly missed is worth more than the finding.
+
+**The wrong measurement.** 268 `README_where_we_are.md` files (**5.85 MB**) are "the owner's
+document" by convention. Extracting every quoted string from any paragraph mentioning the owner gave
+**2,580 utterances / 31,164 words across 259 lanes** — comfortably a training set.
+
+**It was almost entirely OUR OWN prose.** An unfiltered sample, every 60th row:
+`feed items collected: 11,513` · `does this exact string appear in the facts?` · `, because our own
+tooling treats a trailing`. Session writing, error strings and technical fragments that sessions had
+quoted **for emphasis while describing their own work**. The extractor tested for QUOTING; I was
+reading it as AUTHORSHIP. Caught by printing the sample rather than the total — a count cannot show
+you that every row is the wrong kind of thing. Logged in `WRONG_CALLS.md` 2026-08-26.
+
+**The honest figures `[MEASURED 2026-08-26]`:**
+
+| source | attributable owner prose |
+|---|---|
+| explicitly-marked owner speech (`**OWNER … verbatim:** "…"`) fleet-wide | **16 utterances, 117 words** — all short instructions ("keep the explanatory copy") |
+| `travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v2.md` | **1** genuine before/after pair he judged — preserved as `_owner_voice_seed/` |
+| that exercise's full ground truth (`held_out_ground_truth.md`) | its own README says *"not copied into the repo, ephemeral"* — gone |
+| `pitch_pdf_source/deck.html` (3,371 words) | **unattributable** — carries NEITHER the v1 phrase nor the hand-edited target phrase, so it is a third version of unknown authorship |
+| everything else | ours, or unattributable |
+
+**117 words and one pair is not a training set for anything.** Composing the rest and calling it his
+voice would be precisely the fabrication these datasets exist to avoid — and it would be published
+to prospects under his name.
+
+## What he needs to send, per dataset
+
+Volumes are the design's own (60–200 pairs); 30–60 real items is enough to start and can be extended.
+
+| # | dataset | what to send |
+|---|---|---|
+| 1 | email copywriting voice | **30–60 emails he has actually written** — any subject, business or otherwise. The brief side can be reconstructed from each email; the email itself is the target |
+| 3 | copy style | **30–60 pieces of his own copy**, ideally each with the stiffer draft it replaced. `_owner_voice_seed/` is exactly one pair of this shape and is the template — about forty more of those |
+| 4 | support-reply tone | **30–60 real replies to customers or enquiries**, with the inbound message where possible |
+
+Datasets **2** (built), **5** and **6** need none of this and are unaffected.
