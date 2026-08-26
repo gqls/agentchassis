@@ -169,3 +169,37 @@ deferred toward"*.
 
 **Decisions:** `DECISION_2026-08-20_remake_the_hosted_sites.md` · `REGISTER_positioning.md` ·
 `RFC_037` (open).
+
+---
+
+# ADDENDUM 2026-08-26 ~19:00Z — §1 ran green; the remake programme has STARTED
+
+**§1a**: 16 early selections 10:42Z–18:26Z, all COMPLETED, ~30-min cadence; due set 0/15/10 at
+18:42Z (pool refills as it drains — 10 sites busy; rotation provably ticking, latest 18:26Z).
+**idea.uk's `dropped=1` is PERMANENT and by design** — the idea_uk_vm_site lane 301s the static
+`/privacy.html` to the tool's `/privacy` (their RUNBOOK, decided 2026-07-18). Expect candidate 23
+→ kept 22 on every idea.uk render; do not re-chase. **§1b**: guard still unviolated, still never
+consulted. The "31 vs 30 rows" is the locked halted site; not a departure. Evidence: NOTES (h).
+
+**§3 — the remakes are no longer "not started":**
+
+- Precondition re-confirmed gone (`bugs_open/311` closed 08-24; RFC_036 tool half live).
+- **`advertise.co.uk` brief WRITTEN and HELD** (NOTES (i)–(k)): locked `test` sites row
+  `d991a5b8-428f-44c1-b3eb-e50f44326fd9` (buytoletcalculator precedent), fired 18:48Z with a
+  direction naming the remake ruling + the three estate neighbours, COMPLETED 18:51Z. Brief
+  verified at the artefact: 15,915 B, 13 keys, confidence 0.78, differentiation stays off
+  websitepromotion/seotools/webdesign BY NAME. `needs_brief_review` held at `needs_human_review`.
+- **Deliberately fired ONE brief, not five.** Its Q2 asks whether advertise.co.uk is the HUB of
+  the marketing cluster — the owner's answer shapes the websitepromotion.co.uk / seotools.co.uk /
+  designblog.co.uk briefs. Firing those before the answer bakes in a guess. **Next session: check
+  whether the owner has reviewed/released (`SELECT status FROM site_work_items … item_type=
+  'needs_brief_review'` for advertise.co.uk); if released, the build flow takes over; if answered
+  in prose, fold the answers into the next briefs' directions.**
+- Before-snapshot saved: `salvage/advertise.co.uk/index.html` (20,453 B). The "single-pager"
+  classification was an undercount — it is a Drupal 7 RSS aggregator with `?q=node/N` pages, but
+  every node is a syndicated headline stub, so nothing original is at risk (NOTES (j)).
+- ⚠ The advertise.co.uk row is status **'test'**, so it is invisible to the sitemap rotation and
+  to §1b's census (both filter active/deployed) — `622`'s first real test is still pending on the
+  next genuinely seeded site, and this row is NOT it.
+- The owner's review queue is now THREE: indoorplanters (test 08-20), buytoletcalculator (test
+  08-21), **advertise.co.uk (real)**. Flagged in README_where_we_are (entry "2026-08-26, evening").

@@ -1118,3 +1118,31 @@ its pages exist. Nothing new has appeared to test it against.
 
 **To pick this up in a fresh session:**
 `docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-26_continue_here.md`
+
+**2026-08-26, evening — the remaking of your hosted sites has started. There is a brief waiting for you.**
+
+First, the morning's work is holding: the new "follow the deploy" sitemap rule kept running all day
+— sixteen sites picked, one every half hour, every one regenerated and published cleanly. The one
+oddity in the numbers turned out to be deliberate: idea.uk's privacy page is served at a different
+address than our records say, by a decision that lane made in July, so the sitemap correctly leaves
+it out. Nothing to fix.
+
+Then the bigger step. You ruled last week that 22 of your hosted sites can be completely remade, and
+the defect that was blocking building at scale was fixed two days ago. So tonight the machine wrote
+the first real brief: **advertise.co.uk**, the first of the single-pagers you cleared, picked exactly
+in the order we agreed (small, strong generic names first; the insurance one last).
+
+The brief proposes making it the plain-English reference on advertising itself — what it is, how it
+works, who pays for it — for UK business owners and the curious, explicitly *not* an agency and not
+a site that sells advertising. It stays off the ground of your other domains by name (website
+promotion, SEO tools, web design are their territory, not this one's). And it asks you five good
+questions, the two that matter most being: is that broad "explain advertising" reading what you
+want for this name, and is advertise.co.uk meant to be the parent of your marketing cluster? Your
+answer to the second one changes how the neighbouring sites' briefs should be written — which is
+why I stopped at one brief tonight instead of firing all five.
+
+**Nothing will be built until you read the brief and release it.** It is held the same way the two
+test briefs from last week are (those are still waiting too, if you want to see how the machine
+handled a houseplant domain and a mortgage one). Before anything can overwrite it, I saved a copy of
+what advertise.co.uk serves today — it turned out to be an old feed-aggregator page with no original
+writing on it, so nothing of value is at risk.

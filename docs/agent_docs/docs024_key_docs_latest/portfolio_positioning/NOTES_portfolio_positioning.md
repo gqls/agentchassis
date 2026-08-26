@@ -3345,3 +3345,97 @@ re-run. Nothing else was affected — every write had landed.
 re-cut (deploy-path done, 3-days reframed as a re-probe floor, `622` guard + `skip_reason` residue
 still open); SEO-002's line-132 sentence struck with the fix. New handoff
 `HANDOFF_2026-08-26_continue_here.md` supersedes 08-25b.
+
+### (h) 18:42Z re-check — `642` draining cleanly; `622` still unconsulted; idea.uk's dropped=1 explained
+
+§1a of the 08-26 handoff, run at 18:42Z: **16** early selections since apply (10:42Z–18:26Z),
+all COMPLETED, ~30-min cadence, 15 of 16 with `probe_dropped=0`. Due set **0 / 15 / 10**
+(age / change-quiet / change-busy) — change-quiet holding ~14–15 rather than falling, because
+the pool refills as it drains (10 sites had page writes inside the last 30 min). Rotation
+provably ticking (18:26Z selection), so the stalled-rotation branch is excluded by direct
+evidence, not by the counter.
+
+**idea.uk `probe_dropped=1` is by design and PERMANENT — do not re-chase it.**
+`dropped_sample = ["/privacy.html (301)"]`. That is the idea_uk_vm_site lane's decided legal-page
+collision (their RUNBOOK, decision RESOLVED 2026-07-18, proven live 08-02): the VM's tool app
+serves `/privacy` and nginx 301s the static `/privacy.html` to it. idea.uk has exactly ONE
+`pages` row among the legal trio (`/privacy.html`, active, noindex=f; no `/terms*` or `/refund*`
+rows), so every idea.uk render will be candidate 23 → kept 22, dropped 1. Consequence: the
+privacy page is absent from idea.uk's sitemap — correct, since the recorded URL redirects and
+the `/privacy` that 200s is the tool's page, not this row. Their lane's serving decision; not a
+sitemap defect; nothing filed.
+
+§1b at the same instant: **no** `deployed_pages=0` row carries a stamp — `622`'s guard still
+never violated and still never consulted (min `apis.uk` at 1). The "31 sites" in this file's
+morning entry vs 30 rows now is arithmetic, not a departure: `adversecreditmortgage.co.uk` is
+locked (since 08-18) and the §1b query excludes it via `locked_at IS NULL`; 30 + 1 = 31.
+
+### (i) The remake programme starts — first brief fired at `advertise.co.uk` (18:48Z)
+
+The sitemap arc is closed and §1's checks were green, so the session moved to the largest §3
+item: the 22 hosted-site remakes (`DECISION_2026-08-20_remake_the_hosted_sites.md`). The 08-21
+precondition — the component-name collision — is GONE (`bugs_open/311` closed 08-24, verified at
+the artefact by that session), so nothing technical gates the small end any more.
+
+**First pick: `advertise.co.uk`**, per the decision's §5 ordering (single-pagers with strong
+generic names, insurance last). Checked before firing: no register row (like `indoorplanters`,
+the FIRST proven brief — the register hand-off is conditional, not required), no sites row, no
+open work items, chassis pods ~5h old (300s spawn rule clear), no other session on the remakes
+(commit sweep since 08-25: idea.uk / tool-rebuild / 404 lanes only).
+
+- sites row created per the exact `buytoletcalculator.uk` precedent: `status='test'`,
+  **LOCKED**, `locked_by` naming this decision — `d991a5b8-428f-44c1-b3eb-e50f44326fd9`.
+- `scripts/fire-brief-writer.sh advertise.co.uk` with a short direction carrying the two facts
+  research cannot find: it is a remake of a hosted single-pager (owner ruling 2026-08-20), and
+  the estate-neighbour boundary the missing register row would have supplied
+  (websitepromotion.co.uk / seotools.co.uk / webdesign.uk are not its ground).
+- **PUBLISHED, receipt asserted** — `CORR c89cd031-728c-409c-9f85-5a880f42a727`,
+  `ORCH 17af3a16-83c3-4f12-92cb-67b81e59a8bf`.
+
+**[IN FLIGHT as of 18:49Z — orchestration live at `scrape_pages` within a minute of publish]** — a receipt proves the broker took it, not that the work happened.
+Verify at the durable record (orchestration status → `site_specs` `mission_brief` →
+`needs_brief_review` item held at `needs_human_review`). Outcome to be appended below; if this
+entry ends here, the session died mid-poll and the three queries above are the pickup.
+
+Also noted while checking the queue: the 08-20/21 test briefs (`indoorplanters.co.uk`,
+`buytoletcalculator.uk`) still sit at `needs_human_review`, unreviewed — the gate provably
+holds for days. `advertise.co.uk` is the first PRODUCTION brief behind them; the owner now has
+three to read, and only this one asks for a release decision.
+
+### (j) `advertise.co.uk` before-snapshot saved; the "single-pager" call corrected in mechanism, upheld in consequence
+
+Saved before anything can overwrite it (the vinrose precedent):
+`salvage/advertise.co.uk/index.html` — 20,453 B, verified real HTML with `file`, title
+"Advertise". **The DECISION doc's "single-pager" classification is wrong in mechanism**: it is a
+Drupal 7 instance with internal `?q=node/N` pages (the census keyed on "no internal links from
+the homepage", and the links are there). **But right in consequence**: probed `?q=node/79` —
+"Adweek news", 543 visible chars, an RSS-feed aggregation stub (Adweek / RealWire / WebProNews
+feeds); the node pages are syndicated headline lists with no original content. Nothing further
+worth salvaging; the homepage snapshot is the record. No change to the remake decision.
+
+### (k) The advertise.co.uk brief: COMPLETED 18:51Z, verified at all three durable records
+
+Run time ~3 min from publish (18:48Z → `scrape_pages` 18:49 → `write_brief` 18:50 →
+`complete|COMPLETED` 18:51). Verified at the artefact, not the status:
+
+- `site_specs` `mission_brief` is_current, **15,915 bytes, 13 top-level keys** (proposition,
+  audience, reader_intent, content_plan, tool_opportunities, directory_opportunity,
+  differentiation, stance, must_nots, regulated_subject, research_quality, confidence 0.78,
+  open_questions) — structurally complete, not a truncation fragment.
+- `needs_brief_review` item held at `needs_human_review`. Site row stays LOCKED.
+
+**The direction landed.** The differentiation section names and stays off all three estate
+neighbours: *"deliberately separated from websitepromotion.co.uk (promoting websites
+specifically), seotools.co.uk (SEO as a discipline) and webdesign.uk (design)"*. Proposition:
+plain-English reference on advertising ITSELF — what it is, how it works, who pays — explicitly
+"not a service that does advertising"; must_nots refuse agency/media-buyer presentation, ASA/
+CAP/Ofcom/ICO/CMA/FCA implication, results promises, and un-disclaimed tool advice.
+
+**Its open_questions do the register's missing work**: Q1 says outright that the portfolio
+position is unrecorded and asks the owner to confirm broad-reference vs lead-gen; Q2 asks
+whether advertise.co.uk is the HUB of the marketing-adjacent cluster — **the answer shapes the
+websitepromotion/seotools/webdesign briefs, which is why no further briefs were fired tonight**;
+Q3 monetisation; Q4 UK-only confirmation; Q5 news-stream scope.
+
+Third production-shaped run of the machine, third hold that held. The owner's queue is now three:
+indoorplanters (test, 08-20), buytoletcalculator (test, 08-21), **advertise.co.uk (real, 08-26)**.
