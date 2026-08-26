@@ -55963,3 +55963,47 @@ another lane's emit gate.
 Family: a-report-is-not-a-measurement, a-measured-claim-about-state-expires,
 census-the-write-history-not-the-bug-file, cite-the-arm-not-the-function,
 a-justification-in-an-evidence-column-reads-as-evidence.
+
+---
+
+## 2026-08-26 — "there is NO site_specs table", asserted from a listing I had truncated myself
+
+**Lane:** `bugfix_407_site_declares_its_own_header`.
+
+**The claim.** Deciding where a per-site header declaration should live, I wrote in my lane
+NOTES and then in a **council submission's rationale** — as a load-bearing reason for choosing
+`sites.settings` — that *"There is NO `site_specs` table; the tables are site_areas,
+site_components, site_flows, site_nav_groups, site_nav_items, site_plan_directives,
+site_plan_pages, site_experiences, site_discovery_rotation."*
+
+**The truth.** `site_specs` exists, carries **20 aspects**, has versioning (`is_current`,
+`superseded_at`), a `pinned` flag, provenance columns and a dedicated writer. It is the
+platform's purpose-built per-site declaration mechanism. Worse for my argument: its
+`site_config` aspect **already holds per-site HEADER config** — `chrome.header_cta_url` and
+`chrome.header_cta_label` on oufe.com, `chrome.compliance_lines` on two more sites
+`[MEASURED 2026-08-26]`. I was about to put header SLOTS in a different table from header CTAs.
+
+**How I got it wrong, and it is embarrassingly mechanical.** I ran
+`psql -c "\dt site*" | head -20`. The listing is alphabetical and `site_specs` sorts after
+`site_plan_pages` — **it was on line 21**. I read the absence off my own truncation.
+
+**What caught it.** The council. `reuse_agent` and `prior_art_librarian` both objected at
+medium that a purpose-built mechanism existed and my rationale never weighed it. Neither seat
+could see my `\dt` — they knew the estate. **A REVISE-shaped objection on an APPROVED verdict
+found the design error**, which is the third time this week the objections were worth more than
+the verdict.
+
+**The cheap check, and it generalises past `head`: never conclude ABSENCE from a command you
+truncated.** `| head -N` on a listing answers "what are the first N", never "is X there". If the
+question is presence, ask it directly — `WHERE tablename LIKE 'site%'` with no pager, or `grep`
+for the name — and if the question is a survey, count the rows and compare with what you saw.
+The tell was there and I did not look for it: **twenty rows is a suspiciously round number for a
+complete answer.**
+
+**And the one that would have caught it earlier and cost nothing: an absence claim about the
+ESTATE deserves a second instrument.** I had one available and did not use it — a grep for
+`site_specs` across `platform/**.go` returns readers in five files. Two instruments disagreeing
+is the cheapest possible correction; one instrument, truncated, is how this happened.
+
+Family: prior-art-search-goes-stale, a-closer-census-cannot-see-what-it-succeeded-at,
+a-subagent-report-is-another-doc, say-N-before-interpreting.
