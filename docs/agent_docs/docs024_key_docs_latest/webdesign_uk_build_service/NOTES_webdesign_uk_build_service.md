@@ -5706,3 +5706,21 @@ READY TO UNPARK: the one remaining action is the owner's Cloudflare page-rule re
 `RUNBOOK_go_live_webdesign_uk.md` (box vhost step already VERIFIED 0). Open judgement call
 with the owner: a 5th home-page section for hosting-company/categories/how-to-edit (a plan
 change; currently on what-you-get + guide).
+
+## 2026-08-26 — owner copy edit applied direct + register; home-points section planned; DOMAIN SERVICE briefed
+
+(1) Editor wording: "Visual Studio Code" -> owner's "Your own code editor (IDE) or your
+favourite AI tool are good for this" - 4 served occurrences edited DIRECT (owner-sanctioned,
+vm-sites push) AND the register/specs updated in step (SQL_2026-08-25g: back to SIX named
+services, allowed_entities -VS Code, content_direction/mission/submission one shared needle).
+⚠ trial caught TWO real things: idx_site_plan_sections_key makes a bare +1 ordering shift
+collide (two-step offset used); and a fact SOURCE note legitimately keeps historical VS Code
+mentions (guard narrowed to writer-visible surfaces). (2) HOME PAGE CARRIES ALL THE POINTS
+(owner): index plan +1 section (generic-text-block at ordering 1, orderings shifted,
+pages.sections updated) + writer_block HOME-POINTS paragraph (bullets + link to
+/what-you-get.html); wave-5 index rebuild in flight - LABEL RE-PLACE OWED AGAIN after it.
+(3) Domain finding/registration/pointing service BRIEFED by the owner (ugg2.com = the 30-day
+temporary hosting home): grounded brief + phasing in
+`../site_delivery_and_editor/BRIEF_2026-08-26_domain_find_register_point_service.md` - P1
+(EPP domain:check) + P2 (*.ugg2.com wildcard record; the Worker route already exists) have no
+external gate; P3 registration waits on the pending customer TAG from Nominet.
