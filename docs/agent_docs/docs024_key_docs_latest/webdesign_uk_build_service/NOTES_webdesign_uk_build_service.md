@@ -5992,3 +5992,15 @@ pay £30 → build → his ruled internal edit pass (admin console) → collect 
 link (delivery email joins the loop when the delivery lane ships it). Trial sites default
 to <slug>.ugg2.com; pointing one or two at HIS OWN portfolio domains additionally trials
 P4 pointing without any registration spend.
+
+**2026-08-26 (late night) — OPEN, leaning ruled: domain buy-out £200 → £49** ("I am
+thinking that the domain price is incongruent with the cheap website pricing. I may
+reconsider that and move it to £49... but keep the £10 per month rental"). NOT executed:
+"may" is tentative and £200 is attested (domain_buy_once) + on pages + bound into the
+08-21 transfer ruling. Arithmetic surfaced to the owner: every sale carries the Registrant
+Transfer fee, VERIFIED 2026-08-21 at Nominet's schedule as £10–35+VAT (typically £12 incl
+VAT) + ~£4/yr registration → £49 nets ~£33 typical, ~£3 worst-tier. On his confirm: flip
+the fact (+value 49), the writer_block £200 mentions, rebuild the pages that state it,
+and set the buy-out Payment Link at £49. Stripe steps for purchases/vouchers/rentals
+presented in chat (Payment Links for rental £10/mo recurring + buy-out one-off; vouchers
+need ZERO Stripe setup - server-side price drop before the Checkout Session).
