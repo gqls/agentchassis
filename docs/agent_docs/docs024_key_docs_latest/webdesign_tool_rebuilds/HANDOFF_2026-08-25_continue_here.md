@@ -1,6 +1,28 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-25 ~11:15Z. Supersedes `HANDOFF_2026-08-22_continue_here.md`.
 
-**STATE (updated 20:15Z): 43 of 63. NOTHING IN FLIGHT. Two things changed under the lane while it
+**STATE (updated 2026-08-26 10:40Z): 43 of 63 — NO CHANGE, and DO NOT FILE without running GATE
+ZERO first (new, in the RUNBOOK). #44 monolith-splitter was filed 09:10:52 and WITHDRAWN at 10:25Z
+(`910ea037`, cancelled under guards; ported slot `e134edb7` verified still `deployed`, no damage):
+never claimed in 75 minutes, because **webdesign.co.uk is starved** — 335 triaged build items, last
+build claim 03:52, and 72 ahead of mine under the per-site order (`priority ASC, created_at ASC`).
+⚠ **DO NOT bump `priority` to fix this — the ordering is LOWER-first, so a bump moves you BACKWARDS,
+and LANDMINES forbids it outright.** A census showing every claimed `add_tool` at 120/130 and none
+at 60 is a correlation with the causation inverted.
+**The backlog is `design-discovery-agent`'s sweep of this site at 03:46:26 — 129 items (54
+`acceptance_run`, 52 `improve_tool`, 12 `audit_tool`, 11 `undeployed_asset`); the 52 `improve_tool`
+at priority 60 are exactly what a new `add_tool` queues behind. Resume when that drains — decide by
+re-running GATE ZERO, not by the clock.**
+⚠ **My own 08-25 20:15Z claim "design-discovery: 0 runs since 08-11" has EXPIRED** — 51 runs as of
+10:22Z today. And `tool_acceptance`/`tool_acceptance_due`/`tool_health` are STILL 0 rows here; what
+landed is `acceptance_run`/`audit_tool`/`improve_tool`, all 54 `acceptance_run` rows `triaged` and
+none complete. **Grading is QUEUED, not delivered — the do-not-defer rule STANDS.**
+✔ Checked on the instance-scope write-conflict warning relayed 12:45Z: this lane has **never** used
+`replace_existing:true` (47 of 48 filings omit the key, 1 sets it false) — we ship via the adopt
+route — and none of this site's 45 `instance_scope_conversion` rows targets a `tool-%` page, so
+there is no overlap with the 43 rebuilds. The forward risk applies only to the two OWED re-fixes.
+**A FRESH HANDOFF IS DUE — this file now carries nine stacked STATE lines. Prior line follows.**
+
+**STATE (updated 2026-08-25 20:15Z): 43 of 63. NOTHING IN FLIGHT. Two things changed under the lane while it
 was idle, both verified first-hand (NOTES 20:15Z):
 ⚠ **A CHASSIS ROLL LANDED 19:07Z, after every build in the 08-25 grind.** The "fresh roll 09:27Z —
 verified for this lane" paragraph below is TWO ROLLS STALE — do not read it as current. Re-verified
