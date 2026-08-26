@@ -5949,3 +5949,13 @@ Queue: complete 156 · needs_human_review **51** · deferred 37 · detected 35 �
 Commits: `01b1d796d` (410 filing + 316/016b/WRONG_CALLS), `31d875e3d` (016b entry moved into §9 —
 my first append landed after §10; caught by reading the file's heading list AFTER committing, which
 is the wrong order).
+
+> **§X.65 §2 confirmation, 2026-08-26 ~15:0xZ:** the completeness rotation re-filed both findings, as
+> predicted, cycle 3:
+> ```
+> 9e106d01 empty_section:084a0e46-e598-4004-b234-603a06b38981:funding-fit spec.component_id=f7152331-d718-4aad-a5ff-c2e151b8198c created 16:17:30
+> 0fd1c021 empty_section:5ef62e7e-c750-4690-be03-76d9a9f3e12c:patent-check spec.component_id=af276258-9749-412c-b498-10af4f7fc827 created 16:17:30
+> ```
+> Same item_keys (page:slot — stable), spec now pointing at the live post-rebuild component rows, so
+> the verifier CAN see this pair — until their dispatch rebuilds the pages and churns the ids again
+> (`bugs_open/300`). The loop's period is one rotation.
