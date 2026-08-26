@@ -6661,6 +6661,7 @@ See `/bugs_closed/README.md`.
 | 398 | A `scheduled_tasks` row is NOT a single-flight slot — `runTick` calls `stampCompleted` (BOTH stamps → NOW()) immediately after `fireTrigger`, fire-and-forget since `892a289e9` 2026-03-17; the per-row guard, `countInFlight`, `max_concurrent`, `timeout_seconds` and the agents' `notify_scheduler` stamps are ALL inert for the 40 enabled `fire_message=true` tasks, while `loadDueTasks`'s comment still promises single-flight | **OPEN 2026-08-25** — runtime behaviour deliberate; the DOCUMENTATION is the defect, and the dispatch_throughput lane shipped a sibling-row lever (582–584) on the wrong reading (delivers ~+10–15%, not 2×; measured, safe, 0 double-handles). Fix candidates: D9 per-task executions (closes the door, owner-deferred) · honest comments + drop the two inert notify steps · `interval_seconds` documented as the rate knob (done). Self-overlap census = the one-query proof (361 pairs on one row/24.5h) |
 | 403 | **A hand-authored value inside a `source:"llm"` field has no provenance, so every `content_rewrite` is licensed to destroy it** — the build path REPLACES llm fields wholesale; PBP-039's carry (non-llm only), `content-loss-check` (blank transitions only) and `__cta_minted` (CTAs only) are each structurally blind; leopardess `/services` restored three times and eaten three times, the 08-22 11:35Z loss traced generation-exact in `page_component_history` | **OPEN — filed 2026-08-25**, leopardess lane owns the fix (owner ruling same day); 090 corroboration run `c946b495` in flight at filing |
 | 406 | **Adoption routes a page to a ONE-SECTION builder and, in the same transaction, plans it MULTIPLE sections — so the save is refused whole and the page keeps ZERO rows.** `apply_adoption_plan_action.go:719` sends an interactive page to `tool-recreation-handler` (which declares `expects_no_sections_metadata`, so its save always takes the no-`<section>` fallback and emits exactly ONE section) while the same action writes that page a 3- or 4-entry `pages.sections`; the prune floor divides 1 by that count and refuses. Closed-form: **≥3 planned is unsaveable ALWAYS** (1/3=33%, 1/4=25% < 0.50; 1/1 and 1/2 clear it). Its own analysis spec reads `"self_contained": true` on a page it planned with three sections | **OPEN — filed 2026-08-26** by the 357 lane. **6 items across 5 domains are demonstrably this shape (`1 of >=3`), 4 of them pre-existing** — `finetuning.uk/blog`, `fundamentallyai.com/tool-model-approach-selector`, `mortgagecalculator.co.uk/game-fact-finder`, `webdesign.co.uk/tool-llm-cost-calculator`. ⚠ The parked `save_refused_incomplete` queue holds **34 across 16 domains** but **26 predate the `planned sections` cohort and are UNATTRIBUTED** — the file's first version wrongly implied all 34; corrected within the hour. What IS true of all 34: nobody reads that queue. **Explains 21 of `bugs_open/357`'s 22 rows**: they are the survivors, the only pages whose plans were ≤2 sections. 090 returned **UNVERIFIABLE, not CONFIRMED**; both gaps it named closed first-hand and declared in the file |
+| 408 | **Two inverse path fallbacks in `extractFieldValue` recurse forever, so an unresolvable `content_field` crashes the agent pod with a stack overflow.** `multipage_actions.go:1207-1223`: fallback A strips `.response.` and recurses, fallback B adds it back and recurses — exact inverses, no depth bound, no visited set. `page_content_0.response.page_html` ping-pongs until the goroutine stack passes 1 GB. **The caller is innocent** — `AssemblePageAction:106` already treats `""` as "skip this page"; the function just never returns | **OPEN — filed 2026-08-26** by the 357 lane. Measured: **12,654 of 12,654** log lines in the dead container are the identical warning; `fatal error: stack overflow`, `exitCode: 2`; **3 orchestrations abandoned at `assemble_page`**, released only by the >4h stale reaper; pod restarts 2 in 27 min. Reached by any page whose writer skips (a NORMAL outcome) or any typo in an operator-set `content_field`. **Blocks `bugs_open/357` phase 3.** ⚠ a unit test asserting the return value cannot fail — it never returns; use `go test -timeout` and treat the hang as the signal |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
@@ -14453,3 +14454,30 @@ numerator would be 1.
   sections — the only ones a one-section save could get past the floor. Anything ≥3 was refused
   and left empty, so it never appeared in 357's population at all. **Before theorising about
   why a population looks the way it does, ask what the filter upstream of it discarded.**
+
+### Two fallbacks that are exact inverses of each other are an infinite loop, and the "safety net" shape hides it (2026-08-26)
+
+`bugs_open/408`. A path resolver could not find `page_content_0.response.page_html`, so it tried
+being helpful twice: *"if the path contains `.response.`, strip it and retry"* and *"if the path
+does not contain `.response.`, add it and retry"*. Each fallback is individually sensible and
+obviously terminating **when read on its own**. Together they are a two-cycle with no depth
+bound, and the process dies with `fatal error: stack overflow` after 12,654 identical log lines.
+
+**Transferable checks.**
+
+- **When a function retries by REWRITING its input, ask what the rewrite's inverse is and
+  whether anything else performs it.** Two rewrites that undo each other cannot both be
+  reachable from the same failure. The bug is invisible in either branch alone and obvious the
+  moment they are read together — so read every fallback in a function as a set, not as a list.
+- **Prefer an ordered candidate list to recursion for "try these forms of the input".** A `for`
+  over `[original, stripped, with-response]` cannot cycle by construction; a self-call needs a
+  guard that every future editor has to preserve.
+- **A log line inside a retry is a log line inside a loop.** One failed lookup produced 12,654
+  warnings and buried the crash. Log the failure once at the entry point, not per attempt.
+- **A non-terminating function cannot be caught by a test that asserts its return value** —
+  there is no return. The test must be time-bounded (`go test -timeout`) and the timeout read
+  as the failure. Assertion-only tests report a hung suite, which reads as flakiness.
+- **A caller that handles the empty case correctly is not protection.** `AssemblePageAction`
+  did everything right — it treated `""` as "skip this page and continue the loop" — and it
+  made no difference, because the contract was broken below it. **Check that the callee can
+  actually RETURN the value the caller is written to handle.**
