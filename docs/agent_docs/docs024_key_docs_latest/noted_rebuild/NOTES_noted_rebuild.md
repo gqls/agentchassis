@@ -2971,3 +2971,54 @@ would be swallowed. One-character fix in the stored stylesheet row — left
 with the evidence rather than hand-applied, because the css-patch surface has
 open fleet items (7 `contrast_failure` unresolved) and a documented history
 of well-intentioned direct fixes propagating the wrong thing.
+
+---
+
+## 2026-08-26 (evening) — LARGE UPLOADS BUILT AND PROVEN (the 25 MB blocker; owner ruling: tier holds on this)
+
+The whole chunked-upload programme, per PLAN_2026-08-26_large_uploads.md.
+Constraint stack measured first: engine buffered whole files ([]byte to B2),
+nginx capped 30m (ours), **Cloudflare ~100 MB/request (NOT ours) — so this was
+a protocol design, not a bigger env var.**
+
+**Engine** (commit "noted engine: chunked uploads", binary rebuilt+committed):
+begin/parts/finish/abort on B2's large-file API (v4, stdlib, part sha1s
+verified both sides); quota RESERVED at begin via pending_uploads and counted
+beside media_bytes in EVERY quota check; per-account
+media_quota/max_upload_override_bytes columns = the tier lever (NULL = env
+default, existing accounts byte-identical); part-size chosen per upload
+(>=2 parts for B2, <100 MB for Cloudflare), persisted on the row; reaper
+hourly with B2 as truth (age-guarded rowless orphans); account deletion
+cancels pending uploads. Suite green incl. 7 new tests; **4 guards
+mutation-red on buildable mutants** — the first mutation PASSED because it hit
+the dead arm (AddMedia vs AddMediaB2), re-aimed; a later mutant was a compile
+error and re-shaped, because a mutant that does not build proves nothing.
+
+**Editor** (commit "noted editor: chunked upload client", shipped via 077 at
+15:38Z, stored row verified has_chunked=t): parts with per-part retry x3,
+progress in the strip, STORED only on finish's 2xx, hard failure loud + held
++ reservation released; split point and cap read from /api/me — **inert
+against the old engine by construction** (no small_upload_max key → old
+single-shot path, so ship order is free, and default accounts can never reach
+chunking even after the engine lands: max_upload = small cap). Harness 61→**75
+checks** (cases P–S); 3 editor mutations red INDIVIDUALLY — the combined
+no-retry+no-abort run crashed in case Q before case R ran, so the abort
+mutation was re-proven alone (guard-in-series, third time this week).
+
+**Box half staged for the owner** (RUNBOOK "Large uploads" section): engine
+install (schema go:embedded — binary swap is the whole migration), nginx
+30m→100m (repo copy already edited), self-cleaning >30 MB acceptance probe
+(override on a throwaway via box psql; the tier lever has no HTTP surface,
+deliberately).
+
+**Pending tail:** the wave's own `page_rerender: tool-write` (97b5fdcc,
+triaged) carries the editor to the wire — queue HEALTHY but busy fleet-wide
+(noted drained 15 rerenders today; loop rotated to sites with 275+ waiting),
+so it had not landed after 50 min. Watcher re-armed; **live smoke (17 checks)
+owed the moment it lands** — until then the wire is byte-unchanged and the
+last smoke (this morning, 17/17) stands.
+
+Escape-trap note: an Edit mixing the file's literal em-dash with its `…`
+escape was unplaceable — my channel rewrites emitted `\uXXXX` into the
+literal char (the standing landmine) — python patcher with the escape built
+programmatically is the working route.
