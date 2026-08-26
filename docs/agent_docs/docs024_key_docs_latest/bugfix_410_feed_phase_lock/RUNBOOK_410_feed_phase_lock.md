@@ -62,3 +62,45 @@ SELECT current_step, status FROM orchestration_states
 WHERE collected_data->'input_data'->>'fix_correlation_id' = '15d56c13-2081-431a-ad70-9516c5fcfbc7';
 SELECT body FROM doc_notes WHERE body LIKE '%15d56c13%' ORDER BY created_at DESC LIMIT 3;
 ```
+
+## ⚠ CLOCK: take the time from the DB, never from this workstation
+Measured 2026-08-26: local `date -u` read 20:53 while `clients_db` `now()` read 19:54:35 — ~1 h
+apart. Every timestamp in this lane is DB time. Poll for the row; compare in SQL.
+```sql
+SELECT now();                       -- the only clock that matters here
+```
+
+## Prove the Go half is live WITHOUT the provenance line (it scrolls within hours)
+An empty `grep 'build provenance'` means NOT IN RANGE, not unstamped. Probe the capability,
+with both controls in the same breath — never `strings`, never a discovery grep:
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1 | cut -d/ -f2)
+kubectl -n ai-persona-system exec $POD -- grep -acF 'make_interval(secs => interval_seconds / 2.0)' /proc/1/exe  # expect >=1 (2 today)
+kubectl -n ai-persona-system exec $POD -- grep -acF 'interval_seconds / 7.0' /proc/1/exe                         # expect 0
+kubectl -n ai-persona-system exec $POD -- grep -acF 'DispatchFeedSourcesAction: dispatched ingester' /proc/1/exe # expect >=1
+```
+
+## Confirm the config half is live (independent of the migration's own post-check)
+```sql
+SELECT CASE WHEN q LIKE '%make_interval(secs => interval_seconds / 2.0)%' THEN 'LOOKAHEAD-PRESENT' ELSE 'ABSENT' END,
+       CASE WHEN q LIKE '%ORDER BY due_at ASC NULLS LAST, domain ASC LIMIT 10' THEN '554+556-INTACT' ELSE 'TAIL-CHANGED' END
+FROM (SELECT default_config->'workflow'->'steps'->'find_news_sites'->'config'->>'query' AS q
+      FROM agent_definitions WHERE type='content-feed-trigger' AND is_active
+        AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL) x;
+```
+Applied 2026-08-26 ~20:52Z. Pre-change snapshot: `51dd1c59-69e6-4625-baf6-203c35052f18`.
+
+## THE ACCEPTANCE TEST (~02:46Z, 2026-08-27) — the discriminating one
+Tonight's 20:47Z pass was still dispatching at 20:55Z (≈2.5 min/site) — **read the test set,
+do not assume it**: sites with `content_sources.last_fetched_at` in 20:47–21:1xZ, or the
+orchestrator rows in that window. Confirmed by 20:55Z: webdesign.co.uk, ai-agent-orchestration.com,
+fundamentallyai.com, robot-hands.com. Their sources stamp to ≈02:47Z onward, seconds after the
+~02:46:5xZ trigger. **All must reappear at ~02:46Z.**
+```sql
+SELECT s.domain, to_char(o.created_at,'DD HH24:MI:SS')
+FROM orchestration_states o JOIN sites s ON s.id=o.site_id
+WHERE o.owner_agent_type='content-feed-orchestrator'
+  AND o.created_at > timestamptz '2026-08-27 02:40:00+00' ORDER BY o.created_at;
+```
+Absent ⇒ the look-ahead is not reaching the decision: re-run both probes above before anything
+else. ⚠ Do NOT use idea.uk as the test — it has been due since 20:47:24 and passes either way.

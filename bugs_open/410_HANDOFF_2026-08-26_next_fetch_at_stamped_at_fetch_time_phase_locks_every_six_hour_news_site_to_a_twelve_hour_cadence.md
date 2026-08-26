@@ -220,3 +220,42 @@ the "zero callers of LoadDueSourcesAction" absence claim lacked its query in evi
 as a full config-text census incl. nested steps and snapshots: still 0 rows, recorded with
 the queries in the lane NOTES). Awaiting: the chassis roll (Go half), then hand-apply of 653;
 090 verdict (corr `15d56c13`); §5 (c)/(d) tonight.
+
+---
+
+## 2026-08-26 ~21:00Z — BOTH HALVES LIVE. §5 (c) CONFIRMED. The 090 loop returned UNVERIFIABLE.
+
+**§5 (c) CONFIRMED, on the refined criterion.** The evening trigger fired **20:46:45Z** —
+**39 s before** idea.uk's earliest due stamp (20:47:24) — and **no idea.uk
+`content-feed-orchestrator` row exists for that pass**. Fired-before-the-window AND not
+dispatched is exactly the predicted skip. The same pass dispatched **webdesign.co.uk 20:47:02,
+ai-agent-orchestration.com 20:48:26, fundamentallyai.com 20:50:31** — each due since ~14:47,
+i.e. each *skipped by the 14:46:32 pass*: the phase lock caught in the act one final time.
+
+⚠ **(d) IS NOT A DISCRIMINATING TEST and must not be reported as one.** idea.uk has been due
+since 20:47:24, so the ~02:46Z pass will dispatch it whatever the predicate says. The real
+acceptance test replaces it: **every site dispatched in the 20:47Z pass must be dispatched
+AGAIN at ~02:46Z** (their stamps are ≈02:47–02:56; under the old rule each misses by seconds
+and waits until ~08:46). Query and disconfirming result: lane HANDOFF §4.
+
+**Deployment, verified at the artefact.** Go half **LIVE on `v1.0.1345`, both replicas** —
+the `build provenance` line had already scrolled (empty grep = *not in range*, not
+*unstamped*), so proven by binary probe with both controls: the look-ahead SQL literal present
+**2** (the two readers), a near-miss variant **0**, a known existing literal **1**. Config half:
+migration **653 applied ~20:52Z**, both guards passed, and re-read independently afterwards —
+look-ahead present, 554 ordering + 556 caps intact, bare `NOW()` gone. Pre-change snapshot
+`51dd1c59-69e6-4625-baf6-203c35052f18`. **653's guard 2 passing also settles the council's
+low-severity objection empirically**: the live query *was* byte-identical to 556's post-image.
+
+**The 090 run did NOT confirm this file — recorded plainly rather than quietly dropped.**
+Corr `15d56c13-2081-431a-ad70-9516c5fcfbc7` returned **`UNVERIFIABLE` — "Diagnosis NOT
+confirmed (stopped: scope-not-narrowing)"**: two evidence bundles, no iteration note, no
+verdict artifact. **That is neither a confirmation nor a refutation** — the loop reached no
+conclusion. This file's standing claim therefore rests where §"090 substitution" said it did:
+first-hand verification plus the prospective predictions, (a)/(b)/(c) all now confirmed live,
+and council APPROVED at round 1 (`04c657d2`). `[INFERRED]` cause of the stall: the symptom was
+submitted as a fully-formed conclusion, against this repo's own symptom-authoring guidance —
+logged in `WRONG_CALLS.md`.
+
+**Bug stays OPEN** until the ~02:46Z acceptance test passes and §7's 48 h census shows four
+run-hours/day for every 6h-only site.

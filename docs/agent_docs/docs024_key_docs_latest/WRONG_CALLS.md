@@ -56266,3 +56266,31 @@ finding) and [[a-print-statement-is-not-a-config-row]]: the ledger is only as ho
 the ordering of writes into it.
 
 Family: a-record-in-the-same-batch-is-a-prediction, apply-verify-record-in-that-order.
+
+## 2026-08-26 — bugfix_410_feed_phase_lock lane: a 090 symptom written as a FINISHED CONCLUSION came back UNVERIFIABLE, and a blank verdict reads like a failed check
+
+Fired `090` at a mechanism (`bugs_open/410`, phase-lock slug) with a symptom paragraph that
+stated the cause, both writers by file:line, the selecting predicate, the arithmetic AND the
+consequence ("the site is therefore skipped every other pass and served at half the labelled
+cadence"). Verdict: **`UNVERIFIABLE` — "Diagnosis NOT confirmed (stopped: scope-not-narrowing)"**,
+two evidence bundles, no iteration note, no verdict artifact. `[INFERRED]` a loop whose whole
+job is to NARROW SCOPE has nothing to narrow when it is handed the answer — which is precisely
+what CLAUDE.md's symptom-authoring guidance already says ("state the MECHANISM, then POINT at
+the tables/symbols… **no downstream-consequence clauses**"). I read that guidance and still
+wrote the conclusion in, because the claim felt worth stating fully.
+
+**Two costs, and the second is the one worth the row.** (1) A run spent for no verdict.
+(2) **A blank verdict is easy to report as a tick or to drop silently** — "I ran 090" is true
+either way, and a reader skimming a bug file cannot tell `UNVERIFIABLE` from `CONFIRMED` unless
+the filing session writes it down. The fix's actual support is first-hand verification plus
+prospective predictions confirmed live plus a council APPROVED — none of which needs the loop,
+which is exactly why it would have been cheap to let the blank slide.
+
+**The cheap check, before firing:** re-read your symptom and delete every clause that states a
+CONSEQUENCE or asserts the cause as settled; if what remains is not a symptom someone could
+still be wrong about, you do not need the loop — you need the first-hand verification you have
+already done, declared as the substitute (2026-07-31 ruling). And whatever comes back, **record
+the verdict verbatim where the claim lives**, including "no conclusion".
+
+Family: a-report-is-not-a-measurement, a-pass-from-a-blind-check-outlives-the-blindness,
+a-submission-is-not-a-review.

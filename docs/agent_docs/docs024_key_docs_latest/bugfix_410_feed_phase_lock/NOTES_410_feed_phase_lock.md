@@ -70,3 +70,36 @@
   against the LIVE row at apply time with DO/RAISE, which is the remedy the objection asks
   for; and the pre-image was cross-checked against `556_..._ROLLBACK.sql`'s `$post$` string
   in-session before writing the guard.
+
+## 2026-08-26 ~20:45–21:00Z — roll landed; both halves live; (c) graded; 090 came back UNVERIFIABLE
+
+- **Chassis rolled to `v1.0.1345`** (pods created 20:24:56Z / 20:25:20Z). `build provenance`
+  absent from `--tail=400` AND from `--tail=-1` on both pods — the startup line had aged out
+  of the retained window. Per the landmine, treated as "not in range", **not** "unstamped".
+- **Binary probe instead, with both controls in one breath** (never `strings`, never a
+  discovery grep): `make_interval(secs => interval_seconds / 2.0)` → **2** on each replica
+  (the two Go readers embedding the shared const); `interval_seconds / 7.0` → **0**;
+  `DispatchFeedSourcesAction: dispatched ingester` → **1**. A **capability** probe beats a
+  commit probe here — it answers "is the behaviour in this binary", which is the real question.
+- **Migration 653 applied ~20:52Z**: snapshot `51dd1c59…`, guard 1 (cadence still 21600) DO,
+  guard 2 (live query = 556 post-image) DO, `UPDATE 1`, post-verify DO, COMMIT. Guard 2 passing
+  is also the empirical discharge of the council's low-severity objection.
+- **Read the live config back independently** (the migration's post-check runs inside the same
+  transaction, so it is not an independent artefact check): LOOKAHEAD-PRESENT | 554+556-INTACT
+  | BARE-NOW-GONE.
+- **§5 (c) CONFIRMED**: trigger 20:46:45Z, idea.uk earliest due 20:47:24Z (39 s later), no
+  idea.uk orchestrator row. Dispatched instead: webdesign 20:47:02, ai-agent-orchestration
+  20:48:26, fundamentallyai 20:50:31 — all three due since ~14:47, i.e. skipped at 14:46:32.
+- **Realised while grading: prediction (d) is VACUOUS.** idea.uk has been due for hours, so
+  02:46Z dispatches it under either predicate. Replaced in the handoff with a genuinely
+  disconfirmable test — tonight's dispatched sites (stamped ≈02:47–02:56) must reappear at
+  ~02:46Z, which the old rule forbids. Same family as the estate's standing lesson that a test
+  passing on the day it is written may never be able to do anything else.
+- **090 (corr `15d56c13…`) returned `UNVERIFIABLE` — "stopped: scope-not-narrowing"**: two
+  bundles, no iteration_note, no verdict artifact, nothing in doc_notes. Not a refutation, not
+  a confirmation. Recorded in the bug file rather than dropped. `[INFERRED]` the symptom was
+  written as a finished conclusion (mechanism + cause + consequence + blast radius), which
+  leaves a scope-narrowing loop nothing to narrow — WRONG_CALLS row added.
+- **Misstep (WRONG_CALLS): my wake-up watcher used the workstation clock**, which is ~1 h ahead
+  of the cluster's. It fired early, I read "no trigger row in 3 hours", and was one step from
+  filing a broken scheduler. Re-armed to poll the DB for the row itself.
