@@ -482,8 +482,33 @@ kubectl -n ai-persona-system get pods -l app=agent-chassis \
   -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image,START:.status.startTime'
 git log -1 --format=%cI <your-commit>
 ```
-**A binary cannot contain code committed after it started.** That is free, local, and has no failure
-mode. Preferred when it settles the question — and it usually does.
+**A binary cannot contain code committed after it started.** Free, local, no failure mode.
+
+> ⚠ **CORRECTED 2026-08-26 — this only EXCLUDES. It never CONFIRMS.** "Commit is older than the pod"
+> makes inclusion *possible*, not actual: a build can be made from an older ref (`make build-* REF=`
+> exists precisely to do that). So the timestamp test answers "definitely not in" and nothing else.
+> On 2026-08-26 it was the only thing I could reach at first and it could not settle the question.
+
+**To CONFIRM, you need the stamp, and there are two ways to get it:**
+
+```bash
+# (a) the pod's own statement — best, but see the caveat
+kubectl -n ai-persona-system logs <pod> --tail=200000 | grep -m1 'build provenance'
+# (b) the image label, when (a) has scrolled
+docker image inspect docker.io/aqls/agent-chassis:<tag>   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+```
+then `git merge-base --is-ancestor <your-commit> <the stamp>` — **ancestry, never equality**.
+
+⚠ **(a) scrolls, and on a busy service it is the NORM not the exception.** `[MEASURED 2026-08-26]`
+ten hours after a roll the line was absent from **both** chassis pods even at `--tail=200000`.
+
+⚠ **(b) needs one extra step to be evidence about PRODUCTION.** A label is read from a *local* image;
+the pods pull a *tag*, and a tag is not a promise (same-tag rebuild → the node's cached layer). So
+confirm the label describes what is running, with a **known-value** probe:
+```bash
+kubectl -n ai-persona-system exec <pod> -- grep -aq "<the stamp>" /proc/1/exe && echo MATCHES
+```
+That is the sanctioned form — a grep for a value you already know, not a discovery grep.
 
 Only if you need finer resolution, read the stamp and test **ancestry**:
 `kubectl … logs -l app=agent-chassis --tail=3000 | grep -m1 'build provenance'` then
