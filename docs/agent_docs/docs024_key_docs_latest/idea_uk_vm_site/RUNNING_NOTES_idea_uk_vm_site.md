@@ -6002,3 +6002,19 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
 - **410 (phase-lock slug) status, theirs**: council **APPROVED r1** (`04c657d2`), fix `201236b2a`
   awaiting the chassis roll, migration `653_HOLD` hand-applied only after it; they hold the
   ~20:47Z (c) watch. This lane only observes.
+
+> **§X.66 addendum, 2026-08-26 ~21:0xZ (from the 410 fixing lane, closing message):**
+> - **(c) CONFIRMED on the refined criterion**: evening trigger fired **20:46:45Z**, 39 s before
+>   idea.uk's earliest due stamp (20:47:24); no idea.uk orchestrator row. The same pass served the
+>   four sites the 14:46 pass had skipped — the lock caught in the act one last time.
+> - **The fix is LIVE, both halves**: chassis **v1.0.1345** (look-ahead, capability-probed on both
+>   replicas with controls) + migration **653** applied ~20:52Z, guards passing. **RUNBOOK 6g's
+>   owner SQL is WITHDRAWN** (dated note added) — the per-site mitigation is moot.
+> - **My bug-file prediction (d) was VACUOUS** — idea.uk, due for hours, would be served at 02:46Z
+>   under either predicate. The discriminating post-fix test (theirs): tonight's dispatched sites
+>   (stamped ≈02:47Z+ due) must REAPPEAR at ~02:46Z, which the old rule forbade.
+> - **The 090 run returned UNVERIFIABLE** ("stopped: scope-not-narrowing", no verdict artifact) —
+>   the file's declared first-hand substitute is what carries the diagnosis, recorded there.
+> - **Workstation clock ≈1 h AHEAD of the cluster** (their watcher fired early off local `date -u`
+>   and nearly recorded a broken scheduler). Practice for this lane: stamp times from DB `now()`,
+>   never local `date`; suggested they LANDMINE it with their first-hand evidence.

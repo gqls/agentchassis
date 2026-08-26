@@ -1029,3 +1029,10 @@ UPDATE content_sources SET fetch_interval='05:30:00' WHERE site_id='1244516d-014
 -- rollback: UPDATE content_sources cs SET fetch_interval=b.fetch_interval FROM bak_ideauk_fetch_interval_20260826 b WHERE b.id=cs.id;
 ```
 The fleet fix (look-ahead in both gating layers) is 410's candidate 1 and not this lane's.
+
+> **6g WITHDRAWN 2026-08-26 ~21:0xZ — do NOT run the per-site `fetch_interval` UPDATE.** The fleet
+> fix for the phase lock is LIVE (chassis **v1.0.1345** + migration **653**, both halves verified by
+> the fixing lane; cold-start `docs/agent_docs/docs024_key_docs_latest/bugfix_410_feed_phase_lock/
+> HANDOFF_2026-08-26_continue_here.md`). The site is served on the 6 h grid without any per-row
+> change; applying the UPDATE now would only double this site's fetch spend for nothing. The
+> diagnostic queries above (per-site service + next_fetch_at) remain valid.

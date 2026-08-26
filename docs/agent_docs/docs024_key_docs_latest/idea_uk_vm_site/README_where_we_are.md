@@ -2571,3 +2571,11 @@ right — so the SQL is in the runbook (6g) if you want it.
 Also: the guard refusal on the example-report link ran its course and is item 50 in your queue, as
 expected; and an early suspicion of mine — that some of the tool-improver's edits were doing nothing
 — was wrong, and I caught it by opening the commits before writing it down.
+
+**2026-08-26, evening — the twelve-hour news quirk was fixed fleet-wide the same day, and there is
+nothing for you to run.** Another session took the bug I filed this afternoon, built the fix, put it
+through the council (approved), shipped it in the evening build, and proved it live: the evening
+refresh pass demonstrated the fault one final time exactly as predicted — our site missed its slot
+by 39 seconds — and the fix that stops that is now running. The one-line change I had left in the
+runbook for you this afternoon is withdrawn; applying it now would just double the site's fetch
+costs for no benefit. From tonight the news feed refreshes every six hours as designed.
