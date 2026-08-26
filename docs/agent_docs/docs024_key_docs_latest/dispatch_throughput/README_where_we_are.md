@@ -280,3 +280,43 @@ stamped. The overlap was bookkeeping, not two live workers. The daily check has 
 recognise that shape — and to report it rather than hide it — so it doesn't cry wolf tomorrow.
 
 The full before/after verdict on the speed change comes tomorrow morning.
+
+## 2026-08-26 evening — the starvation bug has a fix built, held until tomorrow midday (413 session)
+
+You asked the 413 session to pick up the starvation fix; this is where it stands tonight.
+
+The bug, in plain terms: the dispatcher keeps two lists. One list decides WHICH SITE goes
+next — it looks at each site's oldest waiting item and picks the site with the oldest. The
+other list decides which items to actually do once a site is picked — it takes the most
+IMPORTANT items first, up to five. Those two rules fight. A site can hold one very old but
+very unimportant item: the first list keeps picking that site because of the old item, and
+the second list keeps skipping the old item because of its low importance. So that site gets
+served over and over on the strength of work that never happens, and every site behind it in
+the queue just waits. Tonight sixteen of the twenty-five sites with waiting work were stuck
+in exactly that shape, and none of our normal dashboards can see it, because a site being
+quietly skipped produces no errors — just silence.
+
+The fix is one change to the first rule: a site's place in the queue is now decided by the
+oldest item the dispatcher would ACTUALLY DO next for that site, not by the oldest item full
+stop. The trap becomes impossible rather than merely unlikely. We proved it against the live
+database tonight: the old rule picks the worst-stuck site; the new rule picks the site whose
+work has genuinely waited longest. The change is written, tested both ways (we broke it on
+purpose and watched the alarm fire), reviewed by the council [corr to follow in the bug
+file], and deliberately NOT switched on yet — the throughput lane's 24-hour measurement
+finishes tomorrow morning and the batch-size change goes in at half nine, so this switches
+on after midday, so each change can be measured on its own.
+
+One decision is yours when you want it, no urgency: even with this fix, a site with only
+YOUNG work still waits its turn behind sites with genuinely old work — that's first-come
+first-served working as intended, but when the backlog is deep, "your turn" can be hours
+away. If you'd rather no site ever waits more than some fixed time regardless of age order,
+that's a policy choice (it would serve young sites at the expense of old work), and we now
+have the "worst wait per site" meter to tell you whether it's needed. The bug file ranks it
+as the remaining option; nothing is lost by waiting for the meter to speak.
+
+Also found while in there, filed as bug 415, not urgent: the cheap "is there anything to do
+at all?" check that wakes the dispatcher uses an older, narrower definition of "anything to
+do" than the dispatcher itself. Today it never matters because there is always plenty of
+work in the form it counts; on the day the backlog drains to only human-approved items, the
+dispatcher would stop being woken at all. Cheap to fix, written up, out of tonight's change
+on purpose.

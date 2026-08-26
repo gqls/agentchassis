@@ -56,6 +56,18 @@
 -- toward the most-starved site, which is the correct direction, and it is
 -- bounded, which the UUID order was not.
 --
+-- > CORRECTED 2026-08-26 (bugs_open/413, fixed by migration 657): the paragraph
+-- > above is REFUTED. The ceil(backlog/5) bound holds only while no better-priority
+-- > work keeps arriving on the site. With inflow, the drain never reaches the old
+-- > worst-priority row, the site's key freezes on it for ever, and — under this
+-- > file's own oldest-first order — every younger site waits on fall-through with
+-- > no bound (measured: 16 of 25 eligible sites pinned in one snapshot; waits
+-- > > 11 h; invisible to every aggregate meter because the damage is an absence).
+-- > 657 makes the pin unrepresentable: the selector now ranks a site by
+-- > min(created_at) over its top-max_items rows under the LOADER's ordering, so a
+-- > site's claim to age is exactly the work its next pick will drain. Caught by
+-- > the dispatch_throughput + 391 lanes, 2026-08-26.
+--
 -- CONSUMERS TOLD (owner ruling 2026-07-29 #3): the only mechanical consumer is
 -- build-pipeline-trigger's own downstream steps (shape unchanged). The
 -- behavioural consumers are all 17 sites' queues: service order changes from

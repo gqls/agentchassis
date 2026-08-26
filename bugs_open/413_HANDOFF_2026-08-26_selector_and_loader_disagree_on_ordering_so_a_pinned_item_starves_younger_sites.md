@@ -172,3 +172,53 @@ the 090 round; logged in `WRONG_CALLS.md` 2026-08-26 ("a graded verdict grades t
 filed"). A re-file of the 090 with the corrected sentence is deliberately NOT queued: the
 remaining open question is a fix-candidate choice, not a mechanism dispute, and a second run
 would spend credits re-deriving the census this file already carries.
+
+## Fix BUILT 2026-08-26 evening (bugs_open/413 session; NOT YET APPLIED — apply ≥12:00Z 08-27 by agreement)
+
+**Candidate 1, generalised to the framework contract: a selector may only represent a
+container by work its drainer will actually take — same filters, same ordering, same window.**
+Chosen over candidate 2 because it closes the door (the pin becomes UNREPRESENTABLE) rather
+than bounding the damage; candidate 2 (positional-wait bound) is a policy trade and goes to
+the owner separately (README_where_we_are 2026-08-26 evening) with the per-site floor as its
+evidence base. Candidate 3 untouched: priority 140 still means "run last within the site" —
+that is its meaning, not damage.
+
+**Shipped in this commit** (all inert until the _HOLD is hand-applied):
+
+- `docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_HOLD.sql` —
+  selector ranks sites by min(created_at) over each site's top-K eligible rows under the
+  LOADER's ordering (`priority ASC, created_at ASC`, `load_work_item_actions.go:789`); K read
+  LIVE from `build-dispatch-loop > load_items > max_items` (written K-agreement with 658, so
+  Phase 3's 5→8 is absorbed automatically; COALESCE→1 degrades pin-free). Preflight refuses
+  drift by whole-text md5; guards assert every eligibility clause individually + an EXECUTE
+  probe. `_ROLLBACK` (md5-exact restore) + `_VERIFY` (md5 / ordering-mirror / K-resolution /
+  probe; **fails by design pre-apply** — proven, exit 3).
+- `platform/orchestration/actions/load_work_items_ordering_contract_test.go` — AST test
+  pinning the loader's ORDER BY literal; mutation-proven (ordering swapped → FAILS with a
+  message routing the editor to the selector window + VERIFY assertion 2; reverted; passes).
+- Register WDS-002: "ordering contract CLOSED" bullet + visible correction of its own
+  "bounded by ceil(backlog/5)" claim; same dated correction block added to 284's header.
+- `LANDMINES.md` "ONE ordering contract" entry (verifier dispatched, corr 8aed215e).
+- `bugs_open/415` — adjacent finding, scoped OUT: the fire-gate `pre_query` is NARROWER than
+  the selector (`triaged`-only + `pipeline='build'`), so an approved-only backlog never fires
+  the trigger; theoretical at today's volume, first-hand verified.
+
+**Proofs at the artefact (2026-08-26 ~20:4xZ):** full dry run in a rolled-back transaction —
+preflight, update, guards, VERIFY-passes-on-applied-state (K=5; census 28 eligible/15 pinned
+at 20:46Z), rollback-restores-md5-exact, exit 0, nothing persisted. **Divergence, same
+instant:** OLD text picks webdesign.co.uk (pinned, oldest row loads 135th at the 20:1x census
+— 16/25 sites pinned, evening inflow deepening pins vs 13/25 at 15:5x), NEW picks
+vetcomparison.uk (oldest genuinely-loadable work). Cost same class by EXPLAIN ANALYZE
+(~120 vs ~115ms real work, JIT-dominated either way, one fire/60s).
+
+**Council:** submitted 2026-08-26 ~21:0xZ, `SUBMISSION_CORR ecf2e542-7ba3-4574-92ed-35025aed5b27`
+(edits: the _HOLD migration + the Go test; sidecars/prose named in the rationale). Commit
+carries `Council-Submitted:`; verdict to be read and dispositioned here before apply.
+
+**Apply plan (agreed in writing with the dispatch_throughput session ~20:4xZ):** NOT BEFORE
+12:00Z 2026-08-27, after their 24h post-B read (~09:00Z) and 658/Phase 3 (~09:30Z), so each
+lever gets an attributable window; stamp the apply time HERE and ping that session; they hand
+the 09:00Z pre-fix floor baseline. Commands + acceptance meter: dispatch_throughput RUNBOOK
+§657. **Disconfirming result for the fix** (unchanged from §"How to verify"): any site with
+eligible work > ~1h unserved while pinned rows exist elsewhere, measured at the floor, worst
+site, dated. Close this bug only when fixed AND live AND measured.

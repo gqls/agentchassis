@@ -1,0 +1,176 @@
+-- 657_selector_ranks_sites_by_loadable_work_HOLD.sql
+--
+-- bugs_open/413: the dispatch selector and the item loader disagree on ordering, so one
+-- pinned item freezes its site's age and starves every younger site of trigger dispatch.
+--
+-- ── THE CONTRACT THIS FILE ENFORCES ──
+--
+-- A selector must represent a container only by work its drainer will actually take:
+-- same eligibility filters, same ordering, same window. Migration 285 established the
+-- eligibility half ("the selector's job is to AGREE with the loader"); this file extends
+-- the agreement to ORDERING and WINDOW, which 285 left open and 284's header wrongly
+-- called bounded ("at most ceil(backlog/5) batches" — refuted by 413: the bound assumed
+-- no better-priority inflow; with inflow, the pin never comes within reach of the top-5
+-- and the bound is infinite).
+--
+-- ── WHAT IT DOES ──
+--
+--   build-pipeline-trigger > find_dispatchable_site (config.query — NOT `pre_query`;
+--   633's trap) is rewritten. OLD: rank sites by the age of their single globally-oldest
+--   eligible row (`ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1`) —
+--   an old worst-priority row wins selection for its site for ever while the loader
+--   (priority-major, top-max_items) never takes it. NEW: rank sites by
+--   min(created_at) over each site's top-K eligible rows under THE LOADER'S OWN ordering
+--   (`priority ASC, created_at ASC` — load_work_item_actions.go:789), where K is read
+--   LIVE from build-dispatch-loop > load_items > max_items. The pin becomes
+--   unrepresentable: a site's claim to age is exactly the work its next pick will drain.
+--
+--   K is dynamic BY AGREEMENT with migration 658 (Phase 3, batch 5→8): 658's header
+--   defers its selector lockstep to this file, and this file reads 658's knob live, so
+--   neither owes the other an edit when the knob moves again. If the K path ever fails
+--   to resolve, COALESCE degrades to K=1 — still pin-free (the site is represented by
+--   the one row the loader takes first), never a fleet dispatch stop.
+--
+--   Eligibility clauses are byte-identical to the previous text — including the
+--   CROSS-SITE spelling of the lock exception. ⚠⚠ Do NOT "DRY" it against the per-site
+--   Go fragment: work_items_common.go:851-870 explains why the two spellings must stay
+--   different. The output shape (one row: site_id::text, domain) is unchanged — the
+--   check_has_site / spawn_dispatch steps depend on it (284's header §32-35).
+--
+-- ── WHY _HOLD (ordering, not safety) ──
+--
+--   The dispatch_throughput lane's 24h post-B read lands ~09:00Z 2026-08-27 and Phase 3
+--   (658) applies ~09:30Z. This file changes site-selection behaviour, so applying it
+--   earlier destroys the attribution between ruling B, batch 8 and the selector rework.
+--
+--   DO NOT APPLY BEFORE 12:00Z 2026-08-27, and only after BOTH boundaries above are
+--   stamped (agreed with the dispatch_throughput session 2026-08-26 ~20:4xZ). If the
+--   24h read fails its gate, re-coordinate with that lane first. After applying:
+--   stamp the apply time in bugs_open/413 and tell the dispatch_throughput lane so they
+--   cut their measurement windows on it.
+--
+--   Numbers record creation order, not apply order: 658 applies BEFORE 657 by design.
+--
+-- ── APPLY (by hand; the runner's SIDECAR_RE never auto-applies a _HOLD) ──
+--
+--   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+--     psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - \
+--     < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_HOLD.sql
+--
+--   Then run the VERIFY (657_selector_ranks_sites_by_loadable_work_HOLD_VERIFY.sql) —
+--   it must PASS after apply and FAILS BY DESIGN before it (its md5 arm is the proof it
+--   can fire). Acceptance meter over the following hours: RUNBOOK §"Per-site starvation
+--   floor" — no site with eligible work goes > ~1h unserved while pinned rows exist
+--   elsewhere.
+--
+-- ROLLBACK: 657_selector_ranks_sites_by_loadable_work_HOLD_ROLLBACK.sql
+
+BEGIN;
+
+SELECT snapshot_agent('build-pipeline-trigger', '657_selector_ranks_sites_by_loadable_work_HOLD.sql: pre-update');
+
+DO $mig$
+DECLARE
+    -- md5 of the query text this file replaces (read from the live row 2026-08-26
+    -- ~20:2xZ; last written by 633). A drifted row is refused, not blindly overwritten.
+    v_old_md5 CONSTANT text := 'd6f98acdb5aec385d5eb4077eac530fc';
+    v_new     CONSTANT text := $q$WITH k AS (SELECT COALESCE((SELECT (ad.default_config->'workflow'->'steps'->'load_items'->'config'->>'max_items')::int FROM agent_definitions ad WHERE ad.type = 'build-dispatch-loop' AND ad.is_active AND COALESCE(ad.is_snapshot, false) = false AND ad.deleted_at IS NULL ORDER BY ad.updated_at DESC LIMIT 1), 1) AS n), elig AS (SELECT wi.id, wi.site_id, wi.created_at, wi.priority FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE (s.locked_at IS NULL OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[]))) AND wi.status IN ('triaged', 'approved') AND wi.attempt_count < wi.max_attempts AND (wi.retry_after IS NULL OR wi.retry_after <= NOW()) AND (COALESCE(wi.approval_mode, 'auto') = 'auto' OR wi.status = 'approved') AND (wi.depends_on IS NULL OR NOT EXISTS (SELECT 1 FROM unnest(wi.depends_on) dep_id WHERE dep_id NOT IN (SELECT id FROM site_work_items WHERE site_id = wi.site_id AND status IN ('complete', 'verified')))) AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = 'claimed')), win AS (SELECT e.site_id, e.created_at, row_number() OVER (PARTITION BY e.site_id ORDER BY e.priority ASC, e.created_at ASC) AS load_rank FROM elig e) SELECT w.site_id::text, s.domain FROM win w JOIN sites s ON s.id = w.site_id, k WHERE w.load_rank <= k.n GROUP BY w.site_id, s.domain ORDER BY MIN(w.created_at) ASC, w.site_id ASC LIMIT 1$q$;
+    v_q   text;
+    v_k   int;
+    v_n   int;
+BEGIN
+    -- PRECONDITION 1: the step exists and carries exactly the text this file expects.
+    SELECT s.value->'config'->>'query' INTO v_q
+      FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s
+     WHERE ad.type='build-pipeline-trigger' AND s.key='find_dispatchable_site'
+       AND ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL;
+
+    IF v_q IS NULL THEN
+        RAISE EXCEPTION '657: find_dispatchable_site has no config.query — the step shape has changed; STOP and re-read it';
+    END IF;
+    IF md5(v_q) <> v_old_md5 THEN
+        IF position('load_rank' in v_q) > 0 THEN
+            RAISE EXCEPTION '657: already applied (query already ranks by load_rank)';
+        END IF;
+        RAISE EXCEPTION '657: query text has drifted since this file was written (md5 %, expected %) — STOP, re-read the live text and re-derive', md5(v_q), v_old_md5;
+    END IF;
+
+    -- PRECONDITION 2: the K path must resolve on the live loader row. COALESCE(...,1)
+    -- in the query makes a later breakage degrade safely, but APPLYING against a path
+    -- that already fails means the agreement with 658 is broken — stop and re-read.
+    SELECT (ad.default_config->'workflow'->'steps'->'load_items'->'config'->>'max_items')::int
+      INTO v_k
+      FROM agent_definitions ad
+     WHERE ad.type='build-dispatch-loop' AND ad.is_active
+       AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+     ORDER BY ad.updated_at DESC LIMIT 1;
+    IF v_k IS NULL OR v_k < 1 THEN
+        RAISE EXCEPTION '657: build-dispatch-loop load_items.max_items does not resolve to a positive int (got %) — the K agreement with 658 is broken; STOP', v_k;
+    END IF;
+
+    UPDATE agent_definitions ad
+       SET default_config = jsonb_set(
+             ad.default_config,
+             '{workflow,steps,find_dispatchable_site,config,query}',
+             to_jsonb(v_new),
+             false)
+     WHERE ad.type='build-pipeline-trigger'
+       AND ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n <> 1 THEN
+        RAISE EXCEPTION '657: expected to update exactly 1 build-pipeline-trigger row, updated %', v_n;
+    END IF;
+END;
+$mig$;
+
+-- ---------------------------------------------------------------------------
+-- GUARDS — read back and assert; DO/RAISE because a block of SELECTs cannot
+-- stop a COMMIT. The last guard EXECUTEs the stored text against the live
+-- schema: a query that does not parse or run must not be committed.
+-- ---------------------------------------------------------------------------
+DO $guard$
+DECLARE
+    v_q      text;
+    v_frag   text;
+    v_site   text;
+    v_domain text;
+BEGIN
+    SELECT s.value->'config'->>'query' INTO v_q
+      FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s
+     WHERE ad.type='build-pipeline-trigger' AND s.key='find_dispatchable_site'
+       AND ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL;
+
+    IF position('load_rank' in COALESCE(v_q,'')) = 0 THEN
+        RAISE EXCEPTION '657 GUARD: the new query is not in place (no load_rank window)';
+    END IF;
+    -- The window must mirror the loader's ordering VERBATIM (load_work_item_actions.go:789).
+    IF position('ORDER BY e.priority ASC, e.created_at ASC' in v_q) = 0 THEN
+        RAISE EXCEPTION '657 GUARD: the window does not mirror the loader ordering (priority ASC, created_at ASC)';
+    END IF;
+    -- No eligibility clause may be lost — each widens dispatch if dropped.
+    FOREACH v_frag IN ARRAY ARRAY[
+        's.locked_at IS NULL OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[]))',
+        'wi.status IN (''triaged'', ''approved'')',
+        'wi.attempt_count < wi.max_attempts',
+        'wi.retry_after IS NULL OR wi.retry_after <= NOW()',
+        'COALESCE(wi.approval_mode, ''auto'') = ''auto'' OR wi.status = ''approved''',
+        'wi.depends_on IS NULL OR NOT EXISTS',
+        'active.status = ''claimed'''
+    ] LOOP
+        IF position(v_frag in v_q) = 0 THEN
+            RAISE EXCEPTION '657 GUARD: eligibility clause LOST from the new query: %', v_frag;
+        END IF;
+    END LOOP;
+
+    -- EXECUTION PROBE: the stored text must run as-is (it takes no parameters) and
+    -- return at most one (site_id, domain) row. INTO takes the first row; zero
+    -- eligible sites yields NULLs, which is a valid quiet-fleet result.
+    EXECUTE v_q INTO v_site, v_domain;
+    RAISE NOTICE '657 probe: next pick under the new ordering = % (%)',
+        COALESCE(v_domain, '<no eligible site>'), COALESCE(v_site, '-');
+
+    RAISE NOTICE '657 OK: selector now ranks sites by min(created_at) over their top-K loadable rows; K read live from build-dispatch-loop.';
+END;
+$guard$;
+
+COMMIT;
