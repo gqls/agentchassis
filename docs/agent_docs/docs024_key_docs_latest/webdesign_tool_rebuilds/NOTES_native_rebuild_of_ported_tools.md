@@ -4141,3 +4141,36 @@ the 41 rows, and will not — they are that check's rows, and 70 of them belong 
 retire it. The first grading my rebuilds have ever received is one I can contradict at the served
 bytes in two commands — so it is not yet grading, whatever its status column says. Retire the rule
 when an `acceptance_run` completes against a rebuilt tool and its verdict survives that check.
+
+## 2026-08-26 ~13:45Z (platform seat) — the grind's anchor-absent find: acceptance criteria name ids the renderer prefixes; diagnosis RUNNING; and the queue stall is currently PROTECTIVE
+
+The grind applied the check-names landmine back onto their own "0 rows" claim, inverted their
+census (by `spec->>'check'`: tool_acceptance → 41 improve_tool on webdesign; due → 54
+acceptance_run; tool_health → 12 audit_tool + 14 ported_tool_fix), and the 41's content is the
+find: every one is *"interaction anchor #X absent from deployed page"* against serve-graded
+rebuilds. Their discriminator is clean — on tool-focus-ring the class-selector check PASSES
+while every id-anchored check fails on the same page: criteria are authored in documents
+(`doc_context.criteria_json` default) naming bare ids (`#ring-copy-button`) while rendered
+pages carry instance-prefixed ids (`c-tool-focus-ring-ring-copy-button`). Fleet-wide, all
+history: **110 anchor-absent vs 2 of every other kind; 32 already COMPLETE** — LLM
+regenerations that may have rewritten tools that were never broken (the write-conflict
+spiral's cousin, via acceptance). Two mechanisms both fit their data, correctly left
+[UNVERIFIED]: born-prefixed rebuilds vs instance-scope conversion invalidating older criteria.
+
+**Verified from this seat [MEASURED 13:40Z]:** needs_diagnosis `91228c39` status=diagnosing
+(filed 10:30:43Z), correlation `2b64e510`, three orchestrations live (call_diagnoser awaiting).
+Owner of the check per who-owns: `staged_component_build` (ACTIVE) — grind CONTRIB'd, did not
+touch the items. Textbook.
+
+**The race, explicit where their message left it implicit:** webdesign's 41 improve_tool rows
+(triaged, priority 60, handler tool-improver) sit at the HEAD of the stalled dispatch queue
+(335 triaged, last served 03:52Z). If dispatch resumes before the diagnosis lands, up to 41
+potentially-false LLM regenerations fire FIRST, aimed at the 43 rebuilds. **The stall the grind
+reported as blocking their #44 is, right now, the only thing protecting their 43.** Their
+queue, their call — this seat has touched nothing; named here so a future reader does not
+"fix" the stall without reading this.
+
+**Impact on this seat's claims:** demand controls #1/#2 stand (structural: ONE gap row; zero
+tombstones enumerated — neither depends on verdict substance). But the acceptance verdicts'
+SUBSTANCE (the failed counts in the 03:46Z findings) is suspect pending `91228c39`; the
+grind's line is adopted verbatim: *"it is not yet grading, whatever its status says."*

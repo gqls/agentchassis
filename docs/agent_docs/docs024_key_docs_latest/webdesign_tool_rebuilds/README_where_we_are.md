@@ -437,3 +437,22 @@ twenty, matches the rebuild queue's real remainder to the digit. And the accepta
 covered the sixty-nine live tools while ignoring all forty-six retired ones, where the old code
 would have listed every ghost. The change we shipped yesterday does what it was built to do, on
 the site it was built for.
+
+## 2026-08-26, early afternoon (platform seat) — the acceptance audit mostly fails healthy tools, and a diagnosis is already running
+
+An honest walk-back of one thing I told you this morning. I reported approvingly that the
+acceptance audit had covered the sixty-nine live tools. The coverage was real, but the sibling
+seat has now shown the verdicts mostly are not: nearly every failure the audit has ever
+produced — 110 of 112, across ten sites, back to early July — says a button or input is
+"absent" from a page where it plainly exists. The cause looks like a naming mismatch: the
+acceptance criteria are written in documents that call an element by its short name, while the
+pages as rendered give every element a longer, prefixed name. A checker looking for the short
+name reports it missing and fails the tool.
+
+Two consequences. First, thirty-two of those failures already triggered automatic rewrites of
+tools across the fleet that may never have been broken — that is being investigated by the
+diagnosis loop right now, filed properly rather than asserted. Second, on the webdesign site
+forty-one such failures are queued for the same automatic rewriting, aimed at the freshly
+rebuilt tools — and the only reason none has fired is that the site's dispatch queue happens
+to be stalled. The stall I reported earlier as blocking the rebuild work is, for the moment,
+also the thing protecting it. Nobody is touching either half until the diagnosis comes back.
