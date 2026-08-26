@@ -2430,3 +2430,62 @@ the close record.
 Archives on the dev box: 1340 / 1342 / 1343 (`~/.config/gripper-dossier/`) —
 1343 is live; the other two are rollbacks; reap the older ones whenever the
 owner is happy.
+
+## 2026-08-26 (night) — /gripper-report.html LIVE (unlinked); 651 APPROVED r1; advisories answered; the widget BUNDLE is the one open item, and it is an owner decision
+
+**Page shipped**: seed 651 applied (first apply REFUSED by mig 581's
+`refuse_selector_invisible_section` — `section_type` was missing; declared, guard
+working as designed). Direct page-rerender (049b, assemble-only) committed
+`gripper-report.html` (94c8de776, 69,577 B — chrome built by the assemble path);
+B2 run queued ~10 min behind fleet traffic (the 404 window was QUEUE LATENCY —
+the file was in the repo the whole time); page then 200 with mount div, endpoint
+attr, snippets include and the noindex meta all present.
+
+**Council corr `de0068fd`: APPROVED round 1**, 4 advisory objections (none high;
+full report in `diagnosis_artifacts` kind=council_report). Dispositions:
+- *noindex may miss on the second head producer* (editquality, med) — ANSWERED AT
+  THE ARTEFACT: the served page carries the noindex meta; this page went through
+  assemble, which injects it.
+- *length() counts chars not bytes* (editquality, low) — REAL; verify now uses
+  `octet_length` (widget is pure ASCII, so the old count was coincidentally
+  exact). Fixed same evening.
+- *no caveat that the automated report can be wrong* (compliance, med) — REAL;
+  the page copy now carries the shortlisting-aid caveat, live row healed via the
+  seed's new converge-UPDATE (the NOT EXISTS guard would never have healed it),
+  page redeploy refired (corr dcade0bb).
+- *prior-art searches not shown* (reuse ×2) — DONE post-hoc: `report-request-form`
+  /`audience-check-form`/`contact-form` exist as section components but are
+  server-form shapes; the js_snippets survey (10 rows) shows loaders/formatters,
+  NO chat-protocol widget; nothing speaks the island /session-/chat-/submit
+  contract. New component justified.
+- *js_snippets name collision fleet-wide* (guardian, med) — name IS fleet-unique
+  by constraint; my row was CREATED today 16:42 (no pre-existing row was
+  clobbered — checked provenance, not assumed).
+- *content_components INSERT not idempotent / pages pre-check missing* (guardian)
+  — both guards exist in the file (IF cc IS NULL; NOT EXISTS); the sketch elided
+  them.
+- *liveness claim unverifiable by the seat* (prior_art, med) — verified by THIS
+  lane at the artefact this morning (the two E2E runs); the seat is right that no
+  table proves it.
+
+**THE OPEN ITEM — the widget is not in the served bundle, and every route to it
+is a sitewide effect.** Measured, not assumed: `rerender-pages`'
+`check_refresh_components` false-branch goes STRAIGHT to `rebuild_blog_listing`,
+SKIPPING `render_js_snippets`+`deploy_js_snippets` — the bundle only renders on
+the chrome-refresh branch. The direct `page-rerender` agent (049b) has no
+snippets step at all. Options:
+- **(A) rerender-pages with `spec.refresh_site_components=true`** — the
+  idea.uk-proven shape (RUNBOOK_scheme_to_components w4b): forced chrome
+  re-render + snippets deploy + one assemble-only item per page (~15 robot-hands
+  pages redeploy). Proven end-to-end elsewhere; visual chrome deltas possible.
+- **(B) nav-link-fixer** — 6 steps, no per-page items; but `fix_nav_templates`'s
+  no-op behaviour is UNVERIFIED and its chrome re-render would sit DORMANT in
+  site_components until each page's next rerender (a surprise-chrome trap).
+Deliberately NOT taken solo: outward-facing sitewide change, owner responsive,
+page unlinked so the wait costs nothing. Recommendation to the owner: (A), at a
+moment they can eyeball the site after.
+
+**Also owed once the bundle ships**: the owner's browser click-test of the chat
+widget (this box has no browser; goja parse + live API contract are the coverage
+so far), then the soft-launch flip (in_footer + noindex, one UPDATE in the seed
+header).

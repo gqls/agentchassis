@@ -410,7 +410,11 @@ mounts because `.env` already carries the key.)
    enable `report-request-pull`, then watch ONE tick for
    `per_site → {"robot-hands.com": …}` with no `error`.
 - **`report-request-pull` stays OFF until 6 passes.** Unchanged.
-- Site widget + `/gripper-report/` page: still a separate deliverable (DESIGN §2).
+- ~~Site widget + `/gripper-report/` page: still a separate deliverable (DESIGN §2).~~
+  **PAGE LIVE 2026-08-26 night** (`/gripper-report.html`, unlinked+noindex, caveat
+  copy, seed 651 APPROVED corr `de0068fd`, advisories answered — NOTES night entry).
+  **Widget bundle NOT yet served: every route is sitewide (owner decision A/B in
+  NOTES), then the owner's browser click-test, then the soft-launch flip.**
 - Council resubmit (`RESUBMIT_CORR=623da25b…`): still the tools-api build session's,
   deliberately not taken. Unchanged.
 
