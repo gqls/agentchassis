@@ -65,3 +65,85 @@ FATAL run (149 B4). An unregistered action name in a workflow is inert at best.
 ```
 ./scripts/audit-single-owner-actions.sh
 ```
+
+---
+
+## Imagery / `component_expresses` (added 2026-08-26, migration 644)
+
+### What a component is advertising to the planner
+
+Three live planner menus embed this call, so this IS what the model is shown:
+
+```sql
+SELECT name, array_to_string(component_expresses(html_template, input_schema), ', ') AS expresses
+  FROM content_components
+ WHERE is_active AND component_level IN ('section','element')
+ ORDER BY name;
+```
+
+⚠ **Gotcha:** `component_expresses` is `IMMUTABLE` and lives in the DB, not in Go. `grep` will not
+find its consumers — they are embedded in `agent_definitions` config. Find them with:
+
+```sql
+SELECT a.type FROM agent_definitions a,
+  LATERAL jsonb_path_query(a.default_config, 'strict $.**.query ? (@ like_regex "component_expresses")') x
+ WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL;
+```
+
+### Before/after control for ANY change to a derived vocabulary — in ONE snapshot
+
+⚠ **Do not capture BEFORE and AFTER as two queries.** Other lanes create components continuously;
+five appeared mid-run on 2026-08-26 and the two-snapshot control broke outright (381 rows vs 386).
+Compute both sides in one query so no concurrent writer can skew the pairing — see
+`scratchpad/imagery/control_atomic.sql` pattern, reproduced in migration 644's own temp table:
+
+```sql
+CREATE TEMP TABLE _before ON COMMIT DROP AS
+SELECT id, name, component_expresses(html_template, input_schema) AS tok FROM content_components;
+-- ... apply the change ...
+-- 1. nothing may LOSE a token:
+SELECT count(*) FROM _before b JOIN content_components c ON c.id=b.id
+ WHERE EXISTS (SELECT 1 FROM unnest(b.tok) t WHERE t <> ALL (component_expresses(c.html_template,c.input_schema)));
+-- 2. nothing may change by anything OTHER than gaining the new token:
+SELECT count(*) FROM _before b JOIN content_components c ON c.id=b.id
+ WHERE array_remove(component_expresses(c.html_template,c.input_schema),'image')
+       IS DISTINCT FROM array_remove(b.tok,'image');
+```
+
+⚠ **The row COUNT is not a control** — a variant that also suppressed `list` changed the same number
+of rows while three components silently lost a capability. Assert the two above, and **induce them**
+(run the broken variant and watch them fire) or you have only proven they can pass.
+
+### What a `site_assets.<path>` field will ACTUALLY render
+
+```bash
+grep -n -A14 'imageRoleAliases = map' platform/orchestration/imageryplan/imageryplan.go
+```
+
+If your `<path>` is a key in that map it resolves to the **ROLE**, not to your field — `image`,
+`background`, `banner`, `header_image`, `product_screenshot`, `screenshot` and others all mean
+`hero`. Confirm at the artefact, across the whole estate, never on one component:
+
+```sql
+WITH f AS (SELECT c.id, c.name, k.key AS field
+             FROM content_components c, jsonb_each(COALESCE(c.input_schema->'fields','{}'::jsonb)) k
+            WHERE k.value->>'source' = 'site_assets.image' AND k.value->>'type' IN ('url','image','image_url'))
+SELECT s.domain, p.url, f.name, pc.content_data->>f.field
+  FROM f JOIN page_components pc ON pc.component_id=f.id
+  JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id ORDER BY 1,2;
+```
+
+⚠ A per-section-looking value is **not** proof the source works — it may be hand-seeded and surviving
+by `carryStored`. The disconfirming shape is a value matching the page's HERO asset.
+
+### Dry-running a migration safely against the live DB
+
+```bash
+sed 's/^COMMIT;$/ROLLBACK;/' <migration>.sql > /tmp-scratch/dryrun.sql
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < /tmp-scratch/dryrun.sql
+```
+
+Then mutate the dry-run file to make each guard fail, and confirm each aborts. Recording it here
+because `CREATE OR REPLACE FUNCTION` **is** transactional in Postgres, so this genuinely leaves the
+live function untouched — verify with a must-be-absent probe afterwards.

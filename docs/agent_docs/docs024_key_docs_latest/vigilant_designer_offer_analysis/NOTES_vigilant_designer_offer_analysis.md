@@ -3148,3 +3148,120 @@ fields per gate, because those are the part that does not generalise.
    (`work_item_owned_page_door_test.go` reads a path under `sql_for_agents` and is not allow-listed).
    Not mine, not caused by this change, verified against unmodified HEAD — it belongs to the
    owned-page-door lane.
+
+---
+
+## 2026-08-26 — the imagery slot: one UNION arm turned out to be two halves, and the second one was preventing live damage
+
+Picked up from `HANDOFF_2026-08-26_continue_here.md` §1. The task as inherited: add a fifth `image`
+arm to `component_expresses` so the planner can tell `Illustrated Text Block` from
+`Generic Text Block`. Small, well-specified, with the control already named. It did not stay small.
+
+### What reproduced exactly
+
+Every figure in the handoff and in `PLAN_2026-08-25b` §8 re-measured true on the live DB:
+
+- `component_expresses` live body: four arms, no image token. `Generic Text Block` and
+  `Illustrated Text Block` both `[html-block, list, table]` — identical.
+- schema predicate `= 'site_assets.image'` → **9** components, 8 active + section-level; template
+  `<img` grep → **47**. Both exact.
+- `Illustrated Text Block`: **6** live instances, all on apis.uk. `Generic Text Block`: **208**
+  across 23 sites.
+- supply: `webdesign.co.uk` 0.10 assets/page (149 pages, 15 assets), three sites at zero. Exact.
+
+So the inherited work was sound. What follows is not a correction of it — it is what reading the
+resolver turned up, which `PLAN_2026-08-25b` §8e item 3 had explicitly flagged as **not yet read**.
+
+### MISSTEP 1 — I read the alias map, drew the right conclusion, then let the live data talk me out of it
+
+`site_assets.image` is not a literal asset key. `imageRoleAliases` maps `image` → `hero`, and nothing
+populates `r.assets["image"]`, so the alias is unconditional: the field resolves to the page's own
+hero. I had that from the code within minutes.
+
+Then I checked apis.uk's six live instances to confirm — and they showed six **distinct
+illustrations** with proper descriptive alt text. That looks like a refutation. I wrote in-session
+that my code-derived inference "did not hold in practice".
+
+**It was not a refutation, and the shape of the mistake is the useful part.** Those six values did
+not come from the resolver at all — they were authored by another route (apis.uk's session has since
+confirmed: `content_data` + lock, the CLC-030 route) and were merely *surviving*. The only reason
+they survive is `carryStored`. So the one site that looked like proof the source worked was the one
+site where the source had never run.
+
+**The check that would have caught it in one step**, and which I only ran afterwards: look at the
+column across the WHOLE estate, not at the component you care about. Every other populated
+`site_assets.image` value in the estate is a hero asset — `hero-about.jpg`, `hero-home.jpg`,
+`content-hero-*.jpg` — and 20 of 52 duplicate an image already on the same page. The disconfirming
+shape was available; I looked at the six-row sample first because it was the component in front of
+me. **A hand-seeded value and a resolved value are indistinguishable in `content_data`.**
+
+### MISSTEP 2 — the fix I inherited would have been silently cancelled by the fix I added
+
+Having decided to repoint `image_url` to `site_assets.illustration`, I nearly shipped the handoff's
+predicate verbatim: `source = 'site_assets.image'`, exact equality. **Under the repoint the field
+stops carrying that value**, so the component would have gone invisible again and the two halves
+would have cancelled — each provably correct alone, jointly useless, and every guard would still
+have passed. Caught by writing the after-state simulation with BOTH changes applied rather than one.
+The predicate is now over `site_assets.%`, and the migration asserts both ends so the cancellation
+cannot commit.
+
+### MISSTEP 3 — my first two controls were both broken, in different ways
+
+1. An `awk` one-liner asserting "no reshuffle" **failed to parse** (bad escaping inside the quoting)
+   and printed `0`. I nearly recorded that `0` as a pass. **A control that errors and a control that
+   passes look identical when you only read the number.**
+2. In the same breath, `grep -c 'image' BEFORE_all.txt` returned `2` — I read it as "the token
+   already exists somewhere". It was matching component **names** containing "image", not tokens.
+
+Both rewritten as a Python control asserting structure. Then **mutated**: a variant arm that also
+suppressed `list` changed **the same 9 rows** while 3 silently lost a capability. So the row-count
+control — the obvious one — cannot tell a widening from a reshuffle. Now a LANDMINE.
+
+### MISSTEP 4 — the baseline went stale mid-measurement
+
+`BEFORE` had 381 rows, `AFTER` had 386. Five `*-loanzy-uk` components were created by another lane
+between the two snapshots. The control did not silently skew — it crashed on a length assertion,
+which is the only reason I noticed. Rewritten to compute both sides in **one** query, which no
+concurrent writer can skew. This is also why migration 644 deliberately does **not** assert a literal
+component count.
+
+### What the repoint actually prevented — confirmed by the affected lane, not by me
+
+apis.uk/index has an active `hero_home` asset, so `site_assets.image` **resolves** there, and
+`plan_sections`' rule is *"Live resolution always wins"*, ahead of `carryStored`. Its six
+illustrations were therefore one `plan_sections` run from becoming six copies of `hero-home.jpg`.
+
+I reported this to the apis.uk session as a latent risk. **They came back with a clock I did not
+have:** that page is at `needs_rebuild` right now and an `analytics_gtm` `stale_chrome` wave was due
+to re-render it imminently. The fix landed hours ahead of the trigger. Recorded because I had no way
+of knowing the timing and would have called it "latent" indefinitely — **the owning lane knew the
+schedule and I did not; telling them converted a theoretical risk into a dated near-miss.**
+
+### Shipped
+
+- migration `644_planner_sees_imagery_and_illustrated_block_sources_an_illustration.sql` (+ ROLLBACK),
+  applied 2026-08-26 and recorded in the ledger; guards passed (14 express image; 0 lost, 0
+  reshuffled, 0 unearned), all three guards **induced and observed firing** before submission.
+- register **IMG-074** + index row, same commit (`d10952b3b`).
+- council `Council-Submitted: 08477888-b3e6-4ceb-911d-6e2a3c446755` — **verdict not yet read.**
+- LANDMINES ×2 (`b3bddba60`) — the alias trap, and the count-vs-shape control. That commit also
+  carries a named same-file passenger (portfolio_positioning's SEO-007 update); they were told.
+- Verified live at the artefact with both controls: 14 express `image`; a bogus token returns 0
+  (so the probe discriminates); `Generic Text Block` byte-identical; repoint reads
+  `site_assets.illustration` | `llm`.
+
+### Still open, from this piece of work
+
+1. **Supply is untouched and is the bigger half.** 26 illustration assets across 5 sites against 206
+   heroes across 28; only **4** `section/illustration` plan rows across 3 sites. Everywhere else the
+   block renders as plain prose, by design. Nobody owns this.
+2. **`section/illustration` resolution is first-wins by KIND**, so several illustrated sections on one
+   page all resolve to the SAME image. apis.uk has routed around it via `content_data` + lock and has
+   offered itself as the worked test case (six distinct instances) if anyone builds per-section
+   mapping.
+3. **6 `site_plan_imagery` rows at `scope='page', kind='illustration'` are read by no resolver arm**
+   and are inert (5 apis.uk, 1 pool-energy-utilities.internal). Named, not fixed.
+4. **llm-authored alt text for a server-resolved image is a hallucination surface** — true of all 13
+   existing alt fields, the estate's settled convention, and not solved here.
+5. **Nothing has re-planned a page yet**, so every behavioural claim in IMG-074 is unverified. A zero
+   in adoption is NOT a failure — read the demand side first.

@@ -55031,3 +55031,51 @@ whole chain that ever caught anything.
 
 Family: 2026-08-26 / 26c / 26d above (one chain, four corrections, each sharper than the last),
 [[a-subagent-report-is-another-doc]], confirm-the-denominator.
+
+---
+
+## 2026-08-26e — I let SIX rows of live data refute a correct code reading, because the one site using the feature was the one site where the feature had never run
+
+**Lane:** vigilant_designer_offer_analysis (imagery slot, migration 644).
+
+**The claim I made, in-session:** that `site_assets.image` resolves to the page's own hero was
+"refuted" — that my "code-derived conclusion did not hold in practice". I wrote that the live
+instances "did not come from the alias path" and treated my own correct reading as suspect.
+
+**What was true:** the reading was right. `imageRoleAliases` maps `image` → `hero`, nothing ever
+populates `r.assets["image"]`, so the alias is unconditional and the field resolves to the hero on
+every page, always.
+
+**What caught it:** widening the same query from one component to the whole column. Every OTHER
+populated `site_assets.image` value in the estate is a hero asset (`hero-about.jpg`, `hero-home.jpg`,
+`content-hero-*.jpg`), and 20 of 52 duplicate an image already on the same page. The evidence was one
+query away the whole time.
+
+**Why the sample lied, and this is the transferable part.** I checked the component I cared about,
+on the only site that uses it — apis.uk's six illustrated sections — and saw six genuinely distinct,
+well-captioned illustrations. That looks exactly like "the source works". Those values had been
+authored by a **different route entirely** (`content_data` + lock) and were merely *surviving*, via
+the carry-forward that fills a field whose declared source resolves nothing. **A hand-seeded value
+and a resolver-produced value are byte-identical in `content_data`.** So the single site that looked
+like proof the mechanism worked was the single site where the mechanism had never once run — and its
+values were, at that exact moment, one rebuild away from being destroyed by the very alias I had just
+talked myself out of believing in.
+
+**The cheap check that would have prevented it:** when a code reading and a data sample disagree,
+**do not adjudicate on the sample you started with — widen the population until the sample could have
+come out either way.** One component on one site cannot disconfirm a fleet-wide resolution rule; the
+column across all sites can, and did, in one query. The tell that should have stopped me: my sample
+was N=6, all on ONE site, of a feature with SIX live instances in the entire estate. **A sample that
+is the whole population of an unused feature is not evidence about the mechanism — it is evidence
+about whoever hand-filled it.**
+
+**Second, smaller wrong call in the same hour, same file:** I ran `grep -c 'image'` over a token
+census and read `2` as "the token already exists". It was matching component *names* containing
+"image". And an `awk` control asserting "no reshuffle" **failed to parse** and printed `0`, which I
+nearly recorded as a pass — *a control that errors and a control that passes are the same number when
+you only read the number.*
+
+Family: [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] (inverted — here the
+plausible-looking DATA is when to doubt the sample, not the instrument), [[damage-confirmed-is-not-mechanism-confirmed]],
+confirm-the-denominator, 2026-08-26/26c/26d above (open one member before you trust the count — this
+is the mirror: open MORE members before you trust a refutation).

@@ -1654,3 +1654,64 @@ not taken that decision and neither has the other thread.
 Until then the check we built yesterday will keep watching, and it still cannot be allowed to block
 anything — not because it is unproven, but because the work it would be blocking is work nobody can
 currently do.
+
+---
+
+## 26 August — the pictures job turned out to be two jobs, and the second one was quietly about to break a page
+
+You asked for pictures between the paragraphs on built pages. Here is where that got to today.
+
+**The good news first: we did not need to build anything.** There is already a section type that does
+exactly this — a heading, an optional picture, then the prose. It is well made: the picture is
+optional, so if a site has no suitable image the section just renders as text with no gap or broken
+frame. Somebody built it properly a while ago.
+
+**Nothing was choosing it, and the reason was almost silly.** When the system plans a page, it is
+shown a menu of the available section types with a short description of what each one can do. That
+description is generated automatically. It could say "this one does text", "this one does lists",
+"this one does tables" — and it had **no word for pictures at all**. So the illustrated section and
+the plain text section were described to the planner in identical terms, and it picked the plain one
+essentially every time: 208 plain ones across 23 sites, against 6 illustrated ones on a single site.
+
+So the fix was to teach it the word. That part was small, and it is done.
+
+**Then I read the part nobody had read, and it changed the job.** The illustrated section asks for
+its picture from the site's own image library. I went to check *which* picture it actually gets, and
+the answer is: **the one already at the top of the page.** There is a translation table buried in
+another part of the system that quietly turns the request for "an image" into a request for "the
+page's headline image". It always has. Nothing in the section's own definition says so.
+
+You can see the result on pages we have already built. On one consultancy site's About page, the big
+picture at the top and the picture inside the block below it are the same file. Across the estate, 20
+of the 52 places this happens are showing a duplicate of something already on the page.
+
+**So shipping just the small fix would have made things worse, not better.** We would have taught the
+planner to reach for the illustrated section, and it would have filled it with the same photograph
+that was already at the top. That is not what you asked for and it looks careless.
+
+I put that to you and you said to fix the source as well before shipping. That is what I did.
+
+**It also turned out to be about to destroy something.** One site — apis.uk, the bee one — has six of
+these illustrated sections with six genuinely different pictures, hand-placed. Because of the
+translation table, the next time that page was rebuilt, all six would have been replaced with six
+copies of the page's top image. I flagged it to the person working on that site, and they came back
+saying that page was already queued for a rebuild imminently. So the fix landed a few hours ahead of
+the thing that would have wiped it. That was luck as much as judgement.
+
+**One smaller thing worth knowing:** the descriptive text that screen readers use for these pictures
+was being filled in with the image's file path. So a blind visitor would have heard a web address
+read out instead of a description. That is fixed too — it now gets written properly.
+
+**What I have NOT fixed, and it is the bigger half.** Making the section available does not create any
+pictures. The system is good at generating *headline* images — 206 of them across 28 sites — and
+almost never generates the kind that sits inside an article: 26 across 5 sites. So on most sites this
+new capability will correctly and quietly do nothing, because there is nothing to put in it.
+
+That is the real answer to "why don't the pages have pictures in them". It was never mainly that the
+system couldn't place them. It is that it isn't making them. **Nobody currently owns that**, and it is
+a bigger piece of work than today's. It is the thing I would point you at next.
+
+**One judgement call I made that you might want to overrule.** In deciding which section types count
+as "can show a picture", I included the headline/banner ones and excluded only the logo. A reviewer
+could reasonably say the banners should be excluded too. It is in the change under review, so it can
+still be argued.

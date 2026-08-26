@@ -352,3 +352,64 @@ rather than assuming, because the cheap fix answers the page-level reading and n
 3. **A writer-side check** that the guidance for `image_url` is reachable — the field is
    `site_assets.image`, so what resolves it is server-side, and I have not yet read that resolver.
 4. **Then, separately, the supply question (§7)**, which nothing here touches.
+
+### 8f. ⚠ CORRECTED 2026-08-26 — §8c's PREDICATE IS SUPERSEDED, and shipping it alone would have made the page WORSE
+
+*Written where §8c can be read against it, per the working-docs rule that corrections live beside the
+claim rather than replacing it. §8c is right about the diagnosis and right about the derivation being
+schema-based. It is wrong about the predicate, and it is incomplete about the consequence.*
+
+**§8e item 3 said "I have not yet read that resolver". Reading it is what changed the plan.**
+
+**1. The predicate must be `site_assets.%`, not `= 'site_assets.image'`.** §8c proposes exact
+equality on `site_assets.image`. Half 2 below repoints the field OFF that value, so the exact-match
+predicate would have made `Illustrated Text Block` invisible again — **the two halves cancel, each
+provably correct alone.** Shipped predicate:
+
+```sql
+UNION
+SELECT 'image' WHERE EXISTS (
+  SELECT 1 FROM jsonb_each(COALESCE(p_input_schema->'fields', '{}'::jsonb)) f
+   WHERE f.value->>'source' LIKE 'site_assets.%'
+     AND f.value->>'source' <> 'site_assets.logo'
+     AND f.value->>'type' IN ('url', 'image', 'image_url'))
+```
+
+`[MEASURED 2026-08-26]` **14** components, **11** active + section-level (§8c's "9, of which 8" was
+correct for its own narrower predicate). `site_assets.logo` is the single exclusion — site identity,
+never the illustration a planner is reaching for. Heroes ARE included; a reviewer may reasonably
+disagree, which is why it is stated rather than buried.
+
+**2. `site_assets.image` RESOLVES TO THE PAGE'S OWN HERO.** This is the thing §8 did not know.
+`imageryplan.imageRoleAliases` maps `image` → `hero`, and `plan_sections` takes the alias whenever
+the literal key misses — which it always does, because nothing populates `r.assets["image"]`.
+`[MEASURED 2026-08-26]` every populated `site_assets.image` value in the estate is a hero asset, and
+**20 of 52** already duplicate an image shown elsewhere on the same page. **So §8c shipped alone
+would have taught every planner, fleet-wide, to reach for a component that repeats the hero
+mid-page** — not neutral-but-inert, actively worse than the status quo. §8a's admiration for the
+component still stands; the flaw is in one field's `source`, not in the design.
+
+**3. It was also a LIVE latent regression, not just a design smell.** apis.uk/index has an active
+`hero_home`, so the alias resolves there, and *live resolution beats `carryStored`*. Its six distinct
+illustrations were one `plan_sections` run from becoming six copies of `hero-home.jpg`. The apis.uk
+session confirmed on receipt that the page is at `needs_rebuild` **now** with a `stale_chrome`
+re-render wave imminent — so this was hours, not "someday".
+
+**4. `image_alt` was typed `text` but sourced `site_assets.image`**, so the resolver hands it the
+image URL for a screen reader to read out. Repointed to `llm`, the estate's convention on 13 other
+alt fields, which its own `llm_guidance` already assumed.
+
+**5. §8d's supply finding is UNCHANGED and remains the bigger half** — re-measured true. If anything
+it is sharper than §7 stated: the estate generates **heroes** (206 across 28 sites) and **icons**
+(139 across 19), and barely any **illustrations** (26 across 5 sites; only **4** `section/illustration`
+plan rows across 3 sites). The mechanism for in-content imagery exists and is essentially unfed.
+
+**6. On §8's closing question (imagery "between paragraphs")** — put to the owner 2026-08-26. He
+answered that section-level placement is acceptable ("either, whichever ships"), so the strictly
+mid-prose reading is NOT owed a new component. He also chose to fix the source before shipping rather
+than ship the one-liner.
+
+**Shipped as migration `644`**, applied 2026-08-26, `Council-Submitted: 08477888-...`, register
+**IMG-074**. Revised §8e in one line: it is **one** migration containing **both** halves, and the
+control is the additive assertion, not the row count — a variant arm that also suppressed `list`
+changed the SAME number of rows while three components silently lost a capability.
