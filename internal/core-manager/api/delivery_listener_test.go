@@ -253,9 +253,20 @@ func TestDeliveryRoutesMustBeServableThroughTheBox(t *testing.T) {
 	if err := assertRoutesAreBoxServable(canonical); err != nil {
 		t.Fatalf("the canonical route pair was rejected: %v", err)
 	}
-	// /d/ is not registered yet, but when it is, this shape must pass.
-	if err := assertRoutesAreBoxServable(gin.RoutesInfo{{Method: http.MethodGet, Path: "/d/:token"}}); err != nil {
-		t.Errorf("the download route's canonical shape was rejected: %v", err)
+	// /d/ is the sharp case, and the expectation FLIPPED on 2026-08-26: the vhost
+	// has NO /d/ location, so a /d/:token route registered today would pass every
+	// test, serve perfectly from inside the cluster, and 404 at the box for every
+	// customer. The guard must therefore REFUSE it until boxServablePrefixes
+	// gains "/d/" — in the same commit as the vhost's /d/ block.
+	if err := assertRoutesAreBoxServable(gin.RoutesInfo{{Method: http.MethodGet, Path: "/d/:token"}}); err == nil {
+		t.Error("a /d/:token route was vouched for as box-servable, but the vhost has " +
+			"no /d/ location: every download link would 404 at the box with no trace " +
+			"in the cluster")
+	}
+	// And the admin-router guard must still refuse /d/ there — the two lists
+	// answer different questions and this pair is what keeps them distinct.
+	if err := assertNoDeliveryRoutes(gin.RoutesInfo{{Method: http.MethodGet, Path: "/d/:token"}}); err == nil {
+		t.Error("/d/:token was accepted on the admin router")
 	}
 
 	for _, tc := range []struct {

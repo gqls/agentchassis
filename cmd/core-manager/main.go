@@ -114,10 +114,12 @@ func main() {
 	// ruling 2026-08-25). Returns immediately when not configured, which is the
 	// default — see config.ServerConfig.DeliveryPort.
 	//
-	// It brings the service down if it fails, exactly as the main listener does.
-	// A delivery listener that is configured but dead is a customer clicking a
-	// link in an email and getting nothing, which must not be a state the
-	// service is willing to sit in quietly.
+	// It brings the service down if it fails — via cancel(), whose ctx.Done()
+	// arm in the shutdown select below is what makes that TRUE rather than
+	// asserted: before 2026-08-26 nothing consumed the cancellation and this
+	// comment's claim was false. A delivery listener that is configured but dead
+	// is a customer clicking a link in an email and getting nothing, which must
+	// not be a state the service is willing to sit in quietly.
 	go func() {
 		if err := apiServer.StartDelivery(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			appLogger.Error("Delivery listener failed", zap.Error(err),
@@ -136,8 +138,24 @@ func main() {
 	// --- Step 5: Handle Graceful Shutdown ---
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	receivedSignal := <-sigCh
-	appLogger.Info("Shutdown signal received", zap.String("signal", receivedSignal.String()))
+
+	// Block on the signal OR on ctx being cancelled by a listener failure.
+	//
+	// ⚠ The ctx.Done() arm is what makes every `cancel()` above real. Before
+	// 2026-08-26 this line was a bare `<-sigCh`, so the listener goroutines'
+	// cancel-on-failure calls were dead code: a listener that failed to bind
+	// logged one error and the pod carried on, Ready forever (the readiness
+	// probe reads /health on the ADMIN port and knows nothing of the others).
+	// For the delivery listener that state is every customer link 502ing at the
+	// box with nothing unhealthy anywhere in the cluster — found by adversarial
+	// review; the main listener's cancel had the same defect and this arm fixes
+	// both. Exiting turns "quietly broken" into a restart loop somebody sees.
+	select {
+	case receivedSignal := <-sigCh:
+		appLogger.Info("Shutdown signal received", zap.String("signal", receivedSignal.String()))
+	case <-ctx.Done():
+		appLogger.Error("Shutting down: a listener failed (see the error logged by its goroutine)")
+	}
 
 	// Graceful shutdown with timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 60*time.Second)

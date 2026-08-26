@@ -42,6 +42,27 @@ type Server struct {
 // exactly what makes an accidental re-mount easy to miss in review.
 var deliveryRoutePrefixes = []string{"/c/", "/d/"}
 
+// boxServablePrefixes are the delivery prefixes the BOX actually proxies, and
+// they are DELIBERATELY a subset of deliveryRoutePrefixes rather than the same
+// list. The two lists answer different questions:
+//
+//   - deliveryRoutePrefixes: "what must never be on the admin router?" — /d/
+//     belongs there TODAY, so that a download route added prematurely to the
+//     admin port is refused.
+//   - boxServablePrefixes: "what can a customer actually reach?" —
+//     links.webdesign.uk.nginx proxies /c/ ONLY and explicitly has no /d/ block.
+//
+// Adversarial review (2026-08-26) caught the first version using one list for
+// both: assertRoutesAreBoxServable would have vouched for a /d/:token route as
+// "box-servable" while the box 404'd every download link locally — the exact
+// no-log-no-metric failure the assertion exists to make impossible, deferred to
+// the day /d/ is built and then invisible.
+//
+// ⚠ When /d/ ships: add "/d/" here IN THE SAME COMMIT as the vhost's /d/
+// location block, or core-manager will refuse to start with the /d/ route
+// registered — which is this list doing its job, not a bug.
+var boxServablePrefixes = []string{"/c/"}
+
 // assertNoDeliveryRoutes is the mechanism behind the comment in setupRoutes.
 //
 // The containment this service now buys is precisely "the admin port serves no
@@ -146,7 +167,7 @@ type deliveryRouteRegistrar interface {
 func assertRoutesAreBoxServable(routes gin.RoutesInfo) error {
 	for _, r := range routes {
 		ok := false
-		for _, prefix := range deliveryRoutePrefixes {
+		for _, prefix := range boxServablePrefixes {
 			if r.Path == prefix+":token" {
 				ok = true
 				break
@@ -155,11 +176,13 @@ func assertRoutesAreBoxServable(routes gin.RoutesInfo) error {
 		if !ok {
 			return fmt.Errorf(
 				"delivery route %s %s is not servable through the box: its vhost proxies "+
-					"exactly one anchored regex per prefix (^/c/[A-Za-z0-9_-]{20,128}$), so a "+
-					"suffix or differently-shaped path is 404'd AT THE BOX and never reaches "+
-					"this service — no log line, no metric, no error. Register it as %s:token "+
-					"or change the vhost first",
-				r.Method, r.Path, deliveryRoutePrefixes[0])
+					"exactly one anchored regex per SERVED prefix (today: /c/ only — "+
+					"^/c/[A-Za-z0-9_-]{20,128}$), so a suffix, a differently-shaped path, or a "+
+					"prefix the vhost has no location for is 404'd AT THE BOX and never reaches "+
+					"this service — no log line, no metric, no error. Register it as "+
+					"<served-prefix>:token, and if you are adding a NEW prefix, add its vhost "+
+					"location and its boxServablePrefixes entry in the same commit",
+				r.Method, r.Path)
 		}
 	}
 	return nil

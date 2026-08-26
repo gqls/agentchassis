@@ -25,15 +25,17 @@
 # the second click IS required — GET /c/ becomes a render-only confirmation
 # page, the mutation moves to a POST from its button, and NO delivery email is
 # sent before that page ships (DECISION_2026-08-24_confirmation_needs_a_second_click.md).
-# This vhost needs no change for it: `location /c/` passes GET and POST alike.
+# This vhost needs no change for it: the anchored /c/ location below passes
+# GET and POST alike (`limit_except GET POST`).
 #
 # Same posture as every vhost on this box: loopback only, tunnel dials out,
 # ufw default-deny. Same tunnel caveats as webdesign.uk.nginx: no X-Real-IP,
 # rate-limit keyed on CF-Connecting-IP, static proxy_pass resolves at reload.
 #
-# ⚠ THE PREFIX IS THE EXPOSURE. `location /c/` proxies EXACTLY the
-# confirm-transfer path. Do NOT widen it to `/` or add a longer prefix of
-# core-manager's routes.
+# ⚠ THE LOCATION IS THE EXPOSURE. The anchored regex below
+# (`^/c/[A-Za-z0-9_-]{20,128}$`) proxies EXACTLY the confirm-transfer path —
+# not a `/c/` prefix, which is what this comment used to say. Do NOT widen it
+# to `/`, loosen the anchor, or add a longer prefix of core-manager's routes.
 #
 # UPDATED 2026-08-25 — that sentence used to be the ONLY thing between the
 # internet and the admin API, and it is not any more. The upstream is now
@@ -61,9 +63,12 @@
 # halves are in place. `customer_access_tokens` = 0 [MEASURED 2026-08-25], so
 # no customer can be holding a link while that is true.
 #
-# ⚠ THE UPSTREAM RIDES THE WIREGUARD EGRESS FENCE. core-manager:8088 is on
-# the allowlist (networkpolicy-wireguard-egress.yaml). Narrow that policy and
-# this vhost times out in a way that reads as core-manager being down.
+# ⚠ THE UPSTREAM RIDES THE WIREGUARD EGRESS FENCE. This vhost's upstream is
+# core-manager:8090 (the delivery listener), on the allowlist alongside 8088
+# (which the chat bot's facts relay still needs)
+# (networkpolicy-wireguard-egress.yaml). Narrow that policy and this vhost
+# times out in a way that reads as core-manager being down. [Corrected
+# 2026-08-26: this note still said 8088 after the 8090 repoint.]
 
 limit_req_zone $http_cf_connecting_ip zone=links_rl:10m rate=20r/m;
 
