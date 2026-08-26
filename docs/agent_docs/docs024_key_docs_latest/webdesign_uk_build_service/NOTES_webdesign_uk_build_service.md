@@ -5884,3 +5884,27 @@ kept). Three rebuilds filed (reason owner_no_changes_prominence_2026_08_26), wat
 label re-place owed after the index one. Owner checklist delivered in chat: page rule ·
 word to the delivery lane on email copy · customer-container ruling · contact mailbox ·
 background TAG chase.
+
+## 2026-08-26 (late pm) — BOTH 08-25 reconsiderations RULED (relayed by site_delivery_and_editor, their NOTES eb237542c)
+
+(1) The owner edits sites BEFORE the customer sees them: INTERNAL-ONLY, inside the
+existing review gate; customer-facing position UNCHANGED ("as far as they are concerned
+it is one-shot with no approval stage"); "three or four days is fine" (duration absorbs
+it). (2) NO customer edits at launch ("no changes are included" stands); customer VOICE
+EDIT = the delivery lane's next build AFTER launch. **Net: terms/register/copy all stand
+as-is; the SUMMARY_2026-08-25 resume point applies as written; the delivery email's
+copy hold (pending these questions) is RELEASED.** Owner checklist item 2 (say the word
+on the email) is MOOT.
+
+**Guard now DUE in this lane:** with an internal edit step REAL, the 08-21 §6 item 2 gap
+is live: nothing enforces the no-approval-stage rule ("You will be able to approve the
+site once you have seen it" scans CLEAN today, measured 08-21), and a writer who learns
+of the internal step will write it. Arm the OFFER-SHAPE approval-language ban (the 08-19
+"round of changes" narrowing is the worked precedent; bare-token bans block the denial).
+**Sequencing: AFTER the in-flight prominence wave lands** (a ban added mid-wave could
+block my own three rebuilds at validate_content). Prove with a probe set carrying BOTH
+halves (claimscan) before applying.
+
+**Also relayed, observed-not-ruled:** the owner is actively setting up
+webdesign@contactforsales.com (mail server healthy; client config at fault) — reads as
+KEEP for the contact address; one explicit confirm requested in the owner status.
