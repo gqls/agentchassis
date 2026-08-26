@@ -230,3 +230,12 @@ is inert until proven otherwise. **Decision pending tomorrow's sample (n=1 today
 rows on vonc/noted/loanzy repeat it, fence 616's general `!important` bullet on
 `{{if not .input_data.spec.override_requirement}}` (migration 6xx, council). Footer pairing got FOUR
 rules (three redundant) — the N-pages × chrome class, completion-gate territory. NOTES §(p).
+
+**~20:30 BST addendum — mig 655 exists and is APPLIED (corr `ffd6952b`, verdict pending at write
+time):** the prompt now renders ONE !important instruction, never two — decided on §(p)'s
+pre-registered rule after the sample hit 6/6. **Drift anchors for any future css-patch prompt
+migration are now 655's shape** (fenced 616 passage + shortened else-sentence), not 635's.
+Tonight's repair sample is split at ~19:20 UTC by the apply — grade by `llm_call_log.created_at`.
+P4 tally after garden-tools + cookly: 38 attributed / 6 unattributed / 0 unreachable, all-theme
+rows on both sites; formal grading still on tomorrow's vonc/noted/loanzy. ⚠ the step config key
+is `prompt_template`, NOT `prompt` (a wrong-key query returns empty and reads as absence).

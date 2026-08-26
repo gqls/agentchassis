@@ -553,3 +553,52 @@ attributed `theme` rows then repaired tonight become cookly's own P3 test at its
 (~08-29 18:50 UTC). If ≥1 attributed repair renders WITHOUT `!important` where
 `needs_important:false`, the §(p) n=1 does not grow; if ≥2 attributed repairs keep `!important`,
 write the fence migration.
+
+## 2026-08-26 (r) — tonight's two audits GRADE P4 CONFIRMED-SO-FAR; the !important sample hit 6/6; migration 655 written, proven, submitted (`ffd6952b`), APPLIED ~19:20 UTC
+
+**garden-tools.uk (17:50 UTC, orch `09ecc0a8`):** 26 pairings measured — **24 attributed, 2
+unattributed, 0 unreachable** (`unverified_by_probe 6` is the adapter's per-element count, a
+DIFFERENT denominator than the filer's per-finding pair — carried through unchanged by design; do
+not read 24+2 vs 6 as an inconsistency). 14 rows filed: **13 theme, 1 unattributed**, every
+winner the measured shape (`.section .class` (0,2,0) / bare `.class` (0,1,0) / `.item p` (0,1,1)
+in page style_blocks; one `linked` winner — `blockquote` (0,0,1) in the theme itself, still
+theme-repairable). All `needs_important:false`.
+
+**cookly.uk (18:55 UTC, orch `fc7ac552`):** **13 attributed, 0 unattributed**, 0 unreachable; 5
+rows filed, ALL `theme` — the §(q) prediction (third byte-identical filing of the historic
+pairings) holds, and the site whose REAL-selector repairs kept failing now carries the measured
+requirement on every row. Note: cookly's paragraphs attributed fine — the inherited-colour class
+is not universal; it depends on the site's CSS shape (remortgage's footer inherits; cookly's
+paragraphs are directly ruled).
+
+**P4 running tally across three sites, by the probe's own accounting: 38 attributed / 6
+unattributed / 0 unreachable** — `repair_surface='theme'` dominates exactly as predicted, and the
+pre-stated disconfirming condition (unattributed dominating) is dead. Formal P4 grading still
+waits for vonc/noted/loanzy (tomorrow 10:27/12:28/15:29 UTC) since the prediction named them.
+
+**The !important sample closed at 6/6** (remortgage `9b2b2ce9` + garden-tools' first five
+attributed completions, counted from `css_added`) — every attributed repair met its specificity
+requirement AND kept `!important` against the block's "Do NOT". The pre-registered ≥2 threshold
+was crossed, so **migration 655** was written and shipped tonight:
+
+- Literals SLICED from the live `prompt_template` bytes by script (the twice-bitten lesson —
+  never retyped). ⚠ The config key is **`prompt_template`**, not `prompt` — my first extraction
+  query silently returned empty on the wrong key; same trap-shape as §(m)'s `write_findings`.
+- Fence: 616's three bullets wrapped in `{{if not .input_data.spec.override_requirement}}`;
+  635's else-sentence shortened (its "guidance below" would dangle). Exactly one instruction
+  family can render.
+- Proofs, all against the live row in rolled-back txns: apply 3241→3282 chars (arithmetic checks:
+  +55 fence, −14 sentence); apply-then-rollback restores md5 `a7be07f2…` exactly; second active
+  row → RAISE 'found 2' (clone needed `version+1` — unique `(type,version)`); double-apply →
+  refuses; one word edited in the passage → drift RAISE. Template proof ran on the EXTRACTED
+  post-apply artefact under the production parse (`datahelpers.RenderPromptTemplate`,
+  `data_helpers.go:1129` — `template.New("agent_prompt")` + funcmap, default options): 5 shapes,
+  instruction families exclusive in every render.
+- Submitted `ffd6952b`, DRY_RUN admission first; APPLIED ~19:20 UTC with the sequencing stated in
+  the submission; committed `1e513f5c9` with `Council-Submitted:`.
+
+**⚠ Tonight's sample is SPLIT by the apply:** rows whose `plan_css_fix` ran before ~19:20 UTC
+rendered the old prompt (expect `!important`); after, the fenced one (expect NO `!important` on
+`needs_important:false` rows). Grade by `llm_call_log.created_at`, not by site. The post-655
+repairs are ALSO the live test that a strictly-greater selector wins WITHOUT `!important` — if one
+fails to take at the next audit, the design wants that visible (655's risks §2).
