@@ -1382,3 +1382,81 @@ merely surfaced, and bolting it into a feature commit is the scope veto §6.1 wa
 about. Filed by the `dartsonline_traffic` lane as **`bugs_open/410`** (three seams,
 three lanes, one week, all failing toward the quiet default), with this reproduction
 as its best-evidenced instance.
+
+---
+
+## 2026-08-26 (later) — the council said REVISE, and it was worth the round
+
+**Verdict: REVISE**, `53d71504-8cd1-49bc-8e2d-d1465ba65103`, landed 10:42:43Z — **14 minutes**
+after submission, not the ~30 budgeted. 11 reviewers, 7 objected, 6 abstained,
+`gated_by_truncation: false`, `unreadable: 0`. Gating objection from `editquality`.
+**Revise and resubmit on the SAME correlation** (`RESUBMIT_CORR=53d71504-…`) so the trail
+accumulates.
+
+> **⚠ READ YOUR OWN VERDICT, NOT THE LATEST ONE.** My first read ran
+> `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC
+> LIMIT 1` — the recipe in CLAUDE.md — and got correlation `70083c99…`, a **different lane's**
+> gripper-spec submission, complete with plausible objections about hedge phrases and
+> `travel_mm`. I was seconds from reporting another lane's objections as mine. **The monitor I
+> had armed made the identical mistake**, so it confirmed the wrong answer rather than
+> catching it. Key on `diagnosis_artifacts.correlation_id`, never on "most recent" — this is
+> CLAUDE.md's own "find your run by payload, not by the printed id", one table along.
+
+### What the seats found — the ones that were RIGHT about real defects
+
+- **`bug_historian` (edit 2, medium) — the best catch of the round.** `recomposeParent`
+  recomposes only the **immediate** parent. The walk permits depth 3, so with nesting the row
+  the page SERVES is the topmost ancestor; recomposing one level leaves higher ancestors
+  stale — **reproducing `bugs_open/384`'s exact shape one level removed, inside the fix for
+  384's shape.** Walk to the root ancestor, or bound depth to 1 and cite the enforcement.
+- **`guardian` (edit 1, HIGH)** — a ~300-line extraction on the fleet's busiest pipeline with
+  no canary, flag or fast-revert; "a flat page renders byte-identical" is not a rollout plan.
+  **`architecture`, `render_guardian` and `debug_historian` reached the same point
+  independently** — four seats, so it is the round's real finding.
+- **`render_guardian` (edit 1, medium)** — my hard-fail-on-walk-error is wrong: every other
+  page-level bail-out in that action is a graceful skip/escalate, so a hard error is a NEW
+  failure class on the busiest pipeline. **This answers one of the two uncertainties I
+  disclosed, against me.** Skip/escalate, not error.
+- **`guardian` (edit 2, medium)** — recomposing in the SAME transaction as the child write
+  changes failure semantics fleet-wide: a parent-recompose failure would fail a child edit
+  that succeeds today, on the live edit path. Unquantified.
+- **`editquality` (edit 3, HIGH, gating)** — I named THREE single-target files and edited two.
+  The third (`rerender_pages_actions.go:538`) is head/chrome only and genuinely out of scope,
+  and I never said so. **The RUNBOOK warns about exactly this**: list every path the rationale
+  mentions, subtract the edits, give each survivor a clause. I made the documented mistake.
+- **Three seats independently** (`editquality`, `reuse_agent`, `prior_art_librarian`) —
+  `recomposeParent` is called and never defined. `reuse_agent` adds the sharper form: it must
+  call edit 1's extracted primitives or it is a second hand-rolled renderer.
+- **`editquality` (edit 1, medium)** — I named a byte-identity acceptance test in prose and
+  proposed no test edit to encode it.
+- Also: phase-2 render errors unspecified; the migration should be `config_change` against
+  page-content-writer, not `add` of a SQL file; `pageComponentHasChildren` is a third spelling
+  of parent/child membership the walk already resolves.
+
+**Nothing to defend.** CLAUDE.md's line holds — a REVISE round is cheaper than the defect it
+finds, and this one found a defect (the ancestor one) that would have shipped as a fix for the
+very bug it reproduced.
+
+### Correction: it was SEVEN tests, not six
+
+Every earlier account of the loader reproduction in this file, in commit messages and to two
+peer lanes said **six**. It is **seven**, across two files:
+`TestRerenderPageSections_SuccessEntryCarriesTheStoredSlotName`
+(`save_sections_stored_slot_identity_test.go`), plus
+`…_FailsWhenComponentUnresolvedByNameOrID`, `…_ResolvesToolByComponentIDWithoutEscalating`,
+`…_ComponentIDWinsOverNameWhenBothResolve`, `…_InvalidTemplateByID_IsFatalAndNamed`,
+`…_EmptyTemplateCarriesWithoutFailing`, `…_StructuralCarryMakesANotReadySectionRerender`
+(all `rerender_page_sections_resolve_test.go`).
+
+**How the count went wrong is on-topic for the bug it evidences.** I ran the change, piped the
+output through `tail -6`, saw one failure, fixed that mock, re-ran, saw six more — and reported
+the second run's number. **My own evidence was truncated by my own command and I counted from
+the truncated view**, which is precisely the class `bugs_open/410` is about: an instrument
+quietly returning less than it was given. Corrected with the owning lane before it was cited.
+
+**And the reproduction is stronger than first pitched:** those tests assert outcomes ("expected
+the step to fail…", "expected exactly one section, got %d", "stored_slot_name = %q"), never
+rows-yielded against rows-scanned — so they would have PASSED on a column change that was wrong
+in a way that still scanned. They also call `mock.ExpectationsWereMet()`, which passes: the
+query was issued exactly as expected and only the scan silently produced nothing, so even the
+mocking framework's own completeness assertion cannot see this.
