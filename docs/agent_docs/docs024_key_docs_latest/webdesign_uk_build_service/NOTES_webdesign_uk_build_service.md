@@ -5916,3 +5916,16 @@ lane's relay), and the domain-mismatch item (a8d6f440) is annotated deliberate-i
 re-opened when the webdesign.uk address exists. No copy change now. Owner checklist
 remaining: page rule (after the prominence wave verifies) · customer-container ruling
 (pre-first-hosted-build) · background TAG chase.
+
+**2026-08-26 — prominence wave: 2 of 3 delivered first pass; index sharpened + re-fired.**
+Direct-fired all three past the congested queue (fleet backlog from 02:28 ahead of my
+15:19 filings; 96 claims/30min so draining, but hours away). Results: what-you-get FULLY
+delivered (hero subheadline OPENS with "No changes are included." + own h3); how-it-works
+gained its own h3 (the "more prominent" ask); index carried it only mid-flow in the
+cta-subtitle → writer_block sharpened ("OPENS the subtitle element, exactly as
+what-you-get now does", SQL_2026-08-26c) and index re-fired (item 7b4af974 pre-claimed,
+corr 382bb382). GTM:2 now on all three rebuilt pages (the analytics durable fix rides
+every build ✓). All three v1 items self-completed by the handler. ⚠ watcher-loop lesson:
+kubectl exec -i INSIDE a while-read loop EATS the loop's stdin — the wave watcher only
+ever saw its first line; add </dev/null to kubectl in read loops. Label re-place owed
+after the v2 index build (not before).
