@@ -2948,3 +2948,9 @@ is the rejected register, and the attributable corpus of the owner's own prose m
 words**. *"We cannot demonstrate our own voice, because we do not have one we would show a
 customer."* The owner told them *"I will chase the copy machinery"* — he already had: the six
 rulings are the chase, executed.
+
+> **Refinement 2026-08-26 (late probe):** the stranded 09:37 round-2 run's terminal state is
+> **FAILED at `review_guidelines`** — the platform eventually failed it rather than leaving it
+> executing. For the `orchestration_states`-restructure lane: one in-flight council run failed
+> mid-step across your migration window; the approval that stands is the redispatched run's
+> (15:19:59Z). No action owed on our side.
