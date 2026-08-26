@@ -2037,3 +2037,20 @@ confirmed is the most dangerous thing to take into the next case, because it tur
 evidence"* — one frame (outage residue) applied twice in one morning, the second time with no evidence
 the first didn't supply. Their WRONG_CALLS carries it; the priority-is-inert-between-sites finding is
 filed at dispatch_throughput/CONTRIB_2026-08-26_from_bugfix_391_… with the correction inside it.
+
+**2026-08-26 ~16:0xZ — fleet deploy stall, root-caused in three commands: GITHUB ACTIONS MAJOR OUTAGE.**
+The 391 lane reported the stall precisely (commits correct, served bytes stale, runners idle, queue deep)
+and declined to restart — right again, and righter than known: the cause is EXTERNAL
+(githubstatus.com: Actions = major_outage since ~15:25-15:37Z; Webhooks/API operational, which is why
+commit reads worked while dispatch died). GitHub's runner list shows only stale offline registrations.
+**Nothing ours is broken; a runner restart would have churned registrations into a dead service.**
+Boundary correction: their 15:25 was ONE POD's last words (`logs deploy/X reads one pod of N` — again);
+the true last work was 15:37:11Z on the second pod. Owner push-notified (no action; don't restart);
+recovery watch armed (fires when Actions leaves major_outage, then verifies the queue drains).
+**The instrument lesson, both lanes' files:** two careful readers measured pods, queues, headers and log
+boundaries for a combined hour; the answer was a 30-second curl of the provider's status page — the one
+instrument neither reads by default. *Before diagnosing idle consumers of an external service, ask the
+service.* Third stopped-thing of the day, third different cause (a ruling; a dead account; a dead
+provider) — the surviving frame: **a stopped thing has not yet told you WHY it stopped.**
+Consequence for this lane: any served-bytes verification after 15:37Z reads pre-stall artefacts —
+reassuring for failures, alarming for successes — until the queue drains post-recovery.
