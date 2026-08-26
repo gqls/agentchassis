@@ -3908,3 +3908,43 @@ as my checker's rows (they share the item_type, not the key shape).
    false form — all four `handler_agent` mentions state the promotable-pairs mechanism or the
    deliberate empty handler on OUR `capability_gap` key specifically. Relayed to the apis lane,
    where the reading originated.
+
+## 2026-08-26 ~12:15Z (platform seat) — the noted lane's two mechanism questions answered from the code; loancalculator's stale-detection class checked on OUR site
+
+**noted.co.uk asked for the sanctioned "deliberate absence" mechanism for tool_health's @media
+issue (their 61-check hand-crafted Write editor) and an instance-scope exemption. Answered from
+reads, not memory:**
+- `check_tool_health.go` has NO exemption/ack mechanism (verified by read: issues 1–7 are
+  regex-driven; no waiver keys). Item shape for a fork: `improve_tool`, handler `tool-improver`,
+  status `detected`, item_key `tool_health:<subject_key>:<site_id>` — ONE dedup slot per tool
+  per site for ALL health issues.
+- Mechanics that follow: `wont_fix` is terminal → releases the dedup slot → next sweep re-files
+  (the 255/029 lesson). A NON-terminal status holds the slot → no re-file (idx_swi_dedup). And
+  the promoter scans `detected` ONLY — its doors (active handler + any historical
+  complete/verified for the pair + ≥25% floor) would plausibly pass improve_tool→tool-improver,
+  so an item left at `detected` risks exactly the auto-regeneration noted fears. **The current
+  safest hold is `deferred` + a spec rationale** (precedent: our own capability_gap rows carry
+  `spec.not_dispatchable`), which is a parked row, not a sanctioned record — the real mechanism
+  ("fitness proven, absence deliberate") does not exist, and TWO sites hit adjacent gaps today
+  (apis.uk's deliberate no-footer vs head_essentials; noted's fluid-by-design vs @media).
+  Flagged as a design gap for the owner's eventual read; not built unprompted.
+- Instance-scope exemption: none found (`component_instance_scope.go` — "single-instance by
+  construction" exists only as call-site reasoning; `TemplateNeedsInstanceID` is the predicate).
+  The conversion flow belongs to the 283 lane (session offline); routed noted there rather than
+  ruling on a fleet convention from this seat.
+
+**loancalculator's stale-detection class (bugs_open/385 §7b: damage hand-repaired during the
+15-day pause leaves an un-retracted `detected` row that FIRES when promotion resumes) checked
+on webdesign [MEASURED 2026-08-26]:** 138 pre-resume `detected` rows — 136
+`head_essentials_missing:skip_link` (every page, filed 08-18/08-25) + 2 `image_url_404`
+(08-04 hero.jpg, 08-16 empty-src). **All are handler-less types → outside the promoter's doors
+→ zero promotion exposure.** The two image_url_404 rows may be stale-vs-hand-fixes — handed to
+the grind (their queue). The 136 skip_link rows intersect the lane's owed keyboard-access items;
+also the grind's, noted to them.
+
+**agritek's [UNRESOLVED] timing discrepancy resolved:** their 00:24–00:25Z items are the
+improvement-loop's overnight child sweeps (restart 21:18Z 08-25), same attribution as
+apis/idea/webdesign; the rotation enable time (09:20:04Z) stands and 401's timeline is
+unaffected. Also banked from loancalculator: LOCK-009 (Layer 2 slot-pairing matcher) live in
+last night's roll — the duplicate-calculator trap no longer fires on current binaries if our
+tool pages ever grow a locked+deployed+interactive row.
