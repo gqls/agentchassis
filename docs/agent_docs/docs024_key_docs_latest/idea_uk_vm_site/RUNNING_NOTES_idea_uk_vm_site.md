@@ -5780,3 +5780,69 @@ dartsonline 6, cookly 4, aao 1, idea.uk 1 = `ade31076`, system.internal 1). Rati
 match the predicate. Watch next: the wave's 34 triaged idea.uk rows completing for real —
 especially the two `section_data_resolved` news rerenders and the re-filed `empty_section`
 pair (does the handler fill `{{.section_heading}}`?).
+
+## §X.64 — 2026-08-26 ~09:25Z: recovery HOLDING; the backlog drains slowly; ade31076 diagnosed — a floor-refused rebuild that cannot converge, and correctly so
+
+### 1. Recovery + drain rate `[MEASURED 2026-08-26 09:15–09:24Z]`
+
+- **0** `%credit balance%` errors since the 08:58Z boundary; `llm_call_log` successes ongoing
+  (last 09:16:00Z). 243's sustained bar continues to hold.
+- Fleet drain: **55** items completed 08:58→09:24Z against **1,387** still `triaged` fleet-wide
+  (~2/min → ~11 h at this rate; `dispatch_throughput/`'s territory, not ours). idea.uk:
+  103 complete / 33 triaged / 1 claimed at 09:24Z.
+- **The watched rows are all still queued, attempt 0**: news rerenders `a10a7110` (index) /
+  `f2fc39d5` (news-index), empty_section pair `2b52cb30` / `9e6da605`. Nothing to read yet.
+
+### 2. ade31076 (`dead_fragment_link`, report-example hero) — first REAL retry refused by the text floor; deterministic in practice; NOT a fleet class
+
+- 09:07:01Z, orchestration `8b6154fe` (page-build-handler): **PAGE CONTENT REGRESSION REFUSED**
+  — the writer returned **2,062** visible chars against **19,918** deployed across the page's
+  2 sections (10% kept, floor 25%). The refusal filed `save_refused_incomplete:report-example`
+  = `3493b44f` → `needs_human_review` (the queue's 49→50). Guard working as designed
+  (`bugs_open/293`'s fix, exclusions applied on both sides).
+- Mechanism, read from the run's `collected_data`: section plan had 2 ready (hero,
+  generic-text-block); `load_existing_content` no-op **by design** (adoption-only,
+  `reason: not_recreate`, `load_existing_content_action.go:69`); the writer authored FRESH copy
+  from the spec. A fresh hero+text-block pass produces ~2 K visible chars; the deployed
+  specimen page carries ~19.9 K. To pass it would need ≥ ~4,980 — so the remaining 2 attempts
+  will burn the same way, each costing one full-page write. **Rebuild-as-remediation is the
+  DESIGNED handler for this item type** (`prepare_link_context_action.go:659` comment: "a page
+  rebuild is that finding's own handler"), and the floor makes rebuild unavailable on exactly
+  the pages most worth protecting. On THIS page the two guards deadlock and the owner-queue row
+  is the designed terminal.
+- **The link itself, verified at the served artefacts:** `/report.html` 200 and DOES carry the
+  request form — but its anchor is namespaced `id="c-report-request-form-request-a-report"`;
+  the hero links bare `/report.html#request-a-report` → scrolls nowhere. The dead href lives in
+  the hero's `content_data` (row `5c85c94e`) AND `rendered_html` — so a rerender REPRODUCES it,
+  a rebuild is floor-refused, and no framework path converges today. The fragments check will
+  re-detect on rotation.
+- **Census kills the class claim** `[MEASURED 2026-08-26]`: fleet-wide `dead_fragment_link`
+  items EVER = **3** (1 complete, 1 needs_human_review, 1 = ours); floor refusals on the type =
+  **1** (ours). No bug filed — one instance is an owner decision, not a mechanism case; and the
+  no-anchors writer rule (already live in `prepare_link_context`) stops fresh rebuilds minting
+  new members. Nearest prior art, distinguished: `bugs_open/406` is the PRUNE floor
+  (section-count arithmetic, adoption path); this is the TEXT floor; `bugs_open/178` is the
+  loss this floor exists to prevent.
+- **Owner options** (added to the choices list): (a) targeted link fix — point the hero href at
+  `#c-report-request-form-request-a-report`, or drop the fragment per the correct-or-absent
+  rule (LNK-005); needs a field-level edit path into `content_data` (the row HAS content_data,
+  unlike 357's). (b) Accept it: the CTA lands at the top of `/report.html` instead of scrolling
+  to the form — mild. Either way `ade31076` burns to failed again unless cancelled; his queue
+  row `3493b44f` carries the decision.
+
+### 3. The wave's completions are FILING follow-on work — including at the ab-test page
+
+Since 08:58Z, `improve_tool` completions filed **3 `section_edit` (`tool_fix`)** rows — one on
+page `6ddcedf4` = **the half-deployed ab-test calculator page** (owner-choice §5.1). The
+tool-improver is now taking its own swing at the page whose every rerender fails; watch whether
+the `section_edit` converges or joins the failure pile before the owner decides
+rebuild-vs-retire. Also 3 `content_rewrite` (`internal_link`) rows (index, tools, about) from a
+`needs_internal_links` completion.
+
+### 4. Cross-lane heads-up received (webdesign-tool-rebuilds session, 09:20Z)
+
+**design-discovery rotation re-enabled** after 15 days off (the 08-11 cost-scare pause;
+`bugs_open/401` explains why nothing surfaced it). ~1 site per 3 h, least-recently-visited
+first — idea.uk's turn inside the ~2–3 day ramp. Findings arrive `detected`;
+`detected-item-promoter` (15-min cadence) can auto-dispatch known-good (item_type, handler)
+pairs. **A surprise design item on this site is the rotation, not a stray thread.**

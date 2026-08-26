@@ -110,3 +110,20 @@ keys) is whoever owns tool templates (`bugs_open/357` nearest).
 `empty_section` CONTRIB) · `bugs_open/400` (goto links, ingester's) · `bugs_open/357` +
 `bugfix_311_component_keys/` (tool templates/rebuilds) · `bugs_open/380` (evidence_base D1) ·
 `dispatch_throughput/` (queue timing) · `news_editorial_features/` (the snippet's headline copy).
+
+---
+
+## ADDENDUM 09:30Z — post-recovery state (NOTES §X.63–§X.64 are now part of the cold-start read)
+
+- **Recovery HOLDING**: 0 credit errors since 08:58Z; the 20 burned rows were reset (backup
+  `bak_credit_burn_20260826`). Fleet backlog drains at ~2 items/min against ~1,400 triaged —
+  hours, not minutes. The news rerenders (`a10a7110`/`f2fc39d5`) and the empty_section pair
+  (`2b52cb30`/`9e6da605`) were still attempt 0 at 09:24Z.
+- **`ade31076` diagnosed (NOTES §X.64 §2)**: its rebuild is text-floor-refused (writer 2,062
+  visible chars vs 19,918 deployed) and cannot converge; `save_refused_incomplete` `3493b44f`
+  is in the owner queue (50th row). Fleet census: the ONLY such case — no bug filed. New owner
+  choice: targeted hand-fix of the hero link (`#request-a-report` →
+  `#c-report-request-form-request-a-report`, or drop the fragment) vs accept top-of-page landing.
+- **Watch also**: `section_edit` `tool_fix` on `6ddcedf4` (ab-test page — bears on choice §5.1);
+  design-discovery rotation re-enabled 09:20Z (peer heads-up; `bugs_open/401`) — surprise
+  design items within ~2–3 days are the rotation.

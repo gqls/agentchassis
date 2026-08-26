@@ -2502,3 +2502,35 @@ stuck marked "failed", so I put those twenty back in the queue by hand (with a s
 what they looked like first — one of them was ours, the rest belong to four other sites). The
 overnight backlog, including the two rebuilds that will put the news stories into the pages
 themselves, should now work through on its own.
+
+**2026-08-26, mid-morning — the recovery is holding; one broken link turns out to be
+un-fixable by machine, and that is two safety systems doing their jobs.**
+
+Since credit came back nothing has failed for money reasons — zero new billing errors, steady
+successful AI calls. The overnight backlog is draining, but slowly: the whole fleet is working
+through about 1,400 queued jobs at a couple per minute, so the two rebuilds that will put news
+stories into the pages, and the two empty-heading fixes, are still waiting their turn. Nothing
+is wrong there; it is just a long queue.
+
+The one piece of ours that failed after recovery is worth explaining, because it is the
+protection working, not a fault. The example-report page's top section has a button linking to
+the report request form, and the link is subtly wrong — it points at a shortcut name the form
+page doesn't actually answer to (the form is there; its internal name has a prefix the link
+doesn't know about). So a visitor clicking it lands at the top of the request page rather than
+scrolling to the form. Mild, but real, and the checker rightly flagged it. The machine's only
+way to fix a link like this is to rewrite the whole page — and when it tried, it produced two
+thousand characters of fresh copy to replace twenty thousand of carefully built specimen
+content, so the guard that stops pages being hollowed out refused to save it. It will try
+twice more, be refused twice more, and give up. That is the right outcome: the specimen page
+is protected, and the decision lands in your review queue (it is item 50). **Your options:**
+have the link corrected by hand through a targeted edit (I can set that up if you want it), or
+accept that the button lands at the top of the request page — which is genuinely not bad. I
+checked whether this failure shape is biting other sites: across the whole fleet this is the
+only case, so no bug report is warranted.
+
+Two smaller things. The tool-improver picked up the A/B-test calculator page on its own this
+morning and has queued an edit for it — so before you decide rebuild-versus-retire, it may be
+worth seeing whether that edit lands or fails like the rerenders do. And a neighbouring session
+passed word that the design inspection rotation — paused since the 11th over a cost scare — was
+switched back on at twenty past nine; our site's turn comes round within two or three days, so
+a few new design findings may appear on the queue without anyone having filed them.
