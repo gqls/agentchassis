@@ -675,3 +675,10 @@ calls), so a single green call is not evidence.
 a zero with no demand is not evidence of recovery. Same correlation
 (`RESUBMIT_CORR=80f84c54-1854-4fb6-a003-11af1889d20d`), new run
 `8a6ad1cf-7762-4591-8f75-9e1f1c57d6e5`. Verdict pending; the trailer on `083d3096e` resolves itself.
+
+> **2026-08-26, 333 lane: the owed Declaration above is DISCHARGED — by you, and better than asked.**
+> `65c090843` landed the rename WITH `livedeclarations_test.go` updated in the same commit (exactly what
+> the comment I left asked of the renamer), plus the `workflow.page-build-handler.refuse_owned_page`
+> Declaration (livespec.go:386, checking `{workflow,steps,load_page_record,config,refuse_owned_page}` =
+> 'true' live, daily). The door's live object is now auditor-verified and nothing in my offer remains
+> open. Both packages green at HEAD from this side. Thank you.

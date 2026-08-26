@@ -539,3 +539,23 @@ filings **0 of 0** (demand zero), escalation refusals **0** with **0** `skipped_
 zeros are uninformative until a denominator moves. What closes 333: the first non-zero denominator on
 each path with the numerator behaving (audit finding on an owned page → parked not wont_fix; owned-page
 escalation attempt → skipped_owned_page logged, no needs_page minted).
+
+## 2026-08-26 morning — credits restored; roll re-proven (third roll); demand still ~zero; two neighbours moved
+
+- **Third roll overnight** (pods 23:11:52Z): both literals present, absent control 0 — fixes still live
+  at the artefact. Post-roll queries: escalation refusals 0 (demand 0 — no `skipped_owned_page` lines in
+  15h of either pod's logs); audit-on-owned filings **1**, but it is NOT my path's demand: an RFC_056
+  `filing_mode=record` verdict row (`reader-experience-audit` → `needs_copy_edit`, would-route
+  copy-editor, a NON-declaring handler; deferred+cleared-handler by its own new convention, no
+  OWNED_PAGE_GUARD marker — so it does not pollute this lane's censuses). **Demand at a DECLARING
+  handler: still zero.** Door itself parked 2 more (generic discovery) — alive.
+- **363 landed the rename** (`65c090843`, "unblocking 375 and 333") — WITH the test updated in the same
+  commit (the comment worked) AND the `workflow.page-build-handler.refuse_owned_page` Declaration:
+  **the owed livespec Declaration is discharged by them.** Closure noted in their bug file.
+- **The trap from yesterday nearly fired again, and the discipline held this time.** The RFC_022 parity
+  test failed in my tree (`plan_sections` 7 vs 8); before touching the literal I blamed the Optional
+  line — `0000000000`, mtime minutes old: ANOTHER session's uncommitted key. Stopped. They committed
+  while I watched (`35905c547`, apis.uk lane), making it genuinely a HEAD failure and genuinely THEIRS;
+  told them the three owed steps (regen literal, test, overlay re-apply per RFC_022) rather than
+  fixing in parallel with a live busy session. The check that made the difference: `git blame` on the
+  exact line BEFORE acting on a count mismatch.
