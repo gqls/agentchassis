@@ -1298,3 +1298,87 @@ will fail that test for a reason that has nothing to do with P1. **Re-measure; d
 `[MEASURED 2026-08-25 16:0xZ]`. This is the 08-25 handoff §6.3 trap arriving one step later:
 the harness was shown to reproduce the *current* stored bytes, and that control does not
 establish that its *prediction* of the post-change bytes is exact.
+
+---
+
+## 2026-08-26 (session "news editorial") — P1 started: the walk is committed and inert, and the wiring is AT COUNCIL
+
+### ⚠ SUBMISSION_CORR = `53d71504-8cd1-49bc-8e2d-d1465ba65103`
+
+Recorded here rather than left in a session transcript, for the reason this lane
+already paid once: a correlation in scrollback dies with the session. Verdict:
+
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+ WHERE correlation_id='53d71504-8cd1-49bc-8e2d-d1465ba65103' AND kind='council_report'
+ ORDER BY created_at;
+```
+
+APPROVED → commit the wiring with `Council-Reviewed: 53d71504-…`. Committing first →
+`Council-Submitted: 53d71504-…`, which asserts nothing and is credited at report time.
+The two earlier commits below predate the submission and carry neither, so they will
+list as un-reviewed in `098` — forward-only forbids the amend that would fix it.
+
+### What shipped, and it is all INERT
+
+| commit | what |
+|---|---|
+| `1f745e730` | `walkComponentHierarchy` + 11 tests; `deriveRenderMode` third value + tests |
+| `bd811fa93` | `loadStoredSections` reads `id`, `parent_instance_id` (+5 test files' mocks) |
+
+**Inert is measured, not assumed** `[MEASURED 2026-08-26]`: **0 of 381**
+`content_components` declare a `slots` block and **0 of 1,903** `page_components`
+carry a `parent_instance_id`, against a positive control of **214** components
+declaring a `fields` block. So `deriveRenderMode` cannot yet return the new value
+and the walk has no rows to walk.
+
+### Three corrections to 035, all from doing the work rather than reading it
+
+1. **D4.6 named a path that cannot carry composition.** It said the walk goes into
+   `assembleComponents`; that function renders from component FUNCTION NAMES via the
+   library and `assemble_from_library.go` contains **zero** references to
+   `page_components`. The walk there would have been dead code — §6.8's own
+   dormant-mechanism warning, satisfied in letter. Of the four files that both read
+   `page_components` and call `RenderTemplate`, exactly **one** is a page-wide walk.
+2. **§6.9's cheaper remedy does not work**, found by running the falsifier it asked
+   for. "Capture the digest immediately after each call" fails precisely in the case
+   that motivates the hazard: the empty-template branch `return`s BEFORE the field is
+   assigned, so an immediate read on a shared context still returns the predecessor's
+   digest. Immediacy was never the variable. Only a fresh context per node works, and
+   the walk now enforces it structurally (the renderer callback must RETURN the stamp).
+3. **The single-target paths were undecided and could not be deferred.** Decided
+   2026-08-26: **refuse direction 1, recompose direction 2** — see D4.6's block for
+   the asymmetry and the `bugs_open/384` evidence behind it.
+
+### Missteps this session
+
+- **My first digest-currency check used sha256 and returned `0 of 1,948`** — which
+  reads exactly like "every digest on the estate is stale", decisive and alarming,
+  with a query attached. It is **md5**
+  (`save_page_sections_action.go:1066`, `section_editor_actions.go:1569`), written in
+  the SAME statement as the bytes (`bugs_open/229`), and **1,935 of 1,948 (99.3%)**
+  are current. Second instance of the same guessed-the-key error in one day; caught
+  only because I had written the `WRONG_CALLS` entry about the first one that morning.
+- **I wrote "fails at HEAD" in a commit message.** True at 09:56, false by 10:16 when
+  the owning lane fixed it. `HEAD` moves, so it dates nothing — pin the sha.
+- **I named `finding_code_registry.json` with no path** and sent a peer to the wrong
+  directory, where they correctly found nothing. A correct-and-negative check is more
+  persuasive than a vague one and it pointed away from the truth.
+- **A regex updating five test files' mocks over-matched** onto an unrelated 2-column
+  query in the same file. It compiled. Caught by reading the diff rather than the
+  replacement count.
+
+All four are in `WRONG_CALLS.md` (`a16bf9d07`, `cedb28c9c`).
+
+### A live hazard this work surfaced but did NOT fix
+
+`loadStoredSections`' `rows.Scan` error branch logs a Warn and **continues**, so a
+SELECT/Scan mismatch renders the page with **zero sections** rather than failing. Six
+tests went red saying *"expected exactly one section, got 0"* and none said *"scan
+mismatch"* — and they would have passed had the change been wrong in a way that still
+scanned, because they assert on section count and content, not rows-in-equals-rows-out.
+**Deliberately not fixed here**: a shared seam on the busiest pipeline that this change
+merely surfaced, and bolting it into a feature commit is the scope veto §6.1 warns
+about. Filed by the `dartsonline_traffic` lane as **`bugs_open/410`** (three seams,
+three lanes, one week, all failing toward the quiet default), with this reproduction
+as its best-evidenced instance.
