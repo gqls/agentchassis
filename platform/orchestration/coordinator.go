@@ -3959,47 +3959,11 @@ func (s *SagaCoordinator) routeToErrorStep(ctx context.Context, state *Orchestra
 	}
 
 	// bugs_open/243: `__step_error` above is a SINGLE key and it is OVERWRITTEN on
-	// every routed failure, so in a workflow where two steps fail the first is
-	// erased and no downstream step can ask "did MY predecessor fail?". The
-	// council gate needs exactly that question answered: a review seat whose call
-	// failed leaves its result field absent, which is indistinguishable from a
-	// seat the relevance filter skipped — and diagnose_council_decide must not
-	// conflate "an opinion we were owed and lost" with "not applicable".
-	//
-	// Accumulate per step, ALONGSIDE the key above rather than replacing it: every
-	// existing reader of `__step_error` is unaffected, and nothing reads
-	// `__step_errors` until a consumer opts in.
-	stepErrors, _ := state.CollectedData["__step_errors"].(map[string]interface{})
-	if stepErrors == nil {
-		stepErrors = map[string]interface{}{}
-	}
-	// BOUNDED, because this path is fleet-wide and not council-scoped (the
-	// guardian seat's objection on correlation 82f07fa6). routeToErrorStep is hit
-	// by every routed step failure in every workflow, and a loop that expands into
-	// many failing iterations produces a DISTINCT step name per iteration — so an
-	// unbounded map would grow `collected_data` without limit on exactly the runs
-	// that are already going badly. At the cap we stop admitting NEW steps and
-	// record that we did; re-failures of a step already present still update in
-	// place, and `__step_error` above continues to carry the latest failure
-	// whatever happens here, so the single-failure case (which is every council
-	// round) is unaffected.
-	const maxStepErrors = 50
-	if _, alreadyPresent := stepErrors[failedStepName]; alreadyPresent || len(stepErrors) < maxStepErrors {
-		stepErrors[failedStepName] = map[string]interface{}{
-			"message": errorMsg,
-			"at":      time.Now().UTC().Format(time.RFC3339),
-		}
-	} else if _, noted := stepErrors["__truncated"]; !noted {
-		// Never silently: a consumer must be able to tell "this step did not fail"
-		// from "we stopped recording". Without this, a seat whose failure fell off
-		// the end would read as an abstention — the exact conflation this record
-		// exists to prevent.
-		stepErrors["__truncated"] = map[string]interface{}{
-			"message": fmt.Sprintf("step-error record capped at %d entries; later distinct steps are not listed", maxStepErrors),
-			"at":      time.Now().UTC().Format(time.RFC3339),
-		}
-	}
-	state.CollectedData["__step_errors"] = stepErrors
+	// every routed failure, so a workflow with two failing steps keeps only the last
+	// and no downstream step can ask "did MY predecessor fail?". The council gate
+	// needs exactly that question answered — see step_error_record.go for the
+	// contract, the cap and why the writer lives in a function it can be tested in.
+	recordStepError(state.CollectedData, failedStepName, errorMsg, time.Now())
 
 	// Log to agent_error_log for persistent error tracking
 	entry := s.buildErrorEntry(state, failedStepName, errorMsg)
