@@ -53993,3 +53993,42 @@ I found it by reading Go for twenty minutes. `grep -n "locked_at" LANDMINES.md` 
 **Two smaller errors in the same ten minutes, both the same family:** I read the run ending at `complete_invalid` and half-concluded it was refused for the duplicate file paths in my plan (real, adjacent, and not the cause — it was never judged at all); and earlier I read pods 9 h old with no `build provenance` line and had to stop myself concluding "unstamped" when it means "scrolled out of range".
 
 **The cheap checks:** `GROUP BY success` before any liveness claim; read the step error before inferring the refusal reason; and treat an empty `grep` for a startup log line as *not in range*, never as *absent*.
+
+---
+
+## 2026-08-26 — my migration's anchor was a PREFIX, not a tail; my demand controls and a 10-seat council approval both passed over it, and a Fable review disproved it by construction
+
+**Lane:** `bugfix_375_completion_verifier_gap`. Migration `634` (the claimed-item-timeout
+exclusion), council-approved `1748b849`, **not yet applied** — which is the only reason this row is
+about a near-miss rather than damage.
+
+**What I wrote.** `old_tail := '…''needs_brand_head_assets'', ''dark_section_audit'''` — no closing
+`)`. The file's header then *argued* composition safety at length: "two migrations against the same
+starting clause will NOT compose: whichever applies second will not find its anchor."
+
+**What was true.** The anchor was a prefix of any *extended* tail. With `bugs_open/395`'s planned
+amendment applied first, `strpos` still matched, my migration applied silently **mid-list**, and
+every guard passed — producing a live clause the Go renderer can never reproduce: a permanent,
+ownerless red on the drift auditor, the exact failure my own header warned "gets helpfully fixed by
+somebody reverting this migration". My composition paragraph was not merely unproven; it was
+**false, by one character**.
+
+**What caught it.** A Fable adversarial review the owner asked for, briefed to attack named surfaces
+with the real files and the live column text, and to prove findings by construction. It also caught
+that my NOTICE's "the Go commit closes it" was false (the drift auditor runs from declarations
+compiled into a tag-pinned image), that append-at-END of the Go slice is load-bearing and
+un-enforced, and that my class-audit count was 16 where the truth is 15.
+
+**The cheap check that would have.** The same one as missteps 8 and 10, which is why this is a row
+and not a shrug: **my demand controls only ever ran against the state the guard was written for.**
+I proved the abort fired on today's clause, on a double-apply, on an empty rollback — never on a
+*moved* clause, which is the one input the composition claim was about. Fourth instance in this lane
+of a control sharing its subject's blind spot. The generalisation that survives: **for every claim
+of the form "X will refuse Y", the control suite must contain an actual Y** — not only the inputs X
+was designed to accept.
+
+**And the sharper half, about review layers:** the council APPROVED this file with the defect in it.
+Its round examined the rationale and the sketch; the composition paragraph *asserted* tail-anchoring
+and nothing in the round executed it. **A review of an argument is not a test of a construction.**
+The review that found it differed in exactly one way — it was instructed to disprove, by
+construction, against live bytes. Worth remembering what each layer is for.
