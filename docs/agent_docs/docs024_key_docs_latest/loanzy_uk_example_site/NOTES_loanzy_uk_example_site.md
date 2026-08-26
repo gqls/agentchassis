@@ -1955,3 +1955,25 @@ now measured as the thing that makes an outage self-healing: had it stamped the 
 20 would be held 14 days. A design choice that could have come out the other way, and didn't.
 **Still owed:** 376 §11e's three behavioural tests — they need real research draws; the route is
 unblocked, so the next greenfield dispatch (owner's action) doubles as the proof run.
+
+**2026-08-26 ~10:3xZ — the biggest misstep of the arc, caught by a peer's reading habit, corrected
+and fixed the same hour.** ADDENDUM 1's "verdict rows are revalidated by the seat's own
+silence-retraction" was FALSE for every type but `dark_section_audit` — the gates map has ONE entry,
+and I claimed coverage from the status posture + scope filter without ever reading the roster they
+were conditional on. Fourteen hours after watching the 391 lane name exactly this shape. The
+vigilant lane had withdrawn an objection on my false claim; they are told, with the ask that they
+check their own WII-033 for the inherited sentence. Caught because the finetuning lane read 621's
+`v_parkable` array before using the park verb — the transfer question ("could this check have come
+out the other way?") arriving from the third lane in two days. Corrected visibly in SIX homes (RFC
+CORRECTION block, RUNBOOK, handoff ×2, register IMP-056, doc_notes correction row, WRONG_CALLS —
+whose entry names the check: **read the ROSTER that enumerates coverage, not the posture or the
+filter, which say who is ELIGIBLE, never who is ENROLLED**). Fix built in the same pass:
+`recordModeSilenceRule` — default gate for record rows of ungated types; licence is the
+self-correction asymmetry (a wrong verdict retraction frees the dedup slot; the still-true finding
+re-files next run); dispatch rows pinned inert on a MIXED candidate set; gated types never
+double-judged; 11 ordered mocks updated (incl. the copy_quality lane's tone-bound test, flagged to
+them in the commit). Both packages green; verify-head-builds --with ×5 OK vs `ff205b735`.
+Submitted `04a3ce1f`. **Until it ROLLS: verdict rows are cleared by humans only.** Also this
+morning, before the correction arc: 405 candidate 1 APPROVED r1 + APPLIED (`946d587c`, origin door
+live, inert until the stamp rolls); credit-outage recovery verified end-to-end; the residue's one
+real defect routed to and judged by the aiao lane.
