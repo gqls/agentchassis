@@ -621,3 +621,44 @@ currently able to take work at all. Those are different questions and only one o
 are draining faster than that — the site is getting through roughly forty jobs an hour, so it is more
 like an hour or two. All three of today's tools are still waiting on that step, and all three pages
 are safe in the meantime: each shows one working tool, just not yet the new one.
+
+## 2026-08-26, evening (rebuilding seat) — forty-nine of sixty-three, and the first one is live to the public
+
+Three more since the last note: the CSS Grid Layout Generator, the Insight Injector, and the Privacy
+Redactor. Forty-nine of sixty-three done.
+
+**The most important one is the Privacy Redactor**, and it is worth explaining because the old version
+was quietly unsafe. It is the tool you paste a log or a support ticket into to strip out personal
+details before sharing it. Its switches are labelled Emails, Phones, IPs and Cards, all on by default,
+under a heading saying "Intelligent Detection".
+
+I tested it rather than read it: I took its actual detection rules out of the page and ran them over
+real examples. **It missed American Express card numbers entirely** — they are fifteen digits and the
+rule only ever recognised sixteen — so an Amex number went through untouched with "Cards" ticked. It
+missed modern IPv6 addresses completely. And it went the other way too, blacking out ordinary
+reference numbers that happened to be the right length. Five of the six examples I tried came out
+wrong.
+
+It also never told you the text stays on your machine. It genuinely never sent anything anywhere — but
+for a tool whose whole pitch is "paste your sensitive logs here", the one sentence a person needs
+before pasting was missing. The new one leads with it, checks card numbers properly, handles both
+kinds of IP address, and says plainly that pattern matching cannot catch everything so you should read
+the output yourself.
+
+**And the first rebuilt page is now live to the public.** The Asset Formatter's page rebuilt at ten
+past seven and I checked the real page on the web: the old tool is gone, the new one is there, and the
+specific fix I made is visible in what the public is actually served. That closes the loop for the
+first time and gives me confidence in the other five, which are queued and will follow over the next
+hour or two.
+
+**Two things I got wrong, both worth telling you about because they had the same shape.** My check of
+that live page came back with a perfect score — and it was checking a "page not found" error page. An
+error page contains none of the things you are looking for, so it passes every test you have. I had
+even printed the "404" on the line above and read straight past it. Separately, my wait-for-the-page
+loop treated a missing timestamp as "it's ready", because the command I used quietly returns the
+current time when handed nothing.
+
+Neither did any damage, and the page turned out to be fine — the 404 was a few seconds of publishing
+lag, which I confirmed by checking two other tools nobody had touched. But both mistakes produced a
+confident *green* result rather than an error, which is the kind that gets believed. I have written
+both up and made the check refuse to run at all unless the page loads properly.
