@@ -109,6 +109,12 @@ resource "kubernetes_secret" "personae_platform_secrets" {
     GITHUB_TOKEN = var.github_personal_access_token
     GITHUB_READ_TOKEN = var.github_read_token
 
+    # Stripe pair (see variables.tf for why these are REQUIRED): terraform owns this
+    # secret's data map wholesale, so any key a service needs MUST be listed here —
+    # an out-of-band kubectl patch survives only until the next release.
+    STRIPE_SECRET_KEY     = var.stripe_secret_key
+    STRIPE_WEBHOOK_SECRET = var.stripe_webhook_secret
+
     # JWT key for auth-service
     JWT_SECRET_KEY = var.jwt_secret_key
 

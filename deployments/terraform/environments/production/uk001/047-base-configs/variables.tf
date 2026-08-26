@@ -72,6 +72,25 @@ variable "pgbouncer_admin_password" {
   sensitive   = true
 }
 
+# Stripe (PAY-009 billing surface in auth-service). BOTH must be non-empty for the
+# provider to mount (cmd/auth-service/main.go:155 checks the pair); the keyless state
+# is an honest 503. REQUIRED with no default ON PURPOSE: a release without these
+# values must FAIL LOUDLY naming the variable, because the silent alternative is what
+# happened on 2026-08-26 — the owner kubectl-patched the keys in, the next release
+# re-applied this resource's data map, and the webhook quietly reverted to 503.
+# Values live in terraform.tfvars.secret (local, never committed), owner-maintained.
+variable "stripe_secret_key" {
+  description = "Stripe restricted API key (rk_live_...): Checkout Sessions write, Charges read"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe webhook endpoint signing secret (whsec_...) for /stripe/webhook"
+  type        = string
+  sensitive   = true
+}
+
 # Platform keys
 variable "jwt_secret_key" {
   description = "JWT signing key for auth-service"
