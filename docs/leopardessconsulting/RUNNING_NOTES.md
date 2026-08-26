@@ -3386,3 +3386,36 @@ array). Attribution upgraded from timing to the write's generative record; the l
 alternative fails on archive semantics (archive rows are PRE-write states). Lesson kept:
 **`llm_call_log` names a content writer when the history table structurally cannot** — and the
 loop's challenge is what forced the stronger proof. Next session owes nothing here.
+
+---
+
+## 2026-08-26 — rotation heads-up, and the home CTA was clobbered AGAIN overnight (third time, now attributed with the stamp readable)
+
+**Cross-session heads-up (webdesign-tool-rebuilds seat):** the design-discovery rotation
+(`site-discovery-rotation-design`) was re-enabled 2026-08-26 09:20Z after 15 days off (the
+08-11 cost-scare pause was never unwound — `bugs_open/401`). ~1 site/3h, least-recently-visited
+first; leopardess's visit lands within ~2-3 days. Findings are born `detected`;
+`detected-item-promoter` (15-min cadence) auto-promotes known-good (item_type, handler_agent)
+pairs into build dispatch. **So: surprise design findings/repairs on this site = the rotation,
+not a stray thread. And the five 08-25 locks get their organic behavioural test when the visit
+lands — CHECK the locked slots afterwards and record the producer survived.**
+
+**Overnight damage found while checking** `[MEASURED 2026-08-26]`: index
+`call-to-action.primary_cta_url` → `/tools/tool-agent-complexity-estimator.html` again.
+Writer named from its own row: `misdirected_cta:index` page_rerender completed **02:03:58Z**
+(same producer as 08-24; a ~15-item page_rerender batch landed 02:03). The archive row carries
+the pre-write stamp this time: stored `/contact.html`, `__cta_minted` naming `/tools/...` —
+so `storedCTADestinationIsAuthored` should have been TRUE and the pass displaced the
+destination anyway. Hypothesis (recorded in 248, marked as such, with the check): the
+confident-label-match arm — "Book an **architecture** conversation" matching "Agent
+**Architecture** Complexity Estimator" in the Phase-B-widened universe — i.e. the licensed
+displacement branch mis-firing on label semantics. Diagnosis belongs to 248's lane; CONTRIB
+appended to `bugs_open/248` incl. the warning that the row lock CONFOUNDS their re-author-and
+-watch discriminator (coordinate before unlocking).
+
+**Remedy:** primary re-authored to `/contact.html` (fourth time, `bak_leo_home_cta_20260826`;
+secondary was still `/contact.html`), index gate-checked (both branches 0 rows), safe-rerender
+published, served verification in flight → then LOCK index `call-to-action` + the two wholly
+hand-curated showcase slots (`stat-band`, `evidence-chart`) ahead of the rotation. Hero left
+unlocked deliberately: its keep has held through every pass, and it preserves half of 248's
+natural behaviour surface.

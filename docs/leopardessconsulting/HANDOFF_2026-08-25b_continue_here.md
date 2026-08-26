@@ -107,3 +107,20 @@ SELECT current_step, status FROM orchestration_states WHERE correlation_id::text
 **Backups this session:** `bak_leo_voice_20260825`, `bak_leo_portfolio_voice_20260825`,
 `bak_leo_insights_pc_20260825`, `bak_leo_about_hero_pc_20260825`,
 `bak_leo_svc_contact_hero_pc_20260825`, `bak_leo_services_content_pc_20260825`.
+
+---
+
+## Addendum 2026-08-26 (next morning)
+
+- **The design-discovery rotation restarted 09:20Z** (cross-session heads-up from
+  webdesign-tool-rebuilds; `bugs_open/401` covers why the 08-11 pause was never surfaced).
+  Leopardess's visit lands within ~2-3 days; findings auto-promote to dispatch. Surprise
+  design items = the rotation. **After the visit: check every locked slot survived and record
+  the producer it survived** — that is the locks' behavioural proof arriving organically.
+- **Home CTA was clobbered a third time overnight** (`misdirected_cta:index` completed
+  02:03:58Z) — re-authored (4th), published, verified served, and the row is now **LOCKED**,
+  along with `stat-band` and `evidence-chart` (8 locked rows site-wide,
+  `locked_by='leopardess-403-restore'`). CONTRIB with the pre-write stamp evidence + the
+  label-match hypothesis appended to `bugs_open/248` — including that the lock CONFOUNDS their
+  re-author discriminator; coordinate before unlocking.
+- Hero on index deliberately left unlocked (its keep holds; preserves 248's natural surface).

@@ -738,3 +738,41 @@ a "survives N rerenders" result is a claim about a WINDOW, not a property. Mine 
 six days and then did not. Any future survival evidence on this bug should name the
 producer it survived, not the number of rerenders — because the producer that eventually
 clobbered it had not run in my window at all.
+
+---
+
+## CONTRIB 2026-08-26 (leopardess session) — third clobber of the same button, dated + attributed, WITH the provenance stamp readable this time; and the row is now LOCKED, which changes your discriminator
+
+**The instance** `[MEASURED 2026-08-26]`: index `call-to-action.primary_cta_url` was re-authored
+to `/contact.html` on 08-25 ~12:07Z, held through the 15:31Z write, and was displaced back to
+`/tools/tool-agent-complexity-estimator.html` by the **`misdirected_cta:index` `page_rerender`
+item completed 2026-08-26 02:03:58Z** (write archived 02:03:43.884502Z) — the same producer as
+the 08-24 clobber above. Third live occurrence on the owner's reported button.
+
+**What is new and diagnostic — the pre-write provenance stamp is in the archive row:** at the
+02:03:43Z write the stored map was `primary_cta_url = /contact.html` with
+`__cta_minted = {"primary_cta_url": "/tools/tool-agent-complexity-estimator.html"}`. So
+`CTAMintedCovers(stored, field, url)` was **false** (stamp names a different url than stored),
+and `storedCTADestinationIsAuthored` → **true** (url non-empty, excluded-destination, valid
+page, not covered). **The keep should have held, and the pass displaced the destination
+anyway.** That narrows your free discriminator: either the misdirected_cta path never reaches
+`storedCTADestinationIsAuthored`/the keep branches for this component, or it takes the branch
+that is LICENSED to displace — the confident-label-match arm ("only a confident label match …
+moves it away", resolve_internal_links_action.go Phase B invariant).
+
+**`[HYPOTHESIS — one check, not verified here]`**: the label is *"Book an architecture
+conversation"* and the destination it keeps choosing is *"Agent **Architecture** Complexity
+Estimator"* — a high-confidence label match on "architecture" in the Phase-B-widened universe
+(every page offered since `candidatesFromHubs` was deleted, 08-23) would be the licensed
+displacement branch behaving as designed and mis-firing on this label. If so, the defect is in
+match confidence vs. label semantics, not in the keep. The check: read the 02:03Z run's label
+match trace (or `llm_call_log` around 02:03 for the relevance scoring — the instrument that
+settled `bugs_open/403`'s attribution when `page_component_history` could not name a writer).
+
+**Site-level remedy applied, which AFFECTS YOUR REPRO:** the button is re-authored a fourth
+time AND the row is now **locked** (`lock_type='permanent'`,
+`locked_by='leopardess-403-restore'`) — `save_page_sections` excludes locked rows from its
+DELETE, so automated passes can no longer touch this slot. **Your "re-author both, fire one
+repair, read which survives" discriminator can no longer run on THIS row as-is** — coordinate
+with the leopardess lane (unlock → run → re-lock) or reproduce on another site. The lock is
+protection, not a fix: this bug stays open on its own merits.

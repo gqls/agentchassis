@@ -1342,3 +1342,19 @@ One thing I got wrong tonight and want on the record here too: my bug write-up i
 "no protection exists" for hand-written content. Reading the platform code properly, hours
 later, proved that half-wrong — row-level protection existed all along; nobody working this
 site knew. The write-up, the debugging guide and the trap list all now carry the correction.
+
+**2026-08-26, morning — your button broke a third time overnight; it is fixed and now bolted down.**
+
+The "Book an architecture conversation" button was rewritten to point at the calculator again
+at two in the morning, by the same automated repair pass as before. This time the records let
+me read exactly what the machinery believed when it did it, and the evidence — with a specific
+suspicion about why it keeps picking the calculator: the button says "architecture" and so does
+the calculator's name — has gone to the team that owns that fault, in their file.
+
+For your site I have stopped waiting for that fix: the button is restored a fourth time and the
+section is now marked hands-off, the same protection the services page got on Monday. The two
+showcase blocks on the home page — the figures band and the evidence chart — are marked the
+same way, because the fleet's design-checking rotation switched back on this morning after a
+fortnight off, and it can dispatch automated repairs. If odd design findings appear on the site
+in the next few days, that is the rotation visiting, and the hands-off markers will get their
+first real-world test at the same time.
