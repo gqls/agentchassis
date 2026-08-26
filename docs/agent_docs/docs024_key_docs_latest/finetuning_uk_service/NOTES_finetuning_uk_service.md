@@ -2113,3 +2113,29 @@ scaffold or the essayistic cadence** — their words — so this is a measured c
 demonstration stack, **not** a promise about his ear. Canary offered and ACCEPTED: the 9 pages with
 their committed byte-level baseline; they will score the diff with the phase-1 battery alongside
 his read.
+
+### 2026-08-26c (cont.) — the canary is PRE-REGISTERED, and the third layer is measured and bounded
+
+`copy_quality_two_stage/AUDIT_prompts/CANARY_2026-08-26_finetuning_nine_page_rebuild.md`
+(`3cb651b37`) — predictions and refutation conditions written BEFORE the run: P1 honesty-beat ~0,
+P2 `rather_than` ≤2/page, P4 the methodical scaffold and cadence **not** expected to move (nothing
+shipped targets them), P5 read-aloud primary and **a clean battery with a failed read is a FAIL**.
+
+They named `llm_guidance` as the untouched third layer. **Measured here before the run rather than
+hunted after it** `[MEASURED 2026-08-26]`: of the 27 components the nine pages use, 10 carry
+`llm_guidance`, and the whole layer holds **exactly 1 `rather than`, 0 `not just`**.
+
+The one is `hero-tool` → `stat_one_value.llm_guidance`: *"OMIT it rather than invent one
+(bugs_open/043)"*. **Deliberately NOT touched:** it is fleet-shared (**40** live instances on other
+lanes' sites), it is an anti-fabrication rule with a bug number, and it is a genuine either/or
+directive about behaviour rather than a register demonstration. One occurrence is not worth that
+blast radius, and it is not this lane's component to change.
+
+**Which makes the canary sharper than either lane had it:** `hero-tool` is on only **2 of the 9**
+pages. **Seven pages now have zero `rather than` in ANY layer** — fleet prompt, site brief,
+component guidance. So if `rather_than` appears on one of those seven, `llm_guidance` cannot be the
+carrier and the model is the remaining explanation. On the two tool pages the ceiling from this
+source is 1.
+
+**Nothing runs until the owner's word.** The choice in front of him is now on better information
+than his reversal was: run the nine and judge, or keep waiting.
