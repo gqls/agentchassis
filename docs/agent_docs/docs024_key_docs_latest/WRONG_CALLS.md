@@ -56337,3 +56337,31 @@ a-submission-is-not-a-review.
 > Family: [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] (a believable
 > external cause is exactly when to doubt the instrument — the instrument here was my own
 > shell arithmetic), the-marker-is-not-the-check.
+
+## 2026-08-26 — "read the LIVE row" encoded a row-selection rule the runtime does not use (413 session, caught by council round 1)
+
+> Building 657 I wrote a K subquery to read `load_items.max_items` "from the live
+> build-dispatch-loop row" — and encoded *live* as `ORDER BY updated_at DESC LIMIT 1`. The
+> runtime's own loader selects `ORDER BY version DESC` (`loadAgentDefinition`,
+> processor.go:371-389), and `updated_at` on `agent_definitions` is DEGENERATE (199/200 live
+> rows share one microsecond), so under a duplicate-active-row shape (four types carry one;
+> LANDMINES) my subquery could read K from a row the runtime never loads — corrupting the
+> exact "K agrees with the loader" invariant the whole migration exists to enforce. The dry
+> run was green, the EXPLAIN was green, the divergence proof was green: **every proof I ran
+> exercised a single-active-row world, so none of them could have caught it.** The council's
+> debug_historian seat caught it in round 1 (gating, HIGH) by joining my SQL to two landmines
+> I had not grepped for, because my footprint greps were about the SELECTOR and the LOADER —
+> not about `agent_definitions`, the table my new subquery had just made load-bearing.
+>
+> **The cheap check:** when your SQL must pick "the row the system uses", grep for how the
+> SYSTEM picks it and copy that rule verbatim (`grep -rn "ORDER BY version" --include='*.go'`
+> found it in one command) — never invent a selection rule for a table another component
+> already selects from. And re-grep LANDMINES for every table your change NEWLY reads, not
+> just the artefacts you set out to edit. **Cost:** one REVISE round (~12 min verdict + one
+> revision commit); against a latent wrong-K pin re-opening silently under a deploy-transient
+> duplicate row, cheap. Fixed in 9ff62d8a4: verbatim loader rule + preflight refuses
+> duplicate-active shapes + UPDATE pinned by row id.
+>
+> Family: [[grep-landmines-for-your-symbols]] (the SessionStart hook only matches dirty
+> files — a table you newly READ is never shown), [[a-revise-round-is-cheaper-than-the-defect-it-finds]],
+> the-marker-is-not-the-check (all my proofs shared the one blind spot).
