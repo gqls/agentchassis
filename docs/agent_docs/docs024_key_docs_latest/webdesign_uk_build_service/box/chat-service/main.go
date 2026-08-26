@@ -92,6 +92,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("store init failed: %v", err)
 	}
+	orders, err := NewOrderStore(dataDir + "/orders.json")
+	if err != nil {
+		log.Fatalf("orders store init failed: %v", err)
+	}
+	// The collection endpoints are OFF without a token — loudly, at startup,
+	// because "collector polls, box answers 503, nobody notices" is exactly
+	// the silent-failure shape this estate keeps being burned by.
+	ordersToken := env("ORDERS_API_TOKEN", "")
+	if ordersToken == "" {
+		log.Printf("orders: ORDERS_API_TOKEN not set — briefs will be STORED but the collection endpoints answer 503")
+	}
 
 	// System prompt source. Legacy (FACTS_URL unset): the compiled-in
 	// systemPromptFacts, byte-identical behaviour to every build before the
@@ -128,6 +139,7 @@ func main() {
 
 	cs := &chatServer{
 		store:           store,
+		orders:          orders,
 		ipLimiter:       newChatIPLimiter(),
 		maxTurns:        maxTurns,
 		dailyCeilingUSD: dailyCeiling,
@@ -135,10 +147,15 @@ func main() {
 		systemPrompt:    systemPrompt,
 	}
 	hs := &healthServer{store: store}
+	oa := &ordersAPI{store: orders, token: ordersToken}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/chat", cs.handleChat)
 	mux.HandleFunc("/health", hs.handleHealth)
+	// Collection contract (cluster-only; bearer token + tunnel-header refusal
+	// in orders_http.go — nginx must NEVER route /internal/ to this service).
+	mux.HandleFunc("/internal/orders", oa.handleList)
+	mux.HandleFunc("/internal/orders/ack", oa.handleAck)
 
 	// BIND_ADDR lets an instance bind loopback only — the noted.co.uk nginx
 	// config on this same box names the historical *:8081 bind as the pattern

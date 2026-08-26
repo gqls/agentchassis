@@ -202,7 +202,7 @@ func TestConductCarriesTheBriefBuilderAndItsRestraints(t *testing.T) {
 		"Ask ONE thing at a time",            // not an interrogation
 		"take it and stop",                   // the visitor may decline
 		"Only write it if they say yes",      // the brief is offered, not imposed
-		"under 250 words",                    // fits max_tokens 1024; see claude.go
+		"under 250 words",                    // fits max_tokens 2048; see claude.go
 		"a draft for them to check",          // honest about what it is
 	} {
 		if !strings.Contains(promptConduct, want) {
@@ -213,5 +213,28 @@ func TestConductCarriesTheBriefBuilderAndItsRestraints(t *testing.T) {
 	// the bot stops eliciting and the change is dead without any test going red.
 	if strings.Contains(promptConduct, "Do not ask for anything else unless they offer it") {
 		t.Error("the pre-2026-08-18 rule is back; it contradicts the brief-builder above")
+	}
+}
+
+// The 2026-08-26 additions, pinned the same way: site-type flexibility (the
+// owner tried to brief a content site and the interview fought him), the
+// pasted-description path, the content-source question that makes an
+// affiliate-style brief possible, and the submit loop with its two honesty
+// rules (the tool is the only submitter, and a reference is only ever quoted,
+// never invented).
+func TestConductCarriesFlexibleIntakeAndTheSubmitLoop(t *testing.T) {
+	for _, want := range []string{
+		"Do not assume the visitor runs a business",  // site-type flexibility exists
+		"treat it as their brief",                    // a pasted description is not re-interviewed
+		"Where the content will come from",           // the content/affiliate enabler
+		"a product feed",                             // supplied-content sites are named as normal
+		"Do not promise it can be built and do not refuse it", // beyond-facts wants are recorded, not ruled on
+		"using the submit_brief tool",                // the loop closes through the tool
+		"never state one the tool did not return",    // no invented references
+		"clearly said yes to submitting",             // consent gates submission
+	} {
+		if !strings.Contains(promptConduct, want) {
+			t.Errorf("conduct lost the clause %q", want)
+		}
 	}
 }

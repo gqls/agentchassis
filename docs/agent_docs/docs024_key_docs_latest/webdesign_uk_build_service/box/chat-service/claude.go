@@ -2,10 +2,11 @@ package main
 
 // claude.go — the Anthropic call, adapted from idea.uk/golang_files/engine.go's
 // callClaudeOpts (raw net/http, stdlib only — no SDK dependency, matching the
-// "stdlib-first like site-engine" brief). Trimmed to what an intake chat
-// needs: no tools, no thinking (Haiku 4.5 is intake, not the product — PLAN
-// §4 — and doesn't support adaptive thinking or a manual budget without one
-// explicitly requested; omitting the field entirely is correct and simplest).
+// "stdlib-first like site-engine" brief). No thinking (Haiku 4.5 is intake,
+// not the product — PLAN §4 — and doesn't support adaptive thinking or a
+// manual budget without one explicitly requested; omitting the field entirely
+// is correct and simplest). Tools joined 2026-08-26 for submit_brief — the
+// order-intake connection; chat.go owns the single permitted tool round.
 
 import (
 	"bytes"
@@ -36,35 +37,71 @@ func costUSD(inputTokens, outputTokens int) float64 {
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
+// claudeMessage is one wire turn. Content carries an ordinary text turn;
+// Blocks, when non-nil, wins and carries structured content (the assistant's
+// tool_use turn and our tool_result answer to it) exactly as the Messages API
+// expects it. Stored history stays plain text — chat.go flattens a tool round
+// to its final text, so Blocks never persists and never needs replaying.
 type claudeMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+	Blocks  []any  `json:"-"`
+}
+
+// claudeTool is one tool definition on the wire.
+type claudeTool struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	InputSchema map[string]any `json:"input_schema"`
+}
+
+// claudeToolUse is one tool invocation the model asked for. Input is kept raw:
+// the caller owns validation, and a decode error there must produce a
+// tool_result the model can read, not a dropped reply.
+type claudeToolUse struct {
+	ID    string
+	Name  string
+	Input json.RawMessage
 }
 
 type claudeResult struct {
 	Text         string
+	ToolUses     []claudeToolUse
 	InputTokens  int
 	OutputTokens int
 	StopReason   string
 }
 
-// callClaude sends the system prompt + conversation history and returns the
-// assistant's reply. It does not persist anything — chat.go owns logging and
-// spend accounting, so this function's only job is the wire call.
-func callClaude(system string, messages []claudeMessage) (claudeResult, error) {
+// callClaude sends the system prompt + conversation history (+ tool
+// definitions, when any are offered) and returns the assistant's reply. It
+// does not persist anything — chat.go owns logging and spend accounting, so
+// this function's only job is the wire call.
+func callClaude(system string, messages []claudeMessage, tools []claudeTool) (claudeResult, error) {
 	key := os.Getenv("ANTHROPIC_API_KEY")
 	if key == "" {
 		return claudeResult{}, fmt.Errorf("ANTHROPIC_API_KEY not set")
 	}
 	wireMessages := make([]map[string]any, len(messages))
 	for i, m := range messages {
-		wireMessages[i] = map[string]any{"role": m.Role, "content": m.Content}
+		if m.Blocks != nil {
+			wireMessages[i] = map[string]any{"role": m.Role, "content": m.Blocks}
+		} else {
+			wireMessages[i] = map[string]any{"role": m.Role, "content": m.Content}
+		}
 	}
 	body := map[string]any{
-		"model":      claudeModel,
-		"max_tokens": 1024, // intake replies are short; see RUNBOOK if this needs raising
+		"model": claudeModel,
+		// 2048, raised from 1024 on 2026-08-26: a brief that keeps a visitor's
+		// pasted specifics verbatim (topic lists, feeds, links) can honestly
+		// exceed what 1024 held. Worst-case cost of one reply at Haiku output
+		// rates is ~$0.011 — see chat.go's ceiling-overshoot bound, updated in
+		// the same change.
+		"max_tokens": 2048,
 		"system":     system,
 		"messages":   wireMessages,
+	}
+	if len(tools) > 0 {
+		body["tools"] = tools
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {
@@ -93,8 +130,11 @@ func callClaude(system string, messages []claudeMessage) (claudeResult, error) {
 
 	var out struct {
 		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
+			Type  string          `json:"type"`
+			Text  string          `json:"text"`
+			ID    string          `json:"id"`
+			Name  string          `json:"name"`
+			Input json.RawMessage `json:"input"`
 		} `json:"content"`
 		StopReason string `json:"stop_reason"`
 		Usage      struct {
@@ -125,11 +165,16 @@ func callClaude(system string, messages []claudeMessage) (claudeResult, error) {
 	}
 
 	for _, c := range out.Content {
-		if c.Type == "text" {
+		switch c.Type {
+		case "text":
 			result.Text += c.Text
+		case "tool_use":
+			result.ToolUses = append(result.ToolUses, claudeToolUse{ID: c.ID, Name: c.Name, Input: c.Input})
 		}
 	}
-	if result.Text == "" {
+	// A tool_use turn legitimately carries no text; only a reply with NEITHER
+	// text NOR a tool call is the empty-response failure.
+	if result.Text == "" && len(result.ToolUses) == 0 {
 		return result, fmt.Errorf("anthropic: empty response text (stop_reason=%s)", out.StopReason)
 	}
 	return result, nil

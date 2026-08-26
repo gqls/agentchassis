@@ -17,11 +17,35 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 )
+
+// chatTools is offered on every call. The model is told (promptConduct) to
+// use submit_brief only after the visitor has approved the brief and given an
+// email address; the tool_result is written for the model and carries the
+// minted order reference for it to relay. One tool round per HTTP request —
+// completeToolRound never executes a second call's tool uses.
+var chatTools = []claudeTool{{
+	Name: "submit_brief",
+	Description: "Submit the visitor's approved website brief to webdesign.uk. " +
+		"Use only after the visitor has seen the final brief text and clearly agreed to submit it, " +
+		"and has given an email address to be reached on. " +
+		"The result carries the order reference to hand back to the visitor.",
+	InputSchema: map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"contact_email": map[string]any{"type": "string", "description": "The visitor's email address, exactly as they gave it."},
+			"contact_name":  map[string]any{"type": "string", "description": "Their name, or the business or project name, if they gave one."},
+			"domain":        map[string]any{"type": "string", "description": "The domain they want the site on, if decided. Omit otherwise."},
+			"brief":         map[string]any{"type": "string", "description": "The full brief text the visitor approved, verbatim."},
+		},
+		"required": []string{"contact_email", "brief"},
+	},
+}}
 
 // systemPromptFacts are the ONLY numbers and named commitments this bot may
 // state — copied verbatim from evidence_base at the time of writing (NOTES
@@ -57,6 +81,7 @@ type chatResponse struct {
 
 type chatServer struct {
 	store           *Store
+	orders          *OrderStore // nil only in tests that never reach a tool round
 	ipLimiter       *rateLimiter
 	maxTurns        int
 	dailyCeilingUSD float64
@@ -102,13 +127,16 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 16KB body / 5000-char message, raised from 8KB/2000 on 2026-08-26: the
+	// conduct now invites a visitor to PASTE a prepared description and have
+	// it taken as the brief, and a real one does not fit 2000 characters.
 	var req chatRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8*1024)).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024)).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if len(req.Message) == 0 || len(req.Message) > 2000 {
-		http.Error(w, "message must be 1-2000 characters", http.StatusBadRequest)
+	if len(req.Message) == 0 || len(req.Message) > 5000 {
+		http.Error(w, "message must be 1-5000 characters", http.StatusBadRequest)
 		return
 	}
 
@@ -132,9 +160,10 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 	// Gate 3: daily spend ceiling, fails closed to contact details. Checked
 	// against the ALREADY-SPENT total, not an estimate of this call's cost —
 	// output tokens aren't known until the call completes, so any pre-call
-	// estimate would itself be a guess. The bound on overshoot is one call's
-	// worth (max_tokens=1024 output, ≤$0.005 at Haiku rates) — negligible
-	// against the ceiling, and simpler and more honest than estimating.
+	// estimate would itself be a guess. The bound on overshoot is one REQUEST's
+	// worth — up to two calls when a tool round runs (max_tokens=2048 each,
+	// ≤$0.02 total at Haiku rates) — negligible against the ceiling, and
+	// simpler and more honest than estimating.
 	if cs.store.TodaySpendUSD() >= cs.dailyCeilingUSD {
 		writeChatJSON(w, convID, cs.contactLine)
 		return
@@ -164,23 +193,12 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	wireMessages = append(wireMessages, claudeMessage{Role: "user", Content: req.Message})
 
-	start := time.Now()
 	// cs.systemPrompt is set at construction: the compiled-in facts in legacy
 	// mode, a live-rendered prompt when FACTS_URL is configured. Never nil —
 	// main.go and tests both set it; a nil here is a construction bug and a
 	// panic is the honest report of one.
-	result, callErr := claudeCaller(cs.systemPrompt(), wireMessages)
-	latency := time.Since(start)
-
-	logEntry := RequestLogEntry{
-		Timestamp: time.Now().UTC(), ConversationID: convID, ClientIP: ip,
-		Model: claudeModel, LatencyMS: latency.Milliseconds(),
-	}
+	result, callErr := cs.callAndAccount(convID, ip, wireMessages)
 	if callErr != nil {
-		logEntry.Error = callErr.Error()
-		if err := cs.store.LogRequest(logEntry); err != nil {
-			log.Printf("request log error: %v", err)
-		}
 		// Keep the user's side of this turn in history even though it failed —
 		// a later successful turn should still know what was asked. Do NOT
 		// record the canned contactLine as an "assistant" turn: it isn't
@@ -194,6 +212,53 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	replyText := result.Text
+	if len(result.ToolUses) > 0 {
+		// The one permitted tool round: execute submit_brief, answer every
+		// tool_use block, ask the model to relay the outcome. Always returns
+		// something safe to show the visitor — after a stored submission the
+		// reference must reach them even if the follow-up call fails.
+		replyText = cs.completeToolRound(convID, ip, wireMessages, result)
+	}
+
+	if err := cs.store.LogTranscript(TranscriptEntry{
+		Timestamp: time.Now().UTC(), ConversationID: convID, ClientIP: ip,
+		Role: "assistant", Content: replyText,
+	}); err != nil {
+		log.Printf("transcript log error: %v", err)
+	}
+	// History stores the FLATTENED turn (user text in, final assistant text
+	// out). The tool exchange itself is not replayed on later turns; the
+	// final text carries the reference, which is what the conversation needs.
+	if err := cs.store.AppendMessages(convID,
+		StoredMessage{Role: "user", Content: req.Message},
+		StoredMessage{Role: "assistant", Content: replyText},
+	); err != nil {
+		log.Printf("store error (append messages): %v", err)
+	}
+
+	writeChatJSON(w, convID, replyText)
+}
+
+// callAndAccount is one wire call plus its bookkeeping: request log row,
+// spend ledger entry. Both calls of a tool round go through here, so the
+// ledger sees the true cost of the request, not just its first half.
+func (cs *chatServer) callAndAccount(convID, ip string, messages []claudeMessage) (claudeResult, error) {
+	start := time.Now()
+	result, callErr := claudeCaller(cs.systemPrompt(), messages, chatTools)
+	latency := time.Since(start)
+
+	logEntry := RequestLogEntry{
+		Timestamp: time.Now().UTC(), ConversationID: convID, ClientIP: ip,
+		Model: claudeModel, LatencyMS: latency.Milliseconds(),
+	}
+	if callErr != nil {
+		logEntry.Error = callErr.Error()
+		if err := cs.store.LogRequest(logEntry); err != nil {
+			log.Printf("request log error: %v", err)
+		}
+		return result, callErr
+	}
 	cost := costUSD(result.InputTokens, result.OutputTokens)
 	logEntry.InputTokens = result.InputTokens
 	logEntry.OutputTokens = result.OutputTokens
@@ -205,20 +270,95 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 	if _, err := cs.store.AddSpendUSD(cost); err != nil {
 		log.Printf("spend ledger error: %v", err)
 	}
-	if err := cs.store.LogTranscript(TranscriptEntry{
-		Timestamp: time.Now().UTC(), ConversationID: convID, ClientIP: ip,
-		Role: "assistant", Content: result.Text,
-	}); err != nil {
-		log.Printf("transcript log error: %v", err)
-	}
-	if err := cs.store.AppendMessages(convID,
-		StoredMessage{Role: "user", Content: req.Message},
-		StoredMessage{Role: "assistant", Content: result.Text},
-	); err != nil {
-		log.Printf("store error (append messages): %v", err)
+	return result, nil
+}
+
+// completeToolRound executes the first submit_brief call from `first`,
+// answers EVERY tool_use block (the API requires a tool_result per id), and
+// makes one follow-up call so the model can relay the outcome in its own
+// words. Exactly one round: a follow-up that tries to call tools again, or
+// fails, gets the server-built fallback instead — which, after a stored
+// submission, must carry the reference, because losing a minted reference is
+// the one unrecoverable outcome here.
+func (cs *chatServer) completeToolRound(convID, ip string, wire []claudeMessage, first claudeResult) string {
+	var submitted *BriefOrder
+	toolResults := make([]any, 0, len(first.ToolUses))
+	for i, tu := range first.ToolUses {
+		var content string
+		var isErr bool
+		switch {
+		case tu.Name != "submit_brief":
+			content, isErr = "unknown tool "+tu.Name, true
+		case i > 0:
+			content, isErr = "only the first submission in a turn is handled; this one was not stored", true
+		default:
+			content, isErr, submitted = cs.execSubmitBrief(convID, ip, tu.Input)
+		}
+		toolResults = append(toolResults, map[string]any{
+			"type": "tool_result", "tool_use_id": tu.ID, "content": content, "is_error": isErr,
+		})
 	}
 
-	writeChatJSON(w, convID, result.Text)
+	assistantBlocks := make([]any, 0, len(first.ToolUses)+1)
+	if first.Text != "" {
+		assistantBlocks = append(assistantBlocks, map[string]any{"type": "text", "text": first.Text})
+	}
+	for _, tu := range first.ToolUses {
+		assistantBlocks = append(assistantBlocks, map[string]any{
+			"type": "tool_use", "id": tu.ID, "name": tu.Name, "input": tu.Input,
+		})
+	}
+	followup := append(append([]claudeMessage(nil), wire...),
+		claudeMessage{Role: "assistant", Blocks: assistantBlocks},
+		claudeMessage{Role: "user", Blocks: toolResults},
+	)
+
+	second, err := cs.callAndAccount(convID, ip, followup)
+	if err != nil || second.Text == "" || len(second.ToolUses) > 0 {
+		if err != nil {
+			log.Printf("tool-round follow-up failed (conversation=%s): %v", convID, err)
+		}
+		if submitted != nil {
+			return "Your brief is submitted. Your order reference is " + submitted.Reference +
+				". Please keep it: quote it when you pay, and in any message to us, so everything matches up to your brief."
+		}
+		return cs.contactLine
+	}
+	return second.Text
+}
+
+// execSubmitBrief validates and stores one submission. The returned string is
+// the tool_result content and is written FOR THE MODEL: on error it says what
+// to ask the visitor for; on success it hands over the reference and says how
+// to relay it.
+func (cs *chatServer) execSubmitBrief(convID, ip string, input json.RawMessage) (string, bool, *BriefOrder) {
+	var in struct {
+		ContactEmail string `json:"contact_email"`
+		ContactName  string `json:"contact_name"`
+		Domain       string `json:"domain"`
+		Brief        string `json:"brief"`
+	}
+	if err := json.Unmarshal(input, &in); err != nil {
+		return "the submission fields could not be read; call submit_brief again with contact_email and brief", true, nil
+	}
+	if msg := ValidateSubmission(in.ContactEmail, in.ContactName, in.Domain, in.Brief); msg != "" {
+		return msg, true, nil
+	}
+	if cs.orders == nil {
+		return "brief submission is not available right now; apologise and give the visitor the contact details from the facts", true, nil
+	}
+	order, err := cs.orders.Submit(convID, ip, in.ContactEmail, in.ContactName, in.Domain, in.Brief)
+	if err != nil {
+		if errors.Is(err, errTooManySubmissions) {
+			return "this conversation has already submitted its maximum number of briefs; tell the visitor to use the contact details in the facts for further changes", true, nil
+		}
+		log.Printf("brief submit failed (conversation=%s): %v", convID, err)
+		return "the submission could not be stored just now; apologise and give the visitor the contact details from the facts", true, nil
+	}
+	log.Printf("brief submitted: reference=%s conversation=%s", order.Reference, convID)
+	return "Submitted successfully. Order reference: " + order.Reference +
+		". Tell the visitor their brief is in, give them this reference exactly as written, and tell them to keep it " +
+		"and quote it when they pay and in any message to us. Do not invent any other next steps.", false, &order
 }
 
 func writeChatJSON(w http.ResponseWriter, convID, reply string) {

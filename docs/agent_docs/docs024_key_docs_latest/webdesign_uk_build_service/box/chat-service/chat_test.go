@@ -136,7 +136,7 @@ func TestConversationHistoryThreadsAcrossTurns(t *testing.T) {
 	defer func() { claudeCaller = origCaller }()
 
 	var seenMessages [][]claudeMessage
-	claudeCaller = func(system string, messages []claudeMessage) (claudeResult, error) {
+	claudeCaller = func(system string, messages []claudeMessage, tools []claudeTool) (claudeResult, error) {
 		cp := append([]claudeMessage(nil), messages...)
 		seenMessages = append(seenMessages, cp)
 		return claudeResult{
