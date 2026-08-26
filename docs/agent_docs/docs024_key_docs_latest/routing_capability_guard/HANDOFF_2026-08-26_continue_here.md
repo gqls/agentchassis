@@ -98,6 +98,42 @@ decision wants the other. Probably not a conflict — both markers with differen
 *licences* an overwrite, human-authored *forbids* one, neither present = the 2026-08-02 default-OFF,
 i.e. today's behaviour) — **but it is a decision, and it must be made once by the marker's owner.**
 
+### ⚠ 2.1a — AND THE MARKER WOULD HAVE NO WRITER: option (c) is STRUCTURALLY option (b) today
+
+Measured after leopardess ruled the marker design (§2.1b), before building anything. **There is no
+interface through which a person can write a page description at all.**
+
+`[MEASURED 2026-08-26]` **Demand control first, so the negative means something:** a human CAN edit
+page rows — `internal/core-manager/admin/page_admin_handlers.go` has **four** `UPDATE pages` sites,
+writing `suppressed_sections` and `page_spec`. So the admin surface exists and reaches this table.
+**`meta_description` is not among the columns it writes: ZERO mentions of the column in the whole of
+`internal/` and `frontends/`.** The only non-agent writer anywhere is `cmd/webdesignport/import.go`,
+a port tool, and even that is `COALESCE(NULLIF(EXCLUDED,''), existing)` — fill-blank.
+
+**So the owner's "I haven't yet written any manually" understates it: he could not have.** And the
+consequence for his ruling is structural, not incidental:
+
+- A `meta_description_authored_by` column would have **no producer**. Permanently NULL.
+- An authority gating on `authored_by IS NULL` therefore **permits everything, for ever**.
+- **Option (c) is not "currently as wide as (b)" — it IS (b), until a human-write path exists.**
+- Building the marker now is a mechanism with no writer: the "built but never exercised" residual
+  this estate keeps paying for (CLM-023's shape, three instances already on record).
+
+⚠ **DO NOT BUILD THE HUMAN MARKER FOR THIS COLUMN YET.** What actually protects human copy today is
+**the absence of the capability to write it**, not a mark. That is a real guarantee and it is the same
+KIND of guarantee rule 3b already reasons about — and it goes stale the same way, **by addition**.
+
+**So the thing to record now is a CONDITION, not a mechanism:** whoever builds a human-facing editor
+for `pages.meta_description` must add the `__authored`-equivalent mark **in the same change that ships
+the editor** — the 2026-07-28 condition (2) discipline, register the seam in the commit that creates
+it. Until then the overwrite authority's guarantee rests on a dated absence, which must be re-checked
+with the control above rather than assumed.
+
+**What IS worth building, and is leopardess's own recommendation:** the MACHINE mint stamp, which has
+a real writer today (`save_page_meta_description_action.go:211`). It accumulates a positive record
+from its first write, costs nothing, and is the only thing that keeps a future tightening to
+fail-SAFE available — without it the estate can never move off "unmarked means overwritable".
+
 ### RULED — decision 2: **widen it.** The owner's words: *"it's ok for the tests to read real content
 but not to write it."*
 
