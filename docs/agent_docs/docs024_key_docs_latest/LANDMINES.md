@@ -16554,7 +16554,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
   curl -s "https://$domain/$path" | grep -o '<link[^>]*rel=["'"'"']canonical["'"'"'][^>]*>'
   ```
   Run it on a ROOT and on a SECTION INDEX in the same breath — one alone gives you a rule that is exactly half right, which is worse than no rule because it generalises confidently. If a generator's output disagrees with the canonical the site serves, the generator is wrong even though every URL it emitted returns 200.
-- **source:** portfolio_positioning lane, 2026-08-24; fixed in `5c9acf1bd`, pinned by `TestRootIndexIsCanonicalisedButSectionIndexIsNot` (mutation-proven in both directions with changes that still compile); register `SEO-007`
+- **source:** portfolio_positioning lane, 2026-08-24; fixed in `5c9acf1bd`, pinned by `TestRootIndexIsCanonicalisedButSectionIndexIsNot` (mutation-proven in both directions with changes that still compile); register `SEO-007`. **UPDATE 2026-08-26 (`bcb4645ff`): the `site-discovery-files.py` instance is fixed too** — whole-path rule at `live_pages`, exercised on `cv1.co.uk` (root as `/`, section indexes untouched, 3/3 probed). Both named writers now canonicalise; the entry stays for the CLASS — any NEW generator reading `pages.url` walks into the same trap, and the probe will still wave it through.
 - **added:** 2026-08-24, portfolio_positioning lane
 
 ---
@@ -18334,3 +18334,49 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/399` (which created the shared predicate) · `bugs_open/299` (the tel:/mailto: class that would go dark) · `RFC_047 §9` (why the predicate is shared at all) · register **LNK-040** · MEMORY [[a-guard-only-guards-the-door-you-walk-through]]
 - **source:** 2026-08-26, `bugfix_399_cta_label_agreement` lane. Caught in DESIGN, before code — the approved plan contained the guard and it was removed after reading `check_cta_nonpage.go:141`. Full account: `bugfix_399_cta_label_agreement/NOTES_cta_label_agreement.md` MISSTEP 4.
 - **added:** 2026-08-26, bugfix_399_cta_label_agreement lane
+
+### A COMPONENT FIELD SOURCED `site_assets.image` RENDERS THE PAGE'S OWN HERO, NOT A CONTENT IMAGE — the field name reads like a content slot, the resolved value is chrome, and the schema never says so
+
+- **footprint:** `site_assets.image` · `platform/orchestration/imageryplan/imageryplan.go` · `imageRoleAliases` · `ImageRoleForPath` · `platform/orchestration/actions/plan_sections_action.go` · `ensureAssets` · `content_components.input_schema` · `site_plan_imagery`
+- **fires when:** you read a component schema and see `"image_url": {"source": "site_assets.image"}`, or you author one. It reads as *"this component gets its own picture from the site's assets"*. It does not. It gets **the hero already displayed at the top of the same page**, on every page, for ever.
+- **the trap:** `site_assets.<path>` is NOT a literal asset key first and foremost — it is alias-resolved. `imageRoleAliases` maps **`image` → `hero`** (and so do `background`, `background_image`, `hero_image`, `hero_background`, `banner`, `header_image`, `product_screenshot`, `product_image`, `screenshot`). `plan_sections`' `site_assets` arm tries the literal key, misses, and takes the alias — and the literal key **always** misses, because nothing anywhere populates `r.assets["image"]`: the hero arms fill `"hero"`, the section-imagery loop fills `assetKey` and `kind` (`illustration`/`icon`/`infographic`), the logo arm fills `"logo"`, and the `content_data` fallback fills **only** `hero_url` and `logo_url`. So the alias is unconditional. `[MEASURED 2026-08-26]` **every** populated `site_assets.image` value in the estate is a hero asset — `hero-about.jpg`, `hero-home.jpg`, `hero.jpg`, `content-hero-*.jpg` — and **20 of 52** populated instances hold a value that also appears on another component of the SAME page. Worked case: `leopardessconsulting.co.uk` `/about.html`, `about-hero` at position 1 and `content-block-about` (field `image_src`) at position 2, identical path.
+- **⚠ AND IT IS DESTRUCTIVE, NOT MERELY REDUNDANT.** `carryStored` (bugs_open/238) protects a non-llm field by carrying the page's own deployed value when the declared source resolves nothing — but its rule is *"Live resolution always wins"*. An aliased source ALWAYS resolves, so the carry never runs, and **good stored values are overwritten by the hero on the next `plan_sections` run**. Found live on apis.uk: six hand-authored illustrations on `/index.html` were one run from becoming six copies of `hero-home.jpg`. The page looks fine until it is rebuilt.
+- **the check:** never infer the resolved value from the field NAME or from the `site_assets.` prefix. Ask the alias map, then ask the artefact — and run BOTH, because they can disagree in a way that reads as reassurance. Code: `grep -n -A3 'imageRoleAliases = map' platform/orchestration/imageryplan/imageryplan.go` — if your `<path>` is a key there, it resolves to that ROLE, not to your field. Artefact:
+  ```sql
+  -- what does this source ACTUALLY put on the page? compare against the page's hero.
+  WITH f AS (SELECT c.id, c.name, k.key AS field
+               FROM content_components c, jsonb_each(COALESCE(c.input_schema->'fields','{}'::jsonb)) k
+              WHERE k.value->>'source' = '<the source you are about to trust>'
+                AND k.value->>'type' IN ('url','image','image_url'))
+  SELECT s.domain, p.url, f.name, f.field, pc.content_data->>f.field
+    FROM f JOIN page_components pc ON pc.component_id = f.id
+    JOIN pages p ON p.id = pc.page_id JOIN sites s ON s.id = p.site_id
+   ORDER BY 1,2;
+  ```
+  **A value that looks like a real per-section illustration is NOT proof the source works** — it may be hand-seeded and merely surviving by carry, which is exactly what apis.uk's six looked like and why they refuted the code reading before the code reading turned out to be right. The disconfirming shape is a value matching the page's HERO asset; if you see one of those anywhere in the column, the alias is live.
+- **for a genuine in-content illustration:** use a path with **no** alias entry, so it stays a literal key — `site_assets.illustration` is the one the resolver can satisfy, from `site_plan_imagery` rows at `scope='section'`, `scope_ref='<page>:<ordinal>'`, `kind='illustration'`. ⚠ **`scope='page'` + `kind='illustration'` rows are read by NO arm and are inert** (6 such rows live, on 2 sites). ⚠ And the section loop maps by kind **first-wins**, so several illustrated sections on one page all resolve to the SAME image.
+- **why this generalises:** the same shape as [[a-css-fallback-is-present-and-inoperative]] and *"a dead config key looks like a live one"* — a declaration that is syntactically present, semantically plausible, and resolved somewhere you did not look. Here the indirection is one map in a different package from both the schema and the renderer, and **nothing in the component's own schema, template or guidance mentions it**.
+- **relations:** register **IMG-074** (the fix: migration `644` repoints the one component that offered this as a content slot, and adds the `image` capability token) · `bugs_open/238` (`carryStored`, the seam this defeats) · `bugs_open/114` (the sibling hero-fallback branch in the same function) · IMG-070 (imagery `scope_ref` resolution) · `bugs_open/381` (the planner-menu vocabulary this sits behind)
+- **source:** 2026-08-26, `vigilant_designer_offer_analysis` lane, while making `Illustrated Text Block` selectable. Found by reading the resolver the plan had recorded as unread; the live artefact then appeared to REFUTE it (apis.uk's six illustrations) and the refutation was itself the trap — those values came from elsewhere and were surviving by carry.
+- **added:** 2026-08-26, vigilant_designer_offer_analysis lane
+
+### A CHANGED-ROW COUNT CANNOT TELL A WIDENING FROM A RESHUFFLE — the "how many rows did my change touch?" control passes identically for both
+
+- **footprint:** `component_expresses` · `content_components.input_schema` · any capability/vocabulary derivation · before/after census of a derived column
+- **fires when:** you widen something derived — a capability function, a classifier, a token vocabulary, a menu — and reach for the obvious control: *count the rows that changed, check it matches what I expected*. It will match. It matches when the change is wrong too.
+- **the trap:** measured 2026-08-26 while adding a fifth arm to `component_expresses`. The real change altered **9** rows (at the time), all by adding one token. A deliberately broken variant, whose new arm also SUPPRESSED an existing `list` token on the same components, altered **the same 9 rows** — and three of them silently LOST a capability they had before. Identical row count, opposite meaning. The count is a function of which rows the predicate selects, and both versions select the same rows; it carries no information about what happened to them.
+- **the check:** assert the SHAPE of the change, not its size. Two assertions, both population-independent:
+  ```sql
+  -- 1. nothing may LOSE a token
+  SELECT count(*) FROM before b JOIN after c ON c.id = b.id
+   WHERE EXISTS (SELECT 1 FROM unnest(b.tok) t WHERE t <> ALL (c.tok));   -- must be 0
+  -- 2. nothing may change by anything OTHER than gaining the new token
+  SELECT count(*) FROM before b JOIN after c ON c.id = b.id
+   WHERE array_remove(c.tok,'<new>') IS DISTINCT FROM array_remove(b.tok,'<new>');  -- must be 0
+  ```
+  Then **induce both** — run the broken variant and watch them fire — or you have only proven they can pass. (Ours fired at 12 and 3 respectively; a third precision guard fired at 372 when the arm was made unconditional.)
+- **⚠ AND DO NOT ASSERT THE COUNT ITSELF.** A literal `IF n <> 14 THEN RAISE` reads as rigour and is a spurious failure waiting to happen on a shared estate: **five new components were created by other lanes during this change's own measurement run**, between the before and after snapshots. That also broke the first control outright (381 rows vs 386) — the fix is to compute both sides in ONE snapshot/query rather than two, so no concurrent writer can skew the pairing.
+- **why this generalises:** it is the additive-vs-destructive question wearing a numeric disguise, and it applies to any migration that rewrites a derivation every consumer reads. Sibling of MEMORY [[mutate-the-code-to-prove-the-guard]] and [[a-post-fix-zero-needs-a-demand-control]].
+- **relations:** register **IMG-074** · migration `644` (both assertions ship inside its own `DO`/`RAISE` block, not beside it) · `bugs_open/381`
+- **source:** 2026-08-26, `vigilant_designer_offer_analysis` lane
+- **added:** 2026-08-26, vigilant_designer_offer_analysis lane
