@@ -2901,3 +2901,22 @@ lane when the stranded run is confirmed: an in-flight council orchestration appe
 stranded by the migration — their lane's finding to take, ours to report. The round-2 SUBSTANCE
 (rollback tested, brace-balance check, the 07-29 ruling citation) is unchanged — this is transport,
 not content.
+
+---
+
+## 2026-08-26 (afternoon) — the shipped changes verified at the ARTEFACT, and one voice fossil found
+
+**Handoff item (e), first half done `[MEASURED 2026-08-26 15:12 call]`:** the newest rendered
+writer prompt (47,131 chars, a real production call) scans at **36 negation demonstrations vs the
+63–65 pre-change baseline** (−45%); "plainly" 14→**4**, "honest" 10→**5**, and the deleted clauses'
+signatures at **0** ("cannot tell you", "sources and dates"). 627+628 are in the live assembly.
+The residual ~36 is the brief + guidance layers, as the phase-1 stack predicted — the briefs remain
+the biggest teacher and await ruling 4's sweep. Second half of (e) still pending: the served-page
+canary (the next about page BUILT, not re-rendered).
+
+**The anomaly chased:** the old v2 sentence *"Say what a thing IS rather than what it is not"*
+appeared once in this prompt — NOT via `{{.voice_style}}` (628's row is clean, verified) but as a
+**fossil**: pasted into a site brief's writing-rules list. Census: **exactly 1 of 31 sites** —
+`mortgagecalculator.co.uk`. Lesson for the register: **a carrier-row rewrite cannot reach copies
+sessions have pasted into per-site briefs**; the ruling-4 brief sweep must include a
+voice-fossil pass, and the mcalc lane has been told (CONTRIB in their dir).
