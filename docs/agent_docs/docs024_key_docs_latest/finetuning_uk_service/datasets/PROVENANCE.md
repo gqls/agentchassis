@@ -49,9 +49,9 @@ Recommendation: **1 if he is willing, otherwise 2.** Not proceeding on any of th
 | 1 | email copywriting voice | our own material | ✅ **BUILT** 2026-08-26 — 26 training + 5 held-out, from his own emails; briefs describe the situation only, never the phrasing |
 | 2 | copy structure | synthetic | ✅ **BUILT** — 80 training + 10 held-out, validated |
 | 3 | copy style | our own material | ✅ **BUILT** 2026-08-26 — 13 training + 3 held-out. Target verbatim his; the INPUT is written deliberately in the register he rejected, carrying the same facts, so the model learns to rewrite and not to delete |
-| 4 | support-reply tone | our own material | ⏳ material now partly available — ~20 of his emails ARE replies. Buildable next, smaller than the design's 60–200 |
+| 4 | support-reply tone | our own material | ✅ **BUILT** 2026-08-26 — 16 training + 4 held-out. Target verbatim his; the INBOUND side is RECONSTRUCTED (the originals were never supplied) and labelled as such |
 | 5 | product-description house style | synthetic | ✅ **BUILT** 2026-08-26 — 80 training + 10 held-out, validated. Target register checked clean of `rather than` / `not just` / `isn't`: the target side IS the register, so it had to be written in the one we want |
-| 6 | internal-doc summarisation | our own material | ⏳ unblocked — our own long docs are a fine source for a FORMAT target |
+| 6 | internal-doc summarisation | our own material | ✅ **BUILT** 2026-08-26 — 8 training + 2 held-out. ⚠ Inputs are his articles but the TARGETS are written by this lane to a fixed shape, so it teaches STRUCTURE, not his register. A worked example from it must not claim otherwise |
 
 ## The harness, and why it refuses things
 
@@ -114,3 +114,30 @@ Volumes are the design's own (60–200 pairs); 30–60 real items is enough to s
 | 4 | support-reply tone | **30–60 real replies to customers or enquiries**, with the inbound message where possible |
 
 Datasets **2** (built), **5** and **6** need none of this and are unaffected.
+
+---
+
+## All six built, 2026-08-26 — and the honest sizes
+
+| # | dataset | training | held out | teaches |
+|---|---|---|---|---|
+| 1 | email voice | 26 | 5 | his register |
+| 2 | copy structure | 80 | 10 | shape |
+| 3 | copy style | 13 | 3 | his register |
+| 4 | reply tone | 16 | 4 | his register |
+| 5 | product descriptions | 80 | 10 | a plain register |
+| 6 | doc summaries | 8 | 2 | structure |
+
+**The three voice datasets are SMALL — 26, 13 and 16 rows against a design target of 60–200 — and
+that is a real limit, not a rounding.** It is the direct consequence of the corpus measurement: the
+material is what he had to hand, and padding it with invented correspondence would destroy the one
+property that makes these worth showing a customer. **More of his real emails and articles is the
+only thing that raises them.**
+
+The two synthetic sets (2 and 5) are full size because generation is free there and costs no honesty.
+
+## Before any of this trains
+
+Every dataset passes `build_dataset.py`, which refuses malformed rows, an empty assistant turn, a
+row over the length cap that silently cost the phase-0 run five of its 300, and a missing
+provenance declaration. Re-run it after any edit — it is cheap and it has already caught things.

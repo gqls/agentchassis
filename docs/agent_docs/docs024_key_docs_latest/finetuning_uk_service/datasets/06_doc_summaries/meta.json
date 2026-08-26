@@ -1,0 +1,7 @@
+{
+  "name": "06_doc_summaries",
+  "task": "Summarise a long document into a fixed house format",
+  "provenance": "our-own-material",
+  "provenance_detail": "INPUTS are the owner's own articles from the approved corpus. TARGETS are summaries written by this lane to a fixed shape — so this dataset teaches STRUCTURE and compression, NOT his register, and any worked example built from it must not claim otherwise. That is deliberate: the design put a non-voice task in the set so a prospect whose problem is volume rather than tone can see themselves.",
+  "owner_decision": "2026-08-26 — 'Sample datasets as you suggest'"
+}
