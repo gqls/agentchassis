@@ -2463,3 +2463,33 @@ pages' hand-authored copy, all from one sweep on Saturday. The guard worked; the
 to decide. If you agree, they can be closed in one go. The rest are smaller: six call-to-action
 destination checks from yesterday, four content-rewrite requests, four dead controls from July,
 and singles.
+
+---
+
+**2026-08-26, morning — one thing needs you, and one thing worked by itself.**
+
+**The thing that needs you: the fleet's AI account ran out of credit at about a quarter to
+midnight, and every AI step across all sites has been failing since** — 1,884 errors and
+counting by 9 am, with twenty pieces of queued work permanently marked failed after using up
+their retries. This is the same situation as 10 August (bug 243), which ended when you added
+credit — the message this time says "credit balance too low", so there is no September reset to
+wait for. One pointer from last time: if the billing page looks healthy, check which
+organisation the fleet's API key actually belongs to (the key's "Last used" shows it) — it has
+not been the default one before. Until credit returns, overnight's queued work keeps dispatching
+and burning retries; afterwards, the failed rows from this window should be re-read as outage
+casualties, not code bugs.
+
+**The thing that worked by itself: the news feed refreshed overnight with nobody watching.**
+The quarter-to-three run fetched from all five sources without error, committed the updated
+file, and the site served it three seconds later. That was the test that mattered — the
+machinery we armed yesterday is now just running. It also asked for the homepage and news page
+to be rebuilt so the stories appear in the page itself rather than only via the browser script —
+those rebuilds are queued behind the credit outage.
+
+Also overnight: the new platform build ran its new inspections on the site. Three findings worth
+your eye at some point, all informational for now: the site has no evidence register (so no
+claim on it is formally gated — notable for a product that sells verified assessment), no page
+ever had its background research run, and one heading on the specimen page promises a comparison
+it does not deliver. And the two empty tool headings from Sunday were re-detected under their
+new component IDs, exactly as predicted — this time the checker can see them, so they may
+actually get fixed once the AI account is back.

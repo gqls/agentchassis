@@ -5697,3 +5697,72 @@ his queue.
   (no `goto` handling anywhere in the tree) and **filed as `bugs_open/400`** with the first-hand
   substitute declared — the ingester lane's to fix, not ours. Also: dedup keys on `source_url`,
   so goto + direct forms of one story can double-list (in the bug file).
+
+## §X.62 — 2026-08-26 (same session, post-roll): the news feed survived its first unattended night; the fresh build brought new checks, a re-enabled improvement-sweep — and a FLEET LLM OUTAGE (credits) that is the live headline
+
+### 1. The deploy, proven at the artefact
+
+`docker.io/aqls/agent-chassis:v1.0.1341`; binary stamp **`2fb40a960`** (2026-08-25 22:32 BST, a
+375-lane commit), read with `strings /app/agent-chassis | grep -oE '^[0-9a-f]{40}$'` (chassis
+image is busybox — `strings` exists; §X.53's note). Controls: yesterday's HEAD `60c6a1837` IS an
+ancestor of the stamp; the stamp IS a real commit in our log. Provenance log line already
+rotated out on both pods — the binary probe is the durable check.
+
+### 2. ⚠ FLEET LLM OUTAGE — Anthropic credits, from 23:47:10Z, still firing 08:50:26Z
+
+`[MEASURED]` 1,884 `agent_error_log` rows `%credit balance%`; 20 items burned to terminal
+`failed` across 6 sites (idea.uk 1: `ade31076` `dead_fragment_link`, its error is the API's
+billing message verbatim — NOT a code bug of the new build). Same class as `bugs_open/243`
+(08-10, resolved when the OWNER added credit); **recurrence appended to 243** with today's
+evidence and the post-recovery sweep. Owner action; nothing this lane can fix. The overnight
+wave left idea.uk with 34 `triaged` rows queued to dispatch into it — expect more burn until
+credits return; re-read those errors before calling anything a regression.
+
+### 3. News — the standing mechanism is PROVEN unattended
+
+- `content-feed-refresh` ran 20:45Z and **02:45:53Z COMPLETED** (its 6-h cadence, no session
+  involved): vm-sites `17597896a` 02:46:22Z, served `updated_at 2026-08-26T02:46:19Z`,
+  `item_count 6`; 5 sources fetched 02:46:32Z, `error_count 0`; **0 new feed items** (nothing
+  new or all dedup'd — fine either way). The 02:45 pass needed no LLM (no pending items), so it
+  cleared the outage window by luck of emptiness; a pass WITH new items will fail triage until
+  credits return, and the renderer keeps serving the existing 9 `relevant`.
+- `render_news_section` filed **2 `section_data_resolved` page_rerenders** (index, news-index) —
+  the pages themselves get server-side news content, not just the JS fetch. Both `triaged`.
+  The homepage's D-001/D-002 sections are decision-gate-protected (proven seam); the rerenders
+  will hit the outage if dispatched before recovery.
+- Overnight `Rerender:` commits on idea.uk (02:43→06:10, guides) are the `rerender-pages` wave
+  (27 rows, 01:31Z), not news.
+
+### 4. The fresh build's checks fired on idea.uk (01:26–01:31Z wave)
+
+New `detected` rows: **`prerequisite_missing` ×3** — `evidence_base` ABSENT (every claim on the
+site ungated; `bugs_open/380` D1), `page_research` never requested, `vertical_landscape` research
+never ran; **`structure_floor_unmet`** (4 of 6 reader-facing structures across 25 pages);
+**`heading_promise_unmet`** on the specimen page (a heading promising a comparison). Owner-triage
+material — the evidence_base one is the substantive one for a site selling verified assessment.
+Wave drivers: rerender-pages 27 · design-discovery 13 · acceptance-discovery 5 · completeness 5 ·
+improvement-loop 5.
+
+### 5. empty_section: the prediction from §X.61 §4 happened on schedule
+
+The completeness rotation **re-filed both findings at 01:27Z on the LIVE component ids**
+(`a1724965`/`1ad768cb`, same item_keys, `triaged`) beside the old `failed` pair that still points
+at the dead ids. So the churn-orphaning (`bugs_open/300`) is now visible in one table: same key
+twice, one row the verifier can never check, one it can. When the new pair dispatches
+(post-outage), watch whether the handler actually fills `{{.section_heading}}` or the next
+rebuild churns the ids again.
+
+### 6. improvement-sweep RE-ENABLED — my landmine clause corrected
+
+`enabled=t` since 2026-08-25 21:18:19Z (owner's word, executed by the loanzy lane, `bf42e9288`),
+900 s interval, completing. Clause (c) of yesterday's LANDMINES entry struck through with a dated
+correction (the blind spot now rests on (a)+(b) alone: no-match still writes nothing); RUNBOOK 6a
+line corrected the same way. **The authored news block is safe under the running sweep** —
+idea.uk matches no vertical, so `evaluate_news_feed` will keep writing nothing here.
+
+### 7. Queue `[MEASURED 2026-08-26 ~08:55Z]`
+
+49 needs_human_review (unchanged — the wave filed NO new decision_blocked_change; item_key dedup
+held) · 37 deferred (+4 `capability_gap`, improvement-loop) · 35 detected (+ the new checks) ·
+**34 triaged** (the wave; was 0) · 7 unresolved · **4 failed** (3 known + `ade31076` = outage
+casualty).

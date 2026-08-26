@@ -948,8 +948,9 @@ FROM site_specs WHERE site_id = '1244516d-014d-421c-88c6-090bb1e9552a'
 (6-hourly, `scheduled_tasks.content-feed-refresh`) and `MissingNewsSourcesCheck` (hourly
 completeness rotation) select on that one flag. Nothing ever *fails*; nothing ever *tries*.
 The step that writes the flag (`evaluate_news_feed`) cannot reach this site: it never reads
-`industry_tags`, writes nothing on no-match, and its only carrier (`improvement-sweep`) is
-disabled. Full mechanism + fleet measurement in the header of
+`industry_tags`, writes nothing on no-match, and its carrier (`improvement-sweep`) was disabled
+until 2026-08-25 21:18Z — **re-enabled since (owner's word, `bf42e9288`); harmless to the authored
+block: no-match still writes nothing.** Full mechanism + fleet measurement in the header of
 `sql/SQL_2026-08-25_arm_news_feed.sql`; precedent `dartsonline_traffic/SQL_2026-07-29e_arm_news_feed.sql`.
 
 ### 6b. Arm it (applied 2026-08-25 16:24:59Z; the file is the record)

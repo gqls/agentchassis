@@ -1,5 +1,7 @@
 # HANDOFF 2026-08-25b — the news feed is LIVE (the gap was a missing spec key, never a lost dispatch). Three failed rows read and routed. Class B dropped with a reason. Owner's queue: 23 of 49 are one cause.
 
+> **SUPERSEDED 2026-08-26 by `HANDOFF_2026-08-26_continue_here.md`** — the news arc is proven unattended (3 trigger passes), the fresh build v1.0.1341 is verified at the binary, and the live headline is a FLEET LLM OUTAGE (Anthropic credits, `bugs_open/243` recurrence). Read that file first.
+
 **Supersedes `HANDOFF_2026-08-25_continue_here.md` as the cold-start file** (its §4 item 1 is
 done; items 2–4 are answered below). `HANDOFF_2026-08-16` §4 + §7 still hold the voice-arc
 history and the head blind spot; `HANDOFF_2026-08-11` §3 for RFC_015.
