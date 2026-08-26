@@ -383,3 +383,55 @@ which I measured rather than relayed: (a) apis.uk's index refuses page re-render
 error recorded (099 pattern) — so the c2 wave's page item on apis.uk will fail, harmlessly; (b) add
 them to 397 §9 and tell them after c2 runs. Both recorded (397 §9, c2 banner, handoff). No reply
 sent — none was asked for.
+
+---
+
+## 2026-08-26 — the strip happened overnight; c2 applied on the owner's go
+
+**9.** Second apis.uk relay warned the rotation (back on per `bugs_open/401`) "may promote repairs"
+but claimed nothing promotable today. Measured instead: their own 00:40Z batch promoted
+`rerender-pages` twice, and the loss query returned **10 new strips overnight** — 7/7 keyed kept,
+10/10 unkeyed lost (397 §10 has the table). Their favicon/og-card "404" was also stale by
+measurement time (asset-deployer had completed; both 200). **Both directions of staleness in one
+message, hours old — measure, never relay.**
+
+**10.** Owner: "please carry on" (after my read-out naming notify+apply as the next act). Notified 9
+of 10 lanes by cross-session message (loanzy blocked by the local classifier — record stands in 397
+§9/§10); rotation lane banked the natural experiment and relayed the "nothing promotable" refutation
+to apis.uk itself. **Applied c2 10:50Z, UNTAGGED=1: 17 sites, UPDATE 11 / INSERT 17, keys preserved,
+census A 16 / C 15 / B 0 / D 0, 17 rows `created_by='claude-session-google-2026-08-25'`.** Dry-run
+pages 323 → apply 334 in ~1 h — the estate builds under you; the count carries its date.
+
+**11.** Baselines banked from acks: webdesign.uk was 5/7 pages tagged pre-strip, expect 7/7 post-
+rebuild, and their hand-placed "Not active yet" index label will be wiped by the rerender (theirs,
+expected — a diff must not read it as my change adding/removing content). homegarden: pages *built*
+(not re-rendered) by the wave run the post-627/628 writer — copy deltas across that boundary are the
+copy lane's migrations, not GTM. apis.uk: page item expected to fail; they settle `build_status`.
+
+**12.** Open tail: watch C drain to A (`check_gtm_state.sh --db`); the §6.2 structural half is still
+owed (adversecreditmortgage.co.uk arrived overnight unkeyed and proved it again — c2 caught it only
+because it ran today); GA4 still unpublished (container version 2, 0 tags at 10:55Z).
+
+**13.** `[12:00–12:30 BST]` Disposition of the 11 `chrome_divergence_overwritten` head items (one per
+stripped site, matched to strip events ≤130 ms): **the batch UPDATE was blocked by this session's
+auto-mode permission layer. Not retried, not routed around, no peer asked** — the items stay open;
+397 §10-addendum is their written answer and the UPDATE goes to the owner. noted's 08-18 header
+sibling (`ab9afa54…`): predates the backfill, no GTM link found — not ours, told them.
+
+**14.** **apis.uk correction adopted:** "index refuses page re-renders" DISPROVEN — three completed
+overnight (that is how its tag went); the 11:19 failure was 383's re-walk. My adoption of their
+inference after measuring one failed row is the misstep half that is mine: one failed item is an
+event, not a property. Corrected in 397 §9, c2 banner, handoff. Their WRONG_CALLS carries the
+inference half. Also theirs: my c2 apply and their "no site_config row" read raced within the hour —
+unexplained on their side, flagged not smoothed.
+
+**15.** Banked coordination facts (397 §10-addendum has the full versions): cv1 — rerender safe,
+**REBUILD crashes the pod (408); never `needs_rebuild` cv1's index/tool-example**; remortgage —
+interim tag-drop window from six pre-queued rerenders, rotation ETA ~18 h; agritec — their own
+13-page wave + 17 imagery items interleave, favicon 404 pre-existing; loancalculator — post-wave
+`toolgolden.py` 11/11 expected, and mid-wave "one page differs" = not-yet-reached, not skipped;
+webdesign.uk — their "Not active yet" index label is wiped by the rerender, theirs, expected;
+homegarden — pages BUILT by the wave run the post-627/628 writer (copy deltas are the copy lane's).
+
+**16.** Owner question now open: cv1.co.uk and lampenkap.com in the estate's GA4, or keys retracted?
+Both lanes ruled it portfolio, not technical. Cost either way is one supersede.

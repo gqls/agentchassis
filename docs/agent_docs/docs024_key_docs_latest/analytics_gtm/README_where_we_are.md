@@ -209,3 +209,20 @@ you want that queue occupied, and whether to include the four untagged sites in 
 **Still needing only you:** the consent position before publishing (the 039 reference sets it out);
 a Google Cloud service account if you want Search Console automated — there is no Google credential
 anywhere on our side, so I cannot start that half.
+
+## 2026-08-26 — it stopped being theoretical overnight, so on your "carry on" I fixed it
+
+The rebuild I asked you to pick a time for — the platform picked its own time. A nightly sweep that
+was switched back on yesterday regenerated page headers across the estate overnight, and every site
+where the tag lived only in the stored copy lost it: ten sites, including apis.uk, between nine last
+night and six this morning. Every site with the proper setting kept it — seven out of seven, ten out
+of ten the other way, as clean a confirmation as we will ever get.
+
+So when you said "please carry on" this morning, I did the durable fix: the per-site setting is now
+written on all seventeen sites that needed it, checked, and nothing else in their settings was
+touched. The platform will now rebuild each of those sites in its own time — that is the tag coming
+back, not more churn — and the two big loan-calculator sites never lost theirs.
+
+One practical thing for your Google walkthrough: until apis.uk rebuilds, it serves no tag — so when
+you get to the "check it works" step, load **idea.uk or vonc.com** instead and watch Realtime there.
+The container itself still has no published tag; that click is still yours.

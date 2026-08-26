@@ -214,3 +214,43 @@ operator hand-edited chrome and we corrected it", i.e. as the platform doing its
   right once the key exists, and a render re-queues the page (`build_status='needs_rebuild'` is
   queue membership — their trap). **After c2 runs, tell them**; they verify apis.uk at the served
   bytes and settle `build_status` themselves.
+
+---
+
+## §10 — 2026-08-26: the prediction landed fleet-wide overnight, and c2 is APPLIED
+
+**The strip.** The design-discovery rotation was re-enabled 2026-08-25 (`bugs_open/401` — the
+`webdesign_tool_rebuilds` lane; it had sat off 15 days). Its sweeps promote `needs_rerender` /
+`deactivated_component` to `rerender-pages` — chrome-touching repairs. `[MEASURED 2026-08-26 ~10:15 BST]`
+17 head re-renders between 08-25 18:00Z and 08-26 06:00Z: **every keyed site kept the tag (7/7:
+robot-hands, vetcomparison, idea.uk, oufe, gamesdesign, vonc, gaswholesalers); every artefact-only
+site lost it (10/10: cookly 21:21Z, garden-tools 22:07, loanzy 23:32, lendzy 23:33,
+mortgagecalculator 23:58, loancash 00:13, apis.uk 00:44, remortgagecalculator 01:15, noted 03:34,
+webdesign.uk 05:54).** With agritec that is 11 losses ever; only the two big loan-calculator sites
+still carried the artefact. A natural experiment this clean is the §8 falsifier run 17 times: the
+spec key is the only variable that predicts survival.
+
+**A false reassurance corrected en route:** the relayed claim "no design finding type carries a
+handler_agent — nothing promotable, no repair fires yet" was refuted by the same 00:40Z apis.uk
+batch it was measured on (`needs_rerender`/`deactivated_component` → `rerender-pages`, complete).
+The handler-less types are the *design* ones; the chrome-touching promotions were live all night.
+
+**c2 APPLIED 2026-08-26 ~10:50 UTC** (owner: "please carry on"), `-v GO=yes -v UNTAGGED=1`:
+**17 sites** (the 15 stripped/new + the 2 remaining artefact-only + `adversecreditmortgage.co.uk`,
+which had gained a head overnight), **334 pages** at apply time (323 at the dry run an hour earlier —
+sites build under you; date your counts). `UPDATE 11 / INSERT 17`, all post-conditions passed, keys
+preserved (`analytics[,chrome][,locale]`). §9's lanes notified beforehand (9 of 10 messages
+delivered; the loanzy session's was blocked by a local classifier — this file and the handoff are
+the record for that lane). Census after: **A durable 16 · C spec-only 15 · B 0 · D 0**; 17 current
+`site_specs` rows `created_by='claude-session-google-2026-08-25'`.
+
+**What remains open here:** (1) the 15 C-bucket sites regain the *served* tag only as each site's
+`stale_chrome` → rebuild lands — verify with `check_gtm_state.sh --db` (C should drain to A) and at
+served bytes; apis.uk's page item is expected to fail (§9) and its served page may stay `gtm=0`
+until the 383 lane's render blocker clears. (2) The §6.2 structural half (new sites born unkeyed —
+`adversecreditmortgage` proved it again by arriving overnight) is unchanged and still owed.
+(3) webdesign.uk per-page baseline from its lane: tag was 5/7 pages before the strip; expect 7/7
+after its rebuild; their hand-placed "Not active yet" label on index will be wiped by the rerender —
+theirs, expected. (4) homegarden note from `copy_quality_two_stage`: any *planned* page the wave
+builds (not just re-renders) runs the post-627/628 writer — copy differences across that boundary
+are not this change's doing.

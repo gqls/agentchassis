@@ -6,6 +6,18 @@
 §4a) was spun out "to a new lane", and this is it. Background everyone must read first:
 `docs/agent_docs/docs024_key_docs_latest/039_REFERENCE_traffic_and_tracking.md`.
 
+> ## ▶ STATE CHANGED 2026-08-26 — read this block first, the 08-25 one below is history
+> The rotation (re-enabled 08-25, `bugs_open/401`) stripped GTM from **10 artefact-only sites
+> overnight** (7/7 keyed sites kept it, 10/10 unkeyed lost it — 397 §10). **c2 IS APPLIED**
+> (2026-08-26 ~10:50 UTC, owner "please carry on", 17 sites, 334 pages, all post-conditions passed):
+> census now **A 16 durable · C 15 spec-only awaiting their per-site `stale_chrome` rebuild · B 0 ·
+> D 0**. The container still has **0 tags** — publishing is still the owner's click. ⚠ Until the
+> rebuilds land, **apis.uk serves `gtm=0` — do NOT use it for the walkthrough's step D**; test
+> Realtime on a durable site (idea.uk, vonc.com, loancalculator.co.uk). apis.uk's own rebuild page
+> item is expected to FAIL (its index refuses page re-renders — 383 lane's blocker); the apis.uk
+> lane settles its `build_status` themselves and has been told c2 ran. Verify drain with
+> `scripts/check_gtm_state.sh --db` (C → A) and at served bytes.
+
 > ## ▶ ONE-LINE STATE `[ALL MEASURED 2026-08-25 15:00–16:20 BST]`
 > The snippet is on 26 sites; **the container it loads has 0 tags — nothing is recorded, nothing
 > ever has been.** 12 of the 26 carry the snippet only in the stored artefact and lose it on their
