@@ -2813,3 +2813,34 @@ STY-058 register entry (the durable home); the ones that changed anything:
 
 Tests re-run green with the new key (mocks don't bind the key, so the earlier
 mutation proof stands unchanged). Still inert until the next chassis roll.
+
+---
+
+## 2026-08-26 — design-discovery rotation resumes; noted's exposure checked BEFORE its turn
+
+Cross-session heads-up (webdesign-tool-rebuilds lane): `site-discovery-rotation-design`
+re-enabled 2026-08-26 09:20Z after 15 days paused (the 08-11 cost-scare pause was never
+unwound; `bugs_open/401`). ~1 site/3h, least-recently-visited first — noted's turn
+inside ~2–3 days. Findings are born `detected`; `detected-item-promoter` (15-min
+cadence) can auto-dispatch known-good (item_type, handler) pairs. **A surprise design
+item or auto-repair on noted in the next few days is THIS, not a stray thread.**
+
+Exposure checked today rather than after a surprise:
+
+- **generic_theme (the colour-churn landmine) will NOT fire on noted.**
+  `[MEASURED 2026-08-26]` the live check requires `content_data->'color_scheme'` to be
+  a non-empty OBJECT and noted's is (`jsonb_typeof`='object', `<> '{}'` true). Verified
+  at the ARTEFACT: the current check's SQL literal is present in the live chassis
+  binary (`agent-chassis-6dd68888dc-8h8b7`, /proc/1/exe grep, positive + nonsense
+  controls both behaved). No `design_intent.palette.reference_values` block exists on
+  noted — advisory-only anyway (see the corrected memory landmine) — and
+  `enforceLayoutScheme` (live since v1.0.1140) bounds background/text damage if a
+  design pass ever does run.
+- **Probe near-miss worth keeping:** grepping the binary for the FIX COMMIT's literal
+  (`content_data ? 'color_scheme'`, commit 3437f2212) read ABSENT with working
+  controls — because a later hardening rewrote the query. A capability probe must use
+  the CURRENT source's literal, not the diff's; the first read would have "proven" a
+  five-week-old fix undeployed.
+- The other rotation checks (palette_contrast, image_url_404, tool_health,
+  missing_css) have no known noted-specific trap; anything they file will be visible
+  as work items on the site and should be read against this entry first.
