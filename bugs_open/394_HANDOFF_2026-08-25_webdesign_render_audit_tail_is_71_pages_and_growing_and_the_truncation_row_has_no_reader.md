@@ -1,5 +1,75 @@
 # 394 — webdesign.co.uk's render audit covers 60 of 131 pages, the tail GROWS every week, and the truncation row `bugs_closed/242` built has no reader
 
+> ## STATUS 2026-08-26 — **OWNED, FIX BUILT AND COMMITTED, NOT YET LIVE.**
+>
+> Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_394_render_audit_rotation_cursor/`.
+> Council `f67593f5-90cb-4a35-9cc0-926254645192` — round 1 REVISE (acted on), round 2 submitted.
+>
+> **INERT until BOTH: an image carrying the code rolls, AND
+> `sql_for_agents/649_render_audit_coverage_cursor_HOLD.sql` is applied BY HAND afterwards.**
+> Do not read the commits as a fix in production. The `_HOLD` suffix is there because the
+> runner hard-fails on a capability the binary lacks.
+>
+> ### What the measurement changed about this file
+>
+> `[MEASURED 2026-08-26]` webdesign.co.uk is **146 live pages, 60 audited, 86 never** — the
+> file's 131/71 was two days old. And the tail is a **CLASS, not a count**: `nav_order` bands are
+> 0..90 (6 nav pages), 100 (94 tools, alphabetical), 200 (**48 `tool-*-guide`**), 201 (1), so the
+> cap cuts between `tool-head-architect` and `tool-html-minifier` and **every remaining guide page
+> is unreachable at any cap below 98**. That kills §2 candidate 3 on a measurement.
+>
+> **§1's `[UNEXPLAINED]` "5 of 26" row is RESOLVED.** Its own `agent_error_log.context` reads
+> `{"max_pages": 5, "pages_total": 26, "pages_audited": 5}` under `agent_type =
+> render-audit-agent`, step `audit` — the standing agent with a **per-dispatch override**, not a
+> config regression. The originating `orchestration_states` row has since aged out, so where the
+> override came from is unrecoverable; recorded as such. **The conclusion that matters: `max_pages`
+> is per-dispatch, so no design may assume "the cap is 60".**
+>
+> **There is a SECOND caller the file does not name.** `design-critique-agent` (seeded 2026-08-25,
+> `sql_for_agents/645`) also runs `request_render_audit`, at `max_pages` **8**, and truncated twice
+> on its first day. At cap 8, **25 sites** truncate, not one. It is deliberately left in prefix mode
+> — it is a manual sampler with no cadence and its 8 pages are plausibly the intended sample — and
+> it is acknowledged by name in the reader's acks file.
+>
+> ### What shipped (committed, not live)
+>
+> **Candidate 1 (cursor) AND candidate 2 (reader), both** — the reader is not discharged by the
+> cursor, because the cursor changes what the row MEANS rather than removing it.
+>
+> - Keyset cursor in the audit's own ordering, opt-in via `rotate_coverage` (default **false**),
+>   per `(site_id, agent_type)` in new table `render_audit_page_cursor`, advanced at DISPATCH and
+>   written AFTER a successful produce.
+> - **The window is a UNION, and that is the decision this turned on.** A plain cursor takes
+>   webdesign's per-page re-measurement latency to ~9 days; migration `469` is an **owner
+>   instruction of 2026-08-18** that cut the window 7d→3d precisely because the render audit is the
+>   only thing that GRADES a contrast repair. A plain cursor would exceed the condition the owner
+>   ordered removed. The pages carrying an open `contrast_failure` (**3 of 146** on webdesign,
+>   bounded at `max_pages/2`) therefore ride EVERY run.
+> - Mode-split message and nine context keys, all present on every cursor-mode row including zeros.
+> - `cmd/config-key-audit/rendertruncation.go` — three mutation-proven alarm arms; registry entry
+>   flipped to `consumed` (DBG-075).
+>
+> ### The acceptance arm this file asks for is NOT runnable until 649 applies
+>
+> §2's acceptance ("the union of audited pages reaches all 131, by the audit's own durable page
+> list") could not be run at all: **there was no durable per-page list** — every persisted use of
+> `pages_audited` was a COUNT. `audited_paths` now carries it. The union query is in the lane
+> RUNBOOK.
+>
+> ### ⚠ Still owed, and none of it is optional
+>
+> 1. Roll an image carrying the code, then apply **649** by hand.
+> 2. **Re-apply the `optional-key-budget-check` kustomize overlay** — `rotate_coverage` took
+>    `request_render_audit` to 7 optional keys and the CronJob's literal moved with it in the
+>    repo; the cluster keeps the old literal until the overlay is applied.
+> 3. Run the union acceptance over one full cycle on webdesign (~9 days at a 3-day cadence).
+>
+> ### One open question for the owner
+>
+> Head-page DETECTION latency on webdesign goes from 3 days to one cycle (~9 days) in exchange for
+> the 86-page tail going from **never** to one cycle. If that is the wrong trade, `max_pages` is
+> now a pure latency dial with no coverage cliff behind it.
+
 **Filed** 2026-08-25 by the `bugs_open/358` lane, on the owner's ruling of 2026-08-25 (decision 4:
 commission a reader). Lineage: `bugs_closed/242` (*"a capped render audit is indistinguishable from
 a complete one"*) — **CLOSED correctly**: its fix made truncation loud (`pages_total`/`truncated`
