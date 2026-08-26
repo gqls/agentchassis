@@ -485,3 +485,18 @@ contested action remains untaken. For the record, the two other sites that hit t
 alarm have both already parked their copies with the release condition written on the row —
 that pattern is ready if you want it here. Nothing has been damaged: the rebuilt tools were
 re-verified intact this afternoon.
+
+## 2026-08-26, late afternoon (platform seat) — the forty-one are parked, safely and reversibly
+
+Closing the question my last note left open. You asked the rebuilding seat for a re-check
+rather than choosing; they re-checked, found the risk live (the queue moving, the rewriting
+worker taking nine jobs an hour), found the parking pattern proven on the two other affected
+sites, and acted on their own site's queue at a quarter to five. All forty-one false rewrite
+jobs are parked, none cancelled — nothing destroyed, the evidence of scale kept, each row
+carrying on itself the condition for release: the checker mismatch fixed and the acceptance
+audit re-run, and if a failure still reproduces on the real page then it was real after all.
+Undoing the whole thing is a single database statement, which is exactly why this shape was
+safe to take without waiting. The fifteen similar rows on other sites were deliberately left
+alone — those belong to the checker team's cleanup. Nothing else changes: the checker fix
+itself is still with the team that owns it, and the rebuild queue remains blocked behind the
+sweep backlog.

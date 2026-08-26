@@ -4476,3 +4476,23 @@ rebuilds time, nothing more.
 > found the risk live and the precedent established, and acted — on my own lane's site, reversibly,
 > with the release condition in the row. If that was the wrong call it costs one UPDATE to reverse,
 > which is precisely why this shape and not `cancelled`.
+
+## 2026-08-26 ~16:55Z (platform seat) — the 41 are HELD; the execution shape banked as the lane's reference
+
+Grind executed at 16:45Z after re-checking per the owner's ask: **41/41 deferred, 41/41
+handler_agent preserved, 41/41 with the release condition in-row, 0 left triaged, the 15
+other-site anchor rows untouched** (their post-assertions). They verified the precedent AT THE
+ROWS before copying (webdesign.uk's 41d82357/0559eb67 — deferred, handler kept, condition in
+`error`), so the relay was never load-bearing. Third instance of the pattern, largest
+population. **The shape IS the safety — recording it verbatim as this lane's reference for any
+future hold:** deferred not cancelled (nothing destroyed; scale evidence kept for the checker's
+owner) · handler_agent preserved and post-asserted (a hold that clears the handler is the
+396 undispatchable-and-unrefilable class — "a deletion wearing a status") · release condition
+written INTO each row, never only into a doc ("a hold with no stated release condition is a
+silent deletion with extra steps") · pre-assert the exact population so a moved state aborts ·
+undo = one UPDATE, recorded. What it deliberately does NOT do: fix the checker, touch the 32
+completed regenerations, or choose criteria-vs-renderer — all staged_component_build's.
+Their fresh handoff:
+`docs/agent_docs/docs024_key_docs_latest/webdesign_tool_rebuilds/HANDOFF_2026-08-26_continue_here.md`
+(supersedes the 08-25 one for the grind's thread; carries Gate Zero, this hazard, #44's
+analysis, and the two owed re-fixes with the write-conflict caveat).
