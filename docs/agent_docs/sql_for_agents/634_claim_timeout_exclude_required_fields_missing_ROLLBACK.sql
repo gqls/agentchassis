@@ -1,6 +1,13 @@
 -- ROLLBACK for 634 — remove `required_fields_missing` from the claimed-item-timeout
 -- exclusion list. bugs_open/375.
 --
+-- ⚠ DANGEROUS ONCE **ANY** GATE EXISTS FOR THE TYPE — not only a registered verifier. A
+-- noChangeGates entry or a REFUSING acceptancePredicateGates entry would equally be bypassed
+-- by the resumed sweep (Fable review 2026-08-26 widened this from the original wording).
+-- ⚠ AND ITS POST-CHECK COUNTS THE BARE WORD: if pre_query ever mentions
+-- required_fields_missing in a COMMENT, this rollback aborts AFTER its UPDATE, every time —
+-- fail-safe (the whole DO is one statement, so the UPDATE rolls back too), but permanently
+-- un-runnable until the comment is reworded.
 -- ⚠ ONLY SAFE WHILE THE GO SIDE HAS NOT LANDED. Once
 -- livespec.ClaimedItemTimeoutExclusions carries `required_fields_missing` AND a verifier is
 -- registered for it, rolling this back re-opens the hole this migration exists to close: the
@@ -10,8 +17,11 @@
 
 DO $$
 DECLARE
-  new_tail text := '''needs_brand_head_assets'', ''dark_section_audit'', ''required_fields_missing''';
-  old_tail text := '''needs_brand_head_assets'', ''dark_section_audit''';
+  -- ')' load-bearing here too (Fable review 2026-08-26): without it, a clause that another
+  -- lane has extended past the 634 tail still prefix-matches and this rollback runs on a
+  -- moved clause it promised to abort on.
+  new_tail text := '''needs_brand_head_assets'', ''dark_section_audit'', ''required_fields_missing'')';
+  old_tail text := '''needs_brand_head_assets'', ''dark_section_audit'')';
   n int;
 BEGIN
   SELECT count(*) INTO n FROM scheduled_tasks

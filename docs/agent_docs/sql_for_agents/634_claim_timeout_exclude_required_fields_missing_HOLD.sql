@@ -97,10 +97,12 @@
 -- and it PASSES at HEAD. So no type that any gate can currently refuse is unexcluded.
 --
 -- Audited against the LIVE clause rather than the Go declaration, because the objection is
--- about live exposure: 16 roster entries vs 14 live exclusions, and the two differences are
--- both accounted for —
---   * required_fields_missing — not gated yet (its verifier is deliberately unregistered);
---     this migration and the Go commit that follows it close both halves together.
+-- about live exposure: **15** gate memberships (13 verifiers + noChangeGates:dark_section_audit
+-- + acceptancePredicateGates:content_rewrite — an earlier draft said 16, a hand-census
+-- over-count) vs 14 live exclusions, and the differences are accounted for —
+--   * required_fields_missing — on NO roster yet (its verifier is deliberately unregistered),
+--     so it is a pre-declared exclusion this migration adds AHEAD of its gate — the safe order;
+--     the Go commit that follows closes both halves together.
 --   * content_rewrite — has a gate-1c entry that does NOT yet refuse, so it is correctly
 --     NOT excluded; the lockstep will demand it the moment bugs_open/395 flips that gate to
 --     predicateRefuses. That is their step, anchored on this migration's tail.
@@ -111,6 +113,23 @@
 -- actually refuses. The lockstep is the authority; a hand-rolled census of the same rosters
 -- answers a slightly different question and reported content_rewrite as an open bypass.
 --
+-- ⚠ THE GO ENTRY MUST BE APPENDED AT THE **END** OF ClaimedItemTimeoutExclusions — POSITION IS
+-- LOAD-BEARING. Verified by construction (Fable review, 2026-08-26): appended LAST, the Go
+-- rendering is BYTE-IDENTICAL to the post-634 live clause and the drift auditor is clean.
+-- Inserted anywhere else — alphabetically, say — every build-time test stays green (the
+-- lockstep is set-based and the round-trip test is order-blind) and the daily auditor fires
+-- for ever on a semantically correct clause.
+--
+-- ⚠ AND THE WINDOW DOES NOT CLOSE AT THE GO COMMIT. The drift auditor runs from declarations
+-- compiled into the live-declaration-drift-check IMAGE (tag-pinned in its kustomization). The
+-- window closes at image rebuild + tag bump + apply. Plan for days of announced red at 07:00
+-- UTC, not minutes, unless that rebuild is part of the same sitting.
+--
+-- (Deliberately NOT fixed here: the live pre_query's own comment still cites the retired
+-- "LOCKSTEP TWIN" contract and a deleted test. Correcting prose was not in the council-approved
+-- scope of this migration, and widening an approved migration post-verdict is the shape the
+-- council exists to catch. Recorded as owed in bugs_open/375's lane notes instead.)
+--
 -- ROLLBACK SIDECAR: 634_claim_timeout_exclude_required_fields_missing_ROLLBACK.sql
 
 DO $$
@@ -118,8 +137,15 @@ DECLARE
   -- Anchor on the TAIL only, deliberately: the opening `item_type NOT IN (` prefix is
   -- shared with other predicates in this column, and anchoring on the whole clause would
   -- make this file's text a second declaration of the list (see the 482 note above).
-  old_tail text := '''needs_brand_head_assets'', ''dark_section_audit''';
-  new_tail text := '''needs_brand_head_assets'', ''dark_section_audit'', ''required_fields_missing''';
+  -- ⚠ THE CLOSING ')' IS LOAD-BEARING — a Fable adversarial review (2026-08-26) proved by
+  -- construction that without it this anchor is a PREFIX, not a tail: with another lane's
+  -- amendment already appended (exactly what bugs_open/395 plans), strpos still matched, the
+  -- migration applied silently MID-LIST, every guard passed — and the Go renderer could then
+  -- never reproduce the live clause, putting the drift auditor into a permanent ownerless red.
+  -- With the ')', a moved clause ABORTS at guard 1 instead. Reproduced against the live DB
+  -- before fixing: prefix-anchor matched the moved clause (t), ')'-anchor refused (f).
+  old_tail text := '''needs_brand_head_assets'', ''dark_section_audit'')';
+  new_tail text := '''needs_brand_head_assets'', ''dark_section_audit'', ''required_fields_missing'')';
   n int;
 BEGIN
   -- READ BEFORE WRITE. The live column is the fact; the repo file is history. Abort if the
@@ -152,6 +178,10 @@ BEGIN
     RAISE EXCEPTION 'ABORT: post-write verification failed — the exclusion list does not carry required_fields_missing (matched % rows, want 1).', n;
   END IF;
 
+  -- (Guard 4 below counts the QUOTED needle, not the tail. That is equivalent to "added
+  -- exactly once" only because guard 2 established the bare-word count was ZERO pre-write —
+  -- stated so the equivalence is an argument, not an accident.)
+
   -- ⚠ replace() is GLOBAL. Assert the tail appears exactly once, or a second occurrence
   -- elsewhere in this column would have been rewritten silently.
   SELECT count(*) INTO n FROM scheduled_tasks
@@ -161,5 +191,5 @@ BEGIN
     RAISE EXCEPTION 'ABORT: required_fields_missing appears more than once in pre_query — replace() hit an unintended second occurrence.';
   END IF;
 
-  RAISE NOTICE '634 applied: claimed-item-timeout now excludes 15 item types (required_fields_missing added). THE DRIFT AUDITOR WILL NOW FIRE until livespec.ClaimedItemTimeoutExclusions carries the same entry — that is expected, it is bugs_open/375s window, and the Go commit closes it.';
+  RAISE NOTICE '634 applied: claimed-item-timeout now excludes 15 item types (required_fields_missing added). THE DRIFT AUDITOR WILL NOW FIRE — expected, bugs_open/375s window. ⚠ The Go commit alone does NOT close it: the daily auditor compares this column to declarations COMPILED INTO the live-declaration-drift-check image, so the window closes at that image REBUILD + TAG BUMP + apply (its kustomization says bump in the same commit as the rebuild). Until then the 07:00 UTC job is red daily; announce it or it gets helpfully reverted.';
 END $$;
