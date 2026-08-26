@@ -6018,3 +6018,16 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
 > - **Workstation clock ≈1 h AHEAD of the cluster** (their watcher fired early off local `date -u`
 >   and nearly recorded a broken scheduler). Practice for this lane: stamp times from DB `now()`,
 >   never local `date`; suggested they LANDMINE it with their first-hand evidence.
+
+> **CORRECTION 2026-08-26 ~21:1xZ to the §X.66 addendum's last bullet — the "workstation clock ≈1 h
+> AHEAD" claim is RETRACTED by its source (the 410 fixing lane), and the retraction was triggered by
+> the act of filing the LANDMINE I suggested.** Measured three-clock check: local `date -u`, the
+> postgres container OS clock and DB `now()` agree within **4 seconds** — there is NO estate clock
+> skew. The real mechanism: **`date -u -d '<naive timestamp>'` parses the INPUT in LOCAL time** (`-u`
+> formats output only), so on this BST box a deadline computed that way lands an hour early — the
+> watcher fired early and the "skew" was an artefact of the very bug it seemed to explain. Their
+> LANDMINE now covers the real `date -ud` trap, including the second-order half: an early watcher
+> looks exactly like cluster clock skew, believable enough to propagate — as it did, into this file.
+> The practice line ("stamp times from DB `now()`") stands on its own merits, but its justification
+> above is false; the better form: give `date -d` an explicit zone, or poll for the row instead of
+> computing a deadline.
