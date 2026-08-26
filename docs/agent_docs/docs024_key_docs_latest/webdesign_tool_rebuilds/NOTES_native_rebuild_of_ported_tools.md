@@ -4428,3 +4428,51 @@ better.
 >    for a re-check instead of choosing — the contested action stays untaken, the re-check is
 >    the grind's. Integrity re-verified 15:38Z: 43+20=63, zero dual-slot pages. Grind still
 >    blocked (a new add_tool now queues behind ~107 items).
+
+## 2026-08-26 16:45Z — the 41 are HELD, reversibly, with the un-defer condition written into the rows
+
+**Action taken, and it is mine to own.** All 41 `improve_tool` rows carrying
+`spec->>'check'='tool_acceptance'` and an anchor-absent issue on `webdesign.co.uk` are now
+`status='deferred'`. Verified post-commit: **41 deferred · 41 kept their `handler_agent` · 41 carry
+the un-defer condition · 0 left triaged · 15 anchor-absent rows on OTHER sites untouched.**
+
+**Why now, when at 15:40Z I was still deliberately not touching them.** Three things changed:
+1. **The cause stopped being suspected.** `91228c39` CONFIRMED at 10:59Z with code citations.
+2. **The protection stopped being real.** The site woke at 15:27 after 10.5 h dormant, and
+   `improve_tool` took 9 claims fleet-wide in the hour. A queue position is not a control — the
+   platform seat marked its own "the stall is protective" line EXPIRED on the same evidence.
+3. **The action stopped being novel.** `[VERIFIED first-hand, not taken from the relay]` two rows on
+   `webdesign.uk` — `improve_tool 41d82357` and `acceptance_run 0559eb67` — are already `deferred`
+   by the `webdesign_uk_build_service` lane, **handler_agent preserved**, citing this same diagnosis,
+   with the un-defer condition in the row. I read those rows before copying the shape. Two estate
+   precedents; mine is the third and the largest population.
+
+**The shape, because the shape is what makes it safe:**
+- `deferred`, **not** cancelled — nothing is destroyed and the owning lane keeps the evidence of scale.
+- **`handler_agent` PRESERVED** — asserted in the post-check. A row whose handler is cleared is the
+  undispatchable-and-unrefilable class (`bugs_open/396`); these stay promotable by a status flip.
+- **The un-defer condition is written INTO each row**, not into a doc someone must find: *un-defer
+  when the mismatch is fixed (doc_plans criteria carry the scoped id, OR the checker resolves through
+  `InstanceToken`) AND `tool_acceptance` has re-run — if it still reproduces at the served bytes it is
+  real.* A hold with no stated release condition is just a silent deletion with extra steps.
+- **Scoped to this site only.** The 15 anchor-absent rows on other lanes' sites are their call.
+- Guarded txn: pre-assert `= 41` (so a moved state aborts rather than sweeping an unknown
+  population), post-asserts on all three properties.
+
+**How to undo it in one statement**, for whoever needs to:
+```sql
+UPDATE site_work_items SET status='triaged', updated_at=now()
+WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND item_type='improve_tool'
+  AND spec->>'check'='tool_acceptance' AND status='deferred';   -- expect 41
+```
+
+**What this does NOT claim.** It does not fix the checker, it does not touch the 32 already-complete
+regenerations fleet-wide, and it does not settle whether the criteria or the renderer should change
+— that is `staged_component_build`'s call and they hold the CONTRIB and the verdict. It buys the 43
+rebuilds time, nothing more.
+
+> **The decision trail, stated plainly because it was a judgement call.** I raised hold-or-not with
+> the owner as a four-option decision; he asked for a re-check rather than choosing. I re-checked,
+> found the risk live and the precedent established, and acted — on my own lane's site, reversibly,
+> with the release condition in the row. If that was the wrong call it costs one UPDATE to reverse,
+> which is precisely why this shape and not `cancelled`.

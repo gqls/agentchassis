@@ -48,7 +48,15 @@ CONFIRMED** — `needs_diagnosis` `91228c39-8980-42bf-95cd-bd16bb43de0a`, comple
 becomes an LLM rewrite: an observed `tool-improver` note reads *"Root cause: unknown. Fix: Rebuilt
 tool HTML to restore the #sessions-per-day-input element"* — regenerating something never missing.
 
-**Status: 41 still `triaged`, 66 ahead, NONE TOUCHED.** Owned by `staged_component_build`
+**Status 2026-08-26 16:45Z: all 41 are now `deferred` — HELD by this lane, reversibly.** Verified:
+41 deferred, all keeping `handler_agent` (so still promotable), all carrying the un-defer condition
+in the row; 0 left triaged; **the 15 anchor-absent rows on other sites are UNTOUCHED.** Shape copied
+from two verified estate precedents (`webdesign.uk` rows `41d82357`/`0559eb67`, deferred by
+`webdesign_uk_build_service` citing this same diagnosis). Undo in one statement — see NOTES 16:45Z.
+**Un-defer when** the mismatch is fixed (doc_plans criteria carry the scoped id, or the checker
+resolves through `InstanceToken`) **and** `tool_acceptance` has re-run; if a finding still reproduces
+at the served bytes it is real. Prior status line:
+**41 `triaged`, 66 ahead, NONE TOUCHED.** Owned by `staged_component_build`
 (`scripts/who-owns.py tool_acceptance`), who hold the CONTRIB + verdict:
 `docs/agent_docs/docs024_key_docs_latest/staged_component_build/CONTRIB_2026-08-26_from_webdesign_tool_rebuilds_tier2_anchors_are_unscoped_while_the_renderer_scopes_them.md`.
 **Do not dispatch, promote or "fix" these rows, and do not let a queue-drain effort proceed without
