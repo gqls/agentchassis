@@ -55918,3 +55918,48 @@ already described THIS session.** The error case here was loud; the reason the r
 is the case where it isn't.
 
 Family: schema-first (CLAUDE.md platform conventions), a-report-is-not-a-measurement.
+
+## 2026-08-26 — routing_capability_guard lane: two entries in ONE roster, written in ONE commit, measured to DIFFERENT standards — and every test over them was a SHAPE test, so both passed identically
+
+`pageFieldWriters` (`write_audit_findings_field_capability.go`) holds two negative capability
+claims. The `meta_description` entry is the careful one: it resolves writers through the ACTION
+REGISTRY, states why a column-name search sees only 1 of 3 writers, names the over-reporting
+instrument and explains why over-reporting is the safe direction. Forty lines of argument.
+
+The `title` entry directly beneath it says *"pages.title has one UPDATE writer,
+`apply_gap_plan_action.go:652`, which is reached from the gap-plan path and from no audit-routed
+handler."* **Both halves of that clause name the same agent.** `content-gap-planner` IS an
+audit-routed handler (`write_audit_findings_action.go:696`/`:712`) and IS the gap-plan path — it
+carries `apply_gap_plan` as a live step, and that action ends in a bare `UPDATE pages SET title`.
+And the census is short by four: `UpsertPageForRole`'s `Refresh` list writes `title` unconditionally
+from four more call sites, via a helper born 2026-08-02 — **three weeks BEFORE the census, so this
+is not stale-by-addition. It was incomplete on the day it was written.**
+
+**What caught it:** running the lane's own handoff instruction (`git log --since=<Measured>
+--diff-filter=AM -- platform/orchestration/actions`) before quoting the roster. It returned 43
+commits. The re-measure found a defect the check was not looking for — the check is designed to
+catch ADDITION, and what it surfaced was an original omission.
+
+**Why no test caught it, and this is the transferable half.** Three tests run over that map:
+a vocabulary lockstep, a `[MEASURED` marker assertion, and a `Measured` date assertion. **All three
+are SHAPE tests, and all three passed on an entry whose content was false.** A `[MEASURED` marker
+proves a measurement was CLAIMED. It cannot distinguish a forty-line action-registry census from a
+one-line code read, and the estate's own 2026-08-22 dated-count ruling makes the weaker one LOOK
+compliant. **The marker rule and the date rule were both followed in full, by the same author, in
+the same commit, on both entries — and only one of them was true.**
+
+**The cheap check that would have worked:** a roster making claims about a set of handlers must be
+TOTAL over that set. Enumerate the universe the router can emit (a grep for `HandlerAgent:` literals
+plus the `designRouting` map — two commands) and assert every member appears with an explicit
+verdict. Absence-means-incapable is a silent default, and a silent default is what lets one entry be
+argued and the next assumed.
+
+**Latent, and stated with its control:** 0 of 152 `needs_content_planning` items carry a predicate in
+the predicate era, against 6 of 411 on `content_rewrite` as the demand control — so the wrong answer
+has never been asked for. All 25 live firings displaced handlers that ARE correctly declared
+incapable. Recorded in the lane handoff §9, not built: the map is a shared seam whose other caller is
+another lane's emit gate.
+
+Family: a-report-is-not-a-measurement, a-measured-claim-about-state-expires,
+census-the-write-history-not-the-bug-file, cite-the-arm-not-the-function,
+a-justification-in-an-evidence-column-reads-as-evidence.
