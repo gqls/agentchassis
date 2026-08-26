@@ -4893,3 +4893,77 @@ why it has to be checked per tool rather than carried forward as a habit.
    a fallback.
 5. **Responsive** — `@media (max-width: 600px)` switching `.asset-row` to `flex-direction: column`.
    Ported had **0** media queries.
+
+## 2026-08-26 18:35Z — #47 `tool-layout-generator` REBUILT (47 of 63). The best structural fix of the day.
+
+Filed 18:27:08Z → claimed 18:29:01Z (**1m53s**) → complete 18:33:55Z → retired ~18:34:30Z (PRE1 md5
+`3407a176…` len 9223, PRE2, POST, **COMMIT**). Component `1050a211-008e-497c-b8f8-9f1ffd824390`,
+native slot `bb418e82-d861-412d-99eb-0b9727d0303a` (18,940 chars). Run graded clean — no
+`__step_error` this time. **Tally 47 `removed` + 16 `deployed` = 63, 0 dual-slot pages.**
+**SERVE-GRADE OWED:** rerender `d5d057a0-2f84-4cc6-9c78-a4473a533b54` (priority 80).
+
+⚠ **Gate note, and it is the corrected practice working:** GATE ZERO read **0 ahead but 1 claimed
+blocker** at filing, so I predicted a wait rather than an instant claim. The blocker oscillated
+`1→0→1→0→1` and the claim came at 1m53s. **Both numbers, every time** — the count alone would have
+predicted "instant" and the blocker alone would have predicted "excluded".
+
+### The ported defect that mattered: the preview was NOT the layout the code produced
+
+This tool's whole value is *see it, then take the code*, and the ported version quietly broke that
+contract. Two separate code paths built the two things from the same inputs:
+- emitted CSS rows: `${hasHeader ? 'auto ' : ''}1fr ${hasFooter ? 'auto' : ''}`
+- preview rows: `${hasHeader?'50px ':''}1fr ${hasFooter?'50px':''}`
+
+`auto` vs `50px` — plus the preview applied neither the `gap: 1rem` nor the `min-height` that the
+emitted CSS carried. **So the box you were looking at was a different layout from the one you pasted**,
+and nothing said so.
+
+**The rebuild fixes this STRUCTURALLY rather than by keeping two paths in step** — which is the
+distinction worth recording, because "we synchronised them" is a promise and this is a guarantee:
+```js
+function updateAll() {
+  var spec = buildSpec();                                     // ONE spec
+  composedCode = composeFullCode(spec);                       // → generateCssBlock(spec,'.grid-container')
+  var previewCss = generateCssBlock(spec, '#…-grid-preview-mount .grid-container');  // SAME fn, SAME spec
+  document.getElementById('…-grid-preview-mount').innerHTML = generateHtmlSkeleton(spec);  // SAME fn
+}
+```
+The preview and the code come out of the **same two functions from the same spec object**; only the
+CSS selector differs. They cannot disagree, because there is no second implementation to drift.
+This is `order-fix-candidates-by-what-closes-the-door` applied to a build brief: the requirement was
+written as *"drive the preview from the very same grid definition that is emitted"*, and the generator
+took it literally.
+
+### The other one: a LAYOUT generator that emitted a layout which breaks on a phone
+
+`[VERIFIED at the ported bytes]` the generated CSS was `display:grid` + columns + rows + areas +
+`min-height` + `gap` and **nothing else** — no `@media` anywhere in the output. A three-column grid
+with fixed-px sidebars, handed to the visitor, fails on a narrow screen. The tool's own page had a
+breakpoint; the thing it produced did not.
+
+Now the emitted code carries its own:
+```js
+lines.push('@media (max-width: 700px) {');
+lines.push('  ' + containerSelector + ' {');
+lines.push('    grid-template-columns: 1fr;');
+lines.push('    grid-template-rows: ' + spec.mobileRowSizes + ';');
+lines.push('    grid-template-areas:');   // …stacked, one area per row
+```
+**Worth generalising for the remaining rebuilds: for any tool that GENERATES code, "is it responsive?"
+has two answers — the tool's page, and the tool's OUTPUT — and only the second is the product.** The
+ported set is going to keep failing the second one; the census `@media` count answers the first.
+
+### Grade — all five negative controls valid, all zero in the native
+
+`alert(` 0/1 · `onclick=` 0/1 · `onchange=` 0/5 · `oninput=` 0/1 · `innerText` 0/2. Every one ≥1 in the
+ported bytes, so every zero means something. Structure intact (`<style>` 1:1, `<script>` 1:1).
+Copy takes **`composedCode`** — `navigator.clipboard.writeText(composedCode)`, the composed string
+itself, not a DOM readback — so like #46 and unlike #44 this meets that requirement to the letter.
+Distinct success/failure via `copy-success`/`copy-failure` classes rather than hardcoded colours.
+Independent `left-width`/`right-width` controls each with their own value display **and error message**.
+
+**Dead code the ported version shipped, gone:** `areas`, `cols` and `midRow` were all computed and
+never used, alongside the author's thinking-aloud comments (*"Empty space or content stretch? Usually
+content stretch."*, *"Actually, let's strictly define columns based on selection."*). Not a defect a
+visitor could see, but a reliable signal that the surrounding logic was never finished — and in this
+case it wasn't: the preview mismatch is one line away from that abandoned reasoning.

@@ -1,10 +1,19 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 46 of 63 retired (43 serve-confirmed; #44, #45, #46 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
+## STATE: 47 of 63 retired (43 serve-confirmed; #44–#47 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
 
 44 `removed` + 19 `deployed` = 63 (tool pages), verified 2026-08-26 17:32Z, with **zero pages carrying
 both a live ported slot and a live native slot**. Nothing is part-done except the serve-grade below.
+
+**#47 `tool-layout-generator` is BUILT AND RETIRED** — `add_tool 9e314640` filed 18:27:08Z, claimed
+1m53s later, complete 18:33:55Z, retired ~18:34:30Z under full guards. Component `1050a211`, native
+slot `bb418e82` (18,940 chars); revert handle `8b75e29b` (md5 `3407a176…`, len 9223). Graded PASS.
+**SERVE-GRADE OWED:** rerender `d5d057a0-2f84-4cc6-9c78-a4473a533b54`, priority 80, do NOT re-file.
+**Generalisable finding for the remaining rebuilds:** for any tool that GENERATES code, *"is it
+responsive?"* has TWO answers — the tool's own page and the tool's OUTPUT — and **only the second is
+the product**. This one emitted a fixed-px three-column grid with no `@media` at all. A census
+`@media` count answers the first question only.
 
 **#46 `tool-asset-formatter` is BUILT AND RETIRED** — `add_tool 12e3ef8c` filed 18:00:15Z, claimed
 18:10:38Z, complete 18:15:05Z, retired 18:16Z under full guards. Component `3e26f29a`, native slot
