@@ -55246,3 +55246,48 @@ protection against committing that failure mode inside the same file.
 
 Family: mutate-the-code-to-prove-the-guard, a-pass-from-a-blind-check-outlives-the-blindness,
 declaring-a-key-silences-your-own-detector, a-doc-comment-is-not-an-enforcement-mechanism.
+
+---
+
+## 2026-08-26 — a documented landmine did not reach me, because the file it guards was one I had just written
+
+**Lane:** `bugfix_359_archived_page_still_serving`.
+
+**The claim.** My census of "which retired pages are still serving?" printed **one** row and
+exited 0. One row is a coherent answer to that question, and I very nearly wrote it into the bug
+file as "the population has shrunk to one since filing".
+
+**The truth.** `kubectl exec -i` inside a `while read` loop eats the loop's stdin. The body looked
+up a per-domain control page through `psql`, and `-i` drained the rest of the here-string, so the
+loop ran once. The real answer was **7 of 39**.
+
+**What caught it.** One command earlier I had run `SELECT count(*)` for the same population and
+got 39. The two numbers were on the same screen and did not agree.
+
+**Why this row is worth adding to a trap that is already recorded.** It is **`LANDMINES.md:16507`**,
+titled almost exactly what happened to me, and it has been hit before — WRONG_CALLS already carries
+occurrences from 2026-08-08 and later, one of them naming *"it did — I scanned one site of fourteen
+and the script exited looking successful"*. So the tally is what this entry is for, and the tally
+now says something specific: **the entry is written and it is not arriving.**
+
+The reason it did not arrive is mechanical, not careless. The `SessionStart` hook matches landmine
+footprints against **files already dirty in the tree**. This trap's footprint is a *shell idiom* in
+a script I was about to write into a scratchpad — a file that did not exist yet and could never be
+dirty. A footprint-matched delivery system structurally cannot warn you about code you have not
+written. The same asymmetry is already recorded for shared helpers
+([[grep-landmines-for-your-symbols]]); this is the harsher case, because there is no symbol to grep
+for either.
+
+**Cheap check, and it is a habit rather than a lookup: any loop whose body shells out —
+`kubectl exec -i`, `ssh`, `psql`, `docker exec` — must be fed by process substitution
+(`done < <(printf '%s\n' "$ROWS")`) and every in-loop call given `</dev/null`.** Write both halves
+every time, without first deciding whether this particular loop needs them.
+
+**And the one that actually saved me, which generalises further: make every census print a total it
+did not compute itself.** A row count that has to agree with a `SELECT count(*)` run separately is
+a control on the *instrument*, and it is the only reason a silent truncation at exit 0 was visible
+at all. A loop that reports only what it found cannot be told apart from one that stopped early —
+the same shape as [[a-post-fix-zero-needs-a-demand-control]], one layer down.
+
+Family: a-post-fix-zero-needs-a-demand-control, grep-landmines-for-your-symbols,
+a-pass-from-a-blind-check-outlives-the-blindness, shell-tool-traps-committing.
