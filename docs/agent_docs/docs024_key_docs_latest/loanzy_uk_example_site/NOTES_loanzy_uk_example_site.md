@@ -1909,3 +1909,21 @@ rerender items, one loop-level needs_rerender. Nothing opinion-shaped, nothing a
 handler from an audit source. 618 applied the same evening (probe refuses re-apply); 623 applied;
 render-audit rotation left live per owner choice (c) with the fix routed to bugfix_390_cascade_attribution;
 promoter residue = bugs_open/405 (277 session notified).
+
+**2026-08-26 00:2xZ — the council's first night, verified, and it caught a real outage honestly.**
+Sweep fired and completed all night. The two load-bearing negatives held: **0 record rows outside
+`deferred`, 0 LLM-audit rows dispatched since 624** (21:27Z). **209 verdict rows across 9 sites**,
+all six seats filing (brief-fidelity 49, reader 46, content-quality 34, site-review 32,
+visual-design 29, offer 19); shape verified on a sample (deferred + '' + routed_handler +
+deferred_by + "[verdict, not dispatched]"). Acceptance seats: heading_promise_unmet **54**,
+prerequisite_missing **19**, structure_floor_unmet **8** — the predicted census, flag-only.
+**10 seat-failure rows** (reader 4, brief 2, offer 2, site-review 2) with the audit ATTEMPT stamped
+and NO pass counted — and the cause is real: **the Anthropic API account ran out of credit at
+23:46:29Z** (last successful call fleet-wide; 00:00 hour = 0 ok / 24 credit_low). The design did
+exactly what RFC_056 rule 4 demanded under a genuine outage: durable rows, withheld stamps, sweep
+continuing — where the pre-624 loop would have stamped those sites as cleanly audited. Owner
+notified (terminal push); billing is his. Misstep worth keeping (the 391 lane's framing): the
+question that transfers between lanes is *"could this check have come out the other way?"* — my §6
+recipe and their `<p>` count both failed by only ever running where they expected to fire; theirs
+cost two pages, mine cost nothing because they said the misstep out loud early. That asymmetry is
+the argument for early declaration, and it played out three times tonight.
