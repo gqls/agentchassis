@@ -18210,15 +18210,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
   the live object **gaining** an undeclared value raises **nothing**, because every declared fragment
   is still present. `config-key-audit --live-declaration-drift` prints the same
   *"probed N live object(s); 0 finding(s)"* line in both cases, and the daily CronJob writes the same
-  clean `doc_notes` row. **Measured 2026-08-25:** the two `constraint.*` declarations
-  (`doc_plans_subject_type_check`, `doc_notes_subject_type_check`) carry **zero `Max` bounds**, so a
-  9th `subject_type` added live tomorrow is invisible to the check that exists to notice exactly that.
-- **the check:** before trusting a clean live-declaration-drift run as "the live object still matches",
-  ask which DIRECTION that declaration can fail in. `grep -A12 '<declaration key>'
-  platform/livespec/livespec.go | grep -c 'Max:'` — **0 means presence-only, so addition is
-  invisible.** Use `Mode: CountEqual` for any live vocabulary that can GROW (that is precisely why
-  `trigger_bindings.page_component_artefact_archive` is CountEqual: migration 552 added a third
-  binding to an object 357 declared with two). Pair the two modes when you need both directions.
+  clean `doc_notes` row.
+  > **UPDATED 2026-08-26 — the trap STANDS, the two named instances are FIXED.** As first written this
+  > entry said the two `constraint.*` declarations carry zero `Max` bounds and a 9th `subject_type`
+  > would be invisible. **True when written; fixed the next day** (`083d3096e`): both now have a paired
+  > `<key>.value_count` `CountEqual` declaration, and `workflow.page-content-writer.slot_name_from`
+  > gained `Max: 2`. Proven live — declaring 7 against the live 8 gives *"live count is 8, declared 7"*,
+  > exit 1. **Read the rest of this entry as the standing rule for the NEXT declaration, not as a claim
+  > about those three.** Still gain-blind by design, and waived in writing: the two `trigger_fn` body
+  > declarations, where a FOURTH verdict literal added to the function body remains invisible.
+- **the check (2026-08-26: now mostly mechanical — but read WHY before leaning on it).**
+  `TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived` in `platform/livespec/livespec_test.go`
+  requires every `FragmentMatch` declaration to carry either a paired `<key>.value_count` `CountEqual`
+  declaration or a written waiver in `gainBlindnessWaivers`, and it also fails a STALE waiver and one
+  that duplicates a pairing. All four arms are mutation-proven. **So the guard now asks the question
+  for you — but it accepts a waiver, and a waiver is a human claim.** Before trusting a clean run,
+  read the waiver for that declaration and check it still describes the object.
+  **⚠ A `Max` bound does NOT make a declaration gain-visible**, which is the easy wrong conclusion
+  here: `Max` bounds how often ONE declared value may appear, never the SIZE OF THE SET, and a newly
+  added value is in nobody's fragment list. Only a count assertion sees addition. (The exception worth
+  knowing: a fragment holding a WHOLE rendered clause *including its terminator* is self-bounding —
+  `scheduled_task.claimed-item-timeout.exclusions` declares `item_type NOT IN ('a', …, 'n')` with the
+  closing paren, so a 15th type breaks the match. Per-value fragments have no such property.)
 - **⚠ and the demand control has the same asymmetry, which is how this hides.** The obvious way to
   prove the auditor can fail is to REMOVE a fragment from the declaration and re-run. That returns
   **exit 0, 0 findings — a correct result that reads as a broken instrument**, because asserting less

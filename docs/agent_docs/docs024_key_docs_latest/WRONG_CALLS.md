@@ -54032,3 +54032,29 @@ Its round examined the rationale and the sketch; the composition paragraph *asse
 and nothing in the round executed it. **A review of an argument is not a test of a construction.**
 The review that found it differed in exactly one way — it was instructed to disprove, by
 construction, against live bytes. Worth remembering what each layer is for.
+
+- **2026-08-26 — I ran `git checkout` on a file holding my own uncommitted work, ~20 minutes after
+  writing the LANDMINE that warns against exactly that.** Reverting a test mutation with
+  `git checkout platform/livespec/livespec_test.go` discarded the guard I had just written and not yet
+  committed. My own entry, appended the previous evening, says never to run that on a dirty file —
+  I wrote it about *another session's* work and did not apply it to *my own*, in the same file, the
+  next hour. **Caught by:** the follow-up `grep -c 'func TestEvery…'` returning **0**. Recovered from
+  a `cp` backup taken minutes earlier for unrelated reasons — luck, not method. **Two things that hid
+  it:** `go test -run <name>` prints **`ok … [no tests to run]`**, not an error, once the function is
+  gone, so a deleted test reads as a passing one; and two later `git checkout`s failed outright on
+  `.git/index.lock` (another session mid-commit). **The cheap check:**
+  `git status --porcelain -- <path>` before `git checkout <path>`, and `cp` to restore when it is
+  dirty. `git checkout` is not an undo on a shared tree. **The general lesson: writing the warning
+  does not protect you from the thing it warns about** — I had the knowledge, in my own words, and
+  still did not run the one-command check.
+
+- **2026-08-26 — my council submission asserted ~80% of the diff it claimed, and the seat was right to
+  say so.** Round `59c08f16` was APPROVED, but `editquality` objected (medium, ×3) that the rationale
+  claimed five new declarations and three allow-list replacements while the sketches exhibited **one
+  of each** — *"a real coverage gap, not a formatting nit"* — and `reuse_agent` noted I never stated
+  that I had checked the new entries against the existing registry for duplicates. I *had* checked;
+  I had not said so. **Caught by:** reading the verdict body rather than stopping at `approved`.
+  **The cheap check:** before submitting, read your own `edits[]` as a stranger and ask whether each
+  claim in `rationale` is *shown* somewhere — a sketch may compress, but it must exhibit the scope it
+  claims. **A submission is evidence, not a summary of evidence**, and an approval with objections is
+  still telling you something.

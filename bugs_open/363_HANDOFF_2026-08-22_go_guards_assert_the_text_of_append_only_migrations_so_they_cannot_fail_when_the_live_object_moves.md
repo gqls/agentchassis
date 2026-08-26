@@ -544,3 +544,102 @@ watches**, and if a control does not fire, ask what it measures before calling i
 2. **The gain-blindness above** — presence-only assertions on two live vocabularies that can grow.
 3. **`bugs_open/375`'s registration** is still outstanding by its own choice of sequencing.
 4. The council verdict on `59c08f16` is **pending**.
+
+---
+
+## 2026-08-26 — the fresh build PROVED the declarations live, and the gain-blindness is CLOSED (`083d3096e`)
+
+### The deploy proved itself at the artefact, not at the tag
+
+A fleet build shipped overnight. **The five declarations added on 08-25 are now running in
+production**, and the proof is the auditor's own output rather than an image tag:
+
+| run | probed |
+|---|---|
+| 2026-08-25 07:00:06 | `probed 5 live object(s) (2 scheduled_task, 1 trigger_bindings, 2 trigger_fn)` |
+| **2026-08-26 07:00:09** | **`probed 10 live object(s) (2 constraint, 2 scheduled_task, 1 trigger_bindings, 2 trigger_fn, 3 workflow)`** |
+
+0 findings both days. CronJob image is now `v1.0.1341` (was `v1.0.1339`). **The count going 5 → 10 is
+the artefact evidence** — a tag alone would not have told us the new declarations were being read.
+
+### Council `59c08f16` (the 08-25 landing): **APPROVED**
+
+`complete_approved`, decision `approved` 2026-08-25 21:30:32, *"approved with 2 advisory objection(s)
+— none high-severity"*. The `Council-Submitted:` trailer on `65c090843` is credited automatically by
+`098`; no amend, as forward-only requires.
+
+**Both objections were about the SUBMISSION, not the code, and both were fair:**
+
+- `editquality` (medium ×3): my rationale claimed five new declarations and three allow-list
+  replacements while the sketches exhibited **one of each** — *"roughly 80% of the claimed diff is
+  asserted, not shown … a real coverage gap, not a formatting nit."* Correct. A reviewer can only
+  judge what is in front of them, and I made them take my word for four probes.
+- `reuse_agent`: no explicit statement that the new declarations were checked against the existing
+  `Declarations` list for an entry already covering the same object. I *had* checked; I had not
+  **said** so, and an unstated check is not a check to a reviewer.
+
+**Acted on**: this round's submission (`80f84c54`) exhibits every claim it makes, and says so in the
+rationale. *A submission is a piece of evidence, not a summary of one.*
+
+### The gain-blindness is closed — for the constraints, and against recurrence
+
+`083d3096e`. Two paired `CountEqual` declarations on the `subject_type` CHECK constraints, counting
+`::text` casts (one per value; the column itself is not cast, so no off-by-one), plus `Max: 2` on
+`workflow.page-content-writer.slot_name_from`, whose `Min`-only fragment could not see a third render
+step. `LiveAuditOnlyDeclarations` 6 → **8**; **12** declarations against `MaxDeclarations = 24`.
+
+**Proven at the live database, both directions:**
+
+| | result |
+|---|---|
+| clean | `probed 12 live object(s) (4 constraint, …); 0 finding(s)`, exit 0 |
+| **D-GAIN** — declare **7** against the live **8** | **`constraint.doc_notes_subject_type_check.value_count: live count is 8, declared 7`, exit 1** |
+
+**D-GAIN is the whole point: that case was invisible on 08-25.** The probe form carries its own
+disconfirming control — doc_notes counts 8, and **9** over a body with one value simulated in.
+
+### And a guard, because otherwise the fix lasts until the next author
+
+`TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived`: every `FragmentMatch` declaration must have
+a paired `<key>.value_count` or a written waiver in `gainBlindnessWaivers`. It also fails a **stale**
+waiver (naming a declaration that no longer exists) and one that **duplicates** a pairing — two
+answers to one question is how the wrong one survives. **All four arms mutation-proven**, not assumed:
+delete a waiver → fires; name a nonexistent declaration → fires; duplicate a pairing → fires; a
+9-character waiver → *"too thin to be a reason"*.
+
+**The six waivers are the honest half, and two of them RECORD a residual rather than dismiss it:**
+
+- `scheduled_task.claimed-item-timeout.exclusions` — **already gain-visible, and worth knowing why.**
+  Its fragment is the WHOLE rendered clause *including the closing paren*, so a 15th item type makes
+  the live text read `…, 'dark_section_audit', 'new')` and the declared substring stops matching.
+  **Whole-clause fragments are self-bounding; per-value fragments are not.**
+- The two `trigger_fn` waivers state plainly that **a fourth verdict literal added to either function
+  body would still be invisible**. `classifySiteComponentArtefact` is the Go mirror that would then
+  disagree, and that is the tie we have. Recorded as an open residual, not papered over.
+
+### ⚠ MY OWN MISSTEP — I walked into the landmine I wrote yesterday, ~20 minutes after writing it
+
+To revert a mutation I ran `git checkout platform/livespec/livespec_test.go`. That file held the
+**uncommitted guard I had just written**, and the checkout discarded all of it. The LANDMINE entry I
+appended on 08-25 says, in its own words: *"never run the RUNBOOK's demand control on a dirty file —
+its recipe ends `git checkout platform/livespec/livespec.go`, which silently discards whatever another
+session has uncommitted there."* I wrote it about **another** session's work and did not apply it to
+my own, in the same file, the next hour.
+
+Recovered from a `cp` backup taken minutes earlier out of unrelated caution. **The transferable check:
+before `git checkout <path>`, run `git status --porcelain -- <path>`** — and prefer restoring from a
+copy when the file is dirty. Two `git checkout`s in the same run also failed outright on
+`.git/index.lock` (another session was mid-commit), which is its own reason not to lean on it as an
+undo on this tree.
+
+### Status
+
+**Still OPEN.** Residuals, updated:
+
+1. ~~The auditor is blind to a live object gaining a value.~~ **CLOSED for the constraints and
+   page-content-writer**; **open and waived in writing** for the two `trigger_fn` body declarations.
+2. **The live `claimed-item-timeout` `pre_query` still misdescribes itself** and names a deleted test.
+   Unchanged — needs a migration on a column owned by `bugs_open/341` / `bugs_closed/307`, and the
+   auditor structurally cannot catch it (the clause matches; the prose lies).
+3. **`bugs_open/375`'s registration** — its call, its sequencing.
+4. Council `80f84c54` **pending** on this round.

@@ -1,4 +1,12 @@
-# HANDOFF — live-object declaration drift · start here
+# ⛔ SUPERSEDED — do not use as a cold start. See `HANDOFF_2026-08-26_continue_here.md`
+
+> **SUPERSEDED 2026-08-26.** This document was the lane's cold-start doc and was **wrong about its
+> most important fact for two days**: it said phase 2 was not deployed and nothing ran on a schedule,
+> when the CronJob had been live since 08-23. It is kept, not deleted, because the corrections inside
+> it are the evidence for how that happened — but **start from
+> `HANDOFF_2026-08-26_continue_here.md`**, in this directory.
+
+# HANDOFF — live-object declaration drift · start here (2026-08-22, superseded)
 
 **Written 2026-08-22** at the end of the founding session. **This is the lane's COLD-START doc.**
 Read this, then `NOTES_live_object_declaration_drift.md` (evidence + every misstep) and

@@ -754,3 +754,49 @@ committed diff.
 - The `platform/orchestration/actions` suite is RED at bare HEAD (`WORK_ITEM_STATUS_OVERRIDE_REFUSED`
   undeclared, `bugs_open/358`) — reproduced with **no overlay of my files**, so not mine. The handoff
   §7 warning about red actions suites earned its place again.
+
+---
+
+## 2026-08-26 — the build proved the declarations, and the gain-blindness is closed
+
+**The deploy proved itself at the artefact.** Overnight fleet build → CronJob image `v1.0.1341`.
+Today's 07:00 run: **`probed 10 live object(s)`** vs yesterday's `probed 5`. That count is the
+evidence the five 08-25 declarations are actually being read in production — an image tag would not
+have told us. 0 findings both days.
+
+**Council `59c08f16` APPROVED** (2026-08-25 21:30:32, *"2 advisory objection(s) — none
+high-severity"*). Both objections were about the submission, not the code, and both were right:
+`editquality` said my sketches exhibited ~20% of the claimed diff (five declarations claimed, one
+shown); `reuse_agent` said I never stated that I had checked the new declarations against the existing
+`Declarations` list for duplicates — I had checked, and an unstated check is not a check.
+**Misstep 3, recorded:** *a submission is evidence, not a summary of evidence.* This round
+(`80f84c54`) exhibits every claim and says so.
+
+**The pairing landed** (`083d3096e`): two `CountEqual` value-count declarations on the subject_type
+CHECK constraints, `Max: 2` on page-content-writer, `LiveAuditOnlyDeclarations` 6 → 8, 12 declarations
+of a permitted 24. Live proof both directions: clean = `probed 12 … 0 finding(s)` exit 0; **D-GAIN**
+= declare 7 against the live 8 → `live count is 8, declared 7`, exit 1. **That case was invisible on
+08-25.**
+
+Guard `TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived` added, **all four arms
+mutation-proven** (missing waiver / stale waiver / waiver duplicating a pairing / waiver too thin).
+
+**MISSTEP 4 — I walked into my own landmine, ~20 minutes after writing it.** I ran
+`git checkout platform/livespec/livespec_test.go` to revert a mutation, and it discarded the
+**uncommitted guard I had just written**. The LANDMINE I appended on 08-25 warns in its own words
+never to run that on a dirty file. I wrote it about *another session's* work and did not apply it to
+*my own*, in the same file, the next hour. Recovered from a `cp` backup taken minutes earlier out of
+unrelated caution — luck, not method.
+
+Two more things that made it worse and are worth knowing: `go test -run <name>` printed
+**`ok … [no tests to run]`** rather than an error once the function was gone, so the loss looked like
+a passing test; and two later `git checkout`s failed outright on `.git/index.lock` because another
+session was mid-commit. **The check: `git status --porcelain -- <path>` before `git checkout <path>`,
+and prefer `cp` restore when the file is dirty.** `git checkout` is not an undo on a shared tree.
+
+**A design note worth keeping.** `Max` looks like the fix for gain-blindness and is not: it bounds one
+declared value's occurrences, never the SIZE of the set, and a newly added value is in nobody's
+fragment list. The one exception is a fragment holding a **whole rendered clause including its
+terminator** — `claimed-item-timeout` declares `item_type NOT IN ('a', …, 'n')` with the closing
+paren, so a 15th type breaks the match. Whole-clause fragments are self-bounding; per-value ones are
+not. That asymmetry is now written into the waiver so nobody re-derives it.

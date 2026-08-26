@@ -233,3 +233,36 @@ The bug stays open. Not for the deployment any more — that is done — but for
 including the hole above, and including one where the database contains a paragraph describing itself
 that stopped being true six days ago. The checker cannot catch that one either: the paragraph sits
 next to the rule it describes, the rule is correct, and only the paragraph lies.
+
+---
+
+**2026-08-26.** The overnight build carried yesterday's work out to the cluster, and the checker told
+us so itself: on Monday it reported looking at five things, this morning it reported ten. That is the
+kind of confirmation worth waiting for — the version number on the deployed image would have looked
+new either way, but the count of things actually inspected can only go up if the new entries are
+really being read.
+
+The reviewers approved yesterday's change. They also made two fair complaints, both about how I
+presented it rather than what it did: I told them I had added five new checks and only showed them
+one, and I said I had made sure I was not duplicating an existing check without ever saying so
+explicitly. Both are versions of the same mistake — asking a reviewer to take my word for something I
+could simply have shown them. Today's submission shows everything it claims.
+
+Then I fixed the hole I found yesterday. The checker could see something being taken away from the
+database but not something being added to it, which matters because "the live thing quietly grew past
+what we wrote down" is the exact problem this whole piece of work exists to catch. It now counts, as
+well as looks. I proved it by telling it to expect seven where the database really has eight, and it
+correctly complained. Yesterday that same situation would have passed silently.
+
+I also added a test that stops this coming back: anyone adding a new check of the looking-only kind
+must either add the counting half too, or write down why their case does not need it. Six such
+explanations exist now, and two of them are honest admissions that a gap remains rather than claims
+that it does not.
+
+One thing I got wrong, and it is a bit embarrassing. Yesterday I wrote a warning note for everyone
+about a particular command that silently throws away unsaved work. This morning I ran that exact
+command on my own unsaved work and lost the test I had just written. I got it back because I happened
+to have taken a copy a few minutes earlier, which is luck rather than good practice. The warning was
+right; I just did not think it applied to me. I have written that down too, because the interesting
+part is not the command — it is that writing a warning does not protect you from the thing it warns
+about.
