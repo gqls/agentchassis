@@ -325,7 +325,12 @@ If the number is going into a document, a bug file or another lane's rationale, 
 not optional — the live table answers "what is open now", which is almost never the question a
 citation is asking.
 
-The query, so the next reader re-runs rather than relays:
+The query, so the next reader re-runs rather than relays — ⚠ **but re-running is not enough, and
+that was proven within the hour.** The `bugs_open/410` lane re-ran the ORIGINAL query
+independently, got 6,428/3 to the digit, and recorded it as first-hand confirmation: they
+verified the number by making the same population error, and the exact agreement made it more
+convincing rather than less. **Re-derive the POPULATION — which tables, which window — not only
+the arithmetic over someone else's choice of table** (`WRONG_CALLS.md` 2026-08-26c/d):
 
 ```sql
 SELECT 'live' AS src, count(*) AS items, count(*) FILTER (WHERE spec ? 'reason') AS with_reason

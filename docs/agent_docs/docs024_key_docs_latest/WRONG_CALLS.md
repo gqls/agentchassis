@@ -54649,3 +54649,164 @@ derived a lane's shipping mechanism from the existence of a mechanism in its dir
 331 replace_existing council submission) — a flow BUILT in a lane is not the flow the lane
 USES. Same family as "a helper with no callers looks like a finished refactor", pointed the
 other way: an artefact's presence read as adoption. Read the filings, not the folder.
+
+## 2026-08-26c — `bugs_open/410` lane: three measurement errors in one hour, all in the same direction, on a bug about instruments that quietly return less than they were given
+
+Three wrong calls from the first hour of the 410 fix lane. None reached a durable doc or a peer,
+because each was caught by a different check — and the three checks are the transferable part.
+
+### 1. A census that encoded the wrong question and landed within 5% of the right answer
+
+**The claim.** "225 production sites swallow a scan error" — my *first* version of that census
+said **237**, and I was one keystroke from writing it into the bug file.
+
+**What was actually true.** The first script asked *"is there a `continue` within 12 lines of a
+`.Scan(`"*, which matches every loop that legitimately filters **after** a successful scan — a
+completely different population that happens to overlap heavily. The real question is *"does the
+Scan's **own** error branch `continue`"*, which needs brace matching, and answers **225**.
+
+**What caught it.** Nothing about the number. I rewrote the script because I distrusted the
+heuristic, not because 237 looked wrong — and it did not look wrong, because it was not.
+
+**The cheap check that would have.** There isn't one that reads the output. **This is the trap
+worth transferring: a wrong encoding that lands NEAR the right answer is indistinguishable from a
+right one by inspecting the number.** 237 vs 225 is 5%; no amount of staring separates them. The
+only separator is re-deriving the measurement a second way. So when a census will be quoted, the
+question to ask is not "does this number look plausible" — plausibility is what the wrong encoding
+produces — but **"what population would this script return if my definition were wrong, and does it
+overlap the one I want?"** If the answer is "heavily", the number is not evidence yet.
+
+### 2. A zero from a column nobody writes, reported as a finding about an unused code path
+
+**The claim.** "0 of 7,957 `page_rerender` items are scoped to a component" — measured as
+`count(*) FILTER (WHERE COALESCE(spec->>'component_id','') <> '')`, and I read it as corroborating
+that `create_rerender_items`' scoping branch has essentially never fired.
+
+**What was actually true.** `component_id` is **a real column on `site_work_items`**, which I had
+not read the schema for, *and* it is also 0 — so my number was **accidentally right by a route that
+could not have come out otherwise**. `create_rerender_items_action.go`'s INSERT names `site_id,
+source, pipeline, item_type, severity, summary, page_id, priority, handler_agent, status,
+created_by, spec, item_key, batch_id` — **`component_id` is not in it at all**. The producer never
+writes it, in either encoding. A zero from a field nobody writes is not evidence that a path is
+unused; it is evidence of nothing, and it would have read as a measured finding in a bug file.
+
+**What caught it.** Reading the INSERT statement before writing the claim down — prompted only by
+the estate's standing "schema first: `\d <table>` before writing SQL" rule, which I had skipped.
+
+**The cheap check that would have.** `\d site_work_items` (3 seconds), then the disconfirmation
+question this estate already has a rule for: **name what a non-zero result would have looked like.**
+For a column the producer does not write, there isn't one — which is the tell. Same family as
+"a `[MEASURED]` figure is only evidence if the measurement could have come out otherwise", arriving
+via a new route: not a filter that pre-decides the answer, but **a destination field that no writer
+populates**, where absence is guaranteed by construction rather than by fact.
+
+### 3. I nearly told a peer lane their headline figure was wrong by five hundred-fold
+
+**The claim (unsent).** 410 carries *"6,428 `page_rerender` items of which **3** carry a reason"*.
+My re-measurement returned **7,957 total, 1,512 with a reason**. For a moment that read as a
+refutation of the file's central control.
+
+**What was actually true.** The file scopes its claim to the **`rerender-pages` producer**; I had
+counted **every** producer. Grouping by `source, created_by` reproduced their number **exactly** —
+`rerender-pages → 6,428 items, 3 with a reason`. The other ~1,500 are discovery, side-effect and
+news-section producers that stamp a reason essentially always.
+
+**What caught it.** The size of the disagreement. 3 vs 1,512 is not a plausible error for a lane
+that had queried carefully enough to publish a ratio — **a discrepancy too large to be a real
+disagreement is a signal to re-read the claim, not to report the contradiction.** A 20% gap I might
+have sent.
+
+**The cheap check that would have.** Re-reading the sentence I was contradicting. It says
+*"`rerender-pages` has produced 6,428…"* — the population is named in the claim itself. I had read
+it as a fleet-wide total because that is the shape such figures usually take.
+
+**Why the three belong in one entry.** They are the same error at three altitudes — a script, a
+column, and a population — and **all three fail in the direction of looking measured.** Each
+produced a specific number, promptly, with a query attached, in the estate's own `[MEASURED]`
+house style. The marker rule makes a checked claim look checked; it does nothing to stop a
+*mis-encoded* claim wearing the same clothes. On a bug whose entire thesis is that a mechanism can
+return less than it was given and report success, I produced three instruments that did exactly
+that, in an hour, about that bug.
+
+### 4. (same lane, same hour) I "independently verified" a peer's figure by reproducing their exact mistake — and reported it as first-hand
+
+**The claim.** The 384 lane's figure (*"6,428 `page_rerender` items, 3 with a reason"*) had already
+been flagged in 410 as relayed-and-mis-marked. I offered to **re-run rather than relay**, ran it,
+got **6,428 / 3 exactly**, and wrote into my lane NOTES that the figure was *"now first-hand for
+this lane"* and *"exactly right"*.
+
+**What was actually true.** `site_work_items` is a **ROLLING WINDOW** — closing a row archives it
+into `site_work_items_archive`, out of the table. We had both queried only the live slice. Across
+both tables `[MEASURED 2026-08-26]`: live 6,428 / 3, archive **10,857 / 200**, total **17,285 /
+203**. The real ratio is 203 of 17,285, not 3 of 6,428 — off by a factor of ~68 on the numerator.
+
+**What caught it.** The 384 lane re-auditing their own published figure and messaging me the
+correction (their `4a31c6b8f`) — **after** I had recorded my reproduction as verification. Nothing
+in my own process would have caught it, because my process was *the same process*.
+
+**The cheap check that would have.** The estate has this exact landmine already memorised — *"a
+closer census cannot see what it SUCCEEDED at: `site_work_items` is a ROLLING WINDOW; closing a row
+archives it out of the table you queried"*, with the note that **3 of 4 revalidators carry the same
+false 'ZERO ever closed'**. I have that line in my own auto-loaded memory index. I did not grep it,
+because I did not think of myself as running a census — I thought of myself as *checking someone
+else's*.
+
+**The transferable error, and it is the important one in this entry: reproduction is not
+verification when both parties share the same wrong assumption about the population.** I did the
+diligent-looking thing — refused a relayed number, re-ran it myself — and the agreement between us
+felt like confirmation. It was **correlated error**, and matching to the digit made it *more*
+convincing, not less. An independent re-run only tests the query; it cannot test the choice of
+table, which is where both of us went wrong and which neither of us restated.
+
+So the check is not "did I re-run it" but **"did I re-derive the POPULATION, or only the
+arithmetic over someone else's?"** Two lanes agreeing exactly on a figure is evidence that they
+used the same method — nothing more. And the direction is nasty: an exact match reads as
+independent corroboration precisely when it is least likely to be.
+
+**A fourth altitude for the three above.** Those were a wrong script, a wrong column and a wrong
+population, each caught by me. This one was a wrong population caught by *someone else*, and it
+survived my own "verification" step untouched. On a bug whose thesis is that a mechanism can return
+less than it was given and report success, I ran a verification that returned less than the
+population and reported success — and then wrote `[MEASURED … mine]` on it.
+
+---
+
+## 2026-08-26d — CORRECTION to my own 2026-08-26 entry: "re-run rather than relay" is NOT sufficient, and the proof arrived within the hour
+
+**Lane:** `bugs_open/384`, correcting the entry above ("I read a USAGE count as a DAMAGE count").
+
+**What I prescribed.** Having published a live-window slice as a population, I handed the
+`bugs_open/410` lane the query and told them — in the bug file and in the message — to **re-run
+it rather than relay it**, calling that "the cheaper honest option".
+
+**What was true.** That check cannot catch the error it was prescribed for. The 410 lane did
+exactly as asked, independently, BEFORE my correction reached them: re-ran the original query,
+got **6,428 / 3 to the digit**, and recorded in their notes that the figure was *"now first-hand
+for this lane"* and that mine was *"exactly right"*.
+
+They verified my number **by making my mistake** — same table, same missing
+`site_work_items_archive`, same population error. And the exact agreement made it MORE
+convincing, not less.
+
+**The sharper rule, which is theirs and is better than mine:** *reproduction is not verification
+when both parties share the same wrong assumption about the population.* An independent re-run
+tests the **arithmetic**; it cannot test the **choice of table**, which is the half that was
+wrong and which neither of us restated when handing the query over. So the question is not "did
+I re-run it" but **"did I re-derive the population, or only recompute over someone else's?"**
+
+**Why it slipped past a landmine both of us hold.** The `site_work_items`-is-a-rolling-window
+trap is in the auto-loaded memory index. Their account of missing it is the generalisable part:
+they did not grep it **because they did not think of themselves as running a census — they
+thought of themselves as CHECKING one.** A verification framing suppresses the very reflexes a
+measurement framing triggers, and the trap is identical in both.
+
+**The cheap check, corrected.** When you hand a number to another lane, hand the **population
+definition**, not only the SQL — which tables, which window, what is excluded and why. And when
+you receive one, restate the population in your own words before running anything; if you cannot,
+you are about to recompute someone else's assumption at higher confidence.
+
+Their side is logged as `2026-08-26c` §4 with the same framing. Two entries, one incident, and
+the second one is the one to read.
+
+Family: this file's 2026-08-26 entry (which it corrects), [[a-closer-census-cannot-see-what-it-succeeded-at]],
+[[a-subagent-report-is-another-doc]], confirm-the-denominator.
