@@ -67,6 +67,62 @@ flexibility falls out of that; it is not the goal.
   decomposition does not fragment the voice. *Test: the brief is one stored
   object every child call cites; it is not re-derived per child.*
 
+### CANDIDATE G6 — RECORDED, NOT DESIGNED, AND DELIBERATELY NOT WRITTEN HERE
+
+**Owner steer, 2026-08-26, quoted verbatim** (relayed by the `agentchassis-51`
+session, which flagged it rather than acting on it):
+
+> *"There is also a mechanism to have components contain other components that we
+> should use and we could **store patterns of such combinations after they've been
+> through component and experience loops** etc."*
+
+**This is NOT covered by G1–G5, and that reading was checked rather than taken on
+trust.** G2 makes a *child* addressable, reorderable and reusable; G3 pins a
+*component's* template version; G4 swaps a contract-compatible variant of *one
+component*. All three operate on a component. The steer is a level up: an
+**arrangement** — prose → figure-left → pull-quote → time-series → prose — stored
+as a unit, carrying the verdict of the loops it passed, and applied to a new page
+whole.
+
+**⚠ THE LOAD-BEARING CLAUSE IS "after they've been through … loops", AND THE
+PROVENANCE IT ASSUMES DOES NOT EXIST AT THAT GRAIN. `[MEASURED 2026-08-26]`**
+Whoever writes G6 should start from this, because it is the half that reads as
+already-solved and is not:
+
+- **Component side.** `compute_component_quality` is live and has run — **126 of
+  381** `content_components` carry a `quality_score`, last check 2026-08-24. But
+  **zero of this feature's families do**: `evidence-timeseries` and
+  `mechanism-flow` both hold NULL `quality_score` and NULL `quality_checked_at`,
+  and `insight-article`, `prose-block`, `editorial-pullquote` and
+  `evidence-figure` **do not exist as component rows at all** — they are D3's
+  planned families, not built ones. (This also refines the news_editorial handoff
+  §3 line "A2 — `compute_component_quality`, still never run": fleet-wide it has;
+  on this lane's components it has not.)
+- **Experience side.** The council is real and has ruled — **80 notes across 13
+  distinct subjects**, 2026-07-18 → 2026-08-15. But every subject is a FEATURE,
+  an experience or a design decision (`site-chat-intake`, `tool-patent-check`,
+  `idea.uk-site`, `D-001-free-beside-paid` …). **None is a component
+  arrangement, and none is editorial.**
+
+**So G6 is not merely "add storage, identity and an apply-path" to existing
+provenance.** Both loops exist and both score a *different object* than the one
+the steer wants stored. A stored pattern would need a verdict-bearing object at a
+grain neither loop currently emits — which is a design question, not an
+implementation detail, and it is the first thing to settle.
+
+**Why this section stops here.** The owner has asked for Fable on this design
+three times and 035 arrived on the fifth dispatch after four capacity failures. A
+G6 written by a passing lane — or by the lane merely implementing P1 — would read
+as authoritative and would not be. So this records the steer and the measurement
+and routes it; it does not design it. **Nothing below §2 has been changed to
+accommodate it, and no phase has been re-scoped.**
+
+**Interfaces it would touch, noted for whoever does write it:** D1 (meaningless
+without parent/child representation), D7 (its apply-path is propose→apply→approve
+with a *stored* spec rather than a freshly generated one), and §8's handover to
+the inline-imagery lane — whose pressure is live again as of 2026-08-26 (the
+owner's motivating complaint was "not enough images on any of the pages").
+
 ## 3. What exists today — measured 2026-08-22
 
 Composition has been **designed three times and exercised zero times**, and the
