@@ -51,6 +51,31 @@
 // refactor of the listing rebuild would widen a bug fix's blast radius for
 // nothing. Whoever next touches it can adopt these counters.
 //
+// CONVERGENCE DEBT, tracked here at the reuse_agent seat's request (council
+// round c8385154): after this shipped there are three implementations of the
+// count-guard concept, and they are NOT all the same concept —
+//
+//   - scanBlogArticles (rebuild_blog_listing_action.go) is a TRUE sibling: a
+//     DB cursor with offered/kept counters. CONVERGE IT ONTO THIS HELPER THE
+//     NEXT TIME IT IS TOUCHED for any other reason — that needs a graded
+//     variant here, which is deliberately unshipped until it has that caller
+//     (a policy shipped with no caller is a mechanism nobody runs). A matching
+//     note sits at its counters.
+//   - collectPageSections (validate_page_content_surface_sections.go) is a
+//     FALSE sibling — stated here so convergence pressure does not force a
+//     false unification later. It compares the lengths of an IN-MEMORY
+//     metadata array (no cursor, no scan), and its response is to DEGRADE
+//     loudly (fall back to whole-page grain), not to refuse. Routing it
+//     through this function would use the error as a boolean and stamp
+//     "refusing the partial result" onto a path whose whole point is that it
+//     does not refuse. Shared shape is not shared concept; leave it.
+//
+// CALLERS MUST PROPAGATE THE RETURNED ERROR. A site that calls this and drops
+// the result is the original defect with extra steps — and it is invisible to
+// the swallow ratchet, which sees the shape as guarded (its header lists this
+// as a stated blind spot). Copy the mutation discipline with the call: delete
+// the call in a branch and your covering test must go red.
+//
 // POLICY IS THE CALLER'S. This file ships exactly one function, the strict one,
 // because that is the policy the first caller exercises. A graded twin shipped
 // "for completeness" would be a mechanism nobody runs, which this estate has

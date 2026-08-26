@@ -385,3 +385,87 @@ see it. A second silent-loss class in the same loop, on a different axis (conten
 Commented at the site, listed in the ratchet header's "what it cannot see", and stated in the
 submission's risks. Not fixed here: it needs a decision about whether an unparseable section may
 render as an empty one, which is a different question from whether a row may vanish.
+
+---
+
+## 2026-08-26 (evening) — VERDICT: APPROVED round 1, and the close-out adjudication
+
+### The verdict
+
+`c8385154` → **APPROVED, round 1** (11:20:59Z artifact): *"approved with 4 advisory
+objection(s) — none high-severity."* Twelve seats; six abstained; objecting seats were
+reuse_agent, guardian, debug_historian, prior_art_librarian (bug_historian and architecture
+approved but attached objections). The guardian objection that hit the `news_editorial` lane at
+HIGH that same morning arrived here at medium — the schema-not-luck blast-radius argument was
+already in the submission, which is the difference.
+
+`7c443aac6` carries `Council-Submitted:`, so `098` credits it automatically now the verdict is
+approved. No amend (forward-only).
+
+### The close-out review — fable was asked, died on a session limit (resets 20:40 BST), and the
+### owner directed this model to carry it. Dispositions, each re-verified against the tree:
+
+| seat | objection | disposition |
+|---|---|---|
+| editquality (low) | other callers may inherit the stricter error | **CLOSED** — exactly one production caller (`:270`), and it propagates |
+| guardian (low arm) | confirm pattern-check stays advisory | **CLOSED** — `.githooks/pre-commit:41` runs it `\|\| true`; cannot block |
+| prior_art (medium) | cited rounds/idiom may not exist as described | **CLOSED** — `3ed2b792` (2 rows) and `170147b4` (4 rows) both resolve in `diagnosis_artifacts`; the minting ratchet file exists with the two-layer rule verbatim. Honest note: I had RELAYED both round ids (from the guard comments and the 384 lane) before checking them — the seat was right to ask |
+| debug_historian (medium) | blast-radius query covered 2 of 8 columns | **REFUTED, and the refutation strengthens the claim** — full-column measurement below |
+| bug_historian (medium) | the comment must say the `continue` is safe ONLY because the trailing check survives | **ACTIONED** — comment sharpened at the site, naming the mutation test that goes red on deletion |
+| reuse_agent (medium) | three implementations; track convergence | **ADJUDICATED + ACTIONED** — see below; converge-on-touch for the true sibling, false-sibling finding for the other |
+| debug_historian (low) | state the pod-verification recipe | **ACTIONED** — RUNBOOK §12, three-way probe per the LANDMINES form |
+| architecture (low) | parity verified once, not enforced | **ACTIONED** — recipe in the baseline header; mechanical enforcement REJECTED with the reason stated there |
+
+### The full-column measurement (debug_historian's own terms) `[MEASURED 2026-08-26]`
+
+```sql
+SELECT count(*), count(*) FILTER (WHERE parent_instance_id IS NULL),
+       count(*) FILTER (WHERE component_version_id IS NULL),
+       count(*) FILTER (WHERE component_id IS NULL),
+       count(*) FILTER (WHERE slot_name IS NULL),
+       count(*) FILTER (WHERE rendered_html IS NULL)
+FROM page_components WHERE build_status IS DISTINCT FROM 'removed';
+-- 2295 | 2295 | 1064 | 10 | 0 | 0
+```
+
+`parent_instance_id` is NULL on **every live row** and `component_version_id` on 1,064 — and
+both are `COALESCE(…::text,'')` in the projection, so they scan as `''`. The only bare columns
+are `id` and `position`, both NOT NULL by schema. **The columns most likely to be NULL are
+precisely the guarded ones.** The seat read the two-column control query as the whole argument;
+the argument was always the eight-row table (NOTES above), and now every row of it has its own
+measured control. Also note the live count moved 2194 → 2295 in a few hours — the census-ages-
+by-addition rule demonstrating itself inside one day.
+
+### The reuse_agent adjudication — one true sibling, one false one
+
+The seat is right that three implementations of "compare counts, don't trust shape" now exist,
+and right that an untracked residual is how duplication becomes permanent. But the three are not
+one concept, and the adjudication splits them:
+
+- **`scanBlogArticles` is a TRUE sibling** — a DB cursor with hand-rolled offered/kept counters.
+  **Converge on next touch**, recorded AT ITS COUNTERS (where the next editor actually is), in
+  `ScanShortfall`'s doc, and in DBI-027. Not converted now, for the reason already approved by
+  the round: it is guarded, and a behaviour-neutral refactor widens a bug fix's blast radius for
+  nothing. The convergence needs a graded variant of the helper, which ships WITH that first
+  caller, not before it.
+- **`collectPageSections` is a FALSE sibling, and saying so IS the tracking.** It compares the
+  lengths of an in-memory metadata array — no cursor, no scan — and its response is to degrade
+  loudly (fall back to whole-page grain), not to refuse. Routing it through `ScanShortfall`
+  would use the error as a boolean and stamp *"refusing the partial result"* onto a path whose
+  whole point is that it does not refuse. **Shared shape is not shared concept.** Written into
+  the helper's doc so future convergence pressure cannot force the false unification.
+
+### The fresh-eyes checks fable was asked for, run here instead
+
+- **The tombstone refactor is a no-op for this lane, now committed by its owner** (`18853ade6`
+  — the `datahelpers.NotRemoved("")` extraction). `NotRemovedSQL` is the byte-identical literal
+  `build_status IS DISTINCT FROM 'removed'`, so the composed SQL is unchanged and the
+  `removed_test` sqlmock pattern still matches what the code sends. Both guard test sets green
+  against their commit.
+- **Multi-loop files classify correctly**: first loop without a Scan → 1; two swallowing loops
+  → 2. (The StillBites suite had no multi-loop case; the Python side is now spot-checked. Worth
+  adding to StillBites next time that file is touched, not worth a commit alone.)
+- **A deleted/renamed baseline file fails the ratchet with an explicit remove-its-line
+  instruction** — by design, and it is the concrete form of guardian's CI-friction advisory: a
+  lane renaming one of the 127 files owes a one-line baseline edit in the same commit. The
+  failure message says exactly that, which is the mitigation.

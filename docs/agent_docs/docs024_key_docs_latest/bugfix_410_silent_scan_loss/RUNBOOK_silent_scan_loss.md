@@ -209,3 +209,47 @@ a same-file passenger — whoever commits second takes both edits. Read `git dif
 immediately before committing. Three passenger events happened on `WRONG_CALLS.md` alone on
 2026-08-26, in three different directions; on each, verifying **at HEAD** rather than trusting the
 command's own report was the check that settled it.
+
+## 12. Verify AFTER the roll — the fix is inert until the chassis ships it
+
+Requested by the debug_historian seat (round `c8385154`): the recipe stated up front, with its
+known failure modes, rather than left implicit. `loadStoredSections` builds into **agent-chassis**
+— verify THAT service, not the fleet (one release can straddle commits and ship several revisions
+under one tag).
+
+**Step 1 — ancestry, the primary check.** Ask the pod what it was built from:
+
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 7c443aac6 <the stamped sha> && echo SHIPPED
+```
+
+⚠ Test **ancestry, not equality** — the stamp is whatever HEAD was at build time, so `7c443aac6`
+is normally an ancestor, not the stamp itself. ⚠ The provenance line is a STARTUP line and
+scrolls: on a busy chassis it is out of `--tail` range within hours, and **an empty result means
+"not in range", not "unstamped"** — fall back to step 2, which has no shelf life.
+
+**Step 2 — capability probe, three-way, in ONE breath.** A probe whose every result is absent is
+uninterpretable, not negative (LANDMINES, the `bugs_open/395` entry) — so all three, together:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pod -l app=agent-chassis -o name | head -1)
+# the thing under test — the new refusal string (a CAPABILITY literal, better than a sha:
+# a sha says what was built, this says what can run):
+kubectl -n ai-persona-system exec $POD -- grep -aq "refusing the partial result" /proc/1/exe && echo GUARD-PRESENT
+# control that MUST be present in old and new binaries alike (proves the grep mechanism):
+kubectl -n ai-persona-system exec $POD -- grep -aq "rerender_page_sections: row scan failed" /proc/1/exe && echo CONTROL-PRESENT
+# control that MUST be absent (proves grep -aq can say no):
+kubectl -n ai-persona-system exec $POD -- grep -aq "xq410zz-not-a-real-marker" /proc/1/exe || echo CONTROL-ABSENT
+```
+
+Expect all three lines. **Never `strings`** (absent from debian-slim; behind `2>/dev/null` its
+failure is indistinguishable from "not stamped"). **Never ship a result whose controls are all on
+the same side of the answer.** And the same-tag trap stands: a "fresh" roll at an unbumped
+`IMAGE_TAG` serves the cached image — the probe above is the check that survives it.
+
+**Step 3 — the guard's live silence is the success state.** Day-one firing rate is zero by
+schema, so after the roll expect NO `ScanShortfall` errors anywhere. That zero is only meaningful
+alongside step 2's GUARD-PRESENT — a zero from a binary that doesn't carry the guard is the
+a-post-fix-zero-needs-a-demand-control trap. The demand control here is the mutation-proved test
+suite, which fires the guard on every build.

@@ -464,6 +464,15 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 // handles it with its existing warning.
 func scanBlogArticles(rows *sql.Rows, logger *zap.Logger) ([]map[string]interface{}, error) {
 	var articles []map[string]interface{}
+	// CONVERGE ON TOUCH (bugs_open/410, council round c8385154, reuse_agent):
+	// these hand-rolled offered/kept counters are the graded sibling of
+	// datahelpers.ScanShortfall, which shipped after this function and extracted
+	// the same concept. Next time this function is edited for any other reason,
+	// adopt those counters (a graded variant of the helper, added with this as
+	// its first caller) rather than leaving a third parallel implementation.
+	// Deliberately not converted in the 410 commit itself: this function is
+	// already guarded, and a behaviour-neutral refactor of the listing rebuild
+	// would have widened a bug fix's blast radius for nothing.
 	attempted, scanFailures := 0, 0
 	for rows.Next() {
 		attempted++

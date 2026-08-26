@@ -26,6 +26,32 @@
 # something when the caller's result feeds a wholesale replace or is reported as
 # complete. The list exists to stop the population GROWING, and to make a
 # fix-on-touch cheap, not to imply 207 defects.
+#
+# PARITY RE-CHECK (architecture seat, round c8385154 — verified once at ship
+# time, NOT mechanically enforced; if the two classifiers drift, "one baseline,
+# two readers" silently becomes two baselines). Re-run whenever either
+# classifier is edited, and opportunistically when touching this file:
+#
+#   python3 - <<'EOF'
+#   import importlib.util, os
+#   spec = importlib.util.spec_from_file_location("pc", "scripts/pattern-check.py")
+#   pc = importlib.util.module_from_spec(spec); spec.loader.exec_module(pc)
+#   base = pc._scan_swallow_baseline(None); actual = {}
+#   for d in ["platform","internal","pkg","cmd"]:
+#       for dp,_,fns in os.walk(d):
+#           for fn in fns:
+#               if fn.endswith(".go") and not fn.endswith("_test.go"):
+#                   p=os.path.join(dp,fn)
+#                   c=pc._count_scan_swallows(open(p,encoding="utf-8",errors="replace").read())
+#                   if c: actual[p]=c
+#   diff={k:(base.get(k),actual.get(k)) for k in set(base)|set(actual) if base.get(k)!=actual.get(k)}
+#   print("disagreements:",len(diff)); [print(" ",k,v) for k,v in sorted(diff.items())]
+#   EOF
+#
+# Expect: disagreements: 0. The Go side of the same parity is enforced every
+# build by TestNoNewSilentScanLoss; this recipe is the Python side. A deliberate
+# Go test that shells out to python3 was considered and REJECTED: skip-if-absent
+# in a build context without python is silent no-coverage wearing a SKIP label.
 cmd/core-manager/main.go 1
 cmd/scheduler/main.go 1
 internal/auth-service/admin/user_management.go 4

@@ -1244,7 +1244,14 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 		var cdJSON []byte
 		if err := rows.Scan(&s.id, &s.parentInstanceID, &s.componentID, &s.slotName, &cdJSON, &s.renderedHTML, &s.position, &s.componentVersionID); err != nil {
 			// scan-loss:accepted: counted — ScanShortfall below refuses the
-			// partial result. The per-row Warn is kept deliberately: on a mixed
+			// partial result. ⚠ This continue is safe ONLY while that trailing
+			// check survives: delete the ScanShortfall return and this branch
+			// reverts to the exact defect it was (renders less, reports
+			// complete — bugs_open/410). The mutation check in
+			// rerender_page_sections_scan_completeness_test.go goes red on
+			// that deletion; if it doesn't, the guard is not what is producing
+			// the refusal. (bug_historian advisory, round c8385154.)
+			// The per-row Warn is kept deliberately: on a mixed
 			// failure it records EVERY failing row's cause, where returning here
 			// would record only the first, and the first is rarely the
 			// informative one when a projection has drifted.

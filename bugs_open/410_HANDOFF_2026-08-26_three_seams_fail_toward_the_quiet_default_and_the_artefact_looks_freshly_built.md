@@ -296,3 +296,26 @@ pattern is neutered matches nothing and passes for ever — which looks exactly 
 
 **This bug stays OPEN**: one of three instances is fixed, the Go half is inert until the chassis
 rolls, and the verdict has not landed.
+
+---
+
+## 2026-08-26 (evening) — VERDICT: APPROVED round 1, advisories actioned, and ⚠ the number 410 is now AMBIGUOUS
+
+**`c8385154-17b4-43f5-94b2-41f552f43867` → APPROVED, round 1**, *"4 advisory objection(s) — none
+high-severity."* `7c443aac6` is credited via its `Council-Submitted:` trailer. Full dispositions,
+the reuse_agent convergence adjudication (one TRUE sibling — `scanBlogArticles`, converge on next
+touch; one FALSE sibling — `collectPageSections`, degrade-not-refuse over an in-memory array, and
+forcing it onto the helper would be false convergence), the full-column blast-radius measurement
+that refuted the debug_historian objection (`2295 | 2295 | 1064 | 10 | 0 | 0` — the NULL-heavy
+columns are exactly the COALESCE'd ones), and the after-the-roll verification recipe are in the
+lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_410_silent_scan_loss/` (NOTES §evening,
+RUNBOOK §12).
+
+⚠ **A SECOND, UNRELATED bug now shares this number** (CLAUDE.md ambiguous-number list, 2026-08-26):
+`410_HANDOFF_2026-08-26_next_fetch_at_stamped_at_fetch_time_…` — the content-feed phase-lock case,
+different files, different lane, being fixed by its own session. **Resolve by slug; `git log` the
+FILE PATH, not the number.** A commit message saying "410" may mean either.
+
+Status unchanged otherwise: **OPEN** — instance 3's fix rides the next chassis roll (verify via
+RUNBOOK §12), instances 1–2 and candidates 1–2 belong to their own lanes, and the content-loss
+residual (`_ = json.Unmarshal` keeps the row and empties it) still needs its own decision.
