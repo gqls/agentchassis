@@ -1701,3 +1701,21 @@ site's open item.
 holds two more triaged rows for this same page (plus `derive_card_asset`'s 02:31Z card_landed row — the
 384 mechanism, working). Any of them that reaches `save_page_sections` on this page will fail with the
 same floor refusal. When they do, that is the KNOWN defect firing, not a new one.
+
+### 3. Design-discovery rotation RESUMED fleet-wide (09:20Z, peer heads-up) — our defences checked, our slot estimated
+The `webdesign-tool-rebuilds` seat says the design rotation (paused since the 08-11 cost scare,
+`bugs_open/401`) was re-enabled 2026-08-26 09:20Z, ~1 site/3h, least-recently-visited first, findings born
+`detected` and auto-promoted where (item_type, handler_agent) is known-good. Checked rather than filed away:
+- **Queue position:** the six stalest design stamps are all 08-09 ≤14:52Z; ours is 08-09 16:53Z → **~8th**,
+  so expect our visit **~2026-08-27 morning**. A surprise design item before then is NOT the rotation.
+- **The colour-churn defence is in place:** `design_intent.palette.reference_values` present (seeded by this
+  lane 2026-08-18) and it deliberately records the dark `primary: #0D1117` (= `surface` — the degenerate
+  palette PLAN §0 describes, which is why component-side fixes, not palette churn, took contrast to 0).
+  Spec row `pinned = f` [NOTED, not fixed — the landmine's named pin is the reference_values key itself].
+- **6 `image_url_404` rows sit `detected` from the LAST design visit (08-09)** — stale: all 10 card images
+  verified 200 on 08-25. If the resumed pipeline promotes or re-files these, PLAN §2's warning stands: do
+  NOT hand them to the triage-only image handlers; a fresh visit should re-check/retract.
+- **Today's item flurry is NOT the rotation:** `audit_tool`/`evaluate_tools`/`improve_tool`/`acceptance_run`
+  (08-26) = the tool-rebuild lane working this site's tools; `needs_content_image`/`undeployed_asset`
+  completes + `derive_card_asset` rerenders = the 384 card mechanism. Three concurrent producers — do not
+  conflate.

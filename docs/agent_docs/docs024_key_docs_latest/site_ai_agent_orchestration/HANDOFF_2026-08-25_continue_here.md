@@ -39,6 +39,11 @@ contain is the incident below, which this lane caused.
 >   floor-refusal rerender on `tool-automation-savings-estimator` (`0229af86`, routed here by the loanzy
 >   lane's outage sweep) stays at `failed` — same known 253-class defect, 4th identical failure; two more
 >   triaged rows for that page will predictably fail the same way (NOTES 08-26).
+> - **Design-discovery rotation RESUMED 09:20Z 08-26** (15 days off, `bugs_open/401`); our visit lands
+>   **~08-27 morning** (~8th in the queue). Palette pin verified in place (`reference_values`, 08-18, dark
+>   primary deliberate); 6 stale `detected` `image_url_404` rows from 08-09 may resurface — PLAN §2: never
+>   route them to the triage-only image handlers. Today's tool/audit items are the tool-rebuild lane, not
+>   the rotation (NOTES 08-26 §3).
 > - Everything in the ✅ table above re-verified 16:00Z: 7/7 pages 200, `NNN=0`, stylesheet 20.9 KB.
 
 > ## ✅ The original ask is COMPLETE and intact. ⚠ One incident, caused by this lane, now fixed at source.
