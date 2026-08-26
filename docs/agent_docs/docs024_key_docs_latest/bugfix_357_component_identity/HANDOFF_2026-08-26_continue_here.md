@@ -188,6 +188,11 @@ cv1.co.uk/tool-example  slot generic-text-block  adopted-fragment  regenerable t
 - **Arming survives a roll.** It lives in `agent_definitions`, so it is config, not code. Six
   carriers armed, re-checked after both rolls.
 - All three STOP conditions clear. `population_stamped` still **0**.
+- **The current build is `v1.0.1341` and it genuinely carries phase 2.** Deployment spec and
+  BOTH pods agree on the tag (`agent-chassis-6dd68888dc-*`, started 2026-08-25 23:11:5xZ), so
+  this is not the same-tag-rebuild trap. Probed at the running binary with both controls —
+  `adopt fragment: bound an unidentified fragment` **PRESENT**, positive control **PRESENT**,
+  negative control **ABSENT**: the probe discriminates, so the PRESENT means something.
 
 ---
 
