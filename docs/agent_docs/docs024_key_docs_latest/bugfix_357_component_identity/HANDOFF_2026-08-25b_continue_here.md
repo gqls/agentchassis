@@ -12,6 +12,40 @@ and the F2 guard, but its central open question is now ANSWERED here), then the 
 
 ---
 
+## 0. ⚠ BEFORE ANYTHING: the fleet's LLM credit is exhausted (2026-08-26)
+
+```
+AI endpoint unavailable: provider=anthropic model=claude-sonnet-5
+status 400: "Your credit balance is too low to access the Anthropic API."
+```
+
+[MEASURED 2026-08-26 00:0xZ] **22 orchestrations across 10 agent types**, first at
+**2026-08-25 23:46:18Z**: `page-content-writer` (9), `tool-improver` (3),
+`reader-experience-auditor` (2), `content-quality-auditor` (2), `site-review-agent`,
+`brief-fidelity-auditor`, `visual-design-auditor`, `generic`. Owner notified 00:0xZ.
+
+**Nothing in §5 below can be tested until this clears**, because every route to precondition 4
+runs a content writer first. Check it before you spend a run:
+`SELECT count(*) FROM orchestration_states WHERE error ILIKE '%credit balance is too low%' AND created_at > now() - interval '1 hour';`
+
+⚠ **THREE LIVE SYMPTOMS, THREE DIFFERENT CAUSES — do not collapse them.** A session arriving
+now sees all of these at once and the tempting move is one story:
+
+1. **the prune-floor contradiction** (§4) — diagnosed, real, estate-wide, **unfixed**;
+2. **`page-rebuild` stalling at `assemble_page`** (§5) — twice, on both a stale and a fresh
+   chassis, cause **[UNVERIFIED]**;
+3. **the credit exhaustion** — from **23:46Z**, an account matter, not a code one.
+
+**The timeline refutes merging (2) into (3):** the stalls began **12:57Z** and **~19:41Z**,
+six to eleven hours BEFORE the first credit failure.
+
+⚠ When checking the account: MEMORY [[the-fleet-key-is-not-on-the-default-console-org]] —
+**capped while billing reads 0% used means the WRONG ACCOUNT is in view**; check the keys'
+`Last used`. Per the owner's 2026-08-23 ruling, **never read a key into a session** — probe
+from the pod.
+
+---
+
 ## 1. State in one table
 
 | | state | evidence |
@@ -291,7 +325,13 @@ No council trailer on any: all are docs + a site-specific data correction, none 
 
 ## 8. What the next session should do, in order
 
-0. **⚠ FIRST, THE CONTROL — because canary #2 stalled too.** As of 19:41Z canary #2 has sat
+0. **⚠ THE CONTROL WAS RUN AND IT DID NOT DISCRIMINATE — re-run it once credit is restored.**
+   Fired 2026-08-26 on `request-index` (correlation `8d002375-1524-4abd-b04c-91a2e6a74277`),
+   with `index`'s leftover `needs_rebuild` cleared first so the result would be attributable.
+   It **FAILED at `write_page_content`**, before reaching `assemble_page`, on the credit
+   exhaustion in §0 — so it says nothing about the stall. Re-run exactly as set up below.
+
+0b. **⚠ WHY THE CONTROL — because canary #2 stalled too.** As of 19:41Z canary #2 has sat
    at `build_pages_loop_iter_0_assemble_page` for 10m37s with `save_ran = f`, exactly where
    canary #1 was reaped. **Two attempts, same page, same step.** Before re-firing a third,
    flag a **non-adopted** cv1 page (`request-index` or `how-it-works-index`) as
