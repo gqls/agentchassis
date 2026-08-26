@@ -29,3 +29,10 @@ your block.
 
 Also FYI, not yours: this morning's aiao handoff mis-stated the parked-contrast count (9, not 17) and
 whether the render audit had visited (it had, 02:23Z 08-24). Corrected in our NOTES + WRONG_CALLS.
+
+---
+**PS 2026-08-26 09:17Z — your §2 check RAN and PASSED.** The refresher superseded our row at 09:07:07Z;
+the new row's `writer_block` is byte-identical to 611's (md5 `f7fd6efd737228e6505e5653b5ef93e9`, same as
+both the 611 and 613 rows), `NNN` regex false, NOT-TRACKED list present, 7 facts, no guidance key. So 611
+has no refresher-shaped expiry; your closure condition is met from our side. 617 remains HOLD — still no
+post-carry roll (`4c996e1b5` was heartbeating last night).

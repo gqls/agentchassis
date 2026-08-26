@@ -1676,3 +1676,28 @@ The two remaining tool pages already carry the ink token in their stored HTML, s
 **not** the 456 defect and guessing would waste a cycle. The contact button's fix is known and
 computed — `--color-accent-text` is `#294155` here, giving **5.09:1** on amber — but
 `contact-form` is on **20 sites**, so it is a fleet change requiring the consumers to be told first.
+
+## 2026-08-26 ~09:17Z — the survival check PASSED; the routed floor-refusal row judged (left at failed)
+
+### 1. 611's block SURVIVED its first daily refresh — the 387 lane's pinned check, run and answered
+Current row: `created_by='evidence-refresher'`, created 2026-08-26 **09:07:07Z**; `writer_block` md5
+**`f7fd6efd737228e6505e5653b5ef93e9`** — byte-identical to BOTH the 611 and 613 rows' blocks; `NNN` regex
+**f**; NOT-TRACKED list present; 7 facts; no guidance key (617 not applied — no roll yet). So the
+refresher carries an unmanaged block forward unchanged, exactly as `refresh_evidence_base_action.go:36`
+claims — now a measurement, not a claim about behaviour. Postscript added to our CONTRIB in the 387 dir.
+
+### 2. The loanzy lane routed work item `0229af86` here — judged: real defect, correctly NOT re-fired
+Their outage sweep (21 credit casualties re-fired) left one row on this site at `failed` for hand
+judgement. Read in full: it is the **misdirected_cta rerender of `tool-automation-savings-estimator`**,
+re-filed by completeness-discovery at 08-26 00:56Z (the 08-24 row `6db1db3d` being terminal frees the
+dedup key), failed 02:49Z on the identical **SECTION COMPONENT FLOOR REFUSED — 77→37 class attributes
+(48% kept, floor 50%)**. NOTES 08-25 §6's defect, not a credit casualty; the peer's triage was right.
+**Judgement: leave at `failed`** — the state is honest (a wanted fix blocked by a real defect), re-firing
+burns a cycle to produce the same refusal (4 identical failures since 08-24), and cancelling would hide
+the one row that keeps this defect visible in "what is biting". The fix is reconciling the page's stored
+HTML with what template+content_data regenerate (`bugs_open/253` class) — still unowned, still this
+site's open item.
+⚠ **Predictable follow-on, recorded so nobody reads it as news:** the 01:00:54Z `rerender-pages` batch
+holds two more triaged rows for this same page (plus `derive_card_asset`'s 02:31Z card_landed row — the
+384 mechanism, working). Any of them that reaches `save_page_sections` on this page will fail with the
+same floor refusal. When they do, that is the KNOWN defect firing, not a new one.

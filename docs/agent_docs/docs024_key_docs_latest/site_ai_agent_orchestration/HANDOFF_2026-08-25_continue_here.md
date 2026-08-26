@@ -34,6 +34,11 @@ contain is the incident below, which this lane caused.
 >   `SELECT created_by, (data->>'writer_block' ~ 'NNN') FROM site_specs WHERE
 >   site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' AND aspect='evidence_base' AND is_current;` → expect
 >   `evidence-refresher`, `f`. Today's 09:06Z pass predates 611/613, so tomorrow's is the first real one.
+>   ✅ **RAN 2026-08-26 09:16Z — PASSED.** Refresher row 09:07:07Z; writer_block md5 `f7fd6efd…` =
+>   611's exactly; `NNN=f`; 7 facts. 611 survives the daily refresh. Also judged 08-26: the re-filed
+>   floor-refusal rerender on `tool-automation-savings-estimator` (`0229af86`, routed here by the loanzy
+>   lane's outage sweep) stays at `failed` — same known 253-class defect, 4th identical failure; two more
+>   triaged rows for that page will predictably fail the same way (NOTES 08-26).
 > - Everything in the ✅ table above re-verified 16:00Z: 7/7 pages 200, `NNN=0`, stylesheet 20.9 KB.
 
 > ## ✅ The original ask is COMPLETE and intact. ⚠ One incident, caused by this lane, now fixed at source.
