@@ -433,3 +433,71 @@ The build cache was **1.272 GB** after the prune and **16.8 GB about 80 minutes 
 fleet activity. So the 7-day age policy is bounding something real. It has **no size ceiling** — the
 owner chose age-only — which bounds how *long* cache survives, not how *much* accumulates inside the
 window. Stated in the README rather than hedged; `maxUsedSpace` is the knob if a heavy week bites.
+
+## 2026-08-26 — the owner installed the cache GC; verified, and there is nothing to run
+
+**Install confirmed, and confirmed at the artefact rather than at the file.** `/etc/docker/daemon.json`
+exists with the right contents, but that alone proves nothing — a file can be written *after* a
+restart and sit unread. The evidence is the ordering:
+
+```
+daemon.json mtime : 2026-08-26 09:11:27
+dockerd started   : 2026-08-26 09:11:28 BST
+```
+
+One second later, so the daemon read it. `systemctl is-active` → active, `docker info` → OK, startup
+log clean, `Warnings: none`. **No deprecation notice either**, which is the specific thing worth
+noting: `reservedSpace` is the current key and `keepStorage` is the deprecated one, so a silent load
+is evidence the newer schema was the right choice for 29.2.1.
+
+### Should we run it now? No — measured, not assumed
+
+The 7-day rule can only bite cache unused for 168h. Right now:
+
+| cache records by last use | count |
+|---|---|
+| hours ago | 368 |
+| weeks ago | **7** |
+
+and those 7 hold **50.12 kB between them**. So running a prune today reclaims essentially nothing;
+the policy is preventive from here. **It cannot demonstrate itself until today's cache ages past
+seven days — around 2026-09-02**, and until then it is an installed, unexercised mechanism, which
+is precisely the shape this session has been bitten by four times. Recorded as a dated check rather
+than assumed working.
+
+The other two pending actions were also sized before recommending against them: release retention
+wants 2 tags / 30 images (`v1.0.1308`, `v1.0.1309` — past both N=25 and the 48h floor, so the floor
+is working as designed), and the scratch reaper wants 13 dirs / 5.3 GB. On 561 GB free, neither
+earns an irreversible action today.
+
+### The gap that check exposed, now closed
+
+**Nothing watched Docker.** The nightly report covered `/tmp` and the scratch tree — and omitted the
+consumer that reached 539 GB. That was not a judgement call, it was the `du` blindness again: the
+report's whole world was what `du` could see, and `du` returns `4.0K` for `/var/lib/docker`.
+
+`scratch-report.py` now prints a `=== docker ===` block (images, containers, volumes, build cache,
+each with reclaimable), plus a standing warning when `/etc/docker/daemon.json` is absent — verified
+in **both** directions, not observed once: with the file present the warning stays silent, with it
+absent it fires. And when the daemon is unreachable it says *"unavailable … NOT the same as empty"*
+rather than printing nothing, which is the same rule as the root-header fix for the same reason.
+
+### Regrowth, for the record
+
+| | build cache |
+|---|---|
+| 2026-08-25 18:19 | 539 GB / 6,052 records |
+| 2026-08-25 18:25 (pruned) | 1.27 GB / 16 |
+| 2026-08-25 ~19:45 | 16.8 GB |
+| 2026-08-26 09:14 | **34.5 GB / 375**, 27.3 GB reclaimable |
+
+~33 GB in under 14 h. The age policy bounds how *long* a record survives, not how *much*
+accumulates inside the window — the owner chose age-only, so `maxUsedSpace` remains the knob if a
+heavy week bites, and the nightly report is now where that would show up.
+
+### And the timer proved itself against the exact failure it was built for
+
+Scheduled 06:41. `[MEASURED]` the box suspended **04:51:41** and resumed **09:04:01**; the service
+ran at **09:04:01** — the same second as resume, `Result=success`. The crontab entry it replaced
+would have missed a **second consecutive night** in silence. Control: cron logged **1** CMD
+invocation in the whole 06:00–09:10 window, because it simply does not run while suspended.
