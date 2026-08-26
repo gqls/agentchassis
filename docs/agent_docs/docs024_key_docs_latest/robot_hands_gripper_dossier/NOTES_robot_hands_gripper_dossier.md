@@ -2348,3 +2348,42 @@ the same way, file it with this entry as the first data point.
 "Site side") — bug 409 is worth fixing BEFORE the widget invites vague first
 messages. Council resubmit stays the build session's. SUMMARY_2026-08-26 written
 (the milestone file, owner-agreed trigger: live end to end).
+
+## 2026-08-26 (afternoon) — 409 chat-side fix BUILT, tested, mutation-proved, imaged as v1.0.1342; awaits the owner's 3-command swap
+
+Owner said carry on; the recorded priority was "fix 409 before the widget". Scope
+kept to the chat side (`internal/tools-api/gripper` — this lane's PUB-005 package);
+the cluster's prose/validator seam deliberately untouched (if hedges cannot enter
+the spec, the prose has nothing to hedge about — and a hedge appearing anyway from
+a clean spec would be a NEW finding, filed separately).
+
+**The fix** (commit `eeff5dde6`, `Council-Submitted: 70083c99-c299-4b35-a868-1583d3355396`):
+- `coerce(KindText)` rejects hedge-phrased values (`containsHedge`: 12 phrases +
+  word-boundary `tbc|tbd`) — Normalise's single choke point, so BOTH doors (chat
+  turn + plain-form fallback) are covered by one guard. Philosophy is the
+  function's own, stated in its doc comment: a hedge is "does not know" wearing a
+  value's clothes; drop it and missing_fields keeps asking.
+- Prompt rule: fields hold FACTS, hedge values are discarded and re-asked (stops a
+  record→drop→record loop).
+- `travel_mm` guidance: a volunteered distance said with travel/stroke/reach/motion
+  is usually ARM movement — ask which dimension the jaws span, don't record.
+- `mounting` guidance: record only what was stated, never append a missing-detail
+  note.
+
+**Proof discipline**: package + full tools-api suite green;
+`TestNormaliseRejectsHedgedTextValues` pins the exact live-failure string and
+token-adjacent clean values ("outboard"); MUTATION-PROVED (guard removed → test
+fails on every hedged value → restored). Image `v1.0.1342` from `45436143b`
+(fix an ancestor, checked); binary carries 'not yet specified' ×2 with the OLD
+1340 BINARY as the 0-control (a true removed-string control, not a synthetic).
+Archive `~/.config/gripper-dossier/tools-api-v1.0.1342.tar.gz`
+(md5 `b2bf148f71cf4e601a442bd3b4a19608`); the 1340 archive KEPT as rollback.
+
+**Council round for 70083c99: queued at write time** (the payload query was still
+running; 29-min publish→start latency is normal — find it by
+`collected_data->'input_data'->>'fix_correlation_id'`, never retry on a missing
+row). Verdict-reading is OWED by this lane.
+
+**Close criteria for 409 unchanged** (in the bug file): live replay after the swap —
+hedged mounting → asked again (no build spent); volunteered "300 mm travel" →
+clarifying question; 613916a7 happy-path baseline still passes.

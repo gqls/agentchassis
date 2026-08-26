@@ -489,11 +489,20 @@ milestone read-out.
 
 ## Open, in priority order
 
-1. **`bugs_open/409_HANDOFF_2026-08-26_gripper_chat_completeness_gate_and_the_validators_placeholder_rule_disagree.md`**
-   — two findings from the first live requests: null-based chat completeness vs
-   phrase-based validator (a vague visitor = guaranteed failed report), and the
-   "travel"→`travel_mm` (jaw span) volunteered-value trap. **Fix before the widget**
-   — the widget invites vague first messages. Fix candidates ordered in the file.
+1. **409 FIX BUILT same day (chat side) — awaiting the owner's 3-command island swap,
+   then the live replay closes or keeps it.** Commit `eeff5dde6`
+   (`Council-Submitted: 70083c99…`, verdict-reading OWED), image **v1.0.1342**
+   staged at `~/.config/gripper-dossier/tools-api-v1.0.1342.tar.gz` (1340 archive
+   kept = rollback). Owner's commands:
+   ```
+   scp /home/ant/projects/agentchassis/docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/infra/island/docker-compose.yml root@toolsapisuk.vs.mythic-beasts.com:/opt/island/docker-compose.yml
+   ssh root@toolsapisuk.vs.mythic-beasts.com 'gunzip | docker load' < /home/ant/.config/gripper-dossier/tools-api-v1.0.1342.tar.gz
+   ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && docker compose up -d tools-api'
+   ```
+   Then this lane: verify at container (revision label `45436143b…`, binary literal
+   'not yet specified' > 0) + the three replays in the bug file's close criteria.
+   Original findings: null-based completeness vs phrase-based validator; the
+   "travel"→jaw-span volunteered-value trap.
 2. **Site widget + `/gripper-report/` page** (DESIGN §2 "Site side", unchanged).
 3. Council resubmit `RESUBMIT_CORR=623da25b…` — still the tools-api build
    session's, deliberately not taken by this lane.
