@@ -54865,3 +54865,83 @@ enumerate the aspects of ONE site (I had the list) and grep the TEMPLATES for th
 mechanism before declaring a config absence from the ORM tables and Go code. Same family
 as "a client-side absence is not an absence": an absence is a claim about every store you
 did NOT search. Tally: absence-declared-from-the-wrong-store.
+
+---
+
+## 2026-08-26 — bugs_open/399 lane: three wrong calls in one afternoon, all caught before shipping
+
+### (1) I nearly quoted a census I had not sampled
+
+**What I claimed.** 228 CTA labels (19.1%) contradict their recorded destination, from comparing the
+label's distinctive tokens to the adjacent `_target_title`.
+
+**Why it was wrong.** The `_target_title` is frequently a **marketing** title that shares no word
+with a perfectly good label. Sampling 22 of the selected rows found correct destinations sitting in
+my "mismatch" bucket: *"Calculate Overpayment Savings"* → *"What overpaying could save you"*;
+*"Run the Scorecard Simulator"* → *"Where you stand before you apply"*; *"Read the case studies
+behind these posts"* → *"What we have built"*. Re-running against the destination page's
+`name`+`title`+`nav_label` with stemmed tokens gave **186 (15.6%)**.
+
+**What caught it.** Me, sampling before believing — but only because the estate's own rule made me,
+and I had already typed the 19.1% into a draft.
+
+**The cheap check, nearly skipped.** `ORDER BY random() LIMIT 20` and READ them. A census over a
+heuristic is a **hypothesis** until you have read some of what it selected. Marked and dated is not
+the same as sampled. Tally: figure-quoted-before-the-selection-was-read.
+
+### (2) I accepted the bug file's framing, and it was a third predicate
+
+**What I claimed.** That bug 399's fix candidate 1 — compare the label's tokens to `_target_title`
+— was the fix, and that reusing the existing token reducer made it safe.
+
+**Why it was wrong.** `BestLabelMatchForPage` already answers "which page does this copy name?", live,
+in `check_misdirected_cta`. A label↔title token test is a **third** definition of "misdirected"
+beside the detector's and the writers' — the re-drift **RFC_047 §9** rejects by name. And
+`bugfix_203/CALIBRATION_2026-08-11` had already measured that shape brittle: nine already-correct
+CTAs on gaswholesalers.com flipped to the wrong tool over a stray hyphen in "Break-Even". Worse, the
+candidate's *remedy* half ("regenerate the label from the title") is what
+`stampCTADestinationGuidance` already asks for, so forcing it converts a mismatch into a **lock**
+(`bugs_open/391`) — moving rows out of the bucket a ranking fix reaches and into the bucket only an
+LLM pass clears.
+
+**What caught it.** An adversarial review of my own plan, not any test. The filing session
+independently reported the same error one level down: its "reuse the token reducer" advice was
+written *to avoid* a second definition of "distinctive token" and would have created a third
+predicate.
+
+**The cheap check, skipped.** Before adding a comparison, **ask which existing consumer already asks
+this question**, and reuse *that* — not its ingredients. Reusing a helper is not the same as reusing
+a question; sharing `LabelTokens` between two different predicates is the drift, wearing the
+disguise of reuse. Tally: reused-the-ingredient-not-the-question.
+
+### (3) I picked the seam that covers the calm half of the system
+
+**What I claimed.** That `RenderComponentAction` is the write-time seam, because it is the first
+place the writer's fresh label and the resolver's destination coexist — and that a check there
+"applies to all 646 components with no per-agent enablement".
+
+**Why it was wrong.** `RerenderPageSectionsAction` does not go through it at all
+(`rerender_page_sections_action.go:662` calls `RenderTemplate` directly). A gate there would have
+watched the **build** path and missed the **repair** path — the one actually minting the churn (182
+`misdirected_cta` item_keys filed more than once). Both writers converge one step later, at
+`save_page_sections`.
+
+**What caught it.** An adversarial reviewer asserted it; **I verified it rather than accepting it**,
+which is the only reason I can state it as fact. It also handed me a second correction: my plan's
+migration was to assert "exactly 2" `save_page_sections` steps, and a recursive census found **six**
+— four inside loop `sub_workflow`s that a top-level path cannot see.
+
+**The cheap check, skipped.** **Enumerate the writers of the table you are guarding**, recursively,
+before choosing a seam — a path that looks canonical may be bypassed by the repair path, and a
+top-level `jsonb` read reports a nested step as ABSENT, which is indistinguishable from "does not
+exist". And for an **instrument** specifically: armed on half its writers it does not report half a
+problem, it reports a **rate that reads fleet-wide and is silently biased**. Tally:
+seam-chosen-without-enumerating-the-writers.
+
+### (4) my own test fixture exercised the rule I imagined
+
+Hand-wrote a component `input_schema` as a flat field map; production uses the v2 `{"fields": {...}}`
+wrapper. `DeriveCTAURLFields` returned nothing, so the pass was **silently inert** and every positive
+test failed and told me. Fixture now copied from a live `content_components` row. Same family as the
+2026-08-05 provocation-calibration entry: **a fixture you compose exercises its own rule.** Tally:
+fixture-composed-not-copied.

@@ -78,3 +78,45 @@ drift, with `component_versions` holding zero rows for the components involved, 
 byte-identical re-render. Whether class 3 here IS that defect or merely overlaps it on one site
 with a bad early build has not been measured. Whoever takes class 3: start from 277 §9 and
 `cmd/content-data-recover`'s refusal reason before designing anything new.
+
+---
+
+## CONTRIB 2026-08-26 — from the `bugs_open/399` lane: your candidate 1 now has a shared predicate to build on
+
+`08afad7cd` extracted "does this button's copy name the page it links to" out of
+`check_misdirected_cta` into **`datahelpers.JudgeCTALabel`**. `ctaClassifyAnchor` is now a thin
+adaptor over it, and the proof the extraction changed nothing is that
+`check_misdirected_cta_test.go` and `cta_classify_anchor_test.go` pass **unchanged** — the same bar
+`bugs_open/203`'s extraction of `BestLabelMatch` met. `check_cta_nonpage` reuses `ctaClassifyAnchor`
+and converged for free.
+
+**If you build candidate 1 (`VerifyMisdirectedCTAResolved`), call `JudgeCTALabel` — do not fork it.**
+A verifier asking this question a fourth way is precisely the re-drift RFC_047 §9 forbids, and the
+whole reason 203 extracted the matcher in the first place.
+
+Three things it gives you that you would otherwise re-derive:
+
+1. **A three-valued verdict.** `Agrees` / `Contradicts` / `NoOpinion`, the last carrying an
+   `Ambiguous` flag. The 391 lane's CONTRIB to the 308 lane asked for a fourth completion class —
+   *"correctly unchanged because the copy names this destination"*. That is `Agrees`, already
+   distinguished.
+2. **RFC_047's refusal, already applied.** An ambiguous label reports `NoOpinion{Ambiguous:true}`,
+   never a guess. A verifier that convicts on an alphabetical tie would strand items in `failed`.
+3. **The self-link rule**, via `BestLabelMatchForPage` — a label naming the page it sits on names
+   nothing.
+
+⚠ **What it does NOT solve for you, and it is your hardest problem.** `verifier_coverage_test.go:148-185`
+records why the `page_rerender` verifier was written and **held** on 2026-07-20: a whole-page
+predicate is stricter than the handler's `ctaFieldNames` remit and would strand ~1,849 items in
+`failed`. `JudgeCTALabel` is the per-anchor question; it does not scope a verdict to what the handler
+is actually responsible for. That scoping — mapping a rendered component back to its spec section's
+`component.function` — is still the first thing to build, and the hold note warns the keeps have
+widened **three times** since (248 authored-utility, 299 non-page, 308 minted-utility), so it is
+harder now, not easier.
+
+Separately, your finding that **124 of 135 live findings sit in components absent from
+`ctaFieldNames`** is the same population my write-time pass cannot see either: a `_target_title`
+exists only where `setCTAField` ran, so components like `system-stats`, `tool-cta`,
+`featured-content` and `tool-list` carry CTA url keys and **zero** titles `[MEASURED 2026-08-26]`.
+They remain yours. I have stated that limit in the code header and in register LNK-040 rather than
+letting a later reader assume coverage.
