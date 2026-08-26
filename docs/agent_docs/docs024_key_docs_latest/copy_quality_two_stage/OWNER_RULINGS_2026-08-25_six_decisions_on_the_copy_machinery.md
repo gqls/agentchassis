@@ -80,3 +80,29 @@ design-research sub-agent + best-in-class mission default) is a separate TODO an
 this trigger"* — the research-serves-best-in-class wiring was never built. The stakes-split of the
 uncertainty device (finance acknowledges; grass seed does not) needs a category model over the
 briefs — scoped as the next piece, briefs untouched today.
+
+---
+
+## Second wave, 2026-08-26
+
+**Ruling 1 SHIPPED** — migration `630`, the TESTED second draft (draft 1 held 1 of 2 planner
+replays — its failure, "Practical UK Guidance, No Products to Sell", was the rule's own named
+error; draft 2's hard format clause held 3 of 3: "About | Home Garden"). Applied, backed up,
+rollback on file, recorded, verified at the live row alongside 629's rule.
+`Council-Submitted: 5f084feb-7c2a-4412-9363-29d5108eed5b`.
+
+**Ruling 4 PLANNED** — `PLAN_2026-08-25_best_in_class_propagation.md`: carrier-row + injection
+(the Go question answered there: text in Go would not break anything but optimises for
+immutability when the mission needs reach and cheap tuning — mechanism in Go, words in one DB row,
+the proven CQ-022 shape), per-site `strategy.benchmark` at birth, the research inventory → refresh
+→ routing phases, and the finance-vs-editorial stakes split over the briefs.
+
+**Wave-1 council verdict: APPROVED** (`6a0f8b99`, round 1, 2 advisories, none high), advisories
+checked not banked: the seats read `agent_default_configs` as "no such table" — it exists (queried
+throughout; `voicestyle.go:35` is the code's own query against it) and the 628 verification ran at
+the concrete path, though the submission's edit-2 symbol WAS vaguer than edits 1/3 (noted for
+future submissions); the guardian's two-active-rows trap was CHECKED — all three wave-1 targets
+single-row — and found REAL elsewhere (four types carry 2 active rows) → filed to `LANDMINES.md`
+with the in-file `RAISE count<>1` check prescribed, verifier armed; the fleet-wide-immediacy
+concern is answered by the offline replay-before-apply pattern both waves used plus one-file
+rollbacks.

@@ -40,15 +40,18 @@ deletion; register tells unchanged in every arm (separate fault, fed by demonstr
 — his words + execution record). **SHIPPED same day: migrations 627/628/629** (writer substitutes
 deleted with every ban + tool mandate kept; house voice form-rewrite 17→0 demos; planner stops
 demonstrating and planning unfillable social-proof slots), applied + backed up + rollbacks +
-recorded + verified at the live rows; council `Council-Submitted: 6a0f8b99`. **Next executable
-steps: (a) the planner PREMISE fix candidate awaits his yes (rulings doc, ruling-1 research —
-mission prohibitions become page premises despite the existing guard; ~6 of 23 about pages
-affected); (b) ruling 4 scoping — stakes-split of the uncertainty device over the BRIEFS
-(12–31 demos/site, the biggest untouched layer) + propagate the best-in-class Build standard
-beyond the classifier (0 of 51 specs carry it; research wiring is a never-built TODO);
-(c) canary: the next greenfield build's about page + re-run CQ-032 on a fresh rendered prompt;
-(d) phase 2 verdicts 2 of N: briefs → llm_guidance → copy-editor; (e) delete the writer's dead
-rules 16–17 in a follow-up migration.** His sharpest new datum: the
+recorded + verified at the live rows; council `Council-Submitted: 6a0f8b99`. **(08-26) Wave 1 council-APPROVED (`6a0f8b99`, advisories checked — one became a LANDMINES entry:
+four agent types carry TWO active rows; assert count=1 inside every prompt migration's DO block).
+Ruling 1 SHIPPED as migration 630 — the TESTED second draft (draft 1 failed 1 of 2 planner
+replays; the hard format clause held 3 of 3 — register rules bend, format rules hold). Ruling 4
+PLANNED: `PLAN_2026-08-25_best_in_class_propagation.md` (carrier row + per-site benchmark +
+research phases + stakes split; the Go question answered in §2).**
+**Next executable steps: (a) read the `5f084feb` verdict (630); (b) execute the best-in-class plan
+step 1 (carrier row + injection generalisation — Go change, needs a roll); (c) delete the writer's
+dead rules 16–17; (d) per-site cleanup of the ~6 self-limiting about titles (per-lane; garden-tools
+already has an owner-authorised re-plan); (e) canary the next greenfield build's about page +
+re-run CQ-032 on a fresh rendered prompt; (f) phase 2 verdicts 2 of N: briefs → llm_guidance →
+copy-editor.** His sharpest new datum: the
 about.html PREMISE is wrong (14/17 methodology headings), his phrase list is a SAMPLE, and fixes
 that remove named strings while keeping the page's shape will not satisfy it.
 

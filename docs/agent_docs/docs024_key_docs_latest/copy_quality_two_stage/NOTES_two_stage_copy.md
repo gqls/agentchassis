@@ -2784,3 +2784,27 @@ premise chain = prohibition-rich mission seed → planner amplifies into page pr
 own guard (prohibition without demonstration, again); best-in-class lives ONLY in the classifier's
 Build standard block, 0 of 51 site specs carry it, and the research wiring is a recorded
 never-built TODO.
+
+---
+
+## 2026-08-26 (early) — wave 2: 630 shipped after its wording FAILED its first test; wave-1 APPROVED; a new landmine from an advisory
+
+The owner ordered ruling 1 shipped and ruling 4 planned (and asked whether best-in-class belongs
+in a Go file — answered in `PLAN_2026-08-25_best_in_class_propagation.md` §2: mechanism in Go,
+words in one DB row, the CQ-022 shape). **The test-first discipline earned its keep again**: the
+fix wording I would have shipped held only 1 of 2 planner replays — the failing run produced a
+self-limiting subtitle ("No Products to Sell"), the rule's own named error, WITH the rule in the
+prompt. The hard format clause fixed it 3 of 3. Register rules bend; format rules hold. `630`
+applied/verified/recorded; `Council-Submitted: 5f084feb`.
+
+Wave-1 verdict **APPROVED** (`6a0f8b99`, 2 advisories). The guardian's duplicate-active-rows
+advisory checked out as real fleet-wide (content-creator, content-creator-contact,
+chief-strategist, site-component-architect each carry 2 active rows) though not on our targets —
+new LANDMINES entry with the prescribed in-file `RAISE` check; verifier dispatched. The seats'
+"agent_default_configs is not a table" objection is itself wrong (the table exists; the 628
+verification ran at the concrete path) — evidence in the rulings doc; lesson kept: name the exact
+table+path in every edit symbol.
+
+Remaining queue: ruling-4 execution (carrier row + benchmark + research phases + stakes split),
+writer rules 16–17 deletion, per-site cleanup of the ~6 self-limiting about titles (per-lane),
+phase 2 verdicts 2 of N, and the 5f084feb verdict to read.

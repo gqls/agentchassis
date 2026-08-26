@@ -115,3 +115,23 @@ platform credentials from the pod, no key extracted). Scores are m1+m2 per run; 
 and What We Will Not Do"? `build-site-planner`'s rendered prompt is already top-of-table for
 candour-beat and em-dash proxies (87–118K chars, 34–59 negations). The planner audit
 (phase 2 item 4) is now the priority, ahead of any writer-template migration.
+
+---
+
+## Follow-on: the PLANNER replay (2026-08-25/26) — testing the ruling-1 fix wording before shipping it
+
+Subject: homegarden's real `plan_site` call (`cabfb760`, claude-opus-4-6, 86,752-char rendered
+prompt, the call that planned the rejected about page). Metric: the planned about-page `title`,
+plus limitation-phrase count across the whole plan. Owner had ordered the fix shipped; the wording
+was still tested first — and the first draft FAILED the test:
+
+| arm | about title per run | verdict |
+|---|---|---|
+| verbatim ×1 | "About Home Garden — Our Editorial Approach" | validity holds — the methodology premise reproduces |
+| draft 1 (register rule) ×2 | "About Home Garden" · **"About Home Garden — Practical UK Guidance, No Products to Sell"** | **1 of 2 — the failure is the rule's own named error, produced WITH the rule in the prompt** |
+| draft 2 (+ hard format clause: "'About' plus the site name and nothing more: no subtitle, no dash, no qualifier") ×3 | "About | Home Garden" · "About | Home Garden" · "About | Home Garden" | **3 of 3 clean**; limit-phrases across whole plans 0–1 (baseline 1) |
+
+Reading: **register rules bend; format rules hold** — the same lesson as the 08-12 heading-examples
+finding, at the planner layer. Draft 2 shipped as migration `630` (applied 2026-08-26, verified at
+the live row, `Council-Submitted: 5f084feb`). Residue: the ~6 existing self-limiting about titles
+are not rewritten by a prompt rule — per-site re-plans or title edits, per-lane work.

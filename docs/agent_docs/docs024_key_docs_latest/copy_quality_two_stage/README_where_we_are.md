@@ -870,3 +870,36 @@ twenty-three about pages have titles like that. The fix I'd propose is one demon
 example in the planner (your register: "We're hoping you can get a lot of useful tips from this
 site…") plus a rule that mission constraints become internal rules, never page titles. Say the
 word and it ships the same way tonight's three did.
+
+---
+
+**2026-08-26.** Your two answers from last night are done.
+
+**The planner fix is live — and testing it first paid for itself.** The wording I had drafted
+held in only one of two trial runs; the failing run titled the about page "Practical UK Guidance,
+No Products to Sell" — the exact mistake the rule describes, made with the rule in front of it.
+Adding one hard formatting line ("title the about page 'About' plus the site name and nothing
+more: no subtitle, no dash, no qualifier") made it hold three out of three. That's a pattern now
+confirmed twice at two layers: rules about register bend, rules about format hold. The tested
+version is what shipped, with a one-file rollback.
+
+**Your Go question, in one paragraph.** Putting the best-in-class text into a Go file wouldn't
+break anything — it would just make the wrong thing better. Go text is compiled in: it can't
+drift, but every wording change needs a build and a fleet roll, and this mission is text you'll
+want to tune. The platform already solved this shape with the house voice: the plumbing lives in
+Go (one injection point, so it can't scatter into drifting copies), the words live in one database
+row (live within a minute, reviewed through migrations). The plan proposes the same: a second
+carrier row for the build standard, injected into the planner and designers, plus a per-site
+"benchmark" written at birth naming the strongest sites in that vertical, and then the research
+wiring — inventory what the classifier already gathers, add a periodic refresh of latest findings
+and trusted reviews, and route it so the planner and experience loop can ask "the best sites have
+X; do we?". The finance-versus-grass-seed split rides the same plan.
+
+**One more thing a reviewer's comment surfaced.** Four of our agent types quietly carry two active
+configuration rows each; a config change keyed on the agent's name can hit both or the wrong one
+without any error. None of last night's changes were affected — I checked each target — but it's
+now written into the traps file with the check every future prompt migration must carry.
+
+Still queued: executing the best-in-class plan, deleting the writer's now-dead testimonial-filler
+rules, and retitling the six existing about pages that carry the old self-limiting premise — those
+are per-site jobs, not prompt rules.
