@@ -151,3 +151,15 @@ keys) is whoever owns tool templates (`bugs_open/357` nearest).
 > (their socket is in this session's transcript) rather than editing the file. Refined (c)
 > criterion passed to them: skip is predicted only if the trigger fires before the 20:47:24–42 due
 > window; a dispatch after 20:47:42 would CONFIRM the mechanism, not refute it.
+
+## DAY-END ADDENDUM ~23:40Z — cold-start read is now NOTES §X.63–§X.67; every watched row is terminal
+
+State: news feed LIVE on the 6 h grid (410's fleet fix shipped and proven same-day; RUNBOOK 6g's
+per-site SQL WITHDRAWN — do not apply it); news rendered server-side on / and /news/; empty-heading
+churn PARKED by the platform after two cycles; all four `tool_fix` edits terminal with artefact
+verdicts in §X.67's addendum. **Tomorrow's three discriminating watches:** (1) the next acceptance
+pass on tool-idea-stage-identifier — a re-filed "#isi-error absent" = id-scheme OSCILLATION
+confirmed; (2) the improver's next audit on tool-pricing-signal-checker — a re-filed `tool_fix` =
+a green no-op loop (its 23:26 "fix" was an EMPTY COMMIT, stats 0/0/0); (3) the 410 lane's
+four-sites-reappear test at ~02:46Z (theirs to record). Owner items unchanged: rows 50 + 51, the
+23-guard-refusal batch close, choices §5. Failed = 9 (all diagnosed; none actionable by this lane).
