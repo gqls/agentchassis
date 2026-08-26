@@ -214,6 +214,14 @@ operator hand-edited chrome and we corrected it", i.e. as the platform doing its
   right once the key exists, and a render re-queues the page (`build_status='needs_rebuild'` is
   queue membership — their trap). **After c2 runs, tell them**; they verify apis.uk at the served
   bytes and settle `build_status` themselves.
+  > **CORRECTED 2026-08-26 (by the apis.uk lane, adopted here): "apis.uk refuses page re-renders"
+  > is DISPROVEN — three `page_rerender`s COMPLETED on apis.uk overnight (00:45, 04:53, 08:46Z),
+  > which is exactly how its tag was stripped.** The 08-25 11:19 `failed` item I measured was real
+  > but was the 383 lane's canonical re-walk specifically, not a standing property; the permanent
+  > locks hold the 7 `page_components` rows and a page re-render completes around them while
+  > regenerating chrome. So expect apis.uk's wave items to COMPLETE and the served page to regain
+  > the tag with no unblock step. The wrong generalisation was theirs (their WRONG_CALLS
+  > 2026-08-26); the too-strong adoption after measuring one failed row was mine.
 
 ---
 
@@ -254,3 +262,32 @@ after its rebuild; their hand-placed "Not active yet" label on index will be wip
 theirs, expected. (4) homegarden note from `copy_quality_two_stage`: any *planned* page the wave
 builds (not just re-renders) runs the post-627/628 writer — copy differences across that boundary
 are not this change's doing.
+
+### §10 addendum, 2026-08-26 ~12:30 BST — the 11 review items, their disposition, and the banked facts
+
+**Every `chrome_divergence_overwritten` `:head:` item at `needs_human_review` matches a strip event
+to within 130 ms** — 11 items, one per stripped site (agritec `6b320f3e…`, cookly `103e8baa…`,
+garden-tools `e4cf75ec…`, loanzy `94dd0a5e…`, lendzy `eb67c4ed…`, mortgagecalculator `75e76f77…`,
+loancash `f11b3679…`, apis.uk `2e4e5f51…`, remortgagecalculator `e452e9b1…`, noted `efa20f84…`,
+webdesign.uk `d23bb38c…`). All are THIS bug: the archived copy is the 08-24 backfill being correctly
+archived out, not an operator hand-edit to restore. **A batch disposition (status→`complete`, cause
+in `result`) was attempted and BLOCKED by this session's permission layer; not retried, not routed
+around, no peer asked to run it.** The items stay open; this section is their written answer; the
+one-line UPDATE is queued for the owner. noted.co.uk's older sibling (08-18, header slot,
+`ab9afa54…`) predates the backfill by six days, no GTM link found — not this bug's.
+
+Banked from the lanes' acks, 2026-08-26 (fuller versions in `analytics_gtm/NOTES` §15):
+- **cv1.co.uk (357 lane): rerender measured-safe (6 completed), but a page REBUILD on
+  `index`/`tool-example` crashes the agent pod** (`bugs_open/408`, `extractFieldValue` infinite
+  recursion → stack overflow, measured ×3). c2's path rides `stale_chrome → needs_rerender` only —
+  **nothing in this bug's remediation may set `build_status='needs_rebuild'` on cv1 until 408 is
+  fixed.**
+- **remortgagecalculator.uk:** served index still tagged; six pre-queued `page_rerender`s can open a
+  temporary tag-less window before the keyed chrome rebuild restores it. Rotation ETA ~18 h of 09:20Z.
+- **agritec.uk:** own 13-page rerender wave + 17 `needs_imagery` items interleave; dedup absorbs this
+  bug's item. `/favicon.png` 404 and `head_essentials_missing` ×13 are pre-existing, not regressions.
+- **loancalculator.co.uk:** locked calculators proven wave-safe; post-wave `toolgolden.py` vs
+  `GOLDEN_2026-08-24_post_385_repair_tool_values.json` should read 11/11. Mid-wave, one page
+  differing from peers = NOT YET REACHED, not skipped — re-sample before concluding a miss.
+- **Open OWNER question: should `cv1.co.uk` and `lampenkap.com` report into the estate's GA4?**
+  Portfolio call, both lanes agreed; both keyed today; retraction is one supersede (4 + 1 pages).

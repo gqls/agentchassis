@@ -14,7 +14,9 @@
 > D 0**. The container still has **0 tags** — publishing is still the owner's click. ⚠ Until the
 > rebuilds land, **apis.uk serves `gtm=0` — do NOT use it for the walkthrough's step D**; test
 > Realtime on a durable site (idea.uk, vonc.com, loancalculator.co.uk). apis.uk's own rebuild page
-> item is expected to FAIL (its index refuses page re-renders — 383 lane's blocker); the apis.uk
+> item was expected to FAIL — **CORRECTED 12:30 BST: disproven by the apis.uk lane, three
+> page_rerenders completed there overnight (that is how its tag was stripped); expect its wave
+> items to COMPLETE**; the apis.uk
 > lane settles its `build_status` themselves and has been told c2 ran. Verify drain with
 > `scripts/check_gtm_state.sh --db` (C → A) and at served bytes.
 

@@ -20,9 +20,10 @@
 --   include the 4 sites that carry it NOWHERE (agritec.uk cv1.co.uk homegarden.uk lampenkap.com, as
 --   of 2026-08-25 — "standard for new builds", owner 2026-08-24):  add -v UNTAGGED=1
 --
--- EXPECTED FAILURE, NOT DAMAGE: apis.uk's index page refuses page-level re-renders (measured 2026-08-25:
---   its page_rerender item is `failed` with result={}; 383 lane's 9a843c06a "apis.uk cannot re-render").
---   The head ARTEFACT still converges; the served page already carries the tag. AFTER APPLYING, TELL
+-- APPLIED 2026-08-26 ~10:50Z (owner go), 17 sites / 334 pages — kept for re-use if bucket B refills.
+-- ~~EXPECTED FAILURE on apis.uk~~ CORRECTED 2026-08-26: 'refuses page re-renders' DISPROVEN — three
+--   page_rerenders completed there overnight (the 11:19 failure was 383's re-walk). Expect COMPLETE.
+--   The served page regains the tag with the wave. AFTER APPLYING, TELL
 --   apis_uk_bees_homepage (CONTRIB in this dir, 2026-08-25) — they verify at the served bytes and settle
 --   pages.build_status themselves. Tell the other lanes in bugs_open/397 §9 BEFORE applying.
 --
