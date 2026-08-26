@@ -152,6 +152,44 @@ entity block.
 subject) and `learn-security-xss-vulnerability` (the escaping half). Both verified active non-tool
 pages.
 
+## #46 `tool-asset-formatter` (9,222) — ANALYSIS DONE. Self-contained, no sidecar.
+
+Page `1a6d54a8-db1f-40e6-8a11-504bb9931edc`, slot `518fe90e-c5c8-4123-8e00-9915a04eee51`, md5
+`e900cdd5…`, url `/tools/asset-formatter/index.html`.
+
+What it does: the visitor lists semantic keys against hosted asset URLs (add/remove rows) and gets a
+paste-ready prompt block telling an AI assistant it is forbidden to invent image URLs and must map
+only to this dictionary, with the map emitted as fenced JSON. **Keep that instruction text — it is
+the product.**
+
+**Ported defects:**
+- **The stated sanitisation does not do what it says.** The source comment reads *"Sanitize key to be
+  a safe variable name (replace spaces with underscores)"* and the code is
+  `key.replace(/\s+/g,'_')` — whitespace only. `logo-main!`, `2fast` and `class` all pass through
+  unchanged into a dictionary the prompt calls "semantic keys" for the model to map logic to.
+  Either validate to a real identifier and say what was changed, or stop claiming to sanitise.
+- **Duplicate keys silently collapse.** Two rows with the same key overwrite in the object (last
+  wins), so the list on screen and the dictionary in the prompt disagree with no warning — the
+  output stops describing the input.
+- **No URL validation at all**: `not a url` maps happily into a block that instructs a model to use
+  it as an image source.
+- **`copyPrompt` is the same three defects as monolith-splitter, same author's hand** — guard keyed
+  on placeholder PROSE (`text.includes("Add your assets")`), unconditional `Copied!` with no failure
+  arm, and a 2-second restore that hardcodes `#333`/`#fff`, colours the button never had.
+  **And here the prose guard has a live hole:** the empty case writes **`"No assets mapped."`**,
+  which does not contain "Add your assets" — so **pressing Copy with no assets puts the literal
+  string "No assets mapped." on the clipboard while the button reports success.**
+- **`window.onload = () => …`** seeds the two example rows — a window-global assignment that
+  clobbers any other `onload` on the page.
+- Rows are built with `row.innerHTML` interpolating `value="${defaultKey}"` and an inline
+  `onclick="removeAssetRow('${id}')"`; 4 inline handlers, 4 globals.
+- Copy reads back `#output.innerText` — and the payload is a fenced JSON block, where exact
+  whitespace matters. Copy the composed string.
+
+`related_pages`: `learn-ai-builders-anti-slop` (its thesis is precisely "stop the model inventing
+generic filler", which is this tool's job) and `learn-ai-builders-content-first`. Both verified
+active non-tool pages.
+
 Then, smallest-first: head-architect 9,212 · asset-formatter 9,222 · layout-generator 9,223 ·
 insight-injector 9,369 · … **re-run the census, do not trust this list.** The FIVE rich apps go
 LAST, one at a time, owner-reviewed (standing ruling).
