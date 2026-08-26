@@ -552,3 +552,43 @@ skipped entirely while any one of its jobs is stuck part-done. I checked whether
 anywhere today and it is not, on any site, so this is a trap to know about rather than a fire. I
 have been careful not to let it explain last night's long silence, because I have no evidence that
 it does.
+
+## 2026-08-26, early evening (rebuilding seat) — a second tool the same hour, and the corrected check earned its keep
+
+The queue stayed clear, so I took the next one straight away. Head Architect — the tool that writes
+you a complete HTML head block for a page from four fields plus whatever head you paste in.
+
+This one was worth doing carefully, because everything it produces is code the visitor pastes into
+their own website, and the old version had two faults that would quietly damage that code.
+
+The first: none of what you typed was made safe before being put into the markup. Type a brand name
+with a quotation mark in it — "Bob's \"Best\" Widgets" — and the tag it lands in breaks. Every tag
+carrying that name breaks with it, and you would only find out after pasting.
+
+The second is the same problem one level down. The tool writes a block of machine-readable data
+about your site for search engines. If your page description happened to contain the characters that
+close that block, the block ended early and the rest of your description spilled out as broken
+markup. The new version encodes those characters so the data survives intact and the block cannot be
+broken out of. It went further than I asked for, which I have noted.
+
+I also found the handoff note I was working from had one defect backwards. It said pasted titles come
+out duplicated; reading the code, they are silently thrown away instead — along with any Facebook or
+Twitter tags you already had. Those are opposite problems needing opposite fixes, so I corrected the
+note and specified the real one. The new tool now says on the page what it keeps and what it replaces,
+and reports anything it did not recognise rather than dropping it in silence.
+
+**Speed, which is the visible change.** This one was picked up two minutes and fourteen seconds after
+I filed it, built, and the old version retired nineteen seconds after the build finished. Earlier
+today the same cycle took fourteen minutes to even start. That is the corrected queue check doing its
+job: it now tells me not just how many jobs are ahead but whether this site is the one about to be
+served, and I filed at the moment it was first in line.
+
+**Where that leaves us: forty-five of sixty-three.** Both of today's two are waiting on the site to
+rebuild their pages before the new versions are visible to the public — the database is correct and
+nothing is half-done, but the pages themselves still show the old tools for now. I have left both job
+references for whoever picks this up.
+
+One thing I want to be straight about: parking those forty-one false alarms bought time, it did not
+fix anything, and the number will keep growing by one for every tool we rebuild. I confirmed that on
+today's tool by checking both halves — what the page actually serves and what the checker actually
+looks for — and they do not match, for the same reason as all the others.

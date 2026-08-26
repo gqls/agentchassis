@@ -4733,3 +4733,76 @@ survey**, and this is the second inherited count this lane has had wrong in one 
 responsive-blind overall. But the guide box sets `grid-template-columns: 1fr 1fr` **inline, twice,
 with no media query**, so that panel stays two-column on a phone. The brief asks for both the
 guidance panel and the main layout to collapse, which is why it names them separately.
+
+## 2026-08-26 17:55Z — #45 `tool-head-architect` REBUILT (45 of 63). Serve-grade OWED.
+
+**Fastest cycle this lane has run.** Filed 17:47:42Z → claimed **17:49:56Z (2m14s)** → complete
+17:54:33Z → retired **17:54:52Z (19s after the build)**. Run graded at the RUN: `current_step=complete`,
+`page_adopted=true`, `already_exists` NULL, `__step_error` NULL, component
+`bf0d7919-8480-41e9-affc-d33b154a9521`, native slot `a3faae4d-43e4-4428-b0ee-1ac033df0d1b`
+(position 2, 19,911 chars). Retire txn: PRE1 (md5 `9802cb3c…`, len 9212) + PRE2 + POST all passed,
+output reached **COMMIT**. Post-commit re-read: ported `removed` 17:54:52, native `deployed`.
+Tally **45 `removed` + 18 `deployed` = 63**, **0 dual-slot pages**, both this page and #44's serve
+`class="ported-page"` = 1 (stale-but-single — correct).
+
+**The 2m14s claim is the corrected GATE ZERO paying for itself.** I filed at `truly_ahead = 0` with
+the site sitting at **rank 1 fleet-wide** for `find_dispatchable_site` (its oldest dispatchable row
+was 03:46:25, the oldest anywhere) and no `claimed` row excluding it. `[MEASURED 17:49:51Z]` a
+`build-dispatch-loop` for webdesign.co.uk started 5 seconds before the claim. **The old gate would
+have reported the same 0 here** — the two agree when nothing is in retry backoff — but the rank/
+kill-switch pair is what told me the wait would be short rather than merely that the count was low.
+Dispatch ticks roughly once a minute, rotating sites.
+
+**SERVE-GRADE OWED**, same shape as #44: rerender `486fef43-2b4a-4d8d-bf61-24eec6a2786a` (the 03:52
+sweep row) is `triaged` at priority 80. **Do not file a second one.**
+
+### Mechanism grade — the two output-correctness bugs are properly fixed
+
+**Negative controls, all five VALID (each ≥1 in the ported bytes) and all 0 in the native:**
+`alert(` 0/1 · `onclick=` 0/2 · `raw.match` 0/3 · **`My Website` 0/1** · **`My Page Title` 0/1** —
+the last two are the placeholder-substitution defect, and their absence is the fix.
+
+1. **Attribute escaping — and it is CONTEXT-CORRECT, which is more than the brief asked.** Two
+   distinct helpers, both with real call sites (checked, because a helper with no callers looks like
+   a finished refactor): `escapeAttr` (`& < > " '`) applied to `brand`, `description` ×2, `image`,
+   `title`; `escapeText` (`& < >`) applied to `title`. **`title` gets BOTH** — `escapeText` for the
+   `<title>` element, `escapeAttr` for the `og:title` attribute. That is the distinction the ported
+   version collapsed.
+2. **JSON-LD breakout — fixed, and STRICTER than specified.** `escapeJsonForScript` maps `<`→`<`,
+   `>`→`>`, `&`→`&` before the string is placed in the `application/ld+json` element. I
+   asked only for `<`. `<` is valid JSON that parses back to `<`, so the payload is unchanged
+   while the raw bytes can never spell `</script>`.
+3. **DOMParser, not regex** — `new DOMParser()` at the parse site; `raw.match` gone (0 vs 3).
+4. **`property=` metas preserved** — `el.getAttribute('property')` is read alongside `name`, so the
+   silent-drop defect I corrected the handoff about is closed.
+5. **It reports rather than drops** — `result.replaced.push('An existing JSON-LD script was found and
+   replaced…')` and `result.unclassified.push('An unrecognised element <…> was found and kept as-is.')`,
+   with the element pushed to `result.other` so it is **kept**, not discarded. Both requirements met.
+
+⚠ **One requirement I have NOT verified: the responsive half.** `@media` count is **1**, and the brief
+asked for *both* the guidance panel and the main two-column layout to collapse. One media query may
+cover both (if the panel uses the same grid class) or only one. I did not read the CSS to settle it,
+so `[UNVERIFIED]` — check before calling this tool fully graded, or file it as the re-fix. The ported
+slot had the mirror-image defect: `@media (min-width:900px)` on `.tool-layout` but the guide box
+hardcoding `grid-template-columns: 1fr 1fr` inline **twice** with no query.
+
+**Crosslinks:** 2 rows, both `deferred` under `OWNED_PAGE_GUARD` (`learn-marketing-seo-for-llms`,
+`learn-security-xss-vulnerability`). Correctly targeted, **not delivered** — not reported as a mention.
+
+> **RESOLVED 2026-08-26 17:58Z, minutes after writing it — the responsive `[UNVERIFIED]` above is now
+> VERIFIED PASS, and the doubt was mine, not the tool's.** A count of `@media` = 1 looked like it could
+> only cover one of the two panels. It covers both, because the block names both selectors:
+> ```css
+> @media (max-width: 700px) { .layout, .guidance-columns { grid-template-columns: 1fr; } }
+> ```
+> and `.layout` (line 18) and `.guidance-columns` (line 156) are the **only** two
+> `grid-template-columns: 1fr 1fr` declarations in the file. So the ported guide-box defect — a
+> hardcoded two-column panel with no query — is closed too.
+> **The lesson, and it is the same one as `window.onload` earlier today: a COUNT of a construct is not
+> a measurement of the property you care about.** One query can serve two selectors; two queries can
+> serve neither. Read the selector list, not the tally. Cost of settling it: one grep.
+>
+> Also confirmed while there: the page states the escaping behaviour to the visitor in its own copy —
+> *"Every value you enter is escaped for the exact place it lands in the…"* — which was an explicit
+> brief requirement ("Say on the page that values are escaped") and is the kind of thing that is easy
+> to specify and easy for a build to silently skip.

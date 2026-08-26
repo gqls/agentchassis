@@ -1,10 +1,17 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 44 of 63 retired (43 serve-confirmed, #44 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE HAS CLEARED — filing works again.
+## STATE: 45 of 63 retired (43 serve-confirmed; #44 and #45 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works, and fast.
 
 44 `removed` + 19 `deployed` = 63 (tool pages), verified 2026-08-26 17:32Z, with **zero pages carrying
 both a live ported slot and a live native slot**. Nothing is part-done except the serve-grade below.
+
+**#45 `tool-head-architect` is BUILT AND RETIRED** — `add_tool cd0078ae` filed 17:47:42Z, claimed
+**17:49:56Z (2m14s)**, complete 17:54:33Z, retired **17:54:52Z (19 s later)** under full guards.
+Component `bf0d7919`, native slot `a3faae4d` (19,911 chars). Ported slot `4f13e098` (md5 `9802cb3c…`,
+len 9212) is the revert handle. Mechanism-graded PASS at the arms incl. both output-correctness bugs
+(context-correct `escapeAttr`/`escapeText`, and `escapeJsonForScript` mapping `<`/`>`/`&` to `\uXXXX`).
+**SERVE-GRADE OWED:** rerender `486fef43-2b4a-4d8d-bf61-24eec6a2786a`, priority 80, do NOT re-file.
 
 **#44 `tool-monolith-splitter` is BUILT AND RETIRED** — `add_tool e164b069` filed 16:49:27Z, claimed
 17:03:19Z (13m52s), complete 17:06:50Z, run graded clean, retired 17:23:20Z under full guards, tombstone
@@ -49,7 +56,7 @@ explanation of the 08-26 dormancy (no evidence either way). Full working: NOTES 
 ⚠ **Do NOT bump `priority` and do NOT re-file** — pickup is `priority ASC` (LOWER first), so a bump moves
 you BACKWARDS, and `LANDMINES.md` forbids it.
 
-## ⚠ STANDING HAZARD: 41 confirmed-false findings are queued against the 43 rebuilds
+## ⚠ STANDING HAZARD: 41 confirmed-false findings queued against the rebuilds — and the count is a FLOOR
 
 `tool_acceptance` has filed **41 `improve_tool` items against tools this lane rebuilt**, every one
 reading *"interaction anchor #X absent from deployed page"*. **They are wrong, and the cause is
@@ -64,6 +71,11 @@ CONFIRMED** — `needs_diagnosis` `91228c39-8980-42bf-95cd-bd16bb43de0a`, comple
 - So `#ring-copy-button` is sought on a page carrying `id="c-tool-focus-ring-ring-copy-button"`.
   **The tell is not the matching names — it is that `boots` PASSES** (its selector `.tool-container`
   is a *class*, which nothing prefixes) **while every id-anchored check fails on the same page.**
+
+⚠ **The 41 is a FLOOR that grows by one tool per rebuild.** Verified at both artefacts for #44
+(page serves `id="c-tool-monolith-splitter-ms-framework"`, its `is_current` `doc_plans` criteria seek
+`#ms-copy-btn`), and #45 will follow the same path once its acceptance run fires. Holding rows does
+not slow the accrual — only fixing the checker or the criteria does.
 
 **Fleet-wide: 110 anchor-absent findings against 2 of every other kind; 32 already `complete`.** Each
 becomes an LLM rewrite: an observed `tool-improver` note reads *"Root cause: unknown. Fix: Rebuilt
@@ -90,7 +102,7 @@ Raised with the owner as a decision; he asked for a re-check rather than choosin
 hold stays untaken. **If you take it, it is a reversible status flip on webdesign's 41 ONLY** — the
 other 69 belong to other lanes' sites.
 
-## The recipe (proven 43 times) — unchanged except GATE ZERO
+## The recipe (proven 45 times) — unchanged except GATE ZERO, which is CORRECTED above
 
 1. GATE ZERO (above). Then: fetch the live page cache-busted and read the ported slot IN FULL.
 2. Gates: library-claim (0 rows or pin fork identity), local active component (0), open `add_tool`
@@ -120,7 +132,7 @@ brief was NOT used — ~40% of it was defect archaeology, the shape that killed 
 Crosslinks filed and both `deferred` under `OWNED_PAGE_GUARD`, as expected — not delivered.
 Handoff's ported-defect list said "4 inline onclick"; the slot has **3**. Detail: NOTES 17:30Z.
 
-## Next up — #45 `tool-head-architect` (9,212) — ANALYSIS ALREADY DONE, do not redo it
+## ✅ #45 `tool-head-architect` — DONE 2026-08-26 (serve-grade owed). Analysis retained below for reference
 
 Page `3fe28a53-9862-45fd-ac97-f5d193b390f5`, slot `4f13e098-72d9-446f-a2d9-a248d6fc8aa5`, md5
 `9802cb3c…`, url `/tools/head-architect/index.html`. **Self-contained** — the census counted 1
@@ -170,7 +182,7 @@ entity block.
 subject) and `learn-security-xss-vulnerability` (the escaping half). Both verified active non-tool
 pages.
 
-## #46 `tool-asset-formatter` (9,222) — ANALYSIS DONE. Self-contained, no sidecar.
+## Next up — #46 `tool-asset-formatter` (9,222) — ANALYSIS DONE, do not redo it. Self-contained, no sidecar.
 
 Page `1a6d54a8-db1f-40e6-8a11-504bb9931edc`, slot `518fe90e-c5c8-4123-8e00-9915a04eee51`, md5
 `e900cdd5…`, url `/tools/asset-formatter/index.html`.
