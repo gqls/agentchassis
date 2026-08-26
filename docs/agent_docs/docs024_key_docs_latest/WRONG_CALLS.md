@@ -53981,3 +53981,15 @@ I found it by reading Go for twenty minutes. `grep -n "locked_at" LANDMINES.md` 
 **The tally is the finding, and it is four in one session:** (1) `spec` enumerated, `result` not; (2) the code grepped for a writer, the docs never; (3) a co-occurring discovery run leaned on as a cause; (4) this. Every one is *not looking*, not bad reasoning — which is the same conclusion entry 9 of the 08-25 `bugs_open/387` block reached about a different lane. **Two lanes, one day, same diagnosis.**
 
 **The cheap check, and it is now the first line of this lane's RUNBOOK:** before writing "X does not exist" or "nothing does Y" in a rationale a reviewer will read — `grep -n "<the symbol>" LANDMINES.md`, `grep -rn "<the symbol>" docs/`, and only then the source. **An asserted absence is a claim about your search, not about the estate.**
+
+**8. I counted CALLS and reported them as SUCCESSES, and nearly filed a live outage as its opposite.** `bugs_open/396`, 2026-08-26. A council round produced no verdict. `ai_endpoint_health` said the Anthropic endpoint was **unhealthy**; `llm_call_log` showed **569 calls since**. That pairing has a documented meaning in this estate — LANDMINES records that a stale/false health row stops `claim_work_item` fleet-wide while the API is fine — and I was one sentence from writing *"the health row is wrong while calls are succeeding, and it is stalling the queue"*.
+
+**Every one of those 569 calls had `success = false`.** The health row was correct and the endpoint was genuinely down: last success `2026-08-25 23:46:29Z`, first failure 41 seconds later, **631 consecutive failures** over ~8.6 hours — fleet credits exhausted, already diagnosed by three other lanes hours earlier.
+
+**The shape: `count(*)` answers "did it happen", not "did it work".** My query asked whether traffic existed. Traffic existing is exactly what a *failing* endpoint also produces — arguably more of it, because everything retries. **A table with a `success` column makes an ungrouped count of it not merely weak evidence but evidence for the opposite conclusion**, and the fix is one `GROUP BY`.
+
+⚠ **What made it dangerous is that a matching landmine existed.** I had a real, documented, previously-observed failure mode ready to hand, and my measurement appeared to instantiate it. **A known pattern is a hypothesis, not a shortcut past the discriminating check** — and the more familiar the pattern, the less it feels like one.
+
+**Two smaller errors in the same ten minutes, both the same family:** I read the run ending at `complete_invalid` and half-concluded it was refused for the duplicate file paths in my plan (real, adjacent, and not the cause — it was never judged at all); and earlier I read pods 9 h old with no `build provenance` line and had to stop myself concluding "unstamped" when it means "scrolled out of range".
+
+**The cheap checks:** `GROUP BY success` before any liveness claim; read the step error before inferring the refusal reason; and treat an empty `grep` for a startup log line as *not in range*, never as *absent*.
