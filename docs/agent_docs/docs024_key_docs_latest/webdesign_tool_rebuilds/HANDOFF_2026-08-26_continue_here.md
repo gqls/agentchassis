@@ -53,6 +53,10 @@ tool HTML to restore the #sessions-per-day-input element"* — regenerating some
 in the row; 0 left triaged; **the 15 anchor-absent rows on other sites are UNTOUCHED.** Shape copied
 from two verified estate precedents (`webdesign.uk` rows `41d82357`/`0559eb67`, deferred by
 `webdesign_uk_build_service` citing this same diagnosis). Undo in one statement — see NOTES 16:45Z.
+⚠ **Name the side effect when you read the queue numbers:** holding those 41 removed 41 items from
+ahead of this lane's own next filing (~107 ahead → 25). The hold was justified independently and the
+gate STILL refuses a filing at 25 ahead / ~5 claims per hour, so nothing was gained by it — but a
+session that benefits from its own queue action should say so rather than quietly enjoy it.
 **Un-defer when** the mismatch is fixed (doc_plans criteria carry the scoped id, or the checker
 resolves through `InstanceToken`) **and** `tool_acceptance` has re-run; if a finding still reproduces
 at the served bytes it is real. Prior status line:
@@ -105,6 +109,48 @@ with no message and breaks if the copy is reworded; `copyPrompt` announces "Copi
 `.catch`; its 2-second restore hardcodes `#333`/`#fff`, colours the button never had, so one copy
 leaves it permanently mis-styled; `alert()` on the empty case; no way to REMOVE a component row;
 4 inline `onclick` + 3 globals.
+
+## #45 `tool-head-architect` (9,212) — ANALYSIS ALSO DONE, do not redo it
+
+Page `3fe28a53-9862-45fd-ac97-f5d193b390f5`, slot `4f13e098-72d9-446f-a2d9-a248d6fc8aa5`, md5
+`9802cb3c…`, url `/tools/head-architect/index.html`. **Self-contained** — the census counted 1
+external script, but that is the literal string `src="..."` inside a source COMMENT, not a real
+`<script src>`. No sidecar, no orphan. (This is why it was reclassified out of the external-script
+class on 08-24.)
+
+What it does: builds a complete `<head>` block from four fields (site name, page title, description,
+OG image) plus a pasted raw head whose stylesheets, custom metas and scripts it tries to preserve.
+Emits charset/viewport/title/description, an Open Graph + Twitter card set, and a JSON-LD `WebSite`
+entity block.
+
+**Ported defects — the load-bearing one is an OUTPUT-CORRECTNESS bug, not a UI one:**
+- **Every field is interpolated into markup unescaped.** `${title}`, `${desc}`, `${siteName}`,
+  `${img}` go straight into `content="…"` and `<title>…`. A site name of `My "Great" Site` closes the
+  attribute early and corrupts every tag it appears in — and this tool's entire output is markup the
+  visitor pastes into their own site. **Escape for attribute context**, and say on the page that it
+  does.
+- **The JSON-LD block can be broken out of.** `JSON.stringify` escapes JSON but does NOT escape
+  `/`, so a description containing `</script>` terminates the `<script type="application/ld+json">`
+  block early. Escape `<` (or `</`) when embedding JSON in a script element.
+- **The preservation is a regex heuristic and the page never says so.** `raw.match(/<script[\s\S]*?>[\s\S]*?<\/script>/gi)`
+  — the ported source calls it "(Client-side heuristic)" **in a comment the visitor cannot see**. A
+  self-closing or unclosed `<script src=…>`, or a script containing `</script>` in a string, is
+  mis-captured or dropped SILENTLY. Either parse properly (`DOMParser` on the pasted head is
+  available and exact) or state plainly what is preserved and report anything it could not classify.
+- **Custom `property=` metas are dropped without notice** — the custom-meta regex matches `name=`
+  only, so a visitor's existing `og:` or `article:` tags vanish while the tool regenerates its own.
+- **No duplicate handling**: a pasted head already containing a title/description yields output with
+  both the preserved and the generated one.
+- **Placeholder defaults are silently substituted** (`|| "My Website"`, `|| "My Page Title"`,
+  `|| "Page description."`), so an empty form produces a plausible-looking head full of dummy values
+  ready to paste. Make an unfilled field visibly unfilled.
+- `alert("Copied!")` unconditional with no failure arm; 2 inline `onclick`s; 2 globals.
+- Cosmetic but sloppy for a code generator: several vestigial `head += `\n    \n`;` lines emit blank
+  lines with trailing whitespace into the output.
+
+`related_pages`: `learn-marketing-seo-for-llms` (the JSON-LD/entity half is exactly that article's
+subject) and `learn-security-xss-vulnerability` (the escaping half). Both verified active non-tool
+pages.
 
 Then, smallest-first: head-architect 9,212 · asset-formatter 9,222 · layout-generator 9,223 ·
 insight-injector 9,369 · … **re-run the census, do not trust this list.** The FIVE rich apps go
