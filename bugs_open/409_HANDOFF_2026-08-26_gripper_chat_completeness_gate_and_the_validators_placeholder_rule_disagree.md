@@ -144,3 +144,11 @@ Corr `70083c99` — the r2 code guard answered the r1 objection. Commits
 `eeff5dde6` + `0419ca584` carry `Council-Submitted:` and are credited by `098`
 automatically now the chain is approved. Remaining to CLOSE: the v1.0.1343 swap,
 the code-guard capability probe, (c) at `emailed`.
+
+## REPLAY (c) PASS (2026-08-26 11:23Z) — the baseline E2E on the fixed intake
+
+Request `0a128782-5abc-4a40-9921-8c7cc57c3798` (session `21e67276…`, the one that
+walked through both traps and out the other side): `pending → pulled → emailed/1`
+in ~14 min, untouched. Page 200 / 95,683 B, carries `80 mm` and the full flange
+standard, **zero** occurrences of the mis-heard `300`, zero placeholders.
+**Close now waits ONLY on the v1.0.1343 swap + the code-guard capability probe.**
