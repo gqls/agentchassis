@@ -269,3 +269,70 @@ Nothing in their ordering. Candidate 0 (the parity test) is if anything better j
 defect is latent precisely because every current producer bypasses the shared action, and the
 first author who stops bypassing it is the one who gets bitten. A test is how they find out at
 commit time rather than in production.
+
+
+---
+
+# CORRECTION 2026-08-26c — my own control was a LIVE-WINDOW undercount. The conclusion strengthens; the numbers were wrong and had already been relayed.
+
+The control in the section above — *"`rerender-pages` has created **6,428** `page_rerender`
+items of which **3** carry a reason at all"* — was measured against `site_work_items` only.
+**`site_work_items` is a rolling window: closing a row archives it into
+`site_work_items_archive`, out of the table I queried.** So I published the live slice as if it
+were the population, in the very section arguing that a count must cover the population it
+claims to describe.
+
+Re-run across both tables `[MEASURED 2026-08-26]`:
+
+| source | items | carrying a reason |
+|---|---|---|
+| `site_work_items` (live) | 6,428 | 3 |
+| `site_work_items_archive` | 10,857 | **200** |
+| **total** | **17,285** | **203** |
+
+So the honest control is **203 of 17,285**, not 3 of 6,428 — a 2.7× larger denominator and a
+67× larger numerator.
+
+## The conclusion does not just survive, it gets stronger
+
+The question this control exists to answer is "did an unknown reason ever reach the stale
+reader?". Asked across live AND archive:
+
+- All **203** reason-bearing items from that path carry **`section_data_resolved`** — a reason
+  the Go reader KNOWS (first 2026-07-02, last 2026-08-09).
+- `template_changed` or `literal_markdown` via `rerender-pages` / `create_rerender_items`:
+  **zero rows, live and archive.**
+
+So "no caller routes an unknown reason through the stale reader" now holds over the **full
+recorded history**, not merely over the live window — which is a stronger claim than the one I
+made, arrived at by correcting the evidence for it. 404's exposure remains LATENT.
+
+## Why this is worth a whole section rather than an edited number
+
+Because the wrong figure had already left this file. The `bugs_open/410` lane picked it up,
+carried it into their fix's rationale, and — to their credit — wrote to say they had NOT re-run
+it and would attribute it as *supplied by the 384 lane, not independently re-measured*. It was
+that offer to re-run rather than relay which sent me back to the query, where the archive was
+waiting.
+
+**Two lanes were one relay away from citing a live-window slice as a fleet-wide population.**
+The mechanism is in MEMORY as *"a closer census cannot see what it SUCCEEDED at"* and I walked
+into it anyway, on a table I had already queried four times that day.
+
+**The check, and it is one line:** any `site_work_items` count that is meant to describe a
+POPULATION rather than the current queue must be `UNION ALL`'d with `site_work_items_archive`.
+If the number is going into a document, a bug file or another lane's rationale, the archive is
+not optional — the live table answers "what is open now", which is almost never the question a
+citation is asking.
+
+The query, so the next reader re-runs rather than relays:
+
+```sql
+SELECT 'live' AS src, count(*) AS items, count(*) FILTER (WHERE spec ? 'reason') AS with_reason
+  FROM site_work_items
+ WHERE item_type='page_rerender' AND created_by IN ('rerender-pages','create_rerender_items')
+UNION ALL
+SELECT 'archive', count(*), count(*) FILTER (WHERE spec ? 'reason')
+  FROM site_work_items_archive
+ WHERE item_type='page_rerender' AND created_by IN ('rerender-pages','create_rerender_items');
+```
