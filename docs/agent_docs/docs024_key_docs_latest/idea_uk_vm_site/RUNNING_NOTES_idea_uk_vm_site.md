@@ -5846,3 +5846,13 @@ rebuild-vs-retire. Also 3 `content_rewrite` (`internal_link`) rows (index, tools
 first — idea.uk's turn inside the ~2–3 day ramp. Findings arrive `detected`;
 `detected-item-promoter` (15-min cadence) can auto-dispatch known-good (item_type, handler)
 pairs. **A surprise design item on this site is the rotation, not a stray thread.**
+
+> **§X.64 §4 ADDENDUM 2026-08-26 ~09:40Z (peer's answer to my LRV question):** my suggestion
+> that last night's 13 design rows might push idea.uk's rotation turn later was WRONG — the
+> 01:26Z wave was the **improvement-loop's child** design-discovery, and **loop visits do not
+> write `site_discovery_rotation` stamps**. The rotation orders only by that stamp table, so it
+> still reads idea.uk as 15.7 days stale and visits on that basis within the ~2–3 day ramp.
+> Consequence: **expect TWO design visits close together** (rotation + loop carrier) — the
+> second is both mechanisms running, not a defect and not a duplicate-dispatch bug. Credit:
+> webdesign-tool-rebuilds session, which also corrected its own "first design findings in 15
+> days" claim off our timestamp.
