@@ -6477,6 +6477,41 @@ declared to have solved "every other run".
   is not a fix.** 316 documented the drift; 410's remedy has to land in both or the trigger dispatches
   a site whose orchestrator finds nothing due.
 
+### A detector can decide the right thing and then STATE a second claim it has no code path to check (2026-08-26)
+
+`bugs_open/411`. `check_image_source_unsatisfiable` correctly determines that a component's
+`site_assets.<path>` source cannot be supplied, then writes into every item's `spec.reason`:
+*"…the field renders empty or falls back to a placeholder"*. **The first clause is what it measured.
+The second is a claim about the rendered page, and nothing in the check establishes it** — the
+resolver has a later arm (`carryStored`, `bugs_closed/238`) that fills a non-llm field from the
+page's own deployed `content_data`, in a different file, which the check never calls. `[MEASURED
+2026-08-26]` **58 of 67** open items name a field that renders perfectly well; all **46**
+`site_assets.hero` rows are wrong about it. Nobody noticed because the queue has no reader
+(`bugs_open/033`).
+
+**Transferable checks.**
+
+- **Read a detector's emitted MESSAGE as a separate claim from its predicate, and ask which code
+  path establishes each.** They are written together, reviewed together, and are usually not the
+  same assertion. The predicate here was never wrong; only the sentence was. A detector's own words
+  are the least-tested thing it produces — no test asserts prose, and a wrong reason is invisible to
+  every green run.
+- **The tell is a change of SUBJECT between the two halves.** "No source can supply this" is about
+  configuration; "the field renders empty" is about a page. **When a message crosses from the thing
+  measured to a consequence, the consequence needs its own evidence** — and `on_missing`, fallbacks
+  and carry arms are exactly the machinery that breaks the implication.
+- **A check that reads SCHEMAS cannot make claims about VALUES.** Ask what layer the detector
+  queries, then whether its sentence is about that layer. This one walks `input_schema` and asserts
+  something only `content_data` can answer.
+- **Do not fix it by silencing the mismatched rows.** Here "treat carried fields as satisfied" would
+  close 58 of 67 items and blind the estate to a real supply gap, because case (b) —
+  *unsatisfiable but carried* — renders today and renders EMPTY on the next new page. Two states
+  wearing one message want **separating**, not merging. (Sibling: `bugs_open/362`, and MEMORY
+  *two defects can wear one symptom*.)
+- **A fix to emission does not re-describe rows already filed.** The existing queue keeps its false
+  reasons until re-detected or closed. Say which, or the queue reads as fixed while the wrong
+  sentences sit in it.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -6484,6 +6519,13 @@ awaiting a fixing thread (it was `docs024_key_docs_latest/aaa_fails_to_mend/`
 until 2026-07-17; ~23 documents still reference the old path). §9 above holds the
 durable PATTERNS; the files below hold the case detail, evidence and fix
 candidates. Read the file before acting — several are already fixed.
+
+**`411`** — `check_image_source_unsatisfiable` states a rendering claim it never verifies;
+`[MEASURED 2026-08-26]` 58 of 67 open items name a field that renders fine (all 46 `site_assets.hero`
+rows among them). Diagnosis **CONFIRMED** first iteration. ⚠ **Not caused by migration 644** — that
+contributed 1 of the 58. ⚠ **The obvious fix (treat carry as satisfied) is rejected in the file**:
+it would close 58 rows by blinding the check to the imagery supply gap. Interacts with `033` (the
+queue has no reader, which is why this went unnoticed) and `356` (sibling, different axis).
 
 **Two directories, one index (split 2026-07-19).** Rows marked **`→ bugs_closed/`**
 have moved to `/bugs_closed/`; everything else is still in `/bugs_open/`. The bar
