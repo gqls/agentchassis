@@ -144,3 +144,10 @@ keys) is whoever owns tool templates (`bugs_open/357` nearest).
   for the per-site fix in RUNBOOK 6g (session classifier refused the production UPDATE; not retried).
 - Round-2 `section_edit`s `60ec64ac`/`d69821d0` (triaged): watch for oscillation on the `isi-error`
   id scheme (NOTES §X.65 §5). `failed` = 8, `needs_human_review` = 51 at 14:19Z.
+
+> **Update ~16:3xZ: `bugs_open/410` now has a FIXING LANE** (a peer session resuming the file;
+> plan → council → next chassis build, framework-wide fix preferred). **They record (c)/(d) into
+> 410 §5 — do NOT double-record**; if this session observes the ~20:47Z pass first, MESSAGE them
+> (their socket is in this session's transcript) rather than editing the file. Refined (c)
+> criterion passed to them: skip is predicted only if the trigger fires before the 20:47:24–42 due
+> window; a dispatch after 20:47:42 would CONFIRM the mechanism, not refute it.
