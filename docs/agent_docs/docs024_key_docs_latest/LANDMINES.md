@@ -18572,3 +18572,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** lane handoff `docs/agent_docs/docs024_key_docs_latest/routing_capability_guard/HANDOFF_2026-08-26_continue_here.md` §9 (full evidence, every command re-runnable) + §10 (post-roll re-measure) · `bugs_open/395` CONTRIB 2026-08-26 · `WRONG_CALLS.md` 2026-08-26 · `RFC_057` §3/§4 · register `WII-035` · the sibling entry on this footprint ("which agents can change Y?" is a GO question, not a config one)
 - **source:** 2026-08-26, routing_capability_guard lane — found by running the lane's own `--since` instruction before quoting the roster, which returned 43 commits and prompted a re-read of code the check itself could not have flagged
 - **added:** 2026-08-26, routing_capability_guard lane
+
+### `snapshot_agent` has TWO overloads that write to DIFFERENT TABLES — and verifying the wrong one reads as "the backup never happened"
+
+- **footprint:** `snapshot_agent`, `agent_definitions`, `agent_definitions_backup`, `agent_definitions.is_snapshot`, any `sql_for_agents/*.sql` taking a pre-update backup before mutating `default_config`
+- **fires when:** you follow the house discipline and call `snapshot_agent('<type>')` before an `agent_definitions` UPDATE — the single most common backup line in this estate's migrations — and then verify that the snapshot exists.
+- **the trap, in two halves.**
+  1. **A BARE LITERAL IS AMBIGUOUS AND THE MIGRATION ABORTS.** Both `snapshot_agent(text)` and `snapshot_agent(text, text DEFAULT NULL)` exist, so `SELECT snapshot_agent('render-audit-agent');` fails with `ERROR: function snapshot_agent(unknown) is not unique`. Under `ON_ERROR_STOP=1` the whole transaction rolls back — which is the SAFE outcome, and it is also the only reason you find out at all.
+  2. **THE TWO OVERLOADS DO NOT WRITE TO THE SAME PLACE.** `snapshot_agent(text)` INSERTs a new row into **`agent_definitions`** with `is_snapshot = true` at `version = MAX(snapshot version) + 1` (from 1000). `snapshot_agent(text, text)` INSERTs into **`agent_definitions_backup`**, carrying the source row's `id` and `version` VERBATIM plus `snapshot_taken_at` / `snapshot_reason`. Same name, same intent, different table.
+- **why the wrong result looks exactly right:** the two-arg form raises `NOTICE: Snapshot captured: type=…, source_id=…` and **returns the SOURCE row's id, not the backup's**. So the obvious verification — "did a snapshot row appear for this type?" — run against `agent_definitions` returns **0** while the backup is sitting safely in `agent_definitions_backup`, and the returned uuid resolves to the live row, which makes it look like the function no-opped and handed you back what you already had. `[MEASURED 2026-08-26]` that is exactly what happened on migration 660: `SELECT count(*) FROM agent_definitions WHERE type='render-audit-agent' AND is_snapshot` → **0**, while `agent_definitions_backup` held the correct pre-change copy (`backup_has_flag = f`) taken 20 seconds earlier.
+- **the check:** call the TWO-ARG form with explicit casts and a real reason —
+  `SELECT snapshot_agent('<type>'::text, '<file>: what and why'::text);` — then verify **in the table that overload writes to**, and assert the backup is the PRE-change state rather than merely present:
+  ```sql
+  SELECT snapshot_taken_at,
+         default_config->'workflow'->'steps'->'<step>'->'config' ? '<your_new_key>' AS backup_has_flag
+  FROM agent_definitions_backup WHERE type='<type>'
+  ORDER BY snapshot_taken_at DESC LIMIT 1;   -- backup_has_flag MUST be false
+  ```
+  A backup that already contains your change is not a backup. And if you use the one-arg form, verify in `agent_definitions` with `is_snapshot = true` instead — **read the function body before choosing, because the name does not tell you.**
+- **source:** 2026-08-26, `bugfix_394_render_audit_rotation_cursor` lane, applying migration 660 after the council's `debug_historian` seat raised the missing-snapshot advisory (corr `f67593f5`). Both halves hit in one apply.
+- **added:** 2026-08-26, bugfix_394_render_audit_rotation_cursor lane

@@ -66,7 +66,18 @@ BEGIN;
 -- guard that aborts and a backup you can restore from are different properties,
 -- and the second one is cheap. snapshot_agent() copies the highest-version active
 -- row to a new is_snapshot row and returns its id.
-SELECT snapshot_agent('render-audit-agent');
+-- ⚠ BOTH ARGUMENTS AND AN EXPLICIT CAST, and neither is decoration.
+-- snapshot_agent is OVERLOADED — snapshot_agent(text) and
+-- snapshot_agent(text, text DEFAULT NULL) both exist — so a bare unknown literal
+-- is ambiguous and Postgres refuses it:
+--   ERROR: function snapshot_agent(unknown) is not unique
+-- (hit on the first apply attempt of this file, 2026-08-26; the transaction
+-- aborted cleanly under ON_ERROR_STOP=1 and nothing was written). The two-arg
+-- form also takes a REASON, which is worth more than a bare snapshot to whoever
+-- has to decide later whether a snapshot row is the one they want.
+SELECT snapshot_agent(
+    'render-audit-agent'::text,
+    'bugs_open/394 migration 660: opt in to the render-audit coverage cursor (rotate_coverage=true)'::text);
 
 -- ── 1. the cursor table ────────────────────────────────────────────────────
 
