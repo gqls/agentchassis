@@ -166,3 +166,76 @@ a perfect cursor — worth knowing before promising coverage in a given window.
 is written **only from that SQL**, never from Go. A cursor written by the action would be the
 first Go writer of that table — a fact any reuse-versus-new-table decision has to face rather
 than assume away.
+
+---
+
+## 2026-08-26 — the two answers that most change the fix's shape
+
+### 1. The retraction path is ALREADY scoped to what was measured — so a cursor is safe there
+
+This was the risk I most expected to have to design around: `write_render_audit_findings`
+RETRACTS standing findings, and a cursor makes every run look at a *different* subset. If
+retraction inferred "resolved" from "not seen in this run", a cursor would silently close every
+finding on every page the cursor happened to skip — fleet-wide, on the first run.
+
+It does not. `write_render_audit_findings_action.go:219-222`, in the payload struct's own words:
+
+> `PagesAudited` names the pages the adapter **SUCCESSFULLY MEASURED**, and is the **entire
+> scope of what this action may retract**. Absent on an old-shape reply, which is why
+> retraction is inert rather than wrong against an un-rolled adapter: an empty audited set
+> retracts nothing.
+
+and at :731, `if len(payload.Summary.PagesAudited) == 0 { … }` degrades to no retraction. The
+adapter populates it per successfully-navigated URL
+(`internal/adapters/browserrunner/render_audit_action.go:422`).
+
+**So the most dangerous interaction in this change is already closed, by someone else, for a
+different reason.** Recording it as a checked fact rather than an assumption, because the
+opposite would have been a fleet-wide silent close and it is exactly the kind of thing a plan
+asserts without opening the file.
+
+⚠ The corollary is a constraint, not a freedom: **the cursor must never advance past a page the
+adapter did not actually measure**, or coverage and retraction scope drift apart — the audit
+would claim a page as "covered" that was never rendered. `len(PagesAudited) < Pages` exactly
+when a navigation failed, and the adapter's own comment at :232-235 says so.
+
+### 2. There is NO durable per-page audited list today — only counts
+
+The bug's acceptance for candidate 1 is *"the union of audited pages reaches all 146, verified
+by the audit's own durable page list, not the status"*. That list does not exist to verify
+against:
+
+```
+grep -rn "PagesAudited|pages_audited" --include=*.go platform/ internal/ | grep -v _test
+```
+`[MEASURED 2026-08-26]` every persisted use is a **count**:
+`request_render_audit_action.go:179` writes `"pages_audited": len(urls)` into the
+`agent_error_log` context; `write_render_audit_findings_action.go:615` writes
+`result["pages_audited"] = payload.Summary.Pages` and :654
+`result["retraction_scope_pages"] = len(payload.Summary.PagesAudited)`. The **URL slice itself
+is used and discarded**.
+
+And the step's own result is not durable anyway — the file's header records that an awaiting
+step's result never survives the park (RFC_012 addendum 2, owner-ruled option B), which is why
+the truncation row is written to `agent_error_log` *before* the dispatch in the first place.
+
+**So the acceptance arm the bug asks for is not runnable today.** Whatever the fix is, it has to
+make coverage reconstructable — and the cheapest honest version is probably to record the cursor
+window (`cursor_from` / `cursor_to` / `pages_audited`) on the durable row that is already being
+written, so consecutive runs can be replayed into a union. An acceptance test nobody can run is
+the same as no acceptance test, so this is part of the change, not a follow-up.
+
+### 3. The second caller is MANUAL, which changes what a cursor means for it
+
+`sql_for_agents/645_design_critique_agent.sql` states it plainly: **"NO cadence — manual trigger
+only, per the recorded owner decision. Nothing emits work for this agent; nothing promotes into
+it; the only path is a hand dispatch."** So `design-critique-agent`'s cap of 8 is a *sample for
+a vision critique*, not a coverage sweep — its 25-site truncation footprint is real but it is
+not accumulating a debt on a schedule the way the render-audit rotation is.
+
+That file also records the co-dedup design: this agent is deliberately a **second producer** on
+`contrast_failure` / `undeployed_asset` keys beside the rotation, and the shared key namespace
+is "the point". Worth holding onto — it means the two callers' findings already interleave by
+design, so a per-caller cursor must not be justified by "keeping their findings apart". If the
+callers need separate cursors it is because their *coverage questions* differ, which is a
+different and weaker argument, and the plan should say which one it is relying on.
