@@ -158,3 +158,37 @@ part and reported as scanned in full"*.
   what is producing the refusal and the coverage hole is back."* A count guard added to
   `loadStoredSections` without that discipline is a check nobody has proven can fail — which is the
   defect this file is about, reintroduced as its own fix.
+
+### Implementation note for candidate 3 — WHICH count, decided before anyone writes it
+
+A count guard on `loadStoredSections` has a wrong version that will get itself removed. Raised by
+the `news_editorial` lane from having just done the adjacent change; **verified here**, the loader's
+own `WHERE` clause:
+
+```sql
+FROM page_components
+WHERE page_id = $1
+  AND build_status IS DISTINCT FROM 'removed'
+ORDER BY position ASC, id ASC
+```
+
+**The function drops rows legitimately, in SQL, before Go ever sees them.** So:
+
+- **WRONG: `len(out)` vs "rows in `page_components` for this page".** That comparison counts
+  tombstones the query deliberately excluded, so the guard fires on **every page carrying a removed
+  component** — a large and entirely healthy population. A guard that fires constantly on correct
+  input gets loosened within a week, and a loosened guard is a dead one. This is the failure mode
+  that matters, because it ends with the coverage hole reopened *and* a test that looks like it is
+  protecting something.
+- **RIGHT: rows the cursor yielded vs rows successfully scanned.** Increment a counter per
+  `rows.Next()`, compare to `len(out)` at the end, and error (or return the delta) when they differ.
+  It needs **no second query**, so it also cannot race a concurrent write the way a re-count would —
+  which matters on a shared tree where another lane may be writing the same page.
+
+The distinction in one line: **the guard's job is "did I lose anything the query gave me", not "does
+the page have as many components as I expected".** Only the first is knowable inside the function,
+and only the first is invariant to legitimate filtering.
+
+Pinned here rather than left to implementation because the wrong version is the intuitive one, is
+cheap to write, passes its own tests on a clean fixture, and fails only against real data carrying
+tombstones — by which point it is in production and the first response is to relax it.
