@@ -920,3 +920,17 @@ two questions now waiting on you, with numbers attached: should the trial repair
 than" (that one change accounts for six of the ten), and I'll teach the gate "instead of" and
 "not just" as soon as you confirm how strictly to treat them. The homepage and FAQ — the pages
 you were actually reading when you called regression — are requested for rebuild and still queued.
+
+---
+
+**2026-08-26, the two decisions explained** (also given in chat, kept here so it survives the
+session). The gate is the checker that runs after the writer and before a page is saved; it
+recognises five named comparison shapes, repairs the sharp ones, and under the August ruling
+lets a couple of mild "rather than"s stand. Decision one: that allowance turns out to be applied
+per SECTION, not per page, so a seven-section page ships six "rather than"s without a repair ever
+being attempted — the choice is repair them all under the trial (the truncation makes that cheap:
+the sentence just ends earlier), keep an allowance but count it per page, or leave it be.
+Decision two: "instead of" and "not just" are not among the five shapes the gate knows, so it
+cannot see them at all — you named "instead of" in the trial, so this is confirmation plus a
+strictness call, and if decision one is "repair them all", the strictness question answers
+itself and both land as one change.
