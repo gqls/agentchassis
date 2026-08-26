@@ -2071,3 +2071,15 @@ site = the CI provider is down; status-page curl FIRST).
 minutes later.** The stall ran ~15:37Z→17:55Z, entirely external, nothing of ours touched. Served-bytes
 verification is trustworthy again for anything deployed post-recovery. The last soft gate on dispatching
 farmerinsurance.uk is gone; awaiting the owner's domain/mission answer.
+
+**2026-08-26 19:0xZ — farmerinsurance.uk DISPATCHED (owner's word: deliberate no-prompt; domain
+registered; NS pair handed over).** Zone `ccb2ecd19e653f2b36795bfe066226fb` created via API
+(portfoliotoken), 2 proxied A → 192.0.2.1 + 2 routes → portfolio-sites-router, re-read at the STORED
+zone: status `pending`, NS **alexis + leah** (from the create response, not memory). Pre-flight clean:
+0 zones, 0 site rows, 0 open items, chassis pods 5h old. Dispatch = the loanzy no-prompt form (bare
+domain, `bash` not `./`); LANDED: site `99cae989-2413-430d-b026-59dfeeb638c0`, `needs_domain_research`
+triaged 19:03:59Z. **This build is three proofs at once:** 618's floor on its first natural draw
+(hop-two watch armed, evidence capture before the reap), the first site BORN under the acceptance
+council, and the FCA-adjacent no-prompt stress of the claims controls (flagged; owner chose knowingly).
+Sequencing agreed with the owner: garden-tools re-plan AFTER farmer clears hop two; homegarden stays
+the untouched control.
