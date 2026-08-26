@@ -138,3 +138,45 @@ Ask the lane that is holding them.
 
 Bug 396 is corrected in place — old claims struck through rather than edited away, so the record
 shows what we believed and when.
+
+## 2026-08-25 (evening) — the review said my fix was the wrong fix, and it was right
+
+You asked for the park verb first, then the config guard. Both got built. Then the review panel
+looked at the park verb and said, in effect: *you have built a tidier version of the wrong thing.*
+
+**A way to hold a site's work queue already existed.** Three of our fifty-one sites are held by it
+right now — including one you halted yourself on 18 August, with your reason still readable on the
+row. It works by telling the dispatcher to skip the site. **It never touches the individual jobs**,
+which is exactly why it causes none of the damage this bug is about: nothing gets stranded, nothing
+blocks its own replacement, and the page that sat unbuildable for twenty-two days could not have
+happened under it.
+
+I wrote "there is no way to do this" into a formal submission without checking. **That is the third
+time in one day I have claimed something did not exist without looking**, and this one got as far
+as an approved plan and a live database change before a reviewer stopped it.
+
+**What was genuinely missing turned out to be much smaller**: the existing hold is all-or-nothing.
+You cannot say "hold this site *except* these three jobs" — which is precisely what the
+mortgagecalculator thread needed, and why it wrote the improvised command that started all this.
+
+**So that is what I built instead**, and it is better than the verb in the way that matters: it
+still never touches a job. The site keeps its hold; a named exception list lets specific work
+through. The column is live and does nothing yet; the code is committed and takes effect at the
+next release; and the switch that connects them is **deliberately held back**, because turning it
+on before the code ships would convert a full hold into no hold at all on exactly the sites someone
+has deliberately locked. That is written at the top of the file in capitals.
+
+**The second review round found something too, and it was subtler.** A reviewer thought I had
+copied one piece of SQL into a place it could not work. I had not — but they were right that
+*somebody eventually will*, because the same rule genuinely is written twice in two different
+shapes, for a real reason. So I have written down why they cannot be merged, and added a test that
+fails if anyone tries. Their concern is now a red build rather than an outage.
+
+**Worth saying plainly, because it is the pattern of the day:** four separate times today I asserted
+something did not exist and was wrong, and every single one was already written down somewhere in
+our own notes. Not bad reasoning — not looking. I have logged all four, and the cheap check is now
+the first line of this lane's runbook: before writing "nothing does X", grep the notes, then the
+documents, then the code.
+
+**Nothing is broken and nothing needs a decision from you.** The remaining step is the next release,
+after which the held switch can go on and be tested on one real site.
