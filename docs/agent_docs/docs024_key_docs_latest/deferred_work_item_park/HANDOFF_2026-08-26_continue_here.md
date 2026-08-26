@@ -16,7 +16,28 @@
 > | migration `633` (the held config half) | **APPLIED 2026-08-26**, hold condition met and proven |
 > | park verb `park_work_items()` — migration `621`, WII-034 | **applied, DEMOTED** — see §5 |
 >
-> ## ⛔ THE TWO THINGS OWED, AND WHY YOU CANNOT DO THEM TODAY
+> ## ✅ UPDATE 2026-08-26 09:0xZ — CREDITS RESTORED, BOTH OWED STEPS DONE
+>
+> The fleet came back at **08:58:28Z** (verified with `GROUP BY success`, not a bare count).
+>
+> **1. The exception list is EXERCISED.** Both predicates run verbatim against live data on
+> `cv1.co.uk` (6 dispatchable items), inside a transaction that was **rolled back**:
+> **unlocked → 6 items · locked, no exception → 0 · locked, one exception → exactly 1, the right
+> one.** State B is the one that matters: the lock still holds with the exception column present.
+> Negative control after rollback: site unlocked, exception list NULL, its queue never actually held.
+> ⚠ **Still unproven: that the SCHEDULER picks such a site in production** — `find_dispatchable_site`
+> is `ORDER BY created_at ASC` fleet-wide and 1,398 older items are queued, so it cannot be forced.
+> **The gap is the tick, not the logic**, and it closes the first time a locked-with-exception site
+> wins the ordering.
+>
+> **2. The council round is RESUBMITTED** — `175df761` r2, run `e74cc1f3`. The plan was corrected
+> first (8 edits → 6; two file paths were listed twice). **Read the verdict before assuming
+> anything about it**, and check `current_step` — the previous run read `complete_invalid`, which is
+> neither latency nor a content refusal.
+>
+> **Nothing else on this lane is blocked.** The remaining items are in §6 and none is urgent.
+
+> ## ⛔ (SUPERSEDED — kept for the record) THE TWO THINGS OWED, AND WHY YOU COULD NOT DO THEM
 >
 > 1. **Exercise the exception list end to end** — lock a site, except one item, confirm that item
 >    dispatches and its siblings do not. Recipe in §3.
