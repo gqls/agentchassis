@@ -19,8 +19,21 @@ figure in it re-measured true, and the fleet still moved under me mid-measuremen
 **Migration `644_planner_sees_imagery_and_illustrated_block_sources_an_illustration.sql`** — applied
 2026-08-26, recorded in the ledger, **live now** (DB config, no image, no inert window). Register
 **IMG-074**. Commits `d10952b3b` (migration + register) and `b3bddba60` (LANDMINES ×2).
-`Council-Submitted: 08477888-b3e6-4ceb-911d-6e2a3c446755` — ⚠ **VERDICT NOT YET READ. That is the
-first thing you owe.**
+~~`Council-Submitted: 08477888-...` — ⚠ **VERDICT NOT YET READ. That is the first thing you owe.**~~
+**CORRECTED, SAME SESSION: the verdict is IN and it is APPROVED** — round 1, corr
+`08477888-b3e6-4ceb-911d-6e2a3c446755`, 14 seats, **4 advisory objections, none high-severity**.
+**Read, and each one answered with a measurement**, recorded in full in register `IMG-074`. No amend
+is needed or permitted: `098` credits the `Council-Submitted:` trailer automatically now the
+correlation is approved. **Do NOT write a `Council-Reviewed:` trailer onto a new commit for it** —
+that would be a second claim on a change already credited.
+
+Three objections resolved in the change's favour with evidence (no `BEGIN…COMMIT` in the *sketch*
+but present and mutation-proven in the *file*; **zero** Go consumers of `component_expresses`, so the
+fixed-arity worry cannot arise; both repointed fields confirmed `required:false` +
+`skip_field`, which is the exact condition the `guidelines` seat made its approval depend on). One
+was a fair paperwork gap with a decisive answer (`content_shape`/`visual_density` are NULL on all
+three components in question, so they could never have carried this signal). **Two are worth
+carrying forward and are in `IMG-074` and §E below.**
 
 ```sql
 SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
@@ -90,6 +103,40 @@ is unowned, so "where we are now" is mid-stream — the rarity rule says wait fo
 file a near-duplicate of `SUMMARY_2026-08-25`. **Write one when supply is decided**; that is the
 inflection.
 
+## §C-bis — A NEW FINDING LANDED AFTER 644 APPLIED, AND IT IS NOT MINE TO PATCH
+
+**`check_image_source_unsatisfiable` states a reason it never verifies, on ~87% of its own open
+queue.** Raised by the apis.uk session within the hour: 644's repoint caused one
+`image_source_unsatisfiable` item at `needs_human_review` for their index page, because
+`site_assets.illustration` resolves nothing there — **which is the protection working**, since the six
+illustrations now survive *because* the source resolves nothing and `carryStored` fills the field.
+
+Their call of "true statement, false alarm" was right, and the defect is far wider than 644:
+
+- The check emits `spec.reason` = *"…the field renders empty or falls back to a placeholder"*. The
+  first clause is true; **the second is a claim about RENDERING that the check never checks.** Its
+  satisfiability arms (literal asset keys, plan imagery rows, `ImageRoleForPath`, the
+  `content_data` hero_url/logo_url fallback) and `carryStored` are separate code paths that never
+  consult each other. The check reads **schemas**, not **values**.
+- `[MEASURED 2026-08-26]` of **67** open items, **58** name a field that IS populated on that page —
+  `site_assets.hero` 46/46, `site_assets.image` 12/8, `site_assets.illustration` 9/4. Verified with an
+  exact join on site + page name + `content_components.function` + the named field; loose and strict
+  joins agree. **644 contributed ONE of those 58; the hero rows are the bulk and long predate it.**
+- ⚠ **The fix is NOT "treat carry as satisfied".** That would hide the supply gap, which is the thing
+  most worth seeing. The two states want *distinguishing*: (a) unsatisfiable AND nothing carried —
+  the real `bugs_closed/238` defect; (b) unsatisfiable BUT carried — renders fine today, renders
+  empty on any NEW page with the same component. An accurate reason and a severity split, not
+  suppression.
+
+**Status: diagnosis loop IN FLIGHT, `RUN_CORRELATION_ID=8aeba0b6-0508-4059-8a10-b3e94211dd8c`**
+(still `AWAITING_RESPONSES` at hand-off). **Read it, then file `bugs_open/`** — deliberately not
+filed on my own reading, because it is a cross-cutting structural claim about a shared detector and
+that is precisely the class the owner's 2026-07-31 ruling says must go through the loop first.
+**I did NOT touch the checker**: shared Go discovery check, council scope, inert until a roll, and
+*what the check should mean* is a decision rather than a patch. **The apis.uk item is left open as
+evidence** — do not cancel it. Prior art checked: `bugs_open/356` names this check only in passing
+(different axis, retired pages); nothing covers the carry blind spot.
+
 ## §D — NEW WATCH-OUTS (the previous handoff's list all still stands)
 
 - **⚠ A CHANGED-ROW COUNT CANNOT TELL A WIDENING FROM A RESHUFFLE.** A variant arm that also
@@ -131,6 +178,20 @@ inflection.
    `product-hero_pre_037` now advertise `image`. Only `site_assets.logo` is excluded. A council seat
    may reasonably want banners excluded too; the submission says so in terms.
 6. **Every behavioural claim in IMG-074 is unverified** — nothing has re-planned a page yet.
+7. **644's repoint `UPDATE` is gated on the fields EXISTING, not on their CURRENT source value**
+   (`debug_historian`, medium). A re-run would clobber a later hand-edit back to 644's values. **Not
+   fixed and not fixable in place** — the file is applied and recorded, and the runner supersedes by
+   the next number rather than editing a recorded file. If it ever needs re-applying, add
+   `AND input_schema->'fields'->'image_url'->>'source' = 'site_assets.image'` (and the alt
+   equivalent) so a re-run is a 0-row no-op.
+8. **The eight OTHER components still declaring `site_assets.image` remain exposed to the alias
+   trap** (`bug_historian`, medium) — `case-studies-grid`, `content-block-about`,
+   `featured-inventory`, `game-master-explanation`, `product-details_pre_037`, `product-specs`,
+   `tool-guide-intro`, plus inactive `hero-headline`. Deliberately not repointed (several may
+   legitimately want the hero; eight live components is a different blast radius), so **the mechanism
+   is guarded by a LANDMINE rather than by code — the weaker form.** ⚠ The architecture seat set the
+   trigger independently: **a THIRD component hitting this trap is the point to ask whether
+   `imageRoleAliases` needs an explicit opt-out** instead of another avoid-the-landmine repoint.
 
 ## §F — WHO OWNS WHAT NEARBY (changed since yesterday)
 
