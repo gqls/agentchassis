@@ -182,3 +182,31 @@ content-dependent.
 not name), `bugs_open/212` (components overriding renderer-owned `--section-*`
 tokens — adjacent and possibly the same family), register VIZ-014, VIZ-012,
 LANDMINE "`--color-<x>-text` and `--color-<x>-ink` are OPPOSITE questions".
+
+---
+
+## 9. NOTE 2026-08-26 from the 351 lane (resumed) — the DAMAGE is repaired at the artefact, and the class detector this file motivated is now LIVE
+
+Two facts, measured today, neither of which closes this file on its own:
+
+1. **The §2 damage is REVERSED on the live artefact.** The served
+   `styles.css` (fetched with the §2 browser-UA recipe, cache-busted) is now
+   **20,923 B** and **carries the alias block**: `--color-heading: var(--color-text)`
+   (line 714) and `--hero-ink: var(--color-text)` (line 717); `--color-heading`
+   mentions went 0 → 5. Which lane or rerender restored it is not something I
+   traced. **What this does NOT prove:** that the 30 contrast failures are gone —
+   that needs §7's per-selector render-audit against the banked baseline — nor
+   anything about §4's open CAUSE question, which stays open.
+
+2. **`stylesheet_gutted` (IMP-055), the detector whose "definition coverage, not a
+   byte floor" predicate was designed around exactly this file's shape, is ENABLED
+   fleet-wide as of today** — migration `541` applied, commit `6531e694b`, live on
+   `design-discovery-agent` (24 checks). Its real-predicate calibration over all
+   **31** deployed sites this morning filed **0**, and this site came out RESOLVED
+   (41 guaranteed tokens referenced without fallback, all defined). Note the check
+   would NOT have caught §1's specific heading symptom while the block was missing
+   IF every reference had carried a fallback (the heading rule's
+   `var(--section-heading, var(--color-primary))` does) — it catches the class via
+   the tokens referenced bare, of which this site has 41. A recurrence of the
+   missing-block shape now files one high-severity flag-only item per site on the
+   next design rotation instead of waiting for a human with a contrast probe.

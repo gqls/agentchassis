@@ -408,3 +408,48 @@ The habit that actually caught things here was not care — it was **arranging f
 look different from a right one**: printing the total beside the breakdown, asserting the flip SET
 instead of its size, running a control that had to fail, and inducing every refusal rather than
 asserting a guard exists.
+
+## 2026-08-26 — the lane resumed once more: 541 discharged, and nothing now remains
+
+Session resumed on the closed lane (owner named it `remortgagecalculator.co.uk` — that domain does
+NOT exist; `sites` holds only `remortgagecalculator.uk`, the portfolio_positioning lane recorded the
+same misremembering on 08-19). The one debt in the CLOSE banner — migration `541` — was found
+UNBLOCKED and was discharged today. Evidence trail, controls inline:
+
+- **Roll condition:** every live chassis pod (217/217 seen within 30 min, ONE distinct build commit
+  `2fb40a960`) carries `e34b33a36` (the check's birth) as an ancestor; control — today's HEAD is
+  correctly NOT an ancestor.
+- **Capability condition, superseding the exec-grep recipe:** the binary now self-reports checks in
+  `service_binary_capabilities` (`kind='discovery_check'`) — `stylesheet_gutted` on 217/217 live
+  pods, negative control `stylesheet_gutted_NOTREAL` = 0 rows.
+- **Re-calibration, with the check's OWN code** (the 08-21 proxy misstep is why this is stated):
+  exported the corpus with the check's own predicate SQL (shared builders inlined verbatim from
+  `datahelpers/links.go`), then drove the real `Run()` via a throwaway in-package test — sqlmock fed
+  the real rows, `fetchSiteStylesheet` left UNstubbed so fetches were live HTTP. **0 filed /
+  29 resolved / 2 declined-to-judge over all 31 deployed sites** (corpus was 25 on 08-21). The two
+  declines: lampenkap.com's linked stylesheet 404s (asset_reference_404's finding, not ours);
+  loanandmortgagecalculator.co.uk sheet serves 200/16,277 B so the skip branch is one of
+  over-cap/external/other-sheet-failed — `[UNVERIFIED]` which, and it files nothing either way.
+  Throwaway test deleted in the same command that ran it.
+- **Applied** 09:07Z by hand (`UPDATE 1`, DO/RAISE verify passed, COMMIT); live row independently
+  re-read: 24 checks, `stylesheet_gutted` present. Ledger row `541_enable_stylesheet_gutted_check.sql`
+  record-only; checksum re-synced after the discharge-header edit (the ledger stores content md5, so
+  header edit → checksum update, in that order). Files renamed to drop `_HOLD` (475 precedent), name
+  added to `liveConfiguredChecks`, all one commit `6531e694b`, `Council-Reviewed: d3187418` (verdict
+  re-read from `doc_notes` today before writing the trailer).
+
+**Missteps, this visit:**
+1. My corpus export loop ran ONE iteration and exited 0 — `kubectl exec -i` inside `while read`
+   consumed the loop's stdin. Caught immediately because the script printed a per-site line and
+   asserted the site-list count first. The class is already covered (`check_stdin_eater` in
+   `pattern-check.py`; LANDMINES has the meta-entry) — it could not fire here because the script
+   lived in the scratchpad, outside the pre-commit's reach.
+2. My calibration harness printed zap Int fields as `<nil>` (observer `Field.Interface` is nil for
+   ints), so the two SILENT sites' skip counters were unreadable and one skip branch stays
+   `[UNVERIFIED]`. Cosmetic, but it is why the loanandmortgagecalculator question is open above.
+
+**What the next reader should know:** `go test ./platform/orchestration/actions/` is RED at HEAD
+today for a reason that is NOT this lane's — `WORK_ITEM_STATUS_OVERRIDE_REFUSED` (commit
+`2b46afbe6`, bugs_open/396 lane) is undeclared in the finding-code registry. Two other lanes have
+already noted it in `bugs_open/396_…undispatchable…`; do not re-report it, and do not mistake it for
+a 541 failure — `discovery_checks` and the filtered registration/gutted tests pass.

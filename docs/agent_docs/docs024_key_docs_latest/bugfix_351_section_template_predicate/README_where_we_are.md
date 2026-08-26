@@ -176,3 +176,23 @@ stale note.
 
 One loose end that is not mine and not this bug: the `stylesheet_gutted` check this lane built back
 on the 22nd is still waiting to be released.
+
+---
+
+**2026-08-26 — the loose end is tied off.** The stylesheet checker we built on the 22nd is now
+switched on. It had been deliberately held back because turning it on before the new software
+reached every server would have broken the nightly design checks fleet-wide; that roll has now
+happened, and every one of the 217 running copies confirms it knows the check — verified with a
+deliberate wrong-name probe that correctly came back empty.
+
+Before switching it on I re-ran the measurement of what it would flag, using the check's own code
+rather than a shortcut (the shortcut is what produced a wrong figure on the 21st, so that lesson is
+applied here): across all 31 live sites — six more than existed when we built it — it flags
+**nothing**, which is exactly what we expected. It is a smoke alarm, not a repair crew: silence is
+its normal state, and it earns its keep the next time something guts a stylesheet the way
+remortgagecalculator.uk's was gutted in August.
+
+Two small things noticed on the way, neither ours: one site (lampenkap.com) links a stylesheet that
+does not exist — a different, already-covered check's territory; and a change from another
+workstream currently makes one of the shared test suites fail for everyone, which that workstream
+has already been told about twice. With this, nothing at all remains owed from this lane.

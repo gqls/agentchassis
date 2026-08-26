@@ -23,8 +23,13 @@
 > 2. **`usage_count` path-blindness** is a *different* defect, filed as **`bugs_open/378`** with its
 >    own evidence and `[UNMEASURED]` list. Not a 351 residual.
 >
-> **Still owed by someone, unrelated to 351:** §6.3's migration `541` (the `stylesheet_gutted`
-> check), which this lane built but never released.
+> ~~**Still owed by someone, unrelated to 351:** §6.3's migration `541` (the `stylesheet_gutted`
+> check), which this lane built but never released.~~ **DISCHARGED 2026-08-26 by this lane,
+> resumed:** `541` applied and live (commit `6531e694b`; ledger row record-only; both hold
+> conditions met with controls — 217/217 live pods self-report the capability, negative control
+> 0 — and re-calibrated first with the check's OWN `Run()` over all **31** deployed sites:
+> **0 filed / 29 resolved / 2 declined-to-judge**). Details in the migration's discharge header
+> and register IMP-055. Nothing from this lane remains owed.
 
 > ## ⚠ CURRENT STATE, 2026-08-23 — read this before anything below it
 >
