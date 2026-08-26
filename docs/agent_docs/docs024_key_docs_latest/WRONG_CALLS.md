@@ -54810,3 +54810,39 @@ the second one is the one to read.
 
 Family: this file's 2026-08-26 entry (which it corrects), [[a-closer-census-cannot-see-what-it-succeeded-at]],
 [[a-subagent-report-is-another-doc]], confirm-the-denominator.
+
+## 2026-08-26 (later) — `news_editorial_features`: I measured a numerator today, inherited its denominator from a four-day-old document, and stamped the pair `[MEASURED 2026-08-26]` — in a council submission
+
+**The claim**, in `grounded_in` of council submission `53d71504-8cd1-49bc-8e2d-d1465ba65103`:
+*"0 of 1,903 page_components carry a parent_instance_id"*, presented as measured 2026-08-26.
+
+**What was true.** The numerator is right and I did measure it: **0**, today, and still 0. The
+**denominator** came out of `features_open/035`, where it was measured **2026-08-22**. Today it
+is **2,244** rows (**2,195** live). Stale by **341 rows in four days** — and wearing a same-day
+measurement stamp, because I wrote one date across a figure I had assembled from two sources.
+
+**What caught it.** The `bugs_open/410` lane warning me about an unrelated staleness trap
+(`site_work_items` is a rolling window; their own 6,428/3 was really 203/17,285 once the archive
+table was counted). None of my figures was a work-item count, so the warning missed — but
+checking it made me re-derive my own denominators, which is when the inherited one fell out.
+
+**Why the conclusion survived and that is not the point.** "Composition is inert" needs only the
+numerator, and 0 is 0. The defect is that a reader auditing the submission would have found a
+figure that no query of mine produces, in a plan reviewers were asked to judge against its
+evidence.
+
+**The cheap check.** When a claim pairs a number you measured with a number you read, **the
+whole claim inherits the older date** — or you re-run both. The estate's rule already says a
+count carries the date it was counted; the gap is that a claim can carry *two* counts and only
+one date, and the composite silently takes the fresher one. So: **state the denominator's own
+date, or re-measure it in the same query as the numerator.** One `count(*)` would have done it.
+Tally: dated-a-composite-claim-by-its-freshest-half.
+
+> **The generalisation, from the 410 lane and sharper than my entry:
+> REPRODUCTION IS NOT VERIFICATION.** They re-ran their 6,428/3 query, got an identical number,
+> and recorded that as independent first-hand confirmation — but both runs shared the same wrong
+> assumption about the population (one table, not table-plus-archive). **A reproduction tests
+> the execution and never the framing, and an exact match on a shared premise is the most
+> persuasive possible form of no evidence.** It applies to this entry too: my "0 of 1,903" would
+> have reproduced perfectly today, because the half I would have re-run is the half that was
+> right. The stale half was never in the query.
