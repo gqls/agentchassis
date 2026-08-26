@@ -127,3 +127,20 @@ keys) is whoever owns tool templates (`bugs_open/357` nearest).
 - **Watch also**: `section_edit` `tool_fix` on `6ddcedf4` (ab-test page — bears on choice §5.1);
   design-discovery rotation re-enabled 09:20Z (peer heads-up; `bugs_open/401`) — surprise
   design items within ~2–3 days are the rotation.
+
+## ADDENDUM 14:45Z — the watched rows landed (NOTES §X.65 is now cold-start reading too)
+
+- **News rerenders COMPLETE + proven**: vm-sites `511166ba7` (index) / `0e4002959` (news-index);
+  homepage serves 12 news `<article>`s server-side; dup-landmine check 0 rows.
+- **empty_section pair FAILED ×3 via the churn arm** (new ids `92ae1317`/`f7152331`,
+  `253c10b7`/`af276258`; predicate still TRUE at 18,034/19,404 B; served pages still carry the empty
+  `<h2>`). Rotation will re-file on the new ids → 3 rebuilds per page per hour, for nothing.
+  `bugs_open/300` + `357`; nothing new to file.
+- **ab-test page**: `99680934` rerender ×3, `2b878727` section_edit ×3 (342's guard), `95c48f78`
+  parked in the owner queue (51st) with the platform's menu deploy/LOCK/retire. Choice §5.1 is urgent.
+- **`bugs_open/410` FILED (fleet)**: 6 h `fetch_interval` stamped at fetch time on a 6 h trigger →
+  every 6h-only news site served every OTHER pass. idea.uk got ONE pass today (02:45). Prediction:
+  dispatched ~14:46, SKIPPED ~20:46, served ~02:46 08-27 — **check and record in 410 §5**. Owner SQL
+  for the per-site fix in RUNBOOK 6g (session classifier refused the production UPDATE; not retried).
+- Round-2 `section_edit`s `60ec64ac`/`d69821d0` (triaged): watch for oscillation on the `isi-error`
+  id scheme (NOTES §X.65 §5). `failed` = 8, `needs_human_review` = 51 at 14:19Z.

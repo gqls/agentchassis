@@ -5856,3 +5856,96 @@ pairs. **A surprise design item on this site is the rotation, not a stray thread
 > second is both mechanisms running, not a defect and not a duplicate-dispatch bug. Credit:
 > webdesign-tool-rebuilds session, which also corrected its own "first design findings in 15
 > days" claim off our timestamp.
+
+## §X.65 — 2026-08-26 14:15–14:45Z (session resumed): the watched rows landed — news IS in the pages; the empty-heading pair churned exactly as predicted; the ab-test page burns nine attempts a rotation; and the "third trigger pass" never touched this site → `bugs_open/410`
+
+### 1. News rerenders — COMPLETE and PROVEN at the artefact
+
+- `a10a7110` (index) complete 11:31:57Z → vm-sites **`511166ba7`** 11:31:33Z; `f2fc39d5` (news-index)
+  complete 12:17:49Z → **`0e4002959`** 12:17:44Z (`result->>'commit_sha'`; `gh api` confirms both
+  `Rerender:` commits touch exactly the one file each).
+- Served 14:20Z: `/` **200 / 110,321 B**, the `latest-news` section now carries **12 `<article>`** cards
+  server-side (2,078 chars of visible text, first card "London's female founders pass £100m in Start
+  Up Loans"); `/news/index.html` **200 / 93,236 B**, 9 articles. Goto-redirect hrefs served: 3 + 5 —
+  `bugs_open/400`, unchanged.
+- **LANDMINE check passed**: `section_data_resolved` on a LOCKED positionally-named section can
+  DUPLICATE it — `SELECT slot_name, count(*) … GROUP BY … HAVING count(*)>1` on index + news-index
+  → **0 rows**. The D-001/D-002 seam held.
+- Two observations for the `news_editorial_features/` lane (theirs, not fixed here): the editorial
+  `<p id="news-subheadline">` on the homepage carries **literal URL paths and a slug as prose**
+  ("Use our tool-idea-stage-identifier at /tools/idea-stage-identifier/index.html … in
+  /guides/tool-idea-stage-identifier-guide.html"); and every card's `<span class="news-source">`
+  byline is `content_sources.name`, which for seeded sources is the **search query** ("News Search:
+  Start Up Loans British Business Bank"), not a publisher.
+
+### 2. empty_section pair — the CHURN arm of §X.61 §4's prediction, end to end
+
+`2b52cb30` (funding-fit) and `9e6da605` (patent-check) both **`failed` at attempt 3** (13:49:37 /
+14:07:01) with RFC_017's fail-closed text: *"cannot verify: component a1724965-… no longer exists
+(genuinely fixed or silently deleted — indistinguishable here)"*. What actually happened:
+
+- The handler REBUILT each page (rows re-created **13:48:51** and **14:06:13**) → new component ids
+  (`92ae1317`/`f7152331`, `253c10b7`/`af276258`); the verifier, keyed on the OLD ids, found nothing.
+- The predicate `<(h[1-6])[^>]*>\s*</\1>` is **TRUE on both replacement rows**, at the SAME lengths as
+  every prior rebuild — **18,034 / 19,404 B** ("identical length = reproduced, not repaired").
+- Served 14:22Z: both pages carry exactly **1** empty `<h2 class="…-heading"></h2>` (97,452 / 98,741 B).
+- Not yet re-filed by the completeness rotation at 14:26Z; it will be (hourly, keyed on
+  `spec.component_id` → the NEW ids). **So the loop is: rotation → 3 rebuild+deploy cycles → failed →
+  re-file**, every rotation, on two pages. `bugs_open/300` (id churn; our CONTRIB is there) for the
+  verifier half; `bugs_open/357` for the template half (`{{.section_heading}}` with no such key in
+  `content_data`). Nothing new to file — this is the third demonstration on this site of a filed class.
+
+### 3. ade31076 — closed the way §X.64 predicted
+
+`failed` at 11:30:53Z, attempt 3, error text read: the same **PAGE CONTENT REGRESSION REFUSED**
+(2,062 vs 19,918). Owner-queue row `3493b44f` stands. Nothing further this lane can do.
+
+### 4. The ab-test calculator page now burns NINE attempts per rotation across THREE item types
+
+- `99680934` `page_rerender` (re-filed by the 01:31 wave under the SAME key as 08-24's `3a999682`) →
+  failed ×3, "1 component row(s) and assembled to nothing … blank slots [tool-ab-test-calculator]".
+- `2b878727` `section_edit` (`tool_fix`, from `improve_tool` `tool_health` `763a437d`) → failed ×3:
+  `apply_section_edit` **refused — 3 schema-required fields rendered empty** (`disclaimer_text`,
+  `section_heading`, `section_subheading`) — `bugs_open/342`'s guard.
+- That refusal filed `95c48f78` `required_fields_missing` → parked `needs_human_review` (the queue's
+  **51st**) with the framework's own menu: *"deploy or rebuild the component … LOCK it (accept-as-is)
+  … or retire it"* (`bugs_open/367`, `333`). **Owner choice §5.1 is now the most expensive open item
+  on the site**, and the platform has written the three options for him.
+
+### 5. Caught misstep — "empty `field_updates` = a no-op green loop": REFUTED before it was written anywhere
+
+The two completed `tool_fix` `section_edit`s (`50d7f369`, `9b4b2867`, 09:21/09:22Z) carry
+`spec.field_updates: {}` and were RE-FILED at 14:00/14:02 (`60ec64ac`, `d69821d0`). I suspected a
+no-op loop. Measured instead: their vm-sites commits `4978e001` **+81/−3** and `cdb4b807`
+**+177/−100** — real edits; and `[MEASURED 2026-08-26]` **94 of 94** `tool_fix` section_edits
+fleet-wide carry `{}` — the DESIGNED shape (the fix content travels from the improver's finding, not
+the spec). The re-files are a SECOND improver pass (`audit_fix`, 13:51/13:56) with DIFFERENT findings:
+`e314b235` "visual design depends on CSS custom properties…" and `c1e672dd` "error element has static
+id 'isi-error' but the JS queries `{{.InstanceID}}…`". Served stage-identifier at 14:27Z has
+`id="isi-error"` ×1 and `getElementById('isi-error')` ×1 — **consistent** — so round 2's finding may
+be reading the template rather than the render. **Watch round 2 for oscillation** (a fix that flips
+the id scheme back). The check that saved this: open the COMMIT before calling a completion a no-op.
+
+### 6. The "08:46 pass" never touched idea.uk → `bugs_open/410` (fleet, filed this session)
+
+`content_sources.last_fetched_at` = 02:46 for all five, after a trigger pass the handoff called
+COMPLETED at 08:46. `orchestration_states` holds **one** `content-feed-orchestrator` run for the site
+today (02:45:52). Cause, measured to the second: `next_fetch_at` = fetch time + `fetch_interval`
+(6 h) = **08:46:15–08:46:31**; the trigger fired **08:46:06**. Fleet census (48 h): **every site whose
+sources are all 6-hourly ran 12 h apart**; the two with a 3 h/4 h source ran every pass (control);
+the `LIMIT 10` was not binding. Filed as **`bugs_open/410`**, first-hand verification declared, with a
+prospective prediction for the 14:46 and 20:46 passes; CONTRIB into `316` (its "fully served" claim
+refuted); 016b §9 pattern; WRONG_CALLS row (mine — a trigger's COMPLETED is not per-site service; the
+§X.62 §3 / handoff §2 "three unattended passes" line is the wrong call). **Local mitigation
+(`fetch_interval='05:30:00'` on our five rows) was REFUSED by the session's permission classifier** —
+a production UPDATE — and I did not retry: it doubles our search-fetch spend, which is the owner's
+call. SQL in RUNBOOK 6g.
+
+### 7. State `[MEASURED 2026-08-26 14:19Z]`
+
+Queue: complete 156 · needs_human_review **51** · deferred 37 · detected 35 · triaged 16 · cancelled 14
+· failed **8** (3a999682, 99680934, 2b878727, ade31076, 2b52cb30, 9e6da605 + the 2 older
+`empty_section`) · unresolved 7. Fleet: 0 credit errors since 08:58Z; triaged 1,387 → 1,141.
+Commits: `01b1d796d` (410 filing + 316/016b/WRONG_CALLS), `31d875e3d` (016b entry moved into §9 —
+my first append landed after §10; caught by reading the file's heading list AFTER committing, which
+is the wrong order).

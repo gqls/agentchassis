@@ -1008,3 +1008,24 @@ add `'api_news'` to `source_types` the same way; the seeder creates only the mis
 Prior rows in `bak_ideauk_newsarm_20260825_site_specs` / `_pages` / `_site_plan_pages`.
 Sources: `UPDATE content_sources SET is_active=false WHERE site_id='1244516d-…';`. The
 committed JSON is in git, not the DB — it stays served until the next `commit_news`.
+
+### 6g. Is the trigger actually serving THIS site? (added 2026-08-26 — `bugs_open/410`)
+A `content-feed-trigger` run COMPLETED is a fleet event. Per-site service is a separate row:
+```sql
+SELECT created_at, status FROM orchestration_states
+WHERE site_id='1244516d-014d-421c-88c6-090bb1e9552a' AND owner_agent_type='content-feed-orchestrator'
+ORDER BY created_at DESC LIMIT 6;                      -- expect ~6 h apart; 12 h apart = 410
+SELECT name, last_fetched_at, next_fetch_at FROM content_sources
+WHERE site_id='1244516d-014d-421c-88c6-090bb1e9552a';  -- next_fetch_at seconds AFTER the next :46 pass = will be skipped
+SELECT last_triggered_at + interval '21600 seconds' AS next_pass FROM scheduled_tasks WHERE name='content-feed-refresh';
+```
+Why: `next_fetch_at = NOW() + fetch_interval` is stamped at FETCH time (10 s–9 min after the trigger),
+so a 6 h interval is due seconds after the next 6 h trigger → skipped → served 12 h later. **Owner's
+call — per-site mitigation** (doubles this site's five search fetches from 2×/day to 4×/day; a
+production write the session classifier refused, correctly):
+```sql
+CREATE TABLE bak_ideauk_fetch_interval_20260826 AS SELECT * FROM content_sources WHERE site_id='1244516d-014d-421c-88c6-090bb1e9552a';
+UPDATE content_sources SET fetch_interval='05:30:00' WHERE site_id='1244516d-014d-421c-88c6-090bb1e9552a' AND is_active AND fetch_interval='06:00:00';
+-- rollback: UPDATE content_sources cs SET fetch_interval=b.fetch_interval FROM bak_ideauk_fetch_interval_20260826 b WHERE b.id=cs.id;
+```
+The fleet fix (look-ahead in both gating layers) is 410's candidate 1 and not this lane's.

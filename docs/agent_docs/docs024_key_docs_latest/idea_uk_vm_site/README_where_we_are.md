@@ -2534,3 +2534,40 @@ worth seeing whether that edit lands or fails like the rerenders do. And a neigh
 passed word that the design inspection rotation — paused since the 11th over a cost scare — was
 switched back on at twenty past nine; our site's turn comes round within two or three days, so
 a few new design findings may appear on the queue without anyone having filed them.
+
+**2026-08-26, mid-afternoon — the news stories are in the pages now; two things worked exactly as
+feared; and the "every six hours" news refresh turns out to be every twelve, fleet-wide.**
+
+The two homepage/news-page rebuilds went through around half past eleven and quarter past twelve,
+and the site now serves the stories inside the page itself — twelve cards on the homepage, nine on
+the news page — not only via the browser script. I checked the one trap that rebuild can spring
+(duplicating a locked section) and it did not.
+
+The two empty tool headings did what I said they would on Sunday: the fixer rebuilt both pages,
+which gave every part a new identity, reproduced the empty heading byte-for-byte, and then the
+checker could not find the parts it was asked to verify, so both attempts were marked failed. The
+detector will find them again within the hour under their new identities and the cycle repeats —
+three rebuilds and deploys per page per cycle, for nothing. This is the same platform defect (300 and
+357) I have written up before; nothing new to file, but it is now costing real cycles on two pages.
+
+The A/B-test calculator page is now the most expensive open decision on the site: three separate
+mechanisms tried to repair it today, all failed, and the platform has written you a menu — rebuild it
+properly, lock it as-is, or retire it — as item 51 in your review queue. Its every-rerender failure
+plus these makes nine wasted attempts per cycle.
+
+The bigger finding is about the news refresh, and it is not just ours. I had written this morning
+that three overnight refresh passes had "all completed". They had — but only one of them touched
+this site. The reason is a timing quirk: after each fetch the system sets the next fetch for exactly
+six hours later, and the fetch happens a few seconds to a few minutes AFTER the six-hourly trigger
+fires — so at the next trigger the site is not quite due, gets skipped, and is served six hours
+after that. Every news site with the default six-hour setting is on a twelve-hour cycle, and the
+sites that happen to have a shorter source are not, which is what proved it. I have filed it as bug
+410 for the news-feed lane, corrected the claim in their notes that the sites were "fully served",
+and noted my own wrong call. **One thing for you:** there is a one-line change that would put
+idea.uk back on six hours today (it makes the five search fetches run four times a day instead of
+two). My session was not permitted to make it — a production change with a cost attached, which is
+right — so the SQL is in the runbook (6g) if you want it.
+
+Also: the guard refusal on the example-report link ran its course and is item 50 in your queue, as
+expected; and an early suspicion of mine — that some of the tool-improver's edits were doing nothing
+— was wrong, and I caught it by opening the commits before writing it down.
