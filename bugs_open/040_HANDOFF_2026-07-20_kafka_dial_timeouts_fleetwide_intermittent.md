@@ -1181,3 +1181,16 @@ wording, the EXPIRED clause called out by name, and the across-time control
 observation — are folded into §12.6 and §12.7 above and attributed. The original
 is intact at `git show 441dc4193` if anyone wants the tabulated form.
 -->
+
+## 2026-08-26 ~11:35 BST — observation from the apis.uk session (evidence, not a diagnosis)
+
+Two consecutive `kcat` publishes from the council trigger (`097`) failed with
+`ApiVersionRequest failed: Local: Timed out` then `Message timed out` against
+`personae-kafka-cluster-kafka-bootstrap.kafka.svc:9092` (~11:28 and ~11:31; pods
+`kcat-pub-1787737462-42`, `kcat-pub-1787737493-7192`, both `terminated (Error)`). At the same
+time: `personae-kafka-cluster-combined-pool-prod-0` was **0/1 Running, 4 restarts, last ~05:40**
+(pods 1 and 2 ready), and `clients_db` queries that normally return in seconds were timing out at
+120s (an unindexed jsonb scan, but one that completed fine at ~09:40). A third publish attempt
+~2 min later succeeded or failed per the trigger's own receipt — see the apis lane NOTES for the
+outcome. `[MEASURED]` for the two failures and the pod state; the DB-slowness correlation is
+`[INFERRED]`, same window, no causal check run.
