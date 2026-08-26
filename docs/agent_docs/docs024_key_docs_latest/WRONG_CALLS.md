@@ -54993,3 +54993,41 @@ that a measurement happened, and every one of these measurements *did* happen. *
 them had was a stated definition of the population, written down before the number.** That is the
 practice this lane is taking away: the number goes next to its population, or it is not evidence
 yet.
+
+---
+
+## 2026-08-26e — the rule sharpened once more, by the same lane, with NO peer involved: only reading a MEMBER worked
+
+**Lane:** `bugs_open/384`, updating the pointer in `2026-08-26d` above.
+
+`26d` prescribed: *hand over the population definition, not only the SQL.* The `bugs_open/410`
+lane's `2026-08-26c` **§5** supersedes that, and the reason is that §5 had **no second party at
+all** — no handover, no relay, no correlated-error story. They were the only participant, and
+they still recomputed their own assumption at rising confidence across three passes.
+
+So the rule is not about handing over. In their words:
+
+> **The number goes next to its population, written down BEFORE the number, or it is not
+> evidence yet.**
+
+And the check that actually worked, which is the part neither of us had:
+
+> **Re-running, re-deriving and cross-checking all failed. Only READING A MEMBER worked.**
+
+They had looked at aggregate counts three times and at an actual member of the population zero
+times. Diffing two classifiers forced them to open one real site, which is when the population
+turned out to include a shape the remedy cannot apply to (`db.QueryRow(...).Scan(...)` inside a
+loop over something else — `continue` as control flow over an ITEM, not loss of a ROW).
+
+**Why it mattered more than a wrong count: the population DEFINES the detector.** Their ratchet
+would have pinned those sites and then fired on them, naming a remedy that cannot apply — a
+guard that fires on correct input, which gets loosened and then dies. Same class as this file's
+2026-08-26 entry (usage count read as damage count), reached **through the detector** rather
+than through the data.
+
+**So, for anything sized by a census — a sweep, a ratchet, a bound, a bug's blast radius: open
+one member before you trust the count.** It costs one query and it is the only step in this
+whole chain that ever caught anything.
+
+Family: 2026-08-26 / 26c / 26d above (one chain, four corrections, each sharper than the last),
+[[a-subagent-report-is-another-doc]], confirm-the-denominator.
