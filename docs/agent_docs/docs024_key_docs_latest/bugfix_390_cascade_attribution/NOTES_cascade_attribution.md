@@ -618,3 +618,35 @@ required (0,2,0), **no `!important`**. Same model, same row shape, same evening:
 tracked the prompt exactly, which is as clean a controlled comparison as this estate will ever
 hand us. Remaining drains (garden-tools 7–8 rows, cookly 5) are all post-655 — expect no
 `!important` throughout; any reappearance is a real finding, not noise.
+
+## 2026-08-26 (t) — 655 APPROVED round 1 (2 medium advisories + assorted lows); each advisory graded against tonight's LIVE evidence; garden-tools drained 14/14 and verified at the served theme
+
+**Verdict** (`ffd6952b`, council_report): APPROVED, 5 abstained, no highs. Advisory dispositions,
+each answered by evidence rather than argument:
+
+- *editquality M1 (css-patch-agent might be among the duplicate-active-row types; the guard would
+  refuse):* the apply SUCCEEDED at 18:57:48 — the guard found exactly one row. Standing risk noted
+  for the day a second row appears; the guard failing loud is the designed outcome.
+- *editquality M2 (dotted path unverified) + bug_historian M2 (Go template truthiness could make
+  the fence always-false):* settled in production, both branches, within 12 minutes of apply —
+  `ecd68793` (row WITH `override_requirement`) rendered the fenced sentence and NOT the general
+  bullet; `80d5dd85` (row WITHOUT) rendered the general bullet and kept `!important`. jsonb → map;
+  absent key → nil → `not` true. The synthetic-shapes concern (guardian low) is closed by the same
+  live renders.
+- *prior_art_librarian (verify `needs_important` has no other reader):* grepped —
+  `contrast_cascade_route.go` writes it (:110,:179,:195,:224); NOTHING in Go reads it; the prompt
+  is its only consumer. The "inert signal" claim stands.
+- *bug_historian M1 — the REAL one, OPEN and UNOWNED:* the same shape (a filer-computed
+  specific instruction co-present with a later generic instruction, adjudicated by the model) may
+  live in OTHER agent prompts; nobody has swept `agent_definitions` for it. Honest state: not
+  done, not claimed. Transferable pattern for the close-time 016b §9 entry: *"two co-present
+  prompt instructions are adjudicated by the model, not by precedence language — fence them so
+  only one renders."* The sweep is a separate task for whoever takes it; it is not 390's close
+  criterion.
+
+**garden-tools end state, at the artefact:** 14/14 complete; served theme 22,902 B (control 404),
+all 13 rules present; post-fence rules carry NO `!important` (8/8), pre-fence 5 + the
+unattributed row do. Spot arithmetic: #4a5240 on rgb(238,234,227) = **6.81:1**. One wrinkle,
+recorded: `P.tool-description` now has FOUR rules (one pre-fence `!important` #4a5240 + three
+post-fence plain) — the pre-fence `!important` wins over all later ones, so the served colour is
+#4a5240 (passes). Redundancy class as §(p); no action.
