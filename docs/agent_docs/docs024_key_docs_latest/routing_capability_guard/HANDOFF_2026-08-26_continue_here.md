@@ -119,6 +119,36 @@ choice was offered to that lane: add the new field to `pageFieldWriters` with
 writable fields. **Prefer the first** — it keeps every field in the vocabulary carrying a dated
 statement of who can write it, which is the property that made rule 3b possible at all.
 
+### ⚠ 2.5 — TWO THINGS NOW WAIT ON THE OWNER **DIRECTLY**, AND A RELAY WILL NOT DO
+
+Both rulings above reached the lanes that own the work **through this session**. One of those lanes has
+correctly refused to act on that, and it is worth understanding rather than routing around.
+
+**Decision 2 is RULED but STALLED.** The `vigilant_designer_offer_analysis` lane's reply, recorded
+verbatim because the reasoning is right: *"A peer relay is not the owner's approval for me to open a
+new piece of work of that size, however well-founded, so I have surfaced it to him as a decision to
+take rather than acting on it. That is a constraint on me, not a doubt about your relay."*
+
+v2(a) is substantial — config-only but migration `602` is unwritten, it GROWS the offer surface, it
+widens what a predicate can address, and the truncation check needs re-running on webdesign.co.uk
+afterwards. **So the owner's "go ahead" needs to reach that lane from him, not from here.** Until it
+does, decision 2 is ruled and unstarted, and gate 1c's route to a negative control stays closed.
+
+**Decision 1 is RULED and BLOCKED on another lane's design** — `bugs_open/403`'s marker (§2 above).
+Not an approval problem; a dependency. Coordination sent, awaiting their call.
+
+**Their answer to the lockstep question, so nobody re-asks it:** take option 1 — when the vocabulary
+widens, add the new field to `pageFieldWriters` with `WritableBy: {"page-build-handler": true}` and its
+dated writer census. Their reasoning matched this lane's: option 2 trades a coverage guarantee over
+exactly the population the roster exists to describe, for the cost of writing down one measurement.
+
+⚠ **AND THE TRAP THEY SPOTTED IN MY OWN TEST, which I had not stated:** *do not add the roster entry
+speculatively AHEAD of the widening.* `TestPageFieldWritersCoversThePredicateVocabulary` is
+**bidirectional** — a roster entry naming a field no predicate can name fails it in the other
+direction. The two edits must land together, vocabulary first or same commit.
+
+---
+
 ### STILL OPEN — decisions 3 and 4. The owner asked for a plainer explanation of both and it was given;
 no ruling yet. §2.3 and §2.4 below are the questions as put. For 3 the ask is narrow: agreement to
 **defer with a trigger** (build the audit only when the roster gains a third entry) rather than a
