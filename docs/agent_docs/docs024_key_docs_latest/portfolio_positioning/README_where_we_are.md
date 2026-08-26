@@ -1075,3 +1075,46 @@ check that would have removed the doubt entirely.
 **To pick this up in a fresh session:**
 `docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-25b_continue_here.md`
 
+
+
+---
+
+**2026-08-26 — a changed page now reaches its sitemap in about an hour, not three days.**
+
+Yesterday's sweep visited each site every three days. That was fine for getting every site a sitemap
+in the first place, but it meant a page you published — or took down — could sit unlisted for up to
+three days. The original plan had put this off with a costing: "if we regenerate on every edit,
+that's 136 checks on the biggest site, every time anyone touches anything."
+
+That costing was right about the wrong design. We didn't need to regenerate on every edit. The sweep
+already has a hard ceiling — one site every half hour, so at most 48 a day no matter what — and all
+we had to do was tell it *which* sites to pick. So: a site whose pages have changed since its last
+visit now goes to the front of the queue, once it has been quiet for half an hour (so a big batch of
+edits settles into one visit instead of several). The three-day rule stays as a floor underneath, so
+a site that is edited constantly can never be starved.
+
+**It was proven the same day, and the proof was built in.** Every site had been visited in the last
+two days, so under the old rule nothing was due before tomorrow afternoon. Anything picked before
+then could only be the new rule. By mid-afternoon eight sites had been picked, one per half hour,
+all regenerated cleanly and published — and the first one's live sitemap carries today's dates on
+exactly the two pages whose edits triggered it.
+
+The review panel approved it in ten minutes with two minor notes. One said I should check there was
+only one copy of the scheduling row before editing it — I already had, in the file, but I'd left it
+out of the summary the panel reads, so they couldn't see it. Fair; I've written down that the
+summary must list every check, not just the interesting one.
+
+**Also today:** the old hand-run generator listed every site's homepage by the wrong address
+(`/index.html` rather than plain `/`). The automatic version was fixed on Sunday; the hand-run one is
+now fixed too, so nothing left in the estate writes the wrong form.
+
+**One thing that isn't ours but you should know:** running that tool against `cv1.co.uk` showed
+Cloudflare's managed robots file is being merged into ours and is currently turning away the AI
+crawlers (ClaudeBot, GPTBot, Google's, and others). Whether we want that is your call, not mine; I
+haven't touched it.
+
+**Still unproven, same as yesterday:** the check that stops a brand-new site being visited before
+its pages exist. Nothing new has appeared to test it against.
+
+**To pick this up in a fresh session:**
+`docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-26_continue_here.md`

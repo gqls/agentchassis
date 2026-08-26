@@ -3203,3 +3203,145 @@ recoveries came from hand-cleared stamps on sites that now HAVE pages, so the gu
 consulted. Recording it separately because "29 of 31 and everything green" is exactly the kind of
 result that would let an unproven guard ride along unnoticed.
 
+
+## 2026-08-26 — the sitemap follows the deploy (`642`), the generator's last non-canonical writer fixed, and a line of mine swept into another lane's commit
+
+### (a) Morning state check — §1d of the 08-25b handoff
+
+`622`'s guard is **still unconsulted**: all 31 live unlocked sites have ≥1 deployed active page
+(smallest: `apis.uk` 1, `lampenkap.com` 1) [MEASURED 2026-08-26 ~09:30 BST, the §1d query]. Nothing
+to conclude in either direction; the falsifiable form stands. Rotation last ticked 08:10Z with
+nothing due — correct, every stamp is inside its 3-day window.
+
+⚠ The migrations dir had moved **634 → 641** between the handoff and my naming a file; `635` was
+already taken. `ls` immediately before naming, again — this lane's third collision-avoided.
+
+### (b) The deploy-path half of SEO-002, reframed before it was built
+
+`590` deferred it with: *"the deploy path would re-probe a whole site on every page change (135
+requests for webdesign.co.uk, every time)"*. **Right about the wrong design.** Firing a render per
+edit is expensive; making an edited site *due* costs nothing new, because the rotation already has a
+hard cost cap — one site per 1800s tick, so ≤48 renders/day whatever the due set says. The event
+belongs in the SELECTOR, where the cap already lives. No Go, no roll, in council scope as a migration.
+
+What I measured before writing it [all 2026-08-26]:
+
+- **Churn is waves, not a rate.** Distinct sites with ≥1 `pages.updated_at` per day: 08-19 **2**,
+  08-20 **2**, 08-21 **1**, 08-22 **0**, 08-23 **3** — then 08-25 **27**, 08-26 (to 09:30 BST) **21**.
+  All 31 sites had ≥1 page changed since their last render (wave backlog). So a bare
+  "changed ⇒ due" clause saturates during a wave (fine — the tick drains 31 in ~15.5h) and needs a
+  **quiet period** so a site renders once after the wave, not mid-wave and again after.
+- **`updated_at` alone is the signal.** Every `UPDATE pages` statement in the Go tree bumps
+  `updated_at = NOW()` alongside whatever it changes — deploy stamp (`deploy_evidence.go:294`),
+  retraction, `needs_rebuild`, section stores; **12** call sites as of 2026-08-26 — and **0** rows
+  fleet-wide have `updated_at < deployed_at`. So one column covers deploy, redeploy, retraction,
+  noindex flip and expiry-set, and the pre_query names no visibility column (`622`'s verify RAISES
+  on `pg.noindex`/`pg.expires_at` — the mirror that drifts). The only trigger on `pages` is
+  nav-cache invalidation; the bump is convention in every statement, not a trigger. [INFERRED,
+  no instance today] a NEW writer that forgets the bump would be invisible to `642`'s early
+  branch — the 3-day floor catches it.
+- **The floor must stay unconditional.** If the quiet test gated both arms, a permanently-busy
+  site would be silently never selected — the exact drift mode `622` refused. So:
+  `(floor) OR (changed-since-render AND quiet 30 min)`.
+- **Rejected, not deferred:** "probe only the changed URL and merge" (the handoff's other option).
+  Go plus reading the served artefact as input, to save ~26 GETs per render. Wrong trade here.
+- **Accepted costs:** over-trigger on pre-deploy edits (mid-build is excluded by the claimed-build
+  guard); empty-diff commits when two same-day renders produce identical bytes — the git adapter's
+  no-op skip covers deletions only (`github_client.go:250`), so identical content pushes an
+  empty-diff commit that SUCCEEDS (no FAILED runs, just repo noise).
+- Scheduler: a pre_query returning zero rows is a clean no-op that stamps and rotates
+  (`cmd/scheduler/main.go`, the `bugs_open/048` comment) — a quiet tick costs nothing.
+
+### (c) `642` applied and PROVEN the same day
+
+Applied ~10:30Z, scoped via `MIGRATIONS_DIR` to a scratch dir holding only my file — the canonical
+dir's pending set was **614–638**, all other lanes' (several `_HOLD`). Apply NOTICE:
+**`0 by age, 20 by change-and-quiet`** — down from 28 at design time an hour earlier: 8 sites had
+gone busy again as the wave continued. That is the quiet gate holding, seen through the count.
+
+**The proof was built into the apply moment.** Every stamp was 08-24/25, so under the OLD rule
+**nothing** was age-due before **2026-08-27 16:02:34** (`loancalculator.co.uk`, oldest stamp + 3d).
+Any selection before that instant can only be the new branch. Then:
+
+| tick (UTC) | site | url_count | dropped | committed | would have been age-due |
+|---|---|---|---|---|---|
+| 10:42:35 | `loancalculator.co.uk` | 28 | 0 | yes | 08-27 16:02 |
+| 11:17:09 | `agritec.uk` | 13 | 0 | yes | 08-27 16:33 |
+| 11:47:35 | `finetuning.uk` | 51 | 0 | yes | 08-27 17:34 |
+| 12:17:56 | `apis.uk` | 1 | 0 | yes | 08-27 19:35 |
+| 12:48:26 | `leopardessconsulting.co.uk` | 37 | 0 | yes | 08-27 21:07 |
+| 13:18:56 | `cookly.uk` | 15 | 0 | yes | 08-27 17:03 |
+| 13:49:00 | `garden-tools.uk` | 14 | 0 | yes | 08-27 18:04 |
+| 14:19:30 | `loanzy.uk` | 25 | 0 | yes | 08-27 21:37 |
+
+**8 ticks, 8 distinct sites, 8 COMPLETED orchestrations, zero dropped, zero duplicates**, each a
+day-plus ahead of its floor. At the artefact for the first: `https://loancalculator.co.uk/sitemap.xml`
+HTTP 200 `application/xml` 3,560 B, **28 `<loc>` = 28 listable rows**, homepage as `/`, and the served
+body carries the two **`2026-08-26`** lastmods (`legal.html`, `tools/credit-health-check.html`) —
+exactly the pages whose edits made the site due. Change → early selection → render → commit → served.
+At 14:20Z: 0 age-due, **14** due-and-quiet, **11** changed-but-busy — draining at the tick rate.
+
+Precision on what this does and does not prove: it proves the EARLY branch selects, and that what it
+selects renders and publishes correctly. It does **not** directly show the quiet gate DEFERRING a
+site — that is only visible in the due counts moving (28 → 20 → 14/11 at three instants), not in a
+selection that was withheld. Good enough; stating it so nobody reads the table as more than it is.
+
+### (d) Council `6e448adb-1e03-4e2e-a3dd-42bc6857ff24` — APPROVED 10:35:39Z, round 1, **10 minutes** after submission
+
+Not 29. Two advisories, both run down:
+
+- **`editquality` (medium):** *"the pre-flight only counts occurrences of the anchor — it never
+  asserts that exactly one scheduled_tasks row carries that name"* (the byte-copied
+  `build-pipeline-trigger` sibling precedent). **It does — the FIRST `DO` block raises unless
+  `count(*) = 1` by name.** The reviewer judged from the plan SUMMARY, which named the
+  occurrence-count assertion and not the row-count one. Checked live anyway: **1** row named; no
+  other row targets `sitemap-refresh`; none carries the new clause. Did not fire.
+  **Lesson: the submission summary must list EVERY pre-flight assertion.** A reviewer cannot open
+  the file, so an unlisted guard is an absent guard to them — and a REVISE round on it would have
+  been pure waste. Cheap to do; I did not, and drew a medium for it.
+- **`debug_historian` (low):** concurrent ticks could double-select a site under the early branch
+  before the stamp lands (the 583/584 single-flight family). Pre-existing and untouched by `642`
+  (the stamp is a CTE in the same statement; `642` only widens the due set). `kafka-scheduler` runs
+  **1 replica** [MEASURED 2026-08-26], so the loop is sequential; today's 8 ticks produced 8 distinct
+  sites and 8 orchestrations. Noted, not acted on.
+- 6 seats abstained; `bug_historian`, `reuse_agent`, `guardian`, `improvement_guardian`,
+  `render_guardian`, `constitution`, `mission`, `prior_art_librarian`, `architecture` approve.
+  `architecture`: *"point_fix … exactly the shape 590 deferred toward"*.
+
+`107327c6b` carries `Council-Submitted:`; 098 credits it at report time, no amend.
+
+### (e) `scripts/site-discovery-files.py` — the last writer of the non-canonical homepage, fixed (`bcb4645ff`)
+
+Whole-path rule (`/index.html` → `/`) at the one point all three consumers read from
+(`live_pages`), mirroring the action's `absoluteURL`. Population among listable rows
+[2026-08-26]: **30** root `/index.html`, **261** section `index.html` (must pass untouched), 507
+other, **0** missing a leading slash, **0** absolute — so the Go's defensive slash handling was not
+needed here. Exercised against `cv1.co.uk` into scratch: root emitted as `/`, both section indexes
+untouched, 3/3 probed 200, `llms.txt` picks up `/` too.
+
+**Side observation, not this lane's item:** the script's rule-3 detection fired on `cv1.co.uk` —
+Cloudflare's managed `robots.txt` block is merged in, currently disallowing ClaudeBot, GPTBot,
+Google-Extended, CCBot, Amazonbot, Applebot-Extended, Bytespider, meta-externalagent and
+CloudflareBrowserRenderingCrawler. Whether the estate wants AI crawlers blocked is the owner's call;
+flagged in the handoff.
+
+### (f) A line of mine was swept — and that is the documented system, working
+
+My in-place LANDMINES correction (the canonicality entry's source line: "the script instance is
+fixed too") reached HEAD in **`b3bddba60`** (imagery lane, 12:19 BST) as a same-file passenger.
+Nothing lost, forward-only holds, message says nothing about it — exactly the shape CLAUDE.md
+describes. Consequence I chose deliberately: **I did NOT run `landmines-verify-dispatch.sh`.**
+Another lane (`dispatch_throughput`) has a NEW uncommitted entry in the file right now, and my sync
+would consume its new-entry status so the verifier never checks theirs — the trap CLAUDE.md names.
+My change is a status correction to an existing entry, not a new trap; the `doc_notes` copy lags
+until the next lane syncs. Recorded so the lag is not read as an omission.
+
+The session process restarted mid-task (~12:30 BST); one background verdict lookup was lost and
+re-run. Nothing else was affected — every write had landed.
+
+### (g) Register and handoff
+
+`seo.md`: SEO-007's caller bullet carries the dated CLOSED note with the proof; verify-later
+re-cut (deploy-path done, 3-days reframed as a re-probe floor, `622` guard + `skip_reason` residue
+still open); SEO-002's line-132 sentence struck with the fix. New handoff
+`HANDOFF_2026-08-26_continue_here.md` supersedes 08-25b.
