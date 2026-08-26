@@ -7,11 +7,17 @@
 package actions
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"go.uber.org/zap"
 )
 
 // heroSchema is a real-shaped hero input_schema: a url field whose paired label
@@ -284,4 +290,112 @@ func TestCTALabelAuditAsksTheSharedQuestion(t *testing.T) {
 		t.Error("check_misdirected_cta.go no longer routes through datahelpers.JudgeCTALabel — " +
 			"the detector and the audit have drifted apart")
 	}
+}
+
+// TestAuditCTALabelAgreementCannotFailTheSave is the objection the council's
+// guardian and bug_historian seats both raised (corr e9bda035): the plan
+// ASSERTED "the pass can never fail a save" and never showed it. This shows it.
+//
+// SavePageSectionsAction's guard chain is the single save seam six orchestration
+// pipelines share, and is the write path implicated in this estate's documented
+// silent-content-loss family. An instrument that can abort it is a worse defect
+// than the one it measures — and "it only reads" is not a defence: a nil map, a
+// surprise type in content_data, or a malformed input_schema panics exactly as
+// loudly as a write would.
+//
+// MUTATION: delete the `defer func() { recover() }()` at the top of
+// auditCTALabelAgreement. This test panics and fails.
+func TestAuditCTALabelAgreementCannotFailTheSave(t *testing.T) {
+	// A section whose content_data holds the WRONG TYPE under every key the pass
+	// reads, plus a nil-valued entry — the shapes a malformed LLM response and a
+	// hand-edited row actually produce.
+	hostile := []SectionData{{
+		ComponentName: "hero",
+		ComponentID:   "c1",
+		ContentData: map[string]interface{}{
+			"cta_text":         []interface{}{"not", "a", "string"},
+			"cta_url":          map[string]interface{}{"nested": true},
+			"cta_target_title": nil,
+		},
+	}}
+
+	// The pure seam must survive it and simply decline to judge: every read is a
+	// comma-ok assertion, so a wrong type reads as "" and is skipped.
+	got := auditSectionCTALabels(hostile, schemaMap(), auditCandidates(t), "index", "")
+	if len(got) != 0 {
+		t.Errorf("hostile content_data produced %d finding(s); want 0 — the pass judged values it could not read: %+v", len(got), got)
+	}
+
+	// And a nil sections slice, a nil schema map and nil candidates must all be
+	// inert rather than a nil-map panic.
+	for name, call := range map[string]func() []ctaLabelFinding{
+		"nil sections": func() []ctaLabelFinding {
+			return auditSectionCTALabels(nil, schemaMap(), auditCandidates(t), "index", "")
+		},
+		"nil schemas":    func() []ctaLabelFinding { return auditSectionCTALabels(hostile, nil, auditCandidates(t), "index", "") },
+		"nil candidates": func() []ctaLabelFinding { return auditSectionCTALabels(hostile, schemaMap(), nil, "index", "") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("auditSectionCTALabels panicked on %s: %v — this would abort a save", name, r)
+				}
+			}()
+			if n := len(call()); n != 0 {
+				t.Errorf("%s produced %d finding(s), want 0", name, n)
+			}
+		})
+	}
+
+	// The WIRED entry point on a nil DB must simply return. ⚠ This arm does NOT
+	// exercise the recover — params.DB is nil, so the function returns at its
+	// first guard before any logger or query call. Proving the recover needs a
+	// mock DB; that is TestCTALabelAuditContainsItsOwnPanic below, and the first
+	// draft of this file got that wrong.
+	auditCTALabelAgreement(context.Background(), ActionParams{
+		StepConfig: models.Step{Config: map[string]interface{}{ctaLabelAuditConfigKey: true}},
+		Logger:     zap.NewNop(),
+	}, uuid.New(), "example.com", "index", "/index.html", hostile, zap.NewNop())
+}
+
+// TestCTALabelAuditContainsItsOwnPanic proves the recover is present and doing
+// work, by driving a real panic THROUGH the entry point.
+//
+// ⚠ THE FIRST VERSION OF THIS TEST WAS A FALSE MUTATION CLAIM, and it is worth
+// recording where it will be read. It passed a nil logger and asserted "delete
+// the recover and this fails" — but with params.DB nil the function returns at
+// its first guard, long before any logger call, so no panic was ever driven and
+// deleting the recover left the suite GREEN. A mutation that passes has usually
+// hit a guard in series; here it never reached the code under test at all.
+//
+// This version supplies a mock DB so the early guards pass, then fails the
+// label-universe query so control reaches logger.Warn with a nil logger — a
+// genuine panic, inside the region the recover covers.
+//
+// MUTATION: delete the `defer func(){ recover() }()` at the top of
+// auditCTALabelAgreement. This test then panics and fails. VERIFIED by running it.
+func TestCTALabelAuditContainsItsOwnPanic(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	// Any query the pass issues fails, which routes to the logger.Warn branch.
+	mock.ExpectQuery(".*").WillReturnError(errors.New("induced: universe unavailable"))
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("panic ESCAPED auditCTALabelAgreement: %v — SavePageSectionsAction would abort, "+
+				"and this pass is an instrument that must never be able to fail a save", r)
+		}
+	}()
+
+	// nil logger: the Warn on the failure path dereferences it. The recover is
+	// the only thing between that and the save.
+	auditCTALabelAgreement(context.Background(), ActionParams{
+		DB:         db,
+		StepConfig: models.Step{Config: map[string]interface{}{ctaLabelAuditConfigKey: true}},
+	}, uuid.New(), "example.com", "index", "/index.html",
+		[]SectionData{{ComponentName: "hero", ComponentID: "c1",
+			ContentData: map[string]interface{}{"cta_text": "x"}}}, nil)
 }

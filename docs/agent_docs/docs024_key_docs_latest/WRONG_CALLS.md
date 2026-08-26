@@ -55085,3 +55085,60 @@ is the mirror: open MORE members before you trust a refutation).
 - [2026-08-26, bugfix_390 lane] **The handoff's "watch for the first audit" query keyed on `collected_data->'audit_findings'` — a key that has never existed on any orchestration row.** The cascade counters land under the STEP name, `collected_data->'write_findings'` (`write_render_audit_findings_action.go:642-651`). The query returned 0 rows and would have returned 0 rows for ever, reading as "no audit has run yet" — a check that cannot come out otherwise is not a check. The key name was written from memory of what the step *does* (writes audit findings) rather than read from what the step is *called*. **What caught it:** running the watch query as a POSITIVE CONTROL against the three pre-roll `render-audit-agent` rows before arming it — all three had `write_findings`, none had `audit_findings`. **The cheap check:** any query whose meaningful result is "no rows yet" must first be run against a row where it MUST match; and a JSON key typed into a doc is grepped in the writer's source, not recalled. Same family as [[a-post-fix-zero-needs-a-demand-control]] and the 2026-08-26 `grep -c 'image'` entry above (a number you did not disconfirm is a number you made up).
 
 - [2026-08-26, idea.uk session] **Wrote into the lane's cold-start handoff that the news mechanism was "just running" on the strength of "three unattended trigger passes (20:45, 02:45, 08:46), all COMPLETED".** The TRIGGER completed three times; idea.uk was dispatched by ONE of them (02:45) — its five `content_sources.last_fetched_at` never moved past 02:46 and I read a fleet event as per-site service. The cheap check, one query: `SELECT created_at FROM orchestration_states WHERE site_id='<site>' AND owner_agent_type='content-feed-orchestrator'` — it returns the passes that actually touched the site. Caught six hours later only because a timestamp column failed to move; the same read is what let the 316 lane declare seven sites "fully served" when they were on a 12 h cadence (`bugs_open/410`). Family: **a completion is a fact about the completer, not about every target it was supposed to serve** — see "a `complete` work item is not a repaired artefact", "a fresh deploy can ship no new code".
+
+## 2026-08-26 (later) — bugs_open/399 lane: three more, all found by the council gate
+
+### (5) I claimed coverage of a TABLE from a census of an ACTION
+
+**What I claimed.** "Both writers converge on `save_page_sections`" — in the commit message, the code
+header, the register entry and the bug file. I had run a recursive `jsonb_path_query` census and found
+six `save_page_sections` steps across four nesting depths, which felt thorough.
+
+**Why it was wrong.** It *was* thorough — about the wrong root. I enumerated every path reaching one
+**action** and reported it as every writer of the **table**. `ApplySectionEditAction`
+(`section_editor_actions.go` — `updatePageComponent`, `updatePageComponentSwap`) writes
+`page_components.content_data` directly and never goes through `SavePageSectionsAction`. Live, not
+dormant: 144 `section_edit` items, 132 complete, newest the same day I claimed otherwise.
+
+**What caught it.** The council gate's `bug_historian` seat, which asked the question as an explicit
+"cannot confirm from here" rather than an objection.
+
+**The cheap check, skipped.** `grep -rn "UPDATE <table>\|INSERT INTO <table>" --include=*.go` before
+any coverage claim about a table. **A recursive census run from the wrong root is still a wrong
+answer, and it arrives wearing the confidence of a thorough method.** Tally:
+coverage-claimed-for-a-table-from-an-action-census.
+
+### (6) I shipped an ordering constraint as a COMMENT, having read the rule that says not to
+
+**What I claimed.** That migration 643 must be applied after the binary rolls — stated in the
+migration's own header and in the PLAN.
+
+**Why it was wrong.** The migration runner takes every pending file in the directory; it does not read
+headers. CLAUDE.md says so in terms under migration practice: *"An ordering-critical file cannot be
+held by a BANNER: name it `_HOLD.sql`."* I had read that line in this same session.
+
+**What caught it.** `debug_historian`, severity HIGH — the gating objection.
+
+**The cheap check, skipped.** **If correctness depends on ordering, the constraint goes in the
+FILENAME.** A rule you have read is not a rule you have applied; the gap between them is where this
+one lived. Tally: ordering-constraint-written-where-no-mechanism-reads-it.
+
+### (7) I wrote "MUTATION: delete this. The test fails." — and it did not
+
+**What I claimed.** In a test written specifically to answer a council objection that a safety
+property was *asserted rather than shown*, I wrote the standard mutation comment claiming its
+deletion would go red.
+
+**Why it was wrong.** I never ran it. With `params.DB` nil the function returned at its first guard,
+so the panic the test depended on was never triggered; deleting the guard left the suite green. The
+comment was a **false claim inside the artefact whose entire purpose was to stop false claims.**
+
+**What caught it.** Running the mutation, two minutes later, because this estate's own rule says to.
+
+**The cheap check, skipped.** **Run the mutation before writing the sentence that says it fails.**
+Distinct from the existing "a mutation that passes usually hit a guard in series" lesson and worth its
+own row: here the mutation **never reached the code at all**. An unreached mutation and a redundant
+guard both present as "still green", and only one of them is a coverage problem — you cannot tell
+which without running it. (The rewrite then exposed a real defect: the recover handler logged through
+the same nil logger that had panicked, so **the recover re-raised and contained nothing**.) Tally:
+mutation-claimed-not-run.

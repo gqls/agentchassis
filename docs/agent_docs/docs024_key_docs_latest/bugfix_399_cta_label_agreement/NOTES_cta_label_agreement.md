@@ -158,3 +158,85 @@ The extraction proof: `check_misdirected_cta_test.go` and `cta_classify_anchor_t
 `DeriveCTAURLFields` returned nothing and the pass was **silently inert**. Every positive test
 failed and told me. Fixture now copied from a live `content_components` row. *A fixture I compose
 exercises the rule I imagined, not the one production uses.*
+
+## 2026-08-26 — the council said REVISE, and two of its objections were real defects
+
+Verdict `revise`, gated by `debug_historian`, corr `e9bda035`. Nine seats approved, four objected.
+Submitting was cheaper than the defects it found — as it has been every time.
+
+### MISSTEP 6 — I shipped an ordering constraint as PROSE, and a banner cannot hold a migration
+
+`debug_historian`, **severity HIGH**: migration 643 armed a config key with no stated precondition
+that the binary reading it had rolled. My PLAN said "image first, then the migration" and the
+migration header said the same — **and the runner takes every pending file in the directory
+regardless of what its comments say.** CLAUDE.md states this outright under migration practice: an
+ordering-critical file cannot be held by a banner, it has to be named `_HOLD.sql`. I had read that
+line and still shipped the banner version.
+
+Fixed: `643_audit_cta_label_agreement_HOLD.sql`, with the discharge condition being a **pod probe**
+(both the config key and the `CTA_LABEL_MISMATCH` literal present in `/proc/1/exe`, with a control
+that must be absent) rather than a commit sha.
+
+**The check: if a file's correctness depends on something else happening first, the constraint goes
+in the FILENAME. Prose in the header is read by humans, and the thing that applies it is not one.**
+
+### MISSTEP 7 — my "both writers converge" claim was TWO OF THREE, and the third is live
+
+`bug_historian` asked whether another write path persists CTA `content_data` outside the six censused
+steps. It does. `ApplySectionEditAction` (`section_editor_actions.go` — `updatePageComponent`,
+`updatePageComponentSwap`) writes `page_components.content_data` directly, never through
+`SavePageSectionsAction`.
+
+I had checked the *save-step* census recursively and thought that was the writer census. It was not:
+I enumerated everything reaching **one action**, then reported it as everything reaching **the
+table**. Those are different questions and I answered the easier one.
+
+`[MEASURED 2026-08-26]`: 144 `section_edit` items, 132 complete, newest **today** — live, not
+dormant. CTA exposure **3 of 144**, which is why the limit is stated rather than closed by widening.
+
+**The check: `grep -rn "UPDATE <table>\|INSERT INTO <table>"` before claiming coverage of a table.**
+"Every path that reaches this action" is not "every writer of this table", and my own census
+question hid the difference. Note the shape: I did the recursive census *correctly* and still got the
+wrong answer, because the recursion was over the wrong root.
+
+### MISSTEP 8 — I wrote a MUTATION CLAIM THAT WAS FALSE, in the test whose whole job is honesty
+
+`guardian` and `bug_historian` both objected that "the pass can never fail a save" was **asserted and
+not shown**. Correct. So I added a `recover()` and a test, and wrote the customary comment:
+*"MUTATION: delete the recover. This test fails."*
+
+**I then ran it, and the mutation SURVIVED.** With `params.DB` nil the function returns at its first
+guard, so the nil logger I was relying on to panic was never touched — the test never reached the
+code it claimed to pin, and deleting the recover left the suite green.
+
+Fixed with a `sqlmock` DB so control genuinely reaches the covered region. And that rewrite exposed a
+**second, real defect**: my recover handler logged through the same nil logger that had panicked, so
+the handler panicked too — **a recover that re-raises contains nothing**, and the save it exists to
+protect would have aborted anyway. Both mutations now kill; both were verified by running, not by
+writing.
+
+**The check: RUN the mutation before writing the sentence that says it fails.** The estate's lesson
+is "a mutation that passes has usually hit a guard in series" — this one is worse and worth naming
+separately: *the mutation never reached the code at all.* An unreached mutation and a redundant guard
+both present as "still green".
+
+### The rest of the round, and what it was worth
+
+- `editquality`: the verify block counted the config key alone, so `jsonb_set`'s `create_missing`
+  writing a **dead key at a path nothing reads** would still have verified green. Now the assertion
+  requires the key to sit on a step whose `action` really is `save_page_sections`.
+- `guardian`: arming six pipelines at once with no canary. Split into `643` (two primary writers) +
+  `645` (the remaining four), with the rate explicitly unreadable between them.
+- `debug_historian`: no `snapshot_agent()` pre-image before `jsonb_set` on live rows. Added.
+- `architecture`: run the optional-key budget before adding a key to a shared action. **Answered
+  from the counter's own source rather than by running it**: `optionalbudget.go`'s header says it
+  counts `RegisterActionInputSpec` Optional lists and that **`ConfigKeys` is deliberately NOT
+  counted** ("settings rather than input references"). `save_page_sections` registers no InputSpec at
+  all, so its counted set is **zero** and a step-config bool cannot move it.
+- `prior_art_librarian`: `LoadCTALabelUniverse` asserted to exist with no supporting context. It does
+  — `platform/orchestration/datahelpers/cta_label_universe.go:99`, register LNK-036 — and the
+  resubmission carries the citation. Fair objection about the submission, not the code.
+- `guardian` also caught a **process** hole worth keeping: the comment-only `label_match.go` edit was
+  disclosed in prose but excluded from the edit list because the gate refuses comment-only sketches,
+  so the council reviewed a plan that was not the whole diff. It now rides as a listed edit with
+  surrounding context.

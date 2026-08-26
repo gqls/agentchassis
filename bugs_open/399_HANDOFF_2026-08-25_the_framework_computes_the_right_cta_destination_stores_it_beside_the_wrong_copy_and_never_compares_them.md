@@ -252,6 +252,18 @@ Both writers converge on `save_page_sections`, verified in live `agent_definitio
 `page-build-handler → call_content_writer → save_sections` and
 `page-rerender → rerender_sections → save_sections`. That is where the pass went.
 
+> **⚠ CORRECTED 2026-08-26, same day, by the council gate's `bug_historian` seat (corr `e9bda035`):
+> "both writers converge" is TWO OF THREE, not all of them.** The seat asked whether another path
+> persists CTA `content_data` outside the censused save steps. It does: `ApplySectionEditAction`
+> (`section_editor_actions.go` — `updatePageComponent`, `updatePageComponentSwap`) writes
+> `page_components.content_data` directly and never passes through `SavePageSectionsAction`.
+> **It is LIVE, not dormant** — 144 `section_edit` work items, 132 complete, newest **2026-08-26**
+> `[MEASURED 2026-08-26]`. Its CTA exposure is **3 of those 144** naming a CTA field, so the limit is
+> **stated** rather than closed by widening a third seam while the first two are unproven in
+> production. The original claim holds for the BUILD and REPAIR pipelines — the two that regenerate
+> CTA copy — and is false of the estate's writer set as a whole. **This is the correction I would
+> most want a later reader to have**, because the unqualified form reads as full coverage.
+
 And it is **six** `save_page_sections` steps fleet-wide, not two — four sit inside a loop's
 `sub_workflow`. For an instrument that distinction is load-bearing: a guard armed on half its
 writers is visibly partial, an instrument armed on half its writers reports a **rate** that reads
@@ -297,7 +309,10 @@ nobody reads"*) as the class this inherits. **The reading is the RATE, not the r
 read 155 records; somebody must notice if 14.6% becomes 30%, or falls to 2% after a prompt change.
 
 **Owed after the roll:** confirm `CTA_LABEL_MISMATCH` rows arrive from **at least two distinct
-`agent_type`s**. One producer means the six-step coverage claim is failing silently — which is the
+`agent_type`s**. ⚠ And note the migration is now **`643_..._HOLD.sql` + `645_..._HOLD.sql`**, staged:
+643 arms the two primary writers as a canary, 645 arms the remaining four. **The mismatch rate must
+not be read between them** — an instrument armed on half its writers reports a rate that reads
+fleet-wide and is silently biased, which is the very argument that made this a six-step census. One producer means the six-step coverage claim is failing silently — which is the
 exact failure `643`'s census exists to prevent. Then re-measure the rate **at this seam**; it will
 differ from the 14.6% token census (different predicate), and the new number is what any later
 decision rests on. ⚠ A pre-roll zero means "binary not rolled", never "no mismatches".

@@ -650,6 +650,12 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	//     page-rerender      → rerender_sections   → save_sections
 	// verified against the live agent_definitions rows on 2026-08-26.
 	//
+	// ⚠ TWO OF THREE, NOT ALL THREE. ApplySectionEditAction writes
+	// page_components.content_data directly (section_editor_actions.go) and does
+	// NOT come through here, so it is outside this pass. Live, not dormant: 144
+	// section_edit items, newest 2026-08-26, of which 3 name a CTA field
+	// [MEASURED 2026-08-26]. Stated rather than widened — see cta_label_audit.go.
+	//
 	// AFTER the link repair on purpose, for that pass's own stated reason: it
 	// rewrites content_data urls, so judging before it would judge values that
 	// are about to change and report a contradiction this save then fixed.

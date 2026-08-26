@@ -20,6 +20,14 @@ WHERE error_code = 'CTA_LABEL_MISMATCH' AND occurred_at > now() - interval '14 d
 GROUP BY 1 ORDER BY 1;
 ```
 
+⚠⚠ **DO NOT READ THIS RATE UNTIL MIGRATION `645` HAS APPLIED.** The arming is staged on purpose
+(council `guardian` seat, corr `e9bda035`): `643_..._HOLD.sql` arms the two primary writers as a
+canary, `645_..._HOLD.sql` arms the remaining four. Between them the record is a **smoke test, not a
+measurement** — an instrument armed on half its writers reports a rate that reads fleet-wide and is
+silently biased, which is the whole reason the census found six steps rather than the obvious two.
+This warning is here, beside the query, because this is where someone will be standing when they are
+tempted.
+
 ⚠ **`producing_agents` must reach ≥2** once both paths have run (`page-build-handler` and
 `page-rerender`). **One producer means the coverage claim is failing silently** — that is the whole
 reason migration 643 censuses six steps rather than arming the obvious two.
@@ -104,6 +112,23 @@ WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NU
 ⚠ Use `jsonb_path_query` with recursive descent, **not** a top-level `workflow.steps` read: four of
 the six live `save_page_sections` steps sit inside a loop's `sub_workflow` and a top-level read
 reports them as absent — which reads as "not armed" and is indistinguishable from "does not exist".
+
+## ⚠ What this pass does NOT see
+
+`ApplySectionEditAction` (`section_editor_actions.go`) writes `page_components.content_data`
+**directly** and never passes through `SavePageSectionsAction`, so it is outside this pass. It is
+live: 144 `section_edit` work items, newest 2026-08-26, of which **3** name a CTA field
+`[MEASURED 2026-08-26]`. Re-run before quoting:
+
+```sql
+SELECT count(*) AS total,
+       count(*) FILTER (WHERE spec::text ~ 'cta_|_cta') AS mentions_a_cta_field,
+       max(created_at)::date AS last
+FROM site_work_items WHERE item_type ILIKE '%section_edit%';
+```
+
+If that CTA share grows materially, widening the pass to the section-editor path is the follow-up —
+it was left out because 3-in-144 did not justify a third seam while the first two were unproven.
 
 ## Tests
 

@@ -33,6 +33,20 @@
 //     a day one cosmetic mismatch becomes an indefinitely withheld refresh —
 //     worse for the owner than the mislabelled button.
 //
+// ⚠ TWO OF THREE WRITERS, NOT ALL OF THEM — corrected 2026-08-26 by the council
+// gate's bug_historian seat (corr e9bda035), which asked whether another write
+// path persists CTA content_data outside the censused save steps. It does.
+// ApplySectionEditAction (section_editor_actions.go, updatePageComponent and
+// updatePageComponentSwap) writes page_components.content_data directly and
+// never passes through SavePageSectionsAction, so this pass cannot see it.
+// It is LIVE, not dormant: 144 section_edit work items, newest 2026-08-26
+// [MEASURED 2026-08-26]. Its CTA exposure is small — 3 of those 144 name a CTA
+// field — which is why the limit is STATED here rather than fixed by widening a
+// third seam while the first two are still unproven in production. Do not repeat
+// "both writers converge on save_page_sections": it is true of the BUILD and
+// REPAIR pipelines, which are the two that regenerate CTA copy, and false of the
+// estate's writer set as a whole.
+//
 // WHY A RECORD AND NOT A WORK ITEM: bugs_closed/023's closure says it in terms
 // — "more detection makes the invisible pile bigger" — and 78
 // cta_names_unknown_destination plus 70 unresolved_cta rows already sit at
@@ -247,6 +261,35 @@ func loadSectionInputSchemas(ctx context.Context, db *sql.DB, sections []Section
 // nothing here may fail a save whose content is otherwise correct.
 func auditCTALabelAgreement(ctx context.Context, params ActionParams, siteID uuid.UUID,
 	domain, pageName, pageURL string, sections []SectionData, logger *zap.Logger) {
+	// ⚠ THE RECOVER IS THE POINT, and it is not defensive habit. This function
+	// is called from SavePageSectionsAction's guard chain — the single save seam
+	// six orchestration pipelines share, and the write path implicated in this
+	// estate's documented silent-content-loss family. An INSTRUMENT that can
+	// abort that save is a worse defect than the one it measures, and "it only
+	// reads" is not an argument: a nil map, a surprise type in content_data or a
+	// malformed input_schema panics exactly as loudly as a write would.
+	//
+	// The council's guardian and bug_historian seats both objected on this point
+	// (corr e9bda035) and both were right that the claim was ASSERTED and not
+	// SHOWN. It is shown now: TestAuditCTALabelAgreementCannotFailTheSave
+	// mutates this recover away and goes red.
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+		// ⚠ THE NIL CHECK IS NOT PARANOIA — the first version of this handler
+		// omitted it and the recover did not work. A handler that dereferences
+		// the same value that panicked panics again, and a panic raised inside a
+		// deferred recover is NOT contained: it propagates, and the save this
+		// whole guard exists to protect aborts anyway. Found by
+		// TestCTALabelAuditContainsItsOwnPanic, which drove a real panic through
+		// this function instead of asserting that one would be contained.
+		if logger != nil {
+			logger.Error("cta label audit: PANIC contained — the save is unaffected",
+				zap.Any("panic", r), zap.String("page_name", pageName))
+		}
+	}()
 	if params.DB == nil || len(sections) == 0 {
 		return
 	}
