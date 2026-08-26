@@ -45,6 +45,14 @@ OWNER's two steps in §2. The £30 trial-voucher variant is IN the running auth-
 
 ## 2. STRIPE — the revert and the two owner steps
 
+> **✅ DONE 2026-08-26 (late night), verified in-session:** owner completed both steps.
+> Secret carries both STRIPE_* keys again (names listed, values never read), auth-service
+> restarted (fresh pods, rollout complete, 0 keyless warnings), box probe → **400**
+> (keyed). Durable half confirmed: local `terraform.tfvars.secret` holds both variable
+> names (mtime 22:02 tonight), commit `0cdc9e2d9` in history. Evidence: NOTES tail.
+> Checklist item 1 is CLOSED; the webhook round-trip (test event → `billing_events`)
+> still waits for the unpark, per §3.
+
 The roll wiped `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` from the secret (webhook
 503 again; keys-listing shows 9 entries, no STRIPE_*). Fix committed: they are now
 REQUIRED variables in `deployments/terraform/environments/production/uk001/047-base-configs/`

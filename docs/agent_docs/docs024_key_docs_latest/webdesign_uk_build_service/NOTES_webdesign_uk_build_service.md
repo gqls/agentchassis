@@ -6044,3 +6044,17 @@ Stripe dashboard test event → billing_events row, which needs the UNPARK (deli
 fail harmlessly until then). MONEY PATH NOW: unpark → webhook round-trip check → mint
 trial vouchers (after the roll carrying £30) → owner trial loop. Payment Links (rental
 £10/mo + buy-out £59.99) still to click.
+
+## 2026-08-26 (late night) — STRIPE RESTORED AFTER THE ROLL-REVERT, BOTH HALVES VERIFIED
+
+Owner applied the new keys per HANDOFF §2. Session-side verification, all green:
+immediate half — `personae-platform-secrets` again carries STRIPE_SECRET_KEY +
+STRIPE_WEBHOOK_SECRET (11 key names, was 9; names listed, values never read),
+auth-service freshly restarted (3 pods ≤82s old), rollout complete, keyless-warning
+grep over the fresh pods = 0, and the box-leg probe returned **400** (keyed; the
+keyless state answers 503). Durable half — `047-base-configs/terraform.tfvars.secret`
+exists locally (mtime 22:02 BST tonight) and `grep -o` on the two variable NAMES finds
+both, so the next release supplies the values instead of wiping them; commit
+`0cdc9e2d9` (required variables, no default) is in history. This was also the
+post-roll re-probe the LANDMINES entry instructs. Still owed at the UNPARK: the
+dashboard test event → `billing_events` row round-trip.
