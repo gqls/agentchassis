@@ -54945,3 +54945,51 @@ wrapper. `DeriveCTAURLFields` returned nothing, so the pass was **silently inert
 test failed and told me. Fixture now copied from a live `content_components` row. Same family as the
 2026-08-05 provocation-calibration entry: **a fixture you compose exercises its own rule.** Tally:
 fixture-composed-not-copied.
+
+### 5. (same lane, same day) I told three lanes the class was 225 sites. It is 207 — my classifier counted a pattern the fix does not apply to
+
+**The claim.** "**225** production sites swallow a scan error" — sent to the `news editorial`,
+`bugs_open/384` and `bugs_open/399` lanes, written into my lane NOTES, and used to size the fix
+("far too many to convert, therefore a ratchet"). Entry §1 above records that I had *already*
+corrected this number once, from a 237 produced by a looser script, and had convinced myself the
+brace-matched 225 was the right answer.
+
+**What was actually true.** **207**, in 127 files. The 225 counted every `.Scan(` whose error
+branch continues — which also matches `db.QueryRow(q, u).Scan(&id)` inside a loop over some other
+collection. That is a **single-row lookup**, where `continue` is ordinary control flow over an
+*item*, not the loss of a *row the database handed us*. There is no cursor-yielded count to
+compare against, so the guard being built does not apply to it. The defect's actual shape is
+narrower: a `rows.Scan` **inside a `for rows.Next()` loop** whose error branch continues.
+
+**What caught it.** Not review, and not the number. Generating the ratchet baseline made me diff
+two classifiers, which disagreed on **eight files in both directions**. Chasing one
+(`process_area_vet_sweep.go`, old 2 / new 0) showed a `QueryRowContext(...).Scan(...)` with an
+explicit `sql.ErrNoRows` arm — nothing like the defect. And the newer classifier had excluded it
+**by accident**: its regex wanted `{` straight after `nil`, and that branch reads
+`err != nil && err != sql.ErrNoRows {`. **Right answer, wrong mechanism** — which would have
+passed silently if I had only checked the totals.
+
+**The cheap check that would have.** Not "re-run it" — §1 and §4 above are both about re-running
+producing false confidence. The check is to **name a member of the population and read it**. One
+`sed -n` on a single cited site would have shown a `QueryRow` and ended it in ten seconds. I
+looked at aggregate counts three times and at a member zero times.
+
+**Why this one is worse than a wrong number, and it is the reason it gets its own entry.** The
+population *defines the detector*. Had 225 stood, the ratchet would have pinned `QueryRow` sites
+too — and then fired on them, naming a remedy (`ScanShortfall`) that is **meaningless** at those
+sites, because there is no cursor count to compare. A guard that fires where its own fix does not
+apply is precisely the "fires constantly on correct input → gets loosened within a week → dies"
+trap that `bugs_open/410` pins as the reason the *intuitive* version of this guard must not be
+built. I would have walked into that trap **through the detector** rather than through the data,
+and the bug file's warning would not have caught me, because it is written about the guard.
+
+**The pattern across all five entries in this lane, now that there are five.** Every one is the
+same error: **my measurement answered the question I encoded, not the one I asked.** A lookahead
+window instead of an error branch; a spec key instead of a column; the live table instead of the
+population; a re-run instead of a re-derivation; and now any `.Scan` instead of a cursor loop.
+Five in one day, on a bug about mechanisms that return less than they were given and report
+success. The estate's `[MEASURED]` marker survived all five intact — because the marker certifies
+that a measurement happened, and every one of these measurements *did* happen. **What none of
+them had was a stated definition of the population, written down before the number.** That is the
+practice this lane is taking away: the number goes next to its population, or it is not evidence
+yet.

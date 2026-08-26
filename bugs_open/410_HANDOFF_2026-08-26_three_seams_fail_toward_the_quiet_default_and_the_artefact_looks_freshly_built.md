@@ -192,3 +192,107 @@ and only the first is invariant to legitimate filtering.
 Pinned here rather than left to implementation because the wrong version is the intuitive one, is
 cheap to write, passes its own tests on a clean fixture, and fails only against real data carrying
 tombstones — by which point it is in production and the first response is to relax it.
+
+---
+
+## 2026-08-26 (later still) — CANDIDATE 3 IS SHIPPED for instance 3, with the ratchet that closes the class
+
+Picked up by the `bugs_open/410` lane. This file was filed deliberately unowned (*"Nobody owns
+the seam, which is why it is filed rather than carried"*) and the `news_editorial` lane had
+declined instance 3 on purpose under 035 §6.1's scope veto. Both correct; neither was competing.
+Commit `7c443aac6`, council correlation `c8385154-17b4-43f5-94b2-41f552f43867` (submitted, verdict
+pending at time of writing). Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_410_silent_scan_loss/`.
+
+### What shipped
+
+`datahelpers.ScanShortfall(offered, kept, subject)` — one implementation of the pinned count
+(rows the **cursor yielded** vs rows **kept**; never a second query). Applied **strictly** in
+`loadStoredSections`: any loss is an error. Plus a per-file **count ratchet** over a shared
+baseline — a blocking Go source sensor over `platform/orchestration/actions/**` and an advisory
+tree-wide twin in `scripts/pattern-check.py`, both reading the same baseline file.
+
+### Four corrections to this file, all verified here rather than relayed
+
+**1. The class is 207, not 225 — and my own 225 was wrong the same way this file warns about.**
+`[MEASURED 2026-08-26]` **207** unmarked cursor-loop scan swallows in **127 files** tree-wide;
+166 in `platform/orchestration/actions/**`, 41 outside it. My first census counted any `.Scan(`
+whose error branch continues, which also catches `db.QueryRow(q, u).Scan(&id)` inside a loop over
+some other collection — a single-row lookup where `continue` is control flow over an *item*, not
+loss of a *row the database handed us*. **Had that number stood, the ratchet would have pinned
+`QueryRow` sites and then fired on them, naming a remedy that is meaningless there** — which is
+this file's own "fires constantly on correct input → gets loosened → dies" trap, arriving through
+the detector rather than through the data.
+
+**2. `save_page_sections` REPLACES THE PAGE'S ROWS WHOLESALE, so this is destruction, not
+degradation — and that decides the strict-vs-graded question.** Verified at
+`save_page_sections_action.go:898`: `DELETE FROM page_components WHERE page_id = $1 AND …`. A
+section missing from `loadStoredSections`' slice is not merely unrendered; **its row is
+deleted**. That is why this reader is strict where `scanBlogArticles` is graded. This file argued
+for candidate 3 without this fact, and it is the strongest single argument available for it.
+
+**3. A THIRD precedent, and it is closer than the one §"candidate 3 is not a proposal" cites.**
+`scanBlogArticles` (`rebuild_blog_listing_action.go`) already implements this guard **on this
+exact `rows.Scan` shape**, with a graded response — `attempted, scanFailures := 0, 0`, per-row
+Warn and continue, and an error when every offered row failed (*"refusing to report an empty
+listing as 'no posts'"*). And per the `bugs_open/384` lane, its graded branch was **forced by a
+gating council objection** (`170147b4`, bug_historian) after a first cut that logged-and-skipped
+unconditionally and documented the exposure in prose without closing it. So candidate 3 is not
+merely *"a guard this package already uses for a different reader"* — it is **a guard a review
+seat has already required twice on this pattern**, which the loader never inherited.
+
+**4. THE SHAPE IS NOT THE DEFECT, which changes what the ratchet can be.** `scanBlogArticles` is
+*in* the baseline: it has the swallow shape **and** a correct guard, because the guard lives after
+the loop. A ban-style ratchet — the obvious design, and the one the minting ratchet could use
+because its population was zero — **would have convicted this estate's best precedent on this very
+pattern**. Hence per-file counts plus an at-site `// scan-loss:accepted: <reason>` opt-out.
+
+### The blast-radius question, answered before a seat asked it
+
+`news_editorial` warned that guardian had objected at HIGH severity that morning to touching
+`rerender_page_sections` at all without a canary or fast-revert path, with architecture,
+render_guardian and debug_historian independently agreeing. Their sharpest form: *"your guard's
+first live effect could be to start failing rerenders that today quietly half-work."*
+
+**It is zero, and by schema rather than by luck** `[MEASURED 2026-08-26]`. Every column the loader
+projects is structurally incapable of failing a scan on today's data: `id uuid NOT NULL`,
+`position integer NOT NULL`, and every other column COALESCEd to non-NULL text or scanned into a
+NULL-safe `[]byte` (`content_data`, NULL on 54 live rows, scans to nil). Control:
+
+```sql
+SELECT count(*), count(*) FILTER (WHERE position IS NULL), count(*) FILTER (WHERE content_data IS NULL)
+FROM page_components WHERE build_status IS DISTINCT FROM 'removed';  -- 2194 | 0 | 54
+```
+
+So the guard **cannot** convert a currently-working rerender into a failing one. It speaks only on
+a projection/destination divergence — a code defect, introduced by an edit — and it refuses
+*before any write*, so the page keeps serving its last good render. ⚠ **This expires if the
+projection or the schema changes**; a nullable un-COALESCEd column added to that SELECT falsifies
+it. The `news_editorial` lane, who are adding columns there for 035 P1, have accepted this as a
+constraint on their change.
+
+### The verification trap this file warns about, discharged by execution rather than by claim
+
+Every guard's mutation was **run**: neuter `ScanShortfall` → its test RED; delete the loader's
+call and restore `return out, rows.Err()` → **both** refusal tests RED, and their failure text
+reproduces the original defect verbatim (*"returned 1 section(s) with no error"*, *"(0 sections,
+nil error)"*); remove a baseline line → *"NEW silent scan loss"*; inflate a count → *"FELL … now
+ratchet down"*. The classifier carries its own `StillBites` test, because a source sensor whose
+pattern is neutered matches nothing and passes for ever — which looks exactly like a clean tree.
+
+### RESIDUALS — stated here so they do not become this file's own quiet default
+
+1. **CONTENT loss is not covered.** `loadStoredSections` still does
+   `_ = json.Unmarshal(cdJSON, &s.contentData)`: on corrupt JSON it **keeps the row and empties
+   it**, so `offered == kept` and no count guard can see it. A second silent-loss class in the
+   same loop, on a different axis. Commented at the site; needs its own decision about whether an
+   unparseable section may render as an empty one.
+2. **The 41 sites outside `platform/orchestration/actions` are advisory-only** — no blocking cover.
+3. **The ratchet tracks the SHAPE**, so it cannot tell whether an existing count is acted on.
+4. **Classifier parity is verified, not enforced** — no test runs the Python classifier from Go.
+5. **Candidates 1 and 2 remain open.** Candidate 1 (unknown → refusal) is still the expensive
+   door-closing fix and still needs its own review. Candidate 2 is `bugs_open/404`'s candidate 0,
+   confirmed unclaimed by the 384 lane and **not** taken here — a parity check would not notice a
+   swallowed scan, and a scan ratchet would not notice a reason the DB knows and Go does not.
+
+**This bug stays OPEN**: one of three instances is fixed, the Go half is inert until the chassis
+rolls, and the verdict has not landed.
