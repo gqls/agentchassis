@@ -1,8 +1,18 @@
 # OBSERVATION 2026-08-25 — six independent "second listener" implementations, no shared contract
 
-**Status: OPEN, unowned, not scheduled.** Filed at the architecture seat's request during
-council `25cd3044` (round 2, `architecture`, medium; `reuse_agent` raised the same at low).
-This is a tracked observation, not a proposal to refactor anything now.
+**Status: OPEN, unowned, not scheduled — but no longer trigger-less.** Filed at the
+architecture seat's request during council `25cd3044` (round 2, `architecture`, medium;
+`reuse_agent` raised the same at low). This is a tracked observation, not a proposal to
+refactor anything now.
+
+> **TRIGGER (added 2026-08-26, from the same council's round 3):** the architecture seat
+> objected that an indefinitely unowned residual is how an observation becomes furniture,
+> and asked for "an owner and a trigger threshold (e.g. next occurrence forces an RFC)".
+> The owner is the owner's call, not a session's. The threshold is adopted here as stated:
+> **the NEXT session that adds another second-listener implementation — an eighth — must
+> file an RFC for the shared contract first, citing this file, instead of hand-rolling.**
+> The cheap detector is the census command below (`grep -rn "http.Server{" internal/
+> platform/ cmd/`): if your change grows its count, this trigger is about you.
 
 ## What was observed
 
