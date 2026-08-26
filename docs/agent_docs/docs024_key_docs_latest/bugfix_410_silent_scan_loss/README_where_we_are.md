@@ -89,3 +89,34 @@ unprompted. I have a green test baseline, the design question settled, and the r
 question already answered with a number.
 
 Next is the fix itself, then the review board, then getting it committed for the next build.
+
+---
+
+## 2026-08-26, after the new build went out — it's live, and it's proven live
+
+The review board approved the change first time, with four pieces of advice and no objections
+serious enough to hold anything up. All four were dealt with the same day — three by doing what
+was asked, and one by showing with a measurement that the concern, though reasonable, didn't
+apply here.
+
+Then the new build was deployed, and I checked it the way we agreed checks should be done: not by
+trusting the deploy report, but by asking the running program itself whether it contains the new
+safeguard. It does — on both of the machines running it. I also ran two deliberate control checks
+alongside (one thing that must be found, one that must not be), so the answer can't be an
+artefact of a broken test.
+
+One honest caveat, written down rather than glossed: since the deploy, the safeguard has reported
+nothing — which is exactly what we expect, but in the short window since the roll no page
+re-renders have actually happened yet, so "nothing reported" doesn't yet mean much on its own.
+The proof it works remains the tests that deliberately break it on every build and watch it
+complain.
+
+So: the hole is closed and live, the tripwire against 200-odd similar holes is active, and the
+paperwork — bug file, register, runbook — all says what is actually true. What's left belongs to
+other lanes or to future decisions, and the handoff file lists each piece with its owner. This
+lane's work is done unless someone reopens a piece of it.
+
+> **Correction to the "225 places" figure above (same day):** the true count is **207**. My
+> counting script also matched a second, harmless pattern that the safeguard doesn't apply to.
+> Caught while building the tripwire, before anything shipped; the fuller story is in the
+> notes file. The plan didn't change — either number is far too many to fix by hand.

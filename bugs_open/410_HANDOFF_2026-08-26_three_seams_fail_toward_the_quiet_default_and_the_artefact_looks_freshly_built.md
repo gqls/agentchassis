@@ -319,3 +319,28 @@ FILE PATH, not the number.** A commit message saying "410" may mean either.
 Status unchanged otherwise: **OPEN** — instance 3's fix rides the next chassis roll (verify via
 RUNBOOK §12), instances 1–2 and candidates 1–2 belong to their own lanes, and the content-loss
 residual (`_ = json.Unmarshal` keeps the row and empties it) still needs its own decision.
+
+---
+
+## 2026-08-26 (post-roll) — INSTANCE 3 IS FIXED AND LIVE, verified at the artefact
+
+Fresh chassis roll, both `agent-chassis` pods probed per the lane RUNBOOK §12 three-way form
+`[MEASURED 2026-08-26]`: the guard's capability literal (`refusing the partial result`) is
+**PRESENT in both pods on both nodes**, the must-present control passed, the must-absent control
+stayed absent. Zero refusals since the roll — with zero rerender traffic in the window, so that
+zero is recorded as undemanded rather than as proof; the demand control is the mutation-proved
+test suite, which fires the guard on every build.
+
+**Scoreboard for this pattern file, as of 2026-08-26 post-roll:**
+
+| instance | state |
+|---|---|
+| 1 (`bugs_open/384`, listing never re-rendered) | fixed at the framework — that lane's own record governs |
+| 2 (`bugs_open/404`, unknown reason → assemble) | **latent, candidate 0 unclaimed** — confirmed unowned by the 384 lane 2026-08-26 |
+| 3 (`loadStoredSections` scan swallow) | **FIXED AND LIVE** — `7c443aac6` + `b93622995`, council APPROVED r1 (`c8385154`), probe-verified in both pods |
+| the class (207 sites, 2026-08-26 census) | pinned: blocking ratchet live in every build, advisory twin live on every commit |
+
+**Still open, and why the file stays in `bugs_open/`:** candidate 1 (unknown → refusal, the
+door-closing fix, needs its own review), 404's candidate 0, the content-loss residual
+(`_ = json.Unmarshal` keeps the row and empties it — invisible to any count guard), and the 41
+advisory-only sites outside the blocking package.

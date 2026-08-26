@@ -469,3 +469,35 @@ one concept, and the adjudication splits them:
   instruction** — by design, and it is the concrete form of guardian's CI-friction advisory: a
   lane renaming one of the 127 files owes a one-line baseline edit in the same commit. The
   failure message says exactly that, which is the mitigation.
+
+---
+
+## 2026-08-26 (post-roll) — THE FIX IS LIVE, verified at the artefact per RUNBOOK §12
+
+Fresh chassis roll (both `agent-chassis` pods 10 min old, ReplicaSet `5864bf97c5`, one pod per
+node). Verification `[MEASURED 2026-08-26, post-roll]`:
+
+**The provenance line was NOT reachable** — absent from `--tail=2000` on 10-minute-old pods,
+exactly the scroll behaviour the RUNBOOK warns about. Recorded as "not in range", not
+"unstamped", and step 2 carried the verification instead, as designed.
+
+**Three-way probe, BOTH pods (different nodes — the cached-image landmine means one tag can
+serve different bytes per node, so one pod's probe does not vouch for its sibling):**
+
+| probe | pod 5l8xd | pod 68t5h |
+|---|---|---|
+| `refusing the partial result` (capability under test) | **GUARD-PRESENT** | **GUARD-PRESENT** |
+| `rerender_page_sections: row scan failed` (must-present control) | CONTROL-PRESENT | *(not re-run; same probe mechanism proven on 5l8xd)* |
+| `xq410zz-not-a-real-marker` (must-absent control) | CONTROL-ABSENT | CONTROL-ABSENT |
+
+**Step 3, guard silence: 0 refusals on both pods — and 0 `rerender_page_sections` invocations
+in the window, so that zero is UNDEMANDED at the live tier.** Stated plainly rather than read as
+proof: a zero with no traffic distinguishes nothing (the a-post-fix-zero-needs-a-demand-control
+trap). The demand control is where §12 puts it: the mutation-proved test suite fires the guard
+on every build, and the live zero will become meaningful as rerender traffic flows. Nothing in
+this verification claims otherwise.
+
+**Consequence for the estate:** instance 3 of `bugs_open/410` is now **fixed AND live**. The
+blocking ratchet is live in every future build; the advisory twin was already live. The bug file
+stays OPEN (pattern file — instances 1–2, candidates 1–2 and the content-loss residual are other
+lanes' work or undecided), with instance 3 marked closed inside it.
