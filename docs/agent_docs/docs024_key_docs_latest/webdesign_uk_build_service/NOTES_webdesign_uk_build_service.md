@@ -5819,3 +5819,28 @@ attested line ONLY when the mechanism ships. Build = follow-up package (per-site
 chrome + zip-strip + intake question), routed in
 `DECISION_2026-08-26_default_tag_hosted_copy_only.md`; analytics lane told while their
 chrome fix is in flight. Not a launch gate.
+
+## 2026-08-26 ~13:2x — BOX REPOINT APPLIED; second-click page OUTSIDE-VERIFIED; peer statuses compiled
+
+Peer status sweep (owner request) surfaced: the 11:55Z core-manager roll carries BOTH the
+second-click page (d1a4bdcdf, council ea99befa r1) and the :8090 listener — which left
+`/c/` 404ing FROM OUTSIDE (box still → :8088). The DO-NOT-APPLY gate being satisfied and
+the wg fence already allowing 8090 (verified at the LIVE policy), THIS lane applied the
+repointed `links.webdesign.uk.nginx` on the box (backup `/root/links.webdesign.uk.nginx.
+bak-2026-08-26`, nginx -t, reload). **Outside table green:** GET /c/<token-shape> 200
+(1,021 B render-only page), POST 200, /c/x 404, /other 404; preview 200, admin 302, apex
+parked. One number handed to the delivery lane to confirm: POST on a nonexistent
+token-shaped token = 200 (their handler's intent to own). **The second-click page is now
+verified from the internet — the delivery-email gate's verification half is MET.**
+
+From analytics: the GTM chrome fix FIRED (spec key 10:12Z, chrome regenerated 12:17:57Z
+WITH the tag); the vm-sites deploy is draining a 2-slot runner — the index 'Rerender:'
+commit and the LABEL WIPE are imminent (label still =2 at last fetch; watched).
+`misdirected_cta:what-you-get` page_rerender unresolved since 12:06:51Z — fine: stored
+rows already carry the durable wording. GA4 NOT published (container v2, 0 tags); the
+second-container ruling is owed BEFORE the first hosted customer build, not before.
+
+Delivery lane detail that adjusts the launch compile: the delivery EMAIL is further than
+"just build it" — the claim/precondition layer is live-hardened (DGH-017), but copy +
+send + the needs_delivery_review PRODUCER are deliberately unbuilt pending the owner's
+two open product questions. Stripe unchanged (keys NONE, measured).
