@@ -4079,3 +4079,65 @@ rows appear, and not when the switch flips.
 > grind's #44 sat unclaimed 75 minutes and was withdrawn. **The sweep that will grade the 43
 > rebuilds is the same one blocking the 44th; expect the grind count to hold at 43 for a
 > while.** Their queue, their log; recorded here so this seat doesn't misread the stall.
+
+## 2026-08-26 11:30Z — the first external grading of the 43 rebuilds arrived and FAILED ALL OF THEM — on anchors the pages demonstrably have. And my own "0 rows" census was the wrong axis
+
+Two hours after I recorded that acceptance had never produced a row here, the platform seat sent a
+LANDMINES correction: **no work item ever carries a check's NAME; census by `spec->>'check'`.** They
+were right, and applying it to my own claim inverts it.
+
+> **CORRECTED 2026-08-26 11:30Z — my entry of 10:30Z ("`tool_acceptance`/`tool_acceptance_due`/
+> `tool_health` are STILL 0 rows here") measured the WRONG AXIS.** Those are the names of CHECKS, and
+> checks file items under *other* type names by design. `[MEASURED 2026-08-26 11:00Z]` by
+> `spec->>'check'` on this site: **`tool_acceptance` → 41 `improve_tool`**, `tool_acceptance_due` →
+> 54 `acceptance_run`, `tool_health` → 12 `audit_tool` + 14 `ported_tool_fix`. The item_type census
+> was literally true and answered a question nobody asked. **The conclusion survived — all 41 are
+> `triaged`, nothing complete, so grading is still queued not delivered — but I reached it through a
+> census that could not have found the rows even if they had been graded.** This is the same
+> wrong-axis class I spent yesterday catching in the crosslink recipe. Catching it in someone else's
+> work does not inoculate you.
+
+### What the 41 findings say, and why I do not believe them
+
+Every one is `Acceptance (Tier 2) failed … interaction anchor #X absent from deployed page`, against
+tools this lane rebuilt and serve-graded. Checked at the served bytes rather than assumed:
+
+| tool | criterion expects | page actually contains |
+|---|---|---|
+| `tool-focus-ring` | `#ring-copy-button` | `id="c-tool-focus-ring-ring-copy-button"` |
+| `tool-entropy-meter` | `#password-input` | `id="c-tool-entropy-meter-password-input"` |
+
+**Same name, `c-<function>-` prefix.** On focus-ring exactly one check fails; `boots` PASSES because
+its selector is `.tool-container`, a **class**, which nothing prefixes. **Every failure is
+id-anchored and the single class-anchored check passes** — that asymmetry is the evidence, not the
+two matching names, because two names could be coincidence and the asymmetry could not.
+
+`criteria_field` defaults to `doc_context.criteria_json` (`tool_acceptance_actions.go:137/345/843`),
+so the criteria are **authored in a document**, not derived from rendered markup — which is exactly
+how a doc comes to name an id the renderer will go on to prefix.
+
+**Fleet-wide, all history, `[MEASURED 2026-08-26 11:00Z]`: 110 anchor-absent against 2 everything-else**
+(110 = 70 `triaged` + **32 `complete`** + 6 cancelled + 1 needs_human_review + 1 claimed). Ten-plus
+sites, oldest 2026-07-10. Anchor-absent is not a category of this check's output; it is nearly all
+of it. **The 32 completes are already-run `improve_tool` regenerations** — LLM rewrites of tools that
+may never have been broken.
+
+### What I did, and deliberately did NOT do
+
+`scripts/who-owns.py tool_acceptance` → **`staged_component_build`, ACTIVE, 231 commits/14d.** So:
+contribute, do not compete. I have **not** cancelled, promoted, held or dispatched a single one of
+the 41 rows, and will not — they are that check's rows, and 70 of them belong to other lanes' sites.
+- **Filed `needs_diagnosis`, RUN_CORRELATION_ID `2b64e510-de62-4b6d-9776-8d2d247a5504`** rather than
+  asserting the cause, per CLAUDE.md's cross-cutting rule. A REFUTED verdict here is a good outcome
+  and cheap; me writing "the acceptance checker is broken" into a handoff is neither.
+- **CONTRIB written into the owning lane** with the evidence, the scale, and two named `[UNVERIFIED]`
+  alternatives I did not chase: whether the 2026-07-10 gamesdesign failures share this cause, and
+  whether `instance_scope_conversion` (which ran here 08-18→08-22) introduced the prefix for
+  pre-existing tools. **My own rebuilds were BORN prefixed, so for them criteria and markup
+  disagreed from the start — a different story from a conversion invalidating older criteria, and
+  both stories fit my data.** Saying which it is would be guessing at another lane's mechanism.
+
+**For this lane specifically:** the 41 rows are the reason to keep the do-not-defer rule rather than
+retire it. The first grading my rebuilds have ever received is one I can contradict at the served
+bytes in two commands — so it is not yet grading, whatever its status column says. Retire the rule
+when an `acceptance_run` completes against a rebuilt tool and its verdict survives that check.
