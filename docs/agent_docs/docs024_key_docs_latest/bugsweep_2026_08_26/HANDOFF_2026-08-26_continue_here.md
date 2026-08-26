@@ -14,7 +14,7 @@ LIVE on chassis `v1.0.1345`, and their config applied**.
 
 | bug | what it is | council | live? | what remains |
 |---|---|---|---|---|
-| **359** archived page still serving | nothing detected a RETIRED page still answering the public | **APPROVED r1** `6ce98a66` | ✅ code + migration 648 applied | **VERIFY THE DISCONFIRMING PAIR** — §3 |
+| **359** archived page still serving | nothing detected a RETIRED page still answering the public | **APPROVED r1** `6ce98a66` | ✅ **CLOSED — proven in production** | nothing. Moved to `bugs_closed/` — §3 |
 | **407** site can't set its own header | header membership was a hardcoded fleet-wide page-NAME list | **APPROVED r1** `cb67cc71` | ✅ code + migration 654 applied | **ONE OWNER DECISION** (§4) + a nav rebuild |
 | **404** re-render reason vocabulary | 4 readers, and every one that doesn't know a value fails toward the SILENT branch | **REVISE r1 AND r2** `f2e4ac2a` | ✅ code + migration 656 applied | **ROUND 3 OWED** — §5 |
 
@@ -63,44 +63,42 @@ convention) and all three are recorded in the migration ledger.
 
 ---
 
-## 3. 359 — THE ONE THING OUTSTANDING, AND IT IS NOT OPTIONAL
+## 3. 359 — ✅ CLOSED, PROVEN IN PRODUCTION ON THE DISCONFIRMING PAIR
 
-`[MEASURED 2026-08-26]` `archived_page_still_serving` has filed **ZERO items so far**, and per the
-bug's own §7 **that is not a pass**: *"a zero from the detector before it has ever flagged the
-known-live cases is NOT a clean reading. A silent detector and a clean estate are the same
-reading."*
+Done and moved to `bugs_closed/`. Recorded here because HOW it was proven is the reusable part.
 
-The rotation takes ONE site per 300s with a 4-hour per-site floor, so it had not yet reached an
-affected site. **I nudged `robot-hands.com` to the front** — it is the ideal test because it
-carries the pair on one site (2 archived-and-serving, several archived-and-correctly-404).
+The rotation takes one site per 300s with a 4-hour floor, so it had not reached an affected site
+and the detector had filed nothing — and **a zero at that point is not a pass**, which the bug file
+says in terms. So `robot-hands.com` was brought forward one tick (it carries the pair on one site)
+and run `9ca6a795` followed at 22:32Z:
 
-```sql
--- I set robot-hands' stamp to now() - 30 days. To restore the original value:
-UPDATE site_discovery_rotation r SET last_selected_at = '2026-08-26 19:40:30.028065+00'
-  FROM sites s WHERE s.id=r.site_id AND s.domain='robot-hands.com'
-   AND r.agent_type='availability-discovery-agent';
+```
+gripper-catalog                /gripper-catalog.html                 FLAGGED      (200)
+news                           /news.html                            FLAGGED      (200)
+gripper-cycle-time-estimator   /gripper-cycle-time-estimator.html    not flagged
+gripper-payload-calculator     /gripper-payload-calculator.html      not flagged
+learning-center-article        /blog/learning-center-article.html    not flagged
+learning-center-index          /learning-center/index.html           not flagged
 ```
 
-**THE ACCEPTANCE TEST — it must be a PAIR, and one arm alone proves nothing:**
+**Both arms.** The two the census said were serving are the two flagged — `gripper-catalog` being
+the page first recorded serving on 2026-08-14, so twelve days on something has finally said so.
+The four that correctly 404 were **not** flagged, which is the arm that rules out a detector that
+flags everything. `checks_failed: []`, so both instrument controls held; items are `medium`/50,
+`detected`, `handler_agent` EMPTY.
 
-```sql
-SELECT s.domain, wi.spec->>'page', wi.spec->>'http_status', wi.status, wi.handler_agent
-FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
-WHERE wi.item_type = 'archived_page_still_serving' ORDER BY wi.created_at;
-```
+⚠ **Nothing needs restoring from the rotation nudge** — the site was then legitimately swept, so
+its new stamp is the correct one.
 
-- **Arm 1** — an item for `robot-hands.com` `gripper-catalog` and/or `news` (archived, serving 200).
-- **Arm 2** — and **NO** item for `robot-hands.com` `learning-center/index`, `gripper-payload-calculator`,
-  `blog/learning-center-article` or `gripper-cycle-time-estimator` (archived, already 404).
-  **A detector that flags every archived page passes arm 1 and is useless.**
-- `handler_agent` must be **empty** on every row (flag-only by design).
+**Still expected, and it is not a defect:** the other four sites' serving pages
+(`ai-agent-orchestration.com`, `finetuning.uk`, `fundamentallyai.com` ×2,
+`leopardessconsulting.co.uk`) will be flagged as the rotation reaches them, ~4–8h.
+`scripts/audit-archived-still-serving.sh` is the expected set **on the day** — re-run it rather
+than quoting any list, because the population moves.
 
-Re-run `scripts/audit-archived-still-serving.sh` on the day for the expected set — **the population
-MOVES** (it went 3→7 between the filing and my census, and two of the filed three had 404'd).
-
-Once the pair holds, 359 is fixed AND live and moves to `bugs_closed/`.
-
----
+**And the items are flag-only, so draining them is a human act.** Each carries a `triage_hint`
+naming both remedies — retract, or **un-archive** if the page was retired by mistake — and the
+`agent_error_log` query to read first.
 
 ## 4. 407 — ONE OWNER DECISION IS OWED, AND A NAV REBUILD
 
