@@ -102,3 +102,14 @@ The watchdog belongs to the `bugfix_230_discovery_driver` lane (quiet ≥14d per
 2026-08-25). A CONTRIB pointing here is filed in their directory. **Whether to re-enable the
 design rotation itself is the OWNER's staged-ramp decision** (395's foot), not part of this
 bug: this file is about the alarm that should have kept that decision visible.
+
+---
+
+**UPDATE 2026-08-26 ~09:25Z:** the masked CASE ended — the owner ruled and
+`site-discovery-rotation-design` was re-enabled at 09:20:04Z (10800s), proven firing end-to-end
+within 40 seconds (trigger 09:20:36Z, agritec.uk stamped and swept, 24 checks, 11 findings;
+evidence chain in `webdesign_tool_rebuilds/NOTES_…` 2026-08-26). **This bug stays OPEN**: the
+defect is the watchdog's count, which is unchanged — it now reads a truthful "3/3"-shaped state
+by coincidence, and the next single-rotation disable will be masked exactly as this one was.
+Today's staleness reports will also drain from 27 `site_stale` rows toward 0 over the ~3-day
+ramp; treat that drain as the rotation working, not as this bug being fixed.

@@ -3806,3 +3806,37 @@ except an image-tag rollback, which is the one event that would void it.
 > SHIPPED; the post-retire re-read proves it FIRES** — and ancestry alone is the durable half
 > (descendant stamps keep ancestors; an image-tag rollback is the single voiding event). Their
 > next filing still owes the FIRES half for the 360 guard.
+
+## 2026-08-26 ~09:25Z (platform seat) — OWNER RULED: design rotation RE-ENABLED — proven firing end-to-end in 40 seconds
+
+Owner instruction this morning: "please turn the design inspector back on", then "notify other
+threads that we're doing this". Executed and proven:
+
+- **Pre-checks re-run fresh** (yesterday's reads not trusted): row still `enabled=f`; the
+  pre_query's SELECT half (stripped of its stamping CTE, per the LANDMINES entry) returned
+  **20 due sites** — the switch was the lever. Also read before flipping: `detected-item-promoter`
+  is `enabled=t` at 900s, so 395's "observe-only" premise no longer holds — known-good
+  (item_type, handler_agent) findings get promoted into build dispatch. Stated in every notice.
+- **The flip:** `UPDATE … SET enabled=true, interval_seconds=10800 WHERE
+  name='site-discovery-rotation-design' AND enabled=false` → `UPDATE 1` at 09:20:04Z.
+  10800s = 395's slow-ramp value (completeness had been brought back at 3600; quality runs 10800).
+- **Proof it FIRES, all three links** (the fires-without-runs discriminator, not just the
+  timestamp): task trigger 09:20:36Z · rotation stamp agritec.uk 09:20:34Z (first of the six
+  never-stamped sites, as the NULLS FIRST ordering predicted) · orchestration COMPLETED
+  09:20:37Z+ running the **full 24-check roster** (`tool_health`, `tool_acceptance`,
+  `tool_acceptance_due`, `palette_contrast` all present in `checks_run`), **11 findings,
+  7 items inserted**. First design findings filed anywhere in 15 days.
+- **Noticed while proving:** two design-discovery orchestrations predate the enable this morning
+  (remortgagecalculator.uk 08:56Z, oufe.com 09:12Z, both COMPLETED, no rotation stamps) —
+  hand-fired by someone [UNATTRIBUTED]; the rotation chain above is independent of them.
+- **Notifications sent** (owner instruction): grind seat + 12 live site lanes +
+  site_delivery_and_editor, 14 sessions. Two facts came back worth banking:
+  loanzy lane — improvement loop back ON since 08-25 21:18Z with its four LLM seats
+  record-only (`spec.filing_mode='record'` rows at deferred with empty handler are VERDICTS,
+  do not promote), and `bugs_open/405`/mig 629 is adding a promoter hold-door for
+  `spec.origin='model_opinion'` rows — mechanical discovery findings pass untouched.
+  vetcomparison lane — expects a clean re-detect on their fixed image_url_404; a re-file there
+  is a check-vs-fix disagreement they want reported.
+- Webdesign's own turn: ~20 due sites ahead of it at 1 per 3h ⇒ **the Track 2 demand controls
+  become observable in roughly 1–2 days.** `bugs_open/401` (the watchdog miscount) stays open —
+  the masked CASE ended today; the masking DEFECT is unchanged until check.py is fixed.

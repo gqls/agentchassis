@@ -396,3 +396,26 @@ checks (contrast, broken images, tool health) run on no site at all. The alterna
 is to point one single inspection at the webdesign site by hand, which proves our code works but
 leaves the fleet-wide gap standing. My recommendation is the switch: the reason it was off has
 ended, and the watchdog that should have told us so is the thing that was broken.
+
+## 2026-08-26, morning (platform seat) — done: the design inspector is back on, and it worked first time
+
+You asked for the switch this morning, and it is flipped. Sixteen seconds after I turned it on,
+the scheduler picked the site that had waited longest — agritec, which had never had a design
+inspection at all — ran the full set of twenty-four design checks on it, and filed eleven
+findings. So the mechanism did not rust while it was off: first pull of the handle, everything
+moved.
+
+What to expect now: one site roughly every three hours, longest-neglected first, so the whole
+fleet gets its first visit over the next two to three days, then it settles to about four site
+visits a day. The webdesign site — the one whose new contract-rules code we have been waiting to
+see run — is a day or two down the queue, and I will read the result when its turn comes.
+
+One honest note on cost and behaviour: the world has changed since the pause. Back then, findings
+just piled up for reading. Today there is a promoter that picks up well-understood findings every
+fifteen minutes and dispatches the repairs automatically. So switching the inspector on also
+switches on a stream of small automatic fixes, not just reports. I said this plainly in the
+notices I sent to the other fourteen working threads, per your instruction, and two of them wrote
+back with useful confirmations rather than surprises — which is what the notices were for.
+
+The watchdog bug that let this sit unnoticed for two weeks (it kept saying "3 of 3 switched on"
+by counting a lookalike task) is still open as bug 401 — today removed the harm, not the defect.
