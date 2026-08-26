@@ -201,3 +201,24 @@ The keys are written unconditionally, zeros included (the code comment at :634 s
 code does), so **presence of `cascade_attributed` = post-roll audit; absence = old code or no
 audit** — with `cascade_scheme_present` as the discriminator between "cannot attribute" and
 "attributed nothing".
+
+---
+
+## ⚠ DATED UPDATE 2026-08-26 ~15:55 BST — first post-roll audit RAN; P2 CONFIRMED at the artefact; P4 first read; P3's clock runs to 08-29
+
+Supersedes §0's "exercised by a real audit? NO". Full evidence: NOTES §(n) and §(o).
+
+| piece | state |
+|---|---|
+| first post-roll audit | **RAN** — remortgagecalculator.uk, orchestration `a5634f3a`, 13:50:31 UTC (the predicted 13:49 tick), 35 s. `cascade_scheme_present TRUE · attributed 1 · unattributed 4 · unreachable 0 · unverified_by_probe 4 · dirty 0 · capped 0` |
+| P4 | **first read, not yet gradable** — by PAIRING it is 1 theme (`.brief-explanation__heading EM`, predicted shape exactly) : 1 unattributed (`.footer-bottom P` ×4 pages). The unattributed one is an **inherited-colour** case (the `<p>` has no colour rule; `.footer-bottom` on the ancestor decides it; the only matching candidate resolves to `inherit`) — the designed same-value under-claim, NOT probe blindness. Read tomorrow's vonc/noted/loanzy footers as THIS class. Grade P4 per distinct (selector,fg,bg), never per row |
+| P2 | **CONFIRMED** — `ef31c778` repaired 14:27 UTC: `.footer-bottom p { color: #595f6b !important; }` — `!important` on exactly one property. Served stylesheet sha256 = git adapter sha = `sha256(css_themes.css_content)` v10; 5.49:1 vs 4.5 needed. 635's fence proven at `llm_call_log.prompt_rendered` (BEAT block absent for the unattributed row) |
+| P3 | **clock running** — next audit of this site ≈ **2026-08-29 13:50 UTC**. Expect RETRACTION of the footer pairing on all 4 pages + the EM. Check `css_themes.updated_at` first (396 erasure) |
+| still today | `9b2b2ce9` (the ATTRIBUTED row) is queued behind page builds failing on bugs_open/260 — expected artefact: selector specificity > (0,1,1), **no** `!important`. Three more footer rows will each append a redundant rule (N-pages × one chrome pairing; noted in NOTES §(o), not this bug's) |
+
+**Corrections to this file's own text, in one place:** §1(b)'s accounting query key is
+`write_findings` (correction above); "expected by ~08-29" for the first audit was wrong by three
+days (it was today); P2's "loanzy, vonc, noted qualify" understated — every site checked today
+passes 542's gate. **css-patch-agent orchestration rows are purged after completion** — grade
+repairs from `site_work_items.result.response.css_fix.result.css_added`, `llm_call_log`
+(`work_item_id`), and the served file.
