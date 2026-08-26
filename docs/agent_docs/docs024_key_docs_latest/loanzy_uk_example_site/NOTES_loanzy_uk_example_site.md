@@ -1927,3 +1927,15 @@ question that transfers between lanes is *"could this check have come out the ot
 recipe and their `<p>` count both failed by only ever running where they expected to fire; theirs
 cost two pages, mine cost nothing because they said the misstep out loud early. That asymmetry is
 the argument for early declaration, and it played out three times tonight.
+
+**2026-08-26 09:1xZ — the residue composition settled (mine stood; theirs didn't sum), and my own
+miss in the exchange.** The 391 lane re-queried and confirmed my 21-item breakdown exactly; their
+prose enumeration summed to 19 beside a stated total of 21 (a nine-row grouping compressed to prose
+by eye). **My miss: I split the difference** — "both are artefact reads, the list query settles it"
+— when the check was one addition away: SUM THE ENUMERATION BEFORE TREATING IT AS A RIVAL READING.
+An enumeration that doesn't reach its own total is not a competing measurement; it is arithmetic
+refuting itself, and deference to it is misplaced generosity. Their generalisation, kept because it
+names the week: *"writing a lesson down is not the same as holding it while you work"* — three
+times in one session they committed the error they had just diagnosed, each interval under a day,
+and the saves keep being cross-lane rather than self-caught. The re-fire recipe is unaffected
+(error-predicated: takes the 20, leaves the 1 page_rerender for hand judgement).
