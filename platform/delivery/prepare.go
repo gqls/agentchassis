@@ -80,9 +80,17 @@ var (
 // So `complete` is necessary and NOT sufficient: `HandleResolveWorkItem` also
 // writes `complete`, with `resolved_by` instead. The distinguishing key is
 // `approved_by`, and it is the whole predicate. `[MEASURED 2026-08-25]` of 8,003
-// live `complete` rows, 155 carry `resolved_by` and **0 carry `approved_by`** —
-// the approve path has never been exercised in production, so the first delivery
-// must drive it deliberately rather than assume it works.
+// live `complete` rows, 155 carry `resolved_by` and **0 carry `approved_by`**.
+//
+// > ⚠ CORRECTED 2026-08-26: this comment first concluded from that census that
+// > "the approve path has never been exercised in production" — a census over
+// > the LIVE TABLE ONLY, i.e. the exact mistake this function exists to correct,
+// > caught by adversarial review the next day. `site_work_items_archive` holds
+// > exactly ONE `approved_by` row (`needs_brief_review`, completed 2026-03-17,
+// > `created_by='test'`). Honest statement: exercised ONCE, five months ago, on
+// > a test-created item — which also proves `approved_by` survives archival in
+// > the wild. The advice stands: drive the first real approval deliberately
+// > rather than assume the path works.
 //
 // # Why it reads the archive too
 //
@@ -130,6 +138,29 @@ func Reviewed(ctx context.Context, db *sql.DB, siteID uuid.UUID) (bool, error) {
 // approved at all — the owner would press the button and be told no, with the
 // delivery blocked and nothing explaining why.
 const ReviewItemFiledStatus = "needs_human_review"
+
+// ReviewItemRequiredSpec is the spec fragment a producer MUST include when
+// filing the review item, merged into whatever else the item carries.
+//
+// ⚠ THE STATUS IS NOT THE WHOLE FILING CONTRACT, and the first version of this
+// file thought it was — adversarial review (2026-08-26) read the approve handler
+// one guard further than I had: after the status check, HandleApproveWorkItem
+// ALSO refuses any item whose spec lacks `checkpoint: true` — 400, "this item is
+// not a checkpoint — use retry or resolve instead". A producer honouring only
+// ReviewItemFiledStatus files an item the owner CANNOT approve; worse, the
+// error's own advice steers the owner to press RESOLVE, which writes
+// `resolved_by` — the key Reviewed() deliberately ignores — so the delivery
+// stalls for ever while every button press appears to succeed.
+//
+// (The approve endpoint additionally requires a non-empty `review_data` JSON
+// body from the CALLER of the API — the admin screen's concern, not the
+// producer's, so it is noted here and not encoded.)
+func ReviewItemRequiredSpec() map[string]any {
+	// A fresh map per call: a shared map handed to producers is a shared
+	// mutable, and one producer annotating it would silently rewrite the
+	// contract for the next.
+	return map[string]any{"checkpoint": true}
+}
 
 // Links are the customer-facing URLs the delivery email carries.
 //

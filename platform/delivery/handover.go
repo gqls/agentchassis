@@ -160,20 +160,46 @@ func StampHandover(ctx context.Context, db *sql.DB, siteID uuid.UUID, now time.T
 	var h Handover
 	h.SiteID = siteID
 
-	// One statement. The COALESCE keeps an existing stamp, and RETURNING tells us
-	// which branch happened without a second read that another writer could win.
+	// The claim is the WHERE clause, not a timestamp comparison.
+	//
+	// ⚠ The first version of this function returned `handed_over_at <> $2` as
+	// AlreadyHandedOver, which conflates "I stamped just now" with "someone else
+	// stamped with my exact timestamp". Two callers whose clocks collide at
+	// microsecond precision (pgx encodes timestamptz at microseconds), or any
+	// caller that retries with the SAME `now` — a value hoisted out of a retry
+	// loop, or derived from a work item's timestamp — would BOTH read
+	// AlreadyHandedOver=false, and both would proceed to mint tokens and send a
+	// delivery email. Found by adversarial review 2026-08-26; the operator
+	// double-click this function's own comment names as its reason to exist is
+	// exactly the shape that produces near-simultaneous calls.
+	//
+	// Now the row can be claimed by AT MOST ONE statement, by construction:
+	// `WHERE handed_over_at IS NULL` matches for exactly one winner. A concurrent
+	// second caller blocks on the row lock, re-evaluates the WHERE after commit
+	// (READ COMMITTED), matches nothing, and lands in the ErrNoRows arm below —
+	// which reads the stamp the winner wrote. No timestamp takes part in the
+	// decision, so equal or reused `now` values cannot confuse it.
 	err := db.QueryRowContext(ctx, `
 		UPDATE sites
-		   SET handed_over_at       = COALESCE(handed_over_at, $2),
+		   SET handed_over_at       = $2,
 		       live_link_expires_at = COALESCE(live_link_expires_at, $3)
 		 WHERE id = $1
+		   AND handed_over_at IS NULL
 		RETURNING handed_over_at, live_link_expires_at,
-		          transfer_confirmed_at IS NOT NULL,
-		          handed_over_at <> $2
+		          transfer_confirmed_at IS NOT NULL
 	`, siteID, now.UTC(), now.UTC().Add(LiveLinkWindow)).
-		Scan(&h.HandedOverAt, &h.LiveLinkExpiresAt, &h.TransferConfirmed, &h.AlreadyHandedOver)
+		Scan(&h.HandedOverAt, &h.LiveLinkExpiresAt, &h.TransferConfirmed)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Handover{}, fmt.Errorf("delivery: no site %s", siteID)
+		// Either the site does not exist, or it is already stamped. Get
+		// distinguishes the two: it errors on a missing site, and an existing
+		// site that failed the claim necessarily has a non-null stamp committed
+		// by whoever won.
+		existing, getErr := Get(ctx, db, siteID)
+		if getErr != nil {
+			return Handover{}, getErr
+		}
+		existing.AlreadyHandedOver = true
+		return existing, nil
 	}
 	if err != nil {
 		return Handover{}, fmt.Errorf("delivery: stamp handover: %w", err)
@@ -219,9 +245,15 @@ func IsHandedOver(ctx context.Context, db *sql.DB, siteID uuid.UUID) (bool, erro
 // therefore yields no working links, and there is no "resend the same link" path:
 // re-issuing means minting a new one, which is the correct behaviour anyway.
 //
-// singleUse=true is for a token whose whole meaning is the first click (the
-// confirm-transfer link). A download link is not single-use: a customer who
-// clicks twice wants the file twice.
+// singleUse=true is for a token whose whole meaning is the first click. As of
+// 2026-08-25 NO customer-facing token is minted single-use: the download link is
+// not (a customer who clicks twice wants the file twice), and the CONFIRM link
+// is not either — that changed with the second-click ruling (GET renders, POST
+// confirms, so scanners cannot spend anything) and because the stamp is COALESCEd
+// a re-click cannot move the recorded date; spending the token would only turn a
+// customer's second press into "no longer active" for no protective gain
+// (prepare.go's minting comment carries the full reasoning). The parameter stays
+// because the property is real and a future token may want it.
 func MintToken(ctx context.Context, db *sql.DB, siteID uuid.UUID, purpose string,
 	expiresAt time.Time, singleUse bool, createdBy string) (string, error) {
 
@@ -288,9 +320,13 @@ func RedeemToken(ctx context.Context, db *sql.DB, plaintext, purpose string, now
 // stops the weekly chase email.
 //
 // The stamp is COALESCEd, so a customer who clicks an old link after already
-// confirming does not move the recorded date — but note the token itself is
-// single-use, so in practice the second click fails at RedeemToken. Both belts
-// are here because the one that matters is whichever survives the next refactor.
+// confirming does not move the recorded date. ⚠ CORRECTED 2026-08-26: this
+// comment used to add "the token itself is single-use, so the second click fails
+// at RedeemToken" — that described the retired pre-second-click design and was
+// FALSE of the running code: prepare.go mints confirm tokens with
+// singleUse=false, deliberately, so a second press re-redeems and shows the same
+// success page. The COALESCE is the only belt, and it is sufficient: nothing is
+// protected by spending the token, so nothing is lost by not.
 func ConfirmTransfer(ctx context.Context, db *sql.DB, plaintext string, now time.Time) (uuid.UUID, error) {
 	siteID, err := RedeemToken(ctx, db, plaintext, PurposeConfirmTransfer, now)
 	if err != nil {

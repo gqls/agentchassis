@@ -49,11 +49,28 @@ func expectReview(mock sqlmock.Sqlmock, siteID uuid.UUID, approvedRows int) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(approvedRows))
 }
 
+// expectStamp mirrors StampHandover's post-2026-08-26 shape: the claim UPDATE
+// carries `handed_over_at IS NULL` in its WHERE, so "already handed over" is the
+// claim matching NO rows followed by a read of the existing stamp — not a
+// boolean column. The regex pins the claim predicate so a regression to the old
+// timestamp-comparison discriminator (which double-delivered on equal `now`
+// values) fails here.
 func expectStamp(mock sqlmock.Sqlmock, now time.Time, already bool) {
-	mock.ExpectQuery(`UPDATE sites`).
-		WillReturnRows(sqlmock.NewRows([]string{
-			"handed_over_at", "live_link_expires_at", "transfer_confirmed", "already",
-		}).AddRow(now.UTC(), now.UTC().Add(LiveLinkWindow), false, already))
+	claim := mock.ExpectQuery(`(?s)UPDATE sites.*handed_over_at IS NULL`)
+	if already {
+		// The claim matches nothing; StampHandover then reads the winner's stamp.
+		claim.WillReturnRows(sqlmock.NewRows([]string{
+			"handed_over_at", "live_link_expires_at", "transfer_confirmed",
+		}))
+		mock.ExpectQuery(`SELECT handed_over_at`).
+			WillReturnRows(sqlmock.NewRows([]string{
+				"handed_over_at", "live_link_expires_at", "transfer_confirmed",
+			}).AddRow(now.UTC(), now.UTC().Add(LiveLinkWindow), false))
+		return
+	}
+	claim.WillReturnRows(sqlmock.NewRows([]string{
+		"handed_over_at", "live_link_expires_at", "transfer_confirmed",
+	}).AddRow(now.UTC(), now.UTC().Add(LiveLinkWindow), false))
 }
 
 // An UNREVIEWED site must not be stamped, must not mint a token, and must not
@@ -316,3 +333,24 @@ func TestReviewItemKeyIsOnePerSite(t *testing.T) {
 }
 
 var _ = sql.ErrNoRows // keep the import honest if assertions above are edited
+
+// The filing contract is status AND spec, and the second half was missed once:
+// HandleApproveWorkItem refuses any item whose spec lacks checkpoint:true, with
+// an error whose own advice ("use retry or resolve instead") steers the owner to
+// the button that writes resolved_by — the key the gate deliberately ignores. A
+// producer honouring only the status files a review nobody can ever approve.
+func TestReviewItemRequiredSpecCarriesTheCheckpointFlag(t *testing.T) {
+	spec := ReviewItemRequiredSpec()
+	if v, ok := spec["checkpoint"].(bool); !ok || !v {
+		t.Fatalf("ReviewItemRequiredSpec() = %v: HandleApproveWorkItem 400s any item "+
+			"whose spec lacks checkpoint:true, so a producer using this contract would "+
+			"file an unapprovable review", spec)
+	}
+	// A fresh map per call: a producer annotating a shared map would silently
+	// rewrite the contract for the next producer.
+	a, b := ReviewItemRequiredSpec(), ReviewItemRequiredSpec()
+	a["checkpoint"] = false
+	if v := b["checkpoint"].(bool); !v {
+		t.Error("ReviewItemRequiredSpec returns a shared map: one caller's mutation reached another")
+	}
+}
