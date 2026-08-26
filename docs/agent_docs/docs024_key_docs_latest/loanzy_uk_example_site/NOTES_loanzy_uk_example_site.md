@@ -2027,3 +2027,13 @@ reversing any state change that pattern-matches an incident's mitigation, ask WH
 as a lever, and read their lane's morning commits first (CLAUDE.md's own sentence: a signal that
 pattern-matches a known failure may have a different cause). The backlog behind the single lane
 (654 triaged, 520 >1h) is the throughput lane's measured demand test, ceiling ~300 claims/h, theirs.
+
+**Addendum to the trigger-2 near-miss (391 lane's own post-mortem, cross-referenced because it names
+the sharper mechanism):** their disconfirming number was already ON THEIR SCREEN — the survivor row's
+`interval=30` beside the sibling's `60` (a pause leaves the survivor untouched; only a reconfiguration
+changes it — that asymmetry IS 637's arithmetic) — and they read past it, scanning for `enabled`
+because the answer was already decided. Their distillation, kept verbatim: *"a pattern you have just
+confirmed is the most dangerous thing to take into the next case, because it turns coincidence into
+evidence"* — one frame (outage residue) applied twice in one morning, the second time with no evidence
+the first didn't supply. Their WRONG_CALLS carries it; the priority-is-inert-between-sites finding is
+filed at dispatch_throughput/CONTRIB_2026-08-26_from_bugfix_391_… with the correction inside it.
