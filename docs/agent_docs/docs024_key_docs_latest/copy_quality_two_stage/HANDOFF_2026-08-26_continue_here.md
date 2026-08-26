@@ -60,9 +60,16 @@ layers — the briefs are the dominant remaining teacher (12–31 demos/site, 25
   have a demonstration stack at ZERO in every layer** — any `rather than` there implicates the
   MODEL PRIOR itself (P2a); the two `hero-tool` pages carry a named ceiling of 1 (P2b).
   Honesty-beat predicted ~0 (P1); scaffold/cadence NOT expected to move (P4); **read-aloud
-  primary, battery secondary; a clean battery with a failed read is a FAIL** (P5). As of ~16:00
-  the 9 imagery items are re-filed (triaged) with 3 page_rerenders — rebuilds not yet at the
-  writer. **Scoring is same-day on their ping, against the pre-registration, never after-the-fact
+  primary, battery secondary; a clean battery with a failed read is a FAIL** (P5). **The owner's GO came
+  ~17:20 in the finetuning session WITH A STANDING INSTRUCTION: "forward only corrections … you
+  don't have to restore them, we can keep rebuilding through the system until they are
+  acceptable"** — the baseline is a DIFF BASE, never an undo; a bad output means rebuild again,
+  not restore. Re-filed 17:23:44Z; **the image queue is the clock** (62 items fleet-wide ahead of
+  the handler, drain ~10/h, their nine at priority 90 and deliberately NOT raised over other
+  lanes) — the nine reach the writer HOURS later, likely in a successor session; finetuning pings
+  this lane with the byte-diff plus their read, sent BEFORE they look at the battery (P5's
+  ordering). A `page_divergence_overwritten` item on tool-automation-savings-estimator is OUTSIDE
+  the nine and predates the re-file — the baseline stands. **Scoring is same-day on their ping, against the pre-registration, never after-the-fact
   criteria.** Baseline: `finetuning_uk_service/baselines/2026-08-26_pre_hero_rebuild/`.
 
 **The audit** (owner point 3, a workstream): census + phase 1 done
