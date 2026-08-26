@@ -2968,3 +2968,17 @@ writer stage downstream again → the nine land in HOURS, likely a successor ses
 divergence item is outside the nine and predates the re-file — baseline valid. They send their
 READ before looking at the battery (P5's ordering, theirs by agreement). Handoff canary item
 updated with all of this.
+
+---
+
+## 2026-08-26 (evening, cont.) — the owner's screenshot pins it: he is reading the HOMEPAGE, which was never in the nine
+
+His screenshot = the served finetuning.uk index — the 08-17-built differentiator cards (the
+escalation's own census: 4 of 6 headings literally X-not-Y) plus the "instead of building this
+alone" section heading. index and faq are OUTSIDE the canary set; approach not yet rebuilt. So
+his "regressed" specimens are all pre-fix copy, confirmed twice (DB row-level, now visually).
+Asked the finetuning lane to ADD index+faq to the rebuild set under his forward-only instruction
+(their machinery; sooner beats perfect — the de-demonstrated brief + 627/628 are already live for
+the writer, the truncation-trial gate catches residue after the next roll). The rulings doc §7
+carries the trial execution; §8 the hero-length instruction; council `82b800e1` pending on the
+trial. The rebuilt-two P2b failure and the mandate-in-negation-form finding stand unchanged.
