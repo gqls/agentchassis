@@ -1637,3 +1637,13 @@ sha 99265c32 — and its diff shows only 3 of "5 files" because the pre-fix vet-
 byte-identical, the honest tell that run 1 carried the stale set). Run 2's commit pending at
 writing; watcher armed on the REPO (the task's last_completed_at stamp is NOT delivery — two
 "completed" runs, one commit, is this session's third instance of stamp≠artefact).
+**FINAL OUTCOME 2026-08-26: VHC LIVE IN THE DATA.** Run 2's commit landed d4a9f690f 21:54:21
+(vet-full-index.json 1,090 changed lines); live artefact verified at 21:5x: **2,201 entries, 51
+VHC, all is_claimed=true**; claimed-prices.json live with all 51 + the /prices/ source URL. (My
+first post-commit fetch read the OLD bytes again — second race-the-deploy of the week; the
+refetch after last-modified moved is the pattern.) Cosmetic residual, self-healing: run 2
+exported before the trading_name clear, so JSON `name` is flat "Vet Home Certs" (town in
+`location`); the next 48h scheduled export emits the dash-qualified names, and the SSR resolver
+reads the corrected DB directly. STILL OWED on this thread: after the next chassis roll, rerender
+directory-index — that is when claimed-first (89cb6addb) + the 51 cards become visible on the
+PAGE; and read the council verdict for 09cf68c2.
