@@ -16,7 +16,14 @@ threw the fact away at every layer that needed it, so two consumers acted at the
 — the work-item claim gate stopped the **whole fleet** for up to an hour on one refusal, and the
 council gate discarded a **whole review round** on one seat's transient.
 
-## 0. 🔴 READ FIRST (2026-08-26): the fleet is in a LIVE OUTAGE, and it is a NEW VARIANT
+## 0. ✅ RESOLVED (2026-08-26 08:58Z) — the outage below is OVER. Kept because the variant is new.
+
+Owner purchased credits; recovery **sustained**, not one call: rolling 4-min windows went
+`ok=2 credit=2` → `ok=29 credit=0` across 6 agent types by 09:03. **MDL-044 cleared the health
+flag by itself** at 08:58:28 — `last_healthy` 43s later than `last_checked`, `error` → NULL, the
+signature no other writer can produce. Third firing, first on a real recovery.
+
+## 0a. ⚠ THE VARIANT, which the record did not previously contain
 
 **"Your credit balance is too low to access the Anthropic API"** — HTTP 400, same family as this
 bug, **different remedy: purchase credits, NOT raise a limit.** Last success
@@ -34,7 +41,7 @@ A wall, not the cap's ~5% intermittent. Full record + recovery check in `bugs_op
 | 2 | **mig 596** — claude re-probe 3600s → 60s | **APPLIED** 2026-08-24, cadence measured 92–94s |
 | 3 | **WFA-023** — `__step_errors` writer + council classifying an errored seat `unreadable` | **LIVE** (v1.0.1337, still in v1.0.1339) |
 | 4 | **mig 588** — the 17 seats' `error_step` → their own `next_step` | **APPLIED** 2026-08-25 |
-| 5 | **writer test coverage** — `recordStepError` extracted + 6 tests pinning the writer↔reader contract | **COMMITTED** `182852ef0`, council `dfde47a4` submitted, no behaviour change |
+| 5 | **writer test coverage** — `recordStepError` extracted + 6 tests pinning the writer↔reader contract | **COMMITTED** `182852ef0`, council `dfde47a4` **APPROVED**, no behaviour change |
 
 **Re-verified again after the v1.0.1341 roll (2026-08-25 23:11Z / checked 2026-08-26)** —
 capability-probed on BOTH replicas: `MDL044` = 1/1, council reader = 1/1, writer
