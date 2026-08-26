@@ -483,3 +483,82 @@ commit is credited automatically once it turns approved.
 
 Ownership re-checked at this phase boundary (RUNBOOK §7): `who-owns.py` names this lane, and
 `git status` shows no other session in `request_render_audit_action.go` or `work_items_common.go`.
+
+---
+
+## 2026-08-26 — round 1 REVISE, and it found a live defect I had shipped
+
+`decision = revise`, gating objection from **editquality**, corr `f67593f5`.
+
+> `pagePathFromContrastKey` assumes `contrast_failure` item_key is always
+> `'contrast_failure:' + path + '#' + selector`. LANDMINES flags *"site_work_items.item_key for
+> contrast_failure — The render-audit package now holds TWO selector-composition schemes"* — a
+> landmine specifically about this exact key.
+
+**I had not grepped that landmine.** My own RUNBOOK §7 tells the next thread to grep LANDMINES by
+symbol and table; I greped it for `discovery_checks` on the 359 lane and did not repeat the habit
+for `site_work_items.item_key` on this one.
+
+### Both halves of the hazard are LIVE. `[MEASURED 2026-08-26]`
+
+Whole population, not a sample:
+
+```sql
+SELECT count(*) AS all_rows,
+       count(*) FILTER (WHERE item_key LIKE 'contrast_failure:%#%') AS has_hash,
+       count(*) FILTER (WHERE item_key ~ '#.*#')                    AS more_than_one_hash
+FROM site_work_items WHERE item_type='contrast_failure';
+-- 469 | 469 | 1
+```
+
+- **A SELECTOR may contain `#`.** The one multi-hash row is
+  `contrast_failure:/tools/sfi26-revenue-stacker/index.html#BUTTON#c-tool-…`, and the `describe`
+  scheme emits `tag#id.classes` by construction. By scheme: **453** preserve-case (render-audit),
+  **16** ancestor-anchored (`.wrap H3`), 0 lowercase.
+- **A PAGE URL may contain `#`, and this is the one that decided it.**
+
+```sql
+SELECT count(*) FROM pages WHERE url LIKE '%#%';   -- 1
+-- idea.uk | /tools.html#audience-check | active
+```
+
+`idea.uk` carries **both** `/tools.html#audience-check` **and** `/tools.html` as ACTIVE pages, and
+has **35** open `contrast_failure` rows. So a first-`#` split maps a finding on the fragment page
+onto **a different real page on the same site** — and because the target exists, nothing errors,
+nothing is empty, and the wrong page is prioritised successfully.
+
+### The reviewer's own check could not have found it, and that is the lesson
+
+The seat ran a read-only query and got 25 live keys back, **every one conforming** to the shape I
+assumed. A sample of conforming rows is not evidence about the non-conforming ones. What found it
+was the LANDMINE — a prospective record written by a lane that had already been bitten — and the
+seat's contribution was *knowing the landmine existed for this footprint*. That is precisely the
+division of labour `LANDMINES.md` was created for, and it worked.
+
+### The fix: stop parsing, match forward — which is the grader's own method
+
+`write_render_audit_findings_action.go:740-750` never parses a key. It builds
+`workItemKey("contrast_failure", p+"#")` per audited page and prefix-matches. I now do the same,
+ordered **longest path first** so a shorter page cannot claim a longer one's rows. Ambiguity is
+**unrepresentable** rather than guarded against, and drift with the grader is impossible because
+both sides call the same composer.
+
+`pagePathFromContrastKey` is deleted. A comment stands where it was, carrying the measurement, so
+the next author's reasonable instinct — *the composer is right there, write the inverse* — meets
+the reason not to.
+
+**Mutation-proven, non-vacuously:** reinstating the split fails
+`TestPriorityMatchIsNotFooledByAHashInThePageURLOrTheSelector` on idea.uk's real shape; restoring
+passes.
+
+**Round 2 resubmitted on the same correlation** (`RESUBMIT_CORR=f67593f5…`, run envelope
+`bcba9847`), so the trail accumulates rather than starting a second one.
+
+### The estate's own claim about REVISE rounds, tested once more
+
+MEMORY says *"a REVISE round is cheaper than the defect it finds — 2 of 4 rounds found REAL
+defects incl. a false claim; revise, don't defend."* This round makes it 3 of 5 by my count, and
+the defect was not hypothetical: the code was **already committed to the shared branch** when the
+verdict landed, which is the ordinary state on this tree and the reason the gate is advisory
+rather than blocking. Had I defended the sample of 25 conforming keys, I would have been arguing
+from the weaker evidence.
