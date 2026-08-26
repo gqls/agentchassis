@@ -56450,3 +56450,30 @@ if the world is as you think — and if that prediction is uniform, change the c
 
 Family: expected-answer-must-be-mixed, a-uniform-prediction-cannot-discriminate,
 a-measurement-aimed-at-the-wrong-origin-looks-identical, state-the-shape-before-you-run-it.
+
+### (8) COROBORATION — the same shape, four more times in one day, from another lane
+
+The 391 lane tallied its own 2026-08-26 failures against the rule that came out of entry (7) and the
+CTA arming-census landmine, and **four of its six fit in one table**. Recording it here because four
+independent instances is what turns a nice sentence into a pattern:
+
+| check | expected answer | why the uniform answer hid the defect |
+|---|---|---|
+| `grep -c '<p'` before/after | "unchanged" | unchanged is also what damage-by-duplication produces |
+| `count(DISTINCT left(text,80))` | "components == distinct" | equally true of a clean page and one with a shared heading |
+| `last-modified >= <epoch>` | "true once deployed" | true from the start — the epoch was a year early |
+| `LIKE '%cta_label_audit%'` | "true where armed" | false everywhere, armed or not — reads as "the migration never applied" |
+
+**Every one has a uniform expected answer, and every one returned it.**
+
+**The rule, and it belongs at the design step rather than the review step:**
+*a census whose expected answer is UNIFORM cannot tell you it asked the wrong question; one whose
+expected answer is MIXED can.* Their earlier phrasing — *"a control validated only where you expect
+it to fire has not been shown to discriminate"* — is the same fact as a **verdict reached
+afterwards**. Stating the expected shape **before running anything** is what makes it actionable:
+if the prediction is uniform, change the census until it is not.
+
+And the pair with entry (7) is the finding rather than either half: **one was a census asking the
+wrong question, the other a control asking the right question of the wrong window.** A measurement
+aimed at the wrong origin reports with exactly the same confidence as one aimed correctly. Neither
+announces itself. Tally: uniform-expected-answer-cannot-discriminate.
