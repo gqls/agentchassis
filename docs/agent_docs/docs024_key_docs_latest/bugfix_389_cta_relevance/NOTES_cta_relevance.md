@@ -702,3 +702,58 @@ are page-body references only.
 > The same landmine names **leopardess `/tools/password-entropy.html`** as the one fleet-wide row
 > hand-written into `utility` against a page declaring neither flag. Its `site_nav_items` count is
 > now **0** — consistent with a rebuild having removed it exactly as that entry predicts.
+
+### 2026-08-26 ~09:1xZ — credits restored; and **retirement is TWO steps, not one — the handoff's order deadlocks**
+
+API confirmed recovered at the artefact before acting on it: the 09:00 hour is **124 calls, 124 ok,
+0 failed** (07:00 was 0/60, 08:00 was 2/106 across the transition).
+
+**Read the retraction machinery before firing it, and the plan does not survive the reading.**
+
+- **"Retire" is not one operation.** `pages.status='archived'` is a **hand-run SQL** step — the
+  action's own header says so: *"nothing in this codebase archives a page … there is no writer of
+  `status='archived'` at all"*. Removing the FILE is a separate capability,
+  `retract_page_deployment`, driven by the live `page-retraction` agent (`site_id_field`,
+  `page_ids_field`). Archiving alone **freezes the page and keeps serving it**, so there is no 404
+  window between the two.
+- **⚠ AND THE RETRACTION REFUSES WHILE ANYTHING EDITORIAL LINKS IN.** `retract_page_graph.go`:
+  *"INBOUND, editorial → REFUSE the retraction and name the referrers"*, deliberately, so that
+  "dead link created by a retraction" is unrepresentable rather than merely detected. Measured with
+  the action's **own** quote-delimited predicate (`href="<url>"`, not a substring — the file explains
+  why the difference matters): **61 rows across 47 active pages** — aiao 30/19, leopardess 18/17,
+  finetuning 13/11 — **plus the aiao footer `site_component`**. So retraction would refuse on all
+  three sites today.
+
+> **⇒ THE HANDOFF'S ORDER IS A DEADLOCK, and it is the second ordering trap this lane has hit.**
+> §5 said *retire the pages → then re-resolve the label-less fields*. But the re-resolution is
+> blocked by KEEP #2 while the destination is valid, and the retraction is blocked by those same
+> references. Each step is the other's precondition.
+>
+> **It breaks on `validPages`.** `loadResolverPageSet` (`resolve_internal_links_action.go:964`)
+> selects `WHERE status NOT IN ('deleted','archived')`. So **ARCHIVING alone** drops the page out of
+> `validPages`, KEEP #2's `validPages.Contains(current)` goes false, KEEP #3 cannot catch a relative
+> `/tools/…` path, and control reaches the positional pick — which the `nav_order` 1 → 900 demotion
+> already made correct. **Archiving is the key that turns both locks**, and it needs no LLM and no
+> file deletion.
+
+**The corrected sequence — three steps, not two:**
+
+1. **ARCHIVE** the three pages (SQL, reversible, page keeps serving).
+2. **RE-RESOLVE** the 61 inbound references — `cta_links_stale` rerenders, **no LLM**. Now unblocked,
+   because the destination stopped being valid at step 1.
+3. **RETRACT** the deployment via the `page-retraction` agent — now it will not refuse, because
+   editorial inbound is 0. It also deactivates the `site_nav_items` row itself
+   (structural inbound is *mechanised*; editorial is refused; newly-stranded outbound is *reported*).
+
+**Canary order chosen from the measurement, simplest first:** `finetuning.uk` (13 rows / 11 pages,
+0 nav rows, both flags false) → `leopardessconsulting.co.uk` (18/17, 0 nav rows) →
+`ai-agent-orchestration.com` **last** (30/19, 1 `site_nav_items` row, `in_header=t`, and the only
+site whose footer carries the link).
+
+> **⚠ A trap found while reading, worth its own LANDMINE and not specific to this lane: the two
+> sibling retraction actions have OPPOSITE `dry_run` defaults.** `retract_asset_files` states
+> *"absence means TRUE"* and cites the 2026-08-02 owner ruling that a dangerous branch defaults OFF.
+> `retract_page_deployment` does `if dry, _ := config["dry_run"].(bool); dry {` — a bool's zero value
+> is `false`, so **omitting the key DELETES**. The two files name each other as siblings in their
+> first lines, which makes the wrong inference *more* likely, not less. The live `page-retraction`
+> agent passes no `dry_run`, so it runs live by design.
