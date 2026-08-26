@@ -7,8 +7,22 @@ Owner prose: `README_where_we_are.md` (his document — append only).
 ## The one-line state
 
 The parked decision set is **empty** — he answered all seven. The site's live contrast defect is
-diagnosed, fixed and artefact-verified on three sites. The copy hold **still stands**: nothing has
-shipped from `copy_quality_two_stage` that changes the register.
+diagnosed, fixed and artefact-verified on three sites. ~~The copy hold **still stands**: nothing has
+shipped from `copy_quality_two_stage` that changes the register.~~
+
+> ⚠ **THAT LINE WAS STALE WITHIN A DAY — CORRECTED 2026-08-26, and it is exactly the shape this
+> file warns about elsewhere.** The owner ruled on all six copy decisions on 08-25 and **four
+> migrations are LIVE** (`schema_migrations`): **627** (writer's July substitutes deleted), **628**
+> (house voice rewritten form-only), **629** (planner stops planning unfillable social-proof slots)
+> at 2026-08-25 21:11:29Z, and **630** (planner mission constraints stay inside the plan) at
+> 2026-08-26 00:22:41Z. Their measure: negation demonstrations in the rendered writer prompt
+> **63–65 → 36 (−45%)**.
+> **Checked independently here rather than taken on report: the live `content-creator-agent` prompt
+> now scans ZERO occurrences of `rather than`** — the exact construction this lane measured as its
+> immovable floor across three builds.
+> ⚠ **A measured change to the PROMPT is not proof the OUTPUT clears his ear.** A clean checklist is
+> what fooled this lane on 08-25 (`WRONG_CALLS`). So: **OPEN TO REVIEW, not lifted.** The copy lane
+> has been asked directly whether a rebuild today is expected to pass.
 
 ## What he decided, 2026-08-25, and what was done
 
