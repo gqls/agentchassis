@@ -56140,3 +56140,53 @@ absence, and it will eventually be handed absence.
 
 Family: a-post-fix-zero-needs-a-demand-control, a-pass-from-a-blind-check-outlives-the-blindness,
 a-parked-domain-200s-every-path, a-plausible-external-cause-is-when-to-doubt-your-instrument.
+
+---
+
+## 2026-08-26 — my corpus lint matched only PROSE COMMENTS, and passed at full strength
+
+**Lane:** `bugfix_404_rerender_reason_vocabulary`. Third instance today of one family; read the
+two entries above first, because the value is in how the three differ.
+
+**The claim.** `bugs_open/404` is about a vocabulary whose readers drift apart silently. Its best
+fix candidate is a lint that scans the migration corpus and fails when a migration writes a
+re-render reason the Go definition does not carry — *"what would have caught migrations 460 and
+473 on the day they were written"*. I wrote it, it reported **12 reason literals checked**, and
+it passed.
+
+**The truth.** Every one of those 12 was a **comment**. A migration that edits the live gate
+writes the condition *inside a SQL string literal*, so its quotes are doubled —
+`input_data.spec.reason == ''template_changed''` — while the explanatory comment eight lines
+above writes them singly. My regex accepted single quotes only. **It could not see either of the
+two executable lines it exists to catch**, in either of the two files it was written for.
+
+**What caught it.** Running the mutation. I dropped a probe `.sql` carrying an undeclared reason
+into the corpus and the lint did not fire. Nothing else would have: the test was green, the
+count was non-zero, and the file read convincingly.
+
+**Why this is a different failure from this morning's two, and that is the point.** The first
+pair passed on a *guard in series*. The second pair had *fixtures that could not produce the
+failure*. This one had a **discriminator that could not see the real shape of its input** —
+right question, right corpus, wrong dialect. Three distinct ways for a guard to be green and
+inert, in one day, all invisible without running the mutation.
+
+It is also the recorded landmine *"a source-scan test makes your COMMENTS load-bearing"* arriving
+from the other side: that entry warns that a scan may match a comment and pass **vacuously**; here
+it matched comments and passed **at full strength**, reporting a healthy corpus with a
+double-digit count. A non-zero count felt like proof of reach and was proof of nothing.
+
+**The fix, and the second half is the durable one.** The regex now accepts both quotings — but a
+regex can drift again. So the test carries **positive controls**: named values that MUST be found
+in named files, in their executable form. Migration 460 must yield `template_changed`; 473 must
+yield `literal_markdown`. Mutation-proved: narrowing the regex back to single quotes now fails
+with `POSITIVE CONTROL FAILED` instead of passing with a smaller number.
+
+**Cheap check, stated so it generalises past regexes: a scan must be pinned to a KNOWN POSITIVE,
+not merely to a non-zero count.** "It found 12 things" answers *did it run*, never *can it see
+what it is for*. Name a case the scan must catch, in the real input, and assert it catches that
+one — then a change that blinds the instrument fails loudly instead of quietly reporting less.
+This is [[a-post-fix-zero-needs-a-demand-control]] applied to a source scan: the demand control
+here is a literal you know is in the corpus.
+
+Family: mutate-the-code-to-prove-the-guard, a-source-scanning-test-makes-comments-load-bearing,
+a-post-fix-zero-needs-a-demand-control, a-mutation-that-passes-may-have-hit-a-guard-in-series.
