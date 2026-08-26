@@ -56404,3 +56404,49 @@ demand control is not "absent", it is "present and mis-anchored"** — it looks 
 control and reports with the same confidence. Every other entry in this file is about a check I did
 not run; this one is about a check I ran against the wrong origin. Tally:
 demand-window-anchored-to-the-session-not-the-change.
+
+## 2026-08-26 — CLOSING SYNTHESIS for the day's entries: design a census so its expected answer is MIXED
+
+Not a new wrong call. A distillation of the six above, and it is sharper than anything I wrote while
+making them. **The sentence is the `bugs_open/399` lane's**, from the landmine (`cd6cb3cc5`) that
+came out of my own bad census:
+
+> **A census whose expected answer is UNIFORM cannot tell you it asked the wrong question. One whose
+> expected answer is MIXED can.**
+
+Their worked case is the model. Checking whether the CTA audit is armed by grepping the **Go
+filename** (`cta_label_audit`) instead of the **config key** (`audit_cta_label_agreement`) returns
+**false on every writer, armed or not** — which reads exactly like *"the migration never applied"*,
+and the next move after that reading is to re-apply an applied migration or to declare the canary
+dead and widen prematurely. The fix is not a better grep; it is **stating the expected shape first**:
+*two true, two false while `645` is held.* Re-verified here rather than taken on report —
+`page-build-handler t`, `page-rerender t`, `page-rebuild f`, `pageflow-builder f` on the right key;
+uniform `f` on the wrong one.
+
+**It covers most of today's instrument failures, which is why it is worth keeping:**
+
+| the check | its expected answer | why it could not fail |
+|---|---|---|
+| `grep -c '<p'` before/after | "unchanged" | unchanged is also what damage-by-duplication produces |
+| `count(DISTINCT left(text,80))` | "components == distinct" | equally true of a clean page and of one with a shared heading |
+| `last-modified >= <hardcoded epoch>` | "true once deployed" | true from the start, because the epoch was a year early |
+| `LIKE '%cta_label_audit%'` | "true where armed" | false everywhere, armed or not |
+
+Every one has a **uniform** expected answer, and every one returned it. **A check that predicts one
+value for the whole population is indistinguishable from a check that cannot see the population at
+all** — which is the same fact as *"a control validated only where you expect it to fire has not been
+shown to discriminate"*, but stated as something you can act on **while designing the check** rather
+than after it misleads you.
+
+**And the symmetric half, theirs, from their own near-miss:** they built a demand control correctly
+and anchored it to *when they sat down* instead of *when the migration applied*, so a legitimate zero
+looked like a defect. **A measurement aimed at the wrong origin reports with exactly the same
+confidence as one aimed correctly.** Mine was a census asking the wrong question; theirs a control
+asking the right question of the wrong window. **Neither announces itself**, and that is the whole
+reason to state the expected shape before running anything.
+
+**The practice, in one line:** *before you run a census, write down what its answer should look like
+if the world is as you think — and if that prediction is uniform, change the census until it is not.*
+
+Family: expected-answer-must-be-mixed, a-uniform-prediction-cannot-discriminate,
+a-measurement-aimed-at-the-wrong-origin-looks-identical, state-the-shape-before-you-run-it.

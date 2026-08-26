@@ -97,7 +97,9 @@ CONTRIB is in this directory. Three things follow for the work in §2:
   `[VERIFIED 2026-08-26 22:2xZ]` `jsonb_path_query_array($.** ? (@.audit_cta_label_agreement != null))`
   returns 1 armed node on each of those two and nothing elsewhere.
   ⚠ **Query that key, not the Go filename** — a census for `cta_label_audit` (the source file) returns
-  **false on all four writers** and reads as "nothing is armed".
+  **false on all four writers** and reads as "nothing is armed". This is now a `LANDMINES.md` entry
+  (`cd6cb3cc5`) and it carries the control that catches it: **expect two true, two false** while `645`
+  is held. *A census whose expected answer is uniform cannot tell you it asked the wrong question.*
 
   **§3b is a burst of `page_rerender` items, and `page-rerender` is one of only TWO armed writers.**
   So this repair will not merely spike the record — **it will dominate it**, because almost nothing
