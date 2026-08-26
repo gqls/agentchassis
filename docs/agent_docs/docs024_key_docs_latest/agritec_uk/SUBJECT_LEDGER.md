@@ -93,6 +93,14 @@ Confirmed by an independent dry run from the `bugs_open/288` lane against this s
 83 attested facts I made "clickable" on 08-24 carried no `quote`, so every one errored silently
 every day and nothing could ever escalate it. That is fixed and re-proved.
 
+**2026-08-26: the one-time reconciliation of all 24 declared facts is DONE.** The
+evidence-freshness pass raised `fact_drift_review` ×24 (`kind: unreconciled_declaration` — a
+one-time "confirm the tool computes from that figure", not drift). Compared mechanically:
+register value vs the `rate` field per action code in the tool's single data array — **24/24
+match, 0 mismatch, 0 extras**, parse-count control 24. Items closed with rulings
+(`SEED_2026-08-26b`). Arithmetic is the Tier-4 `acceptance_run`'s to prove — queued by
+design-discovery 2026-08-26 00:24, the first ever for this site.
+
 `not_probed` on all 24 is expected and correct: every SFI rate is below the probe's measured
 distinctiveness floor of 1000. The fence does not buy probe coverage — **it buys the sweep naming
 this tool on the day DEFRA moves any of the 24 rates**, and the four `artifact_check` entries are

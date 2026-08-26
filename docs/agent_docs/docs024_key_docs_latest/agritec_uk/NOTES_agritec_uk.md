@@ -774,3 +774,107 @@ than asking a copy of the rule whether it should be blocked.
 
 One query, reads the actual columns, and `claimable_now` cannot be false while the row is
 genuinely claimable. It is now in `RUNBOOK` §14.
+
+---
+
+## 2026-08-26 — the discovery rotation returns overnight, and the queue triples
+
+Fresh session picked up the 2026-08-25 handoff at ~09:20 UTC. The queue it inherited (measured
+at pickup) was NOT the handoff's queue: three overnight waves had landed.
+
+**Wave 1, 00:24–00:25 UTC** — `design-discovery-agent`, `completeness-discovery-agent`,
+`acceptance-discovery-agent` all visited (agritec had never been design-stamped, so it was in
+the first sites the re-enabled rotation reached). Filed: `acceptance_run` for the SFI tool
+(**the Tier-4 run the handoff's §3.2 asked for — the framework filed it itself, identical
+item_key, so the planned operator insert was DROPPED to avoid an idx_swi_dedup collision**),
+`audit_tool`, `evaluate_tools`, `image_url_404` ×2 (favicon.png, og-card.png),
+`needs_content_image` ×6 (Lane B content heroes for the six explainers), `needs_imagery` ×2
+(content heroes for the tool page and the companion-guide STUB — note the stub decision, §3.5
+of the handoff, now has a generation queued against it), `head_essentials_missing` ×13,
+`prerequisite_missing` ×2, `structure_floor_unmet`, `capability_gap`.
+
+The `webdesign-tool-rebuilds` lane's cross-session heads-up said the rotation was re-enabled
+"at 2026-08-26 09:20Z"; the items above are stamped 00:24Z. **[UNRESOLVED] the two times
+disagree by nine hours** — recorded as measured, not reconciled. What matters either way: the
+wave is the rotation, not a stray thread.
+
+**Wave 2, 08:12–08:14** — the improvement loop: 4 `capability_gap_audit_seat_failed_*`
+(deferred), `needs_rerender`, and a full 13-page `page_rerender` `_assemble` wave (triaged).
+
+**Wave 3, 09:06–09:20** — `evidence-freshness` filed `fact_drift_review` ×24 (see below);
+`undeployed_asset` ×6 + `deactivated_component` (Document Head) at 09:20.
+
+### The 24 `fact_drift_review` items were NOT drift — and the reconciliation is done
+
+Read before acting (the all-24-at-once shape smelled like a broken instrument): every spec
+says `kind: unreconciled_declaration`, reason `never_reconciled`, and verbatim *"This is a
+one-time check, not a detected defect"*. It is the `bugs_open/288` mechanism asking a human to
+confirm, once per declared fact, that the tool computes from the register's figure.
+
+Done mechanically, 2026-08-26: extracted `code:'X' … rate:N` from the tool's single data array
+(`content_components.html_template`, component `188955de-ec76-46bb-bf62-c858bb5f508a`) and
+compared all 24 register values (`spec->fact->new_value`). **24/24 match, 0 mismatch, 0
+missing, 0 extra codes, 0 duplicates — and the parse-count control (exactly 24 array entries
+found) rules out a vacuous pass by a broken extractor.** All 24 items closed `complete` with
+the ruling in `result` (`SEED_2026-08-26b`). The tool's *arithmetic* is deliberately NOT
+claimed by this: that is what the framework's own `acceptance_run` verifies, and it is queued.
+
+### Dispatched this session (`SEED_2026-08-26_light_imagery_regen_and_cap_claim.sql`)
+
+1. **Light-palette regeneration of all 17 imagery assets** (handoff §3.1). Mechanism read
+   first: `generate_image` loads `imagery_style_guide` LIVE per run, so re-firing the same
+   items under the now-light guide regenerates light; both framework emitters skip plan rows
+   with an active asset (`imageryplan.HasActiveAsset`), so the re-request had to be
+   operator-inserted; `StoreAssetAction` is an UPSERT on `(site_id, asset_key) WHERE
+   status='active'`, so rows update in place — same served URLs, no missing-asset window.
+   The LOGO plan prompt hard-coded "suitable for dark backgrounds" and logos get NO direction
+   from the guide (`directionForKind` excludes them), so the prompt was amended at the
+   AUTHORITY (`site_plan_imagery`, now `source='manual'`) — not at the derived item spec — and
+   the re-request item takes its prompt from the amended plan row.
+2. **The agreement-cap copy correction** (`content_rewrite`, `mode=edit_live`,
+   `page-build-handler` — the route the bugfix_391 lane proved fleet-wide on 08-25). The
+   claims audit was right and the defect is worse than its summary: the stacking explainer's
+   "The agreement cap" section asserts a national cap of "100,000 agreements per year" and
+   explicitly describes it as *"a national limit on the number of agreements accepted, not a
+   limit on what any one agreement can contain"* — **exactly backwards** against registered
+   fact `CIT-86c4010f7cdf820d` (a £100,000 VALUE cap per agreement year), with a
+   real-looking DEFRA/RPA attribution hung on the garble. The `claims_unverified` item is
+   deliberately left open: the revalidator closes it once the copy no longer carries the
+   claim (observed arm `resolved_all_gates_passed`, gamesdesign.co.uk 2026-08-18).
+
+### Closed with rulings (`SEED_2026-08-26b_close_reconciliation_and_stale_reviews.sql`)
+
+26 `needs_human_review` items: the 24 reconciliations above, plus —
+
+- **`stale_evidence` (08-23):** all 7 "drifted" facts are period-bounded past-period claims;
+  the policy was already fixed by `SEED_2026-08-24b`; the refresher has not re-raised since
+  (updated_at frozen at 08-24 09:05 while the same scheduler demonstrably ran on 08-25 and
+  08-26 — it filed today's 09:06 items). Ruling: accept.
+- **`citation_unverified` (08-22):** the DLI table-scrape rejections, resolved on 08-22 by
+  attestation (`SEED_2026-08-22f`), proven live 08-25 by the citation arm's 104/104 fresh.
+
+**Left open on purpose:** `claims_unverified` (revalidator's to close),
+`chrome_divergence_overwritten` (it is `bugs_open/397`'s GTM tag loss — the analytics_gtm lane
+messaged: their fix wave re-renders chrome + all 13 pages at the next discovery pass; not an
+operator edit to review), `unresolved_cta` ×9 (verified benign: the spec's own text says the
+gated template renders NO button, so there is no served damage; they self-resolve as the
+Phase-1 tools get built), and everything the framework filed overnight.
+
+### A meter-vs-artefact disagreement worth a later look
+
+`undeployed_asset` ×6 says the five icons + logo were "generated but not deployed". The
+artefact disagrees: `/assets/images/logo.png`, `/assets/images/icon-cea.jpg` (and og-card.png)
+all serve **200** — only `/favicon.png` genuinely 404s. So the check reads a deployment stamp,
+not the URL. Framework-owned, `detected`, not touched — but if it churns, this is why.
+
+### Watch list for the next session
+
+- 17 `needs_imagery` + 1 `content_rewrite` triaged (batch `af3e9ffa`), queued behind the
+  rerender wave; fleet dispatch active (13 claimed at pickup). Verify at the ARTEFACT: hero
+  bytes change at the same URLs, logo light, and the cap section's copy corrected on the
+  served page.
+- The framework's `acceptance_run` — the first Tier-4 ever for this site. Read its result.
+- The stub decision (handoff §3.5) is still open and now has a content-hero generation queued
+  against the stub page; decide retire-vs-repoint before investing more in it.
+- favicon.png 404 is real; `head_essentials_missing` ×13 + the 397 chrome wave will churn the
+  head — let them land before touching anything head-shaped.
