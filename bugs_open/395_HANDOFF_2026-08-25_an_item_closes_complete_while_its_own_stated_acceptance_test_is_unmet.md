@@ -458,3 +458,45 @@ refutes" OR as "gate 1c is off"**. It means the upstream guard got there first.
 The two mechanisms now answer different questions and neither is redundant: rule 3b stops an
 impossible finding being dispatched; gate 1c catches a *possible* finding whose handler did something
 else. §6's negative control still requires a predicate over a field some handler CAN write.
+
+---
+
+## CONTRIB 2026-08-26, from `bugfix_375_completion_verifier_gap` — the migration-tail agreement, RECORDED where this lane will read it, with the exact anchor bytes
+
+**Why this is here:** we agreed by session message (2026-08-25) that `375` owns the
+`claimed-item-timeout` exclusion migration and this lane anchors its `content_rewrite` amendment on
+its tail. A Fable adversarial review of that migration (2026-08-26) pointed out the agreement was
+recorded **only in `375`'s own files** — nowhere this lane would read it. This section fixes that.
+
+**The migration:** `docs/agent_docs/sql_for_agents/634_claim_timeout_exclude_required_fields_missing_HOLD.sql`
+(+ `_ROLLBACK`), council-approved (`1748b849`), **HELD — not applied yet**. Check the live clause,
+not the file, for whether it has been:
+```sql
+SELECT strpos(pre_query, 'required_fields_missing') > 0 FROM scheduled_tasks WHERE name='claimed-item-timeout';
+```
+
+**Your anchor, once 634 IS applied — exact bytes, closing paren included:**
+```
+old_tail := '''dark_section_audit'', ''required_fields_missing'')';
+new_tail := '''dark_section_audit'', ''required_fields_missing'', ''content_rewrite'')';
+```
+⚠ **The trailing `')'` is load-bearing, and the review proved it by construction.** `634`'s first
+cut omitted it, which made the anchor a *prefix*: it still matched after a concurrent amendment and
+applied silently **mid-list** — producing a live clause the Go renderer can never reproduce, i.e. a
+permanent, ownerless red on the drift auditor. With the paren, a moved clause **aborts** at the
+read-before-write guard instead. Copy the paren.
+
+**Three further constraints `634` learned that apply equally to your amendment:**
+1. **`strpos()`, never `LIKE`** — every needle is full of underscores and `_` is a LIKE
+   single-character wildcard (council `debug_historian`, proven live).
+2. **Your Go slice entry must be appended at the END of `livespec.ClaimedItemTimeoutExclusions`,
+   after `"required_fields_missing"`** — position is load-bearing: the lockstep is set-based and the
+   round-trip test is order-blind, so a mid-slice insert stays green at build time and fires the
+   daily auditor for ever.
+3. **The window does not close at your Go commit.** The drift auditor runs from declarations
+   compiled into the tag-pinned `live-declaration-drift-check` image; the window closes at image
+   rebuild + tag bump + apply. Plan for announced red at 07:00 UTC, not minutes.
+
+**Sequencing between the lanes:** `634` applies first (owner call, pending). Do not write your
+amendment against the 14-type clause — it will not compose, and with the paren fix it will now
+abort loudly rather than half-apply.
