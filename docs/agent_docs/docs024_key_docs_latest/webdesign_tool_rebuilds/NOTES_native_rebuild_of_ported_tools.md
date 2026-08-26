@@ -3948,3 +3948,25 @@ apis/idea/webdesign; the rotation enable time (09:20:04Z) stands and 401's timel
 unaffected. Also banked from loancalculator: LOCK-009 (Layer 2 slot-pairing matcher) live in
 last night's roll — the duplicate-calculator trap no longer fires on current binaries if our
 tool pages ever grow a locked+deployed+interactive row.
+
+## 2026-08-26 ~12:45Z (platform seat) — noted's write-conflict discovery generalises onto OUR 43 rebuilds
+
+Two facts from the noted lane's closure, the second one aimed straight at this lane:
+1. Their editor items were at `triaged` (inside build-dispatch's claim gate), not `detected` —
+   sharper exposure than the promoter-doors framing in my ~12:15Z entry; now safely `deferred`
+   with guarded UPDATEs, per the capability_gap precedent.
+2. **The instance-scope escalation's "still unconverted after 2 terminal attempts" premise can
+   be a WRITE CONFLICT, not a failure**: both conversions on their tool-write COMPLETED
+   `fixed:true`, and each was then overwritten by their own `replace_existing` ship. Two
+   pipelines honestly reporting success while undoing each other; the strike counter sees only
+   its own side. **Generalisation, theirs, correct: any tool whose owning lane ships via
+   `replace_existing` reads as conversion-resistant to the sweep for ever** — and THIS lane
+   ships every rebuild that way, so all 43 rebuilt tools are candidates for the same spiral:
+   conversion completes → next rebuild/rerender overwrites → re-detect → strikes → an
+   escalation-filed `add_tool` (`replace_existing:true`) queueing an LLM regeneration of a
+   serve-grade-proven rebuild, in the grind's own keyspace. Grind seat warned by message; their
+   evidence + ruling question is filed at
+   `bugfix_283_component_instance_scope/CONTRIB_2026-08-26_from_noted_lane_tool_write_single_instance_and_a_write_conflict.md`
+   and flagged in the owner's README (their lane's). Watch for: `instance_scope_conversion` or
+   escalation `add_tool` items appearing on webdesign tool pages — check the strike history for
+   the overwrite pattern BEFORE letting anything fire.
