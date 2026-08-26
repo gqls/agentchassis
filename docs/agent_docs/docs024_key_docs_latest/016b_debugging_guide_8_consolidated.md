@@ -6595,6 +6595,51 @@ containers-served structurally cannot fire. RUNBOOK query:
 component RANKS containers and another DRAINS them, the ranking key must be computed over
 rows the drainer will actually take next, or an anti-starvation floor must bound the pin.
 
+### Two causes wear one symptom and a TIMESTAMP cannot separate them — REPLAY the deterministic classifier instead (2026-08-26, `bugs_open/407`)
+
+**The shape.** A queue, table or nav is missing rows it should contain, and there are two ways to
+be missing: *the rule excluded it*, or *the derivation has not run since the row changed*. The
+instinct is a timestamp — "did the source change after the derived table was last written?" — and
+on this estate that instinct fails, because `updated_at` is bumped by writes that have nothing to
+do with the flags you care about (`pages.updated_at` moves on any re-render). `bugs_open/407`'s
+filer tried exactly that, said plainly it did not work, and filed an upper bound instead of a
+measurement: **8 pages across 5 sites**, with a ⚠ that the number mixed two causes.
+
+**The way past it.** If the thing doing the excluding is DETERMINISTIC code over data you can
+read — a classifier, a ranker, a tier table — then **re-implement it as a query and diff its
+expected output against what is stored.** You are not looking for when something changed; you are
+asking what the rule WOULD do right now. That converts "absent" into a per-row verdict:
+
+	expected rank beyond the cap      the rule excluded it — the defect
+	expected rank within the cap      the derivation is STALE; a rebuild would place it
+	not a candidate at all            a third cause entirely — some other bar
+
+Run over 407's population it split 6 into **5 / 1** and named the odd one out precisely: a page
+barred by `page_type`, which no rebuild would ever have placed. **The honest damage was 5 across
+3 sites, not 8 across 5** — and without the split, the fix would have shipped, the count would not
+have fallen to zero, and nobody would have known why.
+
+**Transferable checks.**
+
+- **Before quoting a damage figure that mixes causes, ask whether the excluding rule is
+  deterministic code over readable data.** If it is, the replay is available and costs one query.
+  If it is not — an LLM decision, a race, an external service — say so, and keep the figure as the
+  upper bound it is.
+- **A cheap NECESSARY screen often falls out of the mechanism, and is worth having beside the
+  replay.** Here: a ranking rule can only exclude when there is COMPETITION, so a derived list
+  BELOW its cap cannot be suffering from the ranking at all. That one join separates most of the
+  population; the replay then explains the rest. State which is which — a necessary condition is
+  not a verdict.
+- **Read the rule's constants from LIVE CONFIG, never hardcode them into the query.** 407's cap
+  lives in a fleet-wide step config, and a replay that hardcoded `8` would have asserted the very
+  constant the bug is about.
+- **Name the replay's own failure modes in the same breath.** Go's `sort.Slice` is UNSTABLE, so
+  rows tied on the sort key have no guaranteed order and a verdict for a row sitting exactly on
+  the cap boundary is not safe. Check that none of your rows does before quoting the split.
+- **A replay is a MEASUREMENT, not a monitor.** It duplicates production logic and will drift the
+  moment that logic changes. Use it to take a reading and to verify a fix; if you want the
+  question answered continuously, that is a check with a lockstep test, not a query in a runbook.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
