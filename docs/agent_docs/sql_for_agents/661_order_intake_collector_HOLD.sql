@@ -1,4 +1,4 @@
--- 660 (_HOLD): the order-intake collector — P4's scheduled half (owner GO
+-- 661 (_HOLD; born 660, renamed same evening: the 394 lane's 660_render_audit_coverage_cursor took the number first and is already applied): the order-intake collector — P4's scheduled half (owner GO
 -- 2026-08-26, PLAN_2026-07-31_p4_order_intake).
 --
 -- WHAT IT DOES: every 15 minutes (owner-ruled interval, 2026-07-31 §7.1) the
@@ -68,7 +68,7 @@ WHERE NOT EXISTS (
 INSERT INTO scheduled_tasks (name, description, interval_seconds, target_agent_type, target_topic, concurrency_group, max_concurrent, enabled)
 SELECT
   'order-intake-collect',
-  'Collect paid customer briefs from the webdesign.uk box into build_queue (P4). 15-min interval per the 2026-07-31 owner ruling. SHIPS DISABLED: enable only after P5 seeding lands and WEBDESIGN_BOX_ORDERS_TOKEN is in the chassis env — see migration 660''s header.',
+  'Collect paid customer briefs from the webdesign.uk box into build_queue (P4). 15-min interval per the 2026-07-31 owner ruling. SHIPS DISABLED: enable only after P5 seeding lands and WEBDESIGN_BOX_ORDERS_TOKEN is in the chassis env — see migration 661''s header.',
   900,
   'order-intake-collector',
   'system.agent.generic.requests',
@@ -78,24 +78,24 @@ SELECT
 WHERE NOT EXISTS (SELECT 1 FROM scheduled_tasks WHERE name = 'order-intake-collect');
 
 -- Verify: agent active; schedule present, DISABLED (the contract of this
--- file — a 660 that arrives enabled is a defect, not a convenience), pointed
+-- file — a 661 that arrives enabled is a defect, not a convenience), pointed
 -- at the agent; and the workflow still names the action and the box URL.
 DO $$
 DECLARE n int; en boolean; cfg jsonb;
 BEGIN
   SELECT count(*) INTO n FROM agent_definitions
    WHERE type = 'order-intake-collector' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
-  IF n <> 1 THEN RAISE EXCEPTION '660 verify failed: order-intake-collector not active (found %)', n; END IF;
+  IF n <> 1 THEN RAISE EXCEPTION '661 verify failed: order-intake-collector not active (found %)', n; END IF;
 
   SELECT enabled INTO en FROM scheduled_tasks
    WHERE name = 'order-intake-collect' AND target_agent_type = 'order-intake-collector';
-  IF en IS NULL THEN RAISE EXCEPTION '660 verify failed: schedule missing or mistargeted'; END IF;
-  IF en THEN RAISE EXCEPTION '660 verify failed: order-intake-collect arrived ENABLED — this file ships it disabled (P5 seeding + token are owed first)'; END IF;
+  IF en IS NULL THEN RAISE EXCEPTION '661 verify failed: schedule missing or mistargeted'; END IF;
+  IF en THEN RAISE EXCEPTION '661 verify failed: order-intake-collect arrived ENABLED — this file ships it disabled (P5 seeding + token are owed first)'; END IF;
 
   SELECT default_config INTO cfg FROM agent_definitions
    WHERE type = 'order-intake-collector' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
   IF cfg::text NOT LIKE '%collect_external_orders%' OR cfg::text NOT LIKE '%/internal/orders%' THEN
-    RAISE EXCEPTION '660 verify failed: the workflow lost the action or the box URL';
+    RAISE EXCEPTION '661 verify failed: the workflow lost the action or the box URL';
   END IF;
 END $$;
 

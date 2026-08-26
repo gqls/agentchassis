@@ -1,4 +1,4 @@
--- 660 ROLLBACK — remove the order-intake collector agent + schedule.
+-- 661 ROLLBACK — remove the order-intake collector agent + schedule.
 --
 -- Safe at any time: the task ships disabled, and a mid-flight collector run
 -- is idempotent end to end (paid gate, ON CONFLICT insert, dedup-keyed work
