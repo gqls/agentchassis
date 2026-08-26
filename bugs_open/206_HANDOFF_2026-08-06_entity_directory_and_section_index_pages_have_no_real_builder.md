@@ -1215,3 +1215,91 @@ so an additive key is inert — but its comment said the spec is *"exactly what 
 returned"*, and **my change made that false.** Corrected in the same commit rather than left
 standing. *The objection did not find a defect; it found a document I had quietly invalidated* —
 which is the same class as the two false comments this lane corrected yesterday.
+
+## 2026-08-26 — the provenance stamp is LIVE too. Every line of code this bug needs is now shipped and reviewed. It still does not close, and the reason is this bug's own title.
+
+### 1. Live, verified four ways (the logs were no help this time)
+
+`v1.0.1341`, pods started `2026-08-25T23:11:31Z`/`23:11:52Z`.
+
+**The startup provenance line had scrolled out entirely** — absent even at `--tail=200000`, on both
+pods. That is the documented behaviour ("not in range", not "unstamped"), and it is now the *usual*
+case rather than the exception, because the roll happened ten hours before I looked. So:
+
+1. **Image label** (`docker image inspect ... org.opencontainers.image.revision`) →
+   `2fb40a960f880028c462b15139bf74b6cee889cf`.
+2. **Ancestry**: `1887a116b` (the provenance stamp), `3dda3b191`, `efec862f4`, `0777eb297` — **all
+   IN**.
+3. **Control**: two commits made after the build (`1370c6201`, `209450c6e`, both 2026-08-26 09:14)
+   are correctly **NOT** ancestors.
+4. **Cross-check that the label describes what is RUNNING** — a `docker` label is read from a local
+   image and the pods pull a *tag*, which is not the same statement: known-value probe
+   `grep -aq 2fb40a960… /proc/1/exe` on a live pod → **PRESENT**.
+
+⚠ **Timestamps could not have settled this.** `1887a116b` (19:42:46Z) predates the pod start
+(23:11:31Z), but that only makes inclusion *possible* — a build can be made from an older ref.
+**Timestamps EXCLUDE (commit after build ⇒ definitely absent); they never CONFIRM.** RUNBOOK §7c has
+been corrected accordingly; as written it implied the fallback was sufficient in both directions.
+
+**So the permanent closure gate (`spec->>'handler' = handler_agent`, RUNBOOK §7d) is now ARMED.**
+
+### 2. And nothing has exercised any of it
+
+`[MEASURED 2026-08-26]` rows with `spec ? 'handler'`: **0 of 231** `reconcile_site_plan` rows.
+Sites reconciled since the roll: **0**. Sites created since: **0**. Nothing schedules reconcile; the
+roll changes the next plan and cannot reach back. **This is the expected reading, not a failure** —
+but note it is also *indistinguishable* from a broken stamp until something runs, which is exactly
+why §7d carries its precondition warning.
+
+### 3. A correction to my own figure: the parked population is NINE, not six
+
+Every "five parked rows" and "six parked rows" figure in this file came from a query **filtered to
+the four domains I already knew about**. Unfiltered, `[MEASURED 2026-08-26]` the fleet has **9**
+open `needs_page` rows on `entity-directory`/`entity-page`/`section-index` pages:
+
+| domain | page | type | status |
+|---|---|---|---|
+| garden-tools.uk | brand-directory-index | entity-directory | needs_human_review |
+| garden-tools.uk | brand-profile | entity-page | needs_human_review |
+| garden-tools.uk | buying-guides-index | section-index | needs_human_review |
+| dartsonline.com | brand-detail | entity-page | needs_human_review |
+| loanzy.uk | guides-index | section-index | needs_human_review |
+| adversecreditmortgage.co.uk | blog-index | section-index | **unresolved** (unreachable — §2(c)) |
+| mortgagecalculator.co.uk | about-index | section-index | deferred |
+| mortgagecalculator.co.uk | contact-index | section-index | deferred |
+| robot-hands.com | learning-center-index | section-index | needs_human_review |
+
+**Three of the nine were never in any of this lane's counts.** A census filtered by the domains you
+already know about cannot discover a domain you do not — it is the "a count you kept is not a census"
+shape, committed by me repeatedly in this file. The figure is dated here so the staleness is
+mechanically checkable.
+
+### 4. Can it close? My recommendation is NO, and the reason is this file's own title
+
+**Every line of code this bug needs is shipped, reviewed and live.** Two council approvals
+(`b92e624d` r1, `9ff151d6`), one authority instead of three copies, `section-index` routed, the gap
+row aligned, five tests where there were none, and a permanent provenance gate.
+
+**And nobody has yet watched the fixed code route a single page.**
+
+CLAUDE.md's bar for `bugs_closed/` is *"fixed AND live"*, and a literal reading is now satisfied —
+so closing is a defensible call, and it is the owner's to make. **I recommend against it**, for one
+reason that outweighs the convenience:
+
+> This file's own title is *"'the machinery is proven live' (vetcomparison PLAN, 07-26) was an
+> **unverified inference**, now falsified."*
+
+**This bug exists because a session concluded the machinery worked without watching it work.** It was
+re-opened on 2026-08-24 for the same reason a second time — the 08-08 fix was live at one producer
+and absent at another for fifteen days, and nobody noticed because nobody looked at the artefact.
+Closing it now on "the code is live and the tests pass" would be the third instance of the exact
+inference the file was filed to refute.
+
+The distinction worth holding onto: **the engineering is finished; the verification is not.** Those
+are different claims, and this is the one bug in the estate where conflating them is the documented
+defect.
+
+**What closure actually needs is small and bounded** — one greenfield build carrying an
+`entity-directory` or `entity-page` page, then RUNBOOK §7d. If the owner prefers to close on the
+CLAUDE.md bar instead, the honest way is to close it *stating that no artefact was observed*, and to
+carry the nine parked rows and the unobserved-routing gap somewhere they will not be lost.
