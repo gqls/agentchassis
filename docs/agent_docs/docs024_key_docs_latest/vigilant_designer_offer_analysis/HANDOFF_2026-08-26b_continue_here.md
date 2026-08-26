@@ -128,10 +128,16 @@ Their call of "true statement, false alarm" was right, and the defect is far wid
   empty on any NEW page with the same component. An accurate reason and a severity split, not
   suppression.
 
-**Status: diagnosis loop IN FLIGHT, `RUN_CORRELATION_ID=8aeba0b6-0508-4059-8a10-b3e94211dd8c`**
-(still `AWAITING_RESPONSES` at hand-off). **Read it, then file `bugs_open/`** — deliberately not
-filed on my own reading, because it is a cross-cutting structural claim about a shared detector and
-that is precisely the class the owner's 2026-07-31 ruling says must go through the loop first.
+~~**Status: diagnosis loop IN FLIGHT** … **Read it, then file `bugs_open/`.**~~
+**CORRECTED, SAME SESSION — the loop returned and the case is FILED as `bugs_open/411`.**
+Verdict **CONFIRMED, first iteration** (`RUN_CORRELATION_ID=8aeba0b6-0508-4059-8a10-b3e94211dd8c`),
+independently re-reading the same functions, citing the same lines, and surfacing a live example I
+had not seen (`hero` / `background_image` on `guide-how-loans-are-calculated`). ⚠ **The verdict is in
+the work item's `result`, NOT in a `diagnosis_artifacts` row** — that correlation has three `bundle`
+rows and no verdict artifact, so reading `diagnosis_artifacts` alone would have told you the run
+produced nothing. Read
+`site_work_items.result->'response'->'response'->>'conclusion'` where `item_type='needs_diagnosis'`.
+The transferable pattern is in **`016b` §9**; the index row is in **§10**.
 **I did NOT touch the checker**: shared Go discovery check, council scope, inert until a roll, and
 *what the check should mean* is a decision rather than a patch. **The apis.uk item is left open as
 evidence** — do not cancel it. Prior art checked: `bugs_open/356` names this check only in passing
