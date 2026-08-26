@@ -959,8 +959,13 @@ func WriteFeedItemsAction(ctx context.Context, params ActionParams) (interface{}
 // LoadDueSourcesAction — query content_sources for sources needing fetch
 // ---------------------------------------------------------------------------
 //
-// Returns all active sources for a site where next_fetch_at <= NOW().
-// Used by the content-feed-orchestrator to know what to ingest.
+// Returns all active sources for a site that are due within the half-cadence
+// look-ahead (feedSourceDuePredicate — see feed_due_lookahead.go and
+// bugs_open/410 for why a bare NOW() phase-locks cadence-length intervals).
+//
+// No live workflow step names this action as of 2026-08-26 (the
+// content-feed-orchestrator dispatches via dispatch_feed_sources instead); it
+// keeps the shared predicate so any future caller inherits the fixed due test.
 //
 // Config:
 //   - site_id: UUID
@@ -1004,7 +1009,7 @@ func LoadDueSourcesAction(ctx context.Context, params ActionParams) (interface{}
 		FROM content_sources
 		WHERE site_id = $1
 		  AND is_active = true
-		  AND (next_fetch_at IS NULL OR next_fetch_at <= NOW())
+		  AND ` + feedSourceDuePredicate + `
 	`
 	args := []interface{}{siteID}
 

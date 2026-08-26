@@ -55904,3 +55904,17 @@ correction of an existing entry**, which is worth more than the entry I was abou
 
 Family: cite-the-arm-not-the-function, a-report-is-not-a-measurement, prior-art-search-goes-stale,
 a-measured-claim-about-state-expires.
+
+## 2026-08-26 — bugfix_410_feed_phase_lock lane: two consecutive failed queries from guessed column names, on a table whose schema was one `\d` away
+
+Queried `scheduled_tasks` for the feed cadence as `schedule_interval_seconds` (failed), then
+re-guessed `schedule` (failed again), before running `\d scheduled_tasks` — which showed
+`interval_seconds` and would have been the FIRST command under the standing rule ("Schema
+first: `\d <table>` before writing SQL"). Cost: two round-trips to the cluster and a
+polluted transcript; on a busier query the second guess could have silently matched a
+DIFFERENT column and produced a plausible wrong number instead of an error. **The cheap
+check is the rule as written: `\d` before the first SELECT against any table you have not
+already described THIS session.** The error case here was loud; the reason the rule exists
+is the case where it isn't.
+
+Family: schema-first (CLAUDE.md platform conventions), a-report-is-not-a-measurement.

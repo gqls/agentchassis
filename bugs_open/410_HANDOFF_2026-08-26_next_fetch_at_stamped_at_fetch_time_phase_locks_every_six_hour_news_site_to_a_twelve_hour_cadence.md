@@ -169,3 +169,48 @@ scheduler" (same commit) · idea.uk lane RUNBOOK 6g.
   cycle was 9–25 s) — the phase lock re-arms itself every pass, δ > ε again.
 - **(c)/(d) pending** — the ~20:46–20:47 pass should SKIP idea.uk (an idea.uk orchestrator row
   there refutes this file); the ~02:46 pass on 08-27 should serve it.
+
+---
+
+## 2026-08-26 ~18:00Z — PICKED UP by the `bugfix_410_feed_phase_lock` lane; fix built (candidate 1); two corrections
+
+Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_410_feed_phase_lock/`. Handoff
+confirmed by message with the filing session. ⚠ Number collision: 410 ALSO names an unrelated
+scan-loss case (its own lane, `bugfix_410_silent_scan_loss`) — resolve by slug.
+
+**Correction 1 — the live second layer is `dispatch_feed_sources_action.go`'s own due query,
+not `feed_actions.go`'s.** §2's "per-site source selector the orchestrator itself uses"
+(`feed_actions.go:962/:1007`, `LoadDueSourcesAction`) has **zero live workflow callers**
+(verified against `agent_definitions` steps 2026-08-26: the orchestrator's step is
+`dispatch_sources` → `dispatch_feed_sources`). Same predicate text, so the mechanism and all
+arithmetic stand unchanged — but a fix applied where §6 pointed would have patched dead code.
+
+**Correction 2 — the §3 controls are only controls at SITE level.** dartsonline's 6 h sources
+(last fetched 08:51Z, due 14:51:09–28Z) were skipped by its OWN 14:50:27Z dispatch by
+~40–60 s while its 4 h sources were fetched: the phase lock also operates per-SOURCE inside
+an admitted site. "dartsonline **6 h** effective cadence" in §3 is true of the site's runs
+and NOT of its 6 h sources, which run 12-hourly like everyone else's.
+
+**Fix shipped (this commit): the half-cadence due look-ahead — candidate 1, both layers.**
+Due test becomes `next_fetch_at <= NOW() + COALESCE((SELECT make_interval(secs =>
+interval_seconds / 2.0) FROM scheduled_tasks WHERE name = 'content-feed-refresh'), interval
+'3 hours')` — serve on the nearest grid tick, not the tick after; cadence read live;
+fallback = today's half-cadence, never bare `NOW()`. One shared Go constant
+(`feed_due_lookahead.go`) feeds both Go readers (dispatcher + the callerless
+`LoadDueSourcesAction`, fixed so a future caller inherits it); migration
+`653_content_feed_due_lookahead_HOLD.sql` is the site-admission half — **held, hand-applied
+only after the chassis roll** (config-first admits sites the old binary refuses: no-op runs
+burning cap slots). Guards: cadence-still-21600 and 556-post-image pre-image match. Tests
+mutation-proven (three mutations RED, restored GREEN — lane NOTES). Candidates 2/3 not
+taken: 2 needs trigger-time plumbed through both stamp arms for the same closure; 3 re-opens
+at the next default-valued source. Caps 10/10 untouched (owner capacity decision, 556);
+post-fix ~12 sites due per pass means **cap hits become normal** — expected demand, not a
+regression — and fetch volume returns to designed (~2× today's). Council submission
+alongside this commit; 090 independent run fired 17:31Z
+(RUN_CORRELATION_ID `15d56c13-2081-431a-ad70-9516c5fcfbc7`).
+
+**§5 (c) criterion, refined before the ~20:47Z pass tests it** (per the filing lane, by
+message): the sources are due 20:47:24–42Z and trigger drift is seconds — so read the
+trigger's FIRE TIME first. (c) = fired **before 20:47:24Z** AND no idea.uk orchestrator row
+→ mechanism confirmed. If the trigger happens to drift PAST 20:47:42Z, a dispatch would
+CONFIRM the arithmetic (margin flipped), not refute it. This lane records (c)/(d).

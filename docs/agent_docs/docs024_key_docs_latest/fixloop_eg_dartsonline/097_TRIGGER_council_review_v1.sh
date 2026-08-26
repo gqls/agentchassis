@@ -47,7 +47,10 @@
 #                                                         (owner ruling 2026-08-23)
 #   docs/agent_docs/sql_for_agents/NNN_name.sql          — appliable migrations
 # A submission touching none of those is refused — prose, site content and the
-# hand-run sidecars (_ROLLBACK/_VERIFY/_HOLD) never spend council credits.
+# not-the-change sidecars (_ROLLBACK/_VERIFY/_SUPERSEDED) never spend council
+# credits. ⚠ `_HOLD.sql` IS in scope (corrected 2026-08-26 — this line used to
+# list it as refused, contradicting scripts/council-scope.sh, which is the
+# authority: a _HOLD is the change, merely held from the runner for ordering).
 # FORCE=1 overrides if you know better.
 #
 # The migration arm exists because the 2026-07-17 ruling is about SUBJECT MATTER

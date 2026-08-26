@@ -83,13 +83,17 @@ func DispatchFeedSourcesAction(ctx context.Context, params ActionParams) (interf
 		}, nil
 	}
 
-	// Query due sources
+	// Query due sources. The due test carries a half-cadence look-ahead
+	// (feedSourceDuePredicate, bugs_open/410): a bare NOW() here phase-locks
+	// any source whose fetch_interval equals the trigger cadence to every
+	// OTHER pass, because the post-fetch stamp lands seconds after the next
+	// trigger fires.
 	query := `
 		SELECT id, source_type, name, config
 		FROM content_sources
 		WHERE site_id = $1
 		  AND is_active = true
-		  AND (next_fetch_at IS NULL OR next_fetch_at <= NOW())
+		  AND ` + feedSourceDuePredicate + `
 	`
 	args := []interface{}{siteID}
 
