@@ -75,7 +75,7 @@
 BEGIN;
 
 INSERT INTO agent_definitions (type, display_name, description, category, agent_category, status, is_active, input_contract, default_config)
-VALUES (
+SELECT
   'delivery-review-filer',
   'Delivery Review Filer',
   'Files the owner''s pre-delivery review item (needs_delivery_review, parked at needs_human_review with spec.checkpoint=true) for one finished site. The owner''s APPROVE on that item is what the delivery email''s gate reads (DGH-017); resolve does NOT open the gate. Owner ruling 2026-08-21 (review) + 2026-08-26 (review extends to owner edits, internal only).',
@@ -114,11 +114,12 @@ VALUES (
     ),
     'start_step', 'file_review'
   ))
-)
-ON CONFLICT (type) DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM agent_definitions WHERE type = 'delivery-review-filer' AND deleted_at IS NULL
+);
 
 INSERT INTO agent_definitions (type, display_name, description, category, agent_category, status, is_active, input_contract, default_config)
-VALUES (
+SELECT
   'delivery-email-sender',
   'Delivery Email Sender',
   'Sends THE delivery email for one approved site: claims the delivery (review gate + once-only handover stamp + customer link minting, platform/delivery.Claim) and sends through platform/mailer. The body is the body_template in this config — OWNER-EDITABLE HERE, no roll needed; figures trace to the attested register (30 days; GBP 10/mo rent; GBP 200 buy). A second dispatch for a delivered site is refused by the stamp.',
@@ -152,8 +153,9 @@ VALUES (
     ),
     'start_step', 'send_email'
   ))
-)
-ON CONFLICT (type) DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM agent_definitions WHERE type = 'delivery-email-sender' AND deleted_at IS NULL
+);
 
 -- Verify: both rows present and active, and the sender's template still names
 -- the three always-real links (a template edit that drops one is a decision,

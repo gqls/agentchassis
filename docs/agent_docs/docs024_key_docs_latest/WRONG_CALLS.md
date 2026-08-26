@@ -56242,3 +56242,27 @@ comparison keyed to DB-timestamped events must take its clock FROM the DB (poll 
 compare against `now()` in SQL), never from local `date`.** Same family as
 a-plausible-external-cause-is-when-to-doubt-your-instrument — "the trigger didn't fire" was
 believable, and the discriminating move was asking the DB what time it thinks it is.
+
+## 2026-08-26 — I recorded two migrations as applied in the same breath as applying them, and both had failed
+
+One command batch: apply 651, apply 652, INSERT the two `schema_migrations` rows. Both
+applies aborted (I had written `ON CONFLICT (type)` against a table with no unique
+constraint on `type` — 459, the file I copied from, uses `WHERE NOT EXISTS`, and I
+invented the other form). The record INSERT ran anyway, unconditionally, because it was
+in the batch — so for about a minute the ledger said both seeds were applied while the
+database held zero of their rows. Caught immediately because the verification query was
+the next line of the same batch and returned nothing; retracted, files fixed, re-applied,
+verified, THEN recorded.
+
+**The mechanism: a record written in the same batch as the act it records is not a
+record — it is a prediction.** The batch's later statements run whether the earlier ones
+succeeded or not (separate psql invocations; ON_ERROR_STOP only guards within one). The
+check that costs nothing: the record INSERT goes in a SEPARATE invocation, after reading
+the apply's output, and ideally after the verify query — apply, verify, then record, three
+acts in that order, never one paste.
+
+Same family as `applied_by='record-only'` proving nothing (this lane's own 08-20 council
+finding) and [[a-print-statement-is-not-a-config-row]]: the ledger is only as honest as
+the ordering of writes into it.
+
+Family: a-record-in-the-same-batch-is-a-prediction, apply-verify-record-in-that-order.

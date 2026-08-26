@@ -34,7 +34,7 @@
 BEGIN;
 
 INSERT INTO agent_definitions (type, display_name, description, category, agent_category, status, is_active, input_contract, default_config)
-VALUES (
+SELECT
   'zip-link-refresher',
   'ZIP Link Refresher',
   'Re-stamps the stored presign on one site''s live zip_download tokens before the 7-day SigV4 ceiling kills it: spawns zip-deliverer (the only presign minter, bugs_open/245), calls it for a fresh cut, then refresh_zip_link writes the URL onto the live tokens (revoked and expired tokens untouchable by the action''s WHERE). Dispatched by the zip-link-refresh scheduled task ~48h ahead of expiry. Register DGH-018.',
@@ -87,8 +87,9 @@ VALUES (
       )
     )
   ))
-)
-ON CONFLICT (type) DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM agent_definitions WHERE type = 'zip-link-refresher' AND deleted_at IS NULL
+);
 
 -- The schedule: every 6h, refresh anything dying within 48h. Zero live tokens
 -- (today's state) -> pre_query returns nothing -> no dispatch, no cost.

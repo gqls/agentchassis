@@ -1239,3 +1239,31 @@ rule written into the BRIEF as agreed-before-any-reader-exists. **The P5 contrac
 SETTLED — whoever builds P5 wiring: read `BRIEF_2026-08-26_domain_find_register_point_service.md`
 (RULINGS + shape) and encode: hostname = domain ONLY when `zone_live_at` present;
 unknown mode → slug serving; email domain section branches on `commercial`.**
+
+## 2026-08-26 (very late) — THE ROLL LANDED AND THE WHOLE CHAIN IS NOW LIVE CONFIG
+
+**The fresh build verified the hard way, and the empty-stamp trap bit again:** chassis
+pods (started 20:24Z) had rotated the provenance line out of log range in 17 minutes, and
+an empty `$STAMP` made ancestry read "NOT in chassis" — the failed control caught it. My
+first binary probe was also WRONG (grepping for MY commit's sha — the binary carries ONE
+stamp, the build commit, not its ancestry). Correct route: probe `/proc/1/exe` against
+tonight's CANDIDATE commits. **Stamp = `b34c24f4c`** — same commit as core-manager, both
+delivery commits (`10a963da2`, `aca0afe1d`) proven ancestors.
+
+**Applied tonight, verify-then-record:** seeds **651 + 652 LIVE** — all three agents
+active (`delivery-review-filer`, `delivery-email-sender`, `zip-link-refresher`) and the
+`zip-link-refresh` schedule enabled at 6h. First attempt FAILED (my invented
+`ON CONFLICT (type)` — no such constraint; 459's real pattern is `WHERE NOT EXISTS`) and
+I had batched the ledger INSERT with the applies, briefly recording failures as applied —
+retracted within a minute, logged in WRONG_CALLS (apply → verify → record, three acts).
+
+**Also wired: `DELIVERY_SMTP_*` into the chassis overlay** (`6d76dab1e`) — with
+`optional: true` on the secret ref as the load-bearing line: without it a missing mail
+password would CreateContainerConfigError the ~46-pod fleet; with it the cost lands where
+it belongs (send fails loud, pre-stamp). ⚠ The env reaches pods at the NEXT `apply -k` +
+restart, not tonight's — sender construction fails cleanly until then.
+
+**Learned from tonight's commit stream:** a DIFFERENT `651_...sql` exists (robot-hands
+gripper page — the number-collision class; resolve by filename); **Stripe keys are LIVE
+in the cluster** (webhook keyed, `ad8a9b596`) though no Payment Links exist yet, so the
+email's reply-to-arrange stands with config slots ready.
