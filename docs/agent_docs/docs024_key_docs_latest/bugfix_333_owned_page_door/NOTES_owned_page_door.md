@@ -570,3 +570,25 @@ the `actions` package, NOT this lane's** [true as of 2026-08-26 ~09:4xZ]:
 apis.uk is CONTRIB-ing it to them. Re-establish before obeying this note:
 `go test ./platform/orchestration/actions/ -run TestFindingCodeScanEveryWriteIsRegistered -count=1` —
 and if it is GREEN, this note has expired.
+
+## 2026-08-26 ~14:3xZ — demand ARRIVED on path (a), and it changes what the door's verification can mean
+
+Fourth roll (pods 13:47Z) re-proven at the artefact (both literals, control 0). Since the 08-25 19:07Z
+roll: **5 audit filings on owned pages, 4 at `page-build-handler` (a DECLARING handler), one of them
+`offer-analysis` — the exact bypass producer — and ZERO `wont_fix`.** The bug's harm on this class is
+gone. But **none carries the door's marker**: all five are `filing_mode=record` (RFC_056 §5 — "defects
+dispatch; opinions record"), born `deferred` with the handler cleared and `routed_handler` preserved in
+spec, i.e. parked UPSTREAM of the seam by config. [MEASURED 2026-08-26 14:2xZ] **all six live audit
+seats** (brief-fidelity, content-quality, offer-analyser, reader-experience, site-review,
+visual-design) run `write_audit_findings` with `filing_mode: record`. Consequences, stated plainly:
+- Path (a)'s door-park is **structurally unexercised while record mode holds fleet-wide** — a
+  record-mode row never enters the door's dispatchable trigger set. My seam routing still applies
+  (anti-churn, dedup), and the door is the durable backstop: RFC_056 says "absent or `dispatch` →
+  historical behaviour", so the moment any seat flips back, its owned-page findings meet the door
+  instead of `wont_fix`. Config can flip silently; the door is code plus a live-audited declaration.
+- So "my fix working on live demand" on path (a) is NOT claimable and may never be while RFC_056 holds;
+  "the defect no longer reproduces via this producer" IS — by two layered mechanisms, one of them mine.
+- Path (b) (escalation at source): 0 refusals since roll; pod logs are useless as a demand control
+  after four restarts, so the durable controls are the `owned_page_review` rows the skip emits
+  (`refused_by='page-rerender'`, round-2 revision) and `orchestration_states` dispositions —
+  query running.
