@@ -82,3 +82,62 @@ individual rows** — nobody should read 155 records, but somebody should notice
 becomes one-in-three, or drops to one-in-fifty after a change to how the writer is instructed. I
 have put the query and a standing obligation to read it monthly in the runbook, and named it in the
 register. That is a promise on paper, and paper promises are the weak point here.
+
+## 2026-08-26 evening — it is live, it is armed on a third of the estate, and it has not fired once
+
+The new build went out and carries the code. I checked that at the binary rather than trusting the
+version number, and I checked it the careful way: I asked for two strings that must be there and two
+that cannot possibly be there. All four answered correctly, which is the only thing that makes the
+first two mean anything — a search that matches everything gives the same answer as one that works.
+
+Worth noting for anyone who tries this later: the service prints a line at startup saying which
+version of the code it is, and on a busy machine that line had **already scrolled out of view ten
+minutes after it started**. It is not something you can rely on. The binary itself has no such
+expiry.
+
+So I switched it on — but only on **two of the six** places that write page content, deliberately. The
+reviewers were right that turning it on everywhere at once is a lot of exposure for one unproven
+piece of code. The other four are written, held back, and will not run until the first two have shown
+they work.
+
+**And then nothing happened, which is the interesting part.**
+
+No pages with buttons have been saved since I switched it on, so there has been nothing for it to
+look at. Zero findings — but zero of nothing.
+
+I nearly got this badly wrong. I had counted "how much work has gone past since this was switched
+on?" and got 82 items, several of which should have triggered it. That looked like a broken
+mechanism, and I started writing it up as one. Then I checked what time the switch actually flipped:
+**22:17**. I had been counting from **20:40** — roughly when I sat down. Everything I was looking at
+happened *before* the thing I was testing existed.
+
+That is a nastier mistake than forgetting to check. I *had* built the safeguard that asks "was there
+anything to find?" — I just pointed it at the wrong moment, and a safeguard aimed at the wrong moment
+reports with exactly the same confidence as one aimed correctly. It manufactured a problem out of a
+correct silence.
+
+**So the honest state is: built, reviewed, approved, deployed, switched on in a third of the estate,
+and completely untested in the wild.** The next person needs to watch for the first finding, confirm
+it arrives from both of the two places rather than one, and only then switch on the remaining four.
+If it only ever appears from one, the coverage is failing quietly — which is precisely the thing the
+whole six-way count exists to catch.
+
+**One improvement landed today from another team.** They pointed out a second thing this cannot see,
+and it is a good catch. My check compares two things that both *name a page*. But a lot of button
+copy does not name a page at all — it names a *kind* of destination: "book a discovery call", "write
+to us". Ninety-five of the hundred and eighty-six problems are in that bucket, and I had described it
+only as leftovers. They have a live example: a button that says "write to [an address]" which opens a
+cost calculator. My check is silent on it, because neither side is naming a page.
+
+They specifically asked me *not* to fix this inside my check — which was the right call, and I want
+to record that they made it rather than me. Teaching one check to answer two different questions is
+how these things rot. Instead I have made my check say *why* it stayed silent, so their check can pick
+up exactly the cases mine puts down. Small change, and it turns a large pile of "don't know" into
+something someone can act on.
+
+**The thing I remain uncomfortable about is unchanged**, and I would rather say it twice than let it
+pass: this records a problem, it does not fix one. What matters is whether anyone notices when the
+number moves. Right now that is a note in a document asking someone to look once a month, which is
+not a mechanism. Another team filed a bug today about exactly this class of thing — work that
+completes, reports correctly, and lands somewhere nobody reads. If they build a general answer, this
+is one query away from using it.
