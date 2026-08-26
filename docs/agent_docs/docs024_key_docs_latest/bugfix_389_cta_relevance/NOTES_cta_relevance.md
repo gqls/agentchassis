@@ -757,3 +757,63 @@ site whose footer carries the link).
 > is `false`, so **omitting the key DELETES**. The two files name each other as siblings in their
 > first lines, which makes the wrong inference *more* likely, not less. The live `page-retraction`
 > agent passes no `dry_run`, so it runs live by design.
+
+### 2026-08-26 ~14:5xZ — the canary relink sat 5½ hours unclaimed. Two findings, and neither is what it looked like
+
+At 14:51 the canary relink was still `triaged`, never claimed, dispatched 09:17. **Did NOT call the
+queue dead** — that is this lane's MISSTEP 9 and I measured the service interval first: the fleet
+completed **146–154 `page_rerender`s per hour** through 12:00–14:00. The queue is alive and busy.
+
+**What I then got wrong twice, and the order matters because each wrong answer was plausible:**
+
+1. *"It's the backlog."* **622** `page_rerender`s sit at `triaged`, 533 over an hour old — a genuine
+   pile-up draining from the outage. But my row is **priority 30, the ONLY item at that priority**
+   (the rest: 20 at 35, 601 at 80), with **0 ahead of it**. Not a queue-depth story.
+2. *"It's `retry_after`."* `bugs_open/307` stamps a not-claimable-before time on a failed attempt, and
+   a 9-hour outage is exactly what would push a site's queue into the future. Testable, and
+   **REFUTED**: finetuning.uk has 73 eligible build items, **all 73 claimable now, zero deferred**.
+   Recording the refutation because it was the best hypothesis available and it cost one query.
+
+**What it actually is — read from the site selector, not guessed.** `build-pipeline-trigger` fires an
+agent whose selector is:
+
+```sql
+… ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1
+```
+
+plus `AND NOT EXISTS (… status='claimed' on that site)`. So each 30s tick picks **the single site
+owning the globally oldest eligible item**, skipping sites with one already in flight. finetuning.uk
+is **rank 15 of 31** waiting sites (oldest eligible 05:03:29) — **not excluded, just behind fourteen
+older sites.** Nothing was broken.
+
+> **⚠ THE ASSUMPTION THIS LANE HAS BEEN WORKING UNDER IS WRONG: `priority` DOES NOT MAKE A SITE GET
+> PICKED SOONER.** Site selection orders by **`created_at` first**; `priority` is only a tiebreak
+> among items sharing a timestamp. So an item's dispatch time is governed by **the age of the OLDEST
+> item on its site**, which is somebody else's row. Once the site IS selected, the *dispatcher's*
+> own `ORDER BY wi.priority ASC, wi.created_at ASC` does honour priority — so priority works
+> **within** a site and is inert **between** sites. I set 30 and 35 on every item this lane has
+> dispatched believing otherwise; last night's fast turnarounds were a shallow queue, not the
+> priority.
+>
+> The tiebreak is not vacuous, which is why the distinction has to be stated precisely rather than
+> as "priority is ignored": `[MEASURED 2026-08-26]` of 1,158 eligible items, **381 share a
+> `created_at` with another** — batch inserts like this lane's own 22-row transaction at 19:17:57.
+> Within such a batch, priority decides.
+
+### ⚠ AND A FLEET-WIDE FINDING THAT IS NOT THIS LANE'S: the outage mitigation is still on, 6 hours after the outage ended
+
+`build-pipeline-trigger-2` — *"Sibling dispatch turn #2 (dispatch_throughput 582-584, N=2). Same
+selector/loop as build-pipeline-trigger"* — is **`enabled = false`**, and its row changed at
+**2026-08-26 08:51:17**, eight seconds after its final run. That is inside the credit outage, and it
+matches exactly the mitigation the `loanzy_uk_example_site` lane put to the owner ("the option to
+pause build-pipeline-trigger ×2 until top-up").
+
+**Credit was restored at ~09:00 and verified (124/124 in that hour). The pause has outlived its cause
+by ~6 hours**, halving fleet dispatch throughput precisely while a 622-item backlog drains and 31
+sites queue behind one lane.
+
+**Not re-enabled by me.** It is a fleet-wide throughput switch and it appears to encode an owner
+decision; flipping it back is the owner's call, not a side effect of my lane's canary being slow.
+Surfaced to the owner and to the lane that proposed the pause. **This is the outage's second
+residue** — the first being the 21 items that burned their attempts. Both share a shape: *the
+visible half of an incident ends, and the mitigations it justified stay on.*
