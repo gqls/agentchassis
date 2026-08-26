@@ -171,3 +171,54 @@ re-render on receiving the notice.
 `hero-tool`'s half will be exercised next by the same lane (`tool-automation-savings-estimator` is
 on their archetype list), which is a second independent test of `649` this lane did not have to
 arrange.
+
+## 8. THE FULL RESULT, 2026-08-26 — nine images generated, nine deployed, ZERO delivered
+
+The canary ran end to end. The outcome is worse than §1 predicted and it settles what the real
+defect is.
+
+**`[MEASURED 2026-08-26]`, after 8 of 9 pages had rebuilt their copy:**
+
+- **9 of 9 `needs_imagery` items `complete`.** 16 assets created.
+- Assets exist, stored, with **exactly the keys the specs asked for** — `content_hero_services`,
+  `content_hero_careers`, `content_hero_use_cases`, … each with a real S3 `storage_path`.
+- **`content_data.hero_url` and `content_data.background_image` are `(none)` on EVERY hero
+  component of every one of those pages** — `about-hero`, `services-hero`, `case-studies-hero`,
+  `hero-tool`, all of them.
+- **0 of 9 pages display a hero image.**
+
+### Why this is decisive: it is NOT the component-capability gap
+
+§7 found two components with no image branch and `649` fixed them. **That was necessary and is not
+sufficient**, and the proof is in the same run: `about-hero` and `services-hero` were image-capable
+all along, their pages rebuilt at 20:40 and 20:44, and they show nothing either.
+`model-approach-selector` rebuilt at **21:04 — five minutes AFTER `649` made its component
+capable** — and still shows nothing.
+
+**So the defect is the WIRING, in every case.** Nothing copies a deployed asset's URL into the
+page component's `content_data`. The asset is generated under the right key, stored, deployed,
+the work item closes `complete`, the page rebuilds — and the two halves are never joined.
+
+### What this does to §1's diagnosis
+
+§1 said the wiring lives in `BuildRenderContextAction` (`v3_site_actions.go:1358`), which sets
+`hero_url` from `hero_deployed.image_url`, and therefore only the full build path can deliver an
+image. **The full build path RAN, nine times, and delivered nothing.** The likely reason is that
+`hero_deployed` is the output of the IMAGE-BUILD orchestration, and the page build is a *separate*
+orchestration whose `collected_data` never contains it — so the read finds nothing and the branch
+silently does not fire. `deployedImageURL` is documented as reporting a present-but-unusable deploy
+result to `agent_error_log` and staying quiet when no image was deployed at all — and from the page
+build's point of view, none was.
+
+**Consequence for fix candidate 1, which gets stronger:** hoisting the wiring to deploy time is no
+longer just the lighter option, it is the only one shown to be able to work. The build path has now
+been measured failing at it nine times out of nine. **Anyone re-testing this should assert on
+`content_data.hero_url` being non-empty, never on the work item's status** — all nine said
+`complete`.
+
+### Cost of the run, recorded honestly
+
+Nine image generations plus deployment, for zero visible images. Three of those were additionally
+doomed by §7's capability gap. **The copy rebuild the images were bundled with did land** and is
+being scored separately, so the run was not wasted — but as an imagery exercise it delivered
+nothing, and the status column said otherwise throughout.
