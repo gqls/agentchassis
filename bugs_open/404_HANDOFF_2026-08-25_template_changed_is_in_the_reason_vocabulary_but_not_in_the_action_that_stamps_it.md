@@ -117,3 +117,92 @@ by status — both complete. The discriminating checks:
 - `LANDMINES.md`, "A template edited by SQL ships NOTHING…" — the prospective form of this.
 - Register `REB-002` — the reason gate itself.
 - Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/`.
+
+
+---
+
+# CORRECTION + STRENGTHENING 2026-08-26 — the drift is TWO values wide, and the direction of failure is the point
+
+Two additions, one of them a correction to this file's own headline.
+
+## 1. I understated it: `create_rerender_items` is missing TWO of the five reasons, not one
+
+The live `page-rerender.check_rerender_mode` condition, read from `agent_definitions`
+`[MEASURED 2026-08-26]`, is an explicit allow-list of **five**:
+
+```
+input_data.spec.reason == 'image_landed'
+  OR … == 'section_data_resolved'
+  OR … == 'cta_links_stale'
+  OR … == 'template_changed'
+  OR … == 'literal_markdown'
+    → then_step: rerender_sections
+    → else_step: render_page          ← assemble
+```
+
+Counting each of those five in `create_rerender_items_action.go` `[MEASURED 2026-08-26]`:
+
+| reason | in the live gate | known to the Go action |
+|---|---|---|
+| `image_landed` | yes | **1** |
+| `section_data_resolved` | yes | **1** |
+| `cta_links_stale` | yes | **1** |
+| `template_changed` | yes (migration `460`, 2026-08-18) | **0** |
+| `literal_markdown` | yes (migration `473`, 2026-08-18) | **0** |
+
+So this file was filed naming one missing value and there are **two**, both added on the same
+day by different lanes, neither of which touched the Go reader. That makes the "next vocabulary
+addition repeats this" argument in fix candidate 2 not a prediction but an observation: it has
+already happened twice, in parallel, within one day.
+
+## 2. The generalisation, and it is the reason this class is dangerous rather than merely untidy
+
+Offered by the `bugs_open/384` filing lane (`agentchassis-51`) and **verified here at both
+readers before being written down**:
+
+> A mode/reason vocabulary with more than one reader will drift — and **every reader that does
+> not know a value fails toward `assemble`, which is the silent direction.**
+
+The asymmetry is what matters. Checked at each reader:
+
+- **Reader 1, the live gate:** an allow-list with `else_step: render_page`. An unknown reason
+  takes the else branch → assemble.
+- **Reader 2, `create_rerender_items`:** an unknown reason gives `scoped=false` and
+  `stampReason=false`, so `keyReason` stays `""` → the item carries no reason at all → assemble.
+
+Both fail the same way, and that way is the one that **completes successfully while changing
+nothing**. A vocabulary whose readers failed toward *re-resolve* would be self-announcing: you
+would get too many re-renders and notice. Failing toward assemble means the estate's own
+preferred, safe, cheap mode is also its silent-failure mode, so drift is invisible by
+construction — which is why `bugs_open/283` had to measure it end-to-end (111 items completed,
+page DEPLOYED, served bytes unchanged) before anyone believed it.
+
+**Three instances in three days**, all rooted in one value's meaning living in more than one
+place with only some copies updated:
+
+1. the original `384` listing case — assemble re-affirming a stale array;
+2. this one — `template_changed`/`literal_markdown` unknown to the item creator;
+3. `rebuild_blog_listing` hand-writing `"image": ""` beside `queryresolve`'s projection.
+
+⚠ **The third shares the ROOT but not the ASYMMETRY** — it is a hand-copied field value, not a
+reason-vocabulary reader, so it has no fail-toward-assemble direction. Grouping all three under
+one mechanism is tempting and would overstate the case; they share "one definition, several
+copies, some stale", which is enough.
+
+## 3. New fix candidate 0 — the parity test, which is cheaper than all of them
+
+Ahead of the candidates above, because it is small, needs no design decision, and would have
+caught both missing values on the day they were added:
+
+**A test that reads the live gate's reason list and asserts the Go reader knows every value in
+it.** The estate already has this exact pattern working elsewhere —
+`cmd/config-key-audit/optional_budget_cron_parity_test.go` pins a CronJob's literal against the
+Go it must match, and CLAUDE.md tells authors to run it for precisely this class of drift. The
+same shape here: enumerate the condition's reasons, assert each appears in the action's gate,
+fail naming the missing one. It does not fix the three-copy structure (candidate 1 still does
+that) but it makes the next divergence loud at commit time instead of silent in production.
+
+**Its own trap, stated so whoever builds it does not walk into this lane's:** the assertion must
+read the LIVE condition, not a copy of it pasted into the test. A parity test whose two sides are
+both maintained by the same author, in the same file, cannot come out the other way — the failure
+this lane recorded twice in `WRONG_CALLS.md` on 2026-08-25.
