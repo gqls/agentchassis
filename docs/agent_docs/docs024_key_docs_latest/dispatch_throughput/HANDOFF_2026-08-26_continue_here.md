@@ -73,8 +73,13 @@ migration 657), coordinated below. A chassis roll at ~20:26Z caused **no dispatc
   `ecf2e542`: **r1 REVISE** (debug_historian HIGH, a real catch — their K subquery selected the
   loop row by `updated_at DESC` where the runtime loader selects `version DESC`,
   `processor.go:371-389`; fixed in `9ff62d8a4`, K mirrors the loader verbatim, UPDATE pinned by
-  row id), **r2 submitted ~21:13Z** — before giving the all-clear, confirm r2's verdict landed
-  APPROVED and was read; no acted-on verdict = no apply. Lane rule adopted from the catch: read
+  row id), **r2 APPROVED ~21:2xZ** (1 advisory, none high; acted on + committed `392a2ab9f`,
+  `Council-Reviewed` trailer) — **their verdict gate is SATISFIED tonight**: the K expression is
+  now TOTAL (regex + COALESCE + GREATEST(...,1); malformed max_items → K=1, proven at the DB),
+  the sibling scheduled row shares the one agent row (no divergent step config), final dry-run
+  21:24Z green with the VERIFY pinning stored-text md5 `d29807313a8f6ed543a541c35c1626c4`.
+  Their commit chain: `5f1401a85` → `9ff62d8a4` → `392a2ab9f`. The all-clear check tomorrow is
+  therefore just: our gate passed + 658 applied + the ~11:30Z read is clean. Lane rule adopted from the catch: read
   an agent's live config the way the LOADER selects it (`version DESC` among active), never by
   the degenerate `updated_at`. Their dry-run evidence, dated 20:46Z: rolled-back-transaction apply green; census
   28 eligible/15 pinned; same-instant divergence OLD→webdesign.co.uk (the rank-135 pin),
