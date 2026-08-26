@@ -55291,3 +55291,75 @@ the same shape as [[a-post-fix-zero-needs-a-demand-control]], one layer down.
 
 Family: a-post-fix-zero-needs-a-demand-control, grep-landmines-for-your-symbols,
 a-pass-from-a-blind-check-outlives-the-blindness, shell-tool-traps-committing.
+
+---
+
+## 2026-08-26 — I ran every ownership check the estate has, passed all of them, and still collided with another session on the same bug five minutes later
+
+**Session `bugsweep3`, picking up `bugs_open/359`.**
+
+**The claim I acted on.** *"359 is unowned, so I can open a lane on it."* At the moment I
+checked, that was true by every instrument this estate has:
+
+| instrument | what it said, 16:03 |
+|---|---|
+| `scripts/who-owns.py 359` | `likely OWNING workstream(s): (none identified)` — one commit ever, the filing commit |
+| `git status --short` | no `discovery_checks/` or `sql_for_agents/` file on this subject |
+| `grep -rn "archived_page_still_serving"` over the whole repo | **one** hit — line 104 of the bug file, where the name is *proposed* |
+| `RESTART_2026-08-23_open_threads.md` | the filing lane recorded itself "ready to close" |
+
+**What was actually true.** Another session opened the identical lane at **16:05** — two
+minutes after me — in the same directory, with the same census, the same seven URLs and the
+same control discipline. I found out at 16:12, from `git status`, because their files were
+**staged** (`A`) beside my untracked ones. Both of us had run the ownership check honestly
+and both of us had passed it, because at the moment either of us looked, the other had
+written nothing.
+
+**What caught it.** Not a check I ran on purpose. I ran `git status --short` on my own new
+directory to confirm my docs had landed, and two filenames I had not written were in the
+listing.
+
+**Why the existing memory entry did not cover this.** [[who-owns-is-blind-to-uncommitted-sessions]]
+says `who-owns.py` reads COMMITS, so a session mid-fix is invisible — and prescribes the tree
+grep as the other half. **I ran the tree grep. It was clean, and it was clean *correctly*.**
+The entry's remedy assumes the competing session has already written something; the case it
+does not cover is two sessions in the **same opening minutes**, where neither has yet produced
+an artefact for the other to find. Both halves of the recommended check return "unowned" to
+both parties simultaneously. The window is not a gap in the instruments — it is the interval
+the instruments cannot, in principle, see into.
+
+**A second, smaller wrong call inside the same hour.** My first four candidates (209, 217,
+257, 361) were shortlisted from the banner at the top of each bug file — "Status: OPEN,
+UNOWNED". All four came back OWNED from `who-owns.py`; `bugs_open/209` still says "unowned"
+while `bugfix_209_deploy_purpose_keyed_source` has 24 commits in 14 days. **A bug file's
+statement of its own ownership is written on the day it is filed and is never revised.** It
+is a claim about the past wearing the tense of the present. Cost: four `who-owns.py` runs
+that a one-line filter would have avoided.
+
+**Cheap checks, both halves.**
+
+1. **Re-run `git status` on your own new lane directory immediately after writing the first
+   doc into it, and again before the first commit.** A collision this early is visible in
+   *seconds* through filenames, and through nothing else — not the commit log, not a
+   content grep, because the competing lane's vocabulary is your vocabulary and its files
+   are not yet in git. This is the cheapest possible detector for the one window
+   `who-owns.py` structurally cannot cover, and it costs one command.
+2. **Shortlist from the commit log, never from the bug file's own banner.** Filter with
+   `who-owns.py` *before* reading status headers, not after.
+
+**What it cost, and what made it cheap.** About twenty minutes and one killed planning
+agent. It was cheap only because neither of us had committed code — had I committed a Go
+file first, we would have had two competing implementations of one discovery check on one
+shared HEAD. The rule that saved it is the ordinary one: **docs first, commit narrowly, and
+look at the directory you are writing into.**
+
+**And the resolution is the part worth copying.** I yielded — they staged first and their
+notes were ahead — deleted my duplicate `NOTES_`/`RUNBOOK_` files so the directory holds one
+account rather than two, and wrote what my read added and theirs did not into a single
+`CONTRIB_` file (`bugfix_359_archived_page_still_serving/CONTRIB_2026-08-26_from_bugsweep3_…`).
+Two parallel accounts of one bug is the drift CLAUDE.md's "point at bugs, don't restate
+them" exists to prevent; a CONTRIB is how the losing side of a race keeps its evidence
+without forking the record.
+
+Family: who-owns-is-blind-to-uncommitted-sessions, committing-is-shipping-on-shared-head,
+prior-art-search-goes-stale, a-handoff-outlives-the-work-it-asked-for.
