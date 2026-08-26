@@ -24,12 +24,20 @@ recipients will junk it — the domain's DNS is at uk-noc.com, NOT Cloudflare.
 > `default._domainkey` answers with the exact key cPanel generated (two-string chunking
 > is normal for >255-char TXT), and `_dmarc` answers `v=DMARC1; p=none;`. The host's
 > cluster evidently takes the cPanel zone, so route 1 below was never needed — the
-> records were already there. Two residuals, both small: (a) the DMARC has no `rua=`
-> reporting address, so monitor mode reports to nobody — optional, add
-> `rua=mailto:webdesign@contactforsales.com` via the same route when convenient;
-> (b) a record PRESENT is not the same as outgoing mail SIGNED — the artefact check is
-> one test email to any external mailbox (Gmail: 'Show original') expecting
-> `dkim=pass` in Authentication-Results. Everything below kept for the next domain.
+> records were already there. **BOTH RESIDUALS CLOSED the same evening (owner, 18:52):**
+> (a) the DMARC record now carries full reporting —
+> `v=DMARC1;p=none;sp=none;adkim=r;aspf=r;pct=100;fo=0;rf=afrf;ri=86400;rua=mailto:webdesign@contactforsales.com;ruf=mailto:webdesign@contactforsales.com`
+> — daily aggregate + forensic reports to the webdesign inbox; (b) **the artefact check
+> PASSED**: a real test email verified at Gmail's own Authentication-Results —
+> `dkim=pass` (selector `default`, our key), `spf=pass`, `dmarc=pass`. Delivered in 4s.
+>
+> One operational fact learned from the headers, worth keeping: **outbound mail relays
+> through MailChannels** (rs17 → relay.mailchannels.net, 23.83.222.30) and SPF passes for
+> that IP via the `include:relay.email-cluster.com` chain — so the sending IP customers
+> see is MailChannels', not the box's, and the existing SPF already covers it. Nothing to
+> change in DELIVERY_SMTP_*: we submit to mail.contactforsales.com:465 and the relay is
+> the host's own plumbing. **Email infrastructure for the delivery email: FULLY CLOSED
+> 2026-08-26.** Everything below kept as the recipe for the next domain.
 
 
 **Do NOT change email host for this.** The server (rs17.uk-noc.com) is healthy end-to-end
