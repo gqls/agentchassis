@@ -4445,3 +4445,93 @@ think of it leave a stamp. That is now `bugs_open/396`'s primary fix candidate (
 Full account, the corrected population split and the fix candidates:
 `bugs_open/396_HANDOFF_2026-08-25_…md` and
 `docs/agent_docs/docs024_key_docs_latest/deferred_work_item_park/`.
+
+## 2026-08-26 — owner reported missing images; ran the framework's design discovery, and "missing" turned out to be THREE different things
+
+### Measured the symptom before triggering anything
+
+Full sweep of all **42** deployed pages (site has grown 32 → 46 pages, 42 deployed, since 08-24):
+**76 image references, 9 distinct image URLs, and every one returns HTTP 200** with real bytes.
+**Nothing referenced is broken.** So "missing" had to mean images that should be on a page and are
+not — which is a different query, and a different fix.
+
+| measure | value (2026-08-26) |
+|---|---|
+| deployed pages with a content image | 28 |
+| deployed pages with **no** content image | **14 — and all 14 are TOOL pages** |
+| active assets on the site | 28 |
+| distinct images actually referenced | 9 (3 of them chrome: logo, favicon, og-card) |
+
+**12 `content_hero` images and 6 of 11 tool `card` images exist, serve 200 (115–142 KB), and are
+referenced by zero pages.**
+
+### Triggered `design-discovery-agent` — it owns all eight image checks
+
+Established that first rather than guessing: the live agent definitions put
+`content_image_missing`, `undeployed_assets`, `unfulfilled_imagery_plan`, `image_url_404`,
+`asset_reference_404`, `placeholder_image_in_use`, `image_source_unsatisfiable` and
+`unfulfilled_image_prompt` **all on `design-discovery-agent`**, none on the other four.
+
+Dispatched scoped to this site (correlation `1abf5acd-9099-4b6d-ba5b-854af2584884`), pre-state
+pinned at 438 items so new rows are attributable. Run COMPLETED; **38 new items**.
+
+### What it found — and the three distinct causes
+
+**(1) REAL BREAKAGE the check found and I had not: two tool pages have dead calculators.**
+`asset_reference_404` × 2. Verified at the artefact, 2 probes each:
+
+| script | referenced by | status |
+|---|---|---|
+| `/tools/assets/tool-btl-investor.js` | `/tools/btl-investor/index.html` | **404** |
+| `/tools/assets/tool-equity-release.js` | `/tools/equity-release/index.html` | **404** |
+
+Controls: the other two referenced scripts (`/assets/js/snippets.js`, and the lender-directory
+listing) both **200**, so the path and the probe are sound.
+⚠ **My first control was worthless and I nearly reported it as a finding:** I curled
+`/tools/assets/tool-repayment.js`, got 404, and briefly took it as evidence the whole path was
+down. **That URL was one I composed** — this lane already filed `bugs_open/387` on exactly that
+trap ("a COMPOSED url's 404"). The honest control is a script the pages actually reference.
+
+**(2) Imagery PLANNED but never generated — 12 items DEFERRED since 2026-08-02**, untouched:
+7 page heroes (`hero_home`, `hero_about`, `hero_guides`, `hero_tools`, `hero_investor`,
+`hero_contact`, `hero_scorecard`), 4 section icons, 1 infographic. All from `build-site-planner`,
+all deferred the same day they were filed. Per the inbound CONTRIB of 08-26 from the 307 lane,
+**this lane's own 15-second auto-defer backstop deferred them** — the §10c backstop that defers
+everything not on your list. So the site has never had its planned page heroes or section icons.
+
+**(3) Imagery GENERATED and never referenced** — the 12 content heroes + 6 cards above. New
+`needs_imagery` items were filed for the **7 newest tool pages** (btl-investor, credit-health-check,
+deposit-tracker, overpayment-priority, rate-stress-test, remortgage-savings, stamp-duty), which have
+no hero asset at all yet.
+
+### The check's own 12 `undeployed_asset` items: 11 mislabelled, 1 a false positive
+
+All 12 named URLs serve **200** on two probes each. So "generated but not deployed to site" is
+false for every one of them:
+
+- **11 `content_hero`** — the observation (0 deployed page components reference them) is **true**;
+  the wording is not. They are deployed and unreferenced, which is `bugs_open/114`.
+- **1 `logo`** — a **false positive**, and of the exact class `bugs_closed/142` was fixed for:
+  measured **0** occurrences in deployed `page_components` and **2** in `site_components`, and the
+  predicate reads `page_components` only, excluding brand-head purposes through a hardcoded
+  two-entry map (`favicon`, `og_card`) that does not contain `logo`. Evidence filed into
+  `bugs_closed/142`.
+
+⚠ **A theory I refuted before writing it down.** I first supposed the predicate could never match
+because `purpose='content_hero'` (underscore) while files are `content-hero-…` (hyphen). **In SQL
+`LIKE`, `_` is a wildcard — it matches.** Checked in SQL rather than reasoned about; and commit
+`6c01755dc` is a *previous* session reaching and retracting the identical conclusion. Two sessions
+caught by one underscore.
+
+### Also filed by the run, outside the image question
+
+6 `audit_tool`, 6 `improve_tool` (three Tier-2 acceptance failures on the newest tools), 3
+`acceptance_run`, 1 `deactivated_component` (*"Site component head points to deactivated component
+'Document Head'"* — worth a look, the head is chrome on every page) and 1 `needs_rerender`
+(chrome stale). Left for the owner's decision; the three armed items already on the site belong to
+another lane's tool work (`tool-deployer`, `tool-improver`, `tool-auditor`) and were not touched.
+
+### State note
+
+`site-discovery-rotation-design` is now **enabled** (10,800 s). The 08-18 handoff recorded it as
+`enabled=false` and *"the owner's separate call"* — that has changed since, not by this lane.
