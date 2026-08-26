@@ -188,3 +188,75 @@ Three consequences, and I think they decide the fix's shape:
    `section_edit`** items, and `literal_markdown` appears ONLY on `item_type='literal_markdown'`
    items — **never on a `page_rerender` item at all**. So the gate's fifth value may not be
    exercised through this path; check before assuming it is.
+
+---
+
+## 2026-08-26 (evening) — BUILT and committed; council said REVISE and was right twice
+
+Commit `ef4236b4d`. Council `f2e4ac2a-2bfc-4c82-ac99-d5fd7616edef` — **round 1 REVISE**
+(gating HIGH from `debug_historian`), round 2 resubmitted on the same trail.
+
+### What shipped
+
+The vocabulary is one list in `platform/livespec/rerender_reasons.go`, carrying per value whether
+it scopes the fan-out by component and whether it stamps without one — because **the two gates in
+`create_rerender_items` are DIFFERENT TESTS** and putting a reason in the wrong one is a new
+defect. `scoped` narrows WHICH PAGES; `stampReason` decides whether the item carries a reason at
+all, which is what the live gate branches on.
+
+Three declarations: the gate's condition (`PhaseGoSide`), a **paired count** (`PhaseLiveAudit`),
+and the fixer's raw INSERT (`PhaseLiveAudit`). The count is not decoration — the whole-clause
+fragment is **not self-bounding** here, because unlike the exclusions clause this condition has no
+terminator, so a sixth reason appended live leaves the declared prefix present and `Min:1/Max:1`
+green. A fragment sees loss; only a count sees addition, which is the direction this bug drifted.
+
+Migration **656** gives the fixer the page-status filter it never had (`bugs_open/098`'s mechanism
+at a seam its sweep did not reach).
+
+### The two objections that were worth more than the verdict
+
+1. **`debug_historian` [HIGH]: the page-status literal was CHOSEN, not measured.** Not that it
+   was wrong — that nobody had run the enumeration the estate requires before any status-scoped
+   query. True. `[MEASURED 2026-08-26]` `pages.status` holds exactly **active 948 / archived 68**;
+   `PageWantedLivePredicateFor("p")` renders **byte-identically** to the literal the migration
+   writes; and the containment across ALL components is **31 archived pages / 111 non-owned
+   component instances** — the bug file's 16-of-60 tool-cta figure is one component's view of it.
+2. **`bug_historian` and `reuse_agent`, independently: the deferral was the bug.** I had left the
+   two per-value gates in `rerender_page_sections_action.go` as bare literals on an edit-budget
+   argument, and both seats named it as 016b §9's *"one call site of a shared judgement gets the
+   rigorous fix; the sibling stays heuristic"* — **this bug's own thesis turned on its own plan.**
+   Now all four readers name a constant, the list is built from the constants, and a test pins
+   both directions, so retiring a value breaks COMPILATION everywhere rather than silently
+   disarming one gate.
+
+### Misstep 6 — the lint that would have caught 2026-08-18 matched only PROSE COMMENTS
+
+It reported **12 reason literals checked** and passed. Every one was a comment: a migration writes
+the gate condition **inside a SQL string literal**, so its quotes are DOUBLED
+(`== ''template_changed''`), while the explanation eight lines above writes them singly. My regex
+accepted single quotes only, so it could not see either executable line it exists to catch, in
+either file it was written for.
+
+**Third distinct failure mode in one day for the same family**, and the differences are the
+useful part:
+
+| # | lane | why the guard was green and inert |
+|---|---|---|
+| 1 | 359 | the tests were passing on a **guard in series** — a second failure downstream |
+| 2 | 407 | the **fixtures could not produce the failure** (order already alphabetical; utility group empty) |
+| 3 | 404 | the **discriminator could not see the real shape of its input** — right corpus, wrong dialect |
+
+Fixed with both quotings AND **positive controls**: named values that must be found in named files
+(460 → `template_changed`, 473 → `literal_markdown`). Mutation-proved — narrowing the regex back
+now fails with `POSITIVE CONTROL FAILED` instead of passing with a smaller number. **A scan must
+be pinned to a KNOWN POSITIVE, never to a non-zero count**: "it found 12 things" answers *did it
+run*, never *can it see what it is for*. Full entry in `WRONG_CALLS.md`.
+
+### Still open, and it is the honest residual
+
+`spec.reason` is two fields wearing one name, and this change does not fix that — it makes an
+undeclared reason LOUD while still assembling. Splitting annotation from routing key changes what
+the field GUARANTEES and is RFC-scope; the census and the warning are the evidence pack that RFC
+would need. Also deferred: the 7 pre-473 `literal_markdown` items (a different mechanism, one
+layer up), and any retro-repair of the 129 (86 are assemble-by-design and no discriminating
+marker exists).
