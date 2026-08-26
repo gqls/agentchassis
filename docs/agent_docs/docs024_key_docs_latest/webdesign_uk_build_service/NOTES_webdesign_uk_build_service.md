@@ -5751,3 +5751,15 @@ minus only the home-points bullets section. **Resume:** when the endpoint is hea
 (demand-check: one successful generate_content in orchestration_states), claim the item
 and re-fire the proven envelope (scratchpad/wave5b_body.json shape), then RE-PLACE THE
 LABEL and verify bullets + link to /what-you-get.html. Domain service P1/P2 next.
+
+**2026-08-26 08:2x — ROOT CAUSE of the "AI endpoint unavailable" night: FLEET CREDITS
+EXHAUSTED.** Full error (agent_error_log, latest): `status 400: "Your credit balance is
+too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase
+credits"` — provider=anthropic model=claude-sonnet-4-6. Every LLM step fleet-wide fails
+on it (14 fails vs 1 success in the 10 min sampled at 08:24); the 090 diagnosis run
+(938d6036) is LLM-work and blocked by the same cause. OWNER ACTION: top up the account —
+⚠ MEMORY "the fleet key is not on the default console org": check the key's Last used to
+find the RIGHT org before paying the wrong one. The wave-5 index item stays `triaged`
+(f81f0618, key held); refire with the proven envelope (claim + client_id=system,
+scratchpad wave5c/d body) once credits land. My two auto-refire watchers were killed by
+session pauses — re-arm on resume, don't assume they ran.
