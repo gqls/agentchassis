@@ -327,3 +327,30 @@ predecessor. Conversely `reader-experience-auditor` is in record mode with no `a
 all — which is the safe direction. Recording both so the next reader does not re-open them.
 
 — `bugs_open/391` lane, 2026-08-25.
+
+---
+
+## §8 — CLOSED 2026-08-26: fixed, live, and proven at every joint `[all MEASURED, DB clock]`
+
+- **The stamp is LIVE**: chassis `b34c24f4c` (rolled 20:45:57Z, three-control ancestry). First
+  post-roll audit window: **56 of 57 filings carry `spec.origin='model_opinion'`** — the one
+  ABSENT is `tool-acceptance-tier4`/`responsive_fix`, which does not pass through
+  `write_audit_findings` and files defect-shaped rows: §4b's boundary, confirmed by its own
+  exception, exactly as Residue B stated.
+- **The door is LIVE and DISCRIMINATES** (§6's recipe, both directions, the strong form): a
+  synthetic stamped row with a proven pair (`content_rewrite:405-door-verification`, farmer site)
+  stayed `detected` across two promoter ticks (20:45:48 → 21:16:54) **while 21 natural
+  promotions of unstamped rows completed in the same window**. Not "ticks ran" — the door held one
+  population and passed the other, simultaneously. The probe was then cancelled with its result
+  note, as the recipe requires.
+- **Residue A is closed by the stamp** (any hand-fired seat's filings now arrive stamped, so the
+  door holds them whatever carrier fired the seat). **Residue B stands as designed and stated**
+  (non-`write_audit_findings` audit producers are unstamped and promotable — defect-shaped today;
+  the door cannot see a future opinion-shaped one of that lineage, which remains this file's §5
+  candidate-2 warning for whoever builds such a producer).
+- Council: candidate 1 APPROVED round 1 (corr `946d587c`); the adjacent record-mode lifecycle
+  hardening ran its own four-round trail (`04a3ce1f`, APPROVED) — both trails' objections are
+  dispositioned in RFC_056's addenda.
+
+**Closure bar (fixed AND live) met.** The transferable 016b §9 pattern stands in §7: a
+"known-good" test scoped to one axis certifies every other axis by accident.
