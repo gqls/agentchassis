@@ -1513,3 +1513,45 @@ step inferred. That is still true as far as it goes, but the banner implies adop
 the established cause, and on this evidence it is the better-supported of two live candidates,
 not a settled one. The 578 recommendation is unchanged either way — **do not run it while the
 cause is open**, because the downside is 22 unrebuildable live pages.
+
+### The discriminator was INCONCLUSIVE — three rebuilds, three different failure points
+
+`how-it-works-index` (0 rows, 3 planned sections, no adopted fragment, same site and specs)
+**FAILED at `write_page_content`, before reaching the step in question**:
+
+```
+step process_sections_loop_iter_0_render_section failed: render_component:
+component "mechanism-flow": content does not match the declared field type(s) —
+steps[0].branches: declared array (items: object), got string; steps[1]…
+```
+
+An LLM schema mismatch on an unrelated component. **It does not answer (a) vs (b)** and I am
+not going to read it as if it does. Flag cleared back to `planned`.
+
+**Three rebuilds on one site, three different failure points** — and that is itself the useful
+observation:
+
+| page | rows | failure |
+|---|---|---|
+| `request-index` | 2, normal components | **none — COMPLETED, `save_ran = t`** |
+| `index` | 1, `adopted-fragment` | compile found 0 sections → no `page_html` → `assemble_page` stack overflow |
+| `how-it-works-index` | 0, normal components | `render_component` type mismatch on `mechanism-flow` |
+
+**What this DOES support, at the strength the evidence allows.** Candidate (b) — "cv1's specs
+are too thin to generate content" — is now **weak**: `request-index` generated, rendered,
+reviewed, assembled and saved cleanly, and `how-it-works-index` got far enough to generate
+content and attempt a render (its failure is a schema mismatch, i.e. content EXISTED). Thin
+specs do not stop this site building. That leaves **(a) — the `adopted-fragment` binding — as
+the better-supported explanation**, by elimination rather than by direct observation.
+
+⚠ **[INFERRED], and it is inference from three runs with three outcomes, not a controlled
+result.** I have not observed an `adopted-fragment` section rendering empty. The direct
+evidence would be the per-section render output for the adopted page, and the writer
+orchestration that held it has been reaped.
+
+**What I would do next, and why I am not doing it now:** re-run the canary on `index` and
+capture the page-content-writer's per-section output LIVE (the child orchestration, by
+correlation, before it is reaped) — that shows the adopted section's rendered html directly and
+settles it. It costs one more pod crash and a 4-hour wedged orchestration
+(`bugs_open/408`), which is a real price to pay for a confirmation, and the 578 recommendation
+does not change either way: **do not run it while the cause is open.**
