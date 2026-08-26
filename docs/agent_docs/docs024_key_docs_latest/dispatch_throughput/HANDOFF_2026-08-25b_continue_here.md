@@ -4,7 +4,12 @@
 > DISABLED (row kept for rollback), `build-pipeline-trigger` at `interval_seconds=30` (~60 s
 > spaced fires). C (interval 25) is gated on the D4 governor — **mechanically**: the 584 VERIFY
 > (now 7 assertions) RAISEs on a second enabled row or interval < 30. Council for 637:
-> `Council-Submitted: 69a04e0a-8e45-4f5a-b0bb-285f00c544ee` — **check that verdict first.**
+> **APPROVED 2026-08-26 ~10:4x** on corr `69a04e0a` (2 advisories = the ROLLBACK file's absence
+> from the edits array; it exists, shipped in `a5fd1651e` — disposition in NOTES; nothing owed).
+> ⚠ The FIRST 637 round died `complete_invalid` on an **account-credit outage, 2026-08-25
+> 23:47Z → ~08:55Z** (~9 h, every LLM call 400'd "credit balance too low"; recovered ~09:00Z) —
+> the 24h post-B read must hold that window beside it (LLM-bearing handlers dead, mostly the
+> pre-B side), and D4's case is now measured, not hypothetical.
 > OWED 1 below is therefore DONE; the new queue head is the **24h post-B read** (cadence p50
 > ~60 s; lost-claim share from ~59% → single digits; distinct sites per hour; wait p50/p90 with
 > arrivals held beside) — meters in RUNBOOK; first ~30-min reads in NOTES 2026-08-26. After that:
