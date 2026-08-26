@@ -86,9 +86,12 @@ on those sites first** (397 §9: loanzy, webdesign_uk_build_service, bugfix_357/
 **The structural half — not started, council scope, REQUIREMENTS NOW SET (2026-08-26):** customer
 builds default to the owner's container on the hosted copy only, per-site override, ZIP clean
 (`webdesign_uk_build_service/DECISION_2026-08-26_default_tag_hosted_copy_only.md`; design notes in
-397 §6.2 incl. the `analytics.mode` field and the one-place default). ⚠ And a collision for the
-owner's consent decision: publishing GA4 into `GTM-PQ3WCTBD` makes hosted CUSTOMER sites set `_ga`
-cookies bannerless — second cookie-light container, Consent Mode, or re-ruling. Previously: no Go writer touches `site_config`, so a new
+397 §6.2 incl. the `analytics.mode` field and the one-place default). ⚠ ~~And a collision for the
+owner's consent decision~~ **RULED 2026-08-26 night: a SECOND cookie-light container for customer
+sites — estate GA4 publication into `GTM-PQ3WCTBD` is unblocked.** Creating it is THIS lane's task,
+blocked on access only (owner's ~2 min in the GTM dashboard — walkthrough in README — or the same
+service-account credential Search Console needs). Its id = the one-place customer default. ⚠ Empty
+= records nothing: spec the Consent-Mode-denied GA4 tag when it publishes (397 §6.2). Previously: no Go writer touches `site_config`, so a new
 site is born without the key. Where the opt-in gets set for our-network sites, and how a
 handed-over (third-party) site is guaranteed never to get it, is the design question. 397 §6.2.
 

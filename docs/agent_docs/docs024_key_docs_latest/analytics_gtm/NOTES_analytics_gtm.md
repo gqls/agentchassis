@@ -480,3 +480,15 @@ serves from **`gqls/vm-sites`** via the box's 5-min sitesync to `/var/www`. Thei
 right instrument. My 12:17:57Z regenerated head reaches it as a `Rerender:` commit when the deploy
 runner drains; label still present at their last fetch, wipe watched and re-placed by their lane.
 `misdirected_cta` theirs; no traffic figures in their launch compile. Both flags closed.
+
+**23.** `[2026-08-26 night]` **OWNER RULING via webdesign.uk lane: second cookie-light GTM container
+for customer sites** ("please go ahead with a second GTM analytics container") — their DECISION doc
+§5 updated same night; estate GA4 publication into GTM-PQ3WCTBD is thereby unblocked. Execution
+mine; **blocked on ACCESS, not decision** — re-checked: still no gcloud/GAC/cluster credential, and
+a container lives in the owner's Google account. Handed the owner the 2-minute dashboard walkthrough
+(README); alternative is the Tag Manager API via the same service account Search Console needs (one
+grant, two unblocks). Design note banked in 397 §6.2 before it becomes a repeat: an EMPTY second
+container is cookie-light and RECORDS NOTHING (the 0-tags lesson, by construction this time) — the
+decision's visit-visibility purpose needs a Consent-Mode-defaults-DENIED GA4 tag speced at
+publication. The container id, once it exists, is the one-place fleet default handed to the
+webdesign.uk + delivery lanes.

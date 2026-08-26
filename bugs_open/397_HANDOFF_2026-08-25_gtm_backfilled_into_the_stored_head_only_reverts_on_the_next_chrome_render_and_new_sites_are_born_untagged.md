@@ -163,7 +163,21 @@ operator hand-edited chrome and we corrected it", i.e. as the platform doing its
    > ⚠ **Collision to put to the owner before customer intake ships:** the pending GA4 publication
    > goes INTO `GTM-PQ3WCTBD`; from that moment the same container on a hosted customer site sets
    > `_ga` cookies with no banner — the decision's own §5 re-ruling trigger. A second cookie-light
-   > container for customer sites, Consent Mode, or a re-ruling are the options. No Go
+   > container for customer sites, Consent Mode, or a re-ruling are the options.
+   > **RULED 2026-08-26 (night): option one — a SECOND cookie-light container** ("please go ahead
+   > with a second GTM analytics container"; recorded in the webdesign.uk lane's DECISION doc §5).
+   > This UNBLOCKS estate GA4 publication into `GTM-PQ3WCTBD` entirely. Execution is this lane's,
+   > and is **blocked on access, not on decision**: a container is created inside the owner's
+   > Google account, and no Google credential exists on our side (`[MEASURED 2026-08-25, re-checked
+   > 2026-08-26]` — no gcloud, no `GOOGLE_APPLICATION_CREDENTIALS`, no cluster secret). Two paths:
+   > the owner's ~2 minutes in the GTM dashboard (walkthrough in the lane README), or a service
+   > account with the Tag Manager API — the same credential Search Console needs, one grant
+   > unblocks both. Its `GTM-XXXX` id then becomes the ONE-place fleet default for customer builds.
+   > ⚠ **Name the trap before it recurs: an EMPTY container is cookie-light AND records nothing** —
+   > exactly the `GTM-PQ3WCTBD` 0-tags lesson — while the decision's stated purpose is seeing
+   > whether delivered sites get visits. When the container is published it needs a GA4 tag with
+   > **Consent Mode defaults DENIED** (cookieless pings, no `_ga`), speced at creation, or the
+   > refund-judgement purpose silently gets zero data and someone rediscovers this in three weeks. No Go
    writer touches `site_config` (every current row is `created_by` a migration or a session), so
    "standard for new builds" needs a seeding step. The seam is right as it is — opt-in per site,
    unsafe default OFF, exactly the shape the 2026-08-02 §2 ruling prescribes — so the fix is *where

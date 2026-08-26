@@ -239,3 +239,27 @@ Agent Chassis property. I re-checked the socket just now: it still has **nothing
 tags — so no site is reporting anything to Google yet, lampenkap included. The moment you finish the
 walkthrough (Google Tag with the Agent Chassis id, then Submit → Publish), every site starts
 reporting at once. That one step is still the whole ballgame.
+
+## 2026-08-26 (night) — your second-container ruling: two minutes of your clicks, then it's all mechanism
+
+You ruled a second, cookie-light container for customer sites. Right call — it frees you to publish
+GA4 for your own sites without ever touching a customer visitor. I can't create it for you: it lives
+inside your Google account and there's still no machine credential on our side. It is genuinely two
+minutes:
+
+1. `tagmanager.google.com` → **Admin**
+2. In the left-hand **Account** column (gqls), click **＋ Create Container**
+3. Name: `Customer sites — cookie-light` · Target platform: **Web** → **Create**
+4. Copy the new `GTM-XXXX` id from the top bar and paste it to me or any session — that id becomes
+   the standard default wired into customer builds.
+
+Leave the new container **empty** — empty is what makes it cookie-free. One thing to know for
+later, so it doesn't surprise you: empty also means it *counts nothing*. When you want to see
+whether delivered customer sites get visitors (the reason behind this ruling), the cookie-free way
+is a GA4 tag in that container with consent defaults set to "denied" — it counts visits without
+setting any cookie. I'll have that speced and ready for when you say go; it is not needed for the
+container to exist or for anything to launch.
+
+And to keep the two straight: **your** sites' container (`GTM-PQ3WCTBD`) is still waiting on its
+own one click — the Google Tag publish from the walkthrough. That's unchanged and now fully
+unblocked.
