@@ -54106,3 +54106,61 @@ two other lanes. I recorded it in the bug file as a thing NOT to do rather than 
 visibly in the bug file, the 016b index row and to the owner. But it had already been said out
 loud twice and written into two files, and the corrected number is a *tenth* of the published
 one, which would have changed how the fix was prioritised.
+
+## 2026-08-26 — I committed the instrument error I was warning a peer about, in the same message, against a landmine that was this repo's HEAD commit when my session began
+
+Third instrument failure of one session, and the only one caught by someone else.
+
+**The claim.** Verifying another lane's containment (`bugs_open/405`), I reported that six auditor
+agents were in `filing_mode: record` and added: *"`council-gate` and `fix-proposer` also carry the
+step and are not in record mode… worth a sentence in §4 confirming that is deliberate."* I asked
+them to justify a state that does not exist.
+
+**The truth**, measured by the `loanzy_uk_example_site` lane with two instruments and re-measured
+here with a third (`jsonb_path_query_array(default_config, '$.** ? (@.action ==
+"write_audit_findings")')`, whose recursive descent also covers the nested `sub_workflow` case a
+top-level steps walk misses):
+
+| agent | steps with `action='write_audit_findings'` | text occurrences |
+|---|---|---|
+| the six auditors | **1** each | 1 (`offer-analyser`: 2) |
+| `council-gate` | **0** | 1 |
+| `fix-proposer` | **0** | 1 |
+
+The string sits in their **reviewer-roster prose** (footprint maps), not in any step. They are not
+seats. Nothing to switch, nothing to confirm.
+
+**My census was `default_config::text LIKE '%write_audit_findings%'` — a TEXT match read as a STEP
+match.** That is `LANDMINES.md`'s *"'can this agent write X' is a GO question"* entry, and it was
+**this repo's HEAD commit when my session started** (`06fd5444d`). It is also in my own memory index
+as *"a report — or a NAMING CONVENTION — is not a measurement."* I had read the family and did it
+anyway.
+
+**The part that makes this worth an entry rather than a shrug is the DIRECTION.** That landmine
+records the text census **under**-reporting — a column-name search seeing 1 of 3 writers — and says
+plainly that over-reporting is the **safe** direction *for a negative claim*, then adds: *"Reverse
+the claim and you need the opposite instrument."* I made a **positive** claim — "these two carry
+it" — on an over-reporting instrument. That is the single combination the entry rules out, and I
+reached it by remembering the reassuring half of a landmine and not the conditional attached to it.
+**A landmine that says "safe in direction X" is not a landmine that says "safe."**
+
+**And the framing failure, which is the transferable bit:** I did not present it as a finding, I
+presented it as a **question** — *"worth confirming that is deliberate."* That felt like humility
+and was the opposite: a false premise smuggled past my own scrutiny by being phrased as a request
+for someone else's. **A question inherits the evidentiary standard of the claim embedded in it**,
+and mine had none. The peer had to spend a measurement to answer a question that should never have
+been asked.
+
+**What caught it:** the peer re-derived it instead of answering. Not my controls — I had none here,
+because I never treated the census as a measurement at all; it was the throwaway parenthetical in a
+message whose *main* point was warning them about vocabulary/instrument mismatches. **The sloppiest
+line in a careful message is the one nobody, including the author, is auditing.**
+
+Cheap check, stated so it generalises: to ask what an agent *does*, resolve its config to ACTIONS —
+`$.** ? (@.action == "…")`, recursive so nesting cannot hide one — and compare that count against
+the text count in the same query. When the two disagree, the difference is prose, and prose is not
+behaviour. Corrected in place in `405` (my own paragraph, struck through with the re-measurement)
+before it could be quoted onward.
+
+Family: a-text-census-read-as-a-step-census, a-landmine-is-not-safe-just-because-one-direction-is,
+a-question-inherits-its-embedded-claims-burden, the-throwaway-line-is-the-unaudited-one.

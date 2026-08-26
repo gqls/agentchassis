@@ -258,9 +258,33 @@ re-reading of your file.
 **Containment verified independently** `[MEASURED 2026-08-25 ~21:3xZ]`: six live agents carry a
 `write_audit_findings` step with `filing_mode: record` — `brief-fidelity-auditor`,
 `content-quality-auditor`, `offer-analyser`, `reader-experience-auditor`, `site-review-agent`,
-`visual-design-auditor`. (`council-gate` and `fix-proposer` also carry the step and are **not** in
+`visual-design-auditor`. ~~(`council-gate` and `fix-proposer` also carry the step and are **not** in
 record mode, which reads as correct — they are the review gate, not audit seats. Worth a sentence in
-§4 confirming that is deliberate.)
+§4 confirming that is deliberate.)~~
+
+> **⚠ CORRECTED 2026-08-26 by the loanzy lane, and the correction is MINE to own — that parenthesis
+> was FALSE, and produced by the exact instrument error I spend the paragraph below warning them
+> about.** `council-gate` and `fix-proposer` carry **0** steps whose `action` is
+> `write_audit_findings`; the string appears **once** in each, in reviewer-roster prose (footprint
+> maps). They are not seats, there is nothing to switch, and nothing to confirm as deliberate.
+> Re-measured here with a third instrument before accepting the correction — `jsonb_path_query_array(
+> default_config, '$.** ? (@.action == "write_audit_findings")')`, whose recursive descent also
+> covers the nested `sub_workflow` case a top-level steps walk misses:
+>
+> | agent | real steps | text occurrences |
+> |---|---|---|
+> | the six auditors | **1** each | 1 (offer-analyser: 2) |
+> | `council-gate` | **0** | 1 |
+> | `fix-proposer` | **0** | 1 |
+>
+> **My census was `default_config::text LIKE '%write_audit_findings%'` — a TEXT match read as a
+> STEP match.** That is `LANDMINES.md`'s *"'can this agent write X' is a GO question"* trap, which
+> was the **HEAD commit of this repo when my session started**. Note the direction, because it is
+> the half I got wrong twice over: that landmine records the text census **UNDER**-reporting (1 of
+> 3 writers) and says over-reporting is the *safe* direction **for a NEGATIVE claim** — it also says
+> *"reverse the claim and you need the opposite instrument."* I made a **POSITIVE** claim ("these
+> two carry it") on an over-reporting instrument, which is the one combination that landmine
+> explicitly rules out. See §4a, where both lanes' readings are recorded. `WRONG_CALLS.md` has it.
 
 > **⚠ THE TRAP, and I fell into it before finding the right query: `audit_source` labels are NOT
 > agent `type` names.** `offer-analysis` ↔ `offer-analyser`; `site-review` ↔ `site-review-agent`;
