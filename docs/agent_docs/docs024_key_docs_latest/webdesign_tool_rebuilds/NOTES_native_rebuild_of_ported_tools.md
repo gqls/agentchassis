@@ -4268,3 +4268,36 @@ routes at the source owner; escalations never regenerate on fixed:true strike co
 tool_health deliberate-absence gap (apis.uk, noted's editor) is the checker-side half of the
 same missing marker. **This seat builds NO tool_health-local waiver** — confirmed to noted;
 the ~12:15Z-headed entry already recorded "not built unprompted", which stands.
+
+## 2026-08-26 ~12:45Z (platform seat) — round 1 REVISE done as asked, and the seat's remedy found six more copies than its own evidence knew about
+
+Round 1 on 89dcc04a came back REVISE (gating: reuse_agent HIGH — "extract ONE shared Go
+constant/helper, don't police two literals with a test"; MEDIUM — check livespec first;
+editquality LOW — the sketch's helper). Round 2 does what the seat said instead of defending:
+
+- **`datahelpers.NotRemovedSQL` + `NotRemoved(alias)`** is now THE tombstone-exclusion
+  spelling (NULL-safe, the assembler's semantics). The round-1 pairwise lockstep test is
+  DELETED — agreement is a compile-time fact.
+- **The negative scan found SIX hand-spellings nobody knew about**, all already NULL-safe and
+  therefore invisible to every `<>`-hunting grep: `component_instance_occurrence.go` ×2,
+  `create_tool_component_regenerate.go`, `rerender_page_sections_action.go`,
+  `resolve_internal_links_action.go`, `v3_site_actions.go`. **True census: 11 spellings across
+  10 files [MEASURED 2026-08-26, by the new test's own first run]** — round 1's "5" was
+  another instance of the census-by-the-broken-form trap. All 11 now build from the constant;
+  the scan (comment-skipping, both polarities, platform/orchestration) passes clean and guards
+  against a twelfth.
+- livespec READ and answered: its header scopes it to live-DB objects probed by CronJob — not
+  Go-source consistency; recorded in the test's doc comment.
+- Two consts became vars (`ComponentUsageSitesSQL` — one concat reader, checked;
+  `component_instance_occurrence`'s two locals). Commit hook's architecture signal triaged as
+  point fix (value unchanged today; the council round covers the file). The hook's
+  untouched-twin warning is a false positive (both twins splice the shared var — verified);
+  its other two flags are pre-existing lines far from my hunks, not introduced here.
+- Mutation-proven both guards; builds green; datahelpers / discovery_checks / queryresolve /
+  full actions suites pass. Commit `18853ade6`, `Council-Submitted: 89dcc04a` (round 2,
+  RESUBMIT_CORR — same trail); **verdict watcher armed, read owed**.
+
+Also answered the webdesign.uk lane's launch-status ask (their site was design-swept 12:06Z
+today; the CONFIRMED anchor-class diagnosis's worked example is THEIR brief-starter, site id
+1fcfa4f3 — flagged to them as the one launch-blocking class from this seat, with the
+hold-improve_tool-where-spec-check=tool_acceptance recommendation).
