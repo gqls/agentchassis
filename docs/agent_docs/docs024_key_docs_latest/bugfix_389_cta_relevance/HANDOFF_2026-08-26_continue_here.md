@@ -65,6 +65,30 @@ dispatch, not as a per-page discovery afterwards. The 23 contact-intent fields n
 destination (`/contact.html`) or a copy rewrite, not the positional pick. **That design decision is
 the next piece of work and it is the owner's call how the 23 are handled.**
 
+### 2a. Build the gate on `JudgeCTALabel` — and know what it cannot see
+
+The `bugs_open/399` lane has landed a write-time pass (`actions/cta_label_audit.go`, inert until the
+next roll **and** migration `643`) that records `CTA_LABEL_MISMATCH` rows in `agent_error_log`. Their
+CONTRIB is in this directory. Three things follow for the work in §2:
+
+- **Build the kind-gate on `datahelpers.JudgeCTALabel`, never a fork.** It is now the single
+  definition of *"does this copy name the page it links to"*, and `check_misdirected_cta` is already
+  a thin adaptor over it. A fourth re-implementation is the drift **RFC_047 §9** forbids. It also
+  returns the fourth completion class this lane asked the 308 lane for — `Agrees` — and
+  `NoOpinion{Ambiguous:true}` is RFC_047's refusal, so neither needs re-deriving.
+- **⚠ But `JudgeCTALabel` does NOT answer this lane's question, and the numbers say so.** Their
+  census of 186 live mismatches: copy names exactly one other page in **13**, two or more in **78**,
+  and **no page at all in 95**. **Our 23 contact-intent fields are in that third bucket** — *"Write
+  to leopardess@contactforsales.com"* names no page, so the judge has no opinion and records nothing.
+  Their pass is blind to our class for the same structural reason they already documented for the
+  label-locked class. **The gate needs an intent test the judge does not provide**; it should call
+  `JudgeCTALabel` first and add the contact-intent arm on top, not replace it.
+- **⚠ SEQUENCING — name the window when you run §3b.** Re-resolving writes new destinations under
+  copy written for the old ones, so it manufactures `CTA_LABEL_MISMATCH` rows **by construction, in a
+  burst, on these three sites.** Anyone reading that record during the window will see a spike and
+  may read it as this repair breaking things. It is not — the pass records only, refuses nothing, and
+  cannot slow §3b. Say so in NOTES with the timestamps before you start.
+
 ## 3. THE SEQUENCE — three steps, not two, and PROVEN end-to-end
 
 The old two-step order (*retire → then re-resolve*) **deadlocks**: the retraction refuses while
