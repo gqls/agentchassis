@@ -56229,3 +56229,16 @@ hides. Prospective form filed in `LANDMINES.md` (footprint `date -u -d`, freshne
 
 Family: a-measured-claim-about-state-expires, a-post-fix-zero-needs-a-demand-control,
 mutate-the-code-to-prove-the-guard, a-pass-from-a-blind-check-outlives-the-blindness.
+
+## 2026-08-26 — bugfix_410_feed_phase_lock lane: a wake-up timer set from the WORKSTATION clock fired an hour early against DB-time events
+
+Armed a watch for the ~20:47Z content-feed pass using local `date -u` arithmetic; it fired,
+I queried, and read "no trigger row in 3 hours" — one step from recording the prediction as
+unmeasurable or the scheduler as broken. The instrument was wrong, not the system:
+`[MEASURED 2026-08-26]` this workstation's `date -u` read 20:53 while `clients_db`'s `now()`
+read 19:54:35 in the same minute — the two "UTC"s disagree by ~1 h. Every timestamp in the
+bug file and every event under test lives in DB time. **The cheap check: any watcher or
+comparison keyed to DB-timestamped events must take its clock FROM the DB (poll for the row;
+compare against `now()` in SQL), never from local `date`.** Same family as
+a-plausible-external-cause-is-when-to-doubt-your-instrument — "the trigger didn't fire" was
+believable, and the discriminating move was asking the DB what time it thinks it is.
