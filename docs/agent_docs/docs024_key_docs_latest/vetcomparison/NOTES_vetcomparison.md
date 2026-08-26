@@ -1647,3 +1647,28 @@ exported before the trading_name clear, so JSON `name` is flat "Vet Home Certs" 
 reads the corrected DB directly. STILL OWED on this thread: after the next chassis roll, rerender
 directory-index — that is when claimed-first (89cb6addb) + the 51 cards become visible on the
 PAGE; and read the council verdict for 09cf68c2.
+
+## 2026-08-26 (later) — owner asked for an AHC article linking Vet Home Certs "as a favour — but it has to fit the site or we shouldn't do it"
+
+**Fit judgement, made and stated before building:** it fits — arguably better than the existing
+guides. AHC is item 1 of the CMA's mandated price list; gov.uk's own guidance tells owners to
+check whether their vet can issue AHCs and to find an OV if not (a real consumer gap); the
+existing three guides are all PRACTICE-facing, so this is the site's first pet-owner guide. The
+"favour" takes its only honest form: **VHC appears as what it factually is — the claimed listing
+that publishes attributed AHC prices with us — disclosed, never "recommended"**, balanced by the
+open invitation for ANY practice to claim and publish the same way (/entities/practice.html).
+
+**Facts discipline:** every travel rule in the brief is attested from two gov.uk pages fetched
+today (travelling-to-an-eu-country + getting-an-animal-health-certificate) — and the fetch caught
+my own memory being WRONG (I "knew" 4 months onward/re-entry; gov.uk says **6 months**), which is
+the whole argument for never letting the writer (or me) state rules from memory. The brief's
+`attested_facts` list is closed ("if it is not in the list, it is not in the article"); cost
+facts come from our own DB (VHC £99/£110, observed 2026-08-26); CMA draft-Order figures/dates
+stay out.
+
+**Mechanism:** page row `e45b5059` (page_type 'guide' — the guide-list query picks it up on the
+next guides-index rerender; in_footer true, parity with siblings), plan section `article-body`
+@0 (the independent-strategy shape), full brief in `pages.content_direction`, `needs_page` item
+`e30cc88e` → page-build-handler, priority 10. Verification on completion: every published claim
+checked against the attested list, links resolved, disclosure framing checked, then a
+guides-index rerender so the fourth guide is listed.
