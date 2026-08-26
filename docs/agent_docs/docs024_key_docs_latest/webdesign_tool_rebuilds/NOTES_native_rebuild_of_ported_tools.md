@@ -3876,3 +3876,15 @@ mis-repair their cross-site component defect while 398 is unrolled; aiao's 6 sta
 rows that must be re-checked not dispatched; the seven audit-seat children FAIL each loop cycle
 BY DESIGN and self-record as `capability_gap_audit_seat_failed_*` (mig 620) — do not read those
 as my checker's rows (they share the item_type, not the key shape).
+
+> **CORRECTED 2026-08-26 ~11:00Z (platform seat):** the ~10:00Z entry's line "the seven
+> audit-seat children FAIL each loop cycle BY DESIGN" conflates the failure HANDLING with the
+> failures. Loanzy lane's measurement: all three all-fail cycles fell inside an API credit
+> outage (23:46:29Z → ~08:58Z, zero successful LLM calls fleet-wide; owner topped up this
+> morning). What is by design is only the wire shape ON failure — seat fails, sweep continues,
+> audit-pass stamp withheld, `capability_gap_audit_seat_failed_*` row (mig 620). In healthy
+> record mode the children COMPLETE and verdicts land at deferred: [their measurement, 09:4xZ]
+> 44 record rows, 17/17 seat calls, 0 new failure rows, full cycle complete. So FAILED children
+> = the seat died; do not read them as record mode working. Note the outage did NOT touch the
+> demand-control evidence: design-discovery checks are mechanical (0 direct LLM calls), which is
+> why the 03:46Z webdesign sweep completed and filed correctly mid-outage.
