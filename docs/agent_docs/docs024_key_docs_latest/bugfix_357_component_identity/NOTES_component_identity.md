@@ -1229,3 +1229,41 @@ first, so the rebuild targets the control page alone and the result is attributa
 - control reaches `save_result` → the stall is specific to a page carrying a ~17.5KB adopted
   fragment. **That IS a 357 finding** and it bears directly on whether phase 3 is safe: a
   re-typed row that cannot be rebuilt afterwards is a worse state than the mislabelling.
+
+### The control failed for a THIRD reason, and it is fleet-wide: the Anthropic credit balance is exhausted
+
+`8d002375-1524-4abd-b04c-91a2e6a74277` FAILED at `build_pages_loop_iter_0_write_page_content`
+— **before** it ever reached `assemble_page`, so **it did not discriminate.** The error:
+
+```
+AI endpoint unavailable: provider=anthropic model=claude-sonnet-5
+status 400: {"type":"invalid_request_error","message":"Your credit balance is too low to
+access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}
+```
+
+[MEASURED 2026-08-26 00:0xZ] **22 orchestrations across 10 distinct agent types** carry this
+error, first at **2026-08-25 23:46:18Z**, latest **00:06:01Z**: `page-content-writer` (9),
+`tool-improver` (3), `reader-experience-auditor` (2), `content-quality-auditor` (2),
+`site-review-agent`, `brief-fidelity-auditor`, `visual-design-auditor`, `generic`. Anything on
+the estate that calls an LLM is failing. Owner notified.
+
+⚠ **DO NOT CONFLATE THIS WITH THE CANARY STALLS — the timeline refutes it.** The stalls began
+**12:57Z** (canary #1) and **~19:41Z** (canary #2); the credit failures begin **23:46Z**, six
+to eleven hours later. The stalls are NOT explained by credit exhaustion, and a session
+arriving tomorrow will find both symptoms live at once and be tempted to collapse them into
+one cause. They are three separate things:
+
+1. **the prune-floor contradiction** (§ above) — diagnosed, real, estate-wide, unfixed;
+2. **`page-rebuild` stalling at `assemble_page`** — twice, on both a stale and a fresh
+   chassis, cause **[UNVERIFIED]**, and the step after it is a `git_commit`;
+3. **the credit exhaustion** — from 23:46Z, fleet-wide, an account matter, not a code one.
+
+**So precondition 4 is still untested and cannot be tested while (3) holds**, because every
+route to it runs a content writer first. When credit is restored, re-run the control
+(`request-index`, non-adopted) before re-running the canary — the control is what says whether
+(2) is a 357 problem at all.
+
+⚠ When checking the account: MEMORY [[the-fleet-key-is-not-on-the-default-console-org]] —
+**capped while billing reads 0% used means the WRONG ACCOUNT is being looked at**; check the
+keys' `Last used`. And per the owner's 2026-08-23 ruling, **never read a key into a session** —
+probe from the pod.
