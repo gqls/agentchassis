@@ -66,4 +66,15 @@ done
 REC=$(cf "$API/zones/$ZID/dns_records" | ok | python3 -c "import json,sys; rs=json.load(sys.stdin); print(sum(1 for r in rs if r['type']=='A' and r['proxied']))")
 RTS=$(cf "$API/zones/$ZID/workers/routes" | ok | python3 -c "import json,sys; rs=json.load(sys.stdin); print(sum(1 for r in rs if r.get('script')=='portfolio-sites-router'))")
 echo "re-read: proxied A records=$REC (expect 2), router routes=$RTS (expect 2)"
-[ "$REC" = 2 ] && [ "$RTS" = 2 ] && echo "ZONE READY (status stays 'pending' until the NS move lands — that is not a failure)" || { echo "MISMATCH — inspect the zone before using it" >&2; exit 1; }
+if [ "$REC" = 2 ] && [ "$RTS" = 2 ]; then
+  echo "ZONE READY (status stays 'pending' until the NS move lands — that is not a failure)"
+  # zone_live_at is the SERVING stamp (P5 reader rule, 2026-08-26): write it ONLY on
+  # this verified path, never at registration time. The exact spec write:
+  cat <<STAMP
+STAMP zone_live_at NOW into the site's config (serving may choose hostname=domain only after this):
+  UPDATE site_specs SET data = jsonb_set(data, '{domain_programme,zone_live_at}', to_jsonb(now()::text))
+   WHERE site_id='<site-id>' AND aspect='site_config' AND is_current;
+STAMP
+else
+  echo "MISMATCH — inspect the zone before using it; do NOT stamp zone_live_at" >&2; exit 1
+fi

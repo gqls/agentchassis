@@ -81,9 +81,20 @@ conventions (dry-run default stays).
    (2026-08-02 §2): the domain is an OPT-IN LAYER per site. `site_config` gains a
    `domain_programme` key — absent or `{"mode":"ugg2"}` (the DEFAULT) means the site
    serves at `<slug>.ugg2.com` and the core flow never consults the layer;
-   `{"mode":"registered","domain":...,"tag":"DESIGNCONSULT","registered_at":...}` is
-   the opt-in. NOTHING in the core delivery path reads the key until P5 wiring, and
-   then only to choose the serving hostname. **Revert of the whole programme = flip
+   `{"mode":"registered","domain":...,"tag":"DESIGNCONSULT","registered_at":...,
+   "zone_live_at":...,"commercial":"rent"|"bought"}` is the opt-in. Shape refined
+   2026-08-26 evening by the P5 reader (site_delivery_and_editor), adopted in full:
+   **`registered_at` stamps the MONEY event; `zone_live_at` stamps the SERVING event**
+   (written only after cf_customer_domain_zone.sh's re-read verification passes — the
+   window between EPP create and the zone answering at its NS pair must never choose
+   hostname=domain); **`commercial` is the reserved key** distinguishing rent (£10/mo,
+   our registrar, chase + retention link) from bought (£200, Registrant Transfer owed
+   per 2026-08-21, then likely leaves the layer). **Reader rule, agreed before any
+   reader exists: an UNRECOGNISED mode fails safe to slug serving** — mode is an open
+   vocabulary ("transferred" is clearly coming), and a reader that errors on mode #3
+   takes a serving site down where a fall-back keeps it up. NOTHING in the core
+   delivery path reads the key until P5 wiring, and then only to choose the serving
+   hostname (= domain ONLY when zone_live_at is present). **Revert of the whole programme = flip
    modes back**: sites serve at their slugs again, created zones are one API DELETE
    each, registration years are sunk (~GBP 4/domain) — nothing in the main service
    changes shape.
