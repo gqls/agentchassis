@@ -89,6 +89,13 @@ func TestRecordOnlyFinding_IsUndispatchableByBothPromoters(t *testing.T) {
 	if !strings.HasPrefix(out.Summary, "[verdict, not dispatched] ") {
 		t.Errorf("summary should read as a verdict, got %q", out.Summary)
 	}
+	// The anti-churn skip (round 04a3ce1f, debug_historian HIGH): a verdict
+	// re-observed per audit is expected recurrence; without this flag two
+	// retractions inside seven days brand the third re-file `unresolved`
+	// (bugs_open/033's shape) and the self-correction licence is inexact.
+	if !out.RecurrenceExpected {
+		t.Errorf("record rows must set RecurrenceExpected — the two-strike arm otherwise brands the re-file unresolved")
+	}
 	// The input is not mutated (spec is copied, not aliased).
 	if _, leaked := in.Spec["routed_handler"]; leaked {
 		t.Errorf("input spec was mutated")
@@ -114,6 +121,9 @@ func TestRecordOnlyFinding_LeavesAlreadyParkedRowsAlone(t *testing.T) {
 	}
 	if _, stamped := out.Spec["filing_mode"]; stamped {
 		t.Errorf("an already-parked row must not be re-stamped: %v", out.Spec)
+	}
+	if out.RecurrenceExpected {
+		t.Errorf("an already-parked row must not gain the recurrence flag")
 	}
 	if out.Summary != in.Summary {
 		t.Errorf("summary of an already-parked row must be untouched, got %q", out.Summary)

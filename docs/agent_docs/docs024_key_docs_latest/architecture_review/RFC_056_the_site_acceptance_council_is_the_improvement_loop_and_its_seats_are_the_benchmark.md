@@ -413,3 +413,63 @@ re-files fresh on its very next run. Gated types keep their measured rule (no do
 pinned). With this, ADDENDUM 1's reasoning — and the §9 answer built on it — is restored as
 written; until the fix rolls, the truth is: **verdict rows are cleared by humans only**, and the
 RUNBOOK's queue is the whole lifecycle.
+
+---
+
+## ADDENDUM 3 (2026-08-26) — the retraction-contract change, written up as the architecture seat asked (round 04a3ce1f, REVISE)
+
+Round 1 of the record-mode revalidation fix drew seven seats and four real demands. This section is
+the blast-radius/rollback writeup the architecture seat required instead of "a correction patch",
+with each demand answered by a measurement or a mechanism, not a restatement.
+
+**What the change is.** A second retraction pass in `write_audit_findings`: rows stamped
+`filing_mode=record`, of item types NOT in the measured `silenceRetractionGates`, retract after 3
+consecutive type-level silences of their own seat (`recordModeSilenceRule`). Dispatch rows of
+ungated types stay inert (pinned on a mixed candidate set); gated types are never double-judged.
+
+**Blast radius, quantified `[MEASURED 2026-08-26 ~11:00Z]`:** the enrolled population is **271
+rows, 9 sites, 6 seats, 7 item types** (largest cells: reader `content_rewrite` 36,
+content-quality `content_rewrite` 23, reader `needs_content_page` 22; full table in the round-2
+submission). Key consistency both directions: **0** rows carry the key with another value, **0**
+record rows lack `spec.audit_source` — the stamp has one writer (`recordOnlyFinding`, test-pinned)
+and the loader reads the same literal.
+
+**The licence, restated exactly (debug_historian HIGH; `bugs_open/033`'s lineage read in full).**
+033's wrong call was *"a wrong auto-close costs one re-raise"* asserted where **no scheduled next
+run existed** and the recovery path had run 8 times in history. Two differences here, both now
+mechanical rather than asserted: (1) these seats DO run on a schedule — the sweep's audit cadence,
+measured at 209→271 rows overnight — so the re-file latency is **bounded by the audit cadence**
+(fingerprint change or 14-day cooldown), which is the honest form of "next run"; a DECOMMISSIONED
+seat has no next run, and that residual is stated, not waved at. (2) 033's close-feeds-strikes
+mechanics were live against my first draft: retraction closes count toward the two-strike arm, so
+two retract→re-file cycles inside seven days would brand the third re-file `unresolved`. The fix
+is the flag built for exactly this: **record rows now set `recurrenceExpected`** — a verdict
+re-observed per audit is the flag's own definition of normal recurrence — which skips the
+anti-churn arms while `idx_swi_dedup` still enforces one open row per key. With it, the
+self-correction cycle is clean at any frequency the seats can produce.
+
+**Prior art reconciled (prior_art_librarian HIGH).** The existing revalidation family
+(`review-queue-revalidate-daily` → `reviewRevalidators`) selects
+`workItemRevalidatableStatuses = ["needs_human_review","unresolved"]`
+(`work_items_common.go:142`) — `deferred` is excluded, so it neither covers nor partially covers
+record rows: the pre-fix "humans only" claim was TRUE and is now cited rather than asserted. Why
+not extend that family instead: its closes are mechanical `resolved` verdicts — the machine
+overruling a judgement lens, the exact tension ADDENDUM 1 ruled out — and its per-type
+revalidators re-run a PREDICATE, which an opinion does not have. Why not gates-map entries
+(reuse_agent): a gate entry enrols a whole item TYPE, and record rows share types with dispatch
+rows — enrolment must key on the row's mode, which the map cannot express. Why a separate loader:
+the sibling returns one type's candidate ROWS; this returns the type DOMAIN — different result
+shapes over the same predicate constant.
+
+**Rollback:** revert the second pass + the flag (Go-only, no migration, no data state to unwind —
+streak stamps in `result.retraction` are inert without the pass that reads them).
+
+**Post-roll verification (debug_historian: at the pod, not at git):** prove the binary by
+`service_binary_capabilities` ancestry with both controls, then induce: one record row given
+`silent_runs=2` by its seat's next two clean runs must retract with the rule's reason in
+`result`, and one dispatch row of the same type in the same site must be untouched — both read
+from `site_work_items`, the same two-directional shape as 405 §6.
+
+**Coordination (guardian):** the one crossed test file's owning lane
+(`copy_quality_two_stage`) gave explicit sign-off 2026-08-26, verified the edit green themselves,
+and holds the exchange in their NOTES — the same-file-passenger remedy, applied before shipping.

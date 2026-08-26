@@ -179,6 +179,7 @@ func recordOnlyFinding(c classifiedFinding, auditSource string) classifiedFindin
 	out.Spec = spec
 	out.HandlerAgent = ""
 	out.Status = "deferred"
+	out.RecurrenceExpected = true
 	out.Summary = "[verdict, not dispatched] " + c.Summary
 	return out
 }
@@ -411,6 +412,16 @@ type classifiedFinding struct {
 	// empty means the description. Set where the description alone would
 	// read as dispatchable work rather than what the row actually is.
 	Summary string
+	// RecurrenceExpected is set ONLY by the record-mode transform. A verdict
+	// re-observed on each audit is the flag's own definition of normal
+	// recurrence — an ACTION-REQUEST-like row, not a detected defect — and
+	// without it the two-strike arm reads retract-then-re-file as "keeps
+	// coming back despite fixing": after two retractions inside seven days the
+	// third re-file is born `unresolved` (bugs_open/033's close-feeds-strikes
+	// shape, caught there by the council too). The flag skips the anti-churn
+	// arms only; idx_swi_dedup still enforces one open row per key. Council
+	// round 04a3ce1f (debug_historian HIGH) is why this is a field, not a hope.
+	RecurrenceExpected bool
 }
 
 // ============================================================================
@@ -1260,6 +1271,10 @@ func WriteAuditFindingsAction(ctx context.Context, params ActionParams) (interfa
 			createdBy:    auditSource,
 			itemKey:      classified.DedupKey,
 			batchID:      batchID,
+			// Record rows only (see classifiedFinding.RecurrenceExpected):
+			// skips the anti-churn arms so a retracted verdict's re-file is
+			// never branded unresolved; dedup is unaffected.
+			recurrenceExpected: classified.RecurrenceExpected,
 		}, dropOnConflict, logger)
 		if err == nil {
 			err = tx.Commit()
