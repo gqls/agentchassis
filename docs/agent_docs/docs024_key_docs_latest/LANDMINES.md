@@ -18254,6 +18254,15 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** `bugs_open/363` / `docs024_key_docs_latest/live_object_declaration_drift/` NOTES
   2026-08-25 (misstep 2), measured live with the CronJob deployed
 - **added:** 2026-08-25, bugs_open/363 session
+- **edit history (this entry only):** revised **2026-08-26** by the same lane that wrote it —
+  9 lines replaced, all of them this entry's own. What went, and why, so the removal is auditable
+  rather than invisible: (1) the *"Measured 2026-08-25 … zero `Max` bounds"* sentence, superseded
+  by the dated UPDATE block above once `083d3096e` paired both constraints; (2) the original
+  *"the check"* recipe, `grep -c 'Max:'` → *"0 means presence-only"*, **withdrawn because it was
+  misleading**: it made `Max` look like the discriminator for gain-visibility when a `Max` bound
+  cannot close it at all. That conflation is now the entry's explicit ⚠. No other session's lines
+  were touched; the pre-commit ledger check flagged the removal, correctly, since it cannot know
+  whose entry it is.
 
 ### An agent-config migration keyed on `type` can hit TWO active rows — four types carry duplicates today, and plpgsql's `SELECT INTO` silently reads only the first
 
