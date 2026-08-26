@@ -1,5 +1,12 @@
 # 396 — a design run erases every appended CSS repair, and the work items stay `complete`
 
+> ⚠ **396 IS A DUPLICATE NUMBER — resolve by SLUG, and `git log` the FILE PATH, not the number.**
+> The other 396 is `396_HANDOFF_2026-08-25_work_items_parked_at_deferred_with_a_named_handler_are_undispatchable_unrefilable_and_carry_no_provenance.md`
+> (filed 13:49 BST, three hours before this one; unrelated mechanism). This file's own filing
+> session checked the number and got "free" from a compound `ls bugs_open/N_* bugs_closed/N_*`,
+> which exits non-zero when EITHER glob fails to match — the twin was in `bugs_open/` only, so the
+> check inverted. The trap is in `WRONG_CALLS.md` 2026-08-26.
+
 > ## STATUS 2026-08-25 — OPEN, LIVE, MEASURED ONCE, NOT DESIGNED
 >
 > **The one-line version:** `webdesign-agent`'s `persist_css_to_theme` writes the freshly-rendered

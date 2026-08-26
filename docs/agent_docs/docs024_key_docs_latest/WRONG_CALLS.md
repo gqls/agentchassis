@@ -54261,3 +54261,26 @@ too easy.
 fired, re-read the subject in the same breath as the registration, and write the read into the
 prediction ("status was X at HH:MM"). The registration is only as good as its evidence that the
 event had not yet happened. Tally: prediction-registered-after-its-event.
+
+## 2026-08-26 — `bugfix_390_cascade_attribution` (session "bug sweep"): my free-number check said "396 free" while the twin was in my own scrollback
+
+**The claim.** Filing the theme-erasure bug, I checked `for n in 396 397 398 399` with
+`if ls bugs_open/${n}_* bugs_closed/${n}_* >/dev/null 2>&1; then TAKEN; else free` and filed as
+396 on the "free" verdict.
+
+**What was true.** `396_HANDOFF_2026-08-25_work_items_parked_at_deferred_...` had been committed
+at 13:49 BST, three hours before my check. `ls` exits non-zero when ANY argument fails to match —
+the number existed in `bugs_open/` but not `bugs_closed/`, the second glob failed, and the
+compound check reported a taken number as free. Worse: the command immediately BEFORE the loop had
+printed the twin's full path to my scrollback, and I let the loop's verdict override what I had
+just seen.
+
+**What caught it.** Reading the `39[6-9]` listing a day later while checking something else —
+i.e. luck, which is the point of writing it down.
+
+**The cheap check, skipped.** Per-directory, not compound: `ls bugs_open/${n}_* 2>/dev/null;
+ls bugs_closed/${n}_* 2>/dev/null` and read the OUTPUT, not the exit code — or the estate's own
+`ls bugs_open/ bugs_closed/ | grep "^${n}_"`. And when a check's verdict contradicts something
+already on screen, the screen wins until explained. The estate tolerates duplicate numbers
+(resolve by slug), so the damage is a permanent ambiguity, not a loss — both files now name their
+twin. Tally: compound-ls-exit-code-inverts-on-partial-match.

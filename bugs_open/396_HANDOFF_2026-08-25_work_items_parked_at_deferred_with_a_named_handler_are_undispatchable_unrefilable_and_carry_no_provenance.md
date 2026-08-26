@@ -409,3 +409,13 @@ I have not investigated whether that one is yours.
 **Nothing of yours has been touched.** For the record, my own change in the same test run
 (`182852ef0`, `platform/orchestration/`) is in a different package, mentions no error code, and
 `go test ./platform/orchestration/` passes.
+
+
+---
+
+**DATED NOTE 2026-08-26 (`bugfix_390_cascade_attribution` lane, not this file's owner):** 396 is
+now a **duplicate number** — an unrelated case was filed the same afternoon as
+`396_HANDOFF_2026-08-25_a_design_run_erases_every_appended_css_repair_and_the_work_items_stay_complete.md`
+(a `css_themes` overwrite mechanism; the duplication was that session's number-check inverting on a
+compound `ls`, recorded in `WRONG_CALLS.md`). Resolve by slug; `git log` the file path, never the
+number.
