@@ -135,3 +135,54 @@ func TestResolveBusinessDirectory_CapsLimit(t *testing.T) {
 		t.Errorf("unmet expectations (limit not clamped as expected): %v", err)
 	}
 }
+
+// The SSR cap makes ordering a visibility decision: a claimed listing sorting
+// past the cut is invisible on the page, which inverts the product's promise
+// that claiming is the route to being seen. Pin the clause in BOTH query
+// branches — sqlmock refuses a query that does not match the regex, so
+// removing the ORDER BY fails these, not just changes a sort.
+func TestResolveBusinessDirectory_ClaimedListingsSortFirst(t *testing.T) {
+	orderRe := `ORDER BY COALESCE\(b\.is_claimed, false\) DESC, name`
+
+	// Branch 1: no business_type filter.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+	mock.ExpectQuery("SELECT st.input_data->>'vertical'").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"vertical", "business_type_ilike"}).
+			AddRow("veterinary", ""))
+	mock.ExpectQuery(orderRe).
+		WithArgs("veterinary", 60).
+		WillReturnRows(sqlmock.NewRows([]string{"name", "postcode", "location", "website_url", "is_claimed"}))
+	if _, err := resolveBusinessDirectory(context.Background(), db, siteID, 60, zap.NewNop()); err != nil {
+		t.Fatalf("untyped branch: claimed-first ORDER BY absent from query: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("untyped branch unmet expectations: %v", err)
+	}
+
+	// Branch 2: with business_type filter.
+	db2, mock2, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db2.Close()
+	siteID2 := uuid.New()
+	mock2.ExpectQuery("SELECT st.input_data->>'vertical'").
+		WithArgs(siteID2).
+		WillReturnRows(sqlmock.NewRows([]string{"vertical", "business_type_ilike"}).
+			AddRow("veterinary", "%vet%"))
+	mock2.ExpectQuery(orderRe).
+		WithArgs("veterinary", "%vet%", 60).
+		WillReturnRows(sqlmock.NewRows([]string{"name", "postcode", "location", "website_url", "is_claimed"}))
+	if _, err := resolveBusinessDirectory(context.Background(), db2, siteID2, 60, zap.NewNop()); err != nil {
+		t.Fatalf("typed branch: claimed-first ORDER BY absent from query: %v", err)
+	}
+	if err := mock2.ExpectationsWereMet(); err != nil {
+		t.Errorf("typed branch unmet expectations: %v", err)
+	}
+}

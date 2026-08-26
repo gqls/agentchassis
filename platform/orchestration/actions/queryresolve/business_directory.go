@@ -123,11 +123,15 @@ func resolveBusinessDirectory(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		  AND b.website_url IS NOT NULL
 		  AND b.postcode IS NOT NULL`
 	args := []interface{}{cfg.Vertical}
+	// Claimed listings sort ahead of unclaimed within the SSR cap. The cap
+	// means ordering IS visibility: alphabetical order silently excluded any
+	// claimed listing sorting past the cut, which inverted the product's own
+	// promise (claiming is the route to being seen). Ties stay alphabetical.
 	if cfg.BusinessTypeILike != "" {
-		query += ` AND b.business_type ILIKE $2 ORDER BY name LIMIT $3`
+		query += ` AND b.business_type ILIKE $2 ORDER BY COALESCE(b.is_claimed, false) DESC, name LIMIT $3`
 		args = append(args, cfg.BusinessTypeILike, limit)
 	} else {
-		query += ` ORDER BY name LIMIT $2`
+		query += ` ORDER BY COALESCE(b.is_claimed, false) DESC, name LIMIT $2`
 		args = append(args, limit)
 	}
 
