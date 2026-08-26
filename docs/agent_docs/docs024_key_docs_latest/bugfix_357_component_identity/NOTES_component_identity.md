@@ -1301,3 +1301,22 @@ a second roll** — again because arming is `agent_definitions` config, not code
 rebuild runs a content writer first. So the control cannot be re-run, the canary cannot be
 re-run, and 578 must not run in a window where no page on the estate can be rebuilt to verify
 it afterwards.
+
+### The fresh build is `v1.0.1341`, it IS rolled, and phase 2 is in it
+
+Deployment spec and BOTH running pods read `docker.io/aqls/agent-chassis:v1.0.1341`
+(`agent-chassis-6dd68888dc-*`, started 2026-08-25 23:11:5xZ). Spec and pods agree, so this is
+not the same-tag-rebuild trap where a deploy ships the node's cached binary.
+
+Capability probed at the running binary with both control arms (never `strings`, never a
+discovery grep):
+
+```
+PRESENT: adopt fragment: bound an unidentified fragment   <- the phase-2 capability
+PRESENT: self-contained tool section                      <- positive control
+ABSENT : zzz_never_shipped_literal_357_qqq                <- negative control
+```
+
+All three correct, so the probe discriminates and phase 2 is genuinely in `v1.0.1341`. The
+adoptions themselves ran on the previous build; the two adopted rows and the six armed
+carriers have now survived **two** rolls.

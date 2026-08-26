@@ -581,3 +581,45 @@ that has existed for four minutes.
 were refused in exactly this way and are sitting waiting for a human, going back to the end of
 July. The plan correction I did today fixes two pages. The software that writes the
 contradiction is untouched, and it will keep writing it.
+
+## 2026-08-26 — can we close it? No, and it is worth being precise about why
+
+You asked whether this can be closed. **No — and the reason is a single number: twenty-two.**
+
+The bug says twenty-two live pages have a record claiming to be a shared banner while actually
+holding a whole interactive tool. I re-measured this morning with the bug's own test, and it is
+still true of **all twenty-two**. Our rule here is that a bug closes when it is fixed *and*
+live, not when the fix exists — and every one of those pages would still show the fault today.
+
+**What has finished is the machinery, and that is genuinely most of the work.** Three of the
+four parts are done: the record of where a page's markup came from, the guard that stops it
+recording a false origin, and — proven yesterday — the part that stops new pages being
+mislabelled in the first place. That last one is no longer something we believe because it is
+switched on; it has been watched working on two real pages, and it has now survived two
+platform restarts without losing anything.
+
+**What is left is the fourth part: repairing the existing twenty-two.** It is written, it
+checks its own conditions, and it is one step away. That step is proving an adopted page
+survives being rebuilt — because re-labelling twenty-two live pages into a shape we cannot then
+rebuild would be worse than the fault we are fixing.
+
+**And right now that step cannot be taken, for a reason outside this work: the platform cannot
+make any AI calls at all.** I checked properly rather than trusting the call log — every one of
+the last hundred and twenty-six attempts failed, none produced any output. The message is that
+the Anthropic account is out of credit. It started at about a quarter to midnight and it is
+worse this morning, not better. Everything remaining on this lane needs a page rebuilt, and
+every rebuild writes content first, so nothing here can move until that is sorted.
+
+**One caution I want to flag, because I nearly fell for it myself.** The log of AI calls
+records that a call was *attempted*, not that it *worked*. Looking at it quickly, it shows
+plenty of recent activity and looks like a healthy system. It is not. If you or anyone else
+checks whether the platform is back up, the number that matters is how many calls returned
+anything.
+
+**The most valuable thing to come out of this is not on this lane at all.** Running the
+adoptions turned up a genuine fault in how new sites are built: the software decides a page is
+a tool and sends it to the tool builder, and in the same breath writes down that the page has
+four sections — which the tool builder can never produce. The save is then refused and the page
+is left empty. Thirty-two pages across fourteen sites are sitting refused because of it, going
+back to the end of July. That deserves its own file and its own review, and it will keep
+producing casualties until someone fixes it.
