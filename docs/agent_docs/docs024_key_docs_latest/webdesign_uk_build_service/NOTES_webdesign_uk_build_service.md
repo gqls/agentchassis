@@ -6030,3 +6030,17 @@ key (guided: Refunds=Read, Checkout Sessions=Write); webhook endpoint + secret-p
 patch + restart are his next two steps (endpoint creatable BEFORE unpark - Stripe does
 not validate reachability); my verification (mounted-with-provider log + 503 flip) on
 his word; the full webhook round-trip waits for the unpark.
+
+## 2026-08-26 (night) — STRIPE IS LIVE IN THE CLUSTER
+
+Owner completed the chain: restricted key (Refunds=Read, Checkout Sessions=Write),
+webhook endpoint we_1U8mp202nQ76FNifIrpKLN3s (checkout.session.completed +
+charge.refunded, URL https://webdesign.uk/stripe/webhook), secret pair patched,
+auth-service restarted. VERIFIED: rollout complete, billing routes mounted, keyless
+warning ABSENT from the fresh pod's logs, and the artefact-level flip proven over the
+box's wg leg: POST garbage to the webhook path → 400 {"error":"rejected"} (signature
+refusal) where the keyless state answered 503. REMAINING for full end-to-end: the
+Stripe dashboard test event → billing_events row, which needs the UNPARK (deliveries
+fail harmlessly until then). MONEY PATH NOW: unpark → webhook round-trip check → mint
+trial vouchers (after the roll carrying £30) → owner trial loop. Payment Links (rental
+£10/mo + buy-out £59.99) still to click.
