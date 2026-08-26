@@ -154,3 +154,82 @@ failure) · `bugs_open/356` §8 (where this gap was recorded as unowned, and the
 it) · register **WII-025** (the posture registry a new check here must declare into) ·
 `check_unverified_claims.go:458` (the one place that deliberately looks at these pages, and why
 it is not coverage).
+
+---
+
+## 2026-08-26 — TAKEN by the `bugfix_359_archived_page_still_serving` lane. Re-measured; §6 candidate 1 is DISCHARGED
+
+Ownership checked three ways before starting, all clear: `scripts/who-owns.py 359` returns
+`likely OWNING workstream(s): (none identified)` (the only commit touching this file is the
+filing commit `3f2891c75`); a grep of live session transcripts finds one hit, in the FILING
+lane's own close-out ("filed `bugs_open/359`, ready to close"); and `site_work_items` holds no
+open row of this shape.
+
+### The bug is STILL VALID, and the population has MOVED
+
+§6 candidate 1 asked for the real population before anything is designed. It is now a command —
+**`scripts/audit-archived-still-serving.sh`** (`[--json] [<domain>…] | --self-test`), which
+carries this file's §7 controls as its verdict logic rather than as advice.
+
+`[MEASURED 2026-08-26]` **population 39 · 7 ARCHIVED AND SERVING · 32 correctly absent · 0
+unjudgeable.** Every domain's invented-URL control returned 404 and every domain's known-good
+`active`+shipped sibling returned 200, so both readings are real in both directions.
+
+```
+ai-agent-orchestration.com  /llm-cost-calculator.html
+finetuning.uk               /tools/password-entropy.html            (archived 2026-08-25)
+fundamentallyai.com         /blog/ai-readiness-checker-guide.html
+fundamentallyai.com         /tools/llm-cost-calculator/index.html
+leopardessconsulting.co.uk  /our-approach.html
+robot-hands.com             /gripper-catalog.html                   (serving since ≥2026-08-14)
+robot-hands.com             /news.html
+```
+
+**§2's "do not read 3 of 7 sampled as a rate" was right, and the true rate is 7 of 39 (18%).**
+
+**The more useful correction is that this is a FLOW, not a backlog.** The two
+`loancalculator.co.uk` blog pages this file recorded as serving on 2026-08-22 — `/blog/loan-faqs.html`
+and `/blog/jargon-buster.html` — **both 404 today**, and **five of today's seven were not in that
+sample at all**. So the set turns over inside four days. A one-off sweep of these seven would
+read as a fix, change nothing, and be wrong again within a fortnight — which is the strongest
+argument for §6 candidate 2 over any cleanup.
+
+`robot-hands.com/gripper-catalog.html`, this file's load-bearing datum, has grown from eight days
+to **twelve** and is unchanged.
+
+### Three further measurements, because they change the fix's shape and its severity
+
+1. **All seven are orphaned from their own site.** `site_nav_items` rows: 0 for all seven.
+   `link_registry` inbound: 0 for all seven. They are reachable only by direct URL or by a search
+   engine that indexed them before retirement — which is exactly why the class is invisible from
+   inside the site.
+2. **None of the seven is in its site's `sitemap.xml`** (checked live against each site's own
+   sitemap, 25–51 `<loc>` entries each; 0 of 7 present). So we are not actively inviting
+   indexing, we are failing to withdraw what was already indexed. That supports **medium**
+   severity rather than high, and it is stated here so nobody has to re-derive it.
+3. **None of the seven has a same-`url` sibling page row**, so the retraction action's
+   active-page collision guard would refuse none of them. ⚠ `url` equality is the WEAK form of
+   that test — the real rule is equality of the DERIVED FILE PATH
+   (`datahelpers.PageFilePathFromURL`), because `/foo/` and `/foo/index.html` are one file. A
+   detector must apply the derived-path form, not the string form.
+4. **The re-deploy seam is closed, so a retraction will now stick.** `bugs_open/266`'s
+   `ARCHIVED_PAGE_GUARD` is live at both deploy seams (`git_deployer_actions.go:81,103`,
+   `v3_site_actions.go:899,911`, sharing `archived_page_guard.go`). This matters because
+   LANDMINES records that retraction used to be **self-undoing** — delete the file, the next
+   refresh republishes it, and a post-delete `curl` still shows 404 at the moment you look.
+
+### One thing a fixing thread must know before touching the enablement half
+
+Enabling a discovery check means adding its name to `agent_definitions`, and **an unregistered
+name hard-fails the whole step** (`discovery_checks.go:198-216`, `bugs_open/149` B4), taking the
+run's already-collected findings with it because the return precedes `tx.Commit()`. So the
+migration must be held until the image carrying the Go file has rolled.
+
+The build-enforced guard against that outage is `liveConfiguredChecks` in
+`discovery_checks_registration_test.go`. `[MEASURED 2026-08-26]` **the live agents configure 82
+distinct check names and that fixture asserts 63** — nineteen missing, including all three names
+of a fifth agent (`acceptance-discovery-agent`) and `page_content_divergence`. All 82 resolve
+today (verified by dumping `discovery_checks.Names()`), so this is an under-assertion and not a
+live risk — but it is a 23% blind spot in the guard, and this lane refreshes it by union.
+
+Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_359_archived_page_still_serving/`.
