@@ -639,3 +639,24 @@ predicates prove the stamping mechanism works, so the zero is a real absence and
   could have done the work. **There is no alert on that transition.** The cheapest tripwire, if
   someone wants one before §9f is built, is the §10b table: a `content-gap-planner` row appearing in
   the `would_have_routed_at` column is the signal.
+
+### 10f. The landmine verifier dispatch reported FAILURE on a message that LANDED — do not retry it
+
+`./scripts/landmines-verify-dispatch.sh` synced the new §9 landmine (4,799 owned rows present) and then
+printed, for correlation `1a358ed1-8dba-4f52-bd07-316ec0e8a366`:
+
+```
+RECEIPT INDETERMINATE  topic=system.agent.generic.requests
+VERIFICATION NOT DISPATCHED — no verdict will ever arrive for this run.
+Dispatched 1, 1 failed to publish.
+```
+
+**It had published.** The script's own instruction is the right one and it was followed —
+`kafka_verify_landing 1a358ed1-…` returns `LANDED … EXECUTING_STEP|spawn_verifier`. The run was
+already executing while the dispatcher was reporting it lost.
+
+⚠ **"1 failed to publish" is the strongest possible invitation to re-run the command, and re-running
+would have duplicated a live orchestration.** The script is behaving correctly — it refuses to claim a
+publish it cannot prove, which is the estate's `a-receipt-nobody-asserts-on-is-a-log-line` rule working
+as designed. The failure mode to guard is the READER's: **an unproven publish is not a failed publish.**
+Always run `kafka_verify_landing <corr>` before concluding anything, in either direction.
