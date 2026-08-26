@@ -524,3 +524,32 @@ the owner) is the structural home. Cost today: 3 LLM calls + 3 git commits + 3 d
 **Rows are in the past tense now; what remains is the FUTURE tense.** P3 is settled by the 08-29
 ~13:50 UTC audit of this site; P4 by tomorrow's vonc (10:27) / noted (12:28) / loanzy (15:29 UTC)
 audits, read per distinct pairing with inherited-colour footers expected `unattributed`.
+
+## 2026-08-26 (q) — PRE-AUDIT BASELINE for tonight's two sites, recorded BEFORE their audits so the after can be graded against it
+
+garden-tools.uk (due 17:18 UTC, ~17:50 tick) and cookly.uk (due 18:19, ~18:50 tick); both pass
+542's gate (§(m)). Served themes fetched 15:0x UTC with 404 controls (files in scratchpad).
+
+**garden-tools.uk — the CLEAN control:** zero contrast rows ever (live + archive), zero patch
+markers in the served theme (20,304 B). Its audit grades the "attributed nothing"/fresh-finding
+path.
+
+**cookly.uk — the damage class in miniature, and the sharper test:** 25 historical rows, ALL
+`complete`; the 08-17 batch re-filed byte-identical on 08-23 (9 pairings, fg AND bg). 17 patch
+markers in the served theme (19,067 B). The patched selectors split exactly along 390's two
+mechanisms:
+- invented: `p.p` (×5 rules, three of them a compound `.footer-bottom p.p, .site-footer p.p, p.p`)
+  — match nothing (352's class);
+- **REAL: `p.note`, `p.contact-intro`, `span.label`, `span.accent-text` — and their pairings were
+  STILL re-filed byte-identical on 08-23.** That is the pure 390 mechanism at a second site: a
+  correct selector in the theme losing the cascade (the measured 33/40 shape), no invented-selector
+  confusion. Pre-616, so none carry `!important`.
+
+**Tonight's expectations, falsifiably:** cookly re-files its pairings a THIRD time (the repairs are
+inert; anything else means something else changed) — now with real selectors and attribution;
+paragraphs styled via `var(--section-text, inherit)`-type rules may land `unattributed` (the
+inherited-colour class of §(n)) — read `winning_rule.surface` before calling it blindness; any
+attributed `theme` rows then repaired tonight become cookly's own P3 test at its next audit
+(~08-29 18:50 UTC). If ≥1 attributed repair renders WITHOUT `!important` where
+`needs_important:false`, the §(p) n=1 does not grow; if ≥2 attributed repairs keep `!important`,
+write the fence migration.
