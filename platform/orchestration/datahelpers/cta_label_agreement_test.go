@@ -45,6 +45,7 @@ func TestJudgeCTALabel(t *testing.T) {
 		want        CTALabelVerdict
 		wantNamed   string // URL, when the verdict carries one
 		wantAmbig   bool
+		wantSilence CTALabelSilence
 		why         string
 	}{
 		{
@@ -80,22 +81,22 @@ func TestJudgeCTALabel(t *testing.T) {
 			name:  "generic copy has no opinion",
 			label: "Get Started", destination: "/brands/index.html",
 			onPage: "shaft-length",
-			want:   CTALabelNoOpinion,
-			why:    "LabelTokens reduces this to nothing; a generic button is a content question, not a misdirect",
+			want:   CTALabelNoOpinion, wantSilence: SilenceNamesNothing,
+			why: "LabelTokens reduces this to nothing; a generic button is a content question, not a misdirect",
 		},
 		{
 			name:  "copy naming the page it sits on names nothing",
 			label: "Read the shaft length guide", destination: "/guides/shaft-length.html",
 			onPage: "shaft-length",
-			want:   CTALabelNoOpinion,
-			why:    "bugs_open/308's self-link rule; without it this would read as Agrees and bless a button that links to its own page",
+			want:   CTALabelNoOpinion, wantSilence: SilenceNamesItsOwnPage,
+			why: "bugs_open/308's self-link rule; without it this would read as Agrees and bless a button that links to its own page",
 		},
 		{
 			name:  "copy matching no page at all",
 			label: "Wibble the frobnicator", destination: "/brands/index.html",
 			onPage: "shaft-length",
-			want:   CTALabelNoOpinion,
-			why:    "no candidate shares a token; the matcher must be silent, not convict",
+			want:   CTALabelNoOpinion, wantSilence: SilenceNamesNothing,
+			why: "no candidate shares a token; the matcher must be silent, not convict",
 		},
 	}
 
@@ -111,8 +112,13 @@ func TestJudgeCTALabel(t *testing.T) {
 			if tc.want == CTALabelNoOpinion && got.Named.URL != "" {
 				t.Errorf("NoOpinion carried a named page %q — callers may not act on it", got.Named.URL)
 			}
-			if got.Ambiguous != tc.wantAmbig {
-				t.Errorf("ambiguous = %v, want %v", got.Ambiguous, tc.wantAmbig)
+			if got.Silence != tc.wantSilence {
+				t.Errorf("silence = %v, want %v — the reason a verdict is silent is the seam a later "+
+					"destination-KIND check hangs on (391 lane, 2026-08-26); collapsing the reasons "+
+					"puts 95 of 186 live mismatches back into undifferentiated residue", got.Silence, tc.wantSilence)
+			}
+			if got.Ambiguous() != tc.wantAmbig {
+				t.Errorf("ambiguous = %v, want %v", got.Ambiguous(), tc.wantAmbig)
 			}
 		})
 	}
@@ -137,7 +143,10 @@ func TestJudgeCTALabelRefusesAnAmbiguousTie(t *testing.T) {
 	if got.Verdict != CTALabelNoOpinion {
 		t.Fatalf("verdict = %v, want NoOpinion — an alphabetical tie must never convict a button", got.Verdict)
 	}
-	if !got.Ambiguous {
+	if got.Silence != SilenceAmbiguous {
+		t.Errorf("silence = %v, want SilenceAmbiguous", got.Silence)
+	}
+	if !got.Ambiguous() {
 		t.Error("Ambiguous = false; the tie refusal must be distinguishable from plain silence, " +
 			"or 'this button is undecidable' reaches nobody (RFC_047 §10's stated gap)")
 	}

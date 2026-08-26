@@ -56377,3 +56377,30 @@ a-submission-is-not-a-review.
   of "a grep proves absence only for the spelling it searches" — I never looked at all.
 - **The cheap check:** any "X is not in <enumerable set>" claim headed for a third party gets the
   one SELECT/grep over the actual set, at writing time. The set was 36 rows; the check was free.
+
+## 2026-08-26 (evening) — bugs_open/399 lane: I nearly reported a working mechanism as broken, on a window I set myself
+
+**What I claimed.** That the newly-armed CTA audit was not firing. Migration 643 was applied, 82 CTA
+pairs had been saved since "arming", ~7 of them would convict under the predicate — and there were
+**zero** `CTA_LABEL_MISMATCH` records. I had started drafting the investigation.
+
+**Why it was wrong.** I bounded the demand window at **20:40**, which was roughly when I started
+working. 643 actually applied at **22:17:08**. Re-run against the real boundary, the demand since
+arming was **zero CTA-bearing component saves** — the last one was 22:11:29, six minutes *before* the
+migration. There was nothing for the pass to fire on, and the zero meant nothing at all.
+
+**What caught it.** Checking `schema_migrations.applied_at` for my own migration instead of trusting
+the timestamp in my head — prompted by noticing the `page-rerender` pods had started at 22:17, which
+did not fit my story.
+
+**The cheap check, skipped.** **A demand control has to be bounded by when the CHANGE APPLIED, not by
+when you started working.** I had built the demand control correctly and then fed it the wrong
+boundary, which is worse than not having one: it manufactured 82 units of fake demand and 7 fake
+expected findings, and made a correct silence look like a defect. `SELECT applied_at FROM
+schema_migrations WHERE filename LIKE '<mine>%'` is one query and it is the only honest zero-point.
+
+Second-order lesson, and the reason this is worth a row rather than a shrug: **the failure mode of a
+demand control is not "absent", it is "present and mis-anchored"** — it looks exactly like a working
+control and reports with the same confidence. Every other entry in this file is about a check I did
+not run; this one is about a check I ran against the wrong origin. Tally:
+demand-window-anchored-to-the-session-not-the-change.

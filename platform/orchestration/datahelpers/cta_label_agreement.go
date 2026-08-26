@@ -95,13 +95,64 @@ type CTALabelJudgement struct {
 	// Named is the page the copy names. Set iff Verdict is Agrees or
 	// Contradicts; the zero value otherwise.
 	Named LabelMatchCandidate
-	// Ambiguous distinguishes the two roads to NoOpinion: an RFC_047 tie
-	// refusal (the copy names two pages equally well) from plain silence
-	// (generic copy, no match, or a self-naming label). Recorded, never acted
-	// on — the owner ruled on 2026-08-23 that the undecidable case belongs to
-	// an agent that knows the site's premise, not to a token counter.
-	Ambiguous bool
+	// Silence says WHY there is no opinion, and it exists because "no opinion"
+	// was hiding a population too large to leave as residue.
+	//
+	// The 391 lane made the case on 2026-08-26 with its own measurement: of 186
+	// live mismatches, the copy names NO page at all in 95 — and a large part of
+	// that bucket is copy expressing a destination KIND rather than a page
+	// identity ("Book a discovery call", "Write to <address>"). Those are not
+	// harmless: re-resolution sends them to whichever tool ranks first, so a
+	// button reading "Write to …" opens an ROI estimator. They measured 23 such
+	// contact-intent labels among 41 fields on one site, and one live on
+	// leopardess/careers.html.
+	//
+	// ⚠ THIS IS A REASON CODE, NOT A SECOND QUESTION. JudgeCTALabel stays a
+	// PAGE-IDENTITY test; it does not and must not classify intent. What the
+	// reason buys is a SEAM: a caller that wants a kind-check can hang one off
+	// SilenceNamesNothing without this function acquiring a second definition —
+	// which is the drift RFC_047 §9 exists to stop, and the 391 lane explicitly
+	// asked NOT to widen the judge for exactly that reason.
+	Silence CTALabelSilence
 }
+
+// CTALabelSilence says why a NoOpinion verdict has no opinion. Zero value is
+// SilenceNone, which is what Agrees and Contradicts carry.
+type CTALabelSilence int
+
+const (
+	SilenceNone CTALabelSilence = iota
+	// SilenceNamesNothing — the copy reduced to no distinctive tokens, or matched
+	// no candidate at all. The large bucket (95 of 186 live mismatches as of
+	// 2026-08-26) and the one where a destination-KIND check would go.
+	SilenceNamesNothing
+	// SilenceAmbiguous — the copy names two pages equally well. RFC_047's ruled
+	// refusal: recorded, never acted on, because the owner ruled on 2026-08-23
+	// that the undecidable case belongs to an agent that knows the site's
+	// premise, not to a token counter.
+	SilenceAmbiguous
+	// SilenceNamesItsOwnPage — the copy names the page it already sits on, which
+	// names nothing (bugs_open/308). Distinct from NamesNothing because it is a
+	// CONTENT defect with a known shape: the button should not be there.
+	SilenceNamesItsOwnPage
+)
+
+func (s CTALabelSilence) String() string {
+	switch s {
+	case SilenceNamesNothing:
+		return "names_nothing"
+	case SilenceAmbiguous:
+		return "ambiguous"
+	case SilenceNamesItsOwnPage:
+		return "names_its_own_page"
+	default:
+		return ""
+	}
+}
+
+// Ambiguous preserves the original predicate for existing readers, so adding the
+// reason code changed no call site.
+func (j CTALabelJudgement) Ambiguous() bool { return j.Silence == SilenceAmbiguous }
 
 // JudgeCTALabel answers the shared question for one (copy, destination) pair.
 //
@@ -117,7 +168,19 @@ func JudgeCTALabel(label, destination string, candidates []LabelMatchCandidate,
 	pageName, pageURL string) CTALabelJudgement {
 	best, ok, ambiguous := BestLabelMatchForPage(label, candidates, pageName, pageURL)
 	if !ok {
-		return CTALabelJudgement{Verdict: CTALabelNoOpinion, Ambiguous: ambiguous}
+		if ambiguous {
+			return CTALabelJudgement{Verdict: CTALabelNoOpinion, Silence: SilenceAmbiguous}
+		}
+		// Separate "names its own page" from "names nothing". BestLabelMatchForPage
+		// folds both into !ok, so ask the underlying matcher whether it found a
+		// page at all: if it did, the only way we got here is the self-link rule.
+		if selfBest, selfOK, _ := BestLabelMatch(label, candidates); selfOK {
+			if (pageName != "" && selfBest.Name == pageName) ||
+				(pageURL != "" && NormalizePagePath(selfBest.URL) == NormalizePagePath(pageURL)) {
+				return CTALabelJudgement{Verdict: CTALabelNoOpinion, Silence: SilenceNamesItsOwnPage}
+			}
+		}
+		return CTALabelJudgement{Verdict: CTALabelNoOpinion, Silence: SilenceNamesNothing}
 	}
 	if NormalizePagePath(best.URL) == NormalizePagePath(destination) {
 		return CTALabelJudgement{Verdict: CTALabelAgrees, Named: best}

@@ -114,6 +114,11 @@ type ctaLabelFinding struct {
 	NamedTitle  string `json:"named_title,omitempty"`
 	Verdict     string `json:"verdict"`
 	Ambiguous   bool   `json:"ambiguous,omitempty"`
+	// Silence says WHY a no-opinion row has no opinion — "names_nothing",
+	// "ambiguous" or "names_its_own_page". Recorded so the 95-of-186 bucket that
+	// names no page is characterisable rather than residue, and so a later
+	// destination-KIND check has a seam to hang on (the 391 lane, 2026-08-26).
+	Silence string `json:"silence,omitempty"`
 }
 
 // auditSectionCTALabels is the whole decision, extracted pure so it is testable
@@ -172,7 +177,7 @@ func auditSectionCTALabels(sections []SectionData, schemaOf map[string]map[strin
 			if j.Verdict == datahelpers.CTALabelAgrees {
 				continue
 			}
-			if j.Verdict == datahelpers.CTALabelNoOpinion && !j.Ambiguous {
+			if j.Verdict == datahelpers.CTALabelNoOpinion && !j.Ambiguous() {
 				continue // generic, unmatched or self-naming copy: no signal
 			}
 			out = append(out, ctaLabelFinding{
@@ -186,7 +191,8 @@ func auditSectionCTALabels(sections []SectionData, schemaOf map[string]map[strin
 				NamedURL:    j.Named.URL,
 				NamedTitle:  j.Named.Title,
 				Verdict:     j.Verdict.String(),
-				Ambiguous:   j.Ambiguous,
+				Ambiguous:   j.Ambiguous(),
+				Silence:     j.Silence.String(),
 			})
 		}
 	}
