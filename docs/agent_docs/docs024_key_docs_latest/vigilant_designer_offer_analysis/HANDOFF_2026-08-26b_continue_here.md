@@ -213,9 +213,18 @@ and what is being approved is what a predicate may READ.
 both are unwritable on the audit-routed path. So **every predicate this producer can currently emit
 is doomed at birth**, which is why they all refute and why gate 1c's `outcome='permitted'` has never
 been reachable. **Page body / section content is different: `page-content-writer` can actually write
-it.** A body-content predicate is therefore the first one that could be SATISFIED after a fix — the
-first route to a live negative control, and the precondition for ever promoting gate 1c from
-recording to refusing.
+it.** A body-content predicate is therefore the first one that a handler is CAPABLE of satisfying.
+
+> **⚠ NECESSARY, NOT SUFFICIENT — keep these two apart, and do not let the next reader merge them.**
+> *(Correction supplied by the `bugs_open/395` lane, 2026-08-26, sharpening its own relay: it first
+> said "the first route to a satisfiable predicate", which reads as a promise.)* Widening the
+> vocabulary removes an **impossibility** — today the criterion is unreachable, so a refusal says
+> nothing about the handler. It does not create a **success**: gate 1c's `outcome='permitted'` still
+> requires a handler to actually produce a repair that satisfies the criterion and be graded on it.
+> **That is the content-generation gap the council's `constitution` seat flagged on the gate-1c round
+> and NOTHING HAS TOUCHED IT.** So v2(a) is a precondition for a live negative control, not a
+> delivery of one — and it is emphatically not on its own grounds for promoting the gate from
+> recording to refusing.
 
 **⚠ IT IS BLOCKED ON THIS LANE'S OWN v2(a), NOT ON THEM.** `bugs_open/395` §8f and §5 both record
 that body-text shapes are excluded today *because the page surface the model authors against carries
@@ -252,6 +261,11 @@ descriptions only) is **not this lane's seam** — they are building the provena
 because it bears on every predicate this lane emits: **`pages` has no provenance column at all**, so
 the distinction the owner drew cannot currently be made by the system; with 838 live descriptions and
 none hand-written, option (c) today covers all 838.
+**Status as of 2026-08-26: RULED but BLOCKED — not on approval, on a dependency.** The marker that
+would create that provenance is **`bugs_open/403`'s** (leopardess lane, active today); the 395 lane
+has asked them which direction their marker takes and whether it covers a plain COLUMN as well as
+`content_data`, and is deliberately **not building a second one**. ⚠ If this lane ever needs
+provenance on a page column, ask there first rather than minting a third.
 
 ## §F — WHO OWNS WHAT NEARBY (changed since yesterday)
 
