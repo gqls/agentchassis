@@ -669,3 +669,9 @@ verdict, so no amend is owed and forward-only holds. Resubmit with
 `RESUBMIT_CORR=80f84c54-1854-4fb6-a003-11af1889d20d` once the provider is clean; at 08:57 UTC it was
 **flapping, not restored** (67 `endpoint unavailable` errors in 15 minutes alongside 38 successful
 calls), so a single green call is not evidence.
+
+**RESUBMITTED 2026-08-26 09:01Z**, once the provider showed a genuinely clean window — **0**
+`endpoint unavailable` errors in 3 minutes *with* **8** successful LLM calls in the same window, because
+a zero with no demand is not evidence of recovery. Same correlation
+(`RESUBMIT_CORR=80f84c54-1854-4fb6-a003-11af1889d20d`), new run
+`8a6ad1cf-7762-4591-8f75-9e1f1c57d6e5`. Verdict pending; the trailer on `083d3096e` resolves itself.
