@@ -323,3 +323,83 @@ file is otherwise about, and the same family as my own "a correlation that expla
 a mechanism" note above. **A test that can go red while the fix is working is as useless as one that
 cannot go red at all**, and it is more expensive, because it sends the next person to un-fix a
 working thing.
+
+
+---
+
+# CLOSE-OUT VERIFICATION 2026-08-26 — proven TWICE on natural triggers, and the one residual this fix structurally cannot reach
+
+## The Go halves have ROLLED — the "committed but inert" caveat is retired
+
+`[MEASURED 2026-08-26]` both running chassis builds (`e7f1045fddec`, 1,261 pods; `2fb40a960f88`,
+10 pods) carry every commit of this lane — `7720dc76c`, `72469c556`, `bafd4411c`, `efc0db7bc`,
+by `git merge-base --is-ancestor` against the stamp the pods report. **And they have RUN, not
+merely shipped:** `render_news_section` filed 6 items and `render_directory` 1 through the
+migrated `ConsumerPages` lookup in 12 hours; `rerender-pages` completed 62 runs; all three
+blog-index listings were rewritten by the new projection path.
+
+⚠ The ancestry check must be run against the CURRENTLY reported stamp. My first attempt compared
+against yesterday's `4c996e1b5cb9` and returned "NOT in the running build" for all four commits —
+a false negative produced entirely by a hardcoded sha that a roll had superseded.
+
+## Proven twice on NATURAL triggers — not induced
+
+Every earlier proof of this seam was an induced landing. Today it demonstrated itself unprompted,
+on two sites:
+
+| site | card landed | seam response | outcome |
+|---|---|---|---|
+| leopardessconsulting.co.uk | 14:42:45 | 3 consumer items filed at **14:42:46** — one second later | blog listing array rewritten 15:30:34; **11 of 11 entries carry an image**, 0 blank-with-imagery (was 4) |
+| finetuning.uk | 17:25:45 | 3 consumer items filed at **17:25:45–46** | in flight at time of writing |
+
+Three further leopardess landings at 14:55/14:56 each reported
+`page_list_reresolve: "deduped", deduped: 3, queued: 0` — collapsing onto the open items via the
+shared `PageRerenderItemKey`. **Four landings in fourteen minutes produced three re-render items,
+not twelve**, which is the dedup contract behaving exactly as PBP-048 specifies. All nine items
+completed with `attempt_count = 0`.
+
+## THE RESIDUAL: `owned` pages accumulate stale listing arrays permanently, and this fix cannot reach them
+
+`[MEASURED 2026-08-26]` fleet-wide, 1,008 stored listing entries; **17 are blank where a card
+exists**. Every one resolves:
+
+- **14 sit on `rebuild_policy='owned'` pages** — finetuning.uk/`llm-cost-calculator`,
+  leopardessconsulting.co.uk/`llm-cost-calculator` and `/tool-ai-vendor-trust-checklist`. None was
+  in the `615` fan-out and none can be, because `PageListConsumerPages` excludes owned pages BY
+  DESIGN: page-rerender's reasoned branch runs `save_sections`, whose ownership refusal
+  (`bugs_open/208`, OWNED_PAGE_GUARD) would FAIL the run.
+- **3 sit on generic pages and are the seam in flight** (finetuning, card landed 25 minutes
+  before the census).
+
+So there are **zero genuine misses** — but the owned-page exclusion has a consequence this file
+has not stated until now, and it should not be discovered by someone else later:
+
+> **An `owned` page's `query.*` listing array is never re-resolved by this seam, by the sweep, or
+> by the `template_changed` fan-out. It goes stale on the first card landing after its last
+> resolve and STAYS stale indefinitely.**
+
+That was tolerable while `tool-cta` rendered no image. **It is now visible**: migration `614` made
+`tool-cta` render `.image`, and two of the three affected pages carry `tool-cta`. Their tiles show
+images for entries that have them and nothing for these 14 — on pages a human owns and did not
+change.
+
+The exclusion itself is correct and should not be removed; the gap is that nothing else covers
+those pages. `bugs_open/333`'s lane established that a per-BRANCH refusal can only be expressed at
+selection time, and migration `486` shows the existing remedy shape for owned pages: route them to
+`section_edit` → `section-editor` instead of `page_rerender`. **Nobody has applied that shape to
+listing staleness**, and doing so is the natural follow-up — filed here rather than fixed, because
+it is a new seam for owned pages and belongs in its own round, not in this lane's close-out.
+
+## What remains, and none of it blocks closing
+
+- **The escalation watch.** 603's header asks for the rate re-read a week on, against the
+  refreshed baseline of **1 in 36** `section_data_resolved` runs in 14 days. Zero escalations
+  across every seam-driven run this lane produced (42 tool-cta runs + the natural landings).
+- **`bugs_open/404`** — a separate defect this lane FOUND, not part of this one. Candidate 0
+  (the vocabulary/reader parity test) is unclaimed.
+- **One permanently-failing page**, `ai-agent-orchestration.com/tool-automation-savings-estimator`,
+  refused by the section component floor (`77→37` class attributes). Pre-existing: it failed three
+  times on 2026-08-24, before this lane touched anything, and those were the fleet's only other
+  floor refusals in 14 days.
+- **The owned-page residual above**, which is the only thing here that is genuinely unfinished
+  work rather than a watch item.
