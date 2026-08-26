@@ -58,3 +58,27 @@ their rebuild lands.
   only (the headline needle) and passed while 3 `not just` survived; 647 finished the class.
   Adopted as battery practice: any de-demonstration migration's verify block asserts on the FULL
   class battery, never the sharpest finding alone.
+
+---
+
+## Pre-run refinement (2026-08-26, still before the rebuild) — the residual layer is now MEASURED
+
+The finetuning lane measured the named residual rather than leaving it to a post-hoc hunt: across
+the **27 components** the nine pages use, 10 carry `llm_guidance`, and the whole layer holds
+**exactly 1 `rather than` and 0 `not just`**. The one is `hero-tool → stat_one_value`:
+*"OMIT it rather than invent one (bugs_open/043)"* — fleet-shared (40 live instances), an
+anti-fabrication safety rule with a bug number, one occurrence. **Left in place, and this lane
+AGREES**: bans stay, a ban may name what it bans, and one demonstration against that blast radius
+is not a unilateral trade. (The mechanism still cuts against us — an instruction is also an
+example — so the occurrence is BOOKED, not excused.)
+
+**P2 accordingly splits, sharper than the original:**
+
+- **P2a — seven pages** (`hero-tool` absent): the demonstration stack is FULLY cleared — fleet
+  prompt, voice, site brief, component guidance all at zero. Prediction: `rather_than` **0**.
+  **Any occurrence on these seven implicates the MODEL PRIOR itself** — no carrier remains to
+  hunt, and that would be a genuinely new finding about the ceiling of de-demonstration.
+- **P2b — two tool pages** (`tool-ai-readiness-checker`, `model-approach-selector`): known,
+  bounded, named contribution — ceiling 1 from this source; ≤2/page still the pass line (D3).
+
+All other predictions unchanged. Nothing has run; the owner has the state and the choice.
