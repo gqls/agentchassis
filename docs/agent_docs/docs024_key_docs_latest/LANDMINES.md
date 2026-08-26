@@ -9254,6 +9254,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **fires when:** your change adds behaviour using vocabulary the binary already contained — a new `switch` arm on an existing token, a struct field, a loop over an existing list. `bugs_open/223` phase 2 is the worked case: it made the analyser emit `var` and `const`, but both spellings were already in the binary via `codeKindList`, so the standing pod-grep recipe answers `1` before the change and `1` after and proves nothing in either direction.
 - **the tell: a marker count that is identical before and after, which reads as "already shipped".** The old remedy — "date it by a descendant's literal", i.e. find some later commit that *did* add a string and grep for that instead — is indirect, needs a descendant to exist, and proves only that something newer shipped.
 - **the check:** ask the pod what it was built from. `kubectl -n ai-persona-system logs <pod> | grep -m1 'build provenance'` prints `{"git_commit":"<40 hex>"}` (`bugs_open/153`, live since v1.0.1283), and `git merge-base --is-ancestor <your-commit> <that-sha>` answers the real question. **Test ANCESTRY, not equality** — the stamp is whatever HEAD was at build time, and one `make release` resolves `HEAD` separately per service, so your commit is normally an ancestor rather than the stamp. Locally: `docker image inspect <img> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`.
+  - **⚠ EXTENDED 2026-08-26 (206 lane) — three things this check needs that the line above does not say.**
+    **(1) The log line SCROLLS, and on a busy service that is the NORM, not the exception.** `[MEASURED
+    2026-08-26]` ten hours after a roll, `build provenance` was absent from **both** `agent-chassis`
+    pods even at `--tail=200000`. Plan for the fallback, do not treat its absence as a surprise.
+    **(2) A timestamp comparison EXCLUDES but never CONFIRMS.** "My commit is older than the pod's
+    `startTime`" makes inclusion *possible*, not actual — `make build-* REF=<older>` exists precisely
+    to build from an older ref. So pod-start-vs-commit-time answers "definitely NOT in" and nothing
+    else. It is still the cheapest disproof available, and worth reaching for first *for that
+    direction only*.
+    **(3) An image LABEL is not yet evidence about production.** You read it from a *local* image; the
+    pods pull a *tag*, and a tag is not a promise (same-tag rebuild ⇒ the node's cached layer). Close
+    the gap with a **known-value** probe — `kubectl … exec <pod> -- grep -aq "<the stamp>" /proc/1/exe`
+    — which is the sanctioned form: a grep for a sha you already have, never a discovery grep for
+    "some 40-hex string" (that one matches Go's internal digit table and returns the same wrong answer
+    on every service). Full worked sequence: the 206 lane's
+    `docs024_key_docs_latest/bugfix_206_directory_build_handler/RUNBOOK_directory_build_handler.md` §7c.
 - **do NOT try to discover the sha from the binary.** `grep -aoE "[0-9a-f]{40}"` on the raw file is unanchored and matches Go's internal digit table, returning `0001020304050607…` on every service with total confidence (`bugs_open/153`, trap 2); and `strings` is **absent from debian-slim images**, so behind the customary `2>/dev/null` it returns a silent 0 that is indistinguishable from "no stamp" (trap 1).
 - **for a SPAWNED agent, the chassis pod's stamp is not the answer** — check that pod's own image. `resolveAgentImage` makes a spawned agent inherit the running chassis tag *unless* its `agent_definitions` row sets `default_config.pin_image_tag = true`, in which case it stays on the row's tag through every roll. Verified for `code-indexer` and `landmine-verifier` on 2026-08-11 (neither pinned; both ran `v1.0.1284`).
 - **relations:** `bugs_open/153` (the stamp, and both traps), `bugs_open/223` §4a (the handoff this retires), `bugs_open/066` (`agent_definitions.image_tag` trailing the running chassis — the reason `resolveAgentImage` exists at all)
