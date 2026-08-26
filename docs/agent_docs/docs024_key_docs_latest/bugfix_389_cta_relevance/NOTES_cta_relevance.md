@@ -907,3 +907,51 @@ tomorrow's 24h post-B read — because the aggregate they were reading (265–27
 distinct sites/h) is healthy *and* fully consistent with a mid-rank site receiving nothing for six
 hours. My Phase 3 note is in 413 too, and correctly framed as cutting both ways (deeper loads reach
 @140 rows sooner, but each pick holds a site longer) — to be measured, not assumed.
+
+### 2026-08-26 ~15:2xZ — MISSTEP 15: I chose the one canary site that could not run — and two refinements from the throughput lane that correct me
+
+**The canary moved to `leopardessconsulting.co.uk`.** Same test, site that is demonstrably alive.
+
+> **MISSTEP 15, and it is a selection error, not a measurement one.** I picked `finetuning.uk` as the
+> canary because it was **structurally simplest** — 0 `site_nav_items` rows, both nav flags false,
+> fewest inbound references. That reasoning was sound on the criteria I used. **I never asked whether
+> the site was being dispatched.** `[MEASURED 2026-08-26 15:23Z]` claims in the last three hours:
+> leopardess **72**, aiao **111**, finetuning.uk **ZERO** (last claim 05:09:30). Of the three
+> candidate sites I chose the only starved one, and then spent five and a half hours diagnosing the
+> silence.
+>
+> **The check that would have caught it costs one query and belongs in every canary choice:**
+> *is this target currently being serviced?* `SELECT max(claimed_at), count(*) FILTER (WHERE
+> claimed_at > now() - interval '3 hours') FROM site_work_items WHERE site_id = …`. **"Simplest" is
+> a property of the subject; "will actually run" is a property of the system**, and a canary needs
+> both. Every canary criterion I had was about the page; none was about whether anything would pick
+> it up.
+>
+> The five and a half hours were not wasted — they became `bugs_open/413` — but that was luck about
+> where the silence led, not a good canary choice.
+
+**finetuning.uk's archive STAYS.** Archived pages keep serving (verified: 200, absent control 404),
+its inbound links still resolve, and its relink is **load position 1** whenever 413 clears. Parked
+safe, nothing to undo.
+
+**Two refinements from `dispatch_throughput`'s census `[MEASURED 2026-08-26 ~15:5xZ]`, both of which
+correct something I told them** — 25 sites hold eligible work, **13 pinned / 12 victims**, and
+finetuning.uk is confirmed a pure victim (`oldest_load_rank` 2, my canary at rank 1):
+
+1. **Pin status is DYNAMIC.** Their own headline example — mortgagecalculator's `@140` trio —
+   **unpinned itself within ~40 minutes** when its better-priority inflow paused and the queue
+   drained below the load cap. So the pinned/victim discriminator I proposed produces **a dated
+   snapshot, not a classification.** I offered it as though it partitioned sites; it partitions
+   *this instant*.
+2. **⚠ "Unpinning the pinned sites frees the victims for free" — which I said to them — is WRONG.**
+   A site's own pin does not starve *itself*: **starvation is POSITIONAL**, i.e. being behind pins in
+   age order. `loanandmortgagecalculator` is **pinned AND starving since 04:39**, because of pins
+   *ahead* of it. So the neat two-group causal model (pinned sites cause, victims suffer) does not
+   hold — a pinned site is also a victim of the pins above it. The consequence for their fix
+   ranking is real: candidate 1 (make the two orderings agree) removes pins, but **candidate 2 (an
+   age floor) is the only one that bounds the positional wait**, which is the harm both groups
+   actually suffer.
+
+*I generalised a two-case observation into a taxonomy, and the taxonomy did not survive a census.
+Twelve victims and thirteen pinned sites is what the measurement says; "pinned sites starve victims"
+is what my two examples suggested.*
