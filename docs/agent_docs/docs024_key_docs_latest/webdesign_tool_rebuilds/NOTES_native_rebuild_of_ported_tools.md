@@ -4241,3 +4241,30 @@ Consequences, updated from the "suspect pending" state:
 - This seat's demand-control PASSES were structural and stand; the acceptance verdicts'
   substance is no longer "suspect" — it is CONFIRMED-unsound for id-anchored checks until the
   check or the criteria authoring is fixed.
+
+## 2026-08-26 11:40Z (platform seat) — debug_historian's advisory executed, and the demand control found a REAL gap before it was even finished
+
+Writing the lockstep test the 21540c8e round-2 advisory asked for MEASURED the "served-but-
+excluded is unrepresentable" claim and refuted it: the assembler excludes tombstones with
+`build_status IS DISTINCT FROM 'removed'` (NULL-safe — its own comment says the column is
+nullable and a bare inequality would drop NULL rows from serving), while `toolEligibilityWhere`
+carried a bare `<>`. A NULL-status row would be SERVED and invisible to all three tool audits —
+the inversion of the tombstone defect. Population: **0 NULL rows fleet-wide as of 2026-08-26**
+(nullable, default 'pending') — a latent door, and the bare-`<>` predates centralisation (the
+ad-hoc copies had it too; f44451494 did not introduce it).
+
+Shipped: predicate aligned to the assembler's spelling (one line, three callers inherit) +
+`TestAssemblerAndEligibilityShareTheTombstonePredicate` (comment-skipping scan over BOTH files;
+mutation-proven both directions — predicate regressed → 2 tests FAIL; assembler literal mutated
+→ lockstep FAILs; restores green). Commits `18561ff05` + gofmt `d36faaeaf`, council submission
+**89dcc04a** (`Council-Submitted` trailer; **verdict owed a read ~30 min out**). Disclosed, not
+changed: three more bare-`<>` copies in other lanes' files — `component_selector.go:189`,
+`queryresolve/consumers.go:194`, `check_page_list_stale.go:258` — named for their owners.
+
+Also banked, owner direction relayed by the noted lane (their 283 CONTRIB addendum, commit
+6c75eb2f4): **the deliberate-absence/regeneration problem gets a FLEET-WIDE mechanism** —
+components with an external source of truth become visible AS SUCH to every sweep; conversion
+routes at the source owner; escalations never regenerate on fixed:true strike counts; and the
+tool_health deliberate-absence gap (apis.uk, noted's editor) is the checker-side half of the
+same missing marker. **This seat builds NO tool_health-local waiver** — confirmed to noted;
+the ~12:15Z-headed entry already recorded "not built unprompted", which stands.
