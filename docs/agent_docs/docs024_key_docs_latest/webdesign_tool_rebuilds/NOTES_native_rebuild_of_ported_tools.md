@@ -4174,3 +4174,47 @@ queue, their call — this seat has touched nothing; named here so a future read
 tombstones enumerated — neither depends on verdict substance). But the acceptance verdicts'
 SUBSTANCE (the failed counts in the 03:46Z findings) is suspect pending `91228c39`; the
 grind's line is adopted verbatim: *"it is not yet grading, whatever its status says."*
+
+> **CORRECTED 2026-08-26 10:58Z (platform seat) — TODAY'S ENTRY TIMESTAMPS ABOVE ARE WRONG,
+> by up to three hours forward.** `SELECT now()` at the time of this note reads 10:52Z, yet
+> entries above are headed up to "~13:45Z". I estimated elapsed time per exchange instead of
+> reading a clock — not the BST-mislabel class, a fabricated-elapsed-time one. The COMMITS
+> carry the true times; map headers to reality via `git log --format='%h %cI %s' --since=
+> '2026-08-26'` (7baa7a4f1 → f49adc64d → bed319b7c → 85bcb63c5 → e5e7b3c35 → 4b77c016c →
+> a84a90ed1). Everything from "~11:00Z" onward happened in the ~09:50–10:45Z window. Caught by
+> the owner's "reread the verdict" prompting a now() read. Headers left as written
+> (append-only); trust the commit times.
+
+## 2026-08-26 10:58Z (platform seat) — the verdicts REREAD, at the reports, and what stands out today
+
+Owner asked for a reread. The anchor diagnosis has NO verdict yet (still `diagnosing`,
+iteration-5 bundle 10:54:46Z — verdict-shaped artifacts absent; my first grab of "the newest
+verdict row" pulled ANOTHER lane's REVISE via a sloppy `%anchor%` match — caught before it was
+believed). What a full reread of the verdicts this seat actually holds surfaced:
+
+**Track 2 round 2 (21540c8e) — read at the `council_report` artifact for the first time by this
+session** (the handoff had summarised it). Three passages read differently today:
+1. **bug_historian:** the underlying invariant "rests on ONE writer path (the 360 guard) …
+   asserted, not independently verified by me — worth a human's eye." That eye happened the
+   same evening without anyone connecting it to this line: ancestry of both guard commits in
+   the 1339 stamp + the grind's two-replica binary probe. The ask is CLOSED, and now it's
+   recorded AS the answer to the seat's note rather than a coincidence.
+2. **The council explicitly scoped the acceptance VERIFICATION MODEL out** (improvement_guardian:
+   "does not touch … acceptance-test verification model"; mission: the filter merely "prevents
+   wasted Tier-2 review/spend on unreachable markup"). So today's anchor-absent find does NOT
+   contradict the approved change — no seat vouched for the Tier-2 criteria being sound, and
+   the verdict's own scoping said so. Track 2 narrowed the population; the verdict substance
+   was always someone else's open question, now `91228c39`'s.
+3. **debug_historian's advisory is UNACTIONED and is now the owed residual:** a demand-control
+   test asserting the ASSEMBLER's exclusion (rerender_single_page_action.go:843) and the
+   eligibility filter share the literal predicate — "logical argument, not a measured one".
+   The f44451494 centralisation pinned callers→predicate, NOT predicate→assembler; with the
+   filter now in ONE place (`toolEligibilityWhere`) this is a one-test job. Owed by this seat.
+
+**The landmine-verifier verdicts** (armed yesterday, reported "COMPLETED" without reading the
+verdicts — the a-receipt-nobody-asserts-on shape, mine): staleness entry → NEEDS_HUMAN_REVIEW
+×2 (the .go-only code index cannot see check.py / scheduled_tasks / doc_notes; nothing
+contradicts the entry); tool-family entry → UNVERIFIABLE (same scope limit; "absence claims
+here carry no weight in EITHER direction"). No refutations; both entries stand on their own
+live-row evidence, and the verifier's scope limit is worth knowing: it cannot examine any
+landmine whose footprint is not Go symbols.
