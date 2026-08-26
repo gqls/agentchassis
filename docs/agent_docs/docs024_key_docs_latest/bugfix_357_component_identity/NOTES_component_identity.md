@@ -1267,3 +1267,37 @@ route to it runs a content writer first. When credit is restored, re-run the con
 **capped while billing reads 0% used means the WRONG ACCOUNT is being looked at**; check the
 keys' `Last used`. And per the owner's 2026-08-23 ruling, **never read a key into a session** —
 probe from the pod.
+
+## 2026-08-26 08:17Z — state check, and a correction I made within two minutes of making the error
+
+**MISSTEP: I read `llm_call_log` row counts as evidence the fleet was partly working.** Seeing
+602 credit failures but "35 LLM calls in the last 30 minutes, latest seconds ago", I inferred
+some provider or key must still be serving. **Wrong.** `llm_call_log` has a `success boolean
+NOT NULL DEFAULT true` column and logs the ATTEMPT, not the outcome:
+
+```
+success | calls | with_output | latest
+   f    |  126  |      0      | 2026-08-26 08:17:25Z     <- ALL of them, both models
+```
+
+**Zero successful calls in two hours.** Not one. The fleet is completely down for LLM work,
+worse than last night rather than recovering (63 credit failures in the last hour alone).
+
+The shape is this estate's own [[a-receipt-nobody-asserts-on-is-a-log-line]]: a row in a table
+named `*_call_log` reads as "a call happened", and the column that says whether it *worked* is
+one I had to go and look for. **The discriminating query is `GROUP BY success` with
+`count(*) FILTER (WHERE output_tokens > 0)` beside it** — a row count alone cannot tell a
+working fleet from a flat-lining one, and it reported the more comfortable of the two.
+
+### Lane state, re-measured 2026-08-26 08:17Z
+
+`adopted=2 · population=22 · population_stamped=0 · armed_carriers=6`
+
+Chassis pods `agent-chassis-6dd68888dc-*`, started 2026-08-25 23:11:52Z (a newer build than
+the `669b45fdb4` that ran the adoptions). **The two adopted rows and the arming both survived
+a second roll** — again because arming is `agent_definitions` config, not code.
+
+**Everything blocking this lane now needs an LLM.** Precondition 4 requires a rebuild; every
+rebuild runs a content writer first. So the control cannot be re-run, the canary cannot be
+re-run, and 578 must not run in a window where no page on the estate can be rebuilt to verify
+it afterwards.
