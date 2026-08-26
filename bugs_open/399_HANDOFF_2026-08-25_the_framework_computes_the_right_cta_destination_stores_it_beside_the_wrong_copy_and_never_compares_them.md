@@ -125,3 +125,30 @@ Not run through the diagnosis loop: every step is first-hand and re-runnable —
 comparing reader, the three `agent_definitions` rows showing enablement, the `site_work_items`
 history for `empty_section`, and the served header anchor. A 090 run would re-read the same six
 artefacts.
+
+---
+
+## CONTRIB 2026-08-26 — two independent precedents for candidate 1, from the `news_editorial` lane
+
+Candidate 1 above ("make the bad state unrepresentable at write time rather than detectable at
+sweep time") is not a novel argument in this estate, and two live pieces of work rest on it. Both
+offered by the lane building `features_open/035`:
+
+1. **035's G1 test is candidate 1's shape exactly.** Its acceptance criterion for decomposed
+   generation is *"rewriting one prose child leaves every sibling row byte-identical — **by
+   construction (row-scoped write), not by prompt discipline**"*. Same move: put the guarantee in
+   the write path's shape rather than in an instruction the writer may ignore and a checker may
+   later notice.
+
+2. **035 §6.1 REFUSES a CASCADE on the parent FK for the same reason, arguing it in reverse.**
+   A cascade would let a delete quietly take children with it; the loud foreign-key error is the
+   tripwire, and cascading *"would hand the sweep the silent-destruction power the guard exists to
+   deny"*. That is candidate 1 stated as a prohibition rather than a construction — and it is the
+   more useful half for this bug, because the CTA case is *already* the failure that refusal
+   avoids: a value is written that cannot be right, and the only thing standing behind it is a
+   sweep that may or may not run.
+
+**Why this belongs in the file rather than in a message:** candidate 1 will read as a new
+proposal to whoever picks this up, and a new proposal costs a design argument. It is not new — it
+is the principle two other pieces of live work already chose, and the honest framing is *"apply
+the rule this estate already uses to the one place it demonstrably is not being applied"*.
