@@ -44,6 +44,9 @@ PNG_1PX = bytes.fromhex(
 class StubAPI(http.server.BaseHTTPRequestHandler):
     """The happy-path engine, faithful to server.go's shapes."""
     next_media_id = 900
+    chunk_next = 0
+    chunk_uploads = {}
+    chunk_aborts = []
     def _json(self, code, obj):
         body = json.dumps(obj).encode()
         self.send_response(code)
@@ -87,6 +90,36 @@ class StubAPI(http.server.BaseHTTPRequestHandler):
             n = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0)) or 0) or b"{}")
             n.setdefault("id", 42)
             self._json(200, n)
+        elif self.path.startswith("/api/notes/") and self.path.endswith("/media/uploads"):
+            # Chunked begin (server_uploads.go's shape). MUST precede the
+            # plain-"/media" branch below, which its path also matches. The
+            # stub halves the file so every chunked case exercises >=2 parts;
+            # the client's contract is to obey part_size, whatever it is.
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)) or b"{}")
+            StubAPI.chunk_next += 1
+            uid = StubAPI.chunk_next
+            part_size = max(1024, (int(body.get("size", 0)) + 1) // 2)
+            StubAPI.chunk_uploads[uid] = {"size": int(body.get("size", 0)),
+                                          "part_size": part_size, "parts": {}, "kind": body.get("kind")}
+            total = (int(body.get("size", 0)) + part_size - 1) // part_size
+            self._json(201, {"upload_id": uid, "part_size": part_size, "parts_total": total})
+        elif self.path.startswith("/api/uploads/") and self.path.endswith("/finish"):
+            uid = int(self.path.split("/")[3])
+            u = StubAPI.chunk_uploads.get(uid)
+            if u is None:
+                self._json(404, {"error": "no such upload"})
+                return
+            total = (u["size"] + u["part_size"] - 1) // u["part_size"]
+            for n in range(1, total + 1):
+                if n not in u["parts"]:
+                    self._json(409, {"error": "part %d has not arrived" % n})
+                    return
+            if sum(u["parts"].values()) != u["size"]:
+                self._json(409, {"error": "the parts do not add up to the declared size"})
+                return
+            del StubAPI.chunk_uploads[uid]
+            StubAPI.next_media_id += 1
+            self._json(201, {"id": StubAPI.next_media_id, "byte_len": u["size"]})
         elif self.path.startswith("/api/notes/") and "/media" in self.path:
             body = self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
             time.sleep(MEDIA_DELAY_S)         # the observable window for "Uploading…"
@@ -95,8 +128,27 @@ class StubAPI(http.server.BaseHTTPRequestHandler):
         else:
             self._json(404, {"error": "no such path"})
 
+    def do_PUT(self):
+        if self.path.startswith("/api/uploads/") and "/parts/" in self.path:
+            uid = int(self.path.split("/")[3])
+            n = int(self.path.split("/")[5])
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
+            u = StubAPI.chunk_uploads.get(uid)
+            if u is None:
+                self._json(404, {"error": "no such upload"})
+                return
+            u["parts"][n] = len(body)
+            self._json(200, {"part": n, "size": len(body)})
+        else:
+            self._json(404, {"error": "no such path"})
+
     def do_DELETE(self):
-        if self.path.startswith("/api/media/"):
+        if self.path.startswith("/api/uploads/"):
+            uid = int(self.path.split("/")[3])
+            StubAPI.chunk_uploads.pop(uid, None)
+            StubAPI.chunk_aborts.append(uid)
+            self._json(200, {"status": "discarded"})
+        elif self.path.startswith("/api/media/"):
             self._json(200, {"status": "deleted"})
         elif self.path == "/api/account":
             self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
@@ -241,16 +293,18 @@ def main():
         # that is how the storage meter and the size pre-check get exercised.
         # ------------------------------------------------------------------
 
-        def route_me(page, max_upload=25 * 1024 * 1024):
+        def route_me(page, max_upload=25 * 1024 * 1024, small_upload_max=None):
             calls = {"n": 0}
             def handler(r):
                 calls["n"] += 1
                 if calls["n"] == 1:
                     r.continue_()
                 else:
-                    r.fulfill(status=200, content_type="application/json",
-                              body=json.dumps({"email": "probe@example.com", "media_bytes": 1234,
-                                               "media_quota": 50 * 1024 * 1024, "max_upload": max_upload}))
+                    me = {"email": "probe@example.com", "media_bytes": 1234,
+                          "media_quota": 50 * 1024 * 1024, "max_upload": max_upload}
+                    if small_upload_max is not None:
+                        me["small_upload_max"] = small_upload_max
+                    r.fulfill(status=200, content_type="application/json", body=json.dumps(me))
             page.route("**/api/me", handler)
 
         def guard_armed(page):
@@ -611,6 +665,111 @@ def main():
         check("failed edit: loud, original untouched",
               "original is untouched" in page.locator("#nw-edit-status").inner_text()
               and page.locator("#nw-media img").count() == 1)
+        ctx.close()
+
+        # ------------------------------------------------------------------
+        # CHUNKED UPLOADS (2026-08-26, PLAN large_uploads). Cases P–S. The
+        # split point (small_upload_max) is served tiny via route_me so a
+        # 10 KB buffer exercises the multi-part path fast.
+        # ------------------------------------------------------------------
+
+        def chunked_reqs(reqs):
+            return [(m, u) for (m, u) in reqs if "/media/uploads" in u or "/api/uploads/" in u]
+
+        # ---------- CASE P: begin → parts → finish, STORED only at the end ----------
+        print("\nCASE P — chunked upload: begin → both parts → finish, in that order; stored at the end")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page, max_upload=10 * 1024 * 1024, small_upload_max=4096)
+        reqs = []
+        page.on("request", lambda r: reqs.append((r.method, r.url)))
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        add_png(page, name="big.png", buffer=bytes(10000))   # > 4096 → chunked
+        page.wait_for_selector("#nw-media img", timeout=15000)
+        seq = chunked_reqs(reqs)
+        check("exactly begin, part 1, part 2, finish — in order",
+              [("POST" == m and "/media/uploads" in u) or True for (m, u) in seq] and
+              len(seq) == 4 and
+              seq[0][0] == "POST" and "/media/uploads" in seq[0][1] and
+              seq[1][0] == "PUT" and "/parts/1" in seq[1][1] and
+              seq[2][0] == "PUT" and "/parts/2" in seq[2][1] and
+              seq[3][0] == "POST" and seq[3][1].endswith("/finish"),
+              detail=str(seq))
+        check("no single-shot POST for a file this size",
+              not [1 for (m, u) in reqs if m == "POST" and "/media?kind=" in u])
+        check("stored item renders after finish",
+              "/api/media/" in page.locator("#nw-media img").get_attribute("src"))
+        check("no pending item left", "Uploading" not in page.locator("#nw-media").inner_text())
+        ctx.close()
+
+        # ---------- CASE Q: one part fails once — retried alone, then success ----------
+        print("\nCASE Q — a failed part retries by itself; the upload still completes")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page, max_upload=10 * 1024 * 1024, small_upload_max=4096)
+        reqs = []
+        page.on("request", lambda r: reqs.append((r.method, r.url)))
+        flaky = {"failed": 0}
+        def fail_part2_once(r):
+            if r.request.method == "PUT" and "/parts/2" in r.request.url and flaky["failed"] == 0:
+                flaky["failed"] += 1
+                r.abort()
+            else:
+                r.continue_()
+        page.route("**/api/uploads/**", fail_part2_once)
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        add_png(page, name="big.png", buffer=bytes(10000))
+        page.wait_for_selector("#nw-media img", timeout=15000)
+        part2 = [1 for (m, u) in reqs if m == "PUT" and "/parts/2" in u]
+        check("part 2 was sent twice (one failure, one retry)", len(part2) == 2, detail=str(len(part2)))
+        check("part 1 was NOT re-sent", len([1 for (m, u) in reqs if m == "PUT" and "/parts/1" in u]) == 1)
+        check("upload completed despite the flaky part",
+              "/api/media/" in page.locator("#nw-media img").get_attribute("src"))
+        ctx.close()
+
+        # ---------- CASE R: a hard failure is LOUD, held, and releases the reservation ----------
+        print("\nCASE R — hard part failure: NOT stored said plainly, bytes held, reservation released")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page, max_upload=10 * 1024 * 1024, small_upload_max=4096)
+        reqs = []
+        page.on("request", lambda r: reqs.append((r.method, r.url)))
+        page.route("**/api/uploads/**",
+                   lambda r: r.abort() if r.request.method == "PUT" else r.continue_())
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        add_png(page, name="big.png", buffer=bytes(10000))
+        page.wait_for_function(
+            "() => document.getElementById('nw-media').textContent.includes('NOT stored')", timeout=15000)
+        check("failure is loud and the item is held with Try again",
+              page.locator("#nw-media >> text=Try again").count() == 1)
+        check("three attempts were made for the failing part",
+              len([1 for (m, u) in reqs if m == "PUT" and "/parts/1" in u]) == 3)
+        check("the reservation was released (DELETE /api/uploads/{id})",
+              any(m == "DELETE" and "/api/uploads/" in u for (m, u) in reqs))
+        check("guard still ARMED — the bytes are held, not lost", guard_armed(page) is True)
+        check("no <img> was ever claimed", page.locator("#nw-media img").count() == 0)
+        ctx.close()
+
+        # ---------- CASE S: a small file still takes the proven single request ----------
+        print("\nCASE S — under the split point nothing changes: one POST, no chunk machinery")
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        route_me(page, max_upload=10 * 1024 * 1024, small_upload_max=4096)
+        reqs = []
+        page.on("request", lambda r: reqs.append((r.method, r.url)))
+        page.goto(url)
+        page.wait_for_selector("#nw-auth:not([hidden])", timeout=5000)
+        sign_in(page)
+        add_png(page)   # the 1px PNG, far under 4096
+        page.wait_for_selector("#nw-media img", timeout=15000)
+        check("single-shot POST used", bool([1 for (m, u) in reqs if m == "POST" and "/media?kind=" in u]))
+        check("no chunk machinery touched", len(chunked_reqs(reqs)) == 0)
         ctx.close()
 
         browser.close()

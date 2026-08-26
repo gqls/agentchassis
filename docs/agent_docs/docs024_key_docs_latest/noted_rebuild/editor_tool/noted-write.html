@@ -142,6 +142,13 @@
        the strip only on the server's 2xx. A storage meter reads /api/me
        (media_bytes / media_quota / max_upload) and oversized or alien file
        types are refused with a plain sentence BEFORE any bytes travel.
+     - Large files (2026-08-26): a file bigger than the server's
+       small_upload_max travels in PARTS (begin -> PUT parts -> finish), each
+       part one bounded request under the Cloudflare cap, retried up to three
+       times on its own. The split point and the per-file cap both come from
+       /api/me — no size is hardcoded here. STORED is claimed only on
+       finish's 2xx (contract 4 unchanged); a hard failure is loud, keeps the
+       file held for Try again, and releases the server-side reservation.
 
      THE LOAD-BEARING CONTRACT (experience pattern authenticated-note-sync;
      the reason this tool exists as designed):
@@ -303,7 +310,8 @@
 
   function refreshStorage() {
     api('/api/me').then(function (me) {
-      state.limits = { quota: me.media_quota, used: me.media_bytes, maxUpload: me.max_upload };
+      state.limits = { quota: me.media_quota, used: me.media_bytes, maxUpload: me.max_upload,
+        smallMax: me.small_upload_max };
       if (me.media_quota) {
         el.storage.textContent = 'Storage used for photos, video and audio: ' +
           fmtBytes(me.media_bytes || 0) + ' of ' + fmtBytes(me.media_quota);
@@ -356,6 +364,10 @@
     item.error = null;
     renderMedia();
     var doUpload = function () {
+      // A file one request cannot carry travels in parts (chunkedUpload).
+      // small_upload_max comes from /api/me, so the split point is the
+      // server's truth, never a number written here.
+      if (state.limits.smallMax && item.file.size > state.limits.smallMax) { chunkedUpload(item); return; }
       fetch('/api/notes/' + state.noteId + '/media?kind=' + item.kind, {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
@@ -390,6 +402,69 @@
       item.status = 'failed';
       item.error = 'the note itself could not be saved yet';
       renderMedia();
+    });
+  }
+
+  function readJSONResponse(res) {
+    return res.json().catch(function () { return {}; }).then(function (data) {
+      if (!res.ok) { throw new Error(data.error || ('the server answered ' + res.status)); }
+      return data;
+    });
+  }
+
+  // Chunked upload, for files above small_upload_max: begin reserves the
+  // space on the server, each part is one bounded request (retried up to
+  // three times on its own), and ONLY finish's 2xx makes the item stored —
+  // contract 4 covers chunks exactly as it covers one-shot uploads. A hard
+  // failure is loud, keeps the file held for Try again, and tells the server
+  // to release the reservation (best-effort; the server reaps regardless).
+  function chunkedUpload(item) {
+    var uploadId = null;
+    fetch('/api/notes/' + state.noteId + '/media/uploads', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: item.kind, mime: item.file.type || 'application/octet-stream', size: item.file.size })
+    }).then(readJSONResponse).then(function (b) {
+      uploadId = b.upload_id;
+      var total = b.parts_total;
+      var sendPart = function (n, attempt) {
+        var start = (n - 1) * b.part_size;
+        var blob = item.file.slice(start, Math.min(start + b.part_size, item.file.size));
+        item.progress = 'part ' + n + ' of ' + total;
+        renderMedia();
+        return fetch('/api/uploads/' + uploadId + '/parts/' + n, {
+          method: 'PUT', credentials: 'same-origin', body: blob
+        }).then(readJSONResponse).catch(function (err) {
+          if (attempt < 3) { return sendPart(n, attempt + 1); }
+          throw err;
+        });
+      };
+      var seq = Promise.resolve();
+      for (var n = 1; n <= total; n++) {
+        (function (pn) { seq = seq.then(function () { return sendPart(pn, 1); }); })(n);
+      }
+      return seq.then(function () {
+        return fetch('/api/uploads/' + uploadId + '/finish', { method: 'POST', credentials: 'same-origin' })
+          .then(readJSONResponse);
+      });
+    }).then(function (data) {
+      item.progress = null;
+      // ONLY here — finish's 2xx — does the item become stored. Contract 4.
+      state.pending = state.pending.filter(function (p) { return p !== item; });
+      state.media.push({ id: data.id, kind: item.kind, mime: item.file.type, byte_len: data.byte_len });
+      renderMedia();
+      refreshViewToggle();
+      if (state.boardMode) renderBoard();
+      refreshStorage();
+      refreshList();
+    }).catch(function (err) {
+      item.progress = null;
+      item.status = 'failed';
+      item.error = (err && err.message) ? err.message : 'no answer from the server';
+      renderMedia();
+      if (uploadId !== null) {
+        fetch('/api/uploads/' + uploadId, { method: 'DELETE', credentials: 'same-origin' }).catch(function () {});
+      }
     });
   }
 
@@ -719,7 +794,7 @@
       var label = document.createElement('span');
       var name = item.file.name || ('a ' + kindLabel(item.kind));
       label.textContent = item.status === 'uploading'
-        ? 'Uploading ' + name + '\u2026'
+        ? 'Uploading ' + name + '\u2026' + (item.progress ? ' (' + item.progress + ')' : '')
         : name + ' — NOT stored (' + item.error + ')';
       li.appendChild(label);
       if (item.status === 'failed') {
