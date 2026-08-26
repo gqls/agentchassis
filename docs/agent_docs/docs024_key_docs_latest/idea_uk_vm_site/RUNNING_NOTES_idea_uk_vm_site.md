@@ -5959,3 +5959,6 @@ is the wrong order).
 > Same item_keys (page:slot — stable), spec now pointing at the live post-rebuild component rows, so
 > the verifier CAN see this pair — until their dispatch rebuilds the pages and churns the ids again
 > (`bugs_open/300`). The loop's period is one rotation.
+> *(Correction, same session: the confirmation above was recorded at ~16:2xZ, not "~15:0xZ" — I
+> stamped my own clock guess instead of reading the rows' 16:17:30. Also worth keeping: the rotation's
+> re-file lag was ~2.2 h after the failures, not the "within the hour" §X.65 §2 assumed.)*
