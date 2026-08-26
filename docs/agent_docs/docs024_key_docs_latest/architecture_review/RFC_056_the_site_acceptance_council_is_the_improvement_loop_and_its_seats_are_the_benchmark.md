@@ -497,7 +497,9 @@ and holds the exchange in their NOTES — the same-file-passenger remedy, applie
    record-mode default gate). Converge on a shared primitive if a third appears — the same
    follow-up the r2 verdict named for the two PARK shapes (621's human park; record mode's machine park).
 4. **Post-roll proofs owed:** the record-mode retraction's induced two-direction test (ADDENDUM 3);
-   405 §6's origin-door test; 376 §11e's three research-floor tests on real draws. All gated on the
+   ~~405 §6's origin-door test~~ **DONE 2026-08-26 21:16Z, strong form — held one stamped row across
+   2 ticks while 21 unstamped rows promoted in the same window; 56/57 post-roll filings stamped;
+   405 CLOSED**; 376 §11e's three research-floor tests on real draws. All gated on the
    next chassis roll carrying `c440d5c5e`…`f51d3cf5e`; prove the roll by
    `service_binary_capabilities` + `merge-base` with both controls, never a log grep.
 5. **Design-audit's child fail-open** (ADDENDUM 2): `call_visual_auditor`/`call_content_auditor`

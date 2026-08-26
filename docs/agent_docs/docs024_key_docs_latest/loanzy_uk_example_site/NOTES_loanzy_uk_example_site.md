@@ -2099,3 +2099,12 @@ item is still `triaged` behind 27 sites; dispatch healthy (277 claims/h, 269 com
 drain only ~15/h because producers refill — a FRESH site's first item waits behind the fleet's
 maintenance backlog age (the 391 lane's between-sites finding at product scale). Bypass option put to
 the owner, not taken unilaterally.
+
+**2026-08-26 21:2xZ — 405 CLOSED, with the strongest possible reading.** The door proof landed in its
+strong form: the synthetic stamped row held at `detected` across two promoter ticks (20:45:48→21:16:54)
+**while 21 natural promotions of unstamped rows completed in the same window** — discrimination
+observed live, not inferred from a quiet tick. Stamp liveness: 56/57 post-roll filings stamped; the 1
+absent is tool-acceptance-tier4, which bypasses write_audit_findings by design — the exception that
+confirms §4b's boundary. Probe cancelled per recipe. 405 → bugs_closed (both paths on the commit;
+verified one line at HEAD). Remaining from FOLLOW-UP 4: the retraction's slow behavioural proof and
+376 §11e on farmer's draws.
