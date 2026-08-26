@@ -1,7 +1,17 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 49 of 63 retired · 44 SERVE-CONFIRMED (#46 confirmed 19:13Z; #44/#45/#47/#48/#49 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
+## STATE: 49 of 63 retired · 45 SERVE-CONFIRMED (#45 and #46 confirmed; #44/#47/#48/#49 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
+
+**USE THE GATED SERVE-GRADE, DO NOT HAND-ROLL ONE:** `scratchpad/servegrade.sh <slug> <ported-slot-file>
+<completed_at> [negatives…]`. It EXITS NON-ZERO on non-200, a missing/unparseable `last-modified`, or
+an artefact not newer than `completed_at`, and marks a negative control `WORTHLESS` when the ported
+slot does not contain it. Three traps are baked into it, all of which faked a PASS:
+**(a)** a 404 scores 0 on every negative control — printing the status code beside the counts is not
+gating on it; **(b)** `date -d ""` returns **NOW**, so a missing header parses as "landed";
+**(c)** ⚠ **`date -u -d` does NOT parse its input as UTC** — `-u` is output-only, this box is BST, so
+comparing a Postgres UTC `completed_at` naively made artefacts look **3600 s fresher** and would have
+passed anything up to an hour stale. Anchor it: `date -d "$completed UTC" +%s`. Mutation-proved.
 
 ⚠ **GRADE THE SERVED PAGE WITH A GATE, NOT A PRINTOUT.** On #46 the first attempt returned `http=404`
 and **every negative read 0 and "valid"** — a perfect-looking pass off a 3 KB error page. Printing the

@@ -5163,3 +5163,52 @@ Caught only because the printed line had a visible hole in it.
 Re-run with the guard: landed on iteration 1, `last-modified: Wed, 26 Aug 2026 19:11:41 GMT`, a real
 header and genuinely later. Same family as the day's other five — **`date`, like `grep -c` and `head`,
 answers a slightly different question than the one you think you asked when its input is empty.**
+
+## 2026-08-26 19:26Z — #45 head-architect SERVE-CONFIRMED too (45 of 63 live). And the gate I wrote to stop the last two traps had a THIRD one in it.
+
+**#45 `tool-head-architect` PASSES the served grade.** Assembler `486fef43` completed 19:24:36Z;
+artefact `last-modified 19:24:49 GMT` (**13 s** later). http=200, 26,947 bytes. Six negatives, each
+validated ≥1 in the ported slot: `class="ported-page"` 0/1 · `alert(` 0/1 · `onclick=` 0/2 ·
+`raw.match` 0/3 · `My Website` 0/1 · `My Page Title` 0/1. Positives: 3 × `addEventListener`,
+6 `<script>`, **0** raw `{{.`, 11 scoped instance ids.
+
+**Both output-correctness fixes verified in the SERVED bytes, not just the component:**
+`escapeAttr` ×6 · `escapeJsonForScript` ×2 · `DOMParser` ×1 · `u003c` ×1. The public gets the
+escaping.
+
+**Serve-confirmed count: 45 of 63.** Still owed: #44 monolith-splitter, #47 layout-generator,
+#48 insight-injector, #49 privacy-redactor — all `triaged`, assemblers queued, do NOT re-file.
+
+### The reusable gate: `scratchpad/servegrade.sh` — and it REFUSES rather than reports
+
+Written after the 404 and empty-header traps, because both were failures of *reading* a printed
+value rather than *gating* on it. It exits non-zero on: non-200, a missing `last-modified`, an
+unparseable one, or an artefact not newer than `completed_at`; and it marks any negative control
+`WORTHLESS(ported=0)` rather than counting it as a pass. Foreground-tested against the
+already-confirmed #46 before use (reproduced its PASS).
+
+### ⚠ SEVENTH fault, and it was inside that very gate: `date -u -d` does NOT parse as UTC
+
+The first run printed **"freshness OK: artefact is 3647s after completed_at"** for a gap that was
+plainly ~47 s. 3647 − 47 = **3600**, exactly one hour, which is the tell.
+
+`[VERIFIED]` this machine is **BST (`+0100`)**, and **`-u` affects only OUTPUT formatting; `date -d`
+parses a naive string as LOCAL time regardless.** So `date -u -d '2026-08-26 19:11:25'` read
+Postgres's **UTC** `completed_at` as 19:11:25 **BST** = 18:11:25 UTC, and the artefact looked an hour
+fresher than it was.
+
+**The direction is what makes it serious: the bias is toward PASSING.** A genuinely stale artefact up
+to one hour old would have cleared the freshness gate — on a check whose only job is to refuse stale
+artefacts. Third trap in a row whose failure mode is a **green result**, and this one was in the
+instrument I had just built to catch the other two.
+
+Fix: `cte=$(date -d "$completed UTC" +%s)` — anchor the timezone explicitly, never rely on `-u`.
+**Mutation-proved both directions rather than assumed:** fed a `completed_at` in the future it now
+prints `REFUSING TO GRADE: … NOT newer than completed_at` (so the check is not vacuous), and on the
+real value it passes reporting **47 s**, not 3647.
+
+⚠ **And my own timezone probe earlier in this session was self-deceiving.** I ran
+`date -u '+%Y-%m-%d %H:%M:%SZ (local: %H:%M %Z)'` and it printed `local: 16:40 UTC`, which is why I
+believed local time was UTC. **The `-u` forced BOTH format specifiers into UTC — including the one
+labelled "local".** A probe that asks a question and then overrides the answer will confirm whatever
+the flag says. `date; date -u` side by side is the honest form.
