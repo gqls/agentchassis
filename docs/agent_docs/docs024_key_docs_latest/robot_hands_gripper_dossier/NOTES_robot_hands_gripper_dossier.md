@@ -2411,3 +2411,22 @@ clarifying question; 613916a7 happy-path baseline still passes.
   one chat message carrying geometry AND "travel 300 mm" → recorded spec must
   hold NO travel_mm. That is the capability probe; the revision label is the
   provenance.
+
+## 2026-08-26 (evening) — 409 CLOSED (fixed AND live). The pilot stands complete; the widget is the open front
+
+v1.0.1343 verified at the container (revision label `3abb46509…` — the r2 build;
+rate limit intact; gauntlet 200). **The close-out probe was the discriminating
+one**: session `a5209ff9…` INSISTED 300 mm is the jaw opening for a 120 mm part;
+the model recorded it ("Got it… jaws span 300 mm") and the returned spec held NO
+travel_mm — `reconcile()` firing server-side, proving the CODE layer and not the
+prompt in series in front of it. 409 → `bugs_closed/`, verified at HEAD (one
+line). Close commit carries `Council-Reviewed: 70083c99` (verdict READ:
+r2 APPROVED, all reviewers); the commit itself holds only prose, so 098 will not
+list it — the code commits' `Council-Submitted` trailers are the credited ones.
+Note for the record: the reply-prose-one-turn-behind dynamics (model says
+"recorded", spec says absent, next turn re-asks) is accepted and documented in
+the close record.
+
+Archives on the dev box: 1340 / 1342 / 1343 (`~/.config/gripper-dossier/`) —
+1343 is live; the other two are rollbacks; reap the older ones whenever the
+owner is happy.

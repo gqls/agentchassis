@@ -489,7 +489,10 @@ milestone read-out.
 
 ## Open, in priority order
 
-1. **409: 1342 LIVE (replays a+b PASS), council r1 REVISE answered in code (r2,
+1. **409 CLOSED 2026-08-26 evening — fixed AND live** (`bugs_closed/409_…`,
+   council APPROVED, code guard proven live by the insist-probe on v1.0.1343).
+   Superseded text below kept for provenance:
+   ~~409: 1342 LIVE (replays a+b PASS), council r1 REVISE answered in code (r2,
    `0419ca584`), v1.0.1343 staged — ONE more owner swap, then the code-guard probe
    closes it.** Owner's commands (same three, new tag):
    ```
