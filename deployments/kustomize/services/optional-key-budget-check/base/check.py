@@ -89,6 +89,7 @@ OPTIONAL_KEY_COUNTS = {
     "check_tool_fabrication": 3,
     "checkpoint_for_review": 7,
     "cleanup_stale_topics": 3,
+    "collect_external_orders": 3,
     "complete_work_item": 2,
     "compute_checkpoint_keys": 2,
     "compute_component_quality": 5,
