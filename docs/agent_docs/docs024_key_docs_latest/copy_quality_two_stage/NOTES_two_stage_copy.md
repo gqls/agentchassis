@@ -2920,3 +2920,31 @@ appeared once in this prompt — NOT via `{{.voice_style}}` (628's row is clean,
 `mortgagecalculator.co.uk`. Lesson for the register: **a carrier-row rewrite cannot reach copies
 sessions have pasted into per-site briefs**; the ruling-4 brief sweep must include a
 voice-fossil pass, and the mcalc lane has been told (CONTRIB in their dir).
+
+---
+
+## 2026-08-26 (late afternoon) — 630 APPROVED all-reviewers; the finetuning canary is agreed; the cost ledger gains its sharpest line
+
+**5f084feb verdict (redispatched round): COUNCIL GATE — APPROVED, all reviewers approve, zero
+objections.** The correlation's trail: round 1 REVISE (post-hoc gating objection + two real
+catches) → evidence round (rollback tested live, brace-balance check, the 07-29 ruling cited) →
+stranded run → redispatch → clean approval. Nothing owed. All four migrations 627–630 are now
+applied, verified at their artefacts, and council-approved.
+
+**Finetuning asked the right question** ("would a rebuild TODAY clear his ear?") and got numbers:
+their `formatted` still scans **21 demonstrations (unchanged), incl. the 7 `rather than`** that
+were their measured floor-lever — 627/628 cannot reach a site's own brief. Advice sent: de-demo
+the brief first (~an hour, theirs, live immediately), THEN rebuild the nine hero-image pages;
+expect the honesty-beat class to clear (its prescriptions are deleted) and `rather than` to
+persist until the brief pass; judge by read-aloud + checklist, never checklist alone. **Their
+canary offer ACCEPTED** — nine pages, byte-level before-baseline at
+`finetuning_uk_service/baselines/2026-08-26_pre_hero_rebuild/`, one command re-files; that is
+handoff item (e)'s second half, and we score the diff with the phase-1 battery when they run it.
+
+**Cost-ledger line, from their lane (2026-08-26):** the register problem now blocks NON-copy work
+(nine hero images queued behind the frozen copy, `bugs_open/412`), and it has left the estate
+unable to demonstrate its own voice — the sample-dataset work found the only honest voice corpus
+is the rejected register, and the attributable corpus of the owner's own prose measures **117
+words**. *"We cannot demonstrate our own voice, because we do not have one we would show a
+customer."* The owner told them *"I will chase the copy machinery"* — he already had: the six
+rulings are the chase, executed.
