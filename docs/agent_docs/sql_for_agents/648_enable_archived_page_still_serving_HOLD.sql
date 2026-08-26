@@ -126,9 +126,18 @@
 
 BEGIN;
 
-SELECT snapshot_agent('availability-discovery-agent', '648_enable_archived_page_still_serving: pre-update');
-
--- Already-applied gate (the runner reads a RAISE containing 'already').
+-- ⚠ ORDER: THE IDEMPOTENCY CHECK COMES FIRST, THE SNAPSHOT SECOND.
+-- 526 and 541 both snapshot immediately after BEGIN and check afterwards. That
+-- is the wrong way round and the council's guardian seat caught it here
+-- [medium]: on a re-run against an already-applied row, snapshot-first takes a
+-- SECOND snapshot labelled 'pre-update' — which by then is a POST-update
+-- snapshot wearing a pre-update label — and only then refuses. LANDMINES records
+-- exactly that trap. A mislabelled snapshot is worse than no snapshot: it is the
+-- artefact someone restores FROM.
+--
+-- Checking first costs nothing (the refusal path takes no snapshot, which is
+-- correct — there is nothing to snapshot, the change is already in) and the
+-- happy path is unchanged.
 DO $$
 DECLARE done int;
 BEGIN
@@ -142,11 +151,23 @@ BEGIN
     END IF;
 END $$;
 
+SELECT snapshot_agent('availability-discovery-agent', '648_enable_archived_page_still_serving: pre-update');
+
 -- COUNTED NEEDLE-GATE. The step must still be the one this migration believes it
 -- is: the run_discovery_checks step, carrying a checks ARRAY that already holds
 -- BOTH of the names this file's "why this agent" argument rests on. Anything
 -- else and the premise has moved — abort rather than write a check name into a
 -- shape that will not read it.
+--
+-- The count=1 arm is the guard against the documented duplicate-active-rows trap
+-- (a config change to the lower version silently does nothing). The council's
+-- guardian seat asked, correctly, whether this agent is one of the duplicated
+-- ones — asserting the guard is not the same as knowing the answer.
+-- [MEASURED 2026-08-26] four types carry two active non-snapshot rows —
+-- content-creator, content-creator-contact, chief-strategist,
+-- site-component-architect — and `availability-discovery-agent` is NOT among
+-- them. So the gate is expected to pass today; it ships because "no duplicate
+-- exists" and "a duplicate cannot cause damage" are different properties.
 DO $$
 DECLARE n int;
 BEGIN

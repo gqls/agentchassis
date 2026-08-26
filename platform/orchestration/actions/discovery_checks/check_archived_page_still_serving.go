@@ -185,6 +185,11 @@ const (
 	// headroom — but it is a limit, and when it drops anything it LOGS what it
 	// dropped. A silent cap reads as "everything was checked" when it was not.
 	maxArchivedProbeURLs = 40
+
+	// siteStatusPool is the one sites.status value this check must never probe:
+	// a pool domain is unrouted by design. Named as a constant so the deny-list
+	// is one word rather than a string buried in a condition.
+	siteStatusPool = "pool"
 )
 
 // archivedProbeRetryWait is the pause before a control's confirming second
@@ -346,15 +351,44 @@ func (c *ArchivedPageStillServingCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 	result := &CheckResult{}
 	var skips archivedSkipTally
 
-	// ── 1. Site gate. A pool site's domain is unrouted BY DESIGN, so probing one
-	// fabricates a reading. Same gate, same reason, as check_site_unreachable.
+	// ── 1. Site gate — a DENY-list of one, deliberately, and not the allow-list
+	// the sibling checks use.
+	//
+	// A `pool` site's domain is unrouted BY DESIGN (the 071 lane's fixtures rely
+	// on exactly that), so probing one fabricates a reading. That is the only
+	// class this check must not look at, and it is therefore the only class named.
+	//
+	// ⚠ WHY NOT `status IN ('active','deployed')`, WHICH IS WHAT check_site_unreachable
+	// SPELLS. The council's debug_historian seat objected [medium] that scoping a
+	// blast radius by `sites.status` is a recorded trap — it is an informational
+	// lifecycle label that nothing in dispatch filters on — and that citing a
+	// sibling's precedent is not a defence against the trap the sibling also has.
+	// Correct on both counts, and the enumeration the objection asked for settles it:
+	//
+	//	[MEASURED 2026-08-26] sites.status fleet-wide, GROUP BY status:
+	//	    deployed 31 · pool 17 · test 2 · system 1   — 'active' NEVER OCCURS,
+	//	so the `!= "active"` half of the copied allow-list is DEAD CODE, exactly
+	//	as `pages.status = 'deployed'` is dead in the predicates one table over.
+	//	All 40 archived-and-shipped pages that day sat on `deployed` sites; pool,
+	//	test and system held ZERO. So the allow-list excluded nothing real today —
+	//	and that is the point: it would have excluded a site at a status nobody
+	//	has invented yet, silently, from the ONLY check that looks at this class.
+	//
+	// An allow-list fails CLOSED on a new value (the site vanishes from the
+	// check). A deny-list fails OPEN (the site gets checked). For a flag-only
+	// observer whose instrument controls refuse when they cannot prove
+	// themselves, open is the safe direction: the worst case for an unrouted new
+	// status is that the invented-URL or sibling control refuses and writes one
+	// DISCOVERY_CHECK_ERROR row, which is noise. The worst case for the allow-list
+	// is a retired page serving to the public that nothing ever looks at, which
+	// is this bug.
 	var domain, siteStatus string
 	if err := dctx.DB.QueryRowContext(dctx.Ctx,
 		`SELECT COALESCE(domain, ''), COALESCE(status, '') FROM sites WHERE id = $1`,
 		dctx.SiteID).Scan(&domain, &siteStatus); err != nil {
 		return nil, fmt.Errorf("archived_page_still_serving: load site: %w", err)
 	}
-	if domain == "" || (siteStatus != "active" && siteStatus != "deployed") {
+	if domain == "" || siteStatus == siteStatusPool {
 		return result, nil
 	}
 

@@ -24,6 +24,7 @@
 //	treat 403/500 as an absence (i.e. resolve on it)      InconclusiveStatusesFileNothingAndResolveNothing
 //	give the item a handler_agent                         ArchivedItemNeverRoutesToAHandler
 //	skip the pool-site status gate                        PoolSiteIsFullNoOp
+//	turn the deny-list back into an allow-list            UnknownSiteStatusIsStillChecked
 //	let the const and the filed literal drift             ArchivedItemTypeConstMatchesTheLiteral
 //
 // The verdict table (judgeArchivedProbe) is pure and covered row by row.
@@ -848,6 +849,49 @@ func TestPoolSiteIsFullNoOp(t *testing.T) {
 	}
 	if len(res.WorkItems) != 0 || len(res.Resolved) != 0 || len(res.Findings) != 0 {
 		t.Fatal("a pool site must be a complete no-op")
+	}
+}
+
+// TestUnknownSiteStatusIsStillChecked is the counterpart to the pool test, and it
+// exists because the council's debug_historian seat objected [medium] that scoping
+// by `sites.status` — an informational label — silently drops a site at a value
+// nobody has enumerated. [MEASURED 2026-08-26] the fleet holds exactly four values
+// (deployed 31, pool 17, test 2, system 1) and `active` is not among them, so the
+// allow-list copied from check_site_unreachable had a dead arm and a live blind
+// spot. The gate is now a deny-list of one, and this test is what stops anyone
+// "tidying" it back into an allow-list.
+func TestUnknownSiteStatusIsStillChecked(t *testing.T) {
+	for _, status := range []string{"deployed", "test", "system", "some-status-invented-next-year", ""} {
+		t.Run(status, func(t *testing.T) {
+			dctx, mock := newArchivedCtx(t)
+			expectArchivedSiteRow(mock, dctx.SiteID, archivedTestDomain, status)
+			expectArchivedPageRows(mock, dctx.SiteID,
+				pgRow{pgServing, "gripper-catalog", "/gripper-catalog.html", "archived"},
+				pgRow{pgIndex, "index", "/index.html", "active"},
+			)
+			expectOpenItemKeys(mock, dctx.SiteID)
+			expectActivePagePaths(mock, dctx.SiteID, pgRow{name: "index", url: "/index.html"})
+
+			stub := &stubArchivedProbe{
+				invented: []archivedProbeResult{{Status: 404}},
+				seq: map[string][]archivedProbeResult{
+					"https://" + archivedTestDomain + "/": {serving("/")},
+					"https://" + archivedTestDomain + "/gripper-catalog.html": {
+						serving("/gripper-catalog.html"), serving("/gripper-catalog.html")},
+				},
+			}
+			installArchivedProbe(t, stub)
+
+			res, err := (&ArchivedPageStillServingCheck{}).Run(dctx)
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if len(res.WorkItems) != 1 {
+				t.Fatalf("a site at status %q must still be CHECKED — an allow-list would silently "+
+					"drop it from the only check that looks at this class; got %d items",
+					status, len(res.WorkItems))
+			}
+		})
 	}
 }
 
