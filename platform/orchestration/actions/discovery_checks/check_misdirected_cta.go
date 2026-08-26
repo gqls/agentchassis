@@ -124,19 +124,28 @@ func ctaClassifyAnchor(a datahelpers.Anchor, slotName string, pages []datahelper
 	// Suggesting one as the repair target was that defect arriving from the
 	// other direction, and Phase B's widening made it common — 35 of 291 writes
 	// on the writers' side, measured 2026-08-23.
-	best, found, _ := datahelpers.BestLabelMatchForPage(a.Text, pages, pageName, pageURL)
-	if !found {
+	// ADAPTOR (bugs_open/399). The three lines this replaced are now
+	// datahelpers.JudgeCTALabel, so the write-time audit that watches a CTA
+	// being persisted and this detector ask ONE question with one answer. The
+	// proof that the extraction changed nothing is that this file's tests and
+	// cta_classify_anchor_test.go pass UNCHANGED — the same bar bugs_open/203's
+	// extraction of BestLabelMatch met. The third return of the match (the
+	// RFC_047 ambiguity flag) is still discarded HERE for the reason recorded
+	// above; JudgeCTALabel now carries it so the audit can record it without
+	// this check having to file a new work-item type.
+	j := datahelpers.JudgeCTALabel(a.Text, a.Href, pages, pageName, pageURL)
+	switch j.Verdict {
+	case datahelpers.CTALabelNoOpinion:
 		return nil, false
-	}
-	if datahelpers.NormalizePagePath(best.URL) == datahelpers.NormalizePagePath(a.Href) {
+	case datahelpers.CTALabelAgrees:
 		return nil, true
 	}
 	return &misdirectedAnchor{
 		SlotName:             slotName,
 		Text:                 a.Text,
 		Href:                 a.Href,
-		SuggestedTarget:      best.URL,
-		SuggestedTargetTitle: best.Title,
+		SuggestedTarget:      j.Named.URL,
+		SuggestedTargetTitle: j.Named.Title,
 	}, true
 }
 

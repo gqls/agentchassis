@@ -633,6 +633,30 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
 		pageName, pageURL, sections, params.Logger)
 
+	// --- CTA label/destination agreement (bugs_open/399) ---
+	// Records, never refuses and never rewrites — see cta_label_audit.go for the
+	// measurements that ruled both of those out.
+	//
+	// PLACED HERE, at the ONE seam both writers of page_components pass through,
+	// and that placement is the whole reason it is in this file rather than at
+	// the render seam where the fresh label is first visible.
+	// RenderComponentAction looks like the natural home and covers only HALF the
+	// population: RerenderPageSectionsAction does not go through it at all
+	// (rerender_page_sections_action.go:662 calls RenderTemplate directly), so a
+	// gate there would be blind to the repair loop — which is the loop actually
+	// minting the churn (182 misdirected_cta item_keys have been filed more than
+	// once, [MEASURED 2026-08-26]). Both paths end here:
+	//     page-build-handler → call_content_writer → save_sections
+	//     page-rerender      → rerender_sections   → save_sections
+	// verified against the live agent_definitions rows on 2026-08-26.
+	//
+	// AFTER the link repair on purpose, for that pass's own stated reason: it
+	// rewrites content_data urls, so judging before it would judge values that
+	// are about to change and report a contradiction this save then fixed.
+	auditCTALabelAgreement(ctx, params, siteID,
+		datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+		pageName, pageURL, sections, params.Logger)
+
 	// --- Claims floor (bugs_open/149 C1) ---
 	// Placed immediately after the link repair so it scans the bytes that will
 	// actually be written, and BEFORE the regression guards so a page refused for

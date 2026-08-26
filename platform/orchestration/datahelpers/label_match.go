@@ -206,14 +206,25 @@ func NewLabelMatchCandidate(id, name, title, url string, interactive bool, navLa
 // that, and no stopword list can (`spec` is distinctive on that site).
 //
 // ⚠ THE CONSUMER SET IS CLOSED, NOT OPEN, and the refusal above is tuned for
-// it (council 00732119, architecture seat). Three non-test call sites, all CTA,
-// verified by `grep -rn "BestLabelMatch(" --include=*.go platform/ internal/
-// pkg/ cmd/` on 2026-08-23:
+// it (council 00732119, architecture seat). FOUR non-test call sites as of
+// 2026-08-26, all CTA, verified by `grep -rn "BestLabelMatch(\|BestLabelMatchForPage(\|JudgeCTALabel("
+// --include=*.go platform/ internal/ pkg/ cmd/`:
 //
 //	resolve_internal_links_action.go   setCTAField        (build writer)
 //	rerender_page_sections_action.go   applyCTARecompute  (repair writer)
-//	discovery_checks/check_misdirected_cta.go  ctaClassifyAnchor (detector,
-//	                                   itself reused by check_cta_nonpage.go)
+//	cta_label_agreement.go             JudgeCTALabel      (the shared question),
+//	                                   through which BOTH read-side consumers now
+//	                                   go — discovery_checks/check_misdirected_cta.go's
+//	                                   ctaClassifyAnchor (itself reused by
+//	                                   check_cta_nonpage.go) and, since
+//	                                   bugs_open/399, actions/cta_label_audit.go's
+//	                                   write-time pass.
+//
+// The count is FOUR and not five on purpose: ctaClassifyAnchor stopped being a
+// direct caller when bugs_open/399 extracted the question it was asking. That
+// extraction is what keeps the detector and the write-time audit from drifting
+// (RFC_047 §9), and it means a change to the refusal semantics below now reaches
+// both of them together rather than one of them silently.
 //
 // A FOURTH consumer — a breadcrumb or sitemap label matcher, say — would
 // silently inherit "refuse rather than guess", which is the right default when

@@ -55,6 +55,13 @@
   "reader_sink": "agent_error_log",
   "note": "writer and reader are one mechanism \u2014 a 7-day strike ladder counting its own rows. Zero rows in the window is legitimately quiet, not absent. \u26a0 the reader binds a Go CONST to $1, so a literal-grep verdicts this code unread (358 \u00a73.2)"
  },
+ "CTA_LABEL_MISMATCH": {
+  "disposition": "instrumented",
+  "writer": "platform/orchestration/actions/cta_label_audit.go:writeCTALabelAuditLog",
+  "owner": "bugs_open/399_HANDOFF_2026-08-25_the_framework_computes_the_right_cta_destination_stores_it_beside_the_wrong_copy_and_never_compares_them.md",
+  "review_by": "2026-10-01",
+  "note": "bugs_open/399. Write-time record that a CTA's copy names a different page than its destination, asked through the SHARED datahelpers.JudgeCTALabel so it cannot drift from check_misdirected_cta (RFC_047 \u00a79). Deliberately NOT 'consumed': no reader exists, and 392's editquality seat named an inert reader paired with 'consumed' as a dishonesty surface. Deliberately NOT a work item: 78 cta_names_unknown_destination + 70 unresolved_cta already sit at needs_human_review with no handler, and bugs_closed/023's closure warns that more detection makes the invisible pile bigger. THE READING IS THE RATE, NOT THE ROW \u2014 the baseline is 155 of 1,060 pairs written since migration 477 [MEASURED 2026-08-26]; what matters is whether that moves. Query + reading obligation: docs024_key_docs_latest/bugfix_399_cta_label_agreement/RUNBOOK_cta_label_agreement.md. Inherits the surfacing risk bugs_open/410 was filed for, and says so rather than pretending otherwise"
+ },
  "RESOLVER_CONFLICTING_CANDIDATES": {
   "disposition": "instrumented",
   "writer": "platform/orchestration/datahelpers/unified_extractor.go:589",
