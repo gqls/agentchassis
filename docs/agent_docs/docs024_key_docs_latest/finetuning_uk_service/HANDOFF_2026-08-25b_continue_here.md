@@ -112,6 +112,37 @@ Note the accidental shield and the general trap: the **7 existing `contrast_fail
 one most likely to draw an auto-repair. Warned the sending seat; deliberately did NOT suppress
 anything — a detector that stops detecting is worse than the churn.
 
+## 2026-08-26 — the hero images: STOPPED before dispatch, prompts banked, and a new bug
+
+Owner asked for the missing images, was shown the cost, and reversed: *"I don't want the copy in the
+register I rejected - I will chase the copy machinery"*. **Nothing ran.** Verified three ways: the
+9 items never left `triaged`, **0** `needs_page` items were ever emitted, and the served pages are
+byte-identical to the baseline (md5).
+
+**Two of the three "image" problems are FALSE.** The site's 11 `image_url_404` findings are wrong at
+the artefact `[MEASURED 2026-08-26]` — all five case-study files serve **200**, `render_audit.py`
+reports **`broken-img=0`**, and there are **0** empty/`#` `src` attributes. The check compares
+against the `assets` table and its own header says the HTTP half is deferred. **Do not read that
+queue as "the site has missing images".**
+
+**The real one: 9 pages carry no hero image at all** (`about`, `approach`, `careers`,
+`case-studies`, `contact`, `services`, `use-cases`, 2 tool pages) — the same population as
+`bugs_open/398`'s colour-band defect. The other **26** pages share ONE image.
+
+⚠ **And it cannot be fixed without regenerating their copy — now `bugs_open/412`.**
+`flag_page_image_rebuild` emits `item_type='needs_page'` at `page-build-handler` (a full LLM
+rebuild) while its `spec.reason='image_landed'` and `item_key='page_rerender:<page>'` both make it
+look like the light path. `render_news_section_html.go:39-56` records a session already caught by
+that, whose rebuild **fabricated a contact email**. Read the handler, never the reason.
+
+**To resume when the copy rewrite is scheduled** — do images and copy in ONE rebuild:
+`baselines/2026-08-26_pre_hero_rebuild/hero_items_filed.sql` re-files all 9 verbatim (one distinct
+concept per page, honouring `design_intent.imagery_direction`). The restore baseline for those pages
+(served HTML + 66 components' `content_data`) is beside it.
+
+⚠ They were **cancelled, not parked**, deliberately: `park_work_items` sets `deferred`, which is not
+terminal in `idx_swi_dedup` and so **blocks re-filing**; `cancelled` is terminal and releases the key.
+
 ## Traps current for this lane
 
 - ⚠ **A migration that edits `content_components.html_template` ships NOTHING on its own.** No

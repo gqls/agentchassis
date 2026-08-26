@@ -1033,3 +1033,35 @@ For the other three, the only material we hold that is written in a voice you ac
 **your own** — the notes in this file read plainly and directly, which is what the copy team is
 trying to reach. I am not going to use your personal writing for a customer-facing demo without you
 saying so. The alternative is to wait until the site is rewritten and harvest it then.
+
+2026-08-26, later. The images are not done, and nothing was changed — which is the right outcome
+given what turned up.
+
+First, some good news: most of what the site had recorded as missing images isn't missing. There
+were eleven such findings on file since July. I checked them against the live site rather than the
+database, and every picture loads, nothing is broken, and no image tag is empty. The check that
+raised them compares a filename against an internal list and never actually asks the web — so those
+eleven have been wrong all along.
+
+The real problem is narrower: nine pages have no hero image at all. Those are the same nine that
+were falling back to the plain coloured banner, which is why the unreadable-heading fault showed up
+on them. Worth knowing that every other page on the site uses the same single picture, so simply
+filling the gaps would have given you thirty-five pages sharing one image. Each of the nine had its
+own concept written instead.
+
+Then the thing that stopped it. To give a page an image, the system rebuilds that page from scratch
+through the writer — which rewrites the words. There is no way to add a picture without that. Worse,
+the internal job it creates is labelled as if it were the harmless kind; someone has been caught by
+that before, and their rebuild invented a contact email address that didn't exist.
+
+You reversed before anything had run, and I have confirmed nothing did: the nine jobs never started,
+the rebuild step never fired once, and the pages are byte-for-byte what they were. I had also taken
+a full copy of all nine pages beforehand, which is still there.
+
+The nine image briefs are written and banked. When you have the copy machinery sorted, one rebuild
+does the new words and the new images together — which is a better result than doing it twice, and
+it costs nothing to wait.
+
+I have filed the underlying problem as a bug: you should be able to add a picture to a page without
+having its words rewritten. The fix looks straightforward — the lighter rebuild already understands
+"an image just landed", it simply never gets told.
