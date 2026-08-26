@@ -36,9 +36,16 @@ is governed by **the age of the oldest item on its site — somebody else's row 
 
 **Worked case `[MEASURED 2026-08-26 ~14:5xZ]`:** my item is `priority = 30`, the **only** item at
 that priority fleet-wide (the rest: 20 at 35, 601 at 80), with **0 ahead of it by priority and 0
-same-priority older**. It waited 5½ hours, because `finetuning.uk` is **rank 15 of 31** waiting sites
-by oldest-eligible-item (its oldest is 05:03:29; ranks 1–14 are older). Nothing was broken and the
-queue was healthy throughout — 146–154 `page_rerender` completions/hour.
+same-priority older**. It waited 5½ hours, and `finetuning.uk` is **rank 8** of the eligible set
+by oldest-eligible-item (oldest 05:03:29, 73 eligible).
+
+> **⚠ CORRECTED 2026-08-26 ~15:0xZ, twice, both mine.** (a) I first said **rank 15** — that came from
+> a query missing three of `find_dispatchable_site`'s clauses (`approval_mode`, `depends_on`, and the
+> skip-if-that-site-is-busy). Mirrored exactly it is **rank 8**. *This lane's own RUNBOOK rule —
+> "mirror the code exactly or the simulation proves nothing" — and I broke it on the first pass.*
+> (b) I quoted **146–154/hour** as the fleet completion rate; that was
+> `WHERE item_type='page_rerender'` only. Fleet claims are **265–278/hour** (page_rerender alone is
+> 150–160). A silent subset presented as a fleet rate, in an argument about your cost model.
 
 **The tiebreak is not vacuous, so "priority is ignored" would be the wrong summary:**
 `[MEASURED 2026-08-26]` of **1,158** eligible items, **381 share a `created_at` with another row** —
@@ -89,3 +96,30 @@ not-claimable-before stamp — which a 9-hour outage is exactly the shape to pro
 
 — `bugs_open/391` lane, 2026-08-26. Full account:
 `docs024_key_docs_latest/bugfix_389_cta_relevance/NOTES_cta_relevance.md`, entry 2026-08-26 ~14:5xZ.
+
+---
+
+## Addendum 2026-08-26 ~15:0xZ — an observation for the 24h post-B read, handed over UNdiagnosed
+
+`finetuning.uk` has had **zero claims in six hours** (last claim of any item: **05:09:30**), while
+the fleet ran 265–278 claims/h across 13–17 distinct sites/h.
+
+Ruled out, each measured rather than assumed:
+
+| candidate | measurement |
+|---|---|
+| site lock | `locked_at` NULL, 0 exceptions; `status=deployed`, `build_status=pending` — same as its peers |
+| stuck claim holding the busy-skip | **0** rows at `status='claimed'` on that site |
+| `bugs_open/307` `retry_after` deferral | **73 of 73** eligible items claimable now, **0** deferred |
+| attempt exhaustion / bounced claims | **all 73 items at `attempt_count = 0`**, rows last touched 09:28:59 — never attempted, not attempted-and-rejected |
+| simple queue position | in the 14:00 hour (271 claims, 17 sites) service reached sites I rank **13, 19 and 20** while **rank 8** got none |
+
+**I am not offering a cause.** I cannot reconcile this with the selector as I read it, and given I
+got the rank wrong once already today the likeliest explanation is that my reading is still
+incomplete rather than the selector misbehaving — you would see that in a way I would not.
+
+**Why it may matter to Phase 3 specifically:** the aggregate is healthy *and* fully consistent with
+one mid-rank site receiving nothing, so distinct-sites-touched will not surface it. If
+`load_items.max_items` 5→8 makes each pick hold a site busy longer, whatever produces this gets more
+pronounced, not less — a **per-site floor** (worst-case hours-since-last-claim across waiting sites)
+would catch it where the aggregate cannot.
