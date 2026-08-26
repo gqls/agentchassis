@@ -718,3 +718,26 @@ Five items, and none of them is mysterious:
   something else is causing them. That needs diagnosis rather than another repair attempt.
 - **Two pages the checking tool still cannot read at all.** They work for visitors; the tool fails on
   them. Until that is understood, nobody can honestly say the whole site has been checked.
+
+## 26 August, morning — the switch-over is done
+
+The new software release landed overnight, and it carries the other team's protection piece. So this
+morning I ran the held file exactly as written: it checked it was talking to the right software (all five
+of its refusal paths had been rehearsed), made a backup, and switched the site over. The figures sheet the
+writing agents read is now machine-composed — the seven numbers come from the live register, and the
+hand-written "never say this" list rides through every regeneration in the new protected slot. The interim
+sheet from Monday is retired. Nothing on the pages changes — the wording is identical by construction, and
+I verified the stored sheet is byte-for-byte what the machine will produce.
+
+Two proofs are still owed, on purpose: tomorrow morning's automatic refresh should reproduce the sheet
+exactly (if it doesn't, that tells us something and the backup restores Monday's arrangement in one
+command), and the morning after checks the one subtler failure mode the reviewers asked about. I'll not
+call this finished until both have run.
+
+Also this morning, in honesty: I got two small things wrong and both were caught the same day. I credited
+another team with some routine check items on our site that were actually the platform's own newly-resumed
+checks (they corrected me — I'd guessed from who told me rather than reading who filed them), and one line
+in my own runbook claimed a recording step works that in fact refuses. Both are corrected in place with
+the error named. And last night's failed rebuild of the savings-estimator page, which another team routed
+to me for judgement, is the same known fault as before — I've left it visible rather than hiding it,
+because it is the one thing still genuinely wrong on this site.
