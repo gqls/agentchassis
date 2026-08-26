@@ -894,3 +894,95 @@ Most likely the account was properly funded once the **wrong-account** error was
 six days of the month remain, and §5 candidate 1 restoring service has always been the pattern —
 it is what happened on 08-10 too. Recorded as **unresolved, not fixed**. Re-run the histogram
 before repeating any of these figures.
+
+---
+
+## 🔴 LIVE NOW — 2026-08-26: A NEW VARIANT. Not the usage cap — **CREDIT BALANCE EXHAUSTED**. Fleet LLM capability has been down ~9 hours.
+
+**Found at 08:50Z** by this lane, while checking a council verdict — **not by any alert.** Same
+family as this file (the provider refusing us on a billing state, HTTP 400), **different
+condition, different message, and a different owner action.**
+
+```
+API request failed with status 400: {"type":"error","error":{"type":"invalid_request_error",
+"message":"Your credit balance is too low to access the Anthropic API. Please go to Plans &
+Billing to upgrade or purchase credits."},"request_id":"req_011CeQqahpusvb1cHm6UmUK3"}
+```
+
+**⚠ This is NOT the message this file has documented five times.** The cap says *"You have
+reached your specified API usage limits… You will regain access on <date>"* and is fixed by
+raising a limit. This says **"Your credit balance is too low"** and is fixed by **purchasing
+credits**. A session pattern-matching on "400 + billing" will reach for the wrong remedy — and
+the wrong-account trap (§2026-08-24) applies to both.
+
+### The boundary, measured to the second `[MEASURED 2026-08-26 08:50Z]`
+
+| | time (UTC) |
+|---|---|
+| last SUCCESSFUL LLM call, fleet-wide | `2026-08-25 23:46:29.930` |
+| first credit failure | `2026-08-25 23:47:10.233` |
+
+**691 credit failures across 18 agent types**, and **zero successful calls in every hour from
+00:00 to 08:00**. This is a wall, not an intermittent — unlike the cap, which ran at ~5%.
+
+Worst-hit: `page-content-writer` (259), `tool-improver` (100), `content-quality-auditor` (69),
+`council-gate` (55), plus 14 more.
+
+`ai_endpoint_health.claude` reads **UNHEALTHY** carrying this 400 — correctly, and note **MDL-044
+cannot clear it**, which is right: there are no successful calls to clear it with. The flag is
+telling the truth.
+
+### What the owner needs to do
+
+**Purchase credits** (Plans & Billing). ⚠ **Check you are on the right organisation first** —
+the 08-22/23 event cost ~16 hours because the fleet's key is not on the org
+`platform.claude.com` opens by default. Decisive column: **Organization settings → API keys →
+`Last used`**; a live key can never read "30+ days ago".
+
+### Recovery check
+
+```sql
+SELECT date_trunc('hour',created_at) hr, count(*) FILTER (WHERE success) ok,
+       count(*) FILTER (WHERE NOT success AND error_message ILIKE '%credit balance%') credit
+FROM llm_call_log WHERE created_at > now() - interval '6 hours' GROUP BY 1 ORDER BY 1;
+```
+It must move **and keep moving** before declaring it over.
+
+---
+
+## ✅ …AND THIS OUTAGE DELIVERED THE PROOF THIS LANE WAS WAITING FOR — partly
+
+The council round I submitted at 08:2xZ (`dfde47a4-a64b-4fe8-ba80-b9be88da0e21`) ran straight
+into it. Its `__step_error` reads:
+
+> `step council_decide failed: … no reviewer produced a readable opinion (6 abstained, **11
+> unreadable**: review_editquality.result, review_reuse_agent.result, review_guidelines.result,
+> review_guardian.result, review_di…)`
+
+**ELEVEN SEATS WERE CLASSIFIED `unreadable`, NOT `abstained`.** That is the mechanism firing in
+production for the first time: the coordinator wrote `__step_errors`, `reviewStepFailed` read
+it, and the council correctly recorded eleven opinions as **owed and lost** rather than as
+considered non-objections. **Before this fix those seats would have been counted as abstentions
+and an approval could have stood on six.**
+
+### But the round still died — and that is CORRECT, not a defect
+
+11 unreadable + 6 abstained = **all 17 seats**. With no opinion at all, `council_decide` hit its
+own long-standing guard — *"a council with no opinions cannot decide"* — and took
+`council_decide`'s `error_step`, which migration 588 **deliberately left** as `complete_invalid`.
+Every branch behaved as designed.
+
+**So the honest statement of what is now proven, and what is not:**
+
+| claim | status |
+|---|---|
+| an errored seat is recorded `unreadable`, not `abstained` | **PROVEN in production**, 11 seats |
+| the writer→reader contract holds end to end on live data | **PROVEN** |
+| a round SURVIVES a lost seat and returns REVISE naming it | **STILL NOT PROVEN** |
+
+The last one needs a **PARTIAL** outage — some seats answering, some failing. This was a
+**TOTAL** one, where no fix could have produced a verdict.
+
+**The limit this exposes, stated plainly: the fix converts a partial provider failure from fatal
+to survivable. It cannot save a round when the provider is 100% down, and it was never intended
+to.** That belongs in the record next to the win.
