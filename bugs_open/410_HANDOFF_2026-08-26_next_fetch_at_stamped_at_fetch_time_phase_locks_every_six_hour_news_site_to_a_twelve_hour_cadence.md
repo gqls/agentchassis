@@ -259,3 +259,14 @@ logged in `WRONG_CALLS.md`.
 
 **Bug stays OPEN** until the ~02:46Z acceptance test passes and §7's 48 h census shows four
 run-hours/day for every 6h-only site.
+
+**2026-08-26 21:02Z — the acceptance test set, pinned before `orchestration_states` prunes it.**
+The 20:46:45Z pass (the last under bare-NOW() admission) served, with each site's re-stamped
+earliest `next_fetch_at`: webdesign.co.uk 02:47:31 · ai-agent-orchestration.com 02:48:48 ·
+fundamentallyai.com 02:50:54 · robot-hands.com 02:53:26 · gaswholesalers.com 02:59:35 ·
+mortgagecalculator.co.uk ≈03:01 — **six 6h-only sites, every one re-stamped AFTER the expected
+~02:46:5xZ trigger** (the defect) **and inside the 3 h look-ahead** (the fix). All six must be
+served at ~02:46Z. ⚠ relojistas.com and dartsonline.com were also served but are **NOT**
+evidence: their 3 h/4 h sources come due at 23:55 and 00:57, i.e. before the trigger, so they
+pass under either predicate — the same vacuous shape as prediction (d). Full table: lane
+HANDOFF §4.

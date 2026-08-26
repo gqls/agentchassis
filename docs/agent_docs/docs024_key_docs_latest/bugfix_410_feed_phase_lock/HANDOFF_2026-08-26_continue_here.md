@@ -74,23 +74,38 @@ Those sites' sources are stamped **fetch time + 6 h ≈ 02:47Z onwards**. The ne
 > AGAIN in the ~02:46Z pass.** Under the old behaviour each misses by seconds and waits until
 > ~08:46Z. This is the fix working, or not, on its first real grid tick.
 
-```sql
--- the test set (read it, don't assume the four above are all of it)
-SELECT s.domain, to_char(o.created_at,'HH24:MI:SS') AS dispatched_2047
-FROM orchestration_states o JOIN sites s ON s.id=o.site_id
-WHERE o.owner_agent_type='content-feed-orchestrator'
-  AND o.created_at BETWEEN timestamptz '2026-08-26 20:40:00+00' AND timestamptz '2026-08-26 21:30:00+00'
-ORDER BY o.created_at;
+**THE TEST SET, RECORDED HERE** so it does not have to be re-derived from `orchestration_states`
+(pruned at ~2 days). Captured 21:02Z, with each site's re-stamped `next_fetch_at` — note every
+one falls **after** the expected ~02:46:5xZ trigger, which is the defect, and **within** the 3 h
+look-ahead, which is the fix:
 
--- the result: same domains must appear here
+| site | dispatched | re-stamped due | discriminating? |
+|---|---|---|---|
+| webdesign.co.uk | 20:47:02 | 02:47:31–02:47:54 | **YES** (6h-only) |
+| ai-agent-orchestration.com | 20:48:26 | 02:48:48–02:49:05 | **YES** |
+| fundamentallyai.com | 20:50:31 | 02:50:54–02:51:14 | **YES** |
+| robot-hands.com | 20:53:03 | 02:53:26–02:53:59 | **YES** |
+| gaswholesalers.com | 20:59:08 | 02:59:35–02:59:42 | **YES** |
+| mortgagecalculator.co.uk | 21:01:36 | ≈03:01–03:02 | **YES** |
+| relojistas.com | 20:55:20 | 23:55:46–02:55:43 | no — 3 h source due 23:55, served either way |
+| dartsonline.com | 20:57:12 | 00:57:55–02:58:06 | no — 4 h source due 00:57, served either way |
+
+⚠ The pass was still dispatching at 21:02Z; sites may have been added after this snapshot —
+re-read if you need completeness, but **the six discriminating rows above are sufficient**.
+
+⚠ **Use only the six.** relojistas and dartsonline carry sub-6h sources that come due *before*
+the 02:46 trigger, so they are served under either predicate — they are the same vacuous shape
+as prediction (d), and reporting them as evidence would be the mistake this lane already made
+once.
+
+```sql
+-- the result: the six discriminating domains must all appear here
 SELECT s.domain, to_char(o.created_at,'DD HH24:MI:SS')
 FROM orchestration_states o JOIN sites s ON s.id=o.site_id
 WHERE o.owner_agent_type='content-feed-orchestrator'
   AND o.created_at > timestamptz '2026-08-27 02:40:00+00'
 ORDER BY o.created_at;
 ```
-⚠ `orchestration_states` is pruned to roughly **2 days**, so run the first query before it ages
-out, or take the test set from `content_sources.last_fetched_at` (≈20:47–21:0xZ) instead.
 **Disconfirming result:** tonight's sites absent from the 02:46Z pass ⇒ the look-ahead is not
 reaching the decision; re-check the live config query and the binary probe before anything else.
 
