@@ -1018,3 +1018,46 @@ and destination must agree in **kind** — a contact-intent label must resolve t
 destination, not merely to a live page. That is a check I can write against `content_data` before
 dispatching anything, and it should gate the batch. **This is exactly what a canary is for, and it
 is the second time this lane's canary has paid for itself.**
+
+### 2026-08-26 ~15:5xZ — ⚠ FLEET-WIDE: the site deploy pipeline STALLED at ~15:25. Work items report `complete`, git is correct, nothing reaches the live sites
+
+Chasing my own stale artefact located the boundary exactly, and it is not this lane's:
+
+| stage | state |
+|---|---|
+| `page_components.content_data` | ✅ correct — CTAs moved off the archived page 15:48:34 |
+| `page_components.rendered_html` | ✅ correct — both surfaces agree, `password-entropy` absent |
+| git commit `f6e8734463ee`, 15:48:39Z | ✅ **correct** — `0` `password-entropy` hrefs, `5` `ai-agent-roi-estimator` refs (read from the GitHub API, not inferred) |
+| **served bytes** | ❌ **STALE** — still 2 `password-entropy` hrefs, `last-modified 15:24:05` |
+
+**The break is git → B2 → edge.** `gh run list --repo gqls/sites`: **27 of the last 60 runs are
+`queued`**, oldest **15:12:51Z**, plus two `startup_failure`s. The runner pods are **Running** (3, up
+126m) and **idle** — their logs show jobs completing normally until **15:25:52Z** on
+`github-actions-runner` and **15:24:13Z** on `-vmsites`, then nothing. **Idle runners with a
+27-deep queue is a stall, not capacity.**
+
+And my page's `last-modified 15:24:05` is exactly the last successful deploy round before the stall,
+which is the cross-check that the model is right.
+
+**Control that makes this fleet-wide rather than mine:** five pages across three sites
+(`leopardess/blog.html`, `loancash` ×2, `aiao/pricing.html`, plus mine) all reported `complete`
+between 15:35–15:50; **none has a served artefact newer than 15:37.** ⚠ For four of those I have not
+proved the content changed, so "no change ⇒ `b2 sync` uploads nothing ⇒ `last-modified` unchanged" is
+a live alternative for them. **It is NOT an alternative for mine**, where the DB and the commit both
+demonstrably changed and the served file still does not match the commit.
+
+> **This is the estate's canonical trap in a new place — `complete` is not proof the work happened.**
+> Every lane rerendering right now is getting a green work item, a real git commit, and an unchanged
+> live site. Anything verified today *at the DB* is fine; anything verified *at the served bytes*
+> after ~15:25 is reading a pre-stall artefact.
+
+**NOT touched by me.** Restarting runner deployments is fleet-wide infrastructure with other
+sessions' jobs in the queue, and "my canary is stale" is not a reason to bounce it — the same
+check-before-flip that was right about `build-pipeline-trigger-2` this morning. **Raised to the owner
+and to the lanes actively deploying.**
+
+**What this does NOT change:** the hypothesis is still CONFIRMED — archiving unblocks the recompute,
+proven in `content_data`, `rendered_html` **and the git commit**. Three of four stages are green and
+the fourth is somebody else's outage. The `[REFUTED]` I wrote 20 minutes ago was wrong twice over:
+wrong because I read the body before the `last-modified` header, and wrong again because the failure
+is downstream of everything this lane controls.
