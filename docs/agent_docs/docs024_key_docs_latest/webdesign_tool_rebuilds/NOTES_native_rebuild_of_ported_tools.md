@@ -3888,3 +3888,23 @@ as my checker's rows (they share the item_type, not the key shape).
 > = the seat died; do not read them as record mode working. Note the outage did NOT touch the
 > demand-control evidence: design-discovery checks are mechanical (0 direct LLM calls), which is
 > why the 03:46Z webdesign sweep completed and filed correctly mid-outage.
+
+## 2026-08-26 ~11:30Z (platform seat) — two facts from analytics_gtm, banked; the "nothing promotes" generalisation is refuted, and it never entered this lane's record
+
+1. **The resumed design/rerender traffic ran a clean natural experiment on bugs_open/397's
+   latent defect:** of 17 head re-renders since 08-25 18:00Z, every site with the GTM
+   site_config key kept its tag (7/7) and every artefact-only site lost it (10/10 — apis.uk,
+   noted, webdesign.uk among them). Their measurement, recorded in 397; their c2 migration is
+   applying now (owner go) — expect `stale_chrome` → `needs_rerender` waves on 17 sites, ~323
+   pages: **that is the fix converging, not new drift.** The rotation/loop exposed the defect
+   (the 08-24 backfill wrote rendered_html, not the spec key the {{if}} reads); it did not
+   cause it.
+2. **"None of the design finding types carry a handler_agent — nothing promotable" is FALSE**
+   (the generalisation from apis.uk's 00:40Z batch reading). Refuted on the same batch:
+   `needs_rerender` → rerender-pages (complete), `deactivated_component` → rerender-pages
+   (complete), `needs_brand_head_assets`/`undeployed_asset` → asset-deployer (complete). The
+   handler-less types are `head_essentials_missing`, `image_url_404`, `capability_gap`,
+   `section_source_drift`. Checked before banking: this lane's committed docs never carried the
+   false form — all four `handler_agent` mentions state the promotable-pairs mechanism or the
+   deliberate empty handler on OUR `capability_gap` key specifically. Relayed to the apis lane,
+   where the reading originated.
