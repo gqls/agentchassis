@@ -1977,3 +1977,23 @@ Submitted `04a3ce1f`. **Until it ROLLS: verdict rows are cleared by humans only.
 morning, before the correction arc: 405 candidate 1 APPROVED r1 + APPLIED (`946d587c`, origin door
 live, inert until the stamp rolls); credit-outage recovery verified end-to-end; the residue's one
 real defect routed to and judged by the aiao lane.
+
+**2026-08-26 ~11:5xZ — the revalidation fix's council arc, including a mishap of my own tooling.**
+Round 1 (corr `04a3ce1f`): REVISE, seven seats, and the two HIGHs were right where it mattered —
+debug_historian caught that my self-correction licence was `bugs_open/033`'s false claim with its
+mechanics LIVE (retraction closes feed the two-strike arm; third re-file born `unresolved`), and
+prior_art demanded the revalidation-family reconciliation I had asserted but not cited. Fixes:
+record rows now set `recurrenceExpected` (the flag's own contract — a re-request that is normal;
+dedup unaffected), and every claim is a citation or a measurement (271 rows / 9 sites / 6 seats /
+7 types; `workItemRevalidatableStatuses` excludes `deferred`). RFC_056 ADDENDUM 3 = the
+architecture seat's demanded writeup. copy_quality lane gave verified sign-off on the crossed test.
+**THE MISHAP:** my resubmission script died on a quoting error AFTER `DRY_RUN` had validated the
+file — so the dispatch shipped the stale round-1 bytes still on disk, and the trail burned a
+duplicate round (verdict 10:31: REVISE again, gating prior_art — round-1 content, as predicted).
+*Live-and-committed are independent facts*, applied to my own tooling: the dry-run validated what
+was on disk, and so did the dispatch — the check and the act agreed with each other and both
+predated the generator's failure. The check now used: re-verify the payload's round marker AT the
+moment of dispatch (done for the true round 2, dispatched ~11:5xZ). Also learned: the printed
+RUN_ORCH_ID is not `orchestration_states.id` AND terminal runs are reaped in minutes — a
+by-correlation watch on `orchestration_states` misses a fast round entirely; **watch `doc_notes`
+verdict notes instead** (fires on the artefact, cannot be reaped out from under the window).
