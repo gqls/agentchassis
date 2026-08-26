@@ -55435,3 +55435,68 @@ one. Same cause: I asked the table what it held instead of asking the consumer w
 
 Family: cite-the-arm-not-the-function, dedup-index-go-list-lockstep,
 a-closer-census-cannot-see-what-it-succeeded-at, seed-sql-is-history-live-row-is-fact.
+
+---
+
+## 2026-08-26 — my first mutation was VACUOUS: the two expressions were the same value, so the guard read as proven and was not
+
+**Session `bugsweep3`, `bugs_open/394`, proving the coverage cursor's guards.**
+
+**The claim I was about to make.** *"A priority page must not advance the cursor, and
+`TestPriorityPagesDoNotAdvanceTheCursor` proves it — mutation-tested."*
+
+**What I actually did.** The estate's rule is that a guard is proven by inducing the fault, so I
+mutated the cursor helper:
+
+```go
+-	last := out[len(out)-1]          // the last page actually TAKEN
++	last := rows[i-1]                // the last page SCANNED
+```
+
+and re-ran the test. **It passed.** I very nearly recorded that as "mutation-proven" with the
+polarity reversed in my head — a passing test after a mutation means the guard is *not* holding,
+and I had to stop and work out which of the two possibilities I was looking at.
+
+**What was actually true.** Neither. On that fixture `out[len(out)-1]` and `rows[i-1]` are the
+**same value**: the fill loop increments `i` immediately after appending, so the last taken page
+*is* `rows[i-1]` unless the final scanned row was skipped — which that fixture never arranges.
+The mutation changed the source text and changed nothing the test could observe. A **vacuous
+mutation**: it looks exactly like a mutation the guard survived, and it is really no mutation at
+all.
+
+**Worse, the property I was trying to test was not in that file.** `selectAuditWindow` never sees
+the priority pages — it takes them as an opaque `skip` set — so it will agree with itself whatever
+the caller does with the union. The property that matters, *"the STORED cursor is the rotation
+window's last page, never a priority page"*, is a property of the **assembly at the call site**.
+A unit test of the helper could not have pinned it under any mutation, vacuous or not.
+
+**What caught it.** `git diff --stat` printed nothing, which briefly read as "the edit did not
+apply" and sent me to look at the file. It had applied — the file was untracked, so `git diff`
+had nothing to compare against. The wrong signal for the right reason; had the file been tracked
+I would have seen a real diff, concluded the mutation was live, and believed the pass.
+
+**The fix, and it is the generalisable half.** Move the test to where the property lives — an
+action-level test asserting the actual `INSERT INTO render_audit_page_cursor` args via sqlmock's
+`WithArgs` — and mutate **at the call site**: write the cursor from the concatenated
+`priority ++ window` list. That one fails loudly (`2 - 100 / 3 - p063` unmet, because the code
+stored `p140`), and restoring makes it pass. That is a proof; the first attempt was a ritual.
+
+**Cheap checks, three of them, all habits rather than lookups.**
+
+1. **Before running a mutation, prove it is not vacuous: diff the file and then ask whether the
+   two expressions can ever differ ON THIS FIXTURE.** `diff` catching a text change is necessary
+   and nowhere near sufficient — the estate already has a row for a mutation that gofmt undid,
+   and this is the harder sibling where the text really did change.
+2. **`git diff` is blind to an untracked file.** Use `diff <backup> <file>` when mutating
+   something new, or the "no output" reads as "no edit" and you will chase the wrong thing.
+3. **Ask where the property LIVES before choosing what to mutate.** If the function under test
+   cannot observe the thing you are asserting — here, the helper never sees the priority set —
+   then no mutation of it can fail your test, and a green run is guaranteed for a reason that has
+   nothing to do with correctness.
+
+**And the polarity, written out because I hesitated over it:** in mutation testing, **PASS after
+a mutation is the FAILURE.** The test you want is the one that goes red. A suite that stays green
+under mutation is reporting that it is not watching.
+
+Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
+a-quiet-test-passes-when-the-rule-is-gone, a-post-fix-zero-needs-a-demand-control.
