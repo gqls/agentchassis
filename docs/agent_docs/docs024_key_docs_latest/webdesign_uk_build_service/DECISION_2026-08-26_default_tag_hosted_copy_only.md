@@ -44,10 +44,13 @@ rewrite the copy. **Ruled (option question, same day): his tag, HOSTED COPY ONLY
 4. ONE attested copy line — **only when the mechanism ships** (reference only what
    exists): the hosted copy carries our tag unless you give us yours or say no; the ZIP
    is clean.
-5. Constraint carried from the ruling discussion: the default container must stay
-   cookie-light on customer sites — a consent banner on every £149 site fights the
-   product; if the owner's container ever fires cookie-setting tags, this default needs
-   re-ruling.
+5. ~~Constraint: the default container must stay cookie-light~~ **RULED 2026-08-26
+   (night): a SECOND, cookie-light GTM container for customer sites** — the owner's main
+   container (GTM-PQ3WCTBD) is free to take GA4 for the estate; customer hosted copies
+   default to the new container, which stays zero-cookie by construction. Creation =
+   analytics_gtm lane (told same night); its id becomes the single-place fleet default
+   the seeder and the export path read. If that container ever grows a cookie-setting
+   tag, this default needs re-ruling.
 
 ## Routing
 

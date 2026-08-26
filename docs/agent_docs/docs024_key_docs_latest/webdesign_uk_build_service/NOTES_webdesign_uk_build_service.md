@@ -5957,3 +5957,11 @@ defaults, and the miss surfaces only at run time), 28 names checked live at Nomi
 ranked output topped by leedsgas.uk; leedsplumber taken, correctly absent. Chain now:
 find (VMB-018) → owner picks → register (VMB-017 --apply, owner-gated) → zone+point
 (cf_customer_domain_zone.sh, zone_live_at stamp) → serve. All inside the severable layer.
+
+**2026-08-26 (night) — checklist item 3 RULED: second cookie-light GTM container** for
+customer sites (owner: "please go ahead"). Handed to the analytics_gtm lane (GTM owner)
+to create; its id = the one-place fleet default. DECISION_2026-08-26 §5 updated. Also
+measured for the Stripe walkthrough: auth-service maps the WHOLE personae-platform-secrets
+via envFrom (deployment verified live), and main.go:155 requires BOTH
+STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET non-empty at startup — so the owner's path is
+secret-patch + rollout restart, and one key without the other stays keyless silently.
