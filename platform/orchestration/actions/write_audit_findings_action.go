@@ -109,6 +109,27 @@ const (
 	filingModeRecord   = "record"
 )
 
+// workItemOriginModelOpinion is stamped into EVERY finding's base spec by
+// classifyFinding, whatever mode files it. It exists for one reader:
+// detected-item-promoter's origin door (bugs_open/405, migration 629). Every
+// prior door in that promoter interrogates the HANDLER and the (item_type,
+// handler) pair's history; none asks what PRODUCED the row — so LLM-audit
+// opinions rode a known-good door whose completions were earned by mechanical
+// defects (27 promoted 08-20→24 while the sweep was off). The 391 lane measured
+// that this axis cannot be DERIVED from any existing column (created_by is a
+// drifting name list; source='discovery' spans 27 creators; spec?audit_source
+// over-blocks tool-acceptance-tier4) — so it is WRITTEN, here, at the one seam
+// every model-seat finding passes through.
+//
+// Stamped unconditionally rather than per-mode: today every caller of this
+// action is a model seat (6 live write steps, 0 mechanical), and if a
+// mechanical producer ever adopts the action, the stamp widens the promoter's
+// HOLD — the safe direction (held for a person, not dispatched by mistake).
+// The literal must match migration 629's door verbatim; the lockstep test
+// (write_audit_findings_origin_test.go) reads the migration file and fails the
+// build if the two ever disagree.
+const workItemOriginModelOpinion = "model_opinion"
+
 // parseFilingMode reads the literal setting. Absent or empty means dispatch.
 // Anything other than the two known values is an ERROR, deliberately: a typo
 // ("recrod") must not silently dispatch the rewrites the setting exists to
@@ -438,6 +459,9 @@ func classifyFindingRoute(f auditFinding, pages map[string]pageInfo, siteID uuid
 		"category":        f.Category,
 		"description":     f.Description,
 		"original_domain": "build",
+		// The provenance stamp the promoter's origin door reads — see the
+		// workItemOriginModelOpinion const for the whole story (bugs_open/405).
+		"origin": workItemOriginModelOpinion,
 	}
 	if f.Suggestion != "" {
 		spec["suggestion"] = f.Suggestion

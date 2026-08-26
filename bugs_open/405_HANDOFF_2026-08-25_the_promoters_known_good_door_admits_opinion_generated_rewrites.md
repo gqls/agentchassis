@@ -102,13 +102,19 @@ pin the mapping explicitly — a lockstep test over the pairs above, not a comme
 
 ## 5. Fix candidates, ordered by what closes the door (not by effort)
 
-1. **An origin class the promoter can read** (closes the door): `write_audit_findings` stamps
-   `spec.origin = 'model_opinion'` on every finding whose seat ran `execute_llm_prompt` (or
-   simply: always, with values `mechanical|model`), and the promoter's `scored` CTE gains a fifth
-   door: `COALESCE(wi.spec->>'origin','') <> 'model_opinion'`, with the held reason
-   "model opinion — release by hand or via record-mode". Go + pre_query in lockstep (one
-   migration + one Go change; the drift pair should be pinned by a test the way
-   `dedup-index-go-list-lockstep` is).
+1. **An origin class the promoter can read** (closes the door) — **BUILT 2026-08-26, council
+   submission pending, NOT applied.** `write_audit_findings` stamps `spec.origin =
+   'model_opinion'` into every finding's base spec unconditionally (every live caller is a model
+   seat; a future mechanical adopter would widen the HOLD — the safe direction), and migration
+   `629_promoter_origin_door_holds_model_opinions.sql` adds the fifth door by four
+   verbatim-anchored replaces (origin_ok in scored / candidates / held complement / held CASE,
+   reason "model opinion - release by hand or via record mode"). Lockstep pinned by
+   `TestOriginDoorLockstep` (reads the migration file, builds the needle FROM the Go constant,
+   requires it at exactly the two sites that must agree); every classification arm's stamp pinned
+   by `TestOriginStamp_*`. Rehearsed apply and apply-then-rollback in rolled-back transactions;
+   live pre_query untouched (`origin_ok` count 0). ⚠ Sequencing fact: the door holds only STAMPED
+   rows, and the stamp rides the NEXT chassis roll (written after v1.0.1339) — so 629 is inert
+   until then, and the §6 verification can only run after that roll.
 2. **A hand-kept source list in the pre_query** (cheaper, drifts): door on
    `wi.spec->>'audit_source' NOT IN (<the six>)`. Wrong by omission the day a seventh seat ships;
    acceptable only as an interim if (1) stalls.
@@ -137,6 +143,11 @@ row in the same breath. ~~Assert the held row's reason in the tick's `doc_notes`
 within two ticks — which proves ticks ran over this site — AND the opinion row is still at
 `detected` in the same window. Both read from `site_work_items` alone. If the fix also adds a
 held-reason receipt somewhere durable, name that target in the fix, not here.
+**REFINED with the fix (2026-08-26): the "control" must be a NATURAL promotion, never synthetic** —
+a synthetic promotable row would be claimed and DISPATCHED to a real handler (real work on a fake
+item). Direction 1: one synthetic `detected` row with a proven pair AND the stamp; ≥2 ticks; assert
+still `detected`; then close it by hand (`cancelled`, result naming it the 405 verification row).
+Direction 2: assert ≥1 natural promotion in the same window from the promoter's ordinary flow.
 
 ## 7. Routing
 
