@@ -1583,3 +1583,10 @@ if it re-files, read that as the CHECK disagreeing with the fix, worth attention
 `design_intent` supersede preserved every palette key verbatim (only `imagery_direction` and
 `avoid[0]` changed), so the colour-churn pin (`palette.reference_values` class) is unaffected if a
 palette repair auto-dispatches.
+**Addendum, same exchange:** design visits can arrive via TWO carriers — the rotation
+(`site-discovery-rotation-design`, writes rotation stamps) AND the improvement-loop (owner
+re-enabled ~21:18Z 08-25), which dispatches design-discovery as a child on its OWN site selection
+and writes NO rotation stamp. So a design visit without a rotation stamp = the loop, and it does
+not move this site's rotation turn. The 07-31 palette_contrast capability_gap is deferred and NOT
+promotable — unchanged by the re-enable. The webdesign-tool-rebuilds session will also flag to us
+if a wrong image_url_404 re-file crosses their path.
