@@ -165,6 +165,8 @@ evidence** — do not cancel it. Prior art checked: `bugs_open/356` names this c
 ## §E — RESIDUALS FROM TODAY, stated plainly
 
 1. **Supply (§C3) is unowned** and is the larger half of the owner's actual ask.
+1b. ⚠ **GATE 1C'S UNREACHABLE NEGATIVE CONTROL NOW HAS A ROUTE — see §G. This is the biggest change
+   to this lane's blocked work in the file, and it did NOT come from this lane.**
 2. **`section/illustration` resolution is FIRST-WINS BY KIND**, so several illustrated sections on one
    page all resolve to the SAME image. apis.uk has routed around it (`content_data` + lock) and has
    **offered itself as the worked test case** — six distinct instances — if anyone builds per-section
@@ -192,6 +194,64 @@ evidence** — do not cancel it. Prior art checked: `bugs_open/356` names this c
    is guarded by a LANDMINE rather than by code — the weaker form.** ⚠ The architecture seat set the
    trigger independently: **a THIRD component hitting this trap is the point to ask whether
    `imageRoleAliases` needs an explicit opt-out** instead of another avoid-the-landmine repoint.
+
+## §G — RELAYED OWNER RULING (via the `bugs_open/395` lane, 2026-08-26): THE PREDICATE VOCABULARY MAY WIDEN
+
+⚠ **SECOND-HAND. I did not hear this from the owner directly** — it was relayed by the
+`bugs_open/395` session, which heard it. Treat it as a strong lead to confirm, not as a ruling I
+witnessed. **I deliberately did NOT start the work on it.** Recorded here because a cross-lane
+agreement that lives only in a chat message dies when either session closes.
+
+**The ruling as relayed:** the acceptance-predicate vocabulary may be WIDENED, read-only. The owner's
+words were *"is it ok for the tests to read real content but not to write it"* — and the answer is
+that a predicate is already read-only by construction, so the constraint is satisfied as it stands
+and what is being approved is what a predicate may READ.
+
+**Why this matters more than it sounds, and it is exactly this lane's residual 1.** `[VERIFIED
+2026-08-26, first-hand]` `acceptancePredicateTextFields`
+(`verify_acceptance_predicates_action.go:239`) admits **`meta_description` and `title` ONLY** — and
+both are unwritable on the audit-routed path. So **every predicate this producer can currently emit
+is doomed at birth**, which is why they all refute and why gate 1c's `outcome='permitted'` has never
+been reachable. **Page body / section content is different: `page-content-writer` can actually write
+it.** A body-content predicate is therefore the first one that could be SATISFIED after a fix — the
+first route to a live negative control, and the precondition for ever promoting gate 1c from
+recording to refusing.
+
+**⚠ IT IS BLOCKED ON THIS LANE'S OWN v2(a), NOT ON THEM.** `bugs_open/395` §8f and §5 both record
+that body-text shapes are excluded today *because the page surface the model authors against carries
+no content*. The piece that changes that is **v2(a) in `features_open/030` §10** — the bounded
+head-of-hero excerpt — which is carried-forward work in the previous handoff §5, still unstarted,
+migration `602` unwritten. ⚠ **Re-read `features_open/030` §10 first:** v2(a) GROWS the offer surface
+and **widens what a predicate can address**, and the truncation check must be re-run on
+`webdesign.co.uk` afterwards.
+
+**⚠ A BUILD-BREAKING LOCKSTEP FIRES THE MOMENT YOU WIDEN, BY DESIGN. `[VERIFIED 2026-08-26,
+first-hand]`** `TestPageFieldWritersCoversThePredicateVocabulary`
+(`write_audit_findings_field_capability_test.go:162`) is **bidirectional**: it reads the evaluator's
+own set rather than mirroring it, and **fails the build** if a vocabulary field has no
+`pageFieldWriters` entry (and also if the roster carries a field no predicate can name). A sibling,
+`TestPageFieldWritersEntriesCarryTheirEvidence`, additionally requires the entry to carry a `Why`
+with a real writer census — so the cost is a **dated measurement**, not a line.
+
+Two ways to satisfy it, and **the 395 lane has explicitly offered to do whichever this lane prefers,
+same day, so their test does not block the widening**:
+1. **add the field to `pageFieldWriters` with `WritableBy: {"page-build-handler": true}` and its
+   measurement** — their preference and **mine**: it keeps every field in the vocabulary carrying a
+   dated statement of who can write it, which is the property that made routing rule 3b possible at
+   all. **Relayed to them as this lane's choice.**
+2. relax the lockstep to exempt writable fields — **rejected**: it removes the coverage guarantee on
+   exactly the population the roster exists to describe, to save writing down one measurement.
+
+⚠ **Do NOT add a body-content entry to `pageFieldWriters` speculatively, ahead of the widening** —
+the reverse arm of that same test fails on a roster entry no predicate can name.
+
+**What is owed:** ping the `bugs_open/395` lane when the vocabulary is actually widened. Nothing else
+is owed to them; their DECISION 1 (overwrite authority, ruled option (c) — machine-written
+descriptions only) is **not this lane's seam** — they are building the provenance stamp in
+`save_page_meta_description_action.go` and the two fill-blank upserts. ⚠ Worth knowing anyway,
+because it bears on every predicate this lane emits: **`pages` has no provenance column at all**, so
+the distinction the owner drew cannot currently be made by the system; with 838 live descriptions and
+none hand-written, option (c) today covers all 838.
 
 ## §F — WHO OWNS WHAT NEARBY (changed since yesterday)
 
