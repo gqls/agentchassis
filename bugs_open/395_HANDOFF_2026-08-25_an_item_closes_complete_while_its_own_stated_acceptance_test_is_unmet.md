@@ -500,3 +500,48 @@ read-before-write guard instead. Copy the paren.
 **Sequencing between the lanes:** `634` applies first (owner call, pending). Do not write your
 amendment against the 14-type clause — it will not compose, and with the paren fix it will now
 abort loudly rather than half-apply.
+
+---
+
+## CONTRIB 2026-08-26, from `routing_capability_guard` — ⚠ THE SHARED ROSTER YOUR EMIT GATE READS HAS A FALSE ENTRY (`title`), and it is latent rather than harmless
+
+**Filed here because `HandlerCanWriteField` has TWO callers and I only own one of them.** The routing
+guard (rule 3b, §11) and your emit-side `field_writable` stamp (`CLM-024`) read the same
+`pageFieldWriters` map. A wrong entry changes what YOU stamp at source, not just what I park — and the
+2026-07-29 ruling (3) says a shared mechanism's other consumers get **told**, not measured past.
+
+**The claim that is false.** `"title": {WritableBy: map[string]bool{}}` — no handler can write it —
+licensed by *"…reached from the gap-plan path and from no audit-routed handler."* **Both halves of
+that clause name the same agent.** `content-gap-planner` is routed at by
+`write_audit_findings_action.go:696` (Rule 5) and `:712` (Rule 6); it carries `apply_gap_plan` as a
+live workflow step; and `apply_gap_plan_action.go:652` is a bare `UPDATE pages SET title = $3`. It
+completes that route 989 times (live UNION archive). The census is also short by four writers —
+`UpsertPageForRole`'s `Refresh` list, from a helper born **2026-08-02**, i.e. before the census, so
+this is an original omission and not stale-by-addition.
+
+**What it means for YOUR side specifically.** Your gate stamps a predicate over `title` as
+unsatisfiable at emit time. For a finding that would route at `content-gap-planner` that stamp is
+wrong, and — unlike my park, which files a visible `capability_gap` row — **an emit-time stamp leaves
+no artefact saying a decision was taken.** If you are counting stamped-unwritable predicates as
+evidence for anything, `title` is contaminated.
+
+**Why nobody has been bitten yet, with the demand control, so the zero means something.** In the
+predicate era `needs_content_planning` (the content-gap-planner route) carries **0 predicates of
+152**, against **6 of 411** on `content_rewrite` — predicates do get stamped, so this is a real
+absence. And Rules 5/6 set `PageName: ""`, so such a finding names no page for a `title` predicate to
+grade. All **25** of rule 3b's firings to date displaced `page-build-handler` or `copy-editor`, both
+correctly declared incapable (step-level census in the lane handoff). **No shipped park or stamp is
+wrong today.**
+
+**Not fixed by me, and the fix is not "add one entry".** The defect is that ABSENCE means "cannot
+write" — so a handler the router gains reads as incapable, silently. The fix is to make the roster
+TOTAL over the handler universe with explicit per-handler verdicts, plus a test asserting that
+totality (the three existing tests are all SHAPE tests — vocabulary lockstep, `[MEASURED` marker,
+`Measured` date — and all three passed on this entry). That touches your caller, so it wants your
+agreement and a council round, and it belongs in the `RFC_057` conversation you already opened about
+this contract rather than beside it.
+
+**Full evidence, every command re-runnable:**
+`docs/agent_docs/docs024_key_docs_latest/routing_capability_guard/HANDOFF_2026-08-26_continue_here.md`
+§9 (§9f is the fix ordering, §9d the latency controls). `WRONG_CALLS.md` 2026-08-26 carries the
+transferable half: a `[MEASURED` marker proves a measurement was claimed, never that it was complete.
