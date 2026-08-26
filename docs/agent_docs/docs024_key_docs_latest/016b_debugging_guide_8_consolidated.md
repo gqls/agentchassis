@@ -14407,3 +14407,48 @@ down why they are exempt — the third copy is the one that bites, and `bugs_clo
 own "STILL OPEN" paragraph had predicted this survivor in prose three weeks earlier. And
 when one member of a uniform cohort fails, diff the members against every PREDICATE in
 the failing path (here: one `psql` over `build_status`), not only against the inputs.
+
+### One action emits two statements about the same artefact that cannot both hold — and the guard downstream believes the wrong one (2026-08-26)
+
+`bugs_open/406`, found while giving `bugs_open/357`'s producer fix its first production
+firing. `apply_adoption_plan` decides a crawled page is interactive and routes it to
+`tool-recreation-handler` — a builder that, by declaring `expects_no_sections_metadata`, can
+only ever emit **one** section — and **in the same transaction writes that page a three- or
+four-entry `pages.sections` plan**. `save_page_sections`' prune floor divides the one
+projected insert by the planned count and refuses the whole save. The page keeps zero rows, a
+`save_refused_incomplete` item is parked for a human, and **34 pages across 16 domains** had
+accumulated that way over four weeks before anyone read the queue.
+
+**Why it survives so long.** Every component is individually correct and defensible. The floor
+is well-built (its cohorts were measured against production, not assumed); refusing the whole
+save beats half-pruning (a partial prune duplicates rows — `bugs_closed/156`); the router's
+interactivity judgement is reasonable; the one-section fallback is deliberate and documented.
+**There is no wrong line to find.** The defect is in the disagreement between two writes, and
+a reviewer reading either file alone sees nothing at all.
+
+**Why the symptom misdirects.** The refusal names the *floor* and prescribes lowering
+`prune_floor_ratio`, so the obvious reading is "the guard is too strict" and the obvious fix
+disarms a real protection fleet-wide. The message is accurate about its own arithmetic and
+silent about the fact that its denominator was written by the same action that guaranteed the
+numerator would be 1.
+
+**Transferable checks.**
+
+- **When a guard refuses and its own message tells you to relax it, first ask who WROTE the
+  number it is comparing against.** If the producer of the denominator is also the producer of
+  the numerator's constraint, the contradiction is upstream and relaxing the guard hides it.
+  Here one `git grep` for writers of `pages.sections` named `apply_adoption_plan` in the
+  floor's own comment.
+- **A closed-form guard is worth solving rather than sampling.** `1/planned` against a 0.50
+  floor means ≥3 planned is refused *always*, by arithmetic — not "sometimes", not "under
+  load". Once you can write the inequality you no longer need a bigger sample, and you can
+  state the affected population exactly.
+- **A parked work-item queue is evidence nobody is reading.** `needs_human_review` items with
+  no handler accumulate silently: 34 items, 16 domains, four weeks, and the count grew by 2 in
+  the 14 hours I was looking at it. **Census that status before assuming a refusal path is
+  rare** — a refusal that files an item instead of erroring has no other alarm.
+- **The survivors of a refusal are a biased sample, and reading them as the population inverts
+  the cause.** 357's 22 mislabelled rows are exactly the pages whose plans happened to be ≤2
+  sections — the only ones a one-section save could get past the floor. Anything ≥3 was refused
+  and left empty, so it never appeared in 357's population at all. **Before theorising about
+  why a population looks the way it does, ask what the filter upstream of it discarded.**
