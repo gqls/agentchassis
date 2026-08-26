@@ -15,7 +15,7 @@
 ## The one-line state
 
 > **The root cause of `bugs_open/395` is FIXED AND LIVE AND PROVEN. Rule 3b (`WII-035`) went live on
-> `v1.0.1341` at 2026-08-25 23:11:52Z and fired twice within 33 minutes on two sites nobody had
+> `v1.0.1341` at 2026-08-25 23:11:52Z and ~~fired twice within 33 minutes~~ **[CORRECTED 2026-08-26 17:00Z: 25 firings across 19 sites — see §9]** on sites nobody had
 > measured. TWO OF THE FOUR DECISIONS ARE NOW RULED (§2): the overwrite authority is GRANTED but only
 > over machine-written descriptions, and the test vocabulary is to be WIDENED. ⚠ The first cannot be
 > implemented yet — `pages` carries NO provenance, so the machine/human distinction the ruling rests
@@ -211,7 +211,7 @@ reachable from one agent whose scheduled `pre_query` selects `COALESCE(meta_desc
 afterwards that the seeded agent was left unarmed. A standing path that rewrites published copy on an
 automated finding is precisely that withheld authority.
 
-*The cost of leaving it.* The producer keeps generating these — **two in 33 minutes** on the first
+*The cost of leaving it.* The producer keeps generating these — ~~**two in 33 minutes**~~ **25 in 18 hours [MEASURED 2026-08-26 17:00Z]** on the first
 night. They are now recorded honestly rather than closed green, but nothing repairs them, and the
 capability-gap list grows without bound.
 
@@ -365,3 +365,148 @@ Copy the files aside first — **`git stash` is FORBIDDEN and hook-blocked on th
 - ⚠ **HEAD carries one failing test that is nobody's here:** `TestFindingCodeScanEveryWriteIsRegistered`
   — `WORK_ITEM_STATUS_OVERRIDE_REFUSED` was added at `2b46afbe6` without its registry declaration.
   Verified as pre-existing and not caused by this work; the 396 lane owns the declaration choice.
+
+---
+
+## 9. ⚠ FOUND ON RE-CENSUS, 2026-08-26 — the roster's `title` entry is FALSE for one of the four handlers
+
+**Found by doing what §3.5 tells the next session to do, and it fired.** `git log --since=2026-08-25
+--diff-filter=AM -- platform/orchestration/actions` returns **43 commits**, so the roster was due a
+re-measure before anything quoted it. Re-measuring found a defect that is not staleness at all — the
+`title` entry was **incomplete on the day it was written**.
+
+### 9a. What the thing is, before what is wrong with it
+
+`pageFieldWriters` (`platform/orchestration/actions/write_audit_findings_field_capability.go:141`) is
+a **roster of negative capability claims**: for each field a finding's acceptance criterion may name,
+it states which handler agents can actually WRITE that field. Rule 3b reads it, and when the answer is
+"none of them can", it parks the finding as a `capability_gap` instead of routing it at a handler that
+would rebuild the page, report success and close green with the field untouched.
+
+The rule the roster must satisfy is its own doc comment: *"this entry starts refusing findings that
+have become fixable, and nothing here can notice."* A wrong **negative** claim does not fail loudly —
+it silently parks work that could have been done.
+
+### 9b. The claim, and the measurement that refutes it
+
+The entry reads `"title": {WritableBy: map[string]bool{}}` — **no handler can write it** — licensed by:
+
+> *"pages.title has one UPDATE writer, `apply_gap_plan_action.go:652`, which is reached from the
+> gap-plan path and **from no audit-routed handler**"*
+
+**Both halves of that clause name the same agent.** `[MEASURED 2026-08-26]`:
+
+1. `classifyFindingRoute` routes findings at **`content-gap-planner`** — `write_audit_findings_action.go:696`
+   (Rule 5: category gap/content/differentiation/structure) and `:712` (Rule 6: tone/content_rewrite on
+   a placeholder page). So content-gap-planner **is** an audit-routed handler.
+2. Its live workflow **carries `apply_gap_plan` as a real step** — resolved nesting-safe through the
+   action key, not a config-text `LIKE`, per `RFC_057` §3:
+   ```sql
+   SELECT jsonb_path_query_array(default_config,'strict $.**.action ? (@ != null)')
+     FROM agent_definitions WHERE type='content-gap-planner' AND is_active
+      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+   -- apply_gap_plan, complete_workflow, ensure_site_record, execute_llm_prompt,
+   -- load_site_pages, query_database, read_site_spec
+   ```
+3. `apply_gap_plan_action.go:652` is a **bare unconditional overwrite** — `UPDATE pages SET title = $3,
+   sections = $4::jsonb, updated_at = NOW()` — with no COALESCE/NULLIF guard.
+4. It is a live, completing route: **989 `needs_content_planning` items complete at
+   `content-gap-planner`** (live UNION archive).
+
+**So `HandlerCanWriteField("content-gap-planner","title")` returns false and the true answer is true.**
+
+### 9c. The census behind it was also incomplete — 1 writer named, 5 exist
+
+`pages.title` has **five** UPDATE writers as of 2026-08-26, not the one the entry names. The other four
+are one helper reached from four call sites: `UpsertPageForRole`'s `Refresh` list →
+`updatePageColumns` (`page_role_upsert.go`), which emits a bare `UPDATE pages SET title = $n`:
+
+| call site | `Refresh` |
+|---|---|
+| `create_report_page_action.go:178` | `url, title, sections` |
+| `deploy_tool_action.go:464` | `url, title, sections` |
+| `deploy_tool_action.go:636` | `title` |
+| `create_tool_component_action.go:653` | `title` |
+
+⚠ **This is NOT stale-by-addition** — `page_role_upsert.go` was born **2026-08-02**, three weeks before
+the census. It was missed. The `meta_description` entry directly above it did the action-registry
+census properly and carries the whole argument in a comment block; the `title` entry got a one-line
+code read and no config census at all. **The two entries in one map were measured to different
+standards, and only the shape tests ran over both.**
+
+### 9d. Why it has not bitten — stated with the control, because a bare zero here proves nothing
+
+**Latent, not live.** `[MEASURED 2026-08-26 17:00Z, live UNION archive, predicate era only]`:
+
+| item_type | with a predicate | filed since 2026-08-25 |
+|---|---|---|
+| `content_rewrite` (→ page-build-handler) | **6** | 411 |
+| `needs_content_planning` (→ **content-gap-planner**) | **0** | 152 |
+| `needs_copy_edit` (→ copy-editor) | 0 | 16 |
+
+The `content_rewrite` row is the **demand control**: predicates do get stamped on routed findings, so
+the zero on the content-gap-planner route is a real absence and not a dead instrument. Restricting to
+the predicate era matters — all-history reads `0 of 1,177`, which is vacuous, since predicates are
+days old.
+
+A second, independent narrowing: Rules 5 and 6 set `PageName: ""` and `PageID: nil`, so a finding
+routed at content-gap-planner **names no page** — a `title` predicate has nothing to evaluate against.
+The wrong answer is real; the path to it is doubly narrow.
+
+### 9e. What is NOT wrong — the 25 firings are all correct
+
+Every firing so far displaced `page-build-handler` (23) or `copy-editor` (2). Step-level census of
+both, same method as above:
+
+- `page-build-handler` → `call_agent, complete_workflow, conditional, ensure_site_record,
+  fail_work_item, load_current_section_content, load_existing_content, load_page_record,
+  load_page_sections_from_spec, plan_sections, save_page_sections, spawn_agent,
+  update_work_item_status, validate_page_content` — no `pages` scalar-column writer.
+- `copy-editor` → `checkpoint_for_review, complete_workflow, conditional_branch, ensure_site_record,
+  execute_llm_prompt, query_database` — no page writer at all.
+- `spec-updater` → `update_site_spec_from_item` only.
+
+**So no live park is wrong, and rule 3b's shipped behaviour to date is sound.** The defect is a false
+entry waiting for a route that has not yet carried a predicate.
+
+⚠ **One caveat I did not close:** `page-build-handler` carries `call_agent` and `spawn_agent`. A step
+list therefore bounds what a handler does *itself*, not what it can cause. The roster's method — and
+this section's — inherits that gap.
+
+### 9f. The fix, and why it is NOT applied here
+
+The fix is not "add content-gap-planner to the map". The defect is that **absence means "cannot
+write"** — a silent default — so a handler the router gains is unmeasured and reads as incapable.
+Ordered by what closes the door (not by effort):
+
+1. **Make the roster total over the handler universe.** Every handler `classifyFindingRoute` can emit
+   (`page-build-handler`, `copy-editor`, `content-gap-planner`, `spec-updater`, plus `designRouting`'s
+   `webdesign-agent`, `component-template-fixer`, `site-component-linker`, `css-patch-agent`) must
+   appear in `WritableBy` with an explicit `true`/`false` and its dated measurement. A handler added to
+   the router then fails a test instead of inheriting a silent "no".
+2. **A test that would have caught this one.** The existing suite checks the roster's SHAPE only —
+   vocabulary lockstep, a `[MEASURED` marker, a `Measured` date. Nothing checks its CONTENT against the
+   router. Assert the universe is enumerated, and mutation-prove it by deleting one handler.
+3. Correct the `title` entry's `Why` to the five-writer census, and re-check `meta_description`'s
+   entry against the same handler universe.
+
+**Not applied, deliberately, and this is the same reasoning §2.5 records the other lane using on me:**
+
+- `HandlerCanWriteField` is a **shared seam with two callers** — this routing guard and the other
+  lane's emit gate (`CLM-024`). Changing `WritableBy` changes what THEY stamp at source. The
+  2026-07-29 ruling (3) says a shared mechanism's other consumers must be **told, not merely
+  measured**, and `RFC_057` is the open question about this very contract.
+- It is a platform-code change to a live guard → council gate before or alongside the commit.
+- It is latent, so nothing is burning, and the handoff's §3.1 says do not tidy rule 3b unopened.
+
+**So: recorded, not built.** Whoever takes it owns telling the `vigilant_designer_offer_analysis` lane
+first, because the emit gate reads the same map.
+
+### 9g. The transferable lesson
+
+**Two entries in one roster, written in one commit, can be measured to different standards — and every
+test over them was a SHAPE test, so both passed identically.** `[MEASURED` markers, dates and a
+lockstep test all fired correctly on an entry whose content was wrong. A marker proves a measurement
+was claimed, never that it was complete. Belongs in `WRONG_CALLS.md`; the "resolve handler capability
+through the action registry, never a config-text search" half is already a `LANDMINES.md` entry, and
+this is the second instance of it — **inside the file that documents it**.
