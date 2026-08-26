@@ -466,3 +466,37 @@ waits for the D4 governor.
   ceiling at this cadence ≈ 60 turns/h × up to 5 = ~300 claims/h.
 - 637 council verdict not landed at 09:20Z (~30 min budget from 08:50 submission) — next session
   reads it (`69a04e0a`, doc_notes / diagnosis_artifacts).
+
+### 2026-08-26 ~10:2xZ — the 637 council round died on an ACCOUNT-CREDIT outage, not on content; resubmitted
+
+The 08:50 round completed `complete_invalid` at `council_decide`: "no reviewer produced a readable
+opinion (9 abstained, 8 unreadable)" — every seat's LLM call got HTTP 400 **"Your credit balance is
+too low to access the Anthropic API"**. Measured from `llm_call_log`: credit-balance failures ran
+**2026-08-25 23:47:10Z → ~08:55Z** (~9 h; 100% of calls failed 00:00–08:00, ~600 calls, every
+LLM-bearing agent type), recovery ~09:00Z (09:00 hour: 296 calls, 0 credit fails; last success
+10:19). The round landed at 08:50–08:52 — minutes before recovery. **This is a DIFFERENT signature
+from the 08-17 outage** (that was the self-set Billing-page limit, "specified API usage limits";
+this is the prepaid credit balance — both HTTP 400, distinct messages — D7 notes updated by this
+entry, not re-litigated). Consequences noted:
+- The morning read's `ai_endpoint_unavailable` claim refusals (item `efccd5d8`) were this outage's
+  tail, not a dispatch defect.
+- **The 24h post-B read carries a caveat:** LLM-bearing handlers were dead 23:47→08:55 (mostly the
+  pre-B side of the window) — completions in that stretch are rerender-only; hold this beside any
+  pre/post comparison.
+- D4's case just wrote itself: at an empty balance the API refuses EVERYTHING indiscriminately for
+  hours — the governor exists to shed deliberately before that point. (Also the only reason the
+  fleet half-worked overnight: page_rerender is LLM-free.)
+- Resubmitted on the SAME correlation (`RESUBMIT_CORR=69a04e0a…`) so the `Council-Submitted:`
+  trailer on `a5fd1651e` resolves; an infra-killed round leaves no verdict to answer.
+
+### 2026-08-26 ~10:4xZ — 637 council: APPROVED on resubmission
+
+Report on corr 69a04e0a: **APPROVED — "2 advisory objection(s), none high-severity"**, 9 abstained.
+Both advisories are one point: `637_..._ROLLBACK.sql` is named in the rationale as part of the
+safety story but absent from the `edits` array. Disposition: **the file exists and was committed
+with 637 in `a5fd1651e`** (guarded UPDATEs, its own DO/RAISE post-check, and the lockstep
+instruction to re-edit VERIFY 2/7); the omission was in the submission's edit list only — I left
+it out believing council-scope refuses `_ROLLBACK` files as edits, though the `_VERIFY` edit in
+r3 was accepted, so listing it would likely have worked. Lesson for the next submission: list
+every artefact the rationale leans on, and let the scope filter do the refusing. Nothing to
+build; verdict read in full; this commit carries `Council-Reviewed: 69a04e0a…`.
