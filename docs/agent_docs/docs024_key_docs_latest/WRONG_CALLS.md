@@ -56294,3 +56294,46 @@ the verdict verbatim where the claim lives**, including "no conclusion".
 
 Family: a-report-is-not-a-measurement, a-pass-from-a-blind-check-outlives-the-blindness,
 a-submission-is-not-a-review.
+
+> **CORRECTED 2026-08-26, ~1 h later — THE ENTRY DIRECTLY ABOVE IS ITSELF A WRONG CALL, AND
+> IT IS THE WORSE OF THE TWO. There is NO clock skew. I wrote the bug.**
+>
+> **What caught it:** a peer lane (idea_uk_vm_site) suggested I promote the "workstation is
+> an hour ahead" finding to a `LANDMINES.md` entry. Filing a fleet-wide trap forced me to
+> establish *which* clock was wrong — and the answer was neither:
+> ```
+> LOCAL date -u        : 2026-08-26 20:57:37
+> postgres container OS: 2026-08-26 20:57:39
+> postgres now() @ UTC : 2026-08-26 20:57:41      (TimeZone = UTC)
+> ```
+> Three clocks, four seconds apart. **The real cause is `date -u -d`: the `-u` flag affects
+> OUTPUT only, so a NAIVE timestamp passed to `-d` is parsed in LOCAL time.** Proven by
+> disconfirmable test — the epochs are identical with and without `-u`, and differ only when
+> the string carries an explicit zone:
+> ```
+> date -ud '2026-08-26 20:53:00' +%s -> 1787773980  = 19:53:00 UTC   ← -u did NOTHING
+> date -d  '2026-08-26 20:53:00' +%s -> 1787773980  = 19:53:00 UTC
+> date -d  '2026-08-26 20:53:00 UTC' +%s -> 1787777580 = 20:53:00 UTC ← the correct form
+> ```
+> My watcher's deadline was therefore 19:53Z, not 20:53Z, on a BST (+0100) box. It fired at
+> 19:53Z, the DB correctly said 19:54:35, and **I read my own off-by-one-hour bug as evidence
+> about the cluster.**
+>
+> **THE MARKER FAILURE, which is the transferable half.** I stamped that claim `[MEASURED
+> 2026-08-26]`. I never ran `date -u` next to the DB query — I *inferred* local time from the
+> fact that my watcher had fired. So the "measurement" was an inference wearing a measurement's
+> marker, on a reading that could not have come out otherwise: the watcher firing was
+> guaranteed by the bug, so it confirmed the hypothesis it was caused by. This is exactly the
+> estate's own rule that a `[MEASURED]` figure is only evidence if it could have come out
+> differently — and I broke it while writing a WRONG_CALLS entry about rigour.
+>
+> **The cheap check, and it is two commands:** before blaming any clock, print all of them in
+> one breath (`date -u`; `kubectl exec <pod> -- date -u`; `SELECT now()`), and before trusting
+> a naive timestamp in `date -d`, append an explicit `UTC` to the string. Corrections applied
+> to this lane's HANDOFF §7, RUNBOOK and NOTES, and a LANDMINE filed for the `date -ud` trap
+> itself. **Cost:** two peer sessions were told a false fact about the estate's clocks and one
+> had already recorded it secondhand; both retracted within the hour.
+>
+> Family: [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] (a believable
+> external cause is exactly when to doubt the instrument — the instrument here was my own
+> shell arithmetic), the-marker-is-not-the-check.

@@ -103,3 +103,42 @@
 - **Misstep (WRONG_CALLS): my wake-up watcher used the workstation clock**, which is ~1 h ahead
   of the cluster's. It fired early, I read "no trigger row in 3 hours", and was one step from
   filing a broken scheduler. Re-armed to poll the DB for the row itself.
+
+## 2026-08-26 ~21:05Z — CORRECTION: the "clock skew" I recorded an hour ago does not exist
+
+> **CORRECTED — the last bullet of the previous entry ("my wake-up watcher used the
+> workstation clock, which is ~1 h ahead of the cluster's") is FALSE and is retracted.**
+
+**What caught it:** the `idea_uk_vm_site` lane replied suggesting I promote the skew finding to
+a `LANDMINES.md` entry, since I held the first-hand evidence. Writing a fleet-wide trap forced
+the question I had skipped — *which* clock is wrong? — and the answer is neither:
+
+```
+LOCAL date -u         : 2026-08-26 20:57:37
+postgres container OS : 2026-08-26 20:57:39
+postgres now() @ UTC  : 2026-08-26 20:57:41     (current_setting('TimeZone') = UTC)
+```
+
+**The real cause is mine: `date -u -d '<naive string>'` parses the INPUT in local time** — `-u`
+formats output only. My watcher's `target=$(date -ud '2026-08-26 20:53:00' +%s)` on a BST box
+resolved to **19:53:00Z**, so it fired an hour early; the DB's 19:54:35 was correct all along.
+Disconfirmable test run before writing this:
+
+```
+date -ud '2026-08-26 20:53:00' +%s     -> 1787773980 = 19:53:00 UTC   (identical without -u)
+date -d  '2026-08-26 20:53:00 UTC' +%s -> 1787777580 = 20:53:00 UTC   (the correct form)
+```
+
+**The part worth keeping is the marker failure, not the shell bug.** I stamped the false claim
+`[MEASURED 2026-08-26]` having never run `date -u` beside the DB query — I inferred local time
+from *my own watcher firing*, which the bug guaranteed. So the reading could not have come out
+otherwise: it confirmed the hypothesis that caused it. That is the estate's own
+"a `[MEASURED]` figure is only evidence if it could have come out differently" rule, broken
+inside a WRONG_CALLS entry about rigour.
+
+**Blast radius, contained:** two peer sessions were told the false fact (idea.uk had already
+recorded it secondhand in their NOTES); both retracted within the hour. Corrections applied to
+WRONG_CALLS (with the full account), HANDOFF §7, this file, and the RUNBOOK. A LANDMINE was
+filed for the real `date -ud` trap. **Nothing in the 410 fix or its measurements depended on
+the false claim** — every 410 timestamp came from the DB in one frame, which is why the
+conclusions held despite it.

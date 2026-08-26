@@ -1,6 +1,6 @@
 # HANDOFF — bugs_open/410 (the PHASE-LOCK one) — both halves LIVE, one acceptance test outstanding
 
-**Written 2026-08-26 ~21:00Z (DB clock; see the clock warning below) by the
+**Written 2026-08-26 ~21:00Z (all times in this lane are DB time — `SELECT now()`) by the
 `bugfix_410_feed_phase_lock` lane. This is the cold-start doc — read this first.**
 
 ⚠ **410 NAMES TWO UNRELATED BUGS.** This lane owns
@@ -139,10 +139,24 @@ to narrow when handed the answer. Logged in `WRONG_CALLS.md`.
 
 ## 7. Traps this lane hit — read before repeating the measurements
 
-- ⚠ **THIS WORKSTATION'S CLOCK IS ~1 HOUR AHEAD OF THE CLUSTER'S.** Measured 2026-08-26: local
-  `date -u` read 20:53 while `clients_db now()` read 19:54:35 in the same minute. A watcher
-  armed off local time fired an hour early and I nearly recorded "the trigger never fired".
-  **Take the clock from the DB for anything keyed to DB-timestamped events.** (WRONG_CALLS.)
+- ⚠ **`date -u -d '<naive timestamp>'` PARSES THE INPUT IN LOCAL TIME — `-u` affects OUTPUT
+  ONLY.** On this BST (+0100) box a watcher armed for "20:53:00 UTC" actually fired at 19:53Z,
+  an hour early, and I misread my own off-by-one as a cluster clock problem. **Append an
+  explicit zone to the string:** `date -d '2026-08-26 20:53:00 UTC' +%s`. Proof (identical
+  epochs with and without `-u`; different only with the explicit zone):
+  ```
+  date -ud '2026-08-26 20:53:00' +%s -> 1787773980 = 19:53:00 UTC   ← -u did nothing
+  date -d  '2026-08-26 20:53:00 UTC' +%s -> 1787777580 = 20:53:00 UTC
+  ```
+  > **CORRECTION 2026-08-26:** an earlier version of this bullet claimed *"this workstation's
+  > clock is ~1 hour ahead of the cluster's"*. **That was FALSE and is retracted.** All three
+  > clocks agree within 4 s (local `date -u` 20:57:37 · postgres container OS 20:57:39 ·
+  > `now()` 20:57:41, TimeZone UTC). Caught when a peer lane suggested promoting the false
+  > finding to a LANDMINE and filing it forced me to ask *which* clock was wrong. Full account,
+  > including the `[MEASURED]` marker I put on an inference: `WRONG_CALLS.md`.
+- ⚠ Still true and unrelated to the above: **both ends of any age/window arithmetic must come
+  from one clock.** Ask the DB for the age (`SELECT now() - created_at`) rather than
+  subtracting a shell reading from a DB timestamp.
 - ⚠ **An absence census over workflow steps must search the whole config text**, not
   `jsonb_each` over top-level steps — the latter cannot see a nested caller inside a loop step.
   This was the council's medium objection and it was right to raise it.

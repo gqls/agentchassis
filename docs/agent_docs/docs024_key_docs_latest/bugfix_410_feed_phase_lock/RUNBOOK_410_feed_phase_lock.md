@@ -63,11 +63,23 @@ WHERE collected_data->'input_data'->>'fix_correlation_id' = '15d56c13-2081-431a-
 SELECT body FROM doc_notes WHERE body LIKE '%15d56c13%' ORDER BY created_at DESC LIMIT 3;
 ```
 
-## ⚠ CLOCK: take the time from the DB, never from this workstation
-Measured 2026-08-26: local `date -u` read 20:53 while `clients_db` `now()` read 19:54:35 — ~1 h
-apart. Every timestamp in this lane is DB time. Poll for the row; compare in SQL.
+## ⚠ ARMING A TIME-KEYED WATCHER: give `date -d` an EXPLICIT ZONE
+> **CORRECTED 2026-08-26** — this section previously said *"local `date -u` and the DB are ~1 h
+> apart"*. **FALSE, retracted.** All three clocks agree within 4 s (local `date -u`, the
+> postgres container's OS, and `now()` with TimeZone=UTC). The real trap is below; the full
+> account is in `WRONG_CALLS.md`.
+
+`date -u -d '<naive timestamp>'` parses the INPUT in **local** time — `-u` only formats OUTPUT.
+On a BST box that silently shifts every deadline an hour earlier, and the watcher still fires,
+so nothing looks wrong.
+```bash
+date -ud '2026-08-26 20:53:00' +%s      # 1787773980 = 19:53:00 UTC  ← WRONG, -u did nothing
+date -d  '2026-08-26 20:53:00 UTC' +%s  # 1787777580 = 20:53:00 UTC  ← correct
+```
+**Better still for anything keyed to DB events: don't compute a deadline at all — poll for the
+row.** That is what this lane's working watcher does, and it cannot be wrong about time.
 ```sql
-SELECT now();                       -- the only clock that matters here
+SELECT now();   -- and keep BOTH ends of any age arithmetic on this one clock
 ```
 
 ## Prove the Go half is live WITHOUT the provenance line (it scrolls within hours)
