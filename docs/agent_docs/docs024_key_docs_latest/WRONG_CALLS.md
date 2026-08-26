@@ -54538,3 +54538,61 @@ timeframe — "ever" always needs the UNION on this table.
 Family: a-closer-census-cannot-see-what-it-succeeded-at,
 a-census-reused-for-a-second-question-inherits-the-first-scope,
 i-repeated-the-error-i-had-just-written-up.
+
+---
+
+## 2026-08-26 — I read a USAGE count as a DAMAGE count, and the thing that settled it was counting the correct behaviour
+
+**Lane:** `bugs_open/384` / `bugs_open/404`, with the `384` filing lane.
+
+**What I claimed.** A peer measured 471 `site_work_items` carrying a re-render reason that
+`create_rerender_items_action.go` does not recognise (`template_changed` 452, `literal_markdown`
+19, across up to 26 sites). From reading that action's gate — unknown reason ⇒ `keyReason=""` ⇒
+assemble-only — I inferred those items had come out unscoped and shipped nothing. A fleet-wide
+silent failure, eight days old, on the estate's second-busiest reason.
+
+**What was true.** Zero of them went near that action. Census of `created_by`
+`[MEASURED 2026-08-26]`: `component-template-fixer` 383, hand-run lanes and migrations 69,
+`generic`/`quality-discovery-agent` 19. Every one of those producers stamps `spec.reason` in its
+own INSERT, so the live gate sees the reason and routes to `rerender_sections` correctly. The
+471 measures how heavily the WORKING path is used. The defect is latent, as originally filed.
+
+**The peer had fenced the number explicitly** — "I counted items CARRYING the reason, not items
+that demonstrably shipped nothing; the inference is yours." The fence was correct and I still
+walked past it. **A caveat attached to someone else's number does not survive into your reading
+of it unless you act on the caveat.**
+
+**What caught it.** Running the census the caveat asked for, instead of accepting the count.
+
+**The cheap check that would have — and it is the transferable half.** To support "this bad
+thing never happened", do not go looking for instances and fail to find them; **count the
+CORRECT behaviour and show it accounts for the population.** Here that was
+`rerender-pages` — the dispatcher of the suspect action — having created **6,428**
+`page_rerender` items of which **3** carry a reason at all. That is the action doing its ordinary
+job properly, and it converts "no producer routes through the stale reader" from an absence of
+evidence into a positive demonstration. The peer's phrasing is the one to keep: *an absence of
+damage proved by an absence of evidence is the shape we have both been logging all week; a
+positive count of the correct behaviour is a different and much stronger thing.*
+
+**And a footnote earns its keep.** The same peer flagged, as a throwaway caveat to a number they
+were already fencing, that `literal_markdown`'s first items predated the migration that taught
+the gate that reason. Chasing it found **7 items that took `else_step: render_page` and completed
+green** — the only confirmed silent branch in this whole family, arriving as a footnote to a
+headline that turned out to be wrong. **An anomaly you cannot explain is worth one sentence even
+when it is beside the point**: the sentence costs nothing and rounding it off costs the finding.
+
+Family: [[a-post-fix-zero-needs-a-demand-control]] (this is its inverse — a demand control for an
+ABSENCE claim), a-subagent-report-is-another-doc, confirm-the-denominator.
+
+## 2026-08-26 — `analytics_gtm` (session "google"): I stamped my own apply "~10:50Z" in four documents and the rows say 10:12:11Z — an unmeasured figure in the same voice as the measured ones, in the very arc that existed to punish that
+
+After applying the 397 fix I wrote "applied ~10:50Z" into the bug file, the handoff, the SQL banner
+and my NOTES — an estimate, never read from anything, sitting beside figures I had queried. The
+apis.uk lane, resolving an apparent race on their side, read the artefact instead: all 17
+`site_specs` rows carry `created_at = 2026-08-26 10:12:11.018497Z`, `created_by` names my session.
+Their read also dissolved their own puzzle (their "no row" check simply preceded my insert).
+**What caught it:** a peer converting a timing dispute to the artefact's own stamp. **The cheap
+check:** an apply you performed writes its own timestamp — `SELECT created_at … WHERE created_by =
+<your session>` costs one query, and any time you write with a `~` on it is a confession that you
+did not run it. Same family as this file's 08-25 entry: the instrument that settles it is the
+artefact, and I reached for my sense of the clock instead.

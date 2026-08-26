@@ -243,7 +243,7 @@ handler_agent — nothing promotable, no repair fires yet" was refuted by the sa
 batch it was measured on (`needs_rerender`/`deactivated_component` → `rerender-pages`, complete).
 The handler-less types are the *design* ones; the chrome-touching promotions were live all night.
 
-**c2 APPLIED 2026-08-26 ~10:50 UTC** (owner: "please carry on"), `-v GO=yes -v UNTAGGED=1`:
+**c2 APPLIED 2026-08-26 10:12:11Z** — the 17 rows' own `created_at`, one instant; my first write here said `~10:50Z`, an unmeasured estimate in a measured voice, caught by the apis.uk lane reading the stamp (corrected 2026-08-26) — (owner: "please carry on"), `-v GO=yes -v UNTAGGED=1`:
 **17 sites** (the 15 stripped/new + the 2 remaining artefact-only + `adversecreditmortgage.co.uk`,
 which had gained a head overnight), **334 pages** at apply time (323 at the dry run an hour earlier —
 sites build under you; date your counts). `UPDATE 11 / INSERT 17`, all post-conditions passed, keys

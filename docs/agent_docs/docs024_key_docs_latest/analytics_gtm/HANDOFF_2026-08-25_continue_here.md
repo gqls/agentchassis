@@ -9,7 +9,7 @@
 > ## ▶ STATE CHANGED 2026-08-26 — read this block first, the 08-25 one below is history
 > The rotation (re-enabled 08-25, `bugs_open/401`) stripped GTM from **10 artefact-only sites
 > overnight** (7/7 keyed sites kept it, 10/10 unkeyed lost it — 397 §10). **c2 IS APPLIED**
-> (2026-08-26 ~10:50 UTC, owner "please carry on", 17 sites, 334 pages, all post-conditions passed):
+> (2026-08-26 10:12:11Z by the rows' own stamp — an earlier ~10:50Z here was estimated, corrected — owner "please carry on", 17 sites, 334 pages, all post-conditions passed):
 > census now **A 16 durable · C 15 spec-only awaiting their per-site `stale_chrome` rebuild · B 0 ·
 > D 0**. The container still has **0 tags** — publishing is still the owner's click. ⚠ Until the
 > rebuilds land, **apis.uk serves `gtm=0` — do NOT use it for the walkthrough's step D**; test

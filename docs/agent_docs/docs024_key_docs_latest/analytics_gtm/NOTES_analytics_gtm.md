@@ -398,7 +398,7 @@ message, hours old — measure, never relay.**
 **10.** Owner: "please carry on" (after my read-out naming notify+apply as the next act). Notified 9
 of 10 lanes by cross-session message (loanzy blocked by the local classifier — record stands in 397
 §9/§10); rotation lane banked the natural experiment and relayed the "nothing promotable" refutation
-to apis.uk itself. **Applied c2 10:50Z, UNTAGGED=1: 17 sites, UPDATE 11 / INSERT 17, keys preserved,
+to apis.uk itself. **Applied c2 (10:12:11Z by the rows' stamp — I first wrote 10:50Z here without measuring; apis.uk lane caught it), UNTAGGED=1: 17 sites, UPDATE 11 / INSERT 17, keys preserved,
 census A 16 / C 15 / B 0 / D 0, 17 rows `created_by='claude-session-google-2026-08-25'`.** Dry-run
 pages 323 → apply 334 in ~1 h — the estate builds under you; the count carries its date.
 
