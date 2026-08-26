@@ -54489,3 +54489,30 @@ place in `scripts/pattern-check.py`.
   exactly how the GTM strip and a fallback footer arrived. The 383 failure had a different cause.
   **A lock that refuses a rewrite of X is not a lock that refuses renders touching everything
   around X** — check what the guard actually guards before predicting a refusal.
+
+> **Addendum, same day — the automation candidate above, now with its evidence, and SPLIT IN TWO
+> at the contributing lane's insistence.** `agentchassis-51` supplied four shas and argued the
+> family is narrower than I framed it. They are right, and the argument is the useful part:
+> collapsing all four yields a rule that says *"look harder"*, which is the non-actionable shape
+> this file exists to avoid.
+>
+> **Family A — "I believed an absence my own filter produced."** Same as this entry's item 3.
+> `ed4c55cc6` (08-22): a URL extractor matching `background-image:\s*url(` against a site that
+> writes `background-image: linear-gradient(…), url(…)` — it missed every hero and reported
+> *"21 of 21 resolve, 0 broken"*. `5a7bb2abc` (08-20): quoting `render_audit`'s headline
+> "21 contrast failures" — 6 real measurements plus 15 of the probe's own placeholders,
+> distinguished in `--json` and not in the terminal, with a LANDMINE on that exact tool saying
+> to discount them. **The check is mechanical: enumerate the keys/rows the instrument can emit
+> BEFORE trusting a filtered zero or a headline count.** That is what a checker could do.
+>
+> **Family B — "the absence was real; the INFERENCE from it was not."** `5f36ff9c0` (08-20):
+> `retry_after` genuinely absent from `site_work_items`, from which the running chassis was
+> inferred to predate the clause referencing it — the column arrived hours later and the
+> inference was never supported. `d27360ffe` (08-21): `--color-primary-ink` genuinely absent
+> from a clobbered stylesheet, from which a component repoint was called breaking — but the
+> consumer contract is `var(--color-primary-ink, var(--color-primary))`, so an absent token
+> falls through and it is a no-op. **The check is different and not mechanical:
+> READ THE CONSUMER before inferring from a gap.**
+>
+> So the automatable one is **Family A only**. Family B is a neighbouring entry, not the same
+> rule.
