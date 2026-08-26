@@ -1187,3 +1187,14 @@ CONTRIBs out: `brochure_component_library` (seam extended per their own RFC; car
 `copy_quality_two_stage` (their experiment's stated precondition now has a mechanism + adoption
 query), `deferred_work_item_park` (the unregistered finding code). Messages: `google` (08-25
 split), `bugs_open/333` (parity settled; they re-verified green from their side).
+
+### 2026-08-26 later — design rotation heads-up, measured
+
+`webdesign-tool-rebuilds` warned the discovery rotation is back on and apis.uk (no design stamp)
+is early in the queue. Measured instead of waiting: 6 findings already landed **00:40 UTC today**
+(so the visit predates their 09:20Z re-enable time — a different sweep, or their timestamp is the
+noticing not the enabling; either way the items are real). All 7 detected rows on the site carry
+**empty `handler_agent`** ⇒ not promotable. Analysis + trap (chrome repair strips artefact-only
+GTM, 397) written into HANDOFF_2026-08-26 §5. The `footer` half of `head_essentials_missing` is
+the owner's deliberate absence being read as a defect — the predicted false-positive class;
+`skip_link` and the favicon/og-card 404s are genuine small items, parked with the trap named.

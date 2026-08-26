@@ -76,3 +76,23 @@ any ActionInputSpec Optional list in this lane again, check.py + overlay ride th
   `tools.apis.uk` probe via `POST /api/v1/tools/gauntlet/round` (root 404 is by design).
   `[UNEXPLAINED, 08-25]` `sites.build_status='pending'` while the page row is `deployed` — no
   served effect, left alone, still true when checked 08-26 morning.
+
+## 5. Design-discovery rotation is back ON — apis.uk was visited 00:40 UTC 2026-08-26
+
+Heads-up from `webdesign-tool-rebuilds` (rotation re-enabled after 15 days off; `bugs_open/401`),
+and then measured here rather than assumed: **six findings landed on apis.uk at 00:40:15–56 UTC**,
+all status `detected`, **all with `handler_agent` empty — so NONE are promotable** by
+`detected-item-promoter` (it requires `COALESCE(handler_agent,'')<>''`, plus the mig-629 origin
+door). No auto-dispatch today; re-check that premise if anyone maps handlers onto these types.
+
+| finding | read |
+|---|---|
+| `head_essentials_missing`: index missing `skip_link`, `footer` | **the footer half is BY DESIGN** (owner: no footer, no email — the empty `site_components.footer` row is the mechanism). Do NOT let anything "repair" it. The `skip_link` half is a real accessibility gap — a legitimate small fix, but see the trap below |
+| `image_url_404` ×2: chrome references `/assets/images/favicon.png` + `og-card.png`, no active asset | real, mild (404 favicon/og-card). Fix = deploy the two assets, NOT edit chrome |
+| `prerequisite_missing` ×2 (page_research, feed_sources) · `structure_floor_unmet` (1 of 6 structures) | the single-page-by-design shape failing fleet norms — expected; annotate rather than "fix" if they nag |
+
+⚠ **THE TRAP for any of these:** the locks guard `page_components` only. Any repair that
+regenerates chrome (head/footer render) **strips the GTM tag** — apis.uk is `bugs_open/397`
+bucket B (artefact-only) until `analytics_gtm`'s `c2` applies. So: assets over chrome edits,
+coordinate anything chrome-shaped with that lane, and settle `pages.build_status` after any
+repair (a render re-queues).
