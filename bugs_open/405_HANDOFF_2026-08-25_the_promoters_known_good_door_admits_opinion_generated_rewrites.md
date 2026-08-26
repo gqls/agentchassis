@@ -74,9 +74,19 @@ Their follow-up worry — "council-gate and fix-proposer carry the step and are 
 is the NAME-JOIN trap of §4b below, one seam over: `[MEASURED 2026-08-25, both instruments in one
 query]` those two rows have **0 steps with `action='write_audit_findings'`** and **1 text
 occurrence each** — the string lives in their reviewer-roster PROSE (footprint maps), not in a
-step. There is nothing to switch and nothing deliberate to confirm: they are not seats. Two capable
-readers mis-read this in opposite directions in one evening (a text census read as steps; a
-jsonb-steps census suspected as blind) — which is why both instruments are named here.
+step. There is nothing to switch and nothing deliberate to confirm: they are not seats. Settled on
+a THIRD instrument (391 lane, `244f2f7ca`): `jsonb_path_query_array(default_config,
+'$.** ? (@.action == "write_audit_findings")')` — recursive descent, so it also covers nested
+sub_workflows a top-level steps walk misses — six auditors at 1 real step each, the two gate rows
+at 0.
+**The sharper lesson, theirs (kept in their words because it beats "two readers disagreed"):**
+the two mis-readings were NOT symmetric. A steps-walk that under-reports fails CLOSED for a
+containment claim; a text census that over-reports, attached to a POSITIVE claim, is the one
+combination the LANDMINES "'can this agent write X' is a GO question" entry rules out in as many
+words — *a landmine that says "safe in direction X" is not a landmine that says "safe."* And the
+delivery vehicle matters: *"worth confirming X is deliberate" is an assertion of X wearing a
+question mark* — **a question inherits the evidentiary standard of the claim inside it**, and the
+sloppiest line in a careful message is the one nobody, including its author, is checking.
 
 **§4b — ⚠ the vocabulary trap a verifier WILL hit (391 lane, hit first, nearly sent as a
 refutation):** `audit_source` labels are NOT agent type names — `offer-analysis` ↔
