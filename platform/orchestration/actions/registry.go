@@ -628,6 +628,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Insert a single work item for pipeline chaining between handler agents",
 		IsLocal:     true,
 	},
+	"refresh_zip_link": {
+		Handler:     RefreshZipLinkAction,
+		Category:    "site",
+		Description: "Re-stamp the stored presign on a site's live zip_download tokens so the customer's durable /d/ link outlives the 7-day SigV4 ceiling",
+		IsLocal:     true,
+	},
 	"send_delivery_email": {
 		Handler:     SendDeliveryEmailAction,
 		Category:    "site",
