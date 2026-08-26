@@ -116,3 +116,118 @@ so a column check reads "never shipped" for ever (LANDMINES 2026-08-25).
 `agent_definitions` row `nav-updater`, step `populate_nav_tables` · lane
 `docs024_key_docs_latest/finetuning_uk_service/HANDOFF_2026-08-25b_continue_here.md` (the trap as
 this lane hit it) · `bugs_open/149` A2 (the adjacent nav-membership family).
+
+---
+
+## 2026-08-26 (evening) — TAKEN, FIXED, COUNCIL-APPROVED r1, COMMITTED. **Stays OPEN: inert until 654 applies after the roll — and ONE OWNER DECISION is owed (§B).**
+
+Taken by the `bugfix_407_site_declares_its_own_header` lane. `who-owns.py 407` returned
+**`likely OWNING workstream(s): (none identified)`** before starting. Commit `74e92e961`;
+council `cb67cc71-b420-4399-9a52-f306d0f4bccf`, **APPROVED round 1**, 6 advisory objections,
+none high.
+
+### A. §4's damage count corrected — the discriminator is BUILT, and it is not a timestamp
+
+§4 warned that a second cause was mixed into the 8 and that its own discriminator
+(`pages.updated_at > max(site_nav_items.updated_at)`) was no good. It is not, and the way past
+it is not a better timestamp: **`classifyPagesForNav` is deterministic Go over `pages`, so it
+can be REPLAYED in SQL** and its expected primary rank diffed against the stored nav. A page
+absent from stored primary is then exactly one of three things:
+
+| expected | verdict |
+|---|---|
+| rank **>** cap | **excluded by the tier/cap — this bug** |
+| rank **≤** cap | a merely **STALE nav** (a rebuild would place it) |
+| not a candidate at all | **another cause** — barred by type or URL |
+
+`[MEASURED 2026-08-26]` the §6 population is 6 today, and the replay splits it **5 / 1**:
+
+```
+ai-agent-orchestration.com  adoption-tracker      tier 2  rank 10  EXCLUDED BY TIER/CAP
+ai-agent-orchestration.com  news-index            tier 2  rank 11  EXCLUDED BY TIER/CAP
+ai-agent-orchestration.com  protocol-tracker      tier 2  rank  9  EXCLUDED BY TIER/CAP
+finetuning.uk               approach              tier 3  rank  9  EXCLUDED BY TIER/CAP
+gaswholesalers.com          pricing-transparency  tier 3  rank 12  EXCLUDED BY TIER/CAP
+idea.uk                     report                page_type=tool   barred by neverPrimaryTypes
+```
+
+**So the honest population of THIS bug is 5 pages across 3 sites, not the filed 8 across 5.**
+`loanzy.uk`'s two — §4's own suspected stale-nav case — have gone from the population entirely
+since filing. `idea.uk/report` is not stale either: it is `page_type='tool'`, and **no rebuild
+would ever place it**. A cruder cap-only screen agrees on the 5/1 split but cannot say why; both
+queries are in the lane RUNBOOK, and the cap one must read `max_header_items` from live config
+rather than hardcode 8, or it asserts the very fleet constant this bug is about.
+
+### B. ⚠ ONE OWNER DECISION IS OWED, and it is deliberately not assumed here
+
+The council's `guardian` seat objected [medium] that the fix lets a site's declaration override
+**three independent membership guards at once** — `pages.in_header`, `neverPrimaryTypes`
+(blog-post / tool / entity-page) and the child-URL bar — and that this is a semantic widening
+beyond "fix the tier order" which deserves explicit sign-off rather than being cited by analogy
+to the 2026-08-02 §2 ruling. **The seat is right that it is a widening, and it is right that it
+should be your call.**
+
+The case for it, so the decision can be made on the merits: every one of those three is a
+**fleet-wide DEFAULT**, and the whole point is that a default may not outrank a site's own word.
+`idea.uk/report.html` is the worked example — the site set `in_header`, set `nav_order` 3, and
+gets nothing, because the platform has decided that pages of type `tool` are never in a header.
+The undeclared path keeps all three bars unchanged, and the two guards that are **correctness**
+rather than preference — the system-page exclusion and the legal group — are NOT overridable: a
+site declaring `privacy` or `404` is told so rather than obeyed.
+
+What it costs if you say no: the fix still solves finetuning.uk and gaswholesalers (tier and
+same-tier ties), and `idea.uk/report.html` stays unpromotable.
+
+### C. What shipped
+
+`site_specs.data -> 'chrome' -> 'header_slots'` — an **ordered array of `pages.name`** — plus
+optional `chrome.max_header_items`, read by `populate_nav_tables`. Declared pages take the
+leading primary slots in the site's order ahead of every undeclared candidate; undeclared
+candidates fill what remains by the existing tier/`nav_order` sort; overflow still goes to
+utility so nothing vanishes. Registered **NAV-014**.
+
+**It is an ORDERED list because half the damage is same-tier ties** — gaswholesalers' absent page
+and the three that beat it are all tier 3 at `nav_order` 100, so a design that only RAISED a
+page's tier would have fixed finetuning.uk and left that site untouched. §5 candidate 2
+(per-site `max_header_items`) is IN, as the same key.
+
+**Where it lives changed after the council.** The first draft used `sites.settings->'nav'`, on a
+rationale asserting *"there is NO `site_specs` table"* — which I had read off a `\dt site*`
+listing truncated at twenty rows. `site_specs` sorts on line 21. The `reuse_agent` and
+`prior_art_librarian` seats both caught it, and the measurement settles it: **`site_config.chrome`
+already carries per-site HEADER config** (`header_cta_url`/`header_cta_label` on oufe.com,
+`compliance_lines` on two more). Header slots belong beside header CTAs. The declaration now
+inherits versioning, `pinned`, provenance and a real writer, none of which the settings column
+had. Recorded in `WRONG_CALLS.md`.
+
+**§5 candidate 3 (extend the fleet list) is refused on this file's own §3 evidence**, now proven
+at the served page: of the three names hardcoded into tier 2 to fix this once, **`model-directory`
+is in ai-agent-orchestration.com's header and its two siblings are not.**
+
+### D. Opt-in, and the no-op is a query rather than an argument
+
+`[MEASURED 2026-08-26]` **0 of 51 sites declare `header_slots`** (3 have a `chrome` object at
+all), so the first roll changes nothing for the fleet. And `classifyPagesForNav` keeps its exact
+signature as a wrapper, so `nav_membership_test.go` — which pins `bugs_open/149` A2's invariant —
+passes with a **ZERO DIFF**, all 8 tests green. That zero diff is the evidence, not the claim.
+
+Eight guards mutation-proven, each by a named failing test, and **re-run in full after the table
+moved** — a mutation proof is about the code that shipped, not the code that was planned.
+
+### E. What remains
+
+1. A chassis roll carrying `74e92e961`.
+2. Probe the RUNNING binary for `header_slots` with a positive AND a negative control in the
+   same exec.
+3. **Take the pre-fix replay reading BEFORE applying 654**, or the after has nothing to be
+   compared with. That is what 654's hold exists for — unlike a checks-array name, an early
+   apply here is inert rather than fatal.
+4. Apply 654 (seeds ai-agent-orchestration.com only — finetuning.uk's ordering is the owner's
+   decision, §B), trigger `nav-updater`, and read `nav_declaration_source` / `declared_missing`
+   from the step's own result before asking whether it worked.
+5. **Verify at the SERVED page** after the re-render items drain, per §6's own ⚠ — and anchor on
+   `<nav>` or the chrome's class, **never on a bare `<header>` tag**: a rendered page carries
+   several, and matching the wrong one gave a 420-byte "header" with no links during this
+   investigation.
+
+Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_407_site_declares_its_own_header/`.
