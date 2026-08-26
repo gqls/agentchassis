@@ -99,6 +99,16 @@ import (
 	"go.uber.org/zap"
 )
 
+func init() {
+	RegisterVerifierWithPolicy("required_fields_missing", VerifyRequiredFieldsMissingResolved,
+		VerifierPolicy{
+			// FailOpenOnError deliberately NOT set: the unsafe direction here is certifying a
+			// component nobody could read, and this type's whole defect class is a true finding
+			// scored as a success (bugs_closed/367).
+			Grades: gradesRequiredFieldsMissing,
+		})
+}
+
 // requiredFieldsComponentNotRemovedSQL is the lifecycle predicate, spelled to
 // match actions.pageComponentNotRemovedSQL and migration 574's rule.
 //
@@ -106,19 +116,17 @@ import (
 // detector's filter here is bugs_closed/367 rebuilt one layer up.
 const requiredFieldsComponentNotRemovedSQL = "COALESCE(pc.build_status, 'pending') <> 'removed'"
 
-// ── NOT REGISTERED YET, AND THAT IS THE POINT OF THIS BLOCK ──────────────────
+// ── REGISTERED 2026-08-26, AFTER ITS FIVE PREREQUISITES ──────────────────────
 //
-// The one line that arms this file is:
+// Migration 634 applied 09:01Z (the live claimed-item-timeout clause now excludes this
+// type), and the exclusion entry lands in the same commit as the init() below because
+// the lockstep fails in BOTH directions.
 //
-//	func init() {
-//		RegisterVerifierWithPolicy("required_fields_missing", VerifyRequiredFieldsMissingResolved,
-//			VerifierPolicy{Grades: gradesRequiredFieldsMissing})
-//	}
-//
-// It is deliberately absent, because REGISTERING A VERIFIER IS NOT A ONE-LINE
-// CHANGE and this file is where the next author will look. Writing that init()
-// with nothing else fails FIVE build guards, each naming a real prerequisite —
-// which is the estate working, not an obstacle. Measured by doing it, 2026-08-25:
+// The sequence is kept below because it is the runbook for the NEXT verifier, and
+// because every step of it was found by doing rather than by reasoning.
+// REGISTERING A VERIFIER IS NOT A ONE-LINE CHANGE: the init() alone fails FIVE build
+// guards, each naming a real prerequisite — which is the estate working, not an
+// obstacle. Measured by doing it, 2026-08-25:
 //
 //  1. TestClaimTimeoutExclusionCoversBothCompletionGates — add "required_fields_missing"
 //     to livespec.ClaimedItemTimeoutExclusions AND ship a migration amending the LIVE

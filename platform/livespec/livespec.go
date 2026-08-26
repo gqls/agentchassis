@@ -154,6 +154,13 @@ var ClaimedItemTimeoutExclusions = []string{
 	"decision_regression",
 	"needs_brand_head_assets",
 	"dark_section_audit",
+	// bugs_open/375 / WII-032. ⚠ APPENDED AT THE END DELIBERATELY — position is
+	// load-bearing: ClaimedItemTimeoutExclusionClause() renders in slice order and the
+	// live-drift Declaration is a FragmentMatch Min:1/Max:1 on that exact string. Migration
+	// 634 appended this type at the end of the live clause, so anywhere but last renders a
+	// string that can never match, and every build-time test stays green while the daily
+	// auditor fires for ever (the lockstep is set-based; the round-trip test is order-blind).
+	"required_fields_missing",
 }
 
 // WorkItemRetryNotPendingAliased is the cooldown predicate as workItemRetryNotPendingSQL("wi")

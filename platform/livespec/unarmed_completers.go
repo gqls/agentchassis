@@ -90,14 +90,34 @@ var UnarmedVerifiedCompleters = []UnarmedCompleter{
 	{
 		Agent: "required-fields-missing-handler", Step: "close_converted", ItemType: "required_fields_missing",
 		Why: "CQ-023's router: closes the original after filing a repair as a follow-on item",
+
+		Acknowledged: "NOT ARMED, and this is the one arm with a documented hazard: CQ-023 records that a verifier " +
+			"registered for this type would FAIL-CLOSE this arm's completion. It closes the original after " +
+			"filing a repair as a follow-on item, so the original's own fields are still empty by design at " +
+			"close time — the verifier's predicate would correctly find the defect and correctly refuse, " +
+			"which is the WRONG outcome for a conversion. Arming this needs the router's close paths re-read " +
+			"and probably a spec/verifier change first, not a config flag. bugs_open/375 §10, CQ-023. ",
 	},
 	{
 		Agent: "required-fields-missing-handler", Step: "close_resolved", ItemType: "required_fields_missing",
 		Why: "CQ-023's router: closes on positive evidence that the required fields are now populated",
+
+		Acknowledged: "NOT ARMED YET, and it is the best first candidate: it closes on positive evidence the required " +
+			"fields are now populated, which is exactly this verifier's predicate — so arming should be " +
+			"close to a no-op and would make the arm's own claim machine-checked. Deliberately not done in " +
+			"the registration commit: arming is a live agent-config change (agent_definitions), it wants its " +
+			"own canary and its own review, and smuggling a live route change into a registration is the " +
+			"shape the council exists to catch. ",
 	},
 	{
 		Agent: "required-fields-missing-handler", Step: "close_stale", ItemType: "required_fields_missing",
 		Why: "CQ-023's router: closes on POSITIVE evidence of absence only, since migration 574 " +
 			"(bugs_closed/367 — before it, a finding about a non-deployed component fell here and closed green)",
+
+		Acknowledged: "NOT ARMED YET. Since migration 574 it closes only on POSITIVE evidence of absence (page gone, " +
+			"component removed/locked), and this verifier RESOLVES on exactly those facts — so arming would " +
+			"likely agree with it rather than fight it. Same reason as close_resolved for not doing it here: " +
+			"a live config change belongs in its own commit with its own canary. Order when somebody does " +
+			"it: this arm and close_resolved BEFORE close_converted. ",
 	},
 }

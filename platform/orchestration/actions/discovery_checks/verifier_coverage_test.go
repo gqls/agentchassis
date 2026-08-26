@@ -265,7 +265,10 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// instruction was followed: the handler is page-build-handler, whose build_pages_loop
 	// rewrites ALL of the page's spec sections, so whole-page scope IS its remit and the
 	// verifier is not stricter than the thing it judges.
-	"required_fields_missing":    {catMechanical, "carries page_id and component_id"},
+	// required_fields_missing REMOVED 2026-08-26: it now HAS a verifier
+	// (verify_required_fields_missing.go, bugs_open/375 / WII-032). It was the first entry
+	// taken off this catMechanical backlog — the list that calls itself "the actionable
+	// backlog, not an excuse list".
 	"dead_control":               {catMechanical, "all 6 carry page_id"},
 	"unresolved_cta":             {catMechanical, "66 items, none completed yet"},
 	"image_source_unsatisfiable": {catMechanical, "predicate is the imagery source check"},
