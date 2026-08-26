@@ -83,11 +83,29 @@ CONTRIB is in this directory. Three things follow for the work in §2:
   Their pass is blind to our class for the same structural reason they already documented for the
   label-locked class. **The gate needs an intent test the judge does not provide**; it should call
   `JudgeCTALabel` first and add the contact-intent arm on top, not replace it.
-- **⚠ SEQUENCING — name the window when you run §3b.** Re-resolving writes new destinations under
-  copy written for the old ones, so it manufactures `CTA_LABEL_MISMATCH` rows **by construction, in a
-  burst, on these three sites.** Anyone reading that record during the window will see a spike and
-  may read it as this repair breaking things. It is not — the pass records only, refuses nothing, and
-  cannot slow §3b. Say so in NOTES with the timestamps before you start.
+- **The seam to hang the gate on is LIVE.** `b1190467c` (verified an ancestor of HEAD) gives
+  `NoOpinion` a reason: **`SilenceNamesNothing`** / `SilenceAmbiguous` / `SilenceNamesItsOwnPage`, in
+  `platform/orchestration/datahelpers/cta_label_agreement.go`, and the reason rides into the record
+  as a `silence` field. **Our 23 contact-intent fields are exactly `SilenceNamesNothing`** — hang the
+  kind-check off that, in this lane's gate. `Ambiguous()` stayed a derived accessor, so no call site
+  changed, and the judge did NOT gain a second question.
+
+- **⚠ SEQUENCING — and it is STRONGER than "a spike".** Migration `643` applied **2026-08-26
+  22:17:08Z** and arms exactly two writers — `page-build-handler` and `page-rerender` — by setting
+  `{workflow,steps,save_sections,config,audit_cta_label_agreement} = true`. `645` (the other four
+  writers) is **still HELD**.
+  `[VERIFIED 2026-08-26 22:2xZ]` `jsonb_path_query_array($.** ? (@.audit_cta_label_agreement != null))`
+  returns 1 armed node on each of those two and nothing elsewhere.
+  ⚠ **Query that key, not the Go filename** — a census for `cta_label_audit` (the source file) returns
+  **false on all four writers** and reads as "nothing is armed".
+
+  **§3b is a burst of `page_rerender` items, and `page-rerender` is one of only TWO armed writers.**
+  So this repair will not merely spike the record — **it will dominate it**, because almost nothing
+  else can fire the audit yet. `[MEASURED 22:2xZ]` `CTA_LABEL_MISMATCH` currently holds **0 rows**.
+  Treat any rate read during or after your window as **meaningless**: the sample is two-of-six writers
+  (silently biased until `645` applies) *and* your own burst. **Name the window in NOTES with
+  timestamps before you start**, so the 399 lane can exclude it rather than reverse-engineer it.
+  The pass records only — it refuses nothing and cannot slow §3b.
 
 ## 3. THE SEQUENCE — three steps, not two, and PROVEN end-to-end
 
