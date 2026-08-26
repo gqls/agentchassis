@@ -1000,3 +1000,36 @@ customer's with written permission, which cannot be first.
 and the site is still on hold for anything that would spend money reproducing the tone you rejected.
 
 Stripe is still last, and yours.
+
+2026-08-26. Your three answers are done.
+
+**The terms** can now be written in full. All four commitments are registered as facts the writing
+system can quote, including the one you have just settled — that the terms may say plainly that
+documents go to a rented GPU machine for the training run and to our storage for the handover.
+
+**The nav problem is filed** as a bug, with your suggestion as the recommended fix. The evidence
+turned out to be better than I expected: somebody has already hit this once and their workaround is
+still in the code — three page names hardcoded into a fleet-wide list to force one site's pages into
+its header — and I measured today that those very pages are missing again, because that site is
+back at the eight-slot limit. So the existing approach demonstrably does not hold. Eight pages
+across five sites currently say "put me in the header" and are not there.
+
+**The datasets.** I have built the machinery that checks a dataset before it costs anything, and the
+first dataset through it — the one that teaches structure rather than voice — is done: ninety
+examples, eighty for training and ten held back. The checker exists because our first training run
+quietly lost five of its three hundred rows to a length limit, and we only found out after the GPU
+was paid for.
+
+But building it turned up a problem with what you approved, and I would rather raise it than work
+around it. "Our own material" means our own published copy — and our own published copy is exactly
+the writing you rejected twice as sounding like AI. For the three datasets whose whole point is to
+demonstrate a voice, training on it would teach a model the register you have told us to stop using,
+and then show that to prospects as a selling point.
+
+The dataset about summarising documents is unaffected, because its target is a format rather than a
+voice, and so is the second invented one. So four of the six can proceed.
+
+For the other three, the only material we hold that is written in a voice you actually approve is
+**your own** — the notes in this file read plainly and directly, which is what the copy team is
+trying to reach. I am not going to use your personal writing for a customer-facing demo without you
+saying so. The alternative is to wait until the site is rewritten and harvest it then.

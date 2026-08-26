@@ -18,8 +18,8 @@ shipped from `copy_quality_two_stage` that changes the register.
 | 2 | header: displace **Contact** (of About / Case Studies / How we work / Contact) | ✅ done — **and it took TWO**, see the trap below. Contact + How We Work out, Your Own Model in at position 7. Both remain in the footer |
 | 3 | the two pages **stay up until replaced** | ✅ nothing taken down |
 | 4 | booking: **customer picks, 9–5 UK weekdays**, other by arrangement | ✅ registered as `ft-booking-hours` |
-| 5 | sample datasets: **yes**, task-keyed, example data + honest worked examples | ⏳ designed (`DESIGN_2026-08-25_sample_datasets.md`, six starters). **BLOCKED on §4: whose data.** Nothing generated |
-| 6 | terms: delete within a week; **retention 30 days**; **1 hour, expires 30 days** | ✅ three registered. ⚠ **the fourth is STILL OPEN** — may the terms name plainly where data lives during training? He was offered it and did not pick it |
+| 5 | sample datasets: **yes**, task-keyed, example data + honest worked examples | 🔶 provenance **APPROVED 2026-08-26** ("as you suggest"). Harness built + **dataset 2 BUILT** (80 train / 10 held-out). ⛔ **datasets 1, 3, 4 blocked by a conflict found while building** — see `datasets/PROVENANCE.md` |
+| 6 | terms: delete within a week; **retention 30 days**; **1 hour, expires 30 days**; **and 2026-08-26: the terms MAY name where data lives** | ✅ **ALL FOUR registered** — `evidence_base.facts[]` now **10**, incl. `ft-data-location`. Terms/privacy pages can now be extended through the framework |
 | 7 | Stripe **last, and he does it** | — |
 | 8 | *(new)* "a couple of the pages have no hero images which has meant that the copy is also unreadable. e.g. services.html" | ✅ `bugs_open/398`, diagnosed + largely fixed. See below |
 
@@ -72,9 +72,15 @@ it, which is the control.
    `BUTTON.form-submit` measures **1.15:1**, and a before-measurement in the same session proves it
    is not 398's doing (it read 1.15:1 before the fan-out too). Looks like the hard-coded-ink family
    VIZ-012 found on oufe's contact form. `bugs_open/398` §9a.
-5. **Put the two open owner questions to him**: the terms' data-location sentence (§6 above) and
-   the dataset provenance (`DESIGN_2026-08-25_sample_datasets.md` §4). Both block real work.
-6. **Keep holding** rebuilds/rewrites until `copy_quality_two_stage` submits improvements.
+5. **ONE owner question is open, and it blocks three datasets.** "Our own material" is our
+   PUBLISHED COPY, and that copy is the register he rejected twice — so for the three
+   voice-targeted datasets (email voice, copy style, support-reply tone) it is the honest source
+   and the wrong teacher. Options costed in `datasets/PROVENANCE.md`; recommendation is **his own
+   writing, with his say-so** (the README prose is the voice the copy lane is trying to reach),
+   otherwise wait for the rewrite. Datasets **5 and 6 are unblocked** and are the next build.
+6. **`bugs_open/407`** was filed at his direction — a site cannot promote its own page into its own
+   header. Unowned; his proposed fix (declare the slots per site) is candidate 1.
+7. **Keep holding** rebuilds/rewrites until `copy_quality_two_stage` submits improvements.
 
 ## Traps current for this lane
 
