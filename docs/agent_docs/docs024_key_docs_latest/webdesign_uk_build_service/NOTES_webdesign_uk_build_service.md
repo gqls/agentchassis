@@ -6019,3 +6019,14 @@ corrs in scratch buyout_corrs.txt); index carries no £200 so NO label risk this
 Stripe: owner mid-key-creation; advised Charges and Refunds = READ (dashboard refunds
 use no API key; webhook uses the signing secret), untick the reporting template, only
 Checkout Sessions = Write required, widen precisely on a named permissions error.
+
+**2026-08-26 (night) addendum — £59.99 FULLY SERVED.** faq retry clean (`40b6fbb`:
+£59.99 x1, £200 0, banned sweep 0 — the first roll's "whenever you like" was variance,
+correctly refused by the re-affirmed caps ruling); how-it-works `64685aa` already
+verified. Served index: label x2 AND GTM x2 together at last (the analytics chrome
+redeploy's wipe was caught by the standing check and re-placed within minutes; their
+durable fix means that was the LAST expected wipe). Stripe: owner created the restricted
+key (guided: Refunds=Read, Checkout Sessions=Write); webhook endpoint + secret-pair
+patch + restart are his next two steps (endpoint creatable BEFORE unpark - Stripe does
+not validate reachability); my verification (mounted-with-provider log + 503 flip) on
+his word; the full webhook round-trip waits for the unpark.
