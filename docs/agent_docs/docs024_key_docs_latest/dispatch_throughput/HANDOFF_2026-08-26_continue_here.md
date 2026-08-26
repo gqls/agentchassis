@@ -67,9 +67,16 @@ migration 657), coordinated below. A chassis roll at ~20:26Z caused **no dispatc
   because we FILED it — human routing supersedes). Their 657: selector ranks sites by
   min(created_at) over each site's top-K by the LOADER's ordering, K read LIVE from
   `load_items.max_items` (COALESCE 1); candidate 2 (age floor) goes to the owner as policy.
-  Contract: they apply ≥12:00Z 2026-08-27, after our boundaries, ping with the stamp. They are
-  also filing the fire-gate gap separately (gate: `status='triaged' AND pipeline='build'` vs
-  selector: triaged+approved, no pipeline filter — an approved-only backlog never fires).
+  Contract: they apply ≥12:00Z 2026-08-27 **on this lane's all-clear after the ~11:30Z read**,
+  and ping with the stamped time. Their build is COMMITTED (`5f1401a85`: 657_HOLD/_ROLLBACK/
+  _VERIFY + an AST ordering-contract test, mutation-proven) with council in flight
+  (corr `ecf2e542` — before giving the all-clear, check their verdict landed and any REVISE was
+  acted on). Their dry-run evidence, dated 20:46Z: rolled-back-transaction apply green; census
+  28 eligible/15 pinned; same-instant divergence OLD→webdesign.co.uk (the rank-135 pin),
+  NEW→vetcomparison.uk. The fire-gate gap is filed as **bugs_open/415** (gate:
+  `status='triaged' AND pipeline='build'` vs selector: triaged+approved, no pipeline filter —
+  an approved-only backlog never fires). Note: their "413 FIX BUILT" NOTES section rode commit
+  `32b4c89c7` as a declared same-file passenger — expected, not an anomaly.
 - **391 lane** (bugfix_389_cta_relevance) handed over the 413 symptom, PARKED, nothing owed;
   their CONTRIB file sits in this dir (priority is inert BETWEEN sites — with corrections).
 
