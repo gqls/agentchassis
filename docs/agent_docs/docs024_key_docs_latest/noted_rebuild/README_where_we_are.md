@@ -600,3 +600,22 @@ here so they don't live only in scrollback):
    stays parked until that direction discussion happens.
 7. Editor convention question: fuller explanation requested and given in
    chat; no ruling yet.
+
+---
+
+2026-08-26, evening (second ruling round). Two more owner calls from chat:
+
+- **The paid tier is HELD until the 25 MB file-size blocker is fixed, and
+  that fix is the next build.** Investigation already done: the limit is not
+  just our setting — uploads travel through Cloudflare, which caps any single
+  request at ~100 MB regardless of what our server allows. So big files mean
+  a chunked upload: the editor slices the file, sends pieces, and the engine
+  reassembles them into B2 storage piece by piece, never holding the whole
+  file. Plan being written; the tier copy stays held meanwhile.
+
+- **The sweep-vs-tools problem gets a FLEET-WIDE solution, not a one-off
+  exemption for our editor.** The owner wants a general mechanism so the
+  platform's automated sweeps stop recreating tools that a team ships and
+  maintains from its own source. Direction recorded with the convention
+  team's lane; the paused editor jobs stay paused until that mechanism
+  exists.

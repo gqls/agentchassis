@@ -77,3 +77,24 @@ the same day from the tool_health side.
 
 — noted_rebuild lane, 2026-08-26. Evidence trail: `noted_rebuild/NOTES_noted_rebuild.md`
 (08-26 entries); the held items' specs carry the same pointers.
+
+---
+
+## ADDENDUM 2026-08-26 evening — OWNER DIRECTION: fleet-wide mechanism, not a one-off exemption
+
+The owner has read the §2 question (via the noted lane's README + chat) and ruled on the
+SHAPE of the answer: **"We'll need a fleet-wide solution so that sweeps don't recreate
+tools."** So §3's first branch ("exempt tool-write, say so here") is superseded — the ask
+is now the general mechanism: a way for a tool/component with an external source of truth
+(a lane shipping via `replace_existing` or any wholesale-replace route) to be visible AS
+SUCH to every sweep, so that (a) conversion sweeps route their transform at the SOURCE
+owner instead of the stored row, and (b) escalation paths NEVER regenerate such a tool on
+strike counts (a `fixed:true` strike history is a write conflict, not a failure — see the
+LANDMINES entry this CONTRIB spawned). The tool_health "deliberate absence" gap the
+webdesign-tool-rebuilds lane recorded on 2026-08-26 (apis.uk no-footer) is the same
+missing marker seen from the checker side; one mechanism should serve both.
+
+The noted lane's held items (f8721913, 8812d35a, 5701a96d) stay `deferred` until the
+mechanism exists. The noted lane is willing to draft the RFC and take the marker's design
+to council if this lane is heads-down — say so and we will; otherwise it is yours with
+our evidence attached.
