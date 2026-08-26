@@ -1,7 +1,7 @@
 # RESUME HERE — gripper dossier pilot
 
-> # 👉 GO STRAIGHT TO THE BOTTOM: "⭐⭐⭐ 2026-08-26 — LIVE ON THE ISLAND, smoke 5/6, ONE owner item: Anthropic credit".
-> (Supersedes both 08-25 blocks, which are now history too.)
+> # 👉 GO STRAIGHT TO THE BOTTOM: "🏁 2026-08-26 — LIVE END TO END, both branches proven in production. Next: fix 409, then the site widget".
+> (Supersedes every earlier block, all kept as history.)
 > That block is the current ship state (2 of 7 steps done, step 1 next and owner-blocked),
 > the exact command to run, and every trap in the remaining steps. Everything between here
 > and there is history, kept for provenance — read it only if the START HERE block sends you.
@@ -465,3 +465,48 @@ shows today's failed call (`req_011CeR5ZavnEYJQkmTfP844p`, 08:55Z).
 
 Session row `b9a1b863-…` left on the island from the failed turn — harmless,
 retention reaps it 24h after last activity.
+
+
+---
+
+# 🏁 2026-08-26 (late morning) — THE PILOT IS LIVE END TO END. Both branches proven in production
+
+Credit restored; steps 6 and 7 completed the same morning. Evidence for every claim:
+NOTES 2026-08-26 (late morning). SUMMARY_2026-08-26_gripper_dossier.md is the
+milestone read-out.
+
+## Proven today, at the artefact
+
+- **Happy path**: request `613916a7…` — chat (3 turns) → submit → pulled (2nd tick)
+  → built → validated → `robot-hands.com/reports/613916a7….html` **200, 96,374 B**,
+  every spec literal present, 0 placeholders → sidecar `ready` → **`link SENT
+  emailed=true`** 10:06:32Z. ~30 min visitor-to-inbox.
+- **Failure path**: request `6dac176b…` — vague flange → placeholder BLOCKER →
+  failure sidecar (200, JSON) + **apology email sent**. SMTP proven both templates.
+- **Switch positions now**: `report-dispatch` ON, **`report-request-pull` ON**
+  (enabled 2026-08-26, this lane), **seed 208 APPLIED** (pull-key md5 verified
+  identical in local file / island `.env` / cluster row).
+
+## Open, in priority order
+
+1. **`bugs_open/409_HANDOFF_2026-08-26_gripper_chat_completeness_gate_and_the_validators_placeholder_rule_disagree.md`**
+   — two findings from the first live requests: null-based chat completeness vs
+   phrase-based validator (a vague visitor = guaranteed failed report), and the
+   "travel"→`travel_mm` (jaw span) volunteered-value trap. **Fix before the widget**
+   — the widget invites vague first messages. Fix candidates ordered in the file.
+2. **Site widget + `/gripper-report/` page** (DESIGN §2 "Site side", unchanged).
+3. Council resubmit `RESUBMIT_CORR=623da25b…` — still the tools-api build
+   session's, deliberately not taken by this lane.
+4. Soft-launch decision (unlinked vs footer link) — the owner's.
+5. SMTP password rotation (transited a transcript 08-15) — owner's, some time.
+
+## Traps recorded today (read before touching)
+
+- WRONG_CALLS 2026-08-26 ×2: the free-endpoint credential "verification" (auth ≠
+  spend), and the premature hung-orchestration stopgap (error-stream silence after
+  transport errors = RECOVERY, not death; 029's `handler_spawned` discriminator did
+  not match and was applied anyway — zero damage by a 60s race, verified by
+  timeline).
+- The Kafka stall mechanism (topic-cleanup window vs in-flight job topics) is
+  `[INFERRED]`, single occurrence, self-healed — NOT filed; file it if it recurs,
+  citing NOTES 2026-08-26.

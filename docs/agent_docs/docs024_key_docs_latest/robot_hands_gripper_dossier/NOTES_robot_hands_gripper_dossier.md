@@ -2294,3 +2294,57 @@ remaining sequence is: one real /chat turn passes → apply seed 208 (pull_key v
 Session row `b9a1b863-730b-4e8c-9f87-79d59f9b4798` remains on the island (chat
 503'd after session create) — harmless; retention drops it 24h after last
 activity by design.
+
+## 2026-08-26 (late morning) — FULL END-TO-END PASS. The pilot is LIVE. Two real findings filed (409), one of my calls wrong twice
+
+Credit restored by the owner ~10:10 BST. Everything below happened 09:10–11:10 BST
+(08:10–10:10Z). `report-request-pull` is now ON permanently; seed 208 applied.
+
+**The passing run, artefact-verified at every hop** (request
+`613916a7-d2fc-4d9c-bbbd-b0363a61d6fe`, session `2ffa5871…`):
+chat (3 turns, Haiku, spec complete incl. `travel_mm: 80` jaw span + full flange
+standard) → submit accepted (island row `pending` 09:36Z) → pulled 09:40:52Z (2nd
+tick) → work item `2b52e440…` → report-builder orch `85718ef5…` → page LIVE
+`robot-hands.com/reports/613916a7….html` **HTTP 200, 96,374 B**, carries every spec
+literal (2.5 / 80 / aluminium / ISO 9409-1-50-4-M6 / 12), 0 placeholder hits,
+negative control 0, headroom chart present → sidecar `ready` 10:04:51Z → island
+poller `fulfilled=true` + **`link SENT emailed=true`** 10:06:32Z → row `emailed/1`.
+
+**The failure path also proven live the same morning** (request `6dac176b…`,
+session 1): vague flange → prose "needs to be confirmed" → `validate_page_content`
+placeholder BLOCKER → workflow fail_out → failure sidecar `{"status":"failed"}`
+HTTP 200, 0 HTML pages → island row `failed`, **apology email SENT**
+(`email_attempts=1`, `failure_notified_at` 09:23:32Z). SMTP works in production,
+both templates.
+
+**Findings filed as `bugs_open/409_HANDOFF_2026-08-26_gripper_chat_completeness_gate_and_the_validators_placeholder_rule_disagree.md`:**
+(1) chat completeness is null-based, validator honesty is phrase-based — a vague
+visitor is a guaranteed failed report; (2) volunteered "300 mm travel" (arm motion)
+bound into `travel_mm` (jaw span) with no question — session 2's question path
+bound 80 correctly and rightly REFUSED my "correction".
+
+**My missteps, both corrected in-session:**
+- Called the refused correction "a real extraction bug" in chat before reading
+  `spec.go:70` — the model was right (travel_mm IS jaw span), I was the confused
+  visitor. Caught by reading the field guidance. (The refusal even explained the
+  semantics — better behaviour than I credited.)
+- Applied the hung-orchestration stopgap to `85718ef5` on a "response will never
+  arrive" diagnosis that was WRONG — the Kafka leadership churn (09:56–10:00Z,
+  `kafka-topic-cleanup` job in the window; "Not Leader For Partition" on the
+  spawn-handler job topics) was a stall, not a destruction. The run completed
+  10:04:51Z, overwrote my FAILED stamp; its complete write (10:05:11) beat the
+  next dispatch tick (10:06:04) so my reset spawned NO duplicate — verified by
+  timeline, not assumption. Full entry: WRONG_CALLS 2026-08-26. Note for next
+  time, in the stopgap's own terms: 029's discriminator (`handler_spawned`
+  ABSENT) did not match this run, and I applied it anyway.
+
+**Kafka episode context**: errors confined to the report-builder pod's job topics
+(chassis pods: 0 matching errors, same window). Not filed as a bug — single
+occurrence, self-healed, and the mechanism (topic-cleanup vs in-flight job topics)
+is `[INFERRED]` from the time window only, not proven. If a second build stalls
+the same way, file it with this entry as the first data point.
+
+**Remaining for this lane**: site widget + `/gripper-report/` page (DESIGN §2
+"Site side") — bug 409 is worth fixing BEFORE the widget invites vague first
+messages. Council resubmit stays the build session's. SUMMARY_2026-08-26 written
+(the milestone file, owner-agreed trigger: live end to end).

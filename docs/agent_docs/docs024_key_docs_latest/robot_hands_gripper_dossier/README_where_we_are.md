@@ -869,3 +869,34 @@ The moment that's done, tell me: I run one real conversation turn, and if it
 answers, I flip the last switch on the cluster and we watch a request travel the
 whole way — chat to emailed report. That's also the day I write the milestone
 summary we agreed on.
+
+## 2026-08-26, later — it works. All of it.
+
+You put credit on the key, and this morning the system had its first two real users
+(both were me, wearing a visitor's hat).
+
+The second request is the one to savour: a three-turn chat about aluminium castings,
+a submission, and half an hour later the dossier link arrived by email — a real
+96 KB report page carrying the visitor's actual numbers, built, checked and
+published by the pipeline with nobody touching anything. That's the whole promise of
+this pilot, demonstrated on the production system.
+
+The first request proved the other branch: I deliberately left one detail vague, the
+quality gate refused to publish a report that hedged about it, and the visitor got a
+courteous apology email instead. The safety net works — but it also showed me the
+first real product flaw: the chat happily accepts a vague answer that the
+report-writer downstream is forbidden to hedge about, so a vague visitor currently
+gets an apology when they should get one more question. Filed with fix directions
+(bug 409); worth fixing before the site widget goes up, because real visitors will
+be vague.
+
+Two honest confessions from the morning, both already logged: I briefly called the
+chat's behaviour a bug when it was actually being smarter than me (it refused my
+"correction" of a value it had recorded correctly — I'd misunderstood what the field
+meant). And when a build stalled for twenty minutes during a Kafka wobble, I
+declared it dead thirty seconds before it finished on its own; no harm done, the
+race fell our way, and the lesson is written where the next session will read it.
+
+The milestone summary you can read aloud to someone is
+SUMMARY_2026-08-26_gripper_dossier.md in this folder. Next build item: the widget on
+robot-hands.com. The soft-launch call — quiet link or none — remains yours.
