@@ -14481,3 +14481,28 @@ bound, and the process dies with `fatal error: stack overflow` after 12,654 iden
   did everything right — it treated `""` as "skip this page and continue the loop" — and it
   made no difference, because the contract was broken below it. **Check that the callee can
   actually RETURN the value the caller is written to handle.**
+
+### A due-stamp of `fetch_time + period` on a scheduler with the SAME period is phase-locked to miss every other pass (2026-08-26)
+
+`bugs_open/410`. A 6-hourly trigger serves sites whose sources are "due" (`next_fetch_at <= NOW()`);
+the fetch stamps `next_fetch_at = NOW() + fetch_interval` with `fetch_interval` = 6 h. The fetch lands
+seconds-to-minutes AFTER its trigger, so the source is due seconds-to-minutes AFTER the next trigger
+— not due, skipped, served one pass later. Ten of twelve sites ran on a 12 h cadence under a 6 h
+label, every run COMPLETED, nothing filed, and a fairness fix in the same query (316) had just been
+declared to have solved "every other run".
+
+**Transferable checks.**
+
+- **Compare the due-stamp with the NEXT trigger time, not with "now".** `due <= NOW()` at the moment
+  of the check is the wrong question when the check itself is periodic; the right one is "will it be
+  due before the pass after this one?" — a look-ahead of half the period, or a stamp anchored to the
+  schedule rather than the event.
+- **Census the SERVED runs per target over two periods before believing a cadence claim.** "The trigger
+  ran and COMPLETED" is a fleet event; per-target service is a separate row (`orchestration_states
+  WHERE site_id=… AND owner_agent_type=…`). The pattern is visible as two run-times 2×period apart.
+- **Keep a sub-period control in the census.** A target whose interval is shorter than the cadence is
+  due at every pass by construction; if it is served every pass while the equal-interval targets
+  alternate, the cause is the interval arithmetic, not the cap, the queue or the LLM.
+- **When two queries gate the same work at two layers (site-level, then source-level), a fix to one
+  is not a fix.** 316 documented the drift; 410's remedy has to land in both or the trigger dispatches
+  a site whose orchestrator finds nothing due.

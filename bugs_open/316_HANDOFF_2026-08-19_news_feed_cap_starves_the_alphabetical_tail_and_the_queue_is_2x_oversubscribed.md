@@ -384,3 +384,17 @@ needed from you and nothing is now — this is a courtesy close of the loop, not
 
 The gate and the census that found this are register **BLD-026**; `bugs_closed/318` closed
 2026-08-22.
+
+---
+
+## CONTRIB 2026-08-26 (idea_uk_vm_site lane) — the "every other run" symptom SURVIVES 556, for a second, distinct reason: `bugs_open/410`
+
+`[MEASURED 2026-08-26]` 48-hour census of `content-feed-orchestrator` runs by site: every site whose
+sources are ALL 6-hourly ran at ~20:47 (08-25) and ~08:47 (08-26) — **12 h apart** — while the two
+sites holding a 3 h/4 h source ran at every pass. The cap was not binding (08:46 pass: 10 due, 10
+dispatched). Cause: both writers stamp `next_fetch_at = NOW() + fetch_interval` at FETCH time, 10 s–
+9 min after the trigger, so a 6 h source is due seconds after the next 6 h trigger fires and is
+skipped. So the ordering fix here made the queue fair (true) but the lane README's *"seven … are now
+fully served"* (line 138) is **refuted** — they are served every other run, as before, by a different
+mechanism. Filed as **`bugs_open/410`** with fix candidates; the two-layer trap this file documents
+(site query vs source query) is exactly where 410's candidate 1 has to be applied twice.
