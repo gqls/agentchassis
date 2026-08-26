@@ -104,3 +104,36 @@ prose/validator seam is deliberately untouched — if hedges can no longer enter
 spec, the prose has nothing to hedge about; if a live run still manufactures
 "to be confirmed" from a clean spec, that is a NEW finding against the prose
 prompt, filed separately.
+
+## COUNCIL ROUND 1 = REVISE (same day) — the objection was RIGHT, and round 2 answers it in code
+
+`editquality`, gating, on edit 2: finding 2 got prompt/guidance coverage only,
+against the submission's own "a prompt line is not a control". Correct — and the
+REVISE round earned its cost exactly as the estate's memory says it does.
+
+**Round 2** (commit `0419ca584`, resubmitted on the same corr `70083c99`):
+`reconcile()` — a cross-field pass at the END of `Normalise`, which every real
+spec path exits through (chat's SQL-merge RETURNING, session rescan,
+submit-from-session, plain-form inline), so there is no second call site to
+forget. Drops `travel_mm` > **1.5×** the largest number stated in
+`part_geometry` (the live mis-bind was 2.5×). Fails OPEN on absent/numberless
+geometry — the guard catches a contradiction between stated facts, it does not
+demand facts. `Merge` mirrors it. Boundary pinned by tests (180 keeps, 181
+drops); mutation-proved. Image **v1.0.1343** (`3abb46509`).
+
+## LIVE REPLAYS on v1.0.1342 (guidance half): (a) and (b) PASS
+
+Session `21e67276…`, the exact session-1 input shape (vague flange AND
+volunteered "300 mm travel" in one message):
+- (a) mounting recorded as the CLEAN partial fact `"gantry, ISO 9409 flange"` —
+  no hedge phrase; **PASS**.
+- (b) `travel_mm` NOT bound; the assistant asked the discriminating question
+  verbatim ("is that the robot's movement, or the distance the jaws must
+  open?"); **PASS**.
+- (c) baseline: same session completed correctly (travel 80, full flange),
+  submitted, in flight at write time.
+
+**Still owed before CLOSE**: the v1.0.1343 swap (code guard live), one
+behavioural probe of the code guard (geometry + travel 300 in ONE message →
+travel absent from the recorded spec), (c) reaching `emailed`, and the round-2
+council verdict read.
