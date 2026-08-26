@@ -207,6 +207,11 @@ rendering claim the check never verifies (it reads schemas, not values, so it fi
 not images are carried). **CORRECTED 14:55 from the 644 lane's fleet census:** not a false
 alarm — a SUPPLY WARNING wearing a rendering defect's words: a new page with this component on
 this site would render nothing. `[MEASURED by them 2026-08-26]` 58 of 67 open
-`image_source_unsatisfiable` items name a field that IS populated on the page. They have put the
-check's meaning through the diagnosis loop (`8aeba0b6…`) and will file it in `bugs_open/`.
-**Leave our item alone — it is now evidence.**
+`image_source_unsatisfiable` items name a field that IS populated on the page. Diagnosis loop: **CONFIRMED,
+first iteration** — filed as **`bugs_open/411`** (the check determines satisfiability correctly,
+then writes a second claim — "renders empty or falls back to a placeholder" — that no code path
+in it establishes: it reads SCHEMAS and asserts what only VALUES can answer; a live non-644
+example on `guide-how-loans-are-calculated` proves it is not our site's artefact). 411 also
+records why nobody noticed (`bugs_open/033`: that queue has no reader) and warns that fixing
+emission does not re-describe the 67 standing rows. **Leave our item alone — it is cited in 411
+as evidence.**

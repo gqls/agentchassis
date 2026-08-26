@@ -1375,3 +1375,11 @@ two states that want distinguishing, not merging. Census: 58/67 open items asser
 empty" about populated fields. Routed by them through 090 (`8aeba0b6`), bug to follow; our
 item stays as evidence. Adopted into §5c. Lesson for me: **"true statement, false alarm" was
 itself a compressed claim — the alarm was about the wrong thing, not about nothing.**
+
+### 2026-08-26 ~15:10 UTC — the routed item became bugs_open/411 (CONFIRMED, first iteration)
+
+The 644 lane's 090 run confirmed the mechanism independently (same lines, plus a live non-644
+example on another site), filed `bugs_open/411`, and our §5c framing — the (a)/(b) split, and
+the rejection of "treat carry as satisfied" — survived into the file. Our item is cited evidence
+and stays open. Their closing line is the practice in one sentence: "a cancelled item would have
+taken the whole finding with it."
