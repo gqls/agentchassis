@@ -341,3 +341,78 @@ SELECT 'archive', count(*), count(*) FILTER (WHERE spec ? 'reason')
   FROM site_work_items_archive
  WHERE item_type='page_rerender' AND created_by IN ('rerender-pages','create_rerender_items');
 ```
+
+---
+
+# CONTRIB 2026-08-26 (`bugfix_404_rerender_reason_vocabulary` lane, taking this bug) — the vocabulary is SIXTEEN values, and the gate-side instance you bounded at 7 is **129**
+
+Taken by a lane opened today; `who-owns.py 404` showed no active workstream. Two of this file's
+own conclusions hold under re-measurement and one is much larger than stated.
+
+## 1. HOLDS: the Go-reader arm is LATENT, exactly as your §26b/§26c corrected it to be
+
+Re-derived independently over `site_work_items` UNION `site_work_items_archive`
+`[MEASURED 2026-08-26]`: of the reason-bearing `page_rerender` items created via
+`rerender-pages`/`create_rerender_items`, **all carry `section_data_resolved`** — which the Go
+reader knows. Zero `template_changed`, zero `literal_markdown`. Your correction stands, and so
+does the conclusion drawn from it: no caller routes an unknown reason through the stale Go
+reader, so **that** arm is a trap for the next author rather than live damage.
+
+## 2. MUCH LARGER: the same asymmetry is ALREADY REALISED at the OTHER reader
+
+§26b bounds the gate-side instance at *"7 of the 19 `literal_markdown` items… historical and
+bounded… not chased here"*. Chased:
+
+**`[MEASURED 2026-08-26]` 129 `page_rerender` items carry a `spec.reason` the LIVE GATE does not
+know. All 129 were handled by `page-rerender` — the gate's own agent — and 96 COMPLETED.** By the
+gate's own structure (`else_step: render_page`) every one took the assemble branch.
+
+Eleven distinct values, and **two of them first appeared in the last two days**, so this is
+ongoing rather than historical:
+
+```
+verbatim_adoption_deploy        86   light_palette_chrome_replaced  13  (first 2026-08-25)
+"migration 415 repointed …"     11   meta_description_corrected      4
+"the 20:2x rewrite deployed …"   4   "bugs_open/238: the £149 …"     4
+legal_page_publish               3   listing_stale                   1  (first 2026-08-24)
+m2_rebuild_safety_proof          1   claims_corrected                1
+"section_edit a007f0ff complete + tool-list removed"                  1
+```
+
+⚠ **AND WHAT I COULD NOT ESTABLISH, because the distinction matters as much as the number.**
+"Took the assemble branch" is measured. **"Therefore shipped nothing" is NOT**, and I am not
+claiming it. I tried: the `migration 415` cohort is the best candidate because its own reason
+text says *"this page still serves the raw rule"*. Result — 1 of 3 components on **all 11** pages
+now carries `--color-primary-ink`, **including the pages whose items were CANCELLED**. Control
+and treatment agree, so the marker arrived by another route and the cohort discriminates nothing.
+A cohort is only evidence if a marker can be ATTRIBUTED to it, and reaching for the next cohort
+until one agrees is how this estate's worst measurements get made.
+
+So the honest statement is: **129 items were routed to the silent branch; whether any of them
+needed the other branch is unestablished.** Some of these plausibly WANT assemble. The point is
+that nobody can tell — which is the same complaint this file makes about the Go reader.
+
+## 3. THE STRUCTURAL FINDING — `spec.reason` is TWO FIELDS WEARING ONE NAME
+
+Four of the sixteen observed values are **free prose**: whole sentences, a `£` sign, a bug
+reference, an operator's note to themselves. Humans are using `reason` as an ANNOTATION while the
+gate uses it as a ROUTING KEY. That is why the vocabulary drifts faster than anyone notices — the
+field has no closed set to drift *from*.
+
+Three consequences for the fix candidates, offered as design input rather than as a rewrite of
+your ordering:
+
+1. **Candidate 0 (the parity test) is necessary and not sufficient.** Keeping Go and the gate in
+   step over "the five" leaves the sixteenth free-text value silently assembling for ever.
+2. **Candidate 1 (one definition) should also answer "what happens to a reason nobody
+   declared?"** Given the fail-toward-assemble asymmetry this file names so well, the safe answer
+   is probably not "assemble silently" — **an unknown routing key that completes green is this
+   bug in one sentence.** Loud-but-still-assemble would close the observability half without
+   changing any routing behaviour.
+3. **The vocabulary spans at least THREE item types**, which widens where a definition has to
+   reach: `template_changed` also appears on **65 `section_edit`** items, and `literal_markdown`
+   appears ONLY on `item_type='literal_markdown'` items — **never on a `page_rerender` item**. So
+   the gate's fifth value may not be exercised through this path at all; worth checking before
+   asserting the five are symmetric.
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/`.
