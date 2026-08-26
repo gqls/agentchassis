@@ -130,3 +130,19 @@ greenfield dispatch doubles as the proof run; the route is unblocked); (2) the r
 (finetuning lane's generalisation — a declared handler property + a sixth door; 396-family, not
 this lane's, precedent handed over); (3) RFC_056's named follow-ups (design-audit child fail-open;
 the 621-convergence of the two park shapes; a real verdict-release surface).
+
+---
+
+## 9. LATE MORNING 08-26 — the revalidation trail, and one line of the plan redrawn
+
+**RFC_056 ADDENDUM 1's revalidation claim was FALSE** (gates map = one type). Fix built:
+`recordModeSilenceRule` + `recurrenceExpected` on record rows; council trail `04a3ce1f` ran FOUR
+rounds (r1 REVISE — two right HIGHs; a stale-bytes duplicate of my own, declared; true r2 REVISE —
+the multi-producer pin; r3 REVISE — the reaper interaction, settled by its own pre_query; r4
+dispatched and DECLARED FINAL). Whatever r4 says, the code stands as advisory-reviewed with every
+objection dispositioned; residuals are **RFC_056 FOLLOW-UPS** (six, incl. the post-roll proofs).
+**Operative rule until the roll: verdict rows are cleared by humans only** (RUNBOOK "verdict queue").
+**apis.uk's finding** (FOLLOW-UP #1): `missing_tools` → tool expansion runs on the mechanical seat
+with no per-site refusal — growth, not defect; the owner's word is needed on a refusal declaration.
+Read the verdict: `SELECT split_part(body,E'\n',1) FROM doc_notes WHERE categories ? 'council-gate'
+AND body LIKE '%04a3ce1f%' ORDER BY created_at DESC LIMIT 1` (five notes = r4 landed).
