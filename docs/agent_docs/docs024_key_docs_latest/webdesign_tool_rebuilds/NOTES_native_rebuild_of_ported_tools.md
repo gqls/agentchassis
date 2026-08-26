@@ -4806,3 +4806,90 @@ hardcoding `grid-template-columns: 1fr 1fr` inline **twice** with no query.
 > *"Every value you enter is escaped for the exact place it lands in the…"* — which was an explicit
 > brief requirement ("Say on the page that values are escaped") and is the kind of thing that is easy
 > to specify and easy for a build to silently skip.
+
+## 2026-08-26 18:16Z — #46 `tool-asset-formatter` REBUILT (46 of 63). Two things worth more than the tool.
+
+Filed 18:00:15Z → claimed **18:10:38Z** → complete 18:15:05Z → retired **18:16Z** (PRE1 md5
+`e900cdd5…` len 9222, PRE2, POST all passed, reached COMMIT). Component
+`3e26f29a-e6ea-471a-833b-438f8a38770c`, native slot `9734606a-1785-41f6-9453-d3d284bfb367` (17,369
+chars). **Tally 46 `removed` + 17 `deployed` = 63, 0 dual-slot pages**, and all three of today's
+pages serve `class="ported-page"` = 1 (stale-but-single). **SERVE-GRADE OWED** on rerender
+`0853324f-9c7b-41e6-a5d7-45e3cede457a` (priority 80). Retire-race gate was unusually clean: the
+page's priority-35 `misdirected_cta` rerender is now `failed` at `attempt_count=3` (exhausted, can
+never fire) and three more are `unresolved`, so nothing claimable sorted ahead of a priority-60 filing.
+
+### ⚠ 1. The "LATENT, not today's problem" mechanism went LIVE on my own site 32 minutes later
+
+At 17:29Z I measured the whole-site kill switch and recorded it as latent: **0 sites fleet-wide** held
+a `claimed` row older than 30 minutes, and I wrote — correctly, then — that it was "a mechanism to
+check, not an explanation". At **18:01:09Z** a `needs_content_page` item (`b964c59a`) was claimed on
+webdesign.co.uk, and `NOT EXISTS (… status='claimed')` removed **this whole site** from
+`find_dispatchable_site`. My filing sat `triaged` for ten minutes with **GATE ZERO = 0 ahead of it**,
+and the site was absent from the fleet top-5 ranking entirely.
+
+**This is not a fault and I am not filing it as one** — a content-page build legitimately takes
+minutes, and the exclusion is the queue behaving as designed. What it cost was my *prediction*: I
+filed expecting another 2-minute claim because the count said 0.
+
+**The lesson, and it is one this estate already has a memory for: a `[MEASURED]` claim about STATE
+expires, and mine expired in 32 minutes.** "0 sites blocked" was true at 17:29Z and false at 18:01Z.
+The count of items ahead cannot see this at all — **`truly_ahead = 0` and "will be claimed soon" are
+different propositions**, and only the blocker query distinguishes them. **Run BOTH before predicting
+a wait:**
+```sql
+SELECT count(*) FROM site_work_items WHERE site_id='<site>' AND status='claimed';  -- >0 ⇒ site excluded
+```
+Watching it oscillate `1→0→1→0→1` as items were claimed and completed is also the clearest picture of
+this site's dispatch I have seen: it works **one item at a time**, and my priority-60 row went in the
+first gap that opened after its turn came round.
+
+### ⚠ 2. The item said `complete`; the RUN carried a real `__step_error` — and it cost nothing, for a nameable reason
+
+`collected_data->'__step_error'` shows `suggest_related_pages` died with
+`response truncated: stop_reason=max_tokens`. The item still reads `complete`, `page_adopted=true`,
+`already_exists` NULL. **This is the "grade the RUN not the item" rule earning its place for the
+second time in one lane-day** — but the interesting half is that the failure was **free**:
+
+`[MEASURED 18:16Z]` all three tools built today have **exactly 2** `tool_crosslink` rows in the same
+`deferred`/`OWNED_PAGE_GUARD` state — asset-formatter included. **Because `related_pages` was supplied
+explicitly in the spec, the suggestion step was redundant, so its death changed nothing.** That is a
+concrete argument for always carrying the key beyond the one in the runbook (which is about
+cross-mentions being emitted at all): **it also makes the build resilient to that step failing.**
+
+⚠ **Before the retire I checked the tool HTML itself was not truncated**, because `max_tokens` in a
+run is exactly the `bugs_open/012` persist-a-fragment shape: `<style>`/`</style>` 1:1,
+`<script>`/`</script>` 1:1, file ends `})();</script>`, and the instruction text present in full.
+The failed step was upstream of `save_tool` in the observed order (`generate_tool_html` →
+`load_site_page_names` → `suggest_related_pages` → `save_tool`), so the tool HTML was never at risk —
+but that is only knowable by checking, not by reading the step name.
+
+### Mechanism grade — every requirement met at the arms
+
+**Seven negative controls, ALL valid this time** (each ≥1 in the ported bytes) and all 0 in the native:
+`alert(` 0/1 · `onclick=` 0/4 · `window.onload` 0/2 · `innerText` 0/6 · `#333` 0/1 · `innerHTML` 0/1 ·
+`includes("Add your assets")` 0/1. Note `window.onload` **is** a valid control here (ported=2), where
+on monolith-splitter it was worthless (ported=0) — same probe, different evidential value, which is
+why it has to be checked per tool rather than carried forward as a habit.
+
+1. **Key validation is REAL, and the tool-doc header nearly cost me the grade.** The header says
+   *"keys are validated as identifiers, trimming whitespace only"* — which reads exactly like the
+   ported defect surviving (`key.replace(/\s+/g,'_')` under a comment claiming to sanitise). **At the
+   arm it is genuine:** `sanitizeKey` rejects `/^[0-9]/` ("key cannot start with a digit") and anything
+   failing `/^[A-Za-z_][A-Za-z0-9_]*$/` ("letters, digits and underscores"), returning a reason that is
+   shown on screen. The handoff's own examples — `logo-main!`, `2fast` — are now flagged and
+   **excluded from the dictionary**. The header is accurate (trimming is the only *transformation*;
+   validity is enforced by *rejection*) and is still easy to misread. **Read the arm.**
+2. **Duplicate keys** — `keyCounts` pre-pass, then an explicit on-screen error naming the key and
+   `rowOk=false` so the row is excluded. The dictionary can no longer disagree with the list.
+3. **URL validation** — `new URL(trimmed, document.baseURI)` in try/catch, plus a protocol allow-list
+   (`http:`/`https:`/`data:`) with the reason "must use http, https or a data URI to be usable as an
+   image source".
+4. **The copy hole is closed, and better than #44's.** `handleCopyClick` gates on
+   `completeRowCount === 0` — the DATA — and shows *"Nothing to copy yet…"* rather than putting a
+   status string on the clipboard (the ported one copied the literal **"No assets mapped."** while
+   announcing success, because its guard needle was the *other* placeholder, "Add your assets"). It
+   copies **`currentComposedString`**, a real composed string, not a DOM readback — so unlike #44 this
+   one meets that requirement to the letter as well as in substance. Distinct success/error arms plus
+   a fallback.
+5. **Responsive** — `@media (max-width: 600px)` switching `.asset-row` to `flex-direction: column`.
+   Ported had **0** media queries.

@@ -592,3 +592,32 @@ One thing I want to be straight about: parking those forty-one false alarms boug
 fix anything, and the number will keep growing by one for every tool we rebuild. I confirmed that on
 today's tool by checking both halves — what the page actually serves and what the checker actually
 looks for — and they do not match, for the same reason as all the others.
+
+## 2026-08-26, evening (rebuilding seat) — a third tool, and the queue taught me something by embarrassing me
+
+Forty-six of sixty-three. The third one today is the Asset Formatter: the tool that writes an
+instruction telling an AI assistant to use your real hosted images rather than inventing stock
+photos. Its old version had a genuinely silly fault — press Copy with nothing filled in and it put
+the words "No assets mapped." on your clipboard while telling you the copy had succeeded. It also
+promised to make your image names safe and did nothing of the sort, and quietly threw away one of
+two images if you gave them the same name. All three are fixed, and I checked each by reading the
+code that makes the decision rather than the tool's own description of itself — which matters here,
+because this tool's self-description reads as though the old fault had survived, and it hasn't.
+
+**The embarrassing part, which is the useful part.** Earlier this afternoon I found a trap in how
+work gets handed out: a site is skipped entirely while any one of its jobs is still in progress. I
+checked whether it was biting anyone, found it wasn't on any site, and wrote it down as a thing to
+know about rather than a live problem. Thirty-two minutes later it was biting me. I filed the third
+tool with nothing ahead of it in the queue and it sat there for ten minutes, because one unrelated
+page-building job on the same site was mid-flight.
+
+Nothing was broken — that job was doing exactly what it should, and mine went through the moment it
+finished. But it's a clean demonstration that a measurement of *what is happening right now* goes
+stale faster than you'd think, and I'd published mine as if it would hold. I've added the second
+query to the runbook so the next person checks both: how many jobs are ahead, and whether the site is
+currently able to take work at all. Those are different questions and only one of them was being asked.
+
+**One correction to my earlier note.** I said the pages would take about three hours to rebuild. They
+are draining faster than that — the site is getting through roughly forty jobs an hour, so it is more
+like an hour or two. All three of today's tools are still waiting on that step, and all three pages
+are safe in the meantime: each shows one working tool, just not yet the new one.

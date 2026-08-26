@@ -1,10 +1,18 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 45 of 63 retired (43 serve-confirmed; #44 and #45 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works, and fast.
+## STATE: 46 of 63 retired (43 serve-confirmed; #44, #45, #46 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
 
 44 `removed` + 19 `deployed` = 63 (tool pages), verified 2026-08-26 17:32Z, with **zero pages carrying
 both a live ported slot and a live native slot**. Nothing is part-done except the serve-grade below.
+
+**#46 `tool-asset-formatter` is BUILT AND RETIRED** — `add_tool 12e3ef8c` filed 18:00:15Z, claimed
+18:10:38Z, complete 18:15:05Z, retired 18:16Z under full guards. Component `3e26f29a`, native slot
+`9734606a` (17,369 chars); revert handle `518fe90e` (md5 `e900cdd5…`, len 9222). Graded PASS at the
+arms. **SERVE-GRADE OWED:** rerender `0853324f-9c7b-41e6-a5d7-45e3cede457a`, priority 80, do NOT re-file.
+⚠ Its run carried a real `__step_error` (`suggest_related_pages` died at `max_tokens`) while the item
+read `complete` — it cost NOTHING because `related_pages` was explicit in the spec, which is a second
+reason to always carry that key. Tool HTML was checked for truncation before the retire.
 
 **#45 `tool-head-architect` is BUILT AND RETIRED** — `add_tool cd0078ae` filed 17:47:42Z, claimed
 **17:49:56Z (2m14s)**, complete 17:54:33Z, retired **17:54:52Z (19 s later)** under full guards.
@@ -42,6 +50,17 @@ WHERE wi.site_id='6b49db8e-d447-4467-8277-4f3018af9897'
 SELECT max(claimed_at) AS site_last_served FROM site_work_items
 WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897';
 ```
+
+**⚠ RUN THE BLOCKER QUERY TOO — `truly_ahead = 0` does NOT mean "will be claimed soon".** Proven the
+hard way at 18:00Z: #46 was filed at 0 ahead and sat `triaged` for **ten minutes** because one
+`needs_content_page` row was `claimed`, which excludes the WHOLE SITE from selection. Both queries or
+neither:
+```sql
+SELECT count(*) FROM site_work_items
+WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND status='claimed';  -- >0 ⇒ site excluded now
+```
+This is not a fault (a content-page build takes minutes); it just makes the count unpredictive. And
+note it changes fast — measured 0 blocked sites fleet-wide at 17:29Z, live on this site by 18:01Z.
 
 **And item depth is not what decides whether you are served — SITE SELECTION is.**
 `build-pipeline-trigger.find_dispatchable_site` (live config) ends `ORDER BY wi.created_at ASC,
@@ -182,7 +201,7 @@ entity block.
 subject) and `learn-security-xss-vulnerability` (the escaping half). Both verified active non-tool
 pages.
 
-## Next up — #46 `tool-asset-formatter` (9,222) — ANALYSIS DONE, do not redo it. Self-contained, no sidecar.
+## ✅ #46 `tool-asset-formatter` — DONE 2026-08-26 (serve-grade owed). Analysis retained for reference.
 
 Page `1a6d54a8-db1f-40e6-8a11-504bb9931edc`, slot `518fe90e-c5c8-4123-8e00-9915a04eee51`, md5
 `e900cdd5…`, url `/tools/asset-formatter/index.html`.
