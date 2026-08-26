@@ -16,6 +16,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 type SpecAdminHandlers struct {
@@ -252,7 +254,7 @@ func (h *SpecAdminHandlers) HandlePropagateSpec(c *gin.Context) {
 			SELECT COUNT(*),
 			       COUNT(*) FILTER (WHERE locked_at IS NOT NULL AND locked_by IN ('admin', 'admin-removed', 'checkpoint'))
 			FROM page_components
-			WHERE page_id = $1 AND build_status IS DISTINCT FROM 'removed'
+			WHERE page_id = $1 AND `+datahelpers.NotRemoved("")+`
 			  AND COALESCE(slot_name, '') NOT IN ('header', 'footer', 'head')
 		`, pageID).Scan(&totalCount, &lockedCount)
 

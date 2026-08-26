@@ -49,9 +49,17 @@ var handSpelled = []string{
 }
 
 func TestNoHandSpelledTombstonePredicate(t *testing.T) {
-	root := ".." // platform/orchestration — every known consumer lives here
+	// platform/orchestration held 11 spellings; widening the walk on the
+	// approval round's advisory (89dcc04a: bug_historian LOW, architecture LOW)
+	// immediately found FOUR more in internal/core-manager/admin — all
+	// NULL-safe and so invisible to any grep for the broken form. Walk both
+	// trees; a root that stops existing is a loud failure, not a silent skip.
+	roots := []string{
+		"..",                // platform/orchestration
+		"../../../internal", // every service outside the chassis tree
+	}
 	var offenders []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	walkFn := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -76,9 +84,11 @@ func TestNoHandSpelledTombstonePredicate(t *testing.T) {
 			}
 		}
 		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk failed: %v", err)
+	}
+	for _, root := range roots {
+		if err := filepath.Walk(root, walkFn); err != nil {
+			t.Fatalf("walk of %s failed: %v", root, err)
+		}
 	}
 	if len(offenders) > 0 {
 		t.Errorf("hand-spelled tombstone predicates found — use datahelpers.NotRemoved/NotRemovedSQL so the clause cannot drift from the assembler's:\n  %s",
