@@ -19,16 +19,27 @@ rewrite the copy. **Ruled (option question, same day): his tag, HOSTED COPY ONLY
 
 - The copy promises NO analytics service today: one outward-pointing FAQ mention
   (Fathom/Plausible) across all five pages. **Nothing needs rewriting in any branch.**
-- No per-site tag field exists (`sites.settings` carries none; zero Go references): the
-  tag lives in the site CHROME, currently being made durable by the analytics_gtm lane
-  (bugs_open/397). Their carrier is where a per-site field belongs.
+- ~~No per-site tag field exists (`sites.settings` carries none; zero Go references)~~
+  > **CORRECTED 2026-08-26, same day, by the analytics_gtm lane: a FALSE ABSENCE.** The
+  > field EXISTS: `site_specs` aspect `site_config`, `data.analytics.gtm_container_id`
+  > (register STY-050, live since 07-31), read via `{{if .gtm_container_id}}` in every
+  > head/header template — no literal in chrome at all. I measured `sites.settings` and
+  > Go references; the seam is config-table state, and `site_config` was even in the
+  > aspect list I had already read. A customer's own id and "none" both WORK TODAY
+  > (write the key / leave it absent). What does NOT exist is the DEFAULT-seeder
+  > (bugs_open/397 §6.2, analytics lane's build). WRONG_CALLS entry logged.
 
 ## What the build needs (a follow-up work package, not started)
 
-1. A per-site field (e.g. `analytics.gtm_id` + `analytics.mode: default|custom|none`) the
-   chrome template reads; customer-site default = the owner's container.
-2. The ZIP path (zip-deliverer, DGH-011) strips the OWNER-default tag block (marked
-   wrapper) and keeps a customer-supplied one.
+1. ~~A per-site field~~ **EXISTS (correction above).** What remains: the DEFAULT-seeder
+   plus an explicit `analytics.mode: default|custom|none` beside the id (adopted by the
+   analytics lane 2026-08-26: once a seeder exists, "none" must be a stored fact the
+   seeder honours, never an absence it would re-fill). The default value lives in ONE
+   place both the seeder and the export path read. Structural build = analytics lane.
+2. The ZIP path: PREFERRED design (analytics lane's suggestion, 2026-08-26) is
+   re-RENDERING for export with mode=none so the template gate simply omits the block —
+   no wrapper-marking, no regex over HTML. A marked wrapper is second-best if the
+   exporter must work from stored artefacts. Route with site_delivery_and_editor.
 3. Intake: an optional "your Google Tag id / no tag" question on the brief.
 4. ONE attested copy line — **only when the mechanism ships** (reference only what
    exists): the hosted copy carries our tag unless you give us yours or say no; the ZIP

@@ -54846,3 +54846,22 @@ Tally: dated-a-composite-claim-by-its-freshest-half.
 > persuasive possible form of no evidence.** It applies to this entry too: my "0 of 1,903" would
 > have reproduced perfectly today, because the half I would have re-run is the half that was
 > right. The stale half was never in the query.
+
+## 2026-08-26 — `webdesign_uk_build_service`: I declared "no per-site tag field exists" after measuring the wrong stores; the owning lane corrected it within hours
+
+**The claim** (DECISION_2026-08-26_default_tag_hosted_copy_only.md, committed): "No
+per-site tag field exists (`sites.settings` carries none; zero Go references)".
+
+**What was true.** `site_specs` aspect `site_config` → `data.analytics.gtm_container_id`
+(STY-050, live since 07-31), gated by `{{if .gtm_container_id}}` in every head/header
+template. Custom-id and "none" both worked the day I declared them unbuilt. I had even
+read webdesign.uk's aspect list containing `site_config` earlier the same day.
+
+**What caught it.** The analytics_gtm lane, reading my decision doc — not any check of
+mine. The doc's routing was one message from causing the field to be built twice.
+
+**The cheap check, skipped.** This estate keeps site behaviour in `site_specs` aspects:
+enumerate the aspects of ONE site (I had the list) and grep the TEMPLATES for the
+mechanism before declaring a config absence from the ORM tables and Go code. Same family
+as "a client-side absence is not an absence": an absence is a claim about every store you
+did NOT search. Tally: absence-declared-from-the-wrong-store.
