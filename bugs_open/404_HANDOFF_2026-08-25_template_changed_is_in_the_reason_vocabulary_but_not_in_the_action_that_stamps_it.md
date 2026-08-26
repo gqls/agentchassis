@@ -206,3 +206,66 @@ that) but it makes the next divergence loud at commit time instead of silent in 
 read the LIVE condition, not a copy of it pasted into the test. A parity test whose two sides are
 both maintained by the same author, in the same file, cannot come out the other way — the failure
 this lane recorded twice in `WRONG_CALLS.md` on 2026-08-25.
+
+
+---
+
+# CORRECTION 2026-08-26b — the 471-item figure is USAGE OF THE WORKING PATH, not blast radius. Zero items reached the stale reader.
+
+The `384` filing lane measured item counts by reason and found **471 items across up to 26
+sites carrying a reason the Go reader does not know** (`template_changed` 452, `literal_markdown`
+19) — `template_changed` being the estate's second-busiest reason since it landed. They stated
+plainly that they had counted items CARRYING the reason, not items that demonstrably shipped
+nothing, and that the inference to assemble-only was **mine**, from reading the gate.
+
+**The inference was wrong, and checking it is what this section records.** Census of who created
+those items `[MEASURED 2026-08-26]`:
+
+| reason | created_by | items |
+|---|---|---|
+| `template_changed` | `component-template-fixer` | 383 |
+| `template_changed` | hand-run lanes/migrations (`bugfix_384_toolcta_fanout` 40, `bugfix_398_cta_bg_hero_fanout` 9, `news_editorial_features-lane` 4, `bugs_open/383` 4, `283-*` 5, `migration-*-manual` 6, `aiao-contact-propagate` 1) | 69 |
+| `literal_markdown` | `generic` 15, `quality-discovery-agent` 4 | 19 |
+
+**Not one was created through `create_rerender_items`.** Every producer above stamps
+`spec.reason` directly in its own INSERT, so `check_rerender_mode` sees the reason and routes to
+`rerender_sections` correctly. The 471 items are evidence that the reason is heavily USED, via
+the path that works — not evidence of anything shipped silently.
+
+The control that makes this legible: `rerender-pages` (which dispatches `create_rerender_items`)
+has created **6,428** `page_rerender` items and only **3** carry a reason at all. That is the
+action doing its normal job correctly — site-wide refreshes are SUPPOSED to be assemble-only.
+The action is not broken in its ordinary use; it is broken only for a caller that passes it a
+reason it does not know, and **no such caller exists today**.
+
+**So this bug's exposure is LATENT, exactly as first filed.** What the 471 figure legitimately
+supports is the URGENCY argument, not a damage claim: a reason this heavily used is one a future
+author is likely to route through the shared creator, which is precisely the reasonable move that
+would break silently. Quote it that way or not at all.
+
+**The specific worry that prompted the census is also clear.** dartsonline carries 8
+`template_changed` items (not 5), all `complete`, all created by `component-template-fixer` or
+`news_editorial_features-lane`, and **all carrying `spec.reason`** — so all routed to
+`rerender_sections`. Nothing on that site reported success and shipped nothing by this mechanism.
+
+## ⚠ But the date anomaly they flagged IS a real, bounded finding — a different mechanism
+
+`literal_markdown`'s first items predate migration `473`, which is what taught the gate that
+reason (both `473` and `460` landed 2026-08-18). `[MEASURED 2026-08-26]` **7 of the 19
+`literal_markdown` items were created BEFORE 2026-08-18**, the earliest on 08-09.
+
+Those 7 carried a reason the LIVE GATE did not yet know, so they took `else_step: render_page`
+— assemble — and completed green. That is genuine silent failure, historical and bounded, and
+it is **not** this bug's mechanism: here the gate knows the value and the Go reader does not;
+there the gate itself did not know it yet. Same failure direction, one layer up, and it is the
+only instance in this family where items are known to have taken the silent branch.
+
+Worth someone establishing whether those 7 pages were later repaired by another route before
+treating it as outstanding damage. Not chased here.
+
+## What this changes in the fix candidates
+
+Nothing in their ordering. Candidate 0 (the parity test) is if anything better justified: the
+defect is latent precisely because every current producer bypasses the shared action, and the
+first author who stops bypassing it is the one who gets bitten. A test is how they find out at
+commit time rather than in production.
