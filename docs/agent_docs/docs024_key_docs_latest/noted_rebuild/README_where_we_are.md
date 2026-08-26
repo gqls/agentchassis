@@ -576,3 +576,27 @@ the result. One of those is a question only you can settle if the teams
 can't: does a platform-wide code convention apply to the one tool that is
 itself the product? My view, for what it's worth: exempting it is the honest
 answer — the convention solves a problem this editor cannot have.
+
+---
+
+2026-08-26, evening — owner rulings on the seven open items (chat, recorded
+here so they don't live only in scrollback):
+
+1. Brand assets: LET THE AI GENERATE them. The queued jobs run; we watch
+   that the results actually land (three icon deploys have already claimed
+   success without the files appearing at the referenced paths).
+2. Launch: real users CAN be invited. Timing of actual invitations is the
+   owner's act.
+3. Paid tier: GO AHEAD — £9.99 per month per terabyte, subscription — with
+   the details to be discussed with the owner before building (discussion
+   opened in chat; the approved copy stays held until the mechanism exists).
+4. Contact email: owner will test it himself later.
+5. Backup key: owner will copy it to a second place; the drill re-run from
+   that copy, then the workstation deletion, follow after.
+6. Editor-note vision: DO NOT PROGRESS. The owner first wants to determine
+   what "noted" actually means — possibly a move towards recording anything
+   in realtime and searching it easily (embeddings, visual embeddings,
+   CLIP-style), possibly a different end game entirely. Stage-3 continuation
+   stays parked until that direction discussion happens.
+7. Editor convention question: fuller explanation requested and given in
+   chat; no ruling yet.
