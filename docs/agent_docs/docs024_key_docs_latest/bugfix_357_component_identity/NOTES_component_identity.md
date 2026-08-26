@@ -1384,3 +1384,58 @@ index  pos 1  slot hero  md5 26f484f2744ab3e9cd19e50f600a52b8  component 9d4b922
 
 **Pass = `save_result` present AND rows still 1 AND md5 still `26f484f2` AND still
 `adopted-fragment`.** Rows going to 2 is the carry-forward landmine: STOP, do not run 578.
+
+## 2026-08-26 09:35Z — PRECONDITION 4 HAS FAILED, and 578 MUST NOT RUN
+
+Canary #3 (`bf29ec85-8ef9-457a-9366-1ca121a95810`) stalled at `assemble_page` like the other
+two — **while the control passed in the same hour**. Three stalls on the adopted page, one
+clean pass on the non-adopted one, same conditions. The page was the variable, and chasing it
+found the mechanism end to end.
+
+### The chain, all of it measured
+
+1. **`plan_sections` planned the page's one section onto `adopted-fragment`.** From the run's
+   own `section_plan_0`: `ready_count: 1`, `ready_names: ["hero"]`, `function:
+   "adopted-fragment"`, `component_id: 9d4b922b`. **The component's own seeded description
+   says: *"Not for authoring: nothing should ever plan a page section onto this component."***
+   Nothing enforces that sentence, and the planner selected it.
+2. **The content writer then returned nothing usable:** `skipped: true`,
+   `reason: "no sections defined for page"`, `section_count: 0`, `page_body` length **0** —
+   despite the plan reporting one ready section. So
+   `page_content_0.response.page_html` never existed.
+3. **`assemble_page` went looking for it and never came back.** `extractFieldValue`
+   (`multipage_actions.go:1185`) has two fallbacks that are exact inverses — one strips
+   `.response.` and recurses, the other adds it back and recurses — with no depth bound. The
+   path ping-ponged until the goroutine stack passed 1 GB:
+   `fatal error: stack overflow`, container `exitCode: 2`. **12,654 of 12,654 log lines in the
+   dead container are the same warning.** Filed as **`bugs_open/408`**.
+
+### What this means for phase 3, and it is decisive
+
+**An adopted row does not survive a rebuild. The rebuild crashes the pod.** That is not
+"precondition 4 untested" any more — it is **precondition 4 FAILED**, on its own terms
+("bytes identical, component still adopted-fragment, row count unchanged" was never reachable
+because the save never runs).
+
+**578 would bind 22 more live pages to `adopted-fragment`.** On present evidence every one of
+them would then wedge its next rebuild and crash the agent. **Re-typing them now would convert
+22 mislabelled-but-rebuildable pages into 22 unrebuildable ones — strictly worse than the
+defect 357 describes.** Do not run it. This is exactly the outcome precondition 4 exists to
+prevent, and it earned its place today.
+
+### The honest boundary of the claim
+
+⚠ **What is proven is the CHAIN, not that `adopted-fragment` is the only way to start it.**
+Step 3 (`bugs_open/408`) is fully general — any unresolvable `content_field` crashes the pod.
+Step 2's skip is what produced the missing field here, and step 1 is what produced step 2. So:
+
+- **[MEASURED]** planning a section onto `adopted-fragment` → writer skips → assemble crashes.
+- **[UNVERIFIED]** whether a page bound to `adopted-fragment` can EVER be rebuilt — i.e.
+  whether the writer's skip is caused by the component's `category: internal` /
+  "not for authoring" nature, or by something else about this page. The discriminating check
+  is to read why the writer counted 0 sections from a plan reporting 1 ready.
+
+**That distinction decides whether phase 3 needs a fix to phase 2 as well.** If the writer will
+always skip an adopted-fragment section, then adoption creates pages that can never be rebuilt,
+and that is a defect in phase 2 itself — not merely in 408 — and it must be fixed before ANY
+repair re-types rows onto that component.
