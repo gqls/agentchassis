@@ -476,3 +476,66 @@ before it can have a fence.
   (`:246`) to ~09-24. I briefed a design pass that agritec's nine value-sharing pairs would
   exercise it. **They cannot.** Post-roll the honest claim is presence-at-the-binary plus the
   unit test, and it should be written that way rather than as a behavioural proof.
+
+---
+
+## 2026-08-26 — the adoption is proven END TO END, and the probe's measurement is being thrown away
+
+### The adoption worked, all the way through
+
+Caught the daily sweep 46 seconds before it fired (09:05:20Z, last trigger 23:59:14 earlier
+on an 86400s interval — **worth knowing before calling a scheduler dead: check the clock
+first**). It fired 09:06:35Z and filed, on a real non-dry run:
+
+| tool | site | items |
+|---|---|---|
+| `mortgages-stamp-duty` | loanandmortgagecalculator.co.uk | **13** |
+| `tool-sfi26-revenue-stacker` | agritec.uk | **24** |
+
+**37, exactly matching the dry-run prediction.** So the chain declaration → daily sweep →
+durable `site_work_items` is proven on real data, not inferred from a dry run.
+
+### ⚠ AND THE PROBE VERDICT NEVER REACHES THE ITEM A HUMAN OPENS
+
+Read a filed item's `spec`. It carries `check`, `kind`, `reason`, `domain`, `subject_key`,
+`page_*`, `fact`, `route_hint` — and **no probe verdict**. The dry-run emission for the same
+fact carries `evidence: not_probed` and an `evidence_detail` explaining the floor. The item
+does not.
+
+Traced it: `annotateFactDriftEvidence` assigns `em.Evidence/EvidenceForm/EvidenceDetail`
+(`refresh_evidence_fact_drift.go:789`) and **that is the only write. There is no read
+anywhere in production** — `writeFactDriftItems` builds the spec map without them, and
+`factDriftIssueText` never mentions them (its two `Evidence` hits are `formatEvidenceNumber`,
+a numeric formatter). Grepped all five outcome constants: produced in
+`refresh_evidence_fact_probe.go`, assigned once, consumed by nothing.
+
+**So the only sink is the sweep's own `orchestration_states.collected_data` payload — and
+that table is reaped at 24 hours** (migration 465 §3, `status IN ('COMPLETED','FAILED') AND
+updated_at < NOW() - INTERVAL '24 hours'`). Confirmed empirically rather than from the
+migration text: oldest `COMPLETED` row was **24h18m** old with the window sliding, and the
+whole table held **one day** of rows.
+
+**Consequence, stated carefully: the measurement that is Phase 3b's entire precondition is
+destroyed about a day after it is produced.** Every distribution figure this lane has quoted
+was read from a row minutes old — including yesterday's 7/6/0/0 and the fleet 7/30/0/0, both
+of which I reported as "the first sample" without ever asking whether a sample *accumulates*.
+It does not. The 08-25 09:06Z production sweep's rows were minutes from deletion when I
+checked this morning.
+
+**And the near-term cost is separate from 3b:** all 37 items filed today ask a human to
+"Confirm the tool computes from that figure" while the system has already computed whether
+the figure is even present in the tool's script — and discarded the answer. That is the work
+I did by hand on LMC yesterday, which is how the 13-vs-7 gap was found.
+
+### My own miss, recorded where it was made
+
+I wrote in §5e and the handoff that 3b needs "a declaration authored from the register, or one
+aged past a rebuild". That is true and it is **not the binding constraint**. The binding
+constraint is that no declaration of any provenance produces a durable row. I had the
+`[MEASURED]` marker on every figure and every one was read from a live payload — **dated,
+marked, and never once asked to survive a day.** A measurement whose retention you have not
+checked is not a measurement, it is a reading.
+
+Filed through the diagnosis loop before asserting it (`RUN_CORRELATION_ID=2e53be72-8c81-4154-8ce4-0bc88be20672`),
+per the 2026-07-31 owner ruling — this is a structural claim about platform code and the loop
+is the cheapest place to be wrong.
