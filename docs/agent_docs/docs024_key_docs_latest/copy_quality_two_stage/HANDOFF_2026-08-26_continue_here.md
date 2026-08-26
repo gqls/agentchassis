@@ -1,5 +1,8 @@
 # HANDOFF 2026-08-26 — continue here
 
+> **SUPERSEDED same day → read `HANDOFF_2026-08-26b_continue_here.md`** (the roll, the trial and
+> the first canary scores landed after this file was cut).
+
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-25_continue_here.md`** (kept —
 it holds the day the owner's escalations arrived and the audit began; read it for history, not
 state).

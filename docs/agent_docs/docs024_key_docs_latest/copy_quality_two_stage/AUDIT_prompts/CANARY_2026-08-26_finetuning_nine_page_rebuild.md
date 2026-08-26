@@ -104,3 +104,33 @@ scored properly when all nine land. **Consequence, same evening: the owner order
 TRUNCATION TRIAL** (rulings doc §7) — the gate's repair is now truncation-first (Go, inert until
 roll, council 82b800e1). The remaining seven rebuild under the old gate; forward-only covers the
 next round.
+
+---
+
+## PARTIAL SCORING, ROUND 2 (2026-08-26 late evening) — six of nine through; the forgiveness arithmetic is the finding
+
+Rebuilt since the go: about 7/7 (20:40), approach 6/6 (19:22), case-studies 3/3, services 4/4 +
+the earlier two. Pending: careers, contact, use-cases; index/faq not yet added. Battery on the
+four new pages `[MEASURED 2026-08-26 ~21:00]`:
+
+| page | NEG total | words | vs ≤2 line | dominant shapes |
+|---|---|---|---|---|
+| about | **10** | 1,646 | FAIL | rather_than 6, instead_of 2, not_just 1, x_not_y 1 |
+| approach | **10** | 2,109 | FAIL | rather_than 6, negative_reveal 2 (battery's broad def), instead_of 1 |
+| case-studies | 1 | 484 | pass | rather_than 1 |
+| services | 3 | 1,078 | marginal | rather_than 2, negative_reveal 1 |
+
+**Why, in arithmetic rather than blame:** (1) `rather than` is D3's FORGIVEN-MILD class — the
+gate never sends it for repair within budget — and the budget is **PER SECTION** (the recorded
+305-lane landmine), so a 6–7-section page legitimately accumulates ~6. 12 of the 24 hits across
+these four pages are exactly that. (2) **`instead_of` and `not_just` are OUTSIDE the gate's five
+shapes** — invisible, never counted, never repaired — and the owner NAMED "instead of" in the
+trial instruction. (3) The truncation trial changes HOW a repair is written, not WHAT is sent for
+repair — with forgiveness and vocabulary as they stand, the trial's effect is confined to the
+sharp-shape minority. **The binding constraints are D3's per-section forgiveness and the gate's
+vocabulary, not the repair style.** Character note: the surviving copy is much better than the
+old floor in kind — the hits are mostly vendor-portability contrasts ("open-weight rather than
+locked to a single vendor") rather than self-limiting candour; P1 (honesty-beat) remains CLEAR.
+Caveat: fleet mixed during these builds (19× v1.0.1344 / 106× v1.0.1345), so which gate prompt
+repaired any given section is not attributable — immaterial to the forgiveness/vocabulary
+arithmetic, which precedes the repair.

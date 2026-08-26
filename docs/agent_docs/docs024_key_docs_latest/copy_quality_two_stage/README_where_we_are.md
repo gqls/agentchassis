@@ -903,3 +903,20 @@ now written into the traps file with the check every future prompt migration mus
 Still queued: executing the best-in-class plan, deleting the writer's now-dead testimonial-filler
 rules, and retitling the six existing about pages that carry the old self-limiting premise — those
 are per-site jobs, not prompt rules.
+
+---
+
+**2026-08-26, close of day.** The fresh build you deployed carries both of this lane's changes and
+I checked at the running binary, not the tag: your truncation trial is live (the old instruction
+is gone from the binary, the new one present), and the copy-editor routing safeguard is live with
+it. The council approved the trial unanimously.
+
+Six of the nine pages have now rebuilt. The two you asked about most — about and approach — read
+much better in kind (the self-congratulating candour is gone) but still carry about ten
+comparison constructions each, and the arithmetic says why: your earlier ruling forgives two mild
+"rather than"s, the machinery applies that allowance per SECTION rather than per page, and two of
+the shapes you named ("instead of", "not just") are ones the gate was never taught to see. So the
+two questions now waiting on you, with numbers attached: should the trial repair every "rather
+than" (that one change accounts for six of the ten), and I'll teach the gate "instead of" and
+"not just" as soon as you confirm how strictly to treat them. The homepage and FAQ — the pages
+you were actually reading when you called regression — are requested for rebuild and still queued.

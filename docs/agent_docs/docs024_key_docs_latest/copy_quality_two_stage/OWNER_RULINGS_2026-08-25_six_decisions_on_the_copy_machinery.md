@@ -139,3 +139,25 @@ fundamentallyai 1,138; median fleet ~900. Routed to the audit's next verdicts (h
 `llm_guidance` + the brief sweep) — the fix shape is a hero length/composition rule at the
 guidance layer, not yet designed. mortgagecalculator also carries the v2 voice FOSSIL
 (CONTRIB 08-26 in their lane), a suspect for "boilerplate".
+
+---
+
+## 2026-08-26 night — the roll landed; the trial is LIVE and APPROVED; two questions now carry numbers
+
+**Ruling 7's trial is LIVE at the artefact**: pod on v1.0.1345 probed — both added literals
+present (×1), the REPLACED instruction absent (×0, the removed-string control), and the tone-route
+bound's literal present too (`items_copy_edit_bound_unevaluated` ×1 — CQ-030's bound is now live
+as well). Council **APPROVED, all reviewers, round 1** (`82b800e1`, 19:10Z). Fleet still mixed
+(19× 1344 / 106× 1345), converging.
+
+**The canary's round-2 scoring sharpens the two open questions into decisions with numbers**
+(canary doc, round 2): rebuilt pages still ship ~10 constructions per multi-section page because
+(a) **D3's mild-forgiveness is per SECTION** (the 305 landmine), so `rather than` ≤2 per section
+× 6–7 sections ≈ 6/page never even reaches the truncation repair; and (b) **"instead of" and
+"not just" are outside the gate's five shapes** — the gate cannot see them, and the owner NAMED
+"instead of" in the trial. So:
+- **Q-A (owner):** does the trial's "whenever" repeal D3's mild-forgiveness — repair every
+  `rather than` (truncation makes repairs cheap and safe now), or keep an allowance, and if so
+  per PAGE rather than per section?
+- **Q-B (ordered, execution pending):** add `instead_of` (named in the ruling) — and `not_just`?
+  — to `ScanDefineByNegation`'s shapes; classification (mild vs always-repair) follows Q-A.
