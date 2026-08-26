@@ -1320,3 +1320,26 @@ ABSENT : zzz_never_shipped_literal_357_qqq                <- negative control
 All three correct, so the probe discriminates and phase 2 is genuinely in `v1.0.1341`. The
 adoptions themselves ran on the previous build; the two adopted rows and the six armed
 carriers have now survived **two** rolls.
+
+### `bugs_open/406` filed — and its blast radius corrected within the hour
+
+Filed the prune-floor contradiction as **`bugs_open/406`** (LLM-free work, so it could proceed
+while the fleet is down): full evidence, the closed-form arithmetic, four fix candidates
+ordered by what makes the bad state unrepresentable, verification queries, and the declared
+090-substitution. Pattern into **016b §9**, row into **016b §10**.
+
+**Then I corrected my own headline.** I had quoted the parked `save_refused_incomplete` queue
+— 34 items, 16 domains — as 406's blast radius, to the owner twice and into two files, without
+classifying a single item. Classified by the `(N of M)` in each item's own reason string:
+
+| shape | items | domains |
+|---|---|---|
+| the 406 shape, `1 of ≥3` | **6** | 5 |
+| no cohort captured (older reason format) | 26 | 15 |
+| other shrinkage (`2 of 5`, `7 of 20`) | 2 | 2 |
+
+**Two of the six are cv1's, which this lane created** — so four pre-existing victims, against a
+published thirty-two. A queue is not a cause: those items share a *symptom*, and the 26 are
+unattributed rather than attributed elsewhere. Corrected in `bugs_open/406`, in the 016b index
+row and to the owner; logged in `WRONG_CALLS.md`. What survives unchanged: the arithmetic, the
+21-of-22 cross-check with 357, and that nobody reads that queue.

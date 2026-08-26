@@ -153,8 +153,17 @@ migration's COMMIT.** A committed UPDATE is not a repaired page.
 > state unrepresentable, and the verification queries. Pattern added to **016b §9**
 > ("one action emits two statements about the same artefact that cannot both hold"), indexed
 > in **016b §10**. **What remains is the FIX, which is a shared-seam change and wants the
-> council gate — not a bug patch.** Re-measured at filing: **34** parked items across **16**
-> domains, up from 32/~14 fourteen hours earlier.
+> council gate — not a bug patch.**
+>
+> ⚠ **AND CORRECT THE NUMBER IF YOU HEARD 34.** I quoted the whole parked
+> `save_refused_incomplete` queue (34 items / 16 domains) as 406's blast radius before
+> classifying any of it. Classified: **6 items are the `1 of ≥3` shape**, and two of those are
+> cv1's, which this lane created — so **four pre-existing victims across four domains**
+> (`finetuning.uk/blog`, `fundamentallyai.com/tool-model-approach-selector`,
+> `mortgagecalculator.co.uk/game-fact-finder`, `webdesign.co.uk/tool-llm-cost-calculator`).
+> The other **26 predate the `planned sections` cohort and are UNATTRIBUTED** — not attributed
+> elsewhere, just absent from the record. Corrected in the bug file, the 016b index row and to
+> the owner; logged in `WRONG_CALLS.md`. **What IS true of all 34: nobody reads that queue.**
 
 `apply_adoption_plan_action.go:719` routes a page to `tool-recreation-handler` (whose save can
 only ever emit ONE section) **and the same action, in the same transaction, writes that page a
