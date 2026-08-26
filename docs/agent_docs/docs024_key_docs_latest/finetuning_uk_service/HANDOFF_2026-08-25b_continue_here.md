@@ -51,8 +51,16 @@ it, which is the control.
 
 ## Next session, in order
 
-1. **Read the round-2 council verdict** (`f0591cb2-…`) and act on it. The code is already on the
-   shared branch.
+1. **⚠ RECOVER AND ANSWER THE ROUND-2 GUARDIAN OBJECTION.** Round 2 came back **REVISE**
+   (2026-08-25 21:30) and **its gating text has NOT been read** — the `council_report` artifact
+   holds only decision counters (no `reviews` array) and the `doc_notes` body truncates mid-reviews
+   at `editquality`. Do not treat the round as answered. What IS known: the reviewers' own checks
+   confirmed the control, the grounding claim and the `n_mix` pin, and established that **none of
+   the 9 target pages carried a locked hero component** (so `631` could not have silently filed
+   `lock_blocked_change`). `editquality`'s medium objection — the CONTRIB debt to the two other
+   lanes — is **discharged in fact**: both CONTRIBs are committed. ⚠ Any further round must SAY
+   that 619/630 are already applied, or the needle checks reading `false` will make the plan look
+   like it describes work already done.
 2. **After the next chassis roll:** the CTA-button half goes live. Probe the binary for
    `--color-cta-bg-ink` with a present- and an absent-control, then file **one** `template_changed`
    fan-out for pages carrying `call-to-action` / `tool-cta` (deliberately held so those pages
@@ -60,9 +68,13 @@ it, which is the control.
 3. **Close the 7 stale `contrast_failure` rows** on this site once that is measured. They are
    `deferred` since 2026-08-11 and, per `bugs_open/396`, `deferred` is not terminal in
    `idx_swi_dedup`, so they **block their own re-file** — a fresh audit cannot replace them.
-4. **Put the two open owner questions to him**: the terms' data-location sentence (§6 above) and
+4. **A neighbouring defect is recorded, not chased**: `finetuning.uk/contact.html`
+   `BUTTON.form-submit` measures **1.15:1**, and a before-measurement in the same session proves it
+   is not 398's doing (it read 1.15:1 before the fan-out too). Looks like the hard-coded-ink family
+   VIZ-012 found on oufe's contact form. `bugs_open/398` §9a.
+5. **Put the two open owner questions to him**: the terms' data-location sentence (§6 above) and
    the dataset provenance (`DESIGN_2026-08-25_sample_datasets.md` §4). Both block real work.
-5. **Keep holding** rebuilds/rewrites until `copy_quality_two_stage` submits improvements.
+6. **Keep holding** rebuilds/rewrites until `copy_quality_two_stage` submits improvements.
 
 ## Traps current for this lane
 
