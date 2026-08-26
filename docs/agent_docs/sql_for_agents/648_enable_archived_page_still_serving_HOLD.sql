@@ -7,7 +7,7 @@
 -- ############################################################################
 -- ##  _HOLD — DO NOT APPLY UNTIL A CHASSIS IMAGE CARRYING                    ##
 -- ##  check_archived_page_still_serving.go HAS ROLLED.                       ##
--- ##  The gate commit is named in the "APPLY IT BY HAND" block below.        ##
+-- ##  The gate commit is 36b51a51b (this check's birth).                     ##
 -- ############################################################################
 --
 -- WHY THE HOLD. run_discovery_checks resolves each name in this array against
