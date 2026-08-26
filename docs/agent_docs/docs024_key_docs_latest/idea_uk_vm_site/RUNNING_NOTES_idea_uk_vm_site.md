@@ -6050,3 +6050,25 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
 - Round-2 tool edits landed as real diffs pre-storm: `9bfd140da` (+42/−29, scorecard) and
   `ed53ee84c` (+19/−5, stage-identifier); served-page oscillation verdict still owed once
   `c9ecb707`/`bfe8b2cb` finish and the box syncs — ONE artefact pass for all four.
+
+> **§X.67 addendum, 2026-08-26 ~23:35Z — all four `tool_fix` section_edits terminal; verdicts at the
+> artefact (served pages read post-sync, by Last-Modified ≥ commit time):**
+> - **stage-identifier** (`ed53ee84c` +19/−5): id scheme flipped static → instance-prefixed
+>   (`c-tool-idea-stage-identifier-isi-error`), **internally consistent — 0 bare refs** (the loose
+>   grep's "2 bare" were my pattern's substring artifacts; the boundary-checked grep found none). So
+>   round 1 → round 2 is one full flip of the id scheme. **Oscillation is CONFIRMED only if the next
+>   acceptance pass re-files "#isi-error absent"** — that is the single thing to watch on this tool.
+> - **viability-scorecard** (`9bfd140da` +42/−29): `id="q1-5"` kept; **334 `--color-` refs remain**,
+>   so the audit's CSS-custom-properties complaint is not eliminated at the artefact — expect the
+>   improver to either accept or re-file on its next pass.
+> - **gtm-channel-fit** (`cba126bb0` **+2470/−0**): not an edit — a FIRST DEPLOY of the page; serves
+>   200 / 96,456 B, zero empty headings.
+> - **pricing-signal-checker** (`114b68e17`): **an EMPTY COMMIT** — `stats {0,0,0}`, `files: []` —
+>   while the git adapter's result claims `success: true, file_count: 1` and the item completed
+>   green. The DB component row WAS touched (23:27:05) but rendered to byte-identical output; the
+>   served file stays at its 21:59 Last-Modified for ever. **A no-change edit wearing a green
+>   completion** — the real thing this time, unlike the §X.65 §5 suspicion (the discriminating check
+>   is the COMMIT'S OWN STATS, not the presence of a sha). One instance: not filed. If the
+>   improver's next audit re-files this same tool_fix, that is a live green no-op loop
+>   (family `bugs_closed/323`) and worth a case.
+> Monitors retired — every watched row is terminal.
