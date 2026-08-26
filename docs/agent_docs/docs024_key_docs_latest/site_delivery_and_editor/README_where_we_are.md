@@ -179,3 +179,23 @@ both waiting on the same thing: the next core-manager release. Until that happen
 is live, and no delivery email should go out — that is your ruling, and it still holds.
 Nothing is at risk in the meantime: no customer has been handed over yet and no links
 exist.
+
+## 2026-08-26 (afternoon) — the delivery email explained to the owner: the decisions, the draft, and what is still open
+
+The owner asked to see the email decision, his own rulings, and the email itself. Given in
+chat and recorded here. The short version: the email is designed and its plumbing is live,
+the words are deliberately unwritten, and three things gate sending — his pre-send review
+(his 21 Aug ruling), the queue item that feeds that review (not built yet), and his two
+open product questions from 25 Aug, which could change what the email promises.
+
+A draft was shown assembled from his attested register lines (30 days, £10/£200, the ZIP,
+keep-it-online), with empty slots marked where mechanisms do not exist yet (the ZIP
+download link, the Stripe portal, the contact address, the terms page). It is a draft for
+his eyes, not copy on the wire: nothing sends until the review gate exists and he approves
+a real site through it.
+
+His open product questions were listed back to him: (1) owner edits before a customer sees
+a site; (2) customer self-editing during the 30-day window, possibly by voice; plus the
+smaller owed calls — contact address on a domain we own, the terms page, Stripe timing,
+the second Nominet TAG, and the two Cloudflare facts the DNS plan needs (the real zone
+cap; the CF-for-SaaS tier).
