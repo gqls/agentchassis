@@ -348,3 +348,129 @@ than from the step map. Baseline for the watch: today, zero rows carry
 (5 filed 08-23 13:17, complete by 13:49; 2 filed 08-20). If today's audit re-files any of those
 pairings byte-identical, that is the last pre-attribution evidence of the damage class; the NEW
 rows should carry `cascade_scheme` + `repair_surface` (P4).
+
+## 2026-08-26 (n) — FIRST POST-ROLL AUDIT: remortgagecalculator.uk at 13:50:31 UTC, exactly the predicted tick. P4 first read: 1 attributed, 4 unattributed — and the 4 are ONE mechanism, measured at the served CSS
+
+**The audit fired as predicted** (13:49 UTC tick → orchestration `a5634f3a` created 13:50:31,
+COMPLETED 13:51:06, 35 s). `write_findings` accounting, read at the correct key:
+`inserted 5 · deduped 0 · retracted 0 · cascade_scheme_present TRUE · cascade_attributed 1 ·
+cascade_unattributed 4 · cascade_unreachable 0 · cascade_unverified_by_probe 4 · cascade_capped 0
+· cascade_dirty_pages 0 · retraction_scope_pages 4`. Both images are speaking the new scheme
+(`spec.cascade_scheme = 'cascade/v1'`, `selector_scheme = 'verified/v1'`).
+
+**The attributed row is the predicted shape exactly.** `.brief-explanation__heading EM` on
+/index.html: winner `.brief-explanation__heading em` in a page `<style>` block
+(`surface: style_block`, `decl: var(--color-accent, #f59e0b)`, `verified: true`, `candidates: 1`),
+`repair_surface = theme`, `override_requirement = {min_specificity 0,1,1; strictly_greater true;
+needs_important false}`, `override_example = body .brief-explanation__heading EM`.
+
+**The four unattributed rows are one pairing on four pages** — `.footer-bottom P`,
+rgb(107,114,128) on rgb(241,237,228), 4.14:1 vs 4.5 — so by PAIRING the read is 1 attributed :
+1 unattributed, not 1 : 4. The chrome repeats per page; counting rows over-weights it. Any
+distribution claim about P4 must be made per distinct (selector, fg, bg), not per row.
+
+**WHY the footer is `verified:false` — measured at the served page + theme, with a 404 control
+(`index-390-control.html` → 404; page 200 107 KB; css 200 18,162 B):**
+- The `<p>` has NO colour rule of its own. Its colour is INHERITED from
+  `.footer-bottom { … color: var(--color-text-muted); }` — a rule on the ANCESTOR, present in the
+  theme (line 225) AND twice in the page (10 `<style>` blocks; the footer chrome's rules appear ×2).
+- The only `color` declaration whose selector MATCHES the `<p>` is the theme's
+  `p, li, blockquote { color: var(--section-text, inherit); }` (theme line 90). With no
+  `--section-text` in scope that resolves to `inherit` — the SAME value the element would inherit
+  anyway. Removing it cannot move the computed colour ⇒ `verified:false` ⇒ `unattributed`.
+- `winningDecl` (cascade_attribution.go:146ff) only collects candidates where `el.matches(part)`;
+  it never looks at ancestors, by design ("attribute the declaration that decides the element's
+  colour"). For an INHERITED colour the deciding declaration is on the ancestor, so this class is
+  structurally unattributable by the current probe. It is NOT probe blindness in the sense the
+  disconfirming clause meant (`opaque_sheets 0`, `dirty 0`, `capped 0`) — it is the designed
+  under-claim (same-value runner-up), triggered by inheritance.
+
+**Consequence for the design, stated rather than buried:** this class is exactly one where the
+theme CAN govern — an appended `.footer-bottom p { color: X }` (0,1,1) is a DIRECT declaration
+on the element and beats any inherited value regardless of the ancestor rule's specificity, and it
+out-specifies the theme's own `p` (0,0,1). So the conservative route sends the agent in WITHOUT a
+requirement on precisely a case it could have won with one. Not a defect by the design's own rule
+(never a weak yes), but a **systematic under-attribution class: inherited colour**, and chrome
+(footer, header) is where it lives, so it recurs on every page of every site. Candidate
+follow-up, NOT done here: when no removal moves the value AND `getComputedStyle(el).color ===
+getComputedStyle(el.parentElement).color`, walk to the parent and attribute the property there —
+the same removal proof applies one level up. Needs its own council round; recorded so the P4
+grading on vonc/noted/loanzy tomorrow reads unattributed footers as THIS class, not as blindness.
+
+**Old rows vs new (the damage class, closed at the artefact):** the 08-23 "completes" appended to
+the theme against the INVENTED selectors `P.P` (×3, three different darkenings!) and `EM.EM` —
+which match nothing — so today re-files those pairings byte-identical (fg AND bg): the third
+filing of the footer pairing since 08-20. The ONE 08-23 repair against a real selector,
+`SPAN.brief-explanation__eyebrow { color: #8a4e00 }`, is NOT re-filed today — the theme governed
+that one and the old path worked where the surface could reach the pixel. `deduped: 0` because
+the selectors changed shape (352's fix), not because the failures are new.
+
+**Dispatch path, learned:** `build-pipeline-trigger` (30 s) spawns `build-dispatch-loop`, which
+loads ≤5 items per run for the site (this run: 4 `unbuilt_internal_link` prio 45 + 1
+`contrast_failure` prio 60), processes them in load order, and the contrast row sits LAST. The
+4 page builds ahead of it each FAILED in ~4 min on `bugs_open/260`'s `mechanism-flow` type
+mismatch (another lane's). `ef31c778` (/next-steps, unattributed) reached `claimed` at ~14:30 UTC.
+**css-patch-agent orchestration rows are PURGED after completion** — cv1's park cites
+`completed_by_orchestration_id 77704d81` (08-25 13:40) and that row is gone while 10,325 rows
+from 12:27 that day onward survive. So the artefacts for P2 are the item `result` + the served
+theme + `llm_call_log`, never the orchestration row. Watch armed on the five rows.
+
+## 2026-08-26 (o) — P2 CONFIRMED AT THE ARTEFACT: first post-roll repair, 14:27 UTC, `!important` on exactly one property; 635's fence proven on a real row
+
+**The repair:** `ef31c778` (`.footer-bottom P`, /next-steps.html, `repair_surface=unattributed`)
+was claimed by `build-dispatch-loop dd3437af` (iter 4, last of its 5 items) and css-patch-agent
+(child orchestration `7910a705`, `css-patch-agent-workflow-1427`) appended:
+
+```css
+/* css-patch-agent 2026-08-26: contrast */
+/* css-patch-agent: contrast – .footer-bottom P foreground darkened to meet 4.5:1 on rgb(241,237,228) */
+.footer-bottom p { color: #595f6b !important; }
+```
+
+Git adapter: commit `f2d68710` to `gqls/sites` master, `assets/css/styles.css`, "CSS fix: contrast
+(theme v10)", sha256 `1b859a29…`.
+
+**P2 — "the appended rule carries `!important` on exactly one property" — CONFIRMED**, and the
+pre-stated disconfirming results (no `!important`, or on several properties) did not occur. Graded
+at three artefacts, none of them the status column:
+1. **Served stylesheet** (`curl`, HTTP 200, 18,361 B; control `styles-390-control.css` → 404): the
+   rule is the LAST rule in the file (line 297), and the served file's sha256 **equals** the git
+   adapter's `files_sha256` **equals** `sha256(css_themes.css_content)` (v10, `updated_at` 14:27:37).
+   One artefact, three independent hashes agreeing — the bucket is serving the committed theme.
+2. **Arithmetic**: #595f6b on rgb(241,237,228) = **5.49:1** (needs 4.5; was 4.14). Own computation
+   from the WCAG formula, not the agent's claim.
+3. **Mechanism**: a DIRECT declaration on the `<p>` with `!important` beats the inherited
+   `.footer-bottom` value on every page — so this one rule fixes the pairing on /index, /about,
+   /mortgage-lenders AND /next-steps, not just the filed page. [INFERRED from the cascade; the
+   browser measurement that settles it is the 08-29 audit → P3.]
+
+**635's template fence proven on a real unattributed row, at the rendered prompt** (`llm_call_log`
+`work_item_id=ef31c778`, `plan_css_fix`, 14:27:36): `position('The declaration you must BEAT')`
+= **0** (block absent, as designed for `override_requirement` nil), the general `!important`
+guidance present at 19,707 of 20,895 chars, `output_tokens` 166 of `max_tokens` 8,000 (not cut).
+The disconfirming result — the block rendered with empty fields, or an execute-time template
+error — did not occur.
+
+**Two things observed that are NOT this bug's, recorded so nobody re-derives them:**
+- The item's `result` is the handler's SPAWN/response envelope (`bugfix-287` shape), with
+  `attempt_count 0` at `complete` and no `completed_by_step` — the css_added text is inside
+  `result.response.css_fix.result`. Grade repairs from there + the served file, never from the
+  status.
+- **N pages × one chrome pairing ⇒ N rows ⇒ N appended rules.** The other three footer rows are
+  still `triaged`; each will dispatch css-patch-agent again for a pairing this rule has already
+  fixed, and the 08-23 theme shows the outcome: `P.P` darkened THREE separate times (#595f6b,
+  #555b67, #4a4f5a). `item_key` embeds `page_name` (VIZ-016) so dedup cannot see it. A
+  pre-dispatch "does the current theme already carry a rule for this selector+property" check —
+  or, better, the deferred completion gate (§4 of the handoff: complete only on measured
+  improvement) — is where this belongs. Candidate for the 395 lane's template; not done here.
+
+**P3's clock now runs:** remortgagecalculator.uk's next audit ≈ **2026-08-29 13:50 UTC**. The four
+footer rows + `.brief-explanation__heading EM` must be RETRACTED (`resolved_by='render_audit'`),
+not re-filed with byte-identical fg/bg. Check `css_themes.updated_at` first — a design run between
+now and then (bugs_open/396) would erase the rule and fail P3 for the wrong reason.
+
+**Still pending today:** `9b2b2ce9` — the ATTRIBUTED row (`theme`, must exceed 0,1,1, `needs_important
+false`) — is the first real exercise of the requirement block. Expected artefact: a selector with
+specificity > (0,1,1) (the verified example is `body .brief-explanation__heading EM`) and **no**
+`!important` (the block says "Do NOT use !important … supersedes the general guidance"). Watch
+re-armed with `ef31c778` excluded.

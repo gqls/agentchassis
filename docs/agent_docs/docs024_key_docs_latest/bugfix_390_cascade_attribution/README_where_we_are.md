@@ -127,3 +127,31 @@ this afternoon. That visit will be the first time the new measurement runs for r
 sites, the ones whose repeated failed repairs started this whole investigation, come due tomorrow
 morning and afternoon. I've set a watch so the moment the first results land we can read them and
 grade the predictions we wrote down in advance.
+
+**26 August, mid-afternoon.** The first real test happened, on schedule, and passed — with one
+honest caveat about what "passed" means today.
+
+The checker visited the remortgage calculator site at ten to two, as predicted to the minute. It
+found five failing colour pairings and, for the first time, tried to work out *which* styling
+instruction was actually winning for each. It managed that for one of the five — a heading — and
+got the answer we expected: the winning instruction was buried in the page itself, so a fix in the
+shared stylesheet needs to be written more specifically to beat it, and the checker wrote down
+exactly how specific. For the other four, all the same footer text repeated on four pages, it
+correctly said "I can't prove which instruction wins" rather than guess. I dug into why: the footer
+text has no colour instruction of its own — it inherits its colour from its container — and the
+measuring code only looks at instructions aimed at the text itself. That's a known, deliberate
+limitation, but footers appear on every page of every site, so it will recur; I've written up a
+possible extension for a later review rather than bolting it on now.
+
+Then the repair agent ran on the first footer row, under the corrected instructions from
+yesterday. It did precisely what we predicted it would: one rule, one property, marked so it
+cannot lose. I checked that at the live website, not in the database — the served stylesheet ends
+with the new rule, its fingerprint matches the committed file exactly, and the new colour measures
+5.5 to 1 against the 4.5 required. Yesterday's three "repairs" on the same footer, by contrast,
+were written against a selector that matched nothing and did nothing.
+
+The caveat: what settles this for good is the checker's *next* visit in three days, when it should
+find the footer fixed and withdraw its complaint instead of filing it again. That is the result
+the whole investigation turns on, and it can't be hurried. The heading row — the one with the
+measured requirement attached — is still queued behind some unrelated page builds and should run
+later today.
