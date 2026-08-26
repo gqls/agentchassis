@@ -1939,3 +1939,19 @@ names the week: *"writing a lesson down is not the same as holding it while you 
 times in one session they committed the error they had just diagnosed, each interval under a day,
 and the saves keep being cross-lane rather than self-caught. The re-fire recipe is unaffected
 (error-predicated: takes the 20, leaves the 1 page_rerender for hand judgement).
+
+**2026-08-26 09:2xZ — recovery verified end-to-end after the top-up (09:00 hour: 126 ok / 0 failed).**
+The terminal residue was re-fired at 09:02:48 in exactly the RUNBOOK recipe's shape (status→triaged,
+attempts→0, error→NULL; a single-second batch — presumably the owner's hand after the push named the
+recipe; `[INFERRED]` from shape, not witnessed) — 0 credit-class rows remain at `failed` anywhere,
+11 complete / 4 claimed at first read. The one deliberate leave-out (`page_rerender` on
+ai-agent-orchestration.com, a SECTION-save refusal, not credit) routed to that lane by message.
+Council post-restore: 6 seat calls, 0 failed, 0 new seat-failure rows, record discipline intact.
+**And the outage's cooldown worry dissolved on measurement, for a designed reason:** all 20
+attempt-stamped sites show `fp_current = false` — their fingerprints moved since their last REAL
+audit — so `fp_changed` makes every one due again despite the fresh `at`. That is
+`record_audit_attempt` stamping ONLY `at` and never the fingerprint (624's anti-treadmill arm),
+now measured as the thing that makes an outage self-healing: had it stamped the fingerprint, all
+20 would be held 14 days. A design choice that could have come out the other way, and didn't.
+**Still owed:** 376 §11e's three behavioural tests — they need real research draws; the route is
+unblocked, so the next greenfield dispatch (owner's action) doubles as the proof run.
