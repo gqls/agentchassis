@@ -5854,3 +5854,19 @@ control (GET+POST `/c/<43-char>/confirm` → 404 from outside), completing their
 table verbatim; their listener item is CLOSED. Delivery email's remaining gates, their
 words: needs_delivery_review producer (unbuilt) · copy+send (deliberately unwritten
 pending the owner's two open product questions) · the owner review per DECISION_2026-08-21e.
+
+## 2026-08-26 ~14:xx — tool-rebuilds seat report: the false-acceptance chain had ALREADY fired; both items DEFERRED
+
+Their warning (diagnosis 91228c39, CONFIRMED 2026-08-26: the acceptance checker resolves
+bare criteria ids while pages render instance-prefixed ids — worked example IS our
+tool-website-brief-starter, #wbsNextBtn vs c-tool-website-brief-starter-wbsNextBtn)
+arrived one step LATE in the best way: an `improve_tool` with check=tool_acceptance was
+already TRIAGED against the flagship tool (41d82357), plus the acceptance_run that would
+refile it (0559eb67). **Both DEFERRED** with the diagnosis + un-defer condition (checker
+fix live; owner of the fix = staged_component_build lane) — pre-launch, no LLM rewriter
+runs at the brief-starter on a false verdict. The two tool_health audit_tool items left
+alone (different check). Served spot-checks all green in the same pass: label x2 present
+(GTM deploy still draining), chat markup + bot answering, brief-starter intact (33,689 B,
+6 script blocks, wbsNextBtn x2) — today's completed improve_tool on chat-input-box did
+not break the served site. Their rebuild programme confirmed co.uk-only; nothing else
+from that seat blocks.
