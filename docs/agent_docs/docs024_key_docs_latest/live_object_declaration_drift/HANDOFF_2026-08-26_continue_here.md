@@ -111,7 +111,9 @@ commits, so a session mid-fix is invisible.
    verdict), so nothing needs amending — forward-only holds.
    **Resubmitting is on the SAME correlation so the trail accumulates** (done 09:01Z):
    ```bash
-   RESUBMIT_CORR=80f84c54-1854-4fb6-a003-11af1889d20d      ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh      <this lane's submission json>
+   RESUBMIT_CORR=80f84c54-1854-4fb6-a003-11af1889d20d \
+     ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+     docs/agent_docs/docs024_key_docs_latest/live_object_declaration_drift/SUBMISSION_2026-08-26_countequal_pairing.json
    ```
    **Check the provider is actually back FIRST** — at 08:57 UTC it was *flapping*, not down: 67
    `endpoint unavailable` errors in 15 minutes **alongside** 38 successful calls, so a green single
