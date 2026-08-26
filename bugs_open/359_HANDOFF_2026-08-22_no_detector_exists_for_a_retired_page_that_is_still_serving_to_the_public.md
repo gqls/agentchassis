@@ -233,3 +233,85 @@ today (verified by dumping `discovery_checks.Names()`), so this is an under-asse
 live risk — but it is a 23% blind spot in the guard, and this lane refreshes it by union.
 
 Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_359_archived_page_still_serving/`.
+
+---
+
+## 2026-08-26 (evening) — FIX BUILT, COUNCIL-APPROVED ROUND 1, COMMITTED. **Stays OPEN: inert until migration 648 applies after the next chassis roll.**
+
+§6 candidate 2 is built as **`archived_page_still_serving`**
+(`platform/orchestration/actions/discovery_checks/check_archived_page_still_serving.go`),
+hosted on `availability-discovery-agent` beside `site_unreachable` and
+`page_content_divergence` — three disjoint questions about the same wire: an outage,
+staleness, and governance. Registered **IMP-058**. Commits `36b51a51b` (the check) and
+`f5108dd47` (the council's objections).
+
+**Council `6ce98a66-72b6-498d-b0ef-66ab6be713c9` — APPROVED round 1**, "2 advisory
+objection(s) — none high-severity", 17 seats, 3 abstained, not truncation-gated.
+
+### What it does, and the one property that shaped the whole design
+
+**This check's finding is a 200**, which inverts its failure mode against every sibling.
+`asset_reference_404`, `dead_internal_link_live` and `site_unreachable` all file on a
+NEGATIVE observation, so when blinded they under-report. This one reports **ZERO** when
+blinded — and zero is what a healthy estate reports. §7 of this file already said so
+("a silent detector and a clean estate are the same reading"), and it is why the check
+
+- runs **both** instrument controls INSIDE itself, before judging anything (an invented
+  URL that must not answer 2xx; a known-good `active` sibling that must), and
+- **returns an ERROR** when either fails, rather than declining silently. That is not a
+  gesture: the runner writes a durable `DISCOVERY_CHECK_ERROR` row, and its `err != nil`
+  branch `continue`s BEFORE the `Resolved` loop — so a blinded run is *structurally*
+  incapable of retracting a real finding.
+
+Findings are confirmed 200s **at the page's own final URL** only. A 2xx that lands
+elsewhere is a legitimate redirected retirement: visible as a finding, filed as nothing,
+and it RESOLVES. 401/403/429/5xx and transport errors are skips, counted and logged —
+never a finding, and never a resolve either. Flag-only (`HandlerAgent ""`); the item's
+spec names **both** remedies and the `RETRACTION_AUDIT`/`RETRACTION_REFUSED` query to read
+first, because §6.4 is right that a page archived by mistake and serving correctly is
+indistinguishable on the wire from the defect.
+
+Self-clears on three positive observations: a twice-confirmed 404/410, a redirect off its
+own URL, or `pages.status` read back as `'active'`.
+
+### §6 candidate 3 declined ON THE RECORD, with the reason
+
+Not built, and not "later" — declined. It is the weaker instrument: this file's own §6.3
+says it cannot see a retraction that reported success and did not work, which is
+`bugs_closed/098`'s failure shape, and the wire check sees that case. What it uniquely adds
+is triage detail, which already has a queryable home in the retraction's own
+`agent_error_log` rows. Building it would also make a SECOND producer on one `item_type` —
+the recorded co-dedup landmine. First adoption is single-producer on purpose.
+
+### The three medium objections found REAL defects — recorded because approval is not the useful output
+
+1. **`debug_historian`: the site gate scoped by `sites.status`, and a sibling's precedent
+   is not a defence against the trap the sibling also has.** Right, and the enumeration it
+   asked for settles it: `[MEASURED 2026-08-26]` `deployed` 31 · `pool` 17 · `test` 2 ·
+   `system` 1 — **`'active'` never occurs**, so half the copied allow-list was dead code,
+   and all 40 archived-and-shipped pages sat on `deployed` sites. It excluded nothing today
+   and would silently have excluded a future status from the only check that looks at this
+   class. Now a **deny-list of one** (`pool`, unrouted by design): an allow-list fails
+   CLOSED on a new value, a deny-list fails OPEN, and open is right here because the
+   instrument controls refuse when they cannot prove themselves.
+2. **`guardian`: the hoisted collision guard had zero regression cover on the retraction
+   side** — where the same guard decides whether a live page's file is DELETED. It was in
+   the plan and not in the commit. Now `retract_page_collision_guard_test.go`, three
+   properties, three mutations, three named failing tests.
+3. **`guardian`: the migration snapshotted BEFORE its idempotency check**, so a re-run
+   takes a "pre-update" snapshot that is really post-update. A recorded landmine — and
+   **migrations 526 and 541 both have it**, which is how I inherited it. Reordered.
+
+### What remains before this can close, in order
+
+1. A chassis roll carrying `36b51a51b`.
+2. **Probe the CAPABILITY with controls**, not a commit: `service_binary_capabilities`
+   `kind='discovery_check'` must carry `archived_page_still_serving` on as many pods as it
+   carries `site_unreachable`, and **0** for a fabricated name. (`[MEASURED 2026-08-26]`,
+   before this check existed: 1288 pods, 1288 with `site_unreachable`, 0 with the fake.)
+3. Apply `648_..._HOLD` by hand, then ask **what did I break** before what worked — an
+   unregistered name fails the whole step and takes the other two checks with it.
+4. Add the name to `liveConfiguredChecks` in the same commit as the apply.
+5. **The disconfirming PAIR at the artefact** — an item for a page the census says serves,
+   and NO item for one it says already 404s. Re-run
+   `scripts/audit-archived-still-serving.sh` on the day: the population MOVES.
