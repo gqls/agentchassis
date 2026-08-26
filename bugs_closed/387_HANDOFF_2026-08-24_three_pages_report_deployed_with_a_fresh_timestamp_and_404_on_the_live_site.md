@@ -170,3 +170,10 @@ under suspicion here, so do not verify with it.**
 >   detector working. NOTES carries the full rule.
 >
 > **ADDENDUM 2026-08-25 late — the disposition rule above contained a dangling pointer and is superseded.** "Tell that lane first" named a session; both lanes are now closed. The rule is rewritten **routed by `BLOCKER_DETAIL` type with where to START, not who to ask**, in `docs/agent_docs/docs024_key_docs_latest/bugfix_364_claims_whose_number_is_it/HANDOFF_2026-08-25b_CLOSED.md` §6b: `unregistered_number` on hero/CTA → counter first, then `bugs_closed/364` §5b/§6m; `unregistered_number` on a `*-listing` slot → declaration/slot_name mismatch; `placeholder_text` with a stand-in Value → this file's detector working as designed. **A refusal on those pages is NOT evidence either bug regressed — both mechanisms are live and supposed to fire; read the type before concluding anything, and do not reopen either bug on a refusal alone.**
+>
+> **RESIDUAL CLEARED 2026-08-26 09:10Z — the refresher-survival check PASSED.** The daily
+> evidence-refresher pass wrote its row at 09:07:07Z and the current `evidence_base` carries the
+> 611 block intact: `writer_block ~ 'NNN'` = **false**, the "more than 150 active agent
+> definitions" floor present. So the interim fix survives regeneration as the code promised
+> (`refresh_evidence_base_action.go:36`, unmanaged ⇒ carried forward), now observed rather than
+> inferred. Nothing about this bug remains unverified.
