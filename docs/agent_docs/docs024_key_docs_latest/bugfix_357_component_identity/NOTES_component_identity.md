@@ -1343,3 +1343,44 @@ published thirty-two. A queue is not a cause: those items share a *symptom*, and
 unattributed rather than attributed elsewhere. Corrected in `bugs_open/406`, in the 016b index
 row and to the owner; logged in `WRONG_CALLS.md`. What survives unchanged: the arithmetic, the
 21-of-22 cross-check with 357, and that nobody reads that queue.
+
+## 2026-08-26 09:0xZ — credit restored, and the CONTROL PASSED
+
+**Credit is genuinely back, checked at the instrument rather than taken on trust.** Last failed
+call **08:57:45Z**; every call from **08:58:28Z** onward succeeded — 7 calls, 7 with output,
+6,317 output tokens. `success` and `output_tokens > 0`, not a row count.
+
+### The control passed — the rebuild path is NOT broken
+
+`1adaac43-58f0-41bc-b368-44274d54ca58`, `request-index` only (2 rows, components `hero` +
+`contact-form`, **no adopted fragment**), with the two adopted pages cleared to `deployed`
+first so the result would be attributable. Result: **`COMPLETED`, `save_ran = t`** — it went
+through `assemble_page`, through the `git_commit`, through `save_page_sections` and out the
+other side. `request-index` came back with its 2 rows correctly typed; both adopted pages
+untouched.
+
+**So the earlier stalls were NOT "page-rebuild is broken".** That reading is dead. What remains
+open is which of two explanations holds:
+
+- **(a) the adopted page specifically** — something about a single 17.5KB `adopted-fragment`
+  row makes `assemble_page` hang;
+- **(b) transient** — both canaries happened to run in a window where something unrelated was
+  wedged, and it has since cleared.
+
+⚠ **The timeline does NOT settle it, and it is worth saying why, because the tempting inference
+is wrong.** Canary #1 stalled 12:57Z and canary #2 ~19:41Z on 08-25; the credit failures began
+**23:46Z**, hours LATER. So the stalls cannot be blamed on the outage — but the control ran
+after credit was restored, so "the outage" and "the fix" are confounded with "before/after" in
+a way one control cannot separate. **Canary #3 on `index` is the discriminator**: same
+conditions as the control, same hour, differing only in whether the page carries an adopted
+row.
+
+Canary #3: `bf29ec85-8ef9-457a-9366-1ca121a95810`, `index` only. Baseline re-pinned live in
+`scratchpad/canary3_before.txt` (the pages had grown since the first pin — always re-pin):
+
+```
+index  pos 1  slot hero  md5 26f484f2744ab3e9cd19e50f600a52b8  component 9d4b922b  version 3301ef65  17,595 B
+```
+
+**Pass = `save_result` present AND rows still 1 AND md5 still `26f484f2` AND still
+`adopted-fragment`.** Rows going to 2 is the carry-forward landmine: STOP, do not run 578.
