@@ -157,6 +157,51 @@ concept per page, honouring `design_intent.imagery_direction`). The restore base
 ⚠ They were **cancelled, not parked**, deliberately: `park_work_items` sets `deferred`, which is not
 terminal in `idx_swi_dedup` and so **blocks re-filing**; `cancelled` is terminal and releases the key.
 
+## ⏳ 2026-08-26 LATE — THE CANARY IS RUNNING. If you are a successor session, this is the live thing.
+
+**Owner approved the rebuild**, verbatim: *"yes, rewrite them and we can do forward only corrections,
+so you don't have to restore them we can keep rebuilding through the system until they are
+acceptable."*
+
+⚠ **FORWARD-ONLY IS A STANDING INSTRUCTION.** Do NOT restore from the baseline. If the regenerated
+copy is wrong, rebuild again. `baselines/2026-08-26_pre_hero_rebuild/` is a **diff base and a
+reference, never an undo.**
+
+**State:** nine `needs_imagery` items re-filed **17:23:44Z** (`hero_items_filed.sql`, keys released
+because the earlier set was CANCELLED not parked). Still `triaged` at time of writing.
+
+**It is QUEUED, not stalled, and the numbers are the answer to "is it broken":**
+`image-build-handler` is claiming normally (last claim 17:28:55Z, **12 in 2h, 5 in 30 min**) but
+**62 items wait on it fleet-wide** — 16 at priority 80 from 08-25, 38 at priority 90 (ours are 9),
+6 at 100. Drain ~10/hour ⇒ **~4–6 hours before generation even starts**, page rebuild downstream of
+that. Priority is NOT the problem: 11 of the last 12 claims were priority 90. **Deliberately not
+raised** — that jumps ahead of other lanes' imagery and is not a unilateral call. The owner was
+offered it and has not asked.
+
+### The protocol you inherit — both lanes are committed to it
+
+The copy lane pre-registered the canary at
+`copy_quality_two_stage/AUDIT_prompts/CANARY_2026-08-26_finetuning_nine_page_rebuild.md`
+(`3cb651b37`, refined `76825d9c0`), and carries it as the top item of their own
+`HANDOFF_2026-08-26_continue_here.md` (`e403347a7`). When the SERVED pages change:
+
+1. **Ping `copy quality two stage`.** They score same-day against the pre-registration.
+2. **Read the pages yourself and send that read BEFORE looking at any battery output.** Their P5:
+   a clean battery with a failed read is a FAIL. Reading after scoring lets the checklist colour
+   the read, and a clean checklist is exactly what fooled this lane on 08-25 (`WRONG_CALLS`).
+3. **Report `rather_than` per page against the split**: **P2a** — the seven non-tool pages have a
+   FULLY cleared stack (fleet prompt + site brief + component guidance), so prediction is **0** and
+   any hit there implicates the model prior itself with no carrier left to hunt. **P2b** — the two
+   tool pages carry a bounded ceiling of **1** from `hero-tool`'s anti-fabrication guidance,
+   deliberately left in place.
+4. **Expect the methodical scaffold and the essayistic cadence NOT to move** — nothing shipped
+   targets them. If his ear still catches the pages, that is the likely cause and it is the next
+   thing to fix, with evidence.
+
+⚠ **Baseline validity, checked:** the one `page_divergence_overwritten` item on this site is on
+`tool-automation-savings-estimator` — **not one of the nine** — and predates the re-file. The diff
+base stands.
+
 ## Traps current for this lane
 
 - ⚠ **A migration that edits `content_components.html_template` ships NOTHING on its own.** No
