@@ -473,3 +473,10 @@ read something else), and `page_rerender misdirected_cta:what-you-get` unresolve
 Their question "does the second-container ruling gate your publish?" answered NO with reasons
 (estate publish gated only by the standing consent decision; the ruling gates the FIRST hosted
 customer build) — consistent with 397 §6.2 as banked.
+
+**22.** `[2026-08-26, webdesign.uk close]` Repo-path reconciliation, banked so nobody re-derives my
+404: **webdesign.uk does not serve from `gqls/sites`** (hence its dir holding only `assets/`) — it
+serves from **`gqls/vm-sites`** via the box's 5-min sitesync to `/var/www`. Their 5/7 census was the
+right instrument. My 12:17:57Z regenerated head reaches it as a `Rerender:` commit when the deploy
+runner drains; label still present at their last fetch, wipe watched and re-placed by their lane.
+`misdirected_cta` theirs; no traffic figures in their launch compile. Both flags closed.
