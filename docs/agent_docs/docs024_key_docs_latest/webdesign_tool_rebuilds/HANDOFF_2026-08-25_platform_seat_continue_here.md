@@ -1,4 +1,6 @@
 # HANDOFF — webdesign tool rebuilds, THE PLATFORM SEAT. Written 2026-08-25 ~19:50Z.
+# ⚠ SUPERSEDED 2026-08-26 by HANDOFF_2026-08-26_platform_seat_continue_here.md — start THERE.
+# This file is kept for its correction trail (the "sweeps are scheduled" premise and its fix).
 
 **TWO SEATS WORK THIS LANE. This file is the PLATFORM seat's thread** (session name
 `webdesign-tool-rebuilds`, WITH the trailing s — ran Phase A #16–#28, TL-048, bugs_closed/362,
