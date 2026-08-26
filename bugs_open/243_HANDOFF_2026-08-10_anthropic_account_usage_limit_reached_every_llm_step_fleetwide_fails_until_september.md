@@ -1014,3 +1014,24 @@ this file is the class and carries the proven recovery procedure.
 - One console pointer for the owner, from the fleet's own memory: if the billing page shows
   credit/0% used, check which ORG the fleet key belongs to via the key's "Last used" — the
   default console org has not been the fleet's before.
+
+### RECURRENCE RESOLVED 2026-08-26 ~08:58Z — the owner added credit; boundary measured; the 20 burned rows RESET
+
+- **Recovery boundary `[MEASURED]`:** last `%credit balance%` error **08:57:46Z**; first
+  `llm_call_log` success **08:58:29Z**; by 09:02:11Z **14 successes across 6 agent types**, zero
+  new credit errors — sustained, per this file's own bar. Outage span 23:47:10Z → 08:57:46Z
+  (~9h11m), 1,884 errors.
+- **The platform self-healed everything below max_attempts:** 33 rows that hit the error on
+  attempts 1–2 returned to `triaged` on their own and 2 had already completed by 09:02 — so the
+  designed retry behaviour needed no help. Only the **20 rows at attempt_count 3** were stuck.
+- **Those 20 were RESET 2026-08-26 ~09:03Z** (`idea_uk_vm_site` lane): backup first
+  (`CREATE TABLE bak_credit_burn_20260826 AS SELECT * … WHERE status='failed' AND error LIKE
+  '%credit balance%'` — holds the full rows incl. error text), then
+  `status='triaged', attempt_count=0, error=NULL, retry_after=NULL, claimed_by=NULL,
+  claimed_at=NULL` on the same predicate. Rationale: they differ from the 33 self-healed rows
+  only in WHEN their third attempt landed; the cause was environmental and uniform. A row a lane
+  wants dead can simply re-fail; the backup preserves the record. By site: loanzy 7, dartsonline
+  6, cookly 4, ai-agent-orchestration 1, idea.uk 1 (`ade31076`), system.internal 1
+  (`1d60fc7b`, a `needs_diagnosis`).
+- Post-reset check: `SELECT count(*) FROM site_work_items WHERE status='failed' AND error LIKE
+  '%credit balance%';` → **0**. Drop `bak_credit_burn_20260826` once nobody needs the record.
