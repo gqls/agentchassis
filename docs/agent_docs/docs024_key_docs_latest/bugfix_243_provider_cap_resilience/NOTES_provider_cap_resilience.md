@@ -803,3 +803,136 @@ each time tolerated, so no round was lost. That is not this lane's bug and I hav
 investigated it, but a single seat repeatedly hitting `max_tokens` is the shape `bugs_open/019`
 and `138` care about, and its `max_tokens` may simply be undersized for what its prompt now
 carries. Recorded here so it is not lost; **not** filed as a bug on four observations.
+
+## 2026-08-26 — v1.0.1341 re-verify (with a false alarm from my own harness), and the WRITER finally has tests
+
+### ⚠ My own verification harness printed a REGRESSION that was not one
+
+Running the usual post-roll ancestry check produced:
+
+```
+stamp:
+  OUT dbd865ee8  <-- REGRESSION
+  OUT e521cde3e  <-- REGRESSION
+  OUT 893a12d47  <-- REGRESSION
+```
+
+**All three were false.** The `build provenance` line had **scrolled** (0 occurrences in
+`--tail=4000` — the pods had been up ~10 hours), so `$STAMP` came back **empty**;
+`git merge-base --is-ancestor <commit> ""` then **fails**, and my `|| echo "OUT … REGRESSION"`
+turned that failure into a confident claim. This is the empty-`$sha` trap the memory index
+already records — *"a control that matches everything hides it, and so does an EMPTY `$sha`"* —
+and I walked into it while performing the very check that exists to catch regressions.
+
+**Guard the stamp before using it**, and when it is empty fall back to the capability probe,
+which has no shelf life. Done here: **all three capabilities present on BOTH replicas** of
+v1.0.1341 with present-control 15/15 and absent-control 0/0, and the DB config intact
+(60s, 17/17, 2 held). **No regression.**
+
+Worth stating why this one was dangerous in a way the earlier ones were not: the two vacuous
+zeros and the boolean-rendering bug all produced **false negatives** about my own fix, which
+cost time but bias toward caution. **This produced a false POSITIVE about a regression** — and
+the natural reaction to "three commits fell out of the build" is to go and re-commit or re-roll
+something, which would have been real damage on a shared tree.
+
+### The writer had no tests. Now it has six, and three are mutation-proven.
+
+The asymmetry, which I had not noticed until looking for something to advance: the **reader**
+(`reviewStepFailed`) has been mutation-proven in both directions since it shipped; the
+**writer** had **nothing**, because it was inline in `routeToErrorStep`, which needs a DB and a
+live state repository. Existing orchestration tests build a bare
+`&SagaCoordinator{logger: zap.NewNop()}` (`error_step_loop_expansion_test.go:23`), which is not
+enough for that method.
+
+**The two sides agree on a contract that nothing asserted:** the map is keyed by the **bare step
+name**, because the reader derives it by splitting a collected-data path on the first `.`
+(`review_editquality.result` → `review_editquality`). **A refactor of either side could have
+silently returned the council to counting a lost seat as an abstention — the exact
+silent-approval hazard the design exists to prevent — with every test still green.**
+
+Remedy follows this package's **own** precedent rather than a new one: extracted to a pure
+function (`step_error_record.go`), mirroring `errorRouteTermination` in
+`error_route_completion.go`, which was pulled out of `completeWorkflow` for the identical
+testability reason and carries 8 tests. **No behaviour change** — same cap, marker, key shape,
+values, call site.
+
+**Three compiling mutations, each failing the test that names it:**
+
+| mutation | fails |
+|---|---|
+| key by `failedStepName+".result"` | `TestRecordStepErrorKeysByBareStepName` — *"must be keyed by the BARE step name"* |
+| invert the marker guard to `noted` | `TestRecordStepErrorIsBoundedAndSaysSoWhenItBinds` |
+| also assign `collected["__step_error"]` | `TestRecordStepErrorDoesNotTouchTheSingularKey` — *"__step_error was mutated"* |
+
+⚠ **A fourth attempt was DISCARDED because it broke the BUILD rather than the behaviour.** It
+reported `FAIL … [build failed]`, which in a grep for `FAIL` looks exactly like a caught
+mutation and proves nothing. **A mutation must compile to be evidence.**
+
+Committed `182852ef0`; council `dfde47a4-a64b-4fe8-ba80-b9be88da0e21` submitted (not held —
+CLAUDE.md says commit when coherent).
+
+### Not mine, flagged: `platform/orchestration/actions` is RED at HEAD
+
+`go test ./platform/orchestration/actions/` fails on an **undeclared finding code**
+(`WORK_ITEM_STATUS_OVERRIDE_REFUSED`, added at HEAD by the `bugs_open/396` lane in `2b46afbe6`).
+My package passes and neither of my files mentions it. Noted in their bug file with the
+one-line fix — deliberately **not** fixed by me, because choosing the code's category *is* the
+ruling their change implies.
+
+## 2026-08-26 — the mechanism FIRED IN PRODUCTION, and the contract my morning test pins is exactly what production wrote
+
+The council round I submitted for the writer-test refactor (`dfde47a4`) ran straight into a live
+outage and became the proof.
+
+**`__step_errors` as actually written, live** (`jsonb_object_keys`) — **12 keys**:
+
+```
+council_decide          review_mission          review_guardian         review_prior_art
+review_guidelines       review_editquality      review_reuse_agent      review_architecture
+review_constitution     review_debug_historian  review_llm_reliability  review_diagnosis_guardian
+```
+
+**Every key is a BARE STEP NAME.** No path, no prefix, no `.result` suffix. That is precisely the
+contract `TestRecordStepErrorKeysByBareStepName` asserts — written this morning, hours before
+production produced the evidence, and mutation-proven by keying with `+".result"` and watching it
+fail. **The writer→reader agreement is now confirmed on live data, not only in a unit test.**
+
+`council_decide` appears alongside the eleven seats because it failed too and routed to its own
+`error_step` — correct, and a neat demonstration that the record is not council-seat-specific.
+
+**And the council read it correctly:** `6 abstained, 11 unreadable`. Eleven opinions recorded as
+**owed and lost** rather than as considered non-objections. **Before this fix all eleven would
+have been abstentions, and an approval could have stood on six seats.**
+
+### What is now proven, and the one thing that is not
+
+| claim | status |
+|---|---|
+| the writer keys by bare step name, live | **PROVEN** (12 keys above) |
+| an errored seat → `unreadable`, not `abstained` | **PROVEN**, 11 seats |
+| the writer→reader contract holds end to end | **PROVEN** |
+| a round SURVIVES a lost seat and returns REVISE naming it | **STILL NOT PROVEN** |
+
+The last needs a **PARTIAL** outage. This was **TOTAL** — 11 + 6 = all 17 seats — so
+`council_decide` hit its own guard (*"a council with no opinions cannot decide"*) and took the
+`error_step` that mig 588 **deliberately left** as `complete_invalid`. Every branch behaved as
+designed; no fix could have produced a verdict from zero opinions.
+
+**The limit, stated next to the win: this converts a PARTIAL provider failure from fatal to
+survivable. It cannot save a round when the provider is 100% down, and was never meant to.**
+
+### ⚠ A new variant of the trigger, and the remedy is DIFFERENT
+
+The outage is **not** the usage cap this lane has been working against. It is
+**"Your credit balance is too low to access the Anthropic API"** — same family, same HTTP 400,
+**different owner action**: purchase credits, not raise a limit. Last success
+`2026-08-25 23:46:29.930`, first failure `23:47:10.233`, then **691 failures across 18 agent
+types and zero successes in every hour 00:00–08:00**. A wall, where the cap ran at ~5%.
+
+**Do not let a session pattern-match "400 + billing" onto the cap's remedy.** Filed in
+`bugs_open/243` with the boundary, the distinction and the recovery check.
+
+Note `isAIUnavailable` **does** catch it (`ai_errors.go` matches `"credit"`), so the work-item
+ladder releases without burning attempts, and `ai_endpoint_health` correctly reads UNHEALTHY.
+**MDL-044 cannot clear it — and must not: there are no successful calls to clear it with.** The
+flag is telling the truth.

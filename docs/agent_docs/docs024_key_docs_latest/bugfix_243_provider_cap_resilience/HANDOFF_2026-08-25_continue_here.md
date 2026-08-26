@@ -16,7 +16,17 @@ threw the fact away at every layer that needed it, so two consumers acted at the
 — the work-item claim gate stopped the **whole fleet** for up to an hour on one refusal, and the
 council gate discarded a **whole review round** on one seat's transient.
 
-## 2. Status: ALL THREE FIXES ARE LIVE. One proof is outstanding and cannot be forced.
+## 0. 🔴 READ FIRST (2026-08-26): the fleet is in a LIVE OUTAGE, and it is a NEW VARIANT
+
+**"Your credit balance is too low to access the Anthropic API"** — HTTP 400, same family as this
+bug, **different remedy: purchase credits, NOT raise a limit.** Last success
+`2026-08-25 23:46:29.930`; **691 failures across 18 agent types; zero successes 00:00–08:00Z.**
+A wall, not the cap's ~5% intermittent. Full record + recovery check in `bugs_open/243`.
+⚠ Check the **right org** first (Organization settings → API keys → `Last used`).
+
+**It also delivered this lane's proof — see §2.**
+
+## 2. Status: ALL FIXES ARE LIVE, and the mechanism has now FIRED IN PRODUCTION.
 
 | # | fix | state |
 |---|---|---|
@@ -24,6 +34,18 @@ council gate discarded a **whole review round** on one seat's transient.
 | 2 | **mig 596** — claude re-probe 3600s → 60s | **APPLIED** 2026-08-24, cadence measured 92–94s |
 | 3 | **WFA-023** — `__step_errors` writer + council classifying an errored seat `unreadable` | **LIVE** (v1.0.1337, still in v1.0.1339) |
 | 4 | **mig 588** — the 17 seats' `error_step` → their own `next_step` | **APPLIED** 2026-08-25 |
+| 5 | **writer test coverage** — `recordStepError` extracted + 6 tests pinning the writer↔reader contract | **COMMITTED** `182852ef0`, council `dfde47a4` submitted, no behaviour change |
+
+**Re-verified again after the v1.0.1341 roll (2026-08-25 23:11Z / checked 2026-08-26)** —
+capability-probed on BOTH replicas: `MDL044` = 1/1, council reader = 1/1, writer
+(`step-error record capped at`) = 1/1, present-control 15/15, absent-control 0/0. DB config
+survived: probe 60s, seats repointed 17/17, `complete_invalid` still 2.
+⚠ **The ancestry check could NOT be used this time and its failure mode is a trap:** the
+`build provenance` line had scrolled (0 occurrences in `--tail=4000`), so `$STAMP` came back
+**EMPTY**, and `git merge-base --is-ancestor <commit> ""` **fails** — which through a
+`|| echo "OUT ... REGRESSION"` printed a **false regression for all three commits**. That is the
+documented empty-`$sha` trap. **Guard the stamp before using it** (`[ -n "$STAMP" ] || …`), and
+when it is empty fall back to the capability probe, which has no shelf life.
 
 **Re-verified after the v1.0.1339 roll (2026-08-25 19:07Z)** — a roll is the moment to re-check,
 because Go can regress by a build from an older ref and DB config can be overwritten by a seed:
@@ -41,6 +63,24 @@ trailer.
 - **reach a verdict** (not `complete_invalid`), and
 - report that seat under **`unreadable`**, not `abstained`, and
 - if the remaining seats would have approved, come back **REVISE** naming the lost seat.
+
+### ✅ PARTLY PROVEN 2026-08-26, in production, by the live outage above
+
+Council round `dfde47a4` ran into it and recorded **`6 abstained, 11 unreadable`**. Eleven seats
+classified as opinions **owed and lost**, not considered non-objections. `__step_errors` was
+written with **12 bare step names** — exactly the contract the writer test pins.
+
+| claim | status |
+|---|---|
+| writer keys by bare step name, live | **PROVEN** |
+| an errored seat → `unreadable`, not `abstained` | **PROVEN**, 11 seats |
+| writer→reader contract end to end | **PROVEN** |
+| a round SURVIVES a lost seat and returns REVISE | **STILL NOT PROVEN** |
+
+The round still died — **correctly**: 11 + 6 = all 17 seats, so `council_decide` hit its own
+*"a council with no opinions cannot decide"* guard and took the `error_step` mig 588 deliberately
+left as `complete_invalid`. **The fix makes a PARTIAL provider failure survivable; it cannot save
+a round when the provider is 100% down.** The remaining proof needs a **partial** outage.
 
 ⚠ **"A seat whose call errors" is TOO LOOSE — it must be a TERMINAL error that routes to the
 seat's `error_step`.** `[MEASURED 2026-08-25]` four council-seat failures have already occurred
