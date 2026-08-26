@@ -1356,3 +1356,40 @@ Practical consequence for this lane: the affiliate-application figure must keep 
 Cloudflare with the tooling excluded, and must say so. When GA4 has run for a month it will give a
 *lower* and differently-blind number, and quoting whichever is larger would be the dishonest move
 available at that point.
+
+### 2026-08-26 — a doubt I raised about this week's verification, and its resolution
+
+I told the `bugs_open/384` lane that dartsonline carried `template_changed` work items and that
+*"the pages I have spent three days verifying may include some that reported success and shipped
+nothing"*. **That doubt is resolved and the answer is clean** — recording it here because I raised
+it in a message and a doubt outlives its answer when only one of the two is written down.
+
+**Their census `[MEASURED 2026-08-26]`:** dartsonline carries **8** `template_changed` items (my
+count of 5 was low — I filtered `item_type IN (page_rerender, needs_page, needs_rerender)` and the
+producers use other types), all `complete`, all created by `component-template-fixer` or the
+`news_editorial_features` lane, and **all carrying `spec.reason`**. Every one routed to
+`rerender_sections`. Nothing on this site reported success and shipped nothing by that mechanism.
+**This week's artefact verification stands.**
+
+**And the wider alarm I implied was wrong.** I measured 471 fleet items carrying reasons the Go
+reader does not know and fenced it — *"I counted items carrying the reason, not items that
+demonstrably shipped nothing; that inference is yours"*. The fence was the useful part: it prompted
+the producer census, which found **not one of the 471 came through `create_rerender_items`**. Every
+producer stamps `spec.reason` in its own INSERT, so the gate sees it and routes correctly. The
+control that makes it legible: `rerender-pages` has created **6,428** `page_rerender` items of
+which **3** carry a reason at all — assemble-only is the *correct* ordinary behaviour there.
+`bugs_open/404`'s exposure is **latent**, as originally filed. My figure supports **urgency, not
+damage**: a reason that busy is one a future author will plausibly route through the shared
+creator, which is the reasonable move that breaks silently.
+
+**The lesson is about the caveat, not the number.** The throwaway line I attached — *"`literal_markdown`'s
+first item predates its migration; worth a glance before quoting the window"* — turned out to be the
+only confirmed silent failure in the whole family: **7 of 19 `literal_markdown` items predate
+migration 473**, which is what taught the GATE that reason. Those carried a value the gate did not
+yet know, took `else_step: render_page`, and completed green. A different mechanism one layer up
+from 404 (the gate did not know it, rather than the Go reader not knowing it), and the only place
+items are known to have taken the silent branch.
+
+**So: the headline was refuted and the footnote was the finding.** Worth carrying because the
+instinct that produced it was cheap — an anomaly I could not explain, flagged rather than rounded
+off. Fencing a number is what made it checkable; noting what did not fit is what made it useful.
