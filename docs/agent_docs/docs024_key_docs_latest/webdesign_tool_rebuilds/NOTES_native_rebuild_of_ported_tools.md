@@ -3970,3 +3970,85 @@ Two facts from the noted lane's closure, the second one aimed straight at this l
    and flagged in the owner's README (their lane's). Watch for: `instance_scope_conversion` or
    escalation `add_tool` items appearing on webdesign tool pages — check the strike history for
    the overwrite pattern BEFORE letting anything fire.
+
+## 2026-08-26 10:30Z — #44 monolith-splitter FILED AND WITHDRAWN: the grind is queue-blocked, three theories refuted on the way to the cause, and design-discovery is BACK (correcting my own 08-25 measurement)
+
+**No rebuild today (yet). 43 of 63 stands.** Item `910ea037` (tool-monolith-splitter, brief 2,636
+chars) was filed 09:10:52 and **never claimed in 75 minutes**, against yesterday's 2–9 minutes.
+Withdrawn at 10:25Z under guards (`status='cancelled'`, pre-asserts: still `triaged`,
+`attempt_count=0`; post-assert: ported slot `e134edb7` still `deployed` — confirmed, no damage).
+
+**Why withdrawn rather than left queued.** The lane's own rule is *do not file a rebuild you cannot
+attend*, and attendance is not optional here: if the build lands unwatched, the generator queues its
+rerender and the page can publish BOTH tools until someone retires the ported slot. I filed
+believing I could attend; the diagnosis below says I cannot, so the honest move is to withdraw the
+item, not to leave a live hazard and hope the second starved queue saves me from the first. The
+cancel note on the row says all of this, including that it is **not** a re-file to jump the queue.
+
+### Three theories, each refuted by the next query — worth recording because two of them were mine
+
+**Theory 1 — priority starvation. REFUTED, and the landmine caught me mid-reach.** `[MEASURED
+2026-08-26 10:05Z]` every `add_tool` claimed in 12 h was priority **120 or 130**; **zero** at 60
+(mine) or 40. I was about to raise my item to 120 for parity. **LANDMINES 9468 says in terms: "do
+NOT re-file, and do not bump `priority` — the per-site pickup is `priority ASC`: LOWER first"**, and
+the code agrees (`maintenance_actions.go:882`, `seed_build_queue_action.go:69` —
+`ORDER BY priority ASC, created_at ASC`). So my 60 **outranks** their 120 and the bump would have
+moved me *backwards* while looking like initiative. The correlation was real; my causal reading was
+exactly inverted. **This is the value of grepping LANDMINES for the symbol before acting on a
+measurement, not after.**
+
+**Theory 2 — fleet monopolisation by a stuck head-of-queue item** (LANDMINES 11957: one site per
+tick, oldest first, an unclaimable item re-selected for ever). It fit beautifully:
+`adversecreditmortgage.co.uk` holds the fleet's oldest triaged items (18 `needs_imagery` +
+others, 2026-08-25 21:34:59, `attempt_count=0`, 12.7 h). **REFUTED by one query:** build items
+claimed since 21:34 — dartsonline **159**, homegarden **130**, robot-hands **122**, garden-tools
+**117**, vetcomparison **62**, lendzy **56**. The fleet is being served heavily; nothing is
+monopolised. **A documented failure mode that fits your symptom is a hypothesis, not a diagnosis.**
+
+**Theory 3 — the actual cause, by asking the precise question instead of theorising.**
+`[MEASURED 2026-08-26 10:20Z]` webdesign.co.uk has **335 triaged build items**, its last build claim
+was **03:52:32** (6.5 h ago), and under the per-site pickup order **72 items sit ahead of my
+`add_tool`**: 1 `improve_tool` at priority 30, 19 `page_rerender` at 35, and 52 items at priority 60
+created 03:46 (41 `improve_tool` + 11 `undeployed_asset`). My row itself is perfectly dispatchable —
+`triaged`, `attempt_count=0`, `approval_mode=auto`, no `depends_on`, no error. **Starved, not
+broken**, exactly as the landmine's three-read check defines it.
+
+### The gate this lane was missing, and it is going in the RUNBOOK
+
+Every pre-file gate we run measures **the fleet's `page_rerender` depth** — the margin that protects
+the retire race. **Not one of them asks how many build items are ahead of MINE on MY OWN SITE**,
+which is what decides whether the build will run at all. Yesterday that gap was invisible because
+the site queue was empty. Today it cost a filing. New gate: count same-site `triaged` build items
+preceding `(priority, created_at)`; **if it is more than a handful, do not file — you will not be
+able to attend.**
+
+### AND THE CAUSE OF THE BACKLOG IS THE ACCEPTANCE MACHINERY COMING BACK ON
+
+The 129 items queued on this site at **03:46:26** are `design-discovery-agent`'s: **54
+`acceptance_run`, 52 `improve_tool`, 12 `audit_tool`, 11 `undeployed_asset`.** The 52 `improve_tool`
+rows at priority 60 are precisely what my `add_tool` is queued behind. **The sweep that will finally
+grade my 43 rebuilds is the same sweep blocking me from making a 44th.**
+
+> **CORRECTION to my own entry of 2026-08-25 20:15Z.** I measured then, and stated,
+> `design-discovery-agent` → **0 runs since 08-11**. That was true when measured and is **false
+> now**: `[MEASURED 2026-08-26 10:22Z]` **51 runs since 08-11, latest 10:14:17**, and webdesign's
+> own sweep landed 03:46:26. This is the `[MEASURED]`-claim-about-STATE decay class — the figure did
+> not become wrong, it *expired*, and a reader of that entry this morning would have acted on a dead
+> number. Dated at both ends here.
+
+> **CORRECTION to what the platform seat relayed at ~09:25Z**, offered back to them rather than
+> filed as a fault — they were reporting an owner action in good faith. Two parts do not survive
+> measurement. (1) *"webdesign is a day or two out (least-recently-visited first)"* — **webdesign
+> was swept at 03:46:26**, about six hours BEFORE the 09:20Z enable they describe, so the sweep
+> either predates that enable or the rotation was already running. (2) *"`tool_acceptance` /
+> `tool_acceptance_due` / `tool_health` resume"* — **those three types are STILL 0 rows on this
+> site.** What actually landed is `acceptance_run` (54), `audit_tool` (12), `improve_tool` (52).
+> Different type names, so any check keyed on the first three still reports nothing and reads as
+> "acceptance never came back".
+
+**So the standing rule from 20:15Z STANDS, narrowed rather than retired.** Their own test was the
+right one — *evidence at the rows, not the switch* — and applied honestly it says: the acceptance
+work is **queued, not delivered**. All 54 `acceptance_run` rows are `triaged`; the only `complete`
+one on this site dates from 2026-08-18. **Nothing has graded a single rebuild yet.** Retire the rule
+when an `acceptance_run` completes against a rebuilt tool and its verdict can be read — not when the
+rows appear, and not when the switch flips.

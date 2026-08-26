@@ -153,6 +153,32 @@ Gotchas learned the hard way:
   never reached (deactivate it first — see "Before REFILING a tool that already has a native
   component"). Remaining blocked on webdesign.co.uk: **1**, `tool-meme-generator`, and only because it
   is a Phase B rich app that goes last by the owner's instruction — not because the platform refuses it.
+- **GATE ZERO, and it outranks every gate below it: can the build RUN AT ALL? Count what is ahead of
+  your item ON YOUR OWN SITE (added 2026-08-26, after a filing had to be withdrawn).** Every other
+  gate here protects the retire race — the margin between the build completing and an assemble
+  firing. **None of them asks whether the build will ever be claimed**, and on 2026-08-26 that cost
+  a filing: `add_tool` `910ea037` sat `triaged` for 75 minutes (against 2–9 min the day before) and
+  was withdrawn. The per-site pickup is `priority ASC, created_at ASC` (`maintenance_actions.go:882`,
+  `seed_build_queue_action.go:69`), so:
+  ```sql
+  SELECT count(*) AS ahead_of_me
+  FROM site_work_items
+  WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND pipeline='build' AND status='triaged'
+    AND (priority, created_at) < (60, now());   -- 60 = the priority this runbook files at
+  ```
+  Also read **when your site was last served** — `max(claimed_at)` over its build items. On the day
+  in question that was **6.5 hours** earlier, with **335** triaged items and **72** ahead of mine.
+  **More than a handful ahead, or a stale last-claim, means DO NOT FILE: you will not be able to
+  attend, and an unattended build publishes a double-tool page.**
+  **⚠ Do NOT respond to a slow queue by bumping `priority` — the ordering is ASC, LOWER first, so a
+  bump moves you BACKWARDS**, and `LANDMINES.md` forbids it outright ("do NOT re-file, and do not
+  bump priority"). A 12-hour census showing every claimed `add_tool` at priority 120/130 and none at
+  60 is a **correlation with the causation inverted**: those are the items that got served *despite*
+  a worse priority, because they were on sites being served at all.
+  **The honest response to a starved queue is to wait or to withdraw, not to re-file and not to
+  re-rank.** Withdraw with guards (assert still `triaged` and `attempt_count=0` before, and the
+  ported slot still `deployed` after) and say in the row's `error` why — so the next reader can tell
+  a withdrawal from a failure.
 - **Measure the MARGIN on the target page's queued `page_rerender` before you file (added 2026-08-19,
   CORRECTED 2026-08-20 — the first version of this bullet said "refuse if one is open", which would
   have blocked every filing for three hours the very next morning when a 121-item site sweep queued one
