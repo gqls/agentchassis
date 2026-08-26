@@ -124,6 +124,12 @@ anywhere), so ANY chrome refresh regenerates the shell via `RenderFallbackFooter
 (`component_library.go:1976`). Re-emptying the row now is 397-class churn — c2's imminent wave
 would revert it again.
 
+**State ~13:35 BST:** c2's spec key CONFIRMED on apis.uk (`site_config` current, row 10:12 —
+an earlier read of mine said "no row", `[UNEXPLAINED]`, likely a race with their apply); head
+artefact still tagless (08:46); page `needs_rebuild`; their stale_chrome wave not yet here.
+And CORRECTED: apis.uk does NOT refuse ordinary page re-renders (3 completed overnight — that
+was the strip vector); expect the wave's items to COMPLETE and gtm to return on the served page.
+
 **Sequence for whoever acts next (after `analytics_gtm`'s c2 wave lands on apis.uk):**
 1. Verify GTM at the served bytes (c2 writes the spec key; the wave re-renders chrome WITH it).
 2. **OWNER DECISION on the footer:** (a) accept the minimal fallback shell (brand + ©, no email,

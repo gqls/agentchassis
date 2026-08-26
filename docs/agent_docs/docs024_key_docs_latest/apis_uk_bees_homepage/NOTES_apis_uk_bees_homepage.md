@@ -1284,3 +1284,14 @@ the second also poisoned my CONTRIB to analytics_gtm, corrected by message). The
 suppression exists, `RenderFallbackFooter` regenerates the shell on every chrome refresh. Owner
 decision framed in handoff §5b: accept the shell vs commission an opt-in
 `chrome.footer_disabled`. No interim row-emptying (397-class churn against c2's imminent wave).
+
+### 2026-08-26 ~13:35 — c2 confirmed on apis.uk; my hour-earlier read said "no row"
+
+google's message says c2 applied ~10:50 UTC, 17 sites incl. apis.uk. Re-measured: the key IS
+present (`site_config`, is_current, created 10:12). But my ~13:15 check — same query shape —
+returned "(no site_config row)". `[UNEXPLAINED]`: either their apply landed between my two reads
+(timestamp session-TZ ambiguity makes this plausible) or my first query erred in a way psql
+swallowed. Recorded rather than reconciled by guesswork; the CURRENT state is measured and is
+what the handoff carries. Also corrected their forward expectation (they predicted the wave's
+page item would FAIL on our locks, citing my own earlier wrong inference back at me — the
+overnight completions disprove it; message sent, and 397 asked to carry a dated correction).
