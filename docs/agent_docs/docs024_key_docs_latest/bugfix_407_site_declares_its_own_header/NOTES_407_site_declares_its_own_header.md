@@ -83,3 +83,79 @@ not a preference for structure, an observation that the last extension did not h
   `maintenance_profile` already carries Go-read sub-objects (`content_feed.enabled`,
   `content_feed.max_age_hours`, `structure_floor.n`/`.refusal`). There is **no** `site_specs`
   table.
+
+---
+
+## 2026-08-26 (later) — THE DISCRIMINATOR, built. And a misstep that nearly poisoned it
+
+### The filer could not separate the two causes. The separator is the MECHANISM, not a timestamp
+
+`pages.updated_at > max(site_nav_items.updated_at)` fails because `updated_at` is bumped by any
+re-render, so it cannot say the FLAGS changed. The way in is to ask what the tier table can
+actually do: **it only decides anything when there is COMPETITION for slots.** Below
+`max_header_items` there is no competition, so tier cannot be the cause of an absence.
+
+```
+absent AND the site's primary nav is AT the cap    -> 407's mechanism
+absent AND the site's primary nav is BELOW the cap -> NOT 407 (stale nav, or another cause)
+```
+
+`[MEASURED 2026-08-26]` it separates the set cleanly, **5 of 6 are 407 and 1 is not**:
+
+```
+ domain                     | name                 | nav_order | primary_items | cap | verdict
+ idea.uk                    | report               |         3 |             5 |   8 | NOT 407 - nav below cap
+ ai-agent-orchestration.com | adoption-tracker     |       100 |             8 |   8 | TIER/CAP (407)
+ ai-agent-orchestration.com | news-index           |       100 |             8 |   8 | TIER/CAP (407)
+ ai-agent-orchestration.com | protocol-tracker     |       100 |             8 |   8 | TIER/CAP (407)
+ finetuning.uk              | approach             |         4 |             8 |   8 | TIER/CAP (407)
+ gaswholesalers.com         | pricing-transparency |       100 |             8 |   8 | TIER/CAP (407)
+```
+
+`idea.uk` is the filer's own suspected second cause, now separated: its primary nav holds **5 of
+8** and `/report.html` (nav_order 3, `in_header` true) is still absent — nothing to do with
+tiers. **So the honest population for this bug is 5, not 6, and not the filed 8.** The full query
+is in the RUNBOOK; two caveats travel with it and must not be dropped: it has to read
+`max_header_items` from the live step config rather than hardcode 8 (hardcoding asserts the very
+fleet-wide constant this bug is about), and "at cap" is sufficient *on today's data* — a site
+that is at cap AND stale would be classified 407 wrongly.
+
+### The sub-cause matters, because it rules out a whole family of fixes
+
+Both flavours are live, and both are "the site cannot express its own priority":
+
+- **beaten by a higher tier** — finetuning.uk's `approach` (tier 3) against a full header of
+  tier 1/2.
+- **beaten by a SAME-TIER TIE** — ai-agent-orchestration.com's `adoption-tracker` and
+  `protocol-tracker` are tier **2** (hardcoded there for exactly this reason) and lose to
+  `model-directory`, also tier 2; gaswholesalers.com's `pricing-transparency` is tier 3 losing to
+  `why-gas-wholesalers`, `how-pricing-works` and `service-areas` — **all tier 3, all at
+  `nav_order` 100**, so the tie is broken by load order.
+
+**Consequence for the design: a fix that only lets a site RAISE a page's tier does not fix
+gaswholesalers.** The declaration has to give a total order.
+
+### Verified at the SERVED page, per the bug's own ⚠
+
+- `ai-agent-orchestration.com` — index, services, about, tools, contact, case-studies, blog,
+  **model-directory** = 8, exactly the cap. **This is §3's argument proven at the artefact**: of
+  the three names hardcoded into tier 2 by that comment, one is in the header and its two
+  siblings are not.
+- `finetuning.uk` — index, services, about, tools, use-cases, case-studies, pricing,
+  **your-own-model**, contact. The owner's offer page IS there now, after the second
+  displacement the bug describes; `approach` is out.
+- `gaswholesalers.com` — index, about, services, contact, news, why-gas-wholesalers,
+  how-pricing-works, service-areas = 8. Note all three tier-3 names got IN: **tier 3 is not
+  excluded, it is only outranked**, and the defect bites at the cap.
+
+### Misstep 3 — I grepped `<header>` and matched a COMPONENT's header, not the site chrome
+
+My first served-page pass ran `grep -o '<header[^>]*>.*</header>'` over each homepage. On
+`idea.uk` that matched `<header class="info-card-grid__header">` — a **component's** header,
+420 bytes of card-grid copy — and I recorded "ABSENT" for that site off it. The verdict happened
+to be right and the evidence was worthless.
+
+**A rendered page contains several `<header>` elements**, because components carry their own.
+Match on the nav links, or on the chrome's own class, and sanity-check by printing the hrefs you
+found — which is what caught it: idea.uk's "header" had no `href` at all, and a site chrome
+without a single link is not a chrome.
