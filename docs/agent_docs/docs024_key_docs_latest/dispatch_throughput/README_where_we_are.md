@@ -240,3 +240,20 @@ is on record, and the check ("runs × duration ÷ window") is now in the runbook
 
 The council will get a third round with all of this stated plainly, so the record is honest
 whichever way they rule.
+
+## 2026-08-26 — done as you ruled: one dispatcher, faster, evenly spaced
+
+Your decision (option B) is applied and live as of this morning, 08:51 UTC. The second dispatcher
+row is switched off — kept in the table so switching back is one statement — and the original now
+fires every 60 seconds instead of every 90, with each fire far enough from the last that it sees
+what the previous turn claimed and goes to a different site.
+
+Two safeguards went in with it. The daily check now enforces your ruling mechanically: it fails
+loudly if anyone re-enables a second dispatcher row, and it fails loudly if anyone sets the
+interval below 30 — which is option C — before the spending governor exists. So C cannot happen
+by accident; when the governor lands, changing that one line is part of doing C deliberately.
+
+One number from overnight that confirms the choice: the share of claim attempts the old pair
+wasted on each other had grown to almost 60% (it was 39% when I measured on Monday). The change
+went to the review council this morning as usual; first measurements of the new behaviour follow
+below, and a full day's before/after comparison tomorrow.

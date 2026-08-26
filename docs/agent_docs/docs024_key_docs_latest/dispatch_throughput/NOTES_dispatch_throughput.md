@@ -415,3 +415,54 @@ The four advisories, and what was done with each:
 
 VERIFY post-hardening run: **all 6 hold** (parity ×2 rows · identity · 0 hardcoded stamps with
 positive control · liveness · 0 double-handles/24h · no third sibling).
+
+## 2026-08-26 — OWNER RULED B; migration 637 APPLIED; the sibling retired for `interval_seconds`
+
+**Ruling verbatim (chat, 2026-08-26):** "Decision - B as you suggest and we can do C when we have
+the governor." B = retire the sibling, original row `interval_seconds` 60→30; C (interval 25, ~3×)
+waits for the D4 governor.
+
+- **Council:** new coherent change → new submission, `SUBMISSION_CORR
+  69a04e0a-8e45-4f5a-b0bb-285f00c544ee` (DRY_RUN admission clean first). Applied before the
+  verdict per the 07-29 ruling (review is after the fact by design); commit carries
+  `Council-Submitted:`.
+- **Applied 08:51:0xZ, ON_ERROR_STOP clean:** pre-flight gate-parity DO passed; `UPDATE 1` ×2
+  (both guarded on pre-state — rerun-safe per r3's debug_historian advisory); post-check DO
+  passed. State: `build-pipeline-trigger` enabled @ **interval 30**; `build-pipeline-trigger-2`
+  **DISABLED**, row kept as the rollback path (`637_..._ROLLBACK.sql`, guarded; its lockstep
+  instruction: re-edit the VERIFY lever assertion in the same commit).
+- **VERIFY reworked to 7 assertions in lockstep:** 1/7 gate parity narrowed to
+  pre_query/agent/topic/fire_message but across ALL rows INCLUDING the disabled sibling (it is
+  the rollback path — a by-name UPDATE desyncing it would make a future re-enable fire a stale
+  gate); NEW 2/7 LEVER: exactly one enabled trigger row at interval ≥ 30 — **"C only after D4"
+  is now mechanical, not documentation**. All 7 hold post-apply `[MEASURED 08:53Z]`; the lever
+  assertion mutation-proved (inverted predicate RAISEs at 30, exit 3). ⚠ full VERIFY runtime was
+  **2m49s** this morning (the informational co-pick table dominates) — do not run it under a
+  2-minute timeout; the DO block alone is seconds.
+- **Overnight read that strengthens B:** the phase-locked pair's lost-claim share over the
+  trailing 24h had risen to **59.6% / 57.9%** (was 38.7/39.7 at yesterday's 24.5h read)
+  `[MEASURED 08:53Z]` — the co-pick cost was growing with the backlog shape, not shrinking.
+- Housekeeping observation: `improvement-sweep` (dispatch group, interval 900) reads `enabled=t`
+  this morning — another lane flipped it since NOTES 08-25 recorded it disabled. Unrelated to
+  this change (the group cap never binds — 398); noted so the next group census doesn't trip.
+- **Post-apply artefact reads (~09:2xZ):** [appended below when taken]
+
+### Post-apply artefact reads `[MEASURED 2026-08-26 09:04 + 09:20Z]`
+
+- **Cadence:** 27 fires 08:52→09:20, gap p50 **60 s**, p90 65 s, max 180 s (one slow tick). Only
+  `build-pipeline-trigger` fires; the sibling's `last_triggered_at` is frozen at 08:51:09.23.
+- **Steering (the point of B):** steady-state window ≥ 08:55: **24 loops across 15 distinct
+  sites** — under the phase-locked pair, 94% of loops co-picked one site.
+- **Lost claims: 12.9%** (9 of 70; was 38.7/39.7% at the 08-25 read and **58–60%** in the
+  trailing 24h to this morning). Anatomy of the 9: **3 = `ai_endpoint_unavailable` on the SAME
+  item** (`efccd5d8`, site `8ff093d5`) retried by successive loops — an endpoint-health refusal
+  at the claim step, NOT a race (observed, not diagnosed; not this lane's); **6 =
+  `already_claimed_or_ineligible` mid-batch** (claim_result_2/4) across 2 same-site overlap
+  pairs — the residual consecutive-fire overlap when a deep site's loop releases between items.
+- **Batches:** avg loaded 3.83, avg won 2.54 per loaded loop (12-min transition read: 12 loops /
+  5 sites — small-sample, superseded by the above).
+- **Demand jumped overnight:** 1,398 triaged across **31** sites at 09:20Z (was 158/5 at the
+  08-25 read) — a filing wave; tomorrow's 24h post-B read is therefore a REAL throughput test:
+  ceiling at this cadence ≈ 60 turns/h × up to 5 = ~300 claims/h.
+- 637 council verdict not landed at 09:20Z (~30 min budget from 08:50 submission) — next session
+  reads it (`69a04e0a`, doc_notes / diagnosis_artifacts).

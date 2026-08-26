@@ -9,7 +9,7 @@
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
 --     -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/584_dispatch_sibling_C_insert_trigger_2_VERIFY.sql
 --
--- Exit 0 = all six assertions hold; a RAISE names the one that failed. Proven to fire
+-- Exit 0 = all seven assertions hold; a RAISE names the one that failed. Proven to fire
 -- 2026-08-25 by inverting assertion 1's predicate on a scratch copy (RUNBOOK).
 --
 -- ⚠ On this scheduler (fire-and-forget: runTick → fireTrigger → stampCompleted sets BOTH stamps
@@ -21,40 +21,53 @@
 DO $$
 DECLARE n int; m int; v text; hardcoded int;
 BEGIN
-  -- 1/5 PARITY: every trigger row agrees on every column that shapes a dispatch turn.
-  --     (the sibling was INSERT..SELECTed once; a by-name UPDATE on the original desyncs it silently)
+  -- 1/7 GATE PARITY: every trigger row — disabled ones included, they are the rollback
+  --     path — agrees on the dispatch GATE (pre_query/agent/topic/fire_message). The
+  --     LEVER columns (enabled, interval_seconds) are asserted separately in 2/7: since
+  --     ruling B (2026-08-26, migration 637) they legitimately differ between rows.
   SELECT count(*) INTO m FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%';
-  SELECT count(DISTINCT (md5(coalesce(pre_query,'')), interval_seconds, target_agent_type, target_topic,
-                         timeout_seconds, concurrency_group, max_concurrent, fire_message, enabled))
+  SELECT count(DISTINCT (md5(coalesce(pre_query,'')), target_agent_type, target_topic, fire_message))
     INTO n FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%';
   IF m >= 2 AND n <> 1 THEN
-    RAISE EXCEPTION '584 VERIFY 1/5 PARITY: % trigger rows carry % distinct configs — a by-name UPDATE missed the sibling (LANDMINES 2026-08-25)', m, n;
+    RAISE EXCEPTION '584 VERIFY 1/7 GATE PARITY: % trigger rows carry % distinct gate configs — a by-name UPDATE missed a sibling (LANDMINES 2026-08-25)', m, n;
   END IF;
 
-  -- 2/5 IDENTITY: each row's input_data.task_name is its own name (582 / 584).
+  -- 2/7 LEVER (owner ruling B, 2026-08-26): exactly ONE enabled trigger row, at
+  --     interval_seconds >= 30. Option C (interval 25, ~3x) is GATED on the D4 spend
+  --     governor — when C is ruled, edit this assertion in the same commit (lockstep).
+  SELECT count(*) INTO n FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%' AND enabled;
+  IF n <> 1 THEN
+    RAISE EXCEPTION '584 VERIFY 2/7 LEVER: % enabled trigger rows, ruling B (2026-08-26) says exactly 1 — a rollback to the sibling state must re-edit this assertion in lockstep (637_..._ROLLBACK.sql)', n;
+  END IF;
+  SELECT interval_seconds INTO n FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%' AND enabled;
+  IF n < 30 THEN
+    RAISE EXCEPTION '584 VERIFY 2/7 LEVER: enabled row interval_seconds = % — below 30 is option C, gated on the D4 spend governor (owner ruling 2026-08-26)', n;
+  END IF;
+
+  -- 3/7 IDENTITY: each row's input_data.task_name is its own name (582 / 584).
   SELECT count(*) INTO n FROM scheduled_tasks
    WHERE name LIKE 'build-pipeline-trigger%' AND input_data->>'task_name' IS DISTINCT FROM name;
   IF n <> 0 THEN
-    RAISE EXCEPTION '584 VERIFY 2/5 IDENTITY: % row(s) whose input_data.task_name is not their own name', n;
+    RAISE EXCEPTION '584 VERIFY 3/7 IDENTITY: % row(s) whose input_data.task_name is not their own name', n;
   END IF;
 
-  -- 3/5 STAMPS: no hardcoded notify stamp anywhere in live agent config — WHOLE-TEXT census,
+  -- 4/7 STAMPS: no hardcoded notify stamp anywhere in live agent config — WHOLE-TEXT census,
   --     which sees sub_workflow/substep text (the round-1 guardian's "fourth writer" fear).
   SELECT count(*) INTO hardcoded FROM agent_definitions
    WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
      AND default_config::text LIKE '%UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = ''build-pipeline-trigger%';
   IF hardcoded <> 0 THEN
-    RAISE EXCEPTION '584 VERIFY 3/5 STAMPS: % active agent config(s) still carry a hardcoded notify stamp', hardcoded;
+    RAISE EXCEPTION '584 VERIFY 4/7 STAMPS: % active agent config(s) still carry a hardcoded notify stamp', hardcoded;
   END IF;
   -- positive control: the same scan must see substep-level text, or it is blind and this passes vacuously.
   SELECT count(*) INTO n FROM agent_definitions
    WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
      AND default_config::text LIKE '%spawn_handler%';
   IF n = 0 THEN
-    RAISE EXCEPTION '584 VERIFY 3/5 CONTROL: the whole-text census sees no substep text at all — the CHECK is broken, not the config';
+    RAISE EXCEPTION '584 VERIFY 4/7 CONTROL: the whole-text census sees no substep text at all — the CHECK is broken, not the config';
   END IF;
 
-  -- 4/5 LIVENESS: every ENABLED trigger row produced a trigger orchestration carrying its own
+  -- 5/7 LIVENESS: every ENABLED trigger row produced a trigger orchestration carrying its own
   --     task_name in the last 15 minutes (cadence is ~90 s; idle ticks still create a run).
   FOR v IN SELECT name FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%' AND enabled LOOP
     -- ⚠ deliberately NOT filtered on owner_agent_type: that column reads ZERO for some
@@ -65,11 +78,11 @@ BEGIN
      WHERE collected_data->'input_data'->>'task_name' = v
        AND created_at > now() - interval '15 minutes';
     IF n = 0 THEN
-      RAISE EXCEPTION '584 VERIFY 4/5 LIVENESS: enabled row % has no trigger orchestration in 15 min (scheduler down, row disabled upstream, or task_name not delivered)', v;
+      RAISE EXCEPTION '584 VERIFY 5/7 LIVENESS: enabled row % has no trigger orchestration in 15 min (scheduler down, row disabled upstream, or task_name not delivered)', v;
     END IF;
   END LOOP;
 
-  -- 5/5 NO DOUBLE-HANDLE: no work item had two handler orchestrations ALIVE AT ONCE in 24 h.
+  -- 6/7 NO DOUBLE-HANDLE: no work item had two handler orchestrations ALIVE AT ONCE in 24 h.
   --     (sequential retries — handlers = attempt_count — are legitimate and are not counted)
   WITH loops AS (
     SELECT orchestration_id FROM orchestration_states
@@ -81,21 +94,22 @@ BEGIN
   SELECT count(*) INTO n FROM h a JOIN h b
       ON a.wi = b.wi AND a.orchestration_id < b.orchestration_id AND a.s < b.e AND b.s < a.e;
   IF n <> 0 THEN
-    RAISE EXCEPTION '584 VERIFY 5/5 DOUBLE-HANDLE: % overlapping handler pair(s) on one work item in 24 h — the atomic claim did not hold', n;
+    RAISE EXCEPTION '584 VERIFY 6/7 DOUBLE-HANDLE: % overlapping handler pair(s) on one work item in 24 h — the atomic claim did not hold', n;
   END IF;
 
-  -- 6/6 NO THIRD SIBLING (council r3 guardian/architecture advisory, 2026-08-25): the clone
+  -- 7/7 NO THIRD SIBLING (council r3 guardian/architecture advisory, 2026-08-25): the clone
   --     pattern must not repeat — a third trigger row means a session copied 584's shape.
   --     The sanctioned paths are interval_seconds or the D9 per-task executions fix (bugs_open/398).
   IF m > 2 THEN
-    RAISE EXCEPTION '584 VERIFY 6/6 THIRD-SIBLING: % build-pipeline-trigger rows exist — 584 is a stopgap awaiting bugs_open/398, not a sanctioned pattern; use interval_seconds or D9', m;
+    RAISE EXCEPTION '584 VERIFY 7/7 THIRD-SIBLING: % build-pipeline-trigger rows exist — 584 is a stopgap awaiting bugs_open/398, not a sanctioned pattern; use interval_seconds or D9', m;
   END IF;
 
-  RAISE NOTICE '584 VERIFY: all 6 hold — parity across % row(s), identity, 0 hardcoded stamps (control passing), liveness, 0 double-handles in 24 h, no third sibling', m;
+  RAISE NOTICE '584 VERIFY: all 7 hold — gate parity across % row(s), lever = ruling B (1 enabled row, interval >= 30), identity, 0 hardcoded stamps (control passing), liveness, 0 double-handles in 24 h, no third sibling', m;
 END $$;
 
--- Informational, never fails: the COST of the 1 s phase lock between the two rows over 24 h —
--- how often the second fire co-picks the first fire's site, and the share of claim attempts lost.
+-- Informational, never fails: co-pick cost table. Under ruling B (one enabled row) the cross-row
+-- co-pick column reads 0 for post-637 loops by construction — the meaningful figure is then
+-- claims_lost/(won+lost), which 2026-08-25 measured at 39% under the phase-locked sibling.
 WITH l AS (
   SELECT orchestration_id, site_id, created_at s, updated_at e,
          collected_data->'input_data'->>'task_name' tn,

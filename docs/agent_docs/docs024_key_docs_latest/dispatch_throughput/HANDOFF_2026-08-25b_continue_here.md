@@ -1,5 +1,15 @@
 # HANDOFF 2026-08-25b — dispatch throughput — CONTINUE HERE (supersedes HANDOFF_2026-08-25)
 
+> **UPDATE 2026-08-26 — OWNER RULED B and it is APPLIED (migration 637, 08:51Z):** sibling
+> DISABLED (row kept for rollback), `build-pipeline-trigger` at `interval_seconds=30` (~60 s
+> spaced fires). C (interval 25) is gated on the D4 governor — **mechanically**: the 584 VERIFY
+> (now 7 assertions) RAISEs on a second enabled row or interval < 30. Council for 637:
+> `Council-Submitted: 69a04e0a-8e45-4f5a-b0bb-285f00c544ee` — **check that verdict first.**
+> OWED 1 below is therefore DONE; the new queue head is the **24h post-B read** (cadence p50
+> ~60 s; lost-claim share from ~59% → single digits; distinct sites per hour; wait p50/p90 with
+> arrivals held beside) — meters in RUNBOOK; first ~30-min reads in NOTES 2026-08-26. After that:
+> Phase 3 batch-only (5→8 both knobs), then D4. Full ruling + evidence: NOTES 2026-08-26.
+
 **Read first, in this order:** this file → `NOTES_dispatch_throughput.md` 2026-08-25 session-2
 entry (§1–§7 — the day the lane's central claim fell) → `README_where_we_are.md` 2026-08-25
 (the owner's plain-prose version + options A–D). The PLAN/STARTER/RESEARCH all carry
