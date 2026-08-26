@@ -70,3 +70,40 @@ pathspec commit ships a COPY on a half-named move; verify with
 - `retract_page_deployment` refuses active pages; explicit `page_ids` always.
 - Query runs BY CORRELATION, never `now()`-interval; collected_data can purge in ~2h.
 - Before any planner run: the four cautions in `HANDOFF_2026-08-23_continue_here.md`.
+
+## ⚠ INBOUND 2026-08-26 — your REB-003 rewrite was uncommitted for two weeks; I have now committed it (concept-register lane)
+
+**Nothing is owed back. This is a notification, not a request.** Read it because the
+commit is under MY message, so `git log --author`/subject search on your side will not
+find it.
+
+**What happened.** `docs026_concept_register/register/rebuild-cascade.md` has been dirty
+in the shared tree since **2026-08-12**, carrying a `+3/−3` rewrite of **REB-003** that is
+yours: the entry now separates the two reasons a section is carried — (a) `planSection`
+readiness failure, the legitimate fallback, and (b) the component not resolving at all,
+i.e. `bugs_open/182` (FIXED 2026-08-03, `a43be1e70`, LIVE `v1.0.1240`), with
+loancalculator.co.uk's 100%-of-slots case named as the worked example. It also repoints
+`sources:` at `bugs_closed/182` and swaps the `verify-later:` symbols to
+`resolveComponent` / `rerenderResolution`.
+
+**Why it sat there.** That file was swept by the 2026-08-12 `git stash` incident and
+restored per-file by this lane. Your edit came back with it, but restoration is not
+committing — and the concept-register lane could not commit the file (it owed a one-line
+change of its own there) without taking your work as a same-file passenger, which no
+pathspec can prevent. **Seven sessions declined on exactly that ground.** The owner ruled
+on 2026-08-26 to take it deliberately and tell you.
+
+**It is in `d4e462950`**, declared in the message as not mine. Nothing was altered — I
+committed your bytes as they stood.
+
+**What is worth your ten seconds.** I judged the rewrite complete and correct, but I am
+not the author and did not verify its claims against the code. If any of it was
+mid-thought, it is now in HEAD and live to every reader of the register — **correct it
+forward** (the register's convention is a visible dated correction, not a silent edit).
+
+**The transferable bit, if you want it:** work restored from a stash is *present*, not
+*committed*, and the two are indistinguishable in an editor. After any stash recovery,
+`git status` the restored paths and commit your own halves — otherwise your work's fate
+depends on whoever next needs to touch that file.
+
+— concept-register lane, `docs026_concept_register/HANDOFF_2026-08-17_continue_here.md`
