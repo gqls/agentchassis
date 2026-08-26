@@ -95,3 +95,67 @@ Logged in `WRONG_CALLS.md`.
   not a live pattern to reason from — only one to leave room for.
 - None of the 7 serving pages has a same-`url` sibling row, so the retraction action's
   active-page collision guard would not refuse any of them `[MEASURED 2026-08-26]`.
+
+---
+
+## 2026-08-26 (later) — the census is a command now, and three measurements that shape the fix
+
+### `scripts/audit-archived-still-serving.sh` — candidate 1, discharged
+
+The census is in the repo rather than in this file, because the two controls are the whole
+value and a paragraph describing them is not runnable. `--self-test` proves all eight verdict
+rows with no cluster. Exit codes follow the check-fleet convention and **a control failure is
+exit 2 — a refusal, never a pass.**
+
+It also carries the control that caught my own misstep this morning: it computes the population
+size with one query and the audited-row count from the loop, and **refuses if they disagree**.
+A loop that shells out can be truncated silently at exit 0, and a census that reports only what
+it found cannot be told from one that stopped early.
+
+First run, `[MEASURED 2026-08-26]`: **population 39 · 7 archived AND serving · 32 correctly
+absent · 0 unjudgeable.** Exit 1. Reproduces the hand census exactly.
+
+### Measurement A — none of the seven is reachable from its own site
+
+```
+site_nav_items rows: 0 for all 7        link_registry inbound: 0 for all 7
+```
+
+So every one of them is orphaned from the site's own structure and reachable only by direct URL
+or by a search engine that indexed it before we retired it. That is the shape that makes this
+class invisible: the site itself looks correct, because from inside the site the page is gone.
+
+### Measurement B — none of the seven is listed in its site's `sitemap.xml`
+
+Checked live against each site's own sitemap (35/25/51/37/41 `<loc>` entries respectively): **0
+of 7 appear.** Worth having, and it lowers the severity honestly — we are not actively inviting
+indexing, we are failing to withdraw something already indexed. `medium`, not `high`.
+
+### Measurement C — the re-deploy seam is already closed, so a retraction will stick
+
+`bugs_open/266`'s `ARCHIVED_PAGE_GUARD` is live at both deploy seams
+(`git_deployer_actions.go:81,103` and `v3_site_actions.go:899,911`, with
+`archived_page_guard.go` shared between them). That matters because LANDMINES records that
+retraction used to be **self-undoing** — delete the file and the next refresh republishes it,
+while a post-delete `curl` still shows 404 at the moment you look. It is not self-undoing now.
+
+### Adjacent finding — the guard that will protect my own change is 23% blind
+
+Enabling a check means adding its name to `agent_definitions`, and an **unregistered name
+hard-fails the whole discovery step** (`discovery_checks.go:198-216`, `bugs_open/149` B4) and
+takes the run's already-collected findings with it, because the return precedes `tx.Commit()`.
+The safety proof for making that fatal is `liveConfiguredChecks` in
+`discovery_checks_registration_test.go` — a hand-maintained fixture of every name the live
+agents are configured with.
+
+`[MEASURED 2026-08-26]` **the live agents configure 82 distinct check names; the fixture asserts
+63.** Nineteen are missing, including every name of a **fifth** agent
+(`acceptance-discovery-agent`: `build_prerequisites`, `heading_promise`, `structure_floor`) and
+`page_content_divergence`, the second half of the very agent I intend to host this check on.
+
+I verified all 82 resolve today (dumped `discovery_checks.Names()` from a throwaway test and
+diffed), so **there is no production risk right now** — this is a pure under-assertion. But the
+fixture's own header says it exists so that a rename fails *in the test* rather than in the
+fleet, and it currently cannot see 23% of the roster. The file has been here before: it records
+finding `literal_markdown` live and unlisted and says leaving a known gap "would be the same
+defect one level up". Refreshing it by UNION is part of this lane's commit.
