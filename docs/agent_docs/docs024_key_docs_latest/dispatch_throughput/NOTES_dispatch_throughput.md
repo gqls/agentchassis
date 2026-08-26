@@ -671,3 +671,85 @@ apply if landed; `Council-Submitted:` trailer on the commit either way.
 Note on who-owns: `who-owns.py 413` names THIS lane (we filed it) — the human owner's routing
 of the FIX to the "bugs_open/413" session supersedes commit-history inference; levers + meters
 stay here, coordination contract in HANDOFF-b.
+
+## 2026-08-26 evening — 413 FIX BUILT (bugs_open/413 session, resuming the fix by owner routing; levers/meters stay with the lane)
+
+Coordination first: throughput session confirmed the split in writing (~20:4xZ) — fix here,
+levers there; **apply agreed NOT BEFORE 12:00Z 08-27** (after the 24h post-B read ~09:00Z and
+658 ~09:30Z), stamp + ping on apply. Bug re-verified live before building anything
+`[MEASURED 2026-08-26 ~20:1xZ]`: selector text unchanged (md5 d6f98acdb5aec385d5eb4077eac530fc,
+the 633-era text); pin census **16 of 25 eligible sites pinned** — webdesign.co.uk
+oldest_load_rank **135**, loanzy 62, idea.uk 53; worst wait ~5h (loanzy, last claim 15:10).
+Evening inflow DEEPENS pins (15:5x census read 13/25) — dated trend, in the council submission.
+
+**What was built (candidate 1, generalised): `657_selector_ranks_sites_by_loadable_work_HOLD.sql`
++ `_ROLLBACK` + `_VERIFY`.** Selector ranks sites by min(created_at) over each site's top-K
+eligible rows under THE LOADER'S ordering (priority ASC, created_at ASC); **K read LIVE from
+`load_items.max_items`** (the K agreement with 658 — their header defers the lockstep to 657,
+657 reads their knob, nobody owes an edit; COALESCE→1 on a broken path degrades pin-free).
+Eligibility clauses byte-identical to the 633-era text; output shape (one row site_id/domain)
+unchanged; cost same class (~120ms real work vs ~115ms, both ~1.2-1.5s JIT-dominated, 1 fire/60s).
+
+**Proofs run tonight, all at the artefact:**
+- Full dry run in a rolled-back transaction (migration body → VERIFY → rollback body): preflight
+  refuses drift by md5; guards pass; VERIFY passes on applied state (K=5; census 28 eligible /
+  15 pinned at 20:46Z); rollback restores md5-exact; nothing persisted (exit 0).
+- **Divergence, same instant:** OLD text picks webdesign.co.uk (the rank-135 pin), NEW picks
+  vetcomparison.uk (oldest work a pick would actually drain). That pair of picks IS the bug and
+  the fix in one measurement.
+- VERIFY run standalone pre-apply FAILS on its md5 arm (exit 3) — the designed mutation proof.
+- Go lockstep test `load_work_items_ordering_contract_test.go` (AST, house pattern): passes;
+  mutation (ordering swapped at line 789) FAILS with the routing message; reverted, re-passes.
+  ⚠ misstep-class near-miss, self-caught: I reverted the deliberate mutation with a bare
+  `git checkout -- <file>` on the shared tree — safe THIS time (numstat clean, file untouched
+  by others), but the safe form is a targeted inverse edit; a peer's uncommitted change in the
+  same file would have been destroyed. Noted here rather than WRONG_CALLS (no false claim was
+  recorded; the check that catches it is `git diff --numstat <file>` BEFORE any checkout --).
+
+**Registered in the same commit** (ordering-exemption condition 2): WDS-002 gains the
+"ordering contract CLOSED" bullet + a visible CORRECTION striking its own "bounded by
+ceil(backlog/5)" claim; same correction block added to 284's header (the file that stated the
+bias and called it bounded); LANDMINES entry "ONE ordering contract" appended + verifier
+dispatched (corr 8aed215e). **Adjacent finding filed as `bugs_open/415`** (fire-gate pre_query
+narrower than the selector: no 'approved', pipeline='build' — an approved-only backlog never
+fires the trigger; theoretical at today's volume, first-hand verified, scoped OUT of 657).
+
+**Deliberately NOT shipped: candidate 2** (age floor / positional-wait bound) — a policy trade
+(per-site fairness vs item-age fairness) for the owner; presented in README_where_we_are with
+the floor as its evidence base. With pins unrepresentable, every site's representative age
+advances when served, so residual long waits are CAPACITY, not ordering.
+
+### 2026-08-26 ~20:5xZ — 658 council APPROVED (round 1); advisories acted on the same hour; chassis roll noted for tomorrow's window
+
+**Verdict:** APPROVED — "1 advisory objection(s), none high-severity", 7 abstained, corr
+`95099f95`. Read in full. Three actionable points across editquality (medium) and guardian
+(medium + low), each now DONE with evidence `[MEASURED 2026-08-26 ~20:5xZ]`:
+
+1. *"jsonb paths asserted but not verified; jsonb_set create_missing would mint a wrong-path key
+   and the guard reads the path it wrote"* (editquality) — covered MECHANICALLY by the file's own
+   refusal-first block: it reads BOTH paths and RAISEs 'knob path missing' on NULL before any
+   write, so a wrong path aborts instead of minting. Additionally the paths were read verbatim
+   from the live row during design (step JSON in the exploration report). No edit needed.
+2. *"four agent types carry TWO active definition rows — confirm build-dispatch-loop is not one,
+   and which row the loop LOADS"* (guardian, medium) — row census: build-dispatch-loop has
+   exactly ONE row in ANY state (id 099b51e0, active, non-snapshot, version 1, not deleted).
+   The four duplicate-active types are content-creator, content-creator-contact,
+   chief-strategist, site-component-architect — ours is not among them; "which row loads" has a
+   unique answer. Check recorded here; run the same census again immediately before hand-apply.
+3. *"enumerate other configs reading these knobs by convention"* (guardian, low) — census over
+   all live configs: 23 agents carry `max_items` and/or `max_iterations` somewhere, but exactly
+   ONE other agent uses the `load_work_items` action: **site-work-orchestrator** (the
+   human-initiated build path, the known second caller from the 396 work). 658 deliberately does
+   not touch it — human-initiated batch stays as-is, now stated as a census, not an assumption.
+   No agent reads build-dispatch-loop's values across rows.
+
+**Chassis roll ~20:26Z (owner: "a fresh chassis build has been deployed"):** pods
+`agent-chassis-5864bf97c5-*` age 25m at 20:51Z. Dispatch continuity measured across it: trigger
+fires 1/min and loops ~1/min unbroken 20:06→20:51 — **no dispatch gap** (the ~300s
+no-dispatch-after-restart caution did not manifest; likely staggered pod replacement).
+Provenance line not in `--tail=300` (startup line scrolled — "not in range", not "unstamped");
+what shipped is not this lane's to verify tonight. Tomorrow's 24h read holds the roll timestamp
+beside the window.
+
+Commit carrying this entry carries `Council-Reviewed: 95099f95` — verdict read in full,
+advisories dispositioned above.

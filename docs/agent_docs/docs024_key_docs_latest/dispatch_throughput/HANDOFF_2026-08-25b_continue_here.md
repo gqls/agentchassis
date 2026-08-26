@@ -1,4 +1,6 @@
-# HANDOFF 2026-08-25b — dispatch throughput — CONTINUE HERE (supersedes HANDOFF_2026-08-25)
+# HANDOFF 2026-08-25b — dispatch throughput — SUPERSEDED 2026-08-26 by `HANDOFF_2026-08-26_continue_here.md` (read that; this file keeps the fuller 584/N=2 history)
+
+# ~~HANDOFF 2026-08-25b — dispatch throughput — CONTINUE HERE~~ (superseded; was: supersedes HANDOFF_2026-08-25)
 
 > **UPDATE 2026-08-26 — OWNER RULED B and it is APPLIED (migration 637, 08:51Z):** sibling
 > DISABLED (row kept for rollback), `build-pipeline-trigger` at `interval_seconds=30` (~60 s
