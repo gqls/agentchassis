@@ -462,3 +462,66 @@ func TestPriorityPrefixIsTheGradersOwnComposition(t *testing.T) {
 		t.Fatalf("composer produced %q — the grader builds its audited-page prefix the same way", want)
 	}
 }
+
+// THE DEFECT THE FIRST LIVE RUN FOUND, 2026-08-26.
+//
+// The cursor was keyed on params.ExecutionContext.Sender.AgentType — the
+// DISPATCHER's identity. A hand dispatch over system.agent.generic.requests
+// stored the cursor under "generic" while the same run's durable truncation row
+// recorded "render-audit-agent"; the scheduled rotation uses a third topic
+// again. One logical caller therefore kept a separate cursor per dispatch path.
+//
+// No unit test could have caught it, because renderAuditParams sets
+// Sender.AgentType to "render-audit-agent" by hand and both readings agreed.
+// This test breaks that agreement deliberately: Sender says one thing, the
+// resolved running agent says another, and the cursor must follow the latter —
+// the same source LogActionFindings stamps the row with.
+//
+// MUTATION: put Sender.AgentType back → the UPSERT is keyed "dispatcher-generic"
+// and the WithArgs expectation goes unmet.
+func TestCursorIsKeyedOnTheRunningAgentNotTheDispatcher(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New().String()
+
+	pages := sqlmock.NewRows([]string{"url", "ord", "name"})
+	for i := 0; i < 10; i++ {
+		n := pageName(i)
+		pages.AddRow("/"+n+".html", 100, n)
+	}
+	mock.ExpectQuery("FROM pages").WillReturnRows(pages)
+	mock.ExpectQuery("FROM render_audit_page_cursor").
+		WillReturnRows(sqlmock.NewRows([]string{"after_nav_order", "after_name"}))
+	mock.ExpectQuery("FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"item_key"}))
+	mock.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(0, 1))
+	// THE ASSERTION: keyed on the RESOLVED running agent, never on Sender.
+	mock.ExpectExec("INSERT INTO render_audit_page_cursor").
+		WithArgs(siteID, "render-audit-agent", 100, "p003").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	params := renderAuditParams(ActionParams{
+		DB: db, Producer: &capturingProducer{}, Logger: zap.NewNop(),
+	}, siteID)
+	// The two identities now DISAGREE, exactly as they do in production: Sender
+	// is whoever put the message on the topic, RunAgentType is whose workflow is
+	// executing. ResolvedAgentType() prefers RunAgentType and falls back to
+	// Sender — so setting only Sender (as this test first did) does NOT model
+	// production, it models the fallback, and the first version of this test
+	// failed for that reason rather than for the defect it was written for.
+	params.ExecutionContext.Sender.AgentType = "dispatcher-generic"
+	params.ExecutionContext.RunAgentType = "render-audit-agent"
+	params.StepConfig = models.Step{Config: map[string]interface{}{
+		"max_pages": 4, "rotate_coverage": true,
+	}}
+
+	if _, err := RequestRenderAuditAction(context.Background(), params); err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("cursor was not keyed on the running agent: %v", err)
+	}
+}

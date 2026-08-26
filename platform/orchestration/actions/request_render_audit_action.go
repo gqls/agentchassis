@@ -174,9 +174,27 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 		rotationSize int
 		agentType    string
 	)
-	if params.ExecutionContext != nil {
-		agentType = params.ExecutionContext.Sender.AgentType
-	}
+	// THE CURSOR KEY MUST BE THE RUNNING AGENT, NOT THE DISPATCHER.
+	//
+	// This read `params.ExecutionContext.Sender.AgentType` until 2026-08-26, and
+	// the first LIVE run caught it: a hand dispatch over
+	// `system.agent.generic.requests` stored the cursor under agent_type
+	// "generic" while the SAME run's durable truncation row recorded
+	// "render-audit-agent" — two identities for one run. `Sender` is whoever put
+	// the message on the topic; the scheduled rotation uses a third topic again
+	// (`system.agent.scheduled.requests`). Keyed on that, one logical caller
+	// keeps a SEPARATE cursor per dispatch path, so a hand run's coverage is
+	// invisible to the scheduled run and each restarts from the top.
+	//
+	// runningStepProvenance is the canonical resolver
+	// (ExecutionContext.ResolvedAgentType() with a params.AgentType fallback) and
+	// is what LogActionFindings already uses to stamp the truncation row. Sharing
+	// it means the cursor key and the durable row cannot disagree — the estate's
+	// "copy the predicate, never retype it" rule applied to an identity.
+	//
+	// ⚠ NO UNIT TEST COULD HAVE CAUGHT THIS: the fixture sets Sender.AgentType to
+	// "render-audit-agent" by hand, so both readings agreed. It took the artefact.
+	agentType, _ = runningStepProvenance(params)
 
 	switch {
 	case !rotateCoverage || total <= maxPages:
