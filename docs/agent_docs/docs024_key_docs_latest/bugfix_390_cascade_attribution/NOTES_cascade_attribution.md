@@ -650,3 +650,39 @@ unattributed row do. Spot arithmetic: #4a5240 on rgb(238,234,227) = **6.81:1**. 
 recorded: `P.tool-description` now has FOUR rules (one pre-fence `!important` #4a5240 + three
 post-fence plain) — the pre-fence `!important` wins over all later ones, so the served colour is
 #4a5240 (passes). Redundancy class as §(p); no action.
+
+## 2026-08-26 (u) — evening close-out: fresh fleet roll VERIFIED (stamp `b34c24f4`, attribution code still ships); cookly's 5 repairs QUEUE-BOUND, ungraded; one watcher anomaly recorded
+
+**The fresh roll, proven per service at the artefact** (pods started 20:24–20:25 UTC):
+- browser-runner-adapter + render-audit-adapter both log `build provenance git_commit=b34c24f4c6…`.
+- agent-chassis: startup line not found by log grep — **binary probe instead**: `b34c24f4…`
+  PRESENT in `/proc/1/exe`; old stamp `2fb40a96` ABSENT; `deadbeef…` control ABSENT.
+- Ancestry: `git merge-base --is-ancestor ea64845e0 b34c24f4` → **YES** (commit 2 still ships);
+  my last docs commit `593fa660d` also an ancestor (docs-only, no behaviour).
+- ⚠ **The CLAUDE.md log-grep recipe is now self-poisoning on the chassis**: `logs -l app=… |
+  grep 'build provenance'` returned 1.9 MB of LANDMINE TEXT — the chassis logs whole
+  council/doc-sync payloads, and those contain the landmine entries ABOUT build provenance. The
+  landmine file already records this class. Per-POD logs + the structured-line grep
+  (`'"build provenance"'`), or the binary probe with both controls, are the working forms.
+- 655 is DB config — live across the roll by nature; no re-verification owed. No dispatches were
+  owed inside the ~300 s post-restart window by this lane.
+
+**cookly: 5 rows still `triaged` at 20:35Z, ~100 min after filing — QUEUE-BOUND, not stuck.**
+Build-dispatch loops ran continuously for OTHER sites all evening (webdesign/gaswholesalers/
+loancalculator/finetuning, roughly one site per minute); `build-pipeline-trigger` healthy
+(fires every 30 s); `sites.locked_at` NULL; zero cookly loops since 18:30. The trigger picks one
+pending site per tick by an order that has not favoured cookly yet. **Their repairs are UNGRADED
+— first item for the next session** (all will render post-655: expect NO `!important` on all 5).
+
+**Watcher anomaly, recorded not explained:** the cookly drain watcher exited `DEADLINE` ~60–80
+min after arming despite `MAX_SECS=10800`. The 410 lane's WRONG_CALLS entry — riding as the very
+build commit `b34c24f4` — reports a ~1 h workstation-vs-DB clock skew breaking local-clock
+watchers. Measured at 22:01Z: workstation vs `clients_db now()` agree within 2 s, so the skew is
+not present NOW; whether an earlier jump ate my deadline is [UNVERIFIED]. Practical rule either
+way: **key long watcher deadlines to the DB clock, not `date +%s`**, and cross-check both clocks
+when arming (RUNBOOK §8 gains this).
+
+**Where the predictions stand at handoff: P2 CONFIRMED (6/6 pre-fence identified the defect;
+8/8 + 1 post-fence proved 655 both ways) · P4 confirmed-so-far (38/6/0 across 3 sites), formal
+grading on vonc/noted/loanzy tomorrow · P3 clocks: remortgage ~08-29 13:50Z, garden-tools ~08-29
+17:50Z, cookly ~08-29 18:55Z · P5 agritec ~08-27 20:31Z.**

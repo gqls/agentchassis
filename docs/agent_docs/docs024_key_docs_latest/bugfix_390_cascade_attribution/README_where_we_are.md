@@ -174,3 +174,27 @@ fault, and the agent fixed it four times, each time on top of the last. That's w
 damage, it's a known consequence of tickets being per page, and the right place to stop it is the
 "only mark it done if it measurably improved" gate you deferred yesterday. Nothing here changes
 what settles the case: the checker's return visit on the 29th.
+
+**26 August, end of day.** A very good day, and one honest loose end.
+
+The review panel approved the evening's fix — the one that stops the repair agent being given two
+contradictory instructions — first time, no blocking objections. Better than approval: within
+twelve minutes of it going live, the next repair came out exactly right under the new rules, and
+the eight that followed did too. We now have a clean before-and-after on one evening: same model,
+same kind of fault, old prompt → wrong habit every time; new prompt → right behaviour every time.
+
+The checker also visited two more sites tonight. On both, it could work out which styling
+instruction was winning for almost every failure — thirty-eight worked out, six honestly declined,
+none unfixable — which is the distribution we predicted when this investigation started. The
+cooking site is the satisfying one: it's the site where even correctly-written repairs kept
+failing, and every one of its failures now carries an exact, measured requirement.
+
+The loose end: that site's five repairs are still waiting in the queue behind other sites' work —
+nothing wrong, just a busy evening — so grading them is the first job tomorrow.
+
+A fresh release of the platform went out tonight. I checked, at the running services themselves,
+that our measuring code is still aboard — it is.
+
+What's left before I can close the case: tomorrow the checker visits the three sites whose
+repeated failures started all this, and Friday it returns to today's sites — where it should
+withdraw its complaints rather than re-file them. That withdrawal is the finish line.
