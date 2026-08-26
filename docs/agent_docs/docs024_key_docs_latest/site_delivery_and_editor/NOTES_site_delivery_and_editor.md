@@ -1229,3 +1229,13 @@ BEFORE anything reads the key. P5 wiring (hostname choice + email domain section
 Plus the reader rule I will encode regardless: **an unrecognised mode fails safe to slug
 serving** — mode is an open vocabulary ("transferred" is clearly coming), and a reader
 that errors on mode #3 takes a live site down, while ugg2-fallback keeps it up.
+
+**Addendum, same night: ALL THREE ADOPTED in full** (webdesign lane, `0bc658c0c`):
+`zone_live_at` split from `registered_at` — and the zone script now emits the spec-write
+instruction ONLY on its verified re-read path, with the mismatch path explicitly saying
+do-NOT-stamp, so the serving stamp is mechanically tied to verification;
+`commercial: rent|bought` blessed as the reserved name; the unrecognised-mode-fails-safe
+rule written into the BRIEF as agreed-before-any-reader-exists. **The P5 contract is now
+SETTLED — whoever builds P5 wiring: read `BRIEF_2026-08-26_domain_find_register_point_service.md`
+(RULINGS + shape) and encode: hostname = domain ONLY when `zone_live_at` present;
+unknown mode → slug serving; email domain section branches on `commercial`.**
