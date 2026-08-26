@@ -199,3 +199,31 @@ a site; (2) customer self-editing during the 30-day window, possibly by voice; p
 smaller owed calls — contact address on a domain we own, the terms page, Stripe timing,
 the second Nominet TAG, and the two Cloudflare facts the DNS plan needs (the real zone
 cap; the CF-for-SaaS tier).
+
+## 2026-08-26 (late night) — everything checked again from cold: the last review verdict is in, and what remains is your three small steps
+
+Since the afternoon entry above, a lot landed in one evening: you ruled both open
+questions (you get an edit pass the customer never sees; no customer editing at launch,
+voice editing is the next build), the whole delivery machinery was finished and went
+through review, tonight's deployment picked it up, and the three delivery agents are
+installed and switched on. The email account is fully proven — a real test message
+passed all three authentication checks at Gmail itself.
+
+A fresh session then re-checked everything from scratch tonight. The one outstanding
+review verdict came back **approved** — the reviewers' single caveat (a safety helper we
+added needed something to actually use it) was already dealt with by the review-filing
+agent installed the same evening; I checked the live configuration to be sure, not just
+the file.
+
+Nothing else has moved, which is as expected. No customer has been handed anything, and
+nothing can send yet. The whole critical path is now three things only you can do:
+
+1. Create the mail password secret on the cluster (the one-line command in the handoff —
+   you hold the password, it lives in no file).
+2. Re-apply the links box configuration so the download link route works from the
+   internet.
+3. When we rehearse the full flow on a site of our own: edit the site if you like, then
+   press **Approve** on the review item — Approve, not Resolve.
+
+The mail settings themselves ride along automatically with the next normal deployment —
+nothing for you to do there, and until then a send attempt fails loudly and harmlessly.

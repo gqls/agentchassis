@@ -49,6 +49,13 @@ facing has happened yet.
    receive the email, click every link FROM OUTSIDE, confirm dkim=pass on the received
    headers. ⚠ Respect the ~300s no-dispatch window after any chassis restart.
 5. **Read the pending council verdict** on the 0b84970d hardening round; act on a REVISE.
+   > ✅ **DONE 2026-08-26 ~21:15Z (fresh session): APPROVED** — verdict actually landed
+   > 08-26 **10:29** (same morning as the resubmission, not night), 1 advisory, none
+   > high-severity. The advisory (no producer shown calling `ReviewItemRequiredSpec`)
+   > is closed by seed 651: live `delivery-review-filer` row verified carrying
+   > `spec_literal = {"checkpoint": true}`. Items 1/3 re-checked the same hour: secret
+   > still absent, `/d/` still 404 from outside — both stand. NOTES (late night) has
+   > the evidence.
 
 ## 2. What is LIVE vs INERT, precisely
 

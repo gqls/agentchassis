@@ -1267,3 +1267,43 @@ restart, not tonight's — sender construction fails cleanly until then.
 gripper page — the number-collision class; resolve by filename); **Stripe keys are LIVE
 in the cluster** (webhook keyed, `ad8a9b596`) though no Payment Links exist yet, so the
 email's reply-to-arrange stands with config slots ready.
+
+## 2026-08-26 (late night, fresh session) — cold-start verification pass: the hardening verdict is APPROVED, its advisory already closed by 651; every remaining step is the owner's
+
+All the handoff's falsifiers re-checked ~21:0x–21:2xZ [MEASURED 2026-08-26]:
+
+- **The 0b84970d post-approval hardening round LANDED and is APPROVED** — 08-26 10:29,
+  1 advisory objection, none high-severity (`doc_notes` council-gate row; full report in
+  `diagnosis_artifacts` kind=council_report). 25cd3044 round 4 likewise APPROVED 10:26,
+  all reviewers. So handoff §1.5 is done and there is no REVISE to act on. (The handoff's
+  "submitted 08-26 night" was off — the resubmission and verdict were the same MORNING.)
+- **The one advisory** (editquality, medium: `ReviewItemRequiredSpec()` added but no
+  producer shown calling it — a producer omitting checkpoint:true would still stall) was
+  **closed the same night by the producer itself**: verified at the LIVE row, not the seed
+  file — `delivery-review-filer`'s `file_review` config carries
+  `spec_literal = {"checkpoint": true}` (`agent_definitions`, queried tonight). No
+  follow-up owed.
+- **Mail secret `delivery-smtp-secrets`: ABSENT** (`kubectl get secret` → NotFound).
+  Handoff §1.1 stands, owner-only.
+- **DELIVERY_SMTP env: NOT on the live deployment** (env-name grep over the deploy spec →
+  0 matches; `last-applied-configuration` → 0 matches) — exactly as the handoff predicted:
+  the running pods ARE the 20:24Z roll (ReplicaSet timestamps 20:23–20:24Z) and
+  `6d76dab1e` was committed 20:47Z, after it. **Deliberately NOT forcing a one-service
+  `apply -k`**: releases are whole-fleet here, and a ~46-pod chassis restart kills
+  in-flight council runs (one was live at 21:04 tonight). The env rides the next release;
+  send fails loud pre-stamp until then, which is the designed cost.
+- **Box `/d/`: NOT re-applied** — from outside, GET `/d/<43-char junk>` → **404** (146 B)
+  with the `/c/` → 200 reach control in the same run. Post-apply the same probe must
+  return the uniform "no longer active" 200. §1.3 stands, unblocked, owner box step.
+- **Nothing-customer-facing invariant holds**: `customer_access_tokens` 0 rows,
+  `sites.handed_over_at` non-null 0.
+- Working-tree note: the ~18 dirty `uk_001` kustomization tag bumps (1239→1345) are the
+  release session's uncommitted work (live chassis image IS v1.0.1345) — left untouched.
+- Stale line spotted, not edited: 651's header still says DKIM/DMARC "absent as of
+  2026-08-26" — **closed that evening** (dkim/spf/dmarc all PASS at Gmail, `e38760737`).
+  Not correcting the applied seed file in place: it is recorded in `schema_migrations`
+  and a comment edit risks the drift guard; this note is the correction.
+
+Net: **no session-side work remains before the rehearsal.** The critical path is entirely
+the owner's three small steps — mail secret, box vhost re-apply, and the APPROVE press
+when we rehearse (plus the env riding the next fleet release).
