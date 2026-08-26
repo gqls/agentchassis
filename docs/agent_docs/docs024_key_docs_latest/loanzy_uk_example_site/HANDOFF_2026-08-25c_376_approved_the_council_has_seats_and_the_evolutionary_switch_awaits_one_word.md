@@ -1,5 +1,7 @@
 # HANDOFF 2026-08-25c — 376 APPROVED (not applied), the acceptance council has its seats in the tree, and the evolutionary switch awaits one word
 
+> **SUPERSEDED 2026-08-26 evening by `HANDOFF_2026-08-26_council_live_farmer_dispatched_continue_here.md`** — the word came (§6), the council went fully live at the binary, farmerinsurance.uk is dispatched; read 26 first, this file for the fuller history.
+
 **Lane:** `loanzy_uk_example_site`. **Supersedes `HANDOFF_2026-08-25b_…the_council_already_exists.md`**
 (same directory; its §1–§5 stand as history, its §6 to-do list is DONE except where marked).
 **Read on a cold start:** this file → `PLAN_2026-08-25_switch_off_the_evolutionary_rewrites_and_switch_the_loop_back_on.md`
