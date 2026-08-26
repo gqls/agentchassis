@@ -1993,7 +1993,23 @@ duplicate round (verdict 10:31: REVISE again, gating prior_art — round-1 conte
 *Live-and-committed are independent facts*, applied to my own tooling: the dry-run validated what
 was on disk, and so did the dispatch — the check and the act agreed with each other and both
 predated the generator's failure. The check now used: re-verify the payload's round marker AT the
-moment of dispatch (done for the true round 2, dispatched ~11:5xZ). Also learned: the printed
+moment of dispatch (done for the true round 2 — **CORRECTED: dispatched ~10:35Z, not '~11:5xZ'; that figure was a
+guess I typed instead of a clock I read; the DB's verdict timestamps 10:10 / 10:31 / 10:53 / 11:14 are the record**). Also learned: the printed
 RUN_ORCH_ID is not `orchestration_states.id` AND terminal runs are reaped in minutes — a
 by-correlation watch on `orchestration_states` misses a fast round entirely; **watch `doc_notes`
 verdict notes instead** (fires on the artefact, cannot be reaped out from under the window).
+
+**2026-08-26 ~11:3xZ — rounds 3 and 4 on trail `04a3ce1f`, and a peer finding that redraws one line of the plan.**
+Round 3 (true r2's verdict 10:53): REVISE, gating editquality — the multi-producer property (five seats
+share `content_rewrite`) had to be a PIN, not an assertion; `TestRecordRetraction_AnotherSeatsVerdictsAreNotMySilences`
+passes against unchanged mechanism code (the guard existed; the control did not). Round 4 (r3's verdict
+11:14): REVISE, gating debug_historian on the streak-bump/reaper interaction — settled by the reaper's own
+pre_query (population `triaged` only; deferred rows never reapable) and the retroactive-streak fear by
+writer enumeration (one writer, previously gated to one type). Round 4 dispatched with the at-dispatch
+payload check and DECLARED FINAL: residuals are RFC_056 FOLLOW-UPS, the trail is the advisory record.
+**The apis.uk lane's finding:** `missing_tools` → `evaluate_tools` → `add_tool` filed and half-built four
+pages on a site the owner ruled single-page — no per-site exclusion exists on that path (read from
+`check_missing_tools.go`: tool count, opt-in ratio, cooldown; tool-suggester reads no ruling). That is
+GROWTH riding the mechanical seat: my "defects dispatch; opinions record" line took "mechanical" as a
+proxy for "defect", and tool evaluation is an aspiration. RFC follow-up 1; owner's word needed on the
+remedy (a per-site refusal declaration in 624's shape). Their hand-park holds by dedup until released.

@@ -473,3 +473,34 @@ from `site_work_items`, the same two-directional shape as 405 §6.
 **Coordination (guardian):** the one crossed test file's owning lane
 (`copy_quality_two_stage`) gave explicit sign-off 2026-08-26, verified the edit green themselves,
 and holds the exchange in their NOTES — the same-file-passenger remedy, applied before shipping.
+
+---
+
+## FOLLOW-UPS (opened 2026-08-26, after the revalidation trail's four rounds) — named so they are not re-derived
+
+1. **`missing_tools` is GROWTH riding the mechanical seat, with no per-site refusal** (found by the
+   `apis.uk` lane, 2026-08-26 §5c of their handoff: two `add_tool` items filed on a site the owner
+   ruled single-page; tool-generator created four planned pages; nine publish items parked by hand).
+   `check_missing_tools.go`'s only gates are tool count, an opt-in growth ratio, and a cooldown;
+   `tool-suggester` reads no ruling. This is the one place rule 3's boundary was drawn wrong:
+   "mechanical" was taken as a proxy for "defect", and a periodic *should this site have more
+   tools?* evaluation is an aspiration. Remedy shape (owner's word needed): a per-site refusal
+   declaration in the 624 shape — `sites.settings->maintenance_profile->growth->>'refusal'` —
+   read by the check (skip) and the suggester (refuse); or move `evaluate_tools` to record mode.
+   Interim, by mechanism: a `deferred` row holds its dedup key, so a hand park suppresses re-filing
+   until released.
+2. **A future reaper over `deferred` rows must exclude actively-judged rows.** The stale reaper's
+   population is `triaged` only today, so the record-mode streak write (which does bump
+   `updated_at` via `trg_site_work_items_updated_at`) interacts with nothing — but that is a fact
+   about today's reaper, not a property of the design.
+3. **Two parked-row lifecycles now exist** (the revalidation family's predicate re-runners; the
+   record-mode default gate). Converge on a shared primitive if a third appears — the same
+   follow-up the r2 verdict named for the two PARK shapes (621's human park; record mode's machine park).
+4. **Post-roll proofs owed:** the record-mode retraction's induced two-direction test (ADDENDUM 3);
+   405 §6's origin-door test; 376 §11e's three research-floor tests on real draws. All gated on the
+   next chassis roll carrying `c440d5c5e`…`f51d3cf5e`; prove the roll by
+   `service_binary_capabilities` + `merge-base` with both controls, never a log grep.
+5. **Design-audit's child fail-open** (ADDENDUM 2): `call_visual_auditor`/`call_content_auditor`
+   errors are swallowed inside design-audit-agent; a child failure leaves no seat-failure row.
+6. **A verdict-release surface** beyond the RUNBOOK's SQL (architecture seat, r2) before record
+   rows accumulate fleet-wide — 271 as of 2026-08-26 11:00Z.
