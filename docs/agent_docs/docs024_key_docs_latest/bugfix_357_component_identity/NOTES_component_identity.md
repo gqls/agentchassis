@@ -1202,3 +1202,30 @@ adopted rows or with 357. If it sails through to `save_result`, the stall is spe
 page carrying a 17.5KB adopted fragment — which WOULD be a 357 finding and would matter to
 phase 3. **Not run: canary #2 is still EXECUTING and a third concurrent rebuild on the same
 site would muddy both.** Named as the next session's first control.
+
+### Canary #2 failed identically — and the control is now running
+
+`5a0cad41-fe0c-4636-9b2d-9c942486019c`: **FAILED**, `save_ran = f`, same reaper message, same
+step — `"reaper: stale EXECUTING_STEP for >4h; step=build_pages_loop_iter_0_assemble_page"`.
+
+**Two rebuilds, two identical deaths, and the second one was on a FRESH chassis** (pods
+`669b45fdb4-*`, 22 minutes old at dispatch, past the ~300s window). So the first failure was
+not "the roll killed it" after all — the roll explains the *timing* of canary #1's reaping,
+not the stall itself. Both stalled at `assemble_page`, whose `next_step` is a `git_commit`.
+
+**Precondition 4 remains UNTESTED.** Not failed — untested. Neither run reached
+`save_page_sections`, so neither says anything about whether an adopted row survives a
+rebuild. The adopted rows are byte-identical throughout (`26f484f2…` / `291b88d8…`, both still
+`adopted-fragment`, both still stamped) — because nothing touched them, which is not evidence.
+
+**The control, fired 2026-08-26 on `request-index`** (correlation
+`8d002375-1524-4abd-b04c-91a2e6a74277`): 2 rows, components `hero` and `contact-form`, **no
+adopted fragment**. `index`'s leftover `needs_rebuild` flag was cleared back to `deployed`
+first, so the rebuild targets the control page alone and the result is attributable.
+
+- control also stalls at `assemble_page` → the stall belongs to the rebuild path or the git
+  step after it. **Nothing to do with 357**, and precondition 4 needs a different vehicle
+  (e.g. drive the page through `page-rerender`, or wait for a natural rebuild).
+- control reaches `save_result` → the stall is specific to a page carrying a ~17.5KB adopted
+  fragment. **That IS a 357 finding** and it bears directly on whether phase 3 is safe: a
+  re-typed row that cannot be rebuilt afterwards is a worse state than the mislabelling.
