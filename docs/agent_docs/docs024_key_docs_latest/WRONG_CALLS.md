@@ -54296,3 +54296,29 @@ twin. Tally: compound-ls-exit-code-inverts-on-partial-match.
 **The cheap checks:** commit **unpiped**, or `| cat`, or read the `PostToolUse` advisory the harness hands you instead of skimming past it. And when you add a new `agent_error_log` code, declare it in the **same commit** — the test says exactly that and it is right.
 
 **A second lesson from the same event, and it is the happier one: the CONTRIB worked.** Another lane found my defect, wrote the diagnosis into *my* lane directory with the commit, the file:line, the failing assertion and the category choice left explicitly to me — and did not fix it themselves or file a competing bug. That is the collaboration shape CLAUDE.md asks for, and it cost them a round to produce. **When you find someone else's breakage, that is what to do with it.**
+
+## 2026-08-26 — bugs_open/402 read a MISLABELLED PRINT as the delta logic's verdict, and the misread became the bug's title
+
+The filing lane's claim (fleet-wide file, fleet-wide lesson — the closing session found it, but
+only because the code was open for the fix): *"The delta logic classifies ALL 847 entries as
+needing insert/refresh … the comparison is failing wholesale"*. Its evidence was the sync's own
+output: `to insert/refresh: 847`.
+
+**What was true.** That line printed `len(want)` — the TOTAL entry count parsed from the file —
+on every run, healthy or broken, before any comparison had executed (`landmines-sync.py:247` at
+the filing sha). The real delta that night was ~1 new entry; the EOF that killed the run was the
+READ leg (3.0MB of bodies through `kubectl exec`), nothing to do with what the apply would have
+sent. Same output, same night, a second false banner: "164 warning(s) that cost DELIVERY" — the
+`##`-heading nag costs nothing (the entry parses; one such entry has 4 delivered rows and two
+verifier verdicts), and those 164 lines buried the **18** entries [COUNTED 2026-08-26] that
+genuinely are undelivered. Both prints corrected in the commit that closed 402.
+
+**What caught it.** Reading the print statement that produced the number before theorising about
+the number — one grep, thirty seconds, against a claim that had already become a bug file's title
+and first "distinct fact".
+
+**The cheap check, skipped.** A figure in a program's output is a claim by that program's PRINT
+STATEMENT, not by its logic; before deriving anything from a printed figure, read the line that
+prints it. Kin to "a receipt nobody asserts on is a log line": a label nobody ever compared
+against what it actually prints is the same shape, one stream up.
+Tally: read-the-print-before-theorising-about-the-number.

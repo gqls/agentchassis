@@ -79,13 +79,14 @@ def run_psql(sql, capture=True):
 
     RETRY on the transport's mid-stream EOF (2026-08-25) — the FOURTH time this
     sync has broken purely because the corpus got bigger, and the first
-    PROBABILISTIC one: at ~846 entries existing_bodies() returns ~3MB, and the
+    PROBABILISTIC one: at ~846 entries the corpus read-back (existing_state(),
+    which then shipped full bodies rather than hashes) returned ~3MB, and the
     `kubectl exec` stream now dies mid-transfer roughly every other call
     ("error reading from error stream: read message: unexpected EOF" — measured
     2026-08-25: 4/4 script runs failed, while the same read standalone went
     rc=1 at 1.9MB then rc=0 at 3.1MB back to back). One failed call killed the
     whole run, so at several large calls per run the sync almost never
-    completed — and a sync that fails after `existing_sources()` looks, to its
+    completed — and a sync that fails mid-read-back looks, to its
     operator, exactly like a DB problem. Retrying is safe on every call this
     script makes: reads are pure, and the apply path is a single
     BEGIN/COMMIT + ON_ERROR_STOP idempotent upsert scoped by `source`, so a
@@ -115,54 +116,63 @@ def run_psql(sql, capture=True):
         sys.exit(f"psql failed:\n{_dec(proc.stderr) or _dec(proc.stdout)}")
 
 
-def existing_sources():
-    """{source: sorted list of subject_keys} — IDENTITY, not a count.
+def md5_hex(s):
+    return hashlib.md5(s.encode("utf-8")).hexdigest()
 
-    This returned {source: row count} until 2026-08-14, and `refootprinted`
-    compared counts. The splitter fix that day changed the footprint SET of 185
-    entries while leaving the COUNT equal on 6 of them — a count comparison
-    would have left those six's stale subject_keys in doc_notes for ever, with
-    every sync reporting clean. A count proves the damage, never the no-op.
+
+def existing_state():
+    """{source: (row_count, footprint_set_hash, body_hash)} for every owned entry.
+
+    IDENTITY, not a count — the footprint comparison keyed on {source: row
+    count} until 2026-08-14, and the splitter fix that day changed the
+    footprint SET of 185 entries while leaving the COUNT equal on 6 of them:
+    a count comparison would have left those six's stale subject_keys in
+    doc_notes for ever, with every sync reporting clean.
+
+    HASHES, not the values (2026-08-26, bugs 402). The delta needs only
+    equality, but until then this script shipped every body (3.0MB) and every
+    subject_key (610KB) through `kubectl exec` to get it — and that stream
+    dies mid-transfer roughly every other call at 3MB (the fourth
+    corpus-growth failure; see run_psql's history). The retry above makes
+    that survivable; hashing server-side makes it improbable: ~130 bytes per
+    entry on the wire, so the 856-entry corpus reads back in ~110KB and the
+    next scale wall moves out ~25x. A hash mismatch degrades to one spurious
+    idempotent rewrite of that entry — never data loss.
+
+    THE SORT MUST MATCH PYTHON'S. The footprint-set hash aggregates
+    `ORDER BY subject_key COLLATE "C"` (byte order) because the Python side
+    hashes '\\x1f'.join(sorted(fps)), and str sort is code-point order, which
+    UTF-8 byte order preserves. The database's DEFAULT collation promises no
+    such thing — a locale-ordered agg could hash differently for ever, and
+    every run would then rewrite every entry. Verified against the old
+    full-payload comparison on all 856 live entries, zero disagreements,
+    2026-08-26.
+
+    body is genuine multi-line prose, which is why the old code read it as
+    jsonb; an md5 hex digest cannot contain a newline or '|', so plain
+    `-t -A` rows are safe for all three columns. Every footprint row of one
+    entry carries an identical body (see the INSERT loop), so min(body) is
+    THE body.
     """
     out = run_psql(
-        "SELECT source, string_agg(subject_key, E'\\x1f' ORDER BY subject_key) "
+        "SELECT source, count(*), "
+        "md5(string_agg(subject_key, E'\\x1f' ORDER BY subject_key COLLATE \"C\")), "
+        "md5(min(body)) "
         "FROM doc_notes "
         f"WHERE source LIKE {sql_lit(SOURCE_PREFIX + '%')} GROUP BY 1;"
     )
     got = {}
     for line in out.splitlines():
         if "|" in line:
-            src, keys = line.split("|", 1)
-            got[src.strip()] = sorted(keys.strip().split("\x1f"))
+            src, n, fp_hash, body_hash = line.split("|", 3)
+            got[src.strip()] = (int(n), fp_hash, body_hash)
     return got
 
 
-def existing_bodies():
-    """{source: body} for whatever landmines-sync currently owns.
-
-    Every footprint row of one entry shares an identical body (see the INSERT
-    loop below), so DISTINCT ON (source) returns exactly one row per entry —
-    the body as it stood BEFORE this run's delete+reinsert. Used only to
-    detect a CONTENT edit under an unchanged slug: existing_sources()'s
-    new/gone lists (keyed on source presence alone) cannot see that, and
-    landmines-sync has never needed to until a consumer (landmine-verifier,
-    RFC_005 3.2) needed to know WHICH entries changed, not just whether the
-    set of slugs did.
-
-    JSON, not line-split `-t -A` text like existing_sources() above: `body`
-    is genuine multi-line prose (confirmed live — every entry's footprint
-    line alone forces a newline), so a naive per-line `|`-split would silently
-    truncate every multi-line body to its first line. existing_sources()
-    gets away with plain text because `source` and `count(*)` can never
-    contain a newline; `body` can and does.
-    """
-    out = run_psql(
-        "SELECT COALESCE(jsonb_object_agg(source, body), '{}'::jsonb) FROM "
-        "(SELECT DISTINCT ON (source) source, body FROM doc_notes "
-        f"WHERE source LIKE {sql_lit(SOURCE_PREFIX + '%')} "
-        "ORDER BY source, created_at DESC) t;"
+def owned_row_count():
+    return run_psql(
+        f"SELECT count(*) FROM doc_notes WHERE source LIKE {sql_lit(SOURCE_PREFIX + '%')};"
     )
-    return json.loads(out) if out else {}
 
 
 def main():
@@ -176,7 +186,8 @@ def main():
     ap.add_argument(
         "--verbose-warnings",
         action="store_true",
-        help="also print the prose-footprint style advisories (~168 on the current corpus)",
+        help="also print the style advisories — prose footprints and '##' headings "
+             "(~330 on the current corpus)",
     )
     ap.add_argument(
         "--full",
@@ -196,22 +207,27 @@ def main():
     if not entries:
         sys.exit("no entries parsed — refusing to run (this would delete every owned row)")
 
-    # Partition, or the signal drowns. 'prose footprint' fires ~168 times on the
-    # current corpus — a standing style advisory, not something this run broke.
-    # Printing all of it would bury the two kinds that mean a landmine is NOT
-    # BEING DELIVERED, which is the whole reason warnings were wired up.
-    blocking = [w for w in warnings if not w.startswith("prose footprint")]
-    stylistic = len(warnings) - len(blocking)
+    # Partition by what each warning actually COSTS, or the signal both drowns
+    # and inflates. Only "skipped (no footprint)" loses an entry's delivery.
+    # The '##' heading nag does not — the entry parses correctly (landmines_lib
+    # says so where it emits the warning; the ##-headed compose-.env entry has
+    # 4 delivered rows and two verifier verdicts) — but until 2026-08-26 all
+    # 164 of them printed under "!! warning(s) that cost DELIVERY", a false
+    # banner that bugs_open/402 repeated as fact. 'prose footprint' fires ~168
+    # times. Both are standing style advisories, not something this run broke;
+    # printing them all would bury a real loss.
+    blocking = [w for w in warnings if w.startswith("skipped")]
+    advisory = len(warnings) - len(blocking)
     if blocking:
-        print(f"!! {len(blocking)} warning(s) that cost DELIVERY:")
+        print(f"!! {len(blocking)} entr(ies) NOT DELIVERED:")
         for w in blocking:
             print(f"    {w}")
-    if stylistic:
-        print(f"(+{stylistic} prose-footprint style advisories — "
+    if advisory:
+        print(f"(+{advisory} style advisories ('##' headings, prose footprints) — "
               f"run with --verbose-warnings to see them)")
     if args.verbose_warnings:
         for w in warnings:
-            if w.startswith("prose footprint"):
+            if not w.startswith("skipped"):
                 print(f"    {w}")
 
     want = {}
@@ -240,30 +256,46 @@ def main():
         print(f"  {e['slug']}  -> {len(e['footprints'])} footprint(s): "
               f"{', '.join(e['footprints'][:4])}")
 
-    have = existing_sources()
+    have = existing_state()
     new = [s for s in want if s not in have]
     gone = [s for s in have if s not in want]
-    print(f"\ndoc_notes: {sum(len(v) for v in have.values())} owned row(s) across {len(have)} entr(ies)")
-    print(f"  to insert/refresh: {len(want)}   orphaned (entry retitled/removed): {len(gone)}")
+    # Content changed under an unchanged slug: new/gone (source presence
+    # alone) cannot see a hand-edit to an existing entry — typo fix,
+    # corrected footprint, tightened "the check". Needed for
+    # landmine-verifier (RFC_005 3.2): a changed entry is exactly as much in
+    # need of re-verification as a brand new one.
+    changed = [s for s in want if s in have and have[s][2] != md5_hex(want[s]["body"])]
+    # An entry can also keep a byte-identical body while its FOOTPRINT LIST
+    # changes, which the body comparison cannot see; the footprint-set hash
+    # catches exactly that.
+    refootprinted = [
+        s for s in want
+        if s in have and s not in changed
+        and have[s][1] != md5_hex("\x1f".join(sorted(want[s]["footprints"])))
+    ]
+
+    print(f"\ndoc_notes: {sum(v[0] for v in have.values())} owned row(s) across {len(have)} entr(ies)")
+    # The DELTA, never len(want): until 2026-08-26 this line printed the whole
+    # corpus count labelled "to insert/refresh", and on the night the
+    # transport broke, that read as "the delta logic wants to rewrite all 847
+    # entries" — bugs 402's title. The numbers printed here must be the ones
+    # the apply branch will actually send.
+    print(f"  delta vs the file: {len(new)} new, {len(changed)} changed, "
+          f"{len(refootprinted)} refootprinted, {len(gone)} orphaned")
+    for s in new:
+        print(f"    new: {s}")
+    for s in changed:
+        print(f"    changed: {s}")
+    for s in refootprinted:
+        print(f"    refootprinted: {s}")
     for s in gone:
         print(f"    orphan: {s}")
 
-    # Content changed under an unchanged slug: existing_sources() above only
-    # sees whether the SOURCE KEY is present, not whether its body drifted —
-    # a hand-edit to an existing entry (typo fix, corrected footprint,
-    # tightened "the check") is invisible to new/gone. Needed for
-    # landmine-verifier (RFC_005 3.2): a changed entry is exactly as much in
-    # need of re-verification as a brand new one, and silently was not
-    # getting it before this.
-    have_bodies = existing_bodies()
-    changed = [s for s in want if s in have and have_bodies.get(s) != want[s]["body"]]
-    if changed:
-        print(f"  content changed (same slug, edited body): {len(changed)}")
-        for s in changed:
-            print(f"    changed: {s}")
-
     if args.check:
-        drift = new or gone
+        # changed/refootprinted count as drift too — they were invisible to
+        # --check until 2026-08-26, so a hand-edited entry reported "in sync"
+        # while doc_notes served the old body.
+        drift = new or gone or changed or refootprinted
         print("\nOUT OF SYNC — run with --apply" if drift else "\nin sync")
         return 1 if drift else 0
 
@@ -286,22 +318,7 @@ def main():
     # The script already knows exactly what moved, so send only that. Semantics
     # are unchanged — this is still an idempotent upsert scoped by `source`, and
     # another thread's rows (different `source`) remain structurally out of reach.
-    #
-    # `refootprinted` is the third case and is easy to miss: an entry can keep a
-    # byte-identical body while its FOOTPRINT LIST changes, which `changed`
-    # (body comparison) cannot see. `have` is source -> sorted subject_keys, one
-    # row per footprint, so a SET comparison catches exactly that. (Until
-    # 2026-08-14 this compared counts — the splitter fix that day re-keyed 6
-    # entries at an unchanged count, which a count comparison misses silently.)
-    refootprinted = [
-        s for s in want
-        if s in have and have[s] != sorted(want[s]["footprints"]) and s not in changed
-    ]
     touch = new + changed + refootprinted
-    if refootprinted:
-        print(f"  footprints changed (body identical): {len(refootprinted)}")
-        for s in refootprinted:
-            print(f"    refootprinted: {s}")
 
     if args.full:
         touch = list(want)
@@ -332,8 +349,7 @@ def main():
     print(f"\napplying delta: {len(touch)} entr(ies) rewritten, {len(gone)} orphan(s) "
           f"removed, {len(payload)} bytes on the wire")
     run_psql(payload, capture=True)
-    after = existing_sources()
-    print(f"\napplied: {sum(len(v) for v in after.values())} owned row(s) now present")
+    print(f"\napplied: {owned_row_count()} owned row(s) now present")
 
     # Machine-parseable, on their own lines, for landmines-verify-dispatch.sh
     # (RFC_005 3.2) to grep and act on — new or content-changed entries need a
