@@ -252,3 +252,33 @@ UPDATE site_work_items
 ```
 The 1 non-matching failure (of 21) is judged on its own error text, by hand. The `needs_diagnosis`
 row re-runs its 090 diagnosis on re-fire — expected.
+
+## The verdict queue (record-mode rows) — read, release, and the promises around it
+
+The acceptance council's model seats file VERDICTS: `deferred`, `handler_agent ''`,
+`spec.filing_mode='record'`. Nothing dispatches them; the seat's own silence-retraction clears the
+ones that stop reproducing (3 consecutive clean runs of the same seat). This query is the interim
+release interface RFC_056's verdict note promised (a real surface is owed before rows accumulate
+fleet-wide):
+
+```sql
+-- The queue, per site per seat:
+SELECT s.domain, wi.spec->>'audit_source' AS seat, wi.item_type AS routed_as,
+       count(*) AS verdicts, max(wi.created_at)::timestamp(0) AS newest
+  FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+ WHERE wi.spec->>'filing_mode' = 'record'
+ GROUP BY 1,2,3 ORDER BY 1, 4 DESC;
+
+-- Read one site's verdicts in full:
+SELECT wi.item_type, wi.severity, wi.summary, wi.spec->>'suggestion' AS suggestion
+  FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+ WHERE s.domain = '<domain>' AND wi.spec->>'filing_mode' = 'record'
+ ORDER BY wi.severity, wi.created_at;
+
+-- Release ONE verdict into real work (deliberate, per row — never bulk):
+UPDATE site_work_items
+   SET status = spec->>'routed_status', handler_agent = spec->>'routed_handler', updated_at = now()
+ WHERE id = '<id>' AND status = 'deferred' AND spec->>'filing_mode' = 'record';
+```
+⚠ A released row is claimed by the dispatcher within ~60s and its handler REGENERATES the page —
+release is the moment the opinion becomes a rewrite, which is why it is a human verb.
