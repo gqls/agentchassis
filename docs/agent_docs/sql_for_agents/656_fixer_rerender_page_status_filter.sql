@@ -79,15 +79,35 @@
 BEGIN;
 
 DO $$
-DECLARE q text;
+DECLARE q text; rows_live int;
 BEGIN
-  SELECT default_config #>> '{workflow,steps,create_rerender,config,query}' INTO q
+  -- ⚠ COUNT THE ROWS BEFORE READING ONE. A `type`-scoped agent_definitions query
+  -- can match TWO active rows — LANDMINES records four types that do today — and a
+  -- plain SELECT ... INTO (no STRICT) silently takes an ARBITRARY one while the
+  -- UPDATE below would match them ALL. The pre-image anchor would then be checked
+  -- against one row and the write applied to several: the recorded
+  -- "patch UPDATE touched more rows than expected" shape.
+  --
+  -- Raised by the council's debug_historian seat at HIGH, and it is the same
+  -- argument this lane made in its own 407 migration: "no duplicate exists" and
+  -- "a duplicate cannot cause damage" are different properties.
+  -- [MEASURED 2026-08-26] component-template-fixer has exactly 1 active row, as do
+  -- page-rerender and availability-discovery-agent — so this gate is INERT today
+  -- and ships because inertness is not safety.
+  SELECT count(*) INTO rows_live FROM agent_definitions
+   WHERE type = 'component-template-fixer' AND is_active
+     AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+  IF rows_live <> 1 THEN
+    RAISE EXCEPTION '656: expected exactly 1 active component-template-fixer row, found % — a type-scoped UPDATE would write to all of them while only one was verified. Re-scope by version before applying', rows_live;
+  END IF;
+
+  SELECT default_config #>> '{workflow,steps,create_rerender,config,query}' INTO STRICT q
     FROM agent_definitions
    WHERE type = 'component-template-fixer' AND is_active
      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
   IF q IS NULL THEN
-    RAISE EXCEPTION '656: no live component-template-fixer create_rerender query — refusing to guess';
+    RAISE EXCEPTION '656: the live component-template-fixer create_rerender query is NULL — refusing to guess';
   END IF;
 
   -- ⚠ IDEMPOTENCY BEFORE THE SNAPSHOT, NOT AFTER.
@@ -132,7 +152,9 @@ END $$;
 DO $$
 DECLARE q text; n int;
 BEGIN
-  SELECT default_config #>> '{workflow,steps,create_rerender,config,query}' INTO q
+  -- INTO STRICT here too: if a second active row appeared between the UPDATE and
+  -- this verify, reading an arbitrary one would let a half-applied change pass.
+  SELECT default_config #>> '{workflow,steps,create_rerender,config,query}' INTO STRICT q
     FROM agent_definitions
    WHERE type = 'component-template-fixer' AND is_active
      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
