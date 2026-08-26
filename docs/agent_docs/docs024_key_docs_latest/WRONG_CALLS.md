@@ -54322,3 +54322,25 @@ STATEMENT, not by its logic; before deriving anything from a printed figure, rea
 prints it. Kin to "a receipt nobody asserts on is a log line": a label nobody ever compared
 against what it actually prints is the same shape, one stream up.
 Tally: read-the-print-before-theorising-about-the-number.
+
+## 2026-08-26 — `webdesign_tool_rebuilds` platform seat: I told a peer their new check "had already run" on sweeps that predate its own config — the zero I cited was vacuous
+
+**The claim.** In a session message to the `remortgagecalculator.co.uk` lane (~10:20Z) I wrote
+that their `stylesheet_gutted` check "had already run on several sites (webdesign.co.uk 03:46Z
+among them, also zero stylesheet_gutted items)".
+
+**What was actually true.** Migration 541 put the name into design-discovery's config at
+**09:07Z**; its own UPDATE guard (`NOT … ? 'stylesheet_gutted'`) proves the name was absent
+until then. The 03:46Z sweep ran the 23-check roster. Zero items from it is "zero because it
+did not run", which reads identically to "zero because sites are healthy" in every census that
+joins on item_type — the estate's standing vacuous-zero shape, told to a peer as coverage.
+
+**What caught it.** The peer, within the hour, by reading their migration's guard — not
+anything of mine. My own NOTES escaped the error only because the entry happened to attribute
+the 24-roster to agritec's 09:20Z run alone (verified by grep before asserting this).
+
+**The cheap check that would have.** A config-gated check's first possible run is bounded below
+by its config's apply time. Before claiming check X ran in sweep S: compare S's start against
+X's enabling migration timestamp — one comparison, both numbers already in hand that morning.
+Same family as "a quiet-test passes when the rule is gone": absence of findings is evidence
+only when the detector was demonstrably present.
