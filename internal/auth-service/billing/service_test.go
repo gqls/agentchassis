@@ -47,7 +47,7 @@ func (f *fakeStore) CreateVoucher(_ context.Context, pence int, name string, exp
 
 func (f *fakeStore) ListVouchers(context.Context) ([]Voucher, error) { return nil, nil }
 
-func (f *fakeStore) CreateOrder(_ context.Context, clientID, code string) (Order, error) {
+func (f *fakeStore) CreateOrder(_ context.Context, clientID, code, externalReference string) (Order, error) {
 	amount := ListPricePence
 	var voucherID *string
 	if code != "" {
@@ -63,6 +63,9 @@ func (f *fakeStore) CreateOrder(_ context.Context, clientID, code string) (Order
 	}
 	f.seq++
 	o := Order{ID: fmt.Sprintf("o%d", f.seq), ClientID: clientID, Kind: "site_build", AmountPence: amount, VoucherID: voucherID, Status: OrderCreated, Provider: "stripe", CreatedAt: time.Now()}
+	if externalReference != "" {
+		o.ExternalReference = &externalReference
+	}
 	f.orders[o.ID] = &o
 	return o, nil
 }
@@ -108,7 +111,7 @@ func newTestService(store Store, provider Provider) *Service {
 func TestCreateOrderListPrice(t *testing.T) {
 	store := newFakeStore()
 	svc := newTestService(store, &FakeProvider{PublicBaseURL: "https://x"})
-	order, url, err := svc.CreateOrder(context.Background(), "c1", "", "")
+	order, url, err := svc.CreateOrder(context.Background(), "c1", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +130,7 @@ func TestVoucherDropsPriceAndIsSingleUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	order, _, err := svc.CreateOrder(context.Background(), "c1", v.Code, "")
+	order, _, err := svc.CreateOrder(context.Background(), "c1", v.Code, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +138,7 @@ func TestVoucherDropsPriceAndIsSingleUse(t *testing.T) {
 		t.Fatalf("voucher must drop price to 1000p, got %d", order.AmountPence)
 	}
 	// second use must fail — single-use is the ruled invariant
-	if _, _, err := svc.CreateOrder(context.Background(), "c2", v.Code, ""); !errors.Is(err, ErrVoucherInvalid) {
+	if _, _, err := svc.CreateOrder(context.Background(), "c2", v.Code, "", ""); !errors.Is(err, ErrVoucherInvalid) {
 		t.Fatalf("second redemption must fail with ErrVoucherInvalid, got %v", err)
 	}
 }
@@ -159,7 +162,7 @@ func TestExpiredVoucherRejected(t *testing.T) {
 	svc := newTestService(store, &FakeProvider{})
 	// build an expired voucher directly in the store (service refuses to create one)
 	expired, _ := store.CreateVoucher(context.Background(), 1000, "", time.Now().Add(-time.Hour))
-	if _, _, err := svc.CreateOrder(context.Background(), "c1", expired.Code, ""); !errors.Is(err, ErrVoucherInvalid) {
+	if _, _, err := svc.CreateOrder(context.Background(), "c1", expired.Code, "", ""); !errors.Is(err, ErrVoucherInvalid) {
 		t.Fatalf("expired voucher must be rejected, got %v", err)
 	}
 }
@@ -168,7 +171,7 @@ func TestCheckoutFailureKeepsVoucherConsumed(t *testing.T) {
 	store := newFakeStore()
 	svc := newTestService(store, &FakeProvider{FailCheckout: errors.New("stripe down")})
 	v, _ := svc.CreateVoucher(context.Background(), 5500, "", time.Now().Add(time.Hour))
-	_, _, err := svc.CreateOrder(context.Background(), "c1", v.Code, "")
+	_, _, err := svc.CreateOrder(context.Background(), "c1", v.Code, "", "")
 	if err == nil {
 		t.Fatal("expected checkout failure to surface")
 	}
@@ -181,7 +184,7 @@ func TestCheckoutFailureKeepsVoucherConsumed(t *testing.T) {
 func TestWebhookMarksPaidOnceAndDedups(t *testing.T) {
 	store := newFakeStore()
 	svc := newTestService(store, &FakeProvider{})
-	order, _, err := svc.CreateOrder(context.Background(), "c1", "", "")
+	order, _, err := svc.CreateOrder(context.Background(), "c1", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +207,7 @@ func TestWebhookMarksPaidOnceAndDedups(t *testing.T) {
 
 func TestUnconfiguredProviderRefuses(t *testing.T) {
 	svc := newTestService(newFakeStore(), nil)
-	if _, _, err := svc.CreateOrder(context.Background(), "c1", "", ""); !errors.Is(err, ErrNotConfigured) {
+	if _, _, err := svc.CreateOrder(context.Background(), "c1", "", "", ""); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("expected ErrNotConfigured, got %v", err)
 	}
 	if err := svc.HandleWebhook(context.Background(), []byte("{}"), ""); !errors.Is(err, ErrNotConfigured) {

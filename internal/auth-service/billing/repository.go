@@ -26,7 +26,9 @@ type Store interface {
 	// CreateOrder inserts an order, atomically redeeming voucherCode for
 	// clientID in the same transaction when it is non-empty. The amount is
 	// computed here — list price, or the voucher's — never caller-supplied.
-	CreateOrder(ctx context.Context, clientID, voucherCode string) (Order, error)
+	// externalReference, when non-empty, is the chat-minted BR- reference
+	// joining this payment to a committed brief (see Order.ExternalReference).
+	CreateOrder(ctx context.Context, clientID, voucherCode, externalReference string) (Order, error)
 	SetOrderSession(ctx context.Context, orderID, sessionID string) error
 	ListOrders(ctx context.Context, limit int) ([]Order, error)
 	// ProcessEvent records the webhook event (dedup on provider+event id) and,
@@ -101,7 +103,7 @@ func (r *Repository) ListVouchers(ctx context.Context) ([]Voucher, error) {
 	return out, rows.Err()
 }
 
-func (r *Repository) CreateOrder(ctx context.Context, clientID, voucherCode string) (Order, error) {
+func (r *Repository) CreateOrder(ctx context.Context, clientID, voucherCode, externalReference string) (Order, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Order{}, err
@@ -133,11 +135,11 @@ func (r *Repository) CreateOrder(ctx context.Context, clientID, voucherCode stri
 
 	var o Order
 	err = tx.QueryRow(ctx, `
-		INSERT INTO billing_orders (client_id, amount_pence, voucher_id)
-		VALUES ($1, $2, $3)
-		RETURNING id, client_id, kind, amount_pence, voucher_id, status, provider, provider_session_id, provider_customer_id, paid_at, created_at`,
-		clientID, amount, voucherID,
-	).Scan(&o.ID, &o.ClientID, &o.Kind, &o.AmountPence, &o.VoucherID, &o.Status, &o.Provider, &o.ProviderSessionID, &o.ProviderCustomerID, &o.PaidAt, &o.CreatedAt)
+		INSERT INTO billing_orders (client_id, amount_pence, voucher_id, external_reference)
+		VALUES ($1, $2, $3, NULLIF($4, ''))
+		RETURNING id, client_id, kind, amount_pence, voucher_id, external_reference, status, provider, provider_session_id, provider_customer_id, paid_at, created_at`,
+		clientID, amount, voucherID, externalReference,
+	).Scan(&o.ID, &o.ClientID, &o.Kind, &o.AmountPence, &o.VoucherID, &o.ExternalReference, &o.Status, &o.Provider, &o.ProviderSessionID, &o.ProviderCustomerID, &o.PaidAt, &o.CreatedAt)
 	if err != nil {
 		return Order{}, err
 	}
@@ -156,7 +158,7 @@ func (r *Repository) ListOrders(ctx context.Context, limit int) ([]Order, error)
 		limit = 100
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, client_id, kind, amount_pence, voucher_id, status, provider, provider_session_id, provider_customer_id, paid_at, created_at
+		SELECT id, client_id, kind, amount_pence, voucher_id, external_reference, status, provider, provider_session_id, provider_customer_id, paid_at, created_at
 		FROM billing_orders ORDER BY created_at DESC LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -165,7 +167,7 @@ func (r *Repository) ListOrders(ctx context.Context, limit int) ([]Order, error)
 	var out []Order
 	for rows.Next() {
 		var o Order
-		if err := rows.Scan(&o.ID, &o.ClientID, &o.Kind, &o.AmountPence, &o.VoucherID, &o.Status, &o.Provider, &o.ProviderSessionID, &o.ProviderCustomerID, &o.PaidAt, &o.CreatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.ClientID, &o.Kind, &o.AmountPence, &o.VoucherID, &o.ExternalReference, &o.Status, &o.Provider, &o.ProviderSessionID, &o.ProviderCustomerID, &o.PaidAt, &o.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, o)

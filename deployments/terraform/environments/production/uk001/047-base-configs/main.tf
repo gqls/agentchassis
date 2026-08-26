@@ -151,6 +151,12 @@ resource "kubernetes_secret" "personae_default_api_keys" {
     THUNDER_COMPUTE_API_KEY=var.default_thunder_compute_api_key
     GROK_API_KEY=var.default_grok_api_key
     XAI_API_KEY=var.default_grok_api_key
+
+    # Order-intake collection (P4, 2026-08-26): the chassis reads this secret
+    # wholesale via envFrom (agent-chassis overlay), so the collector's bearer
+    # token lives HERE, not in personae-platform-secrets. Same value as
+    # ORDERS_API_TOKEN on the webdesign.uk box; rotate as a pair.
+    WEBDESIGN_BOX_ORDERS_TOKEN = var.webdesign_box_orders_token
   }
 }
 

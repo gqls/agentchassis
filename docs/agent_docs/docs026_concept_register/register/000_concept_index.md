@@ -658,6 +658,7 @@ an ID prefix, or a status word.
 | CHAT-008 | Simple paid multi-domain chat (freemium + day-pass) | aspirational | Fast-lane paid chat: stateless signed entitlement token via Stripe guest-checkout | site-chatbot.md |
 | CHAT-009 | Chat lanes (fast/slow/job) + warm-adapter maturation | aspirational | Fast/slow/job lane split; spawned-agent-to-warm-adapter maturation path | site-chatbot.md |
 | CHAT-010 | Site-facts relay: live evidence_base facts to a box-hosted chatbot | built, unrolled | Read-only /api/v1/site-facts/:domain over WireGuard; chatbot renders facts from DB not compiled-in; opt-in, refuses-not-falls-back. First BUILT thing in the site-chatbot register. ⚠ a WireGuard handshake proves crypto, not reachability | site-chatbot.md |
+| CHAT-011 | Chat brief submission: the bot commits the brief (submit_brief, BR- references, box collection endpoints) | deployed | Live probe submitted BR-8D2MA3 through the public edge 2026-08-26; collection = GET/ack + bearer; cluster→box wg route does NOT exist, public HTTPS is the transport | site-chatbot.md |
 | IMG-029 | Lucide icon strategy and validator wiring | partial | Features grid uses Lucide webfont icons; validator written but not yet wired in. | imagery.md |
 | IMP-035 | Bidirectional ratchet (trust can be lost) | aspirational | Feedback is two-directional: success accrues evidence toward graduation; repeated/severe failure drops the trust... | improvement-loop.md |
 | FIX-028 | diagnose_read_repo_files action | deployed | Fetches plan's current file bodies; modify-404 is a hard error | fix-loop.md |
@@ -1279,6 +1280,7 @@ an ID prefix, or a status word.
 | CHAT-006 | Three-layer bounding (retrieval / prompt / operational) | aspirational | Retrieval/prompt/operational bounding decomposition to stop chatbot topic drift | site-chatbot.md |
 | PAY-007 | Existing but non-functional auth-service subscription scaffold | partial | Reusable subscription package verified as unwired: no SDK, mock usage stats, no webhook | payments.md |
 | PAY-009 | £149 site-build billing surface (vouchers, one-off orders, webhook truth) | deployed | Live keyless on the 08-11 roll (401/503 probed); selling needs Stripe keys + webhook exposure (owner) | payments.md |
+| PAY-010 | Order-intake collection: paid chat briefs into build_queue by external_reference | built, gated | Schedule ships DISABLED (660 asserts it); paid gate mutation-proven; enable only after P5 seeding arms the honesty guards | payments.md |
 | CQ-017 | Anti-hype voice and claim-discipline spec | deployed | Reusable voice contract: banned hype language, smallest-true-claim, CTA governance | content-quality.md |
 | ASG-004 | Workflow template library, lineage and marketplace | abandoned | Reusable workflow templates with lineage, ratings, monetised marketplace idea | agent-spawning-and-groups.md |
 | CGV-025 | maintenance_queue as generic install/uninstall trigger surface | aspirational | Reused maintenance_queue as a generic per-site add-on trigger, first for chatbot install | content-governance.md |

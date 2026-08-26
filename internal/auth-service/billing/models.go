@@ -16,11 +16,18 @@ type Voucher struct {
 
 // Order mirrors the billing_orders table (clients_db, migration 391).
 type Order struct {
-	ID                 string     `json:"id"`
-	ClientID           string     `json:"client_id"`
-	Kind               string     `json:"kind"`
-	AmountPence        int        `json:"amount_pence"`
-	VoucherID          *string    `json:"voucher_id,omitempty"`
+	ID          string  `json:"id"`
+	ClientID    string  `json:"client_id"`
+	Kind        string  `json:"kind"`
+	AmountPence int     `json:"amount_pence"`
+	VoucherID   *string `json:"voucher_id,omitempty"`
+	// ExternalReference is the intake-side join key — the BR-XXXXXX reference
+	// the chat bot minted when it stored the customer's brief on the site box
+	// (owner ruling 2026-08-26: the reference joins payment to brief; the
+	// brief itself never travels into billing, because briefs change and the
+	// reference does not). collect_external_orders releases a brief to
+	// build_queue only when a PAID order carries its reference here.
+	ExternalReference  *string    `json:"external_reference,omitempty"`
 	Status             string     `json:"status"`
 	Provider           string     `json:"provider"`
 	ProviderSessionID  *string    `json:"provider_session_id,omitempty"`

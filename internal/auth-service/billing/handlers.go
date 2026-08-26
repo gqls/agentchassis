@@ -74,6 +74,10 @@ type createOrderRequest struct {
 	ClientID    string `json:"client_id" binding:"required"`
 	VoucherCode string `json:"voucher_code"`
 	Email       string `json:"email"` // overrides the client's stored email
+	// The chat-minted BR- reference the customer quotes; joins this payment
+	// to their committed brief (Order.ExternalReference). Optional — orders
+	// with no brief behind them (domain rental, buy-out) simply omit it.
+	ExternalReference string `json:"external_reference"`
 }
 
 // HandleCreateOrder creates an order + checkout link for a customer. Under
@@ -85,7 +89,7 @@ func (h *Handlers) HandleCreateOrder(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	order, url, err := h.service.CreateOrder(c.Request.Context(), req.ClientID, req.VoucherCode, req.Email)
+	order, url, err := h.service.CreateOrder(c.Request.Context(), req.ClientID, req.VoucherCode, req.Email, req.ExternalReference)
 	switch {
 	case errors.Is(err, ErrNotConfigured):
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": ErrNotConfigured.Error()})

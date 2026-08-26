@@ -621,6 +621,16 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Process queued build_queue entries into site records and first work items",
 		IsLocal:     true,
 	},
+	// order intake collection (P4, owner GO 2026-08-26): polls the site box's
+	// committed-brief list, releases paid briefs into build_queue by their
+	// order reference, files needs_human_review for anything a machine must
+	// not decide (repeat domain, no domain). Feeds seed_build_queue above.
+	"collect_external_orders": {
+		Handler:     CollectExternalOrdersAction,
+		Category:    "site",
+		Description: "Collect paid customer briefs from the site box into build_queue (join key: billing_orders.external_reference)",
+		IsLocal:     true,
+	},
 	// work item chaining
 	"create_work_item": {
 		Handler:     CreateWorkItemAction,

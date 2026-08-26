@@ -91,6 +91,19 @@ variable "stripe_webhook_secret" {
   sensitive   = true
 }
 
+# Order-intake collection (P4, owner GO 2026-08-26). Bearer token the cluster's
+# collect_external_orders action presents to the webdesign.uk box's
+# /internal/orders endpoints (public edge; the box holds the SAME value as
+# ORDERS_API_TOKEN in /etc/webdesign-chat.env — rotate both together, the
+# SITE_FACTS_TOKEN pairing rule). REQUIRED with no default for the same reason
+# as the Stripe pair above: a release without it must fail loudly, not
+# silently wipe the key and leave the collector 401-looping.
+variable "webdesign_box_orders_token" {
+  description = "Bearer token for the webdesign.uk box's brief-collection endpoints (pairs with ORDERS_API_TOKEN on the box)"
+  type        = string
+  sensitive   = true
+}
+
 # Platform keys
 variable "jwt_secret_key" {
   description = "JWT signing key for auth-service"

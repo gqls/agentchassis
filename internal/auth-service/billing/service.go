@@ -55,7 +55,7 @@ func (s *Service) ListVouchers(ctx context.Context) ([]Voucher, error) {
 // consumed and attached to the 'created' order — retrying payment for that
 // order is the recovery, not re-typing the code. That bias is deliberate: a
 // code that could be re-redeemed on provider flakiness is a double-discount.
-func (s *Service) CreateOrder(ctx context.Context, clientID, voucherCode, emailOverride string) (Order, string, error) {
+func (s *Service) CreateOrder(ctx context.Context, clientID, voucherCode, emailOverride, externalReference string) (Order, string, error) {
 	if s.provider == nil {
 		return Order{}, "", ErrNotConfigured
 	}
@@ -67,7 +67,7 @@ func (s *Service) CreateOrder(ctx context.Context, clientID, voucherCode, emailO
 			return Order{}, "", err
 		}
 	}
-	order, err := s.store.CreateOrder(ctx, clientID, voucherCode)
+	order, err := s.store.CreateOrder(ctx, clientID, voucherCode, externalReference)
 	if err != nil {
 		return Order{}, "", err
 	}
