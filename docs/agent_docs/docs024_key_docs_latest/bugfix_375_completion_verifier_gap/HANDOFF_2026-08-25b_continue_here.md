@@ -90,7 +90,7 @@ and the LANDMINE *"Registering a verifier is NOT a one-line change"* carries it 
 
 | # | step | state |
 |---|---|---|
-| **1** | **Apply** a migration amending the live `scheduled_tasks.pre_query` for `claimed-item-timeout` | ⚠ **WRITTEN + demand-controlled, NOT APPLIED — `634_…_HOLD.sql`, commit `d6971c6b0`.** Applying is an owner call (standing permission gate). **UNBLOCKED 21:24Z** — `livespec.go` is clean |
+| **1** | **Apply** a migration amending the live `scheduled_tasks.pre_query` for `claimed-item-timeout` | ⚠ **WRITTEN, council-APPROVED r1 (`1748b849`, 10 seats), demand-controlled, STILL NOT APPLIED** — `634_…_HOLD.sql`, commits `d6971c6b0` + `07dd736a4`. Applying is an owner call (standing permission gate). `livespec.go` clean since 21:24Z |
 | **1b** | Add `required_fields_missing` to `livespec.ClaimedItemTimeoutExclusions` **in the SAME COMMIT as step 3's `RegisterVerifier` call** — either alone breaks the build | not done |
 | 2 | Scope-test licence in `write_audit_findings_verifier_join_test.go` `optedIn` | ✅ **DONE** |
 | 3 | Remove the type from `itemTypesWithoutVerifiers` | not done (correctly — it is still unregistered) |

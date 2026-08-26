@@ -521,3 +521,57 @@ verify, because a bare `SELECT` cannot stop a `COMMIT`.
 **Not written today, deliberately:** step (b) needs `livespec.go`, still dirty with `363`'s rename,
 and step (a) opens a drift window that should not sit open overnight. Better to write and apply both
 close together than leave the estate half-changed.
+
+## 2026-08-26 — the migration is written, approved, and deliberately still unapplied
+
+`634_claim_timeout_exclude_required_fields_missing_HOLD.sql` (+ `_ROLLBACK`), commits `d6971c6b0`
+then `07dd736a4`. Council **APPROVED round 1** (`1748b849`, 10 seats, 2 advisory objections).
+
+### Misstep 10 — my four guards were pattern-matches, not assertions, and the council caught it
+
+`debug_historian`, medium: every needle is full of **underscores**
+(`needs_brand_head_assets`, `required_fields_missing`) and in a `LIKE` pattern `_` is a
+**single-character wildcard**. So the read-before-write anchor, the idempotence guard and the
+post-write verify asserted a *pattern match*, not the exact text. Proven against the live DB rather
+than accepted:
+
+```
+SELECT 'XneedsXbrandXheadXassetsX' LIKE '%needs_brand_head_assets%'        -> TRUE
+SELECT strpos('XneedsXbrandXheadXassetsX','needs_brand_head_assets') > 0   -> FALSE
+```
+
+**An anchor that can match text it was not written against is not an anchor**, and an idempotence
+guard that can false-positive would abort a legitimate first apply. All guards now use `strpos()`.
+The occurrence count already used `replace()`, which is exact.
+
+⚠ **Why my own testing missed it, and it is the same shape as misstep 8:** I demand-controlled every
+guard — induced the abort, proved the rollback, counted occurrences — and every one of those controls
+exercised the guard against the *expected* text. **A control built from the string the guard was
+written for cannot detect that the guard matches more than that string.** The disconfirming case has
+to be a needle the guard should REJECT, and I never supplied one. That is the third time this lane
+has shipped a control that shared its subject's blind spot.
+
+### The class audit, and how my first attempt at it was wrong
+
+`bug_historian`, medium: excluding one type is "a" fix; the mechanism is generic. Right — and the
+class is **already guarded at build time**: `TestClaimTimeoutExclusionCoversBothCompletionGates`
+enforces `excluded ⇔ gated` in both directions and **passes at HEAD**.
+
+Audited against the **live** clause, since the objection is about live exposure: **16** roster
+entries vs **14** live exclusions, both differences accounted for — `required_fields_missing` (not
+gated yet; this migration and its Go commit close both halves together) and `content_rewrite`
+(gate 1c present but **not refusing**, so correctly absent; `bugs_open/395`'s step). Zero
+excluded-but-ungated, so no reverse-arm churn risk.
+
+⚠ **My first run of that audit reported `content_rewrite` as an open bypass.** Re-deriving the roster
+by grepping the three maps **over-counts**, because a grep cannot see whether a gate-1c entry
+*refuses*. The lockstep is the authority; my hand-rolled census answered a slightly different
+question. Caught because `dark_section_audit` appeared in both halves of the diff, which is
+impossible — a whitespace artefact that happened to expose a real modelling error underneath it.
+
+### Why it is still not applied
+
+Applying amends a live `scheduled_tasks` row, which is the standing permission gate — an owner call,
+not a session's. And the window it opens should be short and announced (`bugs_open/395`'s point), so
+it wants a person present. Everything else is ready: the Go half is written out verbatim in the
+handoff rather than left dirty on the shared tree.
