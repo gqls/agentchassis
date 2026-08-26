@@ -1295,3 +1295,18 @@ swallowed. Recorded rather than reconciled by guesswork; the CURRENT state is me
 what the handoff carries. Also corrected their forward expectation (they predicted the wave's
 page item would FAIL on our locks, citing my own earlier wrong inference back at me — the
 overnight completions disprove it; message sent, and 397 asked to carry a dated correction).
+
+### 2026-08-26 ~11:30 UTC — the spec-key timing [UNEXPLAINED] is RESOLVED, by the row's own stamps
+
+Session TZ is UTC (checked, not assumed). The apis.uk `site_config` row: `created_at =
+updated_at = 10:12:11 UTC`, `created_by = claude-session-google-2026-08-25` — a fresh insert by
+their session at 10:12:11. So: my "(no site_config row)" read ran minutes BEFORE the insert (a
+plain race, my instrument was fine), and their "~10:50Z apply" figure is the imprecise one —
+their own creator stamp says 10:12. Both accounts corrected; the key fact (live, verified) never
+moved. Told them. **Lesson already in the memory index, now with a worked example: convert
+"when did X happen" disputes to the artefact's own stamps before either side re-reads anything.**
+
+Also from their message: `chrome_divergence_overwritten` item `2e4e5f51…` (00:44, our head
+strip) is `needs_human_review` and the platform **archived the pre-strip head — 48,471 bytes**
+— so the tagged artefact is recoverable evidence, not gone. Disposition queued for the owner in
+`bugs_open/397` §10-addendum; added to handoff §5b's open list.

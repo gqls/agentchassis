@@ -125,7 +125,7 @@ anywhere), so ANY chrome refresh regenerates the shell via `RenderFallbackFooter
 would revert it again.
 
 **State ~13:35 BST:** c2's spec key CONFIRMED on apis.uk (`site_config` current, row 10:12 —
-an earlier read of mine said "no row", `[UNEXPLAINED]`, likely a race with their apply); head
+an earlier read of mine said "no row" — RESOLVED: the row's own stamps say inserted 10:12:11 UTC by their session, my read simply preceded it); head
 artefact still tagless (08:46); page `needs_rebuild`; their stale_chrome wave not yet here.
 And CORRECTED: apis.uk does NOT refuse ordinary page re-renders (3 completed overnight — that
 was the strip vector); expect the wave's items to COMPLETE and gtm to return on the served page.
@@ -139,3 +139,7 @@ was the strip vector); expect the wave's items to COMPLETE and gtm to return on 
    recommended — it re-fights every chrome refresh.
 3. Settle `pages.build_status` (render → settle; it is `needs_rebuild` right now).
 4. Open oddity: one `deactivated_component` item sits `unresolved` (08:40) — read before touching.
+5. `chrome_divergence_overwritten` `2e4e5f51…` (00:44, the head strip's receipt) is
+   `needs_human_review` — the platform ARCHIVED the pre-strip head (48,471 B), so the tagged
+   artefact is recoverable evidence. Owner disposition queued via `bugs_open/397` §10-addendum;
+   do not close it from this lane.
