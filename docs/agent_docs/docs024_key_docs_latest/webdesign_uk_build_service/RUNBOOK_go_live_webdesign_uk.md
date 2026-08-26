@@ -99,7 +99,7 @@ the page rule that 302s `webdesign.uk/*` to `webdesign.co.uk`. Backup of the rul
 
 | probe | expect | what a failure means |
 |---|---|---|
-| `curl -sS https://webdesign.uk/ \| wc -c` and grep the body | 200, ~34KB, contains `A complete website for your business` — and `Not active yet` ×2 if ordering still closed | tiny body / `/lander` redirect = still parked or wrong origin (the cookly.uk trap: a parking 200 looks clean) |
+| `curl -sS https://webdesign.uk/ \| wc -c` and grep the body | 200, ~65KB, contains `A starter website, built once` (the repositioned h1, live since 2026-08-26) — and `Not active yet` ×2 if ordering still closed | tiny body / `/lander` redirect = still parked or wrong origin (the cookly.uk trap: a parking 200 looks clean) |
 | same for `https://www.webdesign.uk/` | same | www not covered by the vhost/tunnel |
 | `https://webdesign.uk/c/x` | **404 from nginx static** (`try_files` miss), NOT core-manager's token-404 | a core-manager-shaped 404 body = the box is running the OLD vhost — put the page rule BACK, fix the vhost, re-remove |
 | `curl -X POST https://webdesign.uk/stripe/webhook -d x=y` | **503** (keyless honest state) while Stripe keys absent; after keys land, a 4xx signature refusal | 502/timeout = wg leg or Service name broken; 200 = investigate immediately |
