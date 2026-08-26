@@ -1,0 +1,65 @@
+{
+  "rationale": "Round 2 on 89dcc04a, doing what round 1's gating objection (reuse_agent, HIGH) said instead of defending round 1's shape: the tombstone-exclusion clause becomes ONE shared Go constant — `datahelpers.NotRemovedSQL` + alias helper `NotRemoved(alias)` — and every call site builds from it, so agreement with the assembler is a compile-time fact and the round-1 pairwise lockstep test is DELETED, not defended. The seat's instinct was better than its own evidence: writing the negative scan found SIX further hand-spellings my `<>`-only greps could never see, because they were already NULL-safe (component_instance_occurrence.go ×2, create_tool_component_regenerate.go, rerender_page_sections_action.go, resolve_internal_links_action.go, v3_site_actions.go) — the true census was ELEVEN spellings across ten files, not five [MEASURED 2026-08-26 by the new test itself]. ALL are now converted; the scan passes with zero offenders and is the durable guard against a twelfth. Answering the other objections: (reuse MEDIUM, livespec) — livespec was READ: its own header scopes it to 'a property of a live DB object' probed by the live-audit CronJob; Go-source consistency is outside its remit, so the guard is a datahelpers-local test (value assertion = the single mutation point, plus the walk), not a livespec Declaration. (editquality LOW) — `osReadFileForScan` pre-existed at check_tool_health_contract_rules_test.go:162 since f44451494 and remains in use by the surviving population test; the deleted test's harness question is moot. (architecture LOW) — the 'follow-up ticket' IS this round: single source of truth adopted at every known site. Semantics: the four previously NULL-unsafe sites (tool_eligibility, component_selector's ComponentUsageSitesSQL, queryresolve/consumers, check_page_list_stale) widen by exactly the NULL-build_status rows — ZERO exist fleet-wide [MEASURED 2026-08-26], and NULL-safe is the correct reading of each ('the live population' = what the assembler serves; a served NULL row IS a use / IS auditable / IS staleness-checkable). The six already-NULL-safe sites are byte-identical after conversion. Two consts became vars to admit the helper (ComponentUsageSitesSQL — exported, one concat reader at load_existing_component_action.go:197, var-safe; component_instance_occurrence's two locals). Mutation-proven: const regressed to `<>` fails the value test; a hand-spelled literal re-inserted at a converted site fails the scan; both restored green. Full builds + tests: platform/orchestration/... builds, datahelpers / discovery_checks / queryresolve / actions packages all pass.",
+  "plan": {
+    "summary": "Extract the tombstone-exclusion predicate into datahelpers (NotRemovedSQL const + NotRemoved(alias) helper), adopt it at every call site — the assembler, the four previously NULL-unsafe audit/selector/staleness sites, and the six NULL-safe hand-spellings the new negative scan uncovered — delete round 1's pairwise lockstep test, and guard the whole contract with a value test on the constant plus a comment-skipping negative scan over platform/orchestration that fails on any future hand-spelling in either polarity.",
+    "edits": [
+      {
+        "file": "platform/orchestration/datahelpers/tombstones.go",
+        "symbol": "NotRemovedSQL",
+        "operation": "add",
+        "rationale": "The single source of truth. datahelpers is the estate's home for shared SQL predicates (PageHasShippedPredicateFor precedent, already imported by most adopters; leaf-safe, no import cycles).",
+        "sketch": "const NotRemovedSQL = `build_status IS DISTINCT FROM 'removed'`\nfunc NotRemoved(alias string) string { if alias == \"\" { return NotRemovedSQL }; return alias + \".\" + NotRemovedSQL }\n// + header: why IS DISTINCT FROM (nullable column, assembler serves NULL rows), why never hand-spell (the scan)"
+      },
+      {
+        "file": "platform/orchestration/datahelpers/tombstones_test.go",
+        "symbol": "TestNoHandSpelledTombstonePredicate",
+        "operation": "add",
+        "rationale": "Two guards: TestNotRemovedSQLIsNullSafe pins the constant's value (the single mutation point); TestNoHandSpelledTombstonePredicate walks platform/orchestration and fails on any non-comment, non-test hand-spelling in EITHER polarity — a correct copy is still a copy that can drift. This test found the six unknown NULL-safe copies on its first run.",
+        "sketch": "handSpelled = [\"build_status <> 'removed'\", \"build_status != 'removed'\", \"build_status IS DISTINCT FROM 'removed'\"]\nfilepath.Walk(\"..\") skipping dirs/_test.go/tombstones.go; per line: skip //-prefixed; offenders on Contains; t.Errorf listing path:line"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/tool_eligibility.go",
+        "symbol": "toolEligibilityWhere",
+        "operation": "modify",
+        "rationale": "const → var building the clause from datahelpers.NotRemoved(\"pc\"); round 1's hand-spelled IS DISTINCT FROM line and its lockstep-test comment are superseded.",
+        "sketch": "var toolEligibilityWhere = `\\n\\t\\t  AND ` + datahelpers.NotRemoved(\"pc\") + ` ...` (rest of predicate unchanged)"
+      },
+      {
+        "file": "platform/orchestration/actions/rerender_single_page_action.go",
+        "symbol": "getPageSections",
+        "operation": "modify",
+        "rationale": "The assembler adopts the helper it defined the semantics of: `AND ` + datahelpers.NotRemoved(\"\") + ` `. Its NULL-safety comment stays and now points at datahelpers.",
+        "sketch": "WHERE page_id = $1\\n\\t\\t  AND `+datahelpers.NotRemoved(\"\")+`\\n\\t\\tORDER BY position ASC"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_tool_health_contract_rules_test.go",
+        "symbol": "TestToolPopulationQueriesExcludeTombstones",
+        "operation": "modify",
+        "rationale": "Re-anchor the surviving population test on the var declaration and the datahelpers.NotRemoved(\"pc\") call; DELETE TestAssemblerAndEligibilityShareTheTombstonePredicate (agreement is now compile-time; a dated tombstone comment records why it went).",
+        "sketch": "anchors: `var toolEligibilityWhere` and `datahelpers.NotRemoved(\"pc\")`; pairwise test removed with a comment naming this round"
+      },
+      {
+        "file": "platform/orchestration/actions/component_selector.go",
+        "symbol": "ComponentUsageSitesSQL",
+        "operation": "modify",
+        "rationale": "The exported const becomes a var built from NotRemoved(\"pc\") — previously NULL-unsafe, so a served NULL-status binding was not counted as a use. Sole external reader (load_existing_component_action.go:197) concatenates at runtime; var-safe.",
+        "sketch": "var ComponentUsageSitesSQL = `( SELECT count(DISTINCT p.site_id) ... AND ` + datahelpers.NotRemoved(\"pc\") + ` )`"
+      },
+      {
+        "file": "platform/orchestration/actions/queryresolve/consumers.go",
+        "symbol": "consumerSQL",
+        "operation": "modify",
+        "rationale": "Representative of the remaining mechanical adoptions (all enumerated in the rationale): the hand-spelled clause becomes ` + datahelpers.NotRemoved(\"pc\") + ` beside the existing PageHasShippedPredicateFor concat. Same one-line shape at check_page_list_stale.go, create_tool_component_regenerate.go (+import), resolve_internal_links_action.go, rerender_page_sections_action.go and v3_site_actions.go (bare alias), component_instance_occurrence.go (two locals, const→var).",
+        "sketch": "AND ` + datahelpers.PageHasShippedPredicateFor(\"p\") + `\\n\\t   AND ` + datahelpers.NotRemoved(\"pc\") + `"
+      }
+    ],
+    "grounded_in": [
+      "89dcc04a round-1 council_report, reuse_agent HIGH: 'rather than extracting ONE shared Go constant/helper referenced by both ... the plan's own grounded_in already discloses THREE further bare-<> copies ... that will now be doubly stale'",
+      "89dcc04a round-1 council_report, reuse_agent MEDIUM: 'platform/livespec already exists ... No evidence in the plan that livespec's existing tooling was checked' — livespec.go header, read in answer: 'Several Go guards used to assert a property of a live DB object' (live-DB scope, not Go-source consistency)",
+      "TestNoHandSpelledTombstonePredicate first run [MEASURED 2026-08-26]: 6 offenders — component_instance_occurrence.go:265,:274, create_tool_component_regenerate.go:243, rerender_page_sections_action.go:1218, resolve_internal_links_action.go:604, v3_site_actions.go:5276 — all IS DISTINCT FROM, invisible to any grep for the broken spelling",
+      "SELECT count(*) FROM page_components WHERE build_status IS NULL [MEASURED 2026-08-26]: 0 rows — the four widened populations are byte-identical on today's fleet",
+      "grep ComponentUsageSitesSQL consumers: one concat reader (load_existing_component_action.go:197) + two comments — const→var safe"
+    ],
+    "risks": "Population semantics: four sites widen by NULL-build_status rows (zero exist; each widening is the CORRECT reading — the assembler serves those rows). Const→var conversions: ComponentUsageSitesSQL is exported — checked for const-context users (none; one runtime concat); component_instance_occurrence's two are function-local. The negative scan walks platform/orchestration only — every known consumer lives there; a future consumer OUTSIDE that tree (e.g. internal/) would be unguarded, which a reviewer may judge worth widening. Scan skips //-comment lines but not /* */ blocks — a block comment containing the literal would false-POSITIVE (loud), never mask. All 13 touched files build and their packages' full test suites pass; both guards mutation-proven."
+  }
+}

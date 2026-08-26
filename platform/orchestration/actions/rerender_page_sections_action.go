@@ -1215,7 +1215,7 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 		       COALESCE(component_version_id::text, '')
 		FROM page_components
 		WHERE page_id = $1
-		  AND build_status IS DISTINCT FROM 'removed'
+		  AND `+datahelpers.NotRemoved("")+`
 		-- (position, id), not position alone: this walk is what assigns
 		-- per-instance element-id occurrences (InstanceCounter), and the
 		-- single-section paths now count predecessors with the same

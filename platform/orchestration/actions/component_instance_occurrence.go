@@ -257,21 +257,21 @@ func logf(logger *zap.Logger) *zap.Logger {
 // constant 0 it replaces (which also collides with exactly one stored partner),
 // and DetectInstanceCollisions reports either shape at assembly.
 func storedPredecessorCount(ctx context.Context, db *sql.DB, function string, p SectionPlacement) (int, error) {
-	const withTie = `
+	withTie := `
 		SELECT count(*)
 		FROM page_components pc
 		JOIN content_components cc ON cc.id = pc.component_id
 		WHERE pc.page_id = $1
-		  AND pc.build_status IS DISTINCT FROM 'removed'
+		  AND ` + datahelpers.NotRemoved("pc") + `
 		  AND lower(btrim(cc.function)) = lower(btrim($2))
 		  AND (pc.position < $3 OR (pc.position = $3 AND pc.id < $4))`
 
-	const withoutTie = `
+	withoutTie := `
 		SELECT count(*)
 		FROM page_components pc
 		JOIN content_components cc ON cc.id = pc.component_id
 		WHERE pc.page_id = $1
-		  AND pc.build_status IS DISTINCT FROM 'removed'
+		  AND ` + datahelpers.NotRemoved("pc") + `
 		  AND lower(btrim(cc.function)) = lower(btrim($2))
 		  AND pc.position < $3`
 

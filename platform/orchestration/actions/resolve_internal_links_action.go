@@ -601,7 +601,7 @@ func loadExistingSectionContentData(ctx context.Context, params ActionParams, si
 		FROM page_components pc
 		JOIN pages p ON p.id = pc.page_id
 		WHERE p.site_id = $1 AND p.name = $2
-		  AND pc.build_status IS DISTINCT FROM 'removed'
+		  AND `+datahelpers.NotRemoved("pc")+`
 		ORDER BY pc.position ASC
 	`, siteID, pageName)
 	if err != nil {

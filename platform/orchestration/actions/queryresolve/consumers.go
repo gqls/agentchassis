@@ -191,7 +191,7 @@ func consumerSQL(dep SourceDependency) string {
 	 WHERE p.site_id = $1
 	   AND p.status IN ('active', 'deployed')
 	   AND ` + datahelpers.PageHasShippedPredicateFor("p") + `
-	   AND pc.build_status <> 'removed'
+	   AND ` + datahelpers.NotRemoved("pc") + `
 	   AND COALESCE(p.rebuild_policy, 'generic') <> 'owned'
 	   AND cc.input_schema IS NOT NULL
 	   AND cc.input_schema::text LIKE '%query.%'`

@@ -5273,7 +5273,7 @@ func enrichSectionComponentsWithBriefs(
 		FROM page_components
 		WHERE page_id = $1
 		  AND content_brief IS NOT NULL
-		  AND build_status IS DISTINCT FROM 'removed'
+		  AND `+datahelpers.NotRemoved("")+`
 	`, pageID)
 	if briefErr != nil {
 		logger.Warn("enrichSectionComponentsWithBriefs: query failed",

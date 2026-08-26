@@ -63,6 +63,8 @@
 
 package discovery_checks
 
+import "github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+
 // toolSubjectKeyExpr yields the ladder's subject_key for a row selected under
 // toolEligibilityWhere. Requires `cc` and `p` to be in scope.
 //
@@ -106,16 +108,14 @@ const ToolSubjectKeyExpr = toolSubjectKeyExpr
 // tombstones on one site alone (bugs_closed/360 is what resurrecting one looks
 // like).
 //
-// IS DISTINCT FROM, not <>, and the spelling is load-bearing (2026-08-26,
-// executing debug_historian's 21540c8e advisory): build_status is NULLABLE
-// (default 'pending' covers only omitted columns), and the assembler keeps a
-// NULL-status row (IS DISTINCT FROM) while a bare <> would drop it from this
-// population — a row SERVED but invisible to every tool audit, the exact
-// inversion of the tombstone defect. Zero NULL rows exist fleet-wide as of
-// 2026-08-26, so this closes a latent door, not a live one. The two spellings
-// are held in lockstep by TestAssemblerAndEligibilityShareTheTombstonePredicate.
-const toolEligibilityWhere = `
-		  AND pc.build_status IS DISTINCT FROM 'removed'
+// The exclusion is datahelpers.NotRemoved — THE shared spelling, NULL-safe to
+// match the assembler (council 89dcc04a, 2026-08-26, executing
+// debug_historian's 21540c8e advisory; the round-1 REVISE was right that a
+// shared constant beats two literals held in lockstep by a test). Drift is now
+// unrepresentable by construction; datahelpers' negative scan keeps this the
+// only spelling.
+var toolEligibilityWhere = `
+		  AND ` + datahelpers.NotRemoved("pc") + `
 		  AND cc.is_active = true
 		  AND p.status = 'active'
 		  AND (

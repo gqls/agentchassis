@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -181,12 +182,15 @@ func SelectComponentsByTypes(
 // component — exactly what a merit signal must credit. Switch when the unstamped
 // remainder is small enough to be a stated exception rather than the majority. When that
 // day comes, this constant is the only edit.
-const ComponentUsageSitesSQL = `(
+// var, not const, since 2026-08-26: the tombstone exclusion is
+// datahelpers.NotRemoved — NULL-safe to match the assembler's serving
+// predicate (council 89dcc04a; a NULL-status row is served, so it IS a use).
+var ComponentUsageSitesSQL = `(
 			SELECT count(DISTINCT p.site_id)
 			  FROM page_components pc
 			  JOIN pages p ON p.id = pc.page_id
 			 WHERE pc.component_id = content_components.id
-			   AND pc.build_status <> 'removed'
+			   AND ` + datahelpers.NotRemoved("pc") + `
 		)`
 
 // THE USAGE TERM IS NO LONGER PART OF THE SCORE, and that is a deliberate decision
@@ -301,7 +305,7 @@ func queryCandidatesBatch(
 			section_type,
 			COALESCE(category, '') as category,
 			COALESCE(is_dark_section, false) as is_dark_section,
-			` + ComponentUsageSitesSQL + ` as usage_count,
+			`+ComponentUsageSitesSQL+` as usage_count,
 			avg_quality_score,
 			(
 				CASE WHEN suitable_site_types @> to_jsonb($%d::text) THEN 0.35 ELSE 0.05 END

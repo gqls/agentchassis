@@ -862,12 +862,14 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 	//
 	// IS DISTINCT FROM, not !=: build_status is nullable (default 'pending', no
 	// NOT NULL constraint), so != would drop every NULL-status row from every
-	// assembled page the moment one appeared.
+	// assembled page the moment one appeared. The spelling lives in
+	// datahelpers.NotRemoved (council 89dcc04a) so the audit-population queries
+	// cannot drift from what this assembler actually serves.
 	rows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(rendered_html, ''), COALESCE(slot_name, '')
 		FROM page_components
 		WHERE page_id = $1
-		  AND build_status IS DISTINCT FROM 'removed'
+		  AND `+datahelpers.NotRemoved("")+`
 		ORDER BY position ASC
 	`, pageID)
 	if err != nil {

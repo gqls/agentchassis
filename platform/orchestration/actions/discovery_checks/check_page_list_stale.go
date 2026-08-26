@@ -47,6 +47,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -255,7 +256,7 @@ func loadStoredPageLists(dctx DiscoveryCheckContext, pageID uuid.UUID) (stored m
 		  FROM page_components pc
 		  JOIN content_components cc ON cc.id = pc.component_id
 		 WHERE pc.page_id = $1
-		   AND pc.build_status <> 'removed'
+		   AND `+datahelpers.NotRemoved("pc")+`
 	`, pageID)
 	if err != nil {
 		return nil, nil, err

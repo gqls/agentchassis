@@ -57,6 +57,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -240,7 +241,7 @@ func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, lo
 		JOIN pages p ON p.id = pc.page_id
 		WHERE pc.component_id = $1::uuid
 		  AND p.site_id = $2
-		  AND pc.build_status IS DISTINCT FROM 'removed'
+		  AND `+datahelpers.NotRemoved("pc")+`
 		  AND `+pageComponentAgentWritableSQL("pc.")+`
 		ORDER BY pc.position ASC, pc.id
 		FOR UPDATE OF pc

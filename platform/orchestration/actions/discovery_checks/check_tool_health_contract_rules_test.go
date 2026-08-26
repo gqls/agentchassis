@@ -112,18 +112,18 @@ func TestToolPopulationQueriesExcludeTombstones(t *testing.T) {
 		if strings.HasPrefix(strings.TrimSpace(l), "//") {
 			continue
 		}
-		if constLine == -1 && strings.Contains(l, "const toolEligibilityWhere") {
+		if constLine == -1 && strings.Contains(l, "var toolEligibilityWhere") {
 			constLine = i + 1
 		}
-		if filterLine == -1 && strings.Contains(l, "pc.build_status IS DISTINCT FROM 'removed'") {
+		if filterLine == -1 && strings.Contains(l, `datahelpers.NotRemoved("pc")`) {
 			filterLine = i + 1
 		}
 	}
 	if constLine == -1 {
-		t.Fatal("tool_eligibility.go: toolEligibilityWhere const not found — the scan is anchored on nothing")
+		t.Fatal("tool_eligibility.go: toolEligibilityWhere declaration not found — the scan is anchored on nothing")
 	}
 	if filterLine == -1 || filterLine < constLine {
-		t.Errorf("tool_eligibility.go: the shared predicate does not carry pc.build_status IS DISTINCT FROM 'removed' — every caller loses the tombstone exclusion at once (bugs_closed/360 shape; council 21540c8e), or has regressed to a NULL-unsafe spelling (see TestAssemblerAndEligibilityShareTheTombstonePredicate)")
+		t.Errorf("tool_eligibility.go: the shared predicate does not build its tombstone exclusion from datahelpers.NotRemoved(\"pc\") — every caller loses the exclusion at once (bugs_closed/360 shape; councils 21540c8e + 89dcc04a), or a hand-spelled copy has crept back (datahelpers' negative scan is the other guard)")
 	}
 
 	// Every caller that joins page_components must route through the shared
@@ -164,48 +164,9 @@ func osReadFileForScan(name string) (string, error) {
 	return string(b), err
 }
 
-// TestAssemblerAndEligibilityShareTheTombstonePredicate is the demand control
-// the council's debug_historian seat asked for on 21540c8e round 2: the claim
-// "markup in a removed row cannot reach a visitor, so excluding it from audits
-// is safe" is only true while the ASSEMBLER's exclusion and this package's
-// eligibility filter agree — and that was "a logical argument, not a measured
-// one". Writing this test measured it and found them DISAGREEING: the
-// assembler read `build_status IS DISTINCT FROM 'removed'` (NULL-safe — a
-// NULL-status row is SERVED) while the eligibility predicate read a bare
-// `<> 'removed'` (a NULL-status row vanishes from every tool audit). Served
-// -but-unaudited is the inversion of the tombstone defect, latent only because
-// zero NULL rows existed fleet-wide when measured (2026-08-26; the column is
-// nullable, so nothing keeps it that way). Both sides must use the NULL-safe
-// spelling, and neither may drift alone. Comment lines are skipped on both
-// files — a source-scan test must never let its own prose satisfy it.
-func TestAssemblerAndEligibilityShareTheTombstonePredicate(t *testing.T) {
-	const nullSafe = "build_status IS DISTINCT FROM 'removed'"
-
-	findInCode := func(src, needle string) int {
-		for i, l := range strings.Split(src, "\n") {
-			if strings.HasPrefix(strings.TrimSpace(l), "//") {
-				continue
-			}
-			if strings.Contains(l, needle) {
-				return i + 1
-			}
-		}
-		return -1
-	}
-
-	assembler, err := osReadFileForScan("../rerender_single_page_action.go")
-	if err != nil {
-		t.Fatalf("cannot read the assembler (rerender_single_page_action.go): %v", err)
-	}
-	if findInCode(assembler, nullSafe) == -1 {
-		t.Errorf("assembler no longer excludes tombstones with %q — either the serving contract moved (update BOTH halves and this test) or the exclusion is gone and removed rows can be served again (bugs_closed/360)", nullSafe)
-	}
-
-	eligibility, err := osReadFileForScan("tool_eligibility.go")
-	if err != nil {
-		t.Fatalf("cannot read tool_eligibility.go: %v", err)
-	}
-	if findInCode(eligibility, "pc."+nullSafe) == -1 {
-		t.Errorf("toolEligibilityWhere does not carry the assembler's NULL-safe spelling (pc.%s) — a NULL build_status row would be served by the assembler and invisible to every tool audit", nullSafe)
-	}
-}
+// TestAssemblerAndEligibilityShareTheTombstonePredicate lived here 2026-08-26
+// for a few hours and was DELETED the same day on the council's round-1 REVISE
+// (89dcc04a, reuse_agent): both files now build the clause from
+// datahelpers.NotRemoved, so agreement is a compile-time fact, and
+// datahelpers' TestNoHandSpelledTombstonePredicate guards against a literal
+// creeping back anywhere in platform/orchestration.
