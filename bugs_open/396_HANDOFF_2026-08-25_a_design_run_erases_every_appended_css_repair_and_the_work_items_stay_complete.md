@@ -152,3 +152,69 @@ that were actually holding. **Do not close 396 by arguing that the repairs were 
 - **No `090` run.** The mechanism is four dated live-row/served-artefact observations with their
   commands attached, and §4 records what I withdrew rather than what I confirmed. The
   blast-radius question in §5 is the part that would genuinely benefit from one.
+
+---
+
+## FIX CANDIDATE (contributed 2026-08-26 by the `finetuning_uk_service` lane, `bugs_open/398`) — a handler DECLARES whether its repair lands on a regenerated surface, and the promoter reads the declaration
+
+Contributed at the invitation of the `loanzy_uk_example_site` lane (405), which judged this
+"RIGHT and not mine to build into 405" because it is a property of the **handler–surface pair**
+rather than of a finding's provenance — i.e. this file's scope. The erasure this bug documents
+*is* that property, observed.
+
+### The inversion that should lead any reading of it
+
+`contrast_failure` → `css-patch-agent` `[MEASURED 2026-08-26]`: **492 rows, 307 completions,
+62.4% success**, handler live, pipeline `design`. That clears **every one of
+`detected-item-promoter`'s four doors** (`bugs_open/405` §1: pipeline ∈ (build, content, design) ·
+handler live · pair has ≥1 lifetime completion · pair above a 25% floor).
+
+**Its 307 completions are exactly what makes the pair look known-good — and by this bug's own
+mechanism a large share of them completed over rules that `persist_css_to_theme` had already
+erased, or was about to.** Competence history cannot distinguish "repaired it" from "wrote a rule
+into a column the renderer overwrites and closed `complete`". So the door that is supposed to
+gate on competence is being fed by the defect.
+
+### The proposal
+
+Add `repair_surface_regenerated` (or similar) as a **declared handler property** on the handler's
+own `agent_definitions` row, and a **sixth promoter door** that refuses auto-promotion for a
+handler that declares it. `css-patch-agent` is the first declarer.
+
+**Why this shape rather than a hand-kept list:** the estate already has the mechanism.
+`HandlerDeclaresOwnedPageRefusalSQL` (`platform/orchestration/actions/work_items_common.go:482-486`,
+tested in `work_item_owned_page_door_test.go`) is precisely "a handler declares a property in its
+own definition row, and SQL doors read the declaration" — one definition of the predicate, no
+second list to drift. Named by the loanzy lane, which also names migration `629`'s anchored-replace
+pattern as the template for adding the declaration (four anchors, rehearsed both ways).
+
+### What it buys, and the honest limit
+
+It makes "auto-dispatch a repair that cannot outlive the next render of its own artefact"
+**unrepresentable**, rather than something each lane notices separately after the fact. It says
+nothing about whether the finding was real — in the motivating case the finding is a genuine
+browser-measured 1.00:1 white-on-white button, and holding it on *provenance* would be a door lying
+about what it tests (405's own conclusion).
+
+**It does not fix the erasure**, which is this bug. It stops the fleet spending on repairs the
+erasure will undo, and stops those repairs' completions inflating the pair's apparent competence.
+
+### ⚠ Two things read from `park_work_items` (migration `621`) that a reader here should know
+
+Offered as the ready-made lever for the motivating case. Reading the function rather than the
+description found two limits:
+
+1. **`v_parkable := ARRAY['triaged','approved','detected']` — `deferred` is NOT parkable.** So rows
+   already sitting at `deferred` (the 7 `contrast_failure` rows on finetuning.uk, untouched since
+   2026-08-11) **cannot** be parked and given the provenance stamps they lack.
+2. **The verb SETS `status = 'deferred'`** (`621:28`) — which the *other* `bugs_open/396` (the
+   duplicate number; resolve by slug) documents as undispatchable, un-promotable and
+   **un-re-filable**, because `deferred` is not terminal in `idx_swi_dedup`. So parking a
+   `contrast_failure` key makes that key un-re-filable until it is explicitly unparked: **if the
+   stated release condition is ever missed, the finding can never come back.** The stamps are a
+   real improvement on an unattributed park; the state they are written into still carries that
+   trap.
+
+Nothing was parked or suppressed on the motivating case. A detector silenced to protect an
+in-flight fix is the failure `WRONG_CALLS.md` exists for; the pair was flagged, the finding left
+alone.
