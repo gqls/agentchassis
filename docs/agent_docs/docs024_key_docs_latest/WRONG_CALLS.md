@@ -55670,3 +55670,48 @@ the story that fits your current frame is the one to distrust.
 
 Family: the-result-set-was-complete-my-reading-was-not, say-N-before-interpreting,
 ask-the-provider-before-diagnosing-its-consumers, a-stopped-thing-has-not-said-why.
+
+---
+
+## 2026-08-26 — I overwrote an append-only log with a shell redirect, on the file whose own header forbids it
+
+**Lane:** `bugfix_359_archived_page_still_serving`.
+
+**The claim.** My commit message said I had added an evening entry to
+`README_where_we_are.md`. I had not. `cat > …` where I meant `cat >> …` **replaced** the file:
+the afternoon entry went, and the commit landed as 59 insertions and **55 deletions**.
+
+**What caught it.** The `readme-not-appended` pre-commit advisory —
+*"54 line(s) removed from the owner's log"*. Nothing else would have: the file read perfectly,
+the new entry was the entry I meant to write, and `git commit`'s own summary line says only
+"1 file changed, 59 insertions(+), 55 deletions(-)", which looks like a large edit rather than
+an erasure. Restored from git in the next commit, with a dated correction left in the file
+rather than a silent repair.
+
+**Two things here, and the second is the one I would otherwise have missed.**
+
+**(1) I used a shell redirect on a file I did not create in that command.** CLAUDE.md already
+says why not, in terms: *"prefer the Write tool, which refuses an unread file, over a shell
+redirect, which does not."* That rule exists because a redirect has no idea what it is
+destroying, and the failure is a single missing character with no error and no diagnostic. The
+`>>`/`>` slip is invisible in the command, invisible in the output, and invisible in git's
+summary. **On an append-only document, do not reach for a redirect at all** — and if you must,
+`wc -l` the file before and after, because the line count is the only cheap thing that
+disagrees.
+
+**(2) I had been piping every commit through `| tail -3`, which cuts the advisory block —
+because the hooks print FIRST and git's summary prints LAST.** I did it perhaps fifteen times
+this session, and it means the pre-commit hooks were speaking to me and I was structurally not
+listening. This one only reached me because the harness re-surfaces the block after the fact;
+that is a backstop, not a channel I should be relying on. **`| tail -N` on a `git commit` is a
+habit that silences a working detector** — the same shape as the recorded
+[[a-hook-that-writes-to-stderr-reaches-nobody]] entry, except here the hook writes to the right
+place and the reader throws it away. Tail the summary only when you have already read the top,
+or do not tail at all.
+
+**The cheap check, and it is a rule rather than a lookup: never `>` a document you did not
+create in the same command, and never `| tail` a commit.** Both are one keystroke of
+convenience buying a silent loss.
+
+Family: shell-tool-traps-committing, a-hook-that-writes-to-stderr-reaches-nobody,
+missteps-need-a-check-not-a-paragraph, a-pass-from-a-blind-check-outlives-the-blindness.
