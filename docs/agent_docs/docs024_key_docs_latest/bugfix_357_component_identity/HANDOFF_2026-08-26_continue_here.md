@@ -146,7 +146,15 @@ the false `required_fields_missing` items about `hero` on tool pages stop being 
 **357 closes when `population = 0` and that is verified at the served pages — not at the
 migration's COMMIT.** A committed UPDATE is not a repaired page.
 
-### 4. File the prune-floor contradiction as its own bug — it is NOT 357
+### 4. ~~File~~ **FILED 2026-08-26 as `bugs_open/406`** — the prune-floor contradiction, and it is NOT 357
+
+> **DONE.** `bugs_open/406_HANDOFF_2026-08-26_adoption_routes_a_page_to_a_one_section_builder_and_plans_it_multiple_sections_so_the_save_is_refused_whole.md`
+> — full evidence, closed-form arithmetic, four fix candidates ordered by what makes the bad
+> state unrepresentable, and the verification queries. Pattern added to **016b §9**
+> ("one action emits two statements about the same artefact that cannot both hold"), indexed
+> in **016b §10**. **What remains is the FIX, which is a shared-seam change and wants the
+> council gate — not a bug patch.** Re-measured at filing: **34** parked items across **16**
+> domains, up from 32/~14 fourteen hours earlier.
 
 `apply_adoption_plan_action.go:719` routes a page to `tool-recreation-handler` (whose save can
 only ever emit ONE section) **and the same action, in the same transaction, writes that page a
