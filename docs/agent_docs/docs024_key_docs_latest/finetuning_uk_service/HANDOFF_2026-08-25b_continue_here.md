@@ -82,6 +82,36 @@ it, which is the control.
    header. Unowned; his proposed fix (declare the slots per site) is candidate 1.
 7. **Keep holding** rebuilds/rewrites until `copy_quality_two_stage` submits improvements.
 
+## ⚠ INBOUND 2026-08-26 — the design-discovery rotation is BACK ON, so surprise items here are expected
+
+From the `webdesign-tool-rebuilds` seat, and **verified first-hand before recording**:
+`site-discovery-rotation-design` is `enabled = t`, last triggered **2026-08-26 09:20:36Z**, after
+15 days off (the 08-11 cost-scare pause was never unwound — `bugs_open/401`). Design checks
+(`palette_contrast`, `image_url_404`, `tool_health`, `missing_css`) resume at ~1 site / 3h,
+least-recently-visited first, so **this site's turn falls inside a ~2–3 day ramp**. Findings are
+born `detected`; `detected-item-promoter` (15-min cadence) promotes known-good
+`(item_type, handler_agent)` pairs straight into build dispatch. **`site-render-audit-rotation` is
+live too** (last fired 08-26 08:48Z).
+
+**So a design or contrast item may appear here with nobody having filed it. That is the rotation,
+not a stray thread — do not diagnose it as one.**
+
+⚠ **And it interacts badly with `bugs_open/398`, which is still half-shipped.** When the render-audit
+rotation reaches this site it will file `contrast_failure` at `css-patch-agent` for the remaining
+1.00:1 buttons. If that pair auto-dispatches, the repair is **wrong** (it patches ONE site's
+stylesheet for a SHARED-component defect across three, and the real fix is committed and waiting on
+the chassis roll) and **erased anyway** (`bugs_open/396`: `persist_css_to_theme` rewrites
+`css_themes.css_content` byte-for-byte, so appended patches expire at the next design run — which
+the re-enabled rotation now makes near-certain). If you see a `contrast_failure` here close
+`complete` without the button becoming visible, that is this, and the artefact is the only check
+that will tell you.
+
+Note the accidental shield and the general trap: the **7 existing `contrast_failure` rows are
+`deferred`**, which is not terminal in `idx_swi_dedup`, so a fresh audit cannot re-file those keys.
+**`/your-own-model.html#A.cta-btn` is NOT among them**, so the £99 page's invisible button is the
+one most likely to draw an auto-repair. Warned the sending seat; deliberately did NOT suppress
+anything — a detector that stops detecting is worse than the churn.
+
 ## Traps current for this lane
 
 - ⚠ **A migration that edits `content_components.html_template` ships NOTHING on its own.** No
