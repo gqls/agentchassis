@@ -575,3 +575,46 @@ Applying amends a live `scheduled_tasks` row, which is the standing permission g
 not a session's. And the window it opens should be short and announced (`bugs_open/395`'s point), so
 it wants a person present. Everything else is ready: the Go half is written out verbatim in the
 handoff rather than left dirty on the shared tree.
+
+## 2026-08-26 — a Fable adversarial review of 634, and misstep 11: my anchor was a prefix
+
+The owner asked for a second check of the migration with Fable before applying. Worth every token:
+it **disproved the file's own composition claim by construction**, on a defect both my demand
+controls and a 10-seat council APPROVED verdict had passed over.
+
+### Misstep 11 — the anchor omitted the closing `)`, making it a PREFIX, not a tail
+
+`old_tail := '…''dark_section_audit'''` — no `)`. So with another lane's amendment already appended
+(exactly what `395` plans for `content_rewrite`), `strpos` **still matched**, the migration applied
+silently **mid-list**, and every guard passed — producing a live clause the Go renderer can never
+reproduce: a permanent, ownerless red on the drift auditor, i.e. the exact failure my own header
+warned "gets helpfully fixed by somebody reverting this migration". Reproduced against the live DB
+before fixing (prefix matches moved clause: `t`; `)`-anchor refuses: `f`), then fixed in both files
+and re-controlled — **including the control that was missing: 395's amendment simulated as landing
+FIRST now ABORTs at guard 1.**
+
+**Why every prior check missed it, and this is the entry's point:**
+- My demand controls only ever ran against **today's** clause — same class as missteps 8 and 10
+  (a control built from the state the guard was written for cannot detect what else it accepts).
+  The disconfirming input had to be a *moved* clause, and I never supplied one.
+- The council reviewed the submission's sketch and rationale; the composition paragraph *asserted*
+  tail-anchoring and nothing in the round tested it. **A review of an argument is not a test of a
+  construction.** Fable's brief differed in one way that mattered: it was told to attack named
+  surfaces with the real files and the real live text, and to prove findings by construction.
+
+Also from the review, all applied (`e5b51a3ea`): the NOTICE's "the Go commit closes it" was FALSE —
+the drift auditor runs from declarations **compiled into the tag-pinned image**, so the window
+closes at image rebuild + tag bump + apply, days not minutes; append-at-END of the Go slice is
+load-bearing and un-enforced (set-based lockstep, order-blind round-trip test); the class-audit
+count was 16 where the truth is **15** memberships; the rollback's danger set was too narrow (any
+of the three gates, not only a verifier) and its bare-word post-check can make it permanently
+un-runnable (fail-safe — one statement — but worth its line). And finding 3: the 395 agreement
+existed only in my own files — now recorded in `bugs_open/395` with the exact post-634 anchor
+bytes (`83cbe5316`).
+
+Declined, with the reason in the file: fixing the live `pre_query`'s stale "LOCKSTEP TWIN" prose
+inside 634 — widening a council-approved migration post-verdict is the shape the council exists to
+catch. **That correction is OWED and unowned**; it wants its own once-guarded `replace()` migration.
+
+One behaviour shift from the fix, expected: double-apply now aborts at **guard 1** (the first apply
+consumes the tail) rather than guard 2. Both are aborts; the message differs.
