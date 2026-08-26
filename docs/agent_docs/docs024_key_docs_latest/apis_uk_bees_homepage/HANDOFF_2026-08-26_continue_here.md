@@ -7,8 +7,9 @@
 > The page is done and locked. **Everything Google left this lane on 08-25** (owner ruling;
 > `analytics_gtm` is the cold-start for tracking, `bugs_open/397`). The lane's remaining build,
 > **per-section subjects, SHIPPED on 08-26**: Go + migration committed (`35905c547`), migration
-> 638 applied, council verdict PENDING (`4bd35ed8`), three config seeds `_HOLD` awaiting the next
-> chassis roll — nothing else is open here except the image-accuracy A+C build, not started.
+> 638 applied, council **round 1 REVISE → round 2 RESUBMITTED same day** (`4bd35ed8`, same correlation —
+> verdict pending), three config seeds `_HOLD` awaiting the next chassis roll — nothing else is
+> open here except the image-accuracy A+C build, not started.
 
 ## 1. Per-section subjects — what a next session owes, in order
 
@@ -16,8 +17,12 @@ Full design + falsifiers: `PLAN_2026-08-26_per_section_subjects.md` · register 
 council submission `scratchpad` copy is gone with the session — the artifacts are keyed under the
 correlation.
 
-1. **Read the council verdict** (budget ~30 min from 09:45 BST dispatch; a missing row is
-   latency, not a drop — never resubmit on that evidence):
+1. **Read the council verdict — ROUND 2** (round 1 came back REVISE at 09:20 UTC, gating seat
+   `prior_art_librarian`; all eight objections were answered the same morning — tests + seed
+   guards in commit `52085b410`, per-seat answers + previously-unreachable evidence in the
+   resubmission — and round 2 went out ~11:35 BST on the SAME correlation after two Kafka
+   publish failures, evidence in `bugs_open/040`). Budget ~30 min from dispatch; a missing row
+   is latency, not a drop — never resubmit on that evidence:
    `SELECT current_step, status FROM orchestration_states WHERE
     collected_data->'input_data'->>'fix_correlation_id' = '4bd35ed8-5f72-4a2f-9cbf-3860847837f4';`
    then `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
@@ -77,10 +82,16 @@ any ActionInputSpec Optional list in this lane again, check.py + overlay ride th
   `[UNEXPLAINED, 08-25]` `sites.build_status='pending'` while the page row is `deployed` — no
   served effect, left alone, still true when checked 08-26 morning.
 
-## 5. Design-discovery rotation is back ON — apis.uk was visited 00:40 UTC 2026-08-26
+## 5. Design checks are visiting apis.uk again — measured, and the source is now settled
 
-Heads-up from `webdesign-tool-rebuilds` (rotation re-enabled after 15 days off; `bugs_open/401`),
-and then measured here rather than assumed: **six findings landed on apis.uk at 00:40:15–56 UTC**,
+> **CORRECTED 2026-08-26 ~11:00:** the 00:40 visit was the **improvement-loop** (owner re-enabled
+> it ~21:18Z on 08-25, loanzy lane's phased plan; it dispatches design-discovery + completeness as
+> children — apis.uk got full cycles at 00:39, 04:47 and 08:40Z), NOT the rotation, which
+> `webdesign-tool-rebuilds` re-enabled separately at 09:20Z (`bugs_open/401`). **Both are active
+> now**, so expect findings roughly every 4h from the loop plus rotation visits. Their lane
+> corrected its own NOTES on our timestamps (their commit `7baa7a4f1`).
+
+Measured here rather than assumed: **six findings landed on apis.uk at 00:40:15–56 UTC**,
 all status `detected`, **all with `handler_agent` empty — so NONE are promotable** by
 `detected-item-promoter` (it requires `COALESCE(handler_agent,'')<>''`, plus the mig-629 origin
 door). No auto-dispatch today; re-check that premise if anyone maps handlers onto these types.

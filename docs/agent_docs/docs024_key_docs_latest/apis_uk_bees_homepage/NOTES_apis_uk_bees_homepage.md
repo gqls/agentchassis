@@ -1198,3 +1198,40 @@ noticing not the enabling; either way the items are real). All 7 detected rows o
 GTM, 397) written into HANDOFF_2026-08-26 §5. The `footer` half of `head_essentials_missing` is
 the owner's deliberate absence being read as a defect — the predicted false-positive class;
 `skip_link` and the favicon/og-card 404s are genuine small items, parked with the trap named.
+
+### 2026-08-26 ~12:00 — council round 1: REVISE; round 2 built, proven and resubmitted the same morning
+
+**Round 1 (4bd35ed8): REVISE, gating seat `prior_art_librarian` (HIGH: "confirm the DDL was not
+executed ahead of approval").** It WAS executed — deliberately, per the owner's 2026-07-29
+"review is after the fact by design" ruling — and the honest answer was to say so and supply the
+pre-state the seat could not reach (it has no access to `site_plan_sections`): the pre-apply
+schema listing from this session's own 08:55 read (no `subject`, `assigned_fact_ids` present)
+plus the post-apply check. **The seat's instinct was right and the posture is still correct** —
+worth recording that those can both be true: on this estate the apply-then-review shape is the
+documented norm, and the reviewer's job is to demand the pre-state, which round 1 did not carry.
+
+**Every other objection was cheap and real** (`a-revise-round-is-cheaper-than-the-defect-it-finds`
+holds again):
+- bug_historian's MEDIUM (mismatched-length test for the three parallel lists) produced two tests
+  that now pin degrade-to-unassigned-never-shift — the exact bugs_closed/041/095/039 shape.
+- The object-arm gap I had stated as a risk became two tests; **both object-arm mutations now
+  FAIL, including the one that silently PASSED in my first mutation run** (NOTES earlier today).
+  A stated gap is better than a hidden one; a closed gap beats both.
+- editquality's seed pre-flight ask exposed a real extra hazard I had not seen: 640/641's
+  `SELECT INTO` takes the FIRST of N rows silently on a duplicate-active-row, so the guard is not
+  just politeness — without it a dupe row would HALF-apply the prompt edit.
+- guardian's caller-enumeration ask was answered from the round's own read-only checks (the
+  council answered its own question; my job was to notice), plus: `scopeItem` is function-local.
+- guidelines' register-outside-the-slots concern: settled by evidence, not argument — the register
+  edits are IN `35905c547`'s stat, quoted in grounded_in.
+- architecture's RFC_022 ask was already settled by the 333 lane's catch (`339474ca4`), quoted.
+
+**Round 2 resubmitted on the SAME correlation** (`RESUBMIT_CORR`), commit `52085b410`.
+**Two Kafka publish failures first** (kcat bootstrap timeouts, broker pod-0 unready 4 restarts;
+the 097 trigger failed LOUD both times — "SUBMISSION NOT SENT", nothing spent — which is the
+kcat-silent-drop landmine's fix earning its keep). Third attempt after ~90s backoff SENT.
+Evidence appended to `bugs_open/040` with the DB-slowness correlation marked `[INFERRED]`.
+
+Also this hour: handoff §5's visit attribution corrected — the 00:40 findings were the
+**improvement-loop** (re-enabled 21:18Z 08-25; cycles 00:39/04:47/08:40Z), not the rotation
+(separately re-enabled 09:20Z); both now active, so expect ~4-hourly finding arrivals.
