@@ -55199,3 +55199,50 @@ own intent in its first line.
 
 Family: the-disconfirming-number-was-in-my-own-output, a-just-confirmed-frame-primes-the-next-case,
 check-before-flip-caps-the-cost-of-being-wrong, a-durable-note-beats-two-careful-readers.
+
+## 2026-08-26 — `deferred_work_item_park`: I nominated an existing check as the guard for a NEW failure mode, and never ran the check against that failure mode
+
+**The claim.** `bugs_open/396` shipped `sites.lock_except_item_ids`, which required editing
+`find_dispatchable_site`'s SQL. The approving council's one gating-level advisory was that the Go
+test pinning the clause (`TestSiteLockExceptionSQLIsNotTheSelectorSpelling`) **cannot reach a
+migration author**, because migration SQL is text compiled against nothing. I answered that in this
+lane's handoff: *"Their only guard is the `sites.locked_at` entry in `LANDMINES.md`, which now
+carries both spellings verbatim and the failure in each direction."* I extended that entry, pointed
+every future migration author at it, and closed the round.
+
+**The truth.** That entry's prose does warn. But the thing a session actually *runs* — the block
+labelled **"the check"** — is `... ->>'query' LIKE '%locked_at%'` returning `HONOURS`/`IGNORES`. It
+is a **substring test**, and the clause it now inspects is a two-armed expression whose *shape*
+holds the lock. Measured 2026-08-26, it returns **`HONOURS`** for all four of: the correct live
+clause; the same clause with the outer parens dropped (`AND` binds tighter than `OR`, so the status
+/ attempt / retry / depends_on gates stop applying — **15,683 rows admitted instead of 1,104**,
+re-dispatching `complete`, `failed` and `cancelled` items fleet-wide); an always-true exception arm
+(`COALESCE(...) IS NOT NULL`, which switches the lock **off on every site** and releases the **67**
+items held that day); and the exception arm deleted outright. **So the guard I nominated does not
+merely fail to catch the new failure — it actively reassures on it.**
+
+**What made it wrong rather than merely incomplete** is that the check was *correct when written*.
+On 2026-08-03 the clause was **absent**, and a substring test detects absence perfectly well. My own
+migration `633` is what made presence insufficient, by making the clause conditional. **I inherited
+a check across the exact change that invalidated it** — and the change was mine.
+
+**What caught it.** Reading the entry I had cited, instead of citing it again. The blindness took
+one query to demonstrate and no mutation of anything: four candidate spellings in a `VALUES` list,
+each run through the check's own `LIKE`. All four printed `HONOURS`.
+
+**Cheap check, stated so it generalises: when you nominate an existing check as the guard for a new
+failure mode, feed the new failure mode to the check and watch it fail.** A check is written against
+one shape of wrongness and silently inherits every later one. The tell that this needs doing is
+narrow and recognisable — **you changed the thing the check inspects**. This is
+[[mutate-the-code-to-prove-the-guard]] applied one level up: not "mutate the code to prove the
+test", but *mutate the code to prove the **check** you are about to write down as the protection.*
+Nominating is not verifying, and a guard quoted in a handoff is load-bearing for everyone who reads
+it afterwards.
+
+**A second-order note worth keeping.** The entry's own preamble warns against *"a control that reads
+back exactly as written and does nothing"* — it contained its own counterexample, and I had read
+that sentence while extending the entry directly below it. A file warning about a failure mode is no
+protection against committing that failure mode inside the same file.
+
+Family: mutate-the-code-to-prove-the-guard, a-pass-from-a-blind-check-outlives-the-blindness,
+declaring-a-key-silences-your-own-detector, a-doc-comment-is-not-an-enforcement-mechanism.

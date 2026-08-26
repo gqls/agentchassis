@@ -180,3 +180,55 @@ documents, then the code.
 
 **Nothing is broken and nothing needs a decision from you.** The remaining step is the next release,
 after which the held switch can go on and be tested on one real site.
+
+## 2026-08-26, afternoon — one thing proved itself for free, and one safety check turned out to be looking the other way
+
+Picked this back up expecting to have nothing to do. The handoff said, correctly, that nothing was
+blocked and nothing was owed. Two things came out of simply re-checking what we had already written
+down, and the second one matters more than the first.
+
+**The good news first, and it cost nothing.** We built a way to hold a site — to stop the system
+automatically doing work on it — and this morning we could only prove it worked in a laboratory
+sense: we ran the rules by hand against real data, got the right answers, and undid it all. What we
+could not show was the real scheduler actually obeying the hold out in production. The scheduler
+always picks the site with the oldest waiting job, there were about 1,400 jobs waiting, so we could
+not push a held site to the front of that queue to watch it get skipped. I wrote that down as an
+honest gap.
+
+It closed on its own. This afternoon the eight oldest waiting jobs in the whole fleet happen to sit
+on `adversecreditmortgage.co.uk` — a site you personally halted on 18 August pending a decision. So
+the held site is now at the very front of the queue, and the hold is being tested every single time
+the scheduler runs. I asked the scheduler's real query what it would pick: it answered
+`agritec.uk`. Then I asked the identical query with only the hold rule removed: it answered
+`adversecreditmortgage.co.uk`. The two questions differ by one clause, so that clause is what is
+keeping your halted site alone. **67 waiting jobs across 3 held sites are being held by it right
+now.** That is no longer a feature we believe in; it is one we have watched work.
+
+**The less good news.** When the reviewers approved this work, their one substantive comment was
+that our automated test protects the rule only inside our program code — and this particular rule
+also exists as a piece of database configuration, which a future colleague could edit directly with
+nothing checking their work. I answered that by pointing at our written warnings file, which has an
+entry about exactly this rule, and said in effect: anyone editing this must read that first.
+
+I went back and actually ran the check that entry tells people to run. **It cannot tell a correct
+rule from a broken one.** It looks for a word appearing anywhere in the configuration. I gave it
+four versions of the rule — the correct one, and three broken ones — and it declared all four fine.
+One of those broken versions switches the hold off on every site in the fleet, which would release
+your halted site on the next run. Another, caused by nothing more than a missing pair of brackets,
+would widen the queue from about 1,100 jobs to over 15,000 and start re-running work that had
+already finished or already failed.
+
+The uncomfortable part is that **the check was not wrong when it was written.** Back in August the
+problem was that the rule was missing entirely, and looking for a word is a perfectly good way to
+spot something missing. Our own change in the last two days is what made the rule conditional — and
+from that moment on, "the word is present" stopped meaning "the rule is correct". We inherited a
+safety check straight across the change that broke it, and nobody noticed because it kept saying
+everything was fine.
+
+I have replaced it with a check that watches what the rule actually *does* rather than how it is
+spelled, and I have been explicit in writing that the new check still cannot catch the
+missing-brackets version — that one is only visible by reading it. Better to say so than to leave
+someone trusting a check that has a hole in it, which is the whole lesson here.
+
+**Nothing is blocked.** The one long-standing gap is unchanged: nothing stops someone editing the
+database by hand to park a job, and short of a database-level trigger nothing can.

@@ -229,6 +229,77 @@ success `2026-08-25 23:46:29Z`, **631 consecutive failures** since. The build qu
 **1,399 `triaged` / 0 `claimed`**, oldest triaged 08-18. Already diagnosed by other lanes and the
 owner is already notified — `bugs_open/243`'s class. **Do not re-file it.**
 
+## 6d. ✅ 2026-08-26 — §6c's "TWO THINGS OWED" ARE BOTH DONE, the production proof landed, and the guard for migration authors turned out to be BLIND
+
+> **The `⛔ TWO THINGS ARE OWED` block in §6c above is SUPERSEDED and is kept only for the record.**
+> The fleet recovered at **08:58:28Z**; both items were completed the same morning.
+> 1. **The end-to-end exercise — DONE.** Both predicates run verbatim against live data on
+>    `cv1.co.uk`, inside a rolled-back transaction: **unlocked → 6 · locked, no exception → 0 ·
+>    locked, one exception → exactly 1, the right one.**
+> 2. **The council round — APPROVED.** `175df761` r2: **12 reviewers, 1 gating-level advisory, none
+>    high-severity.**
+
+### ✅ The scheduler honours the lock IN PRODUCTION — observed, not inferred
+
+The morning's honest gap was *"the tick, not the logic"*: the acceptance ran the predicates but not
+the scheduler, and `find_dispatchable_site` is `ORDER BY wi.created_at ASC` **fleet-wide**, so a
+locked site cannot be forced to the head of the queue. **It did not need forcing.**
+
+As of 2026-08-26 ~15:00Z the **eight oldest dispatchable rows fleet-wide** all sit on
+`adversecreditmortgage.co.uk`, locked with
+`locked_by = "portfolio_positioning: owner HALT 2026-08-18 …"`. A locked site heads the queue, so
+the lock is exercised on **every tick**. Two arms, both read-only `SELECT`s, nothing mutated:
+
+| arm | query | returns |
+|---|---|---|
+| **guard** | the live `find_dispatchable_site` text, **verbatim** | `agritec.uk` |
+| **control** | the same text with **only the lock clause deleted** | **`adversecreditmortgage.co.uk`** |
+
+**The two queries differ in exactly one clause, so that clause is what moved the answer.** The
+control is the load-bearing half: without it, "the guard did not return the locked site" is equally
+consistent with the query being broken outright.
+
+**67 dispatchable items across 3 locked sites are held by this clause today.** It is not a latent
+guard, and one of the three sites is an owner HALT.
+
+⚠ **The test is not always available.** If the control returns an *unlocked* site, no locked site
+currently heads the ordering, the lock is not being exercised, and **neither arm means anything** —
+that is *unavailable*, not *passed*. Do not record it as a pass.
+
+### ⚠ The guard named for migration authors does not discriminate — and `633` is what blinded it
+
+The approving council's one gating-level advisory was that
+`TestSiteLockExceptionSQLIsNotTheSelectorSpelling` **cannot reach a migration author**, because
+migration SQL is text compiled against nothing. This lane answered it by nominating the
+`sites.locked_at` entry in `LANDMINES.md` as the guard. **The check in that entry is blind.**
+
+It is `... ->'config'->>'query' LIKE '%locked_at%'` → `HONOURS`/`IGNORES`. A **substring** test,
+against a clause whose **shape** is what holds the lock. Measured 2026-08-26 — all four return
+`HONOURS`:
+
+| spelling | what it actually does | rows admitted |
+|---|---|---|
+| **A** the live clause | correct | 1,104 |
+| **B** outer parens dropped | `AND` binds tighter than `OR` → the status / attempt / retry / `depends_on` gates stop applying to every unlocked site | **15,683** — re-dispatches `complete`, `failed`, `cancelled` fleet-wide |
+| **C** `OR COALESCE(...) IS NOT NULL` | `COALESCE` is never NULL → **lock off on every site** | releases the **67** held items — onto the owner HALT, on the next tick |
+| **D** exception arm deleted | kills `lock_except_item_ids` silently | **no row count changes today** — all 3 locked sites have an empty exception list, so the data cannot tell you |
+
+**The check was not wrong when written.** On 2026-08-03 the clause was *absent*, and a substring test
+detects absence perfectly well. **Migration `633` — this lane's — made presence insufficient**, by
+making the clause conditional. The check was inherited across the exact change that invalidated it.
+
+**Corrected in `LANDMINES.md`** (original left visible, per convention): the four-spelling table, a
+two-sided behavioural check, and an always-available `DO` block that executes the **live query text**
+so it cannot drift from what runs. ⚠ Recorded honestly there — that block catches **C** and **D**,
+and **cannot catch B**, whose damage lands on *unlocked* sites so the site it returns is legitimately
+unlocked. **Nothing short of reading the parens catches B**, which is why any edit to this clause is
+a deliberate act and never a tidy-up.
+
+Logged in `WRONG_CALLS.md` (2026-08-26). The transferable rule: **when you nominate an existing check
+as the guard for a new failure mode, feed the new failure mode to the check and watch it fail** — the
+tell is that you changed the thing the check inspects.
+
+
 ## 6b. ⚠ SUPERSEDES §6a's candidate 1 — the fix is the EXISTING site lock, not a park verb (2026-08-25, after council `ed821065` REVISE)
 
 **§6a said the primary fix was a park verb. That was wrong, and the council's `prior_art` seat

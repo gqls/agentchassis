@@ -4313,6 +4313,51 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
     FROM agent_definitions WHERE type='build-pipeline-trigger' AND is_active;
   -- 2026-08-03: IGNORES
   ```
+- **⚠⚠ CORRECTED 2026-08-26 (`bugs_open/396` lane) — THE CHECK ABOVE IS BLIND, AND IT NOW READS `HONOURS` ON A QUERY THAT WOULD DISPATCH A LOCKED SITE.** `LIKE '%locked_at%'` is a substring test. Since migration `633` the clause it inspects is a **two-armed expression whose shape is what holds the lock**, and a substring cannot see shape. Measured 2026-08-26 — all four of these spellings return **`HONOURS`**:
+
+  | spelling | what it actually does | rows it admits |
+  |---|---|---|
+  | **A** `(s.locked_at IS NULL OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[])))` — **the live one** | correct | 1,104 |
+  | **B** the same clause with the **outer parens dropped** | `AND` binds tighter than `OR`, so the status / attempt / retry / depends_on gates stop applying to every unlocked site | **15,683** — re-dispatches `complete`, `failed` and `cancelled` items fleet-wide |
+  | **C** `(s.locked_at IS NULL OR COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[]) IS NOT NULL)` | `COALESCE(...)` is never NULL, so the arm is always true and **the lock is off on every site** | releases the **67** items held as of 2026-08-26 |
+  | **D** `(s.locked_at IS NULL)` — exception arm dropped | silently kills `lock_except_item_ids`; **no row count changes at all today**, because all 3 locked sites have an empty exception list, so the data cannot tell you |
+
+  **This is precisely the shape this entry's own preamble warns about — "a control that reads back exactly as written and does nothing".** The check was not wrong when written: on 2026-08-03 the clause was *absent*, and a substring test is sufficient to detect absence. `633` made presence insufficient, because the clause can now be **present and wrong**. A guard written to detect a missing thing does not survive that thing becoming conditional.
+
+- **the check that discriminates — assert the BEHAVIOUR of the text that actually runs, never its spelling.** Both arms are read-only `SELECT`s; neither mutates anything. Take the live query text first:
+
+  ```sql
+  SELECT default_config->'workflow'->'steps'->'find_dispatchable_site'->'config'->>'query'
+    FROM agent_definitions WHERE type='build-pipeline-trigger' AND is_active
+     AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+
+  **Arm 1 (the guard):** run that text back **verbatim** and note the domain it picks.
+  **Arm 2 (the control):** run it again with **only the lock clause deleted** and note the domain.
+
+  **PASS is two-sided: arm 2 returns a LOCKED site and arm 1 returns a different, unlocked one.** That is the whole test — arm 1 alone proves nothing, because a query that is simply broken also returns "not the locked site".
+
+  ⚠ **If arm 2 returns an UNLOCKED site, the test is UNAVAILABLE, not passed.** It means no locked site currently heads the fleet ordering (`ORDER BY wi.created_at ASC` across all sites), so the lock is not being exercised and neither arm can tell you anything. Do not record that as a pass.
+
+  **Worked, 2026-08-26** — the eight oldest dispatchable rows fleet-wide were all on `adversecreditmortgage.co.uk`, locked with `locked_by = 'portfolio_positioning: owner HALT …'`: arm 2 returned **`adversecreditmortgage.co.uk`**, arm 1 returned **`agritec.uk`**. The two queries differ in exactly one clause, so that clause is what moved the answer. **This is also the production proof `396` recorded as unreachable** ("the gap is the tick, not the logic") — it needed no synthetic site and no mutation, only the fleet ordering happening to put a locked site at the head of the queue.
+
+  **Always-available variant** when the ordering is not co-operating — executes the live text and asserts the site it picks is not locked, so it cannot drift from what runs:
+
+  ```sql
+  DO $$
+  DECLARE q text; locked bool;
+  BEGIN
+    SELECT default_config->'workflow'->'steps'->'find_dispatchable_site'->'config'->>'query'
+      INTO q FROM agent_definitions WHERE type='build-pipeline-trigger' AND is_active
+       AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+    EXECUTE 'SELECT s.locked_at IS NOT NULL FROM (' || q ||
+            ') sel(site_id, domain) JOIN sites s ON s.id = sel.site_id::uuid' INTO locked;
+    IF locked THEN RAISE EXCEPTION 'LOCK BROKEN: find_dispatchable_site returned a LOCKED site'; END IF;
+  END $$;
+  ```
+  ⚠ It catches **C** and **D**-with-consequences, and cannot catch **B** — B's damage lands on *unlocked* sites, so the site it returns is legitimately unlocked. Nothing short of reading the parens catches B; that is why any edit to this clause is a deliberate act and not a tidy-up.
+
+
 - **what to use instead:** the predicate the gate *does* read — item `status`.
   `deferred` is not in `workItemTerminalStatuses`, so deferring holds the row without
   freeing its `idx_swi_dedup` slot and release is one `UPDATE`. **But note this only
@@ -18380,3 +18425,14 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** register **IMG-074** · migration `644` (both assertions ship inside its own `DO`/`RAISE` block, not beside it) · `bugs_open/381`
 - **source:** 2026-08-26, `vigilant_designer_offer_analysis` lane
 - **added:** 2026-08-26, vigilant_designer_offer_analysis lane
+
+### A STALE-REAPED ORCHESTRATION'S `updated_at` IS THE REAP STAMP, NOT END-OF-LIFE — every `[created_at, updated_at]` aliveness or overlap census counts its zombie window as running time
+
+- **footprint:** `orchestration_states` (`updated_at` used as an aliveness end-stamp) · the stale reaper (`Orchestration stale — running for …, max age …`) · every overlap/alive-per-minute/Little's-law meter in `dispatch_throughput/RUNBOOK` §"Concurrency meters" · `584_dispatch_sibling_C_insert_trigger_2_VERIFY.sql` 6/7
+- **fires when:** you treat a row as "alive from `created_at` to `updated_at`" in any census — overlap pairs, concurrency per minute, mean-alive arithmetic — with no symptom and no reason to doubt it. The result is a plausible number that reads exactly like a true one.
+- **the trap:** a handler that dies mid-step (e.g. its LLM request times out) does NO further work but keeps its claim-shaped footprint until the reaper stamps it FAILED — measured 2026-08-26: stuck at `call_content_writer` from ~09:2x, reaped 10:37:42 ("running for 1h21m20s, max age 1h0m0s"). Its `updated_at` is the REAP time. Meanwhile the ITEM-level claim released earlier and a successor legitimately re-claimed at 10:34:57 — the two staleness clocks (claim release, orchestration reap) are independent. Raw interval overlap therefore read **1 "double-handle"** (pair `a52ac67f`/`d0f7ea9e`, item `b82f5cf5`) — the first non-zero in that census ever — with the atomic-claim invariant fully intact. The natural reading is "the claim broke"; under a deep backlog re-claims are fast, so the shape RECURS.
+- **the check:** before counting, split out rows with `status='FAILED' AND error LIKE 'Orchestration stale%'` — for those, `updated_at` is not evidence of aliveness and pairs built on it are unmeasurable, not violations. Discriminator for a benign pair: first-started member stale-reaped AND the second started minutes-not-seconds later (a real claim race starts within seconds — first-claim p50 17.7 s, 2026-08-25). The 584 VERIFY 6/7 encodes exactly this: excluded pairs surface as a NOTICE, never silently dropped; the exclusion is mutation-proved against the live pair (disable it → RAISE, exit 3).
+- **why this generalises:** sibling of [[bugfix-213-verifier-producer-join]] (`updated_at` bumped by a trigger made items unreapable) — same column, inverse failure: there a write made a live thing look fresh; here the terminal write makes a dead thing look like it was alive until the stamp. Any meter keyed on `updated_at` inherits whichever direction it did not think about.
+- **relations:** `dispatch_throughput/NOTES` 2026-08-26 (~2h post-B read, full evidence) · `bugs_open/398` (fire-and-forget scheduler — why these censuses exist at all) · MEMORY [[measurement-discipline-index]]
+- **source:** 2026-08-26, dispatch_throughput lane, ~2h post-637 safety read — investigated before recording because a first-ever non-zero in a safety census is a claim, not a number
+- **added:** 2026-08-26, dispatch_throughput lane

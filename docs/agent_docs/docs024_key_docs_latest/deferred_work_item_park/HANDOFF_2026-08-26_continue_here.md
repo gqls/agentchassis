@@ -25,7 +25,7 @@
 > **unlocked → 6 items · locked, no exception → 0 · locked, one exception → exactly 1, the right
 > one.** State B is the one that matters: the lock still holds with the exception column present.
 > Negative control after rollback: site unlocked, exception list NULL, its queue never actually held.
-> ⚠ **Still unproven: that the SCHEDULER picks such a site in production** — `find_dispatchable_site`
+> ⚠ ~~**Still unproven: that the SCHEDULER picks such a site in production**~~ **RESOLVED 2026-08-26 ~15:00Z — OBSERVED IN PRODUCTION, see the ~15:00Z box BELOW. The paragraph below is kept because its reasoning was right; only its conclusion expired.** — `find_dispatchable_site`
 > is `ORDER BY created_at ASC` fleet-wide and 1,398 older items are queued, so it cannot be forced.
 > **The gap is the tick, not the logic**, and it closes the first time a locked-with-exception site
 > wins the ordering.
@@ -35,6 +35,10 @@
 >
 > **NOTHING IS BLOCKED AND NOTHING IS OWED.** Two residuals are recorded and neither is urgent:
 >
+> - ⚠⚠ **CORRECTED 2026-08-26 ~15:00Z — THE GUARD NAMED IN THIS BULLET IS BLIND. Read the
+>   ~15:00Z box BELOW before relying on it.** The `LANDMINES.md` entry's prose does warn, but the block a session
+>   actually RUNS is a `LIKE '%locked_at%'` substring test, and it prints `HONOURS` on a spelling
+>   that switches the lock off fleet-wide. Corrected in `LANDMINES.md`; logged in `WRONG_CALLS.md`.
 > - ⚠ **The two spellings of the lock rule are guarded only inside Go.** The approving round's own
 >   advisory: `TestSiteLockExceptionSQLIsNotTheSelectorSpelling` cannot reach a **migration** author,
 >   because migration SQL is text and is compiled against nothing. Their only guard is the
@@ -43,6 +47,37 @@
 >   must read that entry first.**
 > - **Nothing stops a raw `UPDATE … SET status='deferred'`.** Short of a trigger, nothing can — the
 >   standing residual on `396`.
+>
+> ## ✅ UPDATE 2026-08-26 ~15:00Z — PRODUCTION PROOF LANDED FREE; THE MIGRATION-AUTHOR GUARD IS BLIND
+>
+> Both findings came from **re-checking claims this lane had already written down.** No new build.
+>
+> **1. ✅ The residual is CLOSED: the scheduler honours the lock in production — observed.** It did
+> not need forcing. The **eight oldest dispatchable rows fleet-wide** now sit on
+> `adversecreditmortgage.co.uk`, which is locked under an **owner HALT**, so a locked site heads the
+> queue and the lock is exercised every tick. Two read-only arms, no mutation: the live
+> `find_dispatchable_site` text **verbatim** returns `agritec.uk`; the same text with **only the lock
+> clause deleted** returns **`adversecreditmortgage.co.uk`**. The queries differ in exactly one
+> clause, so that clause is what moved the answer. **67 dispatchable items across 3 locked sites are
+> held by it today** — load-bearing now, not latent.
+> ⚠ **The test is not always available:** if the control returns an *unlocked* site, no locked site
+> heads the ordering and **neither arm means anything** — unavailable, not passed.
+>
+> **2. ⚠ The guard this handoff nominated for migration authors does not discriminate.** Its check is
+> `... ->>'query' LIKE '%locked_at%'`. It returns **`HONOURS`** for the correct clause; for the same
+> clause with the **outer parens dropped** (`AND` binds tighter than `OR` → **15,683** rows admitted
+> instead of 1,104, re-dispatching `complete`/`failed`/`cancelled` fleet-wide); for an **always-true
+> exception arm** (`COALESCE(...) IS NOT NULL` → **lock off on every site**, releasing the 67); and
+> for the **exception arm deleted** (silent, and **no row count changes today**, so data cannot tell
+> you). The check was correct when written — in 2026-08-03 the clause was *absent*, and a substring
+> test detects absence. **Migration `633` — this lane's — made presence insufficient.**
+> **Fixed in `LANDMINES.md`** (original left visible): four-spelling table, a two-sided behavioural
+> check, and an always-available `DO` block that executes the **live text** so it cannot drift.
+> ⚠ Stated honestly there: it catches the two lock-disabling spellings and **cannot catch the paren
+> one**, whose damage lands on *unlocked* sites. Nothing short of reading the parens catches that.
+>
+> **Still true: nothing is blocked.** The standing residual (nothing stops a raw
+> `UPDATE … SET status='deferred'`) is unchanged.
 >
 > **For the next submission, not this one:** the guardian noted that a `_HOLD` migration editing
 > `agent_definitions` should carry `operation: config_change` in the plan, not `add`. Advisory, and
