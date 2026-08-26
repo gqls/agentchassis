@@ -5799,3 +5799,12 @@ ordering opens: after ANY surprise `Rerender: index.html` commit in vm-sites, re
 label (two anchors: hero `btn btn-primary`, `cta-buttons` div) and re-verify at the served
 page. A surprise design work item on this site in the next days is the rotation, not a
 stray thread.
+
+**2026-08-26 — analytics_gtm heads-up (bugs_open/397): a chrome+pages RERENDER of
+webdesign.uk is INCOMING** (their owner-approved durable GTM fix: one stale_chrome →
+needs_rerender at the next discovery pass). GTM census at vm-sites HEAD `[MEASURED
+2026-08-26]`: index 0, how-it-works 0 (both rerendered today — my own 09:05 wave-5 index
+also emerged tag-less, confirming the durable source lost the tag), the other five pages
+1 each. No action on the tag (their fix restores it). **Action on the LABEL: their
+rerender will wipe it again — expect one more re-place** (the standing daily check +
+site_delivery's NOTE curl cover detection; this note says it is EXPECTED, not a surprise).
