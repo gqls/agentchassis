@@ -1121,3 +1121,31 @@ CUSTOMER-FACING 30-day download link (/d/<token>) is NOT built: pre-mint+refresh
 settled (DECISION_2026-08-21b), vhost has no /d/ block, and since 67f1794f9 core-manager
 structurally refuses a /d/ route until vhost + boxServablePrefixes land together. So: we
 can hand a ZIP today; the durable emailed link is the unbuilt half.
+
+## 2026-08-26 (evening) — webdesign lane confirms: copy hold RELEASED; ban ownership settled; the email's critical path is now entirely this lane's
+
+The webdesign session recorded both rulings with this lane's trail reference and confirmed
+the net effect: terms/register/copy stand, their 08-25 resume point applies, and **the
+delivery email's copy hold is RELEASED** — the two product questions were its stated
+reason. Division of labour now explicit:
+
+- **Theirs:** the approval-language OFFER-SHAPE ban (08-19 round-of-changes narrowing as
+  precedent, both-halves probe via claimscan) — armed AFTER their in-flight three-page
+  prominence wave lands, so their own rebuilds don't trip it. The contact-address KEEP
+  observation goes to the owner in their next status for one explicit confirm.
+- **This lane's, in dependency order:** (1) the `needs_delivery_review` PRODUCER —
+  contract fully pinned in code (via `actions.writeWorkItem`, filed at
+  `needs_human_review`, `ReviewItemRequiredSpec()`'s `checkpoint:true`); (2) the email
+  compose + send step (`platform/mailer`, settings runbooked, port 465 implicit TLS);
+  (3) `/d/<token>` + vhost block + `boxServablePrefixes` entry, one commit.
+
+**Design note for the producer, so the next session doesn't rediscover it:** the admin
+console's `HandleCreateWorkItem` cannot substitute — it hardcodes `status='triaged'`
+(verified 08-25 during the Fable round) and the approve handler requires
+`needs_human_review`, so a console-filed review could never be approved. The real open
+question is the TRIGGER — what event marks a site "ready to deliver". For the first
+customers the honest answer is probably an explicit operator dispatch (no build-completion
+seam exists for customer sites yet, 0 having ever been built); wire the action so any
+later automatic trigger can call the same thing.
+
+**DKIM/DMARC** stay owed at the HOST before any real customer send (NOTES entry above).
