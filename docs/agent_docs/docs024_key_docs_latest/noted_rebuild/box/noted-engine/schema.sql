@@ -118,3 +118,39 @@ DROP TRIGGER IF EXISTS trg_media_bytes ON media;
 CREATE TRIGGER trg_media_bytes
     AFTER INSERT OR DELETE ON media
     FOR EACH ROW EXECUTE FUNCTION media_bytes_maintain();
+
+-- 2026-08-26, large uploads (PLAN_2026-08-26_large_uploads.md — the 25 MB
+-- blocker gating the paid tier). Two parts.
+--
+-- Per-account limit overrides: NULL = the process-wide env default applies, so
+-- every existing account behaves exactly as before this ALTER. Setting them is
+-- the paid tier's whole lever — 1 TB is an UPDATE, not a deploy.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS media_quota_override_bytes BIGINT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS max_upload_override_bytes  BIGINT;
+
+-- A pending upload RESERVES quota from `begin`: the quota checks count
+-- declared_bytes of open reservations beside accounts.media_bytes, so two
+-- concurrent begins cannot promise the same headroom twice. `finish` converts
+-- the reservation into a media row in one transaction; abort or the reaper
+-- releases it. parts records what B2 has confirmed: {"1": {"size":..,
+-- "sha1":".."}, ...} — JSONB for the same ship-with-the-binary reason as
+-- notes.layout.
+CREATE TABLE IF NOT EXISTS pending_uploads (
+    id             BIGSERIAL PRIMARY KEY,
+    account_id     BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    note_id        BIGINT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    kind           TEXT NOT NULL CHECK (kind IN ('audio','image','video')),
+    mime           TEXT NOT NULL DEFAULT 'application/octet-stream',
+    declared_bytes BIGINT NOT NULL CHECK (declared_bytes > 0),
+    -- Chosen at begin (B2 needs >=2 parts of >=5MB except the last, Cloudflare
+    -- caps a request under ~100MB, so the size is per-upload arithmetic).
+    -- PERSISTED rather than recomputed so an upload started under one binary
+    -- validates identically under the next.
+    part_size_bytes BIGINT NOT NULL CHECK (part_size_bytes > 0),
+    storage_key    TEXT NOT NULL,
+    b2_file_id     TEXT NOT NULL,
+    parts          JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_pending_uploads_account ON pending_uploads(account_id);
+CREATE INDEX IF NOT EXISTS idx_pending_uploads_age     ON pending_uploads(created_at);

@@ -18,10 +18,17 @@ import (
 	"time"
 )
 
+type stubLargeFile struct {
+	key       string
+	parts     map[int][]byte
+	startedAt int64 // ms, what uploadTimestamp reports
+}
+
 type b2Stub struct {
 	mu          sync.Mutex
-	objects     map[string][]byte // key -> bytes
-	fileIDs     map[string]string // fileId -> key
+	objects     map[string][]byte         // key -> bytes
+	fileIDs     map[string]string         // fileId -> key
+	unfinished  map[string]*stubLargeFile // fileId -> in-progress large file
 	nextID      int
 	failDeletes bool // induce the B2-refuses-delete world
 	srv         *httptest.Server
@@ -29,7 +36,8 @@ type b2Stub struct {
 
 func newB2Stub(t *testing.T) *b2Stub {
 	t.Helper()
-	st := &b2Stub{objects: map[string][]byte{}, fileIDs: map[string]string{}}
+	st := &b2Stub{objects: map[string][]byte{}, fileIDs: map[string]string{},
+		unfinished: map[string]*stubLargeFile{}}
 	mux := http.NewServeMux()
 	// v4 shape, matching the live probe of 2026-08-25 (v2/v3 are refused by
 	// the real service, so the stub does not offer them either).
@@ -98,9 +106,129 @@ func newB2Stub(t *testing.T) *b2Stub {
 		delete(st.fileIDs, in.FileId)
 		json.NewEncoder(w).Encode(map[string]any{})
 	})
+	// --- large-file endpoints (the chunked path, server_uploads.go) ---
+	// The stub VERIFIES part sha1s and refuses a bad finish, like the real
+	// service, so a green chunked test is a byte-level claim, not a hand-wave.
+	mux.HandleFunc("POST /b2api/v4/b2_start_large_file", func(w http.ResponseWriter, r *http.Request) {
+		var in struct{ FileName, ContentType string }
+		json.NewDecoder(r.Body).Decode(&in)
+		st.mu.Lock()
+		st.nextID++
+		id := fmt.Sprintf("lfid-%d", st.nextID)
+		st.unfinished[id] = &stubLargeFile{key: in.FileName, parts: map[int][]byte{},
+			startedAt: time.Now().UnixMilli()}
+		st.mu.Unlock()
+		json.NewEncoder(w).Encode(map[string]any{"fileId": id})
+	})
+	mux.HandleFunc("POST /b2api/v4/b2_get_upload_part_url", func(w http.ResponseWriter, r *http.Request) {
+		var in struct{ FileId string }
+		json.NewDecoder(r.Body).Decode(&in)
+		json.NewEncoder(w).Encode(map[string]any{
+			"uploadUrl": st.srv.URL + "/upload_part/" + in.FileId, "authorizationToken": "part-tok"})
+	})
+	mux.HandleFunc("POST /upload_part/{fid}", func(w http.ResponseWriter, r *http.Request) {
+		fid := r.PathValue("fid")
+		var n int
+		fmt.Sscan(r.Header.Get("X-Bz-Part-Number"), &n)
+		data, _ := readAll(r.Body)
+		sum := sha1.Sum(data)
+		if hex.EncodeToString(sum[:]) != r.Header.Get("X-Bz-Content-Sha1") {
+			w.WriteHeader(400)
+			w.Write([]byte(`{"code":"bad_hash"}`))
+			return
+		}
+		st.mu.Lock()
+		defer st.mu.Unlock()
+		lf, ok := st.unfinished[fid]
+		if !ok || n < 1 {
+			w.WriteHeader(400)
+			w.Write([]byte(`{"code":"file_not_present"}`))
+			return
+		}
+		lf.parts[n] = data
+		json.NewEncoder(w).Encode(map[string]any{"partNumber": n})
+	})
+	mux.HandleFunc("POST /b2api/v4/b2_finish_large_file", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			FileId        string
+			PartSha1Array []string
+		}
+		json.NewDecoder(r.Body).Decode(&in)
+		st.mu.Lock()
+		defer st.mu.Unlock()
+		lf, ok := st.unfinished[in.FileId]
+		if !ok {
+			w.WriteHeader(400)
+			w.Write([]byte(`{"code":"file_not_present"}`))
+			return
+		}
+		var whole []byte
+		for i := 1; i <= len(in.PartSha1Array); i++ {
+			data, ok := lf.parts[i]
+			if !ok {
+				w.WriteHeader(400)
+				w.Write([]byte(`{"code":"missing_part"}`))
+				return
+			}
+			sum := sha1.Sum(data)
+			if hex.EncodeToString(sum[:]) != in.PartSha1Array[i-1] {
+				w.WriteHeader(400)
+				w.Write([]byte(`{"code":"part_sha1_mismatch"}`))
+				return
+			}
+			whole = append(whole, data...)
+		}
+		st.objects[lf.key] = whole
+		st.fileIDs[in.FileId] = lf.key
+		delete(st.unfinished, in.FileId)
+		json.NewEncoder(w).Encode(map[string]any{"fileId": in.FileId, "fileName": lf.key})
+	})
+	mux.HandleFunc("POST /b2api/v4/b2_cancel_large_file", func(w http.ResponseWriter, r *http.Request) {
+		var in struct{ FileId string }
+		json.NewDecoder(r.Body).Decode(&in)
+		st.mu.Lock()
+		defer st.mu.Unlock()
+		if _, ok := st.unfinished[in.FileId]; !ok {
+			w.WriteHeader(400)
+			w.Write([]byte(`{"code":"file_not_present"}`))
+			return
+		}
+		delete(st.unfinished, in.FileId)
+		json.NewEncoder(w).Encode(map[string]any{})
+	})
+	mux.HandleFunc("POST /b2api/v4/b2_list_unfinished_large_files", func(w http.ResponseWriter, r *http.Request) {
+		var in struct{ NamePrefix string }
+		json.NewDecoder(r.Body).Decode(&in)
+		st.mu.Lock()
+		defer st.mu.Unlock()
+		files := []map[string]any{}
+		for id, lf := range st.unfinished {
+			if strings.HasPrefix(lf.key, in.NamePrefix) {
+				files = append(files, map[string]any{
+					"fileId": id, "fileName": lf.key, "uploadTimestamp": lf.startedAt})
+			}
+		}
+		json.NewEncoder(w).Encode(map[string]any{"files": files, "nextFileId": nil})
+	})
 	st.srv = httptest.NewServer(mux)
 	t.Cleanup(st.srv.Close)
 	return st
+}
+
+func (st *b2Stub) unfinishedCount() int {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return len(st.unfinished)
+}
+
+// backdateUnfinished ages an in-progress large file so the reaper's age guard
+// sees it as abandoned.
+func (st *b2Stub) backdateUnfinished(fileID string, age time.Duration) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if lf, ok := st.unfinished[fileID]; ok {
+		lf.startedAt = time.Now().Add(-age).UnixMilli()
+	}
 }
 
 func (st *b2Stub) count() int {

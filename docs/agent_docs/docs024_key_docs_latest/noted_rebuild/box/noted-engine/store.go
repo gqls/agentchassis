@@ -358,12 +358,18 @@ func (s *Store) AddMediaB2(ctx context.Context, accountID, noteID int64, kind, m
 	}
 	defer tx.Rollback()
 
-	var used int64
+	// Usage counts open chunked-upload reservations beside stored bytes, and
+	// the quota honours a per-account override (2026-08-26, large uploads) —
+	// otherwise a small upload could slip inside headroom a chunked begin has
+	// already promised away.
+	var used, quota int64
 	if err := tx.QueryRowContext(ctx,
-		`SELECT media_bytes FROM accounts WHERE id=$1 FOR UPDATE`, accountID).Scan(&used); err != nil {
+		`SELECT a.media_bytes + COALESCE((SELECT SUM(p.declared_bytes) FROM pending_uploads p WHERE p.account_id=a.id),0),
+		        COALESCE(a.media_quota_override_bytes, $2)
+		 FROM accounts a WHERE a.id=$1 FOR UPDATE OF a`, accountID, s.QuotaBytes).Scan(&used, &quota); err != nil {
 		return 0, err
 	}
-	if used+int64(byteLen) > s.QuotaBytes {
+	if used+int64(byteLen) > quota {
 		return 0, ErrQuotaExceeded
 	}
 	var owned int64
@@ -398,13 +404,17 @@ func (s *Store) AddMedia(ctx context.Context, accountID, noteID int64, kind, mim
 	}
 	defer tx.Rollback()
 
-	// Lock the account row so the quota read cannot be stale by the time we insert.
-	var used int64
+	// Lock the account row so the quota read cannot be stale by the time we
+	// insert. Same reservation-aware, override-aware read as AddMediaB2
+	// (2026-08-26, large uploads).
+	var used, quota int64
 	if err := tx.QueryRowContext(ctx,
-		`SELECT media_bytes FROM accounts WHERE id=$1 FOR UPDATE`, accountID).Scan(&used); err != nil {
+		`SELECT a.media_bytes + COALESCE((SELECT SUM(p.declared_bytes) FROM pending_uploads p WHERE p.account_id=a.id),0),
+		        COALESCE(a.media_quota_override_bytes, $2)
+		 FROM accounts a WHERE a.id=$1 FOR UPDATE OF a`, accountID, s.QuotaBytes).Scan(&used, &quota); err != nil {
 		return 0, err
 	}
-	if used+int64(len(data)) > s.QuotaBytes {
+	if used+int64(len(data)) > quota {
 		return 0, ErrQuotaExceeded
 	}
 

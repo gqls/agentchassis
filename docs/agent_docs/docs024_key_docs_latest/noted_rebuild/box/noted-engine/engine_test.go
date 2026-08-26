@@ -39,7 +39,7 @@ func newTestServer(t *testing.T) *Server {
 	}
 	// Fresh schema per run so one test's rows cannot explain another's pass.
 	if _, err := db.ExecContext(ctx,
-		`DROP TABLE IF EXISTS media, sessions, notes, accounts CASCADE`); err != nil {
+		`DROP TABLE IF EXISTS pending_uploads, media, sessions, notes, accounts CASCADE`); err != nil {
 		t.Fatalf("reset: %v", err)
 	}
 	st := &Store{DB: db, QuotaBytes: 1024 * 1024} // 1 MB, so the quota is reachable in a test

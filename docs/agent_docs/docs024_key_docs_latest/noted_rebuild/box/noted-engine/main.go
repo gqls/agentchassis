@@ -109,6 +109,18 @@ func main() {
 		}
 	}()
 
+	// Release abandoned chunked uploads (server_uploads.go): stale
+	// reservations give the quota back, and unfinished B2 large files stop
+	// being silently billed. Hourly, and once shortly after startup so a
+	// crash's orphans do not wait a day.
+	go func() {
+		time.Sleep(time.Minute)
+		for {
+			srv.ReapAbandonedUploads(context.Background())
+			time.Sleep(time.Hour)
+		}
+	}()
+
 	httpSrv := &http.Server{
 		Addr:              addr,
 		Handler:           srv.Routes(),

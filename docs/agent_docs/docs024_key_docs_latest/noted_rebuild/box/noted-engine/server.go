@@ -48,6 +48,11 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("DELETE /api/notes/{id}", s.auth(s.deleteNote))
 
 	mux.HandleFunc("POST /api/notes/{id}/media", s.auth(s.uploadMedia))
+	// Chunked uploads for files one request cannot carry (server_uploads.go).
+	mux.HandleFunc("POST /api/notes/{id}/media/uploads", s.auth(s.beginUpload))
+	mux.HandleFunc("PUT /api/uploads/{id}/parts/{n}", s.auth(s.uploadPart))
+	mux.HandleFunc("POST /api/uploads/{id}/finish", s.auth(s.finishUpload))
+	mux.HandleFunc("DELETE /api/uploads/{id}", s.auth(s.abortUpload))
 	mux.HandleFunc("GET /api/media/{id}", s.auth(s.getMedia))
 	mux.HandleFunc("DELETE /api/media/{id}", s.auth(s.deleteMedia))
 	mux.HandleFunc("PATCH /api/media/{id}", s.auth(s.updateMedia))
@@ -205,14 +210,22 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request, a *Account) {
+	// Effective per-account limits (override, or the env default) — reporting
+	// them here is what lets the editor refuse an oversized file BEFORE the
+	// upload, and route a large one down the chunked path, without hardcoding
+	// numbers that can drift from the truth. small_upload_max is the
+	// single-request cap: at or under it, the plain POST; above it, chunks.
+	quota, maxUpload, err := s.Store.EffectiveLimits(r.Context(), a.ID, s.Store.QuotaBytes, s.MaxUploadBytes)
+	if err != nil {
+		log.Printf("me: limits read failed: %v", err)
+		quota, maxUpload = s.Store.QuotaBytes, s.MaxUploadBytes
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"email":       a.Email,
-		"media_bytes": a.MediaBytes,
-		"media_quota": s.Store.QuotaBytes,
-		// The per-file cap lives in this process's environment; reporting it
-		// here is what lets the editor refuse an oversized file BEFORE the
-		// upload, without hardcoding a number that can drift from the truth.
-		"max_upload": s.MaxUploadBytes,
+		"email":            a.Email,
+		"media_bytes":      a.MediaBytes,
+		"media_quota":      quota,
+		"max_upload":       maxUpload,
+		"small_upload_max": s.MaxUploadBytes,
 	})
 }
 
@@ -480,6 +493,29 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request, a *Accoun
 	for _, ref := range refs {
 		if err := s.B2.Delete(ref.Key, ref.FileID); err != nil {
 			log.Printf("delete account %d: b2 delete %s failed: %v", a.ID, ref.Key, err)
+			writeErr(w, http.StatusBadGateway,
+				"could not remove your files — nothing has been deleted; please try again")
+			return
+		}
+	}
+
+	// Unfinished chunked uploads hold bytes too (B2 bills their parts).
+	// "Goodbye only after everything is gone" includes them: cancel each
+	// before the rows cascade, with the same refuse-not-orphan posture.
+	pending, err := s.Store.AccountPendingUploads(r.Context(), a.ID)
+	if err != nil {
+		log.Printf("delete account %d: pending uploads list failed: %v", a.ID, err)
+		writeErr(w, http.StatusInternalServerError, "could not delete the account — nothing has been removed")
+		return
+	}
+	for _, p := range pending {
+		if s.B2 == nil {
+			log.Printf("delete account %d: pending upload but no B2 client configured", a.ID)
+			writeErr(w, http.StatusInternalServerError, "could not delete the account — nothing has been removed")
+			return
+		}
+		if err := s.B2.CancelLargeFile(p.B2FileID); err != nil {
+			log.Printf("delete account %d: cancel pending upload %s failed: %v", a.ID, p.B2FileID, err)
 			writeErr(w, http.StatusBadGateway,
 				"could not remove your files — nothing has been deleted; please try again")
 			return
