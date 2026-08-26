@@ -1072,3 +1072,52 @@ delivery-email gate of DECISION_2026-08-24 is met on that front.
 `needs_human_review`, with `ReviewItemRequiredSpec()`'s `checkpoint:true`); the copy +
 send (deliberately unwritten pending the owner's two open product questions); the owner
 review itself per DECISION_2026-08-21e. Nothing else on this lane blocks it.
+
+## 2026-08-26 (late afternoon) — OWNER RULES BOTH OPEN PRODUCT QUESTIONS; mail diagnosis; ZIP state answered
+
+**OWNER RULING (decision 1, verbatim intent):** *"I give myself the opportunity to edit the
+site, they don't have to know. As far as they are concerned it is one-shot with no approval
+stage. But I need to be sure I'm not selling rubbish so I need this step. Three or four
+days is fine."* — So: pre-send review EXTENDS to owner EDITS, internal only; the attested
+customer position (`one_shot_no_approval`, "no changes are included") is UNCHANGED and no
+copy or register fact moves; `build_duration` ("three or four days") absorbs the step. This
+is exactly DECISION_2026-08-21e's design (internal gate, invisible to the customer; the
+one risk is the gate leaking into copy, and the claims layer still cannot catch approval
+language — that ban is still owed). The `needs_delivery_review` mechanism fits as built:
+owner edits via the admin surface, then approves; a rejection routes to repair.
+
+**OWNER RULING (decision 2):** *"For launch the customer doesn't get any edits. But I want
+to build this voice edit next."* — So: launch ships with NO customer editing (attested
+terms stand); **customer VOICE EDIT is the next build on this lane after launch** —
+Phases 5–6 unfreeze POST-LAUNCH with voice as the input method. Both 08-25
+reconsiderations are now RULED; the webdesign lane's SUMMARY_2026-08-25 resume point
+applies and their launch sequencing unfreezes. Relayed to their session.
+
+**Mail diagnosis (owner: "email not working... not from another email client"), all
+MEASURED 2026-08-26 from outside:** contactforsales.com's DNS is NOT on Cloudflare
+(NS = dns1/dns2.uk-noc.com — the hosting provider; our CF account has 0 matching zones),
+so there is nothing to fix in Cloudflare. Inbound WORKS: MX = mx1/mx2.email-cluster.com
+(Proxmox Mail Gateway), and an SMTP RCPT probe with a resolvable sender got **250 Ok for
+webdesign@contactforsales.com on both** — external mail is accepted. Client ports ALL
+OPEN from the internet (465/587/993/995/2080), the TLS certificate is valid for
+mail.contactforsales.com, and 465 offers AUTH PLAIN LOGIN over implicit SSL. **So the
+server side is healthy end-to-end; the failure is in the connecting client's settings or
+credentials** — the classic mismatch being security mode: port 465 must be "SSL/TLS"
+(implicit), port 587 must be "STARTTLS"; crossing them fails exactly like this. Residuals
+for deliverability once sending works: **DKIM absent** (no default._domainkey record) and
+**DMARC absent** — both enabled at the host (cPanel → Email Deliverability), NOT
+Cloudflare. ⚠ mail.contactforsales.com:25 does not answer externally — fine (the PMG
+cluster fronts inbound), noted so nobody reads it as the fault.
+
+**Mailer config for the delivery email when it ships** (RUNBOOK'd; no secret held):
+host mail.contactforsales.com, port 465 (platform/mailer's UsesImplicitTLS(465) already
+handles implicit TLS), username webdesign@contactforsales.com, password via secret ref
+only. The owner setting this address up implies the contact-address question (old D3)
+resolves as KEEP contactforsales.com — observed, not ruled; worth one explicit confirm.
+
+**ZIP state, answered:** the ZIP MECHANISM works — DGH-011 live since 08-18, canary 8/8
+byte-verified, cut on demand via zip-deliverable-dispatch, presign ≤7 days. The
+CUSTOMER-FACING 30-day download link (/d/<token>) is NOT built: pre-mint+refresh design
+settled (DECISION_2026-08-21b), vhost has no /d/ block, and since 67f1794f9 core-manager
+structurally refuses a /d/ route until vhost + boxServablePrefixes land together. So: we
+can hand a ZIP today; the durable emailed link is the unbuilt half.
