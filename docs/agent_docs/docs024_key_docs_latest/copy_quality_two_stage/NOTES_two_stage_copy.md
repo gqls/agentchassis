@@ -2954,3 +2954,17 @@ rulings are the chase, executed.
 > executing. For the `orchestration_states`-restructure lane: one in-flight council run failed
 > mid-step across your migration window; the approval that stands is the redispatched run's
 > (15:19:59Z). No action owed on our side.
+
+---
+
+## 2026-08-26 (evening) — canary GO with a standing owner instruction; queue-bound timing
+
+finetuning answered the progress check with measurements: the owner's word came ~17:20 —
+*"forward only corrections … you don't have to restore them, we can keep rebuilding through the
+system until they are acceptable"* — a STANDING instruction (baseline = diff base, never an undo).
+Re-file 17:23:44Z confirmed as the canary; the image queue is the clock (62 ahead fleet-wide,
+~10/h drain, their priority checked-not-assumed and deliberately not raised over other lanes);
+writer stage downstream again → the nine land in HOURS, likely a successor session's watch. The
+divergence item is outside the nine and predates the re-file — baseline valid. They send their
+READ before looking at the battery (P5's ordering, theirs by agreement). Handoff canary item
+updated with all of this.
