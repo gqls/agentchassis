@@ -5976,3 +5976,19 @@ count-visits purpose needs, at eventual publish, a GA4 tag with Consent Mode def
 DENIED (cookieless pings, countable, no _ga); analytics lane specs it; creation is not
 gated. Estate GA4 into GTM-PQ3WCTBD: fully unblocked, waiting on the owner's own
 Publish click.
+
+## 2026-08-26 (night) — OWNER TRIAL LOOP designed; £30 voucher variant shipped (inert until roll)
+
+Owner will trial the WHOLE service repeatedly as customer zero ("a whole load of domains
+of my own... a voucher... a site for say 30 pounds that I will collect the other end.
+That way we can trial the vouchers too"). £30 was NOT a ruled voucher variant (£10/£55
+only, owner 2026-08-11, enforced RuledVoucherPences + refusal message + pinned test) —
+widened to {£10,£30,£55} by tonight's ruling: 3 files, tests green, council submission
+e5c25b0b (Council-Submitted trailer), INERT until the next auth-service roll. Trial-loop
+sequencing for the owner (in the chat reply): Stripe keys FIRST (vouchers redeem inside
+real checkout; he pays himself, cost = Stripe fees ~65p/run at £30), then voucher mint
+(admin API - FE screen still unbuilt per PAY-009), then per-run: brief-starter intake →
+pay £30 → build → his ruled internal edit pass (admin console) → collect at the hosted
+link (delivery email joins the loop when the delivery lane ships it). Trial sites default
+to <slug>.ugg2.com; pointing one or two at HIS OWN portfolio domains additionally trials
+P4 pointing without any registration spend.
