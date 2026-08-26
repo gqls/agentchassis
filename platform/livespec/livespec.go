@@ -88,7 +88,7 @@ const (
 //
 // It exists because of a council objection (bug_historian, round 2): a field that
 // is accepted but never read is indistinguishable from one that works.
-const LiveAuditOnlyDeclarations = 6
+const LiveAuditOnlyDeclarations = 8
 
 // MaxDeclarations is a growth boundary (council: architecture, round 1). livespec
 // is a registry of guarded live objects, not a general config store; if it sprawls
@@ -270,6 +270,30 @@ var Declarations = []Declaration{
 			"has no shared-contract shape to put in a plan. 6 values measured live 2026-08-22.",
 	},
 	{
+		// THE PAIRED COUNT — this is what makes the declaration above able to fail in
+		// BOTH directions. FragmentMatch asserts each declared value is PRESENT, so on
+		// its own it catches a value being REMOVED from the live constraint and is
+		// blind to one being ADDED: every declared fragment is still there, and the
+		// clean run reads identically. Measured 2026-08-25 (bugs_open/363).
+		//
+		// No per-fragment Max can close that — a Max bounds one value's occurrences,
+		// never the SIZE OF THE SET, and a newly added value is in nobody's fragment
+		// list. Only a count assertion sees it. That is the same reason
+		// trigger_bindings.page_component_artefact_archive is CountEqual: 357 declared
+		// two bindings and 552 added a third, which is this bug's founding example.
+		Key:         "constraint.doc_plans_subject_type_check.value_count",
+		Kind:        "constraint",
+		Mode:        CountEqual,
+		ExpectCount: 6,
+		Phase:       PhaseLiveAudit,
+		ProbeSQL: "SELECT ((length(pg_get_constraintdef(oid)) - length(replace(pg_get_constraintdef(oid), '::text', ''))) " +
+			"/ length('::text'))::text FROM pg_constraint WHERE conname = 'doc_plans_subject_type_check'",
+		Provenance: "counts '::text' casts in the constraint body, one per value (the subject_type " +
+			"column itself is not cast, so there is no off-by-one). Measured live 2026-08-26: 6. The " +
+			"simulated-addition control was run on the doc_notes twin (8 -> 9), proving the probe form " +
+			"moves when a value is added; it was not re-run separately here.",
+	},
+	{
 		Key:      "constraint.doc_notes_subject_type_check",
 		Kind:     "constraint",
 		ProbeSQL: "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'doc_notes_subject_type_check'",
@@ -287,6 +311,26 @@ var Declarations = []Declaration{
 			{Text: "'landmine'::text", Min: 1},
 		},
 		Provenance: "8 values measured live 2026-08-22 (doc_plans' 6 plus landmine and decision).",
+	},
+	{
+		// THE PAIRED COUNT for doc_notes. See the doc_plans twin above for why a
+		// FragmentMatch declaration cannot see an ADDED value on its own.
+		//
+		// This is the one where addition is the dangerous direction. doc_notes is the
+		// wider vocabulary and the two constraints are deliberately NOT identical, so
+		// "make them agree" is a standing temptation that has already been guarded
+		// against once (migration 273 refuses to rebuild this constraint without
+		// 'landmine'). A value quietly appearing here is exactly how the two drift.
+		Key:         "constraint.doc_notes_subject_type_check.value_count",
+		Kind:        "constraint",
+		Mode:        CountEqual,
+		ExpectCount: 8,
+		Phase:       PhaseLiveAudit,
+		ProbeSQL: "SELECT ((length(pg_get_constraintdef(oid)) - length(replace(pg_get_constraintdef(oid), '::text', ''))) " +
+			"/ length('::text'))::text FROM pg_constraint WHERE conname = 'doc_notes_subject_type_check'",
+		Provenance: "counts '::text' casts, one per value. Measured live 2026-08-26: 8 — and 9 when one " +
+			"extra value is simulated into the same body, which is the disconfirming control that makes " +
+			"this probe evidence rather than a number that agrees with us.",
 	},
 	{
 		Key:  "workflow.build-site-planner.load_existing_pages",
@@ -310,7 +354,13 @@ var Declarations = []Declaration{
 		Phase: PhaseLiveAudit,
 		Fragments: []Fragment{
 			// BOTH render steps must set it; one is a half-wired workflow that looks fine.
-			{Text: "\"slot_name_from\": \"current_section.name\"", Min: 2},
+			//
+			// Max added 2026-08-25 to close this entry's half of the gain-blindness:
+			// with Min alone, a THIRD render step appearing live is invisible. Exactly
+			// 2 is the live truth, and a legitimate third step SHOULD stop the auditor
+			// and make someone update this line — that is drift detection working, not
+			// a false positive.
+			{Text: "\"slot_name_from\": \"current_section.name\"", Min: 2, Max: 2},
 		},
 		Provenance: "seed 023 sets it on render_section and render_from_template. The SEED is not the " +
 			"system — this is the live half. Measured live 2026-08-22: 2 occurrences.",

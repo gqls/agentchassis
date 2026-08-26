@@ -289,3 +289,107 @@ func TestEveryAllowListEntryCarriesAReason(t *testing.T) {
 		}
 	}
 }
+
+// ── GAIN-BLINDNESS: A FragmentMatch DECLARATION CANNOT SEE AN ADDED VALUE ──────
+//
+// Measured 2026-08-25 (bugs_open/363), with the auditor deployed and running:
+// FragmentMatch asserts each declared Fragment is PRESENT in the live text. So it
+// catches the live object LOSING a declared value, and raises NOTHING when the
+// live object GAINS an undeclared one — every declared fragment is still there,
+// and the auditor prints the same "0 finding(s)" either way.
+//
+// That is this whole bug's founding shape: migration 357 declared two trigger
+// bindings and 552 added a third, and the body-text comparison passed throughout.
+//
+// ⚠ NO PER-FRAGMENT Max CLOSES THIS. A Max bounds how often ONE declared value may
+// appear; it says nothing about the SIZE OF THE SET, and a newly added value is in
+// nobody's fragment list. Only a count assertion sees addition. Hence the rule:
+//
+//	every FragmentMatch declaration either has a paired "<key>.value_count"
+//	CountEqual declaration, or a written waiver saying why its object is not an
+//	enumerable vocabulary.
+//
+// The waiver is the same discipline as migrationReaderAllowList: a reason a human
+// wrote, not a name on a list.
+var gainBlindnessWaivers = map[string]string{
+	"scheduled_task.claimed-item-timeout.exclusions": "ALREADY gain-visible, no pairing needed. Its single " +
+		"fragment is the WHOLE rendered clause from ClaimedItemTimeoutExclusionClause(), terminator included: " +
+		"\"item_type NOT IN ('a', ..., 'dark_section_audit')\". A 15th type added live makes the text read " +
+		"\"..., 'dark_section_audit', 'new')\", so the declared substring — which ends at the closing paren — " +
+		"stops matching and the auditor fires. Whole-clause fragments are self-bounding; per-value ones are not.",
+	"scheduled_task.build-pipeline-trigger.retry_cooldown": "not an enumerable vocabulary. One boolean " +
+		"predicate that is either spelled correctly or is not, plus a Forbidden fragment for the strict-'<' " +
+		"spelling this bug's sibling was filed about. There is no set here whose size could grow.",
+	"trigger_fn.site_component_history_archive": "a function BODY, not a list. Counting '::text' casts or " +
+		"quoted literals in PL/pgSQL would be noise, not a vocabulary size. ⚠ STATED PLAINLY BECAUSE IT IS A " +
+		"REAL RESIDUAL: a FOURTH verdict literal added to this function would be invisible to this entry. " +
+		"classifySiteComponentArtefact is the Go mirror that would then disagree, and that is the tie we have.",
+	"trigger_fn.page_component_artefact_archive": "same shape as its site_component twin — a function body. " +
+		"Its dangerous growth direction is the TRIGGER SET rather than the body (357 declared 2 bindings, 552 " +
+		"added a third), and that IS counted, by the separate CountEqual declaration " +
+		"trigger_bindings.page_component_artefact_archive. Body-literal growth remains a stated residual.",
+	"workflow.build-site-planner.load_existing_pages": "a single canonical predicate bounded Min 1 Max 1, " +
+		"not a vocabulary. The Max already refuses a second occurrence, which is the only growth this " +
+		"one-predicate declaration has.",
+	"workflow.page-content-writer.slot_name_from": "bounded Min 2 Max 2 as of 2026-08-25, so a third render " +
+		"step setting slot_name_from stops the auditor. That is the growth direction that matters here; the " +
+		"live object is two workflow steps, not an open-ended list of values.",
+}
+
+// EVERY FragmentMatch DECLARATION IS GAIN-VISIBLE OR EXPLICITLY WAIVED.
+//
+// Without this, the fix for bugs_open/363's own blind spot lasts exactly as long
+// as the next person who adds a FragmentMatch entry without knowing about it.
+func TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived(t *testing.T) {
+	paired := map[string]bool{}
+	for _, d := range Declarations {
+		if d.Mode == CountEqual {
+			paired[d.Key] = true
+		}
+	}
+
+	seen := map[string]bool{}
+	for _, d := range Declarations {
+		if d.Mode != FragmentMatch {
+			continue
+		}
+		seen[d.Key] = true
+		if paired[d.Key+".value_count"] {
+			continue
+		}
+		reason, ok := gainBlindnessWaivers[d.Key]
+		if !ok {
+			t.Errorf("%s is FragmentMatch with no paired %q CountEqual declaration and no waiver.\n"+
+				"FragmentMatch asserts PRESENCE, so it sees the live object LOSE a declared value and is BLIND "+
+				"to it GAINING an undeclared one — and the auditor's clean run looks identical either way "+
+				"(bugs_open/363, measured 2026-08-25).\n"+
+				"Either add the paired count declaration, or add a waiver to gainBlindnessWaivers saying why "+
+				"this object is not an enumerable vocabulary. A Max on a fragment does NOT close this: it "+
+				"bounds one value's occurrences, never the size of the set.", d.Key, d.Key+".value_count")
+			continue
+		}
+		if len(strings.TrimSpace(reason)) < 60 {
+			t.Errorf("gain-blindness waiver for %s is too thin to be a reason (%q) — an allow-list without a "+
+				"real reason converts a live debt into a false all-clear", d.Key, reason)
+		}
+	}
+
+	// A waiver that outlives its declaration is the same defect one level up: it
+	// reads as a considered decision about something that is no longer there.
+	for key := range gainBlindnessWaivers {
+		if !seen[key] {
+			t.Errorf("gain-blindness waiver names %q, which is not a FragmentMatch declaration any more "+
+				"(renamed, removed, or converted to CountEqual). Delete the waiver — a stale one hides "+
+				"whatever now occupies that name.", key)
+		}
+		if paired[key+".value_count"] {
+			t.Errorf("%s has BOTH a waiver and a paired count declaration. Keep the pairing and delete the "+
+				"waiver: two answers to one question is how the wrong one survives.", key)
+		}
+	}
+
+	// A guard that examined nothing proves nothing.
+	if len(seen) == 0 {
+		t.Fatal("no FragmentMatch declarations were examined — this guard is vacuous")
+	}
+}
