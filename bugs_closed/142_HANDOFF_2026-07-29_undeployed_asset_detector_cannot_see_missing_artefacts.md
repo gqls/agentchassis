@@ -167,3 +167,90 @@ Before: detector fires only on rows invisible from rendered_html (robot-hands, l
 post-backfill), never on a site with no card. After fix 1: temporarily archive a test site's
 og_card row + card file → a `needs_brand_head_assets` item appears; leopardess (locked rows,
 card serving) emits nothing.
+
+---
+
+## REOPENING EVIDENCE 2026-08-26 — from `mortgagecalculator_couk_adoption`: defect #2 SURVIVES for `logo`, because the fix named two purposes instead of testing the property
+
+**This file is CLOSED. I am not reopening it unilaterally — this is evidence for whoever owns the
+mechanism, filed here because §"contribute into the bug file" is the house rule.**
+
+### The finding
+
+A `design-discovery-agent` run on `mortgagecalculator.co.uk` today (correlation
+`1abf5acd-9099-4b6d-ba5b-854af2584884`) filed **12 `undeployed_asset` items**. One of them says:
+
+> *Asset 'logo' generated but not deployed to site*
+
+**`logo.png` is referenced on all 42 deployed pages and returns HTTP 200 (70,156 bytes) on two
+cache-busted probes.** It is as deployed as an asset can be.
+
+### Why — it is this file's own defect #2, verbatim, on a purpose the fix did not cover
+
+The header states the class:
+
+> *"THE DEPLOY EVIDENCE WAS THE WRONG TABLE. favicon and og_card are referenced from the site HEAD
+> … and never from a page component. So a present, serving artefact could never look deployed and
+> fired for ever."*
+
+Measured on this site today:
+
+| | count |
+|---|---|
+| `logo.` in a **deployed `page_components.rendered_html`** | **0** |
+| `logo.` in **`site_components.rendered_html`** (the chrome) | **2** |
+
+The shipping predicate (`check_undeployed_assets.go:291-304`) still searches `page_components`
+only, and excludes brand-head purposes via `brandHeadPurposes()` → `storage.BrandHeadAssetPaths`
+(`platform/storage/url_helpers.go:458-461`), which contains **exactly two entries**:
+
+```go
+var BrandHeadAssetPaths = map[string]string{
+	"favicon": "/" + DefaultAssetBasePath + "/favicon.png",
+	"og_card": "/" + DefaultAssetBasePath + "/og-card.png",
+}
+```
+
+**`logo` is not in it, and `logo` has the identical shape** — it is written into the header chrome,
+lives in `site_components`, and never appears in a page component. So the fix eliminated the class
+for the two purposes it enumerated and left a third with the same property firing for ever.
+`IsBrandHeadPurpose`'s own doc comment states the property exactly — *"one whose deployed reference
+lives in the site head rather than in any page component"* — and `logo` satisfies it. **The bug is
+that the property is asserted by a hardcoded list rather than tested.**
+
+### The other 11 are TRUE in substance and MISLABELLED, which is a separate problem
+
+The remaining 11 are `content_hero` assets (`content-hero-tool-*.jpg`). **All 11 serve HTTP 200
+(115,250–142,536 bytes, two probes each)** and **0 deployed page components reference them.** So:
+
+- the check's *observation* — nothing references these — is **correct**;
+- its *wording*, "generated but **not deployed to site**", is **false**: they are deployed;
+- and its implied remedy (deploy them) is a no-op that would leave the pages unchanged.
+
+The real condition is `bugs_open/114`'s ("generated imagery is deployed and never referenced").
+A reader triaging these 11 on the summary alone would re-run a deployer and see nothing change.
+
+⚠ **One theory of mine, RECORDED AND REFUTED, because a previous session filed the same one:** I
+first supposed the predicate could never match because `purpose` is `content_hero` (underscore)
+while the files are `content-hero-…` (hyphen). **Wrong — in SQL `LIKE`, `_` is a single-character
+wildcard, so `content_hero-` DOES match `content-hero-`.** Commit `6c01755dc`
+(*"correct(114): my own 'adjacent defect' in check_undeployed_assets is REFUTED — LIKE's underscore
+is a wildcard"*) is a previous session reaching and retracting the identical conclusion. Verified
+here in SQL before writing it down. **Two independent sessions have now been caught by this exact
+underscore; that is a landmine-shaped fact about the file, not about either of us.**
+
+### Suggested direction (not a fix, and not mine to make)
+
+Replace the enumerated `BrandHeadAssetPaths` membership test with the **property** it stands for:
+an asset whose deployed reference lives in chrome should be looked for in `site_components` too.
+One `OR EXISTS (… site_components …)` arm would answer `logo`, `favicon`, `og_card` and any future
+chrome-referenced purpose without a list to keep in step. Separately, the `content_hero` half wants
+its wording changed from "not deployed" to "not referenced by any page", so triage is not misled.
+
+**Measured 2026-08-26** on `mortgagecalculator.co.uk` (42 deployed pages, 28 active assets); the
+fleet-wide count of affected sites is **[UNMEASURED]** — the census is
+`SELECT purpose, count(*) FROM assets WHERE status='active' AND purpose='logo' GROUP BY 1` joined
+against the same predicate, and I have not run it.
+
+— `mortgagecalculator_couk_adoption`, 2026-08-26. Lane record: `NOTES_mortgagecalculator_couk.md`
+`## 2026-08-26`.
