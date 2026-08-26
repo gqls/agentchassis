@@ -4218,3 +4218,26 @@ contradicts the entry); tool-family entry → UNVERIFIABLE (same scope limit; "a
 here carry no weight in EITHER direction"). No refutations; both entries stand on their own
 live-row evidence, and the verifier's scope limit is worth knowing: it cannot examine any
 landmine whose footprint is not Go symbols.
+
+## 2026-08-26 11:10Z (platform seat) — the anchor diagnosis verdict: CONFIRMED, first filing, with the full mechanism cited
+
+`91228c39` completed CONFIRMED (`stopped_by: confirmed`, `is_fix: false` — diagnosis only, fix
+is the check owner's). The cited chain, verbatim from the verdict: criteria load bare ids from
+`doc_context.criteria_json` (`criteria_field` default, `tool_acceptance_actions.go`);
+`ConvertTemplateToInstanceScope` renames `id="X"` → `id="{{.InstanceID}}-X"` with
+`InstanceToken = "c-"+s` (`component_instance_conversion.go` / `component_instance_scope.go`);
+the deployed page carries `id="c-tool-website-brief-starter-wbsNextBtn"` against the criteria's
+`#wbsNextBtn` (worked instance, page `6bc5fc0e`). A bare-id selector cannot match a scoped id,
+so the anchor is reported absent from a page that contains it.
+
+Consequences, updated from the "suspect pending" state:
+- **The 41 improve_tool rows on webdesign are now CONFIRMED-false findings** — holding them out
+  of dispatch is no longer the stall's accident but an evidence-backed necessity. The queue is
+  the grind's; verdict relayed to them, with the suggestion that the bugs_open case file (the
+  CONFIRMED-diagnosis norm) is theirs to write as the finder.
+- The 32 fleet-wide completed regenerations are confirmed as triggered by false failures —
+  cleanup is the check owner's (`staged_component_build`, ACTIVE), whose CONTRIB trail now has
+  the verdict.
+- This seat's demand-control PASSES were structural and stand; the acceptance verdicts'
+  substance is no longer "suspect" — it is CONFIRMED-unsound for id-anchored checks until the
+  check or the criteria authoring is fixed.

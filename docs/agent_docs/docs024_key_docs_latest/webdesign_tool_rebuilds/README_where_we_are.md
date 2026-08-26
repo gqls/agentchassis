@@ -456,3 +456,20 @@ forty-one such failures are queued for the same automatic rewriting, aimed at th
 rebuilt tools — and the only reason none has fired is that the site's dispatch queue happens
 to be stalled. The stall I reported earlier as blocking the rebuild work is, for the moment,
 also the thing protecting it. Nobody is touching either half until the diagnosis comes back.
+
+## 2026-08-26, late morning (platform seat) — the diagnosis came back: confirmed, quickly, with the receipts
+
+The investigation I mentioned this morning finished in about forty minutes and confirmed the
+whole story. The acceptance checker looks for buttons by their short written name; the
+publishing machinery renames every element on the way out (a deliberate step, so two copies of
+a tool on one page can't clash); nobody taught the checker about the renaming. So it reports
+"button missing" on pages where the button is plainly there. The verdict cites the exact line
+of code that does the renaming and a worked example page.
+
+What changes with confirmation: the forty-one queued rewrite jobs on the webdesign site are
+now known-false alarms rather than suspected ones — keeping them from running is a necessity,
+not a lucky accident of the stalled queue — and the thirty-two rewrites that already ran
+across the fleet are confirmed to have been triggered by false failures. The fix belongs to
+the team that owns the checker; the evidence trail is on their desk. The rebuilding seat's
+own browser-level checks, the ones that actually opened the pages, remain the only real
+grading the tools have had — and those all passed.
