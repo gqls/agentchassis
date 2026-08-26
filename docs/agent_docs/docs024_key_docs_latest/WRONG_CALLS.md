@@ -56477,3 +56477,62 @@ And the pair with entry (7) is the finding rather than either half: **one was a 
 wrong question, the other a control asking the right question of the wrong window.** A measurement
 aimed at the wrong origin reports with exactly the same confidence as one aimed correctly. Neither
 announces itself. Tally: uniform-expected-answer-cannot-discriminate.
+
+---
+
+## 2026-08-26 — I keyed a cursor on the DISPATCHER's identity, and every test agreed with me because the fixture set both identities to the same string
+
+**Session `bugsweep3`, `bugs_open/394`, first live run of the coverage cursor.**
+
+**The claim I shipped, through three council rounds.** The coverage cursor is keyed on
+`(site_id, agent_type)` where `agent_type` came from
+`params.ExecutionContext.Sender.AgentType`, so "two callers with different caps do not fight over
+one position". Twelve unit tests, four mutation-proven guards, an APPROVED verdict.
+
+**What was actually true.** `Sender` is **whoever put the message on the topic**, not whose
+workflow is running. The first live run stored its cursor under `agent_type = 'generic'` — the
+hand-dispatch path is `system.agent.generic.requests` — while the SAME run's durable truncation row
+recorded `render-audit-agent`. Two identities, one run. The scheduled rotation uses a third topic
+(`system.agent.scheduled.requests`), so keyed this way **one logical caller keeps a separate cursor
+per dispatch path**: a hand run's coverage is invisible to the scheduled run and each restarts from
+the top of the ordering.
+
+**What caught it.** Not a test — the artefact. I queried the cursor row after the first live run to
+confirm it had persisted, and the `agent_type` column said something I did not expect.
+
+**Why no test could have caught it, and this is the part worth keeping.** The shared fixture
+`renderAuditParams` sets `Sender.AgentType: "render-audit-agent"`. Every test therefore ran in a
+world where the dispatcher and the running agent are the same string, so **the two readings were
+indistinguishable by construction**. Twelve tests, four mutations, and none of them could tell the
+right answer from the wrong one — not because they were weak, but because the fixture had quietly
+decided the question they existed to ask. A mutation only proves a guard when the fixture can tell
+the mutation apart.
+
+**And the second-order slip inside the fix.** My first regression test set only
+`Sender.AgentType = "dispatcher-generic"` and expected the cursor to use `params.AgentType`. It
+failed — and for a moment that read as "the fix does not work". It was the fixture again:
+`ResolvedAgentType()` prefers `RunAgentType` and falls back to `Sender`, so setting only `Sender`
+models **the fallback**, not production. Production sets both. The test now sets both and
+disagrees between them, which is the only arrangement that can observe the defect.
+
+**Cheap checks.**
+
+1. **When a value identifies "who am I", find out how the DURABLE RECORD of the same run answers
+   it, and use that function.** Here `LogActionFindings` already stamped the row correctly via
+   `runningStepProvenance(params)`. The right key was one grep away and had been right all along —
+   *copy the predicate, never retype it*, applied to an identity rather than a SQL arm.
+2. **Before trusting a fixture, ask which fields it collapses.** Grep the shared params builder for
+   the field your logic branches on. If the fixture sets two supposedly-independent identities to
+   the same literal, no test built on it can discriminate them — and that is invisible from the
+   test body, which is why it survives review.
+3. **After the first LIVE run of any new persisted key, SELECT the row and look at every column**,
+   not just the one you predicted. I predicted `after_nav_order` and `after_name` and got both
+   right; the column I had not thought to predict was the one that was wrong.
+
+**The generalisable form:** *a test can only discriminate what its fixture varies.* Passing tests
+are evidence about the fixture as much as about the code, and a fixture that hard-codes agreement
+between two sources of truth converts every test built on it into a tautology.
+
+Family: mutate-the-code-to-prove-the-guard, a-quiet-test-passes-when-the-rule-is-gone,
+cite-the-arm-not-the-function, a-mocks-own-bookkeeping-cannot-assert-a-negative,
+prove-a-deploy-at-the-artefact-index.
