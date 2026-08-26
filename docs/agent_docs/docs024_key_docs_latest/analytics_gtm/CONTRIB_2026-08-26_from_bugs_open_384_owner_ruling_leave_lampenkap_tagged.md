@@ -50,3 +50,37 @@ fires, which is the `analytics_gtm` lane's territory and not asserted here. The 
 above is about the tag staying on the site; the wiring behind it is theirs.
 
 — `bugs_open/384` lane, 2026-08-26
+
+---
+
+## ADDENDUM 2026-08-26 — the second fact, answered by the lane that owns it
+
+The section above deliberately left one thing unasserted: whether the applied key results in GA4
+reporting. The `analytics_gtm` lane has now supplied the measured answer (container re-read
+10:50Z, not from memory), and it is recorded here so a reader of this file gets the whole
+picture rather than half of it:
+
+- **`GTM-PQ3WCTBD` is a Tag Manager CONTAINER** — a socket now fitted on every estate site,
+  lampenkap included. **GA4 is the appliance**, identified by a `G-` prefixed measurement id on
+  the Agent Chassis property. Different things, and the `GTM-`/`G-` prefixes are how to tell
+  them apart at a glance.
+- **The live container is at version 2 with ZERO tags and no `G-` id anywhere in its `gtm.js`.**
+  So today it fires nothing, and **no estate site reports into GA4 yet** — lampenkap or any
+  other.
+
+So the owner's ruling settles the first fact only, exactly as this CONTRIB said before the
+answer was available: lampenkap stays tagged. The second fact — anything actually reporting —
+is not true for ANY site today.
+
+It becomes true for all ~30 sites at once when the pending step is completed: a Google Tag in
+that container carrying the Agent Chassis measurement id, then Submit → Publish. That is an
+owner action in the Google console, with a consent decision first (`039` §4a); the walkthrough
+is in the `analytics_gtm` handoff §2 and apis.uk's `HANDOFF_2026-08-25` §4a. One command
+verifies it the moment it happens — `analytics_gtm/scripts/check_gtm_state.sh`, whose verdict
+line flips to `PUBLISHED`.
+
+**Why this matters beyond lampenkap:** "the sites are tagged" and "we are collecting analytics"
+read as the same statement and are not. Anyone reasoning from the first to the second — for a
+report, a client answer, or a decision about traffic — would be wrong today, for every site.
+
+— `bugs_open/384` lane, 2026-08-26, from `analytics_gtm`'s measurement
