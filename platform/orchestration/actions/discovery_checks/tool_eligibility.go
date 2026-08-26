@@ -101,12 +101,21 @@ const ToolSubjectKeyExpr = toolSubjectKeyExpr
 // call sites is the drift the shared predicate exists to prevent — and a future
 // fourth caller now inherits it instead of repeating the exposure). A 'removed'
 // slot is the assembler-excluded TOMBSTONE (rerender_single_page_action.go:842
-// reads the SAME flag, so served-but-excluded is unrepresentable); auditing one
-// spends checks — and for Tier 2, LLM review — on markup no visitor can reach,
-// and the rebuild lane holds 41+ such tombstones on one site alone
-// (bugs_closed/360 is what resurrecting one looks like).
+// reads the SAME flag); auditing one spends checks — and for Tier 2, LLM
+// review — on markup no visitor can reach, and the rebuild lane holds 41+ such
+// tombstones on one site alone (bugs_closed/360 is what resurrecting one looks
+// like).
+//
+// IS DISTINCT FROM, not <>, and the spelling is load-bearing (2026-08-26,
+// executing debug_historian's 21540c8e advisory): build_status is NULLABLE
+// (default 'pending' covers only omitted columns), and the assembler keeps a
+// NULL-status row (IS DISTINCT FROM) while a bare <> would drop it from this
+// population — a row SERVED but invisible to every tool audit, the exact
+// inversion of the tombstone defect. Zero NULL rows exist fleet-wide as of
+// 2026-08-26, so this closes a latent door, not a live one. The two spellings
+// are held in lockstep by TestAssemblerAndEligibilityShareTheTombstonePredicate.
 const toolEligibilityWhere = `
-		  AND pc.build_status <> 'removed'
+		  AND pc.build_status IS DISTINCT FROM 'removed'
 		  AND cc.is_active = true
 		  AND p.status = 'active'
 		  AND (
