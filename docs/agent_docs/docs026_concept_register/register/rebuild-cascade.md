@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-7 concepts, consolidated from 7 raw extractions across unit U07 (no internal
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). Removed here 2026-08-26, the LAST file still carrying one; stored and actual agreed at that point (both **7**), so it goes for being silently perishable, not for being wrong._ Consolidated from 7 raw extractions across unit U07 (no internal
 duplication found; all seven are distinct facets of the same component-regen →
 rerender-propagation investigation).
 
@@ -27,10 +27,10 @@ rerender-propagation investigation).
 ### REB-003 — Carry-forward path and the carry fingerprint
 - **status:** deployed
 - **status-evidence:** "per-page save-style row updates + identical bytes = the rerender_page_sections CARRY path fingerprint," confirmed by data.
-- **what:** In `rerender_page_sections`, a section that fails `planSection` readiness (unresolvable required field, missing component, empty template) is carried: `carryStoredSection` re-emits the stored HTML, save_sections writes it back with a fresh per-page `updated_at` but identical bytes. Protective against shipping worse output, but it re-fossilises stale/empty renders forever when readiness is permanently blocked — and its diagnostic signature (fresh distinct timestamps + one shared md5) is how a recovery stall was pinned to a readiness field rather than the rerender chain itself.
-- **sources:** NOTES(43).md §9u, §9v; BUNDLE(3).md §3
+- **what:** In `rerender_page_sections`, a section is carried (`carryStoredSection` re-emits the stored HTML unchanged) for one of two DIFFERENT reasons that used to be indistinguishable from outside: (a) `planSection` readiness fails (an unresolvable required field, or an empty template) — a legitimate, non-fatal fallback; (b) **the section's component could not be resolved at all** — `bugs_open/182` (FIXED 2026-08-03, `a43be1e70`, LIVE v1.0.1240): when `page_components.slot_name` is positional (not any component's name/function), nothing resolved, so on some sites (loancalculator.co.uk: 100% of slots) EVERY section took this branch and the run still reported success. Fixed by resolving `component_id` first (the row's own identity, previously read and unused) and — the part that actually closes the door — failing the step when a section resolves via **neither** id nor name, naming every such slot. `save_sections` still writes carried bytes back with a fresh `updated_at` but identical content FOR THE LEGITIMATE (a) CASE; case (b) now aborts before `save_sections` runs at all.
+- **sources:** NOTES(43).md §9u, §9v; BUNDLE(3).md §3; `bugs_open/182` → `bugs_closed/182`
 - **relations:** section readiness model (page-build-pipeline register, PBP-003, the gate it consults); auto-escalation (REB-004); recovery playbook
-- **verify-later:** rerender_page_sections_action.go: planSection, carryStoredSection, NULL pre-check
+- **verify-later:** rerender_page_sections_action.go: planSection, carryStoredSection, resolveComponent, rerenderResolution
 
 ### REB-004 — Auto-escalation: empty content_data → needs_page writer rebuild
 - **status:** deployed
