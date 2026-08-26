@@ -1,4 +1,4 @@
-# HANDOFF 2026-08-26 — `bugs_open/396`: both fixes are LIVE and EXERCISED. Nothing is blocked; one council verdict is outstanding.
+# HANDOFF 2026-08-26 — `bugs_open/396`: both fixes are LIVE, EXERCISED and APPROVED. Nothing is blocked and nothing is owed.
 
 **Read this box. Everything below it is background or recipe.**
 
@@ -30,12 +30,23 @@
 > **The gap is the tick, not the logic**, and it closes the first time a locked-with-exception site
 > wins the ordering.
 >
-> **2. The council round is RESUBMITTED** — `175df761` r2, run `e74cc1f3`. The plan was corrected
-> first (8 edits → 6; two file paths were listed twice). **Read the verdict before assuming
-> anything about it**, and check `current_step` — the previous run read `complete_invalid`, which is
-> neither latency nor a content refusal.
+> **2. The council round is APPROVED** — `175df761` r2, **12 reviewers, 1 gating-level advisory,
+> none high-severity**. r1's REVISE was answered in code rather than in prose.
 >
-> **Nothing else on this lane is blocked.** The remaining items are in §6 and none is urgent.
+> **NOTHING IS BLOCKED AND NOTHING IS OWED.** Two residuals are recorded and neither is urgent:
+>
+> - ⚠ **The two spellings of the lock rule are guarded only inside Go.** The approving round's own
+>   advisory: `TestSiteLockExceptionSQLIsNotTheSelectorSpelling` cannot reach a **migration** author,
+>   because migration SQL is text and is compiled against nothing. Their only guard is the
+>   `sites.locked_at` entry in `LANDMINES.md`, which now carries both spellings verbatim and the
+>   failure in each direction. **Anyone writing a migration that touches `find_dispatchable_site`
+>   must read that entry first.**
+> - **Nothing stops a raw `UPDATE … SET status='deferred'`.** Short of a trigger, nothing can — the
+>   standing residual on `396`.
+>
+> **For the next submission, not this one:** the guardian noted that a `_HOLD` migration editing
+> `agent_definitions` should carry `operation: config_change` in the plan, not `add`. Advisory, and
+> worth getting right next time.
 
 > ## ⛔ (SUPERSEDED — kept for the record) THE TWO THINGS OWED, AND WHY YOU COULD NOT DO THEM
 >
