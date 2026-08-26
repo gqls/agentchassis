@@ -17,7 +17,10 @@ server {
     root /var/www/noted.co.uk;
     index index.html;
 
-    client_max_body_size 30m;   # must exceed the engine's NOTED_MAX_UPLOAD_MB
+    client_max_body_size 100m;  # must exceed the engine's NOTED_MAX_UPLOAD_MB
+                                # AND a chunked-upload part (64 MiB + headers;
+                                # PLAN_2026-08-26_large_uploads). Cloudflare's
+                                # ~100 MB/request cap is the layer above this.
 
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;

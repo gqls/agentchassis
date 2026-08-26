@@ -342,3 +342,53 @@ Engine FIRST (above), then:
 /home/ant/.venvs/vonc_pw/bin/python \
   docs/agent_docs/docs024_key_docs_latest/noted_rebuild/editor_tool/test_editor_degraded.py
 ```
+
+## Large uploads: the two box blocks + the acceptance probe (added 2026-08-26)
+
+The chunked-upload build (PLAN_2026-08-26_large_uploads.md). Engine binary +
+editor component are committed and shipped as usual — everything below is the
+BOX half, owner-run (`!` prefix). Order free vs the editor ship: against the
+old engine `/api/me` has no `small_upload_max`, so the live editor's chunked
+path stays inert until the new binary answers.
+
+**Block 1 — engine install:** the standing recipe above, unchanged (binary is
+committed at `box/noted-engine/noted-engine`; schema is go:embedded and
+self-applies at restart). The capability probe afterwards, no grep needed:
+
+```bash
+curl -s https://noted.co.uk/api/health   # ok first
+# a signed-in /api/me must now carry "small_upload_max" — new key = new binary,
+# absent = old binary; no control needed because the OLD response cannot carry it
+```
+
+**Block 2 — nginx part-size headroom** (repo copy already edited; mirror it):
+
+```bash
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com '
+  sed -i "s/client_max_body_size 30m;/client_max_body_size 100m;/" \
+    /etc/nginx/sites-available/noted.co.uk &&
+  nginx -t && systemctl reload nginx'
+```
+
+**Acceptance probe — a real >30 MB file through the wire, self-cleaning.**
+30 MB beats the OLD nginx cap (so it proves the whole stack: Cloudflare part
+sizing, nginx, engine reassembly, B2), while staying polite to the tunnel.
+Needs a max-upload override on a throwaway account, set on the BOX psql
+(the tier lever has no HTTP surface, deliberately):
+
+```bash
+# 1. register a throwaway via the site, note its email, then on the box:
+#    sudo -u postgres psql noted -c "UPDATE accounts SET
+#      max_upload_override_bytes=104857600, media_quota_override_bytes=104857600
+#      WHERE email='<throwaway>';"
+# 2. in the signed-in editor, add a ~35 MB file (e.g. a phone video). Watch the
+#    strip: "Uploading … (part n of m)" then the item renders as a player.
+# 3. reload the page — the item still serves (it came back from B2, not memory).
+# 4. Account panel -> delete the throwaway (this also proves deletion covers
+#    large-file media; the engine cancels any pending upload first).
+```
+
+> **GOTCHA — a default account cannot reach the chunked path at all.** Default
+> max_upload = 25 MB = small_upload_max, and the editor refuses anything above
+> max_upload before any bytes travel. The chunked path only opens where an
+> override raises max_upload; that is the design, not a failure to activate.
