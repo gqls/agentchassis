@@ -82,10 +82,19 @@ def live_pages(site_id):
     added 2026-08-16: fleet-wide exactly two rows carry it, and the only ACTIVE one
     (vonc.com/tools/gauntlet/round.html — meta tag confirmed served) is on a site with no
     sitemap.xml at all, so nothing had yet published the contradiction."""
-    return q(f"""SELECT url, to_char(GREATEST(updated_at, COALESCE(last_built_at, updated_at)),'YYYY-MM-DD')
+    rows = q(f"""SELECT url, to_char(GREATEST(updated_at, COALESCE(last_built_at, updated_at)),'YYYY-MM-DD')
                  FROM pages WHERE site_id='{site_id}' AND status='active'
                    AND noindex IS NOT TRUE
                    AND deployed_at IS NOT NULL ORDER BY url""", width=2)
+    # THE SITE ROOT IS CANONICALISED, EVERY OTHER index.html IS NOT — a WHOLE-PATH
+    # match, mirroring render_sitemap_action.go's absoluteURL (fix 5c9acf1bd,
+    # applied here 2026-08-26). The sites themselves declare it: 10 of 10 checked
+    # 2026-08-24 mark the bare root canonical but /guides/ canonical at
+    # /guides/index.html, so a suffix match would contradict the pages' own tags.
+    # Until this line, every sitemap this script produced advertised the homepage
+    # as /index.html while the page itself declared '/' (register SEO-002).
+    # Canonicalising HERE covers every consumer: the probe, sitemap.xml and llms.txt.
+    return [["/" if path == "/index.html" else path, lastmod] for path, lastmod in rows]
 
 
 def page_facts(domain, path):
