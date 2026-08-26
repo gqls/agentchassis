@@ -8,7 +8,13 @@ Cold-start order: **this file → NOTES §X.61–§X.62 → RUNBOOK Phase 6 → 
 
 ---
 
-## 0. ⚠ THE LIVE INCIDENT — Anthropic credits exhausted; every fleet LLM step failing since 2026-08-25 23:47Z
+## 0. ~~⚠ THE LIVE INCIDENT~~ **RESOLVED 2026-08-26 ~08:58Z — the owner added credit.** Boundary + the burned-row reset: `bugs_open/243` (recurrence section)
+
+> **Update 09:05Z:** last error 08:57:46Z, first success 08:58:29Z, 14 successes / 6 agent
+> types by 09:02Z, zero new errors. 33 sub-max-attempts rows self-healed (2 already complete);
+> the 20 attempt-exhausted rows were RESET to `triaged` with a backup in
+> `bak_credit_burn_20260826` (idea.uk's `ade31076` among them). Nothing in this section is a
+> live instruction any more — the paragraphs below stand as the record of the window.
 
 - `[MEASURED 2026-08-26 ~08:55Z]` **1,884** `agent_error_log` rows `%credit balance%`
   (23:47:10Z → 08:50:26Z, still firing); **20** work items burned to terminal `failed`

@@ -5766,3 +5766,17 @@ idea.uk matches no vertical, so `evaluate_news_feed` will keep writing nothing h
 held) · 37 deferred (+4 `capability_gap`, improvement-loop) · 35 detected (+ the new checks) ·
 **34 triaged** (the wave; was 0) · 7 unresolved · **4 failed** (3 known + `ade31076` = outage
 casualty).
+
+## §X.63 — 2026-08-26 ~09:05Z: credit restored; recovery measured; the 20 burned rows reset
+
+Owner added credit. Boundary `[MEASURED]`: last `%credit balance%` error 08:57:46Z → first
+success 08:58:29Z → 14 successes / 6 agent types by 09:02:11Z, zero new errors (243's sustained
+bar met). **The platform self-healed all 33 sub-max-attempts rows** (2 complete by 09:02) —
+the designed retry needed no help; only the 20 at `attempt_count 3` were stuck, and those were
+**reset to `triaged`/0 attempts after a backup** (`bak_credit_burn_20260826`, full rows + error
+text; predicate `status='failed' AND error LIKE '%credit balance%'`; by site loanzy 7,
+dartsonline 6, cookly 4, aao 1, idea.uk 1 = `ade31076`, system.internal 1). Rationale + ids in
+`bugs_open/243`'s recurrence section, now closed with the resolution note. Post-reset: 0 rows
+match the predicate. Watch next: the wave's 34 triaged idea.uk rows completing for real —
+especially the two `section_data_resolved` news rerenders and the re-filed `empty_section`
+pair (does the handler fill `{{.section_heading}}`?).

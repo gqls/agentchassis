@@ -2493,3 +2493,12 @@ ever had its background research run, and one heading on the specimen page promi
 it does not deliver. And the two empty tool headings from Sunday were re-detected under their
 new component IDs, exactly as predicted — this time the checker can see them, so they may
 actually get fixed once the AI account is back.
+
+**2026-08-26, 10am — credit is back and the backlog is moving again.** The AI account came back
+at two minutes to nine; within four minutes six different kinds of agent had made successful
+calls and nothing new has failed since. Most of the work that failed during the night put
+itself back in the queue automatically; twenty pieces had used up all their retries and were
+stuck marked "failed", so I put those twenty back in the queue by hand (with a saved copy of
+what they looked like first — one of them was ours, the rest belong to four other sites). The
+overnight backlog, including the two rebuilds that will put the news stories into the pages
+themselves, should now work through on its own.
