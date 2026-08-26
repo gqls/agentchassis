@@ -58,7 +58,7 @@ func TestRerenderPageSections_ExcludesRemovedSections(t *testing.T) {
 	// not the exclusion is there — it passed with the predicate deleted, so it
 	// asserted nothing. Caught by mutating the source rather than by reading it.
 	mock.ExpectQuery(`build_status\s*(!=|<>|IS DISTINCT FROM)\s*'removed'`).
-		WillReturnRows(sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "parent_instance_id", "component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}))
 
 	p := resolveParams(db, map[string]interface{}{
 		"input_data": map[string]interface{}{
@@ -102,7 +102,7 @@ func TestRerenderPageSections_RemovedFilterIsNullSafe(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "domain", "url", "name"}).
 			AddRow(pageID, "example.com", "/index.html", "index"))
 	mock.ExpectQuery(`build_status IS DISTINCT FROM 'removed'`).
-		WillReturnRows(sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "parent_instance_id", "component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}))
 
 	p := resolveParams(db, map[string]interface{}{
 		"input_data": map[string]interface{}{

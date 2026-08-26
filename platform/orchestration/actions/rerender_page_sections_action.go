@@ -146,6 +146,13 @@ func shouldStripLiteralMarkdown(stepConfig map[string]interface{}, reason string
 
 // storedSection is one page_components row as loaded for re-render.
 type storedSection struct {
+	// id and parentInstanceID are the composition pair (features_open/035 D1).
+	// parentInstanceID is "" for an ordinary top-level section, which is every
+	// row on the estate today — 0 of 1,903 rows carry one as of 2026-08-26 — so
+	// reading them changes nothing until a composed page exists.
+	id               string
+	parentInstanceID string
+
 	componentID  string
 	slotName     string
 	contentData  map[string]interface{}
@@ -1198,7 +1205,9 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 // that latent flaw; this one does not.
 func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) ([]storedSection, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(component_id::text, ''),
+		SELECT id::text,
+		       COALESCE(parent_instance_id::text, ''),
+		       COALESCE(component_id::text, ''),
 		       COALESCE(slot_name, ''),
 		       content_data,
 		       COALESCE(rendered_html, ''),
@@ -1225,7 +1234,7 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 	for rows.Next() {
 		var s storedSection
 		var cdJSON []byte
-		if err := rows.Scan(&s.componentID, &s.slotName, &cdJSON, &s.renderedHTML, &s.position, &s.componentVersionID); err != nil {
+		if err := rows.Scan(&s.id, &s.parentInstanceID, &s.componentID, &s.slotName, &cdJSON, &s.renderedHTML, &s.position, &s.componentVersionID); err != nil {
 			logger.Warn("rerender_page_sections: row scan failed", zap.Error(err))
 			continue
 		}

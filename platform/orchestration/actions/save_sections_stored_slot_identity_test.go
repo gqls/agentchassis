@@ -217,8 +217,12 @@ func TestRerenderPageSections_SuccessEntryCarriesTheStoredSlotName(t *testing.T)
 	// The 189 shape: a positionally-named, locked slot whose component resolves
 	// only by id (bugs_closed/182's repair population).
 	expectPageAndSections(mock, siteID, pageID, "tool-loan-vs-savings", "loancalculator.co.uk",
-		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
-			AddRow(pinnedID, "tool-2", []byte(`{"headline":"Loan vs savings"}`), "<section>old</section>", 3, ""))
+		// id and parent_instance_id lead the column list (035 P1): loadStoredSections
+		// now selects them so the composition walk can group children under parents.
+		// "" for parent_instance_id is an ordinary top-level section, which is what
+		// every row on the estate is today.
+		*sqlmock.NewRows([]string{"id", "parent_instance_id", "component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
+			AddRow(uuid.New().String(), "", pinnedID, "tool-2", []byte(`{"headline":"Loan vs savings"}`), "<section>old</section>", 3, ""))
 
 	// Name and function passes both miss — "tool-2" is nobody's identity.
 	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())

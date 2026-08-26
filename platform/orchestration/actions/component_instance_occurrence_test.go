@@ -297,7 +297,7 @@ func TestLoadStoredSections_ordersByPositionThenID(t *testing.T) {
 	mock.ExpectQuery(`ORDER BY position ASC, id ASC`).
 		WithArgs(page).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id",
+			"id", "parent_instance_id", "component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id",
 		}))
 
 	if _, err := loadStoredSections(context.Background(), db, page, zap.NewNop()); err != nil {
