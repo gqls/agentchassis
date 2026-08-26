@@ -641,3 +641,86 @@ never would have been.
 This prediction could come out wrong in several ways — a different priority count, a window that
 ignores the priority set, a cursor that lands on a priority page — and it is written down before
 the dispatch so that it can.
+
+---
+
+## 2026-08-26 22:2x–22:3xZ — the cursor is PROVEN AT THE ARTEFACT, and the first live run found a defect no test could
+
+### Run 1 — every one of the ten predictions hit
+
+Dispatched `render-audit-agent` at webdesign.co.uk by hand (`orchestrate_safe.sh`, corr
+`5e6a9e04`). The durable row, `[MEASURED 2026-08-26 22:25:20Z]`:
+
+| field | predicted | observed |
+|---|---|---|
+| `coverage_mode` | `cursor` | `cursor` ✓ |
+| `pages_total` | 151 | 151 ✓ |
+| `pages_audited` | 60 | 60 ✓ |
+| `window_first` | `index` | `index` ✓ |
+| `window_last` | `tool-head-architect` | `tool-head-architect` ✓ |
+| `priority_open_items` | 3 | 3 ✓ |
+| `priority_paths` | the 3 named | exactly those 3 ✓ |
+| `priority_dropped` / `priority_not_live` | 0 / 0 | 0 / 0 ✓ |
+| `cursor_cleared` | false | false ✓ |
+| cursor row | `(100, tool-head-architect)` | `(100, tool-head-architect)` ✓ |
+
+`audited_paths` carries 60 entries with **the three priority pages FIRST**, then the rotation
+from `/index.html` — the ordering that exists so a run the adapter abandons still measures the
+latency-sensitive pages.
+
+### Run 2 — THE ONE THAT MATTERS
+
+`[MEASURED 2026-08-26 22:32:36Z]`, corr `0b2953f9`:
+
+```
+window_first = tool-html-minifier      window_last = tool-entropy-meter-guide
+cursor:  (100, tool-head-architect)  ->  (200, tool-entropy-meter-guide)
+```
+
+**`tool-html-minifier` is the page that had never been audited and never would have been.** It sat
+at rank 61 behind a cap of 60, and this afternoon's census named it as the first page of the
+permanent tail. It is now the first page of window 2.
+
+And `after_nav_order = 200` says something stronger: the window has reached the **guide band** —
+the 45 `tool-*-guide` pages that were unreachable at *any* cap below 98. Two runs have carried the
+audit from "the first 60, for ever" to page 120 of 151, through a class of page it had never seen.
+
+⚠ **Say precisely what is proven.** The cursor SELECTS and SENDS these pages — that is what the
+durable row records, and it is the half this change owns. It does **not** prove the browser
+measured them: both runs ended at `complete_error` with `{"message": "Request timed out (code:
+TIMEOUT)", "failed_step": "audit"}`. See the open item below. Coverage of the REQUEST is proven;
+coverage of the MEASUREMENT is not.
+
+### The defect the live run found, which no unit test could have
+
+The cursor row came back keyed `agent_type = 'generic'` while the SAME run's durable truncation
+row recorded `render-audit-agent`. **Two identities for one run.** The key read
+`params.ExecutionContext.Sender.AgentType` — whoever put the message on the topic. A hand dispatch
+goes via `system.agent.generic.requests`; the scheduled rotation uses
+`system.agent.scheduled.requests`. Keyed on that, one logical caller keeps a **separate cursor per
+dispatch path**, so a hand run's coverage is invisible to the scheduled run and each restarts from
+the top.
+
+Fixed to `runningStepProvenance(params)` — `ExecutionContext.ResolvedAgentType()` with a
+`params.AgentType` fallback, the same resolver `LogActionFindings` uses to stamp the row. One
+function, so the key and the row cannot disagree.
+
+**Why no test caught it:** `renderAuditParams` sets `Sender.AgentType` to `"render-audit-agent"` by
+hand, so both readings agreed in every fixture. It took the artefact. And my first attempt at the
+regression test set only `Sender` — which models the *fallback*, not production, because
+`ResolvedAgentType()` prefers `RunAgentType`. Corrected; mutation-proven by reverting to `Sender`.
+
+### ⚠ OPEN, and NOT mine: the audit step times out before the adapter replies
+
+Both runs: `complete_error`, `TIMEOUT` on the `audit` step, ~3 minutes after dispatch. The
+render-audit adapter pod (`render-audit-adapter-5944c6458c-mw246`) is HEALTHY — it completed a
+robot-hands.com render audit at **22:00:54Z** and sent its response — but logged **nothing** from
+either of my dispatches.
+
+So the request is produced and the adapter never sees it. That is upstream of the browser and
+downstream of my change: page selection wrote its durable row and its cursor correctly on both
+runs. **Do not read the timeouts as evidence against the cursor, and do not read the cursor's
+success as evidence the audit works.**
+
+⚠ Instrument note: `kubectl logs -l app=render-audit-adapter` returned another service's lines
+(one image, every label — the recorded trap). Read the POD, not the label.
