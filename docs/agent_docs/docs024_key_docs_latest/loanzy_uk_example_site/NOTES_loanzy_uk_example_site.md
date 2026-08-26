@@ -2013,3 +2013,17 @@ pages on a site the owner ruled single-page — no per-site exclusion exists on 
 GROWTH riding the mechanical seat: my "defects dispatch; opinions record" line took "mechanical" as a
 proxy for "defect", and tool evaluation is an aspiration. RFC follow-up 1; owner's word needed on the
 remedy (a per-site refusal declaration in 624's shape). Their hand-park holds by dedup until released.
+
+**2026-08-26 ~12:0xZ — a near-miss worth its line: the "second outage residue" was an OWNER RULING.**
+The 391 lane flagged `build-pipeline-trigger-2` still disabled six hours after the top-up, timing-matched
+to the pause option I had put to the owner — "the mitigation outlived its cause", the same shape as the
+21 burned items. One evidence pass refuted it: the row was retired at 08:51Z by the dispatch_throughput
+lane under OWNER RULING B (their migration 637 — sibling retired for the native 30s interval, trigger-2
+kept disabled AS THE ROLLBACK PATH, and their 584 VERIFY now RAISEs by name on a second enabled trigger
+row). Re-enabling would have undone a ruling and tripped their gate. **What stopped the flip was not
+scepticism but a MEMORY line naming trigger-2 as that lane's rollback lever — which made "deliberate
+retirement" a live alternative hypothesis to "stuck mitigation".** The check that generalises: before
+reversing any state change that pattern-matches an incident's mitigation, ask WHO ELSE has that switch
+as a lever, and read their lane's morning commits first (CLAUDE.md's own sentence: a signal that
+pattern-matches a known failure may have a different cause). The backlog behind the single lane
+(654 triaged, 520 >1h) is the throughput lane's measured demand test, ceiling ~300 claims/h, theirs.
