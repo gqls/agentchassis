@@ -2857,3 +2857,47 @@ publish) and came back REVISE, gating on "post-hoc submission defeats the gate".
   canonical section dropped from a new plan → roll back + reopen).
 
 Round 2 dispatched on the same correlation (run `472e41d2`), watcher armed.
+
+---
+
+## 2026-08-26 — GTM re-render wave touches homegarden; the canary boundary is noted
+
+`analytics_gtm` (bugs_open/397) re-renders homegarden's chrome + pages to add the GTM head
+snippet. No conflict: a re-render regenerates from `content_data` without the writer, and none of
+our parked proposals are on homegarden. ⚠ **The boundary that matters:** any homegarden page
+BUILT (writer invoked) after 2026-08-26 00:22 runs the post-627/628 writer, and any page PLANNED
+after 09:4x gets 629/630 — those are the copy changes' first live canaries, and a before/after
+comparison across that boundary must not be attributed to the GTM wave (told them). Also noted in
+passing: the 305/another lane extended `write_audit_findings` with a record-types load and
+correctly patched our wiring test's expectations (`expectRecordTypesLoad`) — the co-edit is
+theirs, deliberate, and right.
+
+> **Cross-ref 2026-08-26:** the loanzy lane asked for explicit sign-off on the
+> `expectRecordTypesLoad` co-edit (their guardian seat flagged the cross-lane test edit, round
+> d1342f2a→04a3ce1f). GIVEN, edit kept exactly as made — verified by running the three bound
+> tests green with the line in place. Both lanes now hold the coordination record.
+
+> **Practice correction 2026-08-26:** my council watchers polled `orchestration_states` BY THE
+> PRINTED RUN ID even though the runbook says find runs by payload — convenient, and it worked
+> until another session's restructure renamed `id` → `orchestration_id`, at which point the
+> watcher's query errored into its own `2>/dev/null` for an hour and read as council silence
+> (the `||true`-watcher landmine in a new costume, plus the runbook rule I skipped). Round-2 run
+> confirmed ALIVE by payload (created 09:37, EXECUTING_STEP at review_guidelines); watcher
+> re-armed payload-keyed. All future watchers: payload correlation, and foreground-test the
+> query once before arming.
+
+---
+
+## 2026-08-26 (afternoon) — round 2 of 5f084feb STRANDED by the orchestration_states restructure; redispatched
+
+The 09:37 round-2 run was last seen `EXECUTING_STEP` at `review_guidelines` (~10:30) and produced
+no verdict in ~5 hours while the council completed FOUR other rounds (10:00–15:04) — the run was
+in flight when another session restructured `orchestration_states` (the `id` column became
+`orchestration_id`; payload-keyed queries now grind, suggesting lost indexes too). Verdict-note
+absence re-checked cheap-side (doc_notes, correlation-filtered): none. Redispatched 15:1x with
+`RESUBMIT_CORR=5f084feb` (run `eccfa14d`); watcher polls doc_notes only, 3-min cadence — the
+payload scan on orchestration_states is currently too expensive to poll. ⚠ For the restructuring
+lane when the stranded run is confirmed: an in-flight council orchestration appears to have been
+stranded by the migration — their lane's finding to take, ours to report. The round-2 SUBSTANCE
+(rollback tested, brace-balance check, the 07-29 ruling citation) is unchanged — this is transport,
+not content.
