@@ -18473,3 +18473,44 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/410` (phase-lock slug) · `bugfix_410_feed_phase_lock/PLAN_2026-08-26` · migration `653_content_feed_due_lookahead_HOLD.sql` · `cmd/config-key-audit/cappedscheduleordering.go` (its `dueColumnRe` still matches `<= NOW() + …` — checked 2026-08-26, so the 316 audit is not blinded by the look-ahead)
 - **source:** 2026-08-26, bugfix_410_feed_phase_lock lane, while building the look-ahead — the sequencing half supplied by the idea_uk_vm_site lane before either half shipped
 - **added:** 2026-08-26, bugfix_410_feed_phase_lock lane
+
+---
+
+### `date -u -d "<naive timestamp>"` does NOT parse as UTC — `-u` is output-only, and every freshness check built on it is biased toward PASSING
+
+- **footprint:** `date -u -d`, `date -d … +%s`, any shell comparison of a Postgres `timestamptz`
+  (`completed_at`, `updated_at`, `claimed_at`) against an HTTP `Last-Modified`, a file mtime or
+  `now()`; freshness/staleness gates in `scripts/` and in per-lane serve-grade helpers; the
+  webdesign tool-rebuild lane's `servegrade.sh`.
+- **fires when:** you write "is the artefact newer than the DB row said it completed?" — the standard
+  shape for proving a deploy, a re-render or a publish actually landed. No symptom is needed and none
+  is produced; the check runs, prints a plausible number and says PASS.
+- **the trap:** `-u` affects only how `date` **formats output**. It does **not** change how `-d`
+  **parses input**. A naive string with no zone (`'2026-08-26 19:11:25'`, exactly what you get from
+  `psql -At` on a `timestamptz` rendered without an offset, or from copying a value out of a query
+  result) is parsed in the **machine's local zone**. This box runs **BST (`+0100`)** for half the
+  year, so a UTC `completed_at` is read one hour early and the artefact appears **3600 s fresher than
+  it is**. **The bias is toward PASSING**: a stale artefact up to an hour old clears a gate whose only
+  purpose is to refuse stale artefacts. In winter the same code is silently correct, which is worse —
+  it means the bug appears and disappears with the clocks and cannot be reproduced out of season.
+- **the tell, and it is arithmetic:** a delta that is implausible by **exactly 3600** (or 7200 on a
+  `+0200` host). Measured 2026-08-26: a gap of a visibly ~47 s printed as **3647 s**. If your
+  freshness deltas look suspiciously generous, subtract 3600 and see whether the answer becomes the
+  one you expected.
+- **the check:** anchor the zone explicitly and never rely on `-u` for parsing —
+  `date -d "$completed UTC" +%s` (or emit the offset from the DB: `SELECT completed_at` on a
+  `timestamptz` already includes `+00`, so **quote the value with its offset rather than trimming
+  it**). Then **mutation-prove the gate can fail**, because a freshness check that never refuses is
+  indistinguishable from one that works: feed it a `completed_at` in the future and require it to
+  refuse. Both directions, every time.
+- **⚠ and do not probe the timezone with `-u`, which confirms whatever you asked:**
+  `date -u '+%H:%M %Z'` prints `UTC` **by construction**, even in a format string you labelled
+  "local". That is how this was believed to be a UTC box for several hours the same session. The
+  honest probe is `date; date -u` side by side, or `date +%z`.
+- **source:** 2026-08-26, webdesign_tool_rebuilds lane, found inside a serve-grade gate written that
+  same hour to catch two *other* checks that faked a PASS (a 404 scoring 0 on every negative control,
+  and `date -d ""` returning NOW so a missing `Last-Modified` parsed as "landed"). Three traps in one
+  afternoon whose shared property is that **the failure mode is a green result, not an error** —
+  see `WRONG_CALLS.md` same date. Fixed and mutation-proved: refuses on a future `completed_at`,
+  reports the true 47 s on the real value.
+- **added:** 2026-08-26, webdesign_tool_rebuilds lane

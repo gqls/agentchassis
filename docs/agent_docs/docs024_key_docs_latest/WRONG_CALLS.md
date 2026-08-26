@@ -56190,3 +56190,42 @@ here is a literal you know is in the corpus.
 
 Family: mutate-the-code-to-prove-the-guard, a-source-scanning-test-makes-comments-load-bearing,
 a-post-fix-zero-needs-a-demand-control, a-mutation-that-passes-may-have-hit-a-guard-in-series.
+
+## 2026-08-26 — I probed the machine's timezone with a flag that forced the answer, then built a freshness gate on the wrong one
+
+**The claim.** Early in the session I ran
+`date -u '+%Y-%m-%d %H:%M:%SZ (local: %H:%M %Z)'`, read `local: 16:40 UTC`, and treated this box as a
+UTC machine for the next three hours. **It is BST (`+0100`).** The `-u` forces *every* specifier in
+the format string into UTC — including the one I had labelled "local". **The probe could not have
+returned any other answer**, which is the same disconfirmability failure this file records elsewhere:
+a measurement that cannot come out otherwise is not evidence, however carefully it is read.
+
+**What it cost.** A serve-grade gate I wrote hours later to catch two *other* checks that faked a pass
+compared a Postgres UTC `completed_at` using `date -u -d '<naive string>'`. `-u` is output-only; `-d`
+parses a zoneless string as **local**. So the DB timestamp was read an hour early and artefacts
+appeared **3600 s fresher than they were** — biasing the gate toward **PASSING**, on a check whose
+sole purpose is refusing stale artefacts. Anything up to an hour stale would have cleared it.
+
+**What caught it.** Not the probe, not review — **arithmetic that did not fit**. The gate printed
+`3647s` for a gap I could see was about 47 s, and 3647 − 47 = 3600 exactly. An off-by-one-hour is
+self-announcing if you look at the magnitude; it is invisible if you only look at the sign, and the
+sign was "positive, therefore fresh, therefore pass".
+
+**The cheap checks.**
+1. **Never probe a property with a flag that can determine the answer.** `date; date -u` side by side,
+   or `date +%z`. If your probe's output would be identical under both hypotheses, it is not a probe.
+2. **Anchor the zone at the parse, never at the format:** `date -d "$ts UTC" +%s`. `psql` renders a
+   `timestamptz` with its `+00` offset — **keep the offset rather than trimming it to make the string
+   tidy**, because trimming it is precisely what creates this bug.
+3. **Mutation-prove any gate whose job is to refuse.** Feed it a value that must fail. Mine now
+   refuses a `completed_at` in the future; before that fix it would have refused almost nothing and
+   reported PASS either way.
+
+**Worth noting for the tally: this was the third check in one afternoon whose failure mode was a
+GREEN result** (the others: a 404 scoring 0 on every negative control, and `date -d ""` returning NOW
+so a missing header parsed as "landed"), **and this one was inside the instrument built to catch the
+first two.** Writing a stricter checker does not make you immune; it relocates where the optimism
+hides. Prospective form filed in `LANDMINES.md` (footprint `date -u -d`, freshness comparisons).
+
+Family: a-measured-claim-about-state-expires, a-post-fix-zero-needs-a-demand-control,
+mutate-the-code-to-prove-the-guard, a-pass-from-a-blind-check-outlives-the-blindness.
