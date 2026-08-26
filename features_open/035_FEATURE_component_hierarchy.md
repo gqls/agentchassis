@@ -178,8 +178,34 @@ fields, resolved by Go, holding each child's **already-rendered** HTML. The walk
 5. The bugs-283 **instance counter threads through the walk in final render
    order** — children consume tokens from the same per-page counter, so
    per-instance element ids stay canonical.
-6. Both render paths get the walk: assembly (`assembleComponents`) and the
-   sections rerender path. One walk implementation, two callers — not two walks.
+6. ~~Both render paths get the walk: assembly (`assembleComponents`) and the
+   sections rerender path.~~ One walk implementation, several callers — not
+   several walks.
+   > **CORRECTED 2026-08-26 (P1 implementation) — `assembleComponents` CANNOT
+   > CARRY COMPOSITION, and putting the walk there would have been dead code.**
+   > It renders from a list of component FUNCTION NAMES fetched out of the
+   > library (`GetComponentWithFallback` → `content_components`), and
+   > `assemble_from_library.go` contains **zero** references to
+   > `page_components` — so no row on that path can have a
+   > `parent_instance_id` to walk. Measured 2026-08-26: of the files that both
+   > read `page_components` AND call `RenderTemplate`, there are **four**
+   > (`v3_site_actions.go`, `section_editor_actions.go`,
+   > `rerender_page_sections_action.go`, `rerender_pages_actions.go`), and
+   > `assemble_from_library.go` is not among them.
+   > **Exactly ONE of the four is a page-wide walk over a page's rows:
+   > `rerender_page_sections_action.go`.** The others are single-target:
+   > `RenderComponentAction` (`v3_site_actions.go:2459`) renders one component,
+   > `apply_section_edit` (`section_editor_actions.go:1117,:1284`) renders one
+   > section, and `rerender_pages_actions.go:538` renders the **head** (chrome,
+   > not sections).
+   > **So P1's real scope is the page-wide path plus a decision about the
+   > single-target ones** — and that decision is not optional: a parent's stored
+   > `rendered_html` has its children embedded, so re-rendering a parent
+   > ALONE resolves `{{.slots.*}}` to empty and silently blanks its children,
+   > while re-rendering a CHILD alone leaves the parent still serving the old
+   > child bytes. Both are content-loss shapes and both need an answer in P1,
+   > not P5. Had the walk gone where D4.6 said, it would have satisfied §6.8's
+   > own warning about dormant mechanisms while changing nothing.
 
 **No `{{template}}` support is added to the executor.** VIZ-007's constraint
 (missing function = parse error; no arithmetic) stays exactly as-is; composition
@@ -445,9 +471,30 @@ P1–P3 have held on editorial pages for real weeks. The un-owned-page question
    falsifier below attached to it rather than shipped after it. **Do not bolt it
    into the P1 commit.**
 
-   **The rule for P1:** capture the digest immediately after each node's
-   `RenderTemplate` call, or give each node its own context. Do NOT read
+   **The rule for P1:** ~~capture the digest immediately after each node's
+   `RenderTemplate` call, or~~ **give each node its own context.** Do NOT read
    `ctx.RenderedTemplateSHA` after the walk and attribute it to anything.
+   > **CORRECTED 2026-08-26 by running the falsifier this section asked for —
+   > the FIRST of the two remedies offered above does NOT work, and it is the
+   > one a reader would pick as cheaper.** "Capture immediately after the call"
+   > is insufficient precisely in the case that motivates the hazard: the
+   > empty-template branch `return`s **before** `ctx.RenderedTemplateSHA` is
+   > assigned, so on a shared context an immediate read still observes the
+   > PREVIOUS node's digest. Immediacy was never the variable — assignment was.
+   > `[MEASURED 2026-08-26]` `TestHierarchyWalkEmptyTemplateChildStamp` runs
+   > both arms against the real `RenderTemplate`: with a fresh context per node
+   > the empty-template child's stamp is empty (correct); with a shared context
+   > read immediately after every call it comes back **byte-identical to its
+   > sibling's digest** (`3197aee8…`) — a false provenance claim.
+   > Only a fresh context per node (or the 357 lane's primitive fix, clearing
+   > the field on entry) is sufficient. The shared-context arm is kept in the
+   > test as the discriminating control, and `t.Skip`s itself with an
+   > explanation once that primitive fix lands, so it reports rather than
+   > rots. **The walk enforces this structurally rather than by comment**: its
+   > renderer callback must RETURN each node's stamp
+   > (`hierarchyRenderedNode.Stamp`), so a caller cannot accidentally read one
+   > shared field at the end — the owner's 2026-08-02 §2 ruling applied to this
+   > seam.
    Falsifier for P0/P1: render a two-child parent where **one child's template
    is the empty string**, and assert that child's stored stamp is EMPTY — not
    its sibling's digest. A test that only renders non-empty children passes

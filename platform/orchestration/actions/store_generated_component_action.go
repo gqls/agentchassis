@@ -2030,8 +2030,9 @@ func recordRetryFeedback(ctx context.Context, db *sql.DB, logger *zap.Logger,
 	}
 }
 
-// deriveRenderMode inspects a JSON-encoded input_schema and returns "agent"
-// if any field has source="llm", otherwise "template".
+// deriveRenderMode inspects a JSON-encoded input_schema and returns "composite"
+// if it declares slots, else "agent" if any field has source="llm", else
+// "template".
 //
 // This ensures render_mode is always consistent with the schema rather than
 // being hardcoded at creation time. The page-content-writer workflow's
@@ -2040,7 +2041,18 @@ func recordRetryFeedback(ctx context.Context, db *sql.DB, logger *zap.Logger,
 // permanently take the template-only path regardless of its content needs.
 //
 // Called by both the INSERT (creation) and UPDATE (regeneration) paths in
-// StoreGeneratedComponentAction so the value is always up to date.
+// StoreGeneratedComponentAction so the value is always up to date. That is also
+// why a hand-seeded render_mode does not survive: regeneration re-derives it
+// (035 §6.6), which is why the derivation must ship BEFORE any composite row is
+// seeded — the platform's standing image-before-config rule.
+//
+// ORDER IS LOAD-BEARING: slots are tested BEFORE the llm-field loop, and before
+// the `fields` early return. 035 D3's own worked example declares slots AND a
+// `standfirst` llm field, so with the checks in the other order every composite
+// carrying an llm field would derive "agent" and never route to the composition
+// build; and a composite declaring ONLY slots would fall out of the missing-
+// `fields` return as "template". Both orderings fail silently — the row would
+// simply take a path that renders the parent without its children.
 func deriveRenderMode(inputSchemaJSON string) string {
 	if inputSchemaJSON == "" || inputSchemaJSON == "{}" {
 		return "template"
@@ -2049,6 +2061,13 @@ func deriveRenderMode(inputSchemaJSON string) string {
 	var schema map[string]interface{}
 	if err := json.Unmarshal([]byte(inputSchemaJSON), &schema); err != nil {
 		return "template"
+	}
+
+	// features_open/035 D3 — a composite declares SLOTS. Absent a slots block a
+	// component is not a composite, which is what keeps composition opt-in with
+	// the unsafe side OFF by default (RFC_022's test, 035 §7).
+	if len(hierarchySlotsFromSchema(schema)) > 0 {
+		return "composite"
 	}
 
 	fields, ok := schema["fields"].(map[string]interface{})
