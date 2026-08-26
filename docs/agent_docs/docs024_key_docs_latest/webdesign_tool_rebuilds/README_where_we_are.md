@@ -419,3 +419,21 @@ back with useful confirmations rather than surprises — which is what the notic
 
 The watchdog bug that let this sit unnoticed for two weeks (it kept saying "3 of 3 switched on"
 by counting a lookalike task) is still open as bug 401 — today removed the harm, not the defect.
+
+## 2026-08-26, later morning (platform seat) — the proof arrived the same morning, and both checks passed
+
+Better news than I promised, and one correction to my own account. The correction first: the
+design inspections had in fact already partly resumed overnight, before my morning switch —
+the improvement loop you turned back on yesterday evening carries the design inspection with it
+on the sites it visits. Two other threads' replies to my notices are what surfaced that, which
+is exactly what the notices were for. My morning switch still mattered, but for a different
+reason than I wrote at nine: it restores the fair schedule — the guarantee that the
+longest-neglected site is visited next — which the loop alone does not give.
+
+And because the loop had already visited the webdesign site at a quarter to four this morning,
+the proof we were waiting for is already in, days early. Both checks passed. The new code filed
+exactly one tidy work item for the site's remaining un-rebuilt tools — and the number inside it,
+twenty, matches the rebuild queue's real remainder to the digit. And the acceptance audit
+covered the sixty-nine live tools while ignoring all forty-six retired ones, where the old code
+would have listed every ghost. The change we shipped yesterday does what it was built to do, on
+the site it was built for.

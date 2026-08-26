@@ -47,6 +47,13 @@ bottom, entries 2026-08-25); the read-aloud account:
    > enabled: 3/3" is blind to this (counts the availability task): `bugs_open/401`, LANDMINES
    > 2026-08-25, WRONG_CALLS 2026-08-25c, NOTES ~20:20Z entry. Caught by running the control and
    > asking which agent had produced the sweep.
+   >
+   > **RESOLVED 2026-08-26: step 1 is DONE — both controls PASSED.** Owner ruled and the rotation
+   > was re-enabled 09:20Z (proven firing end-to-end); independently, the owner's improvement-loop
+   > restart (08-25 ~21:18Z) had already carried a design sweep to webdesign at 03:46Z, and that
+   > sweep satisfied both controls: ONE `capability_gap:tool_health_contract_rules` row, residue
+   > 20 = the grind's exact remainder; 66 acceptance findings over 69 deployed slots, 0 of 46
+   > tombstones enumerated. Evidence: NOTES 2026-08-26 ~10:00Z. Nothing further owed on step 1.
 2. **Watch for the grind's Phase B ping** — the standing arrangement (NOTES 2026-08-25 ~12:00Z):
    when their FIRST rich app builds (mind-map/meme/logic-architect/micro-CMS/pasteboard), this seat
    second-eyes the feature-list browser grade. They ping with the app and feature list.

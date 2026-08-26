@@ -3840,3 +3840,39 @@ threads that we're doing this". Executed and proven:
 - Webdesign's own turn: ~20 due sites ahead of it at 1 per 3h ⇒ **the Track 2 demand controls
   become observable in roughly 1–2 days.** `bugs_open/401` (the watchdog miscount) stays open —
   the masked CASE ended today; the masking DEFECT is unchanged until check.py is fixed.
+
+## 2026-08-26 ~10:00Z (platform seat) — BOTH TRACK 2 DEMAND CONTROLS PASSED — and a correction: the drought had already ended overnight, before my enable
+
+**CORRECTION to the ~09:25Z entry above:** *"First design findings filed anywhere in 15 days"* is
+FALSE. The owner turned the improvement loop back on at **2026-08-25 ~21:18Z** (the loanzy lane's
+phased plan — the very plan in the 1339 stamp commit), and the loop dispatches design-discovery as
+a CHILD: apis.uk got full cycles at 00:39/04:47/08:40Z, idea.uk a 13-row wave at 01:26Z, and
+**webdesign.co.uk a design sweep at 03:46:25Z** — all before my 09:20Z enable. My own evidence
+table at ~09:25Z even listed two pre-enable design orchestrations (08:56, 09:12) and I wrote
+[UNATTRIBUTED] instead of pulling the thread. What caught it: apis.uk and idea.uk replying to the
+notification with timestamps that predate the switch. So yesterday's "runs on zero sites
+[MEASURED 2026-08-25 19:50Z]" was true when measured and expired within ~90 minutes — the
+measured-state-expires class, again. What my enable actually restored is the **fair-rotation
+driver** (least-recently-visited guarantee, which the loop's own selection does not give and
+historically starved); the loop is the second, owner-chosen carrier.
+
+**Demand control 1 — PASSED, on the designed shape exactly** (from the 03:46Z webdesign sweep,
+orchestration `895e7358`): ONE open row, `item_key capability_gap:tool_health_contract_rules`,
+status deferred, **population 22, residue 20** — residue equals the grind's not-yet-rebuilt count
+to the digit (63 − 43). Second site independently as designed: mortgagecalculator.co.uk
+(population 1, residue 1, 23:53Z). The findings array carries the designed aggregate
+(`sub_check contract_rules_16_17`, residue 20, population 22) instead of per-instance noise.
+
+**Demand control 2 — PASSED, as a measurement not an impression:** the same sweep filed
+**66 `tool_acceptance` findings against 69 deployed tool slots — and 0 of the 46
+`build_status='removed'` tombstones** (enumeration would have read ≈115). No duplicate tool
+names. The centralised `toolEligibilityWhere` filter is live (v1.0.1341 rolled overnight, which
+also added `stylesheet_gutted` — mig 541, 09:07Z, roster now 24 — explaining agritec's check
+list). Track 2 is done, verified at the artefact, both controls, on the motivating site.
+
+Banked from the notification replies (nine lanes answered; details in their own lanes):
+finetuning's warning that `contrast_failure`→`css-patch-agent` is a promoter pair that would
+mis-repair their cross-site component defect while 398 is unrolled; aiao's 6 stale image_url_404
+rows that must be re-checked not dispatched; the seven audit-seat children FAIL each loop cycle
+BY DESIGN and self-record as `capability_gap_audit_seat_failed_*` (mig 620) — do not read those
+as my checker's rows (they share the item_type, not the key shape).

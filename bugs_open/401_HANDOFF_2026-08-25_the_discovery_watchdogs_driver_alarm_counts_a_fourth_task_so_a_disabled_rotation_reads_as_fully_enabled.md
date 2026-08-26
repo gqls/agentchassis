@@ -113,3 +113,9 @@ defect is the watchdog's count, which is unchanged — it now reads a truthful "
 by coincidence, and the next single-rotation disable will be masked exactly as this one was.
 Today's staleness reports will also drain from 27 `site_stale` rows toward 0 over the ~3-day
 ramp; treat that drain as the rotation working, not as this bug being fixed.
+
+**Addendum, same day:** precision on when the drought ended — the improvement loop (re-enabled by
+the owner 2026-08-25 ~21:18Z, loanzy lane's phased plan) had been carrying design-discovery as a
+child since ~23:53Z, hours before the rotation re-enable. Changes nothing about this bug: the
+watchdog's count was blind throughout, and the loop's own selection is not the fair-rotation
+coverage the count claims to attest.
