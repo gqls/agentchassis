@@ -435,3 +435,10 @@ homegarden — pages BUILT by the wave run the post-627/628 writer (copy deltas 
 
 **16.** Owner question now open: cv1.co.uk and lampenkap.com in the estate's GA4, or keys retracted?
 Both lanes ruled it portfolio, not technical. Cost either way is one supersede.
+
+**17.** `[2026-08-26, 384-lane close]` lampenkap ruling: put to the owner twice, no answer yet; the
+384 lane will write it here as a dated CONTRIB when it comes, and **"no news from them = no
+retraction requested"** — the key stays, the decision is retract-or-not (one supersede), nothing
+blocks on it. Confirmed: their sweep's `consumer_pages: 1, current: 0, unknown: 1` reading on
+lampenkap is the empty `tool-list` (no `tool` pages), unrelated to GTM, and will read the same
+after the re-render — nobody should expect the wave to change it.
