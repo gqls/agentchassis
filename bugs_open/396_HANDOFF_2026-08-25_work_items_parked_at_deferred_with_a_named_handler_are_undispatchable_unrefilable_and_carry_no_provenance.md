@@ -300,6 +300,57 @@ as the guard for a new failure mode, feed the new failure mode to the check and 
 tell is that you changed the thing the check inspects.
 
 
+## 6e. ✅ 2026-08-26 evening — RE-PROVEN on chassis `v1.0.1345` after a roll, and the fixed guard found a live blind spot in a pending migration
+
+**A fresh chassis shipped (`v1.0.1341` → `v1.0.1345`, pods 20:24:56Z / 20:25:20Z), so every liveness
+claim in §6c/§6d was re-proven rather than carried forward.** The Go half lives in that binary.
+
+**Binary probe, BOTH replicas, present-control AND absent-control in the same run:** `honour_site_lock`,
+`lock_except_item_ids` and `WORK_ITEM_STATUS_OVERRIDE_REFUSED` **PRESENT** on both;
+`repairOutboundPageLinks` (present-control) PRESENT; `zzzNotARealSymbol396zzz` (absent-control)
+**absent**. ⚠ `build provenance` was **not in range** on either pod ten minutes after start — chassis
+emitted 2.4 MB of logs in ten minutes. Empty there means *not in range*, never *unstamped*.
+⚠ The absent-control is the slowest probe (it cannot stop early) and **timed out at 120 s on the first
+attempt**; it was re-run alone at 240 s. **Four `PRESENT`s with no completed absent-control are
+unfalsifiable.**
+
+**Config half intact, checked by SHAPE not substring:** the live selector names `lock_except_item_ids`
+✓ **and carries the exact parenthesised form** ✓. The new `DO`-block check from `LANDMINES.md`, run
+against the live row: `PASS`. The two-arm production proof of §6d still holds post-roll.
+**70 dispatchable items across 4 locked sites** now (was 67/3 — the number moves; re-count it).
+
+### 📤 The corrected guard immediately found something — migration `657`, applying ~12:00Z 2026-08-27
+
+`657_selector_ranks_sites_by_loadable_work_HOLD.sql` (`bugs_open/413`, `dispatch_throughput` lane,
+council-APPROVED r2) **rewrites this same selector query.**
+
+- **Their query is correct** — the lock clause is present and properly wrapped, and their header names
+  `config.query — NOT pre_query`. They had read the landmine.
+- **Their guard carries the blind spot this bug just documented.** `657:201-209` tests each eligibility
+  fragment with `position(v_frag in v_q)`, and **four of the seven fragments are OR-bearing and listed
+  WITHOUT their wrapping parens** (lock, `retry_after`, `approval_mode`, `depends_on`). Their comment
+  says each clause *"widens dispatch if dropped"* — **the precedence break widens dispatch without
+  dropping anything**, which is exactly what a presence test cannot see.
+- **Their md5 precondition still holds** (`d6f98acdb5aec385d5eb4077eac530fc`), so `657` applies cleanly.
+
+CONTRIB written into **their** directory with the decision left to them, and explicitly **not** a
+reason to delay their apply:
+`docs/agent_docs/docs024_key_docs_latest/dispatch_throughput/CONTRIB_2026-08-26_from_deferred_work_item_park_657_guard_cannot_see_a_precedence_break.md`
+
+### Two open questions, recorded rather than guessed
+
+- **`[UNRESOLVED]`** The selector's `agent_definitions` row shows `updated_at = 20:24:17`, ~40 s before
+  the pods started, and **I did not identify the writer.** Established: the `633` clause is present in
+  its exact shape afterwards, there is exactly **one** active non-snapshot row for this type, and the
+  md5 matches `657`'s baseline. The fix survived it.
+- **`[UNVERIFIED]`** `docs/agent_docs/sql_for_agents/052_build_pipeline_trigger.sql` — the seed for this
+  agent — still carries the **OLD** query with bare `locked_at IS NULL` and no `lock_except_item_ids`.
+  **A re-seed would silently revert `633`'s config half.** It is not in `schema_migrations` and did not
+  fire at this roll; whether any path re-applies seeds was **not established**.
+
+**Current handoff:** `docs/agent_docs/docs024_key_docs_latest/deferred_work_item_park/HANDOFF_2026-08-26b_continue_here.md`
+
+
 ## 6b. ⚠ SUPERSEDES §6a's candidate 1 — the fix is the EXISTING site lock, not a park verb (2026-08-25, after council `ed821065` REVISE)
 
 **§6a said the primary fix was a park verb. That was wrong, and the council's `prior_art` seat

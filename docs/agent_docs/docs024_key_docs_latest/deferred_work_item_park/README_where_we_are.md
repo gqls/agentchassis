@@ -232,3 +232,45 @@ someone trusting a check that has a hole in it, which is the whole lesson here.
 
 **Nothing is blocked.** The one long-standing gap is unchanged: nothing stops someone editing the
 database by hand to park a job, and short of a database-level trigger nothing can.
+
+## 2026-08-26, evening — the new build checked out, and the repaired safety check found something within the hour
+
+A fresh chassis was deployed this evening, which meant everything I told you this afternoon had to be
+proved again rather than assumed. Our work lives partly inside that program, so a new build is a new
+thing to check.
+
+It all came back clean. I asked both copies of the running program, directly, whether they still
+contain our three pieces of work — they do — and I asked two control questions in the same breath: one
+thing that must be there, and one invented name that must not be. Both behaved. That second control
+nearly got skipped, because it is the slowest question to answer and my first attempt ran out of time
+before reaching it. Four "yes" answers with no control is not evidence, so I ran it again properly.
+
+The hold on your halted site is still working, and I checked it the careful way this time: not just
+that the rule mentions the right words, but that it has the right *shape*. That distinction is the
+whole of this afternoon's lesson.
+
+**Then the repaired check earned its keep straight away.** Having fixed it, I asked the obvious
+follow-up: is anybody about to edit the rule it protects? Somebody is — another colleague has a
+change to that exact query, already reviewed and approved, going in around midday tomorrow.
+
+Their change is correct. I checked it properly and their version of the rule is written the right
+way round. But **their own safety check has the same blind spot ours had**: it confirms each part of
+the rule is present without confirming it is grouped correctly, and grouping is precisely what makes
+the difference between holding your site and releasing several thousand jobs. I have written this
+into their working folder, with the measurements, and left the decision to them — it is a small
+hardening, not a reason to delay their work, and their change tomorrow is safe as written.
+
+I also confirmed a detail that would otherwise have looked like a fault tomorrow: their change checks
+that nobody has altered the query behind their back, and that check still matches, so it will apply
+cleanly.
+
+**Two things I could not answer, which I have written down as open rather than guessed at.** Something
+modified that configuration forty seconds before the new build started and I could not tell what; our
+part survived it intact, and I checked that specifically. And the original setup file for this part of
+the system still contains the *old* version of the rule — so if anything ever re-runs that file, our
+fix would quietly disappear. It did not happen this time, and I have not established whether anything
+could make it happen. Worth someone's time eventually; not urgent tonight.
+
+**Nothing is blocked.** The one open item is the same as before: nothing prevents someone editing the
+database by hand to park a job, and closing that needs a database-level rule, which is your decision
+rather than mine to make in passing.

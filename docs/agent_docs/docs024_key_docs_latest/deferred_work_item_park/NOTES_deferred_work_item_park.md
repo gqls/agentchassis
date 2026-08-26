@@ -755,3 +755,62 @@ unlocked. Nothing short of reading the parens catches B.
 Logged as `WRONG_CALLS.md` 2026-08-26. The generalisation is the transferable part: **when you
 nominate an existing check as the guard for a new failure mode, feed the new failure mode to the
 check and watch it fail** — the tell is that you changed the thing the check inspects.
+
+## 2026-08-26 (evening) — chassis rolled to v1.0.1345; everything re-proven, and the fixed guard immediately earned itself
+
+### The roll obliged a re-proof, and the provenance line was useless
+
+Chassis `v1.0.1341` → **`v1.0.1345`**, pods up 20:24:56Z / 20:25:20Z. The lane's Go half is in that
+binary, so none of this morning's liveness claims transfer.
+
+⚠ **`build provenance` was NOT in range on either pod, ten minutes after start** — chassis emitted
+**2.4 MB of logs in ten minutes** and the startup line had already scrolled past `--tail=20000`.
+Empty means *not in range*, never *unstamped*. The binary probe has no shelf life; that is the tool.
+
+⚠ **The absent-control timed out at 120 s and I nearly shipped a probe without it.** Scanning a whole
+binary for a string that is *not* there is the slowest case — it cannot stop early. The first run
+returned four `PRESENT` rows and died before `zzzNotARealSymbol396zzz`. **Four PRESENTs with no
+absent-control are unfalsifiable** (a grep matching everything looks identical). Re-ran it alone at
+240 s: **absent** ✓. Both replicas then came back clean on all five symbols.
+
+### The config half survived, and I checked the SHAPE this time, not the substring
+
+Live selector names `lock_except_item_ids` ✓ **and carries the exact parenthesised form** ✓. That
+second check is the whole lesson of this afternoon — the substring alone is what made the old
+landmine check useless. **I wrote the check that way because I had just been caught by the other.**
+
+Ran my own new `DO` block against the live row for real: `PASS: selector returned an UNLOCKED site`.
+The two-arm production proof still holds post-roll — a locked site (`adversecreditmortgage.co.uk`,
+owner HALT) still heads the ordering. **70 held items across 4 locked sites now** (was 67/3 — another
+site was locked in the interim, so this number moves; do not quote it without re-counting).
+
+### The fixed guard paid for itself within the hour — migration 657
+
+Having corrected the guard, I asked the obvious next question: **is any pending migration about to
+edit that query?** One is — `657_selector_ranks_sites_by_loadable_work_HOLD.sql` (`bugs_open/413`,
+`dispatch_throughput`), council-APPROVED and hand-applied ~12:00Z tomorrow.
+
+**Their query is correct** — lock clause present and properly wrapped, header names `config.query`
+not `pre_query`. They had read the landmine. **But their guard has exactly the blind spot I had just
+documented**: `657:201-209` tests eligibility fragments with `position()`, and **four of the seven
+are OR-bearing and listed WITHOUT their wrapping parens.** Their comment says each clause "widens
+dispatch if dropped" — the precedence break widens dispatch *without dropping anything*.
+
+Also confirmed their md5 precondition still holds (`d6f98acdb5aec385d5eb4077eac530fc`), so `657`
+applies cleanly — worth telling them, since a refusal would otherwise read as a bug in their file.
+
+CONTRIB written into **their** directory, decision left to them, explicitly not a reason to delay
+their apply. This is the owner ruling of 2026-07-29 §3 in practice: *a shared mechanism's other
+consumers must be TOLD, not merely measured.*
+
+### One thing I could not attribute, recorded rather than guessed
+
+The selector's `agent_definitions` row shows `updated_at = 20:24:17`, ~40 s before the pods started.
+**I did not identify the writer.** Established: the `633` clause is present in its exact shape
+afterwards; exactly one active non-snapshot row for this type; md5 matches `657`'s baseline. So the
+fix survived it. Marked `[UNRESOLVED]` in the handoff rather than narrated into a cause.
+
+Separately: `sql_for_agents/052_build_pipeline_trigger.sql` — the seed — still carries the **OLD**
+query with no `lock_except_item_ids`. A re-seed would silently revert `633`. It is not in
+`schema_migrations` and did not fire here. `[UNVERIFIED]` whether any path re-applies seeds; stated
+as an open question, not a finding.

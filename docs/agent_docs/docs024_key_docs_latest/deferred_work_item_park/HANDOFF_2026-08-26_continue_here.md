@@ -1,3 +1,11 @@
+> ## ⛔ SUPERSEDED 2026-08-26 ~20:40Z — read
+> `docs/agent_docs/docs024_key_docs_latest/deferred_work_item_park/HANDOFF_2026-08-26b_continue_here.md` INSTEAD.
+>
+> This file is kept for the record. Everything in it was true when written and two things have
+> since changed: the chassis rolled to **v1.0.1345** (so every liveness claim below was re-proven
+> against a different binary), and the guard this file nominates for migration authors — the
+> `sites.locked_at` LANDMINES check — **was found to be blind and has been corrected**.
+
 # HANDOFF 2026-08-26 — `bugs_open/396`: both fixes are LIVE, EXERCISED and APPROVED. Nothing is blocked and nothing is owed.
 
 **Read this box. Everything below it is background or recipe.**
