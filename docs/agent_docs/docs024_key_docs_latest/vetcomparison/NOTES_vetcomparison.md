@@ -1564,3 +1564,22 @@ finishing its backlog. Same number, opposite meaning; the fix cannot be proved b
 they retracted that close condition in writing rather than manufacture an image to tick it. For
 this site: the first new page planned with a `hero_<page>` prompt will be the first real exercise
 of the fixed path, and it will read the photographic `imagery_direction` seeded today.
+
+## 2026-08-26 — heads-up received: design-discovery rotation re-enabled; expect unfiled design items
+
+The `webdesign-tool-rebuilds` session flagged (cross-session, 09:2xZ): `site-discovery-rotation-design`
+re-enabled 2026-08-26 09:20Z after 15 days off (the 08-11 cost-scare pause was never unwound —
+`bugs_open/401`). Design checks (palette_contrast, image_url_404, tool_health, missing_css, …)
+resume ~1 site/3h, least-recently-visited first; this site's turn within ~2-3 days. Findings are
+born `detected`; `detected-item-promoter` (15-min) auto-promotes known (item_type, handler_agent)
+pairs into build dispatch — **so a design item or an auto-dispatched repair appearing here with no
+filer is the ROTATION, not a stray thread.**
+
+This site's known exposures when the sweep visits: (a) `palette_contrast` — a DEFERRED
+capability_gap already stands (d6da17b4, 07-31: accent-as-ink 2.42:1 vs 3.0:1 needed); a re-detect
+or promotion would be the standing defect, not news. (b) `image_url_404` — the hero.jpg case was
+completed WITH the underlying fix on 08-24 (file now serves), so a re-detect should come up clean;
+if it re-files, read that as the CHECK disagreeing with the fix, worth attention. (c) The 08-24
+`design_intent` supersede preserved every palette key verbatim (only `imagery_direction` and
+`avoid[0]` changed), so the colour-churn pin (`palette.reference_values` class) is unaffected if a
+palette repair auto-dispatches.
