@@ -1328,3 +1328,27 @@ Their unfixed pointer constrains our un-defer plan and is now in handoff §5b: t
 first-wins by kind — so swarm/pollination images go in via content_data + lock (CLC-030 route),
 not via the resolver. Their register entry: IMG-074; their migration is Council-Submitted
 (08477888, pending).
+
+### 2026-08-26 ~14:30 UTC — automation added two tools to the single-page site; parked nine items before anything published
+
+Found on a routine "has the c2 wave landed" check (it had, at the chrome level: head artefact
+carries GTM again since 11:40; the served page awaits its own `page_rerender`, still triaged):
+apis.uk had FIVE `pages` rows. Two `add_tool` items (09:18Z, improvement loop → `tool-generator`)
+had created a quiz tool, a calendar tool and two companion guides, all `planned`, outside the
+1-page site plan and against the current single-page `roadmap_brief`. Nine triaged items stood
+ready to publish the lot (renders, guides, index rewrite with tool references, nav rebuild, two
+improve_tool pushes). None claimed.
+
+Deferred exactly those nine (plpgsql `GET DIAGNOSTICS` count assertion — a first attempt used a
+psql `\gset` variable inside a `DO $$` body, which does not interpolate; it errored before COMMIT
+and rolled back, verified by the second run's own count). Reason + unblock in `result`, mirroring
+the 08-24 deferrals. Left the index's GTM-restoring rerender alone. Did NOT delete pages or
+cancel items — the owner's standing ruling justifies holding the door; deciding the tools' fate
+does not belong to this session. Two owner paths + the un-enrol requirement written in handoff
+§5c; loanzy.uk (loop owner) and the 644 lane (their protection now trips
+`image_source_unsatisfiable` here — true statement, false alarm) messaged.
+
+Pattern worth naming for the lane: **a re-enabled fleet mechanism does not know a site's
+rulings.** The loop read apis.uk's "1 of 6 structures" and "no tools" as gaps to fill; the
+single-page constraint lives in a brief the planner reads and the completeness pass does not.
+The durable fix is the un-enrol, not the deferral.

@@ -8,8 +8,10 @@
 > `analytics_gtm` is the cold-start for tracking, `bugs_open/397`). The lane's remaining build,
 > **per-section subjects, SHIPPED on 08-26**: Go + migration committed (`35905c547`), migration
 > 638 applied, council **APPROVED at round 2** (`4bd35ed8`, ~12:35 BST; 3 advisories, all ACTED ON in
-> `fa98a1961` — see §1a), three config seeds `_HOLD` awaiting the next chassis roll — nothing
-> else is open here except the image-accuracy A+C build, not started.
+> `fa98a1961` — see §1a), three config seeds `_HOLD` awaiting the next chassis roll — and — NEW at
+> 14:25 UTC — **the improvement loop added two tools + two guides (4 `planned` pages) to this
+> single-page-by-ruling site; their publication is PARKED (`deferred`) pending the owner, §5c.**
+> Otherwise only the image-accuracy A+C build remains, not started.
 
 ## 1. Per-section subjects — what a next session owes, in order
 
@@ -157,3 +159,39 @@ was the strip vector); expect the wave's items to COMPLETE and gtm to return on 
    `needs_human_review` — the platform ARCHIVED the pre-strip head (48,471 B), so the tagged
    artefact is recoverable evidence. Owner disposition queued via `bugs_open/397` §10-addendum;
    do not close it from this lane.
+
+## 5c. 2026-08-26 09:18–11:47 UTC — the improvement loop ADDED TWO TOOLS to a single-page-by-ruling site; publication PARKED at 14:25 UTC pending the owner
+
+**What happened (measured):** two `add_tool` items (filed 09:18Z, source: the re-enabled
+improvement loop's completeness pass; handler `tool-generator`) COMPLETED at 11:43/11:47 and
+created **four `planned` pages** on apis.uk — `tool-bee-identifier-quiz` ("What Bee Did I See?"),
+`tool-bee-foraging-calendar` ("UK Bee Foraging Calendar") and a 3-section companion guide for
+each — **outside the site plan** (`site_plans` still 1 page) and **against the current
+`roadmap_brief`** (single page, nothing to sell; 2026-08-23 row, `is_current`). Nothing is live:
+all four are `planned`, unbuilt, undeployed.
+
+**What would have published it:** nine `triaged` items — 2× `page_rerender` (tool pages),
+2× `needs_content_page` (guides), 2× `content_rewrite` ("add <tool> reference to index page"),
+1× `nav_drift` (nav rebuild + chrome re-render), 2× `improve_tool` ("tool page is planned, not
+rendered" — would push the renders). None claimed when found.
+
+**What this session did:** set exactly those nine to **`deferred`** (one transaction, count
+asserted =9, reason + unblock written into `result` — the same reversible shape as this lane's
+08-24 deferrals). The index's own `page_rerender` (11:40, restores GTM) was deliberately left
+`triaged`. Pages were NOT deleted, items NOT cancelled: enforcing the owner's standing ruling
+until he speaks is this lane's job; choosing the future of the tools is his.
+
+**OWNER DECISION (the second one in this handoff):**
+- **(a) accept tools on apis.uk** → set the nine back to `triaged` (`UPDATE … WHERE result->>'deferred_by'='apis.uk session 2026-08-26'`), and expect: two tool pages, two guides, nav links, and a rewritten index with tool references — i.e. apis.uk stops being the single quiet page.
+- **(b) keep the ruling** → cancel the nine, delete the four `planned` pages (they are unbuilt
+  rows, no artefact), and — the part that stops it recurring — **un-enrol apis.uk from tool
+  generation / expansion** in the improvement loop's config (the `loanzy.uk` lane owns the loop's
+  phased plan; told). Without that, the next completeness pass re-files the same items (the
+  `deferred` rows hold them off via dedup only while they exist).
+- Default while undecided: leave deferred. Nothing publishes.
+
+**Also on the page's queue since 644:** `image_source_unsatisfiable` (`needs_human_review`,
+11:24) — the checker now flags that `illustrated-text-block` sources `image_url` from
+`site_assets.illustration`, which resolves nothing here. **That is the PROTECTION working**
+(644 made the six stored illustrations carry instead of being hero-clobbered) — the item is a
+true statement and a false alarm; told the 644 lane, leave it for them/the owner.
