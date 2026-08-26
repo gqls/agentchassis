@@ -64,6 +64,32 @@ var liveConfiguredChecks = []string{
 	// fails the whole step (discovery_checks.go:198-216) and takes the run's
 	// already-collected findings down with it (the return precedes tx.Commit()).
 	"cta_nonpage_destination",
+	// ── Added 2026-08-26 by the bugfix_359 lane, by UNION (the rule this file
+	// states: a type can vanish from a live query while its producer is still
+	// deployed, so never replace this list). Found while preparing to add a
+	// twentieth name and checking that the guard which protects that change is
+	// sound: it was not. [MEASURED 2026-08-26] the live agents configure **82**
+	// distinct check names across FIVE agents and this fixture asserted **63** —
+	// a 23% blind spot in the one test that stands between a config typo and a
+	// fleet-wide discovery outage. All 82 resolve today (verified by dumping
+	// discovery_checks.Names() and diffing against the live `checks` arrays), so
+	// this was an UNDER-ASSERTION and not a live risk — but the file's own header
+	// says it exists so a rename fails HERE rather than in the fleet, and it
+	// records finding `literal_markdown` live-and-unlisted with the note that
+	// leaving a known gap "would be the same defect one level up".
+	//
+	// The five live SEO/structural checks of check_site_structural_validity.go
+	// (bugs_open/251's generalisation), plus page_list_stale, all on
+	// completeness-discovery-agent:
+	"dead_internal_link_live", "canonical_mismatch", "structured_data_invalid",
+	"head_essentials_missing", "sitemap_entry_dead_live",
+	"page_list_stale",
+	// The three finance-directory profiles registered dynamically by
+	// check_directory.go's init() — the header already warns that a source grep
+	// for `Name()` cannot build this list, and these are exactly that class.
+	"missing_mortgage_lender_directory_section", "missing_mortgage_lender_directory_page",
+	"missing_savings_provider_directory_section", "missing_savings_provider_directory_page",
+	"missing_health_insurer_directory_section", "missing_health_insurer_directory_page",
 
 	// design-discovery-agent
 	"stale_site_components", "missing_style_collection", "shared_css_theme",
@@ -95,6 +121,11 @@ var liveConfiguredChecks = []string{
 	// carries exactly one check and no LLM steps, which is why it is the only
 	// discovery agent that still functions during the Anthropic cap (bugs_open/243).
 	"site_unreachable",
+	// page_content_divergence — bugs_open/315 / RFC_038, live on this same agent
+	// and missing from this fixture until 2026-08-26. It is the SECOND half of
+	// the agent the 359 lane is about to add a third check to, so the guard was
+	// blind to the very agent being edited.
+	"page_content_divergence",
 
 	// quality-discovery-agent
 	"broken_nav_links", "placeholder_contact", "generic_theme", "unverified_claims",
@@ -106,6 +137,14 @@ var liveConfiguredChecks = []string{
 	// roster that silently drifts is exactly what this file exists to prevent,
 	// and leaving a known gap in it would be the same defect one level up.
 	"literal_markdown",
+	// Also live on quality-discovery-agent and unlisted until 2026-08-26.
+	"decision_guards", "premise_incomplete", "revenue_shape",
+
+	// acceptance-discovery-agent — a FIFTH agent calls run_discovery_checks
+	// (RFC_056's acceptance seats), and NONE of its three names was in this
+	// fixture. The header's "three live agents" was already one out of date at
+	// the availability line above; it is now two.
+	"build_prerequisites", "heading_promise", "structure_floor",
 }
 
 // TestEveryLiveConfiguredCheckResolves is the safety proof for making an
