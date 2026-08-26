@@ -1,4 +1,4 @@
--- 649 — the render-audit COVERAGE CURSOR: table + the opt-in flip (bugs_open/394).
+-- 660 — the render-audit COVERAGE CURSOR: table + the opt-in flip (bugs_open/394).
 --
 -- ⚠ _HOLD: THIS MUST NOT BE APPLIED BEFORE THE CHASSIS IMAGE CARRYING THE CODE
 -- HAS ROLLED. `rotate_coverage: true` against a binary that does not know the key
@@ -51,6 +51,22 @@
 -- which is exactly pre-394 behaviour, not a broken state.
 
 BEGIN;
+
+-- ── 0. BACKUP FIRST — the house discipline, and the council asked for it ───
+--
+-- debug_historian raised this as a MEDIUM advisory on council round 3
+-- (corr f67593f5): this mutates `agent_definitions.default_config` for a live
+-- agent with no preceding snapshot, deviating from the backup discipline every
+-- other agent-config migration follows. The seat is right, and the reason is the
+-- LANDMINE on `agent_definitions`: a migration keyed on `type` can hit TWO active
+-- rows — four types carry duplicates today — and if this were one of them the
+-- UPDATE would touch both with no independent copy to diff against.
+--
+-- The guard below still aborts on that case (and is the primary defence), but a
+-- guard that aborts and a backup you can restore from are different properties,
+-- and the second one is cheap. snapshot_agent() copies the highest-version active
+-- row to a new is_snapshot row and returns its id.
+SELECT snapshot_agent('render-audit-agent');
 
 -- ── 1. the cursor table ────────────────────────────────────────────────────
 
@@ -108,7 +124,7 @@ BEGIN
     AND COALESCE(is_snapshot, false) = false
     AND deleted_at IS NULL;
   IF v_rows IS DISTINCT FROM 1 THEN
-    RAISE EXCEPTION '649: expected exactly 1 active render-audit-agent row, found % — resolve which row the loader reads before applying', v_rows;
+    RAISE EXCEPTION '660: expected exactly 1 active render-audit-agent row, found % — resolve which row the loader reads before applying', v_rows;
   END IF;
 
   -- Anchor on a key that must ALREADY exist at the path, so a moved step layout
@@ -121,7 +137,7 @@ BEGIN
     AND deleted_at IS NULL
     AND default_config->'workflow'->'steps'->'audit'->'config' ? 'max_pages';
   IF v_has_step IS DISTINCT FROM 1 THEN
-    RAISE EXCEPTION '649: workflow.steps.audit.config.max_pages not found on the live row — the step layout has changed; do not invent the path';
+    RAISE EXCEPTION '660: workflow.steps.audit.config.max_pages not found on the live row — the step layout has changed; do not invent the path';
   END IF;
 END $$;
 
@@ -153,13 +169,13 @@ BEGIN
     AND COALESCE(is_snapshot, false) = false
     AND deleted_at IS NULL;
   IF v_rotate IS DISTINCT FROM 'true' THEN
-    RAISE EXCEPTION '649: render-audit-agent audit.config.rotate_coverage is % (expected true) — aborting', v_rotate;
+    RAISE EXCEPTION '660: render-audit-agent audit.config.rotate_coverage is % (expected true) — aborting', v_rotate;
   END IF;
 
   SELECT count(*) INTO v_tbl FROM pg_tables
    WHERE schemaname = 'public' AND tablename = 'render_audit_page_cursor';
   IF v_tbl IS DISTINCT FROM 1 THEN
-    RAISE EXCEPTION '649: render_audit_page_cursor was not created — the flag would be on with nowhere to store a position';
+    RAISE EXCEPTION '660: render_audit_page_cursor was not created — the flag would be on with nowhere to store a position';
   END IF;
 
   -- The other carrier must NOT have been flipped. Checked rather than assumed:
@@ -171,7 +187,7 @@ BEGIN
        AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
        AND default_config->'workflow'->'steps'->'audit'->'config' ? 'rotate_coverage'
   ) THEN
-    RAISE EXCEPTION '649: design-critique-agent was flipped too — it is a manual sampler and must keep its prefix; aborting';
+    RAISE EXCEPTION '660: design-critique-agent was flipped too — it is a manual sampler and must keep its prefix; aborting';
   END IF;
 END $$;
 

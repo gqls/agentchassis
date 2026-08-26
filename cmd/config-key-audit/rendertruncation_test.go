@@ -172,3 +172,30 @@ func TestReaderNamesItsCodeAndSink(t *testing.T) {
 		}
 	}
 }
+
+// bug_historian's council-round-3 advisory: the cursor computes "open findings
+// whose page is no longer live" and must not silently drop it — that is the
+// "detector partitions its population and discards the residue" shape (016b §9).
+// It is REPORTED rather than alarmed because the measured population was 1 of 116
+// on 2026-08-26, and a check that goes red over a pre-existing backlog of one
+// gets ignored.
+//
+// MUTATION: delete the notLive block from the summary → the count vanishes from
+// the only durable place a human reads, and this fails.
+func TestRenderTruncationRunSummary_SurfacesFindingsThatCanNeverSelfGrade(t *testing.T) {
+	runs := []renderTruncationRun{
+		{Domain: "webdesign.co.uk", AgentType: "render-audit-agent", CoverageMode: "cursor", WindowFirst: "a", PriorityNotLive: 3},
+	}
+	s := renderTruncationRunSummary(41000, "acks.json", runs, nil)
+	if !strings.Contains(s, "no longer live") || !strings.Contains(s, "3 open") {
+		t.Fatalf("the not-live count must be surfaced in the summary: %s", s)
+	}
+	// And it must stay QUIET at zero — a note on every clean run is noise, and
+	// noise is how a report stops being read.
+	quiet := renderTruncationRunSummary(41000, "acks.json", []renderTruncationRun{
+		{Domain: "d", AgentType: "render-audit-agent", CoverageMode: "cursor", WindowFirst: "a"},
+	}, nil)
+	if strings.Contains(quiet, "no longer live") {
+		t.Fatalf("zero not-live must print nothing: %s", quiet)
+	}
+}

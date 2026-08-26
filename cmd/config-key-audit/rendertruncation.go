@@ -80,6 +80,7 @@ SELECT COALESCE(jsonb_agg(t), '[]'::jsonb) FROM (
          COALESCE(agent_type, '(no agent_type)')                      AS agent_type,
          COALESCE(NULLIF(context->>'coverage_mode',''), '(absent)')   AS coverage_mode,
          COALESCE(context->>'window_first', '')                       AS window_first,
+         COALESCE((context->>'priority_not_live')::int, 0)             AS priority_not_live,
          occurred_at::text                                            AS occurred_at
     FROM agent_error_log
    WHERE error_code = 'RENDER_AUDIT_TRUNCATED'
@@ -106,7 +107,11 @@ type renderTruncationRun struct {
 	AgentType    string `json:"agent_type"`
 	CoverageMode string `json:"coverage_mode"`
 	WindowFirst  string `json:"window_first"`
-	OccurredAt   string `json:"occurred_at"`
+	// PriorityNotLive counts open contrast_failure rows whose page matched NO
+	// live page in that run — findings that can NEVER self-grade, because the
+	// audit will not photograph their page again.
+	PriorityNotLive int    `json:"priority_not_live"`
+	OccurredAt      string `json:"occurred_at"`
 }
 
 // renderTruncationFinding is one thing a human must look at.
@@ -251,6 +256,31 @@ func renderTruncationRunSummary(errorLogRows int, acksPath string, runs []render
 	for _, f := range findings {
 		fmt.Fprintf(&b, "  [%s] %s / %s: %s\n", f.Arm, f.Domain, f.AgentType, f.Detail)
 	}
+	// REPORTED, NOT ALARMED — and the distinction is deliberate.
+	//
+	// bug_historian raised this as a MEDIUM advisory on council round 3 (corr
+	// f67593f5): the cursor COMPUTES the count of open findings whose page is no
+	// longer live and then drops it, which is the platform's "detector partitions
+	// its population and silently discards the residue" shape (016b §9). They were
+	// right that it must be surfaced. It is NOT an alarm arm because
+	// `[MEASURED 2026-08-26]` the live population is ONE row of 116 open
+	// contrast_failure rows — a check that goes red on its first run over a
+	// pre-existing backlog of one is a check that gets ignored, which is this
+	// estate's own stated reason for reporting a ratchet rather than failing it.
+	// If this number climbs, that is the signal; the count is here so it can be.
+	notLive := 0
+	for _, r := range runs {
+		if r.PriorityNotLive > notLive {
+			notLive = r.PriorityNotLive
+		}
+	}
+	if notLive > 0 {
+		fmt.Fprintf(&b, "  NOTE: the most recent run saw %d open contrast_failure finding(s) whose page "+
+			"is no longer live — they can never self-grade, because the audit will not photograph "+
+			"that page again. Reported, not alarmed (measured population was 1 of 116 on 2026-08-26). "+
+			"A climbing number here is a queue nobody can drain.\n", notLive)
+	}
+
 	if len(findings) == 0 && len(runs) > 0 {
 		fmt.Fprintf(&b, "  Every truncation row is accounted for: the rotating caller is in cursor mode "+
 			"and advancing, and every other caller is acknowledged. A truncation row is NOT a defect "+

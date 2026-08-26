@@ -1,4 +1,4 @@
--- 649 ROLLBACK — return request_render_audit to the deterministic prefix.
+-- 660 ROLLBACK — return request_render_audit to the deterministic prefix.
 --
 -- ORDER MATTERS AND IT IS THE ONLY SUBTLE THING HERE: remove the KEY first,
 -- then the TABLE. Between the two statements the code must never be in the state
@@ -32,7 +32,7 @@ BEGIN
     AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
     AND default_config->'workflow'->'steps'->'audit'->'config' ? 'rotate_coverage';
   IF v_has <> 0 THEN
-    RAISE EXCEPTION '649 rollback: rotate_coverage is still present — aborting rather than leaving the flag on with no table';
+    RAISE EXCEPTION '660 rollback: rotate_coverage is still present — aborting rather than leaving the flag on with no table';
   END IF;
 END $$;
 
