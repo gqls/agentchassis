@@ -137,3 +137,10 @@ volunteered "300 mm travel" in one message):
 behavioural probe of the code guard (geometry + travel 300 in ONE message →
 travel absent from the recorded spec), (c) reaching `emailed`, and the round-2
 council verdict read.
+
+## COUNCIL ROUND 2 = APPROVED (2026-08-26 11:20Z, all reviewers)
+
+Corr `70083c99` — the r2 code guard answered the r1 objection. Commits
+`eeff5dde6` + `0419ca584` carry `Council-Submitted:` and are credited by `098`
+automatically now the chain is approved. Remaining to CLOSE: the v1.0.1343 swap,
+the code-guard capability probe, (c) at `emailed`.
