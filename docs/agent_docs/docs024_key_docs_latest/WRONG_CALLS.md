@@ -54058,3 +54058,51 @@ construction, against live bytes. Worth remembering what each layer is for.
   claim in `rationale` is *shown* somewhere — a sketch may compress, but it must exhibit the scope it
   claims. **A submission is evidence, not a summary of evidence**, and an approval with objections is
   still telling you something.
+
+## 2026-08-26 — `bugs_open/357`/`406` lane: I quoted a whole parked QUEUE as one defect's blast radius, to the owner and then into a bug file, without classifying a single item
+
+Running two site adoptions surfaced a real defect (`bugs_open/406`: adoption routes a page to a
+one-section builder while planning it multiple sections, so the save is refused whole). Looking
+for its blast radius I counted the `save_refused_incomplete` items parked in
+`needs_human_review` — **34 across 16 domains, 2026-07-31 → 08-25** — and reported that number
+as the defect's victims. To the owner, twice, in the words *"thirty-two pages across fourteen
+sites are sitting refused because of it"*; then in the bug file under the heading **"Blast
+radius, and it is growing"**; then in the 016b §10 index row.
+
+**Then I classified them, which took one query, and only SIX are this shape:**
+
+| shape | items | domains |
+|---|---|---|
+| the 406 shape (`1 of ≥3`) | **6** | 5 |
+| no cohort captured (older reason format) | **26** | 15 |
+| other shrinkage (`2 of 5`, `7 of 20`) | 2 | 2 |
+
+And **two of the six are mine** — cv1's, created by the adoptions I had just run. So the
+pre-existing victim count I could actually defend was **four**, against a published thirty-two.
+
+**What caught it:** deciding to sharpen the claim for the bug file, not doubting it. I went to
+turn "several are named tool pages" into a precise list, and the precise list refuted the
+headline sitting three paragraphs above it. Had I not gone looking to make the file *better*,
+the number would have stood.
+
+**The shape: a QUEUE is not a CAUSE.** Every item in that queue shares a *symptom* — a refused
+save — and I read shared symptom as shared cause, because they all sat under one `item_type`
+that my defect also produces. The 26 unattributed ones are not attributed elsewhere either;
+their reason strings simply predate the `planned sections` cohort, so the discriminating
+numbers are **absent from the record**. Absence read as agreement is the whole error.
+
+**The cheap check, and it is embarrassingly cheap: classify before you count.** The reason
+string carries `(N of M)` and a `substring(... from 'sections [0-9]+% \(([0-9]+) of ([0-9]+)\)')`
+splits the queue in one query. **Any time you quote a count as evidence for a cause, GROUP BY
+the property that makes it that cause** — if you cannot name that property, you are quoting a
+population, not a finding.
+
+**And the trap sitting behind it:** the tempting repair is to attribute the 26 by looking at
+those pages *today* (does it have ≥3 planned sections and 0 rows?). That is a present-tense
+census explaining a past event — already logged twice on this estate in the last two days by
+two other lanes. I recorded it in the bug file as a thing NOT to do rather than doing it.
+
+**Cost: low, because I caught it inside an hour and before anyone quoted it** — corrected
+visibly in the bug file, the 016b index row and to the owner. But it had already been said out
+loud twice and written into two files, and the corrected number is a *tenth* of the published
+one, which would have changed how the fix was prioritised.
