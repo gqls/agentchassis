@@ -1460,3 +1460,66 @@ rows-yielded against rows-scanned — so they would have PASSED on a column chan
 in a way that still scanned. They also call `mock.ExpectationsWereMet()`, which passes: the
 query was issued exactly as expected and only the scan silently produced nothing, so even the
 mocking framework's own completeness assertion cannot see this.
+
+---
+
+## 2026-08-26 (later still) — round 2 submitted, and a re-graining P1 must DECIDE rather than inherit
+
+**Round 2 is in on the SAME correlation** `53d71504-8cd1-49bc-8e2d-d1465ba65103`
+(`RESUBMIT_CORR`), six edits, every round-1 objection answered by a change. The
+four-seat objection (a ~300-line extraction on the fleet's busiest pipeline needs a
+revert path, not one acceptance test) is answered the expensive way: **the original
+loop is kept VERBATIM as the flag-OFF branch** of an opt-in `hierarchy_walk` step
+config, so a flat page cannot regress because it never enters the new code, and
+reverting is one config key with no roll. The duplication is real, is stated, and
+its removal condition is named rather than left to rot.
+
+> **Watch the RIGHT verdict.** Round 1's `council_report` is already on this
+> correlation, so "a report exists" fires instantly on the stale one. Key on
+> `count(*) FILTER (WHERE kind='council_report') >= 2`, on the correlation — never on
+> the latest `council-gate` doc_note, which returned another lane's verdict this
+> morning and which my own monitor then confirmed rather than caught.
+
+### ⚠ A DECISION P1 FORCES, found by a peer's passing advisory — decide it, do not inherit it
+
+`rerender_page_sections_action.go:728` carries a raw `data-runtime-fill` string test
+(`!strings.Contains(rendered, "data-runtime-fill")`) gating the dead-URL-control
+report. It is **pre-existing** (present at `HEAD~1` of the `bugs_open/410` lane's
+commit, flagged by the pre-commit hook on THEIR change, in MY region) and it is
+`bugs_open/137`'s named pattern: *a bare string test whose scope is whatever the
+caller passed* — written nine times, and a page-shaped input once exempted every
+unrelated section.
+
+**The interaction: P1's extraction silently RE-GRAINS it.** That test runs today on
+`rendered`, which is ONE SECTION's HTML. The extraction moves it into a per-NODE
+render function. For a flat page that is identical, because a node IS a section. For
+a **composed** page it changes meaning: it would ask *"is this CHILD a runtime-fill
+shell?"* rather than *"is this SECTION one?"* — so a marker in one child stops
+speaking for its siblings, or (depending how the parent's HTML is assembled) a marker
+anywhere in a composed subtree exempts the whole parent, which is 137's
+page-shaped-input failure one level down.
+
+**Nothing live changes today** — 0 composed rows — so this is not a defect P1
+introduces. It is a choice P1 FORCES that nobody has had to make. **Make it named,
+with 137 cited**: either the test moves to a named predicate at section grain
+(`HasRuntimeFillMarker` / `InRuntimeFillShell`, which is what 137 asks for anyway), or
+per-node is declared correct and said so. **Do not let it arrive as a side effect of
+moving a line.** If round 2 returns REVISE it goes in round 3 explicitly; if it
+returns APPROVED it is raised as its own item, not smuggled into the implementation.
+
+### The scan-completeness guard shipped underneath P1, and it constrains this lane
+
+`loadStoredSections` now refuses a partial scan (`7c443aac6`, the `bugs_open/410`
+lane, registered DBI-027). Verified at HEAD: ancestor of mine, package green, this
+lane's hierarchy tests green. **Standing constraint on P1: any column added to that
+projection must be `NOT NULL` or `COALESCE`d**, or the guard fires on our edit. The
+two columns `bd811fa93` added are fine (`id::text` NOT NULL, `parent_instance_id`
+COALESCEd) and round 2 adds none.
+
+Their guard is deliberately **stricter** than `scanBlogArticles`' graded policy —
+which is the precedent this lane pointed them at — and the reason is better than the
+propagation argument: that reader feeds a *projection*, this one feeds a **wholesale
+replace**, so a row missing from the slice is not merely unrendered, it is **deleted**
+by `save_page_sections`' page-wide DELETE and the page ships with a hole under a fresh
+deploy stamp. *"Degradation is not on the menu: the choice is a loud failure or a
+silent destruction."*
