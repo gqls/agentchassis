@@ -574,3 +574,35 @@ Proven before touching anything, from the WireGuard pod, with controls: 8090 blo
 **Now unproven, and only this:** the SUCCESS arm — a real token redeemed, `transfer_confirmed_at`
 stamped. Offered to the owner; it mutates a real site row, so it waits on their say-so and their
 choice of site.
+
+### 2026-08-26 — fresh build `v1.0.1341`: everything re-verified, and a defect of mine found by another lane's measurement
+
+**Re-verified rather than repeated** (yesterday's proofs expired with the build). core-manager
+stamp **`2fb40a960`**, one distinct stamp across all pods; all three of this lane's commits still
+ancestor-proven with the reversed control failing. `SERVICE_SERVER_DELIVERY_PORT` = 8090 survived
+the roll, the live egress policy still allows `8088 8090`, and from the public internet `GET`
+returns the button page with its headers while `POST` returns the spent-link page. Controls: the
+suffix path still dies at the box with nginx's body, `/other` 404s. Tokens 0, confirmed 0,
+handed_over 0.
+
+**`48e75aad2` (another session, overnight, now live) found what I had assumed away.**
+`correlation_id` is **NOT unique** — one correlation is a TREE of orchestration rows.
+`[MEASURED 2026-08-26]` 6,031 site-tagged rows; a single site has one correlation shared by **27**
+rows, then 25, 25, 22, 21. They fixed the two backend consequences (terminate was relabelling
+finished siblings FAILED; the detail SELECT answered with an arbitrary sibling, so the step-error
+panel appeared and disappeared between two clicks on the same row).
+
+**The third consequence was mine and they could not see it from the backend:** the list rendered
+those sibling rows with `key={wf.correlation_id}` — a React key on a value that repeats, on a list
+that re-polls every 10 seconds. Fixed in `c016b3fb4` by grouping on correlation and showing `×N`
+in the screen's existing idiom, which is also the honest unit: every sibling row already opened the
+same detail once they pinned it root-first.
+
+> **The check this earns: when a JOIN or a list keys on an id, ask whether that id is UNIQUE IN
+> THE TABLE YOU ARE READING, not whether it is unique in the concept.** "Correlation id" reads as
+> one-per-workflow and is one-per-TREE. I wrote the list, the paging, the truncation and the
+> pinning on top of it and never asked; the count that would have told me is one `GROUP BY … HAVING
+> count(*) > 1`, and it returns 27. The cost of not asking was invisible — the screen renders,
+> nothing errors, and duplicate keys only misbehave while polling.
+
+Handoff for the next session: `HANDOFF_2026-08-26_continue_here.md`.

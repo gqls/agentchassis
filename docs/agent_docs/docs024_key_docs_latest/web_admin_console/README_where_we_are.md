@@ -337,3 +337,29 @@ end, because that means creating a real one and pressing it, which stamps a real
 "customer has moved" and feeds the schedule that eventually takes their site down. Everything
 around it is proven; that last step is yours to authorise, and it takes about a minute whenever
 you want it.
+
+## 2026-08-26 — a new build went out; everything checked out, and one of my own mistakes surfaced
+
+The new software went out overnight and I checked the whole chain again rather than assuming it
+survived: the confirmation link still works from the public internet, still shows the page with
+one button, still records nothing until the button is pressed, and the relay box still refuses
+everything that is not a properly-shaped link. No customer links exist, so nothing is at risk.
+
+Another thread working the same screen overnight found something that turned out to be my
+mistake as well as theirs. The identifier those "orchestration" rows are grouped by is not
+unique: one of them can cover a whole family of rows, and on one of your sites a single
+identifier covers twenty-seven. They fixed the two consequences on their side, including a real
+one where stopping a workflow was also relabelling finished work as failed.
+
+The third consequence was in my part, and only visible from the browser: the list was treating
+those repeated identifiers as if each were a different thing. It has been rewritten to show one
+line per family with the count beside it, the same way the build stages above it already show
+"x25". It shortens that list again, which was your original complaint about it.
+
+Worth saying plainly, because it is the lesson rather than the bug: I built the list, the
+paging, the shortening and the pinning on top of an assumption I never checked, and the check
+was one query that takes seconds. Nothing errored. The screen looked right the whole time.
+
+The only thing still outstanding is the one I flagged yesterday: I have not tested a real
+working link end to end, because that stamps a real site as "customer has moved". Tell me which
+site and I will do it and clear it afterwards.
