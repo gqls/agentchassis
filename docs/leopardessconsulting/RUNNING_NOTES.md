@@ -3419,3 +3419,37 @@ published, served verification in flight → then LOCK index `call-to-action` + 
 hand-curated showcase slots (`stat-band`, `evidence-chart`) ahead of the rotation. Hero left
 unlocked deliberately: its keep has held through every pass, and it preserves half of 248's
 natural behaviour surface.
+
+### 2026-08-26, continued — grant LIVE + APPROVED, critic SEEDED, hero batch generated and eyeballed
+
+- **Overnight fleet roll carried the storage grant**: chassis replicaset `6dd68888dc` (pods started
+  23:11Z); capability probe on `/proc/1/exe`: `design-critique-agent` PRESENT /
+  `tool-acceptance-agent` PRESENT (positive control) / invented string absent. Council on
+  `30d5fdde` → **`complete_approved`** (098 credits `04c49f8f0` automatically). Chassis env:
+  GEMINI_API_KEY SET, ANTHROPIC_API_KEY SET, IMAGE_BUCKET correctly UNSET on the shared pod (the
+  grant supplies it to the SPAWNED pod — the first critic run is that proof).
+- **Critic seeded: mig `645_design_critique_agent.sql`**, commit `45d14129e`, Council-Submitted
+  `75be8d32`, registered **SQ-003**. Every step config copied from a proven consumer (145 INSERT
+  shape; 317 execute_vision_prompt/append_doc_note; 301 write_render_audit_findings;
+  query_database `params` → `$1`). ⚠ The runner's dry-run caught MY guard error (I wrote "want 8",
+  the workflow has 9 steps — the DO/RAISE refused in the probe, exactly its job); fixed, then
+  applied SCOPED (`MIGRATIONS_DIR=<tmp dir holding only 645>`) because the shared dir had three
+  other lanes' pending files (635 likely-applied-unrecorded, 637, 638) and `--apply` takes all.
+  Ledger records 645. Manual-only agent: nothing emits for it.
+- **Hero batch: 10 generated Route-A-safe** (9 of the dozen + `hero_case_studies`, whose re-roll
+  RETIRES the presigned-URL asset defect — asset row now `/assets/images/hero-case-studies.jpg`
+  active). All 10 eyeballed: **8 accepted** (how-it-works, tools, engagement-model,
+  technical-architecture, ai-readiness-quiz, careers, why-most…production, can-you-trust…);
+  **2 rejected + re-rolled**: insights (generator added a cropped open book + compass nib top-left)
+  and case-studies (stray construction-line strokes + specks). Exclusion clause added to both
+  prompts. Same asset_key overwrites.
+- Wiring, non-serving half done: 10 `site_plan_imagery` page-scope rows inserted (assets active
+  first — the wire_heroes ordering rule), `background_image` merged for the 8 accepted
+  (`bak_leo_hero_batch_pc_20260826`, `bak_leo_site_plan_imagery_20260826`). Gates (both
+  branches) 0 rows on all 8. **Rerenders HELD** until the critic's "before" audit has photographed
+  the unwired pages.
+- **Critic "before" run fired: corr `95f6b328-20da-426f-9e26-ac830c480b1b`** — the discrimination
+  control: this report should remark on hero sameness; the post-wiring run must not.
+- Locked-page row baselines for the rerender-on-locked-row landmine (surfaced by the hook this
+  morning): about 4 rows/1 locked, contact 5/1, index 6/3, services 4/3 — expect UNCHANGED after
+  any rerender; +1 means the duplicate-not-protect trap fired (bugs_open/189 has the reversal SQL).

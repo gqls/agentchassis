@@ -201,8 +201,8 @@ BEGIN
     LATERAL jsonb_object_keys(default_config->'workflow'->'steps') k
    WHERE type='design-critique-agent' AND is_active
      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
-  IF steps <> 8 THEN
-    RAISE EXCEPTION 'design-critique-agent workflow has % steps (want 8)', steps;
+  IF steps <> 9 THEN
+    RAISE EXCEPTION 'design-critique-agent workflow has % steps (want 9)', steps;
   END IF;
 END $$;
 
