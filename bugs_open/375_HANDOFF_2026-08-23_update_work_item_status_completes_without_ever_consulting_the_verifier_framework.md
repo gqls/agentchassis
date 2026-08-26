@@ -605,3 +605,52 @@ Nothing about §9c. The bug is still open and still should be: every completion 
 `update_work_item_status` is unverified, no arm is armed, the two writers are still two, and the
 verifier is still one migration away from doing anything. The roll makes the *deferral* provably
 safe; it does not make the *defect* smaller.
+
+---
+
+## 12. APPLIED AND REGISTERED `[2026-08-26 09:01–09:05Z]` — and what is still not done
+
+**Owner authorised. Migration `634` applied 09:01:00Z; the Go half committed minutes later
+(`44e094776`).** The window was announced in `doc_notes` before it opened, naming this lane as owner
+and telling readers not to "fix" the red drift by reverting.
+
+### What is now true, verified at the live object and not at an exit code
+
+| | |
+|---|---|
+| live clause | **15 item types**, `required_fields_missing` present, `occurrences = 1`, task still `enabled` |
+| the verifier | **REGISTERED** — `RegisterVerifierWithPolicy("required_fields_missing", …, Grades: …)` |
+| `itemTypesWithoutVerifiers` | the type is **removed** — the FIRST entry ever taken off that `catMechanical` backlog |
+| Go ↔ live rendering | **BYTE-IDENTICAL, 373 bytes each, `cmp`-clean** — the highest-value question in the Fable review |
+| all five prerequisite guards | green |
+
+### What is deliberately NOT done: no arm is armed
+
+All three arms of `CQ-023`'s router carry an **`Acknowledged` reason**, per arm, rather than a
+switch — which is exactly what `WII-031` was built to demand:
+
+- **`close_converted`** — the one with the documented hazard. It closes an original *after* filing
+  the repair as a follow-on, so that original's fields are still empty **by design** at close time.
+  The verifier would correctly find the defect and correctly refuse — which is the **wrong** outcome
+  for a conversion. Arming this needs the router's close paths re-read and probably a spec change,
+  not a config flag.
+- **`close_resolved`** — best first candidate: its close condition *is* this predicate, so arming
+  should be near a no-op and would make the arm's own claim machine-checked.
+- **`close_stale`** — since migration 574 it closes only on positive evidence of absence, which is
+  what this verifier's own resolved-arms assert. Likely to agree rather than fight.
+
+Arming any of them is a **live `agent_definitions` change** wanting its own canary and review.
+
+### ⚠ THE WINDOW IS NOT CLOSED
+
+The drift auditor runs from declarations **compiled into the tag-pinned
+`live-declaration-drift-check` image**. Its 07:00Z job stays **red daily** until that image is
+rebuilt, tagged and applied — days, not minutes. The `doc_notes` announcement covers it. **This is
+the last outstanding piece of step 1**, and it is a fleet-release action, not a lane action.
+
+### What this does NOT change about §9c
+
+**The bug is closer to closeable but not closed.** One of the seven reachable types now has a
+verifier, and the sweep can no longer complete it past that verifier. The other six do not, no arm
+is armed, and the two writers are still two. `update_work_item_status` still stamps `complete`
+without consulting anything unless a step opts in — which is the bug's own sentence.
