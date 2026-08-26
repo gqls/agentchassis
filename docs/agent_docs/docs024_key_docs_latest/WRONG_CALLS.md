@@ -54366,3 +54366,56 @@ scope filter, which say who is eligible, never who is enrolled. One grep
 (`silenceRetractionGates = map` → count the keys) would have cost ten seconds.
 *Tally note:* third instance THIS WEEK of roster-vs-posture conflation across lanes (391's text
 census read as steps; my §6 doc_notes target; this). If a fourth lands, it is a 016b §9 pattern.
+
+## 2026-08-26 — gripper lane: "the response will never arrive" — the hung-orchestration stopgap applied 30 seconds before the system delivered
+
+- **The claim**: report-builder orchestration `85718ef5` "wedged at write_prose:
+  response job-topic destroyed by kafka leadership churn; nothing will arrive" —
+  written into the orchestration's `error` column while applying the documented
+  hung-spawn stopgap (mark FAILED + reset the work item).
+- **What was actually true**: the Kafka errors (Not Leader For Partition,
+  09:56–10:00Z) were a STALL, not a destruction. The consumer recovered when
+  leadership settled; the awaited response arrived; the run completed at
+  10:04:51 — overwriting my FAILED stamp — and its `complete` write (10:05:11)
+  landed 6–11s after my reset and BEFORE the next dispatch tick (10:06:04), so
+  no duplicate build spawned. Zero damage, by luck of a 60-second race.
+- **What caught it**: the artefact appearing (sidecar `ready` at 10:04:51) while
+  I was still watching a "wedged" run; re-reading the orchestration row showed
+  COMPLETED.
+- **The cheap check that would have caught it**: the errors had STOPPED at
+  10:00 — I read the silence as "gave up" when it meant "recovered". The
+  discriminating read: **error-stream silence after transport errors is the
+  recovery signal; wait one more backoff cycle (the poller's own 5-min rhythm
+  was printing right there) and re-read the row before declaring an await
+  dead.** "Frozen 20 minutes" measured the STALL's length, not its permanence —
+  a duration cannot distinguish a wedge from a queue. Also: the 029 stopgap's
+  own shape check (`handler_spawned` ABSENT) did NOT match this run — I applied
+  a remedy whose documented discriminator had already told me this was a
+  different case.
+
+- **2026-08-26 — I extracted "31,164 words of the owner's writing" and the sample showed it was
+  almost entirely OUR OWN prose. Had I trusted the count, a model trained on session output would
+  have been sold to prospects as "trained on our own voice".** The owner had just granted permission
+  to use his writing for three customer-facing demo datasets whose entire selling point is honesty.
+  I grepped 268 `README_where_we_are.md` files (5.85 MB — "the owner's document" by convention),
+  pulled every quoted string in a paragraph mentioning the owner, and got **2,580 candidate
+  utterances / 31,164 words across 259 lanes**. Comfortably a training set.
+  **Caught by:** printing an unfiltered sample instead of the total. Every 60th row read
+  `feed items collected: 11,513` · `does this exact string appear in the facts?` · `, because our
+  own tooling treats a trailing` — session prose, error strings and technical fragments that
+  sessions had quoted **for emphasis while writing about their own work**. Near-zero owner speech.
+  **The cheap check:** the extractor tested for QUOTING and I read the result as AUTHORSHIP. Those
+  are different properties and the corpus contains vastly more of the first. When a filter's output
+  will be attributed to a named person, sample it raw before you count it — a count cannot show you
+  that every row is the wrong kind of thing.
+  **What the honest measurement turned out to be:** restricted to explicitly-marked owner speech
+  (`**OWNER … verbatim:** "…"`), **16 utterances, 117 words, fleet-wide** — all short instructions
+  ("keep the explanatory copy", "leave the existing components"), none of it the long-form prose the
+  datasets need. Plus exactly ONE documented before/after pair he judged
+  (`travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v2.md`), whose full ground
+  truth is recorded as *"not copied into the repo, ephemeral"*. I also checked whether the shipped
+  `deck.html` was his hand-edited version — it carries **neither** the v1 phrase nor the target
+  phrase, so it is a third version of unknown authorship and cannot be attributed either.
+  **So the answer flipped from "we have plenty" to "we have 117 words", and the permission was never
+  the constraint.** The general form: **a permission granted is not a corpus delivered**, and the
+  gap between them is exactly the size a hurried extractor will fill with your own writing.
