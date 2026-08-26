@@ -134,11 +134,12 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	//    the same store fallback 4 (sibling synthesis) already reads.
 	// -----------------------------------------------------------------------
 	var specSections []string
-	var specSectionFacts []interface{} // aligned with specSections; nil entry = unscoped
+	var specSectionFacts []interface{}    // aligned with specSections; nil entry = unscoped
+	var specSectionSubjects []interface{} // aligned with specSections; nil entry = no subject
 	var specSource string
 
 	planRows, tblErr := params.DB.QueryContext(ctx, `
-		SELECT sps.component_name, sps.assigned_fact_ids
+		SELECT sps.component_name, sps.assigned_fact_ids, sps.subject
 		FROM site_plan_sections sps
 		JOIN site_plans sp ON sp.id = sps.plan_id
 		WHERE sp.site_id = $1 AND sp.is_current = true AND sps.page_name = $2
@@ -151,7 +152,8 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 		for planRows.Next() {
 			var comp string
 			var factsRaw []byte
-			if scanErr := planRows.Scan(&comp, &factsRaw); scanErr != nil {
+			var subjRaw *string // NULL = no subject (migration 638)
+			if scanErr := planRows.Scan(&comp, &factsRaw, &subjRaw); scanErr != nil {
 				logger.Warn("LoadPageSectionsFromSpec: site_plan_sections scan failed",
 					zap.Error(scanErr))
 				continue
@@ -173,6 +175,13 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 					}
 				}
 				specSectionFacts = append(specSectionFacts, factsEntry)
+				// subject: NULL/empty = none. Appended in the same branch as the
+				// name, same as facts, so the three lists cannot misalign.
+				var subjectEntry interface{}
+				if subjRaw != nil && *subjRaw != "" {
+					subjectEntry = *subjRaw
+				}
+				specSectionSubjects = append(specSectionSubjects, subjectEntry)
 			}
 		}
 		planRows.Close()
@@ -435,6 +444,15 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 					specSectionFacts[at] = nil
 				}
 			}
+			// subjects: same nil-insertion at the same indices, same guard — a
+			// merged locked row has no plan-time subject.
+			if specSource == "site_plan_tables" && len(specSectionSubjects) == len(specSections) {
+				for _, at := range insertedAt {
+					specSectionSubjects = append(specSectionSubjects, nil)
+					copy(specSectionSubjects[at+1:], specSectionSubjects[at:])
+					specSectionSubjects[at] = nil
+				}
+			}
 			for _, lr := range inserted {
 				lockedMerged = append(lockedMerged, lr.MergedName())
 			}
@@ -489,6 +507,11 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	// sections are simply unscoped.
 	if specSource == "site_plan_tables" && len(specSectionFacts) == len(specSections) {
 		result["section_facts"] = specSectionFacts
+	}
+	// section_subjects: same rule as section_facts — authoritative tier only,
+	// aligned or absent, never guessed against a fallback tier's list.
+	if specSource == "site_plan_tables" && len(specSectionSubjects) == len(specSections) {
+		result["section_subjects"] = specSectionSubjects
 	}
 	return result, nil
 }

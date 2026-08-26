@@ -51,7 +51,7 @@ import (
 
 var PlanSectionsInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"site_id"},
-	Optional: []string{"sections", "section_facts", "page_name", "pipeline", "work_item_id", "site_type", "page_type"},
+	Optional: []string{"sections", "section_facts", "section_subjects", "page_name", "pipeline", "work_item_id", "site_type", "page_type"},
 	// CheckConfig rather than ConfigKeys: this action reads nothing from
 	// params.StepConfig.Config directly — every key reaches it through
 	// ExtractActionInputs (:620), which iterates exactly Required ∪ Optional. The
@@ -932,6 +932,13 @@ type sectionPlanItem struct {
 	FactsScoped         bool     `json:"facts_scoped,omitempty"`
 	AssignedFactIDs     []string `json:"assigned_fact_ids,omitempty"`
 	AssignedWriterBlock string   `json:"assigned_writer_block,omitempty"`
+	// Subject is the planner's one-line statement of what THIS section
+	// specifically covers (per-section subjects build, 2026-08-26; RFC_016
+	// §5.1's next structured field). Empty = unassigned = pre-existing
+	// behaviour, where every same-named slot shares the page-level brief.
+	// Rides to the writer as current_section.subject; the v5 prompt renders
+	// it only when non-empty.
+	Subject string `json:"subject,omitempty"`
 	// CarriedFields names the non-llm fields whose declared source resolved
 	// nothing and which were satisfied from this page's own deployed
 	// content_data instead (bugs_open/238). StructuralMisses names the required
@@ -1005,6 +1012,17 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	// shift an assignment onto the wrong section. nil = unscoped.
 	sectionsRaw := inputs.GetRaw("sections")
 	factsRaw, _ := inputs.GetRaw("section_facts").([]interface{})
+	// section_subjects mirrors section_facts: aligned by index, wired by step
+	// config, emitted only by load_page_sections_from_spec's authoritative
+	// tier. "" = unassigned (pre-existing behaviour).
+	subjectsRaw, _ := inputs.GetRaw("section_subjects").([]interface{})
+	subjectAt := func(i int) string {
+		if i >= len(subjectsRaw) {
+			return ""
+		}
+		s, _ := subjectsRaw[i].(string)
+		return strings.TrimSpace(s)
+	}
 	factsAt := func(i int) []string {
 		if i >= len(factsRaw) {
 			return nil
@@ -1023,6 +1041,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 	var sectionNames []string
 	var sectionFacts [][]string
+	var sectionSubjects []string
 
 	switch v := sectionsRaw.(type) {
 	case []interface{}:
@@ -1030,13 +1049,16 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 			if name, ok := s.(string); ok {
 				sectionNames = append(sectionNames, name)
 				sectionFacts = append(sectionFacts, factsAt(i))
+				sectionSubjects = append(sectionSubjects, subjectAt(i))
 			}
 		}
 	case []string:
 		sectionNames = v
 		sectionFacts = make([][]string, len(v))
+		sectionSubjects = make([]string, len(v))
 		for i := range v {
 			sectionFacts[i] = factsAt(i)
+			sectionSubjects[i] = subjectAt(i)
 		}
 	case string:
 		// Try JSON parse
@@ -1044,8 +1066,10 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 			return nil, fmt.Errorf("failed to parse sections: %w", err)
 		}
 		sectionFacts = make([][]string, len(sectionNames))
+		sectionSubjects = make([]string, len(sectionNames))
 		for i := range sectionNames {
 			sectionFacts[i] = factsAt(i)
+			sectionSubjects[i] = subjectAt(i)
 		}
 	}
 
@@ -1054,10 +1078,11 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	// page sections list. These are site-level components handled by
 	// InjectHeader/InjectFooter — if we process them here they end up as
 	// page_components rows, causing duplicate headers/footers on assembly.
-	// Names and facts are filtered as PAIRS so alignment survives.
+	// Names, facts and subjects are filtered as TRIPLES so alignment survives.
 	{
 		keptNames := make([]string, 0, len(sectionNames))
 		keptFacts := make([][]string, 0, len(sectionFacts))
+		keptSubjects := make([]string, 0, len(sectionSubjects))
 		for i, s := range sectionNames {
 			if isSiteLevelSectionName(s) {
 				logger.Info("plan_sections: filtered site-level section",
@@ -1066,9 +1091,11 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 			}
 			keptNames = append(keptNames, s)
 			keptFacts = append(keptFacts, sectionFacts[i])
+			keptSubjects = append(keptSubjects, sectionSubjects[i])
 		}
 		sectionNames = keptNames
 		sectionFacts = keptFacts
+		sectionSubjects = keptSubjects
 	}
 
 	if len(sectionNames) == 0 {
@@ -1146,7 +1173,8 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	// facts), which is every section until a plan written WITH assignments
 	// reaches this action through the config-wired section_facts input.
 	evidenceBase := resolver.specs["evidence_base"]
-	scopeItem := func(item *sectionPlanItem, facts []string) {
+	scopeItem := func(item *sectionPlanItem, facts []string, subject string) {
+		item.Subject = subject // "" = unassigned; omitempty keeps the item byte-identical
 		if facts == nil {
 			return
 		}
@@ -1216,7 +1244,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 						zap.String("name_resolved_name", nameComp.Name))
 				}
 				item := planSection(ctx, sectionName, ci, resolver, logger)
-				scopeItem(&item, sectionFacts[sectionIdx])
+				scopeItem(&item, sectionFacts[sectionIdx], sectionSubjects[sectionIdx])
 				switch item.Status {
 				case "ready":
 					ready = append(ready, item)
@@ -1260,7 +1288,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		comp, ok := components[sectionName]
 		if ok {
 			item := planSection(ctx, sectionName, comp, resolver, logger)
-			scopeItem(&item, sectionFacts[sectionIdx])
+			scopeItem(&item, sectionFacts[sectionIdx], sectionSubjects[sectionIdx])
 
 			switch item.Status {
 			case "ready":
@@ -1285,7 +1313,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 			// Preserve the original section_type name — downstream logging and
 			// the content writer use item.Name as the section identifier.
 			item.Name = sectionName
-			scopeItem(&item, sectionFacts[sectionIdx])
+			scopeItem(&item, sectionFacts[sectionIdx], sectionSubjects[sectionIdx])
 			switch item.Status {
 			case "ready":
 				ready = append(ready, item)
@@ -1338,7 +1366,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 				Status: "ready",
 				Reason: "selector unavailable — passing to content writer as-is",
 			}
-			scopeItem(&item, sectionFacts[sectionIdx])
+			scopeItem(&item, sectionFacts[sectionIdx], sectionSubjects[sectionIdx])
 			ready = append(ready, item)
 		}
 	}

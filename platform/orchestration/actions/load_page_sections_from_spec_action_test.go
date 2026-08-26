@@ -62,7 +62,7 @@ func loadSpecParams(db *sql.DB, siteID uuid.UUID, pageName string) ActionParams 
 var lockedSlotColumns = []string{"id", "name", "slot_name", "position", "component_id", "function", "cname", "lock_type", "locked_by"}
 
 func planRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"component_name", "assigned_fact_ids"})
+	return sqlmock.NewRows([]string{"component_name", "assigned_fact_ids", "subject"})
 }
 
 func TestLoadPageSectionsFromSpec_MergesLockedLiveRowAtItsPosition(t *testing.T) {
@@ -75,7 +75,7 @@ func TestLoadPageSectionsFromSpec_MergesLockedLiveRowAtItsPosition(t *testing.T)
 
 	// Tier 1 serves: hero (scoped to fact f1), contact-info (unscoped).
 	mock.ExpectQuery("FROM site_plan_sections sps").WithArgs(siteID, "contact").
-		WillReturnRows(planRows().AddRow("hero", []byte(`["f1"]`)).AddRow("contact-info", nil))
+		WillReturnRows(planRows().AddRow("hero", []byte(`["f1"]`), nil).AddRow("contact-info", nil, nil))
 	// The page's locked live rows: the chat box, position 3, not in the plan.
 	mock.ExpectQuery("FROM page_components pc").WithArgs(siteID, "contact").
 		WillReturnRows(sqlmock.NewRows(lockedSlotColumns).
@@ -127,7 +127,7 @@ func TestLoadPageSectionsFromSpec_LockedRowAlreadyInPlanIsNotDuplicated(t *testi
 	siteID := uuid.New()
 
 	mock.ExpectQuery("FROM site_plan_sections sps").WithArgs(siteID, "about").
-		WillReturnRows(planRows().AddRow("hero-about", nil).AddRow("differentiators", nil))
+		WillReturnRows(planRows().AddRow("hero-about", nil, nil).AddRow("differentiators", nil, nil))
 	mock.ExpectQuery("FROM page_components pc").WithArgs(siteID, "about").
 		WillReturnRows(sqlmock.NewRows(lockedSlotColumns).
 			AddRow("row-1", "about", "differentiators", 2, "cid-d", "differentiators", "differentiators-section", "permanent", "x"))
@@ -203,7 +203,7 @@ func TestLoadPageSectionsFromSpec_NoLockedRowsIsOneSyncNoMerge(t *testing.T) {
 	siteID := uuid.New()
 
 	mock.ExpectQuery("FROM site_plan_sections sps").WithArgs(siteID, "index").
-		WillReturnRows(planRows().AddRow("hero", nil).AddRow("faq", nil))
+		WillReturnRows(planRows().AddRow("hero", nil, nil).AddRow("faq", nil, nil))
 	mock.ExpectQuery("FROM page_components pc").WithArgs(siteID, "index").
 		WillReturnRows(sqlmock.NewRows(lockedSlotColumns))
 	// Exactly ONE sync, with the plan list; 0 rows affected = the jsonb guard
@@ -245,7 +245,7 @@ func TestLoadPageSectionsFromSpec_LockedQueryFailureLeavesADurableTrace(t *testi
 	siteID := uuid.New()
 
 	mock.ExpectQuery("FROM site_plan_sections sps").WithArgs(siteID, "contact").
-		WillReturnRows(planRows().AddRow("hero", nil))
+		WillReturnRows(planRows().AddRow("hero", nil, "About our history"))
 	mock.ExpectQuery("FROM page_components pc").WithArgs(siteID, "contact").
 		WillReturnError(sql.ErrConnDone)
 	// 13 placeholders in agenterrors.Write's INSERT; the code and message are

@@ -4024,8 +4024,10 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	// (sync_pages_to_db serialises the raw array into pages.sections), so
 	// the split happens HERE, after the last transformation that can remove
 	// an entry: sections becomes strings, and the fact assignments move to a
-	// page-level section_facts array aligned by index (null = unscoped). A
-	// page with no object-form entries is left byte-identical.
+	// page-level section_facts array aligned by index (null = unscoped), and
+	// the subjects to a section_subjects array under the same rule (null = no
+	// subject; RFC_016 §5.1's next structured field). A page with no
+	// object-form entries is left byte-identical.
 	for _, p := range pages {
 		pm, ok := p.(map[string]interface{})
 		if !ok {
@@ -4038,11 +4040,13 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		sawObject := false
 		names := make([]interface{}, 0, len(sectionsRaw))
 		facts := make([]interface{}, 0, len(sectionsRaw))
+		subjects := make([]interface{}, 0, len(sectionsRaw))
 		for _, s := range sectionsRaw {
 			switch x := s.(type) {
 			case string:
 				names = append(names, x)
 				facts = append(facts, nil)
+				subjects = append(subjects, nil)
 			case map[string]interface{}:
 				name, ok := sectionEntryName(x)
 				if !ok {
@@ -4055,6 +4059,11 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 				} else {
 					facts = append(facts, nil)
 				}
+				if subj, ok := x["subject"].(string); ok && strings.TrimSpace(subj) != "" {
+					subjects = append(subjects, strings.TrimSpace(subj))
+				} else {
+					subjects = append(subjects, nil)
+				}
 			default:
 				// unrecognised entry shape: nothing downstream can use it
 			}
@@ -4062,6 +4071,7 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		if sawObject {
 			pm["sections"] = names
 			pm["section_facts"] = facts
+			pm["section_subjects"] = subjects
 			params.Logger.Info("ValidateSitePlanAction: normalised object-form sections",
 				zap.Any("page", pm["name"]),
 				zap.Int("sections", len(names)))
@@ -6535,6 +6545,13 @@ type factCarryMiss struct {
 // pages["sections"] downstream of validate_plan ever sees object form, and the
 // 15+ consumers of that key are not in this change's blast radius.
 //
+// Since 2026-08-26 the same carry moves an entry's "subject" (RFC_016 §5.1's
+// second structured field): a subject-only object entry — facts key absent —
+// is still counted in the fourth return (the 333 disobedience record is about
+// facts) but its subject carries, and a "facts" key is never fabricated for
+// it. The unmatched list stays facts-worded; a subject on an unmatched entry
+// is dropped with it, which is the same fate facts have always had.
+//
 // Returns the merged list, how many entries received an assignment, the
 // assignments that matched nothing, and the object entries that resolved a name
 // but carried NO usable `facts` value (key absent, null, or not an array).
@@ -6560,9 +6577,14 @@ func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{})
 	// assignment and never enter this list — they must not blank an assignment
 	// an object entry of the same name made.
 	type pendingAssignment struct {
-		name  string
-		facts []interface{}
-		used  bool
+		name string
+		// facts is meaningful only when factsPresent; a subject-only entry
+		// (facts key absent — recorded in the fourth return either way) still
+		// enqueues so its subject carries.
+		facts        []interface{}
+		factsPresent bool
+		subject      string
+		used         bool
 	}
 	var pending []pendingAssignment
 	var absent []string
@@ -6582,13 +6604,17 @@ func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{})
 		// plan (those emit bare strings, which never reach this cast). Record
 		// it rather than skipping silently: skipped, it is indistinguishable
 		// from a page correctly assigned no facts.
-		facts, ok := obj["facts"].([]interface{})
-		if !ok {
+		subject, _ := obj["subject"].(string)
+		subject = strings.TrimSpace(subject)
+		facts, factsPresent := obj["facts"].([]interface{})
+		if !factsPresent {
 			absent = append(absent, name)
-			continue
+			if subject == "" {
+				continue
+			}
 		}
 		byName[name] = append(byName[name], len(pending))
-		pending = append(pending, pendingAssignment{name: name, facts: facts})
+		pending = append(pending, pendingAssignment{name: name, facts: facts, factsPresent: factsPresent, subject: subject})
 	}
 	if len(pending) == 0 {
 		return realised, 0, nil, absent
@@ -6617,14 +6643,26 @@ func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{})
 		// but if one ever arrives as an object its other keys are not this
 		// function's to discard.
 		if src, isObj := entry.(map[string]interface{}); isObj {
-			clone := make(map[string]interface{}, len(src)+1)
+			clone := make(map[string]interface{}, len(src)+2)
 			for k, v := range src {
 				clone[k] = v
 			}
-			clone["facts"] = pending[idx].facts
+			if pending[idx].factsPresent {
+				clone["facts"] = pending[idx].facts
+			}
+			if pending[idx].subject != "" {
+				clone["subject"] = pending[idx].subject
+			}
 			merged[i] = clone
 		} else {
-			merged[i] = map[string]interface{}{"name": name, "facts": pending[idx].facts}
+			m := map[string]interface{}{"name": name}
+			if pending[idx].factsPresent {
+				m["facts"] = pending[idx].facts
+			}
+			if pending[idx].subject != "" {
+				m["subject"] = pending[idx].subject
+			}
+			merged[i] = m
 		}
 		carried++
 	}

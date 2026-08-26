@@ -75,6 +75,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
@@ -643,6 +644,7 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	//     filled by a downstream resolver. assigned_fact_ids is NULL for
 	//     an unscoped section (nil Facts) and a JSON array otherwise —
 	//     the NULL/[] distinction is load-bearing (see migration 327).
+	//     subject is NULL when the planner assigned none (migration 638).
 	sectionsWritten := 0
 	for _, r := range planRows {
 		for ord, section := range r.Sections {
@@ -656,9 +658,10 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 			}
 			_, err = tx.ExecContext(ctx, `
 				INSERT INTO site_plan_sections
-				    (plan_id, page_name, ordering, component_name, assigned_fact_ids)
-				VALUES ($1, $2, $3, $4, $5)
-			`, planID, r.Name, ord, section.Name, assignedFacts)
+				    (plan_id, page_name, ordering, component_name, assigned_fact_ids, subject)
+				VALUES ($1, $2, $3, $4, $5, $6)
+			`, planID, r.Name, ord, section.Name, assignedFacts,
+				datahelpers.NullableString(section.Subject))
 			if err != nil {
 				return nil, fmt.Errorf("insert site_plan_sections for %q[%d]: %w", r.Name, ord, err)
 			}
@@ -1003,6 +1006,11 @@ func transferDirectiveLocks(ctx context.Context, tx *sql.Tx, prevPlanID, newPlan
 type sectionEntry struct {
 	Name  string
 	Facts []string
+	// Subject is the planner's one-line statement of what THIS section
+	// specifically covers — RFC_016 §5.1's "next structured field"
+	// (per-section subjects build, 2026-08-26). Empty = unassigned, the
+	// pre-existing behaviour where same-named sections share one brief.
+	Subject string
 }
 
 // extractSectionEntries pulls the per-page sections list out of the raw
@@ -1022,6 +1030,16 @@ func extractSectionEntries(raw map[string]interface{}) []sectionEntry {
 		return nil
 	}
 	pageFacts, _ := raw["section_facts"].([]interface{})
+	pageSubjects, _ := raw["section_subjects"].([]interface{})
+	// subjectAt mirrors factsAt: RAW-index lookup, before malformed entries
+	// are skipped, so a skip can never shift a subject onto the wrong section.
+	subjectAt := func(i int) string {
+		if i >= len(pageSubjects) {
+			return ""
+		}
+		s, _ := pageSubjects[i].(string)
+		return strings.TrimSpace(s)
+	}
 	factsAt := func(i int) []string {
 		if i >= len(pageFacts) {
 			return nil
@@ -1043,7 +1061,7 @@ func extractSectionEntries(raw map[string]interface{}) []sectionEntry {
 		switch x := item.(type) {
 		case string:
 			if x != "" {
-				out = append(out, sectionEntry{Name: x, Facts: factsAt(i)})
+				out = append(out, sectionEntry{Name: x, Facts: factsAt(i), Subject: subjectAt(i)})
 			}
 		case map[string]interface{}:
 			for _, key := range []string{"name", "type", "component", "component_name"} {
@@ -1058,7 +1076,11 @@ func extractSectionEntries(raw map[string]interface{}) []sectionEntry {
 						}
 						facts = ids
 					}
-					out = append(out, sectionEntry{Name: name, Facts: facts})
+					subject := subjectAt(i)
+					if s, ok := x["subject"].(string); ok && strings.TrimSpace(s) != "" {
+						subject = strings.TrimSpace(s)
+					}
+					out = append(out, sectionEntry{Name: name, Facts: facts, Subject: subject})
 					break
 				}
 			}
