@@ -6451,6 +6451,32 @@ credible; it also tells you which slice belongs to somebody else's open bug.
 **Kin:** §9's *"a report is not a measurement"* family; the `WRONG_CALLS.md` 2026-08-25 entries on
 publishing totals never computed, and on answering a tail question with a population statistic.
 
+
+### A due-stamp of `fetch_time + period` on a scheduler with the SAME period is phase-locked to miss every other pass (2026-08-26)
+
+`bugs_open/410`. A 6-hourly trigger serves sites whose sources are "due" (`next_fetch_at <= NOW()`);
+the fetch stamps `next_fetch_at = NOW() + fetch_interval` with `fetch_interval` = 6 h. The fetch lands
+seconds-to-minutes AFTER its trigger, so the source is due seconds-to-minutes AFTER the next trigger
+— not due, skipped, served one pass later. Ten of twelve sites ran on a 12 h cadence under a 6 h
+label, every run COMPLETED, nothing filed, and a fairness fix in the same query (316) had just been
+declared to have solved "every other run".
+
+**Transferable checks.**
+
+- **Compare the due-stamp with the NEXT trigger time, not with "now".** `due <= NOW()` at the moment
+  of the check is the wrong question when the check itself is periodic; the right one is "will it be
+  due before the pass after this one?" — a look-ahead of half the period, or a stamp anchored to the
+  schedule rather than the event.
+- **Census the SERVED runs per target over two periods before believing a cadence claim.** "The trigger
+  ran and COMPLETED" is a fleet event; per-target service is a separate row (`orchestration_states
+  WHERE site_id=… AND owner_agent_type=…`). The pattern is visible as two run-times 2×period apart.
+- **Keep a sub-period control in the census.** A target whose interval is shorter than the cadence is
+  due at every pass by construction; if it is served every pass while the equal-interval targets
+  alternate, the cause is the interval arithmetic, not the cap, the queue or the LLM.
+- **When two queries gate the same work at two layers (site-level, then source-level), a fix to one
+  is not a fix.** 316 documented the drift; 410's remedy has to land in both or the trigger dispatches
+  a site whose orchestrator finds nothing due.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -6662,6 +6688,7 @@ See `/bugs_closed/README.md`.
 | 403 | **A hand-authored value inside a `source:"llm"` field has no provenance, so every `content_rewrite` is licensed to destroy it** — the build path REPLACES llm fields wholesale; PBP-039's carry (non-llm only), `content-loss-check` (blank transitions only) and `__cta_minted` (CTAs only) are each structurally blind; leopardess `/services` restored three times and eaten three times, the 08-22 11:35Z loss traced generation-exact in `page_component_history` | **OPEN — filed 2026-08-25**, leopardess lane owns the fix (owner ruling same day); 090 corroboration run `c946b495` in flight at filing |
 | 406 | **Adoption routes a page to a ONE-SECTION builder and, in the same transaction, plans it MULTIPLE sections — so the save is refused whole and the page keeps ZERO rows.** `apply_adoption_plan_action.go:719` sends an interactive page to `tool-recreation-handler` (which declares `expects_no_sections_metadata`, so its save always takes the no-`<section>` fallback and emits exactly ONE section) while the same action writes that page a 3- or 4-entry `pages.sections`; the prune floor divides 1 by that count and refuses. Closed-form: **≥3 planned is unsaveable ALWAYS** (1/3=33%, 1/4=25% < 0.50; 1/1 and 1/2 clear it). Its own analysis spec reads `"self_contained": true` on a page it planned with three sections | **OPEN — filed 2026-08-26** by the 357 lane. **6 items across 5 domains are demonstrably this shape (`1 of >=3`), 4 of them pre-existing** — `finetuning.uk/blog`, `fundamentallyai.com/tool-model-approach-selector`, `mortgagecalculator.co.uk/game-fact-finder`, `webdesign.co.uk/tool-llm-cost-calculator`. ⚠ The parked `save_refused_incomplete` queue holds **34 across 16 domains** but **26 predate the `planned sections` cohort and are UNATTRIBUTED** — the file's first version wrongly implied all 34; corrected within the hour. What IS true of all 34: nobody reads that queue. **Explains 21 of `bugs_open/357`'s 22 rows**: they are the survivors, the only pages whose plans were ≤2 sections. 090 returned **UNVERIFIABLE, not CONFIRMED**; both gaps it named closed first-hand and declared in the file |
 | 408 | **Two inverse path fallbacks in `extractFieldValue` recurse forever, so an unresolvable `content_field` crashes the agent pod with a stack overflow.** `multipage_actions.go:1207-1223`: fallback A strips `.response.` and recurses, fallback B adds it back and recurses — exact inverses, no depth bound, no visited set. `page_content_0.response.page_html` ping-pongs until the goroutine stack passes 1 GB. **The caller is innocent** — `AssemblePageAction:106` already treats `""` as "skip this page"; the function just never returns | **OPEN — filed 2026-08-26** by the 357 lane. Measured: **12,654 of 12,654** log lines in the dead container are the identical warning; `fatal error: stack overflow`, `exitCode: 2`; **3 orchestrations abandoned at `assemble_page`**, released only by the >4h stale reaper; pod restarts 2 in 27 min. Reached by any page whose writer skips (a NORMAL outcome) or any typo in an operator-set `content_field`. **Blocks `bugs_open/357` phase 3.** ⚠ a unit test asserting the return value cannot fail — it never returns; use `go test -timeout` and treat the hang as the signal |
+| 410 | **`next_fetch_at` is stamped `NOW() + fetch_interval` at FETCH time, so a 6 h interval on the 6 h `content-feed-refresh` trigger falls due SECONDS after the next pass fires — every news site whose sources are all 6-hourly is served every OTHER run, a 12 h cadence under a 6 h label.** Both stamp arms (`dispatch_feed_sources_action.go:276` optimistic, `feed_actions.go` `UpdateSourceTimestamps`) anchor to the fetch, which lands 10 s–9 min after the trigger; the trigger drifts only 3–30 s per pass. NOT `316` (ordering under the cap; the cap was not binding: 10 due, 10 dispatched) and it survives 316's fix | **OPEN — filed 2026-08-26** by the idea.uk lane, first-hand (declared). 48 h census: **every 6h-only site ran at ~20:47 and ~08:47 (12 h apart)**; the two sites holding a 3 h/4 h source ran at all four passes (control). idea.uk's worked case: five `next_fetch_at` 08:46:15–31 vs trigger 08:46:06. Blast radius **10 of 12** news sites at half the documented cadence; nothing surfaces it (`stale_news_section` keys on 72 h). Prospective prediction for the 14:46/20:46 passes recorded in the file BEFORE they ran. Fix: look-ahead of half the cadence in BOTH gating layers (site query is config; source query is Go) |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
@@ -14481,28 +14508,3 @@ bound, and the process dies with `fatal error: stack overflow` after 12,654 iden
   did everything right — it treated `""` as "skip this page and continue the loop" — and it
   made no difference, because the contract was broken below it. **Check that the callee can
   actually RETURN the value the caller is written to handle.**
-
-### A due-stamp of `fetch_time + period` on a scheduler with the SAME period is phase-locked to miss every other pass (2026-08-26)
-
-`bugs_open/410`. A 6-hourly trigger serves sites whose sources are "due" (`next_fetch_at <= NOW()`);
-the fetch stamps `next_fetch_at = NOW() + fetch_interval` with `fetch_interval` = 6 h. The fetch lands
-seconds-to-minutes AFTER its trigger, so the source is due seconds-to-minutes AFTER the next trigger
-— not due, skipped, served one pass later. Ten of twelve sites ran on a 12 h cadence under a 6 h
-label, every run COMPLETED, nothing filed, and a fairness fix in the same query (316) had just been
-declared to have solved "every other run".
-
-**Transferable checks.**
-
-- **Compare the due-stamp with the NEXT trigger time, not with "now".** `due <= NOW()` at the moment
-  of the check is the wrong question when the check itself is periodic; the right one is "will it be
-  due before the pass after this one?" — a look-ahead of half the period, or a stamp anchored to the
-  schedule rather than the event.
-- **Census the SERVED runs per target over two periods before believing a cadence claim.** "The trigger
-  ran and COMPLETED" is a fleet event; per-target service is a separate row (`orchestration_states
-  WHERE site_id=… AND owner_agent_type=…`). The pattern is visible as two run-times 2×period apart.
-- **Keep a sub-period control in the census.** A target whose interval is shorter than the cadence is
-  due at every pass by construction; if it is served every pass while the equal-interval targets
-  alternate, the cause is the interval arithmetic, not the cap, the queue or the LLM.
-- **When two queries gate the same work at two layers (site-level, then source-level), a fix to one
-  is not a fix.** 316 documented the drift; 410's remedy has to land in both or the trigger dispatches
-  a site whose orchestrator finds nothing due.
