@@ -212,9 +212,13 @@
     "why": "The supersede reconciler's OUTPUT row. Its entire first population (25 rows) was deleted unread by retention on 2026-08-22 — the event that opens this lane's handoff — and nothing reads new ones. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
   },
   "NO_CHANGE_GATE_UNREADABLE_RESULT": {
-    "disposition": "human-evidence",
+    "disposition": "consumed",
     "writer": "platform/orchestration/actions/complete_work_item_no_change.go:504",
-    "why": "A gate that could not read a handler's result — the item completed UNGRADED, so rows here mean a handler's result shape drifted. A reader is COMMISSIONED (owner decision 4, 2026-08-25 — bugs_open/393; every row is item_type dark_section_audit, so there is also ONE concrete shape fix); ruled human-evidence per decision 1 option (a) and upgraded to consumed when the reader ships. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+    "why": "A gate that could not read a handler's result — the item completed UNGRADED, so rows here mean a handler's result shape drifted. A reader is COMMISSIONED (owner decision 4, 2026-08-25 — bugs_open/393; every row is item_type dark_section_audit, so there is also ONE concrete shape fix); ruled human-evidence per decision 1 option (a) and upgraded to consumed when the reader ships. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567).",
+    "reader": "cmd/config-key-audit/ungradedcompletions.go:58",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_393_ungraded_completions",
+    "note": "Reader declares the code as a same-file const (the LINK_CONTEXT_UNAVAILABLE precedent) and ratchets item_types against no_change_unreadable_acks.json daily (CronJob ungraded-completions-check). Upgraded from human-evidence per its own why: the commissioned reader shipped (bugs_open/393 part B)."
   },
   "ACCEPTANCE_PREDICATE_NOT_EVALUABLE": {
     "disposition": "human-evidence",
@@ -345,5 +349,10 @@
     "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
     "review_by": "2026-09-25",
     "note": "bugs_open/388, added in council round 2 on bug_historian's advisory objection that the un-pinned CREATE path was instrumented (COMPONENT_PARALLEL_SECTION_BIRTH) while the un-pinned REGENERATE path was not. This is the worse shape of the two: an existing row is OVERWRITTEN, and which one was decided by ORDER BY is_active DESC, updated_at DESC LIMIT 1 over a name that does not identify a row. [MEASURED 2026-08-25] 25 of 330 non-forked rows' function values carry more than one row (site-footer and site-header five each, spanning component_level 'section' AND 'site'), so the winner can change with no code change — anything touching a sibling's updated_at reorders the contest. Fires only when the count exceeds 1, so a row always means a real contest. Deliberately asks the question the resolver DISCARDS (how many were there) rather than the one it asked (which one wins): a LIMIT 1 structurally cannot report a contest, and bugs_open/324 shipped 32 dangling rows because its check re-ran the resolver's own query. Best-effort and never fatal — the row is written either way. Review trigger: a sustained non-zero rate means an un-pinned caller exists in practice and the pin should become required on that path."
+  },
+  "WORK_ITEM_STATUS_OVERRIDE_REFUSED": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/actions/load_work_item_actions.go:1344",
+    "note": "bugs_open/396. FailWorkItemAction's `status_override` step-config key used to be honoured verbatim; it is now checked against workItemStatusOverrideAllowed and an unrecognised value is REFUSED, with the item falling through to the normal failure ladder. This row is what makes that refusal visible — it names the misconfigured STEP, not a failing item, which is why it is its own code rather than a generic one. OPERATIONAL rather than consumed: nothing selects by it, and its correct consumption is the generic newest-N diagnostic read of that agent's recent errors. It is expected to be RARE-to-never in practice — as of 2026-08-25 a recursive walk over every agent_definitions row (snapshots and soft-deleted included) found status_override on 4 steps in 3 agents and every value was 'needs_human_review', so nothing live can trigger it; a row appearing here means someone has configured a NEW value, which is exactly the event worth seeing."
   }
 }
