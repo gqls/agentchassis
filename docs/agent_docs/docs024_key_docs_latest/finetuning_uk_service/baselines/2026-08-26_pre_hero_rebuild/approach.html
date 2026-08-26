@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head lang="en-GB">
+    <meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-PQ3WCTBD');</script>
+<!-- End Google Tag Manager -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Approach to AI Deployment | FineTuning</title>
+    <meta name="description" content="Our approach: vendor-neutral models, private data, human review gates, continuous improvement. How we actually build systems.">
+    
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    
+    
+    <meta property="og:site_name" content="FineTuning">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="">
+    <meta name="twitter:description" content="">
+    
+
+    <!-- Canonical -->
+    
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#1a1a2e">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+
+    <!-- Theme CSS Variables -->
+    <style>
+        :root {
+            --primary: #1a1a2e;
+            --secondary: #2d2d44;
+            --accent: #16a085;
+            --text-dark: #333333;
+            --text-light: #666666;
+            --background: #ffffff;
+            --border: #e0e0e0;
+        }
+    </style>
+
+    
+    <style>
+        
+/* =====================================================================
+ * LAYOUT: brochure-formal
+ * Variables consumed via map-based template helpers:
+ *   #hex     palette slot lookup with fallback
+ *   default  typography slot lookup with fallback
+ *   default  structure token lookup with fallback
+ *
+ * Renderer contract:
+ *   - This template MUST NOT declare --section-* defaults; the renderer
+ *     appends them after rendering based on palette luminance.
+ *   - Renderer-managed surface section classes:
+ *       .differentiators-section, .features-section, .faq-section,
+ *       .services-section, .about-section
+ *     These MUST be surface-coloured here.
+ *   - Element rules use var(--section-*, var(--color-*)) so dark-section
+ *     components can override per-container without restating rules.
+ * ===================================================================== */
+
+:root {
+  /* ── Palette ── */
+  --color-primary:        #1A1A2E;
+  --color-primary-hover:  #1e3a8a;
+  --color-primary-text:   #ffffff;
+  --color-secondary:      #E8E4DC;
+  --color-accent:         #C8873A;
+  --color-background:     #F5F3EF;
+  --color-surface:        #FFFFFF;
+  --color-text:           #1A1A2E;
+  --color-text-muted:     #6B6860;
+  --color-border:         #D4CFC6;
+  --color-card-bg:        #ffffff;
+  --color-header-bg:      #0f172a;
+  --color-header-text:    #f1f5f9;
+  --color-cta-bg:         linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  --color-cta-text:       #ffffff;
+  --color-footer-bg:      #0f172a;
+  --color-footer-text:    #cbd5e1;
+
+  /* ── Typography ── */
+  --font-body:        'Inter', 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-heading:     'DM Sans', 'Inter', system-ui, sans-serif;
+  --font-size-base:   16px;
+  --line-height-base: 1.6;
+
+  /* ── Structure ── */
+  --container-max:    1200px;
+  --container-pad-x:  1.5rem;
+  --section-pad-y:    5rem;
+  --section-pad-y-sm: 3rem;
+  --radius:           0.375rem;
+  --radius-sm:        0.25rem;
+  --radius-lg:        0.5rem;
+  --shadow-sm:        0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:        0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg:        0 10px 15px rgba(0,0,0,0.1);
+  --transition:       200ms ease;
+  --card-pad:         1.5rem;
+  --grid-gap:         2rem;
+
+  /* ── Optional palette-driven section overrides ──
+   * If the palette declares a 'heading' slot, we emit --section-heading at
+   * :root level. Per the Colour Inheritance Model contract, h1-h6 resolve
+   * via var(--section-heading, var(--color-primary)). Setting it here makes
+   * the palette's heading choice apply in light sections; dark-section
+   * components still override it on their container per the Dark Section
+   * Variable Contract. Palettes without a 'heading' slot fall through to
+   * --color-primary as the contract specifies. */
+  --section-heading: #0f172a;
+}
+
+/* ── Base reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+  background: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+main { flex: 1; }
+img { max-width: 100%; height: auto; display: block; }
+
+/* ── Colour Inheritance Model ──
+ * Element rules use var(--section-*, var(--color-*)) so dark-section
+ * components can override per container without restating rules. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--section-heading, var(--color-primary));
+  margin: 0 0 1rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; font-weight: 600; }
+h4 { font-size: 1.25rem; font-weight: 600; }
+
+p, li, blockquote { color: var(--section-text, inherit); margin: 0 0 1rem; }
+/* strong/em/cite/span: do NOT set color — they inherit from parent */
+a {
+  color: var(--color-accent-ink, var(--color-accent));
+  text-decoration: none;
+  transition: color var(--transition);
+}
+a:hover { color: var(--color-primary); }
+
+/* ── Layout primitives ── */
+.container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--container-pad-x);
+  width: 100%;
+}
+.section { padding-block: var(--section-pad-y); }
+
+/* ── Site header ── */
+.site-header {
+  background: var(--color-header-bg);
+  color: var(--color-header-text);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+.header-container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 1rem var(--container-pad-x);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+.logo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-header-text);
+  text-decoration: none;
+}
+.logo-img { max-height: 40px; width: auto; }
+.main-nav ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.main-nav a {
+  color: var(--color-header-text);
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0.5rem 0;
+}
+.main-nav a:hover,
+.main-nav a.active { color: var(--color-accent); }
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--color-header-text);
+}
+.mobile-menu-toggle span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: currentColor;
+  margin: 5px 0;
+}
+
+/* ── Hero (component-coloured) ── */
+.hero-section { padding-block: calc(var(--section-pad-y) * 1.2); }
+.hero-section .container { text-align: center; max-width: 880px; }
+.hero-section h1 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 1rem; }
+.hero-subtitle, .hero-section .lead {
+  font-size: 1.25rem;
+  color: var(--section-text-muted, var(--color-text-muted));
+  margin: 0 auto 2rem;
+  max-width: 640px;
+}
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Renderer-managed surface sections ──
+ *
+ * TEMPORARY RENDERER COUPLING: these 5 class names must stay in sync
+ * with buildSectionDefaults in render_css_from_spec_action.go, which
+ * hardcodes the same list to emit dark-surface --section-* overrides
+ * when surface is dark.
+ *
+ * LONG-TERM DIRECTION: move surface painting into the relevant
+ * components (features, services, differentiators, about, faq), change
+ * the renderer to emit overrides keyed on a data-section-bg attribute
+ * instead of hardcoded class names, and remove this block from every
+ * layout. Tracked as Phase 4.5 in 025_palette_layout_typography_migration.
+ *
+ * Until then, these 5 classes MUST be surface-coloured in every layout
+ * so the renderer's assumption holds. Hero/CTA/testimonials/contact are
+ * NOT in this list — their background is component-owned per the Dark
+ * Section Variable Contract. */
+.features-section,
+.services-section,
+.differentiators-section,
+.about-section,
+.faq-section { background: var(--color-surface); }
+
+/* Generic section grids (3-col → 2 → 1) */
+.features-grid,
+.services-grid,
+.differentiators-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--grid-gap);
+  margin-top: 3rem;
+}
+.feature-card,
+.service-card,
+.differentiator-card {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.feature-card:hover,
+.service-card:hover,
+.differentiator-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+}
+.feature-icon,
+.service-icon,
+.differentiator-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+  color: var(--color-accent);
+}
+
+/* ── About ── */
+.about-section .container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+/* ── FAQ ── */
+.faq-section .container { max-width: 820px; }
+.faq-item {
+  border-bottom: 1px solid var(--color-border);
+  padding: 1.25rem 0;
+}
+.faq-item summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 44px;
+  align-items: center;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: "+"; font-weight: 400; font-size: 1.25rem; }
+.faq-item[open] summary::after { content: "−"; }
+.faq-item p {
+  padding-top: 0.75rem;
+  color: var(--section-text-muted, var(--color-text-muted));
+}
+
+/* ── Call to action (component-coloured) ── */
+.call-to-action-section { text-align: center; }
+
+/* ── Testimonials (component-coloured) ── */
+.testimonials-section .testimonial {
+  max-width: 720px;
+  margin-inline: auto;
+  text-align: center;
+  font-size: 1.125rem;
+}
+.testimonials-section .testimonial cite {
+  display: block;
+  margin-top: 1rem;
+  font-style: normal;
+  color: var(--section-text-muted, var(--color-text-muted));
+  font-size: 0.95rem;
+}
+
+/* ── Contact ── */
+.contact-section .container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+}
+
+/* ── Forms ── */
+.form-field { margin-bottom: 1.25rem; }
+.form-field label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.375rem;
+  font-size: 0.9rem;
+}
+.form-field input,
+.form-field textarea,
+.form-field select {
+  width: 100%;
+  padding: 0.75rem;
+  font: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  color: var(--color-text);
+  min-height: 44px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font: inherit;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 44px;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition), box-shadow var(--transition);
+}
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  color: var(--color-primary-text);
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--section-heading, var(--color-primary));
+  border-color: var(--color-primary);
+}
+.btn-secondary:hover {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+.btn-large { padding: 1rem 2rem; font-size: 1.05rem; }
+
+/* ── Site footer ── */
+.site-footer {
+  background: var(--color-footer-bg);
+  color: var(--color-footer-text);
+  padding-top: 4rem;
+  margin-top: auto;
+}
+.footer-container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 0 var(--container-pad-x);
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 2rem;
+}
+.site-footer h3, .site-footer h4 { color: #ffffff; }
+.site-footer a { color: var(--color-footer-text); }
+.site-footer a:hover { color: var(--color-accent); }
+.site-footer ul { list-style: none; padding: 0; margin: 0; }
+.site-footer li { margin-bottom: 0.5rem; }
+.footer-bottom {
+  margin-top: 3rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.6);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .features-grid,
+  .services-grid,
+  .differentiators-grid { grid-template-columns: repeat(2, 1fr); }
+  .footer-container { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .section { padding-block: var(--section-pad-y-sm); }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.625rem; }
+  .features-grid,
+  .services-grid,
+  .differentiators-grid,
+  .about-section .container,
+  .contact-section .container,
+  .footer-container { grid-template-columns: 1fr; }
+  .main-nav { display: none; }
+  .main-nav.is-open { display: block; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
+}
+
+/* ── Accessibility ── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* === Component-specific styles === */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.6s ease forwards; }
+
+.grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+/* renderer-enforced compatibility aliases (component vocabulary bridge) */
+:root {
+  --border-radius: var(--radius, 8px);
+  --shadow: var(--shadow-md, 0 2px 12px rgba(0, 0, 0, 0.15));
+  --spacing-section: var(--section-pad-y, 4rem);
+  --container-max-width: var(--container-max, 1200px);
+  --primary-color: var(--color-primary);
+  --secondary-color: var(--color-secondary);
+  --accent-color: var(--color-accent);
+  --color-heading: var(--color-text);
+  --color-white: #ffffff;
+  --color-error: #d64545;
+  --hero-ink: var(--color-text);
+}
+
+
+/* renderer-owned legible-ink companions. Opt in with
+   var(--color-primary-ink, var(--color-primary)) — never bare, so a
+   stylesheet rendered before this block renders byte-identically. */
+:root {
+  --color-primary-ink: #1A1A2E;
+  --color-accent-ink: #8a5c27;
+  --color-accent-text: #1A1A2E;
+}
+
+    </style>
+    
+
+    
+
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+    <script>document.addEventListener("DOMContentLoaded", function() { if (typeof lucide !== "undefined") { lucide.createIcons(); } });</script>
+    <script src="/assets/js/snippets.js"></script>
+  <link rel="icon" href="/assets/images/favicon.png">
+  <link rel="icon" href="/assets/images/logo.png">
+  <link rel="apple-touch-icon" href="/assets/images/favicon.png">
+  <meta property="og:image" content="https://finetuning.uk/assets/images/og-card.png">
+  <meta name="twitter:image" content="https://finetuning.uk/assets/images/og-card.png">
+<meta property="og:title" content="Our Approach to AI Deployment | FineTuning">
+<meta property="og:description" content="Our approach: vendor-neutral models, private data, human review gates, continuous improvement. How we actually build systems.">
+<meta property="og:url" content="https://finetuning.uk/approach.html">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@id":"https://finetuning.uk/approach.html","@type":"WebPage","description":"Our approach: vendor-neutral models, private data, human review gates, continuous improvement. How we actually build systems.","isPartOf":{"@type":"WebSite","name":"finetuning.uk","url":"https://finetuning.uk"},"name":"Our Approach to AI Deployment | FineTuning","url":"https://finetuning.uk/approach.html"}</script>
+
+<link rel="canonical" href="https://finetuning.uk/approach.html">
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PQ3WCTBD"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<header class="site-header">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <img src="/assets/images/logo.png" alt="FineTuning" class="logo-img">
+        </a>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/use-cases.html">Use Cases</a></li>
+                <li><a href="/case-studies.html">Case Studies</a></li>
+                <li><a href="/pricing.html">Pricing</a></li>
+                <li><a href="/your-own-model.html">Your Own Model</a></li>
+            </ul>
+        </nav>
+        <a href="/contact.html" class="header-cta">Get Started</a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</header>
+<style>
+/* Theme-owned chrome: every colour is a CSS variable resolved by the site
+   stylesheet. Only gaps the layout does not style are covered here. */
+.header-cta {
+    background: var(--color-cta-bg, var(--color-accent));
+    color: var(--color-cta-text, var(--color-primary-text));
+    padding: 0.5rem 1.1rem;
+    border-radius: var(--radius, 4px);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+.header-cta:hover { filter: brightness(1.1); }
+.mobile-menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--color-header-text, var(--color-text));
+    margin: 5px 0;
+}
+@media (max-width: 768px) {
+    .main-nav.is-open {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--color-header-bg, var(--color-surface));
+        padding: 1rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+    .main-nav.is-open ul { flex-direction: column; }
+    .main-nav.is-open a { display: block; padding: 0.75rem 0; }
+    .header-cta { display: none; }
+}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var toggle = document.querySelector(".mobile-menu-toggle");
+    var nav = document.querySelector(".main-nav");
+    if (toggle && nav) {
+        toggle.addEventListener("click", function() {
+            var open = nav.classList.toggle("is-open");
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+    }
+});
+</script>
+<main>
+<section class="hero hero-about" data-component="hero-about">
+        <div class="hero-content">
+            <h1>How we actually deploy AI inside a business</h1>
+            <p class="hero-subheadline">Picking the right model is the easy part. The work is making it survive contact with your real data, your real staff, and your real edge cases. If you want a quick read on where your business stands before that work starts, try our AI Project Readiness Checker.</p>
+        </div>
+    </section>
+<style>
+.hero-about {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    /* Emphasis-band role: --color-cta-bg / --color-cta-text are a curated
+       pair in every palette. --color-primary is ALSO the library's foreground
+       colour for links and eyebrows, so on a dark site it is a light value and
+       painting a full-bleed hero with it inverts the site's register. */
+    --hero-ink: var(--color-cta-text, var(--color-primary-text));
+    background: var(--color-cta-bg, var(--color-primary));
+
+    /* Dark section context */
+    --section-text: color-mix(in srgb, var(--hero-ink) 90%, transparent);
+    --section-text-muted: color-mix(in srgb, var(--hero-ink) 70%, transparent);
+    --section-heading: var(--hero-ink);
+    --section-surface: color-mix(in srgb, var(--hero-ink) 5%, transparent);
+    --section-border: color-mix(in srgb, var(--hero-ink) 20%, transparent);
+}
+.hero-about .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    color: var(--hero-ink);
+}
+.hero-about h1 {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+.hero-about .hero-subheadline {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
+}
+.hero-about--imaged { background-image: inherit; }
+</style>
+<section class="about-content-section" data-component="about-content">
+    <div class="about-container">
+        <h2>How We Actually Build These Systems</h2>
+        <div class="about-text">
+            <p>We pick the model that suits the task, not the vendor we happen to prefer. A document summary, a piece of code, and a reasoning-heavy decision often need three different tools underneath. Tying a business to a single provider means inheriting that provider's weak spots along with its strengths, so we don't do it.</p><p>Your data stays yours. That can mean a privately hosted model, a version fine-tuned on your own records using techniques like LoRA, or a model that runs entirely in the browser and never leaves the machine it's on. For a firm handling client files or financial records, that's not a compliance checkbox, it's the actual reason AI adoption stalls in the first place.</p><p>Every system we build has review gates you configure yourself. You decide what gets automated outright and what needs a human to sign off before it moves. Nothing runs as a black box that produces answers you can't trace back to a source.</p><p>Systems also keep improving after they go live. Automated quality sweeps catch drift and errors between review cycles, and where a system does research or writes content, it checks facts against named sources before publishing anything. That doesn't mean the output is always right, only that you can see where it came from and check it yourself. You can read more about how a project actually runs on <a href="/how-we-work.html">how we work</a>, or see the range of systems this covers on <a href="/services.html">our services page</a>. If you're not sure whether now is the right moment to start, our <a href="/tools/ai-readiness-checker/index.html">AI Project Readiness Checker</a> is a short way to find out. It's a set of questions about your data, your team, and your budget clarity, and it flags what needs sorting before any consultancy, including us, gets involved. If you want the fuller argument for why we build this way, it's laid out in our position on AI.</p>
+        </div>
+        
+        <div class="about-highlights">
+            
+            <div class="highlight-item">
+                <h3>Multi-model, not single-vendor</h3>
+                <p>We use whichever model handles a given task best, whether that's text, images, code, or reasoning, rather than forcing every job through one provider's product.</p>
+            </div>
+            
+            <div class="highlight-item">
+                <h3>Privacy built into the deployment</h3>
+                <p>Private hosting, fine-tuning on your own data, and in-browser models that never touch a server all keep sensitive information inside your business.</p>
+            </div>
+            
+            <div class="highlight-item">
+                <h3>Human oversight, not automation for its own sake</h3>
+                <p>Every system has configurable review gates, so you decide what gets automated outright and what still needs a person to check it first.</p>
+            </div>
+            
+        </div>
+        
+    </div>
+</section>
+<style>
+.about-content-section {
+    padding: 5rem 2rem;
+    background: var(--color-background);
+}
+.about-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+.about-content-section h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 2rem;
+    color: var(--color-heading, var(--color-text));
+    text-align: center;
+}
+.about-text {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: var(--color-text);
+    margin-bottom: 3rem;
+}
+.about-text p {
+    margin-bottom: 1.5rem;
+}
+.about-highlights {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+.highlight-item {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border-radius: 8px;
+    border-left: 4px solid var(--color-accent);
+}
+.highlight-item h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-heading, var(--color-text));
+}
+.highlight-item p {
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .about-content-section { padding: 3rem 1.5rem; }
+    .about-highlights { grid-template-columns: 1fr; }
+}
+</style>
+<section class="differentiators-section" data-component="differentiators">
+        <div class="differentiators-container">
+            <h2>What we do differently</h2>
+            <div class="differentiators-grid">
+                
+                <div class="differentiator-item">
+                    <h3>Multi-model, not one vendor's model</h3>
+                    <p>We pick the right model for each task instead of forcing everything through one provider. Text, images, code, and reasoning each have models that do them better than the rest, and we mix them accordingly. If a better tool comes out next year, we switch to it. You're never stuck with a system built around one company's roadmap.</p>
+                </div>
+                
+                <div class="differentiator-item">
+                    <h3>Your data stays yours</h3>
+                    <p>We build with private LLM hosting, LoRA fine-tuning on your own data, and models that can run entirely in the browser without sending anything to a server. For a finance or compliance lead, that's the difference between a genuine data risk and a system you can actually sign off on.</p>
+                </div>
+                
+                <div class="differentiator-item">
+                    <h3>Open-weight models, fine-tuned for you</h3>
+                    <p>We work with open-weight models like Llama, Mistral, and Phi rather than locking you into a single vendor's closed platform. We fine-tune them on your domain and build custom embeddings around your own material, so the system reflects how your business actually talks and works.</p>
+                </div>
+                
+                <div class="differentiator-item">
+                    <h3>You approve what matters, we automate what doesn't</h3>
+                    <p>Every automation pipeline can be built with review gates you control. Routine decisions run themselves, and anything you want a human eye on gets flagged before it goes further. There's no black box deciding things behind your back. If you're not sure yet how much oversight your team actually needs, the <a href="/tools/ai-readiness-checker/index.html">AI Project Readiness Checker</a> is a quick way to see where the gaps are before you commit to anything.</p>
+                </div>
+                
+                <div class="differentiator-item">
+                    <h3>Systems that keep improving after launch</h3>
+                    <p>Automated quality sweeps check our sites, data pipelines, and tools between human review cycles, not just on delivery day. The system you get in month three should be a bit sharper than the one you got on day one.</p>
+                </div>
+                
+                <div class="differentiator-item">
+                    <h3>Checked against sources, not invented</h3>
+                    <p>Where a system does research or pulls facts, we build in source attribution and credibility checks so claims get checked against official sources before anything is published. That said, any AI system can still get things wrong, which is exactly why the review gates above exist.</p>
+                </div>
+                
+            </div>
+        </div>
+    </section>
+<style>
+.differentiators-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-background, #fff);
+}
+.differentiators-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.differentiators-section h2 {
+    text-align: center;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 3rem;
+    color: var(--color-primary-ink,var(--color-primary, #1a1a2e));
+}
+.differentiators-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+}
+.differentiator-item {
+    padding: 2rem;
+    background: var(--color-surface, #f8f9fa);
+    border-radius: 8px;
+    border-left: 4px solid var(--color-accent, #0f3460);
+}
+.differentiator-item h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-primary-ink,var(--color-primary, #1a1a2e));
+}
+.differentiator-item p {
+    color: var(--color-text-muted, #555);
+    line-height: 1.7;
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .differentiators-section { padding: 3rem 1.5rem; }
+    .differentiators-grid { grid-template-columns: 1fr; }
+}
+</style>
+<section class="features-section" data-component="features">
+    <div class="features-container">
+        <h2>What every deployment we build has in common</h2>
+        <p class="features-subtitle">These aren't marketing lines. They're the working rules we apply whether we're building a quoting pipeline for a logistics firm or an agent network running research at scale.</p>
+        <div class="features-grid">
+            
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="layers"></i></div>
+                <h3>The right model for the job</h3>
+                <p>We pick whichever model handles a task best, not whichever one we know best. Text, images, code, and reasoning each have models that do them better than the rest, so we mix them rather than forcing everything through one provider. That means your system is built around your problem, not around our favourite vendor.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="lock"></i></div>
+                <h3>Your data stays yours</h3>
+                <p>Some deployments run entirely on your own infrastructure, including models that work in-browser and never touch our servers. Where a private model makes sense, we host it privately instead of routing your records through a third-party API. For firms handling client files or financial records, that's the difference between adopting AI and creating a new compliance problem.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="unlock"></i></div>
+                <h3>No vendor lock-in</h3>
+                <p>We fine-tune open-weight models such as Llama, Mistral, and Phi to your specific domain, built on custom embeddings drawn from your own documents. If a better model appears next year, you're free to move to it. The training and the underlying data pipeline belong to you, not to a subscription.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="eye"></i></div>
+                <h3>Review gates you control</h3>
+                <p>Every system has configurable points where a person checks the output before it goes anywhere. You decide what needs sign-off and what's safe to run unattended. Nothing operates as a black box you're expected to trust on faith. If you're not sure where your own project stands before any of this applies, our <a href="/tools/ai-readiness-checker/index.html">AI Project Readiness Checker</a> gives you a plain readout of what's ready and what still needs work.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="refresh-cw"></i></div>
+                <h3>Systems that improve after launch</h3>
+                <p>Automated quality sweeps check outputs between review cycles and catch drift before it turns into a problem. Sites, data pipelines, and research tools keep improving after they've gone live, not just on the day we hand them over. Deployment is the start of the maintenance work, not the finish line.</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon"><i data-lucide="check-circle"></i></div>
+                <h3>Checked against sources, not just generated</h3>
+                <p>Research agents verify facts against official sources before publishing anything, and the output carries source attribution. That doesn't mean every answer is guaranteed right. It means you can see where a claim came from and check it yourself.</p>
+            </div>
+            
+        </div>
+    </div>
+</section>
+<style>
+/* Layout only - colors inherited from global CSS */
+.features-section {
+    padding: var(--spacing-section, 5rem 2rem);
+}
+.features-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+}
+.features-section h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.features-subtitle {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+.feature-item {
+    text-align: center;
+    padding: 2rem;
+}
+.feature-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    color: var(--color-accent, #0f3460);
+}
+.feature-icon svg {
+    width: 100%;
+    height: 100%;
+}
+.feature-item h3 {
+    margin-bottom: 1rem;
+}
+.feature-item p {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .features-section { padding: 3rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+</style>
+<section id="c-faq" class="section section--faq" data-component="faq">
+  <div class="container container--narrow">
+    <h2 class="section__title section__title--center">Questions we get asked before anyone signs anything</h2>
+    <div class="faq-list">
+      
+      <details class="faq-item">
+        <summary class="faq-item__question">How do you decide which AI model to use for our business?</summary>
+        <p class="faq-item__answer">We start with the task, not a favourite vendor. Some jobs suit a large reasoning model, others run better on a smaller, cheaper model fine-tuned on your own documents. We've built with Llama, Mistral, Phi, and several proprietary models, and we mix them where it makes sense, one model drafting text, another checking facts, another handling structured data. The result is a system built for the job in front of us, not whatever a single provider happens to sell.</p>
+      </details>
+      
+      <details class="faq-item">
+        <summary class="faq-item__question">Does our data leave our building or get used to train someone else's model?</summary>
+        <p class="faq-item__answer">Not unless you want it to. We deploy private hosting, local models, and in-browser models specifically so client data never has to touch a third-party server. Where we do use hosted models, we set them up so your data isn't retained or used for training. This matters more to finance and compliance leads than most vendors admit, so we treat it as a design decision from day one, not a policy document bolted on afterwards.</p>
+      </details>
+      
+      <details class="faq-item">
+        <summary class="faq-item__question">What happens if the AI gets something wrong?</summary>
+        <p class="faq-item__answer">It will, occasionally, get something wrong. That's why we build human review gates into the parts of a system where a mistake actually costs you money or trust, and automate freely everywhere else. You decide what needs a person's eyes before it goes out and what doesn't. Nothing runs as a black box that you're expected to trust blindly.</p>
+      </details>
+      
+      <details class="faq-item">
+        <summary class="faq-item__question">Are we locked into one AI provider once you've built our system?</summary>
+        <p class="faq-item__answer">No. We build primarily on open-weight models like Llama, Mistral, and Phi, fine-tuned for your specific use with methods like LoRA and DoRA. If a provider changes their pricing or their terms, you're not stuck. Vendor lock-in is a real cost that's easy to ignore until the bill changes, so we design around it from the start.</p>
+      </details>
+      
+      <details class="faq-item">
+        <summary class="faq-item__question">Do we need our own technical team to run this once it's live?</summary>
+        <p class="faq-item__answer">No, but you do need someone internally who owns the process the system supports. We handle the model selection, training, and infrastructure. Your team's job is knowing which quotes look wrong, which documents need a second read, and telling us when the business itself changes. That division of labour is described in more detail on our <a href="/how-we-work.html">how we work</a> page.</p>
+      </details>
+      
+      <details class="faq-item">
+        <summary class="faq-item__question">How long does it take to get a working system in place?</summary>
+        <p class="faq-item__answer">It depends on the task and how much your data needs cleaning before a model can use it. A quoting or document-screening system tends to move faster than a multi-agent pipeline handling thousands of records. We'd rather give you a scope on a call than a number that sounds good in a brief. Before that call, try our <a href="/tools/ai-readiness-checker/index.html">AI Project Readiness Checker</a>. It's a short set of questions on your data, team, and infrastructure that gives you a read on what's likely to slow things down, and it can be wrong in either direction, so treat it as a starting point rather than a verdict. Book a discovery call and we'll tell you what's realistic for your case specifically.</p>
+      </details>
+      
+      <details class="faq-item">
+        <summary class="faq-item__question">Does the system just stop improving once it's launched?</summary>
+        <p class="faq-item__answer">No. We run automated quality sweeps after launch so the system keeps getting better between the times a human actually looks at it. That's different to most AI projects, which get tuned once at launch and then quietly drift. If you want to see what that looks like in practice, our <a href="/case-studies.html">case studies</a> describe a few of these systems running in production.</p>
+      </details>
+      
+      <details class="faq-item">
+        <summary class="faq-item__question">Is AI actually the right answer for every process you're asked to automate?</summary>
+        <p class="faq-item__answer">No, and we'll say so. If a process is broken, badly documented, or changes every month depending on who's covering for whom, automating it just breaks it faster and with more confidence. Sometimes the recommendation is to fix the process first and revisit AI afterwards. We've written about this directly on our <a href="/our-position-on-ai.html">position on AI</a> page, and we'd rather lose a sale than sell you a system that fails in month two.</p>
+      </details>
+      
+    </div>
+  </div>
+</section>
+<section class="cta-section" data-component="call-to-action">
+    <div class="cta-container">
+        <h2>Talk to someone who has actually built these systems</h2>
+        <p class="cta-subtitle">We'll ask what's slow, error-prone, or repetitive in your business, and tell you whether AI is the fix. If it isn't, we'll say so. If you want a sense of where you stand before that call, try our AI Project Readiness Checker first.</p>
+        <div class="cta-buttons">
+            
+            <a href="/contact.html" class="cta-btn cta-btn-primary">Book a discovery call</a>
+            
+            
+            <a href="/how-we-work.html" class="cta-btn cta-btn-secondary">See how we work with clients from first call to live system</a>
+            
+        </div>
+    </div>
+</section>
+<style>
+.cta-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-cta-bg, var(--color-primary));
+    color: var(--color-cta-text, var(--color-primary-text));
+    text-align: center;
+
+    /* Dark section context */
+    --section-text: color-mix(in srgb, var(--color-cta-text, var(--color-primary-text)) 90%, transparent);
+    --section-text-muted: color-mix(in srgb, var(--color-cta-text, var(--color-primary-text)) 85%, transparent);
+    --section-heading: var(--color-cta-text, var(--color-primary-text));
+    --section-surface: color-mix(in srgb, var(--color-cta-text, var(--color-primary-text)) 5%, transparent);
+    --section-border: color-mix(in srgb, var(--color-cta-text, var(--color-primary-text)) 20%, transparent);
+}
+.cta-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.cta-section h2 {
+    margin-bottom: 1rem;
+}
+.cta-subtitle {
+    margin-bottom: 2rem;
+}
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.cta-btn {
+    display: inline-block;
+    padding: 1rem 2rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.cta-btn:hover {
+    transform: translateY(-2px);
+}
+.cta-btn-primary {
+    background: var(--color-cta-text, var(--color-primary-text));
+    color: var(--color-cta-bg-ink, var(--color-cta-bg));
+}
+.cta-btn-secondary {
+    background: transparent;
+    border: 2px solid var(--color-cta-text, var(--color-primary-text));
+    color: var(--color-cta-text, var(--color-primary-text));
+}
+@media (max-width: 768px) {
+    .cta-section { padding: 3rem 1.5rem; }
+    .cta-buttons { flex-direction: column; align-items: center; }
+    .cta-btn { width: 100%; max-width: 280px; text-align: center; }
+}
+</style>
+
+</main>
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>FineTuning</h3>
+            <p>AI for the Rest of Us</p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/use-cases.html">Use Cases</a></li>
+                <li><a href="/case-studies.html">Case Studies</a></li>
+                <li><a href="/pricing.html">Pricing</a></li>
+                <li><a href="/your-own-model.html">Your Own Model</a></li>
+                <li><a href="/approach.html">Approach</a></li>
+                <li><a href="/insights.html">Insights</a></li>
+                <li><a href="/ai-guides.html">AI Guides</a></li>
+                <li><a href="/how-we-work.html">How We Work</a></li>
+                <li><a href="/contact.html">Contact</a></li>
+                <li><a href="/careers.html">Careers</a></li>
+                <li><a href="/blog.html">Blog</a></li>
+                <li><a href="/faq.html">FAQ</a></li>
+                <li><a href="/ai-readiness-quiz.html">Ai Readiness Quiz</a></li>
+                <li><a href="/ai-for-uk-small-business.html">UK SMEs</a></li>
+                <li><a href="/our-position-on-ai.html">Our Position</a></li>
+                <li><a href="/ai-for-your-type-of-business.html">Your Business Type</a></li>
+                <li><a href="/technical-details.html">Technical Details</a></li>
+                <li><a href="/tools/tool-ai-readiness-quiz.html">Ai Readiness Quiz</a></li>
+                <li><a href="/tools/tool-ai-data-risk-checker.html">Ai Data Risk Checker</a></li>
+                <li><a href="/tools/automation-savings-estimator/index.html">Automation Savings Estimator</a></li>
+                <li><a href="/tools/gdpr-ai-risk-assessment/index.html">Gdpr Ai Risk Assessment</a></li>
+                <li><a href="/tools/ai-agent-roi-estimator.html">AI Agent ROI Estimator</a></li>
+                <li><a href="/tools/llm-cost-calculator.html">Llm Cost Calculator</a></li>
+                <li><a href="/tools/model-approach-selector.html">Model Approach Selector</a></li>
+                <li><a href="/tools/ai-readiness-checker/index.html">AI Project Readiness Checker</a></li>
+            </ul>
+        </div>
+        <div class="footer-services">
+            <h4>Explore</h4>
+            <ul>
+                <li><a href="/your-own-model.html">Your Own Model</a></li>
+                <li><a href="/use-cases.html">Use Cases</a></li>
+                <li><a href="/approach.html">Approach</a></li>
+                <li><a href="/case-studies.html">Case Studies</a></li>
+                <li><a href="/how-we-work.html">How We Work</a></li>
+                <li><a href="/tools.html">Tools</a></li>
+            </ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            <p><a href="mailto:finetune@contactforsales.com">finetune@contactforsales.com</a></p>
+            <p>+44 (0) 7934 524 911</p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; 2026 FineTuning. All rights reserved.</p>
+        <div class="footer-legal">
+            <a href="/privacy-policy.html">Privacy Policy</a><a href="/terms.html">Terms of Service</a>
+        </div>
+    </div>
+</footer>
+<style>
+/* Theme-owned chrome — var()-based gaps only; the layout styles .site-footer,
+   .footer-container and .footer-bottom. */
+.footer-brand p { color: var(--color-footer-text, var(--color-text-muted)); margin: 0.5rem 0 0; }
+.footer-legal { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 0.5rem; }
+.footer-legal a { color: var(--color-footer-text, var(--color-text-muted)); }
+.footer-legal a:hover { color: var(--color-accent); }
+</style>
+</body>
+</html>

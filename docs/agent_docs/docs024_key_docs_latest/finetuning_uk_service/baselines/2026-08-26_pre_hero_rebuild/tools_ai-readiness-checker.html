@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head lang="en-GB">
+    <meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-PQ3WCTBD');</script>
+<!-- End Google Tag Manager -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Project Readiness Checker</title>
+    <meta name="description" content="Check whether your AI project is ready to start before you spend money on it.">
+    
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    
+    
+    <meta property="og:site_name" content="FineTuning">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="">
+    <meta name="twitter:description" content="">
+    
+
+    <!-- Canonical -->
+    
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#1a1a2e">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+
+    <!-- Theme CSS Variables -->
+    <style>
+        :root {
+            --primary: #1a1a2e;
+            --secondary: #2d2d44;
+            --accent: #16a085;
+            --text-dark: #333333;
+            --text-light: #666666;
+            --background: #ffffff;
+            --border: #e0e0e0;
+        }
+    </style>
+
+    
+    <style>
+        
+/* =====================================================================
+ * LAYOUT: brochure-formal
+ * Variables consumed via map-based template helpers:
+ *   #hex     palette slot lookup with fallback
+ *   default  typography slot lookup with fallback
+ *   default  structure token lookup with fallback
+ *
+ * Renderer contract:
+ *   - This template MUST NOT declare --section-* defaults; the renderer
+ *     appends them after rendering based on palette luminance.
+ *   - Renderer-managed surface section classes:
+ *       .differentiators-section, .features-section, .faq-section,
+ *       .services-section, .about-section
+ *     These MUST be surface-coloured here.
+ *   - Element rules use var(--section-*, var(--color-*)) so dark-section
+ *     components can override per-container without restating rules.
+ * ===================================================================== */
+
+:root {
+  /* ── Palette ── */
+  --color-primary:        #1A1A2E;
+  --color-primary-hover:  #1e3a8a;
+  --color-primary-text:   #ffffff;
+  --color-secondary:      #E8E4DC;
+  --color-accent:         #C8873A;
+  --color-background:     #F5F3EF;
+  --color-surface:        #FFFFFF;
+  --color-text:           #1A1A2E;
+  --color-text-muted:     #6B6860;
+  --color-border:         #D4CFC6;
+  --color-card-bg:        #ffffff;
+  --color-header-bg:      #0f172a;
+  --color-header-text:    #f1f5f9;
+  --color-cta-bg:         linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  --color-cta-text:       #ffffff;
+  --color-footer-bg:      #0f172a;
+  --color-footer-text:    #cbd5e1;
+
+  /* ── Typography ── */
+  --font-body:        'Inter', 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-heading:     'DM Sans', 'Inter', system-ui, sans-serif;
+  --font-size-base:   16px;
+  --line-height-base: 1.6;
+
+  /* ── Structure ── */
+  --container-max:    1200px;
+  --container-pad-x:  1.5rem;
+  --section-pad-y:    5rem;
+  --section-pad-y-sm: 3rem;
+  --radius:           0.375rem;
+  --radius-sm:        0.25rem;
+  --radius-lg:        0.5rem;
+  --shadow-sm:        0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:        0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg:        0 10px 15px rgba(0,0,0,0.1);
+  --transition:       200ms ease;
+  --card-pad:         1.5rem;
+  --grid-gap:         2rem;
+
+  /* ── Optional palette-driven section overrides ──
+   * If the palette declares a 'heading' slot, we emit --section-heading at
+   * :root level. Per the Colour Inheritance Model contract, h1-h6 resolve
+   * via var(--section-heading, var(--color-primary)). Setting it here makes
+   * the palette's heading choice apply in light sections; dark-section
+   * components still override it on their container per the Dark Section
+   * Variable Contract. Palettes without a 'heading' slot fall through to
+   * --color-primary as the contract specifies. */
+  --section-heading: #0f172a;
+}
+
+/* ── Base reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+  background: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+main { flex: 1; }
+img { max-width: 100%; height: auto; display: block; }
+
+/* ── Colour Inheritance Model ──
+ * Element rules use var(--section-*, var(--color-*)) so dark-section
+ * components can override per container without restating rules. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--section-heading, var(--color-primary));
+  margin: 0 0 1rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; font-weight: 600; }
+h4 { font-size: 1.25rem; font-weight: 600; }
+
+p, li, blockquote { color: var(--section-text, inherit); margin: 0 0 1rem; }
+/* strong/em/cite/span: do NOT set color — they inherit from parent */
+a {
+  color: var(--color-accent-ink, var(--color-accent));
+  text-decoration: none;
+  transition: color var(--transition);
+}
+a:hover { color: var(--color-primary); }
+
+/* ── Layout primitives ── */
+.container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--container-pad-x);
+  width: 100%;
+}
+.section { padding-block: var(--section-pad-y); }
+
+/* ── Site header ── */
+.site-header {
+  background: var(--color-header-bg);
+  color: var(--color-header-text);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+.header-container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 1rem var(--container-pad-x);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+.logo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-header-text);
+  text-decoration: none;
+}
+.logo-img { max-height: 40px; width: auto; }
+.main-nav ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.main-nav a {
+  color: var(--color-header-text);
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0.5rem 0;
+}
+.main-nav a:hover,
+.main-nav a.active { color: var(--color-accent); }
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--color-header-text);
+}
+.mobile-menu-toggle span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: currentColor;
+  margin: 5px 0;
+}
+
+/* ── Hero (component-coloured) ── */
+.hero-section { padding-block: calc(var(--section-pad-y) * 1.2); }
+.hero-section .container { text-align: center; max-width: 880px; }
+.hero-section h1 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 1rem; }
+.hero-subtitle, .hero-section .lead {
+  font-size: 1.25rem;
+  color: var(--section-text-muted, var(--color-text-muted));
+  margin: 0 auto 2rem;
+  max-width: 640px;
+}
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Renderer-managed surface sections ──
+ *
+ * TEMPORARY RENDERER COUPLING: these 5 class names must stay in sync
+ * with buildSectionDefaults in render_css_from_spec_action.go, which
+ * hardcodes the same list to emit dark-surface --section-* overrides
+ * when surface is dark.
+ *
+ * LONG-TERM DIRECTION: move surface painting into the relevant
+ * components (features, services, differentiators, about, faq), change
+ * the renderer to emit overrides keyed on a data-section-bg attribute
+ * instead of hardcoded class names, and remove this block from every
+ * layout. Tracked as Phase 4.5 in 025_palette_layout_typography_migration.
+ *
+ * Until then, these 5 classes MUST be surface-coloured in every layout
+ * so the renderer's assumption holds. Hero/CTA/testimonials/contact are
+ * NOT in this list — their background is component-owned per the Dark
+ * Section Variable Contract. */
+.features-section,
+.services-section,
+.differentiators-section,
+.about-section,
+.faq-section { background: var(--color-surface); }
+
+/* Generic section grids (3-col → 2 → 1) */
+.features-grid,
+.services-grid,
+.differentiators-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--grid-gap);
+  margin-top: 3rem;
+}
+.feature-card,
+.service-card,
+.differentiator-card {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.feature-card:hover,
+.service-card:hover,
+.differentiator-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+}
+.feature-icon,
+.service-icon,
+.differentiator-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+  color: var(--color-accent);
+}
+
+/* ── About ── */
+.about-section .container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+/* ── FAQ ── */
+.faq-section .container { max-width: 820px; }
+.faq-item {
+  border-bottom: 1px solid var(--color-border);
+  padding: 1.25rem 0;
+}
+.faq-item summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 44px;
+  align-items: center;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: "+"; font-weight: 400; font-size: 1.25rem; }
+.faq-item[open] summary::after { content: "−"; }
+.faq-item p {
+  padding-top: 0.75rem;
+  color: var(--section-text-muted, var(--color-text-muted));
+}
+
+/* ── Call to action (component-coloured) ── */
+.call-to-action-section { text-align: center; }
+
+/* ── Testimonials (component-coloured) ── */
+.testimonials-section .testimonial {
+  max-width: 720px;
+  margin-inline: auto;
+  text-align: center;
+  font-size: 1.125rem;
+}
+.testimonials-section .testimonial cite {
+  display: block;
+  margin-top: 1rem;
+  font-style: normal;
+  color: var(--section-text-muted, var(--color-text-muted));
+  font-size: 0.95rem;
+}
+
+/* ── Contact ── */
+.contact-section .container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+}
+
+/* ── Forms ── */
+.form-field { margin-bottom: 1.25rem; }
+.form-field label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.375rem;
+  font-size: 0.9rem;
+}
+.form-field input,
+.form-field textarea,
+.form-field select {
+  width: 100%;
+  padding: 0.75rem;
+  font: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  color: var(--color-text);
+  min-height: 44px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font: inherit;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 44px;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition), box-shadow var(--transition);
+}
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  color: var(--color-primary-text);
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--section-heading, var(--color-primary));
+  border-color: var(--color-primary);
+}
+.btn-secondary:hover {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+.btn-large { padding: 1rem 2rem; font-size: 1.05rem; }
+
+/* ── Site footer ── */
+.site-footer {
+  background: var(--color-footer-bg);
+  color: var(--color-footer-text);
+  padding-top: 4rem;
+  margin-top: auto;
+}
+.footer-container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 0 var(--container-pad-x);
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 2rem;
+}
+.site-footer h3, .site-footer h4 { color: #ffffff; }
+.site-footer a { color: var(--color-footer-text); }
+.site-footer a:hover { color: var(--color-accent); }
+.site-footer ul { list-style: none; padding: 0; margin: 0; }
+.site-footer li { margin-bottom: 0.5rem; }
+.footer-bottom {
+  margin-top: 3rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.6);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .features-grid,
+  .services-grid,
+  .differentiators-grid { grid-template-columns: repeat(2, 1fr); }
+  .footer-container { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .section { padding-block: var(--section-pad-y-sm); }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.625rem; }
+  .features-grid,
+  .services-grid,
+  .differentiators-grid,
+  .about-section .container,
+  .contact-section .container,
+  .footer-container { grid-template-columns: 1fr; }
+  .main-nav { display: none; }
+  .main-nav.is-open { display: block; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
+}
+
+/* ── Accessibility ── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* === Component-specific styles === */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.6s ease forwards; }
+
+.grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+/* renderer-enforced compatibility aliases (component vocabulary bridge) */
+:root {
+  --border-radius: var(--radius, 8px);
+  --shadow: var(--shadow-md, 0 2px 12px rgba(0, 0, 0, 0.15));
+  --spacing-section: var(--section-pad-y, 4rem);
+  --container-max-width: var(--container-max, 1200px);
+  --primary-color: var(--color-primary);
+  --secondary-color: var(--color-secondary);
+  --accent-color: var(--color-accent);
+  --color-heading: var(--color-text);
+  --color-white: #ffffff;
+  --color-error: #d64545;
+  --hero-ink: var(--color-text);
+}
+
+
+/* renderer-owned legible-ink companions. Opt in with
+   var(--color-primary-ink, var(--color-primary)) — never bare, so a
+   stylesheet rendered before this block renders byte-identically. */
+:root {
+  --color-primary-ink: #1A1A2E;
+  --color-accent-ink: #8a5c27;
+  --color-accent-text: #1A1A2E;
+}
+
+    </style>
+    
+
+    
+
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+    <script>document.addEventListener("DOMContentLoaded", function() { if (typeof lucide !== "undefined") { lucide.createIcons(); } });</script>
+    <script src="/assets/js/snippets.js"></script>
+  <link rel="icon" href="/assets/images/favicon.png">
+  <link rel="icon" href="/assets/images/logo.png">
+  <link rel="apple-touch-icon" href="/assets/images/favicon.png">
+  <meta property="og:image" content="https://finetuning.uk/assets/images/og-card.png">
+  <meta name="twitter:image" content="https://finetuning.uk/assets/images/og-card.png">
+<meta property="og:title" content="AI Project Readiness Checker">
+<meta property="og:description" content="Check whether your AI project is ready to start before you spend money on it.">
+<meta property="og:url" content="https://finetuning.uk/tools/ai-readiness-checker/index.html">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@id":"https://finetuning.uk/tools/ai-readiness-checker/index.html","@type":"WebPage","description":"Check whether your AI project is ready to start before you spend money on it.","isPartOf":{"@type":"WebSite","name":"finetuning.uk","url":"https://finetuning.uk"},"name":"AI Project Readiness Checker","url":"https://finetuning.uk/tools/ai-readiness-checker/index.html"}</script>
+
+<link rel="canonical" href="https://finetuning.uk/tools/ai-readiness-checker/index.html">
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PQ3WCTBD"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<header class="site-header">
+    <div class="header-container">
+        <a href="/index.html" class="logo">
+            <img src="/assets/images/logo.png" alt="FineTuning" class="logo-img">
+        </a>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/use-cases.html">Use Cases</a></li>
+                <li><a href="/case-studies.html">Case Studies</a></li>
+                <li><a href="/pricing.html">Pricing</a></li>
+                <li><a href="/your-own-model.html">Your Own Model</a></li>
+            </ul>
+        </nav>
+        <a href="/contact.html" class="header-cta">Get Started</a>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</header>
+<style>
+/* Theme-owned chrome: every colour is a CSS variable resolved by the site
+   stylesheet. Only gaps the layout does not style are covered here. */
+.header-cta {
+    background: var(--color-cta-bg, var(--color-accent));
+    color: var(--color-cta-text, var(--color-primary-text));
+    padding: 0.5rem 1.1rem;
+    border-radius: var(--radius, 4px);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+.header-cta:hover { filter: brightness(1.1); }
+.mobile-menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--color-header-text, var(--color-text));
+    margin: 5px 0;
+}
+@media (max-width: 768px) {
+    .main-nav.is-open {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--color-header-bg, var(--color-surface));
+        padding: 1rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+    .main-nav.is-open ul { flex-direction: column; }
+    .main-nav.is-open a { display: block; padding: 0.75rem 0; }
+    .header-cta { display: none; }
+}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var toggle = document.querySelector(".mobile-menu-toggle");
+    var nav = document.querySelector(".main-nav");
+    if (toggle && nav) {
+        toggle.addEventListener("click", function() {
+            var open = nav.classList.toggle("is-open");
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+    }
+});
+</script>
+<main>
+<style>.hero-tool-section{--section-text:var(--color-primary-text,rgba(255,255,255,0.9));--section-text-muted:color-mix(in srgb, var(--color-primary-text,#ffffff) 85%, transparent);--section-heading:var(--color-primary-text,#ffffff);--section-surface:rgba(255,255,255,0.05);--section-border: color-mix(in srgb, var(--color-primary-text, var(--color-background)) 25%, transparent);background:var(--color-primary,#1a1f36);color:var(--section-text);padding:var(--spacing-section,5rem 2rem);font-family:inherit}.hero-tool-section *{box-sizing:border-box}.hero-tool-section .htl-container{max-width:var(--container-max-width,880px);margin:0 auto;padding:0 1rem;text-align:center;display:flex;flex-direction:column;align-items:center}.hero-tool-section .htl-badge{display:inline-block;background:var(--section-surface);border:1px solid var(--section-border);color:var(--section-text-muted);font-size:0.75rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:0.35rem 0.85rem;border-radius:2rem;margin-bottom:1.25rem}.hero-tool-section .htl-headline{font-size:clamp(2rem,4vw,3rem);font-weight:800;color:var(--section-heading);line-height:1.15;margin:0 0 1.25rem;max-width:20ch}.hero-tool-section .htl-subheadline{font-size:1.1rem;color:var(--section-text-muted);line-height:1.7;margin:0 0 2rem;max-width:60ch}.hero-tool-section .htl-cta-row{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;justify-content:center}.hero-tool-section .htl-btn-primary{display:inline-flex;align-items:center;gap:0.5rem;background:var(--color-accent,#f59e0b);color:#000;font-weight:700;font-size:1rem;padding:0.85rem 1.75rem;border-radius:var(--border-radius,0.5rem);border:none;cursor:pointer;text-decoration:none;min-height:44px;transition:opacity 0.2s}.hero-tool-section .htl-btn-primary:hover{opacity:0.88}.hero-tool-section .htl-btn-secondary{display:inline-flex;align-items:center;gap:0.5rem;background:transparent;color:var(--section-text);font-weight:600;font-size:1rem;padding:0.85rem 1.75rem;border-radius:var(--border-radius,0.5rem);border:1px solid var(--section-border);cursor:pointer;text-decoration:none;min-height:44px;transition:background 0.2s}.hero-tool-section .htl-btn-secondary:hover{background:var(--section-surface)}.hero-tool-section .htl-trust-row{display:flex;flex-wrap:wrap;gap:1.5rem;margin-top:2.25rem;justify-content:center}.hero-tool-section .htl-trust-item{display:flex;flex-direction:column;gap:0.15rem}.hero-tool-section .htl-trust-value{font-size:1.5rem;font-weight:800;color:var(--section-heading)}.hero-tool-section .htl-trust-label{font-size:0.78rem;color:var(--section-text-muted);text-transform:uppercase;letter-spacing:0.06em}@media(max-width:768px){.hero-tool-section .htl-trust-row{gap:1rem}.hero-tool-section .htl-cta-row{flex-direction:column;align-items:stretch}}</style><section class="hero-tool-section" data-component="hero-tool"><div class="htl-container"><span class="htl-badge">Free planning tool</span><h1 class="htl-headline">Check whether your AI project is ready to start</h1><p class="htl-subheadline">This checker walks through the questions that decide whether an AI project actually lands: how clean your data is, how clear the process is, and whether anyone owns the outcome once it's built. Answer honestly and you get a plain readout of what's solid and what needs sorting before you spend money on it. It's a starting point for a conversation with us, not a verdict, so treat the result as a guide rather than a guarantee.</p><div class="htl-trust-row"><div class="htl-trust-item"><span class="htl-trust-value">Free</span><span class="htl-trust-label">Cost to use</span></div></div></div></section>
+<style>
+  .tool-guide-intro-section {
+    background: var(--color-surface);
+    padding: var(--spacing-section, 5rem 2rem);
+    color: var(--color-text);
+  }
+
+  .tool-guide-intro-section .tgi-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+  }
+
+  .tool-guide-intro-section .tgi-eyebrow {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-primary-ink,var(--color-primary));
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: calc(var(--border-radius, 0.5rem) * 2);
+    padding: 0.25rem 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .tool-guide-intro-section .tgi-headline {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--color-heading);
+    margin: 0 0 1rem;
+  }
+
+  .tool-guide-intro-section .tgi-lead {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    color: var(--color-text-muted);
+    margin: 0 0 1.5rem;
+  }
+
+  .tool-guide-intro-section .tgi-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .tool-guide-intro-section .tgi-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+  }
+
+  .tool-guide-intro-section .tgi-meta-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--color-primary-ink,var(--color-primary));
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .tool-guide-intro-section .tgi-meta-label {
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .tool-guide-intro-section .tgi-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .tool-guide-intro-section .tgi-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--color-primary);
+    color: var(--color-primary-text, var(--color-white, #fff));
+    border: none;
+    border-radius: var(--border-radius, 0.5rem);
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    min-height: 44px;
+    transition: background 0.2s ease;
+  }
+
+  .tool-guide-intro-section .tgi-btn-primary:hover,
+  .tool-guide-intro-section .tgi-btn-primary:focus-visible {
+    background: var(--color-primary-hover, var(--color-primary));
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  .tool-guide-intro-section .tgi-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: transparent;
+    color: var(--color-primary-ink,var(--color-primary));
+    border: 2px solid var(--color-primary);
+    border-radius: var(--border-radius, 0.5rem);
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    min-height: 44px;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .tool-guide-intro-section .tgi-btn-secondary:hover,
+  .tool-guide-intro-section .tgi-btn-secondary:focus-visible {
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  .tool-guide-intro-section .tgi-visual {
+    position: relative;
+  }
+
+  .tool-guide-intro-section .tgi-image-wrap {
+    border-radius: var(--border-radius, 0.5rem);
+    overflow: hidden;
+    box-shadow: var(--shadow, 0 4px 24px rgba(0,0,0,0.1));
+    aspect-ratio: 4/3;
+    background: var(--color-card-bg);
+  }
+
+  .tool-guide-intro-section .tgi-image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .tool-guide-intro-section .tgi-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .tool-guide-intro-section .tgi-step {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .tool-guide-intro-section .tgi-step-num {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: var(--color-primary-text, var(--color-white, #fff));
+    font-size: 0.85rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.15rem;
+  }
+
+  .tool-guide-intro-section .tgi-step-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0 0 0.2rem;
+  }
+
+  .tool-guide-intro-section .tgi-step-desc {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .tool-guide-intro-section .tgi-container {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .tool-guide-intro-section .tgi-visual {
+      order: -1;
+    }
+
+    .tool-guide-intro-section .tgi-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .tool-guide-intro-section .tgi-btn-primary,
+    .tool-guide-intro-section .tgi-btn-secondary {
+      justify-content: center;
+      width: 100%;
+    }
+  }
+</style>
+
+<section class="tool-guide-intro-section" data-component="tool-guide-intro">
+  <div class="tgi-container">
+    <div class="tgi-content">
+      <span class="tgi-eyebrow">How-To Guide</span>
+      <h1 class="tgi-headline">Work Out Whether Your Business Is Actually Ready for an AI Project</h1>
+      <p class="tgi-lead">The AI Project Readiness Checker asks a short series of questions about your data, your processes and your team, then gives you a plain read on where the gaps are. It's built for operations managers and business owners weighing up a first AI project who want an honest steer before they spend money on one. The result is a starting point for a conversation, not a verdict, and it can be wrong, so treat it as one input alongside your own judgement.</p>
+
+      <div class="tgi-meta">
+        
+        <div class="tgi-meta-item">
+          <svg class="tgi-meta-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <span class="tgi-meta-label">Level:</span>
+          <span>Beginner</span>
+        </div>
+        <div class="tgi-meta-item">
+          <svg class="tgi-meta-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="tgi-meta-label">Best for:</span>
+          <span>Operations managers and business owners considering a first AI project</span>
+        </div>
+      </div>
+
+      <div class="tgi-actions">
+        
+        
+      </div>
+    </div>
+
+    <div class="tgi-visual">
+      
+      <div class="tgi-image-wrap">
+        <img src="/assets/images/content-hero-tool-ai-readiness-checker.jpg" alt="Abstract geometric diagram illustrating stages of an AI project readiness assessment" loading="lazy">
+      </div>
+      
+
+      <ol class="tgi-steps" aria-label="What you will learn">
+        <li class="tgi-step">
+          <span class="tgi-step-num" aria-hidden="true">1</span>
+          <div>
+            <p class="tgi-step-title">Answer the readiness questions</p>
+            <p class="tgi-step-desc">Work through each question about your data, processes and team, answering as things actually stand rather than how you'd like them to be.</p>
+          </div>
+        </li>
+        <li class="tgi-step">
+          <span class="tgi-step-num" aria-hidden="true">2</span>
+          <div>
+            <p class="tgi-step-title">See where the checker places you</p>
+            <p class="tgi-step-desc">Read the result alongside the reasoning behind it, so you understand which areas are pulling your readiness down and why.</p>
+          </div>
+        </li>
+        <li class="tgi-step">
+          <span class="tgi-step-num" aria-hidden="true">3</span>
+          <div>
+            <p class="tgi-step-title">Decide what to do next</p>
+            <p class="tgi-step-desc">Use the outcome to decide whether to start small, fix a specific gap first, or talk to someone about the project you have in mind.</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </div>
+</section>
+<style>
+.tool-container {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  font-family: inherit;
+  background: var(--color-background);
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+
+.tool-container * {
+  box-sizing: border-box;
+}
+
+.tool-container h2 {
+  margin-bottom: 0.25rem;
+  font-size: 1.5rem;
+}
+
+.tool-description {
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.tool-container fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: var(--color-surface);
+}
+
+.tool-container legend {
+  font-weight: 600;
+  padding: 0 0.4rem;
+  color: var(--color-text);
+}
+
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.option-list label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.option-list label:hover {
+  border-color: var(--color-primary);
+}
+
+.option-list input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+
+.option-list input[type="radio"]:checked + span {
+  font-weight: 600;
+}
+
+.tool-container button {
+  display: inline-block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: var(--color-background);
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.tool-container button:hover {
+  background: var(--color-secondary);
+}
+
+#c-tool-ai-readiness-checker-readiness-error {
+  color: var(--color-accent);
+  font-weight: 600;
+  margin-top: 0.5rem;
+  display: none;
+}
+
+#c-tool-ai-readiness-checker-readiness-result {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  display: none;
+}
+
+#c-tool-ai-readiness-checker-readiness-result h3 {
+  margin-top: 0;
+  color: var(--color-primary);
+}
+
+.tier-badge {
+  display: inline-block;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-background);
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.blocker-list {
+  margin: 0.75rem 0 1rem 0;
+  padding-left: 1.25rem;
+}
+
+.blocker-list li {
+  margin-bottom: 0.5rem;
+  color: var(--color-text);
+}
+
+.no-blockers {
+  color: var(--color-text-muted);
+}
+
+.guidance-box {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1rem;
+  margin-top: 1rem;
+  line-height: 1.6;
+}
+
+.score-line {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .tool-container {
+    padding: 1rem 0.75rem;
+  }
+
+  .tool-container h2 {
+    font-size: 1.25rem;
+  }
+
+  .tool-container fieldset {
+    padding: 0.85rem 0.9rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .tool-container legend {
+    font-size: 0.95rem;
+  }
+
+  .option-list label {
+    padding: 0.6rem 0.65rem;
+    font-size: 0.95rem;
+  }
+
+  .tool-container button {
+    width: 100%;
+    padding: 0.85rem 1rem;
+  }
+
+  #c-tool-ai-readiness-checker-readiness-result {
+    padding: 1rem;
+  }
+
+  .tier-badge {
+    display: block;
+    text-align: center;
+    width: 100%;
+  }
+}
+
+@media (max-width: 400px) {
+  .tool-container {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .option-list input[type="radio"] {
+    width: 22px;
+    height: 22px;
+  }
+
+  .option-list label {
+    min-height: 48px;
+  }
+}
+</style>
+
+<div class="tool-container">
+  <h2>AI Project Readiness Checker</h2>
+  <p class="tool-description">
+    Answer nine short questions about your data, team, infrastructure, and organisational readiness.
+    You will get an honest readiness tier and a plain list of what needs sorting out before you engage anyone,
+    us included.
+  </p>
+
+  <form id="c-tool-ai-readiness-checker-readiness-form">
+
+    <fieldset>
+      <legend>1. Data availability</legend>
+      <div class="option-list" data-question="data">
+        <label><input type="radio" name="data" value="3"><span>We have clean, accessible data ready to use</span></label>
+        <label><input type="radio" name="data" value="2"><span>We have data but it is scattered or needs cleaning</span></label>
+        <label><input type="radio" name="data" value="1"><span>We know what data we would need but have not gathered it</span></label>
+        <label><input type="radio" name="data" value="0"><span>We are not sure what data would be needed</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>2. Team AI literacy</legend>
+      <div class="option-list" data-question="literacy">
+        <label><input type="radio" name="literacy" value="3"><span>We have people who have shipped AI or ML projects before</span></label>
+        <label><input type="radio" name="literacy" value="2"><span>We have technical staff but no direct AI experience</span></label>
+        <label><input type="radio" name="literacy" value="1"><span>We are relying on this project to build that capability</span></label>
+        <label><input type="radio" name="literacy" value="0"><span>No technical staff are involved yet</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>3. Existing infrastructure</legend>
+      <div class="option-list" data-question="infra">
+        <label><input type="radio" name="infra" value="3"><span>Modern cloud infrastructure, APIs and CI/CD are in place</span></label>
+        <label><input type="radio" name="infra" value="2"><span>Some infrastructure exists, but legacy systems will need work</span></label>
+        <label><input type="radio" name="infra" value="1"><span>Mostly legacy or on premise systems</span></label>
+        <label><input type="radio" name="infra" value="0"><span>We are not sure what infrastructure we have</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>4. Defined success metrics</legend>
+      <div class="option-list" data-question="metrics">
+        <label><input type="radio" name="metrics" value="3"><span>We have specific, measurable success criteria agreed</span></label>
+        <label><input type="radio" name="metrics" value="2"><span>We have a general goal but no hard metrics yet</span></label>
+        <label><input type="radio" name="metrics" value="1"><span>We have not discussed what success looks like</span></label>
+        <label><input type="radio" name="metrics" value="0"><span>Not sure this has been considered</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>5. Budget clarity</legend>
+      <div class="option-list" data-question="budget">
+        <label><input type="radio" name="budget" value="3"><span>Budget is approved and allocated</span></label>
+        <label><input type="radio" name="budget" value="2"><span>A budget range is known but not formally approved</span></label>
+        <label><input type="radio" name="budget" value="1"><span>We are exploring cost before committing to a budget</span></label>
+        <label><input type="radio" name="budget" value="0"><span>No budget conversation has happened yet</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>6. Internal buy-in</legend>
+      <div class="option-list" data-question="buyin">
+        <label><input type="radio" name="buyin" value="3"><span>Full executive sponsorship and stakeholder alignment</span></label>
+        <label><input type="radio" name="buyin" value="2"><span>Support from some leaders, not yet unanimous</span></label>
+        <label><input type="radio" name="buyin" value="1"><span>One internal champion, no wider buy-in</span></label>
+        <label><input type="radio" name="buyin" value="0"><span>No internal support yet</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>7. Problem definition</legend>
+      <div class="option-list" data-question="problem">
+        <label><input type="radio" name="problem" value="3"><span>A clear, specific problem with a defined scope</span></label>
+        <label><input type="radio" name="problem" value="2"><span>A general direction, but scope is not finalised</span></label>
+        <label><input type="radio" name="problem" value="1"><span>A broad ambition that has not been scoped</span></label>
+        <label><input type="radio" name="problem" value="0"><span>Still exploring what AI could even do for us</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>8. Timeline expectations</legend>
+      <div class="option-list" data-question="timeline">
+        <label><input type="radio" name="timeline" value="3"><span>We understand this typically takes months, not weeks</span></label>
+        <label><input type="radio" name="timeline" value="2"><span>Some flexibility, but we would prefer fast delivery</span></label>
+        <label><input type="radio" name="timeline" value="1"><span>We are expecting rapid results within a few weeks</span></label>
+        <label><input type="radio" name="timeline" value="0"><span>We have not thought about timeline</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>9. Prior AI attempts</legend>
+      <div class="option-list" data-question="prior">
+        <label><input type="radio" name="prior" value="3"><span>We have piloted AI successfully before and are building on it</span></label>
+        <label><input type="radio" name="prior" value="2"><span>We have tried before with mixed results and are learning from it</span></label>
+        <label><input type="radio" name="prior" value="1"><span>This is our first attempt</span></label>
+        <label><input type="radio" name="prior" value="0"><span>We have had multiple attempts fail with little to show for it</span></label>
+      </div>
+    </fieldset>
+
+    <button type="submit">See my readiness result</button>
+    <p id="c-tool-ai-readiness-checker-readiness-error">Please answer all nine questions before continuing.</p>
+  </form>
+
+  <div id="c-tool-ai-readiness-checker-readiness-result"></div>
+</div>
+
+<script>
+
+(function () {
+  var form = document.getElementById('c-tool-ai-readiness-checker-readiness-form');
+  var errorEl = document.getElementById('c-tool-ai-readiness-checker-readiness-error');
+  var resultEl = document.getElementById('c-tool-ai-readiness-checker-readiness-result');
+
+  var questionMeta = {
+    data: {
+      label: 'Data availability',
+      blocker: 'Your data is not yet in a usable state. A consultancy will spend early time and budget just locating and cleaning data rather than building anything.'
+    },
+    literacy: {
+      label: 'Team AI literacy',
+      blocker: 'There is limited in-house AI experience. This is not disqualifying, but it means capability building should be part of the plan, not an afterthought.'
+    },
+    infra: {
+      label: 'Existing infrastructure',
+      blocker: 'Infrastructure is legacy, on premise, or unclear. Expect a technical readiness phase before any AI work can meaningfully start.'
+    },
+    metrics: {
+      label: 'Defined success metrics',
+      blocker: 'Success has not been defined in measurable terms. Without this, it is very hard for anyone to tell you honestly whether a project has worked.'
+    },
+    budget: {
+      label: 'Budget clarity',
+      blocker: 'No budget conversation has happened yet. It is worth having an internal figure in mind before you start vendor conversations.'
+    },
+    buyin: {
+      label: 'Internal buy-in',
+      blocker: 'Support is limited to one person or is not yet in place. Projects without wider sponsorship tend to stall regardless of technical quality.'
+    },
+    problem: {
+      label: 'Problem definition',
+      blocker: 'The problem is still broad or unscoped. Narrowing this down usually saves more time and money than any other single step.'
+    },
+    timeline: {
+      label: 'Timeline expectations',
+      blocker: 'Expectations point to a very fast timeline. Most credible AI work takes months, not weeks, and this gap tends to cause disappointment later.'
+    },
+    prior: {
+      label: 'Prior AI attempts',
+      blocker: 'Previous attempts have not gone well. Worth understanding what specifically failed before repeating the same approach with a new vendor.'
+    }
+  };
+
+  var questionOrder = ['data', 'literacy', 'infra', 'metrics', 'budget', 'buyin', 'problem', 'timeline', 'prior'];
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    var answers = {};
+    var missing = false;
+
+    questionOrder.forEach(function (key) {
+      var selected = form.querySelector('input[name="' + key + '"]:checked');
+      if (!selected) {
+        missing = true;
+      } else {
+        answers[key] = parseInt(selected.value, 10);
+      }
+    });
+
+    if (missing) {
+      errorEl.style.display = 'block';
+      resultEl.style.display = 'none';
+      return;
+    }
+
+    errorEl.style.display = 'none';
+
+    var total = 0;
+    var blockers = [];
+
+    questionOrder.forEach(function (key) {
+      total += answers[key];
+      if (answers[key] <= 1) {
+        blockers.push({ label: questionMeta[key].label, text: questionMeta[key].blocker });
+      }
+    });
+
+    var tier, tierDescription, guidance;
+
+    if (total <= 9) {
+      tier = 'Exploratory';
+      tierDescription = 'You are still forming the shape of this. That is a perfectly normal place to be, and not a reason to avoid talking to anyone, but it is too early to be scoping a build.';
+      guidance = 'Focus first on defining the specific problem you want AI to solve and what success would actually look like in numbers. Get one or two senior stakeholders genuinely on board before spending on external help. Come back to this checker once that groundwork is done.';
+    } else if (total <= 18) {
+      tier = 'Ready to Pilot';
+      tierDescription = 'You have enough in place to run a small, well-scoped pilot. Several things below are still loose ends worth tightening first.';
+      guidance = 'A short pilot with clear success criteria is a sensible next step. Use it to test the specific blockers listed below rather than committing to a full build. A good consultancy should be willing to scope a pilot around exactly these gaps, not gloss over them.';
+    } else {
+      tier = 'Ready to Build';
+      tierDescription = 'The fundamentals are largely in place: data, sponsorship, and a defined problem. You are in a strong position to move to a full engagement.';
+      guidance = 'You are well placed to have a substantive scoping conversation with a consultancy. Bring the specifics below to that conversation, and be wary of anyone who does not ask about them.';
+    }
+
+    var html = '';
+    html += '<h3>Your result</h3>';
+    html += '<span class="tier-badge">' + tier + '</span>';
+    html += '<p class="score-line">Score: ' + total + ' out of 27</p>';
+    html += '<p>' + tierDescription + '</p>';
+
+    if (blockers.length === 0) {
+      html += '<p class="no-blockers">No major blockers stood out from your answers. Worth a genuine second look internally before assuming everything is settled, but you are in reasonable shape.</p>';
+    } else {
+      html += '<p><strong>Specific points to resolve first:</strong></p>';
+      html += '<ul class="blocker-list">';
+      blockers.forEach(function (b) {
+        html += '<li><strong>' + b.label + ':</strong> ' + b.text + '</li>';
+      });
+      html += '</ul>';
+    }
+
+    html += '<div class="guidance-box"><strong>What we would suggest:</strong><br>' + guidance + '</div>';
+    html += '<div class="guidance-box">This tool is here to help you think clearly before spending money, not to push you toward us. If it turns out you are not ready yet, that is a useful answer too.</div>';
+
+    resultEl.innerHTML = html;
+    resultEl.style.display = 'block';
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+})();
+</script>
+<style>
+  .tool-cta-section {
+    background: var(--color-cta-bg);
+    --section-text: var(--color-cta-text);
+    --section-heading: var(--color-cta-text);
+    --section-text-muted: color-mix(in srgb, var(--color-cta-text) 70%, transparent);
+    --section-border: color-mix(in srgb, var(--color-cta-text) 25%, transparent);
+    --section-surface: color-mix(in srgb, var(--color-cta-text) 8%, transparent);
+    padding: var(--spacing-section);
+    color: var(--section-text, var(--color-text));
+  }
+
+  .tool-cta-section .tool-cta-inner {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+  }
+
+  .tool-cta-section .tool-cta-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .tool-cta-section .tool-cta-eyebrow {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--section-text-muted);
+    border: 1px solid var(--section-border);
+    background: var(--section-surface);
+    border-radius: var(--border-radius);
+    padding: 0.3rem 0.75rem;
+    width: fit-content;
+  }
+
+  .tool-cta-section .tool-cta-heading {
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--section-heading, var(--color-heading));
+    margin: 0;
+  }
+
+  .tool-cta-section .tool-cta-description {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: var(--section-text-muted);
+    margin: 0;
+  }
+
+  .tool-cta-section .tool-cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 0.5rem;
+  }
+
+  .tool-cta-section .tool-cta-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.75rem 1.75rem;
+    background: var(--color-white, #fff);
+    color: var(--color-cta-bg);
+    font-weight: 700;
+    font-size: 1rem;
+    border: none;
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    box-shadow: var(--shadow);
+  }
+
+  .tool-cta-section .tool-cta-btn-primary:hover,
+  .tool-cta-section .tool-cta-btn-primary:focus-visible {
+    opacity: 0.88;
+  }
+
+  .tool-cta-section .tool-cta-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    color: var(--section-text, var(--color-cta-text));
+    font-weight: 600;
+    font-size: 1rem;
+    border: 2px solid var(--section-border);
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .tool-cta-section .tool-cta-btn-secondary:hover,
+  .tool-cta-section .tool-cta-btn-secondary:focus-visible {
+    background: var(--section-surface);
+    border-color: var(--section-text);
+  }
+
+  .tool-cta-section .tool-cta-trust {
+    font-size: 0.85rem;
+    color: var(--section-text-muted);
+    margin-top: 0.25rem;
+  }
+
+  .tool-cta-section .tool-cta-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .tool-cta-section .tool-cta-tools-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--section-text-muted);
+    margin: 0;
+  }
+
+  .tool-cta-section .tool-cta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .tool-cta-section .tool-cta-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: var(--section-surface);
+    border: 1px solid var(--section-border);
+    border-radius: var(--border-radius);
+    padding: 1rem 1.1rem;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s ease;
+  }
+
+  .tool-cta-section .tool-cta-card:hover,
+  .tool-cta-section .tool-cta-card:focus-visible {
+    background: color-mix(in srgb, var(--color-cta-text) 14%, transparent);
+  }
+
+  .tool-cta-section .tool-cta-card-thumb {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: calc(var(--border-radius) * 0.75);
+    margin-bottom: 0.25rem;
+  }
+
+  .tool-cta-section .tool-cta-card-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--section-heading, var(--color-heading));
+    margin: 0;
+  }
+
+  .tool-cta-section .tool-cta-card-desc {
+    font-size: 0.82rem;
+    color: var(--section-text-muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .tool-cta-section .tool-cta-card-link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--section-text, var(--color-cta-text));
+    text-decoration: underline;
+    margin-top: auto;
+  }
+
+  @media (max-width: 768px) {
+    .tool-cta-section .tool-cta-inner {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .tool-cta-section .tool-cta-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<section class="tool-cta-section" data-component="tool-cta">
+  <div class="tool-cta-inner">
+    <div class="tool-cta-content">
+      <span class="tool-cta-eyebrow">Free Tools</span>
+      <h2 class="tool-cta-heading">Try the Rest of Our Free AI Tools</h2>
+      <p class="tool-cta-description">This checker is one of several free tools we've built to help you think through an AI project before you spend money on it. Each one tackles a different part of the decision, from estimating likely costs to spotting where your data could create risk. They're built by the same people who design these systems for a living, not as marketing extras.</p>
+      <div class="tool-cta-actions">
+        
+        
+      </div>
+      <p class="tool-cta-trust">Free to use, no account needed, no sales pitch attached.</p>
+    </div>
+    <div class="tool-cta-tools">
+      <p class="tool-cta-tools-label">Popular Tools</p>
+      <div class="tool-cta-grid">
+        
+        <a href="/tools/tool-ai-data-risk-checker.html" class="tool-cta-card">
+          <img class="tool-cta-card-thumb" src="/assets/images/card-tool-ai-data-risk-checker.jpg" alt="" loading="lazy">
+          <h3 class="tool-cta-card-title">AI Data Risk Checker | Tools</h3>
+          <p class="tool-cta-card-desc">Answer 7 questions about your AI tool use and learn what data you're exposing and which regulations apply.</p>
+          <span class="tool-cta-card-link">AI Data Risk Checker | Tools</span>
+        </a>
+        
+        <a href="/tools/tool-ai-readiness-quiz.html" class="tool-cta-card">
+          <img class="tool-cta-card-thumb" src="/assets/images/card-tool-ai-readiness-quiz.jpg" alt="" loading="lazy">
+          <h3 class="tool-cta-card-title">AI Readiness Quiz | Tools</h3>
+          <p class="tool-cta-card-desc">Answer 6 quick questions to find out whether AI will actually help your business and where.</p>
+          <span class="tool-cta-card-link">AI Readiness Quiz | Tools</span>
+        </a>
+        
+        <a href="/tools/automation-savings-estimator/index.html" class="tool-cta-card">
+          <img class="tool-cta-card-thumb" src="/assets/images/card-tool-automation-savings-estimator.jpg" alt="" loading="lazy">
+          <h3 class="tool-cta-card-title">AI Automation Time Savings Estimator | Tools</h3>
+          <p class="tool-cta-card-desc">Calculate hours saved, cost reduction, and error decrease from automating one repetitive process.</p>
+          <span class="tool-cta-card-link">AI Automation Time Savings Estimator | Tools</span>
+        </a>
+        
+        <a href="/tools/gdpr-ai-risk-assessment/index.html" class="tool-cta-card">
+          
+          <h3 class="tool-cta-card-title">GDPR & AI Data Risk Self-Assessment | Tools</h3>
+          <p class="tool-cta-card-desc">Answer 10 questions about AI tool use in your team and get a risk rating before wider deployment.</p>
+          <span class="tool-cta-card-link">GDPR & AI Data Risk Self-Assessment | Tools</span>
+        </a>
+        
+        <a href="/tools/ai-agent-roi-estimator.html" class="tool-cta-card">
+          <img class="tool-cta-card-thumb" src="/assets/images/card-ai-agent-roi-estimator.jpg" alt="" loading="lazy">
+          <h3 class="tool-cta-card-title">AI Agent ROI Estimator</h3>
+          <p class="tool-cta-card-desc">Calculate what an AI agent system costs versus your current manual operations, including setup and annual running costs.</p>
+          <span class="tool-cta-card-link">Tools / AI Agent ROI Estimator</span>
+        </a>
+        
+        <a href="/tools/llm-cost-calculator.html" class="tool-cta-card">
+          <img class="tool-cta-card-thumb" src="/assets/images/card-llm-cost-calculator.jpg" alt="" loading="lazy">
+          <h3 class="tool-cta-card-title">LLM Provider Cost Comparison Calculator</h3>
+          <p class="tool-cta-card-desc">Compare the real cost of running AI across OpenAI, Anthropic, Google, Mistral, and other providers. Free calculator.</p>
+          <span class="tool-cta-card-link">Tools / LLM Provider Cost Comparison Calculator</span>
+        </a>
+        
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <h3>FineTuning</h3>
+            <p>AI for the Rest of Us</p>
+        </div>
+        <div class="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/tools.html">Tools</a></li>
+                <li><a href="/use-cases.html">Use Cases</a></li>
+                <li><a href="/case-studies.html">Case Studies</a></li>
+                <li><a href="/pricing.html">Pricing</a></li>
+                <li><a href="/your-own-model.html">Your Own Model</a></li>
+                <li><a href="/approach.html">Approach</a></li>
+                <li><a href="/insights.html">Insights</a></li>
+                <li><a href="/ai-guides.html">AI Guides</a></li>
+                <li><a href="/how-we-work.html">How We Work</a></li>
+                <li><a href="/contact.html">Contact</a></li>
+                <li><a href="/careers.html">Careers</a></li>
+                <li><a href="/blog.html">Blog</a></li>
+                <li><a href="/faq.html">FAQ</a></li>
+                <li><a href="/ai-readiness-quiz.html">Ai Readiness Quiz</a></li>
+                <li><a href="/ai-for-uk-small-business.html">UK SMEs</a></li>
+                <li><a href="/our-position-on-ai.html">Our Position</a></li>
+                <li><a href="/ai-for-your-type-of-business.html">Your Business Type</a></li>
+                <li><a href="/technical-details.html">Technical Details</a></li>
+                <li><a href="/tools/tool-ai-readiness-quiz.html">Ai Readiness Quiz</a></li>
+                <li><a href="/tools/tool-ai-data-risk-checker.html">Ai Data Risk Checker</a></li>
+                <li><a href="/tools/automation-savings-estimator/index.html">Automation Savings Estimator</a></li>
+                <li><a href="/tools/gdpr-ai-risk-assessment/index.html">Gdpr Ai Risk Assessment</a></li>
+                <li><a href="/tools/ai-agent-roi-estimator.html">AI Agent ROI Estimator</a></li>
+                <li><a href="/tools/llm-cost-calculator.html">Llm Cost Calculator</a></li>
+                <li><a href="/tools/model-approach-selector.html">Model Approach Selector</a></li>
+                <li><a href="/tools/ai-readiness-checker/index.html">AI Project Readiness Checker</a></li>
+            </ul>
+        </div>
+        <div class="footer-services">
+            <h4>Explore</h4>
+            <ul>
+                <li><a href="/your-own-model.html">Your Own Model</a></li>
+                <li><a href="/use-cases.html">Use Cases</a></li>
+                <li><a href="/approach.html">Approach</a></li>
+                <li><a href="/case-studies.html">Case Studies</a></li>
+                <li><a href="/how-we-work.html">How We Work</a></li>
+                <li><a href="/tools.html">Tools</a></li>
+            </ul>
+        </div>
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            <p><a href="mailto:finetune@contactforsales.com">finetune@contactforsales.com</a></p>
+            <p>+44 (0) 7934 524 911</p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; 2026 FineTuning. All rights reserved.</p>
+        <div class="footer-legal">
+            <a href="/privacy-policy.html">Privacy Policy</a><a href="/terms.html">Terms of Service</a>
+        </div>
+    </div>
+</footer>
+<style>
+/* Theme-owned chrome — var()-based gaps only; the layout styles .site-footer,
+   .footer-container and .footer-bottom. */
+.footer-brand p { color: var(--color-footer-text, var(--color-text-muted)); margin: 0.5rem 0 0; }
+.footer-legal { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 0.5rem; }
+.footer-legal a { color: var(--color-footer-text, var(--color-text-muted)); }
+.footer-legal a:hover { color: var(--color-accent); }
+</style>
+</body>
+</html>
