@@ -2489,3 +2489,29 @@ moment they can eyeball the site after.
 widget (this box has no browser; goja parse + live API contract are the coverage
 so far), then the soft-launch flip (in_footer + noindex, one UPDATE in the seed
 header).
+
+## 2026-08-26 (late night) — option A fired (owner's call); the item is QUEUED, not stalled — and two selection misreadings of mine, both corrected
+
+Owner chose **(A)**. Trigger item `405a08d4-aa3f-4544-a5f0-49a81121e683`
+(needs_rerender, spec `{"refresh_site_components": true}`, NO reason so per-page
+items stay assemble-only, item_key `gripper_widget_bundle_ship`, created_by
+`gripper_dossier_ai_page_3`). Pre-flight found robot-hands already carries three
+`stale_chrome`-family items UNRESOLVED since 08-06 (attempt_count 0, error NULL,
+no agent_error_log trail — 20 days and many rolls old, inconclusive; a fresh run
+makes its own trail). Caveat redeploy (corr dcade0bb) confirmed live on the page.
+
+**Misreading 1 (mine)**: item sat `triaged` 20 min → I read the loader's
+ordering contract (`priority ASC`) + the idea.uk precedent's priority 99 as
+starvation and dropped priority to 5. **Misreading 2 (mine)**: measured "1 item
+ahead" with a (priority, created_at) tuple — the WRONG ordering. The LIVE
+selector (`build-pipeline-trigger` → `find_dispatchable_site`, migration 633's
+shape) orders **`created_at ASC` MAJOR**, then priority; the 657 priority-major
+re-rank is another lane's in-flight work (sidecar `_HOLD`), and the ordering
+contract test describes where that lane is GOING, not what runs. Correct
+measurement: **654 loadable items older than mine across 26 sites, ALL created
+today** — an honest oldest-first queue draining at ~4 claims/min (128/30 min
+measured). Expected wait ≈ 1.5–3 h. The priority-5 UPDATE was harmless but
+irrelevant. Patient watcher running; canaries (page + about + home) fire at the
+end. Lesson for WRONG_CALLS if it recurs: **read the LIVE selector's ORDER BY
+before diagnosing starvation — a contract test can describe the destination,
+not the deployment.**
