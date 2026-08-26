@@ -54226,3 +54226,15 @@ under a day each time.
 
 Family: an-enumeration-is-an-operational-artefact, add-up-your-own-breakdown,
 group-by-the-axis-you-report, i-repeated-the-error-i-had-just-written-up.
+
+- **2026-08-26 — I nearly filed a provider outage as a chassis build regression, on a timeline that fit
+  perfectly.** A council run returned `complete_invalid`; 6/6 council runs fleet-wide had failed since
+  00:25, the last healthy one at 21:30, and the chassis had rolled to `v1.0.1341` at 23:11 — *between*
+  them. Six-for-six immediately after a roll is the shape of a build regression and I had the deploy
+  in hand as a ready mechanism. **Caught by:** querying `agent_error_log` for what the failing step
+  actually said — `LLM_API_ERROR — AI endpoint unavailable: provider=anthropic`, fleet-wide. Two other
+  lanes had already found it (`bugs_open/243`). **The cheap check:** ask what the failure *says*, not
+  what it *coincides with*; a tight before/after correlation around a deploy is not a mechanism.
+  **What was worth keeping:** the discriminator that a healthy council carries ten `review_*` keys in
+  `collected_data` while a dead one carries none (only `gate_*`) — that separates "the seats
+  disagreed" from "the seats never ran", and proved the fault was upstream of council logic entirely.

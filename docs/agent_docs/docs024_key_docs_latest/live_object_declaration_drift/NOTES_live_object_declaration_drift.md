@@ -800,3 +800,24 @@ fragment list. The one exception is a fragment holding a **whole rendered clause
 terminator** — `claimed-item-timeout` declares `item_type NOT IN ('a', …, 'n')` with the closing
 paren, so a 15th type breaks the match. Whole-clause fragments are self-bounding; per-value ones are
 not. That asymmetry is now written into the waiver so nobody re-derives it.
+
+### MISSTEP 5 (same day) — a deploy-shaped correlation that was not the cause
+
+Council `80f84c54` came back `complete_invalid`. Diagnosing it, I found 6/6 council runs fleet-wide
+had failed since 00:25, the last healthy one at 21:30 the night before, and the chassis had rolled to
+`v1.0.1341` at **23:11 — squarely between them**. Six-for-six failures immediately after a roll is
+the classic shape of a build regression, and I was one step from filing it as one.
+
+It was a **fleet-wide Anthropic provider outage**. `agent_error_log` said so plainly:
+`LLM_API_ERROR — AI endpoint unavailable: provider=anthropic`. Two other lanes had reached the same
+conclusion that morning (`bugs_open/243`).
+
+**What made the wrong answer attractive:** the timeline genuinely fit, and I had a fresh deploy in
+hand as a ready mechanism. **The cheap check I nearly skipped** was asking what the failing step
+actually *said*, rather than what it *coincided with*. One query.
+
+**The half that WAS worth keeping** is the discriminator: a healthy council's `collected_data` holds
+ten `review_*` keys; every dead run holds **none**, only `gate_*`. That separates "the seats
+disagreed" from "the seats never ran", and it is what proved the failure was upstream of the council
+logic entirely. `complete_invalid` otherwise reads exactly like "still queued" — no verdict row, and
+`error` is NULL (the reason is in `collected_data->>'__step_error'`, per `bugs_open/354`).

@@ -643,3 +643,29 @@ undo on this tree.
    auditor structurally cannot catch it (the clause matches; the prose lies).
 3. **`bugs_open/375`'s registration** — its call, its sequencing.
 4. Council `80f84c54` **pending** on this round.
+
+### ⚠ Council `80f84c54` DIED on the 2026-08-26 provider outage — resubmit, do not re-plan
+
+Its run ended `complete_invalid`: *"no reviewer produced a readable opinion (6 abstained, 11
+unreadable)"*. **This is not a verdict on the change.** Measured while diagnosing it:
+
+- **6 of 6** council runs fleet-wide since 2026-08-26 00:25 ended `complete_invalid`; the last healthy
+  one was 08-25 21:30 (this lane's own APPROVED round).
+- A healthy run's `collected_data` carries **ten `review_*` keys**; every failed run carries **none**,
+  only the `gate_*` relevance steps. **The seats never produced output at all** — so `council_decide`
+  found nothing to read.
+- Cause, confirmed independently in `agent_error_log`: `LLM_API_ERROR — AI endpoint unavailable:
+  provider=anthropic`, fleet-wide. Two other lanes reached the same conclusion the same morning
+  (`a3692bfaf`, `b37d16f35` → `bugs_open/243`).
+
+**A wrong lead worth recording, because it was very believable.** The chassis rolled to `v1.0.1341`
+at 23:11 on 08-25 — *between* the last healthy council and the first failure — and 6/6 failures after
+a roll is exactly the shape of a build regression. I nearly filed it as one. It was a provider outage.
+**A tight before/after correlation around a deploy is not a mechanism**, and the cheap disconfirming
+check was one query against `agent_error_log` for what the failing step actually said.
+
+**`Council-Submitted: 80f84c54` on `083d3096e` remains TRUE** — it asserts a submission, never a
+verdict, so no amend is owed and forward-only holds. Resubmit with
+`RESUBMIT_CORR=80f84c54-1854-4fb6-a003-11af1889d20d` once the provider is clean; at 08:57 UTC it was
+**flapping, not restored** (67 `endpoint unavailable` errors in 15 minutes alongside 38 successful
+calls), so a single green call is not evidence.

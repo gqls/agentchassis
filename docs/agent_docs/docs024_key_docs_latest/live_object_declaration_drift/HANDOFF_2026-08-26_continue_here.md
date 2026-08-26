@@ -90,8 +90,28 @@ commits, so a session mid-fix is invisible.
    a PL/pgSQL body is noise, not a vocabulary size), and was not attempted.
 2. **The stale live prose in (3b)** — needs a migration on a column owned by another lane.
 3. **`bugs_open/375`'s registration** — its call.
-4. **Council `80f84c54` verdict** — read it and act on a REVISE; the code is already on the shared
-   branch. `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='80f84c54-1854-4fb6-a003-11af1889d20d' AND kind='council_report';`
+4. **⚠ Council `80f84c54` is DEAD — RESUBMIT IT. It did not fail review; it never got one.**
+   Its run ended `complete_invalid` with
+   *"no reviewer produced a readable opinion (6 abstained, 11 unreadable)"* — the **fleet-wide
+   Anthropic provider outage** of 2026-08-26, not anything about the submission.
+   **The `Council-Submitted:` trailer on `083d3096e` stays TRUE** (it asserts submission, never a
+   verdict), so nothing needs amending — forward-only holds.
+   **Resubmit on the SAME correlation so the trail accumulates:**
+   ```bash
+   RESUBMIT_CORR=80f84c54-1854-4fb6-a003-11af1889d20d      ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh      <this lane's submission json>
+   ```
+   **Check the provider is actually back FIRST** — at 08:57 UTC it was *flapping*, not down: 67
+   `endpoint unavailable` errors in 15 minutes **alongside** 38 successful calls, so a green single
+   call proves nothing. Require a clean window:
+   ```sql
+   SELECT count(*) FROM agent_error_log
+   WHERE occurred_at > now() - interval '15 minutes' AND error_message ILIKE '%endpoint unavailable%';
+   ```
+   ⚠ **`complete_invalid` reads EXACTLY like "still queued"** — no verdict row, no error column
+   (`error` is NULL; the reason is in `collected_data->>'__step_error'`). Diagnose it by comparing
+   `collected_data` keys against a healthy run: a healthy council has ten `review_*` keys, a dead one
+   has **none** and only the `gate_*` relevance steps. That comparison is what distinguishes "the
+   seats disagreed" from "the seats never ran".
 5. **The 8-vs-7 coverage gap from the original filing** — 8 enabled `scheduled_tasks` rows embed a
    literal vocabulary a Go list could drift from; only some are declared. Never this bug's subject,
    still nobody's.
