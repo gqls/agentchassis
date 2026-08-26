@@ -1463,3 +1463,53 @@ guess into `docs024_key_docs_latest/analytics_gtm/`.
 Also noted for whoever picks this up: two `page_rerender` items (index, tool-example) have sat
 `triaged` since **07:27Z today**, stranded by the credit outage (23:46Z → 08:58Z). Credit is
 back; they should drain.
+
+### The regeneration question, part-answered — and it WEAKENS my own framing above
+
+I said the next session's first question was whether an `adopted-fragment` section can ever be
+regenerated. Chasing it found the canary run's content review, attributed by correlation
+(`bf29ec85-…`) rather than by time:
+
+```json
+{"approved": false, "overall_score": 0.1,
+ "issues": [{"section": "company_brief", "severity": "error",
+             "issue": "Company name is missing - field contains '<no value>'"}]}
+```
+
+**`<no value>` is Go `text/template`'s output for a missing key**, so the rebuild's content
+really did render against absent data and was rejected outright (score 0.1). That is the
+missing link between "plan says 1 ready section" and "compile counted 0".
+
+⚠ **But the failing section it names is `company_brief`, NOT the adopted fragment** — and that
+matters, because it opens a second explanation I had not been giving weight to:
+
+- **(a) an `adopted-fragment` section cannot be regenerated** — `{{.body}}` has no `body` on a
+  fresh write, renders empty, and `extractSectionFromMap` drops any section whose html is `""`;
+- **(b) cv1's own site specs are incomplete**, so content generation produced `<no value>`
+  placeholders and the reviewer rejected the page. cv1 was adopted yesterday and **its build
+  cascade never finished** — `needs_briefing` was still queued when I fired the canaries, so
+  the identity/brief specs the writer reads may genuinely be thin.
+
+**The control is what still favours (a), and it is worth stating explicitly:**
+`request-index` rebuilt successfully **on the same site, with the same specs, in the same
+hour**. If (b) were the whole story, the control should have failed too. So incomplete specs
+cannot be sufficient — but the `company_brief` error shows they are not innocent either, and
+the two may compound.
+
+**[UNVERIFIED] which of (a) or (b) dominates.** What would settle it, cheaply and without
+touching a live population page: rebuild `how-it-works-index` (cv1, `planned`, **0 rows**, 3
+planned sections, **no adopted fragment**). Same thin specs, no adopted row.
+
+- it fails the same way → the specs are the cause, `adopted-fragment` is exonerated, and
+  **578's risk drops sharply**;
+- it rebuilds cleanly → adopted-fragment is the discriminator, and **578 must not run** until
+  phase 2 can regenerate its own rows.
+
+⚠ **Do not run that test by flagging an ADOPTED page** — that is the crash path
+(`bugs_open/408`), and it costs a pod and a 4-hour wedged orchestration each time.
+
+**Correction to my own handoff banner:** it says the chain is measured and only the `{{.body}}`
+step inferred. That is still true as far as it goes, but the banner implies adopted-fragment is
+the established cause, and on this evidence it is the better-supported of two live candidates,
+not a settled one. The 578 recommendation is unchanged either way — **do not run it while the
+cause is open**, because the downside is 22 unrebuildable live pages.
