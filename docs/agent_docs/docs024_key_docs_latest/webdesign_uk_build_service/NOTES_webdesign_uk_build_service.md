@@ -5929,3 +5929,21 @@ every build ✓). All three v1 items self-completed by the handler. ⚠ watcher-
 kubectl exec -i INSIDE a while-read loop EATS the loop's stdin — the wave watcher only
 ever saw its first line; add </dev/null to kubectl in read loops. Label re-place owed
 after the v2 index build (not before).
+
+## 2026-08-26 (evening) — COPY WORK COMPLETE + the approval-language ban ARMED; site GREEN for the page rule
+
+**Sharpened index build delivered:** hero subheadline now OPENS with "No changes are
+included." + the files-are-yours pairing; cta-subtitle leads with it too; verified at
+PREVIEW (label x2 back, no-changes x3, GTM x2, zero retired phrases). Item 7b4af974
+self-completed. The 08-21 §6 open item "nothing enforces the no-approval-stage rule" is
+now CLOSED: **SQL_2026-08-26d arms the offer-shape ban**, proven disconfirmably with a
+both-halves claimscan set: BASELINE live register 0/9 findings (the known evader "You
+will be able to approve the site once you have seen it" passed - the gap was real);
+CANDIDATE and then the APPLIED live register block all 5 promise shapes (incl. 'll-get-
+to-sign-off and once-your-approval) while the 4 denial/live-copy probes pass. Gotcha
+paid: an apostrophe inside the ban pattern ('ll) terminated the SQL string literal and
+surfaced as psql "invalid command \" - dollar-quote ban JSON.
+
+**LAUNCH STATE: everything in this lane's hands is DONE.** Served preview = final copy +
+label; register guarded; the one remaining go-live action is the owner's Cloudflare
+page-rule removal (RUNBOOK gates all green as of tonight).
