@@ -239,3 +239,20 @@ is "the point". Worth holding onto — it means the two callers' findings alread
 design, so a per-caller cursor must not be justified by "keeping their findings apart". If the
 callers need separate cursors it is because their *coverage questions* differ, which is a
 different and weaker argument, and the plan should say which one it is relying on.
+
+### 4. The optional-key budget has headroom — checked, because it gates the design
+
+`scripts/audit-optional-key-budget.sh --json` `[MEASURED 2026-08-26]`:
+
+```json
+{ "action": "request_render_audit", "optional_keys": 6, "over_budget": false,
+  "optional": ["site_id_field","domain_field","max_pages","page_names","topic","capture_renders"],
+  "consumers": 2, "agents": ["design-critique-agent","render-audit-agent"] }
+```
+
+Budget is **N = 10** (owner ruling 2026-08-14, register WFA-013), and **no action in the fleet
+is over budget today** (0 of the audited set). So this action can take one or two new optional
+keys without tripping the accumulated-surface review. Checked rather than assumed, because the
+budget check is exactly the sort of thing a plan asserts in passing and gets wrong — and because
+RFC_022's narrowing only exempts an opt-in field from *architecture* scope; it does not exempt it
+from the count.
