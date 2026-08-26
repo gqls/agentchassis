@@ -173,7 +173,7 @@ func osReadFileForScan(name string) (string, error) {
 // assembler read `build_status IS DISTINCT FROM 'removed'` (NULL-safe — a
 // NULL-status row is SERVED) while the eligibility predicate read a bare
 // `<> 'removed'` (a NULL-status row vanishes from every tool audit). Served
-//-but-unaudited is the inversion of the tombstone defect, latent only because
+// -but-unaudited is the inversion of the tombstone defect, latent only because
 // zero NULL rows existed fleet-wide when measured (2026-08-26; the column is
 // nullable, so nothing keeps it that way). Both sides must use the NULL-safe
 // spelling, and neither may drift alone. Comment lines are skipped on both
