@@ -30,7 +30,7 @@ import (
 // agent_definitions on 2026-07-30:
 //
 //	completeness-discovery-agent  30
-//	design-discovery-agent        23  (22 until asset_reference_404 landed 2026-08-06)
+//	design-discovery-agent        24  (23 until stylesheet_gutted landed 2026-08-26; 22 until asset_reference_404, 2026-08-06)
 //	quality-discovery-agent        6  (re-measured 2026-08-06; literal_markdown was live and unlisted)
 //
 // maintenance-triage is deliberately NOT in this list. It has a `checks` array
@@ -80,6 +80,14 @@ var liveConfiguredChecks = []string{
 	// are configured with, so a config change without it leaves the fixture
 	// asserting a roster that no longer exists.
 	"asset_reference_404",
+	// stylesheet_gutted — bugs 198+211, migration 541 (HOLD discharged and
+	// applied 2026-08-26 on chassis 2fb40a960). Fills asset_reference_404's
+	// stated blind spot: that check fetches the stylesheet URL and scores HTTP
+	// status only, so a 136-byte 200 reads as healthy. Capability verified on
+	// 217/217 live pods via service_binary_capabilities with a negative control
+	// BEFORE the config landed; real-predicate calibration over all 31 deployed
+	// sites the same morning filed 0.
+	"stylesheet_gutted",
 
 	// availability-discovery-agent (bugs_open/236 522-half, migration 372,
 	// applied 2026-08-10). A FOURTH agent now calls run_discovery_checks, so the

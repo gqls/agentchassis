@@ -1,6 +1,37 @@
 -- 541 (_HOLD) — bugs_open/198 + /211: enable the stylesheet_gutted discovery
 -- check on design-discovery-agent.
 --
+-- ✅ HOLD DISCHARGED 2026-08-26 — this file is now RELEASED (the _HOLD suffix
+-- is off). How the two conditions were satisfied, each with its control:
+--
+--   1. ROLLED: every live chassis pod (217/217 seen within 30 min, ONE distinct
+--      build commit, 2fb40a960) runs an image whose commit has e34b33a36 — this
+--      check's birth — as an ancestor. Control: today's HEAD correctly NOT an
+--      ancestor of the rolled commit.
+--   2. CAPABILITY, probed on every pod: the binary now REPORTS its checks
+--      itself — service_binary_capabilities kind='discovery_check',
+--      name='stylesheet_gutted' present for 217/217 live pods; negative control
+--      'stylesheet_gutted_NOTREAL' = 0 rows. Stronger than (and superseding)
+--      the exec-grep recipe below, which predates the capability registry; the
+--      recipe is kept as written for images that lack the registry.
+--
+--   RE-CALIBRATED before applying, with the check's OWN code, not a proxy
+--   (the 2026-08-21 correction below is why that distinction is load-bearing):
+--   the real Run() driven over the exported live corpus of all **31** deployed
+--   sites as of 2026-08-26 (corpus exported with this check's own predicate
+--   SQL, stylesheets fetched live). Result: **0 filed / 29 resolved /
+--   2 declined-to-judge** (lampenkap.com — its linked stylesheet 404s, which is
+--   asset_reference_404's finding, not ours; loanandmortgagecalculator.co.uk —
+--   skip branch not identified [UNVERIFIED], files nothing either way). The
+--   08-21 "0 of 25" figure held at 0 of 31; six sites were born in between.
+--
+--   Applied by hand 2026-08-26 09:07Z (runner --apply would have taken other
+--   lanes' pending files); ledger row '541_enable_stylesheet_gutted_check.sql',
+--   applied_by=record-only, checksum = this file's post-discharge md5. Live row
+--   verified independently after COMMIT: 24 checks, stylesheet_gutted present.
+--   Companion liveConfiguredChecks edit rides the same commit, as the header
+--   below demands.
+--
 -- ⚠ HELD DELIBERATELY. DO NOT APPLY UNTIL BOTH CONDITIONS BELOW ARE MET.
 --
 -- WHY IT IS HELD, and it is not ceremony. discovery_checks.go:198-216 reads
