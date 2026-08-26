@@ -4312,3 +4312,44 @@ hold-improve_tool-where-spec-check=tool_acceptance recommendation).
 > hold pattern after noted's, and the better-documented one. Their served spot-checks after
 > today's chat-input-box repair: markup present, bot answering, brief-starter intact
 > (wbsNextBtn ×2 in the served page — the very anchor the checker calls absent).
+
+## 2026-08-26 ~13:20Z (platform seat) — 89dcc04a round 2 APPROVED; every advisory dispositioned, and acting on one found FOUR more copies
+
+**APPROVED, round 2 of the trail, 3 advisory objections (9 seat-notes total), none high.** Each
+dispositioned with a measurement where one existed:
+
+- **Scan scope (bug_historian LOW + architecture LOW): acted on, and they were RIGHT today, not
+  just in principle** — widening the walk to `internal/` found FOUR more NULL-safe hand-spellings
+  in `internal/core-manager/admin` (spec_admin_handlers.go:255, page_admin_handlers.go:59/164/870).
+  **True census: 15 spellings, 13 files [MEASURED 2026-08-26]** — revised UP twice in one day
+  (5 → 11 → 15), each time by a wider instrument, the census-by-the-broken-form lesson twice
+  over. All four converted (core-manager builds); scan re-proven by real mutation. Commit
+  `5f35e066a`, same correlation.
+- **The 093 one-predicate-many-consumers caution (bug_historian MEDIUM):** answered by
+  enumeration, not argument alone — full `GROUP BY build_status`: deployed 2256 / removed 49 /
+  pending 31 / approved 14 / **NULL 0** [MEASURED 2026-08-26]. Four values, no exotics; the
+  predicate encodes one consumer-independent fact ("not a tombstone") and is byte-identical to
+  `<>` on all current data. debug_historian's enumeration LOW closed by the same query.
+- **Consumer list (guardian LOWs):** repo-wide grep (platform+internal+cmd+pkg):
+  `ComponentUsageSitesSQL` has exactly TWO splice-readers outside its own file
+  (component_selector's twin pair use it internally; load_existing_component_action.go:197) —
+  all runtime concat, const→var safe. The commit hook's twin flags both false-positive
+  (both selector twins splice the shared var; core-manager's "twin" reads `site_components`,
+  a different table outside this contract).
+- **Sketch coverage (editquality/guardian MEDIUMs):** an artifact of the ≤8-edit schema cap —
+  the committed change (`18853ade6`) contains all files; the rationale enumerated them; 098's
+  commit↔verdict join sees the real diff.
+- **Pod verification (debug_historian LOW): OWED AT THE NEXT ROLL** — this is Go-source SQL,
+  inert until an image ships. When the next chassis + core-manager rolls land: ancestry of
+  `18853ade6`/`5f35e066a` in the stamps, and the behavioural check is the same GROUP BY (any
+  future NULL rows now stay in all populations).
+
+Near-miss, caught in-session: my first mutation proof of the widened scan PASSED VACUOUSLY —
+the sed pattern had spaces gofmt had eaten, so the file was never mutated and "ok" meant
+nothing. Caught by grepping the file instead of trusting the pass (the mutate-to-prove
+discipline applied to the mutation itself); re-run with the real spelling: FAIL with
+path:line, restore green.
+
+**Trail complete: REVISE → done-as-asked → APPROVED.** The reuse seat's round-1 objection is
+the reason 15 copies are now 1 constant. This seat's open items: pod verification at next
+roll; the grind's Phase B ping.
