@@ -78,6 +78,19 @@
 --   row is refused loudly instead of md5-checking one row while the runtime executes
 --   the other (debug_historian's second objection).
 --
+-- ── ROUND-2 ADVISORY ACTED ON (guardian, medium — approved verdict, same corr) ──
+--
+--   The bare ::int cast on max_items would THROW on a malformed (non-numeric) value,
+--   halting dispatch FLEET-WIDE on the next fire — a larger blast radius than the bug
+--   being fixed, and 658's write-side jsonb_typeof guard only constrains 658's own
+--   writer. The K expression is now total: a regex guard (~ '^[0-9]+$') turns any
+--   malformed value into NULL, COALESCE turns NULL into 1, and GREATEST(...,1) turns a
+--   literal 0 into 1 (K=0 would silently select no site ever). Every failure direction
+--   lands on K>=1, which is pin-free and cannot stop dispatch. Note the deliberate
+--   divergence from the loader's own failure mode (GetIntField falls back to 50 on type
+--   mismatch, load_work_item_actions.go:699): the selector falling to K=1 while the
+--   loader runs 50 keeps K <= M, which is the safe direction of the contract.
+--
 -- ROLLBACK: 657_selector_ranks_sites_by_loadable_work_HOLD_ROLLBACK.sql
 
 BEGIN;
@@ -89,7 +102,7 @@ DECLARE
     -- md5 of the query text this file replaces (read from the live row 2026-08-26
     -- ~20:2xZ; last written by 633). A drifted row is refused, not blindly overwritten.
     v_old_md5 CONSTANT text := 'd6f98acdb5aec385d5eb4077eac530fc';
-    v_new     CONSTANT text := $q$WITH k AS (SELECT COALESCE((SELECT (ad.default_config->'workflow'->'steps'->'load_items'->'config'->>'max_items')::int FROM agent_definitions ad WHERE ad.type = 'build-dispatch-loop' AND ad.is_active AND COALESCE(ad.is_snapshot, false) = false AND ad.deleted_at IS NULL ORDER BY ad.version DESC LIMIT 1), 1) AS n), elig AS (SELECT wi.id, wi.site_id, wi.created_at, wi.priority FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE (s.locked_at IS NULL OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[]))) AND wi.status IN ('triaged', 'approved') AND wi.attempt_count < wi.max_attempts AND (wi.retry_after IS NULL OR wi.retry_after <= NOW()) AND (COALESCE(wi.approval_mode, 'auto') = 'auto' OR wi.status = 'approved') AND (wi.depends_on IS NULL OR NOT EXISTS (SELECT 1 FROM unnest(wi.depends_on) dep_id WHERE dep_id NOT IN (SELECT id FROM site_work_items WHERE site_id = wi.site_id AND status IN ('complete', 'verified')))) AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = 'claimed')), win AS (SELECT e.site_id, e.created_at, row_number() OVER (PARTITION BY e.site_id ORDER BY e.priority ASC, e.created_at ASC) AS load_rank FROM elig e) SELECT w.site_id::text, s.domain FROM win w JOIN sites s ON s.id = w.site_id, k WHERE w.load_rank <= k.n GROUP BY w.site_id, s.domain ORDER BY MIN(w.created_at) ASC, w.site_id ASC LIMIT 1$q$;
+    v_new     CONSTANT text := $q$WITH k AS (SELECT GREATEST(COALESCE((SELECT CASE WHEN ad.default_config->'workflow'->'steps'->'load_items'->'config'->>'max_items' ~ '^[0-9]+$' THEN (ad.default_config->'workflow'->'steps'->'load_items'->'config'->>'max_items')::int END FROM agent_definitions ad WHERE ad.type = 'build-dispatch-loop' AND ad.is_active AND COALESCE(ad.is_snapshot, false) = false AND ad.deleted_at IS NULL ORDER BY ad.version DESC LIMIT 1), 1), 1) AS n), elig AS (SELECT wi.id, wi.site_id, wi.created_at, wi.priority FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE (s.locked_at IS NULL OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[]))) AND wi.status IN ('triaged', 'approved') AND wi.attempt_count < wi.max_attempts AND (wi.retry_after IS NULL OR wi.retry_after <= NOW()) AND (COALESCE(wi.approval_mode, 'auto') = 'auto' OR wi.status = 'approved') AND (wi.depends_on IS NULL OR NOT EXISTS (SELECT 1 FROM unnest(wi.depends_on) dep_id WHERE dep_id NOT IN (SELECT id FROM site_work_items WHERE site_id = wi.site_id AND status IN ('complete', 'verified')))) AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = 'claimed')), win AS (SELECT e.site_id, e.created_at, row_number() OVER (PARTITION BY e.site_id ORDER BY e.priority ASC, e.created_at ASC) AS load_rank FROM elig e) SELECT w.site_id::text, s.domain FROM win w JOIN sites s ON s.id = w.site_id, k WHERE w.load_rank <= k.n GROUP BY w.site_id, s.domain ORDER BY MIN(w.created_at) ASC, w.site_id ASC LIMIT 1$q$;
     v_q      text;
     v_k      int;
     v_n      int;

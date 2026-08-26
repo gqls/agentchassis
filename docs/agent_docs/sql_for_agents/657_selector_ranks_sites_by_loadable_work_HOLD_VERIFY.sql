@@ -29,7 +29,7 @@
 
 DO $verify$
 DECLARE
-    v_new_md5 CONSTANT text := 'af908ea3758814994d0f54b8506e9a70';
+    v_new_md5 CONSTANT text := 'd29807313a8f6ed543a541c35c1626c4';
     v_rows    int;
     v_q       text;
     v_k       int;

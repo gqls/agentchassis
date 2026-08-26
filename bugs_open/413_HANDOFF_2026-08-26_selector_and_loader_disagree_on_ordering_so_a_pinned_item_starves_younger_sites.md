@@ -244,3 +244,35 @@ rows synced at 20:49 pre-round ARE the subject's travelling record). All r2 proo
 **Round 2 submitted on the SAME correlation** (`RESUBMIT_CORR`, trail accumulates); the
 throughput lane's tomorrow-session gates its all-clear on this verdict being read and acted
 on. A REVISE round is cheaper than the defect it finds — this one found a real one.
+
+## Council round 2: APPROVED (2026-08-26 ~21:2xZ) — one advisory, acted on; READY FOR APPLY
+
+**Verdict read in full:** APPROVED, "1 advisory objection(s) — none high-severity", 4
+abstained. (The report header says "(round 1)" — the known template literal; the reports
+were counted.) Dispositions:
+
+- **guardian MEDIUM (acted on):** the bare `::int` cast on max_items would THROW on a
+  malformed value — halting dispatch FLEET-WIDE, a larger blast radius than the bug fixed;
+  658's write-side guard binds only 658's own writer. The K expression is now TOTAL: regex
+  guard (`~ '^[0-9]+$'`) → COALESCE → GREATEST(...,1). Proven with runtime values at the DB:
+  `'all'/'0'/'-3'/NULL → 1`, `'8' → 8` — every failure direction lands on K>=1, pin-free,
+  dispatch never stops. (Probe-construction note for the next reader: a LITERAL `'all'::int`
+  is constant-folded before CASE can guard it and throws — that is a probe artifact, not the
+  query's behaviour; test with column refs.) The deliberate divergence from the loader's own
+  fallback (GetIntField → 50) keeps K <= M, the safe direction. Final stored-text md5
+  **`d29807313a8f6ed543a541c35c1626c4`** (VERIFY in lockstep).
+- **guardian LOW (recorded):** the cross-agent config read is now load-bearing for
+  correctness — already tracked in WDS-002 as instance 2 of the pattern; a third warrants a
+  shared helper.
+- **debug_historian LOW (confirmed first-hand, as asked):** both `scheduled_tasks` rows
+  carry `target_agent_type='build-pipeline-trigger'` `[MEASURED 2026-08-26 ~21:2xZ]` — they
+  fire the SAME agent type resolving to the SAME single active `agent_definitions` row, so
+  the 657 edit is automatically shared; the sibling's only per-row config is
+  pre_query/interval (bugs_open/415's territory, unaffected).
+
+Final proofs (21:24Z): dry-run transaction — preflight + id-pinned update + guards +
+**VERIFY green on applied state (K=5; census 30 eligible / 14 pinned)**; live row proven
+untouched afterwards (standalone VERIFY fails on md5 arm against the unchanged
+d6f98acd... text, exit 3). **Everything is in place for the hand-apply ≥12:00Z 2026-08-27**
+(RUNBOOK §657; stamp here + ping the throughput lane; floor at +2h/+6h vs their 09:00Z
+baseline).
