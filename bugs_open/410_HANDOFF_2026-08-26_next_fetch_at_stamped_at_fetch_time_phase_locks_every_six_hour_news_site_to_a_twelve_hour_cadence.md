@@ -214,3 +214,9 @@ message): the sources are due 20:47:24–42Z and trigger drift is seconds — so
 trigger's FIRE TIME first. (c) = fired **before 20:47:24Z** AND no idea.uk orchestrator row
 → mechanism confirmed. If the trigger happens to drift PAST 20:47:42Z, a dispatch would
 CONFIRM the arithmetic (margin flipped), not refute it. This lane records (c)/(d).
+
+**2026-08-26 ~18:4xZ — council APPROVED round 1** (corr `04c657d2`, 1 advisory objection —
+the "zero callers of LoadDueSourcesAction" absence claim lacked its query in evidence; re-run
+as a full config-text census incl. nested steps and snapshots: still 0 rows, recorded with
+the queries in the lane NOTES). Awaiting: the chassis roll (Go half), then hand-apply of 653;
+090 verdict (corr `15d56c13`); §5 (c)/(d) tonight.
