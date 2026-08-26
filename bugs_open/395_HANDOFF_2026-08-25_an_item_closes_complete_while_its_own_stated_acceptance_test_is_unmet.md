@@ -376,3 +376,85 @@ probe for a not-yet-wired symbol reads exactly like a failed roll.** Gate 1c is 
    WHERE result->'_verification' ? 'acceptance_predicate' GROUP BY 1;`
   Any `inapplicable` at all is worth reading `agent_error_log` for
   (`ACCEPTANCE_PREDICATE_NOT_EVALUABLE`) before assuming a vocabulary problem.
+
+---
+
+## 11. ROUTING RULE 3b IS LIVE AND HAS FIRED IN PRODUCTION (2026-08-26, `v1.0.1341`)
+
+Recorded by the `bugs_open/395` session. Rule 3b = **WII-035**, committed `af3194204` (+ `a48c5c942`,
+`f4aa19ae7`), council `021cb965` **APPROVED round 1**.
+
+**Live, proven at the artefact.** Chassis pods started 2026-08-25 23:11:52Z on `v1.0.1341`.
+Capability probe, both controls behaving: `no_writer_for_page_field` PRESENT ·
+`would_have_routed_at` PRESENT · `handler_reported_no_change` PRESENT (must be) ·
+invented string absent (must be). See §10b for why this form and not the documented one.
+
+### 11a. It fired TWICE within 33 minutes, on two sites nobody had measured
+
+| site | created | producer | field | would have routed at |
+|---|---|---|---|---|
+| `lendzy.co.uk` | 2026-08-25 23:29:40Z | offer-analysis | `meta_description` | `page-build-handler` |
+| `fundamentallyai.com` | 2026-08-25 23:44:39Z | offer-analysis | `meta_description` | `page-build-handler` |
+
+Both `capability_gap` / `deferred` / empty `handler_agent` / priority 200 / `gap_kind=handler_remit`.
+
+⚠ **So the defect was NEVER confined to webdesign.co.uk or to the three predicates §5 could see.** This
+file's §5 said the census was "a *plan*, not a finding" and warned against quoting its small number as
+a low rate. That was right: within half an hour of the guard going live, two further sites produced
+findings that would have been dispatched at an incapable handler, closed green, and noticed by nothing.
+
+### 11b. ⚠ HALF THE CATCH CAME FROM THE BRANCH THAT ALMOST WAS NOT WRITTEN
+
+`fundamentallyai.com`'s row carries **no live `acceptance_predicate`** — only
+`acceptance_predicate_rejected` (`verdict: holds`), and its field was read from
+`acceptance_predicate_rejected.predicate.field`, i.e. **the nested wrapper**.
+
+| site | `acceptance_predicate` | `acceptance_predicate_rejected` | field came from |
+|---|---|---|---|
+| `lendzy.co.uk` | ✅ | — | the live predicate |
+| `fundamentallyai.com` | — | ✅ (`holds`) | **the rejected WRAPPER** |
+
+**A consumer reading only the live key would have caught 1 of 2 on the first night.** The wrapper
+branch was added because the `vigilant_designer_offer_analysis` lane read the design and pointed out
+the shape difference; it is pinned by `TestTheGuardReadsTheRejectedPredicateWrapperShape` and is now
+in `LANDMINES.md`. **It was load-bearing on day one, for 50% of the live population** — which is the
+strongest available argument that a peer reading your design is worth more than another test you wrote
+yourself.
+
+### 11c. ⚠ IT COMPOSES WITH `filing_mode=record`, AND THE DISTINCTION IS LOAD-BEARING
+
+Another lane shipped `filing_mode: "record"` on this same action at `c440d5c5e` (2026-08-25 17:38,
+`RFC_056`): every routable finding becomes a verdict row — `deferred`, empty handler, routing kept in
+`spec.routed_handler`, plus a `release_recipe`. The offer-analyser is running in that mode, so **six
+predicate-bearing `content_rewrite` rows created 21:57–22:42Z were parked by THAT mechanism, not this
+one** (they predate rule 3b's 23:11Z roll — checked, not assumed).
+
+The order is `classifyFinding` (rule 3b inside it) **then** `recordOnlyFinding`, and
+`recordOnlyFinding` returns an already-parked finding **unchanged** — its own comment says *"parking
+it harder would only erase the provenance the fallback wrote"*. Measured on the live rows:
+
+| park | `item_type` | `filing_mode` | `routed_handler` | `release_recipe` | releasable? |
+|---|---|---|---|---|---|
+| rule 3b | `capability_gap` | — | — | — | **NO** |
+| `filing_mode=record` | `content_rewrite` | ✅ | ✅ | ✅ | yes, by the recipe |
+
+⚠ **That difference is a safety property, not cosmetics.** The documented release recipe is
+`… WHERE status='deferred' AND spec->>'filing_mode'='record'`. A rule-3b row does not match it, so it
+**cannot be released** — correct, because releasing it would dispatch work no handler can do, which is
+this bug. Had both parks stamped rows identically, running the recipe would have reintroduced the
+defect wholesale.
+
+### 11d. ⚠ MY FIX SILENCES THEIR DETECTOR ON THIS POPULATION — read a gate-1c zero accordingly
+
+`[MEASURED 2026-08-26]` gate 1c has graded **0** items, `outcome='permitted'` on **0**. Three
+`content_rewrite` items completed after the roll and **none carried a predicate**.
+
+**That zero is now EXPECTED and is not evidence about gate 1c.** Rule 3b parks these findings before
+dispatch, so they never complete, so gate 1c never grades them. Gate 1c's evidence stream for the
+meta-description population has been removed *by this fix* — correctly, because the work was
+impossible, but the consequence is that **an empty gate-1c census can no longer be read as "nothing
+refutes" OR as "gate 1c is off"**. It means the upstream guard got there first.
+
+The two mechanisms now answer different questions and neither is redundant: rule 3b stops an
+impossible finding being dispatched; gate 1c catches a *possible* finding whose handler did something
+else. §6's negative control still requires a predicate over a field some handler CAN write.
