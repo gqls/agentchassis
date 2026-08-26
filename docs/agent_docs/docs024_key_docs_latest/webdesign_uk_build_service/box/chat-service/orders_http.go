@@ -5,17 +5,18 @@ package main
 // acknowledge path; the collection marker itself lives in orders.go). The box
 // only ever ANSWERS — it never dials in, per the standing trust boundary.
 //
-// Two layers of refusal, both cheap and both deliberate:
-//
-//  1. Bearer token (ORDERS_API_TOKEN), constant-time compared — the idea.uk
-//     INTERNAL_API_KEY pattern (its main.go:36), which P4 named as the shape
-//     to follow. Unset token = endpoints answer 503 and say so at startup:
-//     the feature is OFF, loudly, never open.
-//  2. Any request carrying CF-Connecting-IP is refused outright. Cloudflare
-//     sets that header on everything arriving through the tunnel, so its
-//     presence means "a member of the public found a route here". The
-//     collector arrives over WireGuard, header-free. This is defence in
-//     depth, not the lock — the token is the lock.
+// TRANSPORT: the PUBLIC edge, over the Cloudflare tunnel, exactly as P4 §2
+// states ("GETs the box's orders endpoint over HTTPS") and as idea.uk already
+// runs its INTERNAL_API_KEY routes. Measured 2026-08-26: cluster pods have NO
+// route to this box's wg0 address (10.13.13.4 — the tunnel was built for
+// box→cluster flows only, and a pod-side probe times out), so a
+// WireGuard-only collector cannot exist without new routing infra. The lock
+// is therefore the bearer token alone: ORDERS_API_TOKEN, 64 random hex chars,
+// constant-time compared. Unset token = endpoints answer 503 and say so at
+// startup: the feature is OFF, loudly, never open. A first cut of this file
+// also refused any request carrying CF-Connecting-IP ("wg-only, public
+// traffic can never belong here") — retired the same evening it was written,
+// because it refused the only transport that actually exists.
 
 import (
 	"crypto/subtle"
@@ -29,17 +30,11 @@ type ordersAPI struct {
 	token string
 }
 
-// authorize applies both refusal layers. Returns false after writing the
-// refusal, so handlers read as: if !authorize { return }.
+// authorize is the bearer check. Returns false after writing the refusal, so
+// handlers read as: if !authorize { return }.
 func (a *ordersAPI) authorize(w http.ResponseWriter, r *http.Request) bool {
 	if a.token == "" {
 		http.Error(w, "orders collection not configured", http.StatusServiceUnavailable)
-		return false
-	}
-	if r.Header.Get("CF-Connecting-IP") != "" {
-		// Through-the-tunnel traffic never belongs here, valid token or not:
-		// a token seen on a public route is a token to rotate, not honour.
-		http.Error(w, "forbidden", http.StatusForbidden)
 		return false
 	}
 	const prefix = "Bearer "

@@ -177,11 +177,11 @@ func TestCollectionEndpointsRefuseCorrectly(t *testing.T) {
 	if w := internalReq(t, api, http.MethodGet, "/internal/orders", "", "", ""); w.Code != http.StatusUnauthorized {
 		t.Errorf("no auth header: status %d, want 401", w.Code)
 	}
-	// The tunnel-header refusal: a member of the public who found a route in
-	// is refused even with the right token (a token on a public route is a
-	// token to rotate, not honour).
-	if w := internalReq(t, api, http.MethodGet, "/internal/orders", "right-token", "203.0.113.5", ""); w.Code != http.StatusForbidden {
-		t.Errorf("tunnel traffic: status %d, want 403", w.Code)
+	// The transport IS the public edge (orders_http.go header), so a request
+	// wearing Cloudflare's CF-Connecting-IP header with the right token is
+	// the COLLECTOR, not an intruder — it must be served.
+	if w := internalReq(t, api, http.MethodGet, "/internal/orders", "right-token", "203.0.113.5", ""); w.Code != http.StatusOK {
+		t.Errorf("tunnel traffic with the right token: status %d, want 200 — the public edge is the designed transport", w.Code)
 	}
 
 	w := internalReq(t, api, http.MethodGet, "/internal/orders", "right-token", "", "")
