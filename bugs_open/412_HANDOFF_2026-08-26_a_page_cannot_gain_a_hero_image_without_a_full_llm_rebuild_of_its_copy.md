@@ -149,3 +149,25 @@ at minimum warn on — a page-scoped `needs_imagery` whose target component decl
 
 **Not a reason to make `hero-tool` image-capable on the spot** — it is a fleet-shared component with
 **40** live instances, and widening what it renders is a change other lanes should see coming.
+
+### 7a. CONFIRMED INDEPENDENTLY, same evening — and it replaced a wrong diagnosis in another lane
+
+The `leopardess` lane published a fresh hero to `leopardessconsulting.co.uk/case-studies.html` in
+their 2026-08-26 hero batch. **Their served-page check read zero for that page — one of ten — and
+they were about to record it as propagation lag.**
+
+It was not lag. It was this defect: `case-studies-hero` had no image branch, so the page could hold
+the new hero and never render it. `649` fixed it structurally; they fired a `template_changed`
+re-render on receiving the notice.
+
+**Two things this confirms beyond the fix itself:**
+
+1. **The symptom is indistinguishable from propagation lag at the served page**, and lag is the
+   likelier-looking explanation, so the wrong answer is the default one. Anyone seeing a hero fail
+   to appear on one page of a batch should check the component's image-capability before waiting.
+2. **The blast-radius measurement was live, not theoretical.** The single instance predicted to
+   change was already costing another lane a real, active symptom on the same day.
+
+`hero-tool`'s half will be exercised next by the same lane (`tool-automation-savings-estimator` is
+on their archetype list), which is a second independent test of `649` this lane did not have to
+arrange.
