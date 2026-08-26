@@ -458,16 +458,28 @@ func sortedBriefKeys(m map[string]interface{}) []string {
 // form it is asking the model to drop.
 func negationRepairPrompt(targets []negationTarget) string {
 	var b strings.Builder
+	// TRIAL (owner instruction, 2026-08-26, verbatim in substance): "whenever we
+	// want to write the second half of one of these sentences, we should just
+	// stop before the negative … and leave that part of the comparison out all
+	// together. We don't need to sound competitive like this. There is no hidden
+	// competition. We offer what we offer straight up." So the repair is
+	// truncation-first, and SHORTER is the point — the old ask for "roughly the
+	// same length" invited a rewritten comparison.
 	b.WriteString(`Rewrite the sentences listed below.
 
-Each one says what something is NOT in order to say what it is. Say what it IS,
-or what it DOES, directly. Drop the contrasted alternative unless the sentence
-is meaningless without it.
+Each one builds a comparison to say what something is. The repair is to END THE
+SENTENCE BEFORE THE COMPARISON: keep the first half, the part that says what the
+thing IS or DOES, tidy the punctuation so it stands as a complete sentence, and
+leave the compared alternative out altogether. The result should usually be
+SHORTER than the original; that is the point. Only when the first half cannot
+stand on its own may you rewrite the whole sentence to say directly what it
+says. There is no hidden competition to argue against: the site offers what it
+offers, straight up.
 
 Keep, exactly as they are: every number, every name, every link or URL, and any
 markup (tags like <p> or <a>) the sentence already contains. Keep any statement
 of something we do not do, cannot promise, or cannot guarantee — those are there
-on purpose. Keep the same voice and roughly the same length.
+on purpose; end each one where its own statement ends. Keep the same voice.
 
 Say only what the original sentence already supports. Do not add a claim about
 capability, coverage, speed, reliability, accuracy or completeness, and do not

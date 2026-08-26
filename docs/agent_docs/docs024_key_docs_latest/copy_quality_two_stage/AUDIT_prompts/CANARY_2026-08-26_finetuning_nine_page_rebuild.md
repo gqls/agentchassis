@@ -82,3 +82,25 @@ example — so the occurrence is BOOKED, not excused.)
   bounded, named contribution — ceiling 1 from this source; ≤2/page still the pass line (D3).
 
 All other predictions unchanged. Nothing has run; the owner has the state and the choice.
+
+---
+
+## PARTIAL SCORING (2026-08-26 ~19:00) — the owner's read arrived before the ping, and both halves matter
+
+**The owner read the site and called regression** ("all competitive… all the negative framing is
+back"). Measured: **every phrase he quoted sits in components NOT yet rebuilt** (index and faq are
+not in the nine; approach's rebuild had not run; rebuilt=false on all six matching rows) — the
+queue had pushed **2 of 9** pages. So the regression verdict is on the copy he already rejected
+on 08-25, not on the corrected stack. **AND the two rebuilt pages independently FAIL P2b**:
+`model-approach-selector` **3**, `tool-ai-readiness-checker` **5**, vs the pre-registered
+≤2/page. The hits: *"a starting point for a conversation, not a verdict"* ×4, *"a guide rather
+than a guarantee"*, *"instead of the one a vendor happens to sell"*, *"not as marketing extras"*.
+**Reading: the tool-fallibility mandate (kept, ruling 3) is satisfied in the negation shape** —
+these are P2b pages so the hero-tool guidance ceiling (1) plus the mandate account for most, but
+the count exceeds the named carriers: **partial P2a-class evidence that the model's preferred
+form produces the shape without a demonstration to copy.** P1 (honesty-beat) looks CLEAR on the
+rebuilt pages (0 "plainly", the one "honest…" is "answering as things actually stand" phrasing) —
+scored properly when all nine land. **Consequence, same evening: the owner ordered the
+TRUNCATION TRIAL** (rulings doc §7) — the gate's repair is now truncation-first (Go, inert until
+roll, council 82b800e1). The remaining seven rebuild under the old gate; forward-only covers the
+next round.

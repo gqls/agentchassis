@@ -106,3 +106,36 @@ single-row — and found REAL elsewhere (four types carry 2 active rows) → fil
 with the in-file `RAISE count<>1` check prescribed, verifier armed; the fleet-wide-immediacy
 concern is answered by the offline replay-before-apply pattern both waves used plus one-file
 rollbacks.
+
+---
+
+## 2026-08-26 evening — two further instructions, on his read of finetuning.uk
+
+**7. THE TRUNCATION TRIAL** — *"as a trial, whenever we want to write the second half of one of
+these sentences, we should just stop before the negative (or the 'not' or the 'instead of') and
+leave that part of the comparison out all together. We don't need to sound competitive like this.
+There is no hidden competition. We offer what we offer straight up."*
+**Context measured before implementing:** his quoted specimens ("we don't sell one", "not tied",
+"nothing runs", "The right model for the job, not the only one…", "a mechanism for catching
+mistakes early, not a pr…") ALL sit in components **not yet rebuilt** — the canary queue had
+pushed only 2 of 9 pages; index/approach/faq carry the same copy he rejected on 08-25. **BUT the
+two rebuilt pages independently FAIL P2b** (3 and 5 constructions vs the pre-registered ≤2/page),
+and the character is diagnostic: the **tool-fallibility mandate (his ruling 3) satisfied in the
+negation shape** — "a starting point for a conversation, not a verdict" ×4, "a guide rather than
+a guarantee" — an affirmative instruction executed in the model's preferred competitive form on
+pages with a near-zero demonstration stack. **EXECUTED same evening:** the gate's repair prompt
+(`negationRepairPrompt`) is now truncation-first — end the sentence before the comparison, keep
+the first half, leave the alternative out, shorter is the point; safety instructions kept; the
+no-demonstration guard test passes on the new text. Go — **inert until the next roll**; tonight's
+remaining rebuilds run the old repair, covered by his forward-only standing instruction. Council
+`Council-Submitted: 82b800e1-4af7-44af-a41d-504386584498`. **Open sub-question flagged, not
+bundled:** whether the trial's "whenever" also repeals D3's mild-forgiveness (≤2/page) — his call.
+
+**8. HERO LENGTH** — *"on mortgagecalculator and others, the hero text has become way too long
+and boilerplate. It should be shorter but if it is to be long it should be composed better."*
+Census `[MEASURED 2026-08-26]`: homepage hero visible text — cv1.co.uk **16,088** chars (an
+outlier pathology of its own), cookly 2,723, **mortgagecalculator 1,380**, robot-hands 1,311,
+fundamentallyai 1,138; median fleet ~900. Routed to the audit's next verdicts (hero components'
+`llm_guidance` + the brief sweep) — the fix shape is a hero length/composition rule at the
+guidance layer, not yet designed. mortgagecalculator also carries the v2 voice FOSSIL
+(CONTRIB 08-26 in their lane), a suspect for "boilerplate".
