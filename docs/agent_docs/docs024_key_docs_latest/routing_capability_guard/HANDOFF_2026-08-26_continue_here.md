@@ -21,6 +21,15 @@
 > implemented yet — `pages` carries NO provenance, so the machine/human distinction the ruling rests
 > on cannot be made by the system, and the marker that would make it is `bugs_open/403`'s
 > (leopardess lane, active). Coordinating, deliberately not building. Decisions 3 and 4 are open.**
+>
+> **⚠ ADDED 2026-08-26 22:12Z, AND IT IS THE FIRST THING A NEW CHAT SHOULD READ.** Two things moved
+> after the above was written. **(1) A FRESH CHASSIS ROLLED — `v1.0.1345`, pods up 20:25Z — and rule
+> 3b is verified live on it with both controls; it has fired 32 times, 3 of them post-roll (§10).
+> (2) THE ROSTER RULE 3b READS HAS A FALSE ENTRY (`title`), found by running §3.5's own staleness
+> check (§9).** The defect is REAL, VERIFIED and LATENT: no shipped park is wrong, because all 32
+> firings displaced handlers that genuinely cannot write the field. It is RECORDED, NOT BUILT — the
+> map is a shared seam with another lane's caller. **§9 also changes decision 3's answer**: the
+> staleness audit as filed would never have caught this, because this was not staleness.
 
 ---
 
@@ -285,8 +294,13 @@ and does not generalise.
 
 ## 3. What the next session should do
 
-1. **Nothing on rule 3b unless a decision above lands.** It is live, proven, and its residual is
-   stated. Resist tidying it.
+1. ~~**Nothing on rule 3b unless a decision above lands.**~~ **AMENDED 2026-08-26 by §9.** Rule 3b's
+   BEHAVIOUR still needs no work — it is live, proven post-roll, and no shipped park is wrong. But
+   its ROSTER has a false entry, so "resist tidying it" no longer covers the whole file. The open
+   piece is §9f's fix (make the roster TOTAL over the handler universe + a test that would have
+   caught this), and it wants the `vigilant_designer_offer_analysis` lane's agreement first because
+   their emit gate reads the same map. **Do not add `content-gap-planner` as a one-line patch** —
+   that fixes the instance and leaves the silent default that produced it.
 2. **If decision 1 goes (b) or (c):** the build is a work-item-driven route to
    `save_page_meta_description`, and `scripts/regen-meta-descriptions.sh` is the worked precedent for
    how the authority was handled last time (inline on a one-off dispatch, seeded agent left unarmed,
@@ -300,6 +314,11 @@ and does not generalise.
 5. **Re-run the roster census before quoting it.** Both entries are dated `2026-08-25`:
    `git log --since=2026-08-25 --diff-filter=AM -- platform/orchestration/actions` — a non-empty
    result means re-measure before trusting the roster.
+   ✅ **DONE 2026-08-26: it returned 43 commits, the re-measure was carried out, and it found §9.**
+   ⚠ **But note what it did NOT find, because this is the useful half:** the defect it surfaced was
+   an ORIGINAL OMISSION, not an addition — this check cannot see that class, and a clean result from
+   it must never be read as "the roster is sound". That is exactly why §9f's totality test is the
+   piece worth building.
 
 ---
 
@@ -529,3 +548,94 @@ lockstep test all fired correctly on an entry whose content was wrong. A marker 
 was claimed, never that it was complete. Belongs in `WRONG_CALLS.md`; the "resolve handler capability
 through the action registry, never a config-text search" half is already a `LANDMINES.md` entry, and
 this is the second instance of it — **inside the file that documents it**.
+
+---
+
+## 10. POST-ROLL VERIFICATION — `v1.0.1345`, measured 2026-08-26 22:12Z
+
+**A fresh chassis rolled after §9 was written.** Nothing in this lane was waiting on it (rule 3b has
+been live since `v1.0.1341`), but a roll changes what every measurement in this file means, so all of
+it was re-taken rather than carried forward. **Everything below re-measured. Nothing inherited.**
+
+### 10a. What is running, proven at the artefact with BOTH controls
+
+```
+agent-chassis-5864bf97c5-5l8xd   v1.0.1345   started 2026-08-26T20:25:20Z   ready
+agent-chassis-5864bf97c5-68t5h   v1.0.1345   started 2026-08-26T20:24:56Z   ready
+```
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'no_writer_for_page_field'  /proc/1/exe  # PRESENT — rule 3b
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'handler_reported_no_change' /proc/1/exe  # PRESENT — positive control
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'zzz_invented_control_395'   /proc/1/exe  # absent  — negative control
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'model_opinion'              /proc/1/exe  # PRESENT — dates the build
+```
+
+All four ran. The fourth is the one worth keeping: `model_opinion` is `ffa1707b3`'s literal, committed
+**after** rule 3b shipped, so its presence dates this binary **forward of `v1.0.1341`** rather than
+merely "carrying rule 3b" — which a cached same-tag image would also have done.
+
+⚠ **A probe run may time out part-way and still be sound — but only if you say N out loud.** The first
+attempt returned 3 of its 4 answers before the harness timeout. Three is a complete three-way probe
+(claim + both controls) and was reported as such; the fourth was re-run alone. **What is NOT allowed
+is quietly reporting three when you asked four.**
+
+⚠ Still do **not** use CLAUDE.md's `grep -m1 'build provenance'` — that string is in no Go source in
+this repo (`LANDMINES.md`).
+
+### 10b. Rule 3b post-roll: firing, and still correct
+
+**32 firings, 3 of them since the roll** — so the guard is live and working on the new binary, not
+merely present in it.
+
+| field | displaced handler | firings | latest |
+|---|---|---|---|
+| `meta_description` | `page-build-handler` | 23 | 2026-08-26 21:50:52Z |
+| `title` | `page-build-handler` | 7 | 2026-08-26 14:14:41Z |
+| `title` | `copy-editor` | 1 | 2026-08-26 12:13:21Z |
+| `meta_description` | `copy-editor` | 1 | 2026-08-26 11:35:52Z |
+
+**`content-gap-planner` still appears ZERO times** — which is what keeps §9's defect latent.
+
+### 10c. The handler universe did NOT move across the roll — so §9 stands exactly as written
+
+The obvious post-roll risk is that a router change widened the handler set and turned §9's latent
+defect live. It did not. `write_audit_findings_action.go` took 2 commits in the window (`ffa1707b3`,
+`7dd64550c` — both record-mode/origin work), and the handler universe is **byte-identical** between
+rule 3b's ship and HEAD:
+
+```bash
+git show f4aa19ae7:platform/orchestration/actions/write_audit_findings_action.go \
+  | grep -oE 'HandlerAgent:[[:space:]]*"[^"]*"' | sort | uniq -c   # compare with the same over HEAD
+```
+Both sides: `"" ×2, content-gap-planner ×2, copy-editor ×1, page-build-handler ×2, spec-updater ×1`,
+and `designRouting` identical. The roster file, the predicate vocabulary, `apply_gap_plan_action.go`
+and `page_role_upsert.go` took **zero** commits in the window. All three of §9's load-bearing lines
+re-asserted present at HEAD.
+
+### 10d. §9's latency control, re-run — the zero held while the denominator grew
+
+`[MEASURED 2026-08-26 22:12Z, live UNION archive, predicate era]`
+
+| item_type | with a predicate | filed since 2026-08-25 | was (17:00Z) |
+|---|---|---|---|
+| `content_rewrite` (→ page-build-handler) | **6** | 557 | 6 of 411 |
+| `needs_content_planning` (→ **content-gap-planner**) | **0** | 246 | 0 of 152 |
+| `needs_copy_edit` (→ copy-editor) | 0 | 23 | 0 of 16 |
+
+**The denominator grew by 94 in five hours and the zero held.** That is a stronger result than the
+morning's, and it is stronger *because* it could have come out otherwise: 94 more chances to produce
+the first counter-example, and none did. The `content_rewrite` row remains the demand control — 6
+predicates prove the stamping mechanism works, so the zero is a real absence and not a dead instrument.
+
+### 10e. What this does and does not license
+
+- **Licensed:** rule 3b is live, firing and correct on `v1.0.1345`; §9's defect is unchanged by the
+  roll and remains latent; no shipped park is wrong.
+- **NOT licensed:** any claim that the roster is now safe. Nothing was fixed. The latency is a
+  property of what the analyser happens to emit, not a guarantee — the day a `needs_content_planning`
+  finding carries a `title` predicate, rule 3b files a `capability_gap` that names a handler which
+  could have done the work. **There is no alert on that transition.** The cheapest tripwire, if
+  someone wants one before §9f is built, is the §10b table: a `content-gap-planner` row appearing in
+  the `would_have_routed_at` column is the signal.
