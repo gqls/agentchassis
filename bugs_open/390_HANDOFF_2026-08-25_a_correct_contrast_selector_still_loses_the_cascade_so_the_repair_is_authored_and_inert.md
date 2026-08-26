@@ -292,3 +292,26 @@ applies, 396 is a repair that applies and is then deleted.
 - **Commit 3** — the agent consumes the requirement; the one class no stylesheet can reach (an
   `!important` inline `style=` attribute) parks before any LLM spend. ⚠ Its drift guard must assert
   **616's** prompt text, not 318's.
+
+---
+
+# APPENDED 2026-08-26 — ALL THREE COMMITS BUILT, APPROVED OR SUBMITTED, AND LIVE; what remains is VERIFICATION AT THE ARTEFACT
+
+| commit | what | council | live? |
+|---|---|---|---|
+| 1 — mig 616 | prompt stops instructing the losing move | **APPROVED** round 2 (`ef5f9a0d`, 08-25 16:23) | applied 08-25 ~16:47 |
+| 2 — `ea64845e0` | cascade attribution: the audit records the winning declaration and PROVES it by removal | **APPROVED** (`058b59b6`, 08-25 16:22) | rolled 08-25 ~23:11, stamp `2fb40a96`, all three services verified (provenance + binary probe with controls) |
+| 3 — mig 635 | agent consumes `override_requirement`; `unreachable` parks before LLM spend | submitted (`fe5cbe0c`), verdict pending | applied 08-26, verified at the row |
+
+**The bug's mechanism is now closed end-to-end on paper:** the audit measures what the repair
+must beat and proves it in the page; the filer routes on it; the agent obeys the measured bar and
+refuses the genuinely unwinnable class honestly.
+
+**What is NOT yet true: none of it has been exercised by a real audit.** Zero render audits have
+run since the roll (the rotation had no site past its 3-day window at 08-26 ~08:00). The lane's
+pre-registered predictions P1–P5 (`bugfix_390_cascade_attribution/NOTES` §(g)) are all still open,
+with their disconfirming results stated in advance. **This file must not be closed until P3 and P4
+are read** — the bar is fixed AND live AND *proven at the artefact*, and the artefact has not
+spoken yet. Expected within ~3 days as sites come due.
+
+Full state + exact next commands: `docs/agent_docs/docs024_key_docs_latest/bugfix_390_cascade_attribution/HANDOFF_2026-08-26_continue_here.md`.

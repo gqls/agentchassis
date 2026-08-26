@@ -244,3 +244,46 @@ cross-reference this migration number so the two are not resolved independently.
 `bugs_open/396`.
 
 Round 2 resubmitted on the same correlation `ef5f9a0d`, so the trail accumulates.
+
+## 2026-08-26 (k) — the roll landed, both approvals landed, and commit 3 shipped
+
+**Deploy proven at the artefact, per service, with controls** — never at the tag:
+
+- `browser-runner-adapter` and `render-audit-adapter` both log `build provenance 2fb40a96…`
+  (started 23:11–23:12 on 08-25).
+- `agent-chassis`: startup line had scrolled (the known shelf-life), so binary probe:
+  `grep -aq <stamp> /proc/1/exe` → present; absent-sha control → absent.
+- `git merge-base --is-ancestor ea64845e0 2fb40a96` → YES; control `HEAD` → NO.
+
+**Council: 616 round 2 APPROVED** (`ef5f9a0d`, 16:23) — the revise→approved trail on one
+correlation, as designed. **Commit 2 APPROVED** (`058b59b6`, 16:22). Both my commits carry
+`Council-Submitted:` trailers, which 098 resolves at report time; no amends.
+
+**A touched row investigated before building on it.** `css-patch-agent.updated_at` moved to
+23:10:35 — *after* my 616 apply. Checked rather than assumed: no snapshot after mine
+(`agent_snapshots` view — note it has `snapshot_taken`, not `created_at`), version/prompt/steps
+unchanged, and 23:10 is one minute before the fleet roll — a release stamping a non-config column.
+Benign. The check cost three queries; assuming would have cost nothing today and everything the
+day it wasn't benign.
+
+**Migration 635 (commit 3) written, mutation-proven, submitted (`fe5cbe0c`), applied.** The two
+design points worth carrying:
+
+1. **The template fence is on `override_requirement`, not `winning_rule`** — the filer writes
+   `winning_rule` for a verified *unreachable* winner too (where req is nil), and text/template
+   errors at execute time on a missing sibling dereference, which would fail the whole LLM step.
+2. **Template safety was proven on the exact post-apply artefact, not a hand-copy**: apply block
+   run in a rolled-back txn, the resulting prompt `\copy`'d out of the DB, unescaped, parsed and
+   executed against five data shapes. A hand-copied version can pass while the real one differs.
+
+Mutation proofs: second active row → raises; 616's text removed underneath → raises;
+`check_base_integrity` rewired → raises. Round trip: apply + ROLLBACK in one txn → restores 616's
+shape. Post-apply read-back: gate wired, park stamps before terminal, block at 133, prompt 3,241
+chars, 0 dangling edges; re-apply refuses.
+
+**Numbers move fast on this tree:** 617–634 were taken by other lanes in one overnight window.
+Re-check the next free number at write time, not at plan time.
+
+**Predictions P1–P5: all still open.** Zero audits since the roll (rotation ticked 08-26 07:47,
+no site past the 3-day window). P4's window opens with the first post-roll audit, expected by
+~08-29.
