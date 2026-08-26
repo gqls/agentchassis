@@ -37,7 +37,9 @@ email), and the delivery email itself. The site being visible changes none of th
    (HANDOFF_2026-08-21 §6): no terms page while the copy points at "the full terms";
    contact email `webdesign@contactforsales.com` (domain mismatch); `bugs_open/299`
    (home CTA producer question); the what-you-get shrink gate.
-2. **The "Not active yet" label** (hand-placed by owner instruction 2026-08-25,
+2. **The "Not active yet" label** (⚠ since 2026-08-26 the re-enabled design-discovery
+   rotation can AUTO-rerender index at any time — check the label after every surprise
+   `Rerender: index.html` commit in vm-sites, daily until ordering opens) (hand-placed by owner instruction 2026-08-25,
    vm-sites `444205b`, above BOTH CTAs, marked
    `data-note="hand-placed 2026-08-25, temporary until ordering opens"`). If ordering
    is still closed on go-live day, **confirm it is still present** at

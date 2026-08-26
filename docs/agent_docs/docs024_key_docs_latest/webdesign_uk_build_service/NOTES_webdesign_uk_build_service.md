@@ -5786,3 +5786,16 @@ does not read as divergence. Served how-it-works re-edited + pushed. The two que
 **State: the copy brief is COMPLETE across every page, served and stored. The single
 remaining launch action is the owner's Cloudflare page-rule removal.** Next build work:
 domain service P1 (EPP domain:check) + P2 (*.ugg2.com wildcard + slug convention).
+
+**2026-08-26 — peer heads-up (webdesign-tool-rebuilds session): the design-discovery
+rotation re-enabled 09:20Z after 15 days off** (the 08-11 cost-scare pause was never
+unwound; bugs_open/401). webdesign.uk's design stamp is 15.6 days old, so its visit comes
+within the ~2-3 day ramp, and detected-item-promoter may AUTO-DISPATCH design repairs.
+Two exposures checked/recorded: (1) **colour churn** — `design_intent.palette.
+reference_values` IS pinned (verified today: kraft/#c8961e guidance object present), so
+the generic_theme misfire landmine is guarded; (2) **the label** — any auto rerender of
+`index` silently removes the hand-placed "Not active yet" label. Standing check until
+ordering opens: after ANY surprise `Rerender: index.html` commit in vm-sites, re-place the
+label (two anchors: hero `btn btn-primary`, `cta-buttons` div) and re-verify at the served
+page. A surprise design work item on this site in the next days is the rotation, not a
+stray thread.
