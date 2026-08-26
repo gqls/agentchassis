@@ -50,7 +50,7 @@ Recommendation: **1 if he is willing, otherwise 2.** Not proceeding on any of th
 | 2 | copy structure | synthetic | ✅ **BUILT** — 80 training + 10 held-out, validated |
 | 3 | copy style | our own material | ⛔ **BLOCKED by the conflict above** |
 | 4 | support-reply tone | our own material | ⛔ **BLOCKED** — and separately, we hold no real support replies; he would need to send them |
-| 5 | product-description house style | synthetic | ⏳ next, unblocked |
+| 5 | product-description house style | synthetic | ✅ **BUILT** 2026-08-26 — 80 training + 10 held-out, validated. Target register checked clean of `rather than` / `not just` / `isn't`: the target side IS the register, so it had to be written in the one we want |
 | 6 | internal-doc summarisation | our own material | ⏳ unblocked — our own long docs are a fine source for a FORMAT target |
 
 ## The harness, and why it refuses things
