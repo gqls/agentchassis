@@ -610,3 +610,18 @@ spec now includes it (HANDOFF top block); Phase 3 is flagged in 413 as cutting b
 loads reach @140 rows sooner; longer busy windows per pick) — measure the floor across it, do not
 assume. Ruling B neither caused nor cures 413 — pre-B the pair co-picked one deep site 94%, so
 starvation was WORSE, just unmeasured.
+
+### 2026-08-26 ~17:1xZ — 090 verdict on 413: UNVERIFIABLE (iteration-cap), and the round's real yield was a correction to MY sentence
+
+Verdict: NOT confirmed, stopped at iteration cap, no fix proposed — neither CONFIRMED nor
+REFUTED. Full reconciliation in 413's ~17:1x addendum: the loop's "oldest rows" sample was
+`status='detected'` rows (selector-INELIGIBLE, July dates), its zero-row pin query is not
+auditable (bundles record descriptions, not SQL), and its "dozen+ sites cycling" observation is
+what 413 predicts, aimed at a claim the file does not make. Mechanism unamended; the file now
+stands on declared first-hand verification per the 07-31 ruling, loop trail linked not hidden.
+What the round DID catch: my symptom's "no trigger-driven dispatch at all" was an overclaim
+(fall-through service exists — fundamentallyai's 35 loops were in my own evidence); corrected
+visibly in 413, logged in WRONG_CALLS ("a graded verdict grades the SENTENCE you filed").
+Deliberately NOT re-filing the 090 on the corrected sentence — the open question is now a
+fix-candidate choice, and the census is repeatable from the RUNBOOK. 391 lane told (they asked
+only if the mechanism was amended — it was not; their NOTES need no correction).

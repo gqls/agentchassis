@@ -55777,3 +55777,37 @@ re-deriving.
 
 Family: a-subagent-report-is-another-doc, prior-art-search-goes-stale,
 a-handoff-outlives-the-work-it-asked-for, a-revise-round-is-cheaper-than-the-defect-it-finds.
+
+## 2026-08-26 — I wrote "receive no trigger-driven dispatch at all" into a 090 symptom when my own evidence showed fall-through service, and the loop graded the overclaim instead of the mechanism
+
+**The claim** (090 symptom for `bugs_open/413`, ~15:1xZ): while a pin holds, sites whose oldest
+eligible row is younger than the pinned row's created_at "receive no trigger-driven dispatch at
+all."
+
+**What was true:** they receive dispatch only by fall-through (all older-item sites simultaneously
+busy), which can be arbitrarily rare — finetuning.uk measured ONE loop in 12 h. "At all" was
+false in general, and I had the disconfirming case IN THE SAME INVESTIGATION: fundamentallyai.com
+took 35 trigger-spawned loops that afternoon while younger than several pinned sites.
+
+**What caught it:** the 090 verdict — UNVERIFIABLE (stopped: iteration-cap). The loop observed
+"well over a dozen distinct site_ids cycling ... inconsistent with a single stale row monopolizing
+trigger-driven dispatch and starving other sites" — a refutation of my sentence, not of the
+mechanism (413 predicts healthy cycling among the OLDER sites; starvation is positional). A
+symptom that overclaims invites the loop to spend its iterations on the overclaim.
+
+**The cheap check that would have caught it:** reread the symptom against your own ruled-in
+evidence before submitting — every absolute ("no X at all", "never", "always") must survive each
+case you have already measured. Mine did not survive a case three paragraphs up in my own NOTES.
+
+**Not retracted:** the mechanism. The loop's own trail sampled `status='detected'` rows (July
+dates, selector-ineligible) as its "oldest rows" population, and the bundle records request
+descriptions but not SQL, so its zero-row pin test cannot be audited; 413's raw-row evidence
+(the @140 trio at attempt 0 through 22 loops/95 claims on the same site) stands, restated
+precisely in the file's verdict addendum.
+
+**The generalisable form:** *a graded verdict grades the SENTENCE you filed, not the belief you
+hold.* Symptom authoring is measurement encoding — the 090's answer is to the question as
+encoded, and an absolute quantifier encodes a different, weaker-to-defend question.
+
+Family: your-measurement-answers-the-question-you-encoded (measurement-discipline-index),
+a-revise-round-is-cheaper-than-the-defect-it-finds.

@@ -134,3 +134,41 @@ query in RUNBOOK (windowed rank comparison, all selector clauses applied):
 
 090 status at this addendum: run `250188a7` iterating (evidence bundles 15:16 / 15:20 in
 `diagnosis_artifacts`), verdict not yet landed — will be appended here when read.
+
+## Addendum 2026-08-26 ~17:1xZ — the 090 verdict: UNVERIFIABLE at iteration cap; mechanism unamended; one sentence of the symptom corrected
+
+**Verdict verbatim** (item `result`, completed 15:40:27Z): *"Diagnosis NOT confirmed (stopped:
+iteration-cap)"*, status **UNVERIFIABLE**, no fix proposed, best-effort trail attached. This is
+neither CONFIRMED nor REFUTED. Per the 2026-07-31 owner ruling, this file therefore stands on
+**declared first-hand verification**: the live selector text read from `agent_definitions` (not a
+mirror), clause-by-clause eligibility 73/73/73 on the victim site, raw pinned rows observed
+directly (the @140 trio at `attempt_count=0` through 22 loops / ~95 claims on the same site), the
+per-site loop-cessation cross-check against history, and the repeatable censuses in the lane
+RUNBOOK. The loop's five evidence bundles are on corr `250188a7` in `diagnosis_artifacts`.
+
+**Reconciling the loop's two counter-points, from its own trail:**
+
+1. *"A query built specifically to surface [the pin signature] returned zero rows."* The bundle
+   records request DESCRIPTIONS and results but not SQL, so the query cannot be audited — but the
+   trail's own "oldest rows" sample consists of **`status='detected'` rows** (dated back to
+   2026-07-26, several on finetuning.uk itself), which are **ineligible by the selector's own
+   filter** (`status IN ('triaged','approved')`). A pin test keyed to that population asks about
+   rows the selector never sees. A zero from an unauditable query with no positive control is not
+   a refutation ([[a-post-fix-zero-needs-a-demand-control]]); the 15:5x census in the addendum
+   above, with the full clause set applied, found 13 pinned sites in the same hour.
+2. *"Well over a dozen distinct site_ids cycling ... inconsistent with a single stale row
+   monopolizing trigger-driven dispatch."* Correct observation, wrong target: 413 does not claim
+   a single row monopolizes dispatch. It claims service cycles healthily among the sites at the
+   OLD end of the age order while sites behind the pins wait on fall-through. The cycling the loop
+   saw is what the mechanism predicts.
+
+**> CORRECTED 2026-08-26: the symptom overclaimed, and the overclaim is what the loop graded.**
+The filed symptom said younger sites "receive no trigger-driven dispatch **at all**" while a pin
+holds. Too strong: they are served by FALL-THROUGH whenever every older-item site is
+simultaneously busy — fundamentallyai.com took 35 trigger loops the same afternoon. The precise
+claim, which all evidence supports: **a site behind pins is served only by fall-through, with no
+bound on the wait** — measured 1 loop/12 h (finetuning.uk), >11 h (gaswholesalers.com). Caught by
+the 090 round; logged in `WRONG_CALLS.md` 2026-08-26 ("a graded verdict grades the SENTENCE you
+filed"). A re-file of the 090 with the corrected sentence is deliberately NOT queued: the
+remaining open question is a fix-candidate choice, not a mechanism dispute, and a second run
+would spend credits re-deriving the census this file already carries.
