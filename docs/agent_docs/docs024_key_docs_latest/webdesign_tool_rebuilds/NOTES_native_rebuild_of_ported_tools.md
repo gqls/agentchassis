@@ -4301,3 +4301,14 @@ Also answered the webdesign.uk lane's launch-status ask (their site was design-s
 today; the CONFIRMED anchor-class diagnosis's worked example is THEIR brief-starter, site id
 1fcfa4f3 — flagged to them as the one launch-blocking class from this seat, with the
 hold-improve_tool-where-spec-check=tool_acceptance recommendation).
+
+> **Addendum ~12:55Z:** webdesign.uk acted on the snapshot and found it one step behind
+> reality — the anchor-class `improve_tool` (spec check=tool_acceptance, item 41d82357) was
+> **already TRIAGED** against their brief-starter when they looked, i.e. inside the dispatch
+> gate within ~6 hours of the sweeps resuming on their site. That is the class's velocity,
+> measured on a second site. Both it and the queued `acceptance_run` (0559eb67) are now
+> DEFERRED with diagnosis `91228c39` and the un-defer condition (checker fix live,
+> staged_component_build lane) written INTO the rows — the second worked example of the
+> hold pattern after noted's, and the better-documented one. Their served spot-checks after
+> today's chat-input-box repair: markup present, bot answering, brief-starter intact
+> (wbsNextBtn ×2 in the served page — the very anchor the checker calls absent).
