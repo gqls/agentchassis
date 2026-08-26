@@ -102,3 +102,50 @@ filed and then cancelled in `hero_items_filed.sql` — re-file them to reproduce
 `agent_definitions` `page-rerender` step `check_rerender_mode` (the light branch that already
 accepts `image_landed`) · `agent_definitions` `image-build-handler` (`flag_rebuild` step) ·
 `bugs_open/398` (the colour-band defect whose population is the same 9 pages).
+
+---
+
+## 7. ADDENDUM 2026-08-26 — a component that CANNOT display an image accepts imagery work anyway, completes `complete`, and ships an orphan
+
+Found by verifying at the artefact after the canary's imagery stage reported **9 of 9 complete** and
+**16 assets** were created: **neither rebuilt page shows a hero image.** `hero_url` and
+`background_image` are both still absent from their `content_data`.
+
+**The cause is not the wiring this bug is about. The component has no image branch at all**
+`[MEASURED 2026-08-26]`:
+
+| component | `hero_url` / `background_image` in template |
+|---|---|
+| `hero`, `services-hero`, `about-hero`, `contact-hero`, `use-cases-hero` | YES |
+| **`hero-tool`** | **NO** |
+| **`case-studies-hero`** | **NO** |
+
+So `needs_imagery` at page scope is accepted, generated, stored, deployed and closed `complete`
+for a page whose component **can never render the result**. The asset is an orphan the moment it
+lands — `bugs_open/214`'s shape ("imagery scope refs … never validated so orphans ship silently"),
+reached here by a hand-filed item rather than an LLM-minted one, which means the validation gap is
+in the item path and not only in the minting.
+
+**Three of this lane's nine pages were in that state and I filed for them anyway:**
+`/tools/model-approach-selector.html` and `/tools/ai-readiness-checker/index.html` (`hero-tool`),
+and `/case-studies.html` (`case-studies-hero`).
+
+> ⚠ **MY OWN ERROR, and the shape of it is the useful part.** The census asked *"which pages have
+> no hero image VALUE?"* and never asked *"can this page's component DISPLAY one?"*. Those are
+> different questions and only the second predicts a visible image. Fourth instance this session of
+> a measurement answering the question I encoded instead of the one that mattered — and the only
+> one that cost real spend (three image generations).
+> **The check that would have caught it, before filing any imagery item:**
+> ```sql
+> SELECT cc.name, (cc.html_template LIKE '%hero_url%' OR cc.html_template LIKE '%background_image%') AS image_capable
+>   FROM page_components pc JOIN content_components cc ON cc.id = pc.component_id
+>  WHERE pc.page_id = '<page>';
+> ```
+
+**Fix candidate (4), and it belongs with the three above:** the imagery item path should refuse — or
+at minimum warn on — a page-scoped `needs_imagery` whose target component declares no image slot.
+`HandlerDeclaresOwnedPageRefusalSQL`'s declare-and-read shape fits this too: a component declares
+`renders_image`, and the imagery filer reads it. Until then the check above is the manual guard.
+
+**Not a reason to make `hero-tool` image-capable on the spot** — it is a fleet-shared component with
+**40** live instances, and widening what it renders is a change other lanes should see coming.
