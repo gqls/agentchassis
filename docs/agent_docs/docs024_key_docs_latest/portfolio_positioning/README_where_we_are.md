@@ -1146,3 +1146,20 @@ test briefs from last week are (those are still waiting too, if you want to see 
 handled a houseplant domain and a mortgage one). Before anything can overwrite it, I saved a copy of
 what advertise.co.uk serves today — it turned out to be an old feed-aggregator page with no original
 writing on it, so nothing of value is at risk.
+
+**2026-08-26, late evening — a leftover test sentence is live on lendzy, and I've pulled it out at the root.**
+
+One more thing tonight, found by accident and worth telling you straight. Back on 2 August, when
+lendzy was an experiment, we planted a test sentence in its writing instructions — "checked against
+the FCA handbook, rule by rule" — purely to verify the machine follows instructions. The note to
+remove it before the site ever went live was written down, and then the site was built and went
+live weeks later without anyone re-reading that note. So today lendzy's About page and one guide
+say, in the site's own voice, that its content has been checked against the FCA handbook rule by
+rule — which nobody has done. On a site about borrowers' rights, that is a claim we should not be
+making.
+
+I've removed the instruction at its source tonight, so no future rewrite can plant the sentence
+again, and filed the clean-up of the three passages that already carry it (bug 414). One caution
+for your review queue: the maintenance system read that sentence on the live page and concluded it
+was the site's core selling point — there is a held item asking to lean into it further. When you
+work through lendzy's queue, that one should be rejected, not released.

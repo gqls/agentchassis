@@ -3439,3 +3439,28 @@ Q3 monetisation; Q4 UK-only confirmation; Q5 news-stream scope.
 
 Third production-shaped run of the machine, third hold that held. The owner's queue is now three:
 indoorplanters (test, 08-20), buytoletcalculator (test, 08-21), **advertise.co.uk (real, 08-26)**.
+
+### (l) The lendzy acceptance marker: the 08-05 debt had already come due — found, source-fixed, filed as `bugs_open/414`
+
+Found while correcting this lane's stale memory-index entry: its landmine line ("lendzy's seeded
+content_direction still carries the acceptance_marker instruction — strip before any real use")
+was still true, and "real use" happened weeks ago — lendzy.co.uk serves 19 pages.
+
+- The planted phrase **"checked against the FCA handbook, rule by rule"** is in 3 components'
+  `content_data` and **SERVED**: `/about.html` ×2, the affordability-complaint-checker guide ×1
+  [MEASURED 2026-08-26, curl by body]. An unverifiable compliance claim on a finance site.
+- **Worse: an open `content_rewrite` item (needs_human_review) canonised it** — *"The site's
+  core differentiator — FCA-rule-level accuracy checked guide by guide"* — the audit fleet
+  adopted the tripwire as identity and queued work to reinforce it.
+- Fleet census [2026-08-26]: **1 site** carries a marker; apis.uk/webdesign.co.uk "exact phrase"
+  hits are innocent; lendzy's second mandated phrase ("know the rules before you borrow") is a
+  benign slogan, left in place.
+- **Source FIXED live**: `content_direction` revised — current row `81ddcc40-…`, the 08-02 row
+  minus `positioning.acceptance_marker` + the `formatted` tail line, applied server-side under
+  a guard asserting the exact tail; history preserved (`61ef7033-…` superseded, residue intact).
+- **Copy repair OPEN** — and the trap is that the queued `page_rerender: about` canNOT fix it
+  (rerender regenerates from `content_data`, where the phrase lives). Needs a content rewrite of
+  the 3 components; the held "differentiator" item must be rejected/rewritten against the bug.
+- Filed: `bugs_open/414_…` (evidence, census, repair path, why no 090 — verbatim string identity
+  at every hop). 016b: §9 pattern ("an experiment's tripwire ships with the spec — and the audit
+  fleet canonises it") + §10 index entry. No 090: owner-ruling-07-31 escape hatch stated in file.

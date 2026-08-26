@@ -6640,6 +6640,31 @@ have fallen to zero, and nobody would have known why.
   moment that logic changes. Use it to take a reading and to verify a fix; if you want the
   question answered continuously, that is a check with a lockstep test, not a query in a runbook.
 
+### An experiment's acceptance tripwire ships with the spec — and the audit fleet CANONISES it (2026-08-26)
+
+`bugs_open/414`. An 08-02 shadow experiment planted an acceptance marker in lendzy's
+`content_direction` ("include the exact phrase: checked against the FCA handbook, rule by rule")
+to verify the writer obeyed the spec. The site later graduated to a real fleet build; the writer
+obeyed (that is what the tripwire tests); the phrase reached 3 components' `content_data` and is
+SERVED on 2 pages as an unverifiable compliance claim. Then the genuinely new part: a maintenance
+audit read the served phrase back and filed a `content_rewrite` item calling it *"the site's core
+differentiator"* — the improvement machinery adopted the tripwire as identity and started
+generating work to REINFORCE it.
+
+**Transferable checks.**
+
+- **When an experiment site graduates to production, census its spec stack for the experiment's
+  instrumentation** (`SELECT … FROM site_specs WHERE is_current AND data::text LIKE
+  '%acceptance_marker%'` — or whatever key the experiment used). A tripwire is a production
+  instruction the moment the spec is live; "strip owed before serving" in a handoff protects
+  nothing (`a-handoff-outlives-the-work-it-asked-for`).
+- **Before releasing a held audit/improvement item, ask what taught the auditor the premise.** An
+  audit that reads served copy as ground truth will canonise a leaked instruction and propose
+  amplifying it. The tell here: the item's "differentiator" was a verbatim spec string.
+- **The repair trap: a rerender preserves this defect.** The phrase lives in `content_data`, and
+  rerender regenerates from `content_data` — the queued "Rerender page: about" would reproduce
+  it. Strip the SPEC first (or regeneration re-plants it), then repair by content rewrite.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -6647,6 +6672,15 @@ awaiting a fixing thread (it was `docs024_key_docs_latest/aaa_fails_to_mend/`
 until 2026-07-17; ~23 documents still reference the old path). §9 above holds the
 durable PATTERNS; the files below hold the case detail, evidence and fix
 candidates. Read the file before acting — several are already fixed.
+
+**`414`** — a planted acceptance tripwire from the 08-02 lendzy shadow experiment is SERVED as an
+unverifiable compliance claim ("checked against the FCA handbook, rule by rule" — /about.html ×2,
+the affordability guide ×1, `[MEASURED 2026-08-26]`), and an open audit item canonised it as "the
+site's core differentiator". Spec source FIXED live same day (row `81ddcc40`, marker stripped under
+a tail-assert guard; history preserved). REMAINING: 3 components' `content_data` + served copy —
+⚠ the queued about-page rerender canNOT fix it (rerender regenerates from `content_data`); needs a
+content rewrite, and the held "differentiator" `content_rewrite` item must be rejected/rewritten,
+not released. Population: 1 site (fleet census in the file). Filed by portfolio_positioning.
 
 **`413`** — the dispatch selector ranks sites by their oldest eligible row's AGE while the item
 loader serves the picked site by PRIORITY (cap 5), so one old worst-priority row PINS its site —

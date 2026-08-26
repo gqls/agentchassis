@@ -203,3 +203,9 @@ consulted. The "31 vs 30 rows" is the locked halted site; not a departure. Evide
   next genuinely seeded site, and this row is NOT it.
 - The owner's review queue is now THREE: indoorplanters (test 08-20), buytoletcalculator (test
   08-21), **advertise.co.uk (real)**. Flagged in README_where_we_are (entry "2026-08-26, evening").
+
+**Late addition (same evening): `bugs_open/414` filed — lendzy's 08-02 acceptance marker is SERVED**
+("checked against the FCA handbook, rule by rule", /about.html ×2 + guide ×1), and a held audit
+item canonised it as the site's differentiator. Spec source FIXED live (row `81ddcc40`, guarded
+strip, history kept); copy repair OPEN — ⚠ rerender cannot fix it (phrase is in `content_data`);
+the held "differentiator" `content_rewrite` must be rejected/rewritten. NOTES (l); 016b §9+§10.
