@@ -1,5 +1,20 @@
--- 643 (_HOLD) — arm the write-time CTA label/destination audit (bugs_open/399).
+-- 643 — arm the write-time CTA label/destination audit (bugs_open/399).
 --
+-- ✅ HOLD DISCHARGED 2026-08-26 — RELEASED (_HOLD suffix off), APPLIED out-of-band.
+-- The hold required the binary carrying this key to have rolled, verified at the
+-- POD and not from a commit sha. Done on chassis v1.0.1345, pod
+-- agent-chassis-5864bf97c5-68t5h, WITH BOTH CONTROLS IN THE SAME EXEC:
+--     PRESENT audit_cta_label_agreement      <- the key this file sets
+--     PRESENT CTA_LABEL_MISMATCH             <- the literal the code emits
+--     ABSENT  zzNOTAREALSYMBOL9f2a           <- control
+--     ABSENT  deadbeefdeadbeefdeadbeef       <- control
+-- Both controls absent is what makes the two PRESENTs mean anything: a grep that
+-- matches everything returns the same answer as a grep that works.
+-- ⚠ The startup 'build provenance' line had ALREADY scrolled out of a 200-line
+-- tail ~10 minutes after the pod started — on a busy chassis it is not a
+-- fallback you can rely on. The binary probe has no shelf life; use it.
+--
+-- ORIGINAL HOLD TEXT, kept because the reason is the lesson:
 -- ⚠⚠ HELD. DO NOT APPLY UNTIL THE BINARY THAT READS THIS KEY HAS ROLLED, AND
 -- DO NOT DISCHARGE THE HOLD FROM A COMMIT SHA — PROBE THE RUNNING POD.
 -- Raised by the council gate's debug_historian seat (corr e9bda035, severity

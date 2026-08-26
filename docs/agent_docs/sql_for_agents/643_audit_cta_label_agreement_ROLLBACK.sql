@@ -1,4 +1,4 @@
--- ROLLBACK for 643 — disarm the write-time CTA label/destination audit.
+-- ROLLBACK for 643 (hold discharged 2026-08-26) — disarm the write-time CTA label/destination audit.
 --
 -- Removes the key rather than setting it false, so the row returns to exactly
 -- its pre-643 shape and the code's own default (OFF) governs. Safe at any time:
