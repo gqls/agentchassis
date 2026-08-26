@@ -77,3 +77,40 @@ branch exists and reports nothing, not that a scan has failed.
 0 waiting) · `bugs_open/399` (the same "detectable rather than unrepresentable" argument one seam
 along) · `features_open/035` §6.1 (the scope veto that correctly kept instance 3 out of a feature
 commit) · `LANDMINES.md` "a stale PAGE holds every improvement since it rendered"
+
+---
+
+## CORRECTIONS 2026-08-26, hours after filing — an attribution, a citation, and a real reproduction
+
+**1. The 6,428 / 3 figure is NOT mine and my `[MEASURED 2026-08-26]` marker implied it was.**
+It was measured and supplied by the **`bugs_open/384` lane**; I took it from a message and stamped it
+with the estate's own "I measured this" marker. That marker is supposed to distinguish a figure I
+checked from one I relayed, and using it on a relayed number is the precise failure the marker rule
+exists to prevent — a reader auditing this file would have come to me for the query and I do not have
+it. **Corrected: the control is the 384 lane's, dated 2026-08-26, and I have not independently
+re-run it.** The argument it supports — that assemble is the correct and overwhelming norm, which is
+exactly why every drift lands there — is unaffected; its provenance is.
+
+**2. `rerender_page_sections_action.go:1206` has already expired. Cite the symbol.**
+When I filed this, `:1206` was the `rows.Scan` branch. It is now the `loadStoredSections` **function
+signature**; the Warn-and-continue is at `:1238`, moved ~32 lines by `bd811fa93` (*"035 P1:
+loadStoredSections reads the composition pair"*) **the same afternoon**. Verified just now.
+
+> **Cite it as `loadStoredSections`' `rows.Scan` error branch** (`logger.Warn("rerender_page_sections:
+> row scan failed"); continue`). This file is under active edit from at least two lanes, so any line
+> number written here expires — including the one I just corrected it to.
+
+Same family as this repo's standing rule against citing `HEAD~1`: **a reference that moves is not a
+reference.** Cheap check before quoting a line: `grep -n "<the distinctive string>" <file>`.
+
+**3. The third seam now has a real reproduction, not a hypothetical one.**
+`bd811fa93` added two columns to that SELECT. **Six tests went red reporting *"expected exactly one
+section, got 0"* — and not one said *"scan mismatch"***. So a genuine change to a genuine query
+presented as **an empty page rather than an error**, and the tests encoded the symptom while losing
+the cause. That is the seam firing under a routine, correct edit, which is stronger than the
+argument the file otherwise makes from construction alone. Supplied by the `news_editorial` lane.
+
+**What this does to candidate 3** (make the silent skips countable): it moves from *cheapest* to
+*best evidenced*. Had `loadStoredSections` returned `scanned < selected` as an error, or even a
+count, those six tests would have named the cause on the first run instead of six times reporting
+its symptom.
