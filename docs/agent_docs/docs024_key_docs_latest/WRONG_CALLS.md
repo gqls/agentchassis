@@ -55142,3 +55142,60 @@ guard both present as "still green", and only one of them is a coverage problem 
 which without running it. (The rewrite then exposed a real defect: the recover handler logged through
 the same nil logger that had panicked, so **the recover re-raised and contained nothing**.) Tally:
 mutation-claimed-not-run.
+
+## 2026-08-26 — I read a deliberate owner-ruled retirement as an outage mitigation left running, with the disconfirming number in my own query output
+
+**The claim.** Chasing why a canary sat 5½ hours unclaimed, I found `build-pipeline-trigger-2`
+`enabled=false` with its row changed at **08:51:17**, eight seconds after its last run — inside last
+night's credit outage, and matching a pause another lane had put to the owner as outage mitigation.
+I wrote it up as *"the outage's second residue"*, told two lanes, and told the owner it was
+throttling the backlog drain.
+
+**The truth.** It was retired **deliberately, that morning, under an owner ruling.** Migration
+`637_dispatch_lever_B_interval_not_sibling.sql` — first line: *"B = retire the sibling row, set the
+ORIGINAL row's interval_seconds 60 → 30"* — with a post-check that `RAISE`s *"expected exactly 1
+(ruling B)"*. The measured case in commit `a5fd1651e`: the sibling pair was **co-picking the same
+site 94% of the time** under a phase lock; retiring it took lost claims from 58–60% to **12.9%**.
+A single lane at 30s **is** the ruled configuration, and migration 584's VERIFY now `RAISE`s by name
+on "a second enabled trigger row OR interval<30" — so acting on my reading would have tripped a
+guard written to hold the ruling.
+
+**⚠ The disconfirming evidence was in my own output.** I printed both rows in one result:
+
+```
+build-pipeline-trigger   | t | 30
+build-pipeline-trigger-2 | f | 60
+```
+
+**A pause leaves the survivor's configuration untouched. Only a reconfiguration changes it.** That
+30-against-60 asymmetry is migration 637's arithmetic exactly, and I read past it because I was
+scanning the rows for `enabled` and had already decided what the answer would be. **I did not need
+another query; I needed to read the columns I had already asked for.**
+
+**Why I made it, and this is the transferable half.** I had just been *right* about an outage
+residue — 21 work items that burned their retry budget — and had written it up in the words *"the
+visible half of an incident ends, and the mitigations it justified stay on."* **A frame that fits one
+case primes you to fit the next case to it.** The second case offered a timing coincidence and I
+took it as confirmation. *A pattern you have just confirmed is the most dangerous thing to carry into
+the next observation*, because it converts coincidence into evidence.
+
+**What made it cost nothing was not judgement.** It was declining to flip a fleet-wide switch I did
+not own, on the explicit ground that "my canary is slow" is not a reason to change fleet
+configuration. **Check-before-flip is what converts a wrong inference into a message instead of an
+incident** — the whole exposure here was two messages and this entry.
+
+**And what actually caught it was a record, not reasoning.** The peer reports that what stopped them
+making the same inference was a memory line naming trigger-2 as that lane's designated **rollback
+lever**, which put "deliberate retirement" on the table as a live alternative. Neither of us could
+have reasoned our way there from the row alone. **A durable note beat two careful readers**, which is
+the argument for writing down the boring facts about a mechanism, not just the exciting ones.
+
+**Cheap check, stated so it generalises:** when a row's state looks like it was changed by an event
+you have in mind, check whether anything *else* about that row or its siblings changed at the same
+time. A single flag flipped is consistent with many stories; a flag flipped **plus a coherent
+adjustment elsewhere** is a deliberate act, and the adjustment is usually already in front of you.
+Then grep `sql_for_agents/` for the table name before narrating a cause — a migration file states its
+own intent in its first line.
+
+Family: the-disconfirming-number-was-in-my-own-output, a-just-confirmed-frame-primes-the-next-case,
+check-before-flip-caps-the-cost-of-being-wrong, a-durable-note-beats-two-careful-readers.

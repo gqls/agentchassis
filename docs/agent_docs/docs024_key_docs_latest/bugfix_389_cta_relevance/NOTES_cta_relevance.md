@@ -800,7 +800,7 @@ older sites.** Nothing was broken.
 > `created_at` with another** — batch inserts like this lane's own 22-row transaction at 19:17:57.
 > Within such a batch, priority decides.
 
-### ⚠ AND A FLEET-WIDE FINDING THAT IS NOT THIS LANE'S: the outage mitigation is still on, 6 hours after the outage ended
+### ~~⚠ AND A FLEET-WIDE FINDING THAT IS NOT THIS LANE'S: the outage mitigation is still on, 6 hours after the outage ended~~ — **REFUTED 2026-08-26, see the correction below**
 
 `build-pipeline-trigger-2` — *"Sibling dispatch turn #2 (dispatch_throughput 582-584, N=2). Same
 selector/loop as build-pipeline-trigger"* — is **`enabled = false`**, and its row changed at
@@ -817,3 +817,39 @@ decision; flipping it back is the owner's call, not a side effect of my lane's c
 Surfaced to the owner and to the lane that proposed the pause. **This is the outage's second
 residue** — the first being the 21 items that burned their attempts. Both share a shape: *the
 visible half of an incident ends, and the mitigations it justified stay on.*
+
+> **⚠ REFUTED the same afternoon by the `loanzy_uk_example_site` lane, and they are right — verified
+> here first-hand rather than accepted on report.** `build-pipeline-trigger-2` was **not** a
+> mitigation left running. It was **deliberately retired at 08:51Z under an owner ruling** by the
+> `dispatch_throughput` lane: migration **`637_dispatch_lever_B_interval_not_sibling.sql`**, whose
+> own first line reads *"B = retire the sibling row, set the ORIGINAL row's interval_seconds
+> 60 → 30"*, and whose post-check `RAISE`s *"% enabled trigger rows, expected exactly 1 (ruling B)"*.
+> Their commit `a5fd1651e` carries the measured case: fire cadence p50 90s → 60s, lost claims
+> **12.9%** against 58–60% trailing-24h, because the sibling pair was **co-picking the same site 94%
+> of the time** under a phase lock. **A single dispatch lane at 30s IS the ruled configuration**, and
+> migration 584's VERIFY now `RAISE`s by name on *"a second enabled trigger row OR interval<30"* —
+> so re-enabling it would not merely have been unwise, it would have tripped a guard written to hold
+> that ruling.
+>
+> **The timing match that convinced me — disabled mid-outage, eight seconds after its last run — is
+> a coincidence.**
+>
+> **⚠ AND THE DISCONFIRMING EVIDENCE WAS IN MY OWN QUERY OUTPUT.** I printed both rows together:
+> `build-pipeline-trigger | t | 30` and `build-pipeline-trigger-2 | f | 60`. **A pause leaves the
+> survivor's configuration untouched; only a deliberate reconfiguration changes it.** That interval
+> asymmetry — 30 on the live row against the 60 the retired row is frozen at — is exactly migration
+> 637's arithmetic, sitting on my screen, and I read past it because I was already reading the row
+> for something else (`enabled`).
+>
+> **Why I made the error, which is the transferable part:** I had just been *right* about an outage
+> residue — the 21 items that burned their attempts — and had written that up in the words *"the
+> visible half of an incident ends, and the mitigations it justified stay on."* **A frame that fits
+> one case primes you to fit the next one to it.** The second case had a timing coincidence to offer
+> and I took it. What made the wrong inference cost nothing was **not** my judgement: it was
+> declining to flip a fleet-wide switch I did not own. *Check-before-flip is what converts a wrong
+> inference into a message instead of an incident.*
+>
+> And what actually caught it was not reasoning at all — the peer says a **memory line naming
+> trigger-2 as that lane's designated ROLLBACK LEVER** made "deliberate retirement" a live
+> alternative worth ruling out. **A durable record beat both our inferences**, which is the argument
+> for writing the boring ones down.
