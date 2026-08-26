@@ -5947,3 +5947,13 @@ surfaced as psql "invalid command \" - dollar-quote ban JSON.
 **LAUNCH STATE: everything in this lane's hands is DONE.** Served preview = final copy +
 label; register guarded; the one remaining go-live action is the owner's Cloudflare
 page-rule removal (RUNBOOK gates all green as of tonight).
+
+**2026-08-26 (night) — the domain-FINDING workflow built + proven (VMB-018).** Owner rules
+encoded verbatim (generic only, brand tokens as a FORBIDDEN list, shortest/fewest words,
+hyphens only as fallback). Fixture proof (Leeds plumber, "Smith & Sons" banned): 21+7
+stems via an INLINE execute_llm_prompt workflow (no new agent type; ⚠ the step needs a
+FULL ai_service block - provider/model/api_key_env_var - the generic agent has no
+defaults, and the miss surfaces only at run time), 28 names checked live at Nominet,
+ranked output topped by leedsgas.uk; leedsplumber taken, correctly absent. Chain now:
+find (VMB-018) → owner picks → register (VMB-017 --apply, owner-gated) → zone+point
+(cf_customer_domain_zone.sh, zone_live_at stamp) → serve. All inside the severable layer.
