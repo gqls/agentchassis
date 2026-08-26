@@ -602,3 +602,19 @@ rendered the old prompt (expect `!important`); after, the fenced one (expect NO 
 `needs_important:false` rows). Grade by `llm_call_log.created_at`, not by site. The post-655
 repairs are ALSO the live test that a strictly-greater selector wins WITHOUT `!important` — if one
 fails to take at the next audit, the design wants that visible (655's risks §2).
+
+> **CORRECTED 2026-08-26 19:05 UTC:** §(r) said 655 was "APPLIED ~19:20 UTC" — the estimate was
+> written without reading the clock. The row says `agent_definitions.updated_at = 18:57:48 UTC`;
+> the sample splits THERE. Caught three minutes later by the first post-apply render.
+
+## 2026-08-26 (s) — the fence PASSED its first live exercise, 3.5 minutes after apply
+
+`llm_call_log` for garden-tools, `plan_css_fix`, ordered by time: five renders 18:44–18:48 UTC
+(pre-655) all show `general_rendered=t, fenced_sentence=f` and every reply kept `!important`;
+the first post-655 render (`ecd68793`, 19:01:20 UTC) shows `general_rendered=f,
+fenced_sentence=t` and shipped
+`body .tool-guide-intro-section .tgi-step-desc { color: #4a5240; }` — (0,2,1) strictly above the
+required (0,2,0), **no `!important`**. Same model, same row shape, same evening: the behaviour
+tracked the prompt exactly, which is as clean a controlled comparison as this estate will ever
+hand us. Remaining drains (garden-tools 7–8 rows, cookly 5) are all post-655 — expect no
+`!important` throughout; any reappearance is a real finding, not noise.
