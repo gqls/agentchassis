@@ -124,3 +124,9 @@ SELECT current_step, status FROM orchestration_states WHERE correlation_id::text
   label-match hypothesis appended to `bugs_open/248` — including that the lock CONFOUNDS their
   re-author discriminator; coordinate before unlocking.
 - Hero on index deliberately left unlocked (its keep holds; preserves 248's natural surface).
+- **Critic dispatch, corrected same day:** `orchestrate_safe.sh design-critique-agent` runs it INLINE
+  on the shared chassis → `no storage client` (`complete_no_critique`, corr `95f6b328`). Use
+  **`scripts/design_critique_run.sh <site_id> <domain> [leg]`** — a `design_critique_run` work item
+  the dispatch loop SPAWNS (the 243 lesson, already written in `tool_acceptance_run.sh`'s header).
+  Seed 645's header is wrong on this and cannot be edited (ledger checksum); SQ-003 carries the
+  correction. First spawned run: item `4f1fb87b`, leg `before_hero_batch`.
