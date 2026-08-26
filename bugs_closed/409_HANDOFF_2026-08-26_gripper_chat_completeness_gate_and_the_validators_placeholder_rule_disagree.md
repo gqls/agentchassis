@@ -152,3 +152,26 @@ walked through both traps and out the other side): `pending → pulled → email
 in ~14 min, untouched. Page 200 / 95,683 B, carries `80 mm` and the full flange
 standard, **zero** occurrences of the mis-heard `300`, zero placeholders.
 **Close now waits ONLY on the v1.0.1343 swap + the code-guard capability probe.**
+
+---
+
+# CLOSED 2026-08-26 — fixed AND live, every criterion met
+
+- Council corr `70083c99`: r1 REVISE (objection right) → r2 **APPROVED, all reviewers**.
+- Guidance half live on v1.0.1342, code half live on **v1.0.1343** (container
+  revision label `3abb46509…`, the r2 commit's build — checked at the artefact).
+- Replays, all live in production: (a) vague flange → clean partial fact, no
+  hedge; (b) volunteered "travel" → discriminating question, no bind;
+  (c) baseline chat→`emailed` in 14 min, page carries 80 mm / full flange,
+  zero stray 300s.
+- **Code-guard probe, the discriminating one** (session `a5209ff9…`): visitor
+  INSISTS 300 mm is the jaw opening for a 120 mm part → the model records it
+  ("Got it… jaws span 300 mm") → the returned spec holds NO travel_mm and
+  missing_fields re-asks — `reconcile()` dropped it server-side. The reply
+  prose being one turn behind is the known, accepted dynamics; `complete` is
+  computed in code and never trusts the model.
+- Residual, stated: a visitor who genuinely needs a jaw span >1.5× their part's
+  largest stated dimension re-gets the question for ever (accepted in the
+  council round's risks — such a span also matches nothing in the index). The
+  cluster-side prose/validator seam is untouched by design; a hedge appearing
+  in prose from a CLEAN spec would be a NEW bug against the prose prompt.
