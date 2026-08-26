@@ -104,3 +104,29 @@ exist, both producing lanes CLOSED — candidate 1's home is write_audit_finding
 lane). **Standing watches:** the first full-council sweep (record rows must stay `deferred`, 0
 dispatched); the 376 §11e behavioural tests on the next draws; the record-verdict release queue
 (RUNBOOK query) as rows accumulate.
+
+---
+
+## 8. MORNING AFTER (2026-08-26) — recovery, the origin door, and what remains owed
+
+**Credit restored ~08:58Z; recovery verified end-to-end** (residue re-fired in the RUNBOOK recipe's
+shape at 09:02:48; 0 credit-class rows at `failed`; the one leave-out judged by its lane — stays
+failed, their known 253 defect). **Post-restore council is clean:** 44 record rows, 17 seat calls
+0 failed, 0 new seat-failure rows, a full cycle to `call_dispatch`. The outage's cooldown worry
+dissolved by design: `record_audit_attempt` never touches the fingerprint, so all 20
+attempt-stamped sites are due again (`fp_changed`).
+
+**405 candidate 1 is DONE except its post-roll proof:** the origin stamp
+(`spec.origin='model_opinion'` in every `write_audit_findings` base spec, per-arm tests, lockstep
+`TestOriginDoorLockstep`) + migration **629** (the promoter's fifth door, four anchored replaces) —
+**APPROVED round 1 (corr `946d587c`) and APPLIED**; the door holds nothing until the stamping
+binary rolls (Go postdates v1.0.1339). The verdict queue's read/release interface is in the
+RUNBOOK ("The verdict queue"). Design-discovery rotation re-enabled 09:20Z by the webdesign lane
+(owner instruction) — its mechanical findings pass the origin door untouched, by design.
+
+**Owed, in order:** (1) after the next chassis roll — 405 §6's two-direction door proof (synthetic
+held row + natural-promotion control) AND 376 §11e's three research-floor tests (the next
+greenfield dispatch doubles as the proof run; the route is unblocked); (2) the repair-surface door
+(finetuning lane's generalisation — a declared handler property + a sixth door; 396-family, not
+this lane's, precedent handed over); (3) RFC_056's named follow-ups (design-audit child fail-open;
+the 621-convergence of the two park shapes; a real verdict-release surface).
