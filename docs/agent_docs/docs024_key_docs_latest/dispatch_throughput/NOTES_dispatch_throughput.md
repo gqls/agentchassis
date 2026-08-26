@@ -753,3 +753,23 @@ beside the window.
 
 Commit carrying this entry carries `Council-Reviewed: 95099f95` — verdict read in full,
 advisories dispositioned above.
+
+### 2026-08-26 ~21:2xZ — 657 council r1 REVISE (a REAL catch), r2 in flight; one loader fact adopted into this lane's practice
+
+Reported by the 413 session (their lane's work, recorded here because tomorrow's all-clear gates
+on it): r1 on `ecf2e542` returned REVISE ~12 min in — debug_historian HIGH, and RIGHT: their K
+subquery selected the loop row by `ORDER BY updated_at DESC`, but **the runtime loader selects
+by `version DESC`** (`loadAgentDefinition`, `processor.go:371-389`); `updated_at` is degenerate
+fleet-wide (199/200 live rows share one microsecond — the LANDMINES entry this lane already
+carries). Moot today (one active row, their preflight asserts it) but a latent wrong-row read.
+Fixed (`9ff62d8a4`: K mirrors the loader's rule verbatim; UPDATE pinned by captured row id),
+proofs re-run green 21:10Z, r2 submitted ~21:13Z on the same correlation.
+
+**Adopted here:** any query this lane writes that reads an agent's LIVE config must select the
+row the way the LOADER does — `version DESC` among active rows — never by `updated_at`. 658 is
+unaffected (its WHERE hits the single row and RAISEs on ROW_COUNT≠1; the one-row-in-any-state
+census is re-run before apply), but the rule goes into tomorrow's practice: when in doubt about
+which row the runtime reads, mirror `processor.go:371-389`, not a timestamp.
+
+Slot logic unchanged and restated: **no acted-on verdict = no 657 apply.** If r2 lands APPROVED
+it will be before the 09:00Z read; a further REVISE is theirs to act on before the ≥12:00Z slot.

@@ -69,9 +69,14 @@ migration 657), coordinated below. A chassis roll at ~20:26Z caused **no dispatc
   `load_items.max_items` (COALESCE 1); candidate 2 (age floor) goes to the owner as policy.
   Contract: they apply ≥12:00Z 2026-08-27 **on this lane's all-clear after the ~11:30Z read**,
   and ping with the stamped time. Their build is COMMITTED (`5f1401a85`: 657_HOLD/_ROLLBACK/
-  _VERIFY + an AST ordering-contract test, mutation-proven) with council in flight
-  (corr `ecf2e542` — before giving the all-clear, check their verdict landed and any REVISE was
-  acted on). Their dry-run evidence, dated 20:46Z: rolled-back-transaction apply green; census
+  _VERIFY + an AST ordering-contract test, mutation-proven) with council on corr
+  `ecf2e542`: **r1 REVISE** (debug_historian HIGH, a real catch — their K subquery selected the
+  loop row by `updated_at DESC` where the runtime loader selects `version DESC`,
+  `processor.go:371-389`; fixed in `9ff62d8a4`, K mirrors the loader verbatim, UPDATE pinned by
+  row id), **r2 submitted ~21:13Z** — before giving the all-clear, confirm r2's verdict landed
+  APPROVED and was read; no acted-on verdict = no apply. Lane rule adopted from the catch: read
+  an agent's live config the way the LOADER selects it (`version DESC` among active), never by
+  the degenerate `updated_at`. Their dry-run evidence, dated 20:46Z: rolled-back-transaction apply green; census
   28 eligible/15 pinned; same-instant divergence OLD→webdesign.co.uk (the rank-135 pin),
   NEW→vetcomparison.uk. The fire-gate gap is filed as **bugs_open/415** (gate:
   `status='triaged' AND pipeline='build'` vs selector: triaged+approved, no pipeline filter —
