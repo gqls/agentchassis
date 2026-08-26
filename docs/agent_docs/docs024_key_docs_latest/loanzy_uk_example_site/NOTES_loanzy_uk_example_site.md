@@ -2066,3 +2066,8 @@ every time; the reading was not — and nothing in scrollback marks a row as unr
 **say N out loud before interpreting, and make the interpretation account for all N.** Filed by them in
 WRONG_CALLS (the reader's half) and 016b §9 (the system's half: green item + correct commit + unchanged
 site = the CI provider is down; status-page curl FIRST).
+
+**2026-08-26 17:55:31Z — GitHub Actions recovered (component → operational); deploy queue at ZERO two
+minutes later.** The stall ran ~15:37Z→17:55Z, entirely external, nothing of ours touched. Served-bytes
+verification is trustworthy again for anything deployed post-recovery. The last soft gate on dispatching
+farmerinsurance.uk is gone; awaiting the owner's domain/mission answer.
