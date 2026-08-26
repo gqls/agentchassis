@@ -1,5 +1,12 @@
 # HANDOFF — `bugs_open/357`, component identity — 2026-08-26
 
+> **SUPERSEDED 2026-08-26 evening by `HANDOFF_2026-08-26b_continue_here.md` — read that first.**
+> Since this file was written: the credit blocker CLEARED (~09:00Z, held all day); `v1.0.1345`
+> rolled WITHOUT a 408 fix (canary + 578 still forbidden); and a review pass showed the §1
+> canary pass condition below passes VACUOUSLY once 408 is fixed — the save exits at
+> `len(sections)==0` before the conservation loop ever runs. The 578 procedure (§2) and the
+> close-out bar (§3) in this file remain current.
+
 **Cold-start. Read this, then `HANDOFF_2026-08-25b_continue_here.md` (superseded but it holds
 the full evidence trail for the prune-floor finding, which is not repeated here in full), then
 the bug file `bugs_open/357_HANDOFF_2026-08-22_a_whole_tool_page_is_stored_in_a_slot_that_claims_to_be_a_hero_component.md`.**

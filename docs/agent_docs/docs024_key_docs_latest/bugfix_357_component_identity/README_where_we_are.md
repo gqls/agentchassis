@@ -623,3 +623,23 @@ four sections — which the tool builder can never produce. The save is then ref
 is left empty. Thirty-two pages across fourteen sites are sitting refused because of it, going
 back to the end of July. That deserves its own file and its own review, and it will keep
 producing casualties until someone fixes it.
+
+**2026-08-26, evening.** The API credit came back this morning and held all day, so that
+blocker is gone. A fresh build (v1.0.1345) rolled tonight, but nobody has fixed the crash bug
+(408) yet, so rebuilding the adopted page is still off-limits.
+
+Before carrying on I re-checked the whole plan, and found a problem with the test we were
+queueing up: once the crash is fixed, that test would come back green without proving
+anything — every step in the chain quietly skips, nothing touches the row, and our checklist
+reads that as a pass. Worse, the cv1 pages can never prove the thing the repair (578) actually
+depends on, because their build plans point at the adopted component itself, so the build
+always skips before the preservation machinery gets a turn.
+
+The 22 mislabelled pages are the shape we actually need to test — their plans point at "hero",
+so a rebuild really does generate new content and the preservation machinery really does have
+to fire and keep the new label. So the suggestion for the next session: fix the crash bug
+first, then trial the repair on ONE of the 22 (the simplest mortgage-calculator page), rebuild
+it, and check the database row AND the live page. If both hold, run the full repair. One thing
+to watch on that trial: the pipeline publishes the rebuilt page to the site one step before
+the preservation logic runs, so the live page needs reading afterwards, not just the database.
+Full detail in the new handoff (2026-08-26b).

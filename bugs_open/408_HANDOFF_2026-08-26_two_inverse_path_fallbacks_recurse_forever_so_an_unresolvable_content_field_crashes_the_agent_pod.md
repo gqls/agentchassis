@@ -142,3 +142,19 @@ and the orchestration reaches a terminal state rather than sitting at `assemble_
   `docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/HANDOFF_2026-08-26_continue_here.md`.
 - **`bugs_open/406`** — the other defect the same investigation turned up; unrelated mechanism.
 - The stale-orchestration reaper is the only thing that releases the wedged runs, at **>4h**.
+
+## 8. Addendum 2026-08-26 evening (357 lane) — caller census, and what fixing this exposes
+
+- **`extractFieldValue` has exactly 1 caller as of 2026-08-26** — `AssemblePageAction` at
+  `multipage_actions.go:106` (`grep -rn 'extractFieldValue(' platform/ internal/ pkg/`). So
+  candidate 1 cannot break another call site: the `""` contract is already what the sole
+  caller handles.
+- **Fixing this converts 357's canary crash into a clean full-chain skip, and the 357
+  handoff's canary pass condition then passes VACUOUSLY**: assemble returns the skip shape →
+  `git_commit` skips (`checkUpstreamSkipped`) → `save_sections` runs but exits at
+  `len(sections)==0` (`save_page_sections_action.go:344`/`:401`) before the Layer 2
+  carry-forward → the run COMPLETES with the row untouched. Whoever fixes this: do not let a
+  green cv1 canary be read as precondition-4 evidence for migration 578 — see
+  `docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/HANDOFF_2026-08-26b_continue_here.md`.
+- **v1.0.1345 (rolled 2026-08-26 ~20:36Z) does NOT carry a fix** — no commit touches this
+  file after `c4baa53e7`, and the recursion is present at HEAD (`:1213`/`:1223`).

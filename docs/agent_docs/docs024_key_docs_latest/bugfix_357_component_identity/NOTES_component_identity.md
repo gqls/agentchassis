@@ -1555,3 +1555,70 @@ correlation, before it is reaped) — that shows the adopted section's rendered 
 settles it. It costs one more pod crash and a 4-hour wedged orchestration
 (`bugs_open/408`), which is a real price to pay for a confirmation, and the 578 recommendation
 does not change either way: **do not run it while the cause is open.**
+
+### 2026-08-26 evening — review pass: the canary's pass condition is VACUOUS once 408 is fixed, and cv1 cannot test precondition 4 at all
+
+Context: owner asked for a second-opinion review of the lane state before carrying on. Checks
+re-run first-hand at HEAD and the live DB. Two state changes, three findings.
+
+**State change 1 — the credit blocker CLEARED ~09:00Z and held all day.** `llm_call_log`
+grouped by success: 200–300 successful calls/hr WITH output from 09:00Z onward (read at
+~15:00Z and again ~21:00Z). The morning banner's "ZERO working LLM calls" is stale.
+
+**State change 2 — v1.0.1345 rolled ~20:36Z (pods `agent-chassis-5864bf97c5-*`, both agree on
+the tag). It does NOT carry a 408 fix** — not by stamp-reading but structurally: no commit in
+this repo's history touches `multipage_actions.go` after `c4baa53e7` (328, pre-408), and the
+recursion is present at HEAD (`:1213`, `:1223`) — so every buildable commit carries the
+defect, whichever one 1345 was cut from. **Canary and 578 remain forbidden.**
+
+**Finding 1 — post-408-fix, the morning handoff's canary pass condition passes VACUOUSLY.**
+Traced at HEAD:
+1. writer skips (0 sections) → `assemble_page` gets `""` from a fixed `extractFieldValue` →
+   returns the skip shape (`multipage_actions.go:108-120`) — no crash;
+2. `git_commit` skips via `checkUpstreamSkipped` (`git_deployer_actions.go:673`, keys on
+   `assembled_page.skipped`);
+3. `save_sections` RUNS — its early exit is keyed to the OWNED-page marker only, deliberately
+   (`save_page_sections_action.go:71-90`) — and exits at `len(sections)==0` with
+   `success:true, skipped:true` (`:344`/`:401`), BEFORE the DELETE-and-reinsert and BEFORE the
+   Layer 2 carry-forward (`:555-600`);
+4. the run reaches COMPLETED.
+
+So `save_result` present + rows still 1 + md5 unchanged + still `adopted-fragment` — every
+clause of the stated pass condition — while the conservation machinery never executed. The row
+"survives" because nothing touched it.
+
+**Finding 2 — cv1 is structurally the WRONG vehicle for precondition 4.** What 578 depends on
+is the ARMED identity-carry inside a real Layer 2 splice: an incoming, normally-generated
+section matching the adopted row's slot, and the stored bytes keeping their own identity
+instead of the plan's (`save_page_sections_action.go:562-577` — "without this … the very next
+rebuild re-mints `hero` over an adopted row and the population renews itself"). That path only
+runs when the save carries >0 incoming sections for that slot. cv1's adopted pages can never
+produce one: their `pages.sections` plans name `adopted-fragment` itself (index planned=1,
+tool-example planned=1), so the writer always skips. [INFERRED at the code level that the
+planner consumes `pages.sections`; measured at the behaviour level — it planned exactly the
+plan's one section onto exactly the plan's component.]
+
+**Finding 3 — the 22 population pages are the RIGHT shape, and one of them is the natural
+pilot.** Measured 2026-08-26: all **22** plans name `hero` (`plan_names_hero = t` on every
+row); **16** are `rebuild_policy='generic'`, **6** `'owned'` (the gamesdesign `tool-*` six —
+matching 578's "six owned pages"). Post-578 a rebuild of a generic one generates a fresh hero
+per its plan, the save carries it, Layer 2 splices (match key is the SLOT, which 578 preserves
+— it RAISEs if `slot_name` moved), and the armed carry must keep `adopted-fragment`. That IS
+precondition 4. Minimal pilot: retype ONE row by 578's own procedure scoped to one page —
+`mortgagecalculator.co.uk/tool-simple` is the minimum (planned=1, generic, single row) — then
+rebuild that page and assert the REAL pass condition: `save_result` present AND
+`sections_saved > 0` AND rows still 1 AND bytes preserved AND component STILL
+`adopted-fragment`, not re-minted `hero`.
+
+**Open question the pilot must answer before anyone widens it — what does the SERVED page hold
+afterwards?** The chain commits the assembled (prose-hero) page to the sites repo BEFORE the
+save's preservation runs (the LANDMINES `assemble → git_commit → save` entry). This is a
+property of TODAY's rebuild of any generic population page, not something 578 introduces — but
+the pilot will exercise it, so read the served page after, not just the DB row. The 6 owned
+pages are refused at assemble and are not exposed.
+
+**Also measured:** `extractFieldValue` has exactly **1** caller as of 2026-08-26
+(`multipage_actions.go:106`) — 408's candidate 1 cannot break another call site. And no 406
+confound on cv1: index planned=1 → ratio 1.0, the prune floor cannot fire. Note the pilot does
+not structurally require the 408 fix (its plan generates real content), but any no-content
+outcome on the way still crashes the pod until 408 is fixed — fix 408 first regardless.
