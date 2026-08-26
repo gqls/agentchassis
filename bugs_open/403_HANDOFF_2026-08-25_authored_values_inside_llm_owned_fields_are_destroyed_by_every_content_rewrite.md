@@ -205,6 +205,15 @@ provenance exists to gate it). Ruled once, here, by this lane as the marker's ow
   that would be accumulation-before-need (RFC_022's watch class). The 395 lane builds its
   column instance independently, citing this ruling; words stay aligned ("authored" forbids,
   "minted" licenses).
+- **CAVEAT, from 395's follow-up measurement `[2026-08-26]` — before extending the human mark
+  to a plain COLUMN, verify the mark would have a WRITER.** They measured (with a demand
+  control: the admin surface does write other `pages` columns) that NO human-facing interface
+  can write `pages.meta_description` at all — so a human mark there would be permanently NULL,
+  and **a permanently-NULL guard reads exactly like a guard that is working** while licensing
+  everything for ever. They are NOT building it; the recorded condition is that whoever ships a
+  human editor for that column adds the mark in the same change (condition-(2) discipline).
+  Inside `content_data` the mark plainly has writers — this bug exists because humans DO author
+  those fields — but the check is per-surface and empirical, not part of the convention.
 - **Related, from 395's evidence:** `pages.meta_description` has three writers, all
   create-or-fill-blank except `save_page_meta_description_action.go:211` — a non-empty value
   is structurally IMMUTABLE there (`bugs_open/320`), the exact inverse of this bug's failure
