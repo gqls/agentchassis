@@ -56365,3 +56365,15 @@ a-submission-is-not-a-review.
 > Family: [[grep-landmines-for-your-symbols]] (the SessionStart hook only matches dirty
 > files — a table you newly READ is never shown), [[a-revise-round-is-cheaper-than-the-defect-it-finds]],
 > the-marker-is-not-the-check (all my proofs shared the one blind spot).
+
+## 2026-08-26 — vetcomparison lane: "AHCs aren't one of the CMA's 36 items" — published to a claimant, refuted by one SELECT
+- **The claim:** the Vet Home Certs reply draft (sent by the owner) stated Animal Health
+  Certificates are not in the CMA's 36-item standard comparison, so their prices would show only
+  on their own listings.
+- **What caught it:** preparing to insert their prices — `SELECT ... WHERE slug ILIKE '%ahc%'`
+  returned `cma-1-animal-health-certificate`, CMA item **1**, cma_item=true.
+- **The error:** asserting a TAXONOMY ABSENCE from memory of a summary ("36 items: consults,
+  neutering, dental…") without querying the taxonomy table that was one SELECT away. DB flavour
+  of "a grep proves absence only for the spelling it searches" — I never looked at all.
+- **The cheap check:** any "X is not in <enumerable set>" claim headed for a third party gets the
+  one SELECT/grep over the actual set, at writing time. The set was 36 rows; the check was free.

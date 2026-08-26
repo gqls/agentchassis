@@ -1590,3 +1590,50 @@ and writes NO rotation stamp. So a design visit without a rotation stamp = the l
 not move this site's rotation turn. The 07-31 palette_contrast capability_gap is deferred and NOT
 promotable — unchanged by the re-enable. The webdesign-tool-rebuilds session will also flag to us
 if a wrong image_url_404 re-file crosses their path.
+
+## 2026-08-26 — Vet Home Certs LIVE-TRACKED: 51 locations verified+actioned, and the claim flow's first real exercise found three seams
+
+Sam's data-bearing reply arrived from team@vethomecerts.co.uk (domain round-trip COMPLETE per the
+08-24 evidence rule) with the consent line verbatim and a PDF of 51 locations (Column B = town,
+per-location vet names supplied — HELD UNPUBLISHED, consent covers prices attributed to the
+practice; display contact is central: Team@VetHomeCerts.co.uk / vethomecerts.co.uk, booking
+/book-ahc). Standard £99; Cricklewood NW2 + Tottenham N14 at £110 ("two in London"). Sheet typo
+"Crickewood"→Cricklewood corrected, noted in claim notes. Their prices page 403s automation (bot
+wall) — prices publish under the claim licence: consent + their supplied URL + observed_at.
+
+**DB (claim 4752ed91 verified→actioned; all counts verified by query):** 51 businesses
+(group_name='Vet Home Certs', verified, claimed, SC786251, slugs deduped — Nottingham ×2 by
+postcode district) + 51 `product_prices` on **`cma-1-animal-health-certificate`** (£99×49,
+£110×2, pet_band any, product_url their /prices/, source claimed_listing). Umbrella row 02d63be6:
+claimed+verified but postcode NULL — **the exporter requires postcode IS NOT NULL, so it can
+never export**; that's the designed hold, not an accident.
+
+> **CORRECTED 2026-08-26 (my own 08-24 claim, PUBLISHED to the claimant in the owner's reply):**
+> the REPLY_DRAFT told Sam "Animal Health Certificates aren't one of the CMA's 36 standard
+> comparison items". **FALSE** — `cma-1-animal-health-certificate` is CMA item 1 ("incl.
+> additional-animal charges", cma_item=true, veterinary vertical). I asserted a taxonomy absence
+> without querying the taxonomy. Consequence is GOOD for the claimant (their £99 slots into the
+> standard comparison, stronger placement than promised) but the false line went to a third
+> party; owner may want a one-line correction in the next email. WRONG_CALLS entry below.
+
+**Three seams the first real cohort exposed (each fixed or worked around same-session):**
+1. **`business_type ILIKE '%vet%'`** gates BOTH the export directory arm and the page resolver —
+   my 'Mobile Animal Health Certificate service' contained no "vet" and silently excluded all 51
+   from the directory file (claimed/attributed arms counted them fine: 51/…). Fixed: type now
+   'Mobile veterinary service — Animal Health Certificates'. Export run 1 (21:42) shipped the
+   stale set; run 2 (21:44, post-fix) counted **directory 2201 = 2150 + 51** ✓.
+2. **The rendered card name COALESCEs trading_name first** — 51 identical "Vet Home Certs" cards;
+   cleared trading_name on location rows (kept on umbrella) so town-qualified names render.
+3. **The SSR directory section is ORDER BY name LIMIT 60 of 2,201** — "Vet Home Certs — …" sorts
+   past the cut for ever, inverting the claim-listing promise. **FIXED in code:** claimed-first
+   ordering in both resolver branches (`business_directory.go`), mutation-proven test, HEAD
+   builds (the verify-head-builds FAIL was my bad target arg — bare invocation is correct),
+   council `Council-Submitted: 09cf68c2`, commit `89cb6addb`. **Inert until the next chassis
+   roll + a directory-index rerender** — the rerender is owed AFTER the roll. The card template
+   already renders claimed/unclaimed chips, so no component change needed.
+
+**Git-adapter latency, measured:** run 1's commit landed 6 min after its request (21:42→21:48:38,
+sha 99265c32 — and its diff shows only 3 of "5 files" because the pre-fix vet-full-index was
+byte-identical, the honest tell that run 1 carried the stale set). Run 2's commit pending at
+writing; watcher armed on the REPO (the task's last_completed_at stamp is NOT delivery — two
+"completed" runs, one commit, is this session's third instance of stamp≠artefact).
