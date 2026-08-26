@@ -6004,3 +6004,18 @@ the fact (+value 49), the writer_block £200 mentions, rebuild the pages that st
 and set the buy-out Payment Link at £49. Stripe steps for purchases/vouchers/rentals
 presented in chat (Payment Links for rental £10/mo recurring + buy-out one-off; vouchers
 need ZERO Stripe setup - server-side price drop before the Checkout Session).
+
+## 2026-08-26 (late night) — buy-out RULED £59.99 and applied; Stripe key guidance given mid-flow
+
+Owner ruled £59.99 (thanks to the fee arithmetic; rental stays £10/mo). `SQL_2026-08-26e`
+applied: domain_buy_once claim/writer_line/value=59.99 + ruling appended to source;
+writer_block x3; identity/briefing/strategy x1 each. **Guard lesson worth keeping: fact
+SOURCES legitimately retain historical prices (the 08-19 quote says £200) — clean-sweep
+guards must scope to writer/bot-visible surfaces (claims, writer_lines, writer_block),
+never data::text whole-row.** Also paid: a 3-row supersede's INSERT..FROM rebuilt,retire
+CROSS-JOINS (3x3=9 inserts, unique violation) — aggregate retire to one row
+(retired AS (SELECT count(*)...)). faq + how-it-works rebuilds direct-fired (pre-claimed;
+corrs in scratch buyout_corrs.txt); index carries no £200 so NO label risk this round.
+Stripe: owner mid-key-creation; advised Charges and Refunds = READ (dashboard refunds
+use no API key; webhook uses the signing secret), untick the reporting template, only
+Checkout Sessions = Write required, widen precisely on a named permissions error.
