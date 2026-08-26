@@ -633,3 +633,72 @@ what replaced it. Guard induced against the pre-change state first (`found 0`, a
 > that whole class the verdict does not discriminate. Credit to the verifier for saying "not
 > answerable" instead of returning a green; that is the behaviour I spent yesterday failing at.
 > **Not re-dispatched** — it is LLM-shaped, and there is no credit.
+
+### 2026-08-26 ~09:0xZ — retirement blast radius RE-MEASURED, and the footer half of the plan is the wrong shape
+
+Step 3 is blocked on the credit outage (framework content path is LLM-shaped), so I did the two
+things the handoff says are owed and that measurement can answer. Both changed the plan.
+
+**1. Blast radius, re-measured `[MEASURED 2026-08-26 ~09:00Z]`** — the standing figure was **91**
+`page_components` rows and was taken *before* step 2 ran:
+
+| domain | rows | pages |
+|---|---|---|
+| ai-agent-orchestration.com | 30 | 19 |
+| leopardessconsulting.co.uk | 20 | 19 |
+| finetuning.uk | 13 | 11 |
+| **total** | **63** | **49** |
+
+Step 2 removed **28**. `content_data` and `rendered_html` agree **row for row** — `0` content-only,
+`0` html-only, `63` both — so there are no stale renders hiding a reference, which is the RFC_008
+writer worry and it is clean here.
+
+**2. ⚠ THE FOOTER IS GENERATED, NOT AUTHORED — so §5 step 1's "retire the page WITH the footer entry
+in the same operation" describes an edit that does not exist.**
+
+The `ai-agent-orchestration.com` footer `site_components` row holds, in `content_data`, exactly:
+`{year, email, phone, domain, tagline, company_name}` — **zero** tool links, **zero**
+`password-entropy`. The reference exists only in `rendered_html`. And the served footer lists
+**exactly the six live tool/game pages, in `nav_order` order** — the same six the ranking query
+returns. It is derived from the nav tables, which `populate_nav_tables` rebuilds from `pages`
+(LANDMINES, *"the obvious agent for a nav change deletes every child-path link"*).
+
+**So the risk inverts.** There is nothing to edit out of the footer; retiring the page removes it
+by construction. What can go wrong is the opposite: **retire the page and fail to refresh the footer,
+and every page on the site serves a link to a dead one** — the footer is a `site_component`, shared
+site-wide. The recipe already exists and the handoff does not name it: `nav-link-fixer` refreshes
+`site_components.rendered_html` from the existing nav tables, then propagate in **assemble mode**
+(`page-rerender` with **no** `spec.reason`); worked script
+`docs/leopardessconsulting/scripts/reconcile_footer_nav.sh`.
+
+> **I caught this only because the count moved under me.** Last night `aiao/index.html` served **2**
+> `password-entropy` refs; this morning **1**. Nothing was retired in between — the footer was
+> re-rendered at **01:01:44Z** and its generated list simply stopped featuring the tool in one of
+> two blocks (*"Tools / Password Strength Physics"* → *"Tools / AI Readiness Quiz"*). **The "2 in the
+> footer" I reported last night, in this file and to another lane, was a snapshot of a rotating
+> derived value presented as a fixed count.** A count of a generated list is a reading, not a
+> property.
+
+**3. The three sites will NOT retire the same way** `[MEASURED 2026-08-26]`:
+
+| domain | `in_header` | `in_footer` | `site_nav_items` rows | served refs |
+|---|---|---|---|---|
+| ai-agent-orchestration.com | **t** | f | **1** | 1 (footer) |
+| finetuning.uk | f | f | 0 | 0 |
+| leopardessconsulting.co.uk | f | f | 0 | 0 |
+
+Only **one** site has any nav/footer presence at all. The other two need no nav work — their 33 rows
+are page-body references only.
+
+> **And this resolves the discrepancy I flagged an hour ago rather than leaving it as "the flag
+> over-reports".** `in_header=true` on `ai-agent-orchestration.com` while the served **header** does
+> not carry the link is not the flag lying: `classifyPagesForNav` **demotes a child-path page**
+> (`/tools/…`) that declares a nav flag into the **`utility`** group instead of dropping it
+> (LANDMINES, narrowed 2026-07-31, NAV-013) — and `utility` renders in the **footer**. Flag honoured,
+> classifier overrides the placement. The earlier reading was right about the artefact and wrong
+> about the cause; *"the flag over-reports"* would have sent the retiring session looking for a
+> header edit that is not there.
+>
+> The same landmine names **leopardess `/tools/password-entropy.html`** as the one fleet-wide row
+> hand-written into `utility` against a page declaring neither flag. Its `site_nav_items` count is
+> now **0** — consistent with a rebuild having removed it exactly as that entry predicts.

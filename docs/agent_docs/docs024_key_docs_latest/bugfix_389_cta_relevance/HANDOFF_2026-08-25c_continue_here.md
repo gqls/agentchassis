@@ -10,6 +10,21 @@ verification recipe that file previously gave.
 
 ---
 
+## 0a. ⚠ FLEET LLM OUTAGE — read before planning anything
+
+`[MEASURED 2026-08-26 08:5xZ]` The Anthropic account ran out of credit at ~2026-08-25 23:46Z.
+**Zero successful LLM calls across 00:00–08:00**, 691 attempts, 690 of them verbatim *"Your credit
+balance is too low to access the Anthropic API"* (controls: 157 and 124 successes in the 21:00 and
+22:00 hours). Owner notified by the `loanzy_uk_example_site` lane.
+
+- **Blocked:** step 1 below (retirement goes through the framework's content path).
+- **Not blocked:** `cta_links_stale` rerenders (explicitly no-LLM), and all measurement/SQL work.
+- **Residue that survives the top-up:** **21** work items fleet-wide have exhausted `max_attempts`
+  against the dead API and will **not** self-heal — 7 `unbuilt_internal_link`, 4 `content_rewrite`,
+  4 `improve_tool`, 2 `dead_fragment_link`, 2 `needs_page`, 1 `needs_diagnosis`, 1 `page_rerender`
+  (20 of 21 cite the credit error; the `page_rerender` is a different failure that landed in the
+  window). None are this lane's. Re-fire recipe lives in the `loanzy_uk_example_site` RUNBOOK.
+
 ## 0. THE BUG IN ONE PARAGRAPH (unchanged)
 
 `chooseCTATargets` (`resolve_internal_links_action.go:651`) picks a site's primary CTA by sorting
@@ -162,11 +177,36 @@ put through it (17%)**: `finetuning.uk/your-own-model.html` and `finetuning.uk/t
 ## 5. NEXT: retirement (step 3), and the ordering is still load-bearing
 
 1. **Retire the three tool pages** (owner decision 1 — the shared library component
-   `tool-password-entropy` **STAYS** `is_active=true`), **with the footer entry and the three
-   `/tools.html` listings in the same operation**, through the framework (2026-08-04 ruling), never
-   hand-edits. Blast radius measured 2026-08-25 **before** step 2 ran: **91** `page_components` refs,
-   1 footer (`ai-agent-orchestration.com`), 3 live listings, 0 visible nav. **RE-MEASURE — step 2 has
-   just reduced it**, and a count carries the date it was counted.
+   `tool-password-entropy` **STAYS** `is_active=true`), through the framework (2026-08-04 ruling),
+   never hand-edits. ⚠ **Blocked on the LLM credit outage — see §0a.**
+
+   **Blast radius `[RE-MEASURED 2026-08-26 ~09:00Z]`** (the old **91** was taken before step 2 ran):
+   **63** `page_components` rows over **49** pages — aiao 30/19, leopardess 20/19, finetuning 13/11.
+   `content_data` and `rendered_html` agree row-for-row (0 / 0 / 63), so no stale render is hiding one.
+
+   > **⚠ CORRECTED 2026-08-26: "with the footer entry … in the same operation" DESCRIBES AN EDIT THAT
+   > DOES NOT EXIST.** The footer `site_components` row's `content_data` is
+   > `{year, email, phone, domain, tagline, company_name}` — **no tool links at all**; the reference
+   > lives only in `rendered_html`, and the served footer lists **exactly the six live tool pages in
+   > `nav_order` order**, derived from the nav tables. **Retiring the page removes it by
+   > construction.** The risk is the inverse: retire and fail to refresh, and every page on that site
+   > serves a footer link to a dead page. Recipe: **`nav-link-fixer`** refreshes
+   > `site_components.rendered_html` from the existing nav tables, then propagate in **assemble mode**
+   > (`page-rerender` with **no** `spec.reason`) — worked script
+   > `docs/leopardessconsulting/scripts/reconcile_footer_nav.sh`. Do **not** reach for the agent whose
+   > name says navigation; it deletes every child-path link (LANDMINES, NAV-013).
+
+   **The three sites do NOT retire alike** `[MEASURED 2026-08-26]` — only one has any nav presence:
+
+   | domain | `in_header` | `in_footer` | `site_nav_items` | served refs |
+   |---|---|---|---|---|
+   | ai-agent-orchestration.com | **t** | f | **1** | 1 (in the FOOTER) |
+   | finetuning.uk | f | f | 0 | 0 |
+   | leopardessconsulting.co.uk | f | f | 0 | 0 |
+
+   `in_header=true` yet no header link is **not** the flag lying: `classifyPagesForNav` demotes a
+   child-path page declaring a nav flag into the **`utility`** group, which renders in the footer.
+   Flag honoured, placement overridden. finetuning and leopardess need **no** nav work at all.
 2. **Then** re-resolve the 60 label-less fields (44 pages) — `cta_links_stale`, no LLM.
    **This cannot be brought forward.** `applyCTARecompute`'s KEEP #2
    (`rerender_page_sections_action.go:1114`) returns early for any stored destination that is a valid
