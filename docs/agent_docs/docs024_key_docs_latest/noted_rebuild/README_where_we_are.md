@@ -636,3 +636,18 @@ August css-patch saga — measured carefully: it currently breaks nothing
 (the piece it damages is an exact duplicate of a piece that already loaded),
 so I've recorded it with the evidence rather than poking at a surface other
 repair work owns. Nothing for you to do.
+
+---
+
+2026-08-26, evening. The big-files work is done and live on the editor side:
+the page now knows how to send a large file in slices, proved by its full
+test suite (75 checks) and the live smoke (all 17, still green). Nothing
+changes for anyone until the server half is installed — that's the two
+commands waiting for you in the runbook, and after them one test upload
+proves the whole chain. The paid tier stays parked until you've seen that
+proof, exactly as you ruled.
+
+One small operational note: your site's queued rebuild sat two hours behind
+other sites' backlogs today — a scheduling quirk another team diagnosed this
+very morning — so I used the documented direct route instead, and left the
+measurement with that team.

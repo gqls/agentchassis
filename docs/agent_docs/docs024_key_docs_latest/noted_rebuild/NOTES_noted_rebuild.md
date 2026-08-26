@@ -3022,3 +3022,20 @@ Escape-trap note: an Edit mixing the file's literal em-dash with its `…`
 escape was unplaceable — my channel rewrites emitted `\uXXXX` into the
 literal char (the standing landmine) — python patcher with the escape built
 programmatically is the working route.
+
+### The editor ship LANDED — via the 413 bypass, smoke 17/17
+
+The wave's `page_rerender: tool-write` (97b5fdcc) never got claimed: noted's
+9 eligible rows (created ~15:25Z) sat 2h while the loop ran ~440 claims/2h
+into sites with hours-older backlogs — `bugs_open/413`'s ordering class,
+filed today by the dispatch_throughput lane (measurement contributed to
+their dir). Resolution per the documented bypass
+(single-page-deploy memory, all its dos observed): CLAIMED the item first,
+fired 049b direct page-rerender (corr `3f179092`, assemble-only — correct,
+since 077 had already written the chunked placement render), orchestration
+COMPLETED deploy_success=true in seconds, repo commit `321bb6ebf` 17:23:33Z,
+**on the wire one sitesync tick later (17:27:39Z, 3 chunkedUpload refs)**,
+item completed honestly with the route+corr in result. **Live smoke 17/17**
+against the new editor page on the OLD engine — the chunked path inert
+exactly as designed. Remaining: the owner's two box blocks (RUNBOOK "Large
+uploads") and the >30 MB acceptance probe after them.
