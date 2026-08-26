@@ -4,6 +4,23 @@
 `HANDOFF_2026-08-25_continue_here.md` (same day, morning) and `HANDOFF_2026-08-24_start_here.md`
 (the original cold start) — both kept for the record, neither current.
 
+> ## ⚠ READ FIRST — 2026-08-26 09:05Z: STEP 1 IS DONE, AND ONE THING IS STILL OPEN
+>
+> Migration `634` **applied 09:01:00Z** and the verifier is **REGISTERED** (`44e094776`). Go↔live
+> rendering is **byte-identical** (373 bytes, `cmp`-clean), so the drift auditor will go green —
+> **but not yet.**
+>
+> **THE ONE OUTSTANDING ITEM: the `live-declaration-drift-check` image must be rebuilt, tagged and
+> applied.** Until then its 07:00Z job is **RED DAILY**, and that red is **expected, owned by this
+> lane, and must not be "fixed" by reverting `634`.** An announcement row is in `doc_notes`
+> (`subject_key='live-declaration-drift'`). This is a fleet-release action, not a lane action.
+>
+> **AND NO ARM IS ARMED.** The verifier is registered and consulted by *nothing*: all three arms of
+> `CQ-023`'s router carry an `Acknowledged` reason instead. Arming is the next decision — start with
+> `close_resolved`, never `close_converted` (documented fail-close). See bug §12.
+>
+> Everything below this box predates the apply; the step table in §3a is current.
+
 > **In one line:** three council-approved changes shipped, nothing is pending, and **the bug is still
 > OPEN and should be**. What is left is §3 — and only one item there is blocked on anything.
 
@@ -90,12 +107,12 @@ and the LANDMINE *"Registering a verifier is NOT a one-line change"* carries it 
 
 | # | step | state |
 |---|---|---|
-| **1** | **Apply** a migration amending the live `scheduled_tasks.pre_query` for `claimed-item-timeout` | ⚠ **WRITTEN, council-APPROVED r1 (`1748b849`), then HARDENED BY A FABLE ADVERSARIAL REVIEW (2026-08-26) — STILL NOT APPLIED.** Commits `d6971c6b0`+`07dd736a4`+`e5b51a3ea`. The review found the anchor was a PREFIX (one missing `)`) that would have applied silently mid-list under 395's planned amendment — fixed, and the moved-clause case is now a demand control. ⚠ **Window closes at the drift-check IMAGE REBUILD + tag bump, NOT at the Go commit** — plan the sitting accordingly. ⚠ Go slice entry appends at the **END** — position is load-bearing. Applying is an owner call |
-| **1b** | Add `required_fields_missing` to `livespec.ClaimedItemTimeoutExclusions` **in the SAME COMMIT as step 3's `RegisterVerifier` call** — either alone breaks the build | not done |
+| **1** | Apply the migration | ✅ **DONE 2026-08-26 09:01:00Z** — `634` applied, verified at the live object (15 types, occurrences=1, task enabled) |
+| **1b** | exclusions entry + registration, one commit | ✅ **DONE** `44e094776` — entry appended at the END (position load-bearing); Go↔live **byte-identical** |
 | 2 | Scope-test licence in `write_audit_findings_verifier_join_test.go` `optedIn` | ✅ **DONE** |
-| 3 | Remove the type from `itemTypesWithoutVerifiers` | not done (correctly — it is still unregistered) |
+| 3 | Remove the type from `itemTypesWithoutVerifiers` | ✅ **DONE** — first entry ever off that backlog |
 | 4 | Lifecycle posture for the file | ✅ **DONE** (`PostureObserves`) |
-| 5 | `WII-031`'s lockstep will fail on **three** arms of `CQ-023`'s router — arm or acknowledge each | not done |
+| 5 | `WII-031`'s lockstep on three arms | ✅ **RESOLVED BY ACKNOWLEDGEMENT, not by arming** — per-arm reasons recorded. Arming remains a separate live decision |
 
 **Why the migration is first and load-bearing.** The `claimed-item-timeout` sweep writes
 `site_work_items` directly. Until the **LIVE** clause excludes this type, that sweep completes items
