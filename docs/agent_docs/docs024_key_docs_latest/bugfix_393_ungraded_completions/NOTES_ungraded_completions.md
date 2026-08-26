@@ -51,3 +51,31 @@ because whoever eventually releases them re-opens the question this lane's part 
 the roster comment's precondition (re-measure, rewrite or delete + exclusion row together) becomes
 live again at that moment. **The release recipe's owner should read
 `complete_work_item_no_change.go`'s dark_section_audit comment before releasing.**
+
+## 2026-08-26 (d) — part B built, proven at the wire, committed; and BOTH directions of the same-file-passenger landmine in one morning
+
+**The reader shipped**: `--ungraded-completions` mode + CronJob (07:35 UTC, slot proven free
+against the repo census with my own manifest excluded), acks file in-image, registry flipped
+`consumed`, DBG-077 registered. Wire proofs: live run 11/1/acked/exit-0 over 49,046 rows; novel
+type → exit 1; zero aliveness → exit-2 refusal. Three mutation proofs, file restored
+byte-identical. Council `0871db60`, verdict pending at write time.
+
+**The passenger landmine fired in BOTH directions within one hour:**
+
+1. **My WIP rode another lane's commit.** My registry flip (working tree, uncommitted) was swept
+   into `a0ec90eb9` at 10:16 — their pathspec commit of `finding_code_registry.json` took the file
+   as the tree held it. Consequence worth remembering: **from 10:16 until my commit ~40 minutes
+   later, HEAD's registry named a reader file HEAD did not contain**, so
+   `TestShippedRegistryIsSelfConsistent` was RED at HEAD through no commit of mine. A registry
+   entry and its reader must land together — and on this tree, "together" is threatened not only
+   by forgetting but by a THIRD PARTY committing the shared file between your edit and your commit.
+   The defence is the standing one: commit the moment the pair is coherent, narrowly.
+2. **Another lane's WIP rode mine, named.** The makefile carried an uncommitted
+   `IMAGE_TAG v1.0.1340 → v1.0.1341` bump from a release session; my pathspec commit takes the
+   whole file, so it rode along — named in the commit message rather than silent, per the estate's
+   accepted handling.
+
+**Remaining for 393**: the council verdict (`0871db60`), then the next fleet release builds
+`ungraded-completions-check` and applies its CronJob. Bar for closing: the check RUNS on schedule
+and writes its `doc_notes` row (`subject_key='ungraded-completions'`) — fixed AND live. First
+scheduled run: the first 07:35 UTC after the release.

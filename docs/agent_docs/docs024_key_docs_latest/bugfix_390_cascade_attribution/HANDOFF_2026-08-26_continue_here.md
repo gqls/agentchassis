@@ -164,3 +164,18 @@ note the resubmission delay in it). The commit `0b796c39d` carries `Council-Subm
 which stays TRUE — it asserts submission, not a verdict — and 098 resolves it once a real verdict
 lands on that correlation. Do NOT dispatch a duplicate on a fresh correlation: that is the
 double-round the runbook warns about.
+
+---
+
+## ⚠ DATED UPDATE 2026-08-26 ~11:20 BST — §1(a) is DONE: 635 is APPROVED, and the whole 390 trail is now council-clean
+
+The resubmission on `fe5cbe0c` (after the provider outage) returned **APPROVED at 09:14 UTC with
+ZERO objections** (6 abstained). All three 390 commits now carry approved verdicts:
+616 (`ef5f9a0d`, r2) · attribution (`058b59b6`) · 635 (`fe5cbe0c`, r2 after an infrastructure-dead
+r1). 098 credits the `Council-Submitted:` trailers automatically; no amends.
+
+**The ONLY remaining work on 390 is §1(b)–(e): verification at the artefact.** First post-roll
+audit expected at the first hourly rotation tick after ~14:16 BST today (remortgagecalculator.uk
+due 13:16 UTC; then garden-tools 17:18, cookly 18:19 UTC). P1 was graded — the observation
+confirms 542's gate but it was a POSTDICTION (event preceded registration by 2h; WRONG_CALLS
+2026-08-26); P2–P4 remain genuine and pending.
