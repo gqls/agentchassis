@@ -442,3 +442,8 @@ retraction requested"** — the key stays, the decision is retract-or-not (one s
 blocks on it. Confirmed: their sweep's `consumer_pages: 1, current: 0, unknown: 1` reading on
 lampenkap is the empty `tool-list` (no `tool` pages), unrelated to GTM, and will read the same
 after the re-render — nobody should expect the wave to change it.
+
+**18.** Same-file passenger, owned: my WRONG_CALLS commit `b6fd59944` swept in the `bugs_open/384`
+lane's then-uncommitted entry ("USAGE count read as DAMAGE count") alongside mine — the scope report
+cannot see a same-file passenger, and the numstat (58 lines for a ~16-line entry) was the tell.
+Nothing lost, forward-only; their entry is intact and now committed under my message; they were told.
