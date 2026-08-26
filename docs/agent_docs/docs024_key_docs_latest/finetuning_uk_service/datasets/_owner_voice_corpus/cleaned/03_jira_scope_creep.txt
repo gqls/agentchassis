@@ -1,0 +1,18 @@
+Jira and other "bug tracking" software are all susceptible to the scope creep disease.
+
+The more you use it the more you depend on it, and as the agile or kamban or whatever process spreads its influence; across to top management, assimilating borg-like, HR, marketing, sales, but not yet accounts; so the jira licences increase, and so does its importance in the organisation.
+
+Departments might use it in different ways with different plugins and interpretations of the standard fields. But it all remains with the devs or IT to maintain and upgrade - the most time poor of all departments facing more and more hidden and unaccounted for, high risk scope creep. Taking time away from other high priority fixes too.
+
+So what could go wrong
+Well Jira is close but, not yet at that previously described, reliance levels in most organisations, but I fear that will change quite rapidly now that the pace of its adoption, along with that of kamban and agile, has increased.
+
+A recent scare at one client prompted this article. Licences had run out (and payment was in process but had not yet left the building) but despite assurances that Jira would continue to run, the expiry nevertheless meant that the software needed a reboot.
+
+It was some time before this was discovered especially since the department firefighting noise had become significantly greater due to that very problem.
+
+A second warning came when Jira was being moved onto the cloud. A misconfigured memory setting meant that the process was very slow, as was the software. Staff, outside agencies and a whole load of other people you didn't even know called up in frustration.
+
+And what if accounts decides that it would be an easy win to move to a different system? I can see an underestimation of its influence being a major factor in reducing the company's output for days or weeks.
+
+It stands to reason that if a productivity suite works well and significantly increases productivity, then when it goes down so does the whole company's output. Significantly.

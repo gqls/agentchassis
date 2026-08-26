@@ -1,0 +1,7 @@
+What if you collected all . . .. No, that sounds like too much work for this mind trip.
+What if someone collected all your old bug tracking tickets from Jira, Redmine, Trac, Mantis or whatever and categorised them?
+Difficult yes, Impossible no. Useful ?
+Well, what if you categorised them into new features or bugs, bugs on new features, devops or programming, front end or back end, which project, client requests or internal, how they compared to original estimates etc.
+It starts to look interesting and it could help in deciding to tackle areas of troublesome code head on, allocating resources, asking for new budgets, swapping priorities, hiring people, sacking people, sacking departments, ok, ok.
+Plot this information into graphs and you've just made a nice colourful screensaver.
+Useful.

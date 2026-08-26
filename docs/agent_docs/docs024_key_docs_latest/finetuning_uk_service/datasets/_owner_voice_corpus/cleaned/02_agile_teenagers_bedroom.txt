@@ -1,0 +1,28 @@
+The office landscape after a few years of practising the Agile way is somewhat akin to a teenager's bedroom.
+
+You know, not that teenager, with the tidy room, the clothes neatly folded or hung up on colour matching hangers. Their work and exercise ethic exceeded only by their limitless politeness and cheer as they bring you your tea every morning.
+
+No. Not that teenager.
+The other one.
+
+So, back to the office, even the tracking software that's being used is in that limbo state of transition from say Redmine to Jira. Both are being used by different departments, their behaviour being more influenced by their ingrained habits than the mild sniping coming from someone else's project manager. The "priority" of recreating the fancy web forms and auto email ticket creation and reporting tools to now integrate with Jira remains lower than that of keeping other unrelated bugs at bay.
+
+So both systems are being used at full throttle by one set of people or another.
+
+An ever growing backlog (on both systems) is as a solemn rollcall of disappointments. Dead and dying ideas quietly rotting in an S3 storage bucket. Their parents often not told of their demise, and left to wait, forced to spend their otherwise more creative hours redoing precious work in unwieldly ways while bearing the biting complaints of their clients. Their hope turning to hopelessness and chronic despair, their keen eagerness turning to searches of job pages.
+
+The morning standups, arguably the single most effective part of the whole agile process, still hold strong. Effective scrum master with humanity and personality overcomes the too regular introductions and hand over of responsibilities routines of staff turnover.
+
+The modern company's preference for contractor over perm, and HR's somewhat understandable but nevertheless shortsighted reluctance to grasp the rising average pay rates' nettle, pretty well ensures that job handover and new hire inductions are a standard behaviour in the developer landscape. Good dev time lost to unproductive interviews and helping new devs learn the system. Truly months of low productivity as new hires get up to speed.
+
+Is this peculiar to the agile environment?
+Arguably, the agile contractor is a veritable spoon! That most versatile of cutlery implements. Each ticket might be a completely different area of the system from the last or different language or technology even. The traditional specialist might use processes and arcane tools that may have been perfect for the system as it was ten years ago but are now patched, bruised and aching in their struggle to keep up with current requirements. But there will be a large pool of trained experts in that tool out in the market ready for action. If this is anywhere close to a reasonable analysis then the loss of experienced devs and the employment of mediocre ones makes the employment process for agile a considerably harder task. Implying that better considered budgets, i. e. considerably higher still, should become a serious business priority.
+
+Quantifying the behaviour of cats
+When a CEO of a massive company says that he doubled the number of devs in one of his companies and they "seemed to disappear into the ether" it gives a sense of scale of the importance of managing the dev process with more understanding and in a quantifiable way. Herding cats is how one project leader described her job of managing devs. The agile environment with its plethora of little unknowns, whilst superficially looks more esoteric and unquantifiable, one of its fundamental tenets is to try to estimate the time that the small tasks are likely to take. It then takes a good tool like Jira, and some team training on how to use it properly and for them to keep their time consistently reported on for each task, for the bigger questions to have some granularity of basis on which to be budgeted.
+
+Here, we are using Jira, have had training and it is slowly being evangelised through to the rest of the corporation. Timetracking is hard to get right. Bursts of completely accurate job durations are interspersed with blank fields of forgotten time. Consistency is the watchword and target; as at the end of the day it is easier to add a multiplier to get the logged times closer to real time than it is to retrospectively guess the truth.
+
+The hard deadlines of yesteryear won't ever go away and neither will missed ones. The topsy turvy, disorganised teenager's bedroom of a typical agile environment nevertheless helps make sure that the deadlines that have been met will be the most important ones.
+
+So the takeaways from this brief analysis are perhaps as follows: to make your dev team more efficient for the things that matter the most, more accountable for what they do, and to have stronger foundations for your pitch for more dev resources, then encourage the full adoption of excellent tracking tools like Jira, encourage agile training throughout the business, and introduce a method of time tracking that is acceptable by devs and that favours consistency above accuracy.

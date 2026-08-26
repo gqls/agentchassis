@@ -1,0 +1,20 @@
+Drupal is an incredible tool
+
+The huge numbers of really clever modules and the brilliance of being able to change things to be exactly tbe way you want them is simply fantastic. The user management, the ease of templating, creating layouts and applying themes are all joyful!
+
+So much useful functionality, all ready-made and waiting to be taken advantage of. And with a bit of manipulation and adjustment to the cloud, it even scales really well too.
+
+And it's always refreshing when you come across a problem, that there's a great developer community and almost always someone there who has faced and solved the same challenges and who is willing to share their knowledge.
+
+Drupal is also a pig
+But because of its size, versatility and its own insistence of wanting to be continually kept up to date, it can be really challenging to host and maintain. And typically, someone else has built the site and you're left to keep it up to date and growing.
+
+And as you publish more and more articles and use more and more fancy widgets it can start to get really slow too.
+
+Well, here's an inexpensive web hosting offer that will do all the ugly bits for you. Not only will we host your drupal site on the Amazon cloud just as cheaply as if you did it yourself, but we'll also offer to automatically update all the core modules as they become wanting. And perform all the security updates. And add speeding-up techniques (caching) onto all the pages that we can.
+
+Add in to this offer some optional straightforward directory listing and article distribution seo to the mix and you can see why people like us.
+
+Oh, and we'll backup the whole site regularly and give you complete access to the backups at all times so you have complete flexibility and freedom with your own site.
+
+While slightly dependent on the complexity and popularity of your site, our prices are generally less than 80 pounds a month for everything included. We'll even do all the moving too.
