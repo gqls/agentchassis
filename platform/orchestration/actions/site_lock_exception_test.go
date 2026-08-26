@@ -125,3 +125,36 @@ func TestLoadWorkItemsActionIsOptInForTheSiteLock(t *testing.T) {
 			"with an exception list dispatches its ENTIRE queue.")
 	}
 }
+
+// TestSiteLockExceptionSQLIsNotTheSelectorSpelling pins the divergence that a
+// council reviewer already tried to close in their head (corr 175df761,
+// editquality): the same rule is spelled twice, and the two spellings are NOT
+// interchangeable.
+//
+//   - HERE (LoadWorkItemsAction): per-site and PARAMETERISED. The caller has
+//     bound the site id as $1, so the lock is a scalar subquery.
+//   - THERE (build-pipeline-trigger > find_dispatchable_site, migration 633):
+//     a CROSS-SITE SCAN that already joins `sites s` and has NO $1 at all, so it
+//     is spelled against the joined alias — `s.locked_at`, `s.lock_except_item_ids`.
+//
+// Drop this fragment into that query and it references a $1 that does not exist:
+// site selection fails fleet-wide, and the build pipeline stops picking any site.
+//
+// MUTATION: rewrite the fragment against a bare joined alias (drop the
+// `(SELECT … WHERE s.id = $1)` subqueries in favour of `s.locked_at`) so that it
+// "matches the selector" -> FAILS here, which is the point: making the two the
+// same is the change this test exists to refuse.
+func TestSiteLockExceptionSQLIsNotTheSelectorSpelling(t *testing.T) {
+	sql := siteLockExceptionSQL()
+
+	// The per-site form MUST look the lock up through $1, not through a joined
+	// alias — LoadWorkItemsAction's FROM is `site_work_items wi` alone; there is
+	// no `sites s` in scope to reference bare.
+	if !strings.Contains(sql, "FROM sites s WHERE s.id = $1") {
+		t.Error("the fragment no longer scopes the lock lookup by $1. LoadWorkItemsAction's " +
+			"FROM is `site_work_items wi` with no `sites` join, so a bare `s.locked_at` here " +
+			"does not compile. If this was changed to match find_dispatchable_site's spelling, " +
+			"revert it: that query is a cross-site scan with no $1 and the two are not " +
+			"interchangeable (council 175df761).")
+	}
+}

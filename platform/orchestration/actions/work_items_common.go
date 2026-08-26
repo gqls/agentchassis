@@ -825,6 +825,27 @@ func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID
 // It takes the site id from `$1`, which the caller already binds as the only
 // positional argument at that point in the statement — deliberately, so this
 // fragment adds no parameter and cannot shift the caller's argIdx bookkeeping.
+//
+// ⚠⚠ DO NOT REUSE THIS FRAGMENT IN `find_dispatchable_site`. THE TWO SPELLINGS OF
+// THIS RULE ARE DELIBERATELY DIFFERENT AND MUST STAY DIFFERENT.
+//
+// This one is PER-SITE and PARAMETERISED: the caller has already bound the site
+// id as `$1`, so the lock is looked up by scalar subquery.
+//
+// The dispatch selector (`build-pipeline-trigger > find_dispatchable_site`,
+// migration 633) is a CROSS-SITE SCAN that already `JOIN sites s ON s.id =
+// wi.site_id` and has NO `$1` site parameter at all. There it is spelled against
+// the joined alias:
+//
+//	WHERE (s.locked_at IS NULL
+//	       OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[])))
+//
+// Dropping THIS fragment into THAT query would reference a `$1` that does not
+// exist and break site selection fleet-wide. A council reviewer read the plan for
+// 633 and concluded exactly that had been done (corr `175df761`, editquality) —
+// which is the tell that the next person to "DRY these up" will try it. The rule
+// is one rule; the two SQL contexts are not the same context, and there is no
+// shared form that is correct in both.
 func siteLockExceptionSQL() string {
 	return `
 		  AND (
