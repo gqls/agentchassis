@@ -575,3 +575,70 @@ so it needs its own council round on its own merits, not a resubmission of the v
   automated sweep can release a deliberate hold without going through `unpark_work_items`. That
   breaks the single-releaser guarantee the verb was built around, and it is another reason the
   lock — which touches no row — is the better mechanism.
+
+## 2026-08-26 — the roll landed, both halves are LIVE, and the council round died on a fleet outage (not on its content)
+
+### The binary carries both changes — proven, both replicas, with controls
+
+Chassis **`v1.0.1341`**, pods 9 h old. ⚠ The `build provenance` line had **scrolled** — an empty
+`grep` there means *"not in range"*, **not** *"unstamped"* — so the binary probe is the evidence:
+
+| probe | replica 8h8b7 | replica gmj4b | meaning |
+|---|---|---|---|
+| `honour_site_lock` | PRESENT | PRESENT | the site-lock arm |
+| `WORK_ITEM_STATUS_OVERRIDE_REFUSED` | PRESENT | PRESENT | the allow-list |
+| `lock_except_item_ids` | PRESENT | PRESENT | the exception clause |
+| `repairOutboundPageLinks` | PRESENT | PRESENT | **positive control** |
+| `zzzNotARealSymbol396zzz` | absent | absent | **negative control** |
+
+The negative control is what makes the rest mean anything — without it, five PRESENTs are
+indistinguishable from a grep that matches everything.
+
+### So `633` was applied, and verified at the artefact
+
+Hold condition met, and **inert on apply**: 0 sites carry a non-NULL `lock_except_item_ids`, so the
+new clause evaluates identically to the old for every row. Read back with a query the migration does
+not contain: gate **names** the column ✓, gate **KEEPS** `s.locked_at IS NULL` ✓ (the arm whose loss
+would switch the lock off), `load_items` `honour_site_lock=true` ✓, and the negative control —
+`site-work-orchestrator` steps carrying the key — **0** ✓.
+
+⚠ **`--record-only` REFUSES a `_HOLD` file** ("an UPPERCASE-suffixed sidecar … recording one is
+meaningless"), so the ledger row was written by hand, the same way the runner writes one and the
+same workaround `610_..._HOLD` used the previous day. **Held migrations are otherwise invisible to
+`schema_migrations`, so "was the held half applied?" can only be answered from the live config.**
+
+### ⚠ MISSTEP 4 — I read a live outage backwards, and the discriminator was one word
+
+The r2 council round produced no verdict. I found `ai_endpoint_health` saying the Anthropic
+endpoint was **unhealthy**, and `llm_call_log` showing **569 calls since**. I was one step from
+writing *"the health row is stale while calls are succeeding"* — the fleet-stopper landmine's exact
+shape.
+
+**They were not succeeding.** `success = false` on **every one**. The column was right; I had
+counted *calls*, not *successes*.
+
+> **The check: `count(*)` answers "did it happen", not "did it work". For any liveness claim, group
+> by the success column — and if the table has one, an ungrouped count is not evidence.**
+
+The truth: last successful Anthropic call **2026-08-25 23:46:29Z**, first failure **23:47:10Z**,
+**631 consecutive failures** since — ~8.6 h. Cause already diagnosed by other lanes hours earlier:
+**fleet credits exhausted** (`400 credit balance too low`), owner already push-notified,
+`bugs_open/243`'s class. **Not re-filed** — I grepped first this time.
+
+That is why the r2 run ended `complete_invalid`: *"no reviewer produced a readable opinion (5
+abstained, 12 unreadable) — a council with no opinions cannot decide"*. **The submission was never
+judged.** ⚠ I had also half-concluded it was refused for its duplicate file paths — plausible,
+adjacent, and wrong. The duplicates are real and worth fixing before resubmitting, but they were
+not the cause.
+
+### The queue is stalled, and the number is the tell
+
+**1,399 `triaged`, 0 `claimed`**, oldest triaged **2026-08-18**. That is the documented signature —
+`claim_work_item` gates on `ai_endpoint_health`, so a false row releases every claim fleet-wide.
+Nothing this lane can do about it; it clears when the credits do.
+
+### What that means for the site-lock work
+
+The config is live and provably inert. **The end-to-end exercise is OWED and cannot be done today**:
+lock a site, except one item, confirm that item dispatches and its siblings do not — all of which
+needs a working dispatch queue. Recorded in the ledger note and in the handoff, not left implied.
