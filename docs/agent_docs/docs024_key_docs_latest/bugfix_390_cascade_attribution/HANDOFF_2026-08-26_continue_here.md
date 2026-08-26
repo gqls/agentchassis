@@ -222,3 +222,11 @@ days (it was today); P2's "loanzy, vonc, noted qualify" understated — every si
 passes 542's gate. **css-patch-agent orchestration rows are purged after completion** — grade
 repairs from `site_work_items.result.response.css_fix.result.css_added`, `llm_call_log`
 (`work_item_id`), and the served file.
+
+**~16:40 BST addendum:** all five rows `complete` by 14:34 UTC, theme v14, served = git = DB sha.
+ATTRIBUTED row `9b2b2ce9`: requirement MET (`body .brief-explanation__heading EM`, (0,2,1) > (0,1,1),
+the checked example verbatim) but `!important` kept against the block's "Do NOT" — `needs_important`
+is inert until proven otherwise. **Decision pending tomorrow's sample (n=1 today):** if ≥2 attributed
+rows on vonc/noted/loanzy repeat it, fence 616's general `!important` bullet on
+`{{if not .input_data.spec.override_requirement}}` (migration 6xx, council). Footer pairing got FOUR
+rules (three redundant) — the N-pages × chrome class, completion-gate territory. NOTES §(p).

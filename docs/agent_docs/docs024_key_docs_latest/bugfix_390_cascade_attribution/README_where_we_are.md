@@ -155,3 +155,22 @@ find the footer fixed and withdraw its complaint instead of filing it again. Tha
 the whole investigation turns on, and it can't be hurried. The heading row — the one with the
 measured requirement attached — is still queued behind some unrelated page builds and should run
 later today.
+
+**26 August, later afternoon.** All five of today's failures were repaired within seven minutes of
+each other, and I checked the live stylesheet again: every rule is there, the file's fingerprint
+matches what was committed, and both colours now pass by a clear margin.
+
+The heading row was the important one — the first time the repair agent was handed a *measured*
+requirement ("you must beat this exact instruction; here is a selector we have checked will do it").
+It met the requirement, using the checked selector word for word. It also did one thing it was told
+not to: it marked the rule as unbeatable when the measurement said that wasn't needed. That does no
+harm to the page, but it means the "not needed" signal is being ignored, and it tells me the
+prompt's "this section overrides the general advice below" line is being outvoted by the general
+advice. There is a clean fix — only ever show one of the two — but one case isn't a pattern; I'll
+decide after tomorrow's three sites.
+
+Less good: the footer text appears on four pages, so four separate tickets were raised for the same
+fault, and the agent fixed it four times, each time on top of the last. That's waste rather than
+damage, it's a known consequence of tickets being per page, and the right place to stop it is the
+"only mark it done if it measurably improved" gate you deferred yesterday. Nothing here changes
+what settles the case: the checker's return visit on the 29th.

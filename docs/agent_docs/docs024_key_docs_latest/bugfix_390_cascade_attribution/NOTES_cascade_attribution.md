@@ -474,3 +474,53 @@ false`) — is the first real exercise of the requirement block. Expected artefa
 specificity > (0,1,1) (the verified example is `body .brief-explanation__heading EM`) and **no**
 `!important` (the block says "Do NOT use !important … supersedes the general guidance"). Watch
 re-armed with `ef31c778` excluded.
+
+## 2026-08-26 (p) — all five rows repaired by 14:34 UTC (theme v10→v14); the ATTRIBUTED row met its requirement, copied the example verbatim, and IGNORED "do not use !important"
+
+**Final state, all at the artefact:** five `complete` rows; `css_themes` v14, `updated_at`
+14:34:27; served file HTTP 200 (19,179 B; control 404) with sha256 `f20b76a9…` = git adapter's
+`files_sha256` for v14 = `sha256(css_content)`. The 2026-08-26 tail of the served theme:
+
+```
+297  .footer-bottom p { color: #595f6b !important; }                    ← ef31c778 (v10)
+301  .footer-bottom p { color: #595959 !important; }                    ← 91690588 (v11)
+305  .footer-bottom p { color: #595959 !important; }                    ← 762675d4 (v12)
+309  body .brief-explanation__heading EM { color: #b5620a !important; } ← 9b2b2ce9 (v13, ATTRIBUTED)
+313  .footer-bottom p { color: #595959 !important; }                    ← 720324cc (v14)
+```
+Arithmetic (own): footer #595959 on rgb(241,237,228) = **6.0:1** (needs 4.5); heading #b5620a on
+rgb(247,248,246) = **4.18:1** (needs 3.0; the agent claimed "approximately 3.1" — under-claimed).
+
+**The attributed row — the first real exercise of 635's requirement block — graded in three parts:**
+1. **The block rendered** (`llm_call_log` 14:34:16: BEAT block at 137, "Do NOT use !important" at
+   577, the verified example at 769; 172 of 8,000 output tokens).
+2. **The requirement was MET**: `body .brief-explanation__heading EM` is (0,2,1), strictly greater
+   than the winner's (0,1,1). The agent's own summary says so in those terms — it read the block.
+   The selector is the platform's `override_example` **copied verbatim** (the quoted-exemplar
+   effect, `a-quoted-exemplar-in-a-prompt-is-copied-verbatim`); fine here because the platform had
+   CHECKED that example with `satisfiesRequirement`, which is exactly why the design ships a
+   checked example and not a hope.
+3. **The instruction "Do NOT use !important — this measured section supersedes the general
+   guidance below" was IGNORED**: the rule carries `!important`. Functionally harmless (the rule
+   wins either way) and `needs_important:false` is thereby an INERT signal today — the agent adds
+   it regardless. Structural reading: the general `!important` guidance (616) sits at ~19,700 of
+   ~20,900 chars, the measured block at ~140; the model followed the later, closer instruction over
+   the earlier one that claimed to supersede it. **"Supersedes the guidance below" is a comment,
+   not a control** — the same lesson as `a-doc-comment-is-not-an-enforcement-mechanism`, one level
+   up: a prompt instruction adjudicated by the model is not a fence. The fix, if this is systematic,
+   is to make the contradiction unrepresentable: wrap 616's general `!important` bullet in
+   `{{if not .input_data.spec.override_requirement}}…{{end}}` so only ONE of the two instructions
+   ever renders. **NOT done today: n=1.** Tomorrow's attributed rows on vonc/noted/loanzy are the
+   sample; if ≥2 of them carry `!important` under `needs_important:false`, write migration 6xx
+   (agent_definitions → council scope, drift-anchored on 635's shape, row-count assertion).
+
+**The footer: one pairing, four rows, four rules, three of them redundant** — and the first
+(#595f6b) is overridden by the last (#595959) on source order. Each agent run saw the theme with
+the previous rule already appended and appended another anyway: the agent does not check whether
+the theme already governs the selector, and the spec gives it no reason to (each row is "its"
+page). Recorded as the N-pages × chrome class in §(o); the completion gate (handoff §4, deferred by
+the owner) is the structural home. Cost today: 3 LLM calls + 3 git commits + 3 deploys for nothing.
+
+**Rows are in the past tense now; what remains is the FUTURE tense.** P3 is settled by the 08-29
+~13:50 UTC audit of this site; P4 by tomorrow's vonc (10:27) / noted (12:28) / loanzy (15:29 UTC)
+audits, read per distinct pairing with inherited-colour footers expected `unattributed`.
