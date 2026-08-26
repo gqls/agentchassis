@@ -5965,3 +5965,14 @@ measured for the Stripe walkthrough: auth-service maps the WHOLE personae-platfo
 via envFrom (deployment verified live), and main.go:155 requires BOTH
 STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET non-empty at startup — so the owner's path is
 secret-patch + rollout restart, and one key without the other stays keyless silently.
+
+**2026-08-26 addendum — the second container is blocked on ACCESS, not decision**
+(analytics lane, re-checked tonight: no Google credential exists on our side; a GTM
+container lives in the OWNER's Google account). Owner paths: ~2 min in the GTM dashboard
+(click-by-click in the analytics lane's README) or a Tag Manager API service account
+(the SAME grant Search Console needs — one credential unblocks both). Trap banked now:
+an EMPTY container is cookie-light AND records nothing (the 0-tags lesson) — the
+count-visits purpose needs, at eventual publish, a GA4 tag with Consent Mode defaults
+DENIED (cookieless pings, countable, no _ga); analytics lane specs it; creation is not
+gated. Estate GA4 into GTM-PQ3WCTBD: fully unblocked, waiting on the owner's own
+Publish click.
