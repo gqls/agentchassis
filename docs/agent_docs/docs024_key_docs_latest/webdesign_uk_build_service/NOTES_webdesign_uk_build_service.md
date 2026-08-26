@@ -5808,3 +5808,14 @@ also emerged tag-less, confirming the durable source lost the tag), the other fi
 1 each. No action on the tag (their fix restores it). **Action on the LABEL: their
 rerender will wipe it again — expect one more re-place** (the standing daily check +
 site_delivery's NOTE curl cover detection; this note says it is EXPECTED, not a surprise).
+
+**2026-08-26 — DEFAULT TAG RULED: the owner's GTM on the HOSTED copy only.** Owner asked
+whether his existing tag becomes the default on customer sites or the service is dropped
+with a copy rewrite. Measured first: the copy promises NO analytics today (one outward
+Fathom/Plausible FAQ line), and no per-site tag field exists (chrome-borne, analytics_gtm
+lane's carrier). Ruled: default = owner's container on the 30-day hosted copy; ZIP always
+CLEAN of it; customer-supplied id goes everywhere; 'none' respected. Copy gains its one
+attested line ONLY when the mechanism ships. Build = follow-up package (per-site field in
+chrome + zip-strip + intake question), routed in
+`DECISION_2026-08-26_default_tag_hosted_copy_only.md`; analytics lane told while their
+chrome fix is in flight. Not a launch gate.
