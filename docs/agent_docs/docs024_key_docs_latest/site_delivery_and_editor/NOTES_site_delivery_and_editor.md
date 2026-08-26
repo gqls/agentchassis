@@ -1184,3 +1184,27 @@ from the attested register.
 DMARC at the HOST (still absent tonight) → box vhost re-apply (the /d/ block, gated on the
 roll per its own header) → then the flow in 651's header: file review → owner edits +
 approves → cut ZIP → dispatch the email. **The refresher is the follow-up build.**
+
+## 2026-08-26 (late night) — 650 APPLIED; chain APPROVED r1; REFRESHER built; the mail question answered
+
+**Migration 650 APPLIED + recorded** at the owner's direction (guard passed, verify
+passed, columns confirmed nullable at the schema). 651/652 stay **_HOLD** — they name
+`send_delivery_email`/`refresh_zip_link`, which exist only from the next roll
+(image-before-seeds).
+
+**Council `5a33a174` (the delivery chain) APPROVED at 17:00, round 1.**
+
+**The REFRESHER is built** (`refresh_zip_link` + seed 652, council
+`Council-Submitted: c618d189`): 6h schedule, re-stamps anything dying within 48h; the
+action's WHERE cannot touch revoked or expired tokens (mutation-proven); zero rows is a
+benign-race WARN. The pre_query's NULL arm is load-bearing — recovery-recipe tokens with
+no stored URL would otherwise be permanently invisible. Spawn→call's ~50% handshake
+failure is inherited and self-heals at the next tick; the honest health meter is the
+outcome query in the seed header, never run status.
+
+**The mail question:** the owner hit cPanel's "not authoritative" wall on DKIM and asked
+whether to change email host. **No** — the server is healthy (measured yesterday and
+today) and a different host would face the same wall: DKIM/DMARC must land at
+`dns1/dns2.uk-noc.com`, the domain's authoritative NS. Three routes in the RUNBOOK
+(Zone Editor first; host ticket second; move DNS to our CF account third — mailbox
+unmoved either way). I verify from outside with dig once records are added.
