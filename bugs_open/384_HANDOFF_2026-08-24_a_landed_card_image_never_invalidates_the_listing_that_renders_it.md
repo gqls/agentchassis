@@ -403,3 +403,19 @@ it is a new seam for owned pages and belongs in its own round, not in this lane'
   floor refusals in 14 days.
 - **The owned-page residual above**, which is the only thing here that is genuinely unfinished
   work rather than a watch item.
+
+
+## UPDATE 2026-08-26 20:45Z — fresh build, fourth natural demonstration, residual now measured exactly
+
+- **Fresh chassis build `b34c24f4c65b`** (95 pods) rolling alongside `e7f1045fddec` (700). All four
+  of this lane's Go commits are ancestors of **both**, and the new build is a strict descendant of
+  the old. The lane's behaviour holds whichever pod serves.
+- **Fourth natural trigger:** finetuning.uk's three items (filed 17:25:45–46) all completed by
+  18:44 with `attempt_count = 0`; its arrays were rewritten 19:13–19:15 and now carry **0 blank
+  entries on every generic listing**. vonc.com's card landed 19:59:30, the seam fired, and its
+  re-render is pending.
+- **The residual, measured exactly** `[MEASURED 2026-08-26 20:40Z]`: blank-where-a-card-exists is
+  **14 on `owned` pages (3 pages) and 1 on a generic page** (vonc, seam in flight). Every generic
+  page repairs itself; owned pages never do. That is the §CLOSE-OUT residual, now with a number.
+- **Cold-start doc for this lane is now**
+  `docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/HANDOFF_2026-08-26_continue_here.md`.

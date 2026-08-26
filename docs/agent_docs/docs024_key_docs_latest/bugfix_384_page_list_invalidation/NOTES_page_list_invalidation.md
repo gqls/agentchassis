@@ -288,3 +288,28 @@ fix. Sent back the four things they could not have known: the second writer
 (`rebuild_blog_listing`), `bugs_open/404` (a THIRD place the assemble-vs-resolve mode gate is
 stale, which is their defect one seam along), the sweep proof above, and the `deployed_at`
 correction to the acceptance protocol they wrote.
+
+## 2026-08-26 ~20:45Z — fresh build verified, FOUR natural demonstrations, residual pinned to owned pages
+
+- **Fresh chassis build `b34c24f4c65b` (95 pods) rolling alongside `e7f1045fddec` (700).** All four
+  of this lane's Go commits are ancestors of BOTH, and the new build is a strict descendant of the
+  old, so behaviour holds whichever pod serves. ⚠ **My first ancestry check used yesterday's sha
+  and returned "NOT in the running build" for all four** — a false negative made entirely of a
+  hardcoded value a roll had superseded. Always read the stamp, never remember it.
+- **The seam has now proven itself FOUR times on NATURAL triggers**, which is the evidence the
+  induced acceptance test could never give: leopardess 14:42:45 → items filed 14:42:46 → array
+  rewritten 15:30:34, 11/11 entries with an image; finetuning 17:25:45 → 3 items → all complete by
+  18:44, arrays rewritten 19:13–19:15, **0 blank on all three generic listings**; vonc 19:59:30 →
+  fired, re-render pending. Plus three landings that correctly DEDUPED (`deduped: 3, queued: 0`) —
+  four landings in fourteen minutes produced three items, not twelve.
+- **Zero escalations** across every seam-driven run this lane has produced (baseline 1 in 36).
+- **The residual is now pinned and measured:** fleet-wide blank-where-a-card-exists splits
+  **14 on `owned` pages (3 pages) / 1 generic (vonc, seam in flight)**. So every generic page
+  repairs itself and owned pages never do — the seam, the sweep and the `template_changed` fan-out
+  all exclude them by design (`save_sections` refuses an owned page). Migration `614` made that
+  visible by giving `tool-cta` an image. Recorded in the bug file's CLOSE-OUT and in the new
+  handoff as the one genuinely unfinished piece; the remedy shape is `486`'s
+  `section_edit` → `section-editor` route, which is a new seam and belongs in its own round.
+- **New handoff written:** `HANDOFF_2026-08-26_continue_here.md`, superseding the 08-25 one.
+  384 is ready to close; the handoff's §6 carries the both-paths `git mv` trap and says the
+  residual must not close with the bug.
