@@ -1235,3 +1235,37 @@ Evidence appended to `bugs_open/040` with the DB-slowness correlation marked `[I
 Also this hour: handoff §5's visit attribution corrected — the 00:40 findings were the
 **improvement-loop** (re-enabled 21:18Z 08-25; cycles 00:39/04:47/08:40Z), not the rotation
 (separately re-enabled 09:20Z); both now active, so expect ~4-hourly finding arrivals.
+
+### 2026-08-26 ~12:50 — round 2 APPROVED; the three advisories were worth more than the approval
+
+**APPROVED, 3 advisories, none high (`4bd35ed8` r2, ~12:35 BST).** Trailer discipline held:
+`Council-Reviewed:` written only on `fa98a1961`, AFTER reading the verdict; the two earlier
+commits keep `Council-Submitted:` and 098 credits them.
+
+**Advisories dispositioned, not banked** (all in `fa98a1961`):
+1. bug_historian (MEDIUM): rule 17's "subject REQUIRED on repeats" had NO structural enforcement
+   — prompt-only, the exact 016b §9 decorative-decision pattern, on the exact site that motivated
+   the build. Built `subjectlessRepeatFindings` in write_site_plan: observe-only durable finding
+   `SUBJECT_MISSING_ON_REPEATED_COMPONENT`, GATED on the plan carrying any subject at all so the
+   fleet's pre-640 all-string plans produce ZERO rows (no retroactive spam). 5-case pure test;
+   the gate is mutation-proven (removing it fails case (a)). Declared in the finding-code
+   registry in the same commit — the same-commit rule I reported the 396 lane for this morning.
+2. debug_historian (MEDIUM+2 LOW): "post-roll" was an assumption in the seed headers. Every
+   `_HOLD` seed now carries the pod-verification commands (stamp + merge-base; capability probe
+   with `section_facts` as positive control) and the APPLIED-line convention (a `_HOLD` file
+   never reaches the migration ledger, so the FILE is the durable record). 641 additionally:
+   the owner's read must be RECORDED in NOTES and named in the APPLIED line.
+3. guardian (2 LOW): both settled by measurement, not argument — `site-planner` does NOT invoke
+   write_site_plan (config LIKE check), loader caller set re-confirmed = page-build-handler only.
+4. editquality's cosmetic (the copy-pasted sketch fragment) needed no repo change — it lived in
+   the submission JSON, and each seed file's own comments were already distinct.
+
+**Missteps of the hour, small but recorded:** (a) my registry addition went through `json.dump`,
+which reformatted the shared file — 363/356 line churn for a one-entry change; proven lossless
+(zero keys lost, zero entries changed, diff'd against HEAD~1) but it is diff noise other lanes
+must read past; edit such files textually next time. (b) The pattern-check's
+`logged-model-output` flag on this commit is the same pre-existing 2026-05-12 line as before,
+shifted to :1290 — still not mine.
+
+**And the morning's CONTRIB paid off within ~2h:** `a0ec90eb9` (396 lane) declared their code;
+the full actions suite including the finding-code scan is green at HEAD again.

@@ -7,9 +7,9 @@
 > The page is done and locked. **Everything Google left this lane on 08-25** (owner ruling;
 > `analytics_gtm` is the cold-start for tracking, `bugs_open/397`). The lane's remaining build,
 > **per-section subjects, SHIPPED on 08-26**: Go + migration committed (`35905c547`), migration
-> 638 applied, council **round 1 REVISE → round 2 RESUBMITTED same day** (`4bd35ed8`, same correlation —
-> verdict pending), three config seeds `_HOLD` awaiting the next chassis roll — nothing else is
-> open here except the image-accuracy A+C build, not started.
+> 638 applied, council **APPROVED at round 2** (`4bd35ed8`, ~12:35 BST; 3 advisories, all ACTED ON in
+> `fa98a1961` — see §1a), three config seeds `_HOLD` awaiting the next chassis roll — nothing
+> else is open here except the image-accuracy A+C build, not started.
 
 ## 1. Per-section subjects — what a next session owes, in order
 
@@ -17,18 +17,23 @@ Full design + falsifiers: `PLAN_2026-08-26_per_section_subjects.md` · register 
 council submission `scratchpad` copy is gone with the session — the artifacts are keyed under the
 correlation.
 
-1. **Read the council verdict — ROUND 2** (round 1 came back REVISE at 09:20 UTC, gating seat
-   `prior_art_librarian`; all eight objections were answered the same morning — tests + seed
-   guards in commit `52085b410`, per-seat answers + previously-unreachable evidence in the
-   resubmission — and round 2 went out ~11:35 BST on the SAME correlation after two Kafka
-   publish failures, evidence in `bugs_open/040`). Budget ~30 min from dispatch; a missing row
-   is latency, not a drop — never resubmit on that evidence:
-   `SELECT current_step, status FROM orchestration_states WHERE
-    collected_data->'input_data'->>'fix_correlation_id' = '4bd35ed8-5f72-4a2f-9cbf-3860847837f4';`
-   then `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
-   - APPROVED → nothing to do; commit `35905c547` carries `Council-Submitted:` and `098` credits
-     it automatically. REVISE → revise and resubmit with `RESUBMIT_CORR=4bd35ed8…`. REJECTED →
-     read the guardian's contained alternative; the code is on the shared branch, forward-only.
+1. **Council: SETTLED.** Round 1 REVISE (gating: prior_art_librarian, the applied-DDL tense —
+   answered with the pre-state and the 2026-07-29 after-the-fact posture) → round 2 **APPROVED**
+   ~12:35 BST, 3 advisories none high. `fa98a1961` carries `Council-Reviewed:`; `35905c547` and
+   `52085b410` carry `Council-Submitted:` and are credited by `098` automatically.
+
+1a. **The advisories, acted on same hour (`fa98a1961`):** rule 17's repeat-requires-subject was
+   prompt-only (the 016b §9 decorative-decision pattern, bug_historian MEDIUM) → observe-only
+   durable finding **`SUBJECT_MISSING_ON_REPEATED_COMPONENT`** in `write_site_plan`
+   (`subjectlessRepeatFindings`, GATED on the plan carrying any subject so pre-640 plans are
+   silent; declared in `finding_code_registry.json` same commit; gate mutation-proven). Every
+   `_HOLD` seed header now carries the **pod-verification commands** (provenance stamp +
+   `merge-base --is-ancestor 35905c547`, capability probe with positive control) and the
+   **APPLIED-line convention** (a `_HOLD` file never reaches the ledger — the file IS the
+   record). 641's owner read must be RECORDED (NOTES line + named in the APPLIED line).
+   Guardian's caller doubts settled by measurement: `site-planner` does NOT call
+   `write_site_plan`; the loader's caller set is still exactly `page-build-handler`.
+
 2. **After the next chassis roll** (any session's — a roll ships this commit), apply the seeds
    **in order, by hand** (they are `_HOLD`; the runner skips them):
    `639` (wiring) → `640` (planner rule 17) → `641` (writer prompt v5).
@@ -53,13 +58,11 @@ correlation.
 carry's `unmatched` list stays facts-worded and drops an unmatched subject silently; seeding
 `page_components.content_brief` from the subject at save time was considered and deferred.
 
-## 2. Known-red at HEAD, not ours — expires when the 396 lane acts
+## 2. ~~Known-red at HEAD~~ FIXED same day — the 396 lane declared their code
 
-`TestFindingCodeScanEveryWriteIsRegistered` fails on **clean HEAD** (actions package):
-`WORK_ITEM_STATUS_OVERRIDE_REFUSED` shipped in `2b46afbe6` with no `finding_code_registry.json`
-declaration. CONTRIB filed into `deferred_work_item_park/`. Re-establish before trusting:
-`scripts/verify-head-builds.sh --test ./platform/orchestration/actions/ 2>&1 | grep OVERRIDE` —
-no hit = fixed, delete this section.
+The morning CONTRIB worked: `a0ec90eb9` declared `WORK_ITEM_STATUS_OVERRIDE_REFUSED`, and the
+full actions suite **including the finding-code scan is green at HEAD** (re-run 2026-08-26 ~12:45
+via the verify-head-builds overlay). Nothing left to watch here.
 
 ## 3. RFC_022 parity — settled, and the lesson
 
