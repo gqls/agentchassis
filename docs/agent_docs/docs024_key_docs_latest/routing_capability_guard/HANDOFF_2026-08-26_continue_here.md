@@ -255,6 +255,23 @@ mechanism's blind spot inside the check meant to detect it.
 GROWING**, not a nice-to-have: one entry is a measurement; ten entries with no audit is a stale map
 with an enforcement mechanism bolted on.
 
+> **⚠ UPDATED 2026-08-26 BY §9 — and the update CHANGES WHAT TO BUILD, so read it before costing this.**
+> The roster has **two** entries and one of them is **already false** (`title`; §9). So the argument
+> above is no longer a prediction about ten entries — the map is wrong at N=2, on the day it shipped.
+>
+> **But the audit as specified here would NOT have caught it.** A staleness audit answers *"has a
+> writer been ADDED since the Measured date?"* The `title` entry was incomplete **at the moment it
+> was written** — its missing writers were three weeks old — so a `--since` check returns clean and
+> the entry stays false for ever. I found it by hand, and only because I re-read the code rather
+> than re-running the check.
+>
+> **So decision 3's question is now two questions, and the second is cheaper AND catches more:**
+> **(i)** the staleness audit as filed (writers added since `Measured`), and **(ii)** a
+> **totality** check — every handler `classifyFindingRoute` can emit must carry an explicit
+> per-handler verdict in `WritableBy`, so a handler the router gains cannot inherit a silent "no".
+> (ii) is a build-time test over two greps, needs no cluster, and would have failed on day one.
+> **If only one gets built, build (ii).**
+
 ### DECISION 4 — `RFC_057`, already filed and awaiting your ruling
 
 Two questions in it: whether `HandlerCanWriteField` as a new shared contract needs more than the
