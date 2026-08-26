@@ -55715,3 +55715,65 @@ convenience buying a silent loss.
 
 Family: shell-tool-traps-committing, a-hook-that-writes-to-stderr-reaches-nobody,
 missteps-need-a-check-not-a-paragraph, a-pass-from-a-blind-check-outlives-the-blindness.
+
+---
+
+## 2026-08-26 — I assembled a council resubmission by patching the previous one, so the plan described the previous change
+
+**Session `bugsweep3`, `bugs_open/394`, council round 2.**
+
+**The claim I submitted.** Round 2's plan said edit 3 **deletes** `pagePathFromContrastKey` (true —
+I had deleted it, along with its test, in `72b16391b`), and edit 4's sketch showed a test file that
+**calls** `pagePathFromContrastKey`. Both in the same submission.
+
+**What was actually true.** The tree was fine. `grep -rn pagePathFromContrastKey --include=*.go .`
+returns exactly one hit — a comment explaining why the inverse must not be written — and the
+package builds and tests green. **The defect was in the document, not the code**: the plan
+described a package that would not compile, and a reviewer reading only the plan was right to say
+so.
+
+**What caught it.** The council's `editquality` seat, round 2, gating: *"edit 4 … calls
+pagePathFromContrastKey, but edit 3 explicitly DELETES that function … As submitted, this test file
+references a symbol that no longer exists — the package will not compile."*
+
+**The cause, and it is a method rather than a slip.** I built round 2 with
+
+```python
+e['sketch'] = e['sketch'] + "\n\n// ROUND 2: ...new test..."
+```
+
+— **string-appending to round 1's sketch** instead of re-reading the file. Round 1's sketch
+contained the round-1 test. So the submission accumulated history rather than describing HEAD, and
+it did so silently: every client-side validation passed, the admission gate passed, and the JSON
+was well-formed. Nothing in the pipeline compares a sketch to the file it claims to sketch.
+
+**Why it is worth a row rather than a shrug.** The council reviews *the plan*, not the tree. A plan
+that has drifted from the code spends a full round — ~20 minutes and a reviewer's attention — on a
+defect that does not exist, and the round it spends is the round it does not spend on the code.
+Worse, the failure mode is asymmetric: a sketch that is **stale in the other direction** (missing a
+guard the code has) would draw an objection I could rebut with the file, and I would have "won" a
+round while my plan stayed wrong.
+
+**Cheap check.** **Generate every resubmission's sketches FROM THE FILES, never by editing the
+previous submission.** For a test file that is one command:
+
+```python
+funcs = re.findall(r'^func (Test\w+)\(', open(path).read(), re.M)
+```
+
+and then assert the thing you claim to have removed is absent:
+
+```python
+assert 'TestPagePathFromContrastKeyRoundTrips' not in funcs
+```
+
+That assertion costs nothing and it is the whole fix — round 3's sketch is generated this way and
+carries the function list the file actually has.
+
+**The generalisable form:** *a document derived from a previous document is about the previous
+state.* The estate already knows this about handoffs, summaries and censuses; a council submission
+is the same shape and I did not recognise it as one. If a resubmission is worth making, it is worth
+re-deriving.
+
+Family: a-subagent-report-is-another-doc, prior-art-search-goes-stale,
+a-handoff-outlives-the-work-it-asked-for, a-revise-round-is-cheaper-than-the-defect-it-finds.
