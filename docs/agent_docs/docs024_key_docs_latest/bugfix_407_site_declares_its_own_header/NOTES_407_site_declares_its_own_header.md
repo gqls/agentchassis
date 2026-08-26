@@ -159,3 +159,74 @@ to be right and the evidence was worthless.
 Match on the nav links, or on the chrome's own class, and sanity-check by printing the hrefs you
 found — which is what caught it: idea.uk's "header" had no `href` at all, and a site chrome
 without a single link is not a chrome.
+
+---
+
+## 2026-08-26 (evening) — BUILT, council APPROVED r1, and the objections moved the table
+
+Commit `74e92e961`. Council `cb67cc71-b420-4399-9a52-f306d0f4bccf` — approved, 6 advisory
+objections, none high. **Two of those objections changed the design before it shipped**, which
+is the part worth recording.
+
+### Misstep 4 — "there is NO site_specs table", read off my own truncation
+
+I ran `psql -c "\dt site*" | head -20` and wrote the absence into my lane NOTES and then into a
+**council submission's rationale**, as a load-bearing reason for choosing `sites.settings`.
+`site_specs` sorts on line **21**.
+
+It exists, carries 20 aspects, has `is_current`/`superseded_at` versioning, a `pinned` flag,
+provenance columns and a real writer. And the part that actually decided the design:
+`[MEASURED 2026-08-26]` its **`site_config` aspect already holds per-site HEADER config** —
+`chrome.header_cta_url` and `chrome.header_cta_label` on oufe.com, `chrome.compliance_lines` on
+two more. I was about to put header SLOTS in a different table from header CTAs, which is this
+bug's own pathology one level up: a second home for one concern.
+
+Caught by the council — `reuse_agent` and `prior_art_librarian` both at medium, neither able to
+see my `\dt`; they knew the estate. **The declaration moved to
+`site_specs.data->'chrome'->'header_slots'`** and inherits versioning, pinning and provenance
+that the settings column never had. `WRONG_CALLS.md` carries the entry; the cheap check is
+*never conclude ABSENCE from a command you truncated*, and *an estate-level absence claim
+deserves a second instrument* — a grep for `site_specs` across `platform/**.go` returns readers
+in five files and would have cost nothing.
+
+### Misstep 5 — the mutation table, wrong again, and NOT for this morning's reason
+
+Eight mutations; two survived the first pass. Nothing was passing on a downstream failure this
+time — the tests were precisely aimed. **Their FIXTURES could not produce the failure:** the
+total-order test declared `["pricing-transparency","service-areas"]`, which is already
+alphabetical, so a mutation sorting the list was a no-op on that input; and the de-duplication
+test used a corpus where every page was `in_header`, so utility was EMPTY and there was nothing
+to de-duplicate.
+
+Both fixtures now carry an explicit **setup assertion** that fails loudly if the corpus stops
+exercising the path. Full entry in `WRONG_CALLS.md`, beside this morning's — the pair together
+says more than either: a mutation table lies in at least two ways, and having learned one of
+them I shipped the other the same day.
+
+**And all eight were re-run AFTER the declaration moved table.** A mutation proof is about the
+code that shipped, not the code that was planned; carrying the earlier results forward would
+have been a claim about a file that no longer existed.
+
+### The objections, and what each was worth
+
+| seat | severity | outcome |
+|---|---|---|
+| `reuse_agent`, `prior_art_librarian` | medium | **DESIGN CHANGED** — see misstep 4 |
+| `editquality`, `bug_historian` | medium | **CHECKED AND SOUND.** Both asked whether the page pool reaching classification is pre-filtered on `in_header` or URL — if it were, a declared page could never be found and would report `declared_missing`, silently reproducing this bug. It is not: `navPageScopeSQL` is `site_id = $1 AND status IN ('active','deployed','pending')`, no flag arm and no URL arm, and the URL bar is `isChildPageURL` in Go INSIDE the classifier, which the declaration overrides. |
+| `guardian` | medium | **ESCALATED TO THE OWNER, not answered.** Overriding three membership guards at once is a widening beyond "fix the tier order" and is his call; recorded in `bugs_open/407` §B with both sides. |
+| `guardian`, `debug_historian` | medium | migration fixes: a stray `ROLLBACK;` before `BEGIN;` for a sticky aborted transaction, and the deploy-verification step (which the file already carried). |
+| `architecture` | medium | four ad-hoc `sites.settings` readers should be tracked before a fifth arrives. **Moot for this lane in the end — I did not add one** — and worth recording as standing debt for whoever does. |
+| `prior_art_librarian` | medium | asked whether `site_nav_groups` could carry the declaration. **No, and for the same reason as `site_nav_items`: both are DELETEd for the site on every rebuild** (`:160`, `:163`). Answered in the code header so nobody re-asks. |
+
+### Verified before committing, rather than asserted
+
+- `[MEASURED 2026-08-26]` **0 of 51 sites declare `header_slots`**; 3 have a `chrome` object at
+  all. The no-op is a query.
+- `nav_membership_test.go`: **zero diff**, all 8 tests green.
+- `[MEASURED 2026-08-26, recursive `$.**` walk]` **5 LIVE step rows across 5 agent types** call
+  `populate_nav_tables`, all at `max_header_items` 8 — not the 7 across 6 my planning pass said,
+  which had not filtered `is_active`/`deleted_at` (the other two are `multipage-website-builder`
+  v1/v2, both inactive AND deleted). A one-level census would also have been wrong here for a
+  different reason, which is why the walk is recursive.
+- ai-agent-orchestration.com HAS a current `site_config` row (keys `locale`, `analytics`), so
+  654's `jsonb_set` creates `chrome` and the sibling check has something to find.
