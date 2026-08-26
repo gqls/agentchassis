@@ -5038,3 +5038,73 @@ could not see which selectors it named; `window.onload` as a control with no por
 caught before they reached a conclusion. These two were not — they were written down as findings and
 then corrected. **The difference was not care; it was that the first two happened to be one grep from
 disproof and these two looked finished.**
+
+## 2026-08-26 19:05Z — #49 `tool-privacy-redactor` REBUILT (49 of 63). Graded by EXECUTING the patterns, and the ported one was wrong 5 ways out of 6.
+
+Filed 18:55:33Z → claimed 18:59:11Z → complete 19:03:25Z → retired ~19:04Z (PRE1 md5 `1690fe78…`
+len 10220, PRE2, POST, **COMMIT**). Component `d329d1d7-3938-426d-a7d2-a8ec11cb0d5c`, native slot
+`6abb30e0-23dd-42a3-947a-49cfbe45c5e7` (20,248 chars). Run clean, no `__step_error`.
+**Tally 49 `removed` + 14 `deployed` = 63, 0 dual-slot pages**, all six of this session's pages serve
+`class="ported-page"` = 1. **SERVE-GRADE OWED:** assembler `d00b62cb-8376-4912-bacc-29417c176ff3`
+(`triaged`, priority 80), confirmed claimable AFTER the retire. Retire-race gate run **UNCAPPED** this
+time, per this morning's lesson — 10 rows with the `(10 rows)` footer intact.
+
+### This is a privacy tool, so I graded it by RUNNING the patterns, not by reading them
+
+The ported version's toggles say **Emails · Phones (Intl) · IPs · Cards**, all checked by default,
+under a heading that claims **"Intelligent Detection"**. Under-redaction is the failure mode that
+matters, so I lifted both versions' regexes verbatim into Python and ran them over the same fixtures,
+including negative controls that must NOT fire. `[MEASURED 2026-08-26 19:05Z]`
+
+| case | ported | rebuilt | intent |
+|---|---|---|---|
+| Amex `3782 822463 10005` (4-6-5) | **MISS** | catches | redact |
+| Amex `378282246310005` | **MISS** | catches | redact |
+| IPv6 `2001:0db8:…:7334` | **MISS** | catches | redact |
+| Visa `4111 1111 1111 1111` | catches | catches | redact |
+| IPv4 `192.168.0.1` | catches | catches | redact |
+| 16-digit ref failing Luhn | **false hit** | correctly ignores | leave |
+| `999.999.999.999` (invalid octets) | **false hit** | correctly ignores | leave |
+
+**The ported tool is wrong on FIVE of the six discriminating cases** — three silent
+under-redactions on data it advertises that it removes, and two over-redactions that mangle ordinary
+text. `\b(?:\d{4}[ -]?){3}\d{4}\b` only ever matched 16-digit four-by-four, so **an American Express
+number passed through untouched with "Cards" ticked**, and `\b(?:\d{1,3}\.){3}\d{1,3}\b` has no
+notion of a valid octet and no IPv6 branch at all.
+
+The rebuild uses `\b\d(?:[ -]?\d){12,18}\b` gated on **length 13–19 plus a real Luhn check**
+(`luhnValid`), a proper octet-validated IPv4 (`25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d`), and a full IPv6
+alternation. **Every one of the eight fixtures passes, including all three negatives.**
+
+⚠ **One honest correction to my own analysis:** I predicted the ported IPv4 regex would also
+over-match a version string `v1.2.3.4`. **It does not** — `\b` fails between `v` and `1`, so that one
+was a false accusation. A bare `1.2.3.4` does match. The executable test is what separated the real
+defects from my plausible-sounding one, which is exactly why it was worth running rather than reading.
+
+### The claim it never made
+
+`[VERIFIED]` the ported tool makes **0 network calls** — it *is* client-side — and says so **nowhere**:
+`grep -ci 'never leaves|your browser|client-side|nothing is sent'` → **0**. For a tool whose entire
+proposition is *"paste your sensitive logs here"*, the one reassurance a visitor needs before pasting
+was absent. The rebuild leads with it:
+> *"This tool makes no network calls of any kind. Everything you paste stays in this browser tab: it
+> is never sent, logged or stored anywhere. Pattern matching cannot catch everything a human eye
+> would, so treat every category below as a heuristic and read the output yourself before you send or
+> post it."*
+
+…and each category carries its own note (the card one states the 4-6-5 Amex coverage and the Luhn
+gate). Confirmed 0 network calls in the rebuild too.
+
+⚠ **FIFTH measurement lesson today, and I nearly recorded a false negative with it.** My first grep
+for that claim was `'never leaves\|stays in your browser'` and returned **empty** — I was one keystroke
+from writing "the load-bearing requirement was skipped". The page says *"stays in **this** browser
+**tab**"*. **My pattern encoded a guess about wording, and an absence found by a guessed pattern is
+not an absence.** When grepping for a CONCEPT rather than a token, search the concept's cheapest
+proxy (`browser|network|sent|local`) and read the hits, rather than predicting the sentence.
+
+### Also fixed
+Blocks no longer describe what they removed (the ported one used a different block width per type —
+`████████` email, `██████` IP, `████-████` phone, `████-████-████-████` card — and manual redaction
+used `"█".repeat(selected.length)`, preserving the exact length of the secret). Per-category counts
+are shown. Negatives both ways: `alert(` 0/2 · `onclick=` 0/1 · `#333` 0/1 · `innerText` 0/2, all
+valid. 11 × `addEventListener`.

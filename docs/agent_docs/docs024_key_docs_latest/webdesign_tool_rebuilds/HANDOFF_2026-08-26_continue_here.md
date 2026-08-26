@@ -1,10 +1,23 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 48 of 63 retired (43 serve-confirmed; #44–#48 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
+## STATE: 49 of 63 retired (43 serve-confirmed; #44–#49 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
 
 44 `removed` + 19 `deployed` = 63 (tool pages), verified 2026-08-26 17:32Z, with **zero pages carrying
 both a live ported slot and a live native slot**. Nothing is part-done except the serve-grade below.
+
+**#49 `tool-privacy-redactor` is BUILT AND RETIRED** — `add_tool 8cf95960` filed 18:55:33Z, complete
+19:03:25Z, retired ~19:04Z under full guards. Component `d329d1d7`, native slot `6abb30e0` (20,248
+chars); revert handle `a5c9781b` (md5 `1690fe78…`, len 10220). **SERVE-GRADE OWED:** assembler
+`d00b62cb-8376-4912-bacc-29417c176ff3`, priority 80, do NOT re-file.
+**Graded by EXECUTING both versions' regexes over fixtures, not by reading them** — the right method
+for any tool whose product is a CLASSIFICATION. The ported one was wrong on **5 of 6** discriminating
+cases: it silently missed 15-digit Amex (4-6-5) and IPv6 entirely while advertising "Cards" and "IPs",
+and false-positived a Luhn-failing reference number and `999.999.999.999`. Rebuild passes all eight
+fixtures including three negatives. **Reuse this method for the remaining detector-ish tools.**
+⚠ It also taught a grep lesson: my first search for the page's client-side claim used a guessed
+wording and came back EMPTY — the page says *"stays in this browser tab"*. **An absence found by a
+guessed pattern is not an absence.**
 
 **#48 `tool-insight-injector` is BUILT AND RETIRED** — `add_tool 31611056` filed 18:38:46Z, complete
 18:48:57Z, retired ~18:49:30Z under full guards. Component `fd9c0799`, native slot `d5294763` (18,106
