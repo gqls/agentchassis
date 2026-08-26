@@ -60,6 +60,36 @@ FROM agent_error_log WHERE error_code='CTA_LABEL_MISMATCH' GROUP BY 1 ORDER BY 1
    so its absence is not evidence. Use the sibling `"internal links before persist"` as a control:
    if that is zero too, the window simply contains no saves.
 
+> ### ⚠ CHECKING WHETHER IT IS ARMED — do not reach for the filename
+>
+> The config key is **`audit_cta_label_agreement`**. The Go file is `cta_label_audit.go`. They are the
+> same four words in a different order, and `LIKE '%cta_label_audit%'` returns **false on every
+> writer, armed ones included** — verified 2026-08-26. That reads exactly like *"643 never applied"*,
+> and the next move after that reading is to re-apply an applied migration or to declare the canary
+> dead and widen to `645`. Found by the 391 lane walking into it. Full entry in `LANDMINES.md`.
+>
+> ```sql
+> SELECT a.type, (a.default_config::text LIKE '%audit_cta_label_agreement%') AS armed
+> FROM agent_definitions a
+> WHERE a.is_active AND NOT COALESCE(a.is_snapshot,false) AND a.deleted_at IS NULL
+>   AND a.type IN ('page-build-handler','page-rerender','page-rebuild','pageflow-builder');
+> ```
+> Expect **two true, two false** while `645` is held. **All-false means you have the wrong spelling** —
+> the mixed expected answer is the control, which is why this census is the one to use.
+
+> ### ⚠ THE FIRST RECORDS WILL NOT BE A SAMPLE OF THE FLEET
+>
+> Corrected by the 391 lane 2026-08-26, and it is sharper than what I had written. `page-rerender` is
+> **one of the only two armed writers**, so when that lane runs its re-resolve step the resulting
+> `page_rerender` burst will not merely *spike* this record — it will **dominate** it. For a while the
+> table will be mostly their repair.
+>
+> They have agreed to name the window with timestamps in their NOTES
+> (`bugfix_389_cta_relevance/HANDOFF_2026-08-26_continue_here.md` §2a) so it can be **excluded rather
+> than reverse-engineered later**. Their lane is currently parked pending an owner decision, so the
+> burst has not happened yet. **Read the first records as a smoke test — "did it fire, and from which
+> producer" — never as a rate.**
+
 ---
 
 ## 2. State of the work

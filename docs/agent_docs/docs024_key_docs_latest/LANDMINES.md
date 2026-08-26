@@ -18602,3 +18602,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check:** before designing cluster→box anything, probe from a POD: `kubectl -n ai-persona-system exec <pod> -- wget -T 5 -q -O- http://10.13.13.4:<port>/` — a timeout means route-not-present, not box-down. The transport that DOES exist for cluster→box is the box's PUBLIC edge over HTTPS with a bearer token (P4 §2's design, idea.uk's INTERNAL_API_KEY pattern, `collect_external_orders`' implementation). Related but different: the CHAT-010 landmine ("a WireGuard handshake proves crypto, not reachability") — that one is about `ip_forward` on the cluster's wg pod for box→cluster; this one is the missing return direction, which no sysctl on the wg pod fixes.
 - **source:** 2026-08-26, webdesign_uk_build_service order-intake session — found by probing before shipping the collector, after the first-cut endpoint guard had already encoded the wrong assumption.
 - **added:** 2026-08-26, webdesign_uk_build_service lane
+
+### CENSUSING THE CTA AUDIT'S ARMING BY ITS GO FILENAME RETURNS FALSE ON EVERY WRITER — including the armed ones, so it reads as "the migration never applied"
+
+- **footprint:** `audit_cta_label_agreement` · `cta_label_audit.go` · `agent_definitions.default_config` · `docs/agent_docs/sql_for_agents/643_audit_cta_label_agreement.sql` · any "is the 399 canary armed?" check
+- **fires when:** you check whether `bugs_open/399`'s write-time CTA audit is switched on — after the roll, while reading the record, or before applying `645`. The natural handle is the code you just read: the file is `cta_label_audit.go`, so you grep `default_config` for `cta_label_audit`.
+- **the trap:** the config key is **`audit_cta_label_agreement`**, not `cta_label_audit`. The two are near-anagrams of the same four words in a different order, so the wrong one looks right. `LIKE '%cta_label_audit%'` returns **f for every agent, armed or not** — verified 2026-08-26 with the armed pair present: `page-build-handler f`, `page-rerender f`, `page-rebuild f`, `pageflow-builder f`. **A uniform false across a population that genuinely contains two positives reads exactly like "643 never applied"** — and the next move after that reading is to re-apply a migration that is already applied, or to declare the canary dead and widen to `645` on the belief that the two-writer stage never worked.
+- **the check — and it carries its own control, which is why it is the one to use:**
+  ```sql
+  SELECT a.type,
+         (a.default_config::text LIKE '%audit_cta_label_agreement%') AS armed
+  FROM agent_definitions a
+  WHERE a.is_active AND NOT COALESCE(a.is_snapshot,false) AND a.deleted_at IS NULL
+    AND a.type IN ('page-build-handler','page-rerender','page-rebuild','pageflow-builder');
+  ```
+  Expect **exactly two true** (`page-build-handler`, `page-rerender`) and **two false** while `645` is held. All-false means you have the wrong spelling; all-true means `645` has been applied and the two-of-six caveat no longer applies. **A census whose expected answer is uniform cannot tell you it asked the wrong question**; this one's expected answer is mixed, so it can.
+  For the exact node rather than a text match: `jsonb_path_query(default_config, 'strict $.**.steps.save_sections ? (@.action == "save_page_sections" && @.config.audit_cta_label_agreement == true)')`.
+- **why it generalises:** the key was named for what it DOES and the file for what it IS, which is right in both places and leaves no derivable link between them. Whenever a config key and its implementing file are named independently, **read the migration for the spelling — never infer it from the code you just read.** `grep -rn "ConfigKey\s*=" <the file>` gives it in one command.
+- **relations:** `bugs_open/399` · register **LNK-040** · migration `643` (armed) / `645` (held) · MEMORY [[grep-the-config-key-before-calling-it-a-win]] and [[a-config-key-that-nothing-reads]] — same family, opposite direction: those are about a key nothing reads, this is about a reader nobody can find by name
+- **source:** 2026-08-26, found by the `bugfix_389_cta_relevance` lane (bug 391) while verifying this canary's arming, reported across to the 399 lane, and re-verified here with the mixed-population control before writing.
+- **added:** 2026-08-26, bugfix_399_cta_label_agreement lane
