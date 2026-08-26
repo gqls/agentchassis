@@ -393,6 +393,35 @@ def main():
                   f"session dir = {human(loose_bytes)}")
             reapable.extend(loose)
 
+    # Docker, because it is the biggest consumer on this box and NOTHING watched it.
+    # `du` cannot see /var/lib/docker as a normal user -- it returns "4.0K", which is
+    # not an error and not a zero -- so a scratch report that omitted Docker was
+    # reporting on a quarter of the disk. The build cache reached 539 GB unremarked
+    # (2026-08-25) and regrew 33 GB in the 14 h after being pruned.
+    docker_lines = []
+    try:
+        r = subprocess.run(["docker", "system", "df", "--format",
+                            "{{.Type}}\t{{.Size}}\t{{.Reclaimable}}"],
+                           capture_output=True, text=True, timeout=60)
+        if r.returncode == 0 and r.stdout.strip():
+            docker_lines = [l for l in r.stdout.splitlines() if l.strip()]
+    except Exception:
+        pass
+    print("\n=== docker ===")
+    if docker_lines:
+        for l in docker_lines:
+            parts = l.split("\t")
+            if len(parts) >= 3:
+                print(f"  {parts[0]:<14} {parts[1]:>10}   reclaimable {parts[2]}")
+        # A build cache with no eviction policy is how this box lost half a terabyte.
+        # Say so on every run rather than relying on anyone remembering.
+        if not os.path.exists("/etc/docker/daemon.json"):
+            print("  ⚠ NO /etc/docker/daemon.json — build cache has NO eviction policy.")
+            print("    See deployments/docker/README.md.")
+    else:
+        # Not silence: a missing figure must not read as a zero.
+        print("  unavailable (daemon unreachable or docker absent) — NOT the same as empty.")
+
     print(f"\ntotal in scratchpads : {human(grand_total)}")
     print(f"  reproducible extractions: {human(grand_extract)}"
           f" ({100*grand_extract/grand_total:.1f}%)" if grand_total else "")
