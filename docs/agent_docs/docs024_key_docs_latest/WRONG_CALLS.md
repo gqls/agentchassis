@@ -56096,3 +56096,47 @@ ones were wrong.**
 
 Family: a-report-is-not-a-measurement, a-measured-claim-about-state-expires,
 cite-the-arm-not-the-function, a-closer-census-cannot-see-what-it-succeeded-at.
+
+## 2026-08-26 — my verification returned a PERFECT score because its target was a 404 page, and I printed the status code right next to it
+
+**The claim I was one line from writing.** Grading a rebuilt tool at the served page, my check
+returned every negative control at **0**, each one validated against the old version as required, and
+every positive I had not yet reached. On its face: a clean pass. The page was **`http=404`, 3,001
+bytes**. A 404 body contains none of the strings you are checking for absent, so **an error page
+scores a perfect absence on every negative control you own.**
+
+**The runbook I was following says, in bold, "require http=200 before reading any count below". I had
+even printed the code — as the first line of the same command's output.** Printing a gate is not
+gating on it. The counts rendered underneath it in a tidy aligned block and read as the result; the
+`http=404` two lines up read as noise. Fixed by making it refuse rather than report:
+```bash
+code=$(curl -s -o page.html -D hdr -w '%{http_code}' "$URL")
+[ "$code" != "200" ] && { echo "REFUSING to grade: not 200"; exit 1; }
+```
+
+**The 404 was transient and I nearly got that wrong in the other direction too.** Having seen it, the
+tempting conclusion was that the publish had broken the page. What settled it was the estate's own
+rule — curl the **recorded** `pages.url`, plus a **same-form sibling** — which returned 200/24,654 for
+the real URL and 200 for two tools nobody had touched. It was a propagation window of a few seconds.
+**A single 404 is not evidence of damage, exactly as a single 200 is not evidence of health; the
+sibling control is the thing that discriminates.** (`/tools/asset-formatter` with no trailing segment
+also 404s, permanently and by design — the composed-URL trap of `bugs_open/387`. Two different 404s,
+one page, neither meaning what it looks like.)
+
+**A second faked pass in the same ten minutes, same shape.** Waiting for the artefact to publish, I
+compared `last-modified` against the item's `completed_at` in a poll loop. One iteration returned **no
+`last-modified` header at all** — and **`date -u -d "" +%s` silently returns NOW**, which is
+trivially greater than any past timestamp. The loop declared `LANDED:` and exited, with an empty
+space where the timestamp should have been. **The absence of the evidence was converted into the
+strongest possible form of the evidence**, and the only reason I caught it was the visible hole in
+the printed line. Guard on non-empty before parsing anything into a comparison.
+
+**The pattern across both, and it is the day's sharpest lesson.** Six measurement faults this session,
+and the two that got furthest were the two whose *failure mode produced a clean-looking positive
+result*. A 404 does not make a check error; it makes it pass. An empty string does not make `date`
+fail; it makes it agree with you. **Ask of every check: what does this return when its input is
+missing?** If the answer is "the same thing as success", the check cannot distinguish success from
+absence, and it will eventually be handed absence.
+
+Family: a-post-fix-zero-needs-a-demand-control, a-pass-from-a-blind-check-outlives-the-blindness,
+a-parked-domain-200s-every-path, a-plausible-external-cause-is-when-to-doubt-your-instrument.
