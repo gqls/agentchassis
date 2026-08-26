@@ -2808,3 +2808,52 @@ table+path in every edit symbol.
 Remaining queue: ruling-4 execution (carrier row + benchmark + research phases + stakes split),
 writer rules 16–17 deletion, per-site cleanup of the ~6 self-limiting about titles (per-lane),
 phase 2 verdicts 2 of N, and the 5f084feb verdict to read.
+
+---
+
+## 2026-08-26 (morning) — the 630 council dispatch was DROPPED, not slow; and 630 is a COLLIDED number
+
+**The drop, diagnosed before resubmitting.** The 00:15 submission (`5f084feb`) had, nine hours
+later: no orchestration row BY PAYLOAD, no verdict note — while a LATER submission (`dfde47a4`,
+another lane) was consumed and APPROVED at 09:04. A working consumer plus a missing row after 9h
+is a dropped PUBLISH (the `kcat -P` silent-drop shape), not the runbook's ~29-min queue latency —
+the runbook's "do not retry" guards against 30-minute evidence, and this was decisive. Resubmitted
+09:0x with `RESUBMIT_CORR=5f084feb` (run `78f47b7a`); watcher confirms whether the row appears
+this time. ⚠ Also caught in the same pass: the 09:04 APPROVED was ANOTHER lane's — the
+correlation-filtered read is the only reason it was not claimed as ours (the runbook's corrected
+step 4 trap, avoided by following it).
+
+**The collision:** `schema_migrations` now holds TWO 630 files — another session's
+`630_tool_cta_button_face_converges_on_its_sibling.sql` (applied 08-25 21:17) and this lane's
+`630_planner_mission_constraints_stay_inside_the_plan.sql` (applied 08-26 00:22). Distinct
+filenames, both recorded, no functional clash — but numbering is shared state on this tree and I
+took 630 from an `ls | tail` snapshot taken hours before applying. Resolve by FILENAME, never by
+bare number (same rule as the bugs dirs); next files should take 631+ AFTER re-checking.
+
+---
+
+## 2026-08-26 (mid-morning) — 5f084feb round 1 REVISE, answered with measurements and the estate's own law; round 2 dispatched
+
+The resubmitted 630 review ran in 5 minutes (confirming the overnight silence was a dropped
+publish) and came back REVISE, gating on "post-hoc submission defeats the gate". Handling:
+
+- **The gating objection is answered by citation, not defence**: OWNER RULING 2026-07-29 —
+  *"review here is after the fact, by design"* — plus commit-when-coherent (07-20), the
+  Council-Submitted trailer (07-30), bugs_open/314's own live-on-apply rationale for gating
+  migrations at all, and precedent `6a0f8b99` (identical shape, APPROVED yesterday). If a seat
+  wants pre-apply gating for migrations, that reverses a standing owner ruling — the owner's to
+  reopen, not a submission's.
+- **The real catches, both converted to measurements**: (1) the `{{else}}`-arms landmine on this
+  EXACT template — I had not grepped LANDMINES for the planner symbol before writing 630's anchor
+  (the grep-for-the-symbol lesson, missed again under pace); checked now: anchor is in the
+  unconditional paragraph, counted assert saw 1, and the landmine's FULL check now run —
+  `{{if}}`/`{{else}}`/`{{end}}` = 10/5/14 identical live vs pre-630 backup, delta exactly +817.
+  (2) **the rollback was untested — true.** Tested live: 630_ROLLBACK → jsonb byte-equality vs the
+  backup ("ROLLBACK RESTORES PRE-630 BYTES EXACTLY") → re-applied (guards re-ran) → all four
+  markers verified (rule/format/629/methodology guard). Note: the re-apply inserted a second
+  `migration_backups` row for 630 whose old_value is the rolled-back (= original pre-630) state —
+  same bytes, harmless, noted so the duplicate row does not read as drift.
+- Rollback trigger now specified (format-clause violation on the next greenfield about title, or a
+  canonical section dropped from a new plan → roll back + reopen).
+
+Round 2 dispatched on the same correlation (run `472e41d2`), watcher armed.
