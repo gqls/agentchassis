@@ -54284,3 +54284,15 @@ ls bugs_closed/${n}_* 2>/dev/null` and read the OUTPUT, not the exit code — or
 already on screen, the screen wins until explained. The estate tolerates duplicate numbers
 (resolve by slug), so the damage is a permanent ambiguity, not a loss — both files now name their
 twin. Tally: compound-ls-exit-code-inverts-on-partial-match.
+
+**9. I piped every commit through `| tail` all day, and it ate the advisory that would have caught a fleet-wide red test suite.** `bugs_open/396`, 2026-08-25→26. Commit `2b46afbe6` added an `agent_error_log` code (`WORK_ITEM_STATUS_OVERRIDE_REFUSED`) without declaring it in `finding_code_registry.json`. `TestFindingCodeScanEveryWriteIsRegistered` then **failed at committed HEAD for every session, for ~13 hours**, until the apis.uk session hit it running `verify-head-builds --test` for an unrelated change and had to spend a round proving the red was not theirs.
+
+**The mechanism, which is the whole entry:** the pre-commit hook prints its advisory **FIRST** and git prints its summary **LAST**. I ran every commit as `git commit … | tail -N` — which keeps the summary and cuts the advisory exactly. The harness told me so in a `PostToolUse` note on almost every commit I made today (*"your command's output did not carry this … a `| tail -N` keeps the summary and cuts this"*), and **I read those notes and did not change the habit**. The reporting session says they nearly lost the same advisory the same way, which makes this a shape rather than my private carelessness.
+
+⚠ **Why `| tail` felt safe: it is the right instinct applied to the wrong stream.** Trimming noisy output is good practice; the mistake is that this particular stream is *ordered* with the important part first, so the usual trim inverts into a filter that removes only what you needed. **Before piping any command through `head`/`tail`, ask which end its warnings come out of.**
+
+**Cost:** a red suite that every session sees teaches people to stop believing the suite — the reporting session's words, and the reason this ranks above a one-line omission. **The fix was one registry entry and the whole package went green in 5.4 s.**
+
+**The cheap checks:** commit **unpiped**, or `| cat`, or read the `PostToolUse` advisory the harness hands you instead of skimming past it. And when you add a new `agent_error_log` code, declare it in the **same commit** — the test says exactly that and it is right.
+
+**A second lesson from the same event, and it is the happier one: the CONTRIB worked.** Another lane found my defect, wrote the diagnosis into *my* lane directory with the commit, the file:line, the failing assertion and the category choice left explicitly to me — and did not fix it themselves or file a competing bug. That is the collaboration shape CLAUDE.md asks for, and it cost them a round to produce. **When you find someone else's breakage, that is what to do with it.**
