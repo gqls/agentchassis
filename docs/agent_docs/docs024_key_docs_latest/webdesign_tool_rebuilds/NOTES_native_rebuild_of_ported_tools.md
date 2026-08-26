@@ -4967,3 +4967,74 @@ never used, alongside the author's thinking-aloud comments (*"Empty space or con
 content stretch."*, *"Actually, let's strictly define columns based on selection."*). Not a defect a
 visitor could see, but a reliable signal that the surrounding logic was never finished — and in this
 case it wasn't: the preview mismatch is one line away from that abandoned reasoning.
+
+## 2026-08-26 18:52Z — #48 `tool-insight-injector` REBUILT (48 of 63) — and TWO measurement errors of my own in one gate
+
+Filed 18:38:46Z → claimed 18:45:19Z → complete 18:48:57Z → retired ~18:49:30Z (PRE1 md5 `985e97de…`
+len 9369, PRE2, POST, **COMMIT**). Component `fd9c0799-7fa3-4a2f-a30a-3881f70bbff3`, native slot
+`d5294763-77c1-4003-ba4f-5a6df1290148` (18,106 chars). Run graded clean, no `__step_error`.
+**Tally 48 `removed` + 15 `deployed` = 63.** All five of this session's pages serve
+`class="ported-page"` = 1 (stale-but-single). **SERVE-GRADE OWED:** assembler
+`716ced5b-2a90-4a2a-ab14-d4ba94a17ad7` (`triaged`, priority 80) — confirmed claimable AFTER the retire,
+per the runbook's "confirm a pending rerender still exists" step. **Do not file one.**
+
+### The tool: its empty state told the model to treat a placeholder as a verified fact
+
+Load-bearing ported defect, and it is worse than the same-shaped one in head-architect because of what
+this tool is *for*. The block says *"You must weave the following verified facts into the site copy
+naturally. Do not invent your own statistics."* and then interpolates
+`document.getElementById('biz-fact').value.trim() || "[Insert Hard Fact Here]"`. **So an unfilled form
+produced a prompt instructing an assistant to treat `[Insert Hard Fact Here]` as verified data** — on
+the tool whose entire purpose is stopping a model inventing things.
+
+Fixed at the arm: `getMissingFields()` returns named fields (`'business name'`, `'verifiable fact'`,
+`'customer story'`), rendered into a `missing-fields-box`, and the page states it in its own copy —
+*"Nothing is copied until the required fields are filled."* Negative controls **`[Insert Hard Fact
+Here]` 0/1** and **`[Business Name]` 0/1**, both valid.
+
+Also delivered: the banned-word list is now the visitor's — `bannedWords.splice(i,1)` to remove,
+`bannedWords.push(val)` to add with a duplicate check, wired by `addEventListener` plus Enter-key
+handling. The prompt's list is always exactly the list shown.
+
+Other negatives, both ways: `onclick=` 0/2 · `window.onload` 0/1 · `innerText` 0/5 · `#333` 0/1 — all
+valid. ⚠ **`alert(` is WORTHLESS here (ported = 0)** — insight-injector never had one, so its absence
+proves nothing. Third tool this session where a habitual control turned out to have no evidential
+value on that particular tool; the check has to be re-run per tool, not carried forward.
+Positives: 9 × `addEventListener`, 1 `@media`, 2 `catch`.
+
+### ⚠ TWO ERRORS OF MINE IN ONE GATE, IN OPPOSITE DIRECTIONS, FROM THE SAME ROOT CAUSE
+
+Both are about how I *encoded* a measurement, not about the system. Neither changed the outcome —
+the retire landed ~30 s after the build and the page is correct — but both were stated as fact.
+
+**Error 1 — `head -30` truncated my own gate and I read the truncation as an absence.** I ran the
+retire-race gate inside a multi-section heredoc piped through `head -30`, saw 7 rows, and wrote
+*"nothing claimable on that page at all"* and *"the cleanest margin yet"*. Re-run without the cap, the
+query returns **10 rows**, and the three that were cut include **`716ced5b` (page_rerender, `triaged`,
+CLAIMABLE)** and **`7d690ddf` (nav_drift, `triaged`, claimable at priority 30 — i.e. ahead of my
+filing)**. **A row cut by `head` is indistinguishable from a row that does not exist**, and I was using
+that output to establish an absence, which is the one thing a capped listing cannot do.
+
+**Error 2 — I then hand-typed a timestamp and raised a false alarm with it.** Chasing Error 1 I
+measured the assembler's margin as `(x.priority, x.created_at) < (80, '2026-08-26 03:52:09')` and got
+**2 items ahead**, and wrote that the margin "was genuinely thin". The row's actual `created_at` is
+**`03:52:09.367409+00`**. Dropping the fractional second excluded the 28 rows created inside that same
+tenth of a second — the 03:52 sweep batch. Read from the row instead
+(`(x.priority,x.created_at) < (w.priority,w.created_at)`) the answer is **30**, a comfortable margin.
+Side by side, same instant: **hand-typed 2, read-from-the-row 30.**
+
+**One root cause: I supplied a value I could have read.** In Error 1 I capped a population I was
+measuring; in Error 2 I retyped a key instead of joining on it. **The rule, and it is cheap:**
+- **Never `head`/`tail` output you are using to prove an absence or count a population.** Cap the
+  QUERY (`LIMIT`) so the cap is visible in the result, or don't cap. A `(N rows)` footer is the
+  honest signal; `head` removes it.
+- **Never hand-type a timestamp, id or md5 that exists in a row you can join to.** Sub-second
+  precision is invisible in the rendered output you copied it from, and `03:52:09` and
+  `03:52:09.367409` differ by 28 rows on this queue.
+
+These are the third and fourth self-inflicted measurement faults recorded today, all in the family
+*your measurement answers the question you ENCODED*. The two earlier ones (a `@media` COUNT that
+could not see which selectors it named; `window.onload` as a control with no ported occurrence) were
+caught before they reached a conclusion. These two were not — they were written down as findings and
+then corrected. **The difference was not care; it was that the first two happened to be one grep from
+disproof and these two looked finished.**

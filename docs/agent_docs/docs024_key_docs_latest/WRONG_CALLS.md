@@ -56048,3 +56048,51 @@ short of the knowledge.
 
 Family: a-measured-claim-about-state-expires, grep-landmines-for-your-symbols,
 a-report-is-not-a-measurement, prior-art-search-goes-stale.
+
+## 2026-08-26 — I capped a listing with `head` and read the cut rows as an absence, then hand-typed a timestamp and raised a false alarm about it
+
+Two errors, one gate, opposite directions, same root cause: **in both I supplied a value I could have
+read from the row.** Neither changed an outcome — which is why they are worth writing down, because
+nothing forced their discovery.
+
+**Error 1 — a capped listing cannot establish an absence.** I ran a pre-filing gate (what work is
+claimable on this page?) as one section of a multi-section psql heredoc piped through `head -30`, saw
+seven rows, and recorded *"nothing claimable on that page at all"* and *"the cleanest margin yet"*.
+Un-capped, the query returns **ten** rows. The three cut included a `page_rerender` in `triaged`
+(claimable — an assembler, the exact thing the gate exists to find) and a `nav_drift` in `triaged` at
+a priority ahead of my filing. **A row removed by `head` is indistinguishable from a row that does not
+exist**, and I was using that output to prove an absence.
+
+**Error 2 — chasing Error 1, I hand-typed the key instead of joining to it.** I measured the
+assembler's queue margin with `(priority, created_at) < (80, '2026-08-26 03:52:09')` and got **2**,
+and wrote that the margin "was genuinely thin". The row's `created_at` is **`03:52:09.367409+00`**.
+The truncated literal excluded the 28 rows created inside that same tenth of a second — a sweep batch
+all stamped within milliseconds of each other. Joining to the row instead
+(`(x.priority,x.created_at) < (w.priority,w.created_at)`) gives **30**: a comfortable margin, not a
+thin one. Same instant, same queue: **hand-typed 2, read-from-the-row 30.**
+
+**What caught them.** Not review and not a check — a *contradiction I could not explain*. After the
+retire I ran the runbook's "confirm a claimable rerender still exists" step and it returned a row my
+gate had said was not there. Had that step not existed I would have kept both claims. The same thing
+caught the GATE ZERO citation error earlier the same day: an observation the model forbade.
+**Anomaly-chasing is doing more work in this lane than any of my checklists.**
+
+**The cheap checks, both one keystroke:**
+1. **Never `head`/`tail` output you are using to count a population or prove an absence.** Cap the
+   QUERY with `LIMIT` so the cap appears in the result, or do not cap at all. psql's `(N rows)` footer
+   is the honest signal and `head` is precisely what removes it. ⚠ This bites hardest in a
+   *multi-section heredoc*, where one generous-looking `head -30` silently truncates the LAST section
+   — the earlier sections consume the budget and the one you actually care about is the casualty.
+2. **Never retype a timestamp, id or hash that exists in a row you can join to.** Sub-second precision
+   is invisible in the output you copied it from. `03:52:09` and `03:52:09.367409` differ by 28 rows.
+
+**And the uncomfortable half.** Two other measurement faults the same session — a `@media` COUNT that
+could not see which selectors the block named, and `window.onload` used as a control on a tool whose
+ported version never had one — were caught *before* they reached a conclusion. These two were not.
+The difference was not diligence: those two were one grep from disproof and happened to get it, while
+these two produced clean-looking numbers and looked finished. **A number that looks finished is not
+thereby checked, and my own sense of which claims needed a second look was uncorrelated with which
+ones were wrong.**
+
+Family: a-report-is-not-a-measurement, a-measured-claim-about-state-expires,
+cite-the-arm-not-the-function, a-closer-census-cannot-see-what-it-succeeded-at.

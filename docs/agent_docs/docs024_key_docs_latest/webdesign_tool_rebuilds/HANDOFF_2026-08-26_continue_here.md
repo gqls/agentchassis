@@ -1,10 +1,24 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-26 ~15:45Z; STATE + GATE ZERO revised 17:35Z (grind seat: #44 built and retired, queue cleared, GATE ZERO corrected against the real selector).
 Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine stacked STATE lines).
 
-## STATE: 47 of 63 retired (43 serve-confirmed; #44–#47 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
+## STATE: 48 of 63 retired (43 serve-confirmed; #44–#48 serve-grade OWED). NOTHING IN FLIGHT. THE QUEUE IS CLEAR — filing works.
 
 44 `removed` + 19 `deployed` = 63 (tool pages), verified 2026-08-26 17:32Z, with **zero pages carrying
 both a live ported slot and a live native slot**. Nothing is part-done except the serve-grade below.
+
+**#48 `tool-insight-injector` is BUILT AND RETIRED** — `add_tool 31611056` filed 18:38:46Z, complete
+18:48:57Z, retired ~18:49:30Z under full guards. Component `fd9c0799`, native slot `d5294763` (18,106
+chars); revert handle `dd1e438c` (md5 `985e97de…`, len 9369). Graded PASS. **SERVE-GRADE OWED:**
+assembler `716ced5b-2a90-4a2a-ab14-d4ba94a17ad7`, priority 80, do NOT re-file.
+
+⚠ **TWO MEASUREMENT TRAPS I FELL INTO ON THIS ONE — both cost nothing and both were stated as fact:**
+**(1) Do NOT pipe a gate query through `head -N`.** Mine cut 3 of 10 rows and I read the truncation as
+"nothing claimable on the page". A row cut by `head` is indistinguishable from a row that does not
+exist, and it bites hardest in a multi-section heredoc where the LAST section is the casualty. Cap
+with `LIMIT` (visible in the result) or not at all — psql's `(N rows)` footer is the honest signal.
+**(2) Do NOT hand-type a timestamp you can join to.** `'2026-08-26 03:52:09'` against a real
+`03:52:09.367409` excluded 28 rows of the same sweep batch: the margin read **2** hand-typed and
+**30** read from the row. Use `(x.priority,x.created_at) < (w.priority,w.created_at)`.
 
 **#47 `tool-layout-generator` is BUILT AND RETIRED** — `add_tool 9e314640` filed 18:27:08Z, claimed
 1m53s later, complete 18:33:55Z, retired ~18:34:30Z under full guards. Component `1050a211`, native
