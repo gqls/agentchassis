@@ -291,3 +291,37 @@ stands against the plan as submitted and is answered in fact.
 > the *gating* objection is unread. Do not treat this round as answered. Recover it before the next
 > submission — and note the needle checks now return `false` because 619/630 are **already applied**,
 > which will make any further round read as describing work already done unless the plan says so.
+
+## 11. 2026-08-26 — the auto-repair path is now ARMED, and the pair passes every door
+
+The design-discovery rotation was re-enabled **2026-08-26 09:20:36Z** after 15 days off
+(`bugs_open/401`), and `site-render-audit-rotation` is live too (08:48Z) — **verified first-hand,
+not taken from the inbound notice**. The render audit is the only detector that can see this defect
+(`check_palette_contrast` states in its own header that it cannot), so it WILL re-find the
+remaining 1.00:1 buttons on all three sites within the ramp.
+
+`detected-item-promoter` then tests four doors (`bugs_open/405` §1): pipeline ∈ (build, content,
+design) · handler live · the `(item_type, handler_agent)` pair has ≥1 lifetime completion · the
+pair clears a 25% success floor. **`contrast_failure` → `css-patch-agent` passes all four**
+`[MEASURED 2026-08-26]`: **492 rows, 307 completions, 62.4%**, handler active, pipeline `design`.
+
+**So an auto-repair is not hypothetical, and it would be doubly wrong:**
+
+1. it patches ONE site's stylesheet for a defect that lives in a component shared by three, while
+   the real fix is committed and waiting on the chassis roll; and
+2. it is **erased anyway** — `bugs_open/396`: `persist_css_to_theme` rewrites
+   `css_themes.css_content` byte-for-byte, so every appended patch expires at that site's next
+   design run, which the re-enabled rotation now makes near-certain. The work item still closes
+   `complete`.
+
+**Nothing has been suppressed to prevent this, deliberately.** A detector silenced to protect an
+in-flight fix is the failure this estate keeps `WRONG_CALLS.md` for. The pair-level concern was
+routed to the lane that owns the promoter door (`bugs_open/405`, loanzy lane) with the
+generalisation that is worth more than this case: **a handler whose repair lands on a surface a
+renderer regenerates should not be auto-promoted at all** — and its 307 completions are precisely
+what makes it look known-good.
+
+⚠ **Accidental shield, and the general trap:** the 7 existing `contrast_failure` rows on
+finetuning.uk are `deferred`, which is NOT terminal in `idx_swi_dedup`, so a fresh audit cannot
+re-file those keys. **`/your-own-model.html#A.cta-btn` is NOT among them** — the paid front door's
+invisible button is the one most likely to draw an auto-repair.
