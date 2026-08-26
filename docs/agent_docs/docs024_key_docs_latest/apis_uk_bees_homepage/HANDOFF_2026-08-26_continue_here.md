@@ -162,8 +162,10 @@ was the strip vector); expect the wave's items to COMPLETE and gtm to return on 
 
 ## 5c. 2026-08-26 09:18–11:47 UTC — the improvement loop ADDED TWO TOOLS to a single-page-by-ruling site; publication PARKED at 14:25 UTC pending the owner
 
-**What happened (measured):** two `add_tool` items (filed 09:18Z, source: the re-enabled
-improvement loop's completeness pass; handler `tool-generator`) COMPLETED at 11:43/11:47 and
+**What happened (measured, path CORRECTED 14:50 from the loop owner's code read):** two
+`add_tool` items (filed 09:18Z by the **design-discovery seat's `missing_tools` check →
+`evaluate_tools` → `tool-suggester`** — not completeness; it runs in both the loop's audit pass
+AND the design rotation; handler `tool-generator`) COMPLETED at 11:43/11:47 and
 created **four `planned` pages** on apis.uk — `tool-bee-identifier-quiz` ("What Bee Did I See?"),
 `tool-bee-foraging-calendar` ("UK Bee Foraging Calendar") and a 3-section companion guide for
 each — **outside the site plan** (`site_plans` still 1 page) and **against the current
@@ -183,12 +185,18 @@ until he speaks is this lane's job; choosing the future of the tools is his.
 
 **OWNER DECISION (the second one in this handoff):**
 - **(a) accept tools on apis.uk** → set the nine back to `triaged` (`UPDATE … WHERE result->>'deferred_by'='apis.uk session 2026-08-26'`), and expect: two tool pages, two guides, nav links, and a rewritten index with tool references — i.e. apis.uk stops being the single quiet page.
-- **(b) keep the ruling** → cancel the nine, delete the four `planned` pages (they are unbuilt
-  rows, no artefact), and — the part that stops it recurring — **un-enrol apis.uk from tool
-  generation / expansion** in the improvement loop's config (the `loanzy.uk` lane owns the loop's
-  phased plan; told). Without that, the next completeness pass re-files the same items (the
-  `deferred` rows hold them off via dedup only while they exist).
-- Default while undecided: leave deferred. Nothing publishes.
+- **(b) keep the ruling — ORDER MATTERS:** (1) FIRST get the durable refusal built — there is
+  **no per-site exclusion today** (loop owner, from code: the check's only gates are deployed-tool
+  count, an opt-in growth ratio that can only ADD pressure, and a cooldown; tool-suggester reads no
+  roadmap/single-page key). The fix shape is a per-site refusal DECLARATION the check honours —
+  `sites.settings->maintenance_profile->growth->>'refusal'`, mirroring 624's
+  `structure_floor->>'refusal'` — small Go + a council round; recorded by the loop owner as an
+  **RFC_056 follow-up** and being put to the owner. (2) ONLY THEN cancel the nine and delete the
+  four `planned` rows. ⚠ Do NOT cancel first: `deferred` is an OPEN status for `idx_swi_dedup`, so
+  the nine parked rows HOLD their dedup keys and every re-file dedups onto them and inserts
+  nothing; cancelling releases the keys and the next cycle re-creates the whole set.
+- Default while undecided: leave deferred — **the park IS the hold**, and it is durable for as
+  long as the rows stay deferred. Nothing publishes.
 
 **Also on the page's queue since 644:** `image_source_unsatisfiable` (`needs_human_review`,
 11:24) — the checker now flags that `illustrated-text-block` sources `image_url` from

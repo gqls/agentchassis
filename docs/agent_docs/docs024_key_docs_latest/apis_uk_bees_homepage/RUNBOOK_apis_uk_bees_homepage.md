@@ -232,3 +232,39 @@ by asserting on SENTENCES:
   queen`) via a `writer_block` carve-out — a number that is part of what a thing IS is not
   a measurement. The test asserts both directions so the carve-out and the bans cannot drift
   apart.
+
+
+## 8. Parking work items so automation cannot publish something the owner has ruled against [PROVEN 2026-08-26]
+
+Used to hold nine tool-expansion items on apis.uk (handoff 2026-08-26 §5c). One transaction,
+count asserted INSIDE plpgsql — a psql `\gset` variable cannot be read inside a `DO $$` body
+(dollar quotes do not interpolate; the first attempt errored before COMMIT and rolled back).
+
+```sql
+BEGIN;
+DO $$
+DECLARE n int;
+BEGIN
+  UPDATE site_work_items swi SET status='deferred',
+    result = COALESCE(swi.result,'{}'::jsonb) || jsonb_build_object(
+      'reason','<why, naming the owner ruling>', 'deferred_by','<session>',
+      'unblock','<what un-parks it>', 'see','<doc path>'),
+    updated_at = now()
+  FROM sites s WHERE s.id=swi.site_id AND s.domain='<domain>' AND swi.status='triaged'
+    AND <exact predicate for the rows you mean>;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <expected> THEN RAISE EXCEPTION 'expected % rows, got %', <expected>, n; END IF;
+END $$;
+COMMIT;
+```
+
+**Gotchas**
+- **`deferred` is an OPEN status for `idx_swi_dedup`** — the parked rows HOLD their dedup keys, so
+  a re-file of the same key dedups onto them and inserts nothing. **The park is the hold.**
+  Cancelling releases the key and the next cycle re-creates the set. Cancel only after the
+  durable refusal exists.
+- Dry-list the ids with the same predicate first; a predicate on `summary LIKE` is how the index
+  page's own `page_rerender` was kept OUT of the set here.
+- Estate tool for the same job with provenance stamps: **migration 621's `park_work_items`** —
+  but it parks only `triaged`/`approved`/`detected`, so already-deferred rows are past its reach;
+  the `result` stamps above do the same job by hand.

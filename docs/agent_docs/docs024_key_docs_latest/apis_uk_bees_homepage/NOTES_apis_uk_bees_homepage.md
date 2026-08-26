@@ -1352,3 +1352,16 @@ Pattern worth naming for the lane: **a re-enabled fleet mechanism does not know 
 rulings.** The loop read apis.uk's "1 of 6 structures" and "no tools" as gaps to fill; the
 single-page constraint lives in a brief the planner reads and the completeness pass does not.
 The durable fix is the un-enrol, not the deferral.
+
+### 2026-08-26 ~14:50 UTC — loop owner's code read corrects two of my §5c claims
+
+loanzy.uk (loop owner) read the path from code: it is the DESIGN seat's `missing_tools` check →
+`evaluate_tools`/tool-suggester → `add_tool`/tool-generator (not completeness), and it runs via
+both the loop's audit pass and the design rotation. **No per-site exclusion exists** — the growth
+ratio key can only add pressure. And my hold is stronger than I described: `deferred` is OPEN for
+`idx_swi_dedup`, so the nine parked rows hold their keys and re-files dedup onto them; my option
+(b) had "cancel the nine" FIRST, which would release the keys and re-create the set — reordered
+in §5c (refusal declaration first, RFC_056 follow-up they are recording; cancel after). RUNBOOK
+§8 now carries the parking recipe + the `park_work_items` (mig 621) pointer. Their framing of
+their own boundary is worth quoting: "tool EVALUATION is growth, not a defect, and should not
+have been on the dispatching side of the line."
