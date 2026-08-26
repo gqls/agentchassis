@@ -2241,3 +2241,56 @@ owner runs step 1 and steps 3–4, this lane owes: step 5 verify at the containe
 (image label + `gripper route group mounted` log line), step 6 public smoke (the
 four calls), step 7 cluster half (seed 208 with the pull key via `-v`, never
 echoed; then enable `report-request-pull`), then one pull tick watched.
+
+## 2026-08-26 morning — SHIPPED to the island; smoke 5/6; the one failure is Anthropic CREDIT, not the service. Step 7 HELD
+
+Owner ran both halves ~08:50–08:53Z: step 1 script (all NOTICEs, verify block
+passed, ledger row in, read-back `3/1/1`) and the four step-3/4 commands (compose
+6,692 B over, `Loaded image: aqls/tools-api:v1.0.1340`, container Recreated →
+Started with postgres healthy).
+
+**Step 5 verify at the container — ALL GREEN** (read-only ssh, this session):
+`ps` shows `docker.io/aqls/tools-api:v1.0.1340 Up`; running container's image label
+`org.opencontainers.image.revision` = `eef758543210b3dff0b2e37a5335dff1c2ad6a5d`
+(the exact committed ref); `RATE_LIMIT_RPS=2` / `RATE_LIMIT_BURST=20` inside the
+container (the compose merge landed — owner tuning SURVIVED the swap); all 9
+`GRIPPER_*` names present; binary probe in-container `gripper/poller`=2, control
+`logNeverExisted`=0; boot log: `gripper route group mounted
+(model=claude-haiku-4-5, smtp=mail.contactforsales.com:465,
+from=robot-hands@contactforsales.com)` + `gripper/poller: started tick=1m0s` +
+`tools-api listening on :8080`.
+
+**Step 6 public smoke — 5 of 6 PASS, evidence inline:**
+
+| call | expect | got |
+|---|---|---|
+| POST /session, no Origin | 403 | **403** ✓ |
+| POST /session, Origin robot-hands.com | 200 + session_id | **200**, greeting + `b9a1b863-…` ✓ |
+| GET /requests, no key | 401 | **401** ✓ |
+| GET /requests, keyed (run FROM the box; key never transited) | 200 `_meta` | **200** `{"_meta":{"count":0,…,"truncated":false}}` ✓ |
+| POST /gauntlet/round, Origin vonc.com (tenant-1 no-regression) | 200 | **200** ✓ |
+| POST /chat, real turn | assistant reply | **503** `intake assistant unavailable` ✗ |
+
+**The /chat failure is EXTERNAL and precisely diagnosed by the service's own log**
+(the honest-degraded-mode design working):
+`gripper/chat: generate FAILED … status 400 … "Your credit balance is too low to
+access the Anthropic API. Please go to Plans & Billing…"` — the dedicated
+spend-capped key AUTHENTICATES but its account holds no credit. The 08-15
+"verified live" used the FREE `count_tokens` endpoint, which succeeds on a
+zero-credit account — auth was proven, spend was structurally unprovable by that
+probe. WRONG_CALLS entry appended 2026-08-26. ⚠ If the console SHOWS credit on
+the org you look at, remember the fleet-key trap: the key may live on a DIFFERENT
+org — identify the right one by the key's `Last used` (memory:
+the-fleet-key-is-not-on-the-default-console-org; this key HAS a `Last used` now,
+today's failed call).
+
+**Step 7 (seed 208 + enable `report-request-pull`) deliberately NOT taken** —
+runbook rule: cluster side only AFTER 6 passes, and 6 has not fully passed. The
+pull endpoint itself is proven (the keyed 200 above), so once credit exists the
+remaining sequence is: one real /chat turn passes → apply seed 208 (pull_key via
+`-v`, never echoed) → enable pull → watch one tick for
+`per_site → {"robot-hands.com": …}`.
+
+Session row `b9a1b863-730b-4e8c-9f87-79d59f9b4798` remains on the island (chat
+503'd after session create) — harmless; retention drops it 24h after last
+activity by design.

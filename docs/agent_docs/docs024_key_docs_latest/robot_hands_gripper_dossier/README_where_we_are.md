@@ -835,3 +835,37 @@ sitting in a file ready to copy across.
 Once those run, I take it from there: verifying the right build is actually running,
 the four public checks, and the cluster half (the report-pull switch stays OFF until
 the checks pass — that rule is written down and I'll follow it).
+
+## 2026-08-26 — it's live on the island. One thing stands between us and switching it on: API credit
+
+You ran both halves this morning and they went exactly to plan: the database change
+applied and checked itself, the new build went across, and the service came back up
+in seconds with the gripper machinery mounted.
+
+I then verified everything from my side. The right build is genuinely the one
+running (checked at the container, not the label on the box). Your rate-limiter
+settings survived the swap — that's the regression I caught yesterday, confirmed
+fixed. And five of the six public checks pass: the chat door refuses strangers and
+admits robot-hands.com, the cluster's pull door refuses without the key and answers
+properly with it, and the existing vonc.com tool still works untouched.
+
+The sixth check — an actual conversation turn — failed, and the reason is refreshingly
+simple: **the Anthropic account behind the gripper's dedicated key has no credit on
+it.** The service handled it exactly as designed (polite "assistant unavailable" to
+the visitor, precise reason in the log). Nothing to fix in the code or on the box.
+
+Worth being straight about: when we said the key was "verified live" back on the
+15th, that check used a free endpoint — deliberately, to avoid spending — which
+means it proved the key works but couldn't possibly notice an empty balance. Lesson
+logged: verify a paid capability with the smallest paid call.
+
+**Over to you, one item:** put credit on (or raise the cap for) the account that key
+belongs to — Plans & Billing in the Anthropic console. One caution from a previous
+episode: if the page you land on already shows credit, you're likely looking at the
+wrong organisation — the key's "Last used" (today, 09:55 our time) identifies the
+right one.
+
+The moment that's done, tell me: I run one real conversation turn, and if it
+answers, I flip the last switch on the cluster and we watch a request travel the
+whole way — chat to emailed report. That's also the day I write the milestone
+summary we agreed on.

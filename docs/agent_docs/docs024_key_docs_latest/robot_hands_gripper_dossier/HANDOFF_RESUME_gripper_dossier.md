@@ -1,7 +1,7 @@
 # RESUME HERE — gripper dossier pilot
 
-> # 👉 GO STRAIGHT TO THE BOTTOM: "⭐⭐ START HERE — 2026-08-25 EVENING".
-> (It supersedes the afternoon "⭐ START HERE" block, which is now history too.)
+> # 👉 GO STRAIGHT TO THE BOTTOM: "⭐⭐⭐ 2026-08-26 — LIVE ON THE ISLAND, smoke 5/6, ONE owner item: Anthropic credit".
+> (Supersedes both 08-25 blocks, which are now history too.)
 > That block is the current ship state (2 of 7 steps done, step 1 next and owner-blocked),
 > the exact command to run, and every trap in the remaining steps. Everything between here
 > and there is history, kept for provenance — read it only if the START HERE block sends you.
@@ -311,7 +311,10 @@ and I did not chase it because it is not this lane's to close.
 ## Credentials — both issued, both verified, neither deployed beyond `.env`
 
 - **Anthropic**: `/home/ant/.config/anthropic/gripper-dossier-api-key` (dotenv line, not a bare
-  key), spend-capped, verified live via the free `count_tokens` endpoint.
+  key), spend-capped, ~~verified live via the free `count_tokens` endpoint~~
+  > **CORRECTED 2026-08-26:** that probe verified AUTH only — `count_tokens` is free and
+  > succeeds on a zero-credit account. The account behind this key has NO CREDIT, found by
+  > the first paid call (the ship-day smoke). See the ⭐⭐⭐ block + WRONG_CALLS 2026-08-26.
 - **SMTP**: `/home/ant/.config/gripper-dossier/smtp.env`, verified by real `AUTH` from the dev
   box **and** by reachability + `AUTH PLAIN LOGIN` from the island.
 - Both are **local dev-box files**, both mode 600. They live on the island only in
@@ -398,3 +401,55 @@ mounts because `.env` already carries the key.)
 - Site widget + `/gripper-report/` page: still a separate deliverable (DESIGN §2).
 - Council resubmit (`RESUBMIT_CORR=623da25b…`): still the tools-api build session's,
   deliberately not taken. Unchanged.
+
+
+---
+
+# ⭐⭐⭐ 2026-08-26 — LIVE ON THE ISLAND. Smoke 5/6. ONE owner item, then step 7 and done
+
+**The ship happened this morning, owner-run, both halves clean.** Steps 1, 3, 4, 5
+are DONE and verified at the artefact; step 6 is 5-of-6; step 7 is HELD (rule: only
+after 6 fully passes). Evidence for everything: NOTES 2026-08-26 morning.
+
+| # | step | state |
+|---|---|---|
+| 1 | migration 436 on the island | **DONE 08-26 ~08:50Z** — verify block passed, ledgered, read-back `3 tables / 1 ledger / 1 site row` |
+| 3 | compose swap | **DONE** — merged copy over, `RATE_LIMIT 2/20` proven INSIDE the container (owner tuning survived) |
+| 4 | image swap | **DONE** — `v1.0.1340` Up, revision label `eef758543…`, binary `gripper/poller`×2 control 0 |
+| 5 | verify at container | **DONE** — `gripper route group mounted` + `gripper/poller: started tick=1m0s` + `listening` |
+| 6 | public smoke | **5/6**: 403/200 CORS ✓, 401/keyed-200 `_meta` ✓ (keyed call run FROM the box), gauntlet vonc.com 200 ✓ (no regression). **✗ /chat 503** — see below |
+| 7 | seed 208 + enable `report-request-pull` | **HELD** until 6 passes. Pull endpoint itself already proven |
+
+## The one blocker — Anthropic credit, NOT the service
+
+The service's own log names it exactly:
+`gripper/chat: generate FAILED … 400 … "Your credit balance is too low to access the
+Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."`
+
+The dedicated gripper key AUTHENTICATES (all the 08-15 checks were real) but its
+account holds no credit — the 08-15 probe was the free `count_tokens`, which cannot
+detect that (WRONG_CALLS 2026-08-26). **Owner action: add credit / raise the cap on
+the org that key belongs to.** ⚠ If the console you open SHOWS credit, you are
+probably on the WRONG org — find the right one via the key's `Last used`, which now
+shows today's failed call (`req_011CeR5ZavnEYJQkmTfP844p`, 08:55Z).
+
+## When credit exists, the finishing sequence (any session, ~15 min)
+
+1. One real chat turn (spends ~1 Haiku call):
+   `curl -s -H 'Origin: https://robot-hands.com' -H 'Content-Type: application/json' -X POST https://tools.apis.uk/api/v1/tools/gripper/chat -d '{"session_id":"<new one from /session>","message":"about 2.5 kg"}'`
+   — expect an assistant question back, not `intake assistant unavailable`.
+2. Apply the corrected seed 208 on the cluster with the pull key via
+   `-v pull_key="$(…)"` substitution (file `~/.config/gripper-dossier/pull-key`;
+   check its dotenv-vs-bare shape first; NEVER echo it). Note the 08-25 session's
+   classifier refused island mutations but permitted cluster psql — untested for
+   seeds; if refused, it is a 30-second owner paste.
+3. Enable `report-request-pull`, watch ONE tick for
+   `per_site → {"robot-hands.com": {"scanned": n, "inserted": n}}`, no `error`.
+4. Then a FULL end-to-end: chat → submit → pull → report page → email — fixture
+   inputs are in DESIGN §6; the emailed link is the artefact.
+5. Then the site widget + `/gripper-report/` page (DESIGN §2 "Site side") — still
+   the separate deliverable, and a SUMMARY is owed the day the smoke passes
+   (owner agreed 08-25: write it when it is live end to end).
+
+Session row `b9a1b863-…` left on the island from the failed turn — harmless,
+retention reaps it 24h after last activity.

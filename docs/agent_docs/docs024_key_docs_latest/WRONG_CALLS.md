@@ -54164,3 +54164,24 @@ before it could be quoted onward.
 
 Family: a-text-census-read-as-a-step-census, a-landmine-is-not-safe-just-because-one-direction-is,
 a-question-inherits-its-embedded-claims-burden, the-throwaway-line-is-the-unaudited-one.
+
+## 2026-08-26 — gripper lane: "Anthropic key verified LIVE" via a FREE endpoint — auth proven, SPEND unprovable, and the first paid call found the empty account
+
+- **The claim** (handoff + runbook, 08-15, repeated through 08-25): the gripper's
+  dedicated Anthropic key is "issued and **verified live** via the free
+  `count_tokens` endpoint". Read by every later session as "credentials DONE".
+- **What was actually true**: the key AUTHENTICATES. The account behind it has no
+  credit. `count_tokens` is free and succeeds on a zero-credit account, so the
+  chosen probe could never have detected the state that mattered — the deliberate
+  frugality ("verified via the FREE endpoint", picked to avoid spending) is
+  exactly what blinded it.
+- **What caught it**: the first production `/chat` turn after the island ship
+  (2026-08-26 08:55Z) — 400 `invalid_request_error: credit balance is too low`,
+  surfaced honestly as the 503 degraded mode.
+- **The cheap check that would have caught it**: one minimal PAID call at
+  key-issue time (1-token max_tokens message on the cheapest model, ~fractions of
+  a cent). **Verify a paid capability with the smallest paid call** — a free
+  endpoint verifies only the free tier of the capability. Same family as "probe
+  the CAPABILITY, not the commit" and "a `[MEASURED]` claim is only evidence if
+  the measurement could have come out otherwise": a zero-cost probe of a
+  costs-money capability cannot come out "no money".
