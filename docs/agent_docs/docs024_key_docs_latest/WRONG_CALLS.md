@@ -54516,3 +54516,25 @@ place in `scripts/pattern-check.py`.
 >
 > So the automatable one is **Family A only**. Family B is a neighbouring entry, not the same
 > rule.
+
+## 2026-08-26 — I made yesterday's archive mistake AGAIN, in the census that justified yesterday's fix
+
+One-day sequel to the entry above. Correcting the delivery gate to UNION the archive, I
+grounded it with a census — "of 8,003 live complete rows, ZERO carry `approved_by`; the
+approve path has never been exercised in production" — and that census read the LIVE TABLE
+ONLY. The archive holds exactly one `approved_by` row (`needs_brief_review`, 2026-03-17,
+`created_by='test'`). So the sentence justifying the archive-reading fix was itself derived
+by not reading the archive. It reached the code's doc comment and an APPROVED council
+record before adversarial review caught it.
+
+**The mechanism, because "be more careful" is not one:** I ran the vocabulary census to
+answer question A (does `approved` exist?), got a decisive answer, and then quoted the same
+result set for question B (has approval ever happened?) — but A is a question about the
+live table and B is a question about ALL HISTORY, and the query only covered A. **A census
+reused for a second question inherits the first question's scope, silently.** The check:
+before quoting a count for a new claim, re-read the FROM clause against the new claim's
+timeframe — "ever" always needs the UNION on this table.
+
+Family: a-closer-census-cannot-see-what-it-succeeded-at,
+a-census-reused-for-a-second-question-inherits-the-first-scope,
+i-repeated-the-error-i-had-just-written-up.

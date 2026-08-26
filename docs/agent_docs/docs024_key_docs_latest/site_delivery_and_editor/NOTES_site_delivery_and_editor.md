@@ -983,3 +983,39 @@ in the rotation's reach (19 historical design-adjacent items) and an unprompted 
 repair on `index` would strip the hand-placed "Not active yet" label at the parked preview
 — probability moved from ~zero to live this morning. Relayed with the cheap standing check:
 `NOTE_2026-08-26_design_rotation_resumed_label_strip_risk.md` in the webdesign dir.
+
+## 2026-08-26 — verdicts read; Fable adversarial review found five real defects; all fixed or tracked; both trails resubmitted
+
+**Verdicts from last night's resubmissions:** the claim layer **APPROVED** (0b84970d,
+21:21); the listener **REVISE a third time** (25cd3044, 21:25) — and round 3's gating
+objections were both MY SUBMISSION again: I appended the round-3 `newDeliveryEngine`
+sketch after the round-2 one (two conflicting signatures side by side), and the wiring
+test my argument leaned on never appeared in the test edit. Third occurrence of the
+submission-not-reflecting-code class. Round 4's sketches are rewritten wholesale from the
+committed files, never accumulated.
+
+**The user asked for a fresh look "using fable"** — an adversarial reviewer with no
+session context, read-only, briefed to find what the council and I both missed. It did.
+No fatal findings; five real-but-bounded, three of which refute things I told the council:
+
+| # | finding | disposition |
+|---|---|---|
+| 1 | `AlreadyHandedOver = (handed_over_at <> $2)` **double-delivers** on a same-microsecond collision or ANY reused-`now` retry (pgx = microsecond precision) | **FIXED** `d547b54cc`: the claim is now `WHERE handed_over_at IS NULL` — at most one winner by construction. **Proven on real Postgres rolled back, with the control**: second same-T claim → `UPDATE 0`; the OLD discriminator on the same state → "NOT already → would DOUBLE-DELIVER" |
+| 2 | The filing contract was half-stated: `HandleApproveWorkItem` ALSO 400s without `spec.checkpoint=true`, and its error steers the owner to RESOLVE — writing the key the gate ignores. Silent stall, every press "succeeds" | **FIXED**: `ReviewItemRequiredSpec()` pins the spec half; test asserts the flag and map freshness |
+| 3 | The pod stays **Ready with a dead customer door**: both `cancel()` calls were dead code (main blocked on bare `<-sigCh>`), and my round-2 answer to guardian's HIGH asserted the opposite | **FIXED** `67f1794f9`: shutdown is `select{sigCh, ctx.Done()}` — both cancels real, incl. the main listener's pre-existing dead one. The false claim corrected on the council record |
+| 4 | `assertRoutesAreBoxServable` **vouched for `/d/`** while the vhost has no `/d/` block — the exact invisible-404 failure it exists to prevent, deferred | **FIXED**: `boxServablePrefixes` (= /c/) split from `deliveryRoutePrefixes`; registering `/d/:token` now refuses startup until the vhost block lands in the same commit. The /d/ test's expectation FLIPPED |
+| 5 | My "approve path never exercised" claim was **false by the archive mistake the gate itself corrects** — one archived `approved_by` row exists (2026-03-17, created_by='test') | **CORRECTED** in the doc comment + WRONG_CALLS (the census-reused-for-a-second-question mechanism) |
+
+**Deliberately NOT patched, recorded in DGH-017:** the unguarded reopen
+(`UpdateWorkItemStatusAction` non-complete branch merges `result` forward — approval
+survives; gate has no revocation) and the admin one-PATCH re-type. Shared machinery;
+patching them in this lane's round is the `bugs_closed/124` bundling.
+
+**Mutations:** 2 new (revert the WHERE → 3 tests fail via pinned regex; regain /d/ →
+flipped test fails), full suite + `verify-head-builds` green at HEAD `1e37f282a`.
+
+**Resubmitted:** listener round 4 (25cd3044) with wholesale-rewritten sketches + both
+listener fixes; claim round 3 (0b84970d) as post-approval hardening so the trail reflects
+what shipped. Also this morning: design rotation re-enable verified at the live rows,
+label-strip risk relayed to the webdesign lane; the six-listeners observation gained its
+trigger (an eighth forces an RFC).
