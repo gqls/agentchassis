@@ -794,9 +794,19 @@ of the handoff, now has a generation queued against it), `head_essentials_missin
 `prerequisite_missing` ×2, `structure_floor_unmet`, `capability_gap`.
 
 The `webdesign-tool-rebuilds` lane's cross-session heads-up said the rotation was re-enabled
-"at 2026-08-26 09:20Z"; the items above are stamped 00:24Z. **[UNRESOLVED] the two times
-disagree by nine hours** — recorded as measured, not reconciled. What matters either way: the
-wave is the rotation, not a stray thread.
+"at 2026-08-26 09:20Z"; the items above are stamped 00:24Z. ~~**[UNRESOLVED] the two times
+disagree by nine hours** — recorded as measured, not reconciled.~~
+
+> **CORRECTED 2026-08-26 (same day), by the webdesign-tool-rebuilds lane's follow-up: BOTH
+> times are right — there are TWO carriers.** The owner restarted the improvement-loop at
+> ~21:18Z on 08-25, and it dispatches design/completeness/acceptance-discovery as CHILDREN on
+> its own site selection — the 00:24–00:25Z wave is that (apis.uk got the same shape at 00:39,
+> idea.uk at 01:26, webdesign.co.uk at 03:46). The fair-rotation re-enable at 09:20:04Z is
+> separate, and its first agritec visit at **09:20:37Z** is what filed the 09:20:41 wave
+> (`undeployed_asset` ×6, `deactivated_component`) I had grouped under "wave 3" without a
+> carrier. Loop visits write no rotation stamps, so a site being hit by both is expected, not
+> double-filing. What caught it: recording the discrepancy instead of smoothing it over, and
+> the peer holding end-to-end verification of their own figure.
 
 **Wave 2, 08:12–08:14** — the improvement loop: 4 `capability_gap_audit_seat_failed_*`
 (deferred), `needs_rerender`, and a full 13-page `page_rerender` `_assemble` wave (triaged).
