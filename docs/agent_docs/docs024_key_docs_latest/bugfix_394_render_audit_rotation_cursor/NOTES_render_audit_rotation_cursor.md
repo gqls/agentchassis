@@ -256,3 +256,89 @@ keys without tripping the accumulated-surface review. Checked rather than assume
 budget check is exactly the sort of thing a plan asserts in passing and gets wrong — and because
 RFC_022's narrowing only exempts an opt-in field from *architecture* scope; it does not exempt it
 from the count.
+
+---
+
+## 2026-08-26 — the plan's one real tension, and the measurement that dissolves it
+
+The drafted plan (candidate 1, a keyset coverage cursor) surfaced a risk I did not expect and
+which I think would have been wrong to accept as stated.
+
+### The tension: a cursor re-creates the exact latency the owner ordered removed
+
+`sql_for_agents/469_render_audit_rotation_three_day_window.sql` is an **owner instruction of
+2026-08-18**, and its stated why is not "audits should be fresher":
+
+> **WHY.** The render audit is the only thing that **GRADES a contrast repair**: it re-measures
+> the page in a browser and withdraws the work item if the defect has gone (`bugs_open/296` §9 —
+> 40 of the 226 parked rows drained this way on the first pass). Its eligibility window is
+> therefore **the confirmation latency of the whole repair loop**: a fix that shipped today could
+> wait up to **SEVEN DAYS** to be graded. That is the bottleneck, NOT the hourly tick.
+
+A plain cursor makes each page's re-measurement latency `cadence × ceil(total / cap)` — on
+webdesign, 3 days × ceil(146/60) = **9 days**. That is not merely slower than the 3 days 469
+bought; it is **worse than the 7 days the owner issued an instruction to eliminate.** Shipping
+that and recording it as an accepted cost would be trading away a thing the owner had already
+ruled on, in a commit whose stated purpose is improving coverage.
+
+### The measurement: the protected population is 3 pages, not 146
+
+469's latency argument is about the pages that are **awaiting a grade**, not about the site. So
+the question is how many pages those are.
+
+```sql
+SELECT s.domain, count(*) AS open_items, count(DISTINCT wi.page_id) AS distinct_pages
+FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+WHERE wi.item_type = 'contrast_failure'
+  AND wi.status NOT IN ('complete','cancelled','rejected')
+  AND s.domain = 'webdesign.co.uk'
+GROUP BY 1;
+```
+
+`[MEASURED 2026-08-26]` → **webdesign.co.uk | 3 open items | 3 distinct pages.**
+
+Three, out of 146. And fleet-wide the largest such set is robot-hands.com at 17 distinct
+pages — on a site with 37 live pages, which never truncates at cap 60 and therefore never gets
+a cursor at all.
+
+**So the window should be a union, not a slice:**
+
+```
+window = (pages with an open regrade-awaiting finding)  ∪  (next N−k pages from the cursor)
+```
+
+The grading population rides in every run — latency stays at the 3-day cadence 469 paid for —
+and the cursor covers everything else. Cost today: **3 of 60 slots, 5%.** The tension is
+dissolved rather than traded, which is the better answer whenever it is available.
+
+### And the priority set is `contrast_failure` ONLY — measured, not assumed
+
+The obvious mistake here is to include `undeployed_asset`, since it shares the drain and the
+key namespace. It cannot be page-targeted:
+
+```sql
+SELECT item_type, count(*) AS items, count(page_id) AS with_page_id
+FROM site_work_items
+WHERE item_type IN ('contrast_failure','undeployed_asset')
+  AND status NOT IN ('complete','cancelled','rejected')
+GROUP BY 1;
+```
+
+`[MEASURED 2026-08-26]`
+
+| item_type | items | with page_id |
+|---|---|---|
+| `contrast_failure` | 111 | **111** |
+| `undeployed_asset` | 190 | **0** |
+
+Every open `undeployed_asset` row has a NULL `page_id` — it keys on the asset, not the page. So
+there is no page to prioritise, and including the type would have produced an empty join that
+looks like a working feature. Recording the zero because a silent empty set is precisely the
+shape that reads as "implemented" for ever.
+
+⚠ **Residual, stated rather than glossed:** this preserves *grading* latency, not *whole-site
+re-measurement* latency. A NEW contrast defect on a page in the rotation tail can still take up
+to a full cycle (~9 days on webdesign) to be discovered — versus 3 days today for the 60 pages
+in the prefix, and versus **never** today for the 86 in the tail. So it is a strict improvement
+over the status quo for 86 pages and a regression for at most 60, and the regression window is
+discovery, not confirmation. That is the honest claim and it is the one that goes to the council.
