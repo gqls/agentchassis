@@ -555,3 +555,38 @@ Still open from §7a, deliberately: **F4** (WithArgs pinning the raw-bytes INSER
 one line), **F5** (`parsed.String()` for the site filter), **F6** (client-side `site_id` row
 filter), F7/F8 (info). None fixed here — the owner approved F1+F2, and scope stays what was
 approved.
+
+### 7e. VERDICT + ROLL + FOLLOW-UP — 2026-08-26
+
+**F1+F2 are LIVE.** The fresh build's core-manager stamp is **`2fb40a960`** and
+`git merge-base --is-ancestor 48e75aad2 2fb40a960` passes (control: commits later than the
+stamp exist and are correctly not ancestors). Dashboard at `v1.0.1341`.
+
+**Council `be7544eb`: APPROVED round 1, two advisory objections, both from editquality, both
+answered:**
+
+1. *"Symbol `HandleResumeWorkflow` but the sketch modifies the terminate path — which?"* —
+   **Symbol was correct, no code owed.** Terminate and resume share ONE handler:
+   `HandleResumeWorkflow` binds `action` with `oneof=resume terminate` and branches. The
+   objection's premise (two handlers) is the natural reading of the route name; recorded here
+   so the next reader has the answer.
+2. *"Terminal set hardcoded rather than sourced from `orchestration_status_vocabulary.is_terminal`;
+   no guard against drift."* — **Correct, and stronger than the seat knew: the drift already
+   existed.** `[MEASURED 2026-08-26]` the vocabulary table holds 7 statuses and marks THREE
+   terminal — COMPLETED, FAILED, and **CANCELLED**, which has *no Go writer* (hand-written rows
+   only, 24 measured 2026-08-19, reaped by database-cleanup arm 3 since migration 566). The
+   literal-only filter would have relabelled a CANCELLED sibling FAILED. **Fixed in
+   `79c541085`** (`Council-Reviewed: be7544eb`): the UPDATE spares a row if its status is in
+   the literal set OR vocabulary-terminal — a new terminal status is protected with no code
+   change; an emptied vocabulary leaves the Go constants as the floor. Test regex requires both
+   halves; the NOT EXISTS half was mutation-proven (stripped → fail → restored).
+   **`79c541085` is INERT until the next core-manager roll** — same ancestry check.
+
+**A third consequence of the correlation non-uniqueness was found and fixed by the lane's own
+session, in the SPA I did not review deeply enough to catch it:** the workflow list keyed React
+rows on `wf.correlation_id` — a repeating value on a 10s-polling list. Their fix `c016b3fb4`
+groups by correlation with ×N. Their NOTES entry (2026-08-26) carries the transferable check:
+*ask whether the id is unique in the TABLE you are reading, not in the concept.* My §7 review
+listed the backend consequences of non-uniqueness and did not ask the same question of the
+list's `key=` — the finding was one grep away and I had the fact in hand. Recorded as a review
+blind spot, not re-litigated: their fix is right.
