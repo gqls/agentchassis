@@ -159,3 +159,73 @@ fixture's own header says it exists so that a rename fails *in the test* rather 
 fleet, and it currently cannot see 23% of the roster. The file has been here before: it records
 finding `literal_markdown` live and unlisted and says leaving a known gap "would be the same
 defect one level up". Refreshing it by UNION is part of this lane's commit.
+
+---
+
+## 2026-08-26 (evening) — the check is BUILT and committed; the two mutations that survived
+
+### What shipped, in one commit (`36b51a51b`), inert until 648 applies after the roll
+
+`check_archived_page_still_serving.go` + 29 tests, `datahelpers.ActivePageFilePaths` (the
+hoist), the retraction action delegating to it, both build-enforced registry entries, the
+`_HOLD` migration 648 + rollback, and register entry **IMP-058**.
+`Council-Submitted: 6ce98a66-72b6-498d-b0ef-66ab6be713c9`.
+
+Design decisions worth having in one place:
+
+- **The finding is a 200, so the blinded state is inverted.** Every other live-probe check in
+  the package files on a NEGATIVE observation and under-reports when blind. This one reports
+  ZERO when blind, and zero is what a healthy estate reports. Hence both controls INSIDE the
+  check and an **error** — not a silent decline — when either fails. The error buys a durable
+  `DISCOVERY_CHECK_ERROR` row and, more importantly, makes retraction structurally impossible
+  on a blinded run: the runner's `err != nil` branch `continue`s before the `Resolved` loop.
+- **The resolve-on-active pass runs BEFORE the "nothing archived here" early return**, per the
+  recorded inertness landmine, and is emitted only for keys with an OPEN item (one cheap
+  SELECT) so the common case costs no UPDATEs at all. `TestUnarchivedPageStillResolvesWithNoProbe`
+  was written first and is the mutation proof.
+- **The collision guard is now one function.** The detector must SKIP exactly the set
+  retraction REFUSES, or it files items whose only remedy declines to run. Two copies would
+  have drifted silently — `discovery_checks` cannot even import `actions`.
+
+### Misstep 2 — I wrote the mutation table from the design, and two rows were FALSE
+
+Eleven of thirteen mutations were caught by their named test. **The two control guards
+survived**: delete the invented-URL check, and `TestPermissiveRouterRefusesToJudge` still
+passed; delete the sibling check, and `TestDeadOriginRefusesAndCannotRetract` still passed.
+
+Both were passing on a **second failure**. Their fixtures scripted only what the test was
+about, so with the guard gone the run fell over on the next unscripted thing and `Run`
+returned an error anyway — and the assertion was `err != nil`.
+
+Fixed in both halves, because either alone is insufficient: script everything downstream
+HEALTHY so a check ignoring the control would run to completion and do the damage; and assert
+**which** control refused, not merely that something did. Both re-run and now caught. Full
+entry in `WRONG_CALLS.md`, and the honest correction is in the test file's own header rather
+than only here — a reader of the table needs to know two of its rows were once wrong.
+
+### Adjacent, not ours — recorded so nobody re-derives it
+
+- **HEAD is currently RED on `platform/livespec`**: `TestNoNewMigrationFileReadersOutsideTheAllowList`
+  fails on `write_audit_findings_origin_test.go`, committed by the 405 lane (`ffa1707b3`).
+  Clean in the working tree, so it is a committed-HEAD failure, not local WIP.
+- **`platform/orchestration/actions` is RED on another lane's uncommitted WIP**
+  (`request_render_audit_cursor_test.go`, the `bugfix_394` render-audit rotation lane —
+  untracked in the tree). Their `optional-key-budget` parity literal has also drifted for
+  `request_render_audit` (6 vs 7). Both are theirs; flagged here, not touched.
+- The pre-commit `logged-model-output` advisory on `retract_page_deployment_action.go:691` is
+  pre-existing code my delegation edit did not touch — a same-file passenger I deliberately
+  left alone.
+
+### The remaining sequence, in order, and NONE of it is optional
+
+1. Read the council verdict on `6ce98a66`; act on REVISE (the code is already on the shared branch).
+2. Wait for a chassis roll carrying `36b51a51b`.
+3. Probe the CAPABILITY with controls — `service_binary_capabilities` must carry
+   `archived_page_still_serving` on as many pods as it carries `site_unreachable`, and zero for
+   a fabricated name.
+4. Apply 648 by hand, then ask **what did I break** (`orchestration_states` for
+   `availability-discovery-agent`) before asking what worked.
+5. Add `archived_page_still_serving` to `liveConfiguredChecks` in the same commit as the apply.
+6. Verify the DISCONFIRMING PAIR at the artefact — an item for a page the census says serves,
+   and NO item for one it says already 404s. **A zero before it has ever flagged a known-live
+   case is not a clean reading.**
