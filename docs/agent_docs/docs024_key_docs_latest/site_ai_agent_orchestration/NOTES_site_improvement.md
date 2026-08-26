@@ -1760,3 +1760,76 @@ document for the rollback sidecar.
 - **2026-08-28 ~09:06Z** — day-2 (first re-read of a refresher-WRITTEN row; the typed-struct question).
 - Also owed by the platform, not us: the next page regeneration writes copy from the COMPOSED block for
   the first time — same floors, so no visible change is the expected result.
+
+---
+
+## 2026-08-26 — the two remaining tool pages diagnosed, and half my fix was a no-op
+
+Roll completed overnight: **one** chassis stamp now (`2fb40a960`, ~66,912 pods), not the two of
+yesterday. Yesterday's `625` work is intact — all three owned tool pages still `owned`, scripts
+present.
+
+### 1. The diagnosis, done by asking which declaration WINS
+
+`getComputedStyle` plus a CSSOM walk matching each failing element against
+`document.styleSheets` — not a stylesheet grep, per this lane's own rule. Result: **none of the
+four failures is the 456 defect**, which is exactly why they survived 456/469/625 and why their
+stored HTML already carried the ink token.
+
+**The root is 456's root wearing a different face.** On this site `--color-primary` and
+`--color-surface` are **the same value** (`#0D1117`). So any rule pairing them collapses to 1.00:1
+— and it reads as *perfectly sensible CSS*, because on every other site in the fleet a label in
+`--color-surface` on a `--color-primary` fill is exactly right. That is why nobody wrote a bug: the
+CSS is correct everywhere except where two tokens happen to coincide.
+
+| declaration | measured | repoint |
+|---|---|---|
+| `.method-details summary` `var(--color-primary)` | 1.00 | ink 5.66 |
+| `#…-calculate-savings-button` `var(--color-surface)` | 1.00 | primary-text 18.92 |
+| `.cta-link` `var(--color-secondary)` | 1.09 | accent-ink 9.09 |
+| `.bvb-btn-primary` `var(--color-surface)` | 1.00 | primary-text 18.92 |
+
+⚠ **`.cta-link` is an OVERRIDE, not an omission.** The template already carries
+`a { color: var(--color-accent-ink, var(--color-accent)) }` at 9.09:1; `.cta-link` has higher
+specificity and replaces it with a near-black. The fix is convergence on the token the sibling rule
+already uses.
+
+⚠ **`.result-value` is a FIFTH defect the audit cannot see.** It lives in a result panel hidden
+until the visitor runs the calculator, so `render_audit.py` — which reads the page as loaded —
+never reports it. Same 1.00:1 collapse. **Found by censusing the template for the collapsing PAIR
+rather than by fixing what the instrument listed. On a page with conditional UI, the audit's count
+is a LOWER BOUND.**
+
+### 2. ⚠ Half of migration `636` is a NO-OP, and I found it only when filing the propagation
+
+- `tool-build-vs-buy-analyzer-ai-agent-orchestration-com` — **1 placement**. Fix correct; rerender
+  filed and queued. ✅
+- `tool-automation-savings-estimator-ai-agent-orchestration-com` — **ZERO placements.** The page
+  renders `tool-automation-savings-estimator-**fundamentallyai-com**` instead, which is placed on
+  **2 sites** (fundamentallyai.com and here).
+
+**I selected the components by CSS CONTENT and never asked which component the PAGE uses.** The
+template census answered "where does this rule live?" and I read it as "which component does this
+page render?" — two different questions with the same-looking answer. An `-ai-agent-orchestration-com`
+suffix made the wrong one look obviously right.
+
+**What caught it:** filing the rerender returned `INSERT 0 1` when I expected 2. **The count was the
+tell** — had both templates been placed, nothing would have been odd and I would have reported four
+failures fixed when three were untouched.
+
+⚠ **The three savings-estimator failures are UNTOUCHED**, and fixing them is now a **cross-site**
+change (fundamentallyai.com shares that component), so it needs that lane told first — owner ruling
+2026-07-29 §3 — not a unilateral repoint.
+
+⚠ **And the diagnosis there is INCOMPLETE.** The fundamentallyai fork matches only the
+`.result-value` defect on a regex census; the source of the other three live rules
+(`.method-details summary`, the button id rule, `.cta-link`) is **not yet located** — possibly
+different whitespace in that fork, possibly the site stylesheet. **Do not assume the orphan's rules
+are the fork's rules.** That is the same mistake one layer down.
+
+### 3. Numbering
+
+Renumbered `626` → `636` mid-flight: another lane took 626 while I worked. ⚠ **My `625` had already
+collided the same way** (`625_clear_audit_stamps…HOLD.sql`). The ledger keys on FILENAME so both are
+safely recorded, but a bare number is ambiguous in `sql_for_agents/` exactly as it is in `/bugs_*/`.
+Re-check the highest number immediately before writing, not when you start.

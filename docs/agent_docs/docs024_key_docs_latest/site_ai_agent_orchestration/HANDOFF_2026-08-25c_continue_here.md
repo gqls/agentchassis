@@ -1,4 +1,9 @@
-# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-25 ~20:30Z.
+# HANDOFF — ai-agent-orchestration.com. ⚠ SUPERSEDED. Written 2026-08-25 ~20:30Z.
+
+> ## ⛔ SUPERSEDED by `HANDOFF_2026-08-26_continue_here.md` — READ THAT FIRST.
+> Its counts and its owned-page manoeuvre (§1) still stand. The new file adds the diagnosis of the
+> last two tool pages and corrects a **no-op in migration `636`**: one of the two templates it
+> patched has ZERO placements, so three of the failures it claims are untouched.
 
 **Supersedes `HANDOFF_2026-08-25b_continue_here.md`** (same evening). That file's correction —
 that the "zero" was four pages of forty-two — stands and is the reason this lane now audits the
