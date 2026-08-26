@@ -2083,3 +2083,19 @@ triaged 19:03:59Z. **This build is three proofs at once:** 618's floor on its fi
 council, and the FCA-adjacent no-prompt stress of the claims controls (flagged; owner chose knowingly).
 Sequencing agreed with the owner: garden-tools re-plan AFTER farmer clears hop two; homegarden stays
 the untouched control.
+
+**2026-08-26 ~20:5xZ (DB clock) — THE ROLL: chassis `b34c24f4c`, seen 20:45:57Z, carries EVERYTHING.**
+Verified by the working route with all three controls: `f51d3cf5e` (newest Go: retraction gate + origin
+stamp) IN; old-commit control IN; post-build commit NOT in — merge-base discriminates. So the whole
+RFC_056 stack is live-capable: record mode (already exercised), the origin stamp (writes on the next
+model-seat filing), the record-mode retraction (streak bumps will appear as `result.retraction` on
+record rows over coming audits). **Clock trap, new costume:** I read git's local BST timestamp against
+DB UTC and manufactured a phantom hour — the promoter looked 4 ticks stale when the roll was 3 MINUTES
+old. `now()` from the DB before any staleness claim; git shows +01:00. **405 §6 door proof RUNNING:**
+synthetic stamped row (proven pair, farmer site, key `content_rewrite:405-door-verification`) inserted
+post-roll; watch asserts held across ≥2 promoter ticks then cancels it with the result note.
+**farmerinsurance.uk queue reality (a route finding in itself):** 1.75h after dispatch the classifier
+item is still `triaged` behind 27 sites; dispatch healthy (277 claims/h, 269 completions/h) but net
+drain only ~15/h because producers refill — a FRESH site's first item waits behind the fleet's
+maintenance backlog age (the 391 lane's between-sites finding at product scale). Bypass option put to
+the owner, not taken unilaterally.
