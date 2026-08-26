@@ -191,6 +191,44 @@ why it was parked. Reading it as a trace would shrink the population on a false 
    slot. It is in lockstep with `workItemTerminalStatuses`, and **migration 157 already broke that
    pair once fleet-wide with SQLSTATE 42P10.** Architecture-scope, not a patch.
 
+## 6c. LIVE STATE 2026-08-26 — both fixes are IN THE BINARY and the config is applied
+
+Chassis **`v1.0.1341`**. Binary-probed on **both** replicas with a present-control
+(`repairOutboundPageLinks`) and an absent-control (`zzzNotARealSymbol396zzz`) in the same run —
+`honour_site_lock`, `lock_except_item_ids` and `WORK_ITEM_STATUS_OVERRIDE_REFUSED` all **PRESENT**.
+⚠ The `build provenance` line had scrolled (pods 9 h old): empty there means *not in range*, not
+*unstamped*.
+
+| piece | state |
+|---|---|
+| `status_override` allow-list (council **APPROVED** `9c16eb83`) | **LIVE** |
+| `sites.lock_except_item_ids` (migration `632`) | **APPLIED**, inert |
+| `honour_site_lock` arm in `LoadWorkItemsAction` | **LIVE** |
+| migration `633` (the held config half) | **APPLIED 2026-08-26**, hold condition met and proven |
+
+`633` verified at the artefact with a query it does not contain: gate **names** the column ✓, gate
+**KEEPS** `s.locked_at IS NULL` ✓, `load_items honour_site_lock=true` ✓, negative control
+(`site-work-orchestrator` steps with the key) **0** ✓. Inert on apply — 0 sites carry an exception
+list, so the new clause evaluates identically to the old for every row.
+
+⚠ **`--record-only` REFUSES a `_HOLD` file** as an uppercase sidecar, so its ledger row was written
+by hand (same workaround as `610_..._HOLD`). **Held migrations are otherwise invisible to
+`schema_migrations` — "was the held half applied?" can only be answered from the live config.**
+
+### ⛔ TWO THINGS ARE OWED AND NEITHER IS POSSIBLE TODAY
+
+1. **The end-to-end exercise:** lock a site, except one item, confirm that item dispatches and its
+   siblings do not.
+2. **The council round.** `175df761` r2 ran and died `complete_invalid` — *"no reviewer produced a
+   readable opinion (5 abstained, 12 unreadable) — a council with no opinions cannot decide."*
+   **It was never judged.** Resubmit when the fleet is back; fix the duplicate file paths in
+   `submission_396_site_lock_exception_r2.json` first (8 edits, two paths listed twice).
+
+**Both are blocked by a fleet-wide outage, not by this lane:** Anthropic credits exhausted, last
+success `2026-08-25 23:46:29Z`, **631 consecutive failures** since. The build queue is stalled at
+**1,399 `triaged` / 0 `claimed`**, oldest triaged 08-18. Already diagnosed by other lanes and the
+owner is already notified — `bugs_open/243`'s class. **Do not re-file it.**
+
 ## 6b. ⚠ SUPERSEDES §6a's candidate 1 — the fix is the EXISTING site lock, not a park verb (2026-08-25, after council `ed821065` REVISE)
 
 **§6a said the primary fix was a park verb. That was wrong, and the council's `prior_art` seat
