@@ -31,7 +31,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,13 +58,22 @@ const renderAuditTopic = "system.adapter.render-audit.requests"
 // RequestRenderAuditInputSpec documents the step config.
 var RequestRenderAuditInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{},
-	Optional: []string{"site_id_field", "domain_field", "max_pages", "page_names", "topic", "capture_renders"},
+	Optional: []string{"site_id_field", "domain_field", "max_pages", "page_names", "topic", "capture_renders", "rotate_coverage"},
 	Defaults: map[string]interface{}{
 		"site_id_field":   "site_record.site_id",
 		"domain_field":    "site_record.domain",
 		"max_pages":       25,
 		"topic":           renderAuditTopic,
 		"capture_renders": false,
+		// rotate_coverage OPTS IN to the coverage cursor (bugs_open/394).
+		// Default FALSE, and the default is the UNSAFE-side-off shape the owner
+		// ruled for new authority on a shared seam (2026-08-02 §2): a caller that
+		// has not asked for rotation keeps today's deterministic prefix exactly.
+		// Two live carriers as of 2026-08-26 — render-audit-agent (cap 60, opted
+		// in by migration 646) and design-critique-agent (cap 8, deliberately NOT
+		// opted in: it is a manual sampler with no cadence, and its 8 pages are
+		// plausibly meant as the most important 8 rather than any 8).
+		"rotate_coverage": false,
 	},
 	Deprecated: map[string]string{},
 }
@@ -100,6 +108,7 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 		maxPages = 25
 	}
 	captureRenders, _ := config["capture_renders"].(bool)
+	rotateCoverage, _ := config["rotate_coverage"].(bool)
 
 	// SHIPPED pages only. An unshipped page has no live URL to render, and
 	// asking for one produces a navigation failure that reads like a defect.
@@ -110,8 +119,16 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 	// should photograph. Measured before converging: 36 pages across 8 sites were
 	// live and invisible to this audit. The intent in the comment above was always
 	// "has a live URL"; the predicate now says what the comment meant.
+	//
+	// The ordering columns are SELECTed as well as ordered by, because the
+	// coverage cursor (bugs_open/394) is a keyset position in this exact
+	// ordering. Reading them here is what makes it impossible for the cursor and
+	// the ORDER BY to disagree — the alternative, re-deriving the tuple
+	// elsewhere, is two spellings of one ordering and the drift is invisible
+	// until a window is silently skipped. nav_order is COALESCED in the SELECT
+	// too, so the stored tuple is the sorted value and never the raw one.
 	rows, err := params.DB.QueryContext(ctx, `
-		SELECT COALESCE(url, '')
+		SELECT COALESCE(url, ''), COALESCE(nav_order, 999), name
 		FROM pages
 		WHERE site_id = $1::uuid
 		  AND `+datahelpers.PageWantedLivePredicateFor("")+`
@@ -124,24 +141,92 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 	}
 	defer rows.Close()
 
-	var urls []string
-	total := 0
+	// Every live page is materialised, not just the first max_pages. The old loop
+	// read them all anyway (it kept counting so the truncation stayed reportable);
+	// this keeps the rows so a window can be cut from anywhere in the ordering
+	// rather than only from the front.
+	var all []auditPageRow
 	for rows.Next() {
-		var u string
-		if err := rows.Scan(&u); err != nil {
+		var r auditPageRow
+		if err := rows.Scan(&r.Path, &r.Ord, &r.Name); err != nil {
 			return nil, fmt.Errorf("request_render_audit: scan: %w", err)
 		}
-		total++
-		if len(urls) >= maxPages {
-			continue // keep counting so the truncation is reportable
-		}
-		if !strings.HasPrefix(u, "http") {
-			u = "https://" + domain + "/" + strings.TrimPrefix(u, "/")
-		}
-		urls = append(urls, u)
+		r.URL = absoluteAuditURL(domain, r.Path)
+		all = append(all, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("request_render_audit: rows: %w", err)
+	}
+	total := len(all)
+
+	// ── window selection ────────────────────────────────────────────────────
+	//
+	// PREFIX MODE (rotate_coverage off, or the site fits inside the cap) is
+	// byte-identical to the behaviour this action has always had. That is
+	// deliberate and it is what makes the pre-existing truncation tests a
+	// COMPATIBILITY GUARD rather than tests that had to be rewritten: if they
+	// still pass unchanged, the default path did not move.
+	var (
+		window       []auditPageRow
+		nextCursor   *auditCursor
+		pri          priorityResult
+		rotating     bool
+		rotationSize int
+		agentType    string
+	)
+	if params.ExecutionContext != nil {
+		agentType = params.ExecutionContext.Sender.AgentType
+	}
+
+	switch {
+	case !rotateCoverage || total <= maxPages:
+		// Nothing to rotate: either the caller did not opt in, or the whole site
+		// fits in one run. In the second case the cursor is never read or
+		// written, so a stale row left by a site that has since shrunk is inert.
+	case agentType == "":
+		// The cursor is keyed on the dispatching agent, so an unnamed sender has
+		// nowhere to store one. Degrade to the prefix rather than guessing a key
+		// — a cursor written under the wrong identity would be silently shared
+		// between callers with different caps.
+		logger.Warn("request_render_audit: rotate_coverage is set but the sender agent type is empty — falling back to the prefix window",
+			zap.String("domain", domain))
+	default:
+		rotating = true
+		cur, err := loadAuditCursor(ctx, params.DB, siteID, agentType)
+		if err != nil {
+			// Fail OPEN and loudly. A cursor we cannot read must cost coverage
+			// progress, never the audit itself.
+			logger.Warn("request_render_audit: coverage cursor unreadable — this run takes the prefix window and does not advance",
+				zap.String("domain", domain), zap.String("agent_type", agentType), zap.Error(err))
+			rotating = false
+			break
+		}
+		// The priority set is assembled FIRST because it takes its slots off the
+		// top: the rotation gets what is left, never the other way round.
+		pri = selectPriorityRegradeSet(ctx, params.DB, siteID, all, cur, maxPages/2, logger)
+		skip := make(map[string]bool, len(pri.taken))
+		for _, r := range pri.taken {
+			skip[r.Path] = true
+		}
+		rotationSize = maxPages - len(pri.taken)
+		window, nextCursor = selectAuditWindow(all, cur, rotationSize, skip)
+	}
+
+	var urls []string
+	if rotating {
+		// Priority pages go FIRST. If the adapter abandons a run part-way, the
+		// pages whose grading latency is the thing being protected are the ones
+		// most likely to have been measured.
+		for _, r := range pri.taken {
+			urls = append(urls, r.URL)
+		}
+		for _, r := range window {
+			urls = append(urls, r.URL)
+		}
+	} else {
+		for i := 0; i < len(all) && i < maxPages; i++ {
+			urls = append(urls, all[i].URL)
+		}
 	}
 	if len(urls) == 0 {
 		// No await, and NOT a failure: a site with nothing deployed has nothing
@@ -159,7 +244,8 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 	if truncated {
 		// Say it loudly: a capped sweep reporting "clean" is a false green.
 		logger.Warn("request_render_audit: page list TRUNCATED by max_pages — a clean result covers only the audited pages",
-			zap.String("domain", domain), zap.Int("audited", len(urls)), zap.Int("total", total))
+			zap.String("domain", domain), zap.Int("audited", len(urls)), zap.Int("total", total),
+			zap.Bool("rotating", rotating), zap.Int("priority_pages", len(pri.taken)))
 		// And say it DURABLY, before the dispatch. This step awaits, and an
 		// awaiting step's own result never survives the park
 		// (persistAwaitingStateWithRetry loads fresh state and keeps only the
@@ -172,13 +258,9 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 			"request_render_audit", []agenterrors.Finding{{
 				ErrorCode: "RENDER_AUDIT_TRUNCATED",
 				Severity:  "warning",
-				Message: fmt.Sprintf("render audit truncated by max_pages: %d of %d live pages audited for %s — the unaudited tail is the SAME pages every run",
-					len(urls), total, domain),
-				Context: map[string]interface{}{
-					"pages_total":   total,
-					"pages_audited": len(urls),
-					"max_pages":     maxPages,
-				},
+				Message:   truncationMessage(rotating, len(urls), total, domain, pri, rotationSize),
+				Context: truncationContext(rotating, len(urls), total, maxPages,
+					auditedPaths(pri.taken, window), nextCursor, window, pri),
 			}}, logger)
 		if recorded < attempted {
 			logger.Warn("request_render_audit: truncation row did not land — the pod log line above is the only record of this run's cap bite")
@@ -273,6 +355,48 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 	if err := params.Producer.ProduceWithValidation(ctx, topic, headers,
 		[]byte(params.ExecutionContext.CorrelationID), messageBytes); err != nil {
 		return nil, fmt.Errorf("request_render_audit: send to browser-runner adapter: %w", err)
+	}
+
+	// ── the cursor advances HERE, and the position is the ROTATION window's ──
+	//
+	// AFTER the produce, deliberately the OPPOSITE ordering from the truncation
+	// row above. That row is a RECORD OF FACT and must land before the send so a
+	// failed dispatch cannot unrecord it (bugs_open/242). The cursor is a
+	// COMMITMENT ABOUT THE NEXT RUN: written before a produce that then fails, it
+	// would skip a window nothing ever requested.
+	//
+	// nextCursor comes from selectAuditWindow, so it is the last page of the
+	// ROTATION SLICE and never a priority page. That distinction is the whole
+	// coverage guarantee: a priority page is carried out-of-band and may sit far
+	// past the window, so letting one set the boundary would skip every page
+	// between — in this run and in every run after it, because the boundary only
+	// moves forward. TestPriorityPageBeyondTheWindowDoesNotMoveTheStoredCursor
+	// pins it at this call site, where the union is actually assembled.
+	//
+	// A failed cursor write is NOT fatal — the audit is already in flight and
+	// nothing about it is wrong — but it is LOUD, and it names the window that
+	// will repeat, because a silently unrecorded advance looks exactly like a
+	// working cursor while the same window is audited for ever.
+	if rotating {
+		var cerr error
+		if nextCursor != nil {
+			cerr = saveAuditCursor(ctx, params.DB, siteID, agentType, nextCursor)
+		} else {
+			// Cycle complete: removing the row is what makes the next capped run
+			// start from the top. Leaving it would park the cursor past the end
+			// for ever, which the past-the-end branch absorbs but only by
+			// restarting — one wasted comparison per run, and a stored position
+			// that no longer means anything.
+			cerr = deleteAuditCursor(ctx, params.DB, siteID, agentType)
+		}
+		if cerr != nil {
+			logger.Warn("request_render_audit: coverage cursor NOT advanced — this window will repeat on the next run",
+				zap.String("domain", domain),
+				zap.String("agent_type", agentType),
+				zap.Bool("cycle_complete", nextCursor == nil),
+				zap.String("window_first", firstWindowName(window)),
+				zap.Error(cerr))
+		}
 	}
 
 	return &RequestRepoAnalysisResult{ // same await-signal shape as the sibling requests

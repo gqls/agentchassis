@@ -66,8 +66,10 @@ func TestRequestRenderAuditTruncationTravelsInRequestAndLandsDurably(t *testing.
 
 	// Three live pages, max_pages 2 — the cap bites.
 	mock.ExpectQuery("FROM pages").
-		WillReturnRows(sqlmock.NewRows([]string{"url"}).
-			AddRow("/index.html").AddRow("/about.html").AddRow("/pricing.html"))
+		WillReturnRows(sqlmock.NewRows([]string{"url", "ord", "name"}).
+			AddRow("/index.html", 0, "index").
+			AddRow("/about.html", 10, "about").
+			AddRow("/pricing.html", 20, "pricing"))
 	// The durable record, and it must precede the produce (orderCheckingProducer).
 	mock.ExpectExec("INSERT INTO agent_error_log").
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -110,8 +112,9 @@ func TestRequestRenderAuditNoTruncationWritesNoRow(t *testing.T) {
 	// the "Failed to write to agent_error_log" warn, therefore no such record
 	// means no write was attempted (the no-op case checked, not assumed).
 	mock.ExpectQuery("FROM pages").
-		WillReturnRows(sqlmock.NewRows([]string{"url"}).
-			AddRow("/index.html").AddRow("/about.html"))
+		WillReturnRows(sqlmock.NewRows([]string{"url", "ord", "name"}).
+			AddRow("/index.html", 0, "index").
+			AddRow("/about.html", 10, "about"))
 
 	core, logs := observer.New(zap.WarnLevel)
 	producer := &capturingProducer{}
@@ -145,8 +148,9 @@ func TestRequestRenderAuditNoTruncationWritesNoRow(t *testing.T) {
 	// whose cap bites must attempt the write, fail against the mock, and emit
 	// exactly the warn whose absence the assertion above relies on.
 	mock.ExpectQuery("FROM pages").
-		WillReturnRows(sqlmock.NewRows([]string{"url"}).
-			AddRow("/index.html").AddRow("/about.html"))
+		WillReturnRows(sqlmock.NewRows([]string{"url", "ord", "name"}).
+			AddRow("/index.html", 0, "index").
+			AddRow("/about.html", 10, "about"))
 	params.StepConfig = models.Step{Config: map[string]interface{}{"max_pages": 1}}
 	if _, err := RequestRenderAuditAction(context.Background(), params); err != nil {
 		t.Fatalf("control run failed: %v", err)
