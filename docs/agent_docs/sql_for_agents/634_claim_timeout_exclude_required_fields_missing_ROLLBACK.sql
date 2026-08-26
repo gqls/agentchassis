@@ -15,7 +15,7 @@ DECLARE
   n int;
 BEGIN
   SELECT count(*) INTO n FROM scheduled_tasks
-   WHERE name = 'claimed-item-timeout' AND pre_query LIKE '%' || new_tail || '%';
+   WHERE name = 'claimed-item-timeout' AND strpos(pre_query, new_tail) > 0;
   IF n <> 1 THEN
     RAISE EXCEPTION 'ABORT: the 634 tail is not present (matched % rows, want 1) — nothing to roll back, or the clause has moved since.', n;
   END IF;
@@ -25,7 +25,7 @@ BEGIN
    WHERE name = 'claimed-item-timeout';
 
   SELECT count(*) INTO n FROM scheduled_tasks
-   WHERE name = 'claimed-item-timeout' AND pre_query LIKE '%required_fields_missing%';
+   WHERE name = 'claimed-item-timeout' AND strpos(pre_query, 'required_fields_missing') > 0;
   IF n <> 0 THEN
     RAISE EXCEPTION 'ABORT: rollback verification failed — required_fields_missing still present.';
   END IF;
