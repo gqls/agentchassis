@@ -5870,3 +5870,17 @@ alone (different check). Served spot-checks all green in the same pass: label x2
 6 script blocks, wbsNextBtn x2) — today's completed improve_tool on chat-input-box did
 not break the served site. Their rebuild programme confirmed co.uk-only; nothing else
 from that seat blocks.
+
+## 2026-08-26 — two owner rulings: DESIGNCONSULT as the interim registration TAG; No-changes gets subtitle prominence
+
+(1) **TAG: use DESIGNCONSULT now** (owner proposal, this lane concurred with two baked-in
+conditions: our DB stays the authority on which domains are customer domains, never the
+tag's list; new registrations move to the second TAG the day Nominet grants it, early
+customer domains TAG-moved then). Unblocks the P3 `domain:create` build immediately; the
+second-TAG chase drops to background. Recorded in the domain-service BRIEF's routing next
+edit. (2) **"No changes are included" = full subtitle on index + what-you-get, more
+prominent on how-it-works** (SQL_2026-08-26b, guards passed; hard-term-first pairing rule
+kept). Three rebuilds filed (reason owner_no_changes_prominence_2026_08_26), watcher on;
+label re-place owed after the index one. Owner checklist delivered in chat: page rule ·
+word to the delivery lane on email copy · customer-container ruling · contact mailbox ·
+background TAG chase.
