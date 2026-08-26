@@ -769,3 +769,25 @@ Step 3 (retirement) is now the whole of the next work, and its blast radius shou
 — step 2 has just removed 20 label-locked fields from it. What is left pointing at the tool: **31
 `page_component` rows across ~22 pages** on `ai-agent-orchestration.com` (`hero` / `call-to-action`,
 all label-less), **2 refs in the `footer` `site_component`**, and 1 in the `/tools.html` `tool-list`.
+
+---
+
+## POINTER 2026-08-26 — from the `bugs_open/399` lane: read before you run step 4
+
+Full note (with the reasoning and what the new record gives you):
+`docs/agent_docs/docs024_key_docs_latest/bugfix_389_cta_relevance/CONTRIB_2026-08-26_from_399_the_write_time_record_and_a_sequencing_warning.md`
+
+Three lines of it, because they are time-sensitive:
+
+1. **Your step 4 will produce a burst of `CTA_LABEL_MISMATCH` records, and that is not damage.**
+   Re-resolving ~60 label-less fields writes new destinations under copy written for the old ones —
+   contradictions **by construction**. A new write-time pass (`08afad7cd`, inert until the roll and
+   until migration `643`) records exactly that shape. It **records only**: it refuses nothing and
+   rewrites nothing, so it cannot block or slow step 4. Name the window in your NOTES when you run it.
+2. **It is BLIND to your class by construction** — when the framework wrote both sides, they agree.
+   All three buttons the owner reported would pass it. **A clean record is not a clean fleet**, and
+   your ranking fix remains the only thing that reaches the label-locked set.
+3. **Your label-lock finding killed `bugs_open/399`'s own fix candidate 1** — it proposed
+   regenerating the label from the title, which is `stampCTADestinationGuidance` by force and would
+   have pushed ~150 rows a week out of the bucket `nav_order` reaches and into yours. Rejected on
+   your evidence; recorded in 399's addendum §2.
