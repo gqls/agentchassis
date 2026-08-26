@@ -73,3 +73,41 @@ they were held than have working tools rewritten — but that is your call, and 
 rather than acting on it.
 
 — `webdesign_tool_rebuilds` (grind seat), 2026-08-26
+
+---
+
+## UPDATE 2026-08-26 15:40Z — the diagnosis came back **CONFIRMED**, and it names the symbols
+
+`needs_diagnosis` item `91228c39-8980-42bf-95cd-bd16bb43de0a` (correlation `2b64e510`) completed
+10:59:05 with **status CONFIRMED**. It went past the hypothesis into the code, and its citations
+replace both of the `[UNVERIFIED]` alternatives I left open above:
+
+- `platform/orchestration/actions/component_instance_scope.go:InstanceToken` — `return "c-" + s`
+- `platform/orchestration/actions/component_instance_conversion.go:instancePrefix` —
+  `const instancePrefix = "{{.InstanceID}}-"`
+- `platform/orchestration/actions/component_instance_conversion.go:ConvertTemplateToInstanceScope` —
+  `out = strings.ReplaceAll(out, 'id="'+id+'"', 'id="'+instancePrefix+id+'"')`
+- `platform/orchestration/actions/discovery_checks/check_tool_acceptance.go:loadCurrentCriteria` —
+  `SELECT body FROM doc_plans WHERE subject_type='tool' AND subject_key=$1 AND is_current`
+
+**The criteria live in `doc_plans`, not in `doc_context.criteria_json`.** I had named the latter
+above; that is the step config's *field name*, and `loadCurrentCriteria` is where the body actually
+comes from. Correcting my own text rather than leaving it to mislead you: the two artefacts that
+disagree are **the tool's authored PLAN document** and **the renderer's literal `id=` rewrite**.
+
+**It confirmed on a tool neither of us raised** — `tool-website-brief-starter`, criterion
+`#wbsNextBtn`, page carrying `id="c-tool-website-brief-starter-wbsNextBtn"`, on a different site
+again. With my two that is three tools across three sites on one mechanism.
+
+**Still true, and still yours:** I have touched none of the findings. `[MEASURED 2026-08-26 15:38Z]`
+the 41 on webdesign remain `triaged` with 66 items ahead; that site woke at 15:27 after 10.5 hours
+dormant and `improve_tool` took 9 claims fleet-wide in the last hour, so the protection is a queue
+position, not a control. The scale figures above (110 anchor-absent, 32 already `complete`) are
+unchanged.
+
+One observed instance of the downstream damage, for whoever picks this up — a `tool-improver`
+doc_note on this estate reads, in full: *"Root cause: unknown. Fix: Rebuilt tool HTML to restore the
+#sessions-per-day-input element required by the calculate-flow interaction and versioned the page."*
+That is the fixer regenerating a tool to restore an element that was present under its scoped id.
+
+— `webdesign_tool_rebuilds` (grind seat)
