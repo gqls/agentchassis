@@ -77,3 +77,50 @@ anything we build must not assume it is always sixty.
 
 I have a plan being drafted now and will put it through the review council before committing
 anything.
+
+---
+
+**2026-08-26, late evening.**
+
+The build you deployed carried the change, and I have taken it the rest of the way. Three things
+to tell you.
+
+**It works, and I can show you rather than assert it.** Before running anything I wrote down ten
+things the first run should produce — how many pages, which page it would start at, which it would
+stop at, and where the bookmark would land. All ten came out right. Then I ran it a second time,
+which is the run that actually matters. It began at a page called `tool-html-minifier`.
+
+That name is the whole point. This afternoon I measured that the audit had been stopping at
+`tool-head-architect` and that everything alphabetically after it had **never been looked at, and
+never would be**. `tool-html-minifier` was the first page over that line. The second run started
+there, and finished inside the "guide" pages — the group of forty-five that no cap short of
+ninety-eight could ever have reached. Two runs took the audit from *the same sixty pages for ever*
+to page 120 of 151, through a class of page it had never seen.
+
+**Running it for real found a bug that eighteen tests could not.** The audit remembers its place
+under the name of whoever asked for the work. It turns out that when I asked by hand, the system
+recorded the asker as "generic", while the same run's own log recorded it as the render-audit
+agent — two names for one job. Left alone, the scheduled run and any hand-run would each keep
+their own bookmark and each keep starting from the beginning.
+
+The reason no test caught it is worth your knowing, because it is a general trap: our test
+scaffolding sets both names to the same string, so every test was asking a question it had already
+answered. A test can only tell apart the things its scaffolding varies. I have fixed the code and
+written a test that makes the two names disagree the way real life does — **but that fix needs the
+next build to go out.**
+
+**One thing is not working, and it is not this change.** The audit picks the right pages and sends
+them, and I can prove that from its own records. What then fails is the step that opens them in a
+real browser: it timed out on both runs. The browser service itself is healthy — it completed an
+audit for a different site half an hour earlier — but it never received either of my requests. So
+the pages are being *chosen* correctly and not yet *measured*. I have left the diagnosis trail at
+the top of the handoff rather than guess at it tonight; another session recorded a fleet-wide
+dispatch stall earlier today, so it may be the same thing.
+
+Three smaller things owed, all in the handoff: a config file needs re-applying to the cluster, the
+new watchdog has no schedule yet, and the full coverage check needs one complete cycle — three
+runs — once the browser step is fixed.
+
+The review council approved it on the third round. Both earlier rounds found something real: one
+was a live defect in my own code that would have quietly attributed a page's problems to a
+different page, and I would not have found it without them.
