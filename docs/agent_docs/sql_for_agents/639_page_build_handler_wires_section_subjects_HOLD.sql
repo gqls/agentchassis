@@ -22,8 +22,17 @@ SELECT snapshot_agent('page-build-handler', '639_page_build_handler_wires_sectio
 BEGIN;
 
 DO $$
-DECLARE cfg jsonb;
+DECLARE cfg jsonb; n int;
 BEGIN
+    -- Pre-flight (council 4bd35ed8 round 1, editquality): the duplicate-
+    -- active-definition-row landmine would make the UPDATE's WHERE ambiguous;
+    -- fail BEFORE writing, not after.
+    SELECT count(*) INTO n FROM agent_definitions
+    WHERE type = 'page-build-handler' AND is_active
+      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    IF n <> 1 THEN
+        RAISE EXCEPTION '639: expected exactly 1 active page-build-handler row BEFORE writing, found % — duplicate-active-row landmine', n;
+    END IF;
     SELECT default_config->'workflow'->'steps'->'plan_sections'->'config' INTO cfg
     FROM agent_definitions
     WHERE type = 'page-build-handler' AND is_active

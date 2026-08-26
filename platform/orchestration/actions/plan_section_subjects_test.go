@@ -241,3 +241,160 @@ func TestPlanSections_SubjectRidesTheReadyItemsThroughTheSiteLevelFilter(t *test
 		t.Errorf("unmet sqlmock expectations: %v", err)
 	}
 }
+
+// ── round-2 additions (council 4bd35ed8, REVISE round 1) ────────────────────
+//
+// bug_historian (MEDIUM): three parallel index-aligned lists are the platform's
+// most repeated silent-content-loss shape (bugs_closed/041, 095, 039) — an
+// unequal-length section_subjects must degrade to UNASSIGNED, never shift a
+// subject onto the wrong sibling. editquality/bug_historian (LOW): the carry's
+// object-realised arm shipped untested; realised lists are plain strings today,
+// but the arm exists and its clone must preserve foreign keys.
+
+func TestPlanSections_ShortOrIllTypedSubjectsDegradeToUnassignedNeverShift(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	heroID, featID, ctaID := uuid.New().String(), uuid.New().String(), uuid.New().String()
+
+	mock.ExpectQuery("WHERE name IN").WillReturnRows(
+		componentRow(heroID, "hero", "hero", "<section>h</section>", "section").
+			AddRow(featID, "features", "features", "", nil, nil, nil, "<section>f</section>", planSectionsSchema, "template", nil, "section").
+			AddRow(ctaID, "cta", "cta", "", nil, nil, nil, "<section>c</section>", planSectionsSchema, "template", nil, "section"))
+	mock.ExpectQuery("FROM page_components pc").
+		WithArgs(siteID, "index").
+		WillReturnRows(slotRows())
+	mock.ExpectQuery("FROM site_specs").
+		WillReturnRows(sqlmock.NewRows([]string{"aspect", "data"}))
+	mock.ExpectQuery("FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"section_name", "summary"}))
+	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	// Three sections; the subjects array is SHORT (1 entry) and its would-be
+	// second entry, if the walk ran off the end wrongly, is a non-string.
+	// Correct behaviour: index 0 gets its subject, everything past the end or
+	// ill-typed is "" — no shift, no error, no misassignment.
+	params := planParams(db, siteID, "index", []string{"hero", "features", "cta"})
+	params.CollectedData["input_data"].(map[string]interface{})["section_subjects"] = []interface{}{
+		"Only the first slot has one",
+	}
+	params.StepConfig.Config["section_subjects"] = "input_data.section_subjects"
+
+	out, err := PlanSectionsAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	items := readyItems(t, out)
+	if len(items) != 3 {
+		t.Fatalf("expected 3 ready items, got %d", len(items))
+	}
+	byName := map[string]sectionPlanItem{}
+	for _, it := range items {
+		byName[it.Name] = it
+	}
+	if got := byName["hero"].Subject; got != "Only the first slot has one" {
+		t.Errorf("hero subject: got %q", got)
+	}
+	if byName["features"].Subject != "" || byName["cta"].Subject != "" {
+		t.Errorf("beyond-length entries must be UNASSIGNED, never shifted: features=%q cta=%q",
+			byName["features"].Subject, byName["cta"].Subject)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
+func TestPlanSections_LongAndIllTypedSubjectsAreIgnoredBeyondSections(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	heroID := uuid.New().String()
+
+	mock.ExpectQuery("WHERE name IN").WillReturnRows(
+		componentRow(heroID, "hero", "hero", "<section>h</section>", "section"))
+	mock.ExpectQuery("FROM page_components pc").
+		WithArgs(siteID, "index").
+		WillReturnRows(slotRows())
+	mock.ExpectQuery("FROM site_specs").
+		WillReturnRows(sqlmock.NewRows([]string{"aspect", "data"}))
+	mock.ExpectQuery("FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"section_name", "summary"}))
+	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	// One section; the subjects array is LONGER and holds a non-string at the
+	// aligned index. Non-string => "" (unassigned); surplus entries ignored.
+	params := planParams(db, siteID, "index", []string{"hero"})
+	params.CollectedData["input_data"].(map[string]interface{})["section_subjects"] = []interface{}{
+		42, "surplus-1", "surplus-2",
+	}
+	params.StepConfig.Config["section_subjects"] = "input_data.section_subjects"
+
+	out, err := PlanSectionsAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	items := readyItems(t, out)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 ready item, got %d", len(items))
+	}
+	if items[0].Subject != "" {
+		t.Errorf("a non-string aligned entry must read as unassigned, got %q", items[0].Subject)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
+func TestCarrySectionFacts_ObjectRealisedClonePreservesForeignKeys(t *testing.T) {
+	realised := []interface{}{
+		map[string]interface{}{"name": "features", "kept_by_someone_else": "survives"},
+	}
+	proposed := []interface{}{
+		map[string]interface{}{"name": "features", "facts": []interface{}{"F1"}, "subject": "How honey is graded"},
+	}
+	merged, carried, unmatched, absent := carrySectionFactsOntoRealised(realised, proposed)
+	if carried != 1 || len(unmatched) != 0 || len(absent) != 0 {
+		t.Fatalf("carried=%d unmatched=%v absent=%v", carried, unmatched, absent)
+	}
+	m := merged[0].(map[string]interface{})
+	if m["kept_by_someone_else"] != "survives" {
+		t.Errorf("a realised object entry's foreign keys are not this function's to discard, got %#v", m)
+	}
+	if m["subject"] != "How honey is graded" {
+		t.Errorf("object-arm subject set missing, got %#v", m["subject"])
+	}
+	if f, ok := m["facts"].([]interface{}); !ok || len(f) != 1 || f[0] != "F1" {
+		t.Errorf("object-arm facts set missing, got %#v", m["facts"])
+	}
+}
+
+func TestCarrySectionFacts_ObjectRealisedSubjectOnlyFabricatesNoFactsKey(t *testing.T) {
+	realised := []interface{}{
+		map[string]interface{}{"name": "cta", "kept": "v"},
+	}
+	proposed := []interface{}{
+		map[string]interface{}{"name": "cta", "subject": "Visit a local apiary"},
+	}
+	merged, carried, _, absent := carrySectionFactsOntoRealised(realised, proposed)
+	if carried != 1 {
+		t.Fatalf("carried=%d", carried)
+	}
+	m := merged[0].(map[string]interface{})
+	if m["subject"] != "Visit a local apiary" || m["kept"] != "v" {
+		t.Errorf("subject or foreign key lost on the object arm: %#v", m)
+	}
+	if _, hasFacts := m["facts"]; hasFacts {
+		t.Errorf("a facts key must never be fabricated on the object arm either — NULL/[] is load-bearing: %#v", m["facts"])
+	}
+	if len(absent) != 1 || absent[0] != "cta" {
+		t.Errorf("seed-333 absence record must be unchanged, got %v", absent)
+	}
+}

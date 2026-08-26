@@ -41,8 +41,16 @@ WHERE type = 'page-content-writer' AND is_active
 DO $$
 DECLARE
     t text;
-    c1 int;
+    c1 int; nrows int;
 BEGIN
+    -- Pre-flight (council 4bd35ed8 round 1): SELECT INTO takes the FIRST of N
+    -- rows silently; a duplicate active row would half-apply. Count first.
+    SELECT count(*) INTO nrows FROM agent_definitions
+    WHERE type = 'page-content-writer' AND is_active
+      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    IF nrows <> 1 THEN
+        RAISE EXCEPTION '641: expected exactly 1 active page-content-writer row BEFORE writing, found %', nrows;
+    END IF;
     SELECT default_config->'workflow'->'steps'->'process_sections_loop'->'config'
            ->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template'
     INTO t

@@ -32,8 +32,16 @@ WHERE type = 'build-site-planner' AND is_active
 DO $$
 DECLARE
     t text;
-    c1 int; c2 int;
+    c1 int; c2 int; nrows int;
 BEGIN
+    -- Pre-flight (council 4bd35ed8 round 1): SELECT INTO takes the FIRST of N
+    -- rows silently; a duplicate active row would half-apply. Count first.
+    SELECT count(*) INTO nrows FROM agent_definitions
+    WHERE type = 'build-site-planner' AND is_active
+      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    IF nrows <> 1 THEN
+        RAISE EXCEPTION '640: expected exactly 1 active build-site-planner row BEFORE writing, found %', nrows;
+    END IF;
     SELECT default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template'
     INTO t
     FROM agent_definitions
