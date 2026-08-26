@@ -18,7 +18,19 @@ email-cluster PMG fronts inbound). DKIM + DMARC are absent as of 2026-08-26 and 
 enabled at the HOST (cPanel → Email Deliverability) before real customer mail, or
 recipients will junk it — the domain's DNS is at uk-noc.com, NOT Cloudflare.
 
-## DKIM/DMARC for contactforsales.com — where the records must land (2026-08-26)
+## DKIM/DMARC for contactforsales.com — ✅ RESOLVED 2026-08-26 night: BOTH RECORDS LIVE at the authoritative NS
+
+> **VERIFIED 2026-08-26 (late)**, cache-bypassed — asked `dns1.uk-noc.com` directly:
+> `default._domainkey` answers with the exact key cPanel generated (two-string chunking
+> is normal for >255-char TXT), and `_dmarc` answers `v=DMARC1; p=none;`. The host's
+> cluster evidently takes the cPanel zone, so route 1 below was never needed — the
+> records were already there. Two residuals, both small: (a) the DMARC has no `rua=`
+> reporting address, so monitor mode reports to nobody — optional, add
+> `rua=mailto:webdesign@contactforsales.com` via the same route when convenient;
+> (b) a record PRESENT is not the same as outgoing mail SIGNED — the artefact check is
+> one test email to any external mailbox (Gmail: 'Show original') expecting
+> `dkim=pass` in Authentication-Results. Everything below kept for the next domain.
+
 
 **Do NOT change email host for this.** The server (rs17.uk-noc.com) is healthy end-to-end
 (measured 2026-08-26: MX accepts, 465 AUTH over implicit TLS, cert valid, PTR valid) and
