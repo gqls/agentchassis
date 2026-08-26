@@ -46,8 +46,9 @@ func TestRecordStepErrorKeysByBareStepName(t *testing.T) {
 	}
 }
 
-// __step_error is read by 33 Go sites and 6 live agent configs (measured
-// 2026-08-24). The whole design rests on leaving it alone.
+// __step_error is read by 35 Go sites and 6 live agent configs as of 2026-08-26
+// (33 + 6 on 08-24 — the Go side grew by two in two days, hence the date).
+// The whole design rests on leaving it alone.
 func TestRecordStepErrorDoesNotTouchTheSingularKey(t *testing.T) {
 	original := map[string]interface{}{"failed_step": "load_page", "message": "boom"}
 	collected := map[string]interface{}{"__step_error": original}

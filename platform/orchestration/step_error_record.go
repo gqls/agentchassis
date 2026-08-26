@@ -55,8 +55,12 @@ const stepErrorTruncatedKey = "__truncated"
 // recordStepError accumulates one routed step failure into
 // collected["__step_errors"], keyed by the failing step's name.
 //
-// It leaves `__step_error` completely alone — that key is read by 33 Go sites and
-// 6 live agent configs (measured 2026-08-24), so its shape is not negotiable.
+// It leaves `__step_error` completely alone — that key is read by **35** Go sites
+// and **6** live agent configs as of **2026-08-26**, so its shape is not negotiable.
+// (It read 33 + 6 on 2026-08-24: the Go side grew by two in two days, which is why
+// this carries the date. Re-run before quoting:
+//
+//	grep -rn '__step_error\b' --include=*.go platform/ internal/ pkg/ cmd/ | grep -v _test.go | wc -l)
 //
 // At the cap it stops admitting NEW steps and records that it did. Re-failures of
 // a step already present still update in place, so a retrying step reports its

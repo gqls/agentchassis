@@ -976,3 +976,44 @@ still resolves.** Minting a fresh correlation would have orphaned that commit in
 report for ever, which is the trap the 2026-08-19 contribution to `bugs_open/243` records.
 
 Outcome recorded below when the round lands.
+
+## 2026-08-26 (09:0xZ) — the resubmitted round is APPROVED, and its objections caught a real stale count
+
+**Recovery is sustained, not one lucky call** `[MEASURED, rolling 4-minute windows]`:
+
+```
+08:59:49  ok=2  credit=2  types=3     <- MIXED (partial failure)
+09:00:16  ok=2  credit=2  types=3
+09:00:43  ok=6  credit=2  types=5
+09:01:36  ok=9  credit=2  types=5
+09:02:06  ok=13 credit=0  types=6     <- clean from here
+09:03:53  ok=29 credit=0  types=6
+```
+
+**Council `dfde47a4`: APPROVED** (1 advisory objection reported in the note; three in the report,
+all `prior_art_librarian`, all medium, all the same class — *"this is a load-bearing claim you
+asserted; verify it"*). Answered by query, which is the norm, and **one of them was right**:
+
+| objection | answer |
+|---|---|
+| does `errorRouteTermination` + its test really exist as the precedent claimed? | **CONFIRMED** — both files at HEAD, 1 func, **11** tests (I had said 8; the claim was understated, not overstated) |
+| is `__step_error` really 33 Go sites + 6 configs? | ⚠ **STALE — it is now 35 + 6.** Correct when measured on 08-24, **grew by two in two days.** Conclusion unaffected (35 makes the "do not widen it" argument stronger), but the figure was wrong where I wrote it |
+| does council `82f07fa6` exist as APPROVED? | **CONFIRMED** — `decision=approved`, 2026-08-24 13:51:07Z |
+
+**The stale count is corrected at source**, in the dated form CLAUDE.md requires, in
+`step_error_record.go` and its test — with the re-run command inline so the next reader can
+check rather than trust. This is the *"a COUNT OF THINGS MUST CARRY THE DATE IT WAS COUNTED"*
+rule catching me within 48 hours of my writing the number: **a census does not go wrong, it goes
+STALE, by ADDITION, and it reads as current for ever.**
+
+### ⚠ The partial-outage proof was in reach and I MISSED IT
+
+The mixed window (08:59–09:01) was **exactly** the condition the last unproven claim needs. I
+resubmitted into it — and by the time the round's seats actually fired, the provider had fully
+recovered (`credit=0` from 09:02). The verdict came back **approved, 6 abstained, 0 unreadable**:
+no seat failed, so nothing was lost, so nothing proved.
+
+**The window was about 90 seconds wide and a council round takes minutes.** That is not bad luck
+to be worked around — it is the honest reason this proof cannot be scheduled: it needs a partial
+failure that lasts longer than a round. **Do not manufacture one.** Recorded so the next session
+does not read "I resubmitted during a partial outage" as if it had produced the proof.
