@@ -955,3 +955,66 @@ finetuning.uk is confirmed a pure victim (`oldest_load_rank` 2, my canary at ran
 *I generalised a two-case observation into a taxonomy, and the taxonomy did not survive a census.
 Twelve victims and thirteen pinned sites is what the measurement says; "pinned sites starve victims"
 is what my two examples suggested.*
+
+### 2026-08-26 ~15:5xZ — canary ran. Hypothesis CONFIRMED in the DB; and the canary earned its keep by finding something the plan did not anticipate
+
+The leopardess canary claimed 15:48:06, completed 15:48:48.
+
+**THE HYPOTHESIS IS CONFIRMED, in the database.** Archiving *does* unblock the recompute. Both CTA
+fields moved off the archived page at 15:48:34, and **both surfaces agree** — `content_data` and
+`rendered_html` each carry `/tools/ai-agent-roi-estimator.html` and **neither carries
+`password-entropy` anywhere** on any of the page's three components. So `loadResolverPageSet`'s
+`status NOT IN ('deleted','archived')` is indeed what releases KEEP #2, exactly as read from the
+source. **The three-step sequence archive → re-resolve → retract is sound.**
+
+> **⚠ MISSTEP 16, and it is the same error a third time, now INSIDE the verification harness.** My
+> first propagation poll compared `last-modified` against a **hardcoded epoch** — `1756223280`, which
+> decodes to **2025**-08-26 15:48, a year early. Every possible `last-modified` exceeds it, so the
+> loop reported **"ARTEFACT UPDATED"** on its first iteration **while the artefact had not changed at
+> all**, and printed a stale `last-modified: 15:24:05` in the same breath as its own success message.
+> *A check whose threshold is wrong in the permissive direction cannot fail.* The `<p>` count, the
+> 80-char prefix, and now this — and this one is the worst of the three, because the other two were
+> measuring the subject and this one was measuring **whether my measurement had happened yet.**
+> **Compute a threshold, never type one:** `date -u -d '<the moment>' +%s`, and print the decoded
+> value beside it so a wrong one is visible on sight.
+
+**Artefact still pending at 15:52** — `last-modified: 15:24:05`, `cf-cache-status: DYNAMIC` (so not
+an edge cache), against a deploy commit at ~15:48. The git half reported success with a sha; B2 sync
++ purge runs on push and takes time. Re-polling with a correctly computed threshold and a real
+timeout. **I said "REFUTED at the served bytes" before checking this and that was wrong** — the
+served bytes are the right place to verify, but only *after* confirming the artefact you are reading
+is the one you deployed. **`last-modified` is the header that answers that**, and I read the body
+before I read the header.
+
+### ⚠ AND THE FINDING THAT CHANGES THE PLAN: the retirement's success criterion is satisfiable while the pages stay wrong
+
+The recompute moved both CTAs to `/tools/ai-agent-roi-estimator.html`. Their labels are:
+
+| slot | label | new destination |
+|---|---|---|
+| `hero` | *"Get in touch about a piece of work"* | `/tools/ai-agent-roi-estimator.html` |
+| `call_to_action` | *"Write to leopardess@contactforsales.com"* | `/tools/ai-agent-roi-estimator.html` |
+
+**A button reading "Write to leopardess@contactforsales.com" that opens an ROI estimator is wrong**,
+and it is wrong in a *more* deceptive way than the password tool was — a plausible-looking tool link
+is one nobody reports.
+
+**I did NOT cause this, and the history says so.** `page_component_history` carries the identical
+label/url mismatch back to **2026-08-24 18:33** at least — contact-intent copy already pointing at
+`password-entropy` long before this lane touched the page. My recompute moved it **tool → tool**, not
+contact → tool. This is `bugs_open/248`'s damage shape, and the KEEP #1 comment in
+`rerender_page_sections_action.go` describes the mechanism exactly: *"a minted /contact.html whose
+copy later went generic … took no keep at all and fell to the POSITIONAL PICK, which replaced a
+working contact button with an unrelated tool page."*
+
+**⇒ The consequence for step 2, and it is not small.** Re-resolving the ~60 label-less fields will
+move them off `password-entropy` onto whichever tool ranks first — **satisfying this lane's stated
+success criterion ("zero `password-entropy` references at the served bytes") while leaving
+contact-intent buttons pointing at tools.** The `nav_order` demotion makes the pick the *right tool*;
+it cannot make a tool the right *kind* of destination for copy that asks the reader to get in touch.
+
+**So the criterion needs a second clause before step 2 runs at scale:** every rewritten CTA's label
+and destination must agree in **kind** — a contact-intent label must resolve to a contact
+destination, not merely to a live page. That is a check I can write against `content_data` before
+dispatching anything, and it should gate the batch. **This is exactly what a canary is for, and it
+is the second time this lane's canary has paid for itself.**
