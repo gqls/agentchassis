@@ -157,3 +157,15 @@ while the trigger is running. Control stays: dartsonline/relojistas unchanged at
 "fully served" claim, README:138) · `news_feed_pooling/` · `seed_content_sources_action.go` (inherits
 the 6 h column default) · 016b §9 entry "a due-stamp of fetch-time + period is phase-locked to the
 scheduler" (same commit) · idea.uk lane RUNBOOK 6g.
+
+### §5 outcomes, recorded as they land
+
+- **(a) CONFIRMED 2026-08-26 14:47Z** — trigger fired **14:46:32** (gap from 08:46:06 = 6h 00m 26s,
+  the drift as measured); idea.uk `content-feed-orchestrator` run created **14:46:58**, the site's
+  second of the day.
+- **(b) CONFIRMED 2026-08-26 ~14:48Z** — the five `next_fetch_at` moved to **20:47:01–20:47:06**
+  (the dispatch arm's optimistic stamp) and then **20:47:24–20:47:42** (the ingestion arm's), both
+  AFTER the next trigger's expected ~20:46:58–20:47:02. Margin this cycle: **~25–45 s** (morning
+  cycle was 9–25 s) — the phase lock re-arms itself every pass, δ > ε again.
+- **(c)/(d) pending** — the ~20:46–20:47 pass should SKIP idea.uk (an idea.uk orchestrator row
+  there refutes this file); the ~02:46 pass on 08-27 should serve it.
