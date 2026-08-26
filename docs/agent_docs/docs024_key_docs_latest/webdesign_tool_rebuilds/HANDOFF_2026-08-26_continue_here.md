@@ -149,8 +149,16 @@ entity block.
   available and exact) or state plainly what is preserved and report anything it could not classify.
 - **Custom `property=` metas are dropped without notice** — the custom-meta regex matches `name=`
   only, so a visitor's existing `og:` or `article:` tags vanish while the tool regenerates its own.
-- **No duplicate handling**: a pasted head already containing a title/description yields output with
-  both the preserved and the generated one.
+- ~~**No duplicate handling**: a pasted head already containing a title/description yields output with
+  both the preserved and the generated one.~~ **CORRECTED 2026-08-26 17:50Z at the code — THIS IS
+  INVERTED, and it changes the requirement.** The ported source makes exactly **three** `raw.match`
+  calls — scripts, `link rel=stylesheet`, and `meta name=` (with `(?!description|viewport)`). **There
+  is no `<title>` capture at all.** So a pasted title is **silently DROPPED**, a pasted
+  `meta name="description"` is **silently DROPPED** by the negative lookahead, and every
+  `meta property="og:…"` is **silently DROPPED** because the regex matches `name=` only. Nothing is
+  ever duplicated. The defect is **silent loss**, so the fix is *preserve, or say what you replaced* —
+  **not** de-duplication. A brief written from the original line would have specified the wrong
+  behaviour.
 - **Placeholder defaults are silently substituted** (`|| "My Website"`, `|| "My Page Title"`,
   `|| "Page description."`), so an empty form produces a plausible-looking head full of dummy values
   ready to paste. Make an unfilled field visibly unfilled.

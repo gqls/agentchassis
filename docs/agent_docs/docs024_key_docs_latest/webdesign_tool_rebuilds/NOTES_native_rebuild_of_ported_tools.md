@@ -4689,3 +4689,47 @@ it. It matters: only one of the two rows can produce the anchor-absent finding.
 
 **Final state check, 17:55Z:** served page `http=200`, 17,431 bytes, `class="ported-page"` = **1**
 — stale-but-single, which is the correct and safe intermediate state. Not 2; no damage.
+
+## 2026-08-26 17:48Z — #45 `tool-head-architect` FILED, and the handoff's preservation defect was INVERTED
+
+`add_tool cd0078ae-bf80-4b35-b146-09473b547e78` filed 17:47:42Z, priority 60, brief **2,277 chars**.
+Gates all green and the window was the best yet: **GATE ZERO (corrected form) = 0 truly ahead**, last
+site claim 42 s earlier. Library-claim 0 rows, no component with this function at all, 0 open
+`add_tool`, adopt flag `true`. Revert handle re-pinned in the same breath as the INSERT: slot
+`4f13e098-72d9-446f-a2d9-a248d6fc8aa5`, len **9212**, md5 `9802cb3c640ebc4c3fc84d8969511d43`,
+`deployed`. Only dispatchable item on the page is `page_rerender 486fef43` at priority 80, i.e.
+*behind* this filing; the other eight rows are `unresolved`/`needs_human_review`/`wont_fix`/`detected`
+and none is claimable.
+
+### ⚠ The handoff's fifth ported defect was backwards, and it would have specified the wrong tool
+
+The handoff said: *"**No duplicate handling**: a pasted head already containing a title/description
+yields output with both the preserved and the generated one."* **Read at the code, that is inverted.**
+The ported source makes exactly three extraction calls, and I listed them rather than trusting the
+prose:
+```
+raw.match(/<script[\s\S]*?>[\s\S]*?<\/script>/gi)
+raw.match(/<link[^>]+rel=["']stylesheet["'][^>]*>/gi)
+raw.match(/<meta[^>]+name=["'](?!description|viewport)[^"']+["'][^>]*>/gi)
+```
+**There is no `<title>` capture at all** (`grep -c 'match(/<title'` → 0). So:
+- a pasted `<title>` is **silently DROPPED** — never captured, never emitted;
+- a pasted `<meta name="description">` is **silently DROPPED** by the negative lookahead;
+- every `<meta property="og:…">` is **silently DROPPED**, because the regex matches `name=` only.
+
+**Nothing is ever duplicated.** The defect is silent LOSS, and the two produce opposite requirements:
+de-duplication would have told the generator to suppress a second tag that never exists, while the
+real fix is *preserve it, or say what you replaced*. The brief carries the corrected requirement.
+Handoff corrected in place with strike-through.
+
+**How it was caught:** the recipe's step 1 — "read the ported slot IN FULL" — and then not stopping at
+reading. The prose claim was plausible and I only disproved it by listing the three `raw.match` calls
+and grepping for a fourth. **A defect list inherited from another session is a hypothesis, not a
+survey**, and this is the second inherited count this lane has had wrong in one day (the other:
+"4 inline onclick" for monolith-splitter, actually 3).
+
+**Also confirmed first-hand, and it changes one requirement:** the ported slot DOES carry
+`@media (min-width: 900px)` for `.tool-layout` — so unlike monolith-splitter it is not
+responsive-blind overall. But the guide box sets `grid-template-columns: 1fr 1fr` **inline, twice,
+with no media query**, so that panel stays two-column on a phone. The brief asks for both the
+guidance panel and the main layout to collapse, which is why it names them separately.
