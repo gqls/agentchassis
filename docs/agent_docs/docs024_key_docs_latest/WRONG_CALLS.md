@@ -54596,3 +54596,34 @@ check:** an apply you performed writes its own timestamp — `SELECT created_at 
 <your session>` costs one query, and any time you write with a `~` on it is a confession that you
 did not run it. Same family as this file's 08-25 entry: the instrument that settles it is the
 artefact, and I reached for my sense of the clock instead.
+
+---
+
+## 2026-08-26 — I answered two questions with the previous question's filter, and both undercounts looked like precision (`dartsonline_traffic`)
+
+**The claims:** (a) `save_page_sections_overwrite` is *the* writer of a listing's `articles` array;
+(b) dartsonline carries **5** `template_changed` work items.
+
+**What was true:** (a) it is the only writer *on the one page whose history I read* — fleet-wide,
+`rebuild_blog_listing` was hand-writing `image:""` on other sites, 42 runs in 14 days. (b) There are
+**8**; I had filtered `item_type IN ('page_rerender','needs_page','needs_rerender')` because those
+were the types in front of me from the previous query, and the producers use others.
+
+**What caught it:** the `bugs_open/384` lane, both times, by running the wider query.
+
+**The cheap check:** derive the filter from the question you are answering now, not from the query
+you just ran. In both cases the correct move was to drop every predicate and re-add only what the
+new question needs.
+
+**Why this one deserves its own entry rather than folding into the measurement family** — the
+framing is the 384 lane's and it is sharper than mine: **a filter carried from the previous query is
+the previous question still being answered**, and it fails in the one direction that looks like
+diligence. It returns a *smaller* number arrived at with *more* specificity, which is harder to
+doubt than a large one and reads as care. And it is directional: **an inherited filter can only ever
+narrow**, so the error is always an undercount — which is why both of mine were, and why "it seems
+low" is the only symptom available.
+
+**The pairing that makes it useful:** the same week I fenced a 471-item figure by refusing to claim
+those items had shipped nothing. That fence prompted the census that refuted my own implication. So
+the habit that saves you is not accuracy, it is **stating what the number does and does not
+support** — the fenced claim survived contact and the two inherited-filter claims did not.
