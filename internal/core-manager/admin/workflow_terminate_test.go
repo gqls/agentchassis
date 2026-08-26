@@ -54,9 +54,12 @@ func workflowStateRows() *sqlmock.Rows {
 // exactly one row. Deleting the ORDER BY or the LIMIT breaks this match.
 const workflowStateQueryRE = `SELECT correlation_id, orchestration_id[\s\S]*FROM orchestration_states[\s\S]*WHERE correlation_id = \$1[\s\S]*ORDER BY \(parent_orchestration_id IS NOT NULL\), created_at[\s\S]*LIMIT 1`
 
-// The terminate UPDATE must never touch a terminal row. Deleting the status
-// filter breaks this match.
-const terminateUpdateRE = `UPDATE orchestration_states[\s\S]*WHERE correlation_id = \$1[\s\S]*AND status NOT IN \('COMPLETED', 'FAILED'\)`
+// The terminate UPDATE must never touch a terminal row — terminal by the Go
+// constants OR by orchestration_status_vocabulary.is_terminal (belt and
+// braces: CANCELLED is terminal by convention and exists only in the
+// vocabulary; an emptied vocabulary leaves the literal set standing).
+// Deleting either half of the filter breaks this match.
+const terminateUpdateRE = `UPDATE orchestration_states[\s\S]*WHERE correlation_id = \$1[\s\S]*AND status NOT IN \('COMPLETED', 'FAILED'\)[\s\S]*AND NOT EXISTS \([\s\S]*FROM orchestration_status_vocabulary v[\s\S]*v\.is_terminal[\s\S]*\)`
 
 func doResume(t *testing.T, h *SystemHandlers, body string) *httptest.ResponseRecorder {
 	t.Helper()

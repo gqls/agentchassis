@@ -628,11 +628,24 @@ func (h *SystemHandlers) updateWorkflowStatus(ctx context.Context, correlationID
 	// COMPLETED sub-orchestrations — as FAILED, destroying their status record.
 	// Scoping to non-terminal rows captures the intent of "terminate": stop what
 	// is still running, never rewrite finished work.
+	//
+	// Terminality is decided by BOTH the literal set (the two Go constants in
+	// platform/orchestration/state.go) AND orchestration_status_vocabulary's
+	// is_terminal column — belt and braces, per council be7544eb's editquality
+	// advisory. The vocabulary catches statuses the constants do not know:
+	// CANCELLED is terminal by convention, hand-written only, and was live in
+	// 24 rows when this was measured — a literal-only filter would have
+	// relabelled a CANCELLED sibling FAILED. The literal survives an emptied
+	// vocabulary table (NOT EXISTS over an empty set spares nothing).
 	query := `
 		UPDATE orchestration_states
 		SET status = $2, error = $3, updated_at = NOW()
 		WHERE correlation_id = $1
 		  AND status NOT IN ('COMPLETED', 'FAILED')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM orchestration_status_vocabulary v
+		      WHERE v.status = orchestration_states.status AND v.is_terminal
+		  )
 	`
 
 	res, err := h.clientsDB.ExecContext(ctx, query, correlationID, status, errorMsg)
