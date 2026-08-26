@@ -2299,11 +2299,50 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
         .sort((a, b) => Number(b[1]) - Number(a[1]));
     const divergenceCount = Number(typeCounts["page_divergence_overwritten"] || 0);
 
-    // Anything still running is pinned and never hidden — those are the only rows
+    // ⚠ correlation_id is NOT unique: one correlation is a TREE of orchestration
+    // rows (parent plus sub-orchestrations), and /admin/workflows returns them
+    // raw — measured 2026-08-26, up to 27 rows share one correlation on a single
+    // site. So the list is grouped by correlation before anything else. That
+    // fixes a real defect (React was keyed on a value that repeats, on a list
+    // that re-polls every 10s), and it is also the honest unit: every sibling row
+    // opens the SAME detail, because the detail endpoint pins root-first.
+    const workflowGroups = (() => {
+        const byCorrelation = new Map();
+        for (const wf of workflows) {
+            const key = wf.correlation_id;
+            const g = byCorrelation.get(key);
+            if (!g) {
+                byCorrelation.set(key, {
+                    correlation_id: key, rows: [wf], created_at: wf.created_at,
+                    current_step: wf.current_step, has_step_error: !!wf.has_step_error,
+                });
+                continue;
+            }
+            g.rows.push(wf);
+            g.has_step_error = g.has_step_error || !!wf.has_step_error;
+            // The list is newest-first, so the first row seen is the newest; keep
+            // its timestamp and step as the group's face.
+        }
+        return [...byCorrelation.values()].map(g => {
+            // A group is live if ANY sibling is: stopping "the workflow" means
+            // stopping what is still running under it, which is exactly what the
+            // terminate endpoint now scopes itself to.
+            const liveRow = g.rows.find(r => !isTerminalWorkflow(r));
+            const anyFailed = g.rows.some(r => String(r.status || "").toUpperCase() === "FAILED");
+            return {
+                ...g,
+                count: g.rows.length,
+                status: liveRow ? liveRow.status : (anyFailed ? "failed" : "completed"),
+                live: !!liveRow,
+            };
+        });
+    })();
+
+    // Anything still running is pinned and never hidden — those are the only ones
     // that can be Resumed or Terminated, and burying one behind a fold is how an
     // operator concludes the button does not exist.
-    const liveWorkflows = workflows.filter(wf => !isTerminalWorkflow(wf));
-    const finishedWorkflows = workflows.filter(isTerminalWorkflow);
+    const liveWorkflows = workflowGroups.filter(g => g.live);
+    const finishedWorkflows = workflowGroups.filter(g => !g.live);
     const visibleWorkflows = showAllWorkflows
         ? [...liveWorkflows, ...finishedWorkflows]
         : [...liveWorkflows, ...finishedWorkflows.slice(0, WORKFLOW_PREVIEW)];
@@ -2523,7 +2562,7 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
                         the WINDOW, never the total — say "newest N" and mark a full window
                         with a +, rather than printing a number that reads as a count. */}
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        Orchestrations tagged to this site — newest {workflows.length}{workflows.length >= WORKFLOW_LIMIT ? "+" : ""}, mostly periodic sweeps, not the build
+                        Orchestrations tagged to this site — {workflowGroups.length} from the newest {workflows.length}{workflows.length >= WORKFLOW_LIMIT ? "+" : ""} rows, mostly periodic sweeps, not the build
                     </div>
                     {workflows.length === 0 ? (
                         <div style={{ fontSize: 13, color: "#94a3b8", padding: 12 }}>None recorded</div>
@@ -2541,6 +2580,10 @@ function BuildsView({ token, siteId, siteDomain, onBack }) {
                                     borderTop: idx > 0 ? "1px solid #f1f5f9" : "none",
                                 }}>
                                     <span style={{ color: "#64748b", width: 140 }}>{new Date(wf.created_at).toLocaleString()}</span>
+                                    {wf.count > 1 && (
+                                        <span title={`${wf.count} orchestration rows share this correlation (parent plus sub-orchestrations). They open the same detail.`}
+                                              style={{ fontSize: 11, color: "#64748b" }}>×{wf.count}</span>
+                                    )}
                                     <Badge status={String(wf.status || "").toLowerCase() === "completed" ? "complete" : String(wf.status || "").toLowerCase()} />
                                     {wf.has_step_error && (
                                         <span title="A step failed even though the status may read complete (bugs_open/099)" style={{
