@@ -969,3 +969,17 @@ manage, including ones we do not host), and a trigger that is not met.
    outside**; then the box vhost apply.
 3. The `needs_delivery_review` **producer** — and it must go through `actions.writeWorkItem`.
 4. Owner: the two DNS commercial facts (§3a, §4 D-e), then D-a/D-b.
+
+## 2026-08-26 — design rotation back ON (peer heads-up, verified); my gate is immune by construction; label risk relayed
+
+`webdesign-tool-rebuilds` messaged: `site-discovery-rotation-design` re-enabled after 15
+days off (`bugs_open/401`). **Verified at the live rows rather than relayed:** both it and
+`detected-item-promoter` are `enabled=t`, last triggered 09:20:36Z / 09:13Z today.
+
+Impact on this lane: **none on the shipped work** — `Reviewed()` filters on
+`item_type='needs_delivery_review'` (nothing produces it), and the safety counters live in
+tables design traffic never touches. The one real cross-lane consequence: webdesign.uk is
+in the rotation's reach (19 historical design-adjacent items) and an unprompted design
+repair on `index` would strip the hand-placed "Not active yet" label at the parked preview
+— probability moved from ~zero to live this morning. Relayed with the cheap standing check:
+`NOTE_2026-08-26_design_rotation_resumed_label_strip_risk.md` in the webdesign dir.
