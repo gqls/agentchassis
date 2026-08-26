@@ -2064,3 +2064,52 @@ the copy rewrite is scheduled — one rebuild doing images and copy together, wh
 worth waiting for anyway.
 
 **Net: no spend, no copy touched, prompts banked, key released.**
+
+## 2026-08-26c — the copy lane answered, and the layer that was still teaching the register was OURS
+
+Owner: *"please correspond with the copy thread about this"*. The correspondence produced the most
+useful answer this lane has had from them, and an action we owned.
+
+**Their answer, and it is specific:** the writer has moved (627/628/629 live 08-25 21:11Z, 630 at
+08-26 00:22Z; fleet rendered prompt 63–65 → 36 negation demonstrations, `plainly` 14→4, `honest`
+10→5) — **but `content_direction` is SITE-owned and those migrations cannot reach it.** Our brief
+still scanned **21 demonstrations including the exact 7 `rather than`** this lane measured three
+times as its immovable floor. Their prediction, from their own proven mechanism (classes track
+their demonstration counts): a rebuild today clears the honesty-beat/self-narration classes —
+**precisely the class of the owner's rejected specimens** — but NOT `rather than`, because its
+demonstrations live in our brief.
+
+**Verified before acting:** counted the live spec myself — exactly 7 `rather than`. Their figure was
+exact.
+
+**Done — migrations `646` + `647`, applied and recorded:** `rather than` **7 → 0**, `not just`
+**4 → 0**, and the ISN'T rule's two self-demonstrating exemplars removed. 12,261 → 11,846 chars,
+18 keys intact. **Form only**: every instruction keeps its force. Untouched deliberately — quoted
+**brand positioning** ("we pick the best tool, not our favourite vendor"), quoted **example
+utterances the voice may emit** ("'AI isn't the right answer here'" — a sentence we would publish,
+so content and not a form lesson), and rules that **name a banned phrase**, because a ban must be
+allowed to name what it bans.
+
+### Two things worth carrying
+
+- **`formatted` is DERIVED**, not stored-and-edited: `FormatContentDirection` builds it from the
+  other keys (sorted, skipping itself) and `write_site_spec` calls it. **Editing `formatted` alone
+  would be erased at the next spec write** — the same surface-the-renderer-overwrites shape as
+  `bugs_open/396`. The substitutions were applied to source keys AND `formatted` together, which is
+  byte-equivalent to a regeneration because each needle sits inside one string value and never
+  spans the formatter's scaffolding.
+- ⚠ **`647` exists because I re-counted the live spec after `646` and found 3 `not just` still
+  there. `646`'s verify block had PASSED** — it asserted only on `rather than`, which is what I had
+  told it to look for. **A verify block can only refuse what it was told to check**, and mine was
+  written from the sharpest finding rather than the whole class. Third measurement-scope miss this
+  session, and the cheapest.
+
+### State change the owner needs
+
+His reversal ("I don't want the copy in the register I rejected") was made on **yesterday's**
+information. Between their four migrations and these two, the register machinery has measurably
+moved and the floor this lane could not shift is gone. ⚠ **Nothing shipped targets the methodical
+scaffold or the essayistic cadence** — their words — so this is a measured change to the
+demonstration stack, **not** a promise about his ear. Canary offered and ACCEPTED: the 9 pages with
+their committed byte-level baseline; they will score the diff with the phase-1 battery alongside
+his read.
