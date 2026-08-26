@@ -291,3 +291,35 @@ breath.
   optional-key parity test CLAUDE.md instructs every author to run cannot be run by anyone, and
   the pre-commit hook reports it as "the tree does not build", which reads as a local problem and
   is not one. `go build ./...` is clean.
+
+---
+
+## ⚠ CORRECTION to MY "How to verify a fix" section, 2026-08-26 — do not require `deployed_at` to advance
+
+My verification protocol above says to *"pin the listing's `deployed_at` before and after and require
+that the re-render was caused by the card landing rather than coinciding with it"*. **The
+`deployed_at` half is wrong and produces a false NEGATIVE.** Corrected by the lane that implemented
+the fix, who wrote the same requirement into their first draft and then disproved it by running it:
+
+**On a listing whose array is already current, the re-rendered HTML is byte-identical and the deploy
+is a legitimate no-op.** So a correct fix, doing exactly the right thing, fails my test. The
+protocol demanded evidence the mechanism has no reason to produce.
+
+**What to require instead** — the causal claim was the right instinct, the artefact was the wrong
+place to look for it:
+
+- the consumer set is **derived**, not named: N items filed, one per page whose
+  `content_components.input_schema` declares the consuming query;
+- each carries `spec.reason='section_data_resolved'` and a cause naming the landing
+  (`card_landed:<page>`);
+- the stored array's empty `image` count for that entity goes to zero;
+- `escalated=false`.
+
+Byte-identical output with those five facts true is a **pass**, not a failure.
+
+**The general shape, which is why this is worth a correction block rather than an edit:** I wrote a
+verification that could fail for a reason unrelated to the defect — the mirror of the failure this
+file is otherwise about, and the same family as my own "a correlation that explains two cases is not
+a mechanism" note above. **A test that can go red while the fix is working is as useless as one that
+cannot go red at all**, and it is more expensive, because it sends the next person to un-fix a
+working thing.
