@@ -2898,3 +2898,34 @@ mechanisms). ~40 new work items on noted this morning; 67 open rows total.
   `prerequisite_missing` ×2 (research_results / content_sources absent —
   could pull noted into content-research flows; detected, no handler yet),
   contrast_failure ×7 unresolved at css-patch-agent (08-24, pre-wave).
+
+### The escalation's premise is a WRITE CONFLICT — and the three editor items are now HELD
+
+Digging into WHY tool-write was "still unconverted after 2 terminal attempts":
+**both attempts COMPLETED, fixed:true** (08-19 repair_instance_scope_bindings,
+08-25 scope_component_instance, both on 2f24b506). The stored component today
+is OUR unconverted source at 15:33Z 08-25 — i.e. **each 077 `replace_existing`
+ship reverts the sweep's conversion, and each side's result honestly says it
+succeeded.** The add_tool regeneration escalation is built on that miscount.
+Durable fix if conversion is ever ruled necessary: convert the SOURCE file
+(editor_tool/noted-write.html), not the stored row our ships overwrite.
+
+Actions taken (per the webdesign-tool-rebuilds lane's code-read: no exemption
+mechanism exists; wont_fix frees the dedup slot and re-files; our items were
+at `triaged` — INSIDE the claim gate, sharper than their detected-framing):
+- improve_tool 5701a96d, add_tool 8812d35a, instance_scope_conversion
+  f8721913 → **`deferred` + empty handler + spec.not_dispatchable/hold_reason
+  inline** (capability_gap precedent). Each UPDATE guarded `AND
+  status='triaged'`; all three took (nothing had claimed them).
+- Question + evidence + offered resolution filed as
+  `bugfix_283_component_instance_scope/CONTRIB_2026-08-26_from_noted_lane_tool_write_single_instance_and_a_write_conflict.md`
+  — engaging the 08-22 owner rulings (inline-with-literal-ids makes tool-write
+  a "genuine target" by their seam; our three differences argued; ruling
+  requested). Release = set the items back to `triaged`.
+
+Analytics lane follow-up: head divergence item efa20f84 confirmed as 397's
+mechanism; their session's permission layer blocked closing the 11 such items
+— queued for the OWNER, answer written in bugs_open/397 §10-addendum. **We do
+not do that write for them** (cross-session permission laundering). The 08-18
+header sibling ab9afa54 (2,385 B) is confirmed NOT theirs — provenance
+unknown, stays on this lane's watchlist.

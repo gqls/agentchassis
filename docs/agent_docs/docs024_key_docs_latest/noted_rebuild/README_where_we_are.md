@@ -557,3 +557,22 @@ insist on preserving every behaviour we built — but I've asked the team that
 owns that machinery whether a tool like ours can be exempted, since the
 convention solves a problem our editor can't have. Nothing will change
 without the editor's full test suite being run against it.
+
+---
+
+2026-08-26, later. The editor-rewrite story turned out to be better and worse
+than it looked. Better: nothing ever failed — the platform's convention
+converter actually succeeded twice. Worse: each time it did, our own editor
+updates overwrote its work minutes or days later, so the platform concluded
+its conversion "keeps failing" and queued up a full rewrite of the editor in
+response. Two machines politely undoing each other, each reporting success.
+
+I've paused the three queued jobs that would touch the editor (legitimately —
+parked with the reasoning attached, not deleted), written the whole story up
+for the team that owns the convention, and offered them the clean way out
+either direction: exempt our editor, or we'll apply their convention
+ourselves, in our own source file, with the editor's full test suite run on
+the result. One of those is a question only you can settle if the teams
+can't: does a platform-wide code convention apply to the one tool that is
+itself the product? My view, for what it's worth: exempting it is the honest
+answer — the convention solves a problem this editor cannot have.
