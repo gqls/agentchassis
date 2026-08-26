@@ -1208,3 +1208,24 @@ today) and a different host would face the same wall: DKIM/DMARC must land at
 `dns1/dns2.uk-noc.com`, the domain's authoritative NS. Three routes in the RUNBOOK
 (Zone Editor first; host ticket second; move DNS to our CF account third — mailbox
 unmoved either way). I verify from outside with dig once records are added.
+
+## 2026-08-26 (night, addendum) — domain_programme key shape reviewed AS ITS FIRST READER; two additions asked for pre-first-row
+
+The webdesign lane recorded two owner rulings (interim TAG = DESIGNCONSULT; the domain is
+a SEVERABLE opt-in per-site layer, `site_config.domain_programme`, default absent/ugg2)
+and built the EPP register + CF zone scripts (both dry-run-default; the zone script now
+lives in THIS dir as `cf_customer_domain_zone.sh`; brief =
+`BRIEF_2026-08-26_domain_find_register_point_service.md`). They asked for shape objections
+BEFORE anything reads the key. P5 wiring (hostname choice + email domain section) is mine.
+
+**My review, sent 2026-08-26 night — bones right, two gaps named while they cost one line:**
+1. **`zone_live_at`** — `registered_at` stamps the MONEY event; serving needs the ZONE
+   event. Between EPP create and the CF zone answering at the assigned NS there is a real
+   window where hostname=domain breaks a serving site. The zone script's verify step is
+   the right writer. P5 reader rule: hostname = domain ONLY when `zone_live_at` present.
+2. **`commercial: rent|bought`** — the email's domain section, the weekly chase and the
+   post-sale Registrant Transfer (owner 08-21 D1) all branch on it; reserve the name now
+   or the first writer invents another.
+Plus the reader rule I will encode regardless: **an unrecognised mode fails safe to slug
+serving** — mode is an open vocabulary ("transferred" is clearly coming), and a reader
+that errors on mode #3 takes a live site down, while ugg2-fallback keeps it up.
