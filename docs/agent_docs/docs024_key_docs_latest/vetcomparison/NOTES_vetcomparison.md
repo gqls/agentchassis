@@ -1722,3 +1722,12 @@ Relist item `d9327bab` filed (guides-index rebuild via the 206 chain — guide-l
 "Triggering a render — UNSOLVED" section: still unsolved as written (07-18); tonight's practical
 answer remains "rebuild the page through its builder", which regenerates writer-owned copy — 
 acceptable on guides-index (hero + query-driven list), NOT on hand-corrected pages.
+**Open at session close 2026-08-27 ~05:30Z, needs NO shepherding:** relist item `d9327bab`
+(guides-index rebuild, lists the 4th guide) still `triaged` behind an overnight fleet backlog
+that GREW while draining (652 ahead at 04:29 — the re-enabled design rotation + improvement loop
+mint faster than the queue drains at night; expect it to clear in daytime). Verify when next
+here: `curl -s https://vetcomparison.uk/guides/index.html | grep -c animal-health-certificates`
+→ non-zero, then eyeball the entry. Also still pending from 08-26: the next chassis roll carries
+claimed-first directory ordering (89cb6addb) → THEN rerender directory-index (the 51 VHC cards);
+council verdict for corr 09cf68c2 unread; next scheduled directory export (~08-28) emits the
+town-qualified VHC names.
