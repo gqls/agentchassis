@@ -298,13 +298,31 @@ selection. Fine while claims are short-lived; fatal when a claim never ends.
   the key loop-spawned handlers carry; a producer that keys differently would false-positive
   this test. Busy-skip exposure at the same instant: 14 sites held 30 claimed rows (most
   legitimately mid-work).
-- **Reaper coverage (414's census, their §7e):** stale-work-item-reaper (triaged only),
+- ~~**Reaper coverage (414's census, their §7e):** stale-work-item-reaper (triaged only),
   stale-orchestration-reaper (needs an orchestration to reap — the defining absence),
   stuck-task-reaper (scheduled_tasks), thunder-reaper (unrelated) — **a dropped-spawn claim is
-  unreapable by construction.** Open question under live observation: the 08-26 zombie pair
-  showed a claim-level release ~1h18m after a wedge, but that item HAD an orchestration;
-  whether any TTL fires with none is being answered on oufe's rows (~10:15Z check — result in
-  the dispatch_throughput NOTES).
+  unreapable by construction.**~~
+  > **CORRECTED 2026-08-27 ~10:2xZ — "unreapable" is REFUTED by observation, then by the
+  > mechanism's own text.** The ~10:15Z check found oufe's two stuck rows RELEASED at ages
+  > ~42 min (09:50:33 / 09:53:29 — mechanically: both predate this lane's message naming oufe),
+  > with the designed signature: status→triaged, claimed_at cleared, attempt_count+1,
+  > retry_after now+30 min. The releasing mechanism is **`claimed-item-timeout`**
+  > (`scheduled_tasks`, interval **120 s**, enabled — not named "reaper", which is how two
+  > sessions' censuses missed it). Three stages: auto-complete claims >15 min whose handler
+  > orchestration COMPLETED after the claim; auto-complete >15 min on per-artefact evidence;
+  > **reset claims >40 min** with neither, with per-type backoff (`reaper_policies`, default
+  > 30 min × attempt). So the dark window per dropped spawn is **BOUNDED at ~40–42 min**
+  > (threshold + tick), not indefinite — and 414's lendzy hand-release at 35 min preempted the
+  > sweep by ~5 min, which is why their observation never saw it. What caught the error: the
+  > deliberate hold-and-observe on oufe against a falsifiable prediction, then reading the
+  > pre_query to the end.
+  **Frequency [MEASURED 2026-08-27 10:20Z]: ≥89 claim-timeout resets TODAY (by 10:20Z) across
+  27 sites** (oufe 11, loanzy 10, idea.uk 9) — each up to ~40 min of that site's exclusion.
+  Caveats: rows whose error is later overwritten/archived decay out, so day-to-day comparison
+  is unreliable (today is a floor); resets include FAILED handlers, not only dropped spawns;
+  and the pre_query's own comment says the 15 verifier-gated item types ALWAYS fall through to
+  reset even when the work succeeded — composition by item_type unmeasured, 414's to take
+  further.
 - **The discriminator, one query, for every floor read from now on:** a starving-looking site
   is EXCLUDED (this mechanism) rather than OUT-ORDERED (413's) when it holds a
   `status='claimed'` row with no orchestration for the id and `claimed_at` older than the

@@ -903,3 +903,63 @@ ever) is covered by NO reaper — their lendzy `content_rewrite` sat claimed 35 
   remeasure (site_work_items is a rolling window; a NOW-census undercounts a rate).
 - **Confounder flag for our own reads:** the 2h/24h Phase-3 floors must run the discriminator —
   a dark site may be EXCLUDED (this), not OUT-ORDERED (413) or slow (capacity).
+
+### 2026-08-27 ~10:2xZ (recorded 13:2xZ) — oufe TTL experiment: 414's "unreapable" REFUTED; the mechanism is `claimed-item-timeout`
+
+The ~10:15Z check found oufe's two stuck rows already RELEASED at ages ~42 min (09:50:33 /
+09:53:29 — both PREDATE this lane's 09:58Z message naming oufe, so mechanically, not tipped),
+signature: status→triaged, claimed_at NULL, attempt_count+1, retry_after now+30min. The
+mechanism, read in full: **`claimed-item-timeout`** (scheduled_tasks, interval 120s, enabled —
+not named "reaper", which is how BOTH sessions' censuses missed it). Three stages:
+auto-complete claims >15 min whose handler orchestration COMPLETED after claim; auto-complete
+>15 min on artefact evidence; **reset >40 min** with per-type backoff (`reaper_policies`,
+default 30×attempt min), error 'Claim timed out — handler pod likely died'. So a dropped-spawn
+dark window is **BOUNDED ~40–42 min**; 414's lendzy hand-release at 35 min preempted the sweep
+by ~5 min, which is why their observation never saw it. 413 addendum corrected visibly;
+RUNBOOK control re-worded (a >45 min stuck claim now means the timeout task ITSELF is broken).
+**Frequency [MEASURED 10:20Z]: ≥89 resets today by 10:20Z across 27 sites** (oufe 11, loanzy
+10, idea.uk 9) — caveats in the 413 correction (decay confounds day comparison; includes
+failed handlers; the 15 verifier-gated types ALWAYS land in reset even on success).
+
+### 2026-08-27 13:1xZ — the "2h" Phase-3 read ran at ~4h (session paused ~10:40→13:11 on MY account's usage limit); read window 09:15:06→13:11Z; a FLEET LLM outage started 11:30Z and is ONGOING
+
+Session-pause honesty: the ~11:30Z read fired at 13:11Z (my Claude session hit its own usage
+cap mid-morning). The window is explicit, so the read is simply LONGER; the 657 slot slipped
+past ≥12:00Z with the all-clear unsent — sent 13:2xZ (they hold until it arrives; selector md5
+read d6f98acd at 13:15Z = correctly unapplied, read by version DESC).
+
+**Phase-3 capability, both knobs PROVEN at the artefact:**
+- 163 of 239 loaded loops loaded exactly **8** (distribution 1–8, cap binds at 68%).
+- max claim_result suffix **_7** on completed loops (0-indexed = **8 claim attempts/loop**).
+- collected_data: completed avg 343KB / max 1.4MB vs 8MiB warn — headroom holds.
+- Cadence through everything: p50 59s / p90 121s / max 424s.
+
+**The window is TRIPLY confounded — do not grade ~+7% on it:**
+1. ~09:50–11:00: claim-churn stretch (the reset storm's +30min backoffs thinned
+   instant-eligibility; claims 42–52/h with loops normal; ZERO endpoint refusals here).
+2. **11:30Z→ongoing: fleet LLM outage, 100% call failure** `[MEASURED llm_call_log 13:15Z:
+   12h 61/61 failed, 13h 17/17, last-15min 20/20]` — error "You have reached your **specified
+   API usage limits**" = the SELF-SET Billing-page limit (08-17 signature, NOT the 08-25/26
+   prepaid-credit one; D7 distinguishes them). Dispatch-side trace: `ai_endpoint_unavailable`
+   claim refusals 0 before 11:30, then 84/106/56/48 per half-hour. LLM-free work (rerenders)
+   still completes; LLM-bearing claims refuse at the claim step. **D4's case, third instance,
+   live.** Owner action needed on the account; noted in README.
+3. Lost-claim split over the window: 45.5% headline = 283 endpoint (outage artifact) + 293
+   overlap. Overlap-only ≈ 29.8%, concentrated pre-outage (273 of 293 before 11:30) — HIGHER
+   than the 24h read's 16.5%; whether that is batch-8 (longer turns → more consecutive-fire
+   overlap) or reset-storm churn is NOT decidable on this window. The clean post-outage
+   window judges; flagged for the 24h Phase-3 read.
+
+**Floor/pins at 13:11Z (with lock + stuck-claim controls):** worst unlocked =
+**cookly.uk, 6.2h unserved, NOT pinned (rank 2)** — a pure positional victim, 657's exact
+target (its 3 rows re-eligible since ~08:00 after claim-timeout resets at ~07:0x). Batch 8
+already UNPINNED some of yesterday's pins by widening the load window
+(loanandmortgagecalculator rank 23→6, loanzy 13→2); still pinned at K=8: **10 of 25**
+(lendzy 35 — oldest now ~15h, gaswholesalers 66, idea.uk 54, relojistas 48). These are the
+657 pre-fix baselines alongside the 09:00Z read.
+
+**657 all-clear judgement: SENT.** The outage is orthogonal to the selector swap (DB-only
+apply, DB-only VERIFY, no LLM in the query); starvation damage is live and ongoing (cookly);
+their acceptance reads must (a) cut windows on the outage boundary, (b) run the stuck-claim +
+lock controls before grading a dark site, (c) during the outage measure SELECTION fairness
+(loops per starving site), not drain.

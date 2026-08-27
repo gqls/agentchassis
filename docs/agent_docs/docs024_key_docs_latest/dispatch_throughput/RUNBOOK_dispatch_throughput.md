@@ -210,10 +210,15 @@ FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%';
 -- is parked BY DESIGN — the selector must skip it, and it is not starvation. The 08-27 read's
 -- worst row (adversecreditmortgage.co.uk, 70 eligible, 27h no claim) was exactly this. The
 -- locked_at/except_n columns below are the control — never quote a worst site without them.
--- ⚠ STUCK-CLAIM CONTROL (added 2026-08-27, from bugs_open/414 via 413's addendum): a site with
--- a claimed row whose spawn was DROPPED (zero orchestrations for the id) is EXCLUDED by the
--- busy-skip clause, not out-ordered — unreapable, dark until hand-released. Same silhouette as
--- 413 from outside. Run this beside every floor read, and BEFORE grading a dark site post-657:
+-- ⚠ STUCK-CLAIM CONTROL (added 2026-08-27, from bugs_open/414 via 413's addendum; CORRECTED
+-- same day): a site with a claimed row whose spawn was DROPPED (zero orchestrations for the
+-- id) is EXCLUDED by the busy-skip clause, not out-ordered. ~~unreapable, dark until
+-- hand-released~~ — REFUTED at oufe + at the mechanism text: `claimed-item-timeout`
+-- (scheduled_tasks, 120s tick) auto-completes evidenced claims >15 min and RESETS the rest at
+-- >40 min with backoff, so the dark window is BOUNDED ~40–42 min. A stuck claim OLDER than
+-- ~45 min therefore means the timeout task itself is broken/disabled — check the task, don't
+-- hand-release first. Same silhouette as 413 from outside. Run this beside every floor read,
+-- and BEFORE grading a dark site post-657:
 --   SELECT s.domain, wi.item_type, wi.claimed_at FROM site_work_items wi
 --   JOIN sites s ON s.id=wi.site_id WHERE wi.status='claimed'
 --     AND wi.claimed_at < now() - interval '30 minutes'
