@@ -82,3 +82,11 @@ Render-audit rotation coverage (all consumers of its findings and retractions), 
 worked example), the 390 lane (P4-formal on vonc blocked until fixed; noted/loanzy graded on
 their own audits). Filed unowned beyond the 090 run; the 390 lane will grade any fix's effect on
 its own verification but does not claim the fix.
+
+---
+
+**DATED UPDATE 2026-08-27 15:20 UTC:** the first 090 run (`0df41fb3`, item `02a6dcfc`) FAILED at
+13:22Z on the fleet provider cap ("You have reached your specified API usage limits" — 334 such
+errors 13:2x–13:34Z, outage over by 15:13Z with successful calls flowing). Infrastructure, not
+the filing. **Re-fired with FORCE=1 past the failed row: `RUN_CORRELATION_ID=d4e976e5-8e7d-47d2-8aab-aedcc50a2d8c`.**
+The hypothesis section stands unjudged until that verdict.
