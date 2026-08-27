@@ -244,3 +244,62 @@ UNION ALL SELECT 'work_item', s.domain, w.item_type FROM site_work_items w JOIN 
   the `model_opinion` origin stamp and record-mode filing (migration 629). Every lendzy audit item
   filed 08-25/08-26 is `deferred`, not dispatched. **The residual is the pre-door backlog** — items
   like `052d01b0` that predate it and still have a one-click Retry.
+
+### 7h. The absence claim, checked rather than asserted (council round 1 gated on exactly this)
+
+§7c says "nothing in the estate reads spec CONTENT for planted instructions outside
+`cmd/brief-negation-check`". That is a load-bearing negative over a large surface, and the council's
+`prior_art_librarian` seat gated round 1 on it having no cited existence check — correctly, given
+this estate's history of dormant and duplicate detectors. Run 2026-08-27:
+
+**87** non-test Go files reference `site_specs`; **19** of those also compile a regex or call a
+claims scanner; reading each, exactly **one** judges the spec's own text — this binary, on
+define-by-negation only. The near misses, named so the next reader does not have to re-derive them:
+`check_literal_markdown` mentions `site_specs` only in a comment; `check_revenue_shape` reads
+`strategy.revenue_models.primary_model` for **shape**; `check_build_prerequisites` and
+`check_premise_incomplete` ask only whether aspects **exist**; `refresh_evidence_base_action`
+maintains the register; `cmd/regcheck` scans one string handed to it on the command line.
+
+**And there is one mechanism that already reads this exact text — to EXEMPT it.**
+`rewrite_negations_action.go`'s `defaultBriefFields` includes
+`site_specs.specs.content_direction.formatted`, and reads it in order to *exclude* brief-supplied
+phrases from the writer-seam gate, on the stated ground that *"a site's own voice specification
+outranks these rules wherever the two disagree"*. So the estate's one existing reader of the
+planted text is the one that decided not to judge it. **That is not a duplicate detector; it is the
+gap 414 fell through, stated in the code that creates it.**
+
+Also run, because the same seat asked and round 1 had not cited it: this council has reviewed the
+claims families four times in the preceding 20 days (`c48b7612` 08-20, `aac38d5b` 08-20 and 08-22,
+`1d87615f` 08-24, `6cfaa8f0` 08-25). **No prior round covers spec-side scanning**, and none contains
+an equivalent to either pattern added here.
+
+### 7i. Round 1's other findings, kept because two of them were real
+
+Round 1 came back **REVISE**. Recorded here rather than only in the council trail, because a REVISE
+round that finds real defects is evidence about the change, not an obstacle to it:
+
+- **Two seats independently asked whether the fleet spec-surface census descends into loop
+  substeps** — the documented failure mode of hand-rolled walks over `agent_definitions`. It cannot:
+  `fleetSurface` never walks steps, it regexes `default_config::text` as one document. But the
+  measurement makes the question sharper than the objection: `[MEASURED 2026-08-27]` exactly **one**
+  live agent carries a `site_specs` ref inside a `sub_workflow` — **`page-content-writer`**, whose
+  refs all live inside its process-sections loop. A step-walking implementation would have gone
+  blind to the writer's entire surface while reporting a clean fleet. Now pinned by
+  `TestFleetSurfaceSeesRefsNestedInsideASubWorkflow` (`04dddb699`), whose failure message names
+  `platform/validation.WalkSteps` for whoever converts it.
+- **The writer set of `content_data`/`rendered_html` is two families, not six consumers**
+  (`cta_label_audit.go:36-49`): `SavePageSectionsAction` (behind the floor) and
+  `ApplySectionEditAction`, which "never passes through SavePageSectionsAction". **Neither new
+  pattern guards a section edit** — `section_editor_regulated_guard.go` carries the regulated family
+  only, by its own header's reasoning. Stated, not fixed: widening it changes refusal behaviour on
+  another lane's seam.
+- **A refused save already leaves a durable record** — `writeClaimsFloorLog` →
+  `agent_error_log` code `CONTENT_CLAIMS_FLOOR_DETAIL`, on both the refusal and the
+  record-and-allow path — and deliberately writes a RECORD not an ITEM (`bugs_open/083`: detections
+  filed as items, fixed zero times; `bugs_open/077`: never file an item whose handler has no remit).
+  The item-raising path exists separately as `claims_unverified`. What the objection is right about
+  is that a refused rerender lands its work item at `unresolved` with nothing filed — a queue-drain
+  question for `bugs_open/033`, not something this change should invent.
+- **Owed after the roll**: per-SERVICE artefact verification (`git merge-base --is-ancestor` against
+  the service's own build-provenance stamp), then re-run `claimscan` over the same corpus expecting
+  the same three findings. A pre-merge dry run proves the source, not the running binary.
