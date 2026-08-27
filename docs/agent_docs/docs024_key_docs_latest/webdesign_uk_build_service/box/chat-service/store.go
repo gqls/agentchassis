@@ -147,6 +147,18 @@ func (s *Store) GetOrCreateConversation(id, clientIP string) (*ConversationState
 	return c, nil
 }
 
+// GetConversation is the read-only half of GetOrCreateConversation: it
+// reports whether an ID already has state and creates NOTHING. handleChat
+// uses it to classify a request as a new-conversation START (the thing the
+// per-IP limiter bounds) before any state exists for it — a blocked
+// stranger must not grow this store.
+func (s *Store) GetConversation(id string) (*ConversationState, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.state.Conversations[id]
+	return c, ok
+}
+
 // IncrementTurn records one more turn on the conversation and persists
 // immediately — the turn cap must survive a restart mid-conversation just
 // like the spend ceiling does.

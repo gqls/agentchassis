@@ -120,13 +120,6 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Gate 1: per-IP limit.
-	if ok, retryAfter := cs.ipLimiter.allow(ip); !ok {
-		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", retryAfter.Seconds()))
-		http.Error(w, "too many requests, try again later", http.StatusTooManyRequests)
-		return
-	}
-
 	// 16KB body / 5000-char message, raised from 8KB/2000 on 2026-08-26: the
 	// conduct now invites a visitor to PASTE a prepared description and have
 	// it taken as the brief, and a real one does not fit 2000 characters.
@@ -144,6 +137,24 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 	if convID == "" {
 		convID = newChatID()
 	}
+
+	// Gate 1: per-IP limit on NEW-CONVERSATION STARTS only — the behaviour
+	// ratelimit.go's own comment always described. Until 2026-08-27 this gate
+	// counted EVERY message, so a real five-turn intake conversation died at
+	// its next message with a 429 the page renders as a generic error (live
+	// failure, the owner's own test on launch day). A continuation is already
+	// bounded by the turn cap (gate 2) and the daily ceiling (gate 3). An
+	// unknown ID supplied by the client counts as a start — a self-minted ID
+	// must not bypass the gate — and a BLOCKED start allocates nothing in the
+	// store, so strangers cannot grow it.
+	if _, exists := cs.store.GetConversation(convID); !exists {
+		if ok, retryAfter := cs.ipLimiter.allow(ip); !ok {
+			w.Header().Set("Retry-After", fmt.Sprintf("%.0f", retryAfter.Seconds()))
+			http.Error(w, "too many requests, try again later", http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	conv, err := cs.store.GetOrCreateConversation(convID, ip)
 	if err != nil {
 		log.Printf("store error (get conversation): %v", err)

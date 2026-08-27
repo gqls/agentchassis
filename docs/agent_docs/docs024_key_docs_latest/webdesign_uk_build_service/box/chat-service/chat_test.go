@@ -125,6 +125,67 @@ func TestSpendCeilingStopsNewCalls(t *testing.T) {
 	}
 }
 
+// TestIPLimiterBoundsConversationStartsNotMessages pins the 2026-08-27 live
+// failure: gate 1 used to count every message, so a real intake conversation
+// died mid-flow once the visitor's IP had 5 hits in the hour. The limiter
+// must block a SIXTH new-conversation start while letting an EXISTING
+// conversation continue (continuations are bounded by the turn cap and the
+// daily ceiling, not by this gate).
+func TestIPLimiterBoundsConversationStartsNotMessages(t *testing.T) {
+	os.Setenv("ANTHROPIC_API_KEY", "test-key-no-network")
+	defer os.Unsetenv("ANTHROPIC_API_KEY")
+
+	cs := newTestChatServer(t, 100, 1000.00)
+	convID := "conv-ip-limiter-continuation"
+	if _, err := cs.store.GetOrCreateConversation(convID, "198.51.100.9"); err != nil {
+		t.Fatalf("GetOrCreateConversation: %v", err)
+	}
+	if _, err := cs.store.IncrementTurn(convID); err != nil {
+		t.Fatalf("IncrementTurn: %v", err)
+	}
+
+	// Exhaust the hourly band (5) with new-conversation starts.
+	for i := 0; i < 5; i++ {
+		postChat(t, cs, "", fmt.Sprintf("start %d", i))
+	}
+	// A sixth START must be blocked...
+	w := postChat(t, cs, "", "one more start")
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("6th new conversation: code = %d, want 429", w.Code)
+	}
+	// ...but CONTINUING the existing conversation must not be — this is the
+	// assertion that fails if the gate goes back to counting messages.
+	w = postChat(t, cs, convID, "and about that quote")
+	if w.Code == http.StatusTooManyRequests {
+		t.Fatalf("continuation blocked by the IP limiter — the gate is counting messages, not starts (the 2026-08-27 live failure)")
+	}
+	if w.Code != http.StatusOK {
+		t.Fatalf("continuation: code = %d, want 200", w.Code)
+	}
+}
+
+// TestIPLimiterCountsMintedIDsAsStarts closes the bypass the start-only gate
+// would otherwise open: a client supplying its own random conversation IDs
+// must still be limited (each unknown ID IS a start), and a BLOCKED start
+// must leave no state behind — otherwise strangers grow the store without
+// ever passing the gate.
+func TestIPLimiterCountsMintedIDsAsStarts(t *testing.T) {
+	os.Setenv("ANTHROPIC_API_KEY", "test-key-no-network")
+	defer os.Unsetenv("ANTHROPIC_API_KEY")
+
+	cs := newTestChatServer(t, 100, 1000.00)
+	for i := 0; i < 5; i++ {
+		postChat(t, cs, fmt.Sprintf("minted-%d", i), "hi")
+	}
+	w := postChat(t, cs, "minted-5", "hi")
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("minted-id start #6: code = %d, want 429 — self-minted ids bypass the limiter", w.Code)
+	}
+	if _, ok := cs.store.GetConversation("minted-5"); ok {
+		t.Fatal("blocked start created conversation state — strangers can grow the store")
+	}
+}
+
 // TestConversationHistoryThreadsAcrossTurns catches the bug found before
 // Phase 5 shipped: handleChat used to call claudeCaller with ONLY the current
 // message, never the conversation's prior turns, even though callClaude's own
