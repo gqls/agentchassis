@@ -56678,3 +56678,13 @@ instruction's wording — you already hold the payload, it is what you are tryin
 only; count occurrences (or dump the row and grep) before writing "benign, left in place" about
 the row rather than the passage. Tally: **cleared-a-row-on-its-first-matching-window** ·
 **censused-the-vocabulary-not-the-payload**.
+
+## 2026-08-27 — bugs_open/414 lane: I called a red suite "pre-existing" on evidence that could not carry it, and I was right by luck as much as method
+
+**What I claimed**, in a message routing a failure to another lane: that `TestNoHandSpelledTombstonePredicate` was pre-existing "verified in a clean extract of HEAD via `scripts/verify-head-builds.sh`, so it is not another session's uncommitted work".
+
+**What was actually wrong with that.** The conclusion held — the offending file was committed at `bc8167100` and I had attributed it with `git log -S` — but the *stated* evidence does not support it, because **HEAD is not green**: plain HEAD with `--test` fails in **fourteen** packages (measured by the `bugs_open/395` lane, who then fixed my finding). I had run `verify-head-builds.sh` over the three packages I touched, so "FAILED" told me nothing about the other eleven, and a reader of my message would take "HEAD verified" to mean the tree is otherwise clean. On a suite that is already red, **a FAILED run is unreadable in both directions**: it cannot tell you your change broke something, and it cannot tell you it did not.
+
+**The cheap check, skipped.** A CONTROL RUN. Two runs of the same targets — HEAD as it stands, and HEAD with the change applied — and diff them. That is the only thing that says "fixed exactly X, introduced nothing", and it is what the other lane did to prove their one-line fix. ⚠ And diff on package NAMES, not raw `FAIL` lines: the line carries a duration, so identical failures differ as strings and `comm` reports the same package as both fixed and introduced — a long symmetric list that reads exactly like a real regression. `awk '/^FAIL\t/{print $2}' | sort -u`.
+
+**Why this is a row and not a footnote.** I have been careful all session about demand controls on measurements, and then asserted a green baseline I never measured — in a message *to another lane*, which is where an unsupported claim does the most damage. The estate's own phrasing for this is in the memory index: a pass from a blind check outlives the blindness. A FAIL from a blind check does too. Tally: **red-suite-baseline-asserted-not-measured**.
