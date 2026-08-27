@@ -2982,3 +2982,26 @@ Asked the finetuning lane to ADD index+faq to the rebuild set under his forward-
 the writer, the truncation-trial gate catches residue after the next roll). The rulings doc §7
 carries the trial execution; §8 the hero-length instruction; council `82b800e1` pending on the
 trial. The rebuilt-two P2b failure and the mandate-in-negation-form finding stand unchanged.
+
+---
+
+## 2026-08-27 (morning) — a second tenant in our binary, accepted after verification
+
+The 414 lane added `spec_supplies_claim` detection (specclaims.go, CLM-030) to
+`cmd/brief-negation-check` — planted acceptance markers in spec content ("include the exact
+phrase: checked against the FCA handbook, rule by rule", SERVED on lendzy.co.uk 24 days, then
+canonised by the audit fleet as the site's differentiator). Verified at the tree before
+answering (fc588e445): the one touch of OUR detector — `mandateRe` gaining
+`(include|use|carry) the exact phrase` — is purely additive; our writer-only surface is
+deliberately UNCHANGED (widening would re-mean every open brief_supplies_negation item); package
+tests green with both detectors. **Ruled: same binary** (one image/overlay/CronJob/doc_notes row —
+CQ-027's missing-row-means-not-run contract would double its failure surface split). ⚠ TWO
+consequences for us: (1) the CQ-027 report's "N mandated" figure may RISE on the next run —
+detector change, not brief drift; (2) **the binary needs a REBUILD + newTag bump (same commit) to
+go live** — tag-pinned overlay, the component-render-check landmine verbatim; folded into our
+next image cycle or sooner on their word. Their measured refusal to scan spec text with the full
+claims engine independently re-derived our 08-19 withdrawal — the header did its job.
+**For the prompt audit's question set: spec content as an injection surface is now a MEASURED
+class** (a planted marker obeyed by the writer and then SUBSTANTIATED by the audit fleet) —
+cite bugs_open/414 + CLM-030 in phase-2's brief verdicts. Also noted in passing: the fleet rolled
+again overnight (v1.0.1346, per the 414 lane's neighbouring commit).
