@@ -1434,3 +1434,33 @@ All [MEASURED 2026-08-27 afternoon], post-deploy (fresh chassis generation `7df9
 **Monday's pickup = label re-check + THE REHEARSAL, nothing else.** Site ruled
 remortgagecalculator.uk; email destination info@designconsultancy.co.uk (unobjected
 proposal — confirm in passing).
+
+## 2026-08-27 (mid-afternoon) — chat "outage" = the ANTHROPIC USAGE LIMIT, not the deploy; brief-starter's old flow diagnosed and filed
+
+**The chat fallback the owner saw was the API limit, and the timing was a pure
+coincidence with the deploy.** Evidence chain: /api/chat answered a REAL reply at
+~09:55Z; by 13:32Z every question (including that morning's verbatim) drew the
+fail-closed contact line. `webdesign-chat` journal on the box has the truth from
+11:39:39Z onward: `anthropic 400 ... You have reached your specified API usage limits.
+You will regain access on 2026-09-01 at 00:00 UTC` on every call. The fail-closed arm
+(chat.go contactLine) behaved exactly as designed. **The FLEET shared the key's fate**:
+`llm_call_log` went 0-failures (10:00 hour) → 100% failures (12:00+). **The owner raised
+the limit ~13:50Z ("I had spent too much") and chat was verified BACK within a minute**
+(real reply, from outside). Dark-window damage checked against a baseline before
+worrying: items going terminal 11:35–14:00 today = 71 vs SAME WINDOW YESTERDAY = 129 —
+below normal churn, **no casualty sweep owed**. Lesson (the instrument-doubt family): a
+fallback message styled as helpful copy IS an error arm — grep the service's journal
+before blaming the deploy that happened to precede it.
+
+**Brief-starter "old flow" (owner report, screenshot):** the tool's ending still says
+copy the summary into "our contact form ... before we speak" — three places in fork
+component `852886be` (description line, summary-step label, tool-doc purpose comment).
+**Verified at the live site: NO contact form exists** — contact.html's only `<form>` IS
+the chat (`data-chat-form` → /api/chat), which is the order intake; and "before we
+speak" contradicts the one-shot pay-before-build model. The NOTES trial-loop design
+already names "brief-starter intake" as the flow head. Framework route again:
+`improve_tool` **be0bdf28** filed (destination = the chat; no conversation/approval
+promises; register facts govern; mechanics untouched; no quoted exemplar copy — the
+improver words it). No open items on the component at filing. Monitor armed; verify at
+the served page when complete: `grep -ci "contact form"` → 0 on
+/tools/website-brief-starter/index.html, and the guide stays clean (it already greps 0).
