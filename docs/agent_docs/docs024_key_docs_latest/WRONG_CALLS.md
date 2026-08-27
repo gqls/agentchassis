@@ -56717,3 +56717,32 @@ with it, and then did the identical thing four lines down. The estate's dated-co
 wrong count look *compliant* — mine carried `[MEASURED 2026-08-27]` beside it, which is why nobody
 would have re-checked it. Tally: **count-copied-not-derived**, and it is the second time this session
 a number of mine came from arithmetic rather than measurement.
+
+## 2026-08-27 — bugs_open/414 lane: I sent another lane a fleet RATE derived from a rolling window, and it was 2–4× low
+
+**What I claimed**, in a message to the dispatch/throughput lane sizing how long my queued repair would
+wait: "the fleet claiming ~80 items/hour". They came back with 170–309 claims/hour measured over the
+same morning in hourly buckets.
+
+**Why it was wrong.** I counted rows whose `claimed_at` fell in the last 30 minutes **as visible at
+09:45**. `site_work_items` is a ROLLING WINDOW — completed rows archive out — so a now-census sees only
+what has not yet finished, and using it as a RATE undercounts by whatever completed and left. The
+faster the fleet is working, the more it undercounts, which is the worst possible direction for a
+throughput number.
+
+**What caught it.** The lane that owns the measurement re-deriving it from hourly buckets over a fixed
+window and telling me. Not my own check.
+
+**The cheap check, skipped.** For a RATE, bucket over a fixed historical window
+(`date_trunc('hour', claimed_at)` with an explicit lower bound) rather than counting what is visible
+now — and if the table archives, say so beside the number. For a QUEUE POSITION the now-census is
+correct (still-pending rows are exactly what is ahead of you), so the same query is right for one
+question and wrong for the other; I used one number for both.
+
+**Why this is the third row of the same shape today.** This trap is in my own memory index verbatim —
+*"a closer census cannot see what it SUCCEEDED at: `site_work_items` is a ROLLING WINDOW; closing a row
+archives it out of the table you queried"* — and I still used a now-census as a rate. Earlier today I
+asserted a green HEAD baseline I had not measured, and a pattern count I had added up rather than
+derived. All three went out to *other lanes*. The pattern is not ignorance of the traps; it is that a
+number produced in passing, to support a point that is not itself about the number, does not feel like
+a measurement and so never gets the check. Tally: **rolling-window-census-used-as-a-rate**.
