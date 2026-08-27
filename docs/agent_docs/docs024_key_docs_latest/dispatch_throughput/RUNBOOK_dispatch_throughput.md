@@ -206,7 +206,11 @@ FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%';
 -- through it. Quote the WORST site, not the mean. ⚠ last_claim reads from site_work_items,
 -- a rolling window: a site whose claimed rows have all archived reads NULL — treat NULL as
 -- "long ago", not "never", and confirm at orchestration_states loops for the site.
-SELECT s.domain,
+-- ⚠ LOCK CONTROL (added 2026-08-27): a LOCKED site (s.locked_at set, no lock-excepted rows)
+-- is parked BY DESIGN — the selector must skip it, and it is not starvation. The 08-27 read's
+-- worst row (adversecreditmortgage.co.uk, 70 eligible, 27h no claim) was exactly this. The
+-- locked_at/except_n columns below are the control — never quote a worst site without them.
+SELECT s.domain, s.locked_at, COALESCE(array_length(s.lock_except_item_ids,1),0) except_n,
   (SELECT count(*) FROM site_work_items wi WHERE wi.site_id=s.id
     AND wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts
     AND (wi.retry_after IS NULL OR wi.retry_after <= now())) eligible,
