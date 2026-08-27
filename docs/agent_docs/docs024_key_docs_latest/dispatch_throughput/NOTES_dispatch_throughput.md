@@ -1013,3 +1013,12 @@ from done-on-retry without per-item timelines. Conclusion for this lane: these r
 40-min darkness windows + retry churn, NOT lost work — the floors' discriminator handles the
 darkness; nothing further owed here. (If anyone later chases the deploy step's own timeout:
 414's about-page case is the worked example.)
+
+### 2026-08-27 ~13:2x–13:3xZ — 657 first-fires spot check (their session): selection landing on the formerly starved
+
+Their read, 13:18–13:26Z (8 fires / 9 loops): loops went to loanandmortgagecalculator ×4
+(yesterday's 04:39 starver), loanzy ×3 (rank-62 pin), idea.uk ×1 (rank-53), robot-hands ×1 —
+i.e. the new selector immediately serves old-loadable-work sites. Same-site repeats every
+~2 min are the outage shape as predicted (LLM claims refuse → rows release → site stays
+oldest-loadable and non-busy): selection fairness GOOD, drain blocked by the outage. Cadence
+normal (~60s). No anomalies; the 15:20Z floor is this lane's next read.
