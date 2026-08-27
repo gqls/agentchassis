@@ -1464,3 +1464,21 @@ promises; register facts govern; mechanics untouched; no quoted exemplar copy �
 improver words it). No open items on the component at filing. Monitor armed; verify at
 the served page when complete: `grep -ci "contact form"` → 0 on
 /tools/website-brief-starter/index.html, and the guide stays clean (it already greps 0).
+
+**Addendum (post-limit-raise "Something went wrong", ~13:37Z):** a THIRD distinct arm,
+and the diagnosis chain matters: the client-side error (frontend generic text) masked a
+**429 from the chat service's own per-IP limiter** — `newChatIPLimiter`: **5 new
+conversations/hour, 15/day per visitor IP** (ratelimit.go; the 35-byte body "too many
+requests, try again later" in access.log at 13:37:13/13:39:00 was the tell — nginx's
+limit_req was innocent: no "limiting requests" in error.log, and it returns 503 not
+429). The owner's own testing burned the band — every attempt today was a NEW
+conversation, including the fallback-answered ones during the outage. Counters are
+in-memory BY DESIGN (the spend ledger is what survives restarts) → `systemctl restart
+webdesign-chat` cleared them; verified answering. **Operator recipe: owner testing
+heavily from one IP WILL trip 5/hour — restart the service to reset, or ask for the
+band to be widened.** Real-visitor traffic cannot realistically brush it. Three chat
+failure shapes now distinguished for the next reader: contactLine as the REPLY =
+server-side Claude-call failure (read `journalctl -u webdesign-chat`) · generic
+"Something went wrong" under the input = HTTP failure, check access.log status (429 =
+the service limiter, 503 = nginx limit_req) · silence = the box/tunnel (the 08-27
+morning landmine).
