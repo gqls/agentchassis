@@ -660,3 +660,78 @@ would have duplicated a live orchestration.** The script is behaving correctly �
 publish it cannot prove, which is the estate's `a-receipt-nobody-asserts-on-is-a-log-line` rule working
 as designed. The failure mode to guard is the READER's: **an unproven publish is not a failed publish.**
 Always run `kafka_verify_landing <corr>` before concluding anything, in either direction.
+
+---
+
+## 11. CROSS-LANE, 2026-08-27 — a red tombstone guard at HEAD, fixed here rather than routed
+
+**Not this lane's work and recorded anyway, because the next session in this file will see the commit
+and wonder why it is here.** A peer session (the `bugs_open/414` lane) reported that
+`go test ./platform/orchestration/datahelpers/` had been **red at committed HEAD, fleet-wide**, since
+`bc8167100` (2026-08-26 20:44). They could not identify the owning lane and asked either for a fix or
+for the owner's name.
+
+### 11a. What it was
+
+`TestNoHandSpelledTombstonePredicate` walks `platform/orchestration` and fails on any non-comment
+hand-spelling of the tombstone clause. `component_hierarchy_walk.go:397` hand-spelled it inside
+`hierarchyChildrenOf`. Fixed at `8cf0c2f59` by using `datahelpers.NotRemovedSQL`.
+
+**The peer's diagnosis was correct in full** — reproduced first-hand before touching anything, which
+is the rule for a peer report as much as for a bug file.
+
+**Two things they had slightly wrong, both worth stating because both are the interesting part:**
+
+1. They suggested `datahelpers.NotRemoved("pc")`. **The bare constant is correct here** — the query is
+   single-table `FROM page_components`, so there is no alias to qualify and `NotRemoved("pc")` would
+   have emitted invalid SQL.
+2. They called it "someone else's guard-protected predicate" and declined to touch it on that basis.
+   Reasonable, but the equivalence is *checkable*: the hand-spelling was **already the NULL-safe form**
+   and `NotRemovedSQL` is the **byte-identical string**, so the emitted SQL does not change. There was
+   no design decision to take on the owning lane's behalf — which is what made fixing it the smaller
+   act, not the larger one.
+
+### 11b. Why fixed here rather than routed onward
+
+The owning lane is `features_open/035` (`editorial_design_uplift`), which took that file through three
+council rounds. Ordinarily: contribute, do not compete. But the peer's own argument is right and
+decides it — **that test is the estate's only mechanism stopping the tombstone clause drifting from the
+assembler's, and a red guard that nobody present caused is exactly how a guard stops being read.**
+Every session running the datahelpers suite for its own change was getting a failure it did not cause.
+
+CONTRIB filed into that lane's NOTES (`b655d76ba`) stating plainly that no decision of theirs was
+taken and why the bare constant is right.
+
+### 11c. ⚠ THE MEASUREMENT LESSON, and it is the reusable half: HEAD IS NOT GREEN, so "the tests pass" proves nothing here
+
+`scripts/verify-head-builds.sh --with <file> --test` came back **FAILED**, and the first instinct — that
+my one-line change broke something — was wrong. **The control run is what settles it:**
+
+| run | packages failing |
+|---|---|
+| plain HEAD (`--test`, no `--with`) | **14** |
+| HEAD + this one file | **13** |
+
+- **FIXED: exactly `platform/orchestration/datahelpers`.**
+- **INTRODUCED: nothing.**
+- The other 13 are pre-existing at HEAD and none belongs to this thread — mostly integration/e2e
+  suites wanting a live Kafka or database, plus `cmd/config-key-audit`, `platform/livespec` and
+  `test/unit/actions`, which look real and are unowned here.
+
+⚠ **The diff was wrong the first time and looked plausible.** `comm` over the raw `FAIL` lines reported
+seven packages both "fixed" and "introduced" — because the line carries a **duration** (`0.425s` vs
+`0.471s`), so identical failures differ as strings. **Diff on package NAMES:**
+`awk '/^FAIL\t/{print $2}' … | sort -u`. A per-run varying field inside the key silently doubles your
+result set, and the shape it produces — a long symmetric fixed/introduced list — reads like a real
+regression.
+
+⚠ **And `gofmt -l` EXITS 0 WHILE LISTING FILES**, so `gofmt -l <file> && echo clean` prints "clean"
+about a file that needs formatting. It did, here. **Empty output is the signal, not the exit code:**
+`out=$(gofmt -l <file>); [ -z "$out" ]`.
+
+### 11d. What this cost and what it did not
+
+One line of Go, plus the control run that made the claim honest. **It changes no SQL, adds no
+capability, and touches nothing this lane owns.** It is recorded here only so the commit in this
+lane's history has an explanation, and because §11c's two instrument traps are worth more than the
+fix was.
