@@ -361,3 +361,10 @@ batch 8 had already unpinned some of yesterday's pins by widening the window (10
 still pinned at K=8 pre-apply). The lane takes the +2h/+6h floor reads against those
 baselines; acceptance bar unchanged (no site with eligible work > ~1h unserved while pins
 exist elsewhere — outage- and stuck-claim-discriminated).
+
+> **Outage boundary closed (throughput lane, 2026-08-27):** the LLM outage window is
+> **11:30 → 13:35:00Z exactly** (last failure 13:34:41Z, clean since; owner added credit). So
+> only the first ~17 min post-apply were selection-only; the 15:20Z floor read lands ~1h45m
+> post-recovery and grades DRAIN as well as selection. First-fires spot check during the
+> outage tail (13:18-13:26Z): loops to loanandmortgagecalculator ×4, loanzy ×3, idea.uk ×1 —
+> selection landing on exactly the formerly-starved oldest-loadable sites, cadence normal.
