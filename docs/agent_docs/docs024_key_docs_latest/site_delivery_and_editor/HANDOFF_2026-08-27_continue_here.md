@@ -97,6 +97,19 @@ its full account in the webdesign lane's NOTES 08-27 entries:
    **watch build_queue for the first customer-shaped build**, then the rehearsal's
    review/approve/deliver flow applies to THIS site. No email at intake is BY DESIGN
    (first email = delivery email); an intake-ack email is a future owner decision.
+   > ✅ **PAID, same evening (owner stayed):** order `36744bf0` paid 14:40:22Z, £30,
+   > BR-9AUZ59, voucher redeemed, verified at the DB row AND the Stripe dashboard —
+   > **the first real payment through the platform**, and the script's run doubled as
+   > the outstanding billing mint-path acceptance. TWO findings, full detail in the
+   > webdesign NOTES 08-27 evening entry: (1) **`/pay/success`+`/pay/cancel` exist
+   > nowhere** — every buyer lands on a bare 404 after paying; owed before ordering
+   > opens, framework-built pages. (2) **The brief does NOT auto-release — correctly**:
+   > seed 661 ships disabled pending P5 seeding (contact details + evidence_base;
+   > honesty guards otherwise unarmed); token on pods, action in the running image
+   > (ancestry + reversed control). **So Monday's build order is: P5 wiring → apply
+   > 661 (asserts disabled) → enable with the owner → run 1's brief releases → build →
+   > his edit pass + APPROVE → delivery email = the rehearsal, on a real paid order.**
+   > Do NOT force-release before P5 — it builds a degraded site.
 4. Blueprint Compiler: owner REVERSED the morning's Lovable/v0 removal before it ran —
    references STAY (deliberate; more third-party positioning later, not less).
 
