@@ -2132,3 +2132,14 @@ The correction led the next owner report. **The REAL findings, all verified:**
    insurance tools queued to build ahead of the site's own strategy, on the vertical the classifier
    itself flagged as regulated. FOLLOW-UP 1's shape exactly (no ruling read, no refusal knob);
    apis.uk's park recipe applies if the owner wants them held. NOT touched — the canary measures.
+
+**2026-08-27 ~04:1xZ — the 414 lane's tripwire case: the strongest external validation yet, and the
+residual it routed here.** A planted false claim ("checked against the FCA handbook, rule by rule")
+served 24 days on lendzy; the content-quality seat read it back and filed a content_rewrite asking to
+MANUFACTURE a methodology section for it. Every post-624 filing was a held verdict — record mode
+prevented the class. The dangerous item PREDATED the door (08-11, needs_human_review, live Retry) and
+Retry bypasses the promoter entirely (sets triaged directly) — so the doors guard promotion, not the
+backlog. Census: **59 armed pre-door opinion rows** (30 content_rewrite/12 sites oldest April, 22
+needs_content_page/10 sites, 7 tail). RFC FOLLOW-UP 7 carries the options; not acted on unilaterally.
+Their upstream fix (claim rules applied to the SPEC TEXT generators read — CLM-030) closes where the
+instruction lived.

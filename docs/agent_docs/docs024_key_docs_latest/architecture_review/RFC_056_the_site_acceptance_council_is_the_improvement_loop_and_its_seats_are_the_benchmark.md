@@ -506,6 +506,18 @@ and holds the exchange in their NOTES — the same-file-passenger remedy, applie
    errors are swallowed inside design-audit-agent; a child failure leaves no seat-failure row.
 6. **A verdict-release surface** beyond the RUNBOOK's SQL (architecture seat, r2) before record
    rows accumulate fleet-wide — 271 as of 2026-08-26 11:00Z.
+7. **The PRE-DOOR opinion backlog is still armed, and Retry bypasses every door** (routed here by
+   the `bugs_open/414` lane, 2026-08-27, with the worked case: a planted false claim on lendzy
+   became a pre-door `content_rewrite` whose one-click Retry would have regenerated the page to
+   MANUFACTURE evidence for it — caught by a human, rejected by hand). The doors guard promotion;
+   **Retry sets `triaged` directly**, so neither the origin stamp nor record mode touches a
+   historical row. `[MEASURED 2026-08-27]` the armed population: **59 rows** — 30 `content_rewrite`
+   (12 sites, oldest 2026-04-09) + 22 `needs_content_page` (10 sites) + 7 tail — all but one at
+   `needs_human_review` in the 033 queue with no working surface, each capable of quoting copy that
+   no longer exists (414's item did). Retro-stamping does NOT close this (the stamp guards the
+   promoter, not Retry). Honest options: a one-time human sweep (59 is reviewable), an age-expiry
+   on pre-door opinion rows, or the 033 surface gaining a "premise stale?" check before Retry —
+   owner/queue-owner's call.
 
 **TRAIL CLOSED (2026-08-26 14:36Z): round 4 APPROVED** — 5 advisories, none high, every one a
 residual already dispositioned on the trail or in the FOLLOW-UPS above (the audit_source scope
