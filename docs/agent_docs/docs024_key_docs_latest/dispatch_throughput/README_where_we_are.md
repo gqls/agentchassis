@@ -361,3 +361,8 @@ whole site "forever"; we tested it live, found the safety net they and we had bo
 (a 2-minute sweeper that frees stuck work after 40 minutes), and both corrected our documents
 the same hour. The blackouts are real but capped at ~40 minutes — happening about 90 times
 today across 27 sites though, so worth keeping an eye on once the AI limit is lifted.
+
+2026-08-27 13:36 UTC — you added credit and the AI calls came back immediately (last failure
+13:34:41, clean from 13:35:13). The blackout ran just over two hours. The starvation fix went
+live at 13:18 and its very first picks were the sites that had been stuck longest, which is
+what we wanted to see; the afternoon readings at 15:20 and 19:20 will now measure it properly.

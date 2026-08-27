@@ -1022,3 +1022,11 @@ i.e. the new selector immediately serves old-loadable-work sites. Same-site repe
 ~2 min are the outage shape as predicted (LLM claims refuse → rows release → site stays
 oldest-loadable and non-busy): selection fairness GOOD, drain blocked by the outage. Cadence
 normal (~60s). No anomalies; the 15:20Z floor is this lane's next read.
+
+### 2026-08-27 ~13:36Z — OUTAGE OVER: owner added credit; recovery at ~13:35:00Z
+
+Owner (chat): "I have added a bit more credit". Call-by-call at the artefact: failures through
+13:34:41, successes from 13:35:13, none failing after `[MEASURED 13:36Z]`. **Outage window:
+11:30 → ~13:35Z (~2h05m), 100% failure 12:00→13:35.** All Phase-3/657 windows cut on both
+edges. The 15:20Z floor lands ~1h45m post-recovery — drain gradable again. D4 case 3 closed
+as an incident, standing as the governor's evidence.
