@@ -432,3 +432,36 @@ The whole-site-darkness finding survives the correction but is **bounded at ~40 
 incident**, not unbounded — and that lane measured **≥89 claim-timeout resets today across 27 sites**,
 so it is a real amplifier at a real frequency. How I reached the false version is in `WRONG_CALLS.md`:
 the right query, piped through `head -14`, three of twelve matching rows visible.
+
+### 7l. The outage lifted at 13:35Z — §7k's "do not read the next failure as a payload fault" NO LONGER APPLIES
+
+Recording the close of the window explicitly, because §7k's instruction was conditional on an outage
+that is over, and a standing instruction whose condition has silently expired is the
+`a-stale-status-line-prevents-the-thing-it-describes` shape: it would tell the next reader to excuse a
+failure that now needs looking at.
+
+**Outage window: 11:30Z → 13:35Z, 100% call failure from 12:00Z.** Verified first-hand rather than
+taken on report: `llm_call_log` by hour reads 11:00Z **36 of 132** failed, 12:00Z **61 of 61**, 13:00Z
+**47 of 55** (failures ending mid-hour), and the **last failed call was 13:34:41Z** with clean
+successes after. Cause was account-level credit, added by the owner.
+
+**So from now: a further failure of the guide rewrite IS diagnostic.** Its two prior attempts were
+both infrastructure — a dropped agent spawn (claim aged out at the 40-minute reset) and then the
+outage — so `max_attempts` is raised 2 → 3 and `retry_after` cleared, with that reasoning recorded on
+the row. The two-strike brake exists to stop a bad payload looping; neither strike was against this
+payload. The next one, if it comes, should be read.
+
+**`/about.html`'s work item is CLOSED, on evidence rather than assertion.** It had been reset to
+`triaged` with 2 attempts spent, which would have regenerated an already-correct page — wasteful, and
+it would have churned copy that is now right. Completed under a guard that only fires when **no**
+component on that page carries the phrase, with the artefact evidence in `result` (3 components
+rewritten 10:19:03Z, absent from both columns, 0 occurrences at the served body, invented-URL control
+404, and claimscan reporting the page clean while still convicting the guide in the same run). That is
+the same standard as `claimed-item-timeout`'s own `completed_by_evidence` stage, which could not fire
+here because the reset had already moved the row out of `status='claimed'`.
+
+**Remaining, and it is now the only thing between this bug and closure:** one component,
+`tool-affordability-complaint-checker-guide` / `article-body`, still carries the phrase in both
+columns and serves it once. lendzy has **34** rows ahead of it in the dispatch order and no claimed
+rows excluding the site, so it is eligible. A watcher is armed that reports LLM health beside the
+phrase count, so a still-carrying result stays interpretable rather than merely disappointing.
