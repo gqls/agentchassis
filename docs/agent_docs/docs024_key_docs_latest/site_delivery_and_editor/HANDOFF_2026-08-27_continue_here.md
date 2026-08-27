@@ -73,6 +73,33 @@ customer-facing has happened: tokens 0, handovers 0 (last read ~10:00Z).
    VOICE EDITOR (owner ruling 08-26). Ordering-opening items (Payment Links £10/mo +
    £59.99 buy-out, label removal, GTM/GA4) are the webdesign lane's checklist.
 
+## 1b. LATE-AFTERNOON ADDITIONS (owner stayed a few hours; all committed)
+
+The site LAUNCHED and was immediately trialled — four more things happened, each with
+its full account in the webdesign lane's NOTES 08-27 entries:
+
+1. **Chat launch-day bug FIXED + released (`160546543`)**: gate 1 counted every message
+   though its design says conversation STARTS — a real 5-turn intake died 429 mid-flow.
+   Now start-only (continuations bounded by turn cap 20 + $10/day ceiling), self-minted
+   ids still count as starts, blocked starts allocate nothing; two tests, mutation-proven;
+   box-released with provenance verified; live 7-messages-one-conversation proof passed.
+   ⚠ operator fact: this workstation's curls SHARE the owner's public IP — probes burn
+   his 5-new-chats/hour band; heavy testing that OPENS many chats still trips it
+   (in-memory: `systemctl restart webdesign-chat` clears).
+2. **Brief-starter tool re-pointed at the chat** (improve_tool `be0bdf28`, complete +
+   SERVED): no contact form exists — the chat IS the intake; "before we speak" gone.
+3. **TRIAL RUN 1 IN FLIGHT**: brief committed via the chat, **reference BR-9AUZ59**
+   (Boxing Online / boxingonline.com / aaa@designconsultancy.co.uk). Client row
+   `a7395f69-e735-4390-98d7-9f17085338f4`. **NEXT trial step (owner, own terminal):**
+   `webdesign_uk_build_service/trial_checkout.sh` — worked invocation in its header —
+   mints the ruled £30 voucher + creates the order + prints the Stripe checkout URL.
+   After he pays: webhook → paid → `collect_external_orders` releases the brief →
+   **watch build_queue for the first customer-shaped build**, then the rehearsal's
+   review/approve/deliver flow applies to THIS site. No email at intake is BY DESIGN
+   (first email = delivery email); an intake-ack email is a future owner decision.
+4. Blueprint Compiler: owner REVERSED the morning's Lovable/v0 removal before it ran —
+   references STAY (deliberate; more third-party positioning later, not less).
+
 ## 2. What changed today (all committed; keys to find them)
 
 | thing | state | where |
