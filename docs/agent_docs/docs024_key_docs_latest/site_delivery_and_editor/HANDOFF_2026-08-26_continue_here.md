@@ -34,10 +34,20 @@ facing has happened yet.
    sender-first check, BEFORE the once-only stamp, until env+secret exist.
    ⚠ `optional: true` on the secret ref is LOAD-BEARING — without it a missing secret
    takes down the ~46-pod chassis fleet. Never "tidy" it away.
+   > ✅ **DONE 2026-08-27 (overnight roll to v1.0.1346):** chassis pods carry
+   > HOST/PORT/USER/FROM — verified by printenv on a live pod. PASS still absent
+   > (secret not created). ⚠ secretKeyRef resolves at container START — after the
+   > secret is created, PASS arrives only at the NEXT roll/restart.
 3. **OWNER box step: re-apply `links.webdesign.uk.nginx`** — it gained the `/d/` location
    block (GET-only, same anchored token regex). Gated on the roll, which has now
    happened, so it is UNBLOCKED. After apply, `/d/<43-char junk>` from outside should
    return the uniform "no longer active" page (200), and `/d/x` a box-local 404.
+   > ✅ **DONE 2026-08-27 (session — sessions CAN ssh the box, runbook 08-25
+   > correction):** backup at `/root/links.webdesign.uk.bak-2026-08-27`, applied,
+   > reloaded; outside-verified exactly as predicted (`/d/<43>` → 200 "no longer
+   > active", `/d/x` → 404, `/c/<43>` → 200). Same morning: the box's nginx had been
+   > DEAD since 06:22 (unattended-upgrade restart lost a cluster-DNS race — uniform
+   > 502s, LANDMINES 2026-08-27 entry); started + hardened with a retry drop-in.
 4. **THE REHEARSAL** — the whole flow on a site of our own before any customer:
    dispatch `delivery-review-filer` (recipes in `sql_for_agents/651_...HOLD.sql`'s
    header) → the item appears at `needs_human_review` → owner edits the site, presses

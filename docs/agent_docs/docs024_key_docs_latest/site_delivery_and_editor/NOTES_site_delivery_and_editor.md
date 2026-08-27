@@ -1307,3 +1307,51 @@ All the handoff's falsifiers re-checked ~21:0x–21:2xZ [MEASURED 2026-08-26]:
 Net: **no session-side work remains before the rehearsal.** The critical path is entirely
 the owner's three small steps — mail secret, box vhost re-apply, and the APPROVE press
 when we rehearse (plus the env riding the next fleet release).
+
+## 2026-08-27 (morning) — the 502 was the BOX's nginx, dead since an unattended upgrade at 06:22; fixed, hardened, and items 2+3 of the handoff CLOSED in passing
+
+Owner reported preview.webdesign.uk 502 while asking for the go-live walkthrough. Chain
+of evidence, all [MEASURED 2026-08-27]:
+
+- **Not just preview**: links.webdesign.uk 502'd too — including `/other`, the path
+  nginx answers LOCALLY without touching the cluster — in ~60 ms, body `error code: 502`
+  (cloudflared's origin-refused response). Cluster healthy throughout (no bad pods;
+  the delivery listener answered 200 in-cluster on the new pods). So: box-side, between
+  tunnel and nginx.
+- **Root cause at the box journal**: unattended-upgrades ran 06:21–06:22Z; the nginx
+  restart it triggered died at start — `[emerg] host not found in upstream
+  "admin-dashboard.ai-persona-system.svc.cluster.local"` — a transient cluster-DNS
+  (WireGuard leg) failure at the moment of startup. `nginx -t` passed at diagnosis time
+  (DNS back), so the config was innocent. nginx dead 06:22→08:32Z, cloudflared healthy,
+  hence uniform fast 502s.
+- **Fix**: `systemctl start nginx` → all vhosts back (preview 200, /c/ 200 outside).
+  **Hardening**: drop-in `/etc/systemd/system/nginx.service.d/retry-on-failure.conf`
+  (Restart=on-failure, RestartSec=15s, StartLimitIntervalSec=0) — this class now
+  self-heals in ≤15 s. LANDMINES entry appended (the 'error code: 502' signature reads
+  as cluster-down and is never cluster-side) + verify dispatched.
+- **HANDOFF ITEM 2 CLOSED BY THE OVERNIGHT ROLL**: the fleet rolled to v1.0.1346
+  (~23:30Z 08-26) and the chassis pods NOW CARRY `DELIVERY_SMTP_HOST/PORT/USER/FROM`
+  (printenv on a live pod). `DELIVERY_SMTP_PASS` absent — secret still not created
+  (re-verified NotFound). ⚠ secretKeyRef env resolves at container START: creating the
+  secret does NOT reach running pods; the PASS arrives at the next roll/restart after
+  the secret exists. Daily rolls (1344→1345→1346 on consecutive days) make this
+  automatic within a day; a deliberate `rollout restart deploy/agent-chassis` is the
+  faster option but kills in-flight councils + ~300s no-dispatch — owner's call.
+- **HANDOFF ITEM 3 DONE (by this session — the runbook's 08-25 correction stands:
+  sessions CAN ssh the box)**: backed up to `/root/links.webdesign.uk.bak-2026-08-27`,
+  applied the repo vhost with the /d/ block, `nginx -t` clean, reloaded. Outside table:
+  `/d/<43-junk>` → **200 "no longer active"** (the uniform page) · `/d/x` → 404 ·
+  `/c/<43>` → 200 · `/other` → 404 · apex still parked-302. Box apex vhost re-verified
+  `/c/`-free (grep 0).
+- **Go-live gate 2 had FAILED and is FIXED**: the served preview carried ZERO
+  "Not active yet" labels — vm-sites `ba44c5c` (Rerender: index.html) landed after the
+  last re-placement, exactly the strip the 08-26 rotation note predicted. Re-placed at
+  both insertion points (vm-sites `b72c608`), sitesync triggered, served page verified
+  ×2 (`grep -c 'hand-placed 2026-08-25'`).
+- **Go-live gates re-checked**: safety counters 0|0|0 (runbook query verbatim); edge
+  known-safe (apex+www 302→webdesign.co.uk, preview /c/x 404, control 200); apex vhost
+  /c/-free. Stripe restored per the webdesign handoff's DONE block (08-26 late night).
+
+Remaining before first delivery email: (1) owner creates `delivery-smtp-secrets`;
+(2) one chassis restart/roll AFTER the secret exists; (3) the rehearsal. The shopfront
+unpark (Cloudflare page rule, owner dashboard-only) is independent of all three.

@@ -6173,3 +6173,17 @@ HEAD `d2e8cfded` verified building with the change in it). Dispositions:
   gap handed explicitly to the refunds lane).
 - **tooling_provenance: close P4 against its plan — DONE:** completion addendum
   appended to `PLAN_2026-07-31_p4_order_intake.md`.
+
+## 2026-08-27 (morning, from the site_delivery_and_editor session) — box nginx outage fixed; label re-placed AGAIN; /d/ applied
+
+- **The box's nginx was dead 06:22→08:32Z** (unattended-upgrade restart lost the
+  cluster-DNS race at startup — every vhost a fast 502 `error code: 502`, cloudflared
+  healthy). Started; hardened with a systemd retry drop-in; LANDMINES entry 2026-08-27
+  has the signature and the check. preview/links outside-verified back.
+- **Your gate-2 label WAS stripped, as your 08-26 rotation note predicted**: vm-sites
+  `ba44c5c` (Rerender: index.html) removed it; re-placed at both points (`b72c608`),
+  sitesync run, served preview verified ×2. The standing check remains
+  `curl -s https://preview.webdesign.uk/ | grep -c 'hand-placed 2026-08-25'` → 2.
+- **links vhost now carries /d/** (delivery lane's item 3): backup
+  `/root/links.webdesign.uk.bak-2026-08-27`, outside table green, apex vhost still
+  /c/-free (grep 0), edge still parked (302s verbatim per your runbook gate 4).

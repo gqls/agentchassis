@@ -227,3 +227,27 @@ nothing can send yet. The whole critical path is now three things only you can d
 
 The mail settings themselves ride along automatically with the next normal deployment —
 nothing for you to do there, and until then a send attempt fails loudly and harmlessly.
+
+## 2026-08-27 (morning) — the 502 you saw, found and fixed; two more of the remaining steps done in passing
+
+The bad gateway on preview was nothing in the cluster: the little server box that fronts
+all the webdesign addresses had its web server die at 6:22 this morning. An automatic
+overnight software update restarted it, and at that exact moment the private line to the
+cluster didn't answer, so it gave up and stayed down — while the tunnel in front of it
+stayed healthy and answered everything with "502". I started it again (everything came
+straight back) and installed a guard so that if this ever happens again it retries every
+fifteen seconds instead of staying dead.
+
+While I was in there, two of the outstanding steps got done. The mail settings reached
+the pods on their own — last night's routine deployment carried them, so nothing more is
+needed there. And I applied the download-link route on the box myself (it turns out
+sessions can do the box steps — that was corrected in the runbook last week), so the
+customer download links now answer properly from the internet.
+
+One more catch: the "Not active yet" notice on the shopfront had silently vanished — the
+design system rebuilt the front page yesterday evening and dropped it, exactly as
+predicted. I put it back and checked the live page shows it again, in both places.
+
+So the list only you can do is now: create the mail password secret (one command), and
+when you're ready, remove the Cloudflare rule that parks the site. Then we rehearse the
+whole delivery on a site of our own.
