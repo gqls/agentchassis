@@ -1,0 +1,22 @@
+{
+  "rationale": "Cap the 018 critic's vision payload at 8 images (migration 663, applied+recorded, snapshot first). Completes the fix that 662 (provider fallback) turned out to only half-make: after the hero batch made full-page captures taller, BOTH providers reject the 16-image payload — Gemini per-image (400 INVALID_ARGUMENT, two runs) and Anthropic per-request (413 request_too_large, run 0f686e43, model claude-sonnet-5 confirmed in the pod log). No downscaling exists in the pipeline (the approved plan's cost-envelope warning, now the binding constraint). The honest fix is a downscale inside execute_vision_prompt — recorded as 018 follow-up Go work; until it lands, 8 images is the config-only lever. Coverage halves and the report's mandated header line states what the critique could and could not see, so a reader can tell a capped run from a full one.",
+  "plan": {
+    "summary": "One migration, 663: jsonb_set workflow.steps.critique.config.max_images 16 -> 8 on design-critique-agent, snapshot first, DO/RAISE guard on the post-state.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/663_design_critique_caps_images_at_8.sql",
+        "symbol": "design-critique-agent workflow.steps.critique.config.max_images",
+        "operation": "config_change",
+        "rationale": "Halve the aggregate payload below Anthropic's request cap; the action drops excess with a warning rather than failing.",
+        "sketch": "SELECT snapshot_agent(...); UPDATE agent_definitions SET default_config = jsonb_set(default_config, '{workflow,steps,critique,config,max_images}', '8'::jsonb) WHERE type='design-critique-agent' ...; DO $$ RAISE unless max_images reads back 8 $$;"
+      }
+    ],
+    "grounded_in": [
+      "Pod agent-design-critique-agent-f94ef183-txxtk error: execute_vision_prompt: vision call failed: API request failed with status 413: request_too_large — with \"model\":\"claude-sonnet-5\" in the same run's critique step, proving 662 applied and the size, not the provider, is binding.",
+      "Approved plan Part B: 'Full-page PNGs are base64'd whole with no downscaling anywhere in the codebase.'",
+      "execute_vision_prompt drops images beyond max_images with a warning only (its own header) — so 8 degrades coverage rather than failing the run.",
+      "The prompt already mandates a first line stating how many images were seen and at which widths, so capped runs self-declare."
+    ],
+    "risks": "Coverage: 8 of up to 16 captures reach the model — which 8 depends on the adapter's render ordering, so per-run coverage is stated in the report header rather than assumed. The cap is deliberately temporary: the register (SQ-003) and 018 follow-up record the downscale as the real fix, after which max_images returns to 16 (rollback is one jsonb_set or the snapshot)."
+  }
+}
