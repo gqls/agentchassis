@@ -762,3 +762,36 @@ also the 416 ceiling test at 25 pages).
 
 Informal tally also grew: oufe.com 14:05Z — 10 theme + 1 unattributed rows, repairs already
 draining post-fence.
+
+## 2026-08-27 (z) — loanzy TIMED OUT (27 pages); P4-formal graded on what 416 leaves measurable; noted's repairs discriminate 16/16; 416's mechanism first-hand verified
+
+**loanzy, 18:04Z (orch `a703a75b`):** `complete_error` at 3m07, `pages_total` **27** (it grew from
+25 this morning — page counts move). So of P4's three NAMED sites: **noted graded; vonc AND
+loanzy blocked by bugs_open/416**, slots burned to 08-30.
+
+**P4 grading, stated with its deviation:** the registered prediction named vonc/loanzy/noted.
+Two of three are unmeasurable for a reason established as PRE-EXISTING and independent of this
+lane (416: timeouts on every audit day since ≥08-17). What is measurable — noted (3 theme : 2
+unattributed by pairing) plus six informal sites (remortgage, garden-tools, cookly, vetcomparison,
+oufe, and yesterday's tally: cumulative ~60 attributed pairings, 0 unreachable, ZERO
+probe-blindness discriminators anywhere) — matches the prediction's substance: `theme` +
+`strictly_greater` dominates, `unreachable` rare, and the one systematic unattributed class is
+the pre-identified inheritance chrome, not probe blindness. **P4: CONFIRMED on the measurable
+population, with the named-site substitution recorded as caused by 416 — not silently swapped.**
+The disconfirming condition (probe blind) had every chance to fire on 7 sites and never did.
+
+**noted's 16 repairs, graded at the branch level: perfect discrimination.** 3 theme rows →
+fenced branch, 0 `!important`; 13 unattributed rows → general branch, 13 `!important`. Post-fence
+theme-branch totals: **16/16 without `!important`** (GT 8, cookly 5, noted 3); general branch
+behaves as designed everywhere.
+
+**090 on 416: r2 UNVERIFIABLE ("scope-not-narrowing" — the 410 lane's known shape: a finished
+conclusion gives the loop nothing to narrow).** Substituted first-hand verification, declared in
+the bug file per the 07-31 ruling: budget = `DefaultRequestTimeout = 180`
+(`timeout_helpers.go:18`); override honoured via `ConvertStepTimeout(config.timeout_seconds)`,
+absent on the live `audit` step; adapter finishes late (vonc +3m47). Config-only interim fix
+verified viable; the fix remains UNCLAIMED by this lane (416 §5) — taking it is an owner/taker
+decision, deliberately not made here.
+
+**What remains for 390: P3 only.** Friday 08-29: remortgage ~13:50Z (5 pages), garden-tools
+~17:50Z (14), cookly ~18:55Z (15) — all safely under 416's ceiling. Retraction = close.

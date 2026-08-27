@@ -90,3 +90,35 @@ its own verification but does not claim the fix.
 errors 13:2x–13:34Z, outage over by 15:13Z with successful calls flowing). Infrastructure, not
 the filing. **Re-fired with FORCE=1 past the failed row: `RUN_CORRELATION_ID=d4e976e5-8e7d-47d2-8aab-aedcc50a2d8c`.**
 The hypothesis section stands unjudged until that verdict.
+
+---
+
+## DATED UPDATE 2026-08-27 ~18:40 UTC — 090 r2 returned UNVERIFIABLE; mechanism now FIRST-HAND VERIFIED instead (the 07-31 ruling's declared substitution); loanzy sharpens the boundary
+
+**090 r2 (`d4e976e5`) finished UNVERIFIABLE — "stopped: scope-not-narrowing", no fix proposed.**
+This is the known shape the `bugfix_410_feed_phase_lock` lane recorded: a symptom written as a
+finished conclusion gives the loop nothing to narrow. Two runs spent (one on the provider cap,
+one on this); not retrying — **substituting first-hand verification, declared per the 2026-07-31
+owner ruling:**
+
+- **The budget is `DefaultRequestTimeout = 180` seconds**
+  (`platform/orchestration/datahelpers/timeout_helpers.go:18`). The observed 17× durations of
+  3m03–3m13 are 180 s + dispatch/poll overhead.
+- **The override path exists and is honoured**: `ConvertStepTimeout` (same file) reads
+  `config.timeout_seconds` per step and sets `step.Timeout`; only approval actions are clamped —
+  a non-approval step's configured value passes through. The live `render-audit-agent` row's
+  `audit` step has NO `timeout_seconds` (checked 08-27 at the row), so the default governs.
+- **The adapter finishes and the reply is discarded**: vonc's reply produced at +3m47
+  (`render-audit-adapter` producer log 11:05:00Z vs step give-up 11:04:15Z).
+- **Boundary datum added: loanzy.uk, 27 pages (its audit's own `pages_total`), TIMED OUT 18:04Z**
+  (3m07, same signature). Passing/failing page counts observed: 15 passes (vetcomparison,
+  1m59) / **27 fails** — with ~8 s/page the crossover computes to ~23 pages, consistent.
+
+**Fix candidate 3 upgraded from conditional to verified-viable**: a migration setting
+`timeout_seconds` on the `audit` step is config-only, live immediately, honoured by
+`ConvertStepTimeout`. Sizing: worst live site is webdesign.co.uk at 151 pages ≈ 21 min at the
+measured rate — size from `pages_total` at the ceiling, or accept a constant that covers it.
+**One remaining unknown for whoever takes this**: whether the coordinator's TimeoutMonitor and
+Kafka topic retention tolerate a ~25-minute await (`coordinator.go handleRequestTimeout` paths) —
+verify before shipping a large constant. Candidates 1 (size from `pages_total` / split the audit)
+and 2 (stop stamping the rotation slot at selection) remain the door-closers.
