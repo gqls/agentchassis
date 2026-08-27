@@ -1707,3 +1707,18 @@ writer's country list, which was itself wrong by omission: Northern Ireland miss
 (07-25 landmine) and would otherwise re-introduce memory-written errors over my literal fix — is
 actually steered. Guides-index rerender stays deferred until the corrected article is verified
 live.
+
+**AHC guide CORRECTED, LIVE AND VERIFIED 2026-08-27 ~02:0xZ.** The literal correction (ce7e65bb)
+completed via the normal queue (~2.5h — the overnight fleet backlog drained at ~2.2 items/min;
+my hand-drive attempt via the OPP-009 publish path was BLOCKED by the session's permission
+classifier, accepted and surfaced to the owner rather than worked around; the claim was released
+immediately so the site was never hidden from the selector). Full audit of the live page: the
+three falsehoods are GONE (0 hits each: "4 months", the passport-remains-valid claim, the
+outside-CMA-price-controls claim); corrected facts present (6 months ×2, "cannot use a pet
+passport", "item 1 of the standard price list"); VHC disclosed with £99/£110 + observed date;
+three gov.uk source links; exact tapeworm list incl. Northern Ireland; endorsement sweep 0.
+Relist item `d9327bab` filed (guides-index rebuild via the 206 chain — guide-list re-resolves
+`pages_where_type:guide` and picks up the fourth guide); monitor armed. NOTE for the RUNBOOK's
+"Triggering a render — UNSOLVED" section: still unsolved as written (07-18); tonight's practical
+answer remains "rebuild the page through its builder", which regenerates writer-owned copy — 
+acceptable on guides-index (hero + query-driven list), NOT on hand-corrected pages.
