@@ -1482,3 +1482,13 @@ server-side Claude-call failure (read `journalctl -u webdesign-chat`) · generic
 "Something went wrong" under the input = HTTP failure, check access.log status (429 =
 the service limiter, 503 = nginx limit_req) · silence = the box/tunnel (the 08-27
 morning landmine).
+
+**be0bdf28 COMPLETE and verified at the component (13:55Z):** template 20,742 → 20,781 B
+(copy-sized, no truncation), "contact form"/"before we speak" GONE, all three passages
+now point at the chat with order framing ("paste straight into the chat, found on our
+home page and contact page, to start your order" · "Copy this into the chat" · purpose
+comment matches). Mechanics byte-identical around the edits. Served page follows when
+component-template-fixer files its rerender (it files continuously — six today);
+monitor armed on the served URL. This is the second successful owner-directed
+improve_tool through the framework today — the route is proven for copy-level tool
+changes.
