@@ -341,3 +341,23 @@ starvation fix after midday. On starvation: the worst case this morning is lendz
 items waiting, the oldest for over 10 hours, exactly the queue-jumping bug (413) the midday fix
 targets. One correction to yesterday's picture: the site that looked worst (adversecreditmortgage)
 is actually deliberately locked/parked — not starving.
+
+2026-08-27 early afternoon — ⚠ ONE THING NEEDS YOUR HAND. Since 11:30 UTC every AI call the
+fleet makes has been refused with "You have reached your specified API usage limits" — that is
+the self-imposed limit on the billing page (the same flavour as 17 August, not the empty-credit
+one from Monday night). Still failing 100% as of 13:15. The machinery keeps running — pages
+that don't need AI still deploy — but anything needing the AI bounces and retries. Raising or
+waiting out the billing-page limit is the fix; this is also the third live case for the "spend
+governor" we have queued as the next build item, which exists precisely so we shed load
+deliberately instead of hitting this wall.
+
+Otherwise a good morning despite two hiccups. The batch increase (5→8) is in and provably
+working — bigger mouthfuls confirmed at full size. Two of the sites that were being
+queue-jumped got unstuck just from the bigger batches. The starvation fix from the other
+session got its all-clear at 13:20 (late — my own session hit ITS usage cap and sat frozen
+10:40–13:10, so the midday handover slipped ~1.5h; nothing was lost, they waited as agreed).
+And a nice piece of teamwork: another session reported that a stuck claim can black out a
+whole site "forever"; we tested it live, found the safety net they and we had both missed
+(a 2-minute sweeper that frees stuck work after 40 minutes), and both corrected our documents
+the same hour. The blackouts are real but capped at ~40 minutes — happening about 90 times
+today across 27 sites though, so worth keeping an eye on once the AI limit is lifted.
