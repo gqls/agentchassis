@@ -41,6 +41,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // hierarchyMaxDepth is 035 D4.3's depth cap. Depth 1 is a top-level section, so
@@ -384,8 +386,13 @@ type hierarchyDB interface {
 }
 
 // hierarchyChildrenOf returns a row's children in render order. The
-// build_status filter matches loadStoredSections' own: a tombstoned row is not
-// on the page, so it must not occupy a slot either.
+// tombstone filter is datahelpers.NotRemovedSQL — THE shared predicate, not a
+// copy of it: a tombstoned row is not on the page, so it must not occupy a slot
+// either, and this population must exclude tombstones with the same clause the
+// assembler uses or the two drift apart silently. Hand-spelling it here (even in
+// the NULL-safe form, which this was) fails
+// TestNoHandSpelledTombstonePredicate; the bare constant is right because the
+// single-table FROM makes build_status unambiguous.
 func hierarchyChildrenOf(ctx context.Context, db hierarchyDB, id uuid.UUID) ([]hierarchyNode, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT id::text,
@@ -394,7 +401,7 @@ func hierarchyChildrenOf(ctx context.Context, db hierarchyDB, id uuid.UUID) ([]h
 		       COALESCE(slot_name, '')
 		  FROM page_components
 		 WHERE parent_instance_id = $1
-		   AND build_status IS DISTINCT FROM 'removed'
+		   AND `+datahelpers.NotRemovedSQL+`
 		 ORDER BY position ASC, id ASC
 	`, id)
 	if err != nil {
