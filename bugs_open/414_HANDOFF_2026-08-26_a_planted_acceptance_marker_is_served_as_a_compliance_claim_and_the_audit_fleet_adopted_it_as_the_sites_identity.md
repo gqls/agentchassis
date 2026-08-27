@@ -364,3 +364,58 @@ corrected recipe, in order:
 - **`editquality` (bookkeeping): `specclaims_test.go` was described but not listed as its own edit**,
   so its guards were unverifiable from the plan. It exists and is committed (`fc588e445`), and the
   sub_workflow test is in it (`04dddb699`).
+
+### 7k. THE ABOUT PAGE IS REPAIRED AND VERIFIED AT THE ARTEFACT (2026-08-27 10:19Z); the guide is blocked on a fleet LLM outage
+
+**`/about.html` is clean.** All three of its components were rewritten by the framework writer at
+10:19:03Z and the phrase is gone from **both** `content_data` and `rendered_html`. Verified at the
+served body, which is the only thing that counts:
+
+- `curl` of the recorded `pages.url`: **0** occurrences (was 2), HTTP 200;
+- **invented-URL control on the same domain returns 404**, so the 200 is a real page and not a
+  catch-all — without that control a parked domain would have read as healthy;
+- and the strongest evidence, because it could have come out otherwise: **`cmd/claimscan` over the
+  whole repaired site now reports the about page CLEAN and still convicts the guide's `article-body`
+  on both shapes, in one run over one corpus.** The detector discriminating between a repaired and an
+  unrepaired component in the same pass is a better demand control than any before/after count.
+
+**What the framework wrote**, since the gate that would have checked it is inert until the next roll
+and therefore nothing but a human checked this output:
+
+> hero: "…We explain what the FCA rulebook says a lender can and cannot do, **and every figure we
+> quote comes with the named rule it's from and a pointer to check it for yourself**, so you can hold
+> your lender to it."
+> content-block: "…**Every regulatory figure on this site is quoted together with the named rule it
+> comes from and a pointer to where you can check that rule for yourself.**"
+
+That is a description of what the site DOES, verifiable by any reader, and it is what the recorded
+brief actually requires — so the replacement is grounded in the brief rather than authored by a
+session. It also does **not** trip either new pattern (the verb is "quoted", not
+verified/checked/confirmed/validated, and there is no `against`+rulebook+idiom conjunction), which is
+why the claimscan run above is silent on it. Had it tripped, I would have made that page unbuildable.
+
+⚠ **`edit_live` rewrote all three slots, including `differentiators`, which never carried the
+phrase** (2,245 → 2,293 chars, so it grew — no content loss). The plan predicted this: `plan_sections`
+has no slot filter, so a `content_rewrite` regenerates every ready section on the page. The
+before-snapshot is what made the check possible rather than a hope.
+
+**The guide is NOT repaired, and the blocker is no longer the queue.** Its two attempts died to
+infrastructure — first `"Claim timed out — handler pod likely died"`, then nothing — and since
+**11:30Z there is a fleet-wide, account-level LLM outage**: measured first-hand in `llm_call_log`,
+**11:00Z 36 of 132 calls failed, 12:00Z 61 of 61, 13:00Z 23 of 23, every failure a "usage limit"
+error.** No LLM-bearing rewrite can complete until that clears. The about page got through at 10:19,
+before it started. So: the item is queued and correct; **do not read further failures as a payload
+problem, and do not burn its last attempt while the outage stands.**
+
+**Correction to §7e's account of the claim I released.** I said no reaper covered a claim whose spawn
+was dropped. **False** — `claimed-item-timeout` (enabled, 120 s) covers it, and the thresholds are the
+part worth knowing because they are NOT uniform: the two auto-complete stages key on **15 minutes**
+and both need completion evidence, so a dropped spawn can never match them; the `reset` stage keys on
+**40 minutes** and needs no orchestration. My item was untouched at 34 minutes, which is therefore
+*correct behaviour*, and my hand-release at ~09:26 preempted the mechanism by about five minutes
+rather than rescuing anything. Established by the `bugs_open/413` lane reading the `reset` stage's own
+WHERE after I had asserted otherwise twice, and re-verified here by extracting the clause directly.
+The whole-site-darkness finding survives the correction but is **bounded at ~40 minutes per
+incident**, not unbounded — and that lane measured **≥89 claim-timeout resets today across 27 sites**,
+so it is a real amplifier at a real frequency. How I reached the false version is in `WRONG_CALLS.md`:
+the right query, piped through `head -14`, three of twelve matching rows visible.
