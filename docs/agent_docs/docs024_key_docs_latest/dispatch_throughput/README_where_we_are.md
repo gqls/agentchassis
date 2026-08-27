@@ -366,3 +366,11 @@ today across 27 sites though, so worth keeping an eye on once the AI limit is li
 13:34:41, clean from 13:35:13). The blackout ran just over two hours. The starvation fix went
 live at 13:18 and its very first picks were the sites that had been stuck longest, which is
 what we wanted to see; the afternoon readings at 15:20 and 19:20 will now measure it properly.
+
+2026-08-27 15:25 UTC — the 3pm reading on the queue-jumping fix: PASS, comfortably. The worst
+wait for any site with hour-old work is now about 68 minutes (it was 6–10 HOURS this morning).
+The site that had been stuck since yesterday morning has fully drained its backlog, and the
+fleet is back at full speed since the credit top-up (~270 items/hour). One design point stands
+for a decision when you want it: individual low-priority rows can still sit at the back of a
+busy site's queue indefinitely (two are ~16 hours old now) — the fix stops them starving OTHER
+sites, but only the "age floor" option we wrote up would put a ceiling on their own wait.

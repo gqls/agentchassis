@@ -1030,3 +1030,25 @@ Owner (chat): "I have added a bit more credit". Call-by-call at the artefact: fa
 11:30 → ~13:35Z (~2h05m), 100% failure 12:00→13:35.** All Phase-3/657 windows cut on both
 edges. The 15:20Z floor lands ~1h45m post-recovery — drain gradable again. D4 case 3 closed
 as an incident, standing as the governor's evidence.
+
+### 2026-08-27 15:20:08Z — +2h post-657 floor: ACCEPTANCE BAR MET (wide margin)
+
+All four sections `[MEASURED 15:20:08Z]`, windows: 657 live 13:18:19Z, drain gradable from
+13:35:00Z (outage end).
+
+- **Acceptance question** (unlocked sites, eligible >1h old, unserved >1h): TWO rows — cookly
+  and loancash, each ONE ~67-min-old eligible row on a site served 66–70 min ago, oldest at
+  load-rank 1 (no pin involved). Normal rotation spacing at 29 active sites, not starvation.
+  Baselines: 09:00Z lendzy 10.6h pinned-44; 13:11Z cookly 6.2h. **Worst is now ~68 min.**
+- **Old starvers resolved:** loanandmortgagecalculator oldest 04:32-yesterday → 14:35-TODAY
+  (backlog drained, rank 1, 10 loops post-657); lendzy 46→15 eligible, oldest (22:16-y) now
+  rank 5 — about to drain; finetuning oldest 01:51→06:20 draining, served 15:19; idea.uk rank
+  54→15, served 15:19; cookly served 14:10.
+- **Stuck-claim discriminator: 0 rows** (timeout task healthy, no dark sites at read).
+- **Drain at ceiling post-recovery:** 473 claims / 480 completions in 105 min (~272/h, 29 sites).
+- **Residual as designed:** pinned ROWS persist and age (farmerinsurance @23:20-y rank 77/80,
+  gaswholesalers @23:41-y rank 64/68, noted.co.uk fresh burst rank 16) — 657 stops pins
+  freezing the AGE ORDER; it does not drain them. That is candidate 2's policy question,
+  already with the owner in README.
+
+**Verdict: PASS at +2h.** +6h read ~19:20Z (timer armed) closes the day's acceptance.
