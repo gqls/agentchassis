@@ -210,6 +210,17 @@ FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%';
 -- is parked BY DESIGN — the selector must skip it, and it is not starvation. The 08-27 read's
 -- worst row (adversecreditmortgage.co.uk, 70 eligible, 27h no claim) was exactly this. The
 -- locked_at/except_n columns below are the control — never quote a worst site without them.
+-- ⚠ STUCK-CLAIM CONTROL (added 2026-08-27, from bugs_open/414 via 413's addendum): a site with
+-- a claimed row whose spawn was DROPPED (zero orchestrations for the id) is EXCLUDED by the
+-- busy-skip clause, not out-ordered — unreapable, dark until hand-released. Same silhouette as
+-- 413 from outside. Run this beside every floor read, and BEFORE grading a dark site post-657:
+--   SELECT s.domain, wi.item_type, wi.claimed_at FROM site_work_items wi
+--   JOIN sites s ON s.id=wi.site_id WHERE wi.status='claimed'
+--     AND wi.claimed_at < now() - interval '30 minutes'
+--     AND NOT EXISTS (SELECT 1 FROM orchestration_states o
+--       WHERE o.collected_data->'input_data'->>'work_item_id' = wi.id::text);
+-- (extraction caveat: keys loop-spawned handlers carry; a differently-keyed producer would
+--  false-positive — confirm at the site's loop history before acting.)
 SELECT s.domain, s.locked_at, COALESCE(array_length(s.lock_except_item_ids,1),0) except_n,
   (SELECT count(*) FROM site_work_items wi WHERE wi.site_id=s.id
     AND wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts

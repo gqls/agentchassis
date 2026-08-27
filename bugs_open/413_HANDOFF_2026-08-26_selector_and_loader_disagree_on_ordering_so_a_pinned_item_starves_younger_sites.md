@@ -276,3 +276,41 @@ untouched afterwards (standalone VERIFY fails on md5 arm against the unchanged
 d6f98acd... text, exit 3). **Everything is in place for the hand-apply ≥12:00Z 2026-08-27**
 (RUNBOOK §657; stamp here + ping the throughput lane; floor at +2h/+6h vs their 09:00Z
 baseline).
+
+## Addendum 2026-08-27 ~09:5xZ — a SECOND mechanism, same silhouette (reported by the bugs_open/414 session; class confirmed independently at a second site)
+
+**The busy-skip clause EXCLUDES, not deprioritises:** `find_dispatchable_site` ends with
+`NOT EXISTS (… active.status='claimed')`, so a site with ANY claimed item is invisible to
+selection. Fine while claims are short-lived; fatal when a claim never ends.
+
+- **414's worked case (their measurement, CITED not re-verified):** a lendzy.co.uk
+  `content_rewrite` claimed 2026-08-27 08:51:52, agent spawn silently dropped (zero
+  `orchestration_states` rows for the id, ever), site invisible to the selector ~35 min while
+  15 sites / 40 items were claimed around it; hand-released under a guard (status still
+  `claimed`, `claimed_at` > 30 min, zero orchestrations) → selectable immediately. By the time
+  this lane looked (~09:50Z) the row history had archived out of `site_work_items`
+  (rolling window — 0 rows for lendzy claims ≥ 08:40), so their event stands on their session's
+  record: `bugs_open/414` §7e.
+- **Class CONFIRMED at a second site `[MEASURED 2026-08-27 09:48Z]`:** oufe.com held TWO
+  claimed rows with zero orchestrations — `page_rerender` claimed 09:08:38, `audit_tool`
+  09:11:03 (37–40 min at read) — site dark inside the Phase-3 read window. Extraction caveat:
+  "zero orchestrations" was tested as `collected_data->'input_data'->>'work_item_id' = id`,
+  the key loop-spawned handlers carry; a producer that keys differently would false-positive
+  this test. Busy-skip exposure at the same instant: 14 sites held 30 claimed rows (most
+  legitimately mid-work).
+- **Reaper coverage (414's census, their §7e):** stale-work-item-reaper (triaged only),
+  stale-orchestration-reaper (needs an orchestration to reap — the defining absence),
+  stuck-task-reaper (scheduled_tasks), thunder-reaper (unrelated) — **a dropped-spawn claim is
+  unreapable by construction.** Open question under live observation: the 08-26 zombie pair
+  showed a claim-level release ~1h18m after a wedge, but that item HAD an orchestration;
+  whether any TTL fires with none is being answered on oufe's rows (~10:15Z check — result in
+  the dispatch_throughput NOTES).
+- **The discriminator, one query, for every floor read from now on:** a starving-looking site
+  is EXCLUDED (this mechanism) rather than OUT-ORDERED (413's) when it holds a
+  `status='claimed'` row with no orchestration for the id and `claimed_at` older than the
+  spawn window. **The 657 acceptance reads MUST run this before grading a dark site as a fix
+  failure** — the two mechanisms are indistinguishable from the aggregate outside.
+- **Fix note:** a claimed-with-no-orchestration reaper is NEW AUTHORITY on the dispatch path
+  (07-28/08-02 rulings apply — not shipped by this addendum, not 657's scope; 414 declined to
+  propose it on this seam for the same reason). Adjacent to, but distinct from,
+  `bugs_open/415` (fire-gate narrower than selector).

@@ -878,3 +878,28 @@ hand-apply, artefact-verify both knobs.
   loaded loops at cap this window) but turns lengthen ~60%. Watch: capability probe (loaded up
   to 8, claim_result keys past _4) ~09:30Z; collected_data sizes (~×1.6 → ~7.3MB max tail vs
   8MiB warn); the ~11:30Z 2h read cuts the Phase-3 window; 657 applies ≥12:00Z on our all-clear.
+
+### 2026-08-27 ~09:5xZ — cross-session amplifier for 413 (from bugs_open/414): a dropped-spawn claim darkens its whole site, unreapably; class confirmed at oufe
+
+The 414 session messaged (incidental find): the selector's busy-skip clause EXCLUDES a site
+with any `claimed` row, and a claim whose spawn was silently dropped (zero orchestrations,
+ever) is covered by NO reaper — their lendzy `content_rewrite` sat claimed 35 min this morning
+(08:51:52→hand-release) with the site invisible throughout. Actioned here:
+
+- **Verified what was verifiable:** lendzy's rows had already archived out (rolling window —
+  their event stands cited, not re-verified). But the CLASS is live independently:
+  **oufe.com, 2 claimed rows, zero orchestrations** (`page_rerender` 09:08:38, `audit_tool`
+  09:11:03) `[MEASURED 09:48Z]` — oufe dark inside our Phase-3 window. 14 sites / 30 claimed
+  rows fleet-wide at the same instant (busy-skip exposure, mostly legitimate).
+- 413 gains the dated addendum (mechanism, worked case cited, discriminator query, the
+  MUST-run-before-grading note for 657's acceptance reads); RUNBOOK floor gains the
+  stuck-claim control beside the lock control.
+- **TTL experiment on oufe, deliberate non-intervention until ~10:15Z:** the 08-26 zombie pair
+  had a claim-level release ~1h18m in — but WITH an orchestration. If oufe's rows self-release
+  by ~10:15 (age ~1h05), "unreapable" is overstated and a TTL exists; if not, second-site
+  confirmation, and this session releases them under 414's guard (status still claimed,
+  >30 min, zero orchestrations) so oufe is back in service before the ~11:30Z read either way.
+- Their "~80 claims/h fleet-wide" disagrees with our measured 170–309/h — asked them to
+  remeasure (site_work_items is a rolling window; a NOW-census undercounts a rate).
+- **Confounder flag for our own reads:** the 2h/24h Phase-3 floors must run the discriminator —
+  a dark site may be EXCLUDED (this), not OUT-ORDERED (413) or slow (capacity).
