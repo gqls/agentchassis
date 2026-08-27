@@ -1392,3 +1392,18 @@ unpark (Cloudflare page rule, owner dashboard-only) is independent of all three.
   **Verify at the served page once complete:** `curl -s
   https://preview.webdesign.uk/tools/blueprint-compiler/index.html | grep -ci
   'lovable\|v0'` → 0 (and the .co.uk page likewise after its chain clears).
+
+## 2026-08-27 (late morning) — OWNER REVERSAL: the v0/Lovable references STAY; both improve_tool items cancelled unclaimed
+
+The owner reversed the morning instruction before anything ran: *"leave the v0 and
+Lovable references... We can make much more of third party services in the future rather
+than less. We offer a different service to them and we may in future recommend them if
+our service doesn't suit."* Both items (`b611b4cd`, `c51317f4`) were cancelled with a
+guarded UPDATE (`status='triaged' AND claimed_at IS NULL` — both matched, so neither was
+ever claimed; `retry_feedback` carries the do-not-re-file note). The monitor was stopped.
+Served page verified untouched: Lovable still present ×2 [MEASURED 2026-08-27].
+
+**Standing position for future sessions: the third-party builder mentions in Blueprint
+Compiler are DELIBERATE (owner ruling 2026-08-27)** — do not file removal on sight of
+them; the direction of travel is MORE third-party positioning, not less. (Gotcha logged:
+`retry_feedback` is jsonb — a bare string errors; wrap with jsonb_build_object.)

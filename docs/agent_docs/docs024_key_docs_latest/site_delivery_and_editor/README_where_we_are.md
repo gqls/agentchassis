@@ -268,3 +268,11 @@ prompt deck neutral about which AI builder it's pasted into, changing nothing el
 the tool. One item covers the page you saw; a second covers the master copy in the tool
 library, queued so it can't collide with a repair already waiting on that copy. I'll
 confirm at the served page once they've run.
+
+## 2026-08-27 (late morning) — you changed your mind on Lovable, and it was caught in time
+
+Both filed instructions were cancelled before the platform picked either up — nothing
+ran, and the page never changed: the v0 and Lovable mentions are still there, verified
+on the live preview. Your reasoning (we're a different service, and may positively
+recommend such tools when we don't suit) is recorded so no future session "tidies"
+those references away.
