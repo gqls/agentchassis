@@ -92,6 +92,13 @@ BEGIN
   --     (a real claim race starts within seconds — first-claim p50 17.7 s, 2026-08-25); a
   --     stale-reaped member with a near-simultaneous partner still COUNTS. Excluded pairs are
   --     reported as a NOTICE, never silently dropped.
+  --     Widened 2026-08-27 (NOTES): TWO reapers stamp stale handlers with different spellings —
+  --     the workflow-timeout reaper writes 'Orchestration stale — running for …' and the
+  --     step-level reaper writes 'reaper: stale EXECUTING_STEP for >4h; step=…'. Second live
+  --     case (pair 0d699d65/fb7e9e0f, item 61265835): handler wedged at suggest_related_pages,
+  --     claim released by the claim-level clock, successor re-claimed 2.6 h later via the normal
+  --     atomic path and completed; the first member carried the step-reaper spelling and the
+  --     exclusion missed it — a false RAISE, proven serial at the item's claim history.
   WITH loops AS (
     SELECT orchestration_id FROM orchestration_states
      WHERE created_at > now() - interval '24 hours' AND owner_agent_type = 'build-dispatch-loop'),
@@ -102,7 +109,8 @@ BEGIN
      WHERE o.collected_data->'input_data'->>'work_item_id' IS NOT NULL),
   pairs AS (
     SELECT (CASE WHEN a.s <= b.s THEN a.status ELSE b.status END = 'FAILED'
-            AND CASE WHEN a.s <= b.s THEN a.error ELSE b.error END LIKE 'Orchestration stale%'
+            AND (CASE WHEN a.s <= b.s THEN a.error ELSE b.error END LIKE 'Orchestration stale%'
+                 OR CASE WHEN a.s <= b.s THEN a.error ELSE b.error END LIKE 'reaper: stale EXECUTING_STEP%')
             AND abs(EXTRACT(epoch FROM a.s - b.s)) > 600) AS zombie_tail
       FROM h a JOIN h b
         ON a.wi = b.wi AND a.orchestration_id < b.orchestration_id AND a.s < b.e AND b.s < a.e)
