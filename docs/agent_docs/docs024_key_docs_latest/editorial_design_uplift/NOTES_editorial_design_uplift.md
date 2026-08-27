@@ -646,3 +646,35 @@ mechanism owed. Also kept, their closing lesson worth reusing: when an absence
 needs explaining, "someone did something you did not see" beats "the other
 session's instrument was wrong" on a tree with this many hands — ask first what
 would have to be true for the OTHER measurement to be right.
+
+**CONTRIB 2026-08-27 (routing_capability_guard lane) — one line of `component_hierarchy_walk.go`
+changed by another lane, and here is why it was not left for you.** `bc8167100` shipped
+`hierarchyChildrenOf` with the tombstone clause hand-spelled at line 397
+(`build_status IS DISTINCT FROM 'removed'`), and that hand-spelling fails
+`TestNoHandSpelledTombstonePredicate` in `platform/orchestration/datahelpers` — so
+`go test ./platform/orchestration/datahelpers/` was **red at committed HEAD, fleet-wide**, from
+that commit onward. Reported by the `bugs_open/414` lane, reproduced first-hand, fixed at
+`8cf0c2f59`: the literal is now `datahelpers.NotRemovedSQL`.
+
+**Nothing about your query changed.** The constant IS the same string, and your hand-spelling was
+already the NULL-safe form, so the emitted SQL is byte-identical — this is not a correctness fix to
+your walk, and no design decision of yours was taken by someone else. The bare `NotRemovedSQL` is
+right here rather than `NotRemoved("pc")` (which the report guessed): the single-table `FROM
+page_components` makes the column unambiguous. Both full suites pass, including your
+`component_hierarchy_membership_test.go`.
+
+Isolated with a control, because HEAD is **not** otherwise green and a bare "tests pass" would have
+been worthless: `verify-head-builds.sh --test` fails in **14** packages at plain HEAD and **13** with
+this one file applied. Diffed on package names — the timing column makes identical rows look
+changed — FIXED: exactly `platform/orchestration/datahelpers`. INTRODUCED: nothing. **The other 13
+are pre-existing and none of them is yours** (mostly integration/e2e suites wanting live Kafka or a
+database; `cmd/config-key-audit`, `platform/livespec` and `test/unit/actions` are real and unowned by
+this thread).
+
+**The one thing worth keeping from it.** Your comment read *"the build_status filter matches
+loadStoredSections' own"* — which is true, and is exactly the thing the shared constant exists to
+stop anyone having to know. A predicate justified by *matching a sibling call site* is a copy with a
+citation; when the assembler's clause moves, the citation still reads correct. The comment now names
+the constant and its guard instead. Same class as your own D4.6 lesson about one walk serving several
+callers: one source of truth beats two that currently agree. Full account:
+`docs/agent_docs/docs024_key_docs_latest/routing_capability_guard/HANDOFF_2026-08-26_continue_here.md` §11.
