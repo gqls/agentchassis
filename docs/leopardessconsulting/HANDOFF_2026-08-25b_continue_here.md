@@ -1,4 +1,4 @@
-# HANDOFF — leopardessconsulting.co.uk, 2026-08-25b (evening)
+# HANDOFF — leopardessconsulting.co.uk, 2026-08-25b (evening) — ⛔ SUPERSEDED by `HANDOFF_2026-08-27_continue_here.md`. Start there.
 
 **Start a fresh session from exactly here. Supersedes `HANDOFF_2026-08-25_continue_here.md`**
 (the morning file — its four owner decisions are ANSWERED, its D3 premise was stale when

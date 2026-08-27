@@ -3490,3 +3490,20 @@ structurally IMMUTABLE when non-empty (320) — the inverse failure, recorded in
   image-build-handler for LISTING pages consuming the new assets (the 384-fix working);
   all four previously-unchecked target pages GATE-CHECKED CLEAN (both branches 0 rows) before
   they dispatch — no escalation risk to the hand-seeded trust articles.
+
+### 2026-08-27 (continuation) — all seventeen heroes SERVED; 649 explained the case-studies lag; after-run fired
+
+- **Census at the served site** `[MEASURED 2026-08-27]`: **0 of the batch pages use generic
+  hero.jpg any more; 5 pages site-wide still do** (faq, privacy, terms,
+  blog/hierarchical-multi-agent-orchestration-explained, guides/tool-agent-complexity-
+  estimator-guide) — the archetype remainder. 17 pages now open with their own hero.
+- **case-studies' zero was STRUCTURAL, not lag** — the finetuning lane's §3 notice (mig `649`,
+  owner-directed fleet-wide): `case-studies-hero` had NO image branch in its template; the page
+  could hold `background_image` and never render it (`bugs_open/412` §7). My merge + rerender
+  ran before 649 applied → served zero. Re-fired post-649 → live. `hero-tool` gained the same
+  branch — tool-automation-savings-estimator can take a hero in the archetype pass.
+  ⚠ transferable: **a template edited by SQL ships nothing until a page re-renders** (283 §13),
+  and a wired-but-unrenderable image completes green — the exact shape my "propagation lag"
+  guess would have misdiagnosed.
+- **After-run fired**: item `b36f8c63` (leg `after_hero_batch`). The discrimination read: its
+  report must DROP the sameness lead finding while the rest stays substantially stable.
