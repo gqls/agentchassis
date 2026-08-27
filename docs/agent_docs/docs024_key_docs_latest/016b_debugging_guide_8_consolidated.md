@@ -6665,6 +6665,32 @@ generating work to REINFORCE it.
   rerender regenerates from `content_data` — the queued "Rerender page: about" would reproduce
   it. Strip the SPEC first (or regeneration re-plants it), then repair by content rewrite.
 
+**Added 2026-08-27, after the fix — the two checks the original entry was missing, both learned by
+getting them wrong.**
+
+- **A RETRACTION IS NOT DONE WHEN THE ROW YOU FOUND IT IN IS CLEAN.** Specs are written by agents
+  that read other specs, so a planted instruction gets PARAPHRASED into other aspects. Here
+  `domain-strategist` restated the marker in prose in `strategy` ten days after the plant, in an
+  aspect the writer never reads — and the bug file said "regeneration can no longer re-plant the
+  phrase" for ten days on the strength of fixing the aspect it was found in. The check is one query
+  at retraction time over **every** aspect and all three surfaces (specs, `page_components`
+  `content_data` **and** `rendered_html`, open `site_work_items`), keyed on the CLAIM rather than on
+  the key you removed — and run it over spec HISTORY the first time, because two dated rows ten days
+  apart is what tells you an agent copied it rather than a human writing it twice. ⚠ Write that
+  census with the `_` ESCAPED, or as two separate columns: `LIKE '%acceptance_marker%'` matches the
+  prose "acceptance marker" too, so a key census silently becomes a text census.
+- **ORDER THE REPAIR BEFORE THE DETECTOR, not after — the instinct is wrong here.** Shipping the
+  claims pattern first feels protective. It is not: with the pattern live and the phrase still in
+  `content_data`, a rerender regenerates HTML carrying it, the persistence floor refuses the save,
+  and the OLD `rendered_html` keeps serving. The item lands `unresolved` and **nothing a visitor
+  sees changes** — a stranded repair that reads like a working gate. Data and dispatch first (they
+  take effect immediately); the Go is inert until a roll anyway.
+- **When you fix the motivating case first, your own detector goes quiet — so pin the positive case
+  in HISTORY.** The spec-side check measured **0** hits over current specs an hour after the strip,
+  which proves nothing on its own. The same predicate over all 2,782 spec rows including superseded
+  ones finds exactly **2** — the plant and the paraphrase — which is the demand control that makes
+  the zero mean something.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs

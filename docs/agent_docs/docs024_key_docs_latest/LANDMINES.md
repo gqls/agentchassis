@@ -18633,3 +18633,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the `links.webdesign.uk.nginx` entry (cluster-internal curls prove nothing — this is its inverse: an outside 502 proving nothing about the cluster) · `RUNBOOK_go_live_webdesign_uk.md` §2 (sessions CAN ssh to the box, corrected 2026-08-25)
 - **source:** 2026-08-27, site_delivery_and_editor lane, diagnosing "preview.webdesign.uk is bad gateway" during go-live preparation; full account in that lane's NOTES (2026-08-27 entry).
 - **added:** 2026-08-27, site_delivery_and_editor lane
+
+### STRIPPING A PLANTED INSTRUCTION FROM THE SPEC YOU FOUND IT IN DOES NOT RETRACT IT — an agent has probably already copied it into another aspect, in its own words, where no key-based strip can see it
+
+- **footprint:** `site_specs` · `site_specs.aspect` (`content_direction`, `strategy`, `identity`, `briefing`, `mission_brief`) · `WriteSiteSpecAction` / `write_site_spec` · `FormatContentDirection` · `domain-strategist` · `build-site-planner` · `bugs_open/414`
+- **fires when:** you remove anything from a spec and consider the source fixed — a planted test marker, a retired claim, a phrase the owner asked to drop, a mandated slogan. No symptom needed: the row you edited is genuinely clean, and the census you ran to prove it was scoped to the aspect you were looking at.
+- **the trap:** specs are written BY AGENTS THAT READ OTHER SPECS. `domain-strategist` read a marker planted in `content_direction` on 2026-08-02 and restated it in **prose**, in `strategy.content_strategy`, on 2026-08-12 — ten days later, a different aspect, read by `build-site-planner` and `webdesign-agent` and NOT by the writer. The 08-26 strip of `content_direction` was correct, complete for what it touched, and left a live instruction to re-plant the phrase. The bug file said "regeneration can no longer re-plant the phrase" for ten days on the strength of it.
+- **why the wrong answer looks exactly like the right one:** the copy is a PARAPHRASE, so it shares no key and often no exact wording with the original. A `data ? 'acceptance_marker'` or `data::text LIKE '%acceptance\_marker%'` census over every aspect returns **one row** — the one you already fixed — and reads as complete. Only a scan for the *claim* finds the copy. ⚠ And if you write that census unescaped, `LIKE '%acceptance_marker%'` **also matches the prose** ("acceptance marker") because `_` is a SQL wildcard, so a KEY census silently becomes a text census and the two failure modes cancel out into a confident wrong answer (WRONG_CALLS 2026-08-27; the inverse trap — escaping a `_` manufacturing 38 false findings, 2026-07-31 — is the `LIKE '…' || purpose || '…'` entry above, so **this wildcard bites in both directions and the only safe move is to assert the two forms as SEPARATE columns**).
+- **the check:** at retraction time, one query over all three surfaces and **every** aspect, keyed on the CLAIM (a distinctive phrase), never on the key you removed:
+  ```sql
+  SELECT 'spec' AS surface, s.domain, ss.aspect FROM site_specs ss JOIN sites s ON s.id=ss.site_id
+   WHERE ss.is_current AND ss.data::text LIKE '%<phrase>%'
+  UNION ALL SELECT 'component', s.domain, COALESCE(pc.slot_name,'') FROM page_components pc
+   JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+   WHERE pc.content_data::text LIKE '%<phrase>%' OR pc.rendered_html LIKE '%<phrase>%'
+  UNION ALL SELECT 'work_item', s.domain, w.item_type FROM site_work_items w JOIN sites s ON s.id=w.site_id
+   WHERE w.status NOT IN ('complete','cancelled','rejected')
+     AND (w.summary LIKE '%<phrase>%' OR w.spec::text LIKE '%<phrase>%');
+  ```
+  Run it **against spec HISTORY too** the first time (`site_specs` without the `is_current` filter): the hops are dated, and seeing two rows ten days apart is what tells you an agent copied it rather than a human writing it twice.
+- **and the guard you will reach for does not exist where you think:** a content check on `WriteSiteSpecAction` would not have caught this one at all — the plant arrived as a **manual** row (`source='manual'`, 2026-08-02) and never passed through that action. The *agent* door was the second hop, not the first. Since 2026-08-27 `cmd/brief-negation-check` runs the check daily over the union of every live agent's visible spec surface (`spec_supplies_claim`), which is the mechanised form of the query above — but it scans with the practice family, so a COMPLETENESS mandate ("make the page say everything here is checked") is still yours to find by hand.
+- **relations:** `bugs_open/414` §7a · register **CLM-030** · `cmd/brief-negation-check/specclaims.go` · MEMORY [[a-handoff-outlives-the-work-it-asked-for]] (the 08-05 "strip owed before serving" note that protected nothing) and [[a-one-off-deletion-is-not-a-class-fix]]
+- **source:** 2026-08-27, bugs_open/414 lane, found by re-running the bug file's own §Population census over every aspect instead of the one that had been edited — the phrase was in a current spec the whole time.
+- **added:** 2026-08-27, bugs_open/414 lane

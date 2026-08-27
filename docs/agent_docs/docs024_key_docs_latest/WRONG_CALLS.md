@@ -56556,3 +56556,78 @@ prove-a-deploy-at-the-artefact-index.
   VALUE only your config could have produced — never the field name.
 - **Cost:** three model-memory falsehoods (one refused-at-border grade) published on an
   UNLINKED page — zero exposure by luck of a deferred rerender, corrected same morning.
+
+## 2026-08-27 — bugs_open/414 lane: `_` is a SQL wildcard, so my "the KEY form is present" reading was the PROSE form
+
+**What I claimed.** Censusing the fleet for the planted acceptance marker I ran
+`data::text ILIKE '%acceptance_marker%'` and reported a column called `key_form` = true on
+lendzy's current `strategy` row — i.e. that the structured `positioning.acceptance_marker` **key**
+had survived the strip into a second aspect.
+
+**Why it was wrong.** `_` matches any single character in `LIKE`/`ILIKE`, so that predicate also
+matches the prose *"acceptance marker"*. Escaped (`LIKE '%acceptance\_marker%'`) the key form is
+present in exactly **one** row, the superseded 08-02 `content_direction` — correctly stripped. What
+was actually in `strategy` was a sentence of prose the strategist had written, which is a different
+(and worse) thing: no key-based strip would ever have found it.
+
+**What caught it.** Grepping the pretty-printed JSON for `acceptance_marker` and getting **nothing**
+while the SQL said true. Two instruments disagreeing is the signal; I had believed the SQL because
+it was the one I had written on purpose.
+
+**The cheap check, skipped.** Escape the underscore, or — better, because it is self-documenting —
+assert the two forms as **separate columns** in the same query, which is what the corrected census
+does. `LANDMINES.md` already carries this trap in the *opposite* direction (escaping a `_`
+manufactured 38 false findings, 2026-07-31), so the entry needed a both-ways note rather than a new
+one. Tally: **sql-underscore-wildcard-read-as-a-literal**.
+
+**Why it mattered rather than being a typo.** The conclusion I was reaching — "the key propagated" —
+would have sent the fix at the wrong shape: a key-strip, which cannot touch prose. The correct
+finding is that **an agent PARAPHRASED the instruction into another aspect**, and that is what makes
+a text-scanning detector the answer instead of a key audit.
+
+## 2026-08-27 — bugs_open/414 lane: I justified a design decision on a cadence fact that was stale by one inherited hop
+
+**What I claimed** (in the plan, before it reached the user): that the spec-hygiene check should live
+in `cmd/brief-negation-check` rather than as a `discovery_checks` check **because** discovery checks
+ride the improvement sweep, which was dead 2026-05-02 → 2026-08-25 and therefore the wrong cadence.
+
+**Why it was wrong.** Discovery checks ride `site-discovery-rotation-*`, not the improvement sweep,
+and `unverified_claims` — a discovery check — has filed **17** items in the last 7 days, newest the
+same day. The cadence objection was simply false. I had carried "the sweep was disabled" out of a
+subagent's report, which had it from a bug file, which was describing a different driver.
+
+**What caught it.** A skeptic pass whose whole job was to attack the proposal, reading
+`scheduled_tasks` instead of the prose. The correct justification is *shape*, not cadence — the
+denominator is fleet × live-agent-prompt surface, one read over `agent_definitions`, which is that
+binary's existing census; a per-site check would re-derive it 32 times a pass. Same decision, honest
+reason.
+
+**The cheap check, skipped.** For any claim of the form "mechanism X does not run", read the row that
+drives X — `SELECT name, enabled, last_triggered_at FROM scheduled_tasks WHERE …` — and name the
+driver. I had a *category* ("the sweeps are unreliable") standing in for a *fact* about one task.
+Tally: **cadence-claim-inherited-instead-of-queried**.
+
+**Recorded even though it never shipped**, because the near-miss is the lesson: a plausible reason
+that supports the conclusion you already want is the one you do not check. The decision survived the
+correction; the justification did not, and a reviewer told the wrong reason cannot re-derive the
+right one.
+
+## 2026-08-27 — bugs_open/414 lane: a test harness that could never see an issue, and only a test expecting PRESENCE found it
+
+**What was wrong.** `validate_page_content_fleetwide_claims_test.go`'s helper read
+`out["issues"].([]ValidationIssue)`, while the action returns `[]map[string]string`
+(`validate_page_content.go:571-600`). The assertion always failed, the helper always returned nil,
+and so every `claimsIssues(...)` false-positive check in that file was asserting that an empty list
+contained nothing. It had been green since bugs_open/104.
+
+**Why nobody noticed** (and this is the transferable part): the file's *blocker* tests assert on the
+returned **error**, which is the real mechanism and works perfectly. Only the false-positive tests
+touched the issue list, and those expect **absence** — so a harness that reports absence is
+indistinguishable from the code being correct. **A test expecting absence cannot detect an
+instrument that reports absence.** It took writing a test that expected an issue to be PRESENT (the
+diligence claim must warn, not refuse) to see it: that one failed, and it was the harness.
+
+**The cheap check, skipped for months.** When a helper decodes another function's return value,
+assert the decode: `if !ok { t.Fatalf(...) }` rather than `x, _ :=`. The fixed helper now fails
+loudly if the gate's shape changes, because it is the only place that knows it. Tally:
+**absence-assertion-over-a-blind-instrument**.

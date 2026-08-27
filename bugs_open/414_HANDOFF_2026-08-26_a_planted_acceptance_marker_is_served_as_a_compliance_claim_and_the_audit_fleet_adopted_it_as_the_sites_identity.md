@@ -1,7 +1,16 @@
 # 414 — a planted acceptance marker is SERVED as a compliance claim, and the audit fleet adopted it as the site's identity
 
-**Filed 2026-08-26 by the portfolio_positioning lane. Status: OPEN — spec source FIXED live;
-served copy still carries the phrase; the repair path is stated below.**
+**Filed 2026-08-26 by the portfolio_positioning lane. Status: OPEN — framework fix committed
+(`fc588e445`, council `f4c144ad`), spec sources fully stripped, the inverted audit item rejected,
+copy repair dispatched through the framework and pending its render. §7 is the 2026-08-27 record.**
+
+> **⚠ CORRECTED 2026-08-27 — the line that stood here was "spec source FIXED live", and it was
+> WRONG in a way that kept this bug alive.** Only `content_direction` had been stripped. The plant
+> had already been COPIED, in its own prose, into the **current `strategy`** aspect by
+> `domain-strategist` on 2026-08-12 — an aspect the writer never reads and `build-site-planner`
+> does. So "regeneration can no longer re-plant the phrase" (§"What is FIXED", below, left as
+> written) was false for ten days. Caught by re-running this file's own §Population census over
+> **every** aspect instead of the one that was edited. See §7.
 
 ## Symptom
 
@@ -48,7 +57,16 @@ you borrow"* — which is a benign brand slogan, functions as intended, and is N
 (`created_by='portfolio-positioning-2026-08-26'`) = the 08-02 row minus the
 `positioning.acceptance_marker` key and the `formatted` tail line, applied server-side inside a
 guard that asserted the exact tail before trimming. History preserved (`61ef7033…` superseded,
-residue intact for audit). **Regeneration can no longer re-plant the phrase.**
+residue intact for audit). ~~**Regeneration can no longer re-plant the phrase.**~~
+
+> **REFUTED 2026-08-27.** The final sentence was true of the WRITER's path and false of the
+> estate's. `strategy` row `96eaff0b` (`is_current`, `domain-strategist`, 2026-08-12) still read:
+> *"The acceptance marker 'checked against the FCA handbook, rule by rule' should appear in the
+> site's written copy to anchor the editorial credibility claim."* Stripped 2026-08-27 08:30Z under
+> the same tail-assert guard (new row `0326a892-0a82-4929-889f-84de6df83d55`, `96eaff0b`
+> superseded, history intact). **Fleet re-census after the strip: 0 current specs, any aspect, any
+> site, carry the phrase or an acceptance-marker instruction** — escaping the `_`, which is a SQL
+> wildcard and which over-matched on the first attempt (WRONG_CALLS 2026-08-27).
 
 ## What REMAINS — and the trap in the obvious fix
 
@@ -76,3 +94,153 @@ the stored components, phrase in the served bodies — each independently querie
 session, and the fleet census bounds the population at one site. There is no inference in the
 chain for a diagnosis loop to refute; the one judgement call (that the audit item canonised the
 marker) quotes the item's own text.
+
+---
+
+## 7. What happened on 2026-08-27 — the framework fix, and the two hops nobody had joined up
+
+Resumed by a fresh session; the filing lane had handed the copy repair on and was idle. Everything
+below was re-measured this session rather than inherited, because the one inherited claim in this
+file was the one that was wrong.
+
+### 7a. The bug was still live, and bigger than one aspect
+
+Re-measured 2026-08-27 08:1x–08:4xZ: served `/about.html` ×2 and the affordability guide ×1 (curl
+by body; control phrase "PRA handbook" = 0). Stored in **both** `content_data` and `rendered_html`
+on 3 components — `hero-about`→`subheadline` (301 B), `content-block-about`→`body_text` (422 B),
+`article-body`→`content` (5,697 B). None locked, none tombstoned, site not locked.
+
+**The chain has TWO hops, and the second is what this file missed.** The plant arrived as a
+**manual** row (`source='manual'`, `created_by='cqls'`, 2026-08-02 18:41) — so no guard on
+`WriteSiteSpecAction` would ever have caught it. Ten days later an **agent** read that row and
+restated the instruction in its own words in a **different aspect** (`domain-strategist` →
+`strategy.content_strategy`, 2026-08-12 18:49). Stripping the origin did not retract the
+instruction, and nothing in the estate joins a retraction to its copies.
+
+**And the phrase had been more widespread than the census showed.** `page_component_history` holds
+**14** archived rows carrying it, across `about` (3 slots on 08-11, including a `differentiators`
+slot that no longer exists) and the guide's `article-body` (**4 versions, 08-15 → 08-24**). The
+guide re-emitted the phrase on every single regeneration while the spec still mandated it — which
+is the direct evidence that the spec drove it, and the reason a framework rewrite against a CLEAN
+spec is the right repair rather than a hand edit.
+
+### 7b. The audit item was worse than described, and is now rejected
+
+Item `052d01b0` (`design-audit`, 2026-08-11, `needs_human_review`, handler `page-build-handler`)
+carried a `current_value` that is a **fourth instance** of the claim — *"Our guides are checked
+against the FCA handbook, rule by rule. We name the exact rules so you can read them yourself"* —
+attributed to `page_name: index`, and a `suggestion` asking for a **"How we verify our guides"
+methodology section** with named CONC citations. Its `acceptance_test` was satisfiable innocuously
+(name any CONC rule), which is what made it dangerous: a handler could pass the test while building
+the methodology section. The homepage instance is already gone (index regenerated 08-24), so the
+item was quoting copy that no longer exists.
+
+**REJECTED 2026-08-27 08:33Z** (`status='rejected'`, reason on the row and in `result`), under a
+guard that aborted unless the row was still `needs_human_review`. Not confirmed, not retried: at
+`needs_human_review` it is undispatchable, but one Retry click sets it `triaged` and regenerates the
+page from `spec.suggestion`.
+
+### 7c. The framework fix — three narrow changes, all committed in `fc588e445`
+
+Council `f4c144ad` (submitted; trailer `Council-Submitted:`, so `098` credits it on approval).
+
+1. **`claims_global.go` — the completeness shapes the refusing set missed by a hair.** The family
+   already owned `every (claim|figure|…)s?[^.]{0,30}(is|are) (verified|checked|…)`. The guide's
+   sentence puts **38** characters between "every figure" and "is checked", and "Everything" is not
+   "every"+a listed noun. Window 30→60 plus an indefinite-subject sibling.
+   `[MEASURED 2026-08-27, 2,405 live components]`: at window 30 that pattern fires **0** times
+   fleet-wide — it was inert; at 60, **1**, exactly the missed sentence. The new entry: **1**,
+   exactly the other. The 2026-07-28 NOUN narrowing is untouched, pinned by a fixture.
+2. **`claims_practice.go` P6 — the diligence conjunction, at WARNING, attestation-exemptible.**
+   Owner decision 2026-08-27: split by the refusing set's own bar. A compliance-services client
+   could truthfully say it, and — decisively — `negationCueRe` has no bare `nothing` cue, so
+   *"Nothing here has been checked against the FCA handbook, rule by rule"* reads as un-negated and
+   at blocker this layer would refuse the correcting disclosure it exists to encourage.
+   The conjunction is the precision, not the words `[MEASURED 2026-08-27]`: exhaustive idiom alone
+   **22** components, verb+`against`+rulebook alone **13** (including lendzy's own *correct*
+   imperative "Check your loan against the FCA rules"), both together **3** — the planted ones, 0 of
+   the other 2,402.
+3. **`cmd/brief-negation-check` gains a second detector: the claim rules applied to the
+   INSTRUCTION.** Surface unioned over **every live agent prompt**, not the writer's alone — a
+   writer-only surface is exactly what would have missed hop two. Scanned with the **practice family
+   only**, which is measured, not preference: the fleet-wide+regulated set over 522 current spec
+   rows gives **21** hits, effectively all false — **15** are the estate's own honesty instructions
+   ("Never invent a person, company, scheme…") matching the never-invents pattern, which the
+   negation guard cannot save because the match *starts* at "never"; and `evidence_base` rows store
+   each site's `banned_claims` **as data**, quoting the sentences they forbid, so a generic scan
+   convicts every site's own immune system daily. The practice family over the same text: **0 of
+   532** current rows, **2 of 2,782** all-history — *exactly the two hops of this chain*. So the
+   detector would have caught the plant the day it was made and the propagation ten days later.
+   Files `spec_supplies_claim` at `needs_human_review` with **no handler**, because an automated
+   spec-rewriter is precisely how the marker got canonised.
+
+### 7d. Ordering — why the repair went FIRST, against the obvious instinct
+
+⚠ **With the pattern live and the phrase still in `content_data`, a plain `page_rerender` of
+`/about.html` regenerates HTML carrying the phrase, the persistence floor
+(`save_sections_claims_guard.go`) refuses the save, and the OLD `rendered_html` — with the claim —
+keeps serving.** The item lands `unresolved`; nothing a visitor sees changes. The gate would have
+turned a useless rerender into a stranded one. So: data and dispatch first (immediate, no build),
+Go committed alongside (inert until a roll). The gate then stands as the acceptance test for every
+*future* rebuild, and this repair is proved at the artefact instead.
+
+### 7e. The repair, dispatched through the framework
+
+Two `content_rewrite` items at `spec.mode='edit_live'` (`load_current_section_content` then hands
+the writer the live prose — without that flag a page-build-handler rewrite is a from-scratch
+regeneration, measured at `bugs_open/178` as 4,439 → 1,806 chars on one page), priority 10, handler
+`page-build-handler`, `item_key` `content_rewrite:bug414:<page>`:
+`5fd36ec2` (about) and `4e364317` (the guide). The `rewrite_guidance` says what to remove, why it is
+false, **and what is true from the site's own recorded brief** (name the rule beside the figure and
+link it) — so the replacement is grounded in the brief rather than authored by a session — and
+forbids replacing it with any other verification/completeness claim. Both claimed by the dispatcher
+within ~15 minutes. A before-snapshot of all 6 components on the two pages is held so `edit_live`'s
+preservation of the untouched slots can be checked rather than assumed.
+
+### 7f. Verify (unchanged in substance, sharper in method)
+
+```sql
+SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='lendzy.co.uk' AND (pc.content_data::text LIKE '%checked against the FCA handbook%'
+   OR pc.rendered_html LIKE '%checked against the FCA handbook%');  -- expect 0
+```
+Then `scripts/probe-page-url.sh lendzy.co.uk about tool-affordability-complaint-checker-guide`
+(it reads the recorded `pages.url` and enforces an invented-URL control, so a catch-all cannot read
+as healthy), plus curl-and-grep by body with the same control and a byte-delta check.
+**`complete` is not proof** — a lock- or decision-gated refusal completes too.
+
+**The retraction sweep, which is the transferable half.** For any retracted phrase, one query over
+the three surfaces at retraction time — and over **every** aspect, not the one you edited:
+
+```sql
+SELECT 'spec' AS surface, s.domain, ss.aspect FROM site_specs ss JOIN sites s ON s.id=ss.site_id
+ WHERE ss.is_current AND ss.data::text LIKE '%<phrase>%'
+UNION ALL SELECT 'component', s.domain, COALESCE(pc.slot_name,'') FROM page_components pc
+ JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ WHERE pc.content_data::text LIKE '%<phrase>%' OR pc.rendered_html LIKE '%<phrase>%'
+UNION ALL SELECT 'work_item', s.domain, w.item_type FROM site_work_items w JOIN sites s ON s.id=w.site_id
+ WHERE w.status NOT IN ('complete','cancelled','rejected')
+   AND (w.summary LIKE '%<phrase>%' OR w.spec::text LIKE '%<phrase>%');
+```
+
+### 7g. Residuals, stated plainly
+
+- **The completeness shape in a SPEC is not covered by the spec detector** (it scans with the
+  practice family). The page gate refuses such output at blocker, so it cannot be served — but the
+  instruction would survive in the spec and refuse every rebuild until a human reads the refusal.
+- **P6 has no post-deploy path.** The practice family is consumed only by the build gate and
+  `cmd/claimscan`, not by `check_unverified_claims`, so it fires on rebuild rather than over the
+  installed base. Giving it a reporting (never refusing) consumer there is a live council question.
+- **Two P6 false-positive shapes are pinned by a test that asserts they FIRE**, so they are on the
+  record rather than hidden: a third-party subject ("The FCA checks firms against the handbook, rule
+  by rule") and the bare-"nothing" disclosure. The general fix for the second is cues on a guard
+  **shared by every claims family** — a guarantee change, i.e. architecture scope.
+- **An `operating_history` attestation exempts P6 too**, which is about different work from physical
+  practice. `[MEASURED 2026-08-27: 0 sites carry either attestation.]`
+  `TestPracticeDiligenceHonoursTheAttestation` pins the coupling.
+- **Paraphrase drift is real and a literal family cannot win that race.** The audit fleet had
+  already restated the claim as "FCA-rule-level accuracy checked **guide by guide**" — no `against`,
+  no rulebook noun. The durable control for the canonisation loop is the one that already shipped:
+  the `model_opinion` origin stamp and record-mode filing (migration 629). Every lendzy audit item
+  filed 08-25/08-26 is `deferred`, not dispatched. **The residual is the pre-door backlog** — items
+  like `052d01b0` that predate it and still have a one-click Retry.
