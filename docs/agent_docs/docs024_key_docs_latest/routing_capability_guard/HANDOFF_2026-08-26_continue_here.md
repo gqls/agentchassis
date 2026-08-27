@@ -507,9 +507,31 @@ both, same method as above:
 **So no live park is wrong, and rule 3b's shipped behaviour to date is sound.** The defect is a false
 entry waiting for a route that has not yet carried a predicate.
 
-⚠ **One caveat I did not close:** `page-build-handler` carries `call_agent` and `spawn_agent`. A step
+~~⚠ **One caveat I did not close:** `page-build-handler` carries `call_agent` and `spawn_agent`. A step
 list therefore bounds what a handler does *itself*, not what it can cause. The roster's method — and
-this section's — inherits that gap.
+this section's — inherits that gap.~~
+
+✅ **CAVEAT CLOSED 2026-08-27 — the full spawn closure is clean, so the 23 page-build-handler parks
+are sound at every depth, not just at depth 1.** Prompted by the `bugs_open/414` lane's sub_workflow
+measurement (§11f). Every hop resolved with `jsonb_path_query_array($.**.agent_type)` and
+`$.**.action`, i.e. recursive descent, so a target nested in a loop's `sub_workflow` cannot hide from
+it — which is exactly the trap §4 already warns about and the reason a `workflow.steps` walk was not
+used:
+
+| depth | agent | can it write `pages.title` / `meta_description`? |
+|---|---|---|
+| 1 | `page-build-handler` | no — 14 actions, none touches those columns |
+| 2 | `page-content-writer` | no — 16 actions (incl. `loop`); no `sync_pages_to_db` / `save_page_meta_description` / `apply_gap_plan` / `create_*` / `deploy_tool_*` |
+| 2 | `page-rerender` | no — `rerender_single_page` READS `meta_description` (`:529`, a SELECT); every `UPDATE pages` in `update_page_status` sets only `build_status` / `built_from_plan_version` / `updated_at` |
+| 3 | `internal-link-resolver` | no — `resolve_internal_links`, zero `UPDATE pages` |
+| 3 | `research-agent` | no — `InsertResearchResultAction` scoped to its own 225 lines: zero `UPDATE pages`, no mention of either column |
+| 4 | — | neither depth-3 agent spawns anything (`$.**.agent_type` → `[]`) |
+
+⚠ **One measurement was loose on the way and is worth recording:** `grep -c 'UPDATE pages'` on
+`v3_site_actions.go` returned **3** for `InsertResearchResultAction` — a FILE-wide count attributed to
+one function in a 6,000-line file. Scoped to the function's own 225 lines it is **0**. A count taken
+at file granularity and reported at function granularity is the same error class as everything else in
+this section.
 
 ### 9f. The fix, and why it is NOT applied here
 
@@ -760,3 +782,32 @@ bug namespace at all. **Resolve an owner from the commit's touched paths, never 
 putting it "where who-owns.py's users will meet it", which was a good suggestion and is what the
 landmine footprint does — but a peer's suggestion is not authority to edit the standing instructions,
 and CLAUDE.md is the one file where that distinction has to hold absolutely.
+
+### 11f. The `sub_workflow` blind spot now has a NUMBER, from the `bugs_open/414` lane — and it is the worst possible one
+
+§4 has warned since 2026-08-25 that *"a `workflow.steps` walk is a LOWER BOUND — it misses steps
+nested in a loop's `sub_workflow` and returns a confident zero"*, on the evidence that it dropped
+`meta-description-backfiller` on this lane's own question. That entry had no count. It has one now,
+measured independently by the `bugs_open/414` lane on a different question (a fleet-wide spec-surface
+census), and relayed here:
+
+> **Exactly ONE live agent has a `site_specs` reference nested inside a `sub_workflow` — and it is
+> `page-content-writer`, whose refs all live in its process-sections loop.**
+
+**A step-walking implementation would have gone blind to the single most load-bearing prompt in the
+estate while reporting a clean fleet.** That is the sharpest available statement of why this trap
+matters: the population it hides is not a random 1-in-N, it is the one that carries the most weight,
+because *deep nesting is what a heavily-developed agent looks like*. A blind spot correlated with
+importance is not a sampling error.
+
+Their census avoids it by regexing `default_config` as one document rather than walking steps; this
+lane avoids it by resolving through `jsonb_path_query_array($.**.action)`, which is recursive descent.
+**Both work. `workflow.steps` iteration does not.** Their finding is pinned by a test whose failure
+message names `platform/validation.WalkSteps` for whoever converts it.
+
+⚠ **Consequence for this lane, and it is why the relay was worth acting on rather than filing:** the
+`page-build-handler` spawn closure in §9e goes through **`page-content-writer`** — the exact agent
+whose steps are nested. Had that closure been walked with `workflow.steps` it would have returned a
+clean, confident, wrong answer about the one hop that mattered. It was not; it used `$.**`. But the
+margin was a method choice made for a different reason, which is the kind of near-miss worth writing
+down.
