@@ -1052,3 +1052,13 @@ All four sections `[MEASURED 15:20:08Z]`, windows: 657 live 13:18:19Z, drain gra
   already with the owner in README.
 
 **Verdict: PASS at +2h.** +6h read ~19:20Z (timer armed) closes the day's acceptance.
+
+### 2026-08-27 19:21Z — +6h read BLOCKED at the door: kubeconfig token expired 19:11:20 (the 3-day cycle)
+
+The read fired on time (19:21:09Z) and hit `Unauthorized` on every kubectl — token expiry
+confirmed by decoding the JWT (expired 19:11:20, ten minutes before the read; the
+[[kubeconfig-token-expires-every-3-days]] shape exactly). Owner notified (terminal push);
+refresh watch armed — the read runs the moment the token is back. The +6h therefore becomes
++Nh with the actual timestamp recorded; the +2h PASS stands as the day's primary acceptance
+evidence. Nothing about the fix is in doubt from this; it is an access outage on the meter,
+not the mechanism.
