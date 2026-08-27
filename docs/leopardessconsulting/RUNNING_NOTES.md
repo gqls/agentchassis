@@ -3507,3 +3507,21 @@ structurally IMMUTABLE when non-empty (320) — the inverse failure, recorded in
   guess would have misdiagnosed.
 - **After-run fired**: item `b36f8c63` (leg `after_hero_batch`). The discrimination read: its
   report must DROP the sameness lead finding while the rest stays substantially stable.
+
+### 2026-08-27 — the after-leg's two failures, both honest, one is MODEL-TRIAL evidence
+
+- **after r1 (`b36f8c63`)**: `complete_error`, `audit` step "Request timed out (TIMEOUT)" —
+  adapter busy at morning load; the failed-audit terminal did its job (a failed audit and a
+  clean audit must never read the same way).
+- **after r2 (`0eff246f`)**: audit fine (8 pages, findings deduped clean), design_context
+  loaded, then **`execute_vision_prompt` → Gemini 400 INVALID_ARGUMENT "Unable to process
+  input image"** — pod `agent-design-critique-agent-293867dd-sqbbn`, orch `699b57ef`. The
+  16 full-page captures are now LONGER (heroes added), and the plan's cost-envelope warning
+  stands: no downscaling exists anywhere in the pipeline, images ship whole. Run ended
+  `complete_no_critique` (SUCCESS terminal, findings intact) — the 317 topology again.
+  **This is trial evidence for the owner's "try Gemini first, revisit if not" call**: Gemini
+  managed yesterday's captures, choked on today's taller ones.
+- **after r3 (`a21e0c3e`) fired on Gemini** (vendor advice is retry). If it 400s again, the
+  critique step's `ai_service` flips to the 317-proven anthropic/claude-sonnet-5 config as
+  trial leg B (recorded owner decision covers trialling both) — a live agent_definitions
+  config edit, reversible, to be recorded here + SQ-003 when made.
