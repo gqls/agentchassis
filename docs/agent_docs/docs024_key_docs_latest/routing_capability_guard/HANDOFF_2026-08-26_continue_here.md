@@ -214,6 +214,11 @@ yes/no on building it now.
 (`site_db_actions.go:1235`, `apply_adoption_plan_action.go:84`, both
 `COALESCE(NULLIF(EXCLUDED,''), existing)`) except `save_page_meta_description_action.go:211`, which is
 reachable from one agent whose scheduled `pre_query` selects `COALESCE(meta_description,'')=''`.
+> **⚠ CORRECTED 2026-08-27 — "the only unconditional UPDATE" is WRONG, and the correction makes this
+> decision CHEAPER, not harder. See §12.** That statement is imprecise here, and in the roster's own
+> `Why` string in shipped code. The write is gated by an **opt-in `overwrite_existing` field whose
+> default is FALSE**, enforced inside the WHERE clause. There are **two guards in series** — that
+> flag AND the agent's `pre_query` — not one.
 
 *Why it is yours.* `bugs_open/320` §15 records you granting `overwrite_existing: true` for a **one-off**
 681-page regeneration and **explicitly withholding it for the standing mechanism** — verified
@@ -811,3 +816,68 @@ whose steps are nested. Had that closure been walked with `workflow.steps` it wo
 clean, confident, wrong answer about the one hop that mattered. It was not; it used `$.**`. But the
 margin was a method choice made for a different reason, which is the kind of near-miss worth writing
 down.
+
+---
+
+## 12. ⚠ CORRECTION 2026-08-27 — the overwrite authority decision 1 is about ALREADY EXISTS as an opt-in field, default OFF
+
+**Found by accident, which is worth saying: another session had
+`save_page_meta_description_action.go` dirty, I looked at the diff to check it did not move the line
+number this file cites (it did not — a blank-line removal at `:283`), and read the surrounding SQL
+while I was there.** The MEMORY rule "a DIRTY file's symbol is someone's PLAN" says look; what it does
+not say is that looking will correct your own claim.
+
+### 12a. What this file said, and what the code says
+
+This handoff (§2) and — more importantly — **the roster's own `Why` string in shipped code** both call
+`save_page_meta_description_action.go:211` *"the only **unconditional** UPDATE"*. It is not
+unconditional:
+
+```go
+overwrite := datahelpers.GetBoolField(config, "overwrite_existing", false)
+// One statement, so the decision cannot race a concurrent writer: the WHERE
+// clause carries the overwrite policy rather than a read-then-write in Go.
+const q = `
+    UPDATE pages
+    SET meta_description = $2, updated_at = NOW()
+    WHERE id = $1
+      AND ($3::bool OR COALESCE(meta_description, '') = '')
+    RETURNING id`
+```
+
+**Two guards in series, not one:** the `overwrite_existing` flag (default **false**) AND the
+backfiller's `pre_query` restricting to blanks. §2 credited only the second. `sql.ErrNoRows` is
+handled as a *refusal* — `{"updated": false, "reason": "already_has_description"}` — not an error, so
+a caller that forgets the flag gets a clean no-op rather than a surprise write.
+
+### 12b. Why this makes DECISION 1 cheaper, and changes what it is a decision ABOUT
+
+§2's option table costs (b) and (c) as *"automation edits published copy; needs its own council round
+and an RFC"* — i.e. as though the overwrite capability must be BUILT. **It is already built, and built
+in exactly the shape the estate's own ruling prescribes for this situation:** the 2026-08-02 owner
+ruling §2 says new authority on a shared seam ships as an **opt-in field with the unsafe default OFF**,
+because "a comment is not a control on a tree this many sessions share". That is precisely
+`GetBoolField(config, "overwrite_existing", false)`, enforced in SQL rather than in Go.
+
+So decision 1 is **not** "may we build a path that rewrites published copy". It is: **may an
+automated finding SET a flag that already exists, on a work-item-driven route that does not yet
+exist.** What remains to build is the route and the provenance gate the ruling requires — not the
+authority.
+
+⚠ **This does NOT reopen the decision or reduce what it is worth pausing over.** `bugs_open/320` §15
+records the owner granting `overwrite_existing: true` for a **one-off** 681-page pass and *explicitly
+withholding it for the standing mechanism*, then verifying the seeded agent was left unarmed. **The
+flag existing is exactly why that withholding was a real act rather than a theoretical one** — there
+was something concrete to leave switched off, and it was left off. The finding sharpens the cost, and
+leaves the authority question exactly where the owner put it.
+
+### 12c. The lesson, and it is about my own roster finding
+
+**§9 found one false entry in that roster. This is the OTHER entry's `Why` being imprecise in the same
+direction** — overstating a capability's reach ("unconditional") where §9's `title` entry overstated a
+census's completeness ("one UPDATE writer"). The *conclusion* of the `meta_description` entry still
+stands (`page-build-handler` cannot write the column, by any route — §9e now proves that across the
+whole spawn closure). But **both entries' evidence strings have now been found wrong on inspection,
+and neither was caught by any of the three shape tests.** That is no longer a one-off; it is the
+roster's character, and it strengthens §9f's case for a totality test over guessing which entry to
+trust next.
