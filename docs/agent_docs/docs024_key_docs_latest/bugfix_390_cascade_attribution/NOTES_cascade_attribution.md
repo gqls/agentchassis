@@ -686,3 +686,30 @@ when arming (RUNBOOK §8 gains this).
 8/8 + 1 post-fence proved 655 both ways) · P4 confirmed-so-far (38/6/0 across 3 sites), formal
 grading on vonc/noted/loanzy tomorrow · P3 clocks: remortgage ~08-29 13:50Z, garden-tools ~08-29
 17:50Z, cookly ~08-29 18:55Z · P5 agritec ~08-27 20:31Z.**
+
+## 2026-08-27 (w) — §1(a) DONE: cookly's 5 repairs graded CLEAN — post-fence tally 13/13
+
+Queue reached cookly ~23:26Z (3 rows) and ~01:21Z (2 more; the backlog took two passes — 15+
+sites held eligible triaged build items, some from 08-25, so the 3–6 h wait was queueing, not a
+defect). Graded at all three artefacts:
+
+- **5/5 rendered the fenced prompt** (`general_rendered=f` in every `llm_call_log` row) and
+  **5/5 dropped `!important`** — with garden-tools that is **13/13 post-fence correct**, zero
+  reappearances.
+- **Every selector strictly exceeds its requirement**: `body .highlight-item P` and
+  `body .differentiator-item P` (0,1,2) > (0,1,1); `body .result-item .label` (0,2,1) > (0,2,0);
+  `P.tool-description` (0,1,1) > (0,1,0) ×2.
+- **Served = DB**: css_themes v26, sha `10329f68…` equal on both sides; control 404. Arithmetic:
+  #5c5244 = **6.27:1** on rgb(240,232,213) and **6.55:1** on rgb(241,237,228) (needs 4.5).
+- False alarm, resolved before it got written down as a finding: 17 served lines carry #5c5244
+  where 5 were expected — the 08-17/08-23 repairs had ALREADY chosen #5c5244 (the before-capture
+  proves it), and tonight's agent picked the same value. The model is deterministic on this
+  pairing; nothing edited the old rules.
+- P3 note for 08-29: cookly's OLD `span.label` rule (0,1,1) was out-specified and inert; tonight's
+  `body .result-item .label` (0,2,1) meets the measured bar — this pairing is the cleanest
+  single test of "requirement met ⇒ retraction" on the whole estate, because the naive repair
+  already failed here twice.
+
+**§1(a) closed. Next: §1(b) — vonc 10:27Z / noted 12:28Z / loanzy 15:29Z today; P5 agritec
+20:31Z. Overnight rotation audits of other sites will enrich the informal P4 tally; the formal
+grading stays on the three named sites.**
