@@ -3525,3 +3525,28 @@ structurally IMMUTABLE when non-empty (320) — the inverse failure, recorded in
   critique step's `ai_service` flips to the 317-proven anthropic/claude-sonnet-5 config as
   trial leg B (recorded owner decision covers trialling both) — a live agent_definitions
   config edit, reversible, to be recorded here + SQ-003 when made.
+
+### 2026-08-27 — the after-leg PARKS on a Go fix, with the full three-error ladder recorded
+
+Four attempts, each failing one layer deeper, all honest terminals:
+1. r1 `b36f8c63`: audit TIMEOUT (adapter load) → complete_error.
+2. r2 `0eff246f` + r3 `a21e0c3e`: **Gemini 400 INVALID_ARGUMENT "Unable to process input
+   image"** — reproducible, post-hero captures only.
+3. r4 `0f686e43` (mig 662, provider→claude-sonnet-5, model confirmed in pod log):
+   **Anthropic 413 request_too_large** — aggregate payload.
+4. r5 `12008d09` (mig 663, max_images→8): **Anthropic 400 "At least one of the image
+   dimensions exceed max allowed size: 8000 pixels"** (`messages.0.content.1`) — the REAL
+   constraint: a single full-page capture is now taller than 8,000px. Pages grew with their
+   heroes; nothing in the pipeline downscales (the plan's cost-envelope warning is the
+   binding constraint, in three providers' words).
+
+**STOP RULE APPLIED** — no more runs; no config lever excludes a specific too-tall page
+honestly. **The 018 follow-up is now precisely specified: a downscale/segment step inside
+`execute_vision_prompt`** (cap each image to ≤8,000px on the long edge — Anthropic's stated
+limit — or tile very tall captures). Go change, council, then restore max_images 16 (663's
+cap is harmless meanwhile) and re-run the after-leg. The discrimination test survives the
+delay: the mutation form (revert one hero, run, restore) works whenever the vision path does.
+
+Everything else about the critic is PROVEN: spawn path, storage, audit, measured-findings
+drain, design context, report writing (the 08-26 report), and the 317-shaped terminals that
+made all four failures legible from the item row alone.

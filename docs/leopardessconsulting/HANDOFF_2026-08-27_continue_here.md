@@ -36,7 +36,14 @@ milestone `SUMMARY_2026-08-27_the_critic_exists_and_every_page_has_a_face.md`
 
 ## 2. Work queue, in order
 
-1. **Read the after-run report** (`SELECT body FROM doc_notes WHERE categories ? 'design-report'
+1. ~~Read the after-run report~~ **PARKED 2026-08-27 after four attempts — the vision half
+   cannot run until `execute_vision_prompt` learns to DOWNSCALE**: post-hero full-page
+   captures exceed BOTH providers' per-image limits (Anthropic's stated cap: 8,000px on a
+   dimension; error ladder in RUNNING_NOTES same date). **New queue item 1: build the
+   downscale/tile in `execute_vision_prompt`** (Go, council; then restore `max_images` 16 —
+   migs 662/663 are the interim config, snapshots taken) and re-run the after leg; the
+   discrimination test then runs in mutation form. Original item kept for context:
+   **Read the after-run report** (`SELECT body FROM doc_notes WHERE categories ? 'design-report'
    AND site_id='4851f6fc…' ORDER BY created_at DESC LIMIT 1` once item `b36f8c63` completes).
    **The discrimination read: the sameness lead finding must be GONE, the rest substantially
    stable.** Record the result in NOTES + 018/SQ-003. If it still reports sameness, check WHICH
