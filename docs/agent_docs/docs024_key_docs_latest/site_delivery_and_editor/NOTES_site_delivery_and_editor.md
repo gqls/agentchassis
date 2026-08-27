@@ -1355,3 +1355,40 @@ of evidence, all [MEASURED 2026-08-27]:
 Remaining before first delivery email: (1) owner creates `delivery-smtp-secrets`;
 (2) one chassis restart/roll AFTER the secret exists; (3) the rehearsal. The shopfront
 unpark (Cloudflare page rule, owner dashboard-only) is independent of all three.
+
+## 2026-08-27 (mid-morning) — mail secret CREATED (owner); terraform question answered NO; Lovable removal filed through the framework
+
+- **Owner created `delivery-smtp-secrets`** and will run the fleet deploy in a quiet
+  moment — that deploy is what carries `DELIVERY_SMTP_PASS` onto the pods (secretKeyRef
+  resolves at container start).
+- **"Should the secret live in terraform?" — NO, and here is the mechanism** [checked at
+  the config 2026-08-27]: `047-base-configs/main.tf` manages exactly two resources — the
+  `personae_prod_config` ConfigMap and `kubernetes_secret.personae_platform_secrets`
+  (whose data map it owns WHOLESALE — that ownership is what wiped the Stripe keys on
+  08-26). `delivery-smtp-secrets` appears nowhere in terraform, so a release cannot
+  touch it: the Stripe failure mode needs terraform to OWN the secret, and nothing owns
+  this one. Moving it in would put the password into `terraform.tfvars.secret` and tf
+  state — against the stated posture ("exists in no file and no session", 651 header,
+  overlay comment). If belt-and-braces is ever wanted, the Stripe pattern (required var,
+  value only in the owner's local tfvars.secret) is the shape — owner's call, not
+  recommended while nothing owns the secret.
+- **Blueprint Compiler / Lovable (owner instruction, through the framework):** the tool
+  (webdesign.uk `/tools/blueprint-compiler/`) directs visitors to paste its prompt deck
+  "into v0, then Lovable" — description line, two deck-block titles, one embedded
+  prompt opener (4 places, read from the component template). The component is
+  `render_mode='template'`, no input fields, so this is TEMPLATE copy — no field edit
+  can reach it, and a vm-sites HTML edit is both forbidden (owner) and futile (next
+  rerender regenerates). **The framework's own change mechanism for an existing tool is
+  `improve_tool` → `tool-improver`** (319 completions all-time, several today — the
+  same route the acceptance/audit checks use). Filed TWO items with the instruction
+  (remove Lovable AND v0 — same recommendation class; keep the three-phase deck,
+  no replacement product names): `b611b4cd` for the webdesign.uk instance component
+  (`5b0110c3`), dispatchable now; `c51317f4` for the webdesign.co.uk library original
+  (`ad0cda73`) with `depends_on={abc6ac7c}` — the already-open acceptance-failure
+  improve_tool on that same component (loader honours depends_on,
+  `load_work_item_actions.go:763`), so two writers never race one component. Open
+  audit_tool items on the instance are read-only; the pending `section_edit`
+  (component-template-fixer propagation) writes the PAGE, not the component.
+  **Verify at the served page once complete:** `curl -s
+  https://preview.webdesign.uk/tools/blueprint-compiler/index.html | grep -ci
+  'lovable\|v0'` → 0 (and the .co.uk page likewise after its chain clears).

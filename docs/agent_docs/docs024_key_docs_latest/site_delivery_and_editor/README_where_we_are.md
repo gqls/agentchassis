@@ -251,3 +251,20 @@ predicted. I put it back and checked the live page shows it again, in both place
 So the list only you can do is now: create the mail password secret (one command), and
 when you're ready, remove the Cloudflare rule that parks the site. Then we rehearse the
 whole delivery on a site of our own.
+
+## 2026-08-27 (mid-morning) — mail secret in; terraform answered; the Lovable line handled the proper way
+
+You created the mail secret; the quiet-moment deploy you'll run is what carries the
+password onto the pods. On your terraform question: no — leave it where it is. The
+Stripe keys got wiped because terraform owns that particular secret wholesale; it
+doesn't know this new one exists, so a release can't touch it. Moving it in would also
+mean the password living in a file on your machine, which we deliberately avoided.
+
+The Blueprint Compiler change went through the framework, not the HTML: I filed the
+standard "improve this tool" instruction that the platform's own checks use (it has run
+successfully three hundred–odd times). The instruction removes the Lovable mention — and
+the v0 one, which is the same kind of recommendation one step earlier — and makes the
+prompt deck neutral about which AI builder it's pasted into, changing nothing else about
+the tool. One item covers the page you saw; a second covers the master copy in the tool
+library, queued so it can't collide with a repair already waiting on that copy. I'll
+confirm at the served page once they've run.
