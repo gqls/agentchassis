@@ -1001,3 +1001,15 @@ the next migration author who copies the guard shape.
 undeployed_asset 12, content_rewrite 11. So the incident character of the census stands; the
 413 caveat updated in place. Unattributed residue: why 66 LLM-free rerenders held claims
 >40 min today (deploy latency? the 09:50 reset batch?) — noted, not chased; not this lane's.
+
+### 2026-08-27 ~13:4xZ — the "66 rerender resets" residue answered same-hour (414's deploy-step lead)
+
+414's lead: their own repair saw `deploy_page failed: timed out after 3 retries` AFTER the save
+had succeeded — so a rerender hold can be work-done-claim-aged. Measured on today's 66
+`[13:4xZ]`: **54 pages deployed at/after the claim window; 56 of 66 items have since reached
+complete; 2 never deployed; 9 on retry backoff; 1 failed.** Approximation stated: claim time
+taken as reset-stamp minus 40 min, and "since completed" cannot split already-done-at-reset
+from done-on-retry without per-item timelines. Conclusion for this lane: these resets cost
+40-min darkness windows + retry churn, NOT lost work — the floors' discriminator handles the
+darkness; nothing further owed here. (If anyone later chases the deploy step's own timeout:
+414's about-page case is the worked example.)
