@@ -320,3 +320,24 @@ do" than the dispatcher itself. Today it never matters because there is always p
 work in the form it counts; on the day the backlog drains to only human-approved items, the
 dispatcher would stop being woken at all. Cheap to fix, written up, out of tonight's change
 on purpose.
+
+2026-08-27 morning (throughput lane). The 24-hour read on the new single-trigger setup came back
+good: fires land every 60 seconds as designed, work went to 32 different sites instead of one,
+and wasted claim attempts are down from about 60% to about 16%. The backlog is actually
+shrinking now — 716 items queued this morning versus 1,268 yesterday — even though new work kept
+arriving all night. Items now wait a median of about 2 hours to be picked up, down from nearly 9.
+
+One alarm went off and it turned out to be our own smoke detector, not a fire: the daily safety
+check flagged what looked like two workers on one item. Tracing it showed the item was handled
+strictly one-after-the-other — the first worker had wedged, the system correctly took the work
+back and gave it to a second worker, and the stuck one was only swept up by a cleaner that
+writes a DIFFERENT message than the one our check knows about. So the check was taught the
+second message, and we proved the fix catches exactly that case and nothing more. Committed.
+
+With all four gate conditions met, the batch-size increase (5 → 8 items per turn) went in at
+09:15 UTC and is confirmed live. Honest expectation stays ~7% more throughput, not more — bigger
+bites but longer chews. Next: a two-hour check around 11:30, then the other session applies the
+starvation fix after midday. On starvation: the worst case this morning is lendzy.co.uk — 55
+items waiting, the oldest for over 10 hours, exactly the queue-jumping bug (413) the midday fix
+targets. One correction to yesterday's picture: the site that looked worst (adversecreditmortgage)
+is actually deliberately locked/parked — not starving.

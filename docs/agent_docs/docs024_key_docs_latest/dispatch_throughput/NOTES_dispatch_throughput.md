@@ -773,3 +773,108 @@ which row the runtime reads, mirror `processor.go:371-389`, not a timestamp.
 
 Slot logic unchanged and restated: **no acted-on verdict = no 657 apply.** If r2 lands APPROVED
 it will be before the 09:00Z read; a further REVISE is theirs to act on before the ≥12:00Z slot.
+
+## 2026-08-27 — the 24h post-B read: GATE PASSED; VERIFY false-RAISEd on a SECOND reaper spelling (fixed + mutation-proven); floor baseline handed to 657
+
+**Window honesty first:** the read ran `[MEASURED 2026-08-27 08:37–09:00Z]`, not 09:00Z sharp —
+my wake timer parsed "09:00" in LOCAL time (BST) so it fired immediately; the window is explicit
+in every query (`>= 2026-08-26 08:55Z`, ~23.8h) and retention was verified INTACT back to 08-26
+08:06Z before anything ran, so nothing was lost — the read is simply dated 08:37Z, not 09:00Z.
+(Misstep + check: `date -u -d 'today 09:00'` parses the TIME in local TZ; give the zone in the
+string. Snapshot queries — floor, pin census — executed 08:48–08:50Z.)
+
+Caveats held beside, per handoff: credit outage 08-25 23:47→08:55Z sits on the PRE-B side (its
+only in-window trace: 3 `ai_endpoint_unavailable` claim refusals 08:55–08:58 on item efccd5d8);
+chassis roll ~20:26Z inside the window (no dispatch gap, measured last night).
+
+### The meters `[MEASURED 2026-08-27 08:37–08:50Z, window ≥ 2026-08-26 08:55Z]`
+
+- **Cadence:** 1,307 fires, gap p50 **60s** / p90 105s / max 724s. 13 gaps >300s, clustered
+  02:00–04:30Z overnight (worst in-cluster 650s) plus the known 11:18Z DB-saturation window —
+  slow ticks under load, same shape as yesterday's p90; not a stall (loops continued).
+- **Sibling frozen** ✓: `-2` disabled, last_triggered_at 08-26 08:51:09 unchanged; parity
+  one-liner clean at 08:28Z (one pre_query md5 across both rows).
+- **Lost claims: 16.5%** (1,067 of 6,480 attempts; was 58–60% under the pair). Anatomy: 1,066
+  `already_claimed_or_ineligible` over 755 distinct items (~1.4 per item — consecutive-fire
+  overlap residue), 3 outage-tail endpoint refusals. ⚠ trend: 10.7% at yesterday's 2h read →
+  16.5% over 24h — rising with depth, hold beside Phase 3 (longer turns may raise overlap).
+- **Steering:** 1,376 loops / **32 distinct sites**; 10–24 sites per hour, no co-pick mode.
+- **Batch cap binds hard:** avg loaded 4.91/5; **1,319 of 1,375 loaded loops (95.9%) at cap** —
+  Phase 3's premise measured again, stronger than yesterday's 80.3%.
+- **Throughput:** claims/h 170–309 sustained against the ~300/h ceiling (peak 309 at 19:00Z);
+  completions track claims (up to 307/h). Demand beside it: arrivals 130–485/h all night;
+  open depth NOW **716 triaged / 31 sites** (was 1,268/30 yesterday — the backlog is DRAINING
+  while arrivals continue: throughput > arrivals over the window).
+- **Wait-to-claim** (n=4,945): p50 **1.9h** / p90 13.3h (was p50 8.8h at the 2h read — the
+  drain figure improving as predicted).
+- **Double-handles: 0 true.** Raw census 5,333 handlers / 5,050 items / 181 items with 2+
+  handlers (sequential retries) / **3 raw overlapping pairs**, every one discriminated at the
+  artefact as a zombie tail (below).
+
+### VERIFY 6/7 false-RAISE — the SECOND reaper spelling (fixed same-day, commit adebc2d11)
+
+Daily 584 VERIFY (started 08:37Z, RAISEd ~16 min in under load): **6/7 DOUBLE-HANDLE: 1 pair**,
+exit 3. Investigated before ruling the gate:
+
+- The 3 raw pairs: two match yesterday's exclusion exactly (first member FAILED `Orchestration
+  stale — running for 1h2xm`, successors 79–81 min later) and were excluded as NOTICEs. The
+  third — the RAISE — is pair `0d699d65`/`fb7e9e0f` on item `61265835`: tool-generator wedged
+  at `suggest_related_pages`, stamped FAILED by the **step-level reaper** with the spelling
+  **`reaper: stale EXECUTING_STEP for >4h; step=…`**, which `LIKE 'Orchestration stale%'`
+  cannot match.
+- **The claim invariant HELD — proven serial at the item:** loop 3ae202fb claimed 09:10:45,
+  spawned A 09:14:21; claim released by the claim-level staleness clock; loop e089cf20
+  re-claimed 11:49 (`claimed=true`, normal atomic path), its handler B completed the item
+  11:54:14. A sat zombie until the reap stamp 13:37:26. Successor gap 2.6h — nothing like a
+  claim race (first-claim p50 17.7s).
+- **Fix:** exclusion widened to both reaper spellings, OR properly parenthesised inside the AND
+  chain (the 396 lane's CONTRIB precedence lesson, applied the same morning it arrived);
+  FAILED-status and >10-min arms kept. **Mutation-proven with the window PINNED to 08-26
+  08:55Z** — the pair's loop ages out of the trailing-24h window at ~09:10Z, so an unpinned
+  re-run could pass VACUOUSLY ([[pin-the-clock-to-before-the-failure]]): edited exclusion
+  **0 violations / 3 excluded**; new-arm-disabled mutant **1 / 2**. Same live data, one
+  predicate apart. Full VERIFY re-run on the edited file: [appended below when landed]
+- Residual honesty: the two stale-reap clocks (claim-level release vs orchestration-level reap)
+  remain separate by design or accident — yesterday's open observation stands, not this lane's.
+
+### Per-site floor + pin census `[MEASURED 2026-08-27 08:48–08:50Z]` — the 657 pre-fix baseline
+
+- ⚠ **The floor query needs a LOCK CONTROL:** its worst row, adversecreditmortgage.co.uk (70
+  eligible, no claim in 27h), is **locked since 08-18 with except_n=0** — parked by design (the
+  396 lane's "held items"), NOT starvation; absent from the pin census because that predicate
+  checks locks. Next floor read: join `sites.locked_at` before quoting the worst site.
+- **Worst genuinely-starving site: lendzy.co.uk** — 55 eligible, oldest waiting **10.6h**
+  (created 08-26 22:16Z), last claim 00:57Z (~7.9h before the read), **pinned at
+  oldest_load_rank 44**. The 413 mechanism live and quotable.
+- Census: **10 pinned of 25 sites with eligible work** (webdesign.co.uk rank 22,
+  loanandmortgagecalculator 23, gaswholesalers 70, lendzy 44, robot-hands 39, lampenkap 30,
+  finetuning 17, loanzy 13, oufe 10, leopardessconsulting 7). Dynamic snapshot, dated. Several
+  pinned sites show recent last_claims (their YOUNG rows get served; their oldest never does) —
+  pinned ≠ unserved, pinned = the oldest row never drains and age-order victims queue behind it.
+- dartsonline.com: 2 eligible, loadable at rank 2, unserved 5.6h — a pure positional victim.
+
+### GATE: **PASS** (ruled ~09:1xZ)
+
+p50 60 ≤ ~65 ✓ · lost 16.5% ≪ 58–60% ✓ · 0 true double-handles ✓ (all 3 raw pairs
+artefact-discriminated) · VERIFY: red this morning on the proven-false detector arm, green
+pending the re-run of the corrected file — the mutation pair above is the evidence the gate
+rests on. Proceeding to 658 per the handoff (~09:30Z): one-row census re-run first, then
+hand-apply, artefact-verify both knobs.
+
+### 2026-08-27 09:15Z — VERIFY re-run GREEN; 658 APPLIED and artefact-verified
+
+- **Full VERIFY on the corrected file: all 7 hold**, exit 0, with the honest NOTICE "3
+  zombie-tail pair(s) excluded" `[MEASURED ~09:1xZ]`. Informational table: 1,303 trigger loops,
+  **0 co-picked**, lost 17.4%; the blank-task_name second producer at 80 loops / 1.9% lost
+  (still unattributed, still benign). Detector correction committed `adebc2d11` (pathspec, one
+  file; _VERIFY is outside council scope by design).
+- **658 hand-applied 09:15:06Z**, ON_ERROR_STOP clean: refusal-first passed, snapshot captured
+  (source 099b51e0 v1), guard NOTICE "8/8, both jsonb numbers, config shapes intact, no other
+  row changed", COMMIT. One-row census re-run seconds before (guardian advisory): still exactly
+  ONE build-dispatch-loop row in any state, knobs read 5/5 pre-apply.
+- **Artefact verify `[MEASURED 09:16Z]`:** max_items **8** (jsonb number), max_iterations **8**
+  (jsonb number) on the live row selected by the loader's predicate.
+- Honest expectation on record: **~+7%** (overhead amortisation) — the cap binds (95.9% of
+  loaded loops at cap this window) but turns lengthen ~60%. Watch: capability probe (loaded up
+  to 8, claim_result keys past _4) ~09:30Z; collected_data sizes (~×1.6 → ~7.3MB max tail vs
+  8MiB warn); the ~11:30Z 2h read cuts the Phase-3 window; 657 applies ≥12:00Z on our all-clear.
