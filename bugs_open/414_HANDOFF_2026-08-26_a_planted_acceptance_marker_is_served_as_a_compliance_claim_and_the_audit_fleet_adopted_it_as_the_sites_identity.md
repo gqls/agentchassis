@@ -388,6 +388,19 @@ and therefore nothing but a human checked this output:
 > content-block: "…**Every regulatory figure on this site is quoted together with the named rule it
 > comes from and a pointer to where you can check that rule for yourself.**"
 
+**⚠ AND THE ITEM SAID `failed` THE WHOLE TIME — which is now a MEASURED class, not my bad luck.**
+`page-build-handler` runs `… validate_content → save_sections → deploy_page`, so a failure AT
+`deploy_page` means `save_sections` had already succeeded: the repair was three hours old and serving
+while its work item read *"step deploy_page failed"*. Corroborated the same day by the
+`dispatch_throughput` lane at my prompting: of **66** `page_rerender` claim-timeout resets that day,
+**54** pages showed a deploy at or after the claim window and **56 of 66** items had since reached
+`complete` — the dominant shape is work done, or completing on retry, with the claim aged out (their
+stated approximation: claim time taken as reset-stamp minus 40 min, and "since completed" cannot split
+already-done-at-reset from done-on-retry). So the rule has a mirror worth stating: **a `failed` item
+is no more a statement about the artefact than a `complete` one is.** Locate the failing step in the
+workflow's ORDER — anything after the persistence step means the content landed. The deploy step's own
+timeout is unchased residue in that lane's NOTES, with this case as its worked example.
+
 That is a description of what the site DOES, verifiable by any reader, and it is what the recorded
 brief actually requires — so the replacement is grounded in the brief rather than authored by a
 session. It also does **not** trip either new pattern (the verb is "quoted", not
