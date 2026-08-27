@@ -56688,3 +56688,32 @@ the row rather than the passage. Tally: **cleared-a-row-on-its-first-matching-wi
 **The cheap check, skipped.** A CONTROL RUN. Two runs of the same targets — HEAD as it stands, and HEAD with the change applied — and diff them. That is the only thing that says "fixed exactly X, introduced nothing", and it is what the other lane did to prove their one-line fix. ⚠ And diff on package NAMES, not raw `FAIL` lines: the line carries a duration, so identical failures differ as strings and `comm` reports the same package as both fixed and introduced — a long symmetric list that reads exactly like a real regression. `awk '/^FAIL\t/{print $2}' | sort -u`.
 
 **Why this is a row and not a footnote.** I have been careful all session about demand controls on measurements, and then asserted a green baseline I never measured — in a message *to another lane*, which is where an unsupported claim does the most damage. The estate's own phrasing for this is in the memory index: a pass from a blind check outlives the blindness. A FAIL from a blind check does too. Tally: **red-suite-baseline-asserted-not-measured**.
+
+## 2026-08-27 — bugs_open/414 lane: I wrote a pattern COUNT into four documents without re-deriving it, in a file whose own text records the last time that happened
+
+**What I claimed.** That `globalBannedClaims()` now holds **twelve** patterns — in the commit message,
+the concept-register entry, the register index row, the coverage-ratchet line and a `doc_notes` row.
+
+**Why it was wrong.** It holds **eleven**. The set had ten; I added ONE new entry (the
+indefinite-subject completeness pattern) and WIDENED an existing one's window from 30 to 60. A window
+is not a pattern. Ten plus one is eleven, and I had written the arithmetic once and then copied it
+into four places.
+
+**What caught it.** Re-deriving from the code rather than from my own prose, an hour later, while
+sanity-checking that HEAD carried what I thought: `awk` over `globalBannedClaims` counted 11, and
+`GlobalBannedClaimCount()` returns 11 — which is *also what my own test asserts*
+(`TestGlobalSetIsWired` expects 11 and has passed all along). So the code, the test and the docs
+disagreed, and only the docs were wrong. **A green test suite is not a check on your prose.**
+
+**The cheap check, skipped.** For any count that goes into a document, run the one-liner that produces
+it and paste the output — `awk '/^func globalBannedClaims/,/^}/' … | grep -c 'Pattern:'` — rather than
+adding numbers in your head. Where an exported counter exists, quote *that*
+(`GlobalBannedClaimCount()`), because it is what the runtime and the tests use.
+
+**Why this row rather than a silent fix.** The register entry I edited **records the same failure two
+lines above my own text**: the title says "nine patterns", the body notes the count is spent because
+a tenth was restored, and the file's own instruction is to re-derive. I read that sentence, agreed
+with it, and then did the identical thing four lines down. The estate's dated-count ruling makes a
+wrong count look *compliant* — mine carried `[MEASURED 2026-08-27]` beside it, which is why nobody
+would have re-checked it. Tally: **count-copied-not-derived**, and it is the second time this session
+a number of mine came from arithmetic rather than measurement.
