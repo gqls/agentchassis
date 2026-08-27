@@ -321,8 +321,12 @@ selection. Fine while claims are short-lived; fatal when a claim never ends.
   Caveats: rows whose error is later overwritten/archived decay out, so day-to-day comparison
   is unreliable (today is a floor); resets include FAILED handlers, not only dropped spawns;
   and the pre_query's own comment says the 15 verifier-gated item types ALWAYS fall through to
-  reset even when the work succeeded — composition by item_type unmeasured, 414's to take
-  further.
+  reset even when the work succeeded — ~~composition by item_type unmeasured~~ **MEASURED
+  2026-08-27 13:3xZ: gated types are 5 of 127 resets today** (all `unbuilt_internal_link`);
+  the bulk is `page_rerender` (66), which has an evidence-based completion arm, so its resets
+  are genuine 40-min holds — the incident character of the census stands. (A gated-type reset
+  still darkened its site for the same 40 min — the split changes attribution, not the
+  darkness arithmetic.)
 - **The discriminator, one query, for every floor read from now on:** a starving-looking site
   is EXCLUDED (this mechanism) rather than OUT-ORDERED (413's) when it holds a
   `status='claimed'` row with no orchestration for the id and `claimed_at` older than the

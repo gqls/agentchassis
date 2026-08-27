@@ -992,3 +992,12 @@ guard comment — a substring cannot prove parens BALANCE; the leading '(' catch
 realistic edit, and the VERIFY's md5 arm pins the live text byte-exactly. The live row is
 unaffected (already applied; replay refused by md5); this hardens the file-as-template for
 the next migration author who copies the guard shape.
+
+### 2026-08-27 ~13:3xZ — reset-census composition MEASURED (answering 414's open question): gated types do NOT dominate
+
+414 predicted the verifier-gated fallthrough types "will dominate any count". Measured today
+(127 resets by 13:3x): **gated = 5/127** (all `unbuilt_internal_link`); `page_rerender` = 66
+(has an evidence-completion arm, so its resets are genuine 40-min holds), then
+undeployed_asset 12, content_rewrite 11. So the incident character of the census stands; the
+413 caveat updated in place. Unattributed residue: why 66 LLM-free rerenders held claims
+>40 min today (deploy latency? the 09:50 reset batch?) — noted, not chased; not this lane's.
