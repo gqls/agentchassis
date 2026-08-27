@@ -332,3 +332,28 @@ selection. Fine while claims are short-lived; fatal when a claim never ends.
   (07-28/08-02 rulings apply — not shipped by this addendum, not 657's scope; 414 declined to
   propose it on this seam for the same reason). Adjacent to, but distinct from,
   `bugs_open/415` (fire-gate narrower than selector).
+
+## APPLIED 2026-08-27 13:18:19Z — 657 IS LIVE (fix live; bug stays open until MEASURED)
+
+Hand-applied on the throughput lane's all-clear (their gate passed on the 24h post-B read;
+658 applied 09:15:06Z so **K read 8 live at apply, exactly as the K-agreement designed** —
+the migration was written at K=5 and needed no edit). Apply exit 0; snapshot taken;
+migration probe picked **loanandmortgagecalculator.co.uk** — one of the sites this file
+measured starving yesterday (pinned + unserved since 04:39). VERIFY green at 13:18:30Z:
+md5 match, ordering mirror, **K=8**, census 28 sites eligible / 11 pinned `[MEASURED
+2026-08-27 13:18:30Z]` — pins persist as rows but no longer freeze the age order.
+
+**Measurement context the acceptance reads must hold beside (from the throughput lane's
+all-clear, 13:15Z):** (a) a fleet LLM outage began ~11:30Z and was ONGOING at apply time
+("usage limits" signature) — windows cut on the outage boundary; during it, grade SELECTION
+fairness (loops per starving site), not drain, because LLM-bearing claims refuse
+`ai_endpoint_unavailable` at the claim step; (b) a SECOND, bounded (~40-42 min) starvation
+mechanism is live and frequent (dropped-spawn claim holds the busy-skip until the
+claimed-item-timeout reset; ≥89 resets by 10:20Z across 27 sites) — run the stuck-claim
+discriminator before grading any dark site as a fix failure; (c) baselines committed by the
+lane: 09:00Z worst genuine starver lendzy.co.uk (10.6h, pinned rank 44); 13:11Z worst
+cookly.uk (6.2h, UNPINNED rank 2 — a pure positional victim, this fix's exact target);
+batch 8 had already unpinned some of yesterday's pins by widening the window (10 of 25
+still pinned at K=8 pre-apply). The lane takes the +2h/+6h floor reads against those
+baselines; acceptance bar unchanged (no site with eligible work > ~1h unserved while pins
+exist elsewhere — outage- and stuck-claim-discriminated).
