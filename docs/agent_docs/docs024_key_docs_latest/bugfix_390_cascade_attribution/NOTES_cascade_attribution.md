@@ -737,3 +737,28 @@ ceiling** (~23–25 pages at ~8 s/page under the ~185 s budget) at ~15:50Z; vonc
 until 416 is fixed or its 08-30 slot survives. Grading P4 on noted + loanzy + the three informal
 sites (38/6/0), with vonc's absence recorded as caused-by-416 — NOT silently swapped for a
 different site. Watch armed for both.
+
+## 2026-08-27 (y) — noted.co.uk graded (P4 named site 1 of 3): theme majority BY PAIRING; the footer chrome class dominates by row exactly as pre-identified
+
+noted ran at 15:04Z (12 pages, 2m-ish, no timeout — as predicted from its size). Accounting:
+`attributed 9 · unattributed 13 · unreachable 0 · unverified_by_probe 17 · dirty 0 · capped 0`,
+16 rows inserted (6 deduped).
+
+**By ROW: 13 unattributed vs 3 theme — by PAIRING: 3 theme vs 2 unattributed.** The 13
+unattributed rows are ONE pairing (`.footer-bottom P`, inherited colour, the §(n) class) on 12
+pages plus one `.contact-card A`. The three theme pairings carry exact requirements
+(`.highlight-item P` needs > (0,1,1); two `info-card-grid` pairings need > (0,2,0), all
+`strictly_greater`). Zero unreachable. Probe-blindness discriminators all zero — the unattributed
+share is the DESIGNED inheritance under-claim, identified and committed to NOTES §(n) on 08-26,
+BEFORE this audit ran, so reading it as a known class is not post-hoc.
+
+**P4 scoring note, honest version:** the headline prediction said theme "on the large majority".
+Per-pairing on noted that is 3/5 (60%) — a majority, not a large one, because chrome inheritance
+turns out to be a per-SITE constant (remortgage's footer inherits; garden-tools/cookly/oufe/
+vetcomparison paragraphs are directly ruled and ran 13/14, 5/5, 10/11, 1/1 theme). The
+disconfirming condition — unattributed dominating BECAUSE THE PROBE IS BLIND — did not occur
+anywhere (opaque/dirty/capped zero on every run). Full grading after loanzy (watch armed;
+also the 416 ceiling test at 25 pages).
+
+Informal tally also grew: oufe.com 14:05Z — 10 theme + 1 unattributed rows, repairs already
+draining post-fence.
