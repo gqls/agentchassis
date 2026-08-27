@@ -92,10 +92,20 @@ day — the chassis roll, the owner's trial, and the canary's first scores lande
 7. **(added 08-27) Rebuild + newTag-bump `cmd/brief-negation-check`** — the 414 lane's
    `spec_supplies_claim` detector (CLM-030, accepted into our binary after verification, NOTES
    08-27) is inert until then; tag-pinned overlay, the component-render-check landmine verbatim
-   (bump in the SAME commit, verify at the cronjob jsonpath + a run's pod exit code). Expect the
-   CQ-027 report's "N mandated" to RISE on its next run — detector change, not brief drift. Spec
-   content as an injection surface (a planted marker obeyed, then canonised by the audit fleet)
-   joins phase-2's brief-verdict questions.
+   (bump in the SAME commit, verify at the cronjob jsonpath + a run's pod exit code). NO urgency
+   (414 stripped both planted rows — the correct first-run result is ZERO findings). **First-run
+   check, theirs verbatim: the report's `N of M sites` must have M = the whole fleet AND per-site
+   `scanned_fields` NON-ZERO — that pair is the only thing distinguishing "nothing to find" from
+   "surface derivation returned empty"** (main() exits 2 on the vacuous shapes, so silent-empty
+   should be impossible). Honest positive case if wanted: the TWO historical rows (lendzy
+   content_direction 61ef7033 + strategy 96eaff0b — also the test fixtures), never a synthetic.
+   Expect the CQ-027 report's "N mandated" to RISE on its next run — detector change, not brief
+   drift. Spec content as an injection surface joins phase-2's brief-verdict questions, sharpened
+   by 414's two details: the plant arrived as a MANUAL spec row (`source='manual'` — an
+   agent-door guard would never see it), and the second hop was an agent PARAPHRASING it into a
+   different aspect ten days later — so exact-string or key-shaped defences are worthless and the
+   scanned surface must be the UNION across every agent's prompt (LANDMINES entry footprinted on
+   `site_specs`).
 
 ## ⚠ Traps, freshest first (full accounts: NOTES 08-26 tail, LANDMINES)
 
