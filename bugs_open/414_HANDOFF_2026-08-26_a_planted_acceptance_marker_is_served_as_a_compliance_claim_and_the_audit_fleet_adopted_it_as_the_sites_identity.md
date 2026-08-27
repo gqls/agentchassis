@@ -465,3 +465,54 @@ here because the reset had already moved the row out of `status='claimed'`.
 columns and serves it once. lendzy has **34** rows ahead of it in the dispatch order and no claimed
 rows excluding the site, so it is eligible. A watcher is armed that reports LLM health beside the
 phrase count, so a still-carrying result stays interpretable rather than merely disappointing.
+
+### 7m. THE COPY REPAIR IS COMPLETE AND VERIFIED (2026-08-27 ~14:0xZ). The bug stays OPEN, and §7n says exactly why
+
+**The planted claim is gone from lendzy.co.uk entirely.** Four independent checks, each of which could
+have come out otherwise:
+
+1. **DB, both columns, whole site:** `0` components carry the phrase in `content_data` **or**
+   `rendered_html` (was 3).
+2. **Served bodies:** `/about.html` **0** occurrences (was 2), the affordability guide **0** (was 1),
+   both HTTP 200 — with an **invented-URL control returning 404** so the 200s are real pages rather
+   than a catch-all, and a positive control (each page serves its own `<h1>`) so they are not error
+   stubs.
+3. **`cmd/claimscan` over the whole repaired site: 0 findings, 0 practice claims across 78
+   components.** This is the control that matters, because the same scan over the same site convicted
+   **3** earlier today — so this zero is a measured zero, not a blind one.
+4. Both work items `complete`; the guide's on its own run, the about page's on artefact evidence.
+
+**What the framework wrote for the guide** — better than the sentence it replaced, and worth quoting
+because the gate that would have vetted it is still inert, so a human is the only thing that has read
+it:
+
+> "Every figure and every rule reference on this site **is given** together with the named rule it
+> comes from and a pointer to where you can read that rule yourself, such as
+> fca.org.uk/handbook/CONC. **That does not make the checker infallible.** It means you can check the
+> rule behind every question it asks, **rather than take our word for it**."
+
+It replaces an unverifiable assertion of our diligence with a verifiable statement of what the site
+provides, keeps the honest disclaimer, and ends by explicitly *declining* to be taken on trust. The
+verb is "given", not "checked", so it does not trip the widened completeness pattern — confirmed by
+check 3 rather than by reading.
+
+### 7n. Why this stays OPEN
+
+**The defect this file reports is fixed and live. The machinery that stops it recurring is not.**
+`fc588e445` is committed and council-approved, but it is Go: the two completeness patterns, P6 and the
+spec-side detector are all **inert until a fleet roll**, and `cmd/brief-negation-check`'s image is
+tag-pinned besides. Until then a planted claim on the next site slips through exactly as it did here,
+so by the estate's bar — *fixed AND live* — this is not closeable. Three things are owed, in order:
+
+1. **After the next roll**, verify at the artefact using the recipe in §7j (prove the log window
+   reaches startup FIRST, then the stamp, then ancestry **with a descendant as a must-be-absent
+   control**; if the window has closed, a known-symbol probe with both arms — never `strings`, never a
+   discovery grep). Then re-run `claimscan` over the fleet corpus and expect the pre-existing
+   `webdesign.co.uk` finding and nothing new.
+2. **After `brief-negation-check` is rebuilt** (the `copy_quality_two_stage` lane folds it into their
+   next image cycle), read its first live run: it must report the **whole fleet** as `M` with a
+   **non-zero `scanned_fields`** count. A zero from a blind scan and a zero from a clean fleet are
+   identical in the report otherwise.
+3. **Then this file can move to `bugs_closed/`** — naming both paths on the `git commit`, and verifying
+   at `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 414` returns exactly one line,
+   because a pathspec commit on a `git mv` otherwise ships a copy.
