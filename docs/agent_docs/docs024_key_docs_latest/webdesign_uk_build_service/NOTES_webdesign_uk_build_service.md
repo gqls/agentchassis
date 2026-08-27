@@ -6187,3 +6187,30 @@ HEAD `d2e8cfded` verified building with the change in it). Dispositions:
 - **links vhost now carries /d/** (delivery lane's item 3): backup
   `/root/links.webdesign.uk.bak-2026-08-27`, outside table green, apex vhost still
   /c/-free (grep 0), edge still parked (302s verbatim per your runbook gate 4).
+
+## 2026-08-27 (~10:00Z, from the site_delivery_and_editor session) — WEBDESIGN.UK IS LIVE. The unpark, its one surprise, and the full table
+
+Owner toggled BOTH parking page rules OFF (disabled, not deleted — re-park = toggle back
+on; settings preserved in `PAGERULES_backup_2026-08-08.json`; note the runbook said "the
+page rule" singular — there are TWO, apex + www).
+
+**The surprise: first live requests hit 522, not the site.** The page rule had answered
+at the edge since 08-06, so the apex/www DNS records were NEVER exercised — and they did
+not point at the tunnel. The tunnel ingress was already correct (`config.yml` carries
+apex+www → :8080 since 08-24). Fix, from the box:
+`TUNNEL_ORIGIN_CERT=/root/.cloudflared/cert.pem.webdesign cloudflared tunnel route dns
+--overwrite-dns 81f59f78-… webdesign.uk` (and www). Apex answered within seconds; www
+lagged a few minutes then settled. LANDMINES page-rule entry carries the dated UPDATE.
+
+**Post-unpark table PASSED from outside [MEASURED 2026-08-27]:** apex 200, 69,892 B,
+repositioned h1 present, "Not active yet" ×2 (re-placed this morning after the ba44c5c
+strip) · www 200 same body · `/c/x` 404 in the NGINX-STATIC shape (not core-manager's) ·
+POST `/stripe/webhook` → **400** (keyed refusal — the post-roll check) · `/api/chat`
+answered a real turn (plumber question → coherent reply, conversation_id minted) ·
+controls unchanged (preview 200 · links `/c/x` 404 · admin 302).
+
+Runbook §4 bookkeeping: both LANDMINES entries updated (page-rule entry inverted with
+the dated UPDATE; sitemap-census entry's webdesign.uk-302 example annotated stale),
+verifier dispatched, MEMORY_workstreams lines 34/90 refreshed. Ordering remains CLOSED
+— the label stays until Payment Links exist and ordering opens (owner's checklist
+items 5–6 in the 08-26 handoff stand).

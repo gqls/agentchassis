@@ -2183,3 +2183,18 @@ refund decision is also recorded and designed: refunds stay off the site entirel
 when Stripe arrives the platform will notice a refund you make and quietly unwind the
 delivery on its own. What remains: you remove the parking redirect when you are ready,
 and I check everything from the outside within minutes.
+
+## 2026-08-27 — the site is live
+
+You switched off the two parking redirects late morning and webdesign.uk now serves the
+real site at both addresses. There was one wobble on the way: the first visitors got a
+"connection timed out" error page, because the domain's address records had never
+actually pointed at the server — the parking redirect had been answering before anything
+reached it, so nobody had ever noticed. That was fixed from the server itself within
+minutes, and the www address followed a few minutes after the main one.
+
+Everything was then checked from the internet: both addresses serve the right page with
+the "Not active yet" notice showing (twice, as intended — ordering is still closed), the
+payment webhook answers correctly, the chat answers a real question, and none of the
+neighbouring services (preview, the customer-links address, the admin console) changed.
+To take the site down again: same place in Cloudflare, flip the two switches back on.

@@ -1407,3 +1407,12 @@ Served page verified untouched: Lovable still present ×2 [MEASURED 2026-08-27].
 Compiler are DELIBERATE (owner ruling 2026-08-27)** — do not file removal on sight of
 them; the direction of travel is MORE third-party positioning, not less. (Gotcha logged:
 `retry_feedback` is jsonb — a bare string errors; wrap with jsonb_build_object.)
+
+## 2026-08-27 (~10:00Z) — the shopfront UNPARKED and verified; this lane's launch gate is now open
+
+webdesign.uk went LIVE (owner toggled both page rules off; full account + the 522/DNS
+trap in the webdesign lane's NOTES 08-27 and the LANDMINES page-rule entry's dated
+UPDATE). For THIS lane that closes "delivery waits on the shopfront launch": what stands
+between us and the first real delivery is now only the owner's quiet-moment fleet deploy
+(carries DELIVERY_SMTP_PASS — secret exists since this morning) and THE REHEARSAL.
+Safety counters re-read before the unpark: 0|0|0.

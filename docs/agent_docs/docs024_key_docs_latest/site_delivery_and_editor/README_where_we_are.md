@@ -276,3 +276,11 @@ ran, and the page never changed: the v0 and Lovable mentions are still there, ve
 on the live preview. Your reasoning (we're a different service, and may positively
 recommend such tools when we don't suit) is recorded so no future session "tidies"
 those references away.
+
+## 2026-08-27 — the shopfront is live, and delivery's turn is next
+
+The site went live late morning (details in the webdesign lane's log — including the
+one wobble, a timed-out first minute caused by address records that had never been
+exercised). For this lane it means the last external thing delivery was waiting on has
+happened. What's left: your quiet-moment deployment to carry the mail password onto the
+pods, then the rehearsal.
