@@ -979,3 +979,16 @@ floors against the 09:00Z and 13:11Z baselines — acceptance bar per 413 §"How
 stuck-claim discriminators, and during the LLM outage (still 100% fail at 13:19Z) on
 loops-per-starving-site rather than drain. They spot-check the first ~10 fires. Bug 413 stays
 OPEN until measured.
+
+## 2026-08-27 ~13:3xZ — 657 APPLIED (13:18:19Z, VERIFY green, K=8) + the 396 CONTRIB adopted (413 session)
+
+Applied on the lane's all-clear; stamp confirmed at the artefact from both sessions
+(md5 d2980731 by version DESC). Full apply record + acceptance context in 413's apply
+section; lane takes the +2h/+6h floors. **The deferred_work_item_park CONTRIB (guard
+presence-tests cannot see a precedence break) is ADOPTED**: 657's FOREACH literals now pin
+the four OR-bearing fragments WITH their wrapping parens (their measured case: paren drop =
+1,104 → 15,683 admitted rows, no clause "dropped"). Their honest caveat kept verbatim in the
+guard comment — a substring cannot prove parens BALANCE; the leading '(' catches the
+realistic edit, and the VERIFY's md5 arm pins the live text byte-exactly. The live row is
+unaffected (already applied; replay refused by md5); this hardens the file-as-template for
+the next migration author who copies the guard shape.

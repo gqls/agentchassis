@@ -197,14 +197,20 @@ BEGIN
     IF position('ORDER BY e.priority ASC, e.created_at ASC' in v_q) = 0 THEN
         RAISE EXCEPTION '657 GUARD: the window does not mirror the loader ordering (priority ASC, created_at ASC)';
     END IF;
-    -- No eligibility clause may be lost — each widens dispatch if dropped.
+    -- No eligibility clause may be lost — each widens dispatch if dropped. The four
+    -- OR-bearing fragments are pinned WITH their wrapping parens (hardened 2026-08-27,
+    -- from the deferred_work_item_park lane's CONTRIB): AND binds tighter than OR, so a
+    -- paren drop widens dispatch WITHOUT dropping anything — measured 1,104 -> 15,683
+    -- admitted rows on fragment 1 — and a bare-presence test cannot see it. A substring
+    -- still cannot prove the parens BALANCE; the leading '(' catches the realistic edit
+    -- (wholesale drop), and the VERIFY's md5 arm pins the live text byte-exactly.
     FOREACH v_frag IN ARRAY ARRAY[
-        's.locked_at IS NULL OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[]))',
+        '(s.locked_at IS NULL OR wi.id = ANY(COALESCE(s.lock_except_item_ids, ARRAY[]::uuid[])))',
         'wi.status IN (''triaged'', ''approved'')',
         'wi.attempt_count < wi.max_attempts',
-        'wi.retry_after IS NULL OR wi.retry_after <= NOW()',
-        'COALESCE(wi.approval_mode, ''auto'') = ''auto'' OR wi.status = ''approved''',
-        'wi.depends_on IS NULL OR NOT EXISTS',
+        '(wi.retry_after IS NULL OR wi.retry_after <= NOW())',
+        '(COALESCE(wi.approval_mode, ''auto'') = ''auto'' OR wi.status = ''approved'')',
+        '(wi.depends_on IS NULL OR NOT EXISTS',
         'active.status = ''claimed'''
     ] LOOP
         IF position(v_frag in v_q) = 0 THEN
