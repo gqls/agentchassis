@@ -29,11 +29,20 @@ customer-facing has happened: tokens 0, handovers 0 (last read ~10:00Z).
    `NOT-YET` on fresh pods = secret missing or env gone (check both); on OLD pods
    (age > ~1 day) = the deploy never ran — ask the owner, do NOT one-service apply
    (whole-fleet rule stands).
+   > ✅ **DONE 2026-08-27 afternoon (same session, after the usage-limit pause): the
+   > deploy LANDED.** Fresh chassis generation (pod `7df947c88b-*`) carries the FULL
+   > `DELIVERY_SMTP_*` set including PASS (verified by presence + length only — the
+   > value was never read). **Email is fully armed.**
 2. **Post-roll checks** (first release since the Stripe terraform fix `0cdc9e2d9`):
    `curl -sS -o /dev/null -w '%{http_code}' -X POST https://webdesign.uk/stripe/webhook -d x=y`
    → **400** (keyed). A **503** means the roll wiped the keys again and the terraform
    fix did not hold — that outranks everything else that day. Also the listener triple
    (recipes §3 of the 08-26 handoff) and stamps per service if anything looks stale.
+   > ✅ **DONE 2026-08-27 afternoon: webhook → 400 — THE TERRAFORM FIX HELD through its
+   > first release.** Listener routes re-verified outside post-roll (/c/ 200 · /d/ 200
+   > "no longer active" · /other 404 · apex 200). Label still ×2. Counters 0|0.
+   > **Monday's pickup is therefore ONLY §1.3's label re-check (days will have passed)
+   > and §1.4 THE REHEARSAL.**
 3. **Re-check the "Not active yet" label** — several days will have passed and the
    design rotation rerenders index unprompted (it stripped the label 08-26 evening;
    re-placed 08-27 morning, vm-sites `b72c608`):

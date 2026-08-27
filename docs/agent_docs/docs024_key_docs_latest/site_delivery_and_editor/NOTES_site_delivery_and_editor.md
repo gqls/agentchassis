@@ -1416,3 +1416,21 @@ UPDATE). For THIS lane that closes "delivery waits on the shopfront launch": wha
 between us and the first real delivery is now only the owner's quiet-moment fleet deploy
 (carries DELIVERY_SMTP_PASS — secret exists since this morning) and THE REHEARSAL.
 Safety counters re-read before the unpark: 0|0|0.
+
+## 2026-08-27 (afternoon) — the owner's deploy LANDED: email fully armed; terraform Stripe fix PROVEN on its first release
+
+All [MEASURED 2026-08-27 afternoon], post-deploy (fresh chassis generation `7df947c88b-*`,
+~2.5h old at check):
+- **`DELIVERY_SMTP_*` COMPLETE on pods including PASS** (presence + byte-length only —
+  the value was never read into the session, per the 08-23 owner rule). Every
+  prerequisite of the first delivery email is now live.
+- **Stripe webhook → 400 keyed** — the first whole-fleet release since `0cdc9e2d9`
+  did NOT wipe the keys: the required-terraform-variable fix held. (This was the
+  post-roll check the 08-26 revert made mandatory.)
+- Listener routes re-verified from outside post-roll: `/c/<43>` 200 · `/d/<43>` 200
+  uniform page · `/other` 404 · apex 200 · label ×2 · counters 0|0.
+- Fleet healthy (one transient ContainerCreating research-agent spawn, seconds old).
+
+**Monday's pickup = label re-check + THE REHEARSAL, nothing else.** Site ruled
+remortgagecalculator.uk; email destination info@designconsultancy.co.uk (unobjected
+proposal — confirm in passing).
