@@ -1,0 +1,23 @@
+{
+  "rationale": "Flip the 018 critic's vision call from Gemini to the 317-proven anthropic/claude-sonnet-5 config (migration 662, applied+recorded, snapshot_agent taken first). This executes the owner's recorded model-trial decision ('try Gemini as the design model and see if it works better; revisit specialist alternatives later if not') on evidence rather than preference: Gemini produced ONE good report (2026-08-26, the 16 before-captures) and then failed REPRODUCIBLY — 400 INVALID_ARGUMENT 'Unable to process input image' on two consecutive runs (items 0eff246f, a21e0c3e, 2026-08-27) after the hero batch made the full-page captures taller. The pipeline has no image downscaling anywhere (the approved plan's cost-envelope section warned exactly this); Anthropic's API resizes oversized images server-side, Gemini's rejects them, so the fallback restores function without new Go. The Gemini datum is preserved (RUNNING_NOTES 2026-08-27 + SQ-003) so the trial verdict stays honest; rollback is the snapshot or the inverse jsonb_set in the file's footer. The underlying capture-size limitation is recorded as 018 follow-up work (downscaling in execute_vision_prompt), deliberately not folded into this config flip.",
+  "plan": {
+    "summary": "One migration, 662: jsonb_set the critique step's ai_service from gemini/gemini-pro-latest to anthropic/claude-sonnet-5 (same shape as seed 317's proven vision step), snapshot first, DO/RAISE guard asserting the post-state.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/662_design_critique_vision_falls_back_to_claude.sql",
+        "symbol": "design-critique-agent workflow.steps.critique.config.ai_service",
+        "operation": "config_change",
+        "rationale": "Gemini rejects the post-hero full-page captures 400 INVALID_ARGUMENT, reproducibly; Claude's vision path handled identical-shape captures 41 times via tool-acceptance-agent.",
+        "sketch": "SELECT snapshot_agent('design-critique-agent', '662_...: pre-update'); UPDATE agent_definitions SET default_config = jsonb_set(default_config, '{workflow,steps,critique,config,ai_service}', '{\"provider\":\"anthropic\",\"model\":\"claude-sonnet-5\",\"api_key_env_var\":\"ANTHROPIC_API_KEY\",\"max_tokens\":6000}') WHERE type='design-critique-agent' AND is_active AND NOT snapshot AND deleted_at IS NULL; DO $$ ... RAISE unless provider/model read back anthropic/claude-sonnet-5 ... $$;"
+      }
+    ],
+    "grounded_in": [
+      "Pod agent-design-critique-agent-293867dd-sqbbn error line: execute_vision_prompt: vision call failed: API request failed with status 400 for model \"gemini-pro-latest\": 'Unable to process input image' — and the identical error on the retry run's pod (two runs, same 400, different pods).",
+      "The SAME workflow produced a full, good Gemini report on 2026-08-26 (doc_notes design-report, 16 images) — so the regression tracks the CAPTURES (taller pages after the hero batch), not the seat's config shape.",
+      "Approved plan Part B cost envelope: 'Full-page PNGs are base64'd whole with no downscaling anywhere in the codebase.'",
+      "seed 317 (tool-acceptance-agent 'look'): the anthropic/claude-sonnet-5 vision config this migration copies has 41 production runs over the same adapter's captures.",
+      "Owner decision (vigilant PLAN_2026-08-02 Phase 2): 'trial both models' — Gemini first, 'revisit if not'."
+    ],
+    "risks": "Scope is one step's ai_service on one manual-only agent; nothing else reads it. The trial's honesty depends on recording the Gemini failure rather than erasing it — done in SQ-003 and the lane notes. Cost: Claude vision tokens instead of Gemini's for this agent's manual runs (~16 images/run, run frequency = manual only). If the owner prefers Gemini long-term, the right fix is downscaling in execute_vision_prompt (018 follow-up), after which the rollback in the file's footer restores Gemini in one statement."
+  }
+}
