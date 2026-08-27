@@ -6214,3 +6214,27 @@ the dated UPDATE; sitemap-census entry's webdesign.uk-302 example annotated stal
 verifier dispatched, MEMORY_workstreams lines 34/90 refreshed. Ordering remains CLOSED
 — the label stays until Payment Links exist and ordering opens (owner's checklist
 items 5–6 in the 08-26 handoff stand).
+
+## 2026-08-27 (afternoon, from the site_delivery_and_editor session) — launch-day chat bug: gate 1 counted MESSAGES while its design said STARTS; fixed, mutation-proven, released as 160546543
+
+The owner's first real intake conversation (5 good turns, the bot's scope-boundary
+reply excellent) died at its next message with a 429 the page renders as "Something
+went wrong". Chain: access.log showed 200,200,200,200 then 429 (13:57:06); nginx's
+limit_req was innocent (503 + error.log, neither present); the 429 was `handleChat`
+gate 1 — **the per-IP limiter ran on EVERY message although ratelimit.go's own comment
+says it "bounds new-conversation starts"**. Compounding: this workstation's
+verification curls share the owner's public IP, so probes burned his 5/hour too.
+
+**Fix (commit `160546543`, box-released + provenance-verified at the running
+service):** gate 1 fires only when the conversation ID has no existing state — a
+continuation is bounded by the turn cap (20) and the daily ceiling ($10) instead. A
+self-minted ID still counts as a start, and a BLOCKED start allocates nothing (new
+read-only `Store.GetConversation`), so strangers cannot grow the store. Two tests,
+both mutation-proven (re-gate-every-message and gate-only-empty-ids each fail their
+test). **Live proof from outside: one conversation, SEVEN consecutive messages, all
+200** — the exact failing shape.
+
+Operator notes: the 5/hour / 15/day per-IP bands now bound separate NEW chats only —
+heavy testing that OPENS many conversations still trips them (restart the service to
+clear, counters are in-memory); one long conversation never does. At turn 21 the bot
+answers with the contact line gracefully (a reply, not an error).
