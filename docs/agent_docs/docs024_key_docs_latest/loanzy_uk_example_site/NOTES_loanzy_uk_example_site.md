@@ -2108,3 +2108,27 @@ absent is tool-acceptance-tier4, which bypasses write_audit_findings by design �
 confirms §4b's boundary. Probe cancelled per recipe. 405 → bugs_closed (both paths on the commit;
 verified one line at HEAD). Remaining from FOLLOW-UP 4: the retraction's slow behavioural proof and
 376 §11e on farmer's draws.
+
+**2026-08-27 ~04:0xZ — farmer's first night, the CORRECTED reading, and a misstep of mine that
+reached the owner.** My in-thread claim "the classifier never filed vertical research — hop two was
+bypassed" was FALSE: `needs_vertical_research` exists (filed 23:06:13, `triaged`, queued behind the
+fleet like every hop). I had read 24 of **N=57** rows (a head window and a tail window, never the
+middle) and narrated the gap — the 391 lane's "correct instrument read partially", committed by me
+within hours of writing their lesson into this file. What caught it: the classifier's step graph
+(every path ends at `create_next_item`) refused the story, and the count-N-first check did the rest.
+The correction led the next owner report. **The REAL findings, all verified:**
+1. **The classifier's regulated-business rule fired on its own**: farmerinsurance.uk → FSMA
+   territory → "cannot act as distributor/broker/introducer" → category `hub`. The FCA edge the
+   owner chose knowingly was met by the machinery's own control.
+2. **The council's first newborn audit is the design working end-to-end**: 4 `prerequisite_missing`
+   verdicts at 22:39 (minutes after birth), 28 record rows total incl. site-review's "No FCA
+   authorisation reference" — ALL held at `deferred`, zero dispatched. The loop looked at an empty
+   site and did not try to build it out of opinions.
+3. **Route ordering intact for content**: 0 pages exist; content waits on research→strategy→plan.
+   Hop two (the 618 floor's first natural draw) still pending in the queue — watch re-armed.
+4. **The growth path raced ahead, second worked case in 24h**: design-discovery scaffolded
+   composition/stylesheet (order-safe) but `evaluate_tools` → tool-suggester filed **7 add_tool
+   rows at `triaged`** (rebuild-cost estimator, livestock valuer, FOS complaint checker…) — unresearched
+   insurance tools queued to build ahead of the site's own strategy, on the vertical the classifier
+   itself flagged as regulated. FOLLOW-UP 1's shape exactly (no ruling read, no refusal knob);
+   apis.uk's park recipe applies if the owner wants them held. NOT touched — the canary measures.
