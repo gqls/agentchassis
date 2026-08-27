@@ -76,7 +76,17 @@ const (
 // tagline into "the homepage hero, services page hero, site footer, and meta
 // descriptions" — that is the strongest evidence a brief can carry, so it is
 // ranked highest and said plainly in the finding.
-var mandateRe = regexp.MustCompile(`(?i)\b(must appear|must be used|always use|should appear|use this (?:exact|canonical)|canonical tagline|verbatim|every page)\b`)
+var mandateRe = regexp.MustCompile(
+	// "include/use/carry the exact phrase" added 2026-08-27 (bugs_open/414):
+	// it is the verb the planted acceptance marker actually used, and none of
+	// the forms below matched it. The instruction read, verbatim, "Somewhere in
+	// the site's written copy include the exact phrase: …" — a mandate by any
+	// reading, invisible to a list built from the mandates seen so far. That is
+	// the whole lesson: this regex is a record of observed phrasings, not a
+	// theory of them, so it grows when a new one is observed and the commit says
+	// which one.
+	`(?i)\b(must appear|must be used|always use|should appear|use this (?:exact|canonical)|` +
+		`canonical tagline|verbatim|every page|(?:include|use|carry) the exact phrase)\b`)
 
 // quotedRe finds spans a brief has put in quotes — the shape of a handover.
 //
@@ -682,8 +692,53 @@ func main() {
 		os.Exit(2)
 	}
 
+	// ---------------------------------------------------------------------
+	// The SECOND detector's surface and census (bugs_open/414, specclaims.go).
+	// Independent of the first on purpose: the negation detector's surface stays
+	// writer-only, because silently widening it would change what every open
+	// brief_supplies_negation item means.
+	// ---------------------------------------------------------------------
+	if datahelpers.PracticeClaimCount() == 0 || datahelpers.GlobalBannedClaimCount() == 0 {
+		fmt.Fprintln(os.Stderr, "REFUSING: a claims family compiled to zero patterns. A silently empty "+
+			"family and a working one are indistinguishable from the report, and this one would call "+
+			"every spec in the fleet clean while reading nothing.")
+		os.Exit(2)
+	}
+	agentsRaw, err := queryOne(db, allAgentsConfigSQL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "REFUSING: could not read the fleet agent configs: %v\n", err)
+		os.Exit(2)
+	}
+	fleet, fleetAspects, err := fleetSurface(agentsRaw)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "REFUSING: %v\n", err)
+		os.Exit(2)
+	}
+	if len(fleetAspects) == 0 {
+		fmt.Fprintln(os.Stderr, "REFUSING: no live agent prompt references site_specs at all — that is a "+
+			"broken read, not a fleet with no briefs. A zero here would report every spec as clean.")
+		os.Exit(2)
+	}
+	fleetRaw, err := queryOne(db, censusSQL(fleetAspects))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "REFUSING: fleet-surface census failed: %v\n", err)
+		os.Exit(2)
+	}
+	var fleetRows []siteSpecs
+	if err := json.Unmarshal([]byte(fleetRaw), &fleetRows); err != nil {
+		fmt.Fprintf(os.Stderr, "REFUSING: fleet-surface census would not decode: %v\n", err)
+		os.Exit(2)
+	}
+	if len(fleetRows) == 0 {
+		fmt.Fprintln(os.Stderr, "REFUSING: the fleet-surface census returned no rows — a broken read, "+
+			"not a clean result")
+		os.Exit(2)
+	}
+	specClaims := assessSpecClaims(fleetRows, fleet)
+
 	assessments := assess(rows, surface)
 	var filed, closed []string
+	var specFiled, specClosed []string
 	if !*dryRun && db != nil {
 		for _, a := range assessments {
 			if !a.Finding() {
@@ -703,18 +758,48 @@ func main() {
 			fmt.Fprintf(os.Stderr, "REFUSING: close-out failed: %v\n", err)
 			os.Exit(2)
 		}
+		for _, a := range specClaims {
+			if !a.Finding() {
+				continue
+			}
+			created, err := fileSpecClaimFinding(db, a)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "REFUSING: could not file spec claim for %s: %v\n", a.Domain, err)
+				os.Exit(2)
+			}
+			if created {
+				specFiled = append(specFiled, a.Domain)
+			}
+		}
+		specClosed, err = closeAnsweredSpecClaims(db, specClaims)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "REFUSING: spec-claim close-out failed: %v\n", err)
+			os.Exit(2)
+		}
 	}
 
-	report := render(assessments, surface, filed, closed, *dryRun, db == nil)
+	report := render(assessments, surface, filed, closed, *dryRun, db == nil) +
+		renderSpecClaims(specClaims, fleetAspects, specFiled, specClosed)
 	fmt.Print(report)
 	if *emitJSON {
-		b, _ := json.MarshalIndent(assessments, "", "  ")
+		b, _ := json.MarshalIndent(map[string]interface{}{
+			"brief_supplies_negation": assessments,
+			"spec_supplies_claim":     specClaims,
+		}, "", "  ")
 		fmt.Println(string(b))
 	}
 	if !*dryRun && db != nil {
 		writeDocNote(db, report)
 	}
+	// Exit 1 if EITHER detector found something: one binary, one exit code, and
+	// a caller that greps for "clean" must not be told clean because the other
+	// half was quiet.
 	for _, a := range assessments {
+		if a.Finding() {
+			os.Exit(1)
+		}
+	}
+	for _, a := range specClaims {
 		if a.Finding() {
 			os.Exit(1)
 		}

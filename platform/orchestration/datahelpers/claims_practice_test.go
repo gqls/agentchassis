@@ -40,6 +40,16 @@ var practiceMustCatch = []string{
 	"We are sent review units",
 	"We record the measurements in a shared log",
 	"Suppliers regularly send us test units",
+	// P6, the documentary-diligence conjunction (bugs_open/414). The first is
+	// the served lendzy.co.uk sentence VERBATIM — a bare participle with no
+	// subject, which is why P6 is not first-person anchored.
+	"We explain what the FCA rulebook says a lender can and cannot do, checked against the FCA handbook, rule by rule, so you can hold your lender to it",
+	"Our guides are checked against the FCA handbook, rule by rule",
+	// Family generality: a different verb, rulebook and unit each time.
+	"We verify our guidance against the Consumer Credit sourcebook, clause by clause",
+	"Each page is audited against the regulations, section by section",
+	// Order B — the idiom leads and the checking follows.
+	"Rule by rule, our guides are cross-checked against the handbook",
 }
 
 // The grammar of a legitimate operating site, honest disclosures, negations,
@@ -66,6 +76,22 @@ var practiceMustAllow = []string{
 	"How do you test the tools you feature?",
 	"Every figure here comes from a manufacturer's stated specification",
 	"We describe the steel, the handle material, and the grading standard",
+	// bugs_open/414 — each of these is why a fragment of P6 is shaped as it is.
+	// The live imperative on the motivating site itself: verb + against +
+	// rulebook, addressed to the READER, with no exhaustive idiom.
+	"Check your loan against the FCA rules",
+	// The exhaustive idiom on its own is ordinary guide copy — 22 components in
+	// the live corpus carry one (2026-08-27).
+	"Work through your agreement line by line before you sign",
+	"We walk you through the affordability rules, step by step",
+	// `step` and `register` are deliberately outside P6's lists. The second
+	// sentence is a live ATTESTED FACT on leopardessconsulting.co.uk.
+	"Records verified against the Companies House register, entry by entry",
+	// Negated and hedged forms of P6 itself.
+	"Our guides have not been checked against the FCA handbook, rule by rule",
+	"If we check a guide against the handbook, rule by rule, we say so",
+	// Describing what we do, without claiming it was done exhaustively.
+	"We name the rule beside every figure and link to the handbook so you can read it",
 }
 
 // A family that silently compiles to nothing looks exactly like one that works.
@@ -254,5 +280,64 @@ func TestOperatingHistoryExemptionDoesNotWidenToRegulatedOrGlobal(t *testing.T) 
 	eb := &EvidenceBase{OperatingHistory: completeOperatingHistory()}
 	if got := ScanAllBannedClaims([]string{"We are authorised and regulated by the Financial Conduct Authority."}, eb); len(got) == 0 {
 		t.Errorf("an operating-history attestation must not exempt the regulated family")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// bugs_open/414 — P6's coupling and its two known residuals, each pinned by a
+// test so it is a decision on the record and not a surprise to the next reader.
+// ---------------------------------------------------------------------------
+
+// THE COUPLING. An operating_history attestation exempts the WHOLE family, so a
+// site attesting that it really does test products also switches off the
+// documentary-diligence pattern, which is about a different kind of work.
+// [MEASURED 2026-08-27: 0 sites in the estate carry either attestation, so this
+// is unexercised today.] This test asserts the coupling EXISTS rather than
+// pretending it does not: if it ever needs breaking, the fix is a separate
+// family with its own attestation (claims_regulated.go is the shape), and this
+// test is what will fail and say so.
+func TestPracticeDiligenceHonoursTheAttestation(t *testing.T) {
+	const s = "Our guides are checked against the FCA handbook, rule by rule"
+
+	if f := practiceScan(t, &EvidenceBase{}, s); len(f) != 1 {
+		t.Fatalf("unattested site: expected 1 diligence finding, got %d (%+v)", len(f), f)
+	}
+	attested := &EvidenceBase{OperatingHistory: completeOperatingHistory()}
+	if f := practiceScan(t, attested, s); len(f) != 0 {
+		t.Errorf("attested site: the whole family is exempt, so P6 must be silent too; got %+v", f)
+	}
+}
+
+// RESIDUAL 1 — a THIRD-PARTY subject. P6 has no subject anchor (see the header),
+// so a sentence about someone else's checking matches. Reported, not hidden:
+// at WARNING severity the cost is a line in a report an operator reads, which is
+// why this family is not in the refusing union. [MEASURED 2026-08-27: zero live
+// components carry this shape.]
+//
+// RESIDUAL 2 — the CORRECTING DISCLOSURE. negationCueRe (claims.go) carries no
+// bare "no"/"nothing"/"without" cue, so "Nothing here has been checked…" reads
+// as un-negated. Adding those cues would change a guard SHARED by every claims
+// family — a guarantee change, i.e. architecture-scope — so it is recorded here
+// rather than fixed in passing.
+func TestPracticeDiligenceKnownResiduals(t *testing.T) {
+	residuals := []string{
+		"The FCA checks firms against the handbook, rule by rule",
+		"Nothing here has been checked against the FCA handbook, rule by rule",
+	}
+	for _, s := range residuals {
+		if f := practiceScan(t, &EvidenceBase{}, s); len(f) == 0 {
+			t.Errorf("residual no longer fires — if that was deliberate, delete it from this "+
+				"list and say so in the header: %q", s)
+		}
+	}
+}
+
+// One sentence must yield ONE finding, not one per word order: P6 is a single
+// entry with an internal alternation, and findings are keyed by pattern.
+func TestPracticeDiligenceReportsOncePerSentence(t *testing.T) {
+	f := practiceScan(t, &EvidenceBase{},
+		"Rule by rule, our guides are checked against the FCA handbook, rule by rule")
+	if len(f) != 1 {
+		t.Fatalf("expected exactly 1 finding for one sentence, got %d (%+v)", len(f), f)
 	}
 }

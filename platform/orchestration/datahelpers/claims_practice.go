@@ -74,6 +74,60 @@
 // ONLY this attestation non-nil (same reasoning as Regulated), and
 // HasScannableRegister keeps such a base from arming the unregistered-number
 // scan at error severity — the latent hazard the Regulated widening carried.
+//
+// ---------------------------------------------------------------------------
+// P6 — DOCUMENTARY diligence, added 2026-08-27 (bugs_open/414), and it breaks
+// two of this family's own rules on purpose. Both departures are stated here
+// because a reader who takes the rules above at face value will think P6 is a
+// mistake.
+//
+// DEPARTURE 1: IT IS NOT FIRST-PERSON. Every pattern above requires "we" or
+// "our team" and the header calls that design. P6 cannot, because the sentence
+// that filed the bug has no subject at all:
+//
+//	"We explain what the FCA rulebook says a lender can and cannot do,
+//	 checked against the FCA handbook, rule by rule, so you can hold your
+//	 lender to it."                              (lendzy.co.uk /about.html)
+//
+// A first-person anchor would have been INERT on the motivating case — the
+// same failure the fleet-wide set records when it narrowed a pattern by
+// reasoning about a hypothetical false positive and measured 0 findings where
+// the bare form found 2 real overclaims. What replaces the subject anchor is a
+// four-part conjunction (verb + "against" + a named rulebook + an exhaustive
+// "unit by unit" idiom), which is measured, not argued: see the constant's own
+// comment for the 22 / 13 / 3-of-2,405 calibration.
+//
+// DEPARTURE 2: IT IS DOCUMENTARY, NOT PHYSICAL. "Checked against a handbook" is
+// not weighing, buying or dismantling anything. It sits in this family because
+// the family's real subject is *claims about us that no register can
+// adjudicate* — the evidence base holds facts about the WORLD, and "we did this
+// checking" is not one of them. That is the sentence in the header above, and it
+// covers reading as well as testing.
+//
+// KNOWN COUPLING, and the reason it is written down rather than fixed: an
+// `operating_history` attestation exempts the WHOLE family, so a site attesting
+// that it really does test products would also switch off P6, which is about a
+// different kind of work. [MEASURED 2026-08-27: **0** sites in the estate carry
+// an operating_history attestation and 0 carry a regulated one, so the coupling
+// is unexercised today.] TestPracticeDiligenceHonoursTheAttestation pins the
+// behaviour so it is a decision on the record rather than a surprise. If a
+// client ever needs one attestation without the other, the fix is a separate
+// family with its own attestation, exactly as claims_regulated.go is separate
+// from this file — cheap to do then, unfalsifiable to maintain now.
+//
+// WHY NOT THE REFUSING SET, where a completeness claim like "Everything on this
+// site is checked" correctly lives (claims_global.go): "we check your policies
+// against the FCA handbook, clause by clause" is a SERVICE a compliance
+// consultancy really sells, so the fleet-wide bar — false-by-construction for
+// every site we will ever run — is not met. And there is a sentence that settles
+// it: the negation guard has no bare "no"/"nothing" cue, so
+//
+//	"Nothing here has been checked against the FCA handbook, rule by rule"
+//
+// — a correcting disclosure, close to what an honest repair might write — reads
+// as un-negated. At blocker severity this layer would refuse the very sentence
+// it exists to encourage. At warning it reports it, an operator reads it, and
+// nothing breaks. Owner decision, 2026-08-27.
 
 package datahelpers
 
@@ -145,8 +199,60 @@ func practiceClaims() []BannedClaim {
 			Pattern: `\b(?:manufacturers|brands|suppliers|retailers|makers)\s+(?:do\s+)?(?:occasionally\s+|sometimes\s+|often\s+|regularly\s+|also\s+)?(?:send|sends|sent|provide|provides|provided|supply|supplies|supplied|lend|lends|lent)\s+us\b`,
 			Reason:  reason,
 		},
+		{ // P6: DOCUMENTARY diligence — our copy was checked against a named
+			// rulebook, exhaustively. See the header's P6 section for why this
+			// pattern is not first-person and why the conjunction is the anchor.
+			Pattern: diligenceAgainstRulebookPattern,
+			Reason: "diligence overclaim: asserts this site's content was checked against a named " +
+				"rulebook exhaustively, unit by unit. Nothing in this system performs such a check, " +
+				"and no reader can verify that it happened. Say what the site DOES instead — name the " +
+				"rule beside the figure and link it. If a person really did commission such a review, " +
+				"record an operating_history attestation (who attested, when, what evidence) in the " +
+				"site's evidence_base and this stops being reported. bugs_open/414.",
+		},
 	}
 }
+
+// diligenceAgainstRulebookPattern is P6, composed from named fragments because
+// the whole thing on one line is unreadable and unreviewable. ONE alternation of
+// the two word orders, not two entries: one sentence must yield one finding.
+//
+// THE CONJUNCTION IS THE PRECISION CONTROL, and it is the whole design. Measured
+// over the complete live corpus (2,405 components with rendered_html and
+// locked_at IS NULL, 2026-08-27) each half alone is unshippable:
+//
+//	exhaustive idiom alone ............. 22 components (legitimate guide copy:
+//	                                     "work through it line by line")
+//	verb + against + rulebook alone .... 13 components (legitimate imperative,
+//	                                     live on the motivating site itself:
+//	                                     "Check your loan against the FCA rules")
+//	BOTH, same component ...............  3 components — the three planted ones,
+//	                                     0 on the other 2,402
+//
+// RE2 HAS NO BACKREFERENCE, so "rule by clause" matches as readily as "rule by
+// rule". That is accepted rather than worked around: any cross-pair of these
+// units inside this conjunction is the same overclaim, and there is no RE2 form
+// that says "the same word twice".
+//
+// TWO UNITS ARE DELIBERATELY ABSENT and their absence is pinned by tests.
+// `step` — "step by step" is the commonest legitimate idiom in a how-to guide.
+// `register` is absent from the RULEBOOK list for the same reason: "records
+// verified against the Companies House register" is a live ATTESTED FACT on
+// leopardessconsulting.co.uk, i.e. exactly the true, evidence-backed sentence
+// this layer must never touch.
+const (
+	diligenceVerb = `(?:check\w*|verif\w*|audit\w*|validat\w*|cross.?check\w*|review\w*)`
+	diligenceBook = `\b(?:handbook|rule.?book|sourcebook|the rules|regulations?|guidance|legislation|statutes?)\b`
+	diligenceUnit = `(?:rule|line|section|clause|guide|page|point|word|entry|item|case|claim|figure)`
+
+	diligenceIdiom   = `\b` + diligenceUnit + `\s+by\s+` + diligenceUnit + `\b`
+	diligenceChecked = diligenceVerb + `[^.]{0,60}\bagainst\b[^.]{0,60}` + diligenceBook
+
+	// Order A: "…checked against the FCA handbook, rule by rule".
+	// Order B: "Rule by rule, our guides are audited against the regulations."
+	diligenceAgainstRulebookPattern = diligenceChecked + `[^.]{0,60}` + diligenceIdiom +
+		`|` + diligenceIdiom + `[^.]{0,60}` + diligenceChecked
+)
 
 var (
 	practiceEvidenceOnce sync.Once
@@ -179,7 +285,25 @@ func PracticeClaimCount() int { return len(practiceEvidence().BannedClaims) }
 // practiceHedgeRe matches a conditional that turns a practice statement into a
 // hypothetical: "if we test a tool, we say how". Applied to the ≤24 bytes
 // preceding a match (RE2 has no lookbehind, so the scan filters after matching).
-var practiceHedgeRe = regexp.MustCompile(`(?i)\b(?:if|when|whenever|before|once|should|unless|until)\s+$`)
+var practiceHedgeRe = regexp.MustCompile(
+	`(?i)\b(?:if|when|whenever|before|once|should|unless|until)\s+` +
+		// OPTIONAL INTERVENING SUBJECT, added 2026-08-27 for P6 (bugs_open/414).
+		// P1-P5 anchor ON the subject ("we test"), so a conditional sits directly
+		// against the match and the bare form was enough. P6 anchors on the VERB,
+		// deliberately — moving its anchor earlier would put the negation cue of
+		// "our guides have NOT been checked…" outside negatedClaimMatch's
+		// backwards window and break suppression that works today. So the subject
+		// is skipped here instead: "If we check a guide against the handbook, rule
+		// by rule, we say so" is a hypothetical, not a claim.
+		//
+		// This widens a SUPPRESSOR, which is the direction that can hide a real
+		// finding, so the blast radius is stated rather than assumed: it can only
+		// change patterns whose match does NOT start at the subject, and P6 is the
+		// only one. For P1-P5 the cue already abuts the match, so every sentence
+		// they hedge today they still hedge, and no sentence they catch today
+		// becomes hedged — pinned by TestPracticeSuppressionsAreObservable and the
+		// unchanged must-catch table.
+		`(?:(?:we|you|they|our|its|their)\s+(?:[a-z]+\s+)?)?$`)
 
 // hedgedPracticeMatch reports whether the match starting at `start` in `block`
 // is introduced by a conditional within the preceding 24 bytes.

@@ -141,8 +141,45 @@ func globalBannedClaims() []BannedClaim {
 			// owner ruled acceptable on 2026-07-28. Requiring a claim/content
 			// noun keeps the shape this layer is for ("every claim on this site
 			// is verified") and drops claims about a site's own process output.
-			Pattern: `every (claim|figure|number|statistic|statement|fact|price|source|citation|entry|detail)s?[^.]{0,30}(is|are) (verified|checked|confirmed|validated)`,
+			//
+			// WINDOW WIDENED 30 -> 60 on 2026-08-27 (bugs_open/414). The
+			// narrowing above is about the NOUN, and it stands — "Every
+			// component is verified against production" still passes, because
+			// `component` is not in the list. What the 30-char window did was
+			// miss the same claim written with a compound subject:
+			//
+			//	"Every figure and every rule reference on this site is checked
+			//	 against the FCA handbook, rule by rule"     (lendzy /guides/…)
+			//
+			// 38 characters separate "every figure" from "is checked", so the
+			// pattern this sentence is squarely inside could not see it, and a
+			// served finance page carried an unverifiable diligence claim for
+			// 12 days. Measured over the whole live corpus (2,405 components
+			// with rendered_html, locked_at IS NULL, 2026-08-27): at {0,30}
+			// this pattern fires **0** times fleet-wide — it is inert today —
+			// and at {0,60} it fires **once**, on exactly that sentence. The
+			// widening therefore costs nothing measurable and closes the gap
+			// that let the motivating case through.
+			Pattern: `every (claim|figure|number|statistic|statement|fact|price|source|citation|entry|detail)s?[^.]{0,60}(is|are) (verified|checked|confirmed|validated)`,
 			Reason:  "verification-of-everything: a claim about outcomes, not process.",
+		},
+		{
+			// THE SAME CLAIM WITH AN INDEFINITE SUBJECT (bugs_open/414).
+			// "Everything" is not "every" + a listed noun, so the entry above
+			// cannot match it however wide its window:
+			//
+			//	"Everything on this site is checked against the FCA handbook,
+			//	 rule by rule"                                (lendzy /about.html)
+			//
+			// The subject list is deliberately CLOSED rather than a bare
+			// `everything[^.]{0,30}`: "everything you need to know is here" and
+			// "everything we publish about pricing is listed" are ordinary
+			// copy, and only a subject that scopes the claim to THIS SITE turns
+			// it into the completeness assertion this family refuses. Measured
+			// over the same 2,405-component corpus (2026-08-27): **1** hit,
+			// exactly the sentence above, 0 on the other 2,404.
+			Pattern: `everything (on this site|on these pages|here|we publish|we say|on this page)[^.]{0,30}(is|are) (verified|checked|confirmed|validated)`,
+			Reason:  "verification-of-everything, indefinite-subject form: asserts completeness of checking, which nobody can verify — including us.",
 		},
 		{
 			Pattern: `(you|readers?) can rely on (this|it|us|these|our)`,

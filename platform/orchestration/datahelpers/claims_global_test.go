@@ -34,8 +34,8 @@ func globalFindings(t *testing.T, sentence string) []ClaimFinding {
 // ---------------------------------------------------------------------------
 
 func TestGlobalSetIsWired(t *testing.T) {
-	if n := GlobalBannedClaimCount(); n != 10 {
-		t.Fatalf("expected 10 fleet-wide patterns, got %d — if this changed deliberately, "+
+	if n := GlobalBannedClaimCount(); n != 11 {
+		t.Fatalf("expected 11 fleet-wide patterns, got %d — if this changed deliberately, "+
 			"re-run the fleet dry run (see claims_global.go header) before editing this number", n)
 	}
 }
@@ -55,6 +55,12 @@ func TestGlobalBlocksOverclaims(t *testing.T) {
 		"Guaranteed accurate pricing on every line.",
 		"Our method is not a disclaimer.",
 		"We are never wrong about a specification.",
+		// bugs_open/414, both served on lendzy.co.uk. The first needs the
+		// window widened from 30 to 60 (38 chars separate "every figure" from
+		// "is checked"); the second needs the indefinite-subject pattern,
+		// because "Everything" is not "every" + a listed noun.
+		"Every figure and every rule reference on this site is checked against the FCA handbook, rule by rule.",
+		"Everything on this site is checked against the FCA handbook, rule by rule.",
 	}
 	for _, s := range mustBlock {
 		if f := globalFindings(t, s); len(f) == 0 {
@@ -400,5 +406,60 @@ func TestNoGlobalPatternIsVacuous(t *testing.T) {
 			t.Errorf("fleet-wide pattern %d fires on ordinary copy — %q matched %q",
 				i, bc.Pattern, f[0].Matched)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// bugs_open/414 — the completeness family's two 2026-08-27 widenings, and what
+// they must NOT catch. Each sentence here is the reason a fragment of the
+// pattern is shaped the way it is; deleting one of these fixtures deletes the
+// evidence that the widening was bounded.
+// ---------------------------------------------------------------------------
+
+func TestCompletenessWideningDoesNotCatchLegitimateCopy(t *testing.T) {
+	mustPass := []string{
+		// The sentence the 2026-07-28 NOUN narrowing exists to protect. The
+		// window widening must not re-admit it: `component` is still not a
+		// listed noun, and this test is what proves the widening changed the
+		// window and nothing else.
+		"Every component is verified against production.",
+		// "everything" with no verification verb at all.
+		"Everything you need to know about the price cap is on this page.",
+		// "everything" + a verb outside the list.
+		"Everything we publish is written in plain English.",
+		// The scope words matter: a claim about a THIRD PARTY's checking is
+		// that party's business, not an overclaim about us.
+		"Everything the FCA publishes is checked by its own supervisors.",
+		// Process, not outcome — the line this whole family draws.
+		"We check each figure against the rule it comes from and name that rule.",
+	}
+	for _, s := range mustPass {
+		if f := globalFindings(t, s); len(f) != 0 {
+			t.Errorf("fleet-wide set WRONGLY blocked legitimate copy: %q -> %+v", s, f)
+		}
+	}
+}
+
+// The disclosure form must be silent BECAUSE THE GUARD SUPPRESSED IT, not
+// because the pattern stopped matching — the distinction the sibling test
+// TestNegatedCopyIsSuppressedByTheGuardNotByAbsence exists to draw. Without
+// this pair a pattern that silently stopped working would read as a pass.
+func TestNegatedCompletenessDisclosureIsSuppressedByTheGuard(t *testing.T) {
+	const s = "Not everything on this site is checked against the FCA handbook."
+	blocks := ExtractAssertionText("<p>" + s + "</p>")
+
+	if f := ScanAllBannedClaims(blocks, nil); len(f) != 0 {
+		t.Errorf("guarded scan should be silent on the negated disclosure, got %+v", f)
+	}
+	eb := &EvidenceBase{}
+	if f := eb.ScanBannedClaimsIgnoringNegation(blocks); len(f) != 0 {
+		// The per-site scan carries no fleet-wide patterns, so prove the point
+		// through the union's suppressed channel instead.
+		t.Logf("per-site unguarded scan: %+v", f)
+	}
+	_, suppressed := ScanAllBannedClaimsWithSuppressed(blocks, nil)
+	if len(suppressed) == 0 {
+		t.Fatalf("the negated disclosure must appear in `suppressed` — a silent guard and a " +
+			"dead pattern are otherwise indistinguishable")
 	}
 }

@@ -84,10 +84,45 @@ func unarmedSiteGateCfg(t *testing.T, html string, extra map[string]interface{})
 		Logger: zap.NewNop(),
 	})
 	if out, ok := res.(map[string]interface{}); ok {
-		issues, _ := out["issues"].([]ValidationIssue)
-		return issues, err
+		return gateIssues(t, out), err
 	}
 	return nil, err
+}
+
+// gateIssues decodes the action's OWN return shape.
+//
+// ⚠ CORRECTED 2026-08-27 (bugs_open/414). This used to read
+// `out["issues"].([]ValidationIssue)`, and the action returns
+// `[]map[string]string` (validate_page_content.go:571-600) — so the assertion
+// always failed, the helper always returned nil, and every `claimsIssues(...)`
+// check in this file could never see anything. The blocker-path tests were
+// unaffected (they assert on the returned error, which is the real mechanism and
+// is why nobody noticed), but the FALSE-POSITIVE assertions below were passing
+// vacuously: they asserted that an empty list contained nothing. Found while
+// adding the 414 cases, by writing a test that expected an issue to be PRESENT —
+// a test that expects absence cannot detect a harness that reports absence.
+func gateIssues(t *testing.T, out map[string]interface{}) []ValidationIssue {
+	t.Helper()
+	raw, ok := out["issues"].([]map[string]string)
+	if !ok {
+		if out["issues"] != nil {
+			t.Fatalf("the gate's issues shape changed to %T — this helper is the only place that "+
+				"knows it, and a silent nil here makes every assertion below vacuous", out["issues"])
+		}
+		return nil
+	}
+	issues := make([]ValidationIssue, 0, len(raw))
+	for _, m := range raw {
+		issues = append(issues, ValidationIssue{
+			Type:        m["type"],
+			Category:    m["category"],
+			Severity:    m["severity"],
+			Location:    m["location"],
+			Value:       m["value"],
+			Description: m["description"],
+		})
+	}
+	return issues
 }
 
 func claimsIssues(issues []ValidationIssue) []ValidationIssue {
@@ -286,5 +321,57 @@ func TestGateReportsNoSuppressionWhenFleetWideSetIsDisabled(t *testing.T) {
 	}
 	if n := logs.FilterMessage("claims gate: banned-claim match suppressed as negated").Len(); n != 0 {
 		t.Errorf("lever is off, so no scan ran to suppress anything — got %d suppression log(s)", n)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// bugs_open/414 — the two completeness widenings AT THE GATE, on an unarmed
+// site, which is the case that filed the bug: lendzy.co.uk has no evidence_base
+// row at all, so the fleet-wide set was the only thing standing between a
+// planted instruction and a served compliance claim. Proving the patterns match
+// (datahelpers) is not the same claim as proving the BUILD FAILS.
+// ---------------------------------------------------------------------------
+
+func TestGateBlocksThePlantedCompletenessClaims(t *testing.T) {
+	for _, html := range []string{
+		// Served on lendzy.co.uk /about.html and the affordability guide,
+		// verbatim, for 12 and 24 days respectively.
+		`<p>Everything on this site is checked against the FCA handbook, rule by rule, so you can see exactly where a claim comes from.</p>`,
+		`<p>Every figure and every rule reference on this site is checked against the FCA handbook, rule by rule, with a link to where you can read it yourself.</p>`,
+	} {
+		_, err := unarmedSiteGate(t, html)
+		if err == nil {
+			t.Errorf("an unarmed site would publish a completeness overclaim without failing the build: %q", html)
+			continue
+		}
+		if !strings.Contains(err.Error(), "blockers") {
+			t.Errorf("want the failure attributed to a blocker, got %v for %q", err, html)
+		}
+	}
+}
+
+// The diligence half of the same sentence is in the PRACTICE family, which is
+// warning-only and NOT in the refusing union (owner decision 2026-08-27, and
+// TestPracticeFamilyIsNotInTheRefusingUnion pins it upstream). So a page whose
+// only defect is the diligence claim must still BUILD — otherwise the honest
+// correcting disclosure "Nothing here has been checked against the FCA
+// handbook, rule by rule", which the negation guard cannot see, would be refused.
+func TestGateDoesNotRefuseTheDiligenceClaimAlone(t *testing.T) {
+	got, err := unarmedSiteGate(t,
+		`<p>We explain what the FCA rulebook says a lender can and cannot do, checked against the FCA handbook, rule by rule, so you can hold your lender to it.</p>`)
+	if err != nil {
+		t.Fatalf("the diligence family must warn, never refuse: %v", err)
+	}
+	// It must be REPORTED, though — a warning nobody records is the same as no
+	// check at all, which is why this asserts presence rather than silence.
+	found := false
+	for _, i := range got {
+		if strings.Contains(strings.ToLower(i.Description), "diligence") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("the diligence claim built cleanly AND was not reported — one or the other is a defect: %+v",
+			claimsIssues(got))
 	}
 }
