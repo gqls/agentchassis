@@ -735,3 +735,28 @@ One line of Go, plus the control run that made the claim honest. **It changes no
 capability, and touches nothing this lane owns.** It is recorded here only so the commit in this
 lane's history has an explanation, and because §11c's two instrument traps are worth more than the
 fix was.
+
+### 11e. Two follow-ups from the same exchange, both fleet-wide rather than lane state
+
+**1. The §9 landmine's verifier verdict is `NEEDS_HUMAN_REVIEW` and that is INDEX STALENESS.** Verdict
+2026-08-26 22:19Z: four of five footprint items returned 0 rows because the code index was pinned to
+commit `a7f76fa8` of **2026-08-25 19:17 UTC** — before the entry, and before
+`write_audit_findings_field_capability.go` was in the index. Only `acceptancePredicateTextFields`
+resolved, and it agreed. **A zero from a stale index is not an absence.** The entry now carries that
+note plus the first-hand review it asked for, line by line, so nobody reads the verdict as doubt about
+the claims. (It also confirms §10f: the verifier ran **four minutes after** the dispatch the script
+reported as "failed to publish".)
+
+**2. `who-owns.py NNN` answers for the BUG namespace only** — new `LANDMINES.md` entry. Resolving the
+owner of `bc8167100` exposed it: `BUG_DIRS = ["bugs_open", "bugs_closed"]` (`who-owns.py:53`) is the
+entire search space, so **`features_open/` is structurally invisible**, while the subject search matches
+the bare number every other namespace also uses. `who-owns.py 035` returned an unrelated
+`bugs_closed/035` and a commit list mixing `features_open/035` with **this lane's own `WII-035`**, and
+never named the owning lane. Worse than the bare-number ambiguity CLAUDE.md documents, because that
+warning is about two *bugs* sharing a number and its remedy (resolve by slug) presumes you are in the
+bug namespace at all. **Resolve an owner from the commit's touched paths, never from the number.**
+
+⚠ **Filed in `LANDMINES.md`, deliberately NOT in CLAUDE.md.** The `bugs_open/414` lane suggested
+putting it "where who-owns.py's users will meet it", which was a good suggestion and is what the
+landmine footprint does — but a peer's suggestion is not authority to edit the standing instructions,
+and CLAUDE.md is the one file where that distinction has to hold absolutely.
