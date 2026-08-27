@@ -18657,7 +18657,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
      AND (w.summary LIKE '%<phrase>%' OR w.spec::text LIKE '%<phrase>%');
   ```
   Run it **against spec HISTORY too** the first time (`site_specs` without the `is_current` filter): the hops are dated, and seeing two rows ten days apart is what tells you an agent copied it rather than a human writing it twice.
-- **and the guard you will reach for does not exist where you think:** a content check on `WriteSiteSpecAction` would not have caught this one at all — the plant arrived as a **manual** row (`source='manual'`, 2026-08-02) and never passed through that action. The *agent* door was the second hop, not the first. Since 2026-08-27 `cmd/brief-negation-check` runs the check daily over the union of every live agent's visible spec surface (`spec_supplies_claim`), which is the mechanised form of the query above — but it scans with the practice family, so a COMPLETENESS mandate ("make the page say everything here is checked") is still yours to find by hand.
+- **⚠ CORRECTED 2026-08-27, hours after this entry was written, by its own author.** An earlier
+  version of the bullet below said a claim whose spawn was dropped is *"unreapable by construction"*
+  and that *"no reaper covers this state"*. **That was FALSE and it was in this file, which is the
+  system of record.** `claimed-item-timeout` (scheduled_tasks, enabled, `interval_seconds=120`) is a
+  CTE chain over `site_work_items` keyed on `status='claimed' AND claimed_at < NOW() - INTERVAL '15
+  minutes'`, whose `reset` stage clears `claimed_by`/`claimed_at`, increments `attempt_count`, and
+  writes the error *"Claim timed out — handler pod likely died"* — **requiring no orchestration**, and
+  with `completed_by_evidence` explicitly retained for claims whose orchestration row *"was never
+  persisted"*. So the state IS covered. **How the false claim got here is the transferable part:** the
+  author ran `SELECT name, left(pre_query,300) FROM scheduled_tasks WHERE pre_query ILIKE '%claimed%'
+  AND pre_query ILIKE '%site_work_items%'` — the right query — and piped it through `head -14`. Each
+  row printed several lines of SQL, three names were visible, and the conclusion came from those
+  three. **12 rows match, and `claimed-item-timeout` sorts FIRST.** The answer was in the author's own
+  result set. What remains true, because it was actually read: the four reapers named below do not
+  release item claims, and `stale-orchestration-reaper` never touches `site_work_items` in any stage
+  — but "these four do not" was never "nothing does". **Count your rows before you interpret them,
+  and never conclude an absence from a truncated result.**
+- **so the guard you will reach for is not the one you think, and it is not absent either:** a content check on `WriteSiteSpecAction` would not have caught this one at all — the plant arrived as a **manual** row (`source='manual'`, 2026-08-02) and never passed through that action. The *agent* door was the second hop, not the first. Since 2026-08-27 `cmd/brief-negation-check` runs the check daily over the union of every live agent's visible spec surface (`spec_supplies_claim`), which is the mechanised form of the query above — but it scans with the practice family, so a COMPLETENESS mandate ("make the page say everything here is checked") is still yours to find by hand.
 - **relations:** `bugs_open/414` §7a · register **CLM-030** · `cmd/brief-negation-check/specclaims.go` · MEMORY [[a-handoff-outlives-the-work-it-asked-for]] (the 08-05 "strip owed before serving" note that protected nothing) and [[a-one-off-deletion-is-not-a-class-fix]]
 - **source:** 2026-08-27, bugs_open/414 lane, found by re-running the bug file's own §Population census over every aspect instead of the one that had been edited — the phrase was in a current spec the whole time.
 - **added:** 2026-08-27, bugs_open/414 lane

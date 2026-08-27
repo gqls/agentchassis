@@ -56746,3 +56746,44 @@ asserted a green HEAD baseline I had not measured, and a pattern count I had add
 derived. All three went out to *other lanes*. The pattern is not ignorance of the traps; it is that a
 number produced in passing, to support a point that is not itself about the number, does not feel like
 a measurement and so never gets the check. Tally: **rolling-window-census-used-as-a-rate**.
+
+## 2026-08-27 — bugs_open/414 lane: the query was right, the pipe was `head -14`, and I reported the absence to another lane as established
+
+**What I claimed.** That a work-item claim whose agent spawn was silently dropped is **"unreapable by
+construction"** — no reaper covers it, so the row sits `claimed` for ever and its whole site stays out
+of dispatch. Sent to the lane that owns `bugs_open/413` as established "from the reaper's own text",
+with a falsifiable prediction attached (their two `oufe.com` rows would not self-release), and written
+into **`LANDMINES.md`**, which is the system of record.
+
+**Why it was wrong.** `claimed-item-timeout` — `scheduled_tasks`, enabled, `interval_seconds=120` — is
+a CTE chain over `site_work_items` keyed on `status='claimed' AND claimed_at < NOW() - INTERVAL '15
+minutes'`. Its `reset` stage clears `claimed_by`/`claimed_at`, increments `attempt_count` and writes
+*"Claim timed out — handler pod likely died"*, **requiring no orchestration** — and its
+`completed_by_evidence` stage is explicitly retained for claims whose orchestration row *"was never
+persisted"*, i.e. the dropped-spawn case is named in the mechanism's own comments.
+
+**How I missed it, and this is the whole reason for the row.** I ran the RIGHT query —
+`SELECT name, left(pre_query,300) FROM scheduled_tasks WHERE pre_query ILIKE '%claimed%' AND pre_query
+ILIKE '%site_work_items%'` — and piped it through `head -14`. Each row printed several lines of SQL,
+so three names appeared and I concluded from those three. **12 rows match, and `claimed-item-timeout`
+sorts FIRST alphabetically.** The answer was in my own result set. I had also read four reapers
+carefully and correctly; "these four do not release claims" is simply not "nothing does", and I
+promoted the first into the second.
+
+**What caught it.** Not a check — the mechanism itself. My own repair item came back `triaged` with
+`attempt_count=1` and the error string *"Claim timed out — handler pod likely died"*, which is a
+sentence I had just told another lane could not exist.
+
+**The cheap checks, both skipped.** (1) **Say N out loud before interpreting**: `SELECT count(*)`
+first, or `| wc -l`, and if the visible rows are fewer than N, you have not read the answer. (2) Never
+`head` a result set you are about to draw a NEGATIVE conclusion from — truncation and absence are
+indistinguishable downstream, and a partial read of a *correct* instrument is more dangerous than a
+broken one, because nothing about the output looks wrong. Tally:
+**absence-concluded-from-a-truncated-result-set**.
+
+**Why this is the worst of the four I logged today.** The other three were numbers I produced in
+passing. This was a structural claim, asserted as derived from source, sent to a lane that was making
+a decision on it, and written into the file this estate treats as authoritative — and the instrument
+was *correct*. The estate's own phrasing for it is already in my memory index: *"a correct instrument
+read PARTIALLY beats a broken one for danger — say N out loud before interpreting, and account for all
+N."* I read that line this morning.
