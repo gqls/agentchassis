@@ -136,3 +136,65 @@ Audit item rejected. The two repair items are working through a **fleet-wide `re
 `spawn_content_writer` flake** — the `about` item lost attempt 1 to `CHILD_ORCHESTRATION_FAILED` and
 is retrying; several other lanes' page builds are failing the same way in the same window, so it is
 not the payload.
+
+## 2026-08-27 — session 1, afternoon
+
+### (n) The about page landed while I was not looking, and the deploy "failure" was not one
+
+Both repair items had failed again by 13:11 — and the errors were different, which was the tell.
+`about` said *"step deploy_page failed: … timed out after 3 retries"*, and `deploy_page` runs AFTER
+`save_sections`. So the save had succeeded: all three about components were rewritten at 10:19:03Z
+with the phrase gone from both columns, and the served page reads 0 occurrences. **I nearly missed a
+completed repair because the work item said "failed".** The item's status is a statement about the
+orchestration, not about the artefact; reading it as the latter is the trap this file has warned about
+in three other forms.
+
+The framework's copy is good and grounded in the brief ("every figure we quote comes with the named
+rule it's from and a pointer to check it for yourself"). I checked it against my OWN new patterns
+before believing it, because the gate is inert until the roll and nothing else had looked: claimscan
+over the whole repaired site reports about CLEAN and still convicts the guide in the same run. That
+one-pass discrimination is the best control this lane has produced.
+
+`edit_live` did rewrite the untouched `differentiators` slot, as the plan predicted (2,245 → 2,293 —
+grew, so nothing lost). The before-snapshot is the only reason that is a checked fact.
+
+### (o) I was wrong about the claim reaper, twice, and the second time was inside my own correction
+
+Sequence, kept in full because the shape repeats:
+
+1. I told the 413-owning lane a dropped-spawn claim is **"unreapable by construction"**, sourced "from
+   the reaper's own text", with a falsifiable prediction attached, and wrote it into a work item's
+   `error` field.
+2. **False.** `claimed-item-timeout` (enabled, 120 s) covers it. I found out because the mechanism
+   fired on my own item and returned the exact error string I had told another lane could not exist.
+3. **How:** I ran the RIGHT query and piped it through `head -14`. Three of **twelve** matching rows
+   were visible; `claimed-item-timeout` sorts first. The answer was in my own result set. I had read
+   four reapers carefully and promoted "these four do not" into "nothing does".
+4. I retracted to the lane and wrote a correction into `LANDMINES.md` — **and the correction was also
+   wrong twice.** It claimed the false statement had been in LANDMINES (it had not: all three
+   `unreapable` hits there are other sessions' entries about the `updated_at` trigger), and it said
+   the whole CTE chain keys on 15 minutes.
+5. The 413 lane read the `reset` stage's own WHERE: **40 minutes**, not 15 — the 15-minute key gates
+   only the two auto-complete stages, which need completion evidence a dropped spawn can never have.
+   So my item untouched at 34 minutes was **correct behaviour**, my hand-release preempted the
+   mechanism by ~5 minutes, and the "scheduler gap" I had floated needed no explaining. Re-verified
+   here by extracting the clause directly rather than taking it on trust.
+6. Corrected the LANDMINES note again — which removed 17 lines from an append-only ledger and drew the
+   `shared-ledger-not-appended` advisory. Checked the removed lines individually rather than by
+   regex: **all 17 were my own block from an hour earlier**, no other session's text touched.
+
+**What I take from it, and it is not "be careful".** Every one of today's five logged errors was a
+claim I did not need to make, produced in passing to support a point that was not about it — a
+baseline, a count, a rate, an absence, a threshold. The measurement-shaped work of this session (the
+corpus calibrations, the mutation proofs, the dry run) was checked to a standard I am happy with. The
+prose *around* it was not, and prose is what travels to other lanes. The cheap discipline that would
+have caught four of five is the same one: **say N out loud before interpreting, and never conclude an
+absence from output you truncated.**
+
+### (p) The remaining blocker is not the queue any more
+
+Since 11:30Z there is a fleet-wide, account-level LLM outage — measured first-hand in `llm_call_log`:
+11:00Z **36 of 132** calls failed, 12:00Z **61 of 61**, 13:00Z **23 of 23**, every failure a
+"usage limit" error. The guide's rewrite is LLM-bearing, so it cannot complete until that clears; the
+about page got through at 10:19, before it began. The item is queued and correct. **Do not read the
+next failure as a payload fault, and do not spend its last attempt while the outage stands.**
