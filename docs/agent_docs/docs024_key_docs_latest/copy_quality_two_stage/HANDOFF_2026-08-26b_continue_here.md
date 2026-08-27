@@ -89,6 +89,13 @@ day — the chassis roll, the owner's trial, and the canary's first scores lande
 4. Best-in-class plan execution on the owner's go.
 5. Phase 2 verdicts 2 of N (briefs → llm_guidance → copy-editor's own prompt).
 6. Tone-route first-dispatch verification when a `tone` finding fires (bound now fully live).
+7. **(added 08-27) Rebuild + newTag-bump `cmd/brief-negation-check`** — the 414 lane's
+   `spec_supplies_claim` detector (CLM-030, accepted into our binary after verification, NOTES
+   08-27) is inert until then; tag-pinned overlay, the component-render-check landmine verbatim
+   (bump in the SAME commit, verify at the cronjob jsonpath + a run's pod exit code). Expect the
+   CQ-027 report's "N mandated" to RISE on its next run — detector change, not brief drift. Spec
+   content as an injection surface (a planted marker obeyed, then canonised by the audit fleet)
+   joins phase-2's brief-verdict questions.
 
 ## ⚠ Traps, freshest first (full accounts: NOTES 08-26 tail, LANDMINES)
 
