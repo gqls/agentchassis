@@ -221,3 +221,14 @@ For our own case: the smaller of the three named sites gets checked this afterno
 fine; the mid-sized one is right at the danger line, which accidentally makes it a useful
 experiment; vonc can't be measured until the timeout is fixed. Friday's decisive return visits
 are all to small sites, so the finish line hasn't moved.
+
+**27 August, evening.** The verdict on the day: our measurement design is confirmed on every site
+it could actually run on — seven sites now, roughly sixty worked-out failures, not one case of
+the prover fooling itself — and the repair agent has obeyed its measured instructions perfectly
+since last night's prompt fix, sixteen out of sixteen. Two of the three sites we'd named in
+advance couldn't be measured at all, but for a reason we proved is older than our work: the
+platform-wide timeout that's been silently eating every large site's check for a fortnight. That's
+now case 416, fully evidenced, with a cheap interim fix spelled out for whoever takes it — I
+deliberately didn't take it myself without your word, since it touches shared machinery beyond
+this investigation. Friday's return visits — the finish line — are all to small sites the timeout
+can't touch.

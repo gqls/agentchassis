@@ -127,3 +127,25 @@ Update `MEMORY_workstreams` (lane entry added 08-26) and the VIZ-018 register st
 - Fleet: stamps `2fb40a96` (08-25 roll) → **`b34c24f4` (08-26 ~20:25Z roll, verified)**.
 - Watchers: all session-local and DEAD with the previous session — re-arm from RUNBOOK §8 /
   NOTES §(u) queries if wanted; none is load-bearing (the calendar in §1 is).
+
+---
+
+## ⚠ DATED UPDATE 2026-08-27 ~19:00 UTC — §1(a) and §1(b) are DONE; ONLY §1(c) P3 REMAINS (Friday 08-29); a new bug (416) was found and filed on the way
+
+- **§1(a) DONE:** cookly's 5 repairs graded clean (NOTES §(w)) — 13/13 post-fence without
+  `!important`, every selector strictly above its requirement, served=DB sha, 6.27/6.55:1.
+- **§1(b) DONE, with a recorded deviation:** vonc and loanzy audits TIMED OUT —
+  **`bugs_open/416`** (pre-existing ≥2-week defect: every ≥~25-page site's audit dies at
+  `DefaultRequestTimeout=180` while the adapter finishes late; mechanism first-hand verified at
+  `timeout_helpers.go:18` + `ConvertStepTimeout`; 090 ran twice — provider-cap death, then
+  UNVERIFIABLE on the finished-conclusion shape — substitution declared per the 07-31 ruling).
+  **P4: CONFIRMED on the measurable population** — noted 3:2 by pairing + six informal sites,
+  ~60 attributed pairings, 0 unreachable, zero probe-blindness anywhere; the named-site
+  substitution is recorded as caused-by-416 in NOTES §(z). noted's 16 repairs discriminate 16/16
+  at the fence.
+- **416's fix is UNCLAIMED by this lane** (deliberate; §5 of the bug file). The config-only
+  interim (`timeout_seconds` on the `audit` step) is verified viable; one unknown remains for a
+  taker (TimeoutMonitor/topic behaviour on ~25-min awaits).
+- **§1(c) P3 is unthreatened**: Friday's three sites are 5/14/15 pages, all under 416's ceiling.
+  remortgage ~13:50Z · garden-tools ~17:50Z · cookly ~18:55Z. Retraction of the repaired
+  pairings = close 390 per §1(d).
