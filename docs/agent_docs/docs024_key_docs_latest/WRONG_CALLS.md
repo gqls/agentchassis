@@ -56651,3 +56651,30 @@ scrolls past above the commit summary, which is what a `| tail -N` keeps.
 apostrophe. And **read the commit back**: `git log -1 --format=%B | grep <the identifier>`. One
 command, and it is the only thing that tells you the message you wrote is the message that landed.
 Tally: **backticks-in-a-commit-message-executed**.
+
+## 2026-08-27 — portfolio_positioning lane: I cleared a census row on its FIRST matching window, and censused the instruction's vocabulary instead of its payload
+
+**What happened.** Filing `bugs_open/414` I ran a fleet census of current `site_specs` with
+`LIKE '%acceptance_marker%' OR LIKE '%exact phrase%'`, then read ONE context window per matching
+row, anchored with `position()` — which returns the FIRST occurrence. lendzy's `strategy` row
+matched; the first "exact phrase" occurrence in it was the benign slogan; I wrote "benign brand
+slogan, left in place" **for the whole row** and then claimed "spec source FIXED live /
+regeneration can no longer re-plant the phrase". The same row ALSO carried `domain-strategist`'s
+2026-08-12 paraphrase of the marker ("The acceptance marker 'checked against the FCA handbook,
+rule by rule' should appear in the site's written copy…") — a generation-visible surface that kept
+mandating the phrase for ten more days. Caught by the 414 fixing session re-running my census over
+every aspect and keying on the claim (REFUTED block in the bug file, 2026-08-27).
+
+**The part that stings.** I HAD the discriminating string in my hands the same minute: my residue
+assertions on the row I edited grepped for the payload — `'FCA handbook, rule by rule'` — but the
+FLEET census searched the vocabulary (`acceptance_marker`, `exact phrase`). One payload query over
+current specs returns the strategy row unambiguously. The instruction's vocabulary is how the
+PLANTER spelled it; a paraphrasing agent keeps the payload and drops the vocabulary, so the
+vocabulary census is structurally blind to exactly the copies that matter.
+
+**The cheap check.** (1) Census the PAYLOAD (the claim/phrase itself), not the key or the
+instruction's wording — you already hold the payload, it is what you are trying to retract.
+(2) Never clear a multi-KB row on one substring window: `position()` shows the first occurrence
+only; count occurrences (or dump the row and grep) before writing "benign, left in place" about
+the row rather than the passage. Tally: **cleared-a-row-on-its-first-matching-window** ·
+**censused-the-vocabulary-not-the-payload**.

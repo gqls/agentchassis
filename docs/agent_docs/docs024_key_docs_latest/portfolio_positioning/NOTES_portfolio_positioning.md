@@ -3442,6 +3442,17 @@ indoorplanters (test, 08-20), buytoletcalculator (test, 08-21), **advertise.co.u
 
 ### (l) The lendzy acceptance marker: the 08-05 debt had already come due — found, source-fixed, filed as `bugs_open/414`
 
+> **CORRECTED 2026-08-27 (by the 414 fixing session; refutation marked in the bug file):** "Source
+> FIXED live" and "regeneration can no longer re-plant" were FALSE — `domain-strategist` had
+> PARAPHRASED the instruction into the current `strategy` aspect on 08-12, a surface build-site-planner
+> and webdesign-agent read, so the mandate stayed live for ten more days. My own census RETURNED that
+> row and I cleared it on its FIRST matching window (the benign slogan) — and I censused the
+> instruction's vocabulary, not the payload phrase. Full anatomy: WRONG_CALLS 2026-08-27
+> (two tallies). Fleet payload-census 0 across ALL aspects as of 08-27 (their strip, row `0326a892`,
+> re-verified by this lane at the live DB). Their §7 also corrects my population: 14 archived
+> component rows, the guide re-emitting on FOUR regenerations — the census I published was
+> current-state only.
+
 Found while correcting this lane's stale memory-index entry: its landmine line ("lendzy's seeded
 content_direction still carries the acceptance_marker instruction — strip before any real use")
 was still true, and "real use" happened weeks ago — lendzy.co.uk serves 19 pages.

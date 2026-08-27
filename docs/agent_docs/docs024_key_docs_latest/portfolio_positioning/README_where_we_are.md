@@ -1163,3 +1163,20 @@ again, and filed the clean-up of the three passages that already carry it (bug 4
 for your review queue: the maintenance system read that sentence on the live page and concluded it
 was the site's core selling point — there is a held item asking to lean into it further. When you
 work through lendzy's queue, that one should be rejected, not released.
+
+**2026-08-27 — a correction to last night's lendzy note: I had not, in fact, pulled it out at the root.**
+
+Last night I wrote that I'd removed the planted test sentence at its source so no future rewrite
+could plant it again. That was wrong, and another session caught it this morning. Between the
+experiment and now, one of the automatic planners had read the planted instruction and restated it
+in its own words in a second planning document — one I checked, but cleared after reading only the
+first thing that matched in it. So for the last ten days the system still held an instruction to
+include the sentence, just written differently, somewhere I'd looked and not seen.
+
+The other session has now cleaned every planning document fleet-wide (I've re-checked that myself
+against the live system: nothing anywhere still mandates the phrase), rejected the held queue item I
+warned you about last night (so that's off your plate), and shipped a proper fix so the claims
+machinery recognises this whole family of "everything is checked/verified" sentences rather than
+just this one. The two pages still carry the sentence at this moment; the rewrite that removes it
+is dispatched and they'll verify it on the live pages, not on a job status. My mistake and its
+lesson are written up where we log wrong calls.

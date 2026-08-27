@@ -6663,7 +6663,7 @@ generating work to REINFORCE it.
   amplifying it. The tell here: the item's "differentiator" was a verbatim spec string.
 - **The repair trap: a rerender preserves this defect.** The phrase lives in `content_data`, and
   rerender regenerates from `content_data` — the queued "Rerender page: about" would reproduce
-  it. Strip the SPEC first (or regeneration re-plants it), then repair by content rewrite.
+  it. ~~Strip the SPEC first~~ **strip every CARRIER first (CORRECTED 2026-08-27 — the spec you found it in is not the only one; see the block below), then repair by content rewrite.**
 
 **Added 2026-08-27, after the fix — the two checks the original entry was missing, both learned by
 getting them wrong.**
@@ -6701,12 +6701,19 @@ candidates. Read the file before acting — several are already fixed.
 
 **`414`** — a planted acceptance tripwire from the 08-02 lendzy shadow experiment is SERVED as an
 unverifiable compliance claim ("checked against the FCA handbook, rule by rule" — /about.html ×2,
-the affordability guide ×1, `[MEASURED 2026-08-26]`), and an open audit item canonised it as "the
-site's core differentiator". Spec source FIXED live same day (row `81ddcc40`, marker stripped under
-a tail-assert guard; history preserved). REMAINING: 3 components' `content_data` + served copy —
-⚠ the queued about-page rerender canNOT fix it (rerender regenerates from `content_data`); needs a
-content rewrite, and the held "differentiator" `content_rewrite` item must be rejected/rewritten,
-not released. Population: 1 site (fleet census in the file). Filed by portfolio_positioning.
+the affordability guide ×1), and an open audit item canonised it as "the site's core
+differentiator". ~~Spec source FIXED live same day (row `81ddcc40`) — regeneration can no longer
+re-plant it~~ **CORRECTED 2026-08-27: that claim was REFUTED — `domain-strategist` had PARAPHRASED
+the instruction into the current `strategy` aspect on 08-12 (read by build-site-planner/
+webdesign-agent), so the mandate stayed live ten more days; stripped 08-27 (row `0326a892`), fleet
+payload-census 0 across ALL aspects after.** Population was also understated: 14 archived component
+rows, the guide re-emitting on FOUR regenerations 08-15→08-24 (§7 of the file). The "differentiator"
+item is **REJECTED** (08-27, reason on the row — ⚠ one Retry click re-arms it); framework fix
+`fc588e445` (claims completeness patterns + instruction-side detector), council `f4c144ad`
+submitted. **REMAINING: the copy repair, IN FLIGHT** as two framework `content_rewrite` items at
+`spec.mode=edit_live` — the phrase is still served until it lands; verify at the served BODY, not a
+job status. ⚠ a plain rerender canNOT fix it (phrase lives in `content_data`). Filed by
+portfolio_positioning; fixed by the 414 session; census error anatomy in WRONG_CALLS 2026-08-27.
 
 **`413`** — the dispatch selector ranks sites by their oldest eligible row's AGE while the item
 loader serves the picked site by PRIORITY (cap 5), so one old worst-priority row PINS its site —

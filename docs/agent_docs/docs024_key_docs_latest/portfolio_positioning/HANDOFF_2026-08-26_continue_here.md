@@ -209,3 +209,11 @@ consulted. The "31 vs 30 rows" is the locked halted site; not a departure. Evide
 item canonised it as the site's differentiator. Spec source FIXED live (row `81ddcc40`, guarded
 strip, history kept); copy repair OPEN — ⚠ rerender cannot fix it (phrase is in `content_data`);
 the held "differentiator" `content_rewrite` must be rejected/rewritten. NOTES (l); 016b §9+§10.
+
+> **CORRECTED 2026-08-27:** the late-addition line "Spec source FIXED live" was REFUTED by the 414
+> fixing session — `strategy` (aspect read by build-site-planner/webdesign-agent) carried
+> `domain-strategist`'s 08-12 PARAPHRASE of the marker until they stripped it 08-27 (row `0326a892`).
+> Fleet payload-census 0 across all aspects, re-verified by this lane. Audit item REJECTED (theirs);
+> framework fix `fc588e445` + council `f4c144ad`; copy repair IN FLIGHT via framework (phrase still
+> served until it lands — verify at the body). My census error: WRONG_CALLS 2026-08-27. Read 414 §7
+> + its REFUTED block before citing anything from the late addition.
