@@ -368,3 +368,21 @@ exist elsewhere — outage- and stuck-claim-discriminated).
 > post-recovery and grades DRAIN as well as selection. First-fires spot check during the
 > outage tail (13:18-13:26Z): loops to loanandmortgagecalculator ×4, loanzy ×3, idea.uk ×1 —
 > selection landing on exactly the formerly-starved oldest-loadable sites, cadence normal.
+
+## +2h floor read (throughput lane, 15:20:08Z 2026-08-27): PASS against §"How to verify", wide margin
+
+`[MEASURED by the dispatch_throughput lane; full figures in their NOTES, committed]`
+- Acceptance query (unlocked, eligible > 1h old, unserved > 1h) returned only cookly and
+  loancash — each ONE ~67-min-old row on a site served 66–70 min ago with its oldest at
+  load-rank 1: **rotation spacing, not starvation**.
+- **Worst unserved-with-old-work: 6–10h (baselines) → ~68 min.**
+- The apply probe's pick was prophetic: loanandmortgagecalculator.co.uk **drained its 30h
+  backlog entirely** (oldest row now 14:35 same-day; 10 loops post-657; most-served site).
+  lendzy.co.uk 46→15 eligible, its 22:16-yesterday row now at load-rank 5.
+- Stuck-claim discriminator: **0 rows** (no bounded-mechanism contamination in the read).
+- Drain at ceiling post-outage-recovery: 473 claims / 480 completions in 105 min.
+- **Residual, as designed and now measured:** pinned ROWS still age within their sites
+  (farmerinsurance @~16h, rank 77/80) — that is priority-140 semantics ("run last") plus
+  candidate 2's policy territory, flagged to the owner in the lane README.
+
++6h read due ~19:20Z; bug moves to `bugs_closed/` after it (fixed AND live AND measured).
