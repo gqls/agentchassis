@@ -303,3 +303,64 @@ round that finds real defects is evidence about the change, not an obstacle to i
 - **Owed after the roll**: per-SERVICE artefact verification (`git merge-base --is-ancestor` against
   the service's own build-provenance stamp), then re-run `claimscan` over the same corpus expecting
   the same three findings. A pre-merge dry run proves the source, not the running binary.
+
+### 7j. Council: APPROVED at round 2 — and the five advisories, including one that fixed my own verification plan
+
+`Council-Reviewed: f4c144ad-7799-4cd0-b792-d97016f3d77e` (round 2, 09:52Z, approved with 5 advisory
+objections, none high-severity; round 1 REVISE at 09:24Z, gating objection answered in §7h). The
+earlier commits carry `Council-Submitted:` and `098` credits them automatically on this approval — no
+amend, which forward-only forbids anyway.
+
+**⚠ The advisory that changes an owed action: my post-roll verification recipe was wrong for this
+service.** §7i said "per-service artefact verification via `git merge-base --is-ancestor` against the
+service's own build-provenance stamp". The `debug_historian` seat flagged that as the documented
+unreliable method for `agent-chassis`, and reading the landmine it names, the truth is subtler than
+either of us said: the stamp recipe is **time-limited, not inoperative** — it is a STARTUP line the
+chassis rotates away in minutes (measured: still readable at 7 minutes on `v1.0.1295`). So the
+corrected recipe, in order:
+
+1. **Prove the window first**: `kubectl -n ai-persona-system logs <pod> | head -1` — a startup line
+   means the log still reaches back and the stamp is in range. Anything else means it is not, and an
+   empty stamp grep then means "out of range", never "unstamped".
+2. `kubectl logs <pod> --tail=100000 | grep -m1 'build provenance'`, then
+   `git merge-base --is-ancestor fc588e445 <stamp>` — **and a DESCENDANT commit as a must-be-absent
+   control**, because the stamp is one commit and never yours, so an ancestry test with no negative
+   arm can only come out true.
+3. **If the window has closed**, do NOT reach for `strings` or a discovery grep for "some 40-hex
+   string" (both documented to return the same wrong answer on every service). Probe a **known
+   symbol** with both arms: `grep -aq 'everything (on this site' /proc/1/exe` must be PRESENT, and a
+   string this change did not add must be ABSENT. The new pattern literals are pure ASCII, so the
+   non-ASCII byte trap does not apply to them.
+
+**The other four, recorded rather than actioned, each with why:**
+
+- **`guardian`: "if the binary is not scheduled, the detector exists but never fires, silently."**
+  The right question, and the honest answer is that it is scheduled (`brief-negation-check`, daily
+  `40 7 * * *`, existing CronJob) **but its image is TAG-PINNED**, so the detector is inert until the
+  owning lane's next image cycle — agreed with them explicitly, since there is no live positive case
+  left for it to catch today. **The first live run must report the whole fleet as `M` with a non-zero
+  `scanned_fields` count**; a zero from a blind scan and a zero from a clean fleet are otherwise
+  identical in the report.
+- **`reuse_agent`: `cmd/config-key-audit` already houses agent-config reference censuses**
+  (`relaygaps.go`, `sharedoutputs.go`, `livedeclarations.go`) and I never cited it. Fair: I searched
+  for prior art on the *claims* side thoroughly and on the *census* side not at all. It would not
+  have changed the placement — that binary writes `doc_notes` only and a planted instruction needs a
+  queue row — but the surface-derivation FUNCTION is duplicated logic, and that is a real unification
+  debt, recorded here rather than argued away.
+- **`compliance`: P6 at warning is too soft for this class on a finance site where the fabrication
+  already shipped 24 days.** A direct challenge to the owner's 2026-08-27 decision, and it belongs in
+  the record as a disagreement rather than being smoothed over: the seat whose remit is overclaimed
+  reliability would have refused it. The counter-argument stands (a compliance-services client could
+  say it truthfully; and the bare-"nothing" disclosure would be refused at blocker) — but the owner
+  should know a seat dissented.
+- **`compliance` (low), and this one is a genuinely new residual**: `evidence_base` is excluded from
+  the spec scan, so **a poisoned register — a fabricated `source` or fact — sails through both the
+  writer-side gate and the new spec-side detector**, because the register is treated as ground truth
+  by every layer rather than scanned itself. Nothing in this change addresses that, and it is not a
+  variant of 414; it is a sibling worth its own filing if anyone finds an instance.
+- **`bug_historian`: filing into `bugs_open/033`'s queue (no working surface, ~1,079 items) risks
+  making the fix invisible.** True, and deliberately accepted: the alternative is an automated
+  handler for spec-content findings, which is precisely the mechanism that canonised the marker.
+- **`editquality` (bookkeeping): `specclaims_test.go` was described but not listed as its own edit**,
+  so its guards were unverifiable from the plan. It exists and is committed (`fc588e445`), and the
+  sub_workflow test is in it (`04dddb699`).
