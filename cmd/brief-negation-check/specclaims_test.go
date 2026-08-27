@@ -262,3 +262,43 @@ func TestStringLeavesCoversStringsListsAndOneLevelOfNesting(t *testing.T) {
 		t.Errorf("expected 3 text leaves (blank and numeric dropped), got %d: %v", len(leaves), leaves)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// THE SUB_WORKFLOW BLIND SPOT, pinned because two council seats raised it
+// independently and it turns out to matter more than they knew (round 1,
+// corr f4c144ad: guardian and architecture both asked whether fleetSurface
+// descends into loop substeps, the documented failure mode of hand-rolled walks
+// over agent_definitions.default_config).
+//
+// It cannot have that blind spot, BY CONSTRUCTION rather than by care:
+// fleetSurface never walks steps. It regexes `default_config::text` — the whole
+// document — so nesting is invisible to it in the direction that matters.
+//
+// And the measurement is why this test exists rather than a comment.
+// [MEASURED 2026-08-27 over live agent_definitions] exactly ONE live agent
+// carries a `site_specs.specs.` reference inside a `sub_workflow`, and it is
+// **page-content-writer** — the single most load-bearing prompt in the estate,
+// whose refs (content_direction.formatted, evidence_base.writer_block,
+// design_intent.imagery_direction) ALL live inside its process-sections loop.
+// A step-walking implementation would therefore have missed the writer's entire
+// surface: the check would have reported a clean fleet while blind to the one
+// agent whose obedience filed bugs_open/414.
+func TestFleetSurfaceSeesRefsNestedInsideASubWorkflow(t *testing.T) {
+	// Shaped like the live page-content-writer row: the only site_specs refs are
+	// inside a loop step's sub_workflow, never at the top level.
+	raw := `[{"type":"page-content-writer","config":"{\"workflow\":{\"steps\":{\"loop\":{\"action\":\"loop\",\"config\":{\"sub_workflow\":{\"steps\":{\"write\":{\"config\":{\"prompt\":\"brief {{.site_specs.specs.content_direction.formatted}} and {{.site_specs.specs.evidence_base.writer_block}}\"}}}}}}}}}"}]`
+	surface, aspects, err := fleetSurface(raw)
+	if err != nil {
+		t.Fatalf("fleetSurface: %v", err)
+	}
+	for _, want := range []string{"content_direction.formatted", "evidence_base.writer_block"} {
+		if _, ok := surface[want]; !ok {
+			t.Errorf("a sub_workflow-nested ref was NOT seen: %q missing from %v — if fleetSurface has "+
+				"been changed to WALK STEPS, it must use platform/validation.WalkSteps or it goes blind "+
+				"to page-content-writer's whole surface", want, surface)
+		}
+	}
+	if len(aspects) != 2 {
+		t.Errorf("expected both aspects in the census list, got %v", aspects)
+	}
+}
