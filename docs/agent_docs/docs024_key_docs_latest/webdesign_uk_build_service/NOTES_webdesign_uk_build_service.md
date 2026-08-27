@@ -6238,3 +6238,26 @@ Operator notes: the 5/hour / 15/day per-IP bands now bound separate NEW chats on
 heavy testing that OPENS many conversations still trips them (restart the service to
 clear, counters are in-memory); one long conversation never does. At turn 21 the bot
 answers with the contact line gracefully (a reply, not an error).
+
+## 2026-08-27 (late afternoon, delivery-lane session) — TRIAL RUN 1 STARTED: brief in via the chat, voucher path scripted; owner away till ~Mon
+
+The owner ran the intake as customer zero end-to-end in the fixed chat: brief committed,
+**reference BR-9AUZ59** (Boxing Online, boxingonline.com, email aaa@designconsultancy.co.uk).
+He expected an email at this point — **none exists at intake by design**; the first
+customer email in the flow is the DELIVERY email post-approve. Worth an owner decision
+later: an intake acknowledgement email (would need its own mechanism; nothing owed now).
+
+**The £30 payment half is scripted, owner-run by design** (mint + order are admin-JWT
+routes; the JWT is his): `trial_checkout.sh` (this dir, committed) port-forwards
+auth-service, logs HIM in (password never leaves his terminal's process), mints the
+ruled 3000p voucher (14d single-use), creates the order carrying BR-9AUZ59 + the
+voucher, prints the Stripe checkout URL. **Client row created for the trial:
+`a7395f69-e735-4390-98d7-9f17085338f4` (Boxing Online)** — clients had only the two
+internal rows, so this is the first real-shaped customer row. Worked invocation is in
+the script header. After he pays: webhook marks the order paid; `collect_external_orders`
+releases the brief on a PAID order carrying the reference — watch build_queue for the
+first customer-shaped build.
+
+Note for whoever picks this up: the API mint path (step 4 of the post-roll billing
+acceptance) has still never been exercised — the script's first successful run IS that
+acceptance; record its 201 when it happens.
