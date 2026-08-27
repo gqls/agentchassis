@@ -56631,3 +56631,23 @@ diligence claim must warn, not refuse) to see it: that one failed, and it was th
 assert the decode: `if !ok { t.Fatalf(...) }` rather than `x, _ :=`. The fixed helper now fails
 loudly if the gate's shape changes, because it is the only place that knows it. Tally:
 **absence-assertion-over-a-blind-instrument**.
+
+## 2026-08-27 — bugs_open/414 lane: I hit the documented backtick trap in my own commit message, in the sentence warning about a different trap
+
+**What happened.** `git commit -m "... the both-ways note on the \`_\` wildcard ..."` — backticks
+inside a double-quoted `-m` are COMMAND SUBSTITUTION. Bash ran `_`, printed
+`/bin/bash: line 63: _: command not found` twice, and committed the message with the character
+silently deleted: the line now reads *"the both-ways note on the  wildcard"*. Forward-only, so it
+stands; the reader loses the one character the sentence was about.
+
+**Why it is worth a row rather than a shrug.** This trap is in `MEMORY.md`'s own index
+(*"backticks in `-m` execute"*) — I had it loaded and walked into it anyway, **while writing a
+warning about a neighbouring wildcard trap**. The failure mode is not ignorance: it is that a commit
+message full of code identifiers is exactly where backticks feel natural, and the shell's complaint
+scrolls past above the commit summary, which is what a `| tail -N` keeps.
+
+**The cheap check.** For any `-m` containing a backtick, quote with a heredoc (`git commit -F -
+<<'MSG'`) or drop the backticks — single quotes do not save you if the message also contains an
+apostrophe. And **read the commit back**: `git log -1 --format=%B | grep <the identifier>`. One
+command, and it is the only thing that tells you the message you wrote is the message that landed.
+Tally: **backticks-in-a-commit-message-executed**.
