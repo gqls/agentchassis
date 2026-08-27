@@ -713,3 +713,27 @@ defect). Graded at all three artefacts:
 **§1(a) closed. Next: §1(b) — vonc 10:27Z / noted 12:28Z / loanzy 15:29Z today; P5 agritec
 20:31Z. Overnight rotation audits of other sites will enrich the informal P4 tally; the formal
 grading stays on the three named sites.**
+
+## 2026-08-27 (x) — vonc's P4 audit TIMED OUT; the pull revealed a TWO-WEEK-OLD fleet defect; bugs_open/416 filed with 090 running
+
+**vonc.com, 11:01Z (orch `059df65c`):** `complete_error`, `__step_errors.audit = "Request timed
+out (code: TIMEOUT)"` at 3m03 — and the adapter FINISHED anyway, producing its reply at +3m47
+(28 pages × ~8 s/page). Reply discarded, no findings, no retraction, and the rotation stamp was
+consumed at selection: **vonc re-audits 08-30 ~11:01Z, so P4-formal on vonc is blocked.**
+
+**Not ours, and not new — the regression theory was killed by the error log.**
+`agent_error_log` shows render-audit TIMEOUTs on EVERY audit day since at least 08-17 (53 across
+8 days), always the ≥26-page sites; ≤15-page sites pass. Commit 2's own council risks §3 called
+this "pre-existing budget pressure, unfiled" — it was, and it stayed unfiled until today.
+**Filed: `bugs_open/416`** (census, mechanism hypothesis, fix candidates ordered by
+door-closing) with **090 running, `RUN_CORRELATION_ID=0df41fb3`** per the 07-31 ruling. The
+attribution marginal-cost question (did our ~8 s/page nudge the ceiling down?) is stated there as
+a confound for the loop, not asserted either way — vonc was 22 pages on 08-24 (passed) and is 28
+now (6 added since), so page growth alone can explain its transition.
+
+**P4-formal, re-scoped honestly:** the prediction named vonc/loanzy/noted. noted (12 pages)
+expected to pass at the ~13:50Z tick; **loanzy (25 pages) is now ALSO a live test of the timeout
+ceiling** (~23–25 pages at ~8 s/page under the ~185 s budget) at ~15:50Z; vonc is unmeasurable
+until 416 is fixed or its 08-30 slot survives. Grading P4 on noted + loanzy + the three informal
+sites (38/6/0), with vonc's absence recorded as caused-by-416 — NOT silently swapped for a
+different site. Watch armed for both.

@@ -198,3 +198,26 @@ that our measuring code is still aboard — it is.
 What's left before I can close the case: tomorrow the checker visits the three sites whose
 repeated failures started all this, and Friday it returns to today's sites — where it should
 withdraw its complaints rather than re-file them. That withdrawal is the finish line.
+
+**27 August, early afternoon.** Today's plan was to watch the checker visit the three sites whose
+failures started this investigation. The first visit found something bigger instead.
+
+The checker's visit to vonc timed out — and when I pulled on that thread, it turned out the
+checker has been timing out on **every site larger than about two dozen pages, on every audit
+day, for at least two weeks**. Fourteen or so of our largest sites — including webdesign.co.uk
+itself — have not had a single successful check in that time. The cruel details: the measuring
+browser actually finishes the job, but the platform gives up waiting about 45 seconds too early
+and throws the answer away; the failure is recorded as "COMPLETED" so nothing looks wrong; and
+each attempt uses up the site's once-every-three-days slot, so the next attempt fails the same
+way. Our own work last week flagged this as a pre-existing risk nobody had filed — it's now
+filed properly (case 416), with the evidence, the likely cause, and three candidate fixes, and
+the automatic diagnosis loop is running on it.
+
+To be clear about cause: this is **not** something our changes broke — the failures predate them
+by a week. Our measuring code may have slightly lowered the page threshold, and I've flagged that
+question honestly rather than deciding it myself.
+
+For our own case: the smaller of the three named sites gets checked this afternoon and should be
+fine; the mid-sized one is right at the danger line, which accidentally makes it a useful
+experiment; vonc can't be measured until the timeout is fixed. Friday's decisive return visits
+are all to small sites, so the finish line hasn't moved.
