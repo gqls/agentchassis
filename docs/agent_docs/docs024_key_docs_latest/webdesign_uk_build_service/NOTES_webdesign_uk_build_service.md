@@ -6261,3 +6261,40 @@ first customer-shaped build.
 Note for whoever picks this up: the API mint path (step 4 of the post-roll billing
 acceptance) has still never been exercised — the script's first successful run IS that
 acceptance; record its 201 when it happens.
+
+## 2026-08-27 (evening, delivery-lane session) — TRIAL RUN 1: PAID. First real payment through the platform; two findings
+
+**PAID AND VERIFIED AT BOTH ENDS** [MEASURED 2026-08-27]: `billing_orders` row `36744bf0`
+status=paid, 3000p, external_reference=BR-9AUZ59, paid_at 14:40:22Z, provider session
+recorded, voucher WD-9FAB5-2NVNF redeemed atomically; Stripe dashboard shows £30.00
+Succeeded (card, 14:40Z). trial_checkout.sh's first run IS the outstanding billing
+mint-path acceptance (step 4) — passed. The webhook round-trip worked on the first real
+payment.
+
+**Finding 1 — `/pay/success` and `/pay/cancel` DO NOT EXIST anywhere:** stripe.go mints
+`{billing_public_base_url}/pay/success?o=<order>` as every checkout's landing, and no
+page, route or nginx location serves it — the buyer pays real money and lands on the
+box's bare 404 (owner hit it live). Nothing loses money (the webhook, not the redirect,
+is the truth) but it is the worst possible post-purchase moment. **OWED BEFORE ORDERING
+OPENS**, alongside Payment Links and label removal. Design question for the lane: a
+framework-built pair of pages on webdesign.uk (the 08-04 no-hand-built-HTML ruling
+applies), copy reading "payment received — your reference is in your order" with the
+`?o=` echoed client-side at most.
+
+**Finding 2 — the paid brief does NOT auto-release, and that is a DESIGNED hold, not a
+fault:** seed 661 (order-intake-collector + 15-min task, ships DISABLED) is NOT applied;
+its own header names the two gates — P5 seeding unbuilt (a collected brief today builds
+its site WITHOUT customer contact details in `sites` or an evidence_base aspect: honesty
+guards unarmed) and the token (now ON pods via terraform 047, verified presence-only).
+The action IS in the running chassis image (`126ce647d` ancestor of stamp `7a0d189d7`,
+reversed control ok). The owner's brief sits safely on the box, re-listed to any future
+poll. **Monday's real work: P5 wiring** (the settled contract:
+`../site_delivery_and_editor/BRIEF_2026-08-26_domain_find_register_point_service.md` +
+the P4 plan's §4), then apply 661, verify it ASSERTS disabled, and flip it on with the
+owner. Manually force-releasing run 1's brief before P5 would build a degraded site —
+not worth it against a weekend.
+
+Also answered for the owner: no payment link in the chat flow is BY DESIGN today (the
+intake gate calling CreateOrder itself is exactly this P4/P5 wiring's next half — the
+HandleCreateOrder comment names it); and the Stripe hosted page IS the payment approval
+step — amount shown, Pay clicked — it is simply fast with a remembered card.
