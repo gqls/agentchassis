@@ -963,3 +963,19 @@ apply, DB-only VERIFY, no LLM in the query); starvation damage is live and ongoi
 their acceptance reads must (a) cut windows on the outage boundary, (b) run the stuck-claim +
 lock controls before grading a dark site, (c) during the outage measure SELECTION fairness
 (loops per starving site), not drain.
+
+### 2026-08-27 13:18:19Z — 657 APPLIED (their session, on our all-clear); windows cut; floors scheduled
+
+Their stamp 13:18:19Z, VERIFY green 13:18:30Z (md5 d29807313; **K=8 read LIVE from 658's
+knob — the K-agreement worked unedited across the 5→8 change**); census at verify 28 eligible /
+11 pinned (pins persist as rows; they no longer freeze the age order). Confirmed from this side
+at the artefact: selector md5 d2980731 by version DESC `[MEASURED 13:19Z]`. Their apply probe
+picked loanandmortgagecalculator.co.uk — one of yesterday's measured starvers. Their commit
+25e92db4c records all four context items verbatim.
+
+**Division agreed:** this lane takes the **+2h (~15:20Z)** and **+6h (~19:20Z)** per-site
+floors against the 09:00Z and 13:11Z baselines — acceptance bar per 413 §"How to verify"
+(no site with eligible work > ~1h unserved while pins exist elsewhere), graded with the lock +
+stuck-claim discriminators, and during the LLM outage (still 100% fail at 13:19Z) on
+loops-per-starving-site rather than drain. They spot-check the first ~10 fires. Bug 413 stays
+OPEN until measured.
