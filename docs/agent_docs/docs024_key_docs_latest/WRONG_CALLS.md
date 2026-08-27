@@ -56787,3 +56787,37 @@ a decision on it, and written into the file this estate treats as authoritative 
 was *correct*. The estate's own phrasing for it is already in my memory index: *"a correct instrument
 read PARTIALLY beats a broken one for danger — say N out loud before interpreting, and account for all
 N."* I read that line this morning.
+
+## 2026-08-27 — bugs_open/414 lane: I read a code COMMENT as if it were a measurement, and used it to talk another lane out of counting
+
+**What I claimed.** Asked by the throughput lane what the composition of `claimed-item-timeout` resets
+looks like by `item_type`, I answered that *"the pre_query answers part of it before you spend a
+query"*: its own comment says the verifier-gated item types "keep falling through to reset" by design,
+and names `needs_rerender` as always landing there — **"so those resets are not incidents at all and
+will dominate any count that does not exclude them."**
+
+**Why it was wrong.** They ran it. Of **127** resets today, the verifier-gated types account for
+**5**. The bulk is `page_rerender` at **66** — a type which *has* an evidence-completion arm
+(`deployed_at > claimed_at`), so those are genuine 40-minute holds, not by-design fallthrough. The
+incident character of the census stands; my prediction inverted it. They also found `needs_rerender`
+reaches reset by a *different route* than I assumed — it is not in the exclusion list at all; it is
+site-level with `page_id` NULL, so the evidence arm cannot match it.
+
+**The error, precisely.** The comment was TRUE and my inference from it was a quantity the comment does
+not contain. "X falls through by design" says nothing whatever about how OFTEN X occurs relative to
+everything else. I turned a mechanism statement into a frequency claim, which is the same move as
+reading a `[MEASURED]` marker as a completed measurement — except the source here was not even a
+marker, just an explanation.
+
+**What makes it worse than being wrong alone.** I used it to *discourage a measurement* — "before you
+spend a query". Had they taken the advice, the caveat in `bugs_open/413` would now carry my inversion
+as a reason not to count, and nothing downstream would ever have contradicted it. A wrong answer costs
+one correction; a wrong answer that argues against checking costs the check.
+
+**The cheap check, skipped.** The query was one `GROUP BY item_type` over a table I had open. If a
+question is cheap enough to answer, never answer it from a comment — and never offer a comment as a
+reason someone else's cheap query is unnecessary. Tally: **code-comment-read-as-a-frequency-claim**.
+
+**Sixth logged today**, and the one that breaks the pattern I had just written up: the other five were
+numbers produced in passing. This one was an *inference offered as guidance to another lane*, which
+is a different and more expensive failure, because guidance propagates and a number gets re-derived.
