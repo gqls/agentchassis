@@ -222,3 +222,53 @@ Nine image generations plus deployment, for zero visible images. Three of those 
 doomed by §7's capability gap. **The copy rebuild the images were bundled with did land** and is
 being scored separately, so the run was not wasted — but as an imagery exercise it delivered
 nothing, and the status column said otherwise throughout.
+
+## 9. ⚠ CORRECTION 2026-08-30 — §8's "ZERO delivered" is WRONG. One landed, and the other eight are sitting in the bucket
+
+§8 concluded *"0 of 9 pages display a hero image"* on 2026-08-26. **Re-measured at the served site
+on 2026-08-30 that is false, and the correction changes the fix from a code change into an UPDATE.**
+
+**`[MEASURED 2026-08-30, served pages + bucket, no cluster access needed]`:**
+
+- **`careers.html` DOES display its hero** — `/assets/images/content-hero-careers.jpg`, HTTP 200,
+  139,877 B. So the wiring is not universally broken; it fired at least once.
+- **All nine images are DEPLOYED, PUBLIC and RESOLVING**, at deterministic paths:
+
+| file | HTTP | bytes |
+|---|---|---|
+| `content-hero-careers.jpg` | 200 | 139,877 |
+| `content-hero-services.jpg` | 200 | 134,114 |
+| `content-hero-about.jpg` | 200 | 109,386 |
+| `content-hero-approach.jpg` | 200 | 137,925 |
+| `content-hero-contact.jpg` | 200 | 62,227 |
+| `content-hero-case-studies.jpg` | 200 | 120,721 |
+| `content-hero-use-cases.jpg` | 200 | 111,929 |
+| `content-hero-model-approach-selector.jpg` | 200 | 103,739 |
+| `content-hero-tool-ai-readiness-checker.jpg` | 200 | 82,266 |
+
+- **Eight of the nine are unreferenced by the page they were generated for.**
+
+### Why the correction matters more than the error
+
+§8 said the images were undeliverable through the build path and that the fix was to hoist the
+wiring to deploy time. **That is still the right structural fix.** But the immediate remedy is now
+much cheaper than that: the assets exist at a predictable path derived from the page name, so
+delivering the remaining eight is
+
+```sql
+UPDATE page_components pc SET content_data = jsonb_set(pc.content_data, '{hero_url}',
+       to_jsonb('/assets/images/content-hero-' || p.name || '.jpg'))
+  FROM pages p, sites s
+ WHERE p.id = pc.page_id AND s.id = p.site_id AND s.domain = 'finetuning.uk' AND ...
+```
+
+followed by a `page_rerender` at `spec.reason='template_changed'` — **which regenerates no copy.**
+⚠ Verify each file 200s first (they do today) and confirm the target component is image-capable
+(`649` made the last two so).
+
+### The lesson, and it is the session's own lesson turned on me
+
+**A "zero" measured once, on the day, became a "one in nine" four days later, and I had written it
+as a settled finding.** The run was still draining when I concluded. §8 should have carried its date
+in the claim and a re-check instruction; it carried the date and asserted anyway.
+**Re-measure a delivery figure before quoting it — the pipeline is slower than the session.**
