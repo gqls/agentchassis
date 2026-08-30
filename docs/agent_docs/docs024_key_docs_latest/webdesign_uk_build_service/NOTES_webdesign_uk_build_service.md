@@ -6298,3 +6298,22 @@ Also answered for the owner: no payment link in the chat flow is BY DESIGN today
 intake gate calling CreateOrder itself is exactly this P4/P5 wiring's next half — the
 HandleCreateOrder comment names it); and the Stripe hosted page IS the payment approval
 step — amount shown, Pay clicked — it is simply fast with a remembered card.
+
+## 2026-08-30 (Sunday evening, delivery-lane session) — chat dark on the RAISED limit; label stripped a THIRD time and re-placed; kubeconfig expired
+
+- **Chat contact-line reply = the Anthropic usage limit AGAIN** — the ceiling the owner
+  raised on 08-27 has itself been spent by three days of fleet work: journal 20:46Z
+  `anthropic 400 ... regain access on 2026-09-01 at 00:00 UTC`. The fail-closed arm is
+  working as designed. Remedy: wait for 09-01 00:00 UTC (hours before Monday work), or
+  the owner raises the ceiling again in the console. The recurring shape is now clear:
+  **the fleet and the customer-facing chat share one spend ceiling — the fleet can spend
+  the chat dark.** Worth an owner decision when convenient: a separate key (own limit)
+  for the customer-facing chat, so background work can never silence the shopfront.
+  (Fleet-side llm_call_log unverifiable tonight — kubeconfig token EXPIRED, the 3-day
+  cycle; owner refreshes.)
+- **"Not active yet" label stripped by rerender `6245c03` — STRIKE THREE** (ba44c5c,
+  then a GTM redeploy, now this). Re-placed at both points (vm-sites `55835ad`),
+  sitesync run, **served ×2 verified on BOTH www and preview**. If ordering doesn't
+  open Monday, the durable options remain the 08-26 note's: a lock on index, or moving
+  the label into the framework so rebuilds carry it. Three hand re-placements is the
+  tally arguing for one of them.
