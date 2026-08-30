@@ -1065,3 +1065,28 @@ it costs nothing to wait.
 I have filed the underlying problem as a bug: you should be able to add a picture to a page without
 having its words rewritten. The fix looks straightforward — the lighter rebuild already understands
 "an image just landed", it simply never gets told.
+
+2026-08-30. Copy quality goes back to the copy team, as you asked, and this thread returns to the
+fine-tuning service itself. A fresh handoff is written so a new conversation can pick up cleanly.
+
+Worth knowing before anything else: the cluster login has expired again — that's the three-day
+timeout, and it's yours to refresh. Nothing on the database side can be done until it is.
+
+One correction to something I told you on Tuesday, and it's in your favour. I said the nine images
+had all failed to appear. That was true when I looked and it isn't true now. Careers has its image.
+And when I checked the storage today, all nine images are there, published and loading properly —
+eight of them are simply not yet pointed at by their pages. So the pictures exist and are paid for;
+what's missing is one line of plumbing per page. That's now the cheapest thing on the list rather
+than the most expensive, and it doesn't touch any copy.
+
+What the copy experiment settled, so nobody repeats it: with the bad examples stripped out of the
+brief and your rule sitting in it, the writer still produced the comparison habit about five times a
+page. Two independent counts agreed. So it isn't imitation and it isn't a missing instruction — the
+model simply prefers that shape, and the only thing that will stop it is cutting it mechanically
+after the writing. Your rule was right; every single instance shortened with nothing lost. The copy
+team have that and the decision that follows from it.
+
+On the service itself: all four of your terms commitments are registered as facts the system can
+quote, but the terms and privacy pages themselves still need writing — that's the next real piece of
+work and it's unblocked. The six sample datasets are built. The booking shape is decided but not
+built. Stripe stays last and yours.
