@@ -3005,3 +3005,30 @@ claims engine independently re-derived our 08-19 withdrawal — the header did i
 class** (a planted marker obeyed by the writer and then SUBSTANTIATED by the audit fleet) —
 cite bugs_open/414 + CLM-030 in phase-2's brief verdicts. Also noted in passing: the fleet rolled
 again overnight (v1.0.1346, per the 414 lane's neighbouring commit).
+
+---
+
+## 2026-08-30 — the formal handback: copy quality is solely this lane's again
+
+Owner instruction, via the finetuning lane, verbatim: *"The copy team can take on the copy
+quality from here, we can go back to finetuning."* Their lane stands down on register work; the
+canary collaboration is CLOSED with everything committed (P2a refutation with both counts, the
+30-for-30 lossless truncation demonstration, the prose-improved/tic-unmoved read, and the
+pre-rebuild baselines for the nine + index/faq as a future diff base).
+
+**Their parting correction, received and checked:** their 08-26 "zero of nine images delivered"
+was FALSE — re-measured 08-30, all nine hero images are deployed and resolving (8 unreferenced by
+their pages; `bugs_open/412` §9 has the table). **Our records carry no such claim** (grepped —
+our canary scoring was copy-only by design), so nothing to correct here; the LESSON is adopted
+into battery practice alongside their verify-block one: **a dated claim about a pipeline in
+flight is still a claim about a moving thing — re-measure before quoting, especially days
+later.**
+
+⚠ **kubectl token EXPIRED 2026-08-30** (verified first-hand: credentials error on every call) —
+the 3-day expiry, owner refreshes; until then NO DB-side measurement is possible and an empty
+query result is an AUTH artefact, not a finding.
+
+**Standing state unchanged:** Q-A (repeal the mild-forgiveness?) and Q-B (add
+`instead_of`/`not_just` to the gate) still await the owner — one change if he says "repair them
+all"; the brief-negation-check rebuild (item 7) owed; contact + index/faq rebuilds were pending
+when last measurable.

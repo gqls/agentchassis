@@ -3,6 +3,14 @@
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-26_continue_here.md`** (same
 day — the chassis roll, the owner's trial, and the canary's first scores landed after it).
 
+> **08-30 UPDATE:** the owner has formally handed copy quality BACK to this lane alone
+> (*"The copy team can take on the copy quality from here, we can go back to finetuning"* — via
+> the finetuning lane, which stands down on register work; canary collaboration CLOSED, their
+> baselines remain available). **Q-A/Q-B still await him and are the first thing to raise.**
+> ⚠ kubectl token EXPIRED 08-30 — no DB measurement until he refreshes; an empty result is an
+> auth artefact. Their parting lesson, adopted: a dated claim about an in-flight pipeline is a
+> claim about a moving thing — re-measure before quoting.
+
 > ## ▶ START HERE, IN THIS ORDER
 > 1. **`OWNER_RULINGS_2026-08-25_six_decisions_on_the_copy_machinery.md`** — now EIGHT rulings +
 >    two open questions (Q-A, Q-B at the tail). The owner is actively ruling in-chat; this file
