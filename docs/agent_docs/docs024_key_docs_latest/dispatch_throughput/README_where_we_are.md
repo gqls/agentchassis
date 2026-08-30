@@ -374,3 +374,13 @@ fleet is back at full speed since the credit top-up (~270 items/hour). One desig
 for a decision when you want it: individual low-priority rows can still sit at the back of a
 busy site's queue indefinitely (two are ~16 hours old now) — the fix stops them starving OTHER
 sites, but only the "age floor" option we wrote up would put a ceiling on their own wait.
+
+2026-08-30 evening — back after the frozen days, and two headlines. The good one: the dispatch
+system is in the best shape it has ever been. The whole backlog from Thursday is gone, the
+queue-jumping fix has held for three days (nothing starving, no stuck work anywhere), and
+wasted claim attempts are down to 3.9% — from around 60% before this workstream started. The
+bad one needs your hand again: the AI account has been refusing essentially every call since
+Friday (same "usage limits" message as Thursday — the top-up ran out or the limit reset). The
+site machinery is idling as a result: almost no new work is being generated. Another top-up or
+a limit raise brings it all back; and this is now the fourth incident for the spend-governor
+case — it remains the top build item.
