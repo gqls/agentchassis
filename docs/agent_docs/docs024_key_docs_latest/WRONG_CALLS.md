@@ -56821,3 +56821,28 @@ reason someone else's cheap query is unnecessary. Tally: **code-comment-read-as-
 **Sixth logged today**, and the one that breaks the pattern I had just written up: the other five were
 numbers produced in passing. This one was an *inference offered as guidance to another lane*, which
 is a different and more expensive failure, because guidance propagates and a number gets re-derived.
+
+- **2026-08-26/30 — I recorded "zero of nine images delivered" as a settled finding while the
+  pipeline that delivers them was still draining. Four days later it was one of nine, with all nine
+  sitting deployed and public.** The imagery half of a nine-page rebuild reported 9/9 work items
+  `complete`, 16 assets created, and I measured `content_data.hero_url` as `(none)` on every hero
+  component and every served page. I wrote that up as the decisive result — §8 of `bugs_open/412`,
+  headed *"nine images generated, nine deployed, ZERO delivered"* — and used it to argue that the
+  build path is structurally incapable of wiring an image.
+  **Caught by:** re-measuring the served site four days later for an unrelated reason (writing a
+  handoff, and refusing to quote stale figures in it). `careers.html` displays its hero;
+  **all nine images resolve at `/assets/images/content-hero-<page>.jpg`, HTTP 200, 62–140 KB** —
+  eight merely unreferenced.
+  **The cheap check:** for any claim about a PIPELINE's output, ask whether the pipeline has
+  finished. Mine had eight of nine copy-rebuilds still queued when I concluded; the run was visibly
+  mid-flight in my own notes on the same page.
+  **The subtlety worth keeping, because the marker rule did NOT save me here:** the claim carried
+  its date, exactly as the estate requires. **A dated claim about an in-flight process is still a
+  claim about a moving thing** — the date tells a reader when it was taken, not that the thing had
+  stopped moving. Dating protects against staleness by ADDITION; it does nothing against a
+  measurement taken too early. For an in-flight run, record the completion state alongside the
+  figure ("8 of 9 rebuilds still queued") or do not state a total at all.
+  **What it cost and what it bought:** it made an expensive structural fix look like the only
+  option, when the real remedy turned out to be an `UPDATE` setting a URL that already exists at a
+  predictable path. Adopted as standing battery practice by `copy_quality_two_stage` alongside
+  "a verify block can only refuse what it was told to check".
