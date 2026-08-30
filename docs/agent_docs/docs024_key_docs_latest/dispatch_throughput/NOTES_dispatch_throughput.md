@@ -1062,3 +1062,39 @@ refresh watch armed — the read runs the moment the token is back. The +6h ther
 +Nh with the actual timestamp recorded; the +2h PASS stands as the day's primary acceptance
 evidence. Nothing about the fix is in doubt from this; it is an access outage on the meter,
 not the mechanism.
+
+## 2026-08-30 ~21:1xZ — session resumed after ~3 frozen days (credit); long-run floor PASSES; VERIFY green at lost 3.9%; a NEW 2-day LLM outage live; one meter lesson
+
+**Continuity honesty:** the session froze ~08-27 15:45Z (credit) with the +6h read already
+blocked by the kubeconfig 3-day expiry (19:11:20Z); resumed 08-30 ~21:09Z with the kubeconfig
+fresh. The 08-28 clean-window Phase-3 read is UNRECOVERABLE (orchestration_states retention;
+say plainly: lost). No other session ran the lane's reads meanwhile (git log clean).
+
+**Long-run (+3.3d) post-657 floor `[MEASURED 2026-08-30 21:09–21:15Z]`: PASS, trivially.**
+The 08-27 ~700-row backlog is fully DRAINED: six eligible rows fleet-wide (five sites, all
+`needs_page` @99 created 18:37–18:41 tonight, attempt 0, cycling on retry_after deferrals —
+consistent with the live LLM outage below). Zero pins, zero stuck claims, trigger 29 fires/h.
+2,273 claims / 2,312 completions still visible since 08-27 13:35 (rolling window: an
+undercount of the true 3-day drain).
+
+- **Meter lesson (RUNBOOK caveat added):** the floor's `last_claim` = max(claimed_at) is
+  BLIND to claim-release cycles — a release (deferral or timeout reset) clears claimed_at.
+  mortgagecalculator read "last claim 08-28, 2.5h unserved" while taking 9 loops in 2h on a
+  deferring row. The service meter is LOOPS; the acceptance query's loops column is what
+  exposed the contradiction.
+
+**Daily 584 VERIFY (3 days missed — those windows lost): all 7 hold**, 5 zombie tails
+NOTICEd; informational: 562 loops / 0 co-picks / **lost claims 3.9%** (19 of 482) in the
+trailing 24h — the best figure the lane has recorded (58–60% pre-B → 16.5% → 3.9%, the last
+step on a shallow queue with 657 live).
+
+**⚠ NEW FLEET LLM OUTAGE, ~2 days old, LIVE:** llm_call_log fails/day — 08-28: 482/1,356
+(36%); 08-29: **758/760**; 08-30: **654/659**; last 30 min **25/25**; last success 16:12Z
+today; same "You have reached your specified API usage limits" 400 family. This is why the
+queue drained to near-zero demand and why the six needs_page rows defer. Owner push-notified
+(terminal; Remote Control inactive). D4's case count: four.
+
+Windowing note for any future Phase-3 grading: clean post-657 LLM-healthy windows are scarce
+— 08-27 13:35→~08-28 morning is the main one, and it is already out of retention. The ~+7%
+question may only be answerable after the account is topped up AND demand returns; do not
+force it.

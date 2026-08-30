@@ -206,6 +206,12 @@ FROM scheduled_tasks WHERE name LIKE 'build-pipeline-trigger%';
 -- through it. Quote the WORST site, not the mean. ⚠ last_claim reads from site_work_items,
 -- a rolling window: a site whose claimed rows have all archived reads NULL — treat NULL as
 -- "long ago", not "never", and confirm at orchestration_states loops for the site.
+-- ⚠ last_claim IS BLIND TO CLAIM-RELEASE CYCLES (added 2026-08-30): a release — deferral OR
+-- timeout reset — clears claimed_at, so max(claimed_at) reads STALE on a site that is being
+-- claimed and released every few minutes. The 08-30 worked case: mortgagecalculator read
+-- "last claim 08-28" while taking 9 loops in 2h on a row deferring on retry_after. The service
+-- meter is LOOPS (orchestration_states, within retention), never claimed_at alone — the
+-- loops_post_fix column below is load-bearing, not decoration.
 -- ⚠ LOCK CONTROL (added 2026-08-27): a LOCKED site (s.locked_at set, no lock-excepted rows)
 -- is parked BY DESIGN — the selector must skip it, and it is not starvation. The 08-27 read's
 -- worst row (adversecreditmortgage.co.uk, 70 eligible, 27h no claim) was exactly this. The
