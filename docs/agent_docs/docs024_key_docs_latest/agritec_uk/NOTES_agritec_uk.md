@@ -888,3 +888,60 @@ not the URL. Framework-owned, `detected`, not touched — but if it churns, this
   against the stub page; decide retire-vs-repoint before investing more in it.
 - favicon.png 404 is real; `head_essentials_missing` ×13 + the 397 chrome wave will churn the
   head — let them land before touching anything head-shaped.
+
+---
+
+## 2026-08-30 — verification pass: everything green at the artefact; DB half blocked by token expiry
+
+Session resumed after four days. **The kubeconfig token expired 2026-08-27 19:11:20Z** (the
+3-day cycle; issued 08-24, never refreshed; the dispatch_throughput lane already notified the
+owner per commit `68f4fd1bd`). So every check below is at the SERVED ARTEFACT over HTTPS — the
+half the lane's own discipline prefers anyway — and the DB half is explicitly owed (list at
+the end).
+
+### The 08-26 watch list, verified at the artefact
+
+1. **The 17 images regenerated LIGHT and deployed.** All sampled files carry
+   `Last-Modified: 27 Aug 2026 11:01:39` (after the 08-26 10:09 dispatch; page rerenders do
+   not write `/assets/images/*`, so these are new image bytes). Lightness MEASURED, not
+   assumed — mean luminance out of 255, PIL over the served bytes:
+   `hero-home.jpg 231.5 · logo.png 236.0 · icon-cea.jpg 229.5 · hero-sfi.jpg 224.2`, dark
+   (<64) pixel fraction 1.6–5.0%. A dark-guide image would have read the other way, so the
+   measurement could have disconfirmed.
+2. **The agreement-cap copy is CORRECTED on the served page.** `/blog/stacking-agricultural-scheme-actions.html`:
+   "100,000 agreements" → **0 occurrences**; the section now opens *"The £100,000 figure is a
+   limit on what a single agreement can be worth. No SFI26 agreement can carry more than
+   £100,000 of payments in an agreement year, and the application service is built to stop
+   submission…"* — the registered fact, stated the right way round.
+3. **Tool intact through all the waves:** £224 present, £382 absent, CSAM3 rate row present,
+   no `#12151F`. **GTM restored** in the served head (the 397 wave landed). **Guides hub lists
+   6 of 6.**
+4. **The favicon "404" is not a defect.** The head names `/assets/images/favicon.png`, which
+   serves **200**; only the browser-fallback paths `/favicon.png` and `/favicon.ico` 404. The
+   00:24 `image_url_404:favicon.png` item probed a path the head does not (or no longer)
+   names.
+
+### The companion-guide question (handoff 08-25 §3.5) is SETTLED by measurement: KEEP it
+
+The "thin stub" no longer exists. `/guides/tool-sfi26-revenue-stacker-guide.html` measured
+2026-08-30: ~6,000 body words, real structure ("What the calculator models / The governing
+relationship / What the model cannot know / Where the actual rates and rules live"), **listed
+on the guides hub** (3 inbound), cross-links the real explainer (1×) and the tool (5×), carries
+the garble nowhere, and — checked because the owner's 08-24 ruling requires a link per figure —
+**states zero £ figures**: its rates section deliberately names Defra/RPA/Natural England in
+prose and says the site "does not attempt to restate those rules as though it were the
+handbook". No figures → no citations owed. It is a methods-companion with a distinct subject,
+not a duplicate of the scheme explainer. Nothing to retire; and the tool page links only to
+`/guides/index.html`, so there was never a stub-pointing CTA to repoint. Residual (DB-only):
+whether the framework's duplication checks agree.
+
+### Owed when the token refreshes (record the read as +Nh with its honest timestamp)
+
+- The `acceptance_run` RESULT — the first Tier-4 ever for this site. The artefact says the
+  tool survived; the run's verdict on the ARITHMETIC is the thing nothing else has proven.
+- Statuses of the 17 `needs_imagery` (batch `af3e9ffa`) + the `content_rewrite` — expect
+  complete; the artefact already proves the work happened, but "complete with error NULL"
+  still deserves its glance (this lane's own §MISSTEP 3).
+- Whether `claims_unverified` self-closed (revalidator arm `resolved_all_gates_passed`).
+- The companion guide's duplication/depth standing in the framework's own checks, and the
+  current open-queue shape generally (4 days of waves unread).
