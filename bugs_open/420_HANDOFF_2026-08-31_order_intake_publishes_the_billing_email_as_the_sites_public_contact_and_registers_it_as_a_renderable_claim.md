@@ -225,3 +225,86 @@ step treating a rerender status or content hash as proof (a chrome-only change n
 - The `published_contact` wire shape (`{email, phone, …}`) needs agreeing with the intake-chat
   lane. The platform half reads only `.email` today and ignores unknown keys, so the shape can
   widen without another platform change.
+
+---
+
+## COUNCIL APPROVED (2026-08-31) — and its objections found a RESIDUAL the fix does not close
+
+Verdict on `2026df60-b91e-4f1c-8425-a3f6f14e6309`: **approved with 3 advisory objections, none
+high-severity.** The commit carries `Council-Submitted:`, so 098 credits it automatically. Read,
+and acted on — two objections were fair hits and one exposed a real gap. **This section exists so
+the approval is not read as "the class is closed".**
+
+### A — my "4 estate sites" blast-radius figure was wrong, and unverifiable as stated
+
+`debug_historian` objected that no query was shown for it. Running it: my first attempt used
+`WHERE status='active'`, which returned **0 with an email and 0 without** — `sites.status` has no
+`'active'` value (it is `deployed | pool | system | test`). Corrected, with the denominator so it
+is self-checking:
+
+```sql
+SELECT count(*) FROM sites;                                    -- 54
+SELECT count(*) FROM sites WHERE COALESCE(email,'')='';        -- 34
+SELECT count(*) FROM sites WHERE COALESCE(email,'')<>'';       -- 20
+```
+
+`[MEASURED 2026-08-31]` **54 sites; 34 with an empty email column; 20 with one.** So removing the
+`info@<domain>` synthesis touches a population of up to **34, not 4** — an order of magnitude out.
+Logged in `WRONG_CALLS.md`. (Not all 34 would have shown `info@`: some carry a contact email in
+their specs which the sync writer fills from — see C.)
+
+### B — the "0 current site_specs carry the address" claim, now with its query AND a demand control
+
+`editquality` and `debug_historian` both flagged this as asserted without visible mechanism, on a
+jsonb column where string-absence claims are a known trap. Re-run:
+
+```sql
+SELECT count(*) FROM site_specs WHERE is_current AND data::text ILIKE '%<the address>%';   -- 0
+SELECT count(*) FROM site_specs WHERE is_current AND data::text ILIKE '%boxingonline%';    -- 2  (DEMAND CONTROL)
+SELECT count(*) FROM site_specs WHERE created_by='seed_build_queue';                       -- 1  (the seed ran ONCE, fleet-wide)
+```
+
+**The claim holds and the zero is now a measurement**, because the same query shape against the
+same column finds something that IS there. Without the control it was a zero that could not have
+come out otherwise.
+
+### C — ⚠ THE RESIDUAL: `sync_site_identity` can still publish an address nobody consented to
+
+`editquality` objected that my reason for NOT editing the two spec-copying writers — *"on a
+customer build those stores receive the address only via the seed's own writes"* — was an
+assumption about internal data flow, not a verified fact.
+
+**It was, and it is FALSE.** `[MEASURED 2026-08-31]` **28 current `identity`/`briefing` specs
+carry a contact email**, and the sync writer reads exactly those keys
+(`sync_site_identity_action.go:104-137`: `identity.contact.email`, then `briefing.contact_email`)
+and writes `sites.email` — the published-contact column. Example from the live data:
+`cv1.co.uk` has `identity.contact.email = hello@cv1.co.uk` while its `sites.email` is EMPTY, i.e.
+the fill is pending, not absent.
+
+**So the fix closes the path the bug FILED — the payer's billing address — and does NOT close the
+general one.** If a customer's brief prose mentions an email, or a research step derives one, the
+classifier can land it in `identity.contact.email`, and it becomes the site's published contact
+with no `published_contact` answer anywhere. That is the same defect one layer along: **an address
+reaching the published-contact column without anyone having been asked.**
+
+**Deliberately NOT fixed here, and this is a scope judgement the owner should confirm rather than
+a session's call.** Gating that writer would change how the 20 estate sites with legitimate
+contacts get them, and those flows are how estate sites are supposed to work. The narrow reading
+of the owner's 2026-08-31 ruling ("absent an explicit answer, publish none") appears to cover this
+case too; the wide one would re-plumb the estate's own identity pipeline. **Routed to the owner as
+an open decision, stated rather than left implicit.**
+
+### D — the guardian's product point, which is the ruling's known cost made concrete
+
+*"the default publish-nothing behaviour ships fleet-wide the moment this rolls, ahead of the box
+intake-chat sending `published_contact`… a customer-facing regression across the whole
+order-intake pipeline until an out-of-repo change ships."* Correct, and it is the direct
+consequence of the ruling rather than a surprise: **until the intake chat asks the question, every
+new customer site publishes no contact at all**, including customers who would have wanted one.
+The alternative is publishing an address nobody consented to, which is this bug. Flagged to the
+owner; the fix is the chat change, and it is the critical-path item for order 2.
+
+Also accepted, unfixed and recorded: the admin PATCH writer remains an unconditional,
+unannotated route to the published-contact column (no way to distinguish operator-set from
+customer-consented), and the two `info@` deletions are duplicated rather than shared, which is a
+drift surface the next editor of one path will meet.

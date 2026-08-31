@@ -57343,3 +57343,44 @@ exactly the set of files I edited and did not name.
   Tally: **attributed-an-artefact-to-the-run-in-front-of-me** (kin of
   damage-confirmed-is-not-mechanism-confirmed; the third roll found the truth only because
   each cancellation reason recorded a falsifiable claim the next parking could refute).
+
+---
+
+## 2026-08-31 — bugfix 417/420 lane: I put a blast-radius count in a council submission whose query I had never run, and when I finally ran it, my predicate matched nothing
+
+**The claim.** My 420 submission said removing the `info@<domain>` synthesis affects **"the 4
+address-less estate sites (robot-hands, relojistas, vetcomparison, vonc)"**. I inherited the
+figure from a planning agent, found it plausible, and shipped it in the rationale, in the risks
+block, and in the commit message.
+
+**Why it was wrong.** The council's `debug_historian` seat objected that no query or method was
+shown for the count — *"blast-radius counts must be derived from an actual enumeration of real
+column values, never from a status-style predicate assumed to gate exposure."* I ran it. My first
+attempt used `WHERE status='active'` and returned **0 sites with an email AND 0 without** — both
+arms zero, which is only possible if the predicate matches nothing. `sites.status` has no
+`'active'` value at all; it is `deployed | pool | system | test`.
+
+**The real figure `[MEASURED 2026-08-31]`: 54 sites, 34 with an empty email column, 20 with one.**
+So the population whose rendered contact could previously be synthesised is up to **34, not 4** —
+an order of magnitude out, in a number a reviewer was being asked to accept as the blast radius.
+
+**What caught it.** The council seat, asking for the query rather than the number. Note it did not
+know the figure was wrong; it objected to the *absence of a method*, which is the cheaper and more
+general test, and it was right on both counts — the number was wrong AND my first attempt to
+verify it was silently broken in exactly the way the objection described.
+
+**The cheap check that would have.** CLAUDE.md already requires it and I skipped it twice over:
+*"A verified fact needs its evidence inline — the query, the file:line, the pod output"*, and
+*"a `[MEASURED]` figure is only evidence if the measurement could have come out otherwise."* Two
+zeros from a two-armed census is the tell: **when a partition's arms sum to less than the total,
+the predicate is broken, not the world.** Always print the denominator next to the arms — `34 + 20
+= 54` is self-checking; a bare "34" is not.
+
+**Compounding factor worth naming:** the figure came from a subagent, and I treated a plausible,
+confidently-stated count as measured because the surrounding plan was rigorous. *A report is not a
+measurement* — the estate has that line already, and the seam where the measuring stopped is
+invisible precisely when the rest of the work is good.
+
+**Tally:** **a-count-repeated-without-its-query** ×1,
+**a-two-armed-census-that-sums-below-the-total-has-a-broken-predicate** ×1,
+**a-subagent-report-is-another-doc** ×1.
