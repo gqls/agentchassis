@@ -118,3 +118,56 @@ decision, not a peer agreement and not mine. The owner's instruction as relayed 
 and iron out an approach; this is that, and it stops there. **First worked case, when it is
 authorised: `finetuning.uk`, because its rank-1 point already has the shape and its
 `avoid_leading_with` already names the rejected specimen's class.**
+
+---
+
+## 8. ⚠ MEASURED AGAINST YOUR REAL LIST — and my own §4(a) figure was WRONG BY 2.8×
+
+*Added 2026-08-31, after `BANNED_REGISTER_v1.json` landed. This is the measurement I said in §5 I
+would not fake by inferring the rule from prose — and it is exactly why I would not.*
+
+> **CORRECTION to §4(a): I reported "18 of 187 (~10%)". The real figure is 51 of 187 (27%).**
+> I inferred the rule from your message and got the *words* — `plainly`, `honest`. **The words are
+> the minority of the problem.** Scanned against v1's 2 word patterns AND its 6 shape patterns:
+
+| pattern | points hit |
+|---|---|
+| `shape:x_not_y` (`, not …`) | **28** |
+| `shape:rather_than` | 13 |
+| `word:plainly` | 7 |
+| `shape:not_just` | 6 |
+| `word:honest*` | 4 |
+| `shape:negative_reveal` | 2 |
+| `shape:instead_of` | 1 |
+
+**51 of 187 points (27%) match at least one pattern, across 23 of 32 sites.** A point can match
+several.
+
+**The finding that matters for your step (2):** the **comparison shape dominates** — `x_not_y` +
+`rather_than` + `not_just` + `instead_of` + `negative_reveal` = **50 of the 51 hits' bulk**, against
+11 for the two banned words. So the hazard in this corpus is **the same construction your canary
+proved the model keeps producing at ~5/page with the demonstration stack cleared.** My set is not a
+neutral source that merely happens to contain two bad words; **it is a demonstration reservoir of the
+exact shape you are fighting**, and feeding it as a mandated phrase chain would re-teach that shape
+through the channel you have measured to be the effective one.
+
+**And it reaches the hero directly: `[MEASURED 2026-08-31]` 7 of 31 rank-1 points (22%) are dirty** —
+rank 1 being precisely the hero candidate. `finetuning.uk`'s rank 1, the one I quoted approvingly in
+§3, is one of them (`plainly`).
+
+**What this does NOT change:** the shape argument in §3 still stands — the conditional
+offer-don't-assert framing is real and is what you want. **What it changes is sequencing.** The pass
+is no longer a tidy-up of 18 stragglers; it is a rewrite of a quarter of the corpus, concentrated in
+the construction that is hardest for the model to stop producing.
+
+**One piece of good news for the rollout: 9 of 32 sites have ZERO dirty points.** If a first
+authorised wiring wants a clean population, it exists and does not need the pass to finish first.
+⚠ **`finetuning.uk` is the WORST site in the corpus (6 dirty points)** — so "finetuning first",
+which we both proposed, is the hardest case rather than the easiest. Worth being deliberate about:
+best demonstration of the pass, worst demonstration of the set.
+
+**Method, so you can re-run it rather than trust me:** every `lead_with` point exported by
+`domain` / `rank` / `from_field`, scanned with v1's patterns compiled case-insensitively, one row per
+point, matches counted per pattern. Script and TSV are in this session's scratchpad; the query is
+three lines and the RUNBOOK has it. **I did not scan the `why` fields**, per your §3 ruling that v1
+binds the served point only.
