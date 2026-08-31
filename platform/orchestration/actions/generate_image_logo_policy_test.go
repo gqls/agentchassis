@@ -219,47 +219,72 @@ func TestLogoWordmarkTextFromInputs(t *testing.T) {
 	}
 }
 
-// TestResolveLogoIntentClosesTheLegacyParentGap — council round 1 raised a HIGH
-// objection that keying the guard on `kind` alone reproduces bugs_open/417's own
-// root cause on a second axis: the two legacy parents map no `kind`, so the
-// policy would silently not apply on exactly the paths nobody watches.
+// TestResolveKindClosesTheLegacyParentGapAndSurfacesDisagreement — three
+// council rounds' worth of objections, pinned.
 //
-// MUTATIONS THAT MUST BREAK THIS:
-//   - delete any single non-`kind` arm → its named case fails.
-//   - make an unresolvable generation return true (i.e. default to logo) →
-//     the "nothing identifies it" case fails, and hero prompts would be
-//     contaminated, which is the 2026-05-20 lesson's mirror.
-//   - drop the `kind != ""` early return → the "a different kind was stated"
-//     cases fail, which is what keeps hero/icon out of the logo policy.
-func TestResolveLogoIntentClosesTheLegacyParentGap(t *testing.T) {
+// Round 2 HIGH (bug_historian): keying the logo guard on `kind` alone leaves the
+// two legacy parents ungoverned, reproducing 417's root cause on a second axis.
+// Round 2 MEDIUM (bug_historian): believing any stated non-logo kind opens the
+// MIRROR case — a mislabelled logo skips the policy with no error surface at
+// all, which is 417 on a THIRD axis.
+// Round 2 MEDIUM (editquality): "identified as non-logo" and "nothing
+// identified it" must be distinguishable, or a hero call that sets `purpose`
+// but no `kind` files a false "no kind" note and pollutes the liveness
+// measurement that note exists to provide.
+//
+// MUTATIONS THAT MUST BREAK THIS — each applied ALONE:
+//   - delete the step_name arm → the legacy-parent cases fail.
+//   - drop the Conflict assignment → the mislabel case fails.
+//   - set Answered=true unconditionally → the "nothing identified it" case fails.
+//   - make stepNameKindHint return "logo" when a name contains both "logo" and
+//     "hero" → the check_logo_or_hero case fails.
+func TestResolveKindClosesTheLegacyParentGapAndSurfacesDisagreement(t *testing.T) {
 	cases := []struct {
-		name       string
-		kind       string
-		inputData  map[string]interface{}
-		step       models.Step
-		wantIsLogo bool
-		wantSignal string
+		name         string
+		inputData    map[string]interface{}
+		step         models.Step
+		wantKind     string
+		wantSignal   string
+		wantAnswered bool
+		wantConflict bool
 	}{
-		{"modern handler branch", "logo", nil, models.Step{}, true, "kind"},
-		{"a different kind is BELIEVED", "hero", map[string]interface{}{"purpose": "logo"}, models.Step{Name: "call_logo_generation"}, false, ""},
-		{"icon is believed too", "icon", nil, models.Step{Name: "logo_thing"}, false, ""},
-		{"input_data purpose", "", map[string]interface{}{"purpose": "logo"}, models.Step{}, true, "input_purpose"},
-		{"spec purpose", "", map[string]interface{}{"spec": map[string]interface{}{"purpose": "logo"}}, models.Step{}, true, "spec_purpose"},
-		{"step config purpose", "", nil, models.Step{Config: map[string]interface{}{"purpose": "logo"}}, true, "step_purpose"},
-		{"step config kind", "", nil, models.Step{Config: map[string]interface{}{"kind": "logo"}}, true, "step_kind"},
-		// THE LEGACY PARENTS: site-work-orchestrator and pageflow-builder map
-		// {prompt, site_id, site_plan, reviewed_brief} and nothing else. The
-		// step NAME is the only signal they carry.
-		{"legacy parent, step name only", "", nil, models.Step{Name: "call_logo_generation"}, true, "step_name"},
-		{"nothing identifies it — must NOT guess", "", map[string]interface{}{"prompt": "a mark"}, models.Step{Name: "call_image_gen"}, false, ""},
-		{"hero step is untouched", "", nil, models.Step{Name: "call_hero_gen"}, false, ""},
+		{"modern handler branch", map[string]interface{}{"kind": "logo"}, models.Step{}, "logo", "kind", true, false},
+		{"legacy default_kind", map[string]interface{}{"default_kind": "hero"}, models.Step{}, "hero", "default_kind", true, false},
+		{"input purpose", map[string]interface{}{"purpose": "logo"}, models.Step{}, "logo", "input_purpose", true, false},
+		{"spec purpose", map[string]interface{}{"spec": map[string]interface{}{"purpose": "logo"}}, models.Step{}, "logo", "spec_purpose", true, false},
+		{"step config purpose", nil, models.Step{Config: map[string]interface{}{"purpose": "logo"}}, "logo", "step_purpose", true, false},
+		{"step config kind", nil, models.Step{Config: map[string]interface{}{"kind": "logo"}}, "logo", "step_kind", true, false},
+
+		// THE LEGACY PARENTS — site-work-orchestrator and pageflow-builder map
+		// {prompt, site_id, site_plan, reviewed_brief} and nothing else. The step
+		// NAME is the only signal they carry, and without this arm their logo
+		// prompts reach the model ungoverned.
+		{"legacy parent, step name only", nil, models.Step{Name: "call_logo_generation"}, "logo", "step_name", true, false},
+		{"hero step name", nil, models.Step{Name: "call_hero_gen"}, "hero", "step_name", true, false},
+
+		// [MEASURED 2026-08-31] check_logo_or_hero is a REAL live step name and
+		// it names both kinds. An ambiguous name must yield NO hint rather than
+		// a guess — a wrong guess here silently mis-governs a prompt.
+		{"ambiguous name names both kinds", nil, models.Step{Name: "check_logo_or_hero"}, "", "", false, false},
+
+		// The distinction editquality's objection turned on: nothing at all.
+		{"nothing identifies it", map[string]interface{}{"prompt": "a mark"}, models.Step{Name: "call_image_gen"}, "", "", false, false},
+
+		// The mirror case: a stated kind the step's own name contradicts. The
+		// STATED kind still wins — a classifier overriding a caller is worse —
+		// but the disagreement must be surfaced, not swallowed.
+		{"mislabelled logo is believed BUT flagged", map[string]interface{}{"kind": "hero"}, models.Step{Name: "call_logo_generation"}, "hero", "kind", true, true},
+		{"agreeing declarations raise no conflict", map[string]interface{}{"kind": "logo"}, models.Step{Name: "call_logo_generation"}, "logo", "kind", true, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, sig := resolveLogoIntent(c.kind, c.inputData, c.step)
-			if got != c.wantIsLogo || sig != c.wantSignal {
-				t.Fatalf("resolveLogoIntent(%q, %v, %+v) = (%v, %q), want (%v, %q)",
-					c.kind, c.inputData, c.step, got, sig, c.wantIsLogo, c.wantSignal)
+			got := resolveKind(c.inputData, nil, c.step)
+			if got.Kind != c.wantKind || got.Signal != c.wantSignal || got.Answered != c.wantAnswered {
+				t.Fatalf("resolveKind = {Kind:%q Signal:%q Answered:%v}, want {Kind:%q Signal:%q Answered:%v}",
+					got.Kind, got.Signal, got.Answered, c.wantKind, c.wantSignal, c.wantAnswered)
+			}
+			if (got.Conflict != "") != c.wantConflict {
+				t.Fatalf("Conflict = %q, wantConflict=%v", got.Conflict, c.wantConflict)
 			}
 		})
 	}

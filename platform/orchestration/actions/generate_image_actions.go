@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -106,22 +107,122 @@ var kindDefaults = map[string]imageDefaults{
 	},
 }
 
-// resolveKind picks the effective kind from (in order of precedence):
+// imageKind is the resolved identity of an image generation: what it is, which
+// source said so, whether ANYTHING said so, and whether the sources disagreed.
+//
+// The last two fields exist because of bugs_open/417. A bare kind string cannot
+// distinguish "this is positively not a logo" from "nobody told us anything",
+// and it cannot notice a caller that labels a logo generation as something else
+// — and BOTH of those are silent routes to an ungoverned prompt, which is the
+// defect 417 records. A resolution that carries its own provenance can be acted
+// on; a string cannot.
+type imageKind struct {
+	Kind     string // effective kind; "" when nothing identified this generation
+	Signal   string // which source answered ("kind", "step_name", …); "" if none
+	Answered bool   // did ANY source identify it, even as a non-logo?
+	Conflict string // set when a STATED kind disagrees with the step's own name
+}
+
+// stepNameKindHint reads the kind out of a step's NAME. This is the only signal
+// the two legacy parents carry (site-work-orchestrator and pageflow-builder call
+// generate_image from a step named `call_logo_generation` while mapping no kind
+// at all), so without it those paths are ungoverned — which is bugs_open/417's
+// own root cause reproduced on a second axis.
+//
+// [MEASURED 2026-08-31] every live step name containing "logo" or "hero", across
+// all active agent definitions: call_logo_gen, call_logo_generation,
+// generate_logo, store_logo_asset, deploy_logo_image, check_logo_or_hero.
+// An enumeration, not an assumption — the guardian seat rightly refused the
+// assertion without it. Note `check_logo_or_hero` names BOTH kinds, which is
+// exactly why an ambiguous name returns no hint rather than guessing.
+func stepNameKindHint(name string) string {
+	n := strings.ToLower(name)
+	hasLogo := strings.Contains(n, "logo")
+	hasHero := strings.Contains(n, "hero")
+	if hasLogo == hasHero {
+		// neither, or both (check_logo_or_hero) — no usable hint
+		return ""
+	}
+	if hasLogo {
+		return "logo"
+	}
+	return "hero"
+}
+
+// resolveKind picks the effective kind, in order of precedence:
 //  1. inputData["kind"]         — caller-supplied via step input_mapping
 //  2. inputData["default_kind"] — step-level fallback set by phase_2h.4
 //     for legacy callers (call_logo_gen → "logo", call_hero_gen → "hero",
 //     call_variant_gen → "hero")
+//  3. inputData["purpose"] / inputData["spec"]["purpose"] — the key the STORE
+//     path already reads for the same asset (storeImageAsset), so honouring it
+//     here removes a disagreement rather than inventing a signal
+//  4. the step's own config — purpose, then kind
+//  5. the step's NAME — the legacy parents' only signal
 //
-// Returns "" when neither is set; imageDefaults[""] is the zero value
-// meaning "no per-kind opinion".
-func resolveKind(inputData map[string]interface{}, agentConfig map[string]interface{}) string {
-	if k, ok := inputData["kind"].(string); ok && k != "" {
-		return k
+// This is the ONE kind resolver for this action. A parallel resolver was written
+// in round 2 of this change's council review and the reuse seat gated on it:
+// two functions resolving the same axis in one file is the second-way-to-do-
+// something pattern, and the objection was right — the step-name arm belongs
+// HERE, where every caller already reads its kind from.
+func resolveKind(inputData map[string]interface{}, agentConfig map[string]interface{}, step models.Step) imageKind {
+	stated := func(k, signal string) (imageKind, bool) {
+		if k == "" {
+			return imageKind{}, false
+		}
+		r := imageKind{Kind: k, Signal: signal, Answered: true}
+		// A stated kind is BELIEVED — that is what keeps hero/icon/imagery out
+		// of the logo policy. But when the step's own name says otherwise, the
+		// disagreement is recorded rather than swallowed: a caller mislabelling
+		// a logo generation would otherwise skip the text policy silently, with
+		// no error surface at all (bugs_open/417 on a third axis, raised by the
+		// bug_historian seat in round 2). This is a deterministic disagreement
+		// between two declarations, not a classifier guessing at the truth.
+		if hint := stepNameKindHint(step.Name); hint != "" && hint != k {
+			r.Conflict = fmt.Sprintf("step %q implies kind %q but the caller stated %q",
+				step.Name, hint, k)
+		}
+		return r, true
 	}
-	if k, ok := inputData["default_kind"].(string); ok && k != "" {
-		return k
+
+	if k, ok := inputData["kind"].(string); ok {
+		if r, done := stated(k, "kind"); done {
+			return r
+		}
 	}
-	return ""
+	if k, ok := inputData["default_kind"].(string); ok {
+		if r, done := stated(k, "default_kind"); done {
+			return r
+		}
+	}
+	if p, ok := inputData["purpose"].(string); ok {
+		if r, done := stated(p, "input_purpose"); done {
+			return r
+		}
+	}
+	if spec, ok := inputData["spec"].(map[string]interface{}); ok {
+		if p, ok := spec["purpose"].(string); ok {
+			if r, done := stated(p, "spec_purpose"); done {
+				return r
+			}
+		}
+	}
+	if step.Config != nil {
+		if p, ok := step.Config["purpose"].(string); ok {
+			if r, done := stated(p, "step_purpose"); done {
+				return r
+			}
+		}
+		if k, ok := step.Config["kind"].(string); ok {
+			if r, done := stated(k, "step_kind"); done {
+				return r
+			}
+		}
+	}
+	if hint := stepNameKindHint(step.Name); hint != "" {
+		return imageKind{Kind: hint, Signal: "step_name", Answered: true}
+	}
+	return imageKind{}
 }
 
 // parseAspectRatio takes a "W:H" string (e.g. "16:9", "1:1") plus
@@ -243,7 +344,8 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	height, _ := inputData["height"].(int)
 
 	// Phase 2H — kind resolution and per-kind defaults
-	kind := resolveKind(inputData, agentConfig)
+	kindRes := resolveKind(inputData, agentConfig, params.StepConfig)
+	kind := kindRes.Kind
 	defaults := kindDefaults[kind] // zero value if kind unknown
 
 	// Width / height: caller wins, then per-kind default, then 1024 fallback
@@ -516,17 +618,20 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// 41 seconds later (boxingonline, migration 680) missed it. The model also
 	// REWORDS the licence, so no literal match can bound the class — this guard
 	// needs no detection at all, which is why it is a bound and not a floor.
-	// The trigger is deliberately NOT `kind == "logo"`. Council round 1 on this
-	// change (bb099a3d) raised a HIGH objection that keying on `kind` alone
-	// reproduces 417's own root cause on a second axis: two legacy parents
-	// (site-work-orchestrator, pageflow-builder, step call_logo_generation) map
-	// no `kind`, so resolveKind returns "" and the policy would silently not
-	// apply on exactly the paths nobody is watching. The seat was right — a gap
-	// disclosed in a risks block is still a gap. So: resolve the intent from
-	// EVERY signal the action already has, and when NOTHING identifies the
-	// generation, say so durably rather than passing silently.
-	isLogo, logoSignal := resolveLogoIntent(kind, inputData, params.StepConfig)
-	if isLogo {
+	// bugs_open/417 — LOGO TEXT POLICY, driven off the single kind resolution
+	// above, which now carries its own provenance (which signal answered, whether
+	// ANY did, and whether the declarations disagreed). Round 2 of this change's
+	// council review gated on a parallel resolver living beside resolveKind; the
+	// seat was right, so the extra signals moved INTO resolveKind and this is
+	// now a consumer of one resolution rather than a second opinion.
+	//
+	// Three durable outcomes, because each is a distinct way an ungoverned
+	// prompt reaches the model and none of them is visible in a log:
+	//   - the policy applied, and the artefact records which signal let it;
+	//   - NOTHING identified the generation, so no per-kind policy could apply;
+	//   - a stated kind DISAGREED with the step's own name, so the policy was
+	//     skipped on a caller's say-so that another declaration contradicts.
+	if kind == "logo" {
 		wordmarkText := logoWordmarkTextFromInputs(inputData)
 		var ident logoIdentity
 		if wordmarkText != "" {
@@ -536,43 +641,69 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		var rejected string
 		promptTemplate, negativePrompt, promptSource, rejected = applyLogoTextPolicy(
 			promptTemplate, negativePrompt, promptSource, wordmarkText, ident, params.Logger)
-		promptSource += "+via_" + logoSignal
+		promptSource += "+via_" + kindRes.Signal
 		if rejected != "" {
-			// bugs_open/034's shape, raised as a MEDIUM objection in the same
-			// round: a validation outcome that exists only as a Warn is
-			// invisible to every census and dashboard, discoverable only by
-			// reading logs after the fact. If a planner keeps proposing
-			// ungrounded wordmarks, that is a pattern worth seeing.
-			recordLogoPolicyNote(ctx, params.DB, siteID, "logo_wordmark_rejected", fmt.Sprintf(
-				"Logo wordmark opt-in REJECTED and degraded to a text-free mark.\n"+
-					"Requested: %q\nSite naming — company_name: %q, logo_text: %q, domain: %q\n"+
-					"The requested text is not this site's own name, so it was not licensed "+
-					"(bugs_open/417: the grounding check is what stops the escape hatch becoming "+
-					"the hole, since a planner LLM can write this field itself).\n"+
-					"Categories: logo_wordmark_rejected",
-				rejected, ident.CompanyName, ident.LogoText, ident.Domain), params.Logger)
+			// bugs_open/034's shape, raised as a MEDIUM objection in round 1: a
+			// validation outcome that exists only as a Warn is invisible to every
+			// census, discoverable only by reading logs after the fact.
+			recordImagePolicyEvent(ctx, params, siteID, "logo_wordmark_rejected", "warning",
+				fmt.Sprintf("Logo wordmark opt-in REJECTED and degraded to a text-free mark. "+
+					"Requested %q; site naming — company_name %q, logo_text %q, domain %q. "+
+					"The requested text is not this site's own name, so it was not licensed.",
+					rejected, ident.CompanyName, ident.LogoText, ident.Domain),
+				map[string]interface{}{
+					"requested_wordmark": rejected,
+					"company_name":       ident.CompanyName,
+					"logo_text":          ident.LogoText,
+					"site_domain":        ident.Domain,
+					"bug":                "bugs_open/417",
+				})
 		}
-	} else if kind == "" {
-		// UNPOLICED GENERATION. We could not tell what this asset is, from any
-		// signal, so no per-kind policy could be applied. This is the honest
-		// residual of the legacy-parent gap, converted from an undetectable
-		// silence into a durable row — and it doubles as the measurement the
-		// liveness probe could not give: if those parents are dead, this table
-		// stays empty, and that empty IS the answer. If they are alive, each
-		// row names the run that got through.
+	}
+
+	// The residual detectors. Gated on Answered, NOT on kind == "" — round 2
+	// keyed the note on an empty kind, and the editquality seat caught that a
+	// hero call setting `purpose` but no `kind` would file a false
+	// "nothing identified it" note, polluting the very liveness measurement the
+	// note exists to provide. "Did any source answer?" is the question that was
+	// actually meant.
+	if !kindRes.Answered {
 		params.Logger.Warn("image generation with NO resolvable kind — no per-kind "+
 			"policy could be applied (bugs_open/417 legacy-parent gap)",
 			zap.String("site_id", siteID),
 			zap.String("agent_type", params.AgentType),
 			zap.String("step", params.StepConfig.Name))
-		recordLogoPolicyNote(ctx, params.DB, siteID, "image_generation_without_kind", fmt.Sprintf(
-			"An image generation reached GenerateImageAction with NO resolvable kind, so no "+
-				"per-kind policy (logo text policy, size defaults, negative prompt) could be "+
-				"applied.\nagent_type: %q  step: %q  prompt_source: %q\n"+
-				"Fix: give the calling step an input_mapping that supplies `kind` (or a "+
-				"`purpose`), the way image-build-handler's branches do.\n"+
-				"Categories: image_generation_without_kind",
-			params.AgentType, params.StepConfig.Name, promptSource), params.Logger)
+		recordImagePolicyEvent(ctx, params, siteID, "image_generation_without_kind", "warning",
+			fmt.Sprintf("An image generation reached GenerateImageAction with NO resolvable "+
+				"kind from any source, so no per-kind policy (logo text policy, size "+
+				"defaults, negative prompt) could be applied. Fix: give the calling step an "+
+				"input_mapping supplying `kind` or `purpose`, as image-build-handler's "+
+				"branches do."),
+			map[string]interface{}{
+				"step":          params.StepConfig.Name,
+				"prompt_source": promptSource,
+				"bug":           "bugs_open/417",
+			})
+	} else if kindRes.Conflict != "" {
+		// A stated kind that the step's own name contradicts. The stated kind is
+		// still believed — a classifier overriding a caller is a worse failure —
+		// but the disagreement is now recorded, so a mislabelled logo is
+		// findable instead of silently ungoverned.
+		params.Logger.Warn("image kind CONFLICT — the caller's kind disagrees with the step name; "+
+			"the caller's kind is being used and per-kind policy follows it",
+			zap.String("site_id", siteID),
+			zap.String("conflict", kindRes.Conflict))
+		recordImagePolicyEvent(ctx, params, siteID, "image_kind_conflict", "warning",
+			"Image kind declarations disagree: "+kindRes.Conflict+". The caller's kind was "+
+				"used, so per-kind policy (including the logo text policy) followed it. If the "+
+				"step name is right, the caller is mislabelling the asset and its prompt is "+
+				"ungoverned.",
+			map[string]interface{}{
+				"stated_kind": kind,
+				"stated_via":  kindRes.Signal,
+				"step":        params.StepConfig.Name,
+				"bug":         "bugs_open/417",
+			})
 	}
 
 	params.Logger.Info("Selected prompt for execution",
@@ -1541,74 +1672,34 @@ func applyLogoTextPolicy(
 	return appendClause(prompt, checks.LogoTextFreeClause), negatives, promptSource + tag, rejectedWordmark
 }
 
-// resolveLogoIntent answers "is this generation a logo?" from every signal the
-// action has, and names WHICH signal answered so the prompt_source records it.
+// recordImagePolicyEvent files a durable row for an outcome that would otherwise
+// exist only as a log line.
 //
-// `kind` is the modern signal and the only one image-build-handler's branches
-// supply. The others exist because older callers do not: the store path already
-// reads StepConfig.Config["purpose"], and a step whose NAME is about a logo
-// (call_logo_generation on the two legacy parents) is a signal that costs
-// nothing to honour. A false positive here would append a text-free clause to a
-// non-logo prompt; that is bounded, because the hero branch of the estate's own
-// builder ALREADY says "no embedded words or lettering", so the clause agrees
-// with the hero rule rather than contradicting it.
-func resolveLogoIntent(kind string, inputData map[string]interface{}, step models.Step) (bool, string) {
-	if kind == "logo" {
-		return true, "kind"
-	}
-	if kind != "" {
-		// A different kind was positively stated. Believe it — this is what
-		// keeps hero/icon/imagery prompts out of the logo policy.
-		return false, ""
-	}
-	if p, ok := inputData["purpose"].(string); ok && p == "logo" {
-		return true, "input_purpose"
-	}
-	if spec, ok := inputData["spec"].(map[string]interface{}); ok {
-		if p, ok := spec["purpose"].(string); ok && p == "logo" {
-			return true, "spec_purpose"
-		}
-	}
-	if step.Config != nil {
-		if p, ok := step.Config["purpose"].(string); ok && p == "logo" {
-			return true, "step_purpose"
-		}
-		if k, ok := step.Config["kind"].(string); ok && k == "logo" {
-			return true, "step_kind"
-		}
-	}
-	if n := strings.ToLower(step.Name); strings.Contains(n, "logo") {
-		return true, "step_name"
-	}
-	return false, ""
-}
-
-// recordLogoPolicyNote files a durable row for an outcome that would otherwise
-// exist only as a log line. Deliberately best-effort: a note failure must never
-// fail a generation, but it must be SAID, because a silent note failure would
-// recreate exactly the invisibility this exists to remove.
-func recordLogoPolicyNote(ctx context.Context, db *sql.DB, siteID, category, body string, logger *zap.Logger) {
-	if db == nil {
-		logger.Warn("logo policy note not filed: no DB handle",
-			zap.String("category", category))
-		return
-	}
-	var sitePtr interface{}
-	if siteID != "" {
-		sitePtr = siteID
-	}
-	if _, err := db.ExecContext(ctx, `
-		INSERT INTO doc_notes (subject_type, subject_key, site_id, body, categories,
-		                       source, source_agent, created_by)
-		VALUES ('site', $1, $2, $3, jsonb_build_array($4::text),
-		        'generate_image', 'image-generator', 'logo-text-policy')
-	`, category, sitePtr, body, category); err != nil {
-		logger.Warn("logo policy note insert failed — this outcome is now ONLY in the logs",
-			zap.String("category", category), zap.Error(err))
-		return
-	}
-	logger.Info("logo policy note filed", zap.String("category", category),
-		zap.String("site_id", siteID))
+// REUSES the estate's action-level recording family (LogActionEntry /
+// agenterrors.Entry) rather than hand-writing an INSERT. Round 2 of this
+// change's council review had a hand-rolled doc_notes insert here, and the
+// reuse seat objected that a fourth ad-hoc writer was being added for exactly
+// the need that family exists to serve. It was right — and the objection was
+// worth more than tidiness: the hand-rolled insert used
+// subject_type='site', which is NOT one of the eight values
+// doc_notes_subject_type_check permits, so EVERY insert would have failed. It
+// was best-effort, so it would have failed SILENTLY — nulling out the very
+// detector this round offers as its compensating control for the legacy-parent
+// gap. A reused writer cannot get its own table's constraints wrong.
+//
+// Best-effort by construction (agenterrors.Write warns and returns false), so a
+// recording failure can never change a generation's disposition.
+func recordImagePolicyEvent(ctx context.Context, params ActionParams, siteID, code, severity, message string, context map[string]interface{}) {
+	LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
+		SiteID:       siteID,
+		AgentType:    params.AgentType,
+		StepName:     params.StepConfig.Name,
+		Action:       "generate_image",
+		ErrorCode:    code,
+		Severity:     severity,
+		ErrorMessage: message,
+		Context:      context,
+	}, params.Logger)
 }
 
 // endsWithSentenceBoundary reports whether s ends with ., !, or ?.
