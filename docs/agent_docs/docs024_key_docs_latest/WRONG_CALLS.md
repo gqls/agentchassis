@@ -57128,3 +57128,32 @@ zero scanned fields is a BLIND scan, not a clean fleet."* Tally:
   lesson, inverted: there the publish you meant may not have happened; here the publish you did
   not mean definitely did). Mitigation in flight: the lane's own pending-proposal bound should
   refuse the duplicate — verify at the queue, do not assume.
+
+## 2026-08-31 — I quoted a spec field with an ellipsis that dropped the sentence the build actually followed
+
+**The claim.** Reviewing boxingonline.com (first paid build) against a competitor page the owner
+sent, I wrote that our `design_intent.colour_mood` asked for a near-black page and that
+`palette.reference_values` contradicted it with a light theme — "the prose says dark, the values
+say light, and only the values render".
+
+**What was wrong.** My quotation elided a sentence in the middle of the same field: *"A warm
+off-white background keeps it readable without feeling clinical."* The field says **both**
+things — near-black dominant, warm off-white background, and "light would feel too soft" — in one
+paragraph. The build followed the sentence I cut. So "the values contradict the prose" was not
+accurate; **the prose contradicts itself** and the values picked a side.
+
+**What caught it.** Re-reading the whole field while tracing the palette provenance, minutes
+after writing the claim — not a reviewer, and not any check. I had the full text in my own
+transcript the whole time.
+
+**The cheap check that would have.** *When an excerpt is load-bearing, paste the field whole
+before quoting from it.* An ellipsis inside a quoted field is where a counter-example hides, and
+the risk is highest exactly when the field is prose written by an LLM, because such fields
+routinely argue both sides in one paragraph. Concretely: `jsonb_pretty` the field and read it to
+the end before choosing the excerpt.
+
+**Cost:** none externally — caught the same hour, corrected in place in
+`site_delivery_and_editor/COMPARISON_2026-08-31_…md`, and the correction is the better finding
+(a self-contradictory brief silently resolved by whichever key is load-bearing is a sharper
+defect than a prose/values mismatch). Recorded because the failure mode is general: **a selective
+quote reads exactly like a complete one, and nothing downstream can tell.**

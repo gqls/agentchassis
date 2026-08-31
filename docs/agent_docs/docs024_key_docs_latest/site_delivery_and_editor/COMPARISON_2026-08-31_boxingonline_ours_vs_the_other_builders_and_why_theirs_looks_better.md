@@ -57,6 +57,24 @@ That is a description of the page he was sent, written by us, before we built ou
 ```
 A light page with dark chrome. The **exact thing its own spec's `avoid` list forbids.**
 
+> **CORRECTED 2026-08-31, same day, by the session that wrote it — and the corrected version
+> is the stronger finding.** My quotation of `colour_mood` above uses an ellipsis that drops a
+> sentence arguing the OTHER WAY. The full field reads: *"Deep red and near-black as the dominant
+> palette… **A warm off-white background keeps it readable without feeling clinical.** Gold accent
+> for highlights… This is a deliberate bold-creative choice over light-default… Light would feel
+> too soft for the subject matter."*
+>
+> So the brief does not simply say "dark". **It says both, in one field**: near-black dominant AND
+> a warm off-white background AND light-would-be-too-soft. It contradicts itself, and my elision
+> hid the half that the build actually followed. What caught it: reading the whole field again
+> while tracing the palette provenance, rather than trusting my own excerpt.
+>
+> **The finding survives and sharpens.** It is not "the prose said dark and the values said
+> light". It is: **the design brief is self-contradictory, and `palette.reference_values`
+> silently resolved the contradiction toward light — because it is the only half anything reads.**
+> A brief that cannot be satisfied both ways needs the conflict caught where it is written, not
+> resolved by whichever key happens to be load-bearing.
+
 **Where the contradiction lives — this is the finding.** The same spec row carries both halves:
 
 | `design_intent` key | says | load-bearing? |
@@ -69,10 +87,38 @@ A light page with dark chrome. The **exact thing its own spec's `avoid` list for
 palette that contradicts the mood prose sitting six lines above it in the same row. Nothing
 compares the two, so nothing noticed.
 
-`[UNVERIFIED]` whether this is site-specific or a fleet-wide pattern of `reference_values`
-drifting light against a dark `colour_mood`. **That census is cheap and worth running before
-anyone hand-fixes this one site** — the fix at one site is one row; the fix at the class is
-whatever writes `reference_values`.
+**PROVENANCE CONFIRMED AT THE ARTEFACT `[MEASURED 2026-08-31]`**, because "two documents agree
+with me" is not evidence of a causal chain. Three links, each checked:
+
+1. **The picker's cascade puts `reference_values` second, behind only a human-set mission
+   palette** — `resolve_composition_pallette_action.go:16-20`: *"1. mission.preferred_palette
+   (human pre-specified) · 2. design_intent.palette.reference_values (semantic brief)"*. This
+   site has no mission palette, so link 2 is the live one.
+2. **The site's palette row is BYTE-IDENTICAL to `reference_values`** — not merely similar:
+   ```sql
+   SELECT name, origin, colours FROM palettes WHERE source_domain='boxingonline.com';
+   -- palette-boxingonline-com | adopted |
+   -- {"text":"#1A0A0A","accent":"#D4A017","border":"#E0D5D0","primary":"#1A0A0A",
+   --  "surface":"#FFFFFF","secondary":"#C0392B","background":"#F7F3F0","text_muted":"#6B5B55"}
+   ```
+   All eight slots match `design_intent.palette.reference_values` exactly.
+3. **The served stylesheet carries those values through** (`--color-background: #F7F3EE`, a small
+   render-time adjustment of `#F7F3F0`; `--color-secondary: #C0392B` and `--color-accent:
+   #D4A017` verbatim).
+
+So changing `reference_values` is the right lever, and this is safe to act on rather than infer.
+
+**One thing that makes it a CLASS question, not a site question.** The library contains a palette
+literally named `boxing` — the cascade's step-4 fallback for a high-energy layout — and **its
+background is `#fafaf9`, light too.** Its chrome is right (`primary #dc2626`, `header_bg
+#000000`, `footer_bg #1c1917`, `accent #fbbf24`, a red gradient CTA) but the page body is still
+off-white. **So there was no path through this system that produced the near-black page the brief
+also asked for.** Picking the library palette instead would not have saved us.
+
+`[UNVERIFIED]` whether other sites show the same self-contradicting `colour_mood`, and whether
+any site in the estate serves a genuinely dark-dominant page. That census is cheap, it is the
+difference between a one-row fix and a class fix, and it should run before anyone hand-edits
+this site.
 
 **Second design point, and it is the cheap one:** their vibrancy costs nothing in assets.
 **Their page contains ZERO `<img>` elements.** Every "photo" is a CSS gradient box with a text
