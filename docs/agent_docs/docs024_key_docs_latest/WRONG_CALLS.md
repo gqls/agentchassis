@@ -57113,3 +57113,18 @@ zero scanned fields is a BLIND scan, not a clean fleet."* Tally:
   one grep + one comment block. Tally: **criterion-phrased-on-a-stamp-the-passing-path-never-writes**
   (kin of a-receipt-nobody-asserts-on and a-quiet-test-passes-when-the-rule-is-gone: the
   evidence named by the rule is not produced on the path the rule is meant to certify).
+
+- **2026-08-31, copy_quality_two_stage** — re-ran `scripts/fire-copy-editor.sh farmerinsurance.uk
+  about` seconds after the first invocation, because my `| tail -8` had cut the first run's
+  CORRELATION line and I wanted the id. The script is a PUBLISHER: the second run dispatched a
+  duplicate stage-2 proposal (its own header warns a re-fire "costs a duplicate proposal", and
+  its comments exist because exit 0 proves nothing — the same property means a re-run for
+  OUTPUT is a re-run for EFFECT). Second correlation `9b2350d3`; first unknown at press time —
+  recovered afterwards by payload. What caught it: reading my own second command's output and
+  recognising the publish line. Cheap check skipped: `tee` (or capture to a variable) on ANY
+  command that publishes, so the output question can never motivate a re-run; or read the
+  script's own printed warning before re-invoking. Tally:
+  **re-ran-a-publisher-to-recapture-its-output** (kin of kcat-publish-silently-drops's exit-0
+  lesson, inverted: there the publish you meant may not have happened; here the publish you did
+  not mean definitely did). Mitigation in flight: the lane's own pending-proposal bound should
+  refuse the duplicate — verify at the queue, do not assume.
