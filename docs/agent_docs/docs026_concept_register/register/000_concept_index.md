@@ -318,6 +318,7 @@ an ID prefix, or a status word.
 | SYS-039 | Build-vs-operate asymmetry | aspirational | Build work is sandboxable/competition-safe; operate work is live and risk-gated | system-architecture.md |
 | LQT-003 | Verification harness (build + ops) | partial | Build-check/validator/canary/rollback; ops side is the thinnest part | llm-quality-testing.md |
 | AGOV-012 | Contributors vs checkers | deployed | Build-path reviewers vs deployed-site monitors, settled distinction | autonomy-governance.md |
+| AGOV-013 | LLM spend governor (D4): fleet-month dollar meter + ruled shedding order | built + live, inert (stage A) | Meter/class-map/config/state live 2026-08-31 (council-approved, $2,113 Aug MTD); sheds maintenance→builds→research once budget set + stage B ships | autonomy-governance.md |
 | LNK-011 | internal-link-resolver agent | deployed | Build-time sub-agent resolving hero/CTA destinations to real pages, not a patcher | link-management.md |
 | BIZ-030 | AI-native orchestration positioning (vs Temporal/Airflow) | abandoned | Build-vs-buy rationale for a purpose-built orchestrator; adapters never built | business-strategy.md |
 | BIZ-031 | Offer-track discovery checks: `premise_incomplete` + `revenue_shape`, and the `needs_strategy` producer set | LIVE + witnessed, observe-only (v1.0.1276, migration 361) | First mechanical enforcement of BIZ-001's revenue-shape doctrine on LIVE SITES — the council's review_mission seat only ever enforced it on platform code. Site-level check keys on the PAGES COUNT, never `sites.status`, which lies | business-strategy.md |
