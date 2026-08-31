@@ -6399,6 +6399,33 @@ to be taken from the DEPLOY record when it exists, per the handoff's §1.4 slug 
 no domain wiring during the rehearsal. Next after deploy: dispatch
 `delivery-review-filer` (651 header recipe), then the owner's APPROVE on admin.apis.uk.
 
+**Build timeline [MEASURED, watcher log]:** sites.status flipped to `deployed` at
+13:12Z — 51 min from first item. NOT yet settled: page_rerenders + re-renders-after-
+imagery in flight, `evaluate_tools` still triaged, and FIVE items parked at
+needs_human_review (expected review material): `owned_page_review`
+(tool-fight-calendar must be built by the TOOL pipeline, not the generic builder —
+filed at plan time), `needs_page` for the `article` page (page-build-handler no-op:
+"no sections ready to build ... deferred for missing data"; page still `planned`),
+and 3× `unresolved_cta` (articles-index ×2, index ×1 — no real-page destination).
+Zero FAILED orchestrations (60 COMPLETED at 13:15Z). A second watcher is armed for
+QUIESCENCE (no claimed/triaged items AND no active orchestrations, 2 consecutive
+5-min polls).
+
+**The §1.4 "serves at its ugg2 slug" line was ASPIRATIONAL, and the gap is now
+closed by the PROVEN publish seam, not by domain wiring.** Measured: boxingonline.com
+is a parked catch-all (probe-page-url.sh: invented URL 200s — every 200 meaningless);
+`*.ugg2.com` DNS + worker ANSWER (candidate slugs returned worker 404s over valid
+TLS); the built tree serves nowhere outside. The mechanism that exists for exactly
+this is DGH-021's publish seam (register deployment-github.md: PROVEN IN PRODUCTION
+08-16, canary noted.co.uk → noted.ugg2.com, acceptance on served bytes;
+noted.ugg2.com still 200 today). **Opted the site in [2026-08-31 ~13:5xZ]:**
+`publish_target='b2worker'`, `publish_project='boxingonline.ugg2.com'` (slug follows
+the canary's short-name convention; unique index clean; reversible by NULL).
+site-publish-reconciler is enabled, 3600s, selector `ORDER BY last_checked_at ASC
+NULLS FIRST` ⇒ boxingonline is picked next tick (~14:09Z). Delivery/review site_url
+= https://boxingonline.ugg2.com — verify from outside after the tick, and expect
+later rerenders to re-publish on drift at following ticks.
+
 ## 2026-08-31 (budget-separation thread) — the chat's key swap, made safe and made checkable
 
 Owner asked for the separate key to be set up for the chat, pointing at
