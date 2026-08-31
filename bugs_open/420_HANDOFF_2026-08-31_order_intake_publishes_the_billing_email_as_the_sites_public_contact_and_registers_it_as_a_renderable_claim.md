@@ -308,3 +308,36 @@ Also accepted, unfixed and recorded: the admin PATCH writer remains an unconditi
 unannotated route to the published-contact column (no way to distinguish operator-set from
 customer-consented), and the two `info@` deletions are duplicated rather than shared, which is a
 drift surface the next editor of one path will meet.
+
+**C-bis — boxingonline is already defended against this residual, and that is not luck.**
+Raised by the delivery lane, verified here first-hand rather than taken on report `[MEASURED
+2026-08-31]`: on boxingonline's CURRENT specs, `identity.data->'contact'->>'email'` and
+`briefing.data->>'contact_email'` are **both null** — and those are precisely the two expressions
+`sync_site_identity_action.go:104-137` reads. Demand control: the same two expressions return a
+non-null value on **28** current specs fleet-wide, so the null is a measurement, not a broken
+path. `sites.email/phone/contact_address` all remain empty.
+
+So the pending-fill state `cv1.co.uk` sits in — spec populated, column empty, waiting for the sync
+to publish it — **cannot arise on boxingonline.** The incident's briefing scrub was therefore
+load-bearing rather than belt-and-braces: had only the register and the column been cleaned, the
+briefing key would have survived as a live re-publication route through a writer nobody had
+identified as one at the time. **The scrub defended against a mechanism that had not yet been
+found.**
+
+Ownership confirmed with the delivery lane: the residual stays here and on the owner's decision
+list. It is the identity-sync seam (estate pipeline), not the delivery chain, and gating that
+writer reshapes how 20 estate sites legitimately get their contacts — an owner call about the
+estate, not a patch either lane should make. Both lanes would ARGUE for the narrow reading
+(a classifier-derived contact is not explicit consent, so the sync writer should require the
+consent key too); arguing it is as far as either will go unilaterally.
+
+**Delivery-side items now closed by that lane** (verified at HEAD, commit `6eea185e6`): 651's
+header and the delivery RUNBOOK carry the corrected dispatch source
+(`SELECT direction->>'customer_email' FROM build_queue WHERE domain=$1`, never `sites.email`, with
+the convention-not-code note), plus the do-not-re-seed block. LANDMINES carries it from this side,
+the RUNBOOK from theirs.
+
+**Order-2 critical path, per the guardian objection:** the box intake chat must ask "what contact
+details should the site show?" before ordering reopens, or every customer site ships contactless.
+That change is box-side (owner-run env, webdesign lane), so it needs the owner's hands or a
+briefed session — it is not a platform task and no session here can close it.
