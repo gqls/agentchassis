@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -489,6 +490,40 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 				zap.String("site_id", siteID),
 				zap.String("kind", kind))
 		}
+	}
+
+	// bugs_open/417 — LOGO TEXT POLICY, applied to every kind=logo generation
+	// regardless of where the prompt came from.
+	//
+	// The rule ("no lettering") already existed, in discovery_checks/
+	// default_brand_prompt.go, but it was coupled to the prompt's SOURCE rather
+	// than the asset's PURPOSE: it lived inside the FALLBACK builder, which runs
+	// only when a plan supplies no logo prompt. Every planner-built site supplies
+	// one, so the rule protected exactly the population that never needed it and
+	// the planned prompt reached the model ungoverned. That produced invented
+	// brand names on two live sites — "Farm Shield Info" on farmerinsurance.uk
+	// and "BOXING NEWS" on boxingonline.com, the first paid customer.
+	//
+	// WHY HERE. This is the one point every image prompt from every tier and
+	// every producer must pass — getImagePromptWithPriority above has already
+	// collapsed step config, collected data, input_data, the agent's own
+	// prompt_template and the workflow fallback into one value, and the 210
+	// refusal a few lines up is the precedent that this function enforces policy.
+	// Applying the rule HERE rather than at plan time also governs work items
+	// ALREADY QUEUED with an unwashed prompt, which is what migrations 669/670
+	// structurally could not do: 670 washed the stored rows, and a plan created
+	// 41 seconds later (boxingonline, migration 680) missed it. The model also
+	// REWORDS the licence, so no literal match can bound the class — this guard
+	// needs no detection at all, which is why it is a bound and not a floor.
+	if kind == "logo" {
+		wordmarkText := logoWordmarkTextFromInputs(inputData)
+		var ident logoIdentity
+		if wordmarkText != "" {
+			// Only opting IN costs a query; the default path stays free.
+			ident = loadLogoIdentity(ctx, params.DB, siteID, params.Logger)
+		}
+		promptTemplate, negativePrompt, promptSource = applyLogoTextPolicy(
+			promptTemplate, negativePrompt, promptSource, wordmarkText, ident, params.Logger)
 	}
 
 	params.Logger.Info("Selected prompt for execution",
@@ -1242,6 +1277,218 @@ func composeImagePromptWithDirection(prompt, direction string) (string, bool) {
 		sep = " "
 	}
 	return direction + sep + prompt, truncated
+}
+
+// ---------------------------------------------------------------------------
+// bugs_open/417 — logo text policy
+// ---------------------------------------------------------------------------
+
+// logoIdentity is the site's own naming, used to check that an opt-in wordmark
+// really is this site's name rather than something a planner LLM invented.
+type logoIdentity struct {
+	CompanyName string
+	LogoText    string
+	Domain      string
+}
+
+// loadLogoIdentity reads the three naming columns. Deliberately tolerant, like
+// DefaultBrandImagePrompt: a DB failure degrades to an empty identity, which
+// makes any opt-in fail validation and fall back to a text-free mark. The safe
+// side of every failure is the default, never the licence.
+func loadLogoIdentity(ctx context.Context, db *sql.DB, siteID string, logger *zap.Logger) logoIdentity {
+	var ident logoIdentity
+	if db == nil || siteID == "" {
+		return ident
+	}
+	var company, logoText, domain sql.NullString
+	err := db.QueryRowContext(ctx, `
+		SELECT COALESCE(company_name, ''), COALESCE(logo_text, ''), COALESCE(domain, '')
+		FROM sites WHERE id = $1
+	`, siteID).Scan(&company, &logoText, &domain)
+	if err != nil {
+		// Not fatal, but it must be SAID: a silent read failure here would look
+		// exactly like "this site has no name", and the consequence (a valid
+		// wordmark rejected) is invisible in the artefact.
+		logger.Warn("logo text policy: identity read FAILED — any wordmark opt-in "+
+			"will degrade to a text-free mark; this is a fault, not an absent name",
+			zap.String("site_id", siteID), zap.Error(err))
+		return ident
+	}
+	ident.CompanyName = company.String
+	ident.LogoText = logoText.String
+	ident.Domain = domain.String
+	return ident
+}
+
+// logoWordmarkTextFromInputs reads the opt-in field off the existing
+// input_data.spec.constraints seam (the same map the Phase 2H block above
+// already reads, whose unknown keys it ignores — so this key was inert on every
+// path until this guard shipped).
+func logoWordmarkTextFromInputs(inputData map[string]interface{}) string {
+	c, ok := inputData["constraints"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	t, _ := c["wordmark_text"].(string)
+	return strings.TrimSpace(t)
+}
+
+// normaliseBrandToken lowercases and strips everything that is not a letter or
+// digit, so "Robot-Hands", "robot hands" and "ROBOTHANDS" all compare equal.
+func normaliseBrandToken(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// domainStem reduces "www.boxingonline.com/x" to "boxingonline" — the label
+// before the first dot, which is the part a brand name actually echoes.
+func domainStem(domain string) string {
+	d := strings.ToLower(strings.TrimSpace(domain))
+	if i := strings.Index(d, "://"); i >= 0 {
+		d = d[i+3:]
+	}
+	if i := strings.Index(d, "/"); i >= 0 {
+		d = d[:i]
+	}
+	d = strings.TrimPrefix(d, "www.")
+	if i := strings.Index(d, "."); i >= 0 {
+		d = d[:i]
+	}
+	return normaliseBrandToken(d)
+}
+
+// wordmarkGroundsInIdentity reports whether the requested wordmark is this
+// site's own name. It is the check that makes the opt-in safe against its own
+// producer: a planner LLM can write this field, so "the field exists" cannot be
+// the licence — "the field names THIS site" is.
+func wordmarkGroundsInIdentity(text string, ident logoIdentity) bool {
+	want := normaliseBrandToken(text)
+	if want == "" {
+		return false
+	}
+	for _, candidate := range []string{
+		normaliseBrandToken(ident.CompanyName),
+		normaliseBrandToken(ident.LogoText),
+		domainStem(ident.Domain),
+	} {
+		if candidate != "" && candidate == want {
+			return true
+		}
+	}
+	return false
+}
+
+// logoTextNegatives are the negative-prompt tokens that contradict a
+// deliberately lettered mark. "watermark" and "signature" are NOT here: they
+// forbid artefacts, not the brand's own name.
+var logoTextNegatives = map[string]bool{
+	"text": true, "letters": true, "lettering": true, "words": true,
+	"writing": true, "typography": true, "numerals": true,
+}
+
+// stripLogoTextNegatives removes the text prohibitions from a negative prompt so
+// an approved wordmark is not fighting the same prompt's own instruction. Order
+// and all other tokens are preserved.
+func stripLogoTextNegatives(negativePrompt string) string {
+	if negativePrompt == "" {
+		return ""
+	}
+	parts := strings.Split(negativePrompt, ",")
+	kept := make([]string, 0, len(parts))
+	for _, p := range parts {
+		t := strings.TrimSpace(p)
+		if t == "" || logoTextNegatives[strings.ToLower(t)] {
+			continue
+		}
+		kept = append(kept, t)
+	}
+	return strings.Join(kept, ", ")
+}
+
+// appendClause joins a governing clause onto a prompt at a sentence boundary.
+func appendClause(prompt, clause string) string {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return clause
+	}
+	sep := " "
+	if !strings.HasSuffix(prompt, ".") && !strings.HasSuffix(prompt, "!") &&
+		!strings.HasSuffix(prompt, "?") {
+		sep = ". "
+	}
+	return prompt + sep + clause
+}
+
+// applyLogoTextPolicy is the pure half of the guard, so it is directly testable
+// against every shape that matters. It returns the governed prompt, the
+// reconciled negative prompt, and the tagged prompt source.
+//
+// Three behaviours, in order:
+//
+//  1. DEFAULT (no opt-in): append LogoTextFreeClause and add the lettering terms
+//     to the negative prompt as belt. This is the arm that fires on every site.
+//
+//  2. OPT-IN THAT GROUNDS: append LogoWordmarkClause naming the exact string,
+//     and REMOVE the text prohibitions from the negative prompt so the two
+//     channels do not contradict each other.
+//
+//  3. OPT-IN THAT DOES NOT GROUND: degrade to (1) with a Warn — never refuse.
+//     Refusing would mint an unhandleable item, which is the bugs_open/210
+//     lesson; and a text-free mark is safe by construction, so the degraded
+//     result is always publishable. This is also what closes the door against
+//     the field's own producer: the only word a logo can carry is the site's
+//     own name, so an invented one cannot be smuggled in through the escape
+//     hatch that exists for deliberate ones.
+//
+// Idempotent on LogoTextFreeSentinel, so a prompt already carrying the clause
+// (a 670/680-washed row, or a retried generation) gains no second copy.
+func applyLogoTextPolicy(
+	prompt, negativePrompt, promptSource, wordmarkText string,
+	ident logoIdentity,
+	logger *zap.Logger,
+) (string, string, string) {
+	const tag = "+logo_text_policy"
+
+	if wordmarkText != "" {
+		if wordmarkGroundsInIdentity(wordmarkText, ident) {
+			logger.Info("logo text policy applied: wordmark opt-in ACCEPTED",
+				zap.String("wordmark_text", wordmarkText))
+			return appendClause(prompt, checks.LogoWordmarkClause(wordmarkText)),
+				stripLogoTextNegatives(negativePrompt),
+				promptSource + tag + "+wordmark"
+		}
+		// The whole point of the grounding check. Loud, because the caller asked
+		// for something specific and is getting something else.
+		logger.Warn("logo text policy: wordmark opt-in REJECTED — the requested text "+
+			"is not this site's own name; degrading to a text-free mark",
+			zap.String("wordmark_text", wordmarkText),
+			zap.String("company_name", ident.CompanyName),
+			zap.String("logo_text", ident.LogoText),
+			zap.String("domain", ident.Domain))
+		promptSource += "+wordmark_rejected"
+	}
+
+	if strings.Contains(prompt, checks.LogoTextFreeSentinel) {
+		logger.Info("logo text policy: clause already present, not duplicated")
+		return prompt, negativePrompt, promptSource + tag
+	}
+
+	logger.Info("logo text policy applied: text-free mark (default)")
+	negatives := negativePrompt
+	for _, t := range []string{"text", "lettering", "words"} {
+		if !strings.Contains(strings.ToLower(negatives), t) {
+			if negatives != "" {
+				negatives += ", "
+			}
+			negatives += t
+		}
+	}
+	return appendClause(prompt, checks.LogoTextFreeClause), negatives, promptSource + tag
 }
 
 // endsWithSentenceBoundary reports whether s ends with ., !, or ?.

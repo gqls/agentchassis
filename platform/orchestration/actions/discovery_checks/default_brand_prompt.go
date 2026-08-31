@@ -183,6 +183,64 @@ func (f siteBrandFacts) signalCount() int {
 	return n
 }
 
+// LogoTextFreeClause is the estate's ruled text policy for generated logo marks,
+// stated POSITIVELY and as an explicit override of anything earlier in the prompt.
+//
+// WHY IT IS A CONSTANT AND NOT A SENTENCE IN ONE FUNCTION (bugs_open/417). Until
+// 2026-08-31 this rule lived only inside composeBrandImagePrompt below — the
+// FALLBACK builder, which runs only when a site plan supplies no logo prompt at
+// all. Every planner-built site supplies one, so the rule protected exactly the
+// population that never needed it, and the ruled path was, in the bug file's
+// words, "the fallback nobody reaches". The rule is now applied at the
+// generation choke point to every kind=logo prompt from every producer
+// (applyLogoTextPolicy in generate_image_actions.go); this constant is what both
+// sites share so they cannot drift.
+//
+// WHY POSITIVE AND WHY "OVERRIDES". [MEASURED 2026-08-31] The failing
+// boxingonline generation DID receive a text prohibition: the banana adapter
+// folded negative_prompt (including "text") into the positive prompt at
+// 12:55:50Z, prompt_len 232 -> 407, and the model still lettered "BOXING NEWS".
+// A folded prohibition demonstrably LOSES to a positive licence sitting in the
+// same prompt ("no text other than the wordmark itself" presupposes a wordmark).
+// So the rule has to be a positive instruction that explicitly voids the earlier
+// wording; the negative channel is belt, never the mechanism. This also corrects
+// an assumption the old wording rested on — a purely negative clause was weaker
+// than its own comment claimed, for as long as it stood.
+//
+// The favicon-size rationale still holds and is why the default is text-free at
+// all: generated wordmarks reliably produce malformed text, and this asset is
+// re-derived into a favicon and an og_card.
+const LogoTextFreeClause = "Render a text-free mark: a single pictorial symbol, " +
+	"one composition on one plain background, containing no lettering, words, " +
+	"letters, numerals or typography of any kind. The brand name is set in HTML " +
+	"beside the logo and must never be painted into the image. This instruction " +
+	"overrides any earlier wording in this prompt that mentions, permits or " +
+	"presupposes a wordmark or any text."
+
+// LogoTextFreeSentinel is the idempotence key for LogoTextFreeClause and the
+// substring a census greps for in assets.origin_prompt to prove the policy
+// REACHED a generation. Kept separate from the clause so a future rewording of
+// the clause does not silently break idempotence on prompts already carrying it.
+const LogoTextFreeSentinel = "Render a text-free mark"
+
+// LogoWordmarkClause is the OPT-IN escape hatch: a deliberately lettered logo.
+//
+// OWNER RULING 2026-08-31: logos carry no words BY DEFAULT, and a lettered logo
+// is allowed only when someone names the EXACT string it must read. That shape
+// is the point — the field's value IS the text, so "a wordmark" with no text
+// named (the bugs_open/417 licence, which is what let the model invent
+// "Farm Shield Info" and "BOXING NEWS") cannot be expressed at all. Per the
+// 2026-08-02 owner ruling on new authority on a shared seam, this is an opt-in
+// field whose unsafe side is OFF by default and which is visible to a reviewer
+// of the caller rather than licensed by a comment.
+func LogoWordmarkClause(text string) string {
+	return fmt.Sprintf("The only text in the image is the exact wordmark %q, "+
+		"spelled exactly as written, rendered once, as a single composition on "+
+		"one plain background; no other lettering, words or numerals anywhere. "+
+		"This instruction overrides any earlier wording in this prompt about text.",
+		text)
+}
+
 // composeBrandImagePrompt is the pure half — no DB, so it is directly testable
 // against the degraded shapes that matter (identity present, identity absent,
 // nothing but a domain).
@@ -227,12 +285,16 @@ func composeBrandImagePrompt(f siteBrandFacts, purpose string) string {
 	}
 
 	// Logo craft constraints. Deliberately about FORM, not about the site's
-	// imagery style — see the file header on why that separation matters. The
-	// no-lettering instruction is not decoration: generated wordmarks reliably
-	// produce malformed text, and this asset is used at favicon size.
+	// imagery style — see the file header on why that separation matters.
 	b.WriteString(" Flat vector mark, minimal and geometric, a single clear silhouette that stays " +
-		"legible at favicon size, centred on a plain background, no lettering or words, " +
+		"legible at favicon size, centred on a plain background, " +
 		"no photographic texture, no drop shadows.")
+	// The text rule is no longer written out here. It is LogoTextFreeClause, so
+	// that this fallback path and the generation choke point cannot drift apart
+	// — bugs_open/417 was exactly that drift, in the other direction: the rule
+	// existed ONLY here, and every planned prompt reached the model without it.
+	// A parity test pins the two together.
+	b.WriteString(" " + LogoTextFreeClause)
 
 	return b.String()
 }
