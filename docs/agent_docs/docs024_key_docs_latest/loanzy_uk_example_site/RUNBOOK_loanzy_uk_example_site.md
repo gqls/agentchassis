@@ -285,3 +285,18 @@ UPDATE site_work_items
 ```
 ⚠ A released row is claimed by the dispatcher within ~60s and its handler REGENERATES the page —
 release is the moment the opinion becomes a rewrite, which is why it is a human verb.
+
+## Hand-filing a framework work item that must actually RUN (learned 2026-08-31, the farmer logo)
+A row filed at `detected` with `handler_agent` empty is a FLAG, permanently — the promoter's
+`scored` CTE excludes it before any door is evaluated (`COALESCE(wi.handler_agent,'')<>''`),
+and no held_detail line ever names it, so it "waits" silently for ever. To make a hand-filed
+item promotable, mirror what the producing pipeline sets AT FILING:
+```sql
+UPDATE site_work_items SET handler_agent='<the handler>', pipeline='build', updated_at=now()
+ WHERE id='<row>' AND status='detected';
+```
+(pipeline must be in build/content/design — door 1; the pair must have history — known-good
+door; check the doors yourself in scheduled_tasks.pre_query, name='detected-item-promoter'.)
+Gotcha that cost an hour: I copied the SHAPE of a completed row's spec but its handler_agent
+was set by its producer at filing, not by promotion — the flag-only exclusion is invisible
+because held_detail reports every REFUSED row and this one was never scored.
