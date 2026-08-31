@@ -968,3 +968,18 @@ is finally gone. The Gemini trial ran: it wrote shorter but slipped the same neg
 by the back door and invented two benefits we never claimed, so it does not replace what we
 have. Decisions still with you: the question-hierarchy build, the hero-ranking axis, the xAI
 top-up, and four smaller ones listed at the end of the new handoff.
+
+**2026-08-31, afternoon.** Three things since the morning. First: the council approved the
+migration-668 review on the third round — no serious objections left, and the two small ones
+turned out to be about an earlier draft, not the file we actually committed. That review trail
+is closed. Second: we finally have a clean before-and-after on the copy fixes shipped so far.
+The approach page on finetuning.uk was rebuilt through the corrected templates on the 26th, and
+counting the verbal tics you rejected: the old page had 27 of them, the rebuilt one has 9. The
+"X, not Y" pattern — the worst offender, 15 on the old page — is completely gone. But "rather
+than" actually went UP, from 4 to 6, and we can now prove it isn't coming from any instruction
+we wrote: every document that used to teach it has been cleaned. The model just likes saying it.
+That is precisely what the newest fix (live since midday today) is built to catch and repair.
+Third: to measure that newest fix, we've sent the approach page round for one more rebuild —
+this time through the full corrected machinery. If it works, the "rather than" sentences should
+simply end earlier, with the comparison dropped. If the repairs mangle the meaning instead,
+that's a finding too, and we'll report it either way rather than quietly keep it.

@@ -3181,3 +3181,57 @@ correlation. Fresh roll v1.0.1349 verified at the binary: A+B ×2 probe hits, tr
 v1.0.1350 (414's retraction; their fix dc9ccfda2 rides it; artefact verified). Farmer corpus
 39→18 (loanzy). New handoff: HANDOFF_2026-08-31_continue_here.md. The owner does NOT want the
 lane closed.
+
+---
+
+## 2026-08-31 afternoon — 667 r3 APPROVED; the pre-1349 rebuild scored (P2 REFUTED); the A+B canary FIRED
+
+**667 r3: APPROVED** (run `fa9fd3d9`, completed 12:44Z) — "approved with 2 advisory objection(s)
+— none high-severity". The `Council-Submitted:` trailer on `99bcd1c6d` resolves to
+`Council-Reviewed: 1c787532-40c7-46a0-ac6b-58a238abad58` at 098 report time; no amend owed.
+The advisories, checked at the artefact before acting:
+
+- Three seats flagged `RAISE EXCEPTION ... '%s'` as a PL/pgSQL format bug. **It is in the plan
+  SKETCH only** — the committed 668 uses bare `%` (`grep -cF '%s' 668_...sql` = **0**). No edit.
+- debug_historian wanted the `target_id::uuid` cast hardened against NULL/bad rows. Structurally
+  void for 668's own rows: the backup INSERT writes `target_id` as `sp.id::text` from the joined
+  `site_specs` PK — never NULL, always round-trips. The guard filters on 668's `migration_name`,
+  so no foreign rows enter the join. No edit; re-check if the guard pattern is ever lifted into a
+  migration whose backup rows it did not itself write.
+- prior_art (medium): the "668 is the only pending migration of this class" and owner-ruling
+  claims were asserted, not evidenced in-round. Process note for future rounds: attach the query.
+
+**The canary's ground truth had moved, and pinning the clocks mattered.** The ORIGINAL nine-page
+rebuild ran **2026-08-26 12:54Z – 08-27 16:42Z** (`page-content-writer` calls in `llm_call_log`;
+benchmark `79257fb4` was 08-26 19:17Z). This morning's 08-31 "rebuilds" (created_by
+`bugfix_412_hero_wiring`, filed 09:38Z, completed 10:15–11:15Z) were `template_changed`
+section rerenders — **copy-free, confirmed: zero page-content-writer calls for finetuning since
+08-27**. Fleet roll v1.0.1349 = replicaset created **11:52:53Z**. So every word live on
+finetuning.uk today is pre-A+B copy, and the served page's md5 drift vs the committed baseline is
+the 08-26/27 rebuild + the hero, not a post-roll rebuild.
+
+**Template-half scored at the artefact** (battery = `count_negation_tells.py`, approach page):
+
+| | baseline 08-26 (owner-rejected) | live now (08-26/27 rebuild, pre-A+B binary) |
+|---|---|---|
+| X, not Y | 15 | **0** |
+| rather than | 4 | **6** |
+| instead of | 2 | 1 |
+| not just | 3 | **0** |
+| not a/an | 3 | 2 |
+| TOTAL | 27 (13.8/1k) | 9 (4.3/1k) |
+
+**P1/P3 CONFIRMED** for the template layers (X-not-Y and not_just to zero with their
+demonstrations dead). **P2 REFUTED — `rather than` ROSE 4→6** on a page whose brief carries 0
+(646/647) and whose `llm_guidance` ceiling is 0 (hero-tool is not on approach). Per the canary
+doc's own refutation clause: no carrier remains — **the model prior emits it** (sonnet NEG=5 in
+the trials, consistent). That is exactly the class Decisions A+B (mildNegationShapes EMPTY,
+seven shapes) + the ruling-7 truncation repair now target in v1.0.1349.
+
+**Canary FIRED at 15:21:25Z**: `needs_page` item `4641e02d-...`, item_key
+`page_rerender:approach`, created_by `copy_quality_two_stage_canary`, spec.reason
+`copy_stack_canary_v1_0_1349` (annotation, not routing — the landmine's point, stamped honestly
+rather than repeating `image_landed`). Route proven by the 08-26 run (same key, image-build-handler
+chain). Pre-canary artefacts banked: served HTML + all approach `content_data` (scratchpad) +
+the table above. Expected if the trial works: `rather than` 6 → ≤2 with comparisons simply GONE
+(repairs shorter); the failure worth catching: truncation that loses the meaning. Report either way.
