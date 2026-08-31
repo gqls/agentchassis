@@ -6879,3 +6879,23 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   end-to-end.** Awaiting the boxingonline session's independent 19-page table;
   the item closes on both agreeing, then 407 gets a dated proven-in-production
   note crediting both measurements.
+
+## 2026-08-31 (~18:2xZ) — FOOTER MECHANISM CAPTURED LIVE: store fails on invalid UTF-8, and the failure is reasonless by code; bugs_open/423 FILED
+
+- The 090 (387c0a2d) came back UNVERIFIABLE (iteration-cap) and the historical
+  logs had rotated, so the question was settled by REPRODUCTION: one
+  rerender-pages dispatch (corr 7fb750a3, components_only) + a live log monitor
+  across ALL chassis pods (the logs-read-one-pod landmine avoided by iterating).
+  Captured 18:14:26Z: **the footer RENDERS, then the STORE fails —
+  `ERROR: invalid byte sequence for encoding "UTF8": 0x80 (SQLSTATE 22021)`**
+  at render_site_components_action.go:1338; the branch returns a NIL error so
+  chrome_render_failed (the surface built for exactly this, bugs_open/260)
+  never hears it. Three identical runs today. **bugs_open/423 filed+committed**,
+  two halves: observability (surgical) and the byte-slicer source (0x80 = a
+  bare continuation byte ⇒ something in Go slices a multi-byte char between
+  template execution and the bind; candidates named, none accused). The peer's
+  fleet census did its grading job — empty content_data stayed dead as a cause.
+  Peer's 16:05 hand edit NOT implicated (failures began 15:39).
+- Pre-delivery footer item now has a precise close (423 §verify):
+  rendered.footer=true + digest=md5(html) + served footer still contactless.
+  Until a lane takes 423, the hand-patch serves — named at review.
