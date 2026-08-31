@@ -38,6 +38,13 @@
 --      459's header) and notes presigned_url + expiry_minutes from its output.
 --  (4) Operator dispatches delivery-email-sender {site_id, customer_email,
 --      live_site_url, zip_presigned_url, zip_presign_minutes}. The action:
+--      ⚠ customer_email SOURCE (corrected 2026-08-31, bugs_open/420): take it from
+--        SELECT direction->>'customer_email' FROM build_queue WHERE domain=$1
+--      — NEVER from sites.email. Since the 420 contract split, sites.email is the
+--      PUBLISHED contact only (empty unless the customer explicitly asked to
+--      publish one), so on a post-420 site it is legitimately NULL and was never
+--      read by this action's code anyway (input_data is the only source; the old
+--      sites.email wording in this header was convention, not code).
 --      sender first (fail-before-stamp), template-vs-links check (fail-before-
 --      stamp), then delivery.Claim = review gate + ONCE-ONLY handover stamp +
 --      token minting, then the send. A second dispatch for the same site is

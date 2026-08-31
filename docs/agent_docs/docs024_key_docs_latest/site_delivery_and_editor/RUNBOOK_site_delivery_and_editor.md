@@ -63,3 +63,24 @@ The two records (values from cPanel's own generator, 2026-08-26):
    Cloudflare account — add the zone in the CF dashboard, CHECK the imported records
    include the MX trio + SPF exactly as-is, then change nameservers at the registrar.
    Email keeps flowing throughout (same MX values); we then own every future record.
+
+## Delivery email: where customer_email comes from (corrected 2026-08-31, bugs_open/420)
+
+```sql
+SELECT direction->>'customer_email' FROM build_queue WHERE domain = '<domain>';
+```
+NEVER `sites.email` — since the 420 contract split that column is the PUBLISHED
+contact only (empty unless the customer explicitly asked the site to show one).
+The delivery-email-sender action never read the column in code (input_data only);
+the sites.email wording in older recipes was convention, and it is now wrong.
+
+## ⚠ BLOCKED until the 420 fix ROLLS: re-seeding boxingonline (d2aa5206)
+
+`build_queue.direction.customer_email` still holds the payer address (durable
+order record, correct) and `sites.email` is deliberately EMPTY — so the CURRENT
+binary's fill-only-if-empty seed would REFILL the address onto the site on any
+re-seed / canonical build retry (bugs_open/326 path). Every pre-check reads clean
+because they all describe the state after the LAST seed. Verified live 2026-08-31
+by two sessions independently. If a retry is unavoidable before the roll, run the
+full 19-page served-sweep AFTERWARDS — the post-action check is the only one that
+can catch it. Fix is committed (162877051), inert until the chassis roll.
