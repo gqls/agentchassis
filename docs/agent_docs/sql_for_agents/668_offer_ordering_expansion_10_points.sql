@@ -128,4 +128,28 @@ BEGIN
   RAISE NOTICE '668 OK: the 10 expansion points applied across 8 sites; ranks untouched; the wash of the ACKed corpus is COMPLETE.';
 END $mig$;
 
+-- COMMIT-TIME GUARD (added 2026-08-31, from 667's measured false green + council round 2's
+-- objection that the fix was named but deferred). 667 wrote into a row the producer superseded
+-- MID-TRANSACTION (backup 10:28:41Z, supersede 10:29:36Z, commit 10:34:30Z): every guard passed
+-- and nothing live changed on that site. site_specs SUPERSEDES (insert new + flip is_current),
+-- so a successful write leaves no trace in any current row. This block runs as the LAST
+-- statement before COMMIT; under READ COMMITTED it takes a fresh snapshot and therefore SEES a
+-- concurrent supersede that has committed since our updates, and aborts the whole transaction.
+-- SCOPE, stated honestly: it closes the measured failure (supersede during the transaction
+-- window) and shrinks the window to one statement; it CANNOT close a supersede that lands after
+-- COMMIT — only the producer-side gate (owner Decision E, authorised 2026-08-31) closes that.
+DO $guard$
+DECLARE bad text;
+BEGIN
+  SELECT string_agg(mb.notes, '; ') INTO bad
+    FROM migration_backups mb
+    JOIN site_specs sp ON sp.id = mb.target_id::uuid
+   WHERE mb.migration_name='668_offer_ordering_expansion_10_points'
+     AND NOT sp.is_current;
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION '668 COMMIT-TIME GUARD: row(s) superseded while this migration ran — nothing committed. Superseded: %. Re-census and re-base the FROM texts before retrying.', bad;
+  END IF;
+  RAISE NOTICE '668 commit-time guard: all touched rows still current at commit.';
+END $guard$;
+
 COMMIT;
