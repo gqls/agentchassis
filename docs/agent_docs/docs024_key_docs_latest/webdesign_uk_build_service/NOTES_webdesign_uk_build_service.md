@@ -6753,3 +6753,20 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   status='active' — a value sites.status doesn't have) matched the objection that
   caught it — the sharpest instance yet of "a REVISE round is cheaper than the
   defect it finds".
+
+## 2026-08-31 (~17:5xZ) — LOGO REGENERATED AND EYEBALLED: text-free glove mark, comp gone
+
+- Served /assets/images/logo.png CHANGED (sha differs, 113,463B vs 164,902B) and
+  EYEBALLED by this session: a clean geometric boxing-glove mark, black/white on
+  dark, **zero lettering, single composition** — bugs_open/417's invented
+  "BOXING NEWS" wordmark and bugs_open/421's two-panel comp are both gone from
+  the paid site. Dimensional note: still 400×218 (the pipeline's served size —
+  dimension alone could NOT distinguish comp from mark here; the eyeball was the
+  deciding check, as 421 predicted a classifier-shaped check wouldn't be).
+- Residual quality note for the owner's review, not a blocker: the mark's dark
+  background is baked into the asset (prompt asked "suitable for dark and light");
+  fine on the current dark header.
+- Sanity re-probe post-publish: index email=0, control non-zero, 6 blog links.
+- **Still owed after regen (per the 417 lane, mine): favicon + og_card
+  re-derivation — presence-based discovery will NOT refile them.** On the
+  pre-delivery list. The name-beside-logo chrome decision remains with the owner.
