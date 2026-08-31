@@ -232,3 +232,27 @@ now case 416, fully evidenced, with a cheap interim fix spelled out for whoever 
 deliberately didn't take it myself without your word, since it touches shared machinery beyond
 this investigation. Friday's return visits — the finish line — are all to small sites the timeout
 can't touch.
+
+**31 August.** Friday's return visits happened, and the news is what we hoped: **the repairs
+held, and the case is closed.** The checker went back to all three sites on schedule on Friday.
+On the remortgage site we can see it plainly did its job — it flagged a brand-new problem on a
+newly added calculator page, and said nothing at all about any of the five spots we repaired.
+On garden-tools and cookly it filed nothing and raised no errors; I couldn't read the checker's
+own diary for those two visits because the platform only keeps that diary for a day and I graded
+this two days late, but every place a failure would have left a mark is empty, the failure log
+was demonstrably working that same evening (it caught over a dozen other sites' failures around
+them), and both sites are comfortably inside the size range where checks complete. The repaired
+stylesheets are still exactly what we published — I re-checked the live sites against the
+database today, byte for byte.
+
+So the full arc closes: the repair agent used to author fixes that could never win; now it
+measures what it must beat, beats it, and the checker that originally filed the complaints comes
+back and agrees they're gone. Not one repaired spot on any site was flagged again. The one
+designed safety valve — parking a complaint as genuinely unreachable — has never once been
+needed, which is the best possible answer.
+
+Two loose ends, neither ours: the big-site timeout (case 416) ate another thirteen large-site
+checks over the weekend and still needs an owner; and the whole fleet ran out of its Anthropic
+allowance from Friday lunchtime until tonight, which stopped one new repair on the remortgage
+site — that one will retry by itself tomorrow. I've moved case 390 to the closed pile and
+written the closing summary.

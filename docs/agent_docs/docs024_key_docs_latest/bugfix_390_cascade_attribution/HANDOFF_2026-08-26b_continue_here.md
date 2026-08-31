@@ -149,3 +149,29 @@ Update `MEMORY_workstreams` (lane entry added 08-26) and the VIZ-018 register st
 - **§1(c) P3 is unthreatened**: Friday's three sites are 5/14/15 pages, all under 416's ceiling.
   remortgage ~13:50Z · garden-tools ~17:50Z · cookly ~18:55Z. Retraction of the repaired
   pairings = close 390 per §1(d).
+
+---
+
+## ⚠ DATED UPDATE 2026-08-31 — §1(c) P3 GRADED: PASS on all three sites; §1(d) EXECUTED — **390 IS CLOSED. This lane is finished; no next session is owed.**
+
+- **P3 PASS** (evidence: NOTES §(aa)): all three 08-29 audits fired on their predicted ticks;
+  **zero re-filings of any repaired pairing anywhere**; 396 confound ruled out (themes
+  untouched, served=DB re-verified 08-31); remortgage's audit positively proven complete (it
+  filed 2 rows on a NEW pairing the same minute); garden-tools/cookly proven by
+  error-channel bracket + size class ([INFERRED] on `pages_audited`, which is purged after
+  ~1 day — grade older audits from `site_work_items ∪ archive` + `agent_error_log`, never
+  expect the orchestration row).
+- **Criterion clarification for any future reader:** retraction stamps only rows not already
+  settled. Rows already `complete` (repaired) pass P3 by *not being re-filed* — expecting
+  `resolved_by='render_audit'` on them misreads the mechanism (NOTES §(aa)).
+- Park census: **0 rows ever** parked `css_cascade_unreachable_390` (as of 08-31; literal +
+  demand controls in NOTES §(aa)).
+- Bug file moved to `bugs_closed/390_…`; first lane SUMMARY written
+  (`SUMMARY_2026-08-31_cascade_attribution.md`); 016b §9 entry added (both transferable
+  patterns); VIZ-018 register status updated; MEMORY_workstreams updated.
+- Open items from §2 remain UNOWNED and live where recorded: bug_historian's
+  prompt-contradiction sweep (NOTES §(t)), the N-pages-per-pairing redundancy class (§(o)(p),
+  structural home = deferred completion gate), the inherited-colour probe extension (VIZ-018),
+  and **`bugs_open/396`** (design-run erasure — will eat these repairs at each site's next
+  design run; unowned) plus **`bugs_open/416`** (13 more big-site audits timed out over the
+  weekend; interim fix spelled out in the bug file; unowned).

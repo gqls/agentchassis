@@ -795,3 +795,69 @@ decision, deliberately not made here.
 
 **What remains for 390: P3 only.** Friday 08-29: remortgage ~13:50Z (5 pages), garden-tools
 ~17:50Z (14), cookly ~18:55Z (15) — all safely under 416's ceiling. Retraction = close.
+
+## 2026-08-31 (aa) — P3 GRADED: PASS on all three sites — zero re-filings at the 08-29 re-audits; 390 closes this session
+
+All three re-audits fired on schedule (rotation stamps, read 08-31 15:04Z): remortgage
+14:24:37Z, garden-tools 18:26:37Z, cookly 19:27:07Z; next due 09-01. Grading happened
+**two days after the audits**, so every direct completion record was already gone —
+`orchestration_states` oldest row 08-30 14:53Z, `orchestration_state_audit` oldest 08-30
+20:12Z, adapter pods restarted 08-31 ~11:49Z (logs with them). The grade therefore rests on
+`site_work_items ∪ archive`, `agent_error_log`, and the served artefact, each with a control.
+
+**Mechanism clarification that changes how the criterion reads.** The handoff said "repaired
+pairings are RETRACTED (`resolved_by='render_audit'`)". Read at the code
+(`write_render_audit_findings_action.go`, retraction contract): retraction only touches rows
+NOT already settled (`workItemClosedStatuses`). All 24 repaired rows were `complete` before
+the audits, and no open or parked contrast rows existed on any of the three sites — so ZERO
+retraction stamps is the EXPECTED pass shape, and the real observable is **page audited +
+pairing NOT re-filed**. A future grader reading `resolved_by IS NULL` on a completed row as
+FAIL would be wrong. (Confirmed empirically: 0 retraction stamps fleet-wide 08-29 15:00–23:00,
+and 0 open rows for them to land on.)
+
+**The observation: zero contrast_failure re-filings on all three sites.** No row created at or
+after the audits matches any repaired pairing. The only new rows anywhere are 2 on remortgage
+(`/tools/rate-stress-test/`, fg rgb(229,62,62) / bg rgb(255,245,245)) — a genuinely NEW
+pairing on a new tools page, byte-different in fg AND bg from everything repaired. The
+disconfirming result (byte-identical re-filing) occurred nowhere.
+
+**396 confound ruled out.** `css_themes` untouched since the repairs: remortgage v14 (updated
+08-26 14:34Z), garden-tools v16 (08-26 19:09Z), cookly v26 (08-27 01:23Z); patch markers
+19/26/27 still present; and served sha = DB sha TODAY on all three (`f20b76a9…` /
+`fd4906e5…` / `10329f68…`), per-site 404 controls clean. The repairs still govern the pixel.
+
+**Instrument-alive proof, per site:**
+- *remortgage:* POSITIVE — its own audit filed the 2 new rows at 14:26Z, so probe →
+  `write_findings` demonstrably completed on this site in this run. The cleanest P3 shape:
+  the instrument spoke on a new defect and stayed silent on all 5 repaired pairings.
+- *garden-tools + cookly:* silent audits, proven by bracket + size class. `agent_error_log`
+  recorded EVERY failing audit around them — farmerinsurance 20:30Z, loancalculator 21:38Z,
+  robot-hands 22:31Z on 08-29, then ten more 08-30 00:32→12:38Z — ALL `TIMEOUT`, ALL on
+  ≥31-page sites (416's class; counts as of 08-31). The three P3 sites are 12/20/15 pages,
+  under the ceiling; zero error rows of ANY agent type for either site 13:00–24:00Z; and the
+  only other small site selected in the run (webdesign.uk, 18 pages, 02:30Z) is silent the
+  same way. [INFERRED] both audits measured their pages — the direct record
+  (`pages_audited`) is purged; every channel that could have recorded a failure is proven
+  live that same evening and is empty for these sites.
+
+**Found on the way (neither is 390's):**
+- The fleet hit its Anthropic API usage limit 08-29 13:01Z (400 "You have reached your
+  specified API usage limits… regain access 2026-09-01 00:00 UTC"). That is why remortgage's
+  2 new rows are `failed` (css-patch-agent `plan_css_fix` died 3/3 attempts). Terminal, but
+  `failed` is outside the dedup exclusion, so the 09-01 audit re-files the pairing and the
+  repair retries by itself. The render-audit path needs no LLM call — remortgage's 14:26Z
+  filing DURING the outage proves it.
+- **416 keeps burning:** 13 consecutive big-site audits timed out 08-29 20:27 → 08-30 12:38Z,
+  including webdesign.co.uk which ALSO logs "render audit truncated by max_pages: 60 of 151
+  live pages". Still unclaimed.
+
+**Fortnight park census (§1(d), close-time): 0 rows ever** with
+`parked_by='css_cascade_unreachable_390'`, as of 08-31. Demand controls on the zero: the
+literal verified in mig 635's live workflow config (`mark_cascade_unreachable` →
+`result_fields.parked_by`; DB config, so a Go grep is rightly empty); the park's own demand
+was zero (P4: 0 `unreachable` attributions on every audit ever run); and the two live park
+keys `css_no_theme_198` (10) / `css_base_integrity_guard_198` (9) prove the `parked_by`
+channel populates.
+
+**P3: PASS. P1–P5 all graded. 390 closes** — bar met: fixed AND live AND proven at the
+artefact, with P3 read on remortgage + garden-tools + cookly.
