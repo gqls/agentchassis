@@ -125,3 +125,36 @@ themselves as data. Which means a *poisoned register* — a fabricated source or
 into it — passes every layer we have, because every layer treats the register as the thing it checks
 against rather than something to be checked. Nobody has found an instance. If one turns up, it wants
 its own file.
+
+---
+
+## 2026-08-31 — closed
+
+It's done. The false sentence is gone from the site and from every brief in the fleet, the new rules
+are running in the deployed system, and the file has moved to the closed queue.
+
+The last thing to go wrong was ours, and it is the part worth telling. The new brief-side check — the
+one I added so a planted instruction gets noticed where it lives — produced its first real finding
+last week, and it was **wrong**. It flagged a gardening site for the phrase "we tested six lawn mowers
+so you don't have to", which sits in that site's *"would never say"* list. It convicted a site for a
+phrase the site's own brief bans. I had excluded one place that stores banned phrases as data,
+written down exactly why, and then not carried the same reasoning to the next place. The item sat in
+the review queue for three days before I saw it.
+
+What found it was running the thing. Not the tests — I had written those, and they passed. Not the
+nine-seat review round, which read the design carefully and raised good objections about other
+matters. The scheduled job ran against real sites and told me. And when I fixed it, my first fix
+passed its test and still failed on live data, because I had built the test fixture from my *idea* of
+what the data looked like rather than from the data. The real rows had no blank line where mine did.
+
+That is three days of this bug in one sentence: **the things that caught real problems were running
+it against reality, an adversarial review before building, and other teams re-measuring what I told
+them.** I logged seven of my own wrong claims along the way, and the pattern in all of them is the
+same — every one was a number or an assertion made *in passing*, to support a point that wasn't about
+it. The careful work held up. The remarks around it didn't, and remarks are what travel.
+
+Two things are left for you rather than for the code. One review seat disagreed with your call that
+the new rule should warn rather than refuse — it's on the record so you can revisit it rather than
+have it settle by default. And there's a hole next door to this one that nobody has hit yet: our
+register of verified facts is the one thing no check inspects, because it's what the checks check
+*against*. If someone ever writes a fabricated fact into it, nothing we have would notice.
