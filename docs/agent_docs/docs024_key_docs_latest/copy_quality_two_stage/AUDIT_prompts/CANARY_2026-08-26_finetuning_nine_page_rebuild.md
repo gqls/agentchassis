@@ -189,3 +189,16 @@ P4 (scaffold/cadence): not scored here — that is the read's question, not the 
 v1.0.1349. Prediction unchanged: `rather than` 6 → ≤2 with the comparison simply gone; the
 named failure mode is truncation that loses meaning. NOTES 2026-08-31-afternoon holds the full
 trail.
+
+## RESULTS — A+B half, scored 2026-08-31 (approach rebuilt through v1.0.1349, item `4641e02d`)
+
+Battery vs the pre-roll rebuild: total 9→5 (2.6/1k), `rather than` 6→**1**, words 2088→1946.
+**P2 HOLDS on the full stack** (it failed on the template-only stack). Ruling-7 trial:
+**SUCCESS** — 10 of 12 proposed repairs spliced, each read as meaning-intact with the
+comparison simply gone; the 2 refusals were the acceptance guards working
+(`still_negative_reveal`, `gutted`), originals kept, reasons recorded. The named failure mode
+(truncation losing meaning) did not reach the page. Residue: 2 comma-not card HEADINGS — a
+walker blind spot, not a gate failure: `name$` fields are excluded from the prose walk
+(**`bugs_open/420`**, fix candidate one line). P5 read: register substantially clean; one
+honesty-beat survivor + one split "would rather…than" no shape sees (observed, not actioned).
+P4: scaffold/cadence unchanged, as predicted. Full trail: NOTES 2026-08-31 late afternoon.

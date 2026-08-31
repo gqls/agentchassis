@@ -3235,3 +3235,55 @@ rather than repeating `image_landed`). Route proven by the 08-26 run (same key, 
 chain). Pre-canary artefacts banked: served HTML + all approach `content_data` (scratchpad) +
 the table above. Expected if the trial works: `rather than` 6 → ≤2 with comparisons simply GONE
 (repairs shorter); the failure worth catching: truncation that loses the meaning. Report either way.
+
+---
+
+## 2026-08-31 late afternoon — THE A+B CANARY LANDED: the trial WORKS, the guards refused the right two, and the miss it exposed is a WALKER blind spot (bugs_open/420)
+
+The rebuild ran 15:24–15:28Z through v1.0.1349 (six section iters, repairs fired on four),
+completed, deployed, verified at the served page (md5 moved, all applied repairs serving).
+
+**Battery, approach, served HTML** (the A+B increment over the same page's pre-roll rebuild):
+X-not-Y 0→3 · rather_than **6→1** · instead_of 1→0 · not_just 0→0 · not-a/an 2→1 ·
+**TOTAL 9→5 (4.3→2.6 per 1k), words 2088→1946** — shorter, as ruling 7 predicted. P2 (≤2
+rather_than) now HOLDS on the full stack after failing 4→6 on the template-only stack: the
+model-prior class the templates could not reach is exactly what the binary gate caught.
+
+**The ruling-7 truncation trial: SUCCESS, and the safety net showed itself.** 12 replacements
+proposed across iters, **10 spliced** — read individually (P5): every one ends the sentence
+before the comparison with the meaning intact; the worst case ("run on your own infrastructure
+or in the browser" losing "rather than being sent to a third party by default") keeps its
+content in the neighbouring sentences. **2 refused by the acceptance guards, each with its
+reason recorded**: `still_negative_reveal` (the proposed repair still led with negation — a
+half-repair, correctly declined) and `gutted` ("This is part of the deployment." — too much
+substance removed). Both originals kept. The named failure mode — truncation that loses
+meaning — did NOT reach the page: where it threatened, the guard chose the original. One
+`no_answer_for_target` (iter_2's negative_reveal) also recorded. **Every survivor is accounted
+for in the instrument — nothing failed silently.**
+
+**The residue, read (4 distinct sentences):**
+1–2. "Privacy built into the deployment, not added afterwards" / "Facts checked against
+sources, not asserted" — comma-not on card HEADINGS. **Root cause found and filed:
+`bugs_open/420`** — `nonProseFieldRe` (negation_content.go:46) lists `name$` as never-prose, so
+`features[N].name` never enters the walk; the same run repaired sibling descriptions. Fix
+candidate 1 is a one-line regex change + walker test. (The Gemini G1 "tic on the highlight
+surface" read was this surface, one trial early.)
+3. "This is part of the deployment, not a separate maintenance product…" — the `gutted`
+refusal's original. Defensible either way; the guard erred to caution.
+4. "…grounded in something checkable rather than invented from nowhere" — the
+`still_negative_reveal` refusal's original; arguably an earned contrast (house voice allows
+1–2/page).
+
+**P1 note, honestly:** the honesty-beat is not extinct — one FAQ answer carries "Sometimes it
+is not, and we will say so" plus a SPLIT construction "We would rather tell you that upfront
+than build…" that no current shape (nor the battery) can see — kin to the filed-not-actioned
+eighth shape (`do not <verb>`). Observed, not actioned: gate vocabulary follows production
+output.
+
+**P4 read:** the scaffold/cadence survives as predicted — the copy is plainer and shorter but
+still methodical (h3-per-principle, who-this-suits). Nothing shipped targets it; unchanged is
+the expected result, and the owner's ear remains the judge.
+
+Artefacts: pre/post HTML + content_data in scratchpad; markers in orchestration `2eecc01d`
+collected_data (iter_N_rewrite_negations keys); llm_call_log 15:24–15:28Z shows
+generate→rewrite pairs (repair prompt live in production, first measured firing).

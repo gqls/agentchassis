@@ -983,3 +983,17 @@ Third: to measure that newest fix, we've sent the approach page round for one mo
 this time through the full corrected machinery. If it works, the "rather than" sentences should
 simply end earlier, with the comparison dropped. If the repairs mangle the meaning instead,
 that's a finding too, and we'll report it either way rather than quietly keep it.
+
+**2026-08-31, late afternoon.** The rebuild came back, and the newest fix works. The approach
+page went from 27 of your rejected verbal tics (before any of this work) to 9 (after the
+template clean-up) to 5 now — and reading rather than counting, the repaired sentences do
+exactly what we hoped: they simply end where the comparison used to start, and the meaning
+survives. "We work across several AI models rather than standardising on one, because…" became
+"We work across several AI models, because…" — nothing lost. Twice the repair machinery judged
+its own proposed fix would cut too much or stay too negative, refused it, and kept the original
+— the right call both times, and it wrote down why. Of what remains, two tics sit in card
+HEADINGS, and that turned out to be a genuine bug worth finding: the scanner has a list of
+field types it treats as "never sentences", and card headings are stored in a field called
+"name", which is on that list — so headings were invisible to it from birth. Filed with a
+one-line fix identified (bug 420). The page still reads methodical in structure — that was
+expected, nothing we shipped targets it, and your ear stays the judge of whether it now passes.
