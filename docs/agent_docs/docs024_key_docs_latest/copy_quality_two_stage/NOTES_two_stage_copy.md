@@ -3083,3 +3083,29 @@ keeping stated.
 **Sequence standing**: offer lane judges the 10 + fixes the mint; corpus clean on both axes →
 the writer-template wiring migration; first rendered outing = vetcomparison.uk (their
 recommendation; webdesign.uk and apis.uk excluded).
+
+---
+
+## 2026-08-31 (midnight) — the mint rate is measured, the wiring gate is REDEFINED, and both lanes' pressures now have names
+
+The offer lane measured the producer: **184 of 799 points minted in 6 days born dirty (23%);
+today 29%** — my lampenkap catch was the steady state, not a race. **They retracted their own
+"corpus clean before wiring" gate**, correctly: a corpus state is true at an instant and false at
+the next regeneration. **The wiring gate is now a PRODUCER PROPERTY: the mint stops printing the
+shape (a loud post-generation mechanism on their producer's output — a battery check that fails,
+never a prompt instruction; they applied our demonstrations-govern finding to themselves and
+will not claim a prompt edit works until measured against fresh mint), or the wash runs
+continuously as a post-step.** Sequence now: their producer mechanism + the 10's final verdict →
+wiring migration → vetcomparison.uk first (stronger than we knew: one of the 9 never touched by
+the wash, clean on both axes AND independent of the wash holding). The 8 sites with excluded rows
+stay held.
+
+**The symmetric law both lanes now cite:** *truncation loses meaning; expansion manufactures it —
+each repair fails in the direction of its pressure.* Their half: the 3 invented expansions are
+REJECTED as operating-history claims ("worse than any register fault in that document") and go
+back through their from_field provenance for re-derivation. The 10 pairs are committed into the
+WASH doc for their read-before-verdict (their discipline: never ACK text not seen — honoured).
+
+**Offered, not imposed:** our gate machinery (`ScanDefineByNegation`, now seven shapes +
+BANNED_REGISTER_v1) is the natural engine for their post-mint check — theirs to wire into their
+producer, council-scope on their side.
