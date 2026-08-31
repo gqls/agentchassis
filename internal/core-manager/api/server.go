@@ -453,6 +453,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				workItemGroup.POST("/:item_id/retry", siteAdminHandlers.HandleRetryWorkItem)
 				workItemGroup.POST("/:item_id/resolve", siteAdminHandlers.HandleResolveWorkItem)
 				workItemGroup.POST("/:item_id/approve", siteAdminHandlers.HandleApproveWorkItem)
+				workItemGroup.POST("/:item_id/request_changes", siteAdminHandlers.HandleRequestChangesWorkItem)
 			}
 
 			// Pipeline Administration (scheduled tasks control)

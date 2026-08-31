@@ -426,6 +426,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
     // Editable review data for checkpoint items
     const [editedReviewData, setEditedReviewData] = useState(null);
     const [approveNotes, setApproveNotes] = useState("");
+    const [critiqueText, setCritiqueText] = useState("");
 
     // Site edit
     const [showSiteEdit, setShowSiteEdit] = useState(false);
@@ -504,6 +505,7 @@ function WorkItemsList({ token, siteFilter, onBack }) {
     const selectItem = (item) => {
         setSelectedItem(item);
         setApproveNotes("");
+        setCritiqueText("");
         if (item?.status === "needs_human_review" && item?.spec) {
             if (item.spec.checkpoint && item.spec.review_data) {
                 // Checkpoint items: edit the review_data
@@ -746,6 +748,27 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             selectItem(null);
             loadItems();
         } catch (err) { setMessage("Approve failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    // File the owner's critique WITHOUT approving or resolving — the item stays
+    // open (delivery stays gated) and the critique becomes an owner_critique work
+    // item that the dispatcher thread routes to the working sessions.
+    const handleRequestChanges = async (id) => {
+        if (!critiqueText.trim()) {
+            setMessage("Type the critique first");
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const result = await apiFetch(`/work-items/${id}/request_changes`, token, {
+                method: "POST",
+                body: JSON.stringify({ critique: critiqueText.trim() }),
+            });
+            setMessage(`Critique filed (${(result.critique_item_id || "").slice(0, 8)}) — this item stays open; the threads will pick it up`);
+            setCritiqueText("");
+            loadItems();
+        } catch (err) { setMessage("Request changes failed: " + err.message); }
         finally { setActionLoading(false); }
     };
 
@@ -1264,6 +1287,32 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                     </button>
                                 )}
                             </div>
+
+                            {/* Request changes: file a critique WITHOUT approving or resolving.
+                                The item stays open (a checkpoint keeps gating delivery); the
+                                critique becomes an owner_critique work item routed to the
+                                working threads by the dispatcher. */}
+                            {selectedItem.status === "needs_human_review" && (
+                                <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 16, marginTop: 16 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#9a3412", marginBottom: 8 }}>
+                                        Request changes
+                                    </div>
+                                    <textarea
+                                        value={critiqueText}
+                                        onChange={e => setCritiqueText(e.target.value)}
+                                        placeholder="Your critique of this site, in your own words — what's wrong, what's missing, what should change. It is filed as work and routed to the threads; this item stays open and delivery stays gated."
+                                        rows={5}
+                                        style={{ ...formInputStyle, width: "100%", resize: "vertical", lineHeight: 1.5 }}
+                                    />
+                                    <button
+                                        onClick={() => handleRequestChanges(selectedItem.id)}
+                                        disabled={actionLoading || !critiqueText.trim()}
+                                        style={{ ...btnPrimary, background: "#c2410c", marginTop: 8 }}
+                                    >
+                                        Request Changes
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

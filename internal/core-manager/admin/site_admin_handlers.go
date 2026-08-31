@@ -1216,3 +1216,106 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 
 	c.JSON(http.StatusOK, result)
 }
+
+// HandleRequestChangesWorkItem files the owner's critique of a site as a new
+// owner_critique work item, WITHOUT resolving or approving the item it was typed
+// against — a "request changes" verb alongside approve, so a pre-delivery review
+// can send the site back for work while the delivery gate stays closed.
+//
+// The owner_critique item is deliberately NOT cluster-routed: handler_agent is
+// empty and no dispatch loop claims the type. Its consumer is the workstation
+// dispatcher thread, which polls for open owner_critique rows and routes the text
+// to the owning session threads (docs024_key_docs_latest/dispatcher_thread/).
+// Minting a cluster-routed type here would repeat bugs_open/279 (items filed
+// under an unrouteable type were hand-cancelled); minting an explicitly
+// thread-consumed type, stated in the row itself, is the honest version.
+func (h *SiteAdminHandlers) HandleRequestChangesWorkItem(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	itemID, err := uuid.Parse(c.Param("item_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid item_id"})
+		return
+	}
+
+	var body struct {
+		Critique string `json:"critique" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	critique := strings.TrimSpace(body.Critique)
+	if critique == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "critique must not be empty"})
+		return
+	}
+
+	// The origin item anchors the critique to a site; it is read, never written —
+	// a checkpoint review item stays at needs_human_review and keeps gating.
+	var siteID uuid.UUID
+	var originType, originStatus string
+	var domain sql.NullString
+	err = h.db.QueryRowContext(ctx, `
+		SELECT w.site_id, w.item_type, w.status, s.domain
+		FROM site_work_items w
+		JOIN sites s ON s.id = w.site_id
+		WHERE w.id = $1
+	`, itemID).Scan(&siteID, &originType, &originStatus, &domain)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "work item not found"})
+		return
+	}
+	if err != nil {
+		h.logger.Error("request_changes: origin lookup failed", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "lookup failed"})
+		return
+	}
+
+	summary := "Owner critique: " + critique
+	if len(summary) > 180 {
+		summary = summary[:177] + "..."
+	}
+
+	spec := map[string]interface{}{
+		"critique":         critique,
+		"origin_item_id":   itemID.String(),
+		"origin_item_type": originType,
+		"domain":           domain.String,
+		"filed_via":        "admin_request_changes",
+		"consumer":         "thread-dispatcher",
+		"consumer_note":    "not cluster-routed by design; the workstation dispatcher thread polls open owner_critique items and routes them to session threads",
+	}
+	specJSON, err := json.Marshal(spec)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "spec marshal failed"})
+		return
+	}
+
+	var newID uuid.UUID
+	err = h.db.QueryRowContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity, summary,
+			spec, priority, handler_agent, status, created_by
+		) VALUES ($1, 'owner', 'delivery', 'owner_critique', 'high', $2, $3::jsonb, 10, '', 'triaged', 'admin-request-changes')
+		RETURNING id
+	`, siteID, summary, specJSON).Scan(&newID)
+	if err != nil {
+		h.logger.Error("request_changes: insert failed", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "insert failed"})
+		return
+	}
+
+	h.logger.Info("owner critique filed",
+		zap.String("critique_item_id", newID.String()),
+		zap.String("origin_item_id", itemID.String()),
+		zap.String("site_id", siteID.String()))
+
+	c.JSON(http.StatusOK, gin.H{
+		"critique_item_id": newID.String(),
+		"origin_item_id":   itemID.String(),
+		"origin_status":    originStatus,
+		"site_id":          siteID.String(),
+		"note":             "critique filed as owner_critique; the origin item is unchanged and delivery stays gated",
+	})
+}
