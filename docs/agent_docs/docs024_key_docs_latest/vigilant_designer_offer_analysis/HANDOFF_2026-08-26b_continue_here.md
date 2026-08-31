@@ -414,6 +414,65 @@ pass, and a clean pass from a blind check outlives the blindness. **Closed both 
 ⚠ Their note for whoever picks up the farmer instance: the **favicon and og-card carry the invented
 brand too**, and presence-based discovery will not refile them.
 
+### H4. The visitor's question hierarchy (owner follow-on, 2026-08-31 evening) — **DECISION D**, awaiting him
+
+⚠ **THE MOST IMPORTANT THING IN THIS HANDOFF FOR THIS LANE'S OWN ARTEFACT, so read it before
+touching `offer_ordering`.**
+
+**`offer_ordering.lead_with[]` RANKS ON DIFFERENTIATION, and that is a SELLER'S axis.**
+`[MEASURED 2026-08-31]` share of points marked `differentiated`, by rank, n=186 across 32 sites:
+
+| rank | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| **% differentiated** | **100** | **100** | 97 | 61 | 31 | 30 |
+
+Monotonic. **The artefact answers *"what can we say that competitors cannot?"*** The owner's critique
+of a Fable hero — that *"No vendor pays us"* is true, strongly stated, and **probably far down the
+visitor's list** — is therefore **structural, not a specimen defect**: that point ranked high
+*because* it is highly differentiated. **The artefact worked exactly as built, on the wrong axis for
+a hero.** This finding predicts the failure rather than describing it, which is why it landed.
+
+> **⚠ AND THE HYPOTHESIS I TESTED CAME OUT AGAINST ME — do not re-derive it hoping otherwise.**
+> I expected to show independence claims OUTRANK effort claims, which would have made this a cheap
+> **re-ranking**. They do not: effort **19** points at mean rank **2.84**, independence **10** at
+> **3.00**, both better than the 3.51 average. On those n, with regex proxies, **that is noise —
+> there is no measured inversion.**
+> **The gap is ABSENCE: only 19 of 186 points (10%) address effort or practicality at all.**
+> Re-ranking cannot surface material never derived.
+
+⚠⚠ **SO THIS ASK IS NOT THE "UNDRIVEN MACHINERY" SHAPE AND MUST NOT INHERIT ITS OPTIMISM.** H1, H2
+and the imagery work were all *"it exists, nothing drives it"*. **H4 is genuine new derivation.**
+Four-for-four would have been a nice pattern and it is not true.
+
+**What was proposed and endorsed by the copy lane as designed (packaged for the owner as
+`DECISION D`):** a per-site `question_hierarchy` aspect in `offer_ordering`'s shape — ranked doubts,
+each with a `why` citing its source field — **plus `answered_by` pointing at the `lead_with` point
+that addresses it, or explicit `unanswered: true`.** ⚠ **The JOIN is the deliverable, not the list**;
+a hierarchy with no link to the copy would be **the third provenance-stamped artefact nobody reads**,
+and this lane's own `offer_ordering` (32 sites, **zero** writer consumers) is the argument. **Accepted
+acceptance criterion: the first pass comes back MOSTLY `unanswered` at the top — correct result, not
+a failure.**
+
+⚠ **THE AXIS COLLISION, flagged before any loop runs.** Ruling 13 makes DENSITY a fault (*"models
+compress; we must expand"*) — and **the differentiation axis REWARDS compression**: a maximally
+distinctive claim is short, absolute and unqualified, which is the shape *"No vendor pays us"* takes.
+The two scores pull opposite ways. The copy lane has put its derived reading to the owner for
+confirmation rather than assuming it: **rulings 13+14 read as the buyer's hierarchy and readability
+GOVERNING hero copy, with differentiation DEMOTED to an input** — it helps choose among answers to
+the same doubt, is never the ranking key, and is never a licence to compress. **If he confirms, this
+lane's corpus is not wrong — it becomes the SECOND sort key.** If he rules otherwise the loop design
+changes. **Either way, decided before two seats fight about it mid-loop.**
+
+**Boundary, agreed identically both sides:** the hierarchy is **unserved rationale**, same side as the
+`why` fields, structured input only. ⚠ **Never rendered into a prompt as prose** — *"most visitors
+first ask X"* in a writer's or critic's context window **IS** the presumption shape and will be
+copied verbatim.
+
+**The agreed sequence across both lanes, once the owner rules on C and D:**
+**wash the 51 dirty points → wire ONE clean site (9 are already clean) → derive the hierarchy →
+join it via `answered_by` → and only then does the per-copy loop have all three axes** (register,
+relevance-ordering, density) **to critique against.** Nothing builds until his word.
+
 ## §F — WHO OWNS WHAT NEARBY (changed since yesterday)
 
 **`bugs_open/381` is CLOSED and its lane wrapped up 2026-08-25** — so `component_expresses` has **no
