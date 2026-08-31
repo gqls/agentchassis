@@ -6699,7 +6699,9 @@ until 2026-07-17; ~23 documents still reference the old path). §9 above holds t
 durable PATTERNS; the files below hold the case detail, evidence and fix
 candidates. Read the file before acting — several are already fixed.
 
-**`414`** — a planted acceptance tripwire from the 08-02 lendzy shadow experiment is SERVED as an
+**`414`** — **CLOSED 2026-08-31 → `bugs_closed/` (`de99599fb`): fixed, live, and verified in production at every layer** — 0 lendzy components and 0 current specs carry the phrase, both served bodies read 0 with a 404 control, the patterns are live in chassis `v1.0.1349` (three-arm binary probe; `kubectl logs` returns ZERO lines for those pods so the stamp route is unavailable), `claimscan` over 2,715 components finds nothing from either new pattern, and the spec detector runs daily at `v1.0.1350` reporting 0 of 36 sites from 7,013 scanned fields. Council `f4c144ad` APPROVED. ⚠ The last defect found was the DETECTOR'S OWN — its first live run convicted a site for a phrase in that site's `would_never_say` list — and *running it* found that, not the unit tests and not a nine-seat council round. Residuals carried forward in the lane handoff §5, chief among them: a POISONED `evidence_base` passes every layer, because every layer treats the register as ground truth rather than scanning it. Original entry follows.
+
+a planted acceptance tripwire from the 08-02 lendzy shadow experiment is SERVED as an
 unverifiable compliance claim ("checked against the FCA handbook, rule by rule" — /about.html ×2,
 the affordability guide ×1), and an open audit item canonised it as "the site's core
 differentiator". ~~Spec source FIXED live same day (row `81ddcc40`) — regeneration can no longer
