@@ -53,6 +53,34 @@ anywhere in the spec stack.**
 - served-page verification pending the rerender wave + publish re-mirror (this
   session, in flight at filing time).
 
+## ADDENDUM 2026-08-31 (evening) — the address lived in a FOURTH place, and the removal READ as complete while it was not
+
+Found by the boxingonline session after three clean sweeps still left the served
+pages carrying the address. **`site_components` (slot_name='footer') held the mailto
+in its `rendered_html`** — `pages.rendered_footer` is NULL site-wide, so the deploy
+assembles the footer FROM THAT ROW. The earlier "clean" verifications queried
+`sites`, `page_components`, `pages` and (this session) `site_specs` — four sweeps,
+each internally correct, none of which looked at `site_components`.
+
+**The sharper defect: `rerender-pages` with `refresh_site_components:true`
+refreshed the `head` and `header` slots and SKIPPED `footer`** (measured: head +
+header updated 15:39:06 by the rerender wave; footer still at its 13:31:54 bake).
+So a full-site rerender fired specifically to flush removed data reported success
+while re-serving the removed data — a data-removal that reads as done. Whether
+footer's exclusion is a bug or an undocumented exclusion is UNSETTLED; either way
+the flag's name promises all slots. This half may deserve its own file if the fix
+splits from 420's contract work.
+
+Incident tail: the boxingonline session surgically removed the whole
+`footer-contact` block from the footer row (guarded transaction, verified pre-COMMIT)
+and re-fired the whole-site rerender (corr `eef4de19`). **Pre-delivery obligation
+(this lane's list): the footer row is now a hand-patched artefact — rebuild it from
+content_data through the normal component-render path before the customer handover.**
+
+For the class fix, add to the verify recipe: the served-page probe (not any set of
+DB sweeps) is the only complete check, because the set of places a value is baked
+into is not enumerable from the schema — four independent sweeps each missed one.
+
 ## Owner rulings recorded (2026-08-31, relayed via the boxingonline session)
 
 1. "There should be no contact email or address on this site because I didn't ask for
