@@ -3048,3 +3048,38 @@ machinery). Same family, opposite behaviour — possibly instruction-following r
 pre-registration; Grok/Gemini next per his ordering. kubectl token is refreshed and working.
 Still open: Q-A/Q-B, the plainly ban migration (ruling 9 — queued), farmerinsurance
 correspondence expected.
+
+---
+
+## 2026-08-31 (late night) — Decisions A+B+C all in flight; the wash landed; two findings from doing it
+
+**A+B**: shipped, mutation-proven, HEAD-verified, council **APPROVED r1** (`169ff10d`, advisories
+all low/medium — the `displaced_instead_of` label concern measured MOOT: grep shows zero
+consumers; the roll-day probe literals are the shape-name strings `instead_of`/`not_just`,
+present-control `content_rewrite`). Go — inert until the roll after v1.0.1346.
+
+**C step 1 — the wash**: offer lane ACKed **41 of 51** (their independent re-scan verified our
+repairs exactly; their exclusion rule is re-derivable: ≥40% reduction on a differentiated point =
+the distinguishing clause went). **Migration 667 applied** (exact-text identity + drift RAISEs,
+ranks pinned, 20 sites, backups + rollback; council `1c787532`). Post-apply fleet scan: exactly
+the expected residue.
+
+**Finding 1 — THE CORPUS MOVES: the producer re-minted the register mid-wash.** lampenkap r4 was
+REGENERATED between extraction and verification and came back with a fresh "physics, not
+commercial preference". The wash cleans stock; the mint keeps printing — the producer-prompt fix
+is the offer lane's, with BANNED_REGISTER_v1. The migration's exact-text RAISEs are why a moving
+corpus refuses rather than mis-targets.
+
+**Finding 2 — EXPANSION PRESSURE INVENTS SUBSTANCE.** The 10 exclusions were repaired by
+expansion (rulings 7+13 as a pair). Battery: 10/10 clean (after a retry — my first expansion
+prompt DROPPED the word-ban clause and 4 kept plainly/honest; my miss, fixed with the ban
+explicit). But the READ caught what the battery cannot: three expansions invented specifics the
+originals don't support ("the full testing procedure", "a visible label", "timing for each
+region") — where the original is vague, expansion manufactures facts. Routed to the offer lane
+with flags: the three need re-derivation from the sites' REAL evidence (their from_field
+machinery), not sentence-level rewriting. Register repair cannot invent substance — a limit worth
+keeping stated.
+
+**Sequence standing**: offer lane judges the 10 + fixes the mint; corpus clean on both axes →
+the writer-template wiring migration; first rendered outing = vetcomparison.uk (their
+recommendation; webdesign.uk and apis.uk excluded).
