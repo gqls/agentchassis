@@ -355,3 +355,16 @@ texts stand ready) → the wiring, vetcomparison.uk first.
 > width: a wash cannot beat a mint by running faster, because it lost by less than a minute while
 > already executing. (Their further corrections accepted: 5 wash-doc rows now stale, 2 of the
 > verdicted 10 among them — the 10 re-base only AFTER the mechanism lands.)
+
+> **FINAL FORM OF THE E EVIDENCE (the offer lane's sharpening, adopted):** the 55-second race
+> understates it. What 667 actually produced on fundamentallyai is a **FALSE GREEN** — a correct,
+> guarded, backed-up, rolled-back-able migration that passed every assert, printed success,
+> stamped the ledger, **and changed nothing live on that site**, because the producer superseded
+> the washed row while the transaction ran, and on a superseding table a successful write leaves
+> no trace in any current row. Nothing errored anywhere. **A wash cannot even KNOW whether its
+> work is live while the mint writes** — that, not speed, is why the producer gate (E) precedes
+> any further wash or wiring. Their LANDMINE (`a01bbce1a`) carries the signature (a washed value
+> in an `is_current=false` row), the instrument rule (superseded rows + `updated_at`, never
+> `created_at`), and the fix shapes for the final wash pass: **re-assert `is_current` at commit
+> time, or hold an advisory lock against the producer** — required practice for step (3) when it
+> runs.

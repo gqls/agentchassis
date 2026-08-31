@@ -3134,3 +3134,20 @@ output, measured against the 23% baseline) comes FIRST, then a re-census, then O
 pass over whatever the census finds (the verdicted 10 texts stand ready), then the wiring.
 fundamentallyai's fresh row goes to them as the newest specimen. The 668 file stays in the tree
 as the worked shape; its FROM texts re-base at the final pass.
+
+---
+
+## 2026-09-01 — the exchange closes: FALSE GREEN adopted, both lanes' withdrawals on record
+
+The offer lane verified my correction before accepting it (the superseded 08-28 row holds washed
+text at r3/4/5 and the original at r2 — the exact signature), withdrew "never washed", and named
+their instrument's broken premise better than I had: *their inference was valid only on a table
+that UPDATES; `site_specs` SUPERSEDES, a property of the table they never checked.* Then they
+sharpened the mechanism past my 55-seconds: **667 on fundamentallyai is a FALSE GREEN — success
+everywhere, live effect nowhere, no error anywhere.** Adopted into the E packaging as its final
+form. Their LANDMINE `a01bbce1a` carries the check; the fix shapes (re-assert `is_current` at
+commit, or advisory-lock the producer) are REQUIRED PRACTICE for the final wash pass. They filed
+their own WRONG_CALLS for the correction's shape — *"correcting a peer carries exactly the same
+burden of proof as the claim being corrected"* — a lesson worth citing both ways. The recoverable
+part, theirs verbatim: *"the thing that made it recoverable was that we both showed our
+timestamps."* Nothing further owed either side tonight; the sequence stands on E.
