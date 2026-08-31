@@ -38,8 +38,12 @@ afternoon→night entries are this session's full trail). The owner does NOT wan
   correct, fleet census = exactly 1 site in the class. §9 pattern written (walk the ASSEMBLY
   inputs when a validator refuses a regeneration for a value no generation emits).
 - **FARMER PARCEL step 1 DONE: migration 674 applied** — briefing/strategy/vertical_landscape
-  superseded battery-clean, loanzy cross-verified, exchange closed. Council `53ea95f4`
-  submitted (verdict unread at handoff — READ IT; a REVISE is usually right).
+  superseded battery-clean, loanzy cross-verified, exchange closed. Council `53ea95f4` drew
+  **REVISE r1** (right again: the verify never asserted successor SHAPE) — answered same night
+  with measurements at the live rows (recursive key-set identity 33/44/16, zero lost; index
+  confirmed; aspects re-checked) and **r2 is RUNNING at handoff — read its verdict**. The
+  final-wash migration inherits three requirements from this round: in-verify shape check,
+  aspect predicate on the flip, prefix test on differentiated points.
 - **BEST-IN-CLASS PROPAGATION step 1 BUILT + APPROVED** (owner BUILD GO relayed, ledger):
   voicestyle generalised to named blocks (`8c62e9f1b`, INERT till roll), carrier 675 APPLIED
   (894 chars), opt-ins **677/678/679 are `_HOLD` — apply ONLY after a roll carrying
@@ -55,7 +59,7 @@ afternoon→night entries are this session's full trail). The owner does NOT wan
 
 ## NEXT ACTIONS, in order
 
-1. **Read the 674 verdict** (`53ea95f4`, by payload) — answer a REVISE if drawn.
+1. **Read the 674 r2 verdict** (`53ea95f4`, by payload — r1 REVISE already answered).
 2. **Farmer parcel step 2**: the 52 CTA labels. The route is PROVEN (stage-2 editor catches
    the class unprompted post-674). The open question is POSTURE: ~17 more hand-fired proposals
    → 17 human reviews. **D2 makes batch-release the owner's call — ask him** whether to (a)
