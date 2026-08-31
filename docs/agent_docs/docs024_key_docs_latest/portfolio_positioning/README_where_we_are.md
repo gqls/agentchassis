@@ -1188,8 +1188,8 @@ the upgrade fine — still picking a site every half hour when one needs it, sti
 cleanly. One hiccup: oufe.com's sitemap refresh failed in the small hours (a timeout talking to
 the git service, a one-off — every run after it worked) and that left oufe serving "not found"
 for its sitemap. The failed attempt also used up oufe's turn in the queue, which would have meant
-a three-day wait; I've put it back at the front and the next sweep should restore it — worth a
-glance that it did.
+a three-day wait; I put it back at the front of the queue and watched the next sweep restore it — oufe's sitemap is
+serving correctly again, all 19 pages listed, checked on the live site before writing this.
 
 The lendzy test-sentence saga is essentially over: the live pages no longer carry the phrase
 anywhere (I checked the pages themselves this morning), and the session handling bug 414 just
