@@ -14796,3 +14796,21 @@ expecting a retraction stamp on completed rows misreads the retraction contract.
 "the audit ran" fast: the orchestration record purges in ~1 day; after that it is
 `site_work_items ∪ archive` + `agent_error_log` brackets, with the site's page count against
 the known timeout ceiling (`bugs_open/416`).
+
+### A field-NAME exclusion list written to keep identifiers away from a prose scanner also excludes a heading surface — and the walker's own per-run marker is where the miss shows, as siblings-targeted-while-this-field-never-counted (2026-08-31, `bugs_open/420`)
+
+The define-by-negation gate's walker holds a "never prose" field-name list (`url`, `hex`,
+`price`, … `name`). Every entry but one is genuinely non-prose; `name` is also what card/feature
+components call their **heading**, so the gate's least-forgivable surface (its own comment's
+words for headlines) was structurally unscannable. On the v1.0.1349 canary rebuild the SAME
+`features` array had its `description` fields flagged and repaired while two comma-not `name`
+strings shipped to the served page — the gate working perfectly beside its own blind spot.
+
+The transferable checks: (1) when a scanner reports success but the artefact still shows the
+shape, do not ask "did it run" — ask **which fields entered the scan**, and compare against the
+SIBLINGS of the survivor: a marker showing `items[1].description` targeted while
+`items[1].name` holds the tell is the whole diagnosis. (2) Any allow/deny list keyed on field
+NAMES is a bet that a name means one thing fleet-wide; when a field name is overloaded
+(`name` = identifier AND heading), prefer value-shape tests (length, whitespace, token pattern)
+over the name. Kin to WRONG_CALLS' "declaring a key silences your own detector" — but this one
+was born blind rather than silenced by a later edit, so no diff would ever have shown it.
