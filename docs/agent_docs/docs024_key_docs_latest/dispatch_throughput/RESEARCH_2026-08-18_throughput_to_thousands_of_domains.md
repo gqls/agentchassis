@@ -273,9 +273,15 @@ serial docker builds, fleet mixed for hours after each roll).
 D0b: max 50 signups/day (expect fraction); **human review gate before every release** with a
 CLI-assisted fix loop (designed in another thread — leave the seam). D0a: three portfolios —
 client-retained (high attention, client-funded), own high-attention, own low-attention; most
-third-party sites handed off. D2: **clients first**. D3: lockstep. D4: shed own-domain
-build work first as spend nears the cap, keep maintenance, protect client work (governor
-must act before the hard cap). D5: single provider for now. D6: **Batch API yes**. D7:
+third-party sites handed off. D2: **clients first**. D3: lockstep. D4: ~~shed own-domain
+build work first as spend nears the cap, keep maintenance~~, protect client work (governor
+must act before the hard cap).
+> **D4 shed ORDER SUPERSEDED by owner ruling 2026-08-31** (direct answer to the direct
+> three-way question, after four measured cap outages): **routine maintenance sheds FIRST,
+> new site builds second, research third (most protected)** — the reverse of the 08-21
+> maintenance/builds order. "Act before the hard cap" and client-work protection (D2)
+> stand unchanged. Ruling verbatim in NOTES 2026-08-31.
+D5: single provider for now. D6: **Batch API yes**. D7:
 corrected — Anthropic tiers exist (Start $500 → Build $1k → Scale $200k → Custom; console
 "Request rate limit increase" covers the spend cap; the 08-17 outage matched the SELF-SET
 limit signature, HTTP 400 "specified", fixable in Console). D8: **keep Actions for now**,

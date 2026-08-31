@@ -221,3 +221,66 @@ limits) — measure at the chassis before adding more siblings.
 | D1 | target concurrency N (spend rate multiplies with it) | stop at N=2 |
 | D2 | service-order policy + aging constant, if Phase 4 is ever reached | stay FIFO |
 | D3 | is overlap past `timeout_seconds` acceptable, or must batch+timeout always move in lockstep? | lockstep |
+
+---
+
+# D4 — LLM SPEND GOVERNOR: design (added 2026-08-31, on the owner's shedding ruling)
+
+**Ruling (2026-08-31, verbatim in NOTES):** shed **routine maintenance FIRST, new site
+builds SECOND, research THIRD** (most protected). Supersedes the 08-21 maintenance/builds
+order (corrected visibly in RESEARCH §10). Standing from 08-21: the governor must act
+BEFORE the hard cap; client work stays protected via D2. Four measured cap outages are the
+case: 08-17 (self-set limit), 08-25/26 (credit, ~9h), 08-27 (2h), 08-28→31 (~2.5 days).
+
+## Shape (five parts, smallest that closes the door)
+
+1. **METER** — spend estimate from `llm_call_log`: tokens × a `model_prices` data table
+   (per-model in/out/cache-write/cache-read rates), month-to-date + trailing-24h burn rate.
+   `[MEASURED 08-31, 7d io-tokens]`: page-content-writer 52.5M dominates; council-gate
+   12.4M io + 393M cache-read; tool-improver 7.8M. A VIEW, so every reader agrees.
+2. **CLASS MAP** — a data table `work_class_map(item_type, class, llm_bearing)` with
+   class ∈ {maintenance, build, research}. Populated from the measured item→handler map
+   (NOTES 08-31), owner-adjustable. **LLM-free types are NEVER shed** (page_rerender,
+   undeployed_asset, the rerender-pages family — shedding them saves nothing and stops
+   serving); an unmapped item_type defaults to **maintenance** (sheds earliest = the safe
+   default for an unknown spender). ⚠ the map is multi-valued today (content_rewrite has
+   two handlers) — class keys on item_type alone, deliberately.
+3. **STATE** — a `scheduled_tasks` row (~120s, the claimed-item-timeout pattern) computes
+   month-to-date spend vs the configured budget and writes `governor_state(shed_level)`:
+   L0 none · L1 shed maintenance · L2 + builds · L3 + research (= everything LLM-bearing;
+   one step short of the hard cap the account would impose anyway). Thresholds
+   default **70% → L1, 85% → L2, 95% → L3** of monthly budget (config, not code). Every
+   level CHANGE writes ONE doc_notes row (the RFC_022 cron lesson: silence must be
+   distinguishable from not-running — the task also stamps a heartbeat on no-change runs).
+4. **ENFORCEMENT** — at the CLAIM step (`claim_work_item_action.go`, beside the existing
+   `ai_endpoint_unavailable` refusal — the proven seam): if the item's class is shed at the
+   current level AND the item is llm_bearing, refuse with reason `spend_governor_shed`
+   (a new claim_result reason, visible in every existing meter). Items stay triaged,
+   nothing burns attempts — exactly the deferral shape the estate already handles.
+   **Ships opt-in, default OFF** (`governor_config.enabled=false`; the 08-02 ruling: new
+   authority on a shared seam is a field with the unsafe default off). Registered in the
+   concept register in the same commit (ordering-exemption condition 2).
+5. **OPTION C GATE** — once the governor is live AND exercised once (a real or induced
+   shed observed), interval ≤25s unlocks: a separate migration editing VERIFY 2/7's lever
+   in lockstep (637's instruction), its own council round.
+
+## What it deliberately does NOT govern (named, not hidden)
+
+- **council-gate spend** (393M cache-read/7d): platform self-governance, scales with change
+  volume not domains; shedding it silences review — an owner lever, not a governor class.
+- Direct agent runs not driven through `site_work_items` (090 loops, councils, chat).
+- The hard cap itself — the governor exists to make L1–L3 happen first.
+
+## Owner input still wanted (one number)
+
+The governor's **monthly budget figure** (its thresholds key on it; it should sit under the
+console cap so L3 fires before the account refuses). Until given: config ships with budget
+NULL = governor inert even when enabled — refusing to guess a spend ceiling.
+
+## Build order (each stage independently shippable, council per coherent commit)
+
+A. `model_prices` + `work_class_map` + `governor_config` + `governor_state` + the meter
+   view + the state task (migration, DB-only, inert without the Go half).
+B. Claim-step refusal (Go; opt-in read of governor_state; unit + mutation tests; register
+   entry same commit). Inert until `enabled=true` AND budget set.
+C. Flip-on with the owner's budget; observe one shed cycle; then the Option-C round.
