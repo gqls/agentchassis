@@ -6501,3 +6501,39 @@ provenance match, md5 both ends, `127.0.0.1:8081` bind only, and **`--status` no
 PUBLIC edge after the restart (`POST https://webdesign.uk/api/chat`) — real answer, £149,
 no contact-line fallback. Landmine appended (the wrong-key symptom is indistinguishable
 from a usage-limit outage) + `landmines-verify-dispatch.sh`.
+
+## 2026-08-31 (afternoon, delivery-lane session) — build QUIESCED; slug LIVE outside; the one gap is the brief's editorial section, and it is a planner defect
+
+- **Build quiesced 14:41Z** (zero active items/orch, 2 consecutive polls): **14 pages,
+  13 deployed** — the pipeline over-delivered on tools (fight calendar + trivia quiz +
+  fight countdown + fighter comparator + weight-class finder, each with a guide).
+  5 items remain at needs_human_review (the review material).
+- **Slug publish LIVE and verified from outside** [MEASURED ~14:45Z]:
+  published_at=14:10:18Z, hash stamped; https://boxingonline.ugg2.com/index.html,
+  /articles/index.html, /tools/fight-calendar/index.html all 200, invented URL 404 —
+  both probe controls hold. Later rerenders republish on drift at the hourly tick.
+- **Honesty guards VERIFIED armed** (not assumed): every page build ran
+  validate_page_content with check_claims default-ON and nothing in the step config
+  disabling it; loadEvidenceBase runs unconditionally in that arm; all runs
+  valid=true/0 issues (credible: light on business-number claims).
+- **THE GAP: the brief's six placeholder articles do not exist**, and the served site
+  HIDES it — the planner emitted the `article` blog-post page with ZERO
+  site_plan_sections (every sibling got sections), page-build no-ops
+  ("no sections ready"), and the link validator rewrote the dead editorial CTAs to
+  the calendar so articles-index renders clean with no article links. Same shape on
+  adversecreditmortgage.co.uk (`blog-post`, 0 sections). **Filed `bugs_open/419`**
+  (symptom+census only, cause marked UNDIAGNOSED) and **fired a 090 diagnosis run**:
+  RUN_CORRELATION_ID=6ebdaf88-d6bc-4d2e-9df0-6dd66223cccc.
+- **Remediation IN FLIGHT via the framework** (not hand-authored content): six
+  sequential `content-gap-planner` dispatches (approach B, one blog-post page each,
+  framework-chosen distinct topics; each run sees prior slots in Existing Pages).
+  Slot 1 published 14:49Z-ish, receipt asserted (kafka-publish-lib, corr
+  74af0c65-3494-4cf2-a532-88477b9b33e7); orchestration row not yet visible at 15:00Z —
+  the documented queue-latency shape, NOT a dropped dispatch; poll armed, do not
+  re-fire. ⚠ counter gotcha found live: the four tool GUIDE pages are
+  page_type='blog-post', so any "articles exist" census must exclude `tool-%` names
+  (and the stranded `article`).
+- Next after slot 6 builds: rerender articles-index + index (their CTAs/list should
+  then resolve), re-publish tick, THEN dispatch delivery-review-filer with
+  site_url=https://boxingonline.ugg2.com. The stranded `article` page + parked items
+  go to the owner at review (retire-or-keep is his call).
