@@ -18717,3 +18717,29 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check:** escape it or leave LIKE out: `LIKE '%lead\_with%' ESCAPE '\'`, or `POSITION('lead_with' IN default_config::text) > 0`, or a regex with the underscore literal (`~ 'lead_with'` — regex `_` is literal). Then read the CONTEXT of each survivor (`substring(cfg from '.{0,60}lead_with.{0,90}')`) — a hit inside a description/prompt string is a mention, not a consumer. Same family as LANDMINES ~:502 (`LIKE '%action%'` matches prompt text); this entry is the sharper half: even the EXACT KEY as your pattern is not exact.
 - **source:** 2026-08-31, copy_quality_two_stage lane, while answering 667's round-1 verdict — the seat's inflated census would have forced a false concession that live consumers exist.
 - **added:** 2026-08-31, copy_quality_two_stage lane
+
+---
+
+### The estate's hero convention puts a GRADIENT before the url, so `background-image:\s*url(` finds nothing and reports a clean, confident zero
+
+- **footprint:** any image census over served HTML · `background-image` in `page_components.rendered_html` and page-level `<style>` blocks · hero/`content_hero` sections on every site · `render_audit.py`'s broken-image arm · any hand-rolled `<img>`/CSS-image extractor
+- **fires when:** you audit which images a page actually references — "are the heroes there", "which files are unused", "does this page have any imagery" — and reach for the obvious pattern. **This estate does not write `background-image: url(...)`.** It writes the scrim first:
+
+  ```
+  background-image: linear-gradient(rgba(6,11,20,0.62), rgba(6,11,20,0.72)), url('/assets/images/hero.jpg');
+  ```
+
+  A `background-image:\s*url\(` extractor matches **none** of them, returns a clean result, and says nothing about what it skipped.
+- **why the wrong result looks exactly right:** the census completes, the count is plausible, and the pattern is *correct for the CSS it imagined*. There is no error and no empty output to prompt a second look — the failure is invisible in its own result. Worse, the page still LOOKS fine to a human, because the gradient renders even when the image 404s: the hero shows as a flat dark band rather than a broken image, so neither the code nor the eye reports anything.
+- **it is a CONVENTION, not one site's quirk — two lanes, two sites, independently:**
+  - `dartsonline_traffic`, 2026-08-22: an extractor over all 24 pages reported **"21 of 21 images resolve, 0 broken"**. It had missed every hero, and `/assets/images/hero.jpg` was **404 on 5 pages** at that moment — a defect the platform had already filed on 2026-08-09 and which sat undetected behind a clean census (`WRONG_CALLS.md`, `ed4c55cc6`).
+  - `news_editorial`, 2026-08-31, checking their own pages after reading that entry: `content-hero-robot-demand-step-change.jpg` is referenced the same way, gradient first. Their conclusion, and the reason this is a landmine rather than a wrong call: *"it is not a one-site quirk; it is the estate's hero convention."*
+- **the check — extract the url wherever it sits in the value, and count what you skipped:**
+  ```bash
+  grep -oE "url\(\s*['\"]?[^)'\"]+" page.html | sed "s/url(\s*['\"]\?//"
+  ```
+  ...which catches it whether or not a gradient, a second layer or a `-webkit-` prefix precedes it. Then **assert the total against a known-present image** — a page with a hero must yield at least one — because the only tell of a blind extractor is that its output is implausibly tidy.
+- **⚠ and `<img>` alone is not the surface.** A CSS background image is invisible to any `<img>`-based check, which is why `render_audit.py` reported `broken-img=0` across 23 pages on the same site, on the same day, while five heroes 404'd: it reports `<img>` elements that failed to LOAD, and a background image is neither.
+- **relations:** `WRONG_CALLS.md` 2026-08-22 (`ed4c55cc6`) · the `overImage` entry (the same tool, the opposite error — placeholders inflating a total) · `an unapplied stylesheet cannot FAIL a contrast check` · `a post-fix ZERO needs a DEMAND control`
+- **source:** 2026-08-22 `dartsonline_traffic` (the blind census), generalised 2026-08-31 by `news_editorial` reproducing it on robot-hands.com.
+- **added:** 2026-08-31, dartsonline_traffic lane.
