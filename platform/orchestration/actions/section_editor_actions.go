@@ -385,6 +385,41 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
+	// ── Composition-parent gate (features_open/035 P1, direction 1) ─────────
+	// A composition PARENT's template references {{.slots.*}}, which this
+	// single-target path has no slots map for. Under missingkey=zero those
+	// resolve to the empty string, so rendering a parent alone would persist a
+	// row whose children have vanished — and report success while doing it. That
+	// is the bugs_open/018 class arriving through an edit rather than a build.
+	//
+	// Skip-result, not error, matching the lock and tombstone gates above: only a
+	// deliberate act (editing a child, or re-rendering the page) can change this
+	// state, and an error would fail and retry an orchestration over it.
+	//
+	// Costs nothing live today: 0 of 2,249 page_components carry a
+	// parent_instance_id (2026-08-31). It exists so the FIRST caller that tries is
+	// told, rather than silently emptying a section. Membership comes from the one
+	// shared query in component_hierarchy_walk.go — not a second spelling.
+	if kids, kidsErr := hierarchyChildrenOf(ctx, params.DB, pcID); kidsErr != nil {
+		// Fail OPEN, like the lock check: an unreadable membership query must not
+		// block an edit on a page that probably has no composition at all.
+		logger.Warn("ApplySectionEditAction: composition-parent check failed — proceeding",
+			zap.String("page_component_id", pcIDStr), zap.Error(kidsErr))
+	} else if len(kids) > 0 {
+		logger.Warn("ApplySectionEditAction: refusing to render a composition parent alone (035 P1)",
+			zap.String("page_component_id", pcIDStr),
+			zap.String("slot_name", slotName),
+			zap.Int("children", len(kids)),
+		)
+		return map[string]interface{}{
+			"success":          true,
+			"skipped":          true,
+			"composite_parent": true,
+			"reason": fmt.Sprintf("component %s (%s) is a composition parent with %d child row(s); rendering it alone would resolve its {{.slots.*}} to empty and drop them. Edit a child, or re-render the page.",
+				pcIDStr, slotName, len(kids)),
+		}, nil
+	}
+
 	// ── Decision citation gate (RFC_015) ────────────────────────────────────
 	// If an active decision record covers this page/slot, the edit must NAME
 	// it (acknowledges_decision or supersedes_decision) to proceed. Change is

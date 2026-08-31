@@ -2456,6 +2456,37 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	// bugs_open/342: hand the seam the contract so it can name an ABSENT
 	// required field for every caller, not just the two that pre-check.
 	renderCtx.InputSchema = comp.InputSchema
+
+	// ── Composite gate (features_open/035 P1, direction 1) ──────────────────
+	// A component whose schema declares `slots` is a COMPOSITE: its template
+	// references {{.slots.*}}, which are filled by the hierarchy walk from child
+	// rows. This action has no children — it renders a component DEFINITION plus a
+	// content map and RETURNS the html — so under missingkey=zero every slot would
+	// resolve to the empty string and the caller would persist a parent-shaped
+	// section with nothing in it, reporting success.
+	//
+	// NOTE THE PREDICATE, because it is not the one used on the edit path and the
+	// difference is the point. apply_section_edit holds a stored ROW, so it asks
+	// "does this row have children" (hierarchyChildrenOf). This path holds no row
+	// at all, so the only honest question is "does this COMPONENT declare slots" —
+	// and that is the stronger guard, because it fires before any child row exists
+	// to be counted. My council submission conflated the two; they are different
+	// questions about different objects.
+	//
+	// Refuse rather than render: unlike the section paths there is no stored HTML
+	// here to carry, so the only alternatives are an empty section or an error, and
+	// bugs_open/260's rule is to fail rather than stitch. Unreachable today —
+	// 0 of 386 content_components declare a slots block (2026-08-31).
+	if len(hierarchySlotsFromSchema(comp.InputSchema)) > 0 {
+		params.Logger.Error("RenderComponentAction: refusing to render a COMPOSITE component with no children (035 P1)",
+			zap.String("component_function", comp.Function),
+			zap.String("component_name", comp.Name),
+		)
+		return nil, fmt.Errorf(
+			"component %q declares slots and is composite: this path renders a definition without child rows, so every {{.slots.*}} would resolve empty; render the page instead (features_open/035 P1)",
+			comp.Function)
+	}
+
 	rendered, _, deadURLFields, renderErr := RenderTemplate(comp.HTMLTemplate, renderCtx, params.Logger)
 
 	// bugs_open/260: the seam no longer invents output it could not execute, so
