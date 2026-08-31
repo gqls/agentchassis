@@ -1495,3 +1495,34 @@ avoid. Positive facts live in the prompt only.
   URLs myself instead of reading `pages.url`, which is the exact mistake
   [[a-parked-domain-200s-every-path]] warns about. Reading the table cost one query and turned a
   would-be bug into a non-event.
+
+### Outcome, same session, 13:25Z — all four heroes now correct at the served file
+
+| file | v1 (12:35Z run) | final | how verified |
+|---|---|---|---|
+| `hero-new-arrivals.jpg` | good | unchanged, good | by eye: flat four-wing flights |
+| `hero-sale.jpg` | good | unchanged, good | by eye: barrel macro, "24g" stamp |
+| `hero-home.jpg` | all-red bull | **FIXED** | by eye + **6,270 green px (5.9%)** vs 22 before |
+| `hero-guides.jpg` | feather + "7" for "1" | **FIXED** (3 passes) | by eye + **6,454 green px (7.8%)**; bull now red-inside-green, number ring correct in BOTH directions (20,1,18,4,13,6,10,15,2,17 clockwise; 5,12,9,14,11 anticlockwise) |
+
+All four served 200 on their live pages (`/`, `/new-arrivals.html`, `/sale.html`,
+`/guides/index.html`). **The 0.0% green on new-arrivals and sale is correct, not a failure** —
+neither image has a board in it. A green-pixel floor applied blindly across the set would have
+flagged both; the measure only means anything on the images that contain a board.
+
+**A hypothesis I formed and then refuted, which is the reason to write this down.** When
+`hero-guides` v2 came back with zero green, I suspected my own new avoid clause had caused it —
+it reads *"board segments coloured blue, purple, orange or anything other than black and cream"*,
+and a model could easily over-apply "anything other than black and cream" to the whole board face
+and strip the rings. The timing fitted exactly: the clause went in at 13:13Z and v2 was the first
+image generated after it (13:15:56Z). **I was about to narrow the clause.** Instead the third pass
+was already a clean test — same clause, stronger positive colour instruction — and it came back at
+**7.8% green, higher than v1's 1.9%**. So the clause does not strip the rings, v2's loss was the
+roll, and the clause stays as written. Had I "fixed" it on the timing alone I would have weakened a
+correct rule and credited myself with a repair.
+
+**What this says about re-rolling generally:** three passes of the same image produced
+feather+green, flight+no-green, flight+green. Each roll traded an axis. That is why every version's
+S3 object is recorded in the seed headers, and why the third-pass file asserts the two clauses that
+were already working are still present both before and after its own rewrite — a re-roll that fixes
+your current complaint can silently undo the last one, and the item status cannot see it.
