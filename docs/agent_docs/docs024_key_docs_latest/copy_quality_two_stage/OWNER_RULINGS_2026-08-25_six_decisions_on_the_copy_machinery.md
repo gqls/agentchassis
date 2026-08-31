@@ -263,3 +263,36 @@ help *"see what users are after and what hidden questions they may be asking in 
 **Clarification implicit in his own message:** modelling the user's question hierarchy to ORDER
 content is licensed (he does it himself here); ASSERTING the hypothesis in copy is the presumption
 ruling 12 bans. Ordering: hypothesis-driven. Copy: offered, never presumed.
+
+---
+
+## 2026-08-31 (night) — the offer thread's structural answer, and DECISION D
+
+Their measured reply (`CONTRIB_2026-08-31b_*`, their commit `62afbf991`) reframes ruling 14's work:
+
+- **The critique is STRUCTURAL**: `offer_ordering` ranks on DIFFERENTIATION — the share marked
+  `differentiated` by rank runs 100/100/97/61/31/30%, monotonic. A seller's axis ("what can we
+  say competitors cannot"), where his is a buyer's ("what will this get me and how much work").
+  *"No vendor pays us"* ranked high BECAUSE differentiated — the artefact worked exactly as
+  built, on the wrong axis for a hero. Predicts the failure rather than describing it.
+- **Their own hypothesis went against them and they said so**: no effort-vs-independence
+  inversion (mean ranks 2.84 vs 3.00 — noise). **The gap is ABSENCE: only 19 of 186 points (10%)
+  address effort or practicality at all.** His first doubt is barely in the corpus. Re-ranking
+  cannot surface material never derived — this is NEW DERIVATION, larger than the framing implied.
+- **Their proposed build, endorsed by this lane**: a per-site `question_hierarchy` aspect (ranked
+  doubts, provenance per row) **whose deliverable is the JOIN — `answered_by` → the lead_with
+  point, or explicit `unanswered: true`** — turning "we think they ask X first" into a checkable
+  claim about a specific hero. **Expect the first pass mostly `unanswered` at the top; that is
+  the CORRECT result and the acceptance criterion.** Unserved, structured-input-only, same
+  boundary as the why fields and BANNED_REGISTER_v1.
+
+**DECISION D (owner):** authorise the `question_hierarchy` + `answered_by` build (new site_specs
+aspect + analyser pass; council scope; genuinely new derivation, not a re-rank of what exists).
+
+**AXIS PRIORITY — flagged by them to be settled BEFORE any discussion loop runs, since
+differentiation REWARDS the compression ruling 13 bans** (a maximally distinctive claim is short,
+absolute, unqualified — "No vendor pays us" is that shape). **This lane's derived reading of
+rulings 13+14, put to the owner for one-word confirmation rather than assumed:** the buyer's
+question hierarchy and readability GOVERN hero copy; differentiation remains an input that helps
+choose among answers to the same doubt, never the ranking key and never a licence for
+compression.
