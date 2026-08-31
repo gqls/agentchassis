@@ -2258,3 +2258,13 @@ artefact + status pair, treat `error` on a completed row as history, not state.
   offer lane (their routing). Lesson for the cull recipe: **a cull has FOUR layers — pages,
   content_data, chrome, SPECS — and the census that finds the fourth is
   `site_specs WHERE is_current AND data::text ~* <the names>`.**
+
+## 2026-08-31 — spec wash DONE by copy lane (mig 674, corr 53ea95f4); verified here at the rows
+- briefing/strategy/vertical_landscape superseded (3 current of 6 total — supersession shape
+  confirmed; deletion-first surgery; their battery caught a FIFTH strategy mention both our
+  counts missed — the class battery, not a count, is the binding test).
+- My own verify sweep flagged 2 "residue" rows — BOTH correctly non-issues: offer_ordering
+  (expected; the analyser re-derives it) and one vertical_landscape line "Calculators and
+  eligibility checkers are framed as decision-support tools" — vertical ANALYSIS in generic
+  terms, not a reference to the culled FOS checker. My generic-phrase regex over-matches;
+  the seven-proper-NAMES battery is the right test. Next from them: the 52 CTA labels.
