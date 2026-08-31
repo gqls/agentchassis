@@ -1168,3 +1168,20 @@ for pipeline/spend-governor. Replay guard = md5 tri-arm (not-applied 1c371a33 / 
 Lesson, same shape as the lane's own rule about measuring before submitting: **the absence
 claim IS a census, and it goes in grounded_in BEFORE the design** — the seats exist because
 sessions (this one included) design first and search never.
+
+### 2026-08-31 ~13:3xZ — 671/672 r2 APPROVED; the advisory closed with its own sharper form (673)
+
+**APPROVED** on corr 80df0963 ("1 advisory objection, none high-severity"; the "(round 1)"
+header is the template literal — this is round 2). Verdict read in full. The advisory
+(editquality): the xact-scoped advisory lock protects only the statement's span. Disposition:
+the statement span IS the whole race window — but chasing the concern found the REAL residual:
+under READ COMMITTED a fire that BLOCKS on the lock keeps its pre-block SNAPSHOT, so its
+`old` CTE reads a stale level on unblock → duplicate/missed note. **Migration 673** (dry-run
+rolled-back, applied ~13:3xZ): `FOR UPDATE` on the `old` read (EvalPlanQual re-reads the
+committed row on lock release), plus debug_historian's rowcount assertion at the mutation
+site (GET DIAGNOSTICS = 1). guardian's hashtext-collision note: harmless (serialisation
+only); tooling_provenance's Go-side validDocSubjectTypes point: the doc_plans row was written
+by SQL and the DB CHECK passed live — the Go list gates Go writers only. **D4 stage A is
+DONE: live, hardened, approved, inert. Stage B (Go claim-step refusal, opt-in) is next, and
+the owner's monthly budget number is still the open input (August measured ~$2,113,
+outage-suppressed).**

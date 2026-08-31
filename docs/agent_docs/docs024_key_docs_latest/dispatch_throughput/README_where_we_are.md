@@ -392,3 +392,10 @@ within minutes. The one thing waiting on you is the spend governor's design ques
 spend nears the cap, what should be refused FIRST — routine maintenance, new site builds, or
 research? Answer that in a sentence and the governor build can start; it is the thing that
 turns these blackouts into deliberate slow-downs.
+
+2026-08-31 afternoon — the spend governor's foundations are in and approved by review. The
+meter is live (August ran about $2,113 of AI spend, and that's with the blackouts suppressing
+it), the shedding order you ruled this morning is wired in as data, and the alarm that
+announces a shedding-level change has been tested in both directions. Nothing sheds yet —
+that needs the small code change (next step) plus one number from you: the monthly budget the
+governor should defend. Give me that number whenever; until then it watches and stays silent.

@@ -77,3 +77,15 @@ That is D4's FOURTH live case.
 Pathspec commits; grep LANDMINES for symbols you touch; who-owns before routing at any bug;
 re-read CLAUDE.md from disk before acting on multi-session rules; the workstreams memory
 points here (COLD-START = this file).
+
+## UPDATE 2026-08-31 — D4 stage A SHIPPED (this file's NEXT-2 is in progress)
+
+Owner ruled the shedding order (maintenance → builds → research; NOTES verbatim; supersession
+of the 08-21 order marked in RESEARCH §10). Stage A LIVE + council-APPROVED (corr 80df0963,
+r2): migrations **671** (meter/class-map/config/state/120s task; $2,113 August MTD measured)
++ **672** (advisory lock, level-change proof, doc_plans travelling design) + **673** (FOR
+UPDATE snapshot close). All inert: enabled=false, budget NULL, no stage B. **NEXT = stage B**
+(Go claim-step refusal reading governor_state, opt-in default OFF, register entry same
+commit, own council round) **and the owner's monthly budget figure.** The lane PLAN §D4 and
+doc_plans('pipeline','spend-governor') carry the design; prior art ruled out with evidence
+(fuel.go = per-task depth; token-pressure tasks = truncation caps).
