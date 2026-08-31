@@ -18,11 +18,15 @@ this lane closed (his 08-31 correction: "I don't want to close this lane").
 - **brief-negation-check runs v1.0.1350** (this lane rebuilt it tonight — old item 7, plus the
   414 lane's retraction: v1.0.1349 carried their UNFIXED spec detector that convicts sites for
   phrases their specs BAN). Built from HEAD with `dc9ccfda2`, tag + overlay bumped in one commit
-  (`6d5f7911d`), applied, artefact reads v1.0.1350. **FIRST-RUN READING (three things
-  together):** `N of M sites` with M = whole fleet AND non-zero `scanned_fields`; the new
-  `X match(es) suppressed as negative examples` line (~3 expected — RISING with zero findings =
-  suppression vocabulary over-reach, not a cleaner fleet); no new `spec_supplies_claim` item
-  unless real.
+  (`6d5f7911d`), applied, artefact reads v1.0.1350. **First-run read DONE by the 414 lane
+  (same night, their verify job `bnc-414-verify-124016`) and `bugs_open/414` is CLOSED:** exit 1
+  at the POD = findings from the negation detector, not a refusal; `0 of 36 sites` fleet-wide;
+  `3 match(es) suppressed` as predicted; no `spec_supplies_claim` item. **Standing DAILY
+  reading** stays: fleet-wide N-of-M · suppression count (~3; RISING with zero findings =
+  vocabulary over-reach) · no spec item unless real. **QUEUED for the next rebuild cycle, not
+  urgent (their words, meant this time):** fold in `28997e16b` — prints the scanned-fields total
+  on a clean run ("a zero with zero scanned fields is a BLIND scan, not a clean fleet"); today a
+  clean report is indistinguishable from a blind one except by the suppression count.
 
 ## FIRST ACTION — the post-roll canary (the measure of A+B + truncation)
 
