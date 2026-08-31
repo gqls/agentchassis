@@ -262,3 +262,14 @@ file the guide-page `needs_content_page` rows (182). Plus `owner-request` add_to
    `source='owner-request'` bypass by name. NOT a doc comment; a field read at the seam
    (2026-08-02 ruling 2's shape).
 **Not built yet — next session's implementation, through the gate.** Register on ship.
+
+> **ADDENDUM to the 08-31 growth_posture design, same day:** a fourth worked case arrived
+> from the agritec_uk lane, and it is the strongest — the first where ungated growth
+> EXECUTED rather than queued: 5 calculators + 5 guides live within ~26h of the discovery
+> visit, evidence register untouched, 0 source links, unsourced empirical constants baked
+> into tool JS — while the SAME site's evidence-first route produced a fenced, 24/24-fact-
+> reconciled tool the same week. The gap is the ROUTE, and the cost line is now measured:
+> ungated growth means re-sourcing every figure after the fact.
+> `CONTRIB_2026-08-31_agritec_add_tool_executed_ungated.md` (this dir). The implementing
+> session should quote it in the council submission — it answers "why hold rather than
+> trust the producers" with a controlled comparison instead of an argument.
