@@ -21,8 +21,12 @@ CORRECTED block, and the CLOSE-OUT VERIFICATION section at the tail) →
 > — the runs are unrecoverable (`orchestration_states` retains ~1 day) and no `090` has been run.
 > **And the clean census is FLATTERED**: card production has been **0 for two days** (89/109/46/18
 > then 0, 0), and fleet `page_rerender` completion fell **99% → 4%** across 08-28→08-30 with 1,076
-> rows `unresolved` — the `bugs_open/413` shape, owned by the `dispatch_throughput` lane.
-> A near-zero blank count on an idle producer and a stalled queue is not evidence of health.
+> rows `unresolved`. ~~the `bugs_open/413` shape~~ **CORRECTED same day 16:25Z: that was a guess
+> from shape. It is the `dispatch_throughput` lane's already-diagnosed Anthropic CREDIT outage,
+> ~2026-08-28 → 2026-08-31 ~09:00Z (their "D4 case 4"), now ENDED and their floor read clean.**
+> A near-zero blank count on an idle producer and a stalled queue is not evidence of health —
+> but the outage does NOT reach the **2026-08-27 22:58** completion, which sits in a healthy
+> window and is now the whole open question.
 > Full measurements: `NOTES_page_list_invalidation.md`, entry 2026-08-31.
 
 ## 1. THE ONE-LINE STATE
