@@ -2268,3 +2268,24 @@ artefact + status pair, treat `error` on a completed row as history, not state.
   eligibility checkers are framed as decision-support tools" — vertical ANALYSIS in generic
   terms, not a reference to the culled FOS checker. My generic-phrase regex over-matches;
   the seven-proper-NAMES battery is the right test. Next from them: the 52 CTA labels.
+
+## 2026-08-31 (night) — 417 closed out by its new lane; one correction to MY earlier reasoning
+- The 420/417 lane shipped: mig 680 (race-tail row washed; deliberately NO widened-regex
+  safety net — broad enough to catch a paraphrase is broad enough to void a deliberate
+  mark), and the STRUCTURAL fix in Go (8bcd4ccae, inert till roll, corr bb099a3d): the
+  no-lettering rule moves from composeBrandImagePrompt (fallback-only — "the ruled path is
+  the fallback nobody reaches" was the whole diagnosis) to GenerateImageAction, coupled to
+  the asset's PURPOSE not the prompt's SOURCE — governs every producer and already-queued
+  unwashed items, which no config migration could reach.
+> **CORRECTED 2026-08-31 (their measurement):** my 08-31 NOTES line "positive-framed
+> because bugs_closed/028 proved banana discards negative clauses" cited 028's PRE-FIX
+> state. foldNegativeIntoPrompt is live and the prohibition WAS delivered on the failing
+> boxingonline generation (negative list incl. "text", prompt_len 232→407) — the model
+> lettered anyway because the positive prompt licensed a wordmark. The true rule is
+> stronger: **a folded negative LOSES to a positive licence in the same prompt.** Positive
+> framing was the right call for a reason I didn't have.
+- Farmer's named exception now has its durable home: `constraints.wordmark_text =
+  "farmerinsurance"` set on plan row b6680524 (their opt-in field, unsafe side OFF, value
+  validated against identity at the reader once the Go rolls). Also confirmed farmer's plan
+  row carries the 670 override, so plan-driven regeneration is safe both before and after
+  the roll. 421 (design-comp-served-as-logo) is theirs, split correctly from 417.
