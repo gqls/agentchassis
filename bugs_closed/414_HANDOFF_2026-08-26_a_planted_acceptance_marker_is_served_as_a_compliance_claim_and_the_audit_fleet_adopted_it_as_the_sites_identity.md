@@ -516,3 +516,39 @@ so by the estate's bar — *fixed AND live* — this is not closeable. Three thi
 3. **Then this file can move to `bugs_closed/`** — naming both paths on the `git commit`, and verifying
    at `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 414` returns exactly one line,
    because a pathspec commit on a `git mv` otherwise ships a copy.
+
+### 7o. CLOSED 2026-08-31 — fixed, LIVE, and verified in production at every layer
+
+Every condition in §7n is discharged. Each line below is a measurement taken on 2026-08-31, not a
+claim carried forward.
+
+| condition | evidence |
+|---|---|
+| The planted claim is gone | **0** lendzy components carry it in `content_data` **or** `rendered_html`; both served bodies read **0** at HTTP 200 with an invented-URL **404** control |
+| No spec can re-plant it | **0** current `site_specs` rows, any aspect, any site, carry the phrase |
+| The audit item cannot fire | `052d01b0` `rejected`, reason on the row |
+| The patterns are LIVE | chassis `v1.0.1349`, three-arm binary probe: both new strings PRESENT, a pre-existing pattern PRESENT, a never-written string ABSENT |
+| They cost nothing fleet-wide | `cmd/claimscan` over **2,715** components: **1** BANNED (the pre-existing `webdesign.co.uk` "never invents") and **9** PRACTICE, all pre-existing. **Zero from either new pattern, zero from P6** |
+| The spec detector is LIVE and CORRECT | CronJob image `v1.0.1350` (built from a tree containing `dc9ccfda2`); a triggered production run exits **1** (findings from the sibling detector, not a refusal) and reports **0 of 36 sites, 3 suppressions** |
+| Council | `f4c144ad` APPROVED round 2; `098` credits `fc588e445` as REVIEWED by correlation |
+
+**The last defect found was the detector's own, and it was found by running it, not by reviewing it.**
+Its first live finding (2026-08-28) convicted homegarden.uk for a phrase in that site's
+`would_never_say` list. Fixed in `dc9ccfda2`, deployed as `v1.0.1350` by the `copy_quality_two_stage`
+lane, and verified in production tonight. Neither the unit tests nor a nine-seat council round caught
+it; the scheduled run did.
+
+**And one gap closed after that.** The clean production report printed "0 of 36 sites" with no per-site
+lines — so a real scan and a surface derivation that returned nothing would have read identically, and
+the check this file prescribed ("confirm `scanned_fields` is non-zero") was not performable from the
+report. `28997e16b` prints the total: **0 of 36 sites, from 7,013 scanned fields.** The zero now proves
+itself. Committed, not yet deployed — an observability improvement, not a defect, and not a blocker.
+
+**Residuals carried forward, none of them this bug** (full text in the lane's
+`HANDOFF_2026-08-31_continue_here.md` §5): a poisoned `evidence_base` passes every layer, because
+every layer treats the register as ground truth rather than scanning it — **worth its own bug file if
+an instance appears**; a COMPLETENESS mandate in a spec is not covered by the spec detector (the page
+gate refuses that shape at the output); P6 has no post-deploy consumer, so it fires on rebuild and
+never over the installed base; two P6 false-positive shapes are pinned by a test asserting they FIRE;
+`fleetSurface` duplicates census logic `cmd/config-key-audit` already houses; and — **an open owner
+decision** — the council's `compliance` seat dissented on P6 shipping at WARNING rather than blocker.
