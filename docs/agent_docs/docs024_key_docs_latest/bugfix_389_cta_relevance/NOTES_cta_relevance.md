@@ -1077,3 +1077,59 @@ proven in `content_data`, `rendered_html` **and the git commit**. Three of four 
 the fourth is somebody else's outage. The `[REFUTED]` I wrote 20 minutes ago was wrong twice over:
 wrong because I read the body before the `last-modified` header, and wrong again because the failure
 is downstream of everything this lane controls.
+
+### 2026-08-31 ~15:0xZ — five days on: **the archive drains the site by itself**, and the counts I handed over were stale by more than half
+
+Picked the lane back up on a fresh chassis (**v1.0.1349**, read from the image tag — the binary grep
+is useless here, its all-zeros control matches). **Nobody worked the lane in the interval**, and
+`git log --since='2026-08-26'` over the resolver, the rerender action, `cta_label_agreement.go` and
+the retraction returns exactly one commit (`b1190467c`, additive). **So the mechanism proven on
+08-26 still holds** — worth checking before trusting a five-day-old proof, and cheap.
+
+**⭐ THE FINDING. The remaining field population fell 41 → 25 with ZERO dispatch from this lane.**
+
+Proven rather than inferred: all three fields still pointing at the tool on the two **archived** sites
+sit on components whose `updated_at` **predates their site's archive** — `finetuning/ai-guides`
+written 08-24 (archived 08-26), `finetuning/guides/llm-cost-calculator-guide` written 08-17,
+`leopardess/blog/can-you-trust-ai-with-your-data` written 15:04 against a 15:25 archive **the same
+day**, twenty-one minutes before. **Every component rewritten after its archive has already moved off
+the tool on its own.** Any rerender, fired for any reason, recomputes the CTA — and archiving is what
+releases KEEP #2, so the whole site drains as ordinary churn touches it.
+
+> **⇒ Step 3b never needed a 60-item dispatch.** The expensive half of the plan was the archive
+> doing the work for free. I had proven the mechanism on two canaries and then written a handoff that
+> still assumed I would have to drive every field by hand — **I proved the release and did not follow
+> it to its consequence.** The consequence was five days of free progress I did not predict.
+
+**⚠ AND THE DRAIN CUTS BOTH WAYS, which is the part that matters.** The recompute sends a field to
+whichever *tool* ranks first, so for contact-intent copy it manufactures exactly the
+leopardess/careers defect. **`[MEASURED 2026-08-31]` one such case has already appeared on the
+archived sites since 08-26.** Not hypothetical, not finished, and it will keep happening as pages
+rerender.
+
+**Re-measured population** — and note how the shape moved, not just the size:
+
+| site | fields | contact-intent | no label |
+|---|---|---|---|
+| ai-agent-orchestration.com (**not archived**) | 22 | **19** | 2 |
+| finetuning.uk (archived) | 2 | 1 | 0 |
+| leopardessconsulting.co.uk (archived) | 1 | 0 | 1 |
+| **total** | **25** | **20** | 3 |
+
+**20 of 25 are now contact-intent, against 23 of 41 on 08-26** — the drain cleared the *easy* class
+and left the class that needs a decision. **The blocker is now a larger share of a smaller problem**,
+which is the honest way to state progress here.
+
+> **This is the "a count carries the date it was counted" rule biting a count I wrote myself.** I
+> handed over "41 fields, 23 contact-intent" as the size of the remaining work. Five days later both
+> numbers are wrong and the *ratio* is wrong too. The handoff now says, in the checklist, **re-run the
+> census — the count moves on its own.**
+
+**Checked and rejected as a shortcut: the `bugs_open/399` audit cannot serve as this census.**
+`CTA_LABEL_MISMATCH` is live and recording (**218 findings**, 19 on these three sites) and looks like
+the right instrument. `[MEASURED 2026-08-31]` of all 218, **exactly one** is a contact-intent label
+pointing at a tool. Verdicts: `no_opinion/ambiguous` 179, `contradicts` 35, `no_opinion/(none)` 4.
+The judge is a **page-identity** test and *"Write to leopardess@…"* names no page — so it is blind to
+our class, exactly as this lane told them and they documented. ⚠ Note its `context` nests findings
+under `context->'findings'`; a flat `context->>'label'` returns empty and reads as "the audit records
+nothing useful". I ran that query first and had to open one row to find the shape.

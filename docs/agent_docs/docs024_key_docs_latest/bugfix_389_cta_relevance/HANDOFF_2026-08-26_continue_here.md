@@ -1,5 +1,7 @@
 # HANDOFF — 2026-08-26. **START HERE.** `bugs_open/391` — step 2 DONE and proven; retirement is half-applied and safe; **one decision blocks the rest**
 
+> **⚠ SUPERSEDED 2026-08-31 by `HANDOFF_2026-08-31_continue_here.md`.** Its field counts (41/23) are stale — the population drains on its own; re-measure.
+
 **Supersedes `HANDOFF_2026-08-25c_continue_here.md`** (keep it for the reasoning trail). Read this,
 then `bugs_open/391` from the bottom.
 
