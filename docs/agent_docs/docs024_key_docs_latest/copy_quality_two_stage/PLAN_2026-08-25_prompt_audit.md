@@ -58,7 +58,14 @@ the writing:
    does it carry `how_to_use_these`-style guarding where lifting would hurt?
 5. **Does it reach a writer at all?** Reachability per REFRESH §5 — findings against dead surfaces
    are filed as dead-surface findings (their own defect class), not as copy findings.
-6. **Is any of its text load-bearing for a detector?** (prompt-text-poisons-its-own-detector;
+6. **Is any of its text load-bearing for a detector?**
+7. **(added 2026-08-31) What does this prompt leave UNNAMED that the model must therefore
+   invent?** An unspecified surface does not come back neutral — it comes back filled with
+   whatever the generator has to hand: its own method (farmerinsurance's tone vacuum → writer
+   self-description), or plausible noise (`bugs_open/417`: a logo prompt licensing "a wordmark"
+   without naming the brand → the image model INVENTED a third party's brand, served in the
+   header — chain quoted link-by-link in 417). Phrased at mechanism level by the loanzy lane, and
+   it covers both modalities; 417 is the compact worked example. (prompt-text-poisons-its-own-detector;
    016b :12508) — a fix that rewrites prompt prose can silence or trigger detectors; name them.
 
 ## 3. Phases
