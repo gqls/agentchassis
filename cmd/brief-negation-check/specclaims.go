@@ -557,11 +557,21 @@ func renderSpecClaims(assessments []specClaimAssessment, aspects []string, filed
 			findings++
 		}
 	}
-	suppressed := 0
+	suppressed, scanned := 0, 0
 	for _, a := range assessments {
 		suppressed += a.Suppressed
+		scanned += a.Scanned
 	}
-	fmt.Fprintf(&b, "\n%d of %d sites hand a generator at least one such claim.\n", findings, len(assessments))
+	// THE DEMAND CONTROL, PRINTED — because on a clean fleet this report otherwise
+	// shows no per-site lines at all, so "0 of N sites" from a real scan and "0 of
+	// N sites" from a surface derivation that returned nothing are the same three
+	// words. Measured 2026-08-31: the first clean production run printed 0 of 36
+	// with no way to tell which it was, and the only thing that happened to
+	// discriminate was the suppression count being non-zero. That was luck, not
+	// design; this line is the design.
+	fmt.Fprintf(&b, "\n%d of %d sites hand a generator at least one such claim, "+
+		"from %d scanned field(s) across the visible surface — **a zero with zero scanned fields is a "+
+		"BLIND scan, not a clean fleet.**\n", findings, len(assessments), scanned)
 	// A SUPPRESSOR THAT LEAVES NO TRACE IS THE FAILURE MODE THIS ESTATE KEEPS
 	// REDISCOVERING, and it bites hardest here: what is being suppressed is a
 	// real pattern match in a negative-example list ("would never say", "avoid").
