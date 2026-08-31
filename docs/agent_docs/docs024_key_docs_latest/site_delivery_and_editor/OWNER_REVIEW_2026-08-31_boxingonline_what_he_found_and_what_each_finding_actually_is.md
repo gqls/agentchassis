@@ -247,13 +247,55 @@ has not shipped.** It is waiting on his go.
 
 ---
 
-## What needs a decision from him
+## What needs a decision from him — REVISED 2026-08-31 evening
 
-1. **Fix-before-delivery, or deliver-then-improve, for THIS site.** Most of what he raised is
-   fleet-shaped and belongs in other lanes' machinery. But boxingonline is a paid deliverable
-   about to be emailed. Only he can rule on the sequencing, and the other session's rehearsal
-   plan depends on it.
-2. **The go on best-in-class propagation** (§8) — the plan exists, is costed, and answers the
-   question he asked tonight.
-3. **What contact address the site should publish**, now that his own is off it (§0). Nothing
-   will be invented in the meantime.
+**Already ruled tonight, recorded so nobody re-asks:** fix before the delivery email (ruled);
+best-in-class propagation goes ahead (ruled — the copy lane has started building);
+no contact email or address on the site at all (ruled — done, verified 19/19).
+
+**Still open, in the order they block delivery:**
+
+1. **The four tool guides are now unreachable, and the state is incoherent.** Fixing the
+   editorial listing removed the guides from the only thing that linked to them, so they are
+   orphaned — linked from nothing but themselves — while still sitting in `sitemap.xml` with
+   `noindex=false`. Three defensible options, and they are opposite actions:
+   - **(a) link each guide from its own tool page.** Matches his ordering words ("the link could
+     be more prominent — more prominent than the guide actually"): tool as destination, guide as
+     background. New information architecture, not an existing convention.
+   - **(b) noindex and de-sitemap them as filler** until the copy lane rewrites them. Matches his
+     other complaint — that the guides are padded, one interesting sentence each.
+   - **(c) a guides-index page** (the dartsonline pattern). Heaviest.
+   `[MEASURED]` There is no estate convention to copy: dartsonline's tool pages link a
+   guides-INDEX (it has one; boxingonline does not), farmerinsurance's link no guide at all.
+   Parking briefly is safe — canonicals point at the parked customer domain and delivery is held.
+
+2. **Should the site's name appear beside the logo in the header?** The regenerated logo is
+   correctly text-free, and chrome suppresses the visible site name whenever a logo image exists,
+   so the header now carries no wordmark at all. `[MEASURED]` The site is NOT nameless — "Boxing
+   Online" appears 8 times in the served visible text — so this is a design preference, not a
+   defect. Pinned to the palette decision, because the logo also ships its own dark ground and
+   would sit as a dark rectangle on a light header.
+
+3. **The contact page.** With the address gone it is a form whose action is `#contact` — it
+   submits nowhere — plus prose pointing at it, on a page the brief never requested. No form
+   endpoint exists in the delivery stack (confirmed by that lane), so it is delete-the-page or
+   build something new.
+
+4. **The palette.** The visual-designer lane has not responded. The lever is confirmed at the
+   artefact (§ comparison doc) and the decision "which half of the self-contradicting brief wins"
+   is a design call. He has effectively already made it by praising the near-black comparison
+   page, but the values want the designer seat.
+
+5. **The guide/blog-post typing question is fleet-scope, not site-scope.** `[MEASURED]` 20 sites
+   / 167 guide pages have guides as their ONLY blog-post-typed pages; 9 more are mixed. Either
+   boxingonline is now an exception that a later session will "correct" back, or 29 sites are
+   mistyped and this is a migration.
+
+**Known blockers on the work itself, not decisions:**
+
+- **Do not re-seed this site** until `420` rolls (see §0's trap block).
+- **The footer cannot currently be regenerated** — two paths silently decline. The site is
+  shipping a chrome artefact the pipeline cannot reproduce, and my hand-patched `rendered_html`
+  is its only definition (`content_data` is `{}`). 090 `387c0a2d` is diagnosing it; a fleet
+  census (31 of 33 footers have empty `content_data`, 30 of them render) is standing as the
+  grader so the tempting empty-render branch is refuted on arrival rather than believed.
