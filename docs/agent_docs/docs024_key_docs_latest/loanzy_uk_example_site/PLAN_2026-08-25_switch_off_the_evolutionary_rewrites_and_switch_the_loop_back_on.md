@@ -227,3 +227,38 @@ failed. Config only; carried by the same migration so it lands with the seats.
 - A record-mode row being dispatched → one of the two promoter doors has changed; the tests in
   `write_audit_findings_filing_mode_test.go` name both doors and one of them is no longer the door.
 - The sweep enabled and the loop filing nothing routable → `REFERENCE` §11 first bullet.
+
+---
+
+## ADDITION 2026-08-31 — decision 5 design: the "this site is ready" growth posture (owner: "yes, determine the best route")
+
+**What the owner asked for:** a per-site way to say "improve what's there, add nothing" —
+raised by apis.uk's sprouting pages and farmer's seven unresearched tools.
+
+**The producer census (MEASURED 2026-08-31, 30 days), because the guard must sit where growth
+is actually MADE:** the audit seats' growth types (needs_content_page/planning from
+site-review, brief-fidelity, content-quality, reader-experience, offer-analysis — 1,069 rows)
+have ALL filed as record-mode verdicts since 624 went live on 08-26: **that half is already
+held.** The half that still dispatches is the TOOL CHAIN: design-discovery-agent files
+`evaluate_tools` (28) → tool-suggester files `add_tool` (130) → tool-generator/tool-deployer
+file the guide-page `needs_content_page` rows (182). Plus `owner-request` add_tool rows
+(webdesign-tool-rebuilds, 19) which must be EXEMPT — the owner asking is not growth to refuse.
+
+**The route (recommended): reuse the two mechanisms that already exist rather than a switch.**
+1. **The key**: `sites.settings->'maintenance_profile'->>'growth_posture'` = `'hold'` —
+   the maintenance_profile family already exists (618's structure_floor lives there), so the
+   vocabulary rhymes with the estate instead of inventing a peer. Absent key = today's
+   behaviour (growth open). Opt-in, unsafe default OFF, zero live consumers until set —
+   RFC_022's exact not-architecture-scope shape; normal council gate.
+2. **The behaviour on 'hold'**: growth producers do NOT skip — they file their items in the
+   RECORD SHAPE (status `deferred`, `handler_agent ''`), which the promoter refuses by
+   construction and the verdict-queue release recipe already covers. The signal is kept, the
+   dispatch is withheld, and release stays a human verb — identical semantics to the council's
+   verdicts, one vocabulary to learn. A skip would erase the evidence; a block at the promoter
+   would hold rows invisibly (the flag-only exclusion trap, RUNBOOK 08-31).
+3. **Where the check lives**: one Go helper (`SiteGrowthPosture(ctx, siteID)`) called by the
+   three producer sites — the evaluate_tools emitter, tool-suggester's add_tool filing arm,
+   tool-generator/deployer's needs_content_page filing — each passing `source`; rows with
+   `source='owner-request'` bypass by name. NOT a doc comment; a field read at the seam
+   (2026-08-02 ruling 2's shape).
+**Not built yet — next session's implementation, through the gate.** Register on ship.

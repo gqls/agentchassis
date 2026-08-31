@@ -34,3 +34,10 @@ loanzy_uk_example_site/OWNER_REVIEW_2026-08-31_farmerinsurance_first_review_and_
 > decisions stay the owner's: who sets the flag and on what evidence (`source: static` — nothing
 > resolves it), and whether carousel-as-default is right at all (items behind an interaction
 > are items many readers never see).
+
+> **OWNER RULED, same day (2026-08-31, via the loanzy lane):** carousel **default ON
+> fleet-wide** — the "who sets the flag" decision is made. Card ORDER inside the carousel is
+> delegated: the offer/benefit-analysis thread determines it, OR it randomises per refresh —
+> their design call (they hold the same ruling). The discoverability trade-off was put to him
+> before he chose. Sequencing above stands: flag first, vocabulary second, variants later.
+> Population count + council gate before the fleet flip, per the sibling CONTRIB's caution.
