@@ -316,6 +316,24 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// The best-in-class build standard, same mechanism and same opt-in rule: a
+	// template that writes {{.build_standard}} receives the block; one that does
+	// not mention it is unaffected, and a step-supplied value outranks the
+	// platform default. Carrier row: build_standard_block (migration 675; owner
+	// ruling 2026-08-31, copy_quality_two_stage PLAN_2026-08-25).
+	if _, already := templateData["build_standard"]; !already {
+		if block, ok := voicestyle.GetBlock(ctx, voicestyle.BuildStandardConfigName, func(ctx context.Context) (string, error) {
+			if params.DB == nil {
+				return "", sql.ErrConnDone
+			}
+			var t sql.NullString
+			err := params.DB.QueryRowContext(ctx, voicestyle.SQLByName, voicestyle.BuildStandardConfigName).Scan(&t)
+			return t.String, err
+		}); ok {
+			templateData["build_standard"] = block
+		}
+	}
+
 	validateTemplateData(templateData, params.StepConfig.Config, params.Logger)
 
 	params.Logger.Info("in ExecuteLLMPromptAction Template Data",
