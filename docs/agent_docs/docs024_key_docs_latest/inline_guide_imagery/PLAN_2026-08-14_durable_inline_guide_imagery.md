@@ -488,3 +488,70 @@ redesign the plan. The revision should re-run §2's options table with compositi
 option (e), and re-take the §6 architecture-scope call — first live use of a dormant
 composition column is a much stronger RFC candidate than the additive-and-inert field
 approach that call was made about.
+
+---
+
+## ADDENDUM 2026-08-31 — the model question is SETTLED, and the durability answer got cheaper
+
+Two things have changed since this plan was written, and both narrow it. Added at the
+`news_editorial` lane's suggestion, so a future reader does not re-litigate a question that is
+already answered.
+
+### 1. The model is no longer the constraint. Only placement and durability are.
+
+This plan was written when in-body imagery meant *"can we even get a usable picture of a dart"*.
+That is settled `[MEASURED 2026-08-31, by eye at the served files]`:
+
+- **Current-setup generation is accurate.** `/assets/images/content-hero-grip-styles.jpg` shows four
+  barrels with four genuinely distinct and *correct* grip patterns — knurled/diamond, scalloped
+  ring, fine ring, wide ring — in one frame. `/assets/images/hero.jpg` is a real bristle board with
+  a correct wire spider, correct bull colours and a correctly-embedded knurled barrel. Both
+  `banana/gemini-3-pro-image-preview`.
+- **The bad images on this site are all July SDXL-era leftovers**, and they fail in ways that are
+  obvious once seen: `hero-new-arrivals.jpg` has **feathered flights** (those are archery arrows,
+  not darts), concentric rings instead of 20 segments, and **blue** board segments — a board is
+  red/green/black/cream. `hero-home.jpg` has no numbers and invented segment geometry.
+- **The discriminator is mechanical, and worth more than the anecdote:** an **active `assets` row ⇒
+  the deployed file is current and good; no row ⇒ an orphaned pre-August file still being served.**
+  Four of this site's five deployed heroes had no asset row at all. One query per file, no image
+  opened.
+
+**So per-section figures are feasible on generation quality alone.** Anyone costing this plan should
+cost placement and durability, not image fidelity.
+
+### 2. There is a THIRD durability route, and it needs nothing that is not already live
+
+This plan's §2 options table weighs a `style_hints.placement` splice against waiting for
+composition. The `news_editorial` lane (who own `features_open/035`) supplied a third on 2026-08-31,
+along with the measurement that kills the waiting option:
+
+> **P5 — the phase where a guide migrates onto parent/children — is months away.** P1 is in progress
+> with nothing live, the council has returned REVISE three times on the wiring plan, and **0 of
+> 2,249 `page_components` carry a `parent_instance_id`; 0 of 386 `content_components` declare a
+> slots block** `[MEASURED 2026-08-31]`. P5 sits behind P2–P4 and is gated on those holding "for
+> real weeks", with 035 §6.1's un-owned-page question — which is *about guides like these* —
+> unsettled.
+
+**The third route: make each `h3` its own `page_components` row.** Ordinary flat sections, no
+`parent_instance_id`, no composition. The defect this plan exists to fix is not composition's
+absence — it is that **ONE llm-owned field owns both prose and figures**. Finer sections dissolve
+that: a rewrite then targets one section's row and *cannot* take a sibling's figure with it. Same
+durability property, one grain coarser, available today.
+
+**What composition would still add** is nesting a figure *inside* a prose section (prose → figure →
+more prose within one h3). Assessed against the eleven live guides on 2026-08-31: **not needed.**
+Every candidate image is "here is what this thing looks like" and sits naturally at the head or foot
+of its own h3 — `grip-styles` wants exactly one image per grip style, and its six h3s are already
+the right grain. A guide that later wants a diagram mid-argument is the case that makes these pages
+a **P2** consumer; none does today.
+
+### 3. The owner's steer that prompted this
+
+> *"the guides need a lot more images (accurate images) in between the paragraphs (small sections)…
+> e.g. ring grip, razor grip, shark grip… and the same with the other guides"* — owner, 2026-08-31.
+
+Sizing it `[MEASURED 2026-08-31]`: `grip-styles` has **7 h2 + 6 h3 and zero content images** (its
+only `<img>` is the site logo); `board-setup`, `flight-shapes` and `beginners` have **one** in-body
+image each against 7–8 h2. The target is roughly **one image per h3**, i.e. 4–8 per guide against
+today's 0–1. **`grip-styles` is the canary** — worst affected, and its h3s are exactly the
+ring/razor/shark split the owner named.
