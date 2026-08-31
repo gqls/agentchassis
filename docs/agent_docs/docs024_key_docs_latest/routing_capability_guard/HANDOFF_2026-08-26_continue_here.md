@@ -1038,3 +1038,69 @@ the only item whose home is genuinely here.
 - The tripwire for it going live: a `content-gap-planner` row in the `would_have_routed_at` column.
 - The whole mechanism hangs off **one producer** (`offer-analysis`, §13c). If that producer stops, rule
   3b and gate 1c both go silent — and silence will look like health.
+
+---
+
+## 15. DECISION 3 IS RULED AND BUILT — 2026-08-31 (`7b3d21d36`, council `76231f57`)
+
+**Owner ruling 2026-08-31, verbatim: *"3: Yes, if you think so."*** §9f is built and committed. This
+discharges the last engineering item in this lane (§14b).
+
+### 15a. What shipped
+
+Not "add `content-gap-planner` to the map" — that fixes the instance and leaves the shape that
+produced it. What shipped is the shape:
+
+1. **`routableHandlers`** declares the universe the roster must answer for — the eight handlers
+   `classifyFindingRoute` can name (its four direct literals plus `designRouting`'s four values).
+2. **Both entries are now TOTAL over it** — an explicit `true`/`false` per handler, each measured
+   through that handler's **spawn closure**, not merely its step list.
+   **`title`/`content-gap-planner` is corrected to `true`.**
+3. **`HandlerCanWriteField` returns `known=false` for a handler nobody considered.** This is the
+   load-bearing bit: previously `WritableBy[handler]` returned Go's zero value, so *unconsidered* was
+   indistinguishable from *measured and incapable*. An unmeasured handler now routes exactly as it did
+   before rule 3b existed — the safe, opt-in direction.
+4. **Both `Why` strings corrected.** `title` to the five-writer census; `meta_description`'s "the only
+   unconditional UPDATE" to the truth (§12): it is guarded **twice**, by the opt-in
+   `overwrite_existing` field defaulting to false AND by the backfiller's `pre_query`.
+5. **Three tests**, of which two are new capability assertions and one is a source scan pinning
+   `routableHandlers` to the router — without which the totality test is circular.
+
+### 15b. The four mutations, run and observed failing
+
+| mutation | caught by | note |
+|---|---|---|
+| drop a handler from `routableHandlers` | totality (reverse arm) **and** router scan | two guards, each independently red |
+| remove one verdict from `title`'s map | totality | names the missing handler |
+| add a new route to `designRouting` | router scan | the real drift this exists for |
+| **remove the `!measured` arm** | **UNKNOWN test — while totality still PASSES** | **the exact window the defect lived in** |
+
+The fourth is the one that matters: it demonstrates the totality test alone is not sufficient, because
+it can only fire when someone forgets — it cannot govern what happens *when* they do.
+
+⚠ **And the router scan caught a defect in ITSELF on first run.** Its first draft searched for
+`HandlerAgent:` unbounded, ran past Rule 1's `HandlerAgent: handler` (a variable, no quote) onto the
+next quoted literal, and harvested the `DedupKey` format string `"%s_%s_%s_%s"` as a handler name. It
+failed loudly, which is the only reason it was caught — **an over-reading source scan is otherwise
+indistinguishable from a real drift report.** Now bounded to the same line, with that recorded at the
+code.
+
+### 15c. Verification
+
+- Package suite green; four new/changed tests pass and were watched with `-v`.
+- `verify-head-builds.sh --with <both files> --test ./platform/orchestration/actions/` → **OK against
+  HEAD `498274dcc`**. ⚠ **Scoped to the package deliberately** — unscoped, HEAD is red in 13 unrelated
+  packages and the green/red reading is unusable (the LANDMINES entry extended on 08-27).
+- **Inert until a chassis roll.** Go changes do not take effect until the image rebuilds; `v1.0.1349`
+  does NOT carry this. The correction to `title`/`content-gap-planner` is therefore not live yet —
+  and since the defect is latent, nothing is waiting on it.
+
+### 15d. What this does NOT close
+
+- **The staleness half is still unbuilt** — a live-drift audit that fires when a rostered handler
+  GAINS a capability. §9 was a *completeness* failure, not staleness, and the two need different
+  mechanisms. This is now the only open half of `RFC_057` §6 Q1; CONTRIB filed there (§8).
+- **The council verdict is not read yet.** `Council-Submitted: 76231f57`; `098` credits it
+  automatically on approval. **Still owed: read the verdict and act on a REVISE.**
+- **The other lane must be told the stamp changed**, and has been — a `title` predicate routed at
+  content-gap-planner stops being stamped unsatisfiable.
