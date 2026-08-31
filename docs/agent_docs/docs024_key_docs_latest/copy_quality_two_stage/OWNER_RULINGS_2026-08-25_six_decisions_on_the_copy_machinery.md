@@ -391,3 +391,12 @@ change was admitted only via its datahelpers passengers). The binary now files w
 against live sites, which is the same argument that admitted `cmd/config-key-audit/` on
 2026-08-23. His call; scope widening = `council-scope.sh` + `SCOPE_PATHS` in 098, BOTH in one
 commit (CLAUDE.md).
+
+**RULING (2026-08-31, relayed): best-in-class propagation BUILD GO.** Owner, while reviewing
+boxingonline.com (the first paid build): *"Please go ahead with the best in class propagation."*
+Relayed by the boxingonline session (msg to this lane, 2026-08-31 evening; their CONTRIB
+`a5fa9909a` carries the same evening's review context). Resolves outstanding decision 6 of the
+2026-08-31 handoff from "plan it given, BUILD go not yet" to GO. The plan of record is
+`PLAN_2026-08-25_best_in_class_propagation.md`; execution order its §6 (carrier row + injection
+generalisation first). Provenance note: recorded from a peer relay per the Decision-E pattern —
+if the owner's own words differ when he next reads this ledger, his correction supersedes.
