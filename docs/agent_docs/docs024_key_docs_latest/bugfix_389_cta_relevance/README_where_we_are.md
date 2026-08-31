@@ -257,3 +257,45 @@ afternoon — their deployment service was down for about ninety minutes. During
 was completing correctly, committing correctly, and simply not reaching the live sites. It has since
 recovered and everything queued has landed. I mention it only because if you looked at any site
 between about half past three and five o'clock and thought a change had not worked, that is why.
+
+---
+
+**2026-08-31.** Picking this up after five days, and there is one good surprise and one thing I need
+from you.
+
+**The good surprise: archiving the tool pages is doing the work for us.** When we archived two of the
+three sites, I assumed I would then have to go round and re-point every button by hand — about sixty
+of them. I did not. Over the five days, as pages got rebuilt for ordinary reasons, they re-pointed
+themselves: the count of buttons still aimed at the password tool has fallen from forty-one to
+twenty-five without anyone doing anything. I checked why rather than assuming, and it holds up — every
+button that has *not* fixed itself sits on a page that has not been rebuilt since we archived. So the
+remaining work on those two sites is mostly waiting.
+
+**The thing I need from you is the same decision as last week, and it has got sharper rather than
+going away.** Twenty of the twenty-five remaining buttons say something like "get in touch" or "write
+to us". If we let them re-point themselves, the framework sends them to whichever *tool* it thinks is
+most relevant — so a button offering to put someone in touch with you opens a calculator instead. One
+of those has already appeared on its own since last week. Nineteen of the twenty sit on
+ai-agent-orchestration.com, which is the one site we have not archived yet — so I have deliberately
+**not** archived it, because doing so would start producing that problem there too.
+
+Three options, and this is your call rather than mine:
+
+1. **Point them at the contact page.** Cheapest, immediate, no AI involved, and it is what the button
+   already promises the reader.
+2. **Have the framework rewrite the wording** so the button is genuinely about the tool it opens.
+   Better copy, but it rewrites live text on about twenty buttons.
+3. **Decide per site** — if some of these sites want a contact button there and others want a tool.
+
+**Once you have decided, the rest is mechanical** and I would expect to finish it in a single
+sitting: apply the decision, archive the last site, let the pages drain, remove the three tool pages,
+refresh the footer that lists them, and check the three sites end to end.
+
+**One thing I would not hold this open for.** The underlying cause — the framework picks button
+destinations by a menu-order number with no notion of what a page is about — is still live and will
+do the same thing on the next site we build. That is a bigger piece of design work with its own
+review process, and I think it should become its own job rather than keeping this one open after the
+visible problem is fixed.
+
+**Nothing is broken in the meantime.** All three tool pages still work, every link still resolves,
+and everything we have done so far can be undone by changing one field back.
