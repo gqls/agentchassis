@@ -803,10 +803,14 @@ func buildRenderContextFromDB(
 		renderCtx.Description = pageInfo.MetaDesc
 	}
 
-	// Fallback email from domain
-	if renderCtx.Email == "" && renderCtx.Domain != "" {
-		renderCtx.Email = "info@" + renderCtx.Domain
-	}
+	// bugs_open/420: NO fallback email from the domain. This used to synthesise
+	// "info@<domain>" whenever the column was empty — a fabricated address that
+	// nobody owns and no mailbox answers, published as though the business had
+	// chosen it. Now that the owner's ruling is "publish nothing unless asked"
+	// (2026-08-31), the empty column is the CORRECT and common state, and
+	// synthesising here would make "the site publishes no contact" quietly
+	// false. Absence renders as absence: the contact blocks are gated on a
+	// non-empty email (bugs_open/111).
 
 	// 7. Set ContentData — this is what templates use for section-specific content.
 	//    contextToInterfaceMap() merges ContentData into the top-level template data,

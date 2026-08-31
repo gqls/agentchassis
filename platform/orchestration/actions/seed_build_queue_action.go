@@ -273,6 +273,18 @@ func SeedBuildQueueAction(ctx context.Context, params ActionParams) (interface{}
 //     lost ack or retry must not wipe a register somebody has enriched. The
 //     WHERE NOT EXISTS arm makes the no-clobber rule a property of the SQL,
 //     not of caller discipline.
+//   - the PAYER's address is delivery-only and is never written to sites.email
+//     nor minted as an evidence fact (bugs_open/420, added 2026-08-31). The
+//     published contact comes only from direction.published_contact — the
+//     customer's explicit answer to "what contact details should the site
+//     show?" — and absent that answer the site publishes none. This does not
+//     undo any boundary the council round settled (trail 7e3dd082): every rule
+//     above still holds verbatim, and the change is to WHAT may be seeded,
+//     never to when or how. "sites.email IS the canonical identity store" also
+//     still holds, sharpened: it is the canonical store of the PUBLISHED
+//     contact. The correction is that a billing address was never identity
+//     data at all — it is order data, and its store already exists
+//     (build_queue.direction.customer_email). No fourth store is added.
 //
 // The seeded facts follow the live register shape (id/kind/claim/source/
 // verified_at, kind='entity' — the same shape webdesign.uk's own contact fact
@@ -308,7 +320,41 @@ func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, dir
 	email = strings.TrimSpace(email)
 	name = strings.TrimSpace(name)
 	reference = strings.TrimSpace(reference)
-	if email == "" && name == "" {
+
+	// bugs_open/420 (slug: order_intake_publishes_the_billing_email…).
+	// `email` is the address the customer PAID with. From here it is
+	// DELIVERY-ONLY: it is never written to sites.email, never minted as an
+	// evidence fact, and so never reaches any store a publish path reads. Its
+	// durable home is build_queue.direction.customer_email, where the collector
+	// put it and where the delivery dispatch takes it from.
+	//
+	// `published_contact` is the customer's explicit answer to "what contact
+	// details should the site show?" — asked in the intake chat, which lives on
+	// the box, not in this repo. The platform half ships first and consumes the
+	// key as OPTIONAL; until the chat sends it, every customer build publishes
+	// no contact at all. That is the safe side and it is the owner's ruling of
+	// 2026-08-31: publish nothing unless asked.
+	//
+	// Shape per the 2026-08-02 owner ruling (new authority on a shared seam is
+	// an opt-in field whose UNSAFE side is the default OFF, visible to a
+	// reviewer of the caller). A billing address is not consent to publish, and
+	// on order 1 — the first paid build — this function published the owner's
+	// own address on 13 pages because the two contracts shared one column.
+	publishEmail := ""
+	if pc, ok := direction["published_contact"].(map[string]interface{}); ok {
+		v, _ := pc["email"].(string)
+		publishEmail = strings.TrimSpace(v)
+	}
+
+	if publishEmail == "" && name == "" {
+		// Nothing publishable was consented to. The delivery address, if any,
+		// stays where it already is; there is no row to write.
+		if email != "" {
+			logger.Info("seedCustomerIdentity: delivery-only intake — no published "+
+				"contact and no business name, so nothing is written to sites or "+
+				"the evidence register (bugs_open/420: publish nothing unless asked)",
+				zap.String("site_id", siteID.String()))
+		}
 		return nil
 	}
 
@@ -327,14 +373,14 @@ func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, dir
 		    updated_at   = now()
 		WHERE id = $1
 		RETURNING COALESCE(email, ''), COALESCE(company_name, '')`,
-		siteID, email, name).Scan(&rowEmail, &rowCompany); err != nil {
+		siteID, publishEmail, name).Scan(&rowEmail, &rowCompany); err != nil {
 		return fmt.Errorf("write customer identity to sites: %w", err)
 	}
 	logger.Info("seedCustomerIdentity: sites identity after guarded write",
 		zap.String("site_id", siteID.String()),
 		zap.String("email", rowEmail),
 		zap.String("company_name", rowCompany),
-		zap.Bool("email_was_intake_value", rowEmail == email),
+		zap.Bool("email_was_published_contact", rowEmail != "" && rowEmail == publishEmail),
 		zap.Bool("company_was_intake_value", rowCompany == name))
 
 	// verified_at is deliberately ABSENT from these facts (council 7e3dd082
@@ -360,12 +406,32 @@ func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, dir
 			"writer_line":         name,
 		})
 	}
-	if email != "" {
+	// bugs_open/420 half 2 — the register licenses RE-publication, which is the
+	// subtler half. A fact here is a RENDERABLE registered claim: section
+	// planning assigns fact ids to sections, writers write from facts, and
+	// validate_page_content would rightly PASS a page publishing it. So an
+	// address that must not be published cannot be representable as a
+	// publishable fact anywhere in the spec stack — deleting it from the column
+	// and the pages does not make it stay gone. On order 1 this fact
+	// demonstrably propagated into the briefing spec within twelve minutes.
+	//
+	// WHY business_name IS FINE AND contact IS NOT. The business name is
+	// constitutive: no page can exist without naming the business, so supplying
+	// it to a site-building order is inseparable from consenting to publish it.
+	// The email is severable — the site is fully buildable without it, and the
+	// intake never asked "should the site show this?". The distinction is the
+	// SCOPE of the attestation: "this is my business's name" is a claim about
+	// the world, made to be built from; "reach me here" is an instruction to the
+	// platform. The incident's own owner-reviewed remedy drew exactly this line
+	// — it KEPT business_name and REMOVED contact.
+	//
+	// The fact is still available; it is minted only from the consented address.
+	if publishEmail != "" {
 		facts = append(facts, map[string]interface{}{
 			"id":                  "contact",
 			"kind":                "entity",
-			"claim":               fmt.Sprintf("Enquiries reach %s.", email),
-			"source":              map[string]interface{}{"attested_by": attested},
+			"claim":               fmt.Sprintf("Enquiries reach %s.", publishEmail),
+			"source":              map[string]interface{}{"attested_by": attested + ", published contact given at intake"},
 			"verification_status": "customer_attested",
 		})
 	}

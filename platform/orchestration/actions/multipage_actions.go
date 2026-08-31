@@ -413,10 +413,11 @@ func buildRenderContextFromCollectedData(collectedData map[string]interface{}, l
 		}
 	}
 
-	// Fallback email from domain
-	if ctx.Email == "" && ctx.Domain != "" {
-		ctx.Email = "info@" + ctx.Domain
-	}
+	// bugs_open/420: NO fallback email from the domain — see the same removal in
+	// section_editor_actions.go. A synthesised "info@<domain>" is a fabricated
+	// contact for a business that was never asked whether it wanted one
+	// published, and it would make the post-fix default ("the site publishes no
+	// contact") false on the full-page build path specifically.
 
 	// Fallback company name
 	if ctx.CompanyName == "" {

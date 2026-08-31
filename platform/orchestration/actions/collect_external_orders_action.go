@@ -85,6 +85,17 @@ type boxBriefOrder struct {
 	Domain       string `json:"domain"`
 	Brief        string `json:"brief"`
 	CreatedAt    string `json:"created_at"`
+
+	// PublishedContact is the customer's explicit answer to "what contact
+	// details should the site show?" — a DIFFERENT fact from ContactEmail,
+	// which is the address they paid with (bugs_open/420, slug
+	// order_intake_publishes_the_billing_email…). Optional and absent today:
+	// the intake chat that asks the question lives on the box, not in this
+	// repo, so the platform half ships first and consumes the key when the
+	// chat starts sending it. Until then every customer build publishes no
+	// contact, which is the safe side and the owner's ruling of 2026-08-31.
+	// Shape is left open ({email, phone, …}) to be agreed with the chat lane.
+	PublishedContact map[string]interface{} `json:"published_contact,omitempty"`
 }
 
 // collectOrdersHTTP indirects the box calls so tests can substitute a stub
@@ -188,6 +199,16 @@ func CollectExternalOrdersAction(ctx context.Context, params ActionParams) (inte
 					"order_reference": o.Reference,
 					"customer_email":  o.ContactEmail,
 					"customer_name":   o.ContactName,
+				}
+				// Copied ONLY when the box actually sent it, so the absent case
+				// stays absent rather than becoming an empty object that a
+				// downstream reader could mistake for an answer. This literal is
+				// the place a reviewer of THIS producer sees the publish
+				// decision being made — which is the point of the 2026-08-02
+				// ruling's opt-in-field shape, as against a comment somewhere
+				// saying callers must be careful.
+				if len(o.PublishedContact) > 0 {
+					direction["published_contact"] = o.PublishedContact
 				}
 				dirJSON, mErr := json.Marshal(direction)
 				if mErr != nil {
