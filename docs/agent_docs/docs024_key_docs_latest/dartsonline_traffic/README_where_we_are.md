@@ -683,3 +683,21 @@ either way, which is what makes it worth quoting.
 Nothing else on the site changed, and nothing is broken. The other pages' heroes are fine, and
 I confirmed along the way that the old expired image links we have been ignoring really are
 harmless — no page on the site points at any of them.
+
+**Closing the loop, 25 past two.** The third run came back and the guides image is now right on
+every count I can check: the flight is a proper moulded one, the board's rings are red and green
+again, the bullseye is a red centre inside a green ring, and the numbers around the edge are in the
+correct order the whole way round — which they had not been in any earlier version. So **all four
+heroes are now accurate and live.**
+
+One honest note on how that went. When the second version came back with no green at all, I thought
+I had caused it myself: I had just added a rule saying the board's segments must not be "anything
+other than black and cream", and a machine could easily read that as covering the whole board and
+paint out the coloured rings. The timing fitted perfectly. I was about to undo it. Instead the third
+run happened to be a fair test of exactly that — same rule, stronger colour instruction — and it came
+back greener than the original. So the rule was innocent, and I have left it alone. If I had gone on
+the timing I would have removed a good rule and called it a fix.
+
+The thing I would watch in future: each re-run trades one thing for another. Across the three
+versions of that one image I got feather-but-green, then good-flight-but-no-green, then both right.
+So it is worth checking everything after each attempt, not just the thing you set out to fix.

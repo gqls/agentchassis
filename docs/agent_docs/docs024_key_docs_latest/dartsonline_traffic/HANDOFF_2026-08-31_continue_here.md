@@ -206,9 +206,15 @@ Privacy-page precondition is met.
      and the best of the set** — measured 6,270 green px (5.9%) against 22 before, correct
      red/green doubles and trebles rings, striped flights, darts in the treble twenty.
    - **`hero-guides.jpg`** still carried a **feathered archery flight** — the owner's exact
-     complaint — and a "7" where the board reads "1". **Both now FIXED**; a third pass is in
-     flight for the one axis that regressed (the rings lost every green pixel: 2,867 → 0).
-     **Verify at the served file; do not trust the item status.**
+     complaint — and a "7" where the board reads "1". **ALL FIXED after three passes**
+     (13:25Z): flat moulded flight, bull correctly red-inside-green, rings alternating red and
+     green (**6,454 green px, 7.8%**, against 2,867 in v1 and 0 in v2), and the number ring
+     correct in **both** directions — 20,1,18,4,13,6,10,15,2,17 clockwise and 5,12,9,14,11
+     anticlockwise. **All four heroes serve 200 on their live pages.**
+   - ⚠ **Each re-roll trades an axis.** The three passes went feather+green → flight+no-green →
+     flight+green. So **verify every axis after every roll, not just the one you were fixing**,
+     and note the two 0%-green images (`new-arrivals`, `sale`) are *correct* — neither has a
+     board in it, so a green floor applied across the set flags two good files.
    - **The cause was in our own stored descriptions, not the model.** `hero_home`'s prompt
      called the board "deep black and red" — two colours, neither green nor cream. `hero_guides`'
      said only "a single dart" and never said what a dart is. Both amended at the plan row.
