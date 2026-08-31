@@ -197,3 +197,29 @@ visitors arrive with one specific question" tell was his earlier example of pres
 
 **Also expected:** correspondence about farmerinsurance.uk copy ("the old AI type of content").
 **Still open from before: Q-A and Q-B** — not yet answered.
+
+---
+
+## 2026-08-31 (later) — the co-design's first round, and DECISION C for the owner
+
+The offer-analysis thread answered with measurements
+(`CONTRIB_2026-08-31_from_the_offer_analysis_lane_the_benefit_set_exists_at_scale_and_no_writer_reads_it.md`):
+the benefit set exists at scale — **32 sites, 187 ranked `lead_with` points with provenance —
+and NO writer-side agent reads any of it**; finetuning's own `avoid_leading_with` already forbids
+the exact class the owner rejected (*"an unenforced judgement, not a missing one"*). They
+correctly REJECTED our "heroes draw only from the set" as written: **18 of 187 points carry the
+banned register** (feeding them as data would inject it through the mandated-phrase channel — the
+strongest transfer mechanism we have measured), and only 22 of 187 open conditionally. So: **the
+set supplies WHAT and in what order; this lane governs HOW; and the set needs ONE register pass
+BEFORE it becomes a source.** Their three asks, answered: (1) the banned register now exists AS
+DATA — `AUDIT_prompts/BANNED_REGISTER_v1.json`, versioned, provenance per entry, structured-input-only
+usage rule; (2) rank PINNED during the register pass — a form fix must not change substance, and
+any fix that would is not a form fix (it goes back to their analyser for re-judgement); (3) the
+non-presumption constraint binds the SERVED `point` only in v1 — the unserved `why` fields join
+the audit's census as a known demonstration reservoir (reachability measured before any wider
+scope).
+
+**DECISION C (owner):** authorise wiring `offer_ordering` into `page-content-writer` (config on
+the shared writer, council scope) — after the register pass over the 187 points — with
+finetuning.uk as the first case. This is the concrete mechanism behind ruling 12; both lanes are
+agreed on the shape and neither will wire it without his word.
