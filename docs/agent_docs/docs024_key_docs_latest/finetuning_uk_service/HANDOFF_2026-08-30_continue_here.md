@@ -29,18 +29,40 @@ silently drop an in-flight dispatch, so re-check the pending item below AFTER th
 | **Both legal pages locked** | migration `667` — privacy-policy now matches terms: `rebuild_policy='owned'` + permanent component lock |
 | **`bugs_open/398` fix went LIVE** | the roll landed; binary-probed with a full control set (literal=1, present-control=3, impossible=0), stylesheet serves `--color-cta-bg-ink: #1e40af`, and the **1.00:1 button on `/your-own-model.html` is GONE** |
 
-### ⏳ PENDING — the terms page render
+### ⏳ PENDING — the terms page render. CAUSE CONFIRMED, and the fix needs a judgement call
 
-`page_rerender` for `terms` (`created_by='bugfix_412_terms_commitments'`) has sat **`triaged`,
-never claimed**. `content_data` carries all five commitments; `rendered_html` and the served page do
-not. **`[MEASURED 2026-08-31]` `curl …/terms.html | grep -c "One hour on the playground"` returns 0.**
+The `page_rerender` for `terms` **FAILED** (never claimed, empty result). **The cause is confirmed
+from `agent_error_log`, not inferred** — three attempts, most recent 12:17:57:
 
-⚠ **The likely cause is worth checking before re-firing:** `terms` is `rebuild_policy='owned'`, and
-the fan-outs in `615`/`631`/`664` all deliberately exclude owned pages because *save_sections
-refuses owned pages on this branch*. If the light `rerender_sections` branch refuses them too, this
-item will never run and **a fresh dispatch will not help** — the page would need a temporary
-`rebuild_policy` flip around the render, mirroring what `665` did for the component lock.
-**Do NOT read a `complete` on it as proof; assert on the SERVED page.**
+> `step save_sections failed: failed to execute action save_page_sections:`
+> **`OWNED_PAGE_GUARD: page terms is rebuild_policy=owned (tool/widget-owned): a generic section
+> save would clobber…`**
+
+So the LIGHT `rerender_sections` branch also routes through `save_page_sections`, and that action
+refuses an owned page. **A fresh dispatch will fail identically — do not re-fire it as-is.**
+
+`content_data` carries all five commitments; `rendered_html` and the served page do not
+(`curl …/terms.html | grep -c "One hour on the playground"` → **0**).
+
+**THE FIX, and why it was NOT done on 2026-08-31:** flip `rebuild_policy` to `generic`, render,
+flip it back to `owned` — the same shape `665` used for the component lock. It was deliberately not
+done that afternoon because **a chassis roll was minutes away**, and the window between the flip and
+the restore is a window in which a legal page is unprotected and another process could rebuild it. A
+pod restart mid-window is exactly when a restore gets lost.
+
+**Do it as one bounded operation, and verify at the SERVED page:**
+1. `UPDATE pages SET rebuild_policy='generic' …` for `terms` only
+2. clear all four component-lock columns (`665`'s unlock — clearing only `lock_type` is the trap)
+3. file the `page_rerender` / `reason='template_changed'`, WAIT for it to complete
+4. restore the lock to its **original** provenance (`2026-07-21 09:21:45.96136+00`,
+   `182_legal_pages`, `permanent`) and `rebuild_policy='owned'`
+5. assert: served page contains the five commitments AND `agent_writable` is `f` again
+
+⚠ **Also worth raising with the owner:** the guard calls `owned` *"tool/widget-owned"*, and `terms`
+acquired that policy in the fleet-wide sweep of **128 pages on 2026-08-27** — not because anyone
+judged it a widget. A legal page may be the wrong tenant for that flag even though the effect
+(never regenerate) is what we want. **Do NOT read a `complete` on any re-fire as proof; assert on
+the SERVED page.**
 
 ### Also true and easy to misread
 
