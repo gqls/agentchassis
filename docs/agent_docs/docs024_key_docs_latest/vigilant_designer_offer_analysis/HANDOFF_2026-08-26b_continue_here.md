@@ -374,6 +374,36 @@ measured against a FRESH MINT — 23% is the baseline it has to move.** ⚠ And 
 now binds my half: **demonstrations govern, instructions do not** — adding *"don't write X, not Y"*
 to the producer prompt is an instruction, and their canary is the evidence instructions lose.
 
+#### ⚠ H1c-i. THE RACE, NOT DESTRUCTION — a mechanism correction I made to my own side's evidence
+
+Migration `668` (the 10 expansions) **refused to apply**, correctly, because `fundamentallyai` r2's
+FROM matched zero rows. The copy lane diagnosed it as *"the mint overwrites applied wash work
+whole-row"* and was taking that to the owner as evidence for Decision E. **The timestamps invert it:**
+
+| event | time |
+|---|---|
+| producer regenerates `lampenkap.com` | **10:23:30Z** |
+| producer regenerates `fundamentallyai.com` | **10:29:36Z** |
+| **migration 667 applied** | **10:34:30Z** |
+
+**The regeneration PRECEDED 667 by 5 and 11 minutes.** `fundamentallyai`'s current row is still the
+10:29Z one and there is no newer row — so **667 never washed those three points; its exact-text guard
+found nothing to match.** ⚠ **NO APPLIED WASH WORK HAS BEEN DESTROYED. 38 of 41 survive because 38 of
+41 are all that ever landed.**
+
+> **The conclusion holds and the argument is better without the overstatement: the wash went STALE
+> BETWEEN EXTRACTION AND APPLICATION**, on 2 of 32 sites, in a few hours. **A race the wash cannot win
+> by running faster** — which makes the case for gating the mint without claiming committed repairs
+> are being destroyed. `668`'s guard catching it is the system working.
+
+**Row-level corrections:** **5** rows no longer match the wash doc, not 3 — the fifth is
+`lampenkap.com` r3. Two of the five (`fundamentallyai` r2, `lampenkap` r3) are **exclusions** whose
+*originals* were regenerated away, so they were never 667 candidates.
+⚠ **CONSEQUENCE: two of the verdicted 10 already have stale FROMs** — including one of my three
+provenance re-derivations, which must be re-derived again against whatever the row says once the mint
+is gated. **Do not re-base the 10 before the producer check holds, or you re-base against text that
+moves again.**
+
 **Wiring status:** `vetcomparison.uk` first (one of the 9 never touched by the wash, so clean on both
 axes **and** not dependent on the wash holding); the **8 sites carrying excluded rows stay held**;
 fleet-wide waits on the producer-side mechanism, not on a cleanliness claim. **Council scope and the
