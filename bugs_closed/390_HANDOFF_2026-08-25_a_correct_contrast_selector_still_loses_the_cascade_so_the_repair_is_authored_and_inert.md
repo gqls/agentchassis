@@ -315,3 +315,38 @@ are read** — the bar is fixed AND live AND *proven at the artefact*, and the a
 spoken yet. Expected within ~3 days as sites come due.
 
 Full state + exact next commands: `docs/agent_docs/docs024_key_docs_latest/bugfix_390_cascade_attribution/HANDOFF_2026-08-26_continue_here.md`.
+
+---
+
+# CLOSED 2026-08-31 — P3 and P4 read at the artefact; the fix is live, exercised, and confirmed by the instrument that filed the bug
+
+The bar set on 08-26 ("must not be closed until P3 and P4 are read") is met:
+
+- **P2 (repair meets the measured requirement):** CONFIRMED 08-26/27 — 16/16 theme-branch
+  repairs post-fence without `!important`, every selector strictly above its measured
+  requirement, served=git=DB sha on every graded site (NOTES §(o)(s)(t)(w)).
+- **P4 (attribution distribution):** CONFIRMED 08-27 on the measurable population — ~60
+  attributed pairings across 7 sites, `theme`+`strictly_greater` dominant per pairing,
+  **0 `unreachable`**, zero probe-blindness discriminators anywhere; two of the three named
+  sites substituted for a recorded cause (`bugs_open/416`, pre-existing) — NOTES §(y)(z).
+- **P3 (the closing observation — the filing instrument re-observes and agrees):** PASS,
+  graded 08-31 at the 08-29 re-audits of remortgagecalculator, garden-tools and cookly:
+  **zero re-filings of any repaired pairing**; remortgage's audit positively proven complete
+  (it filed a NEW pairing the same minute and stayed silent on all five repaired ones);
+  garden-tools/cookly proven by error-channel bracket + size class; the 396 erasure confound
+  ruled out (themes untouched, served=DB re-verified 08-31). Full evidence chain:
+  `bugfix_390_cascade_attribution/NOTES_cascade_attribution.md` §(aa).
+- The `unreachable` park (`parked_by='css_cascade_unreachable_390'`): **0 rows ever** as of
+  2026-08-31 — the honest-refusal valve exists and has never been needed.
+
+**Grading note for anyone auditing this close:** retraction (`resolved_by='render_audit'`)
+stamps only rows not already settled. Pairings whose repair item was already `complete` pass
+P3 by *not being re-filed* on a demonstrably-run audit — expecting a retraction stamp on a
+completed row misreads `write_render_audit_findings_action.go`'s retraction contract.
+
+What ships this close: migs 616 + 635 + 655 (all council-reviewed: `ef5f9a0d` r2, `fe5cbe0c`
+r2, `ffd6952b` r1) + commit 2 `ea64845e0` (APPROVED `058b59b6`), register **VIZ-018**.
+Open descendants, NOT closed by this file: `bugs_open/396` (design-run erasure — will erase
+these repairs at each site's next design run; the audit will then honestly re-file and the
+agent re-repair, a loop 396 must break), `bugs_open/416` (big-site audit timeout, 13 more
+burns over the 08-29/30 weekend), and the unowned items in the lane handoff §2.

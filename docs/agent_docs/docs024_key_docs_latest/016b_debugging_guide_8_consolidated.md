@@ -6131,8 +6131,8 @@ component you do not have rather than substituting one you do. Teaching the cons
 the fallback is guessing at intent from a string that has already lost the information.
 
 Sibling cause worth ruling out first: a *correct* selector can still be inert when the rule the
-agent appends is **outranked** — and it now has its own file, **`bugs_open/390`** (split from 352
-at the owner's direction, 2026-08-25). ⚠ **Ruling it out is not optional and not cosmetic: the two
+agent appends is **outranked** — and it now has its own file, **`bugs_closed/390`** (split from 352
+at the owner's direction, 2026-08-25; CLOSED 2026-08-31 — detector measures the requirement, agent consumes it, loop proven at the re-audit). ⚠ **Ruling it out is not optional and not cosmetic: the two
 causes are indistinguishable downstream** — correct address plus unreachable rule looks exactly like
 wrong address in every log, and both complete `honestly`. 390 also **corrects** the remedy 352
 sketched for it: the offending *declaration* being out of reach does not mean the offending *value*
@@ -14759,3 +14759,40 @@ bound, and the process dies with `fatal error: stack overflow` after 12,654 iden
   did everything right — it treated `""` as "skip this page and continue the loop" — and it
   made no difference, because the contract was broken below it. **Check that the callee can
   actually RETURN the value the caller is written to handle.**
+
+### A repair authored at a surface that cannot govern the artefact completes honestly and does nothing — and the twin trap: two co-present prompt instructions are adjudicated by the model, not by your precedence language (2026-08-31, `bugs_closed/390`)
+
+**Symptom.** A fixer agent keeps "completing" the same class of finding, and the finding keeps
+coming back byte-identical days later. Every individual run looks perfect: the fix is
+syntactically correct, addressed to a real target, persisted, deployed — and marked complete.
+Measured before the fix: 75 of 151 pairings that ever reached `complete` were filed again, 97
+of them byte-identical in the values that define the defect.
+
+**Mechanism, part 1 (the surface).** The repair was appended to the site's shared stylesheet;
+the defect's winning declaration lived in a page-level `<style>` block that out-specified it
+in 33 of 40 sampled cases. A correct fix authored at a surface the cascade never lets win is
+indistinguishable in every log from a working one, because **completion recorded that the
+repair was WRITTEN, not that it WORKED**. The fix that closed the class: make the *detector*
+measure what any repair must beat (winning declaration + its specificity, proven by removal
+in a real browser), file that requirement with the finding, make the fixer consume it — and
+grade the loop at the artefact: the same instrument re-observes and either retracts/stays
+silent, or re-files. **Assert the outcome, not the method.** The transferable test: for any
+"repair completed" status, ask what observation, made by the thing that FILED the defect,
+would distinguish a working repair from a written one — and whether anything makes it.
+
+**Mechanism, part 2 (the prompt).** The first live exercise exposed the twin: the fixer's
+prompt carried a computed, case-specific instruction ("beat this measured requirement,
+`!important` not needed") AND an older general instruction ("mark the property `!important`"),
+with prose saying the specific one supersedes. The model obeyed the general one. **Two
+co-present instructions are adjudicated by the model, not by precedence language** — the fix
+is to FENCE them in the template so only one ever renders (mig 655; proven both branches in
+production within 12 minutes). The check when a prompt misbehaves: read `prompt_rendered` in
+`llm_call_log` for what was actually co-present, never the template for what you meant.
+
+**Grading trap for the re-audit pass (bit on 08-31):** retraction
+(`resolved_by='render_audit'`) stamps only rows not already settled. A pairing whose repair
+item is already `complete` passes by *not being re-filed* on an audit you can prove ran —
+expecting a retraction stamp on completed rows misreads the retraction contract. And prove
+"the audit ran" fast: the orchestration record purges in ~1 day; after that it is
+`site_work_items ∪ archive` + `agent_error_log` brackets, with the site's page count against
+the known timeout ceiling (`bugs_open/416`).
