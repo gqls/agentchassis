@@ -311,6 +311,7 @@ because held_detail reports every REFUSED row and this one was never scored.
    check's own shape: item_type page_rerender, item_key `misdirected_cta:<page>:<site_id>`,
    spec `{"check":"misdirected_cta","reason":"cta_links_stale","page_name":…,"page_id":…}`,
    handler page-rerender, pipeline build, status detected.
+4a. THE SPEC LAYER: census `site_specs WHERE is_current AND data::text ~* <tool names>` — the suggestion inventory (aspect `tools`) is cull work (supersede, never edit in place); prose specs go to the copy machinery; analyser artefacts re-derive via their lane. Without this, a future generation pass re-mints the culled content.
 4. Verify the residue is ZERO before re-firing: count live components whose content_data
    LIKE any archived url — the recompute can only rewrite fields in ctaFieldNames; a LIST
    component (e.g. guide-list) holding the url needs its own treatment.

@@ -2244,3 +2244,17 @@ artefact + status pair, treat `error` on a completed row as history, not state.
   filed the check's own way (needs_rerender / item_key stale_chrome / refresh_site_components
   — item cd50ce30); round 5 for the last 3 after it lands. Copy layer (52 orphan labels +
   ~14 unlinked body sentences) handed to copy_quality with locations.
+
+## 2026-08-31 — the copy lane found the cull's SPEC layer; split ruled and executed
+- Their finding, verified: FIVE current site_specs aspects still named the culled tools —
+  a future planning/generation pass reading them would re-mint dead-tool copy. (Precision
+  that matters: RERENDERS rebuild from content_data, now clean; SPECS feed generation — so
+  the risk is future generation, not the in-flight chrome rebuild.)
+- Split: `tools` aspect = the tool-suggester's own suggestion inventory = the artefact the
+  owner ordered deleted → SUPERSEDED by me (predecessor kept, successor 8031bb1c records the
+  ruling, empty suggestions, points at growth_posture). briefing/strategy/vertical_landscape
+  (scattered prose in 10-17KB analysis docs) → handed EXPLICITLY to copy_quality under the
+  same mandate, supersession discipline stated. offer_ordering → analyser re-derives via the
+  offer lane (their routing). Lesson for the cull recipe: **a cull has FOUR layers — pages,
+  content_data, chrome, SPECS — and the census that finds the fourth is
+  `site_specs WHERE is_current AND data::text ~* <the names>`.**
