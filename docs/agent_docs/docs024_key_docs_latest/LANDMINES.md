@@ -18844,3 +18844,41 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/420` (the incident this was found in) · `your-action-moves-you-to-the-back-of-the-selector` (same shape: filing bumps the sort key) · `a-complete-work-item-is-not-a-repaired-artefact` ("checked" vs "published")
 - **source:** 2026-08-31, delivery lane + boxingonline session, purging a published personal email; the reconciler was blamed for a leak that was actually a fourth data source, and the blame survived as long as it did partly because "it ticked and stamped" read as "it republished".
 - **added:** 2026-08-31, site_delivery_and_editor lane.
+
+---
+
+### `page_type` is NOT a content-class signal — guides are typed `blog-post` fleet-wide, so a page_type-based content check reads CLEAN on the exact case it was written for
+
+- **footprint:** `pages.page_type` · `page_components.content_data` (`articles`/`items`) · any check, criterion or query of the shape "is this page a guide / an article / a tool" · `scripts/audit-listing-class-promise.py`
+- **fires when:** you write a check, a listing rule, a work-item filter or a plan criterion that decides what KIND of content a page is, and you reach for `pages.page_type` because it is the column named for exactly that. Also when a bug file or a CONTRIB hands you the rule already written that way — which is how this one arrived.
+- **the trap:** `page_type` records how the PLANNER classified the page, and the fleet's own convention files guides as articles. **Measured 2026-08-31:** pages that are guide-shaped by url/name/title are typed `blog-post` **246 across 30 sites**, against `guide` **72 across 9**. So `WHERE page_type IN ('guide','tool')` returns **zero** on the motivating case — boxingonline.com's four "Understanding X | Guide" pages under `/guides/`, the ones the owner complained about by name, were `blog-post` at build time. The check passes, the page is broken, and the zero reads as "clean". `/blog/` in the URL is the same trap mirrored: a guides index listing `/blog/` items is usually listing its guides, not the wrong thing.
+- **the check — ask the artefact what it CALLS ITSELF, and always run the refuted arm beside the new one:**
+  ```sql
+  -- is the taxonomy column even usable for this question, today?
+  SELECT page_type, count(*) n, count(DISTINCT site_id) sites FROM pages
+   WHERE url LIKE '/guides/%' OR name ILIKE '%guide%' OR title ILIKE '%| Guide%'
+   GROUP BY 1 ORDER BY 2 DESC;
+  ```
+  A page's self-declaration survives the convention: its url segment (`/guides/`, `/tools/`), its item `name` (`tool-x-guide`), its own title (`^Understanding `, `| Guide`). `scripts/audit-listing-class-promise.py` keeps the page_type rule as a live arm printed on every run, so its zero is a measurement rather than a memory.
+- **why the wrong result looks exactly right:** the column is named for the question, the values are the right vocabulary, the query is one line, and the result is a clean zero — arriving in answer to "does this defect exist anywhere else?", where zero is the answer you half expect and nobody re-derives. The detector then ships, runs nightly, and reports nothing for ever.
+- **relations:** `a-post-fix-zero-needs-a-demand-control` (a zero that could not have come out otherwise) · `grep-the-config-key-before-calling-it-a-win` · the `misdirected_cta` item_type alias trap two entries up (a name that is not the name) · `bugs_open/419`
+- **source:** 2026-08-31, experience_loop lane, building the listing-class promise check the boxingonline CONTRIB asked for. The CONTRIB's own suggested first cut was the page_type rule; it was refuted by measurement before a line of it shipped, and the webdesign lane had independently measured the same convention hours earlier while repairing the site.
+- **added:** 2026-08-31, experience_loop lane.
+
+---
+
+### A WORKFLOW STEP'S SEED IS STALE ON THE ONE FIELD THAT THREADS THE CHAIN — write a migration from `sql_for_agents/` and it silently bypasses every gate inserted since, with all your guards still passing
+
+- **footprint:** `agent_definitions.default_config->'workflow'->'steps'` · `docs/agent_docs/sql_for_agents/*_agent.sql` · `spec_data` / `content_from` / any step config naming a PREVIOUS step's `output_field` · `write_site_spec` · `offer-analyser` · `verify_cited_cardinals` · `repair_ordering_register`
+- **fires when:** you write a migration that inserts a step into an existing agent workflow, or repoints one, and you read the agent's seed file to learn what the neighbouring steps consume. Also when you reason about what a workflow does at all from `sql_for_agents/`.
+- **the trap:** a workflow chain is threaded by NAME — step B's `object_field`/`spec_data` names step A's `output_field`. **Every gate inserted between two steps repoints that name, and the seed file is never updated.** So the seed shows the chain as it was ORIGINALLY built, and the live row shows it as it is. Measured 2026-08-31 on `offer-analyser`: seed `408_offer_analyser_agent.sql:295-307` gives `write_offer_ordering.spec_data = 'offer_analysis.result.ordering'` — the raw LLM output. The LIVE row gives `'ordering_checked.object'`, because the cardinal attribution gate was inserted between them and repointed it. **A migration written from the seed would have set `spec_data` back to the raw LLM result, silently un-wiring `verify_cited_cardinals` — a live gate with 18 real drops recorded — while inserting a new gate and reporting success.** Both gates would then be dead and the artefact would look normal.
+- **the check — derive the insertion point from the LIVE row, and make the migration ASSERT the thread it found:**
+  ```sql
+  SELECT jsonb_pretty(default_config->'workflow'->'steps') FROM agent_definitions
+   WHERE type='<agent>' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+  Then guard it, in `DO`/`RAISE` (a verify block of `SELECT`s cannot stop the `COMMIT` — `ON_ERROR_STOP` ignores a non-empty result set): abort unless the predecessor's `next_step` is what you expect AND the consumer's source path is what you expect. **And add the CHAIN-HOLE guard, which is the one nobody writes:** assert your new step's `object_field` equals the predecessor's `output_field` + `.object`. That failure is silent at runtime — the action resolves nothing, errors on a missing object, and the write is simply lost. `681_offer_analyser_producer_register_gate_HOLD.sql` carries all five, each induced and proven to abort.
+- **why the wrong result looks exactly right:** the seed is in the repo, it is named for the agent, it is the file every session reaches for, and it is INTERNALLY consistent — the chain it describes is a chain that really existed. The migration applies cleanly, its guards pass (they were written against the same stale premise), the verify block prints its NOTICE, and the ledger stamps it. Nothing anywhere reports that a gate stopped being reachable. The estate already has the general form of this — *the seed is not the system; a repo seed records what an agent WAS* — but the specific damage here is not "the config drifted", it is "your correct-looking change DISCONNECTS someone else's live gate".
+- **relations:** `seed-sql-is-history-live-row-is-fact` (the general rule; this is its sharpest consequence) · `a-one-off-deletion-is-not-a-class-fix` (why the verify block must be `DO`/`RAISE`) · `dedup-index-go-list-lockstep` (two artefacts that must not drift) · `bugs_open/335` (the gate that would have been un-wired)
+- **source:** 2026-08-31, vigilant_designer_offer_analysis lane, wiring the producer register gate (H1c) into `offer-analyser`. The seed was read first and the live row was checked only because the drop-record count (18 rows carrying `dropped_unsourced`) could not be reconciled with a chain in which the cardinal gate's output reached nothing.
+- **added:** 2026-08-31, vigilant_designer_offer_analysis lane.
