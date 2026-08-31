@@ -2143,3 +2143,19 @@ backlog. Census: **59 armed pre-door opinion rows** (30 content_rewrite/12 sites
 needs_content_page/10 sites, 7 tail). RFC FOLLOW-UP 7 carries the options; not acted on unilaterally.
 Their upstream fix (claim rules applied to the SPEC TEXT generators read — CLM-030) closes where the
 instruction lived.
+
+## 2026-08-31 — owner review of farmer routed; one routing miss; the carousel ask dissolved under measurement
+- Six findings verified at artefact+spec BEFORE routing; 4 of 6 had held verdict siblings (the
+  council design validating itself). OWNER_REVIEW doc + routing outcomes appended there.
+- **MISSTEP: routed the news ask to news_editorial_features on a lane-NAME match.** They
+  declined correctly (editorial feature pages ≠ feed ingestion) — the tell was in my own
+  message (citing 316 as the third leg). Check: before routing, open the lane's README first
+  line, not its name. Re-routed to bugfix_316 with their measurement carried.
+- Logo chain closed end-to-end in one sitting: exemplar (agent row) → paraphrase (item spec)
+  → origin_prompt (asset row) → served pixels; 417 filed on first-hand-verification
+  substitution, stated. Regen item 3740f5f2 filed at detected; watch it promote, then land,
+  then re-derive favicon/og (NOT automatic — presence-based check).
+- Carousel lesson for the file: the owner's component ask shrank from "build carousel types"
+  to "a schema flag is off on 41/42" through two rounds of peer measurement in ~an hour —
+  neither round mine, both because the routing message carried verified numbers worth
+  answering. Correspond with measurements, receive measurements.
