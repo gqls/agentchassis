@@ -6643,3 +6643,40 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   proposes values; (5) the parked review items incl. canonical/head detector
   findings; (6) revert the growth_config override once articles are linked and
   stable. Delivery chain stays HELD (owner ruling: fix before the email).
+
+## 2026-08-31 (late night) — listing fix DISPATCHED (target-resolution defect, measured); logo is an invented brand on a design comp
+
+- **Why articles stayed orphaned — measured by the boxingonline session, verified
+  at the code here**: `rebuild_blog_listing` (a step in rerender-pages, the ONLY
+  agent carrying it) resolves its target via `findBlogPage`: page_type='blog-index'
+  OR name='blog' — boxingonline's listing page is `articles-index` /
+  'section-index', so the action silently no-ops on every rerender ("cannot find
+  the container and reads green" — adjacent to bugs_open/220, cite together). AND
+  the four tool guides are page_type='blog-post', so any "select the articles"
+  reads guides as articles — measured to be the FLEET CONVENTION (dartsonline /
+  agritec / farmerinsurance all type guides blog-post), which is why the original
+  build listed guides in "Latest from the ring": they were the only blog-posts
+  alive at build time.
+- **Fix applied (site-local data, both reversible one UPDATE)**: articles-index →
+  'blog-index' (the action's OWN canonical state — its name-fallback stamps
+  exactly this type); the four tool-*-guide pages → 'guide' (live fleet
+  vocabulary, 103 pages; site-local divergence from the sibling-sites' convention,
+  justified by the owner's explicit complaint that guides squat the editorial
+  slot). Post-state: 1 blog-index · 7 blog-post (6 articles + the stranded
+  `planned` 'article', excluded by the deployed+sections eligibility filter) ·
+  4 guide. Side-benefit: the weekly blog growth budget no longer counts the
+  guides. Then dispatched rerender-pages (corr dac01cef, receipt asserted,
+  refresh_site_components:false — keep hands off the chrome incl. the
+  hand-patched footer). Verifier armed: run → quiesce → mirror → served-page
+  measure (articles-index ≥6 distinct /blog/ links + controls + email still 0).
+- **HOME slot caveat**: rebuild_blog_listing writes the BLOG page's listing
+  component; the home 'content-listing' ("Latest from the ring") is a separate
+  baked section — re-measure after this round; may need its own regeneration.
+- **LOGO IS DELIVERY-BLOCKING (boxingonline session's find)**: /assets/images/
+  logo.png is lettered "BOXING NEWS" — an invented brand (bugs_open/417 firing on
+  the paid site; plan row b56182fa is the last wordmark-licensing row fleet-wide;
+  sites.logo_text NULL while company_name='Boxing Online' — the right name was
+  one empty column away). SECOND defect, not covered by 417: the asset is a
+  TWO-PANEL DESIGN COMP (400x218, two artboards) served as a logo. Sequence
+  agreed across three sessions: the 417 lane neutralises the plan row FIRST, then
+  this lane regenerates through the framework. Added to the pre-delivery list.
