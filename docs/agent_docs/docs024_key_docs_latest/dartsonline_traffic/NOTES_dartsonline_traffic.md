@@ -1393,3 +1393,105 @@ items are known to have taken the silent branch.
 **So: the headline was refuted and the footnote was the finding.** Worth carrying because the
 instinct that produced it was cheap — an anomaly I could not explain, flagged rather than rounded
 off. Fencing a number is what made it checkable; noting what did not fit is what made it useful.
+
+---
+
+## 2026-08-31 (later, second session) — I looked at the four regenerated heroes. Two were still wrong, and the reason was written in the prompts all along.
+
+Picked up `HANDOFF_2026-08-31_continue_here.md` §7 item 1: *verify the four heroes at the served
+files*. All four `needs_imagery` items filed at 12:35Z were `complete`, all four assets carried
+active Banana rows updated in place, and all four served files had changed. **Every mechanical
+signal said done.** They were not done.
+
+**First, a measurement trap I nearly walked into.** `last-modified` on the served files was ~12:41–12:56Z
+for all four — but it was *also* 12:39Z for `hero.jpg` and `content-hero-grip-styles.jpg`, which
+were **not** regenerated. The header records the bucket sync, not the generation. So it cannot
+discriminate "this file was regenerated" from "this file was re-uploaded alongside one that was",
+and a census keyed on it would have called all six regenerated. The only honest check was to open
+the images.
+
+**What the images actually showed** `[MEASURED 2026-08-31 ~13:05Z, by eye, at 3–5× crops]`:
+
+| file | verdict |
+|---|---|
+| `hero-new-arrivals.jpg` | **GOOD.** Flat four-wing moulded flights on black stems, knurled brass barrels. The archery-fletching defect is genuinely gone here |
+| `hero-sale.jpg` | **GOOD.** Barrel macro, correct machined grip rings, "24g" weight stamp |
+| `hero-home.jpg` | **bull is ENTIRELY RED.** Inner bull red is right; the outer bull ring around it must be GREEN. Spider, segments and barrels all correct |
+| `hero-guides.jpg` | **feathered, fletched flight** — visible barbs and quill, i.e. an archery arrow, *the owner's exact complaint*; and the number clockwise of 20 renders as **"7"** where a real board reads **"1"** (the other nine legible numbers are in true sequence) |
+
+So 2 of 4 clean. I only spotted the guides flight because the shape looked wrong at full size and I
+cropped it 3× rather than moving on — at hero size it reads as a dark smudge.
+
+**The cause was legible in the prompts, and I should have read them before looking at the images
+rather than after.**
+
+- `hero_home`'s prompt: *"…against the deep black and red of the board"*. It names two board
+  colours and neither is green or cream. **The model did exactly what it was told.** The all-red
+  bull is not a hallucination so much as an instruction. (Same prompt asks for darts in the
+  *triple-twenty*; the image put them in the bull — brief adherence is imperfect independently.)
+- `hero_guides`' prompt says only *"a single dart"*. Nothing in it — and nothing in the style guide —
+  says what a dart flight IS. A feather is then a free choice, and the vintage desk-lamp staging
+  makes it a plausible one.
+
+**The structural gap.** This site's `imagery_style_guide` is long and careful, and **every clause in
+it governs composition, palette or commercial claim** — grounds, collages, logos, packaging, faces.
+Not one asserts what the product this site sells actually looks like. A guide like that leaves the
+subject free, and **re-rolling cannot fix an anatomy error, because nothing in the request ever said
+otherwise.** That is why the 12:35Z pass fixed two and left two: it changed the model's dice, not its
+brief.
+
+**⚠ THE TRAP THAT ALMOST MADE THIS FIX A FAKE ONE.** The obvious move is to add an anatomy clause to
+the guide-level `avoid`. I read `avoidForKind` first:
+
+```go
+if o, ok := g.Kinds[kind]; ok { return o.Avoid }   // INSTEAD OF, not merged with
+return g.Avoid
+```
+
+This site **has** a `kinds.hero`. So heroes are governed by the override's **111** characters, and
+the guide-level **652** are unreachable for them. A clause added at guide level would have shipped,
+validated, gone `is_current` — and done **nothing**, while the re-roll I ran to check it would have
+made the image better anyway and *credited the clause*. I would then have written down a false fact
+about the site. Filed as a LANDMINE; it is `bugs_open/028`'s "constraint the caller can set and the
+platform discards" one level up, in the schema rather than the provider.
+
+**And a correction to my own earlier note in this session:** I wrote, on first reading the guide,
+that its *"no multi-panel collages or grids of small scenes"* clause was what stopped `hero-guides`
+coming back as a 4-panel. **That is wrong.** That clause is guide-level, `kinds.hero` shadows it,
+and it has never reached a hero on this site. The 4-panel went away because the prompt and model
+changed, not because the guide forbade it. Caught by reading the accessor, not by anything failing.
+
+**The fix, in the two places that are actually read**
+(`SEED_2026-08-31b_darts_anatomy_in_style_guide_and_two_reruns.sql`, applied 13:13Z):
+
+1. **Anatomy prohibitions appended to `kinds.hero.avoid` and `kinds.content_hero.avoid`** — derived
+   from the live row by `jsonb_set` so nothing is retyped, with assertions that the paths exist
+   *before* (a `jsonb_set` on a missing path is a **silent no-op**) and that the new clause is
+   present *and the pre-existing clauses survived* after.
+2. **Positive anatomy in the two plan-row prompts**, because prohibitions are the weaker instrument
+   here — `banana/provider.go` says so in its own comment: a folded prohibition "is a softer
+   instrument than SDXL's true negative conditioning" and Gemini "honours it imperfectly".
+
+**Why the positive half went in the prompt and not in `medium`:** the composed direction is capped at
+`maxImageryDirectionInPrompt = 200` and the hero direction already spends ~129, so anatomy prose in
+`medium` would be truncated and could evict the palette (`bugs_open/027` §4b). The `avoid` path has
+no cap — it is folded *after* the cap is applied. So: **be wordy in `avoid`, be positive in the
+prompt, leave `medium` alone.**
+
+**Prohibitions kept purely negative, deliberately.** My first draft of the avoid clause read
+"an all-red bull — the inner bull is red and the outer ring is green". That ships inside
+*"the image must not contain or use: …"*, so the corrective fact would have arrived as a thing to
+avoid. Positive facts live in the prompt only.
+
+**Two smaller things found on the way, both fine, both worth not re-deriving:**
+
+- The handoff calls the 8 `stability/…` asset rows a red herring because nothing references them.
+  **True, and it is actually 10 rows, three of them Banana** (`hero_brands`, `hero_shipping`,
+  `hero_shop`), all with signed S3 URLs that expired 7 days after generation. I confirmed the
+  stronger claim at the artefact: **no served page references a `backblazeb2` URL at all** — every
+  hero is a local `/assets/images/*.jpg`. So the expiry is inert, not latent.
+- `/guides.html`, `/shop.html` and `/brands.html` 404. **That is correct, not a defect** — those
+  three `pages` rows are `archived`; the live ones are `/guides/index.html` etc. I had composed the
+  URLs myself instead of reading `pages.url`, which is the exact mistake
+  [[a-parked-domain-200s-every-path]] warns about. Reading the table cost one query and turned a
+  would-be bug into a non-event.
