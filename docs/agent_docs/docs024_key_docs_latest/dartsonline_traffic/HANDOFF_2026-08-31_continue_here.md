@@ -69,9 +69,15 @@ Owner, 2026-08-31: the heroes "hallucinated what darts and dartboards and other 
 
 **The measurement narrows this from "loads of pages" to four**, and the discriminator is mechanical:
 
-> **An active `assets` row ⇒ the image is current and good. No asset row ⇒ a July SDXL-era leftover
-> file, and those are the bad ones.** `SELECT ... FROM assets WHERE url='/assets/images/<file>'`
-> answers it without opening the image.
+> **An active `assets` row ⇒ the image is current and good. No asset row AND a served image ⇒ a
+> July SDXL-era leftover file, and those are the bad ones.** `SELECT ... FROM assets WHERE
+> url='/assets/images/<file>'` answers it without opening the image.
+>
+> ⚠ **The second clause is load-bearing and I left it out at first.** The `news_editorial` lane ran
+> this rule on their own pages 2026-08-31 and their `insights-index` returned zero rows — which my
+> original wording flags as orphaned. They controlled it instead of trusting the rule: the served
+> page carries one `<img>` and it is the logo. **No row and no image is consistent, not orphaned.**
+> Run the rule and then look at the page before calling anything a leftover.
 
 - **GOOD, verified by eye:** `hero.jpg` (real bristle board, correct wire spider and bull colours),
   `content-hero-grip-styles.jpg` (four genuinely distinct, correct grip patterns). All Banana.
