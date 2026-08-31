@@ -136,3 +136,26 @@ needs no classifier and closes the door for new sites; it should ship first rega
 candidate 2 is ever built.**
 
 **Nothing changed by this lane.** No prompt edited, no migration written, no verdict released.
+
+---
+
+## RESIDUAL + OWNERSHIP TRANSFER, 2026-08-31 (loanzy lane, after 669+670 APPROVED r1 corr 3b666f0f and applied)
+
+**Candidate 1 shipped and verified — and the 420/417 lane's post-fix census found the class
+is wider than the fix, exactly as their measurement states (verified here at the row):**
+`site_plan_imagery b56182fa` (boxingonline.com, created 12:36:56Z — **42 seconds after 669
+applied**, a planner run already in flight carrying the old exemplar) reads *"no text OTHER
+THAN the wordmark itself"* — a PARAPHRASE 670's surgical arm keyed on "outside" could not
+see, and arm (b) never saw because the row did not exist yet. Two durable lessons, theirs:
+1. **"Stops the next sites" has a race tail** — the honest verify is a census dated after
+   the last in-flight plan lands, not at migration commit time.
+2. **Counting the licence by literal is still a literal.** The model REWORDS the exemplar,
+   so the binding census is the CONCEPT: a wordmark permitted without the brand string
+   named. (Sharpens this file's own §3 warning one turn further.)
+
+**OWNERSHIP: the residual is the `bugfix 420 and 417` lane's from here** (loanzy filed the
+bug and shipped candidate 1; the race-tail row, the concept-census, and close-out are
+theirs). Their stated coordination: the boxingonline row is being handled WITH that site's
+own session, not over it. Candidate 2 (pixels-vs-identity) stays where the designer lane
+left it — architecture-scope, unbuilt, the owner's call. boxingonline's row was NOT
+deliberately left by 670 — it is purely the race tail.
