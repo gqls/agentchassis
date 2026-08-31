@@ -6339,3 +6339,22 @@ step — amount shown, Pay clicked — it is simply fast with a remembered card.
   (own binary/env/guards; owner runs the swap so the key never enters a session);
   key-split/workspaces as the middle; own-cluster costed and not recommended on
   budget grounds alone.
+
+**P5 round 1 → REVISE (7e3dd082), round 2 submitted same trail — and the round EARNED its
+cost:** every objection was verified before answering. Two were right and changed things:
+the seeded facts now carry `verification_status:'customer_attested'` (compliance — a
+customer's say-so must not read as platform verification), and 661's enable-gate now
+probes the RUNNING BINARY's symbol with a control instead of git ancestry
+(debug_historian — a same-tag cached rebuild defeats ancestry). Two inverted under
+verification and are now answered with code evidence IN the helper's comment:
+sites.email IS the canonical identity store (the three-stores landmine's own measurement
++ the 072 resolver fix live at plan_sections_action.go:758/810 — seeding aspect='identity'
+would recreate the disagreeing-stores state), and write_site_spec is UNSAFE here
+(own transaction; siteSpecDeepMerge overwrites ARRAYS at site_spec_actions.go:553 — the
+canonical path would clobber an enriched register's facts; LANDMINES:8216 for the typed
+round-trip). Plus the censuses the seats asked for: seed_build_queue has exactly ONE
+live caller (build-pipeline-trigger); evidence_base has exactly two other Go writers
+(citations research flow, scheduled refresher), neither at site creation; the live
+consumer loadEvidenceBase parses the seeded shape ('entity' is live vocabulary).
+All three round-1 mutations still kill their tests. Revision committed with the same
+Council-Submitted trailer; verdict watcher armed.
