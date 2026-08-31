@@ -649,6 +649,54 @@ The division:
   bang: a guide migrates from blob+splice to parent+children, and their Phase-3
   splice becomes unnecessary on migrated pages.
 
+> **OWNER STEER, 2026-08-31 — recorded, no phase re-scoped.** Relayed by the
+> `agentchassis-ff` session from the dartsonline guides review:
+>
+> > *"please can you somehow hint that the guides need a lot more images (accurate
+> > images) in between the paragraphs (small sections)… e.g. the grip styles copy…
+> > we could have an image for each of those sections (e.g. ring grip, razor grip,
+> > shark grip etc) and the same with the other guides."*
+>
+> **Sized by that lane `[MEASURED 2026-08-31]`:** `grip-styles` has **1** `<img>`
+> total — the logo — against **7 h2 + 6 h3** headings; `board-setup`,
+> `flight-shapes` and `beginners` each carry exactly one in-body illustration
+> against 8–10 headings. Target is roughly one image per h3, i.e. 4–8 per guide
+> against today's 0–1. Not from zero — two Banana illustrations exist from
+> 2026-08-05 — but the owner's own example has thirteen headings and nothing.
+>
+> **ANSWERED: do NOT wait for composition, and P5 is the wrong thing to block on.**
+> P1 is unfinished (three council REVISE rounds on the wiring; the extraction,
+> the single-target guards and the routing migration still unwritten), nothing is
+> live (**0 of 2,249** rows carry a `parent_instance_id`, **0 of 386** components
+> declare a slots block, 2026-08-31), and P5 sits behind P2, P3 and P4 with §5's
+> own gate — "only after P1–P3 have held on editorial pages for real weeks", with
+> §6.1's un-owned-page question settled first, and the guides ARE those un-owned
+> pages. Months, not weeks.
+>
+> **The trap is not composition's absence — it is that ONE llm-owned field owns
+> both prose and figures.** That is what killed four figures on that lane in
+> August, and it is what G1 removes. But per-section durability does not require
+> composition: a guide whose h3 sections are separate FLAT `page_components` rows
+> gets it today from live mechanisms, because a rewrite then targets one row and
+> cannot take a sibling's figure with it. Composition's added value over that is
+> nesting a figure INSIDE a prose section as a child — a refinement of placement,
+> not the property that stops figures dying. **If the guides genuinely need
+> figure-inside-prose rather than figure-between-sections, they are a P2 consumer
+> rather than a P5 one, and that is a real input to this design** — it has been
+> put back to that lane as the question worth answering.
+>
+> **Accuracy is already solved and should not be re-litigated.** Same lane, same
+> day: the Banana-generated content heroes are correct (four distinguishable,
+> correct grip patterns in one frame) while the July SDXL-era leftovers hallucinate
+> feathered flights and numberless boards. So **the model is no longer the
+> constraint — only placement and durability are.** Whatever mechanism places
+> per-section figures should generate them the way the current content heroes are
+> generated.
+>
+> `grip-styles` is offered as the canary when a mechanism exists that survives a
+> rewrite — its six h3s are exactly the ring/razor/shark split the owner named.
+> Wanted at **P2**, not now.
+
 ## 9. What NOT to do
 
 - Do not seed any `composite` row, or set any `parent_instance_id`, before the
