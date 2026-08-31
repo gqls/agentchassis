@@ -89,10 +89,10 @@ func loadHierarchyPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID, si
 	pi := &PageInfo{ID: pageID, SiteID: siteID}
 	err := db.QueryRowContext(ctx, `
 		SELECT COALESCE(p.name,''), COALESCE(p.title,''), COALESCE(p.filename,''),
-		       COALESCE(p.meta_desc,''), COALESCE(s.domain,'')
+		       COALESCE(p.meta_desc,''), COALESCE(p.url,''), COALESCE(s.domain,'')
 		  FROM pages p JOIN sites s ON s.id = p.site_id
 		 WHERE p.id = $1
-	`, pageID).Scan(&pi.Name, &pi.Title, &pi.Filename, &pi.MetaDesc, &pi.Domain)
+	`, pageID).Scan(&pi.Name, &pi.Title, &pi.Filename, &pi.MetaDesc, &pi.URL, &pi.Domain)
 	if err != nil {
 		return nil, err
 	}
@@ -208,6 +208,18 @@ func recomposeOneAncestor(ctx context.Context, params ActionParams, db *sql.DB, 
 		// Never replace good stored bytes with a failed or empty render.
 		return false
 	}
+
+	// DEAD-INTERNAL-LINK REPAIR, before the floors measure anything. 079's repair
+	// guards the full-page section save; a sibling writer that persists
+	// rendered_html on its own bypasses it, and an invented /pricing ships as a 404
+	// with a green status (bugs_open/136). It is NOT exempt here: this writer
+	// re-renders the ANCESTOR's own template against its content_data, so it can
+	// mint links of its own — the children's HTML arrives already repaired from
+	// whichever writer stored it, but the parent's chrome around them does not.
+	// Fail-open by construction, and placed BEFORE the floors so what is measured
+	// is what will actually be persisted.
+	rendered = repairComponentHTMLBeforePersist(ctx, params, siteID,
+		pageInfo.Domain, pageInfo.Name, pageInfo.URL, "recompose_ancestors", rendered, logger)
 
 	// THE SHRINK/COMPONENT FLOORS. This is a writer of page_components.rendered_html
 	// and the estate refuses an unguarded one (page_component_writer_coverage_test.go,
