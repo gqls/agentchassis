@@ -949,3 +949,22 @@ unfolding, and it likely isn't the first thing on a visitor's mind anyway. The o
 offer and benefit thread as you asked. One honest note against ourselves: our read had scored
 that sample "passes decisively"; your ear extended the criteria, which is the same lesson the
 checklists taught — our instruments order the work, and you remain the acceptance test.
+
+---
+
+**2026-08-31, late evening (session note).** Three things from tonight, in plain terms. First:
+you were right that Grok is set up to fetch news every day — and it has never once delivered an
+article. Every call since it went live on the 30th has been refused by x.ai because the account
+is out of credits, and the pipeline was built to shrug and report an empty day rather than an
+error, so nobody could tell a broken feed from a quiet one. The news pages stayed full because
+the ordinary RSS feeds kept working. It's written up as bug 418; topping up the xAI account is
+yours to do and un-blocks both the news and the Grok writing trial. Second: your go-ahead on the
+producer gate went to the offer team within the hour, and the review council pushed us — rightly
+— to stop deferring the database safety check we'd learned from Friday's race; it is now written
+into the next wash migration rather than promised for later. Third: the new build you deployed
+carries both rule changes and the truncation trial — confirmed by reading the running programme
+itself — so the next page rebuild is the real test of whether the competitive-comparison habit
+is finally gone. The Gemini trial ran: it wrote shorter but slipped the same negative framing in
+by the back door and invented two benefits we never claimed, so it does not replace what we
+have. Decisions still with you: the question-hierarchy build, the hero-ranking axis, the xAI
+top-up, and four smaller ones listed at the end of the new handoff.

@@ -3167,3 +3167,17 @@ EIGHTH shape (`do not <verb>` definition-by-negation) that both the battery and 
 filed, not actioned (gate vocabulary follows the production model's actual output). Grok arm
 BLOCKED at the account level: both keys recognised-and-refused (403), never one live grok call in
 llm_call_log — owner's console, not our code. Discriminant triad recorded in the experiment doc.
+
+## 2026-08-31 evening — the owner's Grok correction, E ruled, r3, v1.0.1350, new handoff
+
+The owner contradicted my Grok read in one sentence and the re-look found both of us half-right:
+the arm RUNS daily (since 08-30 14:55Z) and has NEVER delivered — credits 403 on xAI team
+d443dd72, swallowed by fetchViaResponsesAPI's empty-COMPLETED design. bugs_open/418; WRONG_CALLS
+row (my llm_call_log census could not see a raw-HTTP caller — grep the caller for how it logs,
+first). E RULED verbatim and relayed. 667 r2 REVISE was RIGHT (guard named-but-deferred) → the
+commit-time is_current guard is now IN 668 (99bcd1c6d) and r3 is submitted on the same
+correlation. Fresh roll v1.0.1349 verified at the binary: A+B ×2 probe hits, truncation trial ×1
+— after a false absence taught the single-source-line needle rule. brief-negation-check rebuilt
+v1.0.1350 (414's retraction; their fix dc9ccfda2 rides it; artefact verified). Farmer corpus
+39→18 (loanzy). New handoff: HANDOFF_2026-08-31_continue_here.md. The owner does NOT want the
+lane closed.
