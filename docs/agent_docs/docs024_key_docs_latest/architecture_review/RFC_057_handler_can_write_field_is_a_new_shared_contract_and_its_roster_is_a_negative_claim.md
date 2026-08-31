@@ -180,3 +180,82 @@ ten entries with no audit is a stale map with an enforcement mechanism attached 
 - `LANDMINES.md` — *"a rule that exists only as prose in a bug file gets broken by the next producer"*
   (filed jointly by both lanes, 2026-08-25; §4 is that landmine firing on its own remedy)
 - RFC_022 (the narrowing whose third condition fails here), RFC_055 (the sibling accumulation question)
+
+---
+
+## 8. CONTRIB 2026-08-31, from the `routing_capability_guard` lane — ⚠ §6 Q1'S PREMISE IS NO LONGER TRUE, AND Q1 CANNOT BE RULED ON AS WRITTEN
+
+**Added by the other lane, not the author, and deliberately as an appendix rather than an edit to §6.**
+
+### 8a. The premise that changed
+
+§6 Q1 closes: *"Today there is one entry and it is measured. **The risk is entirely in the growth.**"*
+
+`[MEASURED 2026-08-31]` **Both halves of that are now false.** There were two entries when this RFC
+was filed, not one — and **one of them was WRONG, at authoring, before any growth occurred**:
+
+- `"title": WritableBy{}` claimed no handler can write `pages.title`, licensed by *"reached from the
+  gap-plan path and from no audit-routed handler"*. **Both halves of that clause name the same
+  agent.** `content-gap-planner` is named by `classifyFindingRoute` at
+  `write_audit_findings_action.go:696` (Rule 5) and `:712` (Rule 6), carries `apply_gap_plan` as a
+  live workflow step, and `apply_gap_plan_action.go:652` is a bare `UPDATE pages SET title = $3`. It
+  completes that route **989** times.
+- The census was also short by four writers — `UpsertPageForRole`'s `Refresh` list, from a helper
+  born **2026-08-02**, i.e. **three weeks BEFORE the census**. An omission at authoring, not drift.
+- It was never wrong in production: **46** rule-3b firings, **zero** displacing content-gap-planner.
+  Latent, not harmless.
+
+Full evidence: `bugs_open/395` §9 and the CONTRIB in that file; `LANDMINES.md`, entry *"Two entries
+in one capability roster can be argued to DIFFERENT standards"*.
+
+### 8b. Why this does not merely add an example — it changes what Q1 is asking
+
+§4's diagnosis is that the roster is a negative claim that **goes stale BY ADDITION**, and its named
+follow-on is *"a live-drift audit that fails when a rostered handler has GAINED the capability the
+roster denies"*. **That audit would never have caught this defect**, because nothing was gained. The
+`title` entry was false the moment it was written, and a `--since <Measured>` check returns clean on
+it for ever.
+
+So Q1 as posed — *"is a hand-maintained roster acceptable without its drift audit?"* — asks about
+the wrong failure mode. **Two different properties were being conflated:**
+
+| property | fails how | caught by |
+|---|---|---|
+| **staleness** | a writer is ADDED after the census | the drift audit §4 names — real, still unbuilt |
+| **completeness** | a writer, or a whole handler, was never CONSIDERED | nothing, until 2026-08-31 |
+
+**And the second is the one that actually fired.** The RFC's own framing — one entry, measured, risk
+in the growth — is what made completeness invisible: with one entry it is easy to believe you
+enumerated it, and the second entry, written the same day by the same author in the same commit,
+got a one-line code read where the first got a forty-line action-registry census. **Every test over
+the map was a SHAPE test** (vocabulary lockstep, `[MEASURED` marker present, `Measured` date
+present) and all of them passed identically over the true entry and the false one.
+
+### 8c. What has been done about it, so Q1 is now narrower
+
+**The completeness half is BUILT and committed** (`7b3d21d36`, owner-ruled 2026-08-31, council
+`76231f57`). The roster is now **TOTAL over the routable-handler universe**: `routableHandlers`
+declares the set from `classifyFindingRoute`'s own literals; every field carries an explicit
+`true`/`false` per handler; `HandlerCanWriteField` returns **`known=false`** for a handler nobody
+considered, so it routes as it did before rule 3b existed rather than reading as proven-incapable;
+and a source-scan test fails when the router gains a route the roster has not measured. Four
+mutations run and observed failing.
+
+**§5's "not to widen the roster" is respected** — the field set is unchanged; what changed is that
+each entry now answers for every handler instead of defaulting.
+
+### 8d. So the question left for the owner is only the STALENESS half
+
+**Q1 should now be read as: is the roster acceptable without the LIVE-DRIFT audit, given that the
+completeness hole is closed and the drift hole is not?**
+
+This lane's position, offered as input rather than as an answer: **the remaining risk is materially
+smaller than §4 assumed, and its failure direction is the safe one.** A handler that GAINS a
+capability makes the roster over-refuse — it parks a finding that has become fixable, which is
+visible (a `capability_gap` row is filed, and two readers already consume that list) and recoverable.
+The completeness hole was the dangerous one precisely because it was silent, and it is the one now
+closed by a build-time test rather than by a scheduled job that can itself stop running.
+
+⚠ **This is a change of premise, not of conclusion, and the author's §4 concession stands.** Nothing
+here argues the drift audit should not be built — only that Q1's *"the risk is entirely in the
+growth"* can no longer be the sentence the ruling rests on.
