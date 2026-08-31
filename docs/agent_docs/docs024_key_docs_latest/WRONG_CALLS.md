@@ -56879,3 +56879,56 @@ the destruction did).
 
 Family: read-the-clock-not-the-narrative, two-instruments-blind-to-each-others-half,
 a-dated-claim-about-a-moving-pipeline.
+
+---
+
+## 2026-08-31 — I corrected another lane's mechanism, publicly and confidently, using an instrument that could not see the event
+
+**Lane:** vigilant_designer_offer_analysis (offer_ordering register wash, migration 667/668).
+
+**The claim I made:** that migration `667` **never applied** to `fundamentallyai.com` — that the
+producer had regenerated the row *before* the wash ran, so the wash's exact-text guard found nothing
+and *"no applied wash work has been destroyed; 38 of 41 survive because 38 of 41 are all that ever
+landed."* I sent it to the other lane as an **urgent hold** on evidence they were about to put in
+front of the owner, and I was right to check — **and wrong about the answer.**
+
+**What was true:** 667 **did** apply. The washed text for ranks 3, 4 and 5 is provably present — in
+the row that `is_current = false`. The producer superseded that row **while 667's transaction was
+open** (backup 10:28:41Z, supersede 10:29:36Z, commit 10:34:30Z). The wash landed in a row nobody
+reads.
+
+**What caught it:** the other lane produced 667's **in-transaction backup**, an artefact my query had
+no reason to look at, holding the old texts at 10:28:41Z and proving the wash saw them live.
+
+**Why my instrument could not have found it.** I queried `is_current` rows ordered by `created_at`
+and reasoned: *the current row predates the migration, and there is no newer row, therefore the
+migration did not write.* **That inference is valid only on a table that UPDATES. `site_specs`
+SUPERSEDES** — insert new, flip the flag — so a successful write can leave no trace in any current
+row and no new row after the migration's timestamp. **My premise was a property of the table I never
+checked.**
+
+**The cheap check I skipped, and it was one line:** look at the **superseded** rows. `SELECT
+created_at, updated_at, is_current, … ORDER BY created_at DESC` — the washed value sitting in an
+`is_current = false` row is the whole signature. I ran that query only *after* being contradicted,
+and it settled the question in seconds.
+
+**The transferable shape, and it is why this is worth a row rather than an apology.** Both lanes
+reached a **confident, wrong, and opposite** mechanism for the same true event: theirs from the
+migration's success NOTICE (*"the mint destroyed applied work"*), mine from the current-row census
+(*"the wash never applied"*). **Each instrument was blind to precisely the half the other could
+see**, and neither blindness announced itself. The event was only recoverable from a **third**
+artefact that sat between them and that neither of us had reached for.
+
+**So: when you are about to correct someone else's mechanism, the fact that your instrument
+disagrees with theirs is not evidence that yours is the sound one.** Ask what your instrument
+*cannot* see, and look for the artefact that sits between the two accounts — a backup, a log, an
+intermediate write. ⚠ **Correcting a peer feels like the rigorous act, and it carries exactly the
+same burden of proof as the claim being corrected.** I applied a higher standard to their evidence
+than to my own refutation of it.
+
+Full trap, with the timeline and the check: `LANDMINES.md`, *"an exact-text migration against a
+versioned config table can pass every guard…"*.
+
+Family: [[a-closer-census-cannot-see-what-it-succeeded-at]] (a query that cannot see its own success
+condition), [[live-and-committed-are-independent-facts]], 2026-08-26e above (widen the population
+before trusting a refutation — same lesson, and I had written it five days earlier).

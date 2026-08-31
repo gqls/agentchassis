@@ -18680,3 +18680,31 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** CLAUDE.md Debugging ("check who owns it", and the bare-number ambiguity note it does not extend to non-bug namespaces) · `bugs_open/414` lane's report, which raised it · the sibling entry on the code index's stale zeros · MEMORY [[who-owns-is-blind-to-uncommitted-sessions]] (the OTHER blind spot in the same tool: it reads commits, so a session mid-fix is invisible — both apply at once)
 - **source:** 2026-08-27, routing_capability_guard lane, raised by the `bugs_open/414` lane after this trap cost them a lap looking for the owner of `bc8167100`
 - **added:** 2026-08-27, routing_capability_guard lane
+
+### AN EXACT-TEXT MIGRATION AGAINST A VERSIONED CONFIG TABLE CAN PASS EVERY GUARD, PRINT SUCCESS, AND WRITE INTO A ROW THAT STOPPED BEING CURRENT MID-TRANSACTION — the live table is unchanged and the ledger says applied
+
+- **footprint:** `site_specs` · `is_current` · `offer_ordering` · `page_components` · `content_components` · any `NNN_*.sql` doing `jsonb_set`/`UPDATE … WHERE <exact text>` against a table with row versioning · `schema_migrations`
+- **fires when:** you write a migration that repairs config rows by matching their **current text** — the safe, careful pattern, with a `RAISE` on zero matches and a per-row assert. It is a good migration. On a table whose writer **supersedes rows rather than updating them** (insert new + flip `is_current`), a producer that writes **while your transaction is open** leaves your correct, guarded, committed `UPDATE` sitting in a row nobody reads.
+- **the trap:** measured 2026-08-31, migration `667` (a 41-point register wash of `site_specs.offer_ordering`). Timeline from three separate artefacts:
+  | event | time |
+  |---|---|
+  | 667's in-transaction backup of `fundamentallyai.com` (holds the OLD texts) | **10:28:41Z** |
+  | the producer inserts a NEW row and supersedes the one 667 is repairing | **10:29:36Z** |
+  | 667 COMMITS, guards passed, success NOTICE printed, ledger stamped | **10:34:30Z** |
+  **Result: 38 of 41 points live, 3 written into the superseded row.** Those three are washed — provably, the text is there — in a row with `is_current = false`. **The migration succeeded and changed nothing live on that site.** `schema_migrations` records it applied. Nothing errored.
+- **⚠ THE TWO OBVIOUS INSTRUMENTS ARE EACH BLIND TO HALF OF IT, and both were used confidently on this event by two different lanes, reaching two different wrong mechanisms:**
+  - **The migration's own NOTICE / row count** says it applied. It cannot see that the row stopped being current 55 seconds later. → concludes *"the mint destroyed applied work"*.
+  - **A census of `is_current` rows + `created_at`** says the washed text is absent and no newer row exists. It cannot see an apply-into-a-superseded-row. → concludes *"the wash never applied"*. **This was mine, and I stated it as a correction of the other lane before checking the third artefact.**
+- **the check:** ask the **superseded** rows, not the current ones, and use `updated_at` rather than `created_at`:
+  ```sql
+  SELECT created_at, updated_at, is_current,
+         left(data->'lead_with'->N->>'point', 80)
+    FROM site_specs WHERE aspect='<aspect>' AND site_id='<id>'
+   ORDER BY created_at DESC LIMIT 5;
+  ```
+  **A washed value sitting in an `is_current = false` row is the signature.** And before believing any "did my migration land?" claim on a versioned table, verify at the **live** row by content, never at the ledger, the NOTICE or the affected-row count — all three are true and all three are silent about supersession.
+- **the fix shape, not built here:** an exact-text migration on a superseding table wants either a re-check of `is_current` **at commit time** (assert the row it wrote is still the current one) or an advisory lock against the producer for the duration. **A `RAISE` on zero matches does not help** — it fired correctly and the match was real when it fired.
+- **why this generalises:** the estate has many `NNN_*.sql` files repairing config by exact text, and several tables that supersede rather than update. **The safer the migration looks, the more completely this hides**: guards passed, backup taken, rollback beside it, ledger stamped. Sibling of MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] and [[live-and-committed-are-independent-facts]].
+- **relations:** `copy_quality_two_stage` Decision C/E lane docs · `vigilant_designer_offer_analysis` handoff §H1c-i · migrations `667`/`668` (668's exact-text guard REFUSED to apply and was right to) · the producer's 23%-born-dirty measurement that makes the race frequent rather than freak
+- **source:** 2026-08-31, jointly by `copy_quality_two_stage` and `vigilant_designer_offer_analysis` — **two lanes, two confident and opposite wrong mechanisms around one true event**, each instrument blind to the other's half, settled only by the in-transaction backup that sat between them.
+- **added:** 2026-08-31, vigilant_designer_offer_analysis lane
