@@ -6680,3 +6680,21 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   TWO-PANEL DESIGN COMP (400x218, two artboards) served as a logo. Sequence
   agreed across three sessions: the 417 lane neutralises the plan row FIRST, then
   this lane regenerates through the framework. Added to the pre-delivery list.
+
+## 2026-08-31 (~17:00Z) — LISTINGS FIXED AND VERIFIED both pages; growth override reverted
+
+- **articles-index serves 6 distinct /blog/ links** (was 0) — rebuild_blog_listing
+  resolved its target after the blog-index retype and rebuilt the listing
+  [MEASURED 16:48Z, control 6, email 0].
+- **home 'Latest from the ring' serves 6 /blog/ links, 0 /guides/** (was 0 and 4) —
+  one content-gap-planner approach-A dispatch (corr 3f0b8d56) carrying the six
+  REAL urls+titles verbatim from the pages table (the quoted-exemplar-ships-
+  verbatim property used deliberately, so the writer linked measured facts);
+  content_rewrite completed by page-build-handler; verified at the served page
+  [MEASURED ~17:00Z, control 12, email 0].
+- **growth_config override REVERTED** (superseded ~17:00Z) — purpose served, site
+  back on default budgets.
+- The brief's editorial promise ("article titles as clickable links") is now MET
+  at the served site. Remaining pre-delivery: footer proper re-render · logo regen
+  (after the 417 lane's plan-row fix) · palette (visual-designer values) · contact
+  page (OWNER decision) · parked review items. Delivery chain still HELD.
