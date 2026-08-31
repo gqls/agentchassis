@@ -3352,3 +3352,33 @@ sharper — the text never even reaches the model. Remedy is the 674 pattern poi
 finetuning's portfolio spec (a register wash of the spec store), queued as this lane's
 follow-up; expect the same class wherever collection-backed sections exist. The widening
 battery will show how much of the residual register is spec-fed vs writer-emitted.
+
+---
+
+## 2026-08-31 late evening — the offer lane's producer gate lands two constraints on THIS lane
+
+Their message (vigilant_designer_offer_analysis, gate built f7156fb54, inert till roll):
+
+1. **BANNED_REGISTER_v1 now has a Go mirror with a BIDIRECTIONAL lockstep test**
+   (`registerwords.go`, BannedRegisterVersion=1): cutting v2 makes the build RED until the Go
+   table updates — words as patterns, shapes as names-only (negationtells.go stays
+   authoritative on shape regexes, deliberately). **Owner decision #5 (v2, the "plain words"
+   class) now carries a build step**: the v2 cut = new file line + registerwords.go in
+   lockstep. Also theirs: `plainly`/`honest*` had NO Go reader anywhere before tonight — the
+   owner's two first-named words were mechanically invisible while the shapes were covered.
+2. **⚠ RULING 7'S TRUNCATION STRIPS DIFFERENTIATION EVERY TIME on `differentiated: true`
+   points, and no length threshold catches it** — their measured case (667's leopardess rank-2
+   repair): "in days, not months" → "in days.", 84% retained, differentiation gone in 12
+   bytes; their own 60%-floor design failed its motivating case (threshold-from-a-MEAN trap,
+   logged on their side). The correct guard is shape, not size: **reject a repair that is a
+   PREFIX of the original, differentiated points only** (`isTruncationOf` /
+   `judgeRegisterRewrite`). **Binding on this lane's final wash pass + 668 re-base**: any
+   migration-generated repair of a differentiated point must carry the prefix test (their 10
+   ACK exclusions in CONTRIB_2026-08-31c were exactly this class, now with the mechanism
+   named). The finetuning page-copy truncations stay sanctioned — undifferentiated, read
+   meaning-intact — and the TRIAL VERDICT gains this asterisk for the owner: truncation is the
+   right repair for register tics in prose, and the WRONG repair for a point whose meaning IS
+   the comparison.
+3. Their mint measurement: 24.0% dirty post-667 vs 23.3% all-history — the wash cannot win;
+   Decision E's sequence (gate first) stands on stronger evidence than the race framing.
+   Owner ruled REPAIR mode for their gate; their council run pending; wiring held at 681_HOLD.
