@@ -1197,3 +1197,39 @@ weighed them against each other until I looked at the artefact.
 of KEEP #1 rather than merely a publish: **PASS** = the served button reads *"Book a Technical
 Discovery Call"* → `/contact.html`; **FAIL** = password-entropy returns, meaning KEEP #1 did not hold
 and the batch must stop.
+
+### 2026-08-31 ~16:1xZ — CANARY PASSED, batch applied to the remaining 19 — and MISSTEP 17: my guard asked about the fleet when the change was 13 pages
+
+**Canary PASSED end-to-end on `aiao/services.html`, both halves:**
+
+1. **KEEP #1 holds in production, not just in my reading.** The `cta_links_stale` recompute ran
+   (complete 16:09:07) and left the stored destination at **`/contact.html`** with the label
+   unchanged. The recompute had every opportunity to send it back to a tool and did not.
+2. **The artefact agrees.** `last-modified 16:09:23` — matching the deploy, checked **before** the
+   body this time — and the page serves
+   `<a href="/contact.html" class="cta-btn cta-btn-primary">Book a Technical Discovery Call</a>`.
+   `password-entropy` hrefs **2 → 1**, the remainder being the **footer** (a `site_component` —
+   retirement step 6, not this).
+
+**Batch applied:** 19 fields across **13 pages**, one no-LLM rerender each. Post-condition asserted
+inside the transaction: **zero** contact-intent fields still point at the tool.
+
+> **⚠ MISSTEP 17 — the first run of the batch ABORTED, and the guard was wrong, not the change.**
+> My mint-stamp guard counted stamps naming `/contact.html` **fleet-wide** and found **49**, so it
+> raised and rolled the whole transaction back. Those 49 are pre-existing, correct, and none of my
+> business: the resolver legitimately **mints** `/contact.html` through the label match, and a minted
+> one is deliberately excluded from KEEP #1 (`storedCTADestinationIsAuthored`'s third clause) so it
+> stays re-derivable. **The question I meant was "do the fields I am about to repoint carry such a
+> stamp?" — scoped to 13 pages, the answer is 0.**
+>
+> **This is the same wrong-population error this lane has logged all week**, now inside a guard I
+> wrote to protect a batch: a 9-row grouping enumerated as 6, two task rows read for one column,
+> three runner pods read as two, a `page_components` census quoted as "what visitors get" — and now a
+> fleet-wide predicate standing in for a 13-page one. **The instrument was correct; its population
+> was not.** It failed safe, which is the only reason this is a note rather than an incident: a guard
+> that aborts on the wrong population costs a re-run, one that passes on the wrong population costs
+> the batch.
+>
+> **The check, stated so it generalises:** a guard's population must be **the set the change
+> touches** — join it to the change, do not re-derive it from the world. Mine had a `repointed` temp
+> table sitting in the same transaction and I did not join to it.
