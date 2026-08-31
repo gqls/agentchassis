@@ -6868,3 +6868,14 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   header name beside the text-free logo (pinned to palette) · guides
   reachability (above) · the identity-sync residual (420 §C, that lane's
   routing) · palette values (with the visual-designer lane).
+
+## 2026-08-31 (~19:0xZ) — NAV VERIFIED at the served pages (my half; peer's table pending)
+
+- Verifier passed after the double-zero gate: nav tables' primary group reads
+  Home · News · **Fight Calendar** · About · Contact — the declared
+  header_slots order exactly. Served probes (cache-busted): calendar link ×3 on
+  each of /index, /about and a /blog/ article; footer contact block 0; email 0;
+  controls 6-12. **First production use of 407's declaration mechanism worked
+  end-to-end.** Awaiting the boxingonline session's independent 19-page table;
+  the item closes on both agreeing, then 407 gets a dated proven-in-production
+  note crediting both measurements.
