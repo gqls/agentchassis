@@ -1115,3 +1115,13 @@ zero pins**. Nothing owed dispatch-side. The lane is idle on its build queue: **
 first, blocked on ONE owner decision — the at-cap shedding policy** (what gets refused first
 when spend approaches the cap: maintenance vs build vs research classes; RESEARCH §6 has the
 per-class cost sketch). Everything else per HANDOFF_2026-08-30.
+
+## 2026-08-31 — OWNER RULED the D4 shedding policy; the governor build UNBLOCKS
+
+**Ruling verbatim (chat, 2026-08-31):** "the shedding policy is routine maintenance first,
+new site builds second and research third."
+
+So the shed ORDER at-cap: (1) routine maintenance — first to be refused; (2) new site
+builds; (3) research — most protected, shed last. D4 is now unblocked as the lane's first
+build item. Design work starts from RESEARCH §6 (per-class cost sketch) + the 08-21 decision
+table rulings; council review before/alongside the commit as platform code.
