@@ -56932,3 +56932,18 @@ versioned config table can pass every guard…"*.
 Family: [[a-closer-census-cannot-see-what-it-succeeded-at]] (a query that cannot see its own success
 condition), [[live-and-committed-are-independent-facts]], 2026-08-26e above (widen the population
 before trusting a refutation — same lesson, and I had written it five days earlier).
+
+  - **⚠ REPEATED THE SAME ERROR THREE HOURS AFTER WRITING THE ENTRY ABOVE, 2026-08-31.** Publishing
+    the terms page: the deploy completed at **12:29:05**, I checked the served page at **~12:29:2x**,
+    got the pre-deploy bytes (28,181 vs 29,061), and reported **"0 of 5 commitments served"** to the
+    owner as a finding. It was **5 of 5** — the edge had simply not propagated in the ~20 seconds
+    between. I even went hunting for a cache-key trap to explain it, and tested for one; it did not
+    reproduce, because there was nothing to explain beyond *I measured too early*.
+    **What makes this worth a second entry rather than a footnote:** the lesson was already written
+    down, by me, that morning, in this file. Knowing the rule did not stop me applying the same
+    reflex — reach for the check, read the number, state it. **The habit that fails is not "forgot
+    the rule", it is "did not ask whether the thing had finished moving".** The cheap guard is
+    mechanical rather than mnemonic: after any deploy, compare the served **sha256** against the
+    deploy result's recorded `files_sha256` before reading the content at all. That check is
+    unambiguous and it is what finally settled this one — the hashes matched, which proved the page
+    I was reading was the deployed file, and sent me looking at my grep instead of at the pipeline.
