@@ -56947,3 +56947,41 @@ before trusting a refutation — same lesson, and I had written it five days ear
     deploy result's recorded `files_sha256` before reading the content at all. That check is
     unambiguous and it is what finally settled this one — the hashes matched, which proved the page
     I was reading was the deployed file, and sent me looking at my grep instead of at the pipeline.
+
+## 2026-08-31 — bugs_open/414 lane: my detector's FIRST live finding was false, and my first fix for it was validated by a fixture I had composed to match my own assumption
+
+**What shipped wrong.** The `spec_supplies_claim` detector (mine, `fc588e445`, council-APPROVED)
+filed its first live finding on 2026-08-28 at severity **high**: homegarden.uk, for the phrase
+*"We tested six lawn mowers so you don't have to."* That phrase sits in that site's
+`content_direction.example_phrases.would_never_say` and `briefing.voice.avoid`. **It convicted a site
+for a phrase its own spec bans.**
+
+**The reasoning gap, which was not a coding error.** I excluded `evidence_base` from the scan
+*precisely because* it stores banned phrases as data — and then did not generalise. A spec's
+negative-example lists are the identical trap wearing a different aspect name. I had the right insight
+and applied it to exactly one aspect.
+
+**Then the more interesting half.** My first fix tested the block's **first line** for a negative
+label. It removed 2 of 3 findings and left the `formatted` one. Cause: `blockSplitRe` splits on BLANK
+lines and `FormatContentDirection` writes none before a label — on the real row *"Would never say:"*
+sits mid-block, straight after the previous section's last bullet. **My unit test passed the whole
+time, because the fixture I wrote had a blank line before the label.** I had composed the fixture from
+my mental model of the format rather than from the row, so it exercised my assumption and confirmed
+it. The live dry run is what failed.
+
+**What caught it, both times.** Running the thing against real data — first the detector's own
+scheduled run against the fleet, then `-dry-run` against live specs after the fix. Neither the unit
+tests nor the council round (nine seats, one gating objection, five advisories) caught either half.
+
+**The cheap checks, skipped.** (1) When you exempt something for a *reason*, write the reason down and
+ask what else it covers — "stores banned phrases as data" was already the sentence in my own header,
+and negative-example lists are the same sentence. (2) **Build fixtures from the row, not from your
+model of the row** — `SELECT` the real value and paste it, with a do-not-tidy note saying which of its
+oddities is load-bearing. The corrected fixture now carries exactly that. Tally:
+**exemption-reasoning-not-generalised** and **fixture-composed-to-match-the-assumption**.
+
+**Why it is worth the row despite being caught before harm.** The false item sat in a human queue for
+three days, and the shape is the one this whole bug is about: a mechanism that reads *what a spec
+says* has to distinguish an instruction to say something from a record of what not to say. I built the
+distinction for one aspect, documented the reason, and did not carry it across — which is precisely
+how the original planted marker survived a "source fixed" claim in the first place.
