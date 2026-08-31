@@ -161,3 +161,39 @@ as well). Council **APPROVED, all reviewers, round 1** (`82b800e1`, 19:10Z). Fle
   per PAGE rather than per section?
 - **Q-B (ordered, execution pending):** add `instead_of` (named in the ruling) — and `not_just`?
   — to `ScanDefineByNegation`'s shapes; classification (mild vs always-repair) follows Q-A.
+
+---
+
+## 2026-08-31 — four further instructions (rulings 9–12)
+
+**9. THE WORD "PLAINLY" JOINS THE BAN** — his specimen from finetuning.uk: *"Real projects,
+described plainly"* — *"we just don't need to say that and no one says 'plainly'."* Same class as
+the July "honest" ban: never LABEL the register; delete the label word. Fix shape: extend the
+writer's rule-19-style word ban (fleet template, migration).
+
+**10. NO INTERNAL-DIRECTIVE EXPLANATIONS IN COPY** — his specimen: *"… that is what we have
+written, because a number we cannot stand behind is not one we will print."* His words: *"written
+too dense and too competitively and it's very much about our internal directives rather than what
+it should be, which is focusing on describing what we do in terms that the user will understand
+might be a benefit to them."* This is P4's unmoved candour/self-narration class, now with the fix
+DIRECTION ruled: benefit-led description, not self-justification. Remedied via ruling 12's
+approach, not another prohibition.
+
+**11. MODEL TRIALS** — *"Let's try different models until we find the best. I think Claude Fable
+will probably be too expensive but let's try it as it might give us a benchmark for the other
+models, then try Grok and Gemini next."* Directly motivated by the canary's P2a result (the
+carrier is the MODEL PRIOR — so change the model). Method: offline replays of a constant
+post-fix rendered prompt across models, battery + read, pre-registered; Fable = the benchmark.
+
+**12. BENEFIT-LED HERO COPY, WORKED OUT WITH THE OFFER/BENEFIT ANALYSIS THREAD** — *"correspond
+with the offer analysis and benefit analysis thread to try and iron out what sort of approach we
+can use with these hero titles and copy to explain what we do in terms that clients can see how
+it might work for them and why they might think these things that we do are useful to them. We
+mustn't presume to know what they want or what things actually are useful to them because that
+presumptive approach doesn't work well. It's all subtle and if each piece of copy requires
+discussion between agents then so be it."* Note the last sentence: PER-COPY multi-agent
+discussion is explicitly licensed. Non-presumption is a constraint of its own (the "Most
+visitors arrive with one specific question" tell was his earlier example of presumption).
+
+**Also expected:** correspondence about farmerinsurance.uk copy ("the old AI type of content").
+**Still open from before: Q-A and Q-B** — not yet answered.

@@ -3032,3 +3032,19 @@ query result is an AUTH artefact, not a finding.
 `instead_of`/`not_just` to the gate) still await the owner — one change if he says "repair them
 all"; the brief-negation-check rebuild (item 7) owed; contact + index/faq rebuilds were pending
 when last measurable.
+
+---
+
+## 2026-08-31 — rulings 9–12 recorded; the offer/benefit correspondence opened; Fable benchmark: 0 and 0 vs sonnet's 5
+
+Owner's four new instructions recorded (rulings doc). The offer/benefit thread is live as a
+session and the co-design proposal is sent (per-site reader-recognisable benefit set from THEIR
+artefacts → heroes draw only from it as data → per-copy discussion loop, owner pre-approved the
+cost). Model trial pre-registered and the Fable benchmark RUN on the worst canary section's
+exact post-fix prompt: **NEG 0 and 0 vs the shipped sonnet's 5, and the read passes decisively**
+(benefit-led, non-presumptive, fact-preserving — ruling 12's register without ruling 12's
+machinery). Same family, opposite behaviour — possibly instruction-following rather than prior
+(the comparison rule was in the prompt; Fable obeyed it). Promoted to a wider screen per the
+pre-registration; Grok/Gemini next per his ordering. kubectl token is refreshed and working.
+Still open: Q-A/Q-B, the plainly ban migration (ruling 9 — queued), farmerinsurance
+correspondence expected.
