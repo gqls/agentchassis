@@ -1488,6 +1488,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Deterministic attribution gate: every cardinal (digits OR words) in a self-attributing item's prose must appear in the source field that item cites (bugs_open/335)",
 		IsLocal:     true,
 	},
+	"repair_ordering_register": {
+		Handler:     RepairOrderingRegisterAction,
+		Category:    "validation",
+		Description: "Producer-side copy gate: repairs banned-register constructions in a ranked items array before it is persisted, judged, recording every catch and every refusal (BANNED_REGISTER_v1)",
+		IsLocal:     true,
+	},
 	"verify_acceptance_predicates": {
 		Handler:     VerifyAcceptancePredicatesAction,
 		Category:    "validation",

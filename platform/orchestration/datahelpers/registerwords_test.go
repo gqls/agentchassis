@@ -1,0 +1,218 @@
+// FILE: platform/orchestration/datahelpers/registerwords_test.go
+//
+// THE LOCKSTEP. BANNED_REGISTER_v1.json is the owner's authority and this
+// package is what enforces it; the two are held together here, in both
+// directions, so neither can move without the build saying so.
+//
+// This is the dedup-index/Go-list shape (idx_swi_dedup and
+// workItemTerminalStatuses are one contract; drift is a fleet-wide fault),
+// applied BEFORE the drift instead of after it. It is worth the file because
+// the two artefacts have different owners: the register is maintained by the
+// copy lane, this package by the platform, and the failure mode is silent —
+// a word added to the register and not to Go is simply never enforced, and
+// nothing anywhere reports the absence.
+package datahelpers
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"regexp"
+	"testing"
+)
+
+// registerRelPath is the register's location relative to THIS package. The test
+// resolves it rather than hardcoding an absolute path so it runs anywhere the
+// repo is checked out.
+const registerRelPath = "../../../docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/AUDIT_prompts/BANNED_REGISTER_v1.json"
+
+type registerFile struct {
+	Version     int    `json:"version"`
+	Authority   string `json:"authority"`
+	BannedWords []struct {
+		Pattern   string `json:"pattern"`
+		Authority string `json:"authority"`
+		Treatment string `json:"treatment"`
+	} `json:"banned_words"`
+	BannedShapes []struct {
+		Name    string `json:"name"`
+		Pattern string `json:"pattern"`
+	} `json:"banned_shapes"`
+}
+
+func loadRegister(t *testing.T) registerFile {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Clean(registerRelPath))
+	if err != nil {
+		// ⚠ NOT t.Skip. A skipped lockstep is a lockstep that silently stopped
+		// holding, and the whole point of this file is that the failure mode is
+		// otherwise invisible. If the register moves, this test must go red so
+		// whoever moved it updates the path deliberately.
+		t.Fatalf("the banned register must be readable at %s — if it moved, update registerRelPath AND BannedRegisterPath: %v",
+			registerRelPath, err)
+	}
+	var rf registerFile
+	if err := json.Unmarshal(raw, &rf); err != nil {
+		t.Fatalf("banned register does not parse: %v", err)
+	}
+	return rf
+}
+
+func TestBannedRegisterVersionMatchesTheFile(t *testing.T) {
+	rf := loadRegister(t)
+	if rf.Version != BannedRegisterVersion {
+		t.Fatalf("register file is v%d but this package implements v%d — a version bump is a NEW FILE per the register's own usage rule, so add the new file and update BannedRegisterVersion/BannedRegisterPath deliberately",
+			rf.Version, BannedRegisterVersion)
+	}
+}
+
+// TestBannedRegisterWordsMatchTheRegisterFile is bidirectional: a word in the
+// register with no Go rule is unenforced, and a Go rule with no register entry
+// is a rule the owner never gave.
+func TestBannedRegisterWordsMatchTheRegisterFile(t *testing.T) {
+	rf := loadRegister(t)
+
+	filePatterns := map[string]bool{}
+	for _, w := range rf.BannedWords {
+		filePatterns[w.Pattern] = true
+	}
+	goPatterns := map[string]bool{}
+	for _, p := range BannedRegisterWordPatterns() {
+		goPatterns[p] = true
+	}
+
+	for p := range filePatterns {
+		if !goPatterns[p] {
+			t.Errorf("banned_words pattern %q is in the register and in NO Go rule — it is documented and unenforced; add it to bannedRegisterWords", p)
+		}
+	}
+	for p := range goPatterns {
+		if !filePatterns[p] {
+			t.Errorf("Go carries banned-word pattern %q which the register does not — a rule with no stated authority; remove it or get it into the register", p)
+		}
+	}
+	if len(rf.BannedWords) != len(BannedRegisterWordPatterns()) {
+		t.Errorf("register has %d banned words, Go has %d", len(rf.BannedWords), len(BannedRegisterWordPatterns()))
+	}
+}
+
+// TestBannedRegisterShapesAreAllKnownToTheScanner asserts NAMES only, in ONE
+// direction. See registerwords.go's header for why patterns are not compared:
+// the register's shape patterns are coarse proxies and the scanner's are the
+// authority. Go carrying MORE shapes than the register names is correct — the
+// register documents what the owner ruled on, the scanner may see more.
+func TestBannedRegisterShapesAreAllKnownToTheScanner(t *testing.T) {
+	rf := loadRegister(t)
+	known := map[string]bool{}
+	for _, n := range NegationShapeNames() {
+		known[n] = true
+	}
+	for _, s := range rf.BannedShapes {
+		if !known[s.Name] {
+			t.Errorf("register names banned shape %q which ScanDefineByNegation does not implement — it is banned on paper and invisible to every gate; known shapes: %v",
+				s.Name, NegationShapeNames())
+		}
+	}
+	if len(rf.BannedShapes) == 0 {
+		t.Fatal("register declares no banned shapes — that cannot be right, and a vacuous pass here would hide it")
+	}
+}
+
+// TestScanBannedRegisterWordsCatchesTheOwnersTwoWords is the arm that had no
+// reader at all before this file. The strings are drawn from live lead_with
+// points measured dirty on 2026-08-31.
+func TestScanBannedRegisterWordsCatchesTheOwnersTwoWords(t *testing.T) {
+	cases := []struct {
+		text string
+		want string
+	}{
+		{"Where a figure is not yet verified, this site says so plainly.", "plainly"},
+		{"Every capability listed here is described honestly as either platform-derived or vendor-stated.", "honest"},
+		{"An honest account of what the tool cannot do.", "honest"},
+		{"Every calculator output shows its working and says plainly what it cannot answer.", "plainly"},
+	}
+	for _, c := range cases {
+		hits := ScanBannedRegisterWords(c.text)
+		if len(hits) == 0 {
+			t.Fatalf("no word hit in %q — the arm is blind", c.text)
+		}
+		if hits[0].Name != c.want {
+			t.Errorf("%q: got rule %q, want %q", c.text, hits[0].Name, c.want)
+		}
+		if hits[0].Kind != "word" {
+			t.Errorf("%q: kind must be \"word\", got %q", c.text, hits[0].Kind)
+		}
+		if got := c.text[hits[0].At : hits[0].At+len(hits[0].Matched)]; got != hits[0].Matched {
+			t.Errorf("%q: offset %d does not point at the match (%q vs %q)", c.text, hits[0].At, got, hits[0].Matched)
+		}
+	}
+}
+
+// TestScanBannedRegisterWordsLeavesOrdinaryProseAlone. A false positive here
+// sends a real benefit to a model to be rewritten for nothing, so the words are
+// word-anchored rather than substring matches.
+func TestScanBannedRegisterWordsLeavesOrdinaryProseAlone(t *testing.T) {
+	clean := []string{
+		"Dishonesty is not the issue here.", // substring of "honest" inside another word
+		"The plain English version is shorter.",
+		"Every figure traces to a named source.",
+		"A weekly guide to what is on and where to watch it.",
+	}
+	for _, s := range clean {
+		if hits := ScanBannedRegisterWords(s); len(hits) > 0 {
+			t.Errorf("false positive on %q: %s", s, DescribeRegisterViolations(hits))
+		}
+	}
+}
+
+// TestScanBannedRegisterOrdersByOffset is what makes hits[0].At usable as
+// AcceptNegationRewrite's protectFrom. If the two arms were simply concatenated,
+// a word hit late in the sentence would sort ahead of a shape hit early in it,
+// and the repair would be allowed to drop facts it must keep.
+func TestScanBannedRegisterOrdersByOffset(t *testing.T) {
+	// shape ("X, not Y") at ~byte 46; word ("plainly") after it.
+	text := "We pick the best tool for your problem, not our favourite vendor, and we say so plainly."
+	hits := ScanBannedRegister(text)
+	if len(hits) < 2 {
+		t.Fatalf("expected both arms to fire, got %d: %s", len(hits), DescribeRegisterViolations(hits))
+	}
+	for i := 1; i < len(hits); i++ {
+		if hits[i].At < hits[i-1].At {
+			t.Fatalf("hits are not in ascending offset order: %d then %d", hits[i-1].At, hits[i].At)
+		}
+	}
+	if hits[0].Kind != "shape" {
+		t.Errorf("the earliest construction in this sentence is the shape, got %s:%s at %d",
+			hits[0].Kind, hits[0].Name, hits[0].At)
+	}
+}
+
+// TestBannedRegisterPathIsTheOneTheTestReads closes the gap between the constant
+// the code cites in its records and the file this test actually holds it to. A
+// record citing a path nobody verifies is the "a citation is not a read" shape.
+func TestBannedRegisterPathIsTheOneTheTestReads(t *testing.T) {
+	if filepath.Base(BannedRegisterPath) != filepath.Base(registerRelPath) {
+		t.Fatalf("BannedRegisterPath cites %q but the lockstep reads %q",
+			BannedRegisterPath, registerRelPath)
+	}
+	if _, err := os.Stat(filepath.Clean(registerRelPath)); err != nil {
+		t.Fatalf("cited register is not readable: %v", err)
+	}
+}
+
+// TestRegisterWordPatternsCompileUnderRE2. The patterns are copied verbatim from
+// a JSON file written for a different consumer; a PCRE-only construct would
+// compile there and panic here at init.
+func TestRegisterWordPatternsCompileUnderRE2(t *testing.T) {
+	rf := loadRegister(t)
+	for _, w := range rf.BannedWords {
+		if _, err := regexp.Compile(w.Pattern); err != nil {
+			t.Errorf("register banned_words pattern %q does not compile under RE2: %v", w.Pattern, err)
+		}
+	}
+	for _, s := range rf.BannedShapes {
+		if _, err := regexp.Compile(s.Pattern); err != nil {
+			t.Errorf("register banned_shapes pattern %q does not compile under RE2: %v", s.Pattern, err)
+		}
+	}
+}
