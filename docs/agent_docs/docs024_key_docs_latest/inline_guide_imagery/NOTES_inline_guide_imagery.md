@@ -1,0 +1,228 @@
+# NOTES — inline_guide_imagery (append-only, newest at the bottom)
+
+Running technical record for the lane whose plan is
+`PLAN_2026-08-14_durable_inline_guide_imagery.md`. Missteps are recorded here on purpose,
+not tidied away.
+
+---
+
+## 2026-08-31 — picking the lane up, and what has moved under it in 17 days
+
+Session started from the owner's instruction to take up this thread. The PLAN still opens
+**"Status: design, nothing implemented"**, and two CONTRIBs landed against it today (one
+from the boxingonline paid-build review, one from `editorial_design_uplift`). Both are
+right that nothing shipped. But three facts the PLAN reasons from have **moved**, and one
+of its load-bearing assumptions is now measurably false. All queries inline.
+
+### 1. The component the PLAN proposed to fork ALREADY EXISTS — someone built it on 08-24
+
+PLAN §7 Phase 1 says "Fork, don't edit: new `content_components` row
+`article-body-illustrated` … + `figure_url` (`source: "site_assets.illustration"`)".
+
+That component exists, under a different name, built by another lane
+`[MEASURED 2026-08-31]`:
+
+```sql
+SELECT id, name, function, created_at, created_from FROM content_components
+ WHERE function='illustrated-text-block';
+-- 6322b121-2d04-4877-89ac-c1785a81ae84 | Illustrated Text Block | section | 2026-08-24 11:15Z | manual
+```
+
+Its `input_schema` is almost exactly what the PLAN specified: `heading` + `content` (llm,
+required), `image_url` (**`source: site_assets.illustration`**, optional,
+`on_missing: skip_field`), `image_alt`, `image_caption` (llm, optional). Its `content`
+guidance even forbids the writer emitting `<img>`/`<figure>` inline — the anti-pattern
+this lane exists to retire, already written into the field guidance.
+
+**So Phase 1's "fork a component" step is DONE and was done by someone else.** Do not
+build `article-body-illustrated`.
+
+### 2. Migration 644 (applied 2026-08-26) made the planner able to SEE it
+
+`docs/agent_docs/sql_for_agents/644_planner_sees_imagery_and_illustrated_block_sources_an_illustration.sql`
+— applied 2026-08-26 11:16Z `[MEASURED]` (`schema_migrations`). Two halves: it taught
+`component_expresses()` the token for an image so the planner menu can tell an illustrated
+block from a plain one, and it repointed `image_url` from `site_assets.image` (which
+alias-resolves to the page hero) to `site_assets.illustration`.
+
+Its own closing note states the half it did not do, and it is this lane's half:
+
+> "It makes the illustrated component SELECTABLE. It does not create a single asset. …
+> The supply question is the bigger half and is NOT addressed here."
+
+### 3. THE FINDING: the durable route the three lanes agreed on cannot bind an image to a SECTION
+
+`dartsonline_traffic`'s 08-31 handoff, `news_editorial` and the PLAN's own 08-31 addendum
+all converged on the same route: **one `illustrated-text-block` per h3, ordinary flat
+sections, no composition**. I read the resolver to cost it and it does not work today, for
+two independent reasons. Both are code reads at HEAD with the lines cited.
+
+**(a) The resolver has no section identity at all.**
+`plan_sections_action.go:481-518` (`ensureAssets`) loads the page's section-scope
+`site_plan_imagery` rows — `WHERE spi.scope='section' AND spi.scope_ref LIKE $page||':%'` —
+into ONE flat per-page map, `r.assets[assetKey]=url` plus a **kind first-wins** alias
+`r.assets[kind]`. The `scope_ref` ordinal appears only inside that `LIKE`; nothing parses
+it. And `sourceResolver.resolve` (:643) takes `(ctx, source)` — **a source string and
+nothing else**. `planSection` (:2072) receives `sectionName` but no ordinal.
+
+Consequence: six sections on one page all declaring `source: site_assets.illustration`
+resolve to the **same** URL — whichever section-scope row sorts first by `(kind, ordering)`.
+Distinct per-section images are not expressible through the declared source.
+
+This is not a new discovery about the ordinal — `bugs_open/214` already recorded that
+"no consumer parses the ordinal" and judged it *harmless*, which it was at one illustration
+per page. What is new is that the route this lane needs is exactly the case where it stops
+being harmless.
+
+**(b) The carry-forward that would rescue stored values is switched off by repetition.**
+`ensureStoredContent` (:185-245) keys the carry map by `page_components.slot_name`, and any
+slot that repeats with **different** `content_data` is deleted from the map outright
+("slot_name repeats with different content_data — not a carry-forward source"). And
+`save_page_sections_action.go:1001,1033` writes `slot_name = section.ComponentName`. So N
+sections of one component on a page ALWAYS collide, and the carry is always dropped for
+them.
+
+**(c) The live instance, and what it predicts.** apis.uk `/index.html` is the only page in
+the fleet serving a distinct illustration per prose section `[MEASURED 2026-08-31]`:
+
+```sql
+SELECT pc.position, pc.slot_name, pc.content_data->>'image_url'
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ WHERE s.domain='apis.uk' AND p.url='/index.html' ORDER BY pc.position;
+-- 6 rows, ALL slot_name='generic-text-block', six DIFFERENT illustration-*.jpg values
+```
+
+Its `page_components.component_id` points at `illustrated-text-block` while its
+**current plan says `generic-text-block`** for all six — a plan/cache divergence, i.e. the
+page is hand-maintained, not framework-produced. And its imagery rows are `scope='page'`,
+not `scope='section'`, so `site_assets.illustration` resolves to **nothing** there.
+
+Put (a)+(b)+(c) together and the prediction is: **on the next SAVE-path build of that page
+(a content write, not a re-render), all six `image_url` values are dropped** — source
+resolves nothing, carry is conflicted-and-deleted, `on_missing: skip_field` removes the
+key. A re-render is safe (it merges stored ⊕ fresh, and fresh has no key to overwrite
+with). Migration 644's header asserts the opposite — *"carryStored then preserves the six
+good values"* — and that claim does not survive the conflict rule at :233-245.
+
+⚠ `[UNVERIFIED AT THE ARTEFACT]` — this is a code-read prediction, not an observed loss. It
+is filed to the diagnosis loop rather than asserted (below). The apis.uk lane's own NOTES
+record that this page lost its images once already, on 2026-08-23, to a `page-content-writer`
+sweep four minutes after they were verified live — same class, different route.
+
+### 4. Filed to the diagnosis loop rather than asserted
+
+Per CLAUDE.md ("always file when … you suspect it is cross-cutting / platform-wide"), the
+mechanism above went to `090` before being written into any bug file:
+
+- intake `CORRELATION_ID=90167d51-7e97-49ac-b510-dfbca7224298`
+- **run `RUN_CORRELATION_ID=351a9b33-74bb-4e52-a027-2f7881b44412`** ← artifacts join on this
+
+Queue checked first (`needs_diagnosis` / `awaiting_diagnosis` → empty), and
+`bugs_open/`+`bugs_closed/` grepped for the mechanism (214 and 114 are the adjacent files;
+neither covers the N-per-page case).
+
+### 5. State of the motivating pages, today
+
+`dartsonline.com/blog/grip-styles.html` — the owner's own example and the canary the other
+lanes nominated `[MEASURED 2026-08-31]`: three sections (`hero`, `article-body`,
+`call-to-action`), the whole article in one 8.4 KB `article-body` blob, zero content images.
+Its plan agrees (`site_plan_sections`: hero / article-body / call-to-action).
+
+Supply, fleet-wide `[MEASURED 2026-08-31]`: **4 section-scope `illustration` rows across 3
+sites** (fundamentallyai `about:2`, idea.uk `index:1`, vonc `about:2` + `index:2`) and **1
+section-scope `infographic`** (mortgagecalculator `scorecard-simulator:1`). None on
+dartsonline. So the supply half of the PLAN is untouched as well.
+
+### 6. Coordination checked before touching anything
+
+`dartsonline.com` has an active lane that worked its heroes today (three regeneration passes,
+committed this afternoon) and open items on the site including two
+`save_refused_incomplete` needs_human_review rows and a failed pair of asset-landed
+re-renders `[MEASURED 2026-08-31]`. Their handoff explicitly hands the per-section imagery
+mechanism to this lane ("mechanism is NOT ours and NOT built"), so the split of work is
+agreed, but **nothing is to be dispatched at their pages without saying so first**.
+
+---
+
+## 2026-08-31 (later) — the diagnosis came back NOT CONFIRMED, and it was right to
+
+`RUN_CORRELATION_ID=351a9b33-74bb-4e52-a027-2f7881b44412` → **UNVERIFIABLE (stopped:
+scope-not-narrowing)**. Recorded here in full because a refuted or unnarrowed verdict is
+the cheapest place to be wrong, and this one found a real defect in my own symptom.
+
+**What it caught, and it is my error, not the loop's.** I wrote one symptom containing TWO
+mechanisms and named apis.uk as "the live instance" of both. It is not. The loop queried
+`site_plan_imagery` for that page and found **zero `scope='section'` rows** — so the
+kind-first-wins collision *cannot* be happening there, and it said so:
+
+> "the data_request against site_plan_imagery for it returned zero scope='section' rows, so
+> there is nothing there for the kind-first-wins map to collide on"
+
+That is correct and I should have seen it: apis.uk's illustration rows are `scope='page'`
+(I had measured that myself, in §3(c) above, and then still offered the page as evidence
+for the collision half). **The collision half has NO live instance at all** — nothing in the
+fleet has two section-scope figures on one page — which is exactly why it has never been
+noticed. One symptom, one mechanism; and a live instance must be an instance of *the
+mechanism you are claiming*, not of the neighbouring one.
+
+**What it confirmed the precondition of, and what it correctly refused to conclude.** It
+verified the carry half's setup (six repeated `slot_name` values holding six distinct
+`content_data` payloads → `conflicted[slot]=true` → deleted from the carry map) but refused
+to conclude damage, naming two gaps: whether the section's image field actually *depends*
+on that carry, and whether the conflict is even observable. Both are now closed by reading,
+and the answers hold:
+- `illustrated-text-block.image_url` is `source: site_assets.illustration`, `required:
+  false`, `on_missing: skip_field` — resolver-sourced, so it depends on either resolution or
+  the carry, and on apis.uk resolution finds nothing.
+- `handleMissingField` calls `carryStored()` **first** (`plan_sections_action.go`), which
+  calls `storedFieldValue(slot, field)` → the deleted slot → `false` → `skip_field` omits
+  the key. The chain is complete.
+
+**How I proved the collision half instead.** With a test, which is stronger than the live
+probe would have been:
+`platform/orchestration/actions/plan_sections_section_imagery_binding_test.go`. On the
+pre-fix code, two sections with two distinct section-scope illustration rows both resolve
+`illustration-ring-grip.jpg`. Watched to fail before the fix was written; its negative
+control (one row, two sections → both take the page-wide alias) **passes on the pre-fix
+code**, so it pins today's population rather than the one being added.
+
+⚠ **A misstep worth keeping: the first run of that test failed for the WRONG REASON.** My
+mock declared four columns while the (then) query selected three, so every row failed
+`Scan` and was silently skipped — both tests failed, including the control that should have
+passed. A test that fails is not thereby evidence of the defect it was written for: the
+control failing was the tell.
+
+## 2026-08-31 (later still) — the fix, and what it deliberately does not do
+
+Committed `cb698ee58`, council `Council-Submitted: 2979c27f-1545-47c5-b28d-f8a700bb1cb0`,
+registered as **IMG-075**. Go only, so **inert until the next chassis roll**.
+
+The ordinal is now read. It is translated once, in `ensureAssets`, into a
+`sectionRef{Name, Occurrence}` against the plan's own section order, and both render paths
+count occurrences of a slot name in their own order to look it up. Not a position integer —
+`site_plan_sections.ordering` is 0-based and counts site-level slots while
+`page_components.position` is 1-based on 847 of 1,065 pages and neither on 128
+`[MEASURED 2026-08-31]`, and the build path filters header/footer names out of the list.
+
+**Both paths, deliberately.** The re-render merges stored ⊕ fresh *resolved last*, so
+binding only the build path would have the next re-render overwrite the per-section figures
+the build had just got right. That was nearly the shape of this fix, and it would have been
+worse than the defect.
+
+**Four stand-down cases**, each keeping today's behaviour: no current plan row; an
+out-of-range/malformed ordinal (logged with the `scope_ref`); a failed scan of the plan
+order (fails CLOSED — a gap makes every later ordinal name the section *before* the one it
+meant); and a page with locked sections the plan does not name (`LoadLockedPageSlots` +
+`MergeLockedPageSlots` asked, deliberately NOT merged — the ordinal indexes the plan's list,
+so merging would bind figures one section out).
+
+Two estate ratchets fired on the first cut and both were right: the silent-scan-loss
+ratchet (`bugs_open/410`) on a `continue`-on-scan-error, now fail-closed; and the
+lock-blind-plan-reader coverage test (RFC_033/LOCK-008), which is why the lock question
+above was answered rather than skipped.
+
+**Still open after this, and it is the supply half:** nothing yet *writes* a section-scope
+illustration row for a guide. The binding is the join; the plan rows and the images are the
+next job, and `grip-styles` (7 h2 + 6 h3, zero content images) is the canary the other lanes
+nominated. apis.uk/index also stays exposed until it gets `scope='section'` rows — its six
+figures live only in stored `content_data`, which the carry cannot protect.
