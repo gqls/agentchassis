@@ -208,3 +208,51 @@ Method: all 51 batch-repaired by claude-fable-5 under the truncation instruction
 ### webdesign.co.uk · rank 4  (was: x_not_y, not_just)
 - FROM: Every tool is paired with a plain-English article explaining the concept behind it, so you leave knowing why the output is what it is, not just what to copy.
 - TO:   Every tool is paired with an article explaining the concept behind it, so you leave knowing why the output is what it is.
+
+---
+
+## The 10 EXPANSION pairs (rulings 7+13 as a pair), 2026-08-31 late — for the offer lane's final verdict
+
+Battery: 10/10 clean (after the word-ban clause was restored to the prompt — first pass kept
+plainly/honest on 4). The three invented-substance rows are REJECTED and go to the offer lane for
+re-derivation from each site's strategy/evidence provenance; the rest await their read.
+
+### agritec.uk · rank 6 · len +6%  ⚠ REJECTED by both lanes: "a visible label" invented
+- FROM: Where a figure is not yet verified, this site says so plainly rather than substituting an estimate — because a plausible guess presented as a sourced figure is precisely the failure the citation infrastructure exists to prevent.
+- TO:   Where a figure is still awaiting verification, this site marks it with a visible label saying that verification is pending. The citation infrastructure exists so that every number a reader sees either carries a checked source or carries that pending label, and the reader always knows which of the two applies.
+
+### finetuning.uk · rank 3 · len +20%  ⚠ judgement call: the vivid third-party-training hazard was softened
+- FROM: Your client and operational data stays private — we deploy on infrastructure you control, not third-party cloud tools that train on what you paste into them.
+- TO:   Your client and operational data stays private because we deploy on infrastructure you control. Everything you put into the system remains within your own environment and stays yours alone.
+
+### finetuning.uk · rank 4 · len +35%
+- FROM: You get a working system, not a prototype that stalls after the first demo.
+- TO:   You get a working system that runs in real, daily use and keeps delivering long after the first demo.
+
+### fundamentallyai.com · rank 2 · len +15%
+- FROM: This platform has publicly caught and corrected its own AI-generated errors — naming the specific site where the error appeared and the correction that followed — because a buyer who has been burned by overpromised AI projects deserves an honest account, not a polished one.
+- TO:   This platform publishes public corrections of errors in its own AI-generated content. Each published correction names the specific site where the error appeared and describes the fix that was made, so a buyer who has been burned by overpromised AI projects can read the full record of what went wrong and how it was repaired.
+
+### garden-tools.uk · rank 3 · len -14%  ⚠ REJECTED by both lanes: "the full testing procedure" is an invented operating-history claim
+- FROM: Honest coverage at every price point, including the budget end that premium-brand sites and broad editorial sites rarely treat seriously.
+- TO:   This site covers tools at every price point, including the budget end. Budget tools go through the full testing procedure, and each review reports the tool's strengths and weaknesses in detail, so a reader learns exactly what a low-cost tool delivers before buying.
+
+### homegarden.uk · rank 2 · len +11%  ⚠ REJECTED by both lanes: "the timing for each region" invented/overclaimed
+- FROM: The answer here will say plainly whether your timing varies by region — rather than giving one confident number that is wrong for half the country.
+- TO:   When planting or care timing depends on where you live, the answer here states that regional dependence directly and gives the timing for each region. A reader in any part of the country can find the specific dates that apply to their own area.
+
+### lampenkap.com · rank 3 · len +4%
+- FROM: The photometric reasoning here is grounded in specific quantities — Kelvin values, lumen figures, reflectivity percentages — so that the analysis reads as a calculated conclusion rather than a commercial suggestion.
+- TO:   The photometric reasoning here is grounded in specific quantities: Kelvin values, lumen figures, reflectivity percentages. That grounding means the analysis reads as a calculated conclusion you can check against the numbers.
+
+### mortgagecalculator.co.uk · rank 3 · len +20%
+- FROM: If you want to understand what the bank actually sees when it looks at your application — not just what you hope to borrow — this site is the only UK resource built to show you that.
+- TO:   This site is the only UK resource built to show you what the bank actually sees when it looks at your application. It covers the amount you hope to borrow and everything else the lender weighs when making its decision.
+
+### mortgagecalculator.co.uk · rank 6 · len +8%  ⚠ judgement call: the lenders-say-vs-do contrast folded into "genuinely apply"
+- FROM: The guides here are written in plain words and tell you what lenders look for, not what lenders say they look for — there is a difference, and it matters when you apply.
+- TO:   The guides here are written in plain words. They tell you the criteria lenders genuinely apply when they assess an application, and knowing those real criteria matters when you apply.
+
+### noted.co.uk · rank 4 · len +57%
+- FROM: Voice recordings are kept as recordings — not converted to text, not discarded.
+- TO:   Voice recordings are preserved in their original audio form, and every recording stays saved for you exactly as you made it.
