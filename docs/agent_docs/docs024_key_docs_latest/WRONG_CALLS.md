@@ -56986,3 +56986,40 @@ says* has to distinguish an instruction to say something from a record of what n
 distinction for one aspect, documented the reason, and did not carry it across — which is precisely
 how the original planted marker survived a "source fixed" claim in the first place.
 - [2026-08-31 · copy_quality_two_stage] **"The xAI path has never run live — zero grok rows in `llm_call_log` ever."** Committed to the model-trials doc as MEASURED. The instrument was wrong: the news path (`FetchLLMNewsAction`) calls x.ai over raw HTTP and never writes `llm_call_log`, so that census cannot see the caller at all — it would have returned the same zero if Grok news had been working perfectly for months. Caught by the OWNER contradicting it in one sentence ("We use Grok daily for the news"), which forced the re-look that found the real story (arm live since 08-30, zero items ever, credits 403 swallowed — `bugs_open/418`). The cheap check that would have caught it: **before censusing a log table for a caller's activity, grep the CALLER for how it logs** — `grep -n "llm_call_log\|LogLLMCall" <caller>.go` returning nothing means the table is not an instrument for that caller. Same family as measure-at-the-reader: a log census is only evidence about writers OF THAT LOG. The conclusion happening to survive re-measurement does not grade the method: a working arm would have been invisibly miscounted as dead.
+
+## 2026-08-31 — `news_editorial_features`: I am occurrence FIVE of the composed-URL trap, six days after logging occurrence four myself, with the script that prevents it already built and already in my own memory index
+
+**The claim I nearly made.** Checking whether `insights-index` serves an unbacked
+image, I curled `https://robot-hands.com/insights-index.html` — a URL I composed
+from `pages.name` — got a **2,885-byte** body, counted **0** `<img>` tags, and was
+one step from recording "insights-index serves no images". `pages.url` says
+`/insights/index.html`, which serves **78,161** bytes. The 2,885 bytes were a real
+404 page from the right domain, which is what makes this trap work.
+
+**What makes this entry worth writing, when the trap itself is already logged four
+times.** `scripts/probe-page-url.sh` **exists**, and exists precisely for this. Its
+header names the four prior occurrences (2026-07-27, 2026-08-09, 2026-08-24 and
+2026-08-25) and closes: *"Two written warnings did not stop occurrences three and
+four; a command might."* I am occurrence five. I logged occurrence four **in this
+same file on 2026-08-25**, the pointer to the script is in my own auto-loaded memory
+index, and I still hand-rolled the curl six days later.
+
+**So the lesson is NOT "remember the trap".** Five occurrences say remembering does
+not work, and the fifth was by someone who had written the fourth down. The lesson
+is that **a built remedy only counts when it is REACHED FOR**, and nothing in the
+act of typing `curl` prompts you to. Tally: hand-rolled-a-check-a-script-already-does.
+
+**The cheap check, and it is now the only one I will accept from myself:** any
+"does this page serve X" question starts `./scripts/probe-page-url.sh <page>`, not
+`curl`. If the script does not cover the case, extend it — a sixth occurrence
+prevented by a paragraph is not a thing that has ever happened here.
+
+> **The generalisable half, because this is not really about URLs.** The failure
+> mode is *hand-rolling a check the estate has already automated*, and it is
+> invisible by construction: the hand-rolled version RUNS, returns a plausible
+> number, and never says "there is a script for this". The same shape is available
+> anywhere a script exists — the tmpfs recipe (`verify-head-builds.sh`, still
+> hand-rolled in 73 documents), the kafka receipt (`kafka-publish-lib.sh`, printed
+> by 25 and asserted by 2). **Before writing a multi-step shell check, `ls scripts/`
+> for the noun you are checking.** One command, and it is the only thing that has
+> ever interrupted this pattern.
