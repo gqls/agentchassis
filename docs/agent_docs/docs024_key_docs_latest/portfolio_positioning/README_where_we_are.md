@@ -1180,3 +1180,24 @@ machinery recognises this whole family of "everything is checked/verified" sente
 just this one. The two pages still carry the sentence at this moment; the rewrite that removes it
 is dispatched and they'll verify it on the live pages, not on a job status. My mistake and its
 lesson are written up where we log wrong calls.
+
+**2026-08-31 — quiet few days, one hiccup fixed, and the next move is yours: three briefs are waiting.**
+
+Checked everything over after the new platform build went out. The sitemap machinery came through
+the upgrade fine — still picking a site every half hour when one needs it, still publishing
+cleanly. One hiccup: oufe.com's sitemap refresh failed in the small hours (a timeout talking to
+the git service, a one-off — every run after it worked) and that left oufe serving "not found"
+for its sitemap. The failed attempt also used up oufe's turn in the queue, which would have meant
+a three-day wait; I've put it back at the front and the next sweep should restore it — worth a
+glance that it did.
+
+The lendzy test-sentence saga is essentially over: the live pages no longer carry the phrase
+anywhere (I checked the pages themselves this morning), and the session handling bug 414 just
+needed this platform build to land their permanent fix — closing it is their call now.
+
+**The thing only you can move: the remake of your hosted sites is waiting on you.** The brief for
+advertise.co.uk — the first of the 22 — has been sitting ready since Tuesday evening, alongside
+the two test briefs from the week before. Nothing builds until you read it and release it. The
+one question in it worth answering even if you change nothing else: should advertise.co.uk be the
+flagship of your marketing-related domains, or stand alone? Your answer decides how the next few
+briefs get written.

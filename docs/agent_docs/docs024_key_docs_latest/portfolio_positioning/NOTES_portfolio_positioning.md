@@ -3475,3 +3475,42 @@ was still true, and "real use" happened weeks ago — lendzy.co.uk serves 19 pag
 - Filed: `bugs_open/414_…` (evidence, census, repair path, why no 090 — verbatim string identity
   at every hop). 016b: §9 pattern ("an experiment's tripwire ships with the spec — and the audit
   fleet canonises it") + §10 index entry. No 090: owner-ruling-07-31 escape hatch stated in file.
+
+## 2026-08-31 — re-ground after four quiet days + the fresh chassis roll; one live blemish found and remedied
+
+Session resumed on the owner's ask (fresh chassis deployed ~08-30 evening — pods 12h old at
+08:4xZ; provenance line already scrolled, as expected on a busy service). Nothing of THIS lane's
+was inert-until-roll (all our changes were DB config + docs); the roll matters here because it is
+what `bugs_open/414`'s class fix was waiting for (theirs to verify, §7j recipe).
+
+**(a) Readings at 08:3x–08:4xZ:**
+- **642 rotation ticking on the new build**: latest selection 08:12Z (fundamentallyai, 26 urls,
+  0 dropped); 5 of the last 6 runs COMPLETED. Due set **1 / 2 / 5** — small numbers, mechanism
+  keeping up; gaps between ticks are normal when nothing is due.
+- **622 guard**: still unviolated, still unconsulted (min `apis.uk` at 1 deployed page; no
+  zero-with-stamp rows; several sites born 08-22→08-25 all entered with pages).
+- **Brief queue UNCHANGED since 08-26**: all three (`indoorplanters`, `buytoletcalculator`,
+  `advertise.co.uk`) still `needs_human_review`. The remake programme is paused at the human
+  gate by design — the owner reading + releasing is the only path forward.
+- **lendzy served bodies CLEAN** — 0 occurrences of the planted phrase on /about.html and the
+  guide (my own curl, both 200). Consistent with 414 §7m/n; the bug stays theirs to close
+  post-roll.
+
+**(b) `oufe.com` serves 404 on `/sitemap.xml` — found, remedied, verification owed.**
+This morning's 03:38Z selection FAILED at `commit_sitemap` (git-adapter `TIMEOUT`, 03:40Z);
+render was fine (19 urls = 19 deployed pages, 0 dropped). The served artefact decides:
+`/sitemap.xml` = **404**, so the commit decisively did NOT land (— NOT the §7k
+"failed-but-landed" class; I checked precisely because `sitemap_commit_result:ok` sat in
+collected_data. ⚠ that key's presence is not a landed commit). Later runs 04:09→08:12 all
+COMPLETED, so the timeout was transient. **The trap that turns one transient failure into a
+3-day outage: selection STAMPS the rotation before the outcome**, so the failed run consumed
+oufe's slot (next natural retry: page-change or the 09-03 floor). Remedy, mechanism-native:
+backdated the stamp guarded on the exact failed-run value (`now()-'4 days'`; ⚠ the column is
+NOT NULL — you cannot clear it, only backdate). oufe is now age-due; expect re-selection within
+~1–2 ticks of 08:45Z. **Verify at the served body (19 locs), not at the run status.**
+Residual worth watching, not yet filing: **a FAILED run consumes the slot** — 1 observed
+instance in ~100+ runs since 08-26; if it recurs, file it with the retry-design question.
+
+**(c) oufe VERIFIED HEALED at 09:46Z** — re-selected 09:44:25Z (the backdate worked; the selector
+took oufe ahead of gaswholesalers on stamp age), and the served body is the proof: `/sitemap.xml`
+**200, 2,262 B, 19 `<loc>` = 19 deployed pages**. 404 → n/n inside an hour of finding it.
