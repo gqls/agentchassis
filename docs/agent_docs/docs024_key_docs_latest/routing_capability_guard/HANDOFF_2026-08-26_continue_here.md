@@ -881,3 +881,90 @@ whole spawn closure). But **both entries' evidence strings have now been found w
 and neither was caught by any of the three shape tests.** That is no longer a one-off; it is the
 roster's character, and it strengthens §9f's case for a totality test over guessing which entry to
 trust next.
+
+---
+
+## 13. RE-MEASURE 2026-08-31 (`v1.0.1349`) — nothing moved, and the reason matters
+
+**Everything below re-taken, not carried forward.** Four days, a fresh chassis, `[MEASURED 2026-08-31
+15:03Z]` throughout.
+
+### 13a. The lane is exactly where it was, and no decision has been acted on
+
+**201 commits since 2026-08-27 10:42, and ZERO touched this lane's files.** Verified over
+`write_audit_findings_field_capability.go`, `write_audit_findings_action.go`,
+`verify_acceptance_predicates_action.go`, this directory and `bugs_open/395`. So §9's defect is
+untouched, §9f's fix unbuilt, and every decision below is still open.
+
+- **`RFC_057` is still `Status: DRAFT`** — decision 4 unruled.
+- **Decision 2 has not started.** The `vigilant_designer_offer_analysis` lane is active and committing
+  daily, but on other work (H1b/H1c, `offer_ordering`, hero framing) — and it has **its own two
+  owner-routed asks pending** as of 08-31. §2.5's "his go-ahead has to reach that lane from him"
+  remains true and remains the blocker.
+- ⚠ **CORRECTION to §2.5: migration `602` is no longer free.** It is now
+  `602_tool_workflows_ask_for_related_pages_HOLD.sql`, another lane's. Decision 2's migration needs a
+  new number — do not write `602`.
+
+### 13b. Rule 3b on `v1.0.1349` — live, and 46 firings
+
+Three-way probe on `agent-chassis-6d6856d8d5-b4nwx`: `no_writer_for_page_field` **PRESENT**,
+`handler_reported_no_change` **PRESENT** (positive control), `zzz_invented_control_395` **absent**
+(negative control).
+
+**46 firings** (was 32 on 08-26), across **32 sites**, 2 dedup keys:
+
+| field | displaced handler | firings |
+|---|---|---|
+| `meta_description` | `page-build-handler` | 29 |
+| `title` | `page-build-handler` | 12 |
+| `meta_description` | `copy-editor` | 3 |
+| `title` | `copy-editor` | 2 |
+
+**`content-gap-planner` remains at ZERO after 14 further firings** — §9's defect is still latent, and
+the tripwire §10e names has still not tripped.
+
+### 13c. ⚠ Nothing has fired since 2026-08-28 11:42 — and the reason is NOT what it first looks like
+
+This needs care, because I got it wrong once on the way and the wrong version is the plausible one.
+
+**First reading (WRONG):** "0 audit findings filed fleet-wide since 08-28" — which would have meant the
+producers had stopped. **That query filtered on carrying a predicate**, so it answered a different
+question. The producers are emphatically alive: `reader-experience-audit`, `brief-fidelity-audit`,
+`offer-analysis`, `site-review`, `content-quality-audit` and `visual-design-audit` all filed **today**,
+the most recent at 14:57Z.
+
+**Correct reading, and the structural fact behind it:** **exactly ONE producer emits acceptance
+predicates at all — `offer-analysis`, 55 of its 244 findings (~23%) over 9 days.** Every other
+producer's findings carry none, so they can never reach rule 3b. The whole mechanism — rule 3b AND
+gate 1c — hangs off one agent.
+
+**And today's zero is NOISE, not a regression.** `offer-analysis` per day:
+
+| day | with predicate | its findings |
+|---|---|---|
+| 08-26 | 31 | 99 |
+| 08-27 | 10 | 77 |
+| 08-28 | 3 | 28 |
+| 08-31 | **0** | **5** |
+
+At a ~23% base rate, 0 of 5 is expected about a quarter of the time (`0.77⁵ ≈ 0.27`). **What actually
+changed is the producer's VOLUME (99 → 5/day), not its predicate rate** — and 08-29/08-30 were a
+weekend with no rows at all, while 08-31 was still in progress at 15:03Z. **Do not read the quiet as a
+fault, and do not read it as health either: the sample cannot support either claim.**
+
+### 13d. Landmine verdicts came back — one confirmed, one structurally unverifiable
+
+- **The §9 roster entry: re-run 2026-08-27 09:34 CONFIRMED the core footprint** —
+  `write_audit_findings_field_capability.go`, `pageFieldWriters`, `HandlerCanWriteField` and
+  `acceptancePredicateTextFields` all resolve at indexed commit `04fef6c1`. Still
+  `NEEDS_HUMAN_REVIEW` overall, for two honest reasons: the test file returned 0 rows (index
+  staleness), and *"the detailed census claims … cannot be mechanically verified from the symbol
+  index"* — which is correct and is why §9's first-hand verification is written out line by line. This
+  is a materially better verdict than the 08-26 run, which resolved only 1 of 5.
+- **The `who-owns.py` entry: `UNVERIFIABLE`** — all footprint items unresolvable because
+  **the index holds `.go` only** and `who-owns.py` is Python. Not doubt about the claim; the
+  instrument has no corpus for it. The claim was measured first-hand (`BUG_DIRS` at `who-owns.py:53`,
+  and the tool's own output).
+
+**Both are the same shape this lane keeps meeting: an instrument that could not have seen the answer
+returns something that reads like a negative result.**
