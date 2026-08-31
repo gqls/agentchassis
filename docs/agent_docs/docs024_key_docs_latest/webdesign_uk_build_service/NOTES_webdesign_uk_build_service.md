@@ -6730,3 +6730,26 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   needed); the header template's image-vs-text choice is the missing half.
   Between this lane and the design family; the 417 file names it unowned. On the
   owner's decision list alongside contact-page delete-vs-wire.
+
+## 2026-08-31 (~17:45Z) — 420 APPROVED with a real residual (identity-sync seam); ORDER-2 CRITICAL PATH named
+
+- **420 class fix council-APPROVED** (verdict 2026df60, 3 advisories). One
+  objection found a REAL residual the fix does not close: sync_site_identity
+  reads identity.contact.email / briefing.contact_email into sites.email — the
+  published-contact column — so a classifier-derived address becomes published
+  contact with nobody asked ([MEASURED by that lane] 28 current specs carry one;
+  cv1.co.uk has the fill PENDING). Routed to the OWNER (420 §C), stays with that
+  lane; boxingonline is already defended (both read-keys nulled by this lane's
+  scrubs — the residual retroactively proves the briefing scrub was necessary).
+- **ORDER-2 CRITICAL PATH (guardian's point, adopted into this lane's handoff
+  duty):** until the box intake chat asks "what contact details should the site
+  show?", every new customer site publishes NO contact — the ruling's known cost.
+  The chat change is box-side (owner-run env). **Opening ordering now gates on:
+  /pay/success + /pay/cancel pages (long-standing) AND the intake-chat contact
+  question AND the 420-fix roll.**
+- Corrections inherited from that lane's round, for census hygiene here: the
+  "4 estate sites affected" figure was wrong (real: 54 sites, 34 empty email /
+  20 with one, method attached); and note their broken verification (WHERE
+  status='active' — a value sites.status doesn't have) matched the objection that
+  caught it — the sharpest instance yet of "a REVISE round is cheaper than the
+  defect it finds".
