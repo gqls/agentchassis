@@ -6587,3 +6587,32 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   encodes a LIGHT theme — peer confirming at the artefact before we restyle;
   fix lands here as a deliberate reference_values change per the colour-churn
   landmine).
+
+## 2026-08-31 (evening) — the email had a FOURTH bake source; final verifier armed; owner asks for a standing critique surface
+
+- **The leak was never the mirror**: site_components slot 'footer' rendered_html held
+  the mailto (pages.rendered_footer is NULL site-wide, so deploy assembles from that
+  row), and `refresh_site_components:true` refreshed head+header while SKIPPING
+  footer — four independent clean-sweeps (sites, page_components, pages, site_specs)
+  each missed it. boxingonline session surgically cleaned the row (guarded tx) and
+  re-fired the wave (corr eef4de19). **420 addendum + a new LANDMINES entry**
+  (reconciler force stamps you to the BACK; 'checked' ≠ 'published') committed.
+- **Final verifier armed** (bbb7wqrzr): quiesce → force mirror (noted stamped
+  forward first) → per-page cache-busted probes with controls → targeted
+  page-rerender retries (my 16:01 batch of 13 raced the 16:10 footer fix, so
+  dirty-footer stragglers are EXPECTED) → 'fifth source' verdict rather than
+  latency-assumption if still dirty.
+- **PRE-DELIVERY LIST grew**: rebuild the hand-patched footer row through the
+  normal component-render path before handover.
+- **Owner request (this thread): a standing critique surface in the admin panel** —
+  REQUEST CHANGES + free-text on the pre-delivery review item, filed as work items,
+  routed to live threads by a polling watcher (cluster panel cannot push to
+  workstation threads; the watcher bridges). HandleApproveWorkItem already takes a
+  write-only `notes` field — wrong verb, nothing consumes it. Feature spec to be
+  written in this lane; core-manager changes go through council.
+- Palette: peer confirmed the lever at the artefact (palette row byte-identical to
+  reference_values; picker cascade puts it 2nd) but colour_mood contradicts ITSELF
+  (deep red/near-black AND warm off-white in one paragraph) and the 'boxing' library
+  palette is also light-bodied — the value choice is with the visual-designer lane;
+  I drive the change when values arrive. Competitor's vibrancy costs zero assets
+  (no <img> at all — gradients+type), so fix-before-delivery is realistic.
