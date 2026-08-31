@@ -374,7 +374,7 @@ measured against a FRESH MINT — 23% is the baseline it has to move.** ⚠ And 
 now binds my half: **demonstrations govern, instructions do not** — adding *"don't write X, not Y"*
 to the producer prompt is an instruction, and their canary is the evidence instructions lose.
 
-#### ⚠ H1c-i. THE RACE, NOT DESTRUCTION — a mechanism correction I made to my own side's evidence
+#### ⚠ H1c-i. ~~THE RACE, NOT DESTRUCTION~~ — **THIS SECTION WAS WRONG. I WITHDREW IT. Read H1c-ii FIRST.**
 
 Migration `668` (the 10 expansions) **refused to apply**, correctly, because `fundamentallyai` r2's
 FROM matched zero rows. The copy lane diagnosed it as *"the mint overwrites applied wash work
@@ -386,15 +386,52 @@ whole-row"* and was taking that to the owner as evidence for Decision E. **The t
 | producer regenerates `fundamentallyai.com` | **10:29:36Z** |
 | **migration 667 applied** | **10:34:30Z** |
 
-**The regeneration PRECEDED 667 by 5 and 11 minutes.** `fundamentallyai`'s current row is still the
-10:29Z one and there is no newer row — so **667 never washed those three points; its exact-text guard
-found nothing to match.** ⚠ **NO APPLIED WASH WORK HAS BEEN DESTROYED. 38 of 41 survive because 38 of
-41 are all that ever landed.**
+~~**The regeneration PRECEDED 667 by 5 and 11 minutes** … **667 never washed those three points** …
+**NO APPLIED WASH WORK HAS BEEN DESTROYED.**~~ ⚠ **ALL OF THAT IS FALSE — WITHDRAWN 2026-08-31. See
+H1c-ii.** The timestamps quoted are real; the inference from them is not.
 
 > **The conclusion holds and the argument is better without the overstatement: the wash went STALE
 > BETWEEN EXTRACTION AND APPLICATION**, on 2 of 32 sites, in a few hours. **A race the wash cannot win
 > by running faster** — which makes the case for gating the mint without claiming committed repairs
 > are being destroyed. `668`'s guard catching it is the system working.
+
+#### ⚠⚠ H1c-ii. WHAT ACTUALLY HAPPENED — a FALSE GREEN, and my correction above was itself wrong
+
+**667 DID apply.** Proven at the artefact after the copy lane contradicted me: the **superseded**
+`08-28` row holds **WASHED text at ranks 3, 4 and 5** and the **original** at rank 2 — exactly the
+signature of a successful wash where r2 was my own exclusion. **My "never washed" claim is
+WITHDRAWN.**
+
+**Why my instrument could not see it, which is the transferable half:** I queried `is_current` rows
+by `created_at` and reasoned *the current row predates the migration and there is no newer row,
+therefore it did not write.* **That inference holds only on a table that UPDATES. `site_specs`
+SUPERSEDES** — insert new, flip the flag — so a successful write leaves **no trace in any current row
+and no new row after the migration's timestamp.** The premise was a property of the table I never
+checked.
+
+**The true sequence, from three artefacts including 667's own in-transaction backup:**
+
+| event | time |
+|---|---|
+| 667 backs up `fundamentallyai` (holds the OLD texts — the artefact that settled it) | **10:28:41Z** |
+| producer inserts a new row, superseding the one 667 is repairing | **10:29:36Z** |
+| **667 COMMITS** — guards passed, success NOTICE, ledger stamped | **10:34:30Z** |
+
+⚠ **THE NAME FOR THIS IS A FALSE GREEN: success everywhere, live effect nowhere, no error anywhere.**
+38 of 41 points live; **3 washed inside a row with `is_current = false`.** The migration succeeded and
+changed nothing live on that site. **A wash cannot even KNOW whether its work is live while the mint
+writes** — which is the final form of the Decision E evidence, adopted by both lanes.
+
+**REQUIRED PRACTICE for the final wash pass** (agreed with `copy_quality_two_stage`, from my fix
+shapes): **re-assert `is_current` at COMMIT time**, or **advisory-lock the producer** for the
+transaction. ⚠ **A `RAISE` on zero matches does NOT help** — 667's fired correctly and the match was
+real when it fired.
+
+**Full trap:** `LANDMINES.md`, *"an exact-text migration against a versioned config table can pass
+every guard…"* (`a01bbce1a`). **My own miss:** `WRONG_CALLS.md` 2026-08-31 — I sent the withdrawn
+claim as an *urgent hold on evidence bound for the owner*, and **"my instrument disagrees with yours"
+is not evidence that mine is sound.** Both lanes reached confident opposite wrong mechanisms; only
+the artefact between them settled it.
 
 **Row-level corrections:** **5** rows no longer match the wash doc, not 3 — the fifth is
 `lampenkap.com` r3. Two of the five (`fundamentallyai` r2, `lampenkap` r3) are **exclusions** whose
