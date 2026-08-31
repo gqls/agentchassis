@@ -1125,3 +1125,22 @@ So the shed ORDER at-cap: (1) routine maintenance — first to be refused; (2) n
 builds; (3) research — most protected, shed last. D4 is now unblocked as the lane's first
 build item. Design work starts from RESEARCH §6 (per-class cost sketch) + the 08-21 decision
 table rulings; council review before/alongside the commit as platform code.
+
+## 2026-08-31 — D4 STAGE A BUILT, COUNCIL-SUBMITTED, APPLIED; the meter's first real figure
+
+Design in PLAN §D4 (committed b2e18b9b8); the 08-21/08-31 shed-order conflict marked visibly
+in RESEARCH §10 and flagged to the owner in chat (they can object; the 08-31 direct answer
+supersedes). Prices verified at platform.claude.com same day — NOT from memory (sonnet-5
+$2/$10/$0.20 introductory made permanent). Migration **671** + guarded ROLLBACK:
+- Dry-run in a rolled-back transaction on the live DB: exit 0, zero objects persisted.
+- Council corr `80df0963-12d9-46dd-b122-30258f57a8e9`, submitted after clean DRY_RUN admission
+  (first attempt used a flat plan array — the schema is plan{summary,edits,grounded_in,risks});
+  commit `82683fe07` carries `Council-Submitted:`. Verdict owed a read (~30 min).
+- **Applied 12:40:31Z**, artefact-verified: governor_state level 0 / **$2,113.08 August MTD** /
+  3.68M unpriced io tokens (gemini — surfaced, not dropped); config enabled=f, budget NULL.
+- ⚠ owed proof: the verify's own EXECUTE stamped computed_at — the SCHEDULER firing the task
+  is a separate fact ([[thunder-reaper-fires-but-has-never-reaped]]); check computed_at
+  advances past 12:40:32 unprompted. [result below]
+- **For the owner's budget number: August ran ~$2,113 with four outages truncating it.**
+  Stage B (Go claim-step refusal, opt-in) is next; C (interval ≤25s) stays gated on the
+  governor being live + exercised.
