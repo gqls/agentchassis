@@ -346,12 +346,73 @@ more variants without a word join the 41 as unchosen library weight. ⚠ **Three
 NOT concluded:** whether the planner *would* choose a carousel if it could see one (gap measured,
 counterfactual not); whether carousels are the right default at all (they trade scroll length for
 discoverability — his call); and **what honestly marks a component as horizontally traversable**.
-`644`'s precision came from the schema's declared `source`, not a template grep, and `scroll-snap`
-may be incidental styling. **That measurement is owed BEFORE anyone writes the arm.**
+~~`644`'s precision came from the schema's declared `source`… **That measurement is owed BEFORE anyone
+writes the arm.**~~ **RESOLVED SAME SESSION — see H2b. Do not re-take it.**
+
+#### H2b. The signal question is ANSWERED, and it made the ask smaller a second time
+
+**The sound signal is declared `semantic_tags`.** `[MEASURED 2026-08-31]` tag ~
+`carousel|swipe|slider` → **3 components, 3 of 3 genuine**, and **every tagged component also carries
+the markup** (tagged-but-not-marked-up = 0), so the tag never claims what the template cannot
+deliver — the same consistency property that made `644`'s derivation safe.
+
+⚠ **A TEMPLATE GREP WOULD HAVE BEEN ACTIVELY SELF-DEFEATING, not merely noisy.** It adds 9 active
+section components: **7 match on `overflow-x` and are wide TABLES and calculators**
+(`comparison-table`, `evidence-timeseries`, `header-docs`, `platform-comparison`, two calculators,
+`Ported Page`) where `overflow-x` is a scrollbar, **and the other 2 are `info-card-grid` and
+`case-studies-grid` — the GRIDS.** It would have told the planner that the plain card grid the
+carousels lose to **is itself a carousel**.
+
+⚠⚠ **AND THAT IS HOW THE REAL FINDING SURFACED: THE DOMINANT GRID ALREADY HAS A CAROUSEL MODE, AND
+IT IS OFF.** `info-card-grid` carries a **declared schema field** — `carousel`, `boolean`,
+`source: static`, guidance *"Optional. Set true to lay the cards out as a single-row horizontal
+carousel with prev/next"* — gating an opt-in stylesheet in its own template. `case-studies-grid` has
+the same from migration **559**.
+
+| component | live instances | sites | **flag ON** |
+|---|---|---|---|
+| `info-card-grid` | **42** | 21 | **1** (leopardessconsulting `/services.html`, 2026-08-25) |
+| `case-studies-grid` | 4 | 3 | **0** |
+
+**So the owner's ask is closest to a switch that already exists and is off on 41 of 42.** Not a
+component gap, and for that component not primarily a vocabulary gap. The estate's *silent mechanism
+is UNDRIVEN, not missing* shape. **Build order inverted: the flag is the cheapest lever, the
+vocabulary token (from `semantic_tags`, never the template) is second, and variants are last if at
+all.** ⚠ `carousel` is `source: static`, which the resolver returns `nil, true` for — **nothing
+derives it**, so it must be positively set per instance. *Who sets it, and on what evidence*, is a
+real decision and not a tidy-up. Full working: the CONTRIB in `staged_component_build/` §6
+(`fa549fd76`); the receiving lane has been told to read it before their own asks.
 
 **Not touched:** the deferred brief-fidelity verdicts on farmerinsurance (releasing another lane's
 held verdicts off a relay is not mine to do), and §2's logo-vs-identity finding — a real
 designer-family gap, genuinely unowned, but a different surface and not folded in here.
+
+### H3. The logo wordmark chain (`bugs_open/417`, owned by `loanzy_uk_example_site`) — CONTRIBUTED, not claimed
+
+Their file; I verified both halves first-hand and **contributed the blast radius into it**
+(`fe8819d5e`) rather than filing alongside. `[MEASURED 2026-08-31]` of **27** current-plan logo
+prompts, **19 mention `wordmark`** and **10 carry the planner exemplar's phrase `no text outside the
+wordmark` VERBATIM** — transcription, not inspiration, and the strongest live evidence of the
+quoted-exemplar hazard this lane has seen.
+
+⚠ **THE CENSUS TRAP, because the obvious verification of their fix returns a FALSE GREEN.** The
+exemplar phrase itself matches `no text`, so a census asking *"does this prompt forbid text?"* scores
+**21 of 27 safe** while **10 of those 21 are the contradictory ones**. **Count the wordmark LICENCE,
+not the prohibition.**
+
+⚠ **This is a REGRESSION against a documented rule, not a novel discovery** —
+`discovery_checks/default_brand_prompt.go:234` already builds *"no lettering or words"*, and its own
+comment at :231 says the rule is not decoration because generated wordmarks produce malformed text at
+favicon size. Two producers, opposite rules, neither aware of the other.
+
+**Candidate 1 repriced: necessary, NOT sufficient** — it stops the next 27 and repairs none of the 19,
+and a fixed exemplar above 19 live licensing prompts **reads as solved**.
+**Candidate 2 (pixels-vs-identity) explicitly NOT claimed by this lane**: a new capability rather
+than a fix, architecture-scope by the 2026-07-29 test, and it would be a guarantee conditional on a
+vision classifier that inherits its gaps — a stylised or occluded mark it misses returns a clean
+pass, and a clean pass from a blind check outlives the blindness. **Closed both ways; nothing owed.**
+⚠ Their note for whoever picks up the farmer instance: the **favicon and og-card carry the invented
+brand too**, and presence-based discovery will not refile them.
 
 ## §F — WHO OWNS WHAT NEARBY (changed since yesterday)
 
