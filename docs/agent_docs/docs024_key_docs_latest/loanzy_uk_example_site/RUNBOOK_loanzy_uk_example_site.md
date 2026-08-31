@@ -300,3 +300,19 @@ door; check the doors yourself in scheduled_tasks.pre_query, name='detected-item
 Gotcha that cost an hour: I copied the SHAPE of a completed row's spec but its handler_agent
 was set by its producer at filing, not by promotion — the flag-only exclusion is invisible
 because held_detail reports every REFUSED row and this one was never scored.
+
+## Retiring a page CLUSTER whose CTAs other pages advertise (learned 2026-08-31, the farmer tool cull)
+1. `pages.status='archived'` on the cluster; cancel moot review items.
+2. Fire `216_TRIGGER_page_retraction.sh` — expect REFUSALS for every page a live page links;
+   the referrers are in the RETRACTION_AUDIT row: `agent_error_log.context->'editorial_inbound'`.
+3. **Do NOT file plain rerenders for the referrers — they cannot help.** The guard reads
+   content_data (a rerender faithfully reproduces it), and the CTA recompute inside
+   page-rerender only runs for **`spec.reason='cta_links_stale'`**. File the misdirected-cta
+   check's own shape: item_type page_rerender, item_key `misdirected_cta:<page>:<site_id>`,
+   spec `{"check":"misdirected_cta","reason":"cta_links_stale","page_name":…,"page_id":…}`,
+   handler page-rerender, pipeline build, status detected.
+4. Verify the residue is ZERO before re-firing: count live components whose content_data
+   LIKE any archived url — the recompute can only rewrite fields in ctaFieldNames; a LIST
+   component (e.g. guide-list) holding the url needs its own treatment.
+5. Re-fire 216 with the refused ids. Acceptance stays two-part: 404 now AND still-404 after
+   the next ~08:0x/20:0x refresh with zero fresh page_rerender rows for the retired pages.

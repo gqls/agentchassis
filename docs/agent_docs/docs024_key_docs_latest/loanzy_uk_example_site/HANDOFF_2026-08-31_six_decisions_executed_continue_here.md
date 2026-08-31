@@ -71,3 +71,18 @@ origin; silence-retraction proven in production; farmer serving 18 active pages 
 (39 − 21). Working docs: NOTES (newest at bottom), RUNBOOK (hand-filing recipe + verdict
 queue + re-fire recipe), OWNER_REVIEW_2026-08-31 (findings + routing outcomes), PLAN
 (ADDITION 08-31 = decision 5 design), WRONG_CALLS + LANDMINES entries per their files.
+
+---
+> **CORRECTED 2026-08-31 (same session, later):** §2's "16 page_rerender items filed … so the
+> links drop at render" was WRONG twice over, and round 2 of the retraction refused all 13 to
+> prove it: (a) the guard reads **stored content_data** precisely BECAUSE a rerender rebuilds
+> from it (`retract_page_graph.go:145` — the estate had this documented); (b) the CTA
+> recompute inside page-rerender is **REASON-GATED — it runs only for
+> `reason=cta_links_stale`** (`rerender_page_sections_action.go:539`), and my items said
+> `tool_retirement`, so the recompute never ran. The 16 plain rerenders were a wasted cycle.
+> The working repair (in flight at correction time): **15 `cta_links_stale` rerenders**
+> (item_key `misdirected_cta:<page>:<site>` — the check's own shape) so `applyCTARecompute`
+> re-mints the CTA/hero targets from the LIVE page set; then re-fire the retraction for the
+> 13. The CTA values were safe to recompute because their `__cta_minted` stamps MATCH the
+> stored values — minted, not authored (cta_provenance.go). Watch the guide-list component on
+> guides-index separately — a LIST is outside the recompute's field set.

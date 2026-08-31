@@ -57054,3 +57054,12 @@ where a real check would go and it reassures every reader who does not try it. F
 which prints the total beside the verdict: *"0 of 36 sites … from 7013 scanned field(s) — a zero with
 zero scanned fields is a BLIND scan, not a clean fleet."* Tally:
 **reading-rule-the-artefact-cannot-answer**.
+- [2026-08-31, loanzy lane] Wrote into a handoff that 16 plain page_rerenders would make
+  archived-page links "drop at render", then fired a full retraction round on that belief —
+  round 2 refused all 13, zero progress. Two documented facts refuted it: the retraction
+  graph reads content_data BECAUSE rerenders rebuild from it (retract_page_graph.go:145),
+  and the CTA recompute is reason-gated to `cta_links_stale` (rerender_page_sections:539).
+  What caught it: the round-2 audit line "13 considered, 0 dispatched". Cheap check skipped:
+  grep the guard/graph builder for what it READS, and the repair action for its GATE, before
+  choosing a repair. Same family as "a repro is destroyed by the render" — the render
+  faithfully reproduces stored state; it never subtracts.
