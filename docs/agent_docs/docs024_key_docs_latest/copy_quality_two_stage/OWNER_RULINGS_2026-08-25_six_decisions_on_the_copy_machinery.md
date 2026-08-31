@@ -237,3 +237,29 @@ agreed on the shape and neither will wire it without his word.
 > chosen deliberately, with finetuning as the best demonstration OF THE PASS, not of the set.
 > Their figure is dated 2026-08-31 and describes the EXISTING corpus — re-measure after any
 > writer-model change.
+
+---
+
+## 2026-08-31 (evening) — rulings 13–14, from his critique of the Fable benchmark output
+
+**13. DENSITY IS A FAULT CLASS OF ITS OWN — models compress; copy must EXPAND.** His specimen:
+*"a small first project lets you judge the work on results"* — *"more of a riddle. I have to work
+out what results we're talking about and what work we're judging… it collapses so many thoughts
+into just a few words. It is the way models work so we need to put in effort to expand the words
+more to get a more readable and understandable, less dense text every time."* Consequence for the
+model trials: **the Fable verdict is DOWNGRADED to "register pass, density fail"** — the trials
+continue per ruling 11, with density a first-class criterion of the read from now on. (Instrument
+note, recorded against ourselves: this lane's read scored the output "passes decisively" — the
+read was against the criteria as they stood, and his ear extended them. The same lesson as the
+checklist: our read is not his ear either.)
+
+**14. RELEVANCE IS SUBTLE AND ORDERING FOLLOWS THE USER'S OWN QUESTIONS.** His specimen: *"No
+vendor pays us, so the choice is made on fit alone"* — *"unnecessarily direct and strong. It
+might be the fact but the relevance of the facts are more subtle"*: the real benefit (results not
+influenced by whoever might pay us) needs UNFOLDING, and it is probably far down the user's list —
+their first doubt is *"what this tool as a whole is going to get them and how much work it's
+going to be"*, then practicality, then data independence. The offer/benefit thread is asked to
+help *"see what users are after and what hidden questions they may be asking in their minds."*
+**Clarification implicit in his own message:** modelling the user's question hierarchy to ORDER
+content is licensed (he does it himself here); ASSERTING the hypothesis in copy is the presumption
+ruling 12 bans. Ordering: hypothesis-driven. Copy: offered, never presumed.

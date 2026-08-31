@@ -934,3 +934,18 @@ Decision two: "instead of" and "not just" are not among the five shapes the gate
 cannot see them at all — you named "instead of" in the trial, so this is confirmation plus a
 strictness call, and if decision one is "repair them all", the strictness question answers
 itself and both land as one change.
+
+---
+
+**2026-08-31, your reading of the Fable samples.** Both points taken, and they sharpen the whole
+programme. The model that stopped making comparisons still writes like a model in a different
+way: it compresses. "Judge the work on results" is four thoughts in seven words, and you're right
+that this is how models are — so expansion becomes deliberate work we do every time, and it's now
+a scored part of every model trial (Fable's verdict is downgraded to "register pass, density
+fail"; Grok and Gemini get judged on both from the start). And "No vendor pays us" taught the
+subtler lesson: a true fact, stated strongly, isn't yet a benefit — its relevance needed
+unfolding, and it likely isn't the first thing on a visitor's mind anyway. The ordering question
+— what a visitor's first doubt actually is, and the hidden questions behind it — has gone to the
+offer and benefit thread as you asked. One honest note against ourselves: our read had scored
+that sample "passes decisively"; your ear extended the criteria, which is the same lesson the
+checklists taught — our instruments order the work, and you remain the acceptance test.
