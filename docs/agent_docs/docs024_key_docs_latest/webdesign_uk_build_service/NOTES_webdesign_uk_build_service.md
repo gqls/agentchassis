@@ -6698,3 +6698,35 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   at the served site. Remaining pre-delivery: footer proper re-render · logo regen
   (after the 417 lane's plan-row fix) · palette (visual-designer values) · contact
   page (OWNER decision) · parked review items. Delivery chain still HELD.
+
+## 2026-08-31 (~17:30Z) — 420 class fix landed (other lane); recipes corrected; RE-SEED BLOCKED; logo regen FIRED
+
+- **420 class fix committed by the bugfix-420/417 session** (162877051, inert until
+  roll; owner gave the CLASS ruling directly: no explicit publish-consent → the
+  site publishes NO contact). Census surprise: the delivery chain NEVER read
+  sites.email in code — the 651 header's wording was convention. **Recipes
+  corrected in this lane** (651 header + RUNBOOK, commit 6eea185e6):
+  customer_email comes from `build_queue.direction->>'customer_email'`, never
+  sites.email.
+- **⚠ RE-SEEDING boxingonline is BLOCKED until the 420 roll** — verified live by
+  two sessions: direction still holds the payer address (durable order record,
+  correct) + sites.email deliberately empty ⇒ the CURRENT binary's
+  fill-only-if-empty seed REFILLS on any canonical build retry, and every
+  pre-check reads clean. In the RUNBOOK; LANDMINES entry added by the 420 lane.
+- **Logo regen FIRED** (plan row b56182fa washed by migration 680 — verified: the
+  prompt now voids all lettering and states the name-in-HTML contract). Fresh
+  needs_imagery item `1f9d647d` minted carrying the WASHED prompt verbatim (the
+  original item still holds the pre-wash licence — never reuse it); dispatched
+  image-build-handler (corr 4b133dea, receipt asserted). Baseline banked: served
+  logo is 400×218 (bugs_open/421's design-comp shape, measured). Verifier armed:
+  run → mirror → dimensional check (near-square per kindDefaults 1024×1024) +
+  bytes-changed; I will EYEBALL the new asset for lettering before calling it
+  done (a dimensional pass cannot see text).
+- **OPEN DESIGN DECISION, surfaced not decided**: migration 680's contract is
+  "text-free mark + brand name set in HTML beside it" — but chrome currently
+  SUPPRESSES the visible name when a logo image exists (alt text only), so a
+  text-free logo shows NO brand name anywhere. component_library.go computes
+  logo_text (falls back to company_name='Boxing Online' — no column change
+  needed); the header template's image-vs-text choice is the missing half.
+  Between this lane and the design family; the 417 file names it unowned. On the
+  owner's decision list alongside contact-page delete-vs-wire.
