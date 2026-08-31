@@ -1072,6 +1072,26 @@ sequestration (~11% of NPP anchor + pathway shares). Next: binding — cited vis
 `artifact_check` fences per the SFI pattern, and the 10/50/90 retention presets labelled
 as sensitivity scenarios against the ~11% anchor.
 
+### Binding DISPATCHED and half-landed (2026-08-31 ~14:00Z)
+
+`SEED_2026-08-31b_bind_tools_to_evidence.sql`: two `improve_tool` items → `tool-improver`
+(the route the framework used on itself twice on 08-26). Both completed in ~3 min, and —
+verified at the STORED components, not the status — both edits are REAL:
+`tool-blue-carbon-estimator` (updated 14:00:31) now carries the "Where these figures come
+from" block; `tool-bsf-waste-converter` (14:01:41) has lost both uncited "typical" ranges.
+Two `section_edit` delivery items are mid-flight (the live-page half; same chain as the
+08-26 mobile fix). **OWED next session:**
+
+1. Verify BOTH tools at the SERVED pages (external source links > 0 on blue-carbon;
+   "Typical trials report 40" and "Typical range 20 to 45" at zero on BSF; element ids
+   intact — the instruction forbade id changes).
+2. THEN install the fences: `artifact_check` entries per SEED_2026-08-25b's pattern for the
+   blue-carbon constants (10% DW/FW reference, 30% carbon, the 11%-of-NPP anchor sentence),
+   instance-scoped ids.
+3. Remaining smaller debts: hydroponic-solution-builder ("Source" mentions ×5, zero links),
+   VPD estimator + gas-unit converter (verify pure-physics claim, then say so in the
+   ledger), then T1 evidence-first.
+
 **And the register review sharpened the tool question**: the tool's 10/50/90 are RETENTION
 sensitivity presets applied to a user-entered fate split — a defensible model shape, but the
 literature anchor is ~11% of NPP reaching long-term storage, so "Optimistic 90% retention"
