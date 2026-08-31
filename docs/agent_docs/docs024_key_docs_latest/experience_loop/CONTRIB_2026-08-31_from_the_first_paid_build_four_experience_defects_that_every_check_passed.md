@@ -151,3 +151,111 @@ they didn't already have."* Today a visitor can leave with none of the three.
 
 Related: `bugs_open/419` (zero-section blog-post page — mechanism deliberately undiagnosed,
 090 corr `6ebdaf88` in flight by the delivery lane; do not duplicate).
+
+---
+
+# ADDENDUM 2026-08-31 (evening) — defect 1 resolved at the site, and it is a 20-SITE CLASS
+
+Written after the delivery lane fixed boxingonline and I re-measured. **The proposed check in
+defect 1 is now backed by three measurements rather than one, and the class census below is the
+reason it belongs in your layer rather than in one site's fix list.** All figures
+`[MEASURED 2026-08-31]`.
+
+## 1. The listing did NOT self-correct when the articles arrived
+
+I predicted in defect 1 that the guides squatted the editorial slot *because* zero articles
+existed. The delivery lane then built all six articles, deployed them, and re-rendered both
+pages. **The listing did not change.** Measured on the served pages after the articles were live:
+
+| | before | after articles built + rerendered |
+|---|---|---|
+| `/articles/index.html` `/blog/` links | 0 | **0** |
+| `/index.html` "Latest from the ring" `/guides/` links | 4 | **4** |
+
+So all six brief-promised articles were **built, serving, and linked from nowhere** — orphans.
+
+**This kills the "it will self-correct once supply exists" reading, including mine.** The check
+must run against `content_data` or the served page, and must NOT be assumed satisfied by supply
+appearing. A listing is not a view; it is baked data that a rerender faithfully reproduces.
+
+## 2. The mechanism — target resolution, not caching
+
+`rebuild_blog_listing` (`platform/orchestration/actions/rebuild_blog_listing_action.go`) is a
+registered LOCAL action, no LLM, and it writes `content_data` alongside `rendered_html` by design.
+**It is already a step in the live `rerender-pages` workflow** (steps: get_pages,
+check_pages_exist, deploy_js_snippets, mark_site_deployed, render_js_snippets,
+**rebuild_blog_listing**, create_rerender_items, render_site_components, check_refresh_components)
+and is the only agent fleet-wide carrying it. **So it ran on every rerender that night and did
+nothing.**
+
+`findBlogPage` (line 539) resolves its target two ways: `page_type = 'blog-index'`, else
+`name = 'blog'`. On boxingonline both were **0** — the listing page is `articles-index`,
+`page_type='section-index'`. The rebuilder could not find the page, no-opped, and **reported
+success**.
+
+That is the sibling of `bugs_open/220` ("rebuilds the container and reads green") one step
+earlier: **cannot find the container at all, and reads green.** Worth citing together.
+
+## 3. Why the guides were selectable as articles in the first place
+
+`tool-*-guide` pages carry **`page_type='blog-post'`**. So to anything asking "what are this
+site's blog posts?", the guides ARE posts. At build time they were the only such pages in
+existence, so a faithful listing took them. Not a resolver bug — a **typing** one.
+
+## 4. Resolved at the site — verified independently
+
+The delivery lane retyped `articles-index` → `blog-index` (which is `findBlogPage`'s own
+canonical state — strategy 2 *stamps* that type when it hits) and the four guides →
+`guide`, then rebuilt the home slot separately. I re-measured on the served pages rather than
+taking the report:
+
+```
+/index.html          blog_links=6  guide_links=0  control=12  email=0
+/articles/index.html blog_links=6  guide_links=0  control=6   email=0
+all six /blog/ targets -> HTTP 200
+```
+
+## 5. THE CLASS — 20 sites can currently list nothing but guides
+
+The site fix is right and the convention it diverges from is fleet-wide, so this is now a
+question for your layer, not for one lane. Census over active pages:
+
+```sql
+WITH x AS (SELECT s.domain,
+  count(*) FILTER (WHERE p.name ILIKE '%guide%' AND p.page_type='blog-post') AS g,
+  count(*) FILTER (WHERE p.page_type='blog-post' AND p.name NOT ILIKE '%guide%') AS r
+  FROM pages p JOIN sites s ON s.id=p.site_id WHERE p.status='active' GROUP BY 1)
+SELECT CASE WHEN g>0 AND r=0 THEN 'ONLY guides are blog-posts'
+            WHEN g>0 AND r>0 THEN 'MIXED' ELSE 'clean' END, count(*), sum(g) FROM x GROUP BY 1;
+```
+
+| shape | sites | guide pages |
+|---|---|---|
+| **ONLY guides are blog-posts — the boxingonline shape, any editorial listing can show nothing else** | **20** | **167** |
+| MIXED — guides listed alongside real posts | 9 | 65 |
+| clean | 6 | 0 |
+
+Worst offenders in the first group: webdesign.co.uk (52 guides, 0 real posts),
+gamesdesign.co.uk (13), loanandmortgagecalculator.co.uk (10), gaswholesalers.com (9),
+mortgagecalculator.co.uk (9), idea.uk (9).
+
+**And it is visible at the artefact, not just in the typing.** Spot-checked two MIXED siblings'
+served home pages: dartsonline.com carries 2 guide links beside 12 article links; agritec.uk
+carries 1 and 1. The guides are genuinely occupying editorial slots on live sites today.
+
+## 6. The tension, stated plainly, because it is a decision not a bug
+
+Guides-as-`blog-post` is the **measured fleet convention**. boxingonline now diverges from its
+siblings deliberately, on the owner's ruling that guides must not squat editorial slots. Both of
+these cannot stay true:
+
+- if the convention is right, boxingonline is an exception that will be "corrected" by the next
+  session that notices the divergence;
+- if the ruling is right, **29 sites are mistyped** and the retype is a fleet migration.
+
+`[UNVERIFIED]` which the estate wants. **My read is that the ruling is right and the convention
+is an accident** — nothing chose to file guides as editorial, it is just the nearest existing
+type — but that is a judgement, and it is worth a `guide` page_type being made real fleet-wide
+rather than each lane retyping in isolation. **Your durable check from defect 1 survives either
+answer**, which is the argument for building it first: *a listing's items must belong to the
+content class its heading promises*, asserted against the served page.
