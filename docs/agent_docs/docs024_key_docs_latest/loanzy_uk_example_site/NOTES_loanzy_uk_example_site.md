@@ -2223,3 +2223,24 @@ artefact + status pair, treat `error` on a completed row as history, not state.
   before the migration was written (0 locked rows; predicate is belt).
 - bug_historian: approve. Commit carries Council-Submitted (resolves at report time,
   forward-only — no amend). 417's candidate 1 is now APPROVED + APPLIED + verified.
+
+## 2026-08-31 — the cull's long tail: recompute arms, a LIKE-escape trap, and chrome last
+- CTA recompute cleared 27→8 components; survivors explained by the arm order: labels NAMING
+  the dead tools can't label-match (nothing live matches) and the positional pick had no valid
+  target (zero live interactive pages), so the final arm keeps stored — BY DESIGN. The served
+  html was nonetheless clean everywhere (the render layer sanitises dead internal links), so
+  the block was stored-state-only, with the real resurrection risk being a future rerender
+  under a non-recompute reason.
+- Mechanical cleanup (rehearsed ×3, applied): unlink body anchors keeping text; drop dead
+  minted CTA url fields + target_titles + stamp entries (labels LEFT for the copy lane);
+  empty the query-derived guide-list items. Backup: bak_farmer_cull_content_data_20260831.
+  16→0 components. **TRAP for the estate's silent-failure list: in a LIKE pattern, backslash
+  is the ESCAPE character — `LIKE '%href=\"'||url||'\"%'` built to match escaped JSON quotes
+  matches NOTHING (the \" collapses to bare "), so the anchor pass ran zero rows with exit 0.**
+  Caught only because the rehearsal's verify counted survivors. Fix: bare substring predicate;
+  keep the surgical part in the regex.
+- Round 4: 5 more deleted. Acceptance sweep: **18 of 21 retired urls 404; control 200; the 3
+  survivors are chrome-blocked** (header/footer site_components link 3 tools). Chrome rebuild
+  filed the check's own way (needs_rerender / item_key stale_chrome / refresh_site_components
+  — item cd50ce30); round 5 for the last 3 after it lands. Copy layer (52 orphan labels +
+  ~14 unlinked body sentences) handed to copy_quality with locations.
