@@ -130,3 +130,13 @@ sign-off on record) · `apis.uk` (the growth-refusal worked case; their park hol
 - Post-roll model filings WITHOUT `spec.origin` → the stamp is not writing; check ancestry again per service.
 - Farmer's classifier still unclaimed after ~24h → the queue-age finding is worse than measured; escalate with numbers.
 - The council filing nothing on farmer once built → `REFERENCE` §11 first bullet still applies.
+
+---
+> **CORRECTED 2026-08-31:** §3.3's "behaviour unproven" is RESOLVED — **PROVEN in
+> production**: 57 record verdicts self-retracted by the 3-silent-runs rule (resolved_by =
+> the seat, reason = the rule's own text), 228 mid-streak, 1,819 held; origin stamping total
+> post-roll (1,537 stamped; all 220 unstamped are pre-roll 08-26 + the one by-design
+> tool-acceptance absence). Evidence + queries: NOTES 2026-08-31 (later). Also since this
+> handoff: the owner's 08-31 farmer review — six findings verified, routed, four joined to
+> held verdicts (OWNER_REVIEW_2026-08-31_… in this dir), bugs_open/417 filed (planner logo
+> exemplar), farmer logo regenerating through the framework (item 3740f5f2).

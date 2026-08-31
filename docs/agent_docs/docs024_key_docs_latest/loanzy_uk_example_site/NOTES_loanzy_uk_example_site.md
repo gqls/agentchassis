@@ -2159,3 +2159,20 @@ instruction lived.
   to "a schema flag is off on 41/42" through two rounds of peer measurement in ~an hour —
   neither round mine, both because the routing message carried verified numbers worth
   answering. Correspond with measurements, receive measurements.
+
+## 2026-08-31 (later) — §3.3 PROVEN in production: the record verdicts self-retract
+[MEASURED 2026-08-31, clients_db] Across all record-mode rows (1,876): **57 retracted**
+(`status=complete`, `result.reason` = the recordModeSilenceRule text, `resolved_by` = the
+seat, e.g. offer-analysis "re-audited this site on 3 consecutive runs and reported no
+needs_content_page finding"), **228 carrying live streak bookkeeping** (105 at silent_runs=1,
+123 at 2), **1,819 still held**. The self-correction asymmetry works end-to-end with zero
+human intervention. Display quirk, not a defect: a retracted row's stored `silent_runs` reads
+2 — the count is written BEFORE the third run's resolve path closes the row; the reason
+string asserts the 3-run threshold. Origin stamp: 1,537 post-roll audit filings stamped
+`model_opinion`; ALL 220 unstamped rows have max(created_at)=2026-08-26 (pre-roll that day)
+plus the single by-design tool-acceptance absence — post-roll stamping is total.
+- 417 grew a peer half within the hour (offer-analysis, commit fe8819d5e, appended INTO the
+  bug file): the exemplar has propagated — 19/27 current-plan logo prompts license a
+  wordmark, 10 verbatim; census trap (count the LICENCE, not the prohibition — "does it
+  forbid text" scores 10 contradictory prompts as safe); candidate 1 repriced (stops the
+  next 27, repairs none of the 19 — their disposition must be stated).
