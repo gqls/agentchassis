@@ -968,3 +968,73 @@ fault, and do not read it as health either: the sample cannot support either cla
 
 **Both are the same shape this lane keeps meeting: an instrument that could not have seen the answer
 returns something that reads like a negative result.**
+
+---
+
+## 14. WHAT IS LEFT BEFORE THIS LANE CAN CLOSE (written 2026-08-31, at the owner's question)
+
+### 14a. The engineering is finished. One latent defect and four decisions are not.
+
+**Rule 3b — the thing this lane exists to have built — is DONE.** Live since `v1.0.1341`, still live on
+`v1.0.1349`, council-APPROVED round 1, four mutations run and observed failing, 46 firings across 32
+sites, every one correct. **Nothing about its behaviour is outstanding.** If this lane were only about
+rule 3b it would close today.
+
+It cannot close, because it is also the **system of record for four open decisions and one recorded
+defect**, and closing a file that holds the only account of those loses them.
+
+### 14b. The one piece of engineering left, and it is cross-lane
+
+**§9's defect: the roster's `title` entry is FALSE for `content-gap-planner`.** Latent — 46 firings,
+zero displacements of that handler — but real and verified.
+
+The fix is **§9f**, and it is deliberately not "add one entry": make the roster **total** over the
+handler universe so absence cannot mean "cannot write", plus a test asserting that totality. It is
+maybe half a day.
+
+**It is blocked on nothing except a decision to do it** — but it touches `HandlerCanWriteField`, whose
+other caller is the `vigilant_designer_offer_analysis` lane's emit gate, so it wants their agreement
+and a council round. **It is decision 3 in disguise**: ruling "build the totality test" and ruling
+"fix §9 properly" are the same instruction.
+
+### 14c. The four decisions, and what each actually blocks
+
+| # | decision | state | what it blocks | whose |
+|---|---|---|---|---|
+| 1 | may an automated finding rewrite a published page description? | **RULED (c)**, then blocked | every repair of the 32 recorded findings | owner, then a build |
+| 2 | widen the predicate vocabulary beyond `title`/`meta_description` | **RULED (widen)**, stalled | gate 1c's negative control; promoting it from recording to refusing | owner → the other lane, directly |
+| 3 | build the roster audit, or accept the residual | open | §9f, i.e. the last engineering here | owner |
+| 4 | `RFC_057` — is `HandlerCanWriteField` a contract needing more than a note? | open, **still DRAFT** | nothing operationally; it is the "should this seam exist this way" question | owner |
+
+**Only decision 3 blocks work inside this lane.** 1 and 2 block work in other lanes; 4 blocks nothing
+and is a design ruling that can be taken at leisure — **but it is also the one that could dissolve 3**,
+since if the roster is the wrong shape entirely there is no point making it total.
+
+### 14d. ⚠ The risk of leaving it exactly as it is
+
+**A decisions record that grows while no decision is taken becomes a lane nobody closes and nobody
+reads.** This file is now ~970 lines. It has absorbed a post-roll verification, a cross-lane fix, two
+peer exchanges and three re-measures — all of it honest, none of it a decision being resolved. That is
+the `a-handoff-outlives-the-work-it-asked-for` shape: the stranger it is written for cannot tell which
+parts are still live.
+
+**The cheapest correct outcome is to re-home rather than to close or to grow:**
+
+1. **Decision 3 → rule it, and §9f closes the lane's engineering.** One instruction.
+2. **Decision 4 → it already has a home (`RFC_057`).** This lane should not be its record; point at it.
+3. **Decision 2 → belongs to the other lane the moment the owner speaks to them.** Not this lane's to
+   hold.
+4. **Decision 1 → the largest, and the least this lane's.** Its subject is `pages.meta_description`,
+   owned by `bugs_open/320`'s lane, and §12 shows the authority already exists as an opt-in flag. It
+   wants its own file, not a section here.
+
+**Then this lane closes with one residual: §9's latent defect, fixed or explicitly accepted.** That is
+the only item whose home is genuinely here.
+
+### 14e. If a future session reads nothing else
+
+- Rule 3b works and is not the problem.
+- The roster it reads has a **false `title` entry** (§9) that has never yet bitten (§13b).
+- The tripwire for it going live: a `content-gap-planner` row in the `would_have_routed_at` column.
+- The whole mechanism hangs off **one producer** (`offer-analysis`, §13c). If that producer stops, rule
+  3b and gate 1c both go silent — and silence will look like health.
