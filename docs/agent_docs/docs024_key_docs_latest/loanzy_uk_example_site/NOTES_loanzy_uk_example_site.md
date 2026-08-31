@@ -2187,3 +2187,19 @@ tripped (the natural test the bug wanted). One oddity, noted not filed: the comp
 099 landmine (there: FAILED shows COMPLETED with error NULL; here: COMPLETE keeps a dead
 error). A census filtering `error IS NOT NULL` counts this healthy row as broken — trust the
 artefact + status pair, treat `error` on a completed row as history, not state.
+
+## 2026-08-31 — farmer logo FIXED at the pixels, end-to-end through the framework
+- Regeneration item 3740f5f2 (after the RUNBOOK's handler_agent/pipeline fix) promoted →
+  claimed → complete. The handler UPDATED the asset row IN PLACE (same id a88c0e99, same
+  /assets/images/logo.png url; origin_prompt now the corrected one; storage_path a new
+  20260831 object) and the brand_update path deployed the bytes 22s later — served
+  last-modified 11:00:33Z, size 119,866.
+- **Verified at the artefact, by eye:** fetched the served PNG and looked — farmhouse-in-
+  shield mark, wordmark reads exactly lowercase "farmerinsurance", cleanly lettered. The
+  exact-named-wordmark positive prompt worked where the unnamed licence invented "Farm
+  Shield Info". (One instance ≠ the craft rule refuted — 417's default stays "no lettering";
+  the named-wordmark form is the owner-directed exception on this site.)
+- favicon + og_card still derive from the OLD logo (served last-modified 00:36Z < 11:00Z) —
+  presence-based discovery cannot refile them, exactly as predicted. Two
+  needs_brand_head_assets items filed promotable (66e0f086 favicon, 7a7261e4 og_card),
+  monitor armed to terminal + served freshness.
