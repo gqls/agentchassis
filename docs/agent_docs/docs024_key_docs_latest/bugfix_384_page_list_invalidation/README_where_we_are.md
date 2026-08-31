@@ -120,3 +120,52 @@ someone else's to pick up, and nothing is damaged in the meantime.
 before committing cannot be run at all — it refers to a name that was renamed two days ago and
 never updated, so it fails to compile. It is another team's file and I have not touched it, but
 it means that particular check has been silently unavailable to everyone since 23 August.
+
+## 31 August — I picked this back up after five days, and I am NOT closing it
+
+The last note here said the listing bug was fixed, proven four times, and ready to be closed. I
+came back to do exactly that, re-checked everything first, and found a page still showing the
+fault. So it stays open.
+
+**What the bug is, in one line.** When a page gets its little thumbnail picture, the index page
+that lists it is supposed to notice and start showing that picture. It wasn't noticing.
+
+**What I found today.** On leopardessconsulting.co.uk, the blog index is still showing two
+entries as plain text with no picture — and they are the first two in the list, so it is the most
+visible spot on the page. The pictures for them were created on 27 August. It is 31 August. I
+checked this on the actual live web page, not in the database, because the database is where I
+would only be reading my own homework back to me.
+
+**The part we built works.** The moment those two pictures arrived, our new code noticed within
+about four hundredths of a second and correctly asked for the page to be refreshed — nine times
+over, each request correctly addressed. So the detecting half is doing its job.
+
+**The part that failed is the doing.** Two of those refresh requests were picked up and reported
+success. They even published a new copy of the page. But the list of entries they were supposed to
+rebuild was never actually rebuilt — I can see it was last touched an hour *before* the pictures
+arrived. So the system told itself it had done the work, and had not. That is the shape of thing I
+care most about, because it is invisible: everything reads green.
+
+**I do not yet know why, and I have deliberately not guessed.** The detailed record of what those
+runs did is only kept for about a day, so the evidence from 27 August is gone. I can rule out the
+obvious suspect — I checked the live setting that decides which mode a refresh runs in, and it is
+correct. Working out the rest properly needs one diagnosis run, which I have not fired yet.
+
+**A large caveat I nearly missed, and a correction to myself.** The whole fleet was very quiet for
+the last few days, and I first wrote that up as an unexplained problem, guessing it matched a bug
+another team had filed. That guess was wrong and I have corrected it in the record. The truth is
+simpler: we ran out of API credit. Another team had already measured it precisely — everything was
+refusing from 28 August until about ten to nine this morning, when it recovered. No picture has
+been produced anywhere for two days because of it.
+
+**Why that matters for the decision.** Our fix looks healthy today partly because nothing has been
+asking it to do anything. A test that passes because nobody rang the doorbell is not a test. That,
+plus the page above, is why closing this today would have been the wrong call.
+
+**The other thing, unchanged.** There are still fourteen missing pictures across three pages that
+you own and edit yourself. Our fix structurally cannot reach those — it is not a bug in it, it is a
+gap next to it, and it needs its own small piece of work. That has not moved.
+
+**Where it stands.** Nothing is broken by any of this, nothing is in flight, and nothing needs a
+decision from you this minute. What is owed is one diagnosis run on that single 27 August refresh,
+and then a proper re-check now that the credit is back and the machines are working again.
