@@ -1755,6 +1755,162 @@ def check_register_entry_without_row(files, ref, findings):
         ))
 
 
+# ── a roll-pending register status that does not name its commit ──────────────
+#
+# THE RULE (concept-register lane, item 1 across four handoffs): an entry whose
+# status is CONDITIONAL ON A ROLL must name the commit that carries it. It costs
+# nine characters when written, and it converts "did this ship?" from an
+# inference into a query — `git merge-base --is-ancestor <sha> <the service's
+# build-provenance stamp>` (CLAUDE.md § Building & deploying). Without it, a
+# reader can only date the claim by guessing which commit the author meant.
+#
+# ⚠ STRIKETHROUGH IS STRIPPED BEFORE THE TEST, and that is load-bearing, not
+# cosmetic. The register's convention for a resolved claim is to strike the old
+# text and append the correction, so `~~inert until the next roll~~ → LIVE` still
+# CONTAINS the trigger phrase while asserting its opposite. [MEASURED 2026-08-31]
+# 24 of 125 roll-conditional statuses are withdrawn exactly that way — without the
+# strip they are 19% of all fires and every one of them is wrong.
+#
+# A VERSION TAG COUNTS AS AN ANSWER. "LIVE on chassis v1.0.1322" dates the claim
+# as well as a sha does. [MEASURED 2026-08-31] that exemption removes 4 further
+# false fires (SEO-003, SYS-092, PLAN-027, LNK-034). A hex token, by contrast, is
+# only accepted once git RESOLVES it to a commit — see _dates_its_claim.
+#
+# THE SHA PATTERN REQUIRES A DIGIT. Ordinary English words built only from
+# [a-f] are real — "defaced", "effaced", "acceded" are each 7 hex characters —
+# and would otherwise read as a cited commit. Requiring one digit costs nothing
+# (a real sha without a digit is a 1-in-10^7 curiosity) and the residual error
+# is a FALSE NEGATIVE, which is the safe direction for an advisory check.
+ROLL_PENDING_RE = re.compile(
+    r"inert until|rides the next roll|not yet live|until the roll|pending roll"
+    r"|ships (?:on|with) the next|awaiting a roll"
+    r"|next (?:chassis |fleet |core-manager |image )?roll", re.I)
+SHA_TOKEN_RE = re.compile(r"\b(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b")
+VERSION_TAG_RE = re.compile(r"\bv1\.0\.\d{3,5}\b")
+
+
+def _dates_its_claim(text):
+    """True if `text` says WHICH roll would settle it: a version tag, or a hex
+    token that git resolves to a real commit.
+
+    ⚠ THE GIT LOOKUP IS THE POINT, not belt-and-braces. A council correlation id
+    is 8 hex characters with digits and is indistinguishable from a short sha by
+    pattern alone — `LNK-040` carries `corr e9bda035` today, and a regex-only
+    test exempts that entry on a value that says nothing about which roll shipped
+    the code. One call settles it: `e9bda035^{commit}` does not resolve,
+    `bf1fbc5b7^{commit}` does. Both directions verified 2026-08-31.
+
+    An ambiguous or foreign short sha also fails to resolve, so it FIRES. That is
+    the safe direction for an advisory check: the cost is one line asking the
+    author to be explicit, against silently accepting a token that dates nothing.
+    """
+    if VERSION_TAG_RE.search(text):
+        return True
+    for tok in SHA_TOKEN_RE.findall(text):
+        r = subprocess.run(["git", "cat-file", "-e", f"{tok}^{{commit}}"],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            return True
+    return False
+STRIKETHROUGH_RE = re.compile(r"~~.*?~~", re.S)
+REGISTER_STATUS_RE = re.compile(r"^- \*\*(status|status-evidence)[^:]*:\*\*\s*(.+)$")
+
+
+def check_register_roll_claim_without_commit(files, ref, findings):
+    """A register status claiming "inert until the next roll" that names no commit.
+
+    THE BUG. A status line is the register's current-state claim, and council
+    seats read those as ground truth (LANDMINES: "a concept-register STATUS line
+    is a snapshot that outlives its truth"). "Built, inert until the next chassis
+    roll" is the most perishable shape it has: it is true for hours and wrong for
+    ever afterwards, and NOTHING in the sentence says which roll would settle it.
+    A reader who wants to know whether the thing shipped has to guess the commit
+    from the date and the lane, which is exactly the inference CLAUDE.md retired
+    when every binary began stamping its own provenance.
+
+    WHY AT COMMIT TIME AND NOT IN THE DAILY WATCHER. The author is the only
+    person who knows the sha without looking it up — it is the commit they are
+    making. A watcher reports the gap the next morning, to nobody in particular,
+    by which time recovering the sha is archaeology. Put the check where the
+    error is made.
+
+    ONLY ADDED STATUS LINES FIRE. [MEASURED 2026-08-31] 28 of 101 live
+    roll-pending statuses in the committed corpus carry neither sha nor version
+    tag. That is accepted backlog and this check never mentions it: flagging
+    28 pre-existing entries on every register commit is how a check becomes
+    wallpaper (the same reasoning as check_register_coverage's ratchet). A
+    reworded or relocated entry does not fire either — only a newly written claim.
+
+    MEASURED BEFORE INCLUSION, per this file's bar.
+
+    Census over all 2,027 entries at HEAD 028c3e112: 125 roll-conditional, 24 of
+    them withdrawn via strikethrough, 101 live, 28 undated. Spot-read of the
+    residual found no false positives — the two that looked wrong (WII-025,
+    TL-045) both turned out to carry a genuine undated Go-side roll claim further
+    along the line.
+
+    FIRE RATE: 8 of 45 register-touching commits (17%), 2026-08-26 to 08-31 —
+    NAV-014, DGH-018, IMP-058, LNK-040 (twice), IMP-056, WII-036, PBP-049, each
+    reading "built/committed, inert until <x>" with no commit named. Run with a
+    demand control in the same loop (`bf1fbc5b7`, a known positive) — the first
+    attempt at this measurement reported 0/45, and the zero was a broken grep in
+    the harness, not a quiet check.
+
+    ⚠ THAT RATE WAS 2% BEFORE `_dates_its_claim` STOPPED TRUSTING BARE HEX. Seven
+    of the eight were being exempted by tokens that merely LOOK like short shas —
+    correlation ids, mostly. A regex-only version of this check would have
+    reported itself as quiet and useful while silently passing the majority of
+    the cases it exists to catch.
+    """
+    touched = [f for f in files
+               if f.startswith(REGISTER_ROOT) and f.endswith(".md")
+               and "/" not in f[len(REGISTER_ROOT):]
+               and not os.path.basename(f).startswith("000_")]   # the index mirrors entries
+    if not touched:
+        return
+
+    for path in touched:
+        # Status lines this commit ADDS. A '-' line is deliberately ignored: an
+        # entry moved between category files, or a status reworded, shows as an
+        # add and a delete, and neither is a new claim needing a sha.
+        added = set()
+        for line in raw_diff(path, ref).splitlines():
+            if not line.startswith("+") or line.startswith("+++"):
+                continue
+            m = REGISTER_STATUS_RE.match(line[1:].rstrip())
+            if m:
+                added.add(m.group(2).strip())
+        if not added:
+            continue
+
+        # Attribute each added status to its entry by walking the COMMITTED file:
+        # a diff hunk does not carry the `### ABC-001` heading it sits under, and
+        # a finding that cannot name the entry is one the author has to go and find.
+        entry = None
+        for line in committed_content(path, ref).splitlines():
+            h = re.match(r"^### ([A-Z]{2,4}-[0-9]{3})\b", line)
+            if h:
+                entry = h.group(1)
+                continue
+            m = REGISTER_STATUS_RE.match(line.rstrip())
+            if not (m and entry and m.group(2).strip() in added):
+                continue
+            claim = STRIKETHROUGH_RE.sub(" ", m.group(2))
+            if not ROLL_PENDING_RE.search(claim) or _dates_its_claim(claim):
+                continue
+            findings.append((
+                "roll-claim-without-commit", path,
+                f"{BOLD}{entry}{RESET}'s {m.group(1)} says it waits for a roll, but names no commit",
+                "Add the sha that carries it — `git rev-parse --short HEAD` once you have "
+                "committed, or the sha of the commit that built it. That is what turns "
+                "\"did it ship?\" into a query rather than an inference: "
+                "`git merge-base --is-ancestor <sha> <the service's build-provenance stamp>`. "
+                "A version tag (`v1.0.1322`) counts too, and a claim you have since struck "
+                "through does not fire. Nine characters now; otherwise the next reader dates "
+                "your entry by guessing.",
+            ))
+
+
 def check_logged_model_output(files, ref, findings):
     """bugs_open/083 + council corr e004fd81 — logging an LLM response verbatim.
 
@@ -2154,6 +2310,7 @@ CHECKS = (check_untouched_twin, check_gofmt, check_stdin_eater, check_kcat_stdin
           check_truncation_without_reader, check_logged_model_output,
           check_new_capability_surface, check_register_coverage,
           check_register_entry_without_row,
+          check_register_roll_claim_without_commit,
           check_runtime_fill_marker, check_unrepaired_component_write,
           check_unscoped_component_render,
           check_dynamic_item_type, check_scan_swallow,
