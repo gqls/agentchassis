@@ -6317,3 +6317,25 @@ step — amount shown, Pay clicked — it is simply fast with a remembered card.
   open Monday, the durable options remain the 08-26 note's: a lock on index, or moving
   the label into the framework so rebuilds carry it. Three hand re-placements is the
   tally arguing for one of them.
+
+## 2026-08-31 (Monday, delivery-lane session) — P5 BUILT + council-submitted; 661 APPLIED (disabled); budget plan written
+
+- **P5 (the build-release wiring) is BUILT**: `seedCustomerIdentity` in
+  seed_build_queue_action.go — intake-direction builds get sites.email/company_name
+  (existing-value-wins, regex-pinned) + a two-fact evidence_base register (customer's
+  attestations, BR reference in the attestation line) in the same tx as the first work
+  item; non-intake builds untouched (test enforces ZERO db calls); no-clobber is the
+  SQL's WHERE NOT EXISTS. Three named mutations each killed a test.
+  `Council-Submitted: 7e3dd082`; HEAD verified building. **INERT UNTIL A ROLL.**
+- **Seed 661 APPLIED** (2nd attempt — its agent_category 'orchestrator' violates
+  check_ad_category; fixed to 'coordinator', the live orchestrator pairing):
+  `order-intake-collector` active, `order-intake-collect` task present **DISABLED**
+  at 900s, both verified post-apply. **Enable sequence**: owner's fleet deploy →
+  ancestry check (today's P5 commit vs the running chassis stamp) →
+  `UPDATE scheduled_tasks SET enabled=true, updated_at=now() WHERE name='order-intake-collect';`
+  → first tick within 15 min → BR-9AUZ59's brief releases → watch build_queue/sites.
+- **Budget separation plan written** (owner-requested, discussion-starter):
+  `PLAN_2026-08-31_api_budget_separation.md` — the chat is separable in ONE env line
+  (own binary/env/guards; owner runs the swap so the key never enters a session);
+  key-split/workspaces as the middle; own-cluster costed and not recommended on
+  budget grounds alone.
