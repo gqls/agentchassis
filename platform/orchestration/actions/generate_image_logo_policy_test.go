@@ -34,6 +34,7 @@ import (
 
 	"github.com/gqls/agentchassis/pkg/models"
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"go.uber.org/zap"
 )
 
@@ -287,5 +288,64 @@ func TestResolveKindClosesTheLegacyParentGapAndSurfacesDisagreement(t *testing.T
 				t.Fatalf("Conflict = %q, wantConflict=%v", got.Conflict, c.wantConflict)
 			}
 		})
+	}
+}
+
+// TestImagePolicyEventKeepsItsExplicitProvenance — council round 3 raised a
+// gating HIGH (tooling_provenance, echoed by prior_art and editquality) that
+// rewiring recordImagePolicyEvent onto LogActionEntryInheritingProvenance might
+// "swap one silent record-nulling bug (the doc_notes constraint) for another",
+// because the estate carries a landmine titled "LogActionEntry's merge fills a
+// provenance you meant to set — and every test in the package stays green".
+//
+// The premise is refutable and this test is the refutation, kept as a GUARD so
+// it cannot go stale the way the objection's reading of the landmine did:
+//
+//   - the landmine is marked ✅ FIXED AND LIVE (v1.0.1268, 2026-08-08) and says
+//     in its own body "The merge only fills fields left ZERO, so a named field
+//     can never be overwritten"; its header warns "read the new-API paragraph at
+//     the bottom, not the pre-roll one above it";
+//   - resolveProvenance's inherit branch only assigns when the field is "";
+//   - inheritJoinIdentity touches WorkItemID/OrchestrationID/AgentID/PodName
+//     ONLY, and never SiteID, AgentType or StepName.
+//
+// The seat was right to ask. "Every test in the package stays green" is exactly
+// the landmine's stated failure mode, so the honest answer is a test that would
+// NOT stay green.
+//
+// MUTATION THAT MUST BREAK THIS: make resolveProvenance's inherit branch assign
+// unconditionally (drop the `if entry.AgentType == ""` / `if entry.StepName ==
+// ""` guards) — the explicit values are then clobbered and this test fails,
+// which is precisely the defect the objection feared.
+func TestImagePolicyEventKeepsItsExplicitProvenance(t *testing.T) {
+	entry := agenterrors.Entry{
+		SiteID:       "11111111-2222-3333-4444-555555555555",
+		AgentType:    "image-generator",
+		StepName:     "call_logo_generation",
+		Action:       "generate_image",
+		ErrorCode:    "image_kind_conflict",
+		Severity:     "warning",
+		ErrorMessage: "declarations disagree",
+	}
+	params := ActionParams{
+		StepConfig: models.Step{Name: "some_other_running_step"},
+		Logger:     zap.NewNop(),
+	}
+
+	resolveProvenance(params, &entry, true, zap.NewNop())
+
+	// The detector this round leans on is only meaningful if its rows are
+	// attributed to the site and step that actually produced them.
+	if entry.SiteID != "11111111-2222-3333-4444-555555555555" {
+		t.Fatalf("SiteID was overwritten by the provenance merge: %q", entry.SiteID)
+	}
+	if entry.AgentType != "image-generator" {
+		t.Fatalf("AgentType was overwritten by the provenance merge: %q", entry.AgentType)
+	}
+	if entry.StepName != "call_logo_generation" {
+		t.Fatalf("StepName was overwritten by the provenance merge (got the running step?): %q", entry.StepName)
+	}
+	if entry.ErrorCode != "image_kind_conflict" {
+		t.Fatalf("ErrorCode mutated: %q", entry.ErrorCode)
 	}
 }
