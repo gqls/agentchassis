@@ -57169,3 +57169,34 @@ quote reads exactly like a complete one, and nothing downstream can tell.**
   in the file was one grep). Tally: **asserted-an-absence-in-a-mechanism-I-had-only-read-the-top-of**
   (kin of cite-the-arm-not-the-function: I cited RenderPromptTemplate's parse/execute arm and
   described the whole function from it).
+
+- **2026-08-31, experience_loop** — building the listing-class promise check, three wrong calls in
+  one afternoon, all of the same family: **I asserted a signal without asking whether it could
+  have come out otherwise.**
+  (1) **The promise came from the subtitle.** My first cut read heading+subtitle as the promise.
+  Of its 8 fleet findings, **4 were the subtitle naming a class in passing** — homegarden's prose
+  ends "…the Garden Jobs Finder", lampenkap's was an item excerpt saying "the companion guide sets
+  out the method" — and for the 139 listings whose promise lives only in markup, "the first `<p>`"
+  IS AN ITEM'S OWN EXCERPT. **I had built a promise-reader that reads the items and calls it the
+  promise.** Caught by opening all 8 findings instead of counting them. Cheap check skipped: print
+  which regex matched which words, on the first run, before believing any finding.
+  (2) **`/blog/` is not "editorial".** I classified item class from the url segment and reported
+  dartsonline's "All guides" and agritec's "Technical explainers" as broken for listing `/blog/`
+  items — on an estate that files guides under `/blog/` (246 pages across 30 sites typed
+  `blog-post`). Same mistake as the `page_type` rule I had just refuted, one column along. Now a
+  stated blind spot in the detector rather than a false finding.
+  (3) **`--self-test` passed while `write_doc_note` did not exist.** A patch silently failed to
+  apply; every fixture passed because no fixture called that path, and the CronJob found it in the
+  cluster with a `NameError` on its first run. **A self-test cannot vouch for a path it never
+  calls.** Fixed by splitting `note_body()` out so a fixture can reach it.
+  Also worth its own line: **the live positive control expired mid-build.** I named
+  boxingonline.com/index.html as the detector's positive control on evidence I had read myself
+  (~16:45Z: four `/guides/tool-*-guide` items under "Latest from the ring"). By my first fleet
+  scan (`measured_at` 16:57:20Z) it was gone, and the row's `updated_at` reads 16:57:33Z — the
+  webdesign lane's rerender, repairing the site while I built the check for it. **I cannot say
+  from the evidence I have whether the flip landed before my read or between two writes**
+  (`page_components` keeps one timestamp, not a history), and the exact minute does not matter:
+  the control read FAIL on a working detector, inside twelve minutes. Live pages are not controls
+  on this estate — the fixture is.
+  Tally: **signal-asserted-without-a-disconfirming-case** ×3, and
+  **a-control-that-names-a-live-page-has-a-shelf-life-in-minutes** ×1.

@@ -1027,3 +1027,102 @@ genuine pre-update copies, i.e. the block is absent from them.
 Mechanism, evidence and the five measurement traps:
 `docs024_key_docs_latest/bugfix_138_degraded_gates/HANDOFF_2026-07-31_continue_here.md`.
 Tool: `scripts/apply-seat-length-budget.py` (idempotent; `--verify` reports live state).
+
+---
+
+## 2026-08-31 — lane resumed after five weeks; CONTRIB ask 1 built, LIVE, and its proposed rule refuted first
+
+**Where the lane actually was**, read before touching anything (the memory entry was stale by
+five weeks and still said "NEXT = T4 MVP build"):
+- Last own-lane action was **run 12, 2026-07-23** (corr `fa4b77cd`): REJECTED on a correct
+  feasibility veto — the plan gated Journey A on a tools-api that did not exist. That REJECTED
+  plan is still `is_current` for `vonc-spark-game` and **must not be built from**. The vonc build
+  cycle itself belongs to `gauntlet_dead_cta` (owner revision 2026-07-23).
+- `HANDOFF_2026-07-28_appeal_dimension.md` §6 told a new thread to start with `contrast_ratio`.
+  **Both its first moves are DONE by other lanes** — `no_horizontal_overflow`'s fix shipped
+  `5042d5ecb`, and `contrast_ratio` now exists in the browser-runner
+  (`internal/adapters/browserrunner/contrast_check.go`, with tests and cascade attribution).
+  Do not restart either.
+- 2026-07-31: our 10 seat prompts gained a length budget (another lane's notice, above).
+- 2026-08-31: **the CONTRIB from the first paid build** arrived with four asks. That is the live
+  inbox, and ask 1 is what this entry is about.
+
+### Ask 1 built: `scripts/audit-listing-class-promise.py` + CronJob `listing-class-promise-check`
+
+**Live and verified at the artefact, not at the apply:** CronJob `25 7 * * *` UTC,
+`suspend=false`; manual run `lcp-verify-2`, pod `lcp-verify-2-2qgk9`, **`exitCode=0`**;
+`doc_notes` receipt at 17:06:53Z under `subject_key='listing-class-promise'`. One row per run
+including clean runs, so a missing row means the job did not run.
+
+**Live finding: 1** — `leopardessconsulting.co.uk/blog.html`, heading "Latest Articles",
+**7 of 13** items are `/guides/tool-*-guide` pages. Second site, same shape as boxingonline,
+found by the detector rather than by a reader. Not dispatched anywhere yet — see "what I did not
+do" below.
+
+### The CONTRIB's suggested rule was REFUTED before a line of it shipped
+
+It proposed: *a listing headed news/articles/latest must not be populated by pages whose
+`page_type` is `guide` or `tool`.* `[MEASURED 2026-08-31]`:
+
+```sql
+SELECT page_type, count(*) n, count(DISTINCT site_id) sites FROM pages
+ WHERE url LIKE '/guides/%' OR name ILIKE '%guide%' OR title ILIKE '%| Guide%'
+ GROUP BY 1 ORDER BY 2 DESC;
+-- blog-post 246 / 30 sites   guide 72 / 9 sites   section-index 12   content 4   landing 1
+```
+
+**Guides-as-`blog-post` is the fleet convention**, so the rule returns **zero on both real cases**
+— including boxingonline, the one that motivated it (its four guides were `blog-post` at build
+time; the webdesign lane retyped them to `guide` at 17:30 BST the same day, *after* the owner
+complained). leopardess's eight are `blog-post` today. The refuted rule now runs as a printed ARM
+on every detector run, so its zero stays a measurement instead of a memory. Landmine filed.
+
+### Three missteps of my own, each caught by looking at findings instead of counting them
+
+1. **I built a promise-reader that reads the items and calls it the promise.** First cut took
+   heading **+ subtitle**. Of its 8 fleet findings, **4 came from the subtitle naming a class in
+   passing** — homegarden's section prose ends "…the Garden Jobs Finder"; lampenkap's was an item
+   excerpt, "the companion guide sets out the method". Worse: 139 of 159 listings carry their
+   promise only in `rendered_html`, where "the first `<p>`" IS an item's own excerpt. The heading
+   alone carries the promise now.
+2. **`/blog/` is not "editorial"** — I made the same mistake as the rule I had just refuted, one
+   column along, and reported dartsonline's "All guides" and agritec's "Technical explainers" as
+   broken for listing `/blog/` items that are, by fleet convention, their guides. Now an explicit
+   asymmetry: the check catches guides/tools under an editorial promise; it CANNOT catch articles
+   under a guide promise, and says so in its own docstring and in every `doc_notes` row.
+3. **`--self-test` passed while `write_doc_note` did not exist.** A patch silently failed to
+   apply; no fixture called that path, so every case passed, and the CronJob found it in the
+   cluster with a `NameError` on its first run. Split into `note_body()` so a fixture reaches it.
+   **A self-test cannot vouch for a path it never calls.**
+
+Plus a fourth, about controls rather than code: **I named a live page as the positive control and
+it was repaired underneath me** (read at 16:45Z with four guides; gone by the 16:57:20Z scan; row
+`updated_at` 16:57:33Z). Whether the flip landed before my read or between two writes is not
+recoverable — `page_components` keeps one timestamp, not a history — and it does not matter: the
+control read FAIL on a working detector inside twelve minutes. The fixtures are the controls now;
+the live page is a note.
+
+### Coverage, stated rather than implied
+
+`[MEASURED 2026-08-31]` 159 listing instances fleet-wide (keys `articles` + `items`;
+`nav_items`, 61 instances, is chrome and out of scope). Of those, **19 carry a heading in
+`content_data`** — the other **139 only in rendered markup**, one has neither. A
+`content_data`-only reader reported 88% of the corpus as "promises nothing", which is a clean
+result that could not have come out otherwise. Verdicts on the current corpus: 41 kept the
+promise, 116 named no class, 1 no promise text, **1 mismatch**, 3 suppressed by the
+subject-vocabulary guard (loancalculator.co.uk, mortgagecalculator.co.uk, garden-tools.uk — a
+class word inside the site's own name is subject matter, and the suppressions are printed, never
+swallowed).
+
+### What I did NOT do, and why
+
+- **Asks 2, 3 and 4 of the CONTRIB are untouched** (zero-item index as an experience failure; a
+  data-backing criterion for tool selection; routing `content-quality-auditor` into the new-build
+  path). Ask 4 in particular is a dispatch question owned elsewhere — the auditor is active with
+  49 COMPLETED fleet-wide and zero runs on the paid site.
+- **No council submission.** `scripts/audit-listing-class-promise.py` is outside the gate's scope
+  (`scripts/council-scope.sh` admits `scripts/pattern-check.py` only); nothing in `platform/`,
+  `internal/`, `pkg/`, `cmd/config-key-audit/` or an appliable migration was touched.
+- **The leopardess finding is not dispatched.** It sits in the detector's `doc_notes` row and in
+  this entry; whoever owns that site should decide whether the guides move out of the listing or
+  the heading changes. Either fixes it, and it is not my call.

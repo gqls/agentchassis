@@ -1,0 +1,91 @@
+# deployments/kustomize/services/listing-class-promise-check/base/cronjob.yaml
+#
+# Does a listing show the CLASS OF THING its heading promises?
+#
+# WHY THIS EXISTS. The first paid customer build shipped its home page headed
+# "Latest from the ring — fresh news, previews and results" above four explainer
+# guides about the site's own tools. Every page validated `valid=true, issues=0`;
+# no artefact was malformed. The promise was broken and the whole fleet was blind
+# to it, because every check we own looks at one artefact in isolation.
+# Origin and evidence: docs024_key_docs_latest/experience_loop/
+#   CONTRIB_2026-08-31_from_the_first_paid_build_four_experience_defects_that_every_check_passed.md
+#
+# WHY A CRONJOB AND NOT A COMMIT HOOK — the same argument as its siblings, and it
+# is decisive here: the thing this watches changes by a route no commit can carry.
+# A listing's items are (re)written by a rerender straight into the database, many
+# times a day. The motivating case was REPAIRED 13 seconds after this detector's
+# first run, by another lane's rerender — no commit involved, in either direction.
+#
+# WHY PYTHON IN A POSTGRES IMAGE — modelled byte-for-byte on
+# optional-key-budget-check: same image, same secret, same doc_notes convention
+# (ONE row per run INCLUDING a clean one, so a missing row means the job did not
+# run and can never read as "nothing is wrong"), same direct-Postgres constraint
+# (no pods/exec RBAC in this namespace for a job).
+#
+# ⚠ base/check.py IS A COPY of scripts/audit-listing-class-promise.py. That is the
+# duplication this estate keeps getting bitten by, so it is pinned rather than
+# trusted: `scripts/audit-listing-class-promise.py --self-test` FAILS if the two
+# files differ. Edit the script, re-copy, re-apply the overlay — the cluster keeps
+# the old ConfigMap otherwise.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: listing-class-promise-check
+  labels:
+    app: listing-class-promise-check
+    component: experience-integrity
+spec:
+  # Daily, 07:25 UTC — clear of database-backup (02:00), the weekly sweep (06:00),
+  # single-owner-carriers (06:20), discovery-staleness (06:35),
+  # optional-key-budget (06:50) and shared-output-fields (07:10).
+  schedule: "25 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query plus a walk over ~160 listing instances.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: listing-class-promise-check
+            component: experience-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py --write-note
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: listing-class-promise-check-script
+                defaultMode: 365

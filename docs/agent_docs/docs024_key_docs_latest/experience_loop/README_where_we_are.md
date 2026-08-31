@@ -215,3 +215,73 @@ The corrected picture is simpler than mine and rather worse. Both routes serve a
 I've not re-run the loop. The one real asymmetry left is already documented in the code itself, so there's nothing to *diagnose* — what remains is a decision about what to do, which isn't the loop's job.
 
 Two things worth saying plainly. First, the advice I gave you earlier about how to build — prefer per-page data over shared component JavaScript — is unaffected. I checked rather than assumed: it rested on three risks, and none of them depended on the part that was refuted. Second, the standing guidance says that for a bug you can see, you'll out-diagnose the loop yourself for free. I had full context here and still got it wrong, and the loop caught it in nine minutes for a few credits. I wouldn't rewrite the rule on one data point, but it's worth knowing that the loop is useful as a check on a confident claim, not only as a way to crack hard bugs.
+
+---
+
+## 2026-08-31 — picked this thread back up, and built the first of the four things the paid build asked for
+
+This lane had been quiet since 23 July. Two things had happened to it while it was quiet, and
+both were worth knowing before doing anything.
+
+The first is that other people finished its next job. Back in July this lane wrote a handoff
+saying "start by building a contrast check, then a layout check" — and both of those exist now,
+built by other threads for their own reasons. So the obvious next step was already done, and
+starting it would have been pure waste.
+
+The second is that the first paid customer build landed on 31 August, you reviewed it the same
+evening, and the session that reviewed it wrote four defects into this lane's inbox. All four
+are the shape this lane exists for: nothing was broken, every page passed every check, and the
+site was still wrong. The clearest one was the home page. It was headed "Latest from the ring —
+fresh news, previews and results", and underneath it listed four explanation pages about the
+site's own tools. Not one article. Every piece was individually fine. The promise was broken.
+
+I have built a check for that one, and it is running.
+
+The interesting part is that the check I was asked to build would not have worked, and proving
+that took about ten minutes. The suggestion was to look at how each page is *labelled* in our
+database — flag a "latest news" list that contains pages labelled guide or tool. I measured it
+first. Across the fleet, pages that are obviously guides are labelled "blog post" 246 times
+across 30 sites, and labelled "guide" only 72 times across 9. It is simply how the system files
+them. So on boxingonline — the exact page you complained about — that check would have found
+nothing at all, and reported the site clean. It would have been a check that could only ever say
+"fine".
+
+What works instead is reading what each item says about *itself*: the address it lives at, and
+the words in its own title. "Understanding Boxing Quiz | Guide", sitting at /guides/, is telling
+you what it is regardless of how it is filed. That version found the boxingonline case, and it
+also found a second one nobody had noticed — leopardessconsulting.co.uk's blog page, headed
+"Latest Articles", where seven of the thirteen items are tool guides rather than articles. One
+site's fault is an accident; two is a pattern, and now there is something watching for the third.
+
+Three things I got wrong on the way, because they are the useful part.
+
+I first read the section's *subtitle* as part of the promise. That produced eight findings, and
+when I opened them, four were nonsense: the subtitle had simply mentioned a tool in passing —
+"if you want a shorter list, the Garden Jobs Finder" — and for most listings on the fleet the
+text I was reading was actually the first item's own description. I had built something that
+reads the items and calls the result the promise. The heading alone carries it now.
+
+I then made the same mistake I had just caught, one step along, by treating any /blog/ address
+as "an article" — on an estate that keeps its guides in /blog/. That flagged two perfectly
+correct pages. So the check now states plainly what it cannot do: it can catch guides showing up
+under a news heading, and it cannot catch the reverse, because nothing on the page tells it.
+Better a stated blind spot than a confident wrong answer.
+
+And my own test suite passed while a whole function was missing, because no test called it. The
+cluster found that one for me, by crashing.
+
+One small thing worth mentioning because it is funny and slightly instructive: I picked the
+boxingonline home page as the check's reference case — the known-broken page it must always
+find. While I was building, another session repaired it. So the check's own health test started
+reporting failure, on a working check, because the world had been fixed underneath it. Reference
+cases now come from frozen copies, not live pages.
+
+The check runs every morning at 07:25 and writes a line into the database whether it finds
+anything or not, so silence can never be mistaken for health. Today it finds one thing:
+leopardess. I have not touched that site — either the guides come out of the list or the heading
+changes, and that is a decision for whoever owns it.
+
+The other three asks from the paid build are still open: an index page with nothing to index
+should be treated as a failed journey rather than a healthy page; tools should have to declare
+what data *we* bring versus what we make the reader type in; and the content quality auditor we
+already own and pay for never ran on the paid site at all.
