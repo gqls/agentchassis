@@ -3151,3 +3151,19 @@ their own WRONG_CALLS for the correction's shape — *"correcting a peer carries
 burden of proof as the claim being corrected"* — a lesson worth citing both ways. The recoverable
 part, theirs verbatim: *"the thing that made it recoverable was that we both showed our
 timestamps."* Nothing further owed either side tonight; the sequence stands on E.
+
+## 2026-08-31 late night — 667 r2, the LIKE landmine, Gemini arm, Grok blocked
+
+667's verdict: REVISE r1 — unreadable architecture seat (procedural) + a GOOD editquality catch:
+"rank pinned" reads as the site_specs.pinned column, which a landmine documents as a no-op. It
+meant the rank-match identity guard; r2 resubmitted on the same correlation with the wording
+fixed, persistence explicitly disclaimed (the false green makes ANY persistence claim false), and
+the blast-radius census re-grounded — because the council's own check was wrong too: `LIKE
+'%lead_with%'` wildcards `_` and counted the guardian prose phrase "lead with the mechanism" as
+consumers across 5 seats. Escaped, the literal key appears in ONE config: the producer. New
+LANDMINE (04c837015). Gemini trials run (results + reads in the experiment doc): G1
+register-marginal, G2 read-veto + invention — neither promotes; and G2 exposed a candidate
+EIGHTH shape (`do not <verb>` definition-by-negation) that both the battery and the gate miss —
+filed, not actioned (gate vocabulary follows the production model's actual output). Grok arm
+BLOCKED at the account level: both keys recognised-and-refused (403), never one live grok call in
+llm_call_log — owner's console, not our code. Discriminant triad recorded in the experiment doc.

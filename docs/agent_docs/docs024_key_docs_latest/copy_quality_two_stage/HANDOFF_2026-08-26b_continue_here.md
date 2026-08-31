@@ -3,6 +3,26 @@
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-26_continue_here.md`** (same
 day — the chassis roll, the owner's trial, and the canary's first scores landed after it).
 
+> **08-31 LATE-NIGHT UPDATE — over everything below:** (1) **The wash/mint race is now a
+> measured FALSE GREEN, and it is E's final evidence form** (rulings-doc tail + LANDMINE by the
+> offer lane): 667 backed up fundamentallyai at 10:28:41Z, the producer superseded the row at
+> 10:29:36Z, 667 COMMITTED at 10:34:30Z into a row already not current — guards passed, ledger
+> stamped, NOTHING live changed on that site, no error anywhere. 38/41 points live. Both lanes'
+> first reconstructions ("destroyed ~3h later" / "never washed") were WRONG — WRONG_CALLS both
+> sides. Future wash migrations MUST re-assert `is_current` at commit or advisory-lock the
+> producer. (2) **667 council verdict came back REVISE r1** (unreadable architecture seat +
+> a good editquality objection on "rank pinned" ambiguity) — **r2 RESUBMITTED on the same
+> correlation** (persistence disclaimed, false green disclosed, census grounded) — READ THE r2
+> VERDICT. (3) **The r1 blast-radius check was itself wrong**: `LIKE '%lead_with%'` wildcards
+> the underscore and counted English prose as consumers; escaped, the literal key lives in ONE
+> config (the producer). New LANDMINE filed. (4) **MODEL TRIALS: Gemini DONE, Grok BLOCKED.**
+> gemini-3.1-pro ×2: G1 register-marginal (tic on the highlight surface), G2 FAIL (do-not-verb
+> negation the battery can't see + INVENTED "price changes/outages" + dropped £99/$5,000).
+> Neither promotes. Grok: both xAI keys recognised-and-REFUSED (403; garbage→400, no-auth→422),
+> zero grok rows ever in llm_call_log — the xAI ACCOUNT needs the owner. Standing after three
+> models: sonnet register-fail, Fable register-pass/density-fail, Gemini evasion+grounding-fail.
+> (5) Owner still owed: D, E (gate authorisation), the axis confirmation, and now the xAI account.
+
 > **08-31 NIGHT UPDATE — the current truth, over everything below:** the owner RULED A, B and C.
 > A+B SHIPPED (mild set emptied, instead_of/not_just added — council-APPROVED `169ff10d`, Go,
 > inert until the roll after v1.0.1346; probe literals `instead_of`/`not_just`). C step 1 LANDED:
