@@ -69,3 +69,47 @@ use a current prompt carrying it.
 **Next arms (owner's ordering):** Grok ×2, Gemini ×2 on the same prompt (keys confirmed on the
 pod: XAI/GROK + GEMINI). Then, if Fable holds at a wider screen: the cost question is the
 owner's, with the token counts above as the input.
+
+---
+
+**RETROACTIVE CORRECTION to the Fable rows (owner recalibration, same day):** the owner read the
+F samples and named DENSITY a first-class fault — *"a small first project lets you judge the work
+on results"* is "a riddle"; models compress and *"we need to put in effort to expand the words
+more… every time"*. F2's "passes decisively" is downgraded to **register-pass / density-fail**,
+and the read column below carries density explicitly. Instrument note stands: our read is not his
+ear either.
+
+**Gemini arm run 2026-08-31 (`gemini-3.1-pro-preview`, ×2, same prompt, maxOutputTokens 16000,
+default temperature; pod-side key, generateContent):**
+
+| arm | NEG (battery) | read | words* | facts kept | verdict |
+|---|---|---|---|---|---|
+| gemini-3.1-pro #1 | **1** ("rather than forcing a single platform") | negation tic at the HIGHLIGHT surface — the exact surface of the owner's finetuning screenshot — plus an implied-competition title ("…that *actually* belong to you"); otherwise statement-led, simple sentences, density fine | 330 | £99+$5k kept; links legitimate (all 3 in the allowed list — checked, not assumed) | **register-marginal** |
+| gemini-3.1-pro #2 | **0** | **battery-zero by EVASION, read vetoes**: "We do not tie you to a single provider", "Automation does not mean losing control", "Off-the-shelf AI speaks in generalities" — definition-by-negation in a `do not <verb>` form neither the battery nor the gate's seven shapes match. AND **invented substance**: "protecting you from sudden price changes and service outages" — zero grounding in the prompt (`grep -c` 0 for both) | 442 | **£99/$5,000 DROPPED; 0 internal links** (allowed 3) | **FAIL — register + grounding** |
+
+*words = scorer count over the raw JSON, identical measure across arms (F1 628 / F2 562 on the
+same measure). Gemini writes at roughly half Fable's length — under-delivery, not concision: the
+missing half is the facts.
+
+**Reading, per the pre-registration:** neither Gemini arm promotes. G1 sits at NEG=1 but the tic
+lands on the highest-value surface; G2 is the case the pre-registration warned about in its
+sharpest form — a low count achieved by lexical evasion, vetoed by the read, compounded by the
+one fault class we treat as disqualifying for a production writer (invention; both lanes rejected
+Fable's expansions for exactly this). **The screen's standing after three models: sonnet NEG=5
+(prior carries the register), Fable NEG=0 with grounding but density-fails the owner's ear,
+Gemini ≈NEG=0-by-evasion with a grounding fault sonnet does not have.**
+
+**Scanner note filed, not actioned:** the `do not <verb>` definitional form (G2's carrier) is an
+EIGHTH candidate shape for `ScanDefineByNegation` — but the gate's vocabulary follows evidence
+from production copy, and production runs on sonnet, whose tic is the comma form. If the writer
+model ever changes, re-derive the shape list from that model's actual output first.
+
+**Grok arm BLOCKED — owner action needed [MEASURED 2026-08-31, from the pod]:** both `XAI_API_KEY`
+and `GROK_API_KEY` draw **403 Forbidden** on `https://api.x.ai/v1/responses` (the platform's own
+endpoint, `feed_actions.go:745`) and on chat/completions. Discriminants: garbage key → 400
+(unknown key), no auth + empty body → 422 (request parsed) — so the endpoint is reachable and the
+keys are **recognised and refused**: a disabled or unfunded xAI account, not a wrong endpoint and
+not an IP block. `llm_call_log` has **zero** Grok rows ever (`model_resolved ILIKE '%grok%'`) —
+the xAI path has never run live (MDL-040's exact trap: a capability with no live caller has an
+untested environment dependency). BusyBox wget drops the 4xx body, so the refusal reason itself
+is unreadable from the pod. Only the owner can check/fund the xAI console.
