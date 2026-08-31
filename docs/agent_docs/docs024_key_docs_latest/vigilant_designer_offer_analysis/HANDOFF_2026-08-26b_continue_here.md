@@ -273,6 +273,86 @@ has asked them which direction their marker takes and whether it covers a plain 
 `content_data`, and is deliberately **not building a second one**. ⚠ If this lane ever needs
 provenance on a page column, ask there first rather than minting a third.
 
+## §H — TWO OWNER-ROUTED ASKS ARRIVED 2026-08-31, BOTH RELAYED, BOTH AWAITING HIS DECISION
+
+⚠ **Both reached me through peers, not from him. I corresponded (which is what one of them
+explicitly instructs) and MEASURED; I wired nothing.** Both remedies are config changes on shared
+writers/planners — council scope, fleet-wide on every subsequent build — so they are his call.
+
+### H1. Hero copy / benefit framing (via `copy_quality_two_stage`)
+
+Owner instruction names this thread: correspond on *"what sort of approach we can use with these
+hero titles and copy… in terms that clients can see how it might work for them"*, with the
+constraint *"we mustn't presume to know what they want"*, and *"if each piece of copy requires
+discussion between agents then so be it"*.
+
+**What I established — the gap is exact.** `[MEASURED 2026-08-31]` `offer_ordering` and `strategy`
+are `is_current` on **32 sites** (enrolment moved from 13; my own figures were 5 days stale).
+`offer_ordering` holds **187 `lead_with` points**, each with `rank`, `from_field` provenance,
+`differentiated` and a `why`. **And of `page-content-writer`, `build-site-planner`, `site-planner`,
+`content-gap-planner` and `page-build-handler` — NONE reads `offer_ordering` or
+`satisfaction_condition`.** Only the producer (`domain-strategist`) and my `offer-analyser` do.
+**The judgement is derived, ranked, provenance-stamped and read by nobody who writes a hero.**
+
+⚠ **Sharper: his objection is already written down, as a prohibition, on the site he rejected.**
+`finetuning.uk`'s `avoid_leading_with` contains *"Page counts, tool counts, or inventory size before
+the reader's problem is named"* — and *"Real projects, described plainly"* is a label on an
+inventory. **Not a missing judgement. An unenforced one.**
+
+⚠ **AND THE SET IS NOT SAFE TO USE AS A SOURCE YET — measured against their
+`BANNED_REGISTER_v1.json`, NOT against my guess.** **51 of 187 points (27%)** carry banned register,
+across 23 of 32 sites; **7 of 31 rank-1 points (22%)**, rank 1 being the hero candidate.
+> **⚠ MY FIRST FIGURE WAS 18/187 (~10%) AND IT WAS WRONG BY 2.8×.** I inferred the rule from their
+> prose and caught only the WORDS (`plainly` 7, `honest*` 4). **The SHAPES dominate**: `x_not_y`
+> **28**, `rather_than` 13, `not_just` 6, `negative_reveal` 2, `instead_of` 1. Which is the whole
+> lesson: **the corpus is a demonstration reservoir of the exact comparison construction their canary
+> proved the writer keeps producing** — so feeding it as a mandated phrase chain would re-teach that
+> shape through the channel they measured as most effective. **Do not carry my 10% anywhere.**
+
+**Two rollout facts that cut against both lanes' instinct:** **9 of 32 sites have ZERO dirty
+points** (a clean population exists without waiting for the pass), and ⚠ **`finetuning.uk` is the
+WORST site (6)** — so "finetuning first", which both lanes proposed, is the hardest case, not the
+easiest. Choose deliberately.
+
+**Their side is settled and committed** (`c0ab7e7c1`): banned register as versioned data with a
+usage rule (structured input only, never pasted as prose into a critic window — my caution, their
+`prompt-text-poisons-its-own-detector` lesson); **rank PINNED** during the register pass, with
+substantive changes returned to this lane for re-judgement rather than quietly rewritten; and v1
+binds the **served `point` only**, not the `why`. Packaged for the owner as **DECISION C**.
+⚠ **Their morning benchmark ran `claude-fable-5` on the worst canary section's production prompt:
+0 and 0 negation constructions against shipped sonnet's 5.** So if the writer changes, **my 27% is a
+statement about the EXISTING corpus only** — re-measure after any model change; it is dated for that
+reason.
+
+### H2. Carousels / "nicer components" (via `loanzy_uk_example_site`, from the farmerinsurance.uk review)
+
+Owner, routed to three threads including this one: *"using carousels rather than just lists and
+lists of separate cards… maybe we should make different types of carousels as the default, because
+scrolling down on a mobile with card after card is not a good user experience."*
+
+⚠ **THIS IS `IMG-074` AGAIN, IN THE SAME FUNCTION, AND THE COMPONENT-MAKER LANE IS ABOUT TO BUILD
+INTO IT.** `[MEASURED 2026-08-31]` `hero-card-carousel` has **ZERO** live instances,
+`swipeable-insight-carousel` has **1**, and `info-card-grid` — the plain grid — has **42 across 21
+sites**. Both carousels are **active and section-level today**, and **41 of 155** active section
+components already carry carousel/scroll-snap/swipe markup. **The estate is not short of carousels;
+it is short of carousels being CHOSEN.**
+
+Cause: `component_expresses` has **no token for traversal**. For every capability string it emits, a
+horizontal component and a non-horizontal one are indistinguishable — `items, list` 3 vs 4; `items`
+1 vs 8; `image` 1 vs 5. Same shape as 208-vs-6 before `644`; here it is **42 vs 1**.
+
+**Written up as a CONTRIB in `staged_component_build/` (`97fcf0e22`) BEFORE they build**, because
+more variants without a word join the 41 as unchosen library weight. ⚠ **Three things deliberately
+NOT concluded:** whether the planner *would* choose a carousel if it could see one (gap measured,
+counterfactual not); whether carousels are the right default at all (they trade scroll length for
+discoverability — his call); and **what honestly marks a component as horizontally traversable**.
+`644`'s precision came from the schema's declared `source`, not a template grep, and `scroll-snap`
+may be incidental styling. **That measurement is owed BEFORE anyone writes the arm.**
+
+**Not touched:** the deferred brief-fidelity verdicts on farmerinsurance (releasing another lane's
+held verdicts off a relay is not mine to do), and §2's logo-vs-identity finding — a real
+designer-family gap, genuinely unowned, but a different surface and not folded in here.
+
 ## §F — WHO OWNS WHAT NEARBY (changed since yesterday)
 
 **`bugs_open/381` is CLOSED and its lane wrapped up 2026-08-25** — so `component_expresses` has **no
