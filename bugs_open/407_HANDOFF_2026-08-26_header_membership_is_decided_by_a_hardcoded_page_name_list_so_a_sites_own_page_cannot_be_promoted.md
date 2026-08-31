@@ -231,3 +231,40 @@ moved** — a mutation proof is about the code that shipped, not the code that w
    investigation.
 
 Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_407_site_declares_its_own_header/`.
+
+---
+
+## PROVEN IN PRODUCTION 2026-08-31 — the declaration mechanism's FIRST use, on the first paid customer site
+
+**The fix this file asked for (`nav_declaration.go`, `site_config` →
+`chrome.header_slots`) was exercised for the first time tonight and worked end to
+end**: declaration → nav tables → header re-render → rolling redeploy of all 19
+pages → mirror → **served order matches the declaration exactly**
+(Home · News · Fight Calendar · About · Contact). Verified independently by two
+sessions (delivery lane + boxingonline critique session), 19/19 pages, both
+sweeps agreeing; measurements in
+`docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/NOTES_webdesign_uk_build_service.md`
+2026-08-31 ~18:1x–19:0x entries.
+
+Two transferable findings from the exercise, which matter more than the outcome:
+
+1. **What the declaration beat was NOT a broken row — it was the TYPE BAR.**
+   boxingonline.com's fight-calendar row was fully populated and correctly
+   ordered the whole time (`in_header=true`, `nav_label='Fight Calendar'`,
+   `nav_order=3`), and the site sat far under the 8-slot cap — so neither of
+   this file's §2 mechanisms applied. `page_type='tool'` sits in
+   `classifyPagesForNav`'s `neverPrimaryTypes`, so a perfect row was classified
+   into the utility group and rendered in the footer. **Anyone debugging a
+   missing nav item will check the row first, find it perfect, and stall** — the
+   declaration is the sanctioned override for exactly that state, and this is
+   its worked case. (The page was the paid brief's NAMED core deliverable, which
+   is what made the footer placement a delivery blocker rather than a quirk.)
+
+2. **The verification shape that made the close safe**, each element of which
+   caught something real the same evening that a looser version would have
+   missed: enumerate the page set from `pages WHERE deployed_at IS NOT NULL`
+   (never from memory); scope the assertion INSIDE the `<header>` block (an
+   occurrence-count of 3 would also have passed if the header were the one
+   place the link was missing — the footer and mobile menu carry it too); a
+   must-be-present control per page so a zero is an absence rather than a
+   broken fetch; and two independent sweeps required to agree before closing.
