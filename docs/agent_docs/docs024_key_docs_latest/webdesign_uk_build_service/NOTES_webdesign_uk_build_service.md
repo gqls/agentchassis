@@ -6384,3 +6384,17 @@ first item `needs_domain_research` already CLAIMED by domain-research-classifier
 **The first customer-shaped build in the platform's history is running, honesty guards
 armed from the customer's own intake.** JOINT COLD-START moved to
 `../site_delivery_and_editor/HANDOFF_2026-08-31_continue_here.md`.
+
+## 2026-08-31 (new chat, delivery-lane session) — PICKED UP at §1.2: watching the build
+
+Cold-start from the 08-31 handoff. Re-verified at pickup [MEASURED 12:30Z]: build_queue
+`seeded`, site `d2aa5206` active, first three items already done in ~9 min
+(needs_domain_research 12:21→12:24, needs_vertical_research →12:28, needs_strategy
+→12:30; needs_briefing triaged). **A watcher is armed in this session** (5-min polls on
+sites.status/build_queue/pages count/work items; exits on sites.status='deployed' —
+the trial build's terminal state, set by update_site_status — or 270-min timeout).
+Rehearsal inputs staged: the customer brief read verbatim from build_queue.direction
+(objective + customer_name + customer_email + order_reference all present); site_url
+to be taken from the DEPLOY record when it exists, per the handoff's §1.4 slug rule —
+no domain wiring during the rehearsal. Next after deploy: dispatch
+`delivery-review-filer` (651 header recipe), then the owner's APPROVE on admin.apis.uk.
