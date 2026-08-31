@@ -329,3 +329,41 @@ delivery email or delivered and then improved, and whether that best-in-class pl
 ahead. Full detail, with the measurements, is in
 OWNER_REVIEW_2026-08-31_boxingonline_what_he_found_and_what_each_finding_actually_is.md
 in this directory.
+
+## 2026-08-31 (later) — your address is off the site, and I was wrong twice on the way there
+
+It is gone. Every one of the nineteen live pages checked one by one, each with a word that
+had to be there so a blank answer couldn't fool us, and the delivery session checked the
+same nineteen separately and got the same result. It is also gone from all four places it
+was stored in the database, and nothing will put it back.
+
+Two things I told you that were not true when I said them, both worth writing down.
+
+The first: I said the database was clean. I had checked three places it could live and
+there was a fourth — the footer, which every page shares. The rebuild I ran refreshed the
+top of the page and the page header and quietly skipped the footer, so my check passed and
+your address kept being published for about forty minutes.
+
+The second: once I had fixed that, I set a watcher on one page. It said clean. A check of
+all nineteen pages, ten seconds later, found six still carrying it. The single page was
+the flattering one.
+
+Both mistakes are the same mistake. I decided what to look at, looked at all of it, and
+read "all of what I chose" as "all of it".
+
+There is a third thing I want to record because it is the one I would most like to avoid
+repeating. For that whole forty minutes my simple check kept telling me the address was
+still there, and I kept explaining it away as the public copy lagging behind. So did the
+other session, independently, which made it feel like agreement rather than two people
+making the same guess. The check was right the entire time. The evidence that would have
+settled it was sitting in the page's own headers, showing the file had just been written
+and still contained the address — which is the opposite of lagging.
+
+Two genuine faults came out of it and are now filed: the rebuild that skips the footer,
+and the fact that changing something every page shares does not make any page look
+changed, so a whole-site rebuild does nothing and still reports success.
+
+Two things still open on this: the footer is currently a hand-patch and should be rebuilt
+properly before anything is sent to a customer, and the contact page is now a form that
+does not go anywhere, on a page you never asked for. Delete it or give it somewhere to go
+— that one is your call.

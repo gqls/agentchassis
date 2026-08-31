@@ -33,6 +33,49 @@ after the rerender, with a control string that must be present: `/` email=1 (con
 re-mirror end to end. **Do not report this as closed until the served page is clean** — the
 database being clean is not the same fact.
 
+> **CLOSED 2026-08-31 16:23Z — and my first two "clean" readings were both wrong, which is the
+> part worth keeping.**
+>
+> **Final state, two independent sweeps agreeing.** All 19 deployed pages enumerated from
+> `pages WHERE deployed_at IS NOT NULL`, cache-busted, each with a must-be-present control:
+> **19/19 `email=0`, every control non-zero** (3–11 hits), plus a positive control proving the
+> grep finds strings that ARE present ("Get in touch" on /contact.html → 4). All four stored
+> sources re-verified in the same minute: `site_components=0 page_components=0 specs=0
+> siterow=0`. The delivery lane's independent sweep adds an invented-URL catch-all control
+> (404, so the domain is not blanket-200ing). Nothing re-populates it: the identity spec's
+> contact block is null, so the fill-if-empty sync has nothing to copy, and the order seed does
+> not re-run.
+>
+> **Two false "clean" readings on the way, both the same failure — an incomplete enumeration
+> reading as a result.**
+>
+> 1. I censused `sites`, `page_components` and `site_specs`, asserted clean in-transaction, and
+>    told the owner the database was clean. The footer lives in a **fourth** table,
+>    `site_components`, which I never enumerated. `pages.rendered_footer` is NULL site-wide, so
+>    the footer looked as though it had no store at all; it is assembled at deploy from that row.
+>    It kept publishing the address for ~40 minutes behind three passing checks.
+> 2. A single-page watcher then reported `/about.html` clean and would have closed the case. A
+>    full sweep ten seconds later found **6 of 19 pages still carrying it.** The one-page probe
+>    was the optimistic one.
+>
+> **And a plausible story absorbed a true positive.** For ~40 minutes a correct reader-side probe
+> kept returning `email=1` with a good control, and two sessions independently explained it as
+> publish-mirror latency — which made it feel corroborated rather than checked. The tell we both
+> walked past: `last-modified` / `x-amz-version-id` showed the object **freshly written and still
+> dirty**, i.e. a current publish of a dirty source, the opposite of lag. Logged in
+> `WRONG_CALLS.md`.
+>
+> **Two real defects fell out, both in `bugs_open/420`:** `refresh_site_components:true` refreshed
+> `head` and `header` and **skipped `footer`**; and site-level chrome does not participate in a
+> page's content hash, so a chrome-only change leaves every page looking unchanged — a whole-site
+> rerender no-ops on all of them **and reports success**. Targeted per-page rerenders were the
+> only thing that moved it.
+>
+> **Two residuals, on the pre-delivery list, NOT closed:** the footer row is a surgical
+> `regexp_replace` edit and must be re-rendered properly from `content_data` before handover; and
+> the contact page is now a form with `form_action "#contact"` that submits nowhere, on a page the
+> brief never asked for — delete-or-wire is with the owner.
+
 **The defect behind it is real and will fire again.** Order intake writes the ORDERING email
 into `sites.email` (council-approved as the identity store for delivery), and the footer
 assembles the PUBLISHED contact from the same column. Two contracts on one column. On order 2
