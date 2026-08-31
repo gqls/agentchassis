@@ -18763,3 +18763,34 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `a-fresh-deploy-can-ship-no-new-code` · `prove-a-deploy-at-the-artefact-index` · `a-print-statement-is-not-a-config-row` · `writes-the-field-is-not-reads-the-field` · `PLAN_2026-08-31_api_budget_separation.md` §2 (corrected) · RUNBOOK "Moving the chat to a different API budget"
 - **source:** 2026-08-31, webdesign budget-separation thread, building the swap the owner asked for; the failure mode was found by reading `main.go` before trusting the plan's four-line ssh recipe, not by being bitten.
 - **added:** 2026-08-31, webdesign_uk_build_service lane.
+
+---
+
+### A per-kind override in an `imagery_style_guide` REPLACES the guide-level `avoid` wholesale — so the rich site-wide list you are reading does not apply to the kind you are generating
+
+- **footprint:** `site_specs` aspect `imagery_style_guide` · `platform/orchestration/actions/imagery_style_guide.go` (`avoidForKind`, `directionForKind`, `referenceKeysForKind`) · any site whose guide has a `kinds` map · `SQL_*imagery_style_guide*.sql` seeds on any site · adding an `avoid` clause after looking at a bad image
+- **fires when:** an image comes back violating something the style guide plainly forbids, or you want to forbid something new. You open the spec, see a long, careful guide-level `avoid`, and add your clause to it. **If the kind you care about has an entry in `kinds`, your clause is inert and so was most of the list you just read.**
+- **the trap — three accessors, all the same shape, verified at the code and not the comment:**
+  ```go
+  // imagery_style_guide.go
+  func (g *imageryStyleGuide) avoidForKind(kind string) string {
+      if o, ok := g.Kinds[kind]; ok { return o.Avoid }   // ← INSTEAD OF, not merged with
+      return g.Avoid
+  }
+  ```
+  `directionForKind` and `referenceKeysForKind` do the same. An override replaces its kind's fields **including empty ones** — so a `kinds.hero` block that declares no `mood` silently drops the site's mood from every hero too. This is deliberate and well-argued (a base `avoid` can fight an override's visual language — the 2026-05-20 contamination lesson), and it is documented in the file header. It is a landmine anyway, because **the data does not show it**: nothing in the JSON marks the guide-level list as unreachable for `hero`.
+- **worked case, dartsonline.com 2026-08-31 `[MEASURED]`:** the guide-level `avoid` runs to **652** characters — no numerals, no multi-panel collages, no manufacturer logos, no packaging, no faces. `kinds.hero` exists, so **every hero on that site is governed by 111 characters**: *"flat-lay arrangements of many items, white or seamless studio backgrounds, anything resembling a catalogue shot"*. Nothing else. I had already written down, as a finding, that the "no multi-panel collages" clause was what stopped a hero coming back as a 4-panel — **that was wrong, and the clause has never once reached a hero on that site.**
+- **why the wrong result looks exactly right:** the edit applies, the spec validates, the row is `is_current`, and the next generation *does* usually look better — because you re-ran it, and a re-roll changes the image regardless. So the clause gets credited with the improvement, and the belief ("this site forbids X") is now written down and false. This is the failure `bugs_open/028` named one layer down, where Banana silently DROPPED the negative prompt entirely: *"a constraint a caller can set, that the platform silently discards, is worse than one it cannot set at all — it manufactures false beliefs about the system."* Here the platform does not discard it; the schema does, one level up, and the same false belief results.
+- **the check — ask which string the KIND resolves to, never which strings the spec contains:**
+  ```sql
+  SELECT COALESCE(data #>> '{kinds,hero,avoid}', data #>> '{avoid}') AS avoid_actually_used,
+         (data #> '{kinds,hero}') IS NOT NULL                        AS override_shadows_guide_level
+  FROM site_specs
+  WHERE site_id = '<site>' AND aspect = 'imagery_style_guide' AND is_current;
+  ```
+  Swap `hero` for the kind you are generating. If `override_shadows_guide_level` is true, the guide-level `avoid`, `mood`, `medium`, `palette` and `reference_asset_keys` are all **unreachable for that kind** — put your clause in the override, and append to what is there rather than replacing it.
+- **⚠ and when you do write into the override, assert the write was not a no-op.** `jsonb_set` on a path that does not exist is a **silent no-op** that returns the document unchanged and reports success, so `kinds.content_hero` missing means your clause vanishes with no error. Assert the path exists before, and that the clause is present *and the pre-existing clauses survived* after — `SEED_2026-08-31b_darts_anatomy_in_style_guide_and_two_reruns.sql` carries both blocks as a worked example.
+- **⚠ related sizing trap, same file:** the composed **direction** (`medium`/`mood`/`palette`) is truncated at `maxImageryDirectionInPrompt = 200` chars, and the palette is composed FIRST precisely so a verbose medium cannot evict the brand colours (`bugs_open/027` §4b). So a long clause added to `medium` may never be sent. The `avoid` path has **no such cap** — `banana/provider.go` folds it into the positive prompt *after* the cap is applied — so prohibitions are the safe place to be wordy, and the plan-row `prompt` is the safe place to be positive.
+- **relations:** `bugs_open/028` (the same false-belief shape one layer down) · `bugs_open/027` §4b (the 200-char cap) · `writes-the-field-is-not-reads-the-field` · `a-config-key-that-nothing-reads` · `declaring-a-key-silences-your-own-detector` · `the estate's hero convention puts a GRADIENT before the url` (same site, same week, also a confident clean read)
+- **source:** 2026-08-31, `dartsonline_traffic`, while closing an owner complaint that four heroes had "hallucinated what darts and dartboards look like". Found by reading `avoidForKind` before editing the spec — the edit would otherwise have gone to the guide level, changed nothing for heroes, and been credited by the re-roll that followed it.
+- **added:** 2026-08-31, dartsonline_traffic lane.
