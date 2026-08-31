@@ -6616,3 +6616,30 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   palette is also light-bodied — the value choice is with the visual-designer lane;
   I drive the change when values arrive. Competitor's vibrancy costs zero assets
   (no <img> at all — gradients+type), so fix-before-delivery is realistic.
+
+## 2026-08-31 (night) — EMAIL LEAK CLOSED 19/19 at the served artefact; articles LIVE but ORPHANED; button+dispatcher SHIPPED
+
+- **LEAK CLOSED [MEASURED 16:23-16:24Z, twice independently]**: 18/18 targeted
+  page-rerenders completed 16:21:19 → mirror published 16:23 → full sweep
+  enumerated from pages WHERE deployed (19 rows), cache-busted: **email=0 on all
+  19, every Boxing Online control non-zero, invented URL 404**; peer re-swept by
+  hand with a positive control ("Get in touch"=4 on contact) and re-verified all
+  four stored sources =0. Reported closed to the owner by the boxingonline session.
+- **All six articles are BUILT AND SERVING — and ORPHANED**: after full rerenders
+  of index + articles-index, the home editorial slot still links exactly the four
+  tool guides and the News page links ZERO /blog/ pages. Mechanism measured: the
+  listing items are baked in content_data at build time (zero articles existed);
+  page-rerender faithfully reproduces stored content. Fix = content REGENERATION
+  of two sections (index content-listing, articles-index listing) — ⚠ read
+  bugs_open/220 FIRST (unbuilt-link dispatch "rebuilds the container and reads
+  green" is this exact pattern's trap). NEXT ACTION in this lane.
+- **REQUEST CHANGES + dispatcher SHIPPED** (owner request): f2b288b72 (handler +
+  route + dashboard UI, council 9f1cb042, inert until roll) · dispatcher_thread/
+  operating doc + poll script (86c753655) · register WDS-019 + index row.
+- **PRE-DELIVERY LIST stands at**: (1) regenerate the two listings so articles are
+  linked (the brief's literal promise); (2) rebuild the hand-patched footer row
+  through the normal component path; (3) contact page delete-vs-wire — OWNER
+  decision, nobody picks quietly; (4) palette flip when the visual-designer lane
+  proposes values; (5) the parked review items incl. canonical/head detector
+  findings; (6) revert the growth_config override once articles are linked and
+  stable. Delivery chain stays HELD (owner ruling: fix before the email).
