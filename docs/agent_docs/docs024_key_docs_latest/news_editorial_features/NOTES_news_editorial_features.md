@@ -1523,3 +1523,73 @@ replace**, so a row missing from the slice is not merely unrendered, it is **del
 by `save_page_sections`' page-wide DELETE and the page ships with a hole under a fresh
 deploy stamp. *"Degradation is not on the menu: the choice is a loud failure or a
 silent destruction."*
+
+---
+
+## 2026-08-31 — P1 switched from PLANS to CODE, and the code found four things three council rounds could not
+
+### The route change, and the evidence for it
+
+**Three council rounds, three REVISE verdicts, and the GATING objection was identical
+every time: a sketch calling symbols no edit defines.** Round 1 — `recomposeParent`
+undefined. Round 2 — renamed it, still undefined. Round 3 — defined it, and its own
+three helpers undefined. Each round one level deeper. That is not a documentation
+slip that better prose fixes; it is what authoring code without a compiler produces,
+because every sketch bottoms out in new symbols and nothing stops it.
+
+So P1 is now being WRITTEN, and round 4 will be real diffs from compiling, tested
+code. Correlation stays `53d71504-8cd1-49bc-8e2d-d1465ba65103`.
+
+### Committed today, all inert (0 of 2,249 rows parented, 0 of 386 components declaring slots)
+
+| commit | what |
+|---|---|
+| `bc8167100` | `hierarchyChildrenOf` / `hierarchyAncestorChain` + 6 tests |
+| `3fd617ef6` | `recomposeAncestors` — the function three rounds objected to as undefined |
+| `fdb03cbc1` | dead-internal-link repair wired into it |
+| `028c3e112` | both direction-1 guards |
+
+### The four findings the code surfaced and the plan reviews did not
+
+1. **The `db`/`tx` split is FORCED.** `buildRenderContextFromDB` and
+   `DeriveAndBindInstanceToken` take `*sql.DB` and cannot take a `*sql.Tx`. The
+   submitted `recomposeAncestors` design assumed it could reuse them inside the
+   child edit's transaction. It cannot. Edit-SENSITIVE reads (the just-written
+   child, the ancestor row) go through `tx`; edit-INSENSITIVE ones (site, page,
+   occurrence) through `db`.
+2. **TWO estate guards caught the new writer within minutes, and neither could have
+   fired on a sketch.** `TestEveryRenderedHTMLRewriterEnforcesTheFloorsOrIsDeclaredExempt`
+   (a new writer of `rendered_html` with no shrink floor) and `pattern-check`'s
+   `unrepaired-component-write` (bypassing 079's dead-link repair). **Neither taken
+   as an exemption**: a recompose that lost its children is exactly what a floor is
+   for, and the recompose re-renders the ancestor's own template so it can mint
+   links of its own.
+3. **⚠ THE TWO DIRECTION-1 GUARDS ARE DIFFERENT PREDICATES, and the submission
+   conflated them.** `apply_section_edit` holds a stored ROW → *"does this row have
+   children"* (`hierarchyChildrenOf`). `RenderComponentAction` holds a component
+   DEFINITION plus a content map, has **no row at all**, and RETURNS
+   `rendered_html` rather than persisting it → *"does this COMPONENT declare
+   slots"* (`hierarchySlotsFromSchema`). The plan sketched
+   `hierarchyChildrenOf(pcID)` for both and **there is no `pcID` in
+   RenderComponentAction to pass** — it would not have compiled. The definition
+   check is also the STRONGER guard: it fires before any child row exists.
+   Dispositions differ deliberately too — the edit path SKIPS (matching its lock
+   and tombstone gates), the render path REFUSES (it holds no stored HTML to carry,
+   so `bugs_open/260`'s fail-rather-than-stitch applies).
+4. **`check_render_mode` IS NOT AT `workflow.steps.check_render_mode`.** The live
+   `page-content-writer` has 14 top-level steps and that is not one of them — it is
+   nested inside `process_sections_loop`. Three rounds of migration design targeted
+   a path that does not exist; the guard `steps ? 'check_render_mode'` returns
+   **false** against the real document, so it would have aborted on its own
+   `RAISE EXCEPTION` every time. Also confirmed live:
+   `jsonb_set(doc, path, NULL || array)` returns **NULL for the whole document**,
+   so the null-the-definition hazard was real and only accidentally averted by that
+   same guard excluding the row. **`deriveRenderMode`'s doc comment describes the
+   step as top-level and is what sent me there** — worth fixing on its own.
+
+### Still to write
+
+The flag-gated extraction (`rerenderFlatSections` as a verbatim move,
+`classifyStoredSection`, `renderPlannedSection`), the byte-identity tests with their
+mutation check, and migration 643 re-derived against the nested path with an
+array-shape guard. Then round 4 as real diffs.
