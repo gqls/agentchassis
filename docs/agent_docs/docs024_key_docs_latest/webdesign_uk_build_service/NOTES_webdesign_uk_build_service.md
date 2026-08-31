@@ -6770,3 +6770,30 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
 - **Still owed after regen (per the 417 lane, mine): favicon + og_card
   re-derivation — presence-based discovery will NOT refile them.** On the
   pre-delivery list. The name-beside-logo chrome decision remains with the owner.
+
+## 2026-08-31 (~18:1xZ) — FIGHT CALENDAR missing from the nav: 407's declaration mechanism used, FIRST fleet-wide
+
+- **The finding (boxingonline session, verified here at the nav tables + code)**:
+  the brief's named core deliverable renders in NO menu — its nav row is fully
+  populated (in_header, label 'Fight Calendar', nav_order 3) but page_type='tool'
+  is in classifyPagesForNav's neverPrimaryTypes, so it landed in the utility
+  (footer) group. Not the 407 tier problem (site is far under the 8-cap); the
+  TYPE bar arm.
+- **The sanctioned fix existed and was built FOR this**: nav_declaration.go
+  (bugs_open/407, owner-directed) — site_specs `site_config` →
+  `chrome.header_slots`, an ordered page-name array that OVERRIDES
+  neverPrimaryTypes and the child-URL bar by design. Verified in the RUNNING
+  binary (present-string + absent-control probe). **Declared for boxingonline**
+  (first declaration fleet-wide — 0/51 carried one): ["index","articles-index",
+  "tool-fight-calendar","about","contact"], mirroring the plan's own nav_order.
+- **nav-updater dispatched** (corr 07fed163, receipt asserted) — refreshes nav
+  tables, re-renders header AND FOOTER, reassembles, deploys. **This also
+  discharges the hand-patched-footer item**: the footer rebuilds from its clean
+  content_data through the normal path, and the contact block stays absent
+  because chrome gates it on non-empty sites.email (component_library.go:1988).
+  Verifier armed: quiesce → mirror → served probes (Fight Calendar link in the
+  header on 3 sample pages, footer-contact absent, email 0, controls).
+- Peer's correction accepted: the site is NOT nameless without a header wordmark
+  ("Boxing Online" ×8 in visible text) — the header-name question shrinks to a
+  design preference, pinned to the palette decision along with the logo's
+  baked-in dark ground.
