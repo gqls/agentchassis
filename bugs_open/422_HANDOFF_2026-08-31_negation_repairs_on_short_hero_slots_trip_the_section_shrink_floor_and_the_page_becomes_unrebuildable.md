@@ -18,8 +18,9 @@ reach it.
 `[MEASURED 2026-08-31]`, finetuning.uk canary widening:
 - `services`: **3 of 3 attempts** refused — hero-services 378→169 visible chars (45% kept),
   call-to-action 426→163 (38%); floor 50%. Item `failed`, terminal.
-- `about`: attempts 1 and 2 refused the same way (hero-about 424→183, 43%); third pending at
-  filing.
+- `about`: **3 of 3 attempts** refused the same way (hero-about 424→183, 43%). Item `failed`,
+  terminal — measured complete ~17:45Z, same night: **2 of the 9 canary pages end the ladder
+  unrebuildable**, and both keep serving pre-A+B copy.
 - The other 7 pages passed the same rebuild — their generations happened to be longer or less
   negation-dense, so this selects for exactly the pages whose heroes the register work most
   wants to reach.
