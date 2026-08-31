@@ -144,3 +144,11 @@ brief = `site_specs.mission_brief` for advertise.co.uk (is_current).
 **414:** `bugs_open/414_…acceptance_marker…md` (its §7 + REFUTED block are the fixing session's
 record) · 016b §9 tripwire entry (with the 08-27 added block) + §10 index entry ·
 `WRONG_CALLS.md` 2026-08-27.
+
+**Addendum (same day, after owner review of the briefs):** the owner commented — see
+`DECISION_2026-08-31_best_in_vertical_fullness_and_the_advertise_marketplace.md` (four rulings +
+the advertise marketplace compatibility verdict + a PREPARED release edit for fullness, not yet
+applied). §1d changes accordingly: on release, apply the prepared edit + record Q3 as answered
+(monetisation = own-network ad sales, direct preferred). **Q2 (cluster hub) remains the open
+question gating the next briefs.** Fire directions for future briefs now carry best-in-vertical +
+no-omission + fullness until the copy lane's propagation plan ships.

@@ -3514,3 +3514,16 @@ instance in ~100+ runs since 08-26; if it recurs, file it with the retry-design 
 **(c) oufe VERIFIED HEALED at 09:46Z** — re-selected 09:44:25Z (the backdate worked; the selector
 took oufe ahead of gaswholesalers on stamp age), and the served body is the proof: `/sitemap.xml`
 **200, 2,262 B, 19 `<loc>` = 19 deployed pages**. 404 → n/n inside an hour of finding it.
+
+**(d) Owner comments on the briefs → `DECISION_2026-08-31_best_in_vertical_fullness_and_the_advertise_marketplace.md`.**
+Four rulings recorded: best-in-vertical standing fleet-wide (the MECHANISM is the copy lane's
+unshipped `PLAN_2026-08-25_best_in_class_propagation.md` — do NOT duplicate it here; manual
+control in the fire direction until it ships) · never differentiate by omission, copy-but-improve
+(assessed: covered in practice in the held briefs, not guaranteed by mechanism) · advertise.co.uk
+future = selling ad space on OUR network, preferably directly — this ANSWERS the brief's Q3;
+compatibility analysed element-by-element: nothing forecloses it, three lines amend at pivot
+(proposition's "not a service", the broker must_not, "it does not sell it"), one guard NOW
+(no "we sell nothing" load-bearing served copy — the 414 lesson) · sites should be QUITE FULL —
+measured: the brief is 16 items / 8 kinds ≈ 30–40+ pages via fan-outs, but glossary + news sit
+in `aspirational`; release edit prepared (two promotions + explicit fan-out counts), NOT applied.
+**Q2 (cluster hub) is still the open owner question — Q3 is answered, Q2 is not.**

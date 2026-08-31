@@ -1201,3 +1201,28 @@ the two test briefs from the week before. Nothing builds until you read it and r
 one question in it worth answering even if you change nothing else: should advertise.co.uk be the
 flagship of your marketing-related domains, or stand alone? Your answer decides how the next few
 briefs get written.
+
+**2026-08-31, later — your brief comments are recorded, and the advertising-marketplace future is safe.**
+
+Your four points are written up as a decision file in the lane. The short answers: the
+copy-but-improve instinct is genuinely in the advertise brief already (its UK rules guide, channel
+matcher and directory all exist explicitly because the competition's versions are worse or
+commercial), but nothing guarantees that for every future brief yet — the machinery for that is
+the "best in class propagation" plan another thread has ready and waiting on your go, so I've not
+built a duplicate; until it ships I'll carry the instruction by hand into every brief request.
+
+On advertise as a future marketplace for your network's ad space: nothing in the current brief
+forecloses it. Three sentences will need deliberate amendment when that day comes (the ones saying
+it doesn't sell advertising), the directory takes your own offerings as ordinary entries whose
+prominence we control, and the one thing I'll watch at build time is that "we don't sell anything"
+never gets written into the site's permanent page furniture — that's the lendzy lesson: identity
+claims baked into every page are expensive to walk back.
+
+On fullness: the brief is bigger than it reads — three of its line items fan out (six platform
+guides, a 15–20 entry directory, a news feed), so it builds to thirty-to-forty-plus pages, upper-
+middle of the current fleet. But the two most "full-feeling" features — the news digest and the
+glossary — are sitting in the lowest-priority tier. I've prepared the edit that promotes them and
+spells out the fan-outs; one word from you on release and it's applied.
+
+Still waiting on the one question only you can answer: is advertise.co.uk the flagship of the
+marketing cluster? That's what the next three briefs are queued behind.
