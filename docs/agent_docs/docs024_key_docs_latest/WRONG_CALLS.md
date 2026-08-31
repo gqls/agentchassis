@@ -57227,3 +57227,70 @@ quote reads exactly like a complete one, and nothing downstream can tell.**
   gross rewrites the prefix rule does not see.
   Tally: **a-threshold-from-an-aggregate-cannot-catch-its-own-motivating-case** ×1,
   **a-composed-fixture-exercises-its-own-rule** ×1 (threshold direction).
+
+---
+
+## 2026-08-31 — bugfix 417/420 lane: I told a subagent a CLOSED bug's finding as if it were current, and its own fix had already inverted it
+
+**The claim.** Briefing a planning agent on `bugs_open/417`, I wrote as a hard constraint:
+*"`bugs_closed/028` proved the image provider (banana/gemini) DISCARDS NEGATIVE CLAUSES. So a
+purely negative instruction is unreliable at the model."* I carried it forward from the estate's
+own memory line (*"positive-framed because bugs_closed/028 proved banana discards negative
+clauses"*) and used it to justify the whole shape of the fix.
+
+**Why it was wrong.** That is 028's **pre-fix** finding. 028 SHIPPED a fix —
+`foldNegativeIntoPrompt` — which is live, so the provider does *not* discard the channel any
+more. I quoted the diagnosis of a closed bug and skipped the part where it was closed.
+
+**What caught it.** The agent went and read the adapter log for the exact failing generation:
+`2026-08-31T12:55:50Z banana_provider "folded NegativePrompt into positive prompt as a
+prohibition clause"`, kind=logo, negative list including `"text"`, `prompt_len 232 → 407`. The
+prohibition **was delivered** and the model lettered "BOXING NEWS" anyway.
+
+**Why this is worth logging even though the fix did not change.** The conclusion survived — the
+clause still had to be positive — but *for a different and much stronger reason*, and the wrong
+premise would have made the fix look optional. Under my version, "the negative channel is broken,
+so use the positive one" invites the obvious cheap alternative: fix the negative channel. Under
+the true version, **a folded negative prohibition LOSES to a positive licence sitting in the same
+prompt** — which means no amount of negative-channel work would have helped, and the positive
+override is the only shape that can work. I would have shipped the right code with a rationale a
+reviewer could correctly have rejected.
+
+**The cheap check that would have.** Before quoting a `bugs_closed/` finding as a live property
+of the system, read past the diagnosis to the fix, and check whether the fix is live: `git log
+-1 --format=%h -S'<the fixing symbol>'` plus the deploy stamp. A closed bug's *symptom* is
+history; only its *mechanism* might still hold, and its own remedy is the most likely thing to
+have changed it. The estate already names this — *a closed bug's scope-out EXPIRES* — and I read
+that line as being about scope carve-outs, not about the finding itself.
+
+**Tally:** **a-closed-bugs-finding-expires-when-its-own-fix-ships** ×1.
+
+---
+
+## 2026-08-31 — bugfix 417/420 lane: I applied one field's schema error to a DIFFERENT field and broke one that was already correct
+
+**The claim.** The council trigger rejected my submission with
+`ERROR: .plan.risks must be a STRING …, not an array — join the risks into one prose block`.
+I fixed `risks`, and in the same pass "consistently" converted `grounded_in` from an array of
+quotes into one joined string, on the reasoning that the schema evidently preferred prose blocks.
+
+**Why it was wrong.** `grounded_in` must be an **array** — the trigger checks
+`.plan.grounded_in | type == "array" and length > 0` (097 line 145) and separately that every
+element is a string (line 158). It was correct before I touched it. The next dry run said
+`.plan.grounded_in is empty`, which is what a string looks like to that check.
+
+**What caught it.** `DRY_RUN=1`, which validates client-side and spends nothing — so the whole
+round trip cost seconds and no credits. Three schema errors surfaced across two dry runs
+(`operation: "create"` is not in the allowed set either; it is `add`), none of which reached the
+council.
+
+**The cheap check that would have.** I *did* look at an existing submission first — and sampled
+only the top-level keys and one edit object, so I saw the shape and not the **types**. One
+command answers it for every field at once:
+`python3 -c "import json;d=json.load(open(F));print({k:type(v).__name__ for k,v in d['plan'].items()})"`.
+More generally: an error message about field A is evidence about field A. Generalising it to
+field B is a *hypothesis*, and the validator that just spoke is standing right there to test it —
+re-run the dry run after each single change rather than batching a fix with a guess.
+
+**Tally:** **an-error-about-one-field-is-not-evidence-about-another** ×1,
+**a-shape-sample-is-not-a-type-check** ×1.

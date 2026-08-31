@@ -159,3 +159,126 @@ theirs). Their stated coordination: the boxingonline row is being handled WITH t
 own session, not over it. Candidate 2 (pixels-vs-identity) stays where the designer lane
 left it — architecture-scope, unbuilt, the owner's call. boxingonline's row was NOT
 deliberately left by 670 — it is purely the race tail.
+
+---
+
+## RESIDUAL TAKEN AND CLASS FIX SHIPPED — bugfix 417/420 lane, 2026-08-31 (transfer accepted from the loanzy lane)
+
+**Status: the STRUCTURAL fix is committed (`8bcd4ccae`) and INERT until the next chassis roll.
+The data wash (migration 680) IS applied and live. 417 stays OPEN until the roll, per the
+fixed-AND-live bar.** Council: `Council-Submitted: bb099a3d-0555-4fcf-b12a-31652b59f8b9`
+— verdict NOT yet read, so nothing here should be taken as an approved verdict.
+
+### 1. It had already FIRED a second time, on the first paid site — measured, not inferred
+
+The boxingonline.com session downloaded and LOOKED AT the served asset
+(`/assets/images/logo.png`, 400×218, `assets` id `20ce80fb…`, created 12:56:10Z). **It reads
+"BOXING NEWS". The site is called Boxing Online** — `company_name = 'Boxing Online'`, the img
+alt is "Boxing Online", the order is "Boxing Online", the domain is boxingonline.com. Nothing
+anywhere calls it Boxing News. Same mechanism as "Farm Shield Info", live in the header of 19
+pages with the favicon and og_card derived from it.
+
+Its `origin_prompt` is the race-tail plan row `b56182fa` verbatim.
+
+### 2. Why 669+670 could not have stopped it — the two class points
+
+- **The race tail.** `b56182fa` was created **12:36:55Z, 41 seconds after 669 applied at
+  12:36:14Z**, by a planner run already in flight. **A migration that fixes a prompt SOURCE
+  cannot bound prompts already in flight**, and the honest post-fix census is therefore dated
+  after the last in-flight plan lands, not at migration commit.
+- **The paraphrase.** The row says *"no text **other than** the wordmark itself"*; the exemplar
+  said *"**outside**"*. 670's surgical arm keyed on the literal and could never have matched it.
+  **The model REWORDS the licence, so no literal match bounds this class** — and this sharpens
+  §3's own warning: counting the licence by literal is still a literal.
+
+### 3. The structural root, and why the fix is where it is
+
+**The estate's no-lettering rule was coupled to the prompt's SOURCE, not to the asset's
+PURPOSE.** It lived only inside `composeBrandImagePrompt` — the FALLBACK builder, reached only
+via `if prompt == ""` in `load_work_item_actions.go:2391-2399` and
+`check_placeholder_image_in_use.go:120-145`. Every planner-built site supplies a prompt, so the
+rule governed exactly the population that never needed it. This file's own line — *"the ruled
+path is the fallback nobody reaches"* — turns out to be the whole diagnosis.
+
+The fix applies the rule at `GenerateImageAction`, after `getImagePromptWithPriority` has
+collapsed all three prompt tiers into one value and beside the `kind`-gated block that already
+makes logo-specific decisions. That placement is the point: it governs **every producer, present
+and future, and work items ALREADY QUEUED with an unwashed prompt** — which is exactly what a
+config migration structurally cannot reach. **The guard needs no detection of the licence at
+all**, which is why it is a bound where 669/670 are a floor.
+
+### 4. A measured fact that inverts an assumption this file rested on
+
+The brief for this work asserted, from `bugs_closed/028`, that the provider discards negative
+clauses. **That is 028's PRE-fix state, and its fix `foldNegativeIntoPrompt` is live.** The
+adapter log for the failing generation proves the prohibition was DELIVERED:
+`2026-08-31T12:55:50Z banana_provider "folded NegativePrompt into positive prompt as a
+prohibition clause"`, kind=logo, negative list including `"text"`, `prompt_len 232 → 407`.
+**The model received "no text" and lettered BOXING NEWS anyway, because the positive prompt
+licensed a wordmark. A folded negative LOSES to a positive licence in the same prompt.**
+So the clause is positive-framed and explicitly voids earlier wording; the negative channel is
+belt only. Corollary worth keeping: the rule that stood in `default_brand_prompt.go` was
+negative-framed, and therefore **weaker than its own comment claimed, for as long as it stood.**
+(Logged in `WRONG_CALLS.md` — I quoted a closed bug's diagnosis and skipped its remedy.)
+
+### 5. The owner's ruling on candidate 1's open question, and the opt-in
+
+Put to the owner directly, 2026-08-31: **logos carry no words by default, and a lettered logo is
+allowed only where the EXACT string is named.** So `constraints.wordmark_text` — an opt-in field
+per the 2026-08-02 shape, unsafe side OFF, riding the existing `input_data.spec.constraints`
+seam — whose **value IS the exact text**, making "a wordmark" with no text named inexpressible.
+Validated against the site's own `company_name` / `logo_text` / domain stem; a mismatch
+**degrades to text-free with a Warn, never refuses** (bugs_open/210's unhandleable-item lesson).
+That grounding check is what closes the door against the field's own producer: a planner LLM can
+write this field, so *"the field exists"* cannot be the licence — *"the field names THIS site"*
+is. It also gives farmerinsurance.uk's deliberate wordmark a durable, auditable home.
+
+**The vigilant_designer lane's §3 warning was right and is now costed:** the opt-in is REQUIRED,
+not polish. ~8 of the 28 current-plan logo prompts name their wordmark **on purpose** (cv1
+'CareerPrep', idea.uk, oufe, relojistas, robot-hands, webdesign.uk, lendzy, loanzy), and four of
+those never use the word "wordmark" — further live proof of the paraphrase point. An
+unconditional text-free clause would have wrecked them on regeneration.
+
+### 6. Census that would DISCONFIRM this — keyed on the concept and the guard's own mark
+
+Post-roll, for every `kind=logo` generation: `assets.origin_prompt` must contain
+`LogoTextFreeSentinel` or a wordmark clause. **Any row with neither = the guard was UNREACHED on
+some path** (check `kind` arrival first — see the blind spot below). Then the obedience canary:
+generate from a FRESH paraphrase no migration ever matched, download the PNG and **look**; 5+
+runs per 028 §6. Clause present + lettering still in the image = a prompt-engineering failure,
+which is a *different* finding from the guard not firing, and only the origin_prompt mark
+separates them. **A literal grep of stored prompts is a floor and is not a pass criterion.**
+
+### 7. Stated blind spot — not discovered later
+
+`site-work-orchestrator` and `pageflow-builder` (step `call_logo_generation`) map **no `kind`**,
+so `resolveKind` returns `""` and the kind-gated guard is blind on those paths. `input_mapping`
+has no literal syntax, so there is no config-only fix. **Their liveness is [UNVERIFIED]** — the
+`orchestration_states` probe returned zero, and so did a known-live control, so it proved
+nothing and was discarded rather than reported. `LANDMINES.md` entry added; census
+disconfirmation (§6) is the live detector. A Go-side fix is deliberately not designed here.
+
+### 8. Owed, and to whom
+
+- **boxingonline.com's logo must be REGENERATED** — row `b56182fa` is washed (680) so a
+  regeneration now produces a text-free mark, but the served asset still says BOXING NEWS.
+  Owner ruled the site is fixed before the delivery email; the delivery lane owns the dispatch.
+  Favicon + og_card must be re-derived AFTER it lands — presence-based discovery will not refile
+  them (this file's §3, and 322).
+- **`sites.logo_text` is NULL on boxingonline while `company_name` is 'Boxing Online'.** The
+  "text-free mark + brand name in HTML beside it" contract only holds if something renders the
+  name — and chrome currently suppresses the visible name when a logo image exists (alt text
+  only). Chrome/design-family follow-up; named here so it is not lost.
+- **A SECOND, DIFFERENT DEFECT in the same asset, which this fix does NOT address and which
+  wants its own file:** the served logo is not a logo, it is a **two-panel design comp** — the
+  mark on dark navy left, the mark plus lettering on light grey right, a presentation board
+  scaled into a header slot. Even text-free, this asset is unusable. The mechanism is
+  *generation output accepted structurally unexamined* (store, deploy, favicon-crop and header
+  all took it), which is the trust-the-status shape of 012/028 at the pixel layer — **not** an
+  input-licence problem, so 417's guard cannot catch it. Cheapest first check is dimensional (a
+  `kind=logo` asset far outside a sane aspect envelope; `kindDefaults` asks 1024×1024, this is
+  ~2:1) and needs no vision model; the two-background-fields signature is a classifier and
+  inherits classifier gaps, so cost it separately. Found by the boxingonline session.
+- **Candidate 2 (pixels vs identity) remains UNBUILT and deferred**, exactly where the
+  vigilant_designer lane left it: architecture-scope by the 2026-07-29 test, the owner's call,
+  and it would be a guarantee conditional on a classifier, inheriting its gaps.

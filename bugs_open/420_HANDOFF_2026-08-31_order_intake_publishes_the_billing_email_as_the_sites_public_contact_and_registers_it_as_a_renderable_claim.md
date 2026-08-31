@@ -120,3 +120,108 @@ Run an order whose payer email differs from any contact the brief asks to publis
 assert the built site serves ZERO occurrences of the payer email (all pages), the
 evidence_base contains no fact rendering it, and the delivery email still reaches the
 payer address. The probe-with-controls recipe is in this incident's NOTES entries.
+
+---
+
+## CLASS FIX SHIPPED — bugfix 417/420 lane, 2026-08-31 (taken with the filing lane's agreement)
+
+**Status: committed (`162877051`), INERT until the next chassis roll — so this file stays OPEN.**
+Council: `Council-Submitted: 2026df60-b91e-4f1c-8425-a3f6f14e6309`; verdict NOT yet read.
+The filing lane keeps the incident, the boxingonline pre-delivery list, and the ADDENDUM's
+`refresh_site_components` footer-skip half, which splits into its own file as this file predicted.
+
+### 1. The owner's contract ruling — the thing this file said was missing
+
+Put to the owner directly, 2026-08-31, as the CLASS question (the existing ruling was per-site):
+
+> **When a customer pays but is never explicitly asked what contact details the site should
+> show, the site publishes NONE. The payer's address is used only to deliver.**
+
+That generalises the boxingonline ruling and is the safe side, so the code is built to it and the
+architecture does not change if the owner later widens it — only a value does.
+
+### 2. Half 2 was not hypothetical — it FIRED on order 1, established by elimination
+
+This file called the register licence "the subtler one". It is also the one that already
+happened. `[MEASURED 2026-08-31]`: the build-briefing agent reads specs with `aspect: "all"`
+(`050_build_briefing_agent.sql:57-66`), and the briefing spec it wrote at 12:33:38 carried
+`contact.contact_email = <payer>` — while the identity spec's contact block was **all null** and
+the customer's brief prose did **not** contain the address
+(`direction->>'objective' ILIKE '%designconsultancy%'` → false, 855 chars). **The seeded register
+fact was the only possible source.** A registered claim propagated into a second regeneration
+source inside twelve minutes of the same build. That is the mechanism this file predicted,
+observed.
+
+### 3. The fix, and the two corrections the census forced
+
+**Fix candidates 1 and 2 of this file, both taken.** `sites.email` is now **only** the published
+contact. The payer's address is delivery-only and stays in `build_queue.direction.customer_email`
+— where the collector already put it and where the delivery dispatch already takes it from. The
+published contact comes only from a new OPTIONAL `direction.published_contact` key (the
+2026-08-02 shape: opt-in, unsafe side OFF, visible in the producer's own direction literal rather
+than licensed by a comment). The `contact` evidence fact is minted only from that consented
+address. `business_name` is kept — it is **constitutive** (no page can exist without naming the
+business, so giving it to a site-building order is inseparable from consenting to publish it),
+where the email is **severable** and was never asked about. That is the same line the incident's
+own owner-reviewed remedy drew.
+
+**No schema change and no backfill.** The delivery-contact store already exists; adding a
+`sites.delivery_email` column would put a second contact-ish column on the table every render
+path loads, guarded by a comment — which the 2026-08-02 ruling says does not survive this tree.
+Verified rather than assumed: the seed ran exactly once fleet-wide and 0 current `site_specs`
+rows carry the address.
+
+Two things in this file's framing turned out to be wrong, and both make the fix cheaper:
+
+- **"651's delivery-email-sender reads `sites.email`" is CONVENTION, NOT CODE.** `[MEASURED
+  2026-08-31]` No code in `send_delivery_email_action.go` or `platform/delivery/` reads the
+  column; `customer_email` is REQUIRED `input_data` supplied at dispatch. The split is therefore
+  a recipe update, not a chain change.
+- **The footer block was ALREADY gated** on `ctx.Email != ""` (`component_library.go:1988`, the
+  bugs_open/111 gate). The defect was never a missing gate — it was the **value** the gate let
+  through.
+
+**Census, dated as the rule requires: 4 writers / 14 readers of `sites.email` as of 2026-08-31**
+— including an **admin PATCH writer this file had missed** (`site_admin_handlers.go:363-367`,
+unconditional, the deliberate operator override). The two spec-copying writers
+(`sync_site_identity`, `update_site_content`) need no edit: on a customer build they can only
+copy what the seed put there, so closing the seed closes them at their source.
+
+**Also removed: the `info@<domain>` synthesis** on two render paths
+(`section_editor_actions.go`, `multipage_actions.go`). Post-fix an empty column is the CORRECT
+and common state, and fabricating an address nobody owns and no mailbox answers would make
+"the site publishes no contact" quietly false. Flagged severable in the submission; blast radius
+is 4 estate sites losing a fake display string at their next rerender.
+
+### 4. A guard obtained for free, and a live trap until the roll
+
+**Free guard:** `validate_page_content` loads `sites.email` as the one licensed "official"
+address and passes any page publishing it. Post-fix the column no longer holds the payer
+address, so **any residual occurrence on a page is now FLAGGED rather than licensed** — this
+file's fix candidate 3, without the flag.
+
+**⚠ LIVE TRAP until the chassis rolls (LANDMINES entry added).** boxingonline's `build_queue`
+row still holds `direction.customer_email`, and re-seeding is the canonical build retry
+(bugs_open/326). Because `sites.email` is now legitimately EMPTY, the fill-only-if-empty guard
+**inverts into a refill mechanism**: a retry would put the address back. The register survives
+(`WHERE NOT EXISTS`); the column does not. **Do not re-seed that site before the roll.** Every
+sweep you would run to check reads clean, because they all describe the state after the last
+seed and say nothing about the next one.
+
+### 5. This file's verification lesson, built into the plan
+
+The demanded recipe is an order-2 rehearsal, and it is written to be immune to all three
+enumeration traps recorded here: pages enumerated from `pages WHERE deployed` (never a
+remembered list), served-bytes probed with a demand control (never a DB sweep as the verdict —
+four sweeps read clean while `site_components.rendered_html` still served the address), and no
+step treating a rerender status or content hash as proof (a chrome-only change no-ops the hash).
+
+### 6. Open, for the owner, and out of scope here
+
+- `[UNVERIFIED — lives in the box repo]` whether the intake chat's `customer_name` guarantees a
+  BUSINESS name rather than a personal one. If personal, the same publish-without-consent shape
+  exists for `company_name` at lower severity, since `business_name` is minted as a fact and
+  rendered. Flagged rather than fixed, because the answer is not in this repo.
+- The `published_contact` wire shape (`{email, phone, …}`) needs agreeing with the intake-chat
+  lane. The platform half reads only `.email` today and ignores unknown keys, so the shape can
+  widen without another platform change.

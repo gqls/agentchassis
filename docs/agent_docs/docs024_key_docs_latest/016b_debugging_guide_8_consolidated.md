@@ -6691,6 +6691,49 @@ getting them wrong.**
   ones finds exactly **2** — the plant and the paraphrase — which is the demand control that makes
   the zero mean something.
 
+### A rule attached to the prompt's SOURCE instead of the artefact's PURPOSE governs only the population that never needed it — and fixing the source cannot bound what is already in flight (2026-08-31, `bugs_open/417`)
+
+**The shape.** A policy exists, in code, correct, with its reason written down — and it sits
+inside the branch that handles the DEFAULT case. `composeBrandImagePrompt` appended "no lettering
+or words" to logo prompts, and was reached only via `if prompt == ""`, i.e. only when a site plan
+supplied no prompt. Every planner-built site supplies one. So the rule protected exactly the sites
+that would have been fine anyway, and the real population reached the model ungoverned. The bug
+file's own phrase for it — *"the ruled path is the fallback nobody reaches"* — turned out to be the
+entire diagnosis.
+
+**Why it survives review.** Everything reads correctly in isolation. The rule is present, tested,
+and commented with its rationale; the fallback path is genuinely governed; a grep for the rule
+finds it and stops. The question nobody asks is *which branch does production actually take?*
+
+**The generalisation.** Ask, of any policy: is it attached to WHERE THE INPUT CAME FROM, or to
+WHAT THE ARTEFACT IS? Only the second is a bound. Source-attachment produces a rule whose coverage
+is the complement of its usage.
+
+**Two corollaries, both measured on this bug, both about how a source-fix reads as complete:**
+
+1. **A migration that fixes a prompt SOURCE cannot bound prompts already in flight.** A plan row
+   was created **41 seconds** after the migration that fixed its exemplar, by a run already
+   dispatched — and generated a live asset from the old wording. So the honest post-fix census is
+   dated AFTER the last in-flight producer lands, never at migration commit time, and a verify
+   block that passes at `COMMIT` is measuring an empty window.
+
+2. **An LLM REWORDS an instruction it was given, so no literal match bounds the class.** The
+   propagated licence read "no text **other than** the wordmark" where the exemplar said
+   "**outside**". A surgical migration keyed on the literal could never have matched it. **Any
+   census keyed on a literal measures its own literal** — including a census written to check that
+   the literal-based fix worked. Count the CONCEPT, or count a marker your own fix stamps into the
+   artefact (`origin_prompt` here), which is the only needle you control.
+
+**The fix shape that follows:** move the rule to the single choke point every input must pass —
+one that needs no DETECTION of the bad state, so paraphrase, future producers and already-queued
+work are all covered by construction. Then leave a mark in the artefact so "the guard never fired"
+and "the guard fired and was disobeyed" are distinguishable afterwards; without that mark they
+look identical and have completely different fixes.
+
+**Related:** `a-one-off-deletion-is-not-a-class-fix` · `a-quoted-exemplar-in-a-prompt-is-copied-verbatim`
+(this is that class, but copied in SHAPE rather than verbatim — which is what defeats the literal
+remedy) · `bugs_closed/028` · LANDMINES "a `kind`-gated guard … is blind to the two legacy parents".
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
