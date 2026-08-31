@@ -303,36 +303,16 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// Deliberately does not overwrite a value the step already supplied — a
 	// caller that computed its own voice_style outranks the platform default,
 	// which is the request-level override the owner asked for.
-	if _, already := templateData["voice_style"]; !already {
-		if block, ok := voicestyle.Get(ctx, func(ctx context.Context) (string, error) {
+	injectPlatformBlocks(ctx, templateData, func(ctx context.Context, name string) (string, bool) {
+		return voicestyle.GetBlock(ctx, name, func(ctx context.Context) (string, error) {
 			if params.DB == nil {
 				return "", sql.ErrConnDone
 			}
 			var t sql.NullString
-			err := params.DB.QueryRowContext(ctx, voicestyle.SQL).Scan(&t)
+			err := params.DB.QueryRowContext(ctx, voicestyle.SQLByName, name).Scan(&t)
 			return t.String, err
-		}); ok {
-			templateData["voice_style"] = block
-		}
-	}
-
-	// The best-in-class build standard, same mechanism and same opt-in rule: a
-	// template that writes {{.build_standard}} receives the block; one that does
-	// not mention it is unaffected, and a step-supplied value outranks the
-	// platform default. Carrier row: build_standard_block (migration 675; owner
-	// ruling 2026-08-31, copy_quality_two_stage PLAN_2026-08-25).
-	if _, already := templateData["build_standard"]; !already {
-		if block, ok := voicestyle.GetBlock(ctx, voicestyle.BuildStandardConfigName, func(ctx context.Context) (string, error) {
-			if params.DB == nil {
-				return "", sql.ErrConnDone
-			}
-			var t sql.NullString
-			err := params.DB.QueryRowContext(ctx, voicestyle.SQLByName, voicestyle.BuildStandardConfigName).Scan(&t)
-			return t.String, err
-		}); ok {
-			templateData["build_standard"] = block
-		}
-	}
+		})
+	})
 
 	validateTemplateData(templateData, params.StepConfig.Config, params.Logger)
 
@@ -1686,4 +1666,32 @@ func getPromptWithPriority(params ActionParams, agentConfig map[string]interface
 	// Generic fallback if nothing found
 	logger.Warn("No prompt found in any tier, using generic fallback")
 	return "Generate content based on the provided context.", "generic_fallback"
+}
+
+// platformPromptBlocks maps each templateData key to the agent_default_configs
+// row that backs it. Adding a third platform-wide block means one entry here, a
+// const in platform/voicestyle, and a reviewed carrier migration — never an ad
+// hoc injection elsewhere (council round b5a642b7, architecture note).
+var platformPromptBlocks = map[string]string{
+	"voice_style":    voicestyle.ConfigName,
+	"build_standard": voicestyle.BuildStandardConfigName,
+}
+
+// injectPlatformBlocks adds the platform-wide prompt blocks to templateData.
+// Semantics shared by every block, pinned by TestInjectPlatformBlocks: a
+// step-supplied value is never overwritten (request-level override), a template
+// that does not name the key is unaffected (opt-in is the template's mention;
+// an extra map key is inert to text/template), and a missing or unfetchable row
+// degrades to "no block" rather than a failed generation. Extracted from
+// ExecuteLLMPromptAction so the opt-in + override semantics are testable
+// without its machinery.
+func injectPlatformBlocks(ctx context.Context, templateData map[string]interface{}, get func(ctx context.Context, name string) (string, bool)) {
+	for key, name := range platformPromptBlocks {
+		if _, already := templateData[key]; already {
+			continue
+		}
+		if block, ok := get(ctx, name); ok {
+			templateData[key] = block
+		}
+	}
 }

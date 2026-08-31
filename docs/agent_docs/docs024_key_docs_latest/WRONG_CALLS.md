@@ -57157,3 +57157,15 @@ the end before choosing the excerpt.
 (a self-contradictory brief silently resolved by whichever key is load-bearing is a sharper
 defect than a prose/values mismatch). Recorded because the failure mode is general: **a selective
 quote reads exactly like a complete one, and nothing downstream can tell.**
+
+- **2026-08-31, copy_quality_two_stage** — wrote into a council submission's risks block that the
+  pre-roll `{{.build_standard}}` hazard ("renders literal '<no value>'") was "stated, not
+  solved" in Go — asserting a platform ABSENCE without reading the code path. RenderPromptTemplate
+  has detected and loudly logged exactly that literal since before my change
+  (data_helpers.go:1159, "TEMPLATE RENDERED WITH MISSING DATA", count + preview + field
+  context). What caught it: the council's bug_historian seat demanding the mechanism fix I
+  claimed was missing — reading the render tail to answer found the fix already there. Cheap
+  check skipped: grep the function you are characterising before characterising it ("no value"
+  in the file was one grep). Tally: **asserted-an-absence-in-a-mechanism-I-had-only-read-the-top-of**
+  (kin of cite-the-arm-not-the-function: I cited RenderPromptTemplate's parse/execute arm and
+  described the whole function from it).
