@@ -39,7 +39,11 @@ SELECT
   'Order Intake Collector',
   'Heartbeat agent: polls the webdesign.uk box''s committed-brief list (chat-submitted briefs, BR- references), releases paid briefs into build_queue by billing_orders.external_reference, files needs_human_review for repeat-domain and no-domain paid orders, acknowledges collection back to the box. One batch (max 10) per invocation. Dispatched by the order-intake-collect scheduled task. Owner rulings: reference-not-brief join (2026-08-26); 15-min poll and reject-repeat-domains-to-a-human (2026-07-31).',
   'orchestrator',
-  'orchestrator',
+  -- agent_category: check_ad_category admits only strategist/executor/analyst/
+  -- integrator/coordinator/specialist — 'orchestrator' here aborted the first
+  -- apply (2026-08-31); live orchestrators pair category='orchestrator' with
+  -- agent_category='coordinator'.
+  'coordinator',
   'active',
   true,
   jsonb_build_object('workflow', jsonb_build_object(
