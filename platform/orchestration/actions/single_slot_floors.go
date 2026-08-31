@@ -120,6 +120,19 @@ func enforceSingleSlotFloors(ctx context.Context, params ActionParams, siteID, p
 	// calls this function it inherits the loosened axis with zero calibration
 	// coverage"). Measured 2026-08-17 over platform/ internal/ pkg/ cmd/, non-test:
 	// enforceSingleSlotFloors has exactly ONE caller, section_editor_actions.go:436
+	//
+	// > CORRECTED 2026-08-31 (features_open/035 P1): TWO callers. The second is
+	// > recomposeOneAncestor (component_hierarchy_recompose.go), which rebuilds a
+	// > composition parent from its children's stored HTML after a child edit. It
+	// > is the "second caller inheriting the visible axis with no calibration of
+	// > its own" this very paragraph warns about, and it could NOT calibrate: there
+	// > are no composed parents yet (0 of 2,249 page_components carry a
+	// > parent_instance_id, measured 2026-08-31). It bounds that instead — a floor
+	// > breach there REFUSES the one ancestor and leaves its stored bytes, rather
+	// > than erroring, so a mis-set floor costs a stale ancestor and a work item
+	// > and never a broken edit. When composed pages exist, re-run
+	// > shrink_axis_calibration_test.go over them. Recorded here rather than only
+	// > in my own file because this census is what the NEXT caller will read.
 	// (the content_edit branch) — the path the archived overwrite pairs came from.
 	// A second caller of THIS function inherits the visible axis with no calibration
 	// of its own — re-run the harness first (shrink_axis_calibration_test.go).
