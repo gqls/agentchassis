@@ -1059,3 +1059,41 @@ Still outstanding, and now for the eighth session running, is the small stored c
 register file that can't be committed without dragging another lane's unfinished edit along with
 it. It is once again the only thing the drift check complains about. I checked it properly rather
 than assuming a clean-looking status meant it had gone away.
+
+---
+
+**2026-08-31.** The small job that had been top of this lane's list for four handoffs is
+done. The idea is simple: when a register entry says "this is built but won't actually work
+until the next deploy", it should say *which* change it is talking about. Nine characters.
+Without them, anyone reading later has to guess, and there is now a one-line command that
+answers "did this ship?" exactly — but only if the entry named its change.
+
+So there is now a check that says so at the moment someone writes such a line, rather than a
+report that mentions it the next morning to nobody in particular.
+
+Two things about building it are worth your time, because both were near misses.
+
+The first is that I measured it wrong and got a beautifully clean answer. I ran the check
+across forty-five recent commits and it found nothing at all. That is exactly what you would
+hope for — a quiet check that does not nag. It was completely false: my counting script was
+looking for the wrong thing and would have reported zero no matter what. I only caught it
+because I ran a case I already knew *should* trip it through the same counting script, and
+watched it come back clean too. A zero that cannot tell "nothing is wrong" from "I am not
+looking" is worth nothing, and this one looked like good news.
+
+The second is worse and I nearly shipped it. The check lets you off if you have cited your
+change, and it recognised those by their shape — a string of a certain length made of certain
+characters. It turns out the council review system stamps its own reference numbers in exactly
+that shape. So entries that had merely quoted a *review* reference were being waved through as
+though they had named their change. Seven of the eight real cases were being let off by this.
+The check would have sat there looking quiet and useful while catching almost nothing. The fix
+is to ask git whether the thing actually *is* a change, which takes one command and settles it.
+
+Both near misses have the same shape, which is why I am writing them down rather than just
+fixing them: **a check that is broken tends to report good news.** Silence is what you expect
+from something working. So the only way to trust quiet is to prove the thing can still shout.
+
+The work is committed, it is registered so other lanes can find it, and it has gone to the
+review council — which it now needs, because that file came into the council's remit a week
+ago. I have not held the code back waiting for the verdict; the estate has a specific marker
+for "submitted, not yet judged" precisely so nobody sits on work.

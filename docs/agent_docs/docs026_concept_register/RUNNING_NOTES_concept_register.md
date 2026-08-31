@@ -2734,3 +2734,55 @@ at `20:45` local, which is UTC vs BST and not a missing spawn.
 a landmine-shaped trap — *a `psql failed` that has already committed, leaving the entry synced,
 the status consumed, and the verifier silent.* Its wrong result looks exactly like its right one.
 Worth its own entry, with the check being "query for your rows before you retry".
+
+### 2026-08-31 — item 1 built, measured and shipped (`1efc84362`, `7006eb2d8`); the measurement was wrong twice first
+
+The sha-citation authoring rule is live as `check_register_roll_claim_without_commit`,
+the 24th check in `scripts/pattern-check.py`, registered as **OPP-011**. Council
+`Council-Submitted: 37b0bec4-f503-4b9a-8fc4-688ba29aa2bc` (that file entered gate scope
+2026-08-24, so a submission was owed; admission tested free with `DRY_RUN=1` first).
+
+**The rule:** a register status conditional on a roll must name the commit carrying it.
+`[MEASURED 2026-08-31]` at HEAD `028c3e112`: 2,027 entries, 125 roll-conditional statuses,
+24 withdrawn via strikethrough, 101 live, **28 (27%) naming neither commit nor version tag**.
+The handoff's long-standing figure was "13 of 29 entries examined" — a sample, from 08-17
+and ~3,700 commits stale. The census replaces it.
+
+**Three design decisions carry the false-positive rate, and only one of them was obvious.**
+
+1. *Strip `~~strikethrough~~` before testing.* The register withdraws a claim by striking
+   it and appending the correction, so `~~inert until the next roll~~ → LIVE` still
+   contains the trigger phrase while asserting its opposite. 24 of 125 are this shape.
+2. *A version tag counts as an answer.* "LIVE on chassis v1.0.1322" dates a claim as well
+   as a sha does — 4 more wrong fires gone (SEO-003, SYS-092, PLAN-027, LNK-034).
+3. **A hex token counts only once `git cat-file -e <tok>^{commit}` RESOLVES it.** This is
+   the load-bearing one and I nearly shipped without it. A council correlation id is 8 hex
+   characters with digits and is *pattern-identical* to a short sha; `LNK-040` carries
+   `corr e9bda035` today. **Regex-only, the fire rate is 2% and seven of the eight real
+   cases are silently exempted** — a check that reads as quiet and useful while missing
+   most of its population. With the git lookup: **8 of 45 register-touching commits (17%)**,
+   0 false positives on inspection.
+
+**Two ways the measurement was wrong before it was right. Both are the point.**
+
+- **The first fire-rate run reported `0/45`, and the zero was MY HARNESS, not the check.**
+  I matched findings with `grep -o "^   .roll-claim-without-commit"`, assuming one
+  character between the indent and the name; the ANSI prefix is `ESC[1m` — four. A clean
+  zero, a plausible story ("advisory checks should be quiet"), and completely false. It was
+  caught by a **demand control in the same loop body** — running a known positive
+  (`bf1fbc5b7`) through the identical pipeline, which returned 0 and could not have. The
+  estate's rule (*a post-fix ZERO needs a DEMAND control*) earned its keep; note the control
+  has to run through the **same loop body**, because it was the loop, not the check, that
+  was blind.
+- **The correlation-id hole was found by verifying the ONE fire rather than banking it.**
+  At 2% I had a single hit (`LNK-040`) and every incentive to call it a true positive and
+  stop. Reading its status is what exposed that `e9bda035` was exempting entries on a token
+  that answers nothing. **A low fire rate is a hypothesis about the world OR about your
+  filter, and only inspection tells you which.**
+
+Also worth keeping: the fire I did verify was a true positive *at its commit* but would not
+fire today, because a later edit added the corr id. **A check's verdict is a fact about a
+commit, not about the file** — re-deriving it at HEAD would have made a correct fire look wrong.
+
+**Not done:** the `_RELOCK` migration-suffix warning `scripts/council-scope.sh` prints is
+another lane's (`bugs_open/314`), left alone.
