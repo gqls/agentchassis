@@ -69,6 +69,44 @@ inputs — the corrupting input is in whatever changed for THIS site.
    Postgres's error does not say WHERE in the string the byte sits — a test harness
    hex-scan does.
 
+## ADDENDA 2026-08-31 (~19:0xZ) — graders and a latent sibling, from the boxingonline session (attributed; evidentiary status preserved)
+
+**Grader 1 — "the footer contains multi-byte characters" is NOT an explanation.**
+32 of 32 stored footers fleet-wide contain multi-byte characters, 31 contain an
+em-dash — all stored fine. What distinguishes this site is something that CUTS at a
+byte offset, not something that contains one. Reject any proposed cause of that
+shape unless it beats this census.
+
+**Grader 2 — "empty sites.email" is NOT sufficient either** (and it killed that
+session's own best timing-fit hypothesis, offered here so nobody re-derives it):
+13 sites have an empty email and 12 have a rendered footer, one as recently as
+today. The DropDeadURLControls-on-a-dead-mailto theory fits this site's TIMING
+(failures start with the first render after the ~15:37 email scrub; the 13:31 bake
+predates it) but is unsupported by timing alone. The sharp revival test, unrun:
+whether those 12 sites' footer templates emit a mailto control at all (this site's
+did; theirs may gate it out before it can go dead).
+
+**Code read (theirs) — the obvious alignment bug is NOT there**: renderedHTML
+reaches the bind unsliced; the only surgery between RenderTemplate (:1075) and the
+store is DropDeadURLControls (:1227) and injectBrandHeadTags (:1261).
+`ReplaceAllInMarkup` slices by offsets from a regex over a masked copy — the classic
+mid-rune cut — but `maskNonMarkup` (markup_spans.go:108) masks PER BYTE, preserving
+length and offsets. **One reading NOT discharged (a reading, not a finding — read it
+properly, quote it never):** the span loop `for i := s.Start; i < s.End` can mask
+PART of a multi-byte character if a span boundary lands mid-rune, putting a bare
+continuation byte into the masked (matching-only) copy — it would have to move a
+match boundary to matter.
+
+**Latent sibling, fold into half 1's fix** — same file, same class, NOT this
+footer's cause: lines 1439, 1689 and 1779 each do
+`if len(summary) > 250 { summary = summary[:247] + "..." }` — a byte slice that cuts
+mid-rune exactly as this file describes. They write work-item summaries — and
+**:1689's summary is `fmt.Sprintf("Chrome %s failed to render: %v", slot, renderErr)`,
+an arbitrary error string — so the surface that REPORTS a chrome failure can itself
+mint invalid UTF-8 and fail its own insert.** Whoever makes the failure path
+load-bearing (fix candidate 1) must make these three slices rune-safe in the same
+pass, or the new reporting can die of the same disease it reports.
+
 ## How to verify
 
 Re-run render_site_components for the site (the repro dispatch shape is in the
