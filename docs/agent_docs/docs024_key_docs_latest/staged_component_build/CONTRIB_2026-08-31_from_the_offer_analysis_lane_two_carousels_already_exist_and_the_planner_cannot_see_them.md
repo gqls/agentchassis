@@ -88,3 +88,74 @@ planner is shown fleet-wide on every subsequent build; it is council scope and i
 decision, not a peer agreement. **This CONTRIB is a measurement and a warning about build order, not
 a claim on the work.** The `component_expresses` seam and its landmines are documented at register
 **IMG-074**; `bugs_open/381` is closed and its lane wrapped up, so that function has no live owner.
+
+---
+
+## 6. RESOLVED — the §3(3) measurement I said was owed, and the answer makes the ask smaller again
+
+*Added 2026-08-31, same session. §3 said "what honestly marks a component as horizontally
+traversable" was unestablished and owed before anyone writes the arm. It is now established, and it
+turned up something bigger than the arm.*
+
+### 6a. The sound signal is `semantic_tags`, and a template grep would have been actively self-defeating
+
+| candidate signal | components | active + section | verdict |
+|---|---|---|---|
+| **declared `semantic_tags` ~ `carousel\|swipe\|slider`** | **3** | **3** | **precise: 3 of 3 are genuine carousels** |
+| template ~ `carousel\|scroll-snap\|swipe\|overflow-x` | 72 | 12 | 9 false positives |
+
+**Every tagged component also carries the markup** (tagged-and-not-marked-up = **0**), so the tag
+never claims a capability the template cannot deliver. That is the consistency check that makes it
+trustworthy, and it is the same property that made `644`'s schema-`source` derivation safe.
+
+⚠ **And the 9 markup-only actives are exactly the trap `644` taught us to expect.** Seven matched on
+`overflow-x` and are **wide tables and calculators** — `comparison-table`, `evidence-timeseries`,
+`header-docs`, `platform-comparison`, two loan/mortgage calculators, `Ported Page` — where
+`overflow-x` is *a scrollbar on a wide table*, not a carousel. **The other two are `info-card-grid`
+and `case-studies-grid` — the GRIDS.** So a template grep would have told the planner that
+**the plain card grid the carousels are losing to is itself a carousel.** Perfectly self-defeating,
+and invisible without opening the matches. The precision gap here (3 vs 12 active) is the same shape
+as `644`'s (14 vs 47).
+
+### 6b. ⚠ THE BIGGER FINDING: THE DOMINANT GRID ALREADY HAS A CAROUSEL MODE, AND IT IS OFF
+
+Both grids matched the grep because both **already contain an opt-in carousel layout**:
+
+- `info-card-grid` — `{{if $.carousel}}` gating an *"OPT-IN CAROUSEL LAYOUT"* stylesheet, and it is a
+  **declared schema field**: `carousel`, `type: boolean`, `source: static`, guidance *"Optional. Set
+  true to lay the cards out as a single-row horizontal carousel with prev/next"*.
+- `case-studies-grid` — an optional carousel variant from migration **559**, *"inert unless
+  `.csg-grid--carousel` is set"*.
+
+`[MEASURED 2026-08-31]`
+
+| component | live instances | sites | **carousel flag ON** |
+|---|---|---|---|
+| `info-card-grid` | **42** | 21 | **1** |
+| `case-studies-grid` | 4 | 3 | **0** |
+
+**The single instance is `leopardessconsulting.co.uk` `/services.html`, set 2026-08-25.**
+
+**So the owner's ask — "carousels rather than card after card, maybe as the default" — is closest to
+a switch that already exists and is off on 41 of 42 instances.** Not a component gap; not even
+primarily a vocabulary gap for this component. **This is the estate's "a silent mechanism is usually
+UNDRIVEN, not missing" shape.**
+
+### 6c. What that means for build order
+
+1. **Do not build carousel variants first.** Two dedicated carousels exist with **1 live instance
+   between them**, and the grid that beats them 42-to-1 can already *be* a carousel.
+2. **The cheapest lever is the flag**, not the library. ⚠ But note `carousel` is `source: static`,
+   which the resolver returns `nil, true` for — it is not resolved from a spec, so it lives in
+   `content_data` per instance and something must positively set it. **Who sets it, and on what
+   evidence, is the open design question** — and "default it on fleet-wide" is exactly the kind of
+   unconditional change that should not be made because one review asked for it.
+3. **The vocabulary token is still worth having** for the two dedicated carousels, derived from
+   `semantic_tags`, **not** from the template. But it is now clearly the *second* lever.
+
+### 6d. Still not concluded, and still his call
+
+Whether a carousel is the right default at all. It trades scroll length for **discoverability** —
+items behind an interaction are items many readers never see — and on a services or guides listing
+that can cost more than the scrolling it saves. The owner's reason is mobile UX and that judgement is
+his; **this note only establishes that the estate can already do it, cheaply, and currently does not.**
