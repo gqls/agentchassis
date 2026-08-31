@@ -81,6 +81,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -161,6 +162,102 @@ func fleetSurface(raw string) (map[string][]string, []string, error) {
 	return surface, aspects, nil
 }
 
+// ---------------------------------------------------------------------------
+// NEGATIVE-EXAMPLE CONTEXT — the false positive this detector shipped with, and
+// the reasoning gap that produced it (found by its own first live run, 2026-08-28).
+//
+// The first finding this check ever filed was WRONG. homegarden.uk's
+// `content_direction.example_phrases.would_never_say[1]` holds
+// "We tested six lawn mowers so you don't have to." — a phrase the spec is
+// telling the writer NEVER to use — and the detector convicted the site for it,
+// at severity high, into a human queue.
+//
+// THE GAP WAS IN MY REASONING, NOT MY CODE. I excluded `evidence_base` precisely
+// because it stores banned phrases AS DATA, and then did not generalise: a
+// spec's negative-example lists are the identical trap wearing a different
+// aspect name (`would_never_say`, `voice.avoid`, `avoid_phrases`,
+// `banned_phrases`). A register of what NOT to say is not a claim.
+//
+// WHY THE ASSERTION ITSELF CANNOT CARRY THE ANSWER, measured rather than
+// assumed: `SplitPlainAssertionText` splits the label off. Given the real
+// `formatted` block "Would never say:\n- Transform your garden…\n- We tested six
+// lawn mowers…", it returns four assertions and the FIRST is the bare label —
+// so by the time a pattern runs, the phrase has no context at all. The context
+// has to come from outside the assertion, and there are exactly two places it
+// survives:
+//
+//	the FIELD PATH ...... would_never_say[1], voice.avoid — reliable for the
+//	                      structured aspects, where the key IS the semantics
+//	the BLOCK'S LABEL ... "Would never say:" — the only surviving signal in
+//	                      content_direction's `formatted` fold, which flattens
+//	                      every key to "Label: value" and is what the writer reads
+//
+// THE LABEL TEST IS DELIBERATELY ANCHORED, not a substring search over the
+// block. "avoid" is an ordinary word: a block reading "Voice: avoid jargon. We
+// test every tool ourselves." must still convict. So the test reads only the
+// block's FIRST LINE, up to its first colon — the label position that
+// FormatContentDirection actually writes — and never the body.
+//
+// SUPPRESSIONS ARE COUNTED AND REPORTED, never silent. A suppressor that leaves
+// no trace is the failure mode this estate keeps rediscovering, and it is
+// especially dangerous here because the thing being suppressed is a real
+// pattern match: if this vocabulary ever over-reaches, the count is what shows it.
+var negativeExampleRe = regexp.MustCompile(`(?i)\b(?:would[_ ]?never[_ ]?say|never[_ ]?say|do[_ ]?not[_ ]?say|don'?t[_ ]?say|avoid(?:ed|s|ing)?|banned|forbidden|prohibited|off[_ ]?limits|excluded|bad[_ ]?examples?|anti[_ ]?patterns?|not[_ ]our[_ ]voice)\b`)
+
+// labelSegment is a run of lines governed by one label.
+type labelSegment struct {
+	Label string
+	Text  string
+}
+
+// labelLineRe matches a bare label line as FormatContentDirection writes it —
+// "Would never say:", "Characteristic:" — short, and nothing after the colon.
+var labelLineRe = regexp.MustCompile(`^\s*([^:\n]{1,60}):\s*$`)
+
+// inlineLabelRe matches the scalar form, "Label: value", where the label
+// governs only its own line.
+var inlineLabelRe = regexp.MustCompile(`^\s*([^:\n]{1,60}):\s+\S`)
+
+// labelledSegments splits one block into label-governed runs.
+//
+// ⚠ THIS IS NOT A BLOCK-HEAD TEST, and the first version of this fix WAS, which
+// is why it only half-worked. `blockSplitRe` splits on BLANK lines, and
+// FormatContentDirection does not put one before a label — measured on the real
+// homegarden.uk row, "Would never say:" sits mid-block, directly after the last
+// bullet of the previous section. A test that read only the block's first line
+// therefore saw "Characteristic" and let the never-say list through. The
+// synthetic fixture I first wrote had a blank line before the label, so it
+// passed while the live data still failed: a fixture composed to match the
+// assumption exercises the assumption, not the data.
+func labelledSegments(block string) []labelSegment {
+	var out []labelSegment
+	cur := labelSegment{}
+	flush := func() {
+		if strings.TrimSpace(cur.Text) != "" {
+			out = append(out, cur)
+		}
+	}
+	for _, line := range strings.Split(block, "\n") {
+		if m := labelLineRe.FindStringSubmatch(line); m != nil {
+			flush()
+			cur = labelSegment{Label: m[1]}
+			continue
+		}
+		if m := inlineLabelRe.FindStringSubmatch(line); m != nil {
+			flush()
+			out = append(out, labelSegment{Label: m[1], Text: line})
+			cur = labelSegment{}
+			continue
+		}
+		cur.Text += line + "\n"
+	}
+	flush()
+	if len(out) == 0 {
+		return []labelSegment{{Text: block}}
+	}
+	return out
+}
+
 // specClaim is one claim a spec hands to a generator.
 type specClaim struct {
 	Aspect   string   `json:"aspect"`
@@ -179,6 +276,10 @@ type specClaimAssessment struct {
 	Claims   []specClaim `json:"claims"`
 	Attested bool        `json:"operating_history_attested"`
 	Scanned  int         `json:"scanned_fields"`
+	// Suppressed counts matches dropped for sitting in a negative-example
+	// context. Reported, because a silent suppressor and a dead check look
+	// identical from outside.
+	Suppressed int `json:"suppressed_negative_examples"`
 }
 
 func (a specClaimAssessment) Finding() bool { return len(a.Claims) > 0 }
@@ -250,18 +351,28 @@ func assessSpecClaims(rows []siteSpecs, surface map[string][]string) []specClaim
 			}
 			for field, text := range stringLeaves(key, v) {
 				cur.a.Scanned++
+				fieldNegative := negativeExampleRe.MatchString(field)
 				for _, block := range blockSplitRe.Split(text, -1) {
-					blocks := datahelpers.SplitPlainAssertionText(block)
-					for _, f := range datahelpers.ScanPracticeClaims(blocks, cur.eb) {
-						cur.a.Claims = append(cur.a.Claims, specClaim{
-							Aspect:   r.Aspect,
-							Field:    field,
-							Readers:  readers,
-							Matched:  f.Matched,
-							Snippet:  f.Snippet,
-							Reason:   f.Reason,
-							Mandated: mandateRe.MatchString(block),
-						})
+					for _, seg := range labelledSegments(block) {
+						negCtx := fieldNegative || negativeExampleRe.MatchString(seg.Label)
+						blocks := datahelpers.SplitPlainAssertionText(seg.Text)
+						for _, f := range datahelpers.ScanPracticeClaims(blocks, cur.eb) {
+							if negCtx {
+								// A phrase the spec is telling the writer NOT to use.
+								// Counted, never silently dropped.
+								cur.a.Suppressed++
+								continue
+							}
+							cur.a.Claims = append(cur.a.Claims, specClaim{
+								Aspect:   r.Aspect,
+								Field:    field,
+								Readers:  readers,
+								Matched:  f.Matched,
+								Snippet:  f.Snippet,
+								Reason:   f.Reason,
+								Mandated: mandateRe.MatchString(block),
+							})
+						}
 					}
 				}
 			}
@@ -446,7 +557,20 @@ func renderSpecClaims(assessments []specClaimAssessment, aspects []string, filed
 			findings++
 		}
 	}
+	suppressed := 0
+	for _, a := range assessments {
+		suppressed += a.Suppressed
+	}
 	fmt.Fprintf(&b, "\n%d of %d sites hand a generator at least one such claim.\n", findings, len(assessments))
+	// A SUPPRESSOR THAT LEAVES NO TRACE IS THE FAILURE MODE THIS ESTATE KEEPS
+	// REDISCOVERING, and it bites hardest here: what is being suppressed is a
+	// real pattern match in a negative-example list ("would never say", "avoid").
+	// If that vocabulary ever over-reaches, this count is the only thing that
+	// shows it — a detector quietly suppressing its way to zero and a clean fleet
+	// are otherwise identical in this report.
+	fmt.Fprintf(&b, "%d match(es) suppressed as negative examples (a phrase the spec tells the writer "+
+		"NOT to use); a rising count here with findings at zero means the suppression vocabulary is "+
+		"over-reaching, not that the fleet got cleaner.\n", suppressed)
 	for _, a := range assessments {
 		if !a.Finding() {
 			continue

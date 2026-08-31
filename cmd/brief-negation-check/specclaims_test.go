@@ -302,3 +302,91 @@ func TestFleetSurfaceSeesRefsNestedInsideASubWorkflow(t *testing.T) {
 		t.Errorf("expected both aspects in the census list, got %v", aspects)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// NEGATIVE-EXAMPLE CONTEXT (2026-08-28). The fixtures are homegarden.uk's REAL
+// rows, verbatim — this detector's first live finding was a false positive on
+// them, and a synthetic fixture would only prove the fix matches something I
+// wrote.
+// ---------------------------------------------------------------------------
+
+const neverSayPhrase = "We tested six lawn mowers so you don't have to."
+
+// The structured aspect: the KEY carries the semantics.
+func TestSpecClaimIgnoresAWouldNeverSayList(t *testing.T) {
+	specs := []siteSpecs{{
+		Domain: "homegarden.uk", SiteID: "5904bd0f-33fd-4212-9c1b-50b28fe72fdb",
+		Aspect: "content_direction",
+		Data: map[string]interface{}{
+			"example_phrases": map[string]interface{}{
+				"would_never_say": []interface{}{
+					"Transform your garden into a paradise this season!",
+					neverSayPhrase,
+				},
+			},
+		},
+	}}
+	got := assessSpecClaims(specs, map[string][]string{"content_direction": {"page-content-writer"}})
+	if len(got[0].Claims) != 0 {
+		t.Errorf("convicted a site for a phrase its OWN SPEC bans: %+v", got[0].Claims)
+	}
+	if got[0].Suppressed == 0 {
+		t.Errorf("the match must be COUNTED as suppressed, not silently dropped — a silent " +
+			"suppressor and a dead check look identical from outside")
+	}
+}
+
+// The `formatted` fold: the key is flattened away and only the LABEL survives.
+// This is the arm that matters, because `formatted` is what the writer reads.
+func TestSpecClaimIgnoresANeverSayLabelInTheFormattedFold(t *testing.T) {
+	// ⚠ THE REAL ROW, verbatim, including the thing my first fixture got wrong:
+	// there is NO blank line before "Would never say:" — it sits directly after
+	// the previous section's last bullet, mid-block. My composed fixture had one,
+	// so it passed while the live data still produced the false positive. Do not
+	// "tidy" this fixture.
+	specs := []siteSpecs{{
+		Domain: "homegarden.uk", SiteID: "5904bd0f-33fd-4212-9c1b-50b28fe72fdb",
+		Aspect: "content_direction",
+		Data: map[string]interface{}{
+			"formatted": "Characteristic:\n" +
+				"- This job can wait until spring — doing it now won't cause harm.\n" +
+				"- Check the pointing before anything else. Cracked mortar lets in water.\n" +
+				"Would never say:\n" +
+				"- Transform your garden into a paradise this season!\n" +
+				"- " + neverSayPhrase + "\n" +
+				"- Act now before the frost sets in — your garden can't wait.",
+		},
+	}}
+	got := assessSpecClaims(specs, map[string][]string{"content_direction.formatted": {"page-content-writer"}})
+	if len(got[0].Claims) != 0 {
+		t.Errorf("the label 'Would never say:' must exempt the block: %+v", got[0].Claims)
+	}
+}
+
+// ⚠ THE OTHER DIRECTION, and it is why the label test is anchored to the first
+// line before the first colon rather than searching the block. "avoid" is an
+// ordinary word: a real claim sitting in a block that merely MENTIONS avoiding
+// something must still convict, or the fix silently guts the detector.
+func TestSpecClaimStillConvictsWhenAvoidIsMerelyInTheProse(t *testing.T) {
+	specs := []siteSpecs{{
+		Domain: "example.test", SiteID: "00000000-0000-0000-0000-0000000000aa",
+		Aspect: "content_direction",
+		Data: map[string]interface{}{
+			"formatted": "Voice: avoid jargon and marketing language. We test every tool ourselves " +
+				"before we write about it.",
+		},
+	}}
+	got := assessSpecClaims(specs, map[string][]string{"content_direction.formatted": {"page-content-writer"}})
+	if len(got[0].Claims) != 1 {
+		t.Fatalf("a real practice claim was suppressed because the block mentions 'avoid' — the "+
+			"label test must read only the first line up to its first colon: %+v", got[0].Claims)
+	}
+}
+
+// And the motivating case must still fire: the fix must not have disarmed 414.
+func TestNegativeExampleFixDoesNotDisarmTheMotivatingCase(t *testing.T) {
+	got := assessSpecClaims(lendzySpecs(propagatedMarker), lendzySurface)
+	if len(got[0].Claims) != 1 {
+		t.Fatalf("the 414 marker must still be caught after the negative-example fix: %+v", got[0].Claims)
+	}
+}
