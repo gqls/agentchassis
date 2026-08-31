@@ -501,3 +501,62 @@ this verification claims otherwise.
 blocking ratchet is live in every future build; the advisory twin was already live. The bug file
 stays OPEN (pattern file — instances 1–2, candidates 1–2 and the content-loss residual are other
 lanes' work or undecided), with instance 3 marked closed inside it.
+
+---
+
+## 2026-08-31 — cold-start session: state re-verified at 5 days, then the content-loss residual closed
+
+**State re-verification first, everything green** `[MEASURED 2026-08-31]`:
+
+- Census staleness check (handoff item 5): `git log --since=2026-08-26 --diff-filter=A` is
+  NON-empty (~20 new Go files under platform/ and cmd/, several in the blocking package) — so the
+  census was re-run, and came back **identical**: 207 sites / 127 files, 0 disagreements between
+  the Go and Python classifiers, blocking ratchet green at HEAD. None of the new files added an
+  unmarked swallow.
+- Guard still in the running binary: pods rolled again (ReplicaSet `6d6856d8d5`, ~4h old at
+  check) — three-way probe re-run on BOTH pods, GUARD-PRESENT / CONTROL-PRESENT / CONTROL-ABSENT.
+- **The UNDEMANDED zero is now DEMANDED**: 209 orchestrations since 2026-08-30 plan the
+  `rerender_page_sections` action; **87 carry the `rerender_sections` step output** in
+  `collected_data` (77 COMPLETED + 10 FAILED: 8 × downstream `OWNED_PAGE_GUARD`, 2 × timeout,
+  0 × scan refusal). ≥87 live executions of `loadStoredSections`, zero `ScanShortfall` refusals —
+  scans completing, the success state, now evidenced by traffic rather than only by the test
+  suite. ⚠ Measurement gotcha, recorded: **`execution_path` is `[]` on this pipeline** even on
+  runs that provably failed at `save_sections` — my first count keyed on it and returned
+  0-executed against 10 visible failures (the encoded-question trap, again, caught in-minutes by
+  reading one member row). Count step execution by the step's `output_field` key in
+  `collected_data`.
+- Scoreboard movement found while checking claim-state: 404's candidate 0 (handoff item 2) was
+  shipped by the 404 lane itself — `ef4236b4d`, one vocabulary definition in `platform/livespec`.
+  Not ours; recorded in the bug file scoreboard delta.
+
+**Then the residual (handoff item 3) — closed, decision by measurement:**
+
+- The question "may an unparseable section render as an empty one?" resolves through two facts:
+  (1) `content_data` is **jsonb** → broken syntax cannot be stored; the only reachable decode
+  failure into `map[string]interface{}` is a **non-object value**. (2) Census: **0 of 2,751**
+  non-NULL values are non-objects; **56 SQL NULL (55 loadable)**. So refusing costs nothing on
+  any current row, and the approved round's own rule (refuse where the consumer replaces
+  wholesale) applies with zero live blast radius. The 55 nil-content rows are the REAL hazard —
+  an over-strict guard would fail pages that render today — so the guard is exactly as strict as
+  the parse: SQL NULL never enters the branch, jsonb `null` decodes to the same nil map, both
+  pinned by `TestLoadStoredSections_NullContentDataStaysLoadable`.
+- Mechanism: reuse, not addition — on decode error, Warn (row id + cause) and `continue`, so the
+  EXISTING `ScanShortfall` refuses. Accepted trade, stated in the submission risks: the refusal
+  line says "lost to scan failures" for what was a decode failure; the Warn above it names the
+  true cause. One refusal literal beats two.
+- Mutations both run and killed: restore `_ =` → `NonObjectContentData` test red (and ONLY it —
+  good specificity); delete `ScanShortfall` → all three refusal tests red.
+- Classifier parity re-verified post-edit (the new branch is an `Unmarshal` continue, not a
+  `rows.Scan` continue — verified by running both classifiers, not asserted from the regex):
+  207/127/0 unchanged, rerender file still 0 unmarked.
+- **Concurrent-session interference, and how it was isolated:** mid-verification the package
+  twice failed on files this task never touched (`write_audit_findings_field_capability_test.go`
+  undefined `slices`, mtime 9 seconds before the failure; then two handler-registry tests failing
+  in a full run and passing in isolation seconds later). Verdict on OUR change taken in
+  isolation: `verify-head-builds.sh --with <the three files> --test` against HEAD `1d81bf7a3` —
+  all green. The dirty-tree failures belong to the neighbouring session's in-flight work.
+- Council: submitted as its own coherent round, `SUBMISSION_CORR =
+  a69d82f2-9859-4c33-98d9-e791fade2974` (r1). First 097 attempt REFUSED client-side:
+  `plan.edits[].operation` is an enum (modify|add|remove|config_change) — free-text operations
+  are rejected; normalised to `modify` and it dispatched. Committing with `Council-Submitted:`,
+  verdict to be read when it lands (~30 min budget incl. queue).

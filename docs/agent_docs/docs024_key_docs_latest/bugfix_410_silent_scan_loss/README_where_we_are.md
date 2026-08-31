@@ -120,3 +120,31 @@ lane's work is done unless someone reopens a piece of it.
 > counting script also matched a second, harmless pattern that the safeguard doesn't apply to.
 > Caught while building the tripwire, before anything shipped; the fuller story is in the
 > notes file. The plan didn't change — either number is far too many to fix by hand.
+
+---
+
+**2026-08-31.** A new session picked the lane up from the handoff and did two things.
+
+First it checked that everything we said on the 26th is still true five days on — it is. The
+fix is still in both running pods (they've been redeployed twice since; checked again at the
+binary, with the same controls). The count of risky scan-loops across the codebase is still
+exactly 207 even though about twenty new code files landed last week — none of them added a new
+one, which is the ratchet doing its job quietly. And the thing we couldn't say on the 26th, we
+can now: back then the guard had never been exercised by real traffic, so its silence proved
+nothing. Since Sunday there have been at least 87 real page-rerender runs through the exact code
+we guarded, and the guard refused none of them — meaning the reads are genuinely completing. Its
+silence is now evidence, not absence.
+
+Second, it closed the one loose end we'd left in the code itself: a spot in the same loop where
+a section whose content failed to decode would quietly carry on as an EMPTY section — and then
+get saved back, wiping the stored content. We'd left it with a note saying "this needs a
+decision: is an empty section acceptable?". The session answered it by measuring instead of
+philosophising: the database column literally cannot hold broken JSON, and not one of the 2,751
+live content entries has the only shape that could still fail. So making it refuse costs
+nothing today, protects against the first future mistake, and it now uses the same refusal
+mechanism the council already approved. The 55 pages that legitimately have no content at all
+are unaffected — there's a test that pins that, so nobody can accidentally tighten it later.
+
+Sent to the review council as its own round (submitted, verdict pending). One item left on this
+lane's list for the future: the big fleet-wide "candidate 1" design round, which remains
+unclaimed. The other candidate we'd listed was picked up and shipped by the 404 lane themselves.

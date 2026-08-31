@@ -1262,13 +1262,26 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 			continue
 		}
 		if len(cdJSON) > 0 {
-			// KNOWN RESIDUAL, stated rather than left quiet (bugs_open/410): a
-			// corrupt content_data keeps the row and empties its content, so
-			// offered == kept and the guard below cannot see it. That is a
-			// second silent-loss class in this same loop, on a different axis
-			// (content, not rows), and it needs its own decision about whether
-			// an unparseable section may render as an empty one. Not fixed here.
-			_ = json.Unmarshal(cdJSON, &s.contentData)
+			// Closed residual (bugs_open/410): this was `_ = json.Unmarshal(...)`,
+			// which KEPT the row and EMPTIED its content on a parse failure —
+			// offered == kept, invisible to the count guard below, and
+			// save_page_sections would then replace the stored row wholesale
+			// with the emptied one. Same destruction argument as the scan
+			// branch above, same mechanism: drop the row so ScanShortfall
+			// refuses the whole load. The column is jsonb, so the only
+			// reachable failure is a non-object value — 0 of 2,751 rows
+			// fleet-wide as of 2026-08-31, so this refusal fires on no page
+			// today and exists for the first writer that changes that.
+			// Deliberately NOT stricter than the parse: SQL NULL (55 loadable
+			// rows as of 2026-08-31) never enters this branch, and jsonb
+			// `null` unmarshals to the same nil map without error. Both stay
+			// loadable — a nil-content section is a live, legitimate
+			// population; only content that FAILS to parse is refused.
+			if err := json.Unmarshal(cdJSON, &s.contentData); err != nil {
+				logger.Warn("rerender_page_sections: content_data does not parse into a section object; dropping the row so the shortfall guard refuses",
+					zap.String("page_component_id", s.id), zap.Error(err))
+				continue
+			}
 		}
 		out = append(out, s)
 	}

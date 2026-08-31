@@ -43,10 +43,16 @@
 //     walks the whole tree from inside one package is fragile, and that
 //     population is not artefact-shaped. This is a stated residual, not hidden
 //     coverage.
-//   - CONTENT loss, as opposed to ROW loss. loadStoredSections' own
-//     `_ = json.Unmarshal(cdJSON, &s.contentData)` keeps the row and empties it
-//     on corrupt JSON, so offered == kept and no count guard can see it. A
-//     different axis, recorded in bugs_open/410 as a residual.
+//   - CONTENT loss, as opposed to ROW loss: a decode that keeps the row and
+//     empties it leaves offered == kept, and no count guard can see it. The
+//     motivating site — loadStoredSections' `_ = json.Unmarshal(cdJSON,
+//     &s.contentData)` — was CLOSED 2026-08-31: that branch now drops the
+//     failing row so ScanShortfall refuses (blast radius measured first: 0 of
+//     2,751 live content_data values are non-objects, so the refusal is
+//     unreachable on today's data; rerender_page_sections_scan_completeness_
+//     test.go pins both the refusal and the legitimate nil-content
+//     population). The CLASS stays a blind spot: this ratchet still cannot
+//     see any OTHER site that swallows a decode after a successful scan.
 //   - A SITE THAT COUNTS BUT NEVER ACTS ON THE COUNT. The marker and the
 //     baseline both track the SHAPE; only review can tell whether a guard that
 //     exists is also consulted.

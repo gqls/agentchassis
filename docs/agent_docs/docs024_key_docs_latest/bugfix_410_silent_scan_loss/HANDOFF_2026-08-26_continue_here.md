@@ -55,10 +55,14 @@ a count → "FELL … ratchet down".
    check would not notice a swallowed scan, and our scan ratchet cannot notice a reason the DB
    knows and Go does not. Whoever builds it: our ratchet reads Go source ONLY — that boundary is
    stated in its header so the two checks never look like each other's coverage.
-3. **The content-loss residual, in the very loop we fixed:** `_ = json.Unmarshal(cdJSON,
+3. ~~**The content-loss residual, in the very loop we fixed:** `_ = json.Unmarshal(cdJSON,
    &s.contentData)` keeps the row and EMPTIES it on corrupt JSON — `offered == kept`, invisible
    to any count guard. Needs a decision: may an unparseable section render as an empty one?
-   Commented at the site, listed in the ratchet header's blind spots.
+   Commented at the site, listed in the ratchet header's blind spots.~~
+   **CLOSED 2026-08-31** — decision made by measurement (jsonb column, 0 of 2,751 live values
+   non-object, 55 SQL-NULL rows stay loadable): decode failure now drops the row so the existing
+   `ScanShortfall` refuses. Council corr `a69d82f2` (submitted; read the verdict). NOTES
+   2026-08-31 has the full account. Item 2 also moved: shipped by the 404 lane (`ef4236b4d`).
 4. **Convergence debt (reuse_agent advisory, tracked not owed now):** `scanBlogArticles`
    (`rebuild_blog_listing_action.go`) is the TRUE sibling — converge onto `ScanShortfall` the
    NEXT time that function is touched (needs a graded helper variant, shipped WITH that caller;

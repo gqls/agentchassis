@@ -344,3 +344,45 @@ test suite, which fires the guard on every build.
 door-closing fix, needs its own review), 404's candidate 0, the content-loss residual
 (`_ = json.Unmarshal` keeps the row and empties it — invisible to any count guard), and the 41
 advisory-only sites outside the blocking package.
+
+---
+
+## 2026-08-31 — the content-loss residual is CLOSED at the worked site, and the guard's zero is now DEMANDED
+
+**The residual** (`_ = json.Unmarshal(cdJSON, &s.contentData)` in `loadStoredSections` — keeps
+the row, EMPTIES its content, `offered == kept`, invisible to the count guard) **is fixed**: the
+branch now Warns with the row id and DROPS the failing row, so the existing `ScanShortfall`
+refuses the whole load. One refusal mechanism, no new error literal. The open question the
+comment posed ("may an unparseable section render as an empty one?") was answered by measurement,
+not preference `[MEASURED 2026-08-31]`: `content_data` is **jsonb**, so the only reachable decode
+failure is a non-object value — and **0 of 2,751** non-NULL values fleet-wide are non-objects
+(`SELECT jsonb_typeof(content_data), count(*) FROM page_components GROUP BY 1` → object 2751,
+NULL 56). So the refusal fires on **no page the database can currently produce** and exists for
+the first writer that changes that. The boundary is exactly as strict as the parse and no
+stricter: **55 loadable rows carry SQL NULL** content_data today and stay loadable as nil-map
+sections (a live, legitimate population), and jsonb `null` decodes to the same nil map — both
+pinned by `TestLoadStoredSections_NullContentDataStaysLoadable`. Both mutations run and killed:
+restore the `_ =` form → the new refusal test red with "(2 sections, nil error)"; delete
+`ScanShortfall` → all three refusal tests red. Classifier parity re-verified after the edit:
+still 207 sites / 127 files, 0 disagreements, the rerender file still 0 unmarked.
+Council: `Council-Submitted: a69d82f2-9859-4c33-98d9-e791fade2974` (this is a submission, not a
+verdict — read the verdict before citing approval).
+
+**The guard's live zero graduated from UNDEMANDED to DEMANDED** `[MEASURED 2026-08-31]`: 209
+orchestrations since 2026-08-30 carry the `rerender_page_sections` action in their plan, **87
+carry the `rerender_sections` step's output** in `collected_data` (77 COMPLETED + 10 FAILED —
+every failure a downstream `OWNED_PAGE_GUARD` refusal or a timeout, none a scan refusal), and the
+guard literal probed PRESENT in both pods of today's ReplicaSet `6d6856d8d5` with both controls
+clean. So the guard's code path has run ≥87 times at the live tier with zero refusals: scans are
+completing, which is the success state. Measurement gotcha for the next reader, recorded so it is
+not re-derived: **`orchestration_states.execution_path` is `[]` for this pipeline even on runs
+that provably failed at `save_sections`** — count step execution by the step's `output_field` key
+in `collected_data`, never by `execution_path`.
+
+**Scoreboard delta vs 2026-08-26:** instance 2 / 404 candidate 0 was picked up by the 404 lane
+itself (`ef4236b4d`, 2026-08-26 — one vocabulary definition in `platform/livespec`, all four
+readers name it, undeclared reasons now LOUD); the content-loss residual is **closed at the
+worked site** (the CLASS — a decode swallowed after a successful scan elsewhere — remains a
+stated ratchet blind spot). Still open, and why the file stays in `bugs_open/`: candidate 1
+(unknown → refusal fleet-wide, needs its own design round, unclaimed) and the 41 advisory-only
+sites outside the blocking package.

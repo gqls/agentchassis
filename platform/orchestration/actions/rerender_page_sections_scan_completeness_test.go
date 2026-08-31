@@ -41,10 +41,16 @@
 //
 // MUTATION CHECK for whoever changes loadStoredSections: delete the
 // datahelpers.ScanShortfall call and restore `return out, rows.Err()`. Then
-// TestLoadStoredSections_RefusesAPartialScan and
-// TestLoadStoredSections_TotalScanLossIsAnErrorNotAnEmptyPage must BOTH fail. If
-// either still passes, the guard is not what is producing the refusal and the
-// coverage hole is back.
+// TestLoadStoredSections_RefusesAPartialScan,
+// TestLoadStoredSections_TotalScanLossIsAnErrorNotAnEmptyPage AND
+// TestLoadStoredSections_NonObjectContentDataIsARefusalNotAnEmptiedSection must
+// ALL fail (the third rides the same guard). If any still passes, the guard is
+// not what is producing the refusal and the coverage hole is back. A SECOND
+// mutation for the content axis: restore `_ = json.Unmarshal(cdJSON,
+// &s.contentData)` in place of the checked form — the NonObjectContentData test
+// must fail with (2 sections, nil error), one of them silently emptied. Run
+// both mutations; a guard proven by one of them can still be dead on the other
+// axis.
 //
 // HOW THE ROWS ARE POISONED, stated because it is the one fragile part: a NULL
 // in the `position` column. storedSection.position is a plain `int`, and
@@ -194,5 +200,84 @@ func TestLoadStoredSections_EmptyPageIsNotALoss(t *testing.T) {
 	}
 	if len(out) != 0 {
 		t.Fatalf("expected no sections, got %d", len(out))
+	}
+}
+
+func TestLoadStoredSections_NonObjectContentDataIsARefusalNotAnEmptiedSection(t *testing.T) {
+	// bugs_open/410's stated content-loss residual, closed. The old form,
+	// `_ = json.Unmarshal(cdJSON, &s.contentData)`, KEPT the row and EMPTIED
+	// its content on a parse failure — offered == kept, so the count guard
+	// could not see it, and save_page_sections would then replace the stored
+	// row wholesale with the emptied one. The fix drops the failing row so the
+	// SAME shortfall guard refuses. content_data is jsonb, so the only
+	// reachable failure is a non-object value; the live table holds none
+	// (0 of 2,751 rows fleet-wide, measured 2026-08-31), which is why the
+	// poison here is an array rather than broken syntax the DB cannot store.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	pageID := uuid.New()
+
+	rows := sqlmock.NewRows(storedSectionCols()).
+		AddRow(uuid.New().String(), "", uuid.New().String(), "hero",
+			[]byte(`{"a":1}`), "<section>hero</section>", 0, "").
+		AddRow(uuid.New().String(), "", uuid.New().String(), "features",
+			[]byte(`[1,2,3]`), "<section>features</section>", 1, "")
+
+	mock.ExpectQuery("FROM page_components").WithArgs(pageID).WillReturnRows(rows)
+
+	out, err := loadStoredSections(context.Background(), db, pageID, zap.NewNop())
+	if err == nil {
+		t.Fatalf("a non-object content_data was swallowed and loadStoredSections returned %d "+
+			"section(s) with no error — the emptied section would then be saved back wholesale, "+
+			"destroying the stored content under a fresh deploy stamp (bugs_open/410 residual)", len(out))
+	}
+	msg := err.Error()
+	for _, want := range []string{"kept 1 of 2", "rerender_page_sections"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the refusal must name the shortfall so it is diagnosable from the log alone; "+
+				"want %q in: %s", want, msg)
+		}
+	}
+}
+
+func TestLoadStoredSections_NullContentDataStaysLoadable(t *testing.T) {
+	// The guard must not be stricter than the parse. 55 loadable rows carry
+	// SQL NULL content_data today (measured 2026-08-31) and load fine as
+	// nil-map sections; a jsonb `null` unmarshals to the same nil map without
+	// error. Both are the live, legitimate nil-content population — refusing
+	// them would fail pages that render today. This test pins that boundary so
+	// a future "require an object outright" edit fails here first and has to
+	// argue with the census rather than ship a fleet-wide rerender outage.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	pageID := uuid.New()
+
+	rows := sqlmock.NewRows(storedSectionCols()).
+		AddRow(uuid.New().String(), "", uuid.New().String(), "hero",
+			nil, "<section>hero</section>", 0, "").
+		AddRow(uuid.New().String(), "", uuid.New().String(), "features",
+			[]byte(`null`), "<section>features</section>", 1, "")
+
+	mock.ExpectQuery("FROM page_components").WithArgs(pageID).WillReturnRows(rows)
+
+	out, err := loadStoredSections(context.Background(), db, pageID, zap.NewNop())
+	if err != nil {
+		t.Fatalf("the guard refused the legitimate nil-content population: %v", err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("expected both nil-content sections kept, got %d", len(out))
+	}
+	for i, s := range out {
+		if s.contentData != nil {
+			t.Errorf("section %d: expected nil contentData, got %v", i, s.contentData)
+		}
 	}
 }
