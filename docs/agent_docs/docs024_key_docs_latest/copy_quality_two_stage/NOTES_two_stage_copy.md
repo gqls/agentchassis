@@ -3109,3 +3109,28 @@ WASH doc for their read-before-verdict (their discipline: never ACK text not see
 **Offered, not imposed:** our gate machinery (`ScanDefineByNegation`, now seven shapes +
 BANNED_REGISTER_v1) is the natural engine for their post-mint check — theirs to wire into their
 producer, council-scope on their side.
+
+---
+
+## 2026-09-01 (small hours) — 668 REFUSED SAFELY by its own guard; the mint destroys whole rows; step 2 HELD pending the producer gate
+
+The 10-point expansion migration (668) hit its drift RAISE on fundamentallyai r2 — **FROM matches
+0** — and the transaction rolled back whole: nothing partial applied. ⚠ My recording INSERT ran in
+a separate invocation and briefly recorded an UNAPPLIED migration — deleted within the minute,
+and the lesson is structural: **the schema_migrations INSERT must ride INSIDE the migration's own
+transaction from now on** (a recorded-but-unapplied migration is worse than the reverse).
+
+**The diagnosis is bigger than the refusal:** fundamentallyai's ENTIRE offer_ordering row was
+REGENERATED since 667 — all six live points are new text, visibly dirty again ("described
+honestly", "is not a claimed process — it is"). **The mint does not merely add dirt; it
+overwrites applied wash work whole-row.** Measured immediately: **38 of the 41 applied washed
+points survive; 3 destroyed — all fundamentallyai** (localised so far, one regeneration in ~3
+hours). At the measured mint rate this compounds over days.
+
+**RULING APPLIED: 668 is HELD** (drafted, refused safely, unapplied, unrecorded). The offer
+lane's own redefined gate is now the critical path in its strongest form: **washing before the
+producer is gated is water uphill** — their post-mint mechanism (fail-loud battery on producer
+output, measured against the 23% baseline) comes FIRST, then a re-census, then ONE final wash
+pass over whatever the census finds (the verdicted 10 texts stand ready), then the wiring.
+fundamentallyai's fresh row goes to them as the newest specimen. The 668 file stays in the tree
+as the worked shape; its FROM texts re-base at the final pass.
