@@ -1296,7 +1296,26 @@ func rerenderFlatSections(
 	// orders by position) — the canonical per-instance token derivation.
 	instances := NewInstanceCounter()
 
+	// Which occurrence of its own slot name each stored section is, in position
+	// order — the section's identity for per-section imagery binding (see
+	// sectionRef in plan_sections_action.go). It must be counted here as well
+	// as on the build path: this path merges stored content_data with FRESHLY
+	// resolved fields, resolved last, so a re-render that resolved every
+	// section's figure page-wide would overwrite the per-section figures the
+	// build had just got right. The two paths agree because both count
+	// occurrences of a slot name in page order — never a position integer,
+	// whose base differs between the two tables.
+	sectionOccurrences := make(map[string]int, len(stored))
+
 	for _, s := range stored {
+		// Counted before any early `continue`: a section that carries its
+		// stored HTML still occupies its place in the page, so skipping the
+		// count here would shift every later section of the same name onto the
+		// wrong figure — the quiet half of an off-by-one, on the path that
+		// runs most often.
+		thisSection := sectionRef{Name: s.slotName, Occurrence: sectionOccurrences[s.slotName], Known: true}
+		sectionOccurrences[s.slotName]++
+
 		comp, invalidTemplate, haveComp := resolveComponent(s)
 
 		// Can't load the component → carry the stored HTML untouched. Named in
@@ -1319,7 +1338,7 @@ func rerenderFlatSections(
 		}
 
 		// Reuse planSection to rebuild resolved_data (side-effect-free).
-		plan := planSection(ctx, s.slotName, comp, resolver, logger)
+		plan := planSection(ctx, s.slotName, thisSection, comp, resolver, logger)
 		if plan.Status != "ready" {
 			// A required non-LLM field can't resolve now — carry the stored HTML
 			// rather than render a broken/empty section. Legitimate, evidenced

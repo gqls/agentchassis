@@ -54,7 +54,7 @@ func TestIdentityFlatPathResolvesFromNestedContactShape(t *testing.T) {
 		{"identity.phone", "07934 524 911"},
 		{"identity.address", "12 Example Street"},
 	} {
-		got, ok := r.resolve(context.Background(), "site_specs."+tc.path)
+		got, ok := r.resolve(context.Background(), "site_specs."+tc.path, sectionRef{})
 		if !ok {
 			t.Fatalf("%s: expected to resolve via the nested contact shape, got not-found", tc.path)
 		}
@@ -91,7 +91,7 @@ func TestIdentityFlatPathResolvesFromCanonicalSitesRow(t *testing.T) {
 		{"identity.logo_text", "VONC"},
 		{"identity.logo_url", "/assets/logo.png"},
 	} {
-		got, ok := r.resolve(context.Background(), "site_specs."+tc.path)
+		got, ok := r.resolve(context.Background(), "site_specs."+tc.path, sectionRef{})
 		if !ok {
 			t.Fatalf("%s: expected to resolve from the sites row, got not-found", tc.path)
 		}
@@ -111,7 +111,7 @@ func TestLiteralSpecPathAlwaysWinsOverBothAliases(t *testing.T) {
 		},
 	}, map[string]string{"email": "siterow-loses@example.com"})
 
-	got, ok := r.resolve(context.Background(), "site_specs.identity.email")
+	got, ok := r.resolve(context.Background(), "site_specs.identity.email", sectionRef{})
 	if !ok {
 		t.Fatal("expected the literal flat path to resolve")
 	}
@@ -126,7 +126,7 @@ func TestNestedShapeBeatsSitesRow(t *testing.T) {
 		"contact": map[string]interface{}{"email": "nested-wins@example.com"},
 	}, map[string]string{"email": "siterow-loses@example.com"})
 
-	got, _ := r.resolve(context.Background(), "site_specs.identity.email")
+	got, _ := r.resolve(context.Background(), "site_specs.identity.email", sectionRef{})
 	if got != "nested-wins@example.com" {
 		t.Errorf("nested shape must beat the sites row: got %v", got)
 	}
@@ -143,7 +143,7 @@ func TestMissingIdentityFactStaysMissing(t *testing.T) {
 	}, map[string]string{}) // sites row empty too — the three genuinely dataless sites
 
 	for _, path := range []string{"identity.email", "identity.phone", "identity.address", "identity.hours"} {
-		if val, ok := r.resolve(context.Background(), "site_specs."+path); ok {
+		if val, ok := r.resolve(context.Background(), "site_specs."+path, sectionRef{}); ok {
 			t.Errorf("%s: must NOT resolve when the fact is absent everywhere, got %v", path, val)
 		}
 	}
@@ -158,21 +158,21 @@ func TestAliasChainIsBounded(t *testing.T) {
 	}, map[string]string{"email": "e@example.com", "company_name": "C"})
 
 	// A leaf with no sites-row mapping and no nested twin does not resolve.
-	if _, ok := r.resolve(context.Background(), "site_specs.identity.hours"); ok {
+	if _, ok := r.resolve(context.Background(), "site_specs.identity.hours", sectionRef{}); ok {
 		t.Error("identity.hours has no nested twin and no column — must not resolve")
 	}
 	// A non-identity aspect never reaches the sites row.
-	if _, ok := r.resolve(context.Background(), "site_specs.commercial.email"); ok {
+	if _, ok := r.resolve(context.Background(), "site_specs.commercial.email", sectionRef{}); ok {
 		t.Error("a non-identity aspect must not resolve from the sites row")
 	}
 	// A deeper path is left entirely alone (no alias applied).
-	if _, ok := r.resolve(context.Background(), "site_specs.identity.team.email"); ok {
+	if _, ok := r.resolve(context.Background(), "site_specs.identity.team.email", sectionRef{}); ok {
 		t.Error("a three-segment path must not be aliased")
 	}
 	// A nested key with no flat counterpart in the schema vocabulary still
 	// resolves via the container — the container alias is by shape, not by an
 	// allow-list of leaves. Documents the deliberate asymmetry with step 2.
-	if _, ok := r.resolve(context.Background(), "site_specs.identity.secret"); !ok {
+	if _, ok := r.resolve(context.Background(), "site_specs.identity.secret", sectionRef{}); !ok {
 		t.Error("the nested container alias applies to any leaf inside it")
 	}
 }
@@ -188,10 +188,10 @@ func TestAliasedResolutionsAreRecordedStructurally(t *testing.T) {
 		"contact":      map[string]interface{}{"phone": "07934 524 911"},
 	}, map[string]string{"email": "vonc@contactforsales.com"})
 
-	r.resolve(context.Background(), "site_specs.identity.company_name") // literal
-	r.resolve(context.Background(), "site_specs.identity.phone")        // nested alias
-	r.resolve(context.Background(), "site_specs.identity.email")        // sites-row alias
-	r.resolve(context.Background(), "site_specs.identity.hours")        // resolves nowhere
+	r.resolve(context.Background(), "site_specs.identity.company_name", sectionRef{}) // literal
+	r.resolve(context.Background(), "site_specs.identity.phone", sectionRef{})        // nested alias
+	r.resolve(context.Background(), "site_specs.identity.email", sectionRef{})        // sites-row alias
+	r.resolve(context.Background(), "site_specs.identity.hours", sectionRef{})        // resolves nowhere
 
 	want := map[string]string{
 		"site_specs.identity.phone": "site_specs.identity.contact.phone",
@@ -217,7 +217,7 @@ func TestNothingRecordedWhenEverythingResolvesLiterally(t *testing.T) {
 	}, map[string]string{"email": "unused@example.com"})
 
 	for _, p := range []string{"identity.email", "identity.phone", "identity.company_name"} {
-		r.resolve(context.Background(), "site_specs."+p)
+		r.resolve(context.Background(), "site_specs."+p, sectionRef{})
 	}
 	if len(r.aliasesUsed) != 0 {
 		t.Errorf("expected no aliases recorded, got %v", r.aliasesUsed)
@@ -230,7 +230,7 @@ func TestNothingRecordedWhenEverythingResolvesLiterally(t *testing.T) {
 func TestSitesRowReachableWithNoIdentityAspect(t *testing.T) {
 	r := newTestResolver(nil, map[string]string{"email": "owner@example.com"})
 
-	got, ok := r.resolve(context.Background(), "site_specs.identity.email")
+	got, ok := r.resolve(context.Background(), "site_specs.identity.email", sectionRef{})
 	if !ok {
 		t.Fatal("expected the sites row to resolve with no identity aspect present")
 	}

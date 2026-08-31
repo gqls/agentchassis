@@ -33,7 +33,7 @@ func planEmptySchema(t *testing.T, function, level string) sectionPlanItem {
 		Raw:         map[string]interface{}{"component_level": level},
 	}
 	resolver := newSourceResolver(uuid.New(), nil, zap.NewNop(), "")
-	return planSection(context.Background(), function, comp, resolver, zap.NewNop())
+	return planSection(context.Background(), function, sectionRef{}, comp, resolver, zap.NewNop())
 }
 
 // The exact case the bug describes and cannot reproduce live today: a future

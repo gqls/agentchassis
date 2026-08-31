@@ -37,6 +37,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -85,6 +86,20 @@ func init() {
 // ============================================================================
 
 // sourceResolver holds cached lookups for a single invocation
+// sectionRef identifies one section within a page: its slot name and which
+// occurrence of that name it is, counting from zero in page order. A page of
+// six illustrated-text-blocks has refs {illustrated-text-block,0} … {…,5}.
+//
+// Zero value means "no section context" — resolution then behaves exactly as it
+// did before per-section binding existed. Callers that genuinely have no
+// section (render_site_components passes an empty page name for the same
+// reason) get today's page-wide behaviour rather than a wrong guess.
+type sectionRef struct {
+	Name       string
+	Occurrence int
+	Known      bool
+}
+
 type sourceResolver struct {
 	siteID        uuid.UUID
 	db            *sql.DB
@@ -104,6 +119,23 @@ type sourceResolver struct {
 	// build record shows which fields changed provenance, rather than that fact
 	// living only in a log line.
 	aliasesUsed map[string]string
+	// sectionAssets binds a section-scope site_plan_imagery row to the ONE
+	// section it was planned for, so a page of repeated illustrated blocks can
+	// carry a different figure in each. Keyed by the section's identity within
+	// the page (slot name + which occurrence of that name), NOT by a position
+	// integer: the estate carries two incompatible numbering schemes for the
+	// same idea — site_plan_sections.ordering is 0-based and counts site-level
+	// slots, page_components.position is 1-based on most pages and neither on
+	// 128 of them [MEASURED 2026-08-31] — and a binding computed from one and
+	// read through the other is off by a variable amount. The scope_ref ordinal
+	// is translated into this key ONCE, in ensureAssets, against the plan that
+	// minted it. Both render paths then count occurrences of a slot name in
+	// their own order, which is the one thing they agree on.
+	//
+	// Nil until ensureAssets has run and found at least one section-scope row.
+	sectionAssets   map[sectionRef]map[string]string
+	planOrder       []string // this page's section list per the current plan
+	planOrderLoaded bool
 	// storedContent maps slot_name → the page's deployed page_components
 	// content_data. It is the carry-forward source for a non-llm field whose
 	// declared source resolves nothing (bugs_open/238): a regeneration must not
@@ -479,8 +511,13 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	// aliased by KIND first-wins (generic paths like site_assets.illustration),
 	// mirroring the hero mapping above. Skipped when pageName is empty.
 	if r.pageName != "" {
+		// scope_ref is selected as well as filtered on: it carries the ordinal
+		// that says WHICH section the figure was planned for. Reading it is
+		// what lets a page of repeated illustrated sections carry a different
+		// figure in each; before this it was matched by prefix and thrown away,
+		// and every section on the page resolved the first row of its kind.
 		rows, err := r.db.QueryContext(ctx, `
-			SELECT spi.kind, a.asset_key, a.purpose
+			SELECT spi.kind, spi.scope_ref, a.asset_key, a.purpose
 			  FROM site_plan_imagery spi
 			  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
 			  JOIN assets a ON a.site_id = sp.site_id
@@ -497,23 +534,62 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 				zap.String("page", r.pageName), zap.Error(err))
 		} else {
 			defer rows.Close()
+			type sectionAsset struct{ kind, scopeRef, url string }
+			var found []sectionAsset
 			for rows.Next() {
-				var kind, assetKey, purpose string
-				if err := rows.Scan(&kind, &assetKey, &purpose); err != nil {
+				var kind, scopeRef, assetKey, purpose string
+				if err := rows.Scan(&kind, &scopeRef, &assetKey, &purpose); err != nil {
 					continue
 				}
 				if assetKey == "" {
 					continue
 				}
 				url := storage.DeployedWebPath(assetKey, purpose)
+				// Page-wide map: unchanged. This is what every page carrying a
+				// single section figure resolves through today, and a section
+				// the ordinal does not name still reaches it here.
 				r.assets[assetKey] = url
 				if _, exists := r.assets[kind]; !exists {
 					r.assets[kind] = url
 				}
+				found = append(found, sectionAsset{kind: kind, scopeRef: scopeRef, url: url})
 			}
 			if err := rows.Err(); err != nil {
 				r.logger.Warn("plan_sections: section imagery rows error",
 					zap.String("page", r.pageName), zap.Error(err))
+			}
+			if len(found) > 0 {
+				// The extra query happens only when this page actually has
+				// section-scope figures — a page with none pays nothing, which
+				// is every page in the estate bar a handful.
+				order := r.planSectionOrder(ctx)
+				if len(order) > 0 {
+					r.sectionAssets = make(map[sectionRef]map[string]string)
+					for _, fa := range found {
+						ref, ok := sectionRefForOrdinal(order, fa.scopeRef)
+						if !ok {
+							// An ordinal that names no section of this page is
+							// bugs_open/214's orphan class. Today's behaviour
+							// (the page-wide map above) still serves it, so the
+							// figure is not lost — but say which one, because
+							// "planned, generated, paid for and bound to
+							// nothing" is exactly 114's silent shape.
+							r.logger.Info("plan_sections: section imagery scope_ref names no section of this page — page-wide fallback only",
+								zap.String("page", r.pageName),
+								zap.String("scope_ref", fa.scopeRef),
+								zap.String("kind", fa.kind))
+							continue
+						}
+						byKind, ok := r.sectionAssets[ref]
+						if !ok {
+							byKind = make(map[string]string)
+							r.sectionAssets[ref] = byKind
+						}
+						if _, exists := byKind[fa.kind]; !exists {
+							byKind[fa.kind] = fa.url
+						}
+					}
+				}
 			}
 		}
 	}
@@ -587,6 +663,131 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	}
 }
 
+// planSectionOrder returns this page's section list as the CURRENT plan
+// declares it, in ordering order — the same list, including any site-level
+// slots, that the scope_ref ordinal was range-checked against when it was
+// minted (write_site_plan_imagery_scope.go, `ordinal >= sectionCount`). It is
+// the only authority that can turn an ordinal back into a section identity;
+// pages.sections is a materialised cache of it and page_components.position is
+// a different numbering altogether.
+//
+// Loaded at most once per resolver, and only when the page has section-scope
+// figures to bind. An empty result (no current plan row for this page — an
+// adopted or hand-built page) means no per-section binding, and the page-wide
+// behaviour that predates this stands unchanged.
+func (r *sourceResolver) planSectionOrder(ctx context.Context) []string {
+	if r.planOrderLoaded {
+		return r.planOrder
+	}
+	r.planOrderLoaded = true
+	if r.pageName == "" {
+		return nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT sps.component_name
+		  FROM site_plan_sections sps
+		  JOIN site_plans sp ON sp.id = sps.plan_id AND sp.is_current = true
+		 WHERE sp.site_id = $1 AND sps.page_name = $2
+		 ORDER BY sps.ordering
+	`, r.siteID, r.pageName)
+	if err != nil {
+		r.logger.Warn("plan_sections: plan section order lookup failed — per-section imagery binding disabled for this page",
+			zap.String("page", r.pageName), zap.Error(err))
+		return nil
+	}
+	defer rows.Close()
+	// FAIL CLOSED on a bad scan rather than skipping the row (bugs_open/410's
+	// shape): a list missing one entry is not a shorter list, it is a list in
+	// which every ordinal after the gap names the section BEFORE the one it
+	// meant — real figures bound to the wrong sections, on a page that renders
+	// and deploys looking correct. There is nothing to salvage from a partial
+	// order, so there is no shortfall to measure; the whole binding stands down
+	// and the page keeps page-wide resolution.
+	var order []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			r.logger.Warn("plan_sections: plan section order scan failed — per-section imagery binding disabled for this page",
+				zap.String("page", r.pageName), zap.Error(err))
+			return nil
+		}
+		order = append(order, name)
+	}
+	if err := rows.Err(); err != nil {
+		r.logger.Warn("plan_sections: plan section order rows ended early — no per-section imagery binding for this page",
+			zap.String("page", r.pageName), zap.Error(err))
+		return nil
+	}
+
+	// Locks (RFC_033 / LOCK-008). A human can pin a section onto a live page
+	// that no plan tier knows about, and pages.sections carries it — so the
+	// live page can hold a section the plan's list does not. This reader must
+	// NOT merge those rows into the list: the scope_ref ordinal was minted and
+	// range-checked against the PLAN's own list, so merging would move every
+	// section after the insertion point and bind figures one section out. But
+	// it must not ignore them either, because the consumer paths count
+	// occurrences over the LIVE list. So it asks — and where a locked row is
+	// not already in the plan, it declines to bind at all and the page keeps
+	// the page-wide behaviour that predates this. Degrading is the only safe
+	// answer: a shifted binding is a wrong picture on a real page, and it looks
+	// exactly like a right one.
+	if locked, lerr := datahelpers.LoadLockedPageSlots(ctx, r.db, r.siteID, r.pageName); lerr != nil {
+		r.logger.Warn("plan_sections: locked-slot lookup failed — per-section imagery binding disabled for this page",
+			zap.String("page", r.pageName), zap.Error(lerr))
+		return nil
+	} else if _, inserted, _ := datahelpers.MergeLockedPageSlots(order, locked); len(inserted) > 0 {
+		r.logger.Info("plan_sections: page carries locked sections the plan does not name — per-section imagery binding disabled, page-wide resolution stands",
+			zap.String("page", r.pageName),
+			zap.Int("locked_not_in_plan", len(inserted)))
+		return nil
+	}
+
+	r.planOrder = order
+	return r.planOrder
+}
+
+// sectionRefForOrdinal translates a scope_ref of the form "<page>:<ordinal>"
+// into the identity of the section it names, given that page's plan order.
+//
+// The ordinal is 0-based and indexes the plan's section list — the same reading
+// the mint-side range check uses. Out of range, malformed, or absent means no
+// binding: the caller keeps the page-wide behaviour rather than guessing.
+func sectionRefForOrdinal(order []string, scopeRef string) (sectionRef, bool) {
+	i := strings.LastIndex(scopeRef, ":")
+	if i < 0 {
+		return sectionRef{}, false
+	}
+	ordinal, err := strconv.Atoi(strings.TrimSpace(scopeRef[i+1:]))
+	if err != nil || ordinal < 0 || ordinal >= len(order) {
+		return sectionRef{}, false
+	}
+	name := order[ordinal]
+	occurrence := 0
+	for _, prior := range order[:ordinal] {
+		if prior == name {
+			occurrence++
+		}
+	}
+	return sectionRef{Name: name, Occurrence: occurrence, Known: true}, true
+}
+
+// sectionAssetFor returns the figure bound to THIS section for a
+// site_assets.<path> lookup, where path is a kind ("illustration") or an asset
+// key. Absent binding it returns false and the caller falls through to the
+// page-wide map — so a page with one figure, or a section the plan never named,
+// resolves exactly as it did before.
+func (r *sourceResolver) sectionAssetFor(section sectionRef, path string) (string, bool) {
+	if !section.Known || len(r.sectionAssets) == 0 {
+		return "", false
+	}
+	byKind, ok := r.sectionAssets[sectionRef{Name: section.Name, Occurrence: section.Occurrence, Known: true}]
+	if !ok {
+		return "", false
+	}
+	url, ok := byKind[path]
+	return url, ok
+}
+
 // sectionDescription returns the purpose/description for a section from the
 // site_plan spec. Falls back to page purpose if no section-level description exists.
 // Uses already-loaded specs — no extra DB query.
@@ -642,7 +843,7 @@ func (r *sourceResolver) sectionDescription(pageName, sectionType string) string
 
 // resolve checks if a data source has a value available
 // Returns: value (if found), found (bool)
-func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{}, bool) {
+func (r *sourceResolver) resolve(ctx context.Context, source string, section sectionRef) (interface{}, bool) {
 	if source == "" || source == "llm" || source == "renderer" || source == "static" {
 		// These sources don't need resolution — they're generated at render time
 		return nil, true
@@ -674,6 +875,12 @@ func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{
 
 	case "site_assets":
 		r.ensureAssets(ctx)
+		// This section's OWN figure first: a page of repeated illustrated
+		// blocks declares the same source in every one of them, so the
+		// page-wide map below can only ever answer them all the same way.
+		if url, ok := r.sectionAssetFor(section, path); ok {
+			return url, true
+		}
 		if url, ok := r.assets[path]; ok {
 			return url, true
 		}
@@ -1223,7 +1430,15 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		PageName: pageName,
 	}
 
+	// Which occurrence of its own slot name each section is, counted in page
+	// order. This is the section's identity for per-section imagery binding —
+	// see sectionRef. Counted over the same list the loop iterates, so a page
+	// whose plan and built sections agree binds exactly, and one whose do not
+	// simply finds no binding and keeps the page-wide behaviour.
+	sectionOccurrences := make(map[string]int, len(sectionNames))
 	for sectionIdx, sectionName := range sectionNames {
+		thisSection := sectionRef{Name: sectionName, Occurrence: sectionOccurrences[sectionName], Known: true}
+		sectionOccurrences[sectionName]++
 		// Path 0: stored-identity lookup (bugs_open/204 — the build-path half
 		// of bugs_open/182). The page's own page_components row names exactly
 		// which component this slot is; that identity does not depend on slot
@@ -1243,7 +1458,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 						zap.String("name_resolved_component", nameComp.ID),
 						zap.String("name_resolved_name", nameComp.Name))
 				}
-				item := planSection(ctx, sectionName, ci, resolver, logger)
+				item := planSection(ctx, sectionName, thisSection, ci, resolver, logger)
 				scopeItem(&item, sectionFacts[sectionIdx], sectionSubjects[sectionIdx])
 				switch item.Status {
 				case "ready":
@@ -1287,7 +1502,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		// All current sites hit this path — their planners output function names.
 		comp, ok := components[sectionName]
 		if ok {
-			item := planSection(ctx, sectionName, comp, resolver, logger)
+			item := planSection(ctx, sectionName, thisSection, comp, resolver, logger)
 			scopeItem(&item, sectionFacts[sectionIdx], sectionSubjects[sectionIdx])
 
 			switch item.Status {
@@ -1309,7 +1524,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		if resolved != nil {
 			// Selector found a matching component. Its function flows through the
 			// rest of the pipeline exactly as if the planner had specified it directly.
-			item := planSection(ctx, resolved.Function, *resolved, resolver, logger)
+			item := planSection(ctx, resolved.Function, thisSection, *resolved, resolver, logger)
 			// Preserve the original section_type name — downstream logging and
 			// the content writer use item.Name as the section identifier.
 			item.Name = sectionName
@@ -2069,7 +2284,7 @@ func queryListBelowContract(value interface{}, required bool, minItems int) bool
 // Plan a single section
 // ============================================================================
 
-func planSection(ctx context.Context, sectionName string, comp componentInfo, resolver *sourceResolver, logger *zap.Logger) sectionPlanItem {
+func planSection(ctx context.Context, sectionName string, section sectionRef, comp componentInfo, resolver *sourceResolver, logger *zap.Logger) sectionPlanItem {
 	item := sectionPlanItem{
 		Name:        sectionName,
 		ComponentID: comp.ID,
@@ -2466,7 +2681,7 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		}
 
 		// Resolve data source
-		value, found := resolver.resolve(ctx, source)
+		value, found := resolver.resolve(ctx, source, section)
 
 		if found && value != nil {
 			resolvedData[fieldName] = value
