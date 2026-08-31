@@ -18780,6 +18780,18 @@ code change owed at the next roll, tracked in RFC_015 §5.
   ```
   `directionForKind` and `referenceKeysForKind` do the same. An override replaces its kind's fields **including empty ones** — so a `kinds.hero` block that declares no `mood` silently drops the site's mood from every hero too. This is deliberate and well-argued (a base `avoid` can fight an override's visual language — the 2026-05-20 contamination lesson), and it is documented in the file header. It is a landmine anyway, because **the data does not show it**: nothing in the JSON marks the guide-level list as unreachable for `hero`.
 - **worked case, dartsonline.com 2026-08-31 `[MEASURED]`:** the guide-level `avoid` runs to **652** characters — no numerals, no multi-panel collages, no manufacturer logos, no packaging, no faces. `kinds.hero` exists, so **every hero on that site is governed by 111 characters**: *"flat-lay arrangements of many items, white or seamless studio backgrounds, anything resembling a catalogue shot"*. Nothing else. I had already written down, as a finding, that the "no multi-panel collages" clause was what stopped a hero coming back as a 4-panel — **that was wrong, and the clause has never once reached a hero on that site.**
+- **⚠ THIS IS ESTATE-WIDE, NOT ONE SITE'S QUIRK — `[MEASURED 2026-08-31]`, all 13 sites holding an `imagery_style_guide`:** **12 of 13 carry a `kinds` map, and every one of those 12 declares a `content_hero` override.** So on **every site in the fleet that has a guide at all**, the guide-level `avoid` is unreachable for article/in-body imagery. What each site's `content_hero` actually gets, against what its author wrote at guide level:
+
+  | site | guide-level `avoid` | reaches `content_hero` |
+  |---|---|---|
+  | apis.uk | 1052 | **252** |
+  | webdesign.uk | 845 | **354** |
+  | dartsonline.com | 652 | **423** |
+  | agritec.uk | 483 | **208** |
+  | oufe.com | 468 | **229** |
+  | noted.co.uk | 338 | **60** |
+
+  (the remaining six follow the same shape; `finetuning.uk`, `remortgagecalculator.uk` and `robot-hands.com` are the only sites whose override is *longer* than the list it shadows). **dartsonline is the only site with a `hero` override** — so heroes elsewhere do read the guide-level list, and a rule that holds for one kind on one site holds for neither in general. Every one of the 12 does at least declare *an* avoid in its override, so none is left with nothing; the loss is the guide-level prose, silently.
 - **why the wrong result looks exactly right:** the edit applies, the spec validates, the row is `is_current`, and the next generation *does* usually look better — because you re-ran it, and a re-roll changes the image regardless. So the clause gets credited with the improvement, and the belief ("this site forbids X") is now written down and false. This is the failure `bugs_open/028` named one layer down, where Banana silently DROPPED the negative prompt entirely: *"a constraint a caller can set, that the platform silently discards, is worse than one it cannot set at all — it manufactures false beliefs about the system."* Here the platform does not discard it; the schema does, one level up, and the same false belief results.
 - **the check — ask which string the KIND resolves to, never which strings the spec contains:**
   ```sql
