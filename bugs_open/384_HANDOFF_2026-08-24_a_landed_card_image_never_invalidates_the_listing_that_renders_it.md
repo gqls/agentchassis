@@ -419,3 +419,63 @@ it is a new seam for owned pages and belongs in its own round, not in this lane'
   page repairs itself; owned pages never do. That is the §CLOSE-OUT residual, now with a number.
 - **Cold-start doc for this lane is now**
   `docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/HANDOFF_2026-08-26_continue_here.md`.
+
+
+## UPDATE 2026-08-31 16:10Z — **STAYS OPEN.** A live recurrence on a generic page, and the clean census was flattered
+
+Re-measured after five idle days (last lane commit 2026-08-26). **This reverses the 08-26 update's
+"ready to close" and the handoff's §1/§6.**
+
+**Still true:** the lane's code is live. Fleet is on a SINGLE build `ef06af0e0afc` (342 pods,
+current `last_seen_at`); all four lane commits are ancestors of it. The owned-page residual is
+unchanged at **14 blanks / 3 pages** and is still correctly described.
+
+**What is new, and why this cannot close:**
+
+1. **The defect is reproducing on a GENERIC page.** `leopardessconsulting.co.uk/blog` serves
+   **2 text-only cards where an active card asset exists**, and they are the **first two tiles in
+   the grid**. Verified at the served artefact — `curl .../blog.html` returns 11
+   `src="/assets/images/card-*.jpg"` for 13 array entries, and both guides render
+   `<article class="article-card hover-lift">` directly into `<div class="article-card__content">`
+   with no image node. Cards landed **2026-08-27 22:37:25** and **22:37:49**; still blank on 08-31.
+
+2. **The seam did its job — this is a consumption failure, not a detection failure.** Nine
+   `page_rerender` items were filed for the page, the first within **40 ms** of the card landing.
+   Every spec is correct: `reason=section_data_resolved`, right `page_id`,
+   `consumes=["query.blog_posts"]`, and the component's own field source IS `query.blog_posts`
+   (`content_components.input_schema`, component `blog-listing_pre_037`). Dependency scoping matches.
+
+3. **Two of those items COMPLETED GREEN and repaired nothing.** `e1f2dd23` (22:37:25.98 →
+   complete 22:58:18) and `5f78c1e4` (08-28 09:39:12 → 09:40:36) each deployed `blog.html` +
+   `tools/assets/blog-listing.js` with real commit shas. Yet `page_components.updated_at` for the
+   listing row is still **2026-08-27 21:34:20** — an hour BEFORE the cards landed. The RUNBOOK's
+   causation leg (measured 08-25) establishes that column advances whenever the array is rewritten.
+   **So the array was never rewritten.** The remaining seven items sit `unresolved`,
+   `attempt_count=0`, oldest 08-28 09:30, newest 08-31 10:37 — never picked up.
+
+4. **No mechanism is asserted for (3), deliberately.** The runs are unrecoverable —
+   `orchestration_states` retains ~1 day (oldest row 2026-08-30 15:07). The live gate is NOT the
+   suspect: the live `page-rerender` row's `check_rerender_mode` condition does include
+   `section_data_resolved` (read from `agent_definitions`, not a seed). Unfalsified candidates:
+   the `plan.Status != "ready"` carry branch (`rerender_page_sections_action.go:509`) and the
+   `listedOnly` floor in the `blog_posts` resolver. **A `090` diagnosis run is owed before anyone
+   writes a root cause here** — durable, cross-cutting, cause not where the symptom is.
+
+5. **⚠ The census that supported closing was FLATTERED, and would read clean today for reasons
+   unrelated to the fix.** Two demand controls, neither present in the 08-26 read-out:
+   - **Card production has been ZERO for two days.** Cards landed/day: 08-26 **89**, 08-27 **109**,
+     08-28 **46**, 08-29 **18**, 08-30 **0**, 08-31 **0**. No demand on the seam since 08-29.
+   - **Fleet work-item completion collapsed.** `page_rerender` created vs now-complete: 08-24
+     1400/1390 (**99%**), 08-27 2138/1947 (91%), 08-28 338/146 (43%), 08-29 179/7 (**4%**),
+     08-30 210/3 (**1.4%**), 08-31 300/144 (48%). **1,076** `page_rerender` rows `unresolved` in 7
+     days, beside 1,395 `undeployed_asset` and 466 `required_fields_missing`. Fleet-wide, matching
+     the `bugs_open/413` starvation shape (owned by the `dispatch_throughput` lane) — **not this
+     lane's to fix, but this lane must not close on a queue that is not running.**
+
+**Bar for closing, restated:** a generic-page landing that lands, fires, is CONSUMED, and rewrites
+the array — observed on a queue that is actually draining. Item (1) is a standing counter-example
+today.
+
+Measurements and traps in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/NOTES_page_list_invalidation.md`
+(entry 2026-08-31); the handoff carries a CORRECTED block at its head.

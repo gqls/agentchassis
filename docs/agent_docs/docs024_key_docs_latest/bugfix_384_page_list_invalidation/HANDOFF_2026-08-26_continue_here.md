@@ -9,6 +9,22 @@ CORRECTED block, and the CLOSE-OUT VERIFICATION section at the tail) →
 
 ---
 
+> **CORRECTED 2026-08-31 ~16:10Z — §1 AND §6 ARE SUPERSEDED. DO NOT CLOSE 384.**
+> Re-measured after five idle days. The lane's code is still live (single build `ef06af0e0afc`,
+> 342 pods, all four commits ancestors). But **the defect is back on a GENERIC page**:
+> `leopardessconsulting.co.uk/blog` serves **2 text-only cards where a card asset exists** — the
+> first two in the grid — from landings on **2026-08-27 22:37**, still unrepaired today. Verified
+> at the served artefact (11 card `src`s for 13 entries), not at the store.
+> **The seam is not the failure**: it filed nine correctly-specced items within 40 ms. Two
+> COMPLETED GREEN and rewrote nothing (`page_components.updated_at` still 08-27 21:34, an hour
+> before the cards landed); seven sit `unresolved`, `attempt_count=0`. **No mechanism is asserted**
+> — the runs are unrecoverable (`orchestration_states` retains ~1 day) and no `090` has been run.
+> **And the clean census is FLATTERED**: card production has been **0 for two days** (89/109/46/18
+> then 0, 0), and fleet `page_rerender` completion fell **99% → 4%** across 08-28→08-30 with 1,076
+> rows `unresolved` — the `bugs_open/413` shape, owned by the `dispatch_throughput` lane.
+> A near-zero blank count on an idle producer and a stalled queue is not evidence of health.
+> Full measurements: `NOTES_page_list_invalidation.md`, entry 2026-08-31.
+
 ## 1. THE ONE-LINE STATE
 
 **The bug is FIXED, LIVE, and has now proven itself FOUR times on natural (non-induced) triggers.

@@ -313,3 +313,64 @@ correction to the acceptance protocol they wrote.
 - **New handoff written:** `HANDOFF_2026-08-26_continue_here.md`, superseding the 08-25 one.
   384 is ready to close; the handoff's §6 carries the both-paths `git mv` trap and says the
   residual must not close with the bug.
+
+## 2026-08-31 ~16:10Z — DO NOT CLOSE 384: a live recurrence on a generic page, and today's clean census is flattered
+
+Picked the lane up after five idle days (last lane commit 2026-08-26). Everything below is
+measured today; the 08-26 handoff's figures were re-derived, not carried.
+
+- **The lane's code is still live.** Fleet is on a SINGLE build `ef06af0e0afc` (342 pods,
+  `last_seen_at` current). All four lane commits — `7720dc76c`, `bafd4411c`, `72469c556`,
+  `efc0db7bc` — are ancestors of it. Read the stamp, did not remember it (§3's own trap).
+
+- **⚠ THE HEADLINE, AND IT REVERSES THE HANDOFF: the defect is BACK on a generic page.**
+  `leopardessconsulting.co.uk/blog` carries **2 blank entries where a card exists**, and they are
+  the **first two cards in the grid**. Verified at the SERVED ARTEFACT, not the store:
+  `curl https://leopardessconsulting.co.uk/blog.html` → 11 `src=".../card-*.jpg"` for 13 array
+  entries, and both guides render as `<article class="article-card hover-lift">` straight into
+  `<div class="article-card__content">` with no image node. This is the original 384 symptom.
+
+- **The seam is NOT what failed. It fired, correctly, nine times.** Cards landed 2026-08-27
+  22:37:25 and 22:37:49; items were filed within 40 ms. Every spec is right —
+  `reason=section_data_resolved`, correct `page_id`, `consumes=["query.blog_posts"]`, and the
+  component's own field source IS `query.blog_posts` (checked `content_components.input_schema`,
+  component `blog-listing_pre_037`), so the dependency scoping matches exactly.
+
+- **What failed is the CONSUMPTION, and in two different ways:**
+  1. **Two items completed green and repaired nothing.** `e1f2dd23` (created 22:37:25.98,
+     complete 22:58:18) and `5f78c1e4` (09:39:12 → 09:40:36 on 08-28) both deployed
+     `blog.html` + `tools/assets/blog-listing.js` with real commit shas. But
+     `page_components.updated_at` for the listing row is still **2026-08-27 21:34:20** — an hour
+     BEFORE the cards landed. Per RUNBOOK line 120 (measured 08-25) that column advances whenever
+     the array is rewritten, so **the array was never rewritten**. A `complete` work item is not a
+     repaired artefact — the memory-index lesson, paid again.
+  2. **Seven more items sit `unresolved`, `attempt_count=0`, never picked up** — oldest
+     2026-08-28 09:30, newest today 10:37. Same `item_key`, so the dedup key did not collapse them
+     either.
+
+- **I do NOT have the mechanism for (1) and am not asserting one.** The 08-27/28 runs are
+  unrecoverable: `orchestration_states` retains ~1 day (oldest row 2026-08-30 15:07). The live
+  gate is NOT the suspect — I read the live `page-rerender` row and its `check_rerender_mode`
+  condition does include `section_data_resolved`. Candidates read but not tested: the
+  `plan.Status != "ready"` carry branch (`rerender_page_sections_action.go:509`), and the
+  `listedOnly` floor in the `blog_posts` resolver. This is a durable cross-cutting claim with a
+  non-obvious cause — i.e. exactly the CLAUDE.md trigger for a `090` diagnosis run, which has NOT
+  been fired yet.
+
+- **⚠ TODAY'S CENSUS IS FLATTERED — do not read `generic ≈ 0` as health.** Two demand controls,
+  both measured today, and neither was in the 08-26 read-out:
+  - **Card production has been ZERO for two days.** Cards landed per day: 08-26 **89**,
+    08-27 **109**, 08-28 **46**, 08-29 **18**, 08-30 **0**, 08-31 **0**. The seam has had no
+    demand since 08-29, so a low blank count measures an idle producer as much as a working fix.
+  - **Fleet work-item completion collapsed.** `page_rerender` created vs now-complete:
+    08-24 1400/1390 (99%), 08-27 2138/1947 (91%), **08-28 338/146 (43%), 08-29 179/7 (4%),
+    08-30 210/3 (1.4%)**, 08-31 300/144 (48%). 1,076 `page_rerender` rows sit `unresolved` in 7
+    days, alongside 1,395 `undeployed_asset` and 466 `required_fields_missing`. Fleet-wide, not
+    this lane — the shape matches `bugs_open/413` (selector/loader ordering starvation, owned by
+    the `dispatch_throughput` lane). **This lane must not close on a queue that is not running.**
+
+- **The owned residual is UNCHANGED and still correct as described:** 14 blank entries across the
+  same 3 `rebuild_policy='owned'` pages. Structural, expected, and still needs its own seam.
+
+**Conclusion: §1 and §6 of `HANDOFF_2026-08-26_continue_here.md` are superseded — 384 is NOT
+ready to close.** Corrected in place at the head of that file.
