@@ -3382,3 +3382,15 @@ Their message (vigilant_designer_offer_analysis, gate built f7156fb54, inert til
 3. Their mint measurement: 24.0% dirty post-667 vs 23.3% all-history — the wash cannot win;
    Decision E's sequence (gate first) stands on stronger evidence than the race framing.
    Owner ruled REPAIR mode for their gate; their council run pending; wiring held at 681_HOLD.
+
+**Propagation step 1: council r2 APPROVED** (17:00:53Z, "4 advisory objections — none
+high-severity"; r1 REVISE was RIGHT four ways and one of my premises was withdrawn to
+WRONG_CALLS). Trailers on `8c62e9f1b`/`0a2fe55be`/`c5f82be5b` resolve at report time.
+Apply-day note from the advisories (677/678/679, post-roll): `snapshot_agent` has TWO overloads
+writing to DIFFERENT tables (landmine) — my files use the 2-arg form; the single-active-row
+census filter (`COALESCE(is_snapshot,false)=false`) excludes an is_snapshot copy, and an
+unexpected ACTIVE copy makes the guard REFUSE loudly rather than corrupt, so the failure
+direction is safe either way — but confirm the count query returns 1 immediately after the
+snapshot line on the day. The debug_historian's "no already-present check" objection is
+answered in the files themselves (the `already opted in` RAISE); the fleet round-trip concern
+is bounded by the shared 60s per-name cache, voice_style's existing cost profile.
