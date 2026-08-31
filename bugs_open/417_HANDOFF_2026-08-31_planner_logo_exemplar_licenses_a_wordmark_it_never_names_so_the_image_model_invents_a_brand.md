@@ -282,3 +282,83 @@ disconfirmation (§6) is the live detector. A Go-side fix is deliberately not de
 - **Candidate 2 (pixels vs identity) remains UNBUILT and deferred**, exactly where the
   vigilant_designer lane left it: architecture-scope by the 2026-07-29 test, the owner's call,
   and it would be a guarantee conditional on a classifier, inheriting its gaps.
+
+---
+
+## COUNCIL ROUNDS 2 AND 3 — what the gate found that I did not, and the three axes of this bug
+
+Rounds 1 and 2 both returned REVISE. **Every objection was correct, and two of them found real
+defects in code I had already committed.** Recording them here because the pattern is more useful
+than the fix: the gate kept finding *this bug's own shape* in my fixes for it.
+
+### The three axes of 417, only the first of which was in the original file
+
+417 is "a logo prompt reaches the image model ungoverned". There turn out to be three distinct
+routes, and each of my first two attempts closed one while leaving another open:
+
+1. **The prompt SAYS the wrong thing** (the filed defect — the exemplar licensed an unnamed
+   wordmark). Closed by 669/670, bounded by the choke-point guard.
+2. **The generation is never IDENTIFIED as a logo**, so no per-kind policy applies (round 1's
+   HIGH: the two legacy parents map no `kind`). I had documented this in a risks block.
+   `bug_historian`: *"Disclosing the gap in risks does not close the exposure."* Correct — a
+   risks block is not a control. Closed in round 2 by resolving intent from every available
+   signal including the step name.
+3. **The generation is identified WRONGLY** — a caller states a non-logo `kind` for what is
+   actually a logo (round 2's MEDIUM). My round-2 fix *believed* any stated kind, so this route
+   skipped the policy with no Warn, no note and no error at all. `bug_historian` again:
+   *"reproducing bug 417 on a THIRD axis, and this one gets none of the round-2 detection the
+   author built for the other two."* Closed in round 3 by recording a `Conflict` when a stated
+   kind disagrees with the step's own name. **The stated kind still wins** — a classifier
+   overriding a caller is the worse failure — but the disagreement is now filed as
+   `image_kind_conflict` rather than swallowed.
+
+### The catch that mattered most: my compensating control was broken on arrival
+
+Round 2 answered the legacy-parent gap partly with a durable detector — "if those parents are
+dead the table stays empty, and that empty IS the answer". Three seats (`tooling_provenance`,
+`constitution`, `guardian`) converged on the hand-rolled `doc_notes` INSERT behind it.
+`[MEASURED 2026-08-31]` `doc_notes_subject_type_check` permits exactly eight values —
+`tool, pipeline, experience, action, experience-pattern, landmine, component, decision` — and I
+had used **`subject_type='site'`**. Every insert would have failed, and because a note writer is
+best-effort, it would have failed **silently**.
+
+The guardian named the consequence precisely: it *"WOULD silently null out the exact detector
+round 2 leans on as its liveness measurement."* A later reader would have queried the category,
+found zero, and concluded the condition never occurred — when it was never recordable.
+
+**Fixed by REUSE, not by patching the literal**, which is the more durable lesson and was
+`reuse_agent`'s separate objection: `recordImagePolicyEvent` now goes through
+`LogActionEntryInheritingProvenance` / `agenterrors.Entry`, the estate's action-level recording
+family. **A reused writer cannot get its own table's constraints wrong** — so the reuse habit
+would have prevented this without anyone knowing the constraint existed. LANDMINES entry added.
+
+### Other objections acted on
+
+- **`reuse_agent` (HIGH, gating round 2):** I wrote a parallel `resolveLogoIntent` beside the
+  file's existing `resolveKind`, for the same axis, in the file the diagnosis cites. Deleted;
+  `resolveKind` is now the one resolver, extended.
+- **`editquality` (MEDIUM):** "identified as non-logo" and "nothing identified it" were
+  indistinguishable, so a hero call setting `purpose` but no `kind` would have filed a FALSE
+  no-kind note — polluting the very measurement the note exists to provide. `Answered` now
+  reports whether any source spoke.
+- **`guardian` (MEDIUM):** the step-name heuristic had to be ENUMERATED, not asserted — and the
+  enumeration changed the code. `[MEASURED 2026-08-31]` every live step name containing
+  logo/hero: `call_logo_gen`, `call_logo_generation`, `generate_logo`, `store_logo_asset`,
+  `deploy_logo_image`, `check_logo_or_hero`. **The last names BOTH kinds**, so the hint now
+  abstains on ambiguity rather than guessing.
+- **`prior_art_librarian` (MEDIUM):** the "`wordmark_text` has zero occurrences" claim is now
+  FALSE as stated, because my own round-2 code is in the tree. Restated with its baseline —
+  zero *before this change* — which is the only form of an absence claim that survives its own
+  fix landing.
+- **`debug_historian` (MEDIUM):** my roll-verification instruction (the `build provenance` log
+  line) is the method the estate's own landmine calls unreliable. Now a pod-grep of the RUNNING
+  binary for this change's literals, with a present-and-absent control pair.
+
+### What is STILL open, stated precisely rather than as "covered"
+
+A caller supplying no `kind`, no `default_kind`, no `purpose`, no step-config kind/purpose, and
+whose step name names neither "logo" nor "hero", is **still ungoverned** — it now files
+`image_generation_without_kind` instead of passing silently. A caller that MISLABELS is still
+obeyed, and files `image_kind_conflict`. **Both are detections, not preventions**, and they are
+labelled as such. The honest response to either firing is to fix the caller's `input_mapping`,
+not to add more arms to the heuristic — which is the `architecture` seat's standing LOW, accepted.

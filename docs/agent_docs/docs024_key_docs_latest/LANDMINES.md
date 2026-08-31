@@ -18921,3 +18921,38 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** IMG-075 (the first consumer that parses the ordinal, and the fail-closed/stand-down rules it needed) · IMG-070 / `bugs_open/214` (scope_ref canonicalisation — whose header records that no consumer parsed the ordinal, which was true until 2026-08-31) · LOCK-008 (a human-pinned section the plan does not name shifts the live list against the plan's) · `bugs_open/410` (why a partial read of the plan order must fail closed rather than return a shorter list)
 - **source:** 2026-08-31, `inline_guide_imagery` lane, while binding section-scope figures to their own sections. Found by asking which number `scope_ref`'s ordinal actually is before writing the lookup — the census of position bases was run because the answer looked obvious and was not.
 - **added:** 2026-08-31, `inline_guide_imagery` lane.
+
+---
+
+### A HAND-ROLLED `doc_notes` INSERT WITH THE WRONG `subject_type` FAILS THE CHECK CONSTRAINT — and in a best-effort writer it fails SILENTLY, so the detector you built as a compensating control records nothing, for ever
+
+- **footprint:** `doc_notes` · `doc_notes_subject_type_check` · `subject_type` · `INSERT INTO doc_notes` · `agenterrors.Entry` · `LogActionEntry` · `LogActionEntryInheritingProvenance` · `persist_diagnosis_note_action.go`
+- **fires when:** you write a durable record from inside an action by hand-rolling `INSERT INTO doc_notes`, having copied the column list from another writer in the tree. Especially when the record is a **compensating control** — the thing you offered a reviewer in place of a fix you could not make.
+- **the trap:** `subject_type` is CHECK-constrained to exactly **eight** values — `tool, pipeline, experience, action, experience-pattern, landmine, component, decision` `[MEASURED 2026-08-31]`. The obvious value for a site-scoped note, **`'site'`, is NOT among them**, even though the table has a `site_id` column that makes `'site'` read as the natural subject. A note writer is conventionally **best-effort** (it must never fail the work it is recording), so the constraint violation is caught, logged at Warn, and discarded. **The action succeeds, the log line about the outcome is emitted, and the durable row silently never exists.**
+  The damage is an ABSENCE, and it is worse than an ordinary absence: the row was offered as the *reason it was safe not to fix something*. A later reader queries the category, finds zero, and concludes the condition never occurred — when in fact it was never recordable.
+- **the check — don't validate the literal, REUSE the writer:**
+  ```sql
+  \d doc_notes   -- read doc_notes_subject_type_check BEFORE writing the INSERT
+  ```
+  and prefer the estate's existing action-level recording family over a fourth ad-hoc writer:
+  `LogActionEntry` / `LogActionEntryInheritingProvenance` (`log_action_error.go`) over
+  `agenterrors.Entry`, which carries SiteID/AgentType/StepName/Action/ErrorCode/Severity/Context
+  and owns its own table's rules. **A reused writer cannot get its own table's constraints wrong** —
+  which is the point: the reuse habit prevents this class without anyone having to know the
+  constraint exists. If you must write `doc_notes` directly, prove the row landed:
+  `SELECT count(*) FROM doc_notes WHERE categories ? '<your category>';` — non-zero, in a test or a
+  first live run, **before** you cite the mechanism as a control anywhere.
+- **why the wrong result looks exactly right:** the INSERT is syntactically perfect and copied from a
+  writer that works (the working ones use `'tool'`); the column list is right; the code compiles;
+  the action returns success; the Warn is one line among hundreds of startup and progress logs; and
+  the *category name you invented* is the thing you would grep for, so its absence looks like "the
+  condition has not occurred yet" — which is exactly the answer you were hoping for.
+- **relations:** `bugs_open/417` (PRC-002 — where this fired, on the detector offered as the
+  compensating control for the legacy-parent gap) · `a-post-fix-zero-needs-a-demand-control` (the
+  zero this produces is the purest example) · `a-receipt-nobody-asserts-on-is-a-log-line` ·
+  `a-complete-work-item-is-not-a-repaired-artefact`
+- **source:** 2026-08-31, bugfix 417/420 lane. Not hit in production — caught by the council gate's
+  `tooling_provenance`, `constitution` and `guardian` seats converging on it from three different
+  angles in one round, before the code ever ran. The guardian named the consequence exactly: it
+  "WOULD silently null out the exact detector round 2 leans on as its liveness measurement".
+- **added:** 2026-08-31, bugfix 417/420 lane.
