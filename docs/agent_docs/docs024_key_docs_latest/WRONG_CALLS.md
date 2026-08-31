@@ -57294,3 +57294,38 @@ re-run the dry run after each single change rather than batching a fix with a gu
 
 **Tally:** **an-error-about-one-field-is-not-evidence-about-another** ×1,
 **a-shape-sample-is-not-a-type-check** ×1.
+
+---
+
+## 2026-08-31 — I broke HEAD with a pathspec commit, and my own green build had no way to tell me
+
+**The claim.** That `go build ./...` and a full green package test run in my working tree
+meant the commit I was about to make was safe. Commit `cb698ee58` changed
+`sourceResolver.resolve`'s signature and named, on the pathspec, the two callers I had gone
+looking for.
+
+**Why it was wrong.** There is a **third** caller — `render_site_components_action.go`,
+site chrome, which legitimately has no section and passes the zero value. I had updated it
+in the working tree (that is why my build was green) and then built the commit's file list
+from **memory of what I had changed**, not from what the compiler needed. So HEAD did not
+compile for the eleven minutes until I checked, while my tree compiled perfectly. Fixed
+forward in `844eb3023`.
+
+**What caught it.** `scripts/verify-head-builds.sh`, run after committing because CLAUDE.md
+says to. Nothing else could have: every local signal — build, vet, the whole
+`platform/orchestration/...` suite — was green, because they all measure the tree.
+
+**The cheap check that would have.** Two, either of which is seconds:
+- Build the pathspec from `git status --porcelain`, not from memory, and read every line:
+  the file was sitting there, modified, in a listing I had already run.
+- For a signature change specifically, `grep -rn "\.resolve(ctx" --include="*.go"` — I ran
+  exactly that grep earlier, saw all three call sites, fixed all three, and then wrote the
+  commit list without consulting it again.
+
+**The shape worth keeping.** On this tree the pathspec rule that stops me sweeping up other
+sessions' work is the *same* rule that silently drops my own file. A green build in a dirty
+shared tree is a statement about the TREE and never about HEAD, and the gap between them is
+exactly the set of files I edited and did not name.
+
+**Tally:** **a-green-tree-build-is-not-a-green-head** ×1,
+**a-pathspec-built-from-memory-drops-your-own-file** ×1.
