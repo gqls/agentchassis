@@ -1144,3 +1144,27 @@ $2/$10/$0.20 introductory made permanent). Migration **671** + guarded ROLLBACK:
 - **For the owner's budget number: August ran ~$2,113 with four outages truncating it.**
   Stage B (Go claim-step refusal, opt-in) is next; C (interval ≤25s) stays gated on the
   governor being live + exercised.
+
+### 2026-08-31 ~13:1xZ — 671 council r1 REVISE (fair catch: NO prior-art search was done); answered with evidence + migration 672; r2 in flight
+
+**The gating objection was RIGHT procedurally**: reuse_agent (HIGH) — nothing in grounded_in
+showed `platform/governance/fuel.go` had been checked before designing a new governor; and
+prior_art_librarian — the load-bearing "nothing sheds deliberately" absence claim carried no
+census. I had not looked. The checks, run after the round:
+- **fuel.go read in full (74 lines): ORTHOGONAL** — a per-TASK fuel budget in a Kafka header
+  (abstract units, stale model vocabulary, 2 call sites: coordinator.go:80/104,
+  contentcreator/agent.go:241/262/845). Depth-limiting per message, not an account-month
+  dollar authority. Ruled out with the quotes in r2, and recorded in the new doc_plans entry.
+- **fleet-step-token-pressure + council-seat-token-pressure pre_queries read**: both audit
+  max_tokens CAPS against truncation — neither prices tokens nor aggregates spend.
+- **Censuses**: scheduled_tasks ~ 'pressure|budget|govern|spend|fuel' = exactly 3 rows; Go
+  grep ShedLevel|SpendGovernor|spend_governor|monthly_budget = zero hits outside this work.
+**The three LOW asks became migration 672** (dry-run rolled-back, applied 13:12:13Z, commit
+2b522026f): advisory lock woven into the spine CTE (an unreferenced SELECT CTE may never
+evaluate — it must be on the chain); verify DRIVES the level-change note both directions
+(0→3→0, 2 notes, deleted by captured id — self-cleaning probe); doc_plans travelling design
+for pipeline/spend-governor. Replay guard = md5 tri-arm (not-applied 1c371a33 / replay
+838f8cd1 / drift = refuse). **r2 submitted on the same corr 80df0963.**
+Lesson, same shape as the lane's own rule about measuring before submitting: **the absence
+claim IS a census, and it goes in grounded_in BEFORE the design** — the seats exist because
+sessions (this one included) design first and search never.
