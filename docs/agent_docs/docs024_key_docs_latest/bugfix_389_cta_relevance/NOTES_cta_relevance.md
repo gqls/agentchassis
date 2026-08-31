@@ -1133,3 +1133,67 @@ The judge is a **page-identity** test and *"Write to leopardess@…"* names no p
 our class, exactly as this lane told them and they documented. ⚠ Note its `context` nests findings
 under `context->'findings'`; a flat `context->>'label'` returns empty and reads as "the audit records
 nothing useful". I ran that query first and had to open one row to find the shape.
+
+### 2026-08-31 ~16:0xZ — OWNER DECISION TAKEN (contact page), and a finding that splits the population in two
+
+**Owner, 2026-08-31: "we can route the get in touch buttons to the contact page."** That is option 1
+of §2 — the cheapest, no LLM, and what the copy already promises.
+
+**Verified BEFORE writing that the repoint is durable, because a one-off that gets recomputed away is
+worse than nothing.** `applyCTARecompute`'s **KEEP #1** *is* `bugs_open/248`'s fix (slug
+`cta_recompute_clobbers_authored_contact_links`). It keeps — and deliberately **rewrites** — a stored
+destination for which `storedCTADestinationIsAuthored()` holds:
+
+| clause | our case |
+|---|---|
+| `ctaExcludedDestination(url)` | ✅ `contact` is in `areasExcludedFromCTA` (`resolve_internal_links_action.go:86-88`) |
+| `validPages.Contains(url)` | ✅ `/contact.html` is 200 on all three sites, per-domain control 404 |
+| `NOT CTAMintedCovers(...)` | ✅ none of the 20 fields carries a mint stamp naming `/contact.html` |
+
+So a hand-written `/contact.html` is **exactly the shape KEEP #1 protects** — the supported way to say
+*"this button is a contact button"*, not a patch. ⚠ And `__cta_minted` is deliberately **not**
+touched: the predicate is url-specific so a stale stamp cannot cover the new url, and the mint map
+merges **shallowly** (`cta_provenance.go:111-118`), so writing one field's stamp would replace the
+whole record.
+
+### ⭐ THE FINDING: the renderer DROPS a CTA whose destination is archived — so the two populations are not the same problem
+
+Chasing why the canary page's served bytes were **clean while its stored component was dirty**
+(`finetuning/guides/llm-cost-calculator-guide`: `content_data` and `rendered_html` both carry
+password-entropy, written 08-17; served page last-modified **today 12:30**, **0** refs):
+
+The served `call-to-action` section emits **only the secondary button**. The primary — *"Talk to us"*
+→ the archived tool — **is not rendered at all**. One component, no duplicates, `build_status
+deployed`. The renderer simply omits a CTA pointing at an archived page.
+
+**⇒ My DB census over-reports the user-visible problem, and the split is the whole story:**
+
+| | stored rows | what a visitor sees |
+|---|---|---|
+| **archived** sites (finetuning, leopardess) | dirty, and drain as pages rerender | **button absent** — no wrong link, but also no CTA |
+| **NOT archived** (ai-agent-orchestration.com) | 19 contact-intent fields | **live and misdirecting** |
+
+**Confirmed at the served bytes on the unarchived site — this is the real damage:**
+
+```
+/about.html        <a href="/tools/password-entropy.html" class="about-cta">Learn More About Us</a>
+/services.html     <a href="/tools/password-entropy.html" class="cta-btn cta-btn-primary">Book a Technical Discovery Call</a>
+/case-studies.html <a href="/tools/password-entropy.html" class="cta-btn cta-btn-primary">Book a Technical Discovery Call</a>
+```
+
+A visitor clicking *"Book a Technical Discovery Call"* lands on a password-strength toy. **That is
+live now, on the one site this lane deliberately did not archive** — and the caution that kept it
+unarchived (archiving would start the wrong-kind drain there) is exactly what left the wrong buttons
+serving. Both readings were right; the second one is the one that matters to a visitor, and I had not
+weighed them against each other until I looked at the artefact.
+
+> **The instrument lesson, and it is this lane's own rule turned on itself:** I have been reporting
+> "25 fields remaining" from a `page_components` census for a week. The number is correct about the
+> **database** and wrong about **what is served** — inert on two sites, live on the third. *A census
+> of stored state answers "what is stored", and I kept quoting it as "what visitors get".* The
+> served-bytes check is three curls and I ran it only when a canary's before-state surprised me.
+
+**Canary dispatched** on `aiao/services.html` — the field is repointed, and the rerender is the test
+of KEEP #1 rather than merely a publish: **PASS** = the served button reads *"Book a Technical
+Discovery Call"* → `/contact.html`; **FAIL** = password-entropy returns, meaning KEEP #1 did not hold
+and the batch must stop.
