@@ -113,3 +113,27 @@ not an IP block. `llm_call_log` has **zero** Grok rows ever (`model_resolved ILI
 the xAI path has never run live (MDL-040's exact trap: a capability with no live caller has an
 untested environment dependency). BusyBox wget drops the 4xx body, so the refusal reason itself
 is unreadable from the pod. Only the owner can check/fund the xAI console.
+
+---
+
+> **CORRECTED 2026-08-31 (same night, by the owner's contradiction — "We use Grok daily for the
+> news"):** the Grok block above stands in its conclusion and was WRONG in its instrument and
+> incomplete in its diagnosis. (1) "`llm_call_log` has zero grok rows ever — the xAI path has
+> never run live" measured the wrong table: `FetchLLMNewsAction` calls x.ai over raw HTTP and
+> never writes `llm_call_log`. The right instrument (`orchestration_states`, provider=xai) shows
+> the arm LIVE since 2026-08-30 14:55Z, 28 dispatches/day — and **zero items ever delivered**:
+> every call draws the 403 whose body the Go client captured verbatim: *"Your team d443dd72-…
+> has either used all available credits or reached its monthly spending limit."* So "disabled or
+> unfunded" resolves to **out of credits / at the monthly cap**, and the conclusion (no
+> successful Grok call in the platform's history) survives re-measurement at the right
+> instrument — by luck, not by method (WRONG_CALLS row filed). (2) The discovery underneath:
+> `fetchViaResponsesAPI` converts every API failure into an empty COMPLETED result nothing
+> records and nothing reads — a total provider outage is indistinguishable from a quiet news
+> day, masked by the RSS arm still delivering. Filed as **`bugs_open/418`** with fix candidates.
+> (3) The Grok trial arm therefore stays blocked on ONE owner action: fund/raise the cap on xAI
+> team `d443dd72-09cf-4ba7-8209-1395f0edb4f0`. The moment it funds, the runner recipe above works
+> (the platform's own endpoint + `grok-4-1-fast`, or a stronger sibling if `/v1/models` lists one
+> post-funding). (4) Probe practice from the same night: a multi-line Go raw-string literal
+> false-absences a single-line grep — the truncation-trial literal read 0 in the fresh binary
+> until the needle was cut at the line wrap ("SENTENCE BEFORE THE COMPARISON" ×1 present). Probe
+> needles must be single-source-line substrings.

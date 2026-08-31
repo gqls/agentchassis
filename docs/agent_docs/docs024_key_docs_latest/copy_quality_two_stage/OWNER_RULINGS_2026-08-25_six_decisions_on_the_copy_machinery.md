@@ -368,3 +368,26 @@ texts stand ready) → the wiring, vetcomparison.uk first.
 > `created_at`), and the fix shapes for the final wash pass: **re-assert `is_current` at commit
 > time, or hold an advisory lock against the producer** — required practice for step (3) when it
 > runs.
+
+## 2026-08-31 (evening) — DECISION E RULED, and two new owner items from the same session
+
+**Decision E — RULED, verbatim:** *"I authorise the offer lane to build the post-mint gate on
+their producer."* Relayed to the offer lane the same hour (msg `2712ddec`) with the packaging he
+approved: fail-loud post-mint mechanism at the producer, same shape scanner + BANNED_REGISTER_v1,
+measured against their 23%-born-dirty baseline; the false-green landmine is the design
+constraint. The sequence unblocks in order behind it: gate live+measured → re-census → final wash
+(with 668's commit-time guard, added this night) → re-base the 10 expansion FROMs → wiring
+migration, vetcomparison.uk first.
+
+**New owner item — the xAI account:** his "We use Grok daily for the news" was half-true in the
+best possible way: the schedule runs daily; delivery has been ZERO since the arm went live
+(08-30) because xAI team `d443dd72-09cf-4ba7-8209-1395f0edb4f0` is out of credits / at its
+monthly cap, and the pipeline swallows the refusal (`bugs_open/418`). Funding it is his console;
+it unblocks BOTH the news arm and the Grok trial arm.
+
+**New owner item — `cmd/brief-negation-check` council scope:** raised by the 414 lane after
+their detector fix shipped without a round (the directory is not in council scope; the original
+change was admitted only via its datahelpers passengers). The binary now files work items
+against live sites, which is the same argument that admitted `cmd/config-key-audit/` on
+2026-08-23. His call; scope widening = `council-scope.sh` + `SCOPE_PATHS` in 098, BOTH in one
+commit (CLAUDE.md).
