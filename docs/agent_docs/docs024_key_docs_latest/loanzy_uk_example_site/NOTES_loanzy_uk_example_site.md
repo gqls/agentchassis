@@ -2213,3 +2213,13 @@ artefact + status pair, treat `error` on a completed row as history, not state.
   comment warns about. Harm (third-party brand) is fixed; mark-only favicon cropping is a
   derivation-quality question for the imagery/designer family, filed nowhere yet beyond
   this line. Do not regenerate farmer's heads again for it.
+
+## 2026-08-31 — 669/670 council verdict: APPROVED round 1, 3 advisories none high (corr 3b666f0f)
+- edit-quality (medium): the agent_definitions duplicate-active-row trap — could the exact-text
+  replace have hit an UNLOADED duplicate? **Answered by measurement:** build-site-planner has
+  exactly ONE row fleet-wide (version 1, active, non-snapshot, id f263eaa1 = the row the
+  snapshot NOTICE named, and it carries the fix). Trap real, not applicable here.
+- edit-quality (low): does site_plan_imagery.locked_at exist as named? Yes — read via \d
+  before the migration was written (0 locked rows; predicate is belt).
+- bug_historian: approve. Commit carries Council-Submitted (resolves at report time,
+  forward-only — no amend). 417's candidate 1 is now APPROVED + APPLIED + verified.
