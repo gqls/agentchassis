@@ -2176,3 +2176,14 @@ plus the single by-design tool-acceptance absence — post-roll stamping is tota
   wordmark, 10 verbatim; census trap (count the LICENCE, not the prohibition — "does it
   forbid text" scores 10 contradictory prompts as safe); candidate 1 repriced (stops the
   next 27, repairs none of the 19 — their disposition must be stated).
+
+## 2026-08-31 — §11e closed from durable stores: hop two ran, retried, produced the landscape
+[MEASURED 2026-08-31] farmer's `needs_vertical_research`: created 08-26 23:06:13, **complete**
+08-27 06:39:52, and the 17,449-byte `vertical_landscape` spec written by
+vertical-exemplar-researcher at 06:39:48 — four seconds before completion. The 618 floor never
+tripped (the natural test the bug wanted). One oddity, noted not filed: the completed row's
+`error` still reads "Claim timed out — handler pod likely died" — a STALE first-attempt error
+(the credit-outage/pod-churn window that night) that completion did not clear. Inverse of the
+099 landmine (there: FAILED shows COMPLETED with error NULL; here: COMPLETE keeps a dead
+error). A census filtering `error IS NOT NULL` counts this healthy row as broken — trust the
+artefact + status pair, treat `error` on a completed row as history, not state.
