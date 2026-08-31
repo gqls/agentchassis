@@ -14857,3 +14857,22 @@ NAMES is a bet that a name means one thing fleet-wide; when a field name is over
 (`name` = identifier AND heading), prefer value-shape tests (length, whitespace, token pattern)
 over the name. Kin to WRONG_CALLS' "declaring a key silences your own detector" — but this one
 was born blind rather than silenced by a later edit, so no diff would ever have shown it.
+
+### The SAME fact stored twice inside one LLM-authored spec, disagreeing — and the consumer reads the half nothing validates, so the error message points at every innocent party first (2026-08-31, the finetuning contact saga; kin: boxingonline colour_mood)
+
+An identity spec carried a top-level `email` AND a `contact.email`, disagreeing by two letters;
+the render context reads the top-level key, the validator reads `sites.email`, and the writer —
+whose prompts carried the CORRECT address — was blamed by three successive diagnoses because it
+was the actor in front of the failure. Same week, same shape in prose: a design spec's
+`colour_mood` argued both sides ("deep red and near-black… a warm off-white keeps it readable")
+and the machine-readable `palette.reference_values` silently resolved toward the half the owner
+did not want. The transferable checks: (1) when a validator keeps refusing a REGENERATION for a
+value no generation emits, stop suspecting the generator and walk the ASSEMBLY inputs — the
+JSON-walk query (recursive jsonb_each over the current spec) found the carrier in one pass
+after three wrong attributions. (2) An LLM-authored spec can state one fact twice — prose+
+structured, or two structured keys — and nothing reconciles them at write time; the fleet
+census for the email variant took one query (7 specs with both keys, 2 disagreeing) and is the
+model for any dual-truth key you find: census BOTH halves against the system of record, and fix
+the SPEC (supersede), not the page. Bug files: this lane's contact trail (NOTES 2026-08-31
+night); `bugs_open/420` (order-intake billing-email — the neighbouring intake-side mechanism,
+delivery lane's file).
