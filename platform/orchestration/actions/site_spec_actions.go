@@ -6,6 +6,15 @@
 //   WriteSiteSpecAction  — deep-merge partial update → insert new current row
 //   ReadSiteSpecAction   — read one aspect or all current aspects for a site
 //
+// ⚠ aspect='evidence_base' has ONE other writer besides this action's callers
+// (and evidence_citations/refresh_evidence_base): seedCustomerIdentity in
+// seed_build_queue_action.go seeds a minimal register at build-queue seeding
+// time, guarded INSERT-IF-ABSENT only (WHERE NOT EXISTS a current row) — it
+// never merges, supersedes, or touches an existing register, precisely
+// because this action's siteSpecDeepMerge OVERWRITES arrays and would replace
+// an enriched facts[] wholesale (council 7e3dd082). If you change this
+// action's merge semantics or the is_current bookkeeping, check that seam.
+//
 // Registration (add to registry.go):
 //   "write_site_spec": { Handler: WriteSiteSpecAction, IsLocal: true },
 //   "read_site_spec":  { Handler: ReadSiteSpecAction,  IsLocal: true },

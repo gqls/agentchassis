@@ -312,20 +312,43 @@ func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, dir
 		return nil
 	}
 
-	if _, err := tx.ExecContext(ctx, `
+	// RETURNING logs the post-condition (council 7e3dd082 round-2 advisory,
+	// debug_historian): what the row holds AFTER the guarded write, so
+	// preserved-existing vs filled-blank is visible in production logs rather
+	// than inferred. The other two writers of these columns
+	// (sync_site_identity_action.go, update_site_content's sync_columns arm)
+	// use the same fill-only-if-empty guard, and this seed runs before either —
+	// the intake values win everywhere by every writer's own guard.
+	var rowEmail, rowCompany string
+	if err := tx.QueryRowContext(ctx, `
 		UPDATE sites
 		SET email        = COALESCE(NULLIF(email, ''), NULLIF($2, '')),
 		    company_name = COALESCE(NULLIF(company_name, ''), NULLIF($3, '')),
 		    updated_at   = now()
-		WHERE id = $1`, siteID, email, name); err != nil {
+		WHERE id = $1
+		RETURNING COALESCE(email, ''), COALESCE(company_name, '')`,
+		siteID, email, name).Scan(&rowEmail, &rowCompany); err != nil {
 		return fmt.Errorf("write customer identity to sites: %w", err)
 	}
+	logger.Info("seedCustomerIdentity: sites identity after guarded write",
+		zap.String("site_id", siteID.String()),
+		zap.String("email", rowEmail),
+		zap.String("company_name", rowCompany),
+		zap.Bool("email_was_intake_value", rowEmail == email),
+		zap.Bool("company_was_intake_value", rowCompany == name))
 
-	attested := "customer at order intake"
+	// verified_at is deliberately ABSENT from these facts (council 7e3dd082
+	// round-2 advisory, compliance seat, raised in both rounds): its documented
+	// meaning is "when WE last checked the fact still holds"
+	// (datahelpers/claims_series.go), and nobody has checked a customer's
+	// intake claim. The attestation date lives in the attested_by line;
+	// verification_status "customer_attested" is the convention other
+	// fact-writers should adopt for non-platform-verified facts rather than
+	// reinvent (architecture seat, same round).
+	attested := fmt.Sprintf("customer at order intake %s", time.Now().UTC().Format("2006-01-02"))
 	if reference != "" {
 		attested += ", reference " + reference
 	}
-	today := time.Now().UTC().Format("2006-01-02")
 	facts := []map[string]interface{}{}
 	if name != "" {
 		facts = append(facts, map[string]interface{}{
@@ -333,7 +356,6 @@ func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, dir
 			"kind":                "entity",
 			"claim":               fmt.Sprintf("The business is called %s.", name),
 			"source":              map[string]interface{}{"attested_by": attested},
-			"verified_at":         today,
 			"verification_status": "customer_attested",
 			"writer_line":         name,
 		})
@@ -344,7 +366,6 @@ func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, dir
 			"kind":                "entity",
 			"claim":               fmt.Sprintf("Enquiries reach %s.", email),
 			"source":              map[string]interface{}{"attested_by": attested},
-			"verified_at":         today,
 			"verification_status": "customer_attested",
 		})
 	}

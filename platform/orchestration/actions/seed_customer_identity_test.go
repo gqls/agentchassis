@@ -66,9 +66,10 @@ func TestSeedCustomerIdentityArmsIntakeBuilds(t *testing.T) {
 
 	siteID := uuid.New()
 	mock.ExpectBegin()
-	mock.ExpectExec(sitesUpdatePin.String()).
+	mock.ExpectQuery(sitesUpdatePin.String()).
 		WithArgs(siteID.String(), "aaa@example.com", "Boxing Online").
-		WillReturnResult(sqlmock.NewResult(0, 1))
+		WillReturnRows(sqlmock.NewRows([]string{"email", "company_name"}).
+			AddRow("aaa@example.com", "Boxing Online"))
 	mock.ExpectExec(specsInsertPin.String()).
 		WithArgs(siteID.String(),
 			argContaining{needles: []string{`"business_name"`, `"contact"`, "BR-TEST01", "aaa@example.com", "Boxing Online", `"customer_attested"`}},
@@ -132,9 +133,10 @@ func TestSeedCustomerIdentityExistingRegisterSurvives(t *testing.T) {
 
 	siteID := uuid.New()
 	mock.ExpectBegin()
-	mock.ExpectExec(sitesUpdatePin.String()).
+	mock.ExpectQuery(sitesUpdatePin.String()).
 		WithArgs(siteID.String(), "aaa@example.com", "").
-		WillReturnResult(sqlmock.NewResult(0, 1))
+		WillReturnRows(sqlmock.NewRows([]string{"email", "company_name"}).
+			AddRow("aaa@example.com", ""))
 	// The guarded INSERT finds a current register and writes 0 rows — the
 	// helper must treat that as success, not retry or error.
 	mock.ExpectExec(specsInsertPin.String()).
