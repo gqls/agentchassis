@@ -1013,3 +1013,36 @@ the run by payload). Then: hydroponic + BSF citations, fences per the SFI patter
   question, not ours to fix, but do not read the count as site damage.
 - All 23 pages serve 200 with healthy sizes; GTM present; favicon serves at the URL the head
   names.
+
+### Blue-carbon evidence run #1 — REVIEWED per RUNBOOK §9 (mandatory, done 2026-08-31)
+
+Run completed ~13:00Z (dispatch→verify_and_register in ~25 min). Register 104 → **111**. The
+seven new facts, every one read:
+
+| id | value | what |
+|---|---|---|
+| CIT-354ae741… | 30% of DW | giant kelp carbon content (NASEM 2022) |
+| CIT-9487e4df… | 30% of DW | MARINER cost-goal carbon assumption (NASEM 2022) |
+| CIT-b36b3ce7… | 11% of NPP | fraction of macroalgal NPP reaching long-term storage (K-J & Duarte 2016 via GHG Institute) |
+| CIT-245878cb… | 88% | share of net sequestration via deep-sea pathways (same synthesis) |
+| CIT-b39b1a02… | 70% | share via recalcitrant-DOC export below the mixed layer (NASEM citing same) |
+| CIT-8d6918f6… | ~8% of NPP | recalcitrant DOC production fraction |
+| CIT-c681bc34… | 0.17 Pg C/yr | global max natural macroalgal sequestration estimate |
+
+The five checks: (1) audience — science, transfers like the DLI precedent; (2) no table
+scrapes — every quote is a real sentence; (3) no content-free facts; (4) hosts NASEM ×5 +
+GHG Institute ×2, every writer_line scoped to the named study and year; (5) **did it answer
+the question? NO — the dry-matter half came back EMPTY** (the §9.5 silent half-answer,
+caught because the check exists). `published` empty + staleness 800 guessed on all seven —
+tolerable for attributed research estimates (the writer_lines carry the study years), noted.
+
+**Follow-up run #2 dispatched 2026-08-31** (dry-matter fraction of harvested kelp, corr
+`1299d004-…`, watcher armed), sequential per §10. **Binding waits for it**: the tool's
+species dry-matter presets (10/12/15%) are the one encoded constant still uncovered.
+
+**And the register review sharpened the tool question**: the tool's 10/50/90 are RETENTION
+sensitivity presets applied to a user-entered fate split — a defensible model shape, but the
+literature anchor is ~11% of NPP reaching long-term storage, so "Optimistic 90% retention"
+needs explicit hypothetical-upper-bound labelling (or re-anchoring) when the copy is
+rewritten with citations. The owner's rule names tool DEFAULTS explicitly, so the presets
+need the same sourcing-or-labelling treatment as prose.
