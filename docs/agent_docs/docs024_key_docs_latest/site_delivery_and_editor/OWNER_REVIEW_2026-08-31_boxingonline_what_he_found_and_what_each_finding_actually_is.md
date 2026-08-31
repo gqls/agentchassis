@@ -76,6 +76,24 @@ database being clean is not the same fact.
 > the contact page is now a form with `form_action "#contact"` that submits nowhere, on a page the
 > brief never asked for — delete-or-wire is with the owner.
 
+> **⚠ LIVE TRAP, verified 2026-08-31 — DO NOT RE-SEED THIS SITE until the `420` fix rolls.**
+> A build retry would put the address straight back, and **every check in this document would
+> read clean beforehand.** Both conditions are satisfied right now:
+> ```sql
+> SELECT direction->>'customer_email', status FROM build_queue WHERE domain='boxingonline.com';
+>   -> aaa@designconsultancy.co.uk | seeded          -- durable order record, still holds it
+> SELECT email IS NULL FROM sites WHERE id='d2aa5206-...';  -> true
+> ```
+> `build_queue.direction` is the durable order record; re-seeding is the canonical build retry
+> (`bugs_open/326`); and because `sites.email` is now legitimately **empty**, the
+> fill-only-if-empty guard **inverts into a refill**. The emptiness we worked for is what arms it.
+> The `420` class fix is committed but **inert until the next fleet roll**.
+> **Why it defeats our own apparatus:** every sweep describes the state after the LAST seed, so
+> all of them read clean before a retry. It fires on a routine recovery action taken in good
+> faith — the action someone reaches for when a build looks stuck. If a retry is unavoidable
+> before the roll, run the removal sweep **afterwards** as well; the post-action check is the
+> only one that can catch it.
+
 **The defect behind it is real and will fire again.** Order intake writes the ORDERING email
 into `sites.email` (council-approved as the identity store for delivery), and the footer
 assembles the PUBLISHED contact from the same column. Two contracts on one column. On order 2

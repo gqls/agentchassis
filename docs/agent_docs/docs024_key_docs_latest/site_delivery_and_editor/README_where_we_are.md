@@ -367,3 +367,32 @@ Two things still open on this: the footer is currently a hand-patch and should b
 properly before anything is sent to a customer, and the contact page is now a form that
 does not go anywhere, on a page you never asked for. Delete it or give it somewhere to go
 — that one is your call.
+
+## 2026-08-31 (evening, later still) — two more things on boxingonline, one of them a trap
+
+The logo. I downloaded the image the site is actually serving and looked at it. It is
+lettered "BOXING NEWS". Your site is Boxing Online — that is the company name, the order,
+the domain, and even the alt text on the image itself. Nothing anywhere calls it Boxing
+News. The instruction we gave the image generator told it to letter a wordmark and never
+told it what the wordmark should say, so it invented one. That fault already had a bug
+file open from another site, where it produced "Farm Shield Info"; yours is the second
+confirmed case and the first on a site someone paid for.
+
+There is a second thing wrong with the same file, which I think is worse in its way. It is
+not a logo at all. It is a two-panel presentation board — the mark on a dark background,
+then the same mark again on a light background with the lettering beside it — and it is
+being squeezed into the header slot as though it were a single logo. Nothing between the
+image generator and the page noticed. That now has its own bug file.
+
+The instruction has been corrected, so regenerating will produce a clean, text-free mark.
+
+And the trap, which matters more than either. We must not rebuild this site from scratch
+until a fix has rolled out, because the order record still holds your email address, and
+the code that copies it across only does so when the field is empty — which it now is,
+because we emptied it. So a rebuild would put it straight back. The nasty part is that
+every check we ran tonight would say the site was clean right up until the moment someone
+pressed rebuild. It is written down in the traps file and both other sessions know.
+
+I mention it because "just rebuild it" is the obvious thing to reach for while we sort out
+the remaining items, and for the next little while it is the one thing that would undo the
+work.
