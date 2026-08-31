@@ -1,8 +1,16 @@
-# HANDOFF — bugs_open/414 — 2026-08-31. **START HERE. There is exactly ONE thing left; it is §3.**
+# HANDOFF — bug 414 — 2026-08-31. **THE BUG IS CLOSED. Nothing is outstanding; §5 is forward work only.**
+
+> **⚠ UPDATED 2026-08-31, ~13:00Z, hours after this file was first written — and the update is the
+> point of reading it.** The original header said *"There is exactly ONE thing left; it is §3."* That
+> was true when written and stopped being true the same evening: the `copy_quality_two_stage` lane
+> rebuilt and deployed the fix as **`v1.0.1350`**, a triggered production run verified it clean, and
+> **414 moved to `bugs_closed/` in `de99599fb`.** §3 is kept below as the record of what the last
+> blocker was and how it was discharged — it is history now, not a task. A handoff whose first line
+> asks for work that is already done is the failure this lane spent a week documenting.
 
 Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_414_planted_marker_as_claim/`
-Bug: `bugs_open/414_HANDOFF_2026-08-26_a_planted_acceptance_marker_is_served_as_a_compliance_claim_and_the_audit_fleet_adopted_it_as_the_sites_identity.md`
-(§7a–§7n are the working record; §7n is the closure checklist this handoff executes.)
+Bug: **`bugs_closed/`**`414_HANDOFF_2026-08-26_a_planted_acceptance_marker_is_served_as_a_compliance_claim_and_the_audit_fleet_adopted_it_as_the_sites_identity.md`
+(§7a–§7n are the working record; **§7o is the closure**, with every condition and its evidence.)
 
 **Counts carry the date they were counted** (owner ruling 2026-08-22). Everything below was
 re-measured on 2026-08-31 after the `v1.0.1349` roll — nothing is inherited from the 08-27 session.
@@ -11,22 +19,25 @@ re-measured on 2026-08-31 after the `v1.0.1349` roll — nothing is inherited fr
 
 # 0. STATE IN ONE PARAGRAPH
 
-**The bug is substantively fixed, live, and verified at the artefact. One deployment step remains.**
+**CLOSED 2026-08-31 (`de99599fb`) — fixed, live, and verified in production at every layer.**
 A planted instruction ("include the exact phrase: checked against the FCA handbook, rule by rule")
 made lendzy.co.uk serve an unverifiable regulatory-diligence claim for 24 days, and the audit fleet
 adopted it as the site's identity. Both spec sources are stripped, the canonising audit item is
 rejected, the served copy is repaired through the framework, and the class fix — two completeness
 patterns, practice-family P6, and a detector that applies the claim rules to the **instruction** —
 is **live in the running chassis** (`v1.0.1349`, probed at the binary) and council-APPROVED
-(`f4c144ad`, credited by `098`). What is NOT done: the spec detector produced a **false positive on
-its own first live run**, the fix for that is committed (`dc9ccfda2`) but its CronJob image still
-carries the unfixed build, so it needs one image cycle and one read of the next run. Then 414 closes.
+(`f4c144ad`, credited by `098`). The last defect found was the detector's **own** — its first live run
+convicted a site for a phrase in that site's `would_never_say` list — and *running it* is what found
+that, not the unit tests and not a nine-seat council round. Fixed (`dc9ccfda2`), deployed as
+`v1.0.1350`, and verified by a triggered production run: **0 of 36 sites, from 7,013 scanned fields,
+3 suppressions.** Nothing is outstanding on this bug. §5 is forward work that was never part of it.
 
 ---
 
-# 1. FIRST TASK — three cheap confirmations (5 minutes), then §3
+# 1. IF YOU ARE PICKING THIS UP COLD — three cheap confirmations (5 minutes)
 
-Do these before believing anything below; four days passed between the work and this handoff.
+Not a task list any more; these are the checks that prove the closure still holds if you ever need to
+re-establish it. All three passed on 2026-08-31.
 
 ```bash
 # 1a. Are the patterns still live in the running chassis? THREE ARMS, never one.
@@ -67,7 +78,7 @@ scripts/probe-page-url.sh lendzy.co.uk about tool-affordability-complaint-checke
 | **Patterns LIVE in the chassis** | `v1.0.1349`, both pods; three-arm binary probe passes (2 new strings present, a pre-existing pattern present, a never-written string absent) |
 | **Zero false positives fleet-wide, post-roll** | `cmd/claimscan` over **2,715** components (2026-08-31): **1** BANNED finding — the pre-existing `webdesign.co.uk` "never invents" — and **9** PRACTICE, all pre-existing P1–P5. **Nothing from either new pattern, and nothing from P6** |
 | **Council** | `f4c144ad` APPROVED at round 2; `098` lists `fc588e445` as REVIEWED "by correlation, via submitted" |
-| **The spec detector is live and running daily** | CronJob `brief-negation-check`, `40 7 * * *`, image `v1.0.1349`, `doc_notes` heartbeat every run |
+| **The spec detector is live, correct and running daily** | CronJob `brief-negation-check`, `40 7 * * *`, image **`v1.0.1350`** (carries the false-positive fix `dc9ccfda2`), `doc_notes` heartbeat every run. Triggered production run 2026-08-31: exit 1 (sibling detector's findings, not a refusal), **0 of 36 sites, 3 suppressions** |
 
 **What the framework wrote** (quoted because the gate that would vet it was inert when it was written,
 so a human is the only reader it has had): the guide now says every figure and rule reference *"is
@@ -77,10 +88,16 @@ unverifiable claim about our diligence became a verifiable statement of what the
 
 ---
 
-# 3. THE ONE THING LEFT — deploy `dc9ccfda2` and read the next run
+# 3. ~~THE ONE THING LEFT~~ — HOW THE LAST BLOCKER WAS DISCHARGED (history, 2026-08-31)
 
-**The spec detector's first live finding was a FALSE POSITIVE, and the fix is committed but not
-deployed.**
+> **DONE.** The `copy_quality_two_stage` lane bumped `IMAGE_TAG` + the overlay `newTag` in one commit
+> (`6d5f7911d`), built from committed HEAD, and applied — the CronJob artefact reads
+> `brief-negation-check:v1.0.1350`. A triggered run then exited **1** (findings from the sibling
+> detector, not a refusal) and reported **0 of 36 sites, 3 suppressions**. Kept below because the
+> reading rules in §3a step 2 are the standing way to read this detector's output.
+
+**The spec detector's first live finding was a FALSE POSITIVE.** *(Fix now deployed — see the DONE
+banner above; this paragraph is the record of what it was.)*
 
 On 2026-08-28 07:40 it filed `spec_supplies_claim` at severity **high** against **homegarden.uk**, for
 the phrase *"We tested six lawn mowers so you don't have to."* — which sits in that site's
