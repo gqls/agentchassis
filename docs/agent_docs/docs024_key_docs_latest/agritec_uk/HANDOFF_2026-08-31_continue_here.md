@@ -37,11 +37,15 @@ fourth worked case. Session `loanzy.uk` messaged 08-31.
 
 **The site-side repair IS ours** (owner rule 08-21: no unsourced figure anywhere), in order:
 
-1. **An evidence run for the blue-carbon constants is IN FLIGHT** (dispatched 08-31 ~13:00Z,
-   question: kelp dry-matter %, carbon % of dry weight, sequestration fraction via
-   sinking/burial). **Its review is MANDATORY and OWED** — RUNBOOK §9's five checks, find the
-   run by payload (`collected_data->'input_data'->>'domain'='agritec.uk'`, newest). Budget
-   ~30 min publish→start; do NOT retry on early silence. ⚠ ONE evidence dispatch at a time
+1. **Evidence run #1 is DONE and REVIEWED** (08-31, NOTES tail): register 104 → **111** —
+   kelp carbon 30% of DW (NASEM ×2) + the sequestration-fraction set (~11% of NPP reaches
+   long-term storage; 88% of that via deep sea; ~70% via recalcitrant-DOC export). Clean on
+   four of §9's five checks; the DRY-MATTER half came back silently empty, so **run #2
+   (dry-matter fraction of harvested kelp) is IN FLIGHT — its §9 review is OWED.** ⚠ run
+   #2's FIRST dispatch silently dropped (the kcat trap: exit 0, no orchestration row after
+   50 min, chassis pods 119 min old so not a roll window); re-fired ~14:20Z with a payload
+   watcher. If the REFIRE also lands no row, suspect the publish path itself
+   (`kafka-publish-lib.sh` receipts), not bad luck. ⚠ ONE evidence dispatch at a time
    (§10: concurrent runs are a lost-update race on `evidence_base`).
 2. After reading it: bind the blue-carbon tool's constants to the registered facts — cited
    visible copy (`content_rewrite` route works, proven on the cap fix) + `artifact_check`
