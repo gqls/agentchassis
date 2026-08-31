@@ -81,6 +81,16 @@ For the class fix, add to the verify recipe: the served-page probe (not any set 
 DB sweeps) is the only complete check, because the set of places a value is baked
 into is not enumerable from the schema — four independent sweeps each missed one.
 
+Two more instances of the same family from the same evening (both caught by the
+boxingonline session): **a chrome-only change is invisible to the page content
+hash**, so a whole-site rerender no-ops on every page and reports success — a
+change complete at its source, invisible to the thing whose job is to notice
+changes (targeted per-page rerenders are the working path); and **a removal sweep
+must enumerate its pages from `pages WHERE deployed`, never from the pages someone
+remembered to probe** — a one-page watcher reported CLEARED at 16:19 while six of
+nineteen deployed pages still served the address. Every false "clean" tonight was
+an incomplete enumeration reading as a result.
+
 ## Owner rulings recorded (2026-08-31, relayed via the boxingonline session)
 
 1. "There should be no contact email or address on this site because I didn't ask for
