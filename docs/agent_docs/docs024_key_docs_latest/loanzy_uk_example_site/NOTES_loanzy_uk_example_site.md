@@ -2203,3 +2203,13 @@ artefact + status pair, treat `error` on a completed row as history, not state.
   presence-based discovery cannot refile them, exactly as predicted. Two
   needs_brand_head_assets items filed promotable (66e0f086 favicon, 7a7261e4 og_card),
   monitor armed to terminal + served freshness.
+
+## 2026-08-31 — brand heads re-derived; one residual observation, deliberately not churned
+- favicon + og_card items promoted and completed; both served files replaced 11:15:33Z.
+  **Verified by eye:** og-card = the new shield + "farmerinsurance" wordmark; favicon = the
+  new logo too — wrong brand GONE from all three surfaces.
+- Residual, noted for 417 not re-fired: the favicon derivation shrinks the WHOLE logo, so
+  the wordmark is illegible at 16px — the exact case default_brand_prompt.go's no-lettering
+  comment warns about. Harm (third-party brand) is fixed; mark-only favicon cropping is a
+  derivation-quality question for the imagery/designer family, filed nowhere yet beyond
+  this line. Do not regenerate farmer's heads again for it.
