@@ -363,6 +363,11 @@ lives in a JSON file the producer has never been told about.**
 > corpus state but a **PRODUCER PROPERTY**: the mint stops printing the shape, or the wash runs
 > continuously as a post-step.
 
+> **✅ BUILT 2026-08-31 (evening) — SEE §H1d BELOW. The paragraph that follows is left standing
+> because its reasoning is still the reasoning; only the word UNBUILT is now false. ⚠ It also
+> names the wrong producer — it is `offer-analyser`, THIS LANE'S OWN AGENT (164/164 rows), not
+> `domain-strategist`, which writes `aspect='strategy'`.**
+
 **OWED, UNBUILT, THIS LANE'S SEAM:** a post-generation check on the producer's `lead_with` output
 calling **the same scanner the copy gate uses** — `ScanDefineByNegation` (platform code, 7 shapes as
 of Decision B, inert until the roll but the source is current) **plus `BANNED_REGISTER_v1`** — so the
@@ -606,3 +611,80 @@ Their fix (`recordModeSilenceRule`, council `04a3ce1f`) is Go, inert until a rol
 operative truth is that verdict rows are cleared by humans only.**
 **`portfolio_positioning`** — their uncommitted SEO-007 LANDMINES edit rode into `b3bddba60` as a
 named same-file passenger; they were told, nothing lost.
+
+### ✅ H1d. THE PRODUCER GATE IS BUILT (2026-08-31 evening) — and it is NOT yet evidence of anything
+
+**Shipped, four commits.** `f7156fb54` Go (inert until the roll) · `06b10a1d8` wiring `681_HOLD`
+(+`_ROLLBACK`) · `40ab44bdf` LANDMINE · `af312bc1c` register **CQ-034**.
+Council: **`4054f4d9-cd75-4b9c-8b8c-b7b86f11de1e`** — ⚠ **VERDICT NOT READ. That is the first thing
+you owe.** The code is on the shared branch; a REVISE must be acted on.
+
+**Owner ruled REPAIR** over fail and drop, after the three modes were costed to him. FAIL leaves the
+site's previous (also dirty) ordering current, so nothing gets cleaner and one tic costs a whole
+re-analysis; DROP throws away ~1 benefit in 4, some ranked first — `verify_cited_cardinals` drops a
+FALSE CLAIM, this would drop a real benefit wearing a tic.
+
+**What justified building rather than filing.** `[MEASURED 2026-08-31]` post-667 mint (rows created
+after it committed at 10:34:30Z): **18 of 75 points dirty = 24.0%**, against an all-history 23.3%.
+**Unmoved.** 15 of the 25 currently-live dirty points were minted AFTER the wash, across 8 sites,
+including **rank 1** on `finetuning.uk` (14:54) and `mortgagecalculator.co.uk` (16:25). ⚠ The
+disconfirming result was available — a dropped rate would have meant no gate was owed — and did not
+happen. **⚠ Postgres word boundary is `\m`/`\M`; `\b` is a BACKSPACE there and has already produced
+two confident zeroes in this lane.**
+
+#### ⚠⚠ THE FINDING TO CARRY: A THRESHOLD DERIVED FROM A MEAN CANNOT CATCH ITS OWN MOTIVATING CASE
+
+I implemented §H1b's ACK rule as a 60% length floor on `differentiated: true` points, wrote it into
+the action's header as the rule that catches this class, **and then the motivating case PASSED it.**
+667's actual repair of `leopardessconsulting` rank 2 — *"…in days, not months."* → *"…in days."* —
+retains **64 of 76 bytes (84%)**. The differentiation was lost in **TWELVE BYTES**; the case the
+whole rule was built from sits at −16%, nowhere near the −28.7% mean it was derived from.
+
+**Caught by using the REAL repair from the REAL site as the fixture.** A composed one — a repair I
+invented, which would naturally have cut half the sentence because I already knew which arm I wanted
+to fire — passes, and the guard ships blind to precisely the failure it exists for.
+
+**The replacement is not a better number.** On a differentiated point the violating construction IS
+the comparison and the distinction is what it compares against, so truncate-before-the-comparison
+removes it EVERY time at any length: a candidate that is merely a **PREFIX** of the original is
+rejected. The length floor is KEPT alongside, for the gross rewrites the prefix rule cannot see.
+Undifferentiated points stay exempt — there truncation is sanctioned and lossless.
+**Relayed to `copy_quality_two_stage`: their wash/expansion generators have the same exposure, and
+the prefix test is one line they can apply today, ahead of any roll.**
+
+#### ⚠ The judge is blind to the word arm without layer 2
+
+`AcceptNegationRewrite` re-scans with `ScanDefineByNegation` — **shapes only**. `plainly`/`honest*`
+had **no Go reader anywhere**. So a rewrite dropping "X, not Y" and reaching for "we say so plainly"
+passes every check the shared judge makes; layer 2 (full-register re-scan) is the only thing stopping
+the two arms displacing into each other.
+
+#### What is owed next, in order
+
+1. **Read the verdict** (query in §A's form, correlation above). Act on REVISE/REJECTED.
+2. **The migration is NOT in the reviewed plan** — written after submission. It is HELD, so there is
+   time: its own round via `RESUBMIT_CORR=4054f4d9` once this verdict lands.
+3. **Apply `681_HOLD` ONLY after a roll carries `f7156fb54`.** It repoints
+   `write_offer_ordering.spec_data`, so applying it early does not add an inert step — it breaks the
+   ordering write. Per-service provenance check is in the file's header.
+4. **⚠ DO NOT REPORT THIS AS WORKING.** Nothing has run through it. **23% is the baseline it has to
+   move**, and that is measurable only after the wiring applies — from `register_repairs` in the
+   persisted spec (the clean path writes an empty array, so `len(...) > 0` is a sound predicate).
+   Layer 4 is strict by design and WILL refuse repairs; the success rate on differentiated points is
+   an OPEN EMPIRICAL QUESTION, to be read off the record, never assumed.
+5. **The nightly `brief-negation-check` cannot see this corpus** — `[VERIFIED 2026-08-31]` its census
+   covers only aspects a live agent prompt names as `{{.site_specs.specs.<path>}}`, and
+   `offer_ordering` is not among the ~25 today. It switches itself ON the day Decision C wires the
+   corpus into a writer prompt — expect a nightly report you did not ask for, over a corpus 13.5%
+   dirty. Not a bug; worth knowing before it surprises someone.
+6. **H4 / DECISION D is still with the owner** and is untouched by tonight. So are H2b's carousel
+   flag and everything in §C and §E.
+
+#### ⚠ The trap found while wiring — now a LANDMINE
+
+Seed `408_offer_analyser_agent.sql` says `write_offer_ordering.spec_data = 'offer_analysis.result.ordering'`;
+the **live row says `'ordering_checked.object'`**, repointed when the cardinal gate went in. A
+migration written from the seed would have set it back to the raw LLM output, **silently un-wiring
+`verify_cited_cardinals`** (18 real drops recorded) while inserting a new gate and reporting success
+— both gates dead, artefact normal, every guard passing. Caught only because the drop-record count
+could not be reconciled with a chain in which the cardinal gate's output reached nothing.
