@@ -57329,3 +57329,17 @@ exactly the set of files I edited and did not name.
 
 **Tally:** **a-green-tree-build-is-not-a-green-head** ×1,
 **a-pathspec-built-from-memory-drops-your-own-file** ×1.
+
+- **2026-08-31, copy_quality_two_stage** — wrote into a cancelled work item's `result` that the
+  finetuning contact rebuild was refused because "the writer invented an email, caught
+  pre-deploy" — attributing THAT RUN's generation without grepping that run's responses. The
+  wrong address (`finetuning@` for `finetune@`) was in NO writer response of any roll; it was
+  injected at assembly from the current `identity` spec, which carried TWO email keys that
+  disagreed (top-level `email` wrong, `contact.email` right) — the render reads the top-level
+  one, the validator reads `sites.email`, and the invention happened at some EARLIER
+  generation, after which it also SERVED publicly. What caught it: the identical error on the
+  re-roll forced the grep I skipped. Cheap check skipped: before attributing output to a run,
+  grep that run's responses for the artefact (one query; it exonerated every run at once).
+  Tally: **attributed-an-artefact-to-the-run-in-front-of-me** (kin of
+  damage-confirmed-is-not-mechanism-confirmed; the third roll found the truth only because
+  each cancellation reason recorded a falsifiable claim the next parking could refute).

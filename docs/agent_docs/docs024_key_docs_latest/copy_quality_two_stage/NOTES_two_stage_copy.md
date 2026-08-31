@@ -3394,3 +3394,29 @@ direction is safe either way — but confirm the count query returns 1 immediate
 snapshot line on the day. The debug_historian's "no already-present check" objection is
 answered in the files themselves (the `already opted in` RAISE); the fleet round-trip concern
 is bounded by the shared 60s per-name cache, voice_style's existing cost profile.
+
+---
+
+## 2026-08-31 night — the contact saga: three parkings, three causes eliminated, the real one a spec that argues with itself
+
+The contact rebuild parked at validation THREE times with the same error (served email
+`finetuning@` ≠ registered `finetune@`). Roll 1: I attributed it to that run's writer —
+WRONG (WRONG_CALLS row; no roll's responses ever contained the address). Roll 2 exposed the
+first real carrier: the `contact-info` component's stored content_data + rendered_html held it
+— and had been SERVING it publicly (fixed with backup `hotfix_finetuning_contact_email_20260831`,
+site-wide residue check zero). Roll 3 parked anyway — the address came back at ASSEMBLY:
+**the current `identity` spec carried TWO email keys that disagree** (top-level `email` =
+`finetuning@`, `contact.email` = `finetune@`) **and the render context reads the top-level
+one** while the validator reads `sites.email`. The boxingonline colour_mood class — the text
+argues with itself and only one half is load-bearing — in structured data. Identity spec
+SUPERSEDED (674 discipline, predecessor kept, backup `hotfix_finetuning_identity_email_20260831`);
+roll 4 (item roll 3) COMPLETED: contact battery **7→1** (9.1→1.6/1k), served address correct
+6×/0 wrong. Fleet census `[MEASURED 2026-08-31]`: 7 current identity specs carry both keys, 2
+disagree between keys, exactly **1** (finetuning) had the top-level key diverging from
+sites.email — localised damage, class recorded; the delivery lane's `420` (billing-email
+intake) is the neighbouring mechanism, cross-referenced not duplicated.
+
+**And the widening's blocker graduated to a bug: `bugs_open/422`** — services exhausted 3/3
+attempts on the section-shrink floor (negation-dense short heroes: accepted repairs remove
+>50% visible text; two correct guards colliding; repair-side shrink budget is fix candidate
+1). about at 2/2 the same way, third attempt pending at this entry.
