@@ -51,11 +51,11 @@ are built as `blog-post` and target **~1,600 words**, not merely the floor. Buil
 
 | # | Subject | Live source | Inputs | Floor (words) | Dest | Status |
 |---|---|---|---|---|---|---|
-| T1 | Convert a crop's DLI target and photoperiod into required PPFD, fixture load and electrical running cost | /tools/vertical-energy-calc.html | 5 numeric | 439 | | **evidence: part** — 5 ONS non-domestic electricity price facts registered 2026-08-22, all writer_line-scoped to their quarter. Still needs: LED efficacy by fixture class, grid carbon intensity, crop DLI ranges |
-| T2 | Vapour pressure deficit from air temperature, RH and leaf-temperature offset | /tools/vpd-calculator.html | 3 numeric | 517 | | not-started |
-| T3 | Stock-tank dilution to move a reservoir from current EC to target EC without precipitation | /tools/nutrient-dosing.html | 3 numeric + 1 select | 612 | | not-started |
-| T4 | Black soldier fly mass balance: wet waste to larvae, protein, frass, and rearing area | /tools/insect-waste-converter.html | 2 numeric + 1 select | 524 | | not-started |
-| T5 | Macroalgae carbon estimate separating cycling from sequestration, with credit valuation | /tools/seaweed-carbon-est.html | 2 numeric + 1 select | 499 | | not-started |
+| T1 | Convert a crop's DLI target and photoperiod into required PPFD, fixture load and electrical running cost | /tools/vertical-energy-calc.html | 5 numeric | 439 | | **evidence: part** — 5 ONS non-domestic electricity price facts registered 2026-08-22, all writer_line-scoped to their quarter. Still needs: LED efficacy by fixture class, grid carbon intensity, crop DLI ranges. ⚠ an `add_tool_novel` row "completed" for this tool 2026-08-26 but persisted NOTHING (0 components, 0 pages — the HTML sits only in the item's result JSON); T1 is still genuinely unbuilt, and should be built evidence-first, not by re-firing that row |
+| T2 | Vapour pressure deficit from air temperature, RH and leaf-temperature offset | /tools/vpd-calculator.html | 3 numeric | 517 | `/tools/vpd-transpiration-estimator/index.html` | **built+deployed 2026-08-27 by the ungated `add_tool` route — UNSOURCED (0 external citations, register untouched at 104, no fences). NOT verified; the sourcing debt gates it** |
+| T3 | Stock-tank dilution to move a reservoir from current EC to target EC without precipitation | /tools/nutrient-dosing.html | 3 numeric + 1 select | 612 | `/tools/hydroponic-solution-builder/index.html` | **built+deployed 2026-08-27, same ungated route — UNSOURCED ("Source" mentions ×5 in copy but zero external links). NOT verified** |
+| T4 | Black soldier fly mass balance: wet waste to larvae, protein, frass, and rearing area | /tools/insect-waste-converter.html | 2 numeric + 1 select | 524 | `/tools/bsf-waste-converter/index.html` | **built+deployed 2026-08-27, same route. Cleanest of the five by design (all rates are USER INPUTS, ~no encoded constants) but the help copy asserts uncited trial ranges ("Typical trials report 40 to 60%"). NOT verified** |
+| T5 | Macroalgae carbon estimate separating cycling from sequestration, with credit valuation | /tools/seaweed-carbon-est.html | 2 numeric + 1 select | 499 | `/tools/blue-carbon-estimator/index.html` | **built+deployed 2026-08-27, same route — WORST offender: encodes unsourced empirical constants in JS (species dry-matter % 10–15, carbon % 25–30, sink/burial scenario fractions 10/50/90) on the site's most claims-sensitive subject. Evidence run dispatched 2026-08-31 to source them. NOT verified** |
 | T6 | Model SFI revenue by stacking compatible actions across a farm's area and boundaries | /tools/elms-calculator.html | 9 numeric + 8 toggles | 801 | `/tools/sfi26-revenue-stacker/index.html` | **BUILT + DEPLOYED + VERIFIED** 2026-08-25 — see below |
 
 #### T6 is a redesign, not a rebuild (found 2026-08-22, Phase 2 run 1)
@@ -211,9 +211,9 @@ equation/table count preserved or exceeded.
 
 | # | Subject | Live source | Status |
 |---|---|---|---|
-| H1 | Home — what the site is and the way into both clusters | / | not-started |
-| H2 | Tools index — must list **every** tool | /tools/index.html | not-started |
-| H3 | Explainers index — must list **every** explainer | /guides/index.html | not-started |
+| H1 | Home — what the site is and the way into both clusters | / | **built+deployed** — links every live tool (verified 2026-08-31: all 6 in nav/body) |
+| H2 | Tools index — must list **every** tool | /tools/index.html | **built+deployed at `/tools.html`** — the framework MOVED the hub URL ~2026-08-26; `/tools/index.html` now 404s but nav, sitemap and every internal link agree on `/tools.html` (verified 2026-08-31, zero internal references to the old URL) |
+| H3 | Explainers index — must list **every** explainer | /guides/index.html | **built+deployed** — 6/6 explainers + the tool companion guides |
 | H4 | Deep-dive series index | /deepdives/index.html | phase 2 |
 
 ---

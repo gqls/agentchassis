@@ -945,3 +945,71 @@ whether the framework's duplication checks agree.
 - Whether `claims_unverified` self-closed (revalidator arm `resolved_all_gates_passed`).
 - The companion guide's duplication/depth standing in the framework's own checks, and the
   current open-queue shape generally (4 days of waves unread).
+
+---
+
+## 2026-08-31 — the token is back, the acceptance verdict is in, and the framework built five tools WITHOUT the evidence discipline
+
+Token refreshed (valid to 09-02). The owed reads, plus what four unread days actually held.
+
+### The owed reads, all answered
+
+- **Tier-4 acceptance (first ever): 8 passed / 1 failed — `mobile-fit@mobile` — and the loop
+  FIXED it the same day** (`improve_tool` complete 12:25, delivered by `section_edit` 12:41).
+  Then, better: the 15:29 `audit_tool` pass found a REAL arithmetic edge — **AHW2 entered with
+  CAHL2 blank made cahl2Qty default 0, so the cap computed 0/2 = 0 and effQty silently zeroed**
+  — and fixed that too. The thing the reconciliation deliberately did not claim (arithmetic)
+  got its independent check, found something, and repaired it.
+- **All 17 imagery items complete.** `icon_sfi` errored once ("Claim timed out — handler pod
+  likely died"), retried clean, stored. `error` non-null on a `complete` row = last attempt's
+  error, not a live failure.
+- **`claims_unverified` could NEVER have self-closed**: the revalidator's 08-30 pass returned
+  arm `spec_no_page_id`, verdict `unknown` — the claims audit writes no `page_id` into its
+  spec, deliberately unparsed. Manual close with the artefact evidence is the intended path
+  for this item shape; done (`SEED_2026-08-31_close_vision_and_claims.sql`), together with the
+  `vision_finding` ruling (Subtotal em-dashes = the honest pre-calculation state; the vision
+  pass never presses Calculate; £0.00 would assert an uncomputed figure).
+
+### What the four days held: the `evaluate_tools → add_tool` route executed, ungated
+
+By 08-27 17:32 the site had **five new calculators + five companion guides live** (BSF, blue
+carbon, hydroponic builder, VPD estimator, gas unit converter — T2–T5 plus one off-ledger).
+Measured 2026-08-31:
+
+- **The register never moved: 104 facts before and after.** No evidence consulted, none
+  registered, no fences, no PLAN declarations.
+- **0 external source links across all five tools** (the SFI stacker's gov.uk anchor + capture
+  date sit on the same site as the counter-example).
+- `blue-carbon-estimator` **encodes unsourced empirical constants in JS** (species dry-matter %
+  10–15, carbon % 25–30, sink/burial fractions 10/50/90) — invisible to the claims scanner,
+  which cannot read JavaScript. `bsf-waste-converter` is the cleanest by design (rates are user
+  inputs) but asserts uncited "Typical trials report 40 to 60%" ranges in help copy.
+- **T1 (vertical energy) is a FALSE GREEN**: its `add_tool_novel` row completed with generated
+  HTML in `result` and persisted NOTHING — 0 components, 0 pages. A complete work item is not
+  a built artefact, purest form yet.
+
+**Routed as a CONTRIB, not a new bug**: the loanzy lane owns the growth-refusal decision
+(RFC_056 FOLLOW-UP #1, on the owner's desk since 08-27 with three worked cases) —
+`loanzy_uk_example_site/CONTRIB_2026-08-31_agritec_add_tool_executed_ungated.md` makes agritec
+the fourth, and the first where the growth executed. Controlled comparison: same site, same
+week, the route is the only variable.
+
+**Site-side repair started regardless** (our scope, owner rule 08-21: no unsourced figure
+anywhere): evidence run dispatched 2026-08-31 for the blue-carbon constants (kelp dry-matter %,
+carbon %, sequestration fraction; 170 chars, under the 200-char web_search ceiling this lane's
+own trigger guard enforces). **Its mandatory review is OWED** (RUNBOOK §9's five checks; find
+the run by payload). Then: hydroponic + BSF citations, fences per the SFI pattern.
+
+### Site structure notes
+
+- **The tools hub MOVED to `/tools.html`** (~08-26); `/tools/index.html` 404s. Nav, sitemap and
+  every internal link agree on the new URL (measured: zero internal references to the old one).
+  My 08-30 "stub inbound: 0 on /tools/index.html" reading was grepping a 9-byte 404 body —
+  harmless then (the guides-hub reading carried the conclusion), but noted.
+- **The unresolved churn clusters are METER, not damage**: 84 `undeployed_asset` /
+  14 `deactivated_component` unresolved rows are the same few icons + the Document Head row
+  cycling daily through a check that reads a stamp while the artefacts serve 200 (probed
+  08-30 and 08-31). Two-strike branding keeps landfilling them — the RFC_010/033 landfill
+  question, not ours to fix, but do not read the count as site damage.
+- All 23 pages serve 200 with healthy sizes; GTM present; favicon serves at the URL the head
+  names.

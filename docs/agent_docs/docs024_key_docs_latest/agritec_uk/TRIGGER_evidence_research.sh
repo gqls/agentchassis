@@ -31,6 +31,21 @@ set -euo pipefail
 QUERY="${1:?Usage: $0 \"<research question>\"}"
 DOMAIN="${DOMAIN:-agritec.uk}"
 
+# ⚠ HARD 200-CHARACTER CEILING, and the error you get without this check names the
+#   WRONG CAUSE. web_search_action.go:299 accepts a query_from value only when
+#   `len(queryStr) < 200` — a heuristic meant to stop an LLM refusal message
+#   ("I cannot generate...") being used as a search query. A longer query is FOUND,
+#   then silently discarded, and the run fails with:
+#       "search query not found - check 'query', 'topic', or 'query_field' config"
+#   which sends you to the agent definition to fix a config that is perfectly fine.
+#   Measured 2026-08-22: a 245-character question failed exactly this way.
+if [ "${#QUERY}" -ge 200 ]; then
+  echo "REFUSED: query is ${#QUERY} chars; web_search discards anything >= 200." >&2
+  echo "         It fails as 'search query not found', which names the wrong cause." >&2
+  echo "         Split it into narrower questions — one register fact per run is fine." >&2
+  exit 2
+fi
+
 # JSON-escape the query (no jq dependency, same approach as 082's --mission-file).
 ESCAPED=$(printf '%s' "$QUERY" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read())[1:-1])')
 
