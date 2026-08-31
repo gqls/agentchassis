@@ -18743,3 +18743,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `WRONG_CALLS.md` 2026-08-22 (`ed4c55cc6`) · the `overImage` entry (the same tool, the opposite error — placeholders inflating a total) · `an unapplied stylesheet cannot FAIL a contrast check` · `a post-fix ZERO needs a DEMAND control`
 - **source:** 2026-08-22 `dartsonline_traffic` (the blind census), generalised 2026-08-31 by `news_editorial` reproducing it on robot-hands.com.
 - **added:** 2026-08-31, dartsonline_traffic lane.
+
+---
+
+### A WRONG Anthropic key does not stop the chat — `active`, `/health` 200, and every visitor gets the fail-closed contact line, which is exactly what a usage-limit outage looks like
+
+- **footprint:** `/etc/webdesign-chat.env` · `/etc/sitechat/<domain>.env` · `webdesign-chat.service` · `sitechat@<domain>.service` · `ANTHROPIC_API_KEY` on the chat box · `box/chat-service/main.go` · any chat key rotation or budget swap
+- **fires when:** you change the chat's API key — a rotation, or moving the shopfront onto a separate account so fleet spend can never silence it — and verify the way the unit invites you to: `systemctl restart`, `journalctl -n 5`, `/health`.
+- **the trap:** `main.go` checks the key is **non-EMPTY**, never that it WORKS. So a truncated paste, a stale key or a key from the wrong account starts perfectly: systemd reports `active`, the startup lines all print, `/health` returns **200** (it deliberately does not spend money proving the key, and says so in its own comment), and the listener binds. Every visitor then gets *"Thanks for your patience. Please reach us directly…"* — **the identical symptom to the Anthropic usage-limit outages of 2026-08-27 and 2026-08-30**, so the obvious reading of it is "the limit again", not "I broke the key". The only tell is `anthropic 401` deep in the journal, which nothing surfaces.
+- **and the file cannot tell you either:** systemd reads `EnvironmentFile` **once, at start**. An edited file plus a forgotten restart disagree silently, and **every check that reads the FILE agrees with the file** — so the swap reads as done. Same class as the 2026-08-18 md5-vs-provenance correction one directory over: the config is an intention, the process is the fact.
+- **the check — test the key BEFORE writing it, and then ask the RUNNING process, not the file:**
+  ```bash
+  box/swap-chat-api-key.sh --check    # prompts, calls the API with 1 token, writes NOTHING
+  box/swap-chat-api-key.sh --status   # read-only, no key needed: file fp vs RUNNING fp
+  ```
+  The preflight also separates the case that otherwise looks like success — a **valid** key whose account is **already capped** answers `400` naming *"You have reached your specified API usage limits"*, i.e. the swap would buy nothing. Proven 2026-08-31: an invalid key drew `401 authentication_error` and the env file was byte-identical afterwards.
+- **⚠ and a different KEY is not a different BUDGET.** The usage limit belongs to the **organisation**, not the key. `[MEASURED 2026-08-31]` the chat's key (`c3358af6406c`) was already distinct from the fleet's (`79eafe5d414e`, cluster secret `personae-default-secrets`) and the fleet spent the chat dark twice regardless. A second key on the same account is a fix that measures as done and protects nothing.
+- **the currency is a fingerprint, never a key:** `printf %s "$KEY" | sha256sum | cut -c1-12`. The service logs its own (`api key fingerprint: sha256=…`, beside `build provenance`, live since `c76037d38`), so "is the chat on the separate budget?" is answerable in chat, docs and commit messages by a session that must never read a key (standing rule 2026-08-23).
+- **relations:** `a-fresh-deploy-can-ship-no-new-code` · `prove-a-deploy-at-the-artefact-index` · `a-print-statement-is-not-a-config-row` · `writes-the-field-is-not-reads-the-field` · `PLAN_2026-08-31_api_budget_separation.md` §2 (corrected) · RUNBOOK "Moving the chat to a different API budget"
+- **source:** 2026-08-31, webdesign budget-separation thread, building the swap the owner asked for; the failure mode was found by reading `main.go` before trusting the plan's four-line ssh recipe, not by being bitten.
+- **added:** 2026-08-31, webdesign_uk_build_service lane.

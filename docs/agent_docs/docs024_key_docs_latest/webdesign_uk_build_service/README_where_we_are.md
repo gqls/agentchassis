@@ -2258,3 +2258,14 @@ honest check. To make it live, the chat software needs rebuilding and restarting
 seconds of downtime, and it can ride the same restart your key swap already needs). I
 have not done it, because it means deploying to the live shopfront and that is your call.
 The key swap works without it, on the weaker check.
+
+**Later the same day — you said roll it, so it is done.** The chat software now states
+which key it is running on, and the check works end to end: the tool can ask the running
+service rather than trusting the settings file. I restarted the chat to do it, then
+checked from the outside that it still answers a real question on the live site — it
+does, quoting the £149 price correctly. So the earlier paragraph saying I had not
+deployed it is now out of date; everything described above is live and waiting for your
+key. One thing worth knowing for next time: between my saving the change and building it,
+other sessions had made twenty-one more commits to the shared code, so I checked
+explicitly that only my change to the chat went out and nobody else's half-finished work
+rode along with it.

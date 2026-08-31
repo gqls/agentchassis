@@ -6463,3 +6463,14 @@ the separate budget?".
 
 Out of council scope (docs/, not `platform|internal|pkg` or a migration) — checked
 against `scripts/council-scope.sh`, not assumed.
+
+**ROLLED the same session (owner said yes to the deploy).** `make box-release` →
+`c76037d38` (my `49267c29c` verified an ANCESTOR of it with
+`git merge-base --is-ancestor`, and `git diff 49267c29c..c76037d38 -- box/chat-service/`
+is EMPTY, so no other session's chat code rode along — worth checking, because HEAD moved
+21 commits between my commit and my build). Verified at the artefact, not the make target:
+provenance match, md5 both ends, `127.0.0.1:8081` bind only, and **`--status` now reads
+`RUNNING process: c3358af6406c`** instead of `unknown`. Live chat probed through the
+PUBLIC edge after the restart (`POST https://webdesign.uk/api/chat`) — real answer, £149,
+no contact-line fallback. Landmine appended (the wrong-key symptom is indistinguishable
+from a usage-limit outage) + `landmines-verify-dispatch.sh`.
