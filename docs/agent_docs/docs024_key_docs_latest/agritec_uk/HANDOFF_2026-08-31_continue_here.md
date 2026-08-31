@@ -40,13 +40,21 @@ fourth worked case. Session `loanzy.uk` messaged 08-31.
 1. **Evidence run #1 is DONE and REVIEWED** (08-31, NOTES tail): register 104 → **111** —
    kelp carbon 30% of DW (NASEM ×2) + the sequestration-fraction set (~11% of NPP reaches
    long-term storage; 88% of that via deep sea; ~70% via recalcitrant-DOC export). Clean on
-   four of §9's five checks; the DRY-MATTER half came back silently empty, so **run #2
-   (dry-matter fraction of harvested kelp) is IN FLIGHT — its §9 review is OWED.** ⚠ run
-   #2's FIRST dispatch silently dropped (the kcat trap: exit 0, no orchestration row after
-   50 min, chassis pods 119 min old so not a roll window); re-fired ~14:20Z with a payload
-   watcher. If the REFIRE also lands no row, suspect the publish path itself
-   (`kafka-publish-lib.sh` receipts), not bad luck. ⚠ ONE evidence dispatch at a time
-   (§10: concurrent runs are a lost-update race on `evidence_base`).
+   four of §9's five checks; the DRY-MATTER half came back silently empty, so run #2
+   (dry-matter fraction) was dispatched. ~~run #2's FIRST dispatch silently dropped (the
+   kcat trap)~~ **CORRECTED 2026-08-31, same session: it did NOT drop — both dispatches
+   landed and completed (rows 13:01:18 and 13:52:45). My absence check filtered
+   `created_at > 13:05`, which excluded the 13:01 row, so the query could only ever say
+   "missing"; the refire was a DUPLICATE run, the exact cost the runbook says a retry
+   incurs. Harmless here only because they ran sequentially (no lost update; register
+   111 → 116, no duplicated facts). Logged in WRONG_CALLS.** Run #2 is DONE and REVIEWED
+   (NOTES tail): dry matter covered — 10% DW/FW reference factor, measured 6.3–17.4%
+   across systems, moisture 77.5–89.8% (Frontiers + PMC, peer-reviewed). ⚠ CIT-7691202a's
+   quote is a raw TABLE ROW (§9.2) — corroborated by three sentence-quoted siblings; cite
+   those first. **The register now covers every constant class the blue-carbon tool
+   encodes; the BINDING step is next** (§2 item 2). ⚠ ONE evidence dispatch at a time
+   (§10) — and before concluding a dispatch dropped, prove your query's time window
+   actually contains the dispatch time.
 2. After reading it: bind the blue-carbon tool's constants to the registered facts — cited
    visible copy (`content_rewrite` route works, proven on the cap fix) + `artifact_check`
    fences per the SFI pattern (`SEED_2026-08-25b` is the worked example).

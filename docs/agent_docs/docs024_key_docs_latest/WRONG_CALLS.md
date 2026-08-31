@@ -57063,3 +57063,14 @@ zero scanned fields is a BLIND scan, not a clean fleet."* Tally:
   grep the guard/graph builder for what it READS, and the repair action for its GATE, before
   choosing a repair. Same family as "a repro is destroyed by the render" — the render
   faithfully reproduces stored state; it never subtracts.
+- [2026-08-31, agritek lane] Diagnosed a "silent kcat drop" for an evidence dispatch — 50-min
+  watcher, no orchestration row — wrote it into the handoff with the landmine cited, and
+  RE-FIRED, buying the duplicate run the runbook's own warning prices. The dispatch had landed
+  at 13:01:18; my absence query filtered `created_at > 13:05`, so it excluded the row it
+  existed to find and could only ever answer "missing". What caught it: a direct check WITHOUT
+  the time filter after the watcher was killed. Cheap check skipped: prove a windowed query's
+  window contains the dispatch time before reading its empty result as absence — drop the
+  filter, or bound it by the trigger's own printed timestamp. Duplicate ran sequentially so
+  the register survived (111→116, no dupes) — ordering luck, not design. Same family as the
+  hand-copied loader predicate (agritec MISSTEP 11): an instrument that cannot disagree with
+  itself. Tally: **absence-from-a-window-not-proven-to-contain-the-event**.

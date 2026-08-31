@@ -1040,6 +1040,38 @@ tolerable for attributed research estimates (the writer_lines carry the study ye
 `1299d004-…`, watcher armed), sequential per §10. **Binding waits for it**: the tool's
 species dry-matter presets (10/12/15%) are the one encoded constant still uncovered.
 
+> **CORRECTED 2026-08-31, same session — I then diagnosed a "silent kcat drop" that never
+> happened, and paid the duplicate-run cost the runbook warns about.** My 50-min watcher
+> found no row by correlation (wrong key — fine, the timeout said find by payload), but my
+> payload check filtered `created_at > '2026-08-31 13:05'` and the run's row was created
+> **13:01:18** — the window excluded the very row it was checking for, so the query could
+> only ever answer "missing". I concluded drop, re-fired, and created a duplicate run
+> (13:52:45). Both completed sequentially, so no lost-update on the register (111 → 116,
+> no duplicated facts) — luck of ordering, not of design. What caught it: the direct
+> post-kill check WITHOUT the time filter. The cheap check that would have prevented it:
+> **an absence conclusion from a windowed query is only evidence if the window provably
+> contains the dispatch time** — drop the filter, or bound it by the printed dispatch
+> timestamp, before concluding a drop. Same shape as MISSTEP 11 (a predicate that cannot
+> disagree with itself). Logged in WRONG_CALLS.
+
+### Run #2 (both instances) — REVIEWED per §9, dry matter now covered
+
+Register 111 → **116**. The five: 10% DW/FW reference conversion factor (Frontiers);
+measured DM 17.42% (vertical lines), 15.1% (net system), 6.3–9.6% (horizontal system);
+moisture 77.5–89.8% wet basis (PMC review). Hosts peer-reviewed ✓; ranges handled correctly
+(null value, range in the claim) ✓; no content-free facts ✓; question answered in full ✓.
+⚠ §9.2 catch: **CIT-7691202a8908ec1f's quote is a raw table row** ("28 May 2019 | 1.47 ±
+0.043b | 17.42 ± 0.53 | …") — the claim's 17.42 is corroborated by the three
+sentence-quoted siblings, so it stays, but cite the siblings first and never that fact
+alone.
+
+**Evidence phase for the blue-carbon tool is COMPLETE.** Every encoded-constant class is
+now covered: dry matter (10% reference, 6.3–17.4% measured), carbon (26–32% of DM range +
+30% NASEM anchors — note the tool's "25" preset sits just below the evidenced range),
+sequestration (~11% of NPP anchor + pathway shares). Next: binding — cited visible copy +
+`artifact_check` fences per the SFI pattern, and the 10/50/90 retention presets labelled
+as sensitivity scenarios against the ~11% anchor.
+
 **And the register review sharpened the tool question**: the tool's 10/50/90 are RETENTION
 sensitivity presets applied to a user-entered fate split — a defensible model shape, but the
 literature anchor is ~11% of NPP reaching long-term storage, so "Optimistic 90% retention"
