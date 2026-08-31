@@ -16,6 +16,40 @@ for the canary detail). Technical log: `NOTES_finetuning_uk_service.md`. Owner p
 > any of it — a page count, a queue depth, a work-item status. This lane's own worst error was
 > exactly that (see `bugs_open/412` §9).
 
+## ✅ DONE 2026-08-31 — and the ONE thing still pending
+
+**A new chassis build was being prepared as this was written (owner, ~11:00). A pod restart can
+silently drop an in-flight dispatch, so re-check the pending item below AFTER the roll.**
+
+| done | evidence |
+|---|---|
+| **All 9 hero images LIVE** | every one of the nine pages serves its own `content-hero-<page>.jpg`, checked at the served page. Migration `664` wired them + a copy-free `template_changed` fan-out |
+| **Terms: 5 commitments stored** | migration `665`, unlock → edit → relock. ⏳ **NOT YET SERVED — see pending** |
+| **Privacy: 3 commitments LIVE** | migration `666`, extending its existing "How we store" / "How long we keep" sections. Served and verified |
+| **Both legal pages locked** | migration `667` — privacy-policy now matches terms: `rebuild_policy='owned'` + permanent component lock |
+| **`bugs_open/398` fix went LIVE** | the roll landed; binary-probed with a full control set (literal=1, present-control=3, impossible=0), stylesheet serves `--color-cta-bg-ink: #1e40af`, and the **1.00:1 button on `/your-own-model.html` is GONE** |
+
+### ⏳ PENDING — the terms page render
+
+`page_rerender` for `terms` (`created_by='bugfix_412_terms_commitments'`) has sat **`triaged`,
+never claimed**. `content_data` carries all five commitments; `rendered_html` and the served page do
+not. **`[MEASURED 2026-08-31]` `curl …/terms.html | grep -c "One hour on the playground"` returns 0.**
+
+⚠ **The likely cause is worth checking before re-firing:** `terms` is `rebuild_policy='owned'`, and
+the fan-outs in `615`/`631`/`664` all deliberately exclude owned pages because *save_sections
+refuses owned pages on this branch*. If the light `rerender_sections` branch refuses them too, this
+item will never run and **a fresh dispatch will not help** — the page would need a temporary
+`rebuild_policy` flip around the render, mirroring what `665` did for the component lock.
+**Do NOT read a `complete` on it as proof; assert on the SERVED page.**
+
+### Also true and easy to misread
+
+- **`bugs_open/398` is fixed-and-live on 1 of 3 sites only.** robot-hands.com still measures
+  **1.00:1** because `render_css` runs only under `webdesign-agent` and its stylesheet has not
+  regenerated. Both affected lanes have CONTRIBs (2026-08-26 and 2026-08-31). **The bug stays OPEN.**
+- **Editing either legal page now needs unlock/edit/relock** (`665` is the worked example), and the
+  unlock must clear **all four** lock columns.
+
 ## OWNER'S CURRENT DIRECTION, 2026-08-30
 
 > *"The copy team can take on the copy quality from here, we can go back to finetuning."*
