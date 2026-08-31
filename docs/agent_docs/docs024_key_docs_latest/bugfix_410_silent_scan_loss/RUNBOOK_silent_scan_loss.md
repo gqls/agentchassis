@@ -253,3 +253,17 @@ schema, so after the roll expect NO `ScanShortfall` errors anywhere. That zero i
 alongside step 2's GUARD-PRESENT — a zero from a binary that doesn't carry the guard is the
 a-post-fix-zero-needs-a-demand-control trap. The demand control here is the mutation-proved test
 suite, which fires the guard on every build.
+
+## 13. Verifying the content-axis extension (2026-08-31) after its first roll
+
+Same three-way form as §12, same controls — only the capability literal differs. The content-axis
+refusal (`359503af0`, council `a69d82f2` APPROVED r1) is proven in a binary by:
+
+```bash
+kubectl -n ai-persona-system exec $POD -- grep -aq "content_data does not parse into a section object" /proc/1/exe && echo CONTENT-GUARD-PRESENT
+```
+
+§12's literal (`refusing the partial result`) verifies only the PARENT guard — both branches ride
+it, but a binary can carry the parent without this extension (any build of `7c443aac6..359503af0`
+does exactly that). Behaviour-neutral on today's data either way (0 non-object rows), so there is
+no urgency to the roll; verify whenever the next one happens.
