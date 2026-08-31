@@ -6358,3 +6358,15 @@ live caller (build-pipeline-trigger); evidence_base has exactly two other Go wri
 consumer loadEvidenceBase parses the seeded shape ('entity' is live vocabulary).
 All three round-1 mutations still kill their tests. Revision committed with the same
 Council-Submitted trailer; verdict watcher armed.
+
+**P5 APPROVED round 2 (7e3dd082, 4 advisories none high) — advisory actions applied same
+hour:** verified_at omitted from customer facts (claims_series.go defines it as 'when WE
+last checked'; the intake date lives in attested_by; verification_status stays the
+convention); RETURNING post-condition log on the sites write; the guardian's
+classifier-collision concern verified IMPOSSIBLE at code — sync_site_identity AND
+update_site_content's column sync both use fill-only-if-empty CASE guards, and the seed
+runs first, so intake values win everywhere by every writer's own guard; write_site_spec's
+header now names the seed-time writer (both paths visible from either side);
+pageFieldWriters checked: page-scoped, inapplicable to sites columns. All tests green,
+mutations still killing. **P5 is DONE pending the roll** — enable-gate = the symbol probe
+in 661's header, then flip the task, then BR-9AUZ59 builds.
