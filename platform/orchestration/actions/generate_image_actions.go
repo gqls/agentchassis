@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/pkg/models"
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -515,15 +516,63 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// 41 seconds later (boxingonline, migration 680) missed it. The model also
 	// REWORDS the licence, so no literal match can bound the class — this guard
 	// needs no detection at all, which is why it is a bound and not a floor.
-	if kind == "logo" {
+	// The trigger is deliberately NOT `kind == "logo"`. Council round 1 on this
+	// change (bb099a3d) raised a HIGH objection that keying on `kind` alone
+	// reproduces 417's own root cause on a second axis: two legacy parents
+	// (site-work-orchestrator, pageflow-builder, step call_logo_generation) map
+	// no `kind`, so resolveKind returns "" and the policy would silently not
+	// apply on exactly the paths nobody is watching. The seat was right — a gap
+	// disclosed in a risks block is still a gap. So: resolve the intent from
+	// EVERY signal the action already has, and when NOTHING identifies the
+	// generation, say so durably rather than passing silently.
+	isLogo, logoSignal := resolveLogoIntent(kind, inputData, params.StepConfig)
+	if isLogo {
 		wordmarkText := logoWordmarkTextFromInputs(inputData)
 		var ident logoIdentity
 		if wordmarkText != "" {
 			// Only opting IN costs a query; the default path stays free.
 			ident = loadLogoIdentity(ctx, params.DB, siteID, params.Logger)
 		}
-		promptTemplate, negativePrompt, promptSource = applyLogoTextPolicy(
+		var rejected string
+		promptTemplate, negativePrompt, promptSource, rejected = applyLogoTextPolicy(
 			promptTemplate, negativePrompt, promptSource, wordmarkText, ident, params.Logger)
+		promptSource += "+via_" + logoSignal
+		if rejected != "" {
+			// bugs_open/034's shape, raised as a MEDIUM objection in the same
+			// round: a validation outcome that exists only as a Warn is
+			// invisible to every census and dashboard, discoverable only by
+			// reading logs after the fact. If a planner keeps proposing
+			// ungrounded wordmarks, that is a pattern worth seeing.
+			recordLogoPolicyNote(ctx, params.DB, siteID, "logo_wordmark_rejected", fmt.Sprintf(
+				"Logo wordmark opt-in REJECTED and degraded to a text-free mark.\n"+
+					"Requested: %q\nSite naming — company_name: %q, logo_text: %q, domain: %q\n"+
+					"The requested text is not this site's own name, so it was not licensed "+
+					"(bugs_open/417: the grounding check is what stops the escape hatch becoming "+
+					"the hole, since a planner LLM can write this field itself).\n"+
+					"Categories: logo_wordmark_rejected",
+				rejected, ident.CompanyName, ident.LogoText, ident.Domain), params.Logger)
+		}
+	} else if kind == "" {
+		// UNPOLICED GENERATION. We could not tell what this asset is, from any
+		// signal, so no per-kind policy could be applied. This is the honest
+		// residual of the legacy-parent gap, converted from an undetectable
+		// silence into a durable row — and it doubles as the measurement the
+		// liveness probe could not give: if those parents are dead, this table
+		// stays empty, and that empty IS the answer. If they are alive, each
+		// row names the run that got through.
+		params.Logger.Warn("image generation with NO resolvable kind — no per-kind "+
+			"policy could be applied (bugs_open/417 legacy-parent gap)",
+			zap.String("site_id", siteID),
+			zap.String("agent_type", params.AgentType),
+			zap.String("step", params.StepConfig.Name))
+		recordLogoPolicyNote(ctx, params.DB, siteID, "image_generation_without_kind", fmt.Sprintf(
+			"An image generation reached GenerateImageAction with NO resolvable kind, so no "+
+				"per-kind policy (logo text policy, size defaults, negative prompt) could be "+
+				"applied.\nagent_type: %q  step: %q  prompt_source: %q\n"+
+				"Fix: give the calling step an input_mapping that supplies `kind` (or a "+
+				"`purpose`), the way image-build-handler's branches do.\n"+
+				"Categories: image_generation_without_kind",
+			params.AgentType, params.StepConfig.Name, promptSource), params.Logger)
 	}
 
 	params.Logger.Info("Selected prompt for execution",
@@ -1451,7 +1500,7 @@ func applyLogoTextPolicy(
 	prompt, negativePrompt, promptSource, wordmarkText string,
 	ident logoIdentity,
 	logger *zap.Logger,
-) (string, string, string) {
+) (newPrompt, newNegative, newSource, rejectedWordmark string) {
 	const tag = "+logo_text_policy"
 
 	if wordmarkText != "" {
@@ -1460,7 +1509,7 @@ func applyLogoTextPolicy(
 				zap.String("wordmark_text", wordmarkText))
 			return appendClause(prompt, checks.LogoWordmarkClause(wordmarkText)),
 				stripLogoTextNegatives(negativePrompt),
-				promptSource + tag + "+wordmark"
+				promptSource + tag + "+wordmark", ""
 		}
 		// The whole point of the grounding check. Loud, because the caller asked
 		// for something specific and is getting something else.
@@ -1471,11 +1520,12 @@ func applyLogoTextPolicy(
 			zap.String("logo_text", ident.LogoText),
 			zap.String("domain", ident.Domain))
 		promptSource += "+wordmark_rejected"
+		rejectedWordmark = wordmarkText
 	}
 
 	if strings.Contains(prompt, checks.LogoTextFreeSentinel) {
 		logger.Info("logo text policy: clause already present, not duplicated")
-		return prompt, negativePrompt, promptSource + tag
+		return prompt, negativePrompt, promptSource + tag, rejectedWordmark
 	}
 
 	logger.Info("logo text policy applied: text-free mark (default)")
@@ -1488,7 +1538,77 @@ func applyLogoTextPolicy(
 			negatives += t
 		}
 	}
-	return appendClause(prompt, checks.LogoTextFreeClause), negatives, promptSource + tag
+	return appendClause(prompt, checks.LogoTextFreeClause), negatives, promptSource + tag, rejectedWordmark
+}
+
+// resolveLogoIntent answers "is this generation a logo?" from every signal the
+// action has, and names WHICH signal answered so the prompt_source records it.
+//
+// `kind` is the modern signal and the only one image-build-handler's branches
+// supply. The others exist because older callers do not: the store path already
+// reads StepConfig.Config["purpose"], and a step whose NAME is about a logo
+// (call_logo_generation on the two legacy parents) is a signal that costs
+// nothing to honour. A false positive here would append a text-free clause to a
+// non-logo prompt; that is bounded, because the hero branch of the estate's own
+// builder ALREADY says "no embedded words or lettering", so the clause agrees
+// with the hero rule rather than contradicting it.
+func resolveLogoIntent(kind string, inputData map[string]interface{}, step models.Step) (bool, string) {
+	if kind == "logo" {
+		return true, "kind"
+	}
+	if kind != "" {
+		// A different kind was positively stated. Believe it — this is what
+		// keeps hero/icon/imagery prompts out of the logo policy.
+		return false, ""
+	}
+	if p, ok := inputData["purpose"].(string); ok && p == "logo" {
+		return true, "input_purpose"
+	}
+	if spec, ok := inputData["spec"].(map[string]interface{}); ok {
+		if p, ok := spec["purpose"].(string); ok && p == "logo" {
+			return true, "spec_purpose"
+		}
+	}
+	if step.Config != nil {
+		if p, ok := step.Config["purpose"].(string); ok && p == "logo" {
+			return true, "step_purpose"
+		}
+		if k, ok := step.Config["kind"].(string); ok && k == "logo" {
+			return true, "step_kind"
+		}
+	}
+	if n := strings.ToLower(step.Name); strings.Contains(n, "logo") {
+		return true, "step_name"
+	}
+	return false, ""
+}
+
+// recordLogoPolicyNote files a durable row for an outcome that would otherwise
+// exist only as a log line. Deliberately best-effort: a note failure must never
+// fail a generation, but it must be SAID, because a silent note failure would
+// recreate exactly the invisibility this exists to remove.
+func recordLogoPolicyNote(ctx context.Context, db *sql.DB, siteID, category, body string, logger *zap.Logger) {
+	if db == nil {
+		logger.Warn("logo policy note not filed: no DB handle",
+			zap.String("category", category))
+		return
+	}
+	var sitePtr interface{}
+	if siteID != "" {
+		sitePtr = siteID
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO doc_notes (subject_type, subject_key, site_id, body, categories,
+		                       source, source_agent, created_by)
+		VALUES ('site', $1, $2, $3, jsonb_build_array($4::text),
+		        'generate_image', 'image-generator', 'logo-text-policy')
+	`, category, sitePtr, body, category); err != nil {
+		logger.Warn("logo policy note insert failed — this outcome is now ONLY in the logs",
+			zap.String("category", category), zap.Error(err))
+		return
+	}
+	logger.Info("logo policy note filed", zap.String("category", category),
+		zap.String("site_id", siteID))
 }
 
 // endsWithSentenceBoundary reports whether s ends with ., !, or ?.

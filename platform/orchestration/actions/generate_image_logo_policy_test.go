@@ -32,6 +32,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gqls/agentchassis/pkg/models"
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"go.uber.org/zap"
 )
@@ -44,7 +45,7 @@ func TestLogoTextPolicyDefaultAppendsTextFreeClause(t *testing.T) {
 	// The real boxingonline prompt: the licence 670 could not match, because it
 	// is a PARAPHRASE ("other than", not "outside"). The guard needs no literal
 	// match at all, which is why it bounds the class where a migration floors it.
-	got, neg, src := applyLogoTextPolicy(
+	got, neg, src, _ := applyLogoTextPolicy(
 		boxingPrompt, "people, faces, signature, watermark", "site_plan", "",
 		logoIdentity{}, zap.NewNop())
 
@@ -74,7 +75,7 @@ func TestLogoTextPolicyDefaultAppendsTextFreeClause(t *testing.T) {
 // the clause is already present.
 func TestLogoTextPolicyLeavesNonLogoPromptsAlone(t *testing.T) {
 	hero := "A hero image for a boxing news site, with clear space for overlaid headline text."
-	got, neg, _ := applyLogoTextPolicy(
+	got, neg, _, _ := applyLogoTextPolicy(
 		hero+" "+checks.LogoTextFreeClause, "people", "site_plan", "", logoIdentity{}, zap.NewNop())
 	if got != hero+" "+checks.LogoTextFreeClause {
 		t.Fatalf("prompt mutated when the clause was already present:\n%s", got)
@@ -85,8 +86,8 @@ func TestLogoTextPolicyLeavesNonLogoPromptsAlone(t *testing.T) {
 }
 
 func TestLogoTextPolicyIsIdempotent(t *testing.T) {
-	once, _, _ := applyLogoTextPolicy(boxingPrompt, "", "site_plan", "", logoIdentity{}, zap.NewNop())
-	twice, _, src := applyLogoTextPolicy(once, "", "site_plan", "", logoIdentity{}, zap.NewNop())
+	once, _, _, _ := applyLogoTextPolicy(boxingPrompt, "", "site_plan", "", logoIdentity{}, zap.NewNop())
+	twice, _, src, _ := applyLogoTextPolicy(once, "", "site_plan", "", logoIdentity{}, zap.NewNop())
 
 	if once != twice {
 		t.Fatalf("second application changed the prompt:\n once: %s\ntwice: %s", once, twice)
@@ -102,7 +103,7 @@ func TestLogoTextPolicyIsIdempotent(t *testing.T) {
 
 func TestLogoTextPolicyAcceptedWordmarkStopsFightingItself(t *testing.T) {
 	ident := logoIdentity{CompanyName: "Boxing Online", Domain: "boxingonline.com"}
-	got, neg, src := applyLogoTextPolicy(
+	got, neg, src, _ := applyLogoTextPolicy(
 		"A bold logomark.", "people, faces, text, letters, signature, watermark",
 		"site_plan", "Boxing Online", ident, zap.NewNop())
 
@@ -139,7 +140,7 @@ func TestLogoTextPolicyAcceptedWordmarkStopsFightingItself(t *testing.T) {
 // would mint an unhandleable item (the bugs_open/210 lesson).
 func TestLogoTextPolicyRejectsAWordmarkThatIsNotThisSitesName(t *testing.T) {
 	ident := logoIdentity{CompanyName: "Boxing Online", Domain: "boxingonline.com"}
-	got, _, src := applyLogoTextPolicy(
+	got, _, src, rejected := applyLogoTextPolicy(
 		"A bold logomark.", "", "site_plan", "Farm Shield Info", ident, zap.NewNop())
 
 	if strings.Contains(got, "Farm Shield Info") {
@@ -150,6 +151,12 @@ func TestLogoTextPolicyRejectsAWordmarkThatIsNotThisSitesName(t *testing.T) {
 	}
 	if !strings.Contains(src, "+wordmark_rejected") {
 		t.Fatalf("rejection must be visible in the prompt source: %q", src)
+	}
+	// Council round 1, MEDIUM objection (bugs_open/034's shape): a rejection
+	// that exists only as a Warn is invisible to every census. The fourth
+	// return is what the caller files a durable note from.
+	if rejected != "Farm Shield Info" {
+		t.Fatalf("rejected wordmark not surfaced for the durable record: %q", rejected)
 	}
 }
 
@@ -207,6 +214,52 @@ func TestLogoWordmarkTextFromInputs(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := logoWordmarkTextFromInputs(c.in); got != c.want {
 				t.Fatalf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// TestResolveLogoIntentClosesTheLegacyParentGap — council round 1 raised a HIGH
+// objection that keying the guard on `kind` alone reproduces bugs_open/417's own
+// root cause on a second axis: the two legacy parents map no `kind`, so the
+// policy would silently not apply on exactly the paths nobody watches.
+//
+// MUTATIONS THAT MUST BREAK THIS:
+//   - delete any single non-`kind` arm → its named case fails.
+//   - make an unresolvable generation return true (i.e. default to logo) →
+//     the "nothing identifies it" case fails, and hero prompts would be
+//     contaminated, which is the 2026-05-20 lesson's mirror.
+//   - drop the `kind != ""` early return → the "a different kind was stated"
+//     cases fail, which is what keeps hero/icon out of the logo policy.
+func TestResolveLogoIntentClosesTheLegacyParentGap(t *testing.T) {
+	cases := []struct {
+		name       string
+		kind       string
+		inputData  map[string]interface{}
+		step       models.Step
+		wantIsLogo bool
+		wantSignal string
+	}{
+		{"modern handler branch", "logo", nil, models.Step{}, true, "kind"},
+		{"a different kind is BELIEVED", "hero", map[string]interface{}{"purpose": "logo"}, models.Step{Name: "call_logo_generation"}, false, ""},
+		{"icon is believed too", "icon", nil, models.Step{Name: "logo_thing"}, false, ""},
+		{"input_data purpose", "", map[string]interface{}{"purpose": "logo"}, models.Step{}, true, "input_purpose"},
+		{"spec purpose", "", map[string]interface{}{"spec": map[string]interface{}{"purpose": "logo"}}, models.Step{}, true, "spec_purpose"},
+		{"step config purpose", "", nil, models.Step{Config: map[string]interface{}{"purpose": "logo"}}, true, "step_purpose"},
+		{"step config kind", "", nil, models.Step{Config: map[string]interface{}{"kind": "logo"}}, true, "step_kind"},
+		// THE LEGACY PARENTS: site-work-orchestrator and pageflow-builder map
+		// {prompt, site_id, site_plan, reviewed_brief} and nothing else. The
+		// step NAME is the only signal they carry.
+		{"legacy parent, step name only", "", nil, models.Step{Name: "call_logo_generation"}, true, "step_name"},
+		{"nothing identifies it — must NOT guess", "", map[string]interface{}{"prompt": "a mark"}, models.Step{Name: "call_image_gen"}, false, ""},
+		{"hero step is untouched", "", nil, models.Step{Name: "call_hero_gen"}, false, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, sig := resolveLogoIntent(c.kind, c.inputData, c.step)
+			if got != c.wantIsLogo || sig != c.wantSignal {
+				t.Fatalf("resolveLogoIntent(%q, %v, %+v) = (%v, %q), want (%v, %q)",
+					c.kind, c.inputData, c.step, got, sig, c.wantIsLogo, c.wantSignal)
 			}
 		})
 	}
