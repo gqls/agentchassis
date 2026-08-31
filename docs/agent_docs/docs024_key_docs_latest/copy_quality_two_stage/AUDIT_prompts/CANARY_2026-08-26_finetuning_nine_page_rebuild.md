@@ -167,3 +167,25 @@ person would say — with the comparison habit as the residual tic.
 as the carrier, the ONLY path to his target is the gate repairing what it sees — repair-all (or
 a small per-PAGE allowance) plus the Q-B vocabulary additions. Everything else has been tried
 and measured.
+
+---
+
+## RESULTS — template half, scored 2026-08-31 (approach page; the rebuild ran 08-26/27 pre-A+B)
+
+The nine-page rebuild ran 2026-08-26 12:54Z – 08-27 16:42Z (`page-content-writer` calls;
+benchmark `79257fb4`), i.e. through the corrected TEMPLATE layers (627/628/646/647) but the
+pre-A+B binary — the fleet roll carrying Decisions A+B + the ruling-7 repair landed 08-31
+11:52Z. So this scores the demonstration-stack half only, on the benchmark page:
+
+battery, approach, served HTML: baseline 27 tells (13.8/1k) → rebuilt 9 (4.3/1k).
+X-not-Y 15→**0** · not just 3→**0** (**P1/P3 CONFIRMED** — classes tracked their demonstrations
+to zero) · rather than 4→**6** (**P2 REFUTED** — and the refutation clause's hunt comes up
+empty: brief at 0 post-646/647, `llm_guidance` ceiling 0 on approach ⇒ **the model prior is the
+carrier**, consistent with sonnet NEG=5 in the model trials).
+
+P4 (scaffold/cadence): not scored here — that is the read's question, not the battery's.
+
+**A+B half:** canary `needs_page` item `4641e02d` fired 08-31 15:21Z rebuilds approach through
+v1.0.1349. Prediction unchanged: `rather than` 6 → ≤2 with the comparison simply gone; the
+named failure mode is truncation that loses meaning. NOTES 2026-08-31-afternoon holds the full
+trail.
