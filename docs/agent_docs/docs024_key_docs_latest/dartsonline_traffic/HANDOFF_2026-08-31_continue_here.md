@@ -84,14 +84,33 @@ Owner, 2026-08-31: the heroes "hallucinated what darts and dartboards and other 
 - **BAD, no asset row:** `hero-home.jpg`, `hero-new-arrivals.jpg` (feathered flights — those are
   archery arrows — and blue board segments), `hero-guides.jpg` (garbled numbers), `hero-sale.jpg`.
 
+> ### ⚠ CORRECTED 2026-08-31 (afternoon, second session) — THE DISCRIMINATOR ANSWERS PROVENANCE, NOT ACCURACY
+>
+> The rule above ("active `assets` row ⇒ the image is current and good") is sound for the
+> question it was built for: *is this file a stale July leftover?* **It cannot certify that an
+> image is CORRECT, and I proved that by using it.** After the 12:35Z run all four keys had
+> active Banana rows updated in place — the rule says "good" — and **two of the four were still
+> wrong when I opened them.** Read the second clause as "no row ⇒ stale", never the first as
+> "row ⇒ accurate". *An image is only verified by looking at it.*
+>
+> **And `last-modified` on the served file cannot stand in for looking either.** After the run
+> it read ~12:41–12:56Z on all four — and *also* 12:39Z on `hero.jpg` and
+> `content-hero-grip-styles.jpg`, which were **not** regenerated. The header records the bucket
+> sync, not the generation, so a census keyed on it calls six files regenerated when four were.
+
 **Four `needs_imagery` items filed 2026-08-31 12:35Z** (`SEED_2026-08-31_regenerate_four_hallucinated_heroes.sql`,
 `created_by='dartsonline-traffic-2026-08-31'`), at `triaged`, handler `image-build-handler`.
 **Verify at the served file, not the item status** — and expect them to overwrite in place, because
 `deploy_image_asset` derives the filename from `(asset_key, purpose)` and refuses a caller path.
 
-**⚠ The 8 `stability/…` asset rows on this site are a RED HERRING.** Their `url` is a signed S3 link
-that expired 7 days after 2026-07-06, nothing references them, and regenerating them changes
+**⚠ The expired-signed-URL asset rows on this site are a RED HERRING.** Their `url` is a signed S3
+link that expired 7 days after generation, nothing references them, and regenerating them changes
 nothing a visitor sees. Left alone deliberately.
+*Corrected 2026-08-31 afternoon: it is **10** rows, not 8, and **three are Banana** (`hero_brands`,
+`hero_shipping`, `hero_shop`) rather than all SDXL — so "the stability rows" under-names the set.
+The "nothing references them" half is now verified at the artefact rather than inferred: **no served
+page references a `backblazeb2` URL at all**; every hero on every page is a local
+`/assets/images/*.jpg`. The expiry is inert, not latent.*
 
 **Why regeneration gets the good model** — proven, not assumed: `bugs_closed/382` flipped the
 missing-kind routing default to Banana on 08-24, and that commit is an ancestor of the running
@@ -179,7 +198,30 @@ Privacy-page precondition is met.
 
 ## 7. What I would do next
 
-1. **Verify the four heroes at the served files** (they were `triaged` at 12:35Z 08-31).
+1. ~~**Verify the four heroes at the served files.**~~ **DONE 2026-08-31 afternoon — and two of
+   the four were still wrong.** Full account in `NOTES` (this date) and `README_where_we_are`.
+   - **GOOD, unchanged since:** `hero-new-arrivals.jpg` (real flat four-wing flights at last),
+     `hero-sale.jpg` (barrel macro, "24g" stamp).
+   - **`hero-home.jpg`** had an all-red bull (the outer bull ring must be green). **Now FIXED
+     and the best of the set** — measured 6,270 green px (5.9%) against 22 before, correct
+     red/green doubles and trebles rings, striped flights, darts in the treble twenty.
+   - **`hero-guides.jpg`** still carried a **feathered archery flight** — the owner's exact
+     complaint — and a "7" where the board reads "1". **Both now FIXED**; a third pass is in
+     flight for the one axis that regressed (the rings lost every green pixel: 2,867 → 0).
+     **Verify at the served file; do not trust the item status.**
+   - **The cause was in our own stored descriptions, not the model.** `hero_home`'s prompt
+     called the board "deep black and red" — two colours, neither green nor cream. `hero_guides`'
+     said only "a single dart" and never said what a dart is. Both amended at the plan row.
+   - **The structural gap, now closed:** every clause of this site's `imagery_style_guide`
+     governed composition, palette or commercial claim, and **none said what the product looks
+     like** — so re-rolling could never fix an anatomy error. Anatomy clauses added in
+     `SEED_2026-08-31b`. ⚠ **They had to go in `kinds.hero` / `kinds.content_hero`, NOT the
+     guide-level `avoid`:** `avoidForKind` returns the per-kind override *instead of* the
+     guide-level list, so this site's heroes are governed by 111 characters while the
+     652-character list is unreachable for them. A guide-level edit would have been inert and
+     the re-roll would have credited it. Written up in `LANDMINES.md`.
+   - **Every version's S3 object is recorded** in the headers of `SEED_2026-08-31b/c`, so any
+     pass can be restored — each re-roll has traded one correctness axis for another.
 2. **Re-measure crawler traffic around 2026-09-19** — the only honest read on whether the sitemap
    worked.
 3. **Per-section guide images: take the flat-sections route** (§3.2) rather than waiting for
