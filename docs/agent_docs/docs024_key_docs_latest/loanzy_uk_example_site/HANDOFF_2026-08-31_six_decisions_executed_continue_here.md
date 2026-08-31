@@ -86,3 +86,24 @@ queue + re-fire recipe), OWNER_REVIEW_2026-08-31 (findings + routing outcomes), 
 > 13. The CTA values were safe to recompute because their `__cta_minted` stamps MATCH the
 > stored values — minted, not authored (cta_provenance.go). Watch the guide-list component on
 > guides-index separately — a LIST is outside the recompute's field set.
+
+---
+## FINAL STATUS 2026-08-31 (late) — decision 4 COMPLETE at the artefact; §2 above is history
+
+**21/21 retired urls 404, positive control 200** (five retraction rounds; the full path:
+archive → retract → cta_links_stale rerenders → content_data cleanup (backup
+`bak_farmer_cull_content_data_20260831`) → chrome rebuild (`stale_chrome` item) → nav retired
+by the action itself). The cull ran FOUR layers deep: pages, content_data, chrome, **specs**
+(the copy lane found the fifth-column: 5 current site_specs still named the tools — `tools`
+aspect superseded by this lane, successor `8031bb1c`; briefing/strategy/vertical_landscape
+handed to copy_quality under the same ruling; offer_ordering re-derives via the analyser).
+
+**Still owed (small):**
+1. Acceptance part 2: after the next ~08:0x/20:0x refresh, re-curl the 21 (expect still-404)
+   and confirm ZERO fresh `page_rerender` rows for retired pages (sweep query in RUNBOOK).
+2. The SERVED homepage is a stale file carrying 2 old footer `/tools/` links (stored chrome is
+   clean — header/head/footer rows verified clear); the refresh cycle should redeploy it.
+   If the 2 refs survive the refresh, rerender index explicitly.
+3. Copy layer with copy_quality (their stated order: their canary/verdict → the three specs →
+   misdirected-CTA labels (52 fields; live-URL-dead-label class first) → body prose (~14
+   sentences)). Their next contact: "when the specs supersede".
