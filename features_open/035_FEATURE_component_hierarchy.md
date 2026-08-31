@@ -696,6 +696,22 @@ The division:
 > `grip-styles` is offered as the canary when a mechanism exists that survives a
 > rewrite — its six h3s are exactly the ring/razor/shark split the owner named.
 > Wanted at **P2**, not now.
+>
+> **ANSWERED 2026-08-31 by that lane, and it NARROWS P2's consumer set: the guides
+> are NOT a P2 consumer.** Figure-BETWEEN-sections is sufficient for them; nesting
+> is not needed. Their structure is `h2` → `h3 Ring Grip` (2 paragraphs) →
+> `h3 Razor Grip` (2 paragraphs) → …, and each h3 wants exactly ONE image about
+> that grip. So if each h3 is its own row with its own image field, the figure is a
+> **field of the section** rather than something wedged into a shared blob — the
+> durability property achieved by making sections FINER, not by nesting.
+> **The case that WOULD make a consumer P2 is a figure between a section's own
+> paragraphs** (prose, figure, more prose, inside one `h3`); they see none in
+> eleven guides, where every candidate image is "here is what this thing looks
+> like" and sits at the head or foot of its section.
+> ⚠ **Scope the evidence as they did:** eleven guides, one site, judged from
+> RENDERED structure. It is not evidence about the editorial corpus this document
+> designs for, and must not be quoted as though it were — if the insight pages want
+> figure-inside-prose, that is a separate finding and still a P2 case.
 
 ## 9. What NOT to do
 
