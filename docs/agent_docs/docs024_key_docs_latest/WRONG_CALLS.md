@@ -57023,3 +57023,34 @@ prevented by a paragraph is not a thing that has ever happened here.
 > by 25 and asserted by 2). **Before writing a multi-step shell check, `ls scripts/`
 > for the noun you are checking.** One command, and it is the only thing that has
 > ever interrupted this pattern.
+
+## 2026-08-31 — bugs_open/414 lane: I wrote a reading rule into a handoff that the artefact could not answer, and only luck discriminated
+
+**What I claimed.** That the way to tell a real clean run of the new spec detector from a blind one
+was: *"the per-site `scanned_fields` count must be non-zero. A zero from a blind scan and a zero from
+a clean fleet are otherwise identical in this report."* I put it in the bug file's closure checklist,
+in the lane handoff as the first-run check, and in two messages to the lane that owns the binary. It
+reads like rigour.
+
+**Why it was wrong.** **The report never prints `scanned_fields` on the happy path.** That number
+existed only in the per-site JSON (`-emit-json`) and inside a filed work item — and on a clean fleet
+there are no per-site lines and no filed item, so there is nothing to read. The check I prescribed
+could be performed on exactly the runs where it was not needed, and not on the run it was written for.
+
+**What caught it.** Performing it. The first clean production run printed `0 of 36 sites` and I went
+looking for the number I had told three people to check. The only thing that happened to discriminate
+was the **suppression count** being non-zero, which does prove the scan saw real text — luck, not
+design, and it would have read as confirmation if I had not gone looking for the other number.
+
+**The cheap check, skipped.** **Perform a reading rule once, against the artefact, before writing it
+into a handoff.** One run of `-dry-run` would have shown the number absent. I wrote the rule from the
+code (I knew `Scanned` was incremented, because I had incremented it) rather than from the output a
+reader actually gets. **Knowing the instrument records something is not knowing its report shows it.**
+
+**The general shape, named by the `copy_quality_two_stage` lane and worth more than the incident:**
+this is *"a receipt nobody asserts on is a log line"* one level up — **a reading rule nobody can
+PERFORM is a check that does not exist**, and it is worse than no rule, because it occupies the slot
+where a real check would go and it reassures every reader who does not try it. Fixed in `28997e16b`,
+which prints the total beside the verdict: *"0 of 36 sites … from 7013 scanned field(s) — a zero with
+zero scanned fields is a BLIND scan, not a clean fleet."* Tally:
+**reading-rule-the-artefact-cannot-answer**.
