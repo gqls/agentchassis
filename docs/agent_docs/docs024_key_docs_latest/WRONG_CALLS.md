@@ -57099,3 +57099,17 @@ zero scanned fields is a BLIND scan, not a clean fleet."* Tally:
   Cheap check skipped: resolve an item type at the producer (`grep -n 'ItemType'` in the check's
   own file) before querying by a name you were handed in prose. Now in `LANDMINES.md`. Tally:
   **queried-by-the-name-instead-of-the-key**.
+
+- **2026-08-31, bugfix_390 lane.** The lane's own handoff wrote P3's pass criterion as "the
+  repaired pairings are RETRACTED (`result->>'resolved_by'='render_audit'`)". False as stated:
+  retraction stamps only rows NOT already settled (`workItemClosedStatuses`), and every repaired
+  row was already `complete` — so on a fully-passing outcome the stamp is structurally ABSENT,
+  and a grader taking the criterion literally would have read total success as total failure
+  (or, worse, "the audit never ran"). What caught it: reading the stamping code
+  (`write_render_audit_findings_action.go`'s retraction contract) before grading, because the
+  first query returned `resolved_by` NULL on all 24 rows and the absence needed a mechanism
+  before it could be scored either way. Cheap check skipped at writing time: before phrasing a
+  future pass criterion in terms of a stamp, read the stamper for WHICH ROWS it can touch —
+  one grep + one comment block. Tally: **criterion-phrased-on-a-stamp-the-passing-path-never-writes**
+  (kin of a-receipt-nobody-asserts-on and a-quiet-test-passes-when-the-rule-is-gone: the
+  evidence named by the rule is not produced on the path the rule is meant to certify).
