@@ -284,3 +284,48 @@ one wobble, a timed-out first minute caused by address records that had never be
 exercised). For this lane it means the last external thing delivery was waiting on has
 happened. What's left: your quiet-moment deployment to carry the mail password onto the
 pods, then the rehearsal.
+
+## 2026-08-31 (evening) — your review of boxingonline, and what each thing turned out to be
+
+Your address is off the site's database everywhere, and I rebuilt every page so the footer
+stops carrying it. The public copy of the site is a mirror that refreshes on the hour, so
+there is a gap of up to an hour where the old page is still out there — the other session
+working this site is watching that through and will confirm when the served page is clean.
+I would rather tell you that than say "done". The underlying cause is worth knowing: the
+email you ordered with and the email the site publishes are the same database column, so
+this would happen to the next customer too. That is being filed as a bug.
+
+On the copy reading like a description of the site rather than the site: I think I found
+where the words came from. Before we build, we research the best sites in the field and
+write down what makes them good — for this one it said things like "vague fight previews
+that say 'this could be a great fight' add no value". That research is meant to be
+instructions to us. It came out as sentences on the about page. So the writer was handed a
+list of rules about writing and published the rules.
+
+The articles page having nothing on it but our own standards is the same emptiness from a
+different angle: the plan never produced the six articles your brief asked for, and rather
+than the page looking broken, the writer filled the space with policy and the link checker
+quietly repointed the dead links. Everything passed. That is the part I find most worth
+saying out loud — nothing on this site failed. It all passed.
+
+You asked whether we have a quality auditor. We do, it is alive, it ran forty-nine times
+recently, and it ran zero times on this site. It is not part of building a new site.
+
+On imagery: every page has exactly one picture and it is the logo. We can generate
+infographics — the whole path is built and works — and across every site we have ever
+planned, an infographic has been asked for once. You also asked for pictures inside
+articles on the 13th of August; there is a good plan for it written on the 14th that still
+says "nothing implemented".
+
+And your question about being best in the vertical: the research knew, and it was good. It
+said this site's opening should be owning "what to watch this weekend" — a weekly guide
+pulling every card together. The strategy document repeated it. The plan then built six
+pages and none of them was that. The phrase "best in class" appears in none of this site's
+specifications. There is already a plan to fix that, written six days ago after your last
+ruling, and it is waiting on your go-ahead.
+
+Two things I need you to decide: whether this particular site gets fixed before its
+delivery email or delivered and then improved, and whether that best-in-class plan goes
+ahead. Full detail, with the measurements, is in
+OWNER_REVIEW_2026-08-31_boxingonline_what_he_found_and_what_each_finding_actually_is.md
+in this directory.
