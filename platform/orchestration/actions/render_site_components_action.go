@@ -1033,7 +1033,7 @@ func renderAndStoreSiteComponent(
 					unresolved = append(unresolved, name)
 					continue
 				}
-				if v, found := resolver.resolve(ctx, source); found && v != nil {
+				if v, found := resolver.resolve(ctx, source, sectionRef{}); found && v != nil {
 					// Declared-type guard (council 56ab6e23, bug_historian
 					// advisory). A non-array value reaching a {{range}} errors
 					// the WHOLE template into the silent regex-fallback
