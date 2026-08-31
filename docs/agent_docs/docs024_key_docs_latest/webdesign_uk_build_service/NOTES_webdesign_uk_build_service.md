@@ -6826,3 +6826,22 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   polls, so no partial-tree publish comes from this session; peer confirms the
   current state is honest lag (served object OLDER than deployed_at — their
   signature line for telling lag from upstream-dirt goes into 420).
+
+## 2026-08-31 (~18:4xZ) — footer 090: the tempting branch is PRE-REFUTED by a fleet control; the risk restated
+
+- **Ruled OUT before the verdict lands (boxingonline session's control, credit
+  theirs)**: boxingonline's footer content_data is `{}` — which reads instantly
+  as the empty-render branch — but empty footer content_data is the FLEET NORM:
+  31 of 33 sites, 30 of which render fine (5 sampled incl. renders within the
+  last week). **Empty content_data cannot be the mechanism.** The 090 run
+  (387c0a2d) was already at its verdict step when this arrived — if its verdict
+  lands on that branch, this control REFUTES it and the run gets resubmitted
+  with the control in context; do not accept that conclusion from any source
+  without beating this census.
+- Surviving structural difference (observation, not candidate): the row's
+  PROVENANCE — last written by the 16:05 hand edit rather than the render path.
+- **THE RISK, restated in the peer's words for the owner's list**: the
+  hand-patched rendered_html is the ONLY existing definition of this site's
+  footer — content_data is empty, regeneration silently declines, so there is
+  NO source it can be rebuilt from and NO path that reproduces it. **The site is
+  shipping a chrome artefact the pipeline cannot regenerate.**
