@@ -141,3 +141,52 @@ number moves. Right now that is a note in a document asking someone to look once
 not a mechanism. Another team filed a bug today about exactly this class of thing — work that
 completes, reports correctly, and lands somewhere nobody reads. If they build a general answer, this
 is one query away from using it.
+
+---
+
+## 2026-08-31 — it fired, from both places, and it is now switched on everywhere
+
+**The wait is over and the answer was the good one.** Five days ago this check was switched on in
+two of the six places that save a page, and had never once run for real — there simply had not been
+any page saves since the moment it was armed. Today there have been two hundred and fourteen, and
+the check has recorded findings from **both** of the two places, not one.
+
+That distinction was the whole point of waiting. If findings had come from only one of the two, it
+would have meant the check was quietly missing half the pages it was supposed to cover — and looking
+perfectly healthy while doing it. Both reported, so the coverage claim holds up.
+
+**So I have switched on the remaining four.** As of this afternoon all six ways a page can be saved
+run the check. That was the plan agreed at review, held back deliberately until the first two proved
+themselves, and the condition it was waiting on has now been met.
+
+**I also checked the thing that actually worried the reviewer**, which was not "does it record
+something" but "does adding a new database read to every page-saving pipeline break any of them".
+Seven page saves did fail in the last day. All seven failed for an entirely different and correct
+reason — a separate safeguard refusing to let a routine save overwrite a page that a tool owns. None
+of them involved this change.
+
+**One genuinely encouraging number.** Back on the twenty-sixth, roughly one CTA button in six had
+copy that did not match where it pointed. Today it is one in fourteen — and that is not because there
+are fewer buttons: there are forty per cent *more* of them, and the count of bad ones still fell.
+Two other teams have been repairing exactly this population all week, and it is working.
+
+**One thing I chased down and want to record, because it looked alarming.** A related check that had
+been finding ten to thirty problems a day stopped finding any at all four days ago. That is exactly
+the shape of "your change broke the detector", and the previous session had explicitly asked whoever
+came next to treat any such drop as our fault until proven otherwise.
+
+It is not our fault, and I can show why rather than assert it. The system that runs that check is
+still running — its sibling checks found seventy-four problems in the same four days. The pile of
+problems it looks for has genuinely shrunk, per the numbers above. And ninety-nine of its earlier
+findings are still sitting open awaiting a human, which by design stops it re-reporting the same
+pages. Three independent reasons for the silence, none of them a broken detector.
+
+I will not claim it is *proven* — the conclusive test would be to feed it a page I know it should
+object to and watch it object. I did not do that. But every cheap explanation checks out and the
+worrying one has nothing behind it.
+
+**What has not changed is the thing I keep flagging.** This still records a problem rather than
+fixing one, and the reading of it is still a promise in a document rather than a mechanism. The
+difference today is that the number it reports is finally trustworthy — before this afternoon it was
+measured in only a third of the estate, so any percentage taken from it would have been misleading.
+From today it is a real fleet-wide figure. Somebody still has to look at it.

@@ -18806,3 +18806,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/028` (the same false-belief shape one layer down) · `bugs_open/027` §4b (the 200-char cap) · `writes-the-field-is-not-reads-the-field` · `a-config-key-that-nothing-reads` · `declaring-a-key-silences-your-own-detector` · `the estate's hero convention puts a GRADIENT before the url` (same site, same week, also a confident clean read)
 - **source:** 2026-08-31, `dartsonline_traffic`, while closing an owner complaint that four heroes had "hallucinated what darts and dartboards look like". Found by reading `avoidForKind` before editing the spec — the edit would otherwise have gone to the guide level, changed nothing for heroes, and been credited by the re-roll that followed it.
 - **added:** 2026-08-31, dartsonline_traffic lane.
+
+---
+
+### A discovery check's NAME is not the `item_type` it FILES — querying by the name returns zero rows in all of history, live table and archive both, and reads as "this check has never found anything"
+
+- **footprint:** `site_work_items` · `site_work_items_archive` · `item_type` · `platform/orchestration/actions/discovery_checks/` · `check_misdirected_cta.go` · `misdirected_cta` · `cta_names_unknown_destination` · any discovery-check volume census
+- **fires when:** you are asked to compare a check's finding volume across a roll (a post-deploy obligation, a regression check, a "did my refactor change the detector's population" question) and you reach for the check's name as the `item_type`. It is the only name you have been given — bug files, handoffs, register entries and the Go filename all use the CHECK name.
+- **the trap:** `WHERE item_type='misdirected_cta'` returns **0 rows, all of history**. Not an error, not an empty-string warning — a clean zero that reads as *"this detector has never fired"*, which is precisely the alarming answer you were sent to look for. The check is **named** `misdirected_cta` (`check_misdirected_cta.go:64`, and that is the string an agent's `checks` array declares) but **files** `ItemType: "cta_names_unknown_destination"` (`:352`) — and it files `page_rerender` too (`:302`), so one check writes two types, neither of them its own name. Measured 2026-08-31: the real volume over the same window was 80 items.
+- **⚠ AND THE SAME QUERY LIES A SECOND TIME, INDEPENDENTLY:** `site_work_items` is a **rolling window** — closing a row moves it to `site_work_items_archive`. So even with the correct `item_type`, a historical count over the live table alone returns **zero for anything already dealt with** (measured 2026-08-31: 0 in the live table over 12 days, 80 across live `UNION ALL` archive). Two independent false zeros stacked on one question, and both look like a quiet detector.
+- **the check — resolve the type at the source, then union both tables:**
+  ```bash
+  grep -n 'ItemType' platform/orchestration/actions/discovery_checks/check_<name>.go
+  ```
+  ```sql
+  SELECT date_trunc('day',created_at)::date, count(*) FROM (
+    SELECT created_at FROM site_work_items         WHERE item_type='<the FILED type>'
+    UNION ALL
+    SELECT created_at FROM site_work_items_archive WHERE item_type='<the FILED type>'
+  ) x GROUP BY 1 ORDER BY 1;
+  ```
+  **And before reading a genuine zero as a broken detector, take the two cheap alternatives first:** (1) is the host agent even running — count a SIBLING check declared in the same `checks` array over the same window (they were at 38 and 36 while this one was at 0, which is what ruled the agent out); (2) are earlier findings still OPEN — a non-terminal `item_key` is dedup-suppressed and cannot refile (99 rows in `needs_human_review` here). Only after both fail does the detector become the suspect.
+- **why the wrong result looks exactly right:** the zero arrives in answer to a question shaped *"has my change silenced this detector?"*, with the burden already set against you by the reviewer who asked. A confirming zero, from a query whose only flaw is a name nobody told you was an alias, is the most convincing possible evidence for a conclusion that is false — and the next move after it is to revert a good change or to file a defect against your own shipped code.
+- **relations:** the sibling trap one directory along — the config key `audit_cta_label_agreement` vs the Go file `cta_label_audit.go`, same four words reordered, `LIKE '%cta_label_audit%'` false on every armed writer (`bugs_open/399`) · `a-closer-census-cannot-see-what-it-succeeded-at` · `grep-the-config-key-before-calling-it-a-win` · `a-post-fix-zero-needs-a-demand-control`
+- **source:** 2026-08-31, `bugfix_399_cta_label_agreement` lane, discharging the council `guardian` seat's owed post-roll comparison (corr `e9bda035`). The literal instruction in the handoff was "compare `misdirected_cta` finding volume across the roll"; obeying it literally returned a zero that supported exactly the conclusion the guardian had warned to expect.
+- **added:** 2026-08-31, bugfix_399_cta_label_agreement lane

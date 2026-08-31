@@ -322,3 +322,46 @@ fleet-wide and is silently biased, which is the very argument that made this a s
 exact failure `643`'s census exists to prevent. Then re-measure the rate **at this seam**; it will
 differ from the 14.6% token census (different predicate), and the new number is what any later
 decision rests on. ⚠ A pre-roll zero means "binary not rolled", never "no mismatches".
+
+## 7. UPDATE 2026-08-31 — the canary fired from both producers, `645` applied, the instrument is unbiased
+
+**The "owed after the roll" item in §6 is DISCHARGED.** `CTA_LABEL_MISMATCH` rows arrived from **two
+distinct `agent_type`s**, which was the stated pass condition:
+
+| producer | records | contradicts | ambiguous | last seen |
+|---|---|---|---|---|
+| `page-build-handler` | 61 | 34 | 59 | 2026-08-31 13:08Z |
+| `page-rerender` | 83 | 1 | 124 | 2026-08-31 14:59Z |
+
+Demand, bound on the migration's own `applied_at` and not on any session's clock: **214** CTA-bearing
+components saved since `643` armed at `2026-08-26 22:17:08Z` `[MEASURED 2026-08-31 15:03Z]`.
+
+**`645` applied `2026-08-31 15:09:38Z`** — all six `save_page_sections` steps now armed, verified
+independently of the migration's own verify and with two known-false control types in the same query.
+The staging warning in §6 and §4 is **spent**: from that timestamp forward the rate is no longer
+biased by unarmed writers. ⚠ **But bound any rate query on `645`'s `applied_at`** — the 145 records
+banked before it came from a two-of-six instrument, and a 14-day window silently averages across the
+boundary, reproducing the exact bias the staging existed to prevent.
+
+**The guardian's canary was about pipeline health, not record presence**, so that was checked
+separately: 7 `save_sections` failures in the retained window, **7 of 7** `OWNED_PAGE_GUARD` — a
+different guard correctly refusing to let a generic save clobber a tool-owned page — and **0**
+anything else.
+
+**§6's other owed item — `misdirected_cta` volume across the roll — is also discharged.** There IS a
+shift (10/day → 0/day from 08-28) and the burden was set against this change. It is explained without
+invoking the extraction, on three independent grounds: the host agent is **not** dormant (sibling
+checks on the same agent filed 38 and 36 over the same days); the population genuinely shrank (same
+census, same predicate: **186 of ~1,192 (15.6%)** on 08-26 → **126 of 1,779 (7.1%)** on 08-31 — pairs
+up 40% while mismatches fell in absolute terms, so not dilution); and **99** earlier findings sit
+open in `needs_human_review`, which dedup-suppresses a refile of those `item_key`s. `[INFERRED]`, not
+proven — the decisive test (feed the check a page known to convict) was not run.
+
+> ⚠ **The obvious form of that comparison returns a FALSE ZERO.** The check is *named*
+> `misdirected_cta` and *files* `item_type='cta_names_unknown_destination'`; and `site_work_items` is
+> a rolling window whose closed rows live in `site_work_items_archive`. Either mistake alone returns
+> a clean zero that reads as "the detector is dead". Both are in `LANDMINES.md`.
+
+**Still open and unchanged: candidate 5.** The instrument is now trustworthy fleet-wide, which makes
+the absence of a reader the *only* remaining gap between this and a fix. `bugs_open/410`'s class,
+unowned.

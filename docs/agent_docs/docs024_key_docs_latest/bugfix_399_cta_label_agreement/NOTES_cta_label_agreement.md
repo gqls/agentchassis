@@ -327,3 +327,153 @@ construction* (`ctaClassifyAnchor` maps the three verdicts back onto its origina
 "the detector's live finding population is unchanged" is a claim about production that only
 production can settle. **Added to the post-roll verification owed**: compare `misdirected_cta`
 finding volume across the roll, and treat a shift as this change's until shown otherwise.
+
+---
+
+## 2026-08-31 — the canary passed, `645` discharged, and the instrument is now unbiased
+
+### The demand the 08-26 session could not wait for
+
+Anchored on the migration's own `applied_at` (`2026-08-26 22:17:08Z`), never on this session's start
+— that anchoring error is the one the previous session nearly filed as a defect.
+
+```
+cta_saves_since_arming = 214        [MEASURED 2026-08-31 15:03Z]
+```
+
+`CTA_LABEL_MISMATCH` records, by producer [MEASURED 2026-08-31 15:04Z]:
+
+| producer | records | contradicts | ambiguous | first | last |
+|---|---|---|---|---|---|
+| `page-build-handler` | 61 | 34 | 59 | 08-26 22:46:53Z | 08-31 13:08:48Z |
+| `page-rerender` | 83 | 1 | 124 | 08-26 22:51:32Z | 08-31 14:59:50Z |
+
+**Both armed producers fired.** That is the canary the guardian seat asked for, and it is the whole
+of the decision rule in the 08-26 handoff §1. Applied `645`.
+
+A sampled record is well-formed and is a real case of the *destination-KIND* blind spot the 391 lane
+named: `"Browse all tools"` → `/tools/css-specificity-calculator/index.html`, verdict `no_opinion`,
+`silence: ambiguous`. The reason code is doing its job — this is exactly the bucket that used to be
+indistinguishable from "the judge had nothing to say".
+
+### The canary's real job was pipeline health, not record presence — checked separately
+
+Records firing proves the pass RUNS. It does not prove the two armed pipelines are HEALTHY, and the
+guardian's risk was the second thing: *a new per-page DB read landing on every content-writing
+pipeline at once*. So:
+
+```
+page-rerender      FAILED at current_step='save_sections' : 7
+  of which OWNED_PAGE_GUARD : 7        of which anything else : 0
+```
+
+All seven are a **different guard firing correctly** — `OWNED_PAGE_GUARD` refusing to let a generic
+section save clobber a tool/widget-owned page (`llm-cost-calculator`, `electric-vs-pneumatic-economics`).
+Unrelated to this pass, and it appears only on `page-rerender` because that is the writer that
+re-renders existing pages.
+
+> ### ⚠ MISSTEP — I built a column that matched everything by construction
+>
+> My first pass at this asked for `count(*) FILTER (WHERE ... collected_data::text ILIKE
+> '%audit_cta_label_agreement%')` and got **5 of 5, 7 of 7 — a perfect hit rate**, which I briefly
+> read as "every failure touches the CTA seam". It cannot come out any other way: an armed run
+> embeds its own step config in `collected_data`, so the filter matches **every armed run, failed or
+> not**. It was measuring arming, not causation.
+> The check that actually discriminated was reading the `error` text, where all seven said
+> `OWNED_PAGE_GUARD`. Logged in `WRONG_CALLS.md`.
+
+### ⚠ A before/after failure-rate comparison is NOT available from `orchestration_states`
+
+`min(created_at)` in that table is **2026-08-30 14:53Z** — roughly a one-day retention window. Asking
+it for the four days before arming returns **zero rows**, which reads as "no failures before" and is
+really "no data before". Same rolling-window trap as `site_work_items`. Ask the failures what they
+SAY; do not ask the table for a rate it cannot hold.
+
+### `645` applied — the four remaining writers
+
+Discharged exactly as `643` was: renamed out of `_HOLD` (content byte-identical to the approved file,
+`git diff --cached` reports **R100**), applied out-of-band with `psql -f` because `--apply` takes
+every pending file and other lanes have work in that directory, then recorded `--record-only`.
+
+```
+DO / UPDATE 2 / UPDATE 1 / UPDATE 1 / DO
+NOTICE: audit_cta_label_agreement now armed on all 6 save_page_sections steps
+COMMIT
+645_audit_cta_label_agreement_remaining_writers.sql | 2026-08-31 15:09:38.146832+00 | record-only
+```
+
+Pre-condition guard passed (2 primary armed) and the verify passed at 6. **Verified independently of
+the migration's own verify** — a migration that checks itself is the weaker half of the pair:
+
+```
+page-build-handler t · page-rerender t · page-rebuild t · pageflow-builder t
+site-work-orchestrator t · tool-recreation-handler t
+content-writer f · council-gate f      ← controls, and they are why the six t's mean anything
+```
+
+⚠ The 08-26 arming census had a **mixed** expected answer (2 t, 4 f) and that mixture was its own
+control. After `645` the expected answer is all-true, so the mixture is gone — **carry two known-false
+types in the query** or an all-true result is indistinguishable from a predicate that matches
+anything.
+
+### The number `645` was already taken, and that is tolerated
+
+`645_design_critique_agent.sql` (a different lane) was applied 2026-08-26 14:21Z. The ledger keys on
+`filename`, not on the number, and already carries **two `648`s** — so the collision is precedent, not
+a defect. Renumbering would have broken every citation of "645" in `bugs_open/399`, the RUNBOOK,
+LNK-040 and `643`'s own header, so the number stands.
+
+### Binary probe, with both controls in the same exec
+
+Fleet is on `v1.0.1349` (the pass shipped in `v1.0.1345`). Every agent type runs the **one**
+`agent-chassis` image — there are no per-agent images — so the four newly-armed writers necessarily
+run the same binary as the two that have been firing all week.
+
+```
+PRESENT  audit_cta_label_agreement      PRESENT  CTA_LABEL_MISMATCH
+ABSENT   cta_label_agreement_NOT_A_REAL_SYMBOL   ABSENT  audit_cta_kind_agreement
+```
+
+### §6's owed check — `misdirected_cta` volume across the roll — DONE, and it found a shift
+
+The guardian's standing caution asked for this, with the burden set against us. There **is** a shift:
+
+```
+08-24: 35 · 08-25: 19 · 08-26: 16 · 08-27: 10 · 08-28..08-31: 0
+```
+
+> #### ⚠ THE ITEM TYPE IS NOT THE CHECK NAME — the obvious query returns a false zero
+>
+> The 08-26 handoff told me to "compare `misdirected_cta` finding volume". Doing that literally —
+> `WHERE item_type='misdirected_cta'` — returns **zero rows in all of history, live and archive**,
+> which reads as *"this check has never found anything"*. The check is **named** `misdirected_cta`
+> (`check_misdirected_cta.go:64`) and **files** `item_type='cta_names_unknown_destination'`
+> (`:352`). Same trap shape as `audit_cta_label_agreement` vs `cta_label_audit.go` — appended to
+> `LANDMINES.md`.
+
+Discriminating the shift, in order:
+
+1. **Is the host agent dormant?** No. Sibling checks on the *same* `completeness-discovery-agent`
+   produced findings over 08-28..08-31: `head_essentials_missing` **38**, `canonical_mismatch` **36**.
+   So the agent runs and this check specifically went quiet. The control does **not** exonerate.
+2. **Has the population shrunk?** Yes, substantially. Same census, same predicate as 08-26:
+
+   | | 2026-08-26 | 2026-08-31 |
+   |---|---|---|
+   | mismatched | 186 | **126** |
+   | pairs | ~1,192 | **1,779** |
+   | rate | 15.6% | **7.1%** |
+   | sites | — | 23 |
+
+   Pairs **grew 40%** while mismatches **fell 60 in absolute terms** — so this is not dilution by new
+   good pages, it is repair. The 389/391 lanes have been draining exactly this population all week.
+3. **Would the survivors even refile?** Mostly no. The convicting subset was only **13 of 186** on
+   08-26 (the rest name no single page); scaled to 126 that is ~9 pages. And **99**
+   `cta_names_unknown_destination` items sit in `needs_human_review` — non-terminal, so the dedup
+   index suppresses a refile of those same `item_key`s.
+
+**Conclusion: the shift is explained without invoking the extraction, and the burden is discharged.**
+`[INFERRED]`, not proven — the decisive test would be running the check's own ranked predicate
+against a page known to convict and watching it convict. I did not do that. What I can say is that
+every cheap alternative explanation (dormant agent, shrinking population, dedup suppression) is
+independently evidenced above, and the detector-broke hypothesis has no evidence for it at all.

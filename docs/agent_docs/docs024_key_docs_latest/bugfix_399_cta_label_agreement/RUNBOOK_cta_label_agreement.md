@@ -20,13 +20,31 @@ WHERE error_code = 'CTA_LABEL_MISMATCH' AND occurred_at > now() - interval '14 d
 GROUP BY 1 ORDER BY 1;
 ```
 
-⚠⚠ **DO NOT READ THIS RATE UNTIL MIGRATION `645` HAS APPLIED.** The arming is staged on purpose
-(council `guardian` seat, corr `e9bda035`): `643_..._HOLD.sql` arms the two primary writers as a
-canary, `645_..._HOLD.sql` arms the remaining four. Between them the record is a **smoke test, not a
-measurement** — an instrument armed on half its writers reports a rate that reads fleet-wide and is
-silently biased, which is the whole reason the census found six steps rather than the obvious two.
-This warning is here, beside the query, because this is where someone will be standing when they are
-tempted.
+> **STATUS 2026-08-31: `645` IS APPLIED — the rate is readable, but only FORWARD.**
+> All six `save_page_sections` steps are armed as of **`2026-08-31 15:09:38Z`** (the ledger's
+> `applied_at` for `645_audit_cta_label_agreement_remaining_writers.sql`).
+>
+> ⚠ **Bound the window on that timestamp, not on "the last 14 days".** The `interval '14 days'` in
+> the query above reaches back **before** the second arming and silently mixes two instruments: the
+> **145 records banked before it** (`page-build-handler` 61, `page-rerender` 84) came from a
+> two-of-six-writer instrument and carry exactly the fleet-wide bias this staging existed to avoid.
+> Averaging across the boundary reproduces the bias it was staged to prevent. Use:
+>
+> ```sql
+> AND occurred_at > (SELECT applied_at FROM schema_migrations
+>                    WHERE filename = '645_audit_cta_label_agreement_remaining_writers.sql')
+> ```
+>
+> ⚠ **The first forward records are still not a rate.** The four new writers were armed minutes ago
+> and the 391 lane's re-resolve burst has not yet landed. Give it a full cycle across all six before
+> quoting a percentage — and see the burst warning below.
+
+The arming was staged on purpose (council `guardian` seat, corr `e9bda035`): `643` armed the two
+primary writers as a canary, `645` armed the remaining four once that canary fired from **both**
+producers (it did: 61 and 83 records, 2026-08-31). Between the two migrations the record was a
+**smoke test, not a measurement** — an instrument armed on half its writers reports a rate that reads
+fleet-wide and is silently biased, which is the whole reason the census found six steps rather than
+the obvious two.
 
 ⚠ **`producing_agents` must reach ≥2** once both paths have run (`page-build-handler` and
 `page-rerender`). **One producer means the coverage claim is failing silently** — that is the whole
@@ -112,6 +130,42 @@ WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NU
 ⚠ Use `jsonb_path_query` with recursive descent, **not** a top-level `workflow.steps` read: four of
 the six live `save_page_sections` steps sit inside a loop's `sub_workflow` and a top-level read
 reports them as absent — which reads as "not armed" and is indistinguishable from "does not exist".
+
+**Expected answer since 2026-08-31: all six true** (`page-build-handler`, `page-rerender`,
+`page-rebuild`, `pageflow-builder`, `site-work-orchestrator`, `tool-recreation-handler`).
+
+> ### ⚠ THE MIXED-ANSWER CONTROL IS GONE — carry two known-false types
+>
+> While `645` was held, this census had a **mixed** expected answer (2 armed, 4 not) and that mixture
+> was its own control: an all-false result meant you had the wrong spelling, and a matching mix meant
+> the predicate discriminated. After `645` the expected answer is **all-true**, and an all-true result
+> is indistinguishable from a predicate that matches anything at all. So add types that MUST read
+> false:
+>
+> ```sql
+>   AND a.type IN ('page-build-handler','page-rerender','page-rebuild','pageflow-builder',
+>                  'site-work-orchestrator','tool-recreation-handler',
+>                  'content-writer','council-gate')   -- the last two are the control
+> ```
+>
+> Six true and two false is the answer that means something. Six true alone is not.
+
+> ### ⚠ THE CONFIG KEY AND THE GO FILE ARE THE SAME WORDS IN A DIFFERENT ORDER
+>
+> Key: **`audit_cta_label_agreement`**. File: **`cta_label_audit.go`**. `LIKE '%cta_label_audit%'`
+> returns false on **every** writer, armed ones included — which reads exactly like "the migration
+> never applied", and the next move after that reading is to re-apply an applied migration.
+
+> ### ⚠ AND THE WORK-ITEM TYPE IS NOT THE CHECK NAME
+>
+> The discovery check is **named** `misdirected_cta` (`check_misdirected_cta.go:64`) and **files**
+> `item_type='cta_names_unknown_destination'` (`:352`). Querying
+> `WHERE item_type='misdirected_cta'` returns **zero rows in all of history**, live table and
+> archive both — which reads as "this check has never found anything" rather than "you asked for a
+> type that does not exist". Cost a real detour on 2026-08-31 while discharging §6's owed
+> comparison. Also: `site_work_items` is a rolling window — closed rows move to
+> `site_work_items_archive`, so any historical count must `UNION ALL` both tables or it reads zero
+> for anything already dealt with.
 
 ## ⚠ What this pass does NOT see
 

@@ -57074,3 +57074,28 @@ zero scanned fields is a BLIND scan, not a clean fleet."* Tally:
   the register survived (111→116, no dupes) — ordering luck, not design. Same family as the
   hand-copied loader predicate (agritec MISSTEP 11): an instrument that cannot disagree with
   itself. Tally: **absence-from-a-window-not-proven-to-contain-the-event**.
+- [2026-08-31, bugfix_399_cta_label_agreement lane] Checking whether arming the CTA-audit pass
+  had broken the two writers it was armed on, I added a column
+  `count(*) FILTER (WHERE collected_data::text ILIKE '%audit_cta_label_agreement%' OR ...)`
+  labelled `cta_or_save_related`, and got **5 of 5 and 7 of 7 — a perfect hit rate** that I
+  briefly read as "every post-arming failure touches the CTA seam". It could not have come out
+  any other way: an armed run embeds its own step config in `collected_data`, so the filter
+  matches **every armed run, failed or not**. It measured that arming had happened, which I
+  already knew, and dressed it as causation. What caught it: reading the `error` text of the
+  same rows, where all seven said `OWNED_PAGE_GUARD` — a different guard, firing correctly, on
+  tool-owned pages. Cheap check skipped: before believing a filter's hit rate, name the row
+  that would FAIL it — here no armed run could, so a 100% rate was the only possible output.
+  Same family as the `[MEASURED]`-but-not-disconfirmable pair of 2026-08-03. Tally:
+  **filter-whose-population-guarantees-the-answer**.
+- [2026-08-31, bugfix_399_cta_label_agreement lane] Same session, nearly the opposite error and
+  caught before it reached a document: the handoff's owed check said "compare `misdirected_cta`
+  finding volume across the roll". Run literally — `WHERE item_type='misdirected_cta'` — it
+  returns **zero rows in all of history**, which is exactly the shape of "your refactor silenced
+  the detector", the conclusion the guardian seat had pre-warned to expect and had put the
+  burden on us to disprove. The check is NAMED `misdirected_cta` and FILES
+  `item_type='cta_names_unknown_destination'`; the real volume was 80. What caught it: the zero
+  covered *all history*, including weeks before the change existed — a detector my change broke
+  cannot have found nothing in July either, so the query, not the detector, had to be wrong.
+  Cheap check skipped: resolve an item type at the producer (`grep -n 'ItemType'` in the check's
+  own file) before querying by a name you were handed in prose. Now in `LANDMINES.md`. Tally:
+  **queried-by-the-name-instead-of-the-key**.
