@@ -122,15 +122,25 @@ raw-HTTP caller — grep the CALLER for how it logs before censusing a log table
   in prose (anchors already unlinked). Locations: site `99cae989-…`,
   `jsonb_each_text(content_data)` keys cta_text/primary_cta/secondary_cta ~
   checker|estimator|decoder|calculator|calendar; body = content_data ILIKE tool names. Backup:
-  `bak_farmer_cull_content_data_20260831`. **SEQUENCING IS THE POINT — SPEC FIRST**
-  `[MEASURED 2026-08-31, mine]`: FIVE current spec aspects still name the tools (`briefing`,
-  `strategy`, `tools`, `vertical_landscape`, **`offer_ordering`**) — a page-level repair
-  rerendered against those specs RE-MINTS the dead-tool copy, and the wiring step would tell
-  farmer's writer to lead with deleted capabilities. Order: specs stop naming the tools (spec
-  cleanup = cull's completion, ownership raised with loanzy; farmer's `offer_ordering` needs the
-  ANALYSER re-run post-cull — add farmer to the post-gate re-census as a must-re-derive site) →
-  then the copy layer THROUGH the framework (CTA class first, prose class second) → rerender.
-  Owner mandate: the same deletion ruling ("delete them"); note it in the next owner report.
+  `bak_farmer_cull_content_data_20260831`. **SEQUENCING: SPEC FIRST, split CALLED (loanzy, same
+  night).** `[MEASURED 2026-08-31, both lanes]` Five current aspects named the tools; the split:
+  `tools` — TAKEN AND DONE by loanzy (the suggester's own inventory, superseded properly,
+  successor `8031bb1c`); **`briefing` (2 checker/4 estimator refs), `strategy` (4/8),
+  `vertical_landscape` (1) — HANDED TO THIS LANE EXPLICITLY** under the owner's cull ruling
+  (their "decision 4 of 2026-08-31", recorded in loanzy's OWNER_REVIEW + handoff): ~19 scattered
+  prose mentions across 10–17KB LLM-authored analysis docs, surgical prose editing.
+  **SUPERSEDE, never edit the current row in place** (their condition, and the better pattern:
+  insert successor + flip is_current, predecessor kept with superseded_at; adapt 668's guard —
+  assert the predecessor is still current in-transaction before the flip). `offer_ordering` —
+  ANALYSER re-derives post-cull via the offer lane; farmer is a must-re-derive site in the
+  post-gate re-census. ~~a rerender against those specs re-mints the dead-tool copy~~
+  **CORRECTED same night by loanzy: RERENDERS rebuild from stored `content_data` (already clean
+  — 0 components hold retired urls); specs feed PLANNING/GENERATION of new content.** So the
+  copy repair is not undone by rerenders; only a future generation pass could re-introduce
+  mentions, which spec-first closes. Order confirmed by both lanes: the three handed specs →
+  misdirected-CTA labels (52 fields; the live-URL-dead-label class first — actively misleading)
+  → body prose (14 sentences, 8 pages) → done. "Go when ready" — theirs; the canary and r3
+  verdict still lead this lane's queue.
 - **Migration numbers COLLIDE**: two 667s and two 668s exist (privacy-lock / terms-publish are
   the others) — resolve by SLUG always.
 - The audit's Phase 2 judgment pass continues at leisure (league table + PHASE2 verdicts in
