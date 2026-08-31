@@ -1006,3 +1006,19 @@ remains on farmer is the button labels and a handful of sentences that still men
 tools, queued next. And since the approach-page test passed, the other eight finetuning pages
 are now being rebuilt through the same corrected machinery — before-and-after counts will be
 ready for each, and the pages themselves will be ready for your read.
+
+**2026-08-31, end of day.** The nine-page rebuild finished, and the honest summary is: it works,
+with two exceptions that are now named bugs rather than mysteries. Six pages we can compare
+dropped from 30 of your rejected tics to 6, and of those six survivors, most are either quiz
+answers where the contrast is the actual content, or cases where the repair machinery correctly
+refused to cut a sentence that would have lost its meaning. The contact page took four goes —
+not because the rebuilds were bad, but because the site's own planning document stored the
+contact address twice with a one-letter difference, and the page builder reads the copy nobody
+checks. That's fixed at the source, the wrong address is off the live site, and only one site in
+the whole fleet had this disease. The two exceptions: the about and services pages can't be
+rebuilt at all right now, because the repairs shorten their heroes so much that a separate
+safety guard (which stops pages losing half their text) refuses to save — two protections
+fighting, and the loser is the page. Bug filed with the fix shape. Separately: the council
+approved the best-in-class propagation build on the second round, so that ships with the next
+release, and the wording of the standard travels from one editable place exactly like the house
+voice does.
