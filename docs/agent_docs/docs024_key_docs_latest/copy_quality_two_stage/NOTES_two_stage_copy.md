@@ -3317,3 +3317,38 @@ about 10 · contact 7 · use-cases 6 · services 4 · careers 3 · readiness-che
 case-studies 1 · model-approach-selector 0 — **sum 34**, and the selector page served only 32
 words (2,685 bytes; likely a stub or wrong served path — CHECK at the read, do not battery a
 redirect and call it clean). Watcher armed on the 8 items.
+
+---
+
+## 2026-08-31 evening — the editor canary VALIDATES the CTA route (both runs caught the class unprompted); the widening's first page exposes the SPEC-FED section class
+
+**Stage-2 editor canary on farmer /about: the route works.** Both runs (my double-fire — the
+WRONG_CALLS row; correlations `81274f5b` + `9b2350d3`, both COMPLETED ~15:47Z, both parked
+proposals) **independently diagnosed the dead-tool CTA labels as the page's primary fault,
+unprompted** — post-674 specs, so nothing told them; both proposed the same destination-honest
+labels ("Browse the Farm Insurance Guides" / "Read the Livestock Insurance Guide") and both
+caught a typo neither lane knew about ("Financial Coduct Authority" in the hero's compliance
+disclosure). Both PASS `gate_stage2_edit.py`. My read before parking them for the owner:
+run 2 (`be23d897`, KEPT at needs_human_review) also fixes the CTA section's quiz-premise prose,
+carries no negation construction, and its added specifics VERIFY against the destination page
+(mortality/theft/disease all present on /blog/livestock-insurance.html). Run 1 (`88496ab7`)
+was more minimal but re-ships the inherited "not a quote or a recommendation" comma-not;
+CANCELLED with the alternative recorded in its result (duplicate was my misfire — one item in
+the owner's queue, not two). **Correction to the WRONG_CALLS row's expectation: the
+pending-proposal bound did NOT refuse the duplicate** — it gates the tone-route's
+`needs_copy_edit` filing, not the editor's own `checkpoint_for_review` parking, and the two
+proposals carry distinct item_keys. **Release stays the owner's (D2)**; on approval it spawns
+`section_edit` at section-editor. If the pattern scales to the other 17 farmer pages, that is
+a batch-release posture question for the owner, not a session's call.
+
+**Widening, first page (use-cases): 6→6, and the miss is STRUCTURAL, not a gate failure.**
+The rebuild wrote all three components (15:49:36Z, deployed 15:50:11Z) yet every tell survived
+BYTE-IDENTICAL — impossible for regenerated prose. Traced: the writer's iter_1 call emitted 500
+tokens (headline/subheadline only), no prompt or response carried the list text, zero repair
+steps ran — and the six tells' text sits in **`site_specs` aspect `portfolio` (is_current)**,
+injected into `use_cases[]` at build time. **Spec-fed section content bypasses the writer AND
+the gate**; a rebuild can never wash it. Kin to the "supplied phrase is EXEMPT" landmine but
+sharper — the text never even reaches the model. Remedy is the 674 pattern pointed at
+finetuning's portfolio spec (a register wash of the spec store), queued as this lane's
+follow-up; expect the same class wherever collection-backed sections exist. The widening
+battery will show how much of the residual register is spec-fed vs writer-emitted.
