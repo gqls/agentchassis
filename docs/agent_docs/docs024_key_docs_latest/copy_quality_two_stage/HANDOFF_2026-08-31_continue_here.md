@@ -115,6 +115,22 @@ raw-HTTP caller — grep the CALLER for how it logs before censusing a log table
   builds; 39→18 active pages. Exclude `tool-*`/`*-guide-about-tool` from any sampling; the
   homepage (the quoted meta-voice example) stays. Farmer remains worked case #2 + tone-vacuum
   variant in the audit Q-set; record-mode verdicts human-released only.
+- **FARMER COPY PARCEL (handed over by loanzy 08-31, queued — the cull's completion):**
+  `[MEASURED 2026-08-31, theirs]` **52 CTA label fields** on all 18 surviving pages name the
+  deleted tools (worst class: label names a dead tool while the recomputed URL points at a LIVE
+  page — misdirected copy being served) + **~14 body sentences** on 8 named pages recommend them
+  in prose (anchors already unlinked). Locations: site `99cae989-…`,
+  `jsonb_each_text(content_data)` keys cta_text/primary_cta/secondary_cta ~
+  checker|estimator|decoder|calculator|calendar; body = content_data ILIKE tool names. Backup:
+  `bak_farmer_cull_content_data_20260831`. **SEQUENCING IS THE POINT — SPEC FIRST**
+  `[MEASURED 2026-08-31, mine]`: FIVE current spec aspects still name the tools (`briefing`,
+  `strategy`, `tools`, `vertical_landscape`, **`offer_ordering`**) — a page-level repair
+  rerendered against those specs RE-MINTS the dead-tool copy, and the wiring step would tell
+  farmer's writer to lead with deleted capabilities. Order: specs stop naming the tools (spec
+  cleanup = cull's completion, ownership raised with loanzy; farmer's `offer_ordering` needs the
+  ANALYSER re-run post-cull — add farmer to the post-gate re-census as a must-re-derive site) →
+  then the copy layer THROUGH the framework (CTA class first, prose class second) → rerender.
+  Owner mandate: the same deletion ruling ("delete them"); note it in the next owner report.
 - **Migration numbers COLLIDE**: two 667s and two 668s exist (privacy-lock / terms-publish are
   the others) — resolve by SLUG always.
 - The audit's Phase 2 judgment pass continues at leisure (league table + PHASE2 verdicts in
