@@ -1098,3 +1098,20 @@ Windowing note for any future Phase-3 grading: clean post-657 LLM-healthy window
 — 08-27 13:35→~08-28 morning is the main one, and it is already out of retention. The ~+7%
 question may only be answerable after the account is topped up AND demand returns; do not
 force it.
+
+## 2026-08-31 ~09:45Z — LLM outage OVER (recovery ~09:00Z today); post-recovery sanity read CLEAN; lane idle pending D4
+
+Timeline correction against my own first read this morning (an aggregate trap, caught in
+minutes): "4 failed of 49 last hour" at 09:42 was the RECOVERY EDGE, not a recovered day —
+the night ran 100% failure (02:00–07:00 hours all-fail; one isolated success 22:05 08-30),
+08:00 hour 32/42 failed, **09:00 hour 0/35** `[MEASURED 09:45Z]`. So the outage ran
+~2026-08-28 → 2026-08-31 ~08:40–09:00Z (~2.5 days), D4 case 4's full extent.
+
+Sanity read per the handoff's NEXT-1 `[MEASURED 09:45Z]`: trigger 53 fires/h; arrivals
+ramping (16/60/29 last 3h) and claims following (4→14/h); floor CLEAN — three sites with
+work, all fresh (farmerinsurance oldest 06:37 with 19 loops/3h = actively serviced on
+deferral cycles; finetuning 8 rows @09:38; vetcomparison 1 @09:39); **zero stuck claims;
+zero pins**. Nothing owed dispatch-side. The lane is idle on its build queue: **D4 governor
+first, blocked on ONE owner decision — the at-cap shedding policy** (what gets refused first
+when spend approaches the cap: maintenance vs build vs research classes; RESEARCH §6 has the
+per-class cost sketch). Everything else per HANDOFF_2026-08-30.

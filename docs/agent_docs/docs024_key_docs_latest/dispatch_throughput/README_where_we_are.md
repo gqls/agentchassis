@@ -384,3 +384,11 @@ Friday (same "usage limits" message as Thursday — the top-up ran out or the li
 site machinery is idling as a result: almost no new work is being generated. Another top-up or
 a limit raise brings it all back; and this is now the fourth incident for the spend-governor
 case — it remains the top build item.
+
+2026-08-31 morning — your top-up this morning worked: AI calls clean from about 09:00 UTC
+(the blackout ran roughly two and a half days in the end). Work is flowing again and the
+dispatch side checked out clean — nothing stuck, nothing starving, new work being picked up
+within minutes. The one thing waiting on you is the spend governor's design question: when
+spend nears the cap, what should be refused FIRST — routine maintenance, new site builds, or
+research? Answer that in a sentence and the governor build can start; it is the thing that
+turns these blackouts into deliberate slow-downs.
