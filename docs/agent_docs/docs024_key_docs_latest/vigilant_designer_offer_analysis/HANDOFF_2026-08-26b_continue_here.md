@@ -324,6 +324,61 @@ binds the **served `point` only**, not the `why`. Packaged for the owner as **DE
 statement about the EXISTING corpus only** — re-measure after any model change; it is dated for that
 reason.
 
+### H1b. ⚠ OWNER RULED C — AND THE WASH EXPOSED THAT THE PRODUCER MINTS DIRTY AT 23%. **THIS IS THE OWED WORK.**
+
+**Owner, 2026-08-31 (relayed):** *"Decision C: Please go ahead and wire in the benefit priorities."*
+Executed in the agreed order by `copy_quality_two_stage`; migration **667** applied the 41 repairs I
+ACKed (identity-by-exact-text, RAISE on drift, rank untouched, backups + rollback).
+
+**My ACK gated that write and I excluded 10 of 51 as substantive.** Rule, re-derivable: *a repair
+removing ≥40% of a `differentiated: true` point has removed the differentiating clause, not a
+flourish.* ⚠ **Ruling 7's truncation systematically strips the distinguishing half**, because in an
+`X, not Y` construction the differentiation lives in the **Y** — `[MEASURED]` **51 of 51 repairs were
+shorter, corpus −24.8%**, mean −28.7% on differentiated points. All 10 are now resolved: 7 accepted,
+1 pending a "the full record" → "the record" wording fix, **3 re-derived by me from each site's
+`strategy` provenance and battery-checked clean.**
+
+> **⚠ THE SYMMETRIC LAW, worth carrying: TRUNCATION LOSES MEANING, EXPANSION MANUFACTURES IT.** Their
+> expansion pass invented three operating-history claims (*"the full testing procedure"*, *"a visible
+> label"*, *"the timing for each region"*) — **the `evidence_base` class, and worse in served copy
+> than any register fault.** Each repair fails in the direction of its pressure. My own re-derivation
+> found that agritec's original claim **was** grounded and only the *mechanism* was invented, which is
+> the tell to look for.
+
+### ⚠⚠ H1c. THE FINDING THAT MATTERS MOST, AND IT IS THIS LANE'S TO FIX
+
+**`[MEASURED 2026-08-31]` the producer wrote 799 `lead_with` points in 6 days and 184 (23%) were
+BORN DIRTY.** Today: 17 minted, **5 dirty (29%)** — verified by timestamp as producer output
+(`lampenkap` r3+r4 at 10:23Z, `fundamentallyai` r5 at 10:29Z), hours before the wash. Minting:
+`x_not_y` **81**, `rather_than` **53**, `plainly` **29**, `honest*` **24**, `not_just` **20**,
+`negative_reveal` **10**.
+
+**So the wash repaired 51 points against a mint running ~130/day at 23%.** Today's rate is
+indistinguishable from the historical rate — **nothing has changed its behaviour, because the ban
+lives in a JSON file the producer has never been told about.**
+
+> **⚠ THIS RETRACTS A GATE I MYSELF IMPOSED, and the next session must not reinstate it.** I told the
+> copy lane *"the corpus must be clean on both axes before fleet-wide wiring"*. **That condition is
+> true at an instant and false by the next regeneration — it cannot be held.** The gate is not a
+> corpus state but a **PRODUCER PROPERTY**: the mint stops printing the shape, or the wash runs
+> continuously as a post-step.
+
+**OWED, UNBUILT, THIS LANE'S SEAM:** a post-generation check on the producer's `lead_with` output
+calling **the same scanner the copy gate uses** — `ScanDefineByNegation` (platform code, 7 shapes as
+of Decision B, inert until the roll but the source is current) **plus `BANNED_REGISTER_v1`** — so the
+two mints and two batteries cannot drift (the dedup-index/Go-list lockstep, applied *before* the
+drift). Cite file+version; the copy lane version-bumps in step. ⚠ **Two constraints I committed to:**
+it must **FAIL LOUD, never filter silently** (a silent filter makes the producer's rate unmeasurable,
+and that rate is the only evidence the fix works), and **it must not be reported as working until
+measured against a FRESH MINT — 23% is the baseline it has to move.** ⚠ And their hardest-won lesson
+now binds my half: **demonstrations govern, instructions do not** — adding *"don't write X, not Y"*
+to the producer prompt is an instruction, and their canary is the evidence instructions lose.
+
+**Wiring status:** `vetcomparison.uk` first (one of the 9 never touched by the wash, so clean on both
+axes **and** not dependent on the wash holding); the **8 sites carrying excluded rows stay held**;
+fleet-wide waits on the producer-side mechanism, not on a cleanliness claim. **Council scope and the
+owner's call.**
+
 ### H2. Carousels / "nicer components" (via `loanzy_uk_example_site`, from the farmerinsurance.uk review)
 
 Owner, routed to three threads including this one: *"using carousels rather than just lists and
