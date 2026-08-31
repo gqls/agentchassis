@@ -319,3 +319,26 @@ agreed rank-pinning); (2) the writer-template wiring migration (clean sites rend
 `lead_with` as ordered data). Sequence note: the wash makes the whole corpus clean, so the
 fleet-wide template wiring is safe without per-site switches (which the 07-29 ruling forbids
 anyway).
+
+---
+
+## 2026-09-01 (small hours) — DECISION E, and why Decision C's wiring now waits on it
+
+**What happened executing C overnight:** the wash's first migration (667, the 41 points the offer
+lane ACKed) applied cleanly and verified. The second (668, the 10 expansion repairs, final-verdicted
+by both lanes) **refused to apply — correctly**: its drift guard found fundamentallyai's row no
+longer matching, because **the offer producer had REGENERATED that site's entire row in the ~3
+hours since 667, destroying its 3 washed points and minting new dirty ones.** Measured: 38 of the
+41 applied points survive. Their producer mints the banned register at a measured **23%** (184 of
+799 points in 6 days; 29% today), and a regeneration replaces a row wholesale — so **washing
+before the producer is gated is water uphill**, which the offer lane themselves concluded when
+they retracted their own "clean corpus" gate.
+
+**DECISION E (owner):** authorise the offer lane to build the **post-mint gate on their producer**
+— a mechanical battery check on every generated `lead_with` point, using the SAME scanner as the
+copy gate (`ScanDefineByNegation`, seven shapes) plus `BANNED_REGISTER_v1`, **failing loud rather
+than filtering silently** (their own condition: a silent filter makes the mint's rate
+unmeasurable, and the rate is the only evidence the fix works), reported as working only when
+measured against the 23% baseline on a fresh mint. Their side, council scope; both lanes agree it
+is the critical path. The sequence after it: re-census → one final wash pass (the verdicted 10
+texts stand ready) → the wiring, vetcomparison.uk first.
