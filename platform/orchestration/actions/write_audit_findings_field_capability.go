@@ -103,11 +103,21 @@ import (
 // pageFieldWriteRule declares, for ONE page-level field that an acceptance
 // predicate is allowed to name, which handler agents can actually write it.
 type pageFieldWriteRule struct {
-	// WritableBy is the set of handler agents that can write this field. An
-	// EMPTY map is a real and deliberate value — it means no audit-routed
-	// handler can write the field at all — and is distinct from the field being
-	// absent from the roster, which means "not measured, so not this rule's
-	// business".
+	// WritableBy is the per-handler verdict for this field, and it must be TOTAL
+	// over routableHandlers: every handler classifyFindingRoute can name carries
+	// an explicit true or false, with its measurement in Why.
+	//
+	// ⚠ CHANGED 2026-08-31 (bugs_open/395 §9, owner-ruled). This was previously
+	// a set of handlers that CAN write, so an absent handler read as "cannot" —
+	// a silent default, and it is what let the `title` entry ship a false claim:
+	// content-gap-planner was simply never considered, and absence answered for
+	// it. A missing handler is now NOT MEASURED (HandlerCanWriteField returns
+	// known=false) and the finding routes exactly as it did before this rule
+	// existed, which is the safe direction; TestPageFieldWritersIsTotalOverThe-
+	// RoutableHandlers makes the omission loud rather than silent.
+	//
+	// An EMPTY map is therefore no longer a legal value — it means "no handler
+	// measured", not "no handler can write".
 	WritableBy map[string]bool
 
 	// Why is the measurement that licenses the entry: the enumeration of the
@@ -126,6 +136,36 @@ type pageFieldWriteRule struct {
 	Measured string
 }
 
+// routableHandlers is the universe this roster must answer for: every handler
+// agent classifyFindingRoute can put on a finding. It is the whole reason the
+// roster can make a NEGATIVE claim at all — "no handler can write X" is only
+// meaningful against a named, closed set of handlers.
+//
+// SOURCE OF TRUTH is classifyFindingRoute in write_audit_findings_action.go:
+// its `HandlerAgent:` literals (Rules 1–6) plus every value in the designRouting
+// map. TestRoutableHandlersMatchesTheRouter scans that file and fails when the
+// two drift, so a new route cannot silently arrive unmeasured.
+//
+// ⚠ IT IS A LIST OF HANDLERS, NOT OF AGENTS. Anything not reachable as a
+// finding's handler_agent is out of scope no matter what it can write —
+// meta-description-backfiller writes the column freely and is absent here,
+// because no finding is ever routed at it.
+//
+// [MEASURED 2026-08-31] the eight below are the complete set; the literals were
+// byte-identical at rule 3b's ship (f4aa19ae7) and at this commit.
+var routableHandlers = []string{
+	// classifyFindingRoute, direct literals
+	"page-build-handler",
+	"copy-editor",
+	"content-gap-planner",
+	"spec-updater",
+	// designRouting values, reached via Rule 1's `HandlerAgent: handler`
+	"webdesign-agent",
+	"component-template-fixer",
+	"site-component-linker",
+	"css-patch-agent",
+}
+
 // pageFieldWriters is the roster. A field ABSENT from this map is not this
 // rule's business and routes exactly as before — the opt-in default, with the
 // unsafe side (silently routing an impossible finding) requiring a deliberate
@@ -140,7 +180,18 @@ type pageFieldWriteRule struct {
 // when the two drift apart, so the widening cannot be silent.
 var pageFieldWriters = map[string]pageFieldWriteRule{
 	"meta_description": {
-		WritableBy: map[string]bool{},
+		// TOTAL over routableHandlers. All false — measured per handler, through
+		// each one's own spawn closure, not just its own step list.
+		WritableBy: map[string]bool{
+			"page-build-handler":       false,
+			"copy-editor":              false,
+			"content-gap-planner":      false,
+			"spec-updater":             false,
+			"webdesign-agent":          false,
+			"component-template-fixer": false,
+			"site-component-linker":    false,
+			"css-patch-agent":          false,
+		},
 		// ⚠ The council's `debugging` seat objected that this claim was "asserted
 		// from a private code read, not independently checkable by SQL". Fair.
 		// Here is the checkable form — but NOT the obvious one, and the difference
@@ -180,19 +231,56 @@ var pageFieldWriters = map[string]pageFieldWriteRule{
 		Why: "[MEASURED 2026-08-25] every writer of pages.meta_description is create-or-fill-blank " +
 			"except one: site_db_actions.go:1235 and apply_adoption_plan_action.go:84 are both " +
 			"COALESCE(NULLIF(EXCLUDED,''), pages.meta_description), so a non-empty value survives them; " +
-			"the only unconditional UPDATE is save_page_meta_description_action.go:211, reachable from " +
+			"the one UPDATE that CAN overwrite is save_page_meta_description_action.go:211, and it is " +
+			"itself guarded TWICE — [CORRECTED 2026-08-31: this read 'the only UNCONDITIONAL UPDATE', " +
+			"which was wrong] its WHERE clause carries ($3::bool OR COALESCE(meta_description,'')=''), " +
+			"where $3 is the opt-in overwrite_existing config field, DEFAULT FALSE, so a caller that " +
+			"does not set it gets a no-op reported as a refusal rather than a write; and it is " +
+			"reachable from " +
 			"exactly ONE live agent (meta-description-backfiller) whose scheduled pre_query selects " +
 			"COALESCE(p.meta_description,'')='' — empty values only. page-build-handler, where content " +
 			"findings are routed, has NO step that touches the column. bugs_open/395 §9, bugs_open/320 §5",
 		Measured: "2026-08-25",
 	},
 	"title": {
-		WritableBy: map[string]bool{},
-		Why: "[MEASURED 2026-08-25] pages.title has one UPDATE writer, apply_gap_plan_action.go:652, " +
-			"which is reached from the gap-plan path and from no audit-routed handler; the page upsert " +
-			"(site_db_actions.go:1235) sets title = EXCLUDED.title only when the planner re-runs, which " +
-			"is not a repair route a finding can ask for",
-		Measured: "2026-08-25",
+		// TOTAL over routableHandlers. content-gap-planner is TRUE — see Why.
+		WritableBy: map[string]bool{
+			"content-gap-planner":      true,
+			"page-build-handler":       false,
+			"copy-editor":              false,
+			"spec-updater":             false,
+			"webdesign-agent":          false,
+			"component-template-fixer": false,
+			"site-component-linker":    false,
+			"css-patch-agent":          false,
+		},
+		// ⚠ CORRECTED 2026-08-31. This entry previously claimed `WritableBy: {}`
+		// — nobody can write it — licensed by: "pages.title has one UPDATE writer,
+		// apply_gap_plan_action.go:652, which is reached from the gap-plan path and
+		// from NO AUDIT-ROUTED HANDLER". Both halves of that clause name the SAME
+		// AGENT, and the claim was false on the day it shipped (bugs_open/395 §9).
+		// It was never wrong in production: 46 firings to date, none displacing
+		// content-gap-planner. Latent, not harmless.
+		Why: "[MEASURED 2026-08-31] pages.title has FIVE UPDATE writers, not one. " +
+			"(1) apply_gap_plan_action.go:652, a bare unconditional `UPDATE pages SET title = $3, " +
+			"sections = $4::jsonb` — and it IS reachable from an audit-routed handler: " +
+			"content-gap-planner is named by classifyFindingRoute at write_audit_findings_action.go:696 " +
+			"(Rule 5) and :712 (Rule 6), carries `apply_gap_plan` as a live workflow step (resolved " +
+			"nesting-safe via jsonb_path_query_array($.**.action), never a workflow.steps walk), and " +
+			"completes that route 989 times across live+archive. Hence WritableBy true. " +
+			"(2)-(5) UpsertPageForRole's Refresh list -> updatePageColumns emits a bare " +
+			"`UPDATE pages SET title = $n` from create_report_page_action.go:178, " +
+			"deploy_tool_action.go:464 and :636, and create_tool_component_action.go:653; that helper " +
+			"was born 2026-08-02, THREE WEEKS BEFORE the original census, so this was an omission at " +
+			"authoring and not staleness. Their agents (report-builder, tool-deployer, tool-generator) " +
+			"are not routable handlers, so they do not change any verdict here. " +
+			"The other seven handlers are false, each measured through its own spawn closure: " +
+			"page-build-handler reaches page-content-writer, page-rerender, internal-link-resolver and " +
+			"research-agent, none of which writes the column (bugs_open/395 §9e); webdesign-agent " +
+			"reaches site-asset-renderer and its update_site_content writes sites.content_data; " +
+			"copy-editor, spec-updater, component-template-fixer, site-component-linker and " +
+			"css-patch-agent carry no page-column writer at all. bugs_open/395 §9",
+		Measured: "2026-08-31",
 	},
 }
 
@@ -201,8 +289,17 @@ var pageFieldWriters = map[string]pageFieldWriteRule{
 // licenses the answer alongside it, so a caller can put evidence in front of a
 // reader rather than a bare boolean.
 //
-// `known` is false when the field is not in the roster: NOT MEASURED, so no
-// caller may treat it as either capability or incapacity.
+// `known` is false when the field is not in the roster OR when the field is
+// rostered but this HANDLER carries no verdict in it: NOT MEASURED either way,
+// so no caller may treat it as either capability or incapacity.
+//
+// ⚠ The second arm was added 2026-08-31 and is the fix for bugs_open/395 §9.
+// Before it, `rule.WritableBy[handler]` returned Go's zero value for a handler
+// nobody had considered, and the caller could not tell that apart from a
+// measured "no" — so an unconsidered handler read as PROVEN INCAPABLE. That is
+// how the `title` entry shipped a false claim about content-gap-planner. The
+// roster is now total over routableHandlers and a gap is loud; this arm is what
+// makes the failure SAFE in the moment it happens rather than silent.
 //
 // ⚠ IT IS EXPORTED FOR ONE REASON: the emit gate (CLM-024) calls it too, so a
 // predicate over an unwritable field is stamped at source with the same verdict
@@ -215,7 +312,12 @@ func HandlerCanWriteField(handlerAgent, field string) (canWrite, known bool, why
 	if !ok {
 		return false, false, ""
 	}
-	return rule.WritableBy[strings.TrimSpace(handlerAgent)], true, rule.Why
+	verdict, measured := rule.WritableBy[strings.TrimSpace(handlerAgent)]
+	if !measured {
+		// This handler was never considered for this field. NOT "cannot write".
+		return false, false, ""
+	}
+	return verdict, true, rule.Why
 }
 
 // predicateTargetField returns the page-level field this finding's own

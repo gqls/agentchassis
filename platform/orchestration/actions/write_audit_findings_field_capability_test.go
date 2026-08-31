@@ -10,6 +10,7 @@ package actions
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -311,5 +312,170 @@ func TestThePageFieldWriterRosterIsDefinedExactlyOnce(t *testing.T) {
 			"hand-maintained answers to 'can this handler write this field', which drift silently because "+
 			"each side looks internally correct. Call HandlerCanWriteField instead of copying the map.",
 			found, where)
+	}
+}
+
+// TestPageFieldWritersIsTotalOverTheRoutableHandlers — bugs_open/395 §9, and the
+// test that would have caught it on day one.
+//
+// The roster makes a NEGATIVE capability claim. Before 2026-08-31 an absent
+// handler read as "cannot write", so a handler nobody had CONSIDERED was
+// indistinguishable from one measured and found incapable — and that is exactly
+// how the `title` entry shipped claiming no handler could write it while
+// content-gap-planner could, and does, 989 times.
+//
+// The three tests that already existed did not catch it and could not have: the
+// vocabulary lockstep, the [MEASURED marker assertion and the Measured date
+// assertion are all SHAPE tests. They passed identically over the true entry and
+// the false one. A marker proves a measurement was CLAIMED, never that it was
+// COMPLETE — so the only thing that helps is asserting the map is TOTAL over the
+// set it claims about.
+func TestPageFieldWritersIsTotalOverTheRoutableHandlers(t *testing.T) {
+	if len(routableHandlers) == 0 {
+		t.Fatal("routableHandlers is empty — this test would pass vacuously")
+	}
+	if len(pageFieldWriters) == 0 {
+		t.Fatal("pageFieldWriters is empty — this test would pass vacuously")
+	}
+	for field, rule := range pageFieldWriters {
+		for _, h := range routableHandlers {
+			if _, ok := rule.WritableBy[h]; !ok {
+				t.Errorf("pageFieldWriters[%q].WritableBy has no verdict for routable handler %q. "+
+					"Absence is NOT a measurement: measure whether that handler can write the column "+
+					"(through its own spawn closure, resolved via the action registry — never a "+
+					"config-text search) and record an explicit true/false with its date in Why.", field, h)
+			}
+		}
+		// The other direction: a verdict for a handler the router can never name
+		// is dead weight that reads as coverage.
+		for h := range rule.WritableBy {
+			if !slices.Contains(routableHandlers, h) {
+				t.Errorf("pageFieldWriters[%q].WritableBy names %q, which classifyFindingRoute cannot "+
+					"produce — either the router lost a route or this entry is stale", field, h)
+			}
+		}
+	}
+}
+
+// TestHandlerCanWriteFieldReportsAnUnmeasuredHandlerAsUNKNOWN pins the safety arm
+// directly, because the totality test above can only fail when someone forgets —
+// it cannot prove what happens WHEN they forget. Mutation check: delete the
+// `if !measured` block in HandlerCanWriteField and this fails while the totality
+// test still passes, which is precisely the window bugs_open/395 §9 lived in.
+func TestHandlerCanWriteFieldReportsAnUnmeasuredHandlerAsUNKNOWN(t *testing.T) {
+	const unmeasured = "zzz-handler-that-was-never-considered"
+	for field := range pageFieldWriters {
+		canWrite, known, _ := HandlerCanWriteField(unmeasured, field)
+		if known {
+			t.Errorf("field %q: an unmeasured handler reported known=true — the guard would treat "+
+				"'nobody thought about this' as 'proven incapable' and park a finding that may be fixable", field)
+		}
+		if canWrite {
+			t.Errorf("field %q: an unmeasured handler reported canWrite=true", field)
+		}
+	}
+	// And the measured negative must still be reported as MEASURED, or the arm
+	// above has simply disabled the roster.
+	if canWrite, known, _ := HandlerCanWriteField("page-build-handler", "meta_description"); !known || canWrite {
+		t.Errorf("page-build-handler/meta_description: want known=true canWrite=false, got known=%v canWrite=%v "+
+			"— the unmeasured arm must not swallow a real measurement", known, canWrite)
+	}
+	// The corrected entry, pinned so a revert is loud (bugs_open/395 §9).
+	if canWrite, known, _ := HandlerCanWriteField("content-gap-planner", "title"); !known || !canWrite {
+		t.Errorf("content-gap-planner/title: want known=true canWrite=TRUE, got known=%v canWrite=%v — "+
+			"it reaches apply_gap_plan, whose applyExistingPage runs a bare UPDATE pages SET title", known, canWrite)
+	}
+}
+
+// TestRoutableHandlersMatchesTheRouter is what makes routableHandlers a
+// MEASUREMENT rather than a list somebody once wrote down. It scans
+// classifyFindingRoute's own file for the handler names the router can emit and
+// fails when they drift from the roster's universe — so adding a route without
+// measuring its capability is a build failure, not a silent gap.
+//
+// Without this, the totality test above is circular: routableHandlers would be
+// whatever the roster already covers, and the roster would be total over itself.
+//
+// ⚠ COMMENTS AND STRUCT KEYS ARE STRIPPED FIRST. A source scan that reads its own
+// prose passes vacuously (LANDMINES: "a source-scanning test makes your COMMENTS
+// load-bearing"), and this file's neighbours discuss these very agent names — the
+// router file's own comments name css-patch-agent, webdesign-agent and
+// color-variable-fixer in prose about why a route was changed. Scanning raw text
+// would have silently "passed" on a name no code path can produce.
+func TestRoutableHandlersMatchesTheRouter(t *testing.T) {
+	src, err := os.ReadFile("write_audit_findings_action.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Strip // comments line-wise. Crude but sufficient: the two patterns below
+	// are code-only shapes, and a stray // inside a string literal would only
+	// ever cause this test to under-read, i.e. fail loudly, never pass wrongly.
+	var code strings.Builder
+	for _, line := range strings.Split(string(src), "\n") {
+		if i := strings.Index(line, "//"); i >= 0 {
+			line = line[:i]
+		}
+		code.WriteString(line)
+		code.WriteString("\n")
+	}
+	body := code.String()
+
+	found := map[string]bool{}
+	// (a) direct routes: `HandlerAgent: "x"` — skipping "" (a deliberate park).
+	//
+	// ⚠ BOUNDED TO THE SAME LINE, and the first draft was not: Rule 1 spells it
+	// `HandlerAgent: handler` (a variable, no quote), so an unbounded search ran
+	// on to the next quoted literal in the struct and harvested the DedupKey
+	// format string "%s_%s_%s_%s" as a handler name. The test failed loudly, which
+	// is the only reason it was caught — an over-reading scan of this shape is
+	// otherwise indistinguishable from a real drift report.
+	for _, line := range strings.Split(body, "\n") {
+		i := strings.Index(line, "HandlerAgent:")
+		if i < 0 {
+			continue
+		}
+		seg := line[i+len("HandlerAgent:"):]
+		q := strings.Index(seg, `"`)
+		if q < 0 {
+			continue // `HandlerAgent: handler` — the designRouting branch covers it
+		}
+		if e := strings.Index(seg[q+1:], `"`); e > 0 {
+			found[seg[q+1:q+1+e]] = true
+		}
+	}
+	// (b) designRouting's values, reached by Rule 1's `HandlerAgent: handler`.
+	if i := strings.Index(body, "designRouting = map[string]string{"); i >= 0 {
+		blk := body[i:]
+		if e := strings.Index(blk, "\n}"); e > 0 {
+			blk = blk[:e]
+		}
+		for _, line := range strings.Split(blk, "\n") {
+			if c := strings.LastIndex(line, ":"); c >= 0 {
+				v := strings.Trim(strings.TrimSpace(line[c+1:]), `",`)
+				if v != "" && strings.Contains(v, "-") {
+					found[v] = true
+				}
+			}
+		}
+	}
+
+	if len(found) == 0 {
+		t.Fatal("scanned the router and found no handler names — the scan broke, and a broken scan " +
+			"here reads exactly like a clean fleet")
+	}
+	for h := range found {
+		if !slices.Contains(routableHandlers, h) {
+			t.Errorf("the router can emit handler %q but routableHandlers does not list it, so the "+
+				"roster makes no claim about it and HandlerCanWriteField answers 'not measured' for "+
+				"every field. Measure it and add it — bugs_open/395 §9 is what an unmeasured routable "+
+				"handler costs.", h)
+		}
+	}
+	for _, h := range routableHandlers {
+		if !found[h] {
+			t.Errorf("routableHandlers lists %q but the router cannot emit it — either a route was "+
+				"removed (drop it here too) or this scan has stopped seeing the router's shape", h)
+		}
 	}
 }
