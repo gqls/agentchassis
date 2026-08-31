@@ -479,3 +479,28 @@ today.
 Measurements and traps in
 `docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/NOTES_page_list_invalidation.md`
 (entry 2026-08-31); the handoff carries a CORRECTED block at its head.
+
+### CORRECTION to the update above, same day 16:25Z — the queue collapse is a KNOWN, ENDED credit outage; the open question narrows to ONE run
+
+Item 5's second bullet called the fleet collapse "the `bugs_open/413` starvation shape". **That was
+a guess from shape, made without reading the owning lane's record, and it is wrong.** The
+`dispatch_throughput` lane had already measured it `[MEASURED 2026-08-31 09:45Z]`: an **Anthropic
+credit-balance outage**, window **~2026-08-28 → 2026-08-31 ~08:40–09:00Z (~2.5 days)**, their
+"D4 case 4". Recovery ~09:00Z today; their post-recovery read is clean (zero stuck claims, zero
+pins, nothing owed dispatch-side). 413 is a different, real defect and is not this.
+
+Consequences, which **narrow rather than weaken** the case for keeping 384 open:
+
+- **Items 5a and 5b keep their caveat but lose their mystery.** Zero card production on 08-30/31
+  and the 7 `unresolved` re-render items are the outage. They should drain now that it has ended —
+  **to be re-read, not assumed.**
+- **Item 3's first run survives every confound.** The month's credit outages ran 08-25 23:47→08-26
+  08:55, 08-27 11:30→13:35, and 08-28→08-31 09:00. The completion at **2026-08-27 22:58:18** sits
+  in a HEALTHY window between the second and third. It deployed `blog.html` with a real sha and
+  left the array's `updated_at` at 21:34 — an hour before the cards that triggered it landed.
+- **That one run is now the whole of the open question**, and it is exactly what a `090` should be
+  pointed at: a correctly-specced `section_data_resolved` item, consumed in a healthy window,
+  completing green without rewriting the array it was filed to refresh.
+
+**The close bar is unchanged:** one generic-page landing observed end-to-end — lands, fires, is
+consumed, array rewritten — on a queue that is now, post-recovery, actually draining.

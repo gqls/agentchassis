@@ -374,3 +374,35 @@ measured today; the 08-26 handoff's figures were re-derived, not carried.
 
 **Conclusion: §1 and §6 of `HANDOFF_2026-08-26_continue_here.md` are superseded — 384 is NOT
 ready to close.** Corrected in place at the head of that file.
+
+### 2026-08-31 ~16:25Z — CORRECTION to the entry above: the queue collapse is a DIAGNOSED, OWNED, now-ENDED credit outage — and that SHARPENS the residual finding
+
+I wrote the collapse up as an unexplained fleet symptom "matching the `bugs_open/413` shape". That
+was under-read: I had not checked the `dispatch_throughput` lane's own record before characterising
+their subsystem. Their NOTES (line ~1102, `[MEASURED 2026-08-31 09:45Z]`) already carries it:
+
+- **It is an Anthropic CREDIT-BALANCE outage, not a dispatch defect.** Window
+  **~2026-08-28 → 2026-08-31 ~08:40–09:00Z (~2.5 days)** — "D4 case 4". The night ran 100%
+  failure; the 09:00 hour today ran 0/35 failed. **Recovery ~09:00Z today.**
+- Their post-recovery sanity read is CLEAN: trigger 53 fires/h, arrivals ramping, floor clean,
+  **zero stuck claims, zero pins**. Nothing owed dispatch-side.
+- So `bugs_open/413` (selector/loader starvation) is NOT what I was looking at. Naming it was a
+  guess from shape alone. The check I skipped and should not have: **read the owning lane's record
+  before describing their subsystem's failure** — `scripts/who-owns.py` and their NOTES tail cost
+  under a minute, and I had already been told the lane existed.
+
+**What this does to my own finding — it makes it sharper, not weaker:**
+
+- The **seven `unresolved` items** (08-28 09:30 → 08-31 10:37) are the outage. Expected. Not a
+  defect, and they should now drain post-recovery — **that is a thing to re-read, not to assert.**
+- The **zero card production on 08-30/08-31** is the outage too (image generation is API-bearing).
+  My "demand control" reading stands as a caveat on the census, but its CAUSE is known and ended.
+- **The 2026-08-27 22:58:18 completion is NOT covered by any outage.** The credit outages this
+  month ran 08-25 23:47→08-26 08:55, 08-27 11:30→13:35, and 08-28→08-31 09:00. **22:58 on 08-27
+  sits in a healthy window between the second and third.** It completed green, deployed
+  `blog.html` with a real sha, and left `page_components.updated_at` at 21:34 — an hour before its
+  own trigger's cards landed. **That single run is the whole open question**, and it is now
+  isolated from every confound I had stacked around it.
+
+So the bug file's UPDATE item 5 should be read as: the census IS flattered, the cause is the
+outage, and the outage does NOT explain item 3. Corrected there too.
