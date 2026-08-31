@@ -396,3 +396,34 @@ pressed rebuild. It is written down in the traps file and both other sessions kn
 I mention it because "just rebuild it" is the obvious thing to reach for while we sort out
 the remaining items, and for the next little while it is the one thing that would undo the
 work.
+
+## 2026-08-31 (close of evening) — where boxingonline actually is
+
+Measured in one pass at the end, not carried forward from earlier: every published page is
+clean of your address, every page has the Fight Calendar in its menu, both listings carry
+your six articles and no explainer guides, and the logo is the regenerated text-free mark.
+
+What got fixed tonight, in the order it happened: your address off the site and out of all
+four places it was stored; the six articles your brief asked for, built; those articles
+actually linked from the news page and the home page; the logo regenerated after it turned
+out to say "BOXING NEWS"; and the fight calendar put into the menu, which it had never
+been in.
+
+What is still yours to decide, and none of it is urgent tonight: what to do with the four
+explainer guides now that nothing links to them; whether the site's name should sit beside
+the logo; whether the contact page should go or be given somewhere to send messages; the
+colour scheme; and whether the guide-typing question gets settled across the whole estate
+or just here.
+
+Two things that constrain anyone working on this site. It must not be rebuilt from scratch
+until a fix has shipped, or your address comes back. And the footer cannot currently be
+regenerated at all — the reason was found tonight by watching it fail live: the page
+builds fine and then the database rejects it because a character has been cut in half
+somewhere, and the code notes this and reports success anyway. Until that is fixed the
+footer on your site is the one I edited by hand, which is the only version that exists.
+
+The honest summary of the evening is that almost nothing here was broken in a way that
+announced itself. Every page passed every check, all night, including while it was
+publishing your personal email address. What found things was looking at the actual served
+pages, one at a time, with something in each check that had to be true so a blank answer
+could not pass for a clean one.
