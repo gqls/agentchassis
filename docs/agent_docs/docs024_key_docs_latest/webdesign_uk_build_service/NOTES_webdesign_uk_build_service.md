@@ -6797,3 +6797,32 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   ("Boxing Online" ×8 in visible text) — the header-name question shrinks to a
   design preference, pinned to the palette decision along with the logo's
   baked-in dark ground.
+
+## 2026-08-31 (~18:3xZ) — CORRECTION: the footer item is NOT discharged; the footer is UNREGENERABLE, 090 filed
+
+> **CORRECTED 2026-08-31 (~18:3x):** the previous entry claimed nav-updater's
+> footer re-render "discharges the hand-patched-footer item". **FALSE** — caught
+> by the boxingonline session at the artefact: site_components footer is
+> untouched (updated_at still 16:05:49, the hand edit), only the header slot was
+> rebuilt (17:47:28). My reasoning cited a gate that WOULD keep the contact
+> block absent (component_library.go:1988) — but the step that would exercise it
+> never ran on that slot. **A gate that would produce the right answer is not
+> evidence that it produced this answer** (the peer's phrasing; keep it).
+
+- **The sharper finding: the footer cannot currently be regenerated AT ALL.**
+  Two genuine runs tonight (corr 3f604312 ~15:39; corr 07fed163 17:47) ran
+  render_site_components with slots=[header,footer,head] + force_rerender=true;
+  both runs' own output shows rendered.footer=FALSE with ineligible_chrome,
+  chrome_render_failed and locked_slots all EMPTY — a silent decline that
+  surfaces in none of the action's reason fields. Row is unlocked; component
+  footer-theme-chrome is active and joins. Candidate branches (read, not
+  proven): the 342 refuse-store-keep-serving branch, the empty-render branch.
+  **090 FILED: RUN_CORRELATION_ID=387c0a2d-7fd7-460c-b7cf-fb46ff50b13f.**
+- **Pre-delivery item REOPENED and restated**: not "rebuild the footer" but
+  "make a genuine footer regeneration RUN and verify at the served page that
+  the contact block stays absent" — the hand-patch currently serves for a
+  reason that no regeneration has ever tested.
+- Mirror sequencing: my nav verifier gates the force on 2 consecutive quiet
+  polls, so no partial-tree publish comes from this session; peer confirms the
+  current state is honest lag (served object OLDER than deployed_at — their
+  signature line for telling lag from upstream-dirt goes into 420).
