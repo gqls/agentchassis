@@ -61,7 +61,7 @@ a count → "FELL … ratchet down".
    Commented at the site, listed in the ratchet header's blind spots.~~
    **CLOSED 2026-08-31** — decision made by measurement (jsonb column, 0 of 2,751 live values
    non-object, 55 SQL-NULL rows stay loadable): decode failure now drops the row so the existing
-   `ScanShortfall` refuses. Council corr `a69d82f2` (submitted; read the verdict). NOTES
+   `ScanShortfall` refuses. Council **APPROVED r1** (`a69d82f2`, 2026-08-31). NOTES
    2026-08-31 has the full account. Item 2 also moved: shipped by the 404 lane (`ef4236b4d`).
 4. **Convergence debt (reuse_agent advisory, tracked not owed now):** `scanBlogArticles`
    (`rebuild_blog_listing_action.go`) is the TRUE sibling — converge onto `ScanShortfall` the

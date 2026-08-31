@@ -365,8 +365,9 @@ pinned by `TestLoadStoredSections_NullContentDataStaysLoadable`. Both mutations 
 restore the `_ =` form → the new refusal test red with "(2 sections, nil error)"; delete
 `ScanShortfall` → all three refusal tests red. Classifier parity re-verified after the edit:
 still 207 sites / 127 files, 0 disagreements, the rerender file still 0 unmarked.
-Council: `Council-Submitted: a69d82f2-9859-4c33-98d9-e791fade2974` (this is a submission, not a
-verdict — read the verdict before citing approval).
+Council: **APPROVED r1** (`a69d82f2-9859-4c33-98d9-e791fade2974`, 2026-08-31, all reviewers —
+two low advisories, both accepted as trades stated in the submission; the four-seat precedent
+ask answered at the artefact: `7c443aac6` itself shipped the deferral comment and bullet).
 
 **The guard's live zero graduated from UNDEMANDED to DEMANDED** `[MEASURED 2026-08-31]`: 209
 orchestrations since 2026-08-30 carry the `rerender_page_sections` action in their plan, **87

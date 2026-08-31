@@ -560,3 +560,28 @@ lanes' work or undecided), with instance 3 marked closed inside it.
   `plan.edits[].operation` is an enum (modify|add|remove|config_change) — free-text operations
   are rejected; normalised to `modify` and it dispatched. Committing with `Council-Submitted:`,
   verdict to be read when it lands (~30 min budget incl. queue).
+
+### 2026-08-31, later — verdict READ: APPROVED r1, all reviewers, 10 seats (6 abstained)
+
+`a69d82f2` approved, `decided_by: all reviewers approve`. Dispositions, so nothing dangles:
+
+- **editquality low** (edit 3 is comment-only): accepted — it was deliberate landmine hygiene
+  (a stale-status bullet describing a closed hole as open), and the submission claimed nothing
+  more for it.
+- **guardian low** (refusal reuses ScanShortfall's "lost to scan failures" text for a decode
+  failure): accepted as the trade stated in submission risk 3 — the Warn line above the refusal
+  names the true cause and the row id; one refusal literal beats two.
+- **Four seats asked the same precedent check** (did the prior round actually defer the content
+  axis, or is that asserted?): **ANSWERED AT THE ARTEFACT** `[MEASURED 2026-08-31]` — the
+  approved commit `7c443aac6` itself shipped the "KNOWN RESIDUAL … Not fixed here" comment AND
+  the ratchet's "CONTENT loss … NOT covered" bullet, and its commit message body declares
+  "RESIDUALS, stated so none of this reads as wider coverage than it has: … CONTENT loss is a
+  different axis and is NOT covered". The deferral was in the reviewed material, not in
+  folklore.
+- **guardian's contingency** (census hasn't moved): re-run post-verdict — object **2759** (8 new
+  object rows since the morning count of 2751, the estate writing normally), NULL 56, still
+  **zero non-objects**. Conclusion unchanged; the figure in the shipped comment stays cited as
+  "as of 2026-08-31".
+
+Commit `359503af0` carries `Council-Submitted:` and is auto-credited by 098 now the verdict is
+approved — no amend, forward-only.
