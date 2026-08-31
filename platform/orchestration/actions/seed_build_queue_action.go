@@ -29,8 +29,11 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -157,6 +160,22 @@ func SeedBuildQueueAction(ctx context.Context, params ActionParams) (interface{}
 			continue
 		}
 
+		// P5 of the order intake (P4 plan §4, owner GO 2026-08-26): a build
+		// whose direction carries the intake's customer fields gets its
+		// honesty guards ARMED in the same transaction that files the first
+		// work item — contact details onto the sites row, and a minimal
+		// evidence_base register seeded so the claims layer has the
+		// customer's own attestations to check the built pages against.
+		// Without this a collected brief builds a site with no register at
+		// all, which is why seed 661 ships its collector disabled until now.
+		if err := seedCustomerIdentity(ctx, tx, site.ID, entry.direction, logger); err != nil {
+			tx.Rollback()
+			logger.Warn("SeedBuildQueueAction: customer identity seed failed",
+				zap.String("domain", domain), zap.Error(err))
+			skipped++
+			continue
+		}
+
 		var batchID uuid.UUID
 		if entry.batchID != nil {
 			batchID = *entry.batchID
@@ -237,6 +256,102 @@ func SeedBuildQueueAction(ctx context.Context, params ActionParams) (interface{}
 		"skipped": skipped,
 		"total":   len(entries),
 	}, nil
+}
+
+// seedCustomerIdentity arms a customer build's honesty guards from the
+// intake fields the collector threads through build_queue.direction
+// (customer_email / customer_name / order_reference — collect_external_orders
+// is today's only writer, but any future producer threading the same keys
+// gets the same arming without naming it here).
+//
+// Deliberate boundaries, each load-bearing:
+//   - fires ONLY when customer_email or customer_name is present and
+//     non-blank — every other direction shape is untouched by P5;
+//   - never overwrites a non-empty sites value (an operator's correction
+//     outranks the intake answer that predates it);
+//   - never supersedes an EXISTING current evidence_base — a re-seed after a
+//     lost ack or retry must not wipe a register somebody has enriched. The
+//     WHERE NOT EXISTS arm makes the no-clobber rule a property of the SQL,
+//     not of caller discipline.
+//
+// The seeded facts follow the live register shape (id/kind/claim/source/
+// verified_at, kind='entity' — the same shape webdesign.uk's own contact fact
+// uses): they are the CUSTOMER's attestations, marked as such, not platform
+// measurements.
+func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, direction map[string]interface{}, logger *zap.Logger) error {
+	email, _ := direction["customer_email"].(string)
+	name, _ := direction["customer_name"].(string)
+	reference, _ := direction["order_reference"].(string)
+	email = strings.TrimSpace(email)
+	name = strings.TrimSpace(name)
+	reference = strings.TrimSpace(reference)
+	if email == "" && name == "" {
+		return nil
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE sites
+		SET email        = COALESCE(NULLIF(email, ''), NULLIF($2, '')),
+		    company_name = COALESCE(NULLIF(company_name, ''), NULLIF($3, '')),
+		    updated_at   = now()
+		WHERE id = $1`, siteID, email, name); err != nil {
+		return fmt.Errorf("write customer identity to sites: %w", err)
+	}
+
+	attested := "customer at order intake"
+	if reference != "" {
+		attested += ", reference " + reference
+	}
+	today := time.Now().UTC().Format("2006-01-02")
+	facts := []map[string]interface{}{}
+	if name != "" {
+		facts = append(facts, map[string]interface{}{
+			"id":          "business_name",
+			"kind":        "entity",
+			"claim":       fmt.Sprintf("The business is called %s.", name),
+			"source":      map[string]interface{}{"attested_by": attested},
+			"verified_at": today,
+			"writer_line": name,
+		})
+	}
+	if email != "" {
+		facts = append(facts, map[string]interface{}{
+			"id":          "contact",
+			"kind":        "entity",
+			"claim":       fmt.Sprintf("Enquiries reach %s.", email),
+			"source":      map[string]interface{}{"attested_by": attested},
+			"verified_at": today,
+		})
+	}
+	data := map[string]interface{}{
+		"facts": facts,
+		"schema_notes": "Seeded at build release from the customer's own intake answers " +
+			"(order-intake P5, P4 plan §4). These are the customer's attestations, not " +
+			"platform measurements; enrich this register rather than assuming it is complete.",
+	}
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshal seeded evidence_base: %w", err)
+	}
+	notes := "order-intake P5 seeding"
+	if reference != "" {
+		notes += " (" + reference + ")"
+	}
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO site_specs (site_id, aspect, data, source, created_by, is_current, notes)
+		SELECT $1, 'evidence_base', $2::jsonb, 'order_intake', 'seed_build_queue', true, $3
+		WHERE NOT EXISTS (
+			SELECT 1 FROM site_specs
+			WHERE site_id = $1 AND aspect = 'evidence_base' AND is_current
+		)`, siteID, string(dataJSON), notes)
+	if err != nil {
+		return fmt.Errorf("seed evidence_base: %w", err)
+	}
+	if n, rErr := res.RowsAffected(); rErr == nil && n == 0 {
+		logger.Info("seedCustomerIdentity: evidence_base already present, left untouched",
+			zap.String("site_id", siteID.String()))
+	}
+	return nil
 }
 
 // seedDetermineFirstItem examines the direction field and returns the item_type,

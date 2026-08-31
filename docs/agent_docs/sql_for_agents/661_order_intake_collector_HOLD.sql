@@ -17,11 +17,14 @@
 --
 -- ⚠ SHIPS DISABLED (enabled=false), and the verify block ASSERTS disabled.
 -- Two things are owed before anyone flips it on:
---   1. P5 seeding — seed_build_queue does not yet write the customer's
---      contact details into `sites` or seed an evidence_base aspect, so a
---      collected brief today builds a site with the numeric-claims honesty
---      guard UNARMED (P4 plan §4). The direction payload already carries
---      customer_email / customer_name / order_reference for P5 to read.
+--   1. ~~P5 seeding — seed_build_queue does not yet write the customer's
+--      contact details into `sites` or seed an evidence_base aspect~~
+--      BUILT 2026-08-31 (`seedCustomerIdentity` in seed_build_queue_action.go:
+--      sites.email/company_name + a two-fact evidence_base register from the
+--      direction's customer fields, mutation-proven; existing values and an
+--      existing register always win). ⚠ Go is INERT UNTIL A ROLL — before
+--      flipping the task on, verify the running chassis carries the commit:
+--      `git merge-base --is-ancestor <the seedCustomerIdentity commit> <stamp>`.
 --   2. The chassis env needs WEBDESIGN_BOX_ORDERS_TOKEN (terraform
 --      047-base-configs; the collector fails loudly without it).
 -- Enable with:
