@@ -3,6 +3,20 @@
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-26_continue_here.md`** (same
 day — the chassis roll, the owner's trial, and the canary's first scores landed after it).
 
+> **08-31 NIGHT UPDATE — the current truth, over everything below:** the owner RULED A, B and C.
+> A+B SHIPPED (mild set emptied, instead_of/not_just added — council-APPROVED `169ff10d`, Go,
+> inert until the roll after v1.0.1346; probe literals `instead_of`/`not_just`). C step 1 LANDED:
+> migration `667` applied the offer-lane-ACKed 41 washed benefit points (council `1c787532`,
+> verdict pending — READ IT); the 10 exclusions repaired by EXPANSION await their final verdict
+> in the WASH doc (3 REJECTED as invented substance → their provenance re-derivation). **The
+> wiring gate was REDEFINED by the offer lane's own retraction: producer PROPERTY, not corpus
+> state — their mint runs 23% dirty (~130 points/day) and needs a loud post-mint mechanism before
+> the template wiring ships.** First outing vetcomparison.uk; 8 excluded-row sites held. Owner
+> rulings now number 14 + A/B/C/D + the axis confirmation (D and the axis await him). Key laws
+> from tonight: THE CORPUS MOVES (exact-text RAISEs, not indexes) and TRUNCATION LOSES MEANING /
+> EXPANSION MANUFACTURES IT. Fable model-trial: register 0-vs-5 but DENSITY FAIL (ruling 13);
+> Grok/Gemini arms still queued.
+
 > **08-31 UPDATE — read this before the 08-30 one:** the owner issued RULINGS 9–12
 > (rulings doc tail): "plainly" banned; no internal-directive explanations in copy; MODEL TRIALS
 > ordered (Fable benchmark → Grok → Gemini); benefit-led hero co-design with the offer/benefit
