@@ -550,6 +550,8 @@ committed; see HANDOFF_2026-08-09 §3 for the key-creation walkthrough), holds:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...          # scoped Workspace key, workspace "webdesign-uk-chat"
+                                      # ⚠ a workspace key is NOT a separate BUDGET — see
+                                      # "Moving the chat to a different API budget" below
 CONTACT_EMAIL=webdesign@contactforsales.com
 CONTACT_PHONE=+44 (0) 7934 524 911
 ```
@@ -567,6 +569,72 @@ figures — see "sizing the daily ceiling" below):
 MAX_TURNS_PER_CONVERSATION=20   # default in code
 DAILY_SPEND_CEILING_USD=10.00   # default in code
 ```
+
+### Moving the chat to a different API budget (the key swap)
+
+**Run `box/swap-chat-api-key.sh`. Do not hand-edit the env file.**
+
+```bash
+box/swap-chat-api-key.sh --status   # read-only, no key needed — which key is live?
+box/swap-chat-api-key.sh --check    # prompt for a key, TEST it against the API, write nothing
+box/swap-chat-api-key.sh            # prompt, test, back up, write, restart, verify
+```
+
+**The thing to understand first: a different KEY is not a different BUDGET.** The
+Anthropic usage limit belongs to the ORGANISATION, not to the key. `[MEASURED
+2026-08-31]` the chat's key (`c3358af6406c`) is already a different key from the fleet's
+(`79eafe5d414e`, cluster secret `personae-default-secrets`), and the fleet still spent
+the chat dark twice — `anthropic 400 ... "You have reached your specified API usage
+limits"` on 2026-08-27 and 2026-08-30. **So a swap only buys anything if the new key is
+on a different ACCOUNT.** The script's preflight will happily accept a valid key whose
+account is already capped; it says so explicitly (`400` naming "usage limits") rather
+than letting you believe you have fixed something.
+
+**Keys are never printed, here or anywhere. The currency is a fingerprint** — twelve hex
+of sha256 over the key:
+
+```bash
+printf %s "<the key>" | sha256sum | cut -c1-12
+```
+
+Equal digests mean the same key, and nothing secret is revealed, so fingerprints are
+safe in chat, docs and commit messages. The box, the script and the service's own
+journal all speak that one number. **This is how a session that may never read a key can
+still answer "is the chat on the separate budget?"**
+
+**Why not just edit the file?** All three hand steps fail quietly:
+
+| hand step | how it fails silently |
+|---|---|
+| edit the key | a mistyped key does NOT stop the service — `main.go` only checks it is non-EMPTY. systemd says `active`, `/health` says 200, and every visitor gets the fail-closed contact line: **the same symptom as a usage-limit outage, from a different cause** |
+| restart | forget it and NOTHING changed — systemd reads `EnvironmentFile` once, at start. Worse, every check that reads the FILE then agrees with the file |
+| read the journal | a failed restart leaves the shopfront with no chat at all, and the old value is gone |
+
+The script preflights (one token) and **writes nothing on a non-200**; backs up
+`/etc/webdesign-chat.env` and **restores it automatically** if the unit does not come
+back; rewrites exactly one line or refuses; and then asks the RUNNING PROCESS what it
+holds rather than re-reading the file.
+
+> **The running-process check needs the fingerprint line, added to `main.go` 2026-08-31.
+> A binary older than that reports `RUNNING process: unknown` and the script falls back
+> to the env file — which is exactly the weaker check the whole section is warning
+> about.** Roll it with `make box-release` (from committed HEAD) and the journal answers
+> for itself:
+> ```bash
+> ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+>   "journalctl -u webdesign-chat --no-pager -o cat | grep 'api key fingerprint' | tail -1"
+> ```
+
+**The last step is the owner's and it is the only end-to-end proof**: send one message
+through the chat on the live site, then look at the NEW account's usage in the Console.
+The service answering proves the key works; **the usage appearing against the new
+account is what proves the BUDGET moved.**
+
+⚠ **The second-site recipe below inherits whatever this file holds** — it `grep`s
+`ANTHROPIC_API_KEY` out of `/etc/webdesign-chat.env` — so after a swap every new site's
+chat silently joins the new account's budget. That is usually what you want; say which
+budget you are joining when you provision, because otherwise a `grep` is making the
+decision.
 
 ### Sizing the daily ceiling
 

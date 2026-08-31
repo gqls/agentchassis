@@ -2198,3 +2198,63 @@ the "Not active yet" notice showing (twice, as intended — ordering is still cl
 payment webhook answers correctly, the chat answers a real question, and none of the
 neighbouring services (preview, the customer-links address, the admin console) changed.
 To take the site down again: same place in Cloudflare, flip the two switches back on.
+
+## 2026-08-31 — the chat's separate key: ready for you to run, and one thing worth knowing first
+
+You asked me to set up the separate key for the chat. It is ready, and there is a
+command for you to run — but there is something to say first, because it changes what
+"separate key" has to mean.
+
+**The chat already has its own key, and that is exactly why it still went dark.** I
+checked both keys today without ever reading either one (there is a way to compare keys
+by a fingerprint, a short code derived from a key that identifies it without revealing
+it). The chat's key and the background fleet's key are genuinely different keys. They
+just belong to the **same Anthropic account** — and the spending limit belongs to the
+account, not to the key. So the fleet spent the shared allowance, and the chat, holding
+its own private key, went quiet anyway.
+
+What follows is the thing to be careful about: **if the new key is on the same account,
+the swap will appear to work perfectly and will protect nothing.** The chat would answer,
+everything would look healthy, and the next busy day would silence it again. So the only
+question that matters is whether the second key is on a genuinely separate account with
+its own billing. You said it was, and the tool checks what it can — but that one is
+yours to be sure of.
+
+**To do it, run this in your own terminal** (from the project directory):
+
+    docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/box/swap-chat-api-key.sh
+
+It asks for the key at a hidden prompt. The key never appears on screen, never enters
+your command history, and never passes through me — that last part is a standing rule
+here, and it is why this is a command for you rather than something I did.
+
+Before it changes anything, it makes one tiny test call to Anthropic with the new key. If
+the key is wrong, or if the new account has *already* hit its own limit, it stops and
+tells you which, and changes nothing at all. I proved that by feeding it a deliberately
+wrong key: it refused, and the file on the server was untouched afterwards. It also keeps
+a copy of the old settings and puts them back automatically if the chat fails to restart,
+so the shopfront cannot be left with no chat at all.
+
+**Why I did not simply follow the four-line recipe in Monday's plan.** I read the chat's
+code, and it only checks that a key is *present*, not that it works. So a mistyped key
+starts up perfectly cleanly — the service reports healthy, the health check passes — and
+every visitor gets the "please contact us directly" message instead of a conversation.
+That is the *same thing you would see* as during the usage-limit outages, from a
+completely different cause, and the plan's verification step would not have caught it.
+The new command tests before it writes, which removes that whole class of mistake.
+
+Two smaller things. The plan says the noted.co.uk chat is running on the same server with
+its own settings file — it is not; there is only the webdesign.uk chat there today, so
+this swap touches one file and affects nothing else. And the limit that silenced the chat
+has since lifted: the chat has been answering again today. So this is not an emergency
+repair, it is a defence put in place between one outage and the next.
+
+**One optional extra, and it needs your say-so.** I have added a line to the chat
+software that makes it state — in its own log, as a fingerprint, never as the key — which
+key it is actually running on. That sounds pedantic, but it closes a real hole: editing
+the settings file and forgetting to restart changes nothing, and every check that reads
+the file will cheerfully agree with the file. Asking the running service is the only
+honest check. To make it live, the chat software needs rebuilding and restarting (a few
+seconds of downtime, and it can ride the same restart your key swap already needs). I
+have not done it, because it means deploying to the live shopfront and that is your call.
+The key swap works without it, on the weaker check.

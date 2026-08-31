@@ -18,6 +18,37 @@ just-launched shop with a silent assistant, twice in its first week. The owner n
 
 ## 2. The straightforward answer: the chat is ALREADY separable — one env line
 
+> **CORRECTED 2026-08-31 (budget-separation thread), on three measurements against the
+> live box and cluster. The conclusion of this section survives; two of its premises do
+> not, and one of them would have made the swap look pointless.**
+>
+> 1. **The chat ALREADY HAS ITS OWN KEY. That is why "give it a separate key" is not, on
+>    its own, the fix.** `[MEASURED 2026-08-31]` box `/etc/webdesign-chat.env` key
+>    fingerprint `c3358af6406c`; cluster fleet key (`personae-default-secrets` →
+>    `ANTHROPIC_API_KEY`) `79eafe5d414e`. Different keys — and both outages hit anyway,
+>    because **the usage limit is a property of the ORGANISATION, not of the key.** The
+>    RUNBOOK's own note that this is a "scoped Workspace key" is consistent with that and
+>    must not be read as a separate budget. So the swap is only worth doing if the new
+>    key is on a **different ACCOUNT** (which is what the owner holds). A second key on
+>    the same account would change nothing at all, and would look like a fix.
+> 2. **There is no second chat instance on the box today.** `[MEASURED 2026-08-31]`
+>    `/etc/sitechat/` is EMPTY and `systemctl list-units 'sitechat@*' --all` returns
+>    nothing; `webdesign-chat.service` is the only chat unit. The per-unit isolation this
+>    section describes is real as a MECHANISM (the template unit and the runbook recipe
+>    exist) but noted.co.uk is not running one, so the swap touches exactly one file and
+>    inherits nothing. ⚠ The provisioning recipe in `RUNBOOK_webdesign_uk_build_service.md`
+>    COPIES the key out of `/etc/webdesign-chat.env`, so after the swap every new site's
+>    chat silently joins the NEW account's budget — correct here, but it is a decision
+>    being made by a `grep`, so say which budget you are joining when you use it.
+> 3. **The cap has lifted; the chat is answering again.** `[MEASURED 2026-08-31]` a
+>    one-token preflight with the live key returned **HTTP 200**. Last failure was
+>    2026-08-30 20:46Z. So this is no longer an outage being fought — it is a defence
+>    being built before the next one.
+>
+> **The one-env-line claim itself is CONFIRMED** — the env file carries exactly one
+> `ANTHROPIC_API_KEY` line, `claude.go` reads it per call from the process environment,
+> and nothing else on the box or in the cluster reads it.
+
 It is genuinely easy, because the chat was built separate: `sitechat` is its own binary
 on the box (not in the cluster), reads its key from its own env file, calls
 api.anthropic.com directly, and carries its own guards (a $10/day spend ceiling in its
@@ -28,18 +59,30 @@ The swap is the OWNER's to run (a key value must never pass through a session �
 rule 2026-08-23), in his own terminal:
 
 ```bash
-ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com
-# edit /etc/webdesign-chat.env: replace the ANTHROPIC_API_KEY=... line with the new key
-# then:
-systemctl restart webdesign-chat && journalctl -u webdesign-chat -n 5 -o cat
-# the startup lines confirm the service; then one chat message from the site proves the key
+docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/box/swap-chat-api-key.sh
 ```
 
+> **BUILT 2026-08-31, replacing the hand recipe that stood here.** The hand version was
+> `ssh` in, edit the file, restart, read the journal — and each of those three steps
+> fails SILENTLY. A mistyped key does not stop the service (`main.go` checks only that
+> the key is non-empty), so systemd says `active`, `/health` says 200, and every visitor
+> gets the fail-closed contact line: **the same symptom as the outage this whole plan is
+> about, from a different cause.** Forgetting the restart changes nothing while every
+> file-based check agrees with the file. And a restart that fails leaves the shopfront
+> with no chat at all.
+>
+> The script preflights the new key against the real API and **writes nothing unless it
+> returns 200** (proven 2026-08-31: an invalid key drew `401 authentication_error` and
+> the env file was byte-identical afterwards, no backup taken); backs up and restores on
+> a failed restart; rewrites exactly one line or refuses; and reports the fingerprint the
+> RUNNING PROCESS holds, not the file's. `--status` is read-only and needs no key — any
+> session can run it. `--check` tests a key and writes nothing.
+
 Notes that matter:
-- **Per-unit isolation already exists**: `noted.co.uk`'s chat runs the same binary under
-  its own unit with its own env (`/etc/sitechat/<domain>.env`) — it keeps whatever key
-  it has. Each site's chat can sit on whichever budget the owner chooses, one env file
-  each.
+- **Per-unit isolation exists as a mechanism**, ~~and `noted.co.uk`'s chat runs the same
+  binary under its own unit with its own env~~ — **CORRECTED 2026-08-31: no second
+  instance exists on the box** (see the correction above). Each site's chat *can* sit on
+  whichever budget the owner chooses, one env file each; today there is one env file.
 - The chat's own $10/day ceiling stays as the per-day brake **inside** whatever the new
   account's limit is; set the new account's limit modestly and the chat can never spend
   past either.
@@ -96,6 +139,15 @@ first question to cost is the DB: shared clients_db across clusters is most of t
 pain, and a webdesign-only DB means forking the build pipeline's whole data model.
 
 ## 6. Facts the other thread will want
+
+> **STATE AS OF 2026-08-31, measured by the budget-separation thread.** The chat is on
+> key `c3358af6406c`, the fleet on `79eafe5d414e`, and **both bill the same account** —
+> which is the whole of the problem. The env file has been untouched since 2026-08-26
+> 22:01 and the service has been running commit `160546543` since 2026-08-27 14:05, so
+> **no swap has happened yet**. The cap is currently lifted (preflight 200). Guard
+> figures below CONFIRMED: the env file sets no `DAILY_SPEND_CEILING_USD` or
+> `MAX_TURNS_PER_CONVERSATION`, so the code defaults ($10.00/day, 20 turns) are what is
+> actually in force.
 
 - Two limit outages: 2026-08-27 ~11:39Z (raised same day) and 2026-08-30 ~20:46Z
   (limit reached again; access self-restores 2026-09-01 00:00 UTC; budget since raised).

@@ -7,6 +7,8 @@ package main
 // pattern: log.Fatal on config problems, never limp along).
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"log"
 	"net/http"
 	"os"
@@ -36,6 +38,30 @@ func logBuildProvenance() {
 	log.Printf("build provenance: git_commit=%s", c)
 }
 
+// keyFingerprint says WHICH Anthropic key this instance holds, without ever
+// exposing it: twelve hex characters of sha256 over the exact key bytes. The
+// owner can match it against a key he holds with
+//
+//	printf %s "$KEY" | sha256sum | cut -c1-12
+//
+// so "is the chat on the separate budget?" is answerable by anyone, in a
+// transcript or a doc, with no secret changing hands. Twelve hex is 48 bits of
+// a one-way digest over a ~108-character key — it identifies, it cannot recover.
+//
+// It exists because the env FILE cannot answer that question about the RUNNING
+// process. systemd reads EnvironmentFile once, at start: an edited file plus a
+// service nobody restarted disagree silently, and EVERY check that reads the
+// file agrees with the file. That is the same trap `build provenance` above was
+// added for — ask the artefact, not the config — and it is the exact failure
+// this line is here to catch, because a key swap IS an edit-then-restart.
+func keyFingerprint(key string) string {
+	if key == "" {
+		return "none"
+	}
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])[:12]
+}
+
 func env(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -51,6 +77,11 @@ func main() {
 	if os.Getenv("ANTHROPIC_API_KEY") == "" {
 		log.Fatal("ANTHROPIC_API_KEY not set — refusing to start")
 	}
+	// Which key, not just that there is one — see keyFingerprint. Logged on the
+	// same startup line shape as build provenance so one journal read answers
+	// both "what code is this" and "whose budget does it spend".
+	log.Printf("api key fingerprint: sha256=%s (12 hex of the key; never the key itself)",
+		keyFingerprint(os.Getenv("ANTHROPIC_API_KEY")))
 
 	contactEmail := env("CONTACT_EMAIL", "")
 	contactPhone := env("CONTACT_PHONE", "")

@@ -6398,3 +6398,68 @@ Rehearsal inputs staged: the customer brief read verbatim from build_queue.direc
 to be taken from the DEPLOY record when it exists, per the handoff's §1.4 slug rule —
 no domain wiring during the rehearsal. Next after deploy: dispatch
 `delivery-review-filer` (651 header recipe), then the owner's APPROVE on admin.apis.uk.
+
+## 2026-08-31 (budget-separation thread) — the chat's key swap, made safe and made checkable
+
+Owner asked for the separate key to be set up for the chat, pointing at
+`PLAN_2026-08-31_api_budget_separation.md`. The plan is one day old; **two of its
+premises were already wrong**, and the first of them matters more than the rest of the
+work:
+
+- **The chat already HAS its own key** `[MEASURED 2026-08-31]`: box
+  `/etc/webdesign-chat.env` → `c3358af6406c`, cluster `personae-default-secrets` →
+  `79eafe5d414e`. Different keys, and the chat went dark twice anyway. **The usage limit
+  is an ORGANISATION property, not a key property** — so "give the chat its own key" was
+  already true and bought nothing. Only a key on a **different ACCOUNT** helps. This is
+  the failure shape the plan could have caused: doing the swap with a second key on the
+  same account, seeing it succeed, and believing the shopfront was protected.
+  (Fingerprints only — no key value entered this session; standing rule 2026-08-23.)
+- **No second chat instance exists on the box** `[MEASURED 2026-08-31]`: `/etc/sitechat/`
+  empty, no `sitechat@*` units. The plan (and the 08-16 runbook section) describe
+  noted.co.uk running one. The template unit and recipe are real; the instance is not.
+- **The cap has since lifted** — one-token preflight with the live key returned HTTP 200
+  today. Last failure 2026-08-30 20:46Z. Not an outage being fought; a defence being
+  built between outages.
+
+**Why a script rather than the plan's four-line ssh recipe.** Reading `main.go`: the key
+is checked for non-EMPTINESS only. So a mistyped key starts cleanly — `active`, `/health`
+200 — and every visitor gets the fail-closed contact line. **That is the identical
+symptom to the usage-limit outage, from a different cause**, and the hand recipe's
+verification step (`journalctl -n 5`, then "one chat message proves the key") would show
+a healthy service. `box/swap-chat-api-key.sh` therefore preflights the new key against
+the real API with a one-token call and **writes nothing on a non-200**, backs up and
+auto-restores on a failed restart, and rewrites exactly one line or refuses.
+
+- **Refusal path PROVEN, not asserted** `[MEASURED 2026-08-31]`: fed a deliberately
+  invalid key, `--check` drew `HTTP 401 authentication_error`, and afterwards the env
+  file was byte-identical (mtime `2026-08-26 22:01:21.595992105`, 527 bytes, backup count
+  unchanged at 3). A refusal path that has never refused is a claim.
+- The preflight also distinguishes the case that would otherwise look like success: a
+  valid key whose **account is already capped** returns 400 naming "usage limits".
+  Without that, the swap "works" and the chat is still one fleet-busy day from silence.
+
+**The verification gap this exposed, and the fix.** The env FILE cannot answer "which key
+is the RUNNING process using" — systemd reads `EnvironmentFile` once at start, so an
+edited file plus a forgotten restart disagree, and every file-based check sides with the
+file. Same class as the md5-vs-provenance correction of 2026-08-18. So `main.go` now logs
+`api key fingerprint: sha256=<12 hex>` beside `build provenance`, and the script reports
+the RUNNING value with the file's as a fallback. **Fingerprints are the currency
+throughout** (`printf %s "$KEY" | sha256sum | cut -c1-12`): they identify a key without
+revealing it, so a session that must never read a key can still answer "is the chat on
+the separate budget?".
+
+- Five tests, and **each was mutation-proven** — constant return, `TrimSpace` before
+  hashing (silently breaks agreement with the owner's shell recipe), hashing `""` instead
+  of naming it (`e3b0c44298fc` reads as a configured instance), and returning `key[:12]`.
+  First run of the constant mutation FAILED AT THE COMPILER (unused imports), not at the
+  test — a guard in series, so it was re-run with the imports kept live and the tests
+  killed it themselves. The oracle digests come from `sha256sum`, not Go's library, so
+  the tests prove the owner's number and ours agree rather than that the code calls the
+  library it visibly calls.
+- **STILL INERT**: the running binary is `160546543`, which predates the line, so
+  `--status` currently reports `RUNNING process: unknown`. The swap works without it, on
+  the weaker file-based check. `make box-release` closes that gap and can ride the same
+  restart the swap needs.
+
+Out of council scope (docs/, not `platform|internal|pkg` or a migration) — checked
+against `scripts/council-scope.sh`, not assumed.
