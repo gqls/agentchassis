@@ -997,3 +997,12 @@ field types it treats as "never sentences", and card headings are stored in a fi
 "name", which is on that list — so headings were invisible to it from birth. Filed with a
 one-line fix identified (bug 420). The page still reads methodical in structure — that was
 expected, nothing we shipped targets it, and your ear stays the judge of whether it now passes.
+
+**2026-08-31, early evening.** Two more things done. The farmer insurance site's planning
+documents no longer recommend building the seven tools you deleted — that was the layer that
+would have quietly re-created them the next time the system generated content for that site.
+The other lane that ran your deletion checked the work independently and signed it off; what
+remains on farmer is the button labels and a handful of sentences that still mention the dead
+tools, queued next. And since the approach-page test passed, the other eight finetuning pages
+are now being rebuilt through the same corrected machinery — before-and-after counts will be
+ready for each, and the pages themselves will be ready for your read.

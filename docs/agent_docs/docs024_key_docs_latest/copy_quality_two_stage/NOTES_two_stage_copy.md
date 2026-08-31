@@ -3287,3 +3287,33 @@ the expected result, and the owner's ear remains the judge.
 Artefacts: pre/post HTML + content_data in scratchpad; markers in orchestration `2eecc01d`
 collected_data (iter_N_rewrite_negations keys); llm_call_log 15:24–15:28Z shows
 generate→rewrite pairs (repair prompt live in production, first measured firing).
+
+---
+
+## 2026-08-31 early evening — 674 APPLIED (farmer spec layer DONE); canary WIDENED to the remaining eight
+
+**Migration 674** (`674_farmer_cull_spec_wash_three_prose_aspects.sql`, commit `14bfb04f0`,
+council corr `53ea95f4` Council-Submitted) superseded farmer's briefing/strategy/
+vertical_landscape — the parcel's step 1, exactly as handed: supersede-never-edit, predecessors
+kept, deletion-first surgery (offline-built with per-needle exactly-once asserts;
+`farmer_spec_surgery.py` in scratchpad), exemplar analysis KEPT. Applied ~15:55Z after an
+end-to-end rehearsal (COMMIT→ROLLBACK) plus induced-hit/clean-control proof of the battery
+regex. Verified at the live rows: 3 successors current and battery-clean, 3 predecessors
+superseded and still firing the battery (in-migration positive control). schema_migrations row
+carries the file md5, INSERT rode inside the transaction (668's lesson).
+**The class battery caught a FIFTH strategy mention** both lanes' counts missed
+(defensible_moat's "combined with illustrative tools…") — recorded on both sides: the battery
+is the binding test, not a census count. Loanzy verified independently (their sweep: 2 residual
+current-spec matches, both agreed non-issues — offer_ordering per the split, and generic
+exemplar analysis their regex over-matched) and closed the exchange. **Farmer parcel remaining,
+in the agreed order: 52 misdirected-CTA labels (live-URL-dead-label class first) → 14 body
+sentences → done.**
+
+**Canary WIDENED** per the handoff's pre-authorisation ("widen if the arithmetic looks right"):
+8 `needs_page` items filed 15:52Z (about, services, use-cases, case-studies, contact, careers,
+tool-ai-readiness-checker, model-approach-selector; same honest spec.reason; all keys verified
+free, all page-resolved). Pre-widening battery baselines banked (`widen_pre/` in scratchpad):
+about 10 · contact 7 · use-cases 6 · services 4 · careers 3 · readiness-checker 3 ·
+case-studies 1 · model-approach-selector 0 — **sum 34**, and the selector page served only 32
+words (2,685 bytes; likely a stub or wrong served path — CHECK at the read, do not battery a
+redirect and call it clean). Watcher armed on the 8 items.
