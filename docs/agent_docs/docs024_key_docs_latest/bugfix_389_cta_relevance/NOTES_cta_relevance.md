@@ -1233,3 +1233,49 @@ inside the transaction: **zero** contact-intent fields still point at the tool.
 > **The check, stated so it generalises:** a guard's population must be **the set the change
 > touches** — join it to the change, do not re-derive it from the world. Mine had a `repointed` temp
 > table sitting in the same transaction and I did not join to it.
+
+### 2026-08-31 ~16:4xZ — the batch PUBLISHED and verified; 25 → 5; and MISSTEP 18: my classifier's false-negative tail was only visible after clearing the class
+
+**All 13 rerenders complete, verified at the served bytes** (headers before bodies): **every one of
+the 14 repointed pages now serves a `/contact.html` CTA button.** `finetuning/guides/llm-cost-calculator-guide`
+is at **0** `password-entropy` hrefs. The aiao pages sit at 1–2, and the residue is accounted for
+exactly: **1 per page is the FOOTER** (a `site_component`, present on every page — retirement step 6),
+and three pages carry one additional page-level field each.
+
+**Population: 25 → 5.** What remains:
+
+| site | page | field | label |
+|---|---|---|---|
+| aiao | `/about.html` | `cta_url` | *"Learn More About Us"* |
+| aiao | `/case-study-kafka-consumer-group-remediation` | `cta_url` | *(none)* |
+| aiao | `/enterprise-reference-deployment` | `cta_url` | *(none)* |
+| finetuning | `/ai-guides.html` | `primary_cta_url` | ***"Start a Conversation"*** |
+| leopardess | `/blog/can-you-trust-ai-with-your-data` | `cta_url` | *(none)* |
+
+> **⚠ MISSTEP 18 — my contact-intent census under-reported the class by one, and the miss is
+> structural.** *"Start a Conversation"* is a get-in-touch button by any reading and falls squarely
+> under the owner's ruling. My regex —
+> `get in touch|contact|write to|email|call us|book a|talk to|speak to|discovery call` — does not
+> match it: **"conversation" does not contain "contact"**. So every count I have quoted for this class
+> (23, then 20) was a floor, not a total.
+>
+> **The instructive part is when it became visible.** While 20 matched fields were in the way, the
+> one unmatched field was indistinguishable from the rest of the residue. **Clearing the matched set
+> is what made the tail legible** — a classifier's false negatives only surface once its true
+> positives are removed. *So the last pass over a population is worth more than the first, and a
+> regex census should be re-run after it has been acted on, not only before.*
+>
+> Repointed under the same ruling (`SQL_2026-08-31_route_start_a_conversation.sql`), with the
+> mint-stamp guard **scoped to that page** this time — misstep 17's lesson applied on the next
+> transaction rather than only written down.
+
+**The three unlabelled fields need no decision.** With no copy to contradict, the positional pick
+cannot produce a kind-mismatch: any relevant tool is a defensible destination, and the `nav_order`
+demotion makes the pick sensible. They resolve on their own once `ai-agent-orchestration.com` is
+archived — the drain proven in §"the archive drains the site by itself".
+
+**⚠ ONE FIELD IS GENUINELY UNDECIDED and I am not guessing at it:** aiao `/about.html`
+`cta_url` = *"Learn More About Us"*. Not contact-intent, so the ruling does not cover it; and the
+positional pick would send it to a **tool**, which is the wrong kind for that copy — it reads as a
+link to the about page, on the about page. **Flagged for the owner rather than resolved**; it is one
+field and it is the only judgement left in the class.
