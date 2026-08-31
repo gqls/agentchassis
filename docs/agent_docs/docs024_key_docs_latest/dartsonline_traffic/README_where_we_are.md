@@ -621,3 +621,65 @@ Their article is now in the sitemap.
 One thing I noticed and did not touch: the contact page says the same sentence twice, once as
 the hero heading and again as the section heading underneath. That is a content duplication
 rather than a CSS fault, so it needs a rewrite rather than a fix — tell me if you want it done.
+
+---
+
+## 2026-08-31, afternoon — I looked at the four new hero images. Two were still wrong.
+
+This morning four hero images were regenerated because you said they had hallucinated what
+darts and dartboards look like. By every mechanical signal that job was finished: the work
+items all said complete, the database said the files were replaced, and the files on the
+website had all changed that lunchtime.
+
+I opened them anyway, because none of those signals can see what is in a picture.
+
+**Two of the four came back genuinely good.** The new-arrivals image now shows three darts
+with proper flat plastic flights instead of the feathered ones you objected to, and the sale
+image is a clean close-up of a barrel with the weight stamped on it.
+
+**Two were still wrong.** The homepage board had a bullseye that was entirely red — the middle
+of a bull is red, but the ring around it should be green. And the guides image still had a
+**feathered flight**, which is the exact thing you complained about: that is an archery arrow,
+not a dart. It also had a "7" printed where a real board reads "1". I nearly missed the
+feather, because at the size it appears on the page it just looks like a dark smudge; I only
+caught it by cropping in three times.
+
+**The cause turned out to be written in our own instructions, not in the model.** Each image
+is generated from a stored description. The homepage one told it the board was "deep black and
+red" — two colours, neither of them green. So the machine did exactly what we asked and made a
+board with no green in it. The guides one just said "a single dart" and never said what a dart
+is, so a feather was a perfectly reasonable guess.
+
+Underneath that there was a bigger gap. We have a careful style guide for this site's imagery,
+but every rule in it is about *composition* — no white backgrounds, no logos, no packaging, no
+collages. **Not one rule says what the thing we sell actually looks like.** That is why
+re-running the image could not fix it: re-running changes the dice, not the brief.
+
+**So I have added the missing rules, and this is where it nearly went wrong.** The obvious place
+to put them is the site's main "avoid" list. I checked the code first, and that would have done
+nothing at all: when a site sets specific rules for a particular kind of image — and this site
+does, for heroes — those replace the general list rather than adding to it. So heroes here are
+governed by 111 characters of rules while the 652-character list I was about to edit never
+reaches them. The edit would have saved successfully, looked completely correct, and changed
+nothing — and because I would then have re-run the image to check, and the image would have
+improved anyway, I would have concluded it worked. I have written that trap up for other
+sessions, because nothing in the data shows it.
+
+**Where the two images stand now.** The homepage one is fixed and, I think, the best of the
+set: correct red and green rings, correct board colours, proper striped flights, darts in the
+treble twenty as the description asks. The guides one is better in the two ways that mattered —
+the feather is gone, replaced by a real moulded flight, and the number now reads correctly —
+but it lost the green from the board's scoring rings in the process. Each re-run seems to trade
+one thing for another. I have one more run going for that single image, changing only the
+colour instruction and leaving the two clauses that just started working untouched. I kept a
+copy of every version, so if the next one is worse I can put back the better one.
+
+**One thing worth saying plainly about the method.** I did not judge the green by eye — the
+scene is lit by a warm desk lamp, and green under that light looks brown, so "I can't see any
+green" and "there is no green" are different claims. I counted the actual green pixels: the
+older version had 2,867 of them and the new one has none. That number could have come out
+either way, which is what makes it worth quoting.
+
+Nothing else on the site changed, and nothing is broken. The other pages' heroes are fine, and
+I confirmed along the way that the old expired image links we have been ignoring really are
+harmless — no page on the site points at any of them.
