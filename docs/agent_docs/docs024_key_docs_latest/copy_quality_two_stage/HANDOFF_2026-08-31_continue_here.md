@@ -130,3 +130,7 @@ raw-HTTP caller — grep the CALLER for how it logs before censusing a log table
 - Battery-zero is not register-clean: the READ decides (P5), and evasion is a failure mode.
 - Probe needles: single source line only.
 - Find council runs BY PAYLOAD; read verdicts; a REVISE is usually RIGHT.
+- A reading rule must be PERFORMED once against the artefact ON THE HAPPY PATH before it ships
+  in a handoff — knowing the instrument records something is not knowing its report shows it
+  (414's scanned-fields gap; WRONG_CALLS `97f25e203`). The quiet path is where a missing signal
+  and a good result look identical. This applies to every reading rule THIS file carries.
