@@ -6845,3 +6845,26 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
   footer — content_data is empty, regeneration silently declines, so there is
   NO source it can be rebuilt from and NO path that reproduces it. **The site is
   shipping a chrome artefact the pipeline cannot regenerate.**
+
+## 2026-08-31 (~18:5xZ) — guide-retype side effect: the four guides are ORPHANS; parked as an OWNER decision
+
+- **Side effect of the guide retype, measured by the boxingonline session at the
+  served site**: the four tool guides' only inbound link was the home editorial
+  listing — the exact placement the owner objected to — so evicting them
+  orphaned them: reachable from nowhere by clicking, yet still in sitemap.xml
+  and indexable. Nobody's error exactly; both sessions were watching the
+  listing, not the guides.
+- **NOT fixed unilaterally, and the reason is a measurement**: no estate
+  convention exists to copy (dartsonline's tool pages link a guides-INDEX which
+  this site lacks; farmerinsurance's link no guide), and the owner's critique
+  cuts both ways — his ordering words ("more prominent than the guide") support
+  link-from-tool; his item-3 padding complaint supports demote-and-hide,
+  especially with the copy lane holding the padding finding. **OWNER DECISION,
+  three options**: (a) link each guide from its own tool page; (b) noindex +
+  de-sitemap as filler pending the copy rewrite; (c) build a guides-index
+  (dartsonline pattern). Parking is safe: canonicals point at the parked
+  customer domain and delivery is held, so nothing lands before he rules.
+- **OWNER DECISION LIST now stands at**: contact page delete-vs-wire ·
+  header name beside the text-free logo (pinned to palette) · guides
+  reachability (above) · the identity-sync residual (420 §C, that lane's
+  routing) · palette values (with the visual-designer lane).
