@@ -91,6 +91,18 @@ remembered to probe** — a one-page watcher reported CLEARED at 16:19 while six
 nineteen deployed pages still served the address. Every false "clean" tonight was
 an incomplete enumeration reading as a result.
 
+Late additions, same evening: **the lag-vs-upstream discriminator** (boxingonline
+session) — a still-dirty served page has two opposite diagnoses that grep
+identically: compare the served object's last-modified against the page's
+deployed_at; **older means wait (publish lag), newer means look upstream (a dirty
+source was freshly published)**. And the footer's tail: the hand-patched footer
+row turns out to be UNREGENERABLE — two forced render_site_components runs
+declined the footer slot silently with every surfaced reason field empty
+(rendered.footer=false; no lock, no ineligible, no error) — so the hand-patch
+serves for a reason no regeneration has ever tested. Diagnosis run
+`387c0a2d-7fd7-460c-b7cf-fb46ff50b13f` owns the mechanism; do not quote one
+until it reports.
+
 ## Owner rulings recorded (2026-08-31, relayed via the boxingonline session)
 
 1. "There should be no contact email or address on this site because I didn't ask for
