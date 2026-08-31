@@ -71,7 +71,7 @@ func TestSeedCustomerIdentityArmsIntakeBuilds(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(specsInsertPin.String()).
 		WithArgs(siteID.String(),
-			argContaining{needles: []string{`"business_name"`, `"contact"`, "BR-TEST01", "aaa@example.com", "Boxing Online"}},
+			argContaining{needles: []string{`"business_name"`, `"contact"`, "BR-TEST01", "aaa@example.com", "Boxing Online", `"customer_attested"`}},
 			"order-intake P5 seeding (BR-TEST01)").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 

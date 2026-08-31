@@ -276,8 +276,31 @@ func SeedBuildQueueAction(ctx context.Context, params ActionParams) (interface{}
 //
 // The seeded facts follow the live register shape (id/kind/claim/source/
 // verified_at, kind='entity' — the same shape webdesign.uk's own contact fact
-// uses): they are the CUSTOMER's attestations, marked as such, not platform
-// measurements.
+// uses, and 'entity' is in loadEvidenceBase's recognised vocabulary): they are
+// the CUSTOMER's attestations, and carry verification_status
+// "customer_attested" so no reader can mistake a customer's say-so for a
+// platform measurement (council 7e3dd082, compliance seat).
+//
+// Two reuse decisions the council round asked to be made visible
+// (REVISE 7e3dd082, answered with code evidence):
+//   - sites.email/company_name IS the canonical identity store, not a fourth
+//     one: the three-stores landmine's own measurement ("that is where the
+//     owner's data actually goes") and the bugs 072 fix — plan_sections
+//     resolves identity.email → sites.email (plan_sections_action.go, the
+//     sourceResolver sites-columns fallback). Seeding aspect='identity' here
+//     would recreate the two-disagreeing-stores state that landmine documents;
+//     the pipeline's own domain-research-classifier writes identity later,
+//     reading these columns as ground truth.
+//   - write_site_spec/WriteSiteSpecAction is deliberately NOT reused:
+//     it manages its own transaction (this write must be atomic with the
+//     first work item), and siteSpecDeepMerge overwrites ARRAYS
+//     (site_spec_actions.go, the non-map arm) — merging a two-fact seed over
+//     an enriched register would REPLACE its facts wholesale, the exact
+//     clobber the WHERE NOT EXISTS below exists to prevent. The typed
+//     round-trip is also the LANDMINES 'parsing evidence_base through its own
+//     typed struct DELETES every citation' trap. The INSERT mirrors the
+//     canonical writer's columns (source/source_agent/notes/created_by/
+//     is_current) so readers see one shape.
 func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, direction map[string]interface{}, logger *zap.Logger) error {
 	email, _ := direction["customer_email"].(string)
 	name, _ := direction["customer_name"].(string)
@@ -306,21 +329,23 @@ func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, dir
 	facts := []map[string]interface{}{}
 	if name != "" {
 		facts = append(facts, map[string]interface{}{
-			"id":          "business_name",
-			"kind":        "entity",
-			"claim":       fmt.Sprintf("The business is called %s.", name),
-			"source":      map[string]interface{}{"attested_by": attested},
-			"verified_at": today,
-			"writer_line": name,
+			"id":                  "business_name",
+			"kind":                "entity",
+			"claim":               fmt.Sprintf("The business is called %s.", name),
+			"source":              map[string]interface{}{"attested_by": attested},
+			"verified_at":         today,
+			"verification_status": "customer_attested",
+			"writer_line":         name,
 		})
 	}
 	if email != "" {
 		facts = append(facts, map[string]interface{}{
-			"id":          "contact",
-			"kind":        "entity",
-			"claim":       fmt.Sprintf("Enquiries reach %s.", email),
-			"source":      map[string]interface{}{"attested_by": attested},
-			"verified_at": today,
+			"id":                  "contact",
+			"kind":                "entity",
+			"claim":               fmt.Sprintf("Enquiries reach %s.", email),
+			"source":              map[string]interface{}{"attested_by": attested},
+			"verified_at":         today,
+			"verification_status": "customer_attested",
 		})
 	}
 	data := map[string]interface{}{
@@ -338,8 +363,8 @@ func seedCustomerIdentity(ctx context.Context, tx *sql.Tx, siteID uuid.UUID, dir
 		notes += " (" + reference + ")"
 	}
 	res, err := tx.ExecContext(ctx, `
-		INSERT INTO site_specs (site_id, aspect, data, source, created_by, is_current, notes)
-		SELECT $1, 'evidence_base', $2::jsonb, 'order_intake', 'seed_build_queue', true, $3
+		INSERT INTO site_specs (site_id, aspect, data, source, source_agent, created_by, is_current, notes)
+		SELECT $1, 'evidence_base', $2::jsonb, 'order_intake', 'seed_build_queue', 'seed_build_queue', true, $3
 		WHERE NOT EXISTS (
 			SELECT 1 FROM site_specs
 			WHERE site_id = $1 AND aspect = 'evidence_base' AND is_current

@@ -23,8 +23,12 @@
 --      sites.email/company_name + a two-fact evidence_base register from the
 --      direction's customer fields, mutation-proven; existing values and an
 --      existing register always win). ⚠ Go is INERT UNTIL A ROLL — before
---      flipping the task on, verify the running chassis carries the commit:
---      `git merge-base --is-ancestor <the seedCustomerIdentity commit> <stamp>`.
+--      flipping the task on, ask the RUNNING BINARY, not git (a same-tag
+--      rebuild ships the cached image and no ancestry check can see it;
+--      council 7e3dd082, debug_historian). Per SERVICE, with a control:
+--        POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis --no-headers -o custom-columns=:metadata.name | head -1)
+--        kubectl -n ai-persona-system exec "$POD" -- grep -aq "seedCustomerIdentity" /proc/1/exe && echo P5-IN-POD || echo P5-ABSENT
+--        kubectl -n ai-persona-system exec "$POD" -- grep -aq "seedCustomerIdentityZZZ" /proc/1/exe && echo CONTROL-BROKEN || echo control-ok
 --   2. The chassis env needs WEBDESIGN_BOX_ORDERS_TOKEN (terraform
 --      047-base-configs; the collector fails loudly without it).
 -- Enable with:
