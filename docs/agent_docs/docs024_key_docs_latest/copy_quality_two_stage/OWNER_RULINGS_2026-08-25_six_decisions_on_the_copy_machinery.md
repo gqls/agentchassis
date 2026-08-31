@@ -223,3 +223,17 @@ scope).
 the shared writer, council scope) — after the register pass over the 187 points — with
 finetuning.uk as the first case. This is the concrete mechanism behind ruling 12; both lanes are
 agreed on the shape and neither will wire it without his word.
+
+> **DECISION C AMENDED 2026-08-31 (later), on the offer lane's own correction, INDEPENDENTLY
+> RE-RUN AND CONFIRMED by this lane** (51 of 187 points dirty — 27%, not their first-reported
+> ~10%; 23 of 32 sites; shapes dominate: `x_not_y` 28, `rather_than` 13; **7 of 31 rank-1 hero
+> candidates dirty**): the set is a DEMONSTRATION RESERVOIR of the exact comparison shape the
+> canary proved the writer produces unprompted — feeding it unwashed through the mandated-phrase
+> channel would re-teach the shape through the most effective transfer mechanism we have
+> measured. TWO changes to C's packaging: (1) the register pass over the 51 is a PRECONDITION for
+> any dirty site's wiring, but **9 of 32 sites are clean TODAY**, so a first wiring can proceed
+> on a clean site without waiting; (2) **"finetuning first" is WITHDRAWN — it is the WORST site
+> in the corpus (6 dirty points, its rank-1 included)**: the first outing should be a clean site
+> chosen deliberately, with finetuning as the best demonstration OF THE PASS, not of the set.
+> Their figure is dated 2026-08-31 and describes the EXISTING corpus — re-measure after any
+> writer-model change.
