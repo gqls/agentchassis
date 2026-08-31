@@ -6370,3 +6370,17 @@ header now names the seed-time writer (both paths visible from either side);
 pageFieldWriters checked: page-scoped, inapplicable to sites columns. All tests green,
 mutations still killing. **P5 is DONE pending the roll** — enable-gate = the symbol probe
 in 661's header, then flip the task, then BR-9AUZ59 builds.
+
+## 2026-08-31 (evening) — THE COLLECTOR WENT LIVE AND THE FIRST PAID BUILD IS RUNNING
+
+Owner deployed the fresh chassis; enable-gate passed at the running binary
+(seedCustomerIdentity present, ZZZ control absent, pods 27m). `order-intake-collect`
+ENABLED 900s. **The first tick released BR-9AUZ59 within minutes**, and P5's whole
+promise measured true in one frame [MEASURED 2026-08-31 evening]: build_queue
+`boxingonline.com | seeded` · sites `d2aa5206` email=aaa@designconsultancy.co.uk,
+company_name='Boxing Online' · evidence_base source='order_intake',
+created_by='seed_build_queue', 2 facts, verification_status='customer_attested' ·
+first item `needs_domain_research` already CLAIMED by domain-research-classifier.
+**The first customer-shaped build in the platform's history is running, honesty guards
+armed from the customer's own intake.** JOINT COLD-START moved to
+`../site_delivery_and_editor/HANDOFF_2026-08-31_continue_here.md`.
