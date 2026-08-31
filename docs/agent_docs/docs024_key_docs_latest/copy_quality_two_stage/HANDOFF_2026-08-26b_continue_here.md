@@ -3,6 +3,23 @@
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-26_continue_here.md`** (same
 day — the chassis roll, the owner's trial, and the canary's first scores landed after it).
 
+> **08-31 UPDATE — read this before the 08-30 one:** the owner issued RULINGS 9–12
+> (rulings doc tail): "plainly" banned; no internal-directive explanations in copy; MODEL TRIALS
+> ordered (Fable benchmark → Grok → Gemini); benefit-led hero co-design with the offer/benefit
+> thread, per-copy agent discussion licensed. **Fable benchmark RUN, pre-registered**
+> (`AUDIT_prompts/EXPERIMENT_2026-08-31_model_trials.md`): NEG **0 and 0** vs production sonnet's
+> 5 on the identical post-fix prompt, read passes decisively — promoted to a wider screen; Grok ×2
+> + Gemini ×2 on the same prompt are the NEXT RUNS (keys on the pod, runner recipe in the canary/
+> experiment docs). The co-design's first round landed (their CONTRIB in this dir): benefit set =
+> 32 sites / 187 ranked points, NO writer reads it; 18/187 carry the banned register so the set
+> gets a register pass before becoming a source; `AUDIT_prompts/BANNED_REGISTER_v1.json` ships the
+> rulings as data. **DECISIONS NOW STACKED FOR THE OWNER: Q-A, Q-B, and C (wire offer_ordering
+> into the writer after the register pass, finetuning first).** farmerinsurance.uk arrived as
+> expected (loanzy CONTRIB trail): tone-VACUUM variant (no identity/tone → writer self-describes)
+> joins the audit questions; farmer = worked case #2 + model-screen material; its record-mode
+> verdicts stay human-released. Ruling 9's plainly-ban migration still queued. kubectl token works
+> again.
+
 > **08-30 UPDATE:** the owner has formally handed copy quality BACK to this lane alone
 > (*"The copy team can take on the copy quality from here, we can go back to finetuning"* — via
 > the finetuning lane, which stands down on register work; canary collaboration CLOSED, their
