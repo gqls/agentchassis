@@ -6537,3 +6537,53 @@ from a usage-limit outage) + `landmines-verify-dispatch.sh`.
   then resolve), re-publish tick, THEN dispatch delivery-review-filer with
   site_url=https://boxingonline.ugg2.com. The stranded `article` page + parked items
   go to the owner at review (retire-or-keep is his call).
+
+## 2026-08-31 (late afternoon) — OWNER CRITIQUE STORM: email leak closed at every source, rulings landed, delivery chain HELD
+
+Coordinated live with the boxingonline critique session (their
+OWNER_REVIEW_2026-08-31_… in ../site_delivery_and_editor/ is the critique record;
+their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
+
+- **OWNER RULINGS (relayed cross-session, all 2026-08-31): (1) FIX BEFORE THE
+  DELIVERY EMAIL — the 651 chain is HELD until the quality items are addressed.
+  (2) NO contact email/address on this site at all (not briefed); sites.email/phone/
+  address stay NULL. (3) best-in-class propagation plan approved (their relay).**
+- **The email leak's DEEPEST vector was the claims register, found and closed here:**
+  P5's seed minted an evidence_base fact whose claim text was "Enquiries reach
+  aaa@designconsultancy.co.uk." — a RENDERABLE customer_attested claim that licenses
+  any rebuild to re-publish the address, validated clean. Superseded (fact REMOVED,
+  business_name kept). briefing contact.contact_email NULLED the same way
+  (supersede-then-insert; the partial unique idx_site_specs_current forces that
+  order). **Verified: 0 current site_specs rows carry the address**; identity spec
+  contact block already all-null so the fill-only-if-empty syncs have nothing to
+  refill sites.email from. **`bugs_open/420` filed+committed** (two contracts on one
+  column + the claim-minting half; class fix ranked, owner/council territory).
+- **Served-page purge in flight**: their whole-site rerender (corr 3f604312) rebuilt
+  pages through ~15:51+; my first forced mirror (15:50:27) PREDATED most page
+  deploys so the slug still served the address — mirror timing, not a failed
+  rerender. A finisher watcher waits for the wave, re-forces the reconciler
+  (nudging noted's check-stamp so the selector picks boxingonline), then probes
+  every deployed page cache-busted with a must-be-present control. Peer gets
+  email=0/control>0 before anyone reports closed.
+- **The six articles are being created and the chain is PROVEN**: two blockers found
+  and fixed live — (a) the generic Kafka consumer REFUSES a message without
+  client_id+orchestration_id headers (651's header recipe omits them; the 082
+  script's envelope is the working one), and (b) apply_gap_plan's growth budget
+  refused blog-posts (weekly_blog_posts_max default 2, already consumed by the four
+  tool guides + stranded article — all page_type blog-post, born today). Wrote a
+  build-phase site_specs growth_config override ({"weekly_blog_posts_max": 12},
+  documented in-row, REVERT after the articles land). All six slots then dispatched
+  sequentially, receipts asserted; five pages created by 15:56 with distinct
+  on-brief topics, slot 6 mid-flight.
+- **PRE-DELIVERY REVIEW LIST additions**: 13× canonical_mismatch + 13×
+  head_essentials_missing detector items post-rerender (checker layer has them;
+  plausibly slug-vs-canonical + bug 320/397 territory) · the contact page is now a
+  form posting to '#contact' with no address — delete-vs-wire is WITH THE OWNER (no
+  form endpoint exists in this lane) · **check the six articles for invented
+  real-world specifics** (two topics — a card preview and a "last night's result" —
+  invite fabricated fights/results; the owner's competitor comparison names invented
+  fighters/records as the half we must NOT copy) · palette contradiction
+  (design_intent colour_mood prose wants dark red/black/gold; palette.reference_values
+  encodes a LIGHT theme — peer confirming at the artefact before we restyle;
+  fix lands here as a deliberate reference_values change per the colour-churn
+  landmine).
