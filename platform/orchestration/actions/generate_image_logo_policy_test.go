@@ -168,6 +168,16 @@ func TestLogoTextPolicyGroundsAcrossNamingColumns(t *testing.T) {
 		{"multi-label suffix", "cv1", logoIdentity{Domain: "cv1.co.uk"}, true},
 		{"www prefix", "loanzy", logoIdentity{Domain: "www.loanzy.uk"}, true},
 		{"invented", "Farm Shield Info", logoIdentity{CompanyName: "Farmer Insurance UK", Domain: "farmerinsurance.uk"}, false},
+		// THE LIVE CASE, pinned because it is the owner's own named exception and it
+		// grounds ONLY on the domain stem: farmerinsurance.uk's plan row carries
+		// constraints.wordmark_text="farmerinsurance" (set by the loanzy lane
+		// 2026-08-31) while its sites row has company_name AND logo_text both EMPTY.
+		// Validating against the naming columns alone would REJECT the owner's
+		// explicit instruction and silently degrade it to a text-free mark. The
+		// domain stem is not a convenience here — it is the only thing that makes
+		// this site's exception expressible at all.
+		{"owner's live exception, grounded only by domain stem", "farmerinsurance",
+			logoIdentity{CompanyName: "", LogoText: "", Domain: "farmerinsurance.uk"}, true},
 		{"empty identity cannot ground anything", "Anything", logoIdentity{}, false},
 		{"empty ask", "", logoIdentity{CompanyName: "Boxing Online"}, false},
 		{"substring is not a match", "Boxing", logoIdentity{CompanyName: "Boxing Online"}, false},

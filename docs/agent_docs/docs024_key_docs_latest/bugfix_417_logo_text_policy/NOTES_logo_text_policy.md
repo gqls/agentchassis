@@ -95,3 +95,47 @@ one a build failure, all in `test/`. None of them touched my files — but that 
 not a measurement. Ran the bare-HEAD control: **it fails in ~23 places**, and every failure in
 my set appears in the control's set. So the honest claim is "my changes introduce no new
 failure", not "HEAD is green" — it is emphatically not green.
+
+## 2026-08-31, later — the opt-in got a live consumer within the hour, and it exposed a near-miss
+
+The loanzy lane set `constraints.wordmark_text = "farmerinsurance"` on farmerinsurance.uk's
+current plan row (`b6680524`), giving the owner's named exception a durable home rather than a
+flag-to-owner note. I verified it first-hand rather than taking the report:
+
+```
+domain            | farmerinsurance.uk
+constraints       | {"wordmark_text": "farmerinsurance"}
+company_name      | (empty)
+logo_text         | (empty)
+has_670_override  | t
+locked_at         | (null)
+```
+
+**`company_name` and `logo_text` are BOTH EMPTY.** My validator grounds the requested wordmark
+against company_name / logo_text / **domain stem**. Had I written it against the two naming
+columns only — which is the obvious reading of "check it is this site's own name" — **the
+owner's own explicit instruction would have been REJECTED and silently degraded to a text-free
+mark**, on the one site where he had specifically asked for lettering. The domain stem is not a
+convenience; on this row it is the only thing that makes the exception expressible at all.
+
+It grounds because `domainStem("farmerinsurance.uk")` → `"farmerinsurance"` and the ask
+normalises to the same token. Pinned as a named test case with the reasoning inline, and the
+mutation run: **deleting the domain-stem source alone breaks it.**
+
+Two things worth keeping from this:
+
+- The fable plan had flagged the shape from the other direction — cv1's `'CareerPrep'` grounds in
+  no column and no domain stem, so it would degrade. I read that as an edge case about cv1. It
+  was actually telling me the identity columns are unreliable in general (18 of 39 sites carry no
+  identity spec, per `default_brand_prompt.go`'s own census), and farmer is the same gap landing
+  on the case that mattered most.
+- **It gives disconfirmation D a real subject.** The post-roll census needs to prove the guard is
+  not OVER-applied — that a deliberate worded mark still comes back worded. Farmer is now that
+  test, with a live row, rather than a hypothetical I would have had to construct.
+
+One scope note for honesty: my council submission states `constraints.wordmark_text` had **0
+occurrences in the repo** as the RFC_022 third condition. That claim was scoped to the repo
+(`platform/ internal/ pkg/ cmd/`) and **remains true** — this is a DATA row, not code, and the
+field is still opt-in with the unsafe side OFF. The scope judgement is unchanged. But the plain
+reading of "zero live consumers" is now stale by an hour, and the reviewer should hear it from me
+rather than discover it.
