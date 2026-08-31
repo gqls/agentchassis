@@ -325,3 +325,40 @@ what makes it look known-good.
 finetuning.uk are `deferred`, which is NOT terminal in `idx_swi_dedup`, so a fresh audit cannot
 re-file those keys. **`/your-own-model.html#A.cta-btn` is NOT among them** — the paid front door's
 invisible button is the one most likely to draw an auto-repair.
+
+## 12. 2026-08-31 — the roll happened. FIXED AND LIVE on finetuning.uk; the other two sites still need a CSS re-render
+
+**The chassis has rolled and `--color-cta-bg-ink` is live.** Binary-probed with a full control set
+`[MEASURED 2026-08-31]`: the literal reads **1** on the running pod, the pre-existing
+`--color-primary-ink` control reads **3** (so the probe works), and a deliberately impossible string
+reads **0** (so it can return zero).
+
+**And it has reached one site's stylesheet:** `finetuning.uk/assets/css/styles.css` serves
+`--color-cta-bg-ink: #1e40af`.
+
+**Measured at the artefact:**
+
+| page | before (2026-08-25) | now |
+|---|---|---|
+| `finetuning.uk/your-own-model.html` `A.cta-btn` | **1.00:1** white-on-white | **GONE** — only `over an image` approximations remain |
+| `robot-hands.com/about.html` `A.cta-btn` | **1.00:1** | **STILL 1.00:1** |
+
+### Why one and not the others — and it is not a bug in the fix
+
+`--color-cta-bg-ink` is emitted into a site's stylesheet by `render_css`, and **`webdesign-agent` is
+the only agent type whose workflow contains that step** (VIZ-014's own measured note). finetuning.uk
+has had a CSS render since the roll; **robot-hands.com and gaswholesalers.com have not**, so their
+stylesheets carry no such token and their buttons still resolve the ink to the raw gradient.
+
+⇒ **This bug is fixed-and-live on 1 of the 3 affected sites.** It does NOT meet the
+`bugs_closed/` bar (fixed AND live) until the other two serve the token. Their lanes have been told;
+the trigger is theirs, because a design run also rewrites the theme row (`bugs_open/396`) and that is
+not a thing to fire into someone else's site unannounced.
+
+**The check for whoever closes this:**
+```bash
+curl -s https://<domain>/assets/css/styles.css | grep -o -- '--color-cta-bg-ink:[^;]*'   # must return a hex
+scripts/render_audit.py https://<domain>/<page-with-a-cta>.html                          # no 1.00:1 A.cta-btn
+```
+Discount the `3.95:1 … (over an image — ratio approximate)` lines throughout: the tool says so
+itself, they pre-date this, and they are not what this fixes.
