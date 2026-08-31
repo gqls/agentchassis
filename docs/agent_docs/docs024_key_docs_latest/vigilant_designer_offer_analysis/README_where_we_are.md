@@ -1715,3 +1715,61 @@ a bigger piece of work than today's. It is the thing I would point you at next.
 as "can show a picture", I included the headline/banner ones and excluded only the logo. A reviewer
 could reasonably say the banners should be excluded too. It is in the change under review, so it can
 still be argued.
+
+---
+
+**2026-08-31, evening.** The benefit-priorities work you approved this morning had a hole in it, and
+tonight it is closed — or rather, the closing is built and waiting for the next deployment.
+
+Here is the plain version. This morning a repair ran across the estate and fixed 41 benefit
+statements that used the phrasings you rejected. That worked. But the thing that WRITES those
+statements never learned anything, and it kept writing. By late afternoon it had produced 75 fresh
+statements and 18 of them carried the same phrasings — the same one-in-four rate as before the
+repair. Fifteen are live right now across eight sites, and two of them are the FIRST statement on
+their site: mortgagecalculator.co.uk, written at 16:25, and finetuning.uk, written at 14:54 — the
+site you rejected in the first place. The first statement is the one a headline gets written from.
+
+So the repair was never going to win. You cannot clean a well faster than it refills. The fix has to
+be at the point where the statements are written, and that is what I built.
+
+**You chose the behaviour and it was the right call.** When it catches a bad statement it now asks
+for it to be rewritten, rather than deleting it or throwing away the whole analysis. The two
+alternatives both destroyed something real: deleting loses about one benefit in four, some of them
+the site's best one, and refusing the analysis outright leaves the site sitting on its OLD
+statements, which are just as bad.
+
+**The part worth telling you about is where I got it wrong**, because it is the same shape as the
+mistake we keep making. Every rewrite is vetted before it is accepted. I built the vetting rule out
+of this morning's numbers: those 41 repairs shortened the statements by 29% on average, and ten had
+to be rescued by hand, so I set a rule that a rewrite may not cut a distinctive statement by more
+than 40%. Then I tested it against the actual repair that caused the problem — the one where
+"delivers systems in days, not months" became "delivers systems in days" — and my rule let it
+straight through. That repair only removed twelve characters. The distinctiveness was in those
+twelve characters: "in days" is a duration, "in days, not months" is a claim against the
+competition.
+
+The lesson is that I built a rule out of an AVERAGE and then expected it to catch an individual
+case. Averages do not do that. The rule I have now is not a measurement at all, it is a
+statement about the language: when a statement distinguishes you, the thing it distinguishes you
+FROM is the point, so any repair that simply stops the sentence early has removed the point, however
+few characters it took. That version cannot be fooled by arithmetic.
+
+I only found it because I tested against the real sentence from the real site rather than one I made
+up. A made-up example would have passed, I would have shipped, and the guard would have been blind
+to exactly the case it exists for.
+
+**Where this leaves things.** The code is written, reviewed by the council (verdict still coming in
+as I write), and does nothing until the next deployment — deliberately, because switching it on
+before the code ships would break the analysis outright. Two things I want to be straight about:
+nothing has actually run through it yet, so I am not claiming it works, only that it is built and
+tested; and it is deliberately strict, so it will sometimes refuse a rewrite and keep the original
+bad statement rather than accept a repair that guts it. Every one of those refusals gets written
+down, which is how we will find out whether the strictness is right.
+
+**One thing I found on the way that is worth a moment.** The instructions for how our own workflows
+are wired live in two places: a file in the repository, and the live database. For the piece I
+needed, the file was out of date by one change — a safety check had been inserted since and nobody
+updated the file. If I had trusted the file, my change would have quietly disconnected that safety
+check while reporting success, and every test would still have passed. I caught it only because a
+number did not add up. It is written into the traps file now, because that one will bite somebody
+else.

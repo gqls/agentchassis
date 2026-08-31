@@ -57200,3 +57200,30 @@ quote reads exactly like a complete one, and nothing downstream can tell.**
   on this estate — the fixture is.
   Tally: **signal-asserted-without-a-disconfirming-case** ×3, and
   **a-control-that-names-a-live-page-has-a-shelf-life-in-minutes** ×1.
+
+- **2026-08-31 — vigilant_designer_offer_analysis — I derived a threshold from a MEAN and expected
+  it to catch an individual case drawn from that same population.** Building the producer register
+  gate, I needed a rule stopping a repair from stripping a benefit point's differentiating clause.
+  I had this lane's own ACK rule to hand ("a repair removing ≥40% of a `differentiated: true` point
+  has removed the differentiating clause") and the measurement behind it (51 of 51 wash repairs
+  shorter, **mean −28.7%** on differentiated points, 10 of 51 rescued by hand). I implemented a 60%
+  length floor and wrote it into the action's header as the rule that catches this class.
+  **Then I wrote the motivating case as a test and it PASSED.** 667's actual repair of
+  `leopardessconsulting` rank 2 — *"…in days, not months."* → *"…in days."* — retains **64 of 76
+  bytes (84%)**. The differentiation was lost in **twelve bytes**; the case that motivated the entire
+  rule sits at −16%, nowhere near the mean it was derived from.
+  **What caught it:** using the REAL repair from the REAL site as the test fixture. A composed
+  fixture — a repair I invented, which would naturally have cut half the sentence, because I already
+  knew which arm I wanted to fire — passes, and the guard ships blind to precisely the failure it
+  was written for. This is the estate's own *a fixture you COMPOSE will exercise its own rule*,
+  arriving from the threshold direction rather than the input direction.
+  **The cheap check that would have:** before implementing a threshold derived from an aggregate,
+  compute it for the single case that motivated the rule and check the case is actually on the
+  failing side. One line of arithmetic, and it is the difference between a rule and a number.
+  **The replacement is not a better threshold, it is not a threshold at all** — on a differentiated
+  point the violating construction IS the comparison and the distinction is what it compares
+  against, so truncate-before-the-comparison removes it every time at any length; the guard rejects
+  a candidate that is merely a PREFIX of the original. The length floor is kept alongside, for the
+  gross rewrites the prefix rule does not see.
+  Tally: **a-threshold-from-an-aggregate-cannot-catch-its-own-motivating-case** ×1,
+  **a-composed-fixture-exercises-its-own-rule** ×1 (threshold direction).
