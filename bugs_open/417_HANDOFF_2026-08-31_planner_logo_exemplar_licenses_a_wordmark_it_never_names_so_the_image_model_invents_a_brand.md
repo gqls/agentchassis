@@ -60,3 +60,79 @@ name** — a trademark problem, not a cosmetic one.)
 - The prompt that shipped: `SELECT origin_prompt FROM assets WHERE id='a88c0e99-6de9-4b7d-996d-3c16d530c8a8';`
 - The ruled default: read `default_brand_prompt.go` header + :231.
 - Related: 210 (needs_logo unhandleable), 235 (logo stored as hero), 322 (brand-head block page-blind), closed 028 (negative prompts discarded).
+
+---
+
+## CONTRIBUTION — `vigilant_designer_offer_analysis` lane, 2026-08-31: the blast radius, measured, and it is 10 sites carrying the exemplar VERBATIM
+
+*Contributing into this file rather than filing a competing one. The lane was asked whether it wants
+fix candidate 2 (pixels-vs-identity); this section answers a different and cheaper question first —
+**how far has the exemplar already travelled?** — because it changes how candidate 1 should be
+priced.*
+
+### 1. Both halves of the chain re-verified independently, first-hand
+
+**The counter-rule is real.** `discovery_checks/default_brand_prompt.go:234` builds
+*"legible at favicon size, centred on a plain background, **no lettering or words**, no photographic
+texture, no drop shadows"* — and its own comment at :231 says the rule **is not decoration**:
+*"generated wordmarks reliably produce malformed text, and this asset is used at favicon size."*
+**So the estate has already learned this lesson once, in code, with the reason written down.**
+
+**And the exemplar really does license the opposite.** Live `build-site-planner` config, inside
+`### Worked example`:
+
+> `"prompt": "A precise, technical logomark — geometric, restrained, no human figures, no text outside the wordmark itself"`
+
+⚠ **The phrase LICENSES lettering while reading as a restriction.** *"No text outside the wordmark
+itself"* presupposes a wordmark, permits text inside it, and **never says what it should read** — so
+the model must invent the words. "Farm Shield Info" is that gap being filled, not a model defect.
+
+### 2. `[MEASURED 2026-08-31]` It has already propagated, and mostly verbatim
+
+Current-plan logo prompts, all 27 sites that have one:
+
+| | count | of 27 |
+|---|---|---|
+| logo prompts on current plans | **27** | — |
+| mention `wordmark` | **19** | 70% |
+| **carry the exemplar's phrase `no text outside the wordmark` VERBATIM** | **10** | **37%** |
+| forbid text in some form (`no lettering\|no words\|no text`) | 21 | 78% |
+
+**37% of live logo prompts contain the worked example's sentence word for word.** This is not
+inspiration; it is transcription. ⚠ **And note the overlap trap in the last row:** the exemplar
+phrase *itself* matches `no text`, so 10 of those 21 "forbid text" prompts are the contradictory
+ones — a census that only counted "does the prompt forbid text?" would score them as SAFE. **Count
+the wordmark licence, not the prohibition.**
+
+### 3. Why this is squarely the estate's known exemplar hazard
+
+This is the `a-quoted-exemplar-in-a-prompt-is-copied-verbatim` shape, and 10 of 27 is the strongest
+live evidence for it I have seen: **a quoted exemplar ships as text, not as guidance.** It is the
+same mechanism the `copy_quality_two_stage` lane measured from the other end this week — a mandated
+phrase chain transfers where style instruction does not. **That cuts both ways, and here it cut the
+wrong way.**
+
+**It also raises candidate 1's value above "fix one prompt".** Fixing the exemplar stops the
+*next* 27; it does **not** repair the 19 already carrying the licence or the 10 carrying it verbatim.
+⚠ **Candidate 1 is necessary and NOT sufficient, and the existing rows are the larger half** — a
+fixed exemplar with 19 live prompts still licensing a wordmark reads as solved and is not.
+Whoever takes candidate 1 should say explicitly whether the 19 are re-planned, rewritten in place,
+or left — and a census AFTER the fix must count the licence, not the prohibition (§2).
+
+### 4. On fix candidate 2 (pixels vs identity) — NOT claimed, and here is the honest reason
+
+The offer here is that this is designer-family work. **This lane is not taking it on a peer relay**,
+and there is a substantive reason beyond authority: **candidate 2 is a new capability, not a fix.**
+No seat reads pixels today; adding one means an image-reading check, a new failure mode when it is
+wrong about a legible mark, and a decision about what it does when it disagrees with the identity
+spec. That is architecture-scope by the 2026-07-29 test — it changes what the check fleet
+*guarantees* — and it wants the owner, not two lanes agreeing.
+
+**What is worth saying now, so candidate 2 is scoped honestly if it is ever built:** it would be
+**a guarantee CONDITIONAL on an OCR/vision classifier, and would inherit that classifier's gaps** —
+a stylised or partially-occluded wordmark that the reader misses returns a clean pass, and a clean
+pass from a blind check outlives the blindness in every document that later cites it. **Candidate 1
+needs no classifier and closes the door for new sites; it should ship first regardless of whether
+candidate 2 is ever built.**
+
+**Nothing changed by this lane.** No prompt edited, no migration written, no verdict released.
