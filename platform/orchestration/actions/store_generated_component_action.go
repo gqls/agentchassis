@@ -2040,6 +2040,24 @@ func recordRetryFeedback(ctx context.Context, db *sql.DB, logger *zap.Logger,
 // render_mode == "agent"; without this derivation every component would
 // permanently take the template-only path regardless of its content needs.
 //
+// ⚠ WHERE check_render_mode ACTUALLY LIVES `[MEASURED 2026-08-31]`. It is NOT a
+// top-level step. The live page-content-writer definition has 14 top-level steps
+// (build_render_context, check_planned_sections, check_section_plan, compile_page,
+// complete, fail_no_ready_sections, load_site_specs, plan_sections,
+// prepare_link_context, process_sections_loop, resolve_links, select_sections,
+// spawn_link_resolver, spawn_research_agent) and check_render_mode is none of
+// them — it is nested INSIDE process_sections_loop.
+//
+// This paragraph used to say only "the page-content-writer workflow's
+// check_render_mode conditional", which reads as top-level, and that reading cost
+// three council rounds (correlation 53d71504): a migration was designed and twice
+// revised against the path {workflow,steps,check_render_mode,...}, which does not
+// exist. `default_config->'workflow'->'steps' ? 'check_render_mode'` returns FALSE
+// against the real document. Anyone editing that step must find it under
+// process_sections_loop, and must guard the shape before writing: a jsonb_set
+// whose new_value is `NULL || jsonb_build_array(...)` nulls the WHOLE
+// default_config document, verified live the same day.
+//
 // Called by both the INSERT (creation) and UPDATE (regeneration) paths in
 // StoreGeneratedComponentAction so the value is always up to date. That is also
 // why a hand-seeded render_mode does not survive: regeneration re-derives it

@@ -46,10 +46,14 @@ import (
 // checked by anything — which is exactly the hole the rerender's fresh-render
 // entry sat in while it silently omitted the stamp it held in its hand.
 var sectionMetadataProducers = map[string]string{
-	"RenderComponentAction":      "result", // the compile path's producer (v3_site_actions.go)
-	"annotateSectionNegation":    "result", // the copy-gate wrapper, which adds a key of its own
-	"RerenderPageSectionsAction": "entry",  // fresh re-render (rerender_page_sections_action.go)
-	"carryStoredSection":         "m",      // carry, same file
+	"RenderComponentAction":   "result", // the compile path's producer (v3_site_actions.go)
+	"annotateSectionNegation": "result", // the copy-gate wrapper, which adds a key of its own
+	// MOVED 2026-08-31 (features_open/035 P1): the per-section pass was extracted
+	// verbatim from RerenderPageSectionsAction into rerenderFlatSections so a
+	// composition child can take the identical path a section does. The producer is
+	// the function that builds `entry`, which is now the extracted one.
+	"rerenderFlatSections": "entry", // fresh re-render (rerender_page_sections_action.go)
+	"carryStoredSection":   "m",     // carry, same file
 }
 
 // sectionMetadataAppenders is the DISCOVERED set: every function that appends to
@@ -66,8 +70,8 @@ var sectionMetadataProducers = map[string]string{
 // the part that generalises. The value beside each name says how its keys are
 // covered.
 var sectionMetadataAppenders = map[string]string{
-	"CompilePageSectionsAction":  "appends what extractSectionFromMap returns (the carrier itself, scanned by the round-trip test) plus a bare {rendered_html} literal for string-only items",
-	"RerenderPageSectionsAction": "builds `entry` — scanned via sectionMetadataProducers",
+	"CompilePageSectionsAction": "appends what extractSectionFromMap returns (the carrier itself, scanned by the round-trip test) plus a bare {rendered_html} literal for string-only items",
+	"rerenderFlatSections":      "builds `entry` — scanned via sectionMetadataProducers",
 }
 
 // appendsToSectionsMetadata reports whether fn appends to an identifier whose
