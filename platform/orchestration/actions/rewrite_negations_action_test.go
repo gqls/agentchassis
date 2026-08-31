@@ -73,8 +73,12 @@ func TestExemptHitsDoNotConsumeTheBudget(t *testing.T) {
 	if plan.exemptCount != 1 {
 		t.Fatalf("the supplied tagline must be exempt, got %d (%v)", plan.exemptCount, plan.exemptReasons)
 	}
-	if plan.withinBudget != 2 || len(plan.targets) != 0 {
-		t.Errorf("two non-exempt hits with a budget of 2 must both pass: withinBudget=%d targets=%d",
+	// RE-PINNED 2026-08-31 (owner Decision A: "repair every one" — the mild set
+	// is empty, so no shape spends the budget). The EXEMPTION property this test
+	// exists for is unchanged: the brief-supplied hit is never a target. The two
+	// non-exempt hits are now BOTH targets regardless of the budget of 2.
+	if plan.withinBudget != 0 || len(plan.targets) != 2 {
+		t.Errorf("under Decision A both non-exempt hits are repaired and none is forgiven: withinBudget=%d targets=%d",
 			plan.withinBudget, len(plan.targets))
 	}
 	if plan.pageHits != 2 {
@@ -108,12 +112,15 @@ func TestBudgetIsPerPageNotPerSection(t *testing.T) {
 	p2 := planNegationRepairs(two, nil, 2, p1.pageHits, p1.mildHits)
 	p3 := planNegationRepairs(three, nil, 2, p2.pageHits, p2.mildHits)
 
-	if len(p1.targets) != 0 || len(p2.targets) != 0 {
-		t.Errorf("the first two hits on a page are earned: %d, %d targets", len(p1.targets), len(p2.targets))
+	// RE-PINNED 2026-08-31 (owner Decision A): with the mild set empty nothing
+	// is forgiven in ANY section, and the counters still carry per page — the
+	// bookkeeping survives the policy so density stays reportable.
+	if len(p1.targets) != 1 || len(p2.targets) != 1 || len(p3.targets) != 1 {
+		t.Errorf("under Decision A every section's hit is a target: %d, %d, %d",
+			len(p1.targets), len(p2.targets), len(p3.targets))
 	}
-	if len(p3.targets) != 1 {
-		t.Errorf("the third hit on the SAME page must be repaired, got %d targets (page_hits=%d)",
-			len(p3.targets), p3.pageHits)
+	if p3.pageHits != 3 {
+		t.Errorf("the per-page count must still carry: page_hits=%d, want 3", p3.pageHits)
 	}
 }
 
@@ -531,25 +538,23 @@ func TestOnlyAMildShapeCanSpendThePageBudget(t *testing.T) {
 		byShape[tgt.Shape]++
 	}
 
-	// Both sharp constructions must be targets. Under the old rule they came
-	// first, spent the budget, and survived.
+	// RE-PINNED 2026-08-31 (owner Decision A: "repair every one"). D3's mild
+	// tolerance is repealed: ALL five hits are targets, none is forgiven, and
+	// the counters still see everything.
 	if byShape["x_not_y"] != 2 {
-		t.Errorf("x_not_y targets = %d, want 2 — a sharp shape bought forgiveness it is no longer entitled to (targets: %+v)", byShape["x_not_y"], byShape)
+		t.Errorf("x_not_y targets = %d, want 2 (targets: %+v)", byShape["x_not_y"], byShape)
 	}
-	// Three mild hits, budget 2, so exactly one is repaired.
-	if byShape["rather_than"] != 1 {
-		t.Errorf("rather_than targets = %d, want 1 (3 hits, budget 2) — the mild tolerance is not being applied", byShape["rather_than"])
+	if byShape["rather_than"] != 3 {
+		t.Errorf("rather_than targets = %d, want 3 — Decision A repealed the mild tolerance", byShape["rather_than"])
 	}
-	if plan.withinBudget != 2 {
-		t.Errorf("withinBudget = %d, want 2 — the forgiveness was not spent on the mild shape", plan.withinBudget)
+	if plan.withinBudget != 0 {
+		t.Errorf("withinBudget = %d, want 0 — nothing may spend the budget under Decision A", plan.withinBudget)
 	}
-	// `rather than` is still DETECTED and still counted — the ruling changed who
-	// is forgiven, not what is seen.
 	if plan.pageHits != 5 {
-		t.Errorf("pageHits = %d, want 5 — mildness must not remove a hit from the density signal", plan.pageHits)
+		t.Errorf("pageHits = %d, want 5 — the density signal must still see every hit", plan.pageHits)
 	}
-	if plan.mildHits != 3 {
-		t.Errorf("mildHits = %d, want 3", plan.mildHits)
+	if plan.mildHits != 0 {
+		t.Errorf("mildHits = %d, want 0 — the mild set is empty", plan.mildHits)
 	}
 }
 
@@ -575,14 +580,15 @@ func TestTheMildBudgetCarriesAcrossSectionsWithoutSharpHitsEatingIt(t *testing.T
 		t.Fatalf("section 1 mildHits = %d, want 0 — sharp hits must not touch the mild counter", s1.mildHits)
 	}
 
-	// Section 2 carries section 1's counters. Its two mild hits should BOTH be
-	// forgiven: the budget of 2 is untouched, because section 1 spent none of it.
+	// RE-PINNED 2026-08-31 (owner Decision A): section 2's two `rather than`
+	// hits are now BOTH targets — the mild set is empty and no section, first
+	// or later, has forgiveness to spend.
 	s2 := planNegationRepairs(mild, nil, 2, s1.pageHits, s1.mildHits)
-	if len(s2.targets) != 0 {
-		t.Errorf("section 2: %d targets, want 0 — the sharp section consumed forgiveness it cannot spend", len(s2.targets))
+	if len(s2.targets) != 2 {
+		t.Errorf("section 2: %d targets, want 2 — Decision A repairs every rather_than", len(s2.targets))
 	}
-	if s2.withinBudget != 2 {
-		t.Errorf("section 2 withinBudget = %d, want 2", s2.withinBudget)
+	if s2.withinBudget != 0 {
+		t.Errorf("section 2 withinBudget = %d, want 0", s2.withinBudget)
 	}
 	// The total still counts everything.
 	if s2.pageHits != 4 {

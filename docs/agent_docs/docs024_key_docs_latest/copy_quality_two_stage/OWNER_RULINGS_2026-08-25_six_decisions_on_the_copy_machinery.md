@@ -296,3 +296,26 @@ rulings 13+14, put to the owner for one-word confirmation rather than assumed:**
 question hierarchy and readability GOVERN hero copy; differentiation remains an input that helps
 choose among answers to the same doubt, never the ranking key and never a licence for
 compression.
+
+---
+
+## 2026-08-31 (night) — Decisions A, B and C RULED; A+B SHIPPED
+
+His words: *"Decision A: I go with your recommendation to repair every one. Decision B: as per
+your recommendation. Decision C: Please go ahead and wire in the benefit priorities."*
+
+**A+B EXECUTED as one Go change** (`negationtells.go`): the mild set is EMPTY (D3's `rather_than`
+forgiveness repealed, budget machinery left inert with the reinstatement path documented);
+`instead_of` + `not_just` join the scanner's shapes, `instead_of` PROMOTED out of the neighbour
+set (AcceptNegationRewrite's shape check preserves and tightens the rewrite-rejection role). Four
+policy tests re-pinned citing the ruling; the vocabulary ratchet moved to seven and forced the
+CQ-026 register correction into the same commit; mutation-proven (mild-set reinstatement fails 4
+named tests). Council `Council-Submitted: 169ff10d-57df-46bb-b90a-95a46ae4a5cc`. **Go — INERT
+until the roll after v1.0.1346**; the canary's post-roll rebuild round is the measure.
+
+**C IN EXECUTION, amended-C order:** (1) the register wash over the 51 dirty benefit points
+(form-fixes by truncation; substantive ones flagged to the offer lane as re-judgements, per the
+agreed rank-pinning); (2) the writer-template wiring migration (clean sites render their
+`lead_with` as ordered data). Sequence note: the wash makes the whole corpus clean, so the
+fleet-wide template wiring is safe without per-site switches (which the 07-29 ruling forbids
+anyway).

@@ -86,6 +86,17 @@ var (
 	// one most likely to be narrowed once the rejection log has a week of traffic.
 	negRatherThanRe = regexp.MustCompile(`(?i)\brather than\b`)
 
+	// "instead of the one a vendor happens to sell" — the same comparison in a
+	// third coat; the owner named this phrasing explicitly (Decision B).
+	negInsteadOfRe = regexp.MustCompile(`(?i)\binstead of\b`)
+
+	// "not just those with engineering teams" — the minimising comparison. The
+	// negative lookahead-free guard: the ", not just" form is already x_not_y's
+	// and the "not just X, but" form is not_x_but_y's; overlap is harmless (the
+	// repair is sentence-keyed, and one sentence listed twice still yields one
+	// replacement), so this pattern stays simple rather than clever.
+	negNotJustRe = regexp.MustCompile(`(?i)\bnot (?:just|only|merely)\b`)
+
 	// "A model directory tells you which agents exist. It doesn't tell you how
 	// they hold up…" — the construction spread over two sentences, which is the
 	// owner's second quoted example and is invisible to every single-sentence
@@ -113,6 +124,11 @@ var negationShapes = []struct {
 	{"staccato", negStaccatoRe},
 	{"rather_than", negRatherThanRe},
 	{"negative_reveal", negReveseRe},
+	// The two below joined 2026-08-31 (owner Decision B — he named "instead of"
+	// verbatim in the truncation-trial ruling, and both shapes shipped untouched
+	// through the gate on the canary pages because the gate could not see them).
+	{"instead_of", negInsteadOfRe},
+	{"not_just", negNotJustRe},
 }
 
 // The neighbour set: the same instinct in a grammar the five shapes do not
@@ -127,7 +143,10 @@ var contrastNeighbourRes = []struct {
 	shape string
 	re    *regexp.Regexp
 }{
-	{"instead_of", regexp.MustCompile(`(?i)\binstead of\b`)},
+	// `instead_of` LEFT this set 2026-08-31: owner Decision B promoted it to a
+	// tripping SHAPE (he named the phrasing verbatim in the truncation-trial
+	// ruling). A rewrite that reaches for it is still rejected — the shape scan
+	// covers what the neighbour scan used to.
 	{"more_than_just", regexp.MustCompile(`(?i)\bmore than (?:just|merely|simply)\b`)},
 	{"isnt_just", regexp.MustCompile(`(?i)\b(?:is|are|was|were|does|do|did)\s?n['’]t\s+(?:just|only|merely|simply|about|a|an)\b`)},
 	{"is_not_just", regexp.MustCompile(`(?i)\b(?:is|are|was|were|does|do|did)\s+not\s+(?:just|only|merely|simply|about)\b`)},
@@ -212,11 +231,17 @@ func NegationShapeIsMild(shape string) bool {
 	return ok
 }
 
-// A set rather than an equality test, so adding a second mild shape is one line
-// and so this reads as a policy list rather than a special case.
-var mildNegationShapes = map[string]struct{}{
-	"rather_than": {},
-}
+// A set rather than an equality test, so this reads as a policy list.
+//
+// EMPTY since 2026-08-31 (owner Decision A, in-session: "repair every one").
+// This repeals D3's mild-forgiveness for `rather_than`: the canary measured the
+// forgiven allowance — applied per SECTION by the recorded landmine — shipping
+// ~6 `rather than` per multi-section page with no repair ever attempted, and
+// the truncation repair (ruling 7) is lossless, so nothing earns forgiveness
+// any more. The budget machinery above stays in place, inert: with no mild
+// shape, nothing can spend it. To reinstate an allowance, add a shape here and
+// cite the ruling that reopens it.
+var mildNegationShapes = map[string]struct{}{}
 
 func ScanDefineByNegation(text string) []NegationHit {
 	if strings.TrimSpace(text) == "" {

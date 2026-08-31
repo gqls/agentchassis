@@ -100,9 +100,18 @@ func TestNeighbourSetIgnoresFactualComparison(t *testing.T) {
 	if hits := ScanContrastNeighbours("This is more than just a catalogue."); shapesOf(hits)["more_than_just"] != 1 {
 		t.Errorf("'more than just' should be a neighbour, got %v", shapesOf(hits))
 	}
-	// The neighbour set must NEVER be a trip.
-	if hits := ScanDefineByNegation("We ship it instead of talking about it."); len(hits) > 0 {
+	// The neighbour set must NEVER be a trip. (`instead_of` no longer proves
+	// this — owner Decision B, 2026-08-31, promoted it to a tripping shape, so
+	// the never-a-trip control uses a remaining neighbour.)
+	if hits := ScanDefineByNegation("Unlike a spreadsheet, this updates itself."); len(hits) > 0 {
 		t.Errorf("a neighbour shape must not trip the gate: %v", shapesOf(hits))
+	}
+	// And the promotion itself is pinned: instead_of now TRIPS.
+	if hits := ScanDefineByNegation("We ship it instead of talking about it."); shapesOf(hits)["instead_of"] != 1 {
+		t.Errorf("instead_of must trip as a shape under Decision B, got %v", shapesOf(hits))
+	}
+	if hits := ScanDefineByNegation("This helps everyone, not just engineers, ship faster; it is not merely a demo."); shapesOf(hits)["not_just"] == 0 {
+		t.Errorf("not_just must trip as a shape under Decision B, got %v", shapesOf(hits))
 	}
 }
 
@@ -248,7 +257,10 @@ func TestRewriteFactRules(t *testing.T) {
 }
 
 func TestShapeVocabularyIsStable(t *testing.T) {
-	want := []string{"x_not_y", "not_x_but_y", "staccato", "rather_than", "negative_reveal"}
+	// Decision B (owner, 2026-08-31) added the last two. The register entry
+	// (CQ-026) and the LANDMINES prose that named FIVE shapes are corrected in
+	// the same commit as this line — that is what this ratchet exists to force.
+	want := []string{"x_not_y", "not_x_but_y", "staccato", "rather_than", "negative_reveal", "instead_of", "not_just"}
 	got := NegationShapeNames()
 	if len(got) != len(want) {
 		t.Fatalf("shape vocabulary changed: %v", got)
