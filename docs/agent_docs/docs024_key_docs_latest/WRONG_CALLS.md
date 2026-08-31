@@ -56846,3 +56846,36 @@ is a different and more expensive failure, because guidance propagates and a num
   option, when the real remedy turned out to be an `UPDATE` setting a URL that already exists at a
   predictable path. Adopted as standing battery practice by `copy_quality_two_stage` alongside
   "a verify block can only refuse what it was told to check".
+
+---
+
+## 2026-08-31 — "destroyed ~3 hours after apply" reached the owner; the truth was a 55-second race, and the peer's correction was ALSO wrong
+
+**The claim.** In Decision E's evidence: the offer producer regenerated fundamentallyai's row
+"~3 hours" after migration 667 washed it, destroying applied work. Reached the owner in the E
+packaging.
+
+**What was true.** 667's transaction began 10:28:41Z (the in-transaction backup's timestamp,
+holding the OLD texts — proof the wash matched and applied); the producer superseded the washed
+row at 10:29:36Z. **The wash survived 55 seconds.** My "~3 hours" came from subjective session
+time, never from a clock — I had not noticed the DB clock said ~10:30Z while my session narrative
+said "late night".
+
+**The double error worth the entry.** The peer lane challenged my claim with timestamps — and
+their inversion ("the regeneration came BEFORE 667; nothing was ever washed") was also wrong,
+because their instrument (`created_at` + "no newer row") cannot see an apply-then-supersede
+within a minute, just as my NOTICE could not see the supersede. **Two instruments, each blind to
+the other half, produced two confident wrong mechanisms around one true event.** Settled only by
+the artefact that sat between them: the in-transaction backup.
+
+**The cheap check that would have.** Read the CLOCK, not the narrative: `applied_at` on the
+migration record and the backup row were both one query away, and both existed before either
+claim was written. For any "X happened before/after Y" claim: fetch both timestamps from the
+same clock before writing a duration.
+
+**Cost.** One overstated mechanism in front of the owner for under an hour, corrected visibly in
+the rulings doc; the DECISION it supported survives unchanged (the race argues for E harder than
+the destruction did).
+
+Family: read-the-clock-not-the-narrative, two-instruments-blind-to-each-others-half,
+a-dated-claim-about-a-moving-pipeline.

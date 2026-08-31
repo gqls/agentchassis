@@ -342,3 +342,16 @@ unmeasurable, and the rate is the only evidence the fix works), reported as work
 measured against the 23% baseline on a fresh mint. Their side, council scope; both lanes agree it
 is the critical path. The sequence after it: re-census → one final wash pass (the verdicted 10
 texts stand ready) → the wiring, vetcomparison.uk first.
+
+> **CORRECTED (same night, both lanes wrong, settled by two timestamps and a backup):** the E
+> evidence above said the mint destroyed fundamentallyai's washed points "~3 hours" after 667.
+> The offer lane challenged with an inversion ("the regeneration came BEFORE 667; nothing was
+> ever washed") — also wrong: **667's in-transaction backup (10:28:41Z) contains the OLD texts
+> and its per-point asserts passed, so the wash DID apply — and the producer superseded that row
+> at 10:29:36Z. The wash survived FIFTY-FIVE SECONDS.** A genuine race with an in-flight
+> regeneration: not my hours, not their never. Each lane's instrument was blind to half —
+> `created_at` cannot see that the superseded row had been washed; the migration's NOTICE cannot
+> see the supersede. The argument for Decision E is therefore the RACE, at its true and starkest
+> width: a wash cannot beat a mint by running faster, because it lost by less than a minute while
+> already executing. (Their further corrections accepted: 5 wash-doc rows now stale, 2 of the
+> verdicted 10 among them — the 10 re-base only AFTER the mechanism lands.)
