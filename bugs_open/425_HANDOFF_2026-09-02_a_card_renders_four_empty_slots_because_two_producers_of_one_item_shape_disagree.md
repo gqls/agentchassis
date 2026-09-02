@@ -339,6 +339,28 @@ won; there is no merge, because there is no write.
 > **why does this slot re-render byte-identically on a binary whose projection would change its
 > title?**
 
+> **QUALIFIED, same day, by the `site_delivery_and_editor` lane — and the qualification is right.**
+> A zero in the archive cannot by itself distinguish *"nothing rebuilt the array"* from *"the old
+> projection rebuilt it identically"*, because the trigger tests `IS DISTINCT FROM`: the same code
+> over the same inputs produces a byte-identical result and writes nothing. "Byte-identical" and
+> "the old projection ran" are mutually consistent, so the archive narrows the question without
+> settling it.
+>
+> **But the four refusals are a lever on exactly that**, and they point away from "the old template
+> ran". The floor refusal quoted by the diagnosis — *"content-listing 114→54 class attributes"* —
+> is proof that on those pages the render produced a **materially flattened** output: collapsing
+> the guarded slots is precisely what removes class-bearing elements. So the post-682 template,
+> when it renders, demonstrably yields a different result.
+>
+> On the ten, that did not happen: no flattening, no refusal, no archive row. Had the post-682
+> template rendered there, it would have collapsed the same empty slots, changed the class count,
+> and either archived or tripped the same floor. **So on the ten, either the pre-682 template
+> rendered, or nothing rendered that slot at all** — and the pinned component version is not an
+> explanation, since `1454705a` was created at 11:11:55, after the 10:43:57 template update, and
+> carries the guard.
+>
+> That is the shape the follow-up diagnosis (`fe4b8537-4833-4de2-9d2e-2141619a911c`) is pointed at.
+
 > **The superseded reading is kept below deliberately, because the correction is the point.**
 > `[MEASURED 2026-09-02]` across all 14 target pages: **every one** has no `excerpt` key and a
 > suffixed title. The **4 cancelled** pages carry stale `page_components.updated_at` (03:10, 22:36,
