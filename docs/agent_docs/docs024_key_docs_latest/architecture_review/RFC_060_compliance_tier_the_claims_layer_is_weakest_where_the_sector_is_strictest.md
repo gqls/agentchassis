@@ -517,6 +517,30 @@ only ONE of the register's two write paths
 
 Raised by the `loanzy.uk` lane, seconded by lendzy, from the same day's register-writing work (§1d).
 
+> **The register's OTHER half has the identical shape, and it is cheaper to close** (added
+> 2026-09-02 by the bugfix_414 lane, argued by `loancalculator_couk`). Q7 is about **facts**:
+> a verification guarantee that only one of two write paths enforces. The same sentence is true
+> of **`banned_claims`**: a pattern that fails to compile degrades **silently** to a literal of
+> its own source text (`claims.go:348` — no logger, no error path), and the only thing that
+> catches it is `TestEveryGlobalPatternIsAValidRegex`, a **CI test over the Go-authored
+> fleet-wide set**, which by construction cannot see a pattern arriving as **data**. The admin
+> door counts patterns without compiling one; a migration cannot compile a regex Postgres never
+> parses. So the guard is armed, listed, counted and **inert**, and every count-based
+> verification passes — the same *guarantee enforced on one path only* that Q7 names, one field
+> along. `[MEASURED 2026-09-02]` the fleet is clean — **239 live per-site patterns, 19 sites, 0
+> non-compiling, 0 doubled-backslash**, broken controls firing — so this is a door standing open,
+> not damage.
+>
+> **It needs no decision from the owner and no new surface**, which is why it is a note here and
+> not a Q8: the daily `evidence-freshness` task already selects every site with a current
+> `evidence_base` and loads the whole register (`refresh_evidence_base_action.go:278`, `:325`;
+> enabled, 86400s, last completed 2026-09-02 09:08:58 — verified, not assumed). A compile pass
+> inside that existing loop is the census→cron step RFC_006 and WFA-013 have both already shipped.
+> **If Q7 is built as a sweep, it should carry this in the same pass** — one loop, two guarantees,
+> and the claims-verification lane owns both. Full costing and the two filing traps
+> (`ON CONFLICT DO NOTHING`; key on the finding, not the site): `LANDMINES.md`, the
+> banned-claims-escaping entry, amended 2026-09-02.
+
 **The gap.** `verify_and_register_citations` (V5/CLM-008) checks a candidate citation's host BEFORE
 admitting it: fetch the URL, require the quote in the visible text, reject on failure. That is real
 protection — but **all four registers written today (§1d) went in by hand, via migration**, which
