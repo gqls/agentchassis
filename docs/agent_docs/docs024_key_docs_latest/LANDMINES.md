@@ -3675,6 +3675,54 @@ queued rerenders will propagate it. Read the pending items' reasons —
 your own with `reason='section_data_resolved'`, which is the narrowest repair
 available (blast radius: one page's sections).
 
+> **APPENDED 2026-09-02 (components lane, from `bugs_open/425` measurement) — TWO THINGS: the
+> condition quoted above is STALE, and "set" is not the test.**
+>
+> **1. The live condition has FIVE values, not three.** Read verbatim from
+> `agent_definitions` where `type='page-rerender'`, step `check_rerender_mode`:
+> `image_landed OR section_data_resolved OR cta_links_stale OR **template_changed** OR
+> **literal_markdown**`. A reader using the three-value list above would wrongly conclude a
+> `template_changed` item takes assemble mode. It does not.
+>
+> **2. A reason can be SET, non-NULL, and still route to assemble — and the check above cannot
+> see it.** The entry's remedy says *"if they are NULL, the queue will complete without repairing
+> anything"*, and its `GROUP BY` shows a non-NULL value as apparently fine. But the conditional
+> tests **equality against five literals**, so anything else — a typo, or an explanatory sentence
+> — takes `else_step` exactly as NULL does.
+>
+> **This is live, not hypothetical.** `[MEASURED 2026-09-02]` completed `page_rerender` items in
+> 24 hours, grouped by reason: **1,418 with no reason at all**, 60 `section_data_resolved`, 39
+> `cta_links_stale`, 17 `template_changed` — **and 30 carrying a human-readable SENTENCE**, filed
+> by two lanes via three migrations:
+>
+> - *"component identity repaired by migration 701 (bugs_open/357 Option B) — hero mislabel
+>   retyped to a per-tool adopted component"* — 16 items
+> - *"FCA rule citation corrected by migration 696 (owner decision 2026-09-02)"* — 11 items
+> - *"component adopted by migration 693 — first rerender since the component_id was NULL"* — 3
+>
+> All 30 completed. All 30 re-shipped stored HTML unchanged. Both lanes believed their repairs
+> had propagated; one of them was correcting an FCA rule citation.
+>
+> **Why it is a landmine and not carelessness:** annotating a work item with what a migration did
+> is *good practice*, and `reason` is the one field in that spec which is PARSED rather than read.
+> Nothing errors, nothing warns, the item completes and `deployed_at` moves.
+>
+> **the check, in the form that discriminates** — test membership, never presence:
+> ```sql
+> SELECT COALESCE(NULLIF(spec->>'reason',''),'(none)') AS reason, count(*),
+>        (spec->>'reason' IN ('image_landed','section_data_resolved','cta_links_stale',
+>                             'template_changed','literal_markdown')) AS recognised
+>   FROM site_work_items
+>  WHERE item_type='page_rerender' AND status='complete' AND updated_at > now() - interval '24 hours'
+>  GROUP BY 1,3 ORDER BY 2 DESC;
+> ```
+> Put the prose in `summary`, which is free text and is what a human reads.
+>
+> ⚠ **And even a RECOGNISED reason is necessary, not sufficient.** `[MEASURED 2026-09-02]`
+> boxingonline `/index.html` completed twice carrying `reason='template_changed'` — 17:26:34 and
+> 17:32:46 — and produced the pre-fix output both times (`bugs_open/425` §2, open). So verify at
+> the ARTEFACT; the reason only tells you which branch was taken, never what it produced.
+
 **Do NOT read `create_rerender_items_action.go:219`'s
 `scoped := (reason == … ) && componentIDStr != ""` as the consumer's rule.** It is
 a PRODUCER-side gate deciding when *that creator* stamps a reason. The agent
