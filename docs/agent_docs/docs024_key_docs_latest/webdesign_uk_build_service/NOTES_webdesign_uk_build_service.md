@@ -7256,3 +7256,25 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   remaining 12 items across 5 sites will presumably no-op identically
   (completing, stamping deployed_at, changing nothing — the 425 family shape
   again, one level up). Their seam; nothing of mine in flight against it.
+
+## 2026-09-02 (~14:2xZ) — council round 2 RESUBMITTED with the full evidence set; components' floor-guard discipline banked
+
+- **9f1cb042 round 2 submitted** (same correlation, trail accumulates): the
+  needs_human_review+manual revision with every clause grounded — the loop
+  config quote, the loader WHERE, the CHECK constraint def (found by my own
+  rejected canary), the reaper predicate, and the LIVE canary (23m41s unclaimed
+  / 0 attempts, WITH the demand control: the same site's needs_page item was
+  claimed within minutes the same day — the loop visits, and declines the new
+  shape). Risks name the misclick path (APPROVE on a critique 400s on the
+  checkpoint gate) and the residual (a widened reaper).
+- **Components lane round-up**: my rerender-path finding CONFIRMED on 2 more
+  sites; two further candidates eliminated (pinned schema; the
+  unconditional-resolve code read — which makes it stranger: every read says
+  the fresh array should reach the page); 090 filed (c19a975d). Sent them the
+  DISCRIMINATING READ their diagnosis wants: garden-tools' guides-index is the
+  first page where stored array (4 guides) ≠ resolver return (5 posts), so one
+  served-page read answers whether ResolvedData actually wins at render —
+  boxingonline structurally cannot answer it (stored = resolved there). Their
+  floor-guard discipline banked as the COUNTER-EXAMPLE to the override pattern:
+  they read what section_component_floor governed (fleet step config) BEFORE
+  touching it, and cancelled four items with reasons instead.
