@@ -1444,3 +1444,103 @@ Doing 3 alone would put a seat in the build path that is blind to 92% of the sit
 that trigger it (cause non-obvious after a quick look; cause not where the symptom is) do not
 hold — the cause is four literals in the seat's own SQL, read directly, and every claim above is
 first-hand measurement against live config and the live DB rather than inference.
+
+---
+
+## 2026-09-02 (later) — 694 APPLIED and live-verified; and a peer's site exposed a blind spot in BOTH my detectors
+
+### 694 is applied, and the evidence is at the artefact, not the status
+
+Council: **APPROVED at round 2**, corr `d52a0e45-5c64-4d32-a1ab-f73532684d37`. Round 1 was REVISE
+and was worth every minute — see the previous entry's correction. Applied by hand 14:36:08Z, then
+`run-migrations.sh --record-only` so no other session's `--apply` re-runs it.
+
+Live check, read back from `agent_definitions` **after** the apply: allow-list gone, non-greedy
+strip present, `ORDER BY pc.position` present, the four promise dimensions present,
+`filing_mode` still `record` (the owner's ruling of today, preserved).
+
+**The measurement that matters is fleet behaviour, not my own assertion.** Every
+`content-quality-auditor` run since 14:36:08Z:
+
+| run | pages sampled | distinct page_types | carries the new `page_type` column |
+|---|---|---|---|
+| 19:09 | 14 | 4 | yes |
+| 18:53 | 18 | 6 | yes |
+| 17:50 | 18 | 7 | yes |
+
+Before 694 the same field held **3** rows and no `page_type` key at all. On boxingonline the seat
+now samples **18 pages across 8 types / 20,974 chars**, against 3 pages of which the index was
+999/1000 CSS.
+
+> ⚠ **Do NOT cite a boxingonline audit as proof yet.** Its most recent run is **06:23Z, pre-694,
+> 3 pages**. The improvement sweep takes one site per 15-min tick across ~54 sites, so it has not
+> come round again, and a manual dispatch I published at ~14:37Z produced **no orchestration row**
+> (unexplained; not retried, per CLAUDE.md's "a missing row is almost always latency"). The
+> post-694 rows above are OTHER sites. The change is proven fleet-wide and NOT yet on the
+> motivating site — which is exactly the shape `a-pass-from-a-blind-check-outlives-the-blindness`
+> warns about, so it is written down rather than rounded up.
+
+Also worth recording: the seat's config `updated_at` moved to **15:38:29Z**, an hour after my
+apply, with **no snapshot taken** (last `agent_definitions_backup` row is my own 14:35:30). No
+migration applied in that window names this agent and the step list is still exactly 694's eight,
+so nothing I assert on changed — but on a tree this many sessions share, "my change is still
+there" is a query, and I ran it.
+
+### The designblog exchange — my two detectors are blind to the case the owner is complaining about
+
+The `designblog.co.uk` lane messaged: four listing pages serving ZERO items and carrying prose
+about their own brief instead (`/glossary.html`, `/inspiration/`, `/the-design-feed/`,
+`/uk-studios-directory/`). Owner's words: *"the glossary has text about the brief and is not a
+glossary… the directory is empty."*
+
+**First answer — schedule — is true but is NOT the interesting one.** Neither cron had seen the
+sites: SQ-004 last fired 07:25:11Z and the three new sites have `created_at` 11:47:22Z (all four
+updated 18:34–19:12Z); SQ-005's `lastScheduleTime` is **empty** — the CronJob was created today at
+10:30:27Z, i.e. after its own 07:40 slot, so it has **never fired on schedule** and first runs
+tomorrow. The three receipts dated today are my own manual triggers from building it.
+
+**The real answer is that running them by hand right now still reports ZERO**, and Rule C cannot
+see this case by construction:
+
+```sql
+AND jsonb_typeof(COALESCE(pc.content_data->'articles', pc.content_data->'items')) = 'array'
+), sized AS MATERIALIZED (SELECT * FROM inst WHERE jsonb_array_length(arr) > 0)
+```
+
+Two independent filters drop an empty index before the rule runs. Measured on designblog: all
+**11** component rows under those four pages have `arr_type` **NULL** — no `articles`/`items` key
+at all — so they die at the FIRST filter, before the `> 0` one is even reached. **Rule C asks
+"does this index list things from OUTSIDE its own directory?", which presupposes it lists
+something. An index that lists NOTHING is invisible to it.** And `/glossary.html` is
+`page_type='content'`, outside Rule C's selector entirely — so the fix needs a content-class
+trigger, not merely a page_type widening.
+
+This is the CONTRIB's open ask-2 listing half, now with a **second independent instance**, which
+is what turns it from a note into work. Taken.
+
+> **A DEFECT IN MY OWN DETECTOR, found by reading my own output instead of skimming it.** The
+> designblog run of `audit-listing-class-promise.py` printed
+> `positive_leopardess: FAIL — classifier drifted or site changed`. That is neither a designblog
+> finding nor a regression: **the positive control is a leopardess page, and `--site
+> designblog.co.uk` filters the control's own case out of the corpus**, so it reports FAIL where
+> it means N/A. Re-run with `--site leopardessconsulting.co.uk` and it PASSES and still finds the
+> real 7/13 off-class mismatch. So **every `--site` run against any other domain currently prints
+> a failed positive control** — which trains a reader to ignore the control line, and that is the
+> one line that says whether a zero is trustworthy. Until fixed, SQ-004's designblog zero is
+> **UNTESTED, not clean**, and I told the peer so rather than letting them read it as a pass.
+
+Peer context for the rule build, from `bugs_open/444` (portfolio positioning): the four remakes'
+feeds have **0** `content_sources` rows, glossary/inspiration have **no item producer anywhere in
+the estate**, and the directory kind does not exist. So the rule will initially fire on pages that
+**cannot** fill themselves — correct behaviour, and 444's own fix candidate (plan validation
+refusing a listing page whose item source resolves to zero) is the upstream door-closer the
+detector would then hold shut. Worth stating in the rule's docstring so nobody "fixes" the
+detector for over-reporting.
+
+### Open after this session
+1. **The empty-index rule** (SQ-005 rule D, or a widening of C): an index that lists nothing, and
+   whose page says nothing true about that. Must trigger on content-class, not page_type alone.
+2. **SQ-004's `--site` control bug** above — cheap, and it undermines every scoped run until done.
+3. Routing `content-quality-auditor` into `site-work-orchestrator` (the original task's step 3),
+   held until a post-694 audit is observed on a real build.
+4. The planner-side half of CONTRIB ask 3 (refusing to select a tool when we hold no data for it).
