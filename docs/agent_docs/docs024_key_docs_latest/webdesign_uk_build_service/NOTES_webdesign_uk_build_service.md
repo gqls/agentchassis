@@ -7480,3 +7480,70 @@ unchanged at `79eafe5d414e`). Backup `/etc/webdesign-chat.env.bak-20260902T17134
   read. A second key on the same account would have passed every check above.
 - Owner's credential file was `-rw-rw-r--` (world-readable on a shared box); tightened to
   `600`, matching the neighbouring `gripper-dossier-api-key`.
+
+## 2026-09-02 (~17:1xZ, fresh session) — §1.4 guides-index: "roll-bound" REFUTED; pre-roll fix EXECUTED via fork + existing vocabulary
+
+> **CORRECTED 2026-09-02: the ~13:5x claim "NO pre-roll path holds guide items in a
+> query-resolved listing; the resolver vocabulary (query.guide_pages …, Go, roll-bound)
+> is the entire fix" was an overreach, and the handoff's §1.4 "blocked" status with it.**
+> What the bccedf9c experiment actually proved: the build RE-RESOLVES (hand-written items
+> don't survive). It never tested whether an EXISTING vocabulary entry could resolve
+> guides — and one can: the generic arg form `query.pages_where_type:guide` has been in
+> the deployed vocabulary since v1 (queryresolve.go, `pages_where_type` handler). The
+> pattern is the lane's own recorded one: "a true statement about one layer restated as a
+> system rule." What caught it: reading queryresolve.go's handler map cold instead of
+> trusting the record. Cheap check skipped: grep the handler map for arg-taking bases
+> before declaring a vocabulary gap.
+
+- **Mechanism verified before acting**: source lives on the SHARED content_components
+  definition (15 instances / 7 sites — a definition edit was never an option). Instance
+  pointing = fork + repoint, and plan_sections Path 0 (bugs_open/204) binds the stored
+  `page_components.component_id` FIRST, id-wins-over-name, mirrored on the re-render
+  path — so a repoint STICKS across rebuilds. Fork precedent: 79 forks fleet-wide, all
+  keeping the parent's `function` (selector paths exclude forks via `forked_from IS
+  NULL`, test-enforced; loadSectionComponents Pass 2 lacks that filter but only searches
+  function values equal to MISSING section names, so a distinctly-named fork cannot
+  shadow its parent while the parent's name resolves).
+- **Dry-run first**: the resolver's exact SQL (fetchable floor) returns exactly the 4
+  guide pages — real titles (suffixes stripped by ListItemTitle), real
+  meta_descriptions → excerpts, no card/hero (empty image = handled no-thumbnail). All 4
+  also pass the STRICTER listed-only floor (deployed + non-empty sections), so the
+  fetchable-vs-listed delta is currently zero rows on this site.
+- **Executed 17:1xZ**:
+  - Fork `content-listing-guides-boxingonline-com` = `b475fe54-9052-4279-bc12-d4889c57917c`
+    (forked_from aa3e4b68, created_from='forked', function kept 'content-listing').
+    Verified: template byte-identical, rest of schema identical, ONLY
+    `fields.articles.source` → `query.pages_where_type:guide` and its missing_reason
+    changed. Frozen-template cost noted in its description.
+  - Repoint: page_components `f6ad0a46-a33c-493c-b470-b728a576e9b0` component_id
+    aa3e4b68… → b475fe54… (old value recorded here; revert = UPDATE back + rebuild).
+  - Stored `section_title` already reads "Guides for every tool on the site" — the
+    peer-measured heading/items mismatch resolves in the RIGHT direction with no
+    rewrite; llm fields carry on the stored ⊕ fresh merge.
+  - Dispatch: needs_page item `7f1f4993-3f76-458a-b036-13e354947f12` (17:14:58Z), exact
+    bccedf9c shape (page-build-handler, reason rebuild_cleared_component), queue checked
+    clear first.
+- **This rebuild doubles as the post-roll 425 producer probe** — the ten
+  "pre-fix item shapes" pages re-rendered 13:58/13:59Z, BEFORE the 15:39Z roll, and the
+  fe4b8537 diagnosis (verdict: NOT CONFIRMED, iteration cap) started 14:36Z, also
+  pre-roll — so "in-binary-but-not-executing" may be nothing but timing. Told the
+  components session (msg 17:1xZ): excerpt key + suffix-free titles in this item's
+  output settles it.
+- **query.guide_pages (Go) is now OPTIONAL, not the fix**: the only delta vs the generic
+  form is the listed-only floor (excludes a deployed-but-sectionless guide shell).
+  Platform convention (reuse existing machinery) argues for the generic form; decision
+  on adding the named entry left open, no longer blocking anything.
+
+> **CORRECTED 2026-09-02 (~17:2xZ), within the hour, by the components session:** the
+> bullet above saying the ten pages re-rendered "BEFORE the 15:39Z roll" and that
+> fe4b8537's puzzle "may be nothing but timing" does not hold. There were TWO rolls
+> today: 12:28:03/12:28:24Z (ReplicaSet 96c48f448) — which postdates the producer-fix
+> commit f57f5ad1f (10:51:55Z) and was probed carrying ListItemExcerpt/ListItemTitle
+> (one pod of two, with controls) — and 15:39/15:53Z (v1.0.1354). The rerenders ran
+> 13:51–14:14Z, AFTER the first roll. The real residual gap is theirs and stated: only
+> one of the two 12:28 pods was probed, and the same-tag-cached-binary landmine means
+> the other pod is not guaranteed identical; it is gone and cannot be re-probed. My
+> 7f1f4993 rebuild remains the settling probe — at the artefact, on the current
+> binary — but the cheap check I skipped was `kubectl rollout history` / ReplicaSet
+> ages before dating anything against "the" roll. One roll a day is an assumption,
+> not a fact.
