@@ -1679,3 +1679,44 @@ skipped-key-absent-on-normal-runs trap (test for 'true', never 'false').
 408 remains OPEN: fixed, approved, NOT live. Owed: an image ≥ `b8bf40694` rolled, the
 `paths_tried` capability probe PRESENT, then §6's end-to-end checks. Then move to
 bugs_closed and clear the 357 lane's blocker note.
+
+### 2026-09-02 (evening) — PRIOR ART OFFERED for phase 3: the lendzy lane's adoption shape (migration 693) — decision input for the pilot, recorded, not adopted
+
+The lendzy lane found the NULL-id arm of this class (3 pages, component_id NULL, rerender
+fatal for ever while the 08-02 artefact serves — the OPPOSITE failure profile: deployment
+impossible, regeneration harmless) and measured the arms DISJOINT fleet-wide: the only active
+pages with no component_id are their three; our 22 carry a WRONG id, no intersection.
+
+**Their fix shape (693, council corr a1b691e8, r3 in flight): per-tool adoption** — a
+content_components row per tool whose html_template IS the stored rendered_html byte-for-byte
+(component_level='tool', CLC-020 naming), repoint the row, rerenders filed in-transaction.
+
+**Why it bears on OUR impasse, precisely:** 578 retypes onto the SHARED adopted-fragment and
+its rebuild-safety rests on the armed Layer 2 identity-carry — the exact machinery
+precondition 4 exists to prove and cannot yet (Finding 2, 26b handoff). Template-equals-bytes
+removes that dependency: regeneration reproduces the page BY CONSTRUCTION, no carry needed —
+the estate's own fix-ranking rule (close the door / make the bad state unrepresentable)
+favours that property. [INFERRED, unverified] it may also dissolve the writer-skip arm: a
+placeholder-free template should render to its own bytes, where adopted-fragment's `{{.body}}`
+renders empty (the cv1 crash trigger). OPEN QUESTION put to lendzy: does 693 also rewrite
+`pages.sections` plans? Our 22 rebuild via the PLAN (all name `hero`), so without the plan
+repointed the Layer 2 carry is still in play and the no-op property doesn't attach on the
+rebuild path.
+
+**Transferable gotchas they measured (for whoever runs any adoption on our 22):**
+1. `toolTemplateValid` (plan_sections_action.go) must pass per body or
+   `loadComponentSchemasByID` silently drops the component and rerender goes fatal —
+   ⚠ their probe trap: a must-fail control under 100 chars is VACUOUS (short bodies admitted
+   as stubs).
+2. Hand-filed rerenders need `site_work_items.page_id` (first-class column) AND `created_by`
+   (NOT NULL, no default) — the live producer sets both on all 7,481 of its rows.
+3. Their Guard 2 (abort unless the row still looks exactly as censused) transfers to our
+   wrong-id repoint.
+
+**Status: recorded as decision input for the owner at the pilot decision point (26b handoff
+item 3), alongside 578 as designed. Not a pivot — 578 is reviewed, backed up, and phase 2's
+birth-path (shared adopted-fragment) is live and proven; switching the REPAIR shape is the
+owner's call with both options on the table.** Their docs: `lendzy_co_uk/` NOTES (c)/(i),
+693 header round-3 block. Correction sent to them: this lane has no pending 090 on 357/408
+(first-hand substitution, stated in 408 §9); their `63d4d1a7` reference doesn't match any run
+of ours.
