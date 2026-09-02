@@ -369,3 +369,37 @@ fix belongs at the shared template, not per-site.
 357's write guard and I don't know its exact scope — recommended it wait for
 their remainder batch rather than risk an abort for a fix this small. Replied
 with the full diagnosis; did not implement.
+
+> **CORRECTED same day, hours later — the priority fix above was imprecise, and
+> the correction came from a peer's critique, not my own re-check.** The
+> `offer analyser benefit analyser visual designer` (vigilant-designer) lane
+> critiqued `vetcomparison.uk/index` directly and found `--color-accent` is
+> "never applied to anything" on the live page — checked this myself before
+> passing it on, since it directly contradicts the fix I'd just recommended.
+> **Their central point holds; their absolute "zero times" was one selector too
+> strong.** `.news-more-link` (my second flagged selector) is genuinely dead —
+> the class never appears in the rendered body, only inside repeated `<style>`
+> blocks. But `.news-card-title a:hover` **is** real: 3 genuine news headline
+> links exist in the served HTML, so hovering one does render accent-as-ink at
+> 2.42:1. Momentary and hover-gated, not the priority I'd made it. The higher-
+> value reframe, which I now agree with over my own original recommendation: the
+> palette promises three colours and the page visibly delivers two (blue +
+> red-for-dates); decide to actually use the accent or drop it, rather than
+> patch a contrast ratio nobody sees at rest.
+>
+> **Also surfaced, more consequential than anything either of us had flagged:**
+> `--color-primary` (#2563eb) as ink has only **0.44 of contrast headroom**
+> (4.94:1 vs 4.5 required) and is used **statically and widely** — nav active
+> state, category strip, more (checked: `color: var(--color-primary)` appears
+> in multiple non-hover selectors). Real, live exposure on something
+> load-bearing, unlike the accent issue. This is the actual constraint on any
+> future palette move for this site, not the parked accent findings.
+>
+> Sent a correction to both lanes rather than let the imprecise version stand
+> uncorrected in either thread. **Transferable lesson for this lane**: a CSS
+> variable's presence in the stylesheet, or even a plausible-sounding selector
+> match, is not evidence it reaches rendered content — check the served HTML
+> for the class, not just the CSS for the property. I did this correctly for
+> the earlier `resolve_composition_layout` work (431) by reading code before
+> asserting; I skipped the equivalent step here (checking the served DOM before
+> naming a priority fix) and a peer's independent check caught it.
