@@ -7751,3 +7751,25 @@ re-rule, not progress). The intake question and ZIP-path work packages (§ items
 still 0 tags at the same read; owner's GA4 Publish click still the one
 outstanding Google action. Seeder + mode-field build remains the analytics
 lane's per the ownership ruling.
+
+## 2026-09-02 (~20:2xZ) — footer retirement corroborated at the ROW; GTM wave inbound
+
+- **boxingonline session independently corroborated the footer closure at the
+  row**, adding the one discriminator my serve-verify lacked:
+  `rendered_html_digest` is SET beside the new bytes, and **only the render
+  path writes the digest** (their regexp_replace hand-patch did not) — so the
+  2,289-byte footer is a machine render by construction, not just by timing.
+  All three slots re-rendered 16:27:55-56Z; email_in_footer / contact_link /
+  footer_contact_div all FALSE. Their sentence for the owner — "the site ships
+  a chrome artefact the pipeline cannot regenerate" — is RETIRED. (Whether
+  423's slicer is fixed vs merely un-triggered on this input stays 423's
+  question; neither of us claims it here.)
+- **GTM inbound on boxingonline**: analytics lane wrote
+  `analytics.gtm_container_id = GTM-PQ3WCTBD` into `site_specs.site_config`;
+  they went looking for the merge-vs-replace collision and **the `chrome` key
+  survived intact** (header_slots + CTA present) — the nav fix did not revert.
+  Served pages still count 0 for the container id → a 22-page chrome-rerender
+  wave will fire on the stale_chrome pass. Watch discipline banked as handoff
+  §1.6b: rerender path ⇒ still-suffixed cards after the wave are NOT a new
+  failure; and the pre-delivery SITE_DEFECT_CATEGORIES sweep should run only
+  after roll + HOLD + GTM wave settle.

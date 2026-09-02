@@ -120,6 +120,20 @@ diagnosis `fe4b8537`, components lane).
    rests on it) and `docs024_key_docs_latest/SITE_DEFECT_CATEGORIES.md` (fleet
    acceptance checklist, ~30 runnable checks; **read its §0 first**, run it
    against boxingonline before filing the delivery review).
+6b. **WATCH — GTM propagation wave inbound (added ~20:2xZ, boxingonline
+   session's finding)**: analytics lane merged
+   `analytics.gtm_container_id = GTM-PQ3WCTBD` into `site_specs.site_config`;
+   **the `chrome` key survived the merge intact** (header_slots + fight-calendar
+   CTA verified present — the collision that would have silently reverted the
+   nav fix did not happen). Served pages don't carry it yet (count 0 on / and
+   /about.html); the stale_chrome → needs_rerender pass will chrome-rerender
+   **22 pages** when it fires. Two disciplines: (1) it is the RERENDER path, so
+   **a still-suffixed card after that wave is NOT a new failure** — cards wait
+   on the 425 roll + HOLD; (2) chrome rerender is now SAFE (423 live, footer
+   gate proven on a genuine render — digest set, len 2289, all three contact
+   markers FALSE at the row, 16:27:55Z). **Run the §7 pre-delivery
+   SITE_DEFECT_CATEGORIES sweep only after roll + HOLD apply + this wave have
+   all settled** — measuring mid-transition buys a state no one will serve.
 7. **When the list is done**: the 651 rehearsal — delivery-review-filer →
    owner EDITS + **APPROVE** on admin.apis.uk (never resolve) →
    zip-deliverable-dispatch → delivery-email-sender with
