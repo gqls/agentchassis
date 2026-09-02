@@ -120,17 +120,22 @@ outside 359's detector by construction. See NOTES for whether this earns its own
   Deliberately contains no `"` or `\` so 082's single-line JSON folding is lossless
   (checked by running its exact `sed | tr | sed` pipeline over the file).
 
-## 5. Phasing
+## 5. Phasing (rewritten 2026-09-02 evening — see HANDOFF_2026-09-02_continue_here.md §5 for the step-by-step)
 
-1. ~~Diagnose the live state with controls~~ **DONE 2026-09-02.**
-2. Agree differentiated positioning with `Portfolio positioning`. **IN FLIGHT.**
-3. Seed the site row + `evidence_base` + `imagery_style_guide` before submitting, per the
-   `oufe` worked example (`docs024_key_docs_latest/oufe/SEED_2026-07-25_oufe_site_and_specs.sql`)
-   — the email matters (`bugs_open/063`: the hallucinated-email check fails OPEN with no
-   contact email), and `evidence_base` must exist before the first page is written or the
-   claims layer silently no-ops.
-4. Dispatch the FRESH build with the agreed mission brief.
-5. Verify at the artefact, not at the status: `<main>` non-empty on every page, the two
-   legal pages resolving, a sitemap, and no empty `mailto:`.
-6. Decide what happens to the orphaned artefacts currently serving — they must not
-   survive the rebuild as stale siblings.
+1. ~~Diagnose the live state with controls~~ **DONE.**
+2. ~~Establish why the adoption broke it~~ **DONE, re-verified on a second model, 7 details corrected in place.**
+   The publish defect is closed for NEW publishes (guards live in the running binary — fresh
+   build stamp `ebf27c60377f`, 2026-09-02 ~16:19, all three commits ancestors, both controls
+   pass). NOT closed for already-served empties with zero component rows — `bugs_open/432` §3a.
+3. ~~File the detector gap~~ **DONE — `bugs_open/432`, UNOWNED.**
+4. ~~Agree differentiated positioning~~ **DONE — practice seat; GD1/GD2 in the register.**
+5. ~~Draft the mission brief~~ **DONE — awaiting owner approval (decision A4).**
+6. **BLOCKED on owner decisions A1–A4** (HANDOFF §4): email, look-and-feel, old files, brief.
+7. Pre-seed the site row + `evidence_base` + `imagery_style_guide` (RUNBOOK §6; `name` AND
+   `network_id` explicit).
+8. Clear the old artefacts per A3 (RUNBOOK §8 gotchas; push to `master`).
+9. Dispatch the FRESH build (RUNBOOK §7) — not within ~300 s of a chassis restart.
+10. Verify at the artefact (RUNBOOK §8): every file non-empty `<main>`, legal pages + sitemap
+    200, no empty `mailto:`, control still 404, positioning constraints honoured on the served copy.
+11. First SUMMARY; append README; tell `Portfolio positioning` if the brief landed elsewhere.
+12. Close the lane. `bugs_open/432` stays open — separate owner (decision C).

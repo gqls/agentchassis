@@ -117,3 +117,19 @@ Two small extras from the second look: the original hand-written homepage for ga
 survives as a stray untracked file in the deploy repo, if the rebuild wants to see what the site
 used to say; and about half of gamesdesign.co.uk's page titles still say "GameDesign.uk" — that's
 the sibling site's problem, and its lane's.
+
+## 2026-09-02, evening — where this stands, and what I need from you
+
+The new chassis build is running and I checked it carries the guards (it does; the previous one
+did too, so nothing changed for this site). I've written the handoff and a runbook so a fresh chat
+can pick this up cold: `docs/agent_docs/docs024_key_docs_latest/gamedesign_uk_rebuild/HANDOFF_2026-09-02_continue_here.md`.
+
+The diagnosis is finished. The rebuild is prepared and waiting on you. Before anything gets
+dispatched I need: a contact email for the site; whether it should look different from the tools
+site; whether to clear the old files first (I'd say yes — they're tool pages, which the new
+direction forbids); and a yes or an edit on the brief.
+
+Separately, three things that aren't this site's but came out of the second look: a live "rerender
+says done, page still empty" defect on ai-agent-orchestration.com that matches a bug we closed;
+who should own the monitoring gap I filed as 432; and seven other domains serving with no
+database row. Those are your calls, not blockers for this lane.

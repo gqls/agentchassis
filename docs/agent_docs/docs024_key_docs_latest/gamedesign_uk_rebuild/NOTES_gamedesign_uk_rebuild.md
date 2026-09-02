@@ -196,3 +196,25 @@ copy, if the rebuild wants to reference it. And **23 of 49 gamesdesign.co.uk pag
 "… | GameDesign.uk"** — a brand leak on the SIBLING; that lane's, not mine.
 
 All corrections applied in place in `bugs_open/432` (six `CORRECTED` blocks) and here.
+
+---
+
+## 2026-09-02, evening — fresh chassis build deployed; stamp re-read
+
+Owner: "A fresh chassis build has been deployed." Re-read the running stamp rather than assume:
+
+```
+agent-chassis | ebf27c60377f | 231 pods | last_seen 2026-09-02 16:19:44   <- new
+agent-chassis | a2732c7207da | 346 pods | last_seen 2026-09-02 16:19:30   <- old, still draining
+```
+Mid-roll: two stamps coexist. `ebf27c60377f` = "394: un-ignore render_truncation_acks.json …"
+(2026-09-02). `git merge-base --is-ancestor`: `d777cb4d2` YES, `6579e9ae1` YES, `856fc4a51` YES;
+controls HEAD→stamp NO, stamp→HEAD YES; old stamp `a2732c72` is an ancestor of the new (so it IS
+a newer build, not a re-tag). **Nothing changes for this lane** — the guards were already live —
+but the figure in the PLAN and HANDOFF now names the current stamp.
+
+**Gotcha found on the way:** `service_binary_capabilities`' column is `service`, not
+`service_name`; my first query errored. RUNBOOK §5 carries the working form.
+
+Wrote the RUNBOOK (the standing five were four until now) and `HANDOFF_2026-09-02_continue_here.md`.
+The lane is BLOCKED on owner decisions A1–A4 (HANDOFF §4); nothing dispatches until they land.
