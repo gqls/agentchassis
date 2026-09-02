@@ -128,3 +128,38 @@ itself. The fix makes a future re-resolve for it (and the other 3 affected sites
 see real signal for the first time; whether to actually trigger that re-resolve,
 and what it picks, is a decision for that site's own thread/owner, not something
 to do or predict from here.
+
+## 2026-09-02 (later still) — council verdict read: APPROVED. Still not live
+
+Checked the correlation (`bd469ba1-228e-443e-a04d-6a577a210e5d`) —
+`metadata->>'decision' = 'approved'`, read 2026-09-02 12:33Z. Per the standing
+rule, did **not** amend the commit to add `Council-Reviewed:` (forward-only
+forbids the amend, and `098_REPORT` credits the correlation automatically once
+it runs). Updated `bugs_open/431`'s status line to say so.
+
+**Checked whether it's actually live before believing "approved" means
+"shipped."** `service_binary_capabilities` says the deployed chassis is built
+from `a2732c7207d…`; `git merge-base --is-ancestor bd8e45aba a2732c720…` is
+**false** — the deployed build predates this fix, it has not rolled. Left as-is
+deliberately: the working tree currently carries a large set of modified
+`deployments/kustomize/.../kustomization.yaml` files (visible in `git status`,
+not mine), which reads as a fleet-wide release already in preparation by
+someone else. Building or deploying this one service myself right now risks
+colliding with that — matches the standing "releases are WHOLE-FLEET, owner
+runs make release" practice. Left for the next coordinated roll; `bugs_open/431`
+states plainly it is not verified live yet.
+
+**Notified the two other affected sites that have active sessions** —
+`finetuning` and `leopardess` (for `finetuning.uk` and
+`leopardessconsulting.co.uk`, the two legacy-classifier-shape sites from the
+census) — a short FYI, not a request for action, matching the "contribute the
+measurement, don't act unilaterally" norm this whole file has followed
+throughout. `ai-agent-orchestration.com` has no active session right now
+(checked `ListAgents`) so nobody to notify there beyond the bug file itself and
+the memory workstream entry.
+
+**Nothing further actionable in this thread right now** without either (a) a
+fleet roll landing this fix, or (b) new site-design-planner-scoped work
+appearing in the queue (checked — still the same 3 items, unchanged since this
+morning). Next session picking this up should re-check both before assuming
+anything has moved.
