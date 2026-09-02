@@ -7417,3 +7417,25 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   artefact).
 - Verified position unchanged: post-682 serving on both pages, slots gone,
   suffix = producer miss, fe4b8537 running.
+
+## 2026-09-02 (~16:3xZ) — FRESH ROLL verified; FOOTER REGENERATED (all criteria green); r2 APPROVED + advisory answered; HANDOFF cut
+
+- **Roll v1.0.1354** (pods 15:39/15:53Z): 423's UpperFirst fix PRESENT (control
+  clean) → fired the genuine footer regeneration (corr f4e8fe75):
+  **rendered.footer=TRUE first time in five attempts across two days**; row
+  16:27:56, digest=md5(html), NO contact block, NO email, len 2289 — every 423
+  acceptance criterion green; the hand-patch is REPLACED by a machine render;
+  serve-verifier armed (footer_serve_verify.sh).
+- **Council 9f1cb042 r2 APPROVED** (1 advisory: the consumption path was
+  asserted, not verified — ANSWERED at the artefact: the dispatcher poll script
+  finds the live canary; canary retired complete with both measurements in its
+  result).
+- **⚠ LOGO REGEN NOW BLOCKED ON THE NEXT ROLL** (relayed by the boxingonline
+  session from the 424 lane): their shipped fix b2322a203 postdates v1.0.1354 —
+  the deployed prompt path self-contradicts (negative forbids the key colour
+  the positive instructs). Do NOT regenerate; interim solid-ground mark stays.
+  Owner status: no-baked-background is implemented-and-inert (the third
+  column).
+- **HANDOFF CUT for the new chat**:
+  `docs/agent_docs/docs024_key_docs_latest/site_delivery_and_editor/HANDOFF_2026-09-02_continue_here.md`
+  (supersedes 08-31). Joint cold-start moves there.
