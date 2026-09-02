@@ -406,3 +406,55 @@ their subsystem. Their NOTES (line ~1102, `[MEASURED 2026-08-31 09:45Z]`) alread
 
 So the bug file's UPDATE item 5 should be read as: the census IS flattered, the cause is the
 outage, and the outage does NOT explain item 3. Corrected there too.
+
+## 2026-09-02 ~16:05Z — re-read on a recovered queue: page unchanged, and the sweep has NEVER RUN (12/12 born terminal)
+
+Owner asked to re-read the page before firing a `090`. Right call — the re-read killed the last
+confound and turned up a second defect that had been hiding behind the first.
+
+**The demand controls PASS now, which is what makes today's reading admissible.** 08-31's reading
+was flattered by a dead queue; today's is not. `page_rerender` created/complete: **09-01 1164/953
+(82%), 09-02 1179/1084 (92%)**; cards landing again (10, then 6). So "still broken" today is a
+real observation, not an idle system.
+
+**The page is byte-identical to 08-31** — 38,319 bytes, same 11 card `src`s for 13 entries, both
+guides still text-only, still first in the grid. `page_components.updated_at` still 08-27 21:34.
+
+**MISSTEP, mine, corrected: I mis-attributed the nine items on 08-31.** I wrote "the seam fired
+nine times". It did not, and one `GROUP BY created_by` would have told me on the day:
+- `derive_card_asset` (the seam): **6 items, ALL complete** — both of ours among them.
+- `completeness-discovery-agent` (`spec.check=page_list_stale`, the sweep): **9 items, all stuck.**
+I had the rows in hand on 08-31 and grouped by status but not by creator. **The check: when a set
+of rows is going to carry a claim about WHO acted, group by the actor before counting them.** It
+changed the finding materially — the seam is exonerated, the sweep is the victim.
+
+**DEFECT #2 — the sweep this lane shipped has never run once.** `page_list_stale`, live+archive,
+all time: **12 items, 12 `unresolved`, `attempt_count=0`, zero claimed, zero completed.** Three
+pages on three sites. Mechanism, read at source and confirmed by fingerprint at the artefact:
+- two-strike arm counts `status IN ('complete','failed')` on the shared `item_key`
+  (`load_work_item_actions.go:1985-1993`); at `>=2` it brands the row `unresolved` (`:2033`);
+- `unresolved` ∈ `workItemTerminalStatuses` (`work_items_common.go:48`) and claim takes only
+  `('triaged','approved')` (`claim_work_item_action.go:135`) — **born terminal, unclaimable**;
+- every stuck row carries `[unresolved after 6 attempts] …`, and the strike composition on that key
+  is **6 `complete`, 0 `failed`**. All six "attempts" were defect #1's false successes.
+
+**The two defects are coupled: our own first line disables our own second line.** The shared
+`PageRerenderItemKey` — chosen deliberately for dedup, and celebrated in the 08-26 handoff §4 as
+the thing that collapsed four landings into three items — is what carries the strikes across from
+one producer to the other.
+
+**Prior art check paid off: this is `bugs_open/389`'s class, already filed 2026-08-25**, whose
+class 1 literally reads "completes, strikes, and manufactures `unresolved` stock". `who-owns.py 389`
+→ OWNED by the `bugfix_308` lane. So the evidence went in as a **CONTRIB into 389**, not a new bug
+and not a fix. The one thing I could not find stated there, and added: the strikes and the parked
+item came from **two different producers sharing a key on purpose**, and all six strikes were
+successes rather than failures.
+
+**A watch item of ours turns out to be vacuous.** §8.1's "zero escalations against a 1-in-36
+baseline" is zero over an empty denominator — the sweep never ran. Eight days of that reading as
+health. Same family as `a post-fix ZERO needs a DEMAND control` and `enabled + a fresh tick ≠ ever
+RUN`; the check that would have caught it is one query — **count the RUNS before quoting a RATE.**
+
+**Still open:** defect #1's mechanism, now sharply targeted for the `090` — a correctly-specced
+`section_data_resolved` item, consumed in a healthy window, completing green without rewriting its
+array. Not fired; owner's call.
