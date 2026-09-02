@@ -207,4 +207,50 @@ high-variance, and the guard is blind to the bad tail:** 1 good of 4 stored, plu
 (`border_keyed=0`, 17:15) of 5 attempts. Three sites now carry an unusable logo the platform
 believes is fine. Round 2's "the drift range is stable" is thereby **overstated** — the model can
 land inside `inner`; it is the variance, not the constants, that the guard fails to police.
+
+## 2026-09-02 21:xx — ACTIVE PRODUCTION INCIDENT: three live sites currently serve a logo the platform believes is transparent and isn't; fix for the guard is written, tested, and council-APPROVED
+
+**Confirmed at the DB, 2026-09-02: `designblog.co.uk`, `seotools.co.uk` and `gamedesign.uk` all
+still carry their broken (0.0% actually transparent, 90%+ opaque) logo asset right now.** Nobody
+has touched them since the CONTRIB's runs. `websitepromotion.co.uk` carries the one good result
+(87.4% transparent, though with a minor despill fringe — separate, unfixed).
+
+**This is not a theoretical risk from a manual test — the fleet's own `needs_imagery:site:-:logo`
+queue triggered every one of these runs automatically**, hours before anyone read the CONTRIB. The
+earlier "do not trigger a real logo generation against the current build" warning in this file
+protected against a person testing it; it did nothing against the autonomous queue, which does not
+read handoffs.
+
+**Root cause of the false pass, verified against the code (not taken on the reporting session's
+word alone):** `MatteStats.BorderKeyed` (`keyground.go`) was computed from BFS flood-fill
+reachability (`dist <= outer`) — "was this border pixel close enough to be eligible for keying" —
+not from whether the pixel actually ended up transparent (`dist <= inner`). A ground that landed
+anywhere in the wide graded band between the two thresholds scored `BorderKeyed≈1.000` — identical
+to a real success — while remaining ~90%+ opaque. The fail-closed guard this statistic exists to
+drive (`dynamic_adapter.go`) was therefore fed the wrong number and could not tell a real failure
+from a real success; it is why three sites now have a logo the platform certified as fine.
+
+**Fixed and shipped through review same day:** `keyground.go` now tracks each pixel's actual final
+alpha through the existing grading pass and computes `BorderKeyed` from that (`alpha==0`), matching
+what its own doc comment always claimed it measured. New regression test
+`TestKeyOutBackground_GradedBorderIsNotBorderKeyed` reproduces the live-reported shape exactly and
+is mutation-proven (confirmed to fail against the reinstated pre-fix computation before confirming
+it passes against the fix — the reinstatement was never committed, done via a scratch-backup +
+Edit revert/restore since `git stash` is banned on this tree). Commit `fcbe6071c`. Council review
+`52bd50a1-3783-4801-868a-31a0ee599e60`: **APPROVED, all reviewers, no objections.**
+
+**Not yet deployed** — needs a roll, same as round 1's fix. **Once it is: the three broken assets
+do not self-heal.** They are already stored and their work items are `complete`, not `triaged` —
+nothing will re-run them automatically. Someone needs to deliberately reset those three sites'
+`needs_imagery:site:-:logo` items after the roll (not before — retrying against the still-unfixed
+build would just add a fourth bad result). This session has NOT done that reset itself.
+
+**Reassuring finding buried in the CONTRIB's own round-3 correction, worth keeping**: the drift
+range is not as bad as round 2 first suggested — `websitepromotion`'s good run proves the model
+CAN land inside `inner=48` — so this looks like a fixable-by-the-guard-alone variance problem, not
+necessarily one that also needs `inner`/`outer` retuned. Not yet re-verified against a real
+post-fix generation; treat as a working hypothesis, not a settled fact.
+
+Full detail: `docs024_key_docs_latest/bugfix_424_logo_transparency/NOTES_logo_transparency.md` and
+the updated `HANDOFF_2026-09-02_continue_here.md`.
 Full table in the CONTRIB.

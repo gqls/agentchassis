@@ -86,6 +86,15 @@ Committing before it lands — use `Council-Submitted: d018a48f-bd76-420a-8530-4
 APPROVED, a later reference should use `Council-Reviewed: <that id>` — do not write that trailer
 without having read an approved verdict.
 
+**Round 2** (the `BorderKeyed` measures-the-wrong-thing bug, found by live production testing):
+`council_submission_424_round2_borderkeyed.json`. `SUBMISSION_CORR=52bd50a1-3783-4801-868a-31a0ee599e60`.
+**Verdict: APPROVED, all reviewers, no objections** (read 21:21:07Z). The fix commit (`fcbe6071c`)
+was made BEFORE this submission, so it carries neither trailer — the correlation lives here and in
+the HANDOFF instead. If you're closing this lane out and want the historical record clean, a small
+follow-up commit noting `Council-Reviewed: 52bd50a1-3783-4801-868a-31a0ee599e60` in its own message
+(not amending `fcbe6071c` — forward-only) would let `098`'s report find it by grep even without
+file-overlap resolution.
+
 ## Build + roll
 
 Affects the `image-generator-adapter` service (`internal/adapters/imagegenerator/`) AND

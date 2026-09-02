@@ -227,3 +227,55 @@ pods started. **Anyone triggering a real kind=logo generation against the CURREN
 right now would hit the contradiction the council just caught** — the exact defect described
 above, live in production, not just in git history. This is the first thing in the handoff's
 decision list.
+
+## 2026-09-02, later same day — user resumed, asked for the handoff; then a peer's live test found a SECOND real bug
+
+Wrote and delivered `HANDOFF_2026-09-02_continue_here.md` with the three owner decisions and five
+mechanical remaining items. Shortly after, `site_delivery_and_editor` messaged with two findings
+from the `bugfix_420_417` lane's own live dynamic testing (their CONTRIB round 3 — read the bug
+file's own tail for their content verbatim, not duplicated here):
+
+1. **A second real defect, in the fail-closed guard itself.** `MatteStats.BorderKeyed` was computed
+   from BFS flood-fill REACHABILITY (`keyedByBorder`), not from each pixel's FINAL alpha. Measured
+   live: a genuine 0.0%-transparent failure and a genuine 87.4%-transparent success both read
+   `BorderKeyed=1.000` — the exact number the guard checks against 0.95. **Verified against the
+   actual code before touching anything**, not acted on from the report alone: read `keyground.go`,
+   confirmed `stats.BorderKeyed` was computed from `keyedByBorder[i]` — a boolean meaning "was this
+   pixel within `outer` of the key colour and BFS-reachable" — with no reference anywhere to the
+   pixel's eventual alpha. The field's own doc comment had ALWAYS said "the fraction... that ended
+   up fully transparent" — the code never matched its own comment, a live instance of the "a claim
+   about behaviour is not the behaviour" family.
+   **Fixed** (commit `fcbe6071c`): track `finalAlpha` per pixel through the existing grading switch
+   into a parallel array; compute the border stat from `finalAlpha[i]==0` instead of
+   `keyedByBorder[i]`. New test `TestKeyOutBackground_GradedBorderIsNotBorderKeyed` reproduces the
+   exact live-reported shape (a uniform border colour placed mid-graded-band: reachable, never near
+   `inner`). **Mutation-proven, not just written to pass**: temporarily reinstated the pre-fix
+   computation directly in the tracked file via Edit (git stash is banned on this tree — a
+   scratch-directory backup + Edit revert + Edit restore was used instead), ran the new test,
+   confirmed it fails with `got 1.000` — reproducing the live report's number pattern exactly — then
+   restored the fix and re-ran the full suite green.
+2. **A second, unaddressed finding**: the one fully-successful live run (websitepromotion) still
+   carries a visible magenta fringe at the mark's edge — despill incomplete in the graded band. Not
+   chased this session: no access to the actual image (kubectl unauthorized, see below), and
+   guessing at an image-quality fix without seeing the image is exactly the kind of blind correction
+   this codebase's own culture warns against. Recorded as an open follow-up, not solved.
+
+**Also: owner decision #1 from the first handoff is RESOLVED — the roll did happen and does carry
+`b2322a203`.** The peer's report named a specific provenance stamp (`0d2feee2f`, read from
+`image-generator-adapter` pod `588ffc76b9-fddqd` at 20:56:58Z). **Verified independently, not taken
+on trust**: `git cat-file -t 0d2feee2f` confirms it is a real commit in this repo, and
+`git merge-base --is-ancestor b2322a203 0d2feee2f` returns true. This check needed no cluster
+access, which mattered — see next.
+
+**kubectl access is down for this session** — every command returns `Unauthorized`, matching the
+peer's note that "the shared kubeconfig token expired ~21:1xZ" and CLAUDE.md's own standing
+landmine (tokens expire every 3 days; the owner refreshes). Cannot currently re-verify DB state or
+pod logs directly; git-based checks (ancestry, `verify-head-builds.sh` against the local committed
+tree) still work and were used instead wherever possible.
+
+Round-2 fix submitted to council separately from round 1:
+`council_submission_424_round2_borderkeyed.json`, `SUBMISSION_CORR=52bd50a1-3783-4801-868a-31a0ee599e60`.
+**Note: commit `fcbe6071c` does NOT carry a `Council-Submitted:` trailer** (submitted after
+committing, not alongside, since the bug was found and fixed fast) — `098`'s report will not
+auto-credit it from the trailer alone; the correlation is recorded here and in RUNBOOK so a human
+or a future session can join them by hand.
