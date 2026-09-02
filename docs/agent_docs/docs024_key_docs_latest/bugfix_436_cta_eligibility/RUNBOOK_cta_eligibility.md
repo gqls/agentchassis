@@ -27,14 +27,22 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 ```
 
 ## Apply 715_HOLD (check enablement) — ⛔ ONLY AFTER the carrying image rolls
-The discovery runner FAILS the whole step on an unregistered check name. Prove registration first
-(induce a discovery run and read its logged `registered` array, or):
-```bash
-kubectl -n ai-persona-system logs -l app=agent-chassis --tail=3000 | grep -m1 'cta_rank_anomaly'
-# empty = not in range OR not rolled — a startup/first-run line scrolls; induce, don't infer.
+The discovery runner FAILS the whole step on an unregistered check name. Prove registration at the
+BINARY's own capability record, with both controls (council round 2, debug_historian: state HOW the
+roll is confirmed — a log grep is a startup line that scrolls, and an image tag can serve a stale
+cached binary):
+```sql
+-- positive control (must be present), the new check, and a negative control (must be absent):
+SELECT name, git_commit, last_seen_at FROM service_binary_capabilities
+WHERE kind='discovery_check' AND name IN ('misdirected_cta','cta_rank_anomaly','no_such_check_zz');
+-- rolled ⇔ misdirected_cta present AND cta_rank_anomaly present AND no_such_check_zz absent.
+-- last_seen_at is refreshed, so this probe has no shelf life.
 ```
-Then apply 715 by hand (same psql pattern as 714). Its DO/RAISE guard aborts if the checks array
-is not at `workflow.steps.run_checks.config.checks` (path verified against the live row 2026-09-02).
+Then apply 715 by hand (same psql pattern as 714). It snapshots the agent row first (two-arg
+snapshot_agent → agent_definitions_backup); verify the snapshot holds the PRE-change config, per
+the query in the file header. Its DO/RAISE guard aborts if the checks array is not at
+`workflow.steps.run_checks.config.checks` (path verified against the live row 2026-09-02).
+Undo: `715_enable_cta_rank_anomaly_check_ROLLBACK.sql`, by hand only.
 
 ## Induced canary (both directions), after roll + 714
 ```sql

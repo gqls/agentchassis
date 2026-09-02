@@ -59,7 +59,7 @@ opt-out and assert it **is** eligible again. Both directions in one run. And ass
 fallback separately (constraint 1): it is a different call site whose output is never persisted, so a
 `content_data` check cannot see it.
 
-## IN PROGRESS 2026-09-02 (evening) — the lever + alarm are BUILT; council round pending; Go inert until the roll
+## IN PROGRESS 2026-09-02 (evening) — the lever + alarm are BUILT and council-APPROVED (round 2, corr 9faa2a23); Go inert until the roll
 
 Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_436_cta_eligibility/` (PLAN, NOTES, RUNBOOK,
 README). Register entry **LNK-041** carries the full design. Re-verified at HEAD before building:
@@ -90,7 +90,7 @@ recompute path (KEEP #2 holds any valid stored page — 391's own finding); keep
 untouched; the all-default alphabetical-winner shape (webdesign) is candidate 3, deliberately not
 built. No page is opted out yet — owner decisions.
 
-**Remaining to close:** council verdict → roll → apply `714` (safe anytime; may go first) → induced
+**Remaining to close:** ~~council verdict~~ (APPROVED r2; round 1 REVISE demanded the near-empty-after-filter case be tested, and it now is) → roll → apply `714` (safe anytime; may go first) → induced
 canary both directions incl. the header button at the served bytes → hand-apply `715` → first fleet
 pass of the check. Then this bug is fixed-and-live.
 

@@ -136,3 +136,43 @@
 - 114's session fixed the tombstone test (`d1cf3aac3`) after my flag — datahelpers now FULLY
   green in-tree. The untracked, non-compiling `invalid_banned_claim_pattern_test.go` belongs to
   neither of us and still blocks in-tree actions-package tests; owner unknown.
+
+## 2026-09-02 — council round 2: APPROVED (advisories dispositioned below)
+
+**"approved with 3 advisory objection(s) — none high-severity"; architecture APPROVED** with a
+medium noting the shared-contract trigger was met — i.e. ruled-and-passed on the submission's own
+transparency, exactly the outcome the same-commit LNK-041 registration exists to earn. Trailer for
+subsequent commits: `Council-Reviewed: 9faa2a23-f3bc-464e-8c3a-9d3d44759cc0` (the earlier
+`Council-Submitted` commits are credited by 098 at report time; forward-only, no amends).
+
+Advisory dispositions, so none silently evaporates:
+- **editquality m (alias visibility):** misread of the sketch, and the code is right —
+  `check_misdirected_cta.go` points its var at the EXPORTED `datahelpers.CTAExcludedAreas`, not at
+  actions' unexported alias. No change needed; the sketch's phrasing caused it.
+- **editquality l (tests bundled in one edit):** the 8-edit cap; full diff was in the commits.
+  Process note only.
+- **bug_historian l (header outcome unverifiable in DB):** correct and known — it is why the
+  induced canary verifies the header AT THE SERVED BYTES (RUNBOOK), and why the unit pins the call
+  shape. Roll-bound.
+- **bug_historian l (bugs_closed/023 guard):** not bypassed — 023 made ABSENT destinations
+  unrenderable (gated templates render no button). The refusal produces exactly that state when
+  nothing else supplies the field, so 023's guard is the degrade this design leans ON.
+- **reuse_agent m (why a third eligibility axis):** `status='archived'` is page LIFECYCLE — it
+  freezes the page, drops it from validPages/listings/nav and invites retraction; `noindex` is
+  crawler policy read by head rendering. The owner-approved sayable is "fully live, linked,
+  indexed — but never the framework's CTA pick", which neither can express without dragging its
+  own semantics along. 391's worked case REQUIRED the page to stay served.
+- **guardian m (grep is not verification):** the compile is the verification for an
+  exported-signature change — a missed caller cannot build, and HEAD builds+tests green in a clean
+  worktree. Recorded here for the next reviewer.
+- **guardian l (universe consumers and the flag):** designed in — the judge inherits the refusal,
+  so no Contradicts can name an opted-out repair target; the unsatisfiable-finding loop cannot
+  form. `names_ineligible_page` is the first-class replacement signal.
+- **debug_historian m (HOW the roll is confirmed):** actioned — RUNBOOK §715 now probes
+  `service_binary_capabilities` (`kind='discovery_check'`) with a positive control
+  (misdirected_cta), the new name, and an absent-control; no shelf life, no log scroll, no image
+  tag. This replaces the weaker log-grep recipe.
+- **debug_historian l (moved SQL narrowing):** the two supply queries moved VERBATIM plus one
+  SELECT column; the wiring tests match on the predicates themselves and pass unchanged.
+- **architecture m / guardian l (shared-seam widening):** acknowledged in the submission, ruled by
+  the approval; LNK-041 is the same-commit registration.
