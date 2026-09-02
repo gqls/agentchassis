@@ -19689,3 +19689,29 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** bugs_open/429 (the defect that added the sweep) · bugs_open/304 (whole-site teardown, still its own decision — the empty-source refusal) · the "Forcing the site-publish reconciler STAMPS the site you forced to the BACK" entry (same subsystem) · register DGH-008
 - **source:** 2026-09-02, bugfix_429_mirror_unpublish lane, designing the sweep — this is the flip side of fixing 429, written down before anyone pays for it.
 - **added:** 2026-09-02, bugfix_429_mirror_unpublish lane.
+
+### `content_components.name` AND `.function` DISAGREE ON 336 OF 442 ACTIVE COMPONENTS — and six pairs are the SAME WORDS REVERSED, so a census on the wrong column returns a confident ZERO for a component that exists
+
+- **footprint:** `content_components.name` · `content_components.function` · `page_components.component_id` · `page_components.slot_name` · any component census, cohort comparison, or "does this component exist / how many sites use it" query
+- **fires when:** you census components by whichever of `name` or `function` you happened to see first. Both columns exist, both look canonical, both are populated, and **neither is labelled as the identifier** — so the query reads correct and the number reads plausible.
+- **the trap, from a live near-miss between two lanes on 2026-09-02.** The `theme kits` lane measured *"`contact-hero` has **ZERO** component rows fleet-wide — 18 live contact pages use `hero-contact`"*. I had just told a third lane `contact-hero` was on **3 of 4** sites in a cohort table bound for the owner. **Both queries were correct and neither number was wrong.** There is ONE component:
+  ```
+  name = 'contact-hero'   function = 'hero-contact'   25 live instances across 25 sites
+  ```
+  **The same two words, reversed.** A census keyed on `function='contact-hero'` returns zero; one keyed on `name='hero-contact'` returns zero; the component is on a quarter of the estate.
+- **`[MEASURED 2026-09-02]` the divergence is the NORM, not an exception:** of **442** active components, **336 (76%)** have `lower(replace(name,' ','-')) <> function`. **Six** are the maximal case — the same word-set in a different order, where the wrong column yields zero rather than an obvious miss.
+- **the check, before quoting any component census:**
+  ```sql
+  -- resolve BOTH columns, always. A zero on one and a number on the other is this trap.
+  SELECT cc.name, cc.function, count(pc.id) AS live_instances, count(DISTINCT p.site_id) AS sites
+    FROM content_components cc
+    LEFT JOIN page_components pc ON pc.component_id = cc.id
+    LEFT JOIN pages p ON p.id = pc.page_id
+   WHERE cc.name = '<x>' OR cc.function = '<x>'
+   GROUP BY 1,2;
+  ```
+  ⚠ **`page_components.slot_name` is a THIRD spelling and agrees with neither reliably** — apis.uk's `Illustrated Text Block` instances carry `slot_name = 'generic-text-block'`, so a census by slot attributes six illustrated sections to the plain component. **Resolve through `component_id` to the row, then read both columns.**
+- **why a zero here is worse than a wrong number:** a wrong count invites a second look; **a zero reads as "this thing does not exist"** and licenses building it. That is the fork-vs-reuse defect this estate keeps paying for, reached through a column choice rather than a missing grep.
+- **relations:** `bugs_open/041` (the component naming class) · MEMORY [[a-subagent-report-is-another-doc]] (a key SHAPE is a hypothesis about provenance) · IMG-074 (whose own cohort table was built on `name` and is correct only because it says so) · the `head -8` truncation row in `WRONG_CALLS.md` 2026-09-02 — same family: a confident absence produced by the instrument rather than the world
+- **source:** 2026-09-02, caught by the `designblog.co.uk` lane noticing that two lanes' numbers for the same component could not both be right, and asking before either was quoted onward. **Neither lane had made an error; the disagreement was the only signal that a third reading existed.**
+- **added:** 2026-09-02, vigilant_designer_offer_analysis lane
