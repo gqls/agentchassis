@@ -36,29 +36,43 @@ diagnosis `fe4b8537`, components lane).
    **"SERVED FOOTER VERIFIED: genuine regeneration, contactless,
    fleet-serving."** The last 423 consequence on this site is CLOSED: the
    footer is a real machine render at both the row and the served pages.
-2. **Cards, producer half** — WAIT for the components lane (session name
-   `components`) to ping with `fe4b8537`'s answer, then run the agreed two-probe
-   acceptance on /index.html and /guides/index.html: (a) template fingerprint —
-   `article-card__category|__meta|__excerpt` occurrences MUST be 0 (post-682
-   template; ALREADY true, verified 15:5x); (b) `excerpt` KEY presence in
-   content_data->'articles'->0 = the producer fix executed; then serve-check decks
-   + suffix-free titles. ⚠ The boxingonline session says two more 683-shaped items
-   sit triaged for these pages — their after-table comes to you; date served
-   objects against deployed_at before calling anything a failure (the 420-addenda
-   discriminator).
+2. **Cards, producer half** — ~~WAIT for the components lane … `fe4b8537`'s
+   answer~~ **ANSWERED 2026-09-02 ~17:3xZ, and it is a PATH split**: fe4b8537
+   itself came back NOT CONFIRMED (iteration cap), but the A/B settled it on one
+   binary (v1.0.1354), same site, canonical base, 3 min apart — **build path
+   (7f1f4993, 17:23Z) emits the NEW item shape (excerpt present, suffix
+   stripped); rerender path (item 684, 17:26:52Z) emits the OLD shape**, all
+   controls clean (write happened, no floor refusal, post-682 template rendered).
+   Stale-pod and timing theories are DEAD. The components lane owns the hunt;
+   candidate mechanisms handed over (rerender's resolved-data STRIP layer
+   ~:1541-:1617, or a silent resolve failure writing no key — `articles` was
+   ABSENT from ResolvedData at merge time, since ResolvedData merges last and
+   wins). Serve-check decks on /index.html still owed once their fix lands. The
+   420-addenda discriminator (served object vs deployed_at) still applies.
 3. **Logo, transparent regen — BLOCKED, do not fire** until a roll carries
    `b2322a203` (424 lane's self-contradicting-prompt fix; their handoff:
    `../bugfix_424_logo_transparency/HANDOFF_2026-09-02_continue_here.md`). The
    interim solid-#0a0a0a mark is correct and serving. Verify the fix at the
    BINARY (present + removed-string controls) before any dispatch. Owner status
    language: his no-baked-background ruling is implemented-and-inert, not pending.
-4. **Guides-index content** — blocked on a resolver vocabulary entry
+4. ~~**Guides-index content** — blocked on a resolver vocabulary entry
    (`query.guide_pages` + pointing this instance at it; Go, roll-bound, NOT yet
    written by anyone — a small fix a session could own). CONTROLLED-PROVEN
    (NOTES ~13:5x): no pre-roll path holds guide items in a query-resolved
-   listing; the page serves the six articles honestly meanwhile; the four guides
-   stay unlinked. ⚠ Never retype pages to fix listings (the instance-1/3 pair);
-   never hand-write items into a resolved array (reverts on any build).
+   listing~~ — **CORRECTED + EXECUTED 2026-09-02 ~17:2xZ: "roll-bound" was an
+   overreach** (the experiment proved the build re-resolves, never that no
+   existing vocabulary could resolve guides — `query.pages_where_type:guide`
+   is deployed v1 vocabulary). Fix shipped pre-roll: fork
+   `content-listing-guides-boxingonline-com` (`b475fe54`, only the articles
+   source changed) + instance repoint (Path 0 stored-id binding — SURVIVES the
+   build's delete/re-insert, proven) + rebuild `7f1f4993`. **Row-verified
+   GREEN**: 4 guides, excerpt keys, suffix-free titles, guide-correct heading.
+   Serve lands with the ~18:48Z site-publish-reconciler tick (hourly, ONE site
+   per tick, boxingonline second of 2 — see the reconciler landmine before
+   forcing). `query.guide_pages` (Go) is now OPTIONAL vocabulary sugar, no
+   longer blocking. Full trail: webdesign NOTES 17:1x-17:3x entries. The
+   standing warnings hold: never retype pages to fix listings; never
+   hand-write items into a resolved array (reverts on any build).
 5. **Contact 404 half** — pinned to `bugs_open/429` (the b2worker mirror cannot
    unpublish; fix candidate 1 is deletion propagation with served-404 acceptance).
    The LINK half is closed 20/20 on two sessions' tables. The orphan serves 200
