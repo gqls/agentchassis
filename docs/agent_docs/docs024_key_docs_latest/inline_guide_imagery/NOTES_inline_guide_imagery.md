@@ -472,3 +472,36 @@ documented four-spelling trap does not apply here. And the figures **moved durin
 1,082→1,105 active, 31→32 pages carrying section imagery, in one afternoon.
 
 Round 3 submitted on the same trail (envelope `d2dab332`).
+
+### 10. Round 3: APPROVED — and what three rounds actually bought
+
+`[2026-09-02 ~14:20Z]` **APPROVED**, 12 seats, one advisory objection none high, plus three
+non-gating from `prior_art_librarian`. `Council-Reviewed: 2979c27f-1545-47c5-b28d-f8a700bb1cb0`.
+
+The tally is worth writing down because I would have called round 1 finished work:
+
+| round | gating objection | what it actually found |
+|---|---|---|
+| 1 | `bug_historian` HIGH | the ordinal's identity had **three** implementations over three orderings — the exact shape my own rationale used to reject a position integer — and the drift population mis-bound silently rather than falling back |
+| 1 | `reuse_agent` HIGH | I hand-rolled an occurrence counter **two lines below** `NewInstanceCounter()` in the same loop |
+| 2 | `editquality` HIGH | I answered round 1's file-list objection about the file it NAMED, then repeated it with a ninth file — the "an objection names a CATEGORY" lesson, quoted and not applied |
+| 3 | — | approved; two advisories that named real gaps |
+
+**The two advisories are discharged (`4084481d7`), not filed away:**
+
+- `guardian`: the Next/NextOccurrence arithmetic-identity claim was "plausible from the sketch"
+  and untested while a third caller outside this change (`assemble_from_library.go:295`) depends
+  on it. Now `TestInstanceCounter_NextIsExactlyTokenOfNextOccurrence`, **mutation-proven** — add
+  `+1` to the occurrence inside `Next` and it fails at position 0 naming all three callers.
+- `debug_historian`: the pod probe recorded in the RUNBOOK listed only **round 1's** symbols.
+  That is worse than incomplete — `sectionRefForOrdinal` and `planSectionOrder` are PRESENT on
+  both `v1.0.1351` and `v1.0.1352` while round 2/3's guards are absent from both, so the old
+  list returns **all-present on a binary carrying half the change** and reads as a clean deploy.
+
+`prior_art_librarian`'s two mediums ask for verification that seat cannot perform (the call-site
+enumeration; the icon reachability census). Both had already been re-run independently after
+submission — the census dialect-independently over all 432 active components, same answer — and
+that is in the register entry rather than only in the submission.
+
+**Still not shipped.** The approval is of code that is committed and, for rounds 2–3, not yet in
+any binary. Next roll carries it; the probe list above is what to run then.
