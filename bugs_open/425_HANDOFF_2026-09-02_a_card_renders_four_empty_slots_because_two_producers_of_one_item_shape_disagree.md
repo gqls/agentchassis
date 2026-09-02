@@ -304,6 +304,38 @@ and the data was thin".
 The cheap eliminations above are done; what remains is inside the execution, which is exactly
 what the loop is for.
 
+### DIAGNOSIS `c19a975d` CAME BACK **CONFIRMED** — and it explains 4 of the 14, not all of them
+
+**The confirmed mechanism:** `save_page_sections`'s SECTION COMPONENT FLOOR aborts the *whole
+save* — its own message says **"Nothing was written"** — when the freshly rendered slot carries
+fewer than half the layout-class-bearing elements the stored version had. Quoted from
+`agent_error_log`: *"content-listing 114→54 class attributes (47% kept, floor 50%)"*. So the
+resolved array never reaches the merge step at all: it is **computed with the fix and discarded**,
+and the row on disk stays whatever the last successful save produced.
+
+That is a better mechanism than the one I hypothesised. I was looking for a merge that stored data
+won; there is no merge, because there is no write.
+
+> **But it does not cover the majority, and saying it did would be the comfortable read.**
+> `[MEASURED 2026-09-02]` across all 14 target pages: **every one** has no `excerpt` key and a
+> suffixed title. The **4 cancelled** pages carry stale `page_components.updated_at` (03:10, 22:36,
+> 22:37 — from before this work), which is exactly the "nothing was written" signature the
+> diagnosis describes. The **10 completed** pages carry *fresh* `updated_at` (13:51–14:14) and the
+> **old shape anyway**. Something wrote, and what it wrote was pre-fix.
+>
+> `agent_error_log` holds floor refusals for the four cancelled pages and **none** for the ten. So
+> the confirmed mechanism is real and is not the whole story: it explains the pages that never
+> wrote, and the pages that *did* write with stale content remain unexplained.
+
+**What the key-presence discriminator still tells us, and it holds across all 14:** the fixed
+projection writes `"excerpt"` unconditionally, so its absence is categorical — an absent map key
+cannot be thin data, only un-executed code (or, per the diagnosis, discarded code). For the four,
+"discarded" is now proven. For the ten, neither is yet.
+
+**Open, and it is the live question:** what wrote fresh `content_data` on ten pages between 13:51
+and 14:14 carrying the pre-fix item shape, on a binary that contains the fix and via a path whose
+own header says the resolver rebuilds `query.*` fields and merges them last?
+
 ### ⚠ A SECOND GUARD REFUSED 4 OF 14 — and its error names an escape hatch that must not be used
 
 Four items (`idea.uk` guides-index, `dartsonline.com` guides-index, `robot-hands.com`
