@@ -110,6 +110,26 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 		params.Logger.Warn("No content found at specified field, skipping page",
 			zap.String("content_field", contentField))
 
+		// Council 3918db52 (bug_historian, medium): a legitimate writer skip and
+		// a mis-set content_field used to produce IDENTICAL quiet skips once the
+		// 408 crash was fixed. When the upstream step did not declare itself
+		// skipped, content was expected here — make that case countable rather
+		// than letting it hide among routine skips (the OWNED_PAGE_GUARD_UNCHECKED
+		// pattern). The skip shape below is returned either way; this is
+		// additive observability, not a behaviour change.
+		if !upstreamDeclaredSkip(params.CollectedData, contentField) {
+			LogActionError(ctx, params,
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+				"assemble_page", "ASSEMBLE_CONTENT_FIELD_UNRESOLVED", "high",
+				fmt.Sprintf("content_field %q resolved on no candidate form and the upstream step did not declare a skip — content was expected here (likely a mis-set content_field, or a writer that failed without status)", contentField),
+				map[string]interface{}{
+					"content_field": contentField,
+					"page_name":     datahelpers.ExtractNestedFieldString(params.CollectedData, "current_page.name"),
+				},
+				params.Logger)
+		}
+
 		return map[string]interface{}{
 			"html":         "",
 			"skipped":      true,
@@ -1179,6 +1199,26 @@ func extractNestedField(data map[string]interface{}, fieldPath string) interface
 	}
 
 	return current
+}
+
+// upstreamDeclaredSkip reports whether the step result feeding contentField
+// declared itself skipped — the legitimate no-content case. An unresolvable
+// content_field WITHOUT that declaration is the misconfiguration signature:
+// content was expected here (council 3918db52, bug_historian seat).
+func upstreamDeclaredSkip(collectedData map[string]interface{}, contentField string) bool {
+	top, ok := collectedData[strings.Split(contentField, ".")[0]].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	if skipped, ok := top["skipped"].(bool); ok && skipped {
+		return true
+	}
+	if response, ok := top["response"].(map[string]interface{}); ok {
+		if skipped, ok := response["skipped"].(bool); ok && skipped {
+			return true
+		}
+	}
+	return false
 }
 
 // pathWalkOutcome classifies why a single walk over one candidate path ended.

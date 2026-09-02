@@ -9,10 +9,13 @@ package actions
 // the pod. A plain assert cannot fail on that shape — it crashes the test
 // process (exit 2) or hangs before any t.Errorf runs.
 //
-// ⚠ Run this suite under a timeout and treat a timeout or a process crash as
-// the failing signal:
+// ⚠ Every table row runs under a 30s in-test watchdog (council 3918db52,
+// guardian seat: the file must not depend on the invoker remembering
+// -timeout). A HANG fails via the watchdog; a stack-overflow CRASH (the old
+// code's actual mode) kills the process with exit 2, which fails the suite
+// loudly on its own. Belt and braces, still run it capped:
 //
-//	go test -timeout 60s ./platform/orchestration/actions/ -run 'TestExtractFieldValue|TestWalkFieldPath'
+//	go test -timeout 60s ./platform/orchestration/actions/ -run 'TestExtractFieldValue|TestWalkFieldPath|TestUpstreamDeclaredSkip'
 //
 // The termination guard is deliberately BEHAVIOURAL (the crash inputs, rows
 // "the exact crash input…" and "second pathological shape…"), not a source
@@ -22,9 +25,27 @@ package actions
 
 import (
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 )
+
+// extractWithWatchdog runs extractFieldValue with an in-test deadline so a
+// reintroduced hang fails THIS test rather than stalling the whole invocation.
+// The goroutine leaks on deadline — acceptable in a test that is already
+// failing for the defect the leak evidences.
+func extractWithWatchdog(t *testing.T, data map[string]interface{}, path string) string {
+	t.Helper()
+	done := make(chan string, 1)
+	go func() { done <- extractFieldValue(data, path, zap.NewNop()) }()
+	select {
+	case got := <-done:
+		return got
+	case <-time.After(30 * time.Second):
+		t.Fatalf("extractFieldValue(%q) did not return within 30s — non-termination reintroduced (bugs_open/408)", path)
+		return ""
+	}
+}
 
 func TestExtractFieldValue(t *testing.T) {
 	cases := []struct {
@@ -158,9 +179,70 @@ func TestExtractFieldValue(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := extractFieldValue(tc.data, tc.path, zap.NewNop())
+			got := extractWithWatchdog(t, tc.data, tc.path)
 			if got != tc.want {
 				t.Errorf("extractFieldValue(%q) = %q, want %q", tc.path, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestUpstreamDeclaredSkip(t *testing.T) {
+	cases := []struct {
+		name string
+		data map[string]interface{}
+		want bool
+	}{
+		{
+			// The production shape from bugs_open/408 §4: the writer skipped
+			// and said so — the legitimate quiet-skip case, no error row owed.
+			name: "skip declared under response",
+			data: map[string]interface{}{
+				"page_content_0": map[string]interface{}{
+					"response": map[string]interface{}{"skipped": true},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "skip declared at top level",
+			data: map[string]interface{}{
+				"page_content_0": map[string]interface{}{"skipped": true},
+			},
+			want: true,
+		},
+		{
+			// Upstream produced a result and declared nothing — an
+			// unresolvable content_field here is the misconfiguration
+			// signature and must be counted (ASSEMBLE_CONTENT_FIELD_UNRESOLVED).
+			name: "no declaration means content was expected",
+			data: map[string]interface{}{
+				"page_content_0": map[string]interface{}{
+					"response": map[string]interface{}{"page_html": "<html>x</html>"},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "skipped false is not a declaration",
+			data: map[string]interface{}{
+				"page_content_0": map[string]interface{}{
+					"response": map[string]interface{}{"skipped": false},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "missing step root",
+			data: map[string]interface{}{},
+			want: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := upstreamDeclaredSkip(tc.data, "page_content_0.response.page_html")
+			if got != tc.want {
+				t.Errorf("upstreamDeclaredSkip = %v, want %v", got, tc.want)
 			}
 		})
 	}
