@@ -295,3 +295,44 @@ finished.
 **Where we are.** The bug stays open, but it is no longer mysterious: we know which pages are
 affected, why, and what the last question is. Separately there is still the safety-net problem from
 this morning — that one belongs to another team's case and I have handed them the evidence.
+
+## 2 September, evening — I asked the dispatch team, they answered, and they also caught me out
+
+**Why the blog list stopped being rebuilt.** The component that rebuilds it lives inside one
+particular job, and that job is only run for a site when the site has work waiting that qualifies.
+Leopardess's work does not qualify any more: fifteen of its last eighteen such jobs were marked, at
+the moment they were created, as "already tried twice, don't bother". They were never attempted.
+The last one that did run was on 27 August at 21:33 — one minute before the last time the list was
+rebuilt. The site simply dropped out of service that minute and has not been back.
+
+**The reason is the one from this morning, biting a second time.** The system stops retrying
+something after two previous attempts, which is sensible — except it counts *successful* attempts.
+Our fix had been working repeatedly on that site in the days before, and each success counted
+against it. So the site's own good run is what switched it off.
+
+**I asked the team that owns dispatch, and it was worth doing.** They identified the scheduler
+involved, ruled out two things I suspected, and — most usefully — ran a measurement I could not:
+daily completion counts for the last three weeks. Everything dipped during the credit outage, but
+their sites recovered afterwards and ours did not. Dartsonline did 268 jobs on Monday, ours did 2.
+That is a much cleaner piece of evidence than anything I had, and it points squarely at our site
+having a specific problem rather than sharing a general one.
+
+**They also told me I was wrong about something, and they were right.** I had reported a
+fleet-wide problem: over 1,300 items apparently stuck behind a filter. It turns out those items
+are not stuck at all — they are flags, deliberately recorded with no automated handler, and the
+place I found them is where they are meant to live permanently. My mistake was that I built my test
+from their verbal description of the filter instead of reading the actual code, and my test could
+not tell "refused by the filter" apart from "never shown to the filter". I checked their correction
+against the source myself before accepting it, and they were right. That claim is now retracted in
+both places, and marked so nobody re-opens it.
+
+**One thing genuinely worth watching, tomorrow evening.** The "already tried twice" mark expires
+after seven days. Working through the dates, it should lift at about half past nine tomorrow night.
+If the site starts working again on its own after that, our explanation is confirmed. If it is still
+broken on Thursday, our explanation is wrong and someone should start again. I have written that
+into the handoff as the first thing to do, with both outcomes spelled out, so it does not matter who
+picks it up.
+
+**Where we are.** The bug stays open, the cause is understood well enough to test, and the fix for
+it belongs to another team's case rather than ours. Nothing is damaged meanwhile: three pages on
+three sites are missing a thumbnail.
