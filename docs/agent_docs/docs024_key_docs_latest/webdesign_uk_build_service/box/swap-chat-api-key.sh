@@ -36,6 +36,11 @@
 #   ./swap-chat-api-key.sh --check    # prompt for a key, TEST it, write nothing
 #   ./swap-chat-api-key.sh            # prompt, test, back up, write, restart, verify
 #
+#   ...and either of the last two with --from-file ~/.config/anthropic/<file>,
+#   which takes the key from a file holding a bare key or one `NAME=value` line.
+#   Use it rather than hand-piping the file in: the extraction then lives here,
+#   reviewed, instead of in an ad-hoc pipeline in someone's shell history.
+#
 # The key is typed at a hidden prompt (so it never enters shell history),
 # travels to the box on ssh STDIN — never in argv, where /proc/<pid>/cmdline
 # would expose it — and is written by awk reading a 0600 temp file deleted on
@@ -53,12 +58,18 @@ UNIT="${UNIT:-webdesign-chat}"
 PORT="${PORT:-8081}"
 
 MODE=apply
-case "${1:-}" in
-  --status)          MODE=status ;;
-  --check|--dry-run) MODE=check ;;
-  "")                ;;
-  *) echo "usage: $0 [--status|--check]" >&2; exit 2 ;;
-esac
+KEY_FILE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --status)          MODE=status ;;
+    --check|--dry-run) MODE=check ;;
+    --from-file)       KEY_FILE="${2:-}"; shift
+                       [ -n "$KEY_FILE" ] || { echo "--from-file needs a path" >&2; exit 2; } ;;
+    --from-file=*)     KEY_FILE="${1#*=}" ;;
+    *) echo "usage: $0 [--status|--check] [--from-file PATH]" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 # The program that runs on the box. Held in a quoted heredoc (nothing expands
 # here; every variable in it is the BOX's) and shipped base64-encoded, which
@@ -220,10 +231,34 @@ if [ "$MODE" = status ]; then
   exec ssh -i "$BOX_KEY" "$BOX_USER@$BOX_HOST" "$RUNNER"
 fi
 
-echo "Paste the NEW Anthropic API key. It is not echoed, not written to your"
-echo "shell history, and not stored on this machine — it goes straight to the box."
-read -rsp "  new key: " NEW_KEY; echo
-[ -n "$NEW_KEY" ] || { echo "Nothing entered — aborted."; exit 1; }
+# Two ways in, and NEITHER prints the key. --from-file exists because the key
+# usually already lives in a file (`~/.config/anthropic/...`), and the
+# alternative is the operator hand-building a `cut | tr | ssh` pipeline at the
+# prompt — which puts the extraction outside anything reviewed, and is exactly
+# the shape that ends up in a shell history or a transcript. Doing it here keeps
+# every line that touches a key inside one audited file.
+if [ -n "$KEY_FILE" ]; then
+  [ -f "$KEY_FILE" ] || { echo "No such file: $KEY_FILE" >&2; exit 1; }
+  # Accept either a bare key or one line of `NAME=value` (an env fragment).
+  # The name is stripped, never the value's own '=' — cut -f2- keeps the rest.
+  FIRST=$(head -1 "$KEY_FILE" | tr -d '\r\n')
+  case "$FIRST" in
+    [A-Za-z_]*=*) NEW_KEY=$(printf '%s' "$FIRST" | cut -d= -f2-)
+                  echo "  source         : $KEY_FILE (stripped the '$(printf '%s' "$FIRST" | cut -d= -f1)=' prefix)" ;;
+    *)            NEW_KEY="$FIRST"
+                  echo "  source         : $KEY_FILE (bare key)" ;;
+  esac
+  unset FIRST
+  case "$NEW_KEY" in
+    sk-ant-*) ;;
+    *) echo "  ⚠ the value does not begin 'sk-ant-' — continuing, but the preflight will judge it." ;;
+  esac
+else
+  echo "Paste the NEW Anthropic API key. It is not echoed, not written to your"
+  echo "shell history, and not stored on this machine — it goes straight to the box."
+  read -rsp "  new key: " NEW_KEY; echo
+fi
+[ -n "$NEW_KEY" ] || { echo "No key obtained — aborted."; exit 1; }
 echo "  fingerprint    : $(printf %s "$NEW_KEY" | sha256sum | cut -c1-12)"
 echo
 

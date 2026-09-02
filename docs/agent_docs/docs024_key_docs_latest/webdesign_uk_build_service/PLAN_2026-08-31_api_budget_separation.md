@@ -18,6 +18,19 @@ just-launched shop with a silent assistant, twice in its first week. The owner n
 
 ## 2. The straightforward answer: the chat is ALREADY separable — one env line
 
+> **✅ DONE 2026-09-02 17:13Z.** The chat is on the owner's separate key. Fingerprints
+> `c3358af6406c` → **`cd3e51a196a7`**; the fleet stays on `79eafe5d414e`. Verified at the
+> artefact, not the config: the RUNNING process reports the new fingerprint, the facts
+> relay still fetches 27 facts (so the rest of the env file survived the one-line
+> rewrite), zero `claude call failed` since, and a live question through the public edge
+> got a real answer — *"Usually three or four days…"* — not the contact line. Backup at
+> `/etc/webdesign-chat.env.bak-20260902T171340Z`.
+>
+> **The residual is the owner's and cannot be checked from here:** that the new key's
+> account is genuinely separate. The preflight proves the key WORKS and is not capped; it
+> cannot see whose billing it is. The Console's usage against the new account after this
+> is the artefact that settles it.
+
 > **CORRECTED 2026-08-31 (budget-separation thread), on three measurements against the
 > live box and cluster. The conclusion of this section survives; two of its premises do
 > not, and one of them would have made the swap look pointless.**

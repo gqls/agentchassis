@@ -2269,3 +2269,33 @@ key. One thing worth knowing for next time: between my saving the change and bui
 other sessions had made twenty-one more commits to the shared code, so I checked
 explicitly that only my change to the chat went out and nobody else's half-finished work
 rode along with it.
+
+## 2026-09-02 — the chat is on the separate key
+
+Done, at 17:13 UK time. The chat now runs on the key you left in the config folder, and
+the background fleet keeps the old one, so a busy day of fleet work can no longer silence
+the shopfront.
+
+I checked it end to end rather than trusting the settings file: the running service
+itself now reports which key it holds, the site's facts are still loading correctly (27
+of them, which tells me nothing else in that file got damaged), there have been no
+failures since, and I asked the live chat a real question — it answered "usually three or
+four days", properly, with no fallback message. The previous settings are backed up on
+the server.
+
+Two things worth telling you. Your file had the key written as `API_KEY=...` rather than
+the key on its own, so feeding it in directly would have written a mangled key — and that
+is the failure that looks healthy from every angle while quietly turning the chat into a
+"contact us" message. I checked the shape of the file first and handled it properly. Also
+the path you gave had a small typo, which is only worth mentioning so you know I found
+the right file rather than guessing.
+
+**The one thing I cannot check for you.** The test I run proves the key works and that its
+account has not hit a limit. It cannot see whose account it is. If that key turned out to
+be on the same account as everything else, every check above would still have passed and
+nothing would actually be protected. Have a look at the new account's usage in the
+Anthropic Console over the next day — a small amount of spending appearing there is the
+proof that the budget genuinely moved, not just the key.
+
+I also tightened the permissions on your credential file — it was readable by any account
+on the machine, and the other key file beside it was not.

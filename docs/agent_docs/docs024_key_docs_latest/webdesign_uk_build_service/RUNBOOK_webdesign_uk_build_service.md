@@ -578,7 +578,19 @@ DAILY_SPEND_CEILING_USD=10.00   # default in code
 box/swap-chat-api-key.sh --status   # read-only, no key needed — which key is live?
 box/swap-chat-api-key.sh --check    # prompt for a key, TEST it against the API, write nothing
 box/swap-chat-api-key.sh            # prompt, test, back up, write, restart, verify
+
+# ...or take the key from a file holding a bare key or one `NAME=value` line:
+box/swap-chat-api-key.sh --check --from-file ~/.config/anthropic/<file>
+box/swap-chat-api-key.sh         --from-file ~/.config/anthropic/<file>
 ```
+
+**Prefer `--from-file` over hand-piping the file in.** The key usually already lives in a
+file, and the alternative is building a `cut | tr | ssh` pipeline at the prompt — which
+puts the extraction outside anything reviewed and is exactly the shape that ends up in a
+shell history or a transcript. `--from-file` strips a `NAME=` prefix if present, prints
+only the fingerprint, and keeps every line that touches a key inside one audited file.
+`[MEASURED 2026-09-02]` the swap was run this way: `API_KEY=` prefix stripped, preflight
+200, one line rewritten, `RUNNING process: cd3e51a196a7`.
 
 **The thing to understand first: a different KEY is not a different BUDGET.** The
 Anthropic usage limit belongs to the ORGANISATION, not to the key. `[MEASURED
