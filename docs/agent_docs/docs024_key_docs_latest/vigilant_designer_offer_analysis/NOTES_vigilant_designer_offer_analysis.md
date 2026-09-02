@@ -3571,3 +3571,73 @@ the same as a clean one, and the two that mattered were cheap to close.
   the right vocabulary is not obvious. Worth deciding once, estate-wide, rather than guessing here.
 - **`prior_art_librarian` missing** — cannot itself verify the live-row-vs-seed-408 claim the
   migration hinges on. `[VERIFIED 2026-09-02, live row]` it holds; it is also now a LANDMINE.
+
+### 2026-09-02 17:15Z — THE GATE IS LIVE, and its first real run was the predicted failure
+
+**Applied `681` at 17:15Z**, after proving `f7156fb54` live **at the binary on both replicas** —
+`repair_ordering_register` **8** matches, typo control `repair_ordering_regsiter` **0**, known-good
+control `verify_cited_cardinals` **6**. ⚠ **The provenance log line had already scrolled out of
+`--tail=3000`** on pods only ~80 minutes old, exactly as `681`'s own header warns: an empty grep
+there means *"not in range"*, never *"unstamped"*. The binary probe has no shelf life; the log line
+does.
+
+Chain verified at the LIVE ROW, not at the migration's own NOTICE:
+`verify_ordering_cardinals` → `repair_ordering_register` (reads `ordering_checked.object`) →
+`write_offer_ordering` (reads `ordering_register_checked.object`). Ledger recorded.
+
+#### ⚠⚠ THE FIRST LIVE RUN LANDED IN A TWO-MINUTE WINDOW AND CAUGHT THE PREDICTED DEFECT
+
+A natural `offer-analyser` run fired at **17:15:24Z** — between `681` (17:15) and `682` (17:17).
+Its gate output, read from `collected_data`:
+
+```json
+{"clean": false, "checked": 6, "violations": 1, "repaired": 0, "unrepaired": 1,
+ "repair_error": "no ai_service configuration resolvable"}
+```
+
+**`offer-analyser` has NO root `ai_service` block.** Its only model config sits on
+`run_offer_analysis`, so `resolveAIServiceConfig` overlaid root (absent) + this step (absent) +
+runtime (absent) and returned an empty map. **The gate was wired, firing, and could not repair
+anything.**
+
+⚠ **The `llm_reliability` seat PREDICTED THIS ON THE APPROVED ROUND** — *"nor confirm whether the
+target agent has a root `ai_service` block that would shadow any step-level config (MDL-039) — worth
+confirming at review-application time."* I confirmed it at application time and it came out badly.
+**A council "missing" item is not a formality; this one named the exact failure two days early.**
+
+**And the action's safe-failure path is now proven in production, not merely in tests:** it kept
+every point, recorded the reason against the run, did not fail the step, and cost nothing. That is
+the design working. `682` gives it a model (mirrors the agent's own `claude-sonnet-4-6`, `max_tokens`
+down to 2000); MDL-039 does not apply because there is no root block to shadow.
+
+> **⚠ THE SHAPE, WORTH CARRYING: this is `params.StorageClient` again.** A capability with no live
+> caller has an untested dependency on its **ENVIRONMENT**, and the first real call is what finds it.
+> "No live call yet" means **the deployment contract is UNVERIFIED**, not that the thing is unused.
+> Every test passed; the tests could not see it, because the gap was in the config the action would
+> be handed, not in the action.
+
+#### ✅ THE DEEP-MERGE PATH IS PROVEN AT THE ARTEFACT, WHICH IS WHAT THREE SEATS ASKED FOR
+
+`farmerinsurance.uk`'s `offer_ordering` row, written 17:16:27Z, `is_current`:
+
+```json
+"register_repairs_summary": {"checked": 6, "violations": 1, "repaired": 0,
+  "still_violating": 1, "register": "…/BANNED_REGISTER_v1.json", "register_version": 1}
+```
+
+Both keys survived `write_site_spec`'s deep merge onto a live row. `editquality`, `guardian` and
+`bug_historian` all objected that the tests proved what the action RETURNS rather than what the
+merge then does with it — **now confirmed in production**, not just by driving `siteSpecDeepMerge`
+in a unit test.
+
+⚠ **And `still_violating` immediately earned its place.** The artefact says plainly that **1 point
+still ships dirty**. A reader seeing only `repaired: 0` would have to work out whether that meant
+"nothing was wrong" or "nothing could be fixed" — which is precisely the misreading
+`bug_historian`'s low objection was about.
+
+#### STILL NOT EVIDENCE THE GATE WORKS
+
+**Zero repairs have happened.** The only live run predates the model config. `23–24%` remains the
+baseline it has to move, and the next natural run (`offer-analyser` fires roughly hourly) is the
+first that can move it. **Do not report this as working until a post-`682` run shows a repair —
+and note that a run finding no violations is a real result, not evidence either way.**
