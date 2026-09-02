@@ -1,14 +1,16 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
-**Status: OWNER-DECIDED 2026-09-02 on Q1, Q2, Q3 AND Q4 — the tier design is fully decided.**
-Two open addenda, neither blocking §3c's three build tracks: **Q5** (§3b) — citation-code recognition
-is finance-only, doesn't generalise to other regulated sectors. **Q6** (§3d, new) — a citation can be
-substantively true and still name the wrong rule; nothing today checks attribution, only presence
-(found live on lendzy.co.uk: 2 of 7 existing citations mis-attributed). **CONFIRMED STRUCTURAL
-2026-09-02** — the FCA Handbook has no rule-level URL, so this is not confined to legacy prose; a
-fact registered through the fully-verified path can still name the wrong rule, permanently. A cheap
-fix shape (span-match within already-fetched text, no new fetch) is sketched but not built or
-decided. Nothing is built yet. See §3a, §3b, §3d.
+**Status: OWNER-DECIDED 2026-09-02 on Q1, Q2, Q3 AND Q4 — the tier design is fully decided; Q6's fix
+is OWNER-APPROVED to build (relayed via the lendzy lane, confirmation pending directly in the
+claims-verification thread).** Open: **Q5** (§3b) — citation-code recognition is finance-only, doesn't
+generalise to other regulated sectors. **Q6** (§3d) — a citation can be substantively true and still
+name the wrong rule; CONFIRMED STRUCTURAL — the FCA Handbook has no rule-level URL, so a fact
+registered through the fully-verified path can still name the wrong rule, permanently. Fix sketched
+(span-match within already-fetched text, no new fetch), owner says build it. **Q7** (§3e, new) — the
+register's write-time verification guarantee is enforced by only ONE of its two write paths; today's
+four hand-written registers (§1d) all bypassed it. **§1d (2026-09-02): day one of the register
+programme found five wrong live claims in one day**, across three independent lanes, just from
+reading the cited source. Nothing built yet. See §3a, §3b, §3d, §3e.
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
 *"what can I do about the poisoned register hole, and shouldn't compliance be strong for sites that
@@ -84,6 +86,48 @@ would be the duplication this estate keeps filing bugs about.
 **The order matters and it is the practical heart of this RFC:** arm the check before the sector's
 false-positive shapes are handled and it produces noise, and *"a scanner that always reports
 something is one people stop reading"* — `claims.go`'s own words.
+
+### 1d. Day one of the register programme (2026-09-02): four site lanes acted on §4's own recommendation, and every one that read a cited rule found it wrong
+
+Live register coverage, re-measured `[MEASURED 2026-09-02, afternoon]` (was §1b's table, this morning):
+
+| domain | register | facts |
+|---|---|---|
+| `lendzy.co.uk` | migration 695 written, **round 2 at council — not yet applied** | 0 (pending) |
+| `loanzy.uk` | migration 697 **applied** | 3 |
+| `loancalculator.co.uk` | migration 699 **applied** | 12 (9 via CCA 1974/SI citations, `legislation.gov.uk`) |
+| `farmerinsurance.uk` | migration 698 **applied** | 7 |
+| `loancash.co.uk` | **still none — no session assigned; owner informed** | 0 |
+
+Fleet citation-sourced facts, same method as §1a: **256**, up from **~192** that same morning
+`[MEASURED 2026-09-02]`.
+
+**The number that matters more than the coverage:** three independent lanes, populating registers by
+reading the cited source rather than trusting the site's existing prose, found **five wrong live
+claims in one day** — not from a detector, from a human-equivalent read of the primary source:
+
+- `lendzy.co.uk` — the two mis-attributed CONC rules (§3d/Q6).
+- `loanzy.uk` — MaPS (Money and Pensions Service) grouped under "FCA-authorised services"; MaPS is the
+  **statutory guidance body**, not an FCA-authorised firm.
+- `loancalculator.co.uk` — a settlement-figure claim of "ten working days" where the actual period
+  under SI 1983/1564 reg 4 is **twelve**; and an invented "10% per 12 months" early-repayment-charge
+  threshold where the actual figure is **£8,000 per 12 months** (s.95A(2)(a)).
+
+Every lane that checked found an error. That is the base rate the whole claims-verification layer —
+and specifically §3d/Q6's checker — is being built against, on sites already carrying `relied_upon`
+consequence, discovered on the FIRST pass through content nobody had previously verified against its
+own cited source.
+
+**A related write-time gap, surfaced by the same day's work (raised for a decision, not decided
+here — see the addendum below):** the four registers above were all written **by hand, via migration**
+— none went through `verify_and_register_citations` (V5/CLM-008's own write path), which is the one
+place a citation is checked against its host BEFORE it enters the register. The loanzy lane's run hit
+this directly: `maps.org.uk` and `moneyhelper.org.uk` both sit behind a Cloudflare "Just a moment…"
+challenge page. A citation against either would pass a human skim and then read `citation_lost` in the
+daily refresh FOR EVER — a failure of the host, not the fact. `verify_and_register_citations` would
+have caught it (a challenge-page title never matches a real quote); the migration path that actually
+shipped all four registers today has no equivalent gate. **A write-time verification guarantee that
+only one of the register's two write paths enforces is not a guarantee** — see §3e.
 
 ---
 
@@ -388,6 +432,44 @@ to the owner with a recommendation by the lendzy lane; this addendum is the plat
 
 **Does not block §3c's three tracks.** Lane docs:
 `docs/agent_docs/docs024_key_docs_latest/lendzy_co_uk/` (PLAN §B).
+
+---
+
+## 3e. ADDENDUM 2026-09-02 (Q7, NEW — undecided): the write-time verification guarantee is enforced by
+only ONE of the register's two write paths
+
+Raised by the `loanzy.uk` lane, seconded by lendzy, from the same day's register-writing work (§1d).
+
+**The gap.** `verify_and_register_citations` (V5/CLM-008) checks a candidate citation's host BEFORE
+admitting it: fetch the URL, require the quote in the visible text, reject on failure. That is real
+protection — but **all four registers written today (§1d) went in by hand, via migration**, which
+never calls that function. The migration path has no equivalent gate.
+
+**Caught live, not hypothetically.** The loanzy lane's own run tried to cite `maps.org.uk` and
+`moneyhelper.org.uk`; both sit behind a Cloudflare "Just a moment…" interstitial. A citation against
+either passes a human skim (the page LOOKS fine in a browser, which runs the challenge) and then
+reads `citation_lost` in CLM-008's daily re-check **for ever** — a failure of the host, not of the
+fact, and one that would have been silently invisible if the lane hadn't happened to run the
+production extractor by hand before writing (the method both lendzy's and loanzy's lanes now follow;
+see `lendzy_co_uk/RUNBOOK_lendzy_co_uk.md` §8b for the full trap).
+
+**Proposed fix (Q7), not built, not decided:** a write-time HOST admission check — before any citation
+enters the register by ANY route, run its URL through the same extractor CLM-008 uses in production
+(not a reimplementation, per the `cmd/fcaquotecheck` lesson in §3d) and reject a challenge-page title
+as a source. Because it must guard BOTH write paths (the LLM-mediated one and hand-authored
+migrations), it belongs somewhere both share — not inside `verify_and_register_citations` alone, which
+is exactly what already protects one path and not the other.
+
+**Why this is Q7 and not silently fixed:** it is the same class of question as Q6 — what a
+`sourced`/`relied_upon` citation is allowed to enter the register AT ALL — and, like Q6, changes a
+shared guarantee rather than patching one call site. **Does not block §3c's three tracks or Q6's
+build**; it constrains what "the register is verified" means going forward as more sites populate
+theirs by hand, which §1d shows is happening THIS week, not eventually.
+
+Evidence: `lendzy_co_uk/RUNBOOK_lendzy_co_uk.md` §8b (host traps), §8c (near-identical statutory
+instrument numbers as a related mis-citation source — SI 1983/1569 vs 1564, caught by
+loancalculator's own schedule read; and gov.uk keeps organisation pages at FOUNDING-name slugs, e.g.
+MaPS at `single-financial-guidance-body`, so name-guessed URLs 404 rather than warn).
 
 ---
 
