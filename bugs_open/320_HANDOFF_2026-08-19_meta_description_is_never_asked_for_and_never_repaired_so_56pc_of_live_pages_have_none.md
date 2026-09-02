@@ -561,3 +561,28 @@ description, which is also the plain reading of the instruction.
 | refused by the copy gates (`voice_tell`), previous copy retained | **23** |
 | mean length | 130 → **117** chars (the ≤20-word rule from `501`) |
 | seeded agent | **still fill-blanks-only** |
+
+---
+
+## §16 — CONTRIB 2026-09-02 (`routing_capability_guard` lane, closing): **§15's WITHHOLDING IS REVERSED BY THE OWNER**
+
+Pointer, not a restatement. **§15 records the owner granting `overwrite_existing: true` for the
+one-off 681-page pass and explicitly withholding it for the standing mechanism.** On 2026-08-26 he
+ruled the other way: **an automated finding MAY cause a published description to be rewritten**,
+restricted to machine-written ones — *"I haven't yet written any manually"* — and on 2026-09-02
+confirmed it should be built.
+
+**The full handover, with the two measurements that change how big this job is, is in this lane's own
+directory:**
+`docs/agent_docs/docs024_key_docs_latest/meta_description_never_backfilled/CONTRIB_2026-09-02_decision_1_is_ruled_and_re_homed_to_you.md`
+
+The headline of it, because it is the part that resizes the work: **the overwrite authority already
+exists.** `save_page_meta_description_action.go:211` is gated by `overwrite_existing` (an opt-in config
+field, **default false**, enforced in the WHERE clause) AND by the backfiller's `pre_query` — **two
+guards in series, not an unconditional UPDATE.** So what is missing is a work-item-driven ROUTE that
+sets the flag, not an overwrite capability. ⚠ Several documents — including a shipped code comment and
+`bugs_open/395`'s roster, both now corrected — described that write as *"the only unconditional
+UPDATE"*, which oversizes this job.
+
+**The originating lane is CLOSING; do not route questions at it.** Everything is in `bugs_open/395`
+and in that lane's handoff (§2, §12, §19, §21), both of which outlive the session.
