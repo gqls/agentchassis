@@ -566,3 +566,70 @@ clean bill of health for eight days.
 next step and is now sharply targeted: *a `section_data_resolved` item, correctly specced and
 consumed in a healthy window, completes green and does not rewrite the array it was filed to
 refresh.* The owned-page residual (14 blanks / 3 pages) is also unchanged.
+
+## UPDATE 2026-09-02 17:1xZ — the `090` came back UNVERIFIABLE, and its "still needed" list cracked it: **the seam's vehicle has never written a listing array**
+
+Owner authorised the run. `090` fired: intake `d4f745e6-3f79-42a8-8f71-bb611736912c`,
+**run correlation `149ec925-ffb7-41eb-806a-1595b8ff2226`**, 5 iterations, all three orchestrations
+COMPLETED.
+
+**Verdict: `UNVERIFIABLE` — "NOT CONFIRMED (stopped: iteration-cap)". Not a refutation, and not a
+waste.** It independently reproduced the state evidence (the 21:34:20 freeze; the two
+`section_data_resolved` items completing at 22:58:18 and 09:40:36 without moving it) and then said
+precisely what it could not see: the body of `rerenderFlatSections` that chooses carry-vs-resolve,
+the `queryresolve.Resolve` body, and the live `check_rerender_mode` config. **It also named an
+alternative I had not considered and could not rule out from `updated_at` alone: "the row was never
+touched" vs "touched but the value was unchanged".** Chasing exactly that is what produced
+everything below.
+
+**First: `updated_at` on `page_components` is NOT trigger-maintained** (no such trigger exists;
+only the two `page_component_artefact_archive` triggers). So a frozen `updated_at` really was
+correlation, not proof — the loop was right to withhold.
+
+**`page_component_history` settles it** `[MEASURED 2026-09-02]`. The archive triggers fire whenever
+`rendered_html` changes, or `content_data` changes with `rendered_html` static. For this listing
+row the only rows since 2026-08-25 are:
+
+| archived_at | application_name | n_articles | blank |
+|---|---|---|---|
+| 2026-08-27 21:34:20 | `action:rebuild_blog_listing` | 11 | 0 |
+| 2026-08-27 06:55:03 | `action:rebuild_blog_listing` | 11 | 0 |
+| 2026-08-26 22:02:54 | `action:rebuild_blog_listing` | 11 | 0 |
+| 2026-08-26 15:30:33 | `action:rebuild_blog_listing` | 11 | **11** |
+
+**Nothing at 22:58:18 or 09:40:36.** Neither completed run changed `content_data` OR
+`rendered_html`. The "touched-but-unchanged" alternative is dead: they wrote nothing.
+
+**And the writer is `rebuild_blog_listing` — not the path the seam files for.** Fleet-wide census
+of every write to a component carrying a `query.*` array field, last 14 days `[MEASURED 2026-09-02]`:
+
+| application_name | writes | pages | newest |
+|---|---|---|---|
+| `action:rebuild_blog_listing` | 5 | 1 | 2026-08-27 21:34:20 |
+| `psql` (a hand write, another lane) | 1 | 1 | 2026-08-31 13:37:04 |
+
+**`rerender_page_sections` has written a listing array ZERO times in 14 days.**
+
+**The live `page-rerender` workflow has no rebuild step.** Its steps are exactly:
+`check_rerender_mode → rerender_sections (rerender_page_sections) → check_escalated →
+save_sections (save_page_sections) → render_page (rerender_single_page) → check_skipped →
+deploy_page → update_status → complete`. **No `rebuild_blog_listing`.** So the item the seam files
+runs a workflow that renders and deploys — which is why it completes green with a real commit sha —
+and, on the evidence above, does not rewrite the array it was filed to refresh.
+
+**This puts §4's "four natural demonstrations" in doubt and they must be re-read before being
+quoted again.** The 2026-08-26 15:30:33 archive row is the celebrated leopardess repair
+("array rewritten 15:30:34 — 11 of 11 entries carry an image"); its pre-image is 11-blank-of-11 and
+its writer is **`action:rebuild_blog_listing`**. The seam files `page_rerender`; the repair was
+performed by a different action on a different trigger. **[INFERRED, not yet measured]** that the
+other three demonstrations are the same shape — nobody has checked their `application_name`, and
+that is the first thing the next session should do.
+
+**What is now MEASURED vs still open.** Measured: no write by the two completed runs; the writer
+census; the workflow's step list. **Still open, and it is a sharper question than the one I sent to
+the loop:** is `rerender_page_sections` *supposed* to rewrite a `query.*` array and failing to
+(the carry branch / resolver), or was the seam pointed at the wrong vehicle from the start? A
+re-run with whole-file `SEED_SCOPE` (see the RUNBOOK note) is the cheap next step.
+
+**Unchanged:** defect #2 (the sweep born terminal, contributed to `bugs_open/389`), and the
+owned-page residual (14 blanks / 3 pages). 384 stays open.
