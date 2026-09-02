@@ -69,6 +69,17 @@ promises a fixture list and delivers a hero banner plus an essay describing a fi
 list that isn't there — the exact shape of `bugs_closed/381`'s defect class, on a page
 type that bug never touched.
 
+> **UPDATE 2026-09-02, later still — staffed.** A fresh session ("feed lane") appeared,
+> independently verified the 427 write-up and the ownership gap (read the bug in full,
+> ran `who-owns.py` on 427/316), and accepted the charter proposed to them: the raw
+> ingestion pipeline (`content-feed-orchestrator`, `find_news_sites`, `feed-triage`,
+> `content-feed-refresh`, `content_feed_items` health) — explicitly not `period-calendar`,
+> not `news_editorial_features`, not the `d6d350ec` entity-directory page-role diagnosis.
+> Starting on 427 fix candidate #1 now, `bugs_open/316` next, opening
+> `docs024_key_docs_latest/news_feed_ingestion/` for their own standing five. This lane's
+> business in 427 is done — the fix is theirs to build, and the tool-page-named-calendar
+> question that started this thread has an owner for its root cause.
+
 > **UPDATE 2026-09-02, later.** Filed as `bugs_open/427`, jointly with `boxingonline.com`.
 > They independently re-derived both this lane's `444`→`20` correction (identical query,
 > identical result) AND went further with a distribution neither of us had stated cleanly:
