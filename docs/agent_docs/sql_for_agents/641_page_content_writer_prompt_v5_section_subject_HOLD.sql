@@ -12,6 +12,23 @@
 --      INSERTED TEXT markers — nothing else in the prompt changes, and the
 --      verify block proves it (anchors + em-dash census unchanged at 5).
 --
+-- !!! GATE 2 OUTCOME, 2026-09-02: THE READ CAME BACK AS A REDRAFT DIRECTION,
+--     NOT AN APPROVAL -- DO NOT APPLY THIS FILE AS WRITTEN. The inserted block
+--     below is now a historical draft: negative-instruction prompting in
+--     production vocabulary, which is what the owner's directive rejects
+--     (positive prompting only; written in the language expected back; the
+--     prompt's own prose is the demonstration, no specimen answer). The
+--     replacement is being drafted with him:
+--     docs/agent_docs/docs024_key_docs_latest/finetuning_uk_service/DRAFT_2026-09-02_641_positive_prompt_candidates.md
+--     (three framing candidates, his pick pending; finetuning lane test-renders,
+--     the apis.uk lane writes the final SQL, and his approval attaches to the
+--     EXACT final words -- RFC_016 s5.2, voids on any later edit).
+--     NEW PRE-APPLY OBLIGATION: all three candidates enumerate the SIBLING
+--     subjects, and that range render is UNTESTED -- prove it against real
+--     loop CollectedData before the redraft ships (empty/absent subjects must
+--     drop out of the enumeration, not render blank; missingkey=zero hides
+--     the failure). Record in apis.uk NOTES 2026-09-02.
+--
 -- Placement: immediately BEFORE the Verified Facts block, so the writer reads
 -- "what this section is about" before "which facts it may state". Renders
 -- ONLY when the plan assigned a subject ({{if .current_section.subject}});

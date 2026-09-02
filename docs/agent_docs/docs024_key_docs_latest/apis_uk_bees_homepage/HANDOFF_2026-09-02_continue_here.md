@@ -96,6 +96,16 @@ grep -o 'src="[^"]*illustration[^"]*"' … | sort -u | wc -l   # PASS: 6 distinc
    asserts landmarks + em-dash census). After his read: apply 641, record the read in NOTES + the
    APPLIED line. **Until then the writer ignores subjects** — the chain is planner→DB complete,
    consumption gated.
+   > **CORRECTED 2026-09-02 (late): gate 2 RETURNED — a REDRAFT direction, not an approval.
+   > Do NOT apply 641 as written; the delta quoted above is no longer the read-target.** His
+   > directive: positive prompting only (no "do not…" instructions), written in the language
+   > expected back, no specimen answer. Candidates + mechanics-to-keep:
+   > `docs/agent_docs/docs024_key_docs_latest/finetuning_uk_service/DRAFT_2026-09-02_641_positive_prompt_candidates.md`
+   > — owner's framing pick pending; finetuning lane test-renders; THIS lane writes the final
+   > SQL; approval attaches to the exact final words (RFC_016 §5.2). New pre-apply obligation:
+   > all three candidates enumerate SIBLING subjects and that range render is UNTESTED — prove
+   > it against real loop CollectedData (empties must drop out, not render blank). Seed header
+   > stamped with the same. Full record: NOTES 2026-09-02 ~21:00 UTC.
 2. **The footer** (08-26 handoff §5b): fallback shell reappears on every chrome refresh; no
    suppress mechanism exists. Accept the shell, or commission opt-in `chrome.footer_disabled`.
 3. **The tools park** (08-26 handoff §5c): nine items `deferred` — held all week, dedup keys
@@ -108,7 +118,7 @@ grep -o 'src="[^"]*illustration[^"]*"' … | sort -u | wc -l   # PASS: 6 distinc
 |---|---|
 | planner rule 17 + example (640) | **LIVE** — next replan of any fact-listed site emits subjects; REQUIRED on repeated components |
 | `validate_plan` normalise + carry · `site_plan_sections.subject` (638) · loader · `plan_sections` (639 wiring) · `sectionPlanItem.Subject` | **LIVE end to end** (binary probed; config verified) |
-| writer prompt (641) | **HELD — owner read (§3.1)** |
+| writer prompt (641) | **HELD — gate 2 returned REDRAFT 2026-09-02: do NOT apply as written; redraft in flight (§3.1 correction)** |
 | structural detector `SUBJECT_MISSING_ON_REPEATED_COMPONENT` | **LIVE** (binary probed); zero rows until subject-carrying plans exist — that is the gate working, not silence |
 
 Adoption query (also the copy_quality lane's experiment control):

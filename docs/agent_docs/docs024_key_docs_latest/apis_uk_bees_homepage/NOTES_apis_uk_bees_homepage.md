@@ -1469,3 +1469,44 @@ FILENAME never changes when it is applied", ~line 19796) after a session read `6
 in the listing and reported our LIVE 639 as unapplied — inverting the gate-1 conclusion the same
 day it was measured clear. The check is the APPLIED header line + the artefact (live row / pod),
 never the filename; caught only because a second session read the live row independently.
+
+### 2026-09-02 ~21:00 UTC — 641 gate 2 RETURNED: a REDRAFT direction, not an approval — do NOT apply 641 as written
+
+Relayed by the 443 session (the finetuning lane carried the read to the owner and initially
+mis-routed the result to 443's lane; 443 caught the misattribution — 641 is OUR file, PBP-049's
+seed). The owner's directive, recorded verbatim in the draft file below: positive prompting only
+("say don't think of an elephant and the llm starts thinking of elephants"), the block written
+IN the language expected back (his rejection of their first attempt: describing the arrangement
+in production vocabulary — section/subject/reader — "has started to hardcode what should be in
+it"), and NO specimen answer — the prompt's own prose is the demonstration, which also dodges
+the quoted-exemplar-ships-verbatim trap.
+
+Our committed v5 block fails the directive on its face: "do not restate theirs, and do not
+widen…" is negative instruction in production vocabulary. It is now a historical draft.
+
+State + division of labour (verified against the draft file, not just the relay):
+`finetuning_uk_service/DRAFT_2026-09-02_641_positive_prompt_candidates.md` holds three framing
+candidates (reply-to-a-person / write-for-a-person [their recommendation] / just-the-subject),
+filled in for a real page; owner's pick PENDING → finetuning lane test-renders → THIS lane
+writes the final SQL → owner reads the exact final words (RFC_016 §5.2 — approval attaches to
+that text, voids on edit; the rule working as designed). Mechanics that survive the redraft:
+the `{{if .current_section.subject}}` guard, placement before Verified Facts, no em dashes
+(census pinned at 5), British English.
+
+**Owed by us before the redrafted 641 can apply — the sibling-subject range render is
+UNTESTED.** All three candidates enumerate the sibling subjects. The data is reachable
+(verified at `platform/orchestration/loop_expansion_handler.go` ~395-425: setLoopVariable
+persists `current_section` + loop vars into CollectedData precisely so they survive the
+optimistic-lock reload; the full plan rides `section_plan.sections_ready[]`), but NO template
+has ever ranged over it, and under `missingkey=zero` the failure is silent: an empty/absent
+subject renders as a blank item, and a wrong path renders NOTHING — "a template that silently
+renders nothing is exactly the failure 443 was about". Falsifier for the test-render: a
+sections_ready list containing a subjectless/skipped sibling must produce an enumeration that
+DROPS it; a wrong key must fail loud in the test, not blank in production.
+
+Recorded tonight in the same commit: seed header stamped with the gate-2 outcome + DO-NOT-APPLY
+(the control at the point of action — a session hearing "the read landed" must find the refusal
+in the file it is about to apply); handoff §3.1 corrected + chain-status row updated; PBP-049
+status line gains the outcome. FYI also relayed: **RFC_063 DECIDED tonight — option B**, the six
+plan-less sites converge into the plan tables (hand-insert permitted, closed backfill); 443's
+Stage B re-points at the redrafted 641, their Stage A unaffected.
