@@ -90,3 +90,25 @@
 - Existing behaviour pinned rather than trusted: all pre-lever label/judge/choose tests pass
   unchanged; the wiring test's fixtures were updated to the new column shapes (they encode
   "as the SQL returns them" as their own contract).
+
+## 2026-09-02 — committed, verified at HEAD, 714 applied; council executing
+
+- Commits: `215c7eead` (the change, 26 files), `20419fe0f` (ScanShortfall on the new loader — a
+  thinned scan silently RE-RANKS a site, so refusal is right, not ceremony; + LNK-041 carries its
+  sha), `85518e497` (the literal `scan-loss:accepted` marker — the detector reads the marker, not
+  the downstream refusal), `def8126e3` (scan_swallow_baseline 3→2 for
+  resolve_internal_links_action.go: deleting loadCTACandidatePages removed a counted swallow and
+  the ratchet REQUIRES the baseline drop — a falling count fails the test too, so a gain cannot be
+  silently given back).
+- Verified at committed HEAD in a git worktree (the shared tree cannot compile the actions
+  package): `actions` ok, `discovery_checks` ok, `datahelpers` fails ONLY the pre-existing
+  tombstone scan (114's; session messaged, msg 4dfd9db8).
+- Migration `714` hand-applied 2026-09-02 ~20:05 BST and `--record-only`'d with the verification
+  note: column present, 0 rows opted out, DO/RAISE verify passed. Safe under the running (old)
+  binary; closes the "new binary before column" ordering window. `715_HOLD` NOT applied — waits
+  for the roll, by design.
+- Council run: EXECUTING at `review_debug_historian` as of 18:47Z. Corr
+  `9faa2a23-f3bc-464e-8c3a-9d3d44759cc0`.
+- Sweeps INTO others' commits, for the record: first WRONG_CALLS row → `6bd26baf0`; LNK-041 index
+  row → swept before my commit (visible in `git log -S LNK-041` on 000_concept_index.md). Both
+  content-intact; the 710→714 renumber corrected the swept index row forward in `215c7eead`.

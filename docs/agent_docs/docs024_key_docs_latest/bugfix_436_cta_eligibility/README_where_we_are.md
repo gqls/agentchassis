@@ -20,3 +20,26 @@ changes until someone flips it); the button-choosing code refuses ineligible pag
 ranking and in its label matching (the label half is what stops the lock-in loop); and a new
 automatic check that files a review item when a site's top button looks fossil-ranked. It goes
 through the council before committing, since it changes what the ranking promises.
+
+## 2026-09-02, evening — built, committed, under review; the switch exists in the database
+
+The whole thing is now written, tested and committed (main commit `215c7eead`, plus three small
+follow-ups the repo's own automatic advisors asked for — locking in an improvement they noticed,
+and marking a code branch the way their scanner expects). The council is reviewing it now
+(reference 9faa2a23); the code itself does nothing until the next fleet software roll, by design.
+
+The new database column is already live — I applied it and every page defaults to "eligible", so
+nothing anywhere behaves differently yet. Two things wait for the roll: the code that reads the
+switch, and the new automatic check (its enable file is deliberately held back until the software
+that knows the check's name is running, because turning it on early would break the nightly
+discovery run outright).
+
+Two bumps worth knowing about, both handled: another session took migration number 710 while I was
+working, so mine became 714/715; and two of my document edits got swept into other sessions'
+commits before I committed — nothing lost, the repo's rules cover exactly this, and my commit
+message says where they went. Also told the session working bug 114 that one of their files is
+currently failing a shared test for everyone.
+
+Nothing needs a decision from you yet. The one that's coming: once this rolls, do you want any
+live page opted out today (the demoted password tool trio are already harmless at their new menu
+number, so there may be nothing to do).
