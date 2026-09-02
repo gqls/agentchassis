@@ -100,6 +100,19 @@ chrome differentiation is a ChromeSlotFunction code change · broken/missing →
 stale, NOT a pin verdict — retry with another component before concluding. Send the served
 diff to the `theme kits` session either way (feeds their 438 read).
 
+## 5b. Remake №5 is ALSO the imagery-prompt canary (migration "718", planner prompt, live 19:59:56Z)
+
+The designblog lane shipped content-carrying imagery expectations into build-site-planner's
+plan_site prompt (owner-directed; corr 2dae4f20 Council-Submitted). On №5's PLAN, check
+`imagery.sections`: expect ≥1 illustration/infographic under index, more where sections warrant.
+Two named residual risks to eye: (a) entries must land on sections whose component can DISPLAY
+them (instruction-only limit — an illustration on a plain prose block is the
+generated-and-undisplayable class); (b) volume scales with section-scope entries (owner
+accepted). Blog-post/guide/empty-section pages are EXEMPT — an imagery-free article page is not
+the change failing. ⚠ TWO lanes have referenced "migration 718" tonight (this planner prompt +
+a file in the 444 submission) — resolve by FILENAME, never bare number:
+`718_planner_imagery_content_expected_prompt_and_exemplar.sql` is the live one described here.
+
 ## 6. Fire-direction template (v2, NOTES (q))
 
 Per-domain vertical · best-in-vertical · no-omission · fullness · no negative-identity ·
