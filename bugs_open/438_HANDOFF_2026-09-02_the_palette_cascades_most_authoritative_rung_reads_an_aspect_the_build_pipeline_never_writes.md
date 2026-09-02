@@ -54,6 +54,23 @@ its error step, and `persist_mission_brief` writes the brief to a **different as
 The `mission` aspect is never populated. This is not a key typo with a working
 fallback — the fallback writes somewhere else, and the cascade only reads the first.
 
+> **CORRECTED 2026-09-02 — "fallback" over-reads what `error_step` is here.** Mapping
+> all four persist steps shows `error_step` is a **linear continuation chain**, not a
+> set of designed recovery pairs — each step's `error_step` is simply the NEXT step in
+> sequence:
+>
+> | step | reads | writes aspect | error_step |
+> |---|---|---|---|
+> | `persist_mission` | `input_data.mission` | `mission` | `persist_mission_brief` |
+> | `persist_mission_brief` | `input_data.mission_brief` | `mission_brief` | `persist_roadmap` |
+> | `persist_roadmap` | `input_data.roadmap` | `roadmap` | `persist_roadmap_brief` |
+> | `persist_roadmap_brief` | `input_data.roadmap_brief` | `roadmap_brief` | `create_research_item` |
+>
+> So mission-being-rescued-by-mission_brief is **incidental ordering, not design**: the
+> chain just continues past a failure and the next step happens to be the right one.
+> Nothing here was built as a fallback pair, which matters for the fix — there is no
+> "intended" pairing to preserve.
+
 ```sql
 -- every live writer of either aspect
 SELECT ad.type, s.name AS step, step->'config'->>'aspect' AS aspect,
@@ -107,6 +124,54 @@ SELECT data->'lineage'->>'palette_source', count(*) FROM site_specs
 not appear once in 31 compositions. This is the discriminating measurement: the claim
 is not "the rung is hard to reach", it is "the rung has never been taken, and the code
 path that would record it having been taken has no rows".
+
+## 3a. The bug has a DEMAND CONTROL — it writes an error row on every fresh submit
+
+Credit: `gamedesign.uk` lane, who noticed the trace; counts verified here.
+
+Every fresh `082` submission leaves `agent_error_log` rows at the submitter —
+`write_site_spec: input extraction failed: missing required fields: [spec_data]`,
+which is what a persist step does when its `spec_data` path resolves to nothing.
+[MEASURED 2026-09-02, 30-day retention]:
+
+| step_name | rows | sites | first | last |
+|---|---|---|---|---|
+| `persist_mission` | 16 | 12 | 2026-08-04 | 2026-09-02 |
+| `persist_roadmap` | 16 | 12 | 2026-08-04 | 2026-09-02 |
+| `persist_roadmap_brief` | 14 | 11 | 2026-08-04 | 2026-09-02 |
+| `persist_mission_brief` | 6 | 3 | 2026-08-18 | 2026-08-26 |
+
+**This is the before/after meter, and it is the thing that makes a fix falsifiable.**
+```sql
+SELECT count(*) FROM agent_error_log
+ WHERE agent_type='domain-submitter' AND step_name='persist_mission';
+```
+It must go to zero on the first fresh submission after a repoint. **If it does not,
+the repoint did not land** — which is exactly the check this estate's own rule about a
+post-fix zero needing a demand control asks for: the count is non-zero today, so a
+later zero means something, instead of being indistinguishable from "nothing ran".
+
+**Note the fourth row: `persist_mission_brief` itself fails on 3 sites.** So even the
+incidental rescue in §2 is not reliable — on those sites neither `mission` nor
+`mission_brief` was written by the submitter at all.
+
+## 3b. The roadmap half is worse: TWO steps that can never succeed on this path
+
+`082` sends **no roadmap key whatsoever** (`grep -c roadmap
+082_submit_domain_unified.sh` → **0**). So `persist_roadmap` (reads
+`input_data.roadmap`) and `persist_roadmap_brief` (reads `input_data.roadmap_brief`)
+both fail on every fresh submission, and unlike mission there is no later step that
+writes either aspect. The chain simply continues to `create_research_item`.
+
+Live rows confirm nothing lands from this path: `roadmap` on **1** site,
+`roadmap_brief` on **4** — against 22 sites carrying `mission_brief`. Those few came
+from some other producer, not from `082`.
+
+**So the fix is not one step, it is three** — and two of them are dead steps on the
+only path that runs them. Either `082` should send a roadmap, or
+`persist_roadmap`/`persist_roadmap_brief` should be deleted and say so. Leaving two
+always-failing steps in a live workflow is how an error log becomes unreadable: 30 of
+the 52 rows here are from steps that cannot succeed by construction.
 
 ## 4. Why nobody has noticed
 
