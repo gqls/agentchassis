@@ -1,0 +1,71 @@
+{
+ "submitter": "vonc provocation-pipeline session, 2026-09-02 (config half; the Go half is corr c08d263a)",
+ "rationale": "SECOND HALF of the owner's 2026-09-02 instruction, 'make the challenges change every day and not be restrained by needing my permission'. The Go half (corr c08d263a) removed the human-approval predicate and made the readability rail fatal. This half is what actually makes the site daily: it puts the two producing agents on a cadence.\n\nTHE DIAGNOSIS, because it is not what it looks like. vonc.com served the same provocation from 2026-08-22 to 2026-09-02 under a heading reading 'Today's Provocation'. Nothing was broken: the publisher is on a 6h schedule and completed successfully throughout, and it correctly skips its git commit when only generated_at would move. The pipeline simply had nothing to publish, because the generator and scheduler agents have NO scheduled_tasks row at all - they are named '-manual' and were operator-invoked by design.\n\nTWO EARLIER GUARDS ARE DELIBERATELY SUPERSEDED AND I WANT THAT REVIEWED. Migration 321 RAISEs an exception if a scheduled_tasks row ever exists for the scheduler, on the stated ground that it would 're-automate the step the owner took back on 2026-08-09'. That ruling has now been reversed by the same owner. 371 carries the same shape but its condition was 'until one attended run has been read', which the 2026-08-10 and 2026-08-12 runs satisfied. I have not edited either applied file; 685's header records that 321 will now FAIL IF RE-RUN and why. Both agents' description fields, which assert 'must never be given a scheduled_tasks row', ARE rewritten - a description contradicting the live schedule is read as ground truth by council seats and by the next session.\n\nWHY _HOLD RATHER THAN AN ORDINARY MIGRATION: applied before the Go change is live, the generator banks drafts gated while the rail is still advisory, and loadGateCandidates never re-gates an approved row - so that batch would be publishable for ever without the rail ever having applied to it. The guard enforces the order instead of trusting the operator: it refuses until a row carries gate_version '3', which only the new binary writes.",
+ "plan": {
+  "summary": "Add two scheduled_tasks rows for vonc.com provocations - a demand-driven generator refill every 12h, gated by a pre_query that skips once 14 days of inventory exist, and a daily dating run - raise shelf depth from 6 to 14, rewrite both agents' now-false descriptions, and gate the whole file on an artefact check proving the fatal-rail binary is live.",
+  "edits": [
+   {
+    "file": "docs/agent_docs/sql_for_agents/685_provocation_daily_autonomy_HOLD.sql",
+    "symbol": "ordering guard",
+    "operation": "add",
+    "rationale": "The file must not apply against an image predating the fatal rail, for a reason that is not recoverable afterwards: an approved row is never re-gated, so drafts gated under the advisory rail stay publishable for ever. Checking gate_version in a persisted verdict proves the new code GATED something, which a tag or a deploy status cannot. Proven in the refusing direction against the live database before commit - it raises today, with its own message.",
+    "sketch": "SELECT count(*) INTO n_v3 FROM provocations\n WHERE gate_verdict->>'gate_version' = '3';\nIF n_v3 = 0 THEN\n  RAISE EXCEPTION 'REFUSING TO APPLY: no provocation has been gated by gate_version 3, so the binary carrying the fatal readability rail is not live yet.';\nEND IF;"
+   },
+   {
+    "file": "docs/agent_docs/sql_for_agents/685_provocation_daily_autonomy_HOLD.sql",
+    "symbol": "scheduled_tasks.provocation-shelf-refill",
+    "operation": "add",
+    "rationale": "Demand-driven rather than periodic, which is the load-bearing design choice. The site consumes one provocation a day and the scheduler dates up to 14, so an unconditional generator would push publish dates months out and spend model credits for ever. runPreQuery treats no rows as 'skip this task', so a full shelf costs one SELECT. Batch size is capped at 4 and the owner's 'over-generate' is delivered by cadence (twice daily) instead: 4-at-8000-tokens is the only combination this lane has proven, and a larger batch risks a truncated completion, which this pipeline has already hit and which presents as success.",
+    "sketch": "SELECT LEAST(4, GREATEST(0, 14 - count(*)) * 2)::int AS count\n  FROM provocations\n WHERE domain = 'vonc.com'\n   AND status = 'approved'\n   AND (publish_on IS NULL OR publish_on > current_date)\nHAVING GREATEST(0, 14 - count(*)) > 0"
+   },
+   {
+    "file": "docs/agent_docs/sql_for_agents/685_provocation_daily_autonomy_HOLD.sql",
+    "symbol": "scheduled_tasks.provocation-date-assign",
+    "operation": "add",
+    "rationale": "Daily dating run, max_assign 14 passed via input_data. No pre_query: scheduleProvocations already logs and no-ops when nothing is approved-and-undated, so a gate would add a moving part without removing work. Shares a concurrency_group with the refill task so a slow generation run cannot overlap dating.",
+    "sketch": "('provocation-date-assign', ..., 86400, 'provocation-scheduler-manual',\n 'system.agent.generic.requests',\n '{\"domain\": \"vonc.com\", \"max_assign\": 14}'::jsonb,\n 'provocation-generation', 1, NULL, true, 600)"
+   },
+   {
+    "file": "docs/agent_docs/sql_for_agents/685_provocation_daily_autonomy_HOLD.sql",
+    "symbol": "agent_definitions.max_assign",
+    "operation": "config_change",
+    "rationale": "6 was the owner's 2026-08-12 depth ruling, chosen so 'one bad batch can never fill a long stretch nobody is watching'. That reasoning assumed he was watching. Unattended the binding risk inverts - a thin shelf is precisely how the site went eleven days stale - and he chose 14 when asked. Still inside the action's own max_assign <= 30 bound.",
+    "sketch": "UPDATE agent_definitions\n   SET default_config = jsonb_set(default_config,\n         '{workflow,steps,schedule,config,max_assign}', '14'::jsonb, true)\n WHERE type='provocation-scheduler-manual' AND is_active;"
+   },
+   {
+    "file": "docs/agent_docs/sql_for_agents/685_provocation_daily_autonomy_HOLD.sql",
+    "symbol": "agent_definitions.description (both agents)",
+    "operation": "config_change",
+    "rationale": "Both descriptions currently assert 'OPERATOR-INVOKED BY DESIGN - must never be given a scheduled_tasks row'. Once the schedules exist that is false, and a stale status line in a config row is a documented failure mode here: council seats and sessions read it as ground truth. The replacements state what is true now, when it changed, and what bounds the risk - that dating never targets today, so nothing reaches the site in under a day.",
+    "sketch": "description = 'Dates approved provocations, one per category per calendar day, forward only. SCHEDULED DAILY since 2026-09-02 (owner instruction: no permission step). ... Never dates today - earliest is tomorrow - which is what bounds how fast anything can reach the site.'"
+   },
+   {
+    "file": "docs/agent_docs/sql_for_agents/685_provocation_daily_autonomy_HOLD.sql",
+    "symbol": "verification block",
+    "operation": "add",
+    "rationale": "DO/RAISE rather than SELECTs, because ON_ERROR_STOP ignores a non-empty result set and a SELECT-based verify prints its failure and commits anyway. It also RUNS the pre_query via EXECUTE and compares the row count against the real inventory, so a typo returning nothing (the task silently never fires again) and one returning a row unconditionally (the pool grows for ever) both abort. Exercised in a rolled-back transaction against the live database with the ordering guard temporarily satisfied; it passed at inventory=2, and nothing persisted.",
+    "sketch": "EXECUTE 'SELECT count(*) FROM (' || pq || ') s' INTO c;\nIF inv < 14 AND c <> 1 THEN\n  RAISE EXCEPTION 'inventory is % (short of 14) but the pre_query returned % rows', inv, c;\nEND IF;\nIF inv >= 14 AND c <> 0 THEN\n  RAISE EXCEPTION 'inventory is % (>= 14) but the pre_query returned % rows', inv, c;\nEND IF;"
+   },
+   {
+    "file": "docs/agent_docs/sql_for_agents/685_provocation_daily_autonomy_HOLD_ROLLBACK.sql",
+    "symbol": "rollback",
+    "operation": "add",
+    "rationale": "Deletes both schedules and restores depth and descriptions. Deliberately does NOT restore the human-approval predicate - that is Go, not config, so reverting it is a code change and a roll. Running this alone leaves the pipeline able to publish without a stamp but with nothing driving it, which is the safe direction: the site goes quiet rather than publishing unattended. It also leaves already-written rows in place, because deleting them would destroy the only evidence of what the automated pipeline actually produced.",
+    "sketch": "DELETE FROM scheduled_tasks\n WHERE name IN ('provocation-shelf-refill','provocation-date-assign');\n-- + restore max_assign 6 and both descriptions, with a DO/RAISE verify"
+   }
+  ],
+  "grounded_in": [
+   "Owner, 2026-09-02: \"I'd like to make the challenges change every day and not be restrained by needing my permission.\" Sizing answers the same day: over-generate to absorb the rail; 14-day shelf; if it runs dry, \"create a new set and carry on\".",
+   "clients_db, 2026-09-02: scheduled_tasks contains exactly ONE provocation row (provocation-feed-refresh, 21600s, enabled, last_completed_at 2026-08-31 11:17:27Z). Neither provocation-generator-manual nor provocation-scheduler-manual has a row.",
+   "Live artefact https://vonc.com/data/provocations.json, 2026-09-02: today.date '22 Aug', generated_at '2026-08-22T04:58:04Z' — eleven days stale under a 'Today's Provocation' heading.",
+   "clients_db, 2026-09-02: only 2 approved vonc.com provocations remain undated, and none is dated in the future — the shelf is effectively empty.",
+   "321_provocation_scheduler_operator_handle.sql:80-82 — RAISE EXCEPTION 'a scheduled_tasks row exists ... This agent must be operator-invoked; a schedule here re-automates the step the owner took back on 2026-08-09.'",
+   "371_provocation_generator_operator_handle.sql:125-127 — the same guard, conditioned on 'until one attended run has been read'; the 2026-08-10 and 2026-08-12 attended runs were read and acted on (eight binned, eight accepted).",
+   "cmd/scheduler/main.go runPreQuery: 'Returns nil if the query returns no rows (task should be skipped)', and the caller logs 'Pre-query found no rows — task ran with nothing to do' then continues.",
+   "provocation_generator_action.go:494 — `if n, ok := config[\"count\"].(float64); ok && n > 0 && n <= 20` — the action's own cap, so the pre_query's LEAST(4, ...) sits well inside it.",
+   "clients_db, 2026-09-02: gate_verdict->>'gate_version' currently takes values {1, 2} across the pool and no row carries '3' — which is what the ordering guard keys on.",
+   "Live test runs, 2026-09-02: the ordering guard RAISES today with its own message and applies nothing; with the guard temporarily satisfied inside a rolled-back transaction the file inserts 2 tasks, sets max_assign 14, and its induced pre_query check passes at inventory=2. Post-test the database was re-read: 1 provocation task, gate_version {1,2}, max_assign 6."
+  ],
+  "risks": "ORDERING IS THE BIG ONE and is why the file is _HOLD with a machine-checked guard rather than a prose warning. If the guard were removed and the file applied early, the damage is not self-correcting: approved rows are never re-gated, so never-railed drafts stay publishable permanently. SUPERSEDING 321 IS DELIBERATE AND LEAVES A SHARP EDGE: that migration will now fail if re-run. I chose to record this in 685's header rather than edit an applied file, because editing applied migrations breaks the checksum ledger; if the reviewers prefer a different disposition, say so. COST: the refill task wakes twice daily and, once the shelf is full, does nothing but one cheap SELECT - no model calls, no orchestration. The failure mode of the pre_query being wrong in the 'always returns a row' direction is unbounded pool growth and spend, which is why the verify block induces it rather than checking it merely exists. AGENT NAMING IS A KNOWN WART I HAVE NOT FIXED: both types keep the '-manual' suffix while running on a schedule. Renaming agent_definitions.type risks in-flight dispatch and breaks 321/371's own verify queries, so I carried the truth in the description instead and will land a LANDMINES entry. If a seat thinks the rename is worth the risk, that is a fair objection. NOT CLAIMED: this file has not been applied, so nothing here is live. The 14-day shelf is a target the generator has never yet been asked to sustain unattended."
+ }
+}
