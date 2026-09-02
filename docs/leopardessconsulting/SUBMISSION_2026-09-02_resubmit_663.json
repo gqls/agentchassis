@@ -1,0 +1,21 @@
+{
+ "rationale": "RESUBMISSION of c6046171 (mig 663, max_images 16->8) answering the round-1 gating objection ('a static step-config value for a spec-defaulted field is DEAD \u2014 the default wins silently'). The objection's premise does not hold for THIS action's read path: execute_vision_prompt_action.go line 133 reads maxImages := datahelpers.GetIntField(params.StepConfig.Config, \"max_images\", 16) \u2014 the step's own config map is consulted FIRST and directly; the ActionInputSpec Defaults entry is registry documentation, not a runtime override, on this path. So the written 8 is live, not dead. (Empirical corroboration is genuinely unavailable and is not claimed: the post-663 run failed on a per-image DIMENSION before any count could be observed.) STATUS UPDATE a reviewer should have: 663 is interim by design \u2014 the durable fix (downscale in execute_vision_prompt, submission e5a664d9, committed 2026-09-02) makes 16 images affordable again, and a follow-up migration restores max_images 16 after that Go rolls; 663's snapshot and footer rollback stand meanwhile.",
+ "plan": {
+  "summary": "Same single migration as round 1 (663, already applied+recorded, snapshot taken); resubmitted with the code-line answer to the dead-config objection.",
+  "edits": [
+   {
+    "file": "docs/agent_docs/sql_for_agents/663_design_critique_caps_images_at_8.sql",
+    "symbol": "design-critique-agent workflow.steps.critique.config.max_images",
+    "operation": "config_change",
+    "rationale": "Interim payload halving while the downscale lands; the value is READ (line 133 reads StepConfig.Config directly), not shadowed.",
+    "sketch": "UPDATE agent_definitions SET default_config = jsonb_set(default_config, '{workflow,steps,critique,config,max_images}', '8'::jsonb) WHERE type = 'design-critique-agent' AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL; -- guard: DO $$ ... reads the path back, RAISE unless 8 ... $$ (verbatim in the applied file)"
+   }
+  ],
+  "grounded_in": [
+   "execute_vision_prompt_action.go:133 \u2014 maxImages := datahelpers.GetIntField(params.StepConfig.Config, \"max_images\", 16): step config first, directly; the dead-static-config landmine describes a resolver path this action does not use.",
+   "The council's own round-1 check output confirmed the stored value and the step path: critique config shows max_images: 8 at the exact jsonb path the migration wrote.",
+   "Successor recorded: submission e5a664d9 (downscale) + planned restore-to-16 migration after its roll."
+  ],
+  "risks": "Coverage halves until the restore \u2014 stated in round 1 and still true; the report's mandated header line makes capped runs self-declaring."
+ }
+}

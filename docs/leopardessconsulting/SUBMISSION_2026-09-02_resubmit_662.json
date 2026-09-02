@@ -1,0 +1,22 @@
+{
+ "rationale": "RESUBMISSION of 52c9a201 (mig 662, provider fallback) answering both round-1 objections. (1) 'AND NOT snapshot names a nonexistent column': that text existed only in the submission SKETCH, which abbreviated; the APPLIED file \u2014 checksummed in schema_migrations \u2014 reads COALESCE(is_snapshot, false) = false, quoted verbatim in the sketch below. The sketch-vs-file divergence was the defect; this round the sketch IS the file text. (2) duplicate-active-rows landmine: design-critique-agent has exactly ONE active row (the council's own read-only check in the round-1 report returned a single row, type|version 1; the migration's DO/RAISE additionally reads the value back post-update and raised nothing on apply). The migration was applied 2026-08-27 and its behaviour was observed live: the very next run used model claude-sonnet-5 (pod log), which is also what moved the diagnosis forward to the true per-image-dimension constraint \u2014 now fixed properly by the downscale submission e5a664d9, after whose roll 663's interim cap is reverted by a follow-up migration.",
+ "plan": {
+  "summary": "Same single migration as round 1 (662, already applied+recorded, snapshot taken); resubmitted with the applied file's verbatim SQL as the sketch.",
+  "edits": [
+   {
+    "file": "docs/agent_docs/sql_for_agents/662_design_critique_vision_falls_back_to_claude.sql",
+    "symbol": "design-critique-agent workflow.steps.critique.config.ai_service",
+    "operation": "config_change",
+    "rationale": "Provider fallback after reproducible Gemini 400s; the sketch below is the applied file's UPDATE, verbatim.",
+    "sketch": "UPDATE agent_definitions\nSET default_config = jsonb_set(\n    default_config,\n    '{workflow,steps,critique,config,ai_service}',\n    '{\"provider\": \"anthropic\", \"model\": \"claude-sonnet-5\", \"api_key_env_var\": \"ANTHROPIC_API_KEY\", \"max_tokens\": 6000}'::jsonb)\nWHERE type = 'design-critique-agent'\n  AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;"
+   }
+  ],
+  "grounded_in": [
+   "schema_migrations records 662 applied 2026-08-27; its DO/RAISE guard (provider/model read back anthropic/claude-sonnet-5) passed on apply.",
+   "Round-1 report's own check output: 'type | version | current_max \u2014 design-critique-agent | 1 | 8' \u2014 one active row.",
+   "Pod agent-design-critique-agent-f94ef183-txxtk log line \"model\":\"claude-sonnet-5\" on the first post-662 run \u2014 the config was loaded and used.",
+   "Follow-on: downscale submission e5a664d9 (2026-09-02) is the durable fix; 662 remains correct as the provider whose API resizes server-side... corrected: Anthropic 400s on >8000px dimensions too \u2014 the downscale is what makes EITHER provider workable; 662 stands on the 413-vs-400 evidence and Claude's proven 41-run vision record via seed 317."
+  ],
+  "risks": "None beyond round 1: the migration is already applied and observed; this round exists to make the record's sketch match the record's file."
+ }
+}

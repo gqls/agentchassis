@@ -3562,3 +3562,42 @@ resolver sees zero signal and falls back to a GENERIC layout. Nothing to do now 
 layout is hand-curated and no re-resolve is queued — but if one is ever dispatched here,
 either confirm `bd8e45aba` is live first (capability probe, not tag) or re-run the classifier
 to modernise the spec beforehand. Flag credited to the site-design-planner session.
+
+---
+
+## 2026-09-02 — six-day re-ground; THE LOCKS SURVIVED THEIR NAMED CLOBBERER; the downscale is BUILT; three REVISEs answered
+
+**Re-ground `[MEASURED 2026-09-02]`:**
+- **Queue item 5 CLOSED with producers named**: `misdirected_cta` page_rerenders COMPLETED
+  against services (08-31 23:24 AND 09-01 14:53) and index (08-31 23:24) — the exact producer
+  that clobbered the home CTA three times — and every locked row held: row counts at baseline
+  (about 4/1, contact 5/1, index 6/3, services 4/3), services still 6 cards, home CTA still
+  `/contact.html`. **The locks' behavioural proof is in, organically, twice, against the
+  named enemy.**
+- A five-audit sweep hit the site 09-01 14:53-14:59 (site-review, content-quality,
+  offer-analysis, brief-fidelity, reader-experience) — all findings born `deferred`, none
+  dispatched. Awareness only.
+- Nobody else touched `execute_vision_prompt` or created `authored_provenance.go` — both
+  queue items stood.
+
+**All three council submissions came back REVISE (editquality, round 1 each)** — two were
+sketch-fidelity defects (662's sketch abbreviated the WHERE to a nonexistent column; 645's
+sketch elided the design-context SQL), one a real check (does step-config max_images shadow?
+Answer from code: `execute_vision_prompt_action.go:133` reads `StepConfig.Config` directly —
+the value is live). All three RESUBMITTED on their original correlations with verbatim SQL
+(SUBMISSION_2026-09-02_resubmit_{662,663,645}.json). ⚠ Lesson, again in a new costume:
+**a sketch that abbreviates the file is a claim the reviewer must refute — paste the file.**
+
+**The downscale (queue item 1) is BUILT**: `vision_image_downscale.go` (+5 tests) +
+`max_image_dimension` (default 7900) wired into `execute_vision_prompt`, legal images
+byte-identical (pinned), 0 opts out (pinned). Council `e5a664d9`. **The RFC_022 lockstep the
+new optional key created was caught by verify-head-builds' parity test and honoured in the
+same commit** (check.py 4→5, overlay re-applied: configmap created, cronjob configured).
+Consumer told (tool-acceptance CONTRIB). thunder + livespec test failures on HEAD are
+PRE-EXISTING (verified on the clean tree) — other lanes'. **Inert until the next fleet roll**;
+then: restore max_images 16 (migration), re-run the after-leg, read `images_downscaled >= 1`
+as the wiring's first proof.
+
+**Archetype heroes + tool hero dispatched** (archetype_content, archetype_blog,
+hero_tool_automation_savings_estimator) — eyeball on landing, then wire the 5 remaining
+generic pages + the tool page.

@@ -1,0 +1,22 @@
+{
+ "rationale": "RESUBMISSION of 75be8d32 (seed 645, the design critic) answering the round-1 gating objection: the sketch elided the load_design_context SQL with '...' so the reviewer could not confirm it avoids style_collections.color_palette. This round the sketch carries the applied file's query VERBATIM (below): it selects palettes.colours via sites -> style_collections -> css_themes -> palettes plus site_specs.design_intent, and the string style_collections.color_palette appears NOWHERE in the seed except the comment warning against it. The seed was applied 2026-08-26 (ledger, guard passed: exactly 1 row, exactly 9 steps) and has since produced one full production report whose design context read the LIVE palette correctly \u2014 the report PRAISED the site's actual dark-gold identity, the precise inverse of the corporate-blue misread the corrected query exists to prevent. Post-round corrections a reviewer should have: (a) the seed header's manual-dispatch instruction (orchestrate_safe.sh) is WRONG \u2014 the generic topic runs the agent inline with no storage client (the 243 trap, re-proven on this agent's first attempted run); the documented dispatch is a design_critique_run work item via scripts/design_critique_run.sh, and the correction lives in register SQ-003 because the applied file's checksum forbids editing it; (b) the critique step's ai_service and max_images have since moved by council-tracked migrations 662/663 (their own correlations 52c9a201/c6046171).",
+ "plan": {
+  "summary": "Same single migration as round 1 (645, already applied+recorded); resubmitted with the load_design_context query verbatim.",
+  "edits": [
+   {
+    "file": "docs/agent_docs/sql_for_agents/645_design_critique_agent.sql",
+    "symbol": "design-critique-agent load_design_context (query_database)",
+    "operation": "add",
+    "rationale": "The design-context read the existing auditor gets wrong, verbatim so the color_palette-avoidance is checkable by eye.",
+    "sketch": "SELECT jsonb_build_object('design_intent', (SELECT ss.data FROM site_specs ss WHERE ss.site_id = $1::uuid AND ss.aspect = 'design_intent' AND ss.is_current), 'palette_name', p2.name, 'palette', p2.colours, 'style_collection', sc.name) AS design_context FROM sites s JOIN style_collections sc ON sc.id = s.style_collection_id JOIN css_themes ct ON ct.id = sc.css_theme_id JOIN palettes p2 ON p2.id = ct.palette_id WHERE s.id = $1::uuid"
+   }
+  ],
+  "grounded_in": [
+   "Live join verified before authoring: sites -> style_collections -> css_themes -> palettes returned leopardess-dark-gold with 22 colour keys.",
+   "First production report (doc_notes design-report, 2026-08-26 15:14): 'strict black, mustard, and off-white palette, feeling distinctly like a premium consultancy' \u2014 the LIVE palette, read correctly.",
+   "grep of the applied seed: zero occurrences of style_collections.color_palette outside the comment warning against it.",
+   "Ledger: 645 applied 2026-08-26, DO/RAISE guard (1 row, 9 steps) passed."
+  ],
+  "risks": "Unchanged from round 1 (manual-only agent, zero blast radius until dispatched), plus the two post-round corrections above are already recorded in SQ-003 and the lane docs."
+ }
+}
