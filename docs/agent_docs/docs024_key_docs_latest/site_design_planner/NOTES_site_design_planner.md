@@ -163,3 +163,43 @@ fleet roll landing this fix, or (b) new site-design-planner-scoped work
 appearing in the queue (checked — still the same 3 items, unchanged since this
 morning). Next session picking this up should re-check both before assuming
 anything has moved.
+
+## 2026-09-02 (later) — `bugs_open/438`, a sibling structural bug in the same mechanism, flagged by `theme kits`
+
+Not this thread's find — `theme kits` filed it and messaged directly because
+`resolve_composition_pallette_action.go` is a file this thread owns (part of
+the four composition resolvers, same family as `bugs_open/431`). **Verified
+independently rather than accepted on report** (three checks, all confirmed):
+
+- `extractPaletteSignal`'s rung 1 doc comment and code both say
+  `mission.preferred_palette` — read the function directly, `:224-236`.
+- `082_submit_domain_unified.sh:143` sends the brief under `mission_brief`, not
+  `mission` — grepped the script.
+- Live `resolved_composition.lineage.palette_source` distribution:
+  `design_intent_values` 30, `archetype_default` 1, **`mission_hint` absent
+  entirely** (not just zero-count — no row) — queried directly, matches their
+  claim exactly.
+- Same shape confirmed in `resolve_composition_typography_action.go:213-215`
+  (`mission.preferred_typography`), the fourth sibling resolver, on my own
+  check — not in their file but worth recording since it's the same mechanism.
+
+**The claim:** `domain-submitter`'s `persist_mission` step reads
+`input_data.mission` (nothing ever sends that key) and only its error-fallback
+step, `persist_mission_brief`, actually runs — writing a DIFFERENT aspect
+(`mission_brief`) that the palette/typography cascades never read. So the
+"most authoritative" rung in both resolvers has never fired, fleet-wide, ever.
+Silent — every site still gets a palette from rung 2, so nothing looks broken.
+
+**Why I'm not acting on it, even though it's "my" file:** unlike 431, none of
+the three ranked fix candidates in the bug file are low-risk. Candidate 1 (the
+leading one — repoint `persist_mission` at the key that's actually sent) is a
+live-on-apply config change that would immediately start OVERWRITING
+`gamedesign.uk`'s hand-seeded `mission.preferred_palette` row on its next
+rebuild — a lever that lane is actively relying on precisely because nothing
+currently touches that aspect. Candidate 2 widens the resolver's read surface
+with an unguaranteed shape. Candidate 3 (retire the rung, admit it's dead) is a
+policy call about whether human-specified palette preference should be a real
+capability at all — not mine to decide unilaterally either. **Replied
+acknowledging the finding, confirmed independent verification, declined to pick
+a candidate without the gamedesign.uk lane and/or the owner weighing in given
+the named cross-lane consequence.**
