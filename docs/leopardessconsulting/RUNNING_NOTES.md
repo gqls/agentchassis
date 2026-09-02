@@ -3619,3 +3619,49 @@ PRESENT · `tool-acceptance-agent` PRESENT (positive control) · invented string
 The after-leg chain is UNBLOCKED: restore max_images 16 (next migration), fire
 `design_critique_run.sh`, read `images_downscaled >= 1` (wiring proof) + the report
 (discrimination read). Handoff 2026-09-02 cut for a fresh session.
+
+### 2026-09-02, late evening — after-leg chain run: 703 + 704 + 705, one dead run diagnosed, rerun in flight
+
+- **Mig 703 applied+recorded** (`max_images` 8 → 16; number 701 was taken by another lane as
+  the handoff predicted — grep first paid off). Council corr `40c563ba`, committed `bc87f4686`
+  with `Council-Submitted`.
+- **Council verdicts checked (handoff item 5): 3 of 4 landed APPROVED today** — `75be8d32`
+  (645 seed, round 2), `c6046171` (663 cap, round 2), `e5a664d9` (the downscale). **`52c9a201`
+  (662) drew a second REVISE** (gating: prior_art_librarian [high] — the one-active-row claim
+  was sourced from round-1's report, not a fresh check; plus editquality/llm_reliability:
+  adaptive thinking on sonnet-5 unaddressed, max_tokens 6000 could be eaten by thinking).
+- **Mig 704 applied+recorded in response** (`critique.config.ai_service.max_tokens` 6000 → 16000,
+  the adaptive-thinking landmine's own prescribed check; resolved-value guard in
+  resolveAIServiceConfig precedence order, mig 415's worked pattern). Fresh censuses run for the
+  round-3 resubmission: design-critique-agent has exactly ONE `agent_definitions` row of any
+  kind (v1, active, non-snapshot, no root `ai_service`); the two-active-row types are exactly
+  the landmine's four; loader-visible 207, active snapshots 0, active-but-deleted 0. **Round 3
+  resubmitted on the same correlation** (`RESUBMIT_CORR=52c9a201`), commit `4ab0e32c5`.
+- **First after-leg run (item `e543ba1f`, 17:19Z) DIED — and its work item lies `complete`.**
+  The item's `result` is the SPAWN record (the bugs-287 pattern, exactly as MEMORY warns).
+  Truth was in the orchestration (`6cc3cd38`): `current_step complete_error`,
+  `__step_error {"message":"Request timed out (code: TIMEOUT)","failed_step":"audit"}`.
+  Timeline: orch created 17:23:22.06Z; the render-audit adapter's REAL response (contrast
+  findings, 8 of 40 URLs audited, truncated:true) hit the pod at **17:26:24.57Z — ~182s in,
+  ~2s after the 180s default await timeout fired**; coordinator logged "No next step defined,
+  completing workflow" — the answer arrived and had nowhere to go. Vision step never ran, no
+  report, no `images_downscaled` datum. **Mechanism read in code, not inferred**: seed 645's
+  audit step has no `timeout_seconds`, so the awaited request gets `DefaultRequestTimeout=180`
+  (`datahelpers/timeout_helpers.go:18`); `ConvertStepTimeout` (:23) honours
+  `config.timeout_seconds` into `step.Timeout`, and both awaited-request builders stamp
+  `TimeoutAt` via `getTimeout(step)` (`coordinator.go:2482`, `:2617`). The 08-26 before-run
+  passed because the sweep was quicker pre-hero-batch; it is now a ~2s coin-flip per dispatch.
+- **Mig 705 applied+recorded** (`audit.config.timeout_seconds = 600`; guard also refuses if a
+  workflow-level `timeout` key ever appears — it would outrank). Council corr `45c9e720`,
+  commit `1062001d7`. Checked before choosing 600: the 5-min `StuckOrchestrationTimeout`
+  guards `StatusExecutingStep` only, not awaiting-responses (approval steps await 24h on the
+  same machinery).
+- **Rerun dispatched: item `7d82be2e` (leg `after_hero_batch_downscaled_r2`, 17:36Z), bumped to
+  priority 70** (61 items sat ahead at 90; loader sorts ASC). Monitoring the ORCHESTRATION,
+  not the item status. Still owed on completion (handoff 1c): `images_downscaled >= 1`,
+  the second `design-report` note, discrimination read (hero-sameness lead finding GONE, rest
+  stable, and check WHICH 8 of 40 URLs were sampled), `output_tokens` vs the 16000 cap
+  (`output_tokens == max_tokens` = CUT), record in NOTES + SQ-003.
+- ⚠ Open question for a later pass: item `e543ba1f` reads `complete` on a failed run — if
+  bugs 287's fix was meant to stop spawn-record results on THIS path, that fix has a gap;
+  check 287's covered producers before filing anything.
