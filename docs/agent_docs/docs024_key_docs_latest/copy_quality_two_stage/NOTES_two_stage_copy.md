@@ -3736,3 +3736,12 @@ that matters: **its two repeating blocks are NON-ADJACENT** (a features block be
 per component TYPE across the whole page, never a consecutive-run scan. Relayed to the 443
 session by them; my identically-specified-slots framing carried into their bug file with
 attribution.
+
+**From the 443 fix (dbb218a41, approved — their §8 credits this lane's framing):** (1) section
+subjects now have TWO stores — `site_plan_sections.subject` (planned sites) AND
+`pages.section_subjects` (aligned array, plan-less sites) — **the form-vs-phrase experiment's
+precondition query must read BOTH** or it undercounts once backfills start; downstream both
+surface as `sections_ready[].subject`. (2) Parked proposal `8003c51a` (your-own-model, 08-24)
+CANCELLED with reason: the page is the 443 repair canary and will be rebuilt under it,
+invalidating the exact-match edits — a fresh hand-fire against the repaired page is the
+replacement if wanted. It was never in the owner's announced batch, so his queue is untouched.
