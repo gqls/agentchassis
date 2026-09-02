@@ -21,6 +21,17 @@
 
 BEGIN;
 
+-- Withdraw the rerenders this migration queued, if they have not been picked up.
+-- A CLAIMED or COMPLETE one is left alone deliberately: cancelling a row a handler
+-- is already acting on does not stop the handler, it only makes the record lie.
+UPDATE site_work_items
+   SET status = 'cancelled',
+       updated_at = NOW()
+ WHERE site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76'
+   AND item_type = 'page_rerender'
+   AND source = 'lendzy_co_uk lane (migration 693)'
+   AND status = 'triaged';
+
 UPDATE page_components pc
    SET component_id = NULL,
        slot_name    = 'section',
@@ -62,7 +73,7 @@ BEGIN
     RAISE EXCEPTION '693 ROLLBACK: expected 3 rows back at component_id NULL, found %', nulls;
   END IF;
 
-  RAISE NOTICE '693 ROLLBACK OK: 3 rows restored, 3 components removed — the defect is back in place';
+  RAISE NOTICE '693 ROLLBACK OK: 3 rows restored, 3 components removed, untouched rerenders cancelled — the defect is back in place';
 END $$;
 
 COMMIT;

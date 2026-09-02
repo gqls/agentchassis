@@ -31,6 +31,27 @@
 -- adopted from live HTML and the column exists to say so (chk_created_from_valid
 -- permits it).
 --
+-- REVISED 2026-09-02 after council round 1 returned REVISE on a GATING objection
+-- from bug_historian/editquality, and the objection was RIGHT:
+--
+--   "The edit fixes the resolveComponent input (component_id/slot_name) but
+--    includes no mechanism to actually trigger a rerender afterward.
+--    UpdatePageStatusAction only stamps deployed_at when a rerender succeeds and
+--    reaches the deployed branch ... and no edit causes it to fire."
+--
+-- Round 1 named this as risk (5) and left it as follow-up prose. That is not the
+-- same as shipping it: as submitted, this migration satisfied NONE of its own
+-- stated acceptance criteria on its own. Section 4 below now files the three
+-- rerenders in the same transaction, so the change drives itself.
+--
+-- The council's own read-only check also CORRECTED round 1's framing. It found
+-- page_rerender items ARE filed against these pages periodically (a batch of 20+
+-- on 2026-09-01 10:45, source 'rerender-pages'), so "needs_rebuild has no
+-- consumer" was too strong for this site — the items are filed and then FAIL.
+-- Filing our own is therefore belt-and-braces rather than the only route, and it
+-- is still correct to file: relying on someone else's scheduled batch to notice
+-- is how a repair sits inert for a fortnight and reads as done.
+--
 -- Lane: docs/agent_docs/docs024_key_docs_latest/lendzy_co_uk/
 -- 090 diagnosis: intake 1ff4c475-6977-4631-b641-993735429186,
 --                run 89a84ad3-5668-44b3-a089-f9d6c0df7cbb
@@ -151,11 +172,63 @@ UPDATE page_components pc
    AND pc.component_id IS NULL;
 
 -- ---------------------------------------------------------------------------
+-- 4. DRIVE THE REBUILD. Repairing the input is inert on its own: deployed_at is
+-- only written inside UpdatePageStatusAction's `newStatus == "deployed"` branch,
+-- which is reached only by a rerender that SUCCEEDS. So file one page_rerender
+-- per page, in the same transaction as the repair, in the exact shape the
+-- 'rerender-pages' producer uses (measured on this site's own rows 2026-09-02:
+-- handler_agent 'page-rerender', priority 80, status 'triaged' — the status
+-- idx_swi_handler indexes for pickup — and a spec carrying domain, page_id,
+-- filename and page_name).
+--
+-- idx_swi_dedup is UNIQUE on (site_id, item_key) EXCLUDING terminal statuses, so
+-- re-filing a key whose previous rows are 'complete' is permitted; a LIVE row
+-- with the same key would collide, and the guard below turns that collision into
+-- an abort with a readable reason instead of a 23505.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE n int;
+BEGIN
+  SELECT count(*) INTO n FROM site_work_items
+   WHERE site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76'
+     AND item_key IN ('page_rerender_tool-price-cap-checker_8ff093d5-1f19-453b-9439-a10379bbcd76_assemble',
+                      'page_rerender_tool-true-cost-calculator_8ff093d5-1f19-453b-9439-a10379bbcd76_assemble',
+                      'page_rerender_tool-complaint-deadline-calculator_8ff093d5-1f19-453b-9439-a10379bbcd76_assemble')
+     AND status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled');
+  IF n <> 0 THEN
+    RAISE EXCEPTION '693 ABORT: % live page_rerender item(s) already queued for these pages — a rebuild is already pending, do not stack another', n;
+  END IF;
+END $$;
+
+INSERT INTO site_work_items
+    (site_id, item_type, item_key, status, handler_agent, priority, source, summary, spec)
+SELECT
+    p.site_id,
+    'page_rerender',
+    'page_rerender_' || p.name || '_' || p.site_id || '_assemble',
+    'triaged',
+    'page-rerender',
+    80,
+    'lendzy_co_uk lane (migration 693)',
+    'Rerender page: ' || p.name,
+    jsonb_build_object(
+        'domain',    'lendzy.co.uk',
+        'page_id',   p.id::text,
+        'filename',  ltrim(p.url, '/'),
+        'page_name', p.name,
+        'reason',    'component adopted by migration 693 — first rerender since the component_id was NULL')
+  FROM pages p
+ WHERE p.site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76'
+   AND p.name IN ('tool-price-cap-checker',
+                  'tool-true-cost-calculator',
+                  'tool-complaint-deadline-calculator');
+
+-- ---------------------------------------------------------------------------
 -- VERIFY, as DO/RAISE. A verify block of bare SELECTs CANNOT stop the COMMIT —
 -- ON_ERROR_STOP ignores a non-empty result set. This block can.
 -- ---------------------------------------------------------------------------
 DO $$
-DECLARE comps int; linked int; orphans int; bound int;
+DECLARE comps int; linked int; orphans int; bound int; queued int;
 BEGIN
   SELECT count(*) INTO comps FROM content_components
    WHERE name IN ('tool-price-cap-checker-lendzy-co-uk',
@@ -199,7 +272,18 @@ BEGIN
     RAISE EXCEPTION '693 VERIFY: % adopted template(s) contain bindings', bound;
   END IF;
 
-  RAISE NOTICE '693 OK: 3 components adopted, 3 page_components repointed, 0 orphan pages fleet-wide';
+  -- The rebuild must actually be queued, or this migration is inert and its own
+  -- acceptance criteria (deployed_at, sitemap 30, the 47 items) cannot be met.
+  SELECT count(*) INTO queued FROM site_work_items
+   WHERE site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76'
+     AND item_type = 'page_rerender'
+     AND source = 'lendzy_co_uk lane (migration 693)'
+     AND status = 'triaged';
+  IF queued <> 3 THEN
+    RAISE EXCEPTION '693 VERIFY: expected 3 queued rerenders, found % — the repair would be inert', queued;
+  END IF;
+
+  RAISE NOTICE '693 OK: 3 components adopted, 3 page_components repointed, 3 rerenders queued, 0 orphan pages fleet-wide';
 END $$;
 
 COMMIT;
