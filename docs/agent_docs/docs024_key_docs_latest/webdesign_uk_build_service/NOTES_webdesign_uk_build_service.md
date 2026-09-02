@@ -7239,3 +7239,20 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   exact. Fixed-shape canary 1c099803 planted 13:47:28; measure unclaimed after
   2-3 dispatch cycles, then resubmit RESUBMIT_CORR=9f1cb042 with: the loader
   WHERE quote, the loop config quote, the constraint def, and the canary.
+
+## 2026-09-02 (~14:1xZ) — 683's card fix did NOT reach the rerender path (verified at four artefacts); handed to the components lane
+
+- Both boxingonline 683 items completed (reason=template_changed) and the served
+  cards are UNCHANGED — old titles with ' | Boxing Online', no deck. Eliminated
+  in order at artefacts: mirror lag (served object NEWER than deployed_at —
+  the 420 discriminator earning its keep), the template (updated 10:43, guard
+  present), version pinning (pinned version 11:11 > update, guard present —
+  the 117 pin-vs-pool landmine chased and CLEAN). **The miss is the producer:
+  the freshly-resolved content_data item has NO excerpt and a suffixed title —
+  the old projection shape.** The fixed symbols are in the binary; the rerender
+  path's resolution does not execute them. "Symbols present" verified the ROLL,
+  not the EXECUTING PATH — probe-the-capability's purest instance yet.
+- Handed to the components lane with the full chain + the warning that their
+  remaining 12 items across 5 sites will presumably no-op identically
+  (completing, stamping deployed_at, changing nothing — the 425 family shape
+  again, one level up). Their seam; nothing of mine in flight against it.
