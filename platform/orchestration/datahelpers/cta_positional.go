@@ -127,10 +127,12 @@ var (
 )
 
 // LoadCTAPositionalCandidates runs one of the two supply queries above.
-// A query or iteration failure is returned, never swallowed (both writers
-// treat it as fatal for the page — degrading to an empty supply would take
-// the positional pick everywhere and the only trace would be a warn nobody
-// reads); one unreadable row is skipped, matching LoadCTALabelUniverse.
+// A query or iteration failure is returned, never swallowed, and so is a
+// SCAN shortfall (ScanShortfall, bugs_open/410): a thinned supply is worse
+// here than an empty one, because dropping one row silently RE-RANKS the
+// site — lose the rank-1 row to a projection drift and every button on the
+// site moves with no error anywhere. All rows are attempted before the
+// refusal so a mixed failure reports its full extent, not its first row.
 func LoadCTAPositionalCandidates(ctx context.Context, db *sql.DB, siteID uuid.UUID, query string) ([]CTAPositionalCandidate, error) {
 	rows, err := db.QueryContext(ctx, query, siteID)
 	if err != nil {
@@ -139,11 +141,13 @@ func LoadCTAPositionalCandidates(ctx context.Context, db *sql.DB, siteID uuid.UU
 	defer rows.Close()
 
 	var out []CTAPositionalCandidate
+	offered := 0
 	for rows.Next() {
+		offered++
 		var c CTAPositionalCandidate
 		var eligible bool
 		if err := rows.Scan(&c.Name, &c.Title, &c.URL, &c.NavOrder, &eligible); err != nil {
-			continue // one unreadable row must not cost the whole supply
+			continue // counted; ScanShortfall below refuses the partial result
 		}
 		c.Area = FirstPathSegment(c.URL)
 		c.IneligibleAsCTATarget = !eligible
@@ -151,6 +155,9 @@ func LoadCTAPositionalCandidates(ctx context.Context, db *sql.DB, siteID uuid.UU
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("cta positional candidate iteration failed: %w", err)
+	}
+	if err := ScanShortfall(offered, len(out), "cta positional candidates"); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
