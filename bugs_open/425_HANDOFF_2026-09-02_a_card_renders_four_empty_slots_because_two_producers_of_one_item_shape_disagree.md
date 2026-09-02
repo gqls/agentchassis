@@ -110,6 +110,56 @@ bug is about a **field inside a present item**. No detector existed for that cla
 > re-render can put a deck in the row. **Verify at the served page after both, not before,
 > and do not read a still-empty card as the fix having failed.**
 
+## Propagation — the step this bug OWES, and the exact shape it has to take
+
+> Added 2026-09-02 after the council returned **REVISE** on correlation `84b51f16`, with
+> matching **high-severity** objections from `render_guardian` and `debug_historian`. Both are
+> right, and the second names a landmine I had not grepped for before writing the migration:
+> *"A template edited by SQL ships NOTHING — the `template_changed` fan-out lives in
+> `component-template-fixer`."* Saying "the next render picks it up" in the prose is not a
+> propagation step, and a bug whose stated symptom is a served page is not fixed until the
+> served page changes.
+
+**The rule, from `LANDMINES.md`:** `page-rerender` branches on `spec.reason` alone
+(`check_rerender_mode`). Only `image_landed | section_data_resolved | cta_links_stale |
+template_changed | literal_markdown` route to `rerender_page_sections`, which **re-runs the
+`query.*` resolvers**. *Anything else, including no reason at all*, routes to
+`rerender_single_page` — "simple concatenation", which re-ships the stored `articles` array
+byte for byte. So a re-render can complete, stamp a new `deployed_at`, and change nothing.
+
+So the propagation is:
+
+```
+page-rerender   spec.reason   = 'section_data_resolved'      (re-runs the query — the Go fix)
+                spec.page_name = '<page>'
+```
+
+**and it must be sequenced AFTER the chassis roll.** Firing it today re-resolves against the
+OLD resolver in the running pod: the guarded slots would collapse (682 is live), but no deck
+would arrive, and the render would have been spent. `bugs_open/384` / **PBP-048** built
+`requestPageListReresolve` for producer-driven invalidation of exactly this shape; a code fix
+is not one of its trigger events, so the post-roll pass is a deliberate, dispatched one.
+
+**Two checks before dispatching, both already run:**
+
+1. **Will the section-shrink guard refuse it?** `LANDMINES.md` records this component family as
+   the guard's classic trigger — moving a list onto the collection dialect loses the flat
+   dialect's per-card LLM fields, visible text drops below the 50% floor, and the refusal's own
+   error text invites you to lower a fleet-wide guard to land one page. **It will not fire
+   here.** `[MEASURED 2026-09-02]` across all six sites carrying `content-listing`, pages with
+   an empty `meta_description`: boxingonline **0 of 7** (mean deck 123 chars), dartsonline
+   **0 of 23**, garden-tools **0 of 5**, homegarden **0 of 4**, idea.uk **0 of 9**, robot-hands
+   **0 of 8**. Every card can be filled on every site, and the change **adds** visible text
+   (a ~123-character deck per card) while removing only the suffix. The direction is the
+   opposite of a shrink.
+2. **Will the section branch escalate the whole page to the writer?** It does so if any section
+   lacks a required `source:"llm"` field (STY-048). Check per page before dispatching.
+
+**And when verifying: a COMPLETED `page_rerender` row is not evidence.** Read
+`spec->>'reason'` on it — a row with no reason took assemble mode and structurally cannot have
+picked this up, however fresh the page looks. That is `bugs_open/384`'s own filing error,
+which it corrected an hour later.
+
 ### Verify
 
 ```bash
@@ -191,25 +241,34 @@ Whether a card should show the short label or the full headline is a design judg
 sits with the visual-designer seat, not here. **But it must be made against this measurement,
 because `nav_label` is not populated enough to be a headline source:**
 
-`[MEASURED 2026-09-02]` over the **303** active/deployed `blog-post` pages fleet-wide:
+> **CORRECTED 2026-09-02, same day, before anyone designed against it.** The first version of
+> this section read the RAW `pages.nav_label` column and concluded that rendering it "would
+> blank most cards fleet-wide". **That is wrong, and the error was mine: the projection
+> coalesces.** `resolvePagesWhereType` selects `COALESCE(p.nav_label, p.title, p.name)`, so a
+> NULL label never reaches the card — it silently becomes the full title. What caught it was
+> asking the next question instead of stopping at a striking number: *does `COALESCE` actually
+> save this?* It saves NULL and **not** the empty string, and those are different populations.
 
-| | count | share |
+`[MEASURED 2026-09-02]` over the **303** active/deployed `blog-post` pages, split by what the
+projection can and cannot rescue:
+
+| | count | what the card actually shows |
 |---|---|---|
-| `nav_label` NULL or empty | **256** | **84.5%** |
-| carries the `" \| "` suffix itself | 28 | 9.2% |
-| identical to `title` (so no shorter) | 24 | 7.9% |
+| `nav_label` **NULL** | **251** (82.8%) | the full `title` — `COALESCE` rescues it, so **no shortening at all** |
+| `nav_label` **empty string** | **5** (1.7%) | **blank** — `COALESCE` does NOT catch `''` |
+| a real, distinct label | ~47 (15.5%) | genuinely short |
 
-Only ~47 of 303 carry a distinct, non-empty label at all. And **on boxingonline, the site that
-makes it look good, 2 of its 7 posts are unusable**: one `nav_label` is empty, and one is
-`"Article | Boxing Online"` — which is both a placeholder and carries the very suffix this bug
-strips.
+So the honest statement is not "it blanks most cards". It is that **rendering `nav_label`
+does nothing for 83% of them** — they get the same long title back, via a fallback invisible
+in the template — while blanking 5 and shortening ~47. That is a *worse* outcome to reason
+about than a uniform one, because the mixed grid it produces has no visible cause: a reader
+comparing two cards cannot tell that one fell through a `COALESCE`.
 
-So "render `nav_label` instead" would blank most cards fleet-wide, and on this site would
-produce one card with no headline and one headed *"Article | Boxing Online"*. Even the careful
-form — `nav_label` when present, else `title` — yields a **mixed grid**, some cards with
-four-word headings beside others at 68 characters, which is a worse grid than consistent long
-ones. If the shorter headline is wanted, the honest route is a **populated** display-headline
-field, not a fallback chain over a column that is empty 84.5% of the time.
+And on boxingonline, 1 of its 7 posts carries `"Article | Boxing Online"` as its `nav_label` —
+both a placeholder and a carrier of the very suffix this bug strips.
+
+If the shorter headline is wanted, the route is a **populated** display-headline field, not a
+fallback chain over a column that is unset on 258 of 303 rows.
 
 Recorded here so the next reader of that row does not rediscover `nav_label` and reach for it.
 
@@ -240,6 +299,45 @@ Recorded here so the next reader of that row does not rediscover `nav_label` and
    rather than live. Not fixed here: it changes which template a live listing renders, which
    is a bigger blast radius than this bug, and it deserves its own measurement.
 
+## How wide is this really — the triage the council asked for
+
+> `bug_historian` objected that this fixes ONE call site of a generic unpatched mechanism, and
+> asked (as MISSING) whether other components share the standard list-item shape and could be
+> showing the identical symptom right now. Fair, and answerable. `[MEASURED 2026-09-02]`, every
+> ACTIVE component whose `input_schema` declares a page-list `query.*` source, with its live
+> instance count:
+
+| component | source | live instances | sites |
+|---|---|---|---|
+| `tool-cta` | `query.pages_where_type:tool` | **96** | 19 |
+| `tool-list` | `query.pages_where_type:tool` | 14 | 10 |
+| `content-listing` | `query.blog_posts` | **14** | 6 |
+| `guide-list_pre_037` | `query.pages_where_type:guide` | 10 | 7 |
+| `blog-listing_pre_037` | `query.blog_posts` | 3 | 3 |
+| `game-list_pre_037` | `query.pages_where_type:game` | 2 | 1 |
+| `archetype-grid` | `query.pages_where_type:entity-page` | 2 | 2 |
+
+**141 live instances of one shape. Migration 682 fixes 14 of them — but the Go half fixes all
+141**, and that distinction is the answer to the objection. `ListItemTitle` / `ListItemExcerpt`
+sit inside `resolvePagesWhereType`, which serves `pages_where_type:*` **and** `blog_posts`, so
+the suffixed-headline defect is corrected fleet-wide by one edit. Only the *template guarding*
+is per-component, and it has to be: each template guards different slots.
+
+**The remaining exposure, named rather than waved at.** The other six render `.title`,
+`.meta_description` and `.nav_label` unguarded inside their ranges. All three are **always
+written** by the projection, so an unguarded slot is only a live blank where the underlying
+column is empty. Measured over the 753 pages of the five feeding page types:
+
+- `meta_description` empty: **7 fleet-wide** (3 blog-post, 2 entity-page, 2 tool) — so seven
+  cards somewhere carry an empty deck today.
+- `nav_label`: NULL on 472, which the projection's `COALESCE` rescues; **empty string on 5**,
+  which it does not.
+
+So the class is wide and the live damage is small — which is the honest shape of it, and the
+reason those six are a **triage item rather than a second migration**. `check_card_slot_guards.py`
+now reports them on every run, so they are visible rather than remembered.
+
+
 ## Why this is a class and not a site bug
 
 An empty-slot-tolerant component **silently converts a data gap into a design flaw, and the
@@ -257,6 +355,16 @@ mechanism given nothing to say, saying something anyway.
 - `bugs_closed/054_HANDOFF_2026-07-21_unguarded_range_items_in_list_templates_no_empty_state.md`
   — the array-level sibling. Its lint's blind spot is fixed here. **Resolve 054 by slug: the
   number collides with two other closed cases.**
+> **CORRECTED 2026-09-02 — the consumer count was 13 when I measured it and 14 hours later.**
+> The council's own verification query returned **14** where the submission claimed 13, and it
+> was right: **boxingonline.com gained a SECOND `content-listing`** (`/guides/index.html`,
+> alongside `/index.html`) the same day, after my census and before their check. Current tally:
+> homegarden.uk 6, boxingonline.com 2, dartsonline.com 2, garden-tools.uk 2, idea.uk 1,
+> robot-hands.com 1 = **14 across 6 sites, as of 2026-09-02**. Nothing was wrong with the
+> measurement; it went stale **by addition, within hours, on the very lane that took it** —
+> which is exactly why CLAUDE.md requires a count to carry the date it was counted, and why
+> `--since <that date>` is the re-check.
+
 - `bugs_open/384` — the shared image projection, the same "two writers of one listing field"
   class, already fixed for `image`.
 - `bugs_open/423` — the byte-slice truncation family; one of its three is retired here.

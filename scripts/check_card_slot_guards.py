@@ -84,7 +84,38 @@ WRAPPER = re.compile(
     re.S)
 
 
+def _wrappers(fragment, scope_label, name, out):
+    """Wrappers whose children are ALL conditional but which are not themselves.
+
+    Such a wrapper still renders — empty — with its own margin and padding, so
+    guarding only its children moves the defect up one level rather than
+    removing it.
+    """
+    for m in WRAPPER.finditer(fragment):
+        tag = m.group(1)
+        fields = re.findall(r"\{\{-?\s*if[^}]*?\.([A-Za-z_]\w*)", m.group(2))
+        if not fields:
+            continue
+        if re.search(r"\{\{-?\s*if[^}]*\}\}\s*<%s\b" % re.escape(tag), fragment):
+            continue
+        out.append((name, scope_label,
+                    f"<{tag}> wrapping only guarded children ({', '.join(sorted(set(fields)))})",
+                    "wrapper"))
+
+
 def findings_for(name, template):
+    """Per-item slots inside every {{range}}, plus empty-able wrappers ANYWHERE.
+
+    THE WRAPPER SCAN IS NOT LIMITED TO RANGE BODIES, and that is the point.
+    The first cut of this check scanned only inside {{range}}, which made it
+    blind to the very defect the bugs_open/425 render proof found: content-listing's
+    `section__header` sits OUTSIDE the range, both its children were guarded, the
+    wrapper was not, and a section with neither title nor subtitle rendered an
+    empty <div> carrying its own margin. A detector that cannot find one of the
+    two defects its own bug fixed is not a detector for that bug — caught by the
+    council's editquality seat (round 84b51f16) pointing at the migration's
+    thinner positive control, which is the same blind spot one file along.
+    """
     out = []
     for coll, body in range_bodies(template):
         for m in SOLE_SLOT.finditer(body):
@@ -93,14 +124,14 @@ def findings_for(name, template):
                 continue
             if not mentions_in_condition(body, field):
                 out.append((name, coll, f"<{tag}>{{{{.{field}}}}}</{tag}>", "slot"))
-        for m in WRAPPER.finditer(body):
-            tag = m.group(1)
-            fields = re.findall(r"\{\{-?\s*if[^}]*?\.([A-Za-z_]\w*)", m.group(2))
-            if fields and not re.search(
-                    r"\{\{-?\s*if[^}]*\}\}\s*<%s\b" % re.escape(tag), body):
-                out.append((name, coll,
-                            f"<{tag}> wrapping only guarded children ({', '.join(sorted(set(fields)))})",
-                            "wrapper"))
+        _wrappers(body, coll, name, out)
+
+    # Whole-template pass for wrappers, with the range bodies blanked so the
+    # per-item wrappers already reported above are not counted twice.
+    outside = template
+    for _, body in range_bodies(template):
+        outside = outside.replace(body, " " * len(body), 1)
+    _wrappers(outside, "(section level)", name, out)
     return out
 
 
@@ -157,6 +188,12 @@ def self_test() -> int:
                 '<span>{{.date}}</span>', '<span>{{.read_time}}</span>']
     if pre_fields != expected:
         failures.append(f"pre-682 slots: got {pre_fields}, want {expected}")
+
+    # The section-level wrapper: pre-682 must report it, post-682 must not.
+    # This arm is what the first cut of the check could not do at all.
+    if not any(f[3] == "wrapper" and f[1] == "(section level)" for f in pre):
+        failures.append("pre-682 section__header wrapper was NOT reported — the "
+                        "wrapper scan is blind outside {{range}} again")
 
     post = findings_for("post-682", _POST_682)
     if post:
