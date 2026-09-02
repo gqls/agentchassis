@@ -7115,3 +7115,26 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   the query's ask vs return) was REFUSED on a real census: the resolver stores
   the resolved array and DISCARDS THE INTENT (data_path empty fleet-wide), so
   for ~99% of listings there is nothing to compare against.
+
+## 2026-09-02 (contd) — CTA dedup by dissolution; all five contact-link sources surgically cut; round 4 running
+
+- **Peer finding: my CTA re-point made ONE PAGE under TWO LABELS side by side**
+  (nav 'Fight Calendar' + CTA 'What's On' — the mirror of the News duplicate;
+  their rule-A symmetry relay to experience_loop is right). **Resolved by
+  dissolution**: calendar's nav slot removed, CTA relabelled 'Fight Calendar' —
+  the CTA IS the calendar's single header entry (header: Home · News · About ·
+  [Fight Calendar]). Drop-the-CTA was rejected because the template falls back
+  to a default cta_url when the explicit keys are absent — the source of the
+  original Get Started→/contact.html — so absence risks resurrecting a dead link.
+- **Retraction r3 refused with the full inbound list — FIVE sources** incl. the
+  baked featured-content nav payload and the chrome FOOTER's Contact nav link
+  (the unregenerable 423 row again). All five cut in ONE guarded transaction
+  (DO/RAISE verify-before-COMMIT, zero-residue asserted): prose anchors
+  unwrapped ×3, nav_items entry filtered + nav_items_html li removed,
+  footer li removed (the documented 423 emergency pattern); rendered_html
+  NULLed + build_status pending on the four page components so they re-render
+  from clean data.
+- **Round 4 running** (retract_round4.sh): nav rebuild → 4 rerenders →
+  retraction payload-gated → mirror → sweep asserting the PEER-AGREED close
+  criterion (contact 404 AND zero inbound links) + exactly one Fight Calendar
+  label per header + guides-index guide/blog counts + interim logo hash/dims.
