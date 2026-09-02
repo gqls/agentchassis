@@ -6826,3 +6826,41 @@ that is the claims-verification lane's seam (they own the mechanism), and they h
 been told with the verification attached. Note as designed: after the first refresher
 pass the row's `created_by` becomes `evidence-refresher`, so 699's ROLLBACK guard will
 refuse — correct, per its own header.
+
+### 2026-09-02, later still — banned_claims armed (migration 707): the archetype constraints are enforced prose now
+
+The bugfix_414 lane's relay named the residue precisely (their register census was
+stale — 699 was live by the time it arrived — but the second half was real): 699
+shipped `banned_claims: []`, and the site's `site_archetype.constraints` ("never appear
+to give regulated advice" / "never recommend lenders" / "never reposition as a
+lender/broker") was agent-written prose no gate reads. **707 translates it into the
+enforced channel**: 8 regex patterns — 5 adapted from adversecreditmortgage's audited
+set, 3 from our own constraints — live at the build gate, the persistence floor and the
+post-deploy sweep. Council `99bd846e` submitted; applied (8 armed, 12 facts + both
+`corrects_site_citation` fields carried through the supersede — asserted in the verify).
+
+**Every admission decided by measurement `[MEASURED 2026-09-02]`:**
+- All 8 compiled AND probe-fired through Go's own engine (8/8) FIRST — `claims.go`
+  QuoteMeta-degrades a non-compiling pattern into a silently inert literal.
+- Full-text census over all 28 served pages: **0 matches for all 8** — arming cannot
+  refuse any current page, including the pending 397 GTM rerender wave.
+- The sibling set's literal-%APR pattern **EXCLUDED on a 2-match census** —
+  compare-loans' illustrative "7.9% APR loan and an 8.4% APR loan" is the pedagogy;
+  banning it is §1c's convict-the-site-for-doing-its-job class, measured not argued.
+
+**Two lessons inherited from loanzy's 702 (same ask, same day) instead of re-paid:**
+- The no-credit-check pattern is their NARROWED form (bans the lending PROMISE, not the
+  phrase — a calculator site truthfully says its tools involve no credit check).
+  Re-censused separately here (the hyphenated alternative is NOT a subset of the broad
+  form I first measured): 0 matches, planted control fires.
+- **Supersede-and-merge, never an in-place register edit**: the refresher's write-back
+  CAS is keyed on the row id it read, so an in-place jsonb_set between its read and
+  write is a silent lost update (my first draft had exactly that shape). The supersede
+  changes the id → the refresher skips → nothing lost.
+
+Also: another session took migration number 700 while I authored (the 70x space filled
+700-706 in ~an hour — loanzy's 702 header records the mirror-image collision on 699);
+renamed to 707 before anything referenced it. `created_by` hands to 707, so 699's
+rollback guard now refuses — correct per both headers. First-findings review after
+arming is the 414 relay's standing instruction: nothing to review today (0 matches),
+the next save through the claims floor is the first live exercise.
