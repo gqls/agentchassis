@@ -1301,11 +1301,18 @@ func rerenderFlatSections(
 	var resolution rerenderResolution
 
 	// CTA targets for reason=cta_links_stale, loaded once on first CTA section.
-	var cta *rerenderCTAState
+	// Lives on the pass struct now, so a composition child reaches the SAME lazily
+	// loaded targets rather than triggering a second load of its own.
 
 	// One counter for the whole page, advanced in position order (loadStoredSections
 	// orders by position) — the canonical per-instance token derivation.
 	instances := NewInstanceCounter()
+	// Seeded with what the pre-loop strip already recorded, and read back into the
+	// outcome below — otherwise every resolved-data strip the render half performs
+	// would be dropped on the floor, which is a DURABLE RECORD lost silently
+	// (bugs_open/184: the strip record is the evidence the strip happened).
+	pass := &rerenderPass{resolution: &resolution, instances: instances,
+		strippedMarkdownFields: strippedMarkdownFields}
 	// A SECOND counter, not a second RULE: `instances` is consumed as it walks
 	// (Next returns a token and advances), so imagery binding cannot read its
 	// state without stealing its position. Both call the same NextOccurrence on
@@ -1346,253 +1353,12 @@ func rerenderFlatSections(
 			carried++
 			continue
 		}
-		comp, plan, htmlTemplate := cls.comp, cls.plan, cls.htmlTemplate
-
-		// Derived once, reused by both the CTA recompute below and the
-		// observe-only ownership-conflict log — previously computed twice.
-		var derivedCTAFields []datahelpers.CTAField
-		if schema := datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"]); schema != nil {
-			derivedCTAFields = datahelpers.DeriveCTAURLFields(schema)
-		}
-
-		// CTA recompute — ONLY for reason=cta_links_stale, so image_landed /
-		// section_data_resolved rerenders behave byte-identically to before.
-		// After migrations 091/098 the schema no longer sources CTA urls, so a
-		// stale url survives in stored content_data; writing the recomputed
-		// target into plan.ResolvedData wins the merge below (resolved_data last).
-		if reason == livespec.ReasonCTALinksStale { // bugs_open/404: named, not re-spelled
-			fn := comp.Function
-			if fn == "" {
-				fn = s.slotName
-			}
-			if fields, isCTA := ctaFieldNames[fn]; isCTA {
-				if cta == nil {
-					cta = loadRerenderCTAState(ctx, params, siteID, pageName, pageURL, logger)
-				}
-				if plan.ResolvedData == nil {
-					plan.ResolvedData = map[string]interface{}{}
-				}
-				labelFieldOf := make(map[string]string, len(derivedCTAFields))
-				for _, cf := range derivedCTAFields {
-					labelFieldOf[cf.URLField] = cf.LabelField
-				}
-				applyCTARecompute(plan.ResolvedData, s.contentData, fields[0], cta.primary, cta.validPages, pageURL,
-					existingLabelFor(s.contentData, labelFieldOf[fields[0]]), cta.candidates, cta.pageName)
-				applyCTARecompute(plan.ResolvedData, s.contentData, fields[1], cta.secondary, cta.validPages, pageURL,
-					existingLabelFor(s.contentData, labelFieldOf[fields[1]]), cta.candidates, cta.pageName)
-			}
-		}
-
-		// OBSERVE-ONLY (council trail 2525f980): this merge is where a
-		// resolver-written CTA destination is actually lost — stored
-		// content_data (the resolver's last write) merges FIRST, fresh
-		// plan.ResolvedData merges LAST and wins. Log each derived CTA field
-		// where the fresh value would replace a differing stored one,
-		// carrying the rerender reason so deliberate cta_links_stale
-		// recomputes are distinguishable from silent clobbers. No behaviour
-		// change; the precedence flip returns to the council gate with this
-		// log as its evidence. (An earlier sketch placed this log inside
-		// planSection, where resolvedData is a fresh local map and the
-		// condition could never fire — doc_notes correction, b6e374fc2.)
-		for _, cf := range derivedCTAFields {
-			stored, hasStored := s.contentData[cf.URLField]
-			fresh, hasFresh := plan.ResolvedData[cf.URLField]
-			if hasStored && hasFresh && stored != fresh {
-				logger.Info("rerender_page_sections: cta ownership conflict (observe-only)",
-					zap.String("section", s.slotName),
-					zap.String("field", cf.URLField),
-					zap.String("source", cf.Source),
-					zap.String("reason", reason))
-			}
-		}
-
-		// bugs_open/184 (canary finding, 2026-08-19): stripping stored
-		// content_data alone DOES NOT CONVERGE for query-resolved fields —
-		// plan.ResolvedData merges LAST and wins, so a dirty resolver source
-		// (content_feed_items.source_summary carries markdown in ~700 rows)
-		// re-poisons the very field the strip just cleaned, in the same run.
-		// Proven live: dartsonline news-index, items[18].summary stripped then
-		// re-imposed, verifier refused. So the SAME double-gated strip runs on
-		// the fresh resolved data too — then both the render context below and
-		// the persisted mergedContent compose from clean parts. URL-typed
-		// resolved fields are safe by pattern construction (a bare URL matches
-		// nothing; only [text](url) composites match, which a URL field never
-		// carries). The news resolver additionally strips at source
-		// (queryresolve/news_items.go) so unflagged callers are covered too.
-		//
-		// ALIASING, stated (council 060bcc0a r5, editquality/guardian): the
-		// strip is in place. plan.ResolvedData is a map planSection allocates
-		// fresh per call (plan_sections_action.go, `resolvedData := make(...)`
-		// — the doc_notes correction b6e374fc2 is about exactly this: a fresh
-		// local map per section), and `plan` is this iteration's local. Its
-		// only readers after this line are the render-context merge and
-		// mergedContent below, both in this iteration. Nested values MAY alias
-		// the resolver's per-invocation caches (sourceResolver.specs /
-		// storedContent), whose only other readers are later sections of this
-		// same run — and StripLiteralMarkdown is a fixpoint, so a value seen
-		// twice is stripped once. Nothing outside this action holds a
-		// reference. Callers: rerender_page_sections is run by ONE live step,
-		// page-rerender's rerender_sections (measured 2026-08-19, every step,
-		// any depth); the reason gate reads the dispatching item's spec, which
-		// only the literal_markdown route writes as "literal_markdown".
-		//
-		// STRIP-TO-EMPTY cannot make a new blank (render_guardian r5): every
-		// strip pattern keeps at least one letter/digit of visible text, and
-		// the heading strip removes only the `#… ` prefix — so the only input
-		// that strips to "" had no letter or digit to begin with
-		// (datahelpers/literal_markdown_test.go pins the property). A bare
-		// image token `![alt](url)` strips to `!alt`, not to nothing. And the
-		// stored-content strip above runs BEFORE the required-field pre-check,
-		// whose test is isEmptyContentValue, so an emptied required LLM field
-		// would escalate, not render blank.
-		if shouldStripLiteralMarkdown(params.StepConfig.Config, reason) && plan.ResolvedData != nil {
-			if changed := datahelpers.StripLiteralMarkdownFromContentData(plan.ResolvedData); len(changed) > 0 {
-				for _, f := range changed {
-					strippedMarkdownFields = append(strippedMarkdownFields, s.slotName+":resolved:"+f)
-				}
-				logger.Info("rerender_page_sections: stripped literal markdown from fresh resolved_data",
-					zap.String("slot", s.slotName),
-					zap.Strings("fields", changed))
-			}
-		}
-
-		// Render context: base ⊕ stored content_data ⊕ fresh resolved_data
-		// (resolved_data merged last so it overrides stale values — matching
-		// RenderComponentAction's content_from-then-merge_with ordering).
-		rc := &RenderContext{Year: fmt.Sprintf("%d", time.Now().Year())}
-		mergeIntoRenderContext(rc, baseData)
-		mergeIntoRenderContext(rc, s.contentData)
-		if plan.ResolvedData != nil {
-			mergeIntoRenderContext(rc, plan.ResolvedData)
-		}
-		if rc.ContentData == nil {
-			rc.ContentData = make(map[string]interface{})
-		}
-		// {{.ComponentID}} is RETIRED here too (RFC_032 §8, 2026-08-22): it bound
-		// the component ROW id, identical for every instance of the same
-		// component on a page. All templates spelling it were converted
-		// 2026-08-23; the census is zero. See v3_site_actions.go's note for why
-		// the binding is deleted rather than left bound-but-unused.
-		//
-		// The counter advances only for sections that RESOLVED a component: a
-		// carried section (component missing or template invalid) keeps its
-		// stored HTML and contributes no new ids, so counting it would shift
-		// every later token for no reason. The consequence, stated rather than
-		// hidden: if a previously-unresolvable component starts resolving, the
-		// tokens after it move, and that re-render is not byte-identical.
-		BindInstanceToken(rc, instances.Next(comp.Function))
-
-		// bugs_open/342 — this path's pre-check already applies the same rule to
-		// STORED content; setting it here covers the merged stored ⊕ resolved
-		// data the template actually sees.
-		if comp.Raw != nil {
-			rc.InputSchema = datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"])
-		}
-		rendered, _, deadURLFields, renderErr := RenderTemplate(htmlTemplate, rc, logger)
-
-		// bugs_open/260: the seam no longer substitutes a regex render for a
-		// failed one, so an execution failure arrives here for the first time.
-		// CARRY the stored HTML — this path's own existing answer to "this
-		// section cannot be safely re-rendered" (four sibling branches above,
-		// carryStoredSection). Never replace good stored bytes with a failed
-		// render, and never fail the whole page: this action IS the repair
-		// vehicle, and a re-render that refuses on the state it was dispatched
-		// to fix would deadlock its own remedy.
-		//
-		// Named in the diagnostic, not merely logged, for the bugs_open/182
-		// reason the other carries cite: a run in which every section took a
-		// carry branch is otherwise indistinguishable from one that worked.
-		//
-		// The type report is an ENRICHER — unconditional because the render has
-		// ALREADY failed, so it can refuse nothing that works. There is
-		// deliberately NO opt-in pre-render refusal on this path (unlike the
-		// build path): the checker keys on the schema rather than the template,
-		// so arming one here would carry a page that renders perfectly well,
-		// which on the repair vehicle is a regression, not a guard.
-		if renderErr != nil {
-			var schema map[string]interface{}
-			if comp.Raw != nil {
-				schema = datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"])
-			}
-			diagnosis := datahelpers.DescribeTypeViolations(
-				datahelpers.ContentTypeViolations(schema, rc.ContentData))
-			logger.Error("rerender_page_sections: template execution failed — carrying stored HTML, the live section is unchanged",
-				zap.String("section", s.slotName),
-				zap.String("component_function", comp.Function),
-				zap.Error(renderErr),
-				zap.String("type_violations", diagnosis),
-			)
-			resolution.RenderFailedSlots = append(resolution.RenderFailedSlots, slotLabel(s))
+		entry, rendered := renderPlannedSection(ctx, params, s, thisSection, cls, pass,
+			resolver, baseData, siteID, pageID, pageName, domain, pageURL, reason, logger)
+		if !rendered {
 			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
 			carried++
 			continue
-		}
-
-		// RECORD-ONLY here, deliberately, where the build path refuses
-		// (dead_url_guard.go). Two reasons, and neither is squeamishness. First,
-		// this path MERGES stored ⊕ fresh below, so it cannot LOSE a key — the
-		// worst it can do is re-ship damage that is already live, which refusing
-		// would not undo. Second, this is the repair vehicle: a no-LLM re-render
-		// is how a fixed row reaches the artefact, and a re-render that refuses
-		// on the state it was dispatched to fix would deadlock its own remedy.
-		//
-		// ⚠ AND IT IS OPT-IN, added in round 2 after THREE seats (guardian,
-		// architecture, render_guardian) independently made the same point about
-		// the first version: recording was unconditional while the refusal was
-		// gated, so this shared repair path would have gained a new DB write on
-		// every invocation, on every page, with no default-OFF protection — the
-		// exact thing the 2026-08-02 owner ruling asks a shared seam not to do,
-		// and inconsistent with my own safety framing one file over. The write
-		// is small, but "small and unconditional on a shared path" is how the
-		// volume questions this council could not size get answered by
-		// production instead of by measurement.
-		if recordDeadURLControls(params.StepConfig.Config) &&
-			len(deadURLFields) > 0 && !strings.Contains(rendered, "data-runtime-fill") {
-			resolution.DeadURLSlots = append(resolution.DeadURLSlots, slotLabel(s))
-			emitSectionDeadControlItem(ctx, params.DB, siteID, nil,
-				pageName, s.slotName, comp.Function, deadURLFields, false, logger)
-			logger.Warn("rerender_page_sections: URL attribute(s) rendered empty — recorded, not refused",
-				zap.String("section", s.slotName),
-				zap.Strings("dead_url_fields", deadURLFields))
-		}
-
-		// Persisted content_data = stored ⊕ fresh resolved_data, mirroring
-		// RenderComponentAction so the row remains a complete render source.
-		mergedContent := make(map[string]interface{}, len(s.contentData)+len(plan.ResolvedData))
-		for k, v := range s.contentData {
-			mergedContent[k] = v
-		}
-		for k, v := range plan.ResolvedData {
-			mergedContent[k] = v
-		}
-
-		// stored_slot_name carries the page_components row's OWN identity through
-		// to the save, which prefers it verbatim over the component's function
-		// (bugs_open/189). This action holds the stored row in hand, so it is the
-		// one producer that can never be wrong about it — and without the field
-		// the save renamed a positional slot to comp.Function here, defeating the
-		// locked-row guard that matches on that name.
-		entry := map[string]interface{}{
-			"rendered_html":      rendered,
-			"component_name":     s.slotName,
-			"component_function": comp.Function,
-			"stored_slot_name":   s.slotName,
-			"content_data":       mergedContent,
-		}
-		// Provenance for a FRESH render (RFC_046). This path called RenderTemplate
-		// above, so the seam has already told us which template text produced these
-		// bytes — a fact only it knows, and one this producer held and threw away
-		// until now. Carrying the stamp on the carry path while dropping it on the
-		// re-render path made the fleet's own repair vehicle write NULL: a page
-		// mended through a rerender came out less well-provenanced than one left
-		// alone. Empty stays absent — unknown must reach the database as NULL.
-		if rc.RenderedTemplateSHA != "" {
-			entry["rendered_template_sha"] = rc.RenderedTemplateSHA
-		}
-		if comp.ID != "" {
-			entry["component_id"] = comp.ID
-		} else if s.componentID != "" {
-			entry["component_id"] = s.componentID
 		}
 		sectionsMetadata = append(sectionsMetadata, entry)
 		reRendered++
@@ -1603,7 +1369,7 @@ func rerenderFlatSections(
 		reRendered:             reRendered,
 		carried:                carried,
 		resolution:             resolution,
-		strippedMarkdownFields: strippedMarkdownFields,
+		strippedMarkdownFields: pass.strippedMarkdownFields,
 	}
 }
 
@@ -1692,4 +1458,292 @@ func classifyStoredSection(
 	c.comp = comp
 	c.htmlTemplate = htmlTemplate
 	return c
+}
+
+// rerenderPass carries the per-PAGE mutable state one section's render may touch.
+// It exists because the render body reaches 7 pieces of loop state — the lazily
+// loaded CTA targets, the resolution buckets, the stripped-markdown record and the
+// instance counter — and a composition CHILD must reach exactly the same ones, or
+// the two paths would keep separate books about one page.
+type rerenderPass struct {
+	cta                    *rerenderCTAState
+	resolution             *rerenderResolution
+	strippedMarkdownFields []string
+	instances              *InstanceCounter
+}
+
+// renderPlannedSection renders ONE classified row and returns its sections_metadata
+// entry. ok=false means the row could not be rendered and its stored HTML must be
+// carried — the caller owns that, because only the caller knows whether this is a
+// page section or a composition child.
+//
+// Extracted from rerenderFlatSections verbatim apart from that hoisting, so a
+// composition child takes the identical path a section does (features_open/035 D1:
+// a child IS an ordinary page_components row).
+//
+// ⚠ THE TOKEN IS TAKEN HERE, NOT IN classifyStoredSection, and that ordering is
+// load-bearing: the live rule is that a CARRIED section contributes no instance
+// token, so classification must complete first. A walk that allocated on the way
+// down would shift every later element id on any page that carries anything.
+func renderPlannedSection(
+	ctx context.Context,
+	params ActionParams,
+	s storedSection,
+	thisSection sectionRef,
+	cls sectionClassification,
+	st *rerenderPass,
+	resolver *sourceResolver,
+	baseData map[string]interface{},
+	siteID, pageID uuid.UUID,
+	pageName, domain, pageURL, reason string,
+	logger *zap.Logger,
+) (map[string]interface{}, bool) {
+	comp, plan, htmlTemplate := cls.comp, cls.plan, cls.htmlTemplate
+
+	// Derived once, reused by both the CTA recompute below and the
+	// observe-only ownership-conflict log — previously computed twice.
+	var derivedCTAFields []datahelpers.CTAField
+	if schema := datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"]); schema != nil {
+		derivedCTAFields = datahelpers.DeriveCTAURLFields(schema)
+	}
+
+	// CTA recompute — ONLY for reason=cta_links_stale, so image_landed /
+	// section_data_resolved rerenders behave byte-identically to before.
+	// After migrations 091/098 the schema no longer sources CTA urls, so a
+	// stale url survives in stored content_data; writing the recomputed
+	// target into plan.ResolvedData wins the merge below (resolved_data last).
+	if reason == livespec.ReasonCTALinksStale { // bugs_open/404: named, not re-spelled
+		fn := comp.Function
+		if fn == "" {
+			fn = s.slotName
+		}
+		if fields, isCTA := ctaFieldNames[fn]; isCTA {
+			if st.cta == nil {
+				st.cta = loadRerenderCTAState(ctx, params, siteID, pageName, pageURL, logger)
+			}
+			if plan.ResolvedData == nil {
+				plan.ResolvedData = map[string]interface{}{}
+			}
+			labelFieldOf := make(map[string]string, len(derivedCTAFields))
+			for _, cf := range derivedCTAFields {
+				labelFieldOf[cf.URLField] = cf.LabelField
+			}
+			applyCTARecompute(plan.ResolvedData, s.contentData, fields[0], st.cta.primary, st.cta.validPages, pageURL,
+				existingLabelFor(s.contentData, labelFieldOf[fields[0]]), st.cta.candidates, st.cta.pageName)
+			applyCTARecompute(plan.ResolvedData, s.contentData, fields[1], st.cta.secondary, st.cta.validPages, pageURL,
+				existingLabelFor(s.contentData, labelFieldOf[fields[1]]), st.cta.candidates, st.cta.pageName)
+		}
+	}
+
+	// OBSERVE-ONLY (council trail 2525f980): this merge is where a
+	// resolver-written CTA destination is actually lost — stored
+	// content_data (the resolver's last write) merges FIRST, fresh
+	// plan.ResolvedData merges LAST and wins. Log each derived CTA field
+	// where the fresh value would replace a differing stored one,
+	// carrying the rerender reason so deliberate cta_links_stale
+	// recomputes are distinguishable from silent clobbers. No behaviour
+	// change; the precedence flip returns to the council gate with this
+	// log as its evidence. (An earlier sketch placed this log inside
+	// planSection, where resolvedData is a fresh local map and the
+	// condition could never fire — doc_notes correction, b6e374fc2.)
+	for _, cf := range derivedCTAFields {
+		stored, hasStored := s.contentData[cf.URLField]
+		fresh, hasFresh := plan.ResolvedData[cf.URLField]
+		if hasStored && hasFresh && stored != fresh {
+			logger.Info("rerender_page_sections: cta ownership conflict (observe-only)",
+				zap.String("section", s.slotName),
+				zap.String("field", cf.URLField),
+				zap.String("source", cf.Source),
+				zap.String("reason", reason))
+		}
+	}
+
+	// bugs_open/184 (canary finding, 2026-08-19): stripping stored
+	// content_data alone DOES NOT CONVERGE for query-resolved fields —
+	// plan.ResolvedData merges LAST and wins, so a dirty resolver source
+	// (content_feed_items.source_summary carries markdown in ~700 rows)
+	// re-poisons the very field the strip just cleaned, in the same run.
+	// Proven live: dartsonline news-index, items[18].summary stripped then
+	// re-imposed, verifier refused. So the SAME double-gated strip runs on
+	// the fresh resolved data too — then both the render context below and
+	// the persisted mergedContent compose from clean parts. URL-typed
+	// resolved fields are safe by pattern construction (a bare URL matches
+	// nothing; only [text](url) composites match, which a URL field never
+	// carries). The news resolver additionally strips at source
+	// (queryresolve/news_items.go) so unflagged callers are covered too.
+	//
+	// ALIASING, stated (council 060bcc0a r5, editquality/guardian): the
+	// strip is in place. plan.ResolvedData is a map planSection allocates
+	// fresh per call (plan_sections_action.go, `resolvedData := make(...)`
+	// — the doc_notes correction b6e374fc2 is about exactly this: a fresh
+	// local map per section), and `plan` is this iteration's local. Its
+	// only readers after this line are the render-context merge and
+	// mergedContent below, both in this iteration. Nested values MAY alias
+	// the resolver's per-invocation caches (sourceResolver.specs /
+	// storedContent), whose only other readers are later sections of this
+	// same run — and StripLiteralMarkdown is a fixpoint, so a value seen
+	// twice is stripped once. Nothing outside this action holds a
+	// reference. Callers: rerender_page_sections is run by ONE live step,
+	// page-rerender's rerender_sections (measured 2026-08-19, every step,
+	// any depth); the reason gate reads the dispatching item's spec, which
+	// only the literal_markdown route writes as "literal_markdown".
+	//
+	// STRIP-TO-EMPTY cannot make a new blank (render_guardian r5): every
+	// strip pattern keeps at least one letter/digit of visible text, and
+	// the heading strip removes only the `#… ` prefix — so the only input
+	// that strips to "" had no letter or digit to begin with
+	// (datahelpers/literal_markdown_test.go pins the property). A bare
+	// image token `![alt](url)` strips to `!alt`, not to nothing. And the
+	// stored-content strip above runs BEFORE the required-field pre-check,
+	// whose test is isEmptyContentValue, so an emptied required LLM field
+	// would escalate, not render blank.
+	if shouldStripLiteralMarkdown(params.StepConfig.Config, reason) && plan.ResolvedData != nil {
+		if changed := datahelpers.StripLiteralMarkdownFromContentData(plan.ResolvedData); len(changed) > 0 {
+			for _, f := range changed {
+				st.strippedMarkdownFields = append(st.strippedMarkdownFields, s.slotName+":resolved:"+f)
+			}
+			logger.Info("rerender_page_sections: stripped literal markdown from fresh resolved_data",
+				zap.String("slot", s.slotName),
+				zap.Strings("fields", changed))
+		}
+	}
+
+	// Render context: base ⊕ stored content_data ⊕ fresh resolved_data
+	// (resolved_data merged last so it overrides stale values — matching
+	// RenderComponentAction's content_from-then-merge_with ordering).
+	rc := &RenderContext{Year: fmt.Sprintf("%d", time.Now().Year())}
+	mergeIntoRenderContext(rc, baseData)
+	mergeIntoRenderContext(rc, s.contentData)
+	if plan.ResolvedData != nil {
+		mergeIntoRenderContext(rc, plan.ResolvedData)
+	}
+	if rc.ContentData == nil {
+		rc.ContentData = make(map[string]interface{})
+	}
+	// {{.ComponentID}} is RETIRED here too (RFC_032 §8, 2026-08-22): it bound
+	// the component ROW id, identical for every instance of the same
+	// component on a page. All templates spelling it were converted
+	// 2026-08-23; the census is zero. See v3_site_actions.go's note for why
+	// the binding is deleted rather than left bound-but-unused.
+	//
+	// The counter advances only for sections that RESOLVED a component: a
+	// carried section (component missing or template invalid) keeps its
+	// stored HTML and contributes no new ids, so counting it would shift
+	// every later token for no reason. The consequence, stated rather than
+	// hidden: if a previously-unresolvable component starts resolving, the
+	// tokens after it move, and that re-render is not byte-identical.
+	BindInstanceToken(rc, st.instances.Next(comp.Function))
+
+	// bugs_open/342 — this path's pre-check already applies the same rule to
+	// STORED content; setting it here covers the merged stored ⊕ resolved
+	// data the template actually sees.
+	if comp.Raw != nil {
+		rc.InputSchema = datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"])
+	}
+	rendered, _, deadURLFields, renderErr := RenderTemplate(htmlTemplate, rc, logger)
+
+	// bugs_open/260: the seam no longer substitutes a regex render for a
+	// failed one, so an execution failure arrives here for the first time.
+	// CARRY the stored HTML — this path's own existing answer to "this
+	// section cannot be safely re-rendered" (four sibling branches above,
+	// carryStoredSection). Never replace good stored bytes with a failed
+	// render, and never fail the whole page: this action IS the repair
+	// vehicle, and a re-render that refuses on the state it was dispatched
+	// to fix would deadlock its own remedy.
+	//
+	// Named in the diagnostic, not merely logged, for the bugs_open/182
+	// reason the other carries cite: a run in which every section took a
+	// carry branch is otherwise indistinguishable from one that worked.
+	//
+	// The type report is an ENRICHER — unconditional because the render has
+	// ALREADY failed, so it can refuse nothing that works. There is
+	// deliberately NO opt-in pre-render refusal on this path (unlike the
+	// build path): the checker keys on the schema rather than the template,
+	// so arming one here would carry a page that renders perfectly well,
+	// which on the repair vehicle is a regression, not a guard.
+	if renderErr != nil {
+		var schema map[string]interface{}
+		if comp.Raw != nil {
+			schema = datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"])
+		}
+		diagnosis := datahelpers.DescribeTypeViolations(
+			datahelpers.ContentTypeViolations(schema, rc.ContentData))
+		logger.Error("rerender_page_sections: template execution failed — carrying stored HTML, the live section is unchanged",
+			zap.String("section", s.slotName),
+			zap.String("component_function", comp.Function),
+			zap.Error(renderErr),
+			zap.String("type_violations", diagnosis),
+		)
+		st.resolution.RenderFailedSlots = append(st.resolution.RenderFailedSlots, slotLabel(s))
+		return nil, false
+	}
+
+	// RECORD-ONLY here, deliberately, where the build path refuses
+	// (dead_url_guard.go). Two reasons, and neither is squeamishness. First,
+	// this path MERGES stored ⊕ fresh below, so it cannot LOSE a key — the
+	// worst it can do is re-ship damage that is already live, which refusing
+	// would not undo. Second, this is the repair vehicle: a no-LLM re-render
+	// is how a fixed row reaches the artefact, and a re-render that refuses
+	// on the state it was dispatched to fix would deadlock its own remedy.
+	//
+	// ⚠ AND IT IS OPT-IN, added in round 2 after THREE seats (guardian,
+	// architecture, render_guardian) independently made the same point about
+	// the first version: recording was unconditional while the refusal was
+	// gated, so this shared repair path would have gained a new DB write on
+	// every invocation, on every page, with no default-OFF protection — the
+	// exact thing the 2026-08-02 owner ruling asks a shared seam not to do,
+	// and inconsistent with my own safety framing one file over. The write
+	// is small, but "small and unconditional on a shared path" is how the
+	// volume questions this council could not size get answered by
+	// production instead of by measurement.
+	if recordDeadURLControls(params.StepConfig.Config) &&
+		len(deadURLFields) > 0 && !strings.Contains(rendered, "data-runtime-fill") {
+		st.resolution.DeadURLSlots = append(st.resolution.DeadURLSlots, slotLabel(s))
+		emitSectionDeadControlItem(ctx, params.DB, siteID, nil,
+			pageName, s.slotName, comp.Function, deadURLFields, false, logger)
+		logger.Warn("rerender_page_sections: URL attribute(s) rendered empty — recorded, not refused",
+			zap.String("section", s.slotName),
+			zap.Strings("dead_url_fields", deadURLFields))
+	}
+
+	// Persisted content_data = stored ⊕ fresh resolved_data, mirroring
+	// RenderComponentAction so the row remains a complete render source.
+	mergedContent := make(map[string]interface{}, len(s.contentData)+len(plan.ResolvedData))
+	for k, v := range s.contentData {
+		mergedContent[k] = v
+	}
+	for k, v := range plan.ResolvedData {
+		mergedContent[k] = v
+	}
+
+	// stored_slot_name carries the page_components row's OWN identity through
+	// to the save, which prefers it verbatim over the component's function
+	// (bugs_open/189). This action holds the stored row in hand, so it is the
+	// one producer that can never be wrong about it — and without the field
+	// the save renamed a positional slot to comp.Function here, defeating the
+	// locked-row guard that matches on that name.
+	entry := map[string]interface{}{
+		"rendered_html":      rendered,
+		"component_name":     s.slotName,
+		"component_function": comp.Function,
+		"stored_slot_name":   s.slotName,
+		"content_data":       mergedContent,
+	}
+	// Provenance for a FRESH render (RFC_046). This path called RenderTemplate
+	// above, so the seam has already told us which template text produced these
+	// bytes — a fact only it knows, and one this producer held and threw away
+	// until now. Carrying the stamp on the carry path while dropping it on the
+	// re-render path made the fleet's own repair vehicle write NULL: a page
+	// mended through a rerender came out less well-provenanced than one left
+	// alone. Empty stays absent — unknown must reach the database as NULL.
+	if rc.RenderedTemplateSHA != "" {
+		entry["rendered_template_sha"] = rc.RenderedTemplateSHA
+	}
+	if comp.ID != "" {
+		entry["component_id"] = comp.ID
+	} else if s.componentID != "" {
+		entry["component_id"] = s.componentID
+	}
+
+	return entry, true
 }

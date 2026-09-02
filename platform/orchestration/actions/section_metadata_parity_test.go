@@ -52,7 +52,10 @@ var sectionMetadataProducers = map[string]string{
 	// verbatim from RerenderPageSectionsAction into rerenderFlatSections so a
 	// composition child can take the identical path a section does. The producer is
 	// the function that builds `entry`, which is now the extracted one.
-	"rerenderFlatSections": "entry", // fresh re-render (rerender_page_sections_action.go)
+	// MOVED AGAIN 2026-09-02 (035 P1): the render body was extracted from
+	// rerenderFlatSections into renderPlannedSection so a composition child renders
+	// by the same path a section does. `entry` is built there now.
+	"renderPlannedSection": "entry", // fresh re-render (rerender_page_sections_action.go)
 	"carryStoredSection":   "m",     // carry, same file
 }
 
@@ -71,7 +74,10 @@ var sectionMetadataProducers = map[string]string{
 // covered.
 var sectionMetadataAppenders = map[string]string{
 	"CompilePageSectionsAction": "appends what extractSectionFromMap returns (the carrier itself, scanned by the round-trip test) plus a bare {rendered_html} literal for string-only items",
-	"rerenderFlatSections":      "builds `entry` — scanned via sectionMetadataProducers",
+	// renderPlannedSection BUILDS the entry (declared in sectionMetadataProducers so
+	// its keys are scanned); this function is the only one that APPENDS. The two
+	// lists answer different questions and a function can be in one and not the other.
+	"rerenderFlatSections": "appends what renderPlannedSection returns, plus carryStoredSection's map",
 }
 
 // appendsToSectionsMetadata reports whether fn appends to an identifier whose
