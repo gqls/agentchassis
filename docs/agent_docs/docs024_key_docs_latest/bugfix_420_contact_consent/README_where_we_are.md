@@ -51,3 +51,17 @@ first reads clean.
 
 Where it stands: committed, with the review council, and it takes effect at the next chassis
 build. No database change and nothing to migrate.
+
+## 2026-09-02, afternoon — pointer
+
+This lane's fix is approved, live and verified on the new build (`published_contact` present in the
+binary; `email_was_intake_value`, which my commit deleted, absent — so the probe proves the
+revision, not just the presence of code). **24 of 57 sites carry a contact email**, and none is a
+payer's billing address.
+
+**The lane's cold start is the shared handoff:**
+`docs/agent_docs/docs024_key_docs_latest/bugfix_417_logo_text_policy/HANDOFF_2026-09-02_continue_here.md`
+
+What is still open here is not code — it is two decisions for the owner: the identity model
+(`RFC_058`) and whether the "publish nothing unless asked" ruling extends to a contact the
+classifier DERIVES rather than one the customer supplies (bug file §C). Both are in the handoff.

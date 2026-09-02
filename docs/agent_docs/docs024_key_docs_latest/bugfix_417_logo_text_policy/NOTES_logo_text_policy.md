@@ -139,3 +139,37 @@ occurrences in the repo** as the RFC_022 third condition. That claim was scoped 
 field is still opt-in with the unsafe side OFF. The scope judgement is unchanged. But the plain
 reading of "zero live consumers" is now stale by an hour, and the reviewer should hear it from me
 rather than discover it.
+
+## 2026-09-02 (afternoon) — second roll, and the census that finally has subjects
+
+Chassis rolled again 15:39/15:53Z. Re-probed the binary: both fixes survived, and I now have TWO
+removed-string controls rather than one — `resolveLogoIntent` (deleted in round 3) and
+`email_was_intake_value` (deleted by 420) are both absent, so the probe proves the REVISION and not
+merely that some version of the code is there. That pairing is worth keeping as the house method.
+
+**Disconfirmation A is 2 for 2.** advertise.co.uk generated a logo at 14:48Z and its `origin_prompt`
+carries the clause. boxingonline's does too. So the guard has now reached two independent sites.
+
+**Getting there took unpicking both timestamp columns, and the second one caught me.** I already
+knew `created_at` lies (the upsert keeps the original date). Today I nearly made the mirror error:
+FIVE logo rows show `updated_at` of 2026-09-02 — relojistas, homegarden, idea.uk, agritec,
+webdesign.co.uk — none of which carries the clause. Read naively that is five post-guard
+generations the guard MISSED, i.e. disconfirmation A failing badly.
+
+It is not. `updated_at` is bumped by ANY write, and something else is touching these rows (`433`,
+the empty-`mime_type` sweep, is the obvious candidate). **Neither timestamp column is a
+regeneration signal.** The instrument that settled it is `site_work_items`, which is
+insert-per-dispatch: exactly ONE logo item has completed since the guard besides boxingonline —
+advertise.co.uk — and three more (`websitepromotion`, `seotools`, `designblog`) are `triaged` and
+pending.
+
+I nearly filed "the guard missed five generations" on a column that cannot support the claim. The
+general shape: **when a timestamp disagrees with a content check, the content check wins** — a
+column records that a row was written, never what wrote it or why.
+
+**Those three queued items are the fence trigger's subjects**, which is the useful outcome: the
+decision I recorded as "not on n=1" now has a scheduled way to become decidable rather than sitting
+as a permanent maybe.
+
+⚠ **advertise.co.uk's PNG has not been looked at.** It is disconfirmation C's second data point and
+the cheapest outstanding action in the lane. The census cannot see lettering; only a person can.

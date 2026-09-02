@@ -60,3 +60,31 @@ the mark plus lettering on light grey on the right, both squeezed into the heade
 the words gone, it's unusable. Nothing between the image model and the live page ever checks that
 a logo is *one picture*. That's a separate fault from this one and I've written it up separately
 rather than bolting it on here.
+
+## 2026-09-02, afternoon
+
+Both fixes came through the second build of the day intact — I checked the running binary rather
+than trusting the deploy, and this time I had two proper controls: two strings my own commits
+deleted are both absent from it, which proves the pod is running the *revision* I mean and not
+just some version of the code.
+
+The logo guard has now reached a second site. advertise.co.uk had a logo made this afternoon and
+the instruction is in its prompt, same as boxingonline's. So the mechanism travels — it isn't a
+one-site fluke.
+
+I nearly got this badly wrong, and it's worth telling you because it's the same shape as the
+mistake I logged yesterday. Five other logos showed a "last changed" date of today, none carrying
+the instruction. Read at face value that says the guard missed five sites. It didn't — something
+else is touching those rows (probably the sweep fixing a separate file-type bug), and that column
+records only *that* a row was written, never what wrote it. The thing that actually settles it is
+the job queue, which creates one row per dispatch and can't be nudged by an unrelated process.
+
+So: two logos made since the fix, both governed. Three more are queued right now, which is quietly
+the best news in this update — the open question I deliberately left undecided (whether to harden
+the fix further) now has three scheduled chances to answer itself, rather than sitting as an
+opinion nobody can settle.
+
+One small thing still owed and it takes two minutes: nobody has actually **looked** at
+advertise.co.uk's new logo. The database can tell me the instruction was sent; only a person can
+tell whether the picture obeyed it. Both times we've caught this bug, it was someone opening an
+image.
