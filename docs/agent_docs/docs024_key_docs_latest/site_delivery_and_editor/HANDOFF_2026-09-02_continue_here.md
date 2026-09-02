@@ -67,12 +67,17 @@ diagnosis `fe4b8537`, components lane).
    source changed) + instance repoint (Path 0 stored-id binding — SURVIVES the
    build's delete/re-insert, proven) + rebuild `7f1f4993`. **Row-verified
    GREEN**: 4 guides, excerpt keys, suffix-free titles, guide-correct heading.
-   Serve lands with the ~18:48Z site-publish-reconciler tick (hourly, ONE site
-   per tick, boxingonline second of 2 — see the reconciler landmine before
-   forcing). `query.guide_pages` (Go) is now OPTIONAL vocabulary sugar, no
-   longer blocking. Full trail: webdesign NOTES 17:1x-17:3x entries. The
-   standing warnings hold: never retype pages to fix listings; never
-   hand-write items into a resolved array (reverts on any build).
+   **SERVE-VERIFIED 18:52Z (item CLOSED)**: exactly the 4 guide links, 0 blog
+   item links, heading correct, 4 excerpt decks with real copy, no title
+   suffixes — landed on the natural 18:48Z reconciler tick, no forcing.
+   ⚠ Fingerprint reading for §1.2's acceptance: "article-card__excerpt MUST
+   be 0" is the EMPTY-SLOT-era test (682 made the slots conditional) — on a
+   page whose items CARRY excerpt data, non-zero rendered decks is the SUCCESS
+   state, not a 682 regression. `query.guide_pages` (Go) is now OPTIONAL
+   vocabulary sugar, no longer blocking. Full trail: webdesign NOTES
+   17:1x-19:0x entries. The standing warnings hold: never retype pages to fix
+   listings; never hand-write items into a resolved array (reverts on any
+   build).
 5. **Contact 404 half** — pinned to `bugs_open/429`, now OWNED (owner-routed,
    session `bugs_open/429`) and **FIX COMMITTED 2026-09-02 evening
    (`b60d66e3c`, Council-Submitted b576bcc6, verdict pending) — INERT UNTIL THE

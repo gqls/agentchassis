@@ -7650,3 +7650,19 @@ end. **Guards must NEST: inner × period < outer.**
   then no-drift. Flip-side landmine in their commit: hand-placed objects under
   *.ugg2.com prefixes are swept on next drift (no exposure here — framework-only
   ruling already forbids hand-placing). Handoff §1.5 updated in place.
+
+## 2026-09-02 (~18:5xZ) — guides-index SERVE-VERIFIED: §1.4 CLOSED end-to-end
+
+- Landed on the NATURAL 18:48Z tick (no forcing): last-modified 18:52:31Z,
+  watch caught it 18:54:33Z. Acceptance at the artefact, all green: DOCTYPE +
+  50,041 bytes (sane vs 51,827 pre); exactly the 4 /guides/tool-*-guide.html
+  links, one each; 0 /blog/ item links; heading "Every guide, in one place";
+  4 × article-card__excerpt each carrying REAL copy ("A practical guide to …");
+  0 title-suffix remnants.
+- **Fingerprint inversion worth writing down**: §1.2's "article-card__excerpt
+  occurrences MUST be 0" was the acceptance while items LACKED excerpt keys
+  (682 made the slots conditional; no data → no slot). On a page whose items
+  carry the key, rendered decks are the SUCCESS state. The test is
+  data-dependent — do not read 4 occurrences here as a 682 regression.
+- With this, §1.4 closes: fork + repoint + rebuild + row-verify + serve-verify,
+  all pre-roll, ~1h45 end to end including the claim-gate landmine detour.
