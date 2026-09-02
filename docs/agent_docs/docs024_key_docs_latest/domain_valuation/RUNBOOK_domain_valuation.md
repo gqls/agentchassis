@@ -11,6 +11,10 @@ Each registrar lane writes to
   appraisal/valuation: `domain,valuation,currency,source`.
 - `<registrar>_listings_<YYYY-MM-DD>.csv` — if domains are listed for sale on
   that registrar's marketplace: `domain,price,currency,status`.
+- Afternic feed extras (their lane, agreed 2026-09-02): 5th column
+  `price_source` (buy_now|floor|min_offer|none); currency cell is the literal
+  `USD-assumed` until an export confirms the marking, then plain `USD` —
+  ingest must accept BOTH.
 
 Commit by pathspec, message `domain valuation inbound: <registrar> list`.
 
