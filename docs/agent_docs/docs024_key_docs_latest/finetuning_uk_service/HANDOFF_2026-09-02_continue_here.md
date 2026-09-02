@@ -18,6 +18,30 @@ hero · 3 × generic-text-block · faq · call-to-action. It cites only register
 section. Served `h2`s are "What you actually do in the hour", "What you do in the hour", "What you
 do in the hour". **Do not hand-edit them** — see below.
 
+> ## ⚠ CORRECTED 2026-09-02, same day — the playground page is NOT the worst case, and I filed the bug before checking
+>
+> Prompted by the `bugs_open/443` session asking for unwritten context, I checked the sibling
+> pages — which I should have done before filing. **All three pages this site built through the
+> fallback tier repeat, and the two OLDER ones repeat VERBATIM:**
+>
+> - **`your-own-model.html` — "How it works" × 3, identical.** The £99 front door. Copy written
+>   **2026-08-27** and unchanged since, so it has served that way for six days.
+> - **`technical-details.html` — "The model and its licence" × 3, identical.**
+> - `playground.html` — the same shape, wording varied. **The mildest of the three.**
+>
+> So the control went the right way and 443's root cause is stronger, not weaker — but verification
+> belongs on `your-own-model`, where verbatim-identical headings cannot be read as style.
+>
+> ⚠ **Do NOT join this to the owner's "very AI sounding" verdict.** That verdict is dated
+> **2026-08-25**; this copy postdates it. Independent facts, and the dates refuse the connection.
+> The copy lane has been told directly, so a voice rewrite is not aimed at a defect it cannot reach.
+>
+> Scope, `[MEASURED 2026-09-02]`: **11 pages fleet-wide** repeat a component type — finetuning.uk 4,
+> gaswholesalers.com 4, ai-agent-orchestration.com 3; loancash.co.uk, cookly.uk and lampenkap.com
+> **zero**. Exposure is 203 pages, damage is 11. `bugs_open/443` is OWNED by the session named
+> `bugs_open/443`, building a framework-wide fix through the council — **contribute to the bug file,
+> do not compete.**
+
 ## ⚠ THE THING THAT WILL COST YOU TIME IF YOU DO NOT READ IT
 
 **This site has NO `site_plans` row, and that is now known to disable two separate mechanisms.**
@@ -41,7 +65,7 @@ capability lives, and six real sites are not in them.**
 
 ## Do NOT do this
 
-- **Do not hand-edit the three repeated blocks.** It violates the framework ruling
+- **Do not hand-edit the repeated blocks on ANY of the three pages** (not just playground). It violates the framework ruling
   (2026-08-04, no hand-authored content), and it papers over 443 on the one page that demonstrates
   it. The page is factually right and structurally sound; the repetition is a platform defect with
   a bug number.
