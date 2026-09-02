@@ -43,6 +43,40 @@
 -- ⚠ AND WHEN YOU VERIFY: a COMPLETED page_rerender row is NOT evidence. Read
 -- spec->>'reason' on it. That is bugs_open/384's own filing error.
 --
+-- ══ "BUT THE DISCRIMINATOR IS component_id, NOT reason" — NOT ON THIS PATH ═════
+-- A correction landed in the webdesign lane's NOTES on 2026-09-02 (found by
+-- experience_loop, relayed via the boxingonline session) saying the rerender
+-- discriminator is component_id and that section_data_resolved "degrades to
+-- assemble-only without one". That is TRUE and it is about the PRODUCER, not the
+-- consumer — read this before concluding the file below is inert.
+--
+-- platform/livespec/rerender_reasons.go marks section_data_resolved
+-- ComponentScoped with StampAlways=false, so create_rerender_items does not
+-- STAMP the reason onto an item it files without a component_id: the item
+-- arrives carrying NO reason, and then degrades. The degrade is a property of
+-- the reason never reaching spec, not of the reason being insufficient.
+--
+-- THIS FILE WRITES spec.reason ITSELF, so the stamping step never runs, and the
+-- consumer side reads nothing else. Verified at the LIVE agent config, both
+-- steps, 2026-09-02:
+--
+--   page-rerender.check_rerender_mode.config.condition  -- verbatim:
+--     input_data.spec.reason == 'image_landed' OR ... == 'section_data_resolved'
+--     OR ... == 'cta_links_stale' OR ... == 'template_changed'
+--     OR ... == 'literal_markdown'
+--   -> spec.reason ALONE. component_id does not appear.
+--
+--   page-rerender.rerender_sections.config  -- verbatim keys:
+--     reason, page_name, target_site_id, strip_literal_markdown,
+--     record_dead_url_controls
+--   -> "Re-render ALL sections from stored content_data + fresh resolved
+--      fields". No component_id, so nothing needs scoping BY one.
+--
+-- Re-run both if you doubt it (config is live and mutable):
+--   SELECT jsonb_pretty(default_config->'workflow'->'steps'->'check_rerender_mode')
+--     FROM agent_definitions WHERE type='page-rerender' AND is_active
+--      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+--
 -- ══ PRE-FLIGHT, BOTH ALREADY RUN ══════════════════════════════════════════════
 -- 1. The section-shrink guard will NOT refuse. LANDMINES records this component
 --    family as its classic trigger, and the refusal's own error text invites you
