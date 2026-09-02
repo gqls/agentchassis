@@ -507,3 +507,37 @@ after:**
 **I am deliberately not writing the fence now.** The artefact decides which fix is needed, it is
 hours away, and building the more invasive version first would be choosing before the evidence —
 which is the habit this whole bug is about.
+
+---
+
+## DISCONFIRMATION C — the PNG was read, and the answer is TEXT-FREE (2026-09-02)
+
+The `site_delivery_and_editor` lane downloaded the served asset and looked at it. **Zero
+lettering.** Served file sha256 `1abcf69c08ab4462`. Single composition too, so `bugs_open/421` is
+clear on this asset as well.
+
+**Both halves agree**: this lane's census showed the guard's clause reached the generation
+(disconfirmation A), and their eye shows the model obeyed it. That is the first end-to-end
+evidence for the fix.
+
+**Held to the pre-registered reading, and it is worth restating because the temptation runs the
+other way:** this is **good evidence the override won THIS case, not proof of the mechanism.**
+`bugs_closed/390`'s failure was probabilistic, and the estate's own rule is that *two clean runs
+cannot establish stability* — this is one. **The fence is still worth building**, because the
+original licence (*"no text other than the wordmark itself"*) remains co-present in the composed
+prompt and my clause still wins only by precedence language, which is the shape 390 measured
+losing.
+
+**Status: 417's residual on this asset is CLOSED. The file stays OPEN**, on two counts: the fence
+(a design change, not a residual), and the bar — a fix is not closed until it is fixed AND live
+AND the class is bounded, and one generation does not bound it.
+
+**What would settle the mechanism rather than the case:** the next several logo generations across
+different sites, each censused for the clause and eye-checked. If any comes back lettered while
+carrying the clause, the fence is required and this file re-opens as a design change. Until then
+the honest statement is *"one for one"*, and it should be written that way wherever it is quoted.
+
+**A third defect was found on the same asset and is NOT this bug:** `bugs_open/424` — the
+transparency ruling produced a painted checkerboard, because alpha is a file-format capability no
+prompt can request. Text-free and single-composition both held; the file is still unusable. Three
+independent properties, three separate mechanisms, one image.

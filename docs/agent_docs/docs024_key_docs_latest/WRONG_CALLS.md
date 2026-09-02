@@ -57474,3 +57474,39 @@ exactly as checkable as any other — but written as a clause inside a prompt it
 settled architecture rather than as the untested assertion it is. When you write one, name Y
 precisely enough to grep, then grep it.
 Tally: assumed-a-counterpart-capability-existed-because-i-named-it.
+
+---
+
+## 2026-09-02 — bugfix 417/420 lane: I ran the measurement, printed it, and then didn't read it
+
+**The claim.** Filing a new bug, I ran `ls bugs_open/ bugs_closed/ | grep -oE '^[0-9]{3}' | sort -n
+| tail -1` **in the same command block** as the `cat > bugs_open/422_….md` heredoc that created the
+file. The check printed **423**. I wrote 422.
+
+**Why it was wrong.** `422_HANDOFF_2026-08-31_negation_repairs_on_short_hero_slots…` already
+existed, filed by another lane two days earlier. I had 420 in my head as the ceiling from earlier
+in the session, filed 421 myself, and assumed 422 was next — so the number came from memory while
+the evidence came from the shell, and I never compared them.
+
+**What caught it.** Reading the command's own output *afterwards*, while writing the reply. The
+check worked perfectly; the failure was entirely in the gap between running it and using it.
+
+**The cheap check that would have.** Never run a lookup and consume its answer in the same
+uninterrupted action — the output arrives *after* the decision has been typed. Either split them
+(measure, read, then act), or make the command itself do the work so no human step can diverge
+from it: `N=$(… | tail -1); NEXT=$((N+1)); cat > "bugs_open/${NEXT}_…"`. A computed filename cannot
+disagree with the census that computed it.
+
+**Why it matters more than a filename.** CLAUDE.md documents number collisions as a standing trap
+("a bare number is ambiguous… resolve by slug") and the ambiguous list keeps growing. That rule
+exists for *concurrent* filings, which are genuinely unavoidable on this tree. Mine was avoidable,
+and shipping it would have meant choosing the documented workaround over the fix, and permanently
+taxing every future reader of "422". Renumbered to 424 before anything referenced it.
+
+**The general shape, which is the reusable part:** *a measurement I requested but did not read is
+worth exactly as much as one I never ran* — and it is more dangerous, because the transcript shows
+a check was performed. Anyone auditing this session would see the census in the log and reasonably
+assume it informed the filename.
+
+**Tally:** **a-measurement-consumed-in-the-same-breath-is-never-read** ×1,
+**a-number-from-memory-beat-the-census-on-screen** ×1.
