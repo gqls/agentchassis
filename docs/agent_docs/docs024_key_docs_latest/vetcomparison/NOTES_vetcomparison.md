@@ -1871,3 +1871,35 @@ review, or use a per-site override if anything non-additive is needed. (c) SEQUE
 and the applying rerender rewrites components regardless; efficient shape = 701 lands → palette
 write → one rerender ships the accent callout. First-deploy-grade verification owed at the
 artefact for IMG-075's first run.
+
+## 2026-09-03 (later) — calculator build FILED with the draft Order's own table; three false-complete tool builds found on the way
+
+**Order status established at the source (CMA case page, last updated 20 Aug):** the FUNDING Order
+2026 is MADE (published 20 Aug); the SUBSTANTIVE remedies Order is still DRAFT — "August to
+September 2026: finalise and make", statutory deadline 23 Sep. So the relative-only rail stands.
+
+**The load-bearing content was fetched and transcribed, not remembered** (the AHC lesson):
+draft substantive Order PDF (392KB) → pdftotext → **Article 3 Compliance table transcribed
+verbatim** — 17 obligations × Large/Small periods incl. the two SPECIALS (Art 10: later-of RCVS
+milestone/12 months, display as text; Art 19(4)/(5)(a)-(b): the Order date itself) + the size
+definitions (Large ≥15 FOPs/OOH centres). All in the item description with source + date; the
+generator is told "use ONLY this table" + no money + no self-asserted dates + next-working-day
+note. Item `d5163ed3` (add_tool, tool-generator, the proven shape), monitor armed.
+
+**Finding en route, verified at the artefact:** of the 4 recent tool builds the tool-rebuilds
+seat cited as worked examples, **3 produced NOTHING** — the 08-25 novel trio are complete with no
+page row and 404s; vet-ownership-checker's result says `completed_steps: 0` + a stored
+retry_payload (spawn→call handshake class, bugfix-287 false-complete shape); only the 08-28
+add_tool_rebuild genuinely built (create_result generated:true). Reported back to the seat.
+Watch signature for MY item: echo/0-steps result + no page = handshake death; diagnose, don't
+cancel (handshake memory), re-file if needed.
+
+**Also this exchange:** planner's full proposal landed
+(site_design_planner/PROPOSAL_2026-09-02_vetcomparison_accent_and_section_imagery.md):
+independence_bg #ecfdf5 / independence_border #10b981 (accent variable itself), amber→accent
+fallback fix on latest-news (5 occurrences) batched with the palette write; imagery treatment
+drafted (opt-in .section-with-illustration, additive-and-inert, 768px stack, alternating sides);
+**industry-hub blast radius = 3 deployed sites** (vetcomparison, farmerinsurance.uk,
+garden-tools.uk). Open call deferred to imagery planning: WHICH index sections get illustrations
+(my working pick when we get there: start with ONE — info-card-grid — for IMG-075's first
+exercise). Everything design-side still holds behind 701.
