@@ -389,3 +389,28 @@ Two working notes from the check itself:
 **Owner decision 1 is DONE end-to-end**: wrong rule numbers extinct in storage AND at the served
 artefact, on both sites, with working calculators unchanged. Remaining lane work rides on the
 resubmitted 693/695 verdicts.
+
+## 2026-09-02 (m) — 693 ACCEPTED at record and artefact; the lane's founding defect is closed
+
+Applied ~16:01Z (second attempt: the doc_notes `subject_type='site'` value failed the table's
+CHECK constraint — allowed values are tool/pipeline/experience/action/experience-pattern/landmine/
+component/decision — first transaction aborted cleanly; fixed to `decision`, and the identical
+latent bug in 695's INSERT fixed in the same commit before 695 could hit it). Three rerenders
+drained by ~16:07 through the twice-rolled dispatch loop.
+
+`[MEASURED 2026-09-02 ~16:1xZ]`
+
+| acceptance | result |
+|---|---|
+| record | all three pages `build_status='deployed'` with `deployed_at` 16:06–16:07Z — **first stamp of their lives**, 31 days after they began serving |
+| artefact | 200 ×3, **inputs exactly 3/1/2** (the baseline — no calculator swapped), invented-URL control 404 |
+| fleet invariant | verify's own re-run: **0** active pages anywhere with no identified component on any row |
+| sitemap | still 27 — CORRECT for now; the sitemap follows the deploy on its own rotation (SEO-007/642) and the three now satisfy `deployed_at IS NOT NULL`. Check after lendzy's next sitemap-refresh tick: expect **30** |
+| the 47 items | still `needs_human_review` — they drain when revalidation re-judges them via `VerifyUnbuiltInternalLinkResolved` against the now-stamped pages. Deliberately NOT hand-closed |
+
+The PBP-038 advisory from round 3 is also now double-answered: 693's own rerenders stamped through
+the same path 696's did, same site, same day, fresh chassis.
+
+**695 remains the only unapplied piece.** Its resubmitted council run froze at the second roll
+(review_tooling_provenance, 15+ min stale) and the fleet was still cycling new pods at 16:1x —
+resubmission waits for a stable window (monitor armed) rather than feeding a third run to a roll.
