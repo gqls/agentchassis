@@ -2,7 +2,7 @@
 //
 // sectionsForPage replaces defaultSectionsForPage (apply_gap_plan_action.go)
 // as the primary source of a page's default section list, backed by the
-// page_archetypes table (686_theme_kits.sql) instead of a hardcoded Go
+// page_archetypes table (689_theme_kits.sql) instead of a hardcoded Go
 // switch. defaultSectionsForPage itself is KEPT — as a logged last-resort
 // fallback for a (name, type) shape no seed row covers yet — so a missing
 // seed can never break a build. Every fallback hit is logged at Warn so the

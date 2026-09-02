@@ -74,7 +74,7 @@ func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) 
 	}
 
 	// A site with a current theme_kit_adoption spec chose its palette
-	// deliberately (686_theme_kits.sql) — this check must not re-dispatch
+	// deliberately (689_theme_kits.sql) — this check must not re-dispatch
 	// webdesign-agent against it. That dispatch is exactly the colour-churn
 	// mechanism documented above (analyze_design re-rolls the palette on
 	// every run): a themed site failing this check for some OTHER reason

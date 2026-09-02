@@ -1,4 +1,4 @@
--- 686_theme_kits.sql
+-- 689_theme_kits.sql
 --
 -- Phase 1 of the theme-kit system (owner-approved plan, session "themes",
 -- /home/ant/.claude/plans/please-think-hard-about-starry-locket.md).

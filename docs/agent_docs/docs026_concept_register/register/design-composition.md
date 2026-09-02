@@ -846,13 +846,34 @@ deduplication begins; the "raw extractions" count above and the per-concept
 
 ### DES-085 — `theme_kits`: a named, listable bundle over the composable-theme system (Phase 1)
 
-- **status:** deployed (Phase 1 only — registry + apply + page structure; nav
-  patterns, voice presets and "create from example" designed but not built,
-  see the plan)
-- **status-evidence:** `docs/agent_docs/sql_for_agents/686_theme_kits.sql`
-  (schema + 4 seed kits + fleet `page_archetypes` rows), `apply_theme_kit_
-  action.go`, `theme_kit_defaults.go`, `page_archetypes_resolver.go`, live
-  since commit `0902039c0`.
+- **status:** **BUILT AND COMMITTED, NEVER EXERCISED — not applied, not rolled.**
+  Phase 1 scope only (registry + apply + page structure; nav patterns, voice
+  presets and "create from example" designed but not built, see the plan).
+  > **CORRECTED 2026-09-02, same day as filing.** This entry first read
+  > "deployed … live since commit `0902039c0`". **Both halves were false and
+  > the check took one command each**, which is exactly the shape this
+  > register's own landmine warns about (a STATUS line outliving its truth,
+  > read by council seats as ground truth):
+  > - **DB half:** `SELECT to_regclass('public.theme_kits')` → NULL. The
+  >   migration was only ever DRY-RUN (`run-migrations.sh` with no `--apply`,
+  >   which reports "ran to its own COMMIT without error (everything rolled
+  >   back)" — a phrase that reads like success and means the opposite of
+  >   applied). `theme_kit_adoption` specs: 0.
+  > - **Binary half:** no `make build-*` or roll was ever run this session, so
+  >   `apply_theme_kit` is in no running image. `install_site_composition_
+  >   action.go`'s kit lookup swallows the error when the table is missing, so
+  >   a live chassis would silently skip the kit path and log nothing.
+  >
+  > Caught by a Fable architecture review, not by the author. Do not cite this
+  > entry as evidence the mechanism works until the migration is applied AND a
+  > roll carries the binary — then re-verify BOTH and rewrite this block.
+- **status-evidence (of the CODE existing, not of it running):**
+  `docs/agent_docs/sql_for_agents/689_theme_kits.sql` (schema + 4 seed kits +
+  fleet `page_archetypes` rows), `apply_theme_kit_action.go`,
+  `theme_kit_defaults.go`, `page_archetypes_resolver.go` — committed in
+  `0902039c0`. **The migration number was 686 in that commit and COLLIDED**
+  with `686_article_body_hero_image_capability.sql` (another session, filed one
+  minute later the same afternoon); renamed to 689 afterwards.
 - **what:** a NEW table, `theme_kits`, deliberately NOT named `themes` —
   `css_themes`/`theme_id`/`needs_theme_review`/`forked_from_theme_id` already
   mean "one site's CSS composition record" throughout this codebase (DES-003

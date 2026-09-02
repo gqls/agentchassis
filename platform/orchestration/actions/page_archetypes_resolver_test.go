@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// fleetSeedRows mirrors 686_theme_kits.sql's fleet-scope INSERT exactly —
+// fleetSeedRows mirrors 689_theme_kits.sql's fleet-scope INSERT exactly —
 // if that migration's seed data changes, this fixture must change with it.
 // Kept as a literal (not read from the .sql file) so this test fails loudly
 // on drift rather than silently agreeing with whatever the migration says.
@@ -31,7 +31,7 @@ func fleetSeedRows() []archetypeRow {
 // TestMatchArchetypeRows_ParityWithDefaultSectionsForPage asserts the ported
 // fleet rows reproduce defaultSectionsForPage's own output EXACTLY for every
 // (name, type) case the switch documents — including the section-index case
-// added here, which defaultSectionsForPage never had (see 686_theme_kits.sql
+// added here, which defaultSectionsForPage never had (see 689_theme_kits.sql
 // header note; credit: calendar session, 2026-09-02).
 func TestMatchArchetypeRows_ParityWithDefaultSectionsForPage(t *testing.T) {
 	rows := fleetSeedRows()
