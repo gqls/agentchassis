@@ -46,7 +46,16 @@ NS=ai-persona-system
 PSQL=(kubectl -n "$NS" exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -F '|')
 UA='agentchassis-audit/1.0 (+bugs_open/359)'
 
-fetch_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 25 -A "$UA" "$1"; }
+# A `000` is curl reporting it never got an HTTP answer at all (DNS, TLS,
+# timeout, reset) — not a reading. It is retried ONCE, with its own full
+# timeout budget, before it is believed; a genuinely unreachable target still
+# comes back 000 twice and is then REFUSED by verdict(), never scored absent.
+fetch_code() {
+    local c
+    c=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 -A "$UA" "$1")
+    [[ "$c" == "000" ]] && c=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 -A "$UA" "$1")
+    printf '%s' "$c"
+}
 
 # verdict <target> <invented> <sibling> -> prints a word, returns 0/1/2
 #   0 = correctly absent, 1 = archived AND serving, 2 = controls do not hold
@@ -57,6 +66,23 @@ verdict() {
     fi
     if [[ "$sib" != "200" ]]; then
         echo "CONTROL-FAIL-origin"; return 2
+    fi
+    # C. the TARGET must itself have produced an HTTP answer. Controls A and B
+    #    are per-DOMAIN and cached, so NEITHER can see a per-PAGE transport
+    #    failure: the origin is up, the sibling is 200, and this one page simply
+    #    never answered. Scoring that `correctly-absent` fails toward the
+    #    reassuring answer — the exact profile this file's header calls a FALSE
+    #    ALL-CLEAR, and the reason control B exists at the domain level.
+    #
+    #    > **CORRECTED 2026-09-02:** this returned 0 (`correctly-absent`) until
+    #    > today, and was PINNED that way by its own self-test row. Caught by
+    #    > measurement, not by reading: two runs ten minutes apart disagreed,
+    #    > 7 serving vs 8, because fundamentallyai.com's
+    #    > /blog/ai-readiness-checker-guide.html answered 000 and then 200. The
+    #    > census under-reported live damage by one, and a single run could not
+    #    > have told you so.
+    if [[ "$t" == "000" ]]; then
+        echo "UNJUDGEABLE-target-transport"; return 2
     fi
     if [[ "$t" == "200" ]]; then echo "ARCHIVED-AND-SERVING"; return 1; fi
     echo "correctly-absent"; return 0
@@ -77,7 +103,11 @@ self_test() {
     check "catch-all masks a real finding"           200 200 200 2
     check "origin down: everything looks absent"     404 404 522 2
     check "origin down: sibling transport failure"   404 404 000 2
-    check "target transport failure, controls hold"  000 404 200 0
+    # CORRECTED 2026-09-02: this row asserted rc=0 and so PINNED the bug it
+    # should have caught — a passing self-test proved only that the code agreed
+    # with itself. The measured case is the companion row below.
+    check "target transport failure, controls hold"  000 404 200 2
+    check "target 000 while sibling proves origin up" 000 404 200 2
     check "gone with 410"                            410 404 200 0
     # The property this script exists to hold: a 200 on a catch-all domain must
     # NOT be reported as damage, and a 404 on a dead origin must NOT be reported
@@ -173,7 +203,7 @@ fi
 
 if [[ $JSON == 0 ]]; then
     echo
-    echo "population ${EXPECTED}: ${SERVING} archived AND serving, ${ABSENT} correctly absent, ${REFUSED} unjudgeable (control failed)"
-    [[ $REFUSED -gt 0 ]] && echo "⚠ a CONTROL-FAIL row is a REFUSAL, not a pass — those pages were not judged"
+    echo "population ${EXPECTED}: ${SERVING} archived AND serving, ${ABSENT} correctly absent, ${REFUSED} unjudgeable (control failed or target never answered)"
+    [[ $REFUSED -gt 0 ]] && echo "⚠ a CONTROL-FAIL or UNJUDGEABLE row is a REFUSAL, not a pass — those pages were not judged, and an archived page that did not answer is NOT evidence it is gone"
 fi
 exit $RC
