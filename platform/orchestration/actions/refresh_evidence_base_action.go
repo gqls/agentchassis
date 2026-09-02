@@ -1256,7 +1256,7 @@ func recordFactHistory(fact map[string]interface{}, outgoing *float64, outgoingV
 // without a writer_line is omitted — never auto-phrased.
 func composeWriterBlock(eb map[string]interface{}) string {
 	factsRaw, _ := eb["facts"].([]interface{})
-	var numbers, capabilities []string
+	var numbers, events, capabilities []string
 
 	for _, fr := range factsRaw {
 		fact, ok := fr.(map[string]interface{})
@@ -1270,12 +1270,22 @@ func composeWriterBlock(eb map[string]interface{}) string {
 		if v, ok := numericField(fact["value"]); ok {
 			line = strings.ReplaceAll(line, "{value}", formatEvidenceNumber(v))
 			numbers = append(numbers, "- "+line)
+		} else if eventDate := strings.TrimSpace(datahelpers.GetStringField(fact, "event_date", "")); eventDate != "" {
+			// bugs_open/427: a dated event fact (news_feed_ingestion's
+			// registration writes event_date/venue/participants/broadcaster
+			// alongside a citation, kind="entity" — no numeric `value`, so
+			// without this branch it would fall to the CAPABILITIES arm below
+			// and ship any {event_date}/{venue}/{participants}/{broadcaster}
+			// token in its writer_line UNSUBSTITUTED, literal braces and all,
+			// into the writer's prompt — the CAPABILITIES arm only ever
+			// existed to carry a token-free line verbatim.
+			events = append(events, "- "+substituteEventTokens(line, fact, eventDate))
 		} else {
 			capabilities = append(capabilities, "- "+line)
 		}
 	}
 
-	if len(numbers) == 0 && len(capabilities) == 0 {
+	if len(numbers) == 0 && len(events) == 0 && len(capabilities) == 0 {
 		return "" // nothing phrased — leave the existing block alone
 	}
 
@@ -1283,6 +1293,13 @@ func composeWriterBlock(eb map[string]interface{}) string {
 	if len(numbers) > 0 {
 		b.WriteString("NUMBERS (state only these, with their listed meaning; dated snapshots up to a listed live count are fine):\n")
 		b.WriteString(strings.Join(numbers, "\n"))
+	}
+	if len(events) > 0 {
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString("SCHEDULED EVENTS (state only as dated below; a blank field is \"TBC\", never invent one):\n")
+		b.WriteString(strings.Join(events, "\n"))
 	}
 	if len(capabilities) > 0 {
 		if b.Len() > 0 {
@@ -1343,6 +1360,30 @@ func composeWriterBlock(eb map[string]interface{}) string {
 		b.WriteString(g)
 	}
 	return b.String()
+}
+
+// substituteEventTokens fills a dated-event writer_line's {event_date}/{venue}/
+// {participants}/{broadcaster} tokens (bugs_open/427). Unlike {value}, a token
+// with nothing stated renders as "TBC" rather than being left as a bare brace:
+// {value} always has a caller-supplied number by construction, but an event's
+// venue or broadcaster is routinely unstated at announcement time, and a raw
+// "{venue}" reaching published copy would be a worse defect than the honest
+// placeholder. participants joins with ", " rather than " vs " — a boxing
+// fight reads fine either way, but the estate's other verticals (a launch
+// panel, a hearing with several parties) are not always exactly two names.
+func substituteEventTokens(line string, fact map[string]interface{}, eventDate string) string {
+	tbc := func(s string) string {
+		if s = strings.TrimSpace(s); s != "" {
+			return s
+		}
+		return "TBC"
+	}
+	line = strings.ReplaceAll(line, "{event_date}", tbc(eventDate))
+	line = strings.ReplaceAll(line, "{venue}", tbc(datahelpers.GetStringField(fact, "venue", "")))
+	line = strings.ReplaceAll(line, "{broadcaster}", tbc(datahelpers.GetStringField(fact, "broadcaster", "")))
+	participants := datahelpers.ExtractStringListHelper(fact["participants"])
+	line = strings.ReplaceAll(line, "{participants}", tbc(strings.Join(participants, ", ")))
+	return line
 }
 
 // formatEvidenceNumber renders a fact value the way published copy states it:

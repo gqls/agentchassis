@@ -127,6 +127,61 @@ func TestComposeWriterBlock(t *testing.T) {
 	}
 }
 
+// bugs_open/427: a dated-event fact (news_feed_ingestion's registration —
+// kind="entity", no numeric value, event_date/venue/participants/broadcaster
+// alongside a citation) must get its writer_line tokens SUBSTITUTED, not
+// carried into the CAPABILITIES bucket verbatim — the CAPABILITIES arm never
+// substitutes anything, so a token-bearing line landing there would ship
+// literal "{event_date}"/"{venue}" braces into the writer's prompt.
+func TestComposeWriterBlockEventFacts(t *testing.T) {
+	var eb map[string]interface{}
+	if err := json.Unmarshal([]byte(`{
+		"facts": [
+			{"id":"EVT-1","kind":"entity","event_date":"2027-03-03","venue":"Wembley Stadium",
+			 "participants":["Tyson Fury","Oleksandr Usyk"],"broadcaster":"DAZN",
+			 "writer_line":"{participants} — {event_date} at {venue}, broadcast on {broadcaster}"},
+			{"id":"EVT-2","kind":"entity","event_date":"2027-05-10",
+			 "writer_line":"Fight night, {event_date}, venue {venue}"},
+			{"id":"n","value":42,"writer_line":"{value} fixtures listed"},
+			{"id":"c","kind":"capability","writer_line":"multi-source news pipeline"}
+		]
+	}`), &eb); err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+
+	block := composeWriterBlock(eb)
+
+	if !strings.Contains(block, "SCHEDULED EVENTS") {
+		t.Errorf("expected a SCHEDULED EVENTS section, got:\n%s", block)
+	}
+	if !strings.Contains(block, "Tyson Fury, Oleksandr Usyk — 2027-03-03 at Wembley Stadium, broadcast on DAZN") {
+		t.Errorf("expected all four tokens substituted, got:\n%s", block)
+	}
+	// An unstated field renders as the honest placeholder, never a bare brace.
+	if !strings.Contains(block, "Fight night, 2027-05-10, venue TBC") {
+		t.Errorf("expected a missing venue to render as TBC, not a raw {venue}, got:\n%s", block)
+	}
+	if strings.Contains(block, "{venue}") || strings.Contains(block, "{event_date}") ||
+		strings.Contains(block, "{participants}") || strings.Contains(block, "{broadcaster}") {
+		t.Errorf("no unsubstituted token may reach the composed block, got:\n%s", block)
+	}
+	// The existing NUMBERS/CAPABILITIES buckets are untouched by the new branch.
+	if !strings.Contains(block, "NUMBERS") || !strings.Contains(block, "42 fixtures listed") {
+		t.Errorf("numeric fact must still compose under NUMBERS, got:\n%s", block)
+	}
+	if !strings.Contains(block, "CAPABILITIES") || !strings.Contains(block, "multi-source news pipeline") {
+		t.Errorf("plain capability fact must still compose under CAPABILITIES, got:\n%s", block)
+	}
+
+	// A register with no event fact at all composes byte-identically to before
+	// this change existed — the no-op-pin the estate expects of an opt-in arm.
+	var noEvent map[string]interface{}
+	_ = json.Unmarshal([]byte(`{"facts":[{"id":"n","value":7,"writer_line":"{value} things"}]}`), &noEvent)
+	if got, want := composeWriterBlock(noEvent), "NUMBERS (state only these, with their listed meaning; dated snapshots up to a listed live count are fine):\n- 7 things"; got != want {
+		t.Errorf("no-event register must compose exactly as before, got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestFormatEvidenceNumber(t *testing.T) {
 	cases := map[float64]string{
 		2767: "2,767", 937: "937", 90790: "90,790", 12000000: "12,000,000",
