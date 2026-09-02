@@ -460,7 +460,43 @@ axes **and** not dependent on the wash holding); the **8 sites carrying excluded
 fleet-wide waits on the producer-side mechanism, not on a cleanliness claim. **Council scope and the
 owner's call.**
 
-### ⚠⚠ H1d. THE PRODUCER GATE IS BUILT, LIVE IN THE BINARY, AND WIRED TO NOTHING — 25% still born dirty
+### ~~⚠⚠ H1d. THE PRODUCER GATE IS … WIRED TO NOTHING~~ — **THE GATE IS WIRED. CORRECTED 2026-09-02 19:4xZ.**
+
+> **⚠ THIS SECTION WAS TRUE WHEN WRITTEN AND WAS FALSE 27 MINUTES LATER. It is struck rather than
+> deleted because the reasoning is still worth reading and the standing instruction at the bottom
+> still holds.**
+>
+> `[VERIFIED 2026-09-02]` `offer-analyser` now has **eleven** steps and one of them is
+> `repair_ordering_register` — read off the live `agent_definitions` row, not inferred. The chain is
+> `verify_ordering_cardinals → repair_ordering_register → write_offer_ordering`.
+>
+> **What happened, and it is the two-sessions-one-lane failure rather than anyone's error.** My
+> commit `fcb210e65` is stamped **16:47:21Z**. The arming migrations applied at **17:14:53Z**
+> (`681_…_HOLD.sql`) and **17:18:22Z** (`682_offer_analyser_register_gate_ai_service.sql`), by a
+> SECOND SESSION OF THIS SAME LANE working the same problem in parallel. Both of us reached the same
+> diagnosis independently and correctly; they then wired it. **Nobody was wrong — we were each right
+> at a different instant**, which is precisely what duplicate sessions on one lane produce.
+>
+> ⚠ **The `25% born dirty over 254 points` figure below STANDS and is the better baseline** — it is
+> the pre-gate rate. The sibling's post-gate window is **1 dirty of 12 = 8.3%**, and they were right
+> to refuse to quote it as improvement: `P(≤1 of 12 | rate unchanged) = 0.193`, so it happens one
+> time in five by chance. **~25 post-gate points are needed to detect even a halving.** The honest
+> line is *"the mechanism works, the rate is unmeasured"*.
+>
+> ⚠ **AND THE LIVE-CORPUS NUMBER WENT UP, 13.5% → 18.9%, WHICH IS NOT THE GATE FAILING.** The gate
+> repairs **at the mint**, so a site only cleans when it is next re-analysed, and the mint ran
+> unchecked for the two days the Go awaited a roll. **Judge it on the post-17:18Z mint, never on the
+> corpus.**
+>
+> ⚠ **IF THE GATE GOES QUIET, CHECK `ai_service` FIRST.** `offer-analyser` has **no ROOT `ai_service`
+> block**, so without migration `682`'s step-level block the gate is live, firing, and repairing
+> **nothing** — it returns *"no ai_service configuration resolvable"*, keeps every point, and records
+> why. **That happened for real in the two-minute window between 681 and 682**, and the council's
+> `llm_reliability` seat had predicted it verbatim.
+>
+> **The standing instruction below — DO NOT BUILD A SECOND GATE — is unchanged and now doubly true.**
+
+### ⚠⚠ H1d (superseded above, kept for the reasoning). THE PRODUCER GATE IS BUILT, LIVE IN THE BINARY, AND WIRED TO NOTHING — 25% still born dirty
 
 **`[MEASURED + VERIFIED 2026-09-02]` READ THIS BEFORE BUILDING ANYTHING FOR DECISION E. It is
 already built, by THIS LANE, and it has changed nothing because no step calls it.**
@@ -686,7 +722,7 @@ operative truth is that verdict rows are cleared by humans only.**
 **`portfolio_positioning`** — their uncommitted SEO-007 LANDMINES edit rode into `b3bddba60` as a
 named same-file passenger; they were told, nothing lost.
 
-### ✅ H1d. THE PRODUCER GATE IS BUILT (2026-08-31 evening) — and it is NOT yet evidence of anything
+### ✅ H1d-bis (the sibling session's entry; see the corrected H1d above). THE PRODUCER GATE IS BUILT (2026-08-31 evening) — and it is NOT yet evidence of anything
 
 **Shipped, four commits.** `f7156fb54` Go (inert until the roll) · `06b10a1d8` wiring `681_HOLD`
 (+`_ROLLBACK`) · `40ab44bdf` LANDMINE · `af312bc1c` register **CQ-034**.
