@@ -20,6 +20,27 @@ FIX COMMITTED 2026-09-02 (`425398a01`), INERT UNTIL THE NEXT CHASSIS ROLL.**
 >
 > **Two corrections to this file are below, at §4 and §3.** Both are recorded rather
 > than edited away.
+>
+> **⚖ COUNCIL VERDICT: APPROVED** (`106802fc-ad14-4beb-b622-147c3a0ab982`, 2026-09-02
+> 18:25Z) — 9 approve, 2 advisory objections, none high-severity. The `architecture` seat
+> recorded `ARCHITECTURE_SIGNAL: point_fix | DEFLECTIONS: 0` and confirmed the RFC_022
+> shape (opt-in, unsafe side default, call sites enumerated rather than asserted).
+>
+> **⚠ AND THE APPROVED ROUND STILL FOUND A REAL HOLE, now filed as `bugs_open/442`.**
+> The `bug_historian` seat objected [medium] that this fix corrects the false-positive
+> TRIGGER but leaves the silent-loss MECHANISM intact: a refusal — right or wrong —
+> returns a nil error, so the step COMPLETEs, the scheduled task stamps a clean run, and
+> nothing downstream asserts on it. **Investigated and CONFIRMED**: there is no
+> conditional on `save_result` anywhere in the live `meta-description-backfiller`
+> workflow, and the one human-facing `result_message` names four refusal reasons while
+> omitting all three copy-gate ones. So §2's observation that "nothing about it reads as
+> a failure" was recorded here as *context* and is in fact **its own defect** — see 442.
+>
+> The other objection (`editquality` [medium]: the partial diff might orphan the `blocks`
+> variable and fail to compile) is **answered by fact rather than by argument**: `blocks`
+> is still passed to `checkBannedClaims`, the package builds, and
+> `scripts/verify-head-builds.sh` reports OK at HEAD `425398a01`. A fair objection to
+> raise from a partial diff — the sketch could not show it.
 
 > **Resolve by SLUG** (`voice_gate_density_rules_on_a_single_sentence`) — bug numbers
 > collide on this tree, and `git log` the FILE PATH, not the number.
