@@ -147,7 +147,13 @@ func LoadCTAPositionalCandidates(ctx context.Context, db *sql.DB, siteID uuid.UU
 		var c CTAPositionalCandidate
 		var eligible bool
 		if err := rows.Scan(&c.Name, &c.Title, &c.URL, &c.NavOrder, &eligible); err != nil {
-			continue // counted; ScanShortfall below refuses the partial result
+			// scan-loss:accepted: counted — ScanShortfall below refuses the
+			// partial result. This continue is safe ONLY while that trailing
+			// check survives; delete the ScanShortfall return and this branch
+			// reverts to bugs_open/410's defect (a thinned supply silently
+			// re-ranks the site). All rows are attempted first so a mixed
+			// failure reports its full extent, not its first row.
+			continue
 		}
 		c.Area = FirstPathSegment(c.URL)
 		c.IneligibleAsCTATarget = !eligible
