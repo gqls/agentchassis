@@ -59798,3 +59798,36 @@ the instrument answered a narrower question than the one asked.
   Tally: **approximated-the-rule-instead-of-implementing-it** ×1,
   **measured-the-wrong-surface-template-vs-rendering** ×1.
 - [2026-09-02, bugfix_357 lane] **I recorded the pilot's md5-unchanged rerender as "the by-construction property (template = bytes ⇒ regeneration is a no-op) PROVEN IN A LIVE RUN" — and the template route was never exercised.** Migration 701's rerender items carried a prose `spec.reason`; `page-rerender`'s `check_rerender_mode` PARSES that field against five literals and routes anything else to `render_page`, a byte-for-byte re-ship of the STORED html. All 16 items took that route: md5-unchanged proved only that concatenation reproduces its input. The shipped artefacts were still correct (for adopted rows the two routes converge — the template IS the bytes), so every surface read as success and the mechanism claim was vacuous. What caught it: the components lane's fleet-wide sweep of completed page_rerender items (found while measuring bugs_open/425). The cheap checks: (1) a `reason`/`mode` field on a work item is PARSED, not read — grep the consumer's branch literals before annotating it with prose; (2) before claiming a code path was exercised, find its distinguishing OUTPUT (here: `rerender_page_sections`' section-resolution trail vs `render_page`'s absence of one), not an outcome both paths produce. Same family as this week's vacuous-pass entries — this one passed THROUGH me after I'd spent three days documenting the class.
+
+---
+
+## 2026-09-02 — I got a deploy timeline backwards by comparing a UTC pod clock with a BST git clock, and the verdict being RIGHT is what let it through (bugfix 417/420 lane)
+
+**The claim.** In a CONTRIB and a `bugs_open/424` note: *"The roll landed ~20 minutes after the fix
+commit and picked up a build that predates it."*
+
+**Why it was wrong.** In UTC: `0d2feee2f` committed **20:24:45Z**, adapter `v1.0.1355` rolled
+**20:56:52Z**, the fix `fcbe6071c` committed **21:17:18Z**. The fix landed **20m26s AFTER** the roll.
+`kubectl` prints UTC with a `Z`; `git log --date=format:'%H:%M:%S'` prints the commit's own `+01:00`
+and shows no offset. One hour, in the direction that turns "could never have been in it" into
+"narrowly missed it".
+
+**What caught it.** The 424 lane, replying with its own arithmetic (done entirely in BST, so
+internally consistent and correct). Nothing on my side would have — see below.
+
+**The uncomfortable part, and the reason this is worth a row.** My *verdict* was right and
+independently well-evidenced: `git merge-base --is-ancestor` said NO, with a control commit that
+said YES in the same breath. Because the conclusion held, the supporting narrative was never
+re-examined — **a correct answer is not a check on the story you tell about it.** And the story is
+what a reader acts on: "narrowly missed the roll" says wait or re-check the same build; "committed
+after the build was cut" says a new build is required. Same verdict, opposite next move.
+
+**The cheap check I skipped.** Never subtract times that came from two different renderers. Put
+both in one zone explicitly (`--date=format-local:` with `TZ=UTC`, or `%cI` through a converter) —
+and note that `TZ=UTC git log --date=format:…` does **not** work, because `TZ` does not reach
+`--date=format:`; the unchanged number reads as confirmation. Better: for "did my fix ship?", use
+ancestry, which has no clock at all. I had already used ancestry for the verdict and then wrote a
+clock-based sentence next to it.
+
+Family: relative-git-refs-are-not-evidence, prove-a-deploy-at-the-artefact,
+a-claim-about-behaviour-is-not-the-behaviour.

@@ -238,7 +238,27 @@ for the guard. A design that legitimately reaches the border would be refused as
 - control: `git merge-base --is-ancestor 6440ec968 0d2feee2f` → **YES** (the original matting fix is
   in the same stamp, so the comparison is sound, not a broken invocation)
 
-The roll landed ~20 minutes after the fix commit and picked up a build that predates it.
+> **CORRECTED 21:35Z — I had the ORDER BACKWARDS, and the 424 lane caught it.** I wrote *"the roll
+> landed ~20 minutes after the fix commit"*. It is the other way round. In a single timezone (UTC):
+>
+> | | UTC | |
+> |---|---|---|
+> | `0d2feee2f` committed | **20:24:45Z** | the build stamp |
+> | adapter `v1.0.1355` rolled | **20:56:52Z** | |
+> | `fcbe6071c` committed | **21:17:18Z** | the 424 fix |
+>
+> **The fix was committed 20m26s AFTER the roll**, so it could not possibly have been in it — which
+> makes "not live" trivially true rather than a near-miss. The verdict was right; my account of why
+> was wrong, and a wrong "you just missed the roll" story invites exactly the wrong next move
+> (re-check the same build) instead of the right one (cut a new build).
+>
+> **How I got it wrong: a MIXED-TIMEZONE comparison, and neither side announces it.** `kubectl`
+> renders pod times in **UTC with a `Z`**; `git log`'s default `%cd`/`%ad` renders in the commit's
+> own zone, which on this tree is **+01:00 (BST)** — and it prints no offset in most `--date=format:`
+> strings, so `22:17:18` and `20:56:52Z` look directly comparable and are an hour apart before you
+> start. ⚠ `TZ=UTC git log --date=format:…` does **NOT** fix it (the format uses the commit's zone
+> regardless); `--date=format-local:` or `%cI` piped through a converter does. **Put both sides in
+> UTC explicitly before subtracting.**
 
 **⚠ A binary grep cannot answer this one.** The fix adds no string literal — its only added quoted
 text is inside a comment — so there is no needle and no removed-string control. I nearly reported

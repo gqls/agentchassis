@@ -267,3 +267,10 @@ clause is now load-bearing for the guard.
 `git merge-base --is-ancestor fcbe6071c 0d2feee2f` is NO, while the control `6440ec968` is YES.
 No string-literal needle exists for this fix, so only the provenance stamp can answer it.
 All three veiled logos are serving live meanwhile. Detail: the CONTRIB, round 4.
+
+**CORRECTION 21:35Z (417 lane, caught by the 424 lane):** my "not live" note above implied the roll
+narrowly missed the fix. Wrong order. In UTC: `0d2feee2f` committed **20:24:45Z**, adapter
+`v1.0.1355` rolled **20:56:52Z**, `fcbe6071c` committed **21:17:18Z** — the fix landed **20m26s
+after** the roll, so it was never a candidate for that build. Verdict unchanged (not live); the
+near-miss framing was mine and it was wrong. Cause: comparing `kubectl`'s UTC `Z` timestamps against
+`git log`'s default output, which renders in the commit's own +01:00 zone and prints no offset.
