@@ -147,3 +147,14 @@ model as `keep_or_sell=KEEP` overrides regardless of rank (relojistas.com
 additionally carries the owner-confirmed $12k Afternic floor, 2026-07-28).
 They message this session when OUTPUT columns freeze — nothing owed from
 this lane until then.
+
+**Dynadot follow-up (same evening):** appraisals landed for **300 of 451**
+(daily quota fired at exactly 300; remainder resumes tomorrow,
+idempotent). And a correction to "0 listings": `isForSale` is unreliable
+(their landmine) — a marketplace-dump control found **5 live Dynadot Buy
+Nows** (see RUNBOOK §7's new priced-import gotcha for names/prices). All 5
+verified present in draft1 as make-offer/no-price — no displayed conflict
+today; the price-agreement constraint recorded for every priced draft and
+relayed to the valuation lane. 394/451 Dynadot domains on Afternic NS —
+existing Afternic asks must join the same sweep once the owner's export
+lands.

@@ -211,3 +211,13 @@ Gotchas, each earned:
 - The script verifies its own artefact by re-reading the zip; counting
   `<row` in the sheet XML by `grep -c` reads 1 (single-line XML) — use
   `grep -o | wc -l`.
+- **Before a PRICED import, sweep the `*_listings_*.csv` files in the
+  valuation inbound for live asks elsewhere.** A domain with a live Buy Now
+  on another marketplace must carry the SAME price on Sedo, or the other
+  listing comes down first — otherwise one domain shows two prices in two
+  shops. As of 2026-09-02: **5** live Dynadot Buy Nows (traderboltai.com
+  $7,999, currencyforecaster.com $3,999, thailandstocks.com $2,988,
+  riderlessbikes.com $2,888, carsforchildren.com $2,508 — all in draft1 as
+  make-offer/no-price, which shows no conflicting figure); Afternic asks
+  arrive with the owner's export. Draft1 needs no regeneration for this —
+  the check belongs to every priced draft.
