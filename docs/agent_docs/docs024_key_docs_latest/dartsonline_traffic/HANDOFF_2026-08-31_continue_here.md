@@ -259,14 +259,38 @@ a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants e
 > **correctly**, because the ordinals name a composition the page does not have yet. So:
 > **recompose → seed rows → rebuild → verify → only then re-render freely.**
 >
-> **⚠ THERE IS NO PRECEDENT TO COPY. Treat the recompose as an experiment on a live page.**
-> `[MEASURED 2026-09-02, inline_guide_imagery]` 432 active guide/blog pages fleet-wide, 330 with a
-> hero, and **ZERO with more than one illustrated section**. Measured here from the other side and
-> agreeing: **only 9 active pages in the entire estate carry an illustration-capable component at
-> all** (across 8 sites — idea.uk 2, then apis.uk, vonc, remortgagecalculator, oufe, robot-hands,
-> webdesign.uk, lendzy with 1 each), and **32 sites have none**. **grip-styles would be the first
-> page in the estate composed this way**, so there is nothing to compare against and the
-> verification step is the whole safety margin.
+> **⚠ THE RISK HERE IS NARROWER THAN A RAW POPULATION COUNT SUGGESTS — and I recorded the raw count
+> as if it settled the matter, which was wrong.** I first wrote here that only 9 active pages in the
+> estate carry an illustration-capable component and 32 sites have none, and concluded *"there is no
+> precedent to copy"*. **That reads a STOCK as if it were a verdict. Ask WHEN, and it inverts.**
+> `[MEASURED 2026-09-02, re-derived here and agreeing with `inline_guide_imagery` exactly]`
+> migration `644` taught the planner menus the word for an image on **2026-08-26 11:16Z**, and
+> **6 of those 9 pages were composed AFTER it** — webdesign.uk 08-26 16:52 (five hours later),
+> idea.uk/tools 08-28, lendzy 09-01, oufe 09-01, remortgagecalculator **09-02 12:45**, robot-hands
+> **09-02 15:26**. **Two of them today.** The capability is not unused and ungated; it is being
+> selected, and adoption is growing.
+>
+> **What IS missing is the arrangement, not the capability, and that is a much cheaper gap:**
+>
+> | | |
+> |---|---|
+> | pages with an illustrated section | **9** |
+> | …`page_type='landing'` carrying **exactly one** (an accent) | **8** |
+> | …`page_type='content'` carrying one | **1** (idea.uk `/tools.html`) |
+> | …carrying **several** | **1** — apis.uk, and it was **hand-built**, pre-`644` |
+> | …`page_type` `blog-post` **or** `guide` | **0** |
+>
+> So the planner has learned to reach for an illustrated block **once, on a landing page**, and has
+> **never composed an article out of them**. **grip-styles is therefore asking the planner for
+> something it demonstrably can do, in an arrangement and on a page type it has not been asked for**
+> — a planning-behaviour question with a live and growing precedent to point at, not a missing
+> capability and not the estate-wide recomposition that "1 of 442" implies. It is still a first, so
+> the verification step stays; it is not the leap into the dark I first wrote down.
+>
+> **The transferable lesson, which cost a published diagnosis one lane over and a wrong emphasis
+> here: a count of a population says nothing about whether that population is GROWING.** Two
+> readings of one census an hour apart differed entirely on whether anyone had asked **when** the
+> rows were created — and the timestamps were in the same table the whole time.
 
 > **⚠ TWO THINGS THAT WILL MAKE THIS LOOK DONE WHEN IT IS NOT:**
 > 1. **Grade it with a `content_rewrite`, NOT a page re-render.** Only `reason=image_landed` and
