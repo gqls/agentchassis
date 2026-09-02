@@ -107,3 +107,15 @@ handed to copy_quality under the same ruling; offer_ordering re-derives via the 
 3. Copy layer with copy_quality (their stated order: their canary/verdict → the three specs →
    misdirected-CTA labels (52 fields; live-URL-dead-label class first) → body prose (~14
    sentences)). Their next contact: "when the specs supersede".
+
+---
+## UPDATE 2026-09-02 — decision 5 BUILT; decision 4's tail all closed
+Decision 5 is now **implemented** (WDS-020, commit `8f2bd18fb`, corr `1e735fa2` — watch
+doc_notes for the verdict): guards at both tool-chain heads, record-shape held filings,
+owner-request bypass; **inert until the next roll, no site holds until the owner sets one**
+(RUNBOOK "Growth posture"). Decision 4's three owed items: acceptance part 2 PASSED
+(21/21 still 404 after two days, zero resurrections); the homepage "stale footer" was a
+false positive (script assets under /tools/, not page links — NOTES 09-02); the copy layer
+remains with copy_quality per their stated order. Remaining for any next session: the
+1e735fa2 verdict (answer a REVISE if one comes), and after the next fleet roll an induced
+proof of the hold on one owner-named site.

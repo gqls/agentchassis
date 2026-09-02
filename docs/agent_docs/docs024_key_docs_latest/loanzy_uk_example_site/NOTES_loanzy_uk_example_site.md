@@ -2289,3 +2289,18 @@ artefact + status pair, treat `error` on a completed row as history, not state.
   validated against identity at the reader once the Go rolls). Also confirmed farmer's plan
   row carries the 670 override, so plan-driven regeneration is safe both before and after
   the roll. 421 (design-comp-served-as-logo) is theirs, split correctly from 417.
+
+## 2026-09-02 — acceptance part 2 PASSED; the "stale footer" was my own coarse grep; decision 5 BUILT
+- Cull acceptance part 2: after two days of refresh cycles, **21/21 retired urls still 404,
+  control 200, zero page_rerender rows for archived pages** — the cull holds.
+- Handoff owed-item 2 CLOSED AS FALSE POSITIVE: the homepage's "2 /tools/ refs" were
+  `/tools/assets/*.js` script assets (both live, 200) — my `grep -c '/tools/'` counted a
+  path PREFIX, not links to retired pages. Check refined: grep the retired URLS, not the
+  directory.
+- **Decision 5 BUILT (WDS-020):** growth_posture.go helper + guards at both tool-chain
+  heads; held rows born in the record shape with the release recipe on-row; owner-request
+  bypass; fail-open loudly. Tests green incl. the handler-coverage source-scan guard, which
+  correctly caught the newly-computed handler and got its declaration. Register row+entry,
+  RUNBOOK recipe, council corr `1e735fa2` (Council-Submitted), commit `8f2bd18fb`, HEAD
+  verified building. **Go inert until the next roll; no site holds until the owner sets
+  one** — the RUNBOOK's one-UPDATE recipe is ready when he names a site.
