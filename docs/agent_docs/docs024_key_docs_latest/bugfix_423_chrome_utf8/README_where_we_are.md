@@ -55,3 +55,43 @@ review council as the bit I most want argued rather than nodded through.
 **Not fixed yet, strictly speaking.** The code is written, tested and committed, but code
 on this system does nothing until a new image is built and rolled out. Until then both
 footers stay as they are, and Boxing Online keeps serving the hand-patched one.
+
+## 2026-09-02, later — it's fixed, it's live, and both sites are repaired
+
+The new build went out and carried the fix. I checked the running program itself rather
+than trusting the version number — the giveaway is that a line of text my change *deletes*
+is genuinely gone from the binary, which is harder to fake than the presence of something
+new.
+
+Then the real test. Garden Tools — the site nobody knew was broken — had had no footer
+stored at all since the 23rd of August. I asked the pipeline to rebuild its chrome and it
+worked: a footer, 2,427 bytes, stored cleanly. Boxing Online's followed a few minutes
+later, replacing the hand-patch, and it passes the delivery check that lane set: no contact
+block on the page, because that site has no email address on file.
+
+The detail I'd point at if you only read one line: **the page title that caused all this
+now renders with its long dash intact.** That matters because a footer that saved simply
+because the offending title had been quietly thrown away would have looked identical in
+every other respect. So the fix repaired the text rather than avoiding it.
+
+The bug is closed.
+
+**The part worth your attention is where I was wrong.** When the review board pushed back
+on my first attempt, they asked a fair question: how much damage could this change do?
+I went and measured it properly — seven pipelines use this piece of machinery, and none of
+them has anything to catch a failure. So I built a safety switch, defaulted to off.
+
+That was the wrong measurement, and it took two more rounds and a different reviewer to
+see it. Seven is *how many things are affected when the switch matters*. It says nothing
+about *how often the switch can matter*. The second number was one — a single row in the
+whole estate. I had built a safety switch protecting seven pipelines from a population of
+one, and in doing so I'd withheld a protection we'd already agreed we wanted.
+
+It survived that long because it looked rigorous. It had a real query and a real date
+attached, and everyone downstream — me included — treated that as proof it was the right
+question. It's written up in `016b` and in my own notes, because I don't think it's a
+one-off habit.
+
+Thank you for breaking the tie on the last one, by the way. Three reviewers had pushed in
+three different directions across four rounds, and that's exactly the situation our own
+notes say shouldn't be settled by going round again.
