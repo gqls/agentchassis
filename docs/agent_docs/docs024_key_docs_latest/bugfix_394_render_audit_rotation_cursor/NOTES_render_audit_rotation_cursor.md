@@ -821,3 +821,87 @@ shows the pre-existing function is there. The 08-30 key is also consistent with 
 `system.agent.generic.requests`) and read the cursor's `agent_type`. Old code → a `generic` row.
 New code → `render-audit-agent`. **Do it AFTER window 3 has run**, or it consumes the window the
 acceptance union needs.
+
+---
+
+## 2026-09-02 13:0x–13:2xZ — the acceptance arm PASSES, and the identity fix is confirmed live by a discriminating test
+
+### 1. Window 3 ran on schedule and CLEARED the cursor
+
+`[MEASURED 2026-09-02]` webdesign.co.uk, `render-audit-agent`, all cursor-mode rows:
+
+| when | window | audited | cleared |
+|---|---|---|---|
+| 08-27 12:01 | `index` → `tool-head-architect` | 60 | false |
+| 08-30 12:35 | `tool-html-minifier` → `tool-entropy-meter-guide` | 60 | false |
+| **09-02 13:09** | `tool-fluid-typography-guide` → **`tool-llm-cost-calculator`** | **37** | **true** |
+
+`tool-llm-cost-calculator` is `nav_order` 201 — the last page in the ordering. The final window is
+the remainder (37), and `cursor_cleared = true`. Afterwards the `render-audit-agent` cursor row was
+**gone from the table**: the `deleteAuditCursor` branch fired in production, on the scheduled path,
+unattended.
+
+### 2. THE ACCEPTANCE ARM PASSES — 151 of 151, zero missed
+
+`bugs_open/394` §2 asks: *"over consecutive rotation runs on webdesign.co.uk, the union of audited
+pages reaches all [of them] (verify by the audit's own durable page list, not the status)."*
+
+```sql
+WITH sched AS (SELECT context FROM agent_error_log
+   WHERE error_code='RENDER_AUDIT_TRUNCATED' AND domain='webdesign.co.uk'
+     AND agent_type='render-audit-agent' AND occurred_at >= '2026-08-27'
+     AND context->>'coverage_mode'='cursor'),
+u AS (SELECT DISTINCT p AS path FROM sched, jsonb_array_elements_text(context->'audited_paths') p)
+SELECT (SELECT count(*) FROM u) AS union_pages, (SELECT count(*) FROM sched) AS runs;
+```
+
+`[MEASURED 2026-09-02]` **union_pages = 151, runs = 3, pages_total = 151.**
+
+And graded the harder way — against the site rather than against itself:
+
+| live now | missed by the union | missed AND born mid-cycle |
+|---|---|---|
+| **151** | **0** | 0 |
+
+**Zero missed.** Not "151 sent" — 151 *distinct* pages, deduplicated, covering every live page on
+the site. The three priority pages ride every run and are counted once. The second acceptance arm
+is met too: the message no longer says "the SAME pages every run" in cursor mode.
+
+Recall what this replaced: the same first 60 pages, for ever, with 91 pages — including all 45
+`tool-*-guide` — that had never been audited and never would be.
+
+### 3. The identity fix is LIVE — settled by a test whose two outcomes were opposite
+
+The last handoff called this "strong evidence, NOT proof", because `faf4872ce` added no string
+literal and no binary probe can discriminate it. The cycle-clear created the perfect conditions:
+the `render-audit-agent` cursor was gone, and only my orphaned `generic` row survived at
+`(200, tool-entropy-meter-guide)`.
+
+**Prediction recorded before dispatch**, and the two hypotheses predicted *opposite* windows:
+
+| | window_first | cursor effect |
+|---|---|---|
+| fix LIVE (keyed on running agent) | `index` — a fresh window 1 | NEW row under `render-audit-agent` |
+| fix NOT live (keyed on `Sender`) | `tool-llm-cost-calculator` — the tail | reads and clears the `generic` row |
+
+`[MEASURED 2026-09-02 13:21Z]` result: `window_first = index`, 60 pages, `cursor_cleared = false`,
+and a **new row under `agent_type='render-audit-agent'`** at `(100, tool-head-architect)`. The
+`generic` row was neither read nor updated — its timestamp stayed at 2026-08-26 22:32:38.
+
+**The fix is live.** A hand dispatch over `system.agent.generic.requests` now keys the cursor on the
+RUNNING agent, so hand-runs and scheduled runs share one position, which is the whole point.
+
+That also made the `generic` row provably dead — nothing writes or reads that key any more — so I
+deleted it (`DELETE 1`). Recorded here because deleting a row is the sort of thing a later reader
+should be able to find the reason for.
+
+### 4. What remains, and why 394 stays OPEN
+
+The cursor half is **fixed, live and accepted**. The bug is not closeable, because the owner
+commissioned TWO things (decision 4, 2026-08-25) and the second is not driven:
+`cmd/config-key-audit --render-truncation` is built, tested, mutation-proven on four arms and
+recorded in `finding_code_registry.json` as the `consumed` reader — but **no CronJob runs it**.
+`kubectl get cronjob` shows no `render-truncation-check`. Until it is scheduled, the registry's
+`consumed` claim is true about the code and false about the estate, which is exactly the state
+`DBG-075` exists to prevent. The `/bugs_closed/` bar is "fixed AND live"; half of this is not yet
+live, so it stays in `/bugs_open/`.
