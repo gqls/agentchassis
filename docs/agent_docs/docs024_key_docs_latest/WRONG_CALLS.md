@@ -59082,3 +59082,42 @@ list had gone stale by addition — so the rule earned its keep twice in one tas
 
 Family: cite-the-arm-not-the-function, a-justification-in-an-evidence-column-reads-as-evidence,
 a-subagent-report-is-another-doc, an-objection-naming-one-file-is-naming-a-category.
+
+## 2026-09-02 (third, same session) — I tested rows against my PARAPHRASE of a predicate, not the predicate (bugfix_384 lane)
+
+**The claim.** A peer lane told me in prose that their promoter has doors: "pipeline IN
+('build','content','design'), handler registered+active, plus known-good doors". I built a query
+from that sentence — `EXISTS(SELECT 1 FROM agent_definitions WHERE type=handler_agent AND is_active…)`
+— ran it over the fleet, and reported: **1,386 `detected` rows across 35 sites, 100% failing the
+handler door, 0 failing anything else** ⇒ "the handler door parks the entire population by
+construction, because no detector populates the field it reads". I put it in `bugs_open/384` and
+sent it to the peer as an answer to their own open question.
+
+**What was wrong.** I never read the query. The real `pre_query` (94 lines) excludes handler-less
+rows **upstream of the doors**, in the `scored` CTE: `AND COALESCE(wi.handler_agent, '') <> ''`.
+Its `held` CTE says so in words — *"Flag-only rows (no handler_agent) are NOT here: they are
+excluded by `scored` itself, because `detected` is where they belong permanently."* Those rows are
+**flags**, records with no automated handler, and `detected` is their designed resting place. They
+do not fail the door; **they never reach it**. There was no bug, and I had told a peer there was.
+
+**The tell was in my own output and I walked past it.** A 100%/0% split across two predicates is not
+a finding about a filter — **a filter that refuses everything it sees, and one that is never
+evaluated, produce identical numbers.** A real door discriminates. **When one predicate explains
+100% of a population and every other explains 0%, suspect you have measured a DEFINITION, not a
+filter** — and go and read the definition.
+
+**What caught it.** The peer read their own query and refuted me. I then verified their quote at the
+source rather than accepting the retraction on report — which is the one thing I did right here, and
+it cost one query.
+
+**The cheap check I skipped.** Before testing rows against a predicate someone DESCRIBED, fetch the
+predicate: `SELECT pre_query FROM scheduled_tasks WHERE name ILIKE '%promot%'`. One query, ~90 lines,
+and it contained the answer in a comment. **A colleague's prose summary of a query is a hypothesis
+about that query.** Reconstructing a filter from a description and then measuring against the
+reconstruction tests my reading comprehension, not the system.
+
+**Cost.** A false finding sat in `bugs_open/384` for ~40 minutes and was sent to another lane as the
+answer to their open question; they spent a read refuting it. Retracted in both places.
+
+Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
+a-measurement-answers-the-question-you-encoded.
