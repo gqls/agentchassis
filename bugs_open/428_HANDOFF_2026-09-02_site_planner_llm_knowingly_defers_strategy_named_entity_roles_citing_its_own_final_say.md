@@ -132,12 +132,23 @@ dispatched into a build action**. The detector is not the missing piece; the con
 
 ## 5. What this is NOT
 
-- **Not `bugs_open/206`'s defect.** 206 is downstream: when a page IS planned with
-  `page_type='entity-directory'`/`'entity-page'`, nothing renders it with real data (the
-  `directory-listing` component has never shipped on a live page anywhere, `206` §"What is NOT
-  live"). This bug is upstream of that — the role is very often never planned in the first
-  place. Fixing this bug without also progressing 206 would just produce more zero-content
-  entity-directory pages; fixing 206 alone leaves this bug's 76%-omission rate untouched.
+- **Not `bugs_open/206`'s defect** — and a correction to this section, found 2026-09-02 while
+  answering a peer's question about this bug: the line originally here cited 206's **pre-fix**
+  2026-08-06 state ("the `directory-listing` component has never shipped on a live page
+  anywhere") as if still current. It is not — 206 itself records closure evidence dated
+  2026-08-08: `directory-build-handler` is live and proven (vetcomparison.uk's own
+  `directory-index` page serves 61 real practices, sourced from `business_intel`, via
+  `ensure_page_section_layout` + `queryresolve.resolveBusinessDirectory`). So a real builder for
+  `page_type='entity-directory'` now exists — this bug is still upstream of 206 (the role is
+  often never *planned*), but "no builder exists" is no longer the downstream blocker to name.
+  **The real downstream constraint, `[MEASURED 2026-09-02]`, is DATA, not mechanism**:
+  `business_intel.business_verticals` covers exactly three verticals (`veterinary`,
+  `online-pharmacy`, `seaweed-farming`). None of the sites in §3's sample — boxingonline's
+  fights, the recipe-library sites, the brand-directory sites, the FCA-broker-directory site —
+  has a matching vertical. `directory-build-handler` fixed the *mechanism* for the shape 206 was
+  filed against; it does not by itself give any of §3's sites something to populate a directory
+  *from*. That gap is `bugs_open/427`'s territory (no writer turns real-world facts into
+  structured, dated records), not 206's.
 - **Not a downstream code drop.** `d6d350ec` iteration 2 already established
   `write_site_plan_action.go`/`page_role_validator.go` neither rewrite nor discard these role
   names once the LLM emits them — that finding stands and is now explained: the LLM usually
@@ -165,8 +176,13 @@ dispatched into a build action**. The detector is not the missing piece; the con
    already parses the ugly form), but removes a real confound for the next thread that has to
    audit "did the model see X" — this filing needed a `llm_call_log` pull to answer that
    question; a clean prompt block would make it legible from the prompt text alone.
-4. **Sequence with `bugs_open/206`.** Whichever of (1)/(2) ships first should not be treated as
-   closing the loop until 206's builder gap is also addressed — see §5.
+4. **Sequence with `bugs_open/427`, not `206`** (corrected §5, 2026-09-02): 206's builder
+   mechanism is already fixed and live, but it only has data for three `business_intel`
+   verticals — none of §3's affected sites. Dispatching a deferred verdict for boxingonline,
+   a recipe site, or a brand-directory site (candidate 2) will hit an empty-data wall unless
+   427's populator gap closes first, or the specific site's data genuinely lives somewhere
+   `directory-build-handler` can already reach — check per-site before assuming dispatch alone
+   is sufficient.
 
 ## 7. How to verify a fix
 
