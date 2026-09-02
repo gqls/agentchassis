@@ -1837,3 +1837,23 @@ element" vs "every result row" are different jobs). (d) Consensus ranking: **pri
 hand; post-apply the 3-grey fix = one edit to tool-vet-comparison-vetcomparison-uk's
 html_template + rerender. (f) The colour-churn memory line was already corrected by another
 session (reference_values not a pin, owner 09-02) — no edit owed.
+
+## 2026-09-03 — OWNER RULINGS on the three design decisions, all routed
+
+**(1) ACCENT: USE the green deliberately** — routed to site design planner with the standing
+constraints (primary 0.44 headroom; accent-as-text consumes the served ink slots; normalise the
+latent AMBER #d97706 fallback while in there). **(2) IMAGERY: per-section illustration** — routed
+same message; vetcomparison becomes IMG-075's FIRST real exercise (per-section binding, shipped
+09-01, never executed), path = site_assets.illustration + site_plan_imagery scope='section' (NOT
+source:image, which IMG-074 aliases to the hero); imagery rules already in design_intent (08-24:
+photographic white/teal, no close-up generated faces). Both WRITE phases still behind 357's 701
+(pilot green; remainder awaits the owner's hand). **(3) DEADLINE CALCULATOR: build FULLY WIRED**
+— standing review item e30dc7b9 (open since 07-17) answered with the ruling and completed; HARD
+RAIL restated on the item: relative periods only from a user-entered Order date, never a
+calendar date of its own. Build path question sent to webdesign-tool-rebuilds (the TL-04x
+owners): this site's two live tools (built 08-18/19, single ~16KB component each) show NO
+add_tool items in the window — unknown path; and TL-043's deploy gate REFUSES a site with zero
+evidence_base facts, which vetcomparison currently has (no current evidence_base site_specs row)
+— so the calculator likely needs an evidence_base seeded (the CMA relative periods, sourced)
+before any add_tool item. Awaiting their answer before dispatching anything. The calculator is
+its OWN page — independent of the 701 freeze.
