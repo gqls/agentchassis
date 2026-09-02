@@ -6772,6 +6772,39 @@ of a 60-call sample dropped a strategy-named role, 2026-09-02) · `bugs_open/206
 builder gap, a different mechanism on the same symptom) · `a-doc-comment-is-not-an-enforcement-mechanism`
 (adjacent: a policy stated in prose without a structural check).
 
+### A sibling of a shared helper's callers can quietly diverge, and only one of them is ever load-bearing enough to notice (`bugs_open/431`, 2026-09-02)
+
+`site-design-planner` resolves a site's composition through four sibling actions
+(layout / typography / palette / install). Three of them read classification+identity
+data through one shared function, `readClassificationFromContext`, which derives
+`industry_tags` from `identity.industry`/`sub_industry` when the classifier's own
+output has neither field. The fourth — the layout resolver, the one action whose
+output is a hard categorical choice rather than a blend — had its own private,
+narrower reimplementation with no such fallback, and nobody had noticed for months.
+
+**Why it went unnoticed.** For any site whose classifier output already carried
+`category`/`industry_tags`, both implementations produced identical results — the
+divergence was invisible on the happy path, which is most sites. It only showed up
+on sites whose classification spec used an older/different shape (no `category`
+field, no `industry_tags` field at all — not merely empty). For those, the weaker
+function returned zero signal, and the layout matcher's own honest-failure design
+(fall back to a generic layout, file a `needs_human_review` item rather than guess)
+absorbed the damage silently: no error, no crash, just a correct-looking generic
+default and a queue item that read as "library is missing a layout" when the real
+story was "this one caller never saw the data the other three already knew how to
+find."
+
+**The check.** When N sibling actions share a common upstream shape (a spec aspect,
+a resolver, a classifier output) but one of them reimplements its own extraction
+instead of calling the shared helper the others use, diff the two implementations
+line by line rather than trusting that "it's basically the same." A private
+reimplementation with a narrower fallback set is not a stylistic variant — it is a
+capability gap that only fires on the input shape the majority case never exercises,
+which is exactly the input shape most likely to be under-tested.
+
+**Related:** `bugs_open/113` (same mechanism family — a different composition-resolver
+defect, palette merge rather than layout pick, on the same site).
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
