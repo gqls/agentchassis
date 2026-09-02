@@ -7211,3 +7211,31 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   comp, uniform near-black ground; corners (10,16,16)-(12,20,18) vs #0a0a0a —
   the model approximates hex; near-invisible seam on the header; caveat
   recorded; 424 stays the real fix.
+
+## 2026-09-02 (~13:5xZ) — the GUIDES EXPERIMENT ANSWERED; my council REVISE was right at TWO artefacts; endpoint fixed
+
+- **Build-path experiment (item bccedf9c): DEFINITIVE — the build RE-RESOLVES.**
+  The four hand-written guides were overwritten (content_data back to 6 articles/
+  0 guides); rendered_html restored (4,304B — page healthy). Controlled proof:
+  NO pre-roll path holds guide items in a query-resolved listing; the resolver
+  vocabulary (query.guide_pages + instance pointing, Go, roll-bound) is the
+  entire fix. guides-index serves the articles listing meanwhile — honest state,
+  relayed to the owner via the peer, with the tool-page-links bridge question
+  put BACK to him (the question he answered has changed). **683 now CLEAR on
+  this site** (no hand-written data at risk). Home slot reclassified in both
+  lanes' records: "currently correct, for a reason that is not the fix" —
+  desire coincided with vocabulary; the discriminating case never ran there.
+- **Council 9f1cb042 round 1 = REVISE (gating), and the objection was RIGHT
+  twice**: (1) the loader has NO pipeline default and build-dispatch-loop's
+  config sets no item_pipeline — my triaged+empty-handler owner_critique WOULD
+  have been cluster-claimed; (2) better: the schema REFUSES the shipped shape
+  outright (CHECK swi_no_handlerless_promotable forbids empty handler at
+  triaged/approved/claimed) — discovered when MY OWN CANARY was rejected — so
+  the rolled endpoint 500s on first use and never filed a bad row. My
+  'not cluster-routed by design' was an unverified inference; the council
+  caught it before the owner ever pressed the button. **Fix committed
+  (f062b8ec3, same trail): status='needs_human_review' + approval_mode='manual'**
+  — outside the loader's status set, outside the constraint, semantically
+  exact. Fixed-shape canary 1c099803 planted 13:47:28; measure unclaimed after
+  2-3 dispatch cycles, then resubmit RESUBMIT_CORR=9f1cb042 with: the loader
+  WHERE quote, the loop config quote, the constraint def, and the canary.
