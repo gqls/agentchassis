@@ -1,5 +1,36 @@
 # 004 — Improvement Loop
 
+> **⚠ CORRECTED 2026-09-02 (improvement_loop lane) — TWO PARTS OF THIS DOCUMENT ARE
+> SUPERSEDED. Read this box before the flow diagram.**
+>
+> **1. The 3-pass audit cap described below NO LONGER EXISTS.** Migration
+> `291_improvement_loop_convergence_gate_replaces_pass_cap.sql` replaced it on
+> 2026-08-02 (`bugs_open/171`). The live workflow gates on a **site fingerprint**
+> (rendered page components + composed palette + chrome) plus a **14-day cooldown**:
+> the audit chain runs when the fingerprint changed or the cooldown expired, and
+> **promotion now runs on EVERY path**, including the skipped one. Three audits at an
+> unchanged fingerprint means fixes are not landing, so the loop stops spending there
+> and files one deferred `capability_gap` row instead of reporting clean. The live
+> steps are `load_audit_state` / `check_audit_due` / `check_not_converging`; the
+> `load_pass_count` / `check_audit_pass_limit` / `increment_audit_pass` steps shown
+> below are gone. `get_audit_pass_count` and `increment_audit_pass` remain *defined*
+> in the database as history — do not read their existence as evidence the cap runs.
+>
+> **2. This document is silent on the ROUTABILITY GUARD, which is now the most
+> consequential thing triage does.** Since `bugs_closed/284`, step 7 will not promote a
+> finding whose `handler_agent` is empty, because the dispatcher would only stamp it
+> `blocked`. Such findings are deliberate — flag-only observations nothing automated can
+> act on — and the step reports how many it held back, in `triage_result.not_promotable`
+> and `not_promotable_by_type`.
+>
+> ⚠ **Consequence, and the live open problem:** a held-back finding stays at
+> `status='detected'`, which nothing else reads — `detected-item-promoter` excludes it
+> by design — so **`complete_clean` does not mean the site is clean.** It is also the
+> terminus for a skipped audit and for a site whose entire pile was held back.
+> `[MEASURED 2026-09-02]` 1,385 such findings stand across 31 sites, oldest 2026-07-26.
+> Owning lane, evidence and plan:
+> `docs/agent_docs/docs024_key_docs_latest/improvement_loop/`.
+
 Post-build quality improvement cycle. Runs discovery agents (algorithmic), audit agents (LLM-based), triages findings, dispatches fixes, and rerenders.
 
 **v4 changes (2026-03-31):** Orphan page detection, blog listing rebuild in rerender pipeline, content writer chrome fix, lock types with expiry, audit pass auto-reset, HITL direction integration, adopted site handling.
@@ -15,9 +46,11 @@ improvement-loop (orchestrator)
   │
   ├── 1. ensure_site_record
   │
-  ├── 1b. load_pass_count → check_audit_pass_limit
-  │     └── if pass_count >= 3 → notify_scheduler_clean → complete_clean
-  │         (site has reached max audit passes — no agents spawned)
+  ├── 1b. [SUPERSEDED by mig 291 — see the correction box at the top of this file]
+  │     load_audit_state → check_audit_due → check_not_converging
+  │     └── fingerprint unchanged AND cooldown unexpired → skip the audit chain,
+  │         but JUMP TO triage_findings (7) — promotion runs on every path
+  │     └── 3 audits at an unchanged fingerprint → file one deferred capability_gap
   │
   ├── 2. quality-discovery-agent (algorithmic)
   │     └── broken_nav_links, placeholder_contact, generic_theme
@@ -48,8 +81,10 @@ improvement-loop (orchestrator)
   │           READS direction spec for human-requested features
   │
   ├── 7. triage_detected_items → promote detected → triaged
+  │     ⚠ ROUTABILITY GUARD (284): a finding with no handler_agent is NOT promoted
+  │       and stays at `detected` for ever — counted in triage_result.not_promotable
   │
-  ├── 7b. increment_audit_pass (tracks pass count in sites.settings)
+  ├── 7b. record_audit_pass (mig 291; ~~increment_audit_pass~~ — the pass cap is gone)
   │
   ├── 8. check_has_findings → if none, complete_clean
   │
@@ -112,7 +147,13 @@ AND (locked_at IS NULL OR (lock_expires_at IS NOT NULL AND lock_expires_at < NOW
 
 When a `review` lock expires, a discovery check creates a `needs_lock_review` work item → HITL decides: re-lock, release, or update. If no human response within configurable period, system can auto-release (per-site config).
 
-### 3. Audit Pass Cap
+### 3. Audit Pass Cap — ⚠ SUPERSEDED 2026-08-02 by migration 291, retained as history
+
+> Everything in this subsection describes the mechanism that was REMOVED. The
+> replacement is the convergence gate; see the correction box at the top of this
+> file. It is kept because the *reasoning* below — why unbounded audit passes were
+> too expensive — is still the reason the convergence gate exists.
+
 
 Sites track `audit_pass_count` in `sites.settings.maintenance_profile`.
 
