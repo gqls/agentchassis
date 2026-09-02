@@ -73,11 +73,20 @@ diagnosis `fe4b8537`, components lane).
    longer blocking. Full trail: webdesign NOTES 17:1x-17:3x entries. The
    standing warnings hold: never retype pages to fix listings; never
    hand-write items into a resolved array (reverts on any build).
-5. **Contact 404 half** — pinned to `bugs_open/429` (the b2worker mirror cannot
-   unpublish; fix candidate 1 is deletion propagation with served-404 acceptance).
-   The LINK half is closed 20/20 on two sessions' tables. The orphan serves 200
-   to direct navigation only, unlinked, unsitemapped, chrome frozen pre-rebuild
-   (the discriminating observation in 429).
+5. **Contact 404 half** — pinned to `bugs_open/429`, now OWNED (owner-routed,
+   session `bugs_open/429`) and **FIX COMMITTED 2026-09-02 evening
+   (`b60d66e3c`, Council-Submitted b576bcc6, verdict pending) — INERT UNTIL THE
+   NEXT CHASSIS ROLL.** Ships: destination sweep with bulk floor (>20 AND >50%
+   refuse; `allow_bulk_unpublish` opt-in the only override) + deleted-404/
+   kept-200 acceptance pair + th1→th2. **Post-roll expectation, so the watch is
+   not misread: ONE full republish per opted-in site on its normal rotation
+   slot** — boxingonline's publish result should show published:true,
+   deleted:1 (contact.html) — then no-drift again. ⚠ New flip-side landmine in
+   their commit: anything hand-placed under a *.ugg2.com prefix is swept on
+   next drift. The LINK half is closed 20/20 on two sessions' tables; the
+   orphan serves 200 to direct navigation only, unlinked, unsitemapped, chrome
+   frozen pre-rebuild (the discriminating observation in 429). Their pings:
+   roll landed, then contact.html 404 verified → strike this item.
 6. **Owner decisions still open**: guide reachability bridge (he chose
    guides-index; it provably can't hold guides pre-roll — the boxingonline
    session put the changed question back to him) · the 1b form-endpoint PRE-PLAN

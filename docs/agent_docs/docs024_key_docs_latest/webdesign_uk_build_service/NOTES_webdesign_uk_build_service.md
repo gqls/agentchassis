@@ -7641,3 +7641,12 @@ end. **Guards must NEST: inner × period < outer.**
   tail, so the cut is unaffected either way. The rule that survives: no zip link
   recorded anywhere before the cut. Their design → adversarial review → council;
   two pings still owed.
+
+- **429 fix COMMITTED (~18:4xZ heads-up): b60d66e3c, Council-Submitted b576bcc6
+  (verdict pending), INERT until the next chassis roll.** As agreed + both
+  refinements; th1→th2 aboard. **Post-roll watch discipline: ONE full republish
+  per opted-in site on its normal slot is the CONVERGENCE, not an anomaly** —
+  boxingonline's result should read published:true, deleted:1 (contact.html),
+  then no-drift. Flip-side landmine in their commit: hand-placed objects under
+  *.ugg2.com prefixes are swept on next drift (no exposure here — framework-only
+  ruling already forbids hand-placing). Handoff §1.5 updated in place.
