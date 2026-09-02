@@ -2525,3 +2525,160 @@ fair objection if a seat disagrees.
 - Councils `c08d263a` (Go) and `fb31e95e` (config) are **submitted, not read**. A
   `Council-Submitted:` trailer is a submission, never a verdict.
 - 685 is committed and **not applied**. Nothing in the config half is live.
+
+---
+
+## 2026-09-02 (evening) — the roll landed, and the fix is PROVEN LIVE at the binary
+
+Owner deployed a fresh chassis build. **`v1.0.1354`, both replicas** (`agent-chassis-744cfb4bf-mwzgx`
+started 15:53:18Z, `-wchwh` 15:39:42Z).
+
+### How it was verified — capability, not commit, with controls on both arms
+
+The `build provenance` startup line had already **scrolled out of `--tail=3000`**, which is
+normal on this service and means *"not in range"*, **never** *"unstamped"*. So the binary
+was probed directly — and probed for the **capability**, not for a commit sha, because the
+binary stamps the commit it was BUILT from, not every commit it contains. Grepping for
+`326370d6c` would read absent even on a correct build made from a later commit.
+
+The change is ideal for a two-armed probe because it **removes a literal** from a compiled
+query string. First confirmed no Go source outside comments still carries it (comments do
+not compile in), then, **on BOTH replicas**:
+
+| arm | needle | expect | got |
+|---|---|---|---|
+| 1 | `human_approved_at IS NOT NULL` | **absent** (stamp gone) | `0` ✅ |
+| 2 | `ADVISORY: recorded, not fatal` | **absent** (rail no longer advisory) | `0` ✅ |
+| 3 | `words/sentence, longest` | **present** (new fatal-rail message) | `1` ✅ |
+| 4 | `publish_on IS NOT NULL` | **present** — POSITIVE CONTROL, same query, untouched | `1` ✅ |
+| 5 | `zzz_string_that_cannot_exist` | **absent** — NEGATIVE CONTROL | `0` ✅ |
+
+**Arm 4 is what makes arms 1–2 mean anything.** Without a needle that MUST be present, a
+zero is indistinguishable from a broken grep, a wrong path, or a `2>/dev/null` swallowing
+an error — the exact failure this estate has recorded three times. Arm 5 proves the grep
+can still return zero, so arm 4 is not matching everything.
+
+`grep -ac` on `/proc/1/exe`, never `strings` (absent from the debian-slim images, and its
+failure behind the customary `2>/dev/null` is indistinguishable from "not stamped"). Both
+replicas checked, because `logs deploy/X` and a single-pod probe read one pod of N.
+
+**Conclusion: both halves of `326370d6c` are live on both replicas.** The stamp is gone
+from the publish path and the readability rail is fatal.
+
+### What that unblocks, and what it does NOT
+
+`685_HOLD`'s guard keys on `gate_verdict->>'gate_version' = '3'`, and **the roll alone does
+not satisfy it** — a row has to be gated by the new binary before the version appears. That
+is the guard working as designed: it asserts the new code *ran*, not that a release
+happened.
+
+So the attended generator run was dispatched (§16f step 2), on
+`system.agent.generic.requests`, agent_type `provocation-generator-manual`, payload
+`{"domain":"vonc.com"}` — published via `kafka_publish_checked` with an **asserted
+receipt** (`PUBLISH_RC=0`), not a hopeful `kcat -P`, which exits 0 having sent nothing.
+
+⚠ **Expect latency, and do NOT retry on silence.** Publish→run-start has been measured at
+~29 minutes under normal fleet load. A missing `orchestration_states` row is the documented
+signature of ordinary queueing, and a duplicate dispatch costs a whole round.
+
+### 685 APPLIED 2026-09-02 ~16:36Z — and the pipeline drove itself within a minute
+
+The ordering guard **passed rather than being bypassed**, which is the whole point of
+building it that way: `gate_version 3` was present because the attended run had already
+gated 4 rows. Verify block printed
+`2 tasks enabled, max_assign=14, inventory=6, pre_query returned 1 row(s) as expected` —
+and that pre-query figure came from **running** the statement, not from checking it exists.
+
+Renamed off `_HOLD` and `--record-only`'d back to back (the runner refuses `--record-only`
+on a sidecar; the gap between rename and record is `bugs_open/007` Class C).
+
+**Both new tasks fired within 30 seconds of insertion**, and the result is the first
+end-to-end proof the pipeline is self-driving:
+
+```
+provocation-shelf-refill  triggered 16:36:17   -> generated + gated 4 more (all v3)
+provocation-date-assign   triggered 16:36:47   -> dated 6, through 2026-09-08
+```
+
+| publish_on | title | gate_version |
+|---|---|---|
+| 2026-09-03 | A messy desk means you are getting things done | 2 |
+| 2026-09-04 | Umbrellas are not worth carrying | 2 |
+| 2026-09-05 | Naps steal from your night, not your day | **3** |
+| 2026-09-06 | A watch is jewellery now, not a tool | **3** |
+| 2026-09-07 | School reunions ruin the memory, not save it | **3** |
+| 2026-09-08 | Birthday parties are for parents, not children | **3** |
+
+Plus **4 more approved and undated**, all v3, awaiting the next daily dating tick. The
+eleven-day stall is over. **The site still serves 22 Aug today** — `selectForDate` takes
+the latest entry whose date has ARRIVED, and the earliest queued is tomorrow. That is
+the ≥1-day buffer working, not a fault.
+
+### Proving the rail BITES — an all-pass run is inconclusive, not green
+
+The attended run returned **4 of 4 approved**, and their reasons carry only `one_sided`
+and `advisory_scores` — no rail note at all. That proves the new binary ran; it does
+**not** prove the fatal path fires. My own runbook says to treat that as inconclusive.
+
+So it was **induced** on the isolation domain `calibration.vonc.com`, using a real
+pre-rail body copied by `INSERT…SELECT` — never hand-composed, because this lane's
+2026-08-05 `WRONG_CALLS` entry is exactly the failure of writing fixture prose and then
+testing it for the property you wrote into it:
+
+```
+status   = rejected
+gate_ver = 3
+reason   = {"rule":"hard_to_read","fatal":true,"layer":"form",
+            "detail":"grade 10.7, 16.4 words/sentence, longest 19 — …"}
+```
+
+**Same text, same numbers the unit test sees.** Both arms now hold in production: real
+candidates pass, real pre-rail prose is refused.
+
+### Council `fb31e95e` (config half): APPROVED — and two objections were RIGHT
+
+`unreadable: 0`, `gated_by_truncation: false`, `reviewers 10 + abstained 7 = 17`.
+
+**1. `editquality` (medium) — CORRECT, and it found something the guard cannot see.** The
+ordering guard proves the new binary is live; it says nothing about rows **already
+`approved` under the advisory rail**. Two such rows (`gate_version 2`) are dated 03 and
+04 Sep and *will* publish without ever having faced the fatal rail.
+
+Tested rather than argued: both were re-staged on the isolation domain and judged by the
+live fatal gate. **Both come back `approved`, no `hard_to_read`.** So the backlog is clean
+and no action is needed — but the seat identified a real structural gap in my guard, and
+if that batch had been written before 08-12 the answer could easily have gone the other
+way.
+
+**2. `guardian` + `debug_historian` (medium) — CORRECT, and MY CLAIM WAS FALSE.**
+I wrote in the submission that the two tasks "share a `concurrency_group` … so a slow
+generation run cannot overlap dating." **That is not true on this estate.**
+
+`cmd/scheduler/main.go` stamps `last_triggered_at` AND `last_completed_at` at FIRE time,
+and `countInFlightByGroup` only counts a task where
+`last_completed_at IS NULL OR last_completed_at < last_triggered_at`. Measured on the live
+rows immediately after they fired:
+
+```
+provocation-date-assign  triggered=16:36:47.784843  completed=16:36:47.784843  same=true
+provocation-shelf-refill triggered=16:36:17.713612  completed=16:36:17.713612  same=true
+```
+
+**Both timestamps identical ⇒ neither task is ever "in flight" ⇒ the concurrency_group is
+INERT.** It is not protecting anything.
+
+Consequence is small but the claim must not stand: the refill runs every 12h and takes
+~2 minutes, and `generate_provocations` inserts `ON CONFLICT DO NOTHING` on
+`(domain, slug)`, so a genuine overlap would not duplicate. **Nobody should rely on the
+group, and nothing in 685 does** — the column is set but the false claim lived only in the
+submission JSON, which is a historical record and correctly not edited.
+
+**3. `guardian` (medium) — duplicate active agent rows.** Discharged by measurement: **1
+active row per type**, and both rewritten descriptions are on the loaded row. 685's own
+guard asserted `n_agent = 1` for both types *before* updating, so the landmine's scenario
+could not have applied silently.
+
+**4. `reuse_agent` (low) — the demand-driven pre-query idiom already exists** on other
+`scheduled_tasks` rows (`content-feed-refresh`, `site-discovery-rotation-*`). Fair; the
+pattern was reinvented rather than borrowed. No rework, but worth knowing it is a house
+idiom, not a novelty.

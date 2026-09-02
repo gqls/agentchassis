@@ -1,5 +1,11 @@
 # HANDOFF — provocation pipeline, 2026-09-02 — COLD START
 
+> ## ⇢ SUPERSEDED the same day by `HANDOFF_2026-09-02b_live_and_self_driving.md`
+> This file was written while the change was still waiting on a fleet roll. The roll
+> landed (v1.0.1354), `685` is applied, the schedules are running and six days are
+> queued. **Its "THE ONE THING THAT NEEDS A HUMAN" section is DONE.** Kept for the
+> trail — read the 09-02b file instead.
+
 **Supersedes `HANDOFF_2026-08-10b_the_generator_works.md` and the 08-12 delta on it.**
 
 ## In one line

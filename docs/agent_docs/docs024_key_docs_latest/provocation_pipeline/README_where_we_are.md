@@ -1267,3 +1267,94 @@ Still showing 22 August, and it will keep doing that until the rebuild. The earl
 anything new can appear is the day after the timers go on, because the scheduler never
 dates anything for today — there is always at least a day between something being written
 and being served, which is also your window to bin one you dislike.
+
+---
+
+## 2026-09-02, evening — the rebuild landed, and I checked it properly rather than taking the word for it
+
+You deployed a fresh build. Both machines are running it, and **both of my changes are
+genuinely in there.** I want to say how I know, because "a deploy happened" and "my change
+is running" are different claims and this project has been caught out by the gap before.
+
+The service normally announces which version of the code it is on when it starts up, but
+that announcement had already scrolled off — it is a busy service. So instead I asked the
+running program directly, twice over, on both machines.
+
+The trick is that my change **removes** a phrase from the program. So I checked that the
+phrase is gone — but that on its own proves nothing, because a search that is broken also
+finds nothing. So I checked in the same breath that a **neighbouring phrase I did not
+touch is still there**. It is. And a made-up phrase that could never exist comes back
+empty, which proves the search can still say no.
+
+Gone: the check for your sign-off, and the word "advisory" on the readability rail. Still
+there: its untouched neighbour, and the new wording the stricter rail uses. **Both changes
+are live on both machines.**
+
+### What I have just set running
+
+The timers are still held back, on purpose, and the lock I built will not release them
+until it can see that the new stricter rules have actually **judged** something — not just
+that a rebuild happened. That is the difference between "the new code is installed" and
+"the new code ran", and only the second one is safe to act on.
+
+So I have started one writer run and I am watching it. It is producing candidates now.
+What I am looking for is two things together: proof the new code judged them, and at least
+one piece **rejected** for being hard to read. The first without the second would only tell
+me the new code is present, not that the stricter rule actually bites.
+
+If a batch happens to be entirely well-written, that run tells me nothing conclusive and I
+will run it again rather than record a pass I did not see.
+
+### Where that leaves things
+
+The site is still showing 22 August and will until the timers go on. Once they do, the
+earliest anything new can appear is the following day — the scheduler never dates anything
+for today, which is deliberate and is also your window to bin one you do not like.
+
+---
+
+## 2026-09-02, later — it is running on its own, and there is a week of material queued
+
+It is done. The lock released, the timers went on, and **within a minute both of them had
+run by themselves** — one wrote four new provocations, the other put dates on six.
+
+The site now has something different to say every day from **3 September to 8 September**,
+with **four more written and waiting** behind them for the next batch of dates. Nothing in
+that sequence needed me or you.
+
+**Today it still shows 22 August**, and that is correct rather than a fault. Nothing is
+ever dated for the same day it is written — the earliest is always tomorrow. That gap is
+deliberate: it is the window in which one can be thrown out before anyone sees it.
+
+### The check I did that I nearly did not
+
+The writer's run produced four pieces and the stricter readability rule accepted all four.
+That is a good result, but it does **not** prove the rule can refuse anything — a rule that
+is broken and a rule that had nothing to object to look identical from the outside.
+
+So I tested it properly. I took a real piece of our older writing — the dense kind you
+objected to — and put it through the live system on a separate test address. It came back
+**refused**, with the reason spelled out: sentences averaging 16.4 words against a limit of
+15, and 18% long words against a limit of 12%.
+
+So both halves are now proven on the live system: good writing gets through, and the
+writing you called almost unreadable does not.
+
+### Two things the reviewers caught that I had got wrong or had not checked
+
+The review board approved both halves, but two of its objections were right and I want
+them on the record rather than buried.
+
+**One was a claim of mine that was simply false.** I had said the two timers were set up so
+they could never run at the same time. They are not — I checked the mechanism after the
+reviewer questioned it, and the setting I relied on does nothing at all on this system. It
+turns out not to matter much here (the writer takes about two minutes and duplicates are
+refused anyway), but I had stated it as fact without testing it, and that is the kind of
+thing that gets believed later.
+
+**The other was something my safety lock genuinely could not see.** The lock makes sure new
+writing faces the stricter rule. It says nothing about the two pieces that were already
+approved under the old lenient rule and are dated for tomorrow and the day after. A
+reviewer spotted that. I put both through the strict rule on the test address: **both
+pass.** So nothing needs pulling — but the gap was real, and if that batch had been older
+writing the answer could easily have been different.
