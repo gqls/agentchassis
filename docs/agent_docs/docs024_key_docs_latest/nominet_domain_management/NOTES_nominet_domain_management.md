@@ -221,7 +221,13 @@ away by a `set()`. Exact expiry DATES would need `domain:info` per domain
 (~1,500 calls); the month is what the walk yields and is the offer unless
 valuation needs better. **ANSWERED same evening: month precision is
 SUFFICIENT (valuation session, 2026-09-02) — expiry only feeds a renewal-cost
-column. The per-domain enrichment loop is DO-NOT-BUILD.** Told them the three retail-registrar inventories
+column. The per-domain enrichment loop is DO-NOT-BUILD.**
+
+**SECOND CONSUMER (same evening): the sedo lane** — building the owner's Sedo
+bulk-import sheet, needs the names only. Same deliverable, same location
+(`domain_valuation/inbound/nominet_domains_<date>.csv`); on commit, message
+BOTH "domain valuation" and "sedo". Two consumers now depend on the column
+shape `domain,expiry_month` — a format change needs both told. Told them the three retail-registrar inventories
 (Dynadot 451 mostly-.com / Porkbun 683 / Spaceship 203, all measured 09-02)
 live in the domains_cloudflare_rollout lane with proven read clients — .com
 being in scope makes those their next asks, not ours.
