@@ -125,6 +125,13 @@ not appear once in 31 compositions. This is the discriminating measurement: the 
 is not "the rung is hard to reach", it is "the rung has never been taken, and the code
 path that would record it having been taken has no rows".
 
+> **This table is the BASELINE as at 2026-09-02 17:1xZ, and it has since moved — by
+> one, deliberately.** §6a's test seeded `mission.preferred_palette` by hand and the
+> next composition resolved `mission_hint`, taking the count 0 → 1. The zero above is
+> preserved as the pre-test state because it is what made the test meaningful; do not
+> re-read it as current. Current: `design_intent_values` 30, `archetype_default` 1,
+> `mission_hint` 1.
+
 ## 3a. The bug has a DEMAND CONTROL — it writes an error row on every fresh submit
 
 Credit: `gamedesign.uk` lane, who noticed the trace; counts verified here.
@@ -250,7 +257,60 @@ turned out to be right for a *different* reason than given. Both the original wa
 and the original reassurance were sound conclusions from unsound mechanisms. Check
 which writer touches the row, not whether something "overwrites".
 
-## 6a. A live test of this bug is IN FLIGHT — read its result before acting
+## 6a. RESOLVED 2026-09-02 17:38Z — the test ran and the diagnosis HOLDS
+
+**`palette_source = mission_hint`.** Rung 1 fired, for the first time in the estate's
+history. Verified independently of the reporting lane:
+
+```
+palette_source | layout_source |    layout     |            palette
+---------------+---------------+---------------+--------------------------------
+ mission_hint  | library_match | magazine-grid | palette-gamedesign-uk-a6a70287
+```
+
+**Doubly discriminated — the string AND the hex agree, and either alone would have
+been weaker.** The landed palette row is `#F4F1EA` / `#A6521F` / `#33302B`: the
+hand-seeded `mission.preferred_palette` values byte-for-byte. The classifier's rung-2
+`design_intent` values, which sat two hex steps away (`#F5F0E8` / `#9B4E2A`), are NOT
+what landed. So even if the lineage string were untrustworthy, the colours prove which
+rung won.
+
+Fleet baseline moved for the first time: `design_intent_values` 30, `archetype_default`
+1, **`mission_hint` 1** — and that 1 is this test.
+
+**What this settles:** rung 1 is not broken, unreachable-by-design, or misreading its
+input. It reads aspect `mission` exactly as the code says. It has never fired because
+**nothing has ever put anything there** — which is §2's mechanism, confirmed. The
+alternative outcome (rung 2 winning with a populated `mission` row present) would have
+meant the mechanism was wrong and this file needed reopening. It did not happen.
+
+**Fix candidates are therefore safe to act on** — the diagnosis they rest on is
+confirmed. §6's corrected guidance (keep the merging writer) still applies.
+
+### 6a-bis. The same defect one aspect over — layout preference did NOT survive
+
+Worth recording because it generalises this bug rather than repeating it. The seeding
+lane also set `design_intent.layout_preference = "soft-editorial"`. The composition
+chose **`magazine-grid`** instead, via `library_match` on tags — because
+`layout_preference` lived in the `design_intent` row that the classifier **superseded**
+at 17:11:32Z. The tag matcher was left with only `style_direction` prose and picked a
+same-category neighbour (both are `editorial`; `magazine-grid` has an empty `scheme`,
+so the light/dark constraint did not bind either).
+
+Under the 2026-09-02 ruling that is the planner exercising legitimate authority, not a
+defect. But the *reason* the preference vanished is this file's argument one aspect
+over: **a seeded value in `design_intent` is not durable, because a later writer
+supersedes the whole row.** Palette survived only because it was seeded into `mission`,
+which nothing writes. So:
+
+- The `locked`-key argument (§6) is not palette-specific. Any seeded design preference
+  that must outlive a classifier pass needs either an aspect nothing overwrites, or an
+  in-data key a merging writer carries forward.
+- Anyone fixing this bug by making `mission` writable should note they would be
+  removing the ONE aspect that currently has that property, which is what made this
+  test possible at all.
+
+## 6b. (superseded) The test as it was framed before it ran
 
 `gamedesign.uk` is building right now (dispatched 17:07:55Z, corr
 `f07313f6-976c-4593-9e5e-44892008fb74`) and is the first site in the estate's history
