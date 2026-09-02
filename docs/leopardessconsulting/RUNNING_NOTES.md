@@ -3665,3 +3665,39 @@ The after-leg chain is UNBLOCKED: restore max_images 16 (next migration), fire
 - ⚠ Open question for a later pass: item `e543ba1f` reads `complete` on a failed run — if
   bugs 287's fix was meant to stop spawn-record results on THIS path, that fix has a gap;
   check 287's covered producers before filing anything.
+
+### 2026-09-02, ~17:45Z — the after-leg REPORT EXISTS and every 1c check passed
+
+- **Rerun (item `7d82be2e`) completed the full chain**: claimed 17:41:59Z, report in
+  `doc_notes` at **17:44:03Z** (id `45fa7cb3`, categories `['design-report']`) — the SECOND
+  production report. The audit fit comfortably inside the new 600s window this time.
+- **`images_downscaled: 9`** — the downscale wiring's FIRST live production exercise: 9 of 16
+  captures exceeded the 7900px long edge and were scaled (9 matching
+  `downscaleVisionImage: image scaled for provider limits` lines in pod
+  `agent-design-critique-agent-88f1113c-4rn59`); 7 passed through untouched. The handoff's
+  stop-condition (0 on known-tall captures) did NOT fire.
+- **`llm_call_log` 17:44:02Z: model_resolved claude-sonnet-5, `max_tokens 16000`, success=t,
+  latency 25.9s** — mig 704 was live in the call (the two 08-27 rows alongside it show the
+  failed 6000-era calls for contrast). ⚠ `input_tokens`/`output_tokens` are **NULL on this
+  logging path** for this agent, so the adaptive-thinking landmine's "read output_tokens
+  against the cap" is not satisfiable from the table; truncation checked at the artefact
+  instead — the report is well-formed and ends complete (~5.5KB, nowhere near the cap).
+- **DISCRIMINATION READ: PASSED.** Before (08-26, Gemini leg): lead finding = "the exact same
+  network-node geometric hero graphic across almost every page". After (09-02, Claude leg,
+  16 images / 8 pages / 2 viewports — same coverage shape): that finding is **GONE**; the
+  residual is a two-page orb echo (homepage + quiz heroes), and the report affirmatively
+  describes DISTINCT visuals per page (calls the Leopardess Line transit-map diagram "the
+  strongest single visual on the site"). The affirmative description is what makes this
+  trustworthy — an absent finding alone is the unreliable direction (visual-design-auditor
+  landmine). Sampled pages overlap the before-set on ~6 of 8.
+- **Rest-substantially-stable check, honestly mixed**: how-it-works text-wall PERSISTS
+  (unfixed, expected); services-carousel hierarchy complaint GONE (page now praised — but
+  carousel work also happened in the interim, and one audit is a sample); NEW findings:
+  footer sitemap-dump (both viewports), quiz-hero five identical avatar circles, use-cases vs
+  case-studies near-identical composition, ROI mobile tile stacking, homepage mobile hero SVG
+  overlap. **Work-queue item 2 (the critic's 8 findings) should be refreshed against THIS
+  report** — the 08-26 list is one-third stale.
+- Register **SQ-003 updated** (status + verify-later): vision half UNPARKED, evidence inline.
+- Council state at close: `52c9a201` (662+704) **APPROVED round 3**; `40c563ba` (703) round-2
+  resubmission in flight; `45c9e720` (705) round-1 in flight. Both carry `Council-Submitted`
+  trailers on their commits; 098 credits on approval.

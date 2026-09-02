@@ -1417,3 +1417,24 @@ the site opens with the old generic photograph.
 One process note: the review council asked for revisions on three of my earlier submissions —
 in two cases because my summaries abbreviated what the files actually said. Fair catch,
 fixed by resubmitting with the exact text; the applied changes themselves were correct.
+
+**2026-09-02, evening (second session).** The design critic ran again tonight — the "after"
+photograph to go with the "before" one from August 26th — and the news is what we hoped:
+**the criticism that every page wore the same hero image is gone.** The new report instead
+praises the variety, singles out the Leopardess Line diagram as the best visual on the site,
+and its complaints are now about genuinely different things: the footer is too long, the
+how-it-works page is a wall of text, two pages look too much like each other. Those are real
+notes we can act on, and they replace the August list.
+
+Three things had to be fixed to get there, all found and shipped tonight. The image-shrinking
+code we built last week did its first real work (9 of the 16 screenshots were too tall for
+the AI's limits and were scaled down automatically — that's the machinery proving itself).
+The critic's writing budget was quadrupled because the new model quietly spends some of that
+budget "thinking" before it writes. And the first attempt at tonight's run actually died
+two seconds before its own answer arrived — the browser sweep now takes just over three
+minutes on our image-heavy pages, and the system's default patience is exactly three minutes;
+we gave that step ten. The failed attempt also looked like a success in the work queue, which
+is a known trap we've written up before.
+
+The review council approved the model switch and the bigger budget tonight; two smaller
+approvals are still queued and should land on their own.
