@@ -1351,7 +1351,7 @@ page unless the site actually has a source of items for it. The code half rides 
 build. So the next briefs can fire once each site's feeds and directory kinds are set up first;
 that recipe is in the release runbook.
 
-Second, the cluster access key expired at 22:08 tonight (it lasts exactly three days). Until you
+Second, the cluster access key expired at 22:08 BST tonight (it lasts exactly three days). Until you
 refresh the kubeconfig I can read the live sites but not the database, so the tidy-up of the
 review piles — closing the CTA items that have resolved themselves, clearing the "site
 unreachable" left over from the dark hour — waits on that.

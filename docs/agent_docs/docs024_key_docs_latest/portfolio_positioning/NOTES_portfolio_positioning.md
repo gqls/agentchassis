@@ -1497,7 +1497,7 @@ none high-severity"*, 4 abstained, not truncated. **All four Phase B rounds are 
 approved: 429 · 432 (r2) · 433 (r2) · 434.** 098 credits the `Council-Submitted:` commits
 automatically at report time.
 
-**Fresh chassis v1.0.1305 rolled** (both replicas, 2026-08-16 22:07/22:08Z). Phase B is
+**Fresh chassis v1.0.1305 rolled** (both replicas, 2026-08-16 22:07/21:08Z). Phase B is
 config-only so a roll cannot undo it, but B3f's checks DO depend on the binary carrying
 their names, and a fresh build is not automatically a newer commit — so re-probed with
 controls on the new pod (`agent-chassis-5657f446c7-q7b82`):
@@ -3921,7 +3921,7 @@ gated code) verify per-service at the stamp; 444's migration 720 stays HELD unti
 round-3 verdict regardless of the roll. Handoff finalised at `2837ab63a` — cold start for the
 next session is HANDOFF_2026-09-02_continue_here.md.
 
-### (t) 2026-09-02 ~22:20Z — short session: 444 APPROVED, two sitemaps explained, seotools' tool holds proven TRUE at the body, then the cluster token expired
+### (t) 2026-09-02 ~21:20Z — short session: 444 APPROVED, two sitemaps explained, seotools' tool holds proven TRUE at the body, then the cluster token expired
 
 Cold start from the 09-02 handoff; lane dir clean (every dirty file in the tree is another
 session's — kustomize overlays, 444's bug file, platform tests).
@@ -3951,7 +3951,7 @@ session's — kustomize overlays, 444's bug file, platform tests).
   `/channels-directory/index.html` 200 / 60,420 B, h3=1 — consistent with 444's 0-item
   measurement (a directory of channels would carry many h3s); `/glossary.html` is the real
   path (my `/glossary/` guess 404'd — path shape, not absence).
-- **Token expired 22:08:03Z** mid-query (iat 08-30 22:08:03Z, exactly 3 days; memory file's
+- **Token expired 21:08:03Z** mid-query (iat 08-30 21:08:03Z, exactly 3 days; memory file's
   python check confirms). The batch that died would have read: seotools tool `page_components`,
   advertise's `site_unreachable` + 2 FAILED `needs_page`, the odd websitepromotion HITL
   `needs_page`, one `unresolved_cta` spec for the batch-verify shape, the two dark-window
@@ -3960,3 +3960,14 @@ session's — kustomize overlays, 444's bug file, platform tests).
 - Misstep worth a line: none caught this session; the one near-miss was reading "sitemap 404 =
   not yet selected" off the handoff — the DB said "selected and empty". The check that
   caught it was the routine §1a rotation query, which is why it is routine.
+
+> **CORRECTED 2026-09-02 21:1xZ (same session, ~10 min after writing):** every "22:xxZ" stamp in
+> (t), the handoff addendum and the runbook edits above was **BST written as UTC** — the token
+> expired **21:08:03Z** (22:08:03 BST), and this session ran ~21:05–21:20Z. The memory file's
+> python check prints `datetime.fromtimestamp` (LOCAL time) with no zone label, and I stamped its
+> output "Z". Caught by the dispatch_throughput lane's commit message (`dc8bc044e`: "kubeconfig
+> expired 21:08Z") disagreeing with mine by exactly one hour, then proven with
+> `fromtimestamp(exp, timezone.utc)` and `date -u`. The cheap check: any timestamp you are about
+> to write with a Z came from a tool that printed the zone, or it did not. Fixed in place in all
+> three files; the memory snippet now prints UTC; WRONG_CALLS row added.
+

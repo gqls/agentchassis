@@ -67,9 +67,10 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   brief-fidelity auditor RECORDS the violation but dispatches nothing.
 - ⚠ 444's repair: council corr `c0990eb3` **APPROVED, round 3, 20:53:22Z 2026-09-02** (read by
   this lane at `orchestration_states`: `complete_approved` COMPLETED); **migration
-  `720_planner_listing_source_gate.sql` APPLIED the same night per the fixing session's
-  bug-file note** [their claim — this lane's cluster token expired at 22:08Z before it could
-  re-read `enforce_listing_sources`]. So the PROMPT half is live for every brief fired from
+  `720_planner_listing_source_gate.sql` APPLIED the same night — the fixing session's committed
+  close-out `2d7a98446` (bug file + their RUNBOOK_bugfix_444 liveness recipe) says applied AND
+  verified on the live row** [their verification, not this lane's — our token expired at
+  21:08Z before `enforce_listing_sources` could be re-read here]. So the PROMPT half is live for every brief fired from
   now: the planner is told a listing page needs a live item source and a glossary/showcase
   needs a named producer. The Go gate (`6525b45ae`) is inert until a chassis roll carries it —
   prove it per SERVICE at the provenance stamp, never by the roll's existence. Once it is live:
@@ -111,7 +112,7 @@ for t in <slug…>; do b=$(curl -s "https://<domain>/tools/$t/?cb=$RANDOM"); pri
 ```
 - ⚠ **The same `owned_page_review` text carries BOTH cases, and only the artefact tells them
   apart.** advertise (NOTES (e), 13:09Z): components already deployed, validator stale → close
-  with evidence. seotools (22:1xZ, all 7): `/tools/<slug>/` served 200 at ~56 KB with the tool's
+  with evidence. seotools (21:1xZ, all 7): `/tools/<slug>/` served 200 at ~56 KB with the tool's
   H1 and **0 `<form>`, 0 `<input>`, 0 `<select>`, 1 `<button>` (the mobile-menu toggle)**;
   control = advertise's 3 real tools, same probe: 1 form, 0–11 inputs, up to 2 selects. So the
   seotools holds were TRUE — prose shells at the tool URLs. A cache-busted curl is the check,
@@ -161,8 +162,9 @@ new field; instead, BEFORE firing a brief that wants listing pages:
   (the vetcomparison pattern — that row is the filled-vs-hollow discriminator).
 - GLOSSARY/SHOWCASE: no producer exists (444 candidate 3) — keep these page types out or
   explicitly conditional until one does.
-Post-plan receipt query (once their validator lands — opt-in on validate_site_plan, files
-capability_gap per dropped page):
+Post-plan receipt query (opt-in on validate_site_plan, files capability_gap per dropped page —
+**returns rows ONLY after a chassis roll carrying `6525b45ae`**; before that the prompt half
+alone makes the planner decline the page, with no receipt. 444 session, 2026-09-02):
 ```sql
 SELECT item_key, spec->>'builder_needed', summary FROM site_work_items
  WHERE site_id=:site AND item_type='capability_gap'

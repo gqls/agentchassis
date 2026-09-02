@@ -61,7 +61,7 @@ applies to anything you fire immediately; lanes whose fixes ride the roll (424 i
   glossary-only) and answered the enablement shape → runbook §6 verbatim. Council corr
   `c0990eb3`: 2 REVISE rounds (real improvements, landed by sha), ~~**round 3 pending;
   migration 720 committed but HELD unapplied until the verdict**~~ **→ APPROVED 20:53:22Z,
-  720 APPLIED per the fixing session (addendum below, 22:20Z)** — post-roll runbook §2 traps:
+  720 APPLIED per the fixing session (addendum below, 21:20Z)** — post-roll runbook §2 traps:
   deferred listing section = source config; missing gate receipt ≤~3h of a terminal row =
   anti-churn (326), not failure; a replan never drops a BUILT page.
 - **gamesdesign/gamedesign pair**: rename DONE + serve-verified (their sessions); Pro-tier
@@ -101,15 +101,16 @@ Peer sessions live tonight: designblog.co.uk · gamesdesign.co.uk · gamedesign.
 feed lane (WebProNews CONTRIB with them) · bugs_open/444 (the gate; ~~will ping its round-3
 verdict~~ **landed APPROVED 20:53Z — runbook §2 carries it, addendum below**).
 
-# ADDENDUM 2026-09-02 ~22:20Z — read this before §1 (cluster token EXPIRED at 22:08:03Z)
+# ADDENDUM 2026-09-02 ~21:20Z — read this before §1 (cluster token EXPIRED at 21:08:03Z)
 
-- **The kubeconfig token expired 22:08:03Z** — 3-day JWT, issued 08-30 22:08:03Z (memory
+- **The kubeconfig token expired 21:08:03Z** — 3-day JWT, issued 08-30 21:08:03Z (memory
   `kubeconfig-token-expires-every-3-days`). Every kubectl/psql answers `Unauthorized` until the
   owner refreshes `~/.kube/config_production_uk001`; only the owner can. Everything marked [DB]
   below was read in the minutes BEFORE expiry; every cluster-side step in §1 is BLOCKED on the
   refresh. Served bodies stay readable (curl).
 - **444 round 3 APPROVED** 20:53:22Z (corr `c0990eb3`; [DB] `complete_approved` COMPLETED, read
-  by this lane). The fixing session's bug-file note (uncommitted at 22:1xZ, in their tree):
+  by this lane). The fixing session's close-out, committed `2d7a98446` (and their direct message
+  to this session, 21:1xZ):
   `Council-Reviewed: c0990eb3…`, **migration 720 APPLIED + verified live**, Go gate `6525b45ae`
   INERT until a chassis roll carries it. Runbook §2 updated. **§1d consequence**: the PROMPT half
   is live now — the planner is told not to plan a listing page without a live item source —
@@ -120,7 +121,7 @@ verdict~~ **landed APPROVED 20:53Z — runbook §2 carries it, addendum below**)
   would mean the late roll DID carry `6525b45ae` [INFERRED — stamp unread]. Theirs (444 +
   designblog sessions) to prove at the chassis stamp; recorded here so the row is not read as
   a new bug.
-- **§1a, measured at the bodies ~22:15Z:**
+- **§1a, measured at the bodies ~21:15Z:**
   - **sitemaps**: websitepromotion 200/1,401 B · designblog 200/1,854 B · **advertise 404 ·
     seotools 404 — explained, not a fault**: [DB] both were selected by 642 while lame-delegated
     (advertise 16:37:46Z `url_count` 0 / `probe_dropped` 22; seotools 17:38:46Z 0/14). Runbook

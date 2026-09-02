@@ -59687,3 +59687,26 @@ the instrument answered a narrower question than the one asked.
 - **Cost.** None realised — the regen was not fired. Had the next session trusted §1.1 as
   written (the first item, marked "ours"), a ~3-in-4 chance of an irreversible unusable logo
   on the first paid customer's site, reported as success.
+
+## 2026-09-02 — a kubeconfig expiry stamped "22:08:03Z" when it was 21:08:03Z: a LOCAL-time print written down as UTC (session portfolio_positioning)
+
+- **The claim.** Handoff addendum, NOTES (t) and two runbook lines (`d26b61cab`): "the
+  kubeconfig token expired 22:08:03Z", with every stamp of the session written 22:xxZ.
+- **Why it was false.** The memory file's own check prints
+  `datetime.fromtimestamp(exp)` — LOCAL time on a Europe/London machine, no zone label — and I
+  suffixed its output with Z. The JWT's `exp` is 21:08:03Z. The DB rows I had read minutes
+  earlier carried `21:04:44+00`; a moment's subtraction would have made the hour impossible.
+- **What caught it.** Another lane's commit message in `git log` (`dc8bc044e`, dispatch_
+  throughput: "kubeconfig expired 21:08Z on cycle") — a one-hour disagreement about the same
+  event. Then `fromtimestamp(exp, timezone.utc)` and `date -u` settled it.
+- **The mistake, precisely.** A tool printed a number with no zone and I supplied the zone from
+  habit — the estate's clocks are UTC, so every stamp "is" Z. **A timestamp only gets a Z if the
+  thing that printed it said so.** Same shape as `[MEASURED]`-without-a-disconfirmer: the
+  marker (Z) asserted a property the measurement never carried.
+- **The cheap check that would have.** `date -u` in the same command as any clock you are about
+  to quote; or `strftime('%H:%M:%SZ')` off a `timezone.utc` datetime. The memory snippet now does
+  the second, so the next reader inherits the fix rather than the trap.
+- **Cost.** One corrective commit; ~10 minutes. Left uncorrected, the next session's "did X
+  happen before the token died?" reasoning would have been off by an hour in a night where
+  three lanes' events (chassis roll, 444 verdict 20:53Z, designblog's 21:04Z deferral) sit
+  inside that hour.
