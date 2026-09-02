@@ -320,7 +320,7 @@ BEGIN
      AND (length(ss.data::text)-length(replace(ss.data::text,'CONC 7.6.12','')))/11 = 2
      AND ss.data::text NOT LIKE '%CONC 6.7.23%'
      AND ss.created_by='lendzy_co_uk lane (migration 696)';
-  IF r <> 1 THEN RAISE EXCEPTION '696 VERIFY: corrected content_direction row not found as the single current one', r; END IF;
+  IF r <> 1 THEN RAISE EXCEPTION '696 VERIFY: corrected content_direction row not found as the single current one (matching rows: %)', r; END IF;
 
   -- both tool templates now cite 6.7.23
   SELECT count(*) INTO r FROM content_components cc

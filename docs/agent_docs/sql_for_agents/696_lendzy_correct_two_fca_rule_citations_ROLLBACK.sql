@@ -80,7 +80,7 @@ BEGIN
   SELECT count(*) INTO r FROM site_specs
    WHERE site_id='8ff093d5-1f19-453b-9439-a10379bbcd76' AND aspect='content_direction' AND is_current
      AND data::text LIKE '%CONC 6.7.23%';
-  IF r <> 1 THEN RAISE EXCEPTION '696 ROLLBACK: original content_direction not restored as current', r; END IF;
+  IF r <> 1 THEN RAISE EXCEPTION '696 ROLLBACK: original content_direction not restored as current (matching rows: %)', r; END IF;
   -- the cpa tool's own correct citation must have survived the reverse untouched
   SELECT count(*) INTO r FROM content_components
    WHERE function='tool-cpa-cancellation-checker' AND html_template LIKE '%CONC 7.6.12%';
