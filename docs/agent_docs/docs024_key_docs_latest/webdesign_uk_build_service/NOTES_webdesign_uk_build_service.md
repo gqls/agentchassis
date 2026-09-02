@@ -7056,3 +7056,31 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   controls + the interim logo's hash/dims). Worth a register/landmine note once
   verified: the retraction guards are the worked example of refusal-with-
   reasons done right — contrast 423's reasonless false.
+
+## 2026-09-02 (contd) — guides-index lists the ARTICLES (third listing-class instance, INVERTED); rewrite dispatched
+
+- Peer measured at the served page (deployed 11:04Z): guides-index's heading
+  promises "Every guide, all in one place"; its listing carries the SIX /blog/
+  articles and ZERO guides. Confirmed at content_data (6 blog refs, 0 guide
+  refs — baked at build). **The pair must be recorded together**: Sunday's
+  retype (guides OUT of blog-post) fixed instance 1 and created instance 3 —
+  the listing resolver selects a fixed class regardless of the page's promise,
+  and 'guide' is not what any resolver selects. ⚠ DO NOT fix by retyping back
+  (restores the original complaint). The durable check ("a listing's items
+  must belong to the class its heading promises") is experience_loop's, third
+  occurrence in four days, peer routing.
+- **Fix dispatched — the proven approach-A static rewrite** (corr 62fb7d36):
+  content-listing on guides-index rewritten to exactly the four guides,
+  verbatim URLs+titles from the pages table, articles barred.
+- Peer's operational notes banked: (a) the " | Boxing Online" headline suffix
+  on the cards is the components lane's producer fix, inert until roll — do
+  NOT hand-fix; (b) header skew (guides-index shows the new What's-On chrome,
+  older renders don't) resolves with round-3's nav wave — verify uniformity in
+  its sweep; (c) **bugs_open/384**: a page_rerender applies a TEMPLATE change
+  only when spec.reason ∈ {section_data_resolved, template_changed} — any
+  other reason routes to assemble mode and re-ships the stored array
+  byte-for-byte, completing green. Check the reason before treating a rerender
+  as evidence of template pickup. (Assemble mode is WHY my chrome-purge
+  rerenders worked — chrome is re-assembled — and why content fixes need the
+  build path, not rerender.)
+- /contact.html still 200 = round 3 mid-flight, expected, not lost.
