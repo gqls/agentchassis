@@ -232,3 +232,52 @@ the edit most wanting an argument.
 - **Verification after the roll** is unchanged from §"How to verify" above, plus:
   `rendered.footer=true` for **both** sites, and a re-run of the two-way census
   returning **zero** rows on the left column.
+
+
+## COUNCIL ROUND 1 → REVISE, and it changed the code (2026-09-02)
+
+Verdict on `dc62975f`: **REVISE**, gated by **guardian (HIGH)**. Worth recording in
+full, because the gating objection was right and my round-1 rationale was the failure.
+
+**I claimed a store refusal failing the step was "bugs_open/260's ruling applied
+consistently". That was an ANALOGY, not a measurement.** The seat asked for the blast
+radius instead. `[MEASURED 2026-09-02]` **7** live workflows dispatch
+`render_site_components` — nav-updater, nav-link-fixer, rerender-chrome, rerender-site,
+rerender-pages, pageflow-builder, site-work-orchestrator — and **every one declares no
+`error_step`, no `on_error` and no `continue_on_error`.** A hard step failure has no
+handler anywhere; it takes the whole orchestration.
+
+**So the escalation is now OPT-IN** (`escalate_chrome_store_failure`, unsafe default
+OFF — the 2026-08-02 §2 remedy and the shape of the three sibling keys in
+`mistyped_llm_fields_gate.go`), distinguished by a `chromeStoreRefusedError` sentinel so
+260's execution-failure authority is untouched. **REPORTING stays unconditional** — the
+silence *is* the bug, and gating a fix for silence behind a flag nobody sets reproduces
+it. The gate costs nothing today: neither casualty needs the escalation, because both
+footers are repaired at source by `UpperFirst`.
+
+**The objection that most improved the work was bug_historian's** — "was a census run for
+OTHER nil-swallow sites?" It had not been. Run now: five `degraded, nil` returns; :1446 is
+success, :1407 a lock refusal, :1222 the 342 refusal (which reports), :1241 an
+empty-render Warn, and **exactly one genuine remaining swallow — :1411, "no row matched"**.
+
+**It stays unfixed, and the measurement is why — it also killed my own instinct to widen.**
+`[MEASURED 2026-09-02]` 57 sites exist, only **34** have any `site_components` row, and
+**23** are missing at least one of the three slots. Routing :1411 into the reporting
+surface would file **up to ~69** `needs_human_review` items about sites that have simply
+never been built. The honest fix distinguishes "never built" from "the row vanished" and
+is a different bug. **Measured-and-deferred, not missed.**
+
+Also answered with evidence rather than argument: nothing anywhere parses a
+`site_work_items` summary (so the phase change breaks no consumer);
+`renderAndStoreSiteComponent` has exactly one production caller; no existing UTF-8 utility
+reports a byte offset, so `InvalidUTF8At` is not dormant machinery rebuilt; and the
+fleet-wide slot sweep is clean apart from the two known footers (header 34/34, head 34/34,
+footer 32/34).
+
+**Not delivered, stated plainly:** guardian also asked that the disposition change be
+split from the byte-safety fix so one could be reverted without the other. Forward-only
+forbids an amend and the code was already committed when the verdict landed. The config
+key is the isolation actually available — and arguably the better one, since it isolates
+the risky half at RUNTIME, per step, with no revert and no roll.
+
+Round 2 resubmitted on the same correlation.

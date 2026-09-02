@@ -84,3 +84,48 @@ Then re-render both sites' chrome and check: `rendered.footer=true`, `build_stat
 **empty**. Boxingonline's extra pre-delivery probe (from the filer): the served footer still
 carries **no** contact block, because `sites.email` is empty and `component_library.go:1988`
 gates it.
+
+## When `go test` fails on code that is not yours (shared tree, several sessions)
+
+`go test ./platform/orchestration/actions/` failed twice on OTHER sessions' in-flight
+refactors (`seed_content_sources_action.go`, then `apply_theme_kit_action.go`). **A red
+package build here is not evidence about your own change.** Do not "fix" their file and do
+not wait — pin every peer-dirty file in the package to HEAD with a Go overlay, which
+touches nothing on disk:
+
+```bash
+python3 - <<'PY'
+import json, io, os, subprocess
+root=os.getcwd(); sp="<scratch>"; mine={"<your dirty/untracked files>"}
+rep={}
+for line in subprocess.run(["git","status","--porcelain","--","<pkg dir>/"],
+                           capture_output=True,text=True).stdout.splitlines():
+    st, path = line[:2], line[3:].strip()
+    if not path.endswith(".go") or path in mine: continue
+    if st.strip()=="??":                      # untracked peer file: hide it
+        rep[os.path.join(root,path)] = ""
+    else:                                     # tracked peer WIP: pin to HEAD
+        dst=os.path.join(sp,path.replace("/","__"))
+        open(dst,"wb").write(subprocess.run(["git","show","HEAD:"+path],capture_output=True).stdout)
+        rep[os.path.join(root,path)] = dst
+io.open(os.path.join(sp,"overlay.json"),"w").write(json.dumps({"Replace":rep}))
+PY
+go test -overlay=<scratch>/overlay.json ./platform/orchestration/actions/
+```
+
+⚠ **List what it isolated and read the list.** It printed **28** peer files on
+2026-09-02 — if your OWN file appears there you have just tested HEAD instead of your
+change, and it will pass for the wrong reason. An untracked peer file maps to `""`
+(hidden); a tracked one maps to a HEAD copy.
+
+## Mutation-proving on a shared tree
+
+Mutate and revert **inside one shell call**, with a `trap`, so the tree is never left
+mutated across turns:
+
+```bash
+cp <file> /tmp/.bak; trap 'cp /tmp/.bak <file>' EXIT
+```
+Round 2's two mutations: deleting the escalation gate (returns round 1's behaviour) kills
+`TestStoreRefusalDoesNotEscalateByDefault`; an arm that ignores its config key kills
+`TestStoreRefusalEscalatesWhenArmed`. Both red, then green after revert.

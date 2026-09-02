@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -331,7 +332,11 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			// result, AND it files a human-review item, AND the one case with
 			// nothing to fall back on fails the step outright.
 			chromeRenderFailed[slot] = renderErr.Error()
-			if !chromeSlotHasStoredHTML(ctx, params.DB, siteID, slot) {
+			// bugs_open/423: reporting is unconditional (it is the bug);
+			// ESCALATING a store refusal to a step failure is opt-in, because
+			// all 7 workflows dispatching this action declare no error_step.
+			if escalateUnservedChromeSlot(params.StepConfig.Config, renderErr) &&
+				!chromeSlotHasStoredHTML(ctx, params.DB, siteID, slot) {
 				chromeUnserved = append(chromeUnserved, slot)
 			}
 		}
@@ -379,6 +384,70 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		// reading the logs (bugs_open/260).
 		"chrome_render_failed": chromeRenderFailed,
 	}, nil
+}
+
+// chromeStoreRefusedError marks a chrome failure that happened AFTER the
+// template executed cleanly — the STORE refused the bytes. It exists only to be
+// distinguished from an execution failure at the caller, because the two carry
+// DIFFERENT authority to fail a build (bugs_open/423, council dc62975f round 1,
+// guardian HIGH).
+//
+// bugs_open/260 ruled that a chrome template that cannot execute may fail the
+// step when the site has nothing stored to serve. Extending that to a STORE
+// refusal reads as the same disposition, and the first cut of this fix asserted
+// exactly that. The guardian seat asked for the blast radius rather than the
+// analogy, and the enumeration is why this type exists: `[MEASURED 2026-09-02]`
+// **7** live workflows dispatch the render_site_components action —
+// nav-updater, nav-link-fixer, rerender-chrome, rerender-site, rerender-pages,
+// pageflow-builder, site-work-orchestrator — and **every one of them declares
+// no `error_step`, no `on_error` and no `continue_on_error`**, so a hard step
+// failure has no handler anywhere and takes the whole orchestration with it.
+// That is new authority over seven pipelines, which is not something to acquire
+// by analogy inside a bug fix.
+type chromeStoreRefusedError struct{ err error }
+
+func (e *chromeStoreRefusedError) Error() string { return e.err.Error() }
+func (e *chromeStoreRefusedError) Unwrap() error { return e.err }
+
+// chromeStoreEscalateConfigKey arms the ESCALATION half of bugs_open/423: a
+// chrome slot whose STORE was refused, on a site with nothing stored to serve,
+// fails the step instead of completing as a degraded success.
+//
+// Default OFF, and the unsafe side IS the default, per the owner ruling of
+// 2026-08-02 §2 and the three sibling keys in mistyped_llm_fields_gate.go. Unset
+// means today's behaviour byte for byte: the failure is REPORTED — it lands in
+// the action result's chrome_render_failed map and files a needs_human_review
+// item — but it does not fail anybody's build.
+//
+// ⚠ WHY THE REPORTING HALF IS NOT GATED AND THIS IS: the reporting half is the
+// bug. A store refusal returning a nil error is what let garden-tools.uk sit
+// broken for ten days, and gating a fix for silence behind a flag nobody sets
+// reproduces the silence. Escalation is a different thing — it is not needed to
+// repair either casualty (both are fixed at source by datahelpers.UpperFirst),
+// so arming it today would buy nothing and risk seven pipelines.
+//
+// The trigger to flip it: the first chrome_render_failed item whose spec.phase
+// is "rendered but was not stored" on a site with nothing serving, i.e. the day
+// a store refusal actually costs a site its chrome rather than merely being
+// noticed.
+const chromeStoreEscalateConfigKey = "escalate_chrome_store_failure"
+
+// escalateUnservedChromeSlot is the DECIDING ARM, factored out so a test
+// exercises exactly what the action runs rather than a restatement of it (the
+// refusePersistForAbsentRequired precedent).
+//
+// An EXECUTION failure escalates unconditionally — that is bugs_open/260's
+// existing, reviewed authority and this change does not touch it. A STORE
+// refusal escalates only when this step is armed. Fail-OPEN on a mistyped config
+// value, exactly as the sibling keys: a config mistake must not switch on a
+// build-failing escalation across seven workflows by accident.
+func escalateUnservedChromeSlot(config map[string]interface{}, renderErr error) bool {
+	var refused *chromeStoreRefusedError
+	if !errors.As(renderErr, &refused) {
+		return true // an execution failure: bugs_open/260, unchanged
+	}
+	armed, _ := config[chromeStoreEscalateConfigKey].(bool)
+	return armed
 }
 
 // SiteDataFull contains all site data needed for rendering
@@ -1344,8 +1413,8 @@ func renderAndStoreSiteComponent(
 	// the disposition this function already takes for every other bad render.
 	if off, window, bad := datahelpers.InvalidUTF8At(renderedHTML); bad {
 		serving := chromeSlotHasStoredHTML(ctx, db, siteID, slot)
-		utf8Err := fmt.Errorf("chrome slot %q rendered invalid UTF-8 at byte %d of %d, near %s — a byte-indexed slice upstream cut a multi-byte rune (bugs_open/423)",
-			slot, off, len(renderedHTML), window)
+		utf8Err := &chromeStoreRefusedError{fmt.Errorf("chrome slot %q rendered invalid UTF-8 at byte %d of %d, near %s — a byte-indexed slice upstream cut a multi-byte rune (bugs_open/423)",
+			slot, off, len(renderedHTML), window)}
 		logger.Error("site chrome: rendered bytes are not valid UTF-8 — not storing",
 			zap.String("slot", slot),
 			zap.String("component_id", componentID.String()),
@@ -1382,7 +1451,7 @@ func renderAndStoreSiteComponent(
 		// the SAME surface the execution-failure branch already built for
 		// bugs_open/260, rather than a second chrome-failure channel.
 		serving := chromeSlotHasStoredHTML(ctx, db, siteID, slot)
-		storeErr := fmt.Errorf("chrome slot %q rendered but could not be stored: %w", slot, err)
+		storeErr := &chromeStoreRefusedError{fmt.Errorf("chrome slot %q rendered but could not be stored: %w", slot, err)}
 		logger.Error("site chrome: store failed — the slot keeps whatever it was serving",
 			zap.String("slot", slot),
 			zap.String("component_id", componentID.String()),

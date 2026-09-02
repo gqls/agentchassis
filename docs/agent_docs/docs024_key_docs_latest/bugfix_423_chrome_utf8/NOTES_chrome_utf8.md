@@ -86,3 +86,28 @@ Council `dc62975f-9d38-4b3c-9174-330307b9df95` (`Council-Submitted:`, per the ru
 trailer you cannot yet have read must not claim a verdict). Registered **STY-059**.
 **Go, so INERT until the next chassis roll** — both casualties stay broken until then, and
 no claim in this file about the fix WORKING has been made, only about the fix EXISTING.
+
+
+## 2026-09-02 — council REVISE, and the seats earned it
+
+Gated by guardian HIGH: I asserted the blast radius instead of enumerating it. Enumerating
+it changed the design — 7 workflows, none with an `error_step`, so the escalation went
+opt-in (`escalate_chrome_store_failure`, default OFF) with the reporting half left
+unconditional because the silence is the actual bug.
+
+bug_historian's census ask was the one that most improved the work, and it cut BOTH ways:
+it found the one remaining swallow (:1411) **and** the measurement that says leave it alone
+— 23 of 57 sites have no chrome rows, so reporting there would file ~69 items about sites
+nobody ever built. **My instinct on reading the objection was to widen the fix; the
+measurement I ran to justify widening is what stopped me.** That is the rule working in
+the direction it is least often quoted for.
+
+⚠ **Misstep of process, not of fact:** I could not run the package tests at all for a
+while — two other sessions had `seed_content_sources_action.go` and
+`apply_theme_kit_action.go` mid-refactor in the shared tree, so `go test ./actions/` failed
+to build on THEIR code. Resolved without touching their files by pinning every peer-dirty
+file in the package to HEAD with `go test -overlay` (28 files, listed in the run). Worth
+knowing: on this tree a red package build is not evidence about your own change, and the
+overlay is the non-invasive way to find out which.
+
+Round 2 resubmitted on the same correlation so the trail accumulates.
