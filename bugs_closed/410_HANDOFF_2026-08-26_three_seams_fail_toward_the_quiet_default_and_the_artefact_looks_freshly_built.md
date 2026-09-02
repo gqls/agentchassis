@@ -417,3 +417,18 @@ proposal now, not a diagnosis) and close this pattern file with instances 1–2 
 own numbers — or keep this file open as the tracker until candidate 1 ships. The lane
 recommends the first: everything diagnostic in this file is done, and a pattern file whose only
 live content is one unclaimed candidate reads as open work that isn't being worked.
+
+---
+
+## 2026-09-02 — CLOSED by owner decision: candidate 1 spun out as `bugs_open/440`, everything diagnostic here is done
+
+Owner approved the recommendation of 2026-09-02: instance 3 is fixed AND live on both axes
+(this file's own bar), instances 1–2 are tracked by their own numbers (`bugs_open/384`,
+`bugs_open/404` — both ACTIVE lanes, checked today, left with their owners), and candidate 1 —
+the only live content left here — is now
+`bugs_open/440_HANDOFF_2026-09-02_a_routing_key_nobody_understands_completes_green.md`, with
+today's fresh evidence (the census re-run, the zero-firings correction, the many-doors
+measurement). The 41 advisory-only sites, the convergence-on-touch debt and the ratchet's class
+blind spot are stated coverage boundaries, recorded in DBI-027, not open work. ⚠ The number 410
+remains AMBIGUOUS — the phase-lock case (`…next_fetch_at_stamped_at_fetch_time…`) is unrelated
+and stays open in `bugs_open/`.

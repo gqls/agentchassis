@@ -58754,3 +58754,32 @@ a-closer-census-cannot-see-what-it-succeeded-at, prove-a-deploy-at-the-artefact.
   the stale/archived states a defect census is looking for. Same family as
   "a closer census cannot see what it SUCCEEDED at" and the discovery-check line
   "a component-driven detector cannot see component ABSENCE".
+
+## 2026-09-02 — 437 spin-out: I read "string PRESENT in a row" as "warning FIRED in production", and both hits were council payloads QUOTING the warning
+
+- **The claim** (stated in-session while researching the 437 filing): "the
+  undeclared-reason warning is live and has fired twice in production" — from
+  `collected_data::text LIKE '%not in the sections-rerender vocabulary%'`
+  returning 2 rows since 08-27. Load-bearing had it stood: it would have gone
+  into bugs_open/437 as demand evidence for the refusal half.
+- **What was actually true**: fired ZERO times in production. Both matching rows
+  were the 404 lane's own council-gate runs (r3/r4, fix_correlation `f2e4ac2a`)
+  — the submission JSON quotes the warning string verbatim, so the payload
+  matches the LIKE. The corrected demand picture is the opposite AND more
+  interesting: out-of-vocabulary reasons ARE minted live (11 free-prose items
+  dated 2026-09-02, migrations 696/693) but produce no warning because raw-SQL
+  migration INSERTs bypass the Go creator entirely — the guard watches one door
+  of several.
+- **What caught it**: reading one member row before writing the number down —
+  `current_step` came back `complete_revise`/`complete_approved`, which no
+  rerender pipeline emits.
+- **The cheap check**: a text-LIKE over `collected_data` answers "which rows
+  CONTAIN this string", never "which service EMITTED it". Any corpus that stores
+  submissions, prompts, or reviews will QUOTE the strings you are hunting
+  (prompt-text-poisons-its-own-detector, memorised — this is its query-side
+  twin). Before counting emissions, join to a column only the emitter writes, or
+  exclude the quoting populations (here: `fix_correlation_id IS NULL`), and read
+  one member either way.
+
+Family: prompt-text-poisons-its-own-detector, a-report-is-not-a-measurement,
+your-measurement-answers-the-question-you-encoded.
