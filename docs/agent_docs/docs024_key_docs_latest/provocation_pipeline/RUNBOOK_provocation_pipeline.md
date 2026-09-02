@@ -519,3 +519,109 @@ declining to fly blind on a feed that already has content to lose.
 
 1–40 characters, lowercase `a-z`, `0-9`, `-`. It becomes part of a filename **and**
 a URL path segment, so anything else is refused at config-parse time.
+
+## §16 — Going daily and unattended (2026-09-02)
+
+### 16a. Is the site actually stale? Ask the artefact, not the pipeline
+
+The publisher can be green while the site repeats itself — it skips its commit when only
+`generated_at` would move, which is correct. So read the served file:
+
+```bash
+curl -s https://vonc.com/data/provocations.json | python3 -c "
+import json,sys; d=json.load(sys.stdin)
+print('today:', d['today']['date'], '|', d['today']['headline'])
+print('generated_at:', d['generated_at'])"
+```
+
+**A `generated_at` far in the past is not proof of a broken publisher** — it is proof of
+an empty shelf. Check the shelf before blaming the machinery:
+
+```sql
+SELECT status, source, count(*), count(*) FILTER (WHERE publish_on IS NULL) AS undated,
+       max(publish_on) AS last
+  FROM provocations WHERE domain='vonc.com' GROUP BY 1,2 ORDER BY 1,2;
+```
+
+### 16b. Is anything actually DRIVING the pipeline?
+
+The trap that cost eleven days: the agents exist, are active, and have sane configs — and
+nothing ever calls them. **An agent_definitions row is not a schedule.**
+
+```sql
+SELECT name, target_agent_type, interval_seconds, enabled, last_completed_at
+  FROM scheduled_tasks WHERE target_agent_type ILIKE '%provoc%';
+```
+
+Three agent types exist; before 685 only **one** (`provocation-feed-publisher`) had a row.
+
+### 16c. Dry-run a `_HOLD` migration against the live DB without applying it
+
+For a file whose guard should refuse today, run it as-is and confirm it **raises**:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < <the file>
+```
+
+To exercise the **rest** of the file, strip its own `BEGIN;`/`COMMIT;`, wrap the body in a
+transaction you roll back, and satisfy the guard inside it:
+
+```bash
+python3 - <<'PY'
+import io,re
+s=io.open('<file>').read()
+b=re.sub(r'^\s*BEGIN;\s*$','',s,count=1,flags=re.M)
+b=re.sub(r'^\s*COMMIT;\s*$','',b,count=1,flags=re.M)
+io.open('/tmp/dry.sql','w').write("BEGIN;\n<satisfy the guard>\n"+b+"\nROLLBACK;\n")
+PY
+```
+
+⚠ **Then re-read the database and prove nothing persisted.** A rolled-back transaction is
+supposed to leave no trace; confirming it is one query and is how you find out the wrapper
+was wrong.
+
+### 16d. Prove a code-dependent migration is safe to apply — at the ARTEFACT
+
+Do not key an ordering guard on an image tag or a deploy status. `gate_version` is
+persisted into every row's `gate_verdict`, so it proves the new code *gated something*:
+
+```sql
+SELECT DISTINCT gate_verdict->>'gate_version' FROM provocations WHERE gate_verdict IS NOT NULL;
+```
+
+`{1,2}` = pre-2026-09-02 binary. `3` present = the fatal rail is live and 685 may apply.
+
+### 16e. Mutation-prove a test guard before trusting it
+
+Both new guards in the gate tests were proven by breaking them on purpose:
+
+```bash
+# rail loosened -> the pinned exemption count must collapse and fail
+sed -i 's/maxAvgWords      = 15/maxAvgWords      = 30/' platform/orchestration/actions/provocation_readability.go
+go test ./platform/orchestration/actions/ -run TestGateAcceptsTheRealProvocations -count=1
+# expect: "expected exactly 8 pre-rail entries to fail ONLY on readability, found 0"
+```
+
+Restore from a copy taken first — **not** by re-editing, which is how a mutation gets left
+in. `git stash` is forbidden on this tree; use `cp <file> /tmp/x.bak` and copy back.
+
+### 16f. Apply order for 685 (do NOT reorder)
+
+1. Owner rolls the fleet (`make release`) so `326370d6c` is live.
+2. Fire ONE attended generator run: agent_type `provocation-generator-manual` on
+   `system.agent.generic.requests`. Confirm a fatal `hard_to_read` appears and new rows
+   carry `gate_version` `3`.
+3. Apply `685_provocation_daily_autonomy_HOLD.sql` **by hand** (`psql -f`).
+4. **Rename it off `_HOLD` FIRST, then record it.**
+   `run-migrations.sh` **refuses `--record-only` on any sidecar**, so a `_HOLD` file can
+   never be ledger-recorded while it carries the suffix. The forced house sequence is
+   hand-apply → rename → `--record-only`.
+   ⚠ **Between the rename and the record there is a replay window**: the runner sees a
+   pending, unrecorded, appliable file. Do the two steps back to back and do not run
+   `--apply` in between. (Here a replay would abort on `scheduled_tasks.name`'s unique
+   constraint rather than duplicate anything — a loud, safe failure — but do not rely on
+   that; `bugs_open/007` Class C blocked the runner for three days on this shape.)
+
+Applying before step 1 banks approved-but-never-railed drafts that can never be re-gated.
+The guard refuses, but the reason it refuses is worth understanding before overriding it.

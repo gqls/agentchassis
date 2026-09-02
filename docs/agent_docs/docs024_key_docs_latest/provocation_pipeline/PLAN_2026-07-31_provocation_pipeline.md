@@ -864,3 +864,108 @@ not textual**: the first automatic LLM publish happens before either safety ruli
 and it was never explicitly decided — it is the arithmetic of a date column and a cron.
 Flagged to the owner rather than acted on unilaterally, because the dates are another
 session's deliberate work and the gating had his sanction.
+
+---
+
+# PLAN 15 — OWNER INSTRUCTION 2026-09-02: daily, and no permission step
+
+*"I'd like to make the challenges change every day and not be restrained by needing my
+permission."*
+
+## §15.1 — This REVERSES §10's reversal. It is the third position, not the second.
+
+The trail, so nobody reads the current state as settled:
+
+| date | position | recorded in |
+|---|---|---|
+| 2026-07-31 | no human approval — "decided, do not re-open" | PLAN §10 |
+| 2026-08-09 | human approval REQUIRED; stamp column added | PLAN §14 correction, migration 320/321 |
+| **2026-09-02** | **no permission step** | this section, commit `326370d6c` |
+
+**Whoever changes it next is the fourth.** The column, the history and every verdict are
+retained; only three query predicates moved, and each site carries the instruction to
+restore it in **both** queries or neither — because the defect 320/321 were built to fix
+was precisely a comment claiming a predicate the query did not have.
+
+## §15.2 — The three sizing answers (owner, same day)
+
+1. **Quality bar** — *"Rail fatal, and over-generate to absorb it."* The deterministic
+   readability rail rejects rather than records, and the generator writes more than it
+   needs so rejections do not thin the shelf.
+2. **Shelf depth** — **14 days**, up from the §13 ruling of 6.
+3. **If it runs dry** — *"create a new set and carry on."* So: **no alerting step.** The
+   refill is demand-driven and self-healing; an empty shelf is a trigger, not an incident.
+
+## §15.3 — Why the depth ruling could be reversed without contradicting itself
+
+§13 chose 6 days so that *"one bad batch can never fill a long stretch nobody is
+watching"*. **That reasoning was correct and its premise has been withdrawn.** It assumed
+the owner was reading each batch; a shallow shelf was a deliberate trade of staleness risk
+against unreviewed-content risk, and it was the right trade *while he was the check*.
+
+Unattended, the trade inverts. The staleness risk is no longer hypothetical — it is the
+measured failure that prompted this instruction (11 days). So the deeper shelf is not a
+loosening of §13; it is §13's own logic applied to the new premise.
+
+## §15.4 — Over-generation is delivered by CADENCE, not batch size
+
+The owner asked to over-generate. The obvious implementation — raise `count` — is the
+wrong one here. **4 candidates at an 8000-token budget is the only combination this lane
+has actually proven** (2026-08-10). A larger batch risks a truncated completion, and this
+pipeline has already been bitten by `stop_reason=max_tokens`, which **presents as
+success**.
+
+So the refill runs **twice daily with a cap of 4**, and the over-generation factor
+(deficit × 2) lives in the pre-query. Same throughput, no unproven parameter.
+
+## §15.5 — The generator must be demand-driven, or the pool grows without bound
+
+The site consumes one provocation a day; the scheduler dates up to 14. An unconditional
+periodic generator therefore pushes publish dates months out and spends model credits for
+ever. The `pre_query` returns **no rows** once 14 days of inventory exist, and
+`runPreQuery` treats no rows as *skip this task* — so a full shelf costs one `SELECT`.
+
+**The verify block RUNS that pre-query rather than checking it exists**, because both
+failure directions are silent: a typo returning nothing means the refill never fires
+again, and one returning a row unconditionally means unbounded growth and spend.
+
+## §15.6 — What replaces the human, enumerated
+
+"The owner said so" is a reason to make the change, not a reason it is safe. What actually
+carries the safety now:
+
+- **`nextPublishDates` starts at tomorrow, never today.** The six-hour draft-to-live path
+  that motivated the 08-09 stamp is structurally unavailable; there is always ≥1 day to
+  retire a row. **This is the load-bearing one.**
+- **The readability rail, now fatal** — arithmetic, so it cannot drift.
+- **The deterministic abuse layer and the RFC_020 §5.2 third-party-harm publish refusal**,
+  neither of which ever depended on the stamp.
+- **Approved rows are never re-gated**, so the fatal rail cannot retract anything live.
+
+**What is genuinely given up, stated rather than argued away:** nobody reads the text
+before it is served. The judge is documented-stochastic, so it is a bonus on top of the
+arithmetic floor, not the floor. A row that clears the rail and is wrong in a way no
+arithmetic can see **will be served for a day**.
+
+## §15.7 — §10.6 and the rail are mutually unsatisfiable, and that is not a bug
+
+§10.6's rule is *"the corpus IS the specification"*. The owner changed the specification on
+2026-08-11. All 28 then-approved entries fail the rail; an entry written before a standard
+cannot be expected to meet it.
+
+The resolution is **not** to refresh the calibration corpus — its size is pinned at nine on
+purpose, and regenerating it would weaken the guard that stops a calibration silently
+shrinking. Instead the acceptance test carries a **narrow, pinned exemption**: a rejection
+is tolerated only if **every** fatal rule is `hard_to_read`, and the count is pinned at
+exactly 8, in both directions.
+
+## §15.8 — Open, and owed
+
+- **The §10.6 LIVE calibration has NOT been re-run**, and two of its four bad-set fixtures
+  changed. Nobody should cite that calibration as current until it is run.
+- **Councils `c08d263a` (Go) and `fb31e95e` (config) are submitted, not read.**
+- **685 is committed and NOT applied.** It needs: fleet roll → one attended generator run
+  → apply. Its guard enforces that order mechanically.
+- **Agent types keep the `-manual` suffix** while scheduled. Carried in `description`
+  rather than renamed, because renaming `agent_definitions.type` risks in-flight dispatch
+  and breaks 321/371's own verify queries.

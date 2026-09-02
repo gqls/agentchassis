@@ -2390,3 +2390,138 @@ written to the old bar. Their measured grades run 7.8–11.4 with sentence avera
 16–26 words, so **most would fail the rail** — but they were gated before it existed, and
 the gate does not re-judge a row with `gated_at` set. Nobody should read their clean
 verdicts as rail-passing.
+
+---
+
+## 2026-09-02 — the permission step is removed, and the rail becomes the floor
+
+**Owner instruction, verbatim:** *"I'd like to make the challenges change every day and
+not be restrained by needing my permission."* Sizing answers the same day: over-generate
+to absorb the rail; 14-day shelf; if it runs dry, *"create a new set and carry on"* — so
+no alerting step, the refill is self-driving.
+
+### What the site was actually doing (measured before touching anything)
+
+`https://vonc.com/data/provocations.json` — `today.date` **"22 Aug"**, `generated_at`
+**2026-08-22T04:58:04Z**. Measured 08-31 and re-read unchanged on 09-02. **Eleven days
+serving one provocation under a heading that says "Today's Provocation".**
+
+**Nothing was broken, and that was the surprise.** `provocation-feed-refresh` is enabled,
+21600s, and `last_completed_at` was that same morning. The publisher works; it correctly
+skips its commit when only `generated_at` would move. It had nothing to publish:
+
+```
+ status  | source | count | undated |    last
+---------+--------+-------+---------+------------
+approved | llm    |    15 |       2 | 2026-08-22
+```
+
+Two approved rows left, both undated. `scheduled_tasks` has **exactly one** provocation
+row — the publisher. `provocation-generator-manual` and `provocation-scheduler-manual`
+have **no row at all**. So the diagnosis is not "the generator failed", it is *nothing
+ever asked it to run*. [MEASURED 2026-09-02]
+
+### The check that changed the shape of the change
+
+Before removing `human_approved_at IS NOT NULL` I asked what becomes newly publishable.
+Answer: **nothing.** Every `approved` row on `vonc.com` was already stamped (8 human + 15
+llm, **0 unstamped**). The 8 unstamped `approved` rows in the table are `calibration`
+fixtures on **`calibration.vonc.com`** — a different domain, which the domain-scoped
+queries have never been able to reach.
+
+That makes the removal a **no-op on today's data**, affecting only future rows — the
+safest possible shape, and the same shape the 08-09 category-aware scheduler fix used
+deliberately. Worth doing this check first every time: it is one query, and it decides
+whether you are shipping a change or an incident.
+
+### MISSTEP — I nearly resized a pinned calibration corpus on an unverified hypothesis
+
+When the rail went fatal, all nine `realProvocations` started failing
+`TestGateAcceptsTheRealProvocations`. My immediate theory was that the §10.6 corpus had
+**gone stale** — that the owner had retired these rows on 08-12, so the fixture was
+asserting a spec he had superseded. It was a tidy story and it fit.
+
+**It was wrong, and the check was one query.** 8 of the 9 are still `approved` and were
+published (dated 29 Jun – 26 Jul). The eight the owner binned on 08-12 were the *newer*
+LLM batch, not these.
+
+Had I acted on it I would have regenerated `realProvocations` from the live pool — which
+would have changed its **size**, and its size is pinned at nine by
+`TestLiveCalibrationCorporaAreTheStatedSize` precisely so a calibration cannot silently
+grow or shrink while still reading green. I would have "fixed" a failing test by
+weakening the guard that exists to stop exactly that.
+
+The real situation is narrower and needs saying plainly: **the corpus and the rail are
+mutually unsatisfiable by construction.** §10.6 says "the corpus IS the specification";
+the owner changed the specification on 08-11 when he called this writing almost
+unreadable. An entry written before a standard cannot be expected to meet it. So the
+exemption is narrow (**only** if every fatal rule is `hard_to_read`) and **pinned at
+exactly 8**, so it can never widen into a blanket.
+
+### Three tests broke, and each break was a real finding
+
+1. **`aGoodCandidate` promised more than it checked.** Its doc said "returns a real
+   provocation that clears every deterministic layer"; its code tested
+   `len(Body) >= minBodyLen`. Those agreed until a *new* deterministic layer arrived,
+   at which point ten judge-focused tests silently went back to testing form rules —
+   which is the exact failure its own comment records happening once before, with
+   `body_too_short`. It now runs `checkForm`, so it stays true the next time a layer is
+   added. **A doc comment is not an enforcement mechanism, including when it is
+   describing your own helper.**
+2. **Two bad-set fixtures stopped testing their rule while still reading as green.**
+   `wantRule` for both is a *judge* verdict, but their prose was dense enough to trip the
+   rail, and `gateCandidate` skips the judge once a deterministic layer is fatal. The
+   test still passed the "was it rejected?" question — for the wrong reason. Fixtures
+   rewritten plainer (same defects; the invented "2023 Whitfield Institute study of
+   41,000 firms" kept verbatim, since that is the string the judge must object to), and
+   a `consulted` flag now **fails the case if the judge was never reached**.
+3. **The two guards were mutation-proven, not assumed.** Loosening
+   `maxAvgWords`/`maxSentenceWords`/`maxLongWordRatio` drops `railOnly` from 8 to 0 and
+   fires the pin; restoring the dense slop body fires the consulted guard. Both revert
+   clean. (`[[mutate-the-code-to-prove-the-guard]]`.)
+
+### The ordering trap in the config half — why 685 is `_HOLD`
+
+The migration must **not** apply before the Go change is live. If it does, the generator
+banks drafts gated while the rail is still advisory, and `loadGateCandidates` never
+re-gates an approved row — deliberately, so model drift cannot retract a published
+provocation. **That batch would be publishable for ever without the rail ever applying
+to it.** Not self-correcting, and invisible afterwards.
+
+`gate_verdict->>'gate_version'` is persisted per row and currently reads `{1,2}`, so the
+guard keys on `'3'` appearing. That is an **artefact** check — it proves the new code
+*gated something*, which a tag or a deploy status cannot.
+
+**Both arms tested against the live DB before commit:** the guard refuses today with its
+own message; with it temporarily satisfied inside a rolled-back transaction the file
+inserts 2 tasks, sets `max_assign` 14, and its **induced** pre-query check passes at
+inventory=2. Re-read afterwards: 1 task, `gate_version {1,2}`, `max_assign` 6 — nothing
+persisted.
+
+### Two guards deliberately superseded
+
+`321` RAISEs if the scheduler ever gets a `scheduled_tasks` row, because that would
+"re-automate the step the owner took back on 2026-08-09". He has now reversed that.
+**⚠ 321 WILL FAIL IF RE-RUN from today** — recorded in 685's header rather than by
+editing an applied file, which would break the checksum ledger. `371`'s twin guard was
+conditioned on "until one attended run has been read", satisfied on 08-10 and 08-12.
+
+Both agents' `description` fields asserted *"must never be given a scheduled_tasks row"*
+and are rewritten. A description contradicting the live schedule is read as ground truth
+by council seats and by the next session.
+
+### Known wart, not fixed
+
+Both agent **types** keep the `-manual` suffix while running on a schedule. Renaming
+`agent_definitions.type` risks in-flight dispatch and breaks 321/371's own verify
+queries, so the truth is carried in `description` instead. Flagged to the council as a
+fair objection if a seat disagrees.
+
+### Owed, and NOT claimed
+
+- The **§10.6 live calibration** (`PROVOCATION_LIVE_CALIBRATION=1`, real key, real
+  tokens) was **not re-run**, and two of its four bad-set fixtures changed. **Do not cite
+  that calibration as current until someone runs it.**
+- Councils `c08d263a` (Go) and `fb31e95e` (config) are **submitted, not read**. A
+  `Council-Submitted:` trailer is a submission, never a verdict.
+- 685 is committed and **not applied**. Nothing in the config half is live.

@@ -1169,3 +1169,101 @@ that the cluster's own model calls were still working, which they were, so the m
 itself was fine and the fault was somewhere in my own plumbing that I cannot see. It
 failed in the safe direction: unable to decide whether something was safe, it ran
 nothing. You ran the statement yourself and it went through unchanged.
+
+---
+
+## 2026-09-02 — you asked for it daily and without your permission, and here is what that took
+
+The site had been showing the same provocation since 22 August. Eleven days, under a
+heading that says "Today's Provocation".
+
+The interesting part is that **nothing was broken.** The thing that publishes to the site
+has been running every six hours the whole time, including this morning, and it worked
+perfectly on every run. It just had nothing new to say. There were two provocations left
+in the cupboard and no dates on them.
+
+And when I looked for what was supposed to refill the cupboard, I found the real answer.
+The two pieces that write new provocations and put them in the diary **have never been on
+a timer at all**. They only ever ran when one of us went and pressed the button. So the
+site was never going to be daily; it was daily for as long as somebody kept feeding it,
+and then it quietly stopped.
+
+That is the thing your instruction actually fixes, and it is worth separating from the
+permission question. Removing your sign-off was necessary but it was not sufficient — on
+its own it would have changed nothing at all, because with nobody pressing the button
+there was nothing waiting for your approval anyway.
+
+### What I have changed
+
+**Your sign-off is gone from the publishing path.** Three places asked "has a person
+stamped this?" before a provocation could be served, dated, or used as an example for the
+writer. All three no longer ask.
+
+I checked one thing before doing it, and I would rather tell you than have you assume I
+did: **it published nothing retroactively.** Every provocation already approved for the
+site had your stamp on it. The unstamped ones in the database are test material on a
+separate address the site cannot reach. So the change only affects things written from
+now on.
+
+**Something had to replace you, so the readability check now rejects.** This is the one
+I want you to know about, because it is a judgement I made rather than one you asked for.
+
+When you said the writing was almost unreadable, I built a check that measures sentence
+length and word length. It has been running since 11 August but only **recording** —
+noting a problem and letting the piece through anyway. That was right while you were
+reading everything, because you were the real check. With you out of the loop, a note
+nobody reads is not a check at all, so I have made it refuse.
+
+I did that rather than lean on the AI judge deliberately. The judge is not stable: the
+identical piece of text drew no objections one day and two the next. A count of words per
+sentence cannot drift. It is a cruder reader than you, but it gives the same answer every
+time, and that matters more when it is the only reader left.
+
+**The cupboard target goes from six days to fourteen**, and the writer now runs twice a
+day — but only when the shelf is actually short. Once there are fourteen days of material
+it costs one cheap database query and stops. So it refills itself and then goes quiet,
+which is what you asked for when you said to create a new set and carry on.
+
+### The one thing that is not live yet, and why I have not just switched it on
+
+The code changes need the fleet rebuilt before they take effect. The timers are a database
+change that takes effect the moment it is applied.
+
+If I applied the timers first, the writer would start producing work that gets judged by
+the **old** rules — where the readability check still only records. And once a provocation
+is approved, it is never judged again (deliberately, so a drifting AI cannot retract
+something already published). So that batch would sit there, permanently allowed, having
+never faced the check. The site would then serve exactly the writing the check exists to
+stop, and nothing would ever flag it.
+
+So the timers are held back, and I have put a lock on the file: it **refuses to apply**
+until it can see evidence in the database that the new code has actually judged something.
+Not that a release happened — that the new rules really ran. I tested that the lock
+refuses today, and separately tested that everything else in the file works, on a copy
+that I threw away afterwards.
+
+**What I need from you: a fleet rebuild.** After that, one attended run of the writer so
+we can both see the stricter check working, and then I apply the timers and it is
+self-running.
+
+### Two things I should flag
+
+There was a rule, written on 9 August when you put your approval back in, that said the
+scheduler **must never** be put on a timer — with an automatic check that stops anyone
+doing it. You have now reversed that decision, so I have overridden the rule. It is
+recorded rather than quietly deleted, and it means that if anyone ever re-runs that old
+file it will now fail on purpose.
+
+And I nearly made a real mistake. When the stricter check started failing our older
+provocations, my first thought was that those test entries were out of date and I should
+refresh them. It was a tidy theory and it was wrong — eight of the nine are still live on
+the site. Refreshing them would have quietly weakened a guard that exists to stop that
+calibration being watered down. One query caught it. I mention it because the wrong
+version would have looked completely normal in review.
+
+### Where it leaves the site today
+
+Still showing 22 August, and it will keep doing that until the rebuild. The earliest
+anything new can appear is the day after the timers go on, because the scheduler never
+dates anything for today — there is always at least a day between something being written
+and being served, which is also your window to bin one you dislike.
