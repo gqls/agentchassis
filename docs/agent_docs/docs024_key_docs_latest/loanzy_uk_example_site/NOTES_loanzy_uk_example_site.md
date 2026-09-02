@@ -2336,3 +2336,27 @@ defect it finds" — worked case #3, and this time the finding was the ARCHITECT
 - Trailer: Council-Submitted on both commits resolves at report time — no amend, per the
   forward-only rule. **WDS-020 is now built, tested, approved, registered, and inert until
   the roll.** Decision 5 fully closed at this lane's end.
+
+## 2026-09-02 — evidence registers built for BOTH sites (owner instruction via lendzy; migs 697/698 APPLIED)
+- Method = lendzy RUNBOOK §8, followed exactly; 7/7 quotes through cmd/fcaquotecheck with
+  absent controls; every URL title-confirmed (the handbook 200s every path).
+- loanzy (697, create): CCA 1974 s.66A 14-day withdrawal; StepChange FCA status;
+  **MaPS provenance with corrects_site_citation — the lendzy-class find: served pages group
+  MaPS under "FCA-authorised services"; MaPS is the statutory guidance body, not an FCA
+  firm.** Copy routed to copy_quality (with the second find: the £5,000/9.9%/3y worked
+  example gives three different answers on three pages — NOT registered; a register must
+  not launder an inconsistency into an authority).
+- farmer (698, SUPERSEDE-AND-MERGE — its register already held 3 news-entity facts): ICOBS
+  8.1.1, DISP 1.6.2, DISP 3.6.6, ELCI 1998 reg 3 appended; entity facts carried forward,
+  verify RAISEs if lost. The insurance answer to lendzy: method unchanged, chapters differ.
+- **Method break found + reported to the FCA-mirror design: SOURCE HOSTING class** —
+  maps.org.uk/moneyhelper.org.uk sit behind Cloudflare challenges ("Just a moment...") →
+  perpetual false drift; gov.uk substituted (note: page lives at the FOUNDING-name slug
+  single-financial-guidance-body). Proposed mirror rule: reject challenge-title hosts at
+  WRITE time via the production extractor, not in the daily run.
+- Council corr 50ba341a (Council-Submitted on the commit); a chassis roll expected within
+  the hour may kill the run — RESUBMIT, don't re-diagnose (lendzy's warning, adopted).
+- The claim-extraction one-liner (pages → regulatory sentences) is in this entry's session
+  scrollback shape: curl each active page, strip tags, split sentences, grep
+  FCA|FSCS|FOS|ICOBS|CONC|£\d|days|attempts|must — good enough to reuse, RUNBOOK if a
+  third site needs it.
