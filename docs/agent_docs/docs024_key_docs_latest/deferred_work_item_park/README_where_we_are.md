@@ -372,3 +372,27 @@ would otherwise have shipped looking finished.
 because the same permission gate applies. Until it is applied, the loophole is open. The command is
 at the top of the handoff, and I would rather you saw it plainly than have "the safeguard is live"
 read as "the job is done".
+
+### 2026-09-02, evening — closed, and confirmed the convincing way round
+
+You applied the fix and it went in cleanly. The loophole is closed.
+
+The confirmation worth describing is this: when the reviewers said there was a hole, I wrote a small
+probe to check their claim rather than take it on trust — create a shelved item, try to quietly
+re-assign it, see what happens. Against the old version that probe reported **"hole confirmed"**.
+Run against the fixed version just now, the same probe reports **"hole closed"**. Same test, same
+data, opposite answer, and the test was written before the fix existed so it cannot have been
+tailored to agree with it.
+
+The fuller check also passes all seven of its conditions now, having failed one of them before the
+fix — which is the right order: I saw it fail for the correct reason before I let it pass.
+
+**The safeguard is now complete on both routes in** — putting a job on hold, and quietly re-assigning
+one that is already on hold. Both changes are recorded in the migration ledger, and nothing was left
+behind in the database.
+
+**The honest lesson from the whole exercise**, which I have written into the permanent notes: the
+testing I was most pleased with — deliberately breaking my own safeguard to prove the tests could
+catch it — only ever proved it could catch the failures I had already imagined. The one I had not
+imagined was sitting inside my own test, written as a requirement. It took an outside reader to see
+it. That is what the review step bought, and it approved the change while finding it.

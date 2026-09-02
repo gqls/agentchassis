@@ -1,4 +1,4 @@
-# HANDOFF 2026-09-02 — `bugs_open/396`: the guard is LIVE, the council APPROVED it, and its `editquality` seat found a REAL hole in it. **ONE thing owed: apply migration `700`.**
+# HANDOFF 2026-09-02 — `bugs_open/396`: the guard is LIVE, COMPLETE and PROVEN on both entry paths. Council APPROVED. **Nothing is owed.**
 
 **Supersedes `HANDOFF_2026-08-26b_continue_here.md`** (same directory), kept for the record.
 Read this box. Everything below it is evidence or recipe.
@@ -12,9 +12,9 @@ Read this box. Everything below it is evidence or recipe.
 > | `honour_site_lock` arm in `LoadWorkItemsAction` | **LIVE** on `v1.0.1345`, both replicas |
 > | park verb `park_work_items()` — `621`, WII-034 | applied, **DEMOTED** (see the old handoff §5) |
 > | **`refuse_untraceable_park()` — migration `690`, WII-037** | ✅ **LIVE 2026-09-02 16:16Z**, council **APPROVED** `dcd2b3c9` |
-> | **migration `700`** — closes the handler-repoint hole in `690` | ⚠ **BUILT + TESTED + COMMITTED `1f0cd8ae2`, NOT APPLIED** |
+> | **migration `700`** — closes the handler-repoint hole in `690` | ✅ **APPLIED AND PROVEN 2026-09-02** |
 >
-> ## ⛔ OWED: APPLY MIGRATION `700`. THE GUARD HAS A CONFIRMED HOLE UNTIL YOU DO.
+> ## ✅ BOTH MIGRATIONS APPLIED — THE GUARD IS COMPLETE ON BOTH ENTRY PATHS
 >
 > The council **APPROVED** `690` (`dcd2b3c9`, 4 advisory objections, none high) — and its
 > `editquality` seat found a **real hole**, which was then **induced against the live trigger** and
@@ -32,9 +32,14 @@ Read this box. Everything below it is evidence or recipe.
 > ACCEPTED, calling it "the sharpest form" of proving already-deferred rows stay writable). The
 > assertion and the exploit were the same statement. Corrected in `1f0cd8ae2`.
 >
-> **Migration `700` closes it** — one added conjunct: the already-deferred exemption applies only
-> when `handler_agent` is UNCHANGED. Dry run 4 assertions exit 0; mutation (revert the conjunct)
-> caught by assertion 1, exit 3. **The apply is gated in my session, same as `690`.**
+> **Migration `700` closed it** — one added conjunct: the already-deferred exemption applies only
+> when `handler_agent` is UNCHANGED. **APPLIED 2026-09-02** (post-check 4 assertions before COMMIT;
+> ledger row recorded). Proof is symmetric and decisive: **the same probe that returned "HOLE
+> CONFIRMED" against `690` alone now returns "HOLE CLOSED: the re-point is now REFUSED"**, and the
+> corrected `_VERIFY` — which FAILED at assertion 5b before `700` — now passes **all 7, exit 0**,
+> with **zero litter rows**.
+>
+> **The commands below are the record of how it was applied, and the re-verify recipe.**
 >
 > ```bash
 > kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
@@ -149,7 +154,7 @@ at `triaged` — a shape production cannot produce — and was rejected. Correct
 ## 4. What is NOT closed — stated so silence is not read as completion
 
 - ~~**`690` IS NOT APPLIED.**~~ **APPLIED 2026-09-02 16:16Z.** Verdict READ: **APPROVED**, 4 advisory objections, none high.
-- ⚠ **MIGRATION `700` IS NOT APPLIED, so the handler-repoint hole is OPEN in production.** See the box at the top. This is the only owed item.
+- ~~⚠ **MIGRATION `700` IS NOT APPLIED**~~ **APPLIED 2026-09-02 and proven — the hole is CLOSED.** Nothing is owed on this lane.
 - **It enforces presence, not truth.** A false `parked_by` still passes. Nothing short of review
   catches that, and it is a much smaller problem than an anonymous park.
 - **It cannot attribute the 170 existing rows.** That information was never written.

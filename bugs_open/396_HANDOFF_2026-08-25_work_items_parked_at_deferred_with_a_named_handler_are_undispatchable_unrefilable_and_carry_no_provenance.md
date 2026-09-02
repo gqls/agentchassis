@@ -446,7 +446,7 @@ It enforces **presence, not truth** — a false `parked_by` still passes. And it
 **170** existing rows; that information was never written and nothing can recover it.
 
 
-## 6g. ⚠ 2026-09-02 — the council APPROVED `690` AND found a real hole in it. Migration `700` closes it; **not yet applied**.
+## 6g. ✅ 2026-09-02 — the council APPROVED `690` AND found a real hole in it. Migration `700` CLOSES it, APPLIED and PROVEN.
 
 **Verdict on `dcd2b3c9`: APPROVED, 4 advisory objections, none high-severity.** One of them was
 right and material, so the approval is not the end of it.
@@ -501,10 +501,14 @@ conjunct): caught by assertion 1, exit 3.
 - **future producers hard-failing** (low) — accepted; that is what a guard is, and withdrawal is one
   statement carried in the error's own `HINT`.
 
-### ⛔ Migration `700` is NOT APPLIED — the hole is OPEN in production
+### ✅ Migration `700` APPLIED 2026-09-02 — the hole is CLOSED
 
-Committed `1f0cd8ae2` (+`_ROLLBACK`). Apply recipe in the lane handoff. The apply is gated in the
-building session, same boundary as `690`.
+Committed `1f0cd8ae2` (+`_ROLLBACK`), applied by hand and recorded (`applied_by='record-only'`).
+Post-check passed 4 assertions before `COMMIT`. **The proof is symmetric:** the same induction probe
+that returned *"HOLE CONFIRMED: re-point ACCEPTED"* against `690` alone now returns *"HOLE CLOSED:
+the re-point is now REFUSED"*. The corrected `_VERIFY` — which **failed at 5b** before `700` — now
+passes **all 7 assertions, exit 0**, ending in `ROLLBACK` with **zero litter rows**. Both `690` and
+`700` are in `schema_migrations`.
 
 
 ## 6b. ⚠ SUPERSEDES §6a's candidate 1 — the fix is the EXISTING site lock, not a park verb (2026-08-25, after council `ed821065` REVISE)

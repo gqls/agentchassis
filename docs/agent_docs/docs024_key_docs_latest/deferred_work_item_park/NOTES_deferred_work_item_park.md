@@ -942,3 +942,28 @@ it. The final version has no outer handler — every assertion is its own sub-bl
 `700` is committed (`1f0cd8ae2`) and **not applied** — same permission boundary as `690`. Until it
 is, the hole is open in production, and I have said so at the top of the handoff rather than
 letting "690 is live" read as "the guard is complete".
+
+### ✅ 2026-09-02 — migration 700 APPLIED; the hole is closed and the proof is symmetric
+
+The owner applied it. Post-check: 4 assertions before `COMMIT`. Ledger row recorded.
+
+**The confirmation I care about is the symmetric one.** The same induction probe I wrote to test the
+council's claim — insert a shelf row, re-point its handler, see whether it is accepted — returned
+**"HOLE CONFIRMED: re-point ACCEPTED"** against `690` alone, and now returns **"HOLE CLOSED: the
+re-point is now REFUSED"**. Same probe, same rows, opposite answer. That is stronger than any
+assertion count, because the probe was written *before* the fix existed and could not have been
+shaped to agree with it.
+
+Second confirmation: the corrected `_VERIFY`, which **failed at assertion 5b** before `700` with
+*"a shelf row was re-pointed to a NAMED handler with no provenance and ACCEPTED"*, now passes **all
+7, exit 0**, `ROLLBACK`, **zero litter rows**. That pre-fix failure was itself the demand control —
+5b was proven able to fail before it was allowed to pass.
+
+**Guard is now complete on both entry paths:** the transition INTO `deferred`, and the handler
+re-point while already `deferred`. Both `690` and `700` are in `schema_migrations`.
+
+**What I would carry to the next lane from this whole sequence:** the mutation testing I was pleased
+with was real but bounded — it proved the test could detect the failures *I had imagined*. The
+failure I had not imagined was sitting inside my own test as a passing assertion. Two things caught
+it and neither was mine: an outside reader with a different frame, and then a probe written to test
+*their* claim rather than my code.
