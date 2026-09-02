@@ -9,40 +9,50 @@ CLM-001 through CLM-030+) and in `RFC_060` (below) — this file is state, next 
 
 ---
 
-## 1. THE FIRST THING TO DO — verify the deploy, don't trust this line
+## 1. Deploy status — RESOLVED before this handoff closed, read this not the RFC's earlier lines
 
-The owner reported a fresh chassis build/roll at the end of this session. **It was NOT verified at
-the pod** — the kubeconfig token expired (22:08, mid-session) before it could be checked. Do not
-carry forward "it's deployed" as fact; do not carry forward "it's not deployed" either. Check:
+**CONFIRMED LIVE, 2026-09-02 21:30 BST**, after the owner refreshed the kubeconfig token. `e5b1a0f01`
+(the banned_claims compile-check) is running.
+
+**Two dead ends worth knowing before you repeat them.** A plain `grep -aq "<sha>" /proc/1/exe` for
+the target commit returned ABSENT — and so did the SAME grep for an 8-day-old ancestor commit that
+*must* have been in the binary, which is what exposed the probe as broken rather than the deploy:
+`buildinfo.GitCommit` is stamped as ONE string (the exact build-time HEAD), not an ancestry, so
+grepping for any OTHER commit's SHA — old or new — correctly returns absent. And the `build
+provenance` startup log line was already gone from the pod's log buffer within ~28 minutes of
+restart (`--since-time` anchored at pod start still only reached back to +28 min) — a busy pod
+rotates its buffer faster than the old "grep the last few thousand lines" recipe assumes.
+
+**What actually worked:** `service_binary_capabilities` (`platform/buildcapability/`, RFC_040),
+built for exactly this — records the ACTUAL stamped commit per pod, no shelf life:
 
 ```bash
-# 1. Confirm the token is actually usable now (it self-expires every ~3 days; landmine:
-#    kubeconfig-token-expires-every-3-days.md — only the owner can refresh it, ask if this fails)
-python3 -c "import base64,json,re,time;t=re.search(r'token: >-\n\s+(\S+)',open('/home/ant/.kube/config_production_uk001').read()).group(1);p=t.split('.')[1];p+='='*(-len(p)%4);c=json.loads(base64.urlsafe_b64decode(p));print('expired' if c['exp']<time.time() else 'valid until', __import__('datetime').datetime.fromtimestamp(c['exp']))"
-
-# 2. Pod age vs the commit that must be running
-kubectl -n ai-persona-system get pods -l app=agent-chassis -o custom-columns=NAME:.metadata.name,START:.status.startTime
-# Compare against: git log -1 --format='%H %ai' e5b1a0f01   (the banned_claims compile-check commit)
-# Pod START must be AFTER that commit's timestamp, or the roll didn't carry it.
-
-# 3. Build provenance line (scrolls fast on a busy pod — an empty grep means "out of range", not "unstamped")
-kubectl -n ai-persona-system logs -l app=agent-chassis --tail=3000 | grep -m1 'build provenance'
-# Then: git merge-base --is-ancestor e5b1a0f01 <the stamped commit>   — answers "did my fix ship?" directly
-
-# 4. Once confirmed running, the check itself only fires on the DAILY evidence-freshness tick (86400s,
-#    was last_completed_at 2026-09-02 09:08:57 before this session started). Either wait for the next
-#    ~09:09 tick, or hand-fire it once for confirmation:
-kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
-  "SELECT name, enabled, last_completed_at FROM scheduled_tasks WHERE name='evidence-freshness';"
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT pod_name, git_commit, last_seen_at FROM service_binary_capabilities
+WHERE service='agent-chassis' ORDER BY last_seen_at DESC LIMIT 5;"
+# then: git merge-base --is-ancestor e5b1a0f01 <the git_commit column value>
 ```
 
-**What "confirmed" looks like:** the fleet was measured clean (0 non-compiling `banned_claims`
-patterns, 239 patterns / 19 sites, 2026-09-02) — so the honest confirmation is NOT a work item
-appearing, it's the daily run completing with the new code path executed and nothing wrong found.
-If you want a POSITIVE artefact rather than an absence, hand-write one deliberately-broken pattern
-into a throwaway/test site's `evidence_base.banned_claims` (e.g. `"guaranteed("`), fire the sweep,
-confirm an `invalid_banned_claim_pattern` work item appears, then roll it back. Do not do this on a
-live client site.
+Confirmed: every current pod reports `git_commit=0d2feee2`, `e5b1a0f01` is a confirmed ancestor.
+⚠ this table was separately measured stale for one specific roll elsewhere (RFC_060 §3d cites it) —
+cross-check `last_seen_at` is recent across multiple pods before trusting a single row.
+
+**Gate 2 is still open: the daily `evidence-freshness` tick has NOT run since the roll.**
+`last_completed_at` was 09:08:57 that morning, unchanged as of 21:30; next tick ~09:09 tomorrow
+(2026-09-03). Check whether it has fired and completed cleanly:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+  "SELECT name, enabled, last_triggered_at, last_completed_at, now() FROM scheduled_tasks WHERE name='evidence-freshness';"
+```
+
+**What "confirmed running correctly" looks like once it ticks:** the fleet was measured clean (0
+non-compiling `banned_claims` patterns, 239 patterns / 19 sites, 2026-09-02) — so the honest
+confirmation is NOT a work item appearing, it's the daily run completing with the new code path
+executed and nothing wrong found. If you want a POSITIVE artefact rather than an absence,
+hand-write one deliberately-broken pattern into a throwaway/test site's `evidence_base.banned_claims`
+(e.g. `"guaranteed("`), fire the sweep, confirm an `invalid_banned_claim_pattern` work item appears,
+then roll it back. Do not do this on a live client site.
 
 ---
 
@@ -137,8 +147,9 @@ citation presence).
 
 ## 6. Recommended next actions, in order
 
-1. **Verify the deploy** (§1) — this is the honest state of the fleet right now and everything else
-   depends on knowing it.
+1. ~~Verify the deploy~~ **DONE — confirmed live 21:30 (§1).** Still worth checking whether the daily
+   tick has fired yet (§1's second query) — if it has, read the run's outcome before doing anything
+   else, since that's the check's first real-data execution.
 2. **Get the owner's direct word on Q6** — it's designed, sketched, and someone else's relay says
    "go ahead," but this thread has been holding for a first-hand confirmation all day.
 3. **Decide Q5's shape** (plain per-site `citation_codes` field vs. field + sector presets) — small
