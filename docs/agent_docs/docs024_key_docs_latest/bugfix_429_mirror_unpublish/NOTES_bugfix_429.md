@@ -49,3 +49,13 @@
   budget ~30 min for the queue.
 - Budget audit after the check.py bump: `budget: 10 — 0 shared action(s) over it`;
   parity test green.
+
+- Post-commit obligations DONE 2026-09-02 evening: `landmines-verify-dispatch.sh`
+  dispatched 2 (this lane's entry armed); optional-key-budget-check overlay
+  re-applied and VERIFIED AT THE ARTEFACT (cronjob volume → configmap
+  `…t2tcc65744` → carries `"publish_site": 4`); MEMORY_workstreams entry added;
+  WRONG_CALLS entry added (schema-guessed scheduled_tasks queries ×2 — the
+  session's one misstep; no false claim reached a doc). Delivery lane given an
+  early commit heads-up on top of the two agreed pings. Council verdict watch
+  running in background (poll by payload corr, per the ~30 min queue-latency
+  rule — a missing row is latency, not a dropped dispatch).

@@ -59350,3 +59350,21 @@ measurement license a false conclusion, from two different sessions, on two diff
 
 Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
 a-mocks-own-bookkeeping-cannot-assert-a-negative.
+
+---
+
+## 2026-09-02 — bugfix_429_mirror_unpublish lane: two schema-guessed queries in one session, both refused, both avoidable by the rule already written down
+
+**The claim-shaped act:** queried `scheduled_tasks` by guessed column names TWICE in one session
+(`task_name`/`schedule`, then `cron_schedule` in the very next attempt) instead of running
+`\d scheduled_tasks` first — CLAUDE.md's own "Schema first" rule, skipped twice in a row, the second
+time immediately after the first refusal had just demonstrated why the rule exists.
+
+**What caught it:** the 42703 errors themselves — loud, cheap, no damage. This entry exists for the
+TALLY, not the incident: the cheap check (`\d <table>` before writing SQL) is already a standing
+rule, and the failure mode was not ignorance of it but treating a one-line ad-hoc query as too small
+to owe it. A query small enough to type from memory is exactly the one that gets its columns wrong.
+
+**The cheap check:** the one already written: `\d <table>` first, every time, including for
+"trivial" lookups. Second occurrence in this session's arc of the same shape the estate already
+automates elsewhere (wrong-key queries reading as absence — the bugfix_390 lane's landmine).
