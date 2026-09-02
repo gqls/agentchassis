@@ -1224,3 +1224,17 @@ the tree carries both practices. They file the "dry run exists/free/mandated/UND
 detail quoted into it, the one-doc_notes-row-per-run cron shape offered as the candidate
 driver). 658/657 close the orphan-rename path: 658 recorded under its new name only;
 657's note to the 413 session says rename+record as one motion.
+
+### 2026-09-02 — 413 CLOSED by its session; 426 filed by 314's; the arc's SUMMARY cut
+
+The 413 session closed the bug (their 8a26d04e5: moved to bugs_closed with our +2h/+3.3d
+PASS verdicts cited, caveats carried, residuals routed — candidate 2 stays an owner option
+in README, 415 stays open) and completed 657's _HOLD lifecycle per the flag. The 314 session
+filed **bugs_open/426** ("the applied-by-hand-never-recorded check exists, is free, is
+mandated, and nobody runs it" — our seven-unrecorded as live evidence, the 672
+vocabulary-degrade detail quoted, the cron shape as candidate 1). On their _HOLD-lint
+question I conceded in writing: my "rename is the jurisdiction moment" conflated the
+RUNNER's jurisdiction with the LINT's — write time is the only useful lint moment for a
+file that is guaranteed to be hand-applied. **SUMMARY_2026-09-02 cut** (second in the
+series): the ruling-B arc closed, D4 open. Lane state: awaiting the owner's budget number +
+stage B go-ahead (both asked, 08-31/09-01 chat).
