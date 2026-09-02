@@ -340,3 +340,57 @@ propose, that a tool ought to declare what data *we* bring versus what we make t
 in. Your words on the comparator and the calendar settle it. The check I built today is the
 mechanical half; the other half — refusing to choose a tool at planning time when we would have
 no data to put in it — sits with the planner and is still to do.
+
+---
+
+**2026-09-02, later — you said the content quality auditor should be in the new build path. I
+went to do that, and stopped, because it would not have worked.**
+
+The instruction is right. What I found is that moving this checker earlier would not, on its own,
+have caught anything you complained about on the boxing site — and I would rather say so now than
+show you a green tick later.
+
+Here is the problem in one sentence. The auditor only ever looks at four pages, chosen by name:
+the home page, "about", "services" and "contact". Everything else on the site is invisible to it.
+
+Boxing Online has twenty-two pages. The auditor can see three of them (there is no "services"
+page). The guide pages you called padding, the articles index that wrote a manifesto instead of
+listing articles, and the fighter comparison tool that made the reader type everything in — all
+ten of those pages sit outside the four names. It was never going to mention them. Across the
+whole estate it is worse, not better: thirty-six sites, 1,196 pages, and the auditor looks at 92
+of them. Under eight per cent.
+
+Three smaller things compound it. It reads only the first thousand characters of each page it
+does look at, which on a typical home page is about four per cent of the text. Much of that
+thousand is not text at all but styling instructions — on the boxing home page the styling starts
+at the very first character, so essentially the entire sample the reviewer received was
+stylesheet rather than words. And the order it reads a page's pieces in is not fixed, so the same
+unchanged page gave a different sample this afternoon than it did at lunchtime.
+
+To be fair to it: what it does produce is decent. On the boxing site it flagged the home page for
+burying four tools inside one paragraph with nothing to click, and the about page for claiming
+accuracy while offering no evidence and no named person behind it. Those are fair criticisms and
+you would probably agree with them. It is a real reviewer with its eyes almost shut.
+
+There is a second problem waiting behind the first, and it is the one worth your attention. Even
+the findings it produces mostly go nowhere. The system has been quietly filing notes to itself
+saying "no handler for this kind of finding" — thirty of them for calls-to-action alone, going
+back a fortnight. So the checker notices something, writes it down, and nothing on the other end
+is listening.
+
+So the job is bigger than plugging it in, and I think that is the honest read of your
+instruction rather than a departure from it. First give it eyes: let it see every page, read more
+of each one, and stop feeding it stylesheets. Then give it the questions you actually care about
+— does a list contain the kind of thing its heading promised, does a tool bring any data of its
+own, does a guide earn being more prominent than the thing it explains. Then put it in the build
+path, which is the easy part and the part I can do quickly.
+
+**The one thing I need from you before I go further.** When this runs during a build and finds
+something, should it just record the finding for whoever approves the site, or should it be
+allowed to send pages back to be rewritten automatically? Automatic rewriting is the thing you
+switched off on 25 August because it was causing bad and unexpected renders. Before delivery
+there is a decent argument for switching it back on, since nobody has seen the site yet. But it
+would be running immediately after the writer that just produced the page, with nothing in
+between, and that is close to the arrangement that misbehaved before. My recommendation is to
+record only, and to make the findings part of what you see when you approve the site — but it is
+your call and it is the difference between a checker that reports and a checker that acts.

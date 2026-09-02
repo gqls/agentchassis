@@ -1318,3 +1318,129 @@ reason **and whether it carried a `component_id`** before reading a persistent f
 failed fix.
 
 Verified live: `exitCode=0`, ConfigMap `bh76d66662`, `doc_notes` receipt carrying all three rules.
+
+---
+
+## 2026-09-02 — `content-quality-auditor` into the new build path: §2 says STOP, and here is why
+
+Working the HANDOFF of the same date. Its §2 is an explicit gate: *read what a run actually
+produces before wiring anything in; if the audit does not name what the owner complained about,
+"the job is bigger and the prompt is the work — say so plainly rather than shipping a route to a
+seat that will stay quiet."*
+
+**The gate fails. Do not route it as it stands.** Six findings, all `[MEASURED 2026-09-02]`
+against live config and the live DB.
+
+### 0. First, a correction to the handoff's own arithmetic — and it is a real signal
+
+The handoff records **44** auditor runs. Today the same query returns **42**. A count of rows
+that goes DOWN means `orchestration_states` is being reaped, so every "N runs since" figure
+about this seat has a shelf life measured in days. Quote it with the date attached or not at all.
+
+```sql
+SELECT count(*) FROM orchestration_states WHERE collected_data ? 'content_audit';  -- 42
+```
+
+### 1. The auditor structurally cannot see the pages the owner complained about
+
+`load_page_content` is the whole of its sight, and it reads:
+
+```sql
+WHERE p.site_id = $1 AND p.name IN ('index','about','services','contact')
+```
+
+Four hardcoded page names. On boxingonline that is **3 of 22 pages** (no `services` page exists).
+Fleet-wide it is **92 of 1,196 pages across 36 sites — 7.7%**, averaging 2.56 pages seen per site.
+`services` exists on **7 of 36** sites, so a quarter of the budget is usually spent on nothing.
+
+The owner's three complaints were the padded `/guides/tool-*-guide.html` pages, the
+`/articles/index.html` manifesto, and the `/tools/fighter-comparator/` form. **All ten guide,
+tool and index pages are outside the four names.** The seat is a four-page brochure auditor
+pointed at sites averaging 33 pages.
+
+This is the answer to §2 and it is not a matter of prompt tuning: no wording change lets an LLM
+review a page that was never put in its context.
+
+### 2. Of the little it sees, it sees the first 1,000 characters
+
+`LEFT(string_agg(...), 1000)` per page. Index pages fleet-wide average **28,180 chars**, so the
+landing page is sampled at **4.5%**. about 11.0%, contact 14.2%, services 13.6%.
+
+### 3. …and ~43% of that budget is stylesheet
+
+`rendered_html` carries `<style>` blocks. Fleet-wide over 2,851 components, **42.8%** of
+`rendered_html` is CSS. On boxingonline's index the `<style>` block starts at **character 1** and
+never closes inside the window — **999 of the 1,000 chars the LLM receives are CSS**. `about` and
+`contact` lose 426 and 417 chars respectively to a style block that also never closes.
+
+`content_data` (jsonb, avg **2,145** chars vs 6,297 for the html) holds the same content
+structurally with no CSS, and is the better input.
+
+> **MISSTEP, mine, logged because the metric looked fine:** my first pass measured "prose chars in
+> sample" by stripping `<style.*?</style>` then `<[^>]*>`, and reported index as **993/1000 prose**
+> — the most CSS-choked page of the three scored best. The style block is *truncated*, so there is
+> no closing tag to match, the strip no-ops, and the raw CSS body survives as counterfeit prose.
+> **A tag-stripping metric silently inverts on truncated markup.** The honest measure is
+> positional: where does `<style` start, and does `</style>` appear at all.
+
+### 4. The sample window drifts across runs with no content change at all
+
+`string_agg(pc.rendered_html, ' ')` carries **no `ORDER BY`**, so the aggregation order is
+unspecified. This is not theoretical:
+
+- the 12:35 run's stored `page_samples` contains the CTA prose "New fights get announced…";
+- that prose sits at char **15,154 of 18,553** — far outside any 1,000-char window taken today;
+- all three index components were created 06:37 and have `updated_at = created_at`, i.e. **the
+  content did not change between the run and now**.
+
+Same rows, same bytes, different leading component. Fix is `ORDER BY pc.position` (the column is
+`NOT NULL`).
+
+> **MISSTEP, and the reason it nearly got recorded the wrong way:** I first tested this by hashing
+> the sample **5 times in a row** and got five identical hashes, and wrote that I would *not*
+> claim non-determinism. Five consecutive runs share a plan and a heap; the drift shows up across
+> **hours**, not across seconds. **A stability test whose window is shorter than the disturbance
+> cannot see the disturbance** — the sampling interval is part of the claim, and mine was
+> unstated. The stored `page_samples` from the earlier run is what actually settled it, because it
+> is a record from *before* the window moved.
+
+### 5. The prompt reviews a dimension the schema cannot express
+
+Prompt REVIEW list: TONE · GAPS · CTA · DIFFERENTIATION · **AUDIENCE**.
+Declared enum: `tone|gap|cta|differentiation|`**`content`**.
+
+`AUDIENCE` has no enum value and `content` has no review dimension, so the model improvises.
+Across all stored audits, **210 findings**: gap 64, content 45, differentiation 45, cta 43,
+**audience 10 (outside the declared enum)**, tone 3.
+
+### 6. Even the findings it does produce have nowhere to go
+
+Beyond `filing_mode='record'`, the categories themselves are unrouted — `site_work_items` carries
+`capability_gap` rows saying so in the platform's own words: **30** for `cta`
+("no handler for audit category \"cta\""), **3** for `audience`, **1** for `tone`, spanning
+2026-08-20 → 2026-09-02.
+
+So §4's warning ("something must READ them") is already the observed steady state for this seat's
+largest category, not a risk to guard against.
+
+### What this changes about the task
+
+The handoff's shape — insert a `call_agent` between `apply_site_design` and `update_site_status`
+— stays right, and §3's argument for `call_agent` over `spawn_agent` is untouched. But it is now
+**step 3 of 3**, not the job:
+
+1. **Widen and clean the input** (the load-bearing fix): drop the four-name allow-list, order by
+   `position`, read `content_data` or strip `<style>`, and raise the per-page budget. Without this
+   the seat cannot see guides, tools or indexes on any site.
+2. **Reconcile prompt dimensions with the category enum**, and add the promise-keeping questions
+   the owner actually asked for (does a listing list its own class; does a tool carry data; does a
+   guide earn its place beside the tool).
+3. **Then** route it into the build path, and answer §4's record-vs-dispatch question.
+
+Doing 3 alone would put a seat in the build path that is blind to 92% of the site by construction
+— the same silence as defect 4, moved earlier and harder to see.
+
+**Diagnosis substitution, stated per the 2026-07-31 owner ruling:** no `090` filed. The criteria
+that trigger it (cause non-obvious after a quick look; cause not where the symptom is) do not
+hold — the cause is four literals in the seat's own SQL, read directly, and every claim above is
+first-hand measurement against live config and the live DB rather than inference.
