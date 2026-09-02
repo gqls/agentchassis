@@ -19,9 +19,22 @@ experiment outstanding, and it may already have resolved itself while you were a
 
 ## 2. DO THIS FIRST — the experiment that is either confirmed or refuted by now
 
-The two-strike anti-churn arm counts terminal siblings on a **rolling 7 days**. leopardess's
-strikes fall on 2026-08-26/27, so they age out **2026-09-02 → 09-04**. This handoff was written
-inside that window.
+The two-strike anti-churn arm brands a new item when **2 or more** terminal siblings share its
+`item_key` within a **rolling 7 days**. So the brand lifts when the count falls to 1 — i.e. 7 days
+after the **second-newest** strike, not the newest.
+
+**The arithmetic, per key `[MEASURED 2026-09-02]`:**
+- Blog-listing key (`page_rerender_blog_4851f6fc…_section_data_resolved`) — 6 completes:
+  08-26 14:42:46, 15:18:36, 15:28:52; 08-27 05:08:22, **22:37:25**; 08-28 09:39:12.
+  Second-newest is **08-27 22:37:25 ⇒ brand lifts ~2026-09-03 22:37Z.**
+- The `rerender-pages` keys (`needs_rerender`, `deactivated_component`) last completed
+  **08-27 21:22–21:33 ⇒ ~2026-09-03 21:2xZ.**
+
+**So the prediction is sharp: nothing before ~2026-09-03 21:30Z, and service should resume that
+evening.** Verified still broken at 2026-09-02 18:5xZ (11 of 13, byte-identical to 08-31 — three
+identical reads across three days). **If you are reading this on 09-04 or later and it is still
+11 of 13, the chain in §4 is REFUTED** — that is the decisive outcome, and it means something else
+holds the site.
 
 ```bash
 curl -s https://leopardessconsulting.co.uk/blog.html | grep -o 'src="[^"]*card-[^"]*"' | wc -l
