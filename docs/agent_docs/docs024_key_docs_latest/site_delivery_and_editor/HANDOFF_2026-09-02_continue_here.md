@@ -105,9 +105,14 @@ diagnosis `fe4b8537`, components lane).
    was corrected by §1.4's execution; he is NOT holding this question)** · the
    1b form-endpoint PRE-PLAN — **DELIVERED, awaiting the owner**:
    `docs024_key_docs_latest/static_site_form_endpoint/PLAN_2026-09-02_pre_plan_extensible_form_endpoint.md`
-   (decides nothing; six open decisions). **THIS LANE OWES the review of its D1
-   against the publish seam** (publish worker named as candidate receiver); D2
-   is deliberately deferred to 420's identity replumb · RFC_058 identity model
+   (decides nothing; six open decisions). ~~THIS LANE OWES the review of its D1
+   against the publish seam~~ **DONE 2026-09-02 ~20:0xZ**:
+   `REVIEW_2026-09-02_form_endpoint_preplan_D1_vs_publish_seam.md` (this dir) —
+   D1(c) opposed on four cited grounds (two-component naming; the new sweep
+   makes edge-stored submissions self-deleting; acceptance probes become
+   theory-laden; worker.js is outside council scope), (b) supported, seam
+   contributes D3 stamping + D5 thank-you page either way; D2 is deliberately
+   deferred to 420's identity replumb · RFC_058 identity model
    (420 lane owns; this lane is a named consumer).
    **Pre-delivery artefacts to use when §7 unblocks**:
    `site_delivery_and_editor/APPROVAL_READOUT_2026-09-02_boxingonline_what_is_actually_fixed.md`

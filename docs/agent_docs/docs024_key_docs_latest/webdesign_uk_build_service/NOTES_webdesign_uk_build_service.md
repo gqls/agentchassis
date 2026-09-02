@@ -7722,3 +7722,19 @@ end. **Guards must NEST: inner × period < outer.**
   standing warnings: do not force the reconciler for the contact 404, do not
   regenerate the logo pre-roll, **do not report cards fixed on this site**.
   Handoff §§1.2/1.5/1.6/2 updated in place. Next in-lane work: the D1 seam review.
+
+- **D1 publish-seam review WRITTEN (~20:0xZ)** — the one non-roll-blocked item:
+  `site_delivery_and_editor/REVIEW_2026-09-02_form_endpoint_preplan_D1_vs_publish_seam.md`.
+  Verdict: D1(c) opposed on four grounds, each cited at code or at tonight's
+  commits — (1) "publish worker" is TWO components and only the serving edge
+  (`scripts/cloudflare/worker.js`, one ~207-line deployment for every static
+  site) could receive a POST; (2) it has no safe store — submissions written to
+  the serving bucket under a site prefix are now SWEPT by `b60d66e3c`'s own
+  convergence, so (c)'s "zero new infrastructure" argument self-destructs;
+  (3) every edge behaviour taxes the seam's served-status probes (robots.txt
+  carve-out is the precedent) just as acceptance became a 404/200 pair;
+  (4) worker.js is OUTSIDE council scope (council-scope.sh:129) — D4's
+  most-under-scoped surface would live where no gate reviews it. (b) supported;
+  seam contributes D3 build-side stamping (site identity never from Origin —
+  proxy-chain lesson) + D5 static thank-you page under any D1. Handoff §1.6
+  updated; findings messaged to the boxingonline session.
