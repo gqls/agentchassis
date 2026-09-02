@@ -57932,3 +57932,30 @@ file. If HEAD is already unformatted, the change is not yours to make.
 
 Tally: **inherited-search-bounds-with-an-inherited-conclusion** x1,
 **gofmt-w-on-a-shared-file-as-a-same-file-passenger** x1 (near-miss, not shipped).
+
+## 2026-09-02 — routing_capability_guard lane: backticks in a `git commit -m` message executed and ATE a clause, on a trap that is in this estate's docs AND in my own auto-memory index
+
+Committing the council-revise round, the message contained a quoted Go expression in backticks —
+``its arm is `if !known || canWrite { return c }`: unmeasured returns the finding unchanged`` — inside
+a double-quoted `-m`. Bash ran it as command substitution. The commit landed (`fae9e269b`) with the
+line reading *"its arm is : unmeasured returns the finding unchanged"*, and `bash` printed a
+`syntax error: unexpected end of file` that a `| tail -4` nearly hid behind git's own summary.
+
+**Cost was one clause in one commit message** — trivial, and forward-only means it stays. Logged
+anyway because the interesting part is not the damage:
+
+- The trap is documented fleet-wide (`MEMORY` → `shell-tool-traps-committing.md`, *"backticks in `-m`
+  execute"*), it is in the index that auto-loads into every one of my sessions, and **I had already
+  cited that same memory file earlier in this very lane.** Knowing it, and having written about
+  knowing it, bought no protection — the same shape as this file's 2026-08-10 entry, where a lane
+  published the correction for a class four sections before repeating it.
+- **It is loudest exactly when the message is best.** The messages that carry backticks are the ones
+  quoting a symbol, an arm, a predicate — i.e. the careful ones. The habit that makes a commit message
+  worth reading is the habit that triggers this.
+
+**The cheap check, and it is not "remember":** never put a backtick in `-m`. Use single quotes for
+inline code in commit messages (`'if !known || canWrite'`), or write the message to a file and
+`git commit -F <file>`, which has no substitution at all. **And do not `| tail` a commit** — that cuts
+the pre-commit block where the shell error surfaces (`LANDMINES.md` already carries that half).
+
+Family: shell-tool-traps-committing, a-report-is-not-a-measurement (knowing ≠ checking).
