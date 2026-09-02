@@ -299,3 +299,32 @@ visible problem is fixed.
 
 **Nothing is broken in the meantime.** All three tool pages still work, every link still resolves,
 and everything we have done so far can be undone by changing one field back.
+
+---
+
+**2026-09-02 — closed.** The buttons are right and the lane is done.
+
+Nothing on any of the three sites now has a button that names the password tool and opens it, and
+nothing points at it by accident either. The three you originally reported go to the contact page, or
+in one case to a genuinely relevant tool. I checked all of that on the live sites, not in the
+database.
+
+**What I have deliberately left behind, so you know it is a choice and not an oversight.**
+
+Seven stale entries survive in "related tools" strips — the little card lists at the bottom of some
+tool pages. Those are snapshots taken from a query that never got re-run, which is a different fault
+belonging to a job already open. **Visitors do not see them**, because the site stops rendering a
+button once its destination is archived. They do prevent the very last step — actually deleting the
+three tool pages rather than leaving them archived — so that step waits on the other job. Leaving
+them archived is harmless: they still work, nothing links to a dead page.
+
+And the underlying cause is untouched. The framework still chooses button destinations by a
+menu-order number with no idea what a page is about, so the next site we build will do the same thing.
+I have written that up as its own job rather than keep this one open behind it — it is a design change
+that needs its own review, and holding a finished job open for it would just make both harder to read.
+
+**One thing I would flag for its own sake.** Partway through, a routine instruction to reword two
+buttons also rewrote the middle of two pages, replacing whole sections with duplicates of their
+neighbours. I caught it, put both back word-for-word, and it is recorded — but the check I had been
+relying on could not have caught it, and I had been using that check with confidence. That is the
+part I would want you to know about, more than the buttons.

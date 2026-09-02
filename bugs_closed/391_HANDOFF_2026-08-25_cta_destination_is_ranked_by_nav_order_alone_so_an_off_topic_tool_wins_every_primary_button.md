@@ -791,3 +791,58 @@ Three lines of it, because they are time-sensitive:
    regenerating the label from the title, which is `stampCTADestinationGuidance` by force and would
    have pushed ~150 rows a week out of the bucket `nav_order` reaches and into yours. Rejected on
    your evidence; recorded in 399's addendum §2.
+
+---
+
+# ✅ CLOSED 2026-09-02 — owner instruction. Fixed AND live, verified at the served bytes.
+
+## The bar, checked rather than asserted `[MEASURED 2026-09-02 ~15:4xZ]`
+
+| test | result |
+|---|---|
+| CTA fields whose **copy names** the tool **and** link to it — the label-lock defect this file is about | **0** fleet-wide (was **20 of 80** at filing) |
+| CTA fields of any kind still pointing at the retired tool on an active page | **0** |
+| The three buttons the owner reported | `aiao/services` → `/contact.html`; `aiao/about` → `/contact.html`; `finetuning/technical-details` → `/tools/model-approach-selector.html` |
+
+## What was actually fixed
+
+1. **The fossil.** `nav_order` 1 → 900 on all three sites — the value that made a password toy win
+   `chooseCTATargets`' positional pick everywhere. ⚠ 900, not 200: at 200 it ties and the alphabetical
+   tiebreak on `name` puts `password-entropy` first again on two of three sites.
+2. **The 20 label-locked fields.** Rewritten through the framework across 12 pages, each verified at
+   the served bytes. These were the ones no ranking fix could ever reach, because the copy named the
+   destination and the label match runs ahead of the positional pick.
+3. **The contact-intent class** (owner decisions 2026-08-31 and 2026-09-02). 21 fields across 15
+   pages routed to `/contact.html`. **Durable by design, not by patch**: KEEP #1
+   (`bugs_open/248`'s fix) treats a stored `/contact.html` as authored and rewrites it on every
+   recompute — proven in production by running a full `cta_links_stale` pass over the canary and
+   watching it leave the destination alone.
+4. **The three tool pages archived** (owner decision 1), with the shared library component
+   `tool-password-entropy_pre_037` left `is_active` as ruled. Archiving freezes a page while
+   continuing to serve it, so no link is dead and every step is reversible.
+
+## What this lane did NOT fix, stated plainly
+
+- **The root cause is still live** and the next site inherits it: `chooseCTATargets` ranks by
+  `COALESCE(nav_order,100)` then `name`, with **no topic, tag or semantic input**. Owner decision 3
+  approved a lever; it is architecture-scope and is **spun out to `bugs_open/436`** rather than held
+  open here.
+- **7 stale listing references remain** — entries in `tool-cta` / `tool-list` `items[]` arrays. A
+  *different mechanism* (query-sourced snapshots that were never re-resolved), owned by
+  **`bugs_open/384`**, with a CONTRIB filed carrying two findings they did not have. They do not
+  affect a visitor: the renderer drops a CTA whose destination is archived. They do block the
+  **retraction** (removing the three files), which therefore waits on 384 — the pages stay
+  archived-but-served meanwhile, which is harmless.
+
+## Two things worth carrying forward, both paid for
+
+- **A `content_rewrite` commissioned for LABELS ONLY rewrites the page BODY.** It destroyed authored
+  copy on **2 of 12** pages here, by overwriting sections with copies of a neighbour. Both restored
+  from the offending write's own archive. `LANDMINES.md`; `bugs_open/403` has the instances.
+- **`grep -c '<p'` is not a prose control** — it read **15 → 15** on a destroyed page. Use
+  `count(*)` vs `count(DISTINCT md5(stripped_text))`. The wider rule this lane kept re-learning is in
+  `WRONG_CALLS.md`: **a check whose expected answer is uniform cannot tell you it asked the wrong
+  question.**
+
+**Lane docs:** `docs/agent_docs/docs024_key_docs_latest/bugfix_389_cta_relevance/` —
+`HANDOFF_2026-09-02_continue_here.md` is the final state.
