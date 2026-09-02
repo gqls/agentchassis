@@ -1,4 +1,4 @@
-# HANDOFF — 2026-09-02 — `bugs_open/394`, render-audit coverage cursor
+# HANDOFF — 2026-09-02 (updated 13:3xZ) — `bugs_open/394`, render-audit coverage cursor
 
 **Supersedes `HANDOFF_2026-08-26_continue_here.md`** (same directory). Read this one; that one's
 open list is four-fifths out of date.
@@ -12,76 +12,57 @@ open list is four-fifths out of date.
 
 ## 1. State in one paragraph
 
-The fix is **live, running unattended on the scheduled rotation, and working**. Over the six days
-I was away it produced correct cursor-mode windows on **two** sites, cycled one of them to
-completion, and kept `design-critique-agent` in prefix mode as designed. Four of the five open
-items from the last handoff are **closed**. What remains is one acceptance measurement (due today),
-one CronJob that was never built, and one honest uncertainty about whether a specific commit rolled.
+**The cursor half is FIXED, LIVE and ACCEPTED.** The bug's own acceptance test passes outright:
+over three consecutive **scheduled** runs the audit covered **151 distinct pages of 151 live —
+zero missed**. The identity fix is confirmed live by a discriminating test. **Exactly one thing
+remains: the commissioned reader has no CronJob**, and that is why `bugs_open/394` is still open
+rather than closed. It is roughly one kustomize service of work.
 
-## 2. Closed since the last handoff — with the evidence, not an assumption
+## 2. Closed — with the evidence, not an assumption
 
 | item | status | evidence `[MEASURED 2026-09-02]` |
 |---|---|---|
-| (b) audit step TIMEOUT | **CLOSED — was transient** | `contrast_failure` rows created 08-27 **28**, 08-28 6, 08-29 2, 08-30 1, 09-01 2. Audits complete and findings are written again. |
-| (c) optional-key overlay | **CLOSED — already applied** | live ConfigMap `optional-key-budget-check-script-9b89gcmd8g` line 179 reads `"request_render_audit": 7`. The cluster has the new literal. |
-| mode split in production | **PROVEN** | `design-critique-agent` → `prefix`; `render-audit-agent` → `cursor`, on every row since the roll. |
-| cycle completion on a real site | **PROVEN** | `loanandmortgagecalculator.co.uk` (61 live pages) ran window 1 on 08-27, then a **2-page final window** on 08-30 with `window_first == window_last` — the `cursor_cleared` branch firing in production. |
+| **the acceptance test** (bug §2) | **PASSES** | union of `audited_paths` over the 3 scheduled cursor runs = **151 distinct pages**; live pages = **151**; **missed = 0**. Graded against the site, not against itself. |
+| cycle completion | **PROVEN in production** | run 3 (09-02 13:09Z): final window 37 pages, last page `tool-llm-cost-calculator` (`nav_order` 201), `cursor_cleared = true`, and the cursor row was then **gone** — `deleteAuditCursor` fired unattended |
+| identity fix `faf4872ce` live | **PROVEN by a discriminating test** | the two hypotheses predicted opposite windows; observed `window_first = index` + a NEW `render-audit-agent` row, while the `generic` row was untouched. "Not live" refuted. |
+| audit step TIMEOUT | **CLOSED — was transient** | `contrast_failure` rows created 08-27 **28**, 08-28 6, 08-29 2, 08-30 1, 09-01 2 |
+| optional-key overlay | **CLOSED — already applied** | live ConfigMap `optional-key-budget-check-script-9b89gcmd8g` line 179: `"request_render_audit": 7` |
+| mode split | **PROVEN in production** | `design-critique-agent` → `prefix`; `render-audit-agent` → `cursor`, every post-roll row |
+| a second site cycling | **PROVEN** | `loanandmortgagecalculator.co.uk` (61 pages): window 1 on 08-27, 2-page final window on 08-30 |
 
-## 3. ⚠ OPEN — three things, in order
+**What this replaced**, for contrast: the same first 60 pages for ever, with 91 never audited —
+including all 45 `tool-*-guide` pages, unreachable at any cap below 98.
 
-### (a) The acceptance union — ONE RUN AWAY, and it is due TODAY
-The bug's own acceptance is "the union of audited pages reaches the whole site over a cycle".
+## 3. ⚠ OPEN — ONE thing
 
-`[MEASURED 2026-09-02]` union over the **scheduled** cursor runs on webdesign = **117 of 151**,
-across 2 runs. webdesign is due again at **2026-09-02 12:35Z** (`last_selected_at` 08-30 12:35 +
-3 days). Window 3 should close the cycle.
+### The commissioned reader has no CronJob — and that is the whole remaining task
 
-```sql
-WITH sched AS (
-  SELECT context FROM agent_error_log
-  WHERE error_code='RENDER_AUDIT_TRUNCATED' AND domain='webdesign.co.uk'
-    AND agent_type='render-audit-agent' AND occurred_at >= '2026-08-27'
-    AND context->>'coverage_mode'='cursor')
-SELECT count(DISTINCT p) AS union_pages,
-       (SELECT max((context->>'pages_total')::int) FROM sched) AS total_now,
-       (SELECT count(*) FROM sched) AS runs
-FROM sched, jsonb_array_elements_text(context->'audited_paths') p;
-```
-⚠ **Grade it honestly:** `pages_total` was 151 and the site GROWS (131 → 146 → 151 in a week). A
-page added mid-cycle may lawfully wait one cycle, so "union < total_now" is not automatically a
-failure — compare the union against the pages that were live for the WHOLE cycle.
+`cmd/config-key-audit --render-truncation` is **built, tested, mutation-proven on all four arms**,
+carries its acks file (`docs/agent_docs/docs024_key_docs_latest/architecture_review/render_truncation_acks.json`,
+`design-critique-agent` acknowledged at birth with its reason), and is recorded in
+`finding_code_registry.json` as the **`consumed`** reader for `RENDER_AUDIT_TRUNCATED`.
 
-### (b) Is the identity fix `faf4872ce` actually rolled? Strong evidence, NOT proof
-Running image `v1.0.1351`, pods started **2026-09-01 21:00Z**; the fix committed **2026-08-26
-23:28+01:00**; `make build-*` builds from committed HEAD. The 08-30 scheduled run wrote its cursor
-under `render-audit-agent`. So: almost certainly in.
+**Nothing runs it.** `kubectl -n ai-persona-system get cronjob` shows `component-render-check`,
+`optional-explicit-wires-check`, `optional-key-budget-check` — and no `render-truncation-check`.
 
-**Why that is not proof:** `faf4872ce` changed a call site and comments and added **no new string
-literal**, so no binary probe can discriminate it. `runningStepProvenance` being present only shows
-the pre-existing function is there. And the 08-30 key is equally consistent with the OLD code if
-`Sender.AgentType` already equalled `render-audit-agent` on the scheduled topic.
+So the registry's `consumed` claim is **true about the code and false about the estate**, which is
+precisely the state `DBG-075` exists to prevent, and it is why this bug is not closeable: the owner
+commissioned two things on 2026-08-25 and only one of them is driven.
 
-**The decisive probe — but run it AFTER window 3, or it eats the acceptance window:**
-```bash
-./docs/leopardessconsulting/scripts/orchestrate_safe.sh render-audit-agent \
-  '{"site_id":"6b49db8e-d447-4467-8277-4f3018af9897","domain":"webdesign.co.uk"}'
-# then:  SELECT agent_type FROM render_audit_page_cursor;
-#   a NEW 'generic' row  -> the fix is NOT live
-#   only 'render-audit-agent' -> it is
-```
-Housekeeping either way: the cursor table still carries an **orphaned `generic` row** from my
-2026-08-26 hand-runs (`webdesign.co.uk | generic | 200 | tool-entropy-meter-guide`). It is honest
-history, not damage. Delete it once (b) is settled.
+**How:** clone the `ungraded-completions-check` kustomize service — same shape, same acks
+discipline, same `--report` mode that writes one `doc_notes` row per run whether clean or not.
+Remember `RELEASE_IMAGES` / `AGENT_DEPLOY_SERVICES` membership, and that the check binary needs a
+rebuild to carry `rendertruncation.go`.
 
-### (c) The commissioned reader has no CronJob — the registry says `consumed` and nothing consumes it
-`cmd/config-key-audit --render-truncation` exists, is tested, is mutation-proven on all four arms,
-and `finding_code_registry.json` records it as the `consumed` reader. **But no CronJob runs it.**
-`kubectl get cronjob` shows `component-render-check`, `optional-explicit-wires-check`,
-`optional-key-budget-check` — and no `render-truncation-check`.
+Verify it the way the reader itself insists: a synthetic prefix-mode row from `render-audit-agent`
+must go RED, and an empty `agent_error_log` must REFUSE rather than pass.
 
-Clone the `ungraded-completions-check` kustomize service (same shape, same acks-file discipline).
-Until then the registry's `consumed` claim is true about the code and false about the estate, which
-is the exact shape `DBG-075` exists to prevent.
+### Housekeeping already done, do not redo
+
+The orphaned `generic` cursor row from my 2026-08-26 hand-runs was **deleted** on 2026-09-02 once
+it was provably dead (nothing writes or reads that key any more). The table now holds exactly one
+row: `webdesign.co.uk | render-audit-agent | 100 | tool-head-architect`, i.e. window 1 of a fresh
+cycle started by the confirmation run.
 
 ## 4. ⚠ Read before you re-probe a binary — a NEW landmine lands on last week's method
 
