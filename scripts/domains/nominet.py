@@ -301,13 +301,17 @@ def v_walk(a):
     if not 1 <= a.months <= 120:
         raise SystemExit("--months out of range (1..120; .uk registers up to 10 years)")
     s = open_session(a)
-    seen = set()
+    # the expiry MONTH is the list command's own query key, so it rides along
+    # for free: DOMAIN\t<name>\t<YYYY-MM>. A name listed under two months keeps
+    # the first (should not happen; the count line would still expose drift).
+    seen = {}
     for month in months_from(datetime.date.today(), a.months):
         resp = s.cmd(list_xml(month), f"list {month}")
-        seen.update(parse_domains(resp))
+        for d in parse_domains(resp):
+            seen.setdefault(d, month)
     s.close()
     for d in sorted(seen):
-        print(f"DOMAIN\t{d}")
+        print(f"DOMAIN\t{d}\t{seen[d]}")
     print(f"TOTAL={len(seen)} months_walked={a.months}", file=sys.stderr)
     print("⚠ sanity-check the TOTAL against the owner's estimate (~1,500 as of "
           "2026-08-19); a plausible-looking short list means widen --months, "
