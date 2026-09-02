@@ -724,3 +724,100 @@ success as evidence the audit works.**
 
 ⚠ Instrument note: `kubectl logs -l app=render-audit-adapter` returned another service's lines
 (one image, every label — the recorded trap). Read the POD, not the label.
+
+---
+
+## 2026-09-02 — a week on: the cursor has been running unattended, and four of five open items closed themselves
+
+Returning after six days. Every `[MEASURED 2026-08-26]` figure below has been re-taken.
+
+### The mechanism ran on the SCHEDULED path, unattended, and it worked
+
+`[MEASURED 2026-09-02]` — every `RENDER_AUDIT_TRUNCATED` row since my last session:
+
+| when | agent | domain | mode | window |
+|---|---|---|---|---|
+| 08-27 10:49 | design-critique | leopardess | **prefix** | — |
+| 08-27 12:01 | render-audit | webdesign | **cursor** | `index` → `tool-head-architect` |
+| 08-27 21:06 | render-audit | **loanandmortgagecalculator** | **cursor** | `index` → `tool-overpayment-priority-guide` |
+| 08-30 12:35 | render-audit | webdesign | **cursor** | `tool-html-minifier` → `tool-entropy-meter-guide` |
+| 08-30 21:41 | render-audit | loanandmortgagecalculator | **cursor** | 2 pages, first == last |
+
+Three things this settles that no hand-run could:
+
+1. **The mode split is correct in production.** `design-critique-agent` writes `prefix` and
+   `render-audit-agent` writes `cursor`, exactly as designed — and the `(absent)` rows on 08-26
+   are the pre-roll binary, which is what `(absent)` is supposed to mean.
+2. **A second site entered the population and cycled cleanly.** `loanandmortgagecalculator.co.uk`
+   crossed the cap (61 live pages) and ran window 1 on 08-27, then a **2-page final window** on
+   08-30 with `window_first == window_last` — that is the cycle-completion branch (`cursor_cleared`)
+   firing on a real site, a path only production could exercise.
+3. **The audits COMPLETE now.** `contrast_failure` rows created 08-27 **28**, 08-28 6, 08-29 2,
+   08-30 1, 09-01 2. The `TIMEOUT` I handed over was transient. **Open item (b) is closed by
+   evidence, not by assumption** — findings are being written again.
+
+### ⚠ The identity bug's live damage, observed exactly as predicted
+
+webdesign's windows read: `index→head-architect` (08-26 hand), `html-minifier→entropy-meter-guide`
+(08-26 hand), **`index→head-architect` again (08-27 scheduled)**, `html-minifier→entropy-meter-guide`
+(08-30 scheduled).
+
+The scheduled run **restarted from the top** on 08-27 because my hand-runs' cursor was filed under
+`agent_type='generic'` and it looked under a different key. That is precisely the split I described
+in the handoff, now with a dated instance. The cursor table still carries both rows:
+
+```
+webdesign.co.uk | generic            | 200 | tool-entropy-meter-guide | 2026-08-26 22:32:38
+webdesign.co.uk | render-audit-agent | 200 | tool-entropy-meter-guide | 2026-08-30 12:35:41
+```
+
+The `generic` row is orphaned history. The `render-audit-agent` row is the live one.
+
+### The acceptance arm: 117 of 151, two runs in, third due today
+
+```sql
+-- union of audited_paths over the SCHEDULED cursor runs on webdesign
+-- 2026-09-02: union_pages = 117, total_now = 151, runs = 2
+```
+webdesign is due again at **2026-09-02 12:35Z**. Window 3 should complete the cycle. This is the
+bug's own acceptance test and it is one run from being answerable.
+
+### ⚠ A NEW LANDMINE lands on the probe I used last week — and the direction matters
+
+`LANDMINES.md` gained (2026-08-24, another lane): *"BusyBox `grep` over `/proc/1/exe` reports FALSE
+ABSENCES — and your present/absent controls PASS while it does it."* The fleet's images are BusyBox
+v1.37; its grep works line-by-line and a Go binary's "line" can be enormous, so a literal inside an
+over-long line reads as absent with a clean exit code.
+
+**That is the instrument I used on 2026-08-26.** So: does it undermine last week's conclusion?
+
+**No, and the reason is the direction of the failure.** The claim "the code is live" rested on
+three **PRESENCES** (`render_audit_page_cursor`, `rotate_coverage`, the positive control). The
+described fault produces false **ABSENCES**; a false absence would have made me under-claim, never
+over-claim. The negative control reading 0 *could* have been vacuous — that costs me the control,
+not the conclusion — and the conclusion was independently confirmed at the artefact within minutes
+when the cursor row appeared with `coverage_mode=cursor`.
+
+Re-probed today with the prescribed instrument (`tr '\0' '\n' | grep -Fc`, both controls through
+the SAME pipeline), on `agent-chassis-5bd89cf49-t4wdl`:
+
+```
+render_audit_page_cursor 3   rotate_coverage 2   runningStepProvenance 1
+selectAuditWindow 2          zzz_invented_marker_xq9 0
+```
+
+### Is the identity fix live? Strong evidence, NOT decisive — and I will not claim more
+
+Running image `v1.0.1351`, pods started **2026-09-01 21:00Z**; the fix committed **2026-08-26
+23:28+01:00**, and `make build-*` builds from committed HEAD. Add the 08-30 scheduled run writing
+under `render-audit-agent`, and the fix is almost certainly in.
+
+**But that is not proof.** `faf4872ce` changed a call site and comments — it added **no new string
+literal**, so no binary probe can discriminate it, and `runningStepProvenance` being present only
+shows the pre-existing function is there. The 08-30 key is also consistent with the OLD code if
+`Sender.AgentType` already equalled `render-audit-agent` on the scheduled topic.
+
+**The decisive probe, for whoever picks this up:** hand-dispatch one audit (which goes via
+`system.agent.generic.requests`) and read the cursor's `agent_type`. Old code → a `generic` row.
+New code → `render-audit-agent`. **Do it AFTER window 3 has run**, or it consumes the window the
+acceptance union needs.
