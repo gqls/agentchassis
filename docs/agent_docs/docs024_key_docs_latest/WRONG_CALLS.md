@@ -59409,3 +59409,22 @@ automates elsewhere (wrong-key queries reading as absence — the bugfix_390 lan
   command, and it is exactly what their register's QuoteFoundInText does at write time. Tally:
   **a-summarisers-quote-is-a-paraphrase-until-grepped** (kin of a-citation-is-not-a-read: I
   cited the page; only the register's matcher actually read it).
+
+- **2026-09-02, dartsonline_traffic** — told a peer lane, in my own voice, that **"no page in the
+  estate has more than one section-scope illustration row"**, as part of correcting *their* stale
+  claim. The figure was not mine: it is IMG-075's register entry, where it is correctly stamped
+  `[MEASURED 2026-08-31]`. **I dropped the date and the attribution in the relay**, and the peer
+  then recorded it as my measurement and began building an owner-facing pattern claim on it
+  ("built machinery nobody drives", five instances, this one "the cleanest"). It was false by then:
+  `apis.uk` `/index` carries **six** distinct section-scope illustration rows created
+  **2026-09-02 16:47:03Z** — hours before I quoted the entry saying no such page existed. So the
+  mechanism shipped 09-01 and had a real driver inside ~20 hours, which is close to the opposite
+  of the claim it was cited for. What caught it: extending my OWN query by one line — I had already
+  run the site-scoped version to establish dartsonline has zero, and quoted the estate-wide half
+  from a document instead of widening the `WHERE`. Cheap check skipped: **when you relay a figure,
+  relay its date, and if you are about to state it without one, that is the moment to re-run it** —
+  a census goes stale by ADDITION and reads as current for ever, which is the estate's own standing
+  rule and the exact reason the entry carried a date I then discarded. Sharper still: I was in the
+  middle of correcting someone else's stale claim, which is precisely when a borrowed number feels
+  safest. Tally: **a-relayed-figure-loses-its-date** (kin of *a report is not a measurement* and of
+  the handoff's own "a `[MEASURED]` marker on a figure you were TOLD is a false claim").
