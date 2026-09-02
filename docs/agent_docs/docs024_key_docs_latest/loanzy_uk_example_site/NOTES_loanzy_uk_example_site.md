@@ -2420,3 +2420,24 @@ has a size to check, not a stream to trust. Accepted as-is: the entry's subject 
 "fetch" but "a scan trusting its input corpus". The general form, theirs, worth keeping:
 **whenever a zero is the answer you would like, ask what the instrument would have shown
 had it only seen part of the input.**
+
+## 2026-09-02 (night) — farmer banned_claims shipped (713); the register programme's last gap on my sites closed
+- The lendzy lane routed the 414 census's quiet gap here (farmer 7 facts / 0 bans — "done"
+  in every count census, enforcing nothing). **713 applied**: five INSURANCE-SHAPED patterns
+  built as their own set, not the credit set transplanted — payout guarantees, universal
+  acceptance, broker misrepresentation, price superiority (the site forswears comparison in
+  its own copy — that sentence is the pattern's grounding), no-questions-asked marker.
+- All three of the day's traps applied in order: (1) calibrated over the FULL served corpus
+  with count reconciliation — 18 rows → 18 fetched → 17 scanned + 1 ACCOUNTED
+  (**/claims.html is a 437 victim on farmer**: needs_rebuild since 08-27, 3 mechanism-flow
+  failures — added to the 437 evidence); 0 hits, planted control 5/5. (2) post-apply Go
+  probe-fire on the LIVE row (claims.go:348 silent-literal trap): 5/5 compile, 5/5 fire on
+  must-match, 0 false-fires on five legitimate fragments. (3) 695's double-escape verify
+  arms in the migration (no double backslash; 5 single-escaped \b).
+- Two structurally-reasoned ABSENCES recorded in the migration header: no literal-rate
+  pattern (banned layer has NO citation exemption — 414-verified — and the register itself
+  quotes the £5m ELCI minimum); no first-person FCA-authorisation pattern (CGV-033 owns
+  that refusal fleet-wide; a local copy would shadow the shared mechanism).
+- Council corr cea2a32c (Council-Submitted). RFC_060 gains an insurance data point built
+  as a sector set rather than an adaptation. Register state across my sites: loanzy 3/5,
+  farmer 7/5 — both halves live on both.
