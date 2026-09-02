@@ -39,6 +39,15 @@ Bug filed: `bugs_open/432_HANDOFF_2026-09-02_a_site_whose_db_rows_were_deleted_k
 >   bug (adoption copies `company_name` verbatim to a different domain) is still MINE to file —
 >   not yet filed; coordinate with that session so it is filed once.
 >
+> **WATCH (17:20Z):** `bugs_open/438` (theme kits) — aspect `mission` is never populated on the
+> FRESH path, so my `mission.preferred_palette` seed is rung 1 by ACCIDENT and the only
+> populated one on the estate. Fix = repoint `persist_mission` (config, live on apply). Narrowed:
+> `write_site_spec` deep-merges, so the fix ADDS `text` beside the palette; and my submitter has
+> already COMPLETED, so it cannot re-run without a re-submission. Classifier superseded my
+> `design_intent` (pinned did not hold) but in the SAME direction (`#F5F0E8`/`#9B4E2A`/light,
+> Playfair headings). **Read `palette_source` on composition** — first live test of `mission_hint`
+> ever; report the value to theme kits either way.
+>
 > **WHAT IS LEFT (was §5 steps 5–9):** wait for the cascade; verify at the artefact (RUNBOOK §8)
 > — every file non-empty `<main>`, legal pages + sitemap 200, no empty `mailto:`, control 404;
 > read the served stylesheet for the palette; read the served copy against the positioning

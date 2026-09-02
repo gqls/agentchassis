@@ -273,3 +273,40 @@ holder); the owner then created a dedicated `gamesdesign.co.uk` session [783baf]
 the instruction and the package. Positioning's recount: four current specs carry the string
 (not six — something superseded two in between; re-count before acting). Class bug still owed
 by me.
+
+---
+
+## 2026-09-02, ~17:20Z — `bugs_open/438` (theme kits) and what the cascade did in its first 6 minutes
+
+**438, filed by theme kits from my `mission_brief` datum:** on the FRESH path `persist_mission`
+reads `input_data.mission` (which 082 never sends) and its `error_step` `persist_mission_brief`
+writes aspect **`mission_brief`** — so aspect `mission`, the palette cascade's rung 1, is never
+populated. Measured by them: `mission_brief` on 22 sites, `mission` on 2 (one of them mine, an
+hour old); `palette_source` across 31 resolved compositions = `design_intent_values` ×30,
+`archetype_default` ×1, **`mission_hint` ×0** — the rung the code calls "most authoritative"
+has never fired in production. My seed is safe BECAUSE of the bug.
+
+**Their tripwire, narrowed by reading the merge:** `write_site_spec` always deep-merges
+(`site_spec_actions.go:246`; only arrays overwrite wholesale, `:14`). A repointed
+`persist_mission` would ADD `text` beside `preferred_palette`, not replace it. And my
+submitter run COMPLETED 17:07:57Z, so the step cannot re-run without a re-submission. Told
+them, so the 438 fixer does not "fix" the merge away. **Watch item, not a blocker.**
+
+**The cascade, measured:** classifier COMPLETED 17:09:24 (~2 min after triage — no queue this
+evening); `needs_vertical_research` claimed 17:13; `vertical-exemplar-researcher` crawling at
+17:13:20. Site id `8f17eb73-fc74-4718-8371-b3125bc4e414`.
+
+**The classifier superseded my `design_intent` — `pinned=t` did NOT protect it** (manual row
+17:04:35 → `is_current=f`; classifier row 17:11:32 current). But the overwrite went the SAME
+WAY: bg `#F5F0E8` (seed `#F4F1EA`), accent `#9B4E2A` (seed `#A6521F`), `dark_light: light`,
+colour_mood "Warm off-white ground — the colour of uncoated paper…". The brief's referent
+sentence steered the classifier's own write to within two hex steps of the seed. Divergence:
+`heading_font` = Playfair Display (seed Merriweather) — and typography's rung 1 IS
+`design_intent`, so Playfair will likely win. Serif either way; recorded, not fought.
+
+**Palette rung 1 is intact** (`mission` row byte-identical to the seed: no `text`, palette
+present, `created_by` mine). When composition resolves, `palette_source` on this site is the
+**first live test of `mission_hint`**: `mission_hint` ⇒ rung 1 fired for the first time in prod;
+`design_intent_values` ⇒ rung 2 won WITH a populated `mission` row present, which would sharpen
+438 from "nothing populates it" to "rung 1 does not read what is there". Owed to theme kits
+either way.
