@@ -411,3 +411,56 @@ measurement or fixed in the files; nothing defended.
     any non-terminal rerender/rebuild item from another source targets an affected page
     (cancelling another lane's items is not ours to do), with the ordering note that pc
     restore precedes component delete so even a race resolves against the restored row.
+
+---
+
+## ROUND 3 (2026-09-02) — round 2's fresh objections answered
+
+Round 2 was a REAL second review (round 1's answered objections all turned to approvals —
+editquality, tooling_provenance, debug_historian now approve). New gate: prior_art_librarian
+(HIGH). Every round-2 objection:
+
+1. **prior_art HIGH — ConvertTemplateToInstanceScope / ScopeToolBirthTemplate exist:** read at
+   source; they are the bugs_open/283 programme — multi-instance id-scoping of SHARED
+   templates by `{{.InstanceID}}-` rewriting. Declined for a mechanism reason now in the HOLD
+   header: applying them REWRITES SERVED BYTES (violates byte-for-byte adoption) and the
+   defect class they close (same-page multi-instance id collisions) cannot exist for
+   single-placement adopted bodies. Disclosed: a future second placement re-opens the class —
+   the pre-existing property of every adopted/owned tool. 693 minted its components the same
+   way; its own prior-art gate was a DIFFERENT question (inert repair — no rerender half),
+   which this file has carried since round 1.
+2. **prior_art medium — §9.3 liveness is a deployed-binary claim:** probed, not prescribed:
+   agent-chassis v1.0.1354, "new component forks from it" PRESENT + positive/negative
+   controls both correct. The re-run command is in the header for future appliers.
+3. **bug_historian medium (095/039 wrong-slot shape):** the verify already asserts the
+   three-way equality per row (HOLD :670 `cc.name = c.new_name AND pc.slot_name =
+   c.new_name`; plan-leg count requires `component_name = new_name`) — cited rather than
+   added. ttk (no plan leg): the pages.sections leg still aligns and resolution is id-first.
+4. **bug_historian medium (binding-free forever):** accepted and disclosed in the header —
+   `template_closed` measured to be a quality field, not a lock; no standing invariant
+   borrowed or minted (a new detector is its own track, per this council's own
+   seam-in-a-bug-patch rule); worst rebuild outcome since v1.0.1354 (408 fix aboard, probed)
+   is a visible empty render, not a crash.
+5. **bug_historian low (rollback ttk classification):** already explicit —
+   `IF r.pre_plan_row_id IS NOT NULL THEN` guards the plan-leg check; the NULL case skips
+   plan classification by construction.
+6. **reuse_agent medium (hand-rolled backup vs the history triggers):** the triggers EXIST
+   (`trg_page_component_artefact_archive_upd/_del`, verified in pg_trigger) and are now cited
+   in the header as the automatic net; the table is kept for the two legs the trigger does
+   not cover (pages.sections, plan row), the keyed new_name restore mapping, and STY-056
+   (history rows can be pruned).
+7. **reuse_agent low (693's prior rounds):** queried — three rounds, r1 bug_historian gate,
+   r2 prior_art gate (the inert-repair question), r3 APPROVED + 3 advisories. Cited with the
+   honest caveat that its prior-art gate content differs from ours.
+8. **guardian medium/missing (who owns the function namespace):** no register names an owner;
+   the header now states the 21 claims are an OWNER-LEVEL ACCEPTANCE and hand-apply is the
+   sign-off moment, per CLC-020 naming.
+9. **guardian low (701 number collision):** pre-apply `ls | grep '^701'` line added — this
+   file was already renumbered from 700 for exactly this.
+10. **guardian lows (key overlap, rollback pending items):** unchanged from round 2's
+    answers — overlap query zero, rollback §4b aborts on other lanes' pending items.
+
+**Milestone recorded in passing:** the §9.3 probe run also confirmed **v1.0.1354 carries the
+bugs_open/408 fix** (`paths_tried` PRESENT against the webdesign-tool-rebuilds lane's proven
+discriminating baseline) — 408 is fixed AND live at the binary; its §6 end-to-end check is
+now cheap and owed separately.

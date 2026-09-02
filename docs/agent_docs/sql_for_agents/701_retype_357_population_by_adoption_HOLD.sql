@@ -189,6 +189,74 @@
 --     408 defect: zero extractFieldValue/skip_reason occurrences in
 --     rerender_single_page_action.go, 2026-09-02), never needs_rebuild.
 --
+-- ============================================================================
+-- PRIOR ART, READ AND DECLINED (council round 2, prior_art_librarian HIGH).
+-- ConvertTemplateToInstanceScope (component_instance_conversion.go) and
+-- ScopeToolBirthTemplate (tool_birth_instance_scope.go), routed via the
+-- 'instance_scope_conversion' work-item type, are the bugs_open/283 programme:
+-- they rewrite a SHARED template so element ids are namespaced per instance
+-- ({{.InstanceID}}- prefixes on declared ids and every reference to them), so
+-- that MULTIPLE instances of one component can share a page. Read at source
+-- 2026-09-02; not used here, for a mechanism reason, not preference:
+--   * Applying either would REWRITE THE SERVED BYTES (id attributes and every
+--     script/CSS reference), which violates this migration's core invariant —
+--     byte-for-byte adoption of markup that is LIVE and SERVING today.
+--   * The defect class they close — same-page multi-instance id collisions —
+--     cannot exist for these rows: each adopted component has exactly ONE
+--     placement (its own page), recorded in the doc_note. DISCLOSED: a future
+--     SECOND placement of an adopted component would re-open that class; that
+--     is the pre-existing property of every adopted/owned tool on this estate,
+--     not a state this migration creates.
+--   * 693 (the crib) minted its three adopted components the same way, and its
+--     own prior_art round was gated on a DIFFERENT question (an inert repair —
+--     no rerender half), answered there by shipping the missing half; this
+--     file carries its rerender half from round 1.
+--
+-- RFC_036 §9.3 LIVENESS — PROBED, NOT ASSUMED (council round 2,
+-- prior_art_librarian medium). The future-forks story for the 21 library
+-- claims depends on the §9.3 fork logic being IN THE RUNNING BINARY, which is
+-- a deployed-artefact claim, not a source claim. Probed 2026-09-02 against
+-- agent-chassis v1.0.1354 (/proc/1/exe): the §9.3 log literal "new component
+-- forks from it" PRESENT (1), positive control "Field not found in path"
+-- PRESENT, junk negative control ABSENT — the probe discriminates. Re-run
+-- before applying if the fleet has rolled backward:
+--   kubectl -n ai-persona-system exec <chassis-pod> -- \
+--     grep -ac "new component forks from it" /proc/1/exe   # expect 1+
+--
+-- BACKUP TABLE vs THE HISTORY TRIGGERS (council round 2, reuse_agent). The
+-- automatic net exists and fires on this migration's UPDATEs:
+-- trg_page_component_artefact_archive_upd/_del → page_component_history
+-- (verified in pg_trigger 2026-09-02). The dedicated backup table is kept
+-- IN ADDITION because (a) the trigger archives page_components only — the
+-- pages.sections and site_plan_sections pre-states have no trigger and are
+-- half the rollback; (b) the rollback needs a KEYED, self-contained restore
+-- source with the new_name mapping; (c) history rows are subject to pruning
+-- (a history row with rendered_html NULL is a PRUNED row — STY-056), so
+-- history alone is not a restore source one may rely on.
+--
+-- PRE-APPLY COLLISION CHECK (council round 2, guardian): this file was
+-- RENUMBERED from 700 after another lane's committed 700 — the number-ledger
+-- keys on filenames. Before applying:
+--   ls docs/agent_docs/sql_for_agents/ | grep '^701'   # exactly this pair
+--
+-- THE 21 FLEET-WIDE FUNCTION CLAIMS ARE AN OWNER-LEVEL ACCEPTANCE (council
+-- round 2, guardian missing): no register names an owner of the tool-function
+-- namespace; naming follows CLC-020. This file is applied BY THE OWNER'S HAND,
+-- and that application is the sign-off on the claims — stated here so the
+-- acceptance is a decision, not a side effect.
+--
+-- BINDING-FREE IS GUARDED AT APPLY, NOT FOR EVER (council round 2,
+-- bug_historian): template_closed is a quality-score field, not an edit lock
+-- (compute_component_quality.go — measured, no standing invariant exists to
+-- borrow, and minting a new detector inside a repair migration is the seam-
+-- in-a-bug-patch shape this council rightly vetoes). A later deliberate
+-- template edit that introduces bindings is a normal component change owned
+-- by the normal flows; its worst rebuild outcome SINCE v1.0.1354 (the 408 fix
+-- aboard, probed above) is an empty section render — a visible content
+-- regression, not a pod crash. The three-way equality the repair establishes
+-- is asserted per-row by the verify (slot_name = cc.name = plan element —
+-- the direct answer to the bugs 095/039 wrong-slot shape).
+--
 -- Lane: docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/
 -- Rollback: 701_retype_357_population_by_adoption_HOLD_ROLLBACK.sql
 -- ============================================================================
