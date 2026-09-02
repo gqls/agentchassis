@@ -764,3 +764,50 @@ migration written from the seed would have set it back to the raw LLM output, **
 `verify_cited_cardinals`** (18 real drops recorded) while inserting a new gate and reporting success
 — both gates dead, artefact normal, every guard passing. Caught only because the drop-record count
 could not be reconciled with a chain in which the cardinal gate's output reached nothing.
+
+### ✅ H1e. THE GATE IS LIVE AND REPAIRING (2026-09-02) — and the next work is DECISION D, not more gate
+
+**State, all verified at the artefact:**
+- `681` + `682` **APPLIED** (17:15Z / 17:17Z), both in `schema_migrations`. Chain at the live row:
+  `verify_ordering_cardinals` → `repair_ordering_register` → `write_offer_ordering`.
+- Council **APPROVED round 2** (`4054f4d9`); every advisory dispositioned in NOTES.
+- **First post-`682` run repaired 2 of 2** on `garden-tools.uk`, surgically (word deleted, grammar
+  fixed, nothing else changed). ⚠ **n=2 — a working MECHANISM, not a rate. Do not quote 100%.**
+  23–24% is the baseline and moving it needs days of mints.
+
+**Two things a next session must not re-derive:**
+1. ⚠ **`682` exists because `offer-analyser` has NO root `ai_service` block.** The first live run
+   (17:15:24Z, in the two-minute window) returned `"no ai_service configuration resolvable"`, kept
+   every point and recorded why — the safe-failure path, proven in production. If the gate ever goes
+   quiet, **check that block first**: without it the gate is live, firing, and repairing nothing.
+2. ⚠ **The em-dash form of `x_not_y` is invisible to BOTH scanners** (register pattern and
+   `negXNotYRe` are comma-anchored). A point the gate marks `repaired` can still carry it — see
+   NOTES. Relayed to `copy_quality_two_stage` as a v2 candidate; **do not widen `negXNotYRe` from
+   this lane**, it is shared with the page gate, the voice gate and the nightly CLI.
+
+**WHAT IS OWED NEXT, in order** (replaces §H1d's list, which is discharged except item 4):
+
+1. **DECISION D — `question_hierarchy` + `answered_by`.** ⚠ **RELAYED ruling, second-hand** (via
+   `copy_quality_two_stage`, owner's words *"yes to both, we can see if it works"*). Seam split
+   proposed to them and recorded in NOTES: the **analysis half is this lane's**, the writer/ordering
+   consumption half is theirs. **The JOIN is the deliverable, not the list.** Boundary: unserved
+   rationale, structured input only, never rendered into a prompt as prose. Accepted criterion: the
+   first pass comes back **mostly `unanswered`** — correct, not a failure.
+2. **THE AXIS INVERSION — but AFTER D, not before.** ⚠ Buyer-relevance + readability govern heroes;
+   differentiation demotes to an INPUT. `offer-analyser`'s ranking guidance still ranks on the
+   seller's axis and `[MEASURED 2026-09-02, n=190]` it is fully intact (100/100/85/65/32/53 by rank).
+   **Re-ranking FIRST achieves nothing** — H4 measured the gap is ABSENCE, not order, so a prompt
+   migration would just reorder the same seller-axis points. Derive, then re-rank.
+   ⚠ **Do NOT quote any improvement in the effort/practicality gap.** Today's 30% used a WIDER regex
+   than H4's 10%; a different instrument is not a different result. Re-run H4's exact proxy first.
+3. **The gate's real rate**, once days of mints have passed: read `register_repairs_summary` — the
+   `still_violating` field is the honest one, and the clean path writes zeros so
+   `len(register_repairs) > 0` is a sound predicate.
+4. **Everything in §C and §E is still untouched** — supply (§C3, the larger half of the imagery ask,
+   still unowned), first-wins `section/illustration` resolution, the 8 components exposed to the
+   alias trap, H2b's `info-card-grid` carousel flag (ON on 1 of 42).
+
+**Not this lane's, for awareness:** the owner ruled **option (a)** on the exemption-as-licence
+question — clean the briefs fleet-wide, gate semantics untouched. This lane's 32-of-34 measurement
+earned it; the campaign is `copy_quality_two_stage`'s. **The third-path RFC trigger stands
+unchanged** — none of this creates a new analyser→writer path.
