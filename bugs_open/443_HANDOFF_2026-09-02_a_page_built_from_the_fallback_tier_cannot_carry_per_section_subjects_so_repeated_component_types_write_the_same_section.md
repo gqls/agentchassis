@@ -147,7 +147,40 @@ Those 37 are independently worth someone's attention: an empty-`sections` page i
 no-ops at `mark_no_ready_sections` if anything ever rebuilds it (see the LANDMINES entry
 "A hand-made page whose `sections` is `[]`…").
 
-Still not censused: **whether all 11 are actually SERVING repeated headings.** Repeating a
+**ANSWERED for finetuning.uk, 2026-09-02 (later): 4 of 4 serve repeats — the necessary condition
+was also sufficient in every case tested.** The fourth page, `our-position-on-ai`, is the
+informative one because it breaks the shape of the other three:
+
+| page | layout | served |
+|---|---|---|
+| `your-own-model` | 3 × `generic-text-block`, **adjacent** | "How it works" × 3 |
+| `technical-details` | 3 × `generic-text-block`, **adjacent** | "The model and its licence" × 3 |
+| `playground` | 3 × `generic-text-block`, **adjacent** | 3 near-identical variants |
+| `our-position-on-ai` | **2 ×**, **NON-adjacent** (separated by a `features` block) | **"Our Honest Position on AI" × 2** |
+
+So **neither adjacency nor a count of three is required**: two blocks with another component
+between them still collide, and on that page they also duplicate the page's own title. The
+trigger is simply "the same component type appears more than once with nothing to tell the
+instances apart". That makes the census's necessary condition a good proxy for damage, and it
+means a fix must scope EVERY instance of a repeated type, not just consecutive runs.
+
+**Mechanism, from the `copy_quality_two_stage` lane (2026-09-02, their NOTES `c345b144c`):** this
+is the same mechanism as their empty-room/title-promise family — *the writer fills an
+underspecified slot fluently from its prior*. Here the slots are not underspecified but
+**identically specified**, N times, which is why the output is deterministic rather than merely
+likely. Their conclusion, independently reached: the fix belongs at the tier that publishes
+per-section subjects, **not in any prompt**.
+
+**Interaction bound, verified rather than accepted on report:** that lane's register measurements
+for finetuning.uk (canaries `approach`, `careers`, `case-studies`, `contact`, `use-cases` and the
+two tool pages) are unaffected — none is among the four above, checked against the layout census.
+So their published register findings for this site stand without a 443 asterisk.
+⚠ **But the parked stage-2 copy proposal `8003c51a` sits ON `your-own-model`**, which does carry
+443. Whoever eventually reviews that proposal must know the page repeats underneath it, or they
+will grade a rewrite against a defect the rewrite cannot reach.
+
+Still not censused: **whether the other 7 (gaswholesalers.com 4, ai-agent-orchestration.com 3) are
+actually SERVING repeated headings.** Repeating a
 component type is the necessary condition; three of the 11 are confirmed serving duplicates
 (finetuning.uk's three, read off the live pages). The other 8 — gaswholesalers.com 4,
 ai-agent-orchestration.com 3, finetuning.uk 1 — have the layout but nobody has read their served
