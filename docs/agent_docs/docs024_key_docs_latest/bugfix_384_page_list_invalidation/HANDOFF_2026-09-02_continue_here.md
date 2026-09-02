@@ -32,9 +32,47 @@ after the **second-newest** strike, not the newest.
 
 **So the prediction is sharp: nothing before ~2026-09-03 21:30Z, and service should resume that
 evening.** Verified still broken at 2026-09-02 18:5xZ (11 of 13, byte-identical to 08-31 — three
-identical reads across three days). **If you are reading this on 09-04 or later and it is still
-11 of 13, the chain in §4 is REFUTED** — that is the decisive outcome, and it means something else
-holds the site.
+identical reads across three days).
+
+### ⚠ A CHASSIS ROLL LANDED 2026-09-02 ~21:00Z AND IT CONFOUNDS THE NEGATIVE RESULT
+
+`[MEASURED 2026-09-02 21:1xZ]` Fleet is mid-roll: `ebf27c60377f` (540 pods) → `0d2feee2ff61`
+(61 pods, a strict descendant). **All four lane commits are ancestors of BOTH**, so the lane's own
+behaviour is unaffected. **1,034 commits** in the roll.
+
+**But `applyGrowthPostureDoor` (WDS-020) is NEW in it** — 0 occurrences in the previously verified
+build `ef06af0e0afc`, 1 in `0d2feee2ff61`. It runs inside `writeWorkItem`, **the same seam
+`insertWorkItem` wraps**, i.e. the seam that carries the two-strike arm — and it **parks items at
+`status='deferred'` with `handler_agent=''`** (`growth_posture_door.go:88`).
+
+**So a negative result no longer refutes anything on its own.** ~~If it is still 11 of 13 on 09-04
+the chain in §4 is REFUTED~~ — **that is now WRONG as written**: a still-frozen site could be the
+two-strike arm OR the new growth door, and the two are indistinguishable from the page alone.
+
+**Discriminate at the item, not the page. This is the first query, before the curl:**
+```sql
+SELECT status, coalesce(nullif(handler_agent,''),'(EMPTY)') AS handler,
+       left(summary,60) AS summary, spec ? 'growth_release_recipe' AS growth_door, created_at
+  FROM site_work_items
+ WHERE site_id='4851f6fc-71cf-4160-a270-e03d6d3e0732'
+   AND handler_agent IN ('rerender-pages','') AND created_at > '2026-09-03'
+ ORDER BY created_at DESC LIMIT 10;
+```
+- `unresolved` + `[unresolved after N attempts]` ⇒ **two-strike arm still holding.** Chain intact;
+  either the age-out has not landed or the arithmetic is wrong. Re-derive from the actual strike
+  timestamps before concluding.
+- `deferred` + `growth_release_recipe` in spec ⇒ **the NEW door, not this lane's chain.** The
+  experiment is VOID, not refuted — say so, and note the roll date.
+- `triaged`/`claimed`/`complete`, and `rerender-pages` runs for the site ⇒ **chain CONFIRMED.**
+  Stamp the resume time into `bugs_open/389`'s evidence (the `dispatch_throughput` lane's request).
+
+**Two more items in the roll touch this ground** — neither changes the arm, both worth knowing:
+`8eca969cb` (315 reopen: a producer "stops filing guaranteed-skip rerenders", so filing VOLUME may
+drop for reasons unrelated to branding) and `2a0bdb001` (035 P1: `rerenderFlatSections` extracted —
+a MOVE; it is the function the `090` in §8 reported it could not see, so a re-run now seeds better).
+**Verified unchanged across the roll:** the two-strike predicate
+(`status IN ('complete','failed')`), the `[unresolved after %d attempts]` branding literal, and
+`recurrenceExpected`. The arm itself did not move.
 
 ```bash
 curl -s https://leopardessconsulting.co.uk/blog.html | grep -o 'src="[^"]*card-[^"]*"' | wc -l
@@ -57,8 +95,9 @@ else holds the site; start again at §4's step 3.
 ## 3. What is TRUE and settled
 
 - **The fix is live and it works.** All four lane commits (`7720dc76c`, `bafd4411c`, `72469c556`,
-  `efc0db7bc`) are ancestors of the single running build (`ef06af0e0afc`, 342 pods, verified
-  2026-08-31; **re-read the stamp, never remember it**).
+  `efc0db7bc`) are ancestors of every build seen so far — `ef06af0e0afc` (08-31), and after the
+  2026-09-02 ~21:00Z roll both `ebf27c60377f` and `0d2feee2ff61`. **Re-read the stamp, never
+  remember it** — this file has already been overtaken once, and §2 carries what that roll changed.
 - **§4's demonstrations are genuine — 4 of 5.** finetuning's three (19:13:31, 19:14:21, 19:15:17)
   and vonc's `archetypes` (08-27 08:12:56) are real `save_page_sections_overwrite` writes. **Only
   the leopardess 15:30:33 one was another action's repair** (`action:rebuild_blog_listing`).
