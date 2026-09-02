@@ -3802,3 +3802,12 @@ in the CF account (dashboard, or the never-created DNS token per RUNBOOK's 08-18
 apex proxied A (dashboard/token) + worker route (this lane's 404-token CAN, step 5). Zone watch
 armed; routes get added the moment zones appear. ⚠ the runbook's order (zone FIRST, then NS)
 exists precisely because of this failure shape — worth a LANDMINES entry if it recurs.
+
+### (l) gamesdesign.co.uk rename EXECUTED by its session; GD1 name DECIDED; new pair dependency
+
+Owner confirmed "GamesDesign.co.uk" in that session; GD1 moved recommended→DECIDED with their
+execution record (4 specs superseded properly, 23 titles + 30 components swapped, 32 rerenders,
+backups bak_gdcouk_rename_20260902_*; class bug filed by the gamedesign.uk session as
+bugs_open/439). NEW pair fact on both GD rows: sibling's guide-p2p-architecture deep-links to
+gamedesign.uk/games/p2p-networking/ — GD2's rebuild brief must keep/redirect that path or have
+the sibling drop the link; both site sessions informed.
