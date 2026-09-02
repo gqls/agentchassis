@@ -66,3 +66,26 @@ Corr `55def842`. Dispositions, so nothing dangles:
   higher layer unwritten; RFC_062 exists.
 
 Commit `a3758c399` carries `Council-Submitted:` and is auto-credited now the verdict is approved.
+
+## 2026-09-02 (post-roll) — phase 1a SHIPPED (by ancestry), and the probe that said otherwise became a LANDMINES entry
+
+Fresh chassis roll (ReplicaSet `8ddbf8958`). Verification `[MEASURED 2026-09-02]`:
+
+- **Three-way probe on both pods: PHASE1A-ABSENT, controls clean** — and that reading is WRONG,
+  by construction. Phase 1a has zero callers, so the Go linker's dead-code elimination strips
+  the uncalled functions and their folded literals. Proven, not asserted: a local
+  `go build ./cmd/agent-chassis` from a tree CONTAINING the module also greps 0 for
+  `input_data.spec.routing_reason` while both called-code controls grep 1.
+- **The honest check for inert code is ANCESTRY**: both pods stamped `0d2feee2ff61`
+  (`service_binary_capabilities`), and `git merge-base --is-ancestor a3758c399 0d2feee2ff61`
+  holds. **Phase 1a is in the running binaries' source.** The probe will spontaneously start
+  reading PRESENT the day phase 1b adds the first caller — do NOT read that as "shipped in that
+  roll" (mis-dating trap). Full entry: LANDMINES "A capability probe for INERT code reads
+  ABSENT with clean controls".
+- ⚠ **DEBT: the LANDMINES entry is appended to the FILE but `landmines-verify-dispatch.sh` is
+  BLOCKED** — kubeconfig token expired mid-session (fleet-wide `Unauthorized`, the 3-day
+  expiry; owner refreshes). First session after refresh: run
+  `./scripts/landmines-verify-dispatch.sh` (NOT `landmines-sync.py --apply` alone — the
+  documented consume-the-new-entry-status trap).
+- 404 lane: no commits since our CONTRIB — their r4 verdict (approved) still unread by them, so
+  **phase 1b stays gated**.

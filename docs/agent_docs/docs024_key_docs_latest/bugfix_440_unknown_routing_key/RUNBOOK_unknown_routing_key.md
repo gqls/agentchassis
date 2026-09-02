@@ -30,3 +30,18 @@ SELECT default_config->'workflow'->'steps'->'check_rerender_mode'
 FROM agent_definitions WHERE type='page-rerender' AND is_active
   AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
 ```
+
+## Verifying a phase of THIS lane shipped — inert code CANNOT be probed by literal
+Phase 1a (and any future zero-caller phase) is stripped by dead-code elimination: the standard
+three-way `/proc/1/exe` probe reads ABSENT with clean controls even when the commit shipped
+(LANDMINES entry, 2026-09-02). Verify by ancestry instead:
+```sql
+SELECT DISTINCT pod_name, git_commit FROM service_binary_capabilities
+WHERE pod_name LIKE 'agent-chassis-%' ORDER BY 1;
+```
+```bash
+git merge-base --is-ancestor a3758c399 <stamp> && echo "phase 1a in this build"
+```
+Once phase 1b lands (first caller), the literal probe becomes valid:
+`grep -aq "input_data.spec.routing_reason" /proc/1/exe` — but only from that phase on, and its
+first PRESENT reading dates the CALLER's roll, not the foundation's.
