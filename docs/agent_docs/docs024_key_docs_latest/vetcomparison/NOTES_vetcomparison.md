@@ -1903,3 +1903,27 @@ drafted (opt-in .section-with-illustration, additive-and-inert, 768px stack, alt
 garden-tools.uk). Open call deferred to imagery planning: WHICH index sections get illustrations
 (my working pick when we get there: start with ONE — info-card-grid — for IMG-075's first
 exercise). Everything design-side still holds behind 701.
+
+> **CORRECTED 2026-09-03 (by the webdesign-tool-rebuilds seat, from code):** the previous entry
+> called the three dead tool builds "the bugfix-287 false-complete shape" — WRONG on the
+> signature. 287's shape is the spawn record {role, topics, agent_id, agent_type} as result, and
+> that door CLOSED 08-18. These are TWO DIFFERENT classes: (a) `completed_steps: 0` + stored
+> retry_payload = the spawn→call handshake class (bursty; retry_payload is the COORDINATOR'S OWN
+> replay record — ReplayRequest is the only sanctioned retry, there is NO operator re-drive of a
+> stored payload; re-filing is the supported path, dedup excludes terminal statuses); (b)
+> input-spec ECHO as result = the extractor echo family (306/330). The mark_complete-despite-
+> nothing half has NO failure row → structurally invisible to every sweep → **FILED as 090
+> needs_diagnosis, RUN_CORRELATION_ID 6553f198-0412-4115-8be1-318b74f51795** (queue was clear;
+> prior-art grep: 344 and closed-287 are adjacent but distinct, stated in the symptom).
+
+**357 CLOSED — design pass UNBLOCKED (2026-09-03 evening):** owner applied 701; homepage tool now
+adopted component `tool-vet-comparison-vetcomparison-uk`; the page survived an organic news-wave
+rebuild BYTE-IDENTICALLY same evening (repair proven in production immediately). ⚠ CAVEAT from
+their close-out, load-bearing for every rerender we now do: **rerender `spec.reason` parses
+against five literals (016b §10 row 404) — use `template_changed` after a template edit** or the
+rerender re-ships the OLD stored bytes and reads as success. Division agreed with the planner:
+they execute the palette write + amber fix + rerender; this lane verifies at the served page and
+closes the third-blue + 3 grey contrast items with evidence; imagery sequences after the accent
+batch. The 08-25 tool trio (transparency-audit, rights-checklist, ownership-checker): NOT
+re-filed by this lane — they're tool-suggester content-bearing tools ("CMA now requires…"
+phrasing = claim-class risk while the Order is draft); re-filing is an owner call, offered.
