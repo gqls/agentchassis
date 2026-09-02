@@ -1,3 +1,8 @@
+> ## ⚠ SUPERSEDED 2026-09-02b — read `HANDOFF_2026-09-02b_continue_here.md` in this directory.
+>
+> Its open list is shorter than this one's: exactly ONE item remains (the CronJob firing on its
+> schedule). Everything else here is either done or already stale.
+
 > ## ⚠ SUPERSEDED 2026-09-02 — read `HANDOFF_2026-09-02_continue_here.md` in this directory instead.
 >
 > Four of the five open items below closed themselves over the following week, so this file's

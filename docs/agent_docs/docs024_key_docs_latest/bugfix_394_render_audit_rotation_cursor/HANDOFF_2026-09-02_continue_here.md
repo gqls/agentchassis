@@ -1,3 +1,8 @@
+> ## ⚠ SUPERSEDED 2026-09-02b — read `HANDOFF_2026-09-02b_continue_here.md` in this directory.
+>
+> Its open list is shorter than this one's: exactly ONE item remains (the CronJob firing on its
+> schedule). Everything else here is either done or already stale.
+
 # HANDOFF — 2026-09-02 (updated ~14:2xZ) — `bugs_open/394`, render-audit coverage cursor
 
 **Supersedes `HANDOFF_2026-08-26_continue_here.md`** (same directory). Read this one; that one's
