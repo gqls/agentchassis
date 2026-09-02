@@ -546,3 +546,74 @@ re-synced itself.
 2. **The sweep supersedes the spec** (`is_current=false` + INSERT, `refresh_evidence_base_action.go:669-693`)
    and now runs **daily**. Any code or session holding a `site_specs.id` for an evidence base must
    re-SELECT the current row before writing, or the write lands on a dead revision.
+
+## 2026-09-02 — this session picks up as "the claims verification thread" (owner renamed it); RFC_060 arc, cross-session with `bugfix_414_planted_marker_as_claim` and three site lanes (lendzy, loanzy.uk, loancalculator.co.uk)
+
+Owner asked, out of the poisoned-register question: *"shouldn't compliance be strong for sites that
+require compliance strongly — finance, legal, insurance?"* — routed to `RFC_060` by the
+`bugfix_414` lane (its own thread had closed as a bug 08-31 and continued past that into this design
+question same day). This session read in, oriented (V0–V5/CLM-025–030 already live, cold-audit gap
+already closed), then owned the RFC's live evolution for the rest of the day. Full technical detail
+lives in `RFC_060_compliance_tier_the_claims_layer_is_weakest_where_the_sector_is_strictest.md`
+(architecture_review/) — this entry is the log of HOW the day went, including what was wrong first.
+
+**Owner ruled Q1/Q2/Q4 same-morning** (require registers; build order register-gate→fact-floor→
+severity; a signed record not a boolean). **Q3 (vocabulary) approved after one discussion round** —
+a three-rung posture ladder (`standard`/`sourced`/`relied_upon`), named for claim RELATIONSHIP not
+sector, after the owner's own steer ("maybe it should have a semantic decision layer rather than
+sector specific").
+
+**Two structural gaps found by reading the code, not by assumption, both folded in as new
+addenda (Q5, Q6):** the citation-code exclusion (`fad209b92`) is a single hardcoded FCA-only Go
+constant, not per-site data like `banned_claims`/`allowed_entities` — confirmed `vetcomparison.uk`
+is live, deployed, zero register, and would reproduce the finance false-positive on its first RCVS
+citation. And a citation can be true, sourced, and still name the wrong rule (Q6) — traced with the
+lendzy lane to a real structural cause (the FCA Handbook has no rule-level URL; a 54-rule chapter page
+lets a quote genuinely belonging to one rule verify against a citation labelled a neighbouring one).
+
+**Then the register-writing programme actually ran, same day, four site lanes** — and every lane
+that read a cited source rather than trusting existing prose found an error: 5 wrong live claims
+(lendzy's Q6 pair, loanzy's MaPS mis-classification, loancalculator's settlement-period and ERC
+figures), all real, all now corrected or routed to the owner. That number is the base rate this
+whole layer's design is being justified against, not a worst case.
+
+**A four-round argument with the `bugfix_414` lane over one afternoon produced the banned_claims
+compile-check** (`e5b1a0f01`, council-approved `bc3697a5` — read the verdict directly, not the
+paraphrase: 3 advisory objections, none high-severity, `abstained:6`). They first argued a clean
+census (239 patterns, 0 broken) didn't justify new surface; the loancalculator lane argued them out
+of that position ("practice-as-remedy is prose-as-control", RFC_006's own precedent); I built it.
+**Two of the council's objections are worth a line for the next reader:**
+- `prior_art_librarian` asked whether anything already validates per-site banned_claims compile-
+  ability before this — checked afterward (not just asserted): every consumer of `BannedClaims`
+  (`discovery_checks/check_unverified_claims.go` included) goes through `ParseEvidenceBase`'s SAME
+  silent fallback at `claims.go:348`. No other check exists. The absence claim holds.
+- `tooling_provenance` objected that this landed with no doc_plans/doc_notes check beforehand and no
+  NOTES entry planned after — fair, and this paragraph is that entry, late rather than absent.
+
+**Two of my own wrong calls, both caught by the peer lane re-measuring rather than by my own
+re-read — logged in `WRONG_CALLS.md` in full, summarised here so this NOTES file carries the
+pattern too:** (1) told a peer session "39 citation facts, measured 2026-09-02" — real number, wrong
+date; it was the 2026-08-09 SUMMARY's count, and my own RFC table from that SAME morning already
+said ~192 (`622443862`). (2) told a peer lendzy's register was "built" when my own RFC table, three
+sections above the sentence I wrote, already had the correct written-not-applied distinction
+(`465d86951`). **Both times the error was restating my own prior work from memory instead of
+re-reading it** — a document authored earlier in the SAME session is a source, not something safe to
+paraphrase.
+
+**One test bug worth a line on its own: my first cut of the banned_claims-compile-check's
+regression test was VACUOUS.** `TestInvalidBannedClaimPatternItemsHonoursExistingOpenItem` asserted
+`created == 0` on a conflict — true under BOTH the correct policy (`dropOnConflict`) and a wrongly
+mutated one (`refreshOnConflict`), because I had not called `mock.ExpectationsWereMet()`, so the
+extra unmocked UPDATE a wrong policy would issue went unchecked. Caught by mutating the code
+(flip the policy, confirm the test fails) in an isolated `git worktree` — needed because another
+session had unrelated uncommitted WIP (`cta_label_universe.go`, a signature change) breaking `go
+test` for the whole `actions` package at the time; the worktree let me verify against clean HEAD
+plus my own files without touching their tree.
+
+**Deployment status, stated plainly because it is the gap my own summary to the user first left
+out, caught by the peer verifying at the pod rather than taking my report:** `e5b1a0f01` is
+COMMITTED, not RUNNING. `[MEASURED ~19:40]` both `agent-chassis` pods started 15:53Z/15:39Z,
+before the 18:30Z commit — the new check is not in the deployed binary. It needs an image build +
+roll (owner's call — releases are whole-fleet), and even once rolled it is inert until the NEXT
+daily `evidence-freshness` tick (~09:09). Two gates, and "built" must not be read as "covering the
+fleet" until both clear.
