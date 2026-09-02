@@ -83,3 +83,60 @@ because it interacts with the cross-lane parking constraint.
 Wire shape for the array param is `[INFERRED]` from the doc's own
 `http_build_query` example (the literal nested-key URL is never printed);
 the planned first one-domain call doubles as its confirmation.
+
+## 2026-09-02 (late evening) — owner: account EXISTS; portfolio sheet built (1,318 domains)
+
+Owner message: has **partnership status** and an account under
+**info@designconsultancy.co.uk**; wants most domains added; asked this lane
+to (a) build the full-portfolio sheet in Sedo's importer format, (b) ask
+the dynadot/porkbun/nominet/spaceship sessions for the domain lists, (c)
+correspond with the new **domain valuation** session on Sedo+Afternic
+pricing. All six are live peer sessions; the valuation lane had already set
+the inbound contract, so this lane consumes their `inbound/` rather than
+running a second collection.
+
+**Cross-session outcomes (all same evening):**
+- dynadot: 451 complete per API contract (one unpaginated response;
+  panel-count cross-check pending); **Dynappraisal fetch running** →
+  `dynadot_valuations_2026-09-02.csv`, rate-capped/day (50–300 by tier).
+- porkbun: 683 delivered (`02ffa6f40`). **CORRECTION to my framing:** the
+  global opt-in gates PER-DOMAIN endpoints (future NS ops), NOT the list —
+  I had repeated the valuation lane's "delivery blocked on opt-in" line;
+  wrong, and the correct fact is in their message. 13/683 NS cells blank
+  (DoH SERVFAIL); 600/683 on afternic-family NS; 0 on Porkbun's own
+  marketplace (43,203-listing intersection).
+- spaceship: 203 confirmed complete (fetched == API `total`). ⚠ their
+  seller-hub listings file is NOT an inventory (36/831 registered there).
+- nominet: contract confirmed — one CSV (`domain,expiry_month`) will serve
+  valuation + sedo; still owner-gated on the login/walk.
+- domain valuation: contract agreed — canonical
+  `OUTPUT_prices_<date>.csv` in THEIR lane (columns frozen by them, ~10
+  fields incl. category/keep_or_sell/confidence); interim blank-price sheet
+  approved with two owner-facing caveats (lowball risk without minimums;
+  auto-parking disclosure). Cut confirmed: bottom ~500 BUY_NOW keen,
+  categories stay together; £150 webdesign.co.uk transfer-away fee
+  (2026-08-17) as de-facto keen floor.
+
+**Built:** `scripts/domains/sedo-importer-xlsx.py` (self-test 9/9; emulates
+the template's sharedStrings encoding; refuses non-ACE domains, unknown
+selling options/currencies, malformed prices; maps prices by header name;
+verifies its own artefact by re-reading the zip). Generated
+`outbound/SEDO_IMPORT_2026-09-02_draft1.{xlsx,csv}` + provenance CSV +
+`EXCLUDED_live_cloudflare_2026-09-02.txt`:
+- **1,337 unique domains** in hand (451+683+203, 0 cross-registrar dupes —
+  the earlier `uniq -d` "duplicate" was the two quoted header rows my
+  `NR>1` failed to skip; `FNR>1` is the correct guard);
+- **19 fenced out** (Cloudflare NS = live estate sites, incl.
+  websitedesign.com, boxingonline.com, relojistas.com, vetcomparison.uk);
+- **1,318 in the sheet**, all MAKE_OFFER / yes / no price;
+- NS provenance: 1,193 afternic-family, 111 other, 13 none, **1 already on
+  sedoparking.com** (`officestationery.net` — corroborates the owner's
+  pre-existing Sedo relationship).
+- Verified at the artefact: 1,319 `<row` occurrences (header + 1,318);
+  sharedStrings uniqueCount 1,327 = 1,318 domains + 7 headers + 2 shared
+  literals. (`grep -c '<row '` reads 1 — single-line XML; count with
+  `grep -o | wc -l`.)
+
+Outstanding: Nominet ~1,500 .uk (owner walk) → draft2; prices import once
+the valuation lane freezes/ships `OUTPUT_prices`; owner still owes the §2
+API-access email + §3 secret for the API route.

@@ -41,9 +41,24 @@ parking) by Claude sessions, via Sedo's API.
   `--self-test` (offline), `--probe` (cluster, credential-free E7 control),
   `--check-secret`; both probes PASS. The credentialed path is **built but
   unexercised** — no credentials exist anywhere yet.
-- **P2 — owner obtains access: BLOCKED on the owner + Sedo approval**
-  (external; community reports suggest days, `[UNVERIFIED]`). Owner steps:
-  RUNBOOK §1–§3.
+- **P2 — owner obtains access: PARTIALLY CLEARED 2026-09-02 (evening).**
+  The owner already has a Sedo account (registered address
+  info@designconsultancy.co.uk) **with partnership status** — so RUNBOOK §1
+  is done and pre-dated this lane (corroborated: `officestationery.net`
+  already delegates to ns1/ns2.sedoparking.com in the 2026-09-02 Porkbun
+  export). Remaining owner steps: §2 (API-access email from that address)
+  and §3 (install the secret). API approval wait still applies.
+- **P2b — bulk-import sheet (web route, added 2026-09-02 evening, owner
+  request).** Sedo's web importer takes the same data with NO API
+  credentials — the owner uploads the xlsx in the dashboard. Built:
+  `scripts/domains/sedo-importer-xlsx.py` (self-test 9/9) +
+  `outbound/SEDO_IMPORT_2026-09-02_draft1.xlsx` — **1,318 domains** as of
+  2026-09-02 (Dynadot 451 + Porkbun 683 + Spaceship 203, minus 19
+  live-site exclusions, minus 0 cross-registrar dupes). Interim shape
+  agreed with the domain_valuation lane: MAKE_OFFER / for-sale yes / no
+  price; prices arrive as a second import from their canonical
+  `OUTPUT_prices_<date>.csv` (their lane, their column freeze). The
+  Nominet ~1,500 .uk names join on the owner-run walk.
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call

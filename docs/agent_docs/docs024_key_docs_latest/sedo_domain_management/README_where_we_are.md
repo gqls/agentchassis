@@ -49,3 +49,36 @@ Still waiting on the account and the two API codes from Sedo (your steps:
 RUNBOOK §1–§3). Everything on my side is ready — once the codes are sealed
 in, the first call will list one domain, checked end to end, before any
 batch.
+
+## 2026-09-02 (late evening) — your spreadsheet is ready: 1,318 domains
+
+You told me you already have the account (info@designconsultancy.co.uk)
+and partnership status, and asked for the full portfolio in Sedo's import
+format. Done — the file is
+`outbound/SEDO_IMPORT_2026-09-02_draft1.xlsx` in this folder, with a
+plain CSV next to it if you want to eyeball it first.
+
+What's in it: 1,318 domains — everything Dynadot (451), Porkbun (683) and
+Spaceship (203) hold, checked complete by each of those threads today.
+What's NOT in it, deliberately:
+- Your 19 live websites (websitedesign.com, boxingonline.com,
+  relojistas.com, vetcomparison.uk and so on) — I've fenced out anything
+  actually serving a site. The list is in the same folder; say the word if
+  any of those SHOULD be for sale and I'll put them in.
+- The ~1,500 .uk names at Nominet — still needs you to run the two
+  Nominet commands (the nominet thread has them ready). The moment that
+  lands I'll cut draft 2 with everything.
+
+Prices: every domain is set to "make offer", for sale, with NO price yet —
+the valuation thread is working through the portfolio now (Dynadot's own
+appraisals are being pulled tonight as one input). Two honest caveats if
+you upload this version straight away: (1) make-offer with no minimum
+invites lowball offers — the minimums arrive with the valuations, as a
+second upload that updates the same domains; (2) Sedo switches parking on
+for every domain you add — that changes nothing at Afternic unless
+nameservers move (which nobody is doing), but you'll see them all as
+"parked" in your Sedo dashboard.
+
+Your three remaining moves, whenever suits: upload the sheet (or wait for
+the priced version), run the Nominet walk, and send the API-access email
+(RUNBOOK §2) so future changes don't need manual uploads at all.

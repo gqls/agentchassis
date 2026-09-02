@@ -8,8 +8,14 @@ Every call authenticates with four values: `partnerid`, `signkey`,
 so it is an API credential proper: keep it ≤16 chars (the API's own cap on
 the param), alphanumeric-ish, and used nowhere else.
 
-## §1 Owner: create the account (once)
+## §1 Owner: create the account (once) — **DONE before this lane opened**
 
+The owner confirmed 2026-09-02 (evening): account exists under
+**info@designconsultancy.co.uk** with **partnership status**. §2 and §3
+remain. (If the account password exceeds 16 chars, it will fail API auth's
+param cap — worth checking before §3.)
+
+Original steps kept for the record:
 1. Sign up at https://sedo.com — use the address the estate is registered
    under. Username ≤25 chars; **password ≤16 chars, no `"` or `\`**
    (API param cap is 16; the curl-config quoting in our client rejects
@@ -165,3 +171,43 @@ scripts/domains/sedo-api.sh DomainInsert \
 URL, only the `http_build_query` call that would produce it. The first real
 call is ONE domain, and confirming this shape (per-entry `status=ok`) is
 part of what that call is for.
+
+## §7 Generating the bulk-import sheet (no credentials needed)
+
+`scripts/domains/sedo-importer-xlsx.py` (self-test: `--self-test`, 9
+checks) reads the domain_valuation lane's inbound CSVs and writes the
+importer xlsx in Sedo's own template shape (§6), plus a CSV twin for
+review/diff and a provenance CSV (domain, source file, NS class):
+
+```bash
+IN=docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound
+OUT=docs/agent_docs/docs024_key_docs_latest/sedo_domain_management/outbound
+python3 scripts/domains/sedo-importer-xlsx.py build \
+  --out $OUT/SEDO_IMPORT_<date>_draftN.xlsx \
+  --csv-out $OUT/SEDO_IMPORT_<date>_draftN.csv \
+  --provenance-out $OUT/SEDO_IMPORT_<date>_draftN_provenance.csv \
+  --domains $IN/dynadot_domains_<date>.csv \
+  --domains $IN/porkbun_domains_<date>.csv \
+  --domains $IN/spaceship_domains_<date>.csv \
+  --exclude-file $OUT/EXCLUDED_live_cloudflare_<date>.txt \
+  [--prices docs/agent_docs/docs024_key_docs_latest/domain_valuation/OUTPUT_prices_<date>.csv]
+```
+
+Gotchas, each earned:
+- **The fence is live-site protection**: the exclude file is the
+  Cloudflare-NS domains extracted from the same inbound CSVs
+  (`awk -F, 'FNR>1{gsub(/"/,""); if (tolower($4) ~ /cloudflare/) print $1}'`).
+  Regenerate it with the sheet — the live set changes as sites launch.
+- Without `--prices`, every row is MAKE_OFFER / yes / no price — the
+  agreed interim; prices come from the valuation lane's canonical
+  `OUTPUT_prices_<date>.csv` (their column freeze; do not build against it
+  until they message that it is frozen).
+- The registrar CSVs are **dated snapshots** — regenerate from fresh
+  exports rather than reusing old inbound files (spaceship lane: re-check
+  with `scripts/domains/spaceship.py domains` if days have passed).
+- Do NOT feed listings files (`*_listings_*.csv`, `*sellerhub*`) as
+  `--domains` — the Spaceship seller-hub file holds 831 marketplace rows of
+  which only 36 are registered there (their lane, 2026-09-02).
+- The script verifies its own artefact by re-reading the zip; counting
+  `<row` in the sheet XML by `grep -c` reads 1 (single-line XML) — use
+  `grep -o | wc -l`.
