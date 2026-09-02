@@ -1,3 +1,12 @@
+> ## ⚠ SUPERSEDED 2026-09-02 — read `HANDOFF_2026-09-02_continue_here.md` in this directory instead.
+>
+> Four of the five open items below closed themselves over the following week, so this file's
+> "do these next" list will send you chasing work that is already done: the audit TIMEOUT was
+> transient (findings are being written again), the kustomize overlay is applied in-cluster, and
+> the cursor has been running correctly on the SCHEDULED path — including a second site that
+> cycled to completion. The evidence and the three genuinely remaining items are in the newer file.
+> Everything below is accurate **as of 2026-08-26** and is kept for the trail.
+
 # HANDOFF — 2026-08-26 (late evening) — `bugs_open/394`, render-audit coverage cursor
 
 **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_394_render_audit_rotation_cursor/`
