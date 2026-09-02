@@ -6920,3 +6920,25 @@ Lendzy re-verified 5/5 under it; claims.go:348 confirmed by them as the silent Q
 fallback. Fleet: farmerinsurance's empty banned_claims routed to the loanzy session
 (their lane holds it) with 707 cited; **loancash remains the only true register
 absence** (unowned, owner aware).
+
+### Addendum 2: the refresher-loop argument CONCEDED and recorded (414 lane, f786ee271 + d38f07a7c)
+
+The 414 lane conceded in writing: the landmine now carries their superseded sentence
+struck through with the three counts under it, and RFC_060 gains **§3e** (deliberately a
+note, not a new owner question — it is Q7's shape one field along: a guarantee enforced
+on one write path only; if Q7 ships as a sweep, this rides the same loop). They VERIFIED
+the load-bearing claim rather than take it: `resolveEvidenceSites`
+(refresh_evidence_base_action.go:278) selects EVERY site with a current register
+(input_data {}, pre_query NULL), :325 loads the whole document — "a few lines in a loop
+that already runs over the right population" is exact. Two paid-for traps added to the
+costing for whoever builds it: **ON CONFLICT DO NOTHING, never DO UPDATE** (a daily
+re-write bumps `updated_at` and makes the row unreapable for ever — bugs_closed/213),
+and **key the finding, not the site**. Routed to claims-verification as this lane's
+argument; nobody is building it on spec.
+
+**Operational fact for the NEXT session, from their verification:** the refresher's
+`last_completed` was 09:08:58 TODAY — before 699 applied (15:30). **This register's
+first live pass is tomorrow ~09:09.** The 414 relay's standing instruction applies then:
+READ the first findings rather than treating silence as clean — 12 citations re-fetched
+(two hosts), quotes re-matched; a `citation_lost` on a legislation.gov.uk URL may mean
+revised statutory text, which is the design working.
