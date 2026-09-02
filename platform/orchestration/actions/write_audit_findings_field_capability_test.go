@@ -495,3 +495,57 @@ func TestRoutableHandlersMatchesTheRouter(t *testing.T) {
 		}
 	}
 }
+
+// TestTheDriftAuditDeferralTriggerHasNotFired encodes an OWNER RULING of
+// 2026-09-02 on RFC_057 §6 Q1, and it exists because this lane's founding finding
+// was that a rule living only as prose gets broken by the next producer. A
+// deferral recorded in a document is exactly that shape; a deferral with a
+// mechanical trigger is not.
+//
+// THE RULING, in plain terms. RFC_057 §4 asks for a live-drift audit: something
+// that notices when a handler this roster says CANNOT write a field has since
+// GAINED that capability. It is not built. The owner ruled it may be DEFERRED —
+// on the reasoning that staleness fails in the SAFE direction (the roster
+// over-refuses, which files a visible capability_gap row that two readers already
+// consume) whereas the COMPLETENESS failure, which was silent, is the one now
+// closed by TestPageFieldWritersIsTotalOverTheRoutableHandlers.
+//
+// THE TRIGGER. The deferral was granted for a roster of TWO fields, where the
+// whole population can be re-read by hand in a minute. It does not extend to a
+// roster that has grown. RFC_057 §4's own words: "one entry is a measurement, ten
+// entries with no audit is a stale map with an enforcement mechanism attached to
+// it."
+//
+// So this test fails the moment the roster gains a third field — not to block
+// that change, but to put the owed work in front of the person making it, at the
+// moment they are already measuring writers and have the context to build it.
+// Delete this test in the same commit that ships the audit.
+func TestTheDriftAuditDeferralTriggerHasNotFired(t *testing.T) {
+	const deferredWhileRosterHasAtMost = 2
+
+	if len(pageFieldWriters) > deferredWhileRosterHasAtMost {
+		fields := make([]string, 0, len(pageFieldWriters))
+		for f := range pageFieldWriters {
+			fields = append(fields, f)
+		}
+		slices.Sort(fields)
+		t.Fatalf(""+
+			"THE DRIFT-AUDIT DEFERRAL HAS EXPIRED. The roster now holds %d fields (%v); the owner's "+
+			"2026-09-02 deferral of RFC_057 §6 Q1 was granted for at most %d.\n\n"+
+			"WHAT IS OWED: a live-drift audit that fails when a handler this roster records as UNABLE "+
+			"to write a field has since GAINED that capability. Staleness is the one failure mode "+
+			"nothing here can see — the totality test catches a handler never CONSIDERED, not a "+
+			"capability ACQUIRED after the census.\n\n"+
+			"HOW TO BUILD IT (RFC_057 §3, and this is the part that is easy to get wrong): resolve "+
+			"each handler's reachable actions through the ACTION REGISTRY, never a config-text search "+
+			"for the column name — an agent can write a column without ever naming it (upsertPage "+
+			"writes meta_description and is reached via the action sync_pages_to_db; a column-name "+
+			"census saw 1 of 3 writers). And never a workflow.steps walk: it misses steps nested in a "+
+			"loop's sub_workflow and returns a confident zero (register WII-031). Use "+
+			"jsonb_path_query_array(default_config, 'strict $.**.action'), and follow each handler's "+
+			"SPAWN CLOSURE, because call_agent/spawn_agent mean a step list bounds what a handler does "+
+			"itself, not what it can cause.\n\n"+
+			"THEN DELETE THIS TEST in the same commit. bugs_open/395 §9, RFC_057 §4/§8.",
+			len(pageFieldWriters), fields, deferredWhileRosterHasAtMost)
+	}
+}
