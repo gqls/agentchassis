@@ -1316,52 +1316,23 @@ func rerenderFlatSections(
 		thisSection := sectionRef{Name: s.slotName, Occurrence: sectionOccurrences[s.slotName], Known: true}
 		sectionOccurrences[s.slotName]++
 
-		comp, invalidTemplate, haveComp := resolveComponent(s)
-
-		// Can't load the component → carry the stored HTML untouched. Named in
-		// the diagnostic (not just logged) because a re-render in which every
-		// section takes this branch is otherwise indistinguishable from one
-		// that worked — bugs_open/182.
-		if !haveComp {
-			if invalidTemplate {
-				logger.Warn("rerender_page_sections: component template invalid, carrying stored HTML",
-					zap.String("section", s.slotName), zap.Int("position", s.position))
+		cls := classifyStoredSection(ctx, s, thisSection, resolveComponent, resolver, logger)
+		if cls.carryKind != "" {
+			switch cls.carryKind {
+			case carryInvalidTemplate:
 				resolution.InvalidTemplateSlots = append(resolution.InvalidTemplateSlots, slotLabel(s))
-			} else {
-				logger.Warn("rerender_page_sections: component not found, carrying stored HTML",
-					zap.String("section", s.slotName), zap.Int("position", s.position))
+			case carryNotFound:
 				resolution.UnresolvedSlots = append(resolution.UnresolvedSlots, slotLabel(s))
+			case carryNotReady:
+				resolution.NotReadySlots = append(resolution.NotReadySlots, slotLabel(s))
+			case carryEmptyTemplate:
+				resolution.EmptyTemplateSlots = append(resolution.EmptyTemplateSlots, slotLabel(s))
 			}
 			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
 			carried++
 			continue
 		}
-
-		// Reuse planSection to rebuild resolved_data (side-effect-free).
-		plan := planSection(ctx, s.slotName, thisSection, comp, resolver, logger)
-		if plan.Status != "ready" {
-			// A required non-LLM field can't resolve now — carry the stored HTML
-			// rather than render a broken/empty section. Legitimate, evidenced
-			// fallback (bugs_closed/095's council history): named, not fatal.
-			logger.Info("rerender_page_sections: section not ready, carrying stored HTML",
-				zap.String("section", s.slotName),
-				zap.String("status", plan.Status))
-			resolution.NotReadySlots = append(resolution.NotReadySlots, slotLabel(s))
-			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
-			carried++
-			continue
-		}
-
-		htmlTemplate, _ := comp.Raw["html_template"].(string)
-		if htmlTemplate == "" {
-			// Also legitimate/non-fatal — an intentionally empty template stub.
-			logger.Warn("rerender_page_sections: empty html_template, carrying stored HTML",
-				zap.String("section", s.slotName))
-			resolution.EmptyTemplateSlots = append(resolution.EmptyTemplateSlots, slotLabel(s))
-			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
-			carried++
-			continue
-		}
+		comp, plan, htmlTemplate := cls.comp, cls.plan, cls.htmlTemplate
 
 		// Derived once, reused by both the CTA recompute below and the
 		// observe-only ownership-conflict log — previously computed twice.
@@ -1620,4 +1591,91 @@ func rerenderFlatSections(
 		resolution:             resolution,
 		strippedMarkdownFields: strippedMarkdownFields,
 	}
+}
+
+// Carry kinds. Each names one of the four legitimate reasons a section keeps its
+// stored HTML instead of re-rendering, and each maps to its own resolution
+// bucket — the buckets exist because a run in which EVERY section carried is
+// otherwise indistinguishable from one that worked (bugs_open/182).
+const (
+	carryInvalidTemplate = "invalid_template"
+	carryNotFound        = "not_found"
+	carryNotReady        = "not_ready"
+	carryEmptyTemplate   = "empty_template"
+)
+
+// sectionClassification is the decision the carry guards reach about one row,
+// with no loop state mutated. carryKind empty means the row renders.
+type sectionClassification struct {
+	comp         componentInfo
+	plan         sectionPlanItem
+	htmlTemplate string
+	carryKind    string
+}
+
+// classifyStoredSection runs the carry guards for one row and returns what it
+// decided. Extracted from rerenderFlatSections so a COMPOSITION CHILD gets the
+// identical treatment a section does — a child is an ordinary page_components
+// row (features_open/035 D1), so anything that carries a section must carry a
+// child for the same reason and into the same bucket.
+//
+// Every log line and every message below is the code that was inline. What
+// changed is only that the branches RETURN a kind rather than appending to the
+// loop's slices, because the caller owns those.
+//
+// It allocates NO instance token, deliberately. The live rule is that a CARRIED
+// section contributes no token, so classification has to complete before any
+// token is taken — see the counter note in rerenderFlatSections.
+func classifyStoredSection(
+	ctx context.Context,
+	s storedSection,
+	thisSection sectionRef,
+	resolveComponent func(storedSection) (componentInfo, bool, bool),
+	resolver *sourceResolver,
+	logger *zap.Logger,
+) sectionClassification {
+	var c sectionClassification
+	comp, invalidTemplate, haveComp := resolveComponent(s)
+
+	// Can't load the component → carry the stored HTML untouched. Named in
+	// the diagnostic (not just logged) because a re-render in which every
+	// section takes this branch is otherwise indistinguishable from one
+	// that worked — bugs_open/182.
+	if !haveComp {
+		if invalidTemplate {
+			logger.Warn("rerender_page_sections: component template invalid, carrying stored HTML",
+				zap.String("section", s.slotName), zap.Int("position", s.position))
+			c.carryKind = carryInvalidTemplate
+		} else {
+			logger.Warn("rerender_page_sections: component not found, carrying stored HTML",
+				zap.String("section", s.slotName), zap.Int("position", s.position))
+			c.carryKind = carryNotFound
+		}
+		return c
+	}
+
+	// Reuse planSection to rebuild resolved_data (side-effect-free).
+	plan := planSection(ctx, s.slotName, thisSection, comp, resolver, logger)
+	if plan.Status != "ready" {
+		// A required non-LLM field can't resolve now — carry the stored HTML
+		// rather than render a broken/empty section. Legitimate, evidenced
+		// fallback (bugs_closed/095's council history): named, not fatal.
+		logger.Info("rerender_page_sections: section not ready, carrying stored HTML",
+			zap.String("section", s.slotName),
+			zap.String("status", plan.Status))
+		c.carryKind = carryNotReady
+		return c
+	}
+
+	htmlTemplate, _ := comp.Raw["html_template"].(string)
+	if htmlTemplate == "" {
+		// Also legitimate/non-fatal — an intentionally empty template stub.
+		logger.Warn("rerender_page_sections: empty html_template, carrying stored HTML",
+			zap.String("section", s.slotName))
+		c.carryKind = carryEmptyTemplate
+		return c
+	}
+	c.comp = comp
+	c.htmlTemplate = htmlTemplate
+	return c
 }
