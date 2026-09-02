@@ -612,6 +612,28 @@ in. `git stash` is forbidden on this tree; use `cp <file> /tmp/x.bak` and copy b
 2. Fire ONE attended generator run: agent_type `provocation-generator-manual` on
    `system.agent.generic.requests`. Confirm a fatal `hard_to_read` appears and new rows
    carry `gate_version` `3`.
+
+   ⚠ **A UNIT TEST IS NOT A DEPLOYED BINARY** (council `c08d263a`, `debug_historian`).
+   The rail passing in `go test` says nothing about what the pod is running, and this
+   estate has a documented history of same-tag stale images. The attended run IS the
+   pod check — but read it at the ARTEFACT, in the database, not from the make target:
+
+   ```sql
+   -- must be non-empty, and must contain at least one FATAL hard_to_read
+   SELECT slug, status,
+          gate_verdict->>'gate_version' AS ver,
+          jsonb_path_query_array(gate_verdict->'reasons',
+            '$[*] ? (@.rule == "hard_to_read")') AS rail
+     FROM provocations
+    WHERE domain='vonc.com' AND gated_at > now() - interval '1 hour'
+    ORDER BY gated_at DESC;
+   ```
+
+   `ver` = `3` proves the new binary gated it. A `hard_to_read` reason with
+   `"fatal": true` proves the rail is REJECTING and not merely recording — that pair is
+   the whole point of the run, and `ver = 3` alone does not establish the second half.
+   **If every candidate happened to pass, the run is inconclusive, not green** — fire
+   again rather than recording a pass you did not observe.
 3. Apply `685_provocation_daily_autonomy_HOLD.sql` **by hand** (`psql -f`).
 4. **Rename it off `_HOLD` FIRST, then record it.**
    `run-migrations.sh` **refuses `--record-only` on any sidecar**, so a `_HOLD` file can
