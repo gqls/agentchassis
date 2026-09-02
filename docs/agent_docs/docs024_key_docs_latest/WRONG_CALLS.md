@@ -57625,3 +57625,14 @@ assume it informed the filename.
   I have corrected the banner in place rather than only my own notes, because the next reader
   inherits whichever copy they find first.
   **tally:** **a-discrepancy-measured-but-never-dated** ×1, **a-claim-inherited-from-a-closing-doc-and-repeated** ×1.
+- [2026-09-02, site_delivery_and_editor] Filed the mirror-cannot-unpublish bug as
+  **425**, colliding with another lane's 425 filed the same day. I ran the
+  next-number census IN THE SAME COMMAND BLOCK as the file write — its output
+  (`1`, i.e. taken) printed directly above my own cat and I never read it. The
+  417/420 lane logged the IDENTICAL shape in WRONG_CALLS the day before (their
+  422), and I had read, quoted and praised that entry hours earlier. What caught
+  it: the count in my own transcript, on re-read after commit. The cheap check:
+  the census goes in its own command, and the write starts by echoing the number
+  it believes is free against the listing. A measurement you request but don't
+  read is worth less than one you never ran — reading someone's confession is
+  evidently not the same as learning from it.

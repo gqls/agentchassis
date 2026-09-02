@@ -28,7 +28,7 @@ syncs with `--delete` — and then the hosted copy, the only artefact a visitor
 actually reaches on a slug-served site, keeps the page forever. As customer sites
 default to slug serving for their first 30 days (the ugg2 temporary-home design),
 every retirement/retraction on a customer site during its included month hits this.
-Related shape: `bugs_open/098` (the platform could publish but not unpublish — this
+Related shape: `bugs_open/304` (retracting the LAST page of a site cannot unpublish it — the adjacent end of the same unpublish seam, found 2026-08-18); `bugs_open/098` (the platform could publish but not unpublish — this
 is the same gap one seam further along); `bugs_open/423` §the-family (a removal that
 reads as done).
 
