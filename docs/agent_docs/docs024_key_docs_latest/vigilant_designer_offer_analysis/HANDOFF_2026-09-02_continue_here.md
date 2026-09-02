@@ -1,5 +1,26 @@
 # HANDOFF — vigilant designer + offer analyser (2026-09-02)
 
+> ## ⚠ LANE OWNERSHIP — CONSOLIDATED 2026-09-02 (owner's instruction)
+> **TWO sessions worked this lane today, both named `offer analyser benefit analyser visual
+> designer`.** `[4628f9]` had been running 7 days; `[6c226c]` was started on 09-02 on the belief that
+> `[4628f9]` had crashed — it had not. **The owner has consolidated the lane into `[4628f9]`, which
+> owns it; `[6c226c]` handed over in full and stood down.**
+>
+> **⚠ WE SHARE A NAME, so a `SendMessage` to the bare name will not resolve.** Address the ref.
+> `copy_quality_two_stage [e41906]` has been told to route here.
+>
+> **What the duplication cost, recorded because it is the argument for the rule:** both sessions
+> independently verified that the gate was in the binary and called by nothing, within about half an
+> hour of each other — and `[4628f9]`'s §H1d in the superseded handoff ("WIRED TO NOTHING") was
+> **true at 16:47:21Z and false by 17:14:53Z**, when `[6c226c]` applied `681`. Neither was wrong.
+> ⚠ **The superseded file therefore contains TWO sections numbered §H1d, saying different things**
+> (lines ~463 and ~689). Nothing was clobbered — verified with `--numstat` — but they need
+> reconciling by whoever now owns the file.
+>
+> **A contributing cause worth fixing elsewhere:** the memory cold-start pointer for this lane had
+> been stale at `HANDOFF_2026-08-15` for **18 days**, so a session picking the lane up landed before
+> the imagery fix, the gate, the audit and both rulings. Repointed 09-02.
+
 **COLD-START = this file, then:**
 - `docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/HANDOFF_2026-08-26b_continue_here.md`
   — **still the authority on everything this file does not mention**: §C (imagery supply), §E
