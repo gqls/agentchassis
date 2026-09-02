@@ -49,3 +49,42 @@ lane's first open item — see PLAN §2.
 **Not done yet:** read the current `build-site-planner` prompt text for
 `period-calendar` to see whether it already nudges toward the lighter component, before
 proposing any change.
+
+## 2026-09-02 — a fourth "calendar", and this one is broken: boxingonline.com's `tool-fight-calendar`
+
+Asked to correspond with the `boxingonline.com` session about a discussion they'd had on
+the research-agent / news-editorial / news-agent relationship. Before writing to them,
+checked what "calendar" means on their site — and found a fourth distinct calendar
+concept this lane hadn't catalogued (PLAN §0 named three).
+
+**`boxingonline.com` has a page `/tools/fight-calendar/index.html`**, `page_type='tool'`,
+role `tool-fight-calendar` — a fourth kind, built through the tool-page pipeline, not
+`build-site-planner`'s component composition and not the news-editorial feature pipeline.
+`[MEASURED 2026-09-02]` its two components: `hero-tool` (badge "Fight calendar",
+headline "Every upcoming boxing fight, listed and dated", CTA "See the full calendar")
+and `generic-text-block` (2,000+ characters of prose beginning "The calendar above pulls
+together the fights worth building your weekend around… date, venue, fighters and how to
+watch, in one place"). **There is no third component. There is no calendar.** The page
+promises a fixture list and delivers a hero banner plus an essay describing a fixture
+list that isn't there — the exact shape of `bugs_closed/381`'s defect class, on a page
+type that bug never touched.
+
+This isn't a NAMING gap this lane can shrug off as unrelated (contrast PLAN §0.3's
+`darts-calendar-density`, which is genuinely a different thing). This one is load-bearing:
+the site's own `design_intent.layout_preference` explicitly asked for "a dedicated
+calendar section with clear event rows… a proper fixture list, not a generic table"
+(quoted in `site_delivery_and_editor/COMPARISON_2026-08-31_boxingonline…md`, line 176),
+and the `strategy` spec separately asked for `entity-directory` — "one page per major
+upcoming fight… fighters, date, venue, broadcast, undercard" (same doc, line 144-146).
+Neither shipped. That COMPARISON doc already flagged the general shape (§4/§6: "the tools
+make the reader supply the data") but did not single out that the calendar tool carries
+literally zero fixture rows, nor trace why — filed as item 7 on a to-do list, not
+diagnosed.
+
+**Why `period-calendar` (this lane's own component) cannot fix this, and why that matters
+for the correspondence below.** `period-calendar` was built refusing dates and numbers
+BY DESIGN (605's rule 1: "NO NUMERIC FIELD, STRUCTURALLY… `label` is a period NAME, not a
+date"). A fight calendar is the opposite of that shape — dated, one-off real-world events,
+not a recurring named cycle. So the fix is not "place my component here"; it is a
+different, currently-missing mechanism. See the message to `boxingonline.com` for the
+architecture opinion this produced.
