@@ -106,6 +106,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read `features_open/` before treating a capability question as open — the backlog holds DESIGNED-NOT-BUILT answers, and a feature file is invisible to a code grep, a component query and a bug-dir grep alike** | **1** |
 | **measure a RENDERED property in the thing that renders it — a stylesheet cannot say what colour is painted (it cannot resolve the cascade, ancestors, alpha or gradients), and an audit that over-reports on live sites is worse than none, because its findings get "fixed" into real regressions** | **1** |
 | **treat any check whose failure triggers an automated REWRITE as production configuration — a wrong test does not merely fail, it becomes the specification the repair loop faithfully implements, and it will damage correct code to satisfy it** | **1** |
+| **a text-stripping metric INVERTS on truncated input — the strip silently no-ops when its closing tag was cut, so the worst case scores best; measure positionally (`strpos`) instead of by what survives a `regexp_replace`** | **1** |
+| **name the DISTURBANCE's timescale before choosing a stability test's window — N runs back-to-back share a query plan and a heap, so they cannot see drift that happens over hours; the sampling interval is part of the claim** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -58135,3 +58137,53 @@ belt-and-braces. I did not know that until I was wrong about something else.
 Family: a-report-is-not-a-measurement, grep-the-config-key-before-calling-it-a-win,
 a-config-key-that-nothing-reads, writes-the-field-is-not-reads-the-field,
 editing-one-file-is-not-knowing-the-package.
+
+## 2026-09-02 — experience_loop — two measurements that read as successes while measuring nothing, in one sitting, auditing `content-quality-auditor`
+
+Context: the owner asked for `content-quality-auditor` to be routed into the new build path. Its
+handoff sets a gate — read what a run actually produces first — so I was measuring how much of a
+site the seat can actually see. Both errors were in **my instrumentation**, not in the seat, and
+both produced a number that looked like a finding.
+
+**(a) A prose metric that scored the ALL-CSS page best.** To show that `<style>` blocks were
+eating the seat's 1,000-character sample, I measured "prose chars in sample" as
+`regexp_replace(sample,'<style.*?</style>','','gs')` then `regexp_replace(...,'<[^>]*>','','g')`.
+Result: `about` 614, `contact` 608, and `index` — the page whose sample begins with `<style` at
+character **1** and is stylesheet essentially all the way down — **993 of 1,000, the best of the
+three.** The sample is truncated, so there is no `</style>` for the non-greedy `.*?</style>` to
+anchor on; the strip matched nothing, and the CSS body, which contains no angle brackets,
+survived the tag-strip as counterfeit prose. **The metric did not merely fail, it ranked exactly
+backwards** — and it would have been perfectly convincing had I stopped there, because the two
+pages it got right made the third look like a genuine outlier worth explaining.
+*Cheap check:* measure positionally — `strpos(sample,'<style')` and `position('</style>' in
+sample) > 0`. Both are one call, neither can be fooled by truncation, and the second one is
+itself the tell that the first metric was invalid.
+
+**(b) A stability test whose window was shorter than the thing it tested.** I suspected the
+seat's `string_agg` with no `ORDER BY` meant the sampled window drifted. I tested it by hashing
+the sample **five times in a row**, got five identical hashes, and wrote in my notes that I would
+*not* claim non-determinism. That was wrong, and I nearly shipped the retraction instead of the
+finding. Five consecutive runs share a query plan and a heap; the drift shows up across **hours**.
+What refuted me was not a longer loop but a *record from the past*: the 12:35 run's stored
+`page_samples` contains prose sitting at char 15,154 of 18,553 — outside any window taken that
+afternoon — while all three components had `updated_at = created_at = 06:37`. Same rows, same
+bytes, different leading component.
+*Cheap check:* before running a stability test, say out loud what timescale the disturbance would
+operate on, and make the window longer than that — or find a stored artefact from before it, which
+costs nothing and is strictly better evidence than any number of fresh samples.
+
+**What links them, and it is not "be more careful".** Both tests were *shaped by what I already
+believed*. I expected CSS to dominate, so I wrote a metric that measured "how much survives
+stripping CSS" and never asked whether the strip could run at all. I expected the order to be
+stable-or-not, so I sampled the fastest way available and never asked what would have to be true
+for the disturbance to appear in that window. **Neither could have come out any way but the way it
+did** — which is the existing "a `[MEASURED]` marker proves a measurement was CLAIMED, not
+COMPLETE" rule, met twice in an afternoon by someone who had just re-read it. The generalisable
+addition: **when a measurement confirms you, ask what its NULL result would have looked like.** In
+(a) there was no possible input that scored low; in (b) no possible order-change that five
+back-to-back reads could have caught.
+
+Both are now in `LANDMINES.md` ("Sampling a page into an LLM prompt with `LEFT(rendered_html, N)`
+feeds it mostly CSS…"), because the next person to build a page sampler hits both without ever
+having a symptom.
+Tally: a-text-stripping-metric-inverts-on-truncated-input · name-the-disturbances-timescale-before-choosing-a-stability-window.

@@ -212,3 +212,41 @@ change did nothing.
 **What I need from you:** whether to apply it. The command is ready and it is reversible — the
 undo was rehearsed, not just written. Separately, making the six boxing articles actually show
 their pictures is the delivery thread's job, not mine, and should happen after this is applied.
+
+---
+
+## 2026-09-02, later still — I applied the fix, then found it was the wrong fix, and undid it
+
+You gave the go-ahead and I applied it. Then I took it back out about an hour later, because it
+was wrong — not risky, wrong. **Nothing was ever shown to anyone**: the change only takes effect
+on a page when that page is next rebuilt, and none were in the window. The system is exactly as it
+was this morning.
+
+**What I got wrong.** I proved that the article building block cannot display a picture, and that
+six pictures were sitting unused on the boxing site. Both true. What I never checked was what
+every *other* article page in the estate already does — and 292 of the 301 of them already have a
+separate picture panel at the top of the page, drawing the very same image. So my change would
+have shown **the same picture twice on 97% of them**: once in the panel, once again inside the
+article. The six boxing pages that started all this turn out to be nine-in-a-hundred oddities that
+have no picture panel at all.
+
+**How it came to light.** Another thread mentioned, in passing, an unrelated case where a page was
+showing one image twice. I recognised the shape as something my own just-applied change could
+cause, went and counted, and undid it. Not my testing, and not the review council — eleven
+reviewers looked at it and none of them asked the question either, because they were shown the
+change and not the estate around it.
+
+**The useful thing that came out of it.** We now know what the real problem is, and it is
+somewhere else entirely. Other sites' article pages get their picture from a panel at the top,
+fed by the site plan. The six boxing pages have no such panel and no plan entry for one — and the
+system had helpfully generated per-article pictures precisely *because* those pages had no picture
+of their own, then had nowhere to put them. **So the question is why those pages were built
+without a picture panel when nearly every comparable page has one.** That is a question about how
+pages are composed, not about the article block, and it is a better question than the one I spent
+the day answering.
+
+**Where that leaves things.** The building block is untouched and back to exactly its previous
+state. The migration file is marked do-not-apply with the reason written into it. The estate's
+shared log of wrong calls has the entry, because the lesson is worth more than the fix was: I
+measured the broken cases thoroughly and never asked what the healthy ones do. A remedy has to fit
+the population, not just the fault.

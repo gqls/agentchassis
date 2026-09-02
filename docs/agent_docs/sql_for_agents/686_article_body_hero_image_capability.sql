@@ -1,3 +1,37 @@
+-- ############################################################################
+-- ## APPLIED 2026-09-02 ~13:56Z AND ROLLED BACK ~15:05Z THE SAME SESSION.   ##
+-- ## DO NOT APPLY THIS FILE. The remedy in it is WRONG for 97% of the       ##
+-- ## population it touches.                                                 ##
+-- ##                                                                        ##
+-- ## WHY: 292 of 301 pages carrying article-body, across 31 sites, ALSO     ##
+-- ## carry a `hero` component whose background_image is sourced from the    ##
+-- ## SAME `site_assets.hero`. Giving article-body its own field from that   ##
+-- ## key therefore renders the SAME IMAGE TWICE on 97% of the population —  ##
+-- ## a hero at the top of the page and the identical file again at the top  ##
+-- ## of the article body. That is the defect the inline_guide_imagery lane  ##
+-- ## documented live on vonc.com/about the same afternoon.                  ##
+-- ##                                                                        ##
+-- ## HOW IT GOT THROUGH: the six boxingonline /blog/ pages that motivated   ##
+-- ## this change are in the NINE-page minority that carry NO hero component.##
+-- ## I measured the motivating case and generalised it to the population.   ##
+-- ## Two council rounds did not catch it either, because they reviewed the  ##
+-- ## change as I described it. NOTHING WAS EVER RENDERED WITH IT: 0 of 301  ##
+-- ## instances acquired the field before the rollback.                      ##
+-- ##                                                                        ##
+-- ## THE REAL DEFECT IS ONE LEVEL UP. Peer pages show their imagery through ##
+-- ## the hero component from a page-scope plan row (verified: agritec.uk    ##
+-- ## /blog/insect-bioconversion.html renders                                ##
+-- ## url('/assets/images/hero-bsf.jpg'), 1 plan hero row). The six          ##
+-- ## boxingonline blog pages have NO hero component and NO page-scope plan  ##
+-- ## hero — which is exactly the case the ContentHeroKey convention         ##
+-- ## generates per-article images FOR, and nothing renders them because     ##
+-- ## there is no hero section to render them in. The fix belongs in page    ##
+-- ## composition / the planner, NOT in article-body's schema.               ##
+-- ##                                                                        ##
+-- ## The ledger row for this file is left in place ON PURPOSE so `--apply`  ##
+-- ## cannot replay it. Any superseding fix takes a NEW migration number.    ##
+-- ############################################################################
+
 -- 686_article_body_hero_image_capability.sql
 --
 -- WHAT: give `article-body` the ability to display an image. It gains one

@@ -1179,3 +1179,60 @@ The capability now exists; the pages need a **re-resolving** path (scoped rerend
 a plain assemble-mode page-rerender, which would redeploy the stored HTML unchanged and make this
 look like it failed. That is `site_delivery_and_editor`'s call. `news-listing` still has the
 identical defect and still has no change written.
+
+### 2026-09-02 — 686 ROLLED BACK 69 minutes after it was applied: the remedy was wrong for 97% of the population
+
+**Nothing was ever rendered with it — 0 of 301 instances acquired the field before the rollback,
+and the template is back at its exact pre-686 md5 `002cbcd9…`, len 1378.** That is a short window
+plus luck, not a control I had built.
+
+**What happened.** The `inline_guide_imagery` lane sent an unrelated finding: two live pages where
+an aliased image field renders the page's own hero — *"the same file twice on one page,
+immediately under the hero that already shows it"* (`vonc.com/about`). I recognised the shape as
+something 686 could cause and went to count `[MEASURED 2026-09-02]`:
+
+> **292 of the 301 pages carrying `article-body`, across 31 sites, ALSO carry a `hero` component
+> whose `background_image` reads the SAME `site_assets.hero` key.**
+
+So on **97%** of the population, 686's field would have rendered the same image twice — hero at
+the top of the page, the identical file again at the top of the article body. **The six
+boxingonline pages that motivated the whole change are in the nine-page minority with no hero
+component at all.**
+
+**The reframe, and it is the useful part.** Peer pages are not broken and never needed
+`article-body` to carry an image. They show imagery through the **`hero` component from a
+page-scope plan row** — verified at the artefact: `agritec.uk/blog/insect-bioconversion.html`
+renders `background-image: …url('/assets/images/hero-bsf.jpg')`, has **1** page-scope plan hero
+row, and its only `<img>` is the logo. **The fleet pattern is hero-section-for-imagery,
+article-body-for-prose, and 292 pages follow it.**
+
+**So the real defect is one level up and is a page-composition question:** the six boxingonline
+blog pages have **no hero component and no page-scope plan hero** — which is exactly the case the
+`ContentHeroKey` convention generates per-article images FOR (its own doc comment: *"a per-article
+image GENERATED from the article's own content … for a page the planner gave no hero of its
+own"*). The images are generated for pages that have nowhere to put them. **The question for
+whoever takes this on is why the planner composed those blog pages without a hero when 292 peers
+have one — not how to teach `article-body` to hold an image.**
+
+**What this cost and what it did not.** Two council rounds, an apply, a rollback, and a wrong
+paragraph propagated into `035` §8 (corrected in place). It cost no rendered page, no customer
+artefact and no other lane's work. **The council could not have caught it** — eleven seats
+reviewed the change as I described it, and my description was accurate about the change and
+silent about the population.
+
+**The check I did not run, which is one query:** before adding a field to a shared component, ask
+**what the other instances already do**. I measured the component, the assets, all three resolver
+arms, the llm-dispatch mechanism, the alias map and the precedents — **every layer except the
+neighbours.** Logged in `WRONG_CALLS.md` as
+*generalised-a-remedy-from-the-motivating-case-to-the-population*.
+
+**Ledger state, deliberate:** `schema_migrations` still carries the 686 row **on purpose**, so
+`--apply` cannot replay the defective file; its `notes` now records the rollback, the reason and
+the live md5. The file itself carries a DO-NOT-APPLY header. Any superseding fix takes a **new
+migration number** (forward-only).
+
+**Also measured while here, for `bugs_open/426` §8** — which explicitly leaves it `[UNMEASURED]`:
+the mandated dry run reports **`Pending (164)`** fleet-wide. ⚠ Two process notes: it takes **over
+five minutes** (my first run was killed by `timeout 300`), and piping it through `tail` withholds
+all output until it finishes, which reads exactly like a hang. That runtime is a plausible part of
+why a free, mandated check goes unrun — worth handing to that lane.

@@ -773,6 +773,24 @@ The division:
 > 30 sites. **It needs nothing from P1 and must not wait for it** — 035 is inert (0 of
 > 2,249 rows parented, 0 of 386 components declaring slots) and these are un-owned pages,
 > i.e. behind §6.1 and P5.
+> **CORRECTED 2026-09-02 (same day, before anything shipped) — "the fix is component
+> capability" WAS WRONG, and the migration that implemented it was applied and rolled back.**
+> `article-body` genuinely cannot display an image, and the six unreferenced heroes are real —
+> but giving it its own image field sourced from `site_assets.hero` renders **the same image
+> twice** on any page that also has a `hero` component, and `[MEASURED 2026-09-02]` that is
+> **292 of the 301 pages carrying article-body, across 31 sites**. The six boxingonline pages
+> that motivated it are in the **nine-page minority with no hero component** — I measured the
+> motivating case and generalised it to the population. Migration 686 was applied ~13:56Z and
+> rolled back ~15:05Z; **0 of 301 instances ever acquired the field, so nothing was rendered
+> with it.**
+> **The real defect is one level up, in page composition.** Peer pages show imagery through the
+> `hero` component from a page-scope plan row (verified: `agritec.uk/blog/insect-bioconversion.html`
+> renders `url('/assets/images/hero-bsf.jpg')`, 1 plan hero row, its only `<img>` the logo). The
+> six boxingonline blog pages have neither — which is precisely the case `ContentHeroKey`
+> generates per-article images FOR, and nothing renders them because there is no hero section to
+> render them in. **So this was never evidence about component capability for 035's corpus**, and
+> the paragraph above should not be cited as it stood.
+
 > **What WOULD be a P2 case is unchanged and still unmet:** a figure between a section's
 > own paragraphs. Once an article is a single blob, any in-body figure lives inside the
 > llm-owned field and dies on the next rewrite — the G1 class. That is the
