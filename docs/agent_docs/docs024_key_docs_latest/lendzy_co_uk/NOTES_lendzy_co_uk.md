@@ -464,3 +464,25 @@ left open:
 Their second-fork finding on `tool-equity-release` (an unplaced deploy-path copy beside the
 library parent on mortgagecalculator) is their tail, disclosed to their council — noted here only
 as the RFC_036 §11 shape recurring.
+
+## 2026-09-02 (p) — the live patterns probe-fired through Go itself: the silent-degrade class is excluded
+
+The 414 lane corrected a landmine (`4f1ca1384`): a per-site banned pattern that fails to compile
+degrades **silently to a literal of its own source text** (`claims.go:348`) — no logger, no error,
+counted as armed by every count-based check. My 695 verify asserted stored FORM (backslash
+discipline) but never compiled or fired anything, so `[MEASURED 2026-09-02 ~18:0xZ]` the five live
+patterns were pulled from the current row and run through Go's own `regexp.Compile`, each with a
+must-match arm (its target phrase) and a shared must-NOT-match arm — a clean control sentence
+deliberately containing this lane's two known false-positive fragments ("Yes No. Check for a
+breach", "3% per month, roughly 42.6% APR"):
+
+> `ALL 5 LIVE PATTERNS: compile, fire on their target phrase, stay silent on legitimate copy`
+
+Fleet context from the same lane's baseline: 239 live patterns across 19 sites, 0 non-compiling —
+nothing has gone wrong yet; the point is nothing would have said so if it had. This lane's ladder
+for pattern verification now reads: stored form (695's verify, at apply) → Go compile + probe-fire
+(this check, post-apply) → the first real `claims_unverified` findings (RUNBOOK's standing read).
+
+Also from their census: **farmerinsurance carries 7 facts and ZERO banned_claims** — a register
+that reads "done" in any facts-count check while enforcing nothing at the build gate. Relayed to
+the loanzy.uk session, which holds that site's lane (correcting the 414 lane's "no lane owns it").
