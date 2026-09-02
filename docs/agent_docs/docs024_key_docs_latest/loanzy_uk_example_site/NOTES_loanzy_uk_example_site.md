@@ -2360,3 +2360,15 @@ defect it finds" — worked case #3, and this time the finding was the ARCHITECT
   scrollback shape: curl each active page, strip tags, split sentences, grep
   FCA|FSCS|FOS|ICOBS|CONC|£\d|days|attempts|must — good enough to reuse, RUNBOOK if a
   third site needs it.
+
+## 2026-09-02 — copy lane verified + sharpened both register-pass findings
+- MaPS misattribution: EIGHT pages (get-help, index, six tool pages), not the handful my
+  extraction sampled. Stage-2 canary fired at get-help (their corr 01e77807, parks for the
+  owner); the rest join his batch-posture decision. SVC-MAPS-GOV cited as correction source.
+- The arithmetic split DIAGNOSED, better than my "rounding" read: two legitimate APR
+  conventions — nominal÷12 gives £161.10/£5,799.65 (one page exact under it), strict
+  effective-APR gives £160.11/£5,764.02 (another page exact under it) — and the repayment
+  calculator's £158/£5,688 is wrong under BOTH (implies ~8.5%). Since the copy says "APR",
+  strict-APR is their harmonisation target. Lesson for my file: what read as sloppy
+  rounding was two CORRECT conventions plus one real defect — the inconsistency census was
+  right to flag, wrong about the mechanism; the fix queue carries all three derivations.
