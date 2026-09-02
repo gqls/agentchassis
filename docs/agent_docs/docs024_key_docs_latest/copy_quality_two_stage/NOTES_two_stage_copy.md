@@ -3687,3 +3687,31 @@ upstream of the writer; this lane's title-promise design then covers only the re
 accordingly when it's built — don't gate what 444 makes unreachable. They offer
 served-vs-stored evidence from their four examples as test cases for the re-ask fix and any
 word-repair arm; digest at designblog_couk/NOTES_designblog_couk.md.
+
+---
+
+## 2026-09-02 night — verdicts APPROVED ×2; three artefacts verified; the no-answer class SIZED
+
+**Both councils APPROVED round 1**: v2 (`fa9744cb`) **unanimous** — the first all-approve this
+lane has drawn; 706 (`7f0c4adb`) with low advisories plus constitution's fair medium: the wash
+re-authors copy while the STRUCTURAL cause (spec-fed sections bypass the gate) remains — a
+stated deferral, already the owner's class question. Trailers resolve at report time.
+
+**Artefacts:** post-706 use-cases **6→3** at the served page (the wash reached it; the three
+residues are ONE disclaimer sentence twice — see below). Farmer /about serves both released
+labels ×2, "Financial Conduct Authority" corrected, zero checker residues — **the stage-2
+release path is proven end-to-end for the first time** (proposal → owner chat approval →
+section_edit items → served page). Planner canary still owed: zero planner/designer runs
+since the 18:45Z opt-ins (organic timing).
+
+**The no-answer class, SIZED** `[MEASURED 2026-09-02, markers since the 15:39Z roll]`:
+588 sections with targets · **1,849 targets → 1,492 rewritten (80.7%) · 251
+no_answer_for_target (13.6%) · 106 guard-rejected (5.7%)**. One in seven targeted repairs
+ships its original silently-but-recorded. The one-re-ask candidate now has a sized prize
+(halving ≈ 125 recovered repairs per afternoon fleet-wide); build decision ready for a fresh
+stretch (chassis Go + roll). Convergent observation, cause `[UNMEASURED]`: the
+"a starting point, not a verdict / not the final word" DISCLAIMER FORMULA both recurs as a
+model-favoured emission (finetuning use-cases ×2, designblog ×2, readiness-checker) and is
+over-represented in no-answers — whether the repair model treats it as protective or its
+sentence shape defeats the numbered-target format is the first question the re-ask build
+should answer from the rejection log.
