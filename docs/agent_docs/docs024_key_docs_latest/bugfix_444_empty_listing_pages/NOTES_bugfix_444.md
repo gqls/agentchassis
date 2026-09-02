@@ -136,3 +136,29 @@ validate_site_plan's callers: build-site-planner + site-planner (**2 as of 2026-
 only the first is armed by 720, by stated design. **Round 2 resubmitted** same trail
 (RESUBMIT_CORR c0990eb3), run envelope `95b3603b`, ~20:5x. Commit goes out under
 `Council-Submitted:` per the 2026-07-30 rule (never hold coherent code for a verdict).
+
+## 2026-09-02 (later night) — round 2 REVISE, all objections actioned in code, round 3 in
+
+**Round 2: REVISE again** (bug_historian gating). The round was worth its cost — three
+objections changed the code (commits `c610898d1` + `2ac76f11c`):
+1. **Optional query-source errors were still silent** (bug_historian HIGH — the exact
+   recurring shape): now a durable structural-miss record on the plan item (238's channel),
+   disposition unchanged, test asserts the record.
+2. **My vocabulary maps were a THIRD hand-maintained mirror** (architecture MED): both now
+   DERIVED — `discovery_checks.ListingComponentSpecKeys()` (new exported accessor over
+   directoryCheckProfiles) and `datahelpers.IsSectionIndexRole` (new exported face). Import
+   direction verified first (actions already imports discovery_checks non-test; no cycle).
+   A kind/role added at the source is automatically known to the gate.
+3. **A fourth hand-rolled capability_gap INSERT** (reuse_agent MED): the receipt now goes
+   through the SHARED `insertWorkItem` in a short tx — dedup + the 326 anti-churn policy
+   inherited, not copied. NOTE the inherited semantics: a receipt whose item_key hit a
+   terminal row within ~3h is deferred by anti-churn; a missing receipt in that window is
+   policy, not failure (findings row still lands).
+
+Also proven this round: **migration 720 dry-run against the LIVE DB** (COMMIT→ROLLBACK:
+guards + update + verify all passed, `source_version=1` in the snapshot NOTICE = one
+active row, nothing persisted) — the recipe is in the RUNBOOK. doc_plans has NO travelling
+build-site-planner subject (queried; tooling_provenance's conditional answered). 720 held
+UNAPPLIED pending the verdict. **Round 3 submitted** (~21:2x, envelope `3f3b7bf5`) with
+every edit cited by carrying sha; prior_art's "round 1 not confirmable" answered by citing
+the round-1 council_report artifact row itself (created_at 20:08:12).
