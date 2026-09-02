@@ -58732,3 +58732,25 @@ its own.
 
 Family: a-report-is-not-a-measurement, a-claim-about-behaviour-is-not-the-behaviour,
 a-closer-census-cannot-see-what-it-succeeded-at, prove-a-deploy-at-the-artefact.
+
+## 2026-09-02 — 315 reopen: I censused a "how many like this" population with the LIVENESS predicate and undercounted 7×
+
+- **The claim**: "exactly 2 active+deployed+0-component rows fleet-wide — an
+  instance, not a rate" (bugs_open/315 reopen, criterion 3). Load-bearing: it
+  framed the deploy risk as negligible.
+- **What was actually true**: 14 rows. The query used `status='active' AND
+  build_status='deployed'` — the estate's LIVENESS predicate — which silently
+  excludes served-but-not-'deployed' pages (active/needs_rebuild: 5) and
+  archived-but-still-served pages (8, bugs_closed/359's class). The honest census
+  predicate for "is this page serving something" is `deployed_at IS NOT NULL`
+  (check_componentless_pages states exactly this, and why).
+- **What caught it**: the council's debug_historian seat, round 1, naming the
+  liveness predicate as wrong-for-a-census by convention.
+- **The cheap check**: a census answers "how many pages are in state X"; the
+  liveness predicate answers "which page will a visitor be served RIGHT NOW from
+  the happy path". They are different questions. When counting a defect
+  population, scope by the artefact-exists predicate (`deployed_at IS NOT NULL`),
+  never by the dispatch-eligibility one — the latter is defined to EXCLUDE exactly
+  the stale/archived states a defect census is looking for. Same family as
+  "a closer census cannot see what it SUCCEEDED at" and the discovery-check line
+  "a component-driven detector cannot see component ABSENCE".
