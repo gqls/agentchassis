@@ -58,6 +58,63 @@
 >
 > Everything below this block is the file as closed on 2026-08-21, unchanged.
 
+## REOPEN ACCEPTED + FIX BUILT 2026-09-02 (same day) — "AI page 3" session
+
+**Criteria accepted as proposed, with two amendments**: (a) criterion 1's "built and
+serving" is driven through the framework's OWN planning route (below) — the page's
+SHAPE (the title says *estimator*: interactive tool vs content page) is the
+planner's/owner's call, not this lane's to hardcode; (b) the same-wave
+`llm-cost-calculator.html` (row `archived`, still serving empty — 359's class) is
+recorded here as an OWED DECISION (retract the served file vs un-archive and build),
+surfaced to the owner rather than acted on solo.
+
+**Every reopen figure re-verified at the artefact before acting** (200/12,138 B,
+literal `<main></main>`, control 404, row active/deployed/hash-NULL/0 components,
+nine `page_rerender` complete). **Producer census**: all nine filed by
+`rerender-pages`' `create_rerender_items`, ONE item_key, 08-26→09-02.
+
+**Criterion 3 census, dated 2026-09-02**: exactly **2** active+deployed+0-component
+rows fleet-wide — this page and `idea.uk/tools.html#audience-check` (a fragment-URL
+oddity; its build ask, if ever converted, is a candidate `wont_fix`). An instance,
+not a rate.
+
+**Criterion 2: BOTH doors closed** (commit `8eca969cb` + the writeWorkItem refactor,
+`Council-Submitted: 2be8ec34-d905-4afc-9cf4-227c2facbc14`):
+- CONSUMER — `RerenderSinglePageAction`'s 0-component skip now files a deduped
+  `needs_content_page` (stable key `needs_content_page:<page_id>`) **through
+  `writeWorkItem`** — not a hand-rolled INSERT; the workItem struct's own comment
+  records three call sites that hand-rolled this and were caught by two council
+  seats, and the doors in that seam (owned-page routability, growth posture,
+  whatever lands next) must reach this producer unremembered. Skip semantics and
+  item completion untouched; `build_ask_filed` reported in the step result.
+- PRODUCER — `create_rerender_items`' unscoped loop no longer files rerenders for
+  0-component pages; it files the SAME deduped build ask and reports
+  `empty_pages_converted_to_build_asks` in the step RESULT (the function's own
+  `unknown_reason` precedent: results are read, pod logs scroll).
+- Producer guard MUTATION-PROVED (disabled → the action-level sqlmock test fails on
+  ordering; restored → green, `-count=1`). Consumer WIRING has no unit test
+  (action-level scaffolding too heavy) — its proof is the live motivating case
+  post-roll: re-fire a rerender at this page while unbuilt → the ask files/dedups.
+  **Inert until an agent-chassis roll; verify at the per-service stamp.**
+
+**Criterion 1, driven to the framework's own edge** (2026-09-02 ~17:20Z):
+- Hand-filed `needs_content_page` (`a423f7ea…`, the code path's stable key so later
+  code filings dedup) ran within the hour and parked HONESTLY at
+  `needs_human_review` — `mark_no_ready_sections`: the page has `sections=[]` and
+  no spec; nothing to build yet. That is the adoption-pipeline S2 route working.
+- So the missing artefact is a PLAN: `needs_content_planning` filed
+  (`a8bbf171…`, status `detected` → the promoter routes it; a handlerless triaged
+  insert is refused by `swi_no_handlerless_promotable`, correctly). Its spec
+  cross-names the parked build ask. When the planner writes sections, the build
+  ask can be re-driven and criterion 1 closes at the served bytes with the control.
+
+**Not fixed here, stated plainly**: the empty page still SERVES 200 today — it
+stays live until the plan→build chain lands. The reopen block's two other named
+instances stay with their notes: llm-cost-calculator = owner decision (above);
+robot-hands `learning-center-article` (url-shape mismatch) — this session also
+wears the robot-hands hat and takes it into that lane's list.
+
+
 > **WHAT CLOSED IT.** All four fix candidates are resolved or deliberately re-scoped:
 >
 > - **Candidate 1 (stamps before any deploy) — FIXED AND LIVE.** Migration `491` removed the two
