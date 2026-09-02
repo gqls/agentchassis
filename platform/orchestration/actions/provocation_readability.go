@@ -176,15 +176,37 @@ func truncateForReason(s string) string {
 
 // checkReadability adds the measure to a verdict.
 //
-// ADVISORY FOR NOW, AND THAT IS A DECISION WITH A DATE ON IT.
-// Every one of the 28 approved entries in the pool on 2026-08-11 fails at least one of
-// these thresholds. Making it fatal on the day it ships would reject every candidate
-// and starve the site, and it would do so before anyone had seen what the thresholds
-// actually catch. So it records first: run some rounds, read the notes, then flip it.
+// **FATAL SINCE 2026-09-02.** It shipped advisory on 2026-08-11 with an explicit
+// instruction — "run some rounds, read the notes, then flip it" — and this is that
+// flip. Two things had to be true and both are:
 //
-// The flip is one line and the test below pins the CURRENT state, so making it fatal
-// fails that test loudly rather than silently — which is the point. Do not flip it
-// without a run showing the new prompt can pass it.
+//  1. THE PROMPT CAN PASS IT. Two generation rounds on 2026-08-12 produced 8
+//     candidates and 8 of 8 cleared the rail, against 0 of 28 for the pre-existing
+//     pool. The rail was not measuring "impossible", it was measuring the old house
+//     style, which is what the owner objected to.
+//  2. SOMETHING HAD TO REPLACE THE HUMAN. In the same change the owner removed the
+//     human-approval stamp from the publish path ("not restrained by needing my
+//     permission"), so the reader who used to catch unreadable prose is gone. An
+//     advisory note nobody reads is not a control. This rail is now the only
+//     non-stochastic thing standing between the generator and the live site, which
+//     is precisely why it must reject rather than record.
+//
+// WHY ARITHMETIC RATHER THAN THE JUDGE CARRIES THIS: the LLM judge is
+// documented-stochastic on this very corpus — byte-identical text drew 0 factual
+// objections on 08-05 and 2 on 08-08. A measure of sentence and word length cannot
+// drift between runs, cannot be argued with, and returns the same verdict on the
+// same bytes for ever. That is worth more here than a better but unstable reader.
+//
+// ⚠ WHAT THIS RAIL STILL CANNOT SEE, and do NOT let a passing score be read as "the
+// reader will understand it". On 2026-08-11 the owner rejected the pool's PLAINEST
+// entry — grade 5.9, short sentences, ordinary words — with "I don't even fully
+// understand it". It was a riddle. No word-counting finds that. The prompt carries a
+// rule against it; nothing measures it.
+//
+// IF THIS STARVES THE SITE, that is the failure mode to expect, and the answer is to
+// generate more candidates per round (the generator's `count`), NOT to relax these
+// thresholds to whatever the current output happens to score. Tuning a checker until
+// it agrees with the thing it is checking is how the rail becomes decorative.
 func checkReadability(c provocationCandidate, v *gateVerdict) {
 	body := strings.TrimSpace(c.Body)
 	if body == "" {
@@ -194,7 +216,7 @@ func checkReadability(c provocationCandidate, v *gateVerdict) {
 	if len(r.Failures) == 0 {
 		return
 	}
-	v.note("form", "hard_to_read", fmt.Sprintf(
-		"grade %.1f, %.1f words/sentence, longest %d — %s [ADVISORY: recorded, not fatal]",
+	v.reject("form", "hard_to_read", fmt.Sprintf(
+		"grade %.1f, %.1f words/sentence, longest %d — %s",
 		r.Grade, r.AvgWords, r.LongestWords, strings.Join(r.Failures, "; ")))
 }

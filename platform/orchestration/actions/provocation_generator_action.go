@@ -349,9 +349,16 @@ func loadRecentTitles(ctx context.Context, db *sql.DB, domain string, limit int)
 // means the generator is always imitating what the site actually publishes.
 //
 // THE FILTER IS THE POINT, so read it before changing it:
-//   - `human_approved_at IS NOT NULL` — a person signed off on this text. An
+//   - ~~`human_approved_at IS NOT NULL` — a person signed off on this text. An
 //     exemplar is the strongest instruction in the whole prompt, so it must never
-//     be something the gate approved and nobody read.
+//     be something the gate approved and nobody read.~~ **REMOVED 2026-09-02**
+//     (owner instruction — no permission step anywhere in this pipeline). The
+//     concern behind it was real and is now carried by the readability rail, which
+//     became FATAL in the same change: an exemplar must clear the same bar the
+//     candidates do, so the strongest instruction in the prompt cannot be prose
+//     that would itself be rejected. That is a stronger guarantee than the stamp
+//     gave, because it is arithmetic rather than attention — a human stamping
+//     eight rows at a time was never really reading them as exemplars.
 //   - the body is resolved the way the feed resolves it (body, then detail_body),
 //     because the served text is the text worth imitating.
 //   - length-bounded to the range the rules ask for, so the examples cannot
@@ -382,7 +389,6 @@ func loadExemplars(ctx context.Context, db *sql.DB, domain string, limit int) ([
 		  FROM provocations
 		 WHERE domain = $1
 		   AND status = 'approved'
-		   AND human_approved_at IS NOT NULL
 		   AND length(COALESCE(NULLIF(body, ''), COALESCE(detail_body, ''))) BETWEEN 250 AND 900
 		 ORDER BY publish_on DESC NULLS LAST
 		 LIMIT 60`, domain)
@@ -680,18 +686,16 @@ func ScheduleProvocationsAction(ctx context.Context, params ActionParams) (inter
 
 	// Approved, undated, oldest first — so a provocation that has waited longest
 	// runs first and the queue cannot starve.
-	// `human_approved_at IS NOT NULL` added 2026-08-09 (migration 320), and it was
-	// added because I had already written the opposite into migration 321's comment
-	// — "only rows that are already approved AND human_approved_at IS NOT NULL" —
-	// which the query did not do. A doc comment is not an enforcement mechanism;
-	// the predicate is.
+	// ~~`human_approved_at IS NOT NULL`~~ **REMOVED 2026-09-02 (owner instruction:
+	// no permission step in this pipeline).** It was added 2026-08-09 (migration 320)
+	// as defence in depth behind the feed's identical predicate, which has gone in the
+	// same change — so removing it here strands nothing, and the two halves stay
+	// consistent, which was the original point of having both.
 	//
-	// Defence in depth rather than duplication: `loadProvocations` also requires the
-	// stamp, so an unstamped row could not have PUBLISHED either way. But dating one
-	// would have put a row a human never approved into the schedule, where it reads
-	// exactly like an approved one — and the next person to relax the feed's
-	// predicate (or to read the schedule as a to-do list) inherits that as a live
-	// defect rather than a latent one.
+	// NOTE FOR WHOEVER RESTORES IT, and someone may — this is the owner's third
+	// position on the question: put it back in BOTH queries or neither. The 08-09
+	// defect was precisely that migration 321's comment claimed a predicate the query
+	// did not have. A doc comment is not an enforcement mechanism; the predicate is.
 	// CATEGORY-AWARE SINCE 2026-08-09 (owner ruling, PLAN §13 ruling 9), and this
 	// is the half of RFC_013 that was still missing.
 	//
@@ -716,7 +720,6 @@ func ScheduleProvocationsAction(ctx context.Context, params ActionParams) (inter
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT id::text, slug, category FROM provocations
 		 WHERE domain = $1 AND status = 'approved' AND publish_on IS NULL
-		   AND human_approved_at IS NOT NULL
 		 ORDER BY gated_at ASC NULLS LAST, created_at ASC
 		 LIMIT $2`, domain, maxAssign)
 	if err != nil {

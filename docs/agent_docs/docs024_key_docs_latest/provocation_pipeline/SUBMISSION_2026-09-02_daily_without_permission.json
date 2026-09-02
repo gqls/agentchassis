@@ -1,0 +1,78 @@
+{
+ "submitter": "vonc provocation-pipeline session, 2026-09-02",
+ "rationale": "OWNER INSTRUCTION, verbatim: \"I'd like to make the challenges change every day and not be restrained by needing my permission.\" This removes the human-approval stamp from vonc.com's daily-provocation publish path and makes the deterministic readability rail fatal in the same change, so that something non-stochastic replaces the reader who is being taken out.\n\nWHY NOW: vonc.com has served the SAME provocation since 2026-08-22 (measured at the artefact 2026-08-31 and again 2026-09-02: today.date '22 Aug', generated_at 2026-08-22T04:58:04Z). The site's own framing is 'Today's Provocation' and a daily claim, so it is currently making a false claim eleven days running. The machinery is not broken - the publisher is on a 6h schedule and ran successfully today - it has nothing to publish. Two things cause that: the generator and scheduler agents are named '-manual' and have no scheduled_tasks row at all, and everything they produce needs a human stamp before it can be dated or served.\n\nNOTE THIS IS THE OWNER'S THIRD POSITION ON THE SAME QUESTION and the code now says so at each site: PLAN section 10 ruled no human approval (2026-07-31); that was reversed and the stamp added (2026-08-09, migration 320); it is now reversed again. I have not deleted the column or the history - only the three query predicates - so restoring it is a small change, and the comments tell the next reader to restore it in BOTH queries or neither.\n\nWHAT MAKES IT SAFE, enumerated rather than asserted. (1) nextPublishDates starts at TOMORROW at the earliest, never today, so the six-hour draft-to-live path that motivated the stamp is structurally unavailable and there is a >=1 day window to retire a row. (2) checkReadability becomes fatal here; it is arithmetic and cannot drift, unlike the judge. (3) the deterministic abuse layer and the third-party-harm publish refusal never depended on the stamp. (4) loadGateCandidates selects only draft rows with gated_at IS NULL, so no already-approved row is re-gated and the rail cannot retract anything live.\n\nWHAT IS GIVEN UP, stated plainly: nobody reads the text before it is served, and the LLM judge is documented-stochastic on this very corpus. A row that clears the arithmetic and is wrong in a way arithmetic cannot see will be served for a day.\n\nA CONFIG HALF FOLLOWS SEPARATELY and is not in this plan: scheduled_tasks rows for the generator and scheduler, max_assign raised to 14 days of shelf depth, and a raised generator count so the now-fatal rail cannot starve the site. Those are DB changes with no image dependency.",
+ "plan": {
+  "summary": "Remove the human_approved_at predicate from the three queries that gate publication, dating and exemplar selection for vonc.com provocations; make the deterministic readability rail reject rather than record, so an arithmetic check replaces the human reader; bump gate_version so verdicts remain attributable; and repair the three tests whose fixtures the flip invalidates, including two new guards that prove the repaired tests are not vacuous.",
+  "edits": [
+   {
+    "file": "platform/orchestration/actions/provocation_feed_action.go",
+    "symbol": "loadProvocations",
+    "operation": "modify",
+    "rationale": "This is the query that decides what the site serves. Dropping the stamp predicate is the owner's instruction. Verified safe on live data BEFORE the change rather than asserted after: every approved row on vonc.com was already stamped (8 human + 15 llm, 0 unstamped, measured 2026-08-31), so nothing is published retroactively. The 8 unstamped approved rows in the table are calibration fixtures on calibration.vonc.com, a different domain this domain-scoped query has never been able to reach - which is why the retained domain predicate matters.",
+    "sketch": "\t\tWHERE domain = $1\n\t\t  AND category = $2\n\t\t  AND status = 'approved'\n\t\t  AND publish_on IS NOT NULL\n\t\tORDER BY publish_on ASC`, domain, category)"
+   },
+   {
+    "file": "platform/orchestration/actions/provocation_generator_action.go",
+    "symbol": "loadExemplars",
+    "operation": "modify",
+    "rationale": "Exemplars are the strongest instruction in the generator prompt, and the stamp was there to stop an unread row becoming the specification. That concern is now carried better by the rail: this query already excludes candidates that fail readability and ranks plainest-first, so an exemplar must clear the same bar the candidates do. That is a stronger guarantee than the stamp gave, because it is arithmetic rather than attention.",
+    "sketch": "\t\t WHERE domain = $1\n\t\t   AND status = 'approved'\n\t\t   AND length(COALESCE(NULLIF(body, ''), COALESCE(detail_body, ''))) BETWEEN 250 AND 900\n\t\t ORDER BY publish_on DESC NULLS LAST\n\t\t LIMIT 60`, domain)"
+   },
+   {
+    "file": "platform/orchestration/actions/provocation_generator_action.go",
+    "symbol": "scheduleProvocations",
+    "operation": "modify",
+    "rationale": "The dating query. Removed in the same change as the feed's identical predicate so the two halves stay consistent - that consistency was the original point of having both, and the 2026-08-09 defect this pair was built to fix was precisely a comment claiming a predicate the query did not have. Nothing is stranded: an undated row could not have published either way.",
+    "sketch": "\t\t WHERE domain = $1 AND status = 'approved' AND publish_on IS NULL\n\t\t ORDER BY gated_at ASC NULLS LAST, created_at ASC\n\t\t LIMIT $2`, domain, maxAssign)"
+   },
+   {
+    "file": "platform/orchestration/actions/provocation_readability.go",
+    "symbol": "checkReadability",
+    "operation": "modify",
+    "rationale": "The rail shipped advisory on 2026-08-11 with an explicit instruction to run some rounds and then flip it. Both preconditions are met: two rounds on 2026-08-12 produced 8 candidates and 8 of 8 cleared the rail (against 0 of 28 for the older pool), and the human reader who used to catch unreadable prose is being removed in this same change. An advisory note that nobody reads is not a control. Arithmetic is chosen over the judge deliberately: byte-identical text drew 0 factual objections on 2026-08-05 and 2 on 2026-08-08, so the judge cannot be the floor.",
+    "sketch": "\tv.reject(\"form\", \"hard_to_read\", fmt.Sprintf(\n\t\t\"grade %.1f, %.1f words/sentence, longest %d — %s\",\n\t\tr.Grade, r.AvgWords, r.LongestWords, strings.Join(r.Failures, \"; \")))"
+   },
+   {
+    "file": "platform/orchestration/actions/provocation_gate_action.go",
+    "symbol": "gateVersion",
+    "operation": "modify",
+    "rationale": "Required by this constant's own rule: a change to what the gate DECIDES carries the bump in the same edit. Its version-1 entry records the cost of not doing so - a verdict whose rule set had to be reconstructed by grepping for a note only the new code emits. Moving the fatal/advisory split is exactly the case that rule names.",
+    "sketch": "const gateVersion = \"3\""
+   },
+   {
+    "file": "platform/orchestration/actions/provocation_gate_action_test.go",
+    "symbol": "readableProvocations, aGoodCandidate",
+    "operation": "add",
+    "rationale": "When the rail became fatal, NO entry in realProvocations could clear the deterministic layers - all nine predate the rail - so ten judge-focused tests began rejecting on hard_to_read before the judge was consulted. aGoodCandidate's doc already promised 'clears every deterministic layer' while its code tested only minBodyLen; it now runs checkForm, so it stays true when a layer is added. Its corpus is a separate fixture generated mechanically from the live pool (the eight post-rail entries), kept apart from realProvocations because that one's size is pinned at nine by the section 10.6 calibration guard.",
+    "sketch": "\tfor _, c := range readableProvocations {\n\t\tvar v gateVerdict\n\t\tcheckForm(c, &v)\n\t\tif !v.fatal() {\n\t\t\treturn c\n\t\t}\n\t}\n\tt.Fatal(\"no provocation in the post-rail corpus clears the deterministic layers, ...\")"
+   },
+   {
+    "file": "platform/orchestration/actions/provocation_gate_action_test.go",
+    "symbol": "TestGateAcceptsTheRealProvocations, onlyFatalRuleIs",
+    "operation": "modify",
+    "rationale": "Section 10.6's rule is 'the corpus IS the specification', and it held until the owner changed the specification: on 2026-08-11 he called this writing almost unreadable, and all 28 then-approved entries fail the rail. The old corpus and the new standard are mutually unsatisfiable by construction. The exemption is deliberately narrow - only a rejection whose EVERY fatal rule is hard_to_read - and is pinned at exactly 8, so it cannot become a blanket and a loosened threshold fails loudly. Mutation-proven: widening the thresholds drops the count 8 to 0 and the guard fires.",
+    "sketch": "\tif !v.Approved && onlyFatalRuleIs(v, \"hard_to_read\") {\n\t\trailOnly++\n\t\treturn\n\t}\n\t// ...\n\tif railOnly != 8 {\n\t\tt.Errorf(\"expected exactly 8 pre-rail entries to fail ONLY on readability, found %d\", railOnly)\n\t}"
+   },
+   {
+    "file": "platform/orchestration/actions/provocation_gate_action_test.go",
+    "symbol": "TestGateRejectsTheDeliberatelyBadSet",
+    "operation": "modify",
+    "rationale": "Two bad-set fixtures whose wantRule is a JUDGE verdict were dense enough to trip the rail, so the judge was never consulted and the cases silently stopped testing their rule while still reading as rejected. The fixtures are rewritten plainer (same defects, same invented-study string the judge must object to) and a consulted flag now fails the case if the judge was not reached. Mutation-proven: restoring the dense body fires the guard. Note the live opt-in calibration re-run is owed, since those fixtures feed a real model there.",
+    "sketch": "\tvar consulted bool\n\tif tc.judgeSays != nil {\n\t\tinner := judgeReturning(*tc.judgeSays)\n\t\tjudge = func(ctx context.Context, prompt string) (string, error) {\n\t\t\tconsulted = true\n\t\t\treturn inner(ctx, prompt)\n\t\t}\n\t}\n\t// ...\n\tif tc.judgeSays != nil && !consulted {\n\t\tt.Fatalf(\"%s never reached the judge, so this case cannot test %q\", tc.name, tc.wantRule)\n\t}"
+   }
+  ],
+  "grounded_in": [
+   "Owner, 2026-09-02: \"I'd like to make the challenges change every day and not be restrained by needing my permission.\"",
+   "Live artefact, https://vonc.com/data/provocations.json, read 2026-08-31 and again 2026-09-02, unchanged: today.date = '22 Aug', today.headline = 'You don't need eight hours of sleep', generated_at = '2026-08-22T04:58:04Z'.",
+   "clients_db, 2026-08-31: SELECT status, source, count(*), count(*) FILTER (WHERE human_approved_at IS NULL) FROM provocations GROUP BY 1,2 - vonc.com approved rows are 8 human + 15 llm with ZERO unstamped; the 8 unstamped approved rows are source='calibration' on domain='calibration.vonc.com'.",
+   "clients_db, 2026-09-02: scheduled_tasks has exactly one provocation row - provocation-feed-refresh, interval 21600s, enabled, last_completed_at 2026-08-31 11:17:27Z. The generator and scheduler agent types (provocation-generator-manual, provocation-scheduler-manual) have NO scheduled_tasks row.",
+   "provocation_generator_action.go nextPublishDates: start := day(today).AddDate(0, 0, 1) - 'tomorrow at the earliest' - so a generated row cannot be served the same day.",
+   "provocation_gate_action.go loadGateCandidates: \"Only 'draft' AND gated_at IS NULL is ever selected ... An already-approved row is never re-gated: it may already be live\" - so the fatal rail cannot retract published prose.",
+   "provocation_pipeline/HANDOFF_2026-08-10b: \"Two rounds, 8/8 gate-approved, 8/8 pass the readability rail where all 28 pre-existing entries fail it. The owner: 'these new ones are ok'.\"",
+   "provocation_readability.go, as shipped 2026-08-11: \"So it records first: run some rounds, read the notes, then flip it.\"",
+   "MEMORY_workstreams provocation lane: \"THE JUDGE IS STOCHASTIC - byte-identical text drew 0 factual objections on 08-05 and 2 on 08-08\", and \"the SAFETY verdict is stochastic - 1 of 9 rounds APPROVED pure abuse\".",
+   "Mutation runs, 2026-09-02: loosening maxAvgWords/maxSentenceWords/maxLongWordRatio drops railOnly from 8 to 0 and TestGateAcceptsTheRealProvocations fails; restoring the dense trending-slop body fires the new judge-consulted guard. Both revert clean."
+  ],
+  "risks": "STARVATION IS THE MAIN ONE AND IT IS DESIGNED-FOR: a fatal rail plus no human means a generator regression produces zero publishable rows rather than bad ones. Mitigated in the config half by raising the generator's per-run count so rejections do not thin the shelf, and by a 14-day shelf depth; the failure mode is the site repeating an old provocation, which is exactly today's state, so this change cannot make it worse than it already is. The stated remedy is to generate more, never to relax the thresholds to match whatever the output happens to score. SECOND: nobody reads the prose before it is served. The judge remains stochastic and is a bonus on top of the arithmetic floor, not the floor. A row that clears the rail and is wrong in a way no arithmetic can see is served for up to a day before it can be retired; the >=1 day dating buffer is what bounds that. THIRD: the section 10.6 live calibration is opt-in (PROVOCATION_LIVE_CALIBRATION=1, real key, real tokens) and I have NOT re-run it. Two of its four bad-set fixtures were rewritten, so a re-run is owed before anyone cites that calibration as current. I am flagging this rather than claiming a pass I did not obtain. FOURTH: this reverses an owner ruling that was itself a reversal. The column and all history are retained and every touched site carries the restore instruction, so the cost of a fourth reversal is three predicates, not a migration."
+ }
+}

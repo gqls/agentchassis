@@ -229,31 +229,56 @@ func shortDate(t time.Time) string {
 // Selection
 // ---------------------------------------------------------------------------
 
-// loadProvocations returns every approved, dated, HUMAN-APPROVED provocation for a
-// domain in ascending publish order. Only 'approved' rows are ever returned, so a
-// draft or a gate-rejected provocation cannot reach the site by any path through
-// here.
+// loadProvocations returns every approved, dated provocation for a domain in
+// ascending publish order. Only 'approved' rows are ever returned, so a draft or a
+// gate-rejected provocation cannot reach the site by any path through here.
 //
-// THE THIRD PREDICATE IS NEW (owner ruling 2026-08-09, migration 320) AND IT IS THE
-// POINT OF THIS FUNCTION NOW.
+// > **THE HUMAN-APPROVAL PREDICATE WAS REMOVED 2026-09-02 (owner instruction).**
+// > *"I'd like to make the challenges change every day and not be restrained by
+// > needing my permission."* The paragraphs below are kept because they are the
+// > record of why it existed; they no longer describe this query.
 //
-// `status='approved'` is the automated GATE's verdict. It is not a person's. The
-// owner reversed PLAN §10 and put a human back in the publish path, and until this
-// column existed there was nowhere to record that — so the human's consent was being
-// carried implicitly by `publish_on`, which made the scheduler the last gate before
-// publication and therefore unschedulable.
+// THIS IS THE OWNER'S THIRD POSITION ON THE SAME QUESTION, so do not read the
+// current state as settled: PLAN §10 ruled no human approval (2026-07-31), that was
+// reversed and a human put back in the publish path (2026-08-09, migration 320), and
+// it has now been reversed again. Whoever changes it next is the fourth — say so.
 //
-// Requiring `human_approved_at IS NOT NULL` here is what lets dating go back to
-// being dating. It also fails in the safe direction: a row nobody stamped stops
-// publishing, rather than publishing unreviewed.
+// WHAT THE STAMP WAS FOR, and it was not ceremony. `status='approved'` is the
+// automated GATE's verdict, not a person's. The stamp was the only place a human's
+// consent could be recorded, and requiring it here let dating go back to being
+// dating rather than being the last gate before publication.
 //
-// THE NEAR-MISS THIS CLOSES, because the shape recurs: six model-written drafts
+// THE NEAR-MISS IT CLOSED, because the shape recurs: six model-written drafts
 // arrived PRE-DATED, one dated the same day. Flipping their status would have put a
-// model's prose on a live site within six hours, under the owner's name, with no
-// human in the loop — in the same hour he ruled otherwise. **A dated draft is a
-// publish waiting for one status change.** Three components own `status`,
-// `publish_on` and the stamp; no single one of them can publish alone, and that
-// separation is the safety property, not the gate.
+// model's prose on a live site within six hours, under the owner's name. **A dated
+// draft is a publish waiting for one status change.**
+//
+// WHAT CARRIES THAT SAFETY NOW THAT THE STAMP DOES NOT — enumerated, because
+// "the owner said so" is a reason to make the change, not a reason it is safe:
+//
+//   - `nextPublishDates` starts at TOMORROW at the earliest, never today. So the
+//     six-hour path in the near-miss above is structurally unavailable: the minimum
+//     latency between a row being written and being served is a day, and the owner
+//     can still retire a row inside that window. This is the load-bearing one.
+//   - `checkReadability` became FATAL in the same change. The rail is arithmetic,
+//     so unlike the judge it cannot drift, and it is what now refuses the prose the
+//     owner called "almost unreadable" on 2026-08-11.
+//   - `checkForm`'s deterministic abuse layer (A2) and the third-party-harm publish
+//     refusal (RFC_020 §5.2) were never conditional on the stamp and still run.
+//
+// WHAT IS GENUINELY GIVEN UP, stated plainly rather than argued away: nobody reads
+// the text before it is served. The LLM judge is documented-stochastic (byte-identical
+// text drew 0 factual objections on 08-05 and 2 on 08-08; the safety verdict approved
+// pure abuse in 1 of 9 rounds), so the deterministic checks above are the real floor
+// and the judge is a bonus on top of them. A row that clears the floor and is wrong
+// in some way no arithmetic can see WILL be served for a day.
+//
+// SAFE ON TODAY'S DATA, verified before the change rather than asserted: every
+// `approved` row on vonc.com was already stamped (8 human + 15 llm, 0 unstamped,
+// measured 2026-08-31), so dropping the predicate published nothing retroactively.
+// The 8 unstamped `approved` rows in the table are `calibration` fixtures on
+// `calibration.vonc.com`, a different domain that this domain-scoped query has never
+// been able to reach. **Re-check that if you ever make this query domain-agnostic.**
 func loadProvocations(ctx context.Context, db *sql.DB, domain, category string) ([]provocation, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT slug, publish_on,
@@ -265,7 +290,6 @@ func loadProvocations(ctx context.Context, db *sql.DB, domain, category string) 
 		  AND category = $2
 		  AND status = 'approved'
 		  AND publish_on IS NOT NULL
-		  AND human_approved_at IS NOT NULL
 		ORDER BY publish_on ASC`, domain, category)
 	if err != nil {
 		return nil, fmt.Errorf("query provocations: %w", err)

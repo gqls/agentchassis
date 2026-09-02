@@ -155,10 +155,15 @@ var badProvocations = []struct {
 		c: provocationCandidate{
 			Slug: "bad-factual", Title: "Remote work destroyed British productivity",
 			Teaser: "The figures since 2020 settle what used to be a matter of taste.",
-			Body: "Office attendance fell by exactly 62 percent after 2020 and national output fell with " +
-				"it, according to the 2023 Whitfield Institute study of 41,000 firms. That is not an " +
-				"opinion, it is the record. " +
-				"Some argue the causation runs the other way, but the study controlled for it.",
+			// REWRITTEN 2026-09-02 to clear the readability rail. Same defect, plainer
+			// prose: the invented "2023 Whitfield Institute study of 41,000 firms" is
+			// still here verbatim, because that is the string the stubbed judge quotes
+			// and the string a live judge must object to. Only the sentence lengths
+			// changed. See the note on badProvocations above for why this was needed.
+			Body: "Office attendance fell by 62 percent after 2020. Output fell with it. " +
+				"That figure comes from the 2023 Whitfield Institute study of 41,000 firms. " +
+				"It is not a view. It is the record. Some say the cause runs the other way. " +
+				"The study checked for that and ruled it out.",
 		},
 		judgeSays: &judgement{
 			Safe: true, TwoSided: true, Contestable: true, OrdinaryExp: true,
@@ -184,10 +189,101 @@ var badProvocations = []struct {
 		c: provocationCandidate{
 			Slug: "bad-slop", Title: "AI is changing everything",
 			Teaser: "The pace of change is unprecedented and we must all adapt now.",
-			Body:   strings.Repeat("Artificial intelligence is transforming every industry at unprecedented speed. ", 5),
+			// REWRITTEN 2026-09-02 to clear the readability rail — the old body was
+			// "Artificial intelligence is transforming every industry at unprecedented
+			// speed" five times over, which is 50% three-syllable words against a 12%
+			// limit. Still genuinely uncontestable trend-talk, which is what the live
+			// judge has to recognise; only the vocabulary got plainer.
+			Body: "AI is changing how firms work. The change is fast. " +
+				"Every trade will feel it in some way. Some jobs will shift. " +
+				"New tools arrive each month. Firms that ignore this will fall behind. " +
+				"The pace will not slow. We all have to adapt to it now.",
 		},
 		judgeSays: &judgement{Safe: true, TwoSided: false, Contestable: false, OrdinaryExp: true, Note: "a trend nobody disputes; nothing to argue against"},
 		wantRule:  "not_contestable",
+	},
+}
+
+// ---------------------------------------------------------------------------
+// The post-rail corpus (live pool, generated 2026-09-02)
+// ---------------------------------------------------------------------------
+
+// readableProvocations is the corpus written AFTER the readability rail shipped
+// (2026-08-11) — the eight the owner accepted on 2026-08-12, which passed the rail
+// 8/8 where all 28 older entries fail it.
+//
+// IT IS SEPARATE FROM realProvocations ON PURPOSE, and the two must not be merged.
+// `realProvocations` is the §10.6 CALIBRATION corpus: its size is pinned at nine by
+// TestLiveCalibrationCorporaAreTheStatedSize, because a calibration that silently
+// grows or shrinks proves less while still reading green. This corpus has a
+// different job — supplying a candidate that clears the deterministic layers so
+// judge-focused tests can reach the judge.
+//
+// It exists because on 2026-09-02 the readability rail became FATAL, and at that
+// moment NO entry in `realProvocations` could clear the deterministic layers any
+// more — all nine predate the rail. Ten tests began rejecting on `hard_to_read`
+// before the judge was ever consulted. That is the same failure the `aGoodCandidate`
+// comment below already records happening once with `body_too_short`, which is why
+// the helper now asserts the property instead of a proxy for it.
+//
+// GENERATED MECHANICALLY, never typed — same rule and same reason as the corpus
+// above (owner ruling 2026-08-06; WRONG_CALLS 2026-08-05, where hand-composed
+// fixture prose scored 9/9 against the very property under test and the live run
+// scored 4/9). The recipe:
+//
+//	SELECT slug, title, teaser, COALESCE(NULLIF(body,''), COALESCE(detail_body,''))
+//	  FROM provocations WHERE domain='vonc.com' AND status='approved'
+//	   AND created_at >= '2026-08-11' ORDER BY publish_on;
+//
+// serialised straight to Go. Regenerate it the same way; do not edit the prose.
+var readableProvocations = []provocationCandidate{
+	{
+		Slug:   "tipping-makes-service-worse",
+		Title:  "Tipping makes service worse",
+		Teaser: "Tipping does not reward good service. It rewards guessing what a stranger wants.",
+		Body:   "We tip to say thank you. But tipping does not make service better. It makes staff act nice for a tip, not cook well or serve well. A waiter who smiles more does not make the food taste better. A driver who chats more does not drive any safer. Good staff should get a fair wage from their boss, not extra money from a stranger who feels awkward. Tipping just moves the problem. It does not fix it.",
+	},
+	{
+		Slug:   "cards-make-you-spend-less-than-cash",
+		Title:  "Cards make you spend less than cash",
+		Teaser: "Cash feels safer to spend. It is actually the easier one to lose track of.",
+		Body:   "People say cash hurts to spend, so it stops you overspending. But most people do not count cash. They just carry it and hand it over. A card shows you the exact number every time you buy something. It sends a message when you spend. It shows a balance that drops. Cash disappears into a pocket and you forget how much is gone. You feel richer with a wallet full of notes, even when you have spent half of it. That feeling is the real danger, not the card.",
+	},
+	{
+		Slug:   "comfort-food-does-not-comfort-you",
+		Title:  "Comfort food does not comfort you",
+		Teaser: "The takeaway does not fix your bad day. It just adds a food hangover to it.",
+		Body:   "We eat chips or chocolate when we are sad and call it comfort. But the sadness is still there after the plate is empty. The food gives a short lift, then a crash. You feel heavier, tired, and no closer to feeling better. The comfort is not in the food. It is in the five minutes you sat still and let yourself stop. You could get that from a walk or a cup of tea just as easily. The food is not the cure. It is just the excuse to pause.",
+	},
+	{
+		Slug:   "long-books-are-padded-not-rich",
+		Title:  "Long books are padded, not rich",
+		Teaser: "A thick book is not better. It is usually just longer than it needs to be.",
+		Body:   "We treat a long book as a sign of skill. Six hundred pages must mean more thought went in. But most long books repeat themselves. The same point gets made three times in different scenes. A good editor could cut a third of most novels and lose nothing but weight. Length is not depth. It is often just a writer, or a publisher, who did not want to stop. The short book that says one thing well is doing the harder job.",
+	},
+	{
+		Slug:   "board-games-end-more-friendships-than-they-start",
+		Title:  "Board games end more friendships than they start",
+		Teaser: "Game night promises fun and delivers a grudge.",
+		Body:   "Board games look like fun, but they are not really about fun. They bring out the worst in people. Someone always cheats. Someone always sulks. Someone always brings up an old grudge over a rule. A game meant to bring friends closer ends with two people not speaking. The box says it is for four players and up. It should say: play at your own risk.",
+	},
+	{
+		Slug:   "you-dont-need-eight-hours-of-sleep",
+		Title:  "You don't need eight hours of sleep",
+		Teaser: "The eight-hour rule is a habit, not a law of the body.",
+		Body:   "Everyone repeats the same rule: eight hours of sleep, every night, no exceptions. But most people function fine on six or seven. The eight hour number came from habit, not from your body. Some people feel sharp after six hours. Others feel groggy after nine. Chasing a fixed number of hours causes more worry than the tiredness ever did. Sleep is not one size fits all, no matter what the number online says.",
+	},
+	{
+		Slug:   "umbrellas-are-not-worth-carrying",
+		Title:  "Umbrellas are not worth carrying",
+		Teaser: "A coat with a hood beats an umbrella every time.",
+		Body:   "An umbrella takes up a hand you need for something else. It flips inside out the moment the wind picks up. You forget it on the train, buy another one, then forget that one too. A hood keeps your head dry just as well, and it does not blow away. Carrying an umbrella is not sensible. It is just a habit nobody has questioned.",
+	},
+	{
+		Slug:   "a-messy-desk-means-you-are-getting-things-done",
+		Title:  "A messy desk means you are getting things done",
+		Teaser: "Neat desks belong to people with nothing urgent on.",
+		Body:   "A clean desk looks impressive, but it is often a bad sign. It means nothing new has landed on it today. People with real work piling up do not have time to tidy it away. Mess is proof that work is still moving. A bare desk is not a sign of control. It usually means nothing is happening today.",
 	},
 }
 
@@ -207,13 +303,24 @@ var badProvocations = []struct {
 // dependency on that table's ordering. This is the fix: state the property.
 func aGoodCandidate(t *testing.T) provocationCandidate {
 	t.Helper()
-	for _, c := range realProvocations {
-		if len(strings.TrimSpace(c.Body)) >= minBodyLen {
+	// ASSERT THE PROPERTY, DO NOT PROXY IT. This used to test `len(Body) >= minBodyLen`
+	// while the comment above promised "clears every deterministic layer". The two
+	// agreed until 2026-09-02, when the readability rail became fatal and became a
+	// deterministic layer the length check knows nothing about — at which point every
+	// caller silently started testing the form rules again, exactly as the comment
+	// warned. Running checkForm is the only version that stays true when a layer is
+	// added, because it IS the layers.
+	for _, c := range readableProvocations {
+		var v gateVerdict
+		checkForm(c, &v)
+		if !v.fatal() {
 			return c
 		}
 	}
-	t.Fatal("no provocation in the live corpus clears the deterministic layers; " +
-		"every judge-focused test below would be testing the form rules instead")
+	t.Fatal("no provocation in the post-rail corpus clears the deterministic layers, " +
+		"so every judge-focused test would be testing the form rules instead. " +
+		"Either a form rule got stricter, or readableProvocations needs regenerating " +
+		"from the live pool — check which before loosening anything.")
 	return provocationCandidate{}
 }
 
@@ -296,6 +403,7 @@ func TestGateAcceptsTheRealProvocations(t *testing.T) {
 	}
 
 	emptyBodied := 0
+	railOnly := 0
 	for _, c := range realProvocations {
 		c := c
 		t.Run(c.Slug, func(t *testing.T) {
@@ -324,6 +432,43 @@ func TestGateAcceptsTheRealProvocations(t *testing.T) {
 				return
 			}
 
+			// THE READABILITY EXEMPTION (owner instruction 2026-09-02), and it is
+			// narrow on purpose: ONLY a rejection whose every fatal rule is
+			// `hard_to_read` is tolerated here. Any other rule, alone or alongside
+			// it, still fails — so this cannot quietly absorb a second regression.
+			//
+			// WHY THE CORPUS NO LONGER FULLY SPECIFIES THE GATE. §10.6's rule is
+			// "the corpus IS the specification", and it held until the owner changed
+			// the specification. On 2026-08-11 he called this writing "almost
+			// unreadable" and asked for ASD-STE100-style plainness; measured that
+			// day, ALL 28 then-approved entries failed the new rail, these nine
+			// included. On 2026-09-02 the rail became fatal. So the old corpus and
+			// the new standard are, by construction, mutually unsatisfiable: an
+			// entry written before the standard cannot be expected to meet it.
+			//
+			// WHY THIS IS SAFE RATHER THAN A SILENCED TEST — the distinction that
+			// matters, because silencing a failing calibration is exactly the shape
+			// this file warns about elsewhere:
+			//
+			//   - `loadGateCandidates` selects ONLY `status='draft' AND gated_at IS
+			//     NULL`, so an approved row is never re-gated. These eight are live
+			//     and published and STAY live; the rail cannot retract them.
+			//   - the rail therefore applies to NEW writing only, which is precisely
+			//     where the owner wanted the standard raised.
+			//   - every other layer is still asserted against the real corpus, which
+			//     is what §10.6 was really protecting: that the form rules and the
+			//     judge do not reject genuine provocations.
+			//
+			// DO NOT widen this to other rules. If a real provocation starts failing
+			// for anything else, that is the false-positive direction §10.6 exists to
+			// catch, and it starves the site.
+			if !v.Approved && onlyFatalRuleIs(v, "hard_to_read") {
+				railOnly++
+				t.Logf("PRE-RAIL PROSE (expected): %s fails the readability rail the owner "+
+					"asked for on 2026-08-11; it remains published and is never re-gated", c.Slug)
+				return
+			}
+
 			if !v.Approved {
 				for _, r := range v.Reasons {
 					if r.Fatal {
@@ -343,6 +488,23 @@ func TestGateAcceptsTheRealProvocations(t *testing.T) {
 			"either the pool was repaired (delete the exception) or another row lost its "+
 			"body (a new defect worth reporting)", emptyBodied)
 	}
+
+	// Guard the guard, second half. The readability exemption above is pinned to the
+	// number of entries that actually need it, so it cannot grow into a blanket. Both
+	// directions are informative:
+	//
+	//   MORE than 8 is impossible (only 8 of the 9 have a body at all) and means the
+	//   count moved under you.
+	//   FEWER than 8 means the rail stopped rejecting prose it rejected on 2026-09-02
+	//   — most likely someone loosened the thresholds. That is not automatically
+	//   wrong, but it must be a decision, not a drift, so it fails here and gets read.
+	if railOnly != 8 {
+		t.Errorf("expected exactly 8 pre-rail entries to fail ONLY on readability, found %d.\n"+
+			"Fewer means the rail was loosened — check maxSentenceWords/maxAvgWords/"+
+			"maxLongWordRatio against provocation_readability.go and say so out loud; the "+
+			"rail is the only deterministic check between the generator and the live site "+
+			"since the human-approval stamp was removed on 2026-09-02.", railOnly)
+	}
 }
 
 // The second half of §10.6's bar.
@@ -350,8 +512,21 @@ func TestGateRejectsTheDeliberatelyBadSet(t *testing.T) {
 	for _, tc := range badProvocations {
 		t.Run(tc.name, func(t *testing.T) {
 			judge := judgeFn(nil)
+			// consulted records whether the judge was actually reached. A case whose
+			// wantRule is a JUDGE verdict proves nothing if a deterministic layer
+			// rejected the candidate first — the test still reads green because the
+			// candidate WAS rejected, just never for the reason under test. That is
+			// exactly what happened on 2026-09-02 when the readability rail became
+			// fatal: two fixtures were dense enough to trip it and the judge stopped
+			// being consulted at all. Rejection-for-the-right-reason is the standard
+			// this file already holds itself to; this makes it checkable.
+			var consulted bool
 			if tc.judgeSays != nil {
-				judge = judgeReturning(*tc.judgeSays)
+				inner := judgeReturning(*tc.judgeSays)
+				judge = func(ctx context.Context, prompt string) (string, error) {
+					consulted = true
+					return inner(ctx, prompt)
+				}
 			} else {
 				// Must be rejected before the judge is consulted at all.
 				judge = func(context.Context, string) (string, error) {
@@ -363,11 +538,37 @@ func TestGateRejectsTheDeliberatelyBadSet(t *testing.T) {
 			if v.Approved {
 				t.Fatalf("APPROVED %s — this is the false-negative direction, which puts a false statement on a live homepage", tc.name)
 			}
+			if tc.judgeSays != nil && !consulted {
+				t.Fatalf("%s never reached the judge, so this case cannot test %q. "+
+					"A deterministic layer rejected it first (reasons: %s). Fix the FIXTURE "+
+					"so it clears the deterministic layers — do NOT relax the layer, and do "+
+					"not accept the green tick: the candidate was rejected, but for the "+
+					"wrong reason, which is the failure this guard exists to expose.",
+					tc.name, tc.wantRule, ruleList(v))
+			}
 			if tc.wantRule != "" && !hasRule(v, tc.wantRule) {
 				t.Errorf("%s was rejected, but not for %q; reasons: %s", tc.name, tc.wantRule, ruleList(v))
 			}
 		})
 	}
+}
+
+// onlyFatalRuleIs reports whether the verdict has at least one fatal reason and
+// EVERY fatal reason is the named rule. "At least one" matters: a verdict with no
+// fatal reasons at all would otherwise vacuously satisfy "every fatal reason is X",
+// and an approved candidate would be counted as an exempted rejection.
+func onlyFatalRuleIs(v gateVerdict, rule string) bool {
+	var sawIt bool
+	for _, r := range v.Reasons {
+		if !r.Fatal {
+			continue
+		}
+		if r.Rule != rule {
+			return false
+		}
+		sawIt = true
+	}
+	return sawIt
 }
 
 func hasRule(v gateVerdict, rule string) bool {
@@ -622,20 +823,31 @@ func TestAdvisoryScoresDoNotAffectTheDecision(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// The human-approval predicate (owner ruling 2026-08-09, migration 320)
+// What the feed's selection query requires (owner instruction 2026-09-02)
 // ---------------------------------------------------------------------------
 
-// loadProvocations gained `AND human_approved_at IS NOT NULL`. That predicate is
-// the only thing standing between a gate-approved row and a live homepage now that
-// a human is back in the publish path, so it is asserted against the statement
-// text rather than trusted to review.
+// THIS TEST USED TO BE `TestFeedRequiresHumanApproval` AND IT DELIBERATELY FAILED
+// WHEN THE STAMP WAS REMOVED. That was the mechanism working, not a bug: the flip
+// was a one-line change that would otherwise have been invisible in review, and
+// whoever made it was forced to come here and read why the predicate existed.
+//
+// The owner removed it on 2026-09-02 — "not restrained by needing my permission" —
+// so the assertion is now the two predicates that REMAIN. Do not re-add the third
+// without an owner instruction: this is his third position on the question (no
+// approval 07-31 → approval required 08-09 → no approval 09-02), so neither state
+// is settled and the next change is the fourth.
 //
 // A SQL predicate cannot be unit-tested without a database, and a doc comment
 // enforces nothing — but a test that reads the query CAN catch its removal, which
 // is the realistic failure (someone "simplifying" the WHERE clause, or a merge
 // dropping a line). Same technique as TestGeneratorInsertsDraftsOnly, which caught
 // its own mutation.
-func TestFeedRequiresHumanApproval(t *testing.T) {
+//
+// ⚠ THE STAMP'S REMOVAL IS NOT ASSERTED HERE, on purpose. A test that pinned the
+// predicate's ABSENCE would fight the owner the day he asks for it back. What is
+// pinned is what must be true either way: nothing unapproved, and nothing undated,
+// can ever be served.
+func TestFeedSelectionPredicates(t *testing.T) {
 	src, err := os.ReadFile("provocation_feed_action.go")
 	if err != nil {
 		t.Fatalf("cannot read the feed action: %v", err)
@@ -655,15 +867,16 @@ func TestFeedRequiresHumanApproval(t *testing.T) {
 	query := s[i : i+j]
 
 	for _, required := range []string{
-		"status = 'approved'",           // the gate's verdict
-		"publish_on IS NOT NULL",        // scheduled
-		"human_approved_at IS NOT NULL", // a PERSON said yes
+		"status = 'approved'",    // the gate's verdict
+		"publish_on IS NOT NULL", // scheduled
 	} {
 		if !strings.Contains(query, required) {
 			t.Errorf("loadProvocations no longer requires %q.\n"+
-				"All three predicates are load-bearing: the gate's verdict, the schedule, "+
-				"and a human's approval. Dropping the last one re-automates the step the "+
-				"owner took back on 2026-08-09, and it would look like a tidy-up.", required)
+				"Both remaining predicates are load-bearing, and more so since 2026-09-02: "+
+				"with no human in the publish path, the gate's verdict and the schedule are "+
+				"the ONLY things between a generated row and the live homepage. Dropping "+
+				"either would look like a tidy-up and would serve unjudged or undated prose.",
+				required)
 		}
 	}
 }

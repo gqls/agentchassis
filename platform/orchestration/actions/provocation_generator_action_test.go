@@ -586,24 +586,35 @@ func TestReadabilityPassesPlainProse(t *testing.T) {
 	}
 }
 
-// The rail is ADVISORY and this test says so out loud. If someone makes it fatal,
-// this fails and they have to come here and read why it shipped recording-only —
-// which is the whole mechanism, since the flip is a one-line change that would
-// otherwise be invisible in review.
-func TestReadabilityIsAdvisoryNotFatal(t *testing.T) {
+// THE RAIL IS NOW FATAL (2026-09-02). This test was `TestReadabilityIsAdvisoryNotFatal`
+// and it asserted the opposite; it failed when the rail was flipped, which is exactly
+// what it was built to do — the flip is a one-line change and the failing test is what
+// forces whoever makes it to come and read the reasoning.
+//
+// The two conditions the old test demanded were both met before flipping: a run showing
+// the prompt can pass (8/8 across two rounds on 2026-08-12, against 0/28 for the older
+// pool), and a reason to need it — the owner removed the human-approval stamp from the
+// publish path in the same change, so this rail is now the only non-stochastic check
+// between the generator and the live site.
+//
+// If you are here because this test failed, you have made the rail advisory again.
+// Before doing that, note what else changed on 2026-09-02: nobody reads the text before
+// it is served. An advisory note in that world is recorded and never read by anyone.
+func TestReadabilityIsFatal(t *testing.T) {
 	v := gateVerdict{}
 	checkReadability(provocationCandidate{
 		Body: "This sentence is deliberately far longer than twenty words in order to " +
-			"trip the readability rail and prove that doing so produces a note rather " +
-			"than a rejection of the candidate under judgement here.",
+			"trip the readability rail and prove that doing so produces a rejection " +
+			"rather than a mere note on the candidate under judgement here.",
 	}, &v)
 
-	if v.fatal() {
-		t.Fatal("checkReadability produced a FATAL reason. It ships advisory on purpose: " +
-			"on 2026-08-11 every one of the pool's 28 approved entries failed at least one " +
-			"threshold, so making it fatal on day one rejects every candidate and starves " +
-			"the site. Flip it only with a run showing the new prompt can pass it — then " +
-			"update this test.")
+	if !v.fatal() {
+		t.Fatal("checkReadability did NOT produce a fatal reason. Since 2026-09-02 this " +
+			"rail is the only deterministic thing standing between the generator and the " +
+			"live site: the human-approval stamp was removed from the publish path the " +
+			"same day, and the LLM judge is documented-stochastic on this corpus. If you " +
+			"made it advisory again, say so in the owner's log — it is a change to what " +
+			"the site can publish unread, not a tuning tweak.")
 	}
 	var found bool
 	for _, r := range v.Reasons {
@@ -612,7 +623,25 @@ func TestReadabilityIsAdvisoryNotFatal(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("a 30-word sentence produced no hard_to_read note — the rail is not wired in")
+		t.Fatal("a 30-word sentence produced no hard_to_read reason — the rail is not wired in")
+	}
+}
+
+// A candidate that READS EASILY must still pass cleanly now the rail rejects. Without
+// this arm the test above passes for a rail that fails everything, which would starve
+// the site rather than filter it — the exact failure the 2026-08-11 comment predicted.
+func TestReadabilityFatalDoesNotRejectPlainProse(t *testing.T) {
+	v := gateVerdict{}
+	checkReadability(provocationCandidate{
+		Body: "You did not catch up on rest. You gave yourself jet lag for free. " +
+			"The lie-in feels kind. It shifts your body clock by two hours. " +
+			"On Monday you wake in the dark and call it a bad night.",
+	}, &v)
+
+	if v.fatal() {
+		t.Fatalf("plain short prose was REJECTED by the rail: %v.\n"+
+			"A rail that rejects everything is indistinguishable from a broken generator "+
+			"and starves the site. Check the thresholds before shipping this.", v.Reasons)
 	}
 }
 

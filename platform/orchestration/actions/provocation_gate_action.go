@@ -262,7 +262,12 @@ type gateVerdict struct {
 //
 // 2 — one-sided provocations accepted (advisory `one_sided` note); contestability
 // added as a fatal criterion; minBodyLen re-justified. Owner rulings 2026-08-06.
-const gateVersion = "2"
+// 3 — `hard_to_read` became FATAL (was advisory since 2026-08-11), in the same change
+// that removed the human-approval stamp from the publish path. Owner instruction
+// 2026-09-02. This bump is what lets a verdict be attributed to the rail-enforcing
+// rules rather than reconstructed by grepping for a note only the new code emits —
+// the reconstruction the version-1 entry above records having had to do.
+const gateVersion = "3"
 
 func (v *gateVerdict) reject(layer, rule, detail string) {
 	v.Approved = false
