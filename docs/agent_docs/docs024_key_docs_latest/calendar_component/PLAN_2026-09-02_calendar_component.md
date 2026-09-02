@@ -127,3 +127,11 @@ lane territory — but the DIAGNOSIS is, because "why is the thing named calenda
 is exactly this lane's question to answer. Contributed to `boxingonline.com` /
 `site_delivery_and_editor` rather than filed solo; see whether they already have a
 sharper account from their own discussion before this becomes a bug file.
+
+**FILED 2026-09-02: `bugs_open/427`**, jointly with `boxingonline.com`. Two figures
+already in circulation got corrected along the way, both caught by re-measuring rather
+than trusting the inherited number: "444 sites have facts" was a ROW count (20 distinct
+sites is the true figure — more severe than stated, not less); the news lane's 2026-08-19
+"three zeros" had partly moved (`published_page_id` 0→15, traced to two hand-built
+feature pages, not a real pipeline). Full detail in the bug file. Ownership of the FIX is
+open — the feed lanes that would build it have no live session.
