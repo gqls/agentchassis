@@ -6734,6 +6734,44 @@ look identical and have completely different fixes.
 (this is that class, but copied in SHAPE rather than verbatim — which is what defeats the literal
 remedy) · `bugs_closed/028` · LANDMINES "a `kind`-gated guard … is blind to the two legacy parents".
 
+### A prompt that grants "final say, note why" turns a structured recommendation into pure advisory — the model reads it, names it correctly, and still drops it (2026-09-02, `bugs_open/428`)
+
+**The shape.** A structured recommendation (`recommended_page_types`, with per-type reasoning)
+reaches an LLM planning prompt intact — confirmed at the DB (`llm_call_log.prompt_rendered`
+contains it verbatim) — and the model's own free-text self-report (`strategy_notes`) shows it
+read and understood the recommendation correctly, naming the exact output value it maps to. The
+value still never appears in the output. Not a downstream drop (the role-preserving validator
+code never even runs, because the role is never emitted); not a missing-input bug (measured:
+present in the actual sent prompt); not a formatting failure the model couldn't parse (measured:
+the model's own notes name the field correctly despite it being an unquoted Go `%v` map dump, not
+JSON). The cause is a different sentence in the same prompt: "You have FINAL SAY… note why in
+strategy_notes" — an explicit, working-as-designed licence to diverge, discharged exactly as
+instructed.
+
+**Why it looks like a code bug from outside.** Everything downstream that a first pass checks —
+validator, normaliser, write path — behaves correctly and preserves the value when given it. The
+temptation is to keep reading code hunting for where it "gets dropped". It never does; it's never
+produced. The tell that this is a PROMPT-LICENSE pattern rather than a CODE-DROP pattern: read the
+model's own explanation field before the surrounding code — if the model names the very thing you
+think got lost, the loss is a choice, not a bug.
+
+**The check.** Pull the actual `llm_call_log` row for the call in question (not a reconstruction
+of what the prompt "should" contain) and read BOTH `prompt_rendered` (did the input actually
+arrive?) and `response_text`'s own free-text field (did the model say why it didn't use it?). Only
+the paired runtime read settles it — static code alone, even a complete trace of every
+writer/validator, cannot distinguish "input never arrived" from "input arrived and was declined".
+
+**Generalises:** any agent prompt phrase of the shape "you have final say, note why if you
+diverge" converts a structured recommendation into pure advisory, however clean or correct the
+recommendation's own delivery is. Measuring adoption of such a recommendation requires reading the
+free-text field the license itself created, not just checking the recommended value's presence in
+the output.
+
+**Related:** `bugs_open/428` (boxingonline.com, worked case + fleet sample: 19/25 evaluable calls
+of a 60-call sample dropped a strategy-named role, 2026-09-02) · `bugs_open/206` (downstream
+builder gap, a different mechanism on the same symptom) · `a-doc-comment-is-not-an-enforcement-mechanism`
+(adjacent: a policy stated in prose without a structural check).
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
