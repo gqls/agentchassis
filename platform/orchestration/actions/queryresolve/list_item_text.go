@@ -75,7 +75,7 @@ func ListItemTitle(title string) string {
 }
 
 // ListItemExcerpt returns the one-sentence deck for a listing card, projected
-// from the page's meta_description and bounded at ListItemExcerptMaxRunes.
+// from the page's meta_description and bounded at ListItemExcerptMaxBytes.
 //
 // RUNE-SAFE, via the shared primitive. Slicing a UTF-8 string by byte offset
 // can cut a multi-byte character in half and yield invalid UTF-8, which
