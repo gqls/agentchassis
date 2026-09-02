@@ -143,6 +143,53 @@ func TestKeyOutBackground_BorderKeyedStatIsHigh(t *testing.T) {
 	}
 }
 
+// TestKeyOutBackground_GradedBorderIsNotBorderKeyed — the real bug, found live
+// (bugfix_417_420 lane, dynamic testing, CONTRIB round 3, 2026-09-02): BEFORE
+// this fix, BorderKeyed was computed from BFS flood-fill REACHABILITY (was
+// this pixel within `outer`?), not from the pixel's FINAL alpha. A border
+// wash sitting entirely in the GRADED band — reachable, so every border pixel
+// counted as "keyed" — but nowhere near `inner`, so every border pixel's
+// ACTUAL alpha stayed well above 0, used to report BorderKeyed=1.000 despite
+// the image being 0% transparent at its own edges. Measured live: a
+// 0.0%-actually-transparent failure and an 87.4%-actually-transparent success
+// both read 1.000 on the old code — the fail-closed guard could not tell them
+// apart. This test builds exactly that shape: a uniform border colour placed
+// deliberately mid-graded-band (distance ~79, strictly between inner=48 and
+// outer=110), so every border pixel is flood-reachable but none is fully
+// transparent.
+func TestKeyOutBackground_GradedBorderIsNotBorderKeyed(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 16, 16))
+	// (210,60,210): distance to testMagenta (255,0,255) is
+	// sqrt(45^2+60^2+45^2) ~= 87.5 — comfortably inside (inner=48, outer=110),
+	// so every pixel is flood-reachable but none is close enough to inner to
+	// ever reach alpha 0.
+	gradedBand := color.NRGBA{R: 210, G: 60, B: 210, A: 255}
+	d := colourDistance(gradedBand.R, gradedBand.G, gradedBand.B, testMagenta.R, testMagenta.G, testMagenta.B)
+	if d <= testInner || d >= testOuter {
+		t.Fatalf("test construction error: gradedBand distance %.1f is not strictly inside (inner=%.0f, outer=%.0f)",
+			d, testInner, testOuter)
+	}
+	for y := 0; y < 16; y++ {
+		for x := 0; x < 16; x++ {
+			img.SetNRGBA(x, y, gradedBand)
+		}
+	}
+
+	out, stats := KeyOutBackground(img, testMagenta, testInner, testOuter)
+
+	if stats.BorderKeyed > 0.05 {
+		t.Fatalf("graded-band border (distance %.1f, reachable but never fully transparent): "+
+			"want BorderKeyed near 0, got %.3f — this is the exact live-measured bug (0%% actually "+
+			"transparent read as BorderKeyed=1.000)", d, stats.BorderKeyed)
+	}
+	// Confirm the image genuinely is NOT transparent at its border — the
+	// assertion above is only meaningful if this is true.
+	if a := out.NRGBAAt(0, 0).A; a == 0 {
+		t.Fatalf("test construction error: corner (0,0) is fully transparent (alpha 0), " +
+			"so this is not actually testing the graded-not-transparent case")
+	}
+}
+
 // Guard cases: the model ignoring the instruction entirely, in the two
 // concrete shapes this bug's own history produced — a checkerboard (the
 // failure this bug is named for) and a solid unrelated ground (the interim

@@ -30,10 +30,23 @@ import (
 // decide whether the model honoured the key-colour instruction at all.
 type MatteStats struct {
 	// BorderKeyed is the fraction (0..1) of the image's outermost ring of
-	// pixels that ended up fully transparent. A model that ignored the
-	// instruction — painted a checkerboard, a solid unrelated ground, a
-	// vignette — leaves this near zero, because the border pass keys out only
-	// pixels that were actually close to the requested colour.
+	// pixels whose FINAL alpha is 0 — genuinely, fully transparent in the
+	// output. A model that ignored the instruction — painted a checkerboard,
+	// a solid unrelated ground, a vignette — leaves this near zero.
+	//
+	// CORRECTED 2026-09-02 (round 2, contributed by the bugfix_417_420 lane's
+	// live dynamic testing, CONTRIB round 3): this field's DOC COMMENT always
+	// said "ended up fully transparent", but the CODE computed it from BFS
+	// flood-fill REACHABILITY (dist <= outer) instead — a border wash that
+	// merely sat within the graded band (nowhere near inner, so alpha stayed
+	// well above 0 everywhere) still marked every border pixel "reachable"
+	// and reported BorderKeyed=1.000, identical to a genuine 87.4%-transparent
+	// success. Measured live: a 0.0%-actually-transparent failure and an
+	// 87.4%-actually-transparent success both read 1.000 on the old code.
+	// The fail-closed guard this field exists to drive was therefore
+	// evaluating the wrong thing entirely — see keyOutBackground's threshold
+	// check in dynamic_adapter.go, unchanged by this fix, which now finally
+	// gates on what its own comment always claimed it gated on.
 	BorderKeyed float64
 
 	// Keyed is the total count of pixels with alpha < 255 after both passes.
@@ -123,30 +136,16 @@ func KeyOutBackground(img image.Image, key color.Color, inner, outer float64) (*
 		seed(p.x, p.y-1)
 	}
 
-	borderRing := 0
-	borderKeyed := 0
-	countBorder := func(x, y int) {
-		borderRing++
-		if keyedByBorder[idx(x, y)] {
-			borderKeyed++
-		}
-	}
-	for x := 0; x < w; x++ {
-		countBorder(x, 0)
-		if h > 1 {
-			countBorder(x, h-1)
-		}
-	}
-	for y := 1; y < h-1; y++ {
-		countBorder(0, y)
-		if w > 1 {
-			countBorder(w-1, y)
-		}
-	}
-
 	stats := MatteStats{}
-	if borderRing > 0 {
-		stats.BorderKeyed = float64(borderKeyed) / float64(borderRing)
+
+	// finalAlpha records what alpha each pixel actually ended up with, so the
+	// border stat below can be computed from the REAL result rather than from
+	// keyedByBorder (mere BFS reachability — see MatteStats.BorderKeyed's
+	// corrected doc comment for why that was wrong). Defaults to 255
+	// (untouched pixels never enter the loop below).
+	finalAlpha := make([]uint8, w*h)
+	for i := range finalAlpha {
+		finalAlpha[i] = 255
 	}
 
 	// Pass 2 + edge grading, per pixel: border-flood pixels and any pixel
@@ -166,6 +165,7 @@ func KeyOutBackground(img image.Image, key color.Color, inner, outer float64) (*
 			switch {
 			case d <= inner:
 				out.SetNRGBA(x, y, color.NRGBA{A: 0})
+				finalAlpha[i] = 0
 				stats.Keyed++
 			case d >= outer:
 				// A border-pass pixel sitting exactly at the outer boundary
@@ -177,9 +177,36 @@ func KeyOutBackground(img image.Image, key color.Color, inner, outer float64) (*
 				a8 := uint8(math.Round(alpha * 255))
 				fg := despill(c.R, c.G, c.B, kr, kg, kb, alpha)
 				out.SetNRGBA(x, y, color.NRGBA{R: fg[0], G: fg[1], B: fg[2], A: a8})
+				finalAlpha[i] = a8
 				stats.Keyed++
 			}
 		}
+	}
+
+	// Border stat, computed from finalAlpha (what actually happened), not
+	// from keyedByBorder (what was merely close enough to be eligible).
+	borderRing := 0
+	borderTransparent := 0
+	countBorder := func(x, y int) {
+		borderRing++
+		if finalAlpha[idx(x, y)] == 0 {
+			borderTransparent++
+		}
+	}
+	for x := 0; x < w; x++ {
+		countBorder(x, 0)
+		if h > 1 {
+			countBorder(x, h-1)
+		}
+	}
+	for y := 1; y < h-1; y++ {
+		countBorder(0, y)
+		if w > 1 {
+			countBorder(w-1, y)
+		}
+	}
+	if borderRing > 0 {
+		stats.BorderKeyed = float64(borderTransparent) / float64(borderRing)
 	}
 
 	return out, stats
