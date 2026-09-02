@@ -198,3 +198,64 @@ Since 11:30Z there is a fleet-wide, account-level LLM outage — measured first-
 "usage limit" error. The guide's rewrite is LLM-bearing, so it cannot complete until that clears; the
 about page got through at 10:19, before it began. The item is queued and correct. **Do not read the
 next failure as a payload fault, and do not spend its last attempt while the outage stands.**
+
+## 2026-09-02 — the follow-on work, and a correction from another lane
+
+### (q) The owner's question moved the target, and measuring is what moved it
+
+Asked "what can I do about the poisoned register hole, and shouldn't compliance be strong for
+finance/legal/insurance?" — the instinct was right and the measurement pointed elsewhere. **319 facts
+across 17 sites**: ~192 citation-backed (re-fetched and quote-checked **daily** by
+`evidence-refresher`), 30 SQL-re-run daily, and **61 attested-only with nothing to re-check — 50 of
+those on our OWN sites** (webdesign.uk 25, webdesign.co.uk 15, finetuning.uk 10). And **no live agent
+writes the register at all**: 11 of 18 rows by the scheduler, 7 by human/session hands. The vector is
+a person, which is exactly how 414's marker got in.
+
+The real finance exposure is the inverse: **5 of 9 finance/insurance sites have NO register**, so
+`ScanUnregisteredNumbers` never arms (it is opt-in on register presence), and 2 more have zero facts.
+
+### (r) …and arming it naively would have made things worse — measured before recommending
+
+Armed locally against those five (474 components, nothing written): **5 findings, all false.** Two
+regulatory — loancash's flagged digit was the **`5` of `CONC 5A`**, and lendzy's was **`0.8% per day
+under CONC 5A`**, a regulatory figure quoted beside its rule, *which that site's brief requires*. The
+scan was convicting a site for doing the right thing. Three third-party survey figures in a news
+listing (RFC_053's component-grain question — left there).
+
+Fixed the regulatory half (`fad209b92`, council `1dd3d298` APPROVED): 5 → 3, fleet-wide unchanged,
+live in chassis `v1.0.1354` by four-arm probe.
+
+### (s) I nearly shipped a vacuous test — twice, in opposite directions, in one change
+
+**Must-catch fixtures first:** "Our team of 37 advisers…", "We ran 12 conc tests…" — neither contains
+a `businessClaimContextRe` noun, so the scan never reaches them. The test failed while the fix worked.
+
+**Then the must-pass ones:** single sentences that **passed before the fix existed**, for the same
+reason. And the mutation proof "passed" with both exclusions disabled — which I nearly read as *the
+fix is unnecessary*. It was the fixtures being vacuous. Rebuilt from the **extracted live component
+text** (the real window is wider than a sentence; "This site is independent" is the noun that makes
+the scan look at all), they now give 2 findings with the exclusions off and 0 with them on.
+
+**Third instance in this lane of the same thing**: a fixture composed from my model of the data
+exercises my model, not the data. Logged before; logged again here because knowing it did not stop me.
+
+### (t) Three council seats caught the same unverified assertion, and were right to
+
+All three asked whether the documented forced `(?i)` on banned-claims reaches my new patterns — which
+would make "case-sensitive" compile-time true and runtime false, taking the SUP/MAR/DISP narrowing
+with it. **It does not**, verified three ways (the forced `(?i)` lives only in the four banned-claim
+compilers; nothing case-folds the scanned text before the exclusion tests; and the existing must-catch
+fixture proves it behaviourally). Written at the claim in `ad4824e73`, with
+`TestRegulatoryCitationPatternsAreCaseSensitive` as the tripwire for a future refactor.
+
+### (u) A correction FROM the copy_quality_two_stage lane, about my handoff
+
+Their commit `51e05a374` notes "the Sunday handoff's '0 of 36' was the SPEC-CLAIMS half, two N-of-Ms
+conflated". Checked: the report carries **two** `N of M sites` lines and they legitimately differ —
+`11 of 34` for the negation half (writer-visible surface) and `0 of 39` for mine (union of every live
+agent's surface). **My 08-31 handoff said "read N of M" without saying which**, and they hit it.
+
+Corrected in place in that handoff (`580d1351d`), original struck rather than removed. It is the same
+shape as the `scanned_fields` rule I logged on 08-31: **a reading rule is only as good as its ability
+to be performed by someone who does not already know the answer — and "which number" is part of the
+rule.** Two instances in three days, from one lane's instructions.
