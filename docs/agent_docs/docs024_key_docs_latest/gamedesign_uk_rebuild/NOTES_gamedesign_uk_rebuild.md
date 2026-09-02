@@ -545,3 +545,12 @@ this site unless the story is about using LLMs for games design and playing game
 - **llm-cost-calculator.html:** it is on **ai-agent-orchestration.com**, not this site — I had
   listed it without saying so loudly enough. Relayed the owner's PRINCIPLE to AI page 3 with that
   caveat; on its face the principle points at un-archive-and-build there. Their call / owner's.
+
+**~19:40Z correction (AI page 3, measured at the artefact):** my "the principle points at
+un-archive-and-build" reading of the llm-cost-calculator question rested on the tool NOT existing.
+It does — `/tools/tool-llm-cost-calculator.html`, built 2026-09-02, 67 KB of real content. The
+archived flat-URL page is a stale empty duplicate still linked from nav; a third empty shell sits
+at the guide URL. Real action: repoint two nav links, retract two shells — that site's owner's
+call, recorded in 315. **The cheap check I skipped: before recommending "build X", ask whether X
+already exists at another URL.** One `SELECT url FROM pages WHERE site_id=… AND url ILIKE '%llm-cost%'`.
+Corrected in 432 §3a; nothing routes here.

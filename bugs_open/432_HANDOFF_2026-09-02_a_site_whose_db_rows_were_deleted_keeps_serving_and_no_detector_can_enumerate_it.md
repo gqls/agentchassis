@@ -152,7 +152,12 @@ this session** — they are other lanes' sites; flagged to the owner.~~
 > `needs_content_page` instead of a guaranteed-skip rerender. Their census, corrected by the
 > council from my "one instance": **14 rows** `active` + `deployed_at IS NOT NULL` + 0
 > component rows. `llm-cost-calculator.html` (archived-and-serving) is recorded there as an
-> **owner decision** — retract vs un-archive-and-build. `robot-hands.com/learning-center-article`
+> ~~**owner decision** — retract vs un-archive-and-build~~ — **CORRECTED 19:40Z (AI page 3, at the
+> artefact):** the canonical tool ALREADY EXISTS at `/tools/tool-llm-cost-calculator.html` (built
+> 2026-09-02, 67 KB); the flat-URL page is a stale empty DUPLICATE still linked from the homepage
+> and `/tools.html`, plus a third empty shell at `/guides/tool-llm-cost-calculator-guide.html`. So
+> not a build and not a naive retract (that 404s live nav): repoint two nav links, then retract two
+> shells — a content decision for that site's owner, recorded in 315. `robot-hands.com/learning-center-article`
 > is taken into that session's robot-hands list. Also surfaced there: `componentless_pages` is
 > a built discovery check enabled in ZERO discovery agents, and would not catch a `sections=[]`
 > page anyway — the real gap sits between `check_sectionless_pages` and it.
