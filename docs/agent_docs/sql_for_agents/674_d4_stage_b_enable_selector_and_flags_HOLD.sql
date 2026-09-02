@@ -42,6 +42,15 @@ BEGIN
   IF m <> 'd29807313a8f6ed543a541c35c1626c4' THEN
     RAISE EXCEPTION '674 REFUSED: selector md5 % is not the post-657 text — drifted, investigate before overwriting.', m;
   END IF;
+  -- Belt on the md5's braces (council 8f4bb57d r2, debug_historian): assert the replace()
+  -- anchor appears EXACTLY ONCE before replacing. The md5-exact precondition above already
+  -- pins every byte of the text, so a failure here means THIS GUARD is stale, not the row —
+  -- but a replace() that could silently no-op never gets to rely on that reasoning.
+  IF (length(q) - length(replace(q,
+        'AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'')', '')))
+     / length('AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'')') <> 1 THEN
+    RAISE EXCEPTION '674 REFUSED: busy-skip anchor not present exactly once — the replace() would no-op or double-fire.';
+  END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='governor_admits') THEN
     RAISE EXCEPTION '674 REFUSED: governor_admits() missing — apply 675 first (the flags call it).';
