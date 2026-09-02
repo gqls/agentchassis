@@ -180,3 +180,9 @@
   **641 is the apis.uk lane's file (PBP-049)** — the finetuning session mis-addressed it to
   this lane; relayed to apis.uk with the draft pointer. **Stage B now depends on the
   REDRAFTED 641; Stage A unaffected.**
+- **641 routing correction confirmed by the finetuning lane** (`d2d64edb1` — their draft doc
+  and handoff now name apis.uk as owner, marked as a visible correction). Pipeline agreed all
+  sides: owner picks framing → finetuning test-renders (incl. the sibling range) → apis.uk
+  writes the final SQL in their file → owner reads the exact final words. All channels closed
+  for tonight; this lane's next event is the chassis roll (then: ping finetuning, pod probe
+  per RUNBOOK, Stage A).
