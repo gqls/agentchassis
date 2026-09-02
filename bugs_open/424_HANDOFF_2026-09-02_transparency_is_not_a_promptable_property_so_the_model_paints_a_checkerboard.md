@@ -179,10 +179,21 @@ cannot observe the failure mode it exists to catch.** Fix shape: add a border-*t
 statistic (final alpha 0) and gate on that; keep `BorderKeyed` as the "was there a ground at all"
 signal.
 
-**The threshold numbers this run produced are CONTAMINATED — do not tune to them.** The run
-predates `b2322a203` (committed 17:25; chassis `v1.0.1354` pods started 15:39/15:53Z), so its
-prompt still carried the magenta negative-prompt contradiction. The `[UNMEASURED as constants]`
-note on `keyGroundInnerThreshold`/`keyGroundOuterThreshold` is **still unmeasured**.
+**UPDATED 17:20Z — three runs now, and the second one rules out the obvious excuse.**
+`seotools.co.uk` (17:10Z) scored `border_keyed=0.9998` on a ground that is **visibly, plainly
+magenta** — the model obeyed the key colour — and its artefact still has **0.0% fully transparent
+pixels** (alpha extrema (137,255); 0 of 4,348 border pixels keyed out). The 17:15Z run scored `0`
+and was correctly refused. **So the guard's score is anti-correlated with success: it refuses what
+it can see failing and passes what it cannot.** Both runs predate `b2322a203`, but the
+contradiction cannot explain seotools — its ground IS magenta.
+
+**Measured ground drift from `#FF00FF`, recovered per border pixel:** designblog min 65.7 / mean
+73.5 / max 95.2; seotools min 86.2 / mean **94.0** / max **105.1**. With `inner=48` nothing reaches
+alpha 0, and seotools' max sits **4.9 units under `outer=110`** — a knife edge. The drift range
+(65→105) spans almost the whole band (48→110), so **raising `inner` alone cannot work**: an `inner`
+high enough to key seotools is essentially `outer`, leaving no graded edge. Both constants must
+move, `outer` further — or the matte needs a hue-based distance rather than Euclidean RGB, which is
+what JPEG chroma subsampling degrades most on a saturated key.
 
 Full evidence, the recovered per-pixel distances, and the 12-of-12 JPEG census:
 `docs024_key_docs_latest/bugfix_424_logo_transparency/CONTRIB_2026-09-02_from_417_lane_the_matte_ran_for_the_first_time_and_the_guard_scored_it_1000_on_an_artefact_with_zero_transparent_pixels.md`

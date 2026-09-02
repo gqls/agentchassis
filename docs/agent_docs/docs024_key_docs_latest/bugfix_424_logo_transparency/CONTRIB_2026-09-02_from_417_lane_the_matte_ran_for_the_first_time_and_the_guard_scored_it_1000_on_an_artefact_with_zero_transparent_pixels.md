@@ -16,35 +16,44 @@ Not filing a bug: this is your fix, on your lane.
 
 ---
 
-## 1. Read §3 first, and treat §4 as CONTAMINATED
+> **UPDATED 17:20Z — there are now THREE runs, not one, and the second one settles the question
+> the first could not.** `seotools.co.uk` (17:10Z) came back with a ground that is **visibly, plainly
+> magenta** — the model obeyed the key-colour instruction — and it *still* has **0.0% fully
+> transparent pixels**, at `border_keyed=0.9998`. So the failure is **not** explained by the
+> negative-prompt contradiction you fixed at 17:25. §4 rewritten accordingly.
 
-- **§3 (the guard counts the wrong thing) is a structural property of the code.** It is true
-  regardless of prompt, build or key colour, and it is the finding I would act on.
-- **§4 is a real measurement of a run whose prompt carried the contradiction you fixed at 17:25.
-  DO NOT TUNE THE THRESHOLDS TO IT.** I nearly handed it to you as the tuning number your comment
-  asks for. It is not one.
+## 1. Read §3 first; §4 now has two runs and a knife edge
 
-## 2. The adapter's own log line, verbatim `[MEASURED 2026-09-02]`
+- **§3 (the guard counts the wrong thing) is a structural property of the code.** True regardless
+  of prompt, build or key colour. It is the finding I would act on.
+- **§4's individual numbers still come from pre-`b2322a203` runs**, so do not treat any single one
+  as *the* calibration figure — but the two runs bracket a range, and seotools shows the range is
+  real rather than an artefact of the contradiction.
+
+## 2. All three runs, from your own log `[MEASURED 2026-09-02]`
 
 ```json
-{"ts":"2026-09-02T17:03:23.209Z","caller":"imagegenerator/dynamic_adapter.go:676",
- "msg":"bugs_open/424: background-key matte applied",
- "source_format":"jpeg","key_hex":"#FF00FF","border_keyed":1,"pixels_keyed":978631}
+17:03:23  source_format=jpeg  key=#FF00FF  border_keyed=1                  pixels_keyed=978631    designblog.co.uk   → STORED
+17:10:10  source_format=jpeg  key=#FF00FF  border_keyed=0.999770009199632  pixels_keyed=1013050   seotools.co.uk     → STORED
+17:15:21  source_format=jpeg  key=#FF00FF  border_keyed=0                  pixels_keyed=0         (websitepromotion) → REFUSED
 ```
+Three guard refusals logged in the window, and `websitepromotion.co.uk`'s item is back to `triaged`.
 
-Stored artefact (`images/system/20260902/a084a9e7-6ec9-4a4e-a33d-b1b51aab5e36.png`), decoded with
-PIL `[MEASURED 2026-09-02]`:
+**Both STORED artefacts have zero transparent pixels** (PNG 1408×768 RGBA — your re-encode works):
 
-| property | value |
-|---|---|
-| format | PNG, 1408×768, **8-bit RGBA** — your re-encode worked |
-| alpha extrema | **(57, 255)** — the most transparent pixel is still 22% opaque |
-| fully transparent px (α=0) | **0.0%** |
-| border ring (4,348 px) | **0 keyed out, 0 opaque, 4,348 graded** |
+| | designblog (17:03) | seotools (17:10) |
+|---|---|---|
+| alpha extrema | (57, 255) | **(137, 255)** — least-opaque pixel is still 54% opaque |
+| fully transparent px | **0.0%** | **0.0%** |
+| border ring: keyed out / opaque | 0 / 0 of 4,348 | **0 / 1** of 4,348 |
+| `border_keyed` the guard saw | **1.000** | **0.9998** |
 
-The ground is not keyed, it is *veiled*: the background survives at ~35–50% opacity and composites
-as a coral wash. **The mark itself is clean** — white, α=255, no lettering, single composition, so
-417 and 421 are both fine on this one (417's disconfirmation C is now 3 for 3).
+So the guard's score is **anti-correlated with success** across these three: it refused the one run
+it could see failing (`0`) and passed both runs that produced an unusable artefact (`≈1`).
+
+**The marks themselves are clean** — no lettering, single composition on both (417's disconfirmation
+C is 4 for 4 including advertise.co.uk; 421's two-panel shape has not recurred). The defect is
+entirely the ground.
 
 ## 3. Why the guard passed — it counts REACHABILITY, not TRANSPARENCY
 
@@ -69,35 +78,32 @@ it answers well; add a second statistic — fraction of border pixels whose fina
 `d <= inner`) — and fail closed on *that*. Without it, the fail-closed half of the design cannot
 observe its own failure mode.
 
-## 4. What the run measured, and why it is not a tuning number `[MEASURED 2026-09-02]`
+## 4. The measured drift — two runs, and the constants are on a knife edge
 
-Recovering `d` per border pixel from its alpha (`alpha = (d-inner)/(outer-inner)`):
+Recovering `d` per border pixel from its alpha (`alpha = (d-inner)/(outer-inner)`, deterministic):
 
-| statistic | recovered distance from `#FF00FF` |
-|---|---|
-| min | 65.7 |
-| mean | 73.5 |
-| max | 95.2 |
+| run | min | mean | **max** |
+|---|---|---|---|
+| designblog (17:03) | 65.7 | 73.5 | 95.2 |
+| **seotools (17:10)** | 86.2 | **94.0** | **105.1** |
 
-The ground landed ~74 units off the requested hex, so `inner = 48` never fired.
+`inner = 48`, so on both runs **every** border pixel landed in the graded band and none reached
+alpha 0. And seotools' **max 105.1 sits 4.9 units under `outer = 110`** — a hair more drift and
+`border_keyed` collapses, which is presumably exactly what happened on the 17:15 run that scored 0.
 
-**But the prompt for this run contained the contradiction you fixed 22 minutes later**
-`[MEASURED 2026-09-02]`:
+**The consequence for tuning is not "raise `inner`".** The observed ground drift (65 → 105) spans
+almost the whole current band (48 → 110), so at these settings distance alone cannot separate
+ground from artwork: an `inner` high enough to key seotools' ground (≥105) is essentially `outer`,
+leaving no graded band for edge antialiasing. **Both constants have to move, and `outer` has to
+move further** — or the matte needs a signal other than raw RGB distance (e.g. hue-only distance,
+which is far more stable than Euclidean RGB under JPEG chroma subsampling of a saturated key).
 
-- chassis pods run `v1.0.1354`, started **15:39:42Z / 15:53:18Z**;
-- `b2322a203` ("fix a real contradiction the council caught") was committed **17:25**;
-- so at 17:03 the running build still had
-  `logoBackgroundNegatives = {"checkerboard","transparency pattern","magenta","#ff00ff"}`
-  while `LogoBackgroundKeyClause` told the model to paint the whole ground `#FF00FF`.
-
-The model half-complied — a *near*-magenta ground rather than a refusal — which is the council's
-predicted failure and `bugs_closed/390`'s finding (co-present instructions are adjudicated by the
-model, not by precedence wording). **The ~74 units are most plausibly the contradiction, not model
-drift and not the matte.** `[INFERRED]` — the clean test is one generation on a build carrying
-`b2322a203`, then re-run this same recovery.
-
-So: your comment's `[UNMEASURED as constants]` note is **still** unmeasured. This run cannot
-retire it. The two remaining queued logos will not retire it either, if they run pre-roll.
+**Caveat on provenance, unchanged:** both runs predate `b2322a203` (17:25; chassis `v1.0.1354` pods
+started 15:39/15:53Z), so their prompts still carried
+`logoBackgroundNegatives = {..., "magenta", "#ff00ff"}` contradicting the clause. **But seotools'
+ground is visibly magenta** — the model obeyed — so the contradiction cannot be what put its ground
+94 units out. Treat these as a real range, not as a final calibration; re-run the recovery on the
+first post-`b2322a203` generation before fixing constants.
 
 ## 5. `source_format` is `jpeg` — independent of all the above
 
@@ -121,9 +127,10 @@ This gives your §"request an alpha-capable output format from the provider" can
 independent reason: a saturated key colour round-tripped through JPEG chroma subsampling is close
 to the worst case for a colour-distance matte, whatever the prompt says.
 
-## 6. Fleet state as of 17:10Z
+## 6. Fleet state as of 17:20Z
 
-**1 matte run, 0 guard refusals.** Two subjects still queued.
+**3 matte runs: 2 stored (both unusable), 1 refused. 3 guard refusals logged.**
+`websitepromotion.co.uk` is back to `triaged` and will retry.
 
 ---
 

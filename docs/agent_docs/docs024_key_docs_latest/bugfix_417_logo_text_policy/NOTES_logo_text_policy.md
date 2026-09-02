@@ -184,8 +184,14 @@ the cheapest outstanding action in the lane. The census cannot see lettering; on
 (concentric arcs from a mast). No invented brand name. Bytes pulled from the bucket through the
 adapter pod; recipe now in the RUNBOOK.
 
-**boxingonline.com — CLEAN, re-checked independently.** Fist-in-a-square mark, no lettering,
-single composition. Pulled from `boxingonline.ugg2.com` (the only route that existed — see below).
+**boxingonline.com — CLEAN, re-checked independently, at BOTH artefacts.** Fist-in-a-square mark,
+no lettering, single composition. First from `boxingonline.ugg2.com` (the served copy, 400×218 PNG)
+— then, because the handoff records that the delivery lane shipped an *interim* solid-ground logo,
+also from the asset row's own source object (`images/demo_client/20260902/bf55d4ed…`, 1408×768
+JPEG). **Same mark.** So the served file is a derivative of the guard's own generation, not the
+interim replacement, and the eye-check is against the thing 417 actually produced. *Checking the
+served copy alone would not have established that* — worth doing whenever a lane has shipped an
+interim artefact for the same asset key.
 
 **designblog.co.uk — CLEAN.** Generated 17:03:23Z, mid-session, off the queue. White geometric
 star mark, no lettering, one composition. Carries the clause.
