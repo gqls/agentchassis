@@ -23,9 +23,14 @@
 // Inputs:
 //   - site_id (path-resolved, required)
 //
-// Config literals:
-//   - classification_source (optional) — path to classification data in
-//     collected_data. Default: "validated_inputs.classification".
+// Classification/identity are read via the shared `readClassificationFromContext`
+// cascade (resolve_composition_helpers.go) — the same one install_site_composition,
+// resolve_composition_typography and resolve_composition_palette already use.
+// Fixed 2026-09-02 (bugs_open/113's tail): this action used to reimplement its
+// own narrower extraction (`classData["category"]`/`classData["industry_tags"]`
+// only, no identity fallback), the one caller of the four that lacked it, and a
+// site whose classifier output has no `category`/`industry_tags` — several do —
+// resolved with zero signal even when identity data was present and unused.
 //
 // Returns:
 //   {
@@ -109,19 +114,64 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 	_ = params.DB.QueryRowContext(ctx,
 		`SELECT domain FROM sites WHERE id = $1`, siteID).Scan(&domain)
 
-	// Extract category + industry_tags from either the prior step's output
-	// (validated_inputs.classification, set by validate_composition_inputs)
-	// or by reading the spec directly.
-	category, industryTags, err := extractClassificationTags(
-		ctx, params, siteID, logger,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("extract classification tags: %w", err)
-	}
+	// Extract category + industry_tags via the same shared cascade the other
+	// three composition resolvers use (install_site_composition, typography,
+	// palette): prefer the prior step's output (validated_inputs.classification)
+	// or a direct spec read, falling back to identity.industry/sub_industry +
+	// site_type when the classifier's current output shape carries neither
+	// `category` nor `industry_tags` (bugs_open/113's tail: ai-agent-orchestration.com's
+	// classification spec has always lacked both — a legacy shape predating the
+	// current classifier — so this resolver alone, of the four, returned zero
+	// signal and fell through to brochure-formal, though identity.industry =
+	// "Technology Services" was sitting right there unused).
+	category, industryTags := readClassificationFromContext(ctx, params, siteID, logger)
 
 	// Derive the light/dark scheme from the design brief so the matcher won't
 	// place a light site on a dark layout (or vice-versa) on tag overlap alone.
 	siteScheme := deriveSiteScheme(ctx, params, siteID, logger)
+
+	// Theme-kit rung: unlike palette/typography (which the kit steers via
+	// design_intent.reference_values — see apply_theme_kit_action.go's doc
+	// comment), layout resolution never consults design_intent at all, so a
+	// kit's layout choice needs an explicit short-circuit here. Human-set
+	// signals (mission/design_intent driving the tag matcher below) are not
+	// consulted for layout today, so this rung has nothing above it to defer
+	// to — a themed site's layout is exactly what the kit named, no scoring.
+	if kit, ok, kerr := loadSiteThemeKitDefaults(ctx, params.DB, siteID); kerr == nil && ok && kit.LayoutID.Valid {
+		var kitLayoutName, kitLayoutScheme string
+		var kitLayoutActive bool
+		lerr := params.DB.QueryRowContext(ctx,
+			`SELECT name, COALESCE(scheme, ''), is_active FROM layouts WHERE id = $1`,
+			kit.LayoutID.UUID,
+		).Scan(&kitLayoutName, &kitLayoutScheme, &kitLayoutActive)
+		if lerr == nil && kitLayoutActive {
+			logger.Info("ResolveCompositionLayoutAction: theme-kit default",
+				zap.String("site_id", siteID.String()),
+				zap.String("theme_kit", kit.ThemeKitName),
+				zap.String("layout_id", kit.LayoutID.UUID.String()),
+				zap.String("layout_name", kitLayoutName),
+			)
+			return map[string]interface{}{
+				"layout_id":          kit.LayoutID.UUID.String(),
+				"layout_name":        kitLayoutName,
+				"reason":             fmt.Sprintf("theme_kit default: %s", kit.ThemeKitName),
+				"candidates":         []string{kitLayoutName},
+				"is_fallback":        false,
+				"scheme":             kitLayoutScheme,
+				"is_scheme_mismatch": false,
+				"site_tags":          collectNormalisedSiteTags(category, industryTags),
+				"review_item_queued": nil,
+				"source":             "theme_kit_default",
+			}, nil
+		}
+		if lerr != nil {
+			logger.Warn("ResolveCompositionLayoutAction: theme-kit layout lookup failed, falling back to tag match",
+				zap.Error(lerr), zap.String("theme_kit", kit.ThemeKitName))
+		} else {
+			logger.Warn("ResolveCompositionLayoutAction: theme-kit's layout is no longer active, falling back to tag match",
+				zap.String("theme_kit", kit.ThemeKitName), zap.String("layout_id", kit.LayoutID.UUID.String()))
+		}
+	}
 
 	// Open a short transaction. The shared resolver takes *sql.Tx because it
 	// is used by the fully-transactional fork path. Here we use it read-only
@@ -227,73 +277,6 @@ func schemeLabel(s string) string {
 		return "matching-scheme"
 	}
 	return s
-}
-
-// extractClassificationTags pulls `category` and `industry_tags` from
-// classification data. Prefers validated_inputs.classification (set by the
-// earlier validate_composition_inputs step), otherwise reads fresh from
-// site_specs.
-func extractClassificationTags(
-	ctx context.Context,
-	params ActionParams,
-	siteID uuid.UUID,
-	logger *zap.Logger,
-) (string, []string, error) {
-
-	classPath := "validated_inputs.classification"
-	if cs, ok := params.StepConfig.Config["classification_source"].(string); ok && cs != "" {
-		classPath = cs
-	}
-
-	var classData map[string]interface{}
-	classRaw := datahelpers.ExtractNestedField(params.CollectedData, classPath)
-	if classRaw != nil {
-		unwrapped := datahelpers.UnwrapDeep(classRaw, logger)
-		if m, ok := unwrapped.(map[string]interface{}); ok {
-			classData = m
-		}
-	}
-
-	if len(classData) == 0 {
-		logger.Info("classification data not in collected_data, reading from site_specs",
-			zap.String("site_id", siteID.String()),
-			zap.String("tried_path", classPath),
-		)
-		data, found, err := loadCurrentSpecData(ctx, params.DB, siteID, "classification")
-		if err != nil {
-			return "", nil, fmt.Errorf("read classification spec: %w", err)
-		}
-		if !found {
-			return "", nil, fmt.Errorf(
-				"classification spec not found for site %s — "+
-					"should have been caught by validate_composition_inputs",
-				siteID,
-			)
-		}
-		classData = data
-	}
-
-	category, _ := classData["category"].(string)
-
-	var tags []string
-	if raw, ok := classData["industry_tags"]; ok {
-		switch v := raw.(type) {
-		case []interface{}:
-			for _, t := range v {
-				if s, ok := t.(string); ok {
-					tags = append(tags, s)
-				}
-			}
-		case []string:
-			tags = append(tags, v...)
-		}
-	}
-
-	logger.Info("extractClassificationTags",
-		zap.String("category", category),
-		zap.Strings("industry_tags", tags),
-	)
-	return category, tags, nil
 }
 
 // collectNormalisedSiteTags mirrors the tag-set construction in
