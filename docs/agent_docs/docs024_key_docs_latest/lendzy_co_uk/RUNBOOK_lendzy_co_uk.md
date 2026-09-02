@@ -173,3 +173,19 @@ The whole method, in order. It needs no new code. Worked end to end on lendzy (m
 Their run also proves the method transfers: ICOBS/DISP/statutory-instrument sources verified first
 try (farmerinsurance, migration 698), and it found the fleet's THIRD wrong attribution — loanzy
 grouped MaPS under "FCA-authorised services"; MaPS is the statutory guidance body, not an FCA firm.
+
+### 8c. Statute-source traps from the loancalculator lane's run (2026-09-02) — and the day's meta-lesson
+
+- **legislation.gov.uk works with the same tooling and carries the same 200s-on-wrong-paths
+  behaviour** — title-not-status discipline applies there verbatim. 9 of loancalculator's 12 facts
+  are CCA 1974 sections and SIs, all verified through `fcaquotecheck` first try.
+- ⚠ **Near-identical 1983 SI names.** The s.97 settlement-statement deadline traces plausibly to
+  SI 1983/1569 (*Prescribed Periods for Giving Information*) — whose schedule covers ss.77–79/103/
+  107–110 and **not** s.97. The right instrument is SI 1983/1564 (*Settlement Information*), reg 4.
+  Only reading the schedule catches it; registering the first plausible hit is the register's own
+  defect class. Anyone citing the settlement deadline walks this exact path (full account:
+  `699_loancalculator_evidence_base_cca_and_fca_citations.sql` header).
+- **The meta-lesson, now measured three times:** lendzy 2 wrong of 7 checked · loanzy 1 (MaPS
+  labelled FCA-authorised) · loancalculator 2 (a "ten working days" that is 12; an invented "10%
+  per 12 months" threshold that is £8,000/12mo, s.95A(2)(a)). **Run the method expecting to find
+  errors, not to confirm correctness** — every lane that has looked found some.
