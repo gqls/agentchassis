@@ -378,3 +378,32 @@ does, `extractPaletteSignal` reads it. Sent to theme kits with the values.
 **Watch for the served stylesheet:** the owner's "reference_values is NOT a pin" ruling means
 the render overlay may move off these; read `--color-*` in the served CSS after deploy and
 report the values, not a complaint.
+
+---
+
+## 2026-09-02, ~17:50Z — first page live, unstyled; `article` parked honestly
+
+**`/about.html` deployed 17:42:47** — 200, 10,455 B, `content_hash` set, 3 sections / 3 component
+rows, **5,335 chars of main text** (script/style stripped). Opening: *"Writing about game design
+for people who already do it. This site is aimed at the parts of the job that a design canon does
+not cover well: what happens when a spec meets an engineering team, when a balance pass runs into
+sign-off politics…"* — the brief, in the site's voice. `index` (4 sections), `contact` (3),
+`articles-index` (3) building.
+
+**`article` → `needs_human_review`** at 17:43:38: `page-build-handler no-op: no sections ready to
+build` via `mark_no_ready_sections`. The planner created `/blog/article.html` (blog-post, nav
+label "Article | gamedesign.uk") with **0 sections** — a slot with nothing to fill. The handler
+parking rather than rendering an empty page is the post-April guard working; the same shape AI
+page 3 hit on roi-estimator. **Owner/planner call:** leave it parked until there is an article,
+or cancel the slot. Not an error.
+
+**⚠ Page-before-stylesheet.** `/assets/css/styles.css` **404** while `about.html` serves: the
+`needs_design` item (webdesign-agent, priority 8) is still `triaged`, and `css_themes` row
+`274632b8…` has no `css_content` yet. So the first public page is bare HTML until design lands and
+the priority-99 `needs_rerender` restyles. Normal cascade ordering, but a real (transient)
+exposure — a fresh site's first minutes are unstyled by construction. Watch that `needs_design`
+is CLAIMED; if it sits triaged for long, that is the throughput lane's starvation shape
+(`RUNBOOK s15` in their docs: a triaged build item can starve behind older backlogs).
+
+Benign warn row at 17:42:39 (`page-rerender`/`render_page`): "Outbound link suppression SKIPPED —
+refused-target set unavailable or site has not shipped (bugs_open/328)". Expected pre-ship.
