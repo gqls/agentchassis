@@ -186,3 +186,9 @@
   writes the final SQL in their file → owner reads the exact final words. All channels closed
   for tonight; this lane's next event is the chassis roll (then: ping finetuning, pod probe
   per RUNBOOK, Stage A).
+- **apis.uk closed the 641 relay (`c9c9b75ec`):** DO-NOT-APPLY-AS-WRITTEN stamped in the seed
+  header itself (control at the point of action — no session can now apply the voided text on
+  hearing "the read landed"), PBP-049 status + handoff corrected, sibling-range render
+  accepted as theirs as a pre-apply obligation WITH falsifier (a skipped sibling must DROP
+  from the enumeration; missingkey=zero makes both failure arms silent — 443's shape one hop
+  later, their own framing). Stage B chain is now safe end-to-end: no path applies old 641.
