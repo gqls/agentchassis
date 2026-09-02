@@ -1257,3 +1257,13 @@ Routing asserted to the 413 session: ordering/throughput decisions come through 
 Owner also asked for the open decisions restated fully — done in chat (budget number; stage-B
 go-ahead; candidate 2 now provisionally answered); firm-up of the provisional ruling remains
 theirs, no urgency while the queue drains clean.
+
+### 2026-09-02 — 415's fix (migration 688) pinged at commit+apply per contract; no lockstep owed
+
+The 415 session widens the fire gate on BOTH trigger rows (superset admission: triaged+
+approved, pipeline filter dropped, lock-exception arm; new md5 2ebd918b, rollback restores
+200246f7; council corr 5f0cb450 pending). Confirmed from this side: VERIFY 1/7 pins PARITY
+not text and both rows move in one statement → stays green; 688 is scheduled_tasks-only so
+stage B's agent_definitions/governor anchors are untouched. Watch beside the next routine
+read: fire cadence p50 (~60s) and no-op turn share — a spare fire is a cheap tick, a TREND
+is a report to them.
