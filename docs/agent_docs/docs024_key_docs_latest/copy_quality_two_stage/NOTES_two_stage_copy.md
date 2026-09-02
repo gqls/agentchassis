@@ -3445,3 +3445,29 @@ contrasts = the battery's lexical nature). The two structural escapes are named 
 candidates (420 one-line walker fix; 422 repair-side shrink budget), and the spec-fed class has
 its owner decision queued. **The canary question — does the corrected stack move the register at
 the artefact — is answered YES, with the blocked-pages asterisk.**
+
+---
+
+## 2026-09-02 — 674 CLOSED APPROVED; the writer-context family gains its FOURTH face on the paid build
+
+**674 r2: APPROVED** ("2 advisory objections — none high-severity") — the farmer spec layer's
+council trail is closed end-to-end (r1 REVISE → post-apply measurements → approved).
+
+**The fourth face (boxingonline, owner rejection, their measurement at the served site):** a
+page whose TITLE promises a specific dated checkable thing ("Last night's result…") was
+written with no data in context — and the writer filled the vacuum from its prior (Douglas
+1990, Ruiz 2019) **while the site's own /news/index.html carried the exact promised story**
+(Hrgovic over Itauma, 31 Aug — an underdog beating a champion). The family, now:
+1. demonstrations in context are emitted as register (proven, 08-26);
+2. an ABSENT identity spec → the writer fills the voice vacuum with method (farmer);
+3. a PRESENT rule about writing → emitted as writing about writing (boxingonline about);
+4. **a PROMISE in the title with no data behind it → filled from the model prior, fluently
+   enough to pass every check** — the tone-vacuum shape with FACTS instead of voice.
+Their fight-calendar page is the meta-copy finding on the paid core deliverable (zero event
+data, ~2,000 chars of "How entries get added") — the strongest instance of the CQ-032
+first-person-plural policy-prose tell. Research-side fix routed to news-editorial (theirs);
+**OURS, queued: (a) the title-promise gate/demonstration** (a title asserting a specific dated
+thing must be carried by the body or the page not written — sibling of the empty-index
+demonstration, one level up), **(b) the CQ-032 tell built into the audit/scanner family, (c)
+the guide-rewrite execution under the new ruling** (see ledger 2026-09-02: shorter licensed).
+Cut-line ruling gives time to do (a) properly — writer-side, not per-site patching.

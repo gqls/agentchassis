@@ -400,3 +400,17 @@ Relayed by the boxingonline session (msg to this lane, 2026-08-31 evening; their
 `PLAN_2026-08-25_best_in_class_propagation.md`; execution order its §6 (carrier row + injection
 generalisation first). Provenance note: recorded from a peer relay per the Decision-E pattern —
 if the owner's own words differ when he next reads this ledger, his correction supersedes.
+
+**RULINGS (2026-09-02, relayed by the boxingonline session from the owner's article rejection;
+their OWNER_REVIEW file + 09-02 additions carry the evidence):**
+- **Guides: "Rewrite the guides to be more interesting and if there's not much to say then
+  they can be shorter."** SHORTER is now explicitly licensed — the padding finding's answer.
+  Relation to ruling 13 ("expand the words… every time"): 13 was the owner's ear on a MODEL
+  TRIAL's compressed density; this is about guides restating one idea to 4,415–6,158 chars.
+  They are not in tension — density per sentence vs padding per page — but any guide-rewrite
+  prompt must honour BOTH: say more per word, stop when the idea is done. Do not harmonise
+  them further without his word.
+- **"Build a guides index page every time"** — guides stay reachable; they earn their length.
+- **Palette stays** ("the cream off white decision is fine") — no design churn.
+- **Cut-line: "build and fix everything before approval"** — nothing ships to the paid
+  customer until right; the writer-side fixes get done properly, not patched per-site.
