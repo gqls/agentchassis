@@ -4021,3 +4021,9 @@ session's — kustomize overlays, 444's bug file, platform tests).
   stall UNVERIFIED" resolved as CADENCE (3 h), i.e. the [UNVERIFIED] marker did its job: it was
   the first thing checked and it would have been wrong to act on.
 
+> **CORRECTED 2026-09-02 ~22:0xZ (444 session, in 450 itself, `ad1b3b1fa`):** my (u) line "candidate 1
+> is 444's gate generalised" overstated it — the plan-side hold cannot close the phantom-link
+> door and risks starving the tool rotation (a tool's producer is outside the plan by design).
+> 450's candidate order now reads (2)/(3) first, (1) conditional on §7 + a sibling key. What
+> caught it: asking the adjacent lane the one question their gate could answer, in their file.
+

@@ -184,7 +184,10 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   websitepromotion (rotation ≈ 1 site / 3 h; last tick 18:47Z — cadence, not a stall). 090 run
   `96e97dc4` fired at filing, `diagnosing` at 21:42Z — **read its verdict first**
   (`SELECT body FROM doc_notes WHERE body LIKE '%96e97dc4%' ORDER BY created_at DESC LIMIT 1;`)
-  and fold it into 450. Mitigation recipe for №5+: runbook §2b (one-shot design discovery at
+  and fold it into 450. ⚠ 444's CONTRIB in 450 (`ad1b3b1fa`) re-ordered the candidates: the
+  plan-side hold (1) cannot close the phantom-link door and may starve the tool rotation — (2)
+  make the hold a control / (3) never route a tool target to the generic builder are the
+  door-closers; (1) only after §7 and behind a sibling key. Mitigation recipe for №5+: runbook §2b (one-shot design discovery at
   plan time) — do NOT point it at seotools until 450 §7 (tool-deployer on a pre-existing page
   row) is answered. `save_refused_incomplete` 540f5359 closed as a by-product (it was one of
   those shell writes tripping the component floor). `dead_internal_link_live` ×7 will self-clear.

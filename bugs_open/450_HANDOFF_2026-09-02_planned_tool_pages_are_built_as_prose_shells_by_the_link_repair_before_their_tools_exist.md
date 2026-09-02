@@ -84,6 +84,18 @@ live before its tools will fill its tool URLs with prose, and every 200 hides it
 
 ## Fix candidates (ordered by what closes the door)
 
+> **ORDER CORRECTED 2026-09-02 ~22:0xZ, on the 444 session's CONTRIB below (`ad1b3b1fa`):**
+> candidate (1) alone cannot close this bug — the shells came through the phantom-link door,
+> which consults no plan-time gate — and it carries a deadlock risk that 444's arm does not: a
+> tool page's producer arrives from OUTSIDE the plan, later, so "hold if no tool component"
+> holds every tool page on every fresh build, and whether that starves the rotation is exactly
+> §7. **Read as: (2) and (3) are the door-closers; (1) is conditional on §7 and, if built, a
+> SIBLING key (`enforce_tool_sources`, default OFF) on `c610898d1`'s derived pattern; (4) is
+> churn; (5) is this lane's interim.** Also from them: 444's live defer-half does NOT mitigate
+> 450 (`hero-tool`/`generic-text-block` declare no required query fields), and the seven
+> seotools shells are realised pages now — no plan-side gate removes them; cleanup is instance
+> work.
+
 1. **Planner/validator: a tool page with no tool component is held out of the plan** and filed
    as `capability_gap` naming the tool — the exact shape 444 just shipped for listing pages
    (`enforce_listing_sources`, migration 720, gate live 2026-09-02): a tool page's item source
