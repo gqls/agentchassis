@@ -349,3 +349,81 @@ block it either: retraction is computed from the fresh probe, not from the store
 So the stale-spec problem (§(i)) is narrower than I first wrote. It is a **reporting**
 defect — anyone reading `spec.missing` gets a claim of unknown age — not a blocker on the
 row ever clearing. Downgraded accordingly in the plan's item 2.
+
+---
+
+## 2026-09-02, late — the council APPROVED and was right twice
+
+Round 1, `3c71ec77-fd15-4aa1-a762-cc36116caca5`: **approved, 5 advisory objections, none
+high-severity**, 12 seats. Recording all five with what I did, because two of them found
+real defects and the approval is the less interesting half.
+
+**(gg) `render_guardian` (medium) + `editquality` (low): MY CSS VARIABLES WERE INVENTED.**
+The block referenced `var(--brand-accent,#000)` / `var(--brand-primary,#fff)`. No such
+custom properties exist anywhere on this estate. `[MEASURED 2026-09-02]` on four live
+stylesheets (cookly.uk, finetuning.uk, agritec.uk, webdesign.co.uk): 51 custom properties
+defined between them, `--brand-*` **0 occurrences**, `--color-primary` 12–19 each.
+
+  So the fallback would have fired on every page of every site: **hard-coded
+  black-on-white, while LOOKING like it inherited the brand.** Valid CSS, visible link,
+  nothing broken enough to notice — and I would have been quoting a fix that half-worked
+  for months. This is the seat's own remit and it earned its place.
+
+  Fixed to `var(--color-primary,#1a1a1a)` / `var(--color-primary-text,#ffffff)`, chosen
+  over the `--color-cta-*` and `--color-accent-*` pairs because it is the one that is a
+  contrasting pair *by construction* on all four sites (dark ground, `#ffffff` text),
+  where `--color-cta-bg` is a pale beige on three and a `linear-gradient` on the fourth.
+  New test pins every `var()` to a measured-real name **and** requires a fallback; proven
+  by mutation — reintroducing `--brand-accent` fails it.
+
+  **The lesson is the same one as this morning's mutation, one level up.** I wrote the CSS
+  from the shape of the LMC exemplar without checking that the *names* in it generalised —
+  and LMC is precisely the site that does not share the estate's stylesheet. **I copied an
+  exemplar's structure and assumed its vocabulary.**
+
+**(hh) `guardian` (medium): CSP.** An inline `<style>` is dropped silently on any site
+enforcing `style-src` without `unsafe-inline` — which would leave the link visible.
+Answered by measurement, not argument: **no site on this estate sends a
+Content-Security-Policy header at all** (probed cookly, finetuning, webdesign.co.uk,
+agritec, noted, loancalculator). And the estate is already built on inline style —
+`injectComponentCSS` puts one on every page — so this block adds no new exposure. If a CSP
+is ever introduced it breaks far more than this.
+
+**(ii) `bug_historian` (medium): is "retires 867" actually true?** The seat's point was
+sharp — my claim only holds for pages built through `assemblePage`, and a 14-page sample
+is not a census. Answered from the check's OWN recorded field rather than more curling:
+`spec.assembled` is written at filing time by `pageIsAssembled` (does the page have
+`page_components` rows). `[MEASURED 2026-09-02]` **968 of 978 rows are `assembled=true`
+across 31 sites — 99.0%.** The residual is 10 rows on 5 sites, and they are named, not
+described: 4 on ai-agent-orchestration.com, 3 on gaswholesalers.com, 1 each on
+finetuning.uk, idea.uk (`/tools.html#audience-check`) and robot-hands.com. All
+`["skip_link"]` except idea.uk's, which is `["skip_link","footer"]`.
+
+  **The evidence was already in the rows and I had not looked.** I answered a census
+  question by sampling served pages this morning when the check had recorded the answer
+  per-row at filing time.
+
+**(jj) `debug_historian` (medium): no deploy-verification gate before the fan-out.** Fair
+and now in the RUNBOOK as a two-stage gate. A fan-out against a pod still running the old
+binary re-renders the estate to identical bytes — expensive, green, indistinguishable from
+success.
+
+**(kk) `guardian` (medium) + `bug_historian` + `reuse_agent` + `architecture`: the
+`AssemblePageAction` second-path gap needs TRACKING, not a risk note.** The seat's words:
+*"this council has punished exactly this omission before on the same landmine family"* —
+`injectRobotsNoindex`, `injectCanonicalLink` and `injectPageJSONLD` have the identical
+split. The `architecture` seat called the fourth recurrence *"a mild signal that
+head-injection logic wants consolidating behind one entry point eventually — a future RFC
+candidate, not this patch's job"*, and agreed folding it in here would be scope creep.
+
+  **What I am NOT doing:** filing a `bugs_open/` entry asserting AssemblePageAction serves
+  live pages. I have not established that. What I measured is that 10 flagged pages have
+  no `page_components` rows, which is consistent with hand-built or adopted pages and does
+  **not** prove they came from that action. Filing a root-cause claim on that evidence is
+  the exact thing this estate's rules forbid. Tracked instead as an RFC candidate with the
+  claim stated at the strength the evidence supports.
+
+**(ll) `improvement_guardian`'s "missing" — how do the findings get retracted?** Already
+answered in §(ff), before the verdict came back: `resolveWorkItems` does not filter on
+`handler_agent`, so flag-only rows retract on a clean re-probe. Good question, and the one
+place I was ahead of the council rather than behind it.
