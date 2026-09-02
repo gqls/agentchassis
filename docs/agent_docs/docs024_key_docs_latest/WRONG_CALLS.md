@@ -57384,3 +57384,48 @@ invisible precisely when the rest of the work is good.
 **Tally:** **a-count-repeated-without-its-query** ×1,
 **a-two-armed-census-that-sums-below-the-total-has-a-broken-predicate** ×1,
 **a-subagent-report-is-another-doc** ×1.
+
+## 2026-09-02 — `news_editorial_features`: I reached for the built tool, read its answer correctly, and then generalised it past its own argument — one day after logging "reach for the built tool"
+
+**The claim.** Routing live customer damage on boxingonline, I ran
+`scripts/probe-page-url.sh boxingonline.com news-index`, got `CONTROL-FAIL:
+the invented URL returns 200, every 200 here is meaningless`, and told the
+receiving lane — **asking them to put it in the bug file** — that *"no fix on this
+site can be verified by status code; content is the only evidence there."*
+
+**What was true.** Measured on both hosts:
+
+| host | invented path | /news/index.html | bytes | "Hrgovic" |
+|---|---|---|---|---|
+| `boxingonline.ugg2.com` (the SERVING host) | **404** | 200 | 77,774 | 22 |
+| `boxingonline.com` (customer domain, parked) | 200 | 200 | **114** | 0 |
+
+The site is served from `boxingonline.ugg2.com` (`sites.publish_target=b2worker`),
+which **404s an invented path correctly** — status codes there are entirely
+meaningful. `boxingonline.com` is the customer's own domain, still parked, and
+catch-alls every path with a 114-byte stub.
+
+**So the tool was right and I was wrong.** `probe-page-url.sh` reported a true fact
+about the domain I HANDED IT. I restated it as a fact about **the site**, which is a
+different object — and in the direction that destroys a working control. Had it
+reached the bug file, the next person would have discarded status checks that work
+and hunted content diffs by hand.
+
+**Why this is a separate entry from yesterday's, and worse.** On 2026-08-31 I logged
+occurrence five of the composed-URL trap and generalised it to *"a built remedy only
+counts when it is reached for"*. This time I DID reach for it. The failure moved one
+step downstream: **a tool's answer is scoped to its ARGUMENT, and I widened it to the
+subject I was thinking about.** Using the tool is not the end of the discipline;
+carrying its scope with its verdict is.
+
+**The cheap check, and it is one line:** before repeating a tool's verdict, restate it
+with the argument still attached — *"an invented path 200s on boxingonline.com"*, not
+*"on this site"*. If the sentence cannot survive keeping the argument in it, the
+generalisation is doing work the measurement did not.
+Tally: generalised-a-tools-verdict-past-its-argument.
+
+> **The accurate lesson, which is the receiving lane's and belongs in the record in
+> their words: PROBE THE SLUG, NEVER THE CUSTOMER DOMAIN.** A customer domain that has
+> not cut over 200s everything and returns a stub; the publish target is what serves.
+> `sites.publish_target` / `publish_project` name it. The delivery lane had flagged
+> the same trap to them on 2026-08-31, so this is at least its third appearance.
