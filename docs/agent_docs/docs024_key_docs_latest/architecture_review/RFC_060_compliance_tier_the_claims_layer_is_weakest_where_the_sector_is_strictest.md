@@ -1,9 +1,10 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
-**Status: OWNER-DECIDED 2026-09-02 on Q1, Q2 and Q4; Q3's AXIS decided (semantic, not sector) with the
-vocabulary proposed below for confirmation. §3b ADDENDUM 2026-09-02 (Q5, new, undecided): the
-citation-recognition mechanism the RFC's own precondition fix relies on is finance-only and does not
-generalise to other regulated sectors as built. Nothing is built yet. See §3a, §3b.**
+**Status: OWNER-DECIDED 2026-09-02 on Q1, Q2, Q3 AND Q4 — the tier design is fully decided.**
+§3b ADDENDUM 2026-09-02 (Q5, new, undecided): the citation-recognition mechanism the RFC's own
+precondition fix relies on is finance-only and does not generalise to other regulated sectors as built
+— this is the one open question, and it does not block build order (ii)/(iii)/(i) on finance sites,
+only how far (ii) can safely extend beyond finance today. Nothing is built yet. See §3a, §3b.
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
 *"what can I do about the poisoned register hole, and shouldn't compliance be strong for sites that
@@ -164,6 +165,11 @@ mirroring `RegulatedAttestation`. A boolean nobody signed is unfalsifiable six m
 decision layer rather than sector specific"*. I agree, and the estate has already reached for the same
 thing twice without anyone joining them up.**
 
+**Q3 VOCABULARY — DECIDED 2026-09-02: the three-rung posture ladder below is approved as proposed**
+(`standard` / `sourced` / `relied_upon`, exact names and requirements). This closes Q3 fully — the
+axis (semantic, not sector) and the vocabulary are both now settled. Nothing left open on Q1–Q4; the
+one remaining question is §3b's Q5.
+
 ### Why sector is the wrong key for THESE three enforcements
 
 Read what (i), (ii) and (iii) actually respond to. None of them is about an industry:
@@ -293,6 +299,22 @@ guarantee — citations are still excluded from the numeric scan — only widens
 sourced from data instead of a constant, the same status `BannedClaims`/`AllowedEntities` already hold.
 Read as a normal build, not an RFC-blocking change on its own; recorded here because it gates (ii)'s
 safe scope and because the owner asked the question directly.
+
+## 3c. Where this leaves the build, now Q1–Q4 are settled (2026-09-02)
+
+The design is done; only Q5's shape (site-declared field vs. field + sector presets) is open, and it
+does not block starting. Three independent tracks, in the owner's chosen order:
+
+1. **Content work, unblocked, no code** — populate the five register-less finance sites named in §1b
+   (§4's own top recommendation). Does the most for the least risk and needs nobody's further decision.
+2. **(ii) register-required gate, scoped to FINANCE-tiered sites** — safe to build now: `fad209b92`
+   already covers the FCA codes those sites will cite. Extending the gate to `vetcomparison.uk` or any
+   future non-finance `sourced`/`relied_upon` site should wait for Q5, or it reproduces §1c's finding.
+3. **Q5 itself** — resolve the citation-code shape (plain per-site field is the smaller change; add
+   sector presets only once a second sector actually needs one, per this RFC's own instinct not to
+   design ahead of a second consumer).
+
+Then (iii) fact-quality floor and (i) severity follow, per Q2's decided order.
 
 ---
 
