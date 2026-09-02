@@ -58691,3 +58691,44 @@ an unsound proof and it pointed at the instrument that replaced it.**
 
 Family: a-claim-about-behaviour-is-not-the-behaviour, a-complete-work-item-is-not-a-repaired-artefact,
 writes-the-field-is-not-reads-the-field.
+
+---
+
+## 2026-09-02 — "settled via the work-item trail": the instrument I recommended to replace two bad ones was itself blind to half the population (bugfix 417/420 lane)
+
+**The claim.** My own handoff, written earlier the same day, said 417's disconfirmation A was
+*"2 for 2 … Settled via the **work-item trail**, which is insert-per-dispatch"* — and §6 told the
+next reader to use that trail *because* neither `assets.created_at` (frozen by UPSERT) nor
+`updated_at` (bumped by any write) is a regeneration signal. I had just been burned by both
+timestamps, filed a LANDMINES entry about them, and pointed everyone at the trail as the fix.
+
+**Why it was wrong.** The trail sees only regenerations that filed a `needs_imagery` work item.
+**boxingonline.com's 10:40Z regeneration filed no work item at all** — I checked every item type on
+that site since 2026-09-01 (22 `page_rerender`, one `owner_critique`, one
+`chrome_divergence_overwritten`, no imagery item). So a census keyed on the trail returns **one**
+regeneration on a day there were **two**, and the one it drops is the very case the whole lane was
+built around. The two-for-two conclusion was right; the stated method could not have produced it.
+
+**What caught it.** Running the trail query myself as a fresh session, against a population I
+already knew the answer to. It returned one row where I expected two. Had I trusted my own handoff
+and reported the trail's answer, I would have told the next reader that only advertise.co.uk
+regenerated today.
+
+**The cheap check I skipped.** *An instrument recommended as the fix for two broken instruments
+gets the same disconfirmation the broken ones got — run it against a case you already know.* I
+validated the timestamps against known cases and then promoted the trail on the strength of its
+*mechanism* ("insert-per-dispatch") rather than on a measurement. **A mechanism argument is a
+hypothesis about coverage, not a measurement of it** — "insert-per-dispatch" is true and says
+nothing about producers that dispatch without filing an item.
+
+**The instrument that actually works, and why it is different.** The storage key's own date
+directory: `substring(storage_path from 'images/[^/]+/([0-9]{8})/')`. It is sound *by construction*
+rather than by convention — `dynamic_adapter.go:717` mints `images/<client>/<YYYYMMDD>/<fresh
+uuid>.png` on every upload, so a regeneration cannot re-use an old key. It caught all four
+generations including boxingonline's. Blind spot, stated: operator-supplied rows
+(`scripts/amend-asset.sh`) have no dated generator key and return NULL. LANDMINES entry
+strengthened in place rather than added beside the old one, so the wrong advice cannot be read on
+its own.
+
+Family: a-report-is-not-a-measurement, a-claim-about-behaviour-is-not-the-behaviour,
+a-closer-census-cannot-see-what-it-succeeded-at, prove-a-deploy-at-the-artefact.
