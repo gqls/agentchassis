@@ -214,10 +214,33 @@ is a property of spreading work with no scheduler that owns the spread.
    writes only `scheduled_tasks.last_completed_at`. **No due predicate ⇒ no phase lock possible.**
    This residual is closed, not deferred.
 5. **Cost/capacity** — **DECIDED AND SHIPPED**, see §3. Cap left at 10; demand cut instead via
-   migration 701 (sources 6 h → 24 h). Fetch volume ~180 → ~73/day. ⚠ **Council verdict on 701
-   (corr `56c30292-3482-4d9c-8757-f287f1ef5a1b`) is still owed a read** — the change is already
-   live on the shared branch, so a REVISE must be acted on, not argued with:
-   `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
+   migration 701 (sources 6 h → 24 h). Fetch volume ~180 → ~73/day.
+   **Council round 1 returned REVISE; round 2 is submitted and its verdict is STILL OWED A READ.**
+   Corr `56c30292-3482-4d9c-8757-f287f1ef5a1b` (round 2 run `b6e45e9d`). ⚠ **The migration is
+   already applied and live**, so a further REVISE must be **acted on, not argued with**.
+   ```sql
+   SELECT created_at, left(body,400) FROM diagnosis_artifacts
+   WHERE kind='council_report' AND correlation_id='56c30292-3482-4d9c-8757-f287f1ef5a1b'
+   ORDER BY created_at DESC LIMIT 1;
+   ```
+   **Round 1's five objections and what was done** (full account: lane NOTES, 2026-09-02 ~19:00Z):
+   - *editquality HIGH, gating* — the sketch showed the guards as `--` comments while the rationale
+     claimed DO/RAISE, so they were unverifiable. **Right about the submission, wrong about the
+     file**; round 2 carries the real bodies plus the apply-time NOTICEs as proof they execute.
+   - *editquality MEDIUM* — the `UPDATE` is not scoped to news. **Real.** Answered: `content_sources`
+     is news-only today (73/73 rows on news sites; **2** live agent consumers; **6** Go query sites,
+     all content-feed). ⚠ **Answering it exposed a FALSE census of mine** — `LIKE '%content_sources%'`
+     over-matched `research_content.sources` because `_` is a LIKE wildcard, a trap already in
+     `LANDMINES.md` three times. `WRONG_CALLS.md` 2026-09-02 (b). **Forward half conceded**: nothing
+     enforces news-only scope and a column default cannot be conditioned on classification.
+   - *guardian MEDIUM* — both due-predicate layers must be live and the submission didn't say so.
+     Both **were** verified pre-apply; added to round 2. ⚠ **And the dependency is real: without the
+     look-ahead a 24 h interval silently becomes a ~30 h cadence** (skipped by the tick that fires
+     δ early, served one tick later) — the phase-lock arithmetic, one grid tick wider.
+   - *guardian LOW ×2* — Guard 1 binds only at apply time (now named in residual 1 above); removing
+     the sub-cadence control sites affects this lane's own census (disclosed in four places).
+   ⚠ The round-1 report also notes **"1 further check(s) dropped (max_checks=8) — coverage was
+   capped, not complete."** Do not read the objection list as exhaustive.
 6. **The bug file stays OPEN until…** — **DISCHARGED.** Its first condition (the acceptance test)
    is met; its second (four run-hours/day) is unreachable at the current cap and was **reassigned
    to `bugs_open/316`**, not dropped.

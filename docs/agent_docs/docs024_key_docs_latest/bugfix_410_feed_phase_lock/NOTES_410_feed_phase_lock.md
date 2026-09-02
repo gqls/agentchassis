@@ -502,3 +502,87 @@ silent is indistinguishable from LCO-009 breaking.
   the zero.
 - **relojistas and dartsonline lose their sub-6h sources**, so this lane's cadence censuses no
   longer have an always-due CONTROL site. Any future cadence measurement here has to find another.
+
+---
+
+## 2026-09-02 ~19:00Z — council returned REVISE on 701. Round 2 submitted. Two objections were REAL, and one of them caught a false census of mine
+
+**Verdict: `complete_revise`, gating objection from `editquality`, round 1** (corr
+`56c30292-3482-4d9c-8757-f287f1ef5a1b`). Five objections across two seats. ⚠ The report also says
+*"1 further check(s) dropped (max_checks=8) — coverage was capped, not complete."*
+
+### The gating objection (editquality, HIGH) — right about the submission, wrong about the file
+
+> *"the sketch shows Guard 1/2/3 and the final VERIFY block as bare `--` comments only … with no
+> actual DO/RAISE EXCEPTION code. If the real file matches the sketch, the guards are decorative
+> and the exact trap the plan claims to dodge is unaddressed — a comment is not an edit."*
+
+**Accepted without argument.** The file genuinely has three `DO $$ … RAISE EXCEPTION … END $$;`
+blocks and a DO-block verify — but my *sketch* abbreviated them to comments while the rationale
+claimed DO/RAISE, so a reviewer could not tell a real guard from a decorative one. **They judge
+the plan as submitted.** This is the estate's own "a claim about behaviour is NOT the behaviour"
+family, committed inside a submission that cites that very trap.
+
+Round 2 carries the file's actual content, plus the proof the guards execute: **applying it
+emitted the DO blocks' own NOTICEs**, and a bare `SELECT` cannot emit a NOTICE.
+
+### The scoping objection (editquality, MEDIUM) — REAL, and answering it exposed a false census of MINE
+
+> *"the UPDATE … has no scoping predicate tying it to the 14 news sites … nothing asserts
+> content_sources is exclusively news-scoped, so a future non-news consumer would be silently
+> retargeted to 24h."*
+
+Answered on the facts, **and I got the answer wrong the first time.** Full account in
+`WRONG_CALLS.md` 2026-09-02 (b). Short version: I censused consumers with
+`LIKE '%content_sources%'`, got **three** agents, and told the owner in chat that the objection
+was *"more right than it looked"*. There are **two**. `_` is a **single-character wildcard in
+LIKE**, so the pattern matched `research_content.sources`:
+
+```
+'research_content.sources' LIKE '%content_sources%'  -->  t    (phantom)
+'research_content.sources' ~    'content_sources'    -->  f    (correct)
+```
+⚠ **That trap is in `LANDMINES.md` THREE TIMES (lines 1987, 5406, 14578)** and 14578 is nearly my
+exact case. I hit it anyway because **the SessionStart hook only matches landmines against files
+already DIRTY in the tree** — it cannot match a table name or a SQL construct. Grepping LANDMINES
+for the construct is the one-command check I skipped.
+
+**Corrected census `[MEASURED 2026-09-02]`, with a positive control:**
+
+| | result |
+|---|---|
+| rows on news-classified sites | **73 of 73** (all active); **0** not |
+| live agent consumers (`~ 'content_sources'`) | **2** — content-feed-orchestrator, content-feed-trigger |
+| Go files *mentioning* it | 12 |
+| Go files that actually **query** it (`FROM`/`INTO`/`UPDATE`) | **6**, all content-feed |
+| `provocation_generator_action.go` | **mentions only** — its real query is `content_feed_items` |
+
+**So the table is news-only today. The forward half of the objection stands and is conceded:**
+nothing *enforces* it, and a column default cannot be conditioned on site classification, so a
+future non-news consumer inherits 24h. Recorded rather than dropped.
+
+### The guardian's objections
+
+- **MEDIUM — "neither the guards nor grounded_in confirm BOTH due-predicate layers are live."**
+  **Right that the submission didn't carry it**; both *were* verified before applying (config query
+  read in full; capability probe on both v1.0.1354 replicas with negative and positive controls).
+  Added to round 2. And the concern is well-founded, not theoretical: **the 24h interval DEPENDS
+  on the look-ahead.** Without it a source due at fetch+24h is skipped by the pass at trigger+24h
+  (which fires δ early) and served at trigger+30h — **a 24h interval would silently become a ~30h
+  cadence**, the same phase-lock arithmetic one grid tick wider.
+- **LOW — Guard 1 binds only at apply time.** Accepted; now named explicitly in HANDOFF §5
+  residual 1, which lists both things the unbuilt parity check must guard.
+- **LOW — removing the sub-cadence control sites affects 410's census tooling.** The affected
+  census is this lane's own, and it is disclosed in four places. Mitigated by telling the owning
+  consumer, per the 2026-07-29 ruling that consumers must be **told**, not merely measured.
+
+### Round 2
+
+Resubmitted on the SAME correlation so the trail accumulates (`RESUBMIT_CORR`), run
+`b6e45e9d-d8b2-46e0-bd1d-be53764546de`, orch `5de9528c-0879-449c-a23d-eea7795070c5`. **Verdict
+still owed a read.** ⚠ The migration is already applied and live, so a further REVISE must be
+acted on, not argued with.
+
+**Worth recording plainly: this round paid for itself.** Two of five objections were real —
+one caught a submission that misrepresented its own file, the other pushed me into a census that
+turned out to be false. Neither would have surfaced from re-reading my own conclusion.
