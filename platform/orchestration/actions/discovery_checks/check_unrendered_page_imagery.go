@@ -53,6 +53,29 @@
 // derivation. Re-deriving it here (or in SQL) is exactly the two-derivations
 // defect that poisoned sites.content_data for a month (bugs_open/114, GAP 1,
 // register IMG-072). One rule, one writer.
+//
+// ⚠ THE FUNCTION'S OWN LANDMINE, READ BEFORE TRUSTING IT (council round 1's
+// gating objection — rightly: it was cited here unread). LANDMINES.md carries
+// an entry keyed on `storage.DeployedWebPath` ("silently WRONG for og_card,
+// right for favicon by coincidence"). Its status header: FIXED AND LIVE on
+// chassis v1.0.1229, pod-verified — "THE TRAP BELOW IS HISTORY"
+// (bugs_closed/168, IMG-067). Two further reasons it cannot bite this check
+// even on an older binary: the historical defect covered ONLY the two
+// brand-head purposes ("It is the correct answer for every purpose except the
+// two brand-head artefacts"), and this check's population is content-hero
+// keys, never brand-head. The entry's surviving guidance — brand-head
+// references live in site_components, everything else compares against
+// page_components — is exactly the comparison surface used below.
+//
+// WHY A FOURTH IMAGE-STATE CHECK DOES NOT OVERLAP THE TWO GENERATION
+// NEIGHBOURS (the reuse seat's question, answered by premise rather than by
+// census): check_placeholder_image_in_use fires when the site's canonical hero
+// asset is ABSENT or a placeholder, and files generation;
+// check_unfulfilled_image_prompt fires when a site_specs prompt has NO asset,
+// and files generation. Both trigger on an asset that does not exist. This
+// check triggers ONLY on an asset that DOES exist (active, under the page's
+// own key) — the existence probe that admits a page here is the same fact
+// that silences them, so the populations are disjoint by construction.
 
 package discovery_checks
 

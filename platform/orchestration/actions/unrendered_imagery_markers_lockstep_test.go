@@ -13,6 +13,15 @@
 // the meantime: either list changing alone breaks the build, in this package,
 // where both are visible. If the 357 lane moves the list into discovery_checks,
 // delete this test and the private copy together.
+//
+// ⚠ OWNERSHIP OF A FAILURE HERE (the council guardian seat asked for this to
+// be unmissable): if this test fails after you edited interactiveStructuralMarkers
+// in save_page_sections_action.go, the failure is NOT unrelated breakage in a
+// package you did not touch — it is THIS coupling doing its job. The remedy is
+// to apply the same edit to discovery_checks.InteractiveStructuralMarkers (or
+// to single-source the list, above), never to skip or delete this test alone.
+// Consumers of the mirror as of 2026-09-02: check_unrendered_page_imagery
+// (classification) and wire_page_hero_on_landing (the fragment refusal).
 package actions
 
 import (
