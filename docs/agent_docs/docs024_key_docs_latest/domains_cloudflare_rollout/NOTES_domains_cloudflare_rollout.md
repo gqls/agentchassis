@@ -711,3 +711,17 @@ once the site serves — no cleanup needed.
   valuation lane's priority list (financial + home-garden categories first —
   they will send it). Reset window unknown ("try again tomorrow", timezone
   unstated) — the first 200 of the day dates it.
+
+## 2026-09-02 (night) — completeness item CLOSED: list_domain confirmed complete, the estate GROWS under the census
+
+- Owner read the control panel: **452** vs our morning **451**. Fresh `list_domain`
+  re-pull: **453** — `overhead-cranes.com` + `paper-cups.com` added since the
+  morning pull, ZERO gone. So the API is complete and every discrepancy was pure
+  ADDITION (the panel's 452 was itself a snapshot between the two arrivals) —
+  the CLAUDE.md census rule illustrated live, twice in one day. Owner: "domains
+  are being added on occasion" — treat ANY Dynadot count as dated the moment it
+  is written, and re-pull before a pricing/import sheet finalises.
+- `inbound/dynadot_domains_2026-09-02.csv` regenerated at 453 rows (same-day
+  refresh of a same-day snapshot); both lanes notified. The two new names are
+  not in the valuations CSV, so tomorrow's walker picks them up automatically
+  (153 inventory + 1 cross-registrar test = 154 of 300).
