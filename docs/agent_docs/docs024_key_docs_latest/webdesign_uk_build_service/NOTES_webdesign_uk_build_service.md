@@ -7395,3 +7395,25 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   on this site: slots collapsed now; decks + clean titles arrive with the
   producer fix. Peer's ledger note: four claims overturned today, three caught
   after sending — their honest framing, both halves recorded here.
+
+## 2026-09-02 (~16:1xZ) — UN-STRIKE the archive instrument (fifth reversal): the query was broken, not the tool
+
+> **CORRECTED 2026-09-02 (the strike two entries up is itself corrected):** the
+> archive instrument WORKS. page_component_history.component_id is NULL on
+> 44,555/45,285 rows (98.4%) — the "zero rows ever" filtered on that column
+> and returned zero for a reason unrelated to archiving. **Keyed on page_id
+> (NOT NULL, adjacent), the archive corroborates the fingerprint exactly**:
+> rows for all 10 completed pages at the precise rerender minutes (boxingonline
+> guides-index 13:58, index 13:59), none for the 4 cancelled. Two independent
+> instruments now agree on the 10/4 split. The rule stands with two bounds:
+> **join on page_id, and check the column you filter on is populated before
+> trusting a zero from it.**
+- The meta-lesson, theirs, worth the whole day: **"a sound methodological rule
+  reasoning from a false premise produces a confident, quotable, wrong
+  conclusion"** — and it travelled into these notes inside the hour BECAUSE it
+  was well-phrased. Five of their claims overturned on one bug today; the
+  selection rule survives all five (every fallen instrument read a column or a
+  table about a column — twice including readings OF the table that reads the
+  artefact).
+- Verified position unchanged: post-682 serving on both pages, slots gone,
+  suffix = producer miss, fe4b8537 running.
