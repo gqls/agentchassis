@@ -12,7 +12,8 @@ state of everything this lane touched on 2026-09-02.
 
 ## 0. STOP — three things about the environment before you act
 
-1. **The kubeconfig token EXPIRED at ~22:08 BST 2026-09-02.** Every `kubectl` call returns
+1. ~~**The kubeconfig token EXPIRED at ~22:08 BST 2026-09-02.**~~ **RESOLVED — the owner refreshed it the same evening, and every §0/§7 item below was then verified; results in §9.** The original text is kept because the expiry produced the session's cleanest demonstration of why a probe needs a must-be-present control (see §9).
+   ~~ Every `kubectl` call returns
    `You must be logged in to the server (Unauthorized)` — `get`, `exec`, psql-through-exec, all of
    it. **The owner refreshes it.** Nothing in this handoff can be re-verified at the cluster until
    he does. Every figure below carries the date it was measured, all before expiry.
@@ -204,3 +205,41 @@ edit (under-decomposition produces unusable multi-panel images).
 - peer lanes: `inline_guide_imagery` (in-body imagery, IMG-075/644), `bugfix_114_imagery_wiring`
   (owns 114, built IMG-077), `designblog_couk` (owner critique, 18 remakes queued),
   `site_delivery_and_editor` (owns the boxingonline pipeline — this lane dispatches nothing there)
+
+---
+
+## 9. POST-ROLL VERIFICATION — done 2026-09-02 after the token refresh
+
+**All of §7's items 1–3 are discharged. Nothing below changes §2–§4.**
+
+**035 P1 SHIPPED in `v1.0.1355`.** Fully-controlled binary probe, controls on OPPOSITE sides
+(`LANDMINES.md:492` — never ship a probe whose controls are all on the same side):
+
+| symbol | result | role |
+|---|---|---|
+| `PlanSectionsAction` | **PRESENT** | must-be-present control ✓ |
+| `zzzInventedControl_NotInAnyBinary` | absent | must-be-absent control ✓ |
+| `rerenderFlatSections` | **PRESENT** | the P1 extraction (`2a0bdb001`) |
+| `hierarchyChildrenOf` | **PRESENT** | membership helpers (`bc8167100`) |
+| `recomposeAncestors` | absent | **NOT a missing commit** — see below |
+
+⚠ **`recomposeAncestors` reads absent because it has NO CALLER** — every source hit is inside its own
+definition, so Go's linker eliminates it. `3fd617ef6` is in the tree. **An absent capability literal
+means "not reachable in this build", never "the commit did not ship."** P1's wiring is still
+incomplete, which is the true statement that absence encodes.
+
+⚠ **Two probe hazards hit in one session, both worth inheriting.** (a) When the token expired, ALL
+FIVE symbols read `absent` **including `PlanSectionsAction`** — without that control, "P1 did not
+ship" is what you would have written down. (b) `LANDMINES.md:6277`: BusyBox `grep` over `/proc/1/exe`
+needs **100–120s PER GREP**, and a grep killed by the command timeout is **indistinguishable from a
+negative**. Do not chain several greps in one 2-minute call — run them singly.
+
+**Migration dry-run (mandated after every roll): `Pending (176)`**, up from **164** pre-roll — 12
+files accumulated in a day. **And the number that actually matters for `bugs_open/426`: the runner
+flags 34 files `LIKELY ALREADY APPLIED; its own guard raised`** — i.e. applied by hand and never
+recorded, which is the replay hazard that blocked the runner for three days once. 426's §8 left the
+fleet-wide figure `[UNMEASURED]`; **34** is it. Contributed to that bug.
+
+**686 rollback survived the roll**: `article-body` still md5 `002cbcd9cada6a37bf4a5158fd1e5f22`,
+len 1378, `hero_image_url` absent. **Migration 708 still NOT applied**, so IMG-077 remains inert
+despite the roll it was waiting for — that is the 114 lane's to apply, not this one's.
