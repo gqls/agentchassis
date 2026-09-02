@@ -196,3 +196,32 @@ smaller sections that can each hold one. That is a change to live pages on a sit
 owns, they know it is theirs, and they have resized their own work accordingly. It is also the
 first page in the estate that would be built that way, so it is an experiment rather than
 following a pattern — I have said so to them plainly rather than handing over a confident recipe.
+
+## 2026-09-02 (later) — correcting the entry above: the system HAS started using the new building block
+
+An hour after writing the entry above I checked one more column and it changes the conclusion, so
+here it is straight away rather than buried in a later update.
+
+I told you that only one page in 442 can hold a picture beside each section, and implied that the
+system never reaches for the piece that can. **The first half is true. The second is wrong.**
+
+The change made on 26 August that taught the page planner to notice this building block **worked**.
+Since that date the planner has chosen it on **six sites in seven days** — one of them five hours
+after the change went in, and two of them today. It is being adopted steadily and nobody had
+noticed, including me, because I counted how many pages have one and never asked when they
+appeared.
+
+**What is actually missing is narrower and much cheaper than I made it sound.** Of the nine pages
+that use it, eight are *home pages* using it once, as a single illustrated panel. Not one is an
+article or a guide. So the planner has learned to reach for an illustrated section once on a
+landing page, and has never been asked to build an *article* out of several of them — which is
+exactly what your guides need.
+
+That is a question about how the planner composes articles, not about anything missing from the
+system, and it now has a working precedent to point at rather than being a from-scratch ask. It
+also lines up with what the other imagery thread found today from a completely different angle:
+whatever the planner is doing with articles specifically is where the remaining problem lives.
+
+**The correction I'd want you to take from this:** my previous note would have had you believe we
+build things nothing uses. On this occasion that was my error, not the system's — the counting was
+right and the conclusion I drew from it was not.
