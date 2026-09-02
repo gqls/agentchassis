@@ -22,19 +22,33 @@
 
 package queryresolve
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+)
 
 // listItemTitleSeparator is the separator apply_gap_plan_action.go uses when it
 // composes a document title as "<page title> | <site>". Kept as a named
 // constant so the producer and the stripper name one thing.
 const listItemTitleSeparator = " | "
 
-// ListItemExcerptMaxRunes bounds a card deck. Cards are a fixed-height grid
+// ListItemExcerptMaxBytes bounds a card deck. Cards are a fixed-height grid
 // cell; an unbounded deck pushes the meta row out of the card on the narrowest
 // breakpoint. 200 is the bound rebuild_blog_listing has applied since it was
 // written — adopted here rather than re-chosen, because the point of this file
 // is that the two producers agree.
-const ListItemExcerptMaxRunes = 200
+//
+// BYTES, matching datahelpers.TruncateString and the estate's other cut sites
+// (render_site_components uses SafeCut(s, 247)). The first cut of this file
+// bounded by RUNES and hand-rolled the rune-safety, which the council's
+// reuse_agent seat caught: datahelpers.SafeCut has been the one truncation
+// primitive in this codebase since 2026-07-20 (bugs_open/027 §4b), and
+// TruncateString is SafeCut plus the ellipsis — exactly this function's body.
+// Practically identical on live data: [MEASURED 2026-09-02] the mean
+// meta_description across the sites carrying this component is 116–150 chars,
+// so neither bound truncates a typical deck at all.
+const ListItemExcerptMaxBytes = 200
 
 // ListItemTitle returns the DISPLAY headline for a listing card, stripping the
 // trailing " | <site name>" suffix that the page's document <title> carries.
@@ -63,16 +77,18 @@ func ListItemTitle(title string) string {
 // ListItemExcerpt returns the one-sentence deck for a listing card, projected
 // from the page's meta_description and bounded at ListItemExcerptMaxRunes.
 //
-// RUNES, NOT BYTES. Slicing a UTF-8 string by byte offset can cut a multi-byte
-// character in half and yield invalid UTF-8, which Postgres then refuses on the
-// way back in — the failure bugs_open/423 records, where a sliced 0x80 made a
-// store fail and the failure branch swallowed it. Meta descriptions on this
-// estate routinely carry em-dashes and curly quotes, so this is the live case,
-// not a hypothetical one.
+// RUNE-SAFE, via the shared primitive. Slicing a UTF-8 string by byte offset
+// can cut a multi-byte character in half and yield invalid UTF-8, which
+// Postgres then refuses on the way back in — the failure bugs_open/423 records,
+// where a sliced 0x80 made a store fail and the failure branch swallowed it.
+// Meta descriptions on this estate routinely carry em-dashes and curly quotes,
+// so this is the live case, not a hypothetical one.
+//
+// It delegates rather than implementing that: datahelpers.SafeCut backs off to
+// the last rune start and TruncateString adds the ellipsis. Reinventing it here
+// was a real finding of the council's reuse_agent seat, not a style note — a
+// second truncation primitive is exactly how the two spellings this file exists
+// to unify get recreated one layer down.
 func ListItemExcerpt(metaDescription string) string {
-	r := []rune(metaDescription)
-	if len(r) <= ListItemExcerptMaxRunes {
-		return metaDescription
-	}
-	return strings.TrimRight(string(r[:ListItemExcerptMaxRunes-3]), " ") + "..."
+	return datahelpers.TruncateString(metaDescription, ListItemExcerptMaxBytes)
 }

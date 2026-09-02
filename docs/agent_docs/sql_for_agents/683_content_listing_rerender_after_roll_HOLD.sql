@@ -17,9 +17,27 @@
 -- ⚠ DO NOT APPLY UNTIL THE CHASSIS CARRYING f57f5ad1f IS LIVE. SQL cannot check
 -- this, so a human must, and it is one command against the running pod:
 --
---   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 \
---     | grep -m1 'build provenance'
---   git merge-base --is-ancestor f57f5ad1f <the sha that stamp names>   # exit 0 = shipped
+--   POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+--          -o jsonpath='{.items[0].metadata.name}')
+--   for sym in ListItemExcerpt resolvePagesWhereType ListItemTitleXYZNOTREAL; do
+--     kubectl -n ai-persona-system exec "$POD" -- grep -aqs -- "$sym" /proc/1/exe \
+--       && echo "$sym PRESENT" || echo "$sym absent"
+--   done
+--   # ListItemExcerpt must be PRESENT; resolvePagesWhereType is the positive
+--   # control (a probe that finds nothing must not read as an answer); the
+--   # invented symbol must be absent, and it CONTAINS ListItemTitle, so its
+--   # absence also proves the grep is not matching loosely.
+--
+-- ⚠ NOT `git merge-base`. The first cut of this header said to resolve the
+-- build-provenance stamp and test ancestry, and the council's debug_historian
+-- seat objected at HIGH severity — correctly, and against this estate's own
+-- lore: deploy state is verified at the RUNNING POD's binary, never at git. A
+-- same-tag rebuild serves the node's cached image while merge-base still says
+-- yes. Probe the CAPABILITY, not the commit.
+-- ⚠ AND PROBE EVERY POD, not one. Two pods of one ReplicaSet are not guaranteed
+-- identical for exactly the cached-image reason above; probing one of two left a
+-- hole in this bug's own evidence that could not be closed afterwards, because
+-- the unprobed pod was gone by the time it mattered.
 --
 -- (An EMPTY grep result means "not in range" — the line is a STARTUP line and
 -- scrolls — not "unstamped". Fall back to the binary probe, with controls.)

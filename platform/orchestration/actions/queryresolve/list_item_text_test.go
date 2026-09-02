@@ -43,8 +43,8 @@ func TestListItemExcerptPassesShortTextThrough(t *testing.T) {
 func TestListItemExcerptBoundsLongText(t *testing.T) {
 	in := strings.Repeat("a", 500)
 	got := ListItemExcerpt(in)
-	if n := utf8.RuneCountInString(got); n != ListItemExcerptMaxRunes {
-		t.Fatalf("bounded deck is %d runes, want %d", n, ListItemExcerptMaxRunes)
+	if n := len(got); n > ListItemExcerptMaxBytes+3 {
+		t.Fatalf("bounded deck is %d bytes, want <= %d", n, ListItemExcerptMaxBytes+3)
 	}
 	if !strings.HasSuffix(got, "...") {
 		t.Fatalf("bounded deck does not end in an ellipsis: %q", got)
@@ -65,8 +65,8 @@ func TestListItemExcerptNeverSplitsAMultiByteCharacter(t *testing.T) {
 	if !utf8.ValidString(got) {
 		t.Fatalf("ListItemExcerpt produced invalid UTF-8")
 	}
-	if utf8.RuneCountInString(got) != ListItemExcerptMaxRunes {
-		t.Fatalf("got %d runes, want %d", utf8.RuneCountInString(got), ListItemExcerptMaxRunes)
+	if len(got) > ListItemExcerptMaxBytes+3 {
+		t.Fatalf("got %d bytes, want <= %d", len(got), ListItemExcerptMaxBytes+3)
 	}
 
 	// Control: the byte-slice rule this replaced DOES corrupt this input, so a
