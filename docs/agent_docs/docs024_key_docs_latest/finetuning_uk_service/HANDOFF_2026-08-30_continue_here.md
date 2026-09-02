@@ -111,6 +111,38 @@ Stripe.
 | 6 | Stripe | **LAST, and he does it himself** |
 | 7 | Header nav | Done — Contact + How We Work displaced, "Your Own Model" live in the header |
 
+## ⚠ PRECONDITION for the booking-flow page — this site's classification spec is a legacy shape
+
+Flagged by the `site_design_planner` lane from `bugs_open/431`, and **verified here rather than
+taken on report** `[MEASURED 2026-09-02]`:
+
+finetuning.uk's `classification` spec was written **2026-04-18** by `domain-research-classifier`
+and has **no `category` and no `industry_tags`** (checked with explicit `?` tests, both false).
+Fleet context: **29 of 34 sites carry the modern shape** (both fields, from 2026-06-05 onward);
+**4 still carry this legacy one**, this site among them.
+
+**Why it matters here and nowhere else yet:** it only bites when a `needs_composition` re-resolve
+runs — and **the booking-flow page is the next thing on the list that would trigger one.** Before
+commit `bd8e45aba` (council-approved, NOT yet rolled) the layout resolver sees zero signal from
+those fields and falls back to a **generic layout**. So a new booking page built today would get a
+worse layout for a reason nothing would report.
+
+**Deliberately NOT fixed on 2026-09-02, and the reasoning is worth keeping:**
+- Nothing is blocked right now; the peer flagged it as not urgent and it is latent.
+- The spec is `domain-research-classifier`'s output. Re-running the classifier is the framework
+  route but risks churning `suggested_style` (`professional-dark`) and `site_type`, which feed
+  design — the colour-churn class this site already has a pin against.
+- Hand-adding the two fields is additive and safe, but it is a classifier-owned spec, and doing it
+  on a peer's tip while nothing is blocked is a change nobody asked for.
+- **`bd8e45aba` may change how the resolver treats missing fields.** Fixing this AFTER that rolls
+  means fixing it against the resolver that will actually run.
+
+**So: do it as step 0 of the booking-flow page, not before.** The modern shape, for reference —
+`category` is the `site_type` value (`"brochure"` here) and `industry_tags` is a slug list; the
+nearest comparators are `fundamentallyai.com` and `webdesign.uk`, both `brochure`, both B2B
+services. Check whether `bd8e45aba` has rolled first; if it has, re-read its behaviour before
+deciding the fields are still needed.
+
 ## Next session, in order
 
 1. **Ask him to refresh the kubeconfig token** — nothing DB-side can be done without it.
