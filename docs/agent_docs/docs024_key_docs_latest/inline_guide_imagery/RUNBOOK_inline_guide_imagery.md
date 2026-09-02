@@ -125,7 +125,7 @@ SELECT current_step, status, updated_at FROM orchestration_states
 
 ```bash
 POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis --no-headers -o custom-columns=NAME:.metadata.name | head -1)
-for sym in PlanSectionsAction sectionRefForOrdinal sectionOrderAgrees sectionRefForOrdinalNOTREAL; do
+for sym in PlanSectionsAction sectionRefForOrdinal planSectionOrder sectionOrderAgrees newSectionRef NextOccurrence sectionOrderAgreesNOTREAL; do
   kubectl -n ai-persona-system exec $POD -- grep -aq "$sym" /proc/1/exe && echo "PRESENT $sym" || echo "absent  $sym"
 done
 ```
@@ -136,6 +136,8 @@ prompt text describing the check, so a careless grep returns a hit that looks li
 the binary, and always run BOTH controls (`PlanSectionsAction` must be present,
 `sectionRefForOrdinalNOTREAL` must be absent) — a grep that matches everything and a grep that
 matches nothing produce the same confident answer otherwise.
+
+⚠ **Probe the symbols of the round you are checking, not the round you remember.** `debug_historian` flagged this on IMG-075's round 3: the probe recorded here originally listed only round 1's symbols (`sectionRefForOrdinal`, `planSectionOrder`), which are PRESENT on `v1.0.1351` and `v1.0.1352` while round 2/3's guards (`sectionOrderAgrees`, `newSectionRef`, `NextOccurrence`) are absent from both — so the old list returns all-present on a binary carrying half the change, and reads as a clean deploy.
 
 ⚠ Probe the **capability** (a symbol the change introduced), not the commit sha: the stamp names
 one commit, so a sha probe answers "was the build cut exactly here", which is not the question.
