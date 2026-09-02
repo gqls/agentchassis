@@ -12052,9 +12052,45 @@ code change owed at the next roll, tracked in RFC_015 §5.
   arming.** The loancalculator lane did exactly this for migration 707 (8/8 fired against real
   copy, then a 0-match census over all 28 served pages so arming could not refuse a current
   save) — that is the practice this entry is asking for, and it is currently the ONLY thing
-  standing between a typo and an inert guard. The unbuilt option, if someone wants to close it
+  standing between a typo and an inert guard. ~~The unbuilt option, if someone wants to close it
   properly: compile-check the patterns at the admin door, or add a data-driven sweep to
-  `cmd/claimscan`. Nothing has fallen through yet, which is why it is recorded rather than built.
+  `cmd/claimscan`. Nothing has fallen through yet, which is why it is recorded rather than
+  built.~~ **SUPERSEDED WITHIN THE HOUR — and the supersession is the useful half; see below.**
+- > **AMENDED 2026-09-02, same day, by the loancalculator_couk lane — and the amendment is the
+  > useful half.** My first version of this entry named the remedy as *recorded practice* plus two
+  > unbuilt options (compile-check at the admin door, or a sweep in `cmd/claimscan`), on the
+  > grounds that a clean census does not justify new platform surface. **That reasoning was about
+  > the wrong thing.** (1) Practice-as-remedy is prose-as-control, which this estate has ruled on
+  > twice in ways that bite exactly here — *"a comment is not a control on a tree this many
+  > sessions share"* (owner ruling 2026-08-02 §2), and RFC_006's shape, where a CI-time check
+  > **structurally cannot** gate live config so the ruled fix was a DAILY RUNTIME check, not a
+  > better document. `TestEveryGlobalPatternIsAValidRegex` is precisely the CI half; the
+  > data-authored population needs the runtime half. (2) The remedy depends on every future seed
+  > author reading this entry before touching `banned_claims`, and **today's five hand-authored
+  > sets arrived through THREE lanes in one afternoon** — that author population is the one that
+  > skims. (3) The failure mode is maximally silent *by construction*: an inert pattern yields no
+  > finding, no error, and a green scan indistinguishable from clean copy, which is the
+  > `a-pass-from-a-blind-check-outlives-the-blindness` class. **A guard whose failure mode is
+  > silence is the strongest candidate for mechanical verification there is.**
+- **The insertion point that costs no new surface, verified 2026-09-02 rather than assumed:** the
+  daily `evidence-freshness` task (`scheduled_tasks`, `interval_seconds` 86400, enabled, last
+  completed 2026-09-02 09:08:58) runs `RefreshEvidenceBaseAction`, whose `resolveEvidenceSites`
+  selects **every** site with a current `evidence_base` when `input_data` is `{}` (it is) and no
+  `pre_query` is set (there is none) — `refresh_evidence_base_action.go:278`, then loads the whole
+  register document per site at `:325`. So a compile pass over `data->'banned_claims'`, compiling
+  each pattern exactly as `claims.go:348` does and filing one finding where `Compile` errors and
+  the QuoteMeta fallback would engage, is **a few lines inside a loop that already runs daily over
+  the right population** — no new schedule, no new door, no new selection query. That converts the
+  one-time census above into the standing version of itself, which is the census→cron pattern the
+  estate has already shipped twice (RFC_006, WFA-013). Prefer it over a `cmd/claimscan` sweep for
+  the measured reason that *detection works; schedule and dispatch do not* — a sweep someone must
+  remember to run is the failure mode, not the fix.
+  ⚠ **Two traps for whoever builds it**, both already paid for elsewhere: file with
+  `ON CONFLICT DO NOTHING` and never `DO UPDATE` — a daily re-write bumps `updated_at` and makes
+  the row **unreapable for ever** (`bugs_closed/213`) — and key the item on the FINDING, not the
+  site, or one site's second bad pattern is invisible behind its first.
+  **The seam belongs to the claims-verification lane; this entry records the argument and the
+  costing, it does not reserve the work.**
 - **`[MEASURED 2026-08-17, remortgagecalculator.uk pilot seed]`:** all **6 of 6** patterns inert on the first apply. The seed's own verify block asserted `jsonb_array_length(banned_claims) = 6` and **passed** — a count comes out identical whether the guards work or not, which is the same shape as `WRONG_CALLS`' "a `[MEASURED]` figure is only evidence if it could have come out otherwise".
 - **the check — probe, never count.** Assert BEHAVIOUR with strings that must match *and* strings that must not (a guard matching everything is as broken as one matching nothing, and only the pair tells them apart). **Do it in Go, not SQL:** Postgres ARE and Go RE2 disagree on word boundaries — PG spells it `\y`, and `\b` is *backspace* — so a `psql … ~ pattern` probe is a check in the wrong engine and will lie to you in both directions. Worked pair: `datahelpers/claims_banned_pattern_escaping_test.go` (semantics, compiled exactly as production does) + the seed's own structural guard.
 - **for the structural half, avoid `LIKE` entirely — use `position()` + `chr(92)`.** In `LIKE`, backslash is itself the default ESCAPE character, so `'%\b%'` means *"the letter b"* and would pass on any pattern containing `b`; `position(chr(92)||'b' in p) > 0` has no escape semantics to reason about. `chr(92)` also survives an authoring channel that rewrites `\uXXXX` into the character it denotes — which is how the same file's `£` check ended up searching for `£`, the very thing it was meant to confirm, and refusing correct data twice (MEMORY: `escape-sequence-emission-trap`).
