@@ -35,3 +35,17 @@ at the DB row AND the served page before the remainder. Files:
 design notes `bugfix_357_component_identity/DESIGN_2026-09-02_migration_701_notes.md`.
 Questions or objections → the 357 lane (session `bugs_open/357`), or into
 `bugs_open/357_HANDOFF_2026-08-22_….md` directly.
+
+---
+
+**CLOSED OUT, same day (~22:00Z):** the owner applied 701 (pilot `tool-simple` first, then
+the remainder); all 11 of your rows repointed with bytes unchanged (md5-verified), served
+pages 22/22 green fleet-wide, `bugs_closed/357` at population 0. Your improvement loops ran
+throughout and nothing collided — the day's rebuild waves added planned `generic-text-block`
+sections beside several tools and Layer 2 preserved every tool byte-identically. Two standing
+facts for your lane: (1) `tool-equity-release`'s adopted component is a FORK of the library
+row, and your site also holds the older unplaced fork `befacff0…` — two site copies of one
+library identity, disclosed to council, harmless, visible to any future fork audit; (2) your
+ten other tools' adopted components are now fleet-wide library claims on their function
+names. Rerender caveat worth keeping: `spec.reason` is PARSED against five literals
+(016b §10 row 404) — the 701 file is corrected to `template_changed` for any re-run.
