@@ -212,3 +212,73 @@ dropped the fix from the configuration half, the only symptom would be sites dri
 twelve hours, and we would find out the slow way. Building that check is a small piece of new
 platform work that needs its own review round. **I did not build it, and I did not hold the bug
 open for it** — but it is the one real gap and I would rather name it than let it disappear.
+
+---
+
+## 2026-09-02, evening — you chose 24 hours, and it is done
+
+You said reduce the frequency to 24 hours and leave the cap alone. That is now live.
+
+There was one fork worth being careful about, because "24 hours" could have meant two different
+things and only one of them is any good. **The refresh pass** could run once a day, or **each
+site** could become due once a day while the pass keeps checking four times a day. I did the
+second.
+
+The reason matters. If the *pass* only ran once a day, all fourteen sites would come due at that
+single moment, the ten-site limit would bite hard, and four sites would get nothing at all that
+day — a two-day gap. That is worse than the problem we just fixed, and it would have forced the
+cap change you just deferred. Keeping the pass at four times a day means only three or four sites
+are due at any one of them, so **the limit of ten simply stops mattering, without being touched.**
+
+There was a second reason, less obvious. The bug we spent last week on happens when a site's
+refresh interval is *exactly equal* to how often the pass runs. Setting both to 24 hours would
+have recreated that exact condition. We would have survived it — the fix is live — but there is no
+sense re-arming a trap. As things now stand, 24 does not equal 6, so **that bug is no longer
+merely fixed; it cannot form.**
+
+### What changed, in practice
+
+Every news source moved from six-hourly to daily — all seventy-three of them, across fourteen
+sites, including the six on the watch and darts sites that someone had deliberately set faster.
+That last part was your call and it is where about a third of the remaining fetching was.
+
+**Fetching drops by roughly sixty per cent** — from about 180 fetches a day to about 73.
+
+I also did two things you did not ask for, and I want to be explicit about both because they are
+the difference between this working and this quietly not working.
+
+**First, I changed the default for new sites.** The six-hour figure was not just on the existing
+rows, it was the built-in default that every newly created news source inherits. Had I only
+updated today's rows, the very next site we built would have come back at six hours and the whole
+thing would have unwound one site at a time.
+
+**Second, I spread the sites across the day.** Left alone, all fourteen were already overdue and
+would have piled into whichever passes happened to catch them — measured, that was ten in one pass
+and four in another. Ten is *exactly* the limit, so the fifteenth news site we ever add would have
+put us straight back into the queue we just got out of. They are now spread four, four, three,
+three across the day's four passes, which leaves real room.
+
+### What I want you to know that isn't good news
+
+**The spread wears out, and nothing tells you.** If a pass fails — and one did on the evening of
+the 1st, hung for four hours and served one site — the sites it should have served roll into the
+next pass and *stay* there. Two of the four groups merge permanently. Nothing breaks and nothing
+complains; the headroom just quietly shrinks, one failure at a time. It is a single query to check
+and a single statement to fix, and I have written both into the handoff. **I would rather flag it
+now than have someone discover it in three months as a mysterious return of the old symptom.**
+
+**And one alarm will now go quiet.** We have a check that warns when the ten-site limit is turning
+sites away. From today it will never fire, because nothing is being turned away. That is the
+correct outcome — but a check that is silent because all is well looks exactly like a check that
+is silent because it is broken. It is written down in the migration itself so nobody misreads it.
+
+### Where this leaves things
+
+The change is applied and I verified it by reading the database back myself rather than trusting
+the migration's own report. It is committed, and it has gone to the review council — that verdict
+is still outstanding and someone should read it, though the change is already live either way.
+
+Tonight's pass, at about ten to nine, is the test. I have written down in advance exactly which
+four sites should be refreshed and which should not, so it is a real check rather than a glance.
+It also gives the new software build its first proper exercise, so one pass settles both open
+questions at once.

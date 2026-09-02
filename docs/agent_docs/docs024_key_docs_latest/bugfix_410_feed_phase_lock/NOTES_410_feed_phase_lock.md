@@ -373,3 +373,132 @@ a cheap optional confirmation, not a blocker — see the handoff.
   `554+556-INTACT-LIMIT-10`. Cadence still 21600 s.
 - **4 sites stale beyond 6 h 15 m** — the four capped out of the 14:58 pass. This is the cap, not
   the phase lock, and it is `bugs_open/316`.
+
+---
+
+## 2026-09-02 18:23Z — OWNER DECISION TAKEN: sources move to 24h. Migration 701 written, submitted, APPLIED and independently verified
+
+The owner answered the two questions in `HANDOFF_2026-09-02` §3: **do not touch the cap; reduce
+the frequency to 24 h**, and **move the sub-6h sources too**. `SELECT now()` = `18:23:10Z`.
+
+### The fork that mattered, and why only one knob moved
+
+"Reduce the frequency to 24 h" has two possible targets and they are **not** equivalent. Put to
+the owner with a recommendation; the recommendation was taken.
+
+| | passes/day | sites due/pass vs cap 10 | outcome |
+|---|---|---|---|
+| **fetch_interval → 24h, cadence stays 6h** ✅ | 4 | **~3.5** | cap never binds, **no cap change needed** |
+| cadence → 24h | 1 | **14 → BINDS** | 4 sites get nothing that day, wait 48 h; forces the deferred cap change |
+| both → 24h | 1 | **14 → BINDS** | same starvation, **plus** `fetch_interval == cadence` = the phase-lock precondition, re-armed |
+
+**So the 24h ≠ 6h inequality is load-bearing, not incidental** — it makes `bugs_closed/410`'s
+lock *structurally impossible* rather than merely fixed by the look-ahead. Guard 1 of the
+migration asserts the cadence is still 21600 s for exactly this reason. ⚠ **Nothing enforces it
+afterwards** — that is residual 1 (the unbuilt Go↔config parity check) acquiring a second thing
+to guard.
+
+### It is a CLASS fix because of where the interval actually lives
+
+`[MEASURED 2026-09-02]` No Go file hardcodes the interval — grep over `platform/ internal/ pkg/
+cmd/` returns only reads of the column. **Both** `INSERT INTO content_sources` statements in
+`seed_content_sources_action.go` (`:284`, `:355`) **omit `fetch_interval` entirely**, so every new
+source inherits the **column default**. Changing only the 73 rows would have lasted exactly until
+the next site build. 701 changes the default too — verified below. **No image roll needed.**
+
+### Why `next_fetch_at` had to be re-stamped as well (the part that is easy to skip)
+
+Changing only the interval leaves every stamp at `last_fetched_at + 6h`, i.e. **all 14 sites
+already due**. They would settle into whichever pass happened to serve them — measured today that
+is **10 in one pass and 4 in another**, and **10 exactly fills the cap**, so the fifteenth news
+site restarts contention immediately. The spread is what actually buys the headroom the change is
+for. Slot k is served by the pass at `next_pass + k*6h`: a stamp *at* a trigger time is admitted
+by that pass (look-ahead 3 h) and **not** by the one before it, which reaches only +3 h.
+
+### Applied 18:1xZ, and re-read INDEPENDENTLY (not trusting the in-transaction verify)
+
+Applied **by hand, alone** — not via `run-migrations.sh --apply`, which takes **every** pending
+file including other sessions'. Then recorded with `--record-only` so it is not re-applied.
+
+```
+BEGIN / DO / DO / SELECT 73 / ALTER TABLE / UPDATE 73
+NOTICE:  MIGRATION 701: 73 active source(s) will move to a 24h fetch_interval.
+NOTICE:  MIGRATION 701 VERIFY OK: all active sources at 24h, column default 24h,
+         4 slots, busiest slot 4 sites (cap 10), no split sites.
+UPDATE 73 / DO / COMMIT
+```
+Independent re-read afterwards:
+
+| check | result |
+|---|---|
+| active sources by interval | **73 sources / 14 sites, all `24:00:00`** |
+| **column default** (the class fix) | **`'24:00:00'::interval`** |
+| slot spread | **4 / 4 / 3 / 3 sites** — busiest 4 against cap 10, six slots of headroom |
+| cadence (guard 1's premise) | **21600** |
+| backup table | `bak_content_sources_fetch_interval_20260902`, **73 rows** |
+
+| slot | due | sites |
+|---|---|---|
+| 1 | 09-02 20:58:57 | ai-agent-orchestration, fundamentallyai, mortgagecalculator, vetcomparison |
+| 2 | 09-03 02:58:57 | boxingonline, gaswholesalers, relojistas, webdesign |
+| 3 | 09-03 08:58:57 | dartsonline, idea.uk, remortgagecalculator |
+| 4 | 09-03 14:58:57 | farmerinsurance, loanandmortgagecalculator, robot-hands |
+
+### PROSPECTIVE TEST, recorded at 18:23Z BEFORE the pass that tests it
+
+Tonight's pass is expected at **20:58:57Z**. Its look-ahead reaches **23:58:57Z**; slot 2 is due
+**02:58:57Z**, a full **3 h outside**. So:
+
+> **Prediction: the ~20:59Z pass dispatches EXACTLY the four slot-1 sites** —
+> ai-agent-orchestration.com, fundamentallyai.com, mortgagecalculator.co.uk, vetcomparison.uk —
+> **and no others.** A fifth site (especially a slot-2 one) refutes the slot arithmetic; fewer
+> than four means something is not reaching the decision.
+
+```sql
+SELECT s.domain, to_char(o.created_at,'DD HH24:MI:SS')
+FROM orchestration_states o JOIN sites s ON s.id=o.site_id
+WHERE o.owner_agent_type='content-feed-orchestrator'
+  AND o.created_at > (SELECT last_triggered_at FROM scheduled_tasks WHERE name='content-feed-refresh')
+ORDER BY o.created_at;
+```
+This also exercises the fix on **v1.0.1354** for the first time (§4 of the handoff), so one pass
+settles both open checks.
+
+### ⚠ A NEW RESIDUAL THE SPREAD CREATES — it degrades on a failed pass and does NOT self-heal
+
+If a pass fails (as `09-01 20:57:41` did — spawn handshake, served 1 site, reaped after 4 h), that
+slot's sites are not served, stay due, and are picked up by the **next** pass — where they
+re-stamp to *that* pass's time. **The two slots merge permanently.** 4+4 = 8 is still under the
+cap, so nothing breaks and nothing complains, but the headroom this migration bought is spent
+silently, one failure at a time, and only a fresh spread restores it.
+
+**The tell is a slot count below 4**, which is one query:
+```sql
+SELECT count(DISTINCT next_fetch_at) AS slots, max(c) AS busiest FROM (
+  SELECT next_fetch_at, count(DISTINCT site_id) c FROM content_sources
+   WHERE is_active GROUP BY next_fetch_at) x;
+```
+Expect **4** slots, busiest **≤4**. Re-spreading is statement 3 of 701, run alone. Recorded in the
+handoff as the one thing worth checking periodically.
+
+### Council
+
+Submitted **before** applying: corr `56c30292-3482-4d9c-8757-f287f1ef5a1b`, admission tested free
+with `DRY_RUN=1` first. Committed `d81396e2e` with `Council-Submitted:` (never `Council-Reviewed:`
+on a verdict not yet read). **The verdict is still owed a read** — and per the trailer's own
+warning, the change is already live on the shared branch, so a REVISE must be acted on rather than
+argued with. The submission's `risks` block names five things for reviewers, including the two
+that worry me most: nothing enforces the cadence inequality after apply time, and LCO-009 going
+silent is indistinguishable from LCO-009 breaking.
+
+### Expected consequences, stated so nobody files them as regressions
+
+- Fetch volume **~180 → ~73 source-fetches/day** (~60% cut).
+- Every news site refreshes **once per 24 h** (was ~9 h since 410's fix, 12 h before it).
+- **LCO-009 / `--capped-schedule-ordering` stops reporting cap hits.** Migration 653's header
+  predicted the opposite and was right for the estate as it stood; 701 is why that stops. ⚠ A
+  silent capped-schedule check from today is the **expected** result and is **not** evidence the
+  check works — if you need to know it still fires, give it a demand control rather than reading
+  the zero.
+- **relojistas and dartsonline lose their sub-6h sources**, so this lane's cadence censuses no
+  longer have an always-due CONTROL site. Any future cadence measurement here has to find another.
