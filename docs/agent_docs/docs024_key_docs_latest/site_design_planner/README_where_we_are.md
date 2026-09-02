@@ -66,3 +66,49 @@ in with them so we don't collide).
 
 Let me know if you want me to chase the ai-agent-orchestration.com layout
 question next, or if you had something more specific in mind for this thread.
+
+## 2026-09-02 (later the same day) — found the "why", and fixed it
+
+I went to answer my own question about ai-agent-orchestration.com and found the
+actual cause, not just the symptom.
+
+The system that picks a layout for a new site is supposed to read a site's
+industry information from two places: a quick automated classification, and a
+more detailed "identity" profile written earlier in the process. Three of the
+four related decision-makers in this system (the ones that pick colours, pick
+fonts, and install the finished result) already knew how to fall back to the
+detailed profile if the quick classification came up empty. The one that picks
+the actual layout — the most consequential of the four — didn't have that
+fallback. It only ever looked at the quick classification, and if that came up
+empty, it gave up and used the generic default, which is exactly what happened
+to ai-agent-orchestration.com in mid-August.
+
+I checked how common this actually is: right now there are four sites in this
+condition, two from an old, no-longer-used version of the classifier, and two
+(including ai-agent-orchestration.com) whose classification data was just
+refreshed again this morning by an unrelated background process, in the same
+incomplete shape. Not a fleet-wide emergency, but a real, reproducible bug with
+a name and four known instances.
+
+The fix is small and low-risk: make the layout-picker use the same fallback the
+other three already use, instead of its own thinner copy. I wrote it, added a
+test that reproduces ai-agent-orchestration.com's exact situation and would have
+failed before the fix, checked it against the platform's own automated review
+process, and wrote up the full case as its own file so nobody has to re-find
+this later.
+
+One thing worth mentioning because it's the kind of thing this shared codebase
+throws up: while I was mid-edit, another session working on an unrelated feature
+(theme presets) happened to be editing the very same function, right next to my
+change. I noticed because the file changed under me while I was reading it. I
+didn't undo anything — I checked that our two changes were compatible (they
+were), flagged to them directly that their half wasn't committed yet so the
+whole codebase wouldn't build, and they fixed that within a few minutes. No harm
+done, but it's a decent illustration of what working on a codebase several
+sessions share at once actually looks like day to day.
+
+I have not triggered anything on the actual affected sites — that's still each
+site's own call, not something to do from here. The fix just means that when
+someone does decide to re-look at ai-agent-orchestration.com's layout, the
+system will finally have the information it needed to make a real choice instead
+of just giving up.

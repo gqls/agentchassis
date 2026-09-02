@@ -63,3 +63,68 @@ check rather than a wasted edit.
 `ai-agent-orchestration.com` now has real classification tags and could resolve
 to something other than `brochure-formal`. That's the natural next step if this
 thread continues.
+
+## 2026-09-02 (continued) — traced the "why", fixed it, filed it, submitted it
+
+Went to check whether `ai-agent-orchestration.com` now has real classification
+tags (the natural next step §3 named). Queried its current `classification` spec
+— **still no `industry_tags`, refreshed as recently as today 04:59Z** by
+`evaluate_news_feed`. Read that action's code first rather than assuming it
+clobbered something: it deep-merges (`feed_news_recommendation_action.go:334`),
+so it isn't the cause — it just re-stamps whatever shape was already current.
+
+Read `resolve_composition_layout_action.go`'s `extractClassificationTags` next,
+expecting it to match the shared `readClassificationFromContext` helper (the one
+`resolve_composition_helpers.go`'s own doc comment says handles exactly this
+case). **It doesn't.** `extractClassificationTags` reads only
+`classData["category"]`/`classData["industry_tags"]`, no identity fallback.
+Grepped `readClassificationFromContext`'s actual callers: `install_site_composition`,
+`resolve_composition_typography`, `resolve_composition_palette` — three of the
+four composition resolvers. The layout resolver, the one that decides between 18
+named layouts rather than blending values, was the one NOT using it.
+
+Measured the live population before writing anything: 4 sites currently have a
+current `classification` spec with no `industry_tags` at all (`finetuning.uk`,
+`leopardessconsulting.co.uk` — legacy classifier shape, 2026-04-18; `gaswholesalers.com`,
+`ai-agent-orchestration.com` — both re-stamped by `evaluate_news_feed` today, same
+underlying legacy shape carried forward). `ai-agent-orchestration.com`'s `identity`
+spec has real data (`industry: "Technology Services"`, present since 2026-05-01)
+that the layout resolver never consulted — this is exactly why its
+`needs_new_layout_candidate` item fired on 2026-08-12 with `site_tags: []` and has
+sat since.
+
+**Fixed** (`bd8e45aba`): swapped the private extraction for the shared helper,
+deleted the now-dead 58-line function (confirmed one caller, no other refs, `go
+build ./...` clean after removal). Added a sqlmock regression test reproducing
+`ai-agent-orchestration.com`'s exact spec shapes
+(`resolve_composition_layout_action_test.go`) — asserts `site_tags` non-empty and
+`is_fallback` false against a mocked layouts table; without the fix it would hit
+the zero-terms short-circuit in `resolveLayoutByTags` and never reach that table
+at all.
+
+**Concurrent-tree collision, handled cleanly.** Mid-edit, the "theme kits" session
+committed a `loadSiteThemeKitDefaults` short-circuit into the SAME function, just
+below my call site — I only found out because a `Read` came back with a
+system-reminder saying the file had changed on disk. Did not revert or fight it;
+re-read, confirmed it built on top of my already-changed code cleanly (it
+references the `category`/`industryTags` variable names my fix introduced), and
+my test still passed against it. `scripts/verify-head-builds.sh` then caught a
+real but not-mine gap — HEAD didn't build because their symbol was only in the
+working tree — so I messaged them directly rather than guessing at their
+implementation. They committed within minutes; HEAD builds clean now
+(`0902039c0`). Worth recording as a worked example of the "another session may
+commit between your add and your commit" warning in CLAUDE.md actually firing,
+live, mid-task.
+
+**Submitted to council** (`bd469ba1-228e-443e-a04d-6a577a210e5d`,
+`Council-Submitted:` trailer — verdict pending, not yet read). **Filed
+`bugs_open/431`** (case file, kept open per the fixed-AND-live bar — this is code
+only, not yet in a rolled chassis). **Added a 016b §9 pattern entry** — the
+transferable shape is "a sibling of a shared helper's callers can diverge
+silently; only the input shape the majority case never exercises exposes it."
+
+**Deliberately not touched:** `ai-agent-orchestration.com`'s stuck queue item
+itself. The fix makes a future re-resolve for it (and the other 3 affected sites)
+see real signal for the first time; whether to actually trigger that re-resolve,
+and what it picks, is a decision for that site's own thread/owner, not something
+to do or predict from here.

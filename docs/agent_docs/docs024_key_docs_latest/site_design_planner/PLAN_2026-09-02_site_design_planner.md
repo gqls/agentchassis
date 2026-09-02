@@ -71,14 +71,17 @@ and decide", which is why they are stuck:
 
 ## 3. The one real open question: does `ai-agent-orchestration.com` need a new layout?
 
-Not yet investigated in this session. To settle it: (a) re-run the site's current
-`industry_tags`/`design_intent` through the layout matcher and see whether a
-non-fallback candidate now exists (the classifier fix behind DES-036 postdates
-this site's original resolution by a long way — its `site_tags` may no longer be
-empty); (b) if genuinely no library layout fits, that is the honest signal DES-037
-was built to produce, and the decision is the owner's (per the "curated library,
-no auto-generation" policy, DES-038) — add a layout or accept the fallback.
-**Not started — next session/turn should pick this up first if continuing here.**
+**RESOLVED (the "why", not the site's own decision) — 2026-09-02, same day.** It
+never got a real answer because the layout resolver never saw real tags: identity
+data (`industry: "Technology Services"`) existed since 2026-05-01 and the layout
+resolver's own extraction function couldn't reach it — the shared fallback that
+would have (`readClassificationFromContext`) is used by the other three
+composition resolvers and, it turns out, NOT by this one. Filed and fixed as
+`bugs_open/431` / commit `bd8e45aba`. **Still genuinely open:** whether a
+re-resolve (now that it would see real signal) lands on a real layout or a
+second, better-informed `needs_new_layout_candidate` — that's an empirical
+question for whoever triggers the re-resolve, deliberately not predicted here,
+and deliberately not triggered from this thread (§4).
 
 ## 4. Decisions and their reasons
 
@@ -89,7 +92,16 @@ no auto-generation" policy, DES-038) — add a layout or accept the fallback.
   (c) CLAUDE.md's "before routing work AT an existing bug/item, check who owns
   it" applies exactly here — duplicating effort across sessions on a shared
   tree is the thing that norm exists to prevent.
-- **No code change made in this session yet.** Everything found so far is either
-  already fixed-and-live (113/the re-resolve gap) or a decision that isn't this
-  thread's alone to make without more digging (the layout-candidate item) or
-  belongs to another thread (loancalculator, adversecreditmortgage's flood).
+- **One code fix made and committed** (`bd8e45aba`, §3 above) — a small,
+  well-scoped, read-only-derivation change (deleting a private duplicate of an
+  already-used shared helper), tested, council-submitted, filed as
+  `bugs_open/431`. Judged safe to implement directly rather than only diagnose-
+  and-hand-off: it only changes which layout candidates get scored, touches no
+  DB writes, and three of its four sibling call sites already prove the pattern
+  works.
+- **Deliberately did NOT trigger a re-resolve on any live site.** The fix makes
+  future re-resolution possible with real signal; whether to actually queue one
+  for `ai-agent-orchestration.com` (or the other 3 affected sites) is left to
+  their owning thread — `bugs_open/113`'s own repeated instruction ("do not
+  repaint them from here") applies exactly here, and a session named
+  `ai-agent-orchestration` already exists (offline) in this estate.
