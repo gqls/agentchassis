@@ -649,3 +649,25 @@ once the site serves — no cleanup needed.
 - Registrar-key state after today: Spaceship IN (ef3157cec), Dynadot IN
   (8f5961a91), Porkbun IN (this entry) — **none still owed.** Nominet
   TAG+allowlist remains the separate open item.
+
+## 2026-09-02 — CONTRIBUTION from the new nominet_domain_management lane: Nominet ownership moves there; a dangling-delegation incident; your read-only token is dead
+
+- **Owner directive 2026-09-02: everything Nominet now lives in
+  `docs024_key_docs_latest/nominet_domain_management/`** (EPP, TAG(s),
+  allowlist, the tag inventory, NS changes for Nominet-held domains). This lane
+  keeps Cloudflare + Spaceship/Dynadot/Porkbun. Joint cutovers split: CF zone =
+  here, Nominet NS = there. Boundary recorded in both PLANs.
+- **INCIDENT (measured ~17:00Z): the owner's Nominet NS batch for the four
+  remake domains ran with no CF zones behind it** — `advertise.co.uk`,
+  `designblog.co.uk`, `seotools.co.uk`, `websitepromotion.co.uk` all delegate
+  to alexis/leah at `dns1.nic.uk` while `GET /zones?name=` finds nothing, so
+  alexis REFUSES and each goes dark as caches expire (your own LANDMINES
+  dangling-delegation entry, four times over). Recovery staged as
+  `scripts/domains/cf-zone-bootstrap.sh` (your 08-25 homegarden.uk recipe,
+  idempotent, `--check` proven; mutating half owner-run — the session
+  classifier refused the POST). Detail: that lane's NOTES 2026-09-02.
+- **`~/.config/cloudflare/token` is DEAD** — `9109 Invalid access token` on
+  every call, measured 2026-09-02 (not the IP-filter 9109-with-address shape;
+  the token itself is refused). `portfoliotoken` works. Your RUNBOOK's §1 row
+  for it ("PRESENT — but READ-ONLY") now overstates it; anything still reading
+  that file fails closed.

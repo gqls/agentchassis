@@ -3767,3 +3767,19 @@ Site row flipped to `deployed` by the pipeline at 16:23:25Z. Verified at ARTEFAC
    OLD Drupal advertise.co.uk (dies at DNS cutover); wholesale-import caution attached.
 3. **indoorplanters.uk acquired (owner)**: register stub `GDN1b` written (twin of the briefed
    .co.uk; P5 pair decision owed before either builds).
+
+## 2026-09-02 (evening) — INBOUND from the new nominet_domain_management lane: the DNS cutover HAS RUN and the four domains are dark until the CF zones exist
+
+Telling you, not just measuring (owner ruling 2026-07-29 §3), because your live task is
+watching remake №1 end-to-end and its domain no longer resolves:
+
+- The registry (`dns1.nic.uk`, measured ~17:00Z) already delegates **advertise.co.uk,
+  designblog.co.uk, seotools.co.uk, websitepromotion.co.uk** to alexis/leah — the owner's
+  "Nominet batch" happened. **No Cloudflare zone exists for any of the four**, so the edge
+  REFUSES and each goes dark as resolver caches (2-day TTL) drain. Your 16:23Z "domain still
+  serves Drupal" was cache, and the WebProNews note's "dies at DNS cutover" consumer is
+  dying NOW, not at some future date.
+- Recovery is staged (`scripts/domains/cf-zone-bootstrap.sh`, owner-run; asked for in the
+  nominet lane's README). Once the zones are active the four serve the portfolio router —
+  №1's remake appears there when its build deploys; nothing for your lane to do except know
+  that an HTTP probe of advertise.co.uk today measures DNS state, not build state.
