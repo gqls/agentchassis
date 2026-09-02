@@ -220,6 +220,24 @@ submission itself*. All were independently re-verified true here regardless —
 but the next submission should quote the evidence inline rather than making
 the council re-derive it.
 
+## UK-news default for `.uk`/`.co.uk` sites — STATUS: built, council-approved, image shipped by owner; verification PENDING (kubectl down)
+
+Code, tests and migration 691 (+ROLLBACK+VERIFY) built and committed
+(`0a408f8db`), council-APPROVED round 1 (`8842fe96-9a71-4ea5-9993-2483f10712cb`,
+`Council-Reviewed:` on `2f8411b7e`). Built and pushed both images
+(`agent-chassis`, `web-search-adapter`) at `v1.0.1353`; asked the owner
+before rolling (see NOTES — a standing memory records the owner reserves
+single-service deploys for himself). **The owner then deployed a fresh
+build directly** (`v1.0.1355` on both, confirmed genuinely pushed via
+`docker manifest inspect`; overlay files show this uncommitted in the
+working tree as of this note). **Not yet verified**: pod rollout status,
+the running binary's commit (kubectl access is down fleet-wide — the known
+3-day token expiry, confirmed via the JWT's own `exp` claim, not a bug —
+so no binary sha grep was possible), whether migration 691 has actually
+been applied, and the live `.uk`-site dispatch this design's own
+verification plan calls for. **All four are the next session's first job**;
+see `HANDOFF_2026-09-02b_continue_here.md`.
+
 ## UK-news default for `.uk`/`.co.uk` sites — design (2026-09-02, resumed after session switch)
 
 Owner ask (`CONTRIB_2026-08-31_from_loanzy_lane_owner_wants_uk_news_default_for_uk_tlds...md`):

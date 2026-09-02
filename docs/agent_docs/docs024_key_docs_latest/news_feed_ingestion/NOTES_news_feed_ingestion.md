@@ -491,3 +491,85 @@ own plan edit even when it's "just" a check.
 
 Committing with `Council-Reviewed: 8842fe96-9a71-4ea5-9993-2483f10712cb`
 next, then building both images.
+
+Committed (`2f8411b7e`). Built both images from committed HEAD at a fresh,
+confirmed-unused tag (`docker manifest inspect` first, per this lane's own
+practice): `agent-chassis` (commit `f7dbb529...`) and `web-search-adapter`
+(commit `1947e9bd...` — HEAD had moved between the two builds, another
+session committing concurrently; confirmed both build points are still
+descendants of this lane's own commit via `git merge-base --is-ancestor`
+before treating that as fine). Pushed both to `v1.0.1353`. Bumped
+`IMAGE_TAG` (makefile) and both services' production overlay `newTag` in
+one commit (`886d693bc`) — re-verified the makefile hadn't moved again
+first.
+
+**Stopped before applying to the cluster to ask the owner**, rather than
+rolling unilaterally. Reason: an auto-loaded memory
+([[releases-are-whole-fleet-make-release]], dated 2026-08-03) records that
+the owner previously blocked an unauthorised single-service `kubectl apply
+-k` and asked that deploys go through him. This session's OWN earlier
+candidate #1 fix did single-service deploy — but only after the owner said
+"please go ahead" for that specific task; that authorisation doesn't carry
+over silently to a different change. Asked via AskUserQuestion.
+
+**Owner deployed a fresh chassis build himself** and asked for docs +
+a session-switch handoff. Checked what's checkable without cluster access
+(the request implies wrapping up now, not continuing to chase
+verification): both `agent-chassis:v1.0.1355` and
+`web-search-adapter:v1.0.1355` genuinely exist in the registry (`docker
+manifest inspect`, doesn't need kubectl) — real builds, not a bare tag
+edit. The overlay files carrying `newTag: v1.0.1355` are UNCOMMITTED in the
+working tree as of this note (git history's last commit on those files is
+still this lane's own `886d693bc` at `v1.0.1353`) — not this lane's file to
+commit on the owner's behalf without knowing his intended message; noted,
+not acted on.
+
+**Could NOT verify at the binary — kubectl is down fleet-wide, confirmed as
+the known 3-day token expiry, not a bug**: `kubectl get pods` returned
+`Unauthorized` on every call; decoded the JWT `exp` claim directly
+(`[[kubeconfig-token-expires-every-3-days]]`'s prescribed check) — expired
+2026-09-02 22:08Z. Only the owner can refresh it. **So the following are
+UNVERIFIED as of this note, not confirmed**: whether the live pods are
+actually running v1.0.1355 (vs. a stuck rollout), whether that build
+contains this lane's commit specifically (near-certain given the overlay
+commit's ancestry and the standard `git archive HEAD` build process, but
+"near-certain" is not "verified" — no binary sha grep was possible),
+whether migration 691 has been applied (needs the same DB access), and the
+live-`.uk`-site verification (Firecrawl request actually carrying
+`country: "UK"`, results skewing UK) that this fix's own PLAN calls for
+before declaring it done. **Next session's first job, once kubectl access
+is restored**: all four of the above, in that order — pod rollout status,
+binary sha grep (positive control this lane's own commit, negative control
+a sha that should be absent), migration 691's pre-check query (apply by
+hand + `run-migrations.sh --record-only` if still pending), then the real
+`.uk` site dispatch. Full commands in `RUNBOOK_news_feed_ingestion.md`.
+
+**Three cross-session messages arrived during this work, none yet acted
+on** (in-scope for this lane, routed here correctly):
+1. `portfolio_positioning` — owner wants `webpronews.com`'s RSS feed
+   (`https://www.webpronews.com/feed/`, verified 200/~1.08MB/100
+   items/multiple-per-hour) recorded as a candidate news source; write-up
+   already committed to this dir as
+   `CONTRIB_2026-09-02_from_portfolio_positioning_webpronews_feed_candidate.md`
+   (commit `ebc050732`, not by this session). Caution: the owner endorsed
+   the FEED's content, not the old advertise.co.uk Drupal consumer's
+   wholesale-import pattern — needs this pipeline's normal editorial
+   treatment, not a straight copy.
+2. `designblog.co.uk` — `/the-design-feed/` serves zero items (0
+   `content_sources` rows), routed here as "candidate-source work"; wants a
+   DESIGN-vertical source when sources get wired (explicitly not
+   WebProNews). Asked for an ACK.
+3. `bugs_open/444` (empty listing pages) — diagnosed that `advertise`'s
+   empty `/news/` page needs BOTH halves to fix: `content_features.news_feed`
+   authored in its classification spec (no key exists at all today —
+   `idea.uk`'s 2026-08-25 entry is the worked example) AND a `content_sources`
+   row (rss, the WebProNews URL). Their plan-time gate (council pending,
+   corr `c0990eb3`) will hold un-enabled news pages on a `capability_gap`
+   named `news_source_enablement` — this lane's enablement work is what
+   turns that receipt green. Their plan doc:
+   `bugfix_444_empty_listing_pages/PLAN_2026-09-02_listing_source_gate.md`.
+
+All three land in this lane's existing priority #3 gap (source enablement
+for sites with zero `content_sources` rows) — genuinely new work, not
+started this session, written into the new HANDOFF's own priority list
+rather than actioned here given the owner's ask to wrap up now.

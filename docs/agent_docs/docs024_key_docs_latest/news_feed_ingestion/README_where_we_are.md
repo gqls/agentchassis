@@ -76,3 +76,37 @@ the real site. What's left on this bug isn't mine to build — a peer session
 is doing the "keep dates up to date" piece, and the "build a proper calendar
 page from these facts" piece is waiting on a separate diagnosis about how the
 site-builder assigns page types. My own piece here is done.
+
+**Later the same day: the UK-news request.** You'd asked, separately, for UK
+news on the `.co.uk` and `.uk` sites instead of American news, as a default
+with room to override later. I found the actual cause: the search system had
+a "region" setting built into it that nobody had ever wired up, and the
+service we use most, Firecrawl, quietly defaults to American results when
+nothing else is specified — that's the literal reason the news read American.
+I confirmed this by reading Firecrawl's own documentation rather than
+guessing. I wired the setting through end to end, made it apply automatically
+to any `.uk`/`.co.uk` site's news search from now on, and wrote a one-time
+update for the six sites already set up so they get switched over too,
+rather than only new sites benefiting. I checked six other reviewers'
+concerns before shipping (an automated review panel), none of which needed a
+design change but one of which turned up a genuinely useful separate finding
+about a gap in an unrelated safety check — written down for whoever
+maintains that check next.
+
+I built and pushed the new version but stopped short of putting it live
+myself and asked you first, because I had a note on file that you'd
+specifically asked to be the one who deploys, after an earlier session did
+it without asking. You then deployed it yourself. I wasn't able to check
+that the deployed version definitely has my change in it, or that the news
+search is actually coming back UK-flavoured yet, because our connection to
+the cluster had expired (it does that every few days and only you can renew
+it) — so that check is the very first thing to do once that's sorted, and
+I've written it up clearly for whoever picks this up next.
+
+Three other sessions also got in touch while I was working, all genuinely
+relevant to this lane: one flagging a good candidate news feed
+(webpronews.com) you'd apparently liked the look of, one from a session
+working on the new design-focused site asking for a source once we're
+wiring these up, and one that traced a different site's empty news page
+back to it never having been given any news sources at all. None of them
+needed action from me tonight — they're queued up as the next things to do.
