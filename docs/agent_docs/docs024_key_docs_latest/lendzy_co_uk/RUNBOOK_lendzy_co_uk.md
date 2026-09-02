@@ -218,3 +218,23 @@ until the exemption reaches the banned-claims layer** (on record in RFC_060). Th
 settled it: lendzy's 3 legitimate credit-union-cap hits, plus loanzy's calculator truthfully
 saying "There's no credit check involved" about itself — two sites, two different false-positive
 routes, one pattern, disagreement on contact rather than over time.
+
+### 8f. Banned-claims verification ladder — the POST-APPLY half is mandatory (upgraded from loancalculator's 707 round)
+
+A pre-apply check on your source strings cannot see the SQL/JSON escaping layer, and the failure
+it exists for — double-escaped, compiles cleanly, matches nothing — is **post-apply by
+construction**. A non-compiling pattern is worse: `claims.go:348` silently falls back to
+`QuoteMeta` of the source text — armed, counted, inert. So after every apply:
+
+1. **Stored bytes**: `psql -At` the live `data->'banned_claims'`, then `cat -A` — any `\\\\b`
+   sequence is the double-escape.
+2. **Exact consumer form**: Go-compile each stored `pattern` as claims.go does — `"(?i)" + p`
+   (`claims.go:346`) — and probe-fire: a must-match phrase per pattern AND one shared
+   must-NOT-match control carrying your site's known-legitimate fragments (for lendzy: the Yes/No
+   + Check UI concatenation and the 42.6% APR cap quote). The probe is ~30 lines of stdlib
+   (`scratchpad/probefire/main.go` shape; results in NOTES (p)).
+3. **The first real findings**: read the next `claims_unverified` output rather than assuming
+   silence is cleanliness.
+
+Lendzy's five: run post-apply, re-run in exact consumer form after the 707 upgrade — 5/5 compile,
+fire, stay silent; stored bytes clean.
