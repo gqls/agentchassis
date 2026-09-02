@@ -452,6 +452,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 				workItemGroup.PATCH("/:item_id", siteAdminHandlers.HandleUpdateWorkItem)
 				workItemGroup.POST("/:item_id/retry", siteAdminHandlers.HandleRetryWorkItem)
 				workItemGroup.POST("/:item_id/resolve", siteAdminHandlers.HandleResolveWorkItem)
+				workItemGroup.POST("/:item_id/release", siteAdminHandlers.HandleReleaseRecordVerdict)
 				workItemGroup.POST("/:item_id/approve", siteAdminHandlers.HandleApproveWorkItem)
 				workItemGroup.POST("/:item_id/request_changes", siteAdminHandlers.HandleRequestChangesWorkItem)
 			}

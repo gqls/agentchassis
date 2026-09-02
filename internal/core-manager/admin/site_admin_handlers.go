@@ -686,6 +686,18 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 		pageWhere += " AND wi.status != 'complete'"
 	}
 
+	// filing_mode: finds RFC_056 "record" verdicts (see HandleReleaseRecordVerdict)
+	// among an otherwise undifferentiated `status='deferred'` backlog — 1,284
+	// deferred needs_content_page/needs_content_planning rows fleet-wide as of
+	// 2026-09-02, of which the filing_mode='record' subset is the reviewable
+	// one; without this filter a human has no way to find them short of a raw
+	// SQL query, which is the surface bugs_open/428 asked for.
+	if filingMode := c.Query("filing_mode"); filingMode != "" {
+		pageWhere += fmt.Sprintf(" AND wi.spec->>'filing_mode' = $%d", argIdx)
+		pageArgs = append(pageArgs, filingMode)
+		argIdx++
+	}
+
 	total := 0
 	if err := h.db.QueryRowContext(ctx, `
 		SELECT count(*)
@@ -1013,6 +1025,85 @@ func (h *SiteAdminHandlers) HandleResolveWorkItem(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"resolved": true, "id": itemID.String()})
+}
+
+// ============================================================================
+// POST /admin/work-items/:item_id/release
+// ============================================================================
+//
+// Releases ONE `filing_mode='record'` verdict row (RFC_056,
+// write_audit_findings_action.go) — an LLM-audit-seat finding that was
+// deliberately filed undispatchable (`status='deferred'`, `handler_agent=”`,
+// the route it would have taken kept only in `spec.routed_handler`/
+// `spec.routed_status`) rather than automatically triggering a page rewrite.
+// RFC_056 exists because an earlier auto-dispatch of exactly this finding
+// class destroyed live content (bugs_closed/238) — so this endpoint is the
+// human half of that design, not a way around it: it releases the ONE row a
+// person has actually looked at, never a class of them (bugs_open/428's own
+// candidate-2 mistake was proposing a standing promoter for this shape).
+//
+// Deliberately does NOT execute `spec.release_recipe` as a stored SQL string
+// — that field is a human-readable statement of intent for someone reading
+// the row by hand, not something this endpoint should ever exec() verbatim.
+// The WHERE clause below performs the identical, parameterised operation.
+func (h *SiteAdminHandlers) HandleReleaseRecordVerdict(c *gin.Context) {
+	ctx := c.Request.Context()
+	itemID, err := uuid.Parse(c.Param("item_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid item_id"})
+		return
+	}
+
+	var body struct {
+		ReleasedBy string `json:"released_by"`
+		Notes      string `json:"notes"`
+	}
+	c.ShouldBindJSON(&body)
+	if strings.TrimSpace(body.ReleasedBy) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "released_by is required — this is a human decision on a per-row basis, and the row records who made it"})
+		return
+	}
+
+	var newStatus, newHandler string
+	err = h.db.QueryRowContext(ctx, `
+		UPDATE site_work_items
+		SET status = spec->>'routed_status',
+		    handler_agent = spec->>'routed_handler',
+		    spec = spec || jsonb_build_object(
+		        'filing_mode', 'released',
+		        'released_by', $2::text,
+		        'released_at', now(),
+		        'released_notes', $3::text
+		    ),
+		    updated_at = NOW()
+		WHERE id = $1
+		  AND status = 'deferred'
+		  AND spec->>'filing_mode' = 'record'
+		  AND COALESCE(spec->>'routed_handler', '') <> ''
+		  AND COALESCE(spec->>'routed_status', '') <> ''
+		RETURNING status, handler_agent
+	`, itemID, body.ReleasedBy, body.Notes).Scan(&newStatus, &newHandler)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "item not found, not a filing_mode='record' verdict, already released, or missing routed_handler/routed_status"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("admin: released a filing_mode=record verdict (RFC_056)",
+		zap.String("item_id", itemID.String()),
+		zap.String("released_by", body.ReleasedBy),
+		zap.String("new_status", newStatus),
+		zap.String("new_handler", newHandler))
+
+	c.JSON(http.StatusOK, gin.H{
+		"released":      true,
+		"id":            itemID.String(),
+		"status":        newStatus,
+		"handler_agent": newHandler,
+	})
 }
 
 // ============================================================================

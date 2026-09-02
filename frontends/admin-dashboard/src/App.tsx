@@ -411,6 +411,11 @@ function WorkItemsList({ token, siteFilter, onBack }) {
     const [statusFilter, setStatusFilter] = useState("");
     const [typeFilter, setTypeFilter] = useState("");
     const [pipelineFilter, setPipelineFilter] = useState("build");
+    // RFC_056 (bugs_open/428): filing_mode='record' rows are 'deferred' verdicts
+    // an LLM-audit seat filed but nothing may auto-dispatch — status='deferred'
+    // was not even a status option below until this filter was added, so a
+    // reviewer had no route to these rows shorter than a raw SQL query.
+    const [recordVerdictsOnly, setRecordVerdictsOnly] = useState(false);
     // Counts and totals come from the server. They used to be derived from the
     // returned rows, which the API caps — so a 208-item needs_human_review
     // backlog reported itself as 0 and the queue looked empty (bugs_open/033).
@@ -462,8 +467,9 @@ function WorkItemsList({ token, siteFilter, onBack }) {
         if (siteFilter?.id) path += `&site_id=${siteFilter.id}`;
         if (statusFilter) path += `&status=${encodeURIComponent(statusFilter)}`;
         if (typeFilter) path += `&item_type=${encodeURIComponent(typeFilter)}`;
+        if (recordVerdictsOnly) path += `&filing_mode=record`;
         return path;
-    }, [siteFilter, statusFilter, typeFilter, pipelineFilter]);
+    }, [siteFilter, statusFilter, typeFilter, pipelineFilter, recordVerdictsOnly]);
 
     const loadItems = useCallback(async () => {
         setLoading(true);
@@ -710,6 +716,28 @@ function WorkItemsList({ token, siteFilter, onBack }) {
             selectItem(null);
             loadItems();
         } catch (err) { setMessage("Resolve failed: " + err.message); }
+        finally { setActionLoading(false); }
+    };
+
+    // RFC_056 release (bugs_open/428). Releases ONE reviewed verdict row — the
+    // human half of write_audit_findings_action.go's filing_mode='record'
+    // circuit breaker. Requires a name so the row records who reviewed it;
+    // the server refuses to release anything that isn't a genuine, still-
+    // parked record verdict, so this can never turn into a bulk action.
+    const handleRelease = async (id) => {
+        const releasedBy = prompt("Your name (recorded on the row as who reviewed and released it):");
+        if (!releasedBy) return;
+        const notes = prompt("Why release this one? (optional, but the whole point of review is a reason)") || "";
+        setActionLoading(true);
+        try {
+            const result = await apiFetch(`/work-items/${id}/release`, token, {
+                method: "POST",
+                body: JSON.stringify({ released_by: releasedBy, notes }),
+            });
+            setMessage(`Released → ${result.status} / ${result.handler_agent}`);
+            selectItem(null);
+            loadItems();
+        } catch (err) { setMessage("Release failed: " + err.message); }
         finally { setActionLoading(false); }
     };
 
@@ -1032,12 +1060,21 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                     <option value="claimed">Claimed ({statusCounts["claimed"] || 0})</option>
                     <option value="failed">Failed ({statusCounts["failed"] || 0})</option>
                     <option value="blocked">Blocked ({statusCounts["blocked"] || 0})</option>
+                    {/* Deferred was missing entirely until bugs_open/428 — a
+                        reviewer had no dropdown route to RFC_056's parked
+                        verdicts (or any other deferred row) shorter than a raw
+                        SQL query. */}
+                    <option value="deferred">Deferred ({statusCounts["deferred"] || 0})</option>
                     <option value="complete">Complete ({statusCounts["complete"] || 0})</option>
                 </select>
                 <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={selectStyle}>
                     <option value="">All types</option>
                     {itemTypes.map(t => <option key={t} value={t}>{t} ({serverTypeCounts[t]})</option>)}
                 </select>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#334155" }} title="RFC_056: an LLM-audit seat's finding, recorded but not auto-dispatched. Release only after reviewing the specific row.">
+                    <input type="checkbox" checked={recordVerdictsOnly} onChange={e => setRecordVerdictsOnly(e.target.checked)} />
+                    Record verdicts only
+                </label>
                 <select value={pipelineFilter} onChange={e => setPipelineFilter(e.target.value)} style={selectStyle}>
                     <option value="build">build pipeline</option>
                     <option value="content">content pipeline</option>
@@ -1284,6 +1321,16 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                                 {selectedItem.status === "blocked" && (
                                     <button onClick={() => handleUpdateStatus(selectedItem.id, "triaged")} disabled={actionLoading} style={btnSecondary}>
                                         Unblock → Triaged
+                                    </button>
+                                )}
+                                {/* RFC_056 record verdict (bugs_open/428): the ONLY route this
+                                    row can leave 'deferred' by is a human reviewing it here and
+                                    choosing to release it — nothing else may dispatch it. */}
+                                {selectedItem.status === "deferred" && selectedItem.spec?.filing_mode === "record" && (
+                                    <button onClick={() => handleRelease(selectedItem.id)} disabled={actionLoading} style={{
+                                        ...btnPrimary, background: "#059669",
+                                    }} title={`Would route to: ${selectedItem.spec?.routed_handler || "(none)"} / ${selectedItem.spec?.routed_status || "(none)"}`}>
+                                        Review & Release → {selectedItem.spec?.routed_handler || "?"}
                                     </button>
                                 )}
                             </div>
