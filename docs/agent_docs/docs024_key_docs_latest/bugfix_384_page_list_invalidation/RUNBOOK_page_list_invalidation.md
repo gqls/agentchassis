@@ -256,3 +256,37 @@ SELECT current_step, status FROM orchestration_states
  WHERE collected_data->'input_data'->>'correlation_id' = '149ec925-ffb7-41eb-806a-1595b8ff2226';
 SELECT body FROM doc_notes WHERE categories ? 'diagnosis' ORDER BY created_at DESC LIMIT 1;
 ```
+
+### Outcome of that run, and the two seeding mistakes to avoid next time
+
+**Verdict `UNVERIFIABLE` after 5 iterations (iteration-cap).** Useful anyway — its "still needed"
+list is what cracked the case. Both gaps were MINE, in how I seeded it:
+
+1. **Symbol-scoping the seed to the ENTRY function omits the callee that actually decides.** I
+   passed `rerender_page_sections_action.go:RerenderPageSectionsAction`. The branch that chooses
+   carry-vs-re-resolve lives in `rerenderFlatSections`, which the bundle then showed as an omitted
+   body — so the loop could see `carryStoredSection` existed and could not see who calls it.
+   **Seed the WHOLE FILE unless you have already read the call graph and know the deciding branch
+   is inside the symbol you name.**
+2. **The bundle's agent auto-gather does NOT include workflow steps.** It reported
+   `agent_definitions[page-rerender]: root ai_service present=false` and nothing else, so the loop
+   listed `check_rerender_mode`'s config as missing evidence — **a fact I already had in hand and
+   had not put in the symptom.** If a live `agent_definitions` value is load-bearing, QUOTE IT IN
+   THE SYMPTOM; do not assume the bundle fetches it.
+
+**The check that actually settled it, and the one to reach for first next time:**
+```sql
+-- page_components.updated_at is NOT trigger-maintained; page_component_history IS.
+-- The archive triggers fire on rendered_html change, or content_data change with html static,
+-- so a MISSING row means the writer changed neither. history.component_id is the
+-- page_components ROW id (not content_components.id) — the obvious join returns 0 rows.
+SELECT created_at, source, op, application_name,
+       length(rendered_html) AS html_len,
+       jsonb_array_length(content_data->'articles') AS n_art
+  FROM page_component_history
+ WHERE page_id='<page uuid>' AND created_at > '<date>'
+ ORDER BY created_at DESC;
+```
+`application_name` on each row NAMES THE WRITER (`action:rebuild_blog_listing`, `psql`, …). That is
+how "which action actually maintains this array" became a query instead of an argument — and it is
+the check that showed `rerender_page_sections` has written a listing array **zero times in 14 days**.
