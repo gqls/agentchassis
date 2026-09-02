@@ -60,6 +60,11 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   re-resolves them — batch-verify at the SERVED body after convergence, then close.
 - ⚠ Content validation blockers: the issue detail is in agent_error_log's SECOND row
   (severity `warning`, "see context.issues"), not the CONTENT_VALIDATION_FAILED row.
+- ⚠ On any P5-PAIR site (cross-TLD twins): `tool-suggester` reads identity+classification
+  ONLY — it cannot see a seat split and will propose the SIBLING'S tools by name
+  (happened on gamedesign.uk 2026-09-02, `bugs_open/447`, held reversibly). Until 447 lands,
+  eye every evaluate_tools/add_tool wave on a paired site against the pair rule; the
+  brief-fidelity auditor RECORDS the violation but dispatches nothing.
 - ⚠ Once 444's repair rolls (council corr `c0990eb3`, submitted 2026-09-02 late): a DEFERRED
   listing section means the item source ERRORED — check the exporter config / kind opt-in,
   NOT the component. New deferred-section HITL rows where there was silence are genuine
