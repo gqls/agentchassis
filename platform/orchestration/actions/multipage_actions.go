@@ -1181,60 +1181,104 @@ func extractNestedField(data map[string]interface{}, fieldPath string) interface
 	return current
 }
 
-// extractFieldValue navigates nested field paths like "base_structure.result"
-// and extracts a string value, with fallbacks for common content keys
-func extractFieldValue(data map[string]interface{}, fieldPath string, logger *zap.Logger) string {
-	parts := strings.Split(fieldPath, ".")
+// pathWalkOutcome classifies why a single walk over one candidate path ended.
+// The three-way split is load-bearing (bugs_open/408): a missing key admits
+// trying another candidate form, while a non-map met mid-path must end the
+// lookup outright — collapsing the two would widen the old resolution
+// semantics, which short-circuited on exactly that case.
+type pathWalkOutcome int
 
+const (
+	pathWalkResolved       pathWalkOutcome = iota
+	pathWalkKeyMissing                     // a map lacked the next segment — another candidate form may still resolve
+	pathWalkNotTraversable                 // a non-map met mid-path — no further candidate is tried (matches the old behaviour)
+)
+
+// walkFieldPath resolves a dot-notation path against nested maps with a plain
+// iterative walk — no fallbacks, no recursion (bugs_open/408: the previous
+// shape here was two mutually-recursive fallbacks with no depth bound, and an
+// unresolvable path crashed the pod with a stack overflow). It is log-free;
+// it reports the segment that stopped it so the caller can log once.
+func walkFieldPath(data map[string]interface{}, path string) (value interface{}, stoppedAt string, outcome pathWalkOutcome) {
+	parts := strings.Split(path, ".")
 	var current interface{} = data
 	for _, part := range parts {
-		switch v := current.(type) {
-		case map[string]interface{}:
-			// First try direct access
-			if val, ok := v[part]; ok {
-				current = val
-				continue
-			}
-			// Then try ExtractStepData if it looks like a step result
-			if extracted := datahelpers.ExtractStepData(v[part]); extracted != nil {
-				current = extracted
-				continue
-			}
-			logger.Warn("Field not found in path",
-				zap.String("field", part),
-				zap.String("full_path", fieldPath),
-			)
-
-			// Fallback: if path contains ".response.", try without it
-			if strings.Contains(fieldPath, ".response.") {
-				fallbackPath := strings.Replace(fieldPath, ".response.", ".", 1)
-				logger.Debug("Trying fallback path without .response",
-					zap.String("original_path", fieldPath),
-					zap.String("fallback_path", fallbackPath))
-				return extractFieldValue(data, fallbackPath, logger)
-			}
-
-			// Fallback: if path doesn't contain .response, try with it
-			parts := strings.Split(fieldPath, ".")
-			if len(parts) >= 2 && !strings.Contains(fieldPath, ".response.") {
-				responsePath := parts[0] + ".response." + strings.Join(parts[1:], ".")
-				logger.Debug("Trying fallback path with .response",
-					zap.String("original_path", fieldPath),
-					zap.String("response_path", responsePath))
-				return extractFieldValue(data, responsePath, logger)
-			}
-
-			return ""
-		default:
-			// If we're at a terminal value and still have more parts, something's wrong
-			if len(parts) > 1 {
-				logger.Warn("Cannot traverse further, value is not a map",
-					zap.String("field", part),
-					zap.String("full_path", fieldPath),
-				)
-				return ""
-			}
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, part, pathWalkNotTraversable
 		}
+		val, ok := m[part]
+		if !ok {
+			return nil, part, pathWalkKeyMissing
+		}
+		current = val
+	}
+	return current, "", pathWalkResolved
+}
+
+// extractFieldValue navigates nested field paths like "base_structure.result"
+// and extracts a string value, with fallbacks for common content keys.
+// Returns the value, or "" if it cannot be found — the sole caller
+// (AssemblePageAction) treats "" as "skip this page".
+func extractFieldValue(data map[string]interface{}, fieldPath string, logger *zap.Logger) string {
+	// Build the ordered candidate paths. This is precisely the sequence the
+	// old mutually-recursive fallbacks tried before they began to cycle: the
+	// original path; the path with each ".response." stripped in turn; and
+	// finally the fully-stripped path with ".response." inserted after its
+	// first segment (skipped when identical to the original). A bounded list,
+	// walked in a loop — non-termination is unrepresentable (bugs_open/408).
+	candidates := []string{fieldPath}
+	stripped := fieldPath
+	for strings.Contains(stripped, ".response.") {
+		stripped = strings.Replace(stripped, ".response.", ".", 1)
+		candidates = append(candidates, stripped)
+	}
+	if parts := strings.Split(stripped, "."); len(parts) >= 2 {
+		withResponse := parts[0] + ".response." + strings.Join(parts[1:], ".")
+		if withResponse != fieldPath {
+			candidates = append(candidates, withResponse)
+		}
+	}
+
+	var current interface{}
+	resolved := false
+	firstMissingSegment := ""
+	for _, candidate := range candidates {
+		value, stoppedAt, outcome := walkFieldPath(data, candidate)
+		switch outcome {
+		case pathWalkResolved:
+			current = value
+			resolved = true
+		case pathWalkKeyMissing:
+			if firstMissingSegment == "" {
+				firstMissingSegment = stoppedAt
+			}
+			logger.Debug("extractFieldValue: candidate path did not resolve",
+				zap.String("candidate_path", candidate),
+				zap.String("field", stoppedAt),
+				zap.String("original_path", fieldPath))
+			continue
+		case pathWalkNotTraversable:
+			// Preserved from the old mid-walk default branch: a non-map value
+			// part-way along a path ends the lookup outright.
+			logger.Warn("Cannot traverse further, value is not a map",
+				zap.String("field", stoppedAt),
+				zap.String("full_path", candidate),
+			)
+			return ""
+		}
+		break
+	}
+	if !resolved {
+		// One Warn per failed lookup — the old shape logged this line once per
+		// recursion and produced 12,654 identical lines on the way to the
+		// crash (bugs_open/408 §2).
+		logger.Warn("Field not found in path",
+			zap.String("field", firstMissingSegment),
+			zap.String("full_path", fieldPath),
+			zap.Strings("paths_tried", candidates),
+		)
+		return ""
 	}
 
 	// Convert final value to string
