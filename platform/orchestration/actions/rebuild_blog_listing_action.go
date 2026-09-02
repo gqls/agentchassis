@@ -488,24 +488,39 @@ func scanBlogArticles(rows *sql.Rows, logger *zap.Logger) ([]map[string]interfac
 			continue
 		}
 
-		// Strip " | Company Name" suffix from titles
-		cleanTitle := title
-		if idx := strings.LastIndex(cleanTitle, " | "); idx > 0 {
-			cleanTitle = cleanTitle[:idx]
-		}
-
-		// Truncate excerpt
-		excerpt := metaDesc
-		if len(excerpt) > 200 {
-			excerpt = excerpt[:197] + "..."
-		}
+		// SHARED with the resolver, never re-spelled here (bugs_open/425).
+		// These two rules lived only in this loop; `query.blog_posts` feeds the
+		// SAME content-listing component from resolvePagesWhereType and applied
+		// neither, so one site served two spellings of one card — a clean
+		// headline plus a deck on the blog index, the raw document <title> and
+		// an empty <p> on the home page. The byte-slice truncation that stood
+		// here is gone with it: it could cut a multi-byte character in half
+		// (bugs_open/423's failure), and every meta description on this estate
+		// is a candidate.
+		cleanTitle := queryresolve.ListItemTitle(title)
+		excerpt := queryresolve.ListItemExcerpt(metaDesc)
 
 		articles = append(articles, map[string]interface{}{
-			"title":    cleanTitle,
-			"url":      url,
-			"excerpt":  excerpt,
-			"date":     createdAt.Format("Jan 2, 2006"),
-			"category": "",
+			"title": cleanTitle,
+			"url":   url,
+			// BOTH deck keys, because the two producers of this shape had two
+			// vocabularies and the component library reads both: content-listing
+			// renders {{.excerpt}}, blog-listing_pre_037 renders
+			// {{.meta_description}}. Emitting only one starves whichever template
+			// reads the other, and which template that is depends on the
+			// PRODUCER that happened to run — the same defect as bugs_open/425,
+			// pointing the other way.
+			//
+			// [MEASURED 2026-09-02] latent, not live: this action loads the
+			// content-listing template by lookup rather than following the
+			// page_component's own component_id, so blog-listing_pre_037's
+			// {{.meta_description}} is not reached on this path today. That is a
+			// door left open by an unrelated mechanism, not a guarantee — closing
+			// it here costs one key.
+			"excerpt":          excerpt,
+			"meta_description": metaDesc,
+			"date":             createdAt.Format("Jan 2, 2006"),
+			"category":         "",
 			// The SHARED projection, never a blank (bugs_open/384 decision 3):
 			// card crop first, plan hero second, "" when the page has neither.
 			"image":     img.WebPath(),

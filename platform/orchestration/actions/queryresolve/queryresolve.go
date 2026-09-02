@@ -611,9 +611,25 @@ func (c PageImageCols) WebPath() string {
 //	  "title":            "Jump Physics",
 //	  "url":              "/tools/jump-physics/index.html",
 //	  "meta_description": "...",
+//	  "excerpt":          "...",
 //	  "nav_label":        "Jump Physics Architect",
 //	  "image":            "/assets/images/card-tool-jump-physics.jpg"
 //	}
+//
+// title is the DISPLAY headline — the page's document title with its trailing
+// " | <site>" suffix stripped by ListItemTitle. The example above has always
+// shown it unsuffixed; until 2026-09-02 the code returned pages.title raw, so
+// every card built from this shape displayed the site name inside its own
+// headline (bugs_open/425). [MEASURED 2026-09-02] all 19 active components that
+// render a range .title render it as visible card text and none of them emits a
+// <title> element, so nothing here wants the document title.
+//
+// excerpt is the one-sentence deck, projected from meta_description and bounded
+// by ListItemExcerpt. It is ADDITIVE — meta_description stays, unbounded, for
+// any consumer that wants the whole thing. It exists because the component
+// library already renders `.excerpt` and nothing on this path ever wrote it:
+// the slot rendered as an empty <p> that still took layout, which is read as a
+// design fault rather than as the data gap it is.
 //
 // image (Phase I3, Lane B) is the page's entity-linked CARD asset when one
 // exists, else the page's own plan hero (heavier, but present — the card
@@ -701,9 +717,10 @@ func resolvePagesWhereType(
 		}
 		items = append(items, map[string]interface{}{
 			"name":             name,
-			"title":            title,
+			"title":            ListItemTitle(title),
 			"url":              url,
 			"meta_description": metaDesc,
+			"excerpt":          ListItemExcerpt(metaDesc),
 			"nav_label":        navLabel,
 			"image":            img.WebPath(),
 		})
@@ -794,9 +811,10 @@ func resolvePagesUnderSection(
 		}
 		items = append(items, map[string]interface{}{
 			"name":             name,
-			"title":            title,
+			"title":            ListItemTitle(title),
 			"url":              url,
 			"meta_description": metaDesc,
+			"excerpt":          ListItemExcerpt(metaDesc),
 			"nav_label":        navLabel,
 			"image":            img.WebPath(),
 		})
