@@ -143,6 +143,43 @@ type registerRepairRecord struct {
 	To             string   `json:"to,omitempty"`
 }
 
+// registerSummary is written into the persisted artefact beside the per-item
+// record, and it exists because of a council objection (bug_historian, 4054f4d9
+// round 1) that is a real presentation defect rather than a mechanism one:
+//
+//	"the gate's presence could read as 'this content is now guarded' when a
+//	 meaningful fraction of violations will still ship dirty."
+//
+// That is exactly right, and it is this estate's own *a PASS from a BLIND check
+// outlives the blindness* shape pointed at a gate that is not blind but is
+// DELIBERATELY INCOMPLETE. Layers 2-4 fail closed, so a refused repair keeps the
+// original violating text — by design, because the alternative is accepting a
+// rewrite that guts the point. The number of items that still ship dirty is
+// therefore an EXPECTED, RECURRING output of a working gate, not an error state.
+//
+// Deriving it (counting outcome='kept' across the record) is possible but is an
+// inference a reader has to think to make. `StillViolating` states it, so a
+// census, a dashboard or the next session reads it without reconstructing the
+// rule. ⚠ It is written on the CLEAN path too, all zeros — same deep-merge
+// reason as the record itself.
+type registerSummary struct {
+	Checked        int    `json:"checked"`
+	Violations     int    `json:"violations"`
+	Repaired       int    `json:"repaired"`
+	StillViolating int    `json:"still_violating"`
+	Register       string `json:"register"`
+	RegisterVer    int    `json:"register_version"`
+}
+
+func newRegisterSummary(checked, violations, repaired int) registerSummary {
+	return registerSummary{
+		Checked: checked, Violations: violations, Repaired: repaired,
+		StillViolating: violations - repaired,
+		Register:       datahelpers.BannedRegisterPath,
+		RegisterVer:    datahelpers.BannedRegisterVersion,
+	}
+}
+
 type registerReplacement struct {
 	Index int    `json:"index"`
 	To    string `json:"to"`
@@ -239,7 +276,9 @@ func RepairOrderingRegisterAction(ctx context.Context, params ActionParams) (int
 		return map[string]interface{}{
 			"clean": true, "checked": len(items), "violations": 0,
 			"repaired": 0, "unrepaired": 0,
-			"object": withKey(obj, recordKey, []registerRepairRecord{}),
+			"object": withKey(
+				withKey(obj, recordKey, []registerRepairRecord{}),
+				recordKey+"_summary", newRegisterSummary(len(items), 0, 0)),
 		}, nil
 	}
 
@@ -259,15 +298,20 @@ func RepairOrderingRegisterAction(ctx context.Context, params ActionParams) (int
 		logger.Warn("repair_ordering_register: the repair call did not complete — every point keeps its original text",
 			zap.String("error", callErr), zap.Int("unrepaired", unrepaired))
 	}
-	logger.Warn("repair_ordering_register: register repair finished",
+	// ⚠ `still_violating` is the honest headline, not `repaired`. A gate that
+	// repaired 3 of 8 has left 5 dirty points in a live artefact, and a log line
+	// leading with the 3 is how "the gate is working" outlives the 5.
+	logger.Warn("repair_ordering_register: register repair finished — points STILL VIOLATING ship as written",
 		zap.Int("violating_points", len(targets)),
 		zap.Int("repaired", repairedCount),
-		zap.Int("unrepaired", unrepaired))
+		zap.Int("still_violating", unrepaired))
 
 	out := map[string]interface{}{
 		"clean": false, "checked": len(items), "violations": len(targets),
 		"repaired": repairedCount, "unrepaired": unrepaired,
-		"object": withKey(withKey(obj, itemsKey, repaired), recordKey, records),
+		"object": withKey(
+			withKey(withKey(obj, itemsKey, repaired), recordKey, records),
+			recordKey+"_summary", newRegisterSummary(len(items), len(targets), repairedCount)),
 	}
 	if callErr != "" {
 		out["repair_error"] = callErr

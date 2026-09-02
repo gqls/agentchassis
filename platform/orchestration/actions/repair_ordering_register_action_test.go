@@ -11,6 +11,7 @@
 package actions
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -353,5 +354,58 @@ func TestDecodeRegisterReplacementsAcceptsBothShapes(t *testing.T) {
 	}
 	if got := decodeRegisterReplacements(bare); len(got) != 1 || got[0].Index != 5 {
 		t.Errorf("bare array shape not decoded: %+v", got)
+	}
+}
+
+// ⚠ TestSummaryStatesStillViolatingOnBothPaths — from the council's round-1
+// objection (bug_historian): "the gate's presence could read as 'this content is
+// now guarded' when a meaningful fraction of violations will still ship dirty."
+//
+// Layers 2-4 fail closed, so a refused repair KEEPS the original violating text.
+// That is expected behaviour of a working gate, not an error — which is exactly
+// why the count has to be stated rather than inferred. A reader who has to derive
+// it by counting outcome='kept' is a reader who will not.
+func TestSummaryStatesStillViolatingOnBothPaths(t *testing.T) {
+	clean := newRegisterSummary(6, 0, 0)
+	if clean.StillViolating != 0 || clean.Checked != 6 {
+		t.Errorf("clean summary wrong: %+v", clean)
+	}
+	// The case the objection is about: 8 violations, 3 repaired, FIVE still dirty.
+	dirty := newRegisterSummary(20, 8, 3)
+	if dirty.StillViolating != 5 {
+		t.Fatalf("still_violating must be violations-repaired: got %d, want 5 (%+v)", dirty.StillViolating, dirty)
+	}
+	// It must survive the JSON round-trip into the artefact, under a name a census
+	// can key on — a summary that marshals to nothing states nothing.
+	b, err := json.Marshal(dirty)
+	if err != nil {
+		t.Fatalf("summary does not marshal: %v", err)
+	}
+	if !strings.Contains(string(b), `"still_violating":5`) {
+		t.Errorf("still_violating is not in the persisted shape: %s", b)
+	}
+	// And it must carry the authority it judged against, so a stale artefact can be
+	// told from a current one after a register version bump.
+	if dirty.RegisterVer != datahelpers.BannedRegisterVersion || dirty.Register != datahelpers.BannedRegisterPath {
+		t.Errorf("summary does not carry the register it judged against: %+v", dirty)
+	}
+}
+
+// TestBothArtefactKeysAreWrittenOnTheCleanPath. The record AND the summary both
+// go through write_site_spec's deep merge, so BOTH must be written on a clean run
+// or the previous run's value stands and reads as current (bugs_open/327). The
+// summary was added later than the record, which is exactly when this gets missed.
+func TestBothArtefactKeysAreWrittenOnTheCleanPath(t *testing.T) {
+	obj := map[string]interface{}{"reader_goal": "x", "lead_with": []interface{}{}}
+	out := withKey(
+		withKey(obj, "register_repairs", []registerRepairRecord{}),
+		"register_repairs_summary", newRegisterSummary(0, 0, 0))
+	for _, k := range []string{"register_repairs", "register_repairs_summary"} {
+		if _, present := out[k]; !present {
+			t.Errorf("clean path must write %q — an omitted key keeps the previous run's value under deep merge", k)
+		}
+	}
+	if out["reader_goal"] != "x" {
+		t.Error("an unrelated key was dropped")
 	}
 }

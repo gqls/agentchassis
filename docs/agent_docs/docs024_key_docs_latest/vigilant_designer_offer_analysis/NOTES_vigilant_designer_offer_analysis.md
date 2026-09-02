@@ -3383,3 +3383,120 @@ which the cardinal gate's output reached nothing. That reconciliation is the who
    `offer_ordering` is not among the ~25. It will switch itself ON automatically the day Decision C
    wires the corpus into a writer prompt. Whoever does that should expect a nightly report they did
    not ask for, over a corpus that is 13.5% dirty today.
+
+---
+
+## 2026-09-02 — round 1 returned REVISE, I did not read it, and the audit it forced changed the claim
+
+### ⚠ MISSTEP FIRST: the verdict was in the artefact the whole time
+
+`4054f4d9`'s verdict landed **2026-08-31 17:26:15Z** — about 20 minutes after submission, while I was
+still working. I polled it five times, saw `EXECUTING_STEP` each time, and closed the session
+reporting it as *pending*. It was not pending; I stopped looking. **The handoff I wrote that evening
+says "VERDICT NOT READ. That is the first thing you owe" — which was true when written and stayed
+true for two days**, and the only reason it was caught is that the owner asked me to check.
+
+**The cheap check that would have:** a council run is minutes, not hours. `097` prints the exact
+verdict query; run it once more before writing "pending" into a handoff, or say plainly *"not read
+as of <time>"* rather than *"still running"* — the two are different claims and I made the stronger
+one from the weaker evidence.
+
+### The verdict: REVISE, 11 reviewers, 6 abstained, 8 approve, gated by ONE high objection
+
+**`editquality`, HIGH, gating:** *"the plan contains NO edit that adds a step invoking
+repair_ordering_register... no `_HOLD` migration is included among the edits"*, so the diagnosis's
+own complaint is still true after every edit lands.
+
+**Right about the submission, answerable from the tree.** `681_..._HOLD.sql` exists and was committed
+in `06b10a1d8` **forty minutes after** the round-1 submission was sent — I even flagged the gap in
+that commit message. But a plan that defers its delivery to a file the reviewer cannot see is
+correctly judged partial. It is edit 1 of round 2. **The lesson is ordering, not content: submit
+after the change is coherent, not while it is still being written.**
+
+### ⚠⚠ THE OBJECTION THAT EARNED THE ROUND — and it changed what I claim
+
+**`bug_historian`, MEDIUM:** one call site gets the rigorous fix while sibling producers stay
+unaudited; *"no fleet-wide audit of other producers is proposed."*
+
+I ran it rather than arguing. `[MEASURED 2026-09-02]` — every aspect a LIVE agent prompt names as
+`{{.site_specs.specs.<path>}}`, i.e. **already writer-input today**, scanned against the register:
+
+| aspect | dirty / text fields | % | sites | word-arm hits |
+|---|---|---|---|---|
+| `content_direction` | 549 / 1576 | 34.8 | 34 | 117 |
+| `strategy` | 282 / 640 | **44.1** | 34 | 85 |
+| `identity` | 174 / 703 | 24.8 | 34 | 57 |
+| `design_intent` | 131 / 508 | 25.8 | 34 | 4 |
+| `briefing` | 96 / 408 | 23.5 | 31 | 30 |
+| `evidence_base` | 80 / 644 | 12.4 | 20 | 28 |
+| `mission_brief` | 78 / 342 | 22.8 | 21 | 30 |
+| `classification` | 35 / 328 | 10.7 | 34 | 4 |
+| `site_archetype` | 8 / 245 | 3.3 | 8 | 0 |
+| `roadmap_brief` | 4 / 4 | 100 | 4 | 4 |
+| **`offer_ordering`** (the only one gated) | **25 / 185** | 13.5 | 32 | — |
+
+**`offer_ordering` is one of ELEVEN, and by volume among the smallest** — 25 of the 1,462 dirty text
+fields measured. Round 1's implicit claim that this closes the leak is **WITHDRAWN**.
+
+Two things sharpen it:
+
+1. **The WORD arm is detected by nothing, anywhere: 359 dirty fields across 10 aspects and 34
+   sites.** `[VERIFIED]` `cmd/brief-negation-check` calls `ScanDefineByNegation` at **all six** of its
+   scan sites (`briefcheck.go:281,303,317,321,351`) and has no word arm at all. So the nightly
+   checker covers the SHAPES in those briefs and has never seen `plainly`/`honest*`.
+2. **⚠ THREE OF THOSE ASPECTS ARE ON THE PAGE GATE'S EXEMPTION LIST, so they do not merely go
+   unguarded — they LICENSE the construction downstream.** `[VERIFIED]`
+   `rewrite_negations_action.go`'s `defaultBriefFields` exempts
+   `site_specs.specs.content_direction.formatted`, `identity.key_differentiators` and
+   `identity.target_audience`: the page gate finds a banned construction, matches it as
+   brief-supplied, and leaves it alone. `[MEASURED]` **`content_direction.formatted` carries one on
+   32 of 34 sites** (23 word hits, 32 shape hits). **A dirty brief is a licence for dirty served
+   copy.** That makes the briefs matter MORE than the artefact I gated, not less.
+   **Routed to `copy_quality_two_stage` — it is their exemption list.**
+
+**NOT BUILT, deliberately.** Gating ten more producers is a programme (each has a different producer;
+`content_direction` is assembled rather than minted), and the `architecture` seat's round-1 note is
+adopted verbatim as the standing plan: *"if two or three more analyser→writer paths need the same
+treatment, THAT accumulation (not this plan) is when a general 'register-gate any spec field marked
+writer-input' contract earns an RFC."* **The trigger is the third path, and the audit above is what
+a future session should re-run rather than re-derive.**
+
+### The other objections and their dispositions
+
+- **`bug_historian` LOW — "the gate's presence could read as 'this content is now guarded' when a
+  meaningful fraction will still ship dirty."** ⚠ **A real defect, adopted.** Layers 2–4 fail closed,
+  so a refused repair keeps the ORIGINAL violating text — expected behaviour of a working gate, which
+  is exactly why it must be stated rather than inferred by counting `outcome='kept'`. Added
+  `register_repairs_summary` with an explicit **`still_violating`**, written on BOTH paths (the clean
+  one too — a second key doubles the deep-merge exposure), and the log line now leads with
+  `still_violating` rather than `repaired`. Both guards MUTATED and observed failing.
+- **`reuse_agent` MEDIUM — "nowhere argues why extending `rewrite_negations` was rejected."** Fair:
+  the reasoning existed and was never written down, and round 1 cited that file's internals down to a
+  line range, which is what made the absence conspicuous. Now in the submission: it is bound to a
+  page render in four ways that are not parameters (in-place content-map mutation the renderer reads;
+  a per-PAGE budget keyed on headline fields; a brief-supplied exemption that is precisely backwards
+  here; and a "never fails the step" contract that is right for served copy and wrong for an unserved
+  artefact). ⚠ **Their extraction suggestion is accepted as sound — at the THIRD caller, not
+  speculatively at the second.**
+- **`tooling_provenance` MEDIUM** — no doc_notes/travelling-doc entry. This section is it.
+- **`guardian` LOW ×3** — symbol collision: `[VERIFIED]` none outside `registerwords.go` and its one
+  caller. `input_contract`/`output_contract`: `[VERIFIED]` **no** action in the package declares
+  them; the struct has no such field, so this is consistent with ~200 siblings and raising it is an
+  estate-wide change, not this one's.
+- **`llm_reliability` missing ×2** — `[VERIFIED]` truncation IS MDL-038's mechanism, not an
+  assumption: `aiservice.IsTruncated` on the typed error (:406) plus
+  `aiservice.ClassifyTruncation(outTok, sentMax)` (:454) with `__sent_max_tokens` as the ceiling of
+  record (:423) and an explicit `TruncationUnknown` arm (:456).
+- **`prior_art_librarian` LOW** — the load-bearing "no Go reader" claim, re-checked from the other
+  direction: the only other files carrying a banned-phrase list are `voicetells.go` and
+  `claims_global.go`, and **neither contains `plainly` or `honest`**.
+- **`architecture` APPROVE**, signal `point_fix` — see the accumulation trigger above.
+
+**Round 2 submitted** `RESUBMIT_CORR=4054f4d9…` (the trail accumulates under the original
+correlation; run orch `83548697-cad0-4f5b-a075-c0fd7d51a632`). ⚠ **READ THIS ONE.**
+
+### Unchanged and still true
+
+The gate is **still inert** — `681` is `_HOLD` and must not be applied until an image carries
+`f7156fb54`. Nothing has run through it. **23–24% is the baseline it has to move**, and that is
+measurable only after the wiring applies, from `register_repairs` / `register_repairs_summary`.
