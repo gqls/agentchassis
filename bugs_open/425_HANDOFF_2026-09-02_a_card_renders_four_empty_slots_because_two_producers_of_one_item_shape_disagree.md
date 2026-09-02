@@ -377,10 +377,19 @@ shipped it. Both current pods re-probed with the same controls: fix present.
 > were handled by that one, my evidence does not cover them. Recording it as a hole rather than
 > arguing past it.
 
-**Follow-up diagnosis `fe4b8537` returned NOT CONFIRMED** (iteration cap, no fix proposed). Its two
-data requests returned 0 rows: it was hunting the instance *by source declaration*, and one target
-page had been repointed to a per-site fork mid-run. **The run was chasing a target that moved under
-it** — not worth re-filing in that shape.
+**Follow-up diagnosis `fe4b8537` returned NOT CONFIRMED** (iteration cap, no fix proposed), with
+both its data requests returning 0 rows.
+
+> **CORRECTED — I explained that with a guess and the timestamps refute it.** I wrote that the run
+> "was chasing a target that moved under it", because a target page had been repointed to a
+> per-site fork. `[MEASURED 2026-09-02]` the diagnosis item completed **14:36:43 UTC**; the fork
+> `content-listing-guides-boxingonline-com` was created **17:14:24 UTC** — **two hours and
+> thirty-eight minutes later.** The repoint cannot have touched the run. Caught by the delivery
+> lane, and it took two `created_at` reads to check something I had asserted from plausibility.
+>
+> **The 0-row data requests remain unexplained.** One was behind an `EXPLAIN` that errored with
+> *"syntax error at or near $"* — a parameterised query handed to `EXPLAIN` unbound — which is a
+> concrete lead and not the same as the story I invented. Still not worth re-filing in that shape.
 
 **What supersedes both:** a post-roll rebuild dispatched by the delivery lane (item `7f1f4993`) on
 the current binary. It answers the producer question at the artefact rather than by inference about
