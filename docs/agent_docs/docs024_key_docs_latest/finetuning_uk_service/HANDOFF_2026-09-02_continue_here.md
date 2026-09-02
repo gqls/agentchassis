@@ -94,6 +94,51 @@ a defect — measure your POSITION, not your eligibility, and do not include the
 `status='claimed'` exclusion when you do (it hides exactly the sites ahead of you). Both traps are
 in `LANDMINES.md`; the false "stale claim is blocking the site" conclusion is in `WRONG_CALLS.md`.
 
+## 443 IS FIXED — what this lane owes when the roll lands
+
+The fix was designed, council-APPROVED (round 1, corr `b7c59309`) and committed (`dbb218a41`) by
+the session named `bugs_open/443`, the same evening this bug was filed. Full account:
+`bugs_open/443` §8 and `docs/agent_docs/docs024_key_docs_latest/bugfix_443_fallback_tier_subjects/`.
+It adds `pages.section_subjects` and `pages.section_facts` — jsonb arrays stored beside
+`pages.sections`, applied **only when aligned** (misaligned = ignored with a WARN, never guessed).
+
+**State, all verified at the artefact 2026-09-02 — do NOT re-derive it from `schema_migrations`:**
+
+| piece | state | how to check |
+|---|---|---|
+| migration `717` (the columns) | **applied** 20:11:05Z | `information_schema.columns` on `pages` |
+| migration `639` (wires the handler) | **applied and LIVE** | the live `page-build-handler` row: `plan_sections.config.section_subjects` = `spec_sections.section_subjects` |
+| rails commit `35905c547` | **rolled** | `section_subjects` in the chassis binary (born in that commit: 0 files at `35905c547^`, 5 at it) |
+| migration `641` (writer prompt v5) | **HELD — owner read only** | not applied; gate 1 already clear |
+| commit `dbb218a41` (the fallback half) | **NOT rolled** | `subjects_attached` / `facts_attached` = **0** in the binary |
+
+⚠ **`schema_migrations` is SILENT on `_HOLD` migrations by construction** — they are applied by
+hand and keep the `_HOLD` suffix for ever. I read that ledger, concluded `639` was unapplied, and
+told the owner he was behind three gates when he was behind one. **Read the live
+`agent_definitions` row.** (WRONG_CALLS 2026-09-02(c).)
+
+⚠ **Probe the roll with `subjects_attached` or `facts_attached` — NOT `section_subjects`.** That
+literal predates `dbb218a41` (it was born in the rails commit), so it returns a false positive for
+the fallback-tier half. 641's own header carries the contaminated probe; it is correct for *its*
+question and misleading for this one.
+
+**What this lane owes, agreed with that session:** when `dbb218a41` rolls, **we run the backfill
+and rebuild** for our four pages — we own the briefs, and each page's per-section subjects already
+exist as prose inside its `spec.suggestion`. Write the subjects array beside the layout using the
+template in that lane's RUNBOOK. **`0 rows updated` means MISALIGNED, not "already done" — fix the
+array, do not proceed.**
+
+**Two stages, and report them as two** (their framing, and it is the honest one):
+- **Stage A** (post-roll, pre-`641`): proves `sections_ready[].subject` populates. **The served h2s
+  will STILL repeat** — the writer prompt has not changed yet. This is success, not failure.
+- **Stage B** (post-`641`): the distinct-h2s assertion, with a tier-1 page as control.
+
+Canary: `your-own-model`, per this lane's recommendation — verbatim-identical headings make the
+before/after unarguable.
+
+**RFC_063** files the bigger question (should plan-less sites get plan tables at all) as an owner
+decision, naming this site as the largest affected.
+
 ## Next session, in order
 
 1. **`bugs_open/443`** — the one query left is how many of those 186 pages actually repeat a
