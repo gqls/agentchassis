@@ -106,3 +106,15 @@ dependency class + `queueEvidenceBasePageRerenders` producer hook
 pages centrally, so no page-eligibility logic needed writing here — checked by
 reading the function rather than assuming from the plan's framing of it as an
 open question.
+
+Registered the new mechanism (PBP-048 addendum,
+`docs026_concept_register/register/page-build-pipeline.md`) and added a
+status roundup (bug file §9) covering all three lanes' progress in one place,
+so a cold reader doesn't have to reconstruct it from four sessions' docs.
+
+Checked council verdicts: both this session's submissions' composeWriterBlock
+fix (`d0442d50…`) and `feed_lane`'s candidate #1 part 1 (`4849c95f…`) came
+back **APPROVED** clean (3 of 10 reviewers engaged, no objections). No
+follow-up commit needed — `098` credits a `Council-Submitted:` commit
+automatically once its correlation resolves approved, per CLAUDE.md. The
+render-target submission (`08f56b7e…`) is still in the queue.
