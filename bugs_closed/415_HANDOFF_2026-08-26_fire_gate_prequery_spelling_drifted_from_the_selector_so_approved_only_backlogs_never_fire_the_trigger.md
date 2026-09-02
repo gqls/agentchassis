@@ -131,5 +131,14 @@ selector-side — wider is the safe direction. Chain invariant now: **gate ⊇ s
 `_SUPERSEDED` (`5cd756b99`) — it had become TRACKED (passenger in `0f3721c6e`), making it a
 live whole-directory `--apply` hazard; the suffix puts it under the runner's SIDECAR_RE.
 Register WDS-002 (new fire-gate bullet) + WDS-003 updated; LANDMINES corrected in three
-places and re-synced. Council: `Council-Submitted: 5f0cb450-e40f-4ffd-ac8e-01534caeac25`
-(verdict pending at close; 098 credits the commit automatically on approval).
+places and re-synced. Council: `Council-Submitted: 5f0cb450-e40f-4ffd-ac8e-01534caeac25` —
+**round 1 REVISE** (gating HIGH from prior_art_librarian: it quoted the `sites.locked_at`
+landmine's HEADLINE, whose own first line is the 2026-08-03 "headline is HISTORY" correction —
+answered with the correction text, a fresh live selector read, and round 1's own
+`selector_has_lock_exception_arm: true` check; two MEDIUMs on the 213 rename being "deferred"
+— in fact committed 6 s BEFORE the DB apply, evidenced with `git ls-files` + timestamps),
+**round 2 APPROVED 2026-09-02 13:39Z, all reviewers, no SQL change in either round.**
+098 credits the commit automatically from the Council-Submitted trailer (forward-only, no
+amend). The REVISE round cost ~12 minutes and found no defect — but it did force the
+before-the-apply timeline onto the record with checks attached, which round 1's prose had
+left as stated intention.
