@@ -19759,3 +19759,44 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why the wrong result looks exactly right:** the field is named for precisely the question you are asking, it is present on every row, and a portfolio mostly parked at Afternic is *expected* to have no Dynadot-side listings — so the uniform `no` confirms the prior instead of contradicting it.
 - **source:** 2026-09-02, dynadot session (domains_cloudflare_rollout → domain_valuation inbound). A header-only "zero listings" CSV was written and minutes from shipping to the valuation lane when the dump-grep control found the five.
 - **added:** 2026-09-02, dynadot session.
+
+---
+
+### A hand-built `orchestrate` publish that omits the ORCHESTRATION headers is refused before any state row exists — the receipt still says PUBLISHED, and the estate's "a missing row is latency, not a drop" rule then tells you to wait for it for ever
+
+- **footprint:** `system.agent.generic.requests` · `scripts/kafka-publish-lib.sh` (`kafka_publish_checked`) · `orchestration_states` · `platform/orchestration/actions/dispatch_verifiers.go` / `dispatch_area_discoverers.go` (the canonical header set) · any `*_TRIGGER_*.sh` that hand-builds an envelope
+- **fires when:** you dispatch an agent by hand — a `rerender-chrome`, a one-off orchestration, a trigger script you copied — and assemble the Kafka headers from a worked example in `docs/` or `scripts/initial_messages/`. **Several in-repo examples carry only a partial set** (`320_.../085_TRIGGER_toolgen_gamesdesign_v1.sh` and `140_tool_suggester/076_tool_suggester.sh` both send `action`/`message_type`/`from_agent_*`/`responses_topic` and no more), so copying a known-good-looking trigger reproduces the fault.
+- **the trap:** the publish succeeds and the **execution** refuses, leaving nothing behind. `kafka_publish_checked` returns 0 with its receipt asserted, because the broker genuinely took the bytes. But no `orchestration_states` row is ever written — so there is nothing to find by correlation id, nothing by payload, nothing by domain, and nothing with `status='FAILED'`. `coordinator.go:143` shows the shape of it (`if execCtx.ClientID == "" { return … }` sitting **before** `getOrCreateState`), and the same "refuse before insert" pattern is what makes the whole class invisible.
+- **`[MEASURED 2026-09-02]`, three attempts, same payload and topic each time:**
+
+  | attempt | headers sent | result |
+  |---|---|---|
+  | 1, 19:52Z | `action`, `message_type`, `from_agent_type`, `from_agent_id`, `request_id`, `responses_topic` | **no row, 50 min** |
+  | 2, 20:12Z | attempt 1 **+ `client_id`** | **no row** |
+  | 3, 20:15Z | attempt 2 **+ `message_id`, `orchestration_id`, `orchestration_name`, `step_name=start`** | **row in ~10 s, COMPLETED** |
+
+  ⚠ **The cause is somewhere in attempt 3's four additions and I did NOT isolate which** `[UNMEASURED]` — I added them as a set. `orchestration_id` is the strongest suspect (it is `orchestration_states`' NOT NULL primary key and the caller is expected to mint it), but do not quote that as established. **`client_id` alone is NOT sufficient**, which attempt 2 settles — and that matters, because `client_id` is the one the code makes loudest.
+- **the check — copy the canonical set from the code, not from a doc:** `platform/orchestration/actions/dispatch_verifiers.go:154-168` is a working in-code dispatcher and lists all twelve: `correlation_id, request_id, message_id, orchestration_id, orchestration_name, step_name, client_id, message_type, action, from_agent_type, from_agent_id, responses_topic`. Mint fresh uuids for `orchestration_id`/`request_id`/`message_id`; `step_name` is `start`. Take `client_id` from the target's own history, never a guess:
+  ```sql
+  SELECT client_id, count(*) FROM orchestration_states
+   WHERE collected_data->'input_data'->>'domain' = '<domain>' GROUP BY 1 ORDER BY 2 DESC;
+  ```
+- **and the DEMAND CONTROL that separates "queued" from "refused" before you decide whether to re-fire:**
+  ```sql
+  -- top-level rows come straight off the topic; children do not. Is the consumer alive?
+  SELECT count(*), max(created_at) FROM orchestration_states
+   WHERE parent_orchestration_id IS NULL AND created_at > now() - interval '60 minutes';
+  ```
+  Healthy consumer + your row missing ⇒ **refused, not queued** ⇒ re-firing duplicates nothing. Measured that evening: **154** top-level dispatches landed in the same hour my two were absent, newest seconds old.
+- **why the wrong result looks exactly right:** the symptom is an empty result from the exact query the runbooks tell you to run, and the standing guidance for that symptom is *"`system.agent.generic.requests` is single-partition/single-consumer, measured publish→run latency 25–36 minutes; a missing orchestration row is queue latency, not a drop — re-firing duplicates the work."* Correct for a queued message, **catastrophic for a refused one**: you wait, re-check, and the row never comes. The cheapest disproof is another lane's *working* dispatch of the same agent — `af0857d2` (`rerender-chrome`, garden-tools.uk) COMPLETED **one second** after publish, which also retires the 25–36-minute framing for this agent and made a 50-minute silence unambiguous.
+- **relations:** `a-receipt-nobody-asserts-on-is-a-log-line` (a receipt proves the broker took bytes, never that work happened) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · [[detection-works-schedule-and-dispatch-do-not]] · [[a-plausible-external-cause-is-when-to-doubt-your-instrument]]
+- **source:** 2026-09-02, bugfix 417/420 lane, dispatching `rerender-chrome` for two sites whose headers still rendered text. I had just committed the partial recipe into my own RUNBOOK, so the broken version reached other sessions before I found it.
+- **added:** 2026-09-02, bugfix 417/420 lane
+
+### A `_HOLD` migration's FILENAME never changes when it is applied — reading the suffix as the state reports a LIVE config as unapplied
+
+- **footprint:** `docs/agent_docs/sql_for_agents/*_HOLD.sql` · `scripts/migration/run-migrations.sh` (SIDECAR_RE) · any "has seed NNN been applied?" check · `agent_definitions.default_config`
+- **fires when:** you assess a held seed's state from the directory listing. The `_HOLD` suffix exists to keep the RUNNER's hands off the file; it is permanent. Application is a hand act recorded in TWO places, neither of them the filename: the `-- APPLIED <date> by <session>` line the applier writes into the file's own header, and the artefact itself (the live `agent_definitions` row, the schema, the pod). A `_HOLD` file with an APPLIED line is live; one without may still have been applied by a session that forgot the line. **The filename is always identical in both worlds.**
+- **live instance, 2026-09-02:** a session verifying the 443 fix chain read `639_..._HOLD.sql` in the listing and reported "639 NOT applied (still `_HOLD`)" — while the live `page-build-handler` row had carried the 639 wiring (`plan_sections.config.section_subjects = spec_sections.section_subjects`) since that morning, pod-verified by its applier. The downstream conclusion ("gate 1 on 641 has not cleared") inverted too. Caught the same hour only because a second session had read the live row independently.
+- **the check — ask the artefact, never the listing:** grep the file for `^-- APPLIED`, then confirm at the live row (for a config seed) or `information_schema` (for DDL). This entry's own worked pair: `grep -c '^-- APPLIED' docs/agent_docs/sql_for_agents/639_*.sql` → 1, and the `agent_definitions` query in `bugfix_443_fallback_tier_subjects/RUNBOOK` → wiring present.
+- **for authors:** an older sibling of this entry (cited in a relations line, apparently never written) proposed renaming on apply; the LIVE convention (639/640's own headers, 2026-09-02) is the APPLIED line + pod verification, filename untouched. Follow the headers.

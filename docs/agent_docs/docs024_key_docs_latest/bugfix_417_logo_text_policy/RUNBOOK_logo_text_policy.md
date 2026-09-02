@@ -180,14 +180,46 @@ the receipt is asserted (`kcat -P` exits 0 having sent nothing):
 source scripts/kafka-publish-lib.sh
 CORR=$(cat /proc/sys/kernel/random/uuid)
 PAYLOAD=$(printf '{"action":"orchestrate","config":{"agent_type":"rerender-chrome"},"input_data":{"site_id":"%s","domain":"%s"}}' "$SITE_ID" "$DOMAIN")
+CORR=$(cat /proc/sys/kernel/random/uuid); REQ=$(cat /proc/sys/kernel/random/uuid)
+ORCH=$(cat /proc/sys/kernel/random/uuid); MSG=$(cat /proc/sys/kernel/random/uuid)
 kafka_publish_checked --topic system.agent.generic.requests --payload "$PAYLOAD" --correlation "$CORR" \
-  --header action=orchestrate --header message_type=request \
-  --header from_agent_type=user --header from_agent_id=cli \
-  --header "request_id=$CORR" --header responses_topic=system.agent.generic.responses
+  --header "request_id=$REQ" --header "message_id=$MSG" --header "orchestration_id=$ORCH" \
+  --header "orchestration_name=rerender-chrome-<domain>-$(date +%H%M%S)" \
+  --header "step_name=start" --header "client_id=system" \
+  --header "message_type=request" --header "action=orchestrate" \
+  --header "from_agent_type=user" --header "from_agent_id=cli" \
+  --header "responses_topic=system.generic.responses"
 ```
-⚠ **`system.agent.generic.requests` is single-partition/single-consumer — measured publish→run
-latency 25–36 minutes under load. A missing `orchestration_states` row is LATENCY, not a drop.
-Do not re-fire.**
+> **⚠ SEND THE FULL HEADER SET. A partial one is refused with NO trace at all, and I published a
+> partial recipe here before finding that out.** Measured 2026-09-02, same payload and topic each
+> time: `action`+`message_type`+`from_agent_*`+`request_id`+`responses_topic` → **no row after 50
+> minutes**; the same **plus `client_id`** → **still no row**; the same plus **`message_id`,
+> `orchestration_id`, `orchestration_name`, `step_name=start`** → **row in ~10 s, COMPLETED**.
+> ⚠ I added those last four together and did **not** isolate which is load-bearing `[UNMEASURED]`
+> — `orchestration_id` is the strongest suspect (NOT NULL primary key of `orchestration_states`,
+> minted by the caller), but do not quote that as established. `client_id` alone is **not**
+> sufficient. The canonical twelve live in working code, not in a doc:
+> `platform/orchestration/actions/dispatch_verifiers.go:154-168`.
+> Take `client_id` from the target's own history:
+> ```sql
+> SELECT client_id, count(*) FROM orchestration_states
+>  WHERE collected_data->'input_data'->>'domain' = '<domain>' GROUP BY 1 ORDER BY 2 DESC;
+> ```
+
+⚠ **Latency vs DROP — and the standing advice points the wrong way when it is a drop.** The
+estate's rule is *"a missing `orchestration_states` row is latency, not a drop — do not re-fire"*,
+which is right for a queued message and **wrong for a refused one**, where waiting is infinite.
+(For this agent the 25–36-minute framing is itself wrong: a well-formed dispatch lands in **~10
+seconds** — measured three times, plus another lane's `af0857d2` which completed in one second.)
+Tell them apart with a demand control before you decide:
+```sql
+-- Are OTHER top-level dispatches landing? These come straight off the topic.
+SELECT count(*), max(created_at) FROM orchestration_states
+ WHERE parent_orchestration_id IS NULL AND created_at > now() - interval '60 minutes';
+```
+**154 in the hour my two were missing** ⇒ the consumer is healthy, so mine were never accepted and
+a re-fire duplicates nothing. A genuinely queued message sits behind a *stalled* consumer, and that
+control reads zero or stale.
 
 **⚠ THE HALF THAT IS EASY TO MISS: `rerender-chrome` does NOT touch deployed pages.** Its own
 `complete` step says so — *"No page assembly, no deploys — served pages are untouched until their
@@ -208,3 +240,26 @@ FROM site_components sc JOIN sites s ON s.id=sc.site_id WHERE s.domain='<domain>
 then `curl -s https://<domain>/index.html | grep -o 'logo-img\|logo-text'` for the SERVED page.
 **The component row and the served page are different facts** and the whole point of the
 propagation step is the gap between them.
+
+### The 5 text-header sites, resolved `[MEASURED 2026-09-02 20:20Z]` — only ONE was re-renderable
+
+A re-render fixes exactly one shape of this. Establish which shape you have **before** dispatching.
+
+| site | why the header shows text | does a re-render fix it? |
+|---|---|---|
+| **websitepromotion.co.uk** | header rendered 17:30Z with `render_inputs.plan_logo=""`, 30 min BEFORE the logo existed; the 18:01Z **page** re-render re-used the stored header | **YES — done**, header 2362→2633 B, `logo-img` present, digest ok |
+| **webdesign.co.uk** | its header is a **bespoke component** (`webdesign.co.uk Site Header`, `ad6033ae`), and that template contains **no `logo_url`, no `logo-img`, no `logo-text` at all** — 4,133 chars with no logo slot | **NO.** Re-rendered 20:16Z: ran cleanly, `has_img` still false, length unchanged at 4142. Needs a template change or a switch to `header-theme-chrome` — a design decision |
+| **ai-agent-orchestration.com** | zero `site_plan_imagery` rows for `scope=site/kind=logo` on the current plan, and `sites.logo_url` empty | **NO** — nothing for the renderer to resolve; needs a plan row |
+| **cookly.uk** | same as above | **NO** |
+| **loanandmortgagecalculator.co.uk** | all three chrome slots **permanently locked** since 2026-08-05 (`lock_type='permanent'`) | **NO** — forced renders are refused on locked slots by design; that is a human decision to lift |
+
+**The lesson worth carrying: "the header shows text" is one symptom over at least four causes**, and
+only the first is a render problem. `render_inputs.plan_logo` being non-empty does **not** mean the
+header can show a logo — webdesign.co.uk recorded a real logo digest as an input and its template
+had nowhere to put it. **Check the component's template for a logo branch before blaming the data:**
+```sql
+SELECT cc.name, (cc.html_template LIKE '%logo-img%') AS has_img_branch
+FROM site_components sc JOIN sites s ON s.id=sc.site_id
+JOIN content_components cc ON cc.id=sc.component_id
+WHERE s.domain='<domain>' AND sc.slot_name='header';
+```
