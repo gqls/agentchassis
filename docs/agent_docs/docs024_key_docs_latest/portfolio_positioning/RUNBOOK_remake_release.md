@@ -72,9 +72,20 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   verified on the live row** [their verification, not this lane's — our token expired at
   21:08Z before `enforce_listing_sources` could be re-read here]. So the PROMPT half is live for every brief fired from
   now: the planner is told a listing page needs a live item source and a glossary/showcase
-  needs a named producer. The Go gate (`6525b45ae`) is inert until a chassis roll carries it —
-  prove it per SERVICE at the provenance stamp, never by the roll's existence. Once it is live:
-  a DEFERRED listing section means the
+  needs a named producer. ~~The Go gate (`6525b45ae`) is inert until a chassis roll carries it~~
+  **The Go gate is PROVEN LIVE (444 session, `560a24c07`, ~21:2xZ 2026-09-02): the running
+  chassis build ∈ [`6525b45ae`, `c610898d1`)** — gate symbol present via the NUL-split probe
+  with both controls coherent; flag re-verified `true`. So for every brief fired from now the
+  MECHANICAL gate holds listing pages with no item source and files `capability_gap` receipts
+  (§6 query meaningful on the first plan run). **The r2 refinements ride the NEXT roll**
+  (derived vocabularies, optional-error durable record, shared-writer receipts — and with them
+  the 326 anti-churn deferral of receipts): until that roll, receipts insert directly, so the
+  "missing receipt ≤~3h = anti-churn" line below does NOT yet apply. ⚠ **Proving a roll: do NOT
+  use CLAUDE.md's `build provenance` log grep or a plain `grep -aq` on `/proc/1/exe` — both are
+  LANDMINED (no such log line on backend services; BusyBox grep false-absences with controls
+  passing).** The working instrument is the NUL-split probe with two controls in the same
+  pipeline: `bugfix_444_empty_listing_pages/RUNBOOK_bugfix_444.md` "Prove the gate is LIVE".
+  Once it is live: a DEFERRED listing section means the
   item source ERRORED — check the exporter config / kind opt-in, NOT the component. New
   deferred-section HITL rows where there was silence are genuine findings, not noise; nothing
   new can FAIL a build that previously completed. (Pre-repair, the same condition built HOLLOW

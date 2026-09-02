@@ -111,8 +111,12 @@ verdict~~ **landed APPROVED 20:53Z — runbook §2 carries it, addendum below**)
 - **444 round 3 APPROVED** 20:53:22Z (corr `c0990eb3`; [DB] `complete_approved` COMPLETED, read
   by this lane). The fixing session's close-out, committed `2d7a98446` (and their direct message
   to this session, 21:1xZ):
-  `Council-Reviewed: c0990eb3…`, **migration 720 APPLIED + verified live**, Go gate `6525b45ae`
-  INERT until a chassis roll carries it. Runbook §2 updated. **§1d consequence**: the PROMPT half
+  `Council-Reviewed: c0990eb3…`, **migration 720 APPLIED + verified live**, ~~Go gate `6525b45ae`
+  INERT until a chassis roll carries it~~ **→ GATE PROVEN LIVE after the token refresh (their
+  `560a24c07`, build ∈ [`6525b45ae`, `c610898d1`)); the r2 refinements incl. receipt anti-churn
+  ride the NEXT roll. Class half of 444 meets fixed-AND-live; bug stays open for instance work
+  + candidate (3) + first-fire confirmation.** Runbook §2 updated (and its deploy-proof line
+  now points at their NUL-split probe — CLAUDE.md's two recipes are landmined). **§1d consequence**: the PROMPT half
   is live now — the planner is told not to plan a listing page without a live item source —
   so runbook §6's pre-enablement is the belt and the Go gate the braces; nothing further to
   wait on from 444 before firing. ⚠ [DB] designblog filed `needs_section_data` at 21:04:44Z
