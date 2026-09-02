@@ -1,6 +1,9 @@
 -- 690_refuse_untraceable_park_VERIFY.sql
 --
--- Proves migration 690's guard is LIVE and DISCRIMINATING. bugs_open/396.
+-- Proves the park-provenance guard (migrations 690 + 700) is LIVE and DISCRIMINATING. bugs_open/396.
+--
+-- ⚠ REQUIRES MIGRATION 700. Assertion 5b fails against 690 alone — 690 accepted a handler
+-- re-point on an already-deferred row, which is the hole 700 closes.
 --
 -- Run:  kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --         psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
@@ -33,6 +36,8 @@ DECLARE
     v_key    text := 'MIGRATION_690_VERIFY_' || gen_random_uuid()::text;
     v_key2   text := 'MIGRATION_690_VERIFY_' || gen_random_uuid()::text;
     v_key3   text := 'MIGRATION_690_VERIFY_' || gen_random_uuid()::text;
+    v_key4   text := 'MIGRATION_690_VERIFY_' || gen_random_uuid()::text;
+    v_id3    uuid;
 BEGIN
     -- PRECONDITION (structural, and NOT sufficient on its own — see the header).
     IF NOT EXISTS (SELECT 1 FROM pg_trigger
@@ -128,19 +133,46 @@ BEGIN
     END;
 
     -- ── 5. An ALREADY-deferred row must stay writable, or the retraction drain breaks. ──
-    --      Giving it a NAMED handler is the sharpest form: the row then matches the
-    --      refused shape exactly, and must still be writable because this write is not
-    --      a TRANSITION into deferred.
+    --
+    -- ⚠⚠ CORRECTED 2026-09-02 (migration 700). THIS ASSERTION USED TO BE THE EXPLOIT.
+    -- It previously set `handler_agent = 'some-named-handler'` on the shelf row and required
+    -- the write to be ACCEPTED, calling that "the sharpest form" of proving an already-deferred
+    -- row stays writable. It was sharp in the wrong direction: that write produces
+    -- deferred + NAMED handler + no provenance — the exact shape this guard exists to prevent —
+    -- and the test demanded it succeed. The council's `editquality` seat found it on the round
+    -- that APPROVED 690 (corr `dcd2b3c9`), and it was then induced against the live trigger.
+    -- Migration 700 closes it. **A test can assert a vulnerability is a feature; this one did.**
+    --
+    -- 5a. What the exemption is actually FOR: bookkeeping on a properly-parked row that leaves
+    --     handler_agent alone must still be ACCEPTED.
+    INSERT INTO site_work_items (site_id, source, item_type, summary, created_by,
+                                 handler_agent, status, item_key, result)
+    VALUES (v_site, 'migration_690_verify', 'migration_690_verify',
+            'synthetic properly-parked row', 'migration_690_verify',
+            'legacy-handler', 'deferred', v_key3,
+            jsonb_build_object('parked_by','migration_690_verify','parked_reason','verify run'))
+    RETURNING id INTO v_id3;
     BEGIN
-        UPDATE site_work_items
-           SET handler_agent = 'some-named-handler', summary = summary || ' (touched)'
-         WHERE id = v_id2;
+        UPDATE site_work_items SET summary = summary || ' (bookkeeping)' WHERE id = v_id3;
         RAISE EXCEPTION 'VERIFY_SENTINEL';
     EXCEPTION WHEN OTHERS THEN
         IF SQLERRM <> 'VERIFY_SENTINEL' THEN
-            RAISE EXCEPTION '690 VERIFY FAILED: an ALREADY-deferred row could not be updated — this strands the 170 legacy rows work_item_retraction.go must drain. Error: %', SQLERRM;
+            RAISE EXCEPTION '690 VERIFY FAILED: bookkeeping on a properly-parked row was refused — this strands the 170 legacy rows work_item_retraction.go must drain. Error: %', SQLERRM;
         END IF;
     END;
+
+    -- 5b. THE CORRECTED ARM (migration 700): re-pointing an already-deferred row's handler to a
+    --     named value with NO provenance must be REFUSED. Under 690 alone this was ACCEPTED.
+    v_fired := false;
+    BEGIN
+        UPDATE site_work_items SET handler_agent = 'some-named-handler' WHERE id = v_id2;
+    EXCEPTION WHEN OTHERS THEN
+        v_fired := true;
+        IF SQLERRM NOT LIKE '%WORK_ITEM_PARK_PROVENANCE_REFUSED%' THEN RAISE; END IF;
+    END;
+    IF NOT v_fired THEN
+        RAISE EXCEPTION '690/700 VERIFY FAILED: a shelf row was re-pointed to a NAMED handler with no provenance and ACCEPTED — migration 700 is not applied, or has regressed.';
+    END IF;
 
     -- ── 6. THE INSERT ARM: a row BORN deferred with a named handler and no provenance
     --      must be refused, or the guard is bypassable by inserting rather than updating.
@@ -150,7 +182,7 @@ BEGIN
                                      handler_agent, status, item_key)
         VALUES (v_site, 'migration_690_verify', 'migration_690_verify',
                 'synthetic born-parked row', 'migration_690_verify',
-                'some-named-handler', 'deferred', v_key3);
+                'some-named-handler', 'deferred', v_key4);
     EXCEPTION WHEN OTHERS THEN
         v_fired := true;
         IF SQLERRM NOT LIKE '%WORK_ITEM_PARK_PROVENANCE_REFUSED%' THEN
@@ -166,7 +198,8 @@ BEGIN
     RAISE NOTICE '  2. parked_by without parked_reason ........................... REFUSED';
     RAISE NOTICE '  3. park with provenance, in result AND in spec ............... ACCEPTED';
     RAISE NOTICE '  4. shelf class (deferred + empty handler), born deferred ..... ACCEPTED';
-    RAISE NOTICE '  5. already-deferred row still writable ....................... ACCEPTED';
+    RAISE NOTICE '  5a. bookkeeping on a properly-parked row (handler unchanged) .. ACCEPTED';
+    RAISE NOTICE '  5b. handler RE-POINT on an already-deferred row, no provenance . REFUSED';
     RAISE NOTICE '  6. untraceable park on INSERT (born parked) .................. REFUSED';
     RAISE NOTICE 'All synthetic rows are discarded by the ROLLBACK below.';
 END
