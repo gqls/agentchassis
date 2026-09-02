@@ -3677,3 +3677,13 @@ Birth-mint confirmed live on a day-old site: designblog's newborn content_direct
 register at birth, which is the brief-wash campaign's justification arriving pre-measured for
 every FUTURE site too (the wash cleans stock; the BIRTH producer needs its own gate — same
 argument as the offer lane's Decision E, one producer along; queued for the owner's list).
+
+**Empty-room split, from designblog's close-out:** their `bugs_open/444` candidate 1 is the
+PLAN-side door-closer — validation refuses/degrades a listing page whose item source resolves
+to zero — and their framing is adopted verbatim: "fixing prose without items just produces
+nicer prose about an empty page." That closes the LISTING-page half of the empty-room class
+upstream of the writer; this lane's title-promise design then covers only the remaining half
+(a titled promise with no data behind it on a non-listing page). Scope the demonstration
+accordingly when it's built — don't gate what 444 makes unreachable. They offer
+served-vs-stored evidence from their four examples as test cases for the re-ask fix and any
+word-repair arm; digest at designblog_couk/NOTES_designblog_couk.md.
