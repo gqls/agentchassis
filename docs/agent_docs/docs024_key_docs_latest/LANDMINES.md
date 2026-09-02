@@ -12123,10 +12123,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
   and stopping the hand-probing that is currently the only thing catching a typo. **Go-compile and
   probe-fire your patterns until you have seen the detector's first findings**, and confirm at the
   artefact rather than at the commit.
-  Council round `bc3697a5-0a89-4f33-9f85-5647f10d7c40` — **`Council-Submitted:`, which is a
+  Council round `bc3697a5-0a89-4f33-9f85-5647f10d7c40` — ~~**`Council-Submitted:`, which is a
   submission and NOT a verdict**; do not read it as approval, and expect at least one real
   objection (the round's own reviewer questioned the `item_key` not being type-scoped against
-  `idx_swi_dedup`). **The seam belongs to the claims-verification lane; this entry records the
+  `idx_swi_dedup`).~~
+  > **CORRECTED 2026-09-02, hours later — the round closed APPROVED, and my parenthetical was
+  > wrong in a way worth keeping visible.** The verdict is **APPROVED**, 3 advisory objections,
+  > none high-severity. The `item_key` objection was **against the submission's SKETCH, not the
+  > code**: verified at HEAD, `bannedClaimPatternItemKey` (`:365`) returns
+  > `invalid_banned_claim_pattern:<site>:<fnv64a of pattern>` — the type prefix the objection
+  > asked for **was already there**. I repeated the objection from a review payload without
+  > checking the function, and so implied a defect in shipped code that does not exist. **Reading
+  > an objection is not reading the code it is about** — the same one-step-short mistake this
+  > entry exists to catch, made against a reviewer's words instead of a pattern's.
+  > **The transferable half is a submission-quality lesson, not a design one:** a reviewer without
+  > a `code_check` sees only your sketch, so an **under-described** key is indistinguishable from
+  > a **missing** one and costs a real objection. Describe the actual key format, verbatim, in the
+  > submission. **The seam belongs to the claims-verification lane; this entry records the
   argument, the costing and now the state, and does not reserve the work.**
 - **`[MEASURED 2026-08-17, remortgagecalculator.uk pilot seed]`:** all **6 of 6** patterns inert on the first apply. The seed's own verify block asserted `jsonb_array_length(banned_claims) = 6` and **passed** — a count comes out identical whether the guards work or not, which is the same shape as `WRONG_CALLS`' "a `[MEASURED]` figure is only evidence if it could have come out otherwise".
 - **the check — probe, never count.** Assert BEHAVIOUR with strings that must match *and* strings that must not (a guard matching everything is as broken as one matching nothing, and only the pair tells them apart). **Do it in Go, not SQL:** Postgres ARE and Go RE2 disagree on word boundaries — PG spells it `\y`, and `\b` is *backspace* — so a `psql … ~ pattern` probe is a check in the wrong engine and will lie to you in both directions. Worked pair: `datahelpers/claims_banned_pattern_escaping_test.go` (semantics, compiled exactly as production does) + the seed's own structural guard.
