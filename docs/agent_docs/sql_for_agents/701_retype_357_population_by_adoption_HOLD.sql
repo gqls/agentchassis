@@ -152,6 +152,43 @@
 --      should stop being re-filed; they are left to their own verifiers, not
 --      hand-closed (693's lesson (d)).
 --
+-- HOW TO READ THE SERVED PAGE (council round 1, debug_historian): send a
+-- browser-like Accept header (a bare curl default can draw a different body
+-- from the edge than a browser sees), wait out the publish lag before judging
+-- (measured 11-97s across six publishes, webdesign lane 2026-09-02 — a
+-- refusal inside that window is lag, not failure; re-read after it), and
+-- assert the tool's own MARKERS (its <input>/<button>/<script>), never byte
+-- equality against the DB row (head/chrome injection makes served != stored
+-- by design).
+--
+-- ============================================================================
+-- THE 357-KEYED LANDMINE, ENGAGED (council round 1, debug_historian HIGH).
+-- LANDMINES.md carries: "a page whose only component row is an
+-- adopted-fragment CANNOT be rebuilt — flagging it needs_rebuild crashes the
+-- pod" (bugs_open/408, cv1.co.uk). That trap does NOT transfer to 701's rows,
+-- and the difference is the mechanism, not hope:
+--
+--   * The cv1 crash chain NEEDS AN EMPTY RENDER: the shared adopted-fragment
+--     template binds {{.body}}, which renders empty on a fresh write, so the
+--     compile keeps 0 sections, page_html never exists, and the old
+--     extractFieldValue recursed to a stack overflow (408 §4).
+--   * 701's adopted templates carry ZERO template bindings — Guard 3 aborts
+--     the transaction if that ever stops being true — so a rebuild of a
+--     post-701 page renders the template TO ITS LITERAL BYTES: non-empty by
+--     the same measurement that licenses the adoption. The no-content path is
+--     unreachable, not merely unexercised.
+--   * needs_rebuild flags on these pages are a REAL possibility, not
+--     hypothetical (writers as of 2026-09-02: page_build_failure_guard.go:102
+--     /:120, maintenance flagPagesForRebuild, the planner re-plan path,
+--     store_generated_component_action.go:1359) — which is exactly why the
+--     non-empty-render property above, not process discipline, is the guard.
+--   * Belt and braces: bugs_open/408's fix is committed and council-approved
+--     (6e2d4a039 + b8bf40694, corr 3918db52) — once an image >= those rolls,
+--     even a genuinely absent content field skips cleanly instead of crashing.
+--   * 701's OWN filings are page_rerender items (a path measured free of the
+--     408 defect: zero extractFieldValue/skip_reason occurrences in
+--     rerender_single_page_action.go, 2026-09-02), never needs_rebuild.
+--
 -- Lane: docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/
 -- Rollback: 701_retype_357_population_by_adoption_HOLD_ROLLBACK.sql
 -- ============================================================================

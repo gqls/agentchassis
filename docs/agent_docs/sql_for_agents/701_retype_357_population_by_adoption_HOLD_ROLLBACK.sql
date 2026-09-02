@@ -180,6 +180,33 @@ UPDATE site_plan_sections sps
    AND sps.component_name = b.new_name;
 
 -- ---------------------------------------------------------------------------
+-- 4b. NO PENDING WORK MAY TARGET THESE PAGES (council round 1, guardian): a
+-- non-terminal work item from ANY source that would rerender/rebuild one of
+-- the affected pages could fire after this rollback and act on the restored
+-- hero identity — cancelling another lane's item is not ours to do, so the
+-- rollback ABORTS instead and names the rows to resolve first. Migration
+-- 701's own filings were already cancelled in step 1, so anything caught
+-- here belongs to someone else. (Ordering note, load-bearing: the pc rows
+-- were restored BEFORE the component delete below, so even a race that slips
+-- past this check resolves against the restored hero row, never a deleted
+-- component id.)
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE pending text[];
+BEGIN
+  SELECT array_agg(swi.item_key || ' (' || swi.status || ', ' || COALESCE(swi.created_by,'?') || ')')
+    INTO pending
+    FROM site_work_items swi
+    JOIN page_components_backup_357b_20260902 b ON swi.page_id = b.page_id
+   WHERE swi.item_type IN ('page_rerender','page_rebuild','needs_rebuild')
+     AND swi.status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled','deferred');
+  IF pending IS NOT NULL THEN
+    RAISE EXCEPTION '701 ROLLBACK ABORT: % pending work item(s) from other sources target the affected pages — resolve or let them finish first: %',
+      array_length(pending, 1), pending;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
 -- 5. Remove the adopted components — only where NOTHING references them:
 -- no page_components row, no site_components row, and no component that was
 -- forked FROM them (component_versions rows, had any been stamped since,

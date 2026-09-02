@@ -353,3 +353,61 @@ should re-walk the same table.
 4. After the pilot: verify at the ARTEFACT with the invented-URL control
    (parked-domain landmine), and count the page's rows — a count of 2 is the
    carry-forward landmine and stops the remainder run.
+
+---
+
+## ROUND 2 (2026-09-02) — the REVISE answered, objection by objection
+
+Round 1 verdict: REVISE, gated by debug_historian (HIGH). Every objection either answered by
+measurement or fixed in the files; nothing defended.
+
+1. **debug_historian HIGH — the 357-keyed landmine ("adopted row + needs_rebuild crashes"):**
+   engaged in the HOLD header, mechanism not hope: the cv1 crash NEEDS an empty render
+   (`{{.body}}` → 0 sections → no page_html → 408 recursion); 701's templates are
+   binding-free (Guard 3 aborts otherwise) so a rebuild renders them TO THEIR LITERAL BYTES —
+   the no-content path is unreachable. needs_rebuild writers enumerated (4 live ones) — the
+   engagement is real. Belt-and-braces: 408's fix is committed+approved and rolls soon.
+   701's own filings are page_rerender (path measured free of 408), never needs_rebuild.
+2. **debug_historian medium — served-page verification method:** specified in the header
+   (browser-like Accept; wait out the measured 11–97s publish lag; assert tool MARKERS not
+   byte-equality; invented-URL control).
+3. **editquality medium — name uniqueness "asserted not verified":** it is enforced —
+   `content_components_name_key` UNIQUE CONSTRAINT btree(name), read from `\d
+   content_components` 2026-09-02 (also carried in the round-1 header text). Now in
+   grounded_in with the source.
+4. **editquality low — DESIGN notes counted as an edit:** accepted; r2 plan lists the two SQL
+   files only.
+5. **bug_historian medium — root cause not cited:** a fair catch on the RATIONALE, not the
+   design. The birth mechanism IS fixed and proven: 357 **phase 2** ("stop the mislabelling
+   at birth") live in production since 2026-08-25 12:24Z, two organic adoptions stamped
+   correctly, survived multiple rolls; `population_stamped = 0` throughout. The related
+   refusal defect is filed separately (`bugs_open/406`). Guard 2's growth-abort doubles as
+   the regression tripwire: a 23rd row ABORTS the repair and names phase 2 as regressed.
+6. **tooling_provenance medium — birth-path guards bypassed by raw INSERT:** the guard set is
+   covered by measurement rather than by the code path: `toolTemplateValid` (the structural
+   half) probed 22/22 through the REAL function with both-way controls;
+   `TemplateNeedsInstanceID` is `{{-?\s*\.InstanceID`-shaped (component_instance_scope.go:203)
+   and cannot match a body with zero `{{` — false for all 22 by the same losslessness
+   measurement Guard 3 re-asserts. These bodies are rendered singleton INSTANCES already in
+   production, not parameterised templates awaiting instantiation. Same trade 693 took,
+   approved.
+7. **tooling_provenance medium/missing — doc_plans tool fences:** MEASURED, they EXIST: 10
+   rows over 8 stripped-form subject_keys (bridging-loan, equity-release×2, fee-analyser,
+   overpayment, rate-forecaster, repayment, simple, stamp-duty — all mortgagecalculator).
+   None mentions component/slot/hero in its body (queried 2026-09-02); the fences key on the
+   tool NAME, which 701 does not change. Tier-2 acceptance unaffected, measured not asserted.
+8. **guardian medium — do discovery checks treat a library row as "already built" for other
+   sites:** NO — `check_missing_tools.go` counts tools by JOIN through `page_components` on
+   THE SITE (placement-scoped, read at :85-92), and `tool_eligibility.go` likewise joins
+   through placements. Disclosed side effect in the right direction: these three sites'
+   deployed-tool counts CORRECT upward post-701 (mcalc +11, gamesdesign +10, vet +1) — today's
+   mislabelling undercounts them, so the missing-tools suggester may currently be proposing
+   tools these sites already have.
+9. **guardian low — "no key overlap" verified:** query run 2026-09-02, ZERO non-terminal
+   items match the 701 filing pattern on the three sites. Also: the vetcomparison lane
+   confirmed CLEAR (zero dispatchable items on the index page — 40 open, none satisfying the
+   dispatcher's predicates) and no sequencing need.
+10. **guardian low — rollback vs pending work items:** fixed in the rollback (§4b): ABORTS if
+    any non-terminal rerender/rebuild item from another source targets an affected page
+    (cancelling another lane's items is not ours to do), with the ordering note that pc
+    restore precedes component delete so even a race resolves against the restored row.
