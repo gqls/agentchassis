@@ -139,3 +139,18 @@ row + feed run; a filled `/channels-directory/` after the kind + researcher run;
 designblog instances: the designblog.co.uk session. advertise instances: portfolio_positioning.
 Class fixes: (1) build-pipeline/plan-validation owners; (2) kind additions per DIR-001's
 runbook + feed lane for sources; nav/tools-hub: site-planner + the 149 nav-membership family.
+
+## CONTRIB 2026-09-02 ~20:50Z — a FIFTH site and a FOURTH mechanism (gamedesign.uk lane)
+
+`gamedesign.uk/articles/index.html` (fresh FRESH-path build, live 18:00Z) — 200, 8,396 B,
+**zero articles**, body = the mission brief's constraints as prose, including a "What they avoid"
+list (negative-identity copy, owner-banned 2026-09-02). Not feed, directory or glossary: the
+content type is ARTICLES, and the plan created ONE article page with ZERO sections (parked by
+`mark_no_ready_sections`, then owner-cancelled) — so the type has no producer because **no content
+pages exist at all**. An editorial site with zero editorial. Candidate 1 (plan-time validation)
+would catch it as "section-index whose section contains 0 planned content pages". Instance is owned
+by the gamedesign.uk lane and filed in full as `bugs_open/446` §3.2 (which also carries the owner's
+wider critique: no game imagery — a SPEC error the lane wrote itself — a hero over a 404, and the
+class "nothing measures a site's energy against its vertical"). Not re-verified through the 090
+loop; measured at the served bytes with a same-domain 404 control.
+
