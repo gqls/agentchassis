@@ -1452,3 +1452,20 @@ the "stated gap" line (object-realised carry arm untested) had been STALE SINCE 
 in council round 2 — the entry that shipped the fix never updated its own gap line, a week of
 readers inherited it. Also superseded the tier-1-only loader wording (→PBP-051), dated the test
 count (7→12), widened the verify-later acceptance line, added PBP-051 to relations.
+
+### 2026-09-02 ~20:30 UTC — 443 follow-up: 641's gate 1 independently corroborated; the OWNER READ is being driven by the finetuning lane, not us
+
+Three state facts from the 443 lane's cross-checks tonight, the first two [PEER-REPORTED —
+consistent with our own morning pod-verify, not re-measured here]: (1) gate 1 on 641 is CLEAR —
+the finetuning lane pod-probed the rails literal in the running binary, and our 639 apply was
+re-read live at the `agent_definitions` row by a second session; (2) **the finetuning lane is
+actively putting the 641 inserted block in front of the owner with the verbatim quote** — so the
+next session of this lane should NOT independently re-present it; coordinate with them first,
+our only remaining job on 641 is recording the read and hand-applying when it lands. Stage B
+then covers our two deferred `content_rewrite` items and the 443 cohort in one round.
+
+(3) Verified, not peer-trusted: LANDMINES gained an entry tonight ("A `_HOLD` migration's
+FILENAME never changes when it is applied", ~line 19796) after a session read `639_*_HOLD.sql`
+in the listing and reported our LIVE 639 as unapplied — inverting the gate-1 conclusion the same
+day it was measured clear. The check is the APPLIED header line + the artefact (live row / pod),
+never the filename; caught only because a second session read the live row independently.
