@@ -630,3 +630,34 @@ growing precedent to build on — not a missing capability, and not the estate-w
 "1 of 442" suggests. ⚠ **Two readings of one census, an hour apart, and the difference is entirely
 in whether I asked WHEN the 9 were created.** A count of a population says nothing about whether
 that population is growing; the timestamps were in the same table the whole time.
+
+### 14. And a correction to §13 — three pre-644 pages, not one, because my LIMIT counted the wrong unit
+
+`[MEASURED 2026-09-02]`, full result set, no `LIMIT`:
+
+```
+idea.uk        index  landing  1 section   2026-08-10   pre-644
+vonc.com       index  landing  1 section   2026-08-18   pre-644
+apis.uk        index  landing  6 sections  2026-08-24   pre-644   <- hand-built
+webdesign.uk   index  landing  1 section   2026-08-26 16:52  POST-644 (5h)
+idea.uk        tools  content  1 section   2026-08-28       POST
+lendzy.co.uk   index  landing  1 section   2026-09-01 05:42 POST
+oufe.com       index  landing  1 section   2026-09-01 07:24 POST
+remortgage...  index  landing  1 section   2026-09-02 12:45 POST
+robot-hands    index  landing  1 section   2026-09-02 15:26 POST  <- today
+```
+
+**9 pages = 3 before 644 + 6 after.** The count and the conclusion in §13 are unaffected. What was
+false is the phrase I used in the register, in NOTES, in the owner read-out and in two cross-lane
+messages: *"the pre-644 outlier is apis.uk's hand-built page"*. There were three.
+
+⚠ **The cause is worth more than the correction: my query's unit was the section ROW, my claim's
+unit was the PAGE, and I capped it with `LIMIT 12`.** apis.uk contributes **six** rows on its own,
+so half the visible window was a single page and the two oldest single-section pages fell off the
+end — where I could not see that anything had. A `LIMIT` is a display convenience right up until
+the rows you cannot see are the ones that decide the sentence. **When the claim is about pages,
+`GROUP BY` the page before capping anything** — the corrected query aggregates to one row per page
+and needs no cap at all, because the real population is nine.
+
+Caught by `dartsonline_traffic` re-deriving the list independently. Third correction this
+afternoon caught by a peer re-running my own figures rather than by me.
