@@ -6937,3 +6937,33 @@ this session, independent) → ② CTA re-points THEN contact deletion (order
 matters: deletion first mints dead controls) → ③ news-index out of header
 (interim, flag change) → ④ (11) content fix + rerender → ⑤ (10) calendar data,
 jointly with the 9-taker → then re-mirror, full sweep, review.
+
+## 2026-09-02 (contd) — execution progress: news-index deheadered; guides-index round 2; logo item complete; 'Free cost' now absent
+
+- **(12) interim DONE at the flags**: news-index in_header=false / in_footer=true —
+  stays reachable, leaves header candidacy (it filled a remaining declared slot).
+  Nav rebuild rides the contact-deletion wave. Peer relayed provenance to the
+  7/12b lanes with the caution: the REAL news surface must not be the half a
+  nav-tidy deletes; the 1990 essays are the disposable half.
+- **9+10 = ONE SEAM, routed to news_editorial** (acquisition: fixtures + fighter
+  records are entity ROWS, not feed prose; experience_loop holds the owner-backed
+  acceptance criterion: a tool whose site-supplied data set is empty is a form).
+  My 10-share is consumption-side coordination only. Calendar meta-copy is
+  copy_quality_two_stage's type specimen — independent of the data.
+- **guides-index round 1 REFUSED** — the growth governor's OTHER arm
+  (weekly_content_pages_max=3 vs 12 built this week). Second scoped override
+  written ({"weekly_content_pages_max": 15}, documented in-row, revert after),
+  re-dispatched (corr f47f4425); waiter armed.
+- **Transparent-logo item complete** (corr d8be90c7) — served-asset verification
+  (alpha channel + eyeball) owed after the next mirror.
+- **(11) 'Free cost' serves ZERO occurrences now** (measured at the cache-busted
+  page; also absent from all content_data) — one of today's rerenders evidently
+  cleared it. Awaiting peer re-confirmation before closing; not claimed fixed.
+- **Contact-deletion wave PREPPED, next block**: content_data references measured
+  at 3 prose blocks (about/about-content, tool-fight-calendar/generic-text-block
+  — the copy lane's specimen block, coordinate! — articles-index/
+  generic-text-block) + index/featured-content's baked nav payload + the header
+  CTA. Sequence: site_config supersede (header_slots minus contact + explicit
+  chrome.header_cta_url→fight-calendar) → retract contact page → nav-updater →
+  rerender affected pages → verify link-repair rewrites read sensibly → mirror
+  → sweep.
