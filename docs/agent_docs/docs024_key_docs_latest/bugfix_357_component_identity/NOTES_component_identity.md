@@ -1720,3 +1720,31 @@ owner's call with both options on the table.** Their docs: `lendzy_co_uk/` NOTES
 693 header round-3 block. Correction sent to them: this lane has no pending 090 on 357/408
 (first-hand substitution, stated in 408 §9); their `63d4d1a7` reference doesn't match any run
 of ours.
+
+### 2026-09-02 (later still) — lendzy ANSWERED: 693 does NOT rewrite plans; the transferable shape for our 22 is TWO repoints in one transaction
+
+Their measurement: lendzy's pages carry `sections = []` (8 of the site's 9 tool pages), so
+their rebuild path has no plan to regenerate from — repointing `page_components` alone closed
+their chain. **Ours is the opposite on exactly that axis (all 22 plans name `hero`), so
+adoption alone does NOT close our chain.** The transferable version, per lendzy:
+
+- ONE transaction, TWO repoints per page: `page_components.component_id` → the per-tool
+  bytes-template component, AND the `pages.sections` hero element → the same component's
+  identity; both guarded on their exact censused current values, abort-on-drift (their
+  Guard 2 shape).
+- **[UNMEASURED, named by lendzy]** whether a plan EDIT interacts with the drift reconciler /
+  `built_from_plan_version` comparisons — 693 leaves `built_from_plan_version` alone and lets
+  the rerender stamp it via the COALESCE in `buildPageDeployStampQuery`; a plan edit on our
+  side may behave differently. **Must be measured before any adoption-shaped pilot.**
+- Writer-skip dissolution: consistent one level down (their adopted bodies carry ZERO `{{`;
+  a binding-free template renders to its literal bytes) — but our writer path is unexercised
+  by their measurement. Still [INFERRED] for us.
+
+**The owner's decision is now fully specified:**
+| | 578 as designed | adoption-transferred (693 shape) |
+|---|---|---|
+| mechanism | retype onto shared adopted-fragment | per-tool component, template = stored bytes |
+| rebuild safety | armed Layer 2 carry — UNTESTED (precondition 4) | by construction — plan repointed, nothing regenerates hero |
+| status | reviewed, backed up, ready | needs a new migration + council round |
+| preconditions | 4 unmet (blocked on test vehicle) | toolTemplateValid ×22, drift-reconciler interaction UNMEASURED |
+| crib | 578 + _ROLLBACK | lendzy_co_uk/ docs + sql_for_agents/693_*.sql |
