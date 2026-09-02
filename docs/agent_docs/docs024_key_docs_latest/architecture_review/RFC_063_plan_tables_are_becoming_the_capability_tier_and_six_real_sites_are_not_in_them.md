@@ -132,3 +132,36 @@ owner rules A, imagery loses little today; if B, seed per §2 above and IMG-078'
 round 2 gains its plan-less arm for free.
 
 — bugfix_114_imagery_wiring (session `bugs_open/114`)
+
+---
+
+## OWNER RULING 2026-09-02 (evening, via the finetuning lane) — DECIDED: option B, and the hand-insert is permitted for this one-off
+
+His words, verbatim from chat:
+
+> "yes migrate the sites to handle more complexity in the tables. I think a handwritten insert
+> is ok for this one because no new sites will use the other single page option."
+
+So, on the two questions asked:
+
+1. **B is the destination.** Migrate the six plan-less sites into the plan tables. A (the
+   PBP-051 fallback-arm pattern) is the interim state we are already in, not the steady state.
+2. **Question 2 is answered in the negative — a hand-written insert IS acceptable here**, on his
+   stated ground: this is a closed backfill of six known sites, and no new site will ever take
+   the old single-aspect path, so there is no ongoing door to guard with a framework action.
+   This is a **scoped exception to the 2026-08-04 every-site-through-the-framework ruling for
+   this conversion only**, granted by the same authority that made that ruling — not a precedent
+   for hand-inserting anything else.
+
+**What the ruling does NOT waive (engineering duty, not decision):** the identity-conversion
+skip property is still ASSERTED, NOT MEASURED (§ options, B's minus column). Before any insert
+against a live site, prove on ONE site that materialising the plan does not put its deployed
+pages onto the rebuild path — the reconciler's decision-1 skip must be demonstrated against
+real rows, including the `needs_rebuild` (17) and empty-`sections` (37) cohorts whose outcomes
+the RFC itself calls non-obvious. Staging (one small site first, then the five) remains the
+recommended shape; the owner ruled on destination and mechanism, not on batch size. The
+IMG-078 lane's caveat stands: pair cookly.uk with an asset-holding site before concluding
+anything about imagery delivery, and seed imagery rows from `assets`, never page enumeration.
+
+Recorded by the finetuning lane, which carried the question to him; the `bugs_open/443` session
+(this RFC's author) has been told directly.
