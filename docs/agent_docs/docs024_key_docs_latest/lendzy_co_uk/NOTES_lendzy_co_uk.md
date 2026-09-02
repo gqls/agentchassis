@@ -505,3 +505,36 @@ homes).
 lendzy 8/5 · farmerinsurance 7/5 · loanzy 3/5 · **loancash absent — the fleet's only empty seat,
 owned by nobody.** Four sites went from unregistered to citation-backed-and-guarded in one day,
 each lane improving the shared method as it passed through.
+
+## 2026-09-02 (r) — spec.reason is PARSED, not read: my 14 rerenders were assemble-mode no-ops, and what that does and does not undo
+
+The components session's fleet sweep found all 14 of this lane's rerenders (696's 11, 693's 3)
+carried a prose sentence in `spec.reason`. `page-rerender` branches on that field ALONE against
+five literals — `image_landed · section_data_resolved · cta_links_stale · template_changed ·
+literal_markdown` — and anything else takes `else_step → render_page`: simple concatenation,
+re-shipping the STORED rendered_html byte for byte. All 14 completed, stamped, and re-rendered
+nothing.
+
+**What that does NOT undo, and why — measured, not argued:**
+- **696 is unaffected in outcome.** The migration corrected `rendered_html` directly in the same
+  transaction, so byte-for-byte re-shipping shipped the CORRECTION — this was the render_guardian
+  advisory's exact belt-and-braces scenario, and the post-apply artefact check (NOTES (l)) plus
+  tonight's re-confirmation (rollover-rules 6717=0/6723=2, your-rights 6717=0/7612=1) prove the
+  wire is right.
+- **693's stamps are real.** The assemble path still runs UpdatePageStatus's deployed branch —
+  deployed_at 16:06–07 stands, and with template==stored-bytes by design, the served content is
+  correct either way (inputs 3/1/2 verified).
+
+**What it DOES leave open, and the honest correction to (m):** the adopted components have NEVER
+been resolved by a live template render — the assemble path bypasses `resolveComponent` entirely,
+which is the very path that used to fail. (m)'s implication that the rerender exercised the repair
+was wrong; it exercised the stamp, not the resolution. **The discriminating proof is now filed:**
+three rerenders with `reason='template_changed'` (the literal that routes to
+`rerender_page_sections`), prose moved to `summary`, `source='manual'` per the provenance
+convention. On the OLD state this exact path went fatal; if these three complete, the adopted
+components resolve in production. Watching.
+
+Also a self-correction on foreseeability: 696's approval advisory NAMED the unrecognised-reason
+fallthrough and I recorded "safe by construction" — true for 696, and then I reused the same prose-
+reason shape in 693 where the fallthrough silently skipped the resolution proof. A fact learned
+about one migration was not carried to its sibling written the same hour.

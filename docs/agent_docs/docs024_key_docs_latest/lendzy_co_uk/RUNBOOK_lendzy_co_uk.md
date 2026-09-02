@@ -254,3 +254,12 @@ matcher** (`cmd/fcaquotecheck` calls the production fetch + extraction). A host-
 built on curl — any curl, however carefully instrumented — admits the UA-differential class by
 construction. **Never validate a citation host with an instrument other than the one that will
 re-check it daily.**
+
+### 2b. `spec.reason` on a page_rerender is PARSED, never read (components session, 2026-09-02)
+
+The five literals: `image_landed · section_data_resolved · cta_links_stale · template_changed ·
+literal_markdown`. Anything else — including a helpful sentence — routes to assemble-mode, which
+re-ships stored `rendered_html` byte for byte and completes successfully. Your explanation goes in
+`summary`; `reason` takes a literal. A completed rerender with the right reason is necessary and
+NOT sufficient — verify at the artefact. (And in `page_component_history`, join on `page_id`,
+never `component_id` — NULL on 44,555 of 45,285 rows.)
