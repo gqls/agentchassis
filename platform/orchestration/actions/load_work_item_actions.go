@@ -659,6 +659,18 @@ func aliasGuidanceIntoSuggestion(spec map[string]interface{}) {
 //     Named item_pipeline to avoid collision with site_record.pipeline
 //   - handler_agent (optional) — filter by handler agent type
 //   - max_items (optional, default 50)
+// governorShedClauseFor returns the loader's spend-governor filter: empty (the
+// statement stays byte-identical to the pre-governor one) unless the step
+// config opts in with honour_spend_governor: true. Split out of
+// LoadWorkItemsAction so the opt-in guarantee is a unit-tested branch rather
+// than a comment.
+func governorShedClauseFor(config map[string]interface{}) string {
+	if honourGovernor, _ := config["honour_spend_governor"].(bool); honourGovernor {
+		return "\n\t\t  AND " + workItemNotGovernorShedSQL("wi")
+	}
+	return ""
+}
+
 func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger
 	logger.Info("LoadWorkItemsAction: Starting")
@@ -733,6 +745,18 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		siteLockClause = siteLockExceptionSQL()
 	}
 
+	// honour_spend_governor — D4 stage B (register AGOV-013). OPT-IN, DEFAULT
+	// OFF, same 08-02 seam ruling and same shape as honour_site_lock above: new
+	// authority on an action three live steps share, so the decision sits in the
+	// caller's step config where a reviewer of the CALLER sees it. With the flag
+	// absent the statement is byte-identical to today's; with it on, rows the
+	// spend governor is currently withholding are not loaded (see
+	// workItemNotGovernorShedSQL for the fail-open posture and the selector
+	// lockstep warning — the config half that flips this on for the automated
+	// dispatch step ALSO teaches find_dispatchable_site the same rule, and is
+	// held behind the binary exactly as honour_site_lock's was).
+	governorShedClause := governorShedClauseFor(config)
+
 	query := `
 		SELECT
 			wi.id, wi.site_id, wi.source, wi.pipeline, wi.item_type,
@@ -769,7 +793,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		      )
 		    )
 		  )
-	` + siteLockClause
+	` + siteLockClause + governorShedClause
 
 	args := []interface{}{siteID}
 	argIdx := 2

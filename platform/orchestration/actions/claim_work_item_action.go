@@ -86,6 +86,39 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 		return nil, fmt.Errorf("invalid work_item_id %q: %w", itemIDStr, err)
 	}
 
+	// honour_spend_governor — D4 stage B BACKSTOP (register AGOV-013). The
+	// governor's primary gates are the selector and the loader (see
+	// workItemNotGovernorShedSQL's lockstep warning — a claim-only gate would
+	// re-create the bugs_closed/413 selection-hog shape); this check exists for
+	// the race where the shed level moved between load and claim. Opt-in per
+	// step config, default off; a refused item stays triaged untouched, burns
+	// no attempt, and carries its own reason so every existing claim meter can
+	// see governor sheds as a distinct series. A read error falls through to
+	// the normal claim — the same fail-open posture as the renderer and as the
+	// handler-lookup fallback below.
+	if honourGovernor, _ := params.StepConfig.Config["honour_spend_governor"].(bool); honourGovernor {
+		var notShed bool
+		shedCheckErr := params.DB.QueryRowContext(ctx, `
+			SELECT `+workItemNotGovernorShedSQL("wi")+`
+			FROM site_work_items wi WHERE wi.id = $1
+		`, itemID).Scan(&notShed)
+		if shedCheckErr == nil && !notShed {
+			logger.Info("ClaimWorkItemAction: item withheld by spend governor",
+				zap.String("item_id", itemIDStr),
+			)
+			return map[string]interface{}{
+				"claimed":      false,
+				"work_item_id": itemIDStr,
+				"reason":       "spend_governor_shed",
+			}, nil
+		}
+		if shedCheckErr != nil && shedCheckErr != sql.ErrNoRows {
+			logger.Warn("ClaimWorkItemAction: spend-governor check unreadable — proceeding to claim (fail-open)",
+				zap.Error(shedCheckErr),
+			)
+		}
+	}
+
 	claimedBy := params.AgentType
 	if claimedBy == "" {
 		claimedBy = "dispatch-loop"
