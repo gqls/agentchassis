@@ -807,3 +807,91 @@ document designs for". Noted there in the same commit.
 5. **NOT dispatched anything at boxingonline** — `site_delivery_and_editor` owns that
    pipeline and has work in flight. **NOT touched P1 code** — separate track, and the
    extraction (`2a0bdb001`) is one commit old.
+
+## 2026-09-02 (later) — migration 686 WRITTEN, rehearsed and submitted: `article-body` gains an image
+
+State re-checked before starting, because this thread had been open a while: 84 commits
+had landed since the morning's record. `article-body` **unchanged** (`updated_at`
+2026-08-24 16:57, md5 `002cbcd9cada6a37bf4a5158fd1e5f22`, len 1378, no image markup), the
+defect still live at the artefact (both sampled articles and `/news/index.html` still 1
+img = logo), and **nobody else on it** — no commit, no migration, no open work item
+mentions `article-body`.
+
+### The fix is smaller than the finding, because the producer half already exists
+
+The morning's NOTES left "identify the unplanned imagery producer" as an open question.
+**Answered by reading, and it changes the fix**: `plan_sections_action.go:463-476` already
+looks up `imageryplan.ContentHeroKey(pageName)` in `assets` and binds it to
+`r.assets["hero"]`. Its own comment says this is *"what makes the article page show the
+same image family as its listing card"* and calls it a *"convention with no plan row"* —
+which is exactly why my morning census found 12 images and 0 `site_plan_imagery` rows and
+could not explain it. **So no producer work is owed and no plan row is needed.**
+
+Three more facts that made this a component-only change, each checked rather than assumed:
+
+- `site_assets.hero` as a field source is **already precedented** — the live `hero`
+  component's `background_image` uses that exact source.
+- optional-image-plus-alt is precedented by `content-block-about` (`image_src` =
+  `site_assets.image`, `image_alt` = `llm`, both `required:false`, `on_missing:skip_field`).
+  I copied that shape rather than inventing one.
+- **`rerender_page_sections_action.go:464` builds the resolver WITH the page name**, so
+  existing pages acquire the field on their next rerender. No backfill, no re-plan. (The
+  render-time gap-fill in `render_site_components_action.go:1007` passes `""` for the page,
+  so it could NOT have served this — worth knowing before anyone reaches for it.)
+
+### Written: `686_article_body_hero_image_capability.sql` (+ `_ROLLBACK`)
+
+Two optional fields (`hero_image_url` ← `site_assets.hero`; `hero_image_alt` ← llm) and one
+`{{if .hero_image_url}}`-guarded figure, plus 176 bytes of CSS. Guarded on the template's
+exact md5, idempotent, anchor-uniqueness asserted (`replace()` replaces EVERY occurrence),
+post-conditions in `DO`/`RAISE` because a verify block of `SELECT`s cannot stop the `COMMIT`.
+
+**Equivalence stated precisely instead of as "byte-identical":** markup is byte-for-byte
+today's for any instance with no hero; the only difference in emitted bytes is the 176
+characters of CSS, whose selectors match no element such a page contains. Saying
+"byte-identical" would have been false, and the harness is what forced the honest wording.
+
+### Proof, with controls — `harness/articlehero/` (durable, not scratch)
+
+Renders the OLD live template and the NEW one against the **real stored `content_data` of a
+live article**. **14/14 PASS.** Two controls prove the checks discriminate: (13) the
+unguarded `alt` spelling **does** emit the literal `<no value>`, and (14) an unguarded block
+**does** change the no-hero markup. Without those, checks 11/12 and 1/2/4 would pass while
+proving nothing.
+
+**Then rehearsed the migration itself** under `BEGIN`/`ROLLBACK` against the live database —
+both `DO` blocks verified — and a full **apply-then-reverse round-trip in one transaction**,
+proving `_ROLLBACK` returns the template to its exact pre-686 md5 with both fields gone and
+`content` intact. Live template confirmed untouched afterwards.
+
+### Three missteps, all caught by the checks rather than by review
+
+1. **My byte figure was wrong.** Check 3 asserted 166 bytes of CSS; the real figure is 176.
+   It FAILED on the first run and I corrected both the test and the migration header. A
+   figure I had typed twice, in two files, confidently.
+2. **The first cut of the migration was not valid PL/pgSQL** — `IF <expr> FROM
+   content_components WHERE ...`. `IF` takes an expression, not a `FROM` clause. **The
+   BEGIN/ROLLBACK rehearsal is the only thing that would have caught this**; writing SQL and
+   submitting it unrun is how three P1 council rounds were spent on symbols that did not
+   compile, and the same trap applies to SQL. The counts now come from the initial
+   `SELECT INTO`. ⚠ **Rehearse every migration before submitting it, not after approval.**
+3. **I truncated my own submission file by redirecting into the file I was reading**
+   (`python3 ... < f > f`): the shell opens the target for writing *before* the reader runs,
+   so it read an empty file and the content was gone. Rebuilt to a new path. **Never
+   redirect into a path that appears in the same command's input.**
+
+### Submitted to the council gate
+
+`SUBMISSION_CORR = 4bf6c48f-9cd6-440f-9257-a5668b6635fc`. Admission tested free with
+`DRY_RUN=1` first (which is also how I found the submission envelope is **nested** —
+`plan.summary` / `plan.edits` / `plan.grounded_in` / `plan.risks`, not the flat shape I
+wrote first). The `risks` block separates what I have already measured (so no seat re-derives
+it) from the three things a reviewer should genuinely judge — the `site_assets.hero` role
+choice and its site-brand-hero fallback, figure-at-head versus a separate hero row, and
+alt-text provenance. Budget ~30 minutes; a missing orchestration row is latency, not a
+dropped dispatch.
+
+**NOT applied.** `content_components` is live config the moment it is written, so 686 waits
+on the verdict and the owner. Nothing dispatched at boxingonline — the delivery lane owns
+that pipeline. `news-listing` has the same defect and is deliberately NOT in this change;
+it follows once this shape is agreed.
