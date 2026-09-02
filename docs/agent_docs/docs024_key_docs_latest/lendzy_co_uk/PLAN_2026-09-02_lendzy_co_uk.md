@@ -161,3 +161,61 @@ register-less finance sites. So:
 Open, and the owner's call when we get there: whether the site says anything about this at all.
 `bugs_closed/414` is the standing evidence that a compliance sentence is a liability the moment it
 outruns its mechanism.
+
+---
+
+## ADDITION 2026-09-02 — §B5. Does registration already verify the cited URL? Yes — and it still cannot see the rule
+
+Answering the question the `claims verification` lane put to this lane after folding the
+citation-attribution finding into `RFC_060` §3d as Q6. Their hypothesis was that if
+`verify_and_register_citations` already verifies against the **specific cited URL** at registration
+time, then the gap is upstream — in prose predating the register — rather than in the registration
+path. **The first half is true; the conclusion does not follow, and the reason is measurable.**
+
+**Registration does verify.** `VerifyAndRegisterCitationsAction`
+(`evidence_citations.go:182`) parses each candidate into a `Citation` carrying `url` and `quote`,
+calls `verifyCitationLive` (which fetches that URL and runs `QuoteFoundInText` over its visible
+text), and routes anything that fails into a `failures` list rather than registering it. So a fact
+cannot enter the register with a quote that is absent from the page it names.
+
+**But the finest thing a citation can name on this host is a SECTION, not a rule.**
+`[MEASURED 2026-09-02]`
+
+| requested | bytes | title | verdict |
+|---|---|---|---|
+| `handbook/CONC/6/7.html` | 420,233 | `FCA Handbook - CONC 6.7 Post contract: business practices` | real |
+| `handbook/CONC/6/7.html#DES517` | 420,233 | identical | fragment changes nothing — and is never sent to the server |
+| `handbook/CONC/6/7/6.7.23.html` | 165,647 | `FCA Handbook - Home` | **miss** |
+| `handbook/conc6.7.23` | 178,705 | `FCA Handbook` | **miss** |
+
+There is no rule-level URL. `CONC 6.7` is **54 rules on one page**, and that page contains **both**
+`CONC 6.7.17` and `CONC 6.7.23`. So the quote *"must not refinance high-cost short-term credit …
+on more than two occasions"* verifies **perfectly** against a citation labelled 6.7.17 — because it
+is the same page, the same bytes, the same fetch.
+
+**Therefore the gap is structural, not merely historical.** It is not confined to prose that
+predates the register: a fact registered tomorrow, through the verified path, naming the wrong rule
+in its `claim` or `writer_line`, passes registration and passes every subsequent daily re-check, for
+ever. `verifyCitationLive` is answering "is this quote on this page", which is the right question
+for a news source and an insufficient one for a rulebook, where the page is a chapter and the
+citation is a line.
+
+**The fix does not need a rule-level URL, because the rule id is IN the page text.** The same split
+that yielded 78 identified rules from CONC 5A — visible text partitioned on
+`CONC \d+[A-Z]?\.\d+\.\d+  dd/mm/yyyy  [RG]` — partitions CONC 6.7 into its 54. So "does this quote
+appear **within the span belonging to the rule this fact names**" is answerable with the document
+we already fetch, no extra request, no new dependency. That is a narrowing of an existing check
+rather than a new fetch path, which is the cheap end of the design space.
+
+**Not proposing it as this lane's build.** It changes what a `sourced`/`relied_upon` citation
+GUARANTEES for every site on the ladder, which is the 2026-07-29 §1 trigger and squarely
+`RFC_060`/claims-verification territory. Recorded here as the measured answer to their question,
+and sent to them.
+
+⚠ **A trap for whoever builds it:** the rule-span split must be anchored on the id **plus** its
+date and R/G marker, not on the id alone. A rule's text frequently cites *other* rule ids
+(`CONC 5A.2.17` names 5A.2.2, 5A.2.3 and 5A.2.14 in one sentence; `CONC 6.7.17` names the range
+"CONC 6.7.18 R to CONC 6.7.23 R"), so a naive "find `CONC 6.7.23`, take what follows" lands inside
+a cross-reference in a neighbouring rule and silently spans the wrong text. The `dd/mm/yyyy [RG]`
+suffix is what distinguishes a rule's own heading from a mention of it, and it is present on every
+one of the 78 and 54 rules parsed today.
