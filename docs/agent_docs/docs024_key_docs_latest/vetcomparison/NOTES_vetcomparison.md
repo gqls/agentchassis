@@ -1774,3 +1774,49 @@ on index) + palette_contrast capability_gap d6da17b4 (accent #10b981 as ink on #
 
 Design changes will be THEIR work in THEIR lanes; this lane coordinates, holds the constraints,
 and verifies against the live page. Replies route back here.
+
+## 2026-09-02/03 — the four-thread design exchange CONVERGED; plan assembled for the owner
+
+All four threads answered; two disagreed on a load-bearing point and ONE measurement of mine
+settled it. The record:
+
+- **Theme kits: NOT a fit, three independent reasons** (mechanism not live; live default WRITES
+  the kit palette over a deliberate one — owner ruling same day; and kit palettes don't reach
+  stylesheets anyway — spec-wins on the 8 core slots). Also their correction, owner-ruled 09-02:
+  `design_intent.palette.reference_values` is NO LONGER A PIN (RFC withdrawn) — my morning brief's
+  "pin first" line is superseded; memory index corrected. Chrome-pin differentiation lever exists
+  (`style_collections.header_component_id`, 36/37 sites identical chrome) but is UNPROVEN — all 6
+  fleet pins coincide with the default; they ping us when portfolio_positioning's controlled test
+  settles it.
+- **Vigilant designer critique** (read-only, marked MEASURED/HYPOTHESIS): the page is THIN — 1
+  <img>, 0 svg, ~621 words ("nothing to look at"; remedy is imagery not text); primary #2563eb at
+  4.94:1 has 0.44 contrast headroom and is load-bearing (constraint on ANY palette move);
+  proportion hypothesis (the ~14.6KB how-to block; proposition stated twice) needs rendered
+  heights before acting; imagery constraint IMG-074 (source:image aliases to hero — the banner
+  again) and IMG-075 (per-section binding, shipped 09-01, NEVER executed — we'd be a first
+  exercise). ⚠ their §1 "supersede the contrast items" OVER-REACHED and my measurement corrected
+  it: the 3 contrast_failures render (result-count ×3, tool-description ×2, disclaimer ×2 in
+  served markup, grey rgb(107,124,133) at 4.10–4.14) and are NOT the accent; and "accent never
+  applied" missed STATE rules (`.news-card-title a:hover` serves, class renders 12×). Their
+  headline survives as: **the accent is invisible AT REST — use it or drop it.**
+- **Site design planner**: composition stays (industry-hub right; no re-resolve). Their first
+  fix candidate self-retracted (.news-more-link = dead CSS; hover accent = real but momentary);
+  adopted the honest-colour-use framing + primary-headroom constraint. Plan handed to this lane
+  to carry to the owner; they stand by for composition-level questions.
+- **Experience loop** (read-only, both promise detectors): promise ledger CLEAN (controls stated:
+  the leopardess positive control reports FAIL-meaning-N/A — their bug; empty-index blindness by
+  construction — being fixed). ONE finding: tool-compliance-deadline-calculator is half-wired
+  (active+planned, 0 components, 404, nav_label set while out of header — whoever flips the nav
+  mints a dead link). Maps to STANDING owner item e30dc7b9 (07-17, recommendation: BUILD,
+  relative-periods only). Post-701 offers accepted: detector re-run + the newly-widened
+  content-quality-auditor (mig 694, record mode) for a judgement-level read.
+
+**THE ASSEMBLED PLAN (content frozen throughout):** Phase 1, post-701 mechanical fixes — the 3
+greys in the adopted tool component (one template edit), spacing token alignment, third-blue
+independence banner → primary tints, duplicate head font-stack dedupe, contact button 3.77:1.
+Phase 2, owner decisions — (a) accent: use it somewhere real at rest (with its pre-derived ink
+for text) or drop it — the "promises 3 colours, delivers 2" fix; (b) imagery investment for the
+thin page (IMG-075 first-exercise risk stated); (c) deadline calculator: build (relative-only)
+or drop the row+nav_label. Phase 3, post-701 reads — content-quality-auditor + experience
+re-run + rendered-heights check for the proportion hypothesis. Sequencing rail unchanged:
+NOTHING writes index components/plan until 357's migration 701 lands.
