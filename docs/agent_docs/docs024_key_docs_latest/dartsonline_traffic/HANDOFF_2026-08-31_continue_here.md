@@ -173,18 +173,36 @@ a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants e
 > `illustration-ring-grip.jpg` / `illustration-shark-grip.jpg`). Corrected back to them.
 >
 > **What is actually missing is the ASKING, and it is this lane's to do.** `[MEASURED 2026-09-02]`
-> no page in the estate has more than one section-scope *illustration* row, and dartsonline has
-> **zero** — its 7 section-scope rows are all `kind='icon'` on `index:2`/`about:2`, and **icons
-> cannot reach this branch at all** (they resolve by literal key; the per-section map holds kind
-> keys only). So the mechanism is live and undriven.
+> dartsonline has **zero** section-scope *illustration* rows — its 7 section-scope rows are all
+> `kind='icon'` on `index:2`/`about:2`, and **icons cannot reach this branch at all** (they resolve
+> by literal key; the per-section map holds kind keys only).
 >
-> **The concrete blocker on grip-styles is the page shape, and it is measured:**
-> `/blog/grip-styles.html` has **three** components — `hero`, `article-body`, `call-to-action`. The
-> whole guide is one `article-body`, which is §3.2's "one field owns prose and figures" in its
-> purest form. So the work is: **re-plan the guide into per-h3 sections using a component that
-> sources `site_assets.illustration`** — exactly **two** exist estate-wide, `Illustrated Text Block`
-> and `brief-explanation` `[MEASURED 2026-09-02]` — then seed `site_plan_imagery` rows at
-> `scope='section'`, `kind='illustration'`, `scope_ref='<slot>:<ordinal>'`, one per grip.
+> > **⚠ CORRECTED same day — and the correction is the more useful fact.** I first wrote here, and
+> > told a peer lane, that *"no page in the estate has more than one section-scope illustration
+> > row"*, i.e. that the mechanism was live and **undriven**. **That figure was IMG-075's, stamped
+> > `[MEASURED 2026-08-31]`, and I relayed it without its date.** Re-run `[MEASURED 2026-09-02]`:
+> > **`apis.uk` `/index` carries SIX** — `index:1`–`index:6`, distinct keys, created
+> > **2026-09-02 16:47:03Z**. So the mechanism shipped 09-01 and had a real driver inside ~20
+> > hours. **It is live and DRIVEN, and apis.uk/index is the page to watch and to copy** — it is
+> > also IMG-075's own stated blast radius, so whatever happens there happens to the only page
+> > exercising the new branch. Logged in `WRONG_CALLS.md`: a census goes stale by ADDITION and
+> > reads as current for ever, which is why the entry carried the date I discarded.
+>
+> **The concrete blocker is the page shape, it is measured, and it is NOT confined to grip-styles —
+> it is every content page on the site.** `[MEASURED 2026-09-02]` **all 22** content pages — 13
+> `/blog/*` and 9 `/guides/tool-*` — have **exactly three** components, `hero` + `article-body` +
+> `call-to-action`, and **zero** of them are illustration-capable. (`/guides/index.html` has two,
+> `hero` + `content-listing`.) The whole of each guide is one `article-body`, which is §3.2's "one
+> field owns prose and figures" in its purest form. **So this is not "re-plan grip-styles", it is
+> "re-plan the site's content estate", and that is a materially bigger piece of work than §3.2
+> assumed** — size it before promising it.
+>
+> The shape of the work per page: **re-plan into per-h3 sections on a component that sources
+> `site_assets.illustration`** — exactly **two** exist estate-wide, `Illustrated Text Block` and
+> `brief-explanation` `[MEASURED 2026-09-02]` — then seed `site_plan_imagery` rows at
+> `scope='section'`, `kind='illustration'`, `scope_ref='<slot>:<ordinal>'`, one per figure.
+> **grip-styles remains the right canary** (the owner named it, and IMG-075's own test fixtures are
+> modelled on it), but do it as a canary, not as if it were the whole job.
 >
 > **⚠ TWO THINGS THAT WILL MAKE THIS LOOK DONE WHEN IT IS NOT:**
 > 1. **Grade it with a `content_rewrite`, NOT a page re-render.** Only `reason=image_landed` and
