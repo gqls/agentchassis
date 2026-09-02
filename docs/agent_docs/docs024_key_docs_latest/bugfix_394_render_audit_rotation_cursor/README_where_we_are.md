@@ -197,3 +197,27 @@ One small piece of housekeeping: a shared check had been failing for a week beca
 field mistake in another team's entry. I had told them about it and it hadn't been picked up, and it
 was blocking a clean test run for everyone, so I fixed it by adding the missing field rather than
 editing their words.
+
+---
+
+**2026-09-02, end of day.**
+
+The watchdog went out with the release and is switched on. Rather than wait for its first morning
+run to find out whether it works, I ran it once by hand — but from the scheduled job itself, so it
+used the real image and the real settings rather than an approximation. It read the live database
+(sixty-one thousand rows), found nothing wrong, correctly named the one site it is deliberately
+ignoring, and wrote its record. That record is the important part: it writes one every run, clean
+or not, so a missing one means it didn't run, rather than meaning all is well.
+
+The review council approved it, and the one substantial thing they asked for was exactly that —
+check it against the running pod rather than trusting the pre-shipping tests. So that is done.
+
+**What is left before I can call this finished: one thing.** The job has never yet started *by
+itself*, because it was installed after this morning's slot had passed. Its first scheduled run is
+07:50 tomorrow. I want to see a second record appear with that timestamp.
+
+That may look like a fussy distinction, and I want to be straight about why I am holding to it.
+Running it by hand proves the job *works*. It does not prove the job *runs* — the timing, and that
+nothing else is competing for that slot. Those are different claims, and this piece of work has
+turned up two things already that only showed up when something ran on its own schedule rather than
+when I ran it. So: one more morning, one query, and then I will close it.
