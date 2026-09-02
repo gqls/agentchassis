@@ -661,3 +661,50 @@ and needs no cap at all, because the real population is nine.
 
 Caught by `dartsonline_traffic` re-deriving the list independently. Third correction this
 afternoon caught by a peer re-running my own figures rather than by me.
+
+### 15. ANSWERED: "what would ever WRITE an illustration or infographic row on a new build?" — the planner is OBEYING, not failing
+
+The `editorial_design_uplift` lane filed that question on 08-31; the `designblog_couk` lane routed
+it to me today after the owner's critique of remake №4. The proposed lever was "extend the 644
+pattern — teach the planner menus the vocabulary". **That would fix something that is not broken.**
+
+Read the LIVE `build-site-planner` prompt (`agent_definitions`, active non-snapshot)
+`[MEASURED 2026-09-02]`. The vocabulary is entirely present: `kind` is documented as *"one of:
+`logo`, `hero`, `illustration`, `icon`, `infographic`. No other values permitted"*, and rule 15
+repeats the enum. **Three other things in the same prompt suppress it**, and the fleet numbers are
+precisely what they ask for:
+
+1. **An explicit instruction to default to zero.** Verbatim: *"**`sections`** — for icons,
+   illustrations, or infographics attached to a specific section. **Use sparingly in v1 — most
+   plans will have zero section-scope entries.** Only emit a section entry when a specific
+   section's imagery need is not covered by the page hero."*
+2. **The stated MINIMUM is chrome only.** Rule 13: *"At minimum: one site-scope `logo` entry, one
+   page-scope `hero` entry under `pages.index`, and one page-scope `hero` entry for every other
+   page whose `sections` array contains a hero-class component."* Nothing anywhere sets a floor
+   for `illustration` or `infographic`.
+3. **The worked example's `sections` block contains ONLY icons** — three `icon` entries under
+   `"index:2"`. Its single `illustration` is **page**-scope (`pages.about`), and there is **no
+   `infographic` anywhere in the example**. Per the estate's own recorded trap, a quoted exemplar
+   in a prompt is copied verbatim; the model reproduces the example's shape.
+
+**So the fleet-wide request counts are the prompt working as written** — hero 399 / icon 211 /
+logo 50 / illustration 25 / infographic 1. "Use sparingly, most plans will have zero" produced
+almost exactly zero. That is obedience, not a defect, and it is why 644's shape does not transfer:
+644 closed a real vocabulary gap in **component selection** (`component_expresses` had no word for
+an image, so two components read identically to the planner). This is a **different mechanism** —
+the `imagery` block the planner emits — and its vocabulary is complete.
+
+⚠ **The distinction matters practically, because the two mechanisms are independently broken-ish
+and fixing one does nothing for the other.** Selection decides *which component sits in a section*;
+the imagery block decides *whether a picture is requested for it*. A page can have an
+illustration-capable section and no imagery row (9 pages do), or an imagery row and no capable
+section (`vonc.com/about`, `bugs_open/114` CONTRIB).
+
+**What this lane can say about the remedy, and where it stops.** Changing "use sparingly — most
+plans will have zero" is a one-migration change of the same *class* as 644, on a prompt read by
+the build path for every new site — so its blast radius is every subsequent build, and the cost is
+real images generated per section. That is the `editorial_design_uplift` / planner owners' call,
+not this lane's; I have given them the three quotes and the numbers rather than a migration.
+**The one thing I would insist on if it is done:** rule 16 and the "each entry produces exactly
+ONE image" paragraph exist because under-decomposition produces unusable multi-panel images, so a
+change that raises section-scope volume must keep that discipline in the same edit.
