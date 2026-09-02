@@ -186,3 +186,63 @@ called this one parked. Handed to the `noted_rebuild` lane, not fixed here.
 
 **(t) The count of active pages behind the two parked domains: 40** (21 + 19). Built,
 deployed, reaching nobody.
+
+---
+
+## 2026-09-02, evening — D1 executed: the skip link ships in the page shell
+
+Owner answered D1 "yes, fix the chrome" and D2 "not deliberate, investigate". This is D1.
+Committed `d01fb092a`, council `3c71ec77-fd15-4aa1-a762-cc36116caca5` (submitted, verdict
+not yet read).
+
+**(u) Where the fix went, and why not the header.** `assemblePage`
+(`rerender_single_page_action.go`) is the one function that builds every served page
+shell — 2 callers, `rerender_single_page_action.go:163` and
+`section_editor_actions.go:655`. The header component was the obvious home and is the
+wrong one: it would need the same edit in four places today (the shared component plus
+three forks) and in every future fork, and it would separate the link from the target it
+depends on. In the shell they are emitted three lines apart and a fork cannot lose one
+without the other.
+
+**(v) The CSS travels in the head. This was the decision with the real consequences.**
+The alternative — put `.skip-link` rules in `styles.css`, which `webdesign-agent` renders
+per site — makes correctness depend on the CSS wave landing before the page wave, and
+until it did, **31 live client sites would show a stray "Skip to content" above every
+page**. An ordering an operator must remember is a defect. `injectSkipLinkCSS` follows
+the existing `injectComponentCSS` shape, so there is no new pattern to learn and no
+ordering to get wrong.
+
+**(w) MUTATION FOUND A REAL HOLE IN MY OWN TESTS — this is the entry worth reading.**
+I wrote five tests, all passing, then mutated the production code three ways to check
+they could fail:
+
+| mutation | result |
+|---|---|
+| drop the skip-link anchor | FAIL ✓ |
+| drop the target span | FAIL ✓ |
+| **drop `head = injectSkipLinkCSS(head)`** | **PASS ✗** |
+
+Nothing asserted the CSS reached the assembled page. With that line deleted every test in
+the file stayed green **and every page on the estate would have rendered a visible "Skip
+to content" above its header** — the exact outcome the design was chosen to prevent,
+undetectable by the suite written to protect it. Added the assertion, re-mutated, it now
+fails. **The test I would not have written is the one guarding the risk I had already
+identified and written three paragraphs about.** Identifying a hazard in prose is not the
+same as asserting on it, and only mutation told the two apart.
+
+**(x) `[UNMEASURED]`, and it is stated in the submission's risks rather than discovered
+later:** `AssemblePageAction` (`multipage_actions.go`) is a second build path that does
+not read this function's head injections — the same gap already documented for
+`injectRobotsNoindex`, `injectCanonicalLink` and `injectPageJSONLD`. Pages built only
+through that path will not carry the skip link. The 14-page sample says the estate does
+not serve such pages (13 of 14 carry exactly one `<main>`; the 14th is advertise.co.uk's
+hand-built index, outside the flagged set and already carrying its own skip link), but a
+sample is not a census and I have not run one.
+
+**(y) Two things this does NOT do, so nobody reads the commit as the end of it.** A Go
+change is inert until the next fleet image rolls, and then inert on each page until that
+page re-renders. **The fan-out is the expensive half and it is not started.** Nothing in
+the 867 rows retracts itself either: `head_essentials_missing` only emits a
+`ResolvedFinding` when all three essentials are present, so the rows clear as each page
+re-renders and is re-probed — which is the right behaviour and also means **the backlog
+will not visibly move until the wave runs.** Do not read a flat count as the fix failing.
