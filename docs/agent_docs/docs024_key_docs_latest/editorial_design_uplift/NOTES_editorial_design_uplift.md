@@ -1236,3 +1236,46 @@ the mandated dry run reports **`Pending (164)`** fleet-wide. ⚠ Two process not
 five minutes** (my first run was killed by `timeout 300`), and piping it through `tail` withholds
 all output until it finishes, which reads exactly like a hang. That runtime is a plausible part of
 why a free, mandated check goes unrun — worth handing to that lane.
+
+### 2026-09-02 — outcome: the 189-census became a fleet detector, and the ROLLBACK shaped it more than the census did
+
+Closing the loop in this lane's own record, because the result otherwise lives only in another
+lane's files. The `bugfix_114_imagery_wiring` lane turned this lane's one-shot census into a
+standing state: **`check_unrendered_page_imagery` (IMG-077, commit `a87746b77`, migration 708,
+inert until the next chassis roll)** files one flag-only rollup per site for exactly the
+population I measured (state `no_image_slot`), counted per site **with the census date in the
+spec** and retracted automatically when a site's population empties. Their CONTRIB is in this
+directory.
+
+**Two design choices they made because of migration 686's failure, not because of its success —
+which is the part worth remembering:**
+
+1. **`no_image_slot` is FLAG-ONLY, with no prescribed remedy.** Their stated reason is my
+   97%-double-image finding: 686 was a prescribed remedy that was right for nine pages and wrong
+   for 292, and a detector that had named it **would have propagated the error faster than I
+   could retract it.** A detector carrying a wrong remedy is worse than no detector, because it
+   arrives with authority.
+2. **The generator is deliberately NOT gated.** They measured something I had not: a content hero
+   on a slotless page **still feeds listing-card derivation** (193/193 event-convergence
+   fleet-wide since 08-26). So those images are not waste, which retires the "why generate them at
+   all?" question I would probably have asked next — and gating would have industrialised the
+   opposite error.
+
+**One correction I sent and they took:** the composition reframe is a **QUESTION, not a finding.**
+I established that 292 of 301 article-body pages carry a hero component, that their lane measured
+330 of 432 guide/blog pages the same way, and that `ContentHeroKey`'s doc comment says it exists
+for *"a page the planner gave no hero of its own"*. **I never read the planner, so I did not
+establish WHY.** Their first cut paraphrased it toward asserting a cause; the remedy text now
+states it as open and points at `bugs_open/412`. ⚠ **Watch for this shape when a finding of yours
+is adopted elsewhere** — a paraphrase in someone else's document is where a measured absence
+quietly becomes a claimed cause, and the lane that measured it is the only one who can see the
+difference.
+
+**Also settled, and it corrects forty of my own probes:** their `boxingonline.com` HTTP 000 was
+not an outage. That domain has **no DNS record** (bare and `www`); the site serves at its publish
+target `boxingonline.ugg2.com` (200), control `agritec.uk` 200, and `sites` says
+`publish_project = boxingonline.ugg2.com`, cutover pending approval. **I probed that site ~40
+times today, every one against the publish target, and never once stated why** — so a peer's
+entirely correct observation looked like a contradiction. **State the target you are probing and
+why, the first time you probe it.** Their 000 failed SAFE; the dangerous direction is the parked
+customer domain that 200s every path including invented ones.
