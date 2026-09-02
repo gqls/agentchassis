@@ -236,3 +236,113 @@ without ever being replayed (or the reverse). Sourcing one into the other to "si
 be this bug's own defect committed a third time; the council caught precisely that inside 314's own
 fix. Derive independently, note the convergence in a comment, and point the drift guard at the
 **runner** (the source of truth for the name shape), not at council-scope.sh.
+
+### `_HOLD` coverage — SETTLED between the two lanes, with the counter-argument recorded
+
+The `dispatch_throughput` lane argued the other way and then withdrew it, and both halves are
+worth keeping because the distinction they landed on is the one a reviewer is most likely to blur.
+
+**Their argument (withdrawn):** *"a live `_HOLD` is by definition not yet runner-replayable, so the
+rename is the moment it enters your jurisdiction."*
+
+**Why it fails, in their own words:** it conflates **two different jurisdictions**. The RUNNER's
+exclusion of `_HOLD` is correct and must stay — it must never auto-apply one. The LINT's job is to
+advise the author *while the text is still editable*. Those are different questions about the same
+file, which is this bug's whole subject.
+
+**Their supporting point, which is stronger than the one I had, and goes in the submission:** a
+`_HOLD` is **guaranteed** to traverse the risky path. It will be hand-applied at least once (that
+is what the suffix means), and after the rename it sits in the probed, replay-eligible population.
+So an unguarded `_HOLD` is not a maybe-risk — it is **a scheduled appointment** with the replay
+hazard. Commit time is the cheapest point on that whole trajectory, and the only one where the SQL
+is still being written.
+
+**The boundary to state EXPLICITLY in the submission** (their suggestion, to pre-empt an
+objection): the coverage widens to `_HOLD` — a trailing-uppercase suffix that **IS the change** —
+and *not* to the true sidecars `_ROLLBACK` / `_VERIFY` / `_SUPERSEDED`, which are hand-run against
+an already-decided state. The two-part predicate already draws that line; the submission must say
+so in words as well, because "you widened past the sidecar rule" is the obvious objection and the
+answer is that the sidecar rule was never the right rule for this question.
+
+### CORRECTED 2026-09-02 — it was never drift. The predicate was WRONG AT BIRTH.
+
+> **CORRECTED 2026-09-02:** everything above this line that calls the fourth copy
+> "drifted" — and the bug 314 close-out banner that says "**already drifted**", and my
+> commit message `60739e2c4` — is **wrong**. Caught by the planning pass (fable), verified
+> by me before accepting it:
+>
+> ```
+> git log -S'[0-9]{3}_[A-Za-z0-9_]+' -- scripts/migration/run-migrations.sh   -> a51333fd7  2026-07-20
+> git log -S'_[a-z0-9_]+\.sql$'      -- scripts/pattern-check.py             -> 9d95e1c31  2026-07-25
+> ```
+>
+> The runner gained `[A-Za-z]` on **2026-07-20**. The lint was written on **2026-07-25**,
+> five days LATER, already lowercase-only. **The two literals have never matched.** There
+> was no moment of divergence; the copy was made wrong.
+
+**Why this is not pedantry — it changed the fix.** I had built a drift guard modelled on
+`council_scope_drift_warn()`: read the runner, assert its lines are still present, warn if
+they moved. Against a birth defect **that guard sits green forever** — the runner never
+moved; the copy was simply never right. I would have shipped a guard that could not have
+caught the very bug it was written for, and it would have looked like diligence.
+
+**So the guard changed shape**, to the one the evidence actually demands: a parity test that
+compares **the two literals** and pins **the decisions** in a must-lint/must-not-lint table.
+`cmd/config-key-audit/migration_lint_predicate_parity_test.go`, reached from
+`scripts/check-migration-lint-parity.sh` when either source file is staged.
+
+Three further reasons that shape is right, and the third is the one I would not have found:
+
+1. **Three precedents exist in that exact package** — `optional_budget_cron_parity_test.go`,
+   `cron_parity_test.go`, `retention_parity_test.go` — all extracting a literal from a
+   non-Go file and asserting it against its source. `cmd/config-key-audit/` is in council scope.
+2. **`scripts/lib/precommit-gotest.sh` already exists** for the scoped-advisory-Go-test
+   shape, and its header records *why*: the council's reuse seat objected (corr `be252395`
+   r2) to two hand-rolled implementations of it in this same package. A Python arm of my own
+   would have drawn that objection a third time, correctly.
+3. **The realistic future regression is not the runner moving** — it is a session reading
+   `SIDECAR_RE`, seeing the lint "disagrees", and reconciling it, **silently dropping `_HOLD`**.
+   That is 314's own defect one level down. A literal-only check passes happily while the
+   RULE is wrong; only the fixture table catches it. Proven, not asserted — see the mutation
+   run below.
+
+### Controls, all run against the final code (not reasoned about)
+
+Pre-fix baseline pinned at **`b6c4311`** (a `git show HEAD:` baseline expires the moment you
+commit — MEMORY has the lesson and I took it).
+
+| control | result |
+|---|---|
+| predicate matrix: 14 cases incl. stacked suffixes, 1-digit prefix, non-`.sql` | PASS |
+| end-to-end through the SHIPPED check, pre-fix module vs final | `701_…_D_…` and `702_…_HOLD` **missed pre-fix, caught now**; 0 regressions |
+| blast radius, live corpus **[MEASURED 2026-09-02]** | 1,142 files; newly visible **45** (39 `_HOLD` + 6 appliable); **0 new findings; 0 coverage lost** |
+| Go parity suite, 4 tests | PASS |
+| **MUTATION** M1 lowercase pattern restored | **3 tests fail** |
+| **MUTATION** M2 `_HOLD` added to the exclusion (the predicted regression) | **2 tests fail** |
+| **MUTATION** M3 function body broken, both constants left correct | **exactly 1 fails** — test 4, proving it reads the CODE not the literals |
+| hook path A: parity broken **and staged** | prints the guidance, **exit 0** |
+| hook path B: parity broken, **not** staged | 0 bytes — relevance gate holds |
+| hook path C: parity broken, unrelated file staged | 0 bytes |
+
+Mutations were run in a **throwaway `git worktree`**, never in the shared tree, and each was
+asserted to be a real edit before its result was believed. The worktree was removed and
+`git worktree list` confirmed clean.
+
+**The parity test earned its keep on its first run**, before any mutation: it FAILED, because
+my extraction regex matched a THIRD `grep -E '^[0-9]{3}…'` in the runner — `:312`'s
+near-miss warner, `^[0-9]{3}.*\.sql$`, which is deliberately WIDER and is not the appliable
+rule. Re-anchored structurally on the pairing that actually identifies the rule (a name grep
+immediately followed by a `SIDECAR_RE` filter), and it now asserts it finds **exactly 2** such
+sites so a removed one cannot pass unnoticed.
+
+### Also corrected by the same pass, and verified here
+
+- **`_HOLD` promotions were already partly linted**, at the RENAME commit: `changed_files()`
+  uses `--diff-filter=ACMR`, and a rename lists the destination path, which is lowercase. So
+  the coverage this fix adds for `_HOLD` is the **write-time** hit (and any modify while
+  held) — the rename hit already existed. My earlier "`_HOLD` files are invisible" was too
+  strong; the write-time argument is the one that carries the change.
+- **`668_terms_publish_RELOCK.sql` exists** — an unclassified suffix. Under the new predicate
+  it is linted (the safe default). I confirmed `council_scope_drift_warn()` **is** currently
+  warning about it on every 097/098 run, exactly as 314 designed it to. That mechanism works.
+- **The `--record-only` refusal is already a LANDMINE entry** (2026-08-18). Cited, not re-filed.

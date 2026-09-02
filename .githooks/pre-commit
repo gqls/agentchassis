@@ -27,6 +27,14 @@
 #                           2026-08-23 because phase 2 moved those source-side arms
 #                           OUT of the daily CronJob (that image ships no repo), so
 #                           commit time is now the only place they run at all.
+#   6. check-migration-lint-parity.sh — ADVISORY ONLY, and SCOPED the same way:
+#                           only when the staged diff touches run-migrations.sh,
+#                           pattern-check.py, or the parity test itself. Wired in
+#                           2026-09-02 (bugs_closed/314's last residual): the migration
+#                           idempotency lint carries a COPY of the runner's
+#                           appliable-name rule which had NEVER matched it — wrong at
+#                           birth, silently skipping every migration with a capital in
+#                           its name for six weeks, because nothing compared the two.
 # This file runs for every session on every commit — a stray non-zero exit here
 # stops the whole fleet committing. Keep it boring.
 ROOT="$(git rev-parse --show-toplevel)"
@@ -47,6 +55,10 @@ fi
 
 if [ -x "$ROOT/scripts/check-finding-code-registry.sh" ]; then
   "$ROOT/scripts/check-finding-code-registry.sh" || true
+fi
+
+if [ -x "$ROOT/scripts/check-migration-lint-parity.sh" ]; then
+  "$ROOT/scripts/check-migration-lint-parity.sh" || true
 fi
 
 exit 0

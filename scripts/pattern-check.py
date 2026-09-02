@@ -381,8 +381,81 @@ def _deleted_lines(path, ref):
 # author can still add the guard. Same allowlist: append-only log tables where
 # a duplicate insert is harmless. Measured against the corpus 2026-07-25:
 # 6 true hits in ~95 migrations >=124, no false fires (see bugs_open/007).
+#
+# ── WHICH FILES THIS LOOKS AT, and why it is not the runner's appliable set ──
+# (bugs_closed/314's residual, corrected 2026-09-02.)
+#
+# This predicate used to be `^\d{3}_[a-z0-9_]+\.sql$` — LOWERCASE ONLY — with the
+# comment "sidecars (_ROLLBACK etc.) excluded". That comment was true and the rule
+# was wrong: sidecars were excluded only because they HAPPEN to be uppercase, so the
+# exclusion was an accident of case rather than a decision. Any appliable migration
+# with a capital anywhere in its name was skipped in silence.
+# [MEASURED 2026-09-02] 743 migrations were appliable by the runner; this lint saw
+# 738. The five it could not see included `482_ROLLBACK_claim_timeout_exclusion.sql`
+# — appliable, because the runner's SIDECAR_RE anchors the suffix at the END and
+# that name merely BEGINS with ROLLBACK — and four `_sibling_A_`/`_lever_B_` files
+# from the dispatch lane, whose naming habit generates more of them.
+#
+# THE QUESTION THIS ASKS is "could the runner ever execute this file on replay?",
+# which is NOT the same as the runner's "will --apply run this today?". The two
+# differ on exactly one suffix, and it is the dangerous one:
+#
+#   `_HOLD` IS INCLUDED, DELIBERATELY. A _HOLD is a migration held back from the
+#   runner for ORDERING and applied BY HAND. run-migrations.sh:245-250 REFUSES to
+#   --record-only a sidecar, so a _HOLD *cannot* be ledger-recorded while it carries
+#   the suffix — the house sequence is forced: hand-apply, RENAME to drop the suffix,
+#   then record. [MEASURED 2026-09-02] that rename is routine, not theoretical: 37
+#   events across 26 distinct files between 2026-08-01 and 08-31, and 26 of 26 stuck.
+#   So between the rename and someone remembering --record-only, the runner sees a
+#   pending, unrecorded, appliable file and REPLAYS it. A _HOLD is therefore the one
+#   category GUARANTEED to be applied out of band before the ledger can know — not
+#   the safest shape for this check, the most dangerous one. And write time is the
+#   only useful moment to say so: by the rename commit the file has already been run
+#   against production and the diff is R100 bookkeeping nobody re-reads.
+#
+#   The true sidecars stay OUT: `_ROLLBACK` is the undo, `_VERIFY` only asserts,
+#   `_SUPERSEDED` is retired. They are hand-run against an already-decided state.
+#
+# ⚠ DO NOT "SINGLE-SOURCE" THIS AGAINST scripts/council-scope.sh. That file's
+# COUNCIL_SCOPE_NOT_THE_CHANGE_RE enumerates the same three suffixes and today
+# selects the same set — but it answers a DIFFERENT question ("is this the change,
+# for review purposes?"). Collapsing two questions because their answers currently
+# agree is precisely the defect bugs_closed/314 exists to remove, and the council
+# caught that exact mistake inside 314's own fix. A future suffix could be the change
+# without ever being replayed, or the reverse. Derived independently, on purpose.
+#
+# ⚠ THIS PREDICATE WAS NEVER 'DRIFT' — IT WAS WRONG AT BIRTH, and saying so matters
+# because it decides what kind of guard is owed. The runner gained [A-Za-z] on
+# 2026-07-20 (a51333fd7); this lint was written on 2026-07-25 (9d95e1c31) already
+# lowercase-only. The two literals have therefore NEVER matched, so a guard that only
+# watched the runner for CHANGE would have sat green for six weeks. What is owed is a
+# guard that compares the two literals and pins the DECISIONS:
+# cmd/config-key-audit/migration_lint_predicate_parity_test.go, reached from
+# scripts/check-migration-lint-parity.sh when either source file is staged. It also
+# pins the fixture table (482_ROLLBACK_... IN, _HOLD.sql IN, _HOLD_ROLLBACK.sql OUT),
+# because only a must-lint/must-not-lint table catches the realistic regression: a
+# session 'reconciling' this rule to the runner's SIDECAR_RE and silently dropping
+# _HOLD. That is bugs_closed/314's own defect, one level down, and a literal-only
+# check would pass happily while the RULE was wrong.
 MIGRATION_DIR = "docs/agent_docs/sql_for_agents/"
-MIGRATION_NAME = re.compile(r"^\d{3}_[a-z0-9_]+\.sql$")   # sidecars (_ROLLBACK etc.) excluded
+# VERBATIM from run-migrations.sh:283. Change only together with the runner.
+MIGRATION_NAME_RE = re.compile(r"^[0-9]{3}_[A-Za-z0-9_]+\.sql$")
+# NOT the runner's catch-all SIDECAR_RE — an ENUMERATION, so a suffix nobody here
+# anticipated defaults to IN scope: a wasted advisory line, never a silent miss.
+MIGRATION_NEVER_REPLAYED_RE = re.compile(r"_(ROLLBACK|VERIFY|SUPERSEDED)[A-Z0-9_]*\.sql$")
+
+
+def migration_is_lintable(name):
+    """Q3 above: could the runner ever execute this file's SQL on replay? (_HOLD: yes.)
+
+    Two explicit tests, the runner's own match-then-reject idiom (:283-284). A single
+    negative-class regex for a trailing _TOKEN is unwritable in ERE, and one clever
+    regex is exactly how the previous predicate hid its exclusion inside a character
+    class where nobody could see it was an accident.
+    """
+    return bool(MIGRATION_NAME_RE.match(name)) and not MIGRATION_NEVER_REPLAYED_RE.search(name)
+
+
 IDEMPOTENT_SINKS = re.compile(r"(^|\.)(doc_notes|doc_plans|schema_migrations)$", re.I)
 
 
@@ -391,7 +464,7 @@ def check_unguarded_migration_insert(files, ref, findings):
     for path in files:
         if not path.startswith(MIGRATION_DIR):
             continue
-        if not MIGRATION_NAME.match(os.path.basename(path)):
+        if not migration_is_lintable(os.path.basename(path)):
             continue
         flat = strip_comments(file_content(path, ref))
         if re.search(r"ON\s+CONFLICT|WHERE\s+NOT\s+EXISTS", flat, re.I):

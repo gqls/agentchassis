@@ -57597,3 +57597,31 @@ assume it informed the filename.
   promise") was avoidable — the directory answers it without any class inference at all. Tally:
   **a-real-convention-used-to-settle-a-question-it-does-not-decide**, kin of
   **signal-asserted-without-a-disconfirming-case** (sixth of that family in four days).
+
+- **2026-09-02, bugs_open/314 lane — I inherited "already drifted" from a bug file, repeated it in
+  a commit message, and built a guard that could not have caught the bug.** `bugs_closed/314`'s
+  close-out banner says a fourth copy of the migration vocabulary "**is already drifted**". I
+  quoted it, measured the *size* of the gap carefully (5 files, and I was rigorous about that
+  number after `comm` misled me), and never once checked the *word*. Two `git log -S` calls
+  settle it: the runner gained `[A-Za-z]` on **2026-07-20** (`a51333fd7`), the lint was written
+  lowercase-only on **2026-07-25** (`9d95e1c31`), five days later. **The two literals have never
+  matched. There was no drift — the copy was made wrong.**
+  **What it cost, concretely:** I had already written and mutation-tested a drift guard modelled
+  on `council_scope_drift_warn()` — read the runner, assert its lines have not moved. Against a
+  birth defect **that guard is green forever**, because the runner never moved. I would have
+  shipped, with a passing mutation suite, a watcher structurally incapable of catching the defect
+  it was named after — and the mutation suite would not have shown it, because I mutated the
+  *runner*, which is the half that was always right.
+  **What caught it:** the planning pass I had delegated, which checked the provenance of the word
+  instead of the size of the gap. I verified it myself before accepting it.
+  **The cheap check that would have caught it:** `git log -S'<the literal>' -- <each file>` on
+  BOTH copies — two commands, and the dates alone answer "drifted or born wrong?". I ran the
+  census (`what` differs) and skipped the provenance (`since when`), and only the second one
+  tells you what kind of guard is owed.
+  **The transferable shape, which is why this is here and not just in the lane NOTES:** *a
+  measurement of a discrepancy does not date it, and the DATE is what selects the remedy.* Also:
+  **a bug file's own close-out banner is a claim, not evidence** — it was written by a session
+  under time pressure at the end of its work, which is exactly when a word gets chosen loosely.
+  I have corrected the banner in place rather than only my own notes, because the next reader
+  inherits whichever copy they find first.
+  **tally:** **a-discrepancy-measured-but-never-dated** ×1, **a-claim-inherited-from-a-closing-doc-and-repeated** ×1.

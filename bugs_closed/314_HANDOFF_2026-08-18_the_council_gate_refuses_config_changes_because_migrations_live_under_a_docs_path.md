@@ -102,7 +102,25 @@
 > submission was in exactly that position, which is why the LANDMINES entry was *amended* rather
 > than retired. Whether tooling should be admitted is a separate question nobody has asked yet.
 >
-> **A FOURTH copy of the migration vocabulary exists and is already drifted:**
+> > **CORRECTED 2026-09-02 by the same lane, resuming — and the word was load-bearing.**
+> > "Already drifted" is **wrong**: the two literals have NEVER matched. The runner gained
+> > `[A-Za-z]` on 2026-07-20 (`a51333fd7`); `pattern-check.py`'s lint was written lowercase-only
+> > on 2026-07-25 (`9d95e1c31`), five days later. It was **wrong at birth**, not drifted.
+> > That is not pedantry — it selects the remedy. A guard that watches the runner for CHANGE
+> > (which is what `council_scope_drift_warn()` does for copy 2, and what this lane started to
+> > build for copy 4) sits **green for ever** against a birth defect, because the runner never
+> > moved. What shipped instead is a parity test comparing the two literals and pinning the
+> > decisions in a must-lint/must-not-lint table:
+> > `cmd/config-key-audit/migration_lint_predicate_parity_test.go` +
+> > `scripts/check-migration-lint-parity.sh`. **RESIDUAL CLOSED**; see
+> > `docs/agent_docs/docs024_key_docs_latest/bugfix_314_council_scope/PLAN_2026-09-02_314_residual_fourth_copy.md`
+> > and `WRONG_CALLS.md` 2026-09-02 for how the wrong word nearly produced a useless guard.
+> > Also corrected here: the residual above it ("tooling is still out of scope") is now largely
+> > **STALE** — `cmd/config-key-audit/` entered scope 2026-08-23 and `scripts/pattern-check.py`
+> > 2026-08-24. Only the 097/098 scripts themselves remain out.
+>
+> **A FOURTH copy of the migration vocabulary exists and ~~is already drifted~~ WAS WRONG FROM
+> THE DAY IT WAS WRITTEN:**
 > `scripts/pattern-check.py:384-385` (`MIGRATION_NAME = ^\d{3}_[a-z0-9_]+\.sql$`, lowercase-only).
 > It is an idempotency lint, not a scope consumer, so it is out of this fix's remit — but the
 > drift is now concrete rather than suspected: it cannot see
