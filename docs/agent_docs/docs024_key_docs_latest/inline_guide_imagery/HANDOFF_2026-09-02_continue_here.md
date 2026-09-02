@@ -160,7 +160,22 @@ needs the composition half.
   it: it would be the **first page in the estate** composed that way, so it is an experiment, not
   a pattern. Sequencing they need: **recompose → seed rows → rebuild → verify → then re-render**
   (a re-render in the gap correctly stands down).
-- **`bugs_open/114` — the fleet finding, two CONTRIBs from me today.** The second is the big one:
+- **⚠ `bugs_open/114` — the component fix LANDED at 20:15:47Z and has repaired ZERO pages.** Six of
+  the seven components gained an asset-sourced image field in one transaction; `component_expresses`
+  now returns `{image}` for all six. **The damage is unchanged: still 61 of 65 orphaned, and NINE
+  pages have re-rendered since the fix without recovering.** The field is necessary and not
+  sufficient — only `image_landed`/`section_data_resolved` re-resolve, so a page can rebuild all
+  night without asking the resolver for anything. **Do not let anyone report this class closed on
+  the component change alone**; read `spec->>'reason'` and the served bytes.
+- **A mechanical section-compatibility guard is ROUTED HERE and NOT BUILT** (718's `bug_historian`
+  advisory, architecture concurring as a monitoring item). Verdict on feasibility: **sound** —
+  `component_expresses`' predicate is `source LIKE 'site_assets.%' AND type IN ('url','image','image_url')`,
+  which is exactly "can this section receive a server-resolved image". ⚠ **Anyone validating it
+  from now measures a REPAIRED population** (the six were fixed at 20:15), so a clean result is not
+  evidence the guard is useless. Sequencing: let the first post-718 plan set the base rate, and
+  consider `bugfix_114`'s offer of a section-scope arm on `check_unrendered_page_imagery` (IMG-077)
+  before building anything new.
+- **`bugs_open/114` — the fleet finding, three CONTRIBs from me today.** The second is the big one:
   **61 pages** have a hero generated, deployed and `active` specifically for them and render
   something else. Cause: seven components whose template reads `{{or .hero_url .background_image}}`
   while their schema declares no `site_assets` source (`hero-tool` biggest at 76 instances).
