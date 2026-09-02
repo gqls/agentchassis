@@ -386,3 +386,41 @@ in a register entry, a council submission and a commit message — on the streng
 was accurate and irrelevant. The check that would have caught it is the one above and it is a
 single query: **before naming a population as the risk, ask what would have to name it in a schema
 for the branch to fire.**
+
+### 7. The round-2 council run was KILLED by a chassis roll, and it reads as a slow one
+
+`[MEASURED 2026-09-02]` The run froze at `review_prior_art`, `updated_at` **12:28:23**, `error`
+NULL. The chassis pods were created at **12:28:03 and 12:28:24** (`agent-chassis-96c48f448-*`,
+v1.0.1352). Round 1 of the same submission had completed in nine minutes, so 47 minutes on one
+step was the tell that this was not queue latency.
+
+**The control that makes it conclusive came from a peer lane** (`editorial_design_uplift`), whose
+own run died in the same second and who checked the half I had not: **every run submitted AFTER
+the roll completed normally** (3m48s, 5m29s, 5m48s, 19m55s). So the gate is healthy and it is
+specifically the runs in flight across 12:28 that died — three submitters, `error` NULL on all
+three. This is the existing LANDMINE ("a council run killed by a chassis roll looks exactly like a
+slow one"), confirmed rather than newly found; no new entry, the ledger already says it.
+
+Resubmitted on the same trail (`RESUBMIT_CORR=2979c27f`, new envelope `931921c6`).
+
+### 8. My round-2 commit missed that build by two and a half minutes — probed, not assumed
+
+Round 2 committed **12:25:41 UTC** (`38178d549`); pods up **12:28:03**. Probed at the binary,
+BOTH replicas, controls in both directions:
+
+```
+PRESENT PlanSectionsAction        <- must-be-present control
+PRESENT sectionRefForOrdinal      <- round 1
+absent  sectionOrderAgrees        <- round 2, the drift guard
+absent  NextOccurrence            <- round 2, the shared occurrence rule
+absent  sectionOrderAgreesNOTREAL <- must-be-absent control
+```
+
+**So the fleet runs half of this change: the binding without its guards.** Worth being precise
+about the exposure rather than alarmed by it — it is currently **zero pages**, because only two
+components can reach the binding (§6) and the single page with more than one instance of either
+has no section-scope rows. It closes on the next roll.
+
+⚠ **The lesson is the timing, not the outcome:** a commit made minutes before a roll is not in
+that roll, and "it went out with the build" is exactly the inference that feels safe and is
+unfalsifiable without the probe. Two and a half minutes was enough.
