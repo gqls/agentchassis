@@ -3550,3 +3550,15 @@ delay: the mutation form (revert one hero, run, restore) works whenever the visi
 Everything else about the critic is PROVEN: spawn path, storage, audit, measured-findings
 drain, design context, report writing (the 08-26 report), and the 317-shaped terminals that
 made all four failures legible from the item row alone.
+
+### 2026-09-02 — cross-lane flag (site-design-planner / bugs_open/431), verified and recorded
+
+Leopardess's `classification` spec is the LEGACY 2026-04-18 classifier shape — verified
+first-hand: keys are [reasoning, site_type, confidence, suggested_style, tone_suggestion,
+detected_signals, page_count_estimate, recommended_builder]; **no `category`, no
+`industry_tags`**. Consequence (their measurement, bugs_open/431): if a `needs_composition`
+re-resolve ever runs for this site on a binary BEFORE commit `bd8e45aba` rolls, the layout
+resolver sees zero signal and falls back to a GENERIC layout. Nothing to do now — this site's
+layout is hand-curated and no re-resolve is queued — but if one is ever dispatched here,
+either confirm `bd8e45aba` is live first (capability probe, not tag) or re-run the classifier
+to modernise the spec beforehand. Flag credited to the site-design-planner session.
