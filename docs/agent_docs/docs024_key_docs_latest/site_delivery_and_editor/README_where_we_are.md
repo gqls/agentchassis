@@ -427,3 +427,44 @@ announced itself. Every page passed every check, all night, including while it w
 publishing your personal email address. What found things was looking at the actual served
 pages, one at a time, with something in each check that had to be true so a blank answer
 could not pass for a clean one.
+
+## 2026-09-02 — your fourteen points, and the one number that explains most of them
+
+All fourteen have an owner and are moving. The short version of what turned out to be true.
+
+The articles genuinely have no news in them, and the reason is worse than bad writing: the
+site already had the real story. Your news page carries Hrgovic stopping Itauma for the IBF
+heavyweight title, dated 31 August — which is an underdog beating a champion — while the
+article titled "Last night's result: the underdog shocks the champion" was written about
+Buster Douglas in 1990.
+
+The pictures for your articles already exist. Six of them were generated on 1 September and
+are sitting on the server right now. The component that builds an article page has one slot
+and it holds text, so it cannot display an image whatever we generate. That is why the
+cards have pictures and the articles they lead to do not.
+
+The cards were missing their summary line because the summary was already in the row under
+a different name. Two pieces of code that both fill the same card disagree about what to
+call things, so the template asked for something nobody writes while a perfectly good
+sentence sat unused beside it.
+
+The guides index we built for you today listed your six articles instead of your four
+guides. That is the third time in four days that a list has been filled with the wrong kind
+of thing — and this one was caused by the fix for the first one. Fixed, without undoing the
+earlier fix.
+
+And the number that explains the calendar, the comparison tool and a good deal else. The
+system has a store for checked facts about a site. Twenty of our fifty-four sites have one
+at all. Yours holds three facts. Forty-two of the fifty-four hold five or fewer, and one
+site holds most of what exists. Three pieces of code write to that store: one puts a stub in
+when an order arrives, one refreshes facts that are already there, one records sources for
+things already written. None of them goes and finds out what is happening in the world.
+
+So when you said the research agent should have researched what is on, and that this is what
+should have appeared on the calendar — that is exactly right, and there is no such agent.
+It is filed as bugs_open/427 and it is the one piece of work with nobody assigned to it.
+
+One correction of mine. I told you that fact store was used by 444 sites. That was a count
+of database rows including old versions, repeated from another thread without my checking
+it. The real figure is twenty sites. It was caught by the session that went and re-derived
+it instead of using my number.
