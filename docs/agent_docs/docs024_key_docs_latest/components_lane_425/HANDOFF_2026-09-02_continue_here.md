@@ -7,7 +7,31 @@ any unmarked assertion here as owing you a re-run, and prefer the artefact queri
 
 ---
 
-## 0. BLOCKED RIGHT NOW — and what it blocks
+## 0a. POST-ROLL RESULTS — token refreshed 2026-09-02 ~21:15Z, §0 items 1 and 2 DONE
+
+**The defect SURVIVES v1.0.1355.** A `template_changed` rerender of boxingonline `/index.html`
+filed 21:21:06Z, completed 21:22:43Z, **wrote** (`page_components.updated_at` 21:22:14) and
+produced the **old shape**: no `excerpt` key, title still suffixed. So the four other commits in
+that roll touching `rerender_page_sections_action.go` / `plan_sections_action.go` /
+`queryresolve/` (444, 443, 137-residue, 427) did **not** fix it. That was a real measurement, not
+a confirmation — the `site_delivery_and_editor` lane corrected its own "should not change the
+answer" to an inference from commit subjects before I ran it.
+
+**§0 item 1 done, and it closes the hole I could not close before.** Both pods on the current
+build, both controls:
+
+| pod (started) | `ListItemExcerpt` | `resolvePagesWhereType` (+control) | invented symbol (−control) |
+|---|---|---|---|
+| `8ddbf8958-cd2h9` (20:56:43Z) | PRESENT | PRESENT | absent |
+| `8ddbf8958-vppjz` (20:57:10Z) | PRESENT | PRESENT | absent |
+
+**So the current finding is not a pod-variance artefact**: two pods, both carrying the fix, and a
+rerender still produces the old shape. (This does not retroactively close the 13:5x-era
+one-pod-of-two hole — those pods are gone — but it makes that hole irrelevant to the live defect.)
+
+**Next: the ⭐ experiment in §2.** It is now the only cheap thing left that discriminates.
+
+## 0b. The block that was here (RESOLVED — kept for the recipe)
 
 `kubectl` returns **`You must be logged in to the server (Unauthorized)`** fleet-wide
 (checked `get ns` and `get pods -n ai-persona-system`, both fail). That is the 3-day
