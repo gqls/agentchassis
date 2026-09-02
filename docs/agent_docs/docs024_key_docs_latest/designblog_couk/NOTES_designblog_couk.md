@@ -454,3 +454,20 @@ post-718.
   with a known-referenced control. This is also 718's flagged residual one
   step later: entries must land where a component can display them —
   gamedesign is the live worked example.
+
+## 2026-09-02 (final) — orphaned-heroes confirmed fleet-wide; a resolver gap caught pre-verdict
+
+gamedesign re-measured inline guide imager's finding correctly (filename+ext,
+control=3) — CONFIRMED, and the library shows it is a FLEET class: `hero`
+declares `background_image` sourced `site_assets.hero` (38 sites);
+`hero-about` (28 sites) and `hero-contact` (25 sites) declare NO image field
+while their templates read `{{or .hero_url .background_image}}`. Fix (add the
+field, same shape as `hero`) sent by them to the components thread directly.
+Thanks relayed to inline guide imager.
+
+Second: gamedesign's articles hub is `page_type='section-index'`, NOT
+blog-index — the fresh build path types an editorial hub generically, so
+444's blog-posts resolver arm (keyed on blog-index) would not hold it. Pinged
+the 444 session pre-verdict (their gate migration is in council NOW — cheaper
+to widen before round 2); offered /the-design-feed/ as the second instance of
+the section-index shape for a test pair.
