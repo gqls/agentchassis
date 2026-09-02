@@ -97,14 +97,36 @@ func ApplyThemeKitAction(ctx context.Context, params ActionParams) (interface{},
 	if kitRef == "" {
 		return nil, fmt.Errorf("theme_kit is required (name or id)")
 	}
+	// OWNER RULING 2026-09-02: "by default it can start with a theme and change
+	// it if it wishes, but it must have full authority to ignore our set of
+	// themes if it chooses." So a kit is the STARTING POINT, not a deferential
+	// filler — the default mode WRITES the kit's values. Whatever runs later
+	// (the classifier, the design overlay, a human) is free to supersede them,
+	// and nothing here freezes anything.
+	//
+	//   start      (default) — write the kit's palette/typography, superseding
+	//                          what is there. This is what makes a theme the
+	//                          starting point rather than a no-op on any site
+	//                          the classifier has already touched.
+	//   fill_gaps            — conservative: write only dimensions the site has
+	//                          nothing for. Was the default until the ruling
+	//                          above; kept because "top up what's missing" is a
+	//                          real, if narrower, thing to want.
+	//   reapply              — start, AND replace an installed composition
+	//                          (carries allow_reinstall downstream).
+	//
+	// The ONE thing no mode overwrites is an explicit human lock (see
+	// designIntentLocked) — a person saying "these values, deliberately" is not
+	// a default to be started from.
 	mode := inputs.Get("mode")
 	if mode == "" {
-		mode = "fill_gaps"
+		mode = "start"
 	}
-	if mode != "fill_gaps" && mode != "reapply" {
-		return nil, fmt.Errorf("mode must be %q or %q, got %q", "fill_gaps", "reapply", mode)
+	if mode != "start" && mode != "fill_gaps" && mode != "reapply" {
+		return nil, fmt.Errorf("mode must be one of %q, %q, %q — got %q", "start", "fill_gaps", "reapply", mode)
 	}
 	reapply := mode == "reapply"
+	writeOverExisting := mode == "start" || mode == "reapply"
 
 	// ── 1. Load the kit ──
 	var kitID uuid.UUID
@@ -139,7 +161,7 @@ func ApplyThemeKitAction(ctx context.Context, params ActionParams) (interface{},
 
 	// ── 2. design_intent: merge the kit's resolved palette/typography values ──
 	if paletteID.Valid || typoID.Valid {
-		if err := mergeThemeKitDesignIntent(ctx, tx, siteID, paletteID, typoID, reapply, applied, skipped); err != nil {
+		if err := mergeThemeKitDesignIntent(ctx, tx, siteID, kitName, paletteID, typoID, writeOverExisting, applied, skipped); err != nil {
 			return nil, fmt.Errorf("merge design_intent: %w", err)
 		}
 	}
@@ -262,8 +284,8 @@ func ApplyThemeKitAction(ctx context.Context, params ActionParams) (interface{},
 // action.go already read via extractReferenceValuesFromSpec. Only writes a
 // dimension the site does not already have, unless reapply=true.
 func mergeThemeKitDesignIntent(
-	ctx context.Context, tx *sql.Tx, siteID uuid.UUID,
-	paletteID, typoID sql.NullString, reapply bool,
+	ctx context.Context, tx *sql.Tx, siteID uuid.UUID, kitName string,
+	paletteID, typoID sql.NullString, writeOverExisting bool,
 	applied, skipped map[string]interface{},
 ) error {
 	var currentID *uuid.UUID
@@ -304,15 +326,31 @@ func mergeThemeKitDesignIntent(
 	// and mission rung 2 (resolve_composition_typography_action.go:12-14), an
 	// existing asymmetry in this codebase — so writing the kit's fonts into
 	// design_intent WOULD silently outrank a human's mission.preferred_typography.
-	// Treat that as "already has" so the kit stays a default, not an override.
-	if !hasTypo && missionPrefersTypography(ctx, tx, siteID) {
-		hasTypo = true
+	// Treat that as locked so the kit stays a default, not an override.
+	typoMissionLocked := missionPrefersTypography(ctx, tx, siteID)
+	if typoMissionLocked {
 		skipped["typography_mission_hint"] = "site has mission.preferred_typography — a human's explicit choice outranks a kit default"
 	}
 
+	// A deliberate human lock is the ONE thing no mode overwrites. A
+	// classifier's guess is not a lock: per the owner's 2026-09-02 ruling the
+	// theme is the starting point and the machine may change it afterwards, so
+	// starting from the theme is not overriding anyone.
+	paletteLocked := designIntentLocked(current, "palette")
+	typoLocked := designIntentLocked(current, "typography") || typoMissionLocked
+	if paletteLocked {
+		skipped["palette_locked"] = "design_intent.palette.locked is true — a deliberate human pin is never overwritten by a kit"
+	}
+	if designIntentLocked(current, "typography") {
+		skipped["typography_locked"] = "design_intent.typography.locked is true — a deliberate human pin is never overwritten by a kit"
+	}
+
+	writePalette := paletteID.Valid && !paletteLocked && (writeOverExisting || !hasPalette)
+	writeTypo := typoID.Valid && !typoLocked && (writeOverExisting || !hasTypo)
+
 	changed := false
 
-	if paletteID.Valid && (!hasPalette || reapply) {
+	if writePalette {
 		var coloursJSON []byte
 		if err := tx.QueryRowContext(ctx, `SELECT colours FROM palettes WHERE id = $1`, paletteID.String).Scan(&coloursJSON); err != nil {
 			return fmt.Errorf("load kit palette colours: %w", err)
@@ -322,13 +360,14 @@ func mergeThemeKitDesignIntent(
 			return fmt.Errorf("unmarshal kit palette colours: %w", err)
 		}
 		setReferenceValues(current, "palette", colours)
-		applied["palette"] = true
+		markThemeKitStartingPoint(current, "palette", kitName)
+		applied["palette"] = map[string]interface{}{"replaced_existing": hasPalette}
 		changed = true
-	} else if paletteID.Valid {
-		skipped["palette"] = "site already has design_intent.palette.reference_values"
+	} else if paletteID.Valid && !paletteLocked {
+		skipped["palette"] = "site already has design_intent.palette.reference_values and mode=fill_gaps was requested"
 	}
 
-	if typoID.Valid && (!hasTypo || reapply) {
+	if writeTypo {
 		var fontsJSON []byte
 		if err := tx.QueryRowContext(ctx, `SELECT fonts FROM typography_sets WHERE id = $1`, typoID.String).Scan(&fontsJSON); err != nil {
 			return fmt.Errorf("load kit typography fonts: %w", err)
@@ -338,10 +377,11 @@ func mergeThemeKitDesignIntent(
 			return fmt.Errorf("unmarshal kit typography fonts: %w", err)
 		}
 		setReferenceValues(current, "typography", fonts)
-		applied["typography"] = true
+		markThemeKitStartingPoint(current, "typography", kitName)
+		applied["typography"] = map[string]interface{}{"replaced_existing": hasTypo}
 		changed = true
-	} else if typoID.Valid {
-		skipped["typography"] = "site already has design_intent.typography.reference_values"
+	} else if typoID.Valid && !typoLocked {
+		skipped["typography"] = "site already has design_intent.typography.reference_values and mode=fill_gaps was requested"
 	}
 
 	if !changed {
@@ -394,6 +434,46 @@ func missionPrefersTypography(ctx context.Context, tx *sql.Tx, siteID uuid.UUID)
 	default:
 		return false
 	}
+}
+
+// designIntentLocked reports a DELIBERATE human pin on one dimension —
+// `design_intent.<dimension>.locked: true`. It is the only thing a theme kit
+// will not write over.
+//
+// Why an in-data key rather than site_specs.pinned: `pinned` is a per-ROW flag
+// and design_intent is superseded-then-inserted on every write, with neither
+// WriteSiteSpecAction nor this action carrying `pinned` forward — so a pin set
+// that way survives exactly until the next write of any kind (2 of the 4 rows
+// ever pinned are already superseded). A key inside `data` rides the document.
+//
+// Nothing writes this key automatically, and that is the point: under the
+// owner's 2026-09-02 ruling a classifier's palette is a starting guess the
+// machine may revise, NOT a pin. Only a person marking a value deliberate
+// makes it one.
+func designIntentLocked(data map[string]interface{}, dimension string) bool {
+	dim, ok := data[dimension].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	locked, _ := dim["locked"].(bool)
+	return locked
+}
+
+// markThemeKitStartingPoint records WHERE these values came from and, by
+// saying so, that they are a default rather than a decision. Two readers
+// benefit: a human asking "is this site on a kit's palette or its own?" (which
+// was otherwise unanswerable — a kit-written design_intent is byte-identical
+// in shape to a classifier-written one), and anything downstream that wants to
+// know it is free to override. Deep-merge carries unknown keys forward, so it
+// survives later writes until something replaces the dimension wholesale.
+func markThemeKitStartingPoint(data map[string]interface{}, dimension, kitName string) {
+	dim, ok := data[dimension].(map[string]interface{})
+	if !ok {
+		return
+	}
+	dim["reference_source"] = "theme_kit:" + kitName
+	dim["reference_is_default"] = true
+	data[dimension] = dim
 }
 
 func setReferenceValues(data map[string]interface{}, dimension string, values map[string]interface{}) {

@@ -1,8 +1,58 @@
 # RFC_059 — a pinned palette/typography should structurally survive the LLM overlay
 
-**Status: DRAFT — DO NOT RATIFY AS WRITTEN. Three defects found in review the same
-day it was filed (2026-09-02); §§1-7 below are the ORIGINAL text, left unedited so
-the objections can be read against them. Start at §0.**
+**Status: WITHDRAWN (owner decision, 2026-09-02, same day as filing). Superseded by
+migration `691_per_site_palettes_for_three_sites_on_a_shared_library_row.sql` — the
+"smaller fix". §§1-7 are the original draft, left unedited; §0 is the review that
+found it wrong; §0b is the withdrawal. Start at §0b.**
+
+## §0b. Withdrawal — the premise was backwards
+
+**Owner ruling, 2026-09-02:** *"I think the classifier can be given the choice. I
+think by default it can start with a theme and change it if it wishes, but it must
+have full authority to ignore our set of themes if it chooses."* And, on this RFC:
+*"please do the smaller fix."*
+
+That settles the question this RFC got wrong at the root. It proposed making
+`reference_values` a **hard structural constraint** the render overlay could not
+touch. The owner's model is the opposite: those values are a **starting point** the
+machine is entitled to change, or ignore entirely. A structural pin would have taken
+away exactly the authority the ruling grants.
+
+The review (§0) had already shown the design could not work as written — it pinned
+the wrong store (O1), its discriminator matched 34 of 34 sites (O2), and no instance
+of the defect had ever been measured (O3). The ruling makes the point moot rather
+than fixable: **there is no version of "freeze the palette against the LLM" that is
+wanted.**
+
+**What shipped instead — the smaller fix.** O1's real finding was not "we need a
+pin", it was "two stores disagree and the composition row is the one that is wrong".
+Measured 2026-09-02, four sites diverged; three of them (`cv1.co.uk`,
+`finetuning.uk`, `gaswholesalers.com`) shared ONE library palette row
+(`professional-dark`) while each served its own colours via the overlay. Migration
+691 gives each its own palette row carrying the values it **already serves** (read
+from the live stylesheets first, so the change is appearance-neutral by
+construction), and repoints `css_themes.palette_id`. That also ends a violation of
+the platform's own stated palette philosophy — *"palettes are ALWAYS site-specific …
+library reuse of palettes would be lying"* — and removes these sites' dependence on
+the overlay to look correct, without constraining the overlay at all.
+
+`loanzy.uk`, the fourth divergent site, is deliberately excluded: it serves values
+matching **neither** store, which under this ruling is the overlay legitimately
+exercising its authority, not a mismatch to reconcile. Choosing among the three
+values is a judgement about that site and belongs to its lane.
+
+**What replaced the pin, in the theme system itself:** `apply_theme_kit`'s default
+mode is now `start` — it WRITES the kit's values so a theme is genuinely the
+starting point, and marks them `reference_is_default: true` with
+`reference_source: "theme_kit:<name>"` so any later reader can see they are a
+default to be improved on, not a decision to be preserved. The only thing no mode
+overwrites is an explicit human lock (`design_intent.<dim>.locked: true`), which
+nothing sets automatically. That is the opt-in-with-unsafe-default-OFF shape O2
+asked for — but used to protect a *person's* choice, never to bind the machine's.
+
+---
+
+## §0 (superseded by the withdrawal above, kept for the record)
 
 ## §0. Review objections (2026-09-02, Fable architecture review, same day as filing)
 
