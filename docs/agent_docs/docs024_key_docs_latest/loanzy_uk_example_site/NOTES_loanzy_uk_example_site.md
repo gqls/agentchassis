@@ -2304,3 +2304,20 @@ artefact + status pair, treat `error` on a completed row as history, not state.
   RUNBOOK recipe, council corr `1e735fa2` (Council-Submitted), commit `8f2bd18fb`, HEAD
   verified building. **Go inert until the next roll; no site holds until the owner sets
   one** — the RUNBOOK's one-UPDATE recipe is ready when he names a site.
+
+## 2026-09-02 — WDS-020 round 1 REVISE made the design better; round 2 is the door
+Round 1 (corr 1e735fa2) came back REVISE, and the objections composed into a relocation:
+guardian (don't branch the generic action) + prior_art (a census over a rolling-window table
+cannot prove producer completeness) + reuse_agent (the owned-page park is the established
+idiom) all point at the SAME answer — **one policy door in writeWorkItem**, the seam every
+filing crosses (insertWorkItem is a thin wrapper; I had this backwards for an hour and the
+call-graph read settled it). Round 1's two per-producer guards REVERTED to the pinned parent
+(876fd1e2c — never a relative ref); door + transform mirror ownedPageParkedItem verbatim
+incl. 342's keep-identity retraction contract. Two real round-1 defects closed structurally:
+recurrenceExpected now set for EVERY producer (was missing on the discovery head), one
+fail-open test covers all paths (was asymmetric). Evidence upgrades: the two-heads census
+re-run against agent_definitions itself (tool-suggester the only config producer);
+approval_mode measured (25,673 auto / 1 manual — a per-item dispatch gate, wrong axis);
+filing_mode test's existence proven by path+quote. Round 2 committed c2349955d, resubmitted
+on the trail, HEAD verified building. The estate memory "a REVISE round is cheaper than the
+defect it finds" — worked case #3, and this time the finding was the ARCHITECTURE.
