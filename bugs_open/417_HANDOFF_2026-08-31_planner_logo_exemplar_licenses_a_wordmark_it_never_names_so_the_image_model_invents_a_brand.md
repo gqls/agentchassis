@@ -541,3 +541,50 @@ the honest statement is *"one for one"*, and it should be written that way where
 transparency ruling produced a painted checkerboard, because alpha is a file-format capability no
 prompt can request. Text-free and single-composition both held; the file is still unusable. Three
 independent properties, three separate mechanisms, one image.
+
+---
+
+## THE FENCE — decision recorded rather than taken silently (2026-09-02)
+
+`bugs_closed/390`'s remedy for co-present instructions is *"FENCE them in the template so only one
+ever renders"*. My guard does not fence: it APPENDS a clause that claims precedence over the
+licence still sitting earlier in the same prompt. So the question is live, and this section exists
+so the next session does not have to re-derive the reasoning or guess which way it went.
+
+**Decision: NOT building the fence now.** Stated with its grounds, so it can be overturned by
+evidence rather than by preference.
+
+**Why not:**
+- **The evidence is n=1.** One generation came back text-free. The estate's own rule — *two clean
+  runs cannot establish stability* — cuts against acting, and it cuts against complacency equally.
+- **The real fence is invasive.** Appending cannot fence; only RECOMPOSING can — presenting the
+  plan's text as subject-matter and letting constraints come solely from the policy block. That
+  changes how every image prompt is assembled, for every kind, to fix a risk currently measured at
+  zero occurrences out of one opportunity.
+- **The obvious cheap version is the thing this bug is about.** Stripping the licence by matching
+  its literal is detection, and 417's whole finding is that the model rewords the licence, so a
+  literal is a floor. A fence built that way would inherit exactly the weakness that made
+  migrations 669/670 insufficient.
+- **Building the invasive version on one data point is the habit this bug exists to correct** —
+  choosing before the evidence.
+
+**Why it might still be right, so this is not a dismissal:** the failure mode is SILENT. A lettered
+logo ships, passes every automated check, and is caught only when a human opens the image — which
+is how both known instances were found. A risk that is invisible to instrumentation deserves more
+caution than its measured rate suggests.
+
+**The trigger, so this is decidable rather than perpetual:** the next several logo generations,
+across different sites, each censused for the clause (`origin_prompt` carries it) and eye-checked.
+- **Any lettered logo that carried the clause → build the fence.** That is the design change, and
+  this file re-opens as one.
+- **A run of clean generations → the override is holding**, and the honest write-up is the RATE,
+  never "it works". Name the failure rate the sample could have detected.
+
+**A cheap intermediate someone may want instead of the fence:** count how often we are relying on
+adjudication at all — logo prompts whose `origin_prompt` contains BOTH a wordmark licence and the
+policy clause. ⚠ That is literal-matching, and it is legitimate HERE precisely because it is a
+MEASUREMENT and not a bound: a floor is a perfectly good instrument, and only fails when mistaken
+for a guarantee. It would turn "we do not know the exposure" into a number, for a few lines.
+
+**Not built here either** — it is a new check, and the class fix this file was opened for is done,
+approved and live. Recorded so the option is visible to whoever picks the trigger up.
