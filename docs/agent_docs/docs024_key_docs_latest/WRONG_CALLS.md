@@ -57429,3 +57429,48 @@ Tally: generalised-a-tools-verdict-past-its-argument.
 > not cut over 200s everything and returns a stub; the publish target is what serves.
 > `sites.publish_target` / `publish_project` name it. The delivery lane had flagged
 > the same trap to them on 2026-08-31, so this is at least its third appearance.
+
+---
+
+## 2026-09-02 — I asked for a prohibition and called its counterpart "the component system" without checking the component had one (editorial_design_uplift)
+
+**The claim.** On 2026-08-24 this lane made a hard request of the `bugs_open/381` lane:
+the writer guidance for html slots must **explicitly forbid** `<img>`/`<figure>`/`<iframe>`,
+"otherwise their change re-enables the in-blob imagery loss class fleet-wide". It shipped,
+and `article-body`'s guidance now reads: *"Never emit `<img>`, `<figure>`, `<iframe>` …
+imagery and visual treatment belong to the component system, not inside this text."*
+
+**The prohibition was right. The sentence after it was not a fact — it was an assumption,
+written in the voice of a fact, into live config that 297 instances across 30 sites read.**
+`article-body` has exactly one field (`content`), no image field of any kind, and a template
+whose only interpolation is `{{.content}}` — no `<img>`, no `<figure>`, no `background-image`.
+The "component system" it points the writer at, for this component, does not exist.
+
+**What caught it.** The owner, at the artefact, two review rounds later: *"there is not enough
+imagery in any of the pages."* Measured 2026-09-02, the receipt is unambiguous — **six
+`content_hero` images, one per article, all generated, all deployed, all serving HTTP 200,
+and not one of the six article pages references its own hero anywhere.** The images were
+waiting; the component could not show them.
+
+**A second claim, refuted in the same measurement.** The 2026-08-31 CONTRIB into this lane
+stated that a planner writing an imagery row "would get an image generated, deployed and
+rendered today, with no code change". The first three verbs are true and were traced
+properly through real call sites. **"Rendered" is conditional on the consuming component's
+template referencing imagery, and that condition was unstated** — six deployed, unrendered
+images are the disproof. Fleet shape as of 2026-09-02: 65 of 429 active components carry
+image markup, 364 do not.
+
+**The cheap check, one command, and it would have run in the same minute as the request:**
+before requiring a writer NOT to emit something on the grounds that another layer owns it,
+grep that layer for whether it can render it —
+`SELECT name, html_template ~* '<img|<figure|background-image' FROM content_components WHERE name='<the component>';`
+A prohibition and a capability are two edits. Asking for one and assuming the other is how a
+door gets closed with no window, and **the failure is silent by construction**: the writer
+obeys, the pipeline succeeds, every work item completes, and the page just has no picture in
+it. Nothing anywhere reports an error.
+
+**The generalisable half.** *"X belongs to Y"* is a routing claim about a system, and it is
+exactly as checkable as any other — but written as a clause inside a prompt it reads as
+settled architecture rather than as the untested assertion it is. When you write one, name Y
+precisely enough to grep, then grep it.
+Tally: assumed-a-counterpart-capability-existed-because-i-named-it.

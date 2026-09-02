@@ -713,6 +713,30 @@ The division:
 > designs for, and must not be quoted as though it were — if the insight pages want
 > figure-inside-prose, that is a separate finding and still a P2 case.
 
+> **ADDENDUM 2026-09-02 — the ARTICLE corpus is one blob row per article, so §8's
+> "make the sections finer" answer does NOT transfer to it, and 035 must not be cited
+> as the fix for the defect the owner is currently looking at.**
+> Measured at boxingonline (first paid site, second owner review): all six `/blog/`
+> article pages are **exactly ONE `article-body` row** (plus sometimes a
+> `call-to-action`) — there is no per-`h3` row to hang an image field on, unlike the
+> eleven darts guides that answer was derived from. §8's own warning fires here: that
+> evidence "is not evidence about the editorial corpus this document designs for".
+> **But the visible defect is not a composition problem at all.** `article-body` has one
+> field (`content`) and a template whose only interpolation is `{{.content}}` — no
+> `<img>`, `<figure>` or `background-image` anywhere — so it cannot display an image by
+> construction, while **six generated, deployed, HTTP-200 header images sit unreferenced**
+> (one per article). The fix is component capability: an optional image field plus
+> template markup, default absent, byte-identical for all 297 existing instances across
+> 30 sites. **It needs nothing from P1 and must not wait for it** — 035 is inert (0 of
+> 2,249 rows parented, 0 of 386 components declaring slots) and these are un-owned pages,
+> i.e. behind §6.1 and P5.
+> **What WOULD be a P2 case is unchanged and still unmet:** a figure between a section's
+> own paragraphs. Once an article is a single blob, any in-body figure lives inside the
+> llm-owned field and dies on the next rewrite — the G1 class. That is the
+> `inline_guide_imagery` lane's durability problem today, and becomes a P2 consumer only
+> if decomposed generation is what finally places those figures.
+> Full measurement + the ownership split: `editorial_design_uplift/NOTES` 2026-09-02 tail.
+
 ## 9. What NOT to do
 
 - Do not seed any `composite` row, or set any `parent_instance_id`, before the

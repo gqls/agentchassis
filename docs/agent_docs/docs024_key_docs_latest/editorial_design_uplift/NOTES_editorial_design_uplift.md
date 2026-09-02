@@ -678,3 +678,132 @@ citation; when the assembler's clause moves, the citation still reads correct. T
 the constant and its guard instead. Same class as your own D4.6 lesson about one walk serving several
 callers: one source of truth beats two that currently agree. Full account:
 `docs/agent_docs/docs024_key_docs_latest/routing_capability_guard/HANDOFF_2026-08-26_continue_here.md` §11.
+
+## 2026-09-02 — the second boxingonline review: six hero images were generated, deployed, and are INVISIBLE, because `article-body` cannot display an image
+
+Inbound CONTRIB from the boxingonline review session (their second; the first is
+`CONTRIB_2026-08-31_...one_image.md` in this directory). Owner's words, quoted by them:
+
+> "The profiles have no pictures and there is not enough imagery in any of the pages.
+> Please talk to the imagery and component threads and the experience loop about these too."
+
+**Their counts verified first-hand before building on them** `[MEASURED 2026-09-02]`:
+`/` → 7 imgs, `/articles/index.html` → 15, `/news/index.html` → 1, blog article → 1.
+Exactly as reported. (`/blog/index.html` → 0, a path they did not claim.)
+
+### The finding: this is a CONSUMPTION gap, not a generation gap
+
+**Six `content_hero` images exist, one per article, all deployed and serving HTTP 200 —
+and not one of the six article pages references its own hero anywhere, as `<img>` or as
+a CSS background.** Checked all six, page-by-page, asset-by-asset:
+
+```
+cruiserweight… | page imgs: 1 | content-hero asset: HTTP 200
+flyweight…     | page imgs: 1 | content-hero asset: HTTP 200
+japans-golden… | page imgs: 1 | content-hero asset: HTTP 200
+last-nights…   | page imgs: 1 | content-hero asset: HTTP 200
+saturday-fight…| page imgs: 1 | content-hero asset: HTTP 200
+womens-boxing… | page imgs: 1 | content-hero asset: HTTP 200
+```
+The one image on each page is the logo. `assets` for this site: 6 card, 6 content_hero,
+4 hero, 3 icon, 1 favicon, 1 logo, 1 og_card.
+
+**The cause is one component.** Every article page is exactly ONE `article-body` row
+(plus sometimes a `call-to-action`) — measured on all six. And `article-body`:
+
+- **has one field, `content`** (`type: html`, `source: llm`) — that is its whole
+  `input_schema.fields`. There is no image field of any kind.
+- **has a template that cannot render an image**: `{{.content}}` inside two divs, plus a
+  `<style>` block. No `<img>`, no `<figure>`, no `background-image`. `{{.content}}` is the
+  ONLY interpolation, so anything else mapped into its render context is silently dropped.
+
+So an article page on this platform can carry no image **by construction**, whatever the
+planner requests and whatever assets exist. `[MEASURED 2026-09-02]` **297 `article-body`
+instances across 30 sites.**
+
+`news-listing` is the same shape (no image markup) — which is why `/news/index.html`
+serves the logo only, and that is now the site's real news surface. `content-listing` DOES
+carry image markup, which is exactly why the six cards render. The difference between the
+surface that works and the two that don't is the component, not the pipeline.
+
+### The half of the contract this lane asked for, and the half nobody built
+
+`article-body`'s `llm_guidance` ends:
+
+> "Never emit `<img>`, `<figure>`, `<iframe>` … **imagery and visual treatment belong to
+> the component system, not inside this text.**"
+
+**That clause is the one THIS LANE hard-requested of the `bugs_open/381` lane on 2026-08-24**
+(NOTES above: *"the html-slot guidance must EXPLICITLY forbid `<img>`/`<figure>`/`<iframe>`
+— otherwise their change re-enables the in-blob imagery loss class fleet-wide"*). The
+request was right and I would make it again: in-blob imagery is destroyed by regeneration.
+
+**But it names a counterpart — "the component system" — that for `article-body` does not
+exist.** We closed the door and did not open the window, and the result is a component that
+forbids the writer from placing an image and provides no place to put one. Six generated
+images are the receipt. Recorded as a wrong call in `WRONG_CALLS.md`.
+
+### A second imagery producer exists, and the plan-level census cannot see it
+
+`[MEASURED 2026-09-02]` The site's current plan is **still** 4 page/hero + 3 section/icon +
+1 site/logo — the same 8 rows as on 08-31. **All 12 of the card and content_hero images were
+produced with NO `site_plan_imagery` row at all** (0 rows of either kind, on any plan for
+this site; 6 content_hero assets, 6 with no plan row).
+
+The fleet census is likewise unmoved: hero 359/29, icon 196/25, logo 45/28,
+illustration 19/5, **infographic 1/1**, sprite_sheet 1/1 — identical to 08-31. So the
+08-31 CONTRIB's headline number stands, but its framing needs one correction: imagery
+arrival is **not** gated solely on a planner writing a plan row, because something already
+writes per-article imagery without one. **The producer is [UNIDENTIFIED] by me** — the
+assets were created 2026-09-01 01:12–01:33, adjacent to the news machinery's own work on
+this site; identifying it is worth doing before designing anything that assumes the plan is
+the only request path.
+
+### Ownership answer for `inline_guide_imagery` — the split, with the reason
+
+They asked (via the review session) who owns the article-page interior. **The answer splits,
+and the boundary is whether the image sits INSIDE the llm-owned blob:**
+
+- **The article HEADER image is ours (component-capability) and needs no composition.**
+  `article-body` gains an optional image field and template markup, or the page gains a
+  hero row. Six deployed assets are already waiting for it. This is the whole of the
+  currently-visible defect and it is not blocked on 035 at all.
+- **Figures BETWEEN a section's own paragraphs are theirs**, and remain the durability
+  problem their 2026-08-14 plan describes: with one `content` field owning the whole
+  article, a rewrite takes any figure with it. That is the 238/G1 class.
+- **035 composition (P1) is NOT on this path** and must not be claimed as its fix. It is
+  inert (0 of 2,249 rows parented, 0 of 386 components declaring slots), P1 is unfinished,
+  and P5 — un-owned pages, which these are — sits behind P2–P4.
+
+⚠ **This is materially different from the guides case answered in `035` §8 on 08-31, and
+that answer must not be carried across.** There the remedy was "each `h3` is its own flat
+row, so the figure is a field of the section" — available today because those guides have
+per-section rows. **These articles have ONE row for the entire article**, so there is no
+finer section to hang a field on: getting there needs a decomposition step first. §8's
+own warning applies — the guides evidence "is not evidence about the editorial corpus this
+document designs for". Noted there in the same commit.
+
+### Two owner rulings recorded, both constraining this lane
+
+- **The palette stays** — "the cream off white decision is fine, that colour palette is ok."
+  No dark flip. Design imagery for a light ground. (Phase A's contrast work stands.)
+- **Logo/background contract, stated as a general rule** — "The logo shouldn't be dependent
+  on the palette unless we have several logos but the background behind a logo shouldn't be
+  part of the logo." boxingonline's logo bakes in a dark charcoal ground;
+  `site_delivery_and_editor` has that site's regeneration. **The durable half is ours to
+  carry: the rule must reach the imagery prompt**, not just this one logo.
+
+### What is owed, and what I deliberately did NOT do
+
+1. **`article-body` gains an image capability** — optional field + template markup, default
+   absent so every existing instance renders byte-identically. **Blast radius is 297
+   instances / 30 sites and `content_components` is live config, applied the moment it is
+   written**, so this goes through the council gate with a byte-identity test, not straight
+   into the DB. Not written yet.
+2. **`news-listing`** — same class, and it carries the real news. Same treatment.
+3. **Identify the unplanned imagery producer** (above) before assuming the plan is the
+   request path.
+4. **The logo/background rule into the imagery prompt** — durable half of ruling 2.
+5. **NOT dispatched anything at boxingonline** — `site_delivery_and_editor` owns that
+   pipeline and has work in flight. **NOT touched P1 code** — separate track, and the
+   extraction (`2a0bdb001`) is one commit old.

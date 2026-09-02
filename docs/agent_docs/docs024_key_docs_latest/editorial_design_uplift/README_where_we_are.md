@@ -125,3 +125,54 @@ loops and stranded pieces alike. That went back into the plan.
 
 Next is the first real code phase: the rendering walk in the live system,
 proven on one of our own locked editorial pages, through the council gate.
+
+---
+
+## 2026-09-02 — why the boxing articles have no pictures, and the answer is smaller than it looks
+
+You said the profiles have no pictures and there isn't enough imagery on the pages, and
+asked us to talk to the imagery and component threads. Here is what we found, and it is
+not what either of us expected.
+
+**The pictures were made. They are sitting on the server right now. Nothing shows them.**
+
+Every one of the six boxing articles has its own header image, generated on 1 September,
+uploaded, and reachable — we fetched all six and every one came back fine. Yet each
+article page displays exactly one image: the logo. The images are not missing, not
+failed, not queued. They are finished work that nothing puts on the page.
+
+**The reason is one building block.** Every article page on this platform is made of a
+single piece called `article-body`. That piece has one input — the words — and its layout
+has no place to put a picture at all. Not a header image, not a picture between
+paragraphs, nothing. So an article page cannot show an image no matter how many we make
+for it. The same is true of the block that builds the news page, which is why that page
+is bare too. The front page and the articles index look better only because the block
+they use *does* have a slot for a picture — that is the whole difference between the
+surface that works and the two that don't.
+
+**And we contributed to it.** Two weeks ago this thread asked another team to forbid the
+writer from putting images into the article text. That request was right — images written
+into the text get destroyed the next time the text is rewritten, which has already cost us
+figures on other sites. But the instruction we asked for says images "belong to the
+component system", and for this block there is no such thing. We closed one door without
+checking anyone had opened the other. Written up honestly in our shared log of wrong
+calls, because the failure is completely silent: the writer obeys, every job reports
+success, and the page simply has no picture in it.
+
+**What this means for the fix.** It is a much smaller job than "generate more imagery" —
+the imagery is already there for the articles. The block needs somewhere to put a picture.
+That is a contained change, but the block is used by 297 articles across 30 sites and it
+goes live the instant it is written, so it goes through the review council with a test
+proving every existing page renders exactly as it does today. We have not written it yet
+and have not touched the boxing site — the delivery thread owns that pipeline.
+
+**On the profiles specifically:** that site has no fighter profile pages at all — they
+were asked for and never built, and that is already with the diagnosis loop. So there are
+no unillustrated profiles; there are missing pages. When they are built they will need
+real fighter imagery, and that site's own research is explicit that generic stock photos
+are the thing to avoid.
+
+**Your two rulings are recorded and we will work to them:** the cream off-white palette
+stays, so we design for a light background; and a logo must not have its background baked
+into it. That second one we are treating as a general rule for every site, not a one-off
+repair of the boxing logo — the repair itself is with the delivery thread.
