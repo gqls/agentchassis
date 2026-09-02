@@ -111,37 +111,42 @@ Stripe.
 | 6 | Stripe | **LAST, and he does it himself** |
 | 7 | Header nav | Done — Contact + How We Work displaced, "Your Own Model" live in the header |
 
-## ⚠ PRECONDITION for the booking-flow page — this site's classification spec is a legacy shape
+## ~~PRECONDITION~~ RESOLVED 2026-09-02 — no spec edit needed; the only dependency is a roll
 
-Flagged by the `site_design_planner` lane from `bugs_open/431`, and **verified here rather than
-taken on report** `[MEASURED 2026-09-02]`:
+The `site_design_planner` lane flagged that finetuning.uk's `classification` spec is the
+**2026-04-18 legacy shape with no `category` / `industry_tags`** — verified here, both `?` tests
+false, and this site is one of **4** stragglers against **29** on the modern shape.
 
-finetuning.uk's `classification` spec was written **2026-04-18** by `domain-research-classifier`
-and has **no `category` and no `industry_tags`** (checked with explicit `?` tests, both false).
-Fleet context: **29 of 34 sites carry the modern shape** (both fields, from 2026-06-05 onward);
-**4 still carry this legacy one**, this site among them.
+**It was going to be step 0 of the booking page. It is not, and the reason is theirs:** their fix
+(`bd8e45aba`) works **entirely from the resolver side**, deriving from the `identity` spec rather
+than from `classification`. Checked that premise rather than accepting it — finetuning.uk's
+`identity` is **44 keys** including `industry`, `sub_industry`, `positioning_*`, `services` and
+`target_audience`, refreshed **2026-08-31**. It is good data. **So no classification edit is needed
+for layout resolution, and no backfill is planned for the 4 stragglers.**
 
-**Why it matters here and nowhere else yet:** it only bites when a `needs_composition` re-resolve
-runs — and **the booking-flow page is the next thing on the list that would trigger one.** Before
-commit `bd8e45aba` (council-approved, NOT yet rolled) the layout resolver sees zero signal from
-those fields and falls back to a **generic layout**. So a new booking page built today would get a
-worse layout for a reason nothing would report.
+**The one real dependency is the roll, and it has NOT happened** `[MEASURED 2026-09-02 13:18Z]`:
 
-**Deliberately NOT fixed on 2026-09-02, and the reasoning is worth keeping:**
-- Nothing is blocked right now; the peer flagged it as not urgent and it is latent.
-- The spec is `domain-research-classifier`'s output. Re-running the classifier is the framework
-  route but risks churning `suggested_style` (`professional-dark`) and `site_type`, which feed
-  design — the colour-churn class this site already has a pin against.
-- Hand-adding the two fields is additive and safe, but it is a classifier-owned spec, and doing it
-  on a peer's tip while nothing is blocked is a change nobody asked for.
-- **`bd8e45aba` may change how the resolver treats missing fields.** Fixing this AFTER that rolls
-  means fixing it against the resolver that will actually run.
+| | |
+|---|---|
+| chassis pods started | **12:28:24Z** (image `v1.0.1352`) |
+| `bd8e45aba` committed | **12:30:14Z** |
 
-**So: do it as step 0 of the booking-flow page, not before.** The modern shape, for reference —
-`category` is the `site_type` value (`"brochure"` here) and `industry_tags` is a slug list; the
-nearest comparators are `fundamentallyai.com` and `webdesign.uk`, both `brochure`, both B2B
-services. Check whether `bd8e45aba` has rolled first; if it has, re-read its behaviour before
-deciding the fields are still needed.
+The pods predate the commit by two minutes. ⚠ **Note the instrument:** a commit-sha grep of the
+binary is the WRONG check — a binary carries its own build sha, not its ancestors', so a `0` there
+proves nothing. The timestamp comparison is decisive and free. (`git merge-base --is-ancestor
+bd8e45aba <deployed sha>` is the right check once a provenance stamp is readable; a session's note
+visible in the chassis logs today says the prescribed `build provenance` grep "matches NOTHING on a
+backend service", so treat that route as unreliable until someone fixes it.)
+
+⇒ **Before building the booking page: confirm the roll carries `bd8e45aba`.** If it does, build
+normally. If it has not rolled, a new page still gets the generic-layout fallback.
+
+**SEPARATE and still open — the owner's call, out of `bugs_open/431`'s scope.** Other consumers
+(`evaluate_news_feed` and friends) read `category` / `industry_tags` / `site_type` **directly**, so
+this site's legacy spec is a genuine gap for them regardless of the resolver fix. A real classifier
+re-run would improve that — but it risks churning `suggested_style` (`professional-dark`) and
+`site_type`, which feed design, and this site carries a pin against exactly that churn class. Worth
+raising with him; not worth doing on a tip.
 
 ## Next session, in order
 
