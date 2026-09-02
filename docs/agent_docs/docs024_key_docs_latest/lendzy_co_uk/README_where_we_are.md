@@ -1,0 +1,100 @@
+# Where we are — lendzy.co.uk
+
+The owner's running log. Plain prose, append-only, newest at the bottom. Anyone may add; nobody
+rewrites what is already here. Corrections go **below** as dated entries, never as edits.
+
+---
+
+**2026-09-02 — the lane opens, and the first day's findings.**
+
+Lendzy now has its own lane. Until today it didn't have one: it was built back on 2 August as the
+very first site the framework made end to end, and since then four different threads have each
+worked on a piece of it and moved on. Nothing was being neglected exactly, but nobody was holding
+the whole thing. That's what changed today.
+
+The first thing worth saying is that lendzy is healthy. The site serves, the pages are real, and
+the five calculators I checked all work. There was one live problem and it turned out to be quite a
+neat one.
+
+**Three of the nine calculators were in a strange state: perfectly fine to a visitor, and recorded
+in our database as never having been built.** Both of those things were true at once, and both of
+our checks were reading correctly — they were just asking different questions. If you asked the
+website, the pages were there. If you asked our records, they had never been published.
+
+The cause goes back to the site's birth. When lendzy was built on 2 August, three of its
+calculators were stored in a way that predates how we do tools now — the page had a chunk of
+finished HTML attached to it, but nothing saying *which* component that HTML was. The other six
+calculators were rebuilt properly later, in mid and late August, and they're fine. The three that
+weren't rebuilt have been quietly failing every time the system tried to re-publish them ever
+since, because the re-publisher looks up the component, finds nothing, and gives up. It gives up
+loudly, which is correct behaviour and a fix somebody made deliberately — but nothing was listening
+for that particular noise.
+
+The reason it never healed itself is a bit circular: the page is marked "needs rebuilding", so it
+gets picked up and rebuilt, and the rebuild fails the same way, so it stays marked "needs
+rebuilding". Six attempts since 25 August, all of which report as completed.
+
+That single fault explains all three of the things you asked about. The **47 internal links** are
+not broken — every one of them points at a page that loads fine. They were flagged because the
+flagger asks our records rather than the website. Fix the record and all 47 clear themselves
+without anyone editing a link. The same fault is also why those three calculators are **missing
+from the sitemap**, so search engines can't see them.
+
+So the repair is to give those three calculators the component record they never got — **using the
+HTML that is already live, not by generating new ones**. You said keep the tools if they're
+working, and they are working, so nothing about them changes. I checked that this is safe: the
+stored HTML for all three is self-contained, with no template placeholders in it at all, so
+adopting it as-is loses nothing. And I've written down the number of input boxes each one has today
+(3, 1 and 2) so that after the repair we can prove we haven't quietly swapped a working calculator
+for a new one.
+
+I've put the root cause through our diagnosis loop rather than just asserting it, because it's the
+kind of claim that other threads would then build on. I'll record the verdict when it lands, including
+if it disagrees with me.
+
+**On the FCA handbook — the big one.**
+
+I've started on this and I want to flag one thing early, because it changes the design.
+
+The good news is that most of what you're asking for already exists. We have a mechanism that
+stores a fact along with the exact web page and the exact sentence it came from, and re-fetches
+that page **every day** to check the sentence is still there. That is your "check with their online
+version each time", already built and already running. It just has nothing to check on lendzy,
+because lendzy has no facts registered at all — it is one of five finance sites in that state. So
+the single highest-value thing is unglamorous: go through lendzy's financial claims and register
+each one against the specific handbook rule it comes from. That needs no new code and it starts the
+daily checking immediately.
+
+The FCA handbook is fetchable — I pulled the consumer credit cost-cap section today, 477KB, no
+login needed, with the rule numbers right there in the page.
+
+**But here's the thing that worried me, and it's the reason I'd want us to be careful.** The FCA's
+handbook site returns "success" for *every* address you ask it for, including rules that don't
+exist. I asked it for an invented rule and it cheerfully returned a page. If we build something
+that trusts that, we would end up with a system that says "checked against the FCA handbook" while
+happily verifying facts against rules that were never written — which is a more sophisticated
+version of exactly the problem we had before. The way to tell a real rule from a fake one is the
+page title, and every check we build will have to ask it for a rule we know doesn't exist, in the
+same run, to prove it can still tell the difference.
+
+There's a second thing to design around: our daily checker currently fetches one page per fact with
+no pacing at all. That's fine when the whole estate has 39 facts. If lendzy alone cites dozens of
+handbook rules, we'd be hammering the FCA's website every morning. We should sort the pacing out
+before we scale up, not after they block us.
+
+For the local copy you asked about: we have a good precedent — the Companies House pipeline pulls a
+whole external register into our own database, deliberately throttled to a small fraction of what
+we're allowed, refreshed on a schedule and then queried locally. I'd build the handbook mirror the
+same way, as its own thing, rather than trying to stuff a handbook into the facts table.
+
+I've been in touch with the claims-verification thread, since that's their area, and they've come
+back with all of this confirmed and the boundaries drawn. Their view and mine agree: register the
+facts first (no code, immediate benefit), then build the mirror and the "what changed in the
+handbook this week" detection, which is the genuinely new part.
+
+**One thing I want to be firm about, and I'd like you to push back if you disagree.** I don't think
+we should put a sentence on the site saying we check against the handbook until the checking is
+actually running and proven. The original problem wasn't that the sentence was wrong in spirit —
+it's that it existed before the thing it described. I'd rather build the mechanism, prove it, and
+then say something true and dated about it. So: mechanism first, sentence last, and the sentence is
+your call when we get there.
