@@ -59,7 +59,16 @@ afternoon→night entries are this session's full trail). The owner does NOT wan
 
 ## NEXT ACTIONS, in order
 
-1. **Read the 674 r2 verdict** (`53ea95f4`, by payload — r1 REVISE already answered).
+1. ~~Read the 674 r2 verdict~~ — **DONE 2026-09-02: APPROVED** (2 advisories, none high). The
+   farmer spec trail is closed end-to-end.
+1b. **NEW (2026-09-02, owner rulings via boxingonline's article rejection — ledger entry of
+   that date):** three items landed in this lane, sequenced behind nothing under his
+   fix-before-approval cut-line: (i) the TITLE-PROMISE gate/demonstration (family face 4 — a
+   title asserting a specific dated checkable thing must be carried by the body or the page
+   not written; one design with the empty-index demonstration); (ii) the CQ-032
+   first-person-plural policy-prose tell, type specimen = boxingonline's fight-calendar page;
+   (iii) the GUIDE REWRITE under "shorter is licensed" (honour ruling 13 alongside — density
+   per sentence vs padding per page; do not harmonise without his word).
 2. **Farmer parcel step 2**: the 52 CTA labels. The route is PROVEN (stage-2 editor catches
    the class unprompted post-674). The open question is POSTURE: ~17 more hand-fired proposals
    → 17 human reviews. **D2 makes batch-release the owner's call — ask him** whether to (a)
