@@ -3842,3 +3842,19 @@ tool 200 91,532 B, glossary 200, news 200. Expected residuals: advertise /sitema
 ⚠ **The 404-token listed NO zone for any of the four while all four were serving through the
 worker** — its zone visibility is scoped or account-partial; never read that token's empty
 zone list as zone absence. Recorded in the DNS runbook.
+
+### (o) Owner critique of the remakes (via designblog session) → bugs_open/444 filed; §9/§10 entries
+
+The owner reviewed designblog and said much applies to advertise/websitepromotion. Verified on
+advertise same evening — TRUE and worse than it looks because every naive check passes:
+channels-directory 0 entries, glossary 0 terms, news 0 items, all serving 200 at ~60KB of
+brief-echo prose. Root causes split three ways (feed: mechanism live but 0 content_sources —
+undriven; directory: DIR-001 wired but the vertical's KIND doesn't exist; glossary/showcase:
+no producer found [absence claim]). Also class-wide: no tools nav link/hub on any remake (plan
+precedes tools). Filed **bugs_open/444** with fix candidates ordered by door-closing (top:
+plan validation refuses/degrades zero-item listing pages); 016b §9 pattern ("count the ITEMS,
+never the bytes") + §10 row added. Answered the designblog session's (a)–(c) with the
+measurements; their instances stay theirs, advertise's are ours. **Consequence for the next 18
+briefs: until 444's candidate (1) or (2) lands, every brief that plans a directory/feed/
+glossary page is planning a page that will ship empty — fire directions must carry that.**
+The owner's "best in class" directive routed by the designblog session to the design lanes.
