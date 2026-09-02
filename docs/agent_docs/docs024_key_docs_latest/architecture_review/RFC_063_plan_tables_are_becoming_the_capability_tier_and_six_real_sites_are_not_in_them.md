@@ -1,9 +1,14 @@
 # RFC_063 — The plan tables are becoming the capability tier, and six real sites are not in them
 
-**Status: OPEN — owner decision requested.** Filed 2026-09-02 by session "bugs_open/443"
-(lane `bugfix_443_fallback_tier_subjects`), spun out of `bugs_open/443` §4's closing
-observation, at the finetuning lane's and the council architecture seat's prompting (corr
-`b7c59309`, two advisory objections on exactly this).
+**Status: ~~OPEN — owner decision requested~~ DECIDED 2026-09-02 (same evening) — OPTION B,
+hand-insert permitted for this closed backfill.** See the OWNER RULING appendix (recorded by
+the finetuning lane, `01a3b96ac`) for his verbatim words, the scope of the framework-ruling
+exception, and what the ruling does NOT waive: the one-site reconciler-skip proof before any
+insert, and the IMG-078 lane's cookly-pairing + seed-from-assets caveats. **Execution is
+UNASSIGNED as of the ruling** — first step is the measurement, not the insert. Filed
+2026-09-02 by session "bugs_open/443" (lane `bugfix_443_fallback_tier_subjects`), spun out of
+`bugs_open/443` §4's closing observation, at the finetuning lane's and the council
+architecture seat's prompting (corr `b7c59309`, two advisory objections on exactly this).
 
 ## The pattern, stated once
 

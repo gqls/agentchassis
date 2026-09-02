@@ -162,3 +162,21 @@
   **641 now waits on the seven-line read alone** — unblocking tier-1 subject rendering
   fleet-wide, independent of my roll. Standing claim unchanged: dbb218a41 not in the binary;
   their 4 pages wait for the next build; backfill theirs.
+
+## 2026-09-02 (late night) — both owner rulings landed, via the finetuning lane
+
+- **RFC_063 DECIDED: option B** (converge the six sites; hand-insert permitted as a scoped
+  exception — closed backfill, no new site can take the old path). Ruling verbatim + what it
+  does NOT waive recorded in the RFC appendix (`01a3b96ac`, finetuning lane); status header
+  updated to match. **Execution UNASSIGNED** — the first act is the one-site reconciler-skip
+  measurement (decision-1 against real rows incl. the needs_rebuild 17 and empty-sections 37),
+  NOT the insert. IMG-078 caveats stand (pair cookly with an asset-holder; seed imagery rows
+  from `assets`). PBP-051 stays correct post-B: its arms serve any page a plan does not name.
+- **641 gate 2 returned as REDRAFT, not approval — do NOT apply 641 as written.** Owner wants
+  positive prompting (no negative instructions) written IN the language expected back, no
+  production vocabulary, no specimen answer. Candidates + mechanics-to-keep in
+  `finetuning_uk_service/DRAFT_2026-09-02_641_positive_prompt_candidates.md`; his pick of
+  framing pending. ⚠ mechanics list flags the sibling-subject range render as UNTESTED.
+  **641 is the apis.uk lane's file (PBP-049)** — the finetuning session mis-addressed it to
+  this lane; relayed to apis.uk with the draft pointer. **Stage B now depends on the
+  REDRAFTED 641; Stage A unaffected.**
