@@ -182,11 +182,28 @@ a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants e
 > > row"*, i.e. that the mechanism was live and **undriven**. **That figure was IMG-075's, stamped
 > > `[MEASURED 2026-08-31]`, and I relayed it without its date.** Re-run `[MEASURED 2026-09-02]`:
 > > **`apis.uk` `/index` carries SIX** — `index:1`–`index:6`, distinct keys, created
-> > **2026-09-02 16:47:03Z**. So the mechanism shipped 09-01 and had a real driver inside ~20
-> > hours. **It is live and DRIVEN, and apis.uk/index is the page to watch and to copy** — it is
-> > also IMG-075's own stated blast radius, so whatever happens there happens to the only page
-> > exercising the new branch. Logged in `WRONG_CALLS.md`: a census goes stale by ADDITION and
-> > reads as current for ever, which is why the entry carried the date I discarded.
+> > **2026-09-02 16:47:03Z**. Logged in `WRONG_CALLS.md`: a census goes stale by ADDITION and reads
+> > as current for ever, which is why the entry carried the date I discarded.
+> >
+> > **⚠ AND THEN CORRECTED AGAIN, by `inline_guide_imagery`, because "driven" was also too strong.**
+> > I wrote here that the mechanism was *live and DRIVEN*. **The honest state is ARMED AND
+> > UNEXERCISED.** Rows seeded is the ASK; the branch running is the evidence, and they are not the
+> > same thing. Verified here `[MEASURED 2026-09-02]`: every one of apis.uk `/index`'s six sections
+> > still carries `page_components.updated_at = 2026-08-24 11:27:26Z` — *before* IMG-075 shipped and
+> > long before the rows were seeded. **Nothing has re-resolved, so the new branch has still never
+> > run anywhere.**
+> >
+> > The page IS capable, which I checked rather than assumed after briefly fearing otherwise: its
+> > `slot_name` reads `generic-text-block` while the component behind `component_id` is
+> > **`Illustrated Text Block`**, the only component in the estate declaring
+> > `source: site_assets.illustration`. That plan-vs-rows spelling disagreement is precisely the
+> > case IMG-075's round 2 was written to survive, and it holds.
+> >
+> > **⚠ So do not read apis.uk's next ordinary re-render as evidence either way** — its six figures
+> > are already in `content_data`, so an assemble-only render emits identical bytes whether the
+> > branch fired or did nothing. Evidence arrives at that page's next **`content_rewrite`**: the
+> > exact event the mechanism exists to survive, on the exact page whose six values it was written
+> > to protect.
 >
 > **The concrete blocker is the page shape, it is measured, and it is NOT confined to grip-styles —
 > it is every content page on the site.** `[MEASURED 2026-09-02]` **all 22** content pages — 13
@@ -203,6 +220,12 @@ a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants e
 > `scope='section'`, `kind='illustration'`, `scope_ref='<slot>:<ordinal>'`, one per figure.
 > **grip-styles remains the right canary** (the owner named it, and IMG-075's own test fixtures are
 > modelled on it), but do it as a canary, not as if it were the whole job.
+>
+> **⚠ AND CITE THE RIGHT REASON FOR DOING IT.** The justification is the owner's 08-31 ask — he wants
+> an accurate image per small section, and 22 pages of banner-plus-prose is the complaint. It is
+> **not** "give `inline_guide_imagery` a second driver to build confidence in their mechanism":
+> that lane explicitly declined that as a reason, and they are right — it is a bad basis for
+> touching 22 live pages. If the owner's ask ever goes away, so does the case for this work.
 >
 > **⚠ THE "LIVE 2026-09-01 21:00" DATE ABOVE IS ROUND 1 ONLY — corrected 09-02 by the owning lane.**
 > `v1.0.1351` carried round 1. **Round 2's `sectionOrderAgrees` — the guard that stands the binding
