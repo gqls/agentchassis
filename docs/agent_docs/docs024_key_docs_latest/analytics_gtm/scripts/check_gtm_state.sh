@@ -25,11 +25,15 @@ echo "== 1. container $CONTAINER, live at googletagmanager.com  [$(date -u '+%Y-
 code=$(curl -s --max-time 25 -o "$TMP/gtm.js" -w '%{http_code}' "https://www.googletagmanager.com/gtm.js?id=$CONTAINER")
 if [ "$code" != "200" ]; then echo "   VERDICT: container fetch failed (http=$code) — cannot say anything about GA4"; else
   ver=$(grep -oE '"version":"[0-9]+"' "$TMP/gtm.js" | head -1 | grep -oE '[0-9]+')
-  tagsblob=$(grep -oP '"tags":\[\K.*?(?=\],"predicates")' "$TMP/gtm.js" | head -1 || true)
-  ntags=$(printf '%s' "$tagsblob" | grep -o '"function":"__' | wc -l)
+  # Count tag templates FILE-WIDE, not inside an extracted "tags":[...] blob: the 2026-09 container
+  # format dropped the ],"predicates" anchor the old extraction relied on, so the blob came back
+  # empty and a PUBLISHED container read as 0 tags (caught 2026-09-02, minutes after the owner's
+  # first publish — the false verdict said his publish had not worked). Template code only appears
+  # in gtm.js when a tag of that type exists, so the file-wide count is the honest signal.
+  googtag=$(grep -o '"function":"__googtag"' "$TMP/gtm.js" | wc -l)
+  gaawe=$(grep -o '"function":"__gaawe"' "$TMP/gtm.js" | wc -l)
+  ntags=$((googtag + gaawe))
   gids=$(grep -oE 'G-[A-Z0-9]{6,12}' "$TMP/gtm.js" | sort -u | tr '\n' ' ')
-  googtag=$(printf '%s' "$tagsblob" | grep -c '__googtag' || true)
-  gaawe=$(printf '%s' "$tagsblob" | grep -c '__gaawe' || true)
   printf '   version=%s tags=%s google_tag=%s ga4_event_tags=%s measurement_ids=[%s]\n' "${ver:-?}" "$ntags" "$googtag" "$gaawe" "${gids% }"
   if [ "$ntags" -gt 0 ] && [ -n "$gids" ]; then
     echo "   VERDICT: GA4 PUBLISHED — tag(s) live, reporting to ${gids% }. Realtime should show a visit within seconds."

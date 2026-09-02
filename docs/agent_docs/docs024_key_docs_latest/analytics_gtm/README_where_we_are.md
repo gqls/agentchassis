@@ -275,3 +275,20 @@ menu on the account row was the right way in, and I've fixed the written steps.)
 The one Google thing left from this whole piece of work is still the same single click: publishing
 the GA4 tag in your own container (the idea.uk-named one) so your sites start counting. Nothing new
 has appeared in it since August — it's still recording nothing.
+
+## 2026-09-02 (night) — it's counting
+
+You pressed Publish and it worked: your container now carries one Google Tag reporting to
+G-Y26N29T4KH, and every one of the thirty durable sites is sending page views from this evening
+onwards. Load any of your sites and watch Reports → Realtime — you should see yourself.
+
+Full honesty: my checking tool told me, for about two minutes, that your publish hadn't worked —
+its parser broke on a format change at Google's end, and the tool's own output contradicted itself,
+which is how I caught and fixed it. The world was fine; the instrument was wrong. Logged against
+the tool, fixed, and re-proven in both directions.
+
+Two things this changes. History starts tonight — GA4 knows nothing about anything before this
+evening, so give it a few days before the numbers mean much, and always split reports by hostname.
+And your sites now set cookies for real, with no consent banner anywhere — that was your call and
+it stands, but it has moved from "theoretical" to "live", and it's the one compliance item I'd not
+leave too long.

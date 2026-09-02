@@ -222,3 +222,19 @@ writes anything broader is not.
 - Search Console: **nothing set up.** Needs one owner action (service account) before any
   automation.
 - Cookie consent: **not implemented on any site**, deliberately parked.
+
+---
+
+## Addendum 2026-09-02 (analytics_gtm lane) — GA4 is LIVE; §3/§4a/§7 above are historical from this line
+
+- **GA4 published 2026-09-02 ~20:11Z**: container `GTM-PQ3WCTBD` version 3 carries one **Google
+  Tag → `G-Y26N29T4KH`** (verified at gtm.js, both directions, `analytics_gtm/scripts/check_gtm_state.sh`).
+  **GA4 history begins at that instant. There is no backfill.** Any GA4 number quoted for a period
+  starting earlier is comparing a source to its own absence.
+- **The consent position changed in fact at that instant** (§4a's "change of compliance position"
+  happened): `_ga` cookies now set across ~30 estate sites, no consent banner anywhere. Owner's
+  standing decision; consent is the open compliance item.
+- **Customer sites are insulated by design**: hosted customer builds default to the separate,
+  empty container `GTM-TH5XGNQ4` (owner ruling 2026-08-26, created 2026-09-02) — zero cookies by
+  construction; a tag ever appearing in it is a re-ruling trigger, not progress.
+- Break GA4 reports down by **Hostname** or the estate is one merged number (§3 above stands).

@@ -46,6 +46,13 @@
 > weekly manual tax — the seeder + §6.3 detector are this lane's next build.** Customer container
 > `GTM-TH5XGNQ4` created and verified same day; estate publish still pending (0 tags, 19:57Z).
 
+> **2026-09-02 ~20:11Z — GA4 IS LIVE.** Owner published: `GTM-PQ3WCTBD` v3, one Google Tag →
+> **`G-Y26N29T4KH`**. History begins here; consent position changed in fact (cookies on ~30 sites,
+> no banner — the open compliance item). Customer container `GTM-TH5XGNQ4` verified still empty
+> (the control). ⚠ the check script's parser was fixed the same minute (WRONG_CALLS 2026-09-02) —
+> pull before trusting an old copy. Remaining: §6.2 seeder+detector build (mine), 11 review rows,
+> cv1 membership, Search Console SA, consent banner.
+
 ## 1. Verify before doing anything — one command
 
 ```bash

@@ -514,3 +514,14 @@ objection), applied `-v UNTAGGED=1` at **20:10:33Z (row stamp, measured this tim
 UPDATE 1 (boxingonline merge kept `chrome`), census A 30 / C 9 / B 0 / D 0. Kept 397 ownership.
 **The pattern is now priced: without the §6.2 seeder this is a weekly manual tax** — seeder (+ §6.3
 detector) is the next build in this lane, council scope.
+
+**27.** `[2026-09-02 21:11–21:15 BST]` **GA4 IS LIVE.** Owner pressed Publish; container read at
+20:11:33Z-ish: **version 3, one Google Tag → `G-Y26N29T4KH`**. My script's first read said NOT
+PUBLISHED — parser bug (predicates-anchored blob extraction vs the new container format), caught by
+its own contradictory output line, fixed to file-wide `"function":"__googtag"` counts, verified in
+BOTH directions (estate=PUBLISHED, empty customer container=NOT — the control). `WRONG_CALLS.md`
+2026-09-02. **GA4 history for the estate begins 2026-09-02 ~20:11Z** — every before/after
+comparison crossing that instant compares a source to its own absence (039 §4). **The compliance
+position changed in fact at the same instant**: `_ga` cookies now set on ~30 sites, no consent
+banner anywhere — the owner's standing decision, now live rather than theoretical; consent is the
+open compliance item.

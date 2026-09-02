@@ -59591,3 +59591,19 @@ about were different objects that happen to share a name or a row.**
 
 **Tally:** **count-the-unit-your-claim-is-about** ×3 (one afternoon),
 **anchor-an-asset-census-on-the-filename-not-the-stem** ×1.
+
+## 2026-09-02 — `analytics_gtm` (session "google"): my own committed check tool told the owner his first-ever GA4 publish had NOT worked, minutes after it had — a parser anchored on a neighbouring literal read a format change as absence
+
+`check_gtm_state.sh` extracted the container's tag list with
+`grep -oP '"tags":\[\K.*?(?=\],"predicates")'`. The 2026-09 gtm.js format no longer places
+`"predicates"` after `"tags"`, so on the owner's freshly published version 3 the extraction returned
+empty, `tags=0`, and the tool printed **"VERDICT: GA4 NOT PUBLISHED … records NOTHING"** — about the
+one publish this whole workstream existed to reach. **What caught it:** the tool's own output
+contradicted itself — `measurement_ids=[G-Y26N29T4KH]` on the same line as `tags=0` — and the raw
+file held `__googtag` ×5. The world was fine; the instrument was keyed to a neighbour of the thing
+it measured. **The fix and the transferable half:** count the signal itself, file-wide
+(`"function":"__googtag"`), never a blob delimited by an adjacent key that a vendor can reorder —
+and when a verdict matters, keep a KNOWN-STATE CONTROL beside it: the empty customer container
+(`GTM-TH5XGNQ4`) still reading NOT PUBLISHED is what proved the fixed parser wasn't simply saying
+yes to everything. Same class as `grep-silent-on-non-utf8` and the LANDMINES deleted-bullet check:
+the instrument answered a narrower question than the one asked.
