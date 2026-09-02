@@ -90,6 +90,49 @@ Four messages, each carrying the measurement that makes the ask cheap rather tha
   survey figures in a news listing, which is `RFC_053`'s shape and which a register will not and
   should not silence).
 
+### 2b. OUTCOME, measured 2026-09-02 ~17:0xZ — the hand-over worked, and it moved fast
+
+Re-measured at the DB rather than taken from the lanes' reports:
+
+| site | register | state |
+|---|---|---|
+| `loancalculator.co.uk` | **12 facts** | live today 15:30 |
+| `loanzy.uk` | **3 facts** | live today 15:27 (migration 697) + `banned_claims` via 702 |
+| `farmerinsurance.uk` | **7 facts** | live today 15:27 (migration 698) — **no longer an orphan**; my "no lane at all" was stale within hours |
+| `lendzy.co.uk` | **none live** | migration 695 written, 8 citation facts, council round 2 — **killed twice by today's rolling chassis deploys**; resubmits when the fleet calms. Written and reviewed, NOT applied |
+| `loancash.co.uk` | **none** | the genuine remaining gap; the owner has been informed |
+
+The lanes went further than the ask: **full citation-backed registers**, not the banned-claims-only
+minimum I proposed, verified against the actual FCA Handbook / legislation.gov.uk text — and in doing
+so found **5 wrong live claims in one day** across three sites (two mis-attributed CONC rules, MaPS
+mis-described as FCA-authorised, a wrong settlement period, an invented ERC threshold).
+
+### 2c. ⚠ A STRUCTURAL FINDING THAT CAME OUT OF THE HAND-OVER, and it is the useful part
+
+I pointed three lanes at `adversecreditmortgage.co.uk`'s six-pattern set. **Both lanes that adopted it
+diverged on the same two of six, independently, each with a measurement:**
+
+- `\bno (credit )?checks?\b` — lendzy: adjacent UI text ("Yes"/"No" buttons + a "Check for a breach"
+  label) concatenates in the visible body to *"No Check"*. loanzy: its calculator truthfully says
+  *"There's no credit check involved"* **about its own tool**. Two sites, two unrelated false-positive
+  routes, same arm.
+- `\b[0-9]+(\.[0-9]+)?% (apr|apcr|rate)\b` — **both omitted it.** lendzy measured 3 hits, every one
+  the credit-union cap quoted beside its named rule. loanzy: *"on your sibling a literal rate is a
+  price promotion; here it is pedagogy."*
+
+**And the rate arm has a structural problem, verified in the code:** `fad209b92` exempts a regulatory
+figure quoted beside its named rule from the **number** scan — but **`scanBannedClaims` consults no
+regulatory-citation exemption at all** (my exclusions sit only in `isExcludedNumber` and
+`ScanUnregisteredNumbers`). So a curated sector set containing a rate pattern would **re-convict, at
+BLOCKER severity in the refusing union, exactly the content the number scan now exempts at error
+severity** — on the sites whose purpose is quoting capped rates beside their rules. The two layers
+would disagree about the same sentence and the stricter one cannot see the citation.
+
+**So, for RFC_060: if a sector set is ever curated, the citation exemption must reach the
+banned-claims layer FIRST, or such a set cannot safely contain a figure pattern.** Sent to
+`claims_verification` rather than edited into the RFC, at their request. Not proposed as work here —
+it widens a refusing union, which is an owner/RFC decision, not a side effect of a number-scan fix.
+
 **A design question surfaced by doing this, and it belongs in RFC_060 rather than here:** five sites
 are about to hand-roll near-identical consumer-credit banned-claim patterns. `globalBannedClaims` is
 fleet-wide and these are **sector-wide** — there is no middle tier today, and copying is how five

@@ -58603,3 +58603,28 @@ verification work here that no single session's rigour replaced, in both directi
 
 Family: a-report-is-not-a-measurement, a-client-side-absence-is-not-an-absence,
 a-plausible-external-cause-is-when-to-doubt-your-instrument, a-doc-comment-is-not-an-enforcement-mechanism.
+- [2026-09-02, bugfix_357 lane] **I summarised a 43-row listing as "each page has EXACTLY ONE hero plan row" — true for 21 of 22, and I stated it as a measured fact in a drafting brief.** gamesdesign/tool-ttk-calculator has ZERO site_plan_sections rows; it was ABSENT from my listing, and absence in a per-page listing reads as nothing-to-see unless you count pages. The drafting agent (fable) caught it by independently re-measuring rather than trusting the brief, and the migration's census now pins the zero-row state. The cheap check that would have caught it: put `count(DISTINCT page)` beside any "each X has Y" claim derived from a listing — 43 rows over 22 pages with one page contributing 4 and one contributing 0 sums right and reads wrong. Same family as the unverified-impact notification of 09-02: a statement in a brief IS a measurement claim to its reader.
+
+## 2026-09-02 — bugs_open/414 lane: I nearly told another lane a migration was unapplied, on an instrument that records none of this wave
+
+**What I nearly claimed.** That `lendzy`'s register migration 695 had not been applied, evidenced by
+its absence from `schema_migrations`.
+
+**Why that evidence is worthless here.** Migrations **697** and **698** are *also* absent from
+`schema_migrations`, and their effects are demonstrably live — `farmerinsurance.uk` has 7 facts and
+`loanzy.uk` 3, both written 15:27 today by those very migrations. So in this wave the table records
+nothing, and "absent from `schema_migrations`" distinguishes applied from unapplied not at all.
+
+**What saved it.** A second, independent instrument that answers the question directly: `site_specs`
+has **no `evidence_base` row for lendzy at all**, current or superseded. The conclusion was right; the
+reasoning I first reached for was not, and I would have sent the reasoning.
+
+**The cheap check.** When an absence is your evidence, **test the instrument on a known positive
+before trusting a negative** — here, "does `schema_migrations` contain a migration I *know* landed?"
+would have cost one query and shown the table silent for the whole wave. Prefer an instrument that
+observes the EFFECT (does the row exist?) over one that observes the BOOKKEEPING (was it recorded?).
+Tally: **absence-from-a-ledger-read-as-absence-of-the-event**.
+
+**Ninth logged in this lane, and the same family as the worst of them** — the `head -14` truncation
+that let me report an absence to another lane as derived from source. Both are absence claims resting
+on an instrument nobody checked could see a positive.
