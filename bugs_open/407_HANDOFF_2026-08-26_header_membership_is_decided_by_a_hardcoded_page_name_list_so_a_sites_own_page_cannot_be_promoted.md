@@ -336,3 +336,37 @@ This is the split the lane RUNBOOK and §6 both warn about, and it is the honest
 **nav tables + `site_components` correct, served chrome stale until those 45 drain.** Say which
 of the two you have. Whoever picks this up: re-curl before quoting a state, and do NOT re-dispatch
 the nav rebuild — the tables are already right, and a second run would only re-file the same items.
+
+### ✅ VERIFIED AT THE SERVED PAGE — 2026-09-02 16:25Z, and the drain is PARTIAL
+
+The items began draining within minutes. `[MEASURED 2026-09-02 16:25Z]` `page_rerender` items for
+this site: **5 complete, 1 claimed, 39 triaged**.
+
+The served homepage, anchored on `<nav>` (never a bare `<header>` — §6's own ⚠), now carries
+**exactly the declaration, in declared order**:
+
+```
+/index.html · /services.html · /tools.html · /model-directory.html · /protocol-tracker.html
+· /adoption-tracker.html · /news/index.html · /about.html · /contact.html
+```
+
+⚠ **Do not generalise from the homepage** — that is the mistake this file's §6 warns about in the
+other direction. Sampled five pages in the same minute and they DISAGREE, which is the correct
+reading of a partial drain, not a defect:
+
+| page | serving the new header? |
+|---|---|
+| `/` | ✅ |
+| `/services.html` | ✅ |
+| `/about.html` | ✅ |
+| `/tools.html` | ✅ |
+| `/model-directory.html` | ❌ still the old eight |
+
+So: **the mechanism is proven end-to-end on this site** (declaration → tables → chrome → served
+page), and the remaining 39 pages carry the old header until their items drain. A control was run
+in the same fetches — every page returned a `<nav>` with links, so a zero above means "old header",
+never "fetch failed" or "matched the wrong element".
+
+**Next reader:** re-run the five-page sample rather than quoting this table; if pages are still
+stale hours from now the question is the DISPATCH LOOP claiming rate, not the nav fix — the tables
+and `site_components` are already correct and a second `nav-updater` run would only re-file items.
