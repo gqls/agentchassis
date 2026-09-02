@@ -451,6 +451,71 @@ axes **and** not dependent on the wash holding); the **8 sites carrying excluded
 fleet-wide waits on the producer-side mechanism, not on a cleanliness claim. **Council scope and the
 owner's call.**
 
+### ⚠⚠ H1d. THE PRODUCER GATE IS BUILT, LIVE IN THE BINARY, AND WIRED TO NOTHING — 25% still born dirty
+
+**`[MEASURED + VERIFIED 2026-09-02]` READ THIS BEFORE BUILDING ANYTHING FOR DECISION E. It is
+already built, by THIS LANE, and it has changed nothing because no step calls it.**
+
+| fact | evidence |
+|---|---|
+| the action exists | `repair_ordering_register_action.go` (630 lines) + `_test.go` (357), `datahelpers/registerwords.go` (193) + parity test, one registry line — commit **`f7156fb54`**, 2026-08-31, `Council-Submitted: 4054f4d9` |
+| it is IN THE RUNNING BINARY | `git merge-base --is-ancestor f7156fb54 ebf27c60…` → **yes**, against the deployed `agent-chassis` build, **with a control that correctly says HEAD is not an ancestor** |
+| **it is wired to NOTHING** | `offer-analyser`'s workflow has **10 steps** and none has `action: repair_ordering_register`. The config's only `register` mention is unrelated prose in a finding-type list |
+| **so it has changed nothing** | since the commit: **254** points minted, **65 born dirty — 25%**. Baseline 23%; 09-01 was 26%, 09-02 18%. **Still bleeding at the old rate with the fix in the running binary** |
+
+> **This is the estate's *"a silent mechanism is UNDRIVEN, not missing"* shape, and this time it is
+> OUR OWN WORK.** Four owner asks in three days turned out to be existing machinery nobody drives
+> (imagery vocabulary, carousels, the benefit set) — and the fourth is the fix for the third.
+
+**⚠ WHAT IT DOES IS A THIRD OPTION NOBODY PUT TO THE OWNER: it REPAIRS, and records.** It rewrites the
+offending construction before the row persists and writes a durable record (`record_key`, default
+`register_repairs`) — **including an empty array on clean runs**, so an absent record cannot be read
+as "clean". Its header says three modes were costed and FAIL was rejected because it would leave the
+site's previous ordering current. **On 2026-09-02 I offered the owner record / refuse / drop-the-bad-points
+and he chose record-first — a menu missing the built option, because I did not know it existed.**
+That is a defect in my question, not a change of his mind; his 08-31 ruling per the commit message
+was **repair**.
+
+**THE OPEN DECISION (with the owner as of 2026-09-02):** wire it **as built** (repair + record, one
+config change to one workflow step, already council-submitted), or add a **record-only mode** first
+(a code change — the action has no such mode) and measure for a week. **My recommendation on the
+record: wire as built** — it cannot stall a site (it repairs rather than refuses), it records either
+way so the measurement is not lost, and record-only means another week at 25%.
+
+⚠ **DO NOT BUILD A SECOND GATE.** I started one (`site_spec_register_gate.go` + a hook in
+`write_site_spec`) before finding this, on the strength of a `grep | head -8` I read as an absence —
+55 hits, not 8. Deleted, reverted, build verified clean, nothing committed. Full account:
+`WRONG_CALLS.md` 2026-09-02.
+
+### ⚠ H2c. `reference_values` IS NO LONGER A PIN — the vonc/boxingonline framing in H2 is superseded
+
+**Owner ruling 2026-09-02**, relayed by the `theme kits` lane: *"the classifier can be given the
+choice… by default it can start with a theme and change it if it wishes, but it must have full
+authority to ignore our set of themes if it chooses."*
+
+**So palette CHURN is authorised behaviour, not a defect to arrest.** `RFC_059` proposed making
+`reference_values` a structural pin the render overlay could not touch and **the owner WITHDREW it on
+exactly this ground** — a pin removes the authority the ruling grants. ⚠ **Any plan of mine to
+de-garish vonc by pinning `reference_values` is now against the ruling.** The lever is what the
+overlay STARTS from and how it is guided, never freezing its output.
+
+⚠ **AND MEASURE AT THE SERVED STYLESHEET, NOT THE SPEC** — the overlay may be serving a third thing
+entirely: `loanzy.uk` serves `#2A9D8F`/`#F8FAF9`, matching **neither** its palette row **nor** its
+`reference_values`. My own vonc observation (`--color-primary` docs say `#6d28d9`, live is `#7c3cff`)
+is the same phenomenon.
+
+**Boundary agreed with `theme kits`:** they own `theme_kits`/`page_archetypes`, `apply_theme_kit`,
+`theme_kit_defaults`, `page_archetypes_resolver` and one rung of `resolve_composition_layout`. They
+have **not** touched `resolve_composition_pallette_action.go` and would rather it stayed that way;
+`bugs_open/396` (a design run rewriting the theme row byte-for-byte) is **not** theirs and stands
+untouched. **No collision with either of my items** — their only palette migration (`691`, unapplied)
+repoints `cv1.co.uk`, `finetuning.uk`, `gaswholesalers.com` appearance-neutrally and excludes vonc,
+boxingonline and loanzy. **The self-contradicting-`colour_mood` census is MINE to run**, and their
+framing: the interesting half is *"does any site serve a genuinely dark-dominant page"*, since
+migration 613's header says the classifier lands dark ~a third of the time by coin-flip. **Offer
+standing: if vonc wants a NAMED look, ask them for a kit rather than hand-rolling a parallel
+mechanism.**
+
 ### H2. Carousels / "nicer components" (via `loanzy_uk_example_site`, from the farmerinsurance.uk review)
 
 Owner, routed to three threads including this one: *"using carousels rather than just lists and
