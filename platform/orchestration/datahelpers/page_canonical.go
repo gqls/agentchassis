@@ -312,6 +312,13 @@ func normalisePageType(r string) string {
 	}
 }
 
+// IsSectionIndexRole is the exported face of isSectionIndexRole, so the
+// listing-family vocabulary has ONE definition: the bugs_open/444 plan-time
+// gate classifies by this instead of carrying a mirror (council corr c0990eb3
+// round 2, architecture seat — a third hand-maintained copy of this set was
+// the objection).
+func IsSectionIndexRole(role string) bool { return isSectionIndexRole(role) }
+
 // isSectionIndexRole returns true for any role that represents "a page
 // listing other pages of a category". These all share name/URL shape;
 // only page_type differs. Input is expected to already be canonicalised

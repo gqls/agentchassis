@@ -155,6 +155,23 @@ func init() {
 	}
 }
 
+// ListingComponentSpecKeys exposes the per-kind component→SpecKey pairs from
+// directoryCheckProfiles (both the listing and the snippet component names), so
+// consumers that must stay in lockstep with the kind roster — the bugs_open/444
+// plan-time gate — DERIVE it rather than hand-mirroring it. A kind added to the
+// profiles above is automatically known to every caller of this function;
+// before this existed the gate carried its own copy of these pairs, which is
+// exactly the two-hand-maintained-rosters drift class the estate keeps paying
+// for (council corr c0990eb3 round 2, architecture + reuse_agent).
+func ListingComponentSpecKeys() map[string]string {
+	out := make(map[string]string, len(directoryCheckProfiles)*2)
+	for _, p := range directoryCheckProfiles {
+		out[p.ListingComponent] = p.SpecKey
+		out[p.SnippetComponent] = p.SpecKey
+	}
+	return out
+}
+
 // directoryHasPublishableData reports how many current, found claims exist
 // for entities of this kind — the "is there anything to show yet" gate a
 // per-site sources check would apply, re-keyed to a global register with no

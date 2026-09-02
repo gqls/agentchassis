@@ -2786,7 +2786,22 @@ func planSection(ctx context.Context, sectionName string, section sectionRef, co
 					})
 					continue
 				}
-				// Optional field: apply fallback if any, else leave unresolved.
+				// Optional field: apply fallback if any, else leave unresolved —
+				// behaviour unchanged, but the error is now a DURABLE structural
+				// miss on the plan item (the bugs_open/238 visibility channel),
+				// not one Warn line in a pod that restarts: an optional query
+				// field that errors renders as silently absent, and "silently"
+				// was the objection (council corr c0990eb3 round 2,
+				// bug_historian HIGH — the recurring silent-empty shape).
+				structuralMisses = append(structuralMisses, missingField{
+					Field:     fieldName,
+					Source:    source,
+					OnMissing: onMissing,
+					Reason:    fmt.Sprintf("optional query source errored: %v", qerr),
+					Type:      fieldType,
+					Items:     fieldItems,
+					MinItems:  fieldMinItems,
+				})
 				if fallback != nil {
 					resolvedData[fieldName] = fallback
 				}

@@ -32,6 +32,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	discovery_checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -46,38 +47,18 @@ type ListingSourceResolution struct {
 	Evidence       string // one line saying what was checked and what it found
 }
 
-// listingRoles is the role half of the family test — pages whose TYPE promises
-// a list of other things. Mirrors datahelpers.isSectionIndexRole's vocabulary
-// (section-index, blog-index, entity-directory, news-index); the per-kind
-// directory page types are covered via directoryListingComponents below (their
-// pages always carry their kind's listing component, per directoryCheckProfiles).
-func isListingRole(role string) bool {
-	switch role {
-	case "section-index", "blog-index", "entity-directory", "news-index":
-		return true
-	}
-	return false
-}
+// isListingRole is datahelpers' listing-family vocabulary — ONE definition,
+// not a mirror (the per-kind directory page types are covered via
+// directoryListingComponents below: their pages always carry their kind's
+// listing component, per directoryCheckProfiles).
+func isListingRole(role string) bool { return datahelpers.IsSectionIndexRole(role) }
 
 // directoryListingComponents maps a per-kind directory listing/snippet
 // component name to the content_features spec key that opts a site into that
-// kind (DIR-001). Kept in lockstep with discovery_checks' directoryCheckProfiles
-// — six kinds as of 2026-09-02; a kind added there without a row here makes the
-// gate fail OPEN for that kind (page kept), never fail closed.
-var directoryListingComponents = map[string]string{
-	"model-directory-listing":            "model_directory",
-	"model-directory":                    "model_directory",
-	"adoption-tracker-listing":           "adoption_tracker",
-	"adoption-tracker":                   "adoption_tracker",
-	"protocol-tracker-listing":           "protocol_tracker",
-	"protocol-tracker":                   "protocol_tracker",
-	"mortgage-lender-directory-listing":  "mortgage_lender_directory",
-	"mortgage-lender-directory":          "mortgage_lender_directory",
-	"savings-provider-directory-listing": "savings_provider_directory",
-	"savings-provider-directory":         "savings_provider_directory",
-	"health-insurer-directory-listing":   "health_insurer_directory",
-	"health-insurer-directory":           "health_insurer_directory",
-}
+// kind (DIR-001). DERIVED from discovery_checks' directoryCheckProfiles at
+// package init — a kind added there is automatically known here; no second
+// hand-maintained roster (council corr c0990eb3 round 2).
+var directoryListingComponents = discovery_checks.ListingComponentSpecKeys()
 
 // planPageView is the subset of a plan page the resolver needs, extracted once
 // by the caller so the resolver never touches the raw map shape.

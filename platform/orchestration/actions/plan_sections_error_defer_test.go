@@ -102,4 +102,16 @@ func TestPlanSection_OptionalQuerySourceErrors_StaysReady(t *testing.T) {
 	if item.Status != "ready" {
 		t.Fatalf("optional errored source: status = %q, want ready (behaviour unchanged)", item.Status)
 	}
+	// The disposition is unchanged, but the error must no longer be SILENT:
+	// a durable structural-miss record rides the plan item (bugs_open/238's
+	// channel; council corr c0990eb3 round 2, bug_historian).
+	found := false
+	for _, m := range item.StructuralMisses {
+		if m.Field == "entries" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("optional errored source must leave a structural-miss record — a Warn line in a restarting pod is not evidence")
+	}
 }
