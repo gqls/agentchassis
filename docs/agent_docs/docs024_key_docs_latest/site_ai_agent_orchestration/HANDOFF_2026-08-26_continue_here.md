@@ -1,4 +1,8 @@
-# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-26.
+# HANDOFF — ai-agent-orchestration.com. ⚠ SUPERSEDED. Written 2026-08-26.
+
+> ## ⛔ SUPERSEDED by `HANDOFF_2026-09-02_continue_here.md` — READ THAT FIRST.
+> Its §2 (my `636` patched an orphan) still stands. Its counts do not: the site grew to **45**
+> pages and now measures **4** firm failures, two of them on pages that did not exist on 08-26.
 
 **Supersedes `HANDOFF_2026-08-25c_continue_here.md`.** Its numbers still hold; this file adds the
 diagnosis of the last tool pages and **corrects a no-op in my own migration `636`**.

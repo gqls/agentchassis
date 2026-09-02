@@ -1833,3 +1833,76 @@ Renumbered `626` → `636` mid-flight: another lane took 626 while I worked. ⚠
 collided the same way** (`625_clear_audit_stamps…HOLD.sql`). The ledger keys on FILENAME so both are
 safely recorded, but a bare number is ambiguous in `sql_for_agents/` exactly as it is in `/bugs_*/`.
 Re-check the highest number immediately before writing, not when you start.
+
+---
+
+## 2026-09-02 — a week later: one fix landed, and a defect I had CLOSED was silently re-opened
+
+Checked the ground after a week. `build-vs-buy-analyzer` is **0** (migration `636` landed and
+propagated 08-26 12:22). `password-entropy` and `tool-llm-cost-calculator` are still **0** — `625`
+holding. Then the interesting one.
+
+### 1. `agent-complexity-estimator` was serving the calculator TWICE
+
+Live, HTTP 200: **two** `<h2>Agent Architecture Complexity Estimator` headings, **two** estimator
+UIs. `page_components` held two rows in the **same slot at the same position**:
+
+| row | created | bytes | fieldsets | legends | **inputs** |
+|---|---|---|---|---|---|
+| `b2b7acbd` (incumbent) | 2026-04-09 | 22,732 | 4 | 4 | **12** |
+| `9aa63fc0` (new) | **2026-08-26 14:48** | 19,964 | 1 | 1 | **1** |
+
+⚠ **The byte counts would have waved it through** — −12% is inside any plausible size floor. **The
+input count is what shows the loss.** A shrink guard on this class needs a structural axis, not a
+length one.
+
+⚠ **It silently re-opened a defect I had closed.** This page measured **0** firm failures on
+08-25 after `625`; it measured **1** today, on the NEW component's button, which never received
+`625`'s repoint. **A fix verified at the artefact was undone by a component that arrived
+afterwards.** Nothing regressed my work — something was added beside it.
+
+⚠ **And the estate's de-duplication rule was vacuous here.** The standing guidance is "act only
+where `count(DISTINCT md5(content_data)) = 1`". Both rows carry `content_data = '{}'`, so both md5s
+are `99914b93…` — the rule reported agreement it never established, exactly the shape the LANDMINE
+warns about for NULL. `content_hash` is empty and cannot stand in. **The discriminator that worked
+was the rendered artefact's structure.**
+
+Repaired as migration `692` (removes the degraded PLACEMENT, leaves the component as evidence,
+guarded to abort if the survivor drops below 12 inputs or loses `625`). Filed as `bugs_open/434`.
+**Verified: 1 placement, 12 inputs, `owned`, 0 failures, one heading.**
+
+### 2. ⚠ I filed 434 BEFORE grepping `/bugs_open/`, and the check changed the filing
+
+`bugs_open/430`, filed the same day, is *"forking a tool component drops `js_content`"* —
+`deploy_tool_action.go`'s fork-on-deploy INSERT, the obvious suspect for anything creating a
+per-site tool component. **One column separates them:**
+
+```
+…-leopardessconsulting-co-uk-ai-agent-orchestration-com   forked_from IS NOT NULL  (incumbent)
+…-ai-agent-orchestration-com                              forked_from IS NULL      (the new one)
+```
+
+**It was never forked — it was generated.** So 430's INSERT is not the producer, and copying fewer
+columns cannot rewrite markup from 4 fieldsets to 1. ⚠ **Both have `js_content` length 0**, so that
+signature does not discriminate and must not be used to link them.
+
+The order was wrong and the outcome was luck: had I not grepped afterwards, 434 would have stood as
+a probable duplicate of a same-day sibling in an adjacent mechanism, which is exactly what a
+duplicate looks like from outside.
+
+### 3. ⚠ I left an owned tool page on `rebuild_policy='generic'` for ~8 hours
+
+`refresh_owned_page_chrome.sh` flips to `generic`, arms `trap restore_all EXIT INT TERM`, publishes,
+then waits `24 × 5s`. **I ran it under a 2-minute foreground timeout. The harness killed it mid-wait
+and the trap did not fire** — the page sat on `generic` from 05:56 until I checked at ~14:00.
+
+**Nothing errored.** The migration before it had committed cleanly, the page still served, the tool
+was still there. **The damage is a WINDOW, not a state you can see in the artefact**: the page was
+simply eligible for the generic composition loop, which commits freshly-written HTML to the
+deploying repo one step *before* `save_page_sections` refuses — the path that has already replaced
+working calculators with prose.
+
+Nothing hit it (verified: 12 inputs, 22,732 bytes, unchanged). **Restored to `owned` before doing
+anything else**, then re-ran the script in the BACKGROUND so no harness timeout applies. LANDMINE
+filed. **The check is one query and it belongs immediately after every run of that script,
+successful or not.**
