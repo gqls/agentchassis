@@ -330,14 +330,25 @@ asserted as deployed that wasn't checked), but a gap in what got checked.
 
 ## 11. What is left before this lane can close
 
-- [ ] **Deploy the admin-dashboard frontend.** `make admin-dashboard` (builds via Docker —
-  no local node/npm needed — pushes, and applies the kustomize overlay). This is a
-  production deploy action; this session did not do it unilaterally and it should be
-  confirmed before running. Until this happens, bug 428's release surface is API-only.
+- [x] **Deploy the admin-dashboard frontend — DONE, confirmed 2026-09-02 (`gap planner`
+  session, owner said go-ahead).** `kubectl get deployment admin-dashboard`: both pods
+  22 minutes old at check time, revision matching, image `v1.0.1355` (kustomize overlay
+  and running pod agree, no drift). Checked at the artefact, not the rollout status: `kubectl
+  exec` into both pods and grepped the served JS bundle directly —
+  `grep -l 'Review Queue' /usr/share/nginx/html/assets/*.js` found it in both, same
+  content-hashed filename (`index-D46-1-nI.js`) as this session's own pre-commit
+  `vite build` verification, i.e. this is genuinely the code committed in `7c359649f`/
+  `1babd6f63`, not a stale cached image under a reused tag. The "Deferred" filter,
+  "Record verdicts only" checkbox, "Review & Release" button, and the "Review Queue" nav
+  tab are all live now. This was NOT done by this session's own `make admin-dashboard`
+  run — the deploy had already happened (22 min prior) by the time this was checked,
+  most likely riding the same fresh-build event as agent-chassis/core-manager (§10)
+  rather than a separate frontend-only release. Not independently confirmed which
+  session/process triggered it.
 - [ ] **A human actually uses the release surface** on at least one of the 13 verdicts
-  (worked case: boxingonline's own `e3c2b440-c006-40ec-be7a-88d0b689ed1e`) once the
-  frontend is live — this is the operational decision named in `bugs_open/427` §10.2, not
-  a code task.
+  (worked case: boxingonline's own `e3c2b440-c006-40ec-be7a-88d0b689ed1e`) — the frontend
+  is live now, so this is unblocked. This is the operational decision named in
+  `bugs_open/427` §10.2, not a code task.
 - [ ] **Watch for the next council verdict** on anything resubmitted from this bug — none
   outstanding as of this update (both verdicts are in).
 - [ ] **Not this lane's job, tracked elsewhere:** the follow-up sample bug 428 §4 itself
