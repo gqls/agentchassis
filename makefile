@@ -99,7 +99,7 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	capped-schedule-ordering-check component-source-vocabulary-check \
 	live-declaration-drift-check finding-code-registry-check \
-	ungraded-completions-check
+	ungraded-completions-check render-truncation-check
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -129,7 +129,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	capped-schedule-ordering-check component-source-vocabulary-check \
 	live-declaration-drift-check finding-code-registry-check \
-	ungraded-completions-check \
+	ungraded-completions-check render-truncation-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
@@ -476,6 +476,10 @@ build-commit-sha-exposure-check: ## Build commit-sha-exposure-check CronJob imag
 .PHONY: build-ungraded-completions-check
 build-ungraded-completions-check: ## Build ungraded-completions-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,ungraded-completions-check)
+
+.PHONY: build-render-truncation-check
+build-render-truncation-check: ## Build render-truncation-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,render-truncation-check)
 
 # bugs_open/363 phase 2. The DECLARATIONS (platform/livespec) are compiled into
 # this binary, so a stale image is a stale SPEC and the check would keep reporting

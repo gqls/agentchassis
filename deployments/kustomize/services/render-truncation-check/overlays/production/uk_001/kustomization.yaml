@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+resources:
+  - ../../../base
+
+labels:
+  - pairs:
+      environment: production
+      region: uk
+
+# Pinned, like every other check service here. `latest` in the base is the
+# placeholder the overlay replaces; a CronJob left on `latest` re-pulls whatever
+# was pushed last, which is how a scheduled check silently changes behaviour
+# between runs with no diff anybody reviewed.
+images:
+  - name: docker.io/aqls/render-truncation-check
+    newTag: v1.0.1352

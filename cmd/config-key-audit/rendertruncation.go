@@ -58,6 +58,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 // renderTruncationCode is the finding code this reader consumes, declared as a
@@ -163,6 +164,57 @@ func loadRenderTruncationAcks(path string) (map[string]bool, error) {
 	return acked, nil
 }
 
+// dormantAfterDays is how far behind the fleet's most recent truncation row a
+// group may fall before its rows stop being evidence about TODAY's config.
+//
+// ⚠ THIS EXISTS BECAUSE THE FIRST WIRE TEST WENT RED ON FROZEN HISTORY, and the
+// failure was mine, not the data's. `loancalculator.co.uk` has exactly ONE
+// truncation row, from 2026-08-11, written under a per-dispatch `max_pages: 5`
+// override. The site has 28 live pages against a cap of 60, so it CANNOT
+// truncate again — that row is permanent history. Arm (a) judged "the most
+// recent row in the group", found a pre-394 `(absent)` coverage_mode, and
+// reported a config regression that had not happened. Left alone it would have
+// been red on day one and every day after, which is the one thing this estate
+// says reliably turns a check off.
+//
+// 14 days is ~4 missed rotation opportunities at the 3-day per-site cadence, so
+// a genuine regression still produces recent rows and still alarms; only a site
+// that has STOPPED truncating goes quiet. Measured RELATIVE to the newest row in
+// the dataset rather than to the wall clock, so the rule is a pure function of
+// the data and a fixture can exercise it without a clock.
+const dormantAfterDays = 14
+
+// parseRowTime accepts the two shapes this data actually arrives in: Postgres's
+// text timestamp (`2026-08-11 18:08:54.431181+00`) and RFC3339. An unparseable
+// stamp returns ok=false and the caller treats the group as ACTIVE — failing
+// toward alarming, because a clock we cannot read must not silence a check.
+func parseRowTime(s string) (time.Time, bool) {
+	for _, layout := range []string{
+		"2006-01-02 15:04:05.999999-07",
+		"2006-01-02 15:04:05.999999-07:00",
+		"2006-01-02 15:04:05-07",
+		time.RFC3339Nano,
+		time.RFC3339,
+	} {
+		if t, err := time.Parse(layout, strings.TrimSpace(s)); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// newestRowTime is the reference point dormancy is measured against.
+func newestRowTime(runs []renderTruncationRun) (time.Time, bool) {
+	var newest time.Time
+	found := false
+	for _, r := range runs {
+		if t, ok := parseRowTime(r.OccurredAt); ok && (!found || t.After(newest)) {
+			newest, found = t, true
+		}
+	}
+	return newest, found
+}
+
 // judgeRenderTruncation is the pure decision, split from the fetch so every arm
 // is testable on a fixture with no cluster.
 //
@@ -181,9 +233,19 @@ func judgeRenderTruncation(runs []renderTruncationRun, acked map[string]bool) []
 		grouped[k] = append(grouped[k], r)
 	}
 
+	fleetNewest, haveClock := newestRowTime(runs)
+
 	var out []renderTruncationFinding
 	for _, k := range order {
 		rows := grouped[k]
+
+		// DORMANT groups are reported, never alarmed. See dormantAfterDays.
+		if haveClock {
+			if t, ok := parseRowTime(rows[0].OccurredAt); ok &&
+				fleetNewest.Sub(t) > time.Duration(dormantAfterDays)*24*time.Hour {
+				continue
+			}
+		}
 
 		// ARM 3 first: a caller nobody has ruled on. Reported once per caller,
 		// not once per site, or one unreviewed agent would bury the other arms.
@@ -249,10 +311,37 @@ func renderTruncationRunSummary(errorLogRows int, acksPath string, runs []render
 		sites[r.Domain] = true
 		callers[r.AgentType] = true
 	}
+	// Dormant groups are counted and NAMED, never merely skipped. A group this
+	// check has stopped judging must be visible, or "0 findings" quietly starts
+	// meaning "0 findings among the groups I still look at" — which is the
+	// blind-check shape one level down from the one this file exists to close.
+	var dormant []string
+	if fleetNewest, ok := newestRowTime(runs); ok {
+		seen := map[string]bool{}
+		for _, r := range runs {
+			k := r.Domain + " / " + r.AgentType
+			if seen[k] {
+				continue
+			}
+			seen[k] = true
+			if t, ok2 := parseRowTime(r.OccurredAt); ok2 &&
+				fleetNewest.Sub(t) > time.Duration(dormantAfterDays)*24*time.Hour {
+				dormant = append(dormant, k)
+			}
+		}
+		sort.Strings(dormant)
+	}
+
 	var b strings.Builder
 	fmt.Fprintf(&b, "render-truncation: %d %s row(s) across %d site(s) and %d caller(s) "+
-		"in an agent_error_log holding %d row(s); %d finding(s); acks=%s\n",
-		len(runs), renderTruncationCode, len(sites), len(callers), errorLogRows, len(findings), acksPath)
+		"in an agent_error_log holding %d row(s); %d finding(s); %d dormant group(s); acks=%s\n",
+		len(runs), renderTruncationCode, len(sites), len(callers), errorLogRows,
+		len(findings), len(dormant), acksPath)
+	for _, d := range dormant {
+		fmt.Fprintf(&b, "  [dormant] %s: newest row is >%dd behind the fleet's newest — "+
+			"not judged, because a site that has STOPPED truncating freezes its last row for ever "+
+			"and would otherwise alarm every day.\n", d, dormantAfterDays)
+	}
 	for _, f := range findings {
 		fmt.Fprintf(&b, "  [%s] %s / %s: %s\n", f.Arm, f.Domain, f.AgentType, f.Detail)
 	}

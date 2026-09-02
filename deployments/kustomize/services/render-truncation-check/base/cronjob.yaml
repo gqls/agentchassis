@@ -1,0 +1,87 @@
+# deployments/kustomize/services/render-truncation-check/base/cronjob.yaml
+#
+# The commissioned reader for RENDER_AUDIT_TRUNCATED (bugs_open/394, owner
+# decision 4, 2026-08-25). `request_render_audit` caps a site's sweep and writes
+# one durable row when the cap bites. Until the coverage cursor that row meant
+# something permanent — the SAME pages were skipped every run — and nothing read
+# it. The cursor changed what it asserts, which is exactly why the reader is
+# still owed rather than discharged: a truncation row is now HEALTHY pagination
+# in cursor mode, and the job is telling the three meanings apart.
+#
+# ARMS: (a) coverage_mode absent or "prefix" from render-audit-agent, the
+# opted-in rotating caller — the migration-660 flip regressed or the pod predates
+# the cursor, and the tail is permanent again while it holds; (b) two consecutive
+# cursor rows at the same window_first — a stalled cursor, which looks healthy
+# from every other angle and is the failure the cursor itself could introduce;
+# (c) a caller neither opted in nor acknowledged in render_truncation_acks.json,
+# which ships inside the image from committed HEAD so an unreviewed
+# acknowledgement is unrepresentable.
+#
+# WHY A CRONJOB AND NOT A GIT HOOK: the population is a runtime fact
+# (agent_error_log) that changes with no commit at all — the rotation writes
+# these rows on its own schedule.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: render-truncation-check
+  labels:
+    app: render-truncation-check
+    component: config-integrity
+spec:
+  # Daily, in the config-integrity window. 07:50 UTC chosen against the REPO
+  # census 2026-09-02 (the committed manifests, not `kubectl get cronjobs` — the
+  # cluster reports a slot free while a committed-but-undeployed manifest already
+  # owns it; finding-code-registry-check's header carries the rule):
+  # migration-ledger-drift 07:45 · THIS · loop-sitewide-item-key 07:55.
+  # Not :00 by the same rule.
+  #
+  # Daily is right and the cadence is not arbitrary: a site is audited at most
+  # every 3 days (site-render-audit-rotation's pre_query), so a regression shows
+  # up within one rotation and the window that matters is "the morning after",
+  # not minutes.
+  schedule: "50 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Two queries and a JSON file read; hanging past 5 minutes means something
+      # is wrong and it should not block the schedule.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: render-truncation-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED for a private repo image. Without it the pull fails with
+          # "insufficient_scope" and the pod sits in ImagePullBackOff — which
+          # this fleet reports as a Job still RUNNING, never FAILED (LANDMINES,
+          # ImagePullSecrets family).
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/render-truncation-check:latest
+              # The image's CMD is already:
+              #   ./config-key-audit --render-truncation --report \
+              #       --acks /app/render_truncation_acks.json
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi

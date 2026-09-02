@@ -199,3 +199,73 @@ func TestRenderTruncationRunSummary_SurfacesFindingsThatCanNeverSelfGrade(t *tes
 		t.Fatalf("zero not-live must print nothing: %s", quiet)
 	}
 }
+
+// DORMANCY — added after the first wire test went RED on frozen history.
+//
+// loancalculator.co.uk has ONE truncation row, from 2026-08-11, written under a
+// per-dispatch max_pages:5 override. The site has 28 live pages against a cap of
+// 60, so it can never truncate again: that row is permanent history, and judging
+// "the most recent row in the group" reported a config regression that had not
+// happened. Red on day one, every day after — the shape that turns checks off.
+//
+// The pair below is deliberate: dormancy must silence the STALE group WITHOUT
+// silencing the live one. Testing only the first half would prove the check had
+// been disarmed, not that it had been corrected.
+func TestJudgeRenderTruncation_DormantGroupIsNotJudgedButALiveOneStillIs(t *testing.T) {
+	runs := []renderTruncationRun{
+		// LIVE group, prefix-mode from the rotating caller: MUST still alarm.
+		{Domain: "webdesign.co.uk", AgentType: "render-audit-agent",
+			CoverageMode: "prefix", OccurredAt: "2026-09-02 13:09:58.659048+00"},
+		// DORMANT group, 22 days behind, pre-394 row: must NOT alarm.
+		{Domain: "loancalculator.co.uk", AgentType: "render-audit-agent",
+			CoverageMode: "(absent)", OccurredAt: "2026-08-11 18:08:54.431181+00"},
+	}
+	got := judgeRenderTruncation(runs, nil)
+	if len(got) != 1 {
+		t.Fatalf("want exactly one finding (the live group), got %+v", got)
+	}
+	if got[0].Domain != "webdesign.co.uk" {
+		t.Fatalf("dormancy silenced the wrong group: %+v", got)
+	}
+	// MUTATION A: delete the dormancy skip → loancalculator alarms too (len 2).
+	// MUTATION B: make dormantAfterDays enormous → webdesign goes dormant and
+	//             the live regression is missed (len 0). Both must fail this.
+}
+
+// A dormant group must be NAMED in the summary, not merely skipped — otherwise
+// "0 findings" quietly becomes "0 findings among the groups I still look at".
+//
+// MUTATION: drop the dormant loop from the summary → this fails.
+func TestRenderTruncationRunSummary_NamesDormantGroups(t *testing.T) {
+	runs := []renderTruncationRun{
+		{Domain: "webdesign.co.uk", AgentType: "render-audit-agent",
+			CoverageMode: "cursor", WindowFirst: "index", OccurredAt: "2026-09-02 13:09:58+00"},
+		{Domain: "loancalculator.co.uk", AgentType: "render-audit-agent",
+			CoverageMode: "(absent)", OccurredAt: "2026-08-11 18:08:54+00"},
+	}
+	s := renderTruncationRunSummary(61905, "acks.json", runs, nil)
+	if !strings.Contains(s, "1 dormant group") || !strings.Contains(s, "[dormant] loancalculator.co.uk") {
+		t.Fatalf("dormant groups must be counted AND named: %s", s)
+	}
+}
+
+// An unparseable timestamp must fail toward ALARMING, never toward silence — a
+// clock we cannot read must not switch a check off.
+//
+// MUTATION: treat a parse failure as dormant → this fails.
+func TestJudgeRenderTruncation_UnparseableTimestampStillJudged(t *testing.T) {
+	runs := []renderTruncationRun{
+		{Domain: "d", AgentType: "render-audit-agent", CoverageMode: "prefix", OccurredAt: "not-a-time"},
+		{Domain: "e", AgentType: "render-audit-agent", CoverageMode: "cursor",
+			WindowFirst: "a", OccurredAt: "2026-09-02 13:00:00+00"},
+	}
+	found := false
+	for _, f := range judgeRenderTruncation(runs, nil) {
+		if f.Domain == "d" && f.Arm == "prefix_from_rotating_caller" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("a row with an unreadable timestamp must still be judged")
+	}
+}
