@@ -322,3 +322,12 @@ news.
 their explicit warning against its own fix candidate 2** (propagating the hardcoded "image/png"
 constant would write a confidently WRONG value into 910 rows) — written directly into that bug file
 by them, not duplicated here.
+
+**Correction from the peer, self-reported**: their own prose had the fix-vs-roll ordering backwards
+("the roll landed ~20 minutes after the fix commit") — a timezone-crossing slip in the sentence
+beside a correct machine answer (`git merge-base --is-ancestor`, which is timezone-free and was
+never in doubt). Corrected by them in the CONTRIB and the bug file. **Checked against this file's
+own wording: not repeated here** — this NOTES file stayed in one timezone (BST) throughout and its
+"53 minutes after the build... was cut" line is directionally and numerically consistent with their
+corrected figure (fix committed 20m26s after the roll, ~53min after the build's own commit — two
+different reference points, both correct). Nothing to fix in this lane's own docs.
