@@ -58492,3 +58492,33 @@ a-complete-work-item-is-not-a-repaired-artefact.
   instruction to obey.
   Tally: **verified-the-artefact-not-the-claim-about-it** ×1,
   **a-correction-that-overwrote-what-it-should-have-added** ×1.
+
+## 2026-09-02 — "committed, backend approved" quietly stood in for "usable" (`bugs_open/428`, admin release surface)
+
+Built and shipped `bugs_open/428`'s human-review release surface as a matched backend
+(`internal/core-manager`, Go) + frontend (`frontends/admin-dashboard`, React) pair. I
+verified the BACKEND thoroughly — built, tested, mutation-tested, later confirmed live
+via `service_binary_capabilities`/the pod's own startup log against the fresh chassis
+build. I never independently checked whether the FRONTEND had its own deploy step, or
+when it last ran. It hadn't: `kubectl get deployment admin-dashboard` shows pods **170
+days old** — the new "Deferred" filter, the "Record verdicts only" toggle and the
+"Review & Release" button are on the committed branch and nowhere a person can see them.
+
+**I never wrote the false sentence "this is live" — I wrote "committed" and "approved by
+council," both true.** But summarising the whole piece as done, without the frontend's
+deploy state named as a SEPARATE fact, let that summary function as "usable" to a reader
+(including the user, and nearly to me on the next turn) without either of us having
+checked it. The backend/frontend split has two independent deploy lifecycles
+(`make build-<service>` from committed HEAD vs. a Docker-built SPA + its own kustomize
+overlay) and nothing about "the code is committed" implies anything about either one's
+CURRENT running state — that has to be checked per service, same as the chassis-build
+landmine already says for backend services, and I applied that discipline to only one
+side of a two-sided change.
+
+**The cheap check that would have:** the moment a change spans two independently-deployed
+artefacts, check BOTH deploy states before summarising either as done — `kubectl get
+deployment <name>` for age/replica readiness is one command per service, and there was no
+reason to run it for only one of the two.
+
+**Caught by:** the user asking me to verify a fresh build and produce a handoff, which
+made checking deploy state necessary again — not by a review catching the gap on its own.
