@@ -6879,3 +6879,31 @@ adversecreditmortgage) going into RFC_060. My position on the unbuilt mechanical
 fold a compile-and-report into the daily refresher's existing loop rather than leave the
 remedy as prose or build new surface — sent to 414 to carry to claims-verification, who
 own the seam. farmerinsurance's empty banned_claims flagged to the lendzy relay, not us.
+
+### 707 verdict: APPROVED (2 medium advisories) — both answered at the ARTEFACT, same hour
+
+Council `99bd846e`: **approved**. editquality + debug_historian [medium] made the same
+correct catch: my 8/8 compile check ran on the SOURCE strings, not the bytes that landed
+in jsonb after SQL-literal escaping — and the live landmine for this exact mechanism
+("seeded through dollar-quoted JSON is DOUBLE-ESCAPED, compiles cleanly, matches
+nothing") is precisely what a source-side check cannot see. The 414 lane's 239-pattern
+fleet census predates 707's apply, so our 8 were uncovered.
+
+**Closed by measurement `[MEASURED 2026-09-02]`:** extracted the 8 STORED pattern values
+from the live row — `cat -A` confirms single backslashes, zero doubled — and compiled
+each stored byte-string exactly as claims.go does (`regexp.Compile("(?i)"+p)`) with
+probe + absent-control per pattern: **8/8 compile, 8/8 fire, 0/8 false-fire**. The
+editquality [low] (all 12 facts intact, not just the 2 asserted corrections) also
+verified: id list byte-exact vs 699's authored set, 12 substantive quotes, 12
+verified_at stamps.
+
+**Method upgrade for the RUNBOOK-§8c family, learned here: the compile+probe check must
+run on the STORED bytes post-apply, not (only) on the source strings pre-apply.** The
+pre-apply check catches authoring typos; only the post-apply check catches the escaping
+layer. Both are one command each.
+
+reuse_agent [low]: 699/702/707 are three same-day hand-copies of the identical
+supersede-and-merge CTE — a fair drift observation; a stored function is the
+claims-verification lane's seam (they own the register mechanism) and the council
+report carries it to them. guardian lows: no in-flight writer (1 current row verified);
+single-site data change, no architecture signal.
