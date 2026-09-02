@@ -911,3 +911,34 @@ guard works" were established by the same command — the post-check would have 
 transaction before `COMMIT` if the refusal had not fired. That is the property that made handing the
 command to someone else safe: they did not have to interpret anything, and a broken guard could not
 have installed itself quietly.
+
+### ⚠ 2026-09-02, later — the council APPROVED 690 and found a real hole in it, and my own test was defending the hole
+
+Verdict on `dcd2b3c9`: **APPROVED, 4 advisory objections, none high.** I read it rather than
+stopping at the decision field, which is the only reason the rest of this entry exists.
+
+**The `editquality` seat was right.** `690`'s third exit exempts every update to an already-deferred
+row, including one that changes `handler_agent` — so a shelf row can be re-pointed to a named
+handler without `status` ever moving, landing on `deferred` + NAMED + no provenance. I did not take
+the seat's word for it: **induced against the live trigger inside a rolled-back transaction —
+ACCEPTED.**
+
+**The part worth writing down is that my own `_VERIFY` asserted that exact write as CORRECT.**
+Assertion 5 required it to succeed, and I had described it in the file as *"the sharpest form"* of
+proving already-deferred rows stay writable. The assertion and the exploit were the same statement.
+
+**And mutation-proving did not catch it.** Both my mutations were applied to the *guard* — inert,
+and over-broad — and the test agreed with the guard's blind spot in both. **A mutation test proves
+your test can detect a change to the thing you thought of; it cannot tell you the thing you did not
+think of is missing.** That took an outside reader with a different frame. This is the concrete
+argument for the council gate being worth ~30 minutes, and it is stronger than the abstract one:
+the round APPROVED the change and still found a defect that would have shipped.
+
+**Also worth keeping:** the fix's post-check nearly repeated a different mistake. My first draft
+wrapped the whole `DO` block in one `EXCEPTION WHEN OTHERS`, which would have **swallowed a failed
+assertion and let the synthetic rows COMMIT as litter**. Caught by reading it back before running
+it. The final version has no outer handler — every assertion is its own sub-block.
+
+`700` is committed (`1f0cd8ae2`) and **not applied** — same permission boundary as `690`. Until it
+is, the hole is open in production, and I have said so at the top of the handoff rather than
+letting "690 is live" read as "the guard is complete".

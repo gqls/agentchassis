@@ -446,6 +446,67 @@ It enforces **presence, not truth** — a false `parked_by` still passes. And it
 **170** existing rows; that information was never written and nothing can recover it.
 
 
+## 6g. ⚠ 2026-09-02 — the council APPROVED `690` AND found a real hole in it. Migration `700` closes it; **not yet applied**.
+
+**Verdict on `dcd2b3c9`: APPROVED, 4 advisory objections, none high-severity.** One of them was
+right and material, so the approval is not the end of it.
+
+### The hole, confirmed against the live trigger before anything was written
+
+`690`'s third early exit exempts **every** update to a row already at `deferred` — including one
+that changes `handler_agent`. So a legitimate shelf row (born `deferred`, empty handler, no
+provenance — **2,656** of them) can be re-pointed without `status` ever changing:
+
+```sql
+UPDATE site_work_items SET handler_agent = 'some-named-handler' WHERE id = <any deferred row>;
+```
+
+The row is then `deferred` + NAMED + unattributable — **the exact shape `690` exists to prevent**,
+reached by a different entry path. Induced against the LIVE trigger inside a rolled-back
+transaction: **ACCEPTED**. The seat was right.
+
+### ⚠⚠ And `690`'s own `_VERIFY` asserted that write as correct behaviour
+
+Assertion 5 set `handler_agent = 'some-named-handler'` on the shelf row and **required the write to
+be ACCEPTED**, describing it as *"the sharpest form"* of proving already-deferred rows stay
+writable. It was sharp in the wrong direction: **the assertion and the exploit were the same
+statement.** Corrected into 5a (bookkeeping that leaves `handler_agent` alone must pass — what the
+exemption is actually for) and 5b (the re-point must be REFUSED). The corrected file now **fails
+against `690` alone**, exit 3, which is the demand control proving 5b can fail.
+
+**The transferable part: a test can assert a vulnerability is a feature.** Mutation-proving `690`
+did not catch this, because both mutations were applied to the *guard* — and the test agreed with
+the guard's blind spot. Only an outside reader with a different frame found it.
+
+### The fix, and why it does not break the drain
+
+One added conjunct — the already-deferred exemption applies only when `handler_agent` is unchanged:
+
+```sql
+AND NEW.handler_agent IS NOT DISTINCT FROM OLD.handler_agent
+```
+
+`resolveWorkItems` moves `status` OUT of `deferred`, so it returns on the **first** exit whatever
+`handler_agent` does; ordinary bookkeeping leaves `handler_agent` alone; demoting a named row back
+to the shelf passes on the **second** exit. Dry run: 4 assertions, exit 0. Mutation (revert the
+conjunct): caught by assertion 1, exit 3.
+
+### The other three advisories, answered rather than deferred
+
+- **livespec needs no companion entry** — its only `pg_trigger` probe (`livespec.go:258`) is scoped
+  `proname = 'page_component_artefact_archive'`; this function is `refuse_untraceable_park`, so it
+  cannot move that count, and neither named lockstep test greps `pg_trigger`. **Checked, not assumed.**
+- **the savepoint concern** — plpgsql `BEGIN ... EXCEPTION` *is* an implicit subtransaction, which is
+  what is used; the sketch elided it. Empirically, `690` COMMITTED.
+- **future producers hard-failing** (low) — accepted; that is what a guard is, and withdrawal is one
+  statement carried in the error's own `HINT`.
+
+### ⛔ Migration `700` is NOT APPLIED — the hole is OPEN in production
+
+Committed `1f0cd8ae2` (+`_ROLLBACK`). Apply recipe in the lane handoff. The apply is gated in the
+building session, same boundary as `690`.
+
+
 ## 6b. ⚠ SUPERSEDES §6a's candidate 1 — the fix is the EXISTING site lock, not a park verb (2026-08-25, after council `ed821065` REVISE)
 
 **§6a said the primary fix was a park verb. That was wrong, and the council's `prior_art` seat

@@ -1,4 +1,4 @@
-# HANDOFF 2026-09-02 — `bugs_open/396`: the standing residual is CLOSED, LIVE AND PROVEN. **Nothing is owed.**
+# HANDOFF 2026-09-02 — `bugs_open/396`: the guard is LIVE, the council APPROVED it, and its `editquality` seat found a REAL hole in it. **ONE thing owed: apply migration `700`.**
 
 **Supersedes `HANDOFF_2026-08-26b_continue_here.md`** (same directory), kept for the record.
 Read this box. Everything below it is evidence or recipe.
@@ -11,9 +11,41 @@ Read this box. Everything below it is evidence or recipe.
 > | `sites.lock_except_item_ids` — migrations `632` + `633` | **LIVE, and PROVEN in production** |
 > | `honour_site_lock` arm in `LoadWorkItemsAction` | **LIVE** on `v1.0.1345`, both replicas |
 > | park verb `park_work_items()` — `621`, WII-034 | applied, **DEMOTED** (see the old handoff §5) |
-> | **`refuse_untraceable_park()` — migration `690`, WII-037** | ✅ **LIVE AND PROVEN 2026-09-02 16:16Z** |
+> | **`refuse_untraceable_park()` — migration `690`, WII-037** | ✅ **LIVE 2026-09-02 16:16Z**, council **APPROVED** `dcd2b3c9` |
+> | **migration `700`** — closes the handler-repoint hole in `690` | ⚠ **BUILT + TESTED + COMMITTED `1f0cd8ae2`, NOT APPLIED** |
 >
-> ## ✅ APPLIED 2026-09-02 16:16Z — NOTHING IS OWED ON THIS LANE
+> ## ⛔ OWED: APPLY MIGRATION `700`. THE GUARD HAS A CONFIRMED HOLE UNTIL YOU DO.
+>
+> The council **APPROVED** `690` (`dcd2b3c9`, 4 advisory objections, none high) — and its
+> `editquality` seat found a **real hole**, which was then **induced against the live trigger** and
+> confirmed. `690` exempts *every* update to an already-`deferred` row, so a legitimate shelf row
+> (born `deferred`, empty handler, no provenance — 2,656 of them) can simply be **re-pointed**:
+>
+> ```sql
+> UPDATE site_work_items SET handler_agent = 'some-named-handler' WHERE id = <any deferred row>;
+> ```
+>
+> `status` never changes, so `690` never looks. The row is now `deferred` + NAMED + unattributable —
+> the exact shape the guard exists to prevent, via a different entry path.
+>
+> ⚠⚠ **`690`'s own `_VERIFY` asserted that write as CORRECT** (assertion 5 required it to be
+> ACCEPTED, calling it "the sharpest form" of proving already-deferred rows stay writable). The
+> assertion and the exploit were the same statement. Corrected in `1f0cd8ae2`.
+>
+> **Migration `700` closes it** — one added conjunct: the already-deferred exemption applies only
+> when `handler_agent` is UNCHANGED. Dry run 4 assertions exit 0; mutation (revert the conjunct)
+> caught by assertion 1, exit 3. **The apply is gated in my session, same as `690`.**
+>
+> ```bash
+> kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+>   -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/700_park_provenance_covers_the_handler_repoint.sql
+> ./scripts/migration/run-migrations.sh --record-only 700_park_provenance_covers_the_handler_repoint.sql --note '<what you checked>'
+> # then the corrected VERIFY, which REQUIRES 700 and fails without it:
+> kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+>   -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/690_refuse_untraceable_park_VERIFY.sql
+> ```
+>
+> ## ✅ `690` APPLIED 2026-09-02 16:16Z
 >
 > The owner ran the apply by hand (the building session's harness classifier gates live schema
 > changes, which is why it could not). `trg_site_work_items_park_provenance` is **attached and
@@ -116,7 +148,8 @@ at `triaged` — a shape production cannot produce — and was rejected. Correct
 
 ## 4. What is NOT closed — stated so silence is not read as completion
 
-- ~~**`690` IS NOT APPLIED.**~~ **APPLIED 2026-09-02 16:16Z and proven at the artefact.** What remains is only to READ council `dcd2b3c9`'s verdict — do not write `Council-Reviewed:` until you have.
+- ~~**`690` IS NOT APPLIED.**~~ **APPLIED 2026-09-02 16:16Z.** Verdict READ: **APPROVED**, 4 advisory objections, none high.
+- ⚠ **MIGRATION `700` IS NOT APPLIED, so the handler-repoint hole is OPEN in production.** See the box at the top. This is the only owed item.
 - **It enforces presence, not truth.** A false `parked_by` still passes. Nothing short of review
   catches that, and it is a much smaller problem than an anonymous park.
 - **It cannot attribute the 170 existing rows.** That information was never written.

@@ -345,3 +345,30 @@ exists to catch.
 
 So: the hole that let jobs be put on hold anonymously is closed. It cannot recover the names of the
 170 already sitting there — that information was never written down — but it stops the 171st.
+
+### 2026-09-02, later — the review came back approved, and it still found something real
+
+The peer review approved the safeguard. It also raised four advisory points, and **one of them was a
+genuine hole** — so I want to be straight that "approved" was not the end of it.
+
+**What they found.** My safeguard checked writes that *put* a job on hold. It did not check writes
+that changed a job's assigned handler *while it was already on hold*. So the forbidden state was
+still reachable by a slightly different route: take one of the 2,656 legitimately-shelved items and
+simply point it at a handler. I tested their claim against the live system rather than taking it on
+trust, and it was correct.
+
+**The uncomfortable part is that my own test was defending the hole.** One of my checks explicitly
+required that exact write to succeed — I had even described it in the file as the sharpest version
+of the test. It was sharp in the wrong direction: the check and the loophole were the same
+instruction.
+
+**And my own "prove the test can fail" exercise did not catch it**, because I broke the safeguard in
+the two ways I had already thought of, and my test agreed with my blind spot both times. That is the
+honest limit of testing your own work, and it is the clearest argument I have seen for the review
+step being worth its half hour: the reviewers approved the change and still found a defect that
+would otherwise have shipped looking finished.
+
+**The fix is one extra condition** and it is built, tested and committed — but **not switched on**,
+because the same permission gate applies. Until it is applied, the loophole is open. The command is
+at the top of the handoff, and I would rather you saw it plainly than have "the safeguard is live"
+read as "the job is done".
