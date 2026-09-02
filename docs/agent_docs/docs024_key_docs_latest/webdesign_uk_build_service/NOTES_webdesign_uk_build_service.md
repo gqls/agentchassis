@@ -7666,3 +7666,59 @@ end. **Guards must NEST: inner × period < outer.**
   data-dependent — do not read 4 occurrences here as a 682 regression.
 - With this, §1.4 closes: fork + repoint + rebuild + row-verify + serve-verify,
   all pre-roll, ~1h45 end to end including the claim-gate landmine detour.
+
+## 2026-09-02 (~19:4xZ) — lane cold-start reverification: three §2/§5 leftovers closed, every open item now converges on the next roll
+
+- **No new roll**: chassis still `v1.0.1354`, same two pods (15:39/15:53Z). So §1.3
+  (logo, needs `b2322a203`) and §1.5 (contact-404, `b60d66e3c`) stay inert.
+  `customer_access_tokens` count **0** as of 19:3xZ — no delivery happened.
+- **request_changes FULLY verified, frontend included** (§2's "dashboard FRONTEND
+  deploy state unverified" caveat CLOSED): council `9f1cb042` resolves
+  revise (08-31 16:34Z) → **approved (09-02 14:23:42Z)** at `diagnosis_artifacts`;
+  both commits (`f2b288b72`, `f062b8ec3`) carry `Council-Submitted: 9f1cb042-…`,
+  so 098 credits by correlation — falsifier answered. Frontend verified AT THE
+  ARTEFACT: pod `admin-dashboard-577bfc6db7-4268p` (image v1.0.1354) bundle
+  `/usr/share/nginx/html/assets/index-D46-1-nI.js` carries `request_changes`
+  AND `Review Queue` (a NEWER commit's string, so the build postdates the button),
+  nonsense control absent. The button is genuinely clickable.
+- **423 half 1 (observability): a NO-DEMAND ZERO, not a verification.**
+  `site_work_items WHERE item_type='chrome_render_failed'` → **0 rows** — but both
+  post-roll chrome rerenders SUCCEEDED (garden-tools 16:21Z, boxingonline 16:5xZ),
+  so the store-failure branch has never been demanded. Live-in-binary
+  (`3edb30476` aboard v1.0.1354 per the 423 lane's binary probe), unexercised.
+  Neither pass nor fail; nothing to check until a failure occurs.
+- **429 verdict moved**: `b576bcc6` (fix `b60d66e3c`) went **APPROVED
+  2026-09-02 18:52:52Z** — the handoff's "verdict pending" is stale. Still inert
+  until the roll; post-roll watch discipline unchanged (ONE republish per
+  opted-in site = convergence; boxingonline expects published:true, deleted:1).
+- **425 producer fix is COMMITTED and roll-bound** (handoff §1.2's "wait for the
+  hunt" is now "wait for the roll"): `9f6f91325` (council r3 actioned) +
+  `c1178442d` touch `platform/orchestration/actions/queryresolve/list_item_text.go`
+  + `…83_content_listing_rerender_after_roll_HOLD.sql` — Go half fixes the
+  rerender-path item shape, HOLD migration drives the post-roll content-listing
+  rerender. This lane's serve-check of decks on /index.html is owed AFTER their
+  roll + HOLD apply, not before. [INFERRED that r3-actioned = final form — their
+  lane's declaration governs; check their handoff before firing anything.]
+- **Messaged boxingonline session** (msg f2477c3a): asked for owner-decision
+  status (§1.6) and flagged that the guides question put back to the owner may be
+  MOOT — its premise ("guides-index can't hold guides pre-roll") was corrected
+  and serve-verified dead at 18:52Z. Awaiting their reply.
+- **Net state**: §1 items 1+4 done; 2, 3, 5 all committed-and-inert behind the
+  SAME next chassis roll; 6 with the boxingonline session/owner; 7 (651
+  rehearsal) held on the owner's fix-everything cut-line. Nothing this lane can
+  advance until the roll lands or the owner answers.
+
+- **boxingonline session replied (~19:5xZ)**, moving three things: (1) **no owner
+  decisions since ~19:00Z**; his only instruction was "list those errors in a
+  site error file" → done as `SITE_DEFECT_CATEGORIES.md` (fleet acceptance
+  checklist; read §0 before running). (2) **Guide-reachability bridge WITHDRAWN**
+  before the owner spent a decision — my moot-flag crossed with their own
+  correction; question DEAD, not pending. (3) **1b form-endpoint pre-plan
+  DELIVERED** (`static_site_form_endpoint/PLAN_2026-09-02_pre_plan_extensible_form_endpoint.md`,
+  six open decisions, decides nothing) — **this lane owes the D1 review against
+  the publish seam** (publish worker named as candidate receiver); D2 defers to
+  420's identity replumb by design. Also their sweep independently confirms the
+  guides index (down to 3 failures, all the orphaned contact URL), and the
+  standing warnings: do not force the reconciler for the contact 404, do not
+  regenerate the logo pre-roll, **do not report cards fixed on this site**.
+  Handoff §§1.2/1.5/1.6/2 updated in place. Next in-lane work: the D1 seam review.

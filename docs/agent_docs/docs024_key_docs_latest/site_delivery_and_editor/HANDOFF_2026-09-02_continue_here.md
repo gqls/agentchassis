@@ -49,6 +49,13 @@ diagnosis `fe4b8537`, components lane).
    ABSENT from ResolvedData at merge time, since ResolvedData merges last and
    wins). Serve-check decks on /index.html still owed once their fix lands. The
    420-addenda discriminator (served object vs deployed_at) still applies.
+   > **UPDATE 2026-09-02 ~19:4xZ:** their fix is COMMITTED and roll-bound —
+   > `9f6f91325` (council r3 actioned) + `c1178442d`:
+   > `queryresolve/list_item_text.go` + a `content_listing_rerender_after_roll_HOLD`
+   > migration that drives the post-roll rerender. So this item now waits on the
+   > ROLL + their HOLD apply, then the serve-check. **Do NOT report cards as
+   > fixed on this site until then** (boxingonline session, same hour: /index.html
+   > decks still absent after two `template_changed` rerenders on v1.0.1354).
 3. **Logo, transparent regen — BLOCKED, do not fire** until a roll carries
    `b2322a203` (424 lane's self-contradicting-prompt fix; their handoff:
    `../bugfix_424_logo_transparency/HANDOFF_2026-09-02_continue_here.md`). The
@@ -80,7 +87,8 @@ diagnosis `fe4b8537`, components lane).
    build).
 5. **Contact 404 half** — pinned to `bugs_open/429`, now OWNED (owner-routed,
    session `bugs_open/429`) and **FIX COMMITTED 2026-09-02 evening
-   (`b60d66e3c`, Council-Submitted b576bcc6, verdict pending) — INERT UNTIL THE
+   (`b60d66e3c`, Council-Submitted b576bcc6, ~~verdict pending~~ **APPROVED
+   18:52:52Z** — verified at diagnosis_artifacts 19:3xZ) — INERT UNTIL THE
    NEXT CHASSIS ROLL.** Ships: destination sweep with bulk floor (>20 AND >50%
    refuse; `allow_bulk_unpublish` opt-in the only override) + deleted-404/
    kept-200 acceptance pair + th1→th2. **Post-roll expectation, so the watch is
@@ -92,11 +100,21 @@ diagnosis `fe4b8537`, components lane).
    orphan serves 200 to direct navigation only, unlinked, unsitemapped, chrome
    frozen pre-rebuild (the discriminating observation in 429). Their pings:
    roll landed, then contact.html 404 verified → strike this item.
-6. **Owner decisions still open**: guide reachability bridge (he chose
-   guides-index; it provably can't hold guides pre-roll — the boxingonline
-   session put the changed question back to him) · the 1b form-endpoint PRE-PLAN
-   (boxingonline session drafting; reviews against the publish seam come to this
-   lane) · RFC_058 identity model (420 lane owns; this lane is a named consumer).
+6. **Owner decisions still open**: ~~guide reachability bridge~~ **DEAD 19:4xZ
+   (boxingonline session withdrew it — the "can't hold guides pre-roll" premise
+   was corrected by §1.4's execution; he is NOT holding this question)** · the
+   1b form-endpoint PRE-PLAN — **DELIVERED, awaiting the owner**:
+   `docs024_key_docs_latest/static_site_form_endpoint/PLAN_2026-09-02_pre_plan_extensible_form_endpoint.md`
+   (decides nothing; six open decisions). **THIS LANE OWES the review of its D1
+   against the publish seam** (publish worker named as candidate receiver); D2
+   is deliberately deferred to 420's identity replumb · RFC_058 identity model
+   (420 lane owns; this lane is a named consumer).
+   **Pre-delivery artefacts to use when §7 unblocks**:
+   `site_delivery_and_editor/APPROVAL_READOUT_2026-09-02_boxingonline_what_is_actually_fixed.md`
+   (three columns — verified / not fixed / built-but-inert; the owner's approval
+   rests on it) and `docs024_key_docs_latest/SITE_DEFECT_CATEGORIES.md` (fleet
+   acceptance checklist, ~30 runnable checks; **read its §0 first**, run it
+   against boxingonline before filing the delivery review).
 7. **When the list is done**: the 651 rehearsal — delivery-review-filer →
    owner EDITS + **APPROVE** on admin.apis.uk (never resolve) →
    zip-deliverable-dispatch → delivery-email-sender with
@@ -112,18 +130,22 @@ diagnosis `fe4b8537`, components lane).
   contact only, empty = publish nothing.
 - **423 fix LIVE** (tonight, v1.0.1354): `UpperFirst` present + control clean;
   the footer regenerated first try, every criterion green. (Half 1 —
-  observability — check whether the store-failure branch now populates
-  chrome_render_failed; the fix lane's file says which halves shipped.)
+  observability — ~~check whether the store-failure branch now populates
+  chrome_render_failed~~ **CHECKED 19:3xZ: 0 rows, a NO-DEMAND zero** — both
+  post-roll rerenders SUCCEEDED, so the branch is live-in-binary but
+  unexercised; nothing verifiable until a store failure actually occurs.)
 - **request_changes endpoint LIVE + APPROVED**: `POST /admin/work-items/
   :item_id/request_changes` files owner_critique at needs_human_review +
   approval_mode=manual (r1 shape was BOTH cluster-loadable AND
   schema-impossible — CHECK `swi_no_handlerless_promotable`; the whole story is
   in the NOTES ~13:4x-14:2x and the r2 rationale). Canary evidence: 3h+
   unclaimed with same-site demand control; found by the dispatcher poll
-  (consumption advisory answered); canary retired complete. ⚠ Dashboard
-  FRONTEND deploy state unverified — the API works; check
-  frontends/admin-dashboard actually shipped before telling the owner the
-  button is clickable.
+  (consumption advisory answered); canary retired complete. ~~⚠ Dashboard
+  FRONTEND deploy state unverified~~ **VERIFIED AT THE ARTEFACT 19:3xZ**: pod
+  bundle `index-D46-1-nI.js` (image v1.0.1354) carries `request_changes` AND
+  `Review Queue` (a newer commit's string), nonsense control absent — the
+  button is genuinely clickable. Council 9f1cb042 resolves revise→**approved
+  (09-02 14:23Z)**; both commits credit via `Council-Submitted` at 098.
 - **682 template half LIVE + verified at served pages** (empty card slots gone);
   **425 producer half in-binary-but-not-executing** — five-times-reversed
   diagnosis converged: the ten completed pages DID re-render+archive
