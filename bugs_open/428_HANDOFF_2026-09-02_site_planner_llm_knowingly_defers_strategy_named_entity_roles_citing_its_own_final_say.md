@@ -260,3 +260,43 @@ dispatched into a build action**. The detector is not the missing piece; the con
   including boxingonline's own `e3c2b440-c006-40ec-be7a-88d0b689ed1e`.
 - `llm_call_log` id `63d9b370-3f2d-41db-82b9-1dfed5204225` — the worked boxingonline.com case,
   both `prompt_rendered` and `response_text` cited in full in §2.
+
+## 9. Status update, 2026-09-02 (same day, resuming session) — fixed, narrower than first proposed
+
+Put to the user given the stakes (§4's correction): fix the two safe, independent candidates,
+and build a human-reviewed release surface rather than an automated dispatcher for candidate 2.
+Approved, and shipped same session:
+
+- **Candidate #3 + the softer form of candidate #1 — SHIPPED, live.** Migration `687`
+  (`docs/agent_docs/sql_for_agents/687_build_site_planner_strategy_json_and_omission_reason.sql`):
+  the Domain Strategy block now renders via the already-live `toJSON` template function instead
+  of a bare Go-map dump, and the FINAL SAY rule now requires every omitted named
+  `recommended_page_types` entry to be individually named in `strategy_notes` with a real
+  per-type reason — not the generic "keeping it lean" framing boxingonline's own call used to
+  cover both dropped roles at once. Deliberately NOT a `validate_site_plan` hard failure — the
+  model keeps its licensed final say; this only makes the existing "note why" obligation
+  concrete enough to audit. Applied and verified live at the artefact (re-pulled the prompt,
+  confirmed both new strings present). `snapshot_agent()` taken first; rollback file paired.
+  Council-Submitted: `3f9cdfea-7287-4ab3-afad-9c386fbb7365`.
+- **Candidate #2 — NOT built as originally worded. Refused on the evidence, not merely
+  descoped.** All 13 (16 by keyword match, 2 false positives) deferred verdicts this section
+  names carry `spec.filing_mode='record'` — `write_audit_findings_action.go`'s RFC_056
+  (2026-08-25), a deliberate owner-ruled circuit breaker stopping LLM-audit-seat findings from
+  auto-dispatching as page rewrites, built specifically because an earlier auto-dispatch of
+  exactly this finding class destroyed live content (`bugs_closed/238`, finetuning.uk). "Wire
+  the existing detector to a dispatcher" would have rebuilt that same promoter for the same
+  finding class RFC_056 exists to hold back. Instead: **a human-reviewed release surface** —
+  `HandleReleaseRecordVerdict` (new admin endpoint), a `filing_mode` filter on the existing
+  work-item list endpoint, and a "Review & Release" button in the admin dashboard (previously
+  the `deferred` status wasn't even a dropdown option there). Releases exactly one row a person
+  has reviewed via the same operation the row's own `spec.release_recipe` describes — never
+  executes that stored string, and can structurally never touch a non-record-mode row. Also
+  closes a real gap in the existing interim SQL-only release path (the loanzy RUNBOOK's raw
+  `UPDATE`): a released row now stamps `filing_mode='released'`, so it can't be released twice
+  and a future filing_mode-scoped census can't mistake it for still-parked. Registered as an
+  addendum to IMP-056 (`docs026_concept_register/register/improvement-loop.md`) — that entry's
+  own 2026-08-26 note had flagged this exact surface as "owed". Council-Submitted:
+  `38be9226-d5b5-48b7-9b87-20efbaf3dec3`.
+- **No code change actually dispatches any of the 13 rows.** That remains a human decision,
+  one row at a time, through the new button — which is the point.
+- Full writeup, decisions and reasoning: `docs024_key_docs_latest/bugfix_428_planner_deferral/`.
