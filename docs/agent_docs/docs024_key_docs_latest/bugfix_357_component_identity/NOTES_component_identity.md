@@ -1659,3 +1659,23 @@ pilot on `mortgagecalculator.co.uk/tool-simple` (Finding 2), which needs the own
 different candidate orders + the ~10–14 near-clone walkers — recommendation is a
 concept-register census entry first; consolidation is RFC-scope if ever needed. Recorded in
 bug §9; no lane owns it.
+
+### 2026-09-02 (later) — 408 APPROVED r1; all three advisories acted on; two cross-lane loops closed
+
+Council: APPROVED round 1, corr `3918db52`, 9 reviewed / 7 abstained / none high. Advisories
+all real and all closed in `b8bf40694` (see bug §10): the loud→quiet trade is now countable
+(`ASSEMBLE_CONTENT_FIELD_UNRESOLVED` when content was expected), the walker census re-ran WITH
+a positive control (20 bodies, one bounded recursion, class closed), the test carries its own
+watchdog. Original commit `6e2d4a039` carries `Council-Submitted`; the follow-up carries
+`Council-Reviewed` — 098 will credit both.
+
+Cross-lane: webdesign-tool-rebuilds supplied the roll-verification instrument (bug §9);
+webdesign-tool-rebuild's "affects us" turned out FALSE for their chain (2,124/2,124
+page-rerender — the other assembly function) and my notification's framing seeded their
+vacuous discriminator — my WRONG_CALLS entry today; their reply surfaced a genuine
+pre-existing rerender-path skip population (36/1,146 in 7d) now recorded in §9/§10, and a
+skipped-key-absent-on-normal-runs trap (test for 'true', never 'false').
+
+408 remains OPEN: fixed, approved, NOT live. Owed: an image ≥ `b8bf40694` rolled, the
+`paths_tried` capability probe PRESENT, then §6's end-to-end checks. Then move to
+bugs_closed and clear the 357 lane's blocker note.

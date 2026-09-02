@@ -234,3 +234,32 @@ carries 408's defect nor writes the discriminator, so a gate keyed on that field
 (not false, VACUOUS) for rerender-path deliveries. Know which function your chain reaches
 before trusting the key — the two functions eleven characters apart are an existing
 LANDMINES entry.
+
+## 10. COUNCIL APPROVED r1 (2026-09-02, corr `3918db52`) — three advisories, all ACTED ON in `b8bf40694`
+
+9 seats reviewed, 7 abstained, none high-severity. Dispositions:
+
+- **bug_historian (medium) — "the fix trades a loud failure for a quiet one":** ACCEPTED and
+  closed. When `content_field` resolves empty and the upstream step did NOT declare
+  `skipped: true`, the caller now writes `agent_error_log` code
+  **`ASSEMBLE_CONTENT_FIELD_UNRESOLVED`** (high) — so a mis-set `content_field` is countable
+  (`SELECT count(*) FROM agent_error_log WHERE error_code='ASSEMBLE_CONTENT_FIELD_UNRESOLVED'`),
+  while a declared writer skip stays a routine skip. Behaviour unchanged either way.
+- **bug_historian (low/missing) — "only 3 of ~14 walkers proven non-recursive":** DONE, with
+  a control this time. **20** walker function bodies censused as of 2026-09-02 (comment-stripped
+  body extraction; positive control = the old recursive function, correctly flagged). ONE
+  self-recursion in the repo: `FindByPath` (`datahelpers/content_search.go`) — its two arms
+  each strictly decrease a finite measure (arm 1 shortens the path; arm 2 descends the data
+  with the first segment preserved, so arm 1 cannot re-fire) and cannot cycle on acyclic
+  JSON-derived data. **Not the 408 shape; the crash class is closed across the family.**
+- **guardian (low) — "the timeout lives in the invoker":** DONE — every table row now runs
+  under a 30s in-test watchdog; a reintroduced hang fails the test itself, a stack-overflow
+  crash fails the suite on its own.
+
+**Fleet context for the quiet-skip consequence (webdesign-tool-rebuild lane, measured
+2026-09-02):** the RERENDER path's own skip (`"page has no component rows"`, key
+`rendered_page`) fired **36 times in 1,146 runs over 7 days** and predates 408 entirely. ⚠ On
+that path the `skipped` key is **ABSENT on normal runs** (36 rows carry it; all 36 are skips)
+— a check testing `skipped='false'` matches nothing and looks clean; **test for `'true'`**.
+Their lane's WRONG_CALLS has the fuller account (a mutation test that proved a branch
+EXECUTES without proving its query CAN MATCH).
