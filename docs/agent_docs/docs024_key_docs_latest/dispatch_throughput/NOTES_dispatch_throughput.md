@@ -1215,3 +1215,12 @@ file before merging a "new" lesson into it. Corrected to 314 in writing; **658 r
 ls-tree clean at HEAD)**; 657 flagged to its session (their file, their timing). The
 rename commit carries no council trailer deliberately: content 100% identical to the
 95099f95-approved file — the reviewed change is unchanged, only the name moved.
+
+Addendum, same hour: 314's fleet census landed as my correction crossed it in flight —
+**26 renamed _HOLDs fleet-wide (26/26 stuck on disk), none this lane's** `[THEIR MEASUREMENT
+2026-09-02]` — so both readings were true of their samples and wrong as generalisations;
+the tree carries both practices. They file the "dry run exists/free/mandated/UNDRIVEN" item
+(their territory; our seven-unrecorded is its live evidence, the 672 vocabulary-degrade
+detail quoted into it, the one-doc_notes-row-per-run cron shape offered as the candidate
+driver). 658/657 close the orphan-rename path: 658 recorded under its new name only;
+657's note to the 413 session says rename+record as one motion.
