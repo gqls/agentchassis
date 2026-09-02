@@ -1,6 +1,36 @@
 # 394 — webdesign.co.uk's render audit covers 60 of 131 pages, the tail GROWS every week, and the truncation row `bugs_closed/242` built has no reader
 
-> ## STATUS 2026-08-26 — **OWNED, FIX BUILT AND COMMITTED, NOT YET LIVE.**
+> ## STATUS 2026-09-02 — **CURSOR HALF FIXED, LIVE AND ACCEPTED. Bug stays OPEN for the reader's CronJob.**
+>
+> **The acceptance test in §2 PASSES.** `[MEASURED 2026-09-02]` over three consecutive SCHEDULED
+> rotation runs (08-27, 08-30, 09-02), the union of `audited_paths` on webdesign.co.uk is
+> **151 distinct pages of 151 live — ZERO missed**, graded against the site rather than against
+> itself. The third run cleared the cursor (`cursor_cleared = true`, final window 37 pages, last
+> page `tool-llm-cost-calculator` at `nav_order` 201). The second acceptance arm is met too: in
+> cursor mode the message no longer claims "the SAME pages every run".
+>
+> For contrast, what this replaced: the same first 60 pages for ever, with 91 never audited —
+> including all 45 `tool-*-guide` pages, unreachable at any cap below 98.
+>
+> Also proven in production, unattended: the mode split (`design-critique-agent` writes `prefix`,
+> `render-audit-agent` writes `cursor`), and a SECOND site cycling to completion
+> (`loanandmortgagecalculator.co.uk`, 61 pages, a 2-page final window on 08-30).
+>
+> ### WHY IT IS STILL OPEN
+>
+> The owner commissioned TWO things (decision 4, 2026-08-25) and only one is driven.
+> `cmd/config-key-audit --render-truncation` is built, tested, mutation-proven on four arms and
+> registered in `finding_code_registry.json` as the `consumed` reader — but **no CronJob runs it**
+> (`kubectl get cronjob` has no `render-truncation-check`). Until it is scheduled the registry's
+> `consumed` claim is true about the code and false about the estate — the state `DBG-075` exists
+> to prevent. `/bugs_closed/`'s bar is "fixed AND live"; half of this is not live.
+>
+> **Next step is one kustomize service**, cloned from `ungraded-completions-check`.
+> Full state: `docs/agent_docs/docs024_key_docs_latest/bugfix_394_render_audit_rotation_cursor/HANDOFF_2026-09-02_continue_here.md`
+>
+> ---
+>
+> ## STATUS 2026-08-26 (superseded, kept for the trail) — OWNED, FIX BUILT AND COMMITTED, NOT YET LIVE.
 >
 > Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_394_render_audit_rotation_cursor/`.
 > Council `f67593f5-90cb-4a35-9cc0-926254645192` — round 1 REVISE (acted on), round 2 submitted.
