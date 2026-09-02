@@ -13,7 +13,11 @@ briefs are HELD** on two inputs: `bugs_open/444` (listing pages ship EMPTY with 
 — three producer-absence mechanisms; enablement per site or hold those page types) and the
 theme-kits differentiation levers (layout in the brief NOW, colour by referent NOW, chrome
 behind №5's pin experiment — runbook §5/§6). Sitemap machinery (642) is untouched and
-self-maintaining; the four new sites join its rotation.
+self-maintaining; the four new sites join its rotation. **A fresh chassis build was deployed
+late 2026-09-02 (owner message)** — nothing of THIS lane's was inert-until-roll (all our work
+is DB config + docs + work items); the ~300s no-dispatch window after a chassis pod (re)start
+applies to anything you fire immediately; lanes whose fixes ride the roll (424 imagery class,
+444's committed-but-gated code) verify per-SERVICE at the provenance stamp, never per-fleet.
 
 # 1. FIRST TASKS
 
@@ -47,13 +51,27 @@ self-maintaining; the four new sites join its rotation.
 
 # 3. OPEN (beyond §1)
 
-- **18 remakes remain** (`DECISION_2026-08-20...`§2). №5 carries the chrome experiment.
-- **444 routing**: ~~fix candidate (1) has no owner yet~~ **OWNED same night — session
-  "bugs_open/444" (owner-directed) takes candidate (1) + enablement-in-the-build-path; they
-  will state what "enablement answered" looks like from the brief-firing side → runbook §6.**
+- **18 remakes remain** (`DECISION_2026-08-20...`§2). **№5 carries TWO canary duties**:
+  the chrome-pin experiment (runbook §5, three-way read) AND the planner imagery-prompt canary
+  (runbook §5b — designblog lane's owner-directed prompt change, live 19:59:56Z; check the
+  plan's imagery.sections; article pages exempt). ⚠ TWO lanes cite "migration 718" — resolve
+  by FILENAME.
+- **444 routing**: OWNED — session "bugs_open/444". Their diagnosis CORRECTED the bug file
+  (two-guards-in-series mechanism for directories; news legal-by-design; writer-prose is
+  glossary-only) and answered the enablement shape → runbook §6 verbatim. Council corr
+  `c0990eb3`: 2 REVISE rounds (real improvements, landed by sha), **round 3 pending;
+  migration 720 committed but HELD unapplied until the verdict** — post-roll runbook §2 traps:
+  deferred listing section = source config; missing gate receipt ≤~3h of a terminal row =
+  anti-churn (326), not failure; a replan never drops a BUILT page.
 - **gamesdesign/gamedesign pair**: rename DONE + serve-verified (their sessions); Pro-tier
   name+home UNDECIDED (GD1/GD2); p2p cross-link pair dependency recorded; GD2 brief is the
-  reckoning point. `bugs_open/439` is the adoption-carries-name class.
+  reckoning point. `bugs_open/439` = adoption-carries-name class. **NEW same night:
+  `bugs_open/447` — tool-suggester is SEAT-BLIND (reads identity+classification only) and
+  proposed SIX of the sibling's tools by name onto gamedesign.uk; held reversibly by their
+  lane. GD2 states hosts_tools=FALSE machine-readably (the consumer is 447's opt-in build);
+  the class is stamped on GDN1b and runbook §2 — eye every add_tool wave on any P5 pair until
+  447 lands. Their `bugs_open/446`: owner re-ruled gamedesign's execution (louder, gamier,
+  re-dispatched 20:11Z) — GD2 seat UNCHANGED.**
 - **indoorplanters.uk stub GDN1b** — P5 pair decision owed before either twin builds.
 - Carried: 21+ domains no register row (NOW A SERVING BLIND SPOT — orphan-served domains are
   invisible to every pages-row detector, NOTES (d)) · two-copies register question ·
@@ -67,7 +85,9 @@ supersede = separate statements, never chained CTEs · validation blocker detail
 agent_error_log's SECOND row · a claimed "race" needs timestamps (my owned_page_review wording
 was corrected by them) · a spec census is not a pages census (Pro-name lesson) · the 404-token's
 empty zone list ≠ zone absence · a branded 404 title doesn't tell you which stack answered
-(read the Generator meta) · count ITEMS on listing pages, never bytes (444/016b §9).
+(read the Generator meta) · count ITEMS on listing pages, never bytes (444/016b §9) ·
+tool-suggester is seat-blind on P5 pairs (447) · a transient `.git/index.lock` failure on this
+shared tree = another session mid-commit — retry, never delete the lock.
 
 # 5. FILES OF RECORD
 
@@ -77,4 +97,5 @@ Differentiation: `CONTRIB_2026-09-02_themes_lane_differentiation_levers_measured
 Class bug: `bugs_open/444...md` + 016b §9 tail + §10 row. Register: `positioning_register`
 DB (GD1/GD2/GDN1b written today; MD copy deliberately untouched).
 Peer sessions live tonight: designblog.co.uk · gamesdesign.co.uk · gamedesign.uk · theme kits ·
-feed lane (WebProNews CONTRIB with them).
+feed lane (WebProNews CONTRIB with them) · bugs_open/444 (the gate; will ping its round-3
+verdict — note it against corr `c0990eb3` in the runbook when it lands).
