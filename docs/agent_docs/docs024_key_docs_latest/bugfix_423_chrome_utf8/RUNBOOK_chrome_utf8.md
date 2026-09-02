@@ -1,4 +1,4 @@
-# RUNBOOK — bugs_open/423
+# RUNBOOK — `bugs_closed/423` (closed 2026-09-02; these commands stay useful for the class)
 
 ## The two-way census (the one that discriminates)
 

@@ -236,10 +236,10 @@ write `Council-Reviewed:` on a verdict you have not read.**
    wrong list **hard-failed every workflow that stamps the action** — so it earns its own
    change and its own review. Two undeclared sibling keys remain invisible to the RFC_022
    counter.
-4. **`bugs_open/423` closes** on the estate's bar (fixed **AND** live) once §2 passes for
-   garden-tools and the webdesign lane re-renders boxingonline. Move it to `bugs_closed/`
-   naming **both** paths on the commit — `git mv` plus a pathspec commit silently ships a
-   copy otherwise.
+4. ~~`bugs_open/423` closes once §2 passes and boxingonline is re-rendered.~~ **DONE
+   2026-09-02: both happened, and the bug is `bugs_closed/423`** (commit `d0c8ca9c3`,
+   moved naming both paths and verified at HEAD with `git ls-tree`, per the `git mv`
+   landmine). Nothing here is outstanding.
 
 ---
 
@@ -271,7 +271,7 @@ write `Council-Reviewed:` on a verdict you have not read.**
 
 | | |
 |---|---|
-| bug | `bugs_open/423_HANDOFF_2026-08-31_footer_store_fails_on_invalid_utf8_and_the_renderer_reports_the_slot_as_a_reasonless_false.md` |
+| bug (**CLOSED**) | `bugs_closed/423_HANDOFF_2026-08-31_footer_store_fails_on_invalid_utf8_and_the_renderer_reports_the_slot_as_a_reasonless_false.md` — moved from `bugs_open/` in `d0c8ca9c3` |
 | spun-out bug | `bugs_open/435_HANDOFF_2026-09-02_chrome_store_that_matches_no_row_is_still_a_silent_success.md` |
 | register | `docs/agent_docs/docs026_concept_register/register/styling-render-pipeline.md` → **STY-059** |
 | lane | `docs/agent_docs/docs024_key_docs_latest/bugfix_423_chrome_utf8/` — PLAN, RUNBOOK, NOTES, README_where_we_are, SUMMARY, this handoff, the council submission |
