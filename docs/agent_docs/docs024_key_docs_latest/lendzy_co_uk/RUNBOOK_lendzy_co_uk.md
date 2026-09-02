@@ -116,3 +116,42 @@ SELECT count(*) FROM evidence_base WHERE site_id='8ff093d5-1f19-453b-9439-a10379
 Zero is why lendzy's numeric scan never arms (`RFC_060` §1). The daily refresher
 (`refresh_evidence_base_action.go`) only ever re-checks facts a human chose to cite — **an empty
 register produces a clean run, for ever, and that clean run means nothing.**
+
+## 8. Registering FCA facts — THE METHOD (offered to the other finance lanes, owner decision 2026-09-02)
+
+The whole method, in order. It needs no new code. Worked end to end on lendzy (migration 695).
+
+1. **Extract what your site actually asserts.** Pull every served page, extract sentences carrying
+   figures, rule ids, or "the FCA requires…" shapes. Work from the ARTEFACT, not from specs — the
+   spec may say something the page does not, and vice versa (lendzy's spec carried an error its
+   pages had propagated).
+2. **Find the governing rule in the handbook and READ it.** Do not trust the rule number your copy
+   cites — that is precisely what was wrong twice on lendzy. The section pages parse into
+   individual rules on the pattern `CONC \d+[A-Z]?\.\d+[A-Z]?\.\d+ dd/mm/yyyy [RG]` (78 rules in
+   CONC 5A, 54 in CONC 6.7, measured 2026-09-02).
+3. **⚠ The host 200s every path, invented rules included** — LANDMINES.md, footprint
+   `handbook.fca.org.uk`. Confirm every fetch by `<title>`, never by status, and note the URL
+   scheme is not uniform (`handbook/conc5a` works; `handbook/CONC/6/7.html` works;
+   `handbook/conc6/7` is a MISS with a plausible body). Store the URL that ANSWERED (follow the
+   301 from www).
+4. **Verify the quote through the PRODUCTION matcher, with a control:**
+   `go run ./cmd/fcaquotecheck <url> "<quote>" "zzz deliberately absent control"`
+   — expect `true` then `false`. It calls the refresher's own extraction
+   (`datahelpers.VisibleTextFromHTML` / `QuoteFoundInText`); a quote that fails here would be
+   classified `citation_lost` — drift — **every day, for ever**, and that false alarm is
+   indistinguishable from a real one. Never pre-check with your own regex: a mirror of the
+   extraction passes while production disagrees.
+5. **Write the register** as a `site_specs` row, aspect `evidence_base`, one fact per claim:
+   `{id, kind:"policy", rule, claim, writer_line, source:{citation:{url, quote, title, publisher,
+   accessed}}, verified_at}` — copy the shape from migration
+   `docs/agent_docs/sql_for_agents/695_lendzy_evidence_base_fca_handbook_citations.sql`, including
+   its guard (abort if a current register exists) and its DO/RAISE verify. Migrations are council
+   scope; submit.
+6. **Know the limit you are accepting:** the handbook has no rule-level URL, so the daily refresher
+   keeps your QUOTES honest but cannot keep your `rule` field honest (a section page carries dozens
+   of rules). Until the rule-span checker ships (RFC_060 §3d/Q6 — owner approved the build
+   2026-09-02), `rule` is a human-verified field: check it against the rule's own heading, by hand,
+   and date the check.
+7. **The payoff:** the moment the row exists, the existing daily refresher starts re-fetching your
+   citations and re-checking your quotes against the live handbook. An empty register produces a
+   clean run for ever — that clean run is the thing you are replacing.
