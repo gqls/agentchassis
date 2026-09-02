@@ -494,3 +494,9 @@ The list of what still holds the delivery email back is shorter now: the transpa
 (waiting on the next release, genuinely this time — verified at the running system), the
 contact page returning a proper "not found" (bugs_open/429, unowned), and the calendar
 having real events to show (bugs_open/427).
+
+Correction to the entry above, same evening: the contact-page "not found" work
+(bugs_open/429) is no longer unowned — you've routed it to its own thread, which is
+now running. I've sent that thread what closes our half (a real "not found" served at
+the public address) and a warning about the hourly publishing cycle we're both using
+tonight, so neither of us misreads the other's publish.

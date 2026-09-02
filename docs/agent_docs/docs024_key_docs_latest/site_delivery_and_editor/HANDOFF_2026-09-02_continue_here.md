@@ -143,7 +143,10 @@ FIXED+ROLLED; half 1 check) · `424` transparency capability gap (424-lane;
 their fix awaiting NEXT roll — see §1.3) · `425` cards (components lane, live) ·
 `427` calendar has no data (news_editorial owns acquisition; ONE seam with the
 comparator per the owner's research instruction) · `429` mirror cannot
-unpublish (unowned, cites 304). Landmines added: reconciler force sends you to
+unpublish (~~unowned~~ **OWNED as of 2026-09-02 evening** — owner routed it to a
+dedicated thread, session name `bugs_open/429`; cites 304. This lane is the
+CONSUMER: the contact ruling's 404 half closes on their served-404 acceptance —
+contribute into the bug file, do not compete). Landmines added: reconciler force sends you to
 the back ("checked"≠"published"); plus the NOTES-recorded patterns (undoing an
 override restores an unwatched default ×2; a true statement about one layer
 restated as a system rule ×3).
