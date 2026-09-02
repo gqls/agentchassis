@@ -279,3 +279,58 @@ hunting a defect that does not exist.
 What survives from §(n) is the weaker and still-true half: *"no finding" is not "no
 problem"* — here the absence of findings meant an unbuilt site, which is a bigger problem
 than the findings would have been.
+
+---
+
+## 2026-09-02, evening — plan item 4's evidence, and it is the code's own words
+
+Read the routing rationale of all eleven checks that file into the flag-only pile, rather
+than reasoning about the pile from its shape. `[MEASURED 2026-09-02]`
+
+**(bb) Every one is flag-only ON PURPOSE, and several say "not yet" rather than "never".**
+The comments are explicit: `heading_promise_unmet` — *"the repair is a planner/writer
+judgement"*; `structure_floor_unmet` — *"the seat RECORDS; the refusal is a planner/human
+verdict"*; `page_content_divergence` — *"per D5 (no handler agent in v1)"*;
+`check_site_structural_validity`'s five — *"FLAG-ONLY, **THIS PASS** … No auto-repair
+agent is wired in this pass"*, with `canonical_mismatch`'s repair named as future work
+gated on `bugs_open/251`. So the pile is not one settled category. It is at least two:
+findings that genuinely need a human judgement, and findings whose handler was deferred
+to a later ship that has not come.
+
+**(cc) The authors KNEW nobody drains it, and quoted the bug that says so.**
+`check_archived_page_still_serving.go:104`, verbatim:
+
+> *The cost of flag-only is real and named in bugs_open/083: "a detector whose output
+> nobody drains is not neutral — it is actively misleading". The item lands at `detected`
+> where image_url_404, asset_reference_404 and stylesheet_gutted land, and is deliberately
+> not dispatchable — detected-item-promoter's `handler_ok` door requires an
+> agent_definitions row matching handler_agent, which `''` cannot satisfy.*
+
+This is the strongest thing I have found on this lane, and it is not my inference: the
+platform's own code states the defect, cites the bug that names it, and ships into it
+anyway. **That reframes plan item 4.** It is not "nobody noticed". It is a known cost,
+accepted eleven times, by authors who each had a good local reason and no shared surface
+to file against.
+
+**(dd) And exactly one of the eleven supplied what a person would need.**
+
+| | rows | carrying a `triage_hint` |
+|---|---|---|
+| `archived_page_still_serving` | 9 | **9** |
+| the other ten types | 1,376 | **0** |
+
+The one hint is excellent — it names the remedy action, the `agent_error_log` codes to
+read first, the opposite-direction case (un-archive rather than delete) and the ruling
+that forbids auto-deleting. That is a person's brief. The other 1,376 findings arrive with
+a summary and no stated remedy, so even a perfect queue would show a reader 1,376 problems
+and one answer.
+
+**(ee) What this means for the design, recorded before I build anything.** "Show the pile
+to a human" is the wrong first move — it was my instinct this morning and the evidence has
+moved me off it. The pile's largest member turned out to be one template fix (867, now
+committed), its second-largest a set of deferred handlers, and only a residue is genuinely
+a judgement call. **The question to put to the council is not "where do we show these" but
+"which of these eleven idioms is a deferred handler and which is a human decision" — and
+the second group needs the `triage_hint` discipline the ninth check already demonstrates.**
+That is a shared-seam change across eleven producers, so it goes through the gate on its
+own, after the skip-link wave has drained the population enough to see what is left.
