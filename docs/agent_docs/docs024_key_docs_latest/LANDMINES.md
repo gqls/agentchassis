@@ -19302,3 +19302,57 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **what IS still worth fixing, and is not a pin:** the composition row *lying*. Three sites (`cv1.co.uk`, `finetuning.uk`, `gaswholesalers.com`) shared ONE library palette row (`professional-dark`) while each served its own colours only via the overlay — so any path that skipped the overlay served them the generic default. `sql_for_agents/691` gives each its own row holding the values it already serves. That constrains the overlay not at all; it stops the stored row disagreeing with the browser.
 - **relations:** the `generic_theme` colour-churn landmine (this supersedes its "pin via reference_values" framing) · `bugs_open/396` (a design run rewriting the theme row byte-for-byte — a SIBLING mechanism, different fix, do not conflate) · `bugs_closed/022` (`enforceLayoutScheme`, the one sanctioned composition-beats-LLM guard, scoped to light/dark contradiction only) · DES-085 (`theme_kits`)
 - **added:** 2026-09-02, themes lane, written the same hour the RFC was withdrawn — a peer lane had already begun planning the pinning approach off the old framing, which is why this exists rather than a note in one lane's docs
+
+### A GUARD REACHED BY A WORKFLOW CONFIG STEP CAN BE DISABLED BY OMISSION AND NOTHING SAYS SO — a guard reached by a Go call chain cannot. Ask which kind you built
+
+- **footprint:** `agent_definitions.default_config.workflow.steps` · `registry.go` · any new `*_action.go` guard · `repair_ordering_register_action.go` · `HandlerCanWriteField` · `classifyFinding` · council submissions that ship a check
+- **fires when:** you finish a guard — tested, council-reviewed, registered, merged, rolled — and treat "it is in the binary" as "it is protecting something". For a **config-wired** guard those are different facts, and the gap between them is invisible from every artefact you would naturally check.
+- **the trap, measured on two guards in one week, one of each kind:**
+  - **CONFIG-WIRED (silently disabled).** `repair_ordering_register` — 630 lines, 357 test lines, `Council-Submitted: 4054f4d9`, registered, and **in the running binary** (`git merge-base --is-ancestor f7156fb54 <deployed sha>` → yes, with a control that correctly says HEAD is not). Its agent's workflow has **ten steps and none names the action.** `[MEASURED 2026-09-02]` in the two days it sat there: **254 points minted, 65 born dirty — 25%**, against the 23% baseline it was built to move. **Live, correct, council-approved, and costing.**
+  - **CALL-WIRED (cannot be declined).** `HandlerCanWriteField` — reached through `classifyFindingRoute`, one caller, already wrapped by the guard inside `classifyFinding`, itself one caller in the finding-write loop. **No route into the router bypasses the guard and no config can decline it.** `[MEASURED 2026-09-02]` 48 rule-3b rows across 33 sites, each existing *only* because the guard returned `known=true` — the guard's own output is the receipt that it ran.
+- **the check, and it is one query, not a code read:**
+  ```sql
+  -- does anything actually CALL it? (config-wired guards only)
+  SELECT a.type, k.key FROM agent_definitions a,
+         jsonb_each(a.default_config->'workflow'->'steps') k
+   WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+     AND k.value->>'action' = '<your_action>';
+  ```
+  **Zero rows means your guard is inert however green everything else is.** Then confirm with a *demand-side receipt* — a row, a counter, a log line the guard itself produces — never with "it is registered" or "it merged". ⚠ **And keep the two claims apart:** a receipt proves the **call path** ran; it does not prove the **current version's verdict** is exercised. All 48 rows above predate the corrected roster going live, so the path is proven and the correction is not.
+- **why the two artefacts you would reach for are both silent.** `registry.go` says the action *exists*. `merge-base` against the deployed sha says the code *shipped*. **Neither is a statement about callers**, and a config-wired guard has exactly one caller — a JSON key in a row in a table — which no build, test, council round or roll inspects. A council can approve a guard nothing will ever run.
+- **so, when you build a guard, decide which kind it is and say so in its header.** Call-wired where you can: the estate cannot forget to call it. Config-wired where you must (per-agent opt-in with the unsafe default OFF is a real and often correct requirement) — **and then the arming migration is part of the deliverable, not a follow-up**, because the gap between "built" and "armed" is where this lives.
+- **relations:** MEMORY [[zero-adoption-means-read-the-mechanism]] (~0% adoption measures the MECHANISM) · [[detection-works-schedule-and-dispatch-do-not]] · [[a-stale-status-line-prevents-the-thing-it-describes]] · `RFC_057` §9a/§9b (where the config-vs-call discriminator is argued) · the false-green migration landmine above (its sibling: there, success everywhere and no live effect; here, shipped everywhere and no caller)
+- **source:** 2026-09-02, jointly by `vigilant_designer_offer_analysis` (the inert gate, found while about to build a second one) and `bugs_open/395` (the call-wired counter-example and the discriminator). ⚠ **The inert guard was this lane's own work and the lane did not notice for two days** — being the author is not protection.
+- **added:** 2026-09-02, vigilant_designer_offer_analysis lane
+
+### A fetch-based content scan that returns ZERO has two explanations, and the bad one exits 0
+
+- **footprint:** any script that fetches served pages and greps/regexes their
+  content (claim extraction, banned-claims testing, phrase censuses, link
+  checks); `urllib.request`, `python3 -c` fetch loops, any scan over
+  Cloudflare-fronted or UA-filtering origins
+- **fires when:** you scan a site's served copy for a pattern and get 0 matches.
+  No symptom — zero is exactly what a clean site returns, and the script exits 0
+  either way. python-urllib's default User-Agent draws 403 on many of this
+  estate's own origins (loanzy.uk 403'd ALL 30 pages, 2026-09-02) while the same
+  URLs serve 200 to curl; a Cloudflare challenge page ("Just a moment...")
+  returns 200 with none of the site's text in it, so even status-checking does
+  not save you.
+- **the check, BOTH halves in the same batch:** (1) a PLANTED-TEXT positive
+  control — a string composed to fire EVERY pattern, asserted N/N (a 4/5 result
+  caught a second gap the same day: the planted text itself missed a pattern);
+  (2) a per-page size/`<title>` sanity gate before scanning — a 9-byte body or a
+  challenge-page title is a fetch failure, not a clean page. Fetch with curl (or
+  a real UA) and scan the SAVED copies, so the fetch layer and the scan layer
+  fail separately and visibly.
+- **relations:** the "Cloudflare refuses in front of the island" entry above
+  (that one is about ATTRIBUTING a refusal; this one is about a scan silently
+  converting refusals into a comfortable zero) · MEMORY
+  [[a-post-fix-zero-needs-a-demand-control]] · the 359 runbook's blinded-run
+  rule ("here it reports zero, and zero is the answer that looks healthy")
+- **source:** 2026-09-02, loanzy lane (migration 702's pre-ship scan: first run
+  0 hits/30 pages, all 403 — caught by the planted control run in the same
+  batch; re-run from curl-fetched copies gave the honest 0/27-with-3-404s that
+  also surfaced bugs_open/437). Independently requested by the bugs_open/414
+  lane the same evening after logging two same-shape errors of their own.
+- **added:** 2026-09-02, loanzy lane
