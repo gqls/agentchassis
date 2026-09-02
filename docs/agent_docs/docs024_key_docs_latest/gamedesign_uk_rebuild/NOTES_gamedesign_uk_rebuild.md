@@ -510,3 +510,16 @@ tool kind back on the wrong domain.
 from every OTHER site we control —
 `SELECT s.domain, p.name FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id WHERE pc.rendered_html LIKE '%<domain>/%' AND s.domain <> '<domain>';`
 — and tell the owners before, not after. One query; I ran it 100 minutes late.
+
+---
+
+## 2026-09-02, ~19:10Z — sibling loop closed, verified at their artefact
+
+gamesdesign.co.uk lane reports: 'GameDesign.uk' on zero of 31 serving pages (case-sensitive,
+cache-busted); the P2P button repointed to their local `/games/p2p-networking/index.html`; one
+rerender raced their link-fix commit by seconds and briefly re-served the dead URL, cleared by a
+second dispatch after ~19:00Z. **Spot-checked myself** `[MEASURED 2026-09-02 ~19:10Z]`: `/`,
+`/about/`, `/guides/p2p-architecture/`, `/tools/` — `GameDesign.uk` **0** on all four,
+`GamesDesign.co.uk` 30/5/3/15; the button's href is `/games/p2p-networking/index.html`. No
+further dependency from their tree on the old one. **Owner instruction "tell gamesdesign.co.uk to
+stop using our name": DONE and verified at both artefacts.**
