@@ -524,3 +524,10 @@ survives a roll. COUNCIL_SUBMISSION_718.json preserved in this directory for
 a possible RESUBMIT_CORR resubmission. **COLD-START =
 designblog_couk/HANDOFF_2026-09-02_continue_here.md** (supersedes the
 CRITIQUE-doc-first reading order for a fresh session).
+
+> **Feed lane ACKed just after the handoff was cut** — the last open route.
+> designblog's zero-source /the-design-feed/ queued as THEIR priority 4
+> (design-vertical source, explicitly not WebProNews), in
+> `docs/agent_docs/docs024_key_docs_latest/news_feed_ingestion/HANDOFF_2026-09-02b_continue_here.md`
+> §4. Routing table above now fully ACKed, every row. (They too are handing
+> off on the fleet-wide kubectl expiry.)

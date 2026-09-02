@@ -127,7 +127,7 @@ what the owner rules. One day old and dense — everything below happened 2026-0
 | GTM key + chrome rerender wave (17 pages) | analytics ("google") | expected, not damage; next serve-verify must expect the GTM head; empty pages re-render empty |
 | gamedesign.uk re-plan post-718 | gamedesign.uk session | second canary; their 446 + 444/114 CONTRIBs |
 | planner-vs-fallback share measurement | theme kits (asked) | sizes page_archetypes vs planner-prompt as the structure lever |
-| feed lane ACK | this lane | never ACKed the design-vertical source ask — chase |
+| the-design-feed source wiring | feed lane (ACKed at handoff time) | queued as their priority 4 — design-vertical source, NOT WebProNews; their cold-start: `docs/agent_docs/docs024_key_docs_latest/news_feed_ingestion/HANDOFF_2026-09-02b_continue_here.md` §4 |
 
 ## 5. OWNER DECISIONS GATHERED (put these to him when he asks "what's waiting on me")
 
