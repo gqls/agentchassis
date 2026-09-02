@@ -19196,3 +19196,41 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-09-02, `bugfix_423_chrome_utf8` lane (STY-059, `bugs_open/423`). Noticed while
   the fix was being written, before it could mislead anyone — including me on the next pass.
 - **added:** 2026-09-02, bugfix_423_chrome_utf8 lane
+
+### `handbook.fca.org.uk` returns HTTP 200 for EVERY path, invented rules included — so a fetch cannot tell you a rule exists
+
+- **footprint:** `handbook.fca.org.uk` · `www.handbook.fca.org.uk` · FCA Handbook · `fetchCitationDocument` · `refresh_evidence_base_action.go` · `evidence_citations.go` · any external-corpus collector keyed on HTTP status
+- **the trap:** it is an Angular application with a catch-all route, so **every** request succeeds
+  and returns a plausible HTML document. `[MEASURED 2026-09-02]` a real section returns
+  **477,729 B** titled `FCA Handbook - CONC 5A Cost cap for high-cost short-term credit`; an
+  **invented** rule path returns **200** with **178,705 B** titled bare `FCA Handbook`; a nonsense
+  path returns the home shell, **165,639 B**, `FCA Handbook - Home`. Even
+  `https://handbook.fca.org.uk/robots.txt` returns the app shell rather than a robots file — so
+  "I checked robots.txt" is a claim to distrust here unless the body was read.
+  The reason this is a landmine and not a curiosity: the whole point of citing a regulator is that
+  the citation is checkable, and a collector or verifier that treats 200 as existence will happily
+  record a rule that was never written, or keep a citation green after the rule is withdrawn. That
+  produces the exact failure `bugs_closed/414` was about — an unverifiable compliance claim — only
+  now with machinery behind it, which is far more convincing and no more true.
+- **the check:** discriminate on the **`<title>`**, never the status, and run an
+  **invented-rule control in the same batch** — one path you know must NOT resolve, alongside the
+  real ones, exactly as a URL census needs a per-domain invented-URL control:
+  ```bash
+  for u in handbook/conc5a handbook/conc99z-invented; do
+    curl -sL -o p.html -A "Mozilla/5.0" "https://handbook.fca.org.uk/$u"
+    grep -o '<title>[^<]*</title>' p.html | head -1
+  done   # real -> "FCA Handbook - CONC 5A …"; control -> bare "FCA Handbook"
+  ```
+  A run in which the control's title is indistinguishable from a real rule's is **blind**, and its
+  passes must be discarded rather than recorded. Note also `www.handbook.fca.org.uk/handbook/CONC/5A/`
+  **301s** to `handbook.fca.org.uk/handbook/conc5a`: follow redirects and store the URL that
+  actually answered, or the citation you save is not the one that gets re-checked.
+- **the one piece of good news, which still wants proving rather than assuming:** the existing
+  daily refresher degrades safely here by accident of design — a withdrawn or renumbered rule
+  returns 200 with the quoted sentence gone, which `evidence_citations.go` classifies as
+  `citation_lost` (drift), not as a pass. That is the right answer, arrived at without anyone
+  knowing this host behaves this way. Do not lean on it until it has been induced.
+- **source:** 2026-09-02, `lendzy_co_uk` lane, measured on day one while scoping the owner's ask to
+  make "checked against the FCA handbook, rule by rule" true. Found before any collector was
+  written, which is the only reason it costs nothing.
+- **added:** 2026-09-02, lendzy_co_uk lane
