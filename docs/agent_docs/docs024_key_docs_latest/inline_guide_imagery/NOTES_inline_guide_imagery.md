@@ -226,3 +226,95 @@ illustration row for a guide. The binding is the join; the plan rows and the ima
 next job, and `grip-styles` (7 h2 + 6 h3, zero content images) is the canary the other lanes
 nominated. apis.uk/index also stays exposed until it gets `scope='section'` rows — its six
 figures live only in stored `content_data`, which the carry cannot protect.
+
+---
+
+## 2026-09-02 — the code shipped while the review was open, and the review found two real defects
+
+Picked the lane up again after two days. Three things had happened, and the order matters.
+
+### 1. The binding is LIVE, and the prescribed way to check that did not work
+
+`[MEASURED 2026-09-02]` chassis `v1.0.1351`, pods up 2026-09-01 21:00, carries round 1's code.
+
+⚠ **CLAUDE.md's `kubectl logs … | grep 'build provenance'` matched NOTHING on this service.**
+The only hits were prompt text *describing* the check — an LLM prompt quoted back through the
+logs, which is a false positive shaped exactly like a true one. (The text itself says so: *"the
+deploy check CLAUDE.md prescribes — matches NOTHING on a backend service"*.)
+
+What worked was the binary probe with **both** controls in one breath:
+
+```bash
+POD=agent-chassis-5bd89cf49-t4wdl
+for sym in PlanSectionsAction sectionRefForOrdinal planSectionOrder sectionRefForOrdinalNOTREAL; do
+  kubectl -n ai-persona-system exec $POD -- grep -aq "$sym" /proc/1/exe && echo "PRESENT $sym" || echo "absent  $sym"
+done
+# PRESENT PlanSectionsAction   <- must-be-present control
+# PRESENT sectionRefForOrdinal
+# PRESENT planSectionOrder
+# absent  sectionRefForOrdinalNOTREAL   <- must-be-absent control
+```
+
+Probe the **capability**, not the commit: a symbol answers "can this binary do the thing", which
+is the question, and it has no shelf life the way a startup log line does.
+
+### 2. The council returned REVISE, and both gating objections were real
+
+`bug_historian` (HIGH, gating) and `reuse_agent` (HIGH). Neither was paperwork.
+
+- **The ordinal's identity had THREE separately-written implementations** over three different
+  orderings — write-time range check, build-time plan-order walk, rerender-side occurrence count.
+  That is *the same shape my own rationale used to reject a position integer*. Reading my
+  submission back, the argument refuted the design I then wrote.
+- **The drift population was untested and unguarded.** Round 1 stood down only for locked-slot
+  insertions. Every other way the plan's order and the live order come apart — a manual reorder, a
+  deleted section, an unreconciled replan, a renamed component — went unnoticed, and in that
+  population the binding does not fall back, it binds a **real figure to the wrong section**,
+  silently, on a page that renders and deploys clean.
+- **`NewInstanceCounter` already existed for exactly this question** and, on the rerender path,
+  sat **two lines above** my hand-rolled `map[string]int`. I did not look at it. It is not a
+  cosmetic duplication either: the counter lower-cases and trims its key, so a raw-key map
+  disagrees with it precisely where a plan and a stored row spell one slot differently — the
+  apis.uk shape.
+
+### 3. What round 2 changed, and how it is proven
+
+One occurrence rule (`InstanceCounter.NextOccurrence`, now exported, with `Next` reimplemented on
+top of it), one ordinal parser (`sectionScopeRefOrdinal`, living beside the write-time range check
+that already parsed it), one identity constructor (`newSectionRef`, normalising as the counter
+keys), and `sectionOrderAgrees` — bind only when the plan's section list and the list the calling
+path iterates describe the same sequence of slots.
+
+**Both guards mutation-proven, run and watched to fail:**
+
+```
+# force sectionOrderAgrees -> true
+--- FAIL: TestPlanSections_DriftedLiveOrderStandsDownToPageWide
+    section 1: image_url = "/assets/images/illustration-shark-grip.jpg",
+    want the page-wide "/assets/images/illustration-ring-grip.jpg"
+# revert newSectionRef to the raw name
+--- FAIL: TestSectionIdentity_MatchesTheEstatesInstanceTokenRule
+    section 1: identity name "Illustrated-Text-Block" is not normalised the way the counter keys it
+```
+
+The first is the predicted damage reproduced on demand — the wrong grip's photograph under the
+wrong heading — which is what turns "a drift risk" into a defect with a failing test attached.
+
+Committed `38178d549`, resubmitted on the same trail correlation `2979c27f`.
+
+⚠ **Misstep of the day, and it is the same one twice:** the package suite failed on
+`apply_theme_kit` having no registry entry. Not mine — another session's untracked
+`apply_theme_kit_action.go`. Checked before assuming, this time (`git status` on the file that
+registers it), rather than "fixing" a symbol that is somebody's plan.
+
+### 4. The first real consumer is apis.uk, and it is not ours to change
+
+`[MEASURED 2026-09-02]` apis.uk `/index.html` still serves six `illustrated-text-block` sections
+with six distinct illustrations, all six URLs living **only** in `page_components.content_data`,
+with **zero** `scope='section'` imagery rows. Its plan order (`hero`, `generic-text-block` ×6,
+`site-footer`) and its live slots (`hero`, `generic-text-block` ×6) **agree**, so the binding would
+engage there today if the rows existed. Filed as a CONTRIB into `apis_uk_bees_homepage` with the
+SQL, the pairing read off their own live rows, and the verification command — theirs to run.
+
+That CONTRIB also carries the correction to IMG-074's "carryStored preserves the six values",
+which is false for the reason in §3 of the 08-31 entry.

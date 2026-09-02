@@ -81,3 +81,38 @@ darts site. So the next job is the supply — plan a figure for each small secti
 grip-styles guide (the one you pointed at, six subsections, no images at all today),
 generate them, and watch one guide come out right end to end. That is the first thing where
 you would actually see a difference on a page.
+
+## 2026-09-02 — it is live, and the reviewers were right about two things
+
+The change shipped with the fleet build on Monday evening, so the join between a picture and a
+section now exists in the running system. I checked that by asking the running program whether it
+contains the new code, with a control in both directions — the check our own notes recommend for
+this (reading a start-up log line) turned out not to work on this service at all, and I have
+written down what does.
+
+**The review came back asking for changes, and it was right twice over.**
+
+The first point was the good one. I had argued, at length, that you must not identify a section by
+a position number because the system holds two incompatible numbering schemes. Then I wrote the
+fix — and the identity of a section ended up being worked out in three separate places, from three
+different lists. Same trap, one level along, in my own change. Where those lists disagree — a
+section moved, deleted, renamed — the picture does not go missing, which would be obvious. It
+lands under the **wrong heading**, and the page renders perfectly.
+
+That is now blocked: the system compares the two lists and, if they disagree at all, simply
+declines to attach pictures per section and behaves as it did before. And I proved it by breaking
+it on purpose: with the check disabled, the test fails by putting the shark-grip photograph on the
+section about ring grips. That failing line is the whole argument.
+
+The second point was more embarrassing and cost nothing to fix. There was already a piece of the
+system for counting "which repeat of this thing is this one" — and on one of the two code paths it
+was sitting two lines above the one I hand-wrote. I had not looked. It is now used everywhere.
+
+**Where this leaves the actual ask.** The plumbing is done and live. What is still missing is the
+pictures: nothing yet asks for one image per section of a guide. The nearest real page is the bees
+homepage on another site, which already has six per-section illustrations that a single rebuild
+would silently delete — I have written to that thread with the exact fix, which now works for the
+first time, and left the decision with them since it is their site. For the darts guides you
+pointed at, the remaining step is a page rebuild that composes the guide into small sections and
+asks for an image for each, and that is a change to a live page on a site another thread is
+actively working, so it wants their agreement rather than my initiative.

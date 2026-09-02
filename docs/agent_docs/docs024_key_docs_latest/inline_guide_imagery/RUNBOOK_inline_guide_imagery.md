@@ -120,3 +120,59 @@ claim it". Progress:
 SELECT current_step, status, updated_at FROM orchestration_states
  WHERE correlation_id::text='<RUN_CORRELATION_ID>' ORDER BY updated_at DESC LIMIT 3;
 ```
+
+## Is the per-section binding live in the running chassis?
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis --no-headers -o custom-columns=NAME:.metadata.name | head -1)
+for sym in PlanSectionsAction sectionRefForOrdinal sectionOrderAgrees sectionRefForOrdinalNOTREAL; do
+  kubectl -n ai-persona-system exec $POD -- grep -aq "$sym" /proc/1/exe && echo "PRESENT $sym" || echo "absent  $sym"
+done
+```
+
+⚠ **`kubectl logs … | grep 'build provenance'` does NOT work on this service** — verified
+2026-09-02, and its failure is the dangerous kind: the phrase DOES appear in the logs, inside LLM
+prompt text describing the check, so a careless grep returns a hit that looks like a stamp. Probe
+the binary, and always run BOTH controls (`PlanSectionsAction` must be present,
+`sectionRefForOrdinalNOTREAL` must be absent) — a grep that matches everything and a grep that
+matches nothing produce the same confident answer otherwise.
+
+⚠ Probe the **capability** (a symbol the change introduced), not the commit sha: the stamp names
+one commit, so a sha probe answers "was the build cut exactly here", which is not the question.
+
+## Would a given page bind, or stand down?
+
+The binding engages only when the plan's section order and the page's live section order describe
+the same sequence of slots. Check both sides before predicting anything:
+
+```sql
+-- plan side (site-level slots are filtered out of the comparison)
+SELECT sps.ordering, sps.component_name FROM site_plan_sections sps
+  JOIN site_plans sp ON sp.id=sps.plan_id AND sp.is_current
+  JOIN sites s ON s.id=sp.site_id
+ WHERE s.domain=:domain AND sps.page_name=:page ORDER BY sps.ordering;
+
+-- live side (what the build loop / rerender actually iterates)
+SELECT pc.position, pc.slot_name FROM page_components pc
+  JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ WHERE s.domain=:domain AND p.url=:url ORDER BY pc.position;
+```
+
+⚠ **Compare `slot_name`, not the component the row points at.** apis.uk/index is the worked
+example: its slots are `generic-text-block` while its `component_id` resolves to
+`illustrated-text-block`. The plan and the slots agree, so it binds; the component names do not,
+and comparing those would predict the opposite.
+
+## Seeding a per-section figure (the supply half)
+
+```sql
+INSERT INTO site_plan_imagery (plan_id, scope, scope_ref, key, kind, prompt, ordering, source, locked_at, locked_by)
+SELECT sp.id, 'section', :page || ':' || :ordinal, :asset_key, 'illustration', :prompt, :ordinal, 'manual', now(), :lane
+  FROM site_plans sp JOIN sites s ON s.id=sp.site_id AND s.domain=:domain
+ WHERE sp.is_current;
+```
+
+⚠ `prompt` is **NOT NULL**; for an asset that already exists it is documentation for the next
+planner, not a generation request. ⚠ The ordinal is the **plan's** `ordering` (0-based, counts
+site-level slots) — on a page whose plan starts with a hero, live `position - 1`. ⚠ `locked_at`
+set, or IMG-013 lock transfer will not carry the row across the next replan.
