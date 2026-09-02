@@ -893,6 +893,22 @@ deduplication begins; the "raw extractions" count above and the per-concept
   navigation/structure). Layout is the one dimension needing an actual
   resolver change (`resolve_composition_layout_action.go`), since layout
   resolution never consults `design_intent` at all.
+- **A KIT IS A STARTING POINT, NEVER A CONSTRAINT (OWNER RULING 2026-09-02):**
+  *"by default it can start with a theme and change it if it wishes, but it
+  must have full authority to ignore our set of themes if it chooses."* So
+  `apply_theme_kit`'s default mode is `start` — it WRITES the kit's values,
+  superseding what is there. (It first shipped defaulting to `fill_gaps`, which
+  deferred to any existing `design_intent` and was therefore a no-op on the 33
+  of 57 sites the classifier had already touched — a theme that never actually
+  started anything.) Written values carry `reference_source: "theme_kit:<name>"`
+  and `reference_is_default: true`, so a later reader can tell a kit's default
+  from a decision, and can override it freely. `fill_gaps` remains as an
+  explicit conservative mode; `reapply` also replaces an installed composition.
+  The ONE thing no mode overwrites is `design_intent.<dim>.locked: true`, a
+  deliberate human pin that nothing sets automatically. **The corollary matters
+  as much: nothing anywhere freezes a themed site's values against the
+  classifier or the render overlay** — RFC_059 proposed exactly that and was
+  WITHDRAWN under this ruling.
 - **the fork idiom continues, not diverges**: applying a kit MATERIALIZES
   defaults into a site's own rows — never a live FK the site stays bound to.
   A site can edit any component/palette/section afterward exactly as before;
