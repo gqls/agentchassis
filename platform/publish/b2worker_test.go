@@ -22,6 +22,10 @@ type fakeStore struct {
 	// simulates a damaged copy so the verification guard can be PROVEN to
 	// fire, not just assumed (a fake's bookkeeping cannot assert a negative).
 	corruptKey string
+	// deleteSilentlyFails, when set, makes Delete return nil without
+	// removing anything — the sweep's post-delete re-list verification must
+	// catch it, same discipline as corruptKey for the copy half.
+	deleteSilentlyFails bool
 }
 
 func newFakeStore() *fakeStore { return &fakeStore{objects: map[string][]byte{}} }
@@ -67,6 +71,14 @@ func (f *fakeStore) Upload(_ context.Context, key, _ string, body io.Reader) (st
 	return "s3://fake/" + key, nil
 }
 
+func (f *fakeStore) Delete(_ context.Context, key string) error {
+	if f.deleteSilentlyFails {
+		return nil
+	}
+	delete(f.objects, key)
+	return nil
+}
+
 func seedSite(f *fakeStore, domain string, files map[string]string) []File {
 	var out []File
 	for k, v := range files {
@@ -102,6 +114,112 @@ func TestB2WorkerCopiesTreeUnderProjectPrefix(t *testing.T) {
 	}
 	if _, ok := store.objects["canary.ugg2.com/css/site.css"]; !ok {
 		t.Error("nested key css/site.css was not copied under the project prefix")
+	}
+}
+
+func TestB2WorkerSweepsOrphansAndNeverTheCopiedSet(t *testing.T) {
+	store := newFakeStore()
+	files := seedSite(store, "example.com", map[string]string{
+		"index.html": "<html>home</html>",
+		"about.html": "<html>about</html>",
+	})
+	// The motivating shape (bugs_open/429): a destination key whose source
+	// was retracted before this publish.
+	store.objects["canary.ugg2.com/contact.html"] = []byte("<html>retracted</html>")
+
+	res, err := NewB2Worker(store).Publish(context.Background(), Request{
+		Domain: "example.com", Project: "canary.ugg2.com", Files: files,
+		Source: NewS3Source(store, "example.com"),
+	})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if _, ok := store.objects["canary.ugg2.com/contact.html"]; ok {
+		t.Error("orphaned destination key survived the publish — the mirror still cannot unpublish")
+	}
+	if res.Deleted != 1 || len(res.DeletedKeys) != 1 || res.DeletedKeys[0] != "contact.html" {
+		t.Errorf("result must report the sweep for the caller's 404 acceptance, got Deleted=%d keys=%v", res.Deleted, res.DeletedKeys)
+	}
+	for _, key := range []string{"canary.ugg2.com/index.html", "canary.ugg2.com/about.html"} {
+		if _, ok := store.objects[key]; !ok {
+			t.Errorf("%s is in the source set and was deleted — the sweep must only remove keys absent from source", key)
+		}
+	}
+	// The source itself must never be touched by a destination sweep.
+	if _, ok := store.objects["example.com/index.html"]; !ok {
+		t.Error("source tree was modified by the sweep")
+	}
+}
+
+func TestB2WorkerRefusesAnEmptyFileSet(t *testing.T) {
+	store := newFakeStore()
+	store.objects["canary.ugg2.com/index.html"] = []byte("still hosted")
+
+	_, err := NewB2Worker(store).Publish(context.Background(), Request{
+		Domain: "example.com", Project: "canary.ugg2.com", Files: nil,
+		Source: NewS3Source(store, "example.com"),
+	})
+	if err == nil {
+		t.Fatal("an empty file set must refuse — with the sweep it would read as 'delete the whole mirror'")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("refusal should name the empty set, got: %v", err)
+	}
+	if _, ok := store.objects["canary.ugg2.com/index.html"]; !ok {
+		t.Error("the refusal deleted anyway — the guard must fire before any sweep")
+	}
+}
+
+func TestB2WorkerBulkFloorRefusesAndTheFlagOverrides(t *testing.T) {
+	store := newFakeStore()
+	files := seedSite(store, "example.com", map[string]string{"index.html": "x"})
+	for i := 0; i < 25; i++ {
+		store.objects[fmt.Sprintf("canary.ugg2.com/old-%02d.html", i)] = []byte("orphan")
+	}
+
+	req := Request{
+		Domain: "example.com", Project: "canary.ugg2.com", Files: files,
+		Source: NewS3Source(store, "example.com"),
+	}
+	_, err := NewB2Worker(store).Publish(context.Background(), req)
+	if err == nil {
+		t.Fatal("25 of 26 destination keys swept in one pass must refuse without allow_bulk_unpublish")
+	}
+	if !strings.Contains(err.Error(), "allow_bulk_unpublish") {
+		t.Errorf("refusal should name the override, got: %v", err)
+	}
+	if _, ok := store.objects["canary.ugg2.com/old-00.html"]; !ok {
+		t.Error("the floor refused but deleted anyway")
+	}
+
+	req.AllowBulkUnpublish = true
+	res, err := NewB2Worker(store).Publish(context.Background(), req)
+	if err != nil {
+		t.Fatalf("publish with override: %v", err)
+	}
+	if res.Deleted != 25 {
+		t.Errorf("override sweep deleted %d, want 25", res.Deleted)
+	}
+	if _, ok := store.objects["canary.ugg2.com/old-00.html"]; ok {
+		t.Error("override was accepted but the orphan survived")
+	}
+}
+
+func TestB2WorkerSweepVerificationCatchesASilentDeleteFailure(t *testing.T) {
+	store := newFakeStore()
+	files := seedSite(store, "example.com", map[string]string{"index.html": "x"})
+	store.objects["canary.ugg2.com/contact.html"] = []byte("orphan")
+	store.deleteSilentlyFails = true
+
+	_, err := NewB2Worker(store).Publish(context.Background(), Request{
+		Domain: "example.com", Project: "canary.ugg2.com", Files: files,
+		Source: NewS3Source(store, "example.com"),
+	})
+	if err == nil {
+		t.Fatal("a Delete that returns nil without deleting published without error — the post-sweep re-list verification is not live")
+	}
+	if !strings.Contains(err.Error(), "sweep verification") {
+		t.Errorf("error should name the sweep verification, got: %v", err)
 	}
 }
 

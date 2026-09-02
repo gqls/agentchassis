@@ -93,3 +93,16 @@ sessions: both the direct `b2 rm` and a `gh api` write to `gqls/sites` were **re
 session harness's auto-mode classifier** as destructive/outward-facing, so an agent may need
 the owner to run the removal or grant the permission — budget for that rather than assuming
 you can clean up after a retraction.
+
+## Note from the 429 fix (2026-09-02, bugfix_429_mirror_unpublish lane)
+
+The MIRROR side of this bug's shape is now explicit rather than accidental:
+`b2worker.Publish` (the `publish_site` hosted-copy seam, DGH-008) REFUSES an
+empty file set outright, naming this bug — so "last page retracted ⇒ empty
+origin ⇒ the mirror silently keeps serving the whole site" is at least a
+recorded refusal in `publish_site`'s result (`origin tree … is EMPTY but a
+hosted copy is still standing`), not a silent skip. Whole-site unpublish remains
+THIS bug's decision. When it is made, the mirror half has a ready hook:
+`publish.Request.AllowBulkUnpublish` / the `allow_bulk_unpublish` input lifts
+the sweep's bulk floor, so a deliberate teardown can be expressed as an explicit
+hand dispatch rather than a new destructive verb.

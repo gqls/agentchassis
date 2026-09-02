@@ -39,8 +39,13 @@ func TestTreeHashFieldSeparatorCannotBeGamed(t *testing.T) {
 }
 
 func TestTreeHashCarriesAlgorithmPrefix(t *testing.T) {
+	// th2, not th1, since 2026-09-02 (bugs_open/429): the algorithm is
+	// unchanged, but "published" gained the deletion half, and the prefix
+	// bump is the designed lever that makes every site republish (and so
+	// converge) exactly once. Bumping this assertion without a matching
+	// semantics change would silently republish the fleet — don't.
 	h := TreeHash(nil)
-	if len(h) < 5 || h[:4] != "th1:" {
-		t.Fatalf("TreeHash must carry the th1: algorithm prefix, got %q", h)
+	if len(h) < 5 || h[:4] != "th2:" {
+		t.Fatalf("TreeHash must carry the th2: algorithm+semantics prefix, got %q", h)
 	}
 }

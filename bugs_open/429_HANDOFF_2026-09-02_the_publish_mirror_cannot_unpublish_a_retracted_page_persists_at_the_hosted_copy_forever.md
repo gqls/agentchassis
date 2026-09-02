@@ -75,3 +75,33 @@ Retract any page on a b2worker-opted site; after the next reconciler tick, the s
 URL must serve 404 while a sibling page serves 200 (the probe-with-controls recipe).
 Then re-run against boxingonline's /contact.html — the live orphan this file was
 filed on; it doubles as the acceptance case.
+
+## FIX BUILT 2026-09-02 (bugfix_429_mirror_unpublish lane) — committed, inert until a chassis roll
+
+Fix candidate 1, hardened after review by the filing lane and an adversarial pass.
+Full design + decisions: `docs/agent_docs/docs024_key_docs_latest/bugfix_429_mirror_unpublish/PLAN_2026-09-02_deletion_propagation.md`.
+
+- `b2worker.Publish` now CONVERGES: after copy + ETag verify, destination keys
+  absent from the source set are deleted, then verified GONE at a fresh listing.
+- Acceptance in `publish_site` is a PAIR when anything probe-worthy was swept:
+  swept key must serve 404 AND a kept `.html` must still serve 200 (cache-busted,
+  status codes only), before `published_hash` is written. `robots.txt` excluded
+  (edge rewrites it to a 200 — probing it would wedge the retry loop for ever).
+- Guards: empty file set REFUSED (an empty source cannot license sweeping the
+  mirror — the whole-site teardown stays `bugs_open/304`'s decision); bulk floor
+  (>20 orphans AND >50% of destination) refuses without the new opt-in
+  `allow_bulk_unpublish` input, which the scheduled reconciler cannot pass.
+- **Rollout: `TreeHash` prefix `th1:`→`th2:`** (algorithm unchanged — the prefix
+  is the designed republish-once lever). This matters because the orphan this
+  file was filed on is INVISIBLE to drift: `published_hash` already reflects the
+  post-retraction tree. Post-roll, both opted-in sites drift once and converge
+  via the normal hourly rotation — NO forcing (the reconciler-force landmine).
+
+### Verify-later (the close criterion — this file stays OPEN until then)
+
+After the next chassis roll, with NO forcing, within ~2 reconciler ticks:
+`https://boxingonline.ugg2.com/contact.html` → **404**, sibling `index.html` →
+200, invented URL → 404 (cache-busted, status codes only). Watch
+`sites.published_hash` flip to `th2:` for both opted-in sites. Then ping the
+site_delivery_and_editor lane (they strike handoff §1.5) and move this file to
+`bugs_closed/` (both paths on the commit; verify at HEAD with `git ls-tree`).

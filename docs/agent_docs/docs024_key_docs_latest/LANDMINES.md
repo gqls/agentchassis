@@ -19651,3 +19651,16 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** finetuning.uk `playground` dispatch, 2026-09-02 — trigger picks read from
   `orchestration_states` against the live `find_dispatchable_site` query
 - **added:** 2026-09-02, finetuning_uk_service lane
+
+---
+
+### The b2worker mirror CONVERGES: anything under a `*.ugg2.com` project prefix that is not in the site's origin tree gets DELETED on the next drift — and a mass restructure wedges until a hand dispatch
+
+- **footprint:** `platform/publish/b2worker.go` · `sites.publish_target` / `sites.publish_project` · `b2://portfolio-sites/<hostname>/` slug prefixes · `publish_site` / `site-publish-reconciler`
+- **fires when:** you hand-place (or hand-fix) an object directly under a mirror's serving prefix — a hotfixed page, a test file, a "just upload it for now" — or you rename/remove more than ~half a site's files in one deploy.
+- **the trap:** since 2026-09-02 (bugs_open/429) the mirror's publish DELETES destination keys absent from the origin listing. Your hand-placed object serves fine — until the site's next source drift, when the sweep removes it with no error anywhere (removing orphans is the mirror working as designed). The origin bucket, git, and every DB row still look exactly as you left them. Separately: a sweep that would remove >**20** keys AND >50% of the destination (counts as of 2026-09-02) REFUSES without `allow_bulk_unpublish`, and the scheduled reconciler dispatch cannot pass that flag — so a legitimate mass restructure fails publish on every tick, loudly in the orchestration result and invisibly everywhere else, until someone dispatches `publish_site` by hand with `{"allow_bulk_unpublish": true}`.
+- **the check:** never write directly under a mirror prefix — change the origin (`b2://portfolio-sites/<domain>/`) and let the reconciler propagate. If a site's publishes keep failing with "deletion sweep would remove N of M", that is the floor doing its job: read the orphan list, then hand-dispatch with the flag. Post-sweep, verify at the SERVED copy (swept key 404, kept sibling 200, cache-busted, status codes only).
+- **why the wrong result looks exactly right:** the hand-placed object serves for hours or days (until the next drift), so the upload "worked"; and when it vanishes, nothing failed — the publish that swept it reported success, because it was success.
+- **relations:** bugs_open/429 (the defect that added the sweep) · bugs_open/304 (whole-site teardown, still its own decision — the empty-source refusal) · the "Forcing the site-publish reconciler STAMPS the site you forced to the BACK" entry (same subsystem) · register DGH-008
+- **source:** 2026-09-02, bugfix_429_mirror_unpublish lane, designing the sweep — this is the flip side of fixing 429, written down before anyone pays for it.
+- **added:** 2026-09-02, bugfix_429_mirror_unpublish lane.

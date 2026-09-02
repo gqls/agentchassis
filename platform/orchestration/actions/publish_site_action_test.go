@@ -61,6 +61,11 @@ func (f *pubFakeStore) Upload(_ context.Context, key, _ string, body io.Reader) 
 	return "s3://fake/" + key, nil
 }
 
+func (f *pubFakeStore) Delete(_ context.Context, key string) error {
+	delete(f.objects, key)
+	return nil
+}
+
 // pubParams mirrors the production shape: the step config carries dotted
 // paths, the values live in collected input_data (Strategy 0 resolution).
 func pubParams(t *testing.T, data map[string]interface{}) ActionParams {
@@ -195,6 +200,95 @@ func TestPublishSiteDriftPublishesAcceptsAndRecords(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("published_hash was not recorded after acceptance: %v", err)
+	}
+}
+
+func TestPublishSiteSweepGetsThe404HalfOfAcceptance(t *testing.T) {
+	origin := []byte("<html>home</html>")
+	store := &pubFakeStore{objects: map[string][]byte{
+		"example.com/index.html": origin,
+		// The bugs_open/429 shape: a mirror copy whose source was retracted.
+		"canary.ugg2.com/contact.html": []byte("<html>retracted</html>"),
+	}}
+
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mock.ExpectQuery("SELECT id::text").WillReturnRows(siteRows("b2worker", "canary.ugg2.com", "th1:pre-sweep"))
+	mock.ExpectExec("UPDATE sites SET published_hash").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	swapStore(t, func(context.Context, string, *zap.Logger) (publish.ObjectStore, error) { return store, nil })
+	var sweptProbe string
+	swapServedFetch(t, func(_ context.Context, url string) ([]byte, int, error) {
+		if strings.Contains(url, "contact.html") {
+			sweptProbe = url
+			return []byte("not found"), 404, nil
+		}
+		return origin, 200, nil
+	})
+
+	params := pubParams(t, map[string]interface{}{"domain": "example.com"})
+	params.DB = db
+	res, err := PublishSiteAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["published"] != true || m["accepted"] != true {
+		t.Errorf("want published+accepted, got %v", m)
+	}
+	if m["deleted"] != 1 {
+		t.Errorf("result must record the sweep, got deleted=%v", m["deleted"])
+	}
+	if !strings.HasPrefix(sweptProbe, "https://canary.ugg2.com/contact.html?pub=") {
+		t.Errorf("the swept key must be probed at the served copy with a cache-buster, fetched %q", sweptProbe)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("published_hash was not recorded after the pair passed: %v", err)
+	}
+}
+
+func TestPublishSiteSweptKeyStillServingFailsAcceptance(t *testing.T) {
+	origin := []byte("<html>home</html>")
+	store := &pubFakeStore{objects: map[string][]byte{
+		"example.com/index.html":       origin,
+		"canary.ugg2.com/contact.html": []byte("<html>retracted</html>"),
+	}}
+
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	// No ExpectExec: a published_hash write would fail ExpectationsWereMet —
+	// the drift must stand so the next tick retries the (idempotent) sweep.
+	mock.ExpectQuery("SELECT id::text").WillReturnRows(siteRows("b2worker", "canary.ugg2.com", "th1:pre-sweep"))
+
+	swapStore(t, func(context.Context, string, *zap.Logger) (publish.ObjectStore, error) { return store, nil })
+	swapServedFetch(t, func(_ context.Context, url string) ([]byte, int, error) {
+		// Everything serves 200 — including the key the sweep deleted: the
+		// hosted copy did not actually converge (an edge or origin lying).
+		return origin, 200, nil
+	})
+
+	params := pubParams(t, map[string]interface{}{"domain": "example.com"})
+	params.DB = db
+	res, err := PublishSiteAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("acceptance failure must be a result, not an error: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["published"] != true || m["accepted"] != false {
+		t.Errorf("want published-but-not-accepted, got %v", m)
+	}
+	if !strings.Contains(m["reason"].(string), "want 404") {
+		t.Errorf("reason should name the 404 expectation, got %q", m["reason"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("published_hash must NOT be written when a swept key still serves: %v", err)
 	}
 }
 

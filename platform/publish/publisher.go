@@ -40,11 +40,15 @@ type File struct {
 }
 
 // ObjectStore is the slice of storage.Client the seam needs. *storage.S3Client
-// satisfies it. Kept narrow so tests can fake it without S3.
+// satisfies it. Kept narrow so tests can fake it without S3. Delete is part of
+// the contract, not an optional interface: a backend that can copy but not
+// delete is exactly the mirror-cannot-unpublish defect (bugs_open/429), and an
+// optional method would let a store degrade back into it silently.
 type ObjectStore interface {
 	ListObjects(ctx context.Context, prefix string) ([]storage.ObjectInfo, error)
 	Download(ctx context.Context, key string) (io.ReadCloser, error)
 	Upload(ctx context.Context, key, contentType string, body io.Reader) (string, error)
+	Delete(ctx context.Context, key string) error
 }
 
 // Source reads a site's built tree.
@@ -64,15 +68,25 @@ type Request struct {
 	Project string
 	Files   []File
 	Source  Source
+	// AllowBulkUnpublish permits a deletion sweep that would remove a large
+	// share of the destination in one pass (b2worker's bulk floor). Default
+	// OFF per the 2026-08-02 ruling: new authority on a shared seam ships as
+	// an opt-in field. The scheduled reconciler's dispatch never sets it —
+	// deliberately — so a mass restructure needs a hand dispatch that does.
+	AllowBulkUnpublish bool
 }
 
 // Result reports what a backend did. URL is the served base the caller's
 // acceptance check fetches from — acceptance belongs to the caller, not the
-// backend, so a backend must never report success it cannot serve.
+// backend, so a backend must never report success it cannot serve. Deleted /
+// DeletedKeys report the deletion sweep (bugs_open/429): the caller needs the
+// keys for the served-404 half of acceptance.
 type Result struct {
-	Project   string
-	Published int
-	URL       string
+	Project     string
+	Published   int
+	Deleted     int
+	DeletedKeys []string
+	URL         string
 }
 
 // Publisher is one hosting backend behind the seam.
@@ -110,8 +124,12 @@ func For(target string, d Deps) (Publisher, error) {
 // order-independent, sensitive to any file appearing, disappearing or
 // changing. ETags from B2's S3 gateway are content-MD5 for single-part
 // uploads, which everything in these trees is; size rides along as a belt.
-// The "th1:" prefix names the algorithm so a future change republishes once,
-// explicably, instead of silently.
+// The prefix names the algorithm AND the publish semantics, so a change to
+// either republishes once, explicably, instead of silently. th1→th2
+// (2026-09-02, bugs_open/429) changed no algorithm: it marks the deletion
+// half arriving — "published" now asserts the destination CONVERGES on the
+// source, including removals, so every stored th1 hash owes exactly one
+// converging republish (which is what sweeps the pre-fix orphans).
 func TreeHash(files []File) string {
 	lines := make([]string, 0, len(files))
 	for _, f := range files {
@@ -123,7 +141,7 @@ func TreeHash(files []File) string {
 		h.Write([]byte(l))
 		h.Write([]byte{'\n'})
 	}
-	return "th1:" + hex.EncodeToString(h.Sum(nil))
+	return "th2:" + hex.EncodeToString(h.Sum(nil))
 }
 
 // S3Source reads a site tree from an ObjectStore under "<domain>/".

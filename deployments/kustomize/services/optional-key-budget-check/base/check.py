@@ -162,7 +162,7 @@ OPTIONAL_KEY_COUNTS = {
     "prepare_training_data": 2,
     "process_area_sweep": 3,
     "promote_candidates": 2,
-    "publish_site": 3,
+    "publish_site": 4,
     "reconcile_section_data": 1,
     "reconcile_site_plan": 1,
     "reconcile_superseded_reviews": 2,

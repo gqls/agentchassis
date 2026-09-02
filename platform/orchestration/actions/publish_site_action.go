@@ -37,7 +37,11 @@ import (
 var PublishSiteInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{"domain"},
-	Optional:    []string{"site_id", "force", "source_bucket"},
+	// allow_bulk_unpublish lifts b2worker's bulk floor (a deletion sweep
+	// removing >20 keys AND >50% of the destination refuses without it).
+	// Default OFF; the scheduled reconciler dispatch never passes it, so a
+	// mass restructure needs a hand dispatch that does — deliberately.
+	Optional: []string{"site_id", "force", "source_bucket", "allow_bulk_unpublish"},
 	Defaults: map[string]interface{}{
 		"source_bucket": "portfolio-sites",
 	},
@@ -130,9 +134,18 @@ func PublishSiteAction(ctx context.Context, params ActionParams) (interface{}, e
 		return nil, fmt.Errorf("publish_site: %w", err)
 	}
 	if len(files) == 0 {
+		reason := fmt.Sprintf("no built artefacts under %s/%s/ — nothing to publish", inputs.Get("source_bucket"), domain)
+		if site.publishedHash != "" {
+			// An empty origin under a site that HAS a hosted copy means the
+			// mirror is now orphaned whole. Unpublishing it off the back of
+			// an empty listing is a delete-all keyed on an absence — refused
+			// implicitly here and explicitly by the backend; that verb is
+			// bugs_open/304's decision to make (bugs_open/429 for the sweep).
+			reason = fmt.Sprintf("origin tree under %s/%s/ is EMPTY but a hosted copy is still standing (published_hash %s) — refusing to unpublish implicitly; see bugs_open/304 and bugs_open/429", inputs.Get("source_bucket"), domain, site.publishedHash)
+		}
 		return map[string]interface{}{
 			"published": false, "skipped": true,
-			"reason": fmt.Sprintf("no built artefacts under %s/%s/ — nothing to publish", inputs.Get("source_bucket"), domain),
+			"reason": reason,
 		}, nil
 	}
 
@@ -155,6 +168,7 @@ func PublishSiteAction(ctx context.Context, params ActionParams) (interface{}, e
 
 	res, err := backend.Publish(ctx, publish.Request{
 		Domain: domain, Project: site.project, Files: files, Source: source,
+		AllowBulkUnpublish: inputs.GetBool("allow_bulk_unpublish", false),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("publish_site: backend %s: %w", backend.Name(), err)
@@ -162,7 +176,9 @@ func PublishSiteAction(ctx context.Context, params ActionParams) (interface{}, e
 
 	// Acceptance: fetch a page back from the hosted copy and compare bytes
 	// against the origin store. robots.txt is excluded estate-wide (the edge
-	// rewrites it — LANDMINES); index.html is the acceptance page.
+	// rewrites it — LANDMINES); index.html is the acceptance page. When the
+	// backend swept orphans, acceptance is a PAIR: a swept key must 404 and a
+	// kept page must still 200 (deletionAcceptance below).
 	if accepted, reason := servedAcceptance(ctx, source, files, res, treeHash); !accepted {
 		// Deliberately NOT written back: the drift stands and the next tick
 		// retries. The result records what happened; the error would only
@@ -170,6 +186,16 @@ func PublishSiteAction(ctx context.Context, params ActionParams) (interface{}, e
 		return map[string]interface{}{
 			"published": true, "accepted": false, "reason": reason,
 			"tree_hash": treeHash, "files": len(files), "url": res.URL,
+		}, nil
+	}
+	if accepted, reason := deletionAcceptance(ctx, files, res, treeHash); !accepted {
+		// Same contract as above: hash not written, drift stands, next tick
+		// retries — the sweep is idempotent, so the retry re-verifies rather
+		// than re-deletes.
+		return map[string]interface{}{
+			"published": true, "accepted": false, "reason": reason,
+			"tree_hash": treeHash, "files": len(files), "url": res.URL,
+			"deleted": res.Deleted,
 		}, nil
 	}
 
@@ -182,9 +208,16 @@ func PublishSiteAction(ctx context.Context, params ActionParams) (interface{}, e
 		return nil, fmt.Errorf("publish_site: record published_hash: %w", err)
 	}
 
+	// Cap the recorded key list: action results land in collected_data, and
+	// an unbounded list from a bulk sweep would bloat orchestration rows.
+	recordedKeys := res.DeletedKeys
+	if len(recordedKeys) > 20 {
+		recordedKeys = recordedKeys[:20]
+	}
 	return map[string]interface{}{
 		"published": true, "accepted": true,
 		"tree_hash": treeHash, "files": len(files), "url": res.URL, "backend": backend.Name(),
+		"deleted": res.Deleted, "deleted_keys": recordedKeys,
 	}, nil
 }
 
@@ -213,6 +246,73 @@ func loadPublishSiteRow(ctx context.Context, db *sql.DB, domain, siteID string) 
 		return nil, fmt.Errorf("publish_site: load sites row: %w", err)
 	}
 	return row, nil
+}
+
+// deletionAcceptance is the 404 half of served acceptance (bugs_open/429):
+// when the publish swept orphans, one swept key must no longer serve
+// (under-deletion) and one kept page must still serve (over-deletion) — the
+// planted-control pair. Status codes only: byte-compares against a fetched
+// body walk into the CDN-adds-bytes landmine; a status cannot. robots.txt is
+// excluded from the probe set — the edge rewrites it to a 200 regardless of
+// the object, so probing it would fail acceptance on every tick for ever.
+// The swept key is probed in its literal form, never a directory form (the
+// worker rewrites "/x/" to "/x/index.html", DGH-012).
+func deletionAcceptance(ctx context.Context, files []publish.File, res publish.Result, treeHash string) (bool, string) {
+	if res.Deleted == 0 || res.URL == "" {
+		return true, ""
+	}
+	probe := ""
+	for _, k := range res.DeletedKeys {
+		if k == "robots.txt" {
+			continue
+		}
+		if probe == "" {
+			probe = k
+		}
+		if strings.HasSuffix(k, ".html") {
+			probe = k
+			break
+		}
+	}
+	if probe == "" {
+		return true, "" // only robots.txt was swept — nothing probe-worthy
+	}
+
+	cacheBust := treeHash
+	if len(cacheBust) > 12 {
+		cacheBust = cacheBust[len(cacheBust)-12:]
+	}
+	_, status, err := servedFetch(ctx, res.URL+probe+"?pub="+cacheBust)
+	if err != nil {
+		return false, "deletion acceptance: fetch swept key " + probe + ": " + err.Error()
+	}
+	if status != http.StatusNotFound {
+		return false, fmt.Sprintf("deletion acceptance: swept key %s still serves %d, want 404 — the unpublish did not reach the hosted copy", probe, status)
+	}
+
+	// Kept-200 control: a swept-key 404 alone is blind to over-deletion.
+	// When the tree has index.html, servedAcceptance already byte-verified a
+	// kept page; this covers the tree that does not.
+	kept := ""
+	for _, f := range files {
+		if f.Key == "index.html" {
+			kept = ""
+			break
+		}
+		if kept == "" && strings.HasSuffix(f.Key, ".html") {
+			kept = f.Key
+		}
+	}
+	if kept != "" {
+		_, keptStatus, err := servedFetch(ctx, res.URL+kept+"?pub="+cacheBust)
+		if err != nil {
+			return false, "deletion acceptance: fetch kept key " + kept + ": " + err.Error()
+		}
+		if keptStatus != http.StatusOK {
+			return false, fmt.Sprintf("deletion acceptance: kept key %s serves %d, want 200 — the sweep may have over-deleted", kept, keptStatus)
+		}
+	}
+	return true, ""
 }
 
 // servedAcceptance compares the hosted copy's index.html bytes against the
