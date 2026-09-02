@@ -1,4 +1,4 @@
-# 423 — mechanism-flow's `steps[].branches` contract is unwritable by its own writer: 119 failed builds on six sites in 14 days, pages stuck `planned` for weeks
+# 437 — mechanism-flow's `steps[].branches` contract is unwritable by its own writer: 119 failed builds on six sites in 14 days, pages stuck `planned` for weeks
 
 **Filed 2026-09-02 by the loanzy lane.** Diagnosis loop NOT run — substituted first-hand
 verification, stated per the 2026-07-31 ruling: the error is the system's own, verbatim and
