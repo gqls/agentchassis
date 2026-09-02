@@ -285,3 +285,58 @@ The other three asks from the paid build are still open: an index page with noth
 should be treated as a failed journey rather than a healthy page; tools should have to declare
 what data *we* bring versus what we make the reader type in; and the content quality auditor we
 already own and pay for never ran on the paid site at all.
+
+---
+
+## 2026-09-02 — two more checks from your second look at boxingonline, and one I have refused to build
+
+The session that reviewed boxingonline sent me three more problems from your second round. All
+three are the same shape as before: nothing broken, everything validated, the site still wrong.
+I checked all three against the database myself before building anything, because a colleague's
+report is a report, not a measurement. Two of the three stood up exactly as described, and one
+turned out to be worse than described.
+
+**Two "News" links in the top menu, going to two different pages.** Confirmed. There are now two
+sections both labelled News — the original one and a second created since Sunday. A visitor has
+no way to know which is which. Worth saying clearly, because it is the interesting part: the
+menu machinery is not broken. It was proved working end to end the day before, and it put the
+right five items in the right order. It simply had no opinion about a sixth item wearing one of
+their names. A mechanism can be perfectly correct while the experience it produces is not, and
+that gap is the whole reason this lane exists.
+
+**The fight calendar page has no calendar.** Confirmed, and worse than reported: the page has no
+calendar component at all. What it has is a heading and two thousand words explaining how we
+maintain the calendar — how entries get added, what each listing gives you, that we correct dates
+rather than leave stale ones up — sitting above nothing. And it never says it is empty, so a
+reader cannot tell whether there are no fights this month or the page is broken. This was the
+core thing the customer paid for.
+
+Both now have a check running every morning, and both checks found their case. Along the way the
+first version of the tool check was wrong in an instructive way: I counted whether a page had a
+component *named* like a tool, and got 74 broken pages across the fleet. Opening them, the tools
+were simply named differently — a naming habit I had mistaken for a fact. Judging what the page
+actually serves to a reader instead, the real number is one. I would rather report one true thing
+than seventy-four confident ones.
+
+**The third problem I have refused to automate, and I want to be plain about why.** An article
+titled "Last night's result: underdog shocks the champion" contains no result — it is a general
+essay about why underdogs win, citing fights from 1990 and 2019. The damning detail is that our
+own news page on the same site carries the actual story, dated 31 August. We had it. The article
+did not use it. That is real, and it needs a reader's judgement, not a pattern. Anything I could
+write today would flag every well-written general article and stay quiet on a specific-sounding
+essay — a check that looks like the others and quietly does not work. So it is written down as
+refused, with the reason, rather than half-built. The copy lane has the writing half of it.
+
+One thing that keeps happening and is worth knowing: **your team is fixing this site faster than
+I can build checks for it.** The duplicate News link was repaired five minutes before my first
+run, so my new check reported nothing on the very case it was built for. Sunday's check had the
+same experience with a different page. Both times the check was right and the world had moved.
+Both now carry frozen copies of the original broken page as their reference case, so they keep
+proving themselves after the real page is fixed. That is not a complaint — it is the pre-delivery
+cut-line you asked for, working.
+
+And one of my open questions is now closed by your ruling. I had proposed, and could only
+propose, that a tool ought to declare what data *we* bring versus what we make the reader type
+in. Your words on the comparator and the calendar settle it. The check I built today is the
+mechanical half; the other half — refusing to choose a tool at planning time when we would have
+no data to put in it — sits with the planner and is still to do.

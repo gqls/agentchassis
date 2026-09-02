@@ -1,0 +1,85 @@
+# deployments/kustomize/services/experience-promise-check/base/cronjob.yaml
+#
+# Two checks on promises a page makes and does not keep, from round two of the owner's
+# review of the first paid customer build (boxingonline.com, 2026-09-02):
+#   RULE A  two active header entries with the SAME label pointing at DIFFERENT pages
+#           ("Home · News · Fight Calendar · About · Contact · News"). Note that the nav
+#           DECLARATION pipeline was proved end-to-end the day before and is working — it
+#           put the right five in the right order and had nothing to say about a sixth
+#           duplicating one of them. A mechanism can be correct and the experience broken.
+#   RULE B  a page_type='tool' page serving no control, no inline data and no runtime
+#           fetch — the paid brief's core deliverable served 6,640 characters explaining
+#           how its calendar is maintained, above no calendar and no empty state.
+# Origin and evidence: docs024_key_docs_latest/experience_loop/RUNNING_NOTES (2026-09-02).
+#
+# WHY A CRONJOB — the same argument as its siblings: what this watches changes by a route
+# no commit can carry. Both live cases were repaired BY OTHER LANES WHILE THIS FILE WAS
+# BEING WRITTEN (the nav flag at 10:24:59, five minutes before the first fleet run), with
+# no commit in either direction. Only a clock against live data sees that.
+#
+# ⚠ base/check.py IS A COPY of scripts/audit-experience-promises.py, pinned rather than
+# trusted: `scripts/audit-experience-promises.py --self-test` FAILS if the two differ.
+# Edit the script, re-copy, re-apply the overlay — the cluster keeps the old ConfigMap
+# otherwise.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: experience-promise-check
+  labels:
+    app: experience-promise-check
+    component: experience-integrity
+spec:
+  # Daily, 07:40 UTC — after listing-class-promise-check (07:25), clear of the 06:00–07:10
+  # config-integrity block and the 02:00 database backup.
+  schedule: "40 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Reads the markup of ~320 tool pages. In-cluster this is a direct psql dial, so the
+      # chunking the script does for the workstation's exec stream costs nothing here.
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: experience-promise-check
+            component: experience-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py --write-note
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 300m
+                  memory: 512Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: experience-promise-check-script
+                defaultMode: 365

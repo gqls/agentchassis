@@ -18956,3 +18956,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
   angles in one round, before the code ever ran. The guardian named the consequence exactly: it
   "WOULD silently null out the exact detector round 2 leans on as its liveness measurement".
 - **added:** 2026-08-31, bugfix 417/420 lane.
+
+---
+
+### On a pre-delivery site, the defect you are building a detector FOR is being repaired while you build it — so a zero on your motivating case is not a broken detector, and a live page is never a control
+
+- **footprint:** any new detector whose positive control names a live page · `pages.in_header` / `nav_label` · `page_components.content_data` · `page_components.updated_at` · sites under an owner review or a "fix everything before approval" cut-line
+- **fires when:** a CONTRIB, a bug file or an owner review hands you a live failing case, you build the check for it, and you run the check. It fires hardest on exactly the sites that generate the best findings — the ones under active review — because those are the ones other lanes are repairing hour by hour.
+- **the trap:** the check reports **0 findings on the case it was written for**, which reads as "my rule is wrong" and invites you to loosen it until it fires. **Measured, twice in three days, on the same site:** (1) 2026-08-31, the listing-class check's positive control (boxingonline `/index.html` listing four tool guides under "Latest from the ring") — read at 16:45Z, gone by the 16:57:20Z scan, `updated_at` 16:57:33Z, repaired by another lane's rerender. (2) 2026-09-02, the duplicate-nav rule (`/articles/index.html` and `/news/index.html` both labelled "News") — verified in the DB at ~09:5xZ, and `in_header` was flipped false at **10:24:59Z, five minutes before the first fleet run**. Neither detector was wrong. Both looked wrong.
+- **the check — resolve the zero at the ROW's timestamp before touching the rule:**
+  ```sql
+  SELECT url, in_header, nav_label, status, updated_at FROM pages WHERE ...;   -- or
+  SELECT p.url, pc.updated_at FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE ...;
+  ```
+  An `updated_at` later than the evidence you were handed means **fixed**, not **blind**. And note what it cannot tell you: these tables keep ONE timestamp, not a history, so if the repair lands between your read and your scan you cannot prove which came first — which is the second reason the control belongs in a fixture.
+- **the fix, and it is cheap:** freeze the measured case as a `--self-test` FIXTURE at the moment you measure it (the real header, the real item list, verbatim), and demote the live page to a printed note. The fixture keeps proving the rule after the world is fixed; that is the whole point of it. Pair it with a DEMAND CONTROL so a clean run still has to show the check could have fired (`314 of 320 tool pages carry a control` — if that reaches zero the check is blind, not the fleet healthy).
+- **why the wrong result looks exactly right:** you are new to the rule and confident about the defect, so when the two disagree the rule is the natural suspect — and loosening it produces findings immediately, which feels like progress and is how a detector acquires its first false positives.
+- **relations:** `a-post-fix-zero-needs-a-demand-control` · `a-stale-page-holds-every-improvement-since-it-rendered` · `a-closer-census-cannot-see-what-it-succeeded-at` (an action that removes your evidence) · SQ-004 / SQ-005 in the concept register
+- **source:** 2026-09-02, experience_loop lane, building the two checks the boxingonline owner review asked for. Both motivating cases were repaired by other lanes mid-build, five weeks apart in the docs and five minutes apart on the clock.
+- **added:** 2026-09-02, experience_loop lane.

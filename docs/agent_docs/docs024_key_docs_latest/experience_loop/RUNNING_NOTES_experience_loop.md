@@ -1126,3 +1126,94 @@ swallowed).
 - **The leopardess finding is not dispatched.** It sits in the detector's `doc_notes` row and in
   this entry; whoever owns that site should decide whether the guides move out of the listing or
   the heading changes. Either fixes it, and it is not my call.
+
+## 2026-09-02 — round two of the paid-build review: two more checks built and LIVE, one refused
+
+Peer message from the boxingonline session (round two of the owner's review, measured at the
+served site 2026-09-02). Three defects; **I verified all three at the DB myself before building
+anything**, because a peer report is a document, not a measurement.
+
+| their claim | my independent check | verdict |
+|---|---|---|
+| two "News" entries in the primary nav | `/articles/index.html` (blog-index, nav_order 2) and `/news/index.html` (news-index, nav_order 100), both `nav_label='News'`, both `in_header` | CONFIRMED |
+| the fight calendar page has no calendar | the page carries exactly two components — `hero-tool` and `Generic Text Block`. No listing component, no `articles`/`items`/`events` array, no tool component at all | CONFIRMED, and sharper than reported |
+| articles promise specific news, deliver general essay | not re-measured; accepted as reported and REFUSED as a mechanical check (below) | routed, not built |
+
+### Built and live: `experience-promise-check` (`40 7 * * *` UTC)
+
+Verified at the pod (`epc-verify-1-ltcgv`, `exitCode=0`), at its `doc_notes` receipt (10:31:06Z)
+and by diffing the deployed ConfigMap byte-for-byte against the committed script.
+
+- **Rule A — two doors, one name.** Two active header entries, same label, different pages.
+- **Rule B — a tool page with nothing usable.** `page_type='tool'` serving no control, no inline
+  data and no runtime fetch. Live findings: **1** (boxingonline fight-calendar, 6,640 chars of
+  prose about a calendar), plus **4** tool pages with no rendered html at all, kept in a separate
+  "never built" bucket so they can never inflate rule B.
+
+**Demand control, printed every run:** of 320 tool pages, **314 carry a control, 126 inline data,
+12 fetch at runtime.** The check can come out either way; if those reach zero it has gone blind.
+
+### The measurements that decided the rule, and the two that would have made it wrong
+
+- **`cc.name ILIKE 'tool-%'` is not "has a tool".** My first cut counted a page's tool component
+  by name and found **74 tool pages with none** — a big, exciting number. Opening them: the tool
+  components are called `loans-compare-loans-loanzy-uk`, `funding-fit`, `patent-check`,
+  `Ported Page`. **The naming convention was my hypothesis about provenance, not a measurement**
+  (`a-subagent-report-is-another-doc`). Rule B judges what the page SERVES instead, and drops
+  from 74 to 1.
+- **The runtime-fetch escape earned its place on a real page, not on a worry.** vonc's
+  `/tools/gauntlet/round.html` has no control and no inline data and is NOT broken — it fetches
+  its round from the live API. Only 12 of 320 tool pages fetch at all, so the escape is narrow
+  rather than a blanket silencer. Without it, rule B's first live report would have accused a
+  working page.
+
+### RULE A RETURNED ZERO ON ITS OWN MOTIVATING CASE — and the rule is fine
+
+`/news/index.html` had `in_header` flipped to **false at 10:24:59Z**, five minutes before my
+first fleet run at 10:29:37Z. Another lane repaired it mid-build. **This is the second time in
+three days** — the listing-class check's positive control went the same way on 2026-08-31, and
+that one I could not even prove the ordering of, because `page_components` keeps one timestamp
+and not a history. Filed as a landmine of its own today: on a site under active review, a zero on
+the motivating case must be resolved against the row's `updated_at` BEFORE the rule is suspected,
+and the control belongs in a frozen fixture. Both of this lane's detectors now name no live page
+as a control.
+
+### The transport defect I caused, and the fix I refused
+
+The first fleet run died with `unexpected EOF` — I had asked for every tool page's
+`rendered_html` in one statement and the `kubectl exec` stream truncated a 948 KB response
+mid-string. **The tempting fix was to push the three regexes into SQL** so only booleans crossed
+the wire. I refused it: `--self-test` would then be exercising a Python mirror of a rule that
+Postgres actually applies, in a dialect that differs — a test that vouches for something the
+fleet does not run. Chunked the transport instead (8 pages a query, chosen by bisection), with a
+short-read guard that exits non-zero rather than quietly understating every count. In the
+CronJob this is all moot: it dials postgres directly.
+
+### REFUSED: "does this page contain the thing its title asserts?"
+
+`/blog/last-nights-result-underdog-shocks-the-champion.html` contains no result — it is an essay
+on why underdogs win, citing 1990 and 2019. The decisive detail is that `/news/index.html` on the
+**same site** carries "Filip Hrgovic beats Moses Itauma by stoppage", dated 31 August, which is
+precisely the story the article's title promised. The site held it; the article did not use it.
+
+That is a genuine promise-keeping defect and it is **not mechanical**. A proper-noun or date
+count fires on every well-written general piece and stays silent on a specific-sounding essay —
+it would be a check that looks like this lane's others and is not one. Recorded as refused in the
+detector's own docstring and in the register, so nobody re-attempts it as a regex. It needs a
+seat that can read; the copy lane already has the writer half.
+
+### One open ask CLOSED by owner ruling
+
+The tools-without-data criterion I was asked for on 2026-08-31 and could only propose now has a
+ruling behind it (2026-09-02): *"should contain detailed, fact checked information that prefills
+the form for the comparisons"* and *"The research agent should have researched what's on and that
+is what should have appeared on this page."* Rule B is its mechanical half. The other half — a
+criterion applied at tool-SELECTION time, so a tool whose site-supplied data set would be empty
+is never chosen — belongs in the planner and the critics, and is still open.
+
+### Still open from the CONTRIB
+
+Ask 2 (a zero-item index as a first-class experience failure) is **partly** addressed: rule B
+catches the tool-page form of it. The listing form — an index whose set is empty and which says
+nothing true about that — is not built. Ask 4 (route `content-quality-auditor` into the new-build
+path) is untouched and is a dispatch question owned elsewhere.
