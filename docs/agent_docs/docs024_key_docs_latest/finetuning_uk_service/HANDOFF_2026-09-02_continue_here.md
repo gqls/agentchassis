@@ -5,6 +5,33 @@
 delivery and the bug list — nothing in it is retracted). Technical log:
 `NOTES_finetuning_uk_service.md`, entry 2026-09-02. Owner prose: `README_where_we_are.md`.
 
+> ## ▶ DELTA 2026-09-02 (late evening) — TWO OWNER RULINGS and ONE OPEN PICK. Read this first; it supersedes two rows below.
+>
+> 1. **RFC_063 is DECIDED — option B.** Owner (verbatim): *"yes migrate the sites to handle more
+>    complexity in the tables. I think a handwritten insert is ok for this one because no new
+>    sites will use the other single page option."* Recorded in the RFC itself (appendix, commit
+>    `01a3b96ac`) with the scope of the hand-insert exception and what it does NOT waive: **the
+>    identity-conversion skip property must still be PROVEN on one site before any insert** (the
+>    reconciler's decision-1 skip against real rows, including the 17 `needs_rebuild` and 37
+>    empty-`sections` pages), and the IMG-078 caveat stands (pair cookly.uk with an asset-holding
+>    site; seed imagery from `assets`, never page enumeration). He ruled destination and
+>    mechanism, NOT batch size — staging one site first remains the lane recommendation.
+> 2. **641 gate 2 = REDRAFT, not approval. Do NOT apply 641 as written.** The owner read the
+>    inserted block and directed positive prompting: his elephant rule ("say don't think of an
+>    elephant and the llm starts thinking of elephants"), the prompt WRITTEN in the language we
+>    expect back rather than instructions about language, in terms a reader of the response would
+>    expect. He also rejected the first redraft for hardcoding structure with no example language.
+>    **Everything needed to continue is in
+>    `DRAFT_2026-09-02_641_positive_prompt_candidates.md`** (this directory): his directive
+>    verbatim, the ANSWERED question (prompt-as-demonstration, NO specimen answer), the OPEN
+>    question (which scene: reply-to-a-person / write-for-a-person / just-the-subject — three
+>    filled-in candidates, lane recommends the middle), and the mechanics the final SQL must keep
+>    (subject guard, placement, no em dashes, sibling-list render UNTESTED). The `bugs_open/443`
+>    session has been told; 641 is their file, so the redraft goes to them as a proposal.
+> 3. **So the "641 HELD — owner read only" row in the table below is superseded**: the gate is
+>    now *owner picks a framing → test-render → final text → fresh owner read of those exact
+>    words*. Stage B of the backfill plan depends on the REDRAFTED 641; Stage A is unaffected.
+
 ## What changed today
 
 **The playground booking page is built and serving** — owner decision 4, the last of the seven
@@ -141,6 +168,15 @@ decision, naming this site as the largest affected.
 
 ## Next session, in order
 
+0. **The 641 redraft is the live thread.** Present the three candidates in
+   `DRAFT_2026-09-02_641_positive_prompt_candidates.md` to the owner (the dial, in one line:
+   reply to a person / write for a person / just the subject). On his pick: test-render the
+   sibling-subject list against real loop data FIRST (untested; a silently-empty render is
+   exactly the 443 failure), then take the final text to the `bugs_open/443` session, then bring
+   the owner the exact words for a fresh read. Only then can 641 apply.
+0b. **RFC_063 execution** (owner ruled B): prove the identity-conversion skip on ONE site before
+   any insert — hand-insert is permitted but the no-mass-rebuild property is not yet measured.
+   21 files consume current-plan existence; the rebuild path of 203 deployed pages is the risk.
 1. **`bugs_open/443`** — the one query left is how many of those 186 pages actually repeat a
    component type. That converts exposure into damage and sizes the fix. Consider a `090` run: the
    claim is cross-cutting and today's filing declared first-hand verification in place of one.
