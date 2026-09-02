@@ -354,6 +354,24 @@ every title still suffixed. So the honest split is:
 > claim on this bug and the sharpest instance of the same habit: I keep reaching for a column
 > rather than the artefact, and the artefact — the stored markup — settled it in one query.
 
+### An instrument that is NOT available here: the chassis log
+
+Worth stating so the next reader does not spend the attempt. `queryresolve` logs
+`"queryresolve: resolved pages_where_type"` with a count whenever it runs, so "did the resolver
+execute during the rerender?" looks like a log question. It is not answerable retrospectively on
+this service.
+
+`[MEASURED 2026-09-02]` `kubectl logs --since=3h` over both `agent-chassis` pods returned **318
+lines spanning 14:28:27 to 14:28:47 — twenty seconds.** The rerenders ran 13:51–14:14, entirely
+outside the retained window. A grep for the resolver's line returns **0**, and that zero says
+nothing whatever about whether it ran.
+
+**The control is what saved this from being a sixth wrong claim**, and it is two lines: print the
+earliest and latest timestamp actually captured, and probe for a line that must be present
+(`orchestration` → 291, `save_page_sections` → 26 in the same corpus, so the capture is real and
+merely narrow). CLAUDE.md warns that the `build provenance` startup line "scrolls" on a busy
+service; on this one the readable window is **seconds**, not hours.
+
 ### DIAGNOSIS `c19a975d` CAME BACK **CONFIRMED** — and it explains 4 of the 14, not all of them
 
 **The confirmed mechanism:** `save_page_sections`'s SECTION COMPONENT FLOOR aborts the *whole
