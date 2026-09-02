@@ -262,3 +262,36 @@ mysterious.
 **Nothing here is on fire.** It is still three pages on three sites with a missing thumbnail. But
 this bug is now further from closing than when I picked it up on Sunday, and I would rather tell you
 that plainly than let the earlier "ready to close" stand.
+
+## 2 September, end of the day — I was too quick to doubt our own work, and the real fault is now pinned down
+
+Two corrections to what I told you an hour ago, and then a genuinely useful result.
+
+**First, I owe our earlier work an apology.** I said the fix's four demonstrations might all be
+crediting somebody else's repairs. I have now checked them properly and that was wrong: three of
+them are real, and so is a fourth on another site that repaired slightly later than we thought. Only
+one of the five — the leopardess one — was another component's doing. The fix works.
+
+**Second, I had a bad measurement in between.** I ran a count that appeared to show our fix's
+machinery had never rewritten a single listing anywhere, and I wrote that into the case file. It was
+an artefact of how I joined two tables: one part of the system replaces rows rather than editing
+them, and my query silently ignored 98% of the history as a result. What survived my filter was
+exactly the component that edits in place, so the answer looked clean and pointed at the wrong
+culprit. I caught it because a different check came back suspiciously empty, and I retracted it
+about twenty minutes later.
+
+**Now the result, which is worth the day.** The fault is specific to **blog listings**. On a tools
+page or an archetypes page, our fix works: the refresh writes the list and the pictures appear. But
+a blog listing's list is maintained by one dedicated component, and the refresh job we trigger does
+not include that component in its steps. So on a blog page the job renders the page, publishes a
+real new version, and never touches the list. That is why exactly one page in the whole estate is
+stuck, and why every summary number looked fine.
+
+**One question left, and it is a narrow one.** That dedicated blog-listing component last ran an
+hour before the pictures arrived, and has not run since — six days. Something either triggers it on
+a schedule that has stopped, or triggers it on an event we are not sending. Find that and this is
+finished.
+
+**Where we are.** The bug stays open, but it is no longer mysterious: we know which pages are
+affected, why, and what the last question is. Separately there is still the safety-net problem from
+this morning — that one belongs to another team's case and I have handed them the evidence.

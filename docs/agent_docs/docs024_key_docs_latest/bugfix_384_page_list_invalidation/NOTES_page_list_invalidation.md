@@ -538,3 +538,32 @@ writing nothing? Untested candidates: every section carried so the save is a no-
 routes around it; or `render_page`/`rerender_single_page` deploys from stored `content_data`
 independently of the save. **Anyone re-checking the §4 demonstrations must key on `page_id`** — a
 `save_page_sections` repair is invisible to a component-id join.
+
+### 2026-09-02 ~17:55Z — §4 doubt WITHDRAWN (3 of 4 genuine), and defect #1 localised to the blog-listing path
+
+Checked the other demonstrations keyed on `page_id`. **My doubt was wrong and I withdraw it.**
+finetuning's three (19:13:31 `tool-ai-readiness-checker`, 19:14:21 `tools` incl. slot `tool-list`,
+19:15:17 `model-approach-selector`) are all genuine `save_page_sections_overwrite` writes, each
+paired with slot deletes. vonc's `archetypes` repaired at 08-27 08:12:56, same way — later than the
+handoff's "pending", so that entry was optimistic in timing, not false. **Only the leopardess
+15:30:33 attribution was wrong** (that was `action:rebuild_blog_listing`).
+
+So the seam is NOT aimed at the wrong vehicle in general — I was one step too quick to generalise
+from the retracted census. It works wherever the listing write goes through `save_page_sections`.
+
+**The defect is BLOG-LISTING-specific.** `leopardessconsulting.co.uk/blog`, complete history, all
+time: `rebuild_blog_listing` 5 writes (08-24 → 08-27 21:34:20), two app writes on 08-11, and
+`save_page_sections` **exactly once, on 2026-07-12** — never since. The `page-rerender` workflow has
+no `rebuild_blog_listing` step, so on this page the item renders from stored `content_data`,
+deploys a real sha, and writes nothing. On a tool-listing page the same item repairs correctly.
+**That is why exactly one generic page fleet-wide is stuck and every aggregate reads healthy.**
+
+**Last open question:** `rebuild_blog_listing` last ran 08-27 21:34:20, **63 minutes before** the
+cards landed at 22:37, and has not run in six days. What triggers it, and why has it not fired?
+Answer that and defect #1 closes. Not investigated.
+
+**Method note for whoever picks this up.** Three of my four measurement errors this session were the
+same shape — an instrument that could only return the answer it returned (`updated_at` with no
+trigger behind it; a history join to a live table whose rows are recreated; a component-id key where
+the writer deletes and reinserts). The one that worked was keyed on the identifier the system does
+NOT recreate. **Ask what your key survives before you ask what your query returns.**
