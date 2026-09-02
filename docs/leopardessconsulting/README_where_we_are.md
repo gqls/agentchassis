@@ -1391,3 +1391,29 @@ instruction in my own shipped notes — the quick way of firing an agent by mess
 a machine that deliberately has no access to the screenshot store, so the first attempt
 reviewed nothing. The correct route (through the work queue, which spawns a properly equipped
 machine) is now the documented one, with a script. The mistake and its cost are on the record.
+
+**2026-09-02 — the protection held under fire, the reviewer's blocker is fixed, and the
+imagery story is finishing today.**
+
+Best news first: in the six days since I last wrote, the automated pass that broke your
+"Book an architecture conversation" button three times ran against your home page and your
+services page again — twice. Everything behind the hands-off markers came through untouched:
+six cards, all icons, and the button still pointing at your contact page. The protection is
+no longer a theory; it has now beaten the exact machinery that caused the damage, twice, on
+its own schedule.
+
+The design reviewer's camera problem is fixed in code: screenshots of very tall pages were
+too big for either vision model to accept (that's why the follow-up review kept failing), so
+the pipeline now shrinks any oversized screenshot to fit before sending — with tests proving
+untouched images stay byte-for-byte identical. It waits on the next fleet release; then the
+follow-up review runs and we see whether the reviewer notices the site's new faces.
+
+And the faces are done: the last five pages sharing the old photograph (FAQ, privacy, terms
+and two articles) now carry one of two quieter shared images — a rising line for reference
+pages, an abstract paragraph for articles — and the savings-estimator tool got its own gauge.
+Every image was looked at before wiring, as always. Once the live check confirms, no page on
+the site opens with the old generic photograph.
+
+One process note: the review council asked for revisions on three of my earlier submissions —
+in two cases because my summaries abbreviated what the files actually said. Fair catch,
+fixed by resubmitting with the exact text; the applied changes themselves were correct.

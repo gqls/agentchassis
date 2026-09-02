@@ -48,16 +48,17 @@ milestone `SUMMARY_2026-08-27_the_critic_exists_and_every_page_has_a_face.md`
    **The discrimination read: the sameness lead finding must be GONE, the rest substantially
    stable.** Record the result in NOTES + 018/SQ-003. If it still reports sameness, check WHICH
    pages its audit sampled before concluding anything (8 of 37, its choice).
-2. **Two archetype heroes** (content + blog) for the 5 remaining pages + wire
-   tool-automation-savings-estimator's hero (hero-tool branch now exists). Route A, eyeball,
-   merge, gate-check, safe-rerender.
+2. ~~Two archetype heroes~~ **DONE 2026-09-02** — archetype-content (faq/privacy/terms),
+   archetype-blog (both articles), gauge hero for the estimator tool; all eyeballed, merged,
+   published; census watcher confirms zero generic hero.jpg site-wide.
 3. **The critic's 8 findings** — concrete, actionable, several overlap deferred A2 pt 2
    (services carousel title hierarchy). Owner-visible quality work; pick order by effort.
 4. **403 field-level fix** (`__authored`): design is ruled IN THE BUG FILE (read it first —
    spec, home file, enforcement point all pinned). Go + tests + council + register. The 395
    lane builds the column-side instance independently.
-5. **Rotation watch**: when the design rotation visits (any day), CHECK the locked slots
-   survived and record the producer survived; run the row-count check above.
+5. ~~Rotation watch~~ **CLOSED 2026-09-02, producers NAMED**: misdirected_cta rerenders
+   COMPLETED vs services (08-31, 09-01) and index (08-31); every locked row and baseline held.
+   The locks beat the named clobberer twice, organically.
 6. Carousel A2 pt 2, after 3.
 
 ## 3. Standing cautions

@@ -3601,3 +3601,13 @@ as the wiring's first proof.
 **Archetype heroes + tool hero dispatched** (archetype_content, archetype_blog,
 hero_tool_automation_savings_estimator) — eyeball on landing, then wire the 5 remaining
 generic pages + the tool page.
+
+**2026-09-02, close: THE IMAGERY STORY IS COMPLETE.** Census at the served site: **ZERO pages
+serve generic hero.jpg** (sitemap-wide sweep, positive control: faq serves archetype-content,
+1 ref). Final state: 18 per-page heroes + archetype-content (faq/privacy/terms) +
+archetype-blog (2 articles) + the estimator's gauge — every page eyeballed before wiring.
+D2 delivered in full. ⚠ standing note: all hero wirings remain 403-class loans on the
+generic-hero pages (background_image is site_assets.hero-sourced there and a rebuild
+re-resolves it) — durable protection is the __authored work, queue item 4.
+Open externals at close: fleet roll (downscale inert until then); council verdicts on
+e5a664d9 + the three resubmitted correlations.
