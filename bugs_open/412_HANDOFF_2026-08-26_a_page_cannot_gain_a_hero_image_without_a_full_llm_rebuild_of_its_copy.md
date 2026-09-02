@@ -477,3 +477,16 @@ becoming the tier where capability lives, and six real sites are not in them.** 
 those six should GAIN plans (the structural fix) or every plan-tier capability owes a
 plan-less arm is an owner-shaped question that neither lane should answer alone;
 recorded here and in 443 so whoever works either finds both.
+
+> **§11b addendum, same night — the 186-vs-203 census gap RECONCILED (finetuning lane),
+> and it improves the canary.** Both figures are correct answers to different questions:
+> 186 = `build_status='deployed'` (currently in the deployed state), 203 = `deployed_at
+> IS NOT NULL` (has ever deployed); 186 is a strict subset, and the 17-page difference is
+> entirely `build_status='needs_rebuild'` — pages that deployed and are now flagged to
+> re-render (gaswholesalers.com 9, finetuning.uk 5, ai-agent-orchestration.com 3). For a
+> delivery mechanism that fires at render, those 17 are the HIGHEST-value part of the
+> cohort, not noise — and 9 of them sit on gaswholesalers.com, the proposed plan-less
+> canary, which therefore carries live re-render traffic to observe rather than traffic
+> anyone must induce. Use the `deployed_at` predicate for this cohort from here on; both
+> spellings and the split are recorded so the two dated figures stop reading as a
+> contradiction.
