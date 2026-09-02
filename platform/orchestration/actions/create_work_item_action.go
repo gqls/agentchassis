@@ -307,6 +307,32 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		}
 	}
 
+	// Growth posture (owner decision 5, 2026-08-31): a growth-gated item on a
+	// site whose posture is 'hold' is FILED but not DISPATCHED — flipped to
+	// the record shape (deferred, handler-less) the promoter refuses by
+	// construction, with the release recipe stamped in the spec. This action
+	// is the tool chain's second HEAD (tool-suggester files add_tool through
+	// it); the set and the two-heads argument live with
+	// datahelpers.GrowthGatedItemTypes. source 'owner-request' bypasses: the
+	// owner asking for a tool is not growth to refuse. Fail-open on a read
+	// error, loudly — an opt-in hold must not stop fleet growth by breaking.
+	if datahelpers.GrowthGateApplies(itemType, source) {
+		if posture, perr := datahelpers.SiteGrowthPosture(ctx, params.DB, siteID.String()); perr != nil {
+			logger.Warn("create_work_item: growth posture read failed — treating as open", zap.Error(perr))
+		} else if posture == datahelpers.GrowthPostureHold {
+			status = "deferred"
+			specMap["growth_held"] = true
+			specMap["growth_handler"] = handlerAgent
+			specMap["growth_release_recipe"] = "owner release: UPDATE site_work_items SET status='detected', handler_agent=spec->>'growth_handler' WHERE id='<this row>'"
+			handlerAgent = ""
+			summary = "[growth held] " + summary
+			// A held predecessor closing is a hold ending, not a handler
+			// failing — the anti-churn strikes must not arm (bugs_open/033's
+			// close-feeds-strikes mechanics, same reasoning as record mode).
+			recurrenceExpected = true
+		}
+	}
+
 	specJSON := "{}"
 	if len(specMap) > 0 {
 		b, err := json.Marshal(specMap)

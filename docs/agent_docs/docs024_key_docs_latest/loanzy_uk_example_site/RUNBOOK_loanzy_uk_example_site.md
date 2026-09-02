@@ -317,3 +317,20 @@ because held_detail reports every REFUSED row and this one was never scored.
    component (e.g. guide-list) holding the url needs its own treatment.
 5. Re-fire 216 with the refused ids. Acceptance stays two-part: 404 now AND still-404 after
    the next ~08:0x/20:0x refresh with zero fresh page_rerender rows for the retired pages.
+
+## Growth posture — the owner's "this site is ready" switch (WDS-020, built 2026-09-02)
+Go is inert until the next roll; the key is read from sites.settings, so setting it costs
+nothing before the roll and starts working the moment the binary lands.
+```sql
+-- hold growth on a site (tool chain files held; audit growth is already record-mode):
+UPDATE sites SET settings = jsonb_set(COALESCE(settings,'{}'::jsonb),
+  '{maintenance_profile,growth_posture}', '"hold"') WHERE domain='<domain>';
+-- reopen:
+UPDATE sites SET settings = settings #- '{maintenance_profile,growth_posture}' WHERE domain='<domain>';
+-- what is held, and the release verb (recipe is also stamped on each row's spec):
+SELECT id, item_type, summary FROM site_work_items
+ WHERE spec->>'growth_held'='true' AND status='deferred';
+```
+Gotcha: the hold FILES items (deferred, handler-less) rather than skipping them — an empty
+result above on a held site means the machinery has not WANTED to grow it, not that the
+switch failed. `source='owner-request'` rows bypass by design.

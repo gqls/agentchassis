@@ -189,3 +189,34 @@ separate register files).
 - **sources:** internal/core-manager/admin/site_admin_handlers.go `HandleRequestChangesWorkItem`; internal/core-manager/api/server.go workItemGroup; frontends/admin-dashboard/src/App.tsx `handleRequestChanges`; docs024_key_docs_latest/dispatcher_thread/{DISPATCHER_README_start_here.md,poll_open_critiques.sh}
 - **relations:** WDS-001 (state machine — this type parks at triaged with no handler by design); hitl register (approve/resolve verbs); bugs_open/279 (the unrouteable-type trap this inverts); bugs_open/420 §the first paid build's critique storm
 - **verify-later:** after the roll: file one critique via the button, watch the dispatcher route it end-to-end; check the stale reaper's predicate against an open owner_critique row (risk named in the council submission).
+
+### WDS-020 — per-site growth posture: "this site is ready" holds the tool chain at its two heads
+
+- **status:** built 2026-09-02 (Go — inert until the next roll); no site holds yet. Opt-in,
+  unsafe side OFF (absent key = today's behaviour), zero live consumers until an owner sets
+  it — RFC_022's not-architecture-scope shape, normal council gate.
+- **what:** `sites.settings->'maintenance_profile'->>'growth_posture' = 'hold'` makes the
+  two HEADS of the tool growth chain file their items in the RECORD SHAPE — born
+  `status='deferred'`, `handler_agent=''` (the promoter excludes a handler-less row from its
+  scored CTE before any door runs), summary prefixed `[growth held]`, spec stamped
+  `growth_held/growth_handler/growth_release_recipe`, `recurrenceExpected=true` so a held
+  predecessor closing never feeds the anti-churn strikes. FILED, not skipped — the signal
+  is kept; release is a one-UPDATE human verb from the spec's own recipe. The heads:
+  `check_missing_tools` (files `evaluate_tools`) and `CreateWorkItemAction`
+  (tool-suggester files `add_tool` through it); everything downstream (tool-generator /
+  tool-deployer guide pages) runs only as a consequence of an add_tool executing, so no
+  downstream guard exists ON PURPOSE. `source='owner-request'` bypasses — the owner asking
+  is not growth to refuse. Audit-seat growth types have filed as record-mode verdicts since
+  migration 624; that half needed nothing. Fail-open on a posture read error, loudly.
+- **why it exists:** owner decision 5 of 2026-08-31; worked cases apis.uk (sprouting
+  pages), farmerinsurance.uk (7 unresearched tools, culled 08-31), agritec.uk (ungated
+  growth EXECUTED — 5 calculators live in ~26h, 0 sources; the same site's evidence-first
+  route fenced+reconciled the same week — `loanzy_uk_example_site/CONTRIB_2026-08-31_agritec…`).
+- **sources:** platform/orchestration/datahelpers/growth_posture.go (`SiteGrowthPosture`,
+  `GrowthGateApplies`, `GrowthGatedItemTypes`); discovery_checks/check_missing_tools.go;
+  actions/create_work_item_action.go; tests: create_work_item_growth_posture_test.go,
+  check_missing_tools_test.go (`TestMissingTools_GrowthHold_*`); design + producer census:
+  loanzy_uk_example_site/PLAN_2026-08-25_…_switch_the_loop_back_on.md ADDITION 2026-08-31.
+- **relations:** the record shape and its refusal proof are RFC_056 / filing_mode's
+  (write_audit_findings_filing_mode_test); WDS-017/018 are the neighbouring write/promoter
+  doors; set/unset recipe in loanzy RUNBOOK ("growth posture").

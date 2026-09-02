@@ -85,6 +85,7 @@ var computedHandlerAgentSites = map[string]string{
 	"check_phantom_internal_links.go":   "routeBySurface() — per-surface routing table (page-build-handler / rerender-pages / …)",
 	"check_unfulfilled_image_prompt.go": "classifyPromptKey() — per-prompt-purpose routing table (image-build-handler / asset-deployer)",
 	"check_literal_markdown.go":         "transformRouteSlot() — regenerability routing (page-rerender / section-editor), bugs_open/277 §5",
+	"check_missing_tools.go":            "growth posture (owner decision 5, 2026-08-31) — 'tool-suggester', or '' when the site holds growth (a held row is deliberately handler-less; datahelpers.GrowthGatedItemTypes)",
 }
 
 // knownHandlerAgents is every agent type a check may route at. Snapshot of live
