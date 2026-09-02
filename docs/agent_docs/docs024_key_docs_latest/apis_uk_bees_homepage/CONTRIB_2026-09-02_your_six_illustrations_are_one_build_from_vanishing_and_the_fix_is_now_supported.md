@@ -99,13 +99,41 @@ image your position-2 section is serving today, and so on down. Check it against
 list before running: I matched by position, and your `PLAN_2026-08-26_per_section_subjects.md` is
 the document that knows whether position and subject still agree.
 
-**Verify at the artefact, not at the row.** After a subsequent sections re-render:
+**Verify at the artefact, not at the row — and fire the RIGHT KIND of re-render, or you will read
+a no-op as a failure.**
+
+> ⚠ **CORRECTED a few hours after filing (2026-09-02)**, prompted by a `render_guardian` note on a
+> peer lane's council round. My first version of this step said only "after a subsequent sections
+> re-render", which is not specific enough to be safe. **Only two reasons re-resolve.** From
+> `rerender_page_sections_action.go`'s own wiring header:
+>
+> ```
+> check_rerender_mode (conditional: reason==image_landed OR reason==section_data_resolved)
+>     -> rerender_sections -> check_escalated -> save_sections -> render_page -> deploy
+> else_step (no/other reason) -> render_page      (unchanged assemble-only path)
+> ```
+>
+> The assemble-only path **redeploys the stored HTML unchanged**. Your six images are already in
+> `content_data`, so that path serves exactly what it serves today — identical bytes whether the
+> new plan rows engaged or did nothing at all. **File it with
+> `spec.reason='section_data_resolved'`** (an asset landing files `image_landed` for you), and
+> check which you actually got before concluding anything:
+> `SELECT spec->>'reason' FROM site_work_items WHERE id='<the item>';`
 
 ```bash
 curl -s https://apis.uk/index.html | grep -o 'src="[^"]*illustration[^"]*"' | sort
 ```
-Six distinct paths, unchanged from today, is the pass. The point of the change is that they stay
-that way through the next content write — which is the thing you cannot see on the day.
+
+Six distinct paths, unchanged from today, is the pass **for the re-render** — and it is a weak
+pass, for the reason above: it shows only that nothing broke.
+
+**The decisive test is the one that used to destroy them.** Fire a `content_rewrite` at the page
+and run the same curl afterwards. That is the SAVE path — the one that drops non-llm keys — and it
+is the only check that distinguishes "durable now" from "still sitting where they always were".
+`LANDMINES.md` states the general form: a key can survive re-renders for months and die on the
+first real regeneration, and since PBP-039 **the build path's carry-forward is the only thing
+making that lossless** — which is precisely the carry your six repeated `slot_name`s switch off.
+Plan rows replace that dependency, because the value is re-derived rather than carried.
 
 ## 5. What NOT to do
 
