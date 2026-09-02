@@ -523,3 +523,25 @@ second dispatch after ~19:00Z. **Spot-checked myself** `[MEASURED 2026-09-02 ~19
 `GamesDesign.co.uk` 30/5/3/15; the button's href is `/games/p2p-networking/index.html`. No
 further dependency from their tree on the old one. **Owner instruction "tell gamesdesign.co.uk to
 stop using our name": DONE and verified at both artefacts.**
+
+---
+
+## 2026-09-02, ~19:25Z — owner rulings on the four open items, executed
+
+Owner: no privacy/terms pages · yes favicon · cancel the article slot · llm-cost-calculator "not on
+this site unless the story is about using LLMs for games design and playing games".
+
+- **Privacy/terms:** nothing to do. Not planned, not linked, ruled unnecessary.
+- **Article slot:** `SEED_2026-09-02b_…` applied — `needs_page` → `cancelled` (reason in result),
+  page `article` → `status='archived'` (never deployed, in nav nowhere; 266's guard now refuses
+  any deploy). `site_plan_pages` row deliberately left — the plan is written whole and this lane
+  will not hand-edit a versioned plan. **WATCH:** the next rotation must NOT re-file work at the
+  archived page; if it does, that is `bugs_open/356`'s class (fixed in tree 08-22; whether the
+  roll carried it is a stamp check).
+- **Favicon:** `needs_brand_head_assets:favicon` filed by hand in the `undeployed_assets` check's
+  exact shape (handler `asset-deployer`, pipeline build, priority 60, dedup key so the check will
+  not twin it). `derive_brand_head_assets` resizes `logo.png` (200) — deterministic. Fleet record
+  for the type: 22 complete / 44 unresolved / 10 failed — not a sure thing; monitor armed.
+- **llm-cost-calculator.html:** it is on **ai-agent-orchestration.com**, not this site — I had
+  listed it without saying so loudly enough. Relayed the owner's PRINCIPLE to AI page 3 with that
+  caveat; on its face the principle points at un-archive-and-build there. Their call / owner's.
