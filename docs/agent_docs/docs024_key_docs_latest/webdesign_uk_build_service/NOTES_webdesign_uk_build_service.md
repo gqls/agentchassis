@@ -7980,3 +7980,17 @@ lane's per the ownership ruling.
 - Watcher armed on the item (30 s poll → terminal state → row read: excerpt key, title, decks in
   `rendered_html`, history keyed on `page_id`, `pages.deployed_at`). Components lane messaged
   with the id; their step 2 (rerender on the new baseline) waits for my "new shape landed".
+
+## 2026-09-02 (21:35Z, clock-read) — the 21:30:07Z re-insert explained: the components lane's SECOND rerender, and it answers a second question
+
+- Work item `8f2b6472` (created_by `bugs_open/425`, `page_rerender`, reason
+  **`section_data_resolved`**, summary "does reason=section_data_resolved differ from
+  template_changed?"), filed 21:26:55Z, complete 21:30:18Z; all four index instances
+  DELETE/re-INSERTed 21:30:07Z (new ids `bc36864e`/`9e643633`/`c396811e`/`27215518`), 8 history
+  rows keyed on `page_id` at 21:30:07Z, `pages.deployed_at` 21:30:16Z. My 21:34Z baseline read
+  that instance: `has_excerpt` false, title suffixed. **So the other reason on the same
+  `rerender_page_sections` branch produces the old shape too** — the two reasons the HOLD's header
+  called interchangeable are interchangeable in failure as well. Not this lane's mystery any more;
+  the components lane owns the reading. (Also: the served index will show THIS render after the
+  ~21:52Z tick unless `c5614b00` lands first — either way the 420 discriminator is
+  `pages.deployed_at` vs the served `last-modified`.)
