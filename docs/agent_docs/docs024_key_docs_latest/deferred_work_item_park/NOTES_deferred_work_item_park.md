@@ -814,3 +814,76 @@ Separately: `sql_for_agents/052_build_pipeline_trigger.sql` — the seed — sti
 query with no `lock_except_item_ids`. A re-seed would silently revert `633`. It is not in
 `schema_migrations` and did not fire here. `[UNVERIFIED]` whether any path re-applies seeds; stated
 as an open question, not a finding.
+
+## 2026-09-02 — the standing residual is CLOSED IN CODE: migration 690 refuses an untraceable park
+
+Picked this up on the owner's instruction to "fix and test the trigger". A week had passed, so I
+re-checked ownership first: nobody had built it, nobody else had touched the lane.
+
+### The census is what designed the guard, and it contradicted my starting assumption
+
+I expected to require `parked_by`/`parked_reason` on every write of `status='deferred'`. **That
+would have been a fleet-breaking mistake**, and the write-history census caught it before I wrote a
+line of SQL:
+
+| shape | rows | with provenance |
+|---|---|---|
+| `deferred` + EMPTY handler — the `bugs_closed/077` shelf | **2,656** | **0**, correctly |
+| `deferred` + NAMED handler — this bug's shape | **257** | 87, **170 without** |
+
+The shelf class is a *different mechanism* with five live producers, deliberately provenance-free.
+The discriminator was already written down in the codebase — `write_audit_findings_action.go:95`
+warns against *"the other shape — `deferred` WITH a named handler"* — and this bug's own title says
+"with a named handler". **I had read that title many times and still nearly built the wrong guard.**
+[[census-the-write-history-not-the-bug-file]] is the lesson, and it earned its keep here.
+
+### Two more things only the source gave me
+
+**`park_work_items()` stamps `result`, NOT `spec`** (621:147-154), while migration `389` stamps
+`spec`. A guard reading only `spec` would have **refused the sanctioned verb** — and reading only
+`spec` is precisely this lane's §8.1 misstep, the one that called 62 stamped rows "no trace of any
+kind". I very nearly repeated my own recorded error, in the fix for the bug that recorded it.
+
+**The two files that name `deferred` beside a handler are READERS, not writers.**
+`work_item_failure_ladder.go` has it in a guard list of statuses a write must NOT overwrite;
+`work_item_retraction.go` reads it to count parks being drained. Had I grepped and stopped at the
+hit, I would have concluded there were live writers and built something far more cautious.
+
+### The dry run found a defect in my TEST, not my guard
+
+First dry run failed on CHECK constraint `swi_no_handlerless_promotable`: an empty `handler_agent`
+cannot be in `triaged`/`approved`/`claimed`. My assertion staged a shelf row at `triaged` and
+updated it to `deferred` — **a shape production can never produce.** Shelf rows are *born*
+deferred. Corrected, and the correction made the test more faithful, not less.
+
+### The mutation proof is the part that makes the clean run mean anything
+
+Three clean dry runs (COMMIT swapped for ROLLBACK): 6 assertions, exit 0, nothing installed. Then
+two deliberate breakages, each caught by a **different** assertion:
+
+- guard made inert → assertion 1, *"an untraceable park was ACCEPTED"*, exit 3
+- shelf exemption removed → assertion 4, *"the SHELF class was REFUSED"*, exit 3
+
+**The second mutation is the one that matters.** A one-sided "did it refuse?" test passes a guard
+that refuses everything — which would have broken 2,656 live rows. Same two-sidedness this lane
+learned the hard way on 08-26 with the blind `LIKE '%locked_at%'` check.
+
+### ⚠ NOT APPLIED — and the reason is a permission boundary, not a doubt
+
+The production apply was **blocked by the session's own harness classifier**. I did not work around
+it. `schema_migrations` has no `690` row and the trigger is not attached, so **the fix protects
+nothing today**. Everything up to the apply is done: committed `a027bf03b`, council SUBMITTED
+`dcd2b3c9`, registered **WII-037**, recipe in `396` §6f.
+
+⚠ **And a trap found while looking for the apply path:** `run-migrations.sh --apply` takes EVERY
+pending file — **271 of them today** — so using it would sweep ~20 other lanes' migrations into
+production. The scoped path is `psql -f` by hand, then `--record-only`. Also noticed `668` is
+duplicated on disk right now (two different files, same number): the documented same-number trap,
+live.
+
+### Register corrections made in passing
+
+WII-034 and WII-036 both stated the trigger residual as open, and WII-036's status still said the
+config half was HELD and the scheduler proof unobtained — both untrue since 08-26. Council seats
+read the register as ground truth, so all five stale claims were struck through and corrected in
+place. WII-036 was also **missing from the concept index entirely**; added, with WII-037.

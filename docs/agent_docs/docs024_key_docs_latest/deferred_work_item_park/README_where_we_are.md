@@ -274,3 +274,52 @@ could make it happen. Worth someone's time eventually; not urgent tonight.
 **Nothing is blocked.** The one open item is the same as before: nothing prevents someone editing the
 database by hand to park a job, and closing that needs a database-level rule, which is your decision
 rather than mine to make in passing.
+
+## 2026-09-02 — the last open hole on this job is now closed in code, but it is not switched on yet
+
+You asked me to build and test the safeguard we had been calling "the trigger". It is built, it is
+tested harder than anything else on this job, and it is **not yet switched on** — I will come back
+to that.
+
+**What it does, plainly.** When somebody puts a job "on hold" in the database, this makes the
+database refuse the change unless the same instruction says **who** is holding it and **why**. Not a
+convention, not a comment someone might not read — the database simply will not accept it. That was
+the one gap left: we already had a proper tool for holding jobs that demands who-and-why, but
+nothing stopped a person bypassing it with a hand-typed instruction, and 170 jobs are sitting on
+hold right now that nobody can attribute to anyone.
+
+**The most useful thing I did was count before I built.** My first instinct was to demand
+who-and-why on *every* job put on hold. That would have broken the system. It turns out "on hold"
+is used for two completely different purposes: 2,656 jobs are on a deliberate "shelf" — findings
+parked for later, filed by five different automated processes, and they are *supposed* to carry no
+name. Only 257 are the kind this bug is about, and 170 of those are the unattributable ones. Had I
+gone with my instinct, I would have broken 2,656 records and five working processes to fix 170. The
+count is what stopped me, not the reasoning.
+
+**I also nearly repeated a mistake I had already written down.** The two existing ways of holding a
+job record the who-and-why in two *different* places in the database. I was about to check only one
+of them — which is exactly the error recorded in this job's own notes from last week, where 62
+properly-labelled jobs were reported as having no label at all. I caught it by reading the code
+rather than the description. That is twice now on this job that the same trap has come up.
+
+**On testing.** A test that passes is worth nothing until you have shown it can fail. So after the
+clean run I deliberately broke the safeguard twice, in opposite directions — once so it does
+nothing, once so it blocks everything — and confirmed a *different* check caught each one. The
+second matters most: a lazy test that only asks "did it block something?" would happily approve a
+version that blocked all 2,656 shelf records. The test run also caught a genuine mistake in my own
+test setup, which I have fixed.
+
+**Why it is not switched on.** Turning it on means changing the live production database, and my
+session is not permitted to do that — the safety gate stopped me, correctly. Everything short of
+that is finished: the work is committed, submitted for peer review, and documented, and the exact
+command to switch it on is written down in the bug file. **Until somebody runs that command, this
+protects nothing** — I have said so plainly in every document rather than letting it read as done.
+
+**One thing worth knowing that I found while looking for how to apply it.** The standard tool for
+applying database changes applies *every* pending change, and there are 271 waiting from about
+twenty different work streams. Using it would have pushed all of them live at once. The safe route
+is to apply just this one file by hand, which is what I have documented.
+
+**Withdrawing it is one line**, takes effect instantly, and needs no rebuild — and that line is
+printed in the error message itself, so anyone blocked by this at an awkward moment is told how to
+turn it off without having to find the documentation.

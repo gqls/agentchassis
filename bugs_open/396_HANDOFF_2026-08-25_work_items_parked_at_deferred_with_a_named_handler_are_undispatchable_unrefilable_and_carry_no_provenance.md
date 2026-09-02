@@ -351,6 +351,97 @@ reason to delay their apply:
 **Current handoff:** `docs/agent_docs/docs024_key_docs_latest/deferred_work_item_park/HANDOFF_2026-08-26b_continue_here.md`
 
 
+## 6f. ✅ 2026-09-02 — THE STANDING RESIDUAL IS CLOSED IN CODE: migration `690` refuses an untraceable park. ⚠ BUILT AND TESTED, **NOT YET APPLIED**.
+
+**§6 candidate 1 is built.** *"A park writes parked_by + parked_reason or it does not happen —
+enforced where the write happens, not by convention."* That enforcement is now
+`trg_site_work_items_park_provenance`, a `BEFORE INSERT OR UPDATE` trigger created by
+`docs/agent_docs/sql_for_agents/690_refuse_untraceable_park.sql` (+`_ROLLBACK`, +`_VERIFY`),
+committed at `a027bf03b`. Register entry **WII-037**. Council **SUBMITTED**
+`dcd2b3c9-cf38-4887-803a-9df6e27dcefe`.
+
+> ### ⚠ IT IS NOT APPLIED. `schema_migrations` has NO `690` row and the trigger is NOT attached.
+> The apply is a live schema change and was gated in the building session. **Today this protects
+> nothing.** Recipe in §6f's last block. Do not cite WII-037 as a control until you have checked.
+
+### What it refuses, and the scope that keeps it safe
+
+It refuses a **transition into** `status='deferred'` on a row with a **NAMED** `handler_agent`
+unless the same write carries **both** `parked_by` and `parked_reason`, in **`spec` OR `result`**.
+
+**The scope was set by a census, not by this bug file, and that is the whole design.**
+`[MEASURED 2026-09-02]`
+
+| shape | rows | with provenance |
+|---|---|---|
+| `deferred` + **EMPTY** handler — the `bugs_closed/077` shelf, **legitimate** | **2,656** | **0**, and correctly so |
+| `deferred` + **NAMED** handler — this bug's shape | **257** | 87 (all `migration_389`), **170 without** |
+
+The shelf class is a different mechanism used by five live producers (`write_audit_findings_action`
+`filing_mode='record'`, `capability_gap`, `discovery_checks/remit.go`, `check_palette_contrast`,
+`check_content_duplication`, `check_missing_tools`, `cmd/verifier-remit-check`). **A guard requiring
+provenance on every `deferred` write would have refused all 2,656 and broken all five.** The
+codebase already named the discriminator — `write_audit_findings_action.go:95` warns against *"the
+other shape — `deferred` WITH a named handler"*.
+
+### Three design points that only came from reading the source
+
+- **Provenance is accepted in EITHER `spec` OR `result`.** `389` stamps `spec`; `park_work_items()`
+  stamps `result`, deliberately (WII-034: `refreshOpenWorkItemSQL` replaces `spec` wholesale).
+  **Reading only `spec` is §8.1's misstep** — the one that reported 62 fully-stamped rows as
+  carrying no trace at all. A guard repeating it would have refused the sanctioned verb.
+- **It fires only on the TRANSITION in**, so the **170** legacy unstamped rows stay writable and
+  `work_item_retraction.go` can still drain them.
+- **No live Go path can trip it** `[MEASURED 2026-09-02]`: every Go writer of `deferred` pairs it
+  with an empty handler and `write_build_items_routing_test.go` asserts it; the two files naming
+  `deferred` beside a handler (`work_item_failure_ladder.go`, `work_item_retraction.go`) are
+  **readers**, one of them a guard list of statuses a write must NOT overwrite.
+
+### The test is mutation-proved in both directions
+
+Clean run: **6 assertions, exit 0**, entirely inside `ROLLBACK`. Then two deliberate breakages,
+each caught by a **different** assertion:
+
+| mutation | caught by | message |
+|---|---|---|
+| guard made inert | assertion 1 | *"an untraceable park was ACCEPTED"* — exit 3 |
+| shelf exemption removed | assertion 4 | *"the SHELF class was REFUSED"* — exit 3 |
+
+**A one-sided "did it refuse?" test would have passed the second while breaking 2,656 rows.** The
+migration's post-check **induces** the refusal and aborts before `COMMIT` if it does not fire —
+a verify block of bare `SELECT`s cannot stop a `COMMIT`.
+
+⚠ **The dry run also found a real defect in my own test:** CHECK constraint
+`swi_no_handlerless_promotable` forbids an empty `handler_agent` in `triaged`/`approved`/`claimed`,
+so a shelf row is **born** `deferred` and can never be updated into it. The first draft staged one
+at `triaged` and was rejected.
+
+### To apply it
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/690_refuse_untraceable_park.sql
+./scripts/migration/run-migrations.sh --record-only 690_refuse_untraceable_park.sql --note '<what you checked>'
+# then the behavioural proof, which ends in ROLLBACK:
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/690_refuse_untraceable_park_VERIFY.sql
+```
+
+⚠⚠ **Do NOT use `run-migrations.sh --apply`.** `[MEASURED 2026-09-02]` **271 files are pending** and
+it takes **every** one, sweeping ~20 other lanes' migrations into production. `668` is also
+duplicated on disk right now (two different files, same number) — the documented same-number trap,
+live today.
+
+**Withdrawal is one statement, live immediately, no roll:**
+`DROP TRIGGER trg_site_work_items_park_provenance ON site_work_items;` — and the refusal message
+carries that line as its `HINT`, so whoever is blocked by it is told how to withdraw it.
+
+### What is still not closed
+
+It enforces **presence, not truth** — a false `parked_by` still passes. And it cannot attribute the
+**170** existing rows; that information was never written and nothing can recover it.
+
+
 ## 6b. ⚠ SUPERSEDES §6a's candidate 1 — the fix is the EXISTING site lock, not a park verb (2026-08-25, after council `ed821065` REVISE)
 
 **§6a said the primary fix was a park verb. That was wrong, and the council's `prior_art` seat

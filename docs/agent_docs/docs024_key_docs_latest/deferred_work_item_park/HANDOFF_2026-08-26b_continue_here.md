@@ -1,3 +1,12 @@
+> ## ⛔ SUPERSEDED 2026-09-02 — read
+> `docs/agent_docs/docs024_key_docs_latest/deferred_work_item_park/HANDOFF_2026-09-02_continue_here.md` INSTEAD.
+>
+> Kept for the record; everything in it was true when written. What changed: the standing residual
+> this file lists under "WHAT IS NOT DONE" — *nothing stops a raw UPDATE SET status='deferred'* —
+> is now **closed in code** by migration `690` (register **WII-037**). ⚠ That migration is BUILT and
+> TESTED but **NOT YET APPLIED**, so the hole is still open in production. The new handoff leads
+> with the apply recipe.
+
 # HANDOFF 2026-08-26b — `bugs_open/396`: everything is LIVE and RE-PROVEN on the new chassis `v1.0.1345`. Nothing is blocked. One contribution is out to another lane.
 
 **Supersedes `HANDOFF_2026-08-26_continue_here.md`** (same directory), which is kept for the record.
