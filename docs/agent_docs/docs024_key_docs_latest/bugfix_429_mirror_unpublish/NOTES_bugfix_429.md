@@ -104,3 +104,23 @@ Adjudication of each advisory, with the measurement where one was asked for:
   HEAD 0ba331483 builds" (HEAD by then already carried other lanes' commits on
   top of b60d66e3c, so the widened ObjectStore compiles against the WHOLE
   shared tree, not just the packages the fix touched).
+
+## 2026-09-02 ~21:15Z — the roll landed; convergence watch armed
+
+- v1.0.1355 (stamp `0d2feee2f`) carries the fix: `git merge-base --is-ancestor
+  b60d66e3c 0d2feee2f` exits 0 `[MEASURED 21:13Z]`; delivery lane verified the
+  same ancestry on both chassis and image-generator-adapter pods (20:56/57Z).
+- Pre-convergence state as expected: contact.html still 200 at ~21:0xZ
+  (delivery lane's probe, index 200 control) — correct until boxingonline's
+  first post-roll reconciler tick (~21:52Z by their three-tick observation
+  [INFERRED, their marker]).
+- ⚠ **Shared kubeconfig token EXPIRED ~21:1xZ** (both sessions Unauthorized —
+  the 3-day-expiry landmine; owner refreshes). Consequences: the `th2:`
+  published_hash flip is UNREADABLE until refresh (corroboration only — the
+  close criterion is served bytes); rotation order unconfirmable, so if
+  noted.co.uk is ahead in the queue, boxingonline converges on the SECOND tick
+  (~22:52Z) — a 200 after one tick is not a failure signal; two
+  boxingonline-serviced ticks with 200 would be.
+- My watch: served pair every 4 min (contact + index, cache-busted), exits on
+  404/200, alarms on any other non-200/200 shape (over-deletion can't hide).
+  Delivery lane runs the same pair and strikes their §1.2 on the 404.
