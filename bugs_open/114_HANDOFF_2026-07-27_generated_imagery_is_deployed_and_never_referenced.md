@@ -678,3 +678,84 @@ owns them. And per IMG-074's own note, several of the eight components declaring
 because a planned illustration for that exact section exists and is active.
 
 The re-runnable query is in `docs024_key_docs_latest/inline_guide_imagery/RUNBOOK_inline_guide_imagery.md`.
+
+---
+
+## CONTRIB 2026-09-02 (editorial_design_uplift) — the population is **189 pages across 21 sites**, and the obvious component-level remedy is WRONG (I applied it and rolled it back)
+
+Arrived here from the opposite end: the owner's second boxingonline review said *"there is not
+enough imagery in any of the pages"*. Six `/blog/` articles, each with a generated, deployed,
+HTTP-200 `content_hero` asset, and each serving exactly one `<img>` — the logo. That is this
+bug's opening sentence, three sites and five weeks later.
+
+### 1. The size of it, which I do not think this file has had
+
+`[MEASURED 2026-09-02]` Pages holding an **active** `content_hero` asset under the
+`ContentHeroKey` convention, with **no component on the page that could render it** (no field
+sourced `site_assets.hero` or `site_assets.image`):
+
+> **189 pages across 21 sites.**
+
+webdesign.co.uk 65 · loanandmortgagecalculator.co.uk 17 · finetuning.uk 12 · gamesdesign.co.uk 11
+· leopardessconsulting.co.uk 7 · robot-hands.com 7 · loancash.co.uk 7 · vonc.com 7 · idea.uk 7 ·
+dartsonline.com 7 · **boxingonline.com 6** · lampenkap.com 6 · (tail continues)
+
+```sql
+WITH hero_comp AS (SELECT id FROM content_components WHERE is_active AND EXISTS (
+      SELECT 1 FROM jsonb_each(COALESCE(input_schema->'fields',input_schema->'properties')) f
+       WHERE f.value->>'source' IN ('site_assets.hero','site_assets.image')))
+SELECT s.domain, count(*) FROM pages p JOIN sites s ON s.id=p.site_id
+  JOIN assets a ON a.site_id=p.site_id
+                AND a.asset_key='content_hero_'||replace(p.name,'-','_') AND a.status='active'
+ WHERE NOT EXISTS (SELECT 1 FROM page_components pc JOIN hero_comp hc ON hc.id=pc.component_id
+                    WHERE pc.page_id=p.id AND pc.build_status IS DISTINCT FROM 'removed')
+ GROUP BY 1 ORDER BY 2 DESC;
+```
+
+### 2. ⚠ THE PART THAT WILL SAVE THE NEXT READER A ROLLBACK
+
+The obvious fix, staring at six unreferenced images, is *"the article component cannot display an
+image — give it one"*. **I did that. It passed two council rounds and eleven reviewer seats. It
+was wrong, and I rolled it back 69 minutes after applying it.**
+
+`[MEASURED 2026-09-02]` **292 of the 301 pages carrying `article-body`, across 31 sites, ALSO
+carry a `hero` component whose `background_image` reads the same `site_assets.hero` key.** A new
+image field on `article-body` sourced from that key renders **the same image twice on 97% of the
+population** — hero at the top of the page, the identical file again at the top of the article.
+That is exactly the defect the `inline_guide_imagery` lane documented on `vonc.com/about` in the
+CONTRIB above, and it is what my change would have industrialised.
+
+The pages that motivated it are the **nine-page minority with no hero component at all**. I
+measured the motivating case and generalised it to the population. Migration `686` is in the repo
+with a DO-NOT-APPLY header and a ledger row deliberately left in place so `--apply` cannot replay
+it; nothing was ever rendered with it (0 of 301 instances acquired the field). Full account:
+`WRONG_CALLS.md`, *generalised-a-remedy-from-the-motivating-case-to-the-population*.
+
+### 3. The reframe, which I think is this bug's actual shape
+
+Healthy pages are not missing a capability. They render imagery through the **`hero` component
+fed by a page-scope `site_plan_imagery` row** — verified at the artefact:
+`agritec.uk/blog/insect-bioconversion.html` serves
+`background-image: …url('/assets/images/hero-bsf.jpg')`, has exactly 1 page-scope plan hero row,
+and its only `<img>` is the logo. The `inline_guide_imagery` lane measured the same shape from
+their side: **330 of 432 active guide/blog pages carry a hero component.**
+
+So the ~189 are pages the **planner composed without a hero and without a page-scope plan row** —
+and `ContentHeroKey` exists *precisely* to generate a per-article image for **"a page the planner
+gave no hero of its own"** (`imageryplan.go:221-233`). **The system correctly detects the
+composition gap, generates an image to fill it, and then has nowhere to put the result.** The
+defect is upstream of every render-end fix: *why does the planner compose a blog/guide page with
+no hero when 330 of 432 peers have one?*
+
+### 4. Link to `bugs_open/412`, which I think explains the persistence
+
+412 (*"a page cannot gain a hero image without a FULL LLM REBUILD of its copy"*, OPEN, unowned)
+says the only route from "no hero image" to "hero image" forces a full copy regeneration, which
+sites under copy review will not accept. **If that is right, it is why these 189 stay orphaned
+even once someone notices** — the cheap remedy is unavailable and the available one is refused.
+Whoever picks up either should read the other; I have not verified 412's mechanism first-hand and
+am not asserting it, only pointing at the join.
+
+**Not dispatched anywhere.** No site touched, no work item filed — both remedies are visible
+changes on live pages and belong to their owners, and the composition question belongs to whoever
+owns the planner.
