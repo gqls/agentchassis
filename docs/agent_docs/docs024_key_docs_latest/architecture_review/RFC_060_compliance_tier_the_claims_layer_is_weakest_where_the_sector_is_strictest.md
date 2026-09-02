@@ -10,7 +10,7 @@ moves the target, so the answer is routed here rather than built: it changes wha
 GUARANTEES for a class of sites, which is the 2026-07-29 §1 trigger.
 
 **Every figure below carries the date it was counted** (owner ruling 2026-08-22) and every one is
-re-derivable from the commands in §7.
+re-derivable from the commands in §6.
 
 ---
 
