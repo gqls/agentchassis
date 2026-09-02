@@ -240,3 +240,36 @@ independently before recording them:**
   either of us was looking at. **Still not acting** — same gate as before
   (`gamedesign.uk`'s `palette_source`), confirmed by them directly against the
   live pipeline (`needs_strategy` triaged, composition not yet reached).
+
+## 2026-09-02 (later) — `gamedesign.uk`'s test landed: diagnosis CONFIRMED. Then I found candidate 1 is wrong anyway
+
+`palette_source = mission_hint`, doubly discriminated (lineage string AND the
+landed hex colours matched the hand-seeded values byte-for-byte, not the
+classifier's near-identical rung-2 values). 438's mechanism account is right.
+`theme kits` handed the decision to me explicitly ("your call from here").
+
+**Before picking a candidate, traced what "repoint" would actually do — and it
+doesn't do what the file's own §7 verification step claims.** `extractPaletteSignal`
+checks `mission["preferred_palette"]` as a structured map; `082` only ever sends
+free text (`--mission`/`--mission-file` → `{"text": "..."}"` under `mission_brief`
+— grepped the whole script, no structured alternative exists). So repointing
+`persist_mission` to read `mission_brief` would write a bare string into `mission`,
+never satisfying the map check — candidate 1 fixes nothing for ordinary `082`
+submissions.
+
+**Found the actual working producer while checking who the "1 pre-existing
+`mission` site" was** (438 never named it): `vonc.com`, via a bespoke
+"Tier 3" script (`080_submit_vonc.sh`) that sends a genuinely structured
+`input_data.mission` object — the shape `persist_mission` was built for. That
+script sends BOTH `mission` and `mission_brief` in one payload, so candidate 1
+would also silently stop capturing the rich `mission` object from any future
+Tier-3-style submission, for zero gain on the `082` side. **Candidate 1 is not
+a smaller fix than advertised — it's the wrong fix**, and only candidate 3
+(retire the rung, or build `082` a real structured-preference input, which is
+a design question, not a bugfix) survives this correction intact.
+
+**Contributed the correction into `bugs_open/438` directly** (my own file, same
+collaborative convention the file already uses across three lanes) rather than
+raising it only here — it changes the shape of a decision another lane is
+about to make, not just a fact for my own record. Not implementing anything
+myself; flagged to `theme kits`.
