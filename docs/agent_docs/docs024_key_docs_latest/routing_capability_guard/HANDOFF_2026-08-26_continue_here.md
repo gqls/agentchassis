@@ -1104,3 +1104,69 @@ code.
   automatically on approval. **Still owed: read the verdict and act on a REVISE.**
 - **The other lane must be told the stamp changed**, and has been — a `title` predicate routed at
   content-gap-planner stops being stamped unsatisfiable.
+
+---
+
+## 16. COUNCIL ROUND 1 = REVISE, ACTED ON — 2026-09-02 (`fae9e269b`, round 2 on the same correlation)
+
+**Three seats objected, all three found real things, and the gating one refuted a claim of MINE
+rather than a claim about the code.** Verdict `76231f57`, decided by a guardian gating objection.
+
+### 16a. ⚠ The gating objection, and the measurement that answers it — which contradicts my own risks section
+
+**Guardian, HIGH:** *"a plan that is honest about its blast radius ships ahead of the mitigation it
+describes"* — the CLM-024 emit gate shares `HandlerCanWriteField`, and I shipped without confirming
+that lane was ready.
+
+`[MEASURED 2026-09-02]` **THAT CALLER DOES NOT EXIST.**
+
+- **ZERO** Go references to `field_writable` anywhere in the repo.
+- **ZERO** live work items carry the stamp — **0 of 57** rows holding an acceptance predicate.
+- `HandlerCanWriteField` has **EXACTLY ONE** production call site: `withUnwritableFieldGuard`, in the
+  same file, thirty lines below the declaration.
+
+**`RFC_057` §5 says this in as many words** — *"not a decision on my emit-side stamp, which is
+unbuilt"*. I had read that section. I then wrote a risks block, and a doc comment, describing the seam
+as live — **because the surrounding documents talk about it as a shared seam and I repeated their
+framing without checking it.**
+
+⚠ **This is the exact failure this lane exists to document, committed in the file's own header.** §9
+found a roster entry whose evidence was inherited rather than measured; §12 found the second entry's
+`Why` overstating a capability's reach; and here the *function's own doc comment* claimed a caller
+that has never existed. **Three for three.** The habit is not carelessness about facts — it is
+treating a neighbouring document's sentence as a measurement. Corrected at the code, in the header
+that made the claim, with the irony named rather than quietly fixed.
+
+**Consequence for the objection: there is nothing to contaminate and no sequencing to resolve.** The
+cross-lane risk is PROSPECTIVE, and the `doc_notes` rows below are what carry it to whoever builds
+the stamp.
+
+### 16b. The other objections, each answered with a measurement
+
+| seat | objection | answer |
+|---|---|---|
+| guardian, med | confirm ALL call sites treat `known=false` safely | one call site; its arm returns the finding unchanged — the pre-rule-3b default, not new behaviour |
+| editquality, med | *which handlers own `UpsertPageForRole`?* — if outside the 8, the roster is still incomplete | `report-builder`, `tool-deployer`, `tool-generator` — the complete set carrying those three actions, **DISJOINT** from `routableHandlers` and from every spawn closure of it. Asserted in round 1; measured now |
+| tooling_provenance, med | no `doc_notes` trail for a disclosed cross-lane consequence | **5 rows written**, `subject_type='decision'`, keys `pageFieldWriters` / `HandlerCanWriteField` / `routableHandlers` / the file path / `CLM-024` |
+| editquality + guardian, low | the source-scan test is fragile and is the SOLE guarantor of totality | agreed; flagged as **tech debt at the test**, with its exit named — the router should expose its handler universe as a Go value both sides read, and then this test is **deleted**, not maintained |
+
+### 16c. ⚠ A reviewer's own check tripped on the 989 figure, and the trap is worth keeping
+
+One seat's read-only check reported *"partially verifies the cited 989-completion figure (live table
+only …)"* and returned **`count 0`**. Both are correct: `[MEASURED 2026-09-02]` **live 0 / archive
+989**. **Completing a work item ARCHIVES it**, so every success is out of `site_work_items` by
+construction — a live-only query returns 0 for a route that has completed 989 times, and that zero
+reads exactly like a refutation. The `Why` string now says so at the claim. (This lane's own memory
+had the lesson — *a closer census cannot see what it SUCCEEDED at* — and the figure was still written
+in a form that invited the misread.)
+
+### 16d. Status
+
+Round 2 dispatched on the SAME correlation so the trail accumulates. **Still owed: read round 2's
+verdict.** The code is on the shared branch either way (forward-only), package suite green, and
+`verify-head-builds --with … --test ./platform/orchestration/actions/` OK against HEAD `4d1a34fad`.
+
+⚠ Round 2's submission was refused once, client-side, for a **comment-only sketch** — the doc-comment
+correction was proposed as its own edit and *"a fix plan proposes changes, not observations"*. Folded
+into the real Why-string edit. Worth knowing before writing a submission whose main content is a
+corrected claim.
