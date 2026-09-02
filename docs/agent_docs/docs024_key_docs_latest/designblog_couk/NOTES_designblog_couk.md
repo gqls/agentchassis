@@ -600,3 +600,27 @@ inline guide imager, three findings (all relayed/recorded):
    INCLUDING the must-be-present control — the expired token behind
    `2>/dev/null` turned a failed exec into the word "absent" (the never-
    extract-keys/probe-from-pod family's oldest trap, still biting).
+
+## 2026-09-02 (444 session, two proven facts about OUR index — commit 560a24c07)
+
+1. **The `needs_section_data` row filed 21:04:44Z on designblog's index is
+   their error-defer repair FIRING, not a fresh defect** ("Section
+   'featured-content' … required query source errored: unknown query name
+   \"featured_post\"" — binary-probed, the chassis carries the fix). Do NOT
+   file it as new damage.
+2. **Genuine finding for this lane:** the index plans a `featured-content`
+   section whose component declares source **`query.featured_post` — a query
+   base that DOES NOT EXIST in queryresolve's registry** (one of five
+   unregistered bases they found; before tonight's fix it built silently
+   hollow on every run). Options, per their message: (a) register a
+   `featured_post` resolver (NEW query vocabulary — one handler +
+   SourceDependency entry; fleet mechanism, not this lane's to mint
+   unilaterally), (b) re-point the component's declared source to an existing
+   base like `query.blog_posts` (**shared component — 9 pages / 8 sites as of
+   2026-09-02**, components-thread territory), (c) drop the section
+   (site-local). The HITL row is the designed decision surface.
+   **This lane's read:** for designblog the section is downstream of 444's
+   fill anyway (zero articles exist to feature), so the site-local half can
+   wait for content; the CLASS half (register-vs-repoint for all 8 sites)
+   is a components + queryresolve-owner call. **Added to the owner-decisions
+   list** (handoff §5, item 7).

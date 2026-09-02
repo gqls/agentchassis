@@ -128,6 +128,12 @@ within ~300s of a chassis pod (re)start** (a fresh build rolled ~21:00 2026-09-0
    design uplift's caution stands).
 6. /the-design-feed/ fill route: replan as news-index vs child pages (444 session: both
    resolve cleanly; a news source ALONE cannot fill the current section-index shape).
+7. The index's `featured-content` section declares source `query.featured_post` — a query
+   base that does not exist in queryresolve (444 session, proven, their commit
+   `560a24c07`; HITL row of 21:04:44Z is the decision surface, NOT a fresh defect).
+   Options: register the vocabulary (fleet mechanism) / re-point the shared component
+   (9 pages, 8 sites) / drop the section. Site-local half can wait for 444's content
+   fill; the class half belongs to components + queryresolve owners.
 
 ## 6. Traps this lane learned (do not re-derive)
 
