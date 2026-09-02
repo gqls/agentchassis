@@ -89,9 +89,36 @@ outside 359's detector by construction. See NOTES for whether this earns its own
   `--from`. Adopting from gamedesign.uk itself would ingest the empty shells; adopting
   from gamesdesign.co.uk would reproduce the sibling, which D2 forbids. FRESH creates the
   site row via `domain-submitter` and enters the cascade at `needs_domain_research`.
-- **D4 (pending): the mission brief.** Blocked on the positioning answer — the brief is
-  what fixes the site's whole direction at the classifier, and it is expensive to undo
-  once pages are written. Asked `Portfolio positioning [b9957b]` 2026-09-02.
+- **D4 (2026-09-02): positioning agreed with `Portfolio positioning [b9957b]`, brief
+  DRAFTED, awaiting owner review before dispatch.** The steer, verbatim in substance:
+  - gamesdesign.co.uk is the **authority** seat (free self-serve tools + guides, for solo
+    devs, students, small teams). gamedesign.uk takes the **professional practice** seat:
+    how working studios actually run game design — process, workflow, balance sign-off,
+    documentation practice, pipelines, hiring and roles, tooling-stack reviews, opinion.
+    Audience: leads, producers, professional designers. This is the estate's standing
+    cross-TLD twin rule (P5, executed 2026-08-01: `.co.uk` = authority, `.uk` = instrument).
+  - **Avoid the free-calculator and guide-library content kinds entirely**, not re-angle
+    them; link the sibling's where a tool is relevant. Cross-linking is the halo,
+    duplication the collision.
+  - **Commercial slot: prepare, never claim.** gamesdesign.co.uk's live strategy spec
+    records a paid-tier path; the literal name "GameDesign.uk Pro" appears in NO current
+    spec, so the brief does not use it. No copy asserting a paid product exists, none
+    foreclosing one. Owner rule 2026-09-02: no negative-identity copy by default.
+  - Collisions to avoid: `designblog.co.uk` (general design editorial — its brief fired
+    2026-09-02; stay strictly on GAME design), `cartoon.co.uk` (PROTECTED, owner ruling
+    2026-08-20), `gamerooms.co.uk` (no "game room" phrasing), `writesy.uk` (narrative
+    design as a game-design discipline is fine; not a general writing resource).
+  - Register rows GD1 (sibling, documenting its existing seat) and GD2 (gamedesign.uk,
+    status "proposed 2026-09-02 — direction fixes at the mission brief") written by that
+    lane in the `positioning_register` DB.
+  - Operational: `ensure_site_record` scans `name`+`network_id` without `COALESCE`
+    (broke a sibling-flow release 2026-09-02). The pre-seed MUST set both:
+    `network_id = '00000000-0000-0000-0000-000000000002'`.
+
+  The brief: `MISSION_2026-09-02_gamedesign_uk.txt` in this directory — 2,484 chars, plain
+  prose in the owner's voice, modelled on `noted_rebuild/MISSION_2026-08-11_noted.txt`.
+  Deliberately contains no `"` or `\` so 082's single-line JSON folding is lossless
+  (checked by running its exact `sed | tr | sed` pipeline over the file).
 
 ## 5. Phasing
 
