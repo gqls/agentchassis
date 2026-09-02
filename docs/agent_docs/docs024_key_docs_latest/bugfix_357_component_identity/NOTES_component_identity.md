@@ -1815,3 +1815,25 @@ a dead pod; the pods lived).
 `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -v scope=pilot < docs/agent_docs/sql_for_agents/701_retype_357_population_by_adoption_HOLD.sql`
 (defaults to pilot even without the flag; pre-apply `ls | grep '^701'` per the header; then
 the header's post-conditions, then `scope=remainder`).
+
+### 2026-09-02 ~19:10Z — PILOT GREEN on every clause; remainder unblocked, owner's hand next
+
+Owner applied `scope=pilot` by hand ~19:03Z: guards passed against the full 22-row census,
+COMMIT clean, population 22 → 21. Post-conditions, all MET:
+
+- three legs verified repointed (row slot=cc.name aligned, `pages.sections`,
+  `site_plan_sections`), md5 unchanged at apply;
+- the queued rerender (`triaged` 19:03:53) went `complete` by 19:07 — a REAL render and
+  deploy (commit `c23f3cf0`, file `tools/simple/index.html`, success true), NOT a skip — so
+  the 044 empty-schema-deferral watch item did NOT fire;
+- **rows still 1** (carry-forward landmine did not fire) and **md5 STILL
+  `7873509b8087a15cc3b32120e746f9e5` after the rerender** — the by-construction property
+  (template = bytes ⇒ regeneration is a no-op) proven in a live run, which is the thing
+  Option B was chosen for;
+- served artefact (browser Accept, past the 97s lag): HTTP 200, 5 interactive controls,
+  5 script tags, **zero `data-component="hero"`**; invented-URL control 404 — the 200
+  discriminates.
+
+Remainder: `-v scope=remainder` (21 rows; its own guard re-verifies the pilot state first).
+Per the header's sign-off design, the owner's hand applies it — explicitly covering
+ownerless gamesdesign.
