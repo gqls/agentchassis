@@ -154,3 +154,15 @@ wider critique: no game imagery — a SPEC error the lane wrote itself — a her
 class "nothing measures a site's energy against its vertical"). Not re-verified through the 090
 loop; measured at the served bytes with a same-domain 404 control.
 **Addendum ~21:05Z, for the 444 session's resolver:** the page's `page_type` is **`section-index`**, not `blog-index` — the planner typed an editorial site's articles hub as a generic section index. ~~A refusal keyed on `blog-index` alone will not hold this shape~~ **CORRECTED ~21:15Z (designblog relaying the 444 session): the resolver DOES hold it — section-index is a first-class arm (zero pages under the `/articles/` prefix in plan+realised → held, `builder_needed=section_children:<page>`), and the blog-index keying was our shared inference, not their code.** One nuance they asked for: if a hub carries `content-listing`, that arm resolves by SITE-WIDE `query.blog_posts`, unscoped, so a site with posts elsewhere legitimately serves a non-empty hub. Measured on gamedesign.uk's hub: components are `hero` + `call-to-action` (+ generic text) — **no `content-listing`**, so the section_children arm is the one that applies, and it would have held this page.
+**The two facts the 444 session asked for (~22:20Z):** hub `page_type = section-index`;
+`pages.sections = ["hero", "generic-text-block", "call-to-action"]`, components bound
+`hero / generic-text-block / call-to-action` — **no `content-listing`**, so the section_children
+arm applies. Plan rows (current plan, 17:33:13): `articles-index` role section-index slug `articles`;
+the one content page `article` role blog-post slug `article` **with `parent_section` EMPTY and url
+`/blog/article.html`** — i.e. not under the `/articles/` prefix at all. Zero children by prefix in
+plan AND realised, so the gate (`6525b45ae`, inert until roll + migration 720) would hold it as
+`builder_needed=section_children:articles-index`. Two mechanisms then, not one: no content pages
+exist, AND the one planned was parented nowhere. **Caveat for the record:** this site is being
+re-planned right now (corr `aab87c0c`, brief v2 asking for real articles) BEFORE the gate is live —
+that plan is read by hand against the same predicate, not by the gate.
+
