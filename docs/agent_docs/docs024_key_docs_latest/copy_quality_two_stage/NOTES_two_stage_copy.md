@@ -3715,3 +3715,14 @@ model-favoured emission (finetuning use-cases ×2, designblog ×2, readiness-che
 over-represented in no-answers — whether the repair model treats it as protective or its
 sentence shape defeats the numbered-target format is the first question the re-ask build
 should answer from the rejection log.
+
+**READ-RULE from the finetuning lane (bugs_open/443, theirs to fix):** on a site with NO
+`site_plans` row, repeated component types get IDENTICAL page-level briefs — per-section
+subjects are only published from the site_plan tables — so pages serve the same heading
+verbatim ×N ("How it works" ×3 on your-own-model; "The model and its licence" ×3 on
+technical-details). **A register/voice rewrite cannot fix this and will be measured against
+it** — before grading or rewriting any page on finetuning.uk, gaswholesalers.com or
+ai-agent-orchestration.com (their census: 11 affected pages, those three sites, others clean),
+check for repeated component types first and attribute repeats to 443, not to voice. Their
+date discipline honoured and repeated here: the owner's 08-25 "very AI sounding" verdict
+PREDATES this copy (written 08-27) — the two are independent; do not join them.
