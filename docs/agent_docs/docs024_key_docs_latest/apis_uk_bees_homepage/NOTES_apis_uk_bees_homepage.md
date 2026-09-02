@@ -1383,3 +1383,28 @@ example on another site), filed `bugs_open/411`, and our §5c framing — the (a
 the rejection of "treat carry as satisfied" — survived into the file. Our item is cited evidence
 and stays open. Their closing line is the practice in one sentence: "a cancelled item would have
 taken the whole finding with it."
+
+## 2026-09-02 (session "apis.uk", wrap-up for a new chat) — roll verified, 639+640 applied, IMG-075 adopted, the REAL rerender finally fired
+
+Fresh chassis confirmed at the pod (capability probe, both controls) BEFORE anything else. Then:
+639 applied+verified; **640's anchor guard refused the first apply** — bugs_open/380 had
+rewritten rule 17's tail during the week; re-derived (subject sentences before the 380 sentence,
+kept verbatim) and applied. The guard refusing on drift is the design working — recorded as such,
+not as a failure. IMG-075's six section-scope bindings inserted (pairing checked against live
+positions first; assets all `active`). A `section_data_resolved` page_rerender filed for index —
+the 08-26 "completed" one was assemble-only (item_key suffix `_assemble`, byte-identical serve),
+which today's inline_guide_imagery CONTRIB correction predicted exactly.
+
+**Missteps this session, each caught in-session:** (1) my LIKE patterns with `\"` inside single
+quotes read back false "absent" for config that was present — the in-file verify was right and my
+instrument wrong; (2) the APPLIED-line append asserted on a from-memory anchor, failed, and the
+commit went out carrying only 640's re-derivation — fixed in the next commit; (3) the rerender
+INSERT missed NOT-NULL `created_by` — the count-asserted transaction rolled back whole, re-ran
+with the google session's creator-stamp convention. (4) The week-old bugfix_394 CONTRIB sat
+unread while the shared registry test stayed red — they fixed it themselves (3749132e0). The
+standing lesson is in the new handoff §1.6: read the lane's CONTRIBs at session start.
+
+Owner gates as of the handoff: 641 read (block quoted in §3.1), footer, tools park. The imagery
+CONTRIB's decisive save-path test deliberately NOT run (locks are the standing protection; wrong
+moment for a destructive-if-wrong test). brief_supplies_negation moved today 13:17 — unread,
+flagged. Cold-start: HANDOFF_2026-09-02_continue_here.md.

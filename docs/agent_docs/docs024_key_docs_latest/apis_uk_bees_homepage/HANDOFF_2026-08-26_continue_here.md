@@ -1,3 +1,6 @@
+> **⚠ SUPERSEDED by `HANDOFF_2026-09-02_continue_here.md`.** §5b (footer) and §5c (tools park)
+> remain the fuller incident records; the STATE here is a week stale.
+
 # HANDOFF 2026-08-26 — continue here
 
 **Supersedes `HANDOFF_2026-08-25_continue_here.md`** (whose top correction block records the
