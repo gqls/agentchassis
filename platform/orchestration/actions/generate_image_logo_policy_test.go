@@ -400,6 +400,34 @@ func TestLogoBackgroundPolicyDefaultAppendsKeyClause(t *testing.T) {
 	}
 }
 
+// TestLogoBackgroundPolicyNeverContradictsItsOwnKeyColour — council review
+// (round 1, editquality MEDIUM, 2026-09-02) caught that an earlier version of
+// this policy added "magenta"/"#ff00ff" as bare NEGATIVE-prompt terms, which
+// banana folds into "the image must not contain or use: magenta, #ff00ff" —
+// directly contradicting LogoBackgroundKeyClause telling the model, in the
+// SAME prompt, to paint the entire background magenta. Two channels
+// disagreeing risked the model refusing the key colour altogether, defeating
+// the whole mechanism. The fix moved the foreground/background distinction
+// into one sentence inside the clause itself; this test pins that the
+// negative prompt never re-acquires a bare magenta/hex term that would
+// reintroduce the contradiction.
+func TestLogoBackgroundPolicyNeverContradictsItsOwnKeyColour(t *testing.T) {
+	got, neg, _ := applyLogoBackgroundPolicy("A bold logomark.", "", "site_plan", zap.NewNop())
+
+	for _, banned := range []string{"magenta", "#ff00ff"} {
+		for _, tok := range strings.Split(strings.ToLower(neg), ",") {
+			if strings.TrimSpace(tok) == banned {
+				t.Errorf("negative prompt contains a bare %q, which contradicts the clause telling "+
+					"the model to PAINT the background that exact colour in the same prompt: %q", banned, neg)
+			}
+		}
+	}
+	if !strings.Contains(got, "must use no shade of magenta or pink anywhere") {
+		t.Fatalf("the foreground/background distinction must live INSIDE the clause, as one "+
+			"coherent instruction, not as a separate contradicting negative-prompt term:\n%s", got)
+	}
+}
+
 func TestLogoBackgroundPolicyIsIdempotent(t *testing.T) {
 	once, _, _ := applyLogoBackgroundPolicy("A bold logomark.", "", "site_plan", zap.NewNop())
 	twice, _, src := applyLogoBackgroundPolicy(once, "", "site_plan", zap.NewNop())

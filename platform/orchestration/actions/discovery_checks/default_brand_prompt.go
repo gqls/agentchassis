@@ -279,11 +279,25 @@ const LogoBackgroundKeySentinel = "single flat, uniform, edge-to-edge field of p
 // measured that a folded NEGATIVE prohibition demonstrably loses to a positive
 // licence sitting earlier in the same prompt — the converse is assumed to hold
 // here too until measured otherwise).
+//
+// CORRECTED at council review (round 1, editquality MEDIUM, 2026-09-02): the
+// foreground/background magenta distinction used to live in a SEPARATE
+// negative-prompt term ("magenta", "#ff00ff" — folded by banana into "the
+// image must not contain or use: magenta, #ff00ff"), which flatly contradicts
+// this clause telling the model to paint the WHOLE background magenta in the
+// same prompt. Two channels disagreeing is exactly the failure bugs_closed/390
+// measured (co-present instructions are adjudicated by the model, not by
+// precedence wording) — and here it risked the model refusing the key colour
+// altogether, defeating the whole mechanism. Fixed by stating both halves in
+// ONE sentence, in the SAME channel, so there is nothing left to disagree:
+// the clause paints the ground magenta AND forbids magenta in the artwork,
+// as one coherent instruction rather than two contradicting ones.
 const LogoBackgroundKeyClause = "The entire background is a " + LogoBackgroundKeySentinel +
 	" (" + LogoBackgroundKeyHex + "), with no gradient, vignette, shadow, glow, texture, " +
-	"panel or border, and the artwork must not touch the image edges. This instruction " +
-	"overrides any earlier wording in this prompt about transparency, a plain background, " +
-	"or any other ground colour."
+	"panel or border, and the artwork must not touch the image edges. The artwork itself " +
+	"must use no shade of magenta or pink anywhere, so it reads cleanly apart from the " +
+	"background. This instruction overrides any earlier wording in this prompt about " +
+	"transparency, a plain background, or any other ground colour."
 
 // composeBrandImagePrompt is the pure half — no DB, so it is directly testable
 // against the degraded shapes that matter (identity present, identity absent,

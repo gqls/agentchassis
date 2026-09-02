@@ -1692,7 +1692,14 @@ func applyLogoTextPolicy(
 // background-key policy — bugs_open/424. "checkerboard" and "transparency pattern"
 // name this bug's own failure mode directly: the model's observed response to a
 // transparency request was to paint the UI symbol for transparency as opaque pixels.
-var logoBackgroundNegatives = []string{"checkerboard", "transparency pattern", "magenta", "#ff00ff"}
+//
+// Deliberately does NOT include "magenta" or "#ff00ff" — council review (round 1,
+// editquality MEDIUM, 2026-09-02) caught that a bare negative term here directly
+// contradicts LogoBackgroundKeyClause, which tells the model to paint the
+// background magenta in the SAME prompt. That foreground/background distinction
+// now lives entirely inside the clause itself (one sentence, one channel) —
+// see LogoBackgroundKeyClause's doc comment for the full correction.
+var logoBackgroundNegatives = []string{"checkerboard", "transparency pattern"}
 
 // applyLogoBackgroundPolicy is the pure half of the background-key guard, mirroring
 // applyLogoTextPolicy immediately above — bugs_open/424.
