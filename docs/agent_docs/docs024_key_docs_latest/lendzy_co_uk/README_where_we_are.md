@@ -98,3 +98,48 @@ actually running and proven. The original problem wasn't that the sentence was w
 it's that it existed before the thing it described. I'd rather build the mechanism, prove it, and
 then say something true and dated about it. So: mechanism first, sentence last, and the sentence is
 your call when we get there.
+
+**2026-09-02, later — we found two wrong rule references on the live site, and the checking idea has already paid for itself.**
+
+I went through every lendzy page, pulled out every claim that cites an FCA rule, and checked each
+one against the actual handbook text. Five are right. Two are wrong.
+
+The site tells people their lender can't roll a loan over more than twice, and says that rule is
+CONC 6.7.17. It isn't — 6.7.17 is the definitions section that explains what "refinance" means. The
+actual rule is CONC 6.7.23. That one is arguable, because 6.7.17 does introduce the block of rules
+that contains the limit, so you could call it imprecise rather than wrong.
+
+The second one isn't arguable. The site tells people their lender only gets two attempts to take a
+card payment, and says that's CONC 6.7.23 — which is the rollover rule I just mentioned. The card
+payment rule is CONC 7.6.12, in a different chapter entirely.
+
+**Both of the things the site actually tells people are true.** Two rollovers, two card attempts —
+correct. It's only the rule numbers that are wrong, and they're wrong in a shifted pattern, as if
+they slipped by one when they were written.
+
+I want to be clear about why this matters more than a typo would. This is a site telling people in
+financial trouble which law protects them, and inviting them to check. Someone who follows the
+reference we gave them lands on the wrong rule and finds nothing about their situation — and the
+natural conclusion is that we made the protection up. The claim is true and the citation makes it
+look false.
+
+The other thing worth saying: **nothing we already had could have caught this.** All our claim
+checking asks "is this claim supported?" — none of it asks "is the rule number you cited actually
+the rule that says this?" That's a different question, and it only exists on sites that cite law.
+
+**I haven't changed the copy.** Those sentences are on live pages, and rewriting published wording
+off the back of an automated finding is exactly the authority you held back in August. So it's your
+call. My recommendation is that we fix both — the substance doesn't change at all, only the two
+rule numbers — and that we do it through the framework rather than by hand.
+
+**On the calculator repair.** The fix is written and committed but I haven't run it yet. I put the
+root cause through our diagnosis loop for an independent check, and it came back inconclusive —
+not disagreeing with me, but it spent its budget looking at pages belonging to other sites and one
+of its own database queries failed, so it never actually examined the three pages in question. I've
+recorded that as "not confirmed" rather than quietly treating no-disagreement as agreement. My own
+evidence is good and I've written down exactly what it consists of, but it is my evidence rather
+than an independent check, and you should know that.
+
+The repair is also with our review council and that verdict hasn't come back yet either. I'll run
+it once that lands. The repair refuses to run at all if anything I measured has changed in the
+meantime, so a stale assumption can't do damage quietly.
