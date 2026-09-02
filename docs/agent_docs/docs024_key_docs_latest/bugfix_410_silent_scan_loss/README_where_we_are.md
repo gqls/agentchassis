@@ -148,3 +148,21 @@ are unaffected — there's a test that pins that, so nobody can accidentally tig
 Sent to the review council as its own round (submitted, verdict pending). One item left on this
 lane's list for the future: the big fleet-wide "candidate 1" design round, which remains
 unclaimed. The other candidate we'd listed was picked up and shipped by the 404 lane themselves.
+
+---
+
+**2026-09-02.** The new build went out and we checked it the proper way — asked both running
+servers directly whether they carry the new protection. They do. So the loose end closed on the
+31st is now actually protecting production, and with plenty of real traffic behind it: about
+1,400 page-rebuild runs since the start of the month, 176 of them straight through the guarded
+code, not one refused. Silence with traffic behind it is the good kind of silence.
+
+That makes this lane finished. Everything we set out to do is built, reviewed, deployed and
+verified. The one thing still attached to the bug file is a bigger design question that was
+never ours — "when the system meets a value it doesn't understand, should it refuse rather than
+quietly carry on?" — which needs its own round, and which the 404 team has half-asked from
+their side too. Your call needed: either we split that question into its own file and close
+this bug, or the bug stays open as the placeholder until someone takes it on. We'd suggest the
+split — everything investigative in the file is done, and an open file with no one working it
+just reads as neglect. Full picture for the next session:
+HANDOFF_2026-09-02_continue_here.md in this folder.

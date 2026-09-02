@@ -585,3 +585,24 @@ lanes' work or undecided), with instance 3 marked closed inside it.
 
 Commit `359503af0` carries `Council-Submitted:` and is auto-credited by 098 now the verdict is
 approved — no amend, forward-only.
+
+---
+
+## 2026-09-02 — content-axis extension FIXED AND LIVE, verified per RUNBOOK §13
+
+Fresh chassis roll (ReplicaSet `744cfb4bf`, pods 18/31 min old at check, different nodes).
+Three-way probe on BOTH pods `[MEASURED 2026-09-02]`: `content_data does not parse into a
+section object` **CONTENT-GUARD-PRESENT** on both; `refusing the partial result`
+PARENT-GUARD-PRESENT on both (the §13 distinction — a binary can carry the parent without the
+extension, this one carries both); must-absent control ABSENT on both. Provenance startup line
+already out of `--tail=400` range on both pods — recorded as "not in range" per §12, capability
+probe carried the verification.
+
+Demand continues at the live tier: 1,376 rerender-plan orchestrations since 2026-09-01, **176
+carrying the `rerender_sections` step output** — and **0 refusals, 0 decode warns** in both pod
+log windows. A demanded zero on both axes: scans and decodes are completing.
+
+Consequence: **the content-loss residual is FIXED AND LIVE.** Everything this lane owns is now
+closed: parent fix live (2026-08-26), ratchet live in every build, residual closed by measurement
+(APPROVED r1 `a69d82f2`, all reviewers) and live (2026-09-02). What remains open on the BUG FILE
+is not this lane's work — see HANDOFF_2026-09-02_continue_here.md.

@@ -387,3 +387,33 @@ worked site** (the CLASS — a decode swallowed after a successful scan elsewher
 stated ratchet blind spot). Still open, and why the file stays in `bugs_open/`: candidate 1
 (unknown → refusal fleet-wide, needs its own design round, unclaimed) and the 41 advisory-only
 sites outside the blocking package.
+
+---
+
+## 2026-09-02 — the content-axis extension is FIXED AND LIVE; instance 3 is wholly closed
+
+Chassis rolled (ReplicaSet `744cfb4bf`); three-way probe on BOTH pods per lane RUNBOOK §13
+`[MEASURED 2026-09-02]`: the extension's capability literal (`content_data does not parse into a
+section object`) PRESENT on both nodes, parent literal present, must-absent control clean. Demand
+at the live tier since 2026-09-01: 1,376 rerender-plan orchestrations, 176 executing the guarded
+step, **0 refusals on either axis** — a demanded zero, the success state.
+
+**Instance 3 is now closed on both axes** (row loss `7c443aac6`, content loss `359503af0`, both
+council-approved, both probe-verified live). **What keeps THIS FILE in `bugs_open/`:**
+
+1. **Candidate 1 — unknown/not-understood → refusal, fleet-wide.** The door-closing fix on the
+   busiest pipeline. UNCLAIMED; needs its own design round and council review. Note it now
+   overlaps the 404 lane's own open question ("what happens to a reason nobody declared?" — their
+   handoff tail, point 2): whoever picks either up should read both files first or the estate
+   gets two competing refusal designs on the same seam.
+2. **Instances 1 and 2 are governed by their own lanes** (`bugs_open/384`, `bugs_open/404` —
+   both still open as of 2026-09-02). This pattern file cites them; it does not own them.
+3. NOT closure blockers, stated so they are not mistaken for open work: the 41 advisory-only
+   sites (a stated coverage boundary), the scanBlogArticles convergence-on-touch debt, and the
+   ratchet's class blind spot for decode-swallows at OTHER sites.
+
+**Closure path, owner's call:** either spin candidate 1 into its own file (it is a design
+proposal now, not a diagnosis) and close this pattern file with instances 1–2 tracked by their
+own numbers — or keep this file open as the tracker until candidate 1 ships. The lane
+recommends the first: everything diagnostic in this file is done, and a pattern file whose only
+live content is one unclaimed candidate reads as open work that isn't being worked.

@@ -1,5 +1,8 @@
 # HANDOFF 2026-08-26 — bugfix 410 (silent scan loss): fix LIVE, ratchet LIVE, what remains and how to verify anything I claim
 
+> **SUPERSEDED 2026-09-02** — the lane is complete on both axes; current picture:
+> `HANDOFF_2026-09-02_continue_here.md` (same directory). This file kept for the trail.
+
 Written for a session with none of this context. Every claim carries its check. **Cite symbols,
 never line numbers** — this lane's own corrections log a line number expiring the same afternoon
 it was written.
