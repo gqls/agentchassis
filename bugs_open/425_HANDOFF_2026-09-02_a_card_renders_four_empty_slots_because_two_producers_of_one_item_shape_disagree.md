@@ -354,6 +354,38 @@ every title still suffixed. So the honest split is:
 > claim on this bug and the sharpest instance of the same habit: I keep reaching for a column
 > rather than the artefact, and the artefact — the stored markup — settled it in one query.
 
+### The "it rendered before the roll" explanation — checked and it does not hold
+
+Offered by the `site_delivery_and_editor` lane, and worth checking rather than adopting because it
+would have dissolved the whole thing. **There were TWO rolls today**, and the proposal reads the
+second as the first:
+
+| | |
+|---|---|
+| `f57f5ad1f` committed | **10:51:55 UTC** (`2026-09-02T11:51:55+01:00` — the `+01:00` matters) |
+| roll 1, ReplicaSet `96c48f448` | **12:28:03 / 12:28:24 UTC** — after the commit |
+| binary probed on a roll-1 pod | **~13:39 UTC**: `ListItemTitle` / `ListItemExcerpt` present, `resolvePagesWhereType` positive control, invented symbol absent |
+| the 14 rerenders | **13:51–14:14 UTC**, on roll-1 pods |
+| roll 2, ReplicaSet `744cfb4bf` | **15:39 / 15:53 UTC** — after everything in this batch |
+
+So the fix was in the running binary before the rerenders, and the 15:39 roll is not the one that
+shipped it. Both current pods re-probed with the same controls: fix present.
+
+> **⚠ THE ONE REAL HOLE, and it is mine.** I probed **one pod of two** at 13:39, and this estate's
+> own landmine says a same-tag rebuild can serve a node's **cached** binary — so two pods of one
+> ReplicaSet are not *guaranteed* identical, and the un-probed pod is now gone. If the rerenders
+> were handled by that one, my evidence does not cover them. Recording it as a hole rather than
+> arguing past it.
+
+**Follow-up diagnosis `fe4b8537` returned NOT CONFIRMED** (iteration cap, no fix proposed). Its two
+data requests returned 0 rows: it was hunting the instance *by source declaration*, and one target
+page had been repointed to a per-site fork mid-run. **The run was chasing a target that moved under
+it** — not worth re-filing in that shape.
+
+**What supersedes both:** a post-roll rebuild dispatched by the delivery lane (item `7f1f4993`) on
+the current binary. It answers the producer question at the artefact rather than by inference about
+images, which is the only kind of answer this bug has responded to.
+
 ### An instrument that is NOT available here: the chassis log
 
 Worth stating so the next reader does not spend the attempt. `queryresolve` logs
