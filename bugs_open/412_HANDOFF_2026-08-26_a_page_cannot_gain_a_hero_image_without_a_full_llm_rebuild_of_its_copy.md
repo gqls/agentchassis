@@ -490,3 +490,13 @@ recorded here and in 443 so whoever works either finds both.
 > anyone must induce. Use the `deployed_at` predicate for this cohort from here on; both
 > spellings and the split are recorded so the two dated figures stop reading as a
 > contradiction.
+
+> **§11b pointer:** the predicate rule above now lives in its fleet-visible home, not
+> only here — LANDMINES.md's `pages.build_status = 'deployed' is NOT "is this page
+> live"` entry was broadened the same night (finetuning lane, commit `15eebd6d1`) to
+> name CENSUSES explicitly, after their own census read past it because its "fires
+> when" described writing a guard and they were counting. A landmine indexed by intent
+> is invisible to a reader with a different intent and the identical predicate — grep
+> the SYMBOL (`pages.build_status`), not your intent. Next lane sizing a render cohort:
+> read that entry, and reach for `PageHasShippedPredicateFor` / `deployed_at` rather
+> than the status literal.
