@@ -430,3 +430,27 @@ post-718.
 - Their class mechanism (plan validation drops zero-source listing pages,
   files `capability_gap` with `spec.gap_kind='producer_missing'`) is in
   council, corr `c0990eb3`; lane dir `bugfix_444_empty_listing_pages/`.
+
+## 2026-09-02 (night, closing) — council run started; two follow-ons
+
+- **718 council run STARTED** (orchestration row for corr `2dae4f20`:
+  `gate_tooling_provenance | EXECUTING_STEP` at ~20:2xZ). Verdict still owed.
+- **444 session: my 718 apply caught a NUMBER COLLISION just in time** — their
+  gate-enable migration was drafted as 718, now 720 (719 also taken tonight).
+  The collision landmine keeps earning its line. Also from them: their
+  resolver classifies "fed" by listing-component NAME only, so 718's imagery
+  entries can never make an empty listing read as fed; and the feed fork
+  resolves cleanly under either arm (news-index via content_sources;
+  section-index via child pages).
+- **inline guide imager, on gamedesign (relayed to that session): two of their
+  three generated heroes are ORPHANED** — about + contact render the
+  homepage's hero; cause is the component library (`hero-about`/`hero-contact`
+  declare NO image field, so the correctly-resolved per-page asset has nowhere
+  to land). The generalisable sentence: **"not 'the page has no image' but
+  'the page has the WRONG image, so every check that asks whether it has one
+  passes'"** — and their query caution: a component whose NAME contains the
+  asset's name makes an unanchored `LIKE '%hero-about%'` census return the
+  OPPOSITE of the truth (matched the CSS class); anchor on filename+extension
+  with a known-referenced control. This is also 718's flagged residual one
+  step later: entries must land where a component can display them —
+  gamedesign is the live worked example.
