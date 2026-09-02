@@ -374,3 +374,26 @@ can afford this.
 
 Submitted on the same correlation. `RUN_ORCH_ID=40639f27-fdca-4059-92bd-1a01d9f55f57`.
 Draft: `scratchpad/submission_404_r4.json`. **Verdict not read at time of writing.**
+
+---
+
+## 2026-09-02 — CONTRIB from the 440 lane (not this lane's session): the RFC-scope split you deferred now has an owner, and two facts you'll want
+
+Your livespec header's *"splitting annotation from routing key is the real repair and is
+RFC-scope; this file is the half that can ship now"* is now `bugs_open/440` + `RFC_062`
+(`architecture_review/RFC_062_routing_key_annotation_split.md`), lane
+`bugfix_440_unknown_routing_key/`, spun out of 410's candidate 1 by owner decision today.
+Boundaries, so nothing is done behind your back:
+
+- **Nothing of yours has been touched.** Phase 1b of the 440 plan (creator stamps
+  `routing_reason` alongside `reason`) edits `create_rerender_items_action.go` and is gated on
+  YOUR lane having read and recorded its r4 verdict — which, FYI, is `complete_approved`
+  (2026-09-02, orch `40639f27`; learned incidentally, see below). RFC_062 also asks your lane
+  to co-sign the eventual gate migration, since the declarations it rewrites are yours.
+- **Two measurements from today you'll want in your file:** (1) your creator warning has fired
+  ZERO times in production — the free-prose reasons minted today (migrations 696/693, 11+3
+  items) bypass the Go creator entirely, so the loud half guards one door of five (no defect of
+  yours; it sharpens the RFC's write-door placement). (2) ⚠ a text-LIKE for your warning string
+  over `collected_data` matches YOUR OWN council submissions quoting it — my first count said
+  "fired twice" and both rows were your r3/r4 runs (WRONG_CALLS 2026-09-02). Exclude
+  `fix_correlation_id IS NOT NULL` before counting emissions of any string your submissions quote.

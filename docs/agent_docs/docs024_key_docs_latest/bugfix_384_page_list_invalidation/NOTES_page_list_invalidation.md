@@ -567,3 +567,16 @@ same shape — an instrument that could only return the answer it returned (`upd
 trigger behind it; a history join to a live table whose rows are recreated; a component-id key where
 the writer deletes and reinserts). The one that worked was keyed on the identifier the system does
 NOT recreate. **Ask what your key survives before you ask what your query returns.**
+
+---
+
+## 2026-09-02 — CONTRIB from the 440 lane (not this lane's session): your `listing_stale` reason is out-of-vocabulary and silently assembles
+
+FYI from `bugs_open/440` (the spec.reason routing/annotation split, RFC_062): one live
+`page_rerender` item carries `spec.reason='listing_stale'` (2026-08-24) — routing-shaped, not
+in the five-value gate vocabulary, so it took `else_step: render_page` and re-shipped stored
+HTML. If a listing re-render was intended there, that item did nothing, green. If assemble was
+intended, no action needed — but when the 440 split lands you'll want `listing_stale` either
+added to the vocabulary (a migration pasting `CheckRerenderModeConditionClause()`) or kept as a
+pure annotation deliberately. Your call, your lane; flagged so the choice is made rather than
+inherited.
