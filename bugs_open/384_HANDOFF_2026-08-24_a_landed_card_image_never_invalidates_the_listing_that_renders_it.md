@@ -677,3 +677,47 @@ routed around the save; or `render_page` (`rerender_single_page`) deploys from s
 written by `action:rebuild_blog_listing`. The other three demonstrations remain **unchecked** —
 and note that a `save_page_sections` repair would NOT show under a component-id join, so anyone
 re-checking them must key on `page_id`.
+
+### RESOLVED, same day 17:5xZ — §4's demonstrations are GENUINE (3 of 4), and the defect is specific to BLOG-LISTING pages
+
+I checked the other three demonstrations, keyed on `page_id` as the retraction above requires.
+**My doubt was wrong for three of them, and I withdraw it.** `[MEASURED 2026-09-02]`
+
+| demonstration | what actually wrote it | genuine? |
+|---|---|---|
+| finetuning.uk `tool-ai-readiness-checker` 19:13:31 | `save_page_sections_overwrite` (+ 4 slot deletes) | **YES** |
+| finetuning.uk `tools` 19:14:21 | `save_page_sections_overwrite` (+ 3 slot deletes incl. `tool-list`) | **YES** |
+| finetuning.uk `model-approach-selector` 19:15:17 | `save_page_sections_overwrite` (+ 4 slot deletes) | **YES** |
+| vonc.com `archetypes` 2026-08-27 08:12:56 | `save_page_sections_overwrite` (slots `archetype-grid`, `archetype-combinations`) | **YES** (it did repair, later than the handoff's "pending") |
+| leopardess `blog` 2026-08-26 15:30:33 | `action:rebuild_blog_listing` | **NO — this one was another action's repair** |
+
+So the seam does work, on pages whose sections are written by `save_page_sections`. §4 stands for
+four of its five claimed repairs; only the leopardess attribution was wrong.
+
+**And that isolates the real defect.** `leopardessconsulting.co.uk/blog`, **complete history, all
+time**:
+
+| source | writer | rows | window |
+|---|---|---|---|
+| `artefact_archive_trigger` | `action:rebuild_blog_listing` | 5 | 2026-08-24 → 2026-08-27 21:34:20 |
+| `artefact_archive_trigger` | app connections | 2 | 2026-08-11 |
+| `save_page_sections_overwrite` | — | **1** | **2026-07-12 17:47** — and never since |
+
+**A blog-listing page's array is maintained exclusively by `rebuild_blog_listing`. `save_page_sections`
+has written this page ONCE in seven weeks.** The `page-rerender` workflow contains no
+`rebuild_blog_listing` step (step list in the 17:1x update). So on a blog-listing page the seam's
+item renders from stored `content_data`, deploys a real commit, and writes nothing — while the same
+seam on a tool-listing or archetype page repairs correctly, because there the write goes through
+`save_page_sections`.
+
+**That is why exactly one generic page in the fleet is stuck**, and why every fleet-level aggregate
+looked healthy.
+
+**The remaining question, and it is the last one:** `rebuild_blog_listing` wrote this page five
+times between 08-24 and 08-27 21:34 and **has not run since** — the cards landed at 22:37, 63
+minutes after its last run. So: what triggers `rebuild_blog_listing`, and why has it not fired in
+six days? Answer that and defect #1 is closed. **Not yet investigated.**
+
+**Status of the three findings:** defect #1 now localised to the blog-listing path (above);
+defect #2 (sweep born terminal) contributed to `bugs_open/389`; owned-page residual unchanged.
+384 stays open.
