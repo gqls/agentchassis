@@ -19,16 +19,26 @@ echo "last-modified=$lm"
 if [ "$lme" -le "$cte" ]; then
   echo "REFUSING TO GRADE: artefact ($lm) NOT newer than completed_at ($completed) - stale copy"
   cat <<'SKIPHELP'
-  Two causes, and they need OPPOSITE responses - do not just re-poll:
-  (a) S3 has not published yet          -> wait and re-run (measured lag 11-97s)
-  (b) the rerender SILENTLY SKIPPED     -> the item reads complete and the page was never
-      reassembled, so waiting is futile. Since bugs_open/408 (chassis >= 6e2d4a039) a
-      content_field resolving on no path SKIPS instead of crashing the pod.
-      Distinguish them before re-polling - non-null skip_reason means (b):
-        SELECT collected_data->'assembled_page'->>'skip_reason'
-        FROM orchestration_states
-        WHERE collected_data->'input_data'->>'work_item_id' = 'THE-RERENDER-ITEM-ID'
-        ORDER BY created_at DESC LIMIT 1;
+  Two causes, OPPOSITE responses - do not just re-poll:
+  (a) S3 has not published yet      -> wait and re-run (measured lag 11-97s)
+  (b) the rerender SKIPPED          -> the item reads complete, the page was never
+      reassembled, and waiting is futile.
+  This lane's rerenders dispatch to the page-rerender AGENT (2124/2124 items, verified
+  2026-09-02), i.e. rerender_single_page_action.go - NOT the assemble_page action. So the
+  key is 'rendered_page', NOT 'assembled_page.skip_reason' (that key exists only on the
+  other path and would silently never match). Its skip fires on "page has no component
+  rows" - which our retire's PRE2 assert is what prevents.
+  NOTE: the 'skipped' key is ABSENT on normal runs, so test for 'true', never for 'false'.
+
+    SELECT created_at,
+           collected_data->'rendered_page'->>'skipped' AS skipped,
+           collected_data->'rendered_page'->>'reason'  AS reason
+    FROM orchestration_states
+    WHERE owner_agent_type='page-rerender'
+      AND collected_data->'rendered_page'->>'page_name' = 'THE-PAGE-NAME'
+      AND created_at > now() - interval '2 hours'
+    ORDER BY created_at DESC LIMIT 3;
+    -- skipped='true' => (b).  No row / key absent => (a), keep waiting.
 SKIPHELP
   exit 1
 fi

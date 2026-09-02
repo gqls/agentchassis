@@ -3,20 +3,30 @@ Supersedes `HANDOFF_2026-08-25_continue_here.md` (which had accumulated nine sta
 
 ## STATE: 49 of 63 SERVE-CONFIRMED. NOTHING IN FLIGHT, NOTHING OWED. THE QUEUE IS CLEAR — filing works.
 
-⚠ **NEW FAILURE MODE AFTER THE NEXT CHASSIS ROLL (bugs_open/408, commit `6e2d4a039`) — A RERENDER
-THAT USED TO CRASH NOW SKIPS QUIETLY.** `[VERIFIED 2026-09-02, binary probe with both controls]` the
-fix is **not** in the running chassis (`v1.0.1352`, pods started 12:28Z; the commit is 14:53Z), so it
-is inert **today** — but it rides the next roll and it lands on our delivery path. `extractFieldValue`
-recursing on an unresolvable `content_field` used to kill the pod; afterwards `assemble_page` returns a
-cleanly **SKIPPED** page. For this lane that means: **the rerender item reads `complete`, the
-orchestration completes, and the page is never reassembled — so it keeps serving the OLD ported tool
-while every status says success.** Our freshness gate catches it (it refuses when the artefact is not
-newer than `completed_at`), but the refusal looks identical to ordinary S3 lag, and the two need
-opposite responses — wait vs act. `servegrade.sh` now prints the discriminator in that refusal:
-`collected_data->'assembled_page'->>'skip_reason'`, non-null ⇒ skipped, and re-polling is futile.
-Their second note, which is our own recurring lesson from the other side: the
-`"Field not found in path"` log line now appears **once** per failed lookup (with a new `paths_tried`
-key) instead of 12,654 times — **do not read the low count as the lookup not happening.**
+⚠ **A RERENDER CAN SKIP AND STILL READ `complete` — AND THE PAGE THEN KEEPS SERVING THE TOOL YOU
+JUST RETIRED.** `[MEASURED 2026-09-02]` this is **not** new and **not** from `bugs_open/408`: the
+page-rerender path has always had its own skip, and it fired **36 times in the last 7 days**
+fleet-wide (of 1,146 runs).
+
+**Which path we are on, because it decides which key to read.** `[MEASURED 2026-09-02]` **2,124 of
+2,124** of this site's `page_rerender` items dispatch to `handler_agent='page-rerender'` — i.e.
+`rerender_single_page_action.go` (`assemblePage`), **not** the `assemble_page` ACTION
+(`AssemblePageAction`) that `page-rebuild` / `pageflow-builder` / `site-work-orchestrator` run. The two
+are eleven characters apart and there is a LANDMINES entry on exactly that. **Consequences:** 408 never
+touched our path (no crash there and no new quiet-skip either), and `assembled_page.skip_reason` — the
+408 key — **does not exist on our path and would silently never match.**
+
+**The key that works here:** the action's `output_field` is **`rendered_page`**, and its skip returns
+`skipped:true` + `reason`. ⚠ **The `skipped` key is ABSENT on normal runs** (36 rows carry it, all 36
+are skips), so test for `'true'`, **never** for `'false'`. Proven both ways 2026-09-02: the query finds
+a real skip (`brand-detail`, *"page has no component rows"*) and returns key-absent for our own
+`tool-asset-formatter`. `servegrade.sh` prints it in the staleness refusal.
+
+**Why it matters to THIS lane specifically:** the skip fires on *"page has no component rows"*, and our
+retire sets the ported slot to `removed` (which the assembler excludes). **Our retire's PRE2 assert —
+"exactly one live native tool slot must exist" — is the thing that prevents it**, so keep that assert
+in any retire you write. A retire that removed the last live row would leave a page that rerenders to
+a skip for ever while every status reads success.
 
 **USE THE GATED SERVE-GRADE, DO NOT HAND-ROLL ONE:**
 `docs/agent_docs/docs024_key_docs_latest/webdesign_tool_rebuilds/servegrade.sh <slug> <ported-slot-file> <completed_at> [negatives…]`
