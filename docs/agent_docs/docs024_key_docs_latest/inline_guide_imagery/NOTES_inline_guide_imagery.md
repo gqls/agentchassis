@@ -588,3 +588,45 @@ component capability.** `editorial_design_uplift` reached the same place from th
 direction the same afternoon — asking why the planner composed six blog pages with no hero when
 330 of 432 peers have one — and neither of us was looking for it. Two lanes, two starting points,
 one answer: **what the planner composes.**
+
+### 13. CORRECTING §12 within the hour: the component IS being selected — the gap is the pattern, not the capability
+
+§12 reported 442 / 9 / 1 and concluded the bottleneck is page composition. The numbers stand; the
+natural reading of them — *nothing selects the illustrated component* — is **false**, and the
+`dartsonline_traffic` lane's "whatever gates composition onto `Illustrated Text Block` is upstream"
+sent me to check rather than to assume.
+
+`[MEASURED 2026-09-02]` migration 644 taught the three planner menus the word for an image on
+2026-08-26 11:16Z. Of the 9 pages carrying an illustration-capable section, **6 were composed by a
+planner AFTER that**:
+
+```
+webdesign.uk index          2026-08-26 16:52   (5h after 644)
+idea.uk tools               2026-08-28 22:38
+lendzy.co.uk index          2026-09-01 05:42
+oufe.com index              2026-09-01 07:24
+remortgagecalculator index  2026-09-02 12:45
+robot-hands.com index       2026-09-02 15:26   ← today
+apis.uk index ×6            2026-08-24         ← BEFORE 644, and hand-built
+```
+
+**644 worked. Adoption is live and growing — six sites in seven days, two of them today.** The
+"nobody drives the machinery we build" story does not apply here and I nearly told two lanes it
+did.
+
+**What the gap actually is, and it is much cheaper than the coarse reading implies:**
+
+| | |
+|---|---|
+| pages with an illustrated section | 9 |
+| ...`page_type='landing'` with **exactly one** (an accent) | 8 |
+| ...`content` with one | 1 |
+| ...with **several** (the shape per-section binding needs) | 1 — apis.uk, hand-built |
+| ...`blog-post` or `guide` — **the owner's actual subject** | **0** |
+
+So the planner has learned to reach for an illustrated block **once, on a landing page**, and has
+never composed an **article** out of them. That is a planning-behaviour question with a live and
+growing precedent to build on — not a missing capability, and not the estate-wide recomposition
+"1 of 442" suggests. ⚠ **Two readings of one census, an hour apart, and the difference is entirely
+in whether I asked WHEN the 9 were created.** A count of a population says nothing about whether
+that population is growing; the timestamps were in the same table the whole time.
