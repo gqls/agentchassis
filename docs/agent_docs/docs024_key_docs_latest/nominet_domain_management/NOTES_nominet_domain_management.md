@@ -116,3 +116,17 @@ allowlist for the `.37` node the pod moved to.
 Misstep caught in-session: the self-test summary line hardcoded `14/14` while
 15 checks ran — a dishonest summary over honest checks; replaced with a real
 counter before first commit.
+
+## 2026-09-02 (evening) — FIRST CREDENTIALED RUN: `login` PROVEN by the owner
+
+Owner ran `python3 scripts/domains/nominet.py login` in-session:
+`GREETING_BYTES=2527` → `login: 1000 Command completed successfully`
+`[MEASURED 2026-09-02]`. Two facts at once:
+
+1. The client's credentialed path works end-to-end (credentials parse, escape,
+   frame, tunnel, login) — OPP-015's "unexercised" caveat now covers only
+   walk/list/check/info/set-ns.
+2. **The allowlist is re-proven for node `.37`** — the 08-11 proof was from
+   `.26`, the pod has since moved, and this is the first login from the new
+   node. The owner's "all five added" claim of 08-11 now has a second data
+   point.
