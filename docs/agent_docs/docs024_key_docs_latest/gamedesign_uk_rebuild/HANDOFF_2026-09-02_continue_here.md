@@ -7,6 +7,45 @@ this first, then the PLAN for decisions, NOTES for evidence, RUNBOOK for command
 Directory: `docs/agent_docs/docs024_key_docs_latest/gamedesign_uk_rebuild/`
 Bug filed: `bugs_open/432_HANDOFF_2026-09-02_a_site_whose_db_rows_were_deleted_keeps_serving_and_no_detector_can_enumerate_it.md`
 
+> ## ⚡ UPDATE 2026-09-02 ~17:10Z — ALL FOUR OWNER DECISIONS LANDED AND EXECUTED; BUILD DISPATCHED
+>
+> Read §4/§5 below as history. Current state:
+> - **A1 email** `gamedesign@contactforsales.com` — on the row. **A2 look** — theme-kits lane
+>   supplied a bespoke "practice journal" palette (warm paper `#F4F1EA`, ink `#23211E`, earth
+>   accent `#A6521F`, `serif-editorial` typography, `soft-editorial` layout); seeded via
+>   `mission.preferred_palette` (rung 1 of the cascade) + `design_intent`. ⚠ **Kits are NOT
+>   live** (`theme_kits` unapplied) — values seeded directly. ⚠ **Owner ruling (via theme kits):
+>   `reference_values` is NOT a pin**; the overlay may move off it — check the served
+>   stylesheet after the build, do not clamp. **A3 old files** — CLEARED: sites-repo commit
+>   `40bd35f19` removed 58 tracked files, kept `404.html`; verified at the artefact (`/`,
+>   `/tools.html`, `/about.html` → 404 fleet page, control 404, bucket = 1 object). **A4 brief**
+>   — one sentence added on look (the sibling's actual values as the referent), 2,891 chars.
+> - **SEED applied 17:04Z** (`SEED_2026-09-02_gamedesign_uk_site_and_specs.sql`): site row
+>   `8f17eb73-fc74-4718-8371-b3125bc4e414`; `mission`, `design_intent`, `evidence_base`,
+>   `imagery_style_guide` all current+pinned. Also `oxenunity.com` row (owner: "should have a
+>   row, created here"; hand-built; email NULL, not invented; `settings.managed_by=hand`).
+> - **DISPATCHED 17:07:55Z** — correlation `f07313f6-976c-4593-9e5e-44892008fb74`,
+>   orchestration `2069ee9e-c626-4b98-9faf-1553b1e3376a`, submitter COMPLETED;
+>   `needs_domain_research` triaged to `domain-research-classifier`. The brief landed in
+>   `mission_brief.text` (which is what the classifier reads — verified in its definition), NOT
+>   in `mission`, so the pre-seeded palette row was never even merged over.
+> - **432 fix BUILT + LIVE** (`scripts/audit-rowless-serving-domains.sh`, IMP-059): first run
+>   found **10** NO-ROW-AND-SERVING (bucket 55 prefixes vs repo 36 — three domains a repo census
+>   cannot see). After the seed: gamedesign.uk + oxenunity.com → ROW_NO_PAGES, control stayed
+>   NO_ROW. Owner: the remaining 8 are the **adoption backlog**, after this lane, with oversight.
+> - **315 REOPENED** → `bugs_open/`, handed to `site_ai_agent_orchestration` ("AI page 3").
+> - **Brand leak** routed: a dedicated `gamesdesign.co.uk` session [783baf] now exists and has
+>   the owner's instruction + evidence; positioning recommends "GamesDesign.co.uk". The CLASS
+>   bug (adoption copies `company_name` verbatim to a different domain) is still MINE to file —
+>   not yet filed; coordinate with that session so it is filed once.
+>
+> **WHAT IS LEFT (was §5 steps 5–9):** wait for the cascade; verify at the artefact (RUNBOOK §8)
+> — every file non-empty `<main>`, legal pages + sitemap 200, no empty `mailto:`, control 404;
+> read the served stylesheet for the palette; read the served copy against the positioning
+> constraints; tell `Portfolio positioning` if it landed elsewhere; first SUMMARY; file the
+> class bug; close. **432 stays open** until the reconciler is scheduled (IMP-059 gap 1) or the
+> owner says keyboard-run is enough.
+
 ## 1. What this lane is, in one paragraph
 
 The owner asked for gamedesign.uk to be fixed — "it is in a bad way". It is: five of its linked

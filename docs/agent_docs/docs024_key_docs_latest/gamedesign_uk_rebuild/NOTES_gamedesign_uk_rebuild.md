@@ -218,3 +218,58 @@ but the figure in the PLAN and HANDOFF now names the current stamp.
 
 Wrote the RUNBOOK (the standing five were four until now) and `HANDOFF_2026-09-02_continue_here.md`.
 The lane is BLOCKED on owner decisions A1–A4 (HANDOFF §4); nothing dispatches until they land.
+
+---
+
+## 2026-09-02, ~16:45–17:10Z — owner rulings executed, build dispatched
+
+Rulings (verbatim shape): email `gamedesign@contactforsales.com` · look different, ask theme
+kits · clear old files · present the brief · 315: reopen + hand to that site's lane · 432: do
+here · oxenunity.com should have a row · the rest adopted later with oversight · tell
+gamesdesign.co.uk to stop using our name · carry on.
+
+**Theme kits' answer, the load-bearing half:** kits are NOT live (`to_regclass('theme_kits')`
+NULL, no binary carries `apply_theme_kit`) — seed values directly. Palette cascade rung 1 is
+`mission.preferred_palette` (the classifier does not write `mission`); typography cascade is
+REVERSED (`design_intent.typography.reference_values` first), so seed both. `colour_mood` must
+AGREE with the values (boxingonline: prose said dark, values said light, resolved silently to
+the values). **Owner ruling today: `reference_values` is NOT a pin** — RFC_059 proposed one and
+was withdrawn. Seeded = what the site starts from. The colour-churn landmine I cited earlier
+in this lane is superseded on that point.
+
+**432 fix, ordering deliberately before the pre-seed** so the demand control fired on the real
+case: `audit-rowless-serving-domains.sh` first run → gamedesign.uk NO-ROW-AND-SERVING, plus
+nine others. Bucket has 55 prefixes; the sites repo 36 — `secured-loan-calculator.com`,
+`tilingcalculators.com`, `wykefarm.co.uk` exist only in the bucket. **Enumerate the artefact,
+never the proxy** — my own repo census (8) was an undercount for the same reason Fable's (19)
+was: neither looked at the bucket.
+
+**Seed applied 17:04:35Z**, JSON validated before apply. Verify block returned both rows and
+four current pinned specs. Re-ran the reconciler on three prefixes: gamedesign.uk and
+oxenunity.com → ROW_NO_PAGES, nanangmrk.com (untouched control) → still NO_ROW. Register
+IMP-059's verify-later half 1 satisfied.
+
+**Retraction.** `~/projects/sites` local master is 14,738 commits behind origin with ONE
+unpushed commit from another session (apis.uk restore, 14:02) — not mine to push or discard.
+Did the deletion in a detached `git worktree` at `origin/master`, pushed `HEAD:master`. First
+push rejected (a git-adapter rerender landed in between — expected); re-created the commit on
+the new tip and pushed: `40bd35f19`. 58 tracked files removed, `404.html` kept, 34,848 lines.
+Verified at the artefact with a cache-bust: `/` `/tools.html` `/about.html` → 404 (2846 B fleet
+page), `/404.html` 200, invented URL 404, `b2 ls` → 1 object. ⚠ `git worktree remove` left the
+shell cwd in the sites repo and my next `git add` in "agentchassis" silently ran there —
+"pathspec did not match". Absolute paths, always.
+
+**Dispatch 17:07:55Z.** Last chassis pod start 15:53Z (the ~300 s rule holds). 082 needed
+`bash ./…` — the script is not executable. Correlation `f07313f6-976c-4593-9e5e-44892008fb74`,
+orchestration `2069ee9e-…`, LANDED COMPLETED. **The brief did NOT land in `mission`** — 082
+sends it as `input_data.mission_brief`, `persist_mission` had nothing to write, so my
+`mission.preferred_palette` row was never merged over at all. `mission_brief.text` (2,892 chars)
+is what `domain-research-classifier` reads (`site_specs.specs.mission_brief.text`, verified in
+its definition). Site id `8f17eb73-fc74-4718-8371-b3125bc4e414`. `needs_domain_research`
+triaged. Budget hours.
+
+**Brand leak:** no lane owned gamesdesign.co.uk when I looked; routed to positioning (GD1
+holder); the owner then created a dedicated `gamesdesign.co.uk` session [783baf] and it now has
+the instruction and the package. Positioning's recount: four current specs carry the string
+(not six — something superseded two in between; re-count before acting). Class bug still owed
+by me.

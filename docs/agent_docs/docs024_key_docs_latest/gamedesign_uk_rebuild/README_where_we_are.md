@@ -133,3 +133,25 @@ Separately, three things that aren't this site's but came out of the second look
 says done, page still empty" defect on ai-agent-orchestration.com that matches a bug we closed;
 who should own the monitoring gap I filed as 432; and seven other domains serving with no
 database row. Those are your calls, not blockers for this lane.
+
+## 2026-09-02, ~17:10 — your rulings are done and the build is running
+
+Everything you decided is executed. The site row exists with the email you gave. Theme kits
+supplied a look that is the opposite of the tools site on three counts at once — light warm
+paper instead of near-black, serif headings instead of sans, an earth-brown accent instead of
+cyan — and those values are seeded where the pipeline reads them first. One caveat from theme
+kits that you ruled on yourself today: a seeded palette is a starting point, not a lock; the
+renderer may move off it, and if it does we look at what it produced rather than clamp it.
+
+The old broken pages are gone from the public internet — every old address now gives an
+honest "not found" instead of an empty page — and the build was dispatched at 17:07. It will
+take hours; the classifier queues behind the rest of the fleet.
+
+The monitoring gap I filed as 432 now has its check, built and run: it looks at what the
+storage bucket is actually serving and asks the database whether it knows each domain. First
+run found ten domains serving with no record — three more than I'd counted from the deploy
+repo, because the bucket is wider than the repo. gamedesign.uk and oxenunity.com now have rows;
+the other eight are your adoption backlog for after this one.
+
+315 is reopened and handed to the ai-agent-orchestration lane. The name clash is with the new
+gamesdesign.co.uk session, with "GamesDesign.co.uk" as the recommended name.

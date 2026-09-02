@@ -130,11 +130,10 @@ outside 359's detector by construction. See NOTES for whether this earns its own
 3. ~~File the detector gap~~ **DONE — `bugs_open/432`, UNOWNED.**
 4. ~~Agree differentiated positioning~~ **DONE — practice seat; GD1/GD2 in the register.**
 5. ~~Draft the mission brief~~ **DONE — awaiting owner approval (decision A4).**
-6. **BLOCKED on owner decisions A1–A4** (HANDOFF §4): email, look-and-feel, old files, brief.
-7. Pre-seed the site row + `evidence_base` + `imagery_style_guide` (RUNBOOK §6; `name` AND
-   `network_id` explicit).
-8. Clear the old artefacts per A3 (RUNBOOK §8 gotchas; push to `master`).
-9. Dispatch the FRESH build (RUNBOOK §7) — not within ~300 s of a chassis restart.
+6. ~~BLOCKED on owner decisions A1–A4~~ **ALL FOUR RULED 2026-09-02 ~16:45Z** (HANDOFF top block).
+7. ~~Pre-seed~~ **DONE 17:04Z** — SEED file applied; site `8f17eb73…`; + `mission`/`design_intent` carrying theme kits' values.
+8. ~~Clear the old artefacts~~ **DONE** — sites `40bd35f19`, verified 404 at the artefact, bucket = 1 object.
+9. ~~Dispatch~~ **DONE 17:07:55Z** — corr `f07313f6-976c-4593-9e5e-44892008fb74`; `needs_domain_research` triaged.
 10. Verify at the artefact (RUNBOOK §8): every file non-empty `<main>`, legal pages + sitemap
     200, no empty `mailto:`, control still 404, positioning constraints honoured on the served copy.
 11. First SUMMARY; append README; tell `Portfolio positioning` if the brief landed elsewhere.
