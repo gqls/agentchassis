@@ -62,7 +62,13 @@ first pass = correct) · 10 CONFIRMED (axis; implementation AFTER D per their H4
   narrows to the NON-listing half only. designblog offers served-vs-stored test cases.
 
 
-- Council verdicts to read: `7f0c4adb` (706), `fa9744cb` (v2). A REVISE is usually right.
+- ~~Council verdicts to read~~ **BOTH APPROVED round 1** (v2 UNANIMOUS; 706's constitution
+  medium = the spec-fed structural deferral, already the owner's class question). use-cases
+  scored **6→3** post-706; farmer /about VERIFIED SERVING the released edits (stage-2 release
+  path proven end-to-end). Planner prompt canary STILL OWED (no planner runs since the
+  opt-ins). **no_answer_for_target SIZED: 13.6% of 1,849 targets in one post-roll afternoon**
+  (80.7% rewritten, 5.7% guard-rejected) — the re-ask build is decision-ready; first question:
+  why the "starting point, not a verdict" disclaimer formula over-represents in no-answers.
 - **HEAD is RED from another lane** (thunder/api build failure + livespec migration-reader
   test, present on bare HEAD at `11dda6c79`) — not ours; verify-head-builds judges relative.
 - bugs 420 (walker name$ blindness) + 422 (repair-vs-shrink floor; about/services still
