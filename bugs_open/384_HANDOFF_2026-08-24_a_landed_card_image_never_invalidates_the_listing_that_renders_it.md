@@ -504,3 +504,65 @@ Consequences, which **narrow rather than weaken** the case for keeping 384 open:
 
 **The close bar is unchanged:** one generic-page landing observed end-to-end — lands, fires, is
 consumed, array rewritten — on a queue that is now, post-recovery, actually draining.
+
+## UPDATE 2026-09-02 16:0xZ — re-read on a HEALTHY queue: the page did NOT repair, and the sweep has NEVER RUN ONCE
+
+Owner asked for the page to be re-read before firing a `090`. Done, on a fleet that has recovered.
+**The re-read removes the last confound and makes the case stronger, not weaker.**
+
+**The demand controls now PASS — this is no longer an idle-system reading.** `page_rerender`
+created vs complete: 09-01 **1164/953 (82%)**, 09-02 **1179/1084 (92%)** (against 4% and 1.4% at
+the outage trough). Cards are landing again (10 on 09-01, 6 on 09-02). The queue is draining.
+
+**The page did not repair.** `curl https://leopardessconsulting.co.uk/blog.html` is **byte-identical
+to 08-31 — 38,319 bytes, the same 11 card images for 13 entries.** Both guides still render as
+text-only tiles, still the first two in the grid, six days after their cards landed.
+`page_components.updated_at` is still **2026-08-27 21:34:20**.
+
+**Attribution corrected — I got this wrong on 08-31.** I wrote "the seam fired nine times". It did
+not. Splitting by `created_by`:
+- **The card-landing seam (`derive_card_asset`) filed 6 items and ALL 6 COMPLETED**, including both
+  of ours (`card_landed:tool-gdpr-ai-risk-assessment-guide` 08-27 22:37 → complete;
+  `card_landed:tool-monitoring-scope-estimator` 08-28 09:39 → complete). **Defect #1 stands and is
+  still unexplained: a correctly-specced item, consumed in a healthy window, completing green
+  without rewriting the array.**
+- **The 9 stuck items are the SWEEP's** (`completeness-discovery-agent`, `spec.check=page_list_stale`),
+  filed daily 08-28 → 09-01. Not the seam.
+
+**DEFECT #2, new, and it retires a claim in §3 of the handoff.** The sweep (migration `603`) is
+listed there as LIVE. It detects correctly and **it has never once run**: `page_list_stale` has
+filed **12 items in its entire lifetime — live AND archive, all time — every one `unresolved`,
+`attempt_count = 0`, zero ever claimed or completed.** Three pages, three sites (leopardess/blog 9,
+agritec.uk/tools 2, garden-tools.uk/tool-watch-service-interval-calculator 1).
+
+**Mechanism, verified first-hand at source and artefact:**
+1. `insertWorkItem`'s two-strike anti-churn arm counts prior siblings on the same `item_key` with
+   `status IN ('complete','failed')` over 7 days (`load_work_item_actions.go:1985-1993`).
+2. At `>= 2` it brands the new row `status='unresolved'` (`:2033`).
+3. `unresolved` is in `workItemTerminalStatuses` (`work_items_common.go:48`) and
+   `claim_work_item_action.go:135` claims only `('triaged','approved')` — **so the row is born
+   terminal and unclaimable**, and holds no dedup slot, so the next sweep files another born-dead row.
+4. **Every stuck row carries the brand**: `[unresolved after 6 attempts] Page-list on blog shows 2
+   stale image(s) …`. Strike composition on that key: **6 `complete`, 0 `failed`** — every counted
+   "attempt" was one of defect #1's false successes.
+
+**So the two defects are coupled, and that is the finding.** Defect #1 makes the seam complete
+without repairing; each false success is a strike; after two, the anti-churn arm kills the sweep's
+item at birth. **384's own second line of defence is disabled by 384's own first line, on exactly
+the pages that need it.**
+
+**This is NOT a new bug — it is `bugs_open/389`'s class**, whose class 1 already names the chain
+("a no-op rerender that completes, strikes, and manufactures `unresolved` stock"). 389 is OWNED by
+the `bugfix_308` lane (`who-owns.py`), so the evidence went **into 389 as a CONTRIB**, with the one
+property I could not find stated there: the strikes and the parked item came from **two different
+producers sharing an `item_key` on purpose**, and all six strikes were successes. **No fix attempted
+here.**
+
+**§8.1's escalation watch is VACUOUS and should not be re-read as written.** "Zero escalations
+against a 1-in-36 baseline" is zero over an empty denominator — the sweep never ran. It read as a
+clean bill of health for eight days.
+
+**Still open, unchanged:** defect #1's mechanism. The `090` the owner deferred is still the right
+next step and is now sharply targeted: *a `section_data_resolved` item, correctly specced and
+consumed in a healthy window, completes green and does not rewrite the array it was filed to
+refresh.* The owned-page residual (14 blanks / 3 pages) is also unchanged.
