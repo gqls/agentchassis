@@ -83,9 +83,9 @@ func main() {
 
 	fmt.Println("CHECK GROUP B — hero present, with alt")
 	withAlt := map[string]interface{}{
-		"content":         "<p>body</p>",
-		"hero_image_url":  "/assets/images/content-hero-womens-boxing-having-a-moment.jpg",
-		"hero_image_alt":  "Two boxers touching gloves before a bout",
+		"content":        "<p>body</p>",
+		"hero_image_url": "/assets/images/content-hero-womens-boxing-having-a-moment.jpg",
+		"hero_image_alt": "Two boxers touching gloves before a bout",
 	}
 	outB, err := render("b", newT, withAlt)
 	if err != nil {
