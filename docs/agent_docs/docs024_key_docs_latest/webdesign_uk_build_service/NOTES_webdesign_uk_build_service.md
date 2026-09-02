@@ -7738,3 +7738,16 @@ end. **Guards must NEST: inner × period < outer.**
   seam contributes D3 build-side stamping (site identity never from Origin —
   proxy-chain lesson) + D5 static thank-you page under any D1. Handoff §1.6
   updated; findings messaged to the boxingonline session.
+
+## 2026-09-02 — second GTM container id ARRIVED (cross-session handover from analytics_gtm)
+
+**GTM-TH5XGNQ4** (owner created it tonight; second container under the
+leopardessconsulting account). Recorded in
+`DECISION_2026-08-26_default_tag_hosted_copy_only.md` §5 as asked — that section
+is the re-ruling trigger's home, and the monitoring verdict is INVERTED for this
+container (0 tags / no G- id IS the correct steady state; a tag appearing =
+re-rule, not progress). The intake question and ZIP-path work packages (§ items
+2–3 of that doc) now have their concrete default value. Estate GTM-PQ3WCTBD
+still 0 tags at the same read; owner's GA4 Publish click still the one
+outstanding Google action. Seeder + mode-field build remains the analytics
+lane's per the ownership ruling.

@@ -52,6 +52,21 @@ rewrite the copy. **Ruled (option question, same day): his tag, HOSTED COPY ONLY
    the seeder and the export path read. If that container ever grows a cookie-setting
    tag, this default needs re-ruling.
 
+   > **THE CONTAINER EXISTS — id recorded 2026-09-02, handed over by the analytics_gtm
+   > lane (cross-session message):** **`GTM-TH5XGNQ4`** (second container under the
+   > leopardessconsulting GTM account; owner created it 2026-09-02). Verified live by
+   > that lane at 20:01Z: gtm.js serves 200, version 1, **0 tags, no G- id** — which for
+   > THIS container is the CORRECT steady state, cookie-light by construction. ⚠ The
+   > monitoring verdict reads INVERTED here: a tag or G- id ever APPEARING in it is this
+   > section's re-ruling trigger, not progress. Check:
+   > `CONTAINER=GTM-TH5XGNQ4 docs024_key_docs_latest/analytics_gtm/scripts/check_gtm_state.sh`.
+   > Canonical written record until the seeder/export mechanism ships: `bugs_open/397`
+   > §6.2, the analytics_gtm handoff, and this section. The seeder + `analytics.mode`
+   > field build stays with the analytics_gtm lane per the ownership ruling; this lane's
+   > intake question (item 3) and the ZIP path (item 2) now have their concrete default
+   > value. Estate container GTM-PQ3WCTBD still had 0 tags at the same read — the
+   > owner's GA4 Publish click remains the one outstanding Google action.
+
 ## Routing
 
 Chrome mechanics: analytics_gtm lane (told, same day — their durable fix should leave
