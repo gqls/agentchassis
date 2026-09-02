@@ -3873,3 +3873,31 @@ their + the owner's call. **Next fire directions will carry: theme-kit different
 444 enablement (sources/kinds) or listing-page holdback + best-in-vertical/no-omission/
 fullness/no-negative-identity (standing).** Cross-thread digest with attribution:
 designblog_couk/NOTES_designblog_couk.md.
+
+### (q) Theme kits' measured answer reshapes the differentiation plan — levers ranked by proof
+
+Their CONTRIB (this dir, 2026-09-02) deflates two of their own claims and ranks the levers:
+- **LAYOUT = the lever this week, proven + brief-driven**: 9 of 18 layouts used, 73% of sites
+  on three, NINE never used; layout survives the design overlay (colour does not). Goes in the
+  BRIEF (decided at composition from classification + style_direction prose).
+- **COLOUR = brief-with-REFERENT technique** (proven on gamedesign.uk: brief named the
+  sibling's actual hex values to differ from; overlay landed within two hex steps). Never plan
+  colour via themes/palettes/pins (spec-wins; owner's 09-02 ruling).
+- **CHROME = strongest lever, UNPROVEN**: all 6 existing pins point at the very component the
+  default picks — "pin honoured" and "pin ignored" are indistinguishable in all current data.
+  Decisive experiment (theirs, ~10 min): pin ONE site to header-with-search, rerender, diff
+  SERVED html vs unpinned sibling. **Decision: fold the experiment into remake №5's build**
+  (pin pre-release-rerender — no live-site touch, answers the question before the other 17
+  fire); the owner can pull it earlier onto advertise/websitepromotion if he wants a live one
+  differentiated sooner.
+- **STRUCTURE: do NOT size on page_archetypes** — 94.4% of live pages match no
+  defaultSectionsForPage output; the lever is the planner prompt (components lane's ground).
+- **`contact-hero` poison** (their §6): 3 plan rows + 1 page name a component with ZERO rows
+  (renders an empty slot); working pages use `hero-contact`. Vigilant-designer thread owns the
+  repair; OUR vigilance: at brief/plan review of the 18, grep the plan for contact-hero.
+
+**Fire-direction template for the next 18 (supersedes (p)'s checklist):** per-domain vertical +
+best-in-vertical + no-omission + fullness + no-negative-identity (standing) · LAYOUT intent
+naming a distinct layout, preferring the nine unused · COLOUR referent = nearest estate
+neighbour's actual values · 444 enablement (feed source rows / directory kinds) or listing-page
+holdback · chrome pin data per §5 once the №5 experiment proves the mechanism.
