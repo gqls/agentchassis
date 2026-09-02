@@ -1897,3 +1897,15 @@ Bug file moved to `bugs_closed/` with the closing section; §10 gains the 357 cl
 SUMMARY_2026-09-02 written (milestone: the lane's purpose achieved). Rollback note for
 posterity: vetcomparison's row is now legitimately post-organic-rebuild — a 701 rollback
 would abort on it by design ("neither state"), resolve by hand from `pre_row` if ever needed.
+
+**Post-close, family-level closure (lendzy, ~21:33Z):** the template-equals-bytes property
+now stands proven on BOTH arms of the class — our wrong-id/populated-plan arm by the
+unprompted vetcomparison rebuild, and lendzy's NULL-id/empty-plan arm by their directed proof
+(three `reason='template_changed'` rerenders through `rerender_page_sections`, where an
+unresolved component is FATAL and their pages errored pre-693; all three served pages'
+sha256 match the runs' own `files_sha256` EXACTLY). The parting caveat in my close-out note
+to them had already fired there (same prose-reason trap, caught by the components sweep) and
+was closed with the same discipline. Their `deployed_at` stamps were unaffected either way —
+assemble-mode also reaches the deployed branch. `files_sha256` is worth remembering: the wire
+carrying its own per-file hashes is the artefact-verification shape every close-out here
+wanted. Both lanes end the day at population 0.
