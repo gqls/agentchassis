@@ -24,7 +24,7 @@ import (
 // though this function never selects a site. If you change it, you MUST re-derive
 // the selector's window in the same task: the live query's window clause must
 // mirror the new ordering, and 657's _VERIFY sidecar
-// (docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_HOLD_VERIFY.sql,
+// (docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_VERIFY.sql,
 // assertion 2) pins the DB-side half of this lockstep. This test is the Go-side half.
 //
 // ⚠ AST, not grep: a source scan would match this very comment and pass vacuously

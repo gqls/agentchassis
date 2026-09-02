@@ -1,4 +1,4 @@
--- 657_selector_ranks_sites_by_loadable_work_HOLD_ROLLBACK.sql
+-- 657_selector_ranks_sites_by_loadable_work_ROLLBACK.sql
 --
 -- Restores build-pipeline-trigger > find_dispatchable_site > config.query to the exact
 -- text 657 replaced (the 633-era text, md5 d6f98acdb5aec385d5eb4077eac530fc): rank sites
@@ -8,11 +8,11 @@
 -- Apply by hand:
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --     psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - \
---     < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_HOLD_ROLLBACK.sql
+--     < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_ROLLBACK.sql
 
 BEGIN;
 
-SELECT snapshot_agent('build-pipeline-trigger', '657_selector_ranks_sites_by_loadable_work_HOLD_ROLLBACK.sql: pre-rollback');
+SELECT snapshot_agent('build-pipeline-trigger', '657_selector_ranks_sites_by_loadable_work_ROLLBACK.sql: pre-rollback');
 
 DO $mig$
 DECLARE

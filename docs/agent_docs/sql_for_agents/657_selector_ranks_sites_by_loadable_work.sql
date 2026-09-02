@@ -1,4 +1,4 @@
--- 657_selector_ranks_sites_by_loadable_work_HOLD.sql
+-- 657_selector_ranks_sites_by_loadable_work.sql
 --
 -- bugs_open/413: the dispatch selector and the item loader disagree on ordering, so one
 -- pinned item freezes its site's age and starves every younger site of trigger dispatch.
@@ -55,9 +55,9 @@
 --
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --     psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - \
---     < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_HOLD.sql
+--     < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work.sql
 --
---   Then run the VERIFY (657_selector_ranks_sites_by_loadable_work_HOLD_VERIFY.sql) —
+--   Then run the VERIFY (657_selector_ranks_sites_by_loadable_work_VERIFY.sql) —
 --   it must PASS after apply and FAILS BY DESIGN before it (its md5 arm is the proof it
 --   can fire). Acceptance meter over the following hours: RUNBOOK §"Per-site starvation
 --   floor" — no site with eligible work goes > ~1h unserved while pinned rows exist
@@ -91,11 +91,11 @@
 --   mismatch, load_work_item_actions.go:699): the selector falling to K=1 while the
 --   loader runs 50 keeps K <= M, which is the safe direction of the contract.
 --
--- ROLLBACK: 657_selector_ranks_sites_by_loadable_work_HOLD_ROLLBACK.sql
+-- ROLLBACK: 657_selector_ranks_sites_by_loadable_work_ROLLBACK.sql
 
 BEGIN;
 
-SELECT snapshot_agent('build-pipeline-trigger', '657_selector_ranks_sites_by_loadable_work_HOLD.sql: pre-update');
+SELECT snapshot_agent('build-pipeline-trigger', '657_selector_ranks_sites_by_loadable_work.sql: pre-update');
 
 DO $mig$
 DECLARE

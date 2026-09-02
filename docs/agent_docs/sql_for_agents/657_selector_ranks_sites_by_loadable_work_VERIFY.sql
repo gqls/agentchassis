@@ -1,11 +1,11 @@
--- 657_selector_ranks_sites_by_loadable_work_HOLD_VERIFY.sql
+-- 657_selector_ranks_sites_by_loadable_work_VERIFY.sql
 --
 -- Re-runnable check that the 657 contract HOLDS at the live artefact. Run it after
 -- applying 657, and alongside the daily 584 VERIFY habit (dispatch_throughput RUNBOOK).
 --
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --     psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - \
---     < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_HOLD_VERIFY.sql
+--     < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_VERIFY.sql
 --
 -- Exit 0 = the contract holds; a RAISE names the failing assertion.
 --

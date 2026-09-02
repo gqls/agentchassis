@@ -322,13 +322,13 @@ DRY_RUN=1 RESUBMIT_CORR=db9b7cbf-7b94-471a-a4cf-26a6679fa47f ./docs/agent_docs/d
 ```bash
 # Apply (BY HAND, ≥12:00Z 2026-08-27, after the 24h read + 658 — agreed boundaries; stamp + ping):
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
-  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_HOLD.sql
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work.sql
 
 # Contract check (run after apply, and alongside the daily 584 habit; also re-run after ANY
 # edit to load_work_item_actions.go or the trigger/loop rows). ⚠ FAILS BY DESIGN before 657
 # is applied (md5 arm) — that failure is its mutation proof, do not widen the md5 list.
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
-  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_HOLD_VERIFY.sql
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_VERIFY.sql
 # Go half of the same lockstep (pins the loader's ORDER BY literal):
 go test -run TestLoadWorkItemsOrderingMirrorsTheSelectorWindow ./platform/orchestration/actions/
 
