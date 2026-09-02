@@ -644,6 +644,27 @@ P1–P3 have held on editorial pages for real weeks. The un-owned-page question
    commit missed the 2026-09-02 12:28 roll), so a P1 that lands before their
    next roll has neither the filter nor the guard.
 
+10. **Every composite will MIS-SCORE in `compute_component_quality` until its
+    sync check learns D3's `slots` block — and it fails silently, as a low score
+    rather than an error.** Identified by Fable while drafting G6, and **verified
+    here by probe `[MEASURED 2026-09-02]`**: `extractTemplateVariables`
+    (`compute_component_quality.go:352`) walks the parse tree and returns FIELD
+    ROOTS, deduplicated. Fed `<article>{{.slots.lead}}{{.slots.quote}}</article>`
+    it returns **`[slots]`** — one name, not two — and fed
+    `{{.headline}}{{.slots.lead}}` it returns `[headline slots]`.
+    So a composite declaring three slots advertises ONE template variable called
+    `slots`, which no `fields` entry will match, because D3 puts slots in their own
+    block beside `fields` rather than in it. The sync check then reads a template
+    referencing "an undeclared field" and scores accordingly.
+    **This is a P1/P2 obligation, not G6's** — it bites the first composite that
+    exists, long before any pattern is promoted. It also matters more than a
+    cosmetic score: G6's promotion gate is designed to require a non-NULL
+    `quality_score` on every child family, so a scorer that mis-reads composites
+    would gate on a number it computed wrongly.
+    **The fix belongs with whoever teaches the checker about `slots`, and the
+    falsifier is the probe above**: assert `extractTemplateVariables` yields the
+    slot KEYS (or nothing at all for a slots reference), never the bare root.
+
 ## 7. Architecture-scope call — and the honest counterweight
 
 Against RFC_022's three conditions, each measured 2026-08-22: composition is
