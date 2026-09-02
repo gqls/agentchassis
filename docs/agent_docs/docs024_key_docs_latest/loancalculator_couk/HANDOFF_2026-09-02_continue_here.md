@@ -8,11 +8,16 @@
 ```
 site        loancalculator.co.uk   0162cde4-633e-45e9-8ca6-87a6b2fe1d26
 register    ✅ LIVE — 12 facts (7 CCA 1974 sections, 2 SIs, 3 FCA Handbook rules),
-            migration 699 applied 09-02 15:30, read-back verified, pinned, current.
-            Every quote 12/12 through cmd/fcaquotecheck with absent control; every
-            URL title-confirmed. Council corr 1f259a95 (Council-Submitted; verdict
-            may be delayed/killed by the chassis roll the lendzy relay warned of —
-            RESUBMIT rather than re-diagnose if the run dies).
+            migration 699 applied 09-02 15:30; council 1f259a95 APPROVED (1 medium
+            advisory, VERIFIED not filed: the refresher is map-based and round-trips
+            unknown keys losslessly — the typed-writer field-loss hazard stands and
+            is with the claims-verification lane). Every quote 12/12 through
+            cmd/fcaquotecheck with absent control; every URL title-confirmed.
+            PLUS: banned_claims = 8 (migration 707, council 99bd846e) — the
+            archetype constraints translated into enforced patterns; all 8
+            Go-compiled+probe-fired, 0-match census over all 28 pages, literal-%APR
+            excluded on a 2-match census (pedagogy, not promotion). NOTES has the
+            supersede-vs-in-place lesson and the 700→707 number collision.
 385         OPEN on one criterion: a clean BUILD-ARM rebuild (bug §7b). Fix live
             since 08-26 (LOCK-009).
 ```
