@@ -69,3 +69,83 @@ handed it a finished answer rather than a symptom to narrow down. The evidence t
 rests on is the live measurements, the predictions made in advance and then confirmed, and the
 review council's approval first time. I'd rather write that down than let a blank verdict read
 as a tick.
+
+---
+
+## 2026-09-02 — the overnight check finally got done, and it passed
+
+Nobody came back to this after the 26th, so the check I left for "about 03:47 that night" sat
+unrun for six days. The records it needed are only kept for two days, so that exact test was
+gone by the time I looked.
+
+The good news is that six days of running turned out to be better evidence than one night would
+have been, and the answer is clear: **the fix works.**
+
+Here is the test I could actually run. When the news refresh visits a site, it writes down "come
+back in six hours" — counting from the moment it visited, not from the timetable. So if it
+visited a site at 3:03am, that site is not officially due again until 9:03am. This morning's
+refresh started at **8:58am** — five minutes *early*. Under the old behaviour it would have
+looked at that site, decided it was not due yet, and skipped it until the afternoon. That skip
+is the entire bug.
+
+It did not skip it. It refreshed it. Same story for two other sites, one of them by nearly
+eleven minutes. And one of the three is idea.uk — the very site that started all this, the one
+we caught being skipped by thirty-nine seconds. **That is the fix doing exactly what it was
+built to do, on real traffic, and there is no other way those three sites could have been
+refreshed this morning.**
+
+I threw out a fourth site that also looked like a pass. Its margin was four seconds on the wrong
+side, which means it would have been refreshed either way — it proves nothing, and this lane has
+already made the mistake once of counting a result that could only come out one way.
+
+### There is a catch, and it is a different problem with a different name
+
+The bug is fixed, but the sites still aren't getting refreshed every six hours. They're getting
+refreshed roughly every nine.
+
+The reason is simple arithmetic and it is not this bug. Each refresh pass will only take **ten**
+sites. We now have **fourteen** news sites, and since the fix they are *all* genuinely due at
+every pass — which is the point. So four sites get turned away each time. They aren't lost, and
+they aren't being treated unfairly (the ones waiting longest go first, which is a fix we made
+back in August), but four out of fourteen wait an extra six hours.
+
+Before the fix: twelve hours between refreshes. Now: about nine. Designed: six. **We recovered
+most of the gap and the rest is a capacity limit, not a defect.**
+
+**This is your decision, not mine, and it costs money.** Lifting the limit from ten to fourteen
+would get every site onto the intended six hours, and would increase how often we go out and
+fetch news — which is the spend I flagged on the 26th. I have not touched it. I have written the
+numbers into the other bug file that already owns this question (`bugs_open/316`, which is
+literally titled "the queue is 2× oversubscribed"), so it is recorded and costed wherever you
+next look.
+
+One thing to watch if you do change it: the limit of ten is written into the configuration as a
+plain number, and the number of news sites grows every time we add one. Six days ago the right
+answer was twelve; today it is fourteen. A fixed number here will quietly go out of date again.
+
+### Two other things I checked, so they aren't left as open questions
+
+I said on the 26th that I didn't know whether the *other* six-hourly job — the one that publishes
+the provocation feed — had the same flaw. **It doesn't.** It doesn't work the same way at all:
+it picks the day's item from a pool rather than tracking "when is each source next due", so there
+is no timestamp for the timetable to fall out of step with. That question is closed.
+
+And I re-checked that the fix is still actually installed, rather than assuming it. Both halves
+are — the code half survived a later software release, and the configuration half is intact and
+untouched.
+
+### One unrelated thing you may want to know about
+
+On the evening of the 1st, a refresh pass **hung**. It got through exactly one site, sat there
+for four hours, and was eventually killed automatically. Thirteen sites lost that pass entirely.
+
+That is a known separate fault with its own owner — nothing to do with this fix — but it is worth
+saying out loud because **it produces the same symptom we just spent a week eliminating**: a site
+that goes twelve hours without a refresh. If someone looks at the feed timings in a month and
+sees a twelve-hour gap, that will probably be this, not the bug we just closed.
+
+### Where this leaves the bug
+
+Closed. It was fixed on the 26th, it went live the same evening, and as of this morning we have
+watched it work on real traffic rather than inferred it. The file has moved to the closed pile
+with the evidence attached.

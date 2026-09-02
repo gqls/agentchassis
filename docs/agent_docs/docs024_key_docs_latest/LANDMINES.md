@@ -19115,3 +19115,54 @@ code change owed at the next roll, tracked in RFC_015 §5.
   fired on a comment. Corrected census: **5 forks genuinely fine, 2 broken (1 LIVE on vonc.com, 1
   latent)** — not the 6-and-1 I reported. `WRONG_CALLS.md` same date.
 - **added:** 2026-09-02, webdesign_tool_rebuilds lane
+
+---
+
+### A fix that relieves a bottleneck raises demand on the NEXT constraint — so the acceptance test written beside the fix scores its own success as a FAILURE
+
+- **footprint:** any acceptance test phrased as **"the thing that was skipped must now appear"**
+  against a *capped* selector — `content-feed-trigger.find_news_sites` (`LIMIT 10`),
+  `dispatch_feed_sources_action.go` (`max_dispatches`, default 10), and every
+  `ORDER BY … LIMIT n` queue on this estate; plus `bugs_closed/410` (phase-lock slug) §4,
+  `bugs_open/316`, `cmd/config-key-audit/cappedscheduleordering.go`.
+- **fires when:** you write — or inherit and run — a "did the fix work?" check that tests
+  **membership of a served set** after changing what makes an item *eligible*. No symptom needed;
+  the test returns a confident boolean and a plausible-looking failure count.
+- **the trap:** the test is authored in a world that still has slack at the cap. **The fix's own
+  success removes that slack.** More items now qualify, the cap starts binding, and the surplus is
+  *correctly* displaced — but "absent from the next pass" is exactly the signature the defect
+  produced, so a working fix reports as broken. `[MEASURED 2026-09-02]` `bugs_closed/410` §4 required
+  *every* site from one pass to reappear in the next; of 8 discriminating sites **3 passed on a hard
+  lower bound, 1 was vacuous, and 4 were capped out of the very pass that proved the fix works** —
+  the literal test says "4 of 8 failed". ⚠ **The prediction that invalidated it was in the same
+  document, four sections down** (§6 residual 5: *"cap hits become routine … expected demand, not a
+  regression"*). Reading your own file is not enough; you have to read it *against* the test.
+- **the tell:** your test's negative outcome has **two** causes and you have written down that the
+  second is about to start happening. Also: demand at the cap is a **literal** (`LIMIT 10`) while the
+  eligible population grows by *addition* — sized "~12" on 2026-08-26, **14** on 2026-09-02.
+- **the check — before running it, size demand against the cap, and if it binds, throw the
+  membership test away and test the DECISION instead:**
+  ```sql
+  -- 1. does the cap bind? eligible count vs the LIMIT in the live selector
+  SELECT count(*) FROM (…the selector's eligibility predicate, WITHOUT the LIMIT…) x;
+  ```
+  Then use a bound that a cap cannot confound. For 410: an item processed in pass N cannot have been
+  processed *before* it was dispatched in pass N, so its next due stamp is **≥ (pass-N dispatch) +
+  interval**. If pass N+1 fires *before* that bound and the item is admitted anyway, the old
+  predicate cannot explain it — **one such admission is a PASS, and an absence proves nothing.**
+  Full query: that lane's RUNBOOK, "THE ACCEPTANCE TEST".
+- **and two ways the same test rots underneath you:** (1) **the trigger drifts** — ~:46 → **~:57**
+  in six days, so a window hardcoded from a handoff finds the right rows by luck and the wrong ones
+  soon after; **read the fire times**. (2) **a stalled pass mimics the defect exactly** — 09-01
+  20:57:41 FAILED on `process_sites_iter_1_spawn_orchestrator` (`reaper: stale EXECUTING_STEP for
+  >4h`), served **1** site and gave 13 sites a 12 h gap that has nothing to do with the phase lock.
+  Check `orchestration_states.status` for every pass you count, and exclude visibly.
+- **the sibling you also need:** discard any row whose margin could fall either way.
+  `mortgagecalculator.co.uk` reappeared and looked like a fourth pass — its bound was **4 s the wrong
+  side**, i.e. served under either predicate. A row that cannot come out false is not evidence.
+- **source:** 2026-09-02, `bugfix_410_feed_phase_lock` lane, closing `bugs_closed/410` (phase-lock
+  slug) six days after the test was left. Caught only because the test set had **expired**
+  (`orchestration_states` prunes at ~2 days), forcing a rebuild from live passes — had the rows
+  survived I would have joined them, got a mixed result, and never doubted the instrument.
+  `WRONG_CALLS.md` same date.
+- **added:** 2026-09-02, bugfix_410_feed_phase_lock lane

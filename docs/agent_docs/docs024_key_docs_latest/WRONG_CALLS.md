@@ -57748,3 +57748,52 @@ in `bugs_open/432` as evidence rather than as a story.**
 
 Family: a-report-is-not-a-measurement, a-css-fallback-is-present-and-inoperative,
 a-client-side-absence-is-not-an-absence, two-defects-can-wear-one-symptom.
+
+---
+
+## 2026-09-02 — I wrote an acceptance test that a WORKING fix could not pass, and the reason was four sections further down my own document
+
+**The claim.** `bugs_open/410` (phase-lock slug), HANDOFF §4, 2026-08-26, set in bold as *"THE
+ACCEPTANCE TEST"*: **"every site dispatched in tonight's 20:47Z pass must be dispatched AGAIN in
+the ~02:46Z pass"**, with a pinned eight-row test set and the note that *"the six discriminating
+rows above are sufficient"*. A disconfirming result was named, which is why it read as rigorous.
+
+**What was false.** Not the arithmetic — the *test*. It could not come out PASS for a working fix.
+§6 residual 5 of the **same document** predicted the fix would make ~12 sites due at every pass
+against a query `LIMIT 10`, so cap hits *"become routine … expected demand, not a regression"*.
+If the cap binds, some correctly-served site is displaced, and a pass-membership test scores that
+as a FAIL. Both statements were written the same evening, four sections apart, by me.
+
+**What it measured 2026-09-02:** of the 8 discriminating 6h-only sites, **3 passed on a hard
+lower bound, 1 was vacuous, and 4 were capped out of the very pass that proved the fix works.**
+Read literally, my own test returns "4 of 8 failed" for a fix that is demonstrably correct.
+
+**What caught it.** Running it. The test set had already expired (`orchestration_states` prunes at
+~2 days and I left the check six days), so I had to rebuild the test from the live passes — and
+building it forced me to ask what an absence could mean. Had the rows still been there I would
+have joined them, got a mixed result, and had no reason to doubt the instrument.
+
+**The cheap check that would have caught it at writing time:** *for each outcome my test can
+produce, name every state of the world that produces it.* "Site absent from pass N+1" had two
+causes — phase-locked (the defect) and capped out (the fix working) — and I had **already written
+down** that the second was about to start happening. One sentence of enumeration, against a
+document I had just finished writing.
+
+**The general shape, and it is why this is not just my slip:** *a fix that relieves a bottleneck
+raises demand on the NEXT constraint, and the acceptance test written before the fix cannot see
+past it.* The test was authored in a world with slack at the cap; the fix's own success removed
+that slack; the test then measured the new constraint and reported it as the old defect. **Check
+the test against the side effects you predicted in the same breath as the fix** — mine were on the
+same page.
+
+**Also wrong by drift, and cheaper:** §4 hardcoded a `02:40:00` window. The trigger moved **~:46 →
+~:57** in six days. A window pinned from a handoff finds the right rows by luck and the wrong ones
+soon after. **Read the fire times.**
+
+**Blast radius: none.** The test was never run in its broken form — the lane went quiet for six
+days and the replacement was built from scratch. Corrected visibly in the bug file (now
+`bugs_closed/410`, phase-lock slug), the lane HANDOFF §4, RUNBOOK (superseded block + the
+lower-bound test that replaced it) and NOTES. LANDMINE filed.
+
+Family: a-post-fix-zero-needs-a-demand-control, a-bound-added-for-a-reviewer-narrows-your-detector,
+your-action-moves-you-to-the-back-of-the-selector, a-closer-census-cannot-see-what-it-succeeded-at.

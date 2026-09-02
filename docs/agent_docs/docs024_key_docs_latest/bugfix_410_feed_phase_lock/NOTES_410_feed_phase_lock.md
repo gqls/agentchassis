@@ -142,3 +142,150 @@ WRONG_CALLS (with the full account), HANDOFF §7, this file, and the RUNBOOK. A 
 filed for the real `date -ud` trap. **Nothing in the 410 fix or its measurements depended on
 the false claim** — every 410 timestamp came from the DB in one frame, which is why the
 conclusions held despite it.
+
+---
+
+## 2026-09-02 12:38–13:00Z — THE ACCEPTANCE TEST PASSED, six days late, and in a stronger form than the one that was written
+
+Picked up cold from `HANDOFF_2026-08-26_continue_here.md`. Nobody had touched the lane since
+`ac1727beb` (2026-08-26). All times below are DB time (`SELECT now()` = `2026-09-02 12:38:18Z`).
+
+### The written test could no longer be run — and would have been WRONG if it could
+
+§4's test named the ~02:46Z pass of **2026-08-27**. `orchestration_states` prunes at ~2 days, so
+that pass is gone; the pinned test set in §4's table is unusable as written. Retained history is
+**four** trigger passes only:
+
+```
+09-01 14:57:11  COMPLETED
+09-01 20:57:41  FAILED       <- see below
+09-02 02:57:57  COMPLETED
+09-02 08:58:27  COMPLETED
+```
+
+⚠ **The trigger has drifted from ~:46 to ~:57** over six days (~11 min). Nothing in the handoff
+would have told a reader that; anyone reusing its hardcoded `02:40:00` window would have found
+the right rows by luck and the wrong ones after another week. **Read the fire times, never the
+handoff's.**
+
+⚠⚠ **And the test as written was already unsatisfiable on the night it was written.** §4 said
+*"every site dispatched in tonight's 20:47Z pass must be dispatched AGAIN in the ~02:46Z pass"*,
+while §6 residual 5 — four sections later, same document — predicted that the fix would push
+demand to ~12 sites against a cap of 10, so cap hits *"become routine … expected demand, not a
+regression"*. Both cannot hold: if the cap binds, some correctly-served site is displaced and
+the test reports FAILED for a working fix. Logged in `WRONG_CALLS.md` and filed as a LANDMINE,
+because the shape is general — **the fix's own predicted side effect invalidated its own
+acceptance test.**
+
+### The test that replaced it, and why it cannot come out both ways
+
+Do not compare pass membership. Compare **the trigger's fire time against the earliest time a
+site's due stamp could possibly have held**, which is a hard lower bound needing no inference:
+
+> a site fetched during pass N cannot have been fetched *before* it was dispatched in pass N, so
+> its `next_fetch_at` for the following cycle is **≥ (its pass-N dispatch time) + 6h**.
+
+If the trigger for pass N+1 fires *before* that bound and the site is admitted anyway, the bare
+`next_fetch_at <= NOW()` predicate cannot explain the admission. Pass N = 02:57:57, pass N+1
+fired **08:58:27**:
+
+| site (6h-only) | dispatched, pass N | earliest possible due | trigger fired before due by | served at 08:58 pass? |
+|---|---|---|---|---|
+| mortgagecalculator.co.uk | 02:58:22 | 08:58:22 | **−4 s** → NOT discriminating | served (excluded) |
+| remortgagecalculator.uk | 03:00:42 | 09:00:42 | **2 m 15 s** | **SERVED 09:14:20** |
+| idea.uk | 03:03:25 | 09:03:25 | **4 m 58 s** | **SERVED 09:16:56** |
+| vetcomparison.uk | 03:09:24 | 09:09:24 | **10 m 57 s** | **SERVED 09:18:35** |
+| loanandmortgagecalculator.co.uk | 03:10:53 | 09:10:53 | 12 m 26 s | not served (capped out) |
+| webdesign.co.uk | 03:14:07 | 09:14:07 | 15 m 40 s | not served (capped out) |
+| ai-agent-orchestration.com | 03:16:06 | 09:16:06 | 17 m 39 s | not served (capped out) |
+| farmerinsurance.uk | 03:19:19 | 09:19:19 | 20 m 52 s | not served (capped out) |
+
+**Three sites served on a tick that fired minutes before their earliest possible due time.**
+Under the pre-fix predicate that is arithmetically impossible. `idea.uk` — the site the bug was
+filed on, skipped by 39 s on 2026-08-26 — is one of the three.
+
+**mortgagecalculator excluded on its own evidence**: its bound falls 4 s the *wrong* side, so it
+is served under either predicate. Same vacuous shape as prediction (d); recording it would have
+been the mistake this lane already made once.
+
+**The one gap in the bound, closed.** A site is admitted if ANY source is due, so a straggler
+source carrying an older stamp would explain the admission without the look-ahead. It did not:
+
+```
+domain                   | n | first_src | last_src | spread   | off_pattern | max_err
+idea.uk                  | 5 | 09:17:19  | 09:17:38 | 00:00:19 |           0 |       0
+mortgagecalculator.co.uk | 5 | 09:12:03  | 09:12:16 | 00:00:12 |           0 |       0
+remortgagecalculator.uk  | 5 | 09:14:42  | 09:14:54 | 00:00:12 |           0 |       0
+vetcomparison.uk         | 1 | 09:18:54  | 09:18:54 | 00:00:00 |           0 |       0
+```
+`off_pattern` counts sources where `next_fetch_at <> last_fetched_at + fetch_interval` — zero, so
+every stamp is the plain success arm, none in error backoff. **vetcomparison.uk has exactly one
+source**, so for that site the gap cannot exist at all: it is the decisive row on its own.
+
+### Both halves still live — re-probed, not assumed
+
+- **Go**, chassis `v1.0.1352` (rolled on from 1345), both replicas, capability probe with both
+  controls in one breath: `make_interval(secs => interval_seconds / 2.0)` → **2**;
+  `interval_seconds / 7.0` → **0**; `DispatchFeedSourcesAction: dispatched ingester` → **1**.
+- **Config**, live `find_news_sites` read in full: look-ahead present, `ORDER BY due_at ASC NULLS
+  LAST, domain ASC LIMIT 10` intact, no bare `NOW()` arm. Cadence still 21600 s, so the
+  `interval '3 hours'` fallback is still the designed value (residual 2 unchanged).
+
+### What the fix did NOT deliver, and why it is not this bug
+
+§7's second criterion — *four run-hours/day per 6h-only site*, `max(last_fetched_at)` never
+older than 6 h 15 m — **is not met, and cannot be met at the current cap.** `[MEASURED 2026-09-02]`
+
+- **14** news sites are now eligible, **12** of them 6h-only; the two multi-interval controls
+  (dartsonline, relojistas) are due at every pass and take 2 slots every time.
+- `LIMIT 10` ⇒ **8 slots per pass for 12 sites**. Over the three successful passes: 12 × 3 = 36
+  demanded, 24 served, and the observed count is **exactly 24** (vetcomparison 3, every other
+  6h-only site 2, gaswholesalers 1 + the 1 it got from the failed pass). The cap is fully
+  binding and 554's `due_at` rotation is spreading it evenly — max−min = 1.
+- Effective cadence per 6h-only site: 4 passes/day × 8 slots ÷ 12 sites = **2.67 serves/day ≈ 9 h**,
+  against 12 h before the fix and 6 h designed. Four sites were carrying 9 h 24 m – 9 h 32 m of
+  staleness at the time of measurement.
+
+That is **`bugs_open/316`'s** subject verbatim — *"the news feed cap … the queue is 2× oversubscribed"* —
+not the phase lock. 316's fix (556) made the queue fair; it deliberately left the cap itself as an
+owner capacity decision. CONTRIB filed there with these numbers. **410's §6 residual 6 held this
+bug open on a condition owned by another bug; that condition is reassigned, not dropped.**
+
+⚠ The cap is a **literal `10`** in the config query while the eligible-site count grows with every
+news site added — residual 5 sized it at "~12" six days ago and it is 14 today. Whatever the owner
+chooses, a hand-set constant here goes stale by addition, silently, exactly like a census.
+
+### Residuals, re-checked
+
+1. **Go↔config parity still unenforced on a schedule.** Not built. Still true.
+2. **`interval '3 hours'` fallback** — cadence still 21600 s, so still correct. Landmine stands.
+3. **`LoadDueSourcesAction` still callerless** — re-verified with the stronger census the council
+   asked for (full `default_config::text LIKE '%load_due_sources%'`, all rows incl. snapshots and
+   nested steps): **0**. Go grep shows only the registry entry and its own definition.
+4. **The provocation twin — RESOLVED, and it is NOT affected.** `provocation-feed-refresh`
+   (21600 s, enabled, last run 09-02 11:20:57 → completed 11:20:59) targets
+   `provocation-feed-publisher`, whose entire live workflow is one step:
+   `publish_feed` → `render_provocation_feed` → `complete`. It holds **no per-item due stamp**:
+   `next_fetch_at` appears nowhere outside the content-feed paths (Go grep over
+   `platform/ internal/ pkg/ cmd/`), and `provocation_feed_action.go` writes only
+   `scheduled_tasks.last_completed_at` (`:991`, `:1029`). It selects "today's provocation" from a
+   pool rather than testing a per-source due time, so **there is no due predicate to phase-lock**.
+   Its "picked up by the next run within the interval" comments (`:101`, `:926`) are about failing
+   closed on a bad fetch, not about a due anchor. **Genuinely unknown → measured → not affected.**
+
+### An unrelated cost, observed and worth someone's attention
+
+**The 09-01 20:57:41 pass FAILED** and served **one** site (gaswholesalers 20:58:07) before
+stalling:
+
+```
+current_step | process_sites_iter_1_spawn_orchestrator
+error        | reaper: stale EXECUTING_STEP for >4h; step=process_sites_iter_1_spawn_orchestrator
+steps_run    | 0        execution_path | []
+```
+That is the known spawn→call handshake race (memory: *spawn-call handshake fails ~half the time*),
+not a 410 regression — the look-ahead had already admitted the sites. But it cost **13 sites a
+whole pass**, which at a 6 h cadence is a 12 h gap for each, i.e. it reproduces 410's *symptom*
+by a completely different mechanism. **A future reader measuring feed cadence will see this and
+may re-diagnose the phase lock.** Excluded from every count above; not filed as new (it has an
+owner) — recorded here so the exclusion is visible.

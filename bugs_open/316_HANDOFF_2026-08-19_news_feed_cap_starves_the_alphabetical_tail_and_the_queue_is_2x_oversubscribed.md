@@ -398,3 +398,51 @@ skipped. So the ordering fix here made the queue fair (true) but the lane README
 fully served"* (line 138) is **refuted** — they are served every other run, as before, by a different
 mechanism. Filed as **`bugs_open/410`** with fix candidates; the two-layer trap this file documents
 (site query vs source query) is exactly where 410's candidate 1 has to be applied twice.
+
+---
+
+## CONTRIB 2026-09-02 (`bugfix_410_feed_phase_lock` lane) — 410 is closed, and it handed this file the whole of the remaining shortfall, measured
+
+`bugs_closed/410` (phase-lock slug) is **fixed, live and confirmed on real traffic** as of today.
+Its own verification criterion had two halves; **the first is met and the second is yours** — so
+this is not a pointer, it is the numbers.
+
+**What 410's fix changed for this file: it removed the slack.** Before it, a 6h-only site was due
+at every *other* pass, so demand at the cap was roughly half of nominal and 556's ordering rarely
+had to displace anyone. The look-ahead makes every 6h-only site due at **every** pass. That is the
+designed behaviour and it is what puts this queue into permanent oversubscription.
+
+`[MEASURED 2026-09-02 12:38–13:00Z, DB clock]`
+
+- **14** eligible news sites; **12** are 6h-only; **2** (dartsonline, relojistas) hold a sub-6h
+  source, are due at every pass and take 2 of the 10 slots **every time**.
+- Live `find_news_sites` still ends `ORDER BY due_at ASC NULLS LAST, domain ASC LIMIT 10` (556
+  intact, 554 intact, plus 410's look-ahead in the due arm).
+- ⇒ **8 slots per pass for 12 sites.** Across the three healthy passes in retained history
+  (09-01 14:57, 09-02 02:57, 09-02 08:58): **36 demanded, 24 served, and exactly 24 observed.**
+- **Distribution is fair, so 556 is working**: vetcomparison 3, every other 6h-only site 2,
+  gaswholesalers 1 (+1 from the failed pass) — max−min = 1, no starved tail.
+- **Effective cadence per 6h-only site: 2.67 serves/day ≈ 9 h.** Was 12 h pre-410; designed 6 h.
+  Four sites were carrying **9 h 24 m – 9 h 32 m** of staleness when measured.
+
+**So the oversubscription this file is named for is now permanent and exact: 14 due, 10 admitted,
+4 displaced every pass.** Reaching the designed 6 h needs the cap at **≥14**. That is a spend
+decision (it roughly doubles feed ingestion — 410 §6 residual 5 costed it) and **no session should
+take it**; recorded here so it sits with the file that owns it.
+
+⚠ **Whatever number is chosen goes stale by addition.** The cap is a **literal `10`** in the config
+query while the eligible-site count grows with every news site added: 410's residual sized demand at
+"~12" on 2026-08-26 and it is **14** six days later. A hand-set constant here has the same failure
+mode as an undated census — it reads as current for ever. If the cap is raised, consider deriving it
+(or leaving explicit headroom) rather than pinning today's count.
+
+⚠ **One measurement trap for anyone re-running this file's census.** The 09-01 20:57:41 pass
+**FAILED** — `current_step=process_sites_iter_1_spawn_orchestrator`, `error` = *"reaper: stale
+EXECUTING_STEP for >4h"* — after serving **one** site, costing the other 13 a whole pass. That is
+the spawn→call handshake race, not cap starvation, but it produces an identical signature (a site
+with a 12 h gap). **Check `orchestration_states.status` for every pass you count and exclude the
+failed ones visibly**, or the cap will be blamed for it. Also: the trigger has drifted ~:46 → ~:57
+since 08-26, so read fire times rather than reusing any window from an older doc here.
+
+Evidence, queries and the traps: `docs/agent_docs/docs024_key_docs_latest/bugfix_410_feed_phase_lock/`
+(NOTES + RUNBOOK "Is the cap binding?"), `bugs_closed/410_HANDOFF_2026-08-26_next_fetch_at_…`.

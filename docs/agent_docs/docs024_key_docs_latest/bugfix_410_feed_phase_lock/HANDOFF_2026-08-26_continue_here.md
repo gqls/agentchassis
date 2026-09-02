@@ -1,7 +1,33 @@
-# HANDOFF — bugs_open/410 (the PHASE-LOCK one) — both halves LIVE, one acceptance test outstanding
+# HANDOFF — 410 (the PHASE-LOCK one) — ✅ CLOSED 2026-09-02. NOTHING IS OUTSTANDING.
+
+> ## ⚠ STOP — read this block before anything below it (added 2026-09-02)
+>
+> **The bug is CLOSED and the file has MOVED: `bugs_closed/410_HANDOFF_2026-08-26_next_fetch_at_…`.**
+> Everything under "§4 THE ONE OUTSTANDING TEST" is **DONE and its test set is EXPIRED**. Do not
+> run it. Current state, in one place:
+> **`SUMMARY_2026-09-02_410_feed_phase_lock.md`** (milestone read-out) · `NOTES` (queries, tail
+> section 2026-09-02) · `RUNBOOK` (the test that actually works).
+>
+> **Verdict: the fix is confirmed working on live traffic.** Pass at 08:58:27Z on 2026-09-02
+> served three 6h-only sites — remortgagecalculator.uk, **idea.uk** (this bug's own site) and
+> vetcomparison.uk — **2 m 15 s, 4 m 58 s and 10 m 57 s before their earliest possible due time**.
+> Impossible under the pre-fix predicate. Both halves re-probed live (chassis **v1.0.1352**).
+>
+> **⚠ §4's test below was UNSATISFIABLE AS WRITTEN — do not copy its shape.** It demanded that
+> *every* site from one pass reappear in the next, while §6 residual 5 of this same document
+> predicted the fix would push demand past the `LIMIT 10` cap. Measured: **4 of 8** discriminating
+> sites were correctly capped out of the pass that proved the fix works. `WRONG_CALLS.md` + a
+> LANDMINE ("a fix that relieves a bottleneck raises demand on the NEXT constraint"). §4's
+> hardcoded window is also dead: **the trigger drifted ~:46 → ~:57 in six days.**
+>
+> **What is genuinely left, and it is NOT this bug's:** 6h-only sites now run at **~9 h**, not the
+> designed 6 h — 14 eligible sites against a cap of 10. That is `bugs_open/316` (CONTRIB filed
+> 2026-09-02 with the numbers) and an owner spend decision. Residual 4 below (the provocation
+> twin) is **RESOLVED: not affected**. Residual 6's "keep open until…" is **discharged**.
 
 **Written 2026-08-26 ~21:00Z (all times in this lane are DB time — `SELECT now()`) by the
-`bugfix_410_feed_phase_lock` lane. This is the cold-start doc — read this first.**
+`bugfix_410_feed_phase_lock` lane. Superseded 2026-09-02 by the block above — the body below is
+kept as the record of what was believed on the 26th, not as instructions.**
 
 ⚠ **410 NAMES TWO UNRELATED BUGS.** This lane owns
 `bugs_open/410_HANDOFF_2026-08-26_next_fetch_at_stamped_at_fetch_time_phase_locks_every_six_hour_news_site_to_a_twelve_hour_cadence.md`
@@ -58,7 +84,17 @@ Council **APPROVED round 1**, corr `04c657d2-cbee-4528-b124-b53a747d2e96`.
   council's low-severity objection empirically — the live query **was** 556's post-image.
   A pre-change snapshot exists: `snapshot_agent` id `51dd1c59-69e6-4625-baf6-203c35052f18`.
 
-## 4. THE ONE OUTSTANDING TEST — and it is genuinely disconfirmable
+## 4. ~~THE ONE OUTSTANDING TEST~~ — ✅ DONE 2026-09-02, but **NOT with the test below; that test was broken**
+
+> **CORRECTED 2026-09-02.** The test in this section was **unsatisfiable by a working fix**, and
+> the reason is in §6 residual 5 of this same document: the look-ahead makes ~all 6h-only sites due
+> at every pass, demand exceeds the query's `LIMIT 10`, and the surplus is *correctly* displaced —
+> which a pass-membership test scores as a failure. Measured 2026-09-02: of 8 discriminating sites,
+> **3 passed, 1 was vacuous, 4 were capped out**. The pinned test set below is also **expired**
+> (`orchestration_states` prunes at ~2 days) and its `02:40:00` window is dead (**trigger drift
+> ~:46 → ~:57**). What replaced it — a lower bound a cap cannot confound — is in the RUNBOOK under
+> "THE ACCEPTANCE TEST". `WRONG_CALLS.md` + LANDMINE, same date. **Everything below is the 26th's
+> record, not a task.**
 
 The evening pass fired **20:46:45Z** and was the **last bare-NOW()-admission pass**. Dispatch
 is sequential (~2.5 min/site here), so it was still running when this handoff was written —

@@ -102,17 +102,80 @@ FROM (SELECT default_config->'workflow'->'steps'->'find_news_sites'->'config'->>
 ```
 Applied 2026-08-26 ~20:52Z. Pre-change snapshot: `51dd1c59-69e6-4625-baf6-203c35052f18`.
 
-## THE ACCEPTANCE TEST (~02:46Z, 2026-08-27) — the discriminating one
-Tonight's 20:47Z pass was still dispatching at 20:55Z (≈2.5 min/site) — **read the test set,
-do not assume it**: sites with `content_sources.last_fetched_at` in 20:47–21:1xZ, or the
-orchestrator rows in that window. Confirmed by 20:55Z: webdesign.co.uk, ai-agent-orchestration.com,
-fundamentallyai.com, robot-hands.com. Their sources stamp to ≈02:47Z onward, seconds after the
-~02:46:5xZ trigger. **All must reappear at ~02:46Z.**
+## THE ACCEPTANCE TEST — ⚠ THE FIRST VERSION WAS UNSATISFIABLE. USE THE SECOND.
+
+> **SUPERSEDED 2026-09-02.** The original test read: *"the sites dispatched in tonight's 20:47Z
+> pass must ALL reappear at ~02:46Z"* (test set pinned in `HANDOFF` §4). **It cannot be satisfied
+> by a working fix**, and the reason was already written four sections further down the same
+> document: the look-ahead makes ~all 6h-only sites due at every pass, demand exceeds the query's
+> `LIMIT 10`, and the surplus is correctly displaced. Measured 2026-09-02: **4 of 8** discriminating
+> sites were capped out of the very pass that proved the fix works. A pass-membership test cannot
+> tell "skipped by the phase lock" from "displaced by the cap". `WRONG_CALLS.md` + LANDMINE.
+> Also: **the trigger drifts** — ~:46 on 08-26, **~:57** on 09-02, ~11 min in six days. Never
+> hardcode a window from a handoff; read the fire times.
+
+**The test that discriminates, and needs no inference.** A site fetched during pass N cannot have
+been fetched *before* it was dispatched in pass N, so its next due stamp is **≥ (its pass-N
+dispatch time) + fetch_interval**. If pass N+1's trigger fires *before* that bound and the site is
+admitted anyway, a bare `next_fetch_at <= NOW()` cannot explain it. Set the two literals from the
+fire times you just read; the `interval '6 hours'` must match the site's own interval.
+
 ```sql
-SELECT s.domain, to_char(o.created_at,'DD HH24:MI:SS')
-FROM orchestration_states o JOIN sites s ON s.id=o.site_id
-WHERE o.owner_agent_type='content-feed-orchestrator'
-  AND o.created_at > timestamptz '2026-08-27 02:40:00+00' ORDER BY o.created_at;
+WITH t AS (SELECT timestamptz '<PASS N+1 FIRE TIME>' AS fired),
+prev AS (SELECT s.domain, o.created_at AS d0 FROM orchestration_states o JOIN sites s ON s.id=o.site_id
+         WHERE o.owner_agent_type='content-feed-orchestrator'
+           AND o.created_at BETWEEN '<PASS N FIRE>' AND '<PASS N FIRE + 1h>'),
+cur  AS (SELECT s.domain, o.created_at AS d1 FROM orchestration_states o JOIN sites s ON s.id=o.site_id
+         WHERE o.owner_agent_type='content-feed-orchestrator' AND o.created_at > '<PASS N+1 FIRE>'),
+six  AS (SELECT s.domain FROM content_sources cs JOIN sites s ON s.id=cs.site_id
+         WHERE cs.is_active GROUP BY s.domain
+         HAVING bool_and(cs.fetch_interval = interval '6 hours'))
+SELECT p.domain, to_char(p.d0,'HH24:MI:SS') AS served_N,
+       to_char(p.d0 + interval '6 hours','HH24:MI:SS') AS earliest_possible_due,
+       to_char(p.d0 + interval '6 hours' - t.fired,'HH24:MI:SS') AS due_AFTER_trigger_by,
+       (p.d0 + interval '6 hours' > t.fired) AS discriminating,
+       (c.domain IS NOT NULL) AS served_N_plus_1
+FROM prev p CROSS JOIN t JOIN six ON six.domain=p.domain
+LEFT JOIN cur c ON c.domain=p.domain ORDER BY p.d0;
 ```
-Absent ⇒ the look-ahead is not reaching the decision: re-run both probes above before anything
-else. ⚠ Do NOT use idea.uk as the test — it has been due since 20:47:24 and passes either way.
+
+**Reading it.** `discriminating=false` ⇒ **throw the row away**, it is served under either
+predicate (on 09-02 mortgagecalculator's bound fell 4 s the wrong side — the same vacuous shape as
+the old prediction (d)). Of the `discriminating=true` rows, **one `served_N_plus_1=true` is a
+PASS** — it is arithmetically impossible pre-fix. A `false` proves **nothing on its own**: check
+whether the pass was full before concluding anything.
+
+**Close the one gap in the bound** — a straggler source with an older stamp would explain an
+admission without the look-ahead. Prefer a single-source site (2026-09-02: `vetcomparison.uk`,
+1 source, decisive alone). Otherwise show the sources move together and none is in error backoff:
+```sql
+SELECT s.domain, count(*) n,
+       to_char(max(cs.last_fetched_at)-min(cs.last_fetched_at),'HH24:MI:SS') AS spread,
+       count(*) FILTER (WHERE cs.next_fetch_at <> cs.last_fetched_at + cs.fetch_interval) AS off_pattern,
+       max(cs.error_count) AS max_err
+FROM content_sources cs JOIN sites s ON s.id=cs.site_id
+WHERE cs.is_active AND s.domain IN (<the discriminating sites>) GROUP BY s.domain;
+```
+`off_pattern` and `max_err` must both be **0**, and `spread` seconds, or the bound does not hold.
+
+## Is the cap binding? (run this BEFORE reading any absence as a failure)
+```sql
+SELECT count(*) FILTER (WHERE six) AS six_only, count(*) AS eligible_total
+FROM (SELECT s.id, bool_and(cs.fetch_interval = interval '6 hours') AS six
+      FROM content_sources cs JOIN sites s ON s.id=cs.site_id WHERE cs.is_active GROUP BY s.id) x;
+```
+Compare against the `LIMIT` in the live `find_news_sites` query. `[MEASURED 2026-09-02]` 14
+eligible / 12 six-hour-only vs `LIMIT 10` ⇒ 2 slots go to the always-due controls, **8 slots for
+12 sites**, so a 6h-only site is served ~2.67 of 4 passes (~9 h effective, not the designed 6 h).
+That shortfall is **`bugs_open/316`**, not this bug. ⚠ The `10` is a literal and the site count
+grows by addition — "~12" was right on 08-26 and is 14 today.
+
+## Was a pass actually healthy? (a stalled pass mimics the phase lock exactly)
+```sql
+SELECT to_char(created_at,'MM-DD HH24:MI:SS') fired, status, current_step, left(COALESCE(error,''),200)
+FROM orchestration_states WHERE owner_agent_type='content-feed-trigger' ORDER BY created_at;
+```
+`FAILED` + `current_step=process_sites_iter_1_spawn_orchestrator` + `error` starting `reaper: stale
+EXECUTING_STEP` is the spawn→call handshake race (own owner, not 410). Seen 09-01 20:57:41: it
+served **1** site and cost the other 13 a whole pass — i.e. **a 12 h gap produced by something that
+is not the phase lock**. Exclude such passes from every cadence count, visibly.

@@ -270,3 +270,79 @@ served at ~02:46Z. ⚠ relojistas.com and dartsonline.com were also served but a
 evidence: their 3 h/4 h sources come due at 23:55 and 00:57, i.e. before the trigger, so they
 pass under either predicate — the same vacuous shape as prediction (d). Full table: lane
 HANDOFF §4.
+
+---
+
+## 2026-09-02 — CLOSED. §7's first criterion met on live traffic; the second reassigned to `bugs_open/316`
+
+`[ALL MEASURED 2026-09-02 12:38–13:00Z, DB clock]` by the `bugfix_410_feed_phase_lock` lane.
+Full record: that lane's `NOTES` (queries + traps) and `README_where_we_are` (owner prose);
+milestone read-out in `SUMMARY_2026-09-02_410_feed_phase_lock.md`.
+
+### The fix is confirmed working on real traffic
+
+The §4 acceptance test named a pass on 2026-08-27; `orchestration_states` prunes at ~2 days, so
+it was gone. **It was also unsatisfiable as written** — see the correction below. Replaced with a
+test that needs no inference: a site fetched in pass N cannot have been fetched before it was
+*dispatched* in pass N, so its next due stamp is **≥ (pass-N dispatch) + 6 h**. If pass N+1's
+trigger fires before that bound and the site is admitted, `next_fetch_at <= NOW()` cannot explain
+it. Pass N fired 02:57:57, pass N+1 fired **08:58:27**:
+
+| site (6h-only) | dispatched pass N | earliest possible due | trigger fired EARLY by | pass N+1 |
+|---|---|---|---|---|
+| remortgagecalculator.uk | 03:00:42 | 09:00:42 | 2 m 15 s | **SERVED 09:14:20** |
+| idea.uk | 03:03:25 | 09:03:25 | 4 m 58 s | **SERVED 09:16:56** |
+| vetcomparison.uk | 03:09:24 | 09:09:24 | 10 m 57 s | **SERVED 09:18:35** |
+
+Three sites served on a tick that fired minutes before they could possibly have been due —
+arithmetically impossible under the pre-fix predicate. **`idea.uk`, this file's own site, skipped
+by 39 s on 08-26, is one of them.** `mortgagecalculator.co.uk` also reappeared but its bound falls
+**4 s the wrong side**, so it is served under either predicate: **excluded as vacuous**, the same
+shape as prediction (d). Straggler-source objection closed: `off_pattern`=0, `max_err`=0, source
+spread ≤19 s on all four, and **vetcomparison.uk has exactly one source**, so it is decisive alone.
+
+Both halves re-probed rather than assumed: chassis **v1.0.1352** (rolled on from 1345) carries the
+look-ahead — capability probe **2** hits, negative control **0**, positive control **1**; the live
+`find_news_sites` still carries the look-ahead with 554+556's tail intact and no bare `NOW()` arm;
+cadence still 21600 s, so the `interval '3 hours'` fallback is still the designed value.
+
+### ⚠ CORRECTION to §4 of the 08-26 handoff — the acceptance test was unsatisfiable when written
+
+§4 required *every* site from one pass to reappear in the next, while §6 residual 5 — same
+document — predicted the fix would put ~12 sites against a cap of 10 and that cap hits would
+become routine. Both cannot hold. Measured: **4 of 8** discriminating sites were capped out of the
+very pass that proved the fix. A pass-membership test cannot separate "phase-locked" from
+"displaced by the cap". `WRONG_CALLS.md` row + LANDMINE filed; the RUNBOOK now carries the
+lower-bound test instead. Also **the trigger drifted ~:46 → ~:57 in six days** — never reuse a
+handoff's hardcoded window.
+
+### §7's second criterion is NOT met, and it belongs to `bugs_open/316`
+
+*Four run-hours/day per 6h-only site* is unreachable at the current cap. `[MEASURED 2026-09-02]`
+**14** eligible news sites, **12** of them 6h-only; the two multi-interval controls are due every
+pass and take 2 of the 10 slots, leaving **8 slots for 12 sites**. Over the three successful
+passes, 36 demanded / 24 served — **exactly 24 observed**, spread evenly (max−min = 1), so the cap
+is fully binding and 554's `due_at` rotation is working. Effective cadence **≈9 h** (was 12 h,
+designed 6 h). Four sites were carrying 9 h 24 m–9 h 32 m staleness.
+
+That is 316's subject verbatim (*"the queue is 2× oversubscribed"*); its 556 fix made the queue
+fair and deliberately left the cap as an owner capacity decision. **CONTRIB filed there with these
+numbers. This bug is not held open on another bug's condition** — the phase lock is fixed, live and
+no longer reproducible, which is the stated bar. ⚠ The cap is a **literal `10`** while the eligible
+count grows by addition: residual 5 sized it "~12" on 08-26 and it is **14** today.
+
+### Residuals at close
+
+1. Go↔config parity still unenforced against live config on a schedule. **Not built.**
+2. `interval '3 hours'` fallback — cadence unchanged at 21600 s, so still correct. Landmine stands.
+3. `LoadDueSourcesAction` still callerless — re-verified by full config-text census (**0** rows).
+4. **Provocation twin: RESOLVED — NOT affected.** `provocation-feed-publisher`'s entire live
+   workflow is `publish_feed` → `render_provocation_feed` → `complete`; it holds no per-item due
+   stamp (`next_fetch_at` appears nowhere outside content-feed paths), writing only
+   `scheduled_tasks.last_completed_at`. No due predicate ⇒ no phase lock possible.
+5. Cost/capacity — **owner's decision, untouched.** Raising the cap to ≥14 buys the designed 6 h.
+6. ⚠ **A stalled pass mimics this bug exactly.** 09-01 20:57:41 FAILED on
+   `process_sites_iter_1_spawn_orchestrator` (`reaper: stale EXECUTING_STEP for >4h`), served **1**
+   site and cost 13 sites a whole pass — a 12 h gap with nothing to do with the phase lock. Known
+   spawn→call handshake race, own owner. **Anyone re-measuring feed cadence will meet this and may
+   re-diagnose 410.** Excluded from every count above.
