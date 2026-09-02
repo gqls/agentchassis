@@ -5,14 +5,38 @@ manually, please get a lane to tell me which to point").
 
 **Answer: two domains. Both need their NAMESERVERS changed, not their A records.**
 
+> **⚠ CORRECTED 2026-09-02, same day, BEFORE the owner acted — the two domains are NOT
+> in the same state, and the first version of this document said they were.**
+>
+> I wrote "40 pages of finished work are built and waiting". That is true of ONE of them.
+>
+> - **boxingonline.com — 21 pages BUILT AND DEPLOYED**, most recently `2026-09-02
+>   13:59:46Z`, under an hour before this correction. The artefacts exist and are being
+>   refreshed; only the delegation is missing. **Pointing this domain WILL make the site
+>   appear.**
+> - **adversecreditmortgage.co.uk — ZERO pages ever deployed.** All 19 are `planned`
+>   (18) or `needs_rebuild` (1), every one with `deployed_at IS NULL`. **Pointing this
+>   domain will show NOTHING**, because there is nothing at the other end yet. It needs a
+>   build first, and pointing it is the second step, not the first.
+>
+> Why this matters more than the tidiness of the number: point them both, see one work
+> and one stay blank, and the natural conclusion is that the pointing failed. It did not.
+> **The count was real; the claim I hung on it was not** — I had the page counts from
+> `pages.status='active'`, which says a page is wanted, and read it as a page that exists.
+>
+> This also RETRACTS the detector-gap suspicion at the foot of this file and in NOTES §(n).
+> `head_essentials_missing` filed nothing for adversecreditmortgage **because its
+> eligibility gate is `PageHasShippedPredicateFor`, and not one of those 19 pages has ever
+> shipped.** The check was right to stay silent. There is no gap; there is an unbuilt site.
+
 ---
 
 ## The list
 
 | domain | pages built | what it serves now | nameservers now | what it needs |
 |---|---|---|---|---|
-| **boxingonline.com** | 21 active | 114-byte stub redirecting to `/lander`, on every path | `ns1.afternic.com`, `ns2.afternic.com` | delegate to the estate's Cloudflare pair |
-| **adversecreditmortgage.co.uk** | 19 active | same 114-byte stub, every path | `ns1.dan.com`, `ns2.dan.com` | delegate to the estate's Cloudflare pair |
+| **boxingonline.com** | 21 built **and deployed** (latest 09-02 13:59Z) | 114-byte stub redirecting to `/lander`, on every path | `ns1.afternic.com`, `ns2.afternic.com` | **delegate — and the site appears** |
+| **adversecreditmortgage.co.uk** | 19 planned, **0 ever deployed** | same 114-byte stub, every path | `ns1.dan.com`, `ns2.dan.com` | **build FIRST**, then delegate — pointing it today shows nothing |
 
 **Target delegation** — every serving estate domain uses the same pair, so this is the
 value to set, verified on cookly.uk, farmerinsurance.uk, agritec.uk and webdesign.uk:
@@ -63,7 +87,9 @@ skip-link, no footer" — are **true statements about a parking stub**, not abou
 pages. They should clear on their own once the domain is pointed and the checker re-probes
 a real page. I will confirm that rather than assume it.
 
-`adversecreditmortgage.co.uk` filed **no such findings at all**, despite serving the same
-stub. It is one of only two active sites with none. **That is a detector gap, not a clean
-bill of health** — the check's page-eligibility gate is skipping it for a reason I have
-not yet established. Logged in NOTES §(n) as unmeasured; it is on this lane's list.
+~~`adversecreditmortgage.co.uk` filed no such findings at all... That is a detector gap.~~
+**RETRACTED the same day — see the correction box at the top.** The check skipped it
+because `loadStructuralPopulation` gates on `PageHasShippedPredicateFor`, and all 19 of
+that site's pages have `deployed_at IS NULL` with `build_status` in
+(`planned`, `needs_rebuild`). A check that probes served pages correctly says nothing
+about a site that has never served one. **No gap. An unbuilt site.**

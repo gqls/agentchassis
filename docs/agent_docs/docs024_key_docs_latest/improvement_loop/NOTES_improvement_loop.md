@@ -246,3 +246,36 @@ the 867 rows retracts itself either: `head_essentials_missing` only emits a
 `ResolvedFinding` when all three essentials are present, so the rows clear as each page
 re-renders and is re-probed — which is the right behaviour and also means **the backlog
 will not visibly move until the wave runs.** Do not read a flat count as the fix failing.
+
+---
+
+## 2026-09-02, evening — I got the pointing claim wrong, and caught it before the owner acted
+
+**(z) WRONG CALL, corrected within the hour.** I told the owner "40 pages of finished work
+are built and waiting behind a delegation nobody changed". `[MEASURED 2026-09-02]`:
+
+| domain | pages | build_status | ever deployed |
+|---|---|---|---|
+| boxingonline.com | 21 | 20 `deployed` + 1 `planned` | **yes — latest 2026-09-02 13:59:46Z** |
+| adversecreditmortgage.co.uk | 19 | 18 `planned` + 1 `needs_rebuild` | **no — zero, ever** |
+
+So it is 21 built pages and 19 that do not exist. **Pointing adversecreditmortgage today
+would show nothing**, and the natural reading of that would be that the pointing failed.
+
+**What I did wrong, precisely:** I took the page counts from `pages.status='active'` and
+read them as "pages that exist". `status='active'` says a page is *wanted*; `deployed_at`
+and `build_status` say whether one was ever *made*. I had both columns available in the
+first query and grouped on neither. **A count of rows is not a count of artefacts** — the
+same shape as this lane's other lesson, that a finding is not a defect.
+
+**(aa) And it RETRACTS my own §(n).** I recorded adversecreditmortgage's zero findings as
+"a detector gap, not a clean bill of health". It is neither. `loadStructuralPopulation`
+gates the population on `PageHasShippedPredicateFor` (`links.go:293`), and no page on that
+site has ever shipped — so a check that probes served pages had nothing to probe. **The
+check was right and my suspicion was wrong.** Recorded rather than quietly deleted,
+because §(n) was written in the confident voice and would have sent the next reader
+hunting a defect that does not exist.
+
+What survives from §(n) is the weaker and still-true half: *"no finding" is not "no
+problem"* — here the absence of findings meant an unbuilt site, which is a bigger problem
+than the findings would have been.

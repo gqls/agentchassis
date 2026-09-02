@@ -58227,3 +58227,32 @@ not just what the broken one does.
 **Tally:** **a-remedy-is-fitted-to-a-population-not-a-defect** ×1 (×2 counting the peer's, same
 afternoon, opposite lanes).
 - [2026-09-02, bugfix_357/408 lane] **My cross-thread notification asserted impact I had not verified per-recipient — "a fix affecting your rebuild path" — and the recipient lane built on it.** I named the three assemble_page consumers correctly, but addressed the message to rebuild-named lanes without checking which assembly path each actually dispatches; webdesign-tool-rebuild's chain is 2,124/2,124 page-rerender (the OTHER function, untouched by 408), and on my framing they shipped a serve-grade discriminator keyed on a field their path never writes — a check whose failure mode is a pass. What caught it: their first reply named their item type and I grepped the rerender action (zero hits) before their gate could mislead anyone. The cheap check that would have caught it: one query per recipient BEFORE sending — `SELECT handler_agent, count(*) FROM site_work_items WHERE item_type='<their type>' GROUP BY 1` — or phrase impact as CONDITIONAL on the recipient's path and say which query decides it. A notification is a claim; the recipient will act on it.
+
+### 2026-09-02 — "40 pages of built work behind a bad delegation": half of them were never built
+**The claim.** Told the owner, in a document written for him to act on, that
+boxingonline.com and adversecreditmortgage.co.uk between them had "40 pages of finished
+work built and waiting behind a delegation nobody changed", and that pointing the domains
+would make the sites appear.
+
+**What was true.** boxingonline: 21 pages, deployed, latest `2026-09-02 13:59:46Z` — the
+claim holds. adversecreditmortgage: 19 pages, **zero ever deployed**, all `planned` or
+`needs_rebuild` with `deployed_at IS NULL`. Pointing it shows nothing.
+
+**What caught it.** Following the owner's *other* question — why that site had filed no
+quality findings — into the check's eligibility gate. Not a review of the claim; the
+claim was already written and delivered.
+
+**The cheap check that would have.** The page census I had already run returned
+`build_status` and `deployed_at` in the same result set as the count. I grouped on
+`status='active'` and read it as "pages that exist". **`status` says a page is WANTED;
+`deployed_at` says one was MADE.** One `GROUP BY` away, in a query I had already written.
+
+**The transferable bit.** A count of rows is not a count of artefacts, and the failure is
+worse than a wrong number: the owner was about to point two domains, and the one that
+stayed blank would have read as the pointing having failed. **When a figure is going into
+an instruction someone will act on, name the column that makes it true.**
+
+**Also retracted by the same measurement:** my note that the missing findings on that site
+were "a detector gap". They were not — the check gates on `PageHasShippedPredicateFor`
+and nothing there has shipped. A confident suspicion, wrong, recorded in the same voice as
+the findings around it.
