@@ -196,6 +196,23 @@ BEGIN
     RAISE EXCEPTION '695 VERIFY: expected 5 banned_claims with substantive reasons, found %', ncorr;
   END IF;
 
+  -- Double-escape landmine (approval advisory): a pattern seeded as backslash-
+  -- backslash-b compiles cleanly and matches NOTHING in the Go consumer. Assert
+  -- the STORED form mechanically, both directions: no double backslash anywhere,
+  -- and the word-boundary escape present as a single backslash where intended.
+  SELECT count(*) INTO ncorr FROM site_specs s3, jsonb_array_elements(s3.data->'banned_claims') b
+   WHERE s3.site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76' AND s3.aspect = 'evidence_base' AND s3.is_current
+     AND strpos(b->>'pattern', E'\\\\') > 0;
+  IF ncorr <> 0 THEN
+    RAISE EXCEPTION '695 VERIFY: % stored pattern(s) carry a DOUBLE backslash - double-escaped, would match nothing', ncorr;
+  END IF;
+  SELECT count(*) INTO ncorr FROM site_specs s3, jsonb_array_elements(s3.data->'banned_claims') b
+   WHERE s3.site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76' AND s3.aspect = 'evidence_base' AND s3.is_current
+     AND strpos(b->>'pattern', E'\\b') > 0;
+  IF ncorr <> 5 THEN
+    RAISE EXCEPTION '695 VERIFY: expected 5 patterns carrying a single-escaped word boundary, found %', ncorr;
+  END IF;
+
   SELECT count(*) INTO ncorr FROM doc_notes
    WHERE site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76'
      AND created_by = 'lendzy_co_uk lane (migration 695)'

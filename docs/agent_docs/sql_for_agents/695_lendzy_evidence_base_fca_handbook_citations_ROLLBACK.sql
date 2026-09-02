@@ -19,6 +19,11 @@
 --     FROM site_specs
 --    WHERE site_id='8ff093d5-1f19-453b-9439-a10379bbcd76' AND aspect='evidence_base';
 --
+-- Mechanism note (approval advisory): the daily refresher does not EDIT this
+-- row - it SUPERSEDES it (new current row, its own created_by). So after the
+-- first refresher pass this rollback's DELETE would remove only the historical
+-- 695 row and the final zero-rows check would abort on the refresher's current
+-- row. That abort is CORRECT - the register has moved on.
 -- If created_by is no longer 'lendzy_co_uk lane (migration 695)', or the fact
 -- count is not 8, the register has moved on — the guard below will refuse, and
 -- that refusal is correct. Re-state the reason for reverting before forcing it.
