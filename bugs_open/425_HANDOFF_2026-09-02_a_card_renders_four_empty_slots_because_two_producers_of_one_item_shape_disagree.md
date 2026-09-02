@@ -209,6 +209,20 @@ assemble-mode reason aborts too.
 **And when verifying: a COMPLETED `page_rerender` row is not evidence.** Read
 `spec->>'reason'` on it — a row with no reason took assemble mode and structurally cannot have
 picked this up, however fresh the page looks. That is `bugs_open/384`'s own filing error,
+
+> **⚠⚠ AND THE REASON CHECK IS NOT SUFFICIENT EITHER — corrected 2026-09-02, after this guidance
+> had been repeated to two lanes all day.** Raised by the boxingonline lane, and it is the sharper
+> half of the rule. `[MEASURED 2026-09-02]` boxingonline `/index.html` completed **twice**
+> (17:26:34 and 17:32:46), **both carrying `reason='template_changed'`** — the correct,
+> non-assemble reason — and **both produced the old item shape**. So a reader can do exactly what
+> this paragraph tells them, find the right reason on a completed row, and conclude the change
+> landed when it did not.
+>
+> **A correct reason is NECESSARY and demonstrably NOT SUFFICIENT.** It proves which branch was
+> *taken*; it says nothing about what that branch *produced*. The check that discriminates is on
+> the **artefact**: does `content_data->'articles'->0` carry the `excerpt` key that the fixed
+> projection writes unconditionally? Verify there, and use the reason only to explain a negative.
+
 which it corrected an hour later.
 
 ### The Go half went LIVE 2026-09-02 12:28 UTC — verified at the artefact, with controls
