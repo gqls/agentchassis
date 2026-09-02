@@ -100,7 +100,7 @@ bug is about a **field inside a present item**. No detector existed for that cla
 | half | state |
 |---|---|
 | `content-listing` renders no empty slot | **LIVE** — migration `682`, applied + ledgered 2026-09-02, config so live on apply |
-| both producers share one title/deck rule | **LIVE** — the roll landed 2026-09-02 12:28 UTC; verified at the running binary, see below |
+| both producers share one title/deck rule | **IN THE BINARY, NOT EFFECTIVE ON THE RERENDER PATH** — see the negative result below. "Live" is true and misleading |
 | a detector for this class exists | **LIVE** — `scripts/check_card_slot_guards.py` |
 | 054's lint can see the whole library | **LIVE** — `scripts/check_list_empty_states.py` widened |
 
@@ -236,6 +236,72 @@ two other lanes' at `review_prior_art` — and all three sat in `EXECUTING_STEP`
 looking exactly like a slow seat. **The tell is the correlation between runs, not the duration:**
 one stuck run is latency, three stuck at the same minute is an event. `kubectl get pods -l
 app=agent-chassis -o custom-columns=...startTime` settles it in one command.
+
+### ⚠ THE PROPAGATION RAN AND DID NOT DELIVER THE PRODUCER FIX — verified negative, 2026-09-02
+
+`683` was applied across all six sites on the owner's explicit instruction. The batch drained:
+**10 complete, 4 cancelled.** And the result is a finding, not a pass.
+
+**What DID work:** the empty slots are gone. On every completed page the four unguarded card
+slots now collapse instead of rendering blank elements that occupy layout. Migration `682` does
+exactly what it was written to do.
+
+**What did NOT work:** the headlines still carry the site-name suffix and no deck arrived. The
+freshly-written `content_data` — written *by* the 13:59 rerender, not left over from before —
+carries the OLD projection shape: no `excerpt` key, `title` with the suffix. So the guard is
+correctly collapsing a slot whose data never arrived.
+
+**Each alternative was eliminated at an artefact** (the `site_delivery_and_editor` lane verified
+boxingonline independently; I verified garden-tools and homegarden):
+
+| candidate | eliminated by |
+|---|---|
+| mirror lag / stale object | served object last-modified **14:05**, newer than `deployed_at` 13:59 — a fresh publish |
+| the template never updated | `content_components` row updated **10:43:57**, guard present |
+| the page pins an old component version | both pages pin `component_version_id` `1454705a` created **11:11:55**, *after* the update, and that version's template carries the guard |
+| the pinned version declares a different source | **[MEASURED 2026-09-02]** pinned version and live component both declare `articles` ← `query.blog_posts` on all four pages checked |
+| wrong rerender mode | `spec.reason = 'template_changed'` on every completed item — the scoped branch, not assemble |
+| the binary lacks the fix | `ListItemTitle` / `ListItemExcerpt` **PRESENT** in the running binary, with positive and negative controls |
+
+**So the code is in the binary and the executing path does not produce its output.** That is the
+purest form of the estate's own lesson: *probe the CAPABILITY, not the commit*. Symbols present
+verified the roll; it did not verify the path.
+
+The structural reading only deepens it: `rerender_page_sections_action.go:1438` calls
+`planSection(…, comp, resolver, …)`, `plan_sections_action.go:2695-2709` resolves any `query.*`
+source through `queryresolve.Resolve` **unconditionally** (no "only if missing" gate), and
+`:1617-1618` merges `plan.ResolvedData` into the render context **last, so it wins**. Every step
+of that says the fresh array should reach the page. It does not.
+
+**Filed for diagnosis rather than guessed at: correlation `c19a975d-b32c-4ed8-825a-e8d6100bbec7`.**
+The cheap eliminations above are done; what remains is inside the execution, which is exactly
+what the loop is for.
+
+### ⚠ A SECOND GUARD REFUSED 4 OF 14 — and its error names an escape hatch that must not be used
+
+Four items (`idea.uk` guides-index, `dartsonline.com` guides-index, `robot-hands.com`
+learning-center-hub, and one more) were refused by the **section COMPONENT floor**
+(`bugs_open/253`) — a sibling of the text-based shrink guard, counting **class attributes** rather
+than visible text:
+
+> *"SECTION COMPONENT FLOOR REFUSED for page "guides-index" — content-listing 69→34 class
+> attributes (49% kept, floor 50%)."*
+
+**This fix is what trips it, by design.** Every empty element it collapses carries layout classes,
+so a page whose cards are mostly unfed flattens hardest. A pass at 51% and a refusal at 49% are
+the same change — the ratio is a property of how much data the site happens to have.
+
+**Do NOT set `section_component_floor`, which is what the error invites.** Checked at source:
+`save_sections_component_floor.go:158` reads it via
+`pruneFloorFromConfig(params.StepConfig.Config, …)` — **step** config, which lives in the
+`page-rerender` agent definition. "Set it for this page" does not exist; setting it lowers a
+flattening guard for every rerender in the fleet's highest-volume pipeline to land one page. Same
+shape as its sibling `section_shrink_floor`, which `LANDMINES.md` already documents with the same
+warning. The four were **cancelled** instead, with the reason written into each row.
+
+**My pre-flight checked the wrong guard.** I measured the text floor — correctly, and it would not
+have fired — and did not know the component floor existed. It was found by the `idea.uk` lane
+reading its own refusal, not by me.
 
 ### What is now unblocked
 
