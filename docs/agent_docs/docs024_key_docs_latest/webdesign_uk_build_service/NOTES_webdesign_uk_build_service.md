@@ -6967,3 +6967,25 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   chrome.header_cta_url→fight-calendar) → retract contact page → nav-updater →
   rerender affected pages → verify link-repair rewrites read sensibly → mirror
   → sweep.
+
+## 2026-09-02 (contd) — RFC_058 raised (identity model); today's logo regen doubles as 417's first canary
+
+- **RFC_058 raised by the 417/420 lane** on the owner's identity ruling: names
+  the (at least) three identities, PROPOSES NO SCHEMA (his instruction was to
+  think), three options costed. This lane named as consumer: the delivery
+  recipe will NAME its identity when 058 settles (today it is convention:
+  build_queue.direction.customer_email). Their measurements worth carrying:
+  FIVE identity-shaped stores, no two agreeing; sites→networks→clients is 1/33
+  true; NO store records an operating party at all. Their constraint — absence
+  must not fall back — matches this lane's spec-level finding: fill-only-if-
+  empty inverted into a refill the moment emptiness became deliberate;
+  'deliberately absent' must be representable distinct from 'not yet known'.
+- **Both fixes double-verified at the binary by that lane independently** (420
+  and 417, removed-symbol controls — absence proving round 3 over round 2).
+  417 APPROVED r4 (advisory texts aged out of the rolling window — recorded as
+  a limitation, not as 'none').
+- **Today's transparent-logo regen (item 0aa6cf1d, corr d8be90c7, complete) is
+  the FIRST post-roll logo generation = 417's first census subject.** Close
+  protocol agreed: I download + LOOK when the contact wave's mirror lands
+  (text-free · single composition · TRANSPARENT · dimension-at-generator note),
+  send verdict + hash; they run the census; closes on both agreeing.
