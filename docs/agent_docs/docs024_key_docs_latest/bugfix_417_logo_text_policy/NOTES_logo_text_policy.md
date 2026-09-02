@@ -196,7 +196,14 @@ interim artefact for the same asset key.
 **designblog.co.uk — CLEAN.** Generated 17:03:23Z, mid-session, off the queue. White geometric
 star mark, no lettering, one composition. Carries the clause.
 
-**So: disconfirmation A is 3 for 3, C is 3 for 3, and 421's two-panel shape did not recur.**
+**seotools.co.uk — CLEAN.** Generated 17:10:10Z, also off the queue. Compass/target mark, no
+lettering, single composition.
+
+**So: disconfirmation A is 4 for 4, C is 4 for 4, and 421's two-panel shape did not recur on any
+of them.** Only `websitepromotion.co.uk` is left of the three, and its generation was REFUSED at
+17:15Z by 424's matte guard (`border_keyed=0`) — so its item is back to `triaged` and it will
+retry. **A 424 refusal is not a 417 signal**: nothing about the wordmark policy is implicated, the
+image never reached storage. Do not score it either way.
 
 ### The census instrument the lane was missing: the STORAGE KEY's date directory
 

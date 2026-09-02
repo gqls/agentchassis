@@ -56,20 +56,22 @@ minted only from the consented address. No schema change, no backfill. Council *
 
 ## 3. WHAT IS PROVEN, AND WHAT IS ONLY EVIDENCE
 
-**Disconfirmation A (did the guard REACH the generation?) — 3 for 3 `[MEASURED 2026-09-02]`.**
-Three logo generations have COMPLETED since the guard went live, and all three carry the clause in
-`origin_prompt`: boxingonline.com (10:40Z), advertise.co.uk (14:48Z) and **designblog.co.uk
-(17:03Z)**. Neither timestamp column can be trusted (§6) — and **nor can the work-item trail on its
+**Disconfirmation A (did the guard REACH the generation?) — 4 for 4 `[MEASURED 2026-09-02]`.**
+Four logo generations have COMPLETED since the guard went live, and all four carry the clause in
+`origin_prompt`: boxingonline.com (10:40Z), advertise.co.uk (14:48Z), **designblog.co.uk (17:03Z)**
+and **seotools.co.uk (17:10Z)**. Neither timestamp column can be trusted (§6) — and **nor can the work-item trail on its
 own**: boxingonline's regeneration filed no work item at all. Settle it on the **storage key's date
 directory**, which caught all three and is sound by construction (§6).
 
-**Disconfirmation C (did the model OBEY it?) — 3 for 3 `[MEASURED 2026-09-02, eye-checked]`.**
-All three logos produced since the guard went live have been opened and looked at:
+**Disconfirmation C (did the model OBEY it?) — 4 for 4 `[MEASURED 2026-09-02, eye-checked]`.**
+All four logos produced since the guard went live have been opened and looked at:
 - **boxingonline.com** — fist-in-a-square mark. Zero lettering, single composition. (Delivery
   lane's original check, re-done independently this session from `boxingonline.ugg2.com`.)
 - **advertise.co.uk** — broadcast/signal mark, concentric arcs off a mast. Zero lettering, single
   composition, no invented brand name.
 - **designblog.co.uk** — geometric star mark, generated 17:03:23Z off the queue. Zero lettering,
+  single composition. Carries the clause.
+- **seotools.co.uk** — compass/target mark, generated 17:10:10Z off the queue. Zero lettering,
   single composition. Carries the clause.
 
 **421's two-panel design-comp shape did not recur on any of them.**
@@ -92,12 +94,15 @@ Ordered. Nothing here blocks moving to other bugs; items 1–2 are cheap and tim
    carries the fetch recipe (§"Fetch a generated asset's BYTES and LOOK at it"); it was not a
    2-minute job, because the customer's own domain is not ours and the bytes had to come out of the
    bucket through a pod.
-2. **Two of the three queued logos remain** — `websitepromotion.co.uk` and `seotools.co.uk`, both
-   still `triaged` as of 17:10Z. `designblog.co.uk` completed at 17:03Z and is **clean** (§3).
-   As each completes: census `origin_prompt` for the clause, then eye-check the PNG. A lettered
-   logo that CARRIED the clause ⇒ build the fence, re-open 417.
-   ⚠ **Those two will also exercise `bugs_open/424`'s matte, which is currently failing** — see §7.
-   Their result is 417 evidence regardless; do not read a veiled background as a 417 failure.
+2. **One of the three queued logos remains** — `websitepromotion.co.uk`. `designblog.co.uk`
+   (17:03Z) and `seotools.co.uk` (17:10Z) both completed and are **clean** (§3).
+   ⚠ **websitepromotion's generation was REFUSED at 17:15Z by `bugs_open/424`'s matte guard**
+   (`border_keyed=0`), so its item is back to `triaged` and will retry. **A 424 refusal is not a
+   417 signal** — the image never reached storage and the wordmark policy is not implicated. Do
+   not score it either way; wait for a stored artefact.
+   When it lands: census `origin_prompt` for the clause, then eye-check the PNG. A lettered logo
+   that CARRIED the clause ⇒ build the fence, re-open 417.
+   ⚠ Its background will very likely be veiled — that is 424's defect (§7), not 417's.
 3. **The fence decision itself** — recorded in 417 with its grounds and trigger, deliberately NOT
    taken on n=1. See §5.
 4. **417 and 420 stay OPEN** until their classes are bounded, per the fixed-AND-live bar. 420 also
