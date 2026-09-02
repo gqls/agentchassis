@@ -1430,3 +1430,16 @@ wall still fires first. One line changes the number at any time; September's met
 (running regardless of enablement) will show the real crossing dates.
 Remaining to live enforcement: the release (dec5ad61b in the chassis) → 674 apply (its
 header procedure incl. the 657-VERIFY lockstep + canary) → owner's "enable".
+
+## 2026-09-02 ~21:1xZ — owner reports a fresh chassis DEPLOYED; stamp check BLOCKED by the kubeconfig 3-day expiry (21:08Z, three minutes before the check); session handed off
+
+Owner (chat ~21:00Z): "A fresh chassis build has been deployed." The 674 sequence's step 1
+(merge-base `dec5ad61b` against BOTH replicas' provenance stamps) hit `Unauthorized` —
+token decoded: **expired 21:08:03Z**, dead on the 3-day cycle, minutes after the 18:31Z
+governor-tick read worked. So the roll's content is **UNVERIFIED** — recorded as such, not
+assumed (a roll is not evidence the code shipped). **HANDOFF_2026-09-02_continue_here.md
+cut** (supersedes 08-30): full 674 procedure incl. the 657-VERIFY lockstep + canary +
+suffix-drop+record, the enable sequence with the console-cap dependency, the reference
+card, and the day's traps (verbatim-sketch, uniform-split, flag-layer, unresolved-terminal,
+record-on-apply). Governor state at close: budget $2,000 armed, level 0, $244 MTD,
+heartbeat live, enforcement three switches from real (verified roll → 674 → enable).

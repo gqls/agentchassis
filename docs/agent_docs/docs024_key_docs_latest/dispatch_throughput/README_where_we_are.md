@@ -441,3 +441,9 @@ a bigger number does that — it's one line to change, any time. Also: please ma
 Anthropic console cap is set ABOVE $2,000, otherwise the account's own wall still arrives
 before the governor's gentler one. September's spend will tick along on the meter either
 way, so we'll see the real crossing dates within a couple of weeks.
+
+2026-09-02 late — you deployed the fresh build; my access token expired three minutes before
+I could verify it carries the governor code (the usual 3-day cycle — a fresh kubeconfig from
+the Rackspace console fixes it). Everything is written up for the next session: verify the
+build, apply the held configuration, then your "enable" — plus the console cap raise above
+$2,000. The handoff file has the exact steps in order.
