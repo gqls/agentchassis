@@ -7152,3 +7152,31 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   reaches the other 17 pages only via nav-updater's full reassembly — the sweep
   is what proves coverage, not the receipt. Their five assertions + BLIND
   (failed fetch ≠ pass) are the agreed close.
+
+## 2026-09-02 (contd) — THIRD and definitive form of the rerender claim (producer/consumer split, read at the live config)
+
+> **CORRECTED 2026-09-02 (third form; supersedes BOTH earlier versions above):**
+> the consumer (`page-rerender`'s check_rerender_mode condition, read verbatim
+> at the live agent row) branches on **`spec.reason` ALONE** — `component_id`
+> appears nowhere in it. The producer (`create_rerender_items`) is where
+> component_id matters: for the two ComponentScoped StampAlways=false reasons
+> (`section_data_resolved`, `image_landed`), an item filed WITHOUT a
+> component_id never gets the reason STAMPED — it arrives with no reason, and
+> THAT absence degrades it to assemble. One line: **no component_id → no stamp
+> → no reason → assemble mode.**
+> - VERIFYING a completed rerender: read `spec->>'reason'` on the row (absent =
+>   degraded to assemble; cannot have picked up a resolver/template change).
+> - HAND-FILING one: write `spec.reason` directly — it is honoured; do NOT add
+>   a component_id (the consumer never reads it).
+> Caught by the components lane, who refused to edit this file themselves;
+> relayed with the correction owned by the boxingonline session.
+
+- **Meta-pattern, third instance this week, recorded beside the two override
+  instances: "a true statement about one layer, restated as a rule about the
+  system."** V1 was true of verification, wrong about cause; V2 true of cause,
+  wrong as a filing rule; the producer/consumer boundary was what kept getting
+  lost in relay. Three sessions touched the claim before one read the live
+  config end to end.
+- Components-lane caveat banked: migration 683 files items from a LIVE JOIN at
+  apply time — its item count is whatever the fleet holds at the human's apply
+  (already moved 13→14); no number in that file is fixed.
