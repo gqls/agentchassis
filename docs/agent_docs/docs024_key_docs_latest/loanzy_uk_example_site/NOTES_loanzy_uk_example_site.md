@@ -2466,3 +2466,10 @@ had it only seen part of the input.**
   paraphrased — the matcher, not the reader, is the arbiter of verbatim.
 - Register end-state tonight: loanzy 4 facts / 5 bans; farmer 7 / 5. Verdict watches open:
   702 (48eec07c), 713 (cea2a32c), 716 (7e927a7b).
+
+- Coda from the copy lane on the paraphrase's ROOT CAUSE, kept here because my lane consumes
+  relayed quotes too: their "verbatim" quotes were a FETCH TOOL'S SUMMARISER output — they
+  asked it to "quote the exact wording" and recorded what came back as citations. **A
+  summariser's quote is a paraphrase until grepped in the raw page** (their WRONG_CALLS
+  entry). Same arbiter as everything else today: the production matcher, not any reader —
+  tool, human, or model.
