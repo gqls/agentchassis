@@ -508,3 +508,47 @@ call, needs a browser-check for runtime-injected rows first per the vigilant-
 designer's caution) and the imagery work (explicitly sequenced after this batch
 lands clean). `vetcomparison` verifies at the artefact; not re-checked from
 here.
+
+## 2026-09-02 (later still) — verification found one miss (the head chrome), and chasing it surfaced a bigger, standing hazard. STOPPED, did not touch it
+
+`vetcomparison` verified the batch: core palette survived byte-identical
+(the bug-113 LLM-reroll risk did not bite — though they noted the pin I cited
+as the mitigant was actually retired by the owner the same day, so it was the
+ONLY guard, not a belt-and-braces one; worth remembering for the next
+`needs_design` run), palette write and component fix both confirmed live. **One
+miss**: the independence banner still served the old blue — traced to
+`site_components` slot `head`, which inlines a snapshot of the stylesheet
+(`{{.theme_css}}` in its source template — confirmed clean, zero hardcoded
+literals) that was captured 2026-08-27, before my fix, and never refreshed.
+
+**Investigated before touching it, per their own caution about a prior
+incident, and found something bigger than a stale-cache fix.** This site
+carries **two open, 3-week-old `chrome_divergence_overwritten` items**
+(`needs_human_review`, both 2026-08-11) — the platform's hand-patch-preservation
+guard (`bugs_open/226`, live since 08-09) caught a chrome rebuild overwriting
+hand-patched `header` content TWICE, archived it (2952/3094 bytes,
+`site_component_history`), and is waiting on a human decision (restore via
+config carriage, or dismiss) that nobody has made. Separately, a `needs_rerender`
+item for this site's chrome (all three slots together) has fired every few
+hours since 08-27 and gone `unresolved` every time for 5 straight days — not
+diagnosed, error field empty on the rows checked. **A fresh instance of that
+same item fired at 21:39:16 today — almost certainly triggered by my own
+`needs_design` run — and was sitting `triaged`, unclaimed, at the moment I
+found this.**
+
+**Did not cancel it, did not refresh `head` myself, did not investigate
+further.** A blanket chrome refresh touches all three slots, would very likely
+re-trigger the header divergence a third time, and this is squarely the kind
+of standing, cross-cutting, someone-must-decide situation bug 226's own text
+says explicitly is "the queue's [call], not this lane's." Flagged clearly and
+urgently to `vetcomparison` — including the live, unclaimed item — and left the
+decision with them rather than acting on a mechanism I only just found and
+don't own.
+
+**Transferable for this lane:** a "just refresh the stale cache" fix can be
+sitting on top of an entirely separate, already-flagged, unresolved hazard —
+checking site_work_items for the SLOT/SITE before triggering any chrome
+action is now a standing habit, not a one-off. Also: my earlier safety
+reasoning for the `needs_design` risk (citing a pinned `design_intent` as the
+mitigant) needs a note added — pins can be retired without this lane knowing,
+so "cite the pin" is not durable safety, only what held on THIS run.
