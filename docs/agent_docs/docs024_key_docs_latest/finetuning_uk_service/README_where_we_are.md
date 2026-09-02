@@ -1090,3 +1090,49 @@ On the service itself: all four of your terms commitments are registered as fact
 quote, but the terms and privacy pages themselves still need writing — that's the next real piece of
 work and it's unblocked. The six sample datasets are built. The booking shape is decided but not
 built. Stripe stays last and yours.
+
+---
+
+**2026-09-02 — the playground page is up, and it taught us something about the site.**
+
+The booking page is live at finetuning.uk/playground.html. That was the last of your seven
+decisions still unbuilt, so apart from Stripe — which is yours and last — they are all done now.
+The page explains the included hour, when it can be booked (your 9 to 5, weekdays, other times by
+arrangement), and what happens to documents afterwards. It only states things we have written
+down as facts, so there is nothing on it we cannot stand behind.
+
+It did not go smoothly, and two parts of that are worth telling you.
+
+**The first attempt built nothing at all, and looked like it had worked.** The system reported the
+job complete, no errors anywhere, and the page simply did not exist. That was my mistake: I put
+the page's structure in the wrong place — in the instruction rather than on the page record. Once
+it was in the right place it built properly. I have written the trap down, because the failure is
+invisible: nothing goes red, so there is nothing to go looking for.
+
+**The second thing is a genuine fault in the system, not a mistake of mine, and you will see it on
+the page.** The middle of the page says the same thing three times. Three sections, three headings,
+all more or less "what you do in the hour".
+
+I found out why, and it is not the writing being careless. When a page has several sections of the
+same kind, something has to tell each one what it is supposed to be about, so the second does not
+just repeat the first. That mechanism exists — but it only works for sites set up in a particular
+way, and this site is not one of them. It never has been. So the three sections were each handed
+the same instruction and each wrote the most obvious answer to it. Given how the site is built,
+that was the only thing that could have happened.
+
+I have not patched over it by rewriting the three sections myself. Two reasons. It would mean
+hand-writing content on a site whose whole point is that the framework writes it — the thing you
+ruled against in August. And this page is currently the clearest demonstration we have of a fault
+that affects six of our sites and 186 pages between them, so quietly tidying it away would remove
+the evidence. It is filed as bug 443 with the options for fixing it properly.
+
+The same underlying problem turned out to be blocking another team as well. They are building a
+way to get images onto pages automatically, and their approach depends on the same missing piece
+this site lacks. Their test site has it, so their tests would have passed while six real sites
+got nothing. I have told them, with the numbers.
+
+**Where that leaves you.** Nothing needs a decision from you today. The page is live and honest;
+it repeats itself in the middle, and that is logged as a fault to fix rather than something to
+live with. If you would rather it not sit there repeating while the fix is worked out, say so and
+I will take the page down or cut it to fewer sections — both are reversible, and both are your
+call rather than mine.
