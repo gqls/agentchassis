@@ -291,3 +291,42 @@ design change, not a config repoint). **Neither lane is choosing between
 those** — both explicitly declined, and `theme kits` signed off with "nothing
 further from me on 438 unless the owner picks a direction." Surfacing to the
 owner directly rather than leaving it to be found in the bug file.
+
+## 2026-09-02 (later) — owner critique routed via `designblog.co.uk`: composition sameness, filed as `bugs_open/445`
+
+Owner reviewed a freshly-live site and found it "exactly the same as all the
+other sites"; routed to five design-side threads including this one, asking
+specifically whether the sameness is library breadth, matcher behaviour, or
+chrome (outside this mechanism). ACKed, then measured rather than guessed.
+
+**Finding: three sibling remakes (`designblog.co.uk`, `advertise.co.uk`,
+`websitepromotion.co.uk`) all resolved to `magazine-grid`.** Traced the actual
+mechanism (`resolveLayoutByTags` scoring, read line-by-line) rather than
+inferring: of 18 layouts, exactly one (`magazine-grid`) fits "professional
+content hub" — the only other editorial-category layout (`soft-editorial`) is
+built for lifestyle/wellness blogs, wrong register entirely. All three sites
+are genuinely the same underlying shape — a content hub whose core offering is
+embedded interactive tools — and the library has no archetype for that shape.
+**This is a real library-breadth gap, not a matcher defect**: checked and ruled
+out two more specific theories first (the classifier literally tagging sites
+"magazine-grid" — real prompt-hygiene issue, but doesn't actually score against
+anything; the matcher ignoring differentiating signal — it evaluated genuinely
+different candidate shortlists per site). Secondary, less certain finding: 9 of
+18 layouts fleet-wide have never been chosen for any live site, 3 layouts cover
+73% of deployed sites — flagged as worth its own look, not claimed as the same
+mechanism.
+
+**Chrome (identical header/footer nav) confirmed OUT of this mechanism**: all
+three sites' `style_collections.header_component_id`/`footer_component_id` are
+NULL, meaning `link_site_components` (a different action, different owning
+thread — `components`, per the critique's own routing) never linked them, so
+they're serving a hardcoded fallback rather than picking from the library's
+actual header/footer variety. Not investigated further — correctly routed
+elsewhere already.
+
+Filed `bugs_open/445` with the full evidence and three ranked fix candidates
+(build the missing archetype; fix the classifier's few-shot examples on their
+own merits; investigate the 9 never-chosen layouts as a separate piece of
+work). Replied to `designblog.co.uk` with the same read. Not implementing the
+new layout myself — a real design task, 18 more remakes queued, worth doing
+right rather than fast.
