@@ -45,6 +45,7 @@ var dependencyNeedles = map[SourceDependency]string{
 	DepDirectoryEntities: "directory_entities",
 	DepBusinessIntel:     "business_intel",
 	DepProducts:          "FROM products",
+	DepEvidenceBase:      "evidence_base",
 }
 
 // representativeArgs gives arg-taking handlers something to query with; a
@@ -303,11 +304,11 @@ func TestConsumesAnyMatchesBasesNotFullDeclarations(t *testing.T) {
 	}{
 		{[]string{"model_directory"}, true},
 		{[]string{"model_directory_full", "model_directory"}, true},
-		{[]string{"  Model_Directory  "}, true},          // normalised like Resolve
-		{[]string{"pages_where_type"}, true},             // :arg stripped
-		{[]string{"model_directory_full"}, false},        // a DIFFERENT base, not a prefix match
-		{[]string{"mortgage_lender_directory"}, false},   // the wrong kind must not match
-		{[]string{"query.model_directory"}, false},       // takes BASES, not full declarations
+		{[]string{"  Model_Directory  "}, true},        // normalised like Resolve
+		{[]string{"pages_where_type"}, true},           // :arg stripped
+		{[]string{"model_directory_full"}, false},      // a DIFFERENT base, not a prefix match
+		{[]string{"mortgage_lender_directory"}, false}, // the wrong kind must not match
+		{[]string{"query.model_directory"}, false},     // takes BASES, not full declarations
 		{nil, false},
 		{[]string{""}, false},
 	} {

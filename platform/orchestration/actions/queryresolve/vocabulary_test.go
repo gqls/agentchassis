@@ -19,6 +19,7 @@ func TestIsKnownQueryNameAcceptsTheRegisteredVocabulary(t *testing.T) {
 		"news_archive",
 		"business_directory",
 		"model_directory_full",
+		"upcoming_events",
 		"  Blog_Posts  ", // Resolve normalises case + whitespace; so must this
 	} {
 		if !IsKnownQueryName(name) {

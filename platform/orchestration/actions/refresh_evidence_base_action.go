@@ -90,6 +90,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -196,6 +197,15 @@ type siteRefreshResult struct {
 	// values — an adoption signal, not a defect count. omitempty, so a site with
 	// nothing to suggest marshals exactly as before.
 	FactBindingSuggestions int `json:"fact_binding_suggestions,omitempty"`
+
+	// EvidenceConsumerPagesQueued (bugs_open/427) counts the page_rerender
+	// items queued because this write changed the register a
+	// `query.upcoming_events`-consuming component declared — the propagation
+	// half of "dates get corrected, not just added": a human ruling on a
+	// stale_evidence item edits the register by hand, and that edit alone
+	// does not re-render anything without this. omitempty: a site with no
+	// such consumer (every site today) marshals exactly as before.
+	EvidenceConsumerPagesQueued int `json:"evidence_consumer_pages_queued,omitempty"`
 }
 
 func RefreshEvidenceBaseAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -612,6 +622,14 @@ func refreshOneSiteEvidence(
 	if changed {
 		if err := writeRefreshedEvidenceBase(ctx, db, siteID, specRowID, eb, pinned, res, logger); err != nil {
 			return nil, err
+		}
+		// bugs_open/427: the register just changed (a fact re-synced, a
+		// human's edit re-read on the next pass, or a new event fact's daily
+		// re-verification). Tell any page that consumes it via
+		// query.upcoming_events. Skipped on a CAS miss above — nothing was
+		// actually written, so nothing needs re-resolving.
+		if res.WriterBlock != "skipped_concurrent_edit" {
+			res.EvidenceConsumerPagesQueued = queueEvidenceBasePageRerenders(ctx, db, siteID, logger)
 		}
 	}
 
@@ -1476,6 +1494,56 @@ func writeRefreshedEvidenceBase(
 		zap.Int("drifted", res.Drifted),
 		zap.String("writer_block", res.WriterBlock))
 	return nil
+}
+
+// queueEvidenceBasePageRerenders tells every page that consumes
+// query.upcoming_events (bugs_open/427) that the register just changed,
+// exactly the way queueNewsPageRerenders does for query.latest_news/
+// query.news_archive — same shared consumer lookup (RFC_052), same
+// page_rerender shape, same reason (section_data_resolved), best-effort
+// after the register write has already committed. See that function's
+// comment for why the page-status/owned-page/template-filter predicates all
+// live in the shared queryresolve.ConsumerPages lookup rather than here.
+func queueEvidenceBasePageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) int {
+	if db == nil {
+		return 0
+	}
+	pages, err := queryresolve.ConsumerPages(ctx, db, siteID, queryresolve.DepEvidenceBase, logger)
+	if err != nil {
+		logger.Warn("queueEvidenceBasePageRerenders: consumer lookup failed", zap.Error(err))
+		return 0
+	}
+	if len(pages) == 0 {
+		return 0
+	}
+
+	batchID := uuid.New()
+	queued := 0
+	for _, page := range pages {
+		spec := fmt.Sprintf(
+			`{"reason":"section_data_resolved","page_name":%q,"page_id":%q,"domain":%q}`,
+			page.Name, page.ID.String(), page.Domain)
+		itemKey := pageRerenderItemKey(page.Name, siteID, "section_data_resolved")
+
+		inserted, err := insertPageRerenderItem(ctx, db, siteID, page.ID,
+			"refresh_evidence_base", "low",
+			fmt.Sprintf("Re-render %s — evidence base changed (dated event facts)", page.Name),
+			spec, itemKey, batchID)
+		if err != nil {
+			logger.Warn("queueEvidenceBasePageRerenders: insert failed",
+				zap.String("page", page.Name), zap.Error(err))
+			continue
+		}
+		if inserted {
+			queued++
+		}
+	}
+
+	if queued > 0 {
+		logger.Info("queueEvidenceBasePageRerenders: queued scoped re-renders",
+			zap.Int("queued", queued), zap.Int("consumer_pages", len(pages)))
+	}
+	return queued
 }
 
 // createStaleEvidenceItem raises drift for human ruling. HITL-terminal: the

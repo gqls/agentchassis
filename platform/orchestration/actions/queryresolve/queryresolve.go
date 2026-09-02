@@ -175,6 +175,16 @@ var queryHandlers = map[string]queryHandler{
 	"blog_posts": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
 		return resolvePagesWhereType(ctx, db, siteID, "blog-post", limit, true, logger)
 	},
+
+	// Dated, correctable event facts (bugs_open/427) — a site's own
+	// evidence_base register, not content_feed_items directly: the feed is
+	// the SOURCE the facts are extracted from, but the register is the
+	// store this resolver reads, the same way news items are read from
+	// content_feed_items rather than re-scraped per page. See
+	// upcoming_events.go for why a query source and not a new action.
+	"upcoming_events": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveUpcomingEvents(ctx, db, siteID, limit, logger)
+	},
 }
 
 // SourceDependency names a CLASS OF DATA that a query base reads — the thing a
@@ -207,6 +217,12 @@ const (
 	DepBusinessIntel SourceDependency = "business_intel"
 	// DepProducts: items come from the products table. No producer notifies today.
 	DepProducts SourceDependency = "products"
+	// DepEvidenceBase: items come from a site's site_specs aspect='evidence_base'
+	// register (bugs_open/427). Produced by refresh_evidence_base (a citation
+	// fact's daily re-verification) and, per-fact, by whatever registers a new
+	// dated event fact (news_feed_ingestion's verify_and_register_citations
+	// extension).
+	DepEvidenceBase SourceDependency = "evidence_base"
 )
 
 // sourceDependencies declares, per query base, WHICH dependency classes its
@@ -266,6 +282,10 @@ var sourceDependencies = map[string]map[SourceDependency][]string{
 	"business_directory": {DepBusinessIntel: nil},
 
 	"products": {DepProducts: nil},
+
+	// A new event fact changes the SET (which fixtures exist, in what
+	// order) — same reasoning as news/directories, different store.
+	"upcoming_events": {DepEvidenceBase: nil},
 
 	// DECLARED, AND DECLARED TO HAVE NONE — not an oversight. section_index_for
 	// returns a URL, not an item array, so nothing of it is stored as a snapshot
