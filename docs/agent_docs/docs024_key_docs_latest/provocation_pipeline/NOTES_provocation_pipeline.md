@@ -2682,3 +2682,57 @@ could not have applied silently.
 `scheduled_tasks` rows (`content-feed-refresh`, `site-discovery-rotation-*`). Fair; the
 pattern was reinvented rather than borrowed. No rework, but worth knowing it is a house
 idiom, not a novelty.
+
+### 2026-09-02 (evening, later) — owner rulings, and a freshness signal that is NOT staleness
+
+**Both open decisions closed by the owner: the arithmetic rail is accepted as the floor
+(no live-calibration re-run), and the approval config switch is not built on this flip.**
+Recorded with their limits in `PLAN §15.10` — in particular, *not re-running* the
+calibration is not the same as the calibration being current, and the ban on citing it
+stands.
+
+**A live re-check of the handoff's claims, done before presenting them rather than after.**
+
+```sql
+-- three schedules, all enabled, all fired today [MEASURED 2026-09-02 ~18:40Z]
+SELECT name, interval_seconds, enabled, last_triggered_at, last_completed_at
+  FROM scheduled_tasks WHERE target_agent_type ILIKE '%provoc%';
+--  date-assign  86400  t  16:36:47.784843  16:36:47.784843   <- identical: see the
+--  feed-refresh 21600  t  17:21:17.704142  17:21:18.687834      concurrency_group note
+--  shelf-refill 43200  t  16:36:17.713612  16:36:17.713612
+```
+
+**Who has actually been read, which the handoff did not separate:**
+
+```sql
+SELECT publish_on, human_approved_at IS NOT NULL AS human_read, ...
+  FROM provocations WHERE domain='vonc.com' AND status='approved'
+   AND (publish_on IS NULL OR publish_on >= current_date);
+-- 09-03 t · 09-04 t · 09-05..09-08 f · 4 undated f
+```
+
+So the "first unattended day = 09-03" line is about the **mechanism**, and reading it as
+the reading deadline is a **three-day error in the wrong direction**: the first *unread*
+piece serves **09-05**. Two different properties wearing one date.
+
+**The trap I nearly filed as a bug.** The served feed reports
+`generated_at: 2026-08-22T04:58:04Z` while `HTTP Last-Modified` on the same object reads
+`Tue, 01 Sep 2026 06:58:30 GMT`, and the publish schedule had fired 80 minutes earlier. That
+looks exactly like a publisher that runs, reports success and writes nothing — i.e. the
+shape that would break the first unattended turnover.
+
+It is **not**. `checkAgainstServed`
+(`platform/orchestration/actions/provocation_feed_action.go:833`) treats **no change as a
+skip, not an error**, deliberately, so that a daily no-op cannot advance the one timestamp
+people use to judge freshness. `summariseFeed` strips `generated_at` before comparing, so
+the timestamp moves **only when the content moves** — and the content last moved on 22 Aug,
+because `selectForDate` serves the latest entry whose date has arrived. The two timestamps
+disagreeing is the design working.
+
+⚠ **So `generated_at` is not a liveness signal for this feed, and neither is
+`Last-Modified`** (something re-uploaded the object on 01 Sep without the feed action
+writing it — a site-wide deploy is the likely path; not chased, `[UNVERIFIED]`). The
+liveness check is `scheduled_tasks.last_triggered_at` plus the dated queue, both above.
+The disconfirming observation for the turnover claim would be the 09-03 entry's slug
+failing to appear in `today.slug` on 09-03 — **that** is the check worth running tomorrow,
+not a timestamp comparison.

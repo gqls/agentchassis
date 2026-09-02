@@ -153,3 +153,33 @@ position it switches to is how mechanisms rot unexercised.
 `PLAN §15` (decisions and why, incl. §15.9 discharging the Go council's objections) ·
 `NOTES` tail (measurements, the induced rail proof, and the misstep worth not repeating) ·
 `README_where_we_are` tail (plain prose for the owner) · `RUNBOOK §16` (every command).
+
+---
+
+## > **CORRECTED 2026-09-02 (evening) — two of the three "Owed" items are RULED, not outstanding**
+
+Caught by putting the list to the owner rather than carrying it forward. Full record with
+its limits: `PLAN §15.10`.
+
+**Owed 1 (the §10.6 LIVE calibration) is NOT work. Do not do it.** The owner ruled the
+arithmetic rail sufficient: *"arithmetic rail is enough for now."* ⚠ The ruling retires the
+**re-run**, not the **staleness** — the rest of that bullet stands word for word, and
+**nobody may cite that calibration as current** (two of its four bad-set fixtures were
+rewritten). If you are about to depend on a calibrated *judge* threshold rather than on the
+rail's arithmetic, this ruling does not cover you.
+
+**The "Accepted debt" section is CONFIRMED by the owner, not merely by the seat:** the
+config gate is not built on this flip. The fourth-flip trigger stands unchanged.
+
+**Owed 2 (nobody has read the prose) is the ONE live gap — and its date was wrong here.**
+`[MEASURED 2026-09-02]` The rows dated **09-03 and 09-04 carry `human_approved_at`** and
+were read before the change; the eight written on 09-02 do not. **So the first piece served
+that no human has read is 2026-09-05.** "First unattended day is 2026-09-03" (Owed 3) is
+true of the *machinery* and is **not** the reading deadline — reading it as one loses three
+days in the wrong direction. All eight were presented to the owner on 09-02; retire recipe
+is now `RUNBOOK §16g` (it did not exist when this handoff was written, which made the
+buffer real but unusable).
+
+⚠ Also do not chase the feed's `generated_at: 2026-08-22` **or** its
+`Last-Modified: 01 Sep`. The two disagreeing is the no-change skip working as designed
+(`provocation_feed_action.go:833`); neither is a liveness signal. See the `NOTES` tail.

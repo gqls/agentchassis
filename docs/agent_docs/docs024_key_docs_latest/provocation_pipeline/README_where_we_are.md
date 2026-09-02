@@ -1358,3 +1358,41 @@ approved under the old lenient rule and are dated for tomorrow and the day after
 reviewer spotted that. I put both through the strict rule on the test address: **both
 pass.** So nothing needs pulling — but the gap was real, and if that batch had been older
 writing the answer could easily have been different.
+
+## 2026-09-02 (evening) — two decisions made, and one thing still waiting on you
+
+I put two questions to you with the live state checked first, and you answered both: the
+arithmetic readability rule is enough for now, and we are not building a switch for the
+approval step yet.
+
+**On the readability rule.** That means I am not re-running the older calibration exercise.
+One thing I have written into the plan so it does not get lost: not running it is not the
+same as it being up to date. Two of its four test pieces were rewritten, so the old numbers
+should not be quoted by anyone as current. If we ever go back to leaning on the judgement
+model rather than on the arithmetic, that exercise has to be run first. Nothing today
+depends on it.
+
+**On the switch.** The permission step has now moved three times. A reviewer put on record
+that this is being done by editing code each time rather than by having a setting, and that
+a fourth change is not unlikely. You have said not yet, and I agree with the reasoning: a
+switch built on the day you rejected the thing it switches to would sit unused and rot. The
+note stays on the record, and if it moves a fourth time, building the setting is the job
+rather than making the change again.
+
+**What is still open is the writing.** Eight pieces were written by the machine today and
+nobody has read them. I checked which ones you have already seen: the two going out on
+Thursday and Friday carry your approval from before, so those are fine. The first piece
+that will appear on the site that no human has read is **Saturday 5 September**. That gives
+us three days, not one — the handoff said the first day without a person watching is
+Thursday, which is true of the machinery but is not the deadline for reading.
+
+I have put all eight in front of you in chat. If any of them should not go out, say which
+and I will retire them — pulling one that has not been published yet is safe and changes
+nothing on the site.
+
+**One thing I want to flag because it fooled me for a few minutes.** The site's own
+"generated at" stamp still says 22 August. That looks like something has stopped working.
+It has not: the publisher deliberately does nothing when the content has not changed, so
+that stamp only moves when the writing on the site actually moves. The site is meant to be
+showing 22 August until tomorrow. The real check is whether Thursday's piece appears on
+Thursday, and I will look.

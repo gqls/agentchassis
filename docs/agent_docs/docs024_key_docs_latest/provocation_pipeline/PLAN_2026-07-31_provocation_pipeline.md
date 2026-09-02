@@ -1045,3 +1045,33 @@ guard enforces that direction rather than trusting sequencing.
 **`debug_historian`'s second point is OWED and not done:** after the roll, verify at the
 **pod** that the deployed binary actually rejects a known-bad fixture — a unit test is not
 a deployed binary. Added to `RUNBOOK §16f` step 2.
+
+## §15.10 — OWNER RULINGS 2026-09-02 (evening): the rail is the floor, and the switch is not built yet
+
+Both open decisions from §15.8/§15.9a were put to the owner with the live state measured
+first. Both answered in one line: *"arithmetic rail is enough for now, we don't need a
+switch yet."*
+
+**1. The §10.6 LIVE calibration will NOT be re-run. The arithmetic rail is accepted as the
+floor.** ⚠ **This does NOT make the calibration current, and it must not be read that way.**
+It retires the re-run as *owed work*; it says nothing about the *figure*. The second half of
+§15.8's first bullet stands verbatim — two of the four bad-set fixtures were rewritten to
+clear the rail, so **nobody may cite that calibration as current**. What the ruling changes
+is only that re-running it is off the critical path. If you are about to lean on a
+calibrated *judge* threshold rather than on the rail's arithmetic, this ruling does not
+cover you: run it first.
+
+**2. The approval-gate config switch is NOT to be built on this flip.** §15.9a's trigger
+stands exactly as recorded — a **fourth** flip makes converting approval into a
+config-driven gate the work. The owner is confirming the `architecture` seat's debt, not
+discharging it. The two paired predicates in two files remain the mechanism; each site
+still carries the instruction to change both or neither.
+
+**What these rulings do NOT touch, and what is therefore the lane's only live gap: nobody
+has read the prose.** `[MEASURED 2026-09-02]` Eight rows were written by the generator on
+2026-09-02 (four dated 09-05 → 09-08, four undated), and all eight have
+`human_approved_at IS NULL`. The two rows dated 09-03 and 09-04 pre-date the change and DO
+carry the stamp. **So the first piece served that no human has read is 2026-09-05, not
+09-03** — the handoff's "first unattended day is 09-03" is true of the *mechanism* and is
+not the deadline for reading. The rail measures sentence and word length; it cannot see a
+riddle, and the owner's 08-11 rejection was of the pool's *plainest* entry.

@@ -647,3 +647,48 @@ in. `git stash` is forbidden on this tree; use `cp <file> /tmp/x.bak` and copy b
 
 Applying before step 1 banks approved-but-never-railed drafts that can never be re-gated.
 The guard refuses, but the reason it refuses is worth understanding before overriding it.
+
+### 16g. Retire a queued provocation — the one action the buffer exists to permit
+
+The publish buffer (`nextPublishDates` starts at **tomorrow**, never today) is now the
+lane's main safety property: it is the window in which a bad row is pulled before anyone
+sees it. It had **no recipe** in this runbook until 2026-09-02, which made the safety
+property real but unusable under time pressure.
+
+**First, see what is unread.** `human_approved_at` survived the permission change and is
+still written by a human review, so it is the honest "has anyone read this" column even
+though nothing gates on it any more:
+
+```sql
+SELECT id, publish_on, human_approved_at IS NOT NULL AS human_read,
+       gate_verdict->>'gate_version' AS gv, left(title,55)
+  FROM provocations
+ WHERE domain='vonc.com' AND status='approved'
+   AND (publish_on IS NULL OR publish_on >= current_date)
+ ORDER BY publish_on NULLS LAST;
+```
+
+**Then retire by id.** `retired` is the existing vocabulary (`approved` / `retired` /
+`rejected`; 15 rows already retired), and `loadProvocations` selects `status='approved'`
+only, so a retired row leaves the feed on the next publish:
+
+```sql
+UPDATE provocations SET status='retired'
+ WHERE id='<uuid>' AND domain='vonc.com' AND status='approved';   -- always id, never title
+```
+
+⚠ **Retire a FUTURE-dated row and nothing else is needed.** It has not entered the served
+archive, so `checkAgainstServed` sees no shrink and the next publish just omits it.
+
+⚠ **Retiring an ALREADY-SERVED row is a different, louder operation.** It shrinks the
+archive, and the publisher **refuses** a shrinking publish unless `allow_shrink` is set —
+by design, so that a destructive publish has to prove it saw the corpus. Do not reach for
+`allow_shrink` to make an error message go away; a shrink you did not intend means you
+retired the wrong row.
+
+⚠ **A retired row is not re-gated if you restore it.** Approved rows are never re-gated, so
+flipping a row back to `approved` re-admits it under whatever rule applied when it was
+first judged — read `gate_verdict->>'gate_version'` before restoring anything.
+
+**The retirement does not take effect until the feed publishes** (6-hourly), or you drive
+it by hand; verify at the artefact with 16a, never at the table.
