@@ -19417,3 +19417,15 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/433` (the empty column) · `bugs_open/424` (no alpha — same file, different defect) · MEMORY [[a-print-statement-is-not-a-config-row]] · [[writes-the-field-is-not-reads-the-field]] · [[a-justification-in-an-evidence-column-reads-as-evidence]]
 - **source:** 2026-09-02, bugfix 417/420 lane, eye-checking logos for 417's disconfirmation C. Noticed only because `file` was run on a downloaded asset out of habit; the DB, the key and the CDN all said PNG.
 - **added:** 2026-09-02, bugfix 417/420 lane
+
+---
+
+### A hand-filed work item copied from a completed row can be UNCLAIMABLE for ever — the claim gate reads two COLUMNS (`status`, `handler_agent`), and a completed row no longer shows its promotable state
+
+- **footprint:** `site_work_items` (hand INSERT of any item type) · `claim_work_item_action.go:135` · `handler_agent` · `swi_no_handlerless_promotable`
+- **fires when:** raising a work item by hand and copying its shape from a completed row of the same item_type — which is exactly what the `page_rerender`/`page_id` entry above tells you to do. The spec copies fine; the claim eligibility does not, because it lives in columns whose claim-time values a completed row no longer displays: the claim query takes `status IN ('triaged','approved')` only, and the `swi_no_handlerless_promotable` CHECK requires the `handler_agent` COLUMN (not the spec key) to be non-empty at any promotable status.
+- **the tell:** none — that is the trap. A `pending` item with an empty `handler_agent` inserts cleanly (`INSERT 0 1`), violates nothing, and sits `pending` for ever. No error, no log, no reaper interest; it reads as dispatcher latency for as long as you are willing to wait. (Measured 2026-09-02: the same shape at `triaged`+handler was claimed in ~2 min; mine at `pending`+empty sat 7+ min until read the claim query.)
+- **the check:** before filing, read the CLAIM GATE, not the template row: `grep -n "status IN" platform/orchestration/actions/claim_work_item_action.go` — then file at `status='triaged'` with `handler_agent` set as a COLUMN (copy its value from the completed row: `SELECT handler_agent FROM site_work_items WHERE id='<template>'`). If you already filed at `pending`: `UPDATE ... SET handler_agent='<h>', status='triaged' WHERE id='<id>' AND status='pending'` — safe, the CHECK admits it once the handler column is set.
+- **relations:** the `page_rerender`/`page_id` entry above (this is its column-side sibling — its own advice, followed exactly, walks you into this one) · MEMORY [[detection-works-schedule-and-dispatch-do-not]]
+- **source:** hit directly 2026-09-02, site_delivery_and_editor lane, filing the guides-index rebuild (item 7f1f4993) from bccedf9c's shape
+- **added:** 2026-09-02, site_delivery_and_editor lane
