@@ -127,3 +127,9 @@
   check their reply first; (2) Stage B after seed 641 lands (owner-read gated — not ours to
   apply); (3) RFC_063 awaits the owner; (4) watch the detector read-back query after the
   roll — first rows should be the 25-page cohort as their rebuilds occur.
+- **Post-roll obligation added (copy_quality_two_stage request, 2026-09-02):** at Stage B,
+  SAVE the before/after served HTML pair of `your-own-model` (curl both sides of the rebuild)
+  and point to it from the bug file's close-out — their lane wants it as a natural experiment
+  (three identical briefs → three subjects) on whether subject-scoping alone reduces AI-tell
+  density. They cancelled proposal `8003c51a` (their call, reason on the item) so the canary
+  rebuild has nothing pending under it.
