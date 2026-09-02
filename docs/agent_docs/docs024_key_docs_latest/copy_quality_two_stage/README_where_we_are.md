@@ -1037,3 +1037,20 @@ watches the two WORDS you named first — "plainly" and "honest" — which, it t
 automated check anywhere had ever looked for. Its first run promptly caught two sites quoting
 them in their briefs. Also tidied: our daily health line was actually two different numbers
 wearing one name; the reports now say both.
+
+**2026-09-02, close of day.** All ten of your decisions from this afternoon are done or moving.
+Done today: the farmer about-page fix is applied; the review batch is on the admin page waiting
+for you (fifteen farmer items, one loanzy item — one farmer item carries a note where the
+proposal deletes a dead button rather than renaming it, your call); the "AI slop" wording is
+washed out of finetuning's planning document and the page rebuild is running; the banned-words
+register is at version 2 (your "plain words" family, plus a dash-shaped loophole the offer
+thread caught in live copy the same day); the negation checker is under council review; and the
+best-in-class standard now actually reaches the planners and designer — the machinery rolled
+out this afternoon and the next site-planning run is the proof. The loanzy edit you asked
+evidence for: both claims checked out against the sources (National Debtline is genuinely free,
+run by the Money Advice Trust; the credit-agreement right is real, section 77), and the wording
+was tightened where the law reference was attached to the wrong claim — the same disease as the
+MaPS error, one size smaller. Still yours when you have a minute: the batch review, the xAI
+top-up at console.x.ai, and one word to the offer thread confirming the question-hierarchy
+build — they'd rather hear it from you directly than through a relay, which I think is the
+right instinct.
