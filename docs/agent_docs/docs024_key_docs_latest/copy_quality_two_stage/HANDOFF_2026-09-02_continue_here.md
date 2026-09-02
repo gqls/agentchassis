@@ -48,6 +48,18 @@ first pass = correct) · 10 CONFIRMED (axis; implementation AFTER D per their H4
 
 ## Also open
 
+- **NEW (designblog critique, 09-02 late — NOTES tail has the full decomposition):**
+  (a) `no_answer_for_target` is now a COUNTED repair-miss class (the gate targets a sentence,
+  the repair model never addresses it, the original ships by design) — candidate fix is ONE
+  re-ask for unanswered targets; measure the fleet rate from the markers before building.
+  (b) **The BIRTH producer mints the register**: a day-old site's content_direction carried 16
+  x_not_y, its briefing 8 — the wash campaign cleans STOCK, the briefing agent needs its own
+  gate for FLOW (the offer lane's Decision-E argument, one producer along) — ADD TO THE
+  OWNER'S LIST. (c) Whether banned WORDS get a page-side repair arm (today: shapes repair,
+  words only detect) — design question, queued. (d) designblog's four zero-content listing
+  pages = empty-room class instances 3–6 for the title-promise design.
+
+
 - Council verdicts to read: `7f0c4adb` (706), `fa9744cb` (v2). A REVISE is usually right.
 - **HEAD is RED from another lane** (thunder/api build failure + livespec migration-reader
   test, present on bare HEAD at `11dda6c79`) — not ours; verify-head-builds judges relative.
