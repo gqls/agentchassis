@@ -1857,3 +1857,17 @@ evidence_base facts, which vetcomparison currently has (no current evidence_base
 — so the calculator likely needs an evidence_base seeded (the CMA relative periods, sourced)
 before any add_tool item. Awaiting their answer before dispatching anything. The calculator is
 its OWN page — independent of the 701 freeze.
+**Planner's execution plan for the two design rulings (2026-09-03), accepted:** (a) ACCENT's home
+= the industry-hub layout's dedicated "independence claim" callout slot
+(`--color-independence-bg`/`--color-independence-border`) — currently UNSET here, so it falls to
+the layout's hardcoded blues, which IS the "third blue" review defect; setting accent-derived
+values (their taste, our constraints: border non-text 3:1, text keeps dark ink, amber fallbacks
+normalised in the same change) fixes both at once and gives the green real at-rest work.
+(b) IMAGERY: industry-hub has NO illustration CSS — IMG-075's first exercise needs a companion
+layout treatment; planner designing it now (no writes). Flag given: industry-hub css_template is
+SHARED — treatment must be additive-and-inert for non-participating sites, count the sites in its
+review, or use a per-site override if anything non-additive is needed. (c) SEQUENCING RULING
+(mine): hold EVERYTHING incl. the palette write behind 701 — their guard says "anything moved",
+and the applying rerender rewrites components regardless; efficient shape = 701 lands → palette
+write → one rerender ships the accent callout. First-deploy-grade verification owed at the
+artefact for IMG-075's first run.
