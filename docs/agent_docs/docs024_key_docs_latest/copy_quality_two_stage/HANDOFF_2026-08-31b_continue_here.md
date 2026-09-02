@@ -65,7 +65,10 @@ afternoon→night entries are this session's full trail). The owner does NOT wan
    that date):** three items landed in this lane, sequenced behind nothing under his
    fix-before-approval cut-line: (i) the TITLE-PROMISE gate/demonstration (family face 4 — a
    title asserting a specific dated checkable thing must be carried by the body or the page
-   not written; one design with the empty-index demonstration); (ii) the CQ-032
+   not written; one design with the empty-index demonstration — **REUSE FIRST: the estate
+   already runs a `heading_promise_unmet` detector** (live findings on finetuning, 08-26;
+   check the discovery_checks package), so extension-vs-sibling is the first design
+   question); (ii) the CQ-032
    first-person-plural policy-prose tell, type specimen = boxingonline's fight-calendar page;
    (iii) the GUIDE REWRITE under "shorter is licensed" (honour ruling 13 alongside — density
    per sentence vs padding per page; do not harmonise without his word).
