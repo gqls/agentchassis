@@ -4828,3 +4828,44 @@ carries a quoted function and a two-site control rather than an assertion. **A l
 tells you what it could not see is doing its job** — and on this occasion the seeding gap it
 reported (a symptom naming symbols in a file the bundle does not include) is itself worth someone's
 attention.
+
+### Two housekeeping facts from the commit itself, both worth recording
+
+**1. Three of my nine files were swept into other sessions' commits between my write and my
+commit.** I named nine paths on `git commit`; six landed under my message (`d6b612a5f`). The other
+three — `bugs_open/114`, `016b`, `WRONG_CALLS.md` — were already committed by the lanes that own
+them (`26242df2c`, `d0c8ca9c3`, `01276a88e`) because we edited the same files in the same window.
+**Nothing was lost:** all three are at HEAD, verified with `git show HEAD:<path> | grep -c`, not by
+looking at the working tree (which cannot distinguish "committed" from "still dirty"). This is
+CLAUDE.md's stated same-file passenger case — a pathspec commit protects you from *others'* files,
+never from a co-edit of *one* file — and the remedy is the one the rule gives: finish, commit the
+remainder, say so. ⚠ **The check that matters here is `git show HEAD:<path>`, not `git status`.**
+A clean status on a file you just edited means *someone committed it*, and that someone may not be
+you.
+
+**2. The `bugfix_114_imagery_wiring` lane reached my §1 conclusion independently, on the same day,
+and supplied the cause I did not have.** Their CONTRIB
+(`CONTRIB_2026-09-02_from_114_your_render_path_diff_is_bug_357_not_a_divergence.md`) says do not diff
+the render path, it is `bugs_open/357` — with the same measurement (tool `hero` rows 9.5–14.5 KB of
+`<div class="tool-page">`, guide heroes 3.3 KB of real hero markup). **Verified their citation
+rather than accepting it:** `platform/orchestration/actions/adopt_fragment_section.go:14-15` states
+it in the file's own header — a fragment is stored under the sentinel name `"section"` (*identity
+unknown*) and **that sentinel is then replaced by `planned[Position-1]` from `pages.sections`**, so
+the row inherits whatever identity the plan had at that position. That is the mechanism; I had the
+symptom and the danger but not this.
+
+Two corrections to my own reading follow from theirs, and one thing of mine survives intact:
+
+- **The 12 content-hero images are NOT waste.** I had them filed mentally under "generated and
+  unreferenced". The event-driven card derive (IMG-073) is live and 193/193 fleet-wide, and a
+  content hero on a page that cannot render it is **still the card source** — our tool cards exist,
+  are entity-linked and serve 200. Do not let anyone cite this site as evidence that the generation
+  was wasted.
+- **The `undeployed_asset` mislabelling I recorded at §4 of the morning handoff generalises to
+  1,651 rows fleet-wide**, born at `unresolved` by the recurrence brake. There is a new LANDMINES
+  entry on why draining them is the trap.
+- **My `hero-tool` finding is NOT their finding and is not covered by 357.** Theirs explains the
+  **ten adopted** pages (no hero exists). Mine explains the **four native** pages (a hero exists,
+  declares no image-typed field, so `sectionHasImageField` gates the resolver off). Disjoint sets,
+  disjoint mechanisms, and 357's constructive adoption fixes only the first. The CONTRIB I filed
+  into `bugs_open/114` stands.

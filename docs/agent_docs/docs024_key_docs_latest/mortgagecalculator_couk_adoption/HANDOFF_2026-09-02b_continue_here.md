@@ -34,6 +34,22 @@ page renders a hero**. ⚠ **Following §2 would have destroyed ten working calc
 hero slot render" replaces the tool with a title band. That is `bugs_open/357`, and migration `701`
 exists to make it impossible.
 
+**Corroborated independently the same day, and they supplied the cause.** The
+`bugfix_114_imagery_wiring` lane filed
+`CONTRIB_2026-09-02_from_114_your_render_path_diff_is_bug_357_not_a_divergence.md` into this
+directory with the same measurement and the mechanism I lacked: `adopt_fragment_section.go:14-15`
+(verified, quoted from its own header) — a fragment is stored under the sentinel name `"section"`
+(*identity unknown*) and **that sentinel is then replaced by `planned[Position-1]` from
+`pages.sections`**, so the row inherits whatever identity the plan held at that position. The fix
+is 357's constructive adoption (built, opt-in, default OFF, their lane mid-flight) — **not the
+resolver and not more wiring**.
+
+⚠ **Two corrections to the morning handoff's §2 framing that came with it:** the 12 content-hero
+images are **not** waste — the event-driven card derive (IMG-073, live, 193/193 fleet-wide) uses a
+content hero as the **card** source, and our tool cards exist and serve 200. And the
+`undeployed_asset` mislabelling generalises to **1,651 rows fleet-wide**; there is a new LANDMINES
+entry on why draining them is the trap.
+
 **Why it happened, which is the reusable part:** the morning session reasoned from `content_data`
 and `html_template` without once measuring `length(rendered_html)`. One column would have shown it.
 And the CONTRIB that says so in its first paragraph
