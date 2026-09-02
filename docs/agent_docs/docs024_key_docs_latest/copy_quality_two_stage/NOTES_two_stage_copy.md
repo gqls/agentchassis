@@ -3580,3 +3580,41 @@ only through it) · rulings 9/10 relayed to the offer lane.
    underived material reorders the same points. The axis ruling stands; its implementation
    waits for the hierarchy to exist. Their self-correction (a widened proxy is a different
    instrument, no improvement claim available) noted with respect.
+
+---
+
+## 2026-09-02 evening — v2 CUT + PROPAGATION STEP 1 FULLY LIVE + the farmer batch PARKED for the owner
+
+**BANNED_REGISTER v2 landed** (`0c11a8818`, corr `fa9744cb` Council-Submitted): plain_words
+class + em-dash x_not_y (superset separator: `(?:[,—–-]\s+|\s[—–]\s*)`), four files one commit
+per the lockstep's no-window rule; the offer lane's RE2 guard caught my `\u`-escaped first
+draft AT THE FILE, and their false-positive control turned out a TRUE positive (swapped with
+their agreement). Register suites green. HEAD itself is RED from another lane
+(thunder/api build fail + livespec migration-reader test, identical on the bare-HEAD control)
+— not this change's, flagged here for the estate. **CLI carries v2 already**: the makefile had
+been bumped 1353 (news lane) and again to 1354 by a third session whose tag edits MY commit
+`48180ffe1` swept as a same-file passenger (message says 1353, shipped truth is **v1.0.1354**
+— this correction is the record); the image I built+pushed at 1354 is from HEAD-with-v2,
+cronjob verified serving it.
+
+**THE CHASSIS ROLLED ~15:39Z (v1.0.1354) AND THE VOICESTYLE GENERALISATION IS ABOARD** —
+probed at the binary the right way after a wrong way: grepping MY COMMIT SHA read ABSENT
+because the stamp is the build HEAD, not an ancestry list (the landmine's exact misreading,
+mine for a minute); the capability probe settled it — `injectPlatformBlocks` PRESENT,
+`config_name = $1` PRESENT, `build_standard_block` PRESENT, old inline SQL absent (r2's
+refactor aboard; the dead-stripped unreferenced old const explains the confusing
+`voice_style_block` absence), `plain_words` absent (v2 post-roll, the stated conservative
+skew). **677/678/679 APPLIED** on that proof: three snapshots, three single-row guards, three
+verifies — all three planners/designer opted in on their single active rows. Step 1 of the
+propagation is live end-to-end; the remaining read is the next organic planner run's
+`prompt_rendered` carrying "stands comparison with the strongest sites".
+
+**The farmer batch is PARKED (ruling 3)**: 14 pages fired (one timeout double on glossary —
+duplicate cancelled with reason; the kill hit mid-fire and the resume re-fired), **14
+proposals gated: 13 PASS + 1 annotated FAIL** (farm-buildings: the proposal EMPTIES a
+dead-tool secondary_cta — 0 of 7 words trips the absolute floor; read as a defensible
+removal, his call, note on the item). With /about's released pair and loanzy's annotated
+get-help, the admin queue now holds **15 farmer + 1 loanzy** items for batch review.
+
+**Offer lane routing**: the lane consolidated to [4628f9] (owner ended a two-session split);
+[6c226c] handed over and stands down. All future offer correspondence → [4628f9] BY REF.
