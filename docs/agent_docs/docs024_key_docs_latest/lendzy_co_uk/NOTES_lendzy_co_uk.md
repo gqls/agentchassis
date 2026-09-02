@@ -222,3 +222,53 @@ supported, and none asks whether the *rule number* is the rule that says it.
 **NOT YET FIXED.** The wrong numbers are in served copy, so repairing them changes published prose,
 and the estate is deliberately careful about automated rewrites of published copy. Recorded here
 and put to the owner rather than fixed unilaterally.
+
+## 2026-09-02 (h) — the 090 verdict came back UNVERIFIABLE, and it did NOT confirm my root cause
+
+Run `89a84ad3` finished at iteration 5 with:
+
+> `"status": "UNVERIFIABLE"` — *"Diagnosis NOT confirmed (stopped: iteration-cap). Best-effort
+> trail attached for a human; no fix proposed."*
+
+**This is not a confirmation and I am not going to write it up as one.** Nor is it a refutation.
+The loop spent its iterations on pages that are not lendzy's stuck three — `llm-cost-calculator`,
+`tool-ai-vendor-trust-checklist`, `learning-center-hub`, none of which is on this site — and its
+own final bundle says why that trail was worthless: those page names recur across sites, every row
+it found was already `deployed` with a stamp, and *"the actual current-state row for lendzy.co.uk's
+own … pages was never successfully retrieved (the site-scoped query errored with `column reference
+"id" is ambiguous` and returned 0 rows)"*. So it never looked at the three rows the symptom names.
+
+**What this means for the claim, stated plainly under the 2026-07-31 owner ruling.** That ruling
+requires a cross-cutting root-cause claim to go through the loop **or** for the filing session to
+say why it substituted equivalent first-hand verification. I did run the loop, it returned nothing
+usable, and I am therefore relying on the first-hand verification — which is recorded in (c) and
+consists of:
+
+1. the exact rows: **3/3** stuck pages carry a single `component_id IS NULL` row, **0/6** healthy
+   siblings do;
+2. a **disconfirmable** fleet census — pages where *no* component row carries a `component_id` —
+   which could have returned healthy pages, or pages on other sites, and returned **exactly these
+   three and nothing else**;
+3. the code path read at the **deciding arm**, not summarised: `resolveComponent`'s two returns,
+   `fatal()`'s body, and the `newStatus == "deployed"` branch that is the only caller of the stamp;
+4. the missing component verified as an **absence** (`0` rows named/functioned/typed `section`),
+   not assumed;
+5. **two competing hypotheses actively refuted** with their own evidence (the deploy-skip guard, by
+   the empty error log and its unarmed opt-in; and the naive `component_id IS NULL` predicate, by
+   the 16-row/7-site census that showed it does not discriminate).
+
+That is stronger than what the loop produced, but it is *my* verification and it carries my
+fallibility. The honest status of the root cause is **first-hand verified, loop UNVERIFIABLE**, and
+any document quoting it should say so.
+
+⚠ **Do not read the UNVERIFIABLE as evidence about the platform.** It is evidence about that run:
+a broken query and a wandering hypothesis. A re-file with a tighter symptom (naming the three page
+names and the site id explicitly, since the loop demonstrably lost the site scope) would be a
+reasonable next step for anyone who needs the independent check — and is cheap.
+
+**Correction to my own earlier expectation, recorded because the missteps are the point:** in (c)
+I wrote that the verdict would be recorded "including if it refutes me". I framed the outcomes as
+confirm-or-refute and did not consider the third, which is the one that happened — the loop failing
+to engage the question at all. A run that produces no verdict is not a neutral event: it costs the
+time you spent waiting for it, and if you are not careful it gets quoted later as though the
+absence of refutation were support.
