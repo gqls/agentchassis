@@ -185,3 +185,42 @@ shipped today. It is much less bad than what the same step did to two other site
 rather than broken: five attempts tonight produced one good result, three bad ones and one correct
 refusal — **and its own safety check gave the good one and a bad one exactly the same perfect
 score**, so nothing in the system can currently tell them apart. I have sent that lane the evidence.
+
+---
+
+**2026-09-02, 20:30 — the header is fixed; the last step is blocked and needs you**
+
+**websitepromotion's header now has the logo in it.** The stored header went from 2,362 to 2,633
+bytes and now carries `<img src="/assets/images/logo.png" class="logo-img">`, pointing at a file
+that already serves. That part is done and verified.
+
+**The live page has not caught up yet, and that is the step I could not finish.** Rebuilding the
+chrome deliberately does not touch already-published pages — they keep serving until each one is
+re-assembled. There are 11 pages. I prepared the 11 re-assembly jobs, and **the command that files
+them into the queue was blocked by a permission check**, because it writes rows to the production
+database. I have not tried to get around it. If you want it done, either approve that kind of write
+or run it yourself and I will watch it through.
+
+**Of the five sites, only one was ever fixable this way — that is the real finding.** I checked each
+before touching anything, which was worth doing:
+- **websitepromotion.co.uk** — the logo simply arrived after the header was built. Fixed.
+- **webdesign.co.uk** — it has a *hand-built* header of its own, and that template has no place to
+  put a logo at all: no image slot, nothing. I re-rendered it to be sure; it ran cleanly and
+  changed nothing, exactly as the template says it should. Giving it a logo is a design change.
+- **ai-agent-orchestration.com** and **cookly.uk** — neither site's current plan ever asked for a
+  logo, and neither has a fallback, so there is nothing for the builder to find. They own a logo
+  file nothing references.
+- **loanandmortgagecalculator.co.uk** — its header, footer and head were **locked by a person** on
+  5 August. Forced rebuilds are refused on locked pieces by design. Unlocking is your call.
+
+So "the header shows text" turned out to be one symptom with four different causes, and only the
+first was a rebuild problem.
+
+**One thing that cost an hour and is worth knowing.** My first two attempts to trigger the rebuild
+went nowhere — and left no trace at all. The message was accepted, the receipt confirmed, and no
+job was ever created. The system refuses a malformed request *before* it writes anything down, so
+there is nothing to find and nothing to explain it; it looks identical to a slow queue, and our own
+written advice for that symptom is "be patient, don't re-send". The way I caught it was to check
+whether *other* jobs were being created at the same time — 154 of them were, so mine had plainly
+been rejected rather than queued. Third attempt, with the full set of routing fields, worked in ten
+seconds. That is now written down as a trap, along with the check that tells the two apart.
