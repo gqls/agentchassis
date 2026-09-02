@@ -1,5 +1,7 @@
 # HANDOFF — 2026-08-31. **START HERE.** `bugs_open/391` — **ONE OWNER DECISION IS THE ONLY THING BETWEEN THIS LANE AND CLOSURE**
 
+> **⚠ SUPERSEDED 2026-09-02 by `HANDOFF_2026-09-02_continue_here.md`.** The decision it was blocked on has been taken and applied.
+
 **Supersedes `HANDOFF_2026-08-26_continue_here.md`.** Everything below was re-measured 2026-08-31
 ~15:0xZ; the 08-26 figures had gone stale by more than half.
 
