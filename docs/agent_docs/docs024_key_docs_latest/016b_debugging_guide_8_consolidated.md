@@ -6854,6 +6854,8 @@ until 2026-07-17; ~23 documents still reference the old path). §9 above holds t
 durable PATTERNS; the files below hold the case detail, evidence and fix
 candidates. Read the file before acting — several are already fixed.
 
+**`444`** — **Remake listing pages ship EMPTY of their own content type, filled with brief-echo prose — and every naive check passes** (filed 2026-09-02 from the owner's designblog critique, verified same evening on advertise.co.uk). Three producer-absence mechanisms behind one symptom: feed pages have a LIVE mechanism but 0 `content_sources` rows (undriven, never converges); directory pages need a directory KIND that does not exist (DIR-001 is wired, adding a kind is a documented 7-place data change); glossary/showcase pages have NO item producer at all [absence claim, re-verify]. The brief-echo copy is downstream [INFERRED]: a writer given a listing section with zero items writes about the intent. Kin: no remake got a tools nav link or /tools hub (plan runs before tools exist). Fix candidates ordered by door-closing in the file; (1) = plan validation refuses/degrades a listing page whose item source resolves to zero. Lane: portfolio_positioning (advertise instances) + designblog.co.uk session (theirs).
+
 **`436`** — **CTA destinations are ranked by `nav_order` alone, so every NEW site inherits an off-topic primary button.** Spun out of `bugs_closed/391` on its closure (2026-09-02): 391 fixed the damage on three sites, this is the untouched cause. `chooseCTATargets` (`resolve_internal_links_action.go:651`) sorts every `tool`/`game` page on `COALESCE(nav_order,100)` then `name` and takes `[0]` — **no topic, tag or semantic input**. And the wrong pick **locks itself in**: `stampCTADestinationGuidance:362` feeds the chosen title into the writer's spec, so the framework writes copy *naming* what it picked, and the label match (which runs AHEAD of the positional pick) then keeps it — `[MEASURED 2026-08-25]` **20 of 80** fields had reached that unreachable state, including all three the owner reported. No live damage today (391 cleared it); the next build re-creates it. Owner decision 3 approved candidate 1 (`eligible_as_cta_target` opt-out) + candidate 4 (anomalous-`nav_order` detector), with three binding constraints: read **at the RANKING, not the loaders** (`render_site_components_action.go:182-190` takes `ordered[0]` and never persists it, so a loader change moves every site's header button with no `content_data` diff); it must also bind `LoadCTALabelUniverse` or the opt-out has a hole the exact shape of this bug; and **engage RFC_022 with the consumers ENUMERATED** before booking a council round. Architecture-scope (2026-07-29 §1: it changes what the ranking GUARANTEES). ⚠ `bugs_open/399`'s write-time audit is **structurally blind** to this — when the framework both picks and names the destination the two agree, pinned by their own deliberately-passing test. Lane: `docs024_key_docs_latest/bugfix_389_cta_relevance/`
 
 **`414`** — **CLOSED 2026-08-31 → `bugs_closed/` (`de99599fb`): fixed, live, and verified in production at every layer** — 0 lendzy components and 0 current specs carry the phrase, both served bodies read 0 with a 404 control, the patterns are live in chassis `v1.0.1349` (three-arm binary probe; `kubectl logs` returns ZERO lines for those pods so the stamp route is unavailable), `claimscan` over 2,715 components finds nothing from either new pattern, and the spec detector runs daily at `v1.0.1350` reporting 0 of 36 sites from 7,013 scanned fields. Council `f4c144ad` APPROVED. ⚠ The last defect found was the DETECTOR'S OWN — its first live run convicted a site for a phrase in that site's `would_never_say` list — and *running it* found that, not the unit tests and not a nine-seat council round. Residuals carried forward in the lane handoff §5, chief among them: a POISONED `evidence_base` passes every layer, because every layer treats the register as ground truth rather than scanning it. Original entry follows.
@@ -15086,3 +15088,21 @@ and it found the cause on the first run.
 **Kin:** `bugs_open/027` §4b built `SafeCut` for the TRUNCATION shape of this identical class on
 2026-07-20 and nobody went looking for the CASING shape, which then bit two live sites for ten days.
 **Fixing one shape of a defect class and not censusing its siblings is the recurrence, not the fix.**
+
+### A listing page whose item producer is missing serves 200 at full weight, filled with prose ABOUT its own brief — and the emptiness is invisible to every check that does not count ITEMS (2026-09-02, `bugs_open/444`)
+
+**The mechanism.** A planned listing page (directory, glossary, feed, showcase) reaches the
+section writer with zero resolvable items — because its feed has no `content_sources` row, its
+directory kind was never created, or no producer for its item type exists anywhere. The writer
+does not fail: it writes fluent meta-prose about inclusion criteria ("What gets included",
+"Where the terms come from"). The page renders, deploys, and serves at ~60KB with plausible
+headings. Status checks, byte-size checks, 200-checks, and title greps ALL pass. Measured
+2026-09-02 across two of four same-day remakes (advertise: directory 0/15–20 entries, glossary
+0 terms, news 0 items; designblog: four such pages).
+
+**The check.** For any listing page, count the ITEMS at the served body — entries, terms, feed
+rows — never the bytes or the status. Zero items on a listing page is a finding even when the
+page reads well; the better the prose, the stronger the signal that the writer had nothing to
+list. Then ask WHICH of the three absences you have (source row / kind / producer) before
+routing — they have three different owners. Case detail: `bugs_open/444`.
+
