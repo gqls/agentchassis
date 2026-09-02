@@ -405,17 +405,21 @@ function SitesOverview({ sites, token, onSelectSite, onSelectPages, onSelectSpec
 }
 
 // ── Work Items List ──────────────────────────────────────────────────────────
-function WorkItemsList({ token, siteFilter, onBack }) {
+// reviewQueueMode: entered via the top-nav "Review Queue" tab (bugs_open/428) —
+// the same list and the same RFC_056 release action below, just landing
+// pre-filtered on the record-verdicts queue instead of requiring a reviewer to
+// find the checkbox inside "All Items" first.
+function WorkItemsList({ token, siteFilter, onBack, reviewQueueMode = false }) {
     const [allItems, setAllItems] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState(reviewQueueMode ? "deferred" : "");
     const [typeFilter, setTypeFilter] = useState("");
     const [pipelineFilter, setPipelineFilter] = useState("build");
     // RFC_056 (bugs_open/428): filing_mode='record' rows are 'deferred' verdicts
     // an LLM-audit seat filed but nothing may auto-dispatch — status='deferred'
     // was not even a status option below until this filter was added, so a
     // reviewer had no route to these rows shorter than a raw SQL query.
-    const [recordVerdictsOnly, setRecordVerdictsOnly] = useState(false);
+    const [recordVerdictsOnly, setRecordVerdictsOnly] = useState(reviewQueueMode);
     // Counts and totals come from the server. They used to be derived from the
     // returned rows, which the API caps — so a 208-item needs_human_review
     // backlog reported itself as 0 and the queue looked empty (bugs_open/033).
@@ -981,10 +985,10 @@ function WorkItemsList({ token, siteFilter, onBack }) {
 
     return (
         <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: reviewQueueMode ? 4 : 20 }}>
                 <button onClick={onBack} style={btnSecondary}>← Sites</button>
                 <h2 style={{ ...sectionTitle, margin: 0, flex: 1 }}>
-                    Work Items {siteFilter && <span style={{ fontWeight: 400, color: "#64748b" }}>— {siteFilter.domain}</span>}
+                    {reviewQueueMode ? "Review Queue" : "Work Items"} {siteFilter && <span style={{ fontWeight: 400, color: "#64748b" }}>— {siteFilter.domain}</span>}
                 </h2>
                 {siteFilter && (
                     <button onClick={() => {
@@ -1003,6 +1007,14 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                     </button>
                 )}
             </div>
+
+            {reviewQueueMode && (
+                <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+                    {total} item{total === 1 ? "" : "s"} awaiting your review — LLM-audit findings that
+                    RFC_056's circuit breaker parked instead of auto-dispatching (bugs_open/428). Nothing
+                    here is acted on until you release it.
+                </div>
+            )}
 
             {/* Site edit panel */}
             {showSiteEdit && siteFilter && (
@@ -2978,7 +2990,7 @@ export default function App() {
     const [token, setToken] = useState(() => sessionStorage.getItem("admin_token") || "");
     const [user, setUser] = useState(null);
     const [sites, setSites] = useState([]);
-    const [view, setView] = useState("sites"); // sites | items | all-items | pages | specs | media | builds
+    const [view, setView] = useState("sites"); // sites | items | all-items | review-queue | pages | specs | media | builds
     const [selectedSite, setSelectedSite] = useState(null);
     const [error, setError] = useState("");
 
@@ -3028,6 +3040,7 @@ export default function App() {
                             { key: "all-items", label: "All Items" },
                             { key: "pipelines", label: "Pipelines" },
                             { key: "customers", label: "Customers" },
+                            { key: "review-queue", label: "Review Queue" },
                         ].map(({ key, label }) => (
                             <button key={key} onClick={() => { setView(key); setSelectedSite(null); }} style={{
                                 background: view === key || (["items", "pages", "specs", "media", "builds"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
@@ -3095,6 +3108,15 @@ export default function App() {
                         token={token}
                         siteFilter={null}
                         onBack={() => { setView("sites"); loadSites(); }}
+                    />
+                )}
+
+                {view === "review-queue" && (
+                    <WorkItemsList
+                        token={token}
+                        siteFilter={null}
+                        onBack={() => { setView("sites"); loadSites(); }}
+                        reviewQueueMode
                     />
                 )}
 
