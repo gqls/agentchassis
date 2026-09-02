@@ -439,3 +439,28 @@ silence is cleanliness** — a register's first live pass is a measurement, not 
 
 End of day one. Three migrations written, reviewed (7 council rounds between them, every REVISE
 answered by measurement), applied, and verified at the artefact where an artefact exists.
+
+## 2026-09-02 (o) — the adoption shape travelled: 357's owner ruled for it, and their drafting answered our open question
+
+The 357 lane's migration 701 (in council, corr df6c1b41) adopts all 22 of their wrong-id tool
+pages off 693's crib — with the third repoint leg their plan-driven case needed
+(`site_plan_sections.component_name` + the derived `pages.sections` copy). Both of this lane's
+gotchas held up in their drafting: 22/22 bodies passed `toolTemplateValid` through the real
+function with a genuine >100-char must-fail control, and their rerender filing copies the
+`page_id` + `created_by` shape.
+
+Two of their measured facts banked here, with attribution, because they answer questions this lane
+left open:
+
+- **`pages.sections` is a DERIVED copy** — sync overwrites it from `site_plan_sections`, so the
+  durable leg of any plan repoint is the PLAN table, never `pages.sections`. Matters to this lane
+  only if lendzy ever grows populated plans (today 8 of 9 tool pages carry `[]`), but a future
+  session editing `pages.sections` as though authoritative would watch its edit evaporate at the
+  next sync.
+- **The drift-reconciler interaction I flagged as unmeasured is now measured** (by them):
+  the comparison is `built_from_plan_version` (a `site_plans.id`) vs the current plan id, and
+  plan-ELEMENT edits create no plan row — so an element-level repoint causes no rebuild storm.
+
+Their second-fork finding on `tool-equity-release` (an unplaced deploy-path copy beside the
+library parent on mortgagecalculator) is their tail, disclosed to their council — noted here only
+as the RFC_036 §11 shape recurring.
