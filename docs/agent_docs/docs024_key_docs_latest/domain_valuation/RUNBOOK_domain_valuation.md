@@ -18,6 +18,12 @@ Each registrar lane writes to
 
 Commit by pathspec, message `domain valuation inbound: <registrar> list`.
 
+**Re-pull every registrar list the day the pricing sheet finalises** (owner
+adds domains on occasion — proven 2026-09-02, when Dynadot grew 451→453 between
+snapshots): a registrar count is stale by ADDITION, never by loss, and a fresh
+name missing from the sheet is invisible unless you re-pull. Dynadot re-pull is
+one ask to that lane; same for the others.
+
 ## Nominet list (owner-run; the lane's session cannot touch credentials)
 
     ! python3 scripts/domains/nominet.py login
