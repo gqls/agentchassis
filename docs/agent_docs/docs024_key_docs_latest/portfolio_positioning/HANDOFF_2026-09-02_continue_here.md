@@ -45,8 +45,9 @@ self-maintaining; the four new sites join its rotation.
 # 3. OPEN (beyond §1)
 
 - **18 remakes remain** (`DECISION_2026-08-20...`§2). №5 carries the chrome experiment.
-- **444 routing**: fix candidate (1) (plan validation refuses zero-item listing pages) has no
-  owner yet; kinds/sources enablement is per-vertical work at brief time.
+- **444 routing**: ~~fix candidate (1) has no owner yet~~ **OWNED same night — session
+  "bugs_open/444" (owner-directed) takes candidate (1) + enablement-in-the-build-path; they
+  will state what "enablement answered" looks like from the brief-firing side → runbook §6.**
 - **gamesdesign/gamedesign pair**: rename DONE + serve-verified (their sessions); Pro-tier
   name+home UNDECIDED (GD1/GD2); p2p cross-link pair dependency recorded; GD2 brief is the
   reckoning point. `bugs_open/439` is the adoption-carries-name class.
