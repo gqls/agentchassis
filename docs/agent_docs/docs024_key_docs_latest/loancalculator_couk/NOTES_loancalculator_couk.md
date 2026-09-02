@@ -6794,3 +6794,17 @@ the pending 397 GTM rerender wave passes the armed scan with the same zero expec
 `rule` fields are human-verified (dated) until Q6's rule-span checker ships.
 
 **For the owner (in README):** the two copy corrections are his prose decisions.
+
+### 2026-09-02, later — where the traps landed, and the fleet picture
+
+Lendzy relay: this lane's three findings (legislation.gov.uk 200s-on-wrong-paths; the
+SI 1983/1569-vs-1564 near-miss, pointing at 699's header; run-the-method-expecting-errors)
+are now **RUNBOOK §8c in `docs024_key_docs_latest/lendzy_co_uk/`** — the durable home;
+future register lanes get them from there, not from this file. Fleet state: **4 of
+RFC_060 §1b's 5 register-less sites populated the same day** (lendzy 695, loanzy 697,
+farmerinsurance 698, this site 699) — the §1b census is stale by success. The fifth,
+loancash, has NO seat (owner knows); it inherits §8/8b/8c, and the s.97 settlement-
+deadline trap is live for it (payday proposition). Measured across the day, fleet-wide:
+**five wrong claims found across three sites** — the register work is finding errors at
+a steady rate, which is the strongest argument it should exist. Claims-verification
+lane (register mechanism + Q6 rule-span checker) has our results and the 699 header.
