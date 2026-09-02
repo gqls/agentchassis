@@ -73,10 +73,31 @@ literal `<main></main>`, control 404, row active/deployed/hash-NULL/0 components
 nine `page_rerender` complete). **Producer census**: all nine filed by
 `rerender-pages`' `create_rerender_items`, ONE item_key, 08-26→09-02.
 
-**Criterion 3 census, dated 2026-09-02**: exactly **2** active+deployed+0-component
-rows fleet-wide — this page and `idea.uk/tools.html#audience-check` (a fragment-URL
-oddity; its build ask, if ever converted, is a candidate `wont_fix`). An instance,
-not a rate.
+**Criterion 3 census, dated 2026-09-02.**
+> **CORRECTED after council round 1 (debug_historian, right):** my first figure —
+> "2 rows" — used `status='active' AND build_status='deployed'`, the estate's
+> LIVENESS predicate, which is wrong for a census (it excludes served-but-not-
+> 'deployed' and archived-but-served pages). On the honest predicate
+> `deployed_at IS NOT NULL AND NOT EXISTS(components)`: **14 rows** —
+> active/needs_rebuild **5** (`check_componentless_pages`' target, which is built
+> but enabled in ZERO discovery agents), archived/deployed **4** + archived/
+> needs_rebuild **4** (`bugs_closed/359`'s still-served class, other lanes' pages),
+> active/deployed **1** (roi-estimator itself). A small population — not one
+> instance, and not a rate.
+
+**Prior art, and why roi-estimator falls through it** (council round 1, reuse +
+prior_art seats — both correct to ask):
+- `check_sectionless_pages` matches `sections=[]` but is gated on CURRENT-PLAN
+  membership AND needs a same-role sibling to borrow layout from. roi-estimator is
+  in neither — it never fires.
+- `check_componentless_pages` needs sections PRESENT (an intact array to build
+  from). roi-estimator has `sections=[]`, so it cannot match — and, separately, it
+  is enabled in **zero** discovery agents fleet-wide (a real adjacent gap, surfaced
+  as an owed decision, NOT bundled into this fix — it would not catch this page
+  anyway).
+So roi-estimator sits in the genuine gap between the two checks. This fix operates
+at a different layer (convert the futile rerender at file/skip time), complementary
+to both.
 
 **Criterion 2: BOTH doors closed** (commit `8eca969cb` + the writeWorkItem refactor,
 `Council-Submitted: 2be8ec34-d905-4afc-9cf4-227c2facbc14`):

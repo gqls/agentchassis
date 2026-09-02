@@ -229,9 +229,9 @@ separate register files).
   (write_audit_findings_filing_mode_test); WDS-017/018 are the neighbouring write/promoter
   doors; set/unset recipe in loanzy RUNBOOK ("growth posture").
 
-## WDS-019 — empty-page rerenders convert to build asks (bugs_open/315 reopen)
+## WDS-021 — empty-page rerenders convert to build asks (bugs_open/315 reopen)
 
-- **status:** built 2026-09-02, inert until the next agent-chassis roll (verify at the per-service stamp)
+- **status:** built 2026-09-02 (commit `8eca969cb` + a writeWorkItem-seam refactor commit), inert until the next agent-chassis roll — "did it ship?" = `git merge-base --is-ancestor 8eca969cb <the chassis stamp>`
 - **what:** A `page_rerender` on a page with **zero component rows** is a guaranteed skip that still completed the item — nine completions accumulated on one empty page (roi-estimator) while nothing routed it to the build queue. Two doors now convert instead: `RerenderSinglePageAction`'s 0-component skip files a deduped `needs_content_page` (**a new producer of that item_type** — the tool-deployer, planners, adoption and `check_sectionless_pages` are the others; named here per bugs_open/213's second-producer lesson), and `create_rerender_items`' unscoped loop stops filing guaranteed-skip rerenders and files the same ask, reporting `empty_pages_converted_to_build_asks` in the step RESULT. **Key shape is new**: `needs_content_page:<page_id>` (uuid-stable; the other producers key by name — recorded as a deliberate divergence, no cross-producer dedup intended because the asks carry different specs).
 - **why the seam:** both file **through `writeWorkItem`** — the workItem struct's own comment records three hand-rolled INSERT call sites caught by council; every door in that seam (owned-page routability, growth posture, future ones) reaches these producers unremembered.
 - **sources:** platform/orchestration/actions/rerender_single_page_action.go (`fileBuildAskForEmptyPage`), create_rerender_items_action.go, empty_page_build_ask_test.go (producer guard mutation-proved); `bugs_open/315` reopen section 2026-09-02.
