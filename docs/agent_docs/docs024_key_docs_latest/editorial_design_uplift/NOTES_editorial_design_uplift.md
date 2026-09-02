@@ -1053,3 +1053,19 @@ a resave. A plain assemble-mode page-rerender redeploys the stored HTML unchange
 field would never appear despite the assets existing, and the rollout would read as a no-op.
 Carried into the migration header, because the lane that applies this is not the lane that
 wrote it.
+
+**MISSTEP 4 (2026-09-02) — I executed my own commit message.** `f3f81ba39`'s message used
+backticks around three identifiers inside a double-quoted `git commit -m "..."`, so bash ran
+them as command substitution: `bash: content: command not found`, and the same for `image` and
+`hero`. The commit succeeded with those three words **deleted** from the message. They are the
+three the argument turns on — the reader is left with *"article-body keeps ."*, *"the literal
+key  is never populated"* and *"sources the literal , which IS populated"*, which is worse than
+useless because it reads as fluent prose with the discriminating term silently removed.
+Corrected in the follow-up commit; forward-only, so no amend.
+
+**This is a documented trap** (`MEMORY.md` → shell-tool-traps: *"backticks in `-m` execute"*)
+and I walked into it anyway, because the message was long prose and the backticks were doing
+markdown work, not shell work. **The durable fix is mechanical, not vigilance: write commit
+messages with `git commit -F <file>`** (or a quoted heredoc into a file), so the shell never
+parses the message at all. Adopted here from now on. The tell is free and I ignored it —
+`command not found` on STDERR, immediately above a successful commit line.
