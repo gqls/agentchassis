@@ -93,7 +93,7 @@ Live register coverage, re-measured `[MEASURED 2026-09-02, afternoon]` (was §1b
 
 | domain | register | facts |
 |---|---|---|
-| `lendzy.co.uk` | migration 695 written, **round 2 at council — not yet applied** | 0 (pending) |
+| `lendzy.co.uk` | migration 695 written, **round 2 at council — not yet applied** (killed twice by today's rolling chassis deploys, resubmitted each time) | 0 (pending) |
 | `loanzy.uk` | migration 697 **applied** | 3 |
 | `loancalculator.co.uk` | migration 699 **applied** | 12 (9 via CCA 1974/SI citations, `legislation.gov.uk`) |
 | `farmerinsurance.uk` | migration 698 **applied** | 7 |
@@ -275,6 +275,33 @@ are sector-specific falsehoods, and a `finance` label would let one curated set 
 in that sector instead of each hand-rolling its own `banned_claims`. That is additive, needs none of
 this design, and can be a separate optional field later. It should **not** be smuggled in as the key
 now, because doing so would tie the register requirement to an argument about industry boundaries.
+
+**UPDATE 2026-09-02, from the `bugs_open/414,` lane — a naive shared set does not survive contact,
+measured, not assumed.** `adversecreditmortgage.co.uk`'s six-pattern set was offered to lendzy and
+loanzy as a starting point. Both lanes independently diverged on the **same two of six**, for
+**different reasons each**:
+- `\bno (credit )?checks?\b` — lendzy's false positive is adjacent UI text concatenating to "No
+  Check" in the visible body (a "Yes"/"No" answer button beside a "Check for a breach" button);
+  loanzy's is a TRUE first-person statement about its own tool ("There's no credit check involved").
+- `\b[0-9]+(\.[0-9]+)?% (apr|apcr|rate)\b` — both omitted it. lendzy measured 3 hits, every one the
+  credit-union rate cap quoted beside its named rule in educational content; loanzy's framing: *"on
+  your sibling a literal rate is a price promotion; here it is pedagogy."*
+
+**2 of 6 patterns needed a per-site exception at 100% of adopting sites (2 of 2) — that is
+disagreement on contact, not drift accumulating over time.** A shared set, if built, needs per-site
+override machinery from day one, not as a later refinement.
+
+**A second, structural problem, verified at the code, not proposed as a build:** the regulatory-
+citation exemption (`fad209b92`, §3b) lives ONLY in `isExcludedNumber`/`ScanUnregisteredNumbers` — the
+NUMBER scan. `scanBannedClaims` (`claims.go:527`) consults no such exemption; it has no reference to
+`regulatoryCitationContextRe` or any citation-awareness at all `[VERIFIED 2026-09-02: read the
+function, confirmed absent]`. **So a shared sector set containing a literal-rate pattern would
+re-convict — likely at BLOCKER severity in the refusing union — exactly the content the number scan
+now correctly exempts at `error`:** the two layers would disagree about the same sentence, on the
+sites whose whole purpose is quoting capped rates beside their rules. **If a sector set is ever
+curated and contains a figure-shaped pattern, the citation exemption must reach `scanBannedClaims`
+first, or the set is unsafe by construction.** Not proposed as a build — a precondition, recorded so
+it is a decision rather than a surprise if this is ever picked up.
 
 ### The one thing I would push back on, stated so it is on the record
 
