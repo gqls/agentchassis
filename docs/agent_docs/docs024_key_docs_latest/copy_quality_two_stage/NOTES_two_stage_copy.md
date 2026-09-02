@@ -3506,3 +3506,10 @@ TWO numbers, now written that way in the handoff. Also noted: several "supplied"
 findings fleet-wide are QUOTED TEMPLATE DEMONSTRATIONS in briefs ("X is Y, not Z",
 "not just X but Y" quoted as patterns) — the exact class 646/647 washed on finetuning,
 alive in other sites' briefs; strengthens the fleet-wash case.
+
+**Word arm VERIFIED AT THE ARTEFACT** (triggered job `bnc-wordarm-verify-141644`, pod exit 1 =
+findings by design): the deployed v1.0.1352 report carries the first-cycle label, both
+`word:` findings (apis.uk `word:plainly`, idea.uk `word:honest`), the spec-claims half's
+demand control ("0 of 39 … from 7,198 scanned field(s)"), and filed three items
+(advertise.co.uk, apis.uk, idea.uk — the other 8 finding-sites hold their morning items under
+unchanged phrase-set keys). The daily read is now TWO numbers plus the word column.
