@@ -1292,3 +1292,16 @@ caught my (id, reason) guess). Council corr `8f4bb57d` r1 pending (verdict monit
 **Sequence to live**: verdict → chassis image with dec5ad61b rides the owner's next release
 (releases are WHOLE-FLEET, owner runs them) → stamp-check both replicas → hand-apply 674 →
 drop suffix + record → owner sets budget → owner flips enabled (the one deliberate act).
+
+### 2026-09-02 — baseline caveat from the 357 lane (bugs_open/408 fixed in code, rides the next roll)
+
+Their FYI: the assemble_page stack-overflow class (skipped content writer / typo'd
+content_field → pod crash + orchestration wedged EXECUTING_STEP until the 4h stale reaper;
+three destroyed 08-26) becomes a clean page-skip after the next chassis roll. Two
+consequences for THIS lane's measurements, held for the next reads:
+- **Pre-roll turn-time baselines overstate tail latency** (they contain 4h wedges); do not
+  grade post-roll p90/max against them without this beside.
+- The next roll carries BOTH their fix and stage B's Go half — post-roll distribution
+  changes are not attributable to either alone (stage B stays inert, but the tail change
+  is theirs). Expect the daily VERIFY's zombie-tail NOTICE count to drop too (their wedge
+  class feeds the 'reaper: stale EXECUTING_STEP' spelling the 08-27 widening covered).
