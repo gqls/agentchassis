@@ -9,7 +9,60 @@ Phase 1 is built and committed. **Whether any of it is live is UNVERIFIED — se
 
 ---
 
-## 1. ⚠ FIRST ACTION: establish liveness. I could not.
+## 0. RESOLVED AFTER THE HANDOFF WAS FIRST WRITTEN — IT IS ALL LIVE NOW
+
+§1 below was written while the kubeconfig token was expired. The token was refreshed,
+the owner said go ahead, and the state is now settled. **Read this section, not §1's
+uncertainty.**
+
+**Binary: LIVE.** `agent-chassis` is on `v1.0.1355` and carries this work. The
+provenance log line had already scrolled (a startup line — expected), so this is a
+capability probe of `/proc/1/exe` **with both controls**:
+
+| needle | result |
+|---|---|
+| `fork_theme_from_site` (positive control — pre-existing action) | PRESENT |
+| **`apply_theme_kit`** | **PRESENT** |
+| **`page_archetypes`** | **PRESENT** |
+| `zzz_not_a_real_action_zzz` (negative control) | absent — *the probe discriminates* |
+
+**Schema: APPLIED, 2026-09-02.** Migrations `689` and `691` applied via a **scoped** run
+(`MIGRATIONS_DIR` pointed at a temp dir holding only those two files) because
+`--apply` takes EVERY pending file and would have swept a dozen other lanes' migrations.
+Verified after: `to_regclass` returns both tables; **4 kits and 14 fleet archetypes**
+seeded; `validate_resolved_composition_spec` accepts `layout_source='theme_kit_default'`.
+
+**691's three live sites: verified appearance-neutral at the artefact.** Its premise was
+re-read immediately before applying (served CSS still byte-identical to
+`reference_values` for all three), and re-read after: `cv1.co.uk`, `finetuning.uk` and
+`gaswholesalers.com` now hold their own `site_split` palette rows and serve exactly the
+same colours as before.
+
+**Ordering hazard closed correctly.** The Go half emits `layout_source='theme_kit_default'`,
+which the old validator would have REFUSED. It could never have fired before the
+migration (no `theme_kits` table → no adoption spec → the layout rung never returns that
+source), and 689 widened the validator before any kit could exist. ⚠ **An image rollback
+to before this build is safe; a DATABASE rollback past 689 while this binary runs would
+break composition installs for themed sites.**
+
+**Council gate: SUBMITTED**, correlation **`bed139b2-f512-436a-9ba8-ff2fbfade8ef`**.
+Verdict not read (~30 min queue). Resolve it with:
+```sql
+SELECT current_step, status FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = 'bed139b2-f512-436a-9ba8-ff2fbfade8ef';
+SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+```
+The submission deliberately names the two edits I most want challenged: the layout
+short-circuit (it skips tag matching AND the `needs_new_layout_candidate` signal) and
+the `generic_theme` suppression. **Do NOT write `Council-Reviewed:` until you have read
+an approved verdict** — 098 buckets an unread claim as MISMATCH.
+
+**What is NOT live and did not change:** nothing has adopted a kit yet
+(`theme_kit_adoption` specs: 0). The four seeded kits exist and are selectable; no site
+uses one. Findings §3(a)-(d) all still hold — in particular a kit still cannot deliver
+colour to a site.
+
+## 1. ⚠ (superseded by §0, kept for the method) FIRST ACTION: establish liveness. I could not.
 
 A fresh chassis build was deployed near the end of this session. **I could not verify
 what it carries** — the kubeconfig token expired (`error: You must be logged in to the
@@ -128,15 +181,12 @@ available today, and it needs no theme kit — it is driven by classification ta
 
 ## 5. OPEN — decisions and pending work
 
-### Owner decisions (nothing proceeds without these)
-1. **Apply 689 + 691, and roll?** Nothing is live until then. **691 touches three live
-   client sites** (cv1.co.uk, finetuning.uk, gaswholesalers.com) — appearance-neutral by
-   construction (it writes the values they already serve, read from the live stylesheets
-   first) but it is still a live-site change.
-2. **Council round** for the platform code — standing practice, never run this session.
-   Several commits carry no `Council-Reviewed` trailer and the advisory nudge fired on
-   each.
-3. **`bugs_open/438`: retire or build?** Both lanes agree the capability does not exist
+### Owner decisions
+1. ~~**Apply 689 + 691, and roll?**~~ **DONE 2026-09-02 — owner said go ahead.** Applied
+   scoped, verified at the artefact. See §0.
+2. ~~**Council round**~~ **DONE — submitted**, correlation
+   `bed139b2-f512-436a-9ba8-ff2fbfade8ef`, verdict unread. See §0.
+3. **`bugs_open/438`: retire or build?** ← **STILL OPEN** Both lanes agree the capability does not exist
    and neither will choose. Retire the dead rung, or give `082` a structured preference
    input (`--palette`). **Note (a) above: even building it would not put a colour on a
    site**, because the overlay overwrites core slots. So "build" only makes sense
