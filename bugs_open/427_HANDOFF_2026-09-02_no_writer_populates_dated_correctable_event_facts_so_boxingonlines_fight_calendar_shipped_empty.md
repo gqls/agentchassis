@@ -395,3 +395,73 @@ backlog + 20 fresh) now carry `event_extracted_at`. So `query.upcoming_events`
 placing the component that declares the new source is no longer blocked on
 "nothing to render." Full detail: `docs024_key_docs_latest/news_feed_ingestion/`
 (PLAN status line, NOTES for the two mistakes' full account).
+
+## 10. Status update, 2026-09-02 (later same day) — fresh build verified, REVISE round closed
+
+**Fresh chassis build confirmed at the artefact, both directions** (per this repo's own
+landmine against trusting a roll without checking): `service_binary_capabilities` /
+core-manager's own startup log both show `git_commit =
+ebf27c60377f984fd2847a1d5d88ff87ae01ebf7` on every current `agent-chassis` pod and on
+`core-manager`, uniformly (no split-tag). `git merge-base --is-ancestor` confirms this
+commit descends from every commit this session and `news_feed_ingestion` made through
+today, including the composeWriterBlock fix, the `query.upcoming_events` resolver, and
+feed_lane's event-extraction work. **So the render-target code, the six real boxingonline
+facts, and the writer-block fix are all live in the running fleet right now.**
+
+**`query.upcoming_events`'s council round (08f56b7e) came back REVISE, not approved.**
+Read in full, not skimmed: compliance's HIGH objection was real and correct — the
+resolver rendered real-world scheduling claims (fight dates, venues, named people) gated
+only on "the date parses and is in the future", with no check that the underlying fact
+was actually evidenced. Fixed same session (commit `987ed3b3b`): a fact now renders only
+if its citation carries BOTH a `url` and a `quote` — the same bar
+`VerifyAndRegisterCitationsAction` already requires to *register* a fact, enforced again
+here so the resolver does not depend on that being the only write path forever. Also
+fixed: every rendered item now carries a constant disclaimer ("schedule details can
+change..."); the dependency-class literal is now `site_specs.evidence_base` (was the
+bare, self-flagged-as-unsettled `evidence_base`); `content_components`' existing
+`evidence-chart` function was checked directly (not argued from silence) and confirmed
+a different mechanism (numeric chart series via `site_specs.*`, not a per-item dated
+list via `query.*`); and the CAS-guard placement guardian asked about is now documented
+inline. Resubmitted on the same correlation (`RESUBMIT_CORR`), verdict pending again.
+
+**Decisions this lane now needs from a person, not from a session:**
+
+1. **Build and deploy Phase B** — the actual component + migration that puts
+   boxingonline's 6 real facts on `/tools/fight-calendar/index.html`. Everything it
+   depends on is live (resolver, real data). This is real, scoped, undecided-only-in-the-
+   sense-of-"has anyone started it yet" work — see §11 below for exactly what's left.
+2. **Whether to release any of `bugs_open/428`'s 13 record-mode verdicts.** The tool to do
+   it safely now exists (backend live in this same build; see bug 428's own status), but
+   *using* it — deciding boxingonline's own row (`e3c2b440-…`) or any of the other 12 is
+   worth turning into real work — is a per-row human judgement call this session
+   deliberately did not make for you.
+3. **Whether `news_feed_ingestion`'s extraction prompt should run beyond boxingonline.com.**
+   It is vertical-agnostic by design but currently wired/tested against one site only;
+   rolling it fleet-wide is a cost/quality decision for that lane's owner, named here
+   because it directly determines how many OTHER sites' entity-directory gaps (bug 428 §3's
+   76%-omission sample) could ever have real data to show.
+
+## 11. What is left before this lane can close
+
+- [ ] **Phase B (the actual fix a visitor sees).** Resolve the open questions in
+  `bugfix_427_event_render/PLAN`'s §5 R1-R3 (does an existing component already accept a
+  query-sourced items array with event-shaped columns, or is a small new `event-list`
+  component needed; which path minted the tool page and which sections-source it reads
+  from). Write the migration placing the component (precedent: migration 267). The
+  eventual template MUST `{{if}}`-guard every optional field (venue/broadcaster/
+  participants) — Go's `missingkey=zero` renders an unguarded absent key as silent empty
+  text, flagged by council `bug_historian` as this platform's most recent recurring defect
+  class if unpatched. Submit that migration to council separately (DB migrations are
+  council-scope on their own).
+- [ ] **Read the pending council verdict** on the resubmitted `08f56b7e` correlation and
+  act on it (approved → nothing further; another REVISE → address and resubmit again).
+- [ ] **A human decision on releasing any of bug 428's 13 verdicts** (§10.2) — not this
+  lane's code to write, but the calendar page's own completeness may depend on whether
+  boxingonline's entity-directory gap (bug 428) ever gets acted on.
+- [ ] **Verify on boxingonline** once Phase B ships: `experience_loop`'s nightly check
+  should reclassify `/tools/fight-calendar/index.html` out of "no control, no inline data,
+  no runtime fetch" (this bug's own original measurement instrument) — that is the
+  closing signal for this bug, not a code diff.
+- Not this lane's job, tracked elsewhere: `bugs_open/428`'s own remaining items (see that
+  file's own §11); `content_feed_items.duplicate_of`/cross-article correction (named
+  residual, no owner yet).
