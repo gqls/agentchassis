@@ -3618,3 +3618,15 @@ get-help, the admin queue now holds **15 farmer + 1 loanzy** items for batch rev
 
 **Offer lane routing**: the lane consolidated to [4628f9] (owner ended a two-session split);
 [6c226c] handed over and stands down. All future offer correspondence → [4628f9] BY REF.
+
+**Decision D — seam CONFIRMED by [4628f9]** (v2 verified green on their side first). Two
+records from their message: (1) **"through the gate" is now a STATED REQUIREMENT, held in both
+directions** — `question_hierarchy` is newly minted model text, and any write path bypassing
+`repair_ordering_register` rebuilds the 23%-mint defect one field along; they asked to be held
+to it, and this lane will (it joins the D acceptance criteria alongside the mostly-unanswered
+first pass). (2) **The D start waits on the owner's one-word confirmation IN THEIR SESSION** —
+their relayed-authorisation discipline, right three times this week; my ledger entry stands as
+the record, theirs is the belt, nothing about the design moves. Their two statistical
+restatements adopted verbatim so neither lane quotes loosely: 10%→30% is a widened instrument,
+not a move; P(≤1 dirty of 12 | rate unchanged)=0.193, so ~25 post-gate points before even a
+halving is detectable.
