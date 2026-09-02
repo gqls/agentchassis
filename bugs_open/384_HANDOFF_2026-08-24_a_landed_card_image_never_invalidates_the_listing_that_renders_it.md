@@ -633,3 +633,47 @@ re-run with whole-file `SEED_SCOPE` (see the RUNBOOK note) is the cheap next ste
 
 **Unchanged:** defect #2 (the sweep born terminal, contributed to `bugs_open/389`), and the
 owned-page residual (14 blanks / 3 pages). 384 stays open.
+
+### RETRACTION, same day 17:3xZ — my "zero writes in 14 days" fleet claim is WRONG. The page-specific finding stands.
+
+**RETRACTED:** *"`rerender_page_sections` has written a listing array ZERO times in 14 days"*, and
+the writer table under it (`rebuild_blog_listing` 5 / `psql` 1). **Do not quote either.**
+
+**Why it was wrong.** I joined `page_component_history h JOIN page_components pc ON pc.id =
+h.component_id`. **`save_page_sections` DELETES and RE-INSERTS the `page_components` row** rather
+than updating in place (visible as `op=delete` / `source=save_page_sections_overwrite`), so its
+history rows point at a row id that no longer exists. Measured `[2026-09-02]`: **44,781 of 45,540
+history rows — 98.3% — match no live `page_components` row.** My census therefore ran over ~1.7% of
+the table, and the only writer it could still see was the one that updates IN PLACE
+(`rebuild_blog_listing`). **The instrument selected for the answer it gave me.**
+
+**The corrected census, keyed on `page_id` (stable across the delete/reinsert), listing-hosting
+pages, last 14 days `[MEASURED 2026-09-02]`:**
+
+| writer | source | rows | pages | newest |
+|---|---|---|---|---|
+| (empty) | `save_page_sections_overwrite` | **4,969** | **161** | 2026-09-02 17:26:19 |
+| `action:section_editor.update` | artefact_archive_trigger | 93 | 49 | 2026-09-02 08:20 |
+| `psql` | artefact_archive_trigger | 12 | 9 | 2026-09-02 15:46 |
+
+So `save_page_sections` — the rerender workflow's own write step — is a **prolific** writer. The
+claim that the seam's vehicle never writes is false.
+
+**What SURVIVES, because it was keyed on `page_id` from the start:** for
+`leopardessconsulting.co.uk/blog` (page `05269427-…`), the only history rows since 2026-08-25 are
+**four `action:rebuild_blog_listing` writes** (08-26 15:30:33, 08-26 22:02:54, 08-27 06:55:03,
+08-27 21:34:20) and **nothing at 22:58:18 or 09:40:36**. Not even a `save_page_sections_overwrite`
+row. That finding is sound and is the one that matters.
+
+**And it sharpens the question rather than dissolving it.** `save_page_sections` writes 4,969 times
+across 161 listing pages in a fortnight — but produced **no row at all** for this page on two runs
+that reached `deploy_page` (a real commit sha). So the live question is now: **on those two runs,
+why did the workflow reach deploy without `save_sections` writing anything?** Candidates, none
+tested: `rerender_sections` carried every section so the save was a no-op; `check_escalated`
+routed around the save; or `render_page` (`rerender_single_page`) deploys from stored
+`content_data` independently of the save step.
+
+**Also still true, and unaffected:** the §4 doubt. The 08-26 15:30:33 leopardess repair really was
+written by `action:rebuild_blog_listing`. The other three demonstrations remain **unchecked** —
+and note that a `save_page_sections` repair would NOT show under a component-id join, so anyone
+re-checking them must key on `page_id`.
