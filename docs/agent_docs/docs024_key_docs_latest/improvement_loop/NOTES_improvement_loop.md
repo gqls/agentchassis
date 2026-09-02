@@ -88,3 +88,65 @@ link is genuinely absent from the chrome template fleet-wide, or absent only fro
 carry the same staleness — I checked the mechanism, which is shared, but I have probed
 served pages only for `head_essentials_missing`. `[ASSUMED]` that boxingonline.com's
 parking is deliberate; that is decision D2 for the owner, not a fact I hold.
+
+---
+
+## 2026-09-02, later — the skip link has ONE cause, and it is provable
+
+Followed plan item 3's question — is the skip link absent from the chrome fleet-wide, or
+only from these sites' rendered output? `[MEASURED 2026-09-02]`
+
+**(k) The estate shares one header component, and it has no skip link.** Of 34 active
+sites, 33 carry a `header` slot in `site_components`. **32 of them point at the same
+`component_id` `58fde68f-9190-4e5e-b6a5-ea21cf27a9af`** (three of those are forks:
+`idea.uk` `f420f3fa…`, `leopardessconsulting` `990b7162…`, `webdesign.co.uk`
+`ad6033ae…`). **Not one of them renders a skip link.**
+
+**(l) The single exception is the one with no shared component at all.**
+`loanandmortgagecalculator.co.uk` has `component_id = NULL` — a hand-owned header,
+updated 2026-08-05 — and it is the only site on the estate whose served page carries
+`<a class="skip-link" href="#content">Skip to content</a>`. So this is **not a missing
+capability**: the platform renders a correct skip link today, on exactly one site, and
+that site is the one not using the shared component. ⚠ That header belongs to the LMC
+lane; this lane must not edit it.
+
+**(m) The fix has a prerequisite, and skipping it would manufacture a new finding on
+every page of the estate.** A skip link needs a target. LMC's points at `#content` and
+its pages carry `id="content"` (2 occurrences on the front page). The shared-header
+sites do NOT: probed finetuning.uk, webdesign.co.uk and cookly.uk — all three render a
+`<main>` element and **zero** `id="content"` and **zero** `id="main"`.
+
+  So adding the link to the shared header alone would produce ~1,000 dangling fragment
+  links — and `check_phantom_internal_links_fragments.go` exists and would file every
+  one of them. **The fix is two components, not one**: the skip link in the shared
+  header AND an id on the page shell's `<main>`. That check's own header comment already
+  names the contract — *"header skip-link targets id='content', which its pages carry"* —
+  so the shape is settled; it is the shared sites that are missing half of it.
+
+**(n) A second parked domain, found by accident, and NOT flagged.**
+`adversecreditmortgage.co.uk` serves the same 114-byte lander stub as boxingonline.com
+on `/`. It has **19 pages recorded active** and is one of only two active sites with
+**no** `head_essentials_missing` finding at all. So the check that would have caught it
+did not fire there. `[UNMEASURED]` why — I have not read the check's page-eligibility
+gate. Worth doing before anyone treats "no finding" as "no problem": on this evidence,
+the two sites with the cleanest record are a parked lander and the site nobody flagged.
+
+**(o) Checked the fan-out mechanism before assuming the fix could ship, and it is
+sound.** `bugs_open/404` says `template_changed` was in the live re-render vocabulary
+while `create_rerender_items_action.go` knew neither it nor `literal_markdown` — which
+would have made a chrome fix complete green and ship nothing. That is **repaired in the
+tree**: the file now derives its vocabulary from `livespec.RerenderSectionReasons`, the
+single definition, asserted daily against the live gate by `config-key-audit
+--live-declaration-drift`. `[UNMEASURED]` whether that repair is live in the running
+image — to check at the time of the fan-out, not now.
+
+**(p) Where this leaves the backlog arithmetic.** Of the 1,385:
+- **867** are the shared-header skip link — one two-component fix.
+- **~110** more (skip_link+footer, and the 56 all-three) are the same fix plus something
+  else; the farmerinsurance 36 are the same fix plus a stale spec.
+- **20** are boxingonline being parked, and belong to whoever owns that domain, not here.
+- **~390** are the other ten item types, unexamined by me so far.
+
+So the honest size of "findings that need a human decision" is **nowhere near 1,385**,
+and a screen showing that number would have been the wrong instrument. This is why plan
+item 4 sits behind items 2 and 3.
