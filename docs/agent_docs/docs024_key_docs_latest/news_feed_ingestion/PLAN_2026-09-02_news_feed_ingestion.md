@@ -134,14 +134,28 @@ the workflow-config UPDATE that references them — a seed naming an unregistere
 action fails at runtime (CLAUDE.md). Migration can go in alongside the image build
 (it's additive, no data dependency on the code).
 
-## Fix candidate #2 (revisit/correction path) — designed, not built this pass
+## Fix candidate #2 (revisit/correction path) — being built by the `calendar`/427 peer lane
 
 Bug 427 §6: dates get corrected, not just added — `refresh_evidence_base`'s
 staleness/drift machinery is the closest analogue, reuse rather than re-derive.
-`bugfix_410_feed_phase_lock`'s cadence/staleness handling is the directly
-transferable pattern (see its RUNBOOK). Deferred until candidate #1 is live and
-has real fact rows to revisit against — building the correction path first has
-nothing to correct.
+The peer session took this after checking for overlap; not this lane's build.
+
+**Part 1 done, verified independently (commit `f865153f8`, 2026-09-02):**
+`refreshCitationFact` needed no changes — event facts carry a plain
+`source.citation` regardless of kind, so the existing live-URL-recheck path
+already covers them. The real gap, found by the peer tracing
+`composeWriterBlock` directly (not something this lane's own design had
+spotted): that function only substitutes `{value}` for facts carrying a
+numeric value; anything else falls into a CAPABILITIES bucket that carries
+`writer_line` **completely verbatim, no substitution**. Since this lane's event
+facts have no numeric `value`, a `writer_line` phrasing `{event_date}`/`{venue}`/
+`{participants}`/`{broadcaster}` (the natural thing to write) would have shipped
+those tokens **unsubstituted** into the writer's prompt on any site with
+`writer_block_managed: true`. Fixed with a third "SCHEDULED EVENTS" bucket,
+missing fields render `"TBC"` rather than a bare brace. Matches this lane's
+exact field names — verified by reading the diff and running
+`TestComposeWriterBlock`/`TestComposeWriterBlockEventFacts` (both green) before
+accepting the peer's account rather than taking it on trust.
 
 ## Fix candidate #3 (entity-directory page role)
 
