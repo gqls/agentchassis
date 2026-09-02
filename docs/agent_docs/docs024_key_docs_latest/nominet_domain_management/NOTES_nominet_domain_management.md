@@ -158,3 +158,25 @@ Also: the owner's first `walk` attempt failed at the greeting (30 s read
 timeout); a credential-free `probe` immediately after answered 2,527 B —
 transient (or a connection-rate throttle from the several connects in quick
 succession), not structural. Walk still owed; retry.
+
+## 2026-09-02 (evening, cont. 2) — set-ns PROVEN LIVE 4/4; the Nominet half of the recovery is DONE
+
+Owner ran the staged dry-run loop (read exactly right on all four: rem
+alexis/leah, add betty/ivan, nothing else), then `--apply`. All four:
+`domain:update` 1000 + verify-by-re-read showing the target pair — the
+client's write path (login → info → update → verify) is now proven end-to-end
+`[MEASURED 2026-09-02]`.
+
+Independent check at the registry's own servers (`dig +norec @dns1.nic.uk`):
+3/4 published betty/ivan immediately; websitepromotion.co.uk still published
+alexis/leah on the first read and flipped within ~30 s — **the EPP re-read
+confirms the registry DATABASE; the published zone lags by seconds-to-minutes.
+Do not read a stale first dig as a failed update when the EPP verify said
+SUCCESS.**
+
+Remaining for the four: the owner re-runs `cf-zone-bootstrap.sh` (idempotent)
+to re-trigger activation now the pairs match; then serving-verify per the
+LANDMINES bar (body property via pinned edge IP, not status codes).
+
+OPP-015 proof state after tonight: probe/login/info/set-ns(+--apply) all
+proven live; walk/list/check remain unexercised.
