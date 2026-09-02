@@ -318,3 +318,25 @@ SQL, the pairing read off their own live rows, and the verification command — 
 
 That CONTRIB also carries the correction to IMG-074's "carryStored preserves the six values",
 which is false for the reason in §3 of the 08-31 entry.
+
+### 5. Is the new guard so cautious that nothing binds? Counted, not assumed
+
+A stand-down rule that stands everything down is a dead feature which still passes every test —
+the "your own action can silence your own detector" shape. So I counted the eligible population
+before claiming the guard was cheap. `[MEASURED 2026-09-02]`
+
+```
+pages carrying ANY section-scope imagery row : 31
+  would bind (plan order == live order)      : 21
+  would stand down                           : 10
+     of which: no built rows at all          :  4   (unbuilt / internal pool sites — moot)
+               plan and page differ in LENGTH:  5   (dartsonline index: plan 6, live 4 —
+                                                    a re-plan the page has not been built from)
+               same length, different order  :  1   (loancalculator index)
+```
+
+Two thirds eligible, and every refusal individually explicable. **This could have come out 0/31**,
+which would have meant the guard had quietly killed the feature — that is why it is worth the
+query rather than a sentence saying the guard is conservative. The full SQL (a plan-sequence vs
+live-sequence comparison, site-level slots filtered) is in the scratch of this session; it is
+worth re-running rather than quoting, because the sequences move on every re-plan and rebuild.
