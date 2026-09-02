@@ -1420,3 +1420,35 @@ nothing; served page byte-identical). Route left for next session: the site-leve
 fan-out that served the tag on this very page on 08-24 with locks in place. Not fired tonight —
 end-of-session is the wrong time to launch a route whose failure mode I would not be awake to
 read.
+
+### 2026-09-02 ~20:15 UTC — consumers-told notice from bugs_open/443 (PBP-051): the subjects rails gained two fallback-tier sources; 641's acceptance population widens
+
+Received as a cross-session message (this session freshly cleared — nothing else in context), the
+2026-07-29 §3 notice for `dbb218a41` (council `b7c59309` APPROVED r1, lane
+`bugfix_443_fallback_tier_subjects`). What changed about OUR guarantee: the loader's
+"authoritative tier only" line is now "aligned or absent from CONSTRUCTIONAL sources only" —
+tier 3 reads same-row `pages.section_subjects`/`section_facts` columns (mig 717 applied), tier 2
+reads same-object sibling keys from the site_plan aspect, tier 4 never. Alignment semantics
+(RAW-index across skips, trim, ""→nil, LOCK-008 nil-inserts) preserved hop for hop.
+
+Verified all four claims rather than repeating them: commit exists with the trailer;
+PBP-051 register entry cross-references PBP-049's supersession; both finding codes in
+`architecture_review/finding_code_registry.json` (their `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT`
+beside our `SUBJECT_MISSING_ON_REPEATED_COMPONENT`, our entry untouched by `dbb218a41`); and ALL
+12 tests in `plan_section_subjects_test.go` ran by name and passed at HEAD (`-run` with the exact
+12 names — a bare `-run 'Subject'` matches 31 and would hide a vanished file). Their commit also
+carried bugs_open/444's `plan_sections_action.go` error-defer hunk as a DECLARED same-file
+passenger — our chain's file; package green, no action.
+
+Two things recorded for the next session of this lane:
+- **641 gate: the acceptance population is now our two deferred `content_rewrite` items PLUS the
+  443 cohort (11 fallback-tier pages)** — same Stage B, more evidence, when the owner read lands.
+  The un-defer path in HANDOFF_2026-09-02_continue_here.md §"un-defer" is unchanged.
+- **A tier-1 page with a subjectless repeat can legitimately draw BOTH finding codes** (plan-write
+  event vs build event, remedies differ) — a double-fire is the design, not a duplicate-detector bug.
+
+Caught while verifying, corrected in the register (5 visible in-place corrections, PBP-049 entry):
+the "stated gap" line (object-realised carry arm untested) had been STALE SINCE 52085b410 closed it
+in council round 2 — the entry that shipped the fix never updated its own gap line, a week of
+readers inherited it. Also superseded the tier-1-only loader wording (→PBP-051), dated the test
+count (7→12), widened the verify-later acceptance line, added PBP-051 to relations.
