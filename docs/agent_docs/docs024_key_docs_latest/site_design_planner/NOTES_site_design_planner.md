@@ -403,3 +403,31 @@ with the full diagnosis; did not implement.
 > the earlier `resolve_composition_layout` work (431) by reading code before
 > asserting; I skipped the equivalent step here (checking the served DOM before
 > naming a priority fix) and a peer's independent check caught it.
+
+**Final reconciled picture, three lanes converging same day:**
+- The 3 parked `contrast_failure` items are **real and separate from the accent
+  question entirely** — a muted grey `rgb(107,124,133)` at 4.10–4.14:1 inside
+  the comparison tool's own markup, which `bugs_open/357`'s migration 701 is
+  about to adopt as a component. Fix is one edit to the adopted component's
+  `html_template`, **owed after 701, not before** — a fixing pre-701 would abort
+  their census. `vetcomparison` has already told the 357 lane to expect it.
+- The accent is **vestigial, not absent** (vigilant-designer self-corrected
+  twice, found its own regex missed every usage with a CSS custom-property
+  fallback — logged as a pattern, third such miss that lane had that week):
+  one live decorative `::before` mark, two hover-only rules, three dead. "Blue
+  and red with a decorative green tick" is the accurate description. Also
+  caught: the accent's CSS fallback value is amber (`#d97706`) — if the
+  variable were ever unset, the page would render a different colour identity
+  entirely. Not urgent, worth knowing.
+- `--color-primary` (0.44 contrast headroom, static, load-bearing) remains the
+  sharpest live finding and should lead any combined write-up over the accent
+  question.
+- Additional parked specs from `vetcomparison`'s own audit (not independently
+  verified by this lane): a contact-page button at 3.77:1, a spacing-token
+  mismatch on `info-card-grid`, and 5 `needs_design_review` items including one
+  that brushes the content freeze (a CTA button carrying a full paragraph —
+  restructuring is fair game, rewording is not, per the owner's own words).
+- `vetcomparison` is coordinating the full pass and holds sequencing; this
+  lane's part is done — composition stays as-is, the "honest colour use"
+  decision and any imagery investment go to the owner as flavoured calls, nothing
+  implemented from here.
