@@ -7180,3 +7180,34 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
 - Components-lane caveat banked: migration 683 files items from a LIVE JOIN at
   apply time — its item count is whatever the fleet holds at the human's apply
   (already moved 13→14); no number in that file is fixed.
+
+## 2026-09-02 (contd) — round-4 results: links 20/20 CLEAN; retraction SUCCEEDED; two mechanisms filed; guides fix via the assemble path
+
+- **Sweep (foreground; the bg script lost its probes again — pattern noted):
+  all 20 deployed pages contact_links=0, email=0, controls held, exactly ONE
+  Fight Calendar per header.** The peer's assertions 2/3/4 pass fleet-wide;
+  chrome reassembly coverage proven at the artefact.
+- **Retraction r4 SUCCEEDED** (retracted:1, gqls/sites e183d2e4, origin
+  synced --delete) — the guard chain's demands were all real. **BUT
+  /contact.html still 200 at the slug: bugs_open/429 FILED** — b2worker has NO
+  deletion handling (zero hits for delete/remove/stale in b2worker.go +
+  publisher.go); the mirror cannot unpublish. Orphaned object, direct-nav
+  exposure only, unlinked + de-sitemapped. **Close amendment agreed-proposed:
+  contact ruling's LINK half closes on the two tables; the 404 half stays OPEN
+  pinned to 429** (cites 304 — the same seam's other end).
+  ⚠ WRONG_CALLS: I filed it as 425, colliding with another lane's same-day 425 —
+  ran the census in the same block as the write and didn't read it, ONE DAY
+  after quoting the 417 lane's identical confession. Renumbered 425→429
+  (git mv, both paths, verified at HEAD).
+- **guides-index instance-3 MECHANISM CONFIRMED**: content_rewrite 'completed'
+  and changed nothing — the BUILD path re-resolves listing sections and the
+  resolver's only article vocabulary is query.blog_posts (page_type='blog-post',
+  queryresolve.go:176). Class fix = a guide vocabulary entry (Go, roll-bound).
+  **Pre-roll fix applied the only way that sticks**: articles array written
+  directly with the four measured guides (DO/RAISE guarded) + ASSEMBLE-mode
+  rerender — the third-form correction's own mechanics (assemble renders stored
+  data, no re-resolution) used as the tool. Verifier running.
+- **Interim logo VERIFIED**: silver glove-in-diamond, zero lettering, single
+  comp, uniform near-black ground; corners (10,16,16)-(12,20,18) vs #0a0a0a —
+  the model approximates hex; near-invisible seam on the header; caveat
+  recorded; 424 stays the real fix.
