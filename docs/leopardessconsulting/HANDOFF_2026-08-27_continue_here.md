@@ -1,4 +1,4 @@
-# HANDOFF — leopardessconsulting.co.uk, 2026-08-27
+# HANDOFF — leopardessconsulting.co.uk, 2026-08-27 — ⛔ SUPERSEDED by `HANDOFF_2026-09-02_continue_here.md`. Start there.
 
 **Start a fresh session from exactly here. Supersedes `HANDOFF_2026-08-25b_continue_here.md`**
 (all of its queue is done or overtaken except items carried below). Everything

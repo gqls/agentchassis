@@ -3611,3 +3611,11 @@ generic-hero pages (background_image is site_assets.hero-sourced there and a reb
 re-resolves it) — durable protection is the __authored work, queue item 4.
 Open externals at close: fleet roll (downscale inert until then); council verdicts on
 e5a664d9 + the three resubmitted correlations.
+
+**2026-09-02, evening — THE DOWNSCALE IS LIVE.** Fresh chassis rolled (replicaset `744cfb4bf`,
+pods 15:39/15:53Z). Capability probe on `/proc/1/exe`, the discriminating shape:
+`downscaleVisionImage: image scaled for provider limits` PRESENT · `max_image_dimension`
+PRESENT · `tool-acceptance-agent` PRESENT (positive control) · invented string absent.
+The after-leg chain is UNBLOCKED: restore max_images 16 (next migration), fire
+`design_critique_run.sh`, read `images_downscaled >= 1` (wiring proof) + the report
+(discrimination read). Handoff 2026-09-02 cut for a fresh session.
