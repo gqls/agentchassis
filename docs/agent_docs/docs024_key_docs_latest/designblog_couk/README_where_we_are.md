@@ -140,3 +140,38 @@ article pages currently have no structure to hold in-text images anyway — so
 this edit alone gets pictures onto landing pages, and putting images inside
 articles additionally needs the article-structure work (bugs_open/114). Those
 are two separate asks and I'll keep them separate.
+
+## 2026-09-02, night — you said go, and the planner prompt change is live
+
+You ruled "go ahead with the planner prompt and exemplar changes", and it's
+done — live in the running system as of just before 20:00 tonight.
+
+What changed: the site planner's instructions no longer tell it to be sparing
+with pictures. The "most plans will have zero" line is gone; in its place, the
+prompt says content-carrying imagery is expected, sets a floor of at least one
+illustration or infographic on the home page, and — because examples teach
+these models more than instructions do — both of the prompt's examples now
+show an illustration and an infographic being requested, written so the
+pictures carry no text (image models make a mess of lettering; headings stay
+in HTML). Two guard-rails from the earlier analysis were kept deliberately:
+the one-image-per-request rule survives untouched (without it we'd get botched
+multi-panel collages), and article pages are exempt — they have no structure
+to hold pictures yet, so that stays a separate piece of work rather than
+something forced.
+
+It went through the full discipline: the exact live text read first, the
+change rehearsed against the real database and rolled back before being
+applied for real, a snapshot taken, a rollback file written and proven to
+restore the original to the byte, the change submitted to the review council
+(verdict pending — I'll read it and act if they object), and the result
+re-checked in the live system afterwards.
+
+Proof arrives with the next site build: the first new plan should ask for
+illustrations and infographics on its own. The portfolio thread will check the
+first one that runs. Cost-wise this means more generated images on every
+future build, which you accepted when you ruled.
+
+One more thing from the same evening: the owner critique of gamedesign.uk
+turned out to be the same problem classes, that thread has joined the same
+routes, and their site will re-plan under the new prompt — so your two reviews
+are now feeding one set of fixes.
