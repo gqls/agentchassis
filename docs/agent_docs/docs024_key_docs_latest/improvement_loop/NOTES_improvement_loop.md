@@ -334,3 +334,18 @@ a judgement call. **The question to put to the council is not "where do we show 
 the second group needs the `triage_hint` discipline the ninth check already demonstrates.**
 That is a shared-seam change across eleven producers, so it goes through the gate on its
 own, after the skip-link wave has drained the population enough to see what is left.
+
+**(ff) Verified my own prediction rather than leaving it as one.** I claimed in §(y) that
+the 867 rows would retract themselves once pages re-render. Checked it in code instead of
+hoping: `HeadEssentialsMissingCheck` re-probes the LIVE page each run and emits a
+`ResolvedFinding` keyed on `structuralItemKey("head_essentials_missing", page.ID)` — the
+same key the finding was filed under — whenever `len(missing) == 0`.
+`resolveWorkItems` (`work_items_common.go:548`) then closes by
+`site_id + item_type + item_key` with `status NOT IN (closed statuses)`, and **does not
+filter on `handler_agent`** — so a flag-only `detected` row IS retractable, which was the
+one thing that could have made the prediction false. The stale `spec.missing` does not
+block it either: retraction is computed from the fresh probe, not from the stored spec.
+
+So the stale-spec problem (§(i)) is narrower than I first wrote. It is a **reporting**
+defect — anyone reading `spec.missing` gets a claim of unknown age — not a blocker on the
+row ever clearing. Downgraded accordingly in the plan's item 2.
