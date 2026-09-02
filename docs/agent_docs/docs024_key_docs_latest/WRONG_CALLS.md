@@ -59049,3 +59049,36 @@ place, visibly, with theme kits' mechanism, ~18:30Z.
 
 Family: a-complete-work-item-is-not-a-repaired-artefact, prove-a-deploy-at-the-artefact-index,
 a-report-is-not-a-measurement.
+
+---
+
+## 2026-09-02 — I enumerated a shared helper's callers FROM MEMORY inside the very sentence claiming I had enumerated them (`bugsweep_2026_08_26` lane, `bugs_open/338`)
+
+**The claim, written into a council submission.** Arguing that adding `ScanVoiceSingleValue`
+was not architecture-scope, I wrote: *"ENUMERATED rather than asserted: `grep -rn 'ScanVoice('
+--include=*.go` gives 4 call sites — check_voice_tells.go, revalidate_voice_tells.go,
+save_page_meta_description_action.go, and the test file."* The words "enumerated rather than
+asserted" are doing the work of the query in that sentence. **I had not run it.**
+
+**What caught it.** Running the grep, before submitting, because the estate's own rule is that
+"no collision is possible" is a query and not an argument. It was wrong **twice** in four items:
+it counted a **doc comment** at `save_page_meta_description_action.go:55` as a call site, and it
+**missed `cmd/voicescan/main.go:103` entirely** — a whole CLI consumer I did not know existed.
+`revalidate_voice_tells.go` calls `ScanVoiceTells`, not `ScanVoice`, so that item was wrong too.
+
+**The cheap check that would have.** Run the command you are about to say you ran, and paste its
+output. Thirty seconds. The corrected paragraph names three production call sites and says which
+one moves; the stale doc comment was repointed in the same commit, because a comment naming the
+wrong function is how the next reader wires the wrong one.
+
+**Why it is worth a row.** The failure mode is not laziness, it is that **the phrase "enumerated
+rather than asserted" reads as evidence of the enumeration** — to a reviewer and, more
+dangerously, to me while writing it. This is the index's `a-justification-in-an-evidence-column-
+reads-as-evidence` in prose form, and it is one step past the 404 lane's lesson three days
+earlier (*"checking the artefact is not checking what you are showing the reviewer"*): here I was
+not even checking the artefact, only claiming the check's name. **A citation of a command is not
+its output.** Same session also caught, by the same habit, that `bugs_open/338` §4's own check
+list had gone stale by addition — so the rule earned its keep twice in one task.
+
+Family: cite-the-arm-not-the-function, a-justification-in-an-evidence-column-reads-as-evidence,
+a-subagent-report-is-another-doc, an-objection-naming-one-file-is-naming-a-category.

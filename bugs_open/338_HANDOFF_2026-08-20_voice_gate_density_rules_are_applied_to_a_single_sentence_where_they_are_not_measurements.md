@@ -1,7 +1,25 @@
 # 338 — the voice gate's DENSITY rules are applied to a single sentence, where they are not measurements
 
-**Filed** 2026-08-20 by the `meta_description_never_backfilled` lane. **Status: OPEN.**
-Needs a Go change and a fleet roll.
+**Filed** 2026-08-20 by the `meta_description_never_backfilled` lane. **Status: OPEN —
+FIX COMMITTED 2026-09-02 (`425398a01`), INERT UNTIL THE NEXT CHASSIS ROLL.**
+
+> **UPDATE 2026-09-02** (`bugsweep_2026_08_26` lane, continuing
+> `docs024_key_docs_latest/bugsweep_2026_08_26/HANDOFF_2026-09-02_continue_here.md`).
+> The Go change is written, tested and committed; it is inert until an image is rebuilt
+> and rolled, so this file stays OPEN on the estate's fixed-AND-live bar. Council gate
+> **SUBMITTED**, `106802fc-ad14-4beb-b622-147c3a0ab982` — verdict unread at time of writing.
+> Mechanism registered as **CQ-035** in `docs026_concept_register/register/content-quality.md`.
+>
+> **Still biting when picked up**, re-measured before any code was written:
+> `leopardessconsulting.co.uk` and `oufe.com` have exactly **1** blank active page each,
+> and they remain precisely the only two of the **9** enabled gates that leave the
+> thresholds unset. §3's table still holds. ⚠ But the blank page on leopardess is now
+> `case-study-automated-intelligence-pipeline`, **not** the page §2 quotes — so the
+> failure is RECURRING against new pages, not a single stuck row, and
+> `orchestration_states` has since aged out (its refusal is no longer readable there).
+>
+> **Two corrections to this file are below, at §4 and §3.** Both are recorded rather
+> than edited away.
 
 > **Resolve by SLUG** (`voice_gate_density_rules_on_a_single_sentence`) — bug numbers
 > collide on this tree, and `git log` the FILE PATH, not the number.
@@ -109,13 +127,49 @@ work and is the thing the gate was built for.
 
 ⚠ **Do NOT drop the em-dash rule as "a density rule".** The house style bans em dashes
 outright; a *rate per 1000 words* is the wrong instrument over 20 words, but **any** em
-dash in a meta description should still be refused. If the density check is dropped, put
-a flat "contains an em dash" test in its place rather than losing the rule.
+dash in a meta description should still be refused. ~~If the density check is dropped, put
+a flat "contains an em dash" test in its place rather than losing the rule.~~
+
+> **CORRECTED 2026-09-02 — the REQUIREMENT above is right and the REMEDY was wrong; the
+> implemented fix keeps `em_dash_density` unchanged.** Caught by doing the arithmetic
+> before writing the replacement. The rule is `emDashes / totalWords * 1000`, a rate over
+> **words**, so at 20 words one em dash scores **50.0** against a default trip of 3 — and a
+> single em dash trips the default at any length below **333 words**, which every
+> single-value field is. It *already* means "contains an em dash" here. Worse, a
+> hand-rolled flat test would have **ignored site config and re-gated the seven sites**
+> that set `em_dash_per_1000_words: 100000` to switch the rule off — a fact §3's table
+> does not show, because that table omits the em-dash column. (Re-censused 2026-09-02: all
+> seven set it.)
+>
+> **So the axis is not content-vs-density.** It is what the signal is a rate OF:
+> a **rate over words** reduces correctly at n=1 and travels; a **count per page**
+> (`triad_density` trip 4, `negation_density` trip 12) or a **share over sentences**
+> (`long_sentences`) does not. `strawman` and `flourish_ending` are per-hit patterns and
+> travel too — so the landmine's "filter to `banned_phrase`" advice would have dropped
+> three working rules. `flourish_ending` is KEPT deliberately, as §4 asks: it anchors on
+> the opening of the final sentence (`Ultimately,`, `In short,`), so at n=1 it is an
+> ordinary pattern match on the only sentence there is.
+>
+> ⚠ **AND THIS SECTION'S OWN CHECK LIST WAS ALREADY STALE.** The list above omits
+> **`negation_density`**, added by `bugs_open/305` — correct when written, wrong by
+> birthday, and reading as current ever since. There are **8** check names as of
+> 2026-09-02. That is why the fix does not hand-keep a list: `voiceCheckKinds` is
+> exhaustive and `TestEveryVoiceCheckIsClassified` reads the `Check:` emission sites out
+> of `voicetells.go`, failing on any unclassified check **or** any stale map entry.
 
 ## 5. Blast radius
 
-Small and bounded today: `save_page_meta_description` is the only caller applying the gate
+**Small and bounded today**: `save_page_meta_description` is the only caller applying the gate
 to a single-value field, and only **2 of 27** sites are affected.
+
+> **CONFIRMED 2026-09-02 by enumeration rather than assertion**
+> (`grep -rn 'ScanVoice(' --include=*.go | grep -v _test.go`): the other two production
+> consumers are `check_voice_tells.go:214` (the page path) and **`cmd/voicescan/main.go:103`**,
+> a CLI that scans whole HTML files — both corpora, both unchanged by the fix. ⚠ My first
+> draft of that enumeration was wrong twice: it counted a **doc comment** at
+> `save_page_meta_description_action.go:55` as a call site and **missed `cmd/voicescan`
+> entirely**. Running the grep is what corrected it. The stale comment is repointed in the
+> same commit.
 
 **It grows the moment anyone reuses the gate on another short field** — a page title, a
 nav label, an alt text — which is a reasonable thing to want, because the banned-phrase
