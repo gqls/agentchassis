@@ -1388,3 +1388,27 @@ build-dispatch-loop in 24h). Answers, all `[MEASURED 2026-09-02]`:
    the promoter-state read attached (a big census = a promotion question, not a selector one).
 Their born-terminal find (insertWorkItem two-strike arm counting another producer's
 successes) is 389/CONTRIB territory — noted, not this lane's.
+
+### 2026-09-02 (evening) — the promoter question RESOLVED (no bug: the flag layer is designed); my own census meter corrected TWICE same-day; the sawtooth probe run
+
+The 384 lane's two corrections landed within the hour and both were right:
+1. **Zero-eligible-at-an-instant is steady state** (their every-site control) — my hour-old
+   RUNBOOK census read ~the whole estate and discriminated nothing. The 413 file's own
+   rolling-window warning, walked into by ME an hour after citing it to them.
+2. Their handler-door finding (1,386 detected rows, 100% empty handler) then resolved
+   AGAINST both our readings by the promoter's FULL text `[READ 2026-09-02]`: rows without
+   handlers are EXCLUDED from scoring BY DESIGN — "Flag-only rows … 'detected' is where they
+   belong permanently". The flag layer is records, not parked work; the doors govern only
+   handler-bearing rows; **no promoter bug exists**. RUNBOOK section rewritten (visible
+   double-correction) to the meaningful meter: handler-BEARING detected age, with the
+   promoter's own held_detail as the why. Lesson, twice in one day: **read the mechanism's
+   FULL text before metering its population — the first screen of a pre_query is not the
+   design.**
+3. **Sawtooth probe** `[MEASURED 2026-09-02, 21d live+archive]`: leopardess's rerender-family
+   completions froze at 08-28 (179→5→4→2→1) and — the discriminating signal — UNIQUELY
+   failed to recover post-outage (09-01/02: dartsonline 268/106, gaswholesalers 52/139,
+   leopardess 2/1). Supports 384's two-strike freeze at the site level; the weekly
+   PERIODICITY is untestable in this window (the 08-28–31 trough is the fleet LLM outage,
+   confounding every site); their 09-02→04 self-resume prediction remains the clean test.
+4. Their `unresolved`-is-terminal overcount trap adopted as a RUNBOOK caveat on the
+   work_items_open baseline figure.

@@ -275,28 +275,37 @@ FROM ranked r GROUP BY domain, site_id
 ORDER BY 3 LIMIT 25;
 ```
 
-## Zero-eligible starvation census (added 2026-09-02, prompted by the bugs_open/384 lane; the floor CANNOT see this)
+## Promotion-layer meters (added 2026-09-02; CORRECTED same day, twice — read the strikes)
+
+> **CORRECTED 2026-09-02 (same day, hours apart — both catches the bugs_open/384 lane's):**
+> the census this section FIRST shipped (sites with detected>0 and zero triaged/approved)
+> is a WEAK meter that reads ~the whole estate in steady state, twice over: (1) zero
+> ELIGIBLE rows at an instant is the NORMAL state of a fast-draining queue (the NOW-census
+> trap the 413 file itself warns about — quoted at me an hour after I added the meter);
+> (2) `detected` rows with EMPTY handler_agent are the PERMANENT FLAG LAYER by design —
+> the promoter's own text: "Flag-only rows (no handler_agent) are NOT here … 'detected' is
+> where they belong permanently" (pre_query, scored CTE WHERE + held comment). 1,386 such
+> rows / 35 sites on 2026-09-02 are records, not parked work. What caught it: 384's
+> every-site control, then reading the promoter's FULL query instead of its first screen.
 
 ```sql
--- ⚠ THE FLOOR METER'S BLIND SPOT: the per-site floor requires ELIGIBLE (triaged/approved)
--- rows to exist — a site starved by having NONE (everything stuck at 'detected', awaiting
--- the detected-item-promoter's doors) contributes NOTHING to the floor and reads as absence.
--- Same damage class as 413: invisible to every aggregate. [MEASURED 2026-09-02: 30 sites
--- held detected>0 with zero triaged/approved; worst webdesign.co.uk 158 rows since 08-04.]
--- Run this BESIDE the floor. Interpretation needs the promoter's state next to it:
--- detected-item-promoter (scheduled_tasks, 900s) fires independently of site selection and
--- holds rows back through deliberate doors (pipeline allow-list, handler-registered,
--- known-good — door-closers from 444/430/454). A big census here is a PROMOTION question,
--- never a selector one.
-SELECT s.domain, t.det, t.oldest::date oldest_detected
-FROM (SELECT site_id, count(*) FILTER (WHERE status='detected') det,
-             min(created_at) FILTER (WHERE status='detected') oldest
-      FROM site_work_items GROUP BY site_id
-      HAVING count(*) FILTER (WHERE status='detected') > 0
-         AND count(*) FILTER (WHERE status IN ('triaged','approved')) = 0) t
-JOIN sites s ON s.id=t.site_id ORDER BY t.det DESC LIMIT 15;
+-- THE MEANINGFUL promotion meter: handler-BEARING detected rows and their age — the only
+-- population the promoter governs. Old rows here mean a door is holding them, and the
+-- promoter SAYS WHY on every tick (held_detail in its own output). Interpretation: the
+-- doors are deliberate (444/430/454 + bugs_closed/405 lineage) — a held row is a policy
+-- outcome to read, not automatically a defect.
+SELECT s.domain, wi.item_type, wi.handler_agent, count(*) n, min(wi.created_at)::date oldest
+FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+WHERE wi.status='detected' AND COALESCE(wi.handler_agent,'') <> ''
+GROUP BY 1,2,3 ORDER BY min(wi.created_at) LIMIT 15;
 SELECT name, enabled, last_triggered_at FROM scheduled_tasks WHERE name='detected-item-promoter';
 ```
+
+⚠ Adjacent counting trap (384's find): `unresolved` is a TERMINAL status
+(workItemTerminalStatuses) that the born-terminal two-strike arm can mint at BIRTH — so the
+§"Scale baselines" `work_items_open` figure (status NOT IN complete/cancelled/rejected)
+OVERCOUNTS open work by every born-terminal row and by this flag layer. Never read it as
+"actionable backlog"; the eligible-count in the floor query is the actionable figure.
 
 ## Phase 3 apply + post-checks (added 2026-08-26 — apply ONLY per the HANDOFF gate)
 
