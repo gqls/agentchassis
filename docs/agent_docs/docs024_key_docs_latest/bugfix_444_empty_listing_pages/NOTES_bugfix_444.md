@@ -162,3 +162,31 @@ build-site-planner subject (queried; tooling_provenance's conditional answered).
 UNAPPLIED pending the verdict. **Round 3 submitted** (~21:2x, envelope `3f3b7bf5`) with
 every edit cited by carrying sha; prior_art's "round 1 not confirmable" answered by citing
 the round-1 council_report artifact row itself (created_at 20:08:12).
+
+## 2026-09-02 ~22:15 BST — APPROVED r3; 720 APPLIED; and the repair may already be FIRING LIVE
+
+**Round 3 APPROVED** (3 advisories, none high — actioned: runbook probe recipe hardened,
+WFA-013 follow-up tracked in BLD-028 verify-later, structural-miss durability confirmed at
+`recordStructuralKeyCarryMisses` → agent_error_log). **720 applied + verified** on the live
+row (flag `true`, new rule in, old licence out). Close-out commit `2d7a98446` carries
+`Council-Reviewed:`.
+
+**Prediction → observation, within the hour** (relayed by portfolio_positioning, their
+handoff marks it [INFERRED]): designblog filed a `needs_section_data` at **21:04:44Z** —
+*"Section 'featured-content' on index needs: required query source errored:
+queryresolve.Resolve: unknown query name \"featured_post\""*. That Reason string is THIS
+lane's novel text (born in the defer branch that rode `dbb218a41`, committed 20:08:04Z;
+the old code NEVER deferred on error, so no pre-existing path can produce it), and
+`featured_post` is one of the **five unregistered query bases** the round-2 census named —
+the measured deferral wave arriving on exactly the predicted population, as a genuine
+hollow-render finding.
+
+**What is PROVEN vs not:** [INFERRED, STRONG] a chassis roll between ~20:25Z and 21:04Z
+carried at least `dbb218a41` (the defer half). [UNPROVEN] whether it also carried
+`6525b45ae` (the gate itself) — the per-service stamp is unreadable right now: kubectl is
+`Unauthorized` fleet-wide (the known 3-day token expiry, 21:08:03Z; owner refreshes).
+**Next session's FIRST task:** once the token is back, run the RUNBOOK's three-part
+liveness check; if `merge-base --is-ancestor 6525b45ae <stamp>` passes, the fixed-AND-live
+bar is met at the class level and the bug file's close-out block should be updated (the
+bug still holds open for the INSTANCE work and candidate (3)). Do NOT close on the work
+item's existence alone — it proves the defer half only.
