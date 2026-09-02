@@ -1,5 +1,14 @@
 # HANDOFF — vigilant designer + offer analyser (2026-08-26b)
 
+> ## ⚠ SUPERSEDED FOR CURRENT STATE — 2026-09-02
+> **Cold-start from `HANDOFF_2026-09-02_continue_here.md` (this directory) instead.**
+> §H1c / §H1d / §H1e below are **discharged**: the producer register gate was built, reviewed twice
+> (`4054f4d9`, **APPROVED round 2**), applied, and is live and repairing.
+> **This file is STILL the authority on everything the new one does not mention** — §C (imagery
+> supply), §E (residuals), §G (predicate vocabulary / gate 1c), §H2b (carousels), §H3 (the logo
+> chain) and **§H4 (the axis finding in full, which the next build depends on)**. Do not delete it;
+> the new handoff points back here by section.
+
 **COLD-START = this file + `HANDOFF_2026-08-26_continue_here.md` (still correct on everything except
 §1 and §4, see below) + `PLAN_2026-08-25b` §8 **and §8f** + register `IMG-074` / `WII-033` / `CLM-024`.**
 
