@@ -34,6 +34,26 @@
 --     truncation (not after) is load-bearing: strip-after cannot match an unclosed
 --     block, which is also how a naive "prose chars" metric scores the worst page
 --     best — see the NOTES misstep for 2026-09-02.
+--     ⚠ ROUND 1 CORRECTION (council REVISE, editquality HIGH + bug_historian MEDIUM,
+--     both right). This file's first cut wrote the strip as
+--     `regexp_replace(..., '<style[^>]*>.*?</style>', '', 'gs')`. PostgreSQL takes
+--     the greediness of the FIRST quantifier, so `[^>]*` makes the WHOLE expression
+--     greedy and `.*?` does not save it: on a component with two style blocks it
+--     matches from the first `<style` to the LAST `</style>` and DELETES the prose
+--     between them — the exact content-loss defect this file exists to prevent,
+--     reintroduced as a silent one. Demonstrated:
+--       regexp_replace('<style>.a{}</style>KEEP THIS PROSE<style>.b{}</style>AND THIS',
+--                      '<style[^>]*>.*?</style>','','gs')  ->  'AND THIS'
+--     [MEASURED 2026-09-02] 7 of 2,871 components carry 2+ style blocks, and the
+--     greedy form destroys content on ALL SEVEN — avg 2,528 chars, worst 9,076.
+--     Now uses the pattern already proven for this exact purpose in migration 601
+--     (`claims-auditor.load_page_text`): `<style[^>]*?>.*?</style>` with `'gi'`, the
+--     lazy FIRST quantifier being what actually makes the expression non-greedy.
+--     The replacement is a SPACE, not '': removing a block with '' joins the words
+--     either side of it ('ALPHA'+'BETA' -> 'ALPHABETA'), which 601 also gets right
+--     and this file's first cut did not. Stripping stays PER COMPONENT inside the
+--     aggregate, which is migration 518's rule (a regex must never see two
+--     components at once) and which the first cut already satisfied.
 --
 --  4. ORDER. string_agg(pc.rendered_html, ' ') carried NO ORDER BY, so which
 --     1,000 chars were sampled drifted with physical row order. Observed, not
@@ -93,6 +113,7 @@ WHERE type = 'content-quality-auditor' AND is_active
 DO $$
 DECLARE
     nrows int; q text; p text;
+    c_enum int; c_aud int; c_top5 int;
 BEGIN
     -- 640's council-raised lesson: SELECT INTO takes the FIRST of N rows
     -- silently, so a duplicate active row would half-apply this migration.
@@ -124,6 +145,19 @@ BEGIN
     IF position($a$5. AUDIENCE:$a$ in p) = 0 THEN
         RAISE EXCEPTION '694: the live prompt does not carry the AUDIENCE review dimension — re-derive this seed from the live row';
     END IF;
+
+    -- Occurrence COUNTS, not mere presence (council round 1, debug_historian).
+    -- replace() rewrites EVERY occurrence, so a needle that appears twice would
+    -- be edited twice and the presence checks above could not tell. Derive the
+    -- count mechanically rather than asserting a remembered number.
+    c_enum := (length(p) - length(replace(p, $a$"category":"tone|gap|cta|differentiation|content"$a$, ''))) /
+              length($a$"category":"tone|gap|cta|differentiation|content"$a$);
+    c_aud  := (length(p) - length(replace(p, $a$5. AUDIENCE:$a$, ''))) / length($a$5. AUDIENCE:$a$);
+    c_top5 := (length(p) - length(replace(p, $a$IMPORTANT: Report ONLY the TOP 5 most impactful content issues.$a$, ''))) /
+              length($a$IMPORTANT: Report ONLY the TOP 5 most impactful content issues.$a$);
+    IF c_enum <> 1 OR c_aud <> 1 OR c_top5 <> 1 THEN
+        RAISE EXCEPTION '694: expected each prompt needle exactly once (enum=%, audience=%, top5=%) — the live prompt has drifted, re-derive this seed', c_enum, c_aud, c_top5;
+    END IF;
 END $$;
 
 -- (1) SIGHT + DEPTH + CSS + ORDER: replace the query outright.
@@ -135,8 +169,8 @@ SET default_config = jsonb_set(
   SELECT p.id, p.name, p.page_type, p.url,
          string_agg(
            regexp_replace(
-             regexp_replace(pc.rendered_html, '<style[^>]*>.*?</style>', '', 'gs'),
-             '<script[^>]*>.*?</script>', '', 'gs'),
+             regexp_replace(pc.rendered_html, '<style[^>]*?>.*?</style>', ' ', 'gi'),
+             '<script[^>]*?>.*?</script>', ' ', 'gi'),
            ' ' ORDER BY pc.position) AS body
   FROM pages p
   JOIN page_components pc ON pc.page_id = p.id
@@ -203,8 +237,13 @@ BEGIN
     IF position('ORDER BY pc.position' in q) = 0 THEN
         RAISE EXCEPTION '694: verify failed — the aggregate is still unordered';
     END IF;
-    IF position('<style[^>]*>.*?</style>' in q) = 0 THEN
-        RAISE EXCEPTION '694: verify failed — style blocks are not being stripped';
+    IF position('<style[^>]*?>.*?</style>' in q) = 0
+       OR position('<script[^>]*?>.*?</script>' in q) = 0 THEN
+        RAISE EXCEPTION '694: verify failed — style/script blocks are not being stripped with the non-greedy 601 pattern';
+    END IF;
+    -- The greedy form is the council's HIGH objection and must never come back.
+    IF position('<style[^>]*>' in q) > 0 THEN
+        RAISE EXCEPTION '694: verify failed — the GREEDY strip pattern is present; PostgreSQL takes the greediness of the FIRST quantifier, so [^>]* makes the whole expression greedy and it eats prose between two style blocks';
     END IF;
     IF position('LEFT(body, 1200)' in q) = 0 OR position('p.page_type' in q) = 0 THEN
         RAISE EXCEPTION '694: verify failed — the sample budget or the page_type column is missing';
