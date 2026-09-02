@@ -59638,3 +59638,24 @@ the instrument answered a narrower question than the one asked.
   files those come apart completely.
 - **Cost.** I told the owner he was behind two gates and a roll when he was behind one gate — his
   own read of seven lines — and made his approval look less urgent than it was.
+
+## 2026-09-02 — a council submission quoted the SEED's prompt sentence as the live licence (session bugs_open/444)
+
+- **The claim.** Council submission corr `c0990eb3` (round 1) named the planner-prompt sentence
+  *"Plan the IDEAL site regardless — the build system handles which pages can be built now vs
+  later"* as the live licence for bugs_open/444's class, and edit 5 proposed a migration retiring
+  it — citing `053_build_site_planner.sql:855`, the SEED file.
+- **What caught it.** Writing the migration's anchor guard: a `position()` probe against the LIVE
+  `prompt_template` returned 0 — the sentence is not in the running definition at all. The live
+  licence is rule 3 ("…may have empty sections arrays"), differently worded and differently placed.
+- **The mistake, precisely.** The Explore agent's report quoted the seed with a line number, and the
+  quote was so specific it read as verified-live. **A seed quote with a line number is still a seed
+  quote.** My own memory index states the rule ("the seed is not the system — read
+  `agent_definitions`") and the submission repeated the seed's text anyway, into a review whose
+  reviewers then reasoned about retiring a sentence that does not exist.
+- **The cheap check that would have.** The one-line `position('<sentence>' IN <live column>)` probe,
+  run BEFORE the submission instead of at migration-writing time. For any migration that edits live
+  prompt text, the anchor probe IS the claim check — run it when the claim is first written down.
+- **Cost.** One council round's edit-5 discussion partly about a phantom sentence (the round REVISEd
+  on other, real grounds, so no wrong change shipped); the round-2 submission carries the corrected
+  live anchor.
