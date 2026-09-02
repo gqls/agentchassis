@@ -501,3 +501,136 @@ path.
   the two have not yet met in production. **First natural imagery landing is the thing to
   watch** — grep the chassis logs for `emit_content_card_derive`, which logs every
   disposition including each skip.
+
+---
+
+## 2026-09-02 — LANE RESUMED after 11 days idle. Verification first, and the world moved a long way on its own
+
+Session `bugs_open/114`. Ownership re-checked before resuming: no dirty files touch this
+lane, last commit 2026-08-22 (`1d0b9f407`), `who-owns` names this dir as owner. Two fresh
+CONTRIBs landed on the bug file today from `inline_guide_imagery` and
+`editorial_design_uplift` — contributions, not competing fixes. Chassis is `v1.0.1354`
+(deployment image tag; was `v1.0.1326` at handoff).
+
+### The handoff's closing bar, re-measured — items 1–3 are MET
+
+**1. The emitter HAS fired naturally — 193 times.** `[MEASURED 2026-09-02]`
+```sql
+SELECT created_by, spec->>'check', count(*) FROM site_work_items
+WHERE item_type='needs_content_image' AND created_at > '2026-08-22' GROUP BY 1,2;
+-- image-build-handler | flag_page_image_rebuild | 193   (08-26 .. 09-01 19:30)
+-- design-discovery-agent | content_image_missing |  85   (sweep revived 08-25)
+```
+The `created_by`/`spec.check` split is what distinguishes emitter from sweep — the
+item_key shape alone cannot (both use `ContentImageItemKey`, by design).
+
+**2. 193 of 193 emitter-filed items produced an entity-linked active card.**
+```sql
+SELECT count(*), count(*) FILTER (WHERE EXISTS (SELECT 1 FROM assets c
+  WHERE c.site_id=w.site_id AND c.entity_type='page'
+    AND c.entity_id::text=w.spec->>'entity_id' AND c.purpose='card' AND c.status='active'))
+FROM site_work_items w WHERE w.item_type='needs_content_image'
+  AND w.created_by='image-build-handler' AND w.status='complete';   -- 193 | 193
+```
+File probes: `dartsonline.com/assets/images/card-tool-checkout-calculator.jpg` **200**,
+`leopardessconsulting.co.uk/assets/images/card-tool-agent-complexity-estimator.jpg` **200**.
+(`boxingonline.com` returns 000 on its own HOMEPAGE — site-level unreachability, not a
+card failure; its card rows are linked. Left to that site's lane.)
+
+**3. No post-roll poisoning.** `hero_url` now on 33 sites, 2 distinct values — 19 ×
+`hero.jpg`, and **all 19 have an active canonical `hero` asset** (legitimate under the
+gate); 14 × `hero-home.jpg` (deployer-derived, legitimate). The one ambiguous case:
+**apis.uk** carries `illustration_url='/assets/images/illustration.jpg'` and was created
+08-22 (roll day). **The value itself is the discriminator**: apis.uk's illustration stores
+are page-scoped (`illustration_waggle_dance`, …, four MORE on 08-23, post-roll) — old code
+wrote the purpose-derived literal, the gated code would have written the key-derived path
+(`illustration-beetle-hole.jpg`). The stored value is the OLD derivation and the 08-23
+stores did not rewrite it. **The gate held; the write predates the roll.**
+
+**4. The detection check — still not built.** That is this resumption's main task, and
+the design changed today (below).
+
+### MISSTEP (recorded in WRONG_CALLS too): I asserted "0 of 193 linked" off a JSON path that does not exist
+
+My first join tested `c.entity_id::text = w.spec->>'page_id'`. The spec key is
+`entity_id`, not `page_id` — 193 rows "agreed" because the probe returned NULL for all of
+them. **This lane's own 08-22 handoff lists this exact trap** ("a JSON path probe cannot
+distinguish not-declared from not-there. Four rows agreeing perfectly is evidence about
+your PATH") and I hit it anyway, in the same lane, on the same table. Caught within
+minutes by `jsonb_pretty(spec)` on one row — which is the check that should precede any
+`spec->>'k'` join, not follow it. Third recorded instance of "a documented trap is not a
+control" in this lane.
+
+### MISSTEP AVERTED: nearly filed a 090 for a mechanism that is already diagnosed (bugs_open/357)
+
+mcalc's fresh 09-02 handoff (their lane, cold-start doc) found: stored
+`content_data.background_image` never reaches `rendered_html` on `page_type='tool'`,
+while the identical hero component renders on guide pages. Verified at the artefact
+myself: mcalc tool heroes render NO `background-image` and their `rendered_html` opens
+`<div class="tool-page">` — **the whole tool shell, not hero-template output**. I had a
+090 symptom drafted. One grep first (`tool-page` in Go) landed on
+`adopt_fragment_section.go`'s header: this is **RFC_046 / bugs_open/357** — a tool page
+arrives as one fragment, is stored as a single section, and the identity sentinel is
+replaced by `planned[Position-1]`, so the row DECLARES itself `hero` while storing the
+tool. Already diagnosed, already owned, fix (constructive adoption, opt-in default OFF)
+already built by that lane. **Grep before you file** is the whole lesson; a duplicate
+run was one grep away.
+
+**Consequence for GAP 4:** the 08-15 mcalc cohort (the natural experiment in the PLAN)
+was ALL tool pages. Its wired/fallback contrast was measured at `content_data` — on rows
+whose `rendered_html` is a tool fragment either way. **GAP 4 largely dissolves into 357
+for tool pages.** For non-tool pages the wiring gap is `bugs_open/412`'s (§8: full build
+ran 9×, wired 1 — their [INFERRED] cause unconfirmed; their fix candidate 1, deploy-time
+wiring, is the structural sibling of our IMG-073). 412 is OWNED (finetuning lane, active
+today) — coordinated, not taken.
+
+### NEW FINDING — the platform already has a check aimed near GAP 5, and it is making the bug worse, not better
+
+`check_undeployed_assets` half 1 files `undeployed_asset` items for assets no deployed
+component references. Three defects compound `[MEASURED 2026-09-02]`:
+- **evidence is purpose-prefix, site-wide** (`rendered_html LIKE '%/assets/images/'||purpose||'[.-]%'`):
+  one wired sibling vouches for every asset of that purpose (dartsonline's 17 unwired
+  content heroes invisible), zero wired flags all of them (webdesign.co.uk's 66);
+- **the remedy is a deploy** (`handler_agent='asset-deployer'`), which re-commits the file
+  and cannot wire a page;
+- **the recurrence brake then parks the refiled items at birth**: 1,651 `undeployed_asset`
+  rows sit `unresolved` with `created_at = updated_at` and `result={}` (1,086 of the icon
+  ones born since 08-23). The platform has already noticed the non-convergence — by
+  parking it where nobody looks. This is 114's "queue nobody drains", industrialised.
+
+### NEW MEASUREMENT — the render-capability census that resizes the whole bug
+
+Per page of the two GENERATE surfaces, does ANY component's template carry an image
+branch (`hero_url`/`background_image` — bug 412 §7's test), and is that component's
+rendered row actually a tool fragment (interactiveStructuralMarkers)?
+
+| page_type | pages | no image slot | slot is a 357 fragment | genuinely capable |
+|---|---|---|---|---|
+| tool | 335 | **231** | 16 | 88 |
+| blog-post | 319 | 7 | 0 | 312 |
+
+`[MEASURED 2026-09-02]` So **~74% of tool pages cannot render a content hero at all**.
+Generation there is NOT pure waste — the hero seeds the card derivation and cards DO
+render on listings (mcalc's 6 tool cards serve today) — which is why I considered and
+**REJECTED** a capability gate on the GENERATE arm: it would silently trade away the
+card benefit. The decision goes to the owner with these numbers instead, via the check
+below.
+
+### Residual poisoned keys — analysis complete, migration is safe
+
+`icon_url` (16 sites) / `content_hero_url` (6) / `illustration_url` (4) /
+`sprite_sheet_url` (1): **zero sites have a canonical asset under any of those keys**
+(`EXISTS(assets a WHERE a.asset_key = replace(k,'_url',''))` = 0 for all), probes 404
+(`idea.uk/assets/images/icon.jpg`, `gamesdesign.co.uk/assets/images/content_hero.jpg`).
+The one flagged consumer, `brief-explanation.html_template`'s `{{.illustration_url}}`, is
+a FIELD sourced `site_assets.illustration` — resolved from plan/asset tables, NOT from
+`sites.content_data`: the resolver's content_data fallback handles only `hero_url` and
+`logo_url` (`plan_sections_action.go:653-694`). `logo_url` (26 sites, 1 value) is
+**26/26 canonical-backed — legitimate, do not touch.** So deleting the four dead keys is
+behaviour-neutral hygiene; migration follows 562's pattern (backup, DO/RAISE, idempotent).
+
+### Council debt: migration 562's verdict was never produced
+
+`orchestration_states` has **no row** for corr `4145fcdc-9ffe-42e0-a547-49e07bda04db` —
+11 days on, that is a dropped dispatch, not latency (the ~30-min rule covers queueing, not
+absence). Resubmit with `RESUBMIT_CORR` so the trail accumulates.

@@ -140,3 +140,41 @@ genuine site image must); then apply the held repair to the eighteen sites; then
 mortgagecalculator batch — ten pictures, no connections since 15 August — do the whole
 journey by itself. That last one is the real test, and it is the honest place to say the
 bug is fixed. Not before.
+
+---
+
+**2026-09-02 — picked the thread back up after eleven days, and the news is mostly good.**
+
+The machinery we built in August has been doing its job on its own. The moment a page's
+picture finishes, the system now files the follow-up that makes the small "card" version
+for listing pages — that has happened **193 times** since we left, without anyone asking,
+and every single one of the 193 produced a properly connected card whose file is really
+there on the site. The daily sweep that had been dead since 11 August also came back to
+life (someone else fixed that), so there is now a belt AND braces. And the poisoning we
+stopped — where storing any picture stamped a wrong site-wide default — has not recurred
+anywhere. Three of the four things we said had to be true before calling this fixed are
+now true and measured.
+
+The fourth was "something should notice this state so it never silently returns", and
+that is what I am building today. While checking the ground for it I found two things
+worth saying plainly:
+
+First, **most tool pages cannot show a big header picture at all** — about three quarters
+of them. On those pages the slot where the picture would go is occupied by the calculator
+itself (a known, separately-tracked defect in how tool pages are stored). So some of the
+"generated and never shown" pictures were never showable on their page — though they are
+still useful, because the listing-page cards are cut from them. The new detector says
+which pages are which, instead of lumping them together.
+
+Second, an existing detector has been quietly making the mess worse: it notices "nobody
+references this picture" but prescribes the wrong medicine (re-uploading the file, which
+changes nothing), and the system's own anti-repeat brake then shelves the item. There are
+**1,651** shelved items of that kind today. The new detector names the right medicine per
+case; what to do about the old one's backlog is a question I will put to you rather than
+decide.
+
+Also housekeeping: the August data-repair migration was submitted for review and the
+review never actually ran (lost in dispatch, not rejected) — resubmitting it properly.
+And four more dead site-wide defaults (icon, content-hero, illustration, sprite-sheet
+paths that point at files which have never existed) get the same careful deletion the
+hero one got, now that the thing that kept re-creating them is gone.

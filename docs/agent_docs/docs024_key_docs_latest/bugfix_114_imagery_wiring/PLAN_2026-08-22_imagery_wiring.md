@@ -195,3 +195,86 @@ and migrations** — config is live the moment it is applied, Go is inert until 
 residual — **must not be undeferred**, it would mint a fresh 114 instance) ·
 `bugs_open/235`/`236`/`209`/`152` (adjacent asset defects) · component-schema fallback
 literals.
+
+---
+
+## REVISION 2026-09-02 — resumption: what the 08-22 plan got right, what is superseded, and the remaining work
+
+Evidence for every claim here: `NOTES_imagery_wiring.md`, 2026-09-02 entry.
+
+### Corrections to this plan, dated, not edited away
+
+- **GAP 4 is substantially explained and it was not a resolver defect.** The natural
+  experiment's cohort was all `page_type='tool'` — pages whose `hero` component row is a
+  misidentified tool fragment (`bugs_open/357` / RFC_046): the row declares `hero` and
+  stores the tool shell, so wired-vs-fallback measured at `content_data` was noise on rows
+  that render neither. The UNVERIFIABLE diagnosis verdict was right to refuse it. Non-tool
+  wiring failures are `bugs_open/412`'s account (owned, active lane).
+- **Task B's remaining halves are RETIRED as designed, not "not yet built".**
+  (1) `StoreAssetAction` entity-link config: NOT building it. The convergence it was for
+  is achieved event-side — 193/193 natural emitter firings produced entity-linked cards —
+  and the config keys would be two more optional keys against the RFC_022 budget with no
+  live consumer. The entity link stays owned by `derive_card_asset`, single-writer.
+  (2) GENERATE-arm spec keys: same reasoning; the emitter carries `entity_id` in its spec
+  already (`ContentImageSpecJSON`), which is what the acceptance test consumed.
+- **Task C1's "flag-only check" survives but its design changed twice today**: per-page
+  flags would flood a review queue with no working surface (`bugs_open/033`), and a
+  capability gate on GENERATE was rejected (it would trade away the card-derivation
+  benefit). The check below files **one rollup item per (site, state)** instead.
+
+### Remaining work, in order
+
+**C1 — `check_unrendered_page_imagery` (the missing detector, GAP 5).** DB-only,
+flag-only. Population: active assets under `imageryplan.ContentHeroKey(page)` for the
+site's pages (the exact class this bug measures). A page whose deployed content-hero path
+appears nowhere in its deployed components' `rendered_html` is classified:
+  - `unwired` — an image-capable component exists and is not a fragment: the asset is
+    deliverable; remedy exists (412's deploy-time wiring / a rerender once that lands);
+  - `no_image_slot` — no component template on the page carries an image branch: the
+    composition gap (`editorial_design_uplift`'s 189-page census, made standing);
+  - `fragment_slot` — the capable component's row is a 357 fragment: counted, cited to 357,
+    NOT actionable here.
+One `needs_human_review` item per (site, state), no handler, dedup key
+`unrendered_page_imagery:<state>`, spec carries count + measured-at date + up to 12
+examples + the re-runnable census query pointer. Uses `Resolved` (narrow, ItemKey) to
+retract a state's rollup when it empties — positive observation only.
+Tests + mutation proofs; register entry same commit; council submission before/alongside.
+
+**C2 — residual poisoned keys migration.** Delete `icon_url`/`content_hero_url`/
+`illustration_url`/`sprite_sheet_url` from `sites.content_data` (27 site-key pairs, zero
+canonical assets behind any, no Go reader, resolver fallback reads only
+hero_url/logo_url). 562's pattern: per-row backup, DO/RAISE guard, idempotent.
+`logo_url` untouched (26/26 legitimate).
+
+**C3 — council debt.** Resubmit 562 (`RESUBMIT_CORR=4145fcdc…` — verdict never produced,
+no orchestration row). New submission for C1+C2.
+
+**C4 — queue hygiene.** 7 parked `image_landed` rows (4 robot-hands tool pages —
+almost certainly 357-shaped, reval `unknown`; 3 `still_holds`). Disposition recorded,
+not silently cancelled. The 7 `failed` page_rerenders (08-27..31) belong to their sites.
+
+**C5 — communications** (fixes not in isolation):
+  - `bugs_open/412` (finetuning lane): contribute the 357-connection + the
+    undeployed_asset backlog evidence; state that C1 cites their fix candidate 1 as the
+    unwired-state remedy and ask whether they want the deploy-time wiring built here or
+    kept (it is their candidate; our IMG-073 is its sibling).
+  - `mortgagecalculator_couk_adoption`: their §2 "diff the render path" question is
+    answered — 357, not a render-path divergence; saves them the dig.
+  - `editorial_design_uplift`: their one-shot 189-page census becomes C1's standing
+    `no_image_slot` state.
+  - `inline_guide_imagery`: the illustration_url deletion touches nothing they resolve
+    (site_assets.illustration reads plan/assets, not content_data) — stated so they need
+    not re-derive it.
+  - `bugs_open/384` lane: no action needed; their PBP-048 re-resolve is receiving the
+    emitter's cards (193 naturally-derived cards flowed through it).
+
+### The closing bar, restated against today
+
+1. natural landing files the derive item without a sweep — **MET** (193, evidence in NOTES);
+2. resulting card entity-linked + file serves on unhurried probe — **MET** (193/193; two probes 200);
+3. no new poisoned `content_data.<purpose>_url` — **MET** (census + apis.uk discriminator);
+4. detection check exists or the decision recorded — **OPEN → C1 above.**
+
+When C1 is live (or its verdict recorded), 114 moves to `bugs_closed/` with the residual
+states explicitly handed to 357 (fragment slots), 412 (unwired delivery), and the owner
+(composition/no-slot population).

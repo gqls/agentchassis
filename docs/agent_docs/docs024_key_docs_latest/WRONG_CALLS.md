@@ -58822,3 +58822,33 @@ on `page_id` by accident of how I wrote it first.
 
 Family: a-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-demand-control,
 a-closer-census-cannot-see-what-it-succeeded-at.
+
+## 2026-09-02 — I reported "0 of 193 converged" off a spec key that does not exist, in the lane whose own handoff documents the trap (bugfix_114 lane)
+
+**The claim.** Re-verifying the 114 emitter after eleven days: "all 193 emitter-filed
+items are complete, and ZERO have a linked card" — stated as an interim finding before
+the join was checked. The join tested `assets.entity_id::text = spec->>'page_id'`.
+
+**The truth.** The spec key is `entity_id` (`ContentImageSpecJSON`, one Read away).
+`spec->>'page_id'` is NULL on every row, so the EXISTS failed 193 times for the same
+reason — a probe of my PATH, not of the data. The correct join returns **193 of 193**:
+the exact opposite conclusion, the difference between "the mechanism never worked" and
+"the mechanism is fully proven".
+
+**What caught it.** Contradiction with an adjacent measurement made minutes earlier
+(12 recent `card_*` assets, all entity-linked, keys matching the very items the zero was
+about). Two measurements disagreeing is what forced `jsonb_pretty(spec)` on one row.
+
+**The cheap check I skipped.** Dump ONE row's spec before writing any `spec->>'k'`
+predicate. One query. The lane's own HANDOFF lists this verbatim as trap #2 ("a JSON
+path probe cannot distinguish 'not declared' from 'not there' … rows agreeing perfectly
+is evidence about your PATH") — I had read that file this session. A uniform result
+across N rows from a jsonb path is a path-shape suspect FIRST, a finding second.
+
+**Cost.** Minutes, plus one wrong interim sentence to the owner, corrected in the next.
+Recorded because it is the third instance in this one lane of a documented trap failing
+to prevent its own repetition — the tally, not the anecdote, is the argument for making
+the one-row dump a reflex before any jsonb-keyed census.
+
+Family: a-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-demand-control
+(the zero PASSED while blind — the demand control here is one row whose spec you have read).
