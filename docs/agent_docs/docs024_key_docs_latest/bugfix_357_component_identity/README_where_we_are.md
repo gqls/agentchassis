@@ -643,3 +643,20 @@ it, and check the database row AND the live page. If both hold, run the full rep
 to watch on that trial: the pipeline publishes the rebuilt page to the site one step before
 the preservation logic runs, so the live page needs reading afterwards, not just the database.
 Full detail in the new handoff (2026-08-26b).
+
+**2026-09-02.** The crash bug (408) is fixed in code and committed. The broken function used
+to try two "helpful" path rewrites that were exact opposites of each other, so when neither
+worked it bounced between them forever until the pod died. It now tries a fixed, finite list
+of path spellings once each and gives up cleanly — and the page is skipped instead of the pod
+crashing. Fifteen tests prove it, including one that runs the exact input that used to kill
+the pod (we also proved the test catches the old bug by running it against the old code — it
+fails in under four seconds there). The fix went to the review council and is committed, so it
+rides the next fleet build; the bug stays open until we see it working on the live cluster.
+
+Two things worth telling: the fix recipe written in the bug file turned out to be subtly wrong
+(it would have quietly stopped some unusual paths resolving) — caught during planning, before
+any code was written, and logged. And when we went to edit the file, another session had
+half-finished work sitting in it that would have broken everyone's build if we'd committed
+blindly — we messaged them, they committed their half within minutes, and both changes now
+coexist cleanly. Next: the fleet build, then the live check, then back to the main 357 repair
+via the one-page trial we proposed on the 26th.

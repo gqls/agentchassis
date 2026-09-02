@@ -158,3 +158,52 @@ and the orchestration reaches a terminal state rather than sitting at `assemble_
   `docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/HANDOFF_2026-08-26b_continue_here.md`.
 - **v1.0.1345 (rolled 2026-08-26 ~20:36Z) does NOT carry a fix** — no commit touches this
   file after `c4baa53e7`, and the recursion is present at HEAD (`:1213`/`:1223`).
+
+## 9. FIX COMMITTED 2026-09-02 — `6e2d4a039`, Council-Submitted `3918db52` — OPEN until live at the pod
+
+**Shape:** candidate 1, generalised.** Unrolling the old recursion showed the §5 sketch's flat
+three-element list `[original, stripped, with-response]` was NOT semantics-preserving in the
+general case: on multi-occurrence (`a.response.b.response.c`) and non-first-segment
+(`a.b.response.c`) shapes, the old code tried MORE forms before cycling and terminated
+successfully if any resolved — a flat list would have silently dropped those routes. The
+implemented candidate builder generates the old recursion's exact terminating tried-set
+(original; each `.response.` stripped in turn; the fully-stripped form with `.response.`
+re-inserted after the first segment, skipped when identical to the original). Caught at plan
+time by tracing the recursion, before any code was written; logged in `WRONG_CALLS.md`
+2026-09-02.
+
+- New pure walk helper `walkFieldPath` (three-valued: resolved / key-missing → next candidate /
+  non-map-mid-path → end outright, preserving the old default-branch short-circuit), the
+  family convention (`traverseNestedPath` / `traverseFieldPath` / `traverseFieldPathGeneric`).
+- One `Warn` per failed lookup (message and `field`/`full_path` keys preserved, `paths_tried`
+  added); per-candidate attempts at Debug. The dead `ExtractStepData` branch not ported
+  (only reachable with a nil argument, which `ExtractStepData` returns as-is — severable if a
+  reviewer disagrees).
+- 15 tests in `extract_field_value_termination_test.go`, run under `go test -timeout`;
+  **mutation control done**: the exact crash input against the old function verbatim FAILS by
+  stack overflow in 3.7s, so the guard is proven able to fail. `verify-head-builds.sh --with
+  --test` green at `38db61b28`.
+
+**Diagnosis-loop substitution statement (owner ruling 2026-07-31):** this file's root cause
+was not routed through the 090 loop; the substitute is the first-hand evidence in §2 — the
+mechanism is directly OBSERVED (the two inverse fallbacks read at source, the crash captured
+at the pod with exit code and the 12,654-line log, three wedged orchestrations by correlation),
+not hypothesised, so a 090 run would re-read the same fifteen lines. Stated here per the
+ruling's named escape hatch rather than left implicit.
+
+**Still owed before this moves to `bugs_closed/`** (fixed AND live bar): a chassis image at or
+after `6e2d4a039` built (bumped `IMAGE_TAG`), rolled, verified at the pod
+(`git merge-base --is-ancestor 6e2d4a039 <stamp>`); then the end-to-end check of §6 — rebuild
+a writer-skipped page, pod restartCount unchanged, orchestration terminal with
+`skip_reason: "no content found at …"`, `grep -c 'Field not found in path'` = 1 for that
+lookup. **That green run is NOT precondition-4 evidence for 357/578** (§8, and the 357
+handoff 2026-08-26b Finding 1 — the whole chain skips; the row survives because nothing
+touched it).
+
+**Separate track recommended, not done here:** the estate carries four `.response.`-fallback
+resolvers (**4** as of 2026-09-02: multipage, hitl `getNestedFieldValue`,
+`resolveFieldPathForSpawn`, `resolveFieldPathCallAgent`) with three DIFFERENT candidate
+orders, atop the ~10–14 near-clone dot-path walkers in LANDMINES' dotted-path-resolver entry.
+A concept-register census entry (each walker, its order, its failure signal, dated) is the
+cheap discoverability win; consolidation would change resolution semantics for somebody and is
+RFC-scope if ever actually needed. No lane owns this today.

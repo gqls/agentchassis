@@ -1622,3 +1622,40 @@ pages are refused at assemble and are not exposed.
 confound on cv1: index planned=1 → ratio 1.0, the prune floor cannot fire. Note the pilot does
 not structurally require the 408 fix (its plan generates real content), but any no-content
 outcome on the way still crashes the pod until 408 is fixed — fix 408 first regardless.
+
+### 2026-09-02 — 408 FIXED IN CODE (`6e2d4a039`, Council-Submitted `3918db52`); the lane's blocker is one roll away
+
+Resumed per the owner. Thread check: 408 owned by this lane, nobody else on it (who-owns +
+git log + zero queued work items). Validity re-proven at HEAD before touching anything
+(recursion at `:1214`/`:1224`; it had shifted one line under 420's commit).
+
+**Cross-session coordination that worked:** `multipage_actions.go` was dirty with
+`bugs_open/423`'s uncommitted `UpperFirst` hunks calling a helper that did NOT exist at HEAD —
+committing my fix by pathspec would have swept them and broken HEAD's build. Messaged the 423
+session; they committed `3edb30476` (definition + all 8 call sites together) within minutes and
+confirmed. Passenger check before my commit: exactly one hunk in the file, mine.
+
+**The fix** (plan prepared by a fable agent, reviewed and grounded first-hand): bounded
+ordered-candidate loop over a new pure three-valued walk helper (`walkFieldPath`), matching
+the family convention of the three sibling resolvers. The plan's key catch — the bug file's
+flat 3-candidate sketch would have NARROWED resolution on exotic shapes; the builder
+reproduces the old recursion's exact terminating tried-set (`WRONG_CALLS.md` 2026-09-02,
+correction noted in the 26b handoff item 1 and bug §9). 15 tests under `go test -timeout`;
+**mutation control run**: crash input vs the old function verbatim = FAIL by stack overflow in
+3.7s. `verify-head-builds --with --test` green at `38db61b28`. Council submission
+`3918db52-4d94-4b65-8065-6be4cdef42eb` (dry-run admission first), commit carries
+`Council-Submitted:`; verdict to be read when it lands (~30 min queue).
+
+**Diagnosis loop NOT run, stated per the 2026-07-31 ruling:** the root cause is directly
+observed (crash captured at the pod, cycle read at source), not hypothesised — substitution
+statement now in bug §9.
+
+**What this does and does not unblock for 357:** once an image ≥ `6e2d4a039` rolls, the cv1
+canary becomes a clean no-op instead of a pod crash — but per Finding 1 (26b handoff) a green
+canary is VACUOUS for precondition 4. The honest precondition-4 vehicle remains the one-row
+pilot on `mortgagecalculator.co.uk/tool-simple` (Finding 2), which needs the owner's nod.
+
+**Separate track surfaced, not taken:** four `.response.`-fallback resolvers with three
+different candidate orders + the ~10–14 near-clone walkers — recommendation is a
+concept-register census entry first; consolidation is RFC-scope if ever needed. Recorded in
+bug §9; no lane owns it.

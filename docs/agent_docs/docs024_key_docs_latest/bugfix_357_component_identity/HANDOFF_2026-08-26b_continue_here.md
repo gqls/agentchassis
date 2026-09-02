@@ -110,6 +110,12 @@ owner; 578 as written is all-22):
    hangs, not fails). Platform Go → council gate (before/alongside commit), then
    `make build-agent-chassis` (bump `IMAGE_TAG`), roll, and verify at the pod with the
    known-sha probe + controls.
+   > **CORRECTED + DONE 2026-09-02:** the flat three-element list this item prescribed was
+   > NOT semantics-preserving (the old recursion tried more forms before cycling on
+   > multi-occurrence / non-first-segment `.response.` shapes — `WRONG_CALLS.md` 2026-09-02).
+   > Fixed with a generalised candidate builder in commit `6e2d4a039`
+   > (`Council-Submitted: 3918db52`), tests + mutation control green. **408 stays OPEN until
+   > an image ≥ that commit rolls and the pod-level §6 checks pass** — see the bug file §9.
 2. **Optional, now cheap after the 408 fix:** re-run the cv1 canary on `index` capturing the
    page-content-writer child orchestration live (by correlation, before the reaper) — it
    converts the by-elimination cause (`adopted-fragment` binding → empty render) into an
