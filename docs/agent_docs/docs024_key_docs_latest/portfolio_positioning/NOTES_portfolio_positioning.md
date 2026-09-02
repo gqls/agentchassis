@@ -3858,3 +3858,18 @@ measurements; their instances stay theirs, advertise's are ours. **Consequence f
 briefs: until 444's candidate (1) or (2) lands, every brief that plans a directory/feed/
 glossary page is planning a page that will ship empty — fire directions must carry that.**
 The owner's "best in class" directive routed by the designblog session to the design lanes.
+
+### (p) Theme kits' differentiation offer taken up for the next 18 briefs
+
+Via the designblog session: theme kits measured 36/37 sites rendering identical chrome
+(ChromeSlotFunction hardcodes it; 10 chrome-eligible header functions unused; 6/40
+style_collections pin header_component_id) and offer per-remake chrome+layout+structure
+recommendations AS DATA, applicable per-site today. Components + vigilant designer measured
+the same shape independently (top-10 components carry 78–87% of slots; advertise AND
+websitepromotion in the list). Messaged theme kits directly: asked for the data shape + the
+application point for the next briefs (window exists — briefs HELD on 444 enablement), and
+put retro-differentiation of the four live sites explicitly behind the new-brief work pending
+their + the owner's call. **Next fire directions will carry: theme-kit differentiation data +
+444 enablement (sources/kinds) or listing-page holdback + best-in-vertical/no-omission/
+fullness/no-negative-identity (standing).** Cross-thread digest with attribution:
+designblog_couk/NOTES_designblog_couk.md.
