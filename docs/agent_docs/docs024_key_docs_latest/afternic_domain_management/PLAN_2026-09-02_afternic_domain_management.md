@@ -66,12 +66,21 @@ pricing, sales + leads, verification + NS state.**
   (`sites` table; later the registrar enumerations — Dynadot listed 451
   domains 2026-09-02). Snapshot becomes the baseline; every later ingest
   diffs against it.
+- **P3a — valuation hand-off (added 2026-09-02, same day).** After every
+  successful ingest, `valuation-csv` writes the domain_valuation lane's
+  feed (`domain_valuation/inbound/afternic_listings_<date>.csv`,
+  `domain,price,currency,status,price_source`) — committed by pathspec,
+  their session notified. RUNBOOK §3 has the commands.
 - **P4 — generate half.** Writer that fills `bulk_upload_sample_v3.xlsx`
   (or its CSV equivalent) from a desired-state source. Source is an OWNER
   decision: for the ~40 estate sites, `site_specs` aspect `commercial`
   (price-by-tier, about_page_commercial lane — only 2 rows exist today, so
   most tier calls are still owed); for the wider ~1,500, a prices file he
   edits. Every generated file lists its own diff before he uploads it.
+  **First named customer (2026-09-02): the domain_valuation lane's
+  bottom-~500 repricing** — the owner considers current Afternic prices
+  generally overpriced; the valuation lane produces the new prices, this
+  lane turns them into the bulk upload.
 - **P5 — cadence.** Owner exports on a rhythm he chooses; each ingest
   reports the diff (sales show up as removed/changed rows; leads/views as
   count movement). Revisit whether any of this earns automation.

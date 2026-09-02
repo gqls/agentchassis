@@ -19,7 +19,13 @@ whole mapping.
 Usage:
   afternic-csv.py ingest <export.csv> [--out-dir DIR] [--known FILE]
                   [--control DOMAIN:FIELD:VALUE ...] [--baseline FILE|auto]
+  afternic-csv.py valuation-csv <snapshot.json> [--out FILE] [--currency CUR]
   afternic-csv.py --self-test
+
+  valuation-csv writes the normalised feed the domain_valuation lane asked
+  for (2026-09-02): domain,price,currency,status,price_source — price is
+  buy_now, else floor, else min_offer; price_source says which, because a
+  floor is not an asking price and a valuation should know the difference.
 
   --known    file of domains (one per line) to cross-check presence against,
              e.g. the estate's sites table or a registrar enumeration.
@@ -276,6 +282,42 @@ def cmd_ingest(args):
         sys.exit(1)
 
 
+def fmt_price(p):
+    return "" if p is None else (str(int(p)) if p == int(p) else str(p))
+
+
+def write_valuation_csv(rows, out_path, currency):
+    """The domain_valuation lane's feed (requested 2026-09-02): one price per
+    domain — buy_now, else floor, else min_offer — with price_source naming
+    which, because a floor is not an asking price and the valuation should
+    never mistake one for the other."""
+    out_path = pathlib.Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "price", "currency", "status", "price_source"])
+        for r in sorted(rows, key=lambda r: r["domain"]):
+            for src in ("buy_now", "floor", "min_offer"):
+                if r.get(src) is not None:
+                    price = r[src]
+                    break
+            else:
+                price, src = None, "none"
+            w.writerow([r["domain"], fmt_price(price),
+                        currency if price is not None else "",
+                        r.get("status") or "", src])
+    return out_path
+
+
+def cmd_valuation(args):
+    rows = json.load(open(args.snapshot))
+    out = args.out or (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound"
+        / f"afternic_listings_{dt.date.today().isoformat()}.csv")
+    print(f"wrote {write_valuation_csv(rows, out, args.currency)}")
+
+
 def self_test():
     """Offline; proves the MECHANICS (mapping, refusal, control, diff).
     It cannot lock the real export's headers — only the first real file does
@@ -332,6 +374,19 @@ def self_test():
         t("alias variants map", rows3[0]["buy_now"] == 100.0
           and rows3[0]["min_offer"] == 50.0)
 
+        # valuation feed: BIN wins, floor is the fallback, source is named
+        val = write_valuation_csv(rows + [{"domain": "floor-only.com",
+                                           "floor": 500.0, "status": "Listed"}],
+                                  td / "val.csv", "USD")
+        lines = val.read_text().splitlines()
+        t("valuation header", lines[0] == "domain,price,currency,status,price_source")
+        t("BIN preferred + integral price",
+          "relojistas.com,25000,USD,Listed,buy_now" in lines)
+        t("floor fallback named as floor",
+          "floor-only.com,500,USD,Listed,floor" in lines)
+        t("no price -> empty cells + source none",
+          "example.co.uk,,,In Verification,none" in lines)
+
     print("self-test:", "PASS" if fails == 0 else f"{fails} FAILURES")
     sys.exit(1 if fails else 0)
 
@@ -347,11 +402,17 @@ def main():
     ing.add_argument("--known")
     ing.add_argument("--control", action="append")
     ing.add_argument("--baseline", default="auto")
+    val = sub.add_parser("valuation-csv")
+    val.add_argument("snapshot")
+    val.add_argument("--out")
+    val.add_argument("--currency", default="USD")
     args = ap.parse_args()
     if args.self_test:
         self_test()
     elif args.cmd == "ingest":
         cmd_ingest(args)
+    elif args.cmd == "valuation-csv":
+        cmd_valuation(args)
     else:
         ap.print_help()
         sys.exit(1)

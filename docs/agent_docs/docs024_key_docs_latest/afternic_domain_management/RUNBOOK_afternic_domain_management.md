@@ -57,6 +57,27 @@ scripts/domains/afternic-csv.py ingest \
 - Exit 1 = refused rows or a failed control. **Do not quote any figure from
   a run that exited 1.**
 
+**STANDING HAND-OFF (requested by the domain_valuation lane, 2026-09-02):
+after every successful ingest**, write their normalised feed, commit it by
+pathspec, and tell them:
+
+```bash
+scripts/domains/afternic-csv.py valuation-csv \
+  docs/agent_docs/docs024_key_docs_latest/afternic_domain_management/snapshots/portfolio_<date>.json
+# writes docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/afternic_listings_<date>.csv
+git add docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/afternic_listings_<date>.csv
+git commit docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/afternic_listings_<date>.csv \
+  -m "domain valuation inbound: afternic listings"
+# then SendMessage to the "domain valuation" session (or note it in their
+# lane docs if that session is gone)
+```
+
+Columns: `domain,price,currency,status,price_source` — price is buy_now,
+else floor, else min_offer, and `price_source` names which (a floor is not
+an asking price; the extra column is deliberate so the valuation can tell).
+Currency defaults to USD, `[ASSUMED]` until the first real export shows its
+own currency marking — re-check then.
+
 ## §4 Verification + NS state (any session, no files needed)
 
 Delegation is public DNS; reuse the existing classifier:

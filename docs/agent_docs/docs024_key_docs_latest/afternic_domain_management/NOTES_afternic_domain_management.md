@@ -59,3 +59,24 @@ cross-check, dated snapshots + auto-baseline diff.
    portfolio export the only feed? Owner to check while in there.
 3. P4 desired-state source for the ~1,500 non-estate domains (owner
    decision, PLAN P4).
+
+## 2026-09-02 (later, same session) — domain_valuation lane hand-off agreed
+
+Cross-session request from the **domain valuation** session (working for the
+owner): they are valuing the whole portfolio and repricing for a
+**bottom-~500 sale**; our Afternic asking prices are wanted as a comparison
+column. Owner's words, relayed: the Afternic prices are *"generally
+overpriced and I will want to change them"* — so they are an INPUT to the
+valuation, not the answer, and **this lane's bulk-XLSX route is the likely
+vehicle for the eventual repricing** (PLAN P4 has a named customer now).
+
+Agreed + built: `valuation-csv` subcommand — after every successful ingest,
+write `domain_valuation/inbound/afternic_listings_<date>.csv`
+(`domain,price,currency,status,price_source`), commit by pathspec, message
+"domain valuation inbound: afternic listings", notify their session. The
+`price_source` column is one more than they asked for, deliberately: price
+is buy_now-else-floor-else-min_offer, and a valuation comparing against a
+FLOOR without knowing it would read low listings as low askings. Flagged to
+them in the ack. Self-test now 17/17 PASS (4 new cases); one test fix on the
+way in was the TEST's own newline handling (`read_text()` translates the
+csv module's `\r\n`), not the writer.
