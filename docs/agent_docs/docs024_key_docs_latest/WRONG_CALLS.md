@@ -57823,3 +57823,71 @@ your-action-moves-you-to-the-back-of-the-selector, a-closer-census-cannot-see-wh
   says "you owe this" cannot tell you whether anyone did it.
   Tally: **progress-observed-is-not-absence-of-a-result** ×1,
   **status-reported-stronger-than-the-evidence** ×1.
+
+- **2026-09-02 — bugfix_424_logo_transparency — a despill unit test's assertion was built by
+  eyeballing a colour "roughly between grey and magenta", not by working the code's own formula
+  backwards, and it failed on the first run.** Writing `keyground_test.go` for the new
+  `KeyOutBackground` matting function (bugs_open/424), I picked a synthetic "graded edge" test pixel
+  — `(200,50,200)` — by looking at it and judging it sat "somewhere between testGrey and
+  testMagenta, at a plausible distance". I then asserted despill would recover something close to
+  grey (128). It recovered green channel 70, not 128, and the test failed immediately.
+  **Why the wrong number looked plausible:** the pixel genuinely *looked* like a grey/magenta blend,
+  and distance-from-magenta alone (~92 units) genuinely did fall inside the graded window
+  (inner=48, outer=110). What I had not done was check that this SPECIFIC pixel was an actual alpha
+  composite of grey over magenta AT THE ALPHA VALUE the code's own linear distance-to-alpha mapping
+  would derive for it — the despill formula only round-trips correctly when the input pixel and the
+  alpha estimate are mutually consistent, and an eyeballed colour has no reason to satisfy that.
+  **The cheap check that would have:** solve the self-consistency equation first —
+  `a·distance(fg,key) = inner + a·(outer-inner)` — pick the target alpha, THEN construct the pixel
+  as an exact blend at that alpha, rather than picking a colour that merely looks like a blend and
+  hoping the numbers work out. Redone that way (target alpha ≈0.303, constructed pixel `(217,39,217)`
+  at measured distance ≈66), the same test passes with green recovered ≈131, inside a 20-unit
+  tolerance of grey's 128.
+  **Blast radius: none** — caught by the test itself on first run, before any commit, before any
+  build. Recorded because it is the same shape as the family below, just caught cheaply this time:
+  an assertion built from "this looks about right" is not evidence, even when the person building it
+  wrote the formula it is supposed to be checking.
+  Tally: **your-measurement-answers-the-question-you-encoded** ×1 (test-construction variant).
+
+- **2026-09-02 — bugsweep_2026_08_26 (picked up a week later) — `audit-archived-still-serving.sh`
+  scored a page that NEVER ANSWERED as `correctly-absent`, and its own self-test row asserted that
+  as the intended behaviour.** The script is bugs_open/359's census and the acceptance instrument
+  for a bug closed on its evidence. It carries two deliberate, well-argued controls — an invented
+  URL must be non-200 (catch-all domains), a known-good sibling must be 200 (origin down) — and its
+  header states the profile it exists to defeat: *"its blinded state is a FALSE ALL-CLEAR"*.
+  `verdict()` nevertheless ended `if 200 -> SERVING; else correctly-absent`, so a curl `000` — no
+  HTTP answer at all: DNS, TLS, timeout, reset — was printed and **counted** as absence.
+  **Why the wrong result looked right:** both controls are per-DOMAIN and cached once per run, so
+  neither can see a per-PAGE transport failure. The origin was up, the sibling was 200, the row read
+  `correctly-absent` in a column of identical-looking `correctly-absent` rows, and the summary line
+  counted it among them. Nothing was missing from the output; the wrong number simply looked like
+  the right one.
+  **What caught it: running the census TWICE.** Two runs ten minutes apart disagreed — 7 serving vs
+  8 — because `fundamentallyai.com/blog/ai-readiness-checker-guide.html` answered `000` and then
+  `200`. A single run under-reported live damage by one and could not have told anyone so.
+  **The instrument that should have caught it made it invisible instead.** The self-test row
+  `check "target transport failure, controls hold" 000 404 200 0` **pinned the defect as correct**,
+  so the suite passed at full strength while the census mis-scored. This is the fourth instance in
+  one family: the 2026-08-26 handoff (§6) recorded three mutation tables whose rows were false when
+  written, and generalised it as *"a passing test proves the current code is acceptable to that
+  test, and nothing else"*. This is the sharper case, because here the test did not merely fail to
+  notice — **it asserted the wrong behaviour, in writing, as a requirement.**
+  **The cheap check that would have:** for any detector whose finding is a POSITIVE observation
+  (a 200, a match, a present row), enumerate what a NON-ANSWER does and confirm it is refused, not
+  scored. `verdict()`'s three inputs have four interesting states each, and the one state with no
+  branch was the one that fails toward the reassuring answer. Cheaper still: **run the census twice
+  before quoting its number** — the disagreement is free and it is decisive.
+  **Independent confirmation the direction was wrong, not merely unproven:** the Go detector had
+  already filed a work item for that exact page on 2026-08-27. Two instruments disagreed about the
+  same URL and only the shell one was wrong.
+  **Fixed the same day** (`4e26b1063`): `fetch_code` retries a `000` once with its own full timeout
+  budget, and a persistent `000` is `UNJUDGEABLE-target-transport` (rc 2, a refusal), never absence.
+  Mutation-proven — deleting the branch fails both self-test rows, and the mutant reproduces the old
+  behaviour exactly. Post-fix the census is stable at 8 serving, and those 8 are **exactly** the 8
+  the Go detector filed, so the detector's six-day silence is correct dedup rather than a stall.
+  **Blast radius: bounded but real** — the under-report was one page, and 359 was closed on a run of
+  this script. The close still stands (the disconfirming-pair proof was done at the Go detector, not
+  here), but any bare count quoted from a single pre-fix run is low by however many targets happened
+  to time out that minute.
+  Tally: **a-self-test-row-that-pins-the-defect** x1,
+  **non-answer-scored-as-the-reassuring-answer** x1.

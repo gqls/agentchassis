@@ -92,3 +92,48 @@ exactly that. It is not a third blind attempt: we now know what to ask for and w
 - `bugs_open/421` (multi-panel design comp — single-composition HELD on this same asset).
 - `bugs_open/235`, `bugs_open/322` (brand-asset handling).
 - LANDMINES: the asset-upsert `created_at` trap, which bit this verification and was routed around.
+
+## 2026-09-02 — Fix candidate 1 (alpha at provider) REFUTED externally; candidate 2 implemented as keyed-ground matting, code complete, not yet built/rolled
+
+Picked up by a separate thread after the `bugfix_417_420`/webdesign/`site_delivery_and_editor`
+lanes had confirmed the diagnosis and shipped the interim solid-ground regeneration. All three were
+notified before and during this work; no collision (see NOTES cross-references in
+`docs024_key_docs_latest/bugfix_424_logo_transparency/`).
+
+**Candidate 1 (alpha at the provider) is now externally confirmed dead, not merely internally
+refuted.** External research, 2026-09-02: Gemini's whole image family (every Nano Banana variant,
+2.5 and 3.x) has no alpha-channel output at all — a structural model limitation, not a missing
+adapter knob. No provider-side fix is possible.
+
+**Shipped design: keyed-ground matting**, registered as **IMG-076**
+(`docs026_concept_register/register/imagery.md`), full detail in
+`docs024_key_docs_latest/bugfix_424_logo_transparency/PLAN_2026-09-02_logo_background_transparency.md`.
+In one sentence: ask for a fixed, deterministic, non-brand-derived key colour (`#FF00FF`) instead of
+"transparent" — provable achievable, since the interim regen already showed the model can paint a
+requested flat colour — then remove it mathematically in pure Go (border flood-fill, so only
+background *connected to the image border* is erased, protecting an interior element that merely
+resembles the key), and refuse to store the result if the model didn't honour the key colour
+(`BorderKeyed < 0.95` — fail closed, load-bearing because there is still no revert seam for a
+generated asset).
+
+**Code complete, unit-tested (17 new/changed tests across three packages, all passing), NOT yet
+built into an image or rolled to any pod.** Touches:
+`platform/orchestration/actions/discovery_checks/default_brand_prompt.go` (the clause constants),
+`platform/orchestration/actions/generate_image_actions.go` (`applyLogoBackgroundPolicy`, wired into
+the SAME choke point as 417's text policy — deliberately, so the clause stays visible in
+`assets.origin_prompt`), `internal/adapters/imagegenerator/dynamic_adapter.go` (`KeyGround` field,
+the fail-closed guard), `internal/adapters/imagegenerator/keyground.go` (new — `KeyOutBackground`).
+
+**Does NOT fix `bugs_open/421`** — recorded explicitly so a future matting pass over a two-panel
+comp is not mistaken for having cleared it; see IMG-076's own "does NOT fix" note.
+
+**Still open before this closes:** council submission (owed alongside the commit — not yet run at
+the time of this entry); image build + roll; a real magenta-keyed generation to set the
+`[UNMEASURED]` threshold constants from evidence instead of an extrapolated drift figure; the
+served-PNG chunk-scan re-run at the correct slug (`boxingonline.ugg2.com`, not the parked `.com`
+catch-all — caught by the boxingonline session before it became a wrong verification) checking BOTH
+colour type 6 and `tRNS`, never one alone.
+
+Separately filed, not part of this fix: `assets.mime_type` is empty on 910/1,277 rows fleet-wide
+(measured by the boxingonline session, 2026-09-02) — a store-step defect this bug's own verification
+surfaced but does not cause.
