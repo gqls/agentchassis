@@ -1280,3 +1280,58 @@ Asked 2026-09-02 ~15:00Z for their reading of §6 Q1 before the owner rules. As 
 not a disappearance. **Do not read the silence as agreement**, and do not attribute a position to them:
 the §8 CONTRIB argues for narrowing *their own* §4 concession, and it currently stands unanswered by
 its author.
+
+---
+
+## 19. WHAT IS LEFT TO CLOSE — refreshed 2026-09-02, SUPERSEDES §14
+
+§14 was written before decisions 1–3 were ruled. Current state:
+
+### 19a. DONE — needs nothing from anyone
+
+| item | state |
+|---|---|
+| **rule 3b** (`WII-035`) | live since `v1.0.1341`, still live on `v1.0.1354`, 48 firings across 32 sites, every one correct |
+| **§9's defect — the false `title` entry** | **FIXED, COUNCIL-APPROVED (`76231f57`, all reviewers), AND LIVE.** Probed at the artefact with both controls |
+| **the roster's SHAPE** | total over `routableHandlers`; an unconsidered handler answers UNKNOWN, not "cannot write"; four mutations run and observed failing |
+| **decision 3** | ruled and discharged — it *was* §9f |
+| **the record** | `bugs_open/395` CONTRIB · `LANDMINES.md` ×2 · `WRONG_CALLS.md` ×3 · `RFC_057` §8 · five `doc_notes` rows · this handoff |
+
+**The engineering in this lane is finished.** Nothing is half-built and nothing is inert.
+
+### 19b. LEFT — four items, none of them engineering in this lane
+
+1. **`RFC_057` §6 Q1 and Q2 — owner ruling.** The only thing that keeps this lane's own file open.
+   - **Q1** has narrowed to the **staleness half alone** (completeness is built and live, §15/§18).
+     This lane's position: **defer with a trigger** — build the drift audit when the roster grows past
+     its two fields. Staleness fails in the SAFE direction (over-refusal, which files a visible
+     `capability_gap` row two readers already consume); the silent half is the one now closed by a
+     build-time test rather than a schedulable job.
+   - **Q2** — a general "these two changes must land together" seam. This lane's position: **don't
+     build it.** ⚠ **And §16a is now evidence FOR that position, from the opposite direction than
+     expected:** the near-miss Q2 exists to prevent was between this roster and an emit gate **that
+     does not exist**. A seam built to synchronise two halves would have had one half to synchronise.
+     The cheaper rule already worked — *one shared function, no copies*.
+2. **The other lane's reading of Q1**, unanswered (§18d). Wanted **before** the ruling, not after,
+   because §8 argues for narrowing their own concession. Not a blocker if the owner is content to
+   rule without it.
+3. **Decisions 1 and 2 move out of this lane.** Both are owner-approved and neither is this lane's
+   work: decision 1's subject is `pages.meta_description` (`bugs_open/320`'s lane, and §12 shows the
+   authority already exists as an opt-in flag), decision 2's seam is the other lane's vocabulary.
+   **This handoff should stop being their record** — it holds them only by accident of where the
+   blockage was found.
+4. **One prospective residual, already carried:** whoever builds the CLM-024 emit stamp inherits a
+   map where `title`/`content-gap-planner` is TRUE. The five `doc_notes` rows (keyed on `CLM-024`,
+   `HandlerCanWriteField`, `pageFieldWriters`, `routableHandlers`, the file) exist so that reaches
+   them in their own tooling rather than depending on anyone remembering.
+
+### 19c. So: the close condition, stated as one sentence
+
+**This lane closes the moment `RFC_057` Q1 and Q2 are ruled** — decisions 1 and 2 re-homed to the
+lanes that own their subject matter, and the staleness audit either built or recorded as a deferral
+with its trigger. **No code is owed either way.**
+
+⚠ **And the honest caveat on the whole lane:** the fix is live and reviewed, but **zero demand** —
+no finding has ever named `title` on the content-gap-planner route (§18c). The correction is
+verified as SHIPPED, never as EXERCISED. Closing the lane is right; recording it as *proven in
+production* would not be.
