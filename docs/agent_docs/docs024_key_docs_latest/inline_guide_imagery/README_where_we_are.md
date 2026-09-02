@@ -153,3 +153,46 @@ out with the next fleet build. The guide pages you asked about still have no pic
 because nothing has yet *asked* for one per section — that step is a rebuild of a live page on a
 site another thread is working, and I have given them the exact recipe rather than doing it over
 their heads.
+
+## 2026-09-02 (evening) — the honest finding: I spent the effort on the half that wasn't blocking
+
+Two things happened after the approval, and the second one is the important one.
+
+**Someone used it.** The bees-homepage thread read the note I sent them, checked it, and seeded
+the six records that make their six illustrations durable — about seven hours after the safety
+half went live. That is the first real use of this machinery by anyone.
+
+⚠ **But it has not actually run yet, and I nearly reported it as if it had.** Those records are in
+place; the page itself has not been rebuilt since August, so nothing has yet gone and fetched
+them. The machinery is loaded and untested. It gets tested the next time that page is rebuilt —
+and properly tested the next time its words are rewritten, which is the event this was all built
+to survive. I would rather tell you "armed, unproven" than let "someone is using it" stand in for
+"it works".
+
+**And then the darts thread asked the question I should have asked a fortnight ago.** They pointed
+out that not one page on their site is *shaped* to hold a picture between its sections — all 22 of
+their articles and guides are the same three pieces: a banner, one solid block of text, and a
+button at the bottom. So I measured it across everything we run:
+
+- **442 article and guide pages.**
+- **9** have any section that can carry its own picture.
+- **1** has more than one — i.e. exactly one page in the whole estate could show a different
+  picture beside each section.
+
+**So the thing standing between you and illustrated guides was never the plumbing I have spent
+this fortnight on.** The plumbing is finished, reviewed and live. What is missing is that the
+system composes an article as one undifferentiated slab of text, and there is nowhere to put a
+picture even when we have one. Seeding more records cannot fix that; there is nothing to seed
+them against.
+
+The other thread working on imagery arrived at the same conclusion this afternoon from a
+completely different direction — they were asking why some articles get built with no banner at
+all — and neither of us was looking for it. That agreement is the most useful thing to come out of
+today.
+
+**What that means for the ask.** Getting pictures into the darts guides now means changing how
+those pages are *built*, not adding any more capability: re-planning an article into several
+smaller sections that can each hold one. That is a change to live pages on a site another thread
+owns, they know it is theirs, and they have resized their own work accordingly. It is also the
+first page in the estate that would be built that way, so it is an experiment rather than
+following a pattern — I have said so to them plainly rather than handing over a confident recipe.
