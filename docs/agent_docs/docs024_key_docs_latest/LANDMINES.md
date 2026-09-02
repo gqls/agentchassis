@@ -3700,8 +3700,25 @@ available (blast radius: one page's sections).
 > - *"FCA rule citation corrected by migration 696 (owner decision 2026-09-02)"* — 11 items
 > - *"component adopted by migration 693 — first rerender since the component_id was NULL"* — 3
 >
-> All 30 completed. All 30 re-shipped stored HTML unchanged. Both lanes believed their repairs
-> had propagated; one of them was correcting an FCA rule citation.
+> All 30 completed and all 30 re-shipped stored HTML unchanged.
+>
+> **⚠ CORRECTED WITHIN THE HOUR, BY BOTH LANES — "the rerender was a no-op" is NOT the same as
+> "the repair did not land", and I asserted the second from the first.** Whether a no-op matters
+> depends on something the routing fact cannot tell you: **did the repair already write the
+> artefact?**
+> - **701** (16 items): the two routes converge **byte-identically by construction** — the adopted
+>   template IS the stored bytes. Artefacts correct; only the lane's *mechanism* claim was wrong.
+> - **696** (11 items, the FCA citation): the migration fixed `page_components.rendered_html`
+>   **directly, in the same transaction** as `content_data`, so assemble-mode's byte-for-byte
+>   re-ship shipped the CORRECTED bytes. Verified at the served pages twice. **No page ever served
+>   the old citation.** My "urgent, compliance-shaped" framing was wrong.
+> - **693** (3 items): here the finding holds and is *sharper* than a no-op — assemble mode
+>   bypasses `resolveComponent` entirely, so those adopted components have **never been resolved
+>   by a live template render**. The lane has filed `template_changed` rerenders as the
+>   discriminating proof, since that path used to go fatal pre-693.
+>
+> So: the routing fact was right, the consequence I attached to it was right in one case of three.
+> **Ask what wrote the artefact before concluding a no-op cost anything.**
 >
 > **Why it is a landmine and not carelessness:** annotating a work item with what a migration did
 > is *good practice*, and `reason` is the one field in that spec which is PARSED rather than read.
@@ -19868,3 +19885,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** [[live-and-committed-are-independent-facts]] (same shape one seam over: a lane's "built" record and a buildable image are independent facts) · 016b §9 "A docker COPY reports 'not found' for a file that is committed and present" (the symptom-side twin of this entry)
 - **source:** 2026-09-02, release-unblock session, `ebf27c603`; handoff `docs/agent_docs/docs024_key_docs_latest/dockerignore_acks_gap/HANDOFF_2026-09-02_dockerignore_acks_release_unblock.md`
 - **added:** 2026-09-02, release-unblock session
+
+---
+
+### `kubectl` prints UTC and `git log` prints +01:00 with no offset shown — so "did the roll pick up my commit?" is an hour wrong, in the direction that invents a near-miss
+
+- **footprint:** `kubectl get pods -o …startTime` · `.status.startTime` · `git log --date=format:` · `%cd` / `%ad` · `build provenance` / `git_commit` · any "did my fix ship?" comparison
+- **fires when:** you date a deploy against a commit — the single most common verification in this estate. `kubectl` renders `startTime` and log `ts` in **UTC with a trailing `Z`**. `git log`'s `%cd`/`%ad` render in **the commit's own timezone**, which on this tree is **`+01:00` (BST)** for anything committed since March — and the usual `--date=format:'%H:%M:%S'` prints **no offset at all**, so `22:17:18` sits next to `20:56:52Z` looking directly comparable while being an hour apart before you subtract anything.
+- **the trap, and why the error has a DIRECTION:** BST is ahead, so a commit reads one hour LATER than it happened relative to a UTC pod time. A fix committed *after* a roll therefore looks like it was committed *before* it — turning "this build could never have contained the fix" into "the roll narrowly missed it". Both give the same *verdict* (not live), so the mistake survives verification; what it corrupts is the **next action**. "Narrowly missed" invites re-checking the same build or waiting; "committed after the build was cut" says plainly that a new build is required. Measured 2026-09-02: I reported *"the roll landed ~20 minutes after the fix commit"* when the fix was committed **20m26s AFTER the roll** — the peer lane caught it, having done its own arithmetic entirely in BST and got the right answer for the same reason I got the wrong one.
+- **⚠ the fix that does NOT work:** `TZ=UTC git log --date=format:'%H:%M:%S'` **still prints the commit's own zone.** The `TZ` env var does not reach `--date=format:`; that is what `--date=format-local:` is for. Setting `TZ` and seeing an unchanged number reads as confirmation that the time was already UTC.
+- **the check — put both sides in one zone explicitly, and never subtract across two renderers:**
+  ```bash
+  # commit time in real UTC (either form)
+  git log -1 --format='%cd' --date=format-local:'%Y-%m-%d %H:%M:%SZ' <sha>   # with TZ=UTC set
+  git log -1 --format='%cI' <sha> | python3 -c 'import sys,datetime;print(datetime.datetime.fromisoformat(sys.stdin.read().strip()).astimezone(datetime.timezone.utc))'
+  ```
+  ⚠ **Better still, do not use clocks for this question at all.** Ancestry answers it exactly and has no timezone: `git merge-base --is-ancestor <your-commit> <the build's stamped commit>` — with a control commit that MUST be an ancestor in the same breath, so a broken invocation cannot read as "not shipped".
+- **relations:** MEMORY [[prove-a-deploy-at-the-artefact-index]] · [[relative-git-refs-are-not-evidence]] · [[a-fresh-deploy-can-ship-no-new-code]] · the `build provenance` line in CLAUDE.md ("did my fix ship? is now a query, not an inference" — the query is `merge-base`, and that is the timezone-free half of the advice)
+- **source:** 2026-09-02, bugfix 417/420 lane, dating the 424 guard fix against the running adapter. The `merge-base` verdict was right all along; only the human-readable story I built around it was wrong, which is why the error survived to a committed document.
+- **added:** 2026-09-02, bugfix 417/420 lane
