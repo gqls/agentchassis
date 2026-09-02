@@ -759,3 +759,176 @@ am not asserting it, only pointing at the join.
 **Not dispatched anywhere.** No site touched, no work item filed — both remedies are visible
 changes on live pages and belong to their owners, and the composition question belongs to whoever
 owns the planner.
+
+---
+
+## CONTRIB 2026-09-02 (mortgagecalculator_couk_adoption lane) — a SECOND population, with a different mechanism and a one-line fix: 54 pages that DO have a hero component and still cannot show their own image
+
+Routed here rather than filed new, for the same reason the two contributions above were: this
+bug's opening sentence is the symptom, and it is OPEN and actively worked today.
+
+**This is not the ~189.** The contribution above characterises the population as *"pages the
+planner composed without a hero"* — no hero component, nowhere to put the image. Correct for that
+set. **There is a second, disjoint set where the page HAS a hero component, the asset exists and
+is active, the resolver would find it, and the image still cannot appear** — because the component
+declares no image-typed field, and that is the flag the resolver is gated on.
+
+### The mechanism, in the platform's own words
+
+`plan_sections_action.go:2846` gates the whole per-page hero path on
+**`sectionHasImageField(fieldsRaw)`** — true only if the component's `input_schema` declares a
+field of `type: "image"` or `"image_url"`. Only then is the resolved page hero written into
+`resolved_data` under the aliases `hero_url` / `background_image`. The comment directly above the
+gate states the failure mode:
+
+> *"resolved_data is merged LAST at render time … this is what lets the per-page hero defeat the
+> site-wide hero_url that BuildRenderContext still injects for legacy templates: **without it,
+> `{{or .hero_url .background_image}}` picks the site-wide value and every page shows the same
+> image**."*
+
+`hero-tool` emits exactly that expression in its template — `url('{{or .hero_url
+.background_image}}')` — and declares **no image-typed field at all**. So on every `hero-tool`
+page the gate is false, the aliases are never written, and the template falls through to the
+site-wide default. Permanently, regardless of what imagery exists for that page.
+
+### The measurement, with the control that makes it mean something
+
+[MEASURED 2026-09-02, live DB]
+
+| component | declares an image-typed field? | instances | carrying a per-page `content-hero-*` image | sites |
+|---|---|---|---|---|
+| `hero-tool` | **no** | 69 | **0** | 21 |
+| `hero` | **yes** (`background_image`: `type: image`, `source: site_assets.hero`, `fallback: /assets/images/hero.jpg`, `on_missing: use_fallback`) | 632 | **72** | 36 |
+
+**0 of 69 against 72 of 632.** The `hero` row is the control: same resolver, same alias keys, same
+template expression — the only difference is the schema declaration, and it is the difference
+between 0% and 11%. Had `hero-tool` pages been showing per-page heroes, this comes out non-zero.
+
+What the 69 render instead: `hero-home.jpg` ×28 (8 sites), `hero.jpg` ×21 (9 sites), no image at
+all ×19 (6 sites), and **one** per-page image — `leopardessconsulting.co.uk`'s
+`tool-automation-savings-estimator`, which has `background_image` written **directly into
+`content_data`**. That single exception is worth more than the other 68: it proves the **template**
+is fine and it is only the **resolver path** that is switched off.
+
+**The size of the loss: 54 of the 69 pages have an active asset at exactly their
+`ContentHeroKey`** (`'content_hero_' || replace(page_name,'-','_')`), already generated, already
+deployed, and structurally unshowable. Re-runnable:
+
+```sql
+SELECT count(*) FROM (
+  SELECT DISTINCT p.id, p.name, p.site_id
+    FROM page_components pc
+    JOIN pages p ON p.id = pc.page_id
+    JOIN content_components cc ON cc.id = pc.component_id
+   WHERE cc.function = 'hero-tool') q
+  JOIN assets a ON a.site_id = q.site_id
+               AND a.asset_key = 'content_hero_' || replace(q.name,'-','_')
+               AND a.status = 'active';
+```
+
+### Why this one is cheap, and why it does NOT hit the trap the contribution above warns about
+
+The fix is to declare on `hero-tool` the field `hero` already declares, byte for byte:
+
+```json
+"background_image": {"type":"image","source":"site_assets.hero",
+                     "fallback":"/assets/images/hero.jpg",
+                     "required":false,"on_missing":"use_fallback"}
+```
+
+Three properties worth checking before anyone applies it:
+
+1. **It cannot render an image twice.** The warning above — *292 of 301 `article-body` pages also
+   carry a hero reading the same `site_assets.hero` key, so giving `article-body` its own image
+   field duplicates the image on 97% of them* — turns on `article-body` being a **second** consumer
+   on a page that already has a hero. `hero-tool` **is** the hero: it is the page's only
+   image-bearing band, and it is already emitting a `background-image` today. This declares the
+   field on the component that is already drawing the picture, not on a second one.
+2. **It is strictly an improvement or a no-op.** `on_missing: use_fallback` with the same
+   `/assets/images/hero.jpg` the site-wide injection supplies today means a page with no per-page
+   asset renders exactly what it renders now. The 19 instances currently showing no image at all
+   gain the site fallback; the 49 showing a site-wide default keep it unless they have their own.
+3. **Declaring the alias makes the field's own resolution govern** — the alias-injection loop skips
+   any alias the schema declares (`if _, declared := fieldsRaw[alias]; declared { continue }`) — and
+   `source: site_assets.hero` reads the same three-tier `r.assets["hero"]` (plan page hero →
+   `ContentHeroKey` content hero → site brand hero). So it resolves identically to `hero`.
+
+**Inert until re-render.** A schema change alone moves nothing; the affected pages must rebuild.
+
+### Two things this does NOT settle, stated so nobody reads more into it
+
+- It is **not** the ~189-page population and does not explain it. The planner-composition question
+  in §3 above stands untouched.
+- I have **not applied it.** `hero-tool` is shared across 21 sites belonging to other lanes, this
+  bug is owned here, and the owner ruling of 2026-07-29 §3 is that a shared mechanism's other
+  consumers are told, not merely measured. It is 114's to take.
+
+*Filed from the mortgagecalculator.co.uk lane, where 4 tool pages sit in this population. Full
+working: `docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/NOTES_mortgagecalculator_couk.md`
+`## 2026-09-02 (b)`.*
+
+---
+
+## RESUMPTION 2026-09-02 (bugfix_114_imagery_wiring lane, session `bugs_open/114`) — three of the four closing-bar items are MET and measured; the detector for the fourth is built and council-submitted
+
+The lane was idle 11 days. Full evidence with queries:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_114_imagery_wiring/NOTES_imagery_wiring.md` (2026-09-02).
+
+### The closing bar (HANDOFF_2026-08-22), re-measured
+
+1. **A natural landing files the derive item without a sweep — MET, 193 times.**
+   `[MEASURED 2026-09-02]` `needs_content_image` items with
+   `created_by='image-build-handler'` + `spec.check='flag_page_image_rebuild'`: **193**
+   complete, 2026-08-26..09-01. (The revived design-discovery sweep filed a further 85 —
+   the sweep-as-backstop design working as intended; rotation is current again as of
+   09-02, so the 230-reported stall is over.)
+2. **Entity-linked cards whose files serve — MET, 193 of 193.** Join on
+   `spec->>'entity_id'` (⚠ NOT `page_id` — that path returns a uniform false zero, my
+   own WRONG_CALLS entry today). Wire probes 200 on dartsonline + leopardess cards.
+   (`boxingonline.com` returns 000 on its own homepage — site-level, not a card failure.)
+3. **No new poisoned `content_data.<purpose>_url` — MET.** `hero_url`: 2 distinct values
+   fleet-wide, all 19 `hero.jpg` carriers hold an active canonical `hero` asset. The one
+   ambiguous row (apis.uk `illustration_url`, created roll-day 08-22) carries the OLD
+   purpose-derivation while its own post-roll stores did not rewrite it — the value's
+   shape says the gate held.
+4. **The detection check — BUILT TODAY** (`check_unrendered_page_imagery`, register
+   **IMG-077**, commit `a87746b77`, council corr `3b568104`): one flag-only rollup per
+   (site, state), states `unwired` / `fragment_slot` / `no_image_slot`, retraction on an
+   emptied census. Inert until a chassis roll; enabling migration `708_…_HOLD.sql` held
+   until then.
+
+### Corrections to THIS FILE's earlier claims, dated
+
+- **"Convergence has been dead for eleven days" (FIX IN PROGRESS 2026-08-22) is OVER** —
+  `site_discovery_rotation` shows design-discovery-agent current on 2026-09-02.
+- **The 08-16 mcalc contribution's "spend without effect" reading is now half-wrong in an
+  instructive way**: the tool heroes still render nowhere ON-PAGE, but the derive path
+  now consumes them (mcalc has entity-linked tool cards serving 200), so a content hero
+  on an unrenderable page is a CARD SOURCE, not pure waste. This is why the generator was
+  deliberately NOT gated (decision + census in the lane PLAN, 2026-09-02 revision).
+- **GAP 4 (the 08-15 wired-vs-fallback natural experiment) largely dissolves into
+  `bugs_open/357`.** Every page in that cohort is `page_type='tool'`, and on tool pages
+  the `hero` component row is a misidentified fragment storing the tool shell (RFC_046) —
+  so wired-vs-fallback was measured at `content_data` on rows that RENDER neither.
+  `[MEASURED 2026-09-02]` fleet-wide: of 335 tool pages, **231 have no image-capable
+  component at all, 16 have a fragment-poisoned slot, 88 are genuinely capable**
+  (blog-post: 312 of 319 capable). The mcalc lane's fresh 09-02 handoff §2 ("same
+  component, renders on guides, not on tools — diff the render path") is answered by 357,
+  not by a render-path divergence; told them in their lane's CONTRIB.
+- **A near-miss detector is making the class WORSE**: `check_undeployed_assets` half 1
+  (purpose-prefix site-wide evidence, deploy remedy) + the recurrence brake have parked
+  **1,651** `undeployed_asset` rows born at `unresolved` (`created_at=updated_at`,
+  `result={}`). Landmine appended (LANDMINES.md, 2026-09-02); the backlog's disposition
+  is an owner decision, flagged not taken.
+
+### What still stands between this file and `bugs_closed/`
+
+- The chassis roll carrying `a87746b77`, then migration 708 applied per its own runbook,
+  then rollups observed with plausible counts (a fleet-wide zero = unexercised detector).
+- Migration 709 (the four dead purpose-url keys 562 deferred) applied — written, council-submitted with the check.
+- The council verdicts read (corr `3b568104` for the detector; corr `4145fcdc` for 562,
+  RESUBMITTED today — the original dispatch was dropped: no orchestration row, 11 days).
+- The residual states then belong to their owners: `unwired` → `bugs_open/412` (deploy-time
+  wiring — their fix candidate 1; coordinated, not taken), `fragment_slot` →
+  `bugs_open/357`, `no_image_slot` → the composition/planner question (+ the
+  `check_content_image_missing` surface-widening owner decision, still unasked).

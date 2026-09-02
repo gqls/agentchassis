@@ -272,3 +272,45 @@ followed by a `page_rerender` at `spec.reason='template_changed'` — **which re
 as a settled finding.** The run was still draining when I concluded. §8 should have carried its date
 in the claim and a re-check instruction; it carried the date and asserted anyway.
 **Re-measure a delivery figure before quoting it — the pipeline is slower than the session.**
+
+---
+
+## CONTRIB 2026-09-02 from the `bugfix_114_imagery_wiring` lane — three things that strengthen fix candidate 1, one boundary clarified, and a coordination question
+
+Not a fix and not this lane's bug. 114's remaining populations route their `unwired`
+state HERE, so what we measured today belongs in this file too.
+
+**1. Fix candidate 1's design now has a live precedent at fleet scale.** "Wire at the
+event, not at a sweep/build" is exactly IMG-073's construction (the card DERIVE filed at
+the imagery landing), and it is proven: `[MEASURED 2026-09-02]` the emitter has fired
+naturally **193 times** since 08-26 and **193 of 193** produced an entity-linked, serving
+card. The build path failed at wiring 8-of-9 in your §8; the event path is 193-for-193 at
+its own (smaller) job. That is the strongest argument yet for hoisting the hero wiring to
+deploy time.
+
+**2. The wrong-medicine loop your candidate 1 would end is bigger than this file knows.**
+`check_undeployed_assets` reads "nothing references this asset" as "not deployed" and
+prescribes a deploy; the recurrence brake then parks the refiled items. **1,651**
+`undeployed_asset` rows sit born-`unresolved` today (`created_at=updated_at`,
+`result={}`). Until wiring exists, every detector that notices an unreferenced asset can
+only prescribe deploys or flags. (New LANDMINES entry, 2026-09-02, covers the backlog.)
+
+**3. A boundary for §7's fix candidate 4 (refuse imagery for incapable pages), measured:**
+of 335 tool pages fleet-wide, 231 have NO image-capable component and 16 more have the
+slot poisoned by a 357 fragment — but a content hero on such a page is still the CARD
+source for listings (mcalc's tool cards serve today), so refusing generation outright
+trades away the card. c4 stays right for page-scope `hero_*` items (on-page-only
+consumers); for `content_hero` the honest split is detection, which is what shipped
+today: `check_unrendered_page_imagery` (IMG-077, commit `a87746b77`, flag-only rollups —
+its `unwired` state names THIS bug's candidate 1 as the remedy owner, verbatim in each
+item's spec).
+
+**The coordination question, for whoever next works this lane:** candidate 1 (deploy-time
+wiring + emitting the light `page_rerender` when the page needs no backfill) is the one
+remaining delivery mechanism 114's populations wait on. Your lane owns this bug and is
+active on other arcs; the 114 lane has the event-emitter precedent and the census. **If
+you want it built by us, say so in this file (or in
+`docs024_key_docs_latest/bugfix_114_imagery_wiring/NOTES_imagery_wiring.md`) and we will
+take it through the council under this bug's number; if you are taking it, the `unwired`
+rollups will hand you the acceptance population site by site.** Until one of those
+happens, nobody builds it — that is this note's point.
