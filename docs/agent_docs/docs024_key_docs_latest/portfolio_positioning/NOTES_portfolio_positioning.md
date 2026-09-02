@@ -3547,3 +3547,11 @@ in the message is nowhere in the portfolio or `sites` — read as a slip, flagge
   `scripts/fire-brief-writer.sh`'s output are the pickup.]
 - **CONTRIB to copy_quality_two_stage**: the negative-identity ruling handed to the lane that
   owns copy doctrine + the propagation carrier. We do NOT build fleet copy machinery here.
+
+**Outcome (closes the in-flight marker above): all three cluster briefs COMPLETED and verified by
+11:52Z** — 13 keys each, 15/18/20 plan items (the fullness direction visibly landed: all at or
+above the first brief's 16), confidence 0.78/0.78/0.87, all three held at `needs_human_review`,
+all three carry the negative-identity rule and name the flagship (websitepromotion in
+differentiation; the other two elsewhere — their verticals sit further from the flagship's
+ground, review-gate judgement). Review renders: `BRIEF_2026-09-02_<domain>_for_review.md` ×3.
+The owner's queue: SIX briefs (3 real, 2 test, advertise edited-awaiting-"go build").
