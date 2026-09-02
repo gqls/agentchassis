@@ -22,6 +22,15 @@ are skips), so test for `'true'`, **never** for `'false'`. Proven both ways 2026
 a real skip (`brand-detail`, *"page has no component rows"*) and returns key-absent for our own
 `tool-asset-formatter`. `servegrade.sh` prints it in the staleness refusal.
 
+**IF THIS LANE EVER DELIVERS VIA THE OTHER PATH, THE DISCRIMINATOR CHANGES — do not carry the key
+above across.** On the `assemble_page` path the same misconfiguration is now *countable* rather than
+inferred: commit `b8bf40694` (09-02 15:12) makes an unresolvable `content_field` that upstream did
+**not** declare `skipped:true` write `agent_error_log.error_code='ASSEMBLE_CONTENT_FIELD_UNRESOLVED'`.
+`[VERIFIED 2026-09-02]` the literal is at `multipage_actions.go:124` and appears **0** times in
+`rerender_single_page_action.go`, which is the same split as everything above. So: rerender path →
+`rendered_page.skipped`; assemble path → that error code. Reading the wrong one returns nothing and
+looks clean, which is how this lane got it wrong once already.
+
 **Why it matters to THIS lane specifically:** the skip fires on *"page has no component rows"*, and our
 retire sets the ported slot to `removed` (which the assembler excludes). **Our retire's PRE2 assert —
 "exactly one live native tool slot must exist" — is the thing that prevents it**, so keep that assert
