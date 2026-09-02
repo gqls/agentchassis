@@ -15,11 +15,16 @@ unbuilt, but Q7's `banned_claims` half IS built, council-APPROVED and committed 
 §3e); it is not yet RUNNING (needs a chassis roll, then the next daily `evidence-freshness`
 pass).** A header reading "nothing built" over a shipped, approved detector is the stale-status
 trap this estate keeps filing — the state now lives in §3e and is stated there in full.
-**2026-09-02 22:10 — the owner reports a fresh chassis roll. NOT YET VERIFIED AT THE POD**:
-kubeconfig token expired 22:08 (same evening, unrelated timing — `Unauthorized` on every kubectl
-call), so pod age / binary provenance could not be checked before this session ended. **First
-action for the next session: verify per the LANDMINES kubeconfig entry, then confirm at the pod**,
-not from this line — see the HANDOFF for the exact commands.
+**2026-09-02 21:30 — CONFIRMED RUNNING.** Owner refreshed the kubeconfig; verified properly this
+time (a plain binary grep for the commit SHA is a KNOWN-BROKEN method — `buildinfo.GitCommit` is
+one string, not an ancestry, so it returns ABSENT even for a commit that certainly built the
+binary; confirmed even an 8-day-old ancestor SHA grepped absent, which is what exposed the method
+as broken rather than the deploy). Used `service_binary_capabilities` instead (built for exactly
+this): every current `agent-chassis` pod reports `git_commit=0d2feee2` (recorded 21:24–21:26Z,
+after the pod restarts), and `git merge-base --is-ancestor e5b1a0f01 0d2feee2` returns true —
+`e5b1a0f01` IS in the running build. **Gate 1 (deploy) is CLEAR. Gate 2 (the daily
+`evidence-freshness` tick) is NOT** — `last_completed_at` is still 09:08:57 this morning, unchanged;
+next tick ~09:09 tomorrow (2026-09-03). The check is live but has not yet run against real data.
 See §3a, §3b, §3d, §3e.
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
@@ -565,10 +570,13 @@ Raised by the `loanzy.uk` lane, seconded by lendzy, from the same day's register
 > is one. `editquality`'s item_key objection read the SUBMISSION SKETCH, which under-described the
 > real key format (it DOES carry an `invalid_banned_claim_pattern:` type prefix, per the sibling
 > convention) — a submission-quality gap, not a code defect; the real function was correct throughout.
-> ⚠ **COMMITTED, NOT RUNNING** `[MEASURED ~19:40]` — both `agent-chassis` pods started before the
-> 18:30Z commit (caught by the `bugfix_414` lane verifying at the pod, not by this thread's own
-> report). Needs an image build + roll (owner's call), then waits for the next daily
-> `evidence-freshness` tick (~09:09) before the first finding could appear. Q7's own half (facts /
+> ⚠ **`[MEASURED ~19:40]` was COMMITTED, NOT RUNNING** — both `agent-chassis` pods started before
+> the 18:30Z commit (caught by the `bugfix_414` lane verifying at the pod, not by this thread's own
+> report). **CONFIRMED LIVE 2026-09-02 21:30**, after the owner's roll: `service_binary_capabilities`
+> shows every current pod on `git_commit=0d2feee2`, and `e5b1a0f01` is a confirmed ancestor
+> (`git merge-base --is-ancestor`). Still waiting on the daily `evidence-freshness` tick
+> (`last_completed_at` unchanged at 09:08:57 — next run ~09:09 tomorrow) before the check runs
+> against real data for the first time. Q7's own half (facts /
 > host admission) is NOT built — still open, still needs the owner's steer on shape. Full costing and
 > the two filing traps (`ON CONFLICT DO NOTHING`; key on the finding, not the site): `LANDMINES.md`,
 > the banned-claims-escaping entry, amended 2026-09-02.
