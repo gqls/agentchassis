@@ -149,6 +149,60 @@ would give, one grain coarser. Composition's genuine addition over it is nesting
 a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants exactly one image,
 **finer sections are sufficient and nesting is not needed**.
 
+> ### ✅ SUPERSEDED 2026-09-02 — THE MECHANISM SHIPPED. Do not take the flat-sections route, and do not wait.
+>
+> Everything above this box was true on 08-31 and is **out of date**. **`IMG-075` — per-section
+> binding for section-scope imagery — went LIVE 2026-09-01 21:00 (chassis `v1.0.1351`),
+> `Council-Reviewed: 2979c27f`, approved at round 3.** It does exactly what §3.2 says nobody could
+> do yet: a page can carry **a different figure in each section**, re-derived from the plan on every
+> build and every re-render — which is the durability property the flat-sections workaround was
+> invented to approximate, obtained properly.
+>
+> **Verified at the artefact, not read off the register** `[MEASURED 2026-09-02]`, because a
+> register status line is a snapshot that outlives its truth: binary probe on the running chassis
+> pod returned `sectionRefForOrdinal` PRESENT, `sectionOrderAgrees` PRESENT, `PlanSectionsAction`
+> PRESENT (must-be-present control), `sectionRefForOrdinalNOTREAL` ABSENT (must-be-absent control).
+> **`sectionOrderAgrees` is a ROUND-2 symbol** — probing only round-1 symbols returns all-present on
+> a binary carrying half the change, which the IMG-075 entry warns about in its own words.
+>
+> **A peer lane told us on 09-02 that "the resolver maps by KIND first-wins, so several illustrated
+> sections on one page resolve to the same image" and that grip-styles "is precisely the case that
+> limit blocks". That was true until 09-01 21:00 and is now stale** — it is the defect IMG-075 was
+> written to remove, and dartsonline's own grip-styles is the worked example in its test
+> (`TestPlanSections_SectionScopeIllustrationBindsToItsOwnSection`, fixtures
+> `illustration-ring-grip.jpg` / `illustration-shark-grip.jpg`). Corrected back to them.
+>
+> **What is actually missing is the ASKING, and it is this lane's to do.** `[MEASURED 2026-09-02]`
+> no page in the estate has more than one section-scope *illustration* row, and dartsonline has
+> **zero** — its 7 section-scope rows are all `kind='icon'` on `index:2`/`about:2`, and **icons
+> cannot reach this branch at all** (they resolve by literal key; the per-section map holds kind
+> keys only). So the mechanism is live and undriven.
+>
+> **The concrete blocker on grip-styles is the page shape, and it is measured:**
+> `/blog/grip-styles.html` has **three** components — `hero`, `article-body`, `call-to-action`. The
+> whole guide is one `article-body`, which is §3.2's "one field owns prose and figures" in its
+> purest form. So the work is: **re-plan the guide into per-h3 sections using a component that
+> sources `site_assets.illustration`** — exactly **two** exist estate-wide, `Illustrated Text Block`
+> and `brief-explanation` `[MEASURED 2026-09-02]` — then seed `site_plan_imagery` rows at
+> `scope='section'`, `kind='illustration'`, `scope_ref='<slot>:<ordinal>'`, one per grip.
+>
+> **⚠ TWO THINGS THAT WILL MAKE THIS LOOK DONE WHEN IT IS NOT:**
+> 1. **Grade it with a `content_rewrite`, NOT a page re-render.** Only `reason=image_landed` and
+>    `reason=section_data_resolved` re-resolve; **every other re-render reason redeploys the stored
+>    HTML unchanged**, so seeding rows and firing an ordinary re-render produces identical bytes
+>    whether the binding engaged or did nothing. The save path is what this mechanism exists to
+>    survive, so the save path is the test.
+> 2. **dartsonline `index` currently STANDS DOWN** — `[MEASURED 2026-09-02]` its plan lists 6
+>    sections and the live page has 4, and any disagreement stands the whole binding down by design
+>    (`sectionOrderAgrees`, added in round 2 precisely because a mis-bound figure renders and
+>    deploys looking correct). A re-plan the page has not been rebuilt from. Check the guide pages'
+>    plan-vs-live agreement before seeding, or the rows will bind to nothing and read as inert.
+>
+> **Still true from the peer, and worth keeping:** a component field sourced `site_assets.image`
+> does NOT give a section illustration — `imageRoleAliases` maps `image` → `hero` unconditionally,
+> so it re-renders the page's own banner (`IMG-074`, and a `LANDMINES.md` entry). Use
+> `site_assets.illustration`. That half of their message is confirmed, not stale.
+
 Durable design for the imagery half remains
 `inline_guide_imagery/PLAN_2026-08-14_durable_inline_guide_imagery.md` (plan-as-truth, unbuilt).
 `grip-styles` is the natural canary; the other lane wants it at **P2**, not now.
