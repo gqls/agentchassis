@@ -116,3 +116,40 @@ first time, and left the decision with them since it is their site. For the dart
 pointed at, the remaining step is a page rebuild that composes the guide into small sections and
 asks for an image for each, and that is a change to a live page on a site another thread is
 actively working, so it wants their agreement rather than my initiative.
+
+## 2026-09-02 (afternoon) — approved, and what the reviews were actually for
+
+The change is approved. It took three rounds, and I want to record what those rounds cost and
+bought, because the honest answer is not what I expected.
+
+I would have called the first version finished. The reviewers found two things in it that were
+real. The first is the one that stings: I had argued at length that you must not identify a
+section by a position number, because the system keeps two incompatible numbering schemes — and
+then wrote a fix in which a section's identity ended up worked out in three separate places from
+three different lists. The same trap, one level along, inside the change that was fixing it.
+Where those lists disagree the picture does not vanish; it lands under the wrong heading, and
+everything about the page looks correct. That is now blocked, and I proved it by disabling the
+block and watching the test put the shark-grip photograph on the ring-grip section.
+
+The second was simpler: a piece of the system for counting "which repeat of this is this one"
+already existed, and on one code path it was sitting two lines above the one I wrote by hand.
+
+The second round failed on something worse, in the sense that it was purely my carelessness: the
+first round had told me off for describing a file in prose instead of putting it in the reviewable
+list, I fixed that for the file it had named, and then did the identical thing with another one.
+The reviewer quoted my own confession back at me. Fixed, and the third round passed.
+
+**Something useful fell out of the waiting.** While the last review ran I measured what a
+detector this lane has been planning would actually catch today, rather than assuming it would
+catch nothing. It found two live cases on other people's sites: an illustration that was planned,
+generated, deployed and is being ignored because the section asks for "an image" and the system
+hands back the page's own banner picture — so that page shows its banner three times and its
+illustration never — and a second where the field asks for nothing at all, so no part of the
+system writes it and the space stays blank for ever. Both are contributed to the existing bug that
+covers exactly this, with the queries, and left with the people who own those sites.
+
+**Where the actual ask stands.** The plumbing is approved and half of it is live; the rest goes
+out with the next fleet build. The guide pages you asked about still have no pictures in them,
+because nothing has yet *asked* for one per section — that step is a rebuild of a live page on a
+site another thread is working, and I have given them the exact recipe rather than doing it over
+their heads.
