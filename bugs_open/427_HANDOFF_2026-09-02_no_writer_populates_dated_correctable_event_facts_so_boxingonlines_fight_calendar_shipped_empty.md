@@ -465,3 +465,55 @@ inline. Resubmitted on the same correlation (`RESUBMIT_CORR`), verdict pending a
 - Not this lane's job, tracked elsewhere: `bugs_open/428`'s own remaining items (see that
   file's own §11); `content_feed_items.duplicate_of`/cross-article correction (named
   residual, no owner yet).
+
+## 12. Status update, 2026-09-02 (later same day) — round 3 APPROVED; Phase B started, split in two
+
+**`query.upcoming_events`'s council submission (`08f56b7e`) is now APPROVED**, after two
+REVISE rounds, both genuinely load-bearing, both fixed rather than argued against:
+
+- **Round 2** (`bug_historian` HIGH): the resolver's own "omit rather than invent" policy
+  for a missing field had no visibility mechanism — an incomplete or unevidenced fixture
+  would render (or fail to render) with nothing durable recording it. Fixed with a NEW
+  discovery check, `check_event_fixture_completeness` (commit `d6a952249`), kept
+  deliberately OUT of the resolver (a query.* resolver must stay a pure read) — it
+  classifies every event-dated fact as complete/incomplete/unevidenced and files one
+  `capability_gap` item per site naming which, retracting it the moment a site is clean.
+  Registered but **inert until named in a live `run_checks.config.checks` array** — a
+  separate, low-risk operational step, not done in this round.
+- Round 3 fixed the round-2 objections' own stale submission text (the "risks" section
+  had kept saying the naming question was "open" and blast radius was "nil" after both
+  were already resolved/stale in the code — a lesson in itself: updating the CODE is not
+  the same as updating the SUBMISSION reviewers actually read).
+
+**Phase B (the actual visible fix) is started, deliberately split in two:**
+
+- **Step 1 — SHIPPED, live**: a new `event-list` content_components row (migration `712`,
+  commit `33b19ba63`), query-sourced from `query.upcoming_events`, every optional field
+  independently `{{if}}`-guarded — validated by actually EXECUTING the template through
+  Go's `text/template` engine against three cases (empty / full / missing-optional-fields)
+  before writing the migration, not just reading it. **Attached to NO page** — zero live
+  effect today, pure library addition. Submitted for council review
+  (`ff91e666-608d-4b26-9c41-d97d23a21437`).
+- **Step 2 — NOT done, and here is exactly why, named rather than guessed past**:
+  attaching `event-list` to boxingonline.com's live fight-calendar page. The framework's
+  own designed mechanism for "a page's declared sections name a component that exists but
+  isn't built" (`check_unresolved_sections`, confirmed live in
+  `completeness-discovery-agent`) marks the page `build_status='needs_rebuild'`, which
+  `get_pages_to_build_actions.go` then routes through the **FULL `page-build-handler`
+  pipeline** — the same path that plans and writes a page from scratch, not the scoped,
+  no-LLM `page-rerender` path that only refreshes an already-present component's
+  query-sourced field. This session did not verify that a `needs_rebuild` pass on an
+  **already-deployed page with two existing, approved sections** (hero-tool,
+  generic-text-block) carries that content forward untouched rather than re-planning or
+  re-writing it. Given the target is a **paid customer's live page**, this was treated as
+  a real decision rather than an assumption to make silently.
+
+**Decision needed to finish this bug**: either (a) verify the carry-forward guarantee
+first (read `plan_sections_action.go`'s handling of an already-deployed generic page, or
+test against a non-customer site first), then run step 2, or (b) accept the risk knowingly
+and run it — the exact SQL is written out, commented, at the foot of migration `712`.
+Neither was decided unilaterally this session.
+
+**Also held back this session, same reasoning**: deploying the admin-dashboard frontend
+for `bugs_open/428`'s release surface (`make admin-dashboard`) — low risk, but a real
+production deploy action, flagged rather than run on a generic "carry on" instruction.
