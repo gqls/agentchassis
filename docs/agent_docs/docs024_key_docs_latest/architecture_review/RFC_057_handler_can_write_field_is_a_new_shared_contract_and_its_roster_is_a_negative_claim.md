@@ -327,3 +327,52 @@ making the shared thing singular than by building a protocol for keeping two cop
 nothing received by 16:13Z through commits, `doc_notes` or messages, while that lane was actively
 committing other work. **Their silence is not agreement** — §8 argues for narrowing their own §4
 concession, and it stands unanswered by its author.
+
+### 9a. ⚠ QUALIFICATION ON Q1, from this RFC's own author, 2026-09-02 — carried because it sharpens the ruling rather than disputing it
+
+The author replied after the ruling (their silence during it is recorded above). **They do not object
+to the defer.** They raise one qualification, and it is the better statement of the risk:
+
+> Q1's reasoning is that staleness fails in the SAFE direction — the roster over-refuses, filing a
+> visible `capability_gap` row. **That is sound, and it assumes the roster is CONSULTED.**
+
+Their evidence is first-hand and from the same week: their own producer gate — built 2026-08-31, ~630
+lines, council-submitted, **present in the running binary and verified by merge-base against the
+deployed commit with a control both ways** — is **wired to nothing**. `offer-analyser` has ten
+workflow steps and none calls it. Measured consequence: **254 `lead_with` points minted since it
+shipped, 65 born dirty (25%)** against a 23% baseline. **Live and inert for two days.**
+
+**So the failure mode to name against Q1 is not "the roster goes stale" — it is "the roster is never
+asked".** Staleness fails safe *given the code runs*; an unwired guard fails **SILENT**, which is
+precisely the property the completeness half was built to remove.
+
+**Their proposed addition to the ruling, which this lane endorses and records as part of it:** when
+the emit-side stamp is built, **the first check is not *is the roster current* but *does anything
+actually call it* — answered with a MEASUREMENT, not a code read.**
+
+#### 9b. Applied to this roster now, because the qualification deserves testing rather than filing
+
+`[MEASURED 2026-09-02]` — and the answer is favourable for a **structural** reason worth naming,
+not by luck:
+
+- **It cannot be unwired by config.** Their gate is an agent **workflow step**, so a config that omits
+  it silently disables it. This roster is reached by a **Go call chain**: `classifyFindingRoute` has
+  **exactly one** caller — inside `classifyFinding`, already wrapped by `withUnwritableFieldGuard`
+  (`write_audit_findings_action.go:441`) — and `classifyFinding` has exactly one caller, in the
+  finding-write loop (`:1054`). There is no route into the router that bypasses the guard, and no
+  agent config can decline it. **That asymmetry — config-wired vs call-wired — is the whole difference
+  between their outcome and this one**, and it is the property to look for when judging any future
+  guard's exposure to this failure.
+- **Demand-side proof, not a code read:** **48** rule-3b rows across **33** sites, first 2026-08-25
+  23:29Z, latest 2026-09-02 04:52Z. **Each row exists only because `HandlerCanWriteField` returned
+  `known=true`** — the guard's own output is the receipt that the roster was consulted.
+
+⚠ **What that does NOT prove, stated so the receipt is not over-read:** every one of those 48 rows
+predates the corrected roster going live (`v1.0.1352`, 12:28Z on 2026-09-02; latest firing 04:52Z the
+same day). **The CALL PATH is proven exercised; the CORRECTED VERDICT is not.** The fix did not touch
+the call site, so the proof carries — but "is it called" and "does its new answer route correctly" are
+different claims and only the first has evidence.
+
+**Nothing in 9a changes the ruling.** It is recorded because the reasoning the owner accepted rested on
+an assumption that was never stated, and the assumption happens to hold here for a reason that will not
+hold for every guard this estate builds.
