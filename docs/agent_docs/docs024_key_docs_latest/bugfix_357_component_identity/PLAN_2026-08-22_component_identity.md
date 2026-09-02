@@ -352,3 +352,31 @@ declines by name, is silent for 190 of 339 components, and cannot vouch for the 
 (`{{.body}}` declares no attribute). With the stamp now actually flowing, it answers the same
 question as fact. Layer D (an at-rest detector for the other five `page_components` writers) keeps
 its value, as a separate lane.
+
+---
+
+## DECISION 2026-09-02 (OWNER): Phase 3 ships as OPTION B — per-tool adoption, not 578's shared retype
+
+The owner ruled between two repair shapes for the 22 (both fully specified in NOTES
+2026-09-02): **Option B — the lendzy-693 shape transferred** — each row gets its own
+content_components row whose html_template IS the stored bytes (created_from='adopted',
+component_level='tool'), with the PLAN repointed in the same transaction at BOTH levels
+(site_plan_sections.component_name for durability — pages.sections is a derived copy that
+sync overwrites — and the pages.sections element for immediate effect).
+
+**Reason:** 578's rebuild-safety rests on the armed Layer 2 identity-carry, which is exactly
+what precondition 4 exists to prove and could not be tested (the cv1 canary is structurally
+the wrong vehicle — 26b handoff Finding 2). Option B makes regeneration safe BY CONSTRUCTION
+— template = bytes, plan no longer names hero — removing the dependency instead of testing
+through it, which is this estate's own fix-ranking rule. 578 stays on disk untouched until B
+is applied and verified, then gets a SUPERSEDED marker.
+
+**Pre-design measurements (all 2026-09-02, this session):** drift reconciler compares
+built_from_plan_version (a site_plans.id) to the current plan id — plan-element edits create
+no plan row, no drift storm; all 22 bodies binding-free (zero '{{'); all 22 pass
+toolTemplateValid through the real function (both-way controls); exactly one hero row at
+ordering 0 per page in each site's single current plan; ONE function collision
+(tool-equity-release vs library row tool-equity-release_pre_037 a5236dec) → that one adopted
+row forks per RFC_036 §9.3; section resolution tries stored component_id FIRST, so repointed
+rows resolve directly. Pilot: mortgagecalculator/tool-simple first, then the remainder.
+Migration: **700_retype_357_population_by_adoption_HOLD.sql** (by hand, never the runner).

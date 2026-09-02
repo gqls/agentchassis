@@ -1748,3 +1748,26 @@ adoption alone does NOT close our chain.** The transferable version, per lendzy:
 | status | reviewed, backed up, ready | needs a new migration + council round |
 | preconditions | 4 unmet (blocked on test vehicle) | toolTemplateValid ×22, drift-reconciler interaction UNMEASURED |
 | crib | 578 + _ROLLBACK | lendzy_co_uk/ docs + sql_for_agents/693_*.sql |
+
+### 2026-09-02 (night) — OPTION B RULED by the owner; measurement session complete; migration 700 drafting
+
+Owner ruled **Option B**. Decision + reasons + all pre-design measurements recorded in PLAN
+(2026-09-02 decision block) — drift reconciler safe (compares plan IDs, not sections), the
+THIRD repoint leg found (`site_plan_sections.component_name` — `pages.sections` is a derived
+copy sync overwrites), one function collision (tool-equity-release → fork per RFC_036 §9.3),
+22/22 bodies binding-free AND 22/22 pass the real `toolTemplateValid` (both-way controls;
+probe file written, run, deleted in one step). Full pinned census (pc_id/md5/bytes ×22) is in
+the migration's guards; bodies exported to session scratch `bodies_22.json`.
+
+**Site-owner notification duty identified:** mortgagecalculator.co.uk has an ADOPTION lane
+owning these exact tools as product (dormant session; site UNLOCKED, improvement loops live —
+their rebuild mid-apply would drift the census and our Guard 2 aborts, which is correct);
+vetcomparison.uk lane is live in a peer session; gamesdesign.co.uk has NO lane in the
+workstreams index (checked 2026-09-02). Notify at council-submission time with the concrete
+file: vetcomparison by message, mortgagecalculator by CONTRIB file, gamesdesign noted unowned
+in the submission.
+
+Migration pair `700_retype_357_population_by_adoption_HOLD[.../_ROLLBACK].sql` drafting via
+fable with the full dossier; review → place → council → owner-sequenced apply (pilot
+tool-simple first). 408 fix approved and committed but NOT yet rolled — the roll is still
+wanted before any rebuild-dependent verification.
