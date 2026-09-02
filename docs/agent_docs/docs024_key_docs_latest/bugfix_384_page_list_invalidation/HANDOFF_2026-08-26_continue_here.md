@@ -9,6 +9,9 @@ CORRECTED block, and the CLOSE-OUT VERIFICATION section at the tail) →
 
 ---
 
+> **⚠ THIS FILE IS SUPERSEDED. Cold-start from `HANDOFF_2026-09-02_continue_here.md` instead.**
+> Kept for history only; §1/§4/§6 are all corrected there.
+>
 > **CORRECTED 2026-08-31 ~16:10Z — §1 AND §6 ARE SUPERSEDED. DO NOT CLOSE 384.**
 > Re-measured after five idle days. The lane's code is still live (single build `ef06af0e0afc`,
 > 342 pods, all four commits ancestors). But **the defect is back on a GENERIC page**:
