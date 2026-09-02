@@ -169,3 +169,54 @@ gap next to it, and it needs its own small piece of work. That has not moved.
 **Where it stands.** Nothing is broken by any of this, nothing is in flight, and nothing needs a
 decision from you this minute. What is owed is one diagnosis run on that single 27 August refresh,
 and then a proper re-check now that the credit is back and the machines are working again.
+
+## 2 September — I re-read the page as you asked, and it turned up a second, worse problem
+
+You asked me to look at the page again before spending anything on a diagnosis run. That was the
+right order, and it changed what I would spend it on.
+
+**First, the page.** It is unchanged. Not "roughly the same" — the file I fetched today is
+byte-for-byte identical to the one I fetched on Sunday, down to the last character. The same two
+entries are still showing as plain text with no picture, still sitting at the top of the list. The
+pictures for them were made on 27 August. That is six days.
+
+**And this time there is no excuse available.** On Sunday I had to caveat everything, because the
+whole system had been out of credit and nothing was running. It is running now, properly — about
+nine in ten refresh jobs completed today, and pictures are being produced again. So the page had
+every opportunity to fix itself and did not.
+
+**Now the part I got wrong on Sunday, and the bigger thing it was hiding.** I told you the
+detecting half of our fix "fired nine times". It did not. There were two different things filing
+those requests and I lumped them together. Our card-landing detector filed six, and all six were
+picked up and ran. The other nine came from the *sweep* — the safety net we added on 25 August to
+catch anything the first detector misses.
+
+**The safety net has never worked. Not once, since the day we turned it on.** Twelve requests in
+its entire life, across three different customer sites, and every single one was dead on arrival —
+filed into a state the system treats as already-closed, so nothing ever picks them up. It has been
+correctly spotting this exact fault every day for five days and every one of those reports was
+binned automatically, in silence.
+
+**Why, and it is uncomfortable, because we caused it.** The system has a sensible rule: if a repair
+has already been attempted twice for the same thing and the fault is still there, stop retrying and
+park it for a human. The rule counts *completed* jobs as attempts. Our first detector's jobs keep
+completing — they just are not actually fixing anything. So the safety net gets switched off by the
+first detector's false successes. **Our own fix disabled our own backup, on precisely the pages
+where the backup was needed.**
+
+**One thing that has been quietly reassuring us and should not have been.** We set ourselves a
+check for 1 September: look at how often the sweep escalates, expecting roughly one in thirty-six.
+It has been reporting zero. Zero looks like good news. It means the sweep never ran at all. I have
+marked that as worthless rather than leaving it to be read again.
+
+**What I have done, and deliberately not done.** This turns out to be a known problem — another
+team filed it on 25 August and their write-up describes this exact chain. So I have not opened a
+competing case or touched their code. I have added our evidence to their file, including one thing
+they did not have: in our case the "failed attempts" were all *successes*, and they came from a
+different component than the one that got parked.
+
+**Where that leaves the decision.** The original question — why does a refresh job complete without
+doing anything — is still open and still unanswered, and it is now the only thing a diagnosis run
+needs to look at. Nothing here is urgent or damaging: three pages on three sites are showing a
+missing thumbnail. But this bug cannot be closed, and I would rather spend the run on the narrow
+question now that everything around it has been cleared away.

@@ -58426,3 +58426,35 @@ exactly the failure the marker convention exists to catch. Corrected to the peer
 that carries this entry.
 
 Family: a-count-of-things-must-carry-the-date-it-was-counted, prior-art-search-goes-stale.
+
+## 2026-09-02 — "the seam fired nine times": I grouped rows by STATUS and reported WHO ACTED (bugfix_384 lane)
+
+**The claim.** In `bugs_open/384`'s 08-31 update and its handoff correction block I wrote that this
+lane's card-landing seam "fired, correctly, nine times" on
+`leopardessconsulting.co.uk/blog`, and built the whole finding on it: the seam works, consumption
+fails, two of *its* items completed green without repairing.
+
+**What was actually true.** Two different producers filed those rows. `derive_card_asset` (the seam)
+filed **6, all `complete`**. `completeness-discovery-agent` — this lane's own `page_list_stale`
+sweep — filed **9, all stuck**. The seam never filed nine anything. The half of my claim that
+mattered most to the lane (the sweep's health) was invisible inside the aggregate I chose.
+
+**What caught it.** Re-reading two days later on a recovered queue and running
+`GROUP BY created_by, status` instead of `GROUP BY status`. That immediately showed the stuck rows
+were a *detector's*, not the seam's — and pulled on it to a second defect: the sweep has filed
+**12 items in its lifetime and every one was born in a terminal status**, so it has never run once.
+
+**The cheap check I skipped.** I had those exact rows on screen on 08-31 — I selected `item_type`,
+`status`, `attempt_count`, `item_key` and `spec->>'reason'`, and `created_by` was one column away.
+**When a set of rows is about to carry a claim about WHO ACTED, group by the actor before you count
+them.** A status histogram answers "what happened"; it cannot answer "who did it", and I reported
+the second from the first.
+
+**Why it mattered rather than being cosmetic.** The wrong attribution pointed the next step at the
+wrong subsystem — I proposed a `090` on the seam's consumption path, when the larger, cheaper and
+fully-evidenced finding was that a detector this same lane shipped had been silently dead since the
+day it went live. It also let a watch item stand: §8.1's "zero escalations against a 1-in-36
+baseline" is zero over an EMPTY denominator. **Count the RUNS before you quote a RATE.**
+
+Family: a-post-fix-zero-needs-a-demand-control, thunder-reaper-fires-but-has-never-reaped,
+a-complete-work-item-is-not-a-repaired-artefact.
