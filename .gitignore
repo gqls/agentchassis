@@ -277,3 +277,43 @@ docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files/idea
 /scheduler
 /git-adapter
 /reasoningset
+
+# Go build artefacts at the repo root.
+# `go build ./cmd/<x>/` writes the executable into the CWD, so every session that
+# builds a command to check it leaves a ~10-50MB binary here. MEASURED 2026-09-02:
+# TWELVE such binaries, 581MB total, none of them shadowing a tracked file — and
+# nothing ignored them, so any session's `git add -A` (forbidden, but the reason the
+# commit-scope report exists) would have swept the lot into a commit.
+# Listed explicitly rather than globbed: a root-level glob here would be dangerous,
+# and every name below is a cmd/ package directory, verified untracked.
+/agent-chassis
+/analyser-adapter
+/auth-service
+/backfill-tool-crosslinks
+/brief-negation-check
+/browser-runner-adapter
+/claimscan
+/component-render-check
+/config-key-audit
+/content-creator-agent
+/content-data-recover
+/content-loss-check
+/core-manager
+/fcaquotecheck
+/git-adapter
+/image-generator-adapter
+/instanceaudit
+/reasoning-agent
+/reasoningset
+/regcheck
+/releasecheck
+/remote-job-spawner
+/scheduler
+/test-spawning
+/thunder-adapter
+/tools-api
+/verifier-remit-check
+/voicescan
+/web-scrape-adapter
+/web-search-adapter
+/webdesignport
