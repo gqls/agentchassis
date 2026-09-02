@@ -3784,6 +3784,16 @@ watching remake №1 end-to-end and its domain no longer resolves:
   №1's remake appears there when its build deploys; nothing for your lane to do except know
   that an HTTP probe of advertise.co.uk today measures DNS state, not build state.
 
+**RESOLVED same evening (~19:00Z): all four zones ACTIVE, all four domains SERVING** —
+the twist was a Cloudflare NS-pair mismatch (new zones get betty/ivan, the owner's batch
+had pointed at alexis/leah); repointed at Nominet via the new nominet.py client, verified
+at the registry and at the edge by body fetch. **advertise.co.uk now publicly serves the
+remake** (200, 75,562 B, title "Advertise.co.uk — The UK Guide to Advertising") — №1's
+launch is complete. ⚠ **For your lane's eye: designblog/seotools/websitepromotion.co.uk
+also serve full titled sites** (69–72 KB bodies) while their briefs sit at
+`needs_human_review` — whatever those bodies are, they predate their remakes; your lane
+owns whether that interim content should stand.
+
 ### (k) ALL FOUR remakes DEPLOYED in one day — serving now gated ONLY on Cloudflare zones
 
 advertise 16:23Z · seotools ~18:2xZ · websitepromotion ~18:3xZ · designblog ~18:5xZ. Convergence

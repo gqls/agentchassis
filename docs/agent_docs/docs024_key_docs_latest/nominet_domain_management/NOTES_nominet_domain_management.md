@@ -180,3 +180,27 @@ LANDMINES bar (body property via pinned edge IP, not status codes).
 
 OPP-015 proof state after tonight: probe/login/info/set-ns(+--apply) all
 proven live; walk/list/check remain unexercised.
+
+## 2026-09-02 (evening, cont. 3) — INCIDENT CLOSED: all four zones ACTIVE, all four domains SERVING, remake №1 publicly live
+
+Owner re-ran the bootstrap after the repoint: all four zones `active` on the
+FIRST poll (the pair fix was the whole story). Serving verified at the
+LANDMINES bar — body property via edge IP pinned from the assigned NS, never
+a bare status code `[MEASURED 2026-09-02 ~19:00Z]`:
+
+- advertise.co.uk — 200, 75,562 B, title "Advertise.co.uk — The UK Guide to
+  Advertising" → **remake №1 is now PUBLICLY LIVE** (it was built + deployed
+  16:23Z with only DNS owed; this cutover completed the launch).
+- designblog.co.uk — 200, 71,578 B, titled site content.
+- seotools.co.uk — 200, 69,837 B, titled site content.
+- websitepromotion.co.uk — 200, 71,275 B, titled site content.
+- garden-tools.uk (control) — 200, 78,464 B, as always.
+
+Observation routed to portfolio_positioning, not resolved here: the THREE
+held-brief domains serve full titled sites, while their briefs sit at
+`needs_human_review` — whatever those bodies are, they predate their remakes.
+Their lane owns what those domains *should* say; ours only that they resolve
+and serve.
+
+Residual: resolvers that cached the alexis/leah delegation SERVFAIL until
+their negative caches expire (minutes, not days). Nothing to do.

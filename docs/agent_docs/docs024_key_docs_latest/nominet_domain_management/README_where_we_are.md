@@ -57,3 +57,23 @@ tag into a file (a couple of minutes). One improvement over the old plan: the
 old recipe only looked twelve months ahead for renewal dates, but domains can
 be registered for up to ten years, so it could have quietly missed some — this
 walks the full ten.
+
+## 2026-09-02 (late evening) — the four domains are back, and advertise.co.uk is publicly launched
+
+You ran everything, and it all worked. The wrinkle along the way: Cloudflare
+gave the four new zones a different pair of nameservers (betty/ivan) from the
+one the older sites use (alexis/leah), so the nameserver change you'd made at
+Nominet pointed at the wrong pair and the zones could never come alive. The
+new Nominet tool moved all four to the right pair — its first real write, and
+it behaved exactly as designed — and on the next check all four zones went
+active immediately.
+
+All four domains now serve real pages over https, checked properly (actual
+page content fetched from Cloudflare's own servers, not just a status code).
+That means the advertise.co.uk remake — built earlier today — is now live on
+its own domain. A detail passed to the remake programme: the other three
+domains are serving full-looking sites even though their remake briefs are
+still waiting on you — worth a glance at what they're showing in the meantime.
+
+Still open from earlier: the domain list (the walk hit a one-off connection
+blip — just run it again when convenient) and the second-tag question.
