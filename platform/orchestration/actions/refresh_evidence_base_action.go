@@ -83,6 +83,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"math"
 	"regexp"
 	"strings"
@@ -206,6 +207,18 @@ type siteRefreshResult struct {
 	// does not re-render anything without this. omitempty: a site with no
 	// such consumer (every site today) marshals exactly as before.
 	EvidenceConsumerPagesQueued int `json:"evidence_consumer_pages_queued,omitempty"`
+
+	// InvalidBannedClaimPatterns (RFC_060 §1e/§3e) names every per-site
+	// banned_claims pattern that fails to compile as a regex this pass — a
+	// silent no-op guard (claims.go:348's fallback) with nothing else in the
+	// estate positioned to notice it. omitempty: a clean register (the fleet
+	// today) marshals exactly as before.
+	InvalidBannedClaimPatterns []invalidBannedClaimPattern `json:"invalid_banned_claim_patterns,omitempty"`
+	// InvalidBannedClaimWorkItemsCreated is how many of the above got a NEW
+	// work item this pass (a pattern already holding an open item counts
+	// toward InvalidBannedClaimPatterns but not here — see
+	// createInvalidBannedClaimPatternItems).
+	InvalidBannedClaimWorkItemsCreated int `json:"invalid_banned_claim_work_items_created,omitempty"`
 }
 
 func RefreshEvidenceBaseAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -295,6 +308,66 @@ func resolveEvidenceSites(ctx context.Context, db *sql.DB, siteIDStr string, log
 	return ids, rows.Err()
 }
 
+// invalidBannedClaimPattern names one per-site banned_claims pattern that
+// fails to compile as a regex.
+//
+// RFC_060 §1e/§3e (2026-09-02): claims.go:348 falls back SILENTLY when a
+// per-site pattern does not compile — no logger, no error path — degrading
+// the guard to a literal match of its own source text rather than refusing
+// the write or telling anyone. TestEveryGlobalPatternIsAValidRegex pins the
+// FLEET-WIDE set (authored in Go); it cannot see a pattern arriving as DATA.
+// The admin door counts patterns without compiling one, so the guard is
+// armed, listed, counted, and INERT, with every count-based check passing.
+type invalidBannedClaimPattern struct {
+	Index   int    `json:"index"`
+	Pattern string `json:"pattern"`
+	Reason  string `json:"reason,omitempty"`
+	Error   string `json:"compile_error"`
+}
+
+// checkBannedClaimPatterns re-runs EXACTLY the compile claims.go:348 performs
+// (case-insensitive, same prefix) over a site's raw banned_claims and reports
+// every pattern that does not compile — pure, no DB, so the finding is
+// unit-testable without a fixture site.
+func checkBannedClaimPatterns(bannedClaimsRaw interface{}) []invalidBannedClaimPattern {
+	list, ok := bannedClaimsRaw.([]interface{})
+	if !ok {
+		return nil
+	}
+	var invalid []invalidBannedClaimPattern
+	for i, entry := range list {
+		bc, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		pattern := datahelpers.GetStringField(bc, "pattern", "")
+		if pattern == "" {
+			continue
+		}
+		if _, err := regexp.Compile("(?i)" + pattern); err != nil {
+			invalid = append(invalid, invalidBannedClaimPattern{
+				Index:   i,
+				Pattern: pattern,
+				Reason:  datahelpers.GetStringField(bc, "reason", ""),
+				Error:   err.Error(),
+			})
+		}
+	}
+	return invalid
+}
+
+// bannedClaimPatternItemKey identifies ONE bad pattern, not the site — the
+// council-argued fix to the sibling stale_evidence shape (bugs_open/091): a
+// key scoped to the site alone would let a SECOND, different bad pattern hide
+// behind an already-open item for the first (measured there: four of five
+// open items named the wrong fact). fnv64a of the pattern text, mirroring
+// citationFactID's existing convention in this package.
+func bannedClaimPatternItemKey(siteID uuid.UUID, pattern string) string {
+	h := fnv.New64a()
+	h.Write([]byte(pattern))
+	return fmt.Sprintf("invalid_banned_claim_pattern:%s:%x", siteID.String(), h.Sum64())
+}
+
 // shouldRaiseStaleEvidence decides whether a pass's drift, if any, should
 // raise a stale_evidence work item — split out as a pure function (no DB, no
 // side effect) specifically so the gating decision itself is unit-testable
@@ -342,6 +415,12 @@ func refreshOneSiteEvidence(
 
 	domain := loadSiteDomain(ctx, db, siteID, logger)
 	res := &siteRefreshResult{SiteID: siteID.String(), Domain: domain, WriterBlock: "unchanged"}
+
+	// RFC_060 §1e/§3e: computed here (pure, no DB) so a dry run REPORTS it —
+	// the write, gated below with everything else, is what a dry run must not
+	// do. Independent of the facts loop below; banned_claims carries no
+	// dependency on fact state.
+	res.InvalidBannedClaimPatterns = checkBannedClaimPatterns(eb["banned_claims"])
 
 	factsRaw, _ := eb["facts"].([]interface{})
 	today := currentDateString(ctx, db)
@@ -615,6 +694,15 @@ func refreshOneSiteEvidence(
 
 	if dryRun {
 		return res, nil // report only — write nothing, raise nothing
+	}
+
+	if len(res.InvalidBannedClaimPatterns) > 0 {
+		created, err := createInvalidBannedClaimPatternItems(
+			ctx, db, siteID, domain, res.InvalidBannedClaimPatterns, params.AgentType, logger)
+		if err != nil {
+			logger.Warn("refresh_evidence_base: invalid_banned_claim_pattern write failed", zap.Error(err))
+		}
+		res.InvalidBannedClaimWorkItemsCreated = created
 	}
 
 	writeFactBindingSuggestions(ctx, db, siteID, factSuggestions, dryRun, logger)
@@ -1633,6 +1721,84 @@ func createStaleEvidenceItem(
 		zap.Bool("inserted", write.Inserted),
 		zap.Bool("refreshed", write.Refreshed))
 	return write, nil
+}
+
+// createInvalidBannedClaimPatternItems raises one work item PER invalid
+// pattern (RFC_060 §1e/§3e), not one per site — deliberately NOT modelled on
+// createStaleEvidenceItem's per-site key. dropOnConflict (insertWorkItem,
+// ON CONFLICT ... DO NOTHING), never refreshOnConflict: a daily re-write of
+// an open item bumps updated_at, and the stale-item reaper that keys on it
+// would then never reap this row (bugs_closed/213) — the finding is a
+// standing defect until a human fixes the pattern, not a value that needs
+// its description kept current. Returns the count actually inserted (a
+// DO-NOTHING conflict on an already-open item for the SAME pattern is not a
+// failure — it means yesterday's finding is still open, which is correct).
+func createInvalidBannedClaimPatternItems(
+	ctx context.Context, db *sql.DB, siteID uuid.UUID, domain string,
+	invalid []invalidBannedClaimPattern, agentType string, logger *zap.Logger,
+) (int, error) {
+	inserted := 0
+	for _, bad := range invalid {
+		specJSON, err := json.Marshal(map[string]interface{}{
+			"check":         "banned_claim_pattern_compile",
+			"domain":        domain,
+			"pattern":       bad.Pattern,
+			"reason":        bad.Reason,
+			"compile_error": bad.Error,
+			"fix": "This banned_claims pattern does not compile as a regex and has silently degraded to a " +
+				"literal match of its own source text (claims.go:348) — it is armed, listed and counted, but " +
+				"very likely matches nothing on the live site. Fix the regex (common cause: an unescaped " +
+				"paren or bracket) and re-save the evidence_base; the pattern will compile and start " +
+				"scanning for real on the next refresh.",
+		})
+		if err != nil {
+			logger.Warn("refresh_evidence_base: failed to marshal invalid_banned_claim_pattern spec",
+				zap.String("site_id", siteID.String()), zap.Error(err))
+			continue
+		}
+
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return inserted, fmt.Errorf("begin tx: %w", err)
+		}
+
+		write, err := writeWorkItem(ctx, tx, workItem{
+			siteID:       siteID,
+			source:       "scheduled",
+			pipeline:     "content",
+			itemType:     "invalid_banned_claim_pattern",
+			severity:     "medium",
+			summary:      fmt.Sprintf("Banned-claim pattern does not compile (%s): %q", domain, bad.Pattern),
+			spec:         string(specJSON),
+			priority:     35,
+			handlerAgent: "human-review",
+			status:       "needs_human_review",
+			createdBy:    agentType,
+			itemKey:      bannedClaimPatternItemKey(siteID, bad.Pattern),
+		}, dropOnConflict, logger)
+		if err != nil {
+			tx.Rollback()
+			logger.Warn("refresh_evidence_base: failed to create invalid_banned_claim_pattern item",
+				zap.String("site_id", siteID.String()), zap.Error(err))
+			continue
+		}
+		if err := tx.Commit(); err != nil {
+			logger.Warn("refresh_evidence_base: failed to commit invalid_banned_claim_pattern item",
+				zap.String("site_id", siteID.String()), zap.Error(err))
+			continue
+		}
+		if write.Inserted {
+			inserted++
+		}
+	}
+	if inserted > 0 {
+		logger.Warn("refresh_evidence_base: invalid banned_claims pattern(s) found — silently degraded to literal match",
+			zap.String("site_id", siteID.String()),
+			zap.String("domain", domain),
+			zap.Int("invalid_patterns", len(invalid)),
+			zap.Int("items_inserted", inserted))
+	}
+	return inserted, nil
 }
 
 // createStaleAttestationItem raises RFC_025 stage 1's staleness nudge for
