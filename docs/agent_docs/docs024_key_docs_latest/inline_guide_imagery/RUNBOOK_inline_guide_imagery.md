@@ -176,3 +176,42 @@ SELECT sp.id, 'section', :page || ':' || :ordinal, :asset_key, 'illustration', :
 planner, not a generation request. ⚠ The ordinal is the **plan's** `ordering` (0-based, counts
 site-level slots) — on a page whose plan starts with a hero, live `position - 1`. ⚠ `locked_at`
 set, or IMG-013 lock transfer will not carry the row across the next replan.
+
+## Is a planned section figure actually reaching its page? (the Phase-4 tripwire, by hand)
+
+The check `check_unrendered_section_imagery` would automate this. Until it exists, run it:
+
+```sql
+WITH planned AS (
+  SELECT sp.site_id, s.domain, split_part(spi.scope_ref,':',1) AS page_name, spi.scope_ref, spi.kind, a.asset_key
+  FROM site_plan_imagery spi
+  JOIN site_plans sp ON sp.id=spi.plan_id AND sp.is_current
+  JOIN sites s ON s.id=sp.site_id
+  JOIN assets a ON a.site_id=sp.site_id AND a.asset_key=spi.key AND a.status='active'
+  WHERE spi.scope='section' AND spi.kind IN ('illustration','infographic'))
+SELECT pl.domain, pl.scope_ref, pl.asset_key,
+       EXISTS (SELECT 1 FROM pages p JOIN page_components pc ON pc.page_id=p.id
+                WHERE p.site_id=pl.site_id AND p.name=pl.page_name
+                  AND pc.rendered_html LIKE '%'||replace(pl.asset_key,'_','-')||'%') AS rendered
+FROM planned pl ORDER BY 1,2;
+```
+
+`[MEASURED 2026-09-02]` 4 rows, **2 rendered nowhere** — fundamentallyai `about:2`, vonc
+`about:2`. Contributed to `bugs_open/114`.
+
+⚠ **This is an ABSENCE query, so it needs its control** — the `rendered` column being false and
+the `LIKE` pattern being wrong are the same output. The two `true` rows ARE the positive control
+here (same predicate, same derivation, they match); if a run ever returns all-false, suspect the
+pattern before believing the finding. The pattern approximates
+`storage.DeployedWebPath(asset_key, purpose)`; read that function if the spelling ever changes.
+
+⚠ **A false row is not yet a defect — read the section's field source before concluding.** Both
+2026-09-02 misses were the component's own declaration, not a queue: one sourced
+`site_assets.image` (which the alias map resolves to the page HERO, unconditionally), the other
+declared **no source at all**, which is written by nobody and resolved by nobody:
+
+```sql
+SELECT cc.function, f.k, f.v->>'source', f.v->>'on_missing'
+FROM content_components cc, jsonb_each(cc.input_schema->'fields') AS f(k,v)
+WHERE cc.is_active AND cc.function = :section_component AND (f.k ILIKE '%image%' OR f.v->>'source' LIKE 'site_assets%');
+```
