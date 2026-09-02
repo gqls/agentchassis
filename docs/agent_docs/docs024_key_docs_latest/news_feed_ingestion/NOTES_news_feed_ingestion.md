@@ -264,3 +264,48 @@ behaviour the `check_has_items` restructure was specifically fixed to enable.
 This is candidate #1, live, working, against the actual motivating site.
 What's left for 427 fully: candidate #2 (peer, in progress) and candidate #3
 (blocked on the separate page-role diagnosis). This lane's build is done.
+
+Moved to this lane's priority #2: `bugs_open/316`. Re-checked `who-owns.py` —
+same read as before (real work clustered 08-22, everything since is
+CONTRIB/routing shape). The ORDERING and CAPACITY halves are already fixed
+and live (migrations 554, 556) — confirmed by reading the bug file's own §
+history, not re-derived. Two riders were parked in the lane: the UK-news
+TLD-default feature (real, owner-requested, unbuilt) and "unenrolled sites
+never reach the seeder" (`CONTRIB_2026-08-25`).
+
+**The second rider does not describe a real, current defect — checked before
+building anything, per this lane's own established discipline.** The CONTRIB's
+core claim: `find_news_sites`'s WHERE clause structurally excludes any site
+with zero `content_sources` rows, so such a site can never reach
+`content-feed-orchestrator`'s `seed_content_sources` step. Read the CONTRIB's
+own quoted SQL closely first — it is truncated mid-clause ("`… FROM sites s
+JOIN site…`"), cut off exactly where the eligibility predicate begins. Checked
+the LIVE query (`SELECT ... FROM agent_definitions WHERE
+type='content-feed-trigger'`): it has an explicit `NOT EXISTS (... content_sources
+...) OR EXISTS (...)` arm — a zero-source site IS eligible. Traced this back
+through history: `090_b_content_feed_trigger.sql` (the ORIGINAL seed) already
+carries this exact `NOT EXISTS` arm; `554_news_feed_trigger_orders_by_the_schedule...sql`
+(2026-08-22, three days BEFORE the CONTRIB) explicitly documents it by name
+("arm A... is the PROVISIONING path... a newly-classified news site with no
+sources yet is picked up here and seeded") and states `MEASURED 2026-08-22:
+the state has ZERO live instances`. Empirically re-measured today
+`[MEASURED 2026-09-02]`: 15 sites carry `news_feed.recommended=true`; 14 of
+them have `content_sources` rows; the ONE exception
+(`adversecreditmortgage.co.uk`) was classified 40 minutes before I checked —
+`content-feed-refresh` last fired 08:58Z, next fire ~14:58Z, so it simply
+hasn't had a cycle yet, not evidence of exclusion. No accumulating backlog of
+stuck zero-source sites anywhere in the fleet. **Verdict: the mechanism works
+and has worked since before the CONTRIB was filed** — the CONTRIB's diagnosis
+was built on an incomplete read of the query.
+
+**There IS a real, smaller, already-acknowledged residual — not urgent, not
+what was filed.** `554`'s own author flagged it explicitly, not hidden:
+"the real defect underneath is that provisioning and refresh share one capped
+queue... recorded as a follow-up" (same wording repeated in the lane's own
+PLAN). Because an unprovisioned site's `due_at` is `NULL` and sorts `NULLS
+LAST`, it competes at the back of the same `LIMIT 10` queue as routine
+refreshes — at today's fleet scale (15 recommended sites, well under the
+limit) this has never bitten, but it theoretically could if the recommended
+population grows well past the per-cycle limit. Recording this here rather
+than building anything for it: no live defect, already tracked, not a lever
+worth pulling on unmeasured risk.

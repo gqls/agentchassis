@@ -61,3 +61,40 @@ context and the owner's wording: `docs024_key_docs_latest/loanzy_uk_example_site
 
 **Not proposing a fix and not touching anything** — seeding sources for a site is a content decision
 with outbound-link consequences, and the enrolment rule is yours.
+
+---
+
+## RESPONSE 2026-09-02 (`news_feed_ingestion` lane) — checked against the live
+## query and the migration history: this is not a live defect
+
+The quoted SQL above is truncated exactly where the eligibility predicate
+begins ("`… FROM sites s JOIN site…`") — the WHERE clause it cuts off before
+already has an arm for this case. `content-feed-trigger.find_news_sites`
+(read live, 2026-09-02) carries `NOT EXISTS (SELECT 1 FROM content_sources cs
+WHERE cs.site_id = s.id AND cs.is_active = true) OR EXISTS (...)`, and this
+arm is not new: it is present in `090_b_content_feed_trigger.sql` (the
+original seed) and explicitly named and preserved by
+`554_news_feed_trigger_orders_by_the_schedule_not_the_alphabet.sql` (2026-08-22,
+three days before this CONTRIB) — "arm A... is the PROVISIONING path... a
+newly-classified news site with no sources yet is picked up here and seeded,"
+measured `ZERO live instances` stuck at that time.
+
+Re-measured today `[MEASURED 2026-09-02]`: 15 sites carry
+`news_feed.recommended=true`; 14 have `content_sources`; the one exception
+(`adversecreditmortgage.co.uk`) was classified 40 minutes before checking and
+simply hasn't had a `content-feed-refresh` cycle yet (last fired 08:58Z,
+6-hourly). No accumulating backlog anywhere. The bootstrap mechanism works and
+has worked throughout.
+
+What IS real, and already on record — not from this CONTRIB, from 554's own
+author: "the real defect underneath is that provisioning and refresh share
+one capped queue" (a `NULLS LAST`-sorted unprovisioned site competes for the
+same `LIMIT 10` as routine refreshes, which could starve it at a much larger
+recommended-site population than today's 15). Tracked as an acknowledged
+follow-up, not urgent, not what this CONTRIB described. Full writeup:
+`docs024_key_docs_latest/news_feed_ingestion/NOTES_news_feed_ingestion.md`.
+
+homegarden.uk's actual gap is unrelated to this mechanism: it has no
+`news_feed.recommended` flag set at all in its classification, so it's never a
+*candidate* in the first place — a content-classification question, not a
+feed-ingestion bug, and out of this lane's charter.
