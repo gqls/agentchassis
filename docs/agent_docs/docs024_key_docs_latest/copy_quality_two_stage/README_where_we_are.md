@@ -1022,3 +1022,18 @@ fighting, and the loser is the page. Bug filed with the fix shape. Separately: t
 approved the best-in-class propagation build on the second round, so that ships with the next
 release, and the wording of the standard travels from one editable place exactly like the house
 voice does.
+
+**2026-09-02.** The offer-analysis thread audited the whole fleet and found something
+uncomfortable but useful: the copy-repair machinery deliberately leaves alone anything a
+site's own brief supplied — your rule, and the right one — but 32 of 34 sites have at least
+one of the banned constructions sitting IN their briefs, so a dirty brief effectively smuggles
+the register onto live pages with a licence. That raises a decision for you (it's number 11 on
+the list): clean the briefs site by site the way we cleaned finetuning's, make the repair
+machinery stop honouring phrases from dirty briefs (which changes what your
+"a site's voice outranks the rules" principle means in practice), or leave it and work through
+the nightly findings. I lean to the first — it fixes the source without touching your rule.
+Meanwhile the cheap half was built and shipped the same day: the nightly brief checker now
+watches the two WORDS you named first — "plainly" and "honest" — which, it turns out, no
+automated check anywhere had ever looked for. Its first run promptly caught two sites quoting
+them in their briefs. Also tidied: our daily health line was actually two different numbers
+wearing one name; the reports now say both.
