@@ -492,3 +492,23 @@ GTM-PQ3WCTBD at the next discovery pass. **Expected, not damage.** For this
 lane: the next serve-side verification should expect the GTM head everywhere;
 fresh render timestamps from that wave are CHROME, not content; the four empty
 listing pages will re-render exactly as empty (fill is upstream, 444).
+
+## 2026-09-02 (orphaned heroes: the census supersedes the hunch)
+
+inline guide imager derived the class from the PREDICATE (template reads an
+image key + schema names no `site_assets` source) instead of the reported
+case: **SEVEN components, not three** — hero-about 28/43, hero-contact 25/25,
+**hero-tool 23/76 (biggest, previously unnamed)**, hero-services 6/6,
+hero-case-studies 4/5, teaser-reveal-panel 2/5, hero-use-cases 2/2. Damage
+counted at the artefact: **157 live instances; 65 with their own
+planned+active page hero; 61 orphaned** (render something else while passing
+every has-an-image check). ⚠ **The blanket version is FALSE**: 4 of 65 DO
+receive their own asset — leopardess's tool page renders its own hero with no
+field, so another writer supplies it there; **identify that route before
+editing seven components** (if it generalises it is the cheaper fix). All in
+`bugs_open/114` second CONTRIB. Relayed to gamedesign (whose 3-component fix
+proposal is superseded) and to components (asked: don't build the 3-component
+version; read 114 first). The transferable lesson, third time tonight: a
+population derived from the reported case is a GUESS; derive it from the
+predicate, then SAMPLE the consequence — one of five samples disproved the
+blanket claim.
