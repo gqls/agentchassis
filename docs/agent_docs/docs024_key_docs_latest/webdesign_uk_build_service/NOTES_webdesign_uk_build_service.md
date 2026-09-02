@@ -7610,3 +7610,22 @@ end. **Guards must NEST: inner × period < outer.**
   number:** `main.go` `log.Fatalf`s on an unparseable or <= 0 ceiling, so unlike a bad
   KEY (which starts and degrades) a bad CEILING means the unit does not come up at all.
   Validate, back up, one-line diff assertion, restart, auto-restore.
+
+## 2026-09-02 (~18:1xZ) — 429 lane coordination: th2 rollout accepted, zip-key note for §1.7
+
+- 429's owning session (owner-routed tonight, session `bugs_open/429`) planned fix
+  candidate 1 convergent: b2worker destination sweep post-copy, empty-source
+  REFUSED, +Deleted in Result, 404 half added to publish_site acceptance. Rollout
+  by TreeHash th1→th2 bump so pre-fix orphans (contact.html) drift once per site
+  post-roll — NO rotation forcing. **No veto from this lane; th2 preferred.**
+- **§1.7 consequence recorded**: zip_deliverable keys change ONCE at th2. Zero
+  cost for BR-9AUZ59 PROVIDED the 651 rehearsal cuts the zip fresh post-roll and
+  no zip link is recorded anywhere before the cut — keep it that way.
+- Contributed to their plan: TRUNCATED-source-listing hazard (fail-dangerous,
+  passes the empty refusal — today's fe183038e landmine class; guards: pagination
+  exhausted + max-delete-fraction floor) and the acceptance PAIR (deleted key
+  non-200 AND kept key 200 — over-deletion is invisible to their single probe).
+- They re-verified the orphan live (200 + both controls) and will not touch the
+  rotation tonight; my 18:48Z guides-index serve-watch rides undisturbed. Their
+  pings: roll landed → watch may see a full republish; contact 404 serves →
+  strike handoff §1.5.
