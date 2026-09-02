@@ -19069,3 +19069,49 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `685_provocation_daily_autonomy_HOLD.sql` (the supersession, and its own ordering guard keyed on `gate_verdict->>'gate_version' = '3'`) · `provocation_pipeline/PLAN §15` (the three-position trail) · `a-doc-comment-is-not-an-enforcement-mechanism` · `a-stale-status-line-prevents-the-thing-it-describes` · `seed-sql-is-history-live-row-is-fact`
 - **source:** 2026-09-02, provocation_pipeline lane, acting on the owner's instruction to make vonc.com's provocations daily with no permission step. Found by grepping for references to the agent types before scheduling them — the guard was not in any handoff or cold-start doc, only in the migration.
 - **added:** 2026-09-02, provocation_pipeline lane.
+
+---
+
+### A `<script>` tag whose body is only the tool-doc COMMENT reads as "this tool still has inline JS" — and every generated tool on this estate has one
+
+- **footprint:** `content_components.html_template` / `js_content`, `separateInlineJS`
+  (`store_generated_component_action.go:242`), `StripToolDocHeader`, `collectJSAssets`
+  (`rerender_single_page_action.go:338+`), `deploy_tool_action.go` fork path, and **any query or script
+  asking "does this component still have inline JS?"** — `LIKE '%<script%'`, `~ '<script'`, or even a
+  correct src-excluding regex.
+- **fires when:** you audit whether a component's behaviour is inline or in a published asset — after a
+  fork, before a retire, when censusing what a change would break, or when deciding whether a `404` on
+  `/tools/assets/<function>.js` matters. No symptom needed: the query returns a confident boolean.
+- **the trap:** **this estate puts a `/* === tool-doc === … === /tool-doc === */` header inside the
+  component's script by convention.** So a component can carry a real, src-less `<script>` tag holding
+  **1,781 characters and zero executable statements**. Every "has inline JS" test returns TRUE and the
+  tool is dead. Excluding `src=` does **not** save you — that is the obvious fix and it still passes:
+  the tag genuinely is not the reference tag, it is a comment. `[MEASURED 2026-09-02]` on
+  `tool-provocation-heat-rater` fork `2c7f7c67`, whose comment body even ends *"No external
+  dependencies; all logic is contained in /tools/assets/tool-provocation-heat-rater.js."*
+- **the tell:** the component's `js_content` is empty **and** its template references
+  `/tools/assets/`. If both hold, any inline `<script>` you found is almost certainly the header. A
+  raw-vs-executable size gap is the confirmation: 1,781 raw → **0** executable.
+- **the check — measure the executable residue, never the tag:**
+  ```
+  bodies = <script> tags WITHOUT src
+  strip  /* … */  and  // …  from each
+  EXECUTABLE = len(remaining.strip())
+  broken  ⟺  EXECUTABLE == 0  AND  template references /tools/assets/
+  ```
+  Then prove it at the artefact **with both controls**, because a 404 on a path shape that never
+  serves proves nothing: curl the suspect asset (expect 404), a placed tool whose `js_content` is
+  non-empty (expect 200 — `gaswholesalers.com/tools/assets/tool-gas-unit-converter.js` → 200/2,169 B
+  against 2,165 chars stored), and an invented asset on that same working host (expect 404).
+- **why the platform's own code is the confirmation, not a counter-example:** `collectJSAssets` calls
+  `StripToolDocHeader(jsContent)` before publishing. **The platform knows the header is there and
+  strips it; your audit query does not.**
+- **⚠ and the loop that hides the re-measurement:** `kubectl exec -i` inside a `while read` loop
+  **consumes the loop's stdin**, so a per-row census silently processes **one** row and prints a clean
+  result. `kubectl … < /dev/null`, and print `wc -l` of the input first so a shortfall is visible.
+- **source:** 2026-09-02, webdesign_tool_rebuilds lane, in a cross-session exchange with the `themes`
+  lane over the `deploy_tool_action` `js_content` fork-drop. Both sessions got it wrong in different
+  ways first: theirs with a loose `LIKE`, mine with a *correct* src-excluding negative lookahead that
+  fired on a comment. Corrected census: **5 forks genuinely fine, 2 broken (1 LIVE on vonc.com, 1
+  latent)** — not the 6-and-1 I reported. `WRONG_CALLS.md` same date.
+- **added:** 2026-09-02, webdesign_tool_rebuilds lane
