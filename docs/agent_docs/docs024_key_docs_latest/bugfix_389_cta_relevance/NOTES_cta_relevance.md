@@ -1328,3 +1328,60 @@ do **not** reach for the agent whose name says navigation: it deletes every chil
 
 **Remaining to close:** the 11 rerenders land → nav row + footer → retract ×3 → final sweep at the
 served bytes. No decisions left.
+
+### 2026-09-02 ~15:3xZ — the CTA class is DONE; the residue is a different bug, and it is `bugs_open/384`'s
+
+**The final CTA pass: 8 complete, 3 failed.** The failures are `OWNED_PAGE_GUARD` — `rebuild_policy
+='owned'` pages the ordinary rerender path is forbidden to touch, which `bugs_open/384` already
+predicts and excludes by design.
+
+**And four that COMPLETED cleared nothing — because the reference is not a CTA field.** The
+remaining 7 refs live in `tool-cta` / `tool-list` components as entries in an **`items[]` array of
+related-tool cards** (url, name, image, title, nav_label, meta_description). There is no `*_url` CTA
+field to recompute, so `cta_links_stale` ran correctly and had nothing to do. **A green completion
+against the wrong mechanism is indistinguishable from a green completion against the right one** —
+the only tell was that the census did not move.
+
+| | |
+|---|---|
+| 4 × `generic` (aiao: 3 `tool-cta` + `/tools.html` `tool-list`) | the ordinary path reaches them |
+| 3 × `owned` (finetuning, leopardess ×2) | `OWNED_PAGE_GUARD`, excluded by design |
+
+**Traced the producer rather than guessing at a reason.** `queryresolve.resolvePagesWhereType`
+builds exactly those card fields and filters `status IN ('active','deployed')` — so an archived page
+**is** excluded when the query runs. `page_list_reresolve.go` (bugs_open/384) states the trigger:
+*"Only a re-render carrying `spec.reason='section_data_resolved'` … re-runs the query."*
+
+**Canary on that reason: REFUTED, and cleanly.** Landmine pre-check first (that reason duplicates a
+locked, positionally-named section) — none of the 7 is locked or positionally named, all have a
+`component_id`, so the trap was not armed; component count **4 → 4** confirms it did not fire. The
+item completed, the component was **rewritten** (`updated_at` 15:30:15) — **and the stale array
+survived**:
+
+| url | stored | fresh resolve |
+|---|---|---|
+| `/tools/password-entropy.html` | **yes** | **no** (archived) |
+| `/tools/model-approach-selector/index.html` | **no** | **yes** (`nav_order 901`, the 6th) |
+
+Exactly one swap — the signature of a snapshot that was never re-resolved. Every documented
+precondition held: the reason routes to `rerender_sections` (the live agent's condition names it),
+the component declares `source: query.pages_where_type:tool`, and the page is `generic`.
+
+> **⇒ This is not this lane's bug and I am not fixing it here.** It is `bugs_open/384`'s family — the
+> file names `tool-cta` explicitly (**62 / 14 stale**, 2026-08-24) and explains why nothing has
+> cleared it: its sweep is HELD *and* its round-2 image bound excludes `tool-cta` entirely, so *"the
+> sweep would file ZERO items today, on every site."* **CONTRIB filed into that lane**
+> (`CONTRIB_2026-09-02_to_384_…`) with two things they do not have: the refuted hand-fired
+> re-resolve (which bears on their candidate 2's premise, since that candidate's repair IS filing
+> that reason), and a **producer nobody wired — archiving a page** changes the data behind every
+> page-list query and files no re-resolve, because there is no Go writer of `status='archived'` to
+> hook.
+
+**What this means for closing 391.** The CTA defect the bug was filed for is **fixed**: zero
+label-locked fields, every contact-intent button on the contact page, all three tool pages archived,
+and the misdirected buttons gone from the served pages. The 7 remaining references are **stale
+listing snapshots**, a different mechanism, owned by a different open bug. **They should not hold
+this lane open** — but they DO block the retraction (step 5), because editorial inbound must be zero.
+So 391 can close on its own defect while the retraction waits on 384, or the three pages can stay
+archived-but-served indefinitely, which is harmless: archived pages keep serving, no link is dead.
+**That is the owner's call and it is the only thing left.**
