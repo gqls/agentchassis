@@ -5399,3 +5399,58 @@ Raised as a design question, not asserted as a bug.
 
 **Integrity re-checked while I was in there, a week on:** `[MEASURED 2026-09-02]` **49 `removed` + 14
 `deployed` = 63, 0 dual-slot pages** — unchanged since 08-26, nothing regressed.
+
+> **CORRECTED 2026-09-02, same day, by the `themes` peer checking my number instead of taking it —
+> and my correction of THEIR number was wrong in the same family as the error I was correcting.**
+>
+> The entry above says the bug produced *"exactly one row fleet-wide … on no page … latent, zero live
+> damage."* **Wrong. There are TWO, and one is LIVE-BROKEN in production.**
+>
+> `tool-provocation-heat-rater` fork `2c7f7c67` (vonc.com) has `js_content` NULL, **1 live slot**, and
+> `[VERIFIED at the artefact 2026-09-02, with controls]`:
+> `vonc.com/tools/provocation-heat-rater/index.html` → **200** (120,858 B) while
+> `vonc.com/tools/assets/tool-provocation-heat-rater.js` → **404**. Positive control on the same URL
+> shape — `gaswholesalers.com/tools/assets/tool-gas-unit-converter.js` → **200, 2,169 B** against a
+> `js_content` of 2,165 chars, so the shape publishes fine; invented asset on that same working host →
+> **404**, so a 404 discriminates there. **The page serves, the JS never loads.**
+>
+> **How I got it wrong — and it is NOT the reason the peer proposed.** They guessed I had used a loose
+> `LIKE '%<script%'` that matched the `<script src=…>` reference tag. I had not: I used
+> `html_template ~ '<script(?![^>]*src=)'`, a negative lookahead that correctly excludes the reference.
+> **It fired on a true positive.** `2c7f7c67` really does carry a second, src-less `<script>` tag with a
+> **1,781-character body** — and that body is **entirely a `/* === tool-doc === … */` comment with zero
+> executable statements**, whose own last line reads *"No external dependencies; all logic is contained
+> in /tools/assets/tool-provocation-heat-rater.js."*
+>
+> **So the trap sits one level below where either of us put it: not "a `src` reference misreads as
+> inline", but "a script tag whose body is pure COMMENT misreads as BEHAVIOUR".** A check written from
+> the peer's diagnosis — exclude `src=` — passes this row and calls the tool healthy. Mine already
+> excluded `src=` and still got it wrong.
+>
+> **This is systemic on this estate, not a one-off:** every generated tool carries a tool-doc header
+> comment in its script by convention, and the platform knows it — `collectJSAssets` calls
+> `StripToolDocHeader(jsContent)` before publishing. So **any "does it still have inline JS?" test here
+> is measuring the header unless it strips comments first.**
+>
+> **The check that works — measure the executable residue, not the tag:**
+> ```
+> bodies   = <script> tags WITHOUT src
+> strip    /* … */ and // … from each
+> EXECUTABLE = len(remaining.strip())
+> broken  ⟺  EXECUTABLE == 0  AND  template references /tools/assets/
+> ```
+> Re-run over all 7: **5 genuinely fine** (EXECUTABLE 4,022–5,699), **2 broken** —
+> `tool-provocation-heat-rater` (slots=1, raw 1,781 / **EXECUTABLE 0**, LIVE) and `tool-equity-release`
+> (slots=0, EXECUTABLE 0, latent). My "6 of 7 fine" → **5 of 7**.
+>
+> ⚠ **A shell trap inside the re-measurement, which nearly hid it again:** `kubectl exec -i` inside a
+> `while read` loop **consumes the loop's stdin**, so the loop processed **1 of 7 rows** and exited
+> reporting a clean result. Redirect it: `kubectl … < /dev/null`. The tell was the row count — one line
+> where seven were expected — and the only reason I noticed is that I had printed
+> `wc -l` on the input first.
+>
+> **The pattern I keep failing:** I measured the presence of a CONSTRUCT (a script tag) and reported it
+> as the presence of a PROPERTY (working behaviour) — the same error as the `@media` count that could
+> not see which selectors the block named, and as `window.onload` used as a control on a tool that
+> never had one. Three instances now. **When a check answers "is X there?", ask what X would look like
+> if it were there but inert.**

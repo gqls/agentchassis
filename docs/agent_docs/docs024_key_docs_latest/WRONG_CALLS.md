@@ -57648,3 +57648,57 @@ assume it informed the filename.
   item is not a repaired artefact": a status column answers its own lifecycle question, not the one
   you asked it.
   **tally:** **a-status-column-read-as-a-deployment-fact** ×1.
+
+## 2026-09-02 — I corrected a peer's damage count, and my correction was wrong in the same family as the error I was correcting
+
+**The claim.** A peer lane reported that `deploy_tool_action.go`'s fork path drops `js_content`. My
+first census said 7 forks were affected; I then correctly narrowed it, telling them **"exactly one
+row fleet-wide … on no page … latent, zero live damage"** and warning them not to quote the bigger
+number. They checked anyway. **There are two, and one is broken in production right now.**
+
+**What was false.** `tool-provocation-heat-rater` fork `2c7f7c67` serves on vonc.com with its JS
+unreachable — page **200**, asset **404**, verified with a positive control on the same URL shape
+(`gaswholesalers.com/…/tool-gas-unit-converter.js` → 200, 2,169 B) and an invented-asset control on
+that working host (→ 404, so the signal discriminates).
+
+**Why my filter passed it — and it is not the obvious reason.** The peer assumed I had used a loose
+`LIKE '%<script%'` that matched the `<script src=…>` reference tag. I had not; I used
+`~ '<script(?![^>]*src=)'`, which correctly excludes it. **It was a true positive.** That fork really
+does have a second, src-less `<script>` — with a **1,781-character body that is entirely a
+`/* tool-doc */` comment**, closing with *"all logic is contained in
+/tools/assets/tool-provocation-heat-rater.js"*. A tag was present; behaviour was not.
+
+**So the corrected check is not the one the peer's diagnosis would produce.** Excluding `src=` is not
+enough — that check passes this row. You have to strip comments and measure what is left:
+`EXECUTABLE = len(strip_comments(body))`, broken ⟺ `EXECUTABLE == 0` and the template references
+`/tools/assets/`. Re-run that way: **5 fine, 2 broken (1 live, 1 latent)**, not 6 and 1.
+
+**And it is systemic here, which is why it is worth a WRONG_CALLS row rather than a shrug.** Every
+generated tool on this estate carries a tool-doc header comment inside its script by convention — the
+platform itself knows, since `collectJSAssets` calls `StripToolDocHeader` before publishing. **So on
+this estate, every "does it still have inline JS?" test measures the header unless it strips comments
+first.** The next person to audit this will reach for exactly the check I did.
+
+**The repeat, which is the actual lesson.** This is the third time in two sessions I have measured the
+presence of a CONSTRUCT and reported it as the presence of a PROPERTY: a `@media` **count** that could
+not see which selectors the block named; `window.onload` used as a negative control on a tool whose
+ported version never had one; and now a `<script>` **tag** standing in for working JS. Each time the
+construct was genuinely there and each time it did nothing.
+**The check: when a test answers "is X present?", ask what X looks like when present but INERT.** If
+present-and-inert is indistinguishable from present-and-working, the test does not measure what the
+sentence around it claims.
+
+**A shell trap that nearly hid the correction too:** `kubectl exec -i` inside a `while read` loop
+**eats the loop's stdin**, so my re-measurement processed **1 of 7 rows** and printed a clean result.
+`kubectl … < /dev/null` fixes it; printing `wc -l` of the input first is what made the shortfall
+visible. Same family as this file's other silent-truncation entries — the loop did not error, it just
+did less.
+
+**What I got right, and it is the reason to keep doing this:** I gave the peer a caveat that stopped
+them shipping a 2-line fix (copying `js_content` verbatim would pair scoped HTML with unscoped JS —
+our 41-false-anchor class). They gave me back a live production break I had declared absent. **Neither
+of us would have got there alone, and both corrections came from someone re-running the other's
+measurement rather than reading their conclusion.**
+
+Family: a-report-is-not-a-measurement, a-post-fix-zero-needs-a-demand-control,
+a-pass-from-a-blind-check-outlives-the-blindness, shell-tool-traps-committing.
