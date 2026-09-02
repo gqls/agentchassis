@@ -15,6 +15,11 @@ unbuilt, but Q7's `banned_claims` half IS built, council-APPROVED and committed 
 §3e); it is not yet RUNNING (needs a chassis roll, then the next daily `evidence-freshness`
 pass).** A header reading "nothing built" over a shipped, approved detector is the stale-status
 trap this estate keeps filing — the state now lives in §3e and is stated there in full.
+**2026-09-02 22:10 — the owner reports a fresh chassis roll. NOT YET VERIFIED AT THE POD**:
+kubeconfig token expired 22:08 (same evening, unrelated timing — `Unauthorized` on every kubectl
+call), so pod age / binary provenance could not be checked before this session ended. **First
+action for the next session: verify per the LANDMINES kubeconfig entry, then confirm at the pod**,
+not from this line — see the HANDOFF for the exact commands.
 See §3a, §3b, §3d, §3e.
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
