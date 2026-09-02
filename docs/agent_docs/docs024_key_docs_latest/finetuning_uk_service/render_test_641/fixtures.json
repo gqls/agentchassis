@@ -1,0 +1,148 @@
+{
+ "A_gamedesign_real_with_subjects": {
+  "current_page": {
+   "title": "gamedesign.uk \u2014 The Practice of Game Design"
+  },
+  "current_section": {
+   "name": "generic-text-block",
+   "subject": "Brief description of the sister-site relationship with gamesdesign.co.uk and what each site covers",
+   "function": "generic-text-block"
+  },
+  "sections_for_render": {
+   "sections_ready": [
+    {
+     "name": "hero",
+     "subject": "Publication identity and editorial scope \u2014 what gamedesign.uk covers and who it is written for",
+     "function": "hero"
+    },
+    {
+     "name": "featured-content",
+     "subject": "The most recent or most significant published article, surfaced as the lead piece",
+     "function": "featured-content"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "Brief description of the sister-site relationship with gamesdesign.co.uk and what each site covers",
+     "function": "generic-text-block"
+    }
+   ]
+  }
+ },
+ "B_playground_real_null_subjects": {
+  "current_page": {
+   "title": "The playground: an hour with your own model"
+  },
+  "current_section": {
+   "name": "call-to-action",
+   "subject": null
+  },
+  "sections_for_render": {
+   "sections_ready": [
+    {
+     "name": "hero",
+     "subject": null,
+     "function": "hero"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": null,
+     "function": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": null,
+     "function": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": null,
+     "function": "generic-text-block"
+    },
+    {
+     "name": "faq",
+     "subject": null,
+     "function": "faq"
+    },
+    {
+     "name": "call-to-action",
+     "subject": null,
+     "function": "call-to-action"
+    }
+   ]
+  }
+ },
+ "C_playground_backfilled_intended": {
+  "current_page": {
+   "title": "The playground: an hour with your own model"
+  },
+  "current_section": {
+   "name": "generic-text-block",
+   "subject": "what to bring to the session"
+  },
+  "sections_for_render": {
+   "sections_ready": [
+    {
+     "name": "hero",
+     "subject": "what the playground is"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "how the hour works"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "what to bring to the session"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "what you learn"
+    },
+    {
+     "name": "faq",
+     "subject": "questions people ask"
+    },
+    {
+     "name": "call-to-action",
+     "subject": "booking"
+    }
+   ]
+  }
+ },
+ "D_siblings_NOT_in_input_fields_(today)": {
+  "current_page": {
+   "title": "The playground: an hour with your own model"
+  },
+  "current_section": {
+   "name": "generic-text-block",
+   "subject": "what to bring to the session"
+  }
+ },
+ "E_one_sibling_missing_subject": {
+  "current_page": {
+   "title": "The playground: an hour with your own model"
+  },
+  "current_section": {
+   "name": "generic-text-block",
+   "subject": "what to bring to the session"
+  },
+  "sections_for_render": {
+   "sections_ready": [
+    {
+     "name": "hero",
+     "subject": "what the playground is"
+    },
+    {
+     "name": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "what to bring to the session"
+    },
+    {
+     "name": "faq",
+     "subject": "questions people ask"
+    }
+   ]
+  }
+ }
+}

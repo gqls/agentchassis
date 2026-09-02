@@ -1195,3 +1195,25 @@ read, not a form with blanks.
 
 Nothing else moved tonight. The playground page is live, the repeated-headings fix waits on the
 prompt you are now reshaping, and the rebuild of your four affected pages waits behind that.
+
+2026-09-02, late. You read the three prompt framings and said they all sounded a bit AI. Fair. Each
+one set up a little scene and then padded it. I redrafted against the style prompt you built for the
+pitch deck, three plainer versions, and you picked C: the one that speaks the way the page would,
+"You'll want to know what to bring to the session. That's what this section is for." followed by a
+short list of what the other sections cover.
+
+Before sending your words to the apis.uk lane, who own that file, I rendered the block the way the
+machine will, against real data from today's runs. That found something that would have bitten us:
+the list of other sections is not visible to the prompt as things are configured today. It would
+have rendered the line "also covers, each in its own section:" with nothing under it, and no error
+anywhere. The same shape of failure as the bug we are fixing. The fix is one extra name in the
+writer's input list, shipped in the same change, and I have told apis.uk it must be checked, not
+assumed.
+
+One thing for you to decide, not urgent. Your sentence reads perfectly when the subject is written
+the way we write ours ("what to bring", "how the hour works"). On the sites where the planner
+writes the subjects, it currently writes things like "Brief description of the sister-site
+relationship with gamesdesign.co.uk", and "You'll want to know Brief description of…" reads badly.
+Either the planner is nudged to write subjects as the thing a reader wants to know, or the sentence
+is loosened. I'd nudge the planner. Your words stay exactly as you picked them either way, and you
+will get the exact final text back for a fresh read once apis.uk have put it into the migration.

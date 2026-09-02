@@ -1,0 +1,48 @@
+===== A_gamedesign_real_with_subjects =====
+## This section
+
+You'll want to know Brief description of the sister-site relationship with gamesdesign.co.uk and what each site covers. That's what this section is for.
+
+gamedesign.uk — The Practice of Game Design also covers, each in its own section:
+- Publication identity and editorial scope — what gamedesign.uk covers and who it is written for
+- The most recent or most significant published article, surfaced as the lead piece
+
+## Verified Facts (marker: next block)
+
+===== B_playground_real_null_subjects =====
+## Verified Facts (marker: next block)
+
+===== C_playground_backfilled_intended =====
+## This section
+
+You'll want to know what to bring to the session. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+- what the playground is
+- how the hour works
+- what you learn
+- questions people ask
+- booking
+
+## Verified Facts (marker: next block)
+
+===== D_siblings_NOT_in_input_fields_(today) =====
+## This section
+
+You'll want to know what to bring to the session. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+
+## Verified Facts (marker: next block)
+
+===== E_one_sibling_missing_subject =====
+## This section
+
+You'll want to know what to bring to the session. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+- what the playground is
+- questions people ask
+
+## Verified Facts (marker: next block)
+

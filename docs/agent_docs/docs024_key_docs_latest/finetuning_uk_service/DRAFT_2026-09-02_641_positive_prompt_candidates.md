@@ -95,3 +95,79 @@ The existing writer prompt is nearly all prohibition ("DO NOT INVENT", "Never ap
 "Do not state, in any tense…"). By the owner's own elephant rule, that register may itself be
 part of why output reads stiffly — a model continues in the register it is given. `[INFERRED]` —
 worth an experiment on the copy lane's side, not an assertion.
+
+---
+
+## OWNER PICK, 2026-09-02 (late): the three above were REJECTED as "a bit AI"; a plainer set was drafted and he chose **C**
+
+His words on the first three: *"can you try again, they all sound a bit AI"*. What read as AI: each
+set up a small scene and then padded it ("give it the room it needs", "has what to bring to itself",
+"each written on its own"). The second set was drafted against the owner's own style prompt
+(`travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md`) and showed the sibling
+list ONE PER LINE, because the prompt renderer (`datahelpers.RenderPromptTemplate`) registers only
+`toJSON`/`placeholder`/`rangeStart`/`rangeEnd`, so an inline list with "and" before the last item
+cannot be rendered. He picked C: *"go with C"*.
+
+**The chosen text, verbatim (filled in for playground / "what to bring"):**
+
+    ## This section
+
+    You'll want to know what to bring to the session. That's what this section is for.
+
+    The playground: an hour with your own model also covers, each in its own section:
+    - what the playground is
+    - how the hour works
+    - what you learn
+    - questions people ask
+    - booking
+
+(The other two, for the record. A, "the plain brief": "What to bring to the session. / The page is
+X. Its other sections cover: [list] / So this one sticks to what to bring." B, "the reader named":
+"Someone reading X wants to know what to bring to the session. This section tells them. / The rest
+of the page has its own sections for: [list]".)
+
+## TEST-RENDER, 2026-09-02, done BEFORE handing to apis.uk (`render_test_641/`, this directory)
+
+Harness: `render_test_641/main.go` builds the template the way `RenderPromptTemplate` does
+(`template.New().Funcs().Parse().Execute()`, default options) and renders the C block against
+five fixtures built from REAL `orchestration_states` rows (`render_test_641/fixtures.json`,
+output in `render_test_641/OUTPUT.txt`). Go 1.24 (the chassis's `go.mod`), so `and` short-circuits.
+
+| fixture | source | result |
+|---|---|---|
+| A | gamedesign.uk run `3ed7cdfd`, tier 1, real planner subjects | renders; **subjects read badly in C's sentence** (see below) |
+| B | finetuning.uk playground run `5c804a5b`, all subjects null | block absent, v4 byte-identical, as designed |
+| C | playground with the intended backfill subjects | exactly the text above |
+| **D** | **siblings NOT in `input_fields` (the live config today)** | **renders "also covers, each in its own section:" followed by NOTHING. No error.** |
+| E | one sibling with no `subject` key | that sibling drops out cleanly; no `<no value>` |
+
+> **CORRECTED 2026-09-02 (late), caught by fixture D:** the Mechanics section above says *"Sibling
+> data is in scope (the loop persists `current_section` into the same CollectedData the template
+> reads)"*. **That is wrong for the template.** `ExecuteLLMPromptAction` renders against
+> `ExtractFields(CollectedData, input_fields)` (`ai_actions.go` → `unified_extractor.go:315`), a
+> SUBSET named by the step's `input_fields`, and the live `generate_content.config.input_fields` is
+> `[current_section, render_context, reviewed_brief, current_page, link_context, site_plan,
+> site_specs, existing_content, build_mode, rewrite_guidance]` — **no `sections_for_render`, no
+> `section_plan`**. So `{{range .sections_for_render.sections_ready}}` sees nil and the list renders
+> EMPTY, silently. **641 must add `sections_for_render` to that `input_fields` array in the same
+> migration, and its verify block must assert it.** Only the range render was marked untested; the
+> scoping claim was stated as fact. Logged in `WRONG_CALLS.md` 2026-09-02(d).
+
+**Two rules the render forced, both carried to apis.uk in
+`apis_uk_bees_homepage/CONTRIB_2026-09-02_from_finetuning_owner_picked_C_and_the_test_render_found_two_things.md`:**
+
+1. **Exclude the current section from the sibling list by SUBJECT, not by name.** Real
+   `sections_ready` on the playground row is `hero, generic-text-block, generic-text-block,
+   generic-text-block, faq, call-to-action` — name-based exclusion would drop all three text
+   blocks. Subject-based exclusion is what fixture C/E prove.
+2. **A subject must complete "You'll want to know ___".** "what to bring to the session" does;
+   "booking" does not ("You'll want to know booking."); "how to book" does. This binds the
+   backfill arrays this lane writes (carried to the 443 lane's RUNBOOK by CONTRIB). It also
+   exposes a question for the owner on tier-1 sites, where the PLANNER writes subjects: fixture A
+   rendered *"You'll want to know Brief description of the sister-site relationship with
+   gamesdesign.co.uk and what each site covers."* Capitalised noun phrases with em dashes, which
+   is what the planner prompt currently produces. Either the planner's subject instruction is
+   nudged to write "what/how/who…" phrases, or C's opening sentence is loosened. Owner's call;
+   lane recommends the planner nudge, as a separate small migration on apis.uk's side.
+
+**Status now: apis.uk writes the SQL from the CONTRIB; then the owner reads the EXACT final words.**

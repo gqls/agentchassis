@@ -2197,3 +2197,42 @@ eligibility.** My first eligibility query included the selector's `claimed`-excl
 other sites ahead of it. That clause describes the instant, not the ordering; `orchestration_states`
 filtered on `owner_agent_type='build-pipeline-trigger'` shows what each tick actually chose and is
 the honest instrument.
+
+## 2026-09-02 (late, second session) — owner rejected the three framings, picked C from a plainer set; test-render found the sibling list is NOT template-visible today
+
+Owner: *"can you try again, they all sound a bit AI"*, then *"go with C"*. Full record and the
+chosen words: `DRAFT_2026-09-02_641_positive_prompt_candidates.md` (appended section).
+
+**Test-render, before handing anything to apis.uk** (`render_test_641/`). Method: rebuilt the
+renderer's construction (`datahelpers.RenderPromptTemplate`: `template.New("agent_prompt").Funcs(fm).Parse().Execute()`,
+default options, four registered funcs) in a standalone `main.go`, fixtures taken from live rows:
+
+```sql
+-- the only recent runs whose sections_ready carry subjects are gamedesign.uk (tier 1):
+SELECT orchestration_id, site_id, (SELECT count(*) FROM jsonb_array_elements(collected_data->'sections_for_render'->'sections_ready') e WHERE e ? 'subject')
+FROM orchestration_states WHERE updated_at > now() - interval '4 days' AND collected_data ? 'sections_for_render' ORDER BY 3 DESC LIMIT 12;
+-- 9 rows with 3/3 subjects, all site 8f17eb73 (gamedesign.uk); every other site 0/N.
+```
+
+Findings, in the order they mattered:
+
+1. **`current_page` is not at the CollectedData root** (it is `input_data.current_page`) but the
+   extractor's `input_data` special case promotes every `input_data` key to the root
+   (`unified_extractor.go:40-55`), so `{{.current_page.title}}` resolves. The v4 first line already
+   depends on this. Fine.
+2. **`sections_for_render` IS at the CollectedData root but is NOT in the writer's
+   `generate_content.config.input_fields`**, and the extractor only copies NAMED fields
+   (`unified_extractor.go:315`). Fixture D: the list renders empty with no error. **This is the
+   443 failure shape one level up, and my own DRAFT stated the opposite as fact.** WRONG_CALLS
+   2026-09-02(d). Remedy carried to apis.uk: add the key to `input_fields` in 641 and assert it.
+3. Section NAMES repeat (`generic-text-block` ×3 on the real playground row `5c804a5b`), so the
+   current section is excluded from the sibling list by SUBJECT. `{{if and $s.subject (ne $s.subject $.current_section.subject)}}`;
+   Go 1.24 short-circuits `and`, proven by fixture E (a sibling with no `subject` key).
+4. A subject must complete "You'll want to know ___". Planner-written tier-1 subjects (fixture A,
+   real) do not: capitalised noun phrases with em dashes. Question raised to the owner.
+5. Null subjects (fixture B, real playground row) → block absent, v4 byte-identical.
+
+Handovers written: `apis_uk_bees_homepage/CONTRIB_2026-09-02_from_finetuning_owner_picked_C_and_the_test_render_found_two_things.md`
+(the final template text + the `input_fields` requirement + verify assertion), and
+`bugfix_443_fallback_tier_subjects/CONTRIB_2026-09-02_from_finetuning_subjects_must_complete_youll_want_to_know.md`
+(the phrasing rule for backfill arrays). RUNBOOK gained the harness and the `input_fields` query.

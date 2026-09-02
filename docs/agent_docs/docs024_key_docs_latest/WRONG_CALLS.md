@@ -59842,3 +59842,15 @@ a-claim-about-behaviour-is-not-the-behaviour.
   URL 200 / result carries the handler's reply, not an echo). Reading the confession is evidently
   not the same as learning from it — the 425 entry above says the same thing.
   **tally:** **a-status-column-read-as-a-deployment-fact** ×2.
+- [2026-09-02(d), finetuning_uk_service] Wrote in `DRAFT_2026-09-02_641_positive_prompt_candidates.md`
+  (and told the owner) that the sibling-subject list was "in scope" for the writer prompt because
+  the loop persists `current_section` into "the same CollectedData the template reads". Only the
+  range RENDER was marked untested; the scoping claim was stated as fact. **False:** the prompt is
+  rendered against `ExtractFields(CollectedData, input_fields)` (`ai_actions.go` →
+  `unified_extractor.go:315`), and `sections_for_render` is not in the writer's `input_fields`,
+  so the list renders silently EMPTY (test-render fixture D, `finetuning_uk_service/render_test_641/`).
+  Caught by the test-render the same file demanded, before any SQL was written. The cheap check:
+  read the step's `input_fields` before claiming a key is template-visible; "in CollectedData" and
+  "in the template root" are two different facts joined by a config array.
+  **tally:** **a-key-in-collected-data-is-not-a-key-in-the-template** ×1;
+  family a-claim-about-behaviour-is-not-the-behaviour.

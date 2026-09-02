@@ -619,3 +619,22 @@ kubectl -n ai-persona-system logs "$POD" | grep "Resolved vCPU count"     # the 
 ```
 
 If the control returns 0, your query is broken and the absence means nothing.
+
+## Test-render a writer-prompt block against real loop data (added 2026-09-02)
+
+`render_test_641/` holds a standalone harness that builds the template the way
+`datahelpers.RenderPromptTemplate` does. `cd render_test_641 && go run .` renders `fixtures.json`
+and prints each result; `!! ERROR` / `!! CONTAINS <no value>` are the failure markers. Refresh
+fixtures from live rows with the query in NOTES 2026-09-02 (late). **Gotcha the harness exists
+for:** the prompt is rendered against `ExtractFields(CollectedData, input_fields)`, NOT
+CollectedData. A key at the CollectedData root is invisible unless the step names it:
+
+```sql
+SELECT default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'
+       ->'steps'->'generate_content'->'config'->'input_fields'
+FROM agent_definitions WHERE type='page-content-writer' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+Run that BEFORE writing `{{.anything}}` into a prompt; if the key is absent the render is silently
+empty (a nil range) rather than an error.
