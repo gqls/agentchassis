@@ -263,3 +263,15 @@ container to exist or for anything to launch.
 And to keep the two straight: **your** sites' container (`GTM-PQ3WCTBD`) is still waiting on its
 own one click — the Google Tag publish from the walkthrough. That's unchanged and now fully
 unblocked.
+
+## 2026-09-02 — the customer container exists
+
+You created it: `GTM-TH5XGNQ4`. I checked it from the outside straight away — it serves, it's
+empty, it can't set a cookie. That's exactly the state it should stay in for now, and I've handed
+the id to the webdesign.uk lane as the standard default for customer builds. (My earlier
+instructions said to look for an Admin button that isn't on the page you were on — the three-dots
+menu on the account row was the right way in, and I've fixed the written steps.)
+
+The one Google thing left from this whole piece of work is still the same single click: publishing
+the GA4 tag in your own container (the idea.uk-named one) so your sites start counting. Nothing new
+has appeared in it since August — it's still recording nothing.

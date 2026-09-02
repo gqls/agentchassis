@@ -177,7 +177,14 @@ operator hand-edited chrome and we corrected it", i.e. as the platform doing its
    > exactly the `GTM-PQ3WCTBD` 0-tags lesson — while the decision's stated purpose is seeing
    > whether delivered sites get visits. When the container is published it needs a GA4 tag with
    > **Consent Mode defaults DENIED** (cookieless pings, no `_ga`), speced at creation, or the
-   > refund-judgement purpose silently gets zero data and someone rediscovers this in three weeks. No Go
+   > refund-judgement purpose silently gets zero data and someone rediscovers this in three weeks.
+   > **CREATED 2026-09-02 by the owner: `GTM-TH5XGNQ4`** (second container under the
+   > leopardessconsulting GTM account). Verified live at the artefact 20:01Z: HTTP 200, version 1,
+   > **0 tags, no `G-` id — cookie-light by construction, and for THIS container 0 tags is the
+   > CORRECT state** (the check script's NOT-PUBLISHED verdict reads inverted here). Until the
+   > seeder/export mechanism is built, the id's canonical record is this bullet, the lane handoff,
+   > and `webdesign_uk_build_service/DECISION_2026-08-26_default_tag_hosted_copy_only.md`; when the
+   > mechanism ships, the value moves into the ONE machine-readable place both paths read. No Go
    writer touches `site_config` (every current row is `created_by` a migration or a session), so
    "standard for new builds" needs a seeding step. The seam is right as it is — opt-in per site,
    unsafe default OFF, exactly the shape the 2026-08-02 §2 ruling prescribes — so the fix is *where

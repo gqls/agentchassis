@@ -492,3 +492,12 @@ container is cookie-light and RECORDS NOTHING (the 0-tags lesson, by constructio
 decision's visit-visibility purpose needs a Consent-Mode-defaults-DENIED GA4 tag speced at
 publication. The container id, once it exists, is the one-place fleet default handed to the
 webdesign.uk + delivery lanes.
+
+**24.** `[2026-09-02 ~21:00 BST]` Owner created the customer container from the All-accounts screen
+(my 08-26 walkthrough said "Admin", which only exists INSIDE an account — corrected in chat to the
+⋮ → Create Container path off the account row; README below carries the right steps for next time).
+**`GTM-TH5XGNQ4`, verified live 20:01Z: 200 / v1 / 0 tags / no `G-` id.** Banked in 397 §6.2 +
+handoff + RUNBOOK (with the inverted-verdict warning: 0 tags is CORRECT for this container, and a
+tag appearing IS the §5 re-ruling trigger). Id handed to the webdesign.uk lane. Estate GTM-PQ3WCTBD
+re-read in the same hour: still 0 tags — the owner's publish click is now the only outstanding
+Google action from the whole 08-25/26 arc.

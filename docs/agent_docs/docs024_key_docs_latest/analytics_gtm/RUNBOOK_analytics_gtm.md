@@ -177,3 +177,8 @@ SELECT s.domain FROM sites s JOIN site_specs ss ON ss.site_id=s.id AND ss.aspect
 SELECT s.domain, h.created_at FROM site_component_history h JOIN site_components sc ON sc.id=h.site_component_id JOIN sites s ON s.id=sc.site_id
  WHERE sc.slot_name='head' AND h.rendered_html LIKE '%GTM-PQ3WCTBD%' AND sc.rendered_html NOT LIKE '%GTM-PQ3WCTBD%';
 ```
+
+**Customer container (2026-09-02):** `CONTAINER=GTM-TH5XGNQ4 $L/scripts/check_gtm_state.sh` — ⚠ read
+the verdict INVERTED for this one: it must stay "NOT PUBLISHED / 0 tags" (cookie-light by
+construction). A `G-` id or tag count > 0 appearing there is the re-ruling trigger from
+`webdesign_uk_build_service/DECISION_2026-08-26…md` §5, not progress.
