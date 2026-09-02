@@ -43,3 +43,18 @@ currently failing a shared test for everyone.
 Nothing needs a decision from you yet. The one that's coming: once this rolls, do you want any
 live page opted out today (the demoted password tool trio are already harmless at their new menu
 number, so there may be nothing to do).
+
+## 2026-09-02, late evening — the council approved it
+
+The review came back in two rounds. Round one sent it back with one hard question — "if someone
+switches off every tool on a small site, does the button-chooser crash or silently produce
+nothing?" — and the honest answer was that the code already handles it gracefully (the build files
+a review item, repairs keep what's there, the header just shows no button), but nothing proved it.
+So now tests prove it, plus two smaller things the reviewers were right about: a backup is taken
+before the config change that turns the new check on, and that change has a proper undo file.
+
+Round two: approved, fifteen seats, including the architecture seat. All committed with the
+approval reference. What's left is tied to the next software roll: turn the check on, and run the
+two-way live test (switch a page off, watch the buttons move — including the header one, which can
+only be checked on the live site; switch it back, watch them return). Then your call on whether
+any current page should be switched off.
