@@ -283,10 +283,17 @@ func enforceListingItemSources(ctx context.Context, params ActionParams, pages [
 }
 
 // fileListingCapabilityGap files ONE deferred capability_gap row for an
-// unproducible listing page — the exact column/spec shape
-// ReconcileSitePlanAction's builder-gap arm writes (co-dedup via item_key on
-// the partial unique index; handler_agent EMPTY, the bugs_closed/078/291 rule;
-// spec.builder_needed is the field diagnose_triage's roadmap grouping reads).
+// unproducible listing page, through the SHARED work-item writer
+// (insertWorkItem — the same door WriteBuildItemsAction's capability_gap arm
+// uses, council corr c0990eb3 round 2, reuse_agent: a fourth hand-rolled
+// INSERT of this shape was the objection, and the shared struct's own header
+// records what walking round the shared door has cost before). Shape matches
+// the sibling producers exactly: item_key `capability_gap:<page_type>:<page_name>`
+// co-dedups on the partial unique index; handler_agent EMPTY (the
+// bugs_closed/078/291 rule); spec.builder_needed is the field diagnose_triage's
+// roadmap grouping reads. Best-effort by design: a failed receipt must not
+// change the disposition (the drop is already durable in the findings row) —
+// but it must not be silent either.
 func fileListingCapabilityGap(ctx context.Context, params ActionParams, siteID uuid.UUID, view planPageView, res ListingSourceResolution) {
 	gapKey := fmt.Sprintf("capability_gap:%s:%s", view.Role, view.Name)
 	gapSpec, _ := json.Marshal(map[string]interface{}{
@@ -296,26 +303,38 @@ func fileListingCapabilityGap(ctx context.Context, params ActionParams, siteID u
 		"builder_needed": res.ProducerNeeded,
 		"reason":         res.Evidence,
 	})
-	result, err := params.DB.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, priority, handler_agent, status, created_by, item_key
-		) VALUES ($1, 'validate_site_plan', 'build', 'capability_gap',
-		          'low', $2, $3::jsonb, 200, '',
-		          'deferred', 'validate_site_plan', $4)
-		ON CONFLICT DO NOTHING
-	`, siteID,
-		fmt.Sprintf("Listing page '%s' has no item source (%s) — held from the plan", view.Name, res.ProducerNeeded),
-		string(gapSpec), gapKey)
+	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
-		// Best-effort by design: a failed receipt must not change the
-		// disposition (the drop already happened and is in the findings row) —
-		// but it must not be silent either.
+		params.Logger.Error("listing_item_sources: capability_gap tx open failed",
+			zap.String("page", view.Name), zap.Error(err))
+		return
+	}
+	inserted, err := insertWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		source:       "validate_site_plan",
+		pipeline:     "build",
+		itemType:     "capability_gap",
+		severity:     "low",
+		summary:      fmt.Sprintf("Listing page '%s' has no item source (%s) — held from the plan", view.Name, res.ProducerNeeded),
+		spec:         string(gapSpec),
+		priority:     200,
+		handlerAgent: "",
+		status:       "deferred",
+		createdBy:    "validate_site_plan",
+		itemKey:      gapKey,
+	}, params.Logger)
+	if err != nil {
+		_ = tx.Rollback()
 		params.Logger.Error("listing_item_sources: capability_gap insert failed",
 			zap.String("page", view.Name), zap.Error(err))
 		return
 	}
-	if n, _ := result.RowsAffected(); n == 0 {
+	if err := tx.Commit(); err != nil {
+		params.Logger.Error("listing_item_sources: capability_gap commit failed",
+			zap.String("page", view.Name), zap.Error(err))
+		return
+	}
+	if !inserted {
 		params.Logger.Info("listing_item_sources: capability_gap already on file (dedup)",
 			zap.String("item_key", gapKey))
 	}

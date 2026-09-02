@@ -214,9 +214,14 @@ func TestEnforceListingItemSources_DropsFilesGapAndKeeps(t *testing.T) {
 	// news-index resolution: no sources, no recommendation → drop.
 	mock.ExpectQuery("FROM content_sources").
 		WillReturnRows(sqlmock.NewRows([]string{"exists", "coalesce"}).AddRow(false, false))
-	// The capability_gap receipt for the dropped page.
+	// The capability_gap receipt, via the SHARED writer (insertWorkItem):
+	// tx open → anti-churn probe → INSERT → commit.
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 	// The durable findings row (agent_error_log) is best-effort; allow it.
 	mock.ExpectExec("INSERT INTO agent_error_log").
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -256,8 +261,12 @@ func TestEnforceListingItemSources_RealisedPageKeptWithReceipt(t *testing.T) {
 
 	mock.ExpectQuery("FROM content_sources").
 		WillReturnRows(sqlmock.NewRows([]string{"exists", "coalesce"}).AddRow(false, false))
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 
 	params := gateParams(db, siteID)
 	params.DB = db
