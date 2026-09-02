@@ -671,3 +671,28 @@ once the site serves — no cleanup needed.
   the token itself is refused). `portfoliotoken` works. Your RUNBOOK's §1 row
   for it ("PRESENT — but READ-ONLY") now overstates it; anything still reading
   that file fails closed.
+
+## 2026-09-02 (later) — CORRECTION to this morning's entry, + Dynappraisal via RESTful v2
+
+> **CORRECTED 2026-09-02:** the morning entry's "451/451 isForSale=no" implied zero
+> Dynadot marketplace listings, and a header-only listings CSV was minutes from
+> shipping to the valuation lane on that evidence. **A demand control refuted it**:
+> grepping the full `download_all_listings` marketplace dump (361 MB / 7.18M rows)
+> for our 451 domains found **5 live Buy Now listings** ($2,508–$7,999:
+> traderboltai, currencyforecaster, thailandstocks, riderlessbikes,
+> carsforchildren — all .com), each confirmed via `get_listing_item`. `isForSale`
+> is not the listings field. Landmine appended to LANDMINES.md (footprint
+> `scripts/domains/dynadot.sh`), RUNBOOK Dynadot section updated. What caught it:
+> refusing to ship a zero without a control from the other side.
+
+- **Dynappraisal IS fetchable via API** — legacy API3 has no appraisal command
+  (checked the command list at dynadot.com/domain/api-document), but RESTful v2
+  `GET /restful/v2/domains/<d>/appraisal` works: proven on plumbersjobs.com →
+  `$3559`. New client `scripts/domains/dynadot-restful.sh` (HMAC-SHA256
+  signature from the API_SECRET the owner supplied this morning). Cap is PER DAY
+  by account tier (50/100/300) — a full 451-domain walk takes 2–10 days; running
+  alphabetically so each day's quota resumes deterministically.
+- Deliverables for the domain_valuation lane land in
+  `docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/`:
+  domains CSV (451 rows), listings CSV (5 rows, corrected from header-only),
+  valuations CSV (partial or full depending on where today's cap fires).

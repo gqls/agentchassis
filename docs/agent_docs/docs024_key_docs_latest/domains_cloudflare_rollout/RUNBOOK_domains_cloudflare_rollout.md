@@ -117,6 +117,22 @@ becomes an invalid bearer header.
   already exist in the account** (`add_ns` them once, first).
 - Rate tier by spend level: Regular = 1 thread, 60 req/min. Fine for thousands
   (NS updates batch multiple domains per request anyway).
+- ⚠ **`isForSale` in `list_domain` is NOT marketplace-listing state** (LANDMINES
+  2026-09-02): 451/451 read `"no"` while 5 had live Buy Now listings. Listings
+  census: `download_all_listings` (full PUBLIC marketplace dump — **361 MB /
+  7.18M rows as of 2026-09-02**, minutes; `--max-time` + `-o file` or it hangs
+  the shell) grepped `^<domain>,`, then confirm hits with
+  `get_listing_item domain=…` (authoritative, per-domain).
+- **RESTful v2 + appraisals: `scripts/domains/dynadot-restful.sh <METHOD>
+  </restful/v2/path> [json-body]`** (added 2026-09-02). Signs with the
+  credentials file's `API_SECRET`: `X-Signature = base64(HMAC-SHA256(secret,
+  "API_KEY\n<path+query>\n<X-Request-ID or ''>\n<body or ''>"))` +
+  `Authorization: Bearer <key>`. PROVEN 2026-09-02:
+  `GET /restful/v2/domains/<domain>/appraisal` →
+  `{"code":200,"data":{"appraisal_price":"$3559"}}` (Dynappraisal). ⚠ Appraisal
+  is capped **PER DAY** by account price level (50 Regular / 100 Bulk / 300
+  Super Bulk) and takes ONE domain per call — a 451-domain portfolio is a
+  multi-day walk; keep a deterministic order so each day resumes cleanly.
 
 ## Porkbun
 
