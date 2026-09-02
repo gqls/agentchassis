@@ -94,6 +94,33 @@ Pass = one distinct illustration per grip-style section, plus the logo. Then fir
 `content_rewrite` at the page and run it again: **the images surviving a rewrite is the whole point
 of the mechanism**, and it is the only check that distinguishes this from what August did.
 
+## 3a. UPDATE 2026-09-02 (late) — the GUARDS are live too, and your 13 blog pages are measured
+
+**Both halves are now shipped.** When I filed this, round 1's binding was live and round 2's drift
+guard was not. The 15:39–15:53 roll (`v1.0.1354`) carries it — verified on **both** replicas with
+controls both ways, after your own probe caught that my figure had gone stale.
+
+**The plan-vs-live agreement you asked for, so you do not have to re-derive it**
+`[MEASURED 2026-09-02]` — every `/blog/*` page on your site:
+
+| pages | plan | live | binds? |
+|---|---|---|---|
+| barrel-weight, beginners, board-setup, brand-comparison, flight-shapes, **grip-styles**, shaft-length, steel-tip-vs-soft-tip, tungsten-guide | 3 | 3 | **yes — 9 of 13** |
+| barrel-shapes, checkout-chart, dart-balance, dart-points | **0** | 3 | no |
+
+**`grip-styles` binds today.** The four that do not are not drifted — they have **no rows in the
+current plan at all** while carrying three built components each. That is worth a look
+independently of imagery: they exist in the built world and not in the plan, so a re-plan has
+nothing to preserve them from.
+
+⚠ **One ordering fact the table above does not show, and it will look like a failure if it
+surprises you.** The build path compares the plan against `pages.sections` (synced down from the
+plan), so during a rebuild the two agree and the binding engages. The **re-render** path compares
+against the stored `page_components`. So in the window after a recompose and before the rebuild
+lands, a re-render sees plan≠live and stands down — correctly, because the ordinals name a
+composition the page does not have yet. **Sequence it as: recompose → seed rows → rebuild → verify
+→ then re-render freely.** A re-render fired in the gap is not evidence the mechanism failed.
+
 ## 3b. WHAT THE OTHER 432 GUIDE PAGES DO — added after filing, and it changes how to treat step 1
 
 ⚠ **CORRECTION TO THE FRAMING ABOVE (2026-09-02, later).** I gave you a recipe without telling
