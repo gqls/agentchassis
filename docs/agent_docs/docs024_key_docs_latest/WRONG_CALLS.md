@@ -59368,3 +59368,31 @@ to owe it. A query small enough to type from memory is exactly the one that gets
 **The cheap check:** the one already written: `\d <table>` first, every time, including for
 "trivial" lookups. Second occurrence in this session's arc of the same shape the estate already
 automates elsewhere (wrong-key queries reading as absence — the bugfix_390 lane's landmine).
+
+- **2026-09-02 — bugfix_414 lane — I verified the claim that code WORKED and took on trust the
+  claim that code was BROKEN, in the same hour, about the same commit.** A peer lane built a
+  detector I had costed. I checked their build at HEAD rather than believing the report — right
+  call, and everything held. Minutes later, chasing an unrelated question, I hit a council review
+  payload in the chassis logs and relayed one of its objections — that the new work item's
+  `item_key` was not type-scoped against `idx_swi_dedup` — into `LANDMINES`, a ledger other
+  sessions read before touching that file. **I never opened the function.**
+  `bannedClaimPatternItemKey` (`refresh_evidence_base_action.go:365`) returns
+  `invalid_banned_claim_pattern:<site>:<fnv64a>`; the type prefix the objection asked for was
+  **already there**. The objection was against the submission's *sketch*, which under-described
+  the key — the code was right throughout. So I asserted a defect in shipped code that did not
+  exist, having spent the same session insisting that peers' reports be checked at HEAD.
+  **The asymmetry is the finding, and it is not about that commit.** A positive claim ("this
+  works") triggered verification; a negative one ("this is broken") did not — and negative claims
+  are the ones that get repeated, because they sound like diligence. A reviewer's objection has
+  the *form* of a checked finding while being, at that moment, exactly what it is: someone else's
+  unverified reading, made without a `code_check`. **Reading an objection is not reading the code
+  it is about.**
+  **What caught it:** the owning lane, hours later, pulling the finished report instead of either
+  of our paraphrases — verdict APPROVED, three advisory objections, none high-severity.
+  **The cheap check:** one `grep` for the symbol before repeating any claim about it, positive or
+  negative — the same grep I had already run twice that evening on the surrounding functions.
+  **Second-order damage it nearly caused:** the landmine would have sent the next author to
+  "fix" a key that was already correct, against an entry whose whole subject is a guard that
+  looks broken and is not.
+  Tally: **relayed-an-objection-without-reading-the-code** ×1 (new);
+  **verification-applied-asymmetrically-to-positive-vs-negative-claims** ×1 (new).
