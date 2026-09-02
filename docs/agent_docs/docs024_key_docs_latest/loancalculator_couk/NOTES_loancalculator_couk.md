@@ -6750,3 +6750,47 @@ Neither can exercise 385's build arm; churn in `created_at`s and chrome is expec
 
 **385 stays OPEN on one criterion:** a clean build-arm rebuild (bug §7b). Everything else
 about the bug is done: cause (§5c), class fix (LOCK-009), council APPROVED, fix live.
+
+## 2026-09-02 — the evidence register is BUILT and LIVE (owner-directed, RFC_060 §4; migration 699)
+
+**The instruction** arrived by peer relay (lendzy lane): the five register-less finance
+sites build their registers; this site is one (RFC_060 §1b — zero `evidence_base` rows,
+so the numeric scan never armed and the daily citation check was vacuously green).
+Method = lendzy's RUNBOOK §8 / migration 695, followed step for step.
+
+**What was done, all `[MEASURED 2026-09-02]`:**
+- All 28 served pages crawled; 232 regulatory-shaped sentences extracted FROM THE
+  ARTEFACT (scratch script; inventory in the session record). Unlike lendzy (CONC caps),
+  this site's external assertions are dominated by **Consumer Credit Act 1974 rights** —
+  so the register cites legislation.gov.uk (7 CCA sections + 2 SIs) alongside
+  handbook.fca.org.uk (CONC 5.2A.5, CONC 7.3.4, DISP 1.3.1). The refresher re-fetches
+  any citation URL, so both hosts get the daily quote re-check.
+- Every provision FETCHED AND READ; every URL confirmed by `<title>` (both hosts 200 on
+  wrong paths). **All 12 quotes verified through the production matcher**
+  (`cmd/fcaquotecheck`), 12/12 true, absent control false in the same runs.
+- **Migration 699 applied**: `699 OK ... COMMIT`; read-back shows 12 facts, pinned,
+  current, `created_by='loancalculator_couk lane (migration 699)'`, 09-02 15:30.
+  Rollback sidecar written. Council corr `1f259a95` (`Council-Submitted:`).
+
+**The exercise caught the site TWICE (both `corrects_site_citation`, copy NOT touched —
+bugs_open/320 §15, owner's call):**
+1. `tools/settlement-calculator.html`: "usually within ten working days" — the
+   prescribed period is **12 working days** (SI 1983/1564 reg 4, quoted verbatim).
+2. `tools/overpayment-calculator.html`: "overpay up to 10% of your outstanding balance
+   in any 12-month period without a charge" attributed to the CCA — **no 10% rule
+   exists**; the statutory threshold is **£8,000 per 12 months** (s.95A(2)(a)), cap
+   1%/0.5% (s.95A(4)). The 10% allowance is a mortgage-product convention.
+
+**And it caught ME once — the near-miss is in the migration header:** the 12-day period
+traced first to SI 1983/**1569**, whose schedule covers ss.77-79/103/107-110 and NOT
+s.97; the right instrument is SI 1983/**1564** (reg 4 names s.97(1) explicitly).
+Reading the schedule, not the title, is what caught it — the method working on its
+own operator.
+
+**Consequences now live:** the daily refresher re-checks 12 citations from its next
+run; `HasScannableRegister` arms the numeric scan on future saves — measured-safe for
+this site (RFC_060 §1c: zero findings on our 474-component export; fad209b92 live), and
+the pending 397 GTM rerender wave passes the armed scan with the same zero expectation.
+`rule` fields are human-verified (dated) until Q6's rule-span checker ships.
+
+**For the owner (in README):** the two copy corrections are his prose decisions.

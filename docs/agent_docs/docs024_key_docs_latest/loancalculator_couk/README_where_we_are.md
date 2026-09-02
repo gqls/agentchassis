@@ -2533,3 +2533,37 @@ If you glance at the site's activity and see a flurry, it is these — not new d
 one thing I am still waiting for, to close the bug file formally, is a rebuild of a
 calculator page through the specific route that failed on Saturday; the waves above use
 the other, safe route, so they do not count as proof either way.
+
+## 2026-09-02 — the site's legal claims now have a register behind them, and checking them found two mistakes in our own copy
+
+You directed that the finance sites without an evidence register get one, and
+loancalculator's is now built and live. What that means in practice: the twelve legal
+claims the site leans on most — the right to a settlement figure, voluntary termination,
+the 14-day cooling-off, default notices, the dealer-as-agent rule, the early-repayment
+charge rules, and the FCA's affordability, forbearance and complaints requirements — are
+each recorded with the exact provision that states them and a word-for-word quote from
+the official source. From tonight, the system re-fetches every one of those sources
+daily and checks our quotes still match; if the law or a page moves, we hear about it.
+Every quote was verified through the same matcher the daily check uses, with a
+deliberate wrong-quote control alongside, before anything was written.
+
+Reading the actual rules found two errors in our published copy, and I have not touched
+either — they are your prose decisions:
+
+1. The settlement calculator page says a lender's written settlement figure arrives
+   "usually within ten working days". The legal deadline is twelve working days. Small,
+   but it is a number we state as fact and it is wrong.
+2. The overpayment calculator page says the Consumer Credit Act lets you overpay "up to
+   10% of your outstanding balance in any 12-month period without a charge". The Act
+   contains no such 10% rule — the real threshold is £8,000 of early repayment in any
+   12-month period, and the fee above it is capped at 1% (or 0.5%) of the payment. The
+   "10% free" idea is a feature of some mortgage products, not a right under the Act.
+   This is the more important one, since a reader could rely on it.
+
+Both corrections are recorded in the register itself, so the machinery knows the right
+answer even while the pages still say the old one. One honest confession that says
+something good about the method: I nearly attributed the twelve-day deadline to the
+wrong regulation myself — two 1983 instruments have near-identical names, and only
+reading the schedule of the first showed it doesn't cover settlement figures at all.
+That is exactly the mistake this register exists to catch, and the check caught its
+own author before it caught anyone else.
