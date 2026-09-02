@@ -86,10 +86,36 @@ Committing before it lands — use `Council-Submitted: d018a48f-bd76-420a-8530-4
 APPROVED, a later reference should use `Council-Reviewed: <that id>` — do not write that trailer
 without having read an approved verdict.
 
-## Build + roll (not yet done)
+## Build + roll
 
-Affects the `image-generator-adapter` service (`internal/adapters/imagegenerator/`) — that is the
-service to rebuild, not `agent-chassis` (the prompt-policy half lives in `platform/orchestration/
-actions`, which is compiled into `agent-chassis`, so BOTH services need a rebuild + roll for the
-full mechanism to be live). Bump `IMAGE_TAG` for both. Verify via build provenance / binary probe
-per CLAUDE.md, not a same-tag rebuild assumption.
+Affects the `image-generator-adapter` service (`internal/adapters/imagegenerator/`) AND
+`agent-chassis` (the prompt-policy half lives in `platform/orchestration/actions`, compiled into
+`agent-chassis`) — **BOTH need a rebuild + roll** for the full mechanism to be live at any given
+commit. Bump `IMAGE_TAG` for both. Verify via build provenance / binary probe per CLAUDE.md, never
+by tag or a "roll happened" assumption.
+
+**2026-09-02 status: a fresh build IS live (tag `v1.0.1354`) and DOES carry the original matting
+fix (`6440ec968`), verified at the artefact on both services — but it does NOT carry the
+magenta-contradiction fix (`b2322a203`), because that commit postdates the running build.** Full
+verification commands, so the next session can re-run them rather than trust this note:
+
+```bash
+# image-generator-adapter — build provenance (works; not a busy service)
+kubectl -n ai-persona-system logs -l app=image-generator-adapter --tail=3000 | grep -m1 'build provenance'
+# -> read the git_commit value, then:
+git merge-base --is-ancestor <this-fix-commit> <that-git_commit> && echo LIVE || echo NOT-LIVE
+
+# agent-chassis — build provenance usually scrolls out of range (busy service); fall back to the
+# binary probe, ALWAYS with a positive control (a long-merged symbol) and a negative control
+# (a made-up symbol) in the same breath, never just the target alone:
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- grep -aq "applyLogoTextPolicy" /proc/1/exe && echo "positive control: PRESENT (expected)"
+kubectl -n ai-persona-system exec "$POD" -- grep -aq "applyLogoBackgroundPolicy" /proc/1/exe && echo "424 matting fix: PRESENT" || echo "424 matting fix: ABSENT"
+kubectl -n ai-persona-system exec "$POD" -- grep -aq "must use no shade of magenta or pink" /proc/1/exe && echo "magenta fix: PRESENT" || echo "magenta fix: ABSENT"
+kubectl -n ai-persona-system exec "$POD" -- grep -aq "applyLogoBackgroundPolicyNOTREAL" /proc/1/exe && echo "unexpected: negative control PRESENT (probe is broken)" || echo "negative control: ABSENT (expected)"
+```
+
+**Do not trigger a real `kind=logo` generation against the currently-deployed build** — it will
+hit the magenta/background contradiction the council caught (see NOTES, "council verdict read").
+Roll again after `b2322a203` (and anything else that lands before the next roll) before testing on
+a live asset.

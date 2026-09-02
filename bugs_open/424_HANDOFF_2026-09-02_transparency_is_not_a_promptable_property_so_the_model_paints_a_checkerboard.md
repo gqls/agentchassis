@@ -137,3 +137,23 @@ colour type 6 and `tRNS`, never one alone.
 Separately filed, not part of this fix: `assets.mime_type` is empty on 910/1,277 rows fleet-wide
 (measured by the boxingonline session, 2026-09-02) — a store-step defect this bug's own verification
 surfaced but does not cause.
+
+## 2026-09-02 (contd) — council APPROVED, but caught a real bug; fixed; NOT yet in the deployed build
+
+Council review (`d018a48f-bd76-420a-8530-4491681d3bd4`): **APPROVED with 4 advisory objections,
+none high-severity.** One objection (editquality MEDIUM) was a confirmed real defect: the negative
+prompt forbade the exact colour (`magenta`, `#ff00ff`) the clause simultaneously told the model to
+paint as the background — a contradiction that could make the model refuse the key colour entirely,
+defeating the mechanism. Fixed same session (`b2322a203`): the foreground/background distinction
+now lives in one sentence inside the positive clause instead of a separate, contradicting
+negative-prompt term. Full detail, plus the other three (non-code-changing) findings:
+`docs024_key_docs_latest/bugfix_424_logo_transparency/NOTES_logo_transparency.md`.
+
+**A fresh chassis build was deployed 2026-09-02 (tag v1.0.1354) — verified at the artefact (build
+provenance + binary probe with positive/negative controls, both services) to carry the ORIGINAL
+matting fix but NOT the magenta-contradiction fix**, which was committed after that build's pods
+started. **Do not trigger a real `kind=logo` generation against the currently-running build** — see
+RUNBOOK for the exact commands to re-verify before testing.
+
+Detailed handoff for a fresh session: `docs024_key_docs_latest/bugfix_424_logo_transparency/
+HANDOFF_2026-09-02_continue_here.md`.

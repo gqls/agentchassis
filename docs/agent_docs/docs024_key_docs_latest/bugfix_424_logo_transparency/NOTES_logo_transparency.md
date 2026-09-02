@@ -142,3 +142,88 @@ in commit authorship. No action needed beyond noting it — re-committing either
 no-op (no diff against HEAD) or, worse, would risk sweeping up whatever ELSE has landed in them
 since (both files had further unrelated changes from other sessions sitting in the tree at the time
 I checked, correctly left alone).
+
+## 2026-09-02 (contd) — council verdict read: APPROVED, but it found a real bug
+
+Verdict landed ~8 minutes after submission (13:37:11Z vs 13:29:51Z fix_plan). **APPROVED, 9
+reviewers, 1 objecting substantively (editquality/reuse_agent/guardian/debug_historian raised
+findings; improvement_guardian/constitution/mission/prior_art_librarian/architecture approved
+clean or with only LOW/informational notes), 4 advisory objections, none high-severity — so it
+passed the gate.** But "passed the gate" is not "found nothing real", and one finding was:
+
+**editquality MEDIUM, confirmed real on inspection of the actual shipped code:**
+`logoBackgroundNegatives` (`generate_image_actions.go`) included `"magenta"` and `"#ff00ff"` as
+bare negative-prompt terms. `foldNegativeIntoPrompt` (banana provider, bugs_open/028) turns that
+into *"the image must not contain or use: magenta, #ff00ff"* — in the SAME prompt that
+`LogoBackgroundKeyClause` tells the model to paint the entire background magenta. Two channels
+flatly disagreeing, exactly the failure shape `bugs_closed/390` measured (co-present instructions
+are adjudicated by the model, not by precedence wording) — and here it risked the model refusing
+the key colour outright, which would have defeated the whole mechanism this fix exists to build.
+**This was live in the code I had already committed and, as established below, live in the
+already-deployed build.**
+
+Fixed immediately (commit `b2322a203`): moved the foreground/background distinction into ONE
+sentence inside the clause itself ("the artwork itself must use no shade of magenta or pink
+anywhere") and removed the two bare negative terms, so there is nothing left in a separate channel
+to disagree with. Added `TestLogoBackgroundPolicyNeverContradictsItsOwnKeyColour` to pin it. All
+suites re-run clean; `verify-head-builds.sh --test` confirms HEAD (`6a8f0bc49`) passes.
+
+**Other findings from the same round, triaged:**
+- editquality LOW + guardian MEDIUM both read the diff hunks and concluded `platform/colour`
+  (for `ParseHex`) and the `bytes` import looked missing from the edit set. Both are **false
+  positives from reading only the diff, not the full file** — `platform/colour` and `bytes` were
+  already present before this change (I reused `ParseHex` from the pre-existing
+  `platform/colour/contrast.go`, and `dynamic_adapter.go` already imported `bytes`). HEAD builds
+  and every test passes, which is the actual proof, not an assertion. No code change; worth a
+  clearer `grounded_in` citation next submission so a reviewer without full-repo access doesn't
+  have to guess.
+- **guardian LOW, real and NOT yet addressed:** the fail-closed guard changes the failure rate for
+  every `kind=logo` request; a site whose model reliably ignores the key-colour instruction could
+  now exhaust the `needs_logo`/`needs_hero_image` retry ladder (`attempt_count`/`max_attempts`)
+  rather than complete with a flawed-but-present asset. Contained, not a veto, but a real product
+  question — see the HANDOFF's decision list.
+- **debug_historian MEDIUM, real and directly relevant to the next step:** the plan had no
+  described verification step for confirming the deploy actually landed on the running pod's
+  binary. Addressed by doing exactly that next (below) rather than by editing the plan doc.
+- **reuse_agent MEDIUM:** flagged that `platform/colour.ParseHex` might duplicate existing
+  hex/colour-handling code elsewhere (`palette_specialised_slots.go`,
+  `render_css_from_spec_action.go`, `style_collections.color_palette`). Not chased further this
+  session — `platform/colour.ParseHex` already existed and was reused rather than written new, so
+  the objection's premise (a NEW package "introduced with no stated search") doesn't hold, but a
+  genuine second look at whether a MORE specific existing helper would have been better is a fair,
+  low-cost thing for a future session to do.
+- **architecture LOW (informational):** `KeyGround` is the first field of its kind on
+  `ImageRequestData` — noted for RFC_022 accumulation tracking, no action needed now.
+
+Full council report saved: `council_submission_424_logo_transparency.json` (the submission) plus
+the verdict is queryable by `SUBMISSION_CORR=d018a48f-bd76-420a-8530-4491681d3bd4` (see RUNBOOK).
+
+## 2026-09-02 (contd) — the user reports a fresh chassis build; verified at the artefact, not trusted
+
+Per CLAUDE.md's own repeated lesson ("a roll is not evidence your fix shipped" — ask the binary, per
+service), checked both services with a positive+negative control each, not by tag or git log:
+
+**image-generator-adapter** (pods `image-generator-adapter-6fcddcd498-*`, started ~46 min before
+this check, tag `v1.0.1354`): build-provenance log line present —
+`git_commit: ebf27c60377f984fd2847a1d5d88ff87ae01ebf7`. `git merge-base --is-ancestor 6440ec968
+ebf27c603` → **YES** (the original matting fix IS live). `git merge-base --is-ancestor b2322a203
+ebf27c603` → **NO** (the magenta-contradiction fix is NOT live — it postdates this build by ~3
+hours).
+
+**agent-chassis** (pods `agent-chassis-744cfb4bf-*`): build-provenance line absent from the last
+500 lines of logs on both pods (a busy service — CLAUDE.md's own documented "scrolls out of range"
+case, not evidence of anything). Fell back to the binary probe with full controls:
+`grep -aq applyLogoTextPolicy /proc/1/exe` → PRESENT (positive control, a long-merged 417 symbol);
+`grep -aq applyLogoBackgroundPolicy /proc/1/exe` → PRESENT (the target — this fix's prompt-policy
+function IS in the running binary); `grep -aq applyLogoBackgroundPolicyNOTREAL /proc/1/exe` →
+ABSENT (negative control, sane); `grep -aq "must use no shade of magenta or pink" /proc/1/exe` →
+ABSENT (the just-committed fix text — correctly absent, confirming the probe distinguishes
+old-vs-new code rather than just matching "something").
+
+**Conclusion, stated as plainly as the evidence supports:** the fresh build carries the ORIGINAL
+424 matting mechanism on both services — real, live, not merely committed. It does NOT carry the
+magenta-contradiction fix from this same afternoon, because that fix was committed after these
+pods started. **Anyone triggering a real kind=logo generation against the CURRENT running build
+right now would hit the contradiction the council just caught** — the exact defect described
+above, live in production, not just in git history. This is the first thing in the handoff's
+decision list.
