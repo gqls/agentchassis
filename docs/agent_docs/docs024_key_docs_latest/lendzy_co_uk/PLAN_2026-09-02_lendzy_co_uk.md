@@ -219,3 +219,21 @@ date and R/G marker, not on the id alone. A rule's text frequently cites *other*
 a cross-reference in a neighbouring rule and silently spans the wrong text. The `dd/mm/yyyy [RG]`
 suffix is what distinguishes a rule's own heading from a mention of it, and it is present on every
 one of the 78 and 54 rules parsed today.
+
+---
+
+## ADDITION 2026-09-02b — THE OWNER RULED ON ALL FIVE DECISIONS. Recorded verbatim-in-substance; execution state per item.
+
+| # | decision | ruling | state |
+|---|---|---|---|
+| 1 | the two wrong rule citations | **"please fix both"** | **Migration 696** written, committed (`3a174fafd`), council-submitted (`bb352ee8`). Fixes every storage layer the census found — 13 content rows, the `content_direction` SPEC (carried the CPA error twice — the re-planting source), lendzy's rollover tool template, **and the loancash fork of it** (same verbatim sentence, propagated by our fork mechanism, serving live) — CPA replace first then rollover, 11 rerenders filed in-transaction. **Apply AFTER the chassis roll settles** |
+| 2 | rule-span checker (RFC_060 §3d/Q6) | **"Yes… ok go ahead and build it"** | Relayed to the claims-verification thread same hour, with the §B5 anchoring trap restated. THEIR build |
+| 3 | FCA mirror scope | **"start with cited chapters and design the tables so it's ready"** [to widen] | Recorded as B-ii's brief. Sequencing unchanged: pacing lands first; design doc routes through the claims thread |
+| 4 | the compliance sentence | **"remove the sentence until it's true and checked by the new checker regularly"** | Verified 0 occurrences on every served body (it was stripped by the 414 fix and has not returned) — so nothing to remove, and the ruling is recorded as the STANDING GATE: no compliance sentence returns until the mechanism is live AND the Q6 checker is running regularly. The claims thread was told their checker is now that gate |
+| 5 | the other four register-less sites | **"tell the other sites to do theirs too… tell me those that don't have active sessions… offer the method and tooling"** | Method written as RUNBOOK §8; offered with `cmd/fcaquotecheck` + the 695 pattern to **loanzy.uk** (session `30f187` — holds loanzy.uk AND farmerinsurance.uk's lane) and **loancalculator** (session `45cb42`). **No session exists for loancash.co.uk** `[MEASURED 2026-09-02, ListAgents]`; farmerinsurance has no session of its own but is held by the loanzy lane. Reported to the owner |
+
+Operational note, same hour: **the owner announced a chassis roll within the hour.** Consequences
+this lane acts on: in-flight council runs can be killed by a roll (693 round 2 `a1b691e8`, 695
+`dbae30ab`, 696 `bb352ee8` are all in flight — resubmit any that die rather than re-diagnose); no
+orchestration dispatch within ~300s of a chassis restart, so **migrations that file rerenders
+(693, 696) are applied after the roll settles**, never just before it.

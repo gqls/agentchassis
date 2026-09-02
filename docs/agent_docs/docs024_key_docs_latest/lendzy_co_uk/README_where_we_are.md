@@ -143,3 +143,31 @@ than an independent check, and you should know that.
 The repair is also with our review council and that verdict hasn't come back yet either. I'll run
 it once that lands. The repair refuses to run at all if anything I measured has changed in the
 meantime, so a stale assumption can't do damage quietly.
+
+**2026-09-02, evening — you ruled on all five; here's what happened with each.**
+
+The citation fix is written and with the review council. Going through every layer that stores
+those sentences turned up two things worth telling you. First, the wrong number was also in
+lendzy's *writing instructions* — the notes our content system consults when it writes — so if
+we'd only fixed the pages, the next rewrite would have put the error straight back. Both layers
+are in the fix. Second, the wrong rollover number had already travelled: loancash runs a copy of
+lendzy's rollover checker, copied while the error was in it, and it's serving the wrong rule
+number today. Same sentence, our copying mechanism, so the fix covers it and I'm telling you
+rather than asking — it felt inside the spirit of "fix both".
+
+Your go-ahead on the better checker went to the claims-verification thread the same hour, and
+your sentence ruling is now written down as the standing rule: nothing on any site claims
+handbook-checking until the checking is real and that new checker is watching it regularly.
+
+The mirror will start with just the chapters we actually cite, built so widening it later is a
+configuration change rather than a redesign.
+
+On the other four sites: I've sent the method and the tools to the two with live sessions —
+loanzy.uk (whose thread also holds farmerinsurance) and loancalculator. **The one with nobody
+home is loancash.co.uk** — no session at all. Farmerinsurance technically has no session of its
+own either, but the loanzy thread owns its lane, so it's covered. Loancash is the gap, and it's
+now also the site where we're fixing a wrong rule number, so it's the one I'd give a session to
+first.
+
+And noted on the new chassis within the hour — I'm holding both apply steps until it's rolled and
+settled, because the re-render jobs the fixes queue shouldn't race a restart.
