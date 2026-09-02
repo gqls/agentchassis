@@ -231,12 +231,33 @@ Silence is what cost nine days. Three layers, ordered by what they actually cove
    with the component id so the rerender scopes (`create_rerender_items_action.go:219`).
    With the §2 design this check should never fire except on a genuine render-path
    regression — it is the tripwire that proves the guarantee, not the mechanism.
-   **Stated dependency:** discovery has no recurring driver (`bugs_open/230`;
+   ~~**Stated dependency:** discovery has no recurring driver (`bugs_open/230`;
    `improvement-sweep` disabled, and its cap skips busy sites even when enabled —
    `LANDMINES.md`). The check is only as live as its driver; until 230 lands, the
    RUNBOOK for this workstream must carry the hand-fire
    (`run_improvement_sweep_once.sh` / direct check dispatch) as an explicit step, not
-   an assumption.
+   an assumption.~~
+
+   > **CORRECTED 2026-09-02 — THIS DEPENDENCY IS STALE, AND ACTING ON IT WOULD COST THE
+   > NEXT THREAD A HAND-FIRE STEP IT DOES NOT NEED.** `bugs_open/230` was taken up the day
+   > after this plan cited it, and its fix is live: a `site_discovery_rotation` stamp table
+   > with three rotation tasks (migration 346) plus the daily watchdog CronJob
+   > `site-discovery-staleness-check`, which is **not suspended and last ran 2026-09-02
+   > 06:35Z**. Discovery is driven today, measured at the artefact rather than at the
+   > schedule `[MEASURED 2026-09-02]`: every rotation agent carries a `last_selected_at`
+   > within the last two hours (`render-audit-agent` 13:09Z, `design-discovery-agent`
+   > 12:43Z), and — the check that matters, because a fresh rotation tick is a selector
+   > firing, not a check running — **`site_work_items` rows with `source='discovery'` are
+   > being filed continuously**: `brief-negation-check` 13:17Z, `generic` 334 items 12:43Z,
+   > `reader-experience-audit` 97 items 12:42Z, with `improvement-loop` filing 25 at 12:42Z.
+   > So a new `DiscoveryCheck` added to the family WOULD run on the rotation.
+   >
+   > ⚠ Two things this correction does NOT say. `bugs_open/230` is still **OPEN** — read it
+   > before quoting it as closed; the driver existing is not the same as every residual
+   > being discharged. And "the rotation runs" is not "your check runs": whoever builds
+   > `check_unrendered_section_imagery` still owes the one query that shows THEIR check's
+   > owning agent is in the rotation and selected, because the first version of this
+   > paragraph would have been true of a rotation that ran and skipped it.
 
 ---
 
