@@ -57528,3 +57528,14 @@ assume it informed the filename.
   **signal-asserted-without-a-disconfirming-case** — the same family as Sunday's three, which is
   now five in three days and is the argument for making the positive control reflexive rather
   than remembered.
+
+---
+
+### 2026-09-02 — components lane (`bugs_open/425`): I wrote a migration verify block that reported a CORRECT migration as a failure, and only the RAISE saved it
+
+- **the claim / the action:** migration 682 guards `content-listing`'s four per-item card slots. Its verify block tested each slot with *"is the unguarded form still present?"* — `IF t LIKE '%<span class="article-card__category">{{.category}}</span>%' THEN unguarded := …`.
+- **why it was wrong:** the guarded form **contains** the unguarded one as a substring — `{{if .category}}` + the same span + `{{end}}`. The test is therefore true whether or not the fix applied, so it could only ever report failure. It is the same mistake as the landmine it sits next to, one level down: a test keyed on a LITERAL that is a substring of the thing it means to distinguish.
+- **what caught it:** the block is a `DO`/`RAISE`, so the first run aborted the transaction and the template was left untouched. A second, unrelated bug in the same lines (`text[] || 'category'` without a cast — Postgres resolves the unknown literal as an array and dies "malformed array literal") is what actually fired first; the substring error would have fired on its own immediately after.
+- **the cheap check that would have caught it, and which I then adopted:** **induce the verify block before the real apply.** Run it against the UNGUARDED template inside a transaction you roll back, and require it to RAISE. It did, naming all six slots — and running it that way is also what proved the rewritten test discriminates. Two minutes, no risk, and it converts "the verify block passed" from a fact about the migration into a fact about the verify block.
+- **the near miss worth naming:** had I written the verify as a block of `SELECT`s, as many migrations in this tree still do, **the transaction would have COMMITTED** — `ON_ERROR_STOP` does not fire on a non-empty result set. The wrong-but-harmless outcome I got was a property of the `DO`/`RAISE` shape, not of my care. RFC_006's rule earned its place here.
+- **also on this lane, in the honest direction:** the render proof I wrote to check the new template found a defect I had not been told about and was not looking for — `section__header`'s children were guarded, its wrapper was not, so a section with no title rendered an empty `<div>` with a margin. It was found only because the proof asserted "no empty elements anywhere" rather than "the four reported slots are gone". **An assertion narrowed to the reported symptom would have passed.**
