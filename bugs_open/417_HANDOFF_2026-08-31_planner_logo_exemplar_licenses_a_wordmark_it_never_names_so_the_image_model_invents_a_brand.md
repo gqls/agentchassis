@@ -420,3 +420,90 @@ owed (the served asset still reads "BOXING NEWS"), its plan prompt is washed by 
 firing it would give disconfirmations A and C their first subject in the same run that repairs the
 first paid site. Whoever fires it should download the PNG and **look at it** — and also check
 `bugs_open/421`, because a text-free two-panel design comp is still unusable.
+
+---
+
+## CENSUS RUN AGAINST THE FIRST POST-ROLL LOGO GENERATION (2026-09-02) — A PASSES, and it exposes a designed-in weakness the estate has already measured
+
+The boxingonline regeneration fired and completed today (work item
+`0aa6cf1d-3ae0-4939-8b58-a7fb6bb9746e`, `needs_imagery`, complete 10:25:39Z), giving
+disconfirmation A its first subject. **Read the generation side; the served file is the delivery
+lane's half and is still mid-flight.**
+
+⚠ **First, a trap I nearly fell into.** The asset row is `20ce80fb…` — **the SAME row as the bad
+08-31 logo**, because the store path upserts (`origin_prompt = COALESCE(EXCLUDED.origin_prompt,
+…)`). Its `created_at` still reads `2026-08-31 12:56:10`. **So "when was the last logo generated?"
+answered by `max(created_at)` says 08-31 and is WRONG** — the row was updated in place. Anyone
+censusing generations by `created_at` on `assets` will miss every regeneration.
+
+### Disconfirmation A — PASSED, and the needle had to be chosen carefully
+
+`origin_prompt` carries my clause. **But my sentinel and migration 680's wash clause differ only
+by a capital letter** — 680 appends *"…: render a text-free mark with no lettering or words of any
+kind"* (lowercase, after a colon) and the Go clause is *"Render a text-free mark: a single
+pictorial symbol…"*. A `LIKE '%Render a text-free mark%'` looks decisive and would have matched
+the Go clause only by luck of Postgres's case sensitivity. Settled with two **Go-only** needles
+instead:
+
+| needle | present | source |
+|---|---|---|
+| `Render a text-free mark: a single pictorial symbol` | **true** | Go guard only |
+| `overrides any earlier wording in this prompt` | **true** | Go guard only (680 says *"is void"*) |
+| `render a text-free mark with no lettering` | true | migration 680's wash |
+
+**So the guard reached a real generation and did its work.** That is the first live evidence for
+the whole placement argument — a planned prompt, from a real customer site, governed at the choke
+point.
+
+Detectors: `image_generation_without_kind`, `image_kind_conflict` and `logo_wordmark_rejected` all
+have **zero rows** — correct for this run (the kind resolved, declarations agreed, no wordmark
+opt-in was requested).
+
+### ⚠ But the composed prompt shows the weakness, and the estate measured it two days ago
+
+The full `origin_prompt`, in order: **the original plan text — still containing
+*"no text other than the wordmark itself"*, the exact licence that produced "BOXING NEWS"** —
+then 680's wash, then the owner's 2026-09-02 transparency ruling, then my clause.
+
+**Four instructions about text are co-present, and mine relies on precedence language to win.**
+
+`bugs_closed/390`, filed 2026-08-31 and already in 016b §9, measured precisely this:
+
+> *"the fixer's prompt carried a computed, case-specific instruction … AND an older general
+> instruction …, with prose saying the specific one supersedes. **The model obeyed the general
+> one.** Two co-present instructions are adjudicated by the model, not by precedence language —
+> the fix is to FENCE them in the template so only one ever renders."*
+
+**My design is the shape 390 says does not reliably work.** 670/680 appended rather than rewrote,
+deliberately, so the original wording stayed auditable — and that choice is what leaves the licence
+co-present in every washed prompt. The Go clause then adds a fifth voice rather than removing the
+first.
+
+This does **not** retract disconfirmation A: the guard demonstrably fires and its text is
+demonstrably delivered. It bounds what A can prove. **A proves the instruction ARRIVED. Only the
+PNG proves it was OBEYED**, and 390 is direct evidence that arrival does not imply obedience when
+a contrary instruction sits in the same prompt.
+
+Note 390's other instruction, which this census followed: *"read `prompt_rendered` … for what was
+actually co-present, never the template for what you meant."* Reading the composed `origin_prompt`
+rather than my own constant is what made the co-presence visible at all.
+
+### Disconfirmation C is now the binding test, and the instrument is a human eye
+
+The delivery lane downloads and LOOKS when the publish wave lands. Their check list is this file's
+plus the new ruling: text-free (417), single composition (421), **transparent background** (owner
+2026-09-02 — the 08-31 regen shipped a baked dark ground), and near-square-or-declared.
+
+**What each outcome means for THIS fix, stated before the result so it cannot be rationalised
+after:**
+
+- **Text-free →** the override held on this case. Good evidence, *not* proof of the mechanism —
+  390's failure was probabilistic, and one clean generation cannot establish a rate (the estate's
+  own *two clean runs cannot establish stability*). It would still be worth fencing.
+- **Any lettering →** the precedence language lost, exactly as 390 predicts, and the fix is a
+  FENCE: the guard must remove or neutralise the licence in the composed prompt rather than
+  argue with it. That is a real design change and it re-opens this file.
+
+**I am deliberately not writing the fence now.** The artefact decides which fix is needed, it is
+hours away, and building the more invasive version first would be choosing before the evidence —
+which is the habit this whole bug is about.
