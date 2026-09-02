@@ -330,3 +330,14 @@ own merits; investigate the 9 never-chosen layouts as a separate piece of
 work). Replied to `designblog.co.uk` with the same read. Not implementing the
 new layout myself — a real design task, 18 more remakes queued, worth doing
 right rather than fast.
+
+**Corroborated independently — `theme kits` measured the same fleet
+concentration (73% on three layouts, 9/18 never chosen) before my message
+arrived, unprompted.** Two separate measurements agree. Their nav-side finding
+(`ChromeSlotFunction()` hardcodes slot→function, 10 chrome-eligible headers
+unused, only 6/40 collections pin `header_component_id`) matches §5's
+NULL-linkage finding from a different angle — `components`' territory
+confirmed by three lanes now, not just asserted by one. Who designs the new
+archetype is going to the owner as a priority call, not assigned by either
+session. `designblog.co.uk` closed the loop: "nothing further needed" — no
+reply owed.
