@@ -255,6 +255,21 @@ source document and the entry points at it.
 
 ### `pages.sections` is a materialised CACHE — the build reads `site_plan_sections`
 
+> **CORRECTED 2026-09-02 (finetuning_uk_service lane) — the title over-generalises, and on a
+> plan-less site it points you the wrong way.** `pages.sections` is not only a cache: it is
+> **tier 3 of a four-tier resolver** and it is AUTHORITATIVE when tiers 1–2 miss. The live
+> `page-build-handler` step is `load_spec_sections` → `load_page_sections_from_spec`, whose own
+> config names `"page_sections_fallback": "page_record.sections"`. Tier 1 `site_plan_sections`,
+> tier 2 the `site_specs.site_plan` aspect, **tier 3 `pages.sections`**, tier 4 same-role sibling.
+> So the entry below is right for a plan-backed site and wrong for one with no `site_plans` row —
+> where editing `pages.sections` is the ONLY way to give a page a layout, and nothing regenerates
+> it. **Tier 2 misses PER PAGE, not per site**: finetuning.uk carries a current `site_plan` aspect
+> that lists 11 pages, and the three pages built since (`your-own-model`, `technical-details`,
+> `playground`) are in none of them — all three were served by tier 3.
+> ⚠ **And do not read `plan_sections_action.go`'s header for the answer** — it documents
+> `"sections": "page_record.sections"`, but the LIVE step passes `spec_sections.sections`. The
+> header is a step earlier than production. Read the `agent_definitions` row, not the doc comment.
+
 - **footprint:** `pages.sections`, `site_plan_sections`, `pages.title`,
   `site_plan_pages.title`, `load_page_sections_from_spec_action.go`
 - **fires when:** changing which sections a page has, or a page's title, by
@@ -19564,3 +19579,75 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **footprint:** `bugs_open/408` (now `bugs_closed/408`), `adopted-fragment`, `cv1.co.uk`, `platform/orchestration/actions/multipage_actions.go`, `extractFieldValue`, `needs_rebuild`, `assembled_page.skip_reason`
 - **fires when:** you flag an adopted-fragment page `needs_rebuild`, or you read this file's earlier entry ("flagging it needs_rebuild crashes the agent pod") and route work around a crash that no longer happens — or, the inverted arm, you flag such a page, see the run COMPLETE, and believe the page was rebuilt.
 - **the check:** since `v1.0.1354` (fix `6e2d4a039`, proven 2026-09-02 by exercising the exact crash input in production — canary corr `6e84a4e3`, chain COMPLETED, pods alive) the crash arm is DEAD: the rebuild of such a page is a clean full-chain SKIP (`assembled_page.skipped=true`, `skip_reason="no content found at …"`, `git_commit` skipped, save exits at `len(sections)==0`). What survives from the old entry: **the page still cannot be MEANINGFULLY rebuilt** — the run completes with the row untouched, so `collected_data->'assembled_page'->>'skip_reason'` is the discriminator between "rebuilt" and "skipped whole", and a green status is NOT a rebuilt page (`bugs_closed/408` §8-§11; the vacuous-pass finding in `bugfix_357_component_identity/HANDOFF_2026-08-26b` Finding 1). Probe the binary for `paths_tried` (present ⇒ fixed code aboard) before reasoning from either arm.
+
+### A hand-made page whose `sections` is `[]` builds "successfully" into nothing — and `agent_error_log` stays empty
+
+- **footprint:** `pages.sections`, `site_work_items` where `item_type='needs_content_page'`,
+  `page-build-handler`, `mark_no_ready_sections`, `load_page_sections_from_spec_action.go`,
+  `plan_sections_action.go`
+- **fires when:** creating a page by hand — a `pages` row at `build_status='planned'` plus a
+  `needs_content_page` item — which is the documented birth path for any site with no
+  `site_plans` row. `pages.sections` defaults to `'[]'`, and nothing in the dispatch or the
+  item's own spec fills it
+- **the tell:** there is no failure anywhere to find. The run **completes**, carrying
+  `"completed_by_step": "mark_no_ready_sections"` and
+  `"completion_skipped": {"reason": "already_flagged_or_terminal"}`; the item lands at
+  `needs_human_review`; the page stays `build_status='planned'` with **zero** `page_components`;
+  the URL 404s; and **`agent_error_log` holds nothing for that page**, so every "did anything
+  error?" query answers no. The item's `error` column does say
+  `"no sections ready to build (empty spec sections, or all sections deferred for missing data)"`
+  — note it offers two causes and the cheap one is listed first
+- **the check:** before dispatching a hand-made page, assert the layout is readable from a tier
+  that will actually serve it — not that you wrote one down somewhere:
+  ```sql
+  -- tier 1, tier 2, tier 3, in the resolver's own order. A page needs a hit in ONE.
+  SELECT (SELECT count(*) FROM site_plan_sections sps JOIN site_plans sp ON sp.id=sps.plan_id
+           WHERE sp.site_id=:sid AND sp.is_current AND sps.page_name=:page)            AS tier1,
+         (SELECT count(*) FROM site_specs ss WHERE ss.site_id=:sid AND ss.aspect='site_plan'
+           AND ss.is_current AND ss.data->'pages' @> jsonb_build_array(jsonb_build_object('name',:page))) AS tier2,
+         (SELECT jsonb_array_length(sections) FROM pages WHERE site_id=:sid AND name=:page) AS tier3;
+  ```
+  Run it against a page that ALREADY BUILT on the same site as your control — if your control
+  reads 0/0/0 the query is wrong, not the page
+- **the wider point:** **the section list is read from the PAGE, never from the work item.** The
+  item's `spec` carries the *brief* (`spec.suggestion`); a `sections` array added to the spec is
+  read by nothing and silently ignored. Two different things live in two different rows, and
+  putting the layout in the brief's row looks entirely reasonable until it no-ops
+- **source:** finetuning.uk `playground` page, 2026-09-02; the resolver read at
+  `load_page_sections_from_spec_action.go:1-60` and the live `page-build-handler` step config
+- **added:** 2026-09-02, finetuning_uk_service lane
+
+### A build that never starts is usually QUEUE POSITION — one site per tick, ordered by the site's OLDEST pending item
+
+- **footprint:** `build-pipeline-trigger`, `find_dispatchable_site`, `scheduled_tasks`,
+  `site_work_items.created_at`
+- **fires when:** you dispatch a build and watch it sit at `triaged`, unclaimed, for many
+  minutes — having just seen an identical item claimed within 30 seconds earlier the same hour
+- **the tell:** every per-item check passes (status `triaged`, `attempt_count < max_attempts`,
+  `retry_after` NULL, `approval_mode` auto, no `depends_on`, site not locked) and it still does
+  not run, so the natural next move is to hunt for a defect in the dispatcher — which is alive
+  and busy, making its logs look like a contradiction
+- **the check:** the selector takes **`LIMIT 1` site per tick**, ordered `MIN(created_at) ASC`
+  over that site's eligible items. So ask for your **position**, not your eligibility:
+  ```sql
+  SELECT s.domain, min(wi.created_at) AS oldest_pending, count(*) AS n
+    FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+   WHERE s.locked_at IS NULL AND wi.status IN ('triaged','approved')
+     AND wi.attempt_count < wi.max_attempts AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())
+   GROUP BY s.domain ORDER BY min(wi.created_at) ASC;
+  ```
+  A site with one old item outranks a site with fifty new ones, and a site holding many
+  pre-dating items stays ahead of you until it clears every one of them
+- ⚠ **Do NOT run that query with the selector's `NOT EXISTS (… status='claimed')` clause when you
+  are measuring position.** That clause is about the *instant* — it hides every site whose loop
+  is in flight right now, and it told me finetuning.uk was the only eligible site on the estate
+  seconds before the trigger picked three other sites ahead of it. Eligibility is a snapshot;
+  ordering is the durable fact
+- ⚠ **And `claimed_at` is NOT in the selector.** A row left `triaged` with a stale `claimed_at`
+  from a failed run still dispatches; clearing it is hygiene (the platform's own admin re-arm at
+  `internal/core-manager/admin/site_admin_handlers.go:881` sets `attempt_count=0`,
+  `claimed_by=NULL`, `claimed_at=NULL` together with the status) but it is **not** the reason a
+  build is not starting. I "found" that cause and was wrong; the cause was position
+- **source:** finetuning.uk `playground` dispatch, 2026-09-02 — trigger picks read from
+  `orchestration_states` against the live `find_dispatchable_site` query
+- **added:** 2026-09-02, finetuning_uk_service lane

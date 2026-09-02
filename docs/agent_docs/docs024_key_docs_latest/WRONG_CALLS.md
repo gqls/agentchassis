@@ -59161,3 +59161,102 @@ a-measurement-answers-the-question-you-encoded.
   **The cheap check:** re-run `ls docs/agent_docs/sql_for_agents/ | sed 's/_.*//' | sort -n | tail`
   in the same message that writes the file. It costs one line and it is only correct at that instant.
   Tally: **a-number-taken-from-memory-not-from-the-directory** ×1.
+
+## 2026-09-02 — I wrote a migration's jsonb path from the STEP'S PURPOSE, not the live row (`bugfix_436_cta_eligibility` lane)
+
+- **The claim:** migration `711`'s first draft targeted the discovery checks array at
+  `{workflow,steps,run_discovery_checks,config,checks}` — a path I composed from what the step DOES
+  (it runs discovery checks) rather than what it is CALLED.
+- **The truth:** the live `completeness-discovery-agent` row keys the step **`run_checks`**. A
+  recursive walk of the actual JSON found exactly one checks array, at
+  `workflow.steps.run_checks.config.checks`.
+- **What caught it:** my own pre-commit verification query against the live row — plus the
+  migration's DO/RAISE guard, written for exactly this, which would have aborted the COMMIT at
+  apply time (a bare jsonb_set at a wrong path "succeeds" by matching nothing; the guard refuses).
+  Caught before commit, so it cost one query instead of a dead migration.
+- **The cheap check:** CLAUDE.md's own "Schema first" rule extends to jsonb: **read the live path
+  before writing it** — `WITH RECURSIVE walk … WHERE val ? 'checks'` costs one query. A config
+  path is a name someone chose, not a description you can derive; composing it from purpose is
+  the same failure as composing a URL instead of reading `pages.url` (the probe-page-url lesson,
+  one level up).
+  Tally: **a-config-path-composed-from-purpose-not-read-from-the-row** ×1.
+
+---
+
+## 2026-09-02 (b) — I ran a census straight into a trap this estate has documented THREE TIMES, and nearly handed the false result to the council
+
+**The claim.** Answering a council objection that migration 701's `UPDATE` was not scoped to the
+news pipeline, I censused the table's consumers with
+`SELECT DISTINCT type FROM agent_definitions WHERE default_config::text LIKE '%content_sources%'`
+and reported **three** consumers — `content-feed-orchestrator`, `content-feed-trigger` and
+**`research-agent`**. I wrote, in my own reply, *"the objection is MORE right than it looked:
+`content_sources` has three consumers, not one."*
+
+**What was false.** There are **two**. `research-agent` was a phantom: **`_` is a
+single-character WILDCARD in SQL `LIKE`**, so `%content_sources%` matched the string
+`research_content.sources` — a `store_research` step writing to `research_results`, nothing to do
+with the table. Proven inline before writing this:
+
+```
+SELECT 'research_content.sources' LIKE '%content_sources%';  -->  t   (false positive)
+SELECT 'research_content.sources' ~  'content_sources';       -->  f   (correct: POSIX '_' is literal)
+```
+Correct census: `~ 'content_sources'` returns exactly the two content-feed agents. On the Go side
+the same care was needed for a different reason — of 12 files *mentioning* the table only **6**
+actually query it; `provocation_generator_action.go` mentions it only in comments and really
+queries `content_feed_items`.
+
+**What caught it.** Opening the matched row instead of counting it. The `research-agent` hit
+looked wrong, so I printed the matching text and it was `"sources": "research_content.sources"`.
+**Nothing else would have caught it** — the count was plausible, the agent name was plausible, and
+a third consumer made the objection *more* compelling, which is precisely why I believed it.
+
+**The part worth keeping is not the SQL trap — it is that the trap was already written down,
+three times, and I hit it anyway.** `LANDMINES.md` carries it at lines **1987**, **5406** and
+**14578**, and 14578 is almost verbatim my case: *"Censusing agent config for a snake_case key with
+`LIKE '%foo_bar%'` OVER-MATCHES — the underscore is a LIKE WILDCARD, and the extra rows look
+exactly like real consumers."* I did not read any of them, because **the SessionStart hook only
+surfaces landmines whose footprint matches a file already DIRTY in the tree** — it cannot match a
+table name, a SQL construct or a symbol. That limitation is itself documented (`MEMORY.md`: *"grep
+LANDMINES for the SYMBOL you are about to trust"*), and I did not do it.
+
+**The cheap check, and it is one command:** before writing any census, grep LANDMINES for the
+construct — `grep -n "LIKE" LANDMINES.md` — not just for the table. Cheaper still and specific to
+this class: **any `LIKE` pattern containing `_` is suspect; use `~` (POSIX, where `_` is literal)
+or escape it, and give the census a row whose answer you already know.** My corrected version has
+a positive control (the two agents I knew must appear) and the trap proven inline; the first
+version had neither.
+
+**Blast radius: contained, one message.** The false "three consumers" claim reached the user in a
+chat reply and nothing else — it was corrected in the same turn, before the council resubmission,
+so the round-2 `grounded_in` carries the corrected census *and* an explicit note that I got it
+wrong first. No document, bug file or register entry ever held it. Sibling of this file's
+2026-09-02 (a) entry in one respect: **both were caught by re-running a measurement rather than
+re-reading a conclusion.**
+
+Family: measurement-discipline (a census that cannot come out false), the three LANDMINES entries
+above, a-report-is-not-a-measurement.
+
+## 2026-09-02 — "found it: a stale claim is blocking the site" (finetuning_uk_service)
+
+- **The claim.** A hand-dispatched page build sat at `triaged` and would not start. I read the
+  live `find_dispatchable_site` query, saw
+  `AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = 'claimed')`,
+  matched it against my item's non-NULL `claimed_at`, and announced the cause: a stale claim from
+  the failed run was blocking the whole site.
+- **Why it was false.** The clause keys on `status='claimed'`. My item's status was `triaged`;
+  `claimed_at` does not appear in the selector at all. The item had been dispatchable the whole
+  time. The real cause was queue position — the trigger takes one site per tick ordered by
+  `MIN(created_at)`, and three sites with older pending items were ahead of it.
+- **What caught it.** Reading `orchestration_states` for what the trigger *actually picked* on each
+  tick (`seotools`, `websitepromotion`, `garden-tools`) instead of reasoning about what it *should*
+  pick. The picks contradicted my explanation immediately.
+- **The cheap check that would have.** Two columns, one glance: the clause says `status`, my row
+  says `triaged`. **I matched a clause to the wrong column and never re-read the column name.**
+  When a predicate names a field, check the field it names — not the adjacent field with the same
+  word in it. `claimed_at` and `status='claimed'` are not the same test.
+- **The compounding error.** My eligibility query *included* that same `claimed`-exclusion clause,
+  so it reported "finetuning.uk is the only eligible site on the estate" — which made the
+  dispatcher look broken and reinforced the wrong theory. **A selector's instantaneous exclusions
+  must come OUT of a query about ordering**: it hid every site whose loop was in flight, i.e.
+  precisely the sites that were ahead of me.

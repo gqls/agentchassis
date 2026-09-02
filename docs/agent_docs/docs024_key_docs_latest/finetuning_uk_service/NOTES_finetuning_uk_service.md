@@ -2139,3 +2139,61 @@ source is 1.
 
 **Nothing runs until the owner's word.** The choice in front of him is now on better information
 than his reversal was: run the nine and judge, or keep waiting.
+
+## 2026-09-02 — the playground page: dispatched, no-opped, and what the no-op actually was
+
+**The build failed silently and there was nothing to find.** The run came back `complete` with
+`"completed_by_step": "mark_no_ready_sections"` and
+`"completion_skipped": {"reason": "already_flagged_or_terminal", "status_preserved": "needs_human_review"}`.
+The page stayed `build_status='planned'` with 0 components, `/playground.html` 404'd, and
+`agent_error_log` held **no rows** for it in the preceding 30 minutes. Nothing errored — the
+builder found no sections to build and said so by completing.
+
+**My error: I put the section list in the work item's `spec`, not on the `pages` row.** The brief
+belongs in `spec.suggestion` (correct, and that part was right); the *layout* is read from the
+page. A `sections` array in the item spec is read by nothing.
+
+**Grounding the fix — and one wrong turn worth recording.** My first move was to copy the offer
+page's shape (`pages.sections` = the six slots) because it built and mine did not. That is
+correlation. Then I read `plan_sections_action.go`'s header, which says the step reads
+`page_record.sections` — and **that header is stale**. The LIVE `page-build-handler` step passes
+`spec_sections.sections`, the output of `load_spec_sections` → `load_page_sections_from_spec`,
+which is a **four-tier resolver**:
+
+| tier | source | finetuning.uk |
+|---|---|---|
+| 1 | `site_plan_sections` for the current plan | **0 rows** — this site has no `site_plans` row at all (control: dartsonline/robot-hands have 5 each) |
+| 2 | `site_specs.site_plan` aspect | **exists and is current**, but lists 11 pages and `playground` is not one of them |
+| 3 | `pages.sections` | **this is what serves here** |
+| 4 | same-role sibling layout | not reached |
+
+So `pages.sections` was the right column for the right reason, not by imitation. **The control
+that settles it:** `your-own-model` and `technical-details` — the two pages that DID build through
+this path — are also absent from the tier-2 aspect, and read the same 0/0/6 as `playground` does
+now, while `services`/`about` read tier2=1. The query discriminates, so it could have come out
+otherwise. `[MEASURED 2026-09-02]`
+
+**A correction to a fleet landmine came out of this.** `LANDMINES.md`'s entry "`pages.sections` is
+a materialised CACHE — the build reads `site_plan_sections`" is true for a plan-backed site and
+**actively misleading for a plan-less one**, where `pages.sections` is authoritative and nothing
+regenerates it. A correction is inserted under that entry (15 lines added, 0 deleted) rather than
+edited into its title, plus two new entries: the silent `[]`-sections no-op, and the queue-position
+one below.
+
+**Second wrong turn, corrected in the same session.** When the re-armed item still did not run, I
+read the site-level gate `find_dispatchable_site`, saw
+`NOT EXISTS (… active.status = 'claimed')`, and announced I had found it — a stale claim blocking
+the whole site. **Wrong.** That clause keys on `status`, and my item's status was `triaged`; its
+stale `claimed_at` is not in the selector at all. Clearing the claim was correct hygiene (the
+platform's own admin re-arm sets status + `attempt_count=0` + `claimed_by`/`claimed_at` NULL
+together, `site_admin_handlers.go:881`) but it was not the cause. **The cause was queue position:**
+the trigger takes `LIMIT 1` site per tick ordered by `MIN(created_at)`, and three sites sat ahead
+— `designblog.co.uk` (oldest 16:04), `websitepromotion.co.uk` (17:25), `garden-tools.uk` (17:25,
+**22 items**) — against my 18:19. The dispatcher was never broken; it was busy, in order.
+
+The check that would have saved both minutes and a false claim: **ask for position, not
+eligibility.** My first eligibility query included the selector's `claimed`-exclusion and returned
+"finetuning.uk is the only eligible site on the estate" — seconds before the trigger picked three
+other sites ahead of it. That clause describes the instant, not the ordering; `orchestration_states`
+filtered on `owner_agent_type='build-pipeline-trigger'` shows what each tick actually chose and is
+the honest instrument.
