@@ -79,3 +79,35 @@
   the 010 value ladder; Jul-31 152-domain subset; traffic≠value). Mining
   subagent died on a transient auth error mid-run; re-run inline.
 - Estate in hand: **1,337 domains** (451+683+203); Nominet ~1,500 .uk owner-gated.
+
+## 2026-09-02 night — categorisation complete; Dynadot trio incl. partial Dynappraisal
+
+- **Categorisation DONE for all 1,337** (`CATEGORIES_2026-09-02_full.csv`):
+  31 categories, 0 uncategorised. Top: home-garden 224, financial 125,
+  consumer-products 122, sports-leisure 80, foreign-language 79, ai-tech 79,
+  business-services 72, automotive 71. Second pass by subagent (843 rows,
+  set-equality verified). ⚠ trademark-adjacent: mieleonline.com,
+  rolex-submariners.com (UDRP risk — flag, never price up). Leasing/hire folded
+  into subject verticals (recorded in the subagent's reply, 2026-09-02).
+- **Porkbun UK comps**: 774 rows (196 .uk, 564 .co.uk, 12 .org.uk, 2 .me.uk),
+  their `4eac3364e`. Asks, USD [INFERRED]. .co.uk ask median ~$875/p25 ~$399;
+  .uk median sits on a $10k default-price wall. **.com keyword pull requested**
+  (40 stems frozen, sent 2026-09-02 night; >2,000-row stems capped at the
+  2,000 cheapest).
+- **Dynadot DELIVERED all three** (their `a0ec13892`): 451 domains (no
+  pagination in the API contract; owner control-panel total cross-check
+  pending). ⚠ **`isForSale` is NOT listing state** (their landmine): 5 LIVE
+  Buy Now listings found via the marketplace dump control — traderboltai.com
+  $7,999 · currencyforecaster.com $3,999 · thailandstocks.com $2,988 ·
+  riderlessbikes.com $2,888 · carsforchildren.com $2,508 (USD) = already-priced
+  stock. 394/451 on Afternic NS.
+- **Dynappraisal PARTIAL 300/451** (daily quota 429s at exactly 300, measured):
+  sum $891,355, mean $2,971, max dialyzers.com $15,599. Algorithmic appraisals,
+  not sales. Resume idempotent: `scripts/domains/dynadot-appraise-all.sh
+  <domains csv> <valuations csv>` — either session, tomorrow. **Asked whether
+  Dynappraisal accepts non-Dynadot-registered domains** — if yes, whole estate
+  appraisable at 300/day (~5 days retail + ~5 nominet), priority list
+  financial+home-garden first.
+- **Sequencing rule adopted** (dynadot's point): no keen price ships anywhere
+  until the owner's Afternic export is in — avoid undercutting/contradicting
+  live asks we haven't seen.
