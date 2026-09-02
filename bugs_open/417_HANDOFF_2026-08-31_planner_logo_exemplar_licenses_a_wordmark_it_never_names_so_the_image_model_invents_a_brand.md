@@ -362,3 +362,61 @@ whose step name names neither "logo" nor "hero", is **still ungoverned** — it 
 obeyed, and files `image_kind_conflict`. **Both are detections, not preventions**, and they are
 labelled as such. The honest response to either firing is to fix the caller's `input_mapping`,
 not to add more arms to the heuristic — which is the `architecture` seat's standing LOW, accepted.
+
+---
+
+## APPROVED (round 4) AND LIVE — but the census that would DISCONFIRM it has no subject yet
+
+**Council: APPROVED, round 4, `bb099a3d-0555-4fcf-b12a-31652b59f8b9`** — "approved with 2 advisory
+objection(s) — none high-severity". ⚠ The two advisories' text is **no longer retrievable**: the
+`orchestration_states` row has aged out of the rolling window (0 rows for this correlation as of
+2026-09-02) and the surviving `doc_notes` verdict carries only the summary line. Recorded as a
+limitation rather than as "there were none" — this is the estate's own
+*a closer census cannot see what it succeeded at* shape, arriving on a verdict.
+
+### Live at the artefact, with a control pair — not inferred from the roll
+
+Chassis rolled **2026-09-01 21:00:33Z** (both replicas). Probed the RUNNING binary, per this
+lane's own runbook (never the `build provenance` log line — the estate's landmine calls that
+unreliable, and the debug_historian seat objected to it in round 3):
+
+| needle | result | what it proves |
+|---|---|---|
+| `image_kind_conflict` | **PRESENT** | round-3 code is in the binary |
+| `Render a text-free mark` | **PRESENT** | the policy clause is live |
+| `resolveLogoIntent` | **absent** | **removed-string control** — round 3 DELETED this symbol, so its absence proves the binary is round 3, not round 2 |
+| `zzz_needle_that_cannot_exist_417` | absent | the grep can return zero, so the PRESENTs mean something |
+
+The third row is the one that matters: a present-only check could not have distinguished round 2
+from round 3, and the deletion gave a free removed-string control.
+
+### The census, stated honestly `[MEASURED 2026-09-02]`
+
+**Disconfirmation A (did the guard REACH every logo generation?) — NO SUBJECT YET.**
+Zero logo assets have been generated since the roll. The last `asset_key='logo'` row anywhere is
+**2026-08-31 12:56:10** — boxingonline's, the bad one. **A zero here is not a pass**; there is
+nothing to have passed.
+
+**Disconfirmation C (obedience) — NO SUBJECT YET**, same reason. It needs a real generation and a
+human looking at the PNG.
+
+**Disconfirmation D (not over-applied) — one positive data point.** 7 assets were GENERATED
+post-roll (`origin_model` non-empty), so `GenerateImageAction` demonstrably ran; the most recent
+is a `content_hero`, and it carries **no** policy sentinel — correct, and the first live evidence
+that the guard does not contaminate non-logo prompts.
+
+**The kindless detector — 7 opportunities, 0 fires.** `image_generation_without_kind` has zero
+rows while `agent_error_log` took **1,045 rows since 2026-09-01** (demand control: the table is
+being written) and `agent_type='unattributed'` reads **0** (the provenance path is healthy). So
+every post-roll generation supplied a resolvable kind. **That is evidence the legacy-parent path
+is dormant — it is NOT proof those parents are dead**, and it must not be written up as one. It
+is, however, strictly more than the liveness probe could give in round 2, which returned zero for
+a known-live control and therefore said nothing at all.
+
+### The convergence worth acting on
+
+**boxingonline's logo regeneration is both the customer fix and this fix's canary.** It is still
+owed (the served asset still reads "BOXING NEWS"), its plan prompt is washed by migration 680, and
+firing it would give disconfirmations A and C their first subject in the same run that repairs the
+first paid site. Whoever fires it should download the PNG and **look at it** — and also check
+`bugs_open/421`, because a text-free two-panel design comp is still unusable.
