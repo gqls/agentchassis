@@ -1,0 +1,22 @@
+{
+  "rationale": "Restore the 018 critic's vision payload to 16 images (migration 703, snapshot first, DO/RAISE guard). Migration 663 capped max_images at 8 as an explicitly temporary lever: both providers rejected the 16-image payload after the hero batch made full-page captures taller (Gemini 400 INVALID_ARGUMENT per-image, Anthropic 413 request_too_large per-request), and no downscaling existed in the pipeline. 663's own risks block recorded 'after which max_images returns to 16'. The downscale has now shipped and is proven live on the fresh chassis (replicaset 744cfb4bf, 2026-09-02 ~15:40Z): execute_vision_prompt scales any image whose long edge exceeds max_image_dimension (default 7900) to fit within provider limits, JPEG q85; images already within limits are byte-identical (pinned by test). The cap's premise is gone, and the seed-645 coverage (~8 pages x 2 viewports) is what the after-leg critique run needs to be comparable with the 08-26 before-leg report.",
+  "plan": {
+    "summary": "One migration, 703: jsonb_set workflow.steps.critique.config.max_images 8 -> 16 on design-critique-agent, snapshot first, DO/RAISE guard on the post-state. The exact inverse of approved-shape 663.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/703_design_critique_restores_max_images_16.sql",
+        "symbol": "design-critique-agent workflow.steps.critique.config.max_images",
+        "operation": "config_change",
+        "rationale": "Undo the 663 cap now the binding constraint (no downscale) is removed; restores full audit coverage for the critic.",
+        "sketch": "SELECT snapshot_agent('design-critique-agent', '703_design_critique_restores_max_images_16.sql: pre-update');\n\nUPDATE agent_definitions\nSET default_config = jsonb_set(default_config, '{workflow,steps,critique,config,max_images}', '16'::jsonb)\nWHERE type = 'design-critique-agent'\n  AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;\n\nDO $$\nDECLARE mi int;\nBEGIN\n  SELECT (default_config->'workflow'->'steps'->'critique'->'config'->>'max_images')::int INTO mi\n  FROM agent_definitions WHERE type='design-critique-agent' AND is_active\n    AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;\n  IF mi IS DISTINCT FROM 16 THEN RAISE EXCEPTION 'max_images is % (want 16)', mi; END IF;\nEND $$;"
+      }
+    ],
+    "grounded_in": [
+      "Migration 663's committed risks block: 'The cap is deliberately temporary: the register (SQ-003) and 018 follow-up record the downscale as the real fix, after which max_images returns to 16.'",
+      "Live-row read 2026-09-02 (this session): design-critique-agent critique.config max_images = 8, ai_service = anthropic/claude-sonnet-5 — i.e. 662+663 still applied, nothing else moved the row.",
+      "Chassis pod probe 2026-09-02 ~15:40Z (replicaset 744cfb4bf): 'downscaleVisionImage: image scaled for provider limits' PRESENT, max_image_dimension PRESENT, positive control PRESENT, invented-string negative control ABSENT — the downscale capability is in the running binary, not just in git.",
+      "Downscale behaviour pinned by test: legal images pass through byte-identical; max_image_dimension: 0 opts out; default 7900 covers Anthropic's 8000px hard limit."
+    ],
+    "risks": "If a capture still exceeds provider limits after downscaling (e.g. aggregate request size rather than per-image dimensions), the 413 could return at 16 images; the first after-leg run is the live proof either way — its output reports images_downscaled, and 0 on known-tall captures means dead wiring, which is a STOP-and-diagnose condition already recorded in the lane handoff. Rollback is one jsonb_set back to '8'::jsonb or the snapshot taken by the migration itself."
+  }
+}
