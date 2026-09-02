@@ -109,7 +109,7 @@ within ~300s of a chassis pod (re)start** (a fresh build rolled ~21:00 2026-09-0
 | First post-718 plan = imagery canary | Portfolio positioning | plan's `imagery.sections` should carry illustration/infographic entries; check they land on display-capable sections (instruction-only limit — residual §4.1 risk) |
 | 444 gate (mig 720) verdict + apply | bugs_open/444 session | listing pages refused/degraded at plan time; section-index arm proven (feed shape = their test fixture) |
 | Empty-index detector rule | experience loop | they re-run over designblog's four pages when built |
-| Orphaned-hero route + fix shape | components (+ inline guide imager census in 114) | don't accept a 3-component fix; leopardess route first |
+| Orphaned-hero class CLOSURE | components (+ inline guide imager census in 114) | field fix LANDED 20:15Z on 6 of 7 components and **repaired ZERO pages — 9 re-rendered since, 0 recovered**: only `image_landed`/`section_data_resolved` re-renders re-resolve. Closing = re-resolving re-renders across the 61 + SERVED-bytes verification (component row reads correct everywhere either way). Confirm the 7th component. ⚠ any `component_expresses` guard test now measures the REPAIRED population — clean ≠ guard useless. IMG-077 (section arm on `check_unrendered_page_imagery`) is the cheap instrument to consider first |
 | GTM key + chrome rerender wave (17 pages) | analytics ("google") | expected, not damage; next serve-verify must expect the GTM head; empty pages re-render empty |
 | gamedesign.uk re-plan post-718 | gamedesign.uk session | second canary; their 446 + 444/114 CONTRIBs |
 | planner-vs-fallback share measurement | theme kits (asked) | sizes page_archetypes vs planner-prompt as the structure lever |
