@@ -1,9 +1,9 @@
 # HANDOFF — inline_guide_imagery. START HERE. Written 2026-09-02 (evening).
 
 **The one-line version:** the durable per-section imagery binding is **built, council-APPROVED at
-round 3, and live** (last verified on chassis `v1.0.1354`) — but **a fresh build `v1.0.1355`
-deployed at ~20:56 and I could NOT verify it, because the kubeconfig token expired mid-probe.**
-First job for the next session is that verification. The command is in §2.
+round 3, and VERIFIED LIVE on chassis `v1.0.1355`** — both halves, both replicas, both controls
+behaving (§2). It has a driver (apis.uk seeded six rows) and **has still never run**, because that
+page has not re-rendered since August. The next real evidence is its first re-resolving render.
 
 **Lane docs:** `docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/`
 (`PLAN_2026-08-14_durable_inline_guide_imagery.md`, `NOTES_inline_guide_imagery.md`,
@@ -22,7 +22,29 @@ regeneration.
 
 ---
 
-## 2. ⚠ FIRST JOB: verify `v1.0.1355`. My probe is VOID, not negative.
+## 2. Deploy verification — DONE, and how the first attempt lied
+
+**`v1.0.1355` VERIFIED `[MEASURED 2026-09-02, after the token was refreshed]`** — both replicas
+(`cd2h9`, `vppjz`), errors deliberately NOT suppressed:
+
+```
+PRESENT PlanSectionsAction          <- must-be-present control
+PRESENT sectionRefForOrdinal        <- round 1, the binding
+PRESENT sectionOrderAgrees          <- round 2, the drift guard
+PRESENT sectionScopeRefOrdinal      <- round 2, the shared parser
+PRESENT newSectionRef               <- round 2, the identity constructor
+absent  sectionOrderAgreesNOTREAL   <- must-be-absent control ("exit code 1" printed, so the exec RAN)
+```
+
+⚠ **Keep the story of the first attempt, because it is the reason the control is not optional.**
+Before the refresh, the identical probe returned **absent for all six — including the
+must-be-present control** — and I nearly recorded a regression. `kubectl` was returning
+`Unauthorized` (expired token, refreshed every ~3 days by the owner), and `2>/dev/null` had turned
+a failed exec into the word "absent". **A failing command and a missing symbol produce the same
+output; only the control tells them apart.** Drop the `2>/dev/null` — the visible
+`command terminated with exit code 1` on the negative control is what proves the exec ran at all.
+
+### The probe, for the next roll
 
 I probed the new build and got **absent for every symbol including `PlanSectionsAction`, my
 must-be-present control**. That does not mean the code is missing — it means the instrument
@@ -32,8 +54,6 @@ it), and my `2>/dev/null` turned a failed exec into the word "absent".
 
 **This is the whole reason the control exists — a failing command and a missing symbol produce the
 same output.** Do not read my last probe as evidence of anything.
-
-Once the token is refreshed:
 
 ```bash
 POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis --no-headers \
@@ -171,9 +191,10 @@ needs the composition half.
 
 ## 7. What I would do next, in order
 
-1. **Verify `v1.0.1355`** (§2) once the token is refreshed. If the guards are absent, the binding
-   is running unguarded — exposure is currently zero pages, but say so rather than assume it.
-2. **Watch apis.uk/index for its first re-resolving render**, and read the served bytes. That is
+1. ~~**Verify `v1.0.1355`**~~ **DONE** (§2) — both halves live on both replicas, controls clean.
+   Re-run it after the NEXT roll, not this one.
+2. **Watch apis.uk/index for its first re-resolving render** — re-checked after the roll and it is
+   STILL unexercised (`updated_at` 2026-08-24 on all seven rows), so the roll did not rebuild it, and read the served bytes. That is
    the mechanism's first real evidence, and it does not exist yet.
 3. **Leave the guide recompose with `dartsonline_traffic`** — it is their site and their call, and
    the justification is the owner's 08-31 ask, explicitly NOT "give the mechanism a driver".
