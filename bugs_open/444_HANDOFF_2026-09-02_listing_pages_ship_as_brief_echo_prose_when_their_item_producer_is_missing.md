@@ -229,3 +229,14 @@ runbook previously prescribed are both LANDMINED; see WRONG_CALLS 2026-09-02):
 reproducible on the planner path (gate live + flag on + prompt narrowed). The bug stays
 OPEN for: the five shipped instances (owned per the routing block), candidate (3) (glossary
 producer, unowned), and the first-fire confirmation above.
+
+**Verifier caution for the designblog instances (their lane, 2026-09-02 late):** fresh
+render timestamps on designblog.co.uk tonight are CHROME, not content — the analytics lane
+is applying the GTM key with a chrome+17-page rerender wave at the next discovery pass. So
+judge instance repairs on this site ONLY by the §"How to verify" item count at the served
+body, never by a page having re-rendered recently. The featured_post CLASS decision
+(register a resolver vs re-point the shared component; 9 pages / 8 sites) is routed to the
+components thread + queryresolve's owners via this file; the designblog-LOCAL half is
+queued to the owner and correctly WAITS regardless — with zero articles on the site, even
+a resolving featured-content section features nothing, so its HITL row sits pending until
+content exists.
