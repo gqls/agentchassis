@@ -399,3 +399,14 @@ it), the shedding order you ruled this morning is wired in as data, and the alar
 announces a shedding-level change has been tested in both directions. Nothing sheds yet —
 that needs the small code change (next step) plus one number from you: the monthly budget the
 governor should defend. Give me that number whenever; until then it watches and stays silent.
+
+2026-09-02 — you gave a provisional steer on the queue-ordering question: no reordering
+machinery; things flow well and we scale to meet excess demand. I've applied that as a
+provisional "no" to the age-ceiling option (the one that would cap how long an individual
+low-priority item can wait) and told the other session that ordering decisions come through
+this lane so you aren't fielding them directly. What the "no" accepts: during a heavy run of
+new work on one site, that site's least-important items can wait many hours — but since the
+queue now regularly drains to empty, those waits end naturally. We watch one number (the age
+of the oldest waiting item) and revisit only if it trends up. Your clients-first ruling for
+paid work during signup bursts is untouched by this. When you're ready to make it final,
+one word does it.

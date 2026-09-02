@@ -1238,3 +1238,22 @@ RUNNER's jurisdiction with the LINT's — write time is the only useful lint mom
 file that is guaranteed to be hand-applied. **SUMMARY_2026-09-02 cut** (second in the
 series): the ruling-B arc closed, D4 open. Lane state: awaiting the owner's budget number +
 stage B go-ahead (both asked, 08-31/09-01 chat).
+
+## 2026-09-02 (later) — OWNER'S PROVISIONAL RULING on job ordering; routing asserted; decisions restated to the owner
+
+**Owner (chat, verbatim): "My decision would like to be, even if I can't make it yet, that
+there is no need to reorder because everything flows through well and we can scale to meet
+excess demand."** Marked PROVISIONAL at their own word ("even if I can't make it yet").
+Scope as applied by this lane:
+- **Candidate 2 (age floor / per-item wait ceiling): DECLINED provisionally.** Accepts
+  unbounded per-item waits during sustained same-site inflow (the 08-31 ~16h pinned-row
+  shape); in practice bounded by the queue now draining to empty. Mechanical revisit
+  trigger: the pin census's oldest-row age tail growing across reads.
+- Default for any further reordering proposal: decline unless it closes a MEASURED defect.
+- **Does NOT touch D2** (clients-first in bursts — explicit 08-21 ruling, stands, unbuilt)
+  and does not touch 415 (admission-correctness, not ordering).
+Routing asserted to the 413 session: ordering/throughput decisions come through this lane
+(the 08-26 levers/meters split), owner relieved of direct asks; their precise list requested.
+Owner also asked for the open decisions restated fully — done in chat (budget number; stage-B
+go-ahead; candidate 2 now provisionally answered); firm-up of the provisional ruling remains
+theirs, no urgency while the queue drains clean.
