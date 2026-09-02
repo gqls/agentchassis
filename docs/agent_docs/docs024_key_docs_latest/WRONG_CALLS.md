@@ -58289,3 +58289,38 @@ the findings around it.
 - **related:** the same session's earlier `nav_label` correction (I read the raw column and
   reported a blanking risk the projection's `COALESCE` rescues) is the same error class twice in
   one day: **reading a column instead of reading what the code does to it.**
+
+
+## 2026-09-02 — I published a claim about my own code in the same shell call that failed to make it true
+
+**Lane:** `bugfix_423_chrome_utf8` (`bugs_open/423`, council `dc62975f` round 3).
+
+**What I did.** Round 3's rationale answered a `bug_historian` objection with *"Cited in the
+code comment now."* I wrote one Bash call that (a) ran a Python script to insert that
+citation, (b) built, and (c) **resubmitted to the council** — joined with `;`. The Python
+`assert` on the anchor text FAILED (the comment wrapped differently from my memory of it),
+printed its traceback, and `;` carried on regardless. **The submission went out asserting a
+citation that was not in the file.**
+
+**Why it matters more than it looks.** The council reads the plan, not the tree, so nothing
+downstream would have caught it — and the failure mode is the one this estate treats as its
+dishonesty surface: a submission that describes code that does not exist. It is the same
+shape as the objection I was answering in that very round (round 2's stale sketch showed a
+`fmt.Errorf` where the code had a sentinel), which makes it a repeat within one hour.
+
+**What caught it.** Reading my own tool output rather than the last line of it. The
+traceback was right there above the `PUBLISHED` line.
+
+**The cheap check that would have:** **join a claim-publishing step to the edit that makes
+the claim true with `&&`, never `;`.** An edit that can fail an assertion is a precondition,
+not a neighbour. Generalised, and this is the transferable half: **any command that tells
+someone else something — a council submission, a Kafka publish, a message to another lane —
+must be `&&`-guarded behind every step whose success it asserts.** A `;` turns a failed
+precondition into a published falsehood, silently, at exit 0 overall.
+
+**Repaired within four minutes**, well before the round could be read: the citation is now
+at `render_site_components_action.go` (the `chromeStoreRefusedError` doc comment), verified
+by `grep -c "bugs_closed/054"` returning 1, and the claim is true as read.
+
+Tally: **claim-published-by-a-`;`-after-a-failed-precondition** x1,
+**stale-sketch-contradicting-its-own-rationale** x1 (round 2, caught by the council not by me).

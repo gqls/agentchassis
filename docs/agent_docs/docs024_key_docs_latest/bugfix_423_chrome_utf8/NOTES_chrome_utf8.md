@@ -111,3 +111,35 @@ knowing: on this tree a red package build is not evidence about your own change,
 overlay is the non-invasive way to find out which.
 
 Round 2 resubmitted on the same correlation so the trail accumulates.
+
+
+## 2026-09-02 — council round 2 REVISE: both HIGHs were about the SUBMISSION, not the code
+
+editquality HIGH: "neither path constructs the sentinel, so the gate is a no-op". Reading
+the sketch, exactly right — I rewrote round 2's rationale and carried round 1's sketch over
+unchanged, so it still showed a bare `fmt.Errorf`. The CODE was correct (`:1416`, `:1454`
+both construct `&chromeStoreRefusedError{...}`), the SHOWN diff was not, and a reviewer can
+only judge what is shown. **A rationale and its sketch are two claims and they can drift
+apart in one edit.**
+
+prior_art HIGH: the seven-workflow enumeration was the load-bearing absence claim for the
+whole round-2 design and I gave only its conclusion. Query now in `grounded_in` verbatim.
+
+Best find of the round, from reuse_agent: I never checked for an existing title-caser.
+Censused now — the only in-house one (`harvest.go:405 titleCase`) turns out to BE one of the
+eight sites I converted, `strings.Title` (10 uses, incl. `:1646` in `loadNavItems`) is
+rune-based and not a member of this class, and `x/text` is indirect and lower-cases the
+remainder so it fails the ASCII-parity test that licensed the one-pass conversion. Nothing
+changed, but the round-1 claim was unearned.
+
+bug_historian: `:1411` filed as **bugs_open/435** so the next reader inherits tracked work
+rather than a measurement in a closed file; and `bugs_closed/054` now cited at the code as
+the escalation precedent this REUSES rather than parallels.
+
+architecture: declaring `ConfigKeys` for this action is right and is NOT in this change —
+live steps carry six keys and a wrong list hard-fails every workflow that stamps the action,
+so it is its own change. Same argument the guardian used against my round-1 escalation.
+
+⚠ **Misstep, logged in WRONG_CALLS:** I published round 3 in the same shell call whose edit
+had just failed an assertion, joined with `;`. The submission asserted a code citation that
+did not exist for four minutes. `&&`, not `;`, behind anything that tells someone else.

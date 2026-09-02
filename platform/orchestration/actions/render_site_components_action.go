@@ -404,6 +404,15 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 // failure has no handler anywhere and takes the whole orchestration with it.
 // That is new authority over seven pipelines, which is not something to acquire
 // by analogy inside a bug fix.
+//
+// PRECEDENT, and what is NOT new here (council dc62975f round 2, bug_historian):
+// bugs_closed/054 is this estate's ruling that a named log is OBSERVABILITY, not
+// ESCALATION — the council returned REVISE twice on that point before it landed —
+// and its remedy was to file a work item through a chrome-specific emitter. This
+// change builds no parallel mechanism: both new failure kinds go through the SAME
+// emitChromeRenderFailedItem with the SAME item_key shape. The sentinel and the
+// config key decide only whether a REPORTED failure additionally fails the step,
+// which 054 settled for unresolvable FIELDS and never for a refused STORE.
 type chromeStoreRefusedError struct{ err error }
 
 func (e *chromeStoreRefusedError) Error() string { return e.err.Error() }
