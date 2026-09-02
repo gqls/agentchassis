@@ -1341,3 +1341,24 @@ Small things that finish themselves over the next day: sitemaps appear on the ne
 pass, seotools' seven tools arrive via the discovery sweep, and a few final rerenders drain.
 I've written today up as a milestone summary you can read aloud
 (SUMMARY_2026-09-02_first_four_remakes_live.md). Eighteen remakes to go.
+
+**2026-09-02, late night — a short session: the listing-pages fix passed its review, the cluster key has expired, and seotools' seven tools are still missing.**
+
+Three things. First, the fix behind your critique of designblog — directory, glossary and news
+pages shipping as prose about themselves — passed the reviewer council on its third round
+tonight, and its prompt half is already live: from now the planner is told not to plan a listing
+page unless the site actually has a source of items for it. The code half rides the next chassis
+build. So the next briefs can fire once each site's feeds and directory kinds are set up first;
+that recipe is in the release runbook.
+
+Second, the cluster access key expired at 22:08 tonight (it lasts exactly three days). Until you
+refresh the kubeconfig I can read the live sites but not the database, so the tidy-up of the
+review piles — closing the CTA items that have resolved themselves, clearing the "site
+unreachable" left over from the dark hour — waits on that.
+
+Third, seotools: its seven tool pages exist and read well, but they are text only — no form, no
+inputs — where advertise's three tools have real calculators. The discovery sweep that adds the
+tools hasn't reached seotools yet, and I couldn't check whether that sweep is running normally
+before the key expired. Nothing to decide; just don't judge seotools' tools until they land.
+Sitemaps: two of the four (advertise, seotools) were generated during the hour the domains were
+dark, so they came out empty and will regenerate on their own.

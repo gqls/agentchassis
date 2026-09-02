@@ -59,8 +59,9 @@ applies to anything you fire immediately; lanes whose fixes ride the roll (424 i
 - **444 routing**: OWNED — session "bugs_open/444". Their diagnosis CORRECTED the bug file
   (two-guards-in-series mechanism for directories; news legal-by-design; writer-prose is
   glossary-only) and answered the enablement shape → runbook §6 verbatim. Council corr
-  `c0990eb3`: 2 REVISE rounds (real improvements, landed by sha), **round 3 pending;
-  migration 720 committed but HELD unapplied until the verdict** — post-roll runbook §2 traps:
+  `c0990eb3`: 2 REVISE rounds (real improvements, landed by sha), ~~**round 3 pending;
+  migration 720 committed but HELD unapplied until the verdict**~~ **→ APPROVED 20:53:22Z,
+  720 APPLIED per the fixing session (addendum below, 22:20Z)** — post-roll runbook §2 traps:
   deferred listing section = source config; missing gate receipt ≤~3h of a terminal row =
   anti-churn (326), not failure; a replan never drops a BUILT page.
 - **gamesdesign/gamedesign pair**: rename DONE + serve-verified (their sessions); Pro-tier
@@ -92,10 +93,61 @@ shared tree = another session mid-commit — retry, never delete the lock.
 # 5. FILES OF RECORD
 
 Cold start: this file → `SUMMARY_2026-09-02_first_four_remakes_live.md` →
-`RUNBOOK_remake_release.md` → NOTES 2026-09-02 (a)–(q) → README_where_we_are (owner log).
+`RUNBOOK_remake_release.md` → NOTES 2026-09-02 (a)–(t) → README_where_we_are (owner log).
 Differentiation: `CONTRIB_2026-09-02_themes_lane_differentiation_levers_measured.md`.
 Class bug: `bugs_open/444...md` + 016b §9 tail + §10 row. Register: `positioning_register`
 DB (GD1/GD2/GDN1b written today; MD copy deliberately untouched).
 Peer sessions live tonight: designblog.co.uk · gamesdesign.co.uk · gamedesign.uk · theme kits ·
-feed lane (WebProNews CONTRIB with them) · bugs_open/444 (the gate; will ping its round-3
-verdict — note it against corr `c0990eb3` in the runbook when it lands).
+feed lane (WebProNews CONTRIB with them) · bugs_open/444 (the gate; ~~will ping its round-3
+verdict~~ **landed APPROVED 20:53Z — runbook §2 carries it, addendum below**).
+
+# ADDENDUM 2026-09-02 ~22:20Z — read this before §1 (cluster token EXPIRED at 22:08:03Z)
+
+- **The kubeconfig token expired 22:08:03Z** — 3-day JWT, issued 08-30 22:08:03Z (memory
+  `kubeconfig-token-expires-every-3-days`). Every kubectl/psql answers `Unauthorized` until the
+  owner refreshes `~/.kube/config_production_uk001`; only the owner can. Everything marked [DB]
+  below was read in the minutes BEFORE expiry; every cluster-side step in §1 is BLOCKED on the
+  refresh. Served bodies stay readable (curl).
+- **444 round 3 APPROVED** 20:53:22Z (corr `c0990eb3`; [DB] `complete_approved` COMPLETED, read
+  by this lane). The fixing session's bug-file note (uncommitted at 22:1xZ, in their tree):
+  `Council-Reviewed: c0990eb3…`, **migration 720 APPLIED + verified live**, Go gate `6525b45ae`
+  INERT until a chassis roll carries it. Runbook §2 updated. **§1d consequence**: the PROMPT half
+  is live now — the planner is told not to plan a listing page without a live item source —
+  so runbook §6's pre-enablement is the belt and the Go gate the braces; nothing further to
+  wait on from 444 before firing. ⚠ [DB] designblog filed `needs_section_data` at 21:04:44Z
+  reading *"required query source errored: queryresolve.Resolve: unknown query name
+  featured_post"* — that is the SHAPE of 444's "errored REQUIRED field defers loudly", which
+  would mean the late roll DID carry `6525b45ae` [INFERRED — stamp unread]. Theirs (444 +
+  designblog sessions) to prove at the chassis stamp; recorded here so the row is not read as
+  a new bug.
+- **§1a, measured at the bodies ~22:15Z:**
+  - **sitemaps**: websitepromotion 200/1,401 B · designblog 200/1,854 B · **advertise 404 ·
+    seotools 404 — explained, not a fault**: [DB] both were selected by 642 while lame-delegated
+    (advertise 16:37:46Z `url_count` 0 / `probe_dropped` 22; seotools 17:38:46Z 0/14). Runbook
+    §3 carries the trap. Rotation ticking ([DB] last 20:43Z; due set age/change-quiet/change-busy
+    = 0/14/5 at 21:0xZ). If either still 404s on 09-03 evening, ask whether any page changed
+    after the stamp BEFORE suspecting 642.
+  - **seotools' 7 `owned_page_review` holds are TRUE at the served body — do NOT close**: all
+    seven `/tools/<slug>/` serve 200 at ~56 KB with the tool's H1 and 0 `<form>`, 0 `<input>`,
+    0 `<select>`, 1 `<button>` (mobile-menu toggle). Control, same probe: advertise's 3 real
+    tools = 1 form, up to 11 inputs, 2 selects. Prose shells at the tool URLs; WHO built them
+    (generic `needs_page`, or tool-deployer minus its component) needs [DB] `page_components`
+    for those pages. Two [DB] facts to read first after the refresh: `save_refused_incomplete`
+    on tool-serp-snippet-previewer at 20:40Z ("a section would lose its layout components" —
+    something DID try to write that page post-deploy), and `site-discovery-rotation-design`
+    last ticked **18:47:45Z** while the other three rotations ticked 20:15–21:00Z [UNVERIFIED
+    whether that is its cadence or a stall — seotools' tools arrive on THAT rotation].
+    seotools has a `/tools.html` hub in nav (so the 444 "no tools hub" class is not universal).
+  - **advertise** [DB]: `site_unreachable` DETECTED ×1 — dark-window artefact (serves 200 /
+    75,562 B now); close with the curl once the DB is back. `needs_page` FAILED ×2 — the
+    credit-outage pair from NOTES (g), news-index + uk-ad-spend-reference [INFERRED from (g);
+    result unread]; both URLs are in nav and `/news/index.html` serves 200 / 61 KB — read the
+    items' `result` before touching them.
+  - **CTA piles** [DB 21:0xZ]: seotools 18 · websitepromotion 17 · designblog 1 = 36 open (from
+    ~54 at (k); 18 already overtaken). Batch-verify needs each spec's section + field → after
+    the refresh. websitepromotion `needs_page` d0a5c53f sits at `needs_human_review`
+    ("Re-render promote-website-free-uk after its image asset landed") — an odd shape; read it
+    before acting.
+- §1b [DB 21:0xZ]: 642 rotation COMPLETED on every selection in the last 12 h, `dropped` 0
+  except the two dark-window runs above and leopardessconsulting (1); 622 guard holds (min
+  deployed_pages 1, apis.uk). §1c unchanged.

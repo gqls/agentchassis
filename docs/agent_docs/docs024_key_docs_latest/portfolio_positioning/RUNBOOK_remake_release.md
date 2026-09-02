@@ -65,9 +65,15 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   (happened on gamedesign.uk 2026-09-02, `bugs_open/447`, held reversibly). Until 447 lands,
   eye every evaluate_tools/add_tool wave on a paired site against the pair rule; the
   brief-fidelity auditor RECORDS the violation but dispatches nothing.
-- ⚠ Once 444's repair rolls (council corr `c0990eb3`; 2 REVISE rounds landed real
-  improvements, round 3 pending; **migration 720 committed but HELD unapplied until the
-  verdict — nothing changes for in-flight briefs yet**): a DEFERRED listing section means the
+- ⚠ 444's repair: council corr `c0990eb3` **APPROVED, round 3, 20:53:22Z 2026-09-02** (read by
+  this lane at `orchestration_states`: `complete_approved` COMPLETED); **migration
+  `720_planner_listing_source_gate.sql` APPLIED the same night per the fixing session's
+  bug-file note** [their claim — this lane's cluster token expired at 22:08Z before it could
+  re-read `enforce_listing_sources`]. So the PROMPT half is live for every brief fired from
+  now: the planner is told a listing page needs a live item source and a glossary/showcase
+  needs a named producer. The Go gate (`6525b45ae`) is inert until a chassis roll carries it —
+  prove it per SERVICE at the provenance stamp, never by the roll's existence. Once it is live:
+  a DEFERRED listing section means the
   item source ERRORED — check the exporter config / kind opt-in, NOT the component. New
   deferred-section HITL rows where there was silence are genuine findings, not noise; nothing
   new can FAIL a build that previously completed. (Pre-repair, the same condition built HOLLOW
@@ -82,6 +88,14 @@ Full detail: `RUNBOOK_dns_pointing_a_domain_at_the_serving_worker.md` + its 2026
 addendum. Zone → (confirm assigned NS pair) → Nominet NS → proxied apex A → worker route.
 ⚠ NS-before-zone = lame delegation, domain DARK including the old site (happened to all four).
 ⚠ The 404-token's empty zone list is NOT zone absence. Judge at the served body.
+⚠ **A sitemap-refresh selection during the dark window publishes NOTHING and looks finished**:
+  642's probe drops every URL (`url_count` 0, `probe_dropped` = the page count), the run reads
+  COMPLETED, the stamp advances, and `/sitemap.xml` 404s until the change-and-quiet arm
+  re-selects the site. Measured 2026-09-02: advertise 16:37:46Z 0/22, seotools 17:38:46Z 0/14
+  (both dark then); websitepromotion 19:11Z and designblog 18:41Z were selected after the zones
+  came up and serve theirs. Self-heals IF pages change after the stamp; the age arm alone is 3
+  days — so a dark-window site still 404ing a day later needs "did any page change after the
+  stamp?" answered before 642 is suspected.
 
 ## 4. Serve-verification (the build isn't done until this passes)
 
@@ -91,7 +105,17 @@ curl -s https://<domain>/ | grep -o "<title>[^<]*</title>"   # the NEW title, no
 curl -s https://<domain>/ | grep -ic "we don't sell\|we do not sell\|does not sell"
 # LISTING PAGES: count the ITEMS, never the bytes (bugs_open/444) — 0 items on a
 # directory/glossary/feed page is a finding even at 200/60KB of good prose.
+# TOOL PAGES: a tool is a FORM, never a size. Probe every /tools/<slug>/ and CONTROL against
+# a known-real tool page on a sibling site in the same run:
+for t in <slug…>; do b=$(curl -s "https://<domain>/tools/$t/?cb=$RANDOM"); printf "%-30s %7dB forms=%d inputs=%d selects=%d\n" "$t" "${#b}" "$(grep -o '<form' <<<"$b"|wc -l)" "$(grep -o '<input' <<<"$b"|wc -l)" "$(grep -o '<select' <<<"$b"|wc -l)"; done
 ```
+- ⚠ **The same `owned_page_review` text carries BOTH cases, and only the artefact tells them
+  apart.** advertise (NOTES (e), 13:09Z): components already deployed, validator stale → close
+  with evidence. seotools (22:1xZ, all 7): `/tools/<slug>/` served 200 at ~56 KB with the tool's
+  H1 and **0 `<form>`, 0 `<input>`, 0 `<select>`, 1 `<button>` (the mobile-menu toggle)**;
+  control = advertise's 3 real tools, same probe: 1 form, 0–11 inputs, up to 2 selects. So the
+  seotools holds were TRUE — prose shells at the tool URLs. A cache-busted curl is the check,
+  not the item's wording and not the page's size.
 
 ## 5. Remake №5 ONLY — the chrome-pin experiment (theme kits, 2026-09-02)
 

@@ -3920,3 +3920,43 @@ recorded in the handoff: ~300s no-dispatch window post-pod-start; riding lanes (
 gated code) verify per-service at the stamp; 444's migration 720 stays HELD until their
 round-3 verdict regardless of the roll. Handoff finalised at `2837ab63a` — cold start for the
 next session is HANDOFF_2026-09-02_continue_here.md.
+
+### (t) 2026-09-02 ~22:20Z — short session: 444 APPROVED, two sitemaps explained, seotools' tool holds proven TRUE at the body, then the cluster token expired
+
+Cold start from the 09-02 handoff; lane dir clean (every dirty file in the tree is another
+session's — kustomize overlays, 444's bug file, platform tests).
+
+- **444 round 3 APPROVED 20:53:22Z** (`orchestration_states` corr `c0990eb3`: 57e04dbe REVISE
+  19:56Z → 5cb63d3e REVISE 20:20Z → 8e041944 `complete_approved` 20:41→20:53Z). Their
+  uncommitted bug-file note says 720 APPLIED + verified live, Go gate `6525b45ae` inert until a
+  roll. Read `720_planner_listing_source_gate.sql`: anchored replace of the planner's rule 3
+  (drops the "entity-directory may have empty sections" licence, adds the listing-source rule)
+  + `validate_plan.config.enforce_listing_sources=true` (RFC_022 shape, one live consumer).
+  Runbook §2 + handoff addendum carry it. NOT re-verified at the DB — token expired first.
+- **Sitemaps**: advertise + seotools `/sitemap.xml` 404; the other two 200. The handoff's
+  "expected, 642's next selection" was the right prediction for the wrong reason — the
+  selection HAD happened (advertise 16:37:46Z, seotools 17:38:46Z), inside the lame-delegation
+  window, and the probe dropped 22/22 and 14/14 → `url_count` 0, run COMPLETED, stamp advanced,
+  nothing published. Trap recorded in runbook §3. Self-heals via the change-and-quiet arm
+  (due set 0/14/5 at 21:0xZ, rotation ticking, last 20:43Z).
+- **seotools' 7 tool pages** — measured at the body with a CONTROL in the same run:
+  `/tools/<slug>/` ×7: 200, 55,684–56,860 B, the tool's H1, **0 form / 0 input / 0 select /
+  1 button (mobile-menu toggle) / 3 scripts**. advertise's 3 real tools, identical probe:
+  1 form, 11/11/0 inputs, 0/1/2 selects, 4 scripts. So the seven `owned_page_review` holds are
+  TRUE — prose shells at the tool URLs — the OPPOSITE reading from advertise's (e) on the same
+  item text. Recorded as a runbook §4 check. Who wrote the shells is [DB]-dependent (open:
+  `save_refused_incomplete` on serp-snippet-previewer 20:40Z; design rotation last tick
+  18:47:45Z vs 20:15–21:00Z for the other three — cadence or stall UNVERIFIED).
+- **advertise listing pages** re-probed: `/news/index.html` 200 / 61,077 B, h3=1;
+  `/channels-directory/index.html` 200 / 60,420 B, h3=1 — consistent with 444's 0-item
+  measurement (a directory of channels would carry many h3s); `/glossary.html` is the real
+  path (my `/glossary/` guess 404'd — path shape, not absence).
+- **Token expired 22:08:03Z** mid-query (iat 08-30 22:08:03Z, exactly 3 days; memory file's
+  python check confirms). The batch that died would have read: seotools tool `page_components`,
+  advertise's `site_unreachable` + 2 FAILED `needs_page`, the odd websitepromotion HITL
+  `needs_page`, one `unresolved_cta` spec for the batch-verify shape, the two dark-window
+  sitemap orchestrations in full. All listed in the handoff addendum as first reads after the
+  owner refreshes the kubeconfig. Owner told in README.
+- Misstep worth a line: none caught this session; the one near-miss was reading "sitemap 404 =
+  not yet selected" off the handoff — the DB said "selected and empty". The check that
+  caught it was the routine §1a rotation query, which is why it is routine.
