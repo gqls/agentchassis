@@ -1408,3 +1408,15 @@ Owner gates as of the handoff: 641 read (block quoted in §3.1), footer, tools p
 CONTRIB's decisive save-path test deliberately NOT run (locks are the standing protection; wrong
 moment for a destructive-if-wrong test). brief_supplies_negation moved today 13:17 — unread,
 flagged. Cold-start: HANDOFF_2026-09-02_continue_here.md.
+
+### 2026-09-02 ~17:20 UTC — the reasoned rerender was REFUSED by the save guard; both modes now measured
+
+`save_sections`: "overwrite: REFUSED for page index — re-confirmed too little of what is stored
+(prune_floor…)". So: assemble = completes, deploys stale bytes; re-resolve = refused. The page is
+wedged between its own protections and both rerender modes — the 383 lane's original claim was
+closer than my 08-26 blanket correction of it; the truth is MODE-SPECIFIC and now recorded as
+such (handoff §2). The IMG-075 rows and six illustrations are unaffected (refused save writes
+nothing; served page byte-identical). Route left for next session: the site-level rerender-pages
+fan-out that served the tag on this very page on 08-24 with locks in place. Not fired tonight —
+end-of-session is the wrong time to launch a route whose failure mode I would not be awake to
+read.

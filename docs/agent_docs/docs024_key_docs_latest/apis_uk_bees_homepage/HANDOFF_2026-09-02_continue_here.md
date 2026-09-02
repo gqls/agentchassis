@@ -42,9 +42,27 @@ footer and tools incidents; state below is current). Lane: `apis_uk_bees_homepag
    at every session start** — `ls docs024_key_docs_latest/apis_uk_bees_homepage/CONTRIB_*` against
    the NOTES' last date.
 
-## 2. THE VERIFICATION OWED — first thing, next session (or the tail of this one)
+## 2. THE GTM RE-RENDER — measured OUTCOME (17:20 UTC) and the route left
 
-The reasoned rerender was `triaged` at ~16:47 UTC. When it completes:
+**The reasoned rerender was REFUSED at `save_sections`:** *"overwrite: REFUSED for page "index" —
+this run re-confirmed too little of what is stored (prune_floor_ratio=…)"* — back to `triaged`
+for its remaining attempts (max 3), which will likely refuse the same way. Served page unchanged
+(gtm=0, 68,248 B, six illustrations intact). **So BOTH rerender modes are blocked on this page:**
+assemble completes but redeploys the stored (tagless) bytes; re-resolve runs plan_sections and
+the save guard refuses because the re-resolution re-confirms too little of the locked/stored
+content. This is the deeper shape the 383 lane originally named — my 08-26 WRONG_CALLS
+"correction" of it was itself too wide: the refusal is MODE-SPECIFIC (assemble completes,
+re-resolve refuses), and the handoff record now carries both halves.
+
+**The one route PROVEN on this exact page:** the site-level `rerender-pages` fan-out envelope
+(08-26 handoff §3 of 08-24 vintage: `{"action":"orchestrate","config":{"agent_type":"rerender-pages"},
+"input_data":{"site_id":…,"domain":"apis.uk","refresh_site_components":false}}`) — it served the
+GTM tag on apis.uk as the canary on 08-24, with the locks already in place. Next session: read
+the failed item's FULL result first (`SELECT result FROM site_work_items WHERE item_key LIKE
+'%section_data_resolved%'`), then fire that envelope, then verify + settle:
+
+
+Verification, whenever a render actually deploys:
 
 ```bash
 curl -s "https://apis.uk/?cb=$(date +%s)" > /tmp_page.html   # (use the scratchpad, not /tmp)
