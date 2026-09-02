@@ -268,3 +268,71 @@ Two transferable findings from the exercise, which matter more than the outcome:
    place the link was missing — the footer and mobile menu carry it too); a
    must-be-present control per page so a zero is an absence rather than a
    broken fetch; and two independent sweeps required to agree before closing.
+
+---
+
+## 2026-09-02 — ⚖ OWNER RULING ON §B, and the seeded site's rebuild finally run
+
+### The decision §B asked for: **YES — a site's declaration DOES override the three fleet-wide defaults**
+
+Put to the owner 2026-09-02 with both sides as §B wrote them, and ruled: **a site's own word
+beats `pages.in_header`, `neverPrimaryTypes` (blog-post / tool / entity-page) and the child-URL
+bar.** All three are fleet-wide DEFAULTS, and a default may not outrank a site's explicit
+declaration.
+
+**Unchanged by the ruling, and still not overridable:** system pages and the legal group. Those
+are correctness rather than preference, and a site declaring one is TOLD so rather than obeyed.
+
+**This is what the shipped code already does**, so the ruling requires no code change — it
+converts the guardian seat's escalation into a settled decision. `idea.uk/report.html`
+(`page_type='tool'`, `in_header` set, `nav_order` 3) is now promotable by declaring it.
+**§B is CLOSED.**
+
+### The nav rebuild §E item 4 asked for: RUN, and it worked on its first use here
+
+⚠ **It had never run.** `[MEASURED 2026-09-02]` migration 654 wrote the declaration at
+**22:25:04Z on 08-26**; the site's nav tables were last rebuilt at **20:43:23Z** — an hour and
+three quarters EARLIER. So the declaration had been live and UNREAD for seven days, and the
+served header still showed the pre-declaration state. **A migration applying is not the
+mechanism running**, and nothing surfaced the gap: the declaration row looked correct
+throughout.
+
+Dispatched via `kafka_publish_checked` (OPP-009) rather than the 149 lane's
+`TRIGGER_nav_rebuild.sh`, whose publish uses the racing `kubectl run -i` + stdin form that
+drops ~4 in 5 at exit 0. Its **pre-flight was run separately and mattered**: zero active nav
+rows point at a page declaring no nav flag, so the DELETE-and-rebuild could not lose one.
+
+`corr=195068c4-4d84-45c8-a18d-0854bab62079` · COMPLETED in 13s. **The step's own result read
+before inferring anything**, per §E:
+
+```
+nav_declaration_source     site_config      <- the declaration was READ, not defaulted
+declared_missing           null
+declared_ineligible        null
+declared_flag_disagreed    null
+declared_truncated_by_cap  null
+max_header_items_effective 9                <- the per-site cap, not the fleet 8
+```
+
+Every declared page was found, eligible, agreed with its flags and fitted. Primary is now
+exactly the nine declared names in declared order:
+
+`Home · Services · Tools · Model Directory · Protocol Tracker · Adoption Tracker · News · About · Contact`
+
+**§3's evidence is discharged at last.** `protocol-tracker` and `adoption-tracker` — the two
+names hardcoded into the fleet-wide tier-2 list to fix this once, and STILL absent when this bug
+was filed — are in the header, by the site's own declaration rather than by a longer fleet list.
+`Case Studies` and `Blog` were not declared and moved to utility; nothing vanished (27 rows:
+primary 9, utility 16, legal 2).
+
+### ⚠ NOT FINISHED: the tables are correct, the SERVED PAGES ARE NOT
+
+45 `page_rerender` items were filed and are `triaged` — **unclaimed**. `[MEASURED 2026-09-02
+16:2xZ]` the served header at `https://ai-agent-orchestration.com/`, anchored on `<nav>`, is
+still the OLD eight:
+`index · services · about · tools · contact · case-studies · blog · model-directory`.
+
+This is the split the lane RUNBOOK and §6 both warn about, and it is the honest reading:
+**nav tables + `site_components` correct, served chrome stale until those 45 drain.** Say which
+of the two you have. Whoever picks this up: re-curl before quoting a state, and do NOT re-dispatch
+the nav rebuild — the tables are already right, and a second run would only re-file the same items.
