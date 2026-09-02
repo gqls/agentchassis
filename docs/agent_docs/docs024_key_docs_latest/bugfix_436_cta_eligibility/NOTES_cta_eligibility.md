@@ -112,3 +112,27 @@
 - Sweeps INTO others' commits, for the record: first WRONG_CALLS row → `6bd26baf0`; LNK-041 index
   row → swept before my commit (visible in `git log -S LNK-041` on 000_concept_index.md). Both
   content-intact; the 710→714 renumber corrected the swept index row forward in `215c7eead`.
+
+## 2026-09-02 — council round 1: REVISE (gating: bug_historian HIGH); round 2 resubmitted
+
+- **The gating objection was the right kind of wrong**: "what happens when the filter leaves the
+  slice with <2 or 0 items — index panic or silent no-CTA?" The panic scenario cannot occur (no
+  consumer indexes unguarded: chooseCTATargets len-guards; the header guards `primary.URL != ""`;
+  the objection's "header takes ordered[0] directly" repeats the BUG FILE's shorthand, not the
+  code) and the degrades are designed and pre-tested — but the plan NEVER SAID SO and no test
+  exercised the filter-induced near-empty case. Both halves fixed rather than defended
+  (a REVISE round is cheaper than the defect it finds): `TestRankAllOptedOutIsEmptyNotPanic` +
+  `TestChooseCTATargetsAllOptedOut`, commit `24b871535`.
+- debug_historian's two were simply right: 715_HOLD now snapshots
+  (`snapshot_agent` TWO-ARG overload — agent_definitions_backup, per LANDMINES) before the
+  UPDATE, and a `715_..._ROLLBACK.sql` sidecar exists with its own snapshot + DO/RAISE verify.
+- guardian/editquality/reuse_agent asks answered by query, recorded in the resubmission: 3 ranking
+  call sites exactly (signatures unchanged, so a 4th could not silently break); no non-test
+  `LabelMatchCandidate{...}` construction outside the constructor (zero value = eligible by
+  design); runner has no non-empty-HandlerAgent requirement (check_cta_nonpage live precedent);
+  no prior fossil-CTA detector anywhere in register/bugs.
+- **Round 2 published** on the SAME trail: `SUBMISSION_CORR=9faa2a23-…` (RESUBMIT_CORR chain),
+  run envelope `92ce9931`, run orch id `ca1f014c`. Monitor armed for the second council_report.
+- 114's session fixed the tombstone test (`d1cf3aac3`) after my flag — datahelpers now FULLY
+  green in-tree. The untracked, non-compiling `invalid_banned_claim_pattern_test.go` belongs to
+  neither of us and still blocks in-tree actions-package tests; owner unknown.
