@@ -273,3 +273,21 @@ collaborative convention the file already uses across three lanes) rather than
 raising it only here — it changes the shape of a decision another lane is
 about to make, not just a fact for my own record. Not implementing anything
 myself; flagged to `theme kits`.
+
+## 2026-09-02 (later still) — `bugs_open/438` CLOSED OUT to an owner decision
+
+`theme kits` verified the §6c correction independently and extended it:
+candidate 2 dies to the identical fact (its own doc comment already said so —
+"`mission_brief`... not guaranteed to carry a `preferred_palette` map", written
+and then not acted on). §5 struck and pointed at §6c rather than duplicated.
+
+**Final shape of the bug, agreed by both lanes:** not a misrouted read, not a
+mis-pointed write — **the standard build path (`082`) has no way to express a
+structured design preference at all.** The "most authoritative" rung was never
+broken; nothing has ever been able to reach it. Two candidates survive:
+retire the rung (say plainly this capability doesn't exist), or build it
+(give `082` a real structured-preference input — a CLI flag or file, an actual
+design change, not a config repoint). **Neither lane is choosing between
+those** — both explicitly declined, and `theme kits` signed off with "nothing
+further from me on 438 unless the owner picks a direction." Surfacing to the
+owner directly rather than leaving it to be found in the bug file.
