@@ -461,7 +461,18 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	}
 
 	// ── Re-resolve + re-render each section (no LLM) ────────────────────────
-	resolver := newSourceResolver(siteID, params.DB, logger, pageName)
+	//
+	// The stored slots, in position order, are the list this path iterates and
+	// therefore the list per-section imagery binding counts occurrences over.
+	// It binds only where this agrees with the plan's own order; a page whose
+	// stored composition has drifted from its plan keeps page-wide resolution,
+	// which is what this path did before binding existed.
+	storedSlotNames := make([]string, 0, len(stored))
+	for _, ss := range stored {
+		storedSlotNames = append(storedSlotNames, ss.slotName)
+	}
+	resolver := newSourceResolver(siteID, params.DB, logger, pageName).
+		withLiveSectionNames(storedSlotNames)
 
 	// Minimal render-context base from sites.content_data (company/contact/etc).
 	// Section templates take colours from CSS vars and copy from content_data,
@@ -1295,6 +1306,11 @@ func rerenderFlatSections(
 	// One counter for the whole page, advanced in position order (loadStoredSections
 	// orders by position) — the canonical per-instance token derivation.
 	instances := NewInstanceCounter()
+	// A SECOND counter, not a second RULE: `instances` is consumed as it walks
+	// (Next returns a token and advances), so imagery binding cannot read its
+	// state without stealing its position. Both call the same NextOccurrence on
+	// the same list in the same order, which is what has to be true.
+	sectionOccurrences := NewInstanceCounter()
 
 	// Which occurrence of its own slot name each stored section is, in position
 	// order — the section's identity for per-section imagery binding (see
@@ -1305,7 +1321,6 @@ func rerenderFlatSections(
 	// build had just got right. The two paths agree because both count
 	// occurrences of a slot name in page order — never a position integer,
 	// whose base differs between the two tables.
-	sectionOccurrences := make(map[string]int, len(stored))
 
 	for _, s := range stored {
 		// Counted before any early `continue`: a section that carries its
@@ -1313,8 +1328,7 @@ func rerenderFlatSections(
 		// count here would shift every later section of the same name onto the
 		// wrong figure — the quiet half of an off-by-one, on the path that
 		// runs most often.
-		thisSection := sectionRef{Name: s.slotName, Occurrence: sectionOccurrences[s.slotName], Known: true}
-		sectionOccurrences[s.slotName]++
+		thisSection := newSectionRef(s.slotName, sectionOccurrences.NextOccurrence(s.slotName))
 
 		cls := classifyStoredSection(ctx, s, thisSection, resolveComponent, resolver, logger)
 		if cls.carryKind != "" {

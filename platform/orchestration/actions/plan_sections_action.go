@@ -37,7 +37,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -100,6 +99,21 @@ type sectionRef struct {
 	Known      bool
 }
 
+// newSectionRef builds a section identity with the name normalised the way the
+// estate's occurrence counter normalises it (lower-cased, trimmed —
+// InstanceCounter.NextOccurrence). Both sides of the binding go through here so
+// a plan spelling a slot "Article-Body" and a stored row spelling it
+// "article-body" are ONE section, which is what the occurrence count already
+// assumes. Building the key by hand on one side and through the counter on the
+// other is how the two halves of an identity quietly stop matching.
+func newSectionRef(name string, occurrence int) sectionRef {
+	return sectionRef{
+		Name:       strings.ToLower(strings.TrimSpace(name)),
+		Occurrence: occurrence,
+		Known:      true,
+	}
+}
+
 type sourceResolver struct {
 	siteID        uuid.UUID
 	db            *sql.DB
@@ -136,6 +150,13 @@ type sourceResolver struct {
 	sectionAssets   map[sectionRef]map[string]string
 	planOrder       []string // this page's section list per the current plan
 	planOrderLoaded bool
+	// liveSectionNames is the section list the CALLING path is actually
+	// iterating, in its own order — pages.sections on the build path, the
+	// stored page_components slots on the re-render path. The binding is only
+	// safe when it agrees with the plan's list (see planSectionOrder), because
+	// the ordinal indexes the plan while the occurrence is counted over this.
+	// Empty means the caller supplied none, which disables per-section binding.
+	liveSectionNames []string
 	// storedContent maps slot_name → the page's deployed page_components
 	// content_data. It is the carry-forward source for a non-llm field whose
 	// declared source resolves nothing (bugs_open/238): a regeneration must not
@@ -200,6 +221,19 @@ func newSourceResolver(siteID uuid.UUID, db *sql.DB, logger *zap.Logger, pageNam
 		pages:    make(map[string]string),
 		assets:   make(map[string]string),
 	}
+}
+
+// withLiveSectionNames records the section list the calling path will iterate,
+// which is what per-section imagery binding counts occurrences over. Call it
+// before the first resolve; a resolver that is never told stays page-wide.
+//
+// Deliberately a separate call rather than a constructor argument: the two
+// render paths learn their section list at different points (the build path
+// after filtering site-level slots out of pages.sections, the re-render path
+// after loading the stored rows), and neither has it when the resolver is made.
+func (r *sourceResolver) withLiveSectionNames(names []string) *sourceResolver {
+	r.liveSectionNames = names
+	return r
 }
 
 // ensureStoredContent loads this page's deployed content_data rows, once, keyed
@@ -742,8 +776,66 @@ func (r *sourceResolver) planSectionOrder(ctx context.Context) []string {
 		return nil
 	}
 
+	// THE DRIFT GUARD, and it is the general form of the lock case above.
+	//
+	// The ordinal indexes the PLAN's list; the occurrence is counted over the
+	// list the calling path iterates. Those are two orderings maintained
+	// independently, and a locked insertion is only one of the ways they come
+	// apart — a manual reorder, an earlier section edit, or a re-plan that has
+	// not reconciled yet will do it with no lock in sight. Where they disagree,
+	// binding does not fail: it silently binds a REAL figure to the WRONG
+	// section, which renders, deploys and looks correct.
+	//
+	// So the two lists are compared, once, and any disagreement stands the whole
+	// binding down. The comparison is of the plan's list with its site-level
+	// slots removed — the same predicate the build loop filters by, so the two
+	// sides are the same kind of list — against the caller's own. Both are
+	// normalised the way the occurrence counter normalises, because a spelling
+	// difference that the counter would treat as one slot must not read here as
+	// a mismatch.
+	if !sectionOrderAgrees(order, r.liveSectionNames) {
+		r.logger.Info("plan_sections: the plan's section order and the page's live section order disagree — per-section imagery binding disabled, page-wide resolution stands",
+			zap.String("page", r.pageName),
+			zap.Int("plan_sections", len(order)),
+			zap.Int("live_sections", len(r.liveSectionNames)))
+		return nil
+	}
+
 	r.planOrder = order
 	return r.planOrder
+}
+
+// sectionOrderAgrees reports whether the plan's section list and the list the
+// calling path is iterating describe the same sequence of slots, so that an
+// ordinal into the first can be turned into an occurrence counted over the
+// second.
+//
+// Site-level slots (header/footer) are dropped from the PLAN side only: the
+// planner may emit them and the build loop filters them out before iterating,
+// so they are present in one list and absent from the other by design. Names
+// are compared normalised, matching InstanceCounter's own key rule.
+//
+// An empty live list means the caller never said, which is not agreement.
+func sectionOrderAgrees(planOrder, liveNames []string) bool {
+	if len(liveNames) == 0 {
+		return false
+	}
+	planned := make([]string, 0, len(planOrder))
+	for _, name := range planOrder {
+		if isSiteLevelSectionName(name) {
+			continue
+		}
+		planned = append(planned, strings.ToLower(strings.TrimSpace(name)))
+	}
+	if len(planned) != len(liveNames) {
+		return false
+	}
+	for i, name := range liveNames {
+		if planned[i] != strings.ToLower(strings.TrimSpace(name)) {
+			return false
+		}
+	}
+	return true
 }
 
 // sectionRefForOrdinal translates a scope_ref of the form "<page>:<ordinal>"
@@ -753,22 +845,29 @@ func (r *sourceResolver) planSectionOrder(ctx context.Context) []string {
 // the mint-side range check uses. Out of range, malformed, or absent means no
 // binding: the caller keeps the page-wide behaviour rather than guessing.
 func sectionRefForOrdinal(order []string, scopeRef string) (sectionRef, bool) {
-	i := strings.LastIndex(scopeRef, ":")
-	if i < 0 {
+	// The ordinal is parsed by the SAME function that range-checks it at write
+	// time (write_site_plan_imagery_scope.go). Two hand-written parsers of one
+	// field drift, and the drift is silent in both directions.
+	ordinal, ok := sectionScopeRefOrdinal(scopeRef)
+	if !ok || ordinal >= len(order) {
 		return sectionRef{}, false
 	}
-	ordinal, err := strconv.Atoi(strings.TrimSpace(scopeRef[i+1:]))
-	if err != nil || ordinal < 0 || ordinal >= len(order) {
-		return sectionRef{}, false
-	}
-	name := order[ordinal]
-	occurrence := 0
-	for _, prior := range order[:ordinal] {
-		if prior == name {
-			occurrence++
+	// Occurrence comes from the estate's ONE occurrence rule — the same counter
+	// that assigns per-instance element-id tokens (InstanceCounter, RFC_032
+	// step 3) — walked over the plan's order. A parallel map[string]int would
+	// have been four lines and would have disagreed with it on the pages where
+	// it matters most: this counter lower-cases and trims, so a plan spelling a
+	// slot "Article-Body" and a stored row spelling it "article-body" count as
+	// the same slot here and as two different ones under a raw-key map.
+	c := NewInstanceCounter()
+	var ref sectionRef
+	for i := 0; i <= ordinal; i++ {
+		occurrence := c.NextOccurrence(order[i])
+		if i == ordinal {
+			ref = newSectionRef(order[i], occurrence)
 		}
 	}
-	return sectionRef{Name: name, Occurrence: occurrence, Known: true}, true
+	return ref, true
 }
 
 // sectionAssetFor returns the figure bound to THIS section for a
@@ -780,7 +879,7 @@ func (r *sourceResolver) sectionAssetFor(section sectionRef, path string) (strin
 	if !section.Known || len(r.sectionAssets) == 0 {
 		return "", false
 	}
-	byKind, ok := r.sectionAssets[sectionRef{Name: section.Name, Occurrence: section.Occurrence, Known: true}]
+	byKind, ok := r.sectionAssets[newSectionRef(section.Name, section.Occurrence)]
 	if !ok {
 		return "", false
 	}
@@ -1348,7 +1447,12 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	// Create resolver
-	resolver := newSourceResolver(siteID, params.DB, logger, pageName)
+	// The list this loop will iterate is what per-section imagery binding counts
+	// occurrences over, and it is only safe to bind when it agrees with the
+	// plan's own order — sectionNames is post-filter here, which is the form
+	// sectionOrderAgrees compares against.
+	resolver := newSourceResolver(siteID, params.DB, logger, pageName).
+		withLiveSectionNames(sectionNames)
 
 	// Pre-load specs so we can extract design_direction for needs_new_component items.
 	// ensureSpecs is idempotent — later calls in planSection() won't re-query.
@@ -1431,14 +1535,14 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	// Which occurrence of its own slot name each section is, counted in page
-	// order. This is the section's identity for per-section imagery binding —
-	// see sectionRef. Counted over the same list the loop iterates, so a page
-	// whose plan and built sections agree binds exactly, and one whose do not
-	// simply finds no binding and keeps the page-wide behaviour.
-	sectionOccurrences := make(map[string]int, len(sectionNames))
+	// order — the section's identity for per-section imagery binding (see
+	// sectionRef). It uses the estate's ONE occurrence rule rather than a local
+	// tally: InstanceCounter is what assigns per-instance element-id tokens over
+	// this same list, and two counters over one iteration are two rules that
+	// agree until a spelling or a filter makes them disagree.
+	sectionOccurrences := NewInstanceCounter()
 	for sectionIdx, sectionName := range sectionNames {
-		thisSection := sectionRef{Name: sectionName, Occurrence: sectionOccurrences[sectionName], Known: true}
-		sectionOccurrences[sectionName]++
+		thisSection := newSectionRef(sectionName, sectionOccurrences.NextOccurrence(sectionName))
 		// Path 0: stored-identity lookup (bugs_open/204 — the build-path half
 		// of bugs_open/182). The page's own page_components row names exactly
 		// which component this slot is; that identity does not depend on slot

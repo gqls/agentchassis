@@ -265,10 +265,9 @@ func canonicaliseImageryScopeRefs(
 
 		// Ordinal check — log only, never rewritten. See the header comment.
 		if r.Scope == "section" && rest != "" {
-			ordinalText := strings.TrimPrefix(rest, ":")
-			ordinal, err := strconv.Atoi(ordinalText)
+			ordinal, ok := sectionScopeRefOrdinal(rest)
 			switch {
-			case err != nil:
+			case !ok:
 				misses = append(misses, imageryRefMiss{
 					Scope: r.Scope, RawRef: raw, WrittenRef: *r.ScopeRef,
 					Key: r.Key, Kind: r.Kind, Reason: "ordinal_malformed",
@@ -283,6 +282,31 @@ func canonicaliseImageryScopeRefs(
 	}
 
 	return rows, misses, rewritten
+}
+
+// sectionScopeRefOrdinal parses the ordinal out of a section-scope scope_ref.
+// It accepts either the whole ref ("about-index:2") or just the ":2" remainder
+// this file's canonicaliser already holds, so the WRITE-time range check and
+// the BUILD-time binding (plan_sections' sectionRefForOrdinal, IMG-075) read the
+// ordinal through one function.
+//
+// They must: this file's header records that the ordinal is validated here and
+// never rewritten, on the grounds that no consumer parsed it. One now does, and
+// two hand-written parsers of the same field are a drift waiting to happen —
+// the reader deciding a ref is fine that the writer flagged, or the reverse.
+// ok=false means malformed; the RANGE check stays with each caller, because
+// "how many sections does this page have" is a different question at write time
+// (the plan being written) and at build time (the plan being read).
+func sectionScopeRefOrdinal(refOrRest string) (int, bool) {
+	rest := refOrRest
+	if i := strings.LastIndex(rest, ":"); i >= 0 {
+		rest = rest[i+1:]
+	}
+	ordinal, err := strconv.Atoi(strings.TrimSpace(rest))
+	if err != nil || ordinal < 0 {
+		return 0, false
+	}
+	return ordinal, true
 }
 
 // dedupeImageryRows collapses rows that now share (scope, scope_ref, key),

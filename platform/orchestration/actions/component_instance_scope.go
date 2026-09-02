@@ -138,13 +138,28 @@ func NewInstanceCounter() *InstanceCounter {
 // Next returns the token for the next instance of `function` on this page and
 // advances the count. Call it once per rendered section, in position order.
 func (c *InstanceCounter) Next(function string) string {
+	return InstanceToken(function, c.NextOccurrence(function))
+}
+
+// NextOccurrence returns how many instances of `function` this counter has
+// already seen, and advances the count — the OCCURRENCE itself, before it is
+// spelled as a token.
+//
+// Exported because element-id namespacing is no longer the only thing that
+// needs "which repeat of this slot is this one": per-section imagery binding
+// (IMG-075) asks the same question of the same list, and a second hand-rolled
+// map[string]int beside this one is two rules that agree until they do not —
+// this counter lower-cases and trims, and a parallel counter keyed on the raw
+// name would disagree on exactly the pages where a plan and a stored row spell
+// a slot differently. One rule, two readers.
+func (c *InstanceCounter) NextOccurrence(function string) int {
 	if c.seen == nil {
 		c.seen = make(map[string]int)
 	}
 	key := strings.ToLower(strings.TrimSpace(function))
-	tok := InstanceToken(function, c.seen[key])
+	occurrence := c.seen[key]
 	c.seen[key]++
-	return tok
+	return occurrence
 }
 
 // InstanceTokensForPage assigns tokens to an ordered list of component
