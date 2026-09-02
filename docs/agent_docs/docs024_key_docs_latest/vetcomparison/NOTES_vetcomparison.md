@@ -1750,3 +1750,27 @@ latest-news; rerender waves), not the work-item queue; and my lane never wrote i
 (08-24 hero-home.jpg was an asset FILE deploy, invisible to a components census). After their
 apply lands: the index plan element reads 'tool-vet-comparison-vetcomparison-uk' — do not read
 that as drift.
+
+## 2026-09-02 (later) — owner: "make the home page a bit better designed" (content frozen) — four threads engaged
+
+Owner named four threads; mapped to live sessions and messaged each with a remit-scoped ask plus
+a SHARED constraint block: (a) CONTENT FROZEN (owner's words); (b) NO writes to index
+components/plan until 357's migration 701 applies (md5-guarded, abort-on-concurrent-write — a
+design write would abort their repair); (c) palette churn — pin `design_intent.palette.reference_values`
+before any theme machinery runs. Each ask carried the page's REAL parked defect inventory so
+nobody rediscovers it: 3× contrast_failure + 1× spacing_fix + 1× needs_design_review (deferred,
+on index) + palette_contrast capability_gap d6da17b4 (accent #10b981 as ink on #f8fafc, 2.42:1).
+
+- **"site design planner" [52c745]** ("the design agent") — asked to PLAN the pass through their
+  machinery, folding in the inventory.
+- **vigilant-designer lane** (session "offer analyser benefit analyser visual designer" [4628f9])
+  — asked for the senior-designer CRITIQUE (read-only, can start now); their own B4 landmine
+  (findings may be hypotheses — say so) reflected back at them.
+- **"theme kits" [6936b7]** (young lane, no memory file — asked rather than assumed) — does a kit
+  fit a live branded trust site; what applying one touches; "not a fit" is a good answer.
+- **"experience loop" [e54cd5]** — the visitor-journey/promise-ledger angle (three journeys:
+  compare, price, claim); noted 357's tool-identity work is adjacent to their experience-promise
+  detector.
+
+Design changes will be THEIR work in THEIR lanes; this lane coordinates, holds the constraints,
+and verifies against the live page. Replies route back here.
