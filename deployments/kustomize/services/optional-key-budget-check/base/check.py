@@ -143,6 +143,7 @@ OPTIONAL_KEY_COUNTS = {
     "load_due_sources": 1,
     "load_edit_context": 4,
     "load_existing_content": 2,
+    "load_feed_items_for_event_extraction": 1,
     "load_feed_items_for_triage": 2,
     "load_page_record": 3,
     "load_page_sections_from_spec": 1,
