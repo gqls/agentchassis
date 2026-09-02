@@ -162,7 +162,7 @@ platform/orchestration/actions/render_site_components_action.go 3
 platform/orchestration/actions/render_sitemap_action.go 1
 platform/orchestration/actions/rerender_pages_actions.go 4
 platform/orchestration/actions/rerender_single_page_action.go 5
-platform/orchestration/actions/resolve_internal_links_action.go 3
+platform/orchestration/actions/resolve_internal_links_action.go 2
 platform/orchestration/actions/scrape_company_number_action.go 1
 platform/orchestration/actions/seed_build_queue_action.go 1
 platform/orchestration/actions/site_db_actions.go 2
