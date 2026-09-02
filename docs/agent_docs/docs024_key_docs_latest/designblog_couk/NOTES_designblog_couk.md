@@ -481,3 +481,14 @@ the section-index shape for a test pair.
 > message; corrected to gamedesign so their CONTRIB doesn't assert it. Kept
 > nuance: `content-listing` resolves by SITE-WIDE blog-post count
 > (`query.blog_posts` is unscoped), which is render-accurate.
+
+## 2026-09-02 (analytics notice) — GTM key being applied; rerender wave expected
+
+analytics_gtm session (397 §9 notice): designblog was born after the 08-26
+backfill, has no analytics key, serves no tag. They are applying the standing
+fix (owner-instructed standard for new builds): `site_config.analytics
+.gtm_container_id` → one `stale_chrome` → chrome + all 17 pages re-render with
+GTM-PQ3WCTBD at the next discovery pass. **Expected, not damage.** For this
+lane: the next serve-side verification should expect the GTM head everywhere;
+fresh render timestamps from that wave are CHROME, not content; the four empty
+listing pages will re-render exactly as empty (fill is upstream, 444).
