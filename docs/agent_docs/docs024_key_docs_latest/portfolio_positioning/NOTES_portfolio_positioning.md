@@ -3673,3 +3673,20 @@ Observation worth handing to the checker-layer lane (149 family), not fixing her
 plan-validation review item whose condition self-resolves minutes later has NO auto-clear and
 NO dependent it gates — it just sits in the human queue for ever. On a fleet of 22 remakes
 that is 3×22 stale rows unless the validator re-checks at read time.
+
+### (f) Two mid-build review items: one re-queued on evidence, one left for the owner
+
+- **Content blocker on the ab-test tool page**: writer emitted "More tools coming soon." →
+  placeholder check blocked (rightly). Detail was NOT in the item/orchestration — it lives in
+  `agent_error_log` under the SECOND row (severity `warning`, "see context.issues"; the generic
+  CONTENT_VALIDATION_FAILED row carries no issues — worth remembering when chasing any
+  "N blockers" message). Nothing persisted (validate precedes save). Re-queued triaged for a
+  fresh writer run; escalate only on recurrence.
+- **`brief_supplies_negation` (needs_human_review) LEFT OPEN — it is the owner's by its own
+  spec.** The flagged phrase is an instructional style negation in `content_direction.formatted`
+  ("tell the reader what to do with the information, not just what the information is"),
+  `mandated: false`, 0 mandated onto pages. My read for the owner: keep as is — it is writing
+  guidance, not a negative-identity claim; the ruling's target class ("we don't sell X") is
+  absent. The check's own metadata already exempts 11 instructional negations; this one tripped
+  the x_not_y shape matcher. Owner's word applies the fix text (whole-object content_direction
+  rewrite) or closes it as accepted.

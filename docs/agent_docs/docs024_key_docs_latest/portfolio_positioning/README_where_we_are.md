@@ -1267,3 +1267,18 @@ force at build review: no "we don't sell advertising" style copy anywhere on the
 the door stays open for selling space on the network later.
 
 The five other briefs (three real, two test) are still in your queue, holding for your review.
+
+**2026-09-02, build afternoon — the advertise build is deep into pages; one small thing waits on you.**
+
+The build got through research, strategy, planning and all seven interactive tools, and is now
+writing pages and imagery — roughly forty pages' worth queued and draining. Two hiccups so far,
+both handled: a data gap from when the site row was first created (fixed, and fixed for the five
+other briefed sites so their releases won't trip on it), and one page draft that said "more tools
+coming soon" — the platform's own checks blocked that as placeholder text, and it's simply being
+rewritten.
+
+One item is yours when you next look: the negation checker flagged the advertise brief for one
+phrase — "tell the reader what to do with the information, not just what the information is".
+That's a writing-style instruction, not a "we don't sell anything" claim, so my recommendation is
+to leave it exactly as it is; but the checker routes that decision to you by design. Say the word
+and I'll either clear it as accepted or edit it out.
