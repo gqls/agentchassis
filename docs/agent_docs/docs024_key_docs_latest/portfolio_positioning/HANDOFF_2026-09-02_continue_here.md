@@ -27,9 +27,12 @@ self-maintaining; the four new sites join its rotation.
 1c. **The owner's open items**: advertise negation flag (recommendation standing: keep) ·
     websitepromotion claims_unverified (4 claims, 1 high) · fleet-wide claims backlog (8 sites,
     never drained) · two test briefs (indoorplanters.co.uk, buytoletcalculator.uk).
-1d. **Next briefs fire only when**: 444 enablement is answered (per-site feed sources +
-    directory kinds, or listing types held back) AND the fire direction carries template v2
-    (runbook §6). Single-pagers first; 3 protected; twins ⚑OWNER; insurance last.
+1d. **Next briefs UNBLOCKED (updated same night)**: the 444 thread answered the enablement
+    shape — pre-enablement recipes are in runbook §6 (feeds via content_features.news_feed or
+    source seeds; directories via kind checklist or exporter config row; glossary/showcase
+    held back), fire direction unchanged, their validator lands via council as belt-and-braces.
+    A brief may fire once its verticals' pre-enablement is DONE and the direction carries
+    template v2. Single-pagers first; 3 protected; twins ⚑OWNER; insurance last.
 
 # 2. LIVE vs NOT-YET-PROVEN
 
