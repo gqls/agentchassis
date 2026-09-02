@@ -217,3 +217,20 @@ control — so the instrument discriminates. **The cheap check at the next roll:
 binary for `paths_tried`, expect PRESENT.** Prefer this capability probe over the provenance
 stamp here: the startup line had rotated out of both pods' logs (~9.5h) and the tag-bump
 commit is not the build stamp (`bugs_open/249`'s straddle).
+
+**Second-order consequence for delivery lanes (from the webdesign-tool-rebuild lane,
+2026-09-02), with a path caveat they could not have seen:** post-fix, a no-content assembly
+completes CLEANLY — so a work item whose delivery depends on the rebuild *landing* reads
+`complete` while the page was never reassembled and keeps serving what it served before,
+every status green. **Check `collected_data->'assembled_page'->>'skip_reason'` (non-null ⇒
+skipped; re-polling the artefact is futile) before concluding a rebuild ran.** This is the
+`a-complete-work-item-is-not-a-repaired-artefact` shape, one level up. ⚠ **The caveat: that
+key exists only on the `assemble_page` ACTION path** (`AssemblePageAction`,
+`multipage_actions.go` — consumers `page-rebuild` / `pageflow-builder` /
+`site-work-orchestrator`, **3** as of 2026-09-02). The `page-rerender` agent's path
+(`assemblePage`, `rerender_single_page_action.go`) contains **zero** occurrences of
+`skip_reason` / `extractFieldValue` / `assembled_page` [MEASURED 2026-09-02] — it neither
+carries 408's defect nor writes the discriminator, so a gate keyed on that field is silent
+(not false, VACUOUS) for rerender-path deliveries. Know which function your chain reaches
+before trusting the key — the two functions eleven characters apart are an existing
+LANDMINES entry.
