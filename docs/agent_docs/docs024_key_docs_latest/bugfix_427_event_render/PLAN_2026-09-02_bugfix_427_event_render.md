@@ -155,3 +155,14 @@ Submitted: `08f56b7e-61e4-42d1-a3b6-13d700dd833c`.
    page), submit that separately (DB migration, council-scope on its own).
 4. **Follow-ups, each its own bug**: cross-article correction matching (§2);
    `entity_ids`/`duplicate_of` — define a target or drop.
+
+## 6. Status, 2026-09-02 (later same day) — see bugs_open/427 §10/§11 for the live account
+
+Fresh chassis build (`ebf27c60377f`) confirmed live for `agent-chassis` and
+`core-manager`, carries all of §1-3's code plus feed_lane's real facts. Council
+REVISE on the resolver (compliance HIGH: no evidence gate before rendering
+real-world scheduling claims) — fixed same session (citation-url+quote gate,
+travelling disclaimer, settled `site_specs.evidence_base` naming, checked and
+documented why the existing `evidence-chart` component doesn't fit) and
+resubmitted on the same correlation. **This file is not being kept as the
+live status record going forward — bugs_open/427 §10/§11 is; read there.**

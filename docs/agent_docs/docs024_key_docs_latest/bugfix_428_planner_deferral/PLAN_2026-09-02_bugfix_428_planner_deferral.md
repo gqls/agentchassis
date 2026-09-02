@@ -116,3 +116,14 @@ per-omission rather than a blanket justification — the same measurement bug 42
   bug's planner-licensing fix actually changes future behaviour.
 - `bugs_open/206` — the entity-directory builder; live but data-starved for every
   site this bug's sample affects (per `gap_planner`'s correction to 428 §5).
+
+## 6. Status, 2026-09-02 (later same day) — see bugs_open/428 §10/§11 for the live account
+
+Both council verdicts came back APPROVED. Fresh chassis build confirmed live for
+`agent-chassis` and `core-manager` (`ebf27c60377f`) — the release-surface
+BACKEND is genuinely live. Gap found: the admin-dashboard FRONTEND (the actual
+button) has not been redeployed in 170 days, so the surface is API-only until
+someone runs `make admin-dashboard`. Logged as a near-miss in
+`docs024_key_docs_latest/WRONG_CALLS.md` (2026-09-02, "committed... stood in
+for usable"). **This file is not being kept as the live status record going
+forward — bugs_open/428 §10/§11 is; read there.**
