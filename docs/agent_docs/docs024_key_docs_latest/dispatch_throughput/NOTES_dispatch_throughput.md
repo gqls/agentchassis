@@ -1344,3 +1344,25 @@ doc_notes decision row id 1032c8f4; ai_endpoint_unavailable at claim_work_item_a
 (availability) vs spend_governor_shed (policy) — distinct reasons, same seam, compose not
 compete; fuel.go's stage-A ruling re-cited (cross-corr invisibility strikes again — seats
 cannot see 80df0963 from 8f4bb57d). r3 submitted; monitor re-armed.
+
+### 2026-09-02 ~14:4xZ — STAGE B APPROVED (r3, corr 8f4bb57d); advisories acted on; D4 build COMPLETE pending roll + owner switches
+
+**APPROVED — "3 advisory objections, none high-severity."** Verdict read in full. Dispositions:
+- **guardian (REAL CATCH, acted on):** applying 674 changes the selector md5 that
+  `657_..._VERIFY.sql` pins — without a lockstep edit the daily contract check would read as
+  selector DRIFT. Now step 3 of 674's written apply procedure (update the VERIFY's md5 list,
+  run green, commit together).
+- **editquality:** the LIMIT-0 probe proves parse, not runtime behaviour — true; the selector
+  text is parameter-free (verified at the artefact) and the Go halves carry their own tests;
+  a first-10-fires canary is now step 4 of the apply procedure.
+- **debug_historian:** the snapshot_agent calls they asked for have been in 674 since r1
+  (lines ~57-58) — THIRD instance this corr of the sketch under-showing the file. Lane lesson,
+  now twice-earned: **paste the verify/guard text into the sketch verbatim; summaries of
+  guards read as absences.**
+- **architecture (low):** second-consumer opt-in promoted from risk-note to STANDING GATE
+  (674 header + AGOV-013): any further `honour_spend_governor` flag is architecture-scope.
+**D4 state: stages A and B both council-APPROVED. Everything is built.** Remaining, in order:
+owner's next release carries dec5ad61b → stamp-check both replicas → apply 674 (procedure in
+its header, incl. the 657-VERIFY lockstep + canary) → drop suffix + record → owner sets the
+budget (recommendation $4,500 given) → owner flips enabled. Three commits this arc carry
+`Council-Submitted:`; this NOTES commit carries the earned `Council-Reviewed:`.

@@ -5,8 +5,26 @@
 -- (load_work_item_actions.go:716-722): the flags this file sets are read by Go that must be
 -- in the running chassis first. Strictly, with governor_config.enabled=false every piece here
 -- is inert in ANY order — the hold is one-enable-event discipline, not a live dependency.
--- Apply BY HAND after `git merge-base --is-ancestor dec5ad61b <the pod's build stamp>`
--- passes on BOTH chassis replicas; then drop this suffix and --record-only (bugs_closed/150).
+-- APPLY PROCEDURE (BY HAND, in this order — the r3 advisories are steps 3–4):
+--   1. `git merge-base --is-ancestor dec5ad61b <the pod's build stamp>` on BOTH chassis
+--      replicas (the Go call sites must be in the running binary).
+--   2. psql -f this file; read the NOTICE.
+--   3. ⚠ LOCKSTEP (council 8f4bb57d r3, guardian): the 657 ordering-contract VERIFY pins the
+--      selector md5 (d29807313...) — THIS APPLY CHANGES IT. In the same sitting: add the new
+--      md5 to 657_selector_ranks_sites_by_loadable_work_VERIFY.sql's accepted list, run it
+--      green, commit both files together. Skipping this makes the daily contract check read
+--      as selector drift.
+--   4. CANARY (r3, editquality): the LIMIT-0 probe proves the text parses, not that the live
+--      steps behave — watch the first ~10 fires (loops load, claims proceed, no
+--      spend_governor_shed refusals while the governor is disabled) before walking away.
+--   5. Drop this suffix and --record-only in the same motion (bugs_closed/150).
+--
+-- ⚠ SECOND-CONSUMER GATE (r3, architecture — a CONDITION, not a risk note): these flags
+-- expose the governor to build-dispatch-loop ONLY. Any other consumer opting in
+-- (site-work-orchestrator, diagnose-dispatch-loop, or anything new) OWES ITS OWN
+-- ARCHITECTURE-REVIEW ROUND on the shared governor_state/shed_level machine first —
+-- treat a second honour_spend_governor flag as architecture-scope, never routine config.
+-- Same condition recorded in AGOV-013.
 --
 -- WHAT IT DOES (two rows, three writes):
 --   1. Teaches `find_dispatchable_site` (build-pipeline-trigger, the post-657 text,
