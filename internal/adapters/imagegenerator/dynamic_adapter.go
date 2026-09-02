@@ -7,6 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	_ "image/jpeg" // decode format registration only — see the KeyGround block's comment
+	"image/png"
 	"io"
 	"net/http"
 	"os"
@@ -17,6 +21,7 @@ import (
 	"github.com/gqls/agentchassis/internal/adapters/imagegenerator/banana"
 	"github.com/gqls/agentchassis/internal/adapters/imagegenerator/provider"
 	"github.com/gqls/agentchassis/internal/adapters/imagegenerator/stability"
+	"github.com/gqls/agentchassis/platform/colour"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -97,6 +102,15 @@ type ImageRequestData struct {
 	// endpoint). Plumbed end-to-end so the field is forward-compatible
 	// even before discovery emits values.
 	ReferenceImageURIs []string `json:"reference_image_uris,omitempty"`
+
+	// KeyGround is a hex colour ("#RRGGBB") the action layer wants keyed out of
+	// the generated image and replaced with a real alpha channel — bugs_open/424.
+	// Set only for kind=logo today (generate_image_actions.go's
+	// applyLogoBackgroundPolicy), alongside the prose clause baked into Prompt
+	// that asks the model to paint exactly this colour as the ground. Empty
+	// means "no matting" — every existing caller that doesn't set it sees
+	// identical behaviour to before this field existed.
+	KeyGround string `json:"key_ground,omitempty"`
 }
 
 // ImageRequest represents an incoming image generation request
@@ -614,8 +628,85 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 		zap.String("mime_type", result.MimeType),
 		zap.Int("bytes", len(result.ImageBytes)),
 	)
-	return result.ImageBytes, result.MimeType, origin, conditions, nil
+
+	imageBytes, mimeType := result.ImageBytes, result.MimeType
+
+	// bugs_open/424 — key-colour matting. The action layer set data.KeyGround
+	// only when applyLogoBackgroundPolicy governed this prompt (kind=logo
+	// today), so an empty value here means "not requested" and every other
+	// caller sees identical behaviour to before this block existed.
+	//
+	// Decoding registers both PNG and JPEG (the blank "image/jpeg" import
+	// above): banana has returned PNG in every observed case, but nothing in
+	// this adapter asserts that, and JPEG's lossy edges would smear the key
+	// colour before matting ever sees it — decoding whichever format actually
+	// arrives is cheap insurance against that being silently wrong.
+	if data.KeyGround != "" {
+		matted, mattedMime, matteErr := a.keyOutBackground(imageBytes, data.KeyGround, a.logger)
+		if matteErr != nil {
+			return nil, "", "", nil, matteErr
+		}
+		imageBytes, mimeType = matted, mattedMime
+	}
+
+	return imageBytes, mimeType, origin, conditions, nil
 }
+
+// keyOutBackground decodes result bytes, keys out KeyGround via
+// KeyOutBackground, and re-encodes as PNG — or returns an error if the model
+// did not honour the key-colour instruction (bugs_open/424's fail-closed
+// guard). Errors from here propagate to handleMessage's existing error path,
+// which reports failure and uploads nothing: with no revert seam for a
+// generated asset, refusing a bad generation is the only protection against
+// storing something worse than what is already live.
+func (a *DynamicImageAdapter) keyOutBackground(raw []byte, keyHex string, logger *zap.Logger) ([]byte, string, error) {
+	kr, kg, kb, err := colour.ParseHex(keyHex)
+	if err != nil {
+		return nil, "", fmt.Errorf("bugs_open/424: invalid KeyGround %q: %w", keyHex, err)
+	}
+	key := color.NRGBA{R: kr, G: kg, B: kb, A: 255}
+
+	img, format, err := image.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return nil, "", fmt.Errorf("bugs_open/424: decode generated image for matting: %w", err)
+	}
+
+	matted, stats := KeyOutBackground(img, key, keyGroundInnerThreshold, keyGroundOuterThreshold)
+
+	logger.Info("bugs_open/424: background-key matte applied",
+		zap.String("source_format", format),
+		zap.String("key_hex", keyHex),
+		zap.Float64("border_keyed", stats.BorderKeyed),
+		zap.Int("pixels_keyed", stats.Keyed),
+	)
+
+	if stats.BorderKeyed < keyGroundMinBorderKeyed {
+		// The model did not paint the requested key colour as the ground —
+		// a checkerboard, a solid unrelated colour, a vignette. Refuse rather
+		// than store a half-matted or entirely unmatted logo: this is the
+		// fail-closed half of the design (PLAN_2026-09-02, "The guard").
+		return nil, "", fmt.Errorf("bugs_open/424: model did not honour the key-colour instruction "+
+			"(border_keyed=%.3f, want >= %.2f) — refusing to store; source_format=%s",
+			stats.BorderKeyed, keyGroundMinBorderKeyed, format)
+	}
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, matted); err != nil {
+		return nil, "", fmt.Errorf("bugs_open/424: encode matted PNG: %w", err)
+	}
+	return buf.Bytes(), "image/png", nil
+}
+
+// Thresholds for the background-key matte — bugs_open/424. [UNMEASURED as
+// constants]: derived from the interim ground-colour regeneration's observed
+// model drift (~17 Euclidean RGB units off a requested hex), not yet from a
+// magenta-keyed generation. Tune from the first real output and date the
+// change; see PLAN_2026-09-02_logo_background_transparency.md §"The matte".
+const (
+	keyGroundInnerThreshold = 48.0
+	keyGroundOuterThreshold = 110.0
+	keyGroundMinBorderKeyed = 0.95
+)
 
 // uploadImage uploads the generated image to S3 and returns both URI and presigned URL
 func (a *DynamicImageAdapter) uploadImage(imageData []byte, clientID string, logger *zap.Logger) (string, string, error) {

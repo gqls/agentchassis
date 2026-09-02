@@ -241,6 +241,50 @@ func LogoWordmarkClause(text string) string {
 		text)
 }
 
+// LogoBackgroundKeyHex, LogoBackgroundKeySentinel and LogoBackgroundKeyClause —
+// bugs_open/424.
+//
+// "Transparent background" is not a promptable property of this estate's image
+// models: Gemini's image family (the banana provider) has no alpha-channel output
+// at all, so asking for transparency makes it paint the checkerboard PICTURE of
+// transparency as opaque pixels — verified by PNG chunk scan (colour type 2, no
+// tRNS) on the asset that exposed this. No prompt wording closes that gap, because
+// the property being asked for does not exist in the model's output space.
+//
+// The fix is architectural, not textual: ask for something the model CAN paint —
+// a flat, deterministic, saturated colour no real mark would ever use — and remove
+// it mathematically after generation (KeyOutBackground, package imagegenerator).
+// This constant is the prompt half of that pair; the two must never drift apart,
+// which is why both the clause text and the value handed to the matting step are
+// derived from the one hex constant, never restated.
+//
+// WHY MAGENTA, AND WHY A FIXED CONSTANT NOT A SITE COLOUR. #FF00FF is maximally
+// distant from the greys, blacks, whites and metallics a real mark is likely to
+// use, and unlike black or white it never reads as a "natural" ground a model
+// might blend a mark into. It is deliberately NOT derived from the site's brand
+// palette: imagery_style_guide.go already excludes logo prompts from palette
+// direction (the 2026-05-20 contamination lesson, see the file header above) —
+// tying the key colour to a site's own palette would reopen exactly that.
+const LogoBackgroundKeyHex = "#FF00FF"
+
+// LogoBackgroundKeySentinel is the idempotence key for LogoBackgroundKeyClause and
+// the substring a census greps for in assets.origin_prompt to prove the policy
+// REACHED a generation — the same role LogoTextFreeSentinel plays for the text
+// rule. Kept separate from the clause so a future reword of the clause does not
+// silently break idempotence on prompts already carrying it.
+const LogoBackgroundKeySentinel = "single flat, uniform, edge-to-edge field of pure magenta"
+
+// LogoBackgroundKeyClause is stated positively and as an explicit override, the
+// same shape as LogoTextFreeClause and for the same reason (bugs_open/417
+// measured that a folded NEGATIVE prohibition demonstrably loses to a positive
+// licence sitting earlier in the same prompt — the converse is assumed to hold
+// here too until measured otherwise).
+const LogoBackgroundKeyClause = "The entire background is a " + LogoBackgroundKeySentinel +
+	" (" + LogoBackgroundKeyHex + "), with no gradient, vignette, shadow, glow, texture, " +
+	"panel or border, and the artwork must not touch the image edges. This instruction " +
+	"overrides any earlier wording in this prompt about transparency, a plain background, " +
+	"or any other ground colour."
+
 // composeBrandImagePrompt is the pure half — no DB, so it is directly testable
 // against the degraded shapes that matter (identity present, identity absent,
 // nothing but a domain).

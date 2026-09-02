@@ -641,6 +641,14 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		var rejected string
 		promptTemplate, negativePrompt, promptSource, rejected = applyLogoTextPolicy(
 			promptTemplate, negativePrompt, promptSource, wordmarkText, ident, params.Logger)
+		// bugs_open/424 — background-key policy, same choke point as the text
+		// policy immediately above and for the same reason: this is the one place
+		// every logo prompt from every producer and every tier converges before
+		// dispatch, so applying it here (rather than in the adapter) means the
+		// clause lands in assets.origin_prompt where a census can see it — see
+		// LogoBackgroundKeyClause's doc comment.
+		promptTemplate, negativePrompt, promptSource = applyLogoBackgroundPolicy(
+			promptTemplate, negativePrompt, promptSource, params.Logger)
 		promptSource += "+via_" + kindRes.Signal
 		if rejected != "" {
 			// bugs_open/034's shape, raised as a MEDIUM objection in round 1: a
@@ -777,6 +785,14 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	}
 	if len(referenceImageURIs) > 0 {
 		imageData["reference_image_uris"] = referenceImageURIs
+	}
+	// bugs_open/424 — the structured half of the background-key policy applied
+	// above: the adapter has no DB access and cannot re-derive "this is a
+	// governed logo" from prose, so the exact key colour travels as data,
+	// alongside (never instead of) the prose clause baked into promptTemplate.
+	// Both are derived from the one LogoBackgroundKeyHex constant.
+	if kind == "logo" {
+		imageData["key_ground"] = checks.LogoBackgroundKeyHex
 	}
 
 	newRequestID := uuid.NewString()
@@ -1670,6 +1686,48 @@ func applyLogoTextPolicy(
 		}
 	}
 	return appendClause(prompt, checks.LogoTextFreeClause), negatives, promptSource + tag, rejectedWordmark
+}
+
+// logoBackgroundNegatives are the negative-prompt tokens added as belt for the
+// background-key policy — bugs_open/424. "checkerboard" and "transparency pattern"
+// name this bug's own failure mode directly: the model's observed response to a
+// transparency request was to paint the UI symbol for transparency as opaque pixels.
+var logoBackgroundNegatives = []string{"checkerboard", "transparency pattern", "magenta", "#ff00ff"}
+
+// applyLogoBackgroundPolicy is the pure half of the background-key guard, mirroring
+// applyLogoTextPolicy immediately above — bugs_open/424.
+//
+// "Transparent background" is not promptable (see LogoBackgroundKeyClause's doc
+// comment for why), so this does not attempt to ask for transparency at all. It
+// appends the positive key-colour clause, which OVERRIDES any earlier wording about
+// transparency or plain backgrounds that a caller's own prompt may already carry —
+// the word "transparent" must not survive into a governed logo prompt, because a
+// prompt asking for both transparency and a solid key colour hands the model a
+// contradiction it resolves unpredictably (bugs_closed/390: co-present instructions
+// are adjudicated by the model, not by precedence wording).
+//
+// Idempotent on LogoBackgroundKeySentinel, same shape as applyLogoTextPolicy's
+// idempotence on LogoTextFreeSentinel: a prompt already carrying the clause (a
+// retried generation, or a row washed by a future migration) gains no second copy.
+func applyLogoBackgroundPolicy(prompt, negativePrompt, promptSource string, logger *zap.Logger) (newPrompt, newNegative, newSource string) {
+	const tag = "+logo_background_key_policy"
+
+	if strings.Contains(prompt, checks.LogoBackgroundKeySentinel) {
+		logger.Info("logo background-key policy: clause already present, not duplicated")
+		return prompt, negativePrompt, promptSource + tag
+	}
+
+	logger.Info("logo background-key policy applied: keyed magenta ground (bugs_open/424)")
+	negatives := negativePrompt
+	for _, t := range logoBackgroundNegatives {
+		if !strings.Contains(strings.ToLower(negatives), t) {
+			if negatives != "" {
+				negatives += ", "
+			}
+			negatives += t
+		}
+	}
+	return appendClause(prompt, checks.LogoBackgroundKeyClause), negatives, promptSource + tag
 }
 
 // recordImagePolicyEvent files a durable row for an outcome that would otherwise

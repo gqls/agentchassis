@@ -349,3 +349,76 @@ func TestImagePolicyEventKeepsItsExplicitProvenance(t *testing.T) {
 		t.Fatalf("ErrorCode mutated: %q", entry.ErrorCode)
 	}
 }
+
+// applyLogoBackgroundPolicy tests — bugs_open/424.
+//
+// "Transparent background" is not promptable (Gemini/banana has no alpha
+// output at all — see LogoBackgroundKeyClause's doc comment), so this policy
+// does not ask for transparency. It asks for a fixed, deterministic key
+// colour the model CAN paint, appended at the same choke point as the text
+// policy above and for the same reason: every prompt from every producer
+// converges here before dispatch, and building the clause here (not in the
+// adapter) is what keeps it visible in assets.origin_prompt for a census.
+//
+// MUTATIONS THAT MUST BREAK THESE:
+//  1. drop the sentinel idempotence check → TestLogoBackgroundPolicyIsIdempotent.
+//  2. drop the "checkerboard"/"transparency pattern" negative terms →
+//     TestLogoBackgroundPolicyDefaultAppendsKeyClause (this bug's own failure
+//     shape, named directly so a regression is unmissable).
+//  3. leave the word "transparent" reachable in a governed prompt → nothing
+//     currently asserts this cannot happen upstream of this function; the
+//     override wording in the clause itself is the mitigation, pinned by the
+//     "overrides any earlier wording... about transparency" substring check.
+func TestLogoBackgroundPolicyDefaultAppendsKeyClause(t *testing.T) {
+	got, neg, src := applyLogoBackgroundPolicy(
+		"A fully transparent background (PNG alpha), no ground colour, no panel, no backdrop of any kind.",
+		"people, faces, watermark", "site_plan", zap.NewNop())
+
+	if !strings.Contains(got, checks.LogoBackgroundKeyClause) {
+		t.Fatalf("background-key clause not appended:\n%s", got)
+	}
+	if !strings.Contains(got, "overrides any earlier wording in this prompt about transparency") {
+		t.Fatalf("clause must explicitly override an earlier transparency request — the whole point "+
+			"is that a prompt asking for both is a contradiction the model resolves unpredictably:\n%s", got)
+	}
+	if !strings.Contains(got, checks.LogoBackgroundKeyHex) {
+		t.Fatalf("clause does not name the key hex:\n%s", got)
+	}
+	if !strings.HasSuffix(src, "+logo_background_key_policy") {
+		t.Fatalf("prompt source not tagged, so a census cannot tell the guard fired: %q", src)
+	}
+	for _, want := range []string{"checkerboard", "transparency pattern"} {
+		if !strings.Contains(neg, want) {
+			t.Errorf("negative prompt missing %q — this bug's own observed failure shape, named "+
+				"directly as belt: %q", want, neg)
+		}
+	}
+	for _, keep := range []string{"people", "faces", "watermark"} {
+		if !strings.Contains(neg, keep) {
+			t.Errorf("policy dropped an unrelated negative term %q: %q", keep, neg)
+		}
+	}
+}
+
+func TestLogoBackgroundPolicyIsIdempotent(t *testing.T) {
+	once, _, _ := applyLogoBackgroundPolicy("A bold logomark.", "", "site_plan", zap.NewNop())
+	twice, _, src := applyLogoBackgroundPolicy(once, "", "site_plan", zap.NewNop())
+
+	if once != twice {
+		t.Fatalf("second application changed the prompt:\n once: %s\ntwice: %s", once, twice)
+	}
+	if n := strings.Count(twice, checks.LogoBackgroundKeySentinel); n != 1 {
+		t.Fatalf("clause appears %d times, want exactly 1 — a retried generation must not accumulate copies", n)
+	}
+	if !strings.HasSuffix(src, "+logo_background_key_policy") {
+		t.Fatalf("idempotent path must still tag the source: %q", src)
+	}
+}
+
+func TestLogoBackgroundPolicyPreservesRestOfPrompt(t *testing.T) {
+	got, _, _ := applyLogoBackgroundPolicy(boxingPrompt, "", "site_plan", zap.NewNop())
+	if !strings.HasPrefix(got, boxingPrompt) {
+		t.Fatalf("policy must APPEND, never rewrite the caller's own prompt — the clause overrides "+
+			"by wording, not by deletion, so the original stays auditable in assets.origin_prompt:\n%s", got)
+	}
+}

@@ -44,3 +44,34 @@ func TestLogoWordmarkClauseNamesTheExactString(t *testing.T) {
 			"not expressible at all:\n%s", got)
 	}
 }
+
+// TestLogoBackgroundKeyClauseIsSelfConsistent — bugs_open/424. The clause text
+// and the structured KeyGround value handed to the adapter (dynamic_adapter.go)
+// are both derived from LogoBackgroundKeyHex; this pins that they still agree,
+// so a future reword of the clause cannot silently change the colour without
+// also changing what the adapter mattes for.
+func TestLogoBackgroundKeyClauseIsSelfConsistent(t *testing.T) {
+	if !strings.Contains(LogoBackgroundKeyClause, LogoBackgroundKeySentinel) {
+		t.Fatalf("clause does not contain its own sentinel — idempotence in "+
+			"applyLogoBackgroundPolicy relies on this substring match:\n%s", LogoBackgroundKeyClause)
+	}
+	if !strings.Contains(LogoBackgroundKeyClause, LogoBackgroundKeyHex) {
+		t.Fatalf("clause does not name the key hex the adapter is told to matte for:\n%s",
+			LogoBackgroundKeyClause)
+	}
+}
+
+// TestHeroPromptDoesNotCarryTheBackgroundKeyRule — heroes are photographic
+// content, deliberately NOT flat-vector marks, and must never be keyed
+// against a solid colour. Nothing currently wires this clause into hero
+// prompts (it applies only at the kind=logo choke point in
+// generate_image_actions.go), so this pins that absence as a guard against a
+// future session widening the gate carelessly.
+func TestHeroPromptDoesNotCarryTheBackgroundKeyRule(t *testing.T) {
+	got := composeBrandImagePrompt(siteBrandFacts{
+		Name: "Boxing Online", Domain: "boxingonline.com",
+	}, "hero")
+	if strings.Contains(got, LogoBackgroundKeySentinel) {
+		t.Fatalf("hero prompt carries the logo background-key rule:\n%s", got)
+	}
+}
