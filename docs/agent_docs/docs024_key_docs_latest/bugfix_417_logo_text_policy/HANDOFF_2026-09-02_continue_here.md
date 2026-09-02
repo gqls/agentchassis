@@ -56,15 +56,15 @@ minted only from the consented address. No schema change, no backfill. Council *
 
 ## 3. WHAT IS PROVEN, AND WHAT IS ONLY EVIDENCE
 
-**Disconfirmation A (did the guard REACH the generation?) — 4 for 4 `[MEASURED 2026-09-02]`.**
-Four logo generations have COMPLETED since the guard went live, and all four carry the clause in
-`origin_prompt`: boxingonline.com (10:40Z), advertise.co.uk (14:48Z), **designblog.co.uk (17:03Z)**
-and **seotools.co.uk (17:10Z)**. Neither timestamp column can be trusted (§6) — and **nor can the work-item trail on its
+**Disconfirmation A (did the guard REACH the generation?) — 6 for 6 `[MEASURED 2026-09-02 19:45]`.**
+Every logo generation that has COMPLETED since the guard went live carries the clause in
+`origin_prompt`: boxingonline.com (10:40Z), advertise.co.uk (14:48Z), designblog.co.uk (17:03Z),
+seotools.co.uk (17:10Z), **gamedesign.uk (17:58Z)** and **websitepromotion.co.uk (18:00Z)**. Neither timestamp column can be trusted (§6) — and **nor can the work-item trail on its
 own**: boxingonline's regeneration filed no work item at all. Settle it on the **storage key's date
 directory**, which caught all three and is sound by construction (§6).
 
-**Disconfirmation C (did the model OBEY it?) — 4 for 4 `[MEASURED 2026-09-02, eye-checked]`.**
-All four logos produced since the guard went live have been opened and looked at:
+**Disconfirmation C (did the model OBEY it?) — 5 for 5 `[MEASURED 2026-09-02, eye-checked]`.**
+Five of the six have been opened and looked at (gamedesign.uk not yet — it is the ONLY one left):
 - **boxingonline.com** — fist-in-a-square mark. Zero lettering, single composition. (Delivery
   lane's original check, re-done independently this session from `boxingonline.ugg2.com`.)
 - **advertise.co.uk** — broadcast/signal mark, concentric arcs off a mast. Zero lettering, single
@@ -73,6 +73,9 @@ All four logos produced since the guard went live have been opened and looked at
   single composition. Carries the clause.
 - **seotools.co.uk** — compass/target mark, generated 17:10:10Z off the queue. Zero lettering,
   single composition. Carries the clause.
+- **websitepromotion.co.uk** — paper-plane-and-signal mark, generated 18:00:38Z on the second
+  attempt (the first was refused by 424's guard). Zero lettering, single composition. Verified at
+  BOTH the source object and the deployed file.
 
 **421's two-panel design-comp shape did not recur on any of them.**
 
@@ -94,15 +97,20 @@ Ordered. Nothing here blocks moving to other bugs; items 1–2 are cheap and tim
    carries the fetch recipe (§"Fetch a generated asset's BYTES and LOOK at it"); it was not a
    2-minute job, because the customer's own domain is not ours and the bytes had to come out of the
    bucket through a pod.
-2. **One of the three queued logos remains** — `websitepromotion.co.uk`. `designblog.co.uk`
-   (17:03Z) and `seotools.co.uk` (17:10Z) both completed and are **clean** (§3).
-   ⚠ **websitepromotion's generation was REFUSED at 17:15Z by `bugs_open/424`'s matte guard**
-   (`border_keyed=0`), so its item is back to `triaged` and will retry. **A 424 refusal is not a
-   417 signal** — the image never reached storage and the wordmark policy is not implicated. Do
-   not score it either way; wait for a stored artefact.
-   When it lands: census `origin_prompt` for the clause, then eye-check the PNG. A lettered logo
-   that CARRIED the clause ⇒ build the fence, re-open 417.
-   ⚠ Its background will very likely be veiled — that is 424's defect (§7), not 417's.
+2. ~~**The three queued logos.**~~ **ALL THREE DONE, all clean** — designblog 17:03Z, seotools
+   17:10Z, websitepromotion 18:00Z (second attempt; the first was correctly refused by 424's guard
+   at `border_keyed=0`). `gamedesign.uk` (17:58Z) also generated and carries the clause but has
+   **not been eye-checked** — that is the one cheap action left on this lane.
+   **A 424 refusal is not a 417 signal** and a veiled background is 424's defect, not 417's.
+2b. **NEW, and not this lane's: 5 of 34 sites with a logo asset still render a TEXT header.**
+   `site_components.slot_name='header'` holds `logo-text` and no `logo-img` on websitepromotion.co.uk,
+   webdesign.co.uk, ai-agent-orchestration.com, loanandmortgagecalculator.co.uk, cookly.uk — while
+   29 of 34 render the image correctly, so the mechanism works in general. **At least two distinct
+   causes:** websitepromotion's header rendered 17:30Z with `render_inputs.plan_logo = ""`, half an
+   hour BEFORE its logo existed, and the 18:01Z page re-render re-used the stored header (a page
+   rebuild does not rebuild the header) — whereas **webdesign.co.uk's header rendered AFTER its logo
+   with a real `plan_logo` digest and still emitted text**, which is a different defect. Not
+   diagnosed, not filed, needs an owner — the header/chrome pipeline, not 417.
 3. **The fence decision itself** — recorded in 417 with its grounds and trigger, deliberately NOT
    taken on n=1. See §5.
 4. **417 and 420 stay OPEN** until their classes are bounded, per the fixed-AND-live bar. 420 also
