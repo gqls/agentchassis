@@ -31,6 +31,44 @@ one-pod-of-two hole — those pods are gone — but it makes that hole irrelevan
 
 **Next: the ⭐ experiment in §2.** It is now the only cheap thing left that discriminates.
 
+## 0c. A FLEET FINDING made while measuring this bug — 30 rerenders carrying PROSE as their reason
+
+`[MEASURED 2026-09-02]` completed `page_rerender` items over 24 hours, by reason:
+
+| reason | completed |
+|---|---|
+| **(none — assemble mode)** | **1,418** |
+| `section_data_resolved` | 60 |
+| `cta_links_stale` | 39 |
+| `template_changed` | 17 |
+| **a human-readable SENTENCE** | **30** |
+
+Those 30 were filed by two lanes via three migrations — 701 (16), 696 (11), 693 (3) — with
+`spec.reason` set to explanations like *"FCA rule citation corrected by migration 696 (owner
+decision 2026-09-02)"*. `check_rerender_mode` tests **equality against five literals**, so a
+sentence takes `else_step` exactly as NULL does. All 30 completed and re-shipped stored HTML.
+
+**Both lanes told.** The `bugs_open/357` lane then supplied the important qualification: for
+*their* pages the two routes converge **byte-identically by construction** (the adopted template
+IS the stored bytes), so their artefacts are correct and only their *mechanism* claim was wrong.
+My "has not reached those pages" was too strong for their case.
+
+**Recorded in `LANDMINES.md`** as an append to the existing reason entry, which also needed
+correcting: its quoted condition listed **three** values where the live config has **five**
+(`template_changed` and `literal_markdown` were missing), and its remedy tests for NULL, which
+cannot see a set-but-unrecognised value. The check now tests **membership, not presence**.
+
+### ⚠ AND THE INSIGHT THAT BEARS DIRECTLY ON §2
+
+The 357 lane reached, from the opposite direction, the property that has blocked this bug all
+evening: **byte-identical output is not evidence about which path ran.** Their md5-unchanged
+result proves only that concatenation reproduces its input; my unchanged array proves only that
+*something* left the same bytes. Neither of us can read the artefact alone and say which branch
+executed.
+
+That is exactly why the §2 ⭐ experiment matters: it does not try to read harder, it **changes the
+baseline** so the two hypotheses stop producing the same bytes.
+
 ## 0b. The block that was here (RESOLVED — kept for the recipe)
 
 `kubectl` returns **`You must be logged in to the server (Unauthorized)`** fleet-wide
