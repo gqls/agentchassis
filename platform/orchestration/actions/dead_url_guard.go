@@ -100,6 +100,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -140,7 +142,26 @@ func recordDeadURLControls(config map[string]interface{}) bool {
 // those shells hydrate their own hrefs client-side, so an empty URL attribute
 // there is intentional rather than dead. Two call sites of one judgement, kept
 // identical on purpose — the drift class this repo keeps closing.
-func shouldRefuseDeadURLControls(config map[string]interface{}, deadURLFields []string, rendered string) bool {
+//
+// ⚠ THE EXEMPTION TESTS THE TEMPLATE, NOT THE RENDERED OUTPUT, and the argument
+// is that the trigger and the excuse must read the SAME artefact. deadURLFields
+// is a fact about the TEMPLATE — bare root-scope {{.Field}} placeholders sitting
+// after href=/src= in the template source. Testing the excuse against rendered
+// bytes was a category slip: it asked a question about one artefact and took its
+// answer from another.
+//
+// It also makes this structurally safe under features_open/035 composition. A
+// composed parent's rendered output EMBEDS its children, so a marker in one child
+// would have exempted the parent's own dead controls and its siblings' — bugs_closed/137's
+// upward leak, one grain down. Children arrive as DATA ({{.slots.x}} holding
+// pre-rendered HTML), never as template text, so a child's marker cannot appear in
+// the parent's template and cannot exempt it. No scoping logic needed.
+//
+// Named predicate rather than a raw string test, per check_runtime_fill_marker in
+// scripts/pattern-check.py — the residue of bugs_closed/137, which is CLOSED
+// (fixed on v1.0.1223, 2026-07-31). NOTE: that gate's advisory text still cites it
+// as "bugs_open/137"; the bug moved and the message did not.
+func shouldRefuseDeadURLControls(config map[string]interface{}, deadURLFields []string, htmlTemplate string) bool {
 	if len(deadURLFields) == 0 {
 		return false
 	}
@@ -148,7 +169,7 @@ func shouldRefuseDeadURLControls(config map[string]interface{}, deadURLFields []
 	if !armed {
 		return false
 	}
-	return !strings.Contains(rendered, "data-runtime-fill")
+	return !datahelpers.HasRuntimeFillMarker(htmlTemplate)
 }
 
 // emitSectionDeadControlItem files the human-visible record of a dead section

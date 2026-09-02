@@ -30,45 +30,62 @@ func TestShouldRefuseDeadURLControls(t *testing.T) {
 		name     string
 		config   map[string]interface{}
 		dead     []string
-		rendered string
+		template string
 		want     bool
 		why      string
 	}{
 		{
 			name: "armed and a dead control present", config: armed, dead: dead,
-			rendered: `<img src="" />`, want: true,
+			template: `<img src="" />`, want: true,
 			why: "the motivating case: an ungated {{.card1_image_url}} inside src= rendered empty",
 		},
 		{
 			name: "config absent entirely", config: map[string]interface{}{}, dead: dead,
-			rendered: `<img src="" />`, want: false,
+			template: `<img src="" />`, want: false,
 			why: "an un-armed caller must behave exactly as it did before this guard existed",
 		},
 		{
 			name: "config explicitly false", config: map[string]interface{}{deadURLGuardConfigKey: false}, dead: dead,
-			rendered: `<img src="" />`, want: false,
+			template: `<img src="" />`, want: false,
 			why: "the unsafe default, stated explicitly, must still be the unsafe default",
 		},
 		{
 			name: "config present but not a bool", config: map[string]interface{}{deadURLGuardConfigKey: "true"}, dead: dead,
-			rendered: `<img src="" />`, want: false,
+			template: `<img src="" />`, want: false,
 			why: "a string \"true\" is a mis-typed config, and a mis-typed config must fail OPEN — arming a fleet-wide refusal by accident is the worse error",
 		},
 		{
 			name: "armed, nothing dead", config: armed, dead: nil,
-			rendered: `<img src="/a.jpg" />`, want: false,
+			template: `<img src="/a.jpg" />`, want: false,
 			why: "a clean render must never be touched",
 		},
 		{
 			name: "armed, dead, but a runtime-fill shell", config: armed, dead: dead,
-			rendered: `<div data-runtime-fill="tool"><a href=""></a></div>`, want: false,
+			template: `<div data-runtime-fill="tool"><a href=""></a></div>`, want: false,
 			why: "runtime-fill shells hydrate their own hrefs client-side — an empty URL attribute there is intentional. Mirrors the chrome renderer's exemption exactly (render_guardian, 2026-07-22); the two must not drift",
+		},
+		{
+			// THE DISCRIMINATING CASE, added 2026-09-02 with the template swap.
+			// Before it, this function tested the RENDERED output, so a marker
+			// appearing only in the render — a data-borne one, or under
+			// features_open/035 a marker inside an EMBEDDED CHILD — exempted the
+			// whole section. It now reads the TEMPLATE, the same artefact
+			// deadURLFields is a fact about.
+			//
+			// If this ever returns false, the exemption has drifted back to reading
+			// rendered bytes, and bugs_closed/137's upward leak is available again
+			// one grain down: one child's marker covering its parent's own dead
+			// controls and its siblings'. Every other case here passes under BOTH
+			// spellings — this is the only one that can tell them apart.
+			name: "marker in the RENDER but not the TEMPLATE must NOT exempt", config: armed, dead: dead,
+			template: `<img src="{{.card1_image_url}}" />`, want: true,
+			why: "the template carries no marker, so the dead control is real however the output looked",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := shouldRefuseDeadURLControls(tc.config, tc.dead, tc.rendered); got != tc.want {
+			if got := shouldRefuseDeadURLControls(tc.config, tc.dead, tc.template); got != tc.want {
 				t.Errorf("got %v, want %v — %s", got, tc.want, tc.why)
 			}
 		})

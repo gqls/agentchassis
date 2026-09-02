@@ -1697,7 +1697,7 @@ func renderPlannedSection(
 	// volume questions this council could not size get answered by
 	// production instead of by measurement.
 	if recordDeadURLControls(params.StepConfig.Config) &&
-		len(deadURLFields) > 0 && !strings.Contains(rendered, "data-runtime-fill") {
+		len(deadURLFields) > 0 && !datahelpers.HasRuntimeFillMarker(cls.htmlTemplate) {
 		st.resolution.DeadURLSlots = append(st.resolution.DeadURLSlots, slotLabel(s))
 		emitSectionDeadControlItem(ctx, params.DB, siteID, nil,
 			pageName, s.slotName, comp.Function, deadURLFields, false, logger)

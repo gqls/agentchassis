@@ -2515,7 +2515,7 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		return nil, fmt.Errorf("component %q failed to render: %w (bugs_open/260)", comp.Function, renderErr)
 	}
 
-	if shouldRefuseDeadURLControls(config, deadURLFields, rendered) {
+	if shouldRefuseDeadURLControls(config, deadURLFields, comp.HTMLTemplate) {
 		// File the human record BEFORE refusing: the refusal fails the step, and
 		// a signal that only exists inside a failed step is a signal nobody reads.
 		// Identity is best-effort — see the emit's own guard — because a missing
