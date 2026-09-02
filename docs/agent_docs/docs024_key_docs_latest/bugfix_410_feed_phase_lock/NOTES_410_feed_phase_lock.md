@@ -586,3 +586,13 @@ acted on, not argued with.
 **Worth recording plainly: this round paid for itself.** Two of five objections were real —
 one caught a submission that misrepresented its own file, the other pushed me into a census that
 turned out to be false. Neither would have surfaced from re-reading my own conclusion.
+
+**Trail note, 2026-09-02 ~19:40Z.** The `WRONG_CALLS.md` entry above (2026-09-02 (b), the `LIKE`
+wildcard census) is **in HEAD but not under one of this lane's commits** — another session's
+`6bd26baf0` *"playground page: the silent no-op diagnosed, plus a fleet landmine corrected"*
+(19:37:38) swept it in alongside their own work, between my append and my commit. **Nothing is
+lost and forward-only holds**; recording it because `git log -- WRONG_CALLS.md` now attributes
+this lane's row to the playground lane, so anyone tracing when it was written will land on the
+wrong commit message. This is the **same-file passenger** case CLAUDE.md names as the one thing a
+pathspec commit cannot prevent: "if two sessions edit one file, whoever commits takes both edits,
+and no hook can prevent that."
