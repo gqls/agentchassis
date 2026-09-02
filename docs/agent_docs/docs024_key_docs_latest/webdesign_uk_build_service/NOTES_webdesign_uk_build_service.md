@@ -7318,3 +7318,33 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   old-shape write (updated_at FRESH) — distinguishable from
   page_components.updated_at alone, no content read needed. The floor's
   failure mode is total, not partial.
+
+## 2026-09-02 (~15:1xZ) — RETRACTION of the 4/10 split AND the one-column discriminator I banked; the archive is the instrument
+
+> **CORRECTED 2026-09-02 (retracting part of the entry two above):** the
+> "10 completed pages wrote fresh with the old shape" half is FALSE, and with
+> it the banked one-column discriminator ("byte-identical + FRESH updated_at =
+> executed-old-shape write"). page_components has NO updated_at trigger — the
+> column moves on ANY code-issued UPDATE including metadata-only, so a moving
+> updated_at is not evidence content was written. **The DB's own archive is the
+> instrument**: trg_page_component_content_archive_upd fires into
+> page_component_history when content_data CHANGES (IS DISTINCT FROM) — for
+> content-listing over four hours: ZERO rows, with the positive control that
+> makes the zero mean something (389 rows across 5 OTHER components in the
+> same window, including the exact completion minutes). NOTHING wrote
+> content-listing content on ANY of the 14. Caught by the components lane
+> auditing their own split against the archive.
+- Replacement rule, theirs verbatim: **history row present = content genuinely
+  changed; absent = it did not, whatever the timestamps say — and only with a
+  same-window positive control, or the absence proves nothing.**
+- The narrowed question (smaller = the gain): other components on the SAME
+  pages DID archive in-window, so the page save wasn't refused — only this
+  slot re-rendered byte-identically on a binary whose projection would change
+  its title. My third-producer hypothesis is DEAD (their enumeration: only
+  rebuild_blog_listing writes 'articles' literally; the generic path writes
+  dynamically; both fixed) — whatever it is sits UPSTREAM of the array being
+  rebuilt at all. Probes stay parked; key-presence acceptance unaffected.
+- Three of their claims turned over in one afternoon — nav population,
+  five-vs-four, this split — each caught by asking what the code or database
+  ACTUALLY does. Banking statements from any lane (mine included) now
+  carries the day's standing caveat: the correction chain IS the record.
