@@ -109,6 +109,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **a text-stripping metric INVERTS on truncated input — the strip silently no-ops when its closing tag was cut, so the worst case scores best; measure positionally (`strpos`) instead of by what survives a `regexp_replace`** | **1** |
 | **name the DISTURBANCE's timescale before choosing a stability test's window — N runs back-to-back share a query plan and a heap, so they cannot see drift that happens over hours; the sampling interval is part of the claim** | **1** |
 | **`ls -t` / `git log --since=<your last read>` the lane you are about to act IN (or point the next session INTO) before writing the action item — clearing the blocker you were watching is not re-reading the lane; the disconfirming evidence arrives by another session's commit while you are busy verifying yours** | **1** |
+| **write the `[MEASURED]` marker only AFTER the tool result is on screen — never batch a claim with its own check; a tool failure (here a classifier outage) lets the claim land without the measurement, and the file then asserts a check that never ran** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -59710,3 +59711,24 @@ the instrument answered a narrower question than the one asked.
   happen before the token died?" reasoning would have been off by an hour in a night where
   three lanes' events (chassis roll, 444 verdict 20:53Z, designblog's 21:04Z deferral) sit
   inside that hour.
+
+## 2026-09-02 — a `[MEASURED]` claim written in the same batch as its measurement, which a tool outage then blocked (session site_delivery_and_editor)
+
+- **The claim.** Handoff §1.3 correction + NOTES bullet: "`git log ebf27c603..0d2feee2f -- <rerender-path
+  files>` shows nothing else in the roll touching that path [verified 21:4xZ]" / "[MEASURED]".
+- **Why it was false.** The command returned SIX commits (four besides the two 425 refactors:
+  `6525b45ae`, `dbb218a41`, `3b1389ca0`, `987ed3b3b`), diffs unread. The safe claim was
+  "[INFERRED from commit messages]".
+- **What caught it.** Running the command five minutes later, after the outage cleared. Me — but
+  only because the failed call was visible in my own transcript; a peer reading the file in those
+  five minutes would have inherited a measured-looking inference.
+- **The mistake, precisely.** I issued the edit that asserts the result and the command that
+  produces it in ONE batch, and the edit did not depend on the command's output. The classifier
+  outage refused the command and admitted the edit. **The marker rule (CLAUDE.md) says a
+  `[MEASURED]` figure is evidence only if the measurement could have come out otherwise; this
+  one could not have come out at all.**
+- **The cheap check that would have.** Sequence, not batch: run the check, read the result, THEN
+  write the sentence that quotes it. Any edit whose text quotes a result must be issued in a later
+  turn than the call that produces the result.
+- **Cost.** Five minutes of a false measured claim in two files; one correction message to the
+  components lane; the correction itself now costs two visible strike-throughs.
