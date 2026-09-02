@@ -319,8 +319,10 @@ build, incl. the 18 remakes; cost = real generated images per section):
   pages only; in-article imagery ALSO needs composition (114). **The two asks
   must be separated when put to the owner.**
 
-They are not editing the prompt (planner owners' seam + a cost decision);
-neither is this lane. Full write-up:
+~~They are not editing the prompt (planner owners' seam + a cost decision);
+neither is this lane.~~ **SUPERSEDED same evening — the owner RULED: "please go
+ahead with the planner prompt and exemplar changes", and this lane executed it
+(§ below).** Full write-up:
 `docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/NOTES_inline_guide_imagery.md`
 §15 (mechanisms: IMG-074 selection-side; IMG-075 per-section binding, live as
 of today's 15:39 roll). Relayed to editorial design uplift (their 08-31
@@ -352,3 +354,79 @@ live session **site design planner** (opened 09-02, owns the
 = session "offer analyser benefit analyser visual designer" (lane
 `docs024_key_docs_latest/vigilant_designer_offer_analysis/`). If the owner meant
 a different thread by "designer", say so and it will be re-routed.
+
+## 2026-09-02 (night) — MIGRATION 718 EXECUTED: the planner prompt now expects content imagery
+
+Owner ruling (this session): "please go ahead with the planner prompt and
+exemplar changes." Executed end-to-end tonight:
+
+- **Read the live text first** (agent_definitions `f263eaa1`, `plan_site
+  .config.prompt_template`, 28,117 chars; dumped whole per the 2KB-preview
+  trap). All of inline guide imager's §15 quotes verified verbatim. Found a
+  FOURTH suppressor they hadn't named: the Return-JSON skeleton demonstrates
+  `"sections": {}` — an empty exemplar.
+- **Five anchored replaces** (LANDMINES 17024: this row is co-edited by other
+  lanes — anchored `replace()` with exact-count guards, never wholesale
+  `jsonb_set`): (A) default-to-zero bullet → content-imagery-EXPECTED with two
+  limits (display-capable sections only — the §4.1 undisplayable trap; only
+  where there is something to depict); (B) rule 13 + index-page
+  illustration-or-infographic floor + rule-3 exemption (114: article pages
+  have no structure — in-article imagery deliberately NOT forced); (C) worked
+  example + `index:1` illustration + `tools:1` infographic (text-free,
+  headings-in-HTML); (D) example note extended; (E) skeleton demonstrates one
+  entry. **Rule 16 untouched and verify-asserted.**
+- **Proven before touching the DB**: local dry-run of all five splices +
+  balance/length checks + ROLLBACK roundtrip byte-exact; then the full
+  migration run against the live row with COMMIT→ROLLBACK (all guards passed,
+  verify NOTICE fired).
+- **Files**: `docs/agent_docs/sql_for_agents/718_planner_imagery_content_
+  expected_prompt_and_exemplar.sql` + `_ROLLBACK` (commit `40dbeaea4`).
+  ⚠ 715 and 716 each have TWO files (the collision landmine continues) — 718
+  chosen from max 717.
+- **Council**: corr `2dae4f20-3baf-46f9-96c5-fb35609ed7bd`, Council-Submitted
+  trailer on the commit. **VERDICT OWED — read it and act on REVISE/REJECTED.**
+- **Applied 19:59:56Z** (scoped `psql -f`, never the unscoped runner);
+  `snapshot_agent` pre-update; recorded in `schema_migrations` with sha256.
+  **Independently re-verified at the live row after apply**: 'Use sparingly'
+  ×0, new bullet ×1, `infographic_selection_steps` ×1, rule 16 ×1, template
+  28,117→30,164 (exact expected delta). Config = live immediately; no roll.
+- **Canary**: portfolio positioning asked to check the FIRST post-718 plan's
+  `imagery.sections` (they fire the next remake brief). Residual risks named
+  in the council submission: instruction-only display-capability limit (§4.1
+  base-rate), volume/cost scaling (owner accepted).
+- Notified: bugs_open/427 (build-site-planner owners — heads-up with anchors),
+  inline guide imager (their §15 = evidence base), portfolio positioning
+  (canary), SITE_DEFECT_CATEGORIES §4.6 gained a REMEDY-LANDED note (the check
+  inverts for post-718 plans: zero entries is now a defect signal).
+
+### Same evening — gamedesign.uk correspondence (their site, same critique classes)
+
+Owner reviewed gamedesign.uk (live 18:00Z) — "same problems as designblog".
+Answered their four questions (landed-vs-planned + routing; hero seam; what a
+clean improvement-loop pass proves — little, both detectors blind to the
+empty-listing class; fleet-wide rulings). **Their "third state" (heroes
+requested-produced-unbound) was SELF-CORRECTED within the hour: the heroes ARE
+bound, as CSS backgrounds — the `<img>`-census trap's SECOND victim tonight**
+(stood inline guide imager down). What survives, theirs (`bugs_open/446`):
+/articles/index.html has NO imagery item at all (planner run requested no
+site-scope hero — anomalous vs 8+ sites), its fallback hero.jpg 404s on their
+domain, and `check_image_url_404.go` reads `<img src>` only — a CSS `url()`
+404 is invisible to it. They CONTRIB'd 444 (fifth site, fourth mechanism: no
+article pages exist at all) and are re-seeding their imagery guide + brief for
+the vertical's temperature (their own root cause, stated plainly), re-planning
+post-718.
+
+### 444 fixing-session wiring facts for THIS site (recorded from their message)
+
+- **/uk-studios-directory/ as built uses the BARE `directory-listing`
+  component** (`query.business_directory`) which resolves via a
+  `directory-json-exporter` config row (vetcomparison pattern) — NOT via a
+  DIR-001 kind. **Decide which producer before populating** or the filled data
+  and the component won't meet.
+- **/the-design-feed/ was planned as `page_type='section-index'`** (not
+  news-index) **with 0 child pages** — enabling a news source alone will NOT
+  fill it; it needs a replan as news-index/news-listing OR child pages.
+  → owner decision added to the gathered list.
+- Their class mechanism (plan validation drops zero-source listing pages,
+  files `capability_gap` with `spec.gap_kind='producer_missing'`) is in
+  council, corr `c0990eb3`; lane dir `bugfix_444_empty_listing_pages/`.
