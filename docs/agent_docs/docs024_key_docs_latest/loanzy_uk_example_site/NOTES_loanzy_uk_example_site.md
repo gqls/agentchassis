@@ -2321,3 +2321,18 @@ approval_mode measured (25,673 auto / 1 manual — a per-item dispatch gate, wro
 filing_mode test's existence proven by path+quote. Round 2 committed c2349955d, resubmitted
 on the trail, HEAD verified building. The estate memory "a REVISE round is cheaper than the
 defect it finds" — worked case #3, and this time the finding was the ARCHITECTURE.
+
+## 2026-09-02 — WDS-020 round 2 APPROVED (2 advisories, none high); both checks answered by measurement
+- reuse_agent (medium): "did round 1 leave a config-side guard in tool-suggester's workflow?"
+  NO — round 1's guards were both Go; `agent_definitions` for tool-suggester contains zero
+  growth_posture references (measured). The revert scope (four Go files from the pinned
+  parent) was the whole of round 1.
+- guardian (low): the GrowthPostureQuerier misuse worry — the helper has exactly ONE caller
+  (the door), and it passes the transaction (grep, no others fleet-wide).
+- guardian (low, standing): the hand-kept 2-type set is a process-not-code control for a
+  future growth TYPE — true, conceded in the plan, and the door bounds the damage to
+  type-minting (not producer-adding). If a third growth type is ever minted, widen
+  GrowthGatedItemTypes in the same commit; the pure-half test is where it lands.
+- Trailer: Council-Submitted on both commits resolves at report time — no amend, per the
+  forward-only rule. **WDS-020 is now built, tested, approved, registered, and inert until
+  the roll.** Decision 5 fully closed at this lane's end.
