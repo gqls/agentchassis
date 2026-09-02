@@ -36,9 +36,27 @@
 -- else — including no reason at all — routes to rerender_single_page, "simple
 -- concatenation", which re-ships the stored `articles` array byte for byte. So a
 -- rerender can COMPLETE, stamp a fresh deployed_at, and change nothing.
--- 'section_data_resolved' is the reason that re-runs the resolver, which is what
--- the Go half needs; it also re-renders from the template, which is what 682
--- needs. One reason serves both halves.
+-- 'template_changed' is the reason THE OWNING MECHANISM USES, and that is why
+-- this file uses it too — see the reuse note below. Both it and
+-- 'section_data_resolved' take the same branch, so either would re-resolve; the
+-- tie-break is dedup, not behaviour.
+--
+-- ══ AND THE SCOPED PATH REALLY DOES RE-RESOLVE — CITED, NOT ASSUMED ═══════════
+-- The council's render_guardian seat objected (round 2) that the plan leaned on a
+-- landmine saying ASSEMBLE mode re-affirms a stale query.* snapshot, and then
+-- ASSUMED the opposite of scoped mode without citing code. Fair, and now checked:
+--
+--   rerender_page_sections_action.go, file header, MECHANISM:
+--     "newSourceResolver + planSection (plan_sections_action.go) rebuild each
+--      section's resolved_data (queryresolve for query.*, the page-aware
+--      ensureAssets for the hero)"
+--     "...resolved_data merged last so it wins, matching RenderComponentAction"
+--   and the call itself, same file:
+--     resolver := newSourceResolver(siteID, params.DB, logger, pageName)
+--
+-- `articles` is source: query.blog_posts, i.e. a RESOLVED field, so it is rebuilt
+-- freshly and wins over the stored copy. That is the whole premise of this file
+-- and it is a citation now rather than an inference.
 --
 -- ⚠ AND WHEN YOU VERIFY: a COMPLETED page_rerender row is NOT evidence. Read
 -- spec->>'reason' on it. That is bugs_open/384's own filing error.
@@ -99,25 +117,51 @@
 --         AND f.value->>'source' = 'llm' AND (f.value->>'required')::boolean
 --         AND NOT (pc.content_data ? f.key);
 --
--- ══ SCOPE ═════════════════════════════════════════════════════════════════════
--- Files one page_rerender per PAGE carrying a content-listing instance — 14
--- instances across 6 sites as of 2026-09-02 (homegarden.uk 6, boxingonline.com 2,
--- dartsonline.com 2, garden-tools.uk 2, idea.uk 1, robot-hands.com 1), which is
--- fewer than 14 pages only if a page carries two. Every one of them renders four
--- empty slots today, so every one benefits.
+-- ══ SCOPE, AND WHY THIS IS A COPY OF AN EXISTING MECHANISM ═══════════════════
+-- ⚠ THIS IS NOT A NEW FAN-OUT. Three council seats (reuse_agent,
+-- prior_art_librarian, guardian) objected — correctly — that the first cut of
+-- this file hand-rolled a competing propagation while the platform already owns
+-- one, and that the author quoted the landmine naming it and then bypassed it.
+--
+-- The owner is `component-template-fixer`, step `create_rerender`. Its SQL is
+-- reproduced below almost verbatim, and copying it fixed three real defects the
+-- hand-rolled version had:
+--   * it excludes OWNED pages (`rebuild_policy IS DISTINCT FROM 'owned'`) —
+--     bugs_open/301; the first cut would have filed rerenders for pages the save
+--     path refuses, burning the dispatch;
+--   * it dedups with NOT EXISTS on an OPEN item, not `ON CONFLICT DO NOTHING` —
+--     which is the documented convention for site_work_items, and which the
+--     `guidelines` seat flagged; ON CONFLICT can also silently leave a STALE row
+--     under the same key untouched;
+--   * it uses `p.status = 'active'`. [MEASURED 2026-09-02] `pages.status` holds
+--     exactly two live values fleet-wide — `active` (1,082) and `archived` (90).
+--     **`'deployed'` NEVER OCCURS**, and the first cut's `IN ('active','deployed')`
+--     carried a dead literal. debug_historian called this before I measured it.
+--
+-- WHY A FILE AT ALL, THEN: that step runs inside the fixer's workflow, triggered
+-- by `fix_result.component_id` — a template fix made BY THE AGENT. A template
+-- edited by SQL never reaches it, which is precisely what the landmine says. So
+-- this file is a HAND-RUN INSTANCE OF THAT STEP, not a rival to it. If the fixer
+-- ever gains a trigger for SQL-applied template edits, delete this file rather
+-- than maintaining both.
+--
+-- Using the SAME reason string is part of the reuse and is load-bearing: the
+-- fixer's own NOT EXISTS dedup filters on `spec->>'reason' = 'template_changed'`,
+-- so a row filed here under a different reason would be INVISIBLE to it and the
+-- next real template fix would file a second, duplicate rerender for the page.
+--
+-- Targets: pages carrying a content-listing instance — 14 across 6 sites as of
+-- 2026-09-02, all status='active' and rebuild_policy='generic'. The count is
+-- derived at apply time, not baked in; it was 13 a few hours before it was 14.
 --
 -- ⚠ APPLYING THIS IS A DISPATCH DECISION, NOT A SCHEMA CHANGE. Other lanes own
--- these sites. To narrow it to one, add to the WHERE:
---     AND s.domain = 'boxingonline.com'
--- Nothing here writes to a page; it files triaged work items the normal
--- page-rerender handler picks up, so the queue's own ordering and guards apply.
+-- these sites. To narrow to one, add to the WHERE:  AND s.domain = '<domain>'
 --
--- Reversible: 683_..._ROLLBACK.sql deletes the items by batch_id while they are
--- still unstarted.
+-- Reversible: 683_..._ROLLBACK.sql deletes this batch while it is still unstarted.
 
 BEGIN;
 
--- GUARD 1: 682 must be applied, or there is nothing to propagate.
+-- GUARD: 682 must be applied, or there is nothing to propagate.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -133,83 +177,100 @@ END $$;
 
 INSERT INTO site_work_items (
     site_id, source, pipeline, item_type, severity, summary,
-    page_id, priority, handler_agent, status, created_by,
-    spec, item_key, batch_id
+    priority, handler_agent, status, created_by, spec, batch_id
 )
 SELECT DISTINCT
-    p.site_id,
-    'bugs_open/425',
-    'build',
-    'page_rerender',
-    'medium',
-    'content-listing card slots guarded (mig 682) and the list-item projection now '
-      || 'carries a display title + excerpt (f57f5ad1f) — re-resolve so the stored '
-      || 'articles array picks both up',
-    p.id,
-    80,
-    'page-rerender',
-    'triaged',
-    'bugs_open/425',
+    p.site_id, 'side_effect', 'build', 'page_rerender', 'low',
+    'Rerender page after template fix (bugs_open/425, mig 682 + f57f5ad1f): ' || p.name,
+    80, 'page-rerender', 'triaged', 'bugs_open/425',
     jsonb_build_object(
-        'reason',    'section_data_resolved',
-        'page_name', p.name
+        'reason',    'template_changed',
+        'page_id',   p.id::text,
+        'page_name', p.name,
+        'domain',    s.domain
     ),
-    -- The canonical key shape, matching actions.PageRerenderItemKey exactly:
-    -- page_rerender_<page name>_<site id>_<reason>. A second spelling would mean
-    -- two items for one page, because idx_swi_dedup is (site_id, item_key).
-    'page_rerender_' || p.name || '_' || p.site_id || '_section_data_resolved',
     '00000000-0000-0000-0000-000000000683'::uuid
 FROM page_components pc
 JOIN pages p ON p.id = pc.page_id
 JOIN sites s ON s.id = p.site_id
 WHERE pc.component_id = 'aa3e4b68-bcea-49ca-890a-c111acefa551'
-  AND p.status IN ('active', 'deployed')
-ON CONFLICT DO NOTHING;
+  AND p.rebuild_policy IS DISTINCT FROM 'owned'
+  AND p.status = 'active'
+  AND NOT EXISTS (
+        SELECT 1 FROM site_work_items w
+         WHERE w.site_id = p.site_id
+           AND w.item_type = 'page_rerender'
+           AND w.spec->>'page_id' = p.id::text
+           AND w.spec->>'reason'  = 'template_changed'
+           AND w.status IN ('detected','triaged','claimed')
+      );
 
 -- VERIFY. DO/RAISE, not SELECTs: ON_ERROR_STOP does not fire on a non-empty
 -- result set, so a block of SELECTs cannot stop the COMMIT.
+--
+-- ⚠ THE COUNTS ARE DELIBERATELY COMPUTED BY DIFFERENT PREDICATES. The first cut
+-- derived `targets` with the INSERT's own WHERE clause, so a wrong predicate made
+-- targets and filed agree AT ZERO and the guard could never fire — a check that
+-- cannot detect its own predicate being wrong (debug_historian, round 2). Here
+-- `carrying` has NO status/policy/dedup filter, so a predicate that selects
+-- nothing shows up as carrying > 0 with eligible = 0.
 DO $$
 DECLARE
-    filed        int;
-    wrong_reason int;
-    targets      int;
+    carrying int;   -- pages with the component, unfiltered
+    eligible int;   -- ...after status + ownership
+    already  int;   -- ...that already have an open template_changed rerender
+    filed    int;
 BEGIN
+    SELECT count(DISTINCT p.id) INTO carrying
+      FROM page_components pc JOIN pages p ON p.id = pc.page_id
+     WHERE pc.component_id = 'aa3e4b68-bcea-49ca-890a-c111acefa551';
+
+    SELECT count(DISTINCT p.id) INTO eligible
+      FROM page_components pc JOIN pages p ON p.id = pc.page_id
+     WHERE pc.component_id = 'aa3e4b68-bcea-49ca-890a-c111acefa551'
+       AND p.rebuild_policy IS DISTINCT FROM 'owned'
+       AND p.status = 'active';
+
+    SELECT count(DISTINCT p.id) INTO already
+      FROM page_components pc JOIN pages p ON p.id = pc.page_id
+     WHERE pc.component_id = 'aa3e4b68-bcea-49ca-890a-c111acefa551'
+       AND p.rebuild_policy IS DISTINCT FROM 'owned'
+       AND p.status = 'active'
+       AND EXISTS (SELECT 1 FROM site_work_items w
+                    WHERE w.site_id = p.site_id AND w.item_type = 'page_rerender'
+                      AND w.spec->>'page_id' = p.id::text
+                      AND w.spec->>'reason' = 'template_changed'
+                      AND w.status IN ('detected','triaged','claimed')
+                      AND w.batch_id IS DISTINCT FROM '00000000-0000-0000-0000-000000000683'::uuid);
+
     SELECT count(*) INTO filed
       FROM site_work_items WHERE batch_id = '00000000-0000-0000-0000-000000000683';
 
-    SELECT count(DISTINCT p.id) INTO targets
-      FROM page_components pc JOIN pages p ON p.id = pc.page_id
-     WHERE pc.component_id = 'aa3e4b68-bcea-49ca-890a-c111acefa551'
-       AND p.status IN ('active','deployed');
-
-    -- The load-bearing assertion: an item whose reason is not one the
-    -- check_rerender_mode conditional recognises takes assemble mode and cannot
-    -- pick this change up. Filing one would be worse than filing none, because
-    -- it completes and looks like success.
-    SELECT count(*) INTO wrong_reason
-      FROM site_work_items
-     WHERE batch_id = '00000000-0000-0000-0000-000000000683'
-       AND COALESCE(spec->>'reason','') <> 'section_data_resolved';
-
-    IF wrong_reason > 0 THEN
-        RAISE EXCEPTION 'ABORT: % item(s) filed with a reason that routes to assemble mode — '
-                        'they would complete and change nothing', wrong_reason;
+    IF carrying > 0 AND eligible = 0 THEN
+        RAISE EXCEPTION 'ABORT: % page(s) carry the component but 0 are eligible — the status '
+                        'or ownership predicate is selecting nothing. Read it before re-running.',
+                        carrying;
     END IF;
 
-    IF filed = 0 AND targets > 0 THEN
-        RAISE EXCEPTION 'ABORT: % target page(s) but 0 items filed — every insert hit '
-                        'ON CONFLICT, which means open items already exist for these pages. '
-                        'Read them before re-running.', targets;
+    -- EXACT, not "more than zero": ON CONFLICT/NOT EXISTS can drop a SUBSET, and
+    -- an un-filed page keeps the stale deck for ever with nothing surfaced
+    -- (bug_historian, round 2; 016b §9 "err == nil is not work queued").
+    IF filed <> eligible - already THEN
+        RAISE EXCEPTION 'ABORT: filed % but expected % (eligible % minus % already queued) — '
+                        'a subset was silently dropped', filed, eligible - already, eligible, already;
     END IF;
 
     IF EXISTS (SELECT 1 FROM site_work_items
                 WHERE batch_id = '00000000-0000-0000-0000-000000000683'
-                  AND (spec->>'page_name' IS NULL OR spec->>'page_name' = '')) THEN
-        RAISE EXCEPTION 'ABORT: an item is missing spec.page_name, which the section branch requires';
+                  AND (spec->>'reason' <> 'template_changed'
+                       OR COALESCE(spec->>'page_name','') = ''
+                       OR COALESCE(spec->>'page_id','')   = '')) THEN
+        RAISE EXCEPTION 'ABORT: an item is missing reason/page_name/page_id, or carries a reason '
+                        'that routes to assemble mode and would complete while changing nothing';
     END IF;
 
-    RAISE NOTICE '683: filed % page_rerender item(s) for % target page(s), all '
-                 'reason=section_data_resolved with a page_name', filed, targets;
+    RAISE NOTICE '683: filed % item(s); % page(s) carry the component, % eligible, % already queued',
+                 filed, carrying, eligible, already;
 END $$;
 
 COMMIT;
