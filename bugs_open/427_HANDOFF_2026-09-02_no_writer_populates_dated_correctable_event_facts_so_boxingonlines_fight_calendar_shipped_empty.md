@@ -369,3 +369,29 @@ snapshot:
   — read that file, not this one, for anything touching the planner's behaviour.
   Nothing built here depends on 428 landing: `query.upcoming_events` renders onto
   the *existing* tool page, not a future `entity-page`/`entity-directory` page.
+
+**Update, 2026-09-02 (same day): candidate #1 part 2 is now also done — the
+whole populate-side mechanism is LIVE.** `news_feed_ingestion`: image
+`v1.0.1352` built from committed HEAD, pushed, rolled, verified at the binary
+(sha positive+negative control on `/proc/1/exe`, both live pods — not the roll
+status). Council-approved submission wired into `feed-triage`'s live workflow
+config (`apply_scores → load_for_event_extraction → check_for_events →
+extract_event_facts → register_event_facts → mark_event_extracted →
+complete`). **Two real defects caught by testing rather than review, both
+fixed before either could misbehave in production**: migration 684 was
+written and verified on paper but never actually applied — the first live
+dispatch failed cleanly on `column cfi.event_extracted_at does not exist`,
+fixed by hand-apply + `run-migrations.sh --record-only`; and `check_has_items`
+was found to short-circuit straight to `complete` whenever a cycle's ingest
+queue was empty, bypassing the whole extraction chain regardless of an
+unextracted backlog — restructured so both entry paths converge on the loader,
+which gates on its own live count instead. Re-dispatched against
+boxingonline.com end to end: **6 new dated event facts registered in its
+`evidence_base`**, each verified live against its source article, real fight
+results with venues and participants named, broadcaster correctly left blank
+where no source stated one. 49 `content_feed_items` rows (29-item pre-existing
+backlog + 20 fresh) now carry `event_extracted_at`. So `query.upcoming_events`
+(candidate #2/render-target work, above) now has real facts to point at —
+placing the component that declares the new source is no longer blocked on
+"nothing to render." Full detail: `docs024_key_docs_latest/news_feed_ingestion/`
+(PLAN status line, NOTES for the two mistakes' full account).
