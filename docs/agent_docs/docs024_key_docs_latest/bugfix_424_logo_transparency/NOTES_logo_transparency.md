@@ -279,3 +279,46 @@ Round-2 fix submitted to council separately from round 1:
 committing, not alongside, since the bug was found and fixed fast) — `098`'s report will not
 auto-credit it from the trailer alone; the correlation is recorded here and in RUNBOOK so a human
 or a future session can join them by hand.
+
+## 2026-09-02, still later — the round-2 fix independently validated against real production data, and confirmed (a third time) not yet live
+
+`bugfix_420_417` replayed the CORRECTED `BorderKeyed` arithmetic against the four already-stored
+artefacts from the incident — decode the stored PNG bytes (which already reflect whatever alpha the
+original, buggy run produced), count the border ring's fraction at alpha==0. This needs no kubectl,
+no re-running my Go code, just the stored bytes, so it's a real independent check, not a rerun of my
+own test:
+
+| artefact | corrected BorderKeyed | verdict against 0.95 |
+|---|---|---|
+| websitepromotion.co.uk (the good one) | 0.9993 | PASS — correct |
+| designblog.co.uk | 0.0000 | REFUSED — correct |
+| seotools.co.uk | 0.0000 | REFUSED — correct |
+| gamedesign.uk | 0.0000 | REFUSED — correct |
+
+**Both halves of the fix's claim now hold on real data, not just synthetic test images.** Their own
+caveat, worth keeping: this validates the STATISTIC's discrimination, not the whole pipeline —
+decode→flood→grade already ran once to produce these stored bytes; a fresh post-fix generation is
+still the thing that proves the full path end-to-end, not just the arithmetic.
+
+**A real design coupling worth recording, surfaced by the numbers**: websitepromotion passes with
+only 3 of 4,348 border-ring pixels non-transparent — a tight margin. The prompt's own "the artwork
+must not touch the image edges" instruction is now LOAD-BEARING for the guard: a legitimate design
+that deliberately bleeds to the edge would be refused as a matte failure, indistinguishable from a
+real one. Not a defect — a natural consequence of measuring the border ring at all, in either the
+old or new form — but worth knowing before anyone widens this mechanism to a kind where edge-bleed
+is a legitimate style choice (icons, some illustration styles).
+
+**Independently reconfirmed (third time, different method each time) that `fcbe6071c` is NOT yet
+deployed.** The peer read the adapter's roll at 20:56:52Z, built from `0d2feee2f`, and ran
+`git merge-base --is-ancestor fcbe6071c 0d2feee2f` → NO, with `6440ec968` as a sanity control (still
+YES). **Verified again independently here, no kubectl needed**: `git log -1 --format='%ci' fcbe6071c`
+→ `2026-09-02 22:17:18 +0100`; `0d2feee2f` → `2026-09-02 21:24:45 +0100`. The fix was committed
+**53 minutes after** the build that's currently running was cut — not a race, just straightforwardly
+after. This matches what this file and the HANDOFF already said; the peer's message treated it as a
+finding, but it was already the documented state — noted here so the record doesn't imply it was
+news.
+
+**`bugs_open/433` (the mime_type gap) already carries the peer's full JPEG root-cause chain and
+their explicit warning against its own fix candidate 2** (propagating the hardcoded "image/png"
+constant would write a confidently WRONG value into 910 rows) — written directly into that bug file
+by them, not duplicated here.
