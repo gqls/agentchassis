@@ -1,0 +1,244 @@
+# 427 — nothing on the estate turns a confirmed real-world event into a dated, correctable fact, so a "calendar" tool page has a hero banner, an essay about itself, and zero fixtures
+
+Filed 2026-09-02, jointly by the `calendar` session (diagnosis, fleet-wide `evidence_base`
+census, the three-writers read) and `boxingonline.com` / `site_delivery_and_editor`
+(the motivating site, the fleet-key count that started the thread, the owner's ruling).
+Reached from two directions in the same day, independently: the calendar lane arrived by
+asking "why is boxingonline's calendar tool empty", the delivery lane arrived by asking
+"why did the site not get what its own strategy spec asked for" — both land on the same
+missing mechanism. **Status: OPEN, unowned** — the feed lanes that would build the fix
+(`bugfix_316`, `news_feed_pooling`, `bugfix_410`) have no live session as of today.
+
+**Severity: MEDIUM-HIGH.** Blocks delivery of a paid site (owner ruling: fixed before
+delivery, see §6) and the underlying gap — nothing populates `evidence_base` with dated
+facts — is fleet-wide, not specific to this site (§3).
+
+## 0. First-hand verification, stated per CLAUDE.md's 2026-07-31 ruling
+
+This asserts a structural, cross-cutting root cause without a `090` diagnosis-loop run.
+Substituting: every count below was queried live against the DB in this session today: 2026-09-02
+(§3, §4), or inherited from the sibling `boxingonline.com` session's own live measurement
+today. One figure carried from an earlier session (the news feed's "three zeros",
+2026-08-19) was **deliberately re-queried fresh rather than cited stale** — and it had, in
+fact, moved: see §4's correction. The writer audit (§5) is a direct read of the Go source
+and its own header comments, not inferred from behaviour.
+
+## 1. The symptom
+
+`boxingonline.com`'s paid brief's own words, quoted by the customer: *"The calendar will
+be populated with real upcoming events to start with."* What shipped,
+`/tools/fight-calendar/index.html`: `[MEASURED 2026-09-02]` exactly two components,
+`hero-tool` (badge "Fight calendar", headline "Every upcoming boxing fight, listed and
+dated") and `generic-text-block` (2,000+ characters opening "The calendar above pulls
+together the fights worth building your weekend around… in one place"). **There is no
+third component and no fixture data anywhere on the page** — no date, venue, fighter or
+broadcaster field exists. The prose describes a calendar that isn't there.
+
+Independently confirmed by `experience_loop`'s nightly page-behaviour check: this is the
+**only** tool page fleet-wide, out of 320, classified as serving no control, no inline
+data and no runtime fetch (four others were never built at all, in a separate bucket).
+
+The owner's own diagnosis, verbatim, via the `boxingonline.com` session: *"The research
+agent should have researched what's on and that is what should have appeared on this page
+and the calendar."* His related ruling on the site's fighter-comparison tool: it "should
+contain detailed, fact checked information that prefills the form for the comparisons for
+the boxers" — the same shape of gap, one tool over.
+
+## 2. What this is NOT
+
+- **Not `bugs_closed/381`'s defect class.** 381 was a planner choosing prose-only
+  components when list/table-capable ones existed. This page's components aren't
+  under-expressive — `hero-tool` + `generic-text-block` are exactly what a tool page's
+  hero-plus-explainer shape calls for. The gap is upstream: nothing ever handed either
+  component a fixture to render.
+- **Not a job for `period-calendar` (VIZ-017, this lane's own component).** It refuses
+  dates and numbers by design (605's rule 1: a period is a recurring NAME, never a date).
+  A fight calendar is one-off, dated, real-world events — the opposite shape. Placing it
+  here would be wrong, not merely insufficient.
+- **Not a `news_editorial_features` job.** That lane was asked first (name-match on
+  "the tools need real data") and declined correctly: they own editorial FEATURE pages
+  built from `content_feed_items`, not feed ingestion, normalisation, or relevance, and
+  had never touched this site.
+
+## 3. Root cause, end 1: `site_specs.aspect='evidence_base'` has no populator, fleet-wide
+
+`evidence_base` is the estate's shared, per-site, structured-and-cited fact store —
+`facts[]`, `allowed_entities[]`, `charts[]` — read by the writer and by the claims-gating
+pipeline. `[MEASURED 2026-09-02]`:
+
+```sql
+SELECT count(*) FROM sites;                                            -- 54
+SELECT count(DISTINCT site_id) FROM site_specs
+ WHERE aspect='evidence_base' AND is_current;                          -- 20
+```
+
+**34 of 54 sites (63%) have no current `evidence_base` row at all.** Of the 20 that do,
+the fact-count distribution is skewed and mostly not "a little thin" but "essentially
+none":
+
+| facts in the array | sites |
+|---|---|
+| 0 | 3 |
+| 1–3 | 2 |
+| 4–10 | 5 |
+| 11+ | 10 |
+
+`boxingonline.com` sits in the thin end: 2 rows, 3 facts total, 0 `allowed_entities`.
+
+> **Correction to a figure already in circulation on this bug.** The `boxingonline.com`
+> session's own message describing this bug quoted "facts (444 sites)" from a fleet key
+> census. `[MEASURED 2026-09-02]` **444 is a ROW count, not a site count** — it is
+> `SELECT count(*) FROM site_specs WHERE data ? 'facts'`, which includes every historical
+> and superseded row, not distinct sites: `SELECT count(DISTINCT site_id) FROM site_specs
+> WHERE aspect='evidence_base' AND data ? 'facts'` returns **20**. Worth fixing at the
+> source before it propagates further — it reads as "444 sites have facts", which is 22×
+> the true figure, and would have made this look like a boxingonline-specific gap rather
+> than the fleet-wide one it is.
+
+**The writer-side effect this produces on `boxingonline.com` specifically**, traced by
+the sibling session and consistent with `evidence_base` holding almost nothing: the site's
+`about.html` renders editorial-POLICY prose (*"How we cover it — … A preview that says a
+fight 'could be great' tells the reader nothing…"*) that paraphrases the research spec's
+own `lessons.avoid[]` list rather than following it — a rule ABOUT the writing, present in
+context, emitted AS the writing (filed separately,
+`copy_quality_two_stage/CONTRIB_2026-08-31_…`). An empty evidence base does not cause that
+mechanism, but it is the same symptom family: the writer reaching for whatever is actually
+in its context when the thing it should be grounded in (facts, in one case; a fixture
+list, in this one) isn't there.
+
+**Why: read the three writers, don't infer from the empty rows.**
+
+1. `seedCustomerIdentity` (`seed_build_queue_action.go:316`) — seeds a **minimal register**
+   at build-queue time, `INSERT ... WHERE NOT EXISTS a current row` (guarded,
+   insert-if-absent only; deliberately never merges or supersedes — council `7e3dd082`
+   guards this on purpose, see the action's own header). Guarantees a row can exist; does
+   not populate it with anything beyond minimal.
+2. `refresh_evidence_base` (`refresh_evidence_base_action.go`, registered in
+   `registry.go:662`) — **refreshes EXISTING facts only**: staleness checks, drift
+   detection, re-verifying citation values against tolerance. It has no code path that
+   invents a new fact from nothing; its own name says so and the code confirms it.
+3. `VerifyAndRegisterCitationsAction` (`evidence_citations.go:181`) — the one genuine
+   automated writer of NEW facts: registers a `citation` fact "in the site's evidence_base
+   (created if the site has none)" when a citation is verified. **Opportunistic**: it
+   registers whatever the writer happened to cite, not a proactive "go find what's
+   currently scheduled" step.
+
+**None of the three is, or is meant to be, "research what's currently happening and write
+it down as a dated, correctable fact."** (1) is a stub. (2) only maintains what's already
+there. (3) only captures citations content already contains. The owner's diagnosis — "the
+research agent should have researched what's on" — names a step that does not exist in any
+of the three: `research-agent`/`evidence-researcher`/`content-researcher` do one-time,
+point-in-time landscape research (competitor analysis, vertical conventions), and nothing
+downstream of them turns "what's currently on" into a fact this store, or any store,
+retains.
+
+`[UNMEASURED, left to the fixing thread]`: whether `VerifyAndRegisterCitationsAction`
+fired at all during boxingonline's build and simply had nothing offered to it, or never
+ran on this build path. The three-writer read above is sufficient to explain the
+STRUCTURAL gap regardless of which combination fired here — establishing which one is a
+call-graph trace this filing did not do.
+
+## 4. Root cause, end 2: the news feed has no path from an item to a structured event
+
+`content_feed_items` is where a promoter's fight announcement, or its equivalent for any
+vertical, would first arrive as data — `feed-triage` already tags real volume with topics,
+credibility and source-tier. But two fields declared for exactly this purpose are written
+by nothing:
+
+```sql
+SELECT count(*) AS total,
+       count(*) FILTER (WHERE entity_ids        IS NOT NULL) AS entity_ids_set,
+       count(*) FILTER (WHERE duplicate_of      IS NOT NULL) AS duplicate_of_set,
+       count(*) FILTER (WHERE published_page_id IS NOT NULL) AS published_page_id_set,
+       count(*) FILTER (WHERE relevance_score   IS NOT NULL) AS relevance_score_set_control
+FROM content_feed_items;
+```
+`[MEASURED 2026-09-02]` → **14,013 total | entity_ids 0 | duplicate_of 0 |
+published_page_id 15 | relevance_score 12,281 (control — the search shape works)**.
+
+> **Correction to the inherited figure.** The `news_editorial_features` lane measured this
+> as "three zeros" on 2026-08-19 (`entity_ids`, `duplicate_of`, `published_page_id` all 0
+> of 10,855). Re-run fresh today rather than cited stale: `entity_ids` and `duplicate_of`
+> are **still** genuinely 0 out of a now-larger 14,013 — that half holds. `published_page_id`
+> has **moved to 15** since 08-19. Traced: all 15 belong to exactly two source clusters —
+> the darts PDC calendar-density feature and a robotics-industry feature — the two
+> hand-built `NEWS-020` feature pages (`news_editorial_features` lane's own deliberate,
+> manually-authored work), not a general automated news-item-to-page pipeline. The
+> structural claim is unaffected — there is still no automated path from an arbitrary
+> confirmed-fight item to a structured record — but the number itself would have been
+> wrong to carry forward unchecked, and it is exactly the kind of addition-by-small-amount
+> that this estate's own memory warns reads as "still true" when it silently isn't.
+
+**So even where a confirmed-fight article lands in the feed** (and the extraction pipeline
+that tags topics/credibility runs on it at volume), **there is no step that turns "this
+article confirms a fight" into a structured, dated, correctable record** — the shape
+`entity_ids` was declared for and never given.
+
+## 5. Why this is one bug, not two
+
+Both ends are the same missing capability seen from either side. `evidence_base` is the
+STORE with 444 historical rows and (correctly counted) 20 sites actually using it — what's
+missing is a writer that puts DATED, CORRECTABLE event facts into it. The news feed is the
+most plausible SOURCE for those facts — a promoter's confirmed-fight announcement arrives
+there first, as data, already — but nothing extracts a structured record from it. Fixing
+either end alone leaves the other stub: a populator with nothing well-shaped to populate
+from, or an extractor with nowhere durable to write. File and fix together, or the same
+question returns in a month under a different site's name.
+
+## 6. Constraints on the fix, from the owner and from the site
+
+- **Owner ruling (via `boxingonline.com`, 2026-09-02): fix before this site is delivered.**
+  There is real time — not an emergency — but the cut-line is explicit.
+- **Do not invent a parallel store.** `evidence_base` already has 444 historical rows and
+  is read by the claims-gating pipeline and the writer; a second corpus for "dated facts"
+  specifically would just relocate this exact bug.
+- **The output shape wants to be closer to `entity-directory`, not a content component.**
+  `boxingonline.com`'s own `strategy` spec (`recommended_page_types`) already asked for
+  exactly this: *"An event directory — one page per major upcoming fight — gives each bout
+  a permanent URL with full details: fighters, date, venue, broadcast, undercard, and a
+  brief preview."* The planner emitted neither `entity-directory` nor `entity-page` for
+  this site — under separate, already-running diagnosis, correlation `d6d350ec-e16b-4792-
+  9282-ca5155369791`, asking why the planner drops roles its own strategy names. Do not
+  duplicate that run; read its result before assuming the page-role gap and this bug share
+  one cause.
+- **Dates get corrected, not just added.** The research spec's own `lessons.avoid[]`
+  already names this: *"Stale calendar entries — a wrong fight date actively harms
+  readers."* Whatever writes a fixture must also be able to revisit and correct it —
+  `refresh_evidence_base`'s staleness/drift machinery is the closest existing analogue and
+  is worth reusing rather than re-deriving, even though it currently only refreshes facts
+  it's handed, never creates them.
+
+## 7. Fix candidates — named, not decided
+
+1. **A new extraction step, downstream of `feed-triage`, that fills `entity_ids` (or a
+   comparable typed field) for a confirmed-event item** — date, venue, participants,
+   broadcaster where stated — and a corresponding writer that registers it as a dated
+   `evidence_base` fact (extending `VerifyAndRegisterCitationsAction`'s "create if the site
+   has none" pattern to a proactive rather than opportunistic trigger).
+2. **A revisit/correction path reusing `refresh_evidence_base`'s staleness machinery**,
+   extended to accept a fact that can be superseded by a later, more specific news item
+   (a postponed date, a changed venue) rather than only re-verifying a numeric tolerance.
+3. **The `entity-directory` page role, once §6's diagnosis run reports**, as the render
+   target for the resulting fixtures — one page per event, matching what boxingonline's
+   own strategy already specified.
+
+None of these is this lane's build — extraction and directory-page machinery are
+news-ingestion and site-planner territory respectively, not `calendar_component`'s. Filed
+here as the shared diagnosis both approaching lanes converged on.
+
+## 8. Cross-references
+
+- `docs/agent_docs/docs024_key_docs_latest/calendar_component/` — this lane's own docs;
+  PLAN §4 carries the same finding from the calendar side.
+- `docs/agent_docs/docs024_key_docs_latest/site_delivery_and_editor/OWNER_REVIEW_2026-08-31_boxingonline_what_he_found_and_what_each_finding_actually_is.md`
+  — the owner's original review; §1, §6, §7, §8 all touch this gap from different angles.
+- `docs/agent_docs/docs024_key_docs_latest/site_delivery_and_editor/COMPARISON_2026-08-31_boxingonline_ours_vs_the_other_builders_and_why_theirs_looks_better.md`
+  — line 176 (`design_intent.layout_preference`'s fixture-row ask), line 144-146
+  (`entity-directory` spec text), item 7 ("give the tools real data").
+- `docs/agent_docs/docs024_key_docs_latest/news_editorial_features/PLAN_2026-08-19_news_editorial_features.md`
+  §3 — the original "three zeros" measurement, corrected in §4 above.
+- `bugs_open/206` — entity-directory/section-index page roles have no real builder; related
+  but distinct (206 is about page-role→builder mapping in general, not about where
+  fixture data would come from).
+- Diagnosis run in progress, correlation `d6d350ec-e16b-4792-9282-ca5155369791` — why the
+  planner drops page roles the strategy names. Read before assuming a shared cause with §6.
