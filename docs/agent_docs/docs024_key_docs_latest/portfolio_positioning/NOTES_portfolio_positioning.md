@@ -3912,3 +3912,11 @@ agent that never reads the seat cannot honour a seat split") is now on GD1 (mech
 indoorplanters pair inherits the watch), and RUNBOOK_remake_release §2 (eye every
 evaluate_tools wave on a paired site until 447 lands). Their 446: owner re-ruled gamedesign's
 vertical execution (louder, gamier) — GD2 substance unchanged.
+
+### (s) Session close — fresh chassis deployed (owner message, late 2026-09-02); handoff finalised
+
+Nothing of this lane's rides the roll (DB config + docs + work items only today). Cautions
+recorded in the handoff: ~300s no-dispatch window post-pod-start; riding lanes (424, 444's
+gated code) verify per-service at the stamp; 444's migration 720 stays HELD until their
+round-3 verdict regardless of the roll. Handoff finalised at `2837ab63a` — cold start for the
+next session is HANDOFF_2026-09-02_continue_here.md.
