@@ -895,3 +895,41 @@ dropped dispatch.
 on the verdict and the owner. Nothing dispatched at boxingonline — the delivery lane owns
 that pipeline. `news-listing` has the same defect and is deliberately NOT in this change;
 it follows once this shape is agreed.
+
+### 2026-09-02 — the council run was KILLED BY A ROLL, and the "existing pages pick it up" claim is now properly grounded
+
+**The run died; it did not run slowly.** `4bf6c48f` sat at `review_prior_art`,
+`EXECUTING_STEP`, `error` NULL, for 47 minutes. Both `agent-chassis` pods were **created
+at 12:28:03Z and 12:28:24Z** and the run's last activity is **12:28:32Z**. Two other runs
+died in the same window (`2979c27f` = the `inline_guide_imagery` lane, submitted three
+seconds after mine; `84b51f16`, unnamed).
+
+**The control is what makes it conclusive rather than suggestive:** every run submitted
+AFTER the roll completed normally — `bd469ba1` 3m48s, `1dd3d298` 5m29s, `38be9226` 5m48s,
+`3f9cdfea` 19m55s, all COMPLETED. The gate is healthy; only the runs in flight across
+12:28 died. Without that control the honest reading would have been "the gate is slow
+today", which is the reading that produces a duplicate retry.
+
+Already a landmine (`LANDMINES.md:1563`, "A chassis roll KILLS an in-flight council") so
+nothing new to file — **checked before appending, not after.** Resubmitted with
+`RESUBMIT_CORR` so the trail stays under `4bf6c48f`; new run correlation `e0bec270`,
+orchestration `c27ec7bd`. The `inline_guide_imagery` lane was told, with the evidence, since
+a dead row of theirs looks exactly like latency and they had no reason to suspect it.
+
+**Separately — the one claim in the submission that rested on a single line is now
+grounded properly.** I had written "rerender_page_sections_action.go:464 builds the
+resolver WITH the page name, so existing pages acquire the field on their next rerender".
+True, but that is an inference from a constructor argument, and inferring a capability from
+a nearby line is the exact class I logged a wrong call for this morning. The file's own
+header settles it outright:
+
+> "RerenderPageSectionsAction re-renders ALL of a page's sections from their STORED
+> content_data plus **FRESHLY re-resolved dynamic fields**, WITHOUT invoking the content
+> writer (no LLM). It is the lightweight path for 'a resolved field changed, re-render the
+> page' — **specifically an image asset landing (hero/section image)**"
+
+and the merge comment at :1325 adds that the path "merges stored content_data with FRESHLY
+resolved fields, **resolved last**" — so a newly resolvable field wins over stored absence
+rather than being carried past. **This action exists for precisely the case 686 creates.**
+So the operational promise is: apply 686, fire a rerender at the six pages, and the images
+appear — no re-plan, no writer call, no backfill.
