@@ -1185,3 +1185,20 @@ by SQL and the DB CHECK passed live — the Go list gates Go writers only. **D4 
 DONE: live, hardened, approved, inert. Stage B (Go claim-step refusal, opt-in) is next, and
 the owner's monthly budget number is still the open input (August measured ~$2,113,
 outage-suppressed).**
+
+## 2026-09-02 — the 314 lane's lint heads-up surfaced SEVEN unrecorded hand-applies; all --record-only'd
+
+The bugs_open/314 session messaged: mid-caps migration names (our _sibling_A/B/C_, _lever_B_)
+are invisible to pattern-check.py's idempotency lint (their fix, their lane; our naming stays
+— it is a deliberate ordered-set convention, and now immovable because the ledger keys on
+filename). Chasing their "applied out of band and left unrecorded" concern against OUR files:
+**582/583/584/637/671/672/673 — all hand-applied, all runner-appliable by name, NONE in
+schema_migrations** (0 rows of 481). The probe would have graced most (guards RAISE with
+'already') but NOT 672 post-673: its drift arm's message lacks 'already' and would read as
+'drifted, investigate' on a plain replay of the runner. All seven recorded via
+`run-migrations.sh --record-only` with dated verification notes `[MEASURED 2026-09-02:
+ledger now returns all 7]`. **Lane practice from here: a hand-apply of a runner-appliable
+file is FINISHED only when --record-only has run** — the apply and the record are two halves
+of one act (same shape as commit-then-build). _HOLD files stay outside the ledger by design
+(never runner-probed; suffix never dropped). Answered 314 in full; offered them the
+appliable-but-unrecorded census as a possible sibling check, their call.
