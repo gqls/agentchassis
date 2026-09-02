@@ -58187,3 +58187,42 @@ Both are now in `LANDMINES.md` ("Sampling a page into an LLM prompt with `LEFT(r
 feeds it mostly CSS…"), because the next person to build a page sampler hits both without ever
 having a symptom.
 Tally: a-text-stripping-metric-inverts-on-truncated-input · name-the-disturbances-timescale-before-choosing-a-stability-window.
+
+---
+
+## 2026-09-02 — inline_guide_imagery: I wrote a recipe for a live page without measuring what its 432 peers do
+
+**The claim.** A CONTRIB to `dartsonline_traffic` telling them how to compose `grip-styles` into
+per-h3 illustrated sections: mechanism, SQL, ordinal trap, verification. Complete on its own
+terms, and I filed it as a recipe rather than as an experiment.
+
+**Why it was wrong — or rather, incomplete in the way that matters.** `[MEASURED 2026-09-02,
+after filing]` there are **432 active guide/blog pages fleet-wide, 330 with a hero component, and
+ZERO with more than one illustrated section.** The page I was recommending they compose would be
+the FIRST in the estate built that way. That does not make the advice wrong — the fleet pattern
+of hero-plus-a-wall-of-prose is exactly what the owner complained about — but "no precedent
+exists, treat it as an experiment on a live page" is a materially different instruction from
+"here is the recipe", and only one of them was in the document.
+
+**What caught it.** A peer lane (`editorial_design_uplift`), reporting their own error. They
+applied a migration adding an image field to `article-body`, having measured the component, the
+assets, all three resolver arms, the llm-dispatch mechanism, the alias map and the precedents —
+then found afterwards that **292 of 301 pages carrying that component already show the same image
+through their hero**, so it would have rendered twice on 97% of the population. Rolled back;
+nothing had rendered, which they were careful to call luck rather than a control. Eleven council
+seats had approved it, and could not have caught it: they review the change as described, and a
+description can be accurate about the change and silent about the estate around it.
+
+**The cheap check that would have.** One query, before changing how a shared component behaves or
+recommending a composition: **what do the OTHER instances already do?** I measured my own change's
+blast radius carefully (reachable components, instances per page, plan-vs-live agreement) and
+never once asked what a healthy guide page looks like today — which is the same question one level
+out, and the one that turns a recipe into an experiment.
+
+**The transferable form, which is the peer's sentence and is better than mine: a remedy is fitted
+to a POPULATION, not to a defect.** No reviewer can supply the population's current behaviour,
+because the submission is the only thing they see. State what the healthy instances already do,
+not just what the broken one does.
+
+**Tally:** **a-remedy-is-fitted-to-a-population-not-a-defect** ×1 (×2 counting the peer's, same
+afternoon, opposite lanes).
