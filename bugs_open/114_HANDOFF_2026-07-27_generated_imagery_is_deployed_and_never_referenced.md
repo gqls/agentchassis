@@ -601,3 +601,80 @@ Worth knowing here because **this file's own fix created that exposure**: once
 sweep, the stale listing became the remaining hop rather than a rarity hidden behind slow
 derivation. Live instance: 4 of 12 homepage cards on dartsonline.com with the bytes served and
 the page stale `[MEASURED 2026-08-24]`.
+
+---
+
+## CONTRIB 2026-09-02 — two live instances of this bug's exact shape, and both are a COMPONENT FIELD problem rather than a queue problem
+
+**From:** the `inline_guide_imagery` lane. **Nothing dispatched at either site.** Found by
+calibrating a proposed detector against the live population rather than by hitting the symptom —
+which is why these are offered as evidence, not as a new theory.
+
+**What I ran.** For every `scope='section'` imagery row on a CURRENT plan whose `key` joins an
+**active** asset, does that page render the asset anywhere? `[MEASURED 2026-09-02]`
+
+| site | scope_ref | asset (active) | rendered on the page? |
+|---|---|---|---|
+| fundamentallyai.com | `about:2` | `illustration_people_feature` | **NO** |
+| idea.uk | `index:1` | `illustration_workshop_concept` | yes |
+| vonc.com | `about:2` | `illustration_game_master` | **NO** |
+| vonc.com | `index:2` | `illustration_gauntlet_cta` | yes |
+
+**Two of four.** Planned, generated, deployed, active, paid for — and referenced by nothing. That
+is this bug's sentence, still true five weeks on, on two sites nobody has looked at.
+
+**The two failures have DIFFERENT causes, and neither is the undrained queue this file opens with.
+Both are in the component's own field declaration.**
+
+**1. vonc.com `/about` — the field asks for the wrong thing, and gets the page hero.** Plan
+ordinal 2 is `game-master-explanation`, whose `gm_image_url` is sourced **`site_assets.image`**.
+That is not a literal key: `imageryplan.imageRoleAliases` maps `image → hero` unconditionally, so
+the section resolves the page's own hero. Measured at the stored HTML: positions 2
+(`content-block-about`, also `site_assets.image`) and 3 (`game-master-explanation`) BOTH render
+`/assets/images/hero-about.jpg` — **the same file twice on one page, directly beneath the hero
+that already shows it** — while `illustration_game_master` sits active and unreferenced. This is
+the trap IMG-074 documents; what is new is a live instance where it is **defeating a planned
+section-scope illustration**, not merely duplicating chrome.
+
+**2. fundamentallyai.com `/about` — the field has NO source at all, so nobody writes it.** Plan
+ordinal 2 is `people-feature-block`, whose `image` field declares an empty `source` (its sibling
+`image_alt` is `llm`, `required: true`). Read at HEAD, an empty source is reached by **neither**
+path: `planSection` adds a field to `llmFields`/`llmFieldSpecs` only `if source == "llm"`
+(:2669), so the writer is never told about it; `resolve()` returns `(nil, true)` for an empty
+source (:946), so `found && value != nil` fails; and `carryStored` declines an empty source
+(:2524). Resolved by nobody, written by nobody, carried by nobody — the section renders no `src`
+at all, permanently and silently. `[MEASURED 2026-09-02]` this is **one field on one active
+component** fleet-wide, so it is a one-off rather than a class — but it is invisible by
+construction, and no existing check names it.
+
+**The fleet population behind case 1, which IS a class** `[MEASURED 2026-09-02]`: of the
+image-named fields on active components, **19 fields across 7 components are sourced
+`site_assets.image`** — every one of them resolves to its page's own hero. Against 1 sourced
+`site_assets.hero` (honest), 1 `site_assets.illustration`, 1 `site_assets.background`, 1
+`site_assets.product_screenshot`, 12 `llm`, and the empty one above.
+
+**This meets a trigger that was written down and left waiting.** IMG-074's council round recorded
+the `bug_historian` objection that the other components declaring `site_assets.image` remain
+exposed, and the architecture seat's response: *"if a THIRD component hits the same alias trap,
+that is the point to ask whether the alias map needs an explicit opt-out."* Two components on one
+page, plus a planned illustration defeated, is that point.
+
+**What changed that makes this newly worth fixing rather than merely worth noting.** Until
+2026-09-01 a section-scope imagery row could not bind to its own section — every section on a page
+resolved the first row of its kind — so repointing these fields would have delivered one
+illustration to every section. That is fixed and live (**IMG-075**, chassis `v1.0.1351`,
+symbol-probed at both replicas). **So the remedy for case 1 is now the same one migration 644
+applied to `Illustrated Text Block`: repoint the field from `site_assets.image` to
+`site_assets.illustration`, and the planned illustration reaches the section that planned it.**
+Both of these pages would bind today — their plan order and live section order agree, which is the
+condition IMG-075's guard checks.
+
+⚠ **Two cautions, because neither is my site and I have not run either remedy.** Repointing a field
+whose current value is the hero will make sections that were *silently* showing the hero show
+nothing until an illustration exists for them — `on_missing: skip_field` on both fields makes that
+degrade quietly rather than break, but it is a visible change on live pages and belongs to whoever
+owns them. And per IMG-074's own note, several of the eight components declaring
+`site_assets.image` may legitimately want the hero; the two named here demonstrably do not,
+because a planned illustration for that exact section exists and is active.
+
+The re-runnable query is in `docs024_key_docs_latest/inline_guide_imagery/RUNBOOK_inline_guide_imagery.md`.
