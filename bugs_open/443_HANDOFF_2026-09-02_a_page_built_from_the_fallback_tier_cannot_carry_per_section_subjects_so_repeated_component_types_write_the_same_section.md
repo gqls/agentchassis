@@ -69,9 +69,30 @@ robot-hands.com and loancalculator.co.uk carry 5, 5 and 4), and its three most r
 `your-own-model`, `technical-details`, `playground` — all resolved at tier 3.
 **⚠ This count is a census and goes stale by ADDITION: re-run before quoting.**
 
-Not yet censused fleet-wide: how many sites have no `site_plans` row, and how many of their pages
-repeat a component type. **That census is the first thing the fixing thread should do** — it sizes
-the bug and it is one query.
+**The fleet census is now done** `[MEASURED 2026-09-02]`. **25 of 59 sites have no current
+`site_plans` row — but 19 of those are `pool-*.internal` rows with ZERO deployed pages**, and
+counting them would triple the apparent blast radius. The real exposure is **6 sites, 186 deployed
+pages**:
+
+| site | deployed pages |
+|---|---|
+| finetuning.uk | 52 |
+| ai-agent-orchestration.com | 44 |
+| gaswholesalers.com | 32 |
+| loancash.co.uk | 30 |
+| cookly.uk | 15 |
+| lampenkap.com | 13 |
+
+Still not censused: **how many of those 186 pages actually repeat a component type** — that is what
+converts exposure into damage, and it is the one query left. A page whose layout has no repeated
+type is exposed but unharmed.
+
+⚠ **The same tier boundary bites a second, unrelated mechanism.** `site_plan_imagery.plan_id` hangs
+off `site_plans` too, so the `bugs_open/114` lane's route-1 hero delivery (IMG-078) cannot reach
+these 6 sites either — reported to that lane 2026-09-02. **The plan tables are becoming the tier
+where capability lives, and 6 real sites are not in them.** A fix for 443 that only widens the
+subject gate leaves the general problem standing; treat the shared geometry as the more important
+finding.
 
 ## 5. Fix candidates, ordered by what closes the door
 
