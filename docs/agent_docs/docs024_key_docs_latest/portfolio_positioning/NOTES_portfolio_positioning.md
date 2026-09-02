@@ -3651,3 +3651,25 @@ That upgrades the "21 portfolio domains have no register row" debt (handoff §3,
 2026-08-21) from tidiness to a serving-side blind spot** — worth saying when the owner next
 prioritises. The bug filing for the orphan/detector gap stays THEIRS (owner steering their
 lane; they are grepping the 359 family first).
+
+### (e) Remake №1 mid-build: plan complete on retry, full fan-out, and three `owned_page_review` items closed on artefact evidence
+
+Site plan attempt 2 (orch `21ef4ac2`) passed `ensure_site` — the (b) fix held — and COMPLETED;
+plan `046c9eee`. Fan-out: 18 `needs_page` + 18 `needs_imagery` + 24 `page_rerender` + content
+items; 7 tools built via `add_tool` (tool-suggester) — fullness visibly landed.
+
+**Three `owned_page_review` items filed 13:09:48Z at `needs_human_review`** ("Owned page
+tool-X is not_built — do NOT route to the generic page builder"). Checked at the artefact, not
+the status: all three components ALREADY deployed with real payloads (16,705 / 16,953 /
+14,553 B, created 12:57–13:06Z — BEFORE the reviews were filed, so not a completion race;
+the validator reads some earlier/other surface [INFERRED — validator code unread]). Routing
+verified correct on every neighbouring item: the tool pages' content items come from
+`tool-deployer` itself (component-aware by construction); the generic `needs_page` items
+target only the three GUIDE pages. **Closed all three with the evidence in `result`** —
+nothing depended on them, nothing automated ever clears `needs_human_review`, and a genuine
+future not_built re-files freely (dedup key released on completion).
+
+Observation worth handing to the checker-layer lane (149 family), not fixing here: a
+plan-validation review item whose condition self-resolves minutes later has NO auto-clear and
+NO dependent it gates — it just sits in the human queue for ever. On a fleet of 22 remakes
+that is 3×22 stale rows unless the validator re-checks at read time.
