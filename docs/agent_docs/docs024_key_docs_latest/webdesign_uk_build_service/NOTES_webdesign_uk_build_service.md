@@ -6899,3 +6899,41 @@ their five lane CONTRIBs carry the fleet-shaped findings). This lane's half:
 - Pre-delivery footer item now has a precise close (423 §verify):
   rendered.footer=true + digest=md5(html) + served footer still contactless.
   Until a lane takes 423, the hand-patch serves — named at review.
+
+## 2026-09-02 — ALL SIX RULED + eight new defects; roll VERIFIED; the execution queue
+
+**Rulings (owner, via boxingonline thread — full record in their OWNER_REVIEW):**
+(1) contact page DELETE; contact becomes opt-in-on-request. NEW: a pre-plan for an
+extensible form endpoint for static sites (boxingonline session writes it).
+(2) header stays LOGO-ONLY. Closed. (3) GUIDES-INDEX EVERY TIME (standing rule —
+planner-side home needed, recorded against the 419 lane) + guides rewritten
+(copy lane; shorter is fine). (4) identity: WIDE — orderer/operator/published
+contact are three identities; replumb → relayed verbatim to the bugfix-420 lane
+as their class-fix design instruction (RFC-shaped). (5) palette: the cream/off-
+white STANDS — no flip; BUT logos must not bake a background → the current
+dark-ground logo is NON-CONFORMING and needs a TRANSPARENT regen (mine).
+(6) cut-line: EVERYTHING before approval — no post-delivery bucket for site 1.
+
+**Roll VERIFIED at the binaries** (present + removed-string + invented controls):
+420 contract split LIVE in chassis → re-seed block LIFTED (runbook updated);
+request_changes endpoint LIVE in core-manager (dashboard frontend build still
+unverified — the API works regardless).
+
+**New defects, ownership set (peer routing 7/8/9/14 + guide rewrites):**
+MINE — (10) fight calendar serves meta-copy over ZERO event data (coordinate
+with whoever takes 9: one data seam should feed both tools) · (11) 'Free cost'
+stray label in the calendar hero · (12) duplicate News in nav — PROVENANCE
+measured: /news/index.html was created 2026-09-01 21:42 by the ESTATE NEWS
+MACHINERY (missing_news_sources complete Sept 1 00:35 → missing_news_section
+complete 21:31, '31 feed items') — it is the REAL news surface (holds the
+Hrgovic/Cameron results) colliding with the fabricated editorial surface, so
+the structural fix belongs WITH item 7 (feed the articles from the feed); my
+interim fix is one-News-in-the-header only · contact deletion + CTA re-points
+(header CTA via site_config chrome.header_cta_url; on-page CTAs deliberate) ·
+guides-index page via gap-planner · transparent logo regen.
+
+**Sequenced queue:** ① guides-index dispatch + transparent logo regen (fired
+this session, independent) → ② CTA re-points THEN contact deletion (order
+matters: deletion first mints dead controls) → ③ news-index out of header
+(interim, flag change) → ④ (11) content fix + rerender → ⑤ (10) calendar data,
+jointly with the 9-taker → then re-mirror, full sweep, review.
