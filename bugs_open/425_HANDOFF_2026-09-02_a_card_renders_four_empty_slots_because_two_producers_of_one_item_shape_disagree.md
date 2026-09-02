@@ -127,18 +127,69 @@ template_changed | literal_markdown` route to `rerender_page_sections`, which **
 `rerender_single_page` — "simple concatenation", which re-ships the stored `articles` array
 byte for byte. So a re-render can complete, stamp a new `deployed_at`, and change nothing.
 
-So the propagation is:
+> **REWRITTEN 2026-09-02 after council round 2.** The first version of this section hand-rolled
+> a fan-out. Three seats (`reuse_agent`, `prior_art_librarian`, `guardian`) objected — correctly —
+> that I had *quoted the landmine naming the owner and then bypassed it*. The owner is
+> `component-template-fixer`, step `create_rerender`, and **copying its SQL exposed three real
+> defects in mine**: it excludes OWNED pages (`rebuild_policy IS DISTINCT FROM 'owned'`,
+> `bugs_open/301`) where mine would have filed rerenders the save path refuses; it dedups with
+> `NOT EXISTS` on an open item rather than `ON CONFLICT DO NOTHING`, which is the documented
+> convention for `site_work_items`; and it spells the filter `p.status = 'active'`.
+>
+> **That last one was a dead literal in my version and `LANDMINES.md` already says so — three
+> separate entries.** `[MEASURED 2026-09-02]` `pages.status` holds exactly two values fleet-wide,
+> `active` 1,106 and `archived` 90; **`'deployed'` never occurs**, because it belongs to
+> `pages.build_status` (1,011) and to `sites.status` (33). The two tables have **inverted** live-
+> state spellings — on `pages` the live value is `active`, on `sites` it is `deployed`, where
+> `active` is 1 row of 57 — and `IN ('active','deployed')` is the defensive union that is
+> accidentally right on both, which is exactly why it spreads. It is carried by ~20 call sites
+> today, including `resolvePagesWhereType` itself. Harmless as a union; the danger is the reverse
+> direction, where a single-value predicate silently selects nothing.
+
+So the propagation is a **hand-run instance of `component-template-fixer`'s own step** — same
+SQL, same reason, same exclusions:
 
 ```
-page-rerender   spec.reason   = 'section_data_resolved'      (re-runs the query — the Go fix)
-                spec.page_name = '<page>'
+page-rerender   spec.reason = 'template_changed'   +  page_id, page_name, domain
+                WHERE  rebuild_policy IS DISTINCT FROM 'owned'
+                  AND  p.status = 'active'
+                  AND  NOT EXISTS (an open template_changed rerender for this page)
 ```
 
-**and it must be sequenced AFTER the chassis roll.** Firing it today re-resolves against the
+**Using the owner's reason string is load-bearing, not cosmetic:** its dedup filters on
+`spec->>'reason' = 'template_changed'`, so a row filed under any other reason is *invisible to
+it*, and the next real template fix would file a second, duplicate rerender for the same page.
+
+**Why a file at all, then:** that step is triggered by `fix_result.component_id` — a template fix
+made *by the agent*. A template edited by SQL never reaches it, which is precisely what the
+landmine says. If the fixer ever gains a trigger for SQL-applied edits, **delete `683` rather
+than maintaining both.**
+
+**And the scoped path really does re-resolve — cited now, not assumed.** `render_guardian`
+objected that the plan leaned on a landmine about *assemble* mode and then assumed the opposite
+of scoped mode with no citation; if scoped mode also rendered from stored `content_data`, `683`
+would ship the new template against the OLD articles array on all 14 pages. It does not:
+`rerender_page_sections_action.go`'s header states *"newSourceResolver + planSection … rebuild
+each section's resolved_data (**queryresolve for query.\***…)"* and *"resolved_data merged last
+so it wins"*, and the call is `newSourceResolver(siteID, params.DB, logger, pageName)`.
+`articles` is `source: query.blog_posts` — a resolved field — so it is rebuilt fresh and wins.
+
+**It must be sequenced AFTER the chassis roll.** Firing it today re-resolves against the
 OLD resolver in the running pod: the guarded slots would collapse (682 is live), but no deck
 would arrive, and the render would have been spent. `bugs_open/384` / **PBP-048** built
 `requestPageListReresolve` for producer-driven invalidation of exactly this shape; a code fix
 is not one of its trigger events, so the post-roll pass is a deliberate, dispatched one.
+
+**And the verify block's counts are computed by DIFFERENT predicates.** The first version derived
+`targets` from the INSERT's own `WHERE`, so a wrong predicate made `targets` and `filed` agree
+*at zero* and the guard could never fire — a check that cannot detect its own predicate being
+wrong (`debug_historian`). It now counts `carrying` with no status/ownership filter beside
+`eligible` with them, and asserts `filed = eligible - already_queued` **exactly**, because
+`ON CONFLICT`/`NOT EXISTS` can drop a *subset* and an un-filed page keeps the stale deck for ever
+with nothing surfaced (`bug_historian`; 016b §9's *"`err == nil` is not work queued"*). All three
+induced in rolled-back transactions: the dead status literal aborts with *"14 page(s) carry the
+component but 0 are eligible"*; a dropped subset with *"filed 11 but expected 14"*; an
+assemble-mode reason aborts too.
 
 **Two checks before dispatching, both already run:**
 
@@ -318,7 +369,11 @@ Recorded here so the next reader of that row does not rediscover `nav_label` and
 | `archetype-grid` | `query.pages_where_type:entity-page` | 2 | 2 |
 
 **141 live instances of one shape. Migration 682 fixes 14 of them — but the Go half fixes all
-141**, and that distinction is the answer to the objection. `ListItemTitle` / `ListItemExcerpt`
+141**, and that distinction is the answer to the objection. `bug_historian` rightly called the
+breadth an *unverified* claim in round 2, since `tool-cta` alone is 96 of the 141; it is
+demonstrated now rather than asserted — `queryHandlers["pages_where_type"]` is a closure calling
+`resolvePagesWhereType`, `tool-cta` declares `query.pages_where_type:tool`, and all three bases
+are closures over the two functions the Go edit changes. `ListItemTitle` / `ListItemExcerpt`
 sit inside `resolvePagesWhereType`, which serves `pages_where_type:*` **and** `blog_posts`, so
 the suffixed-headline defect is corrected fleet-wide by one edit. Only the *template guarding*
 is per-component, and it has to be: each template guards different slots.
