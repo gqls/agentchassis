@@ -44,7 +44,7 @@ import (
 var ExecuteVisionPromptInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{},
-	Optional:    []string{"images_field", "max_images", "prompt_template", "output_type"},
+	Optional:    []string{"images_field", "max_images", "max_image_dimension", "prompt_template", "output_type"},
 	// ai_service is read, but not by this file: resolveAIServiceConfig
 	// (ai_actions.go:61) is handed params.StepConfig.Config below and overlays a
 	// step-level `ai_service` block onto the agent's. It belongs in ConfigKeys
@@ -61,6 +61,10 @@ var ExecuteVisionPromptInputSpec = datahelpers.ActionInputSpec{
 	Defaults: map[string]interface{}{
 		"images_field": "render_audit",
 		"max_images":   16,
+		// Per-image long-edge cap; images over it are box-scaled down and
+		// re-encoded as JPEG q85 (vision_image_downscale.go — the three
+		// provider errors that forced this are quoted there). 0 disables.
+		"max_image_dimension": visionImageDimensionCapDefault,
 	},
 	Deprecated: map[string]string{},
 }
@@ -131,6 +135,7 @@ func ExecuteVisionPromptAction(ctx context.Context, params ActionParams) (interf
 	// ── Screenshots: resolve refs from collected data, download bytes ──────
 	imagesField := datahelpers.GetStringField(params.StepConfig.Config, "images_field", "render_audit")
 	maxImages := datahelpers.GetIntField(params.StepConfig.Config, "max_images", 16)
+	maxImageDim := datahelpers.GetIntField(params.StepConfig.Config, "max_image_dimension", visionImageDimensionCapDefault)
 	refs, err := resolveVisionImageRefs(params.CollectedData, imagesField)
 	if err != nil {
 		return nil, fmt.Errorf("execute_vision_prompt: %w", err)
@@ -141,6 +146,7 @@ func ExecuteVisionPromptAction(ctx context.Context, params ActionParams) (interf
 		return nil, fmt.Errorf("execute_vision_prompt: no renders under %q — did the capture step run with capture_renders?", imagesField)
 	}
 	dropped := 0
+	downscaled := 0
 	if len(refs) > maxImages {
 		dropped = len(refs) - maxImages
 		refs = refs[:maxImages]
@@ -161,7 +167,12 @@ func ExecuteVisionPromptAction(ctx context.Context, params ActionParams) (interf
 		if rErr != nil {
 			return nil, fmt.Errorf("execute_vision_prompt: read %s: %w", ref.URI, rErr)
 		}
-		images = append(images, aiservice.ImageInput{MediaType: "image/png", Data: data})
+		mediaType := "image/png"
+		if scaledData, mt, scaled := downscaleVisionImage(data, mediaType, maxImageDim, params.Logger); scaled {
+			data, mediaType = scaledData, mt
+			downscaled++
+		}
+		images = append(images, aiservice.ImageInput{MediaType: mediaType, Data: data})
 		manifest = append(manifest, map[string]interface{}{
 			"index": len(images), "page_url": ref.PageURL, "profile": ref.Profile,
 		})
@@ -238,10 +249,11 @@ func ExecuteVisionPromptAction(ctx context.Context, params ActionParams) (interf
 	parsed, provenance, parseErr := ParseLLMJSONWithProvenance(cleaned)
 	if parseErr != nil {
 		out := map[string]interface{}{
-			"result":         cleaned,
-			"type":           "text",
-			"images_sent":    len(images),
-			"images_dropped": dropped,
+			"result":            cleaned,
+			"type":              "text",
+			"images_sent":       len(images),
+			"images_dropped":    dropped,
+			"images_downscaled": downscaled,
 		}
 		markJSONContractUnmet(out, declaredOutputType)
 		return out, nil
@@ -251,10 +263,11 @@ func ExecuteVisionPromptAction(ctx context.Context, params ActionParams) (interf
 			zap.String("provenance", provenance))
 	}
 	out := map[string]interface{}{
-		"result":         parsed,
-		"type":           "json",
-		"images_sent":    len(images),
-		"images_dropped": dropped,
+		"result":            parsed,
+		"type":              "json",
+		"images_sent":       len(images),
+		"images_dropped":    dropped,
+		"images_downscaled": downscaled,
 	}
 	markEnvelopeRecovered(out, provenance)
 	return out, nil

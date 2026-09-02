@@ -125,7 +125,7 @@ OPTIONAL_KEY_COUNTS = {
     "emit_sprite_css": 1,
     "enrich_fingerprint_with_css": 2,
     "ensure_collection_tasks": 2,
-    "execute_vision_prompt": 4,
+    "execute_vision_prompt": 5,
     "extract_design_fingerprint": 1,
     "extract_interactive_fingerprint": 1,
     "feature_stage_route": 9,

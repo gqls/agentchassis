@@ -1,0 +1,44 @@
+{
+  "rationale": "Give execute_vision_prompt a per-image downscale so a screenshot can never exceed the vision providers' per-image limits — the fix the 018 critic's after-leg has been parked on since 2026-08-27. The evidence is a three-error ladder measured one run each on leopardess after its hero batch made full-page captures taller: Gemini 400 INVALID_ARGUMENT 'Unable to process input image' (twice, reproducible), Anthropic 413 request_too_large (16 images), and finally Anthropic 400 'At least one of the image dimensions exceed max allowed size: 8000 pixels' (8 images) — the last naming the true constraint. No config lever excludes one too-tall page honestly (max_images truncates from the END of the list, not by size). The new pass: any image whose long edge exceeds max_image_dimension (default 7900, just under Anthropic's stated 8000 cap) is box-average scaled to fit, aspect preserved, re-encoded JPEG q85, and counted in a new images_downscaled output field; images at or under the cap pass through BYTE-IDENTICAL (pinned by test). Default-ON is a deliberate reading of the 2026-08-02 opt-in ruling, not a breach: the ruling guards new authority whose unsafe side must default OFF, and this path only alters images that today produce a GUARANTEED provider 400/413 — every image of all 41 successful tool-acceptance-agent runs and the one successful design-critique run was under the cap and is untouched. Opt-out: max_image_dimension: 0 restores today's behaviour exactly (pinned by test). Consumers named and told: design-critique-agent (this lane) and tool-acceptance-agent (CONTRIB in bugfix_146_ported_tools_acceptance, same commit). The RFC_022 obligation the new optional key creates is met in the same change: check.py's OPTIONAL_KEY_COUNTS literal regenerated (4->5), parity test green, overlay re-applied to the cluster (configmap created, cronjob configured); the action's optional-key count is 5, under the N=10 budget. Box-average scaling is hand-rolled (~40 lines) rather than a new golang.org/x/image dependency — area averaging is the correct anti-aliasing at large downscale factors and one function does not justify a dependency. Owed proof, stated: the action still has no action-level test of the WIRING (the storage-client seam; the same gap editquality noted on 2026-08-02's round) — the helper is fully unit-tested and the wiring's observable is images_downscaled >= 1 on the first live run over the leopardess captures, which is the first thing the re-run of the after-leg will show.",
+  "plan": {
+    "summary": "Four edits: a new pure helper (downscaleVisionImage + boxAverageScale) with five unit tests; two lines wiring it into execute_vision_prompt's download loop plus the max_image_dimension config key (spec Optional + Defaults, images_downscaled in both output maps); and the RFC_022 parity obligation (check.py literal 4->5, overlay re-applied).",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/vision_image_downscale.go",
+        "symbol": "downscaleVisionImage / boxAverageScale / visionImageDimensionCapDefault",
+        "operation": "add",
+        "rationale": "The pure transform: DecodeConfig first (cheap dimension check), passthrough if legal, else decode -> box-average scale so the long edge equals the cap -> JPEG q85. Undecodable bytes pass through untouched so the provider reports them (one clear error site, not two vague ones); encode failure likewise passes the original through with a warning.",
+        "sketch": "func downscaleVisionImage(data []byte, mediaType string, maxDim int, logger *zap.Logger) ([]byte, string, bool) { if maxDim <= 0 { return data, mediaType, false }; cfg via image.DecodeConfig; if cfg.Width <= maxDim && cfg.Height <= maxDim { return data, mediaType, false }; img via image.Decode; dstW, dstH := srcW*maxDim/long, srcH*maxDim/long; scaled := boxAverageScale(...); jpeg.Encode(q85); return out, \"image/jpeg\", true }"
+      },
+      {
+        "file": "platform/orchestration/actions/vision_image_downscale_test.go",
+        "symbol": "TestDownscale*",
+        "operation": "add",
+        "rationale": "Five tests pinning the load-bearing properties: legal images pass byte-identical (what makes default-ON safe for every working consumer); a 9000px-tall capture (the leopardess failure shape) comes back exactly at the cap, aspect preserved, JPEG; the cap binds on WIDTH too; 0 disables entirely (the opt-out contract); undecodable bytes pass through.",
+        "sketch": "pngBytes fixture (non-uniform fill) -> TestDownscalePassesThroughLegalImagesUntouched (bytes.Equal), TestDownscaleCapsTheTallCapture (300x9000 -> h==7900, w==300*7900/9000, image/jpeg), TestDownscaleCapsTheWideImageToo, TestDownscaleZeroDisables, TestDownscalePassesThroughUndecodableBytes."
+      },
+      {
+        "file": "platform/orchestration/actions/execute_vision_prompt_action.go",
+        "symbol": "ExecuteVisionPromptAction download loop + ExecuteVisionPromptInputSpec",
+        "operation": "modify",
+        "rationale": "Wire the pass in where the bytes already are, and declare the key: Optional += max_image_dimension, Defaults += 7900. max_image_dimension is read via datahelpers.GetIntField(params.StepConfig.Config, ...) exactly like max_images at line 133 — StepConfig.Config directly, so the dead-static-config landmine does not apply to this action's read path.",
+        "sketch": "maxImageDim := datahelpers.GetIntField(params.StepConfig.Config, \"max_image_dimension\", visionImageDimensionCapDefault) ... in loop: mediaType := \"image/png\"; if scaledData, mt, scaled := downscaleVisionImage(data, mediaType, maxImageDim, params.Logger); scaled { data, mediaType = scaledData, mt; downscaled++ } ... images_downscaled added beside images_sent/images_dropped in both output maps."
+      },
+      {
+        "file": "deployments/kustomize/services/optional-key-budget-check/base/check.py",
+        "symbol": "OPTIONAL_KEY_COUNTS[\"execute_vision_prompt\"]",
+        "operation": "config_change",
+        "rationale": "The RFC_022 lockstep: the new optional key raises the action's declared count to 5; the cron's literal must match or the parity test fails (it did, in verify-head-builds, before this edit) and the cluster's copy must be re-applied (done: configmap created, cronjob configured).",
+        "sketch": "\"execute_vision_prompt\": 4, -> \"execute_vision_prompt\": 5,"
+      }
+    ],
+    "grounded_in": [
+      "Provider errors, one run each, pods named in RUNNING_NOTES 2026-08-27: Gemini 400 'Unable to process input image' (runs 0eff246f, a21e0c3e); Anthropic 413 request_too_large (run 0f686e43, model claude-sonnet-5 confirmed in the pod log); Anthropic 400 'At least one of the image dimensions exceed max allowed size: 8000 pixels' (run 12008d09, messages.0.content.1).",
+      "execute_vision_prompt_action.go:133 — maxImages := datahelpers.GetIntField(params.StepConfig.Config, \"max_images\", 16) — the action reads step config directly; the new key uses the identical read.",
+      "go test ./platform/orchestration/actions/ -run TestDownscale: ok (5/5).",
+      "verify-head-builds --with x3 --test: the ONLY failure introduced by this change was the RFC_022 parity test (check.py literal 4 vs registry 5), fixed by edit 4 and green after; internal/adapters/thunder/api [build failed] and platform/livespec TestNoNewMigrationFileReadersOutsideTheAllowList fail PRE-EXISTING on the clean working tree without these edits (verified separately) and belong to other lanes.",
+      "cluster apply: 'configmap/optional-key-budget-check-script-8fmthh5t6b created / cronjob.batch/optional-key-budget-check configured' 2026-09-02."
+    ],
+    "risks": "The consumer surface is two agents (design-critique-agent, tool-acceptance-agent); for both, every historically-successful image passes byte-identical, so behavioural change is confined to images that currently guarantee a provider error — the reviewer should check that claim against the passthrough test (bytes.Equal) rather than the prose. JPEG q85 re-encode is lossy: acceptable for taste review and acceptance LOOKS (both explicitly advisory), and only ever applied to images that could not be sent at all today. The box scaler is O(source pixels) per image — a 1440x20000 capture is ~29M pixel-reads, tens of milliseconds, bounded by max_images. The wiring itself is untested at the action level (owed proof above): first live run's images_downscaled field is the observable, and a zero there on captures known to exceed the cap would mean the wiring is dead — check it on the after-leg re-run before trusting the report."
+  }
+}
