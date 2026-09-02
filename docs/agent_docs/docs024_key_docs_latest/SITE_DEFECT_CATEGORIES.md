@@ -237,6 +237,12 @@ it — the remedy is a deliberate prompt edit (owner cost decision), keeping rul
 with no illustration/infographic entries on a content site is this category.
 **Source:** inline_guide_imagery `NOTES_inline_guide_imagery.md` §15 (verbatim prompt quotes);
 designblog_couk lane NOTES 2026-09-02.
+> **REMEDY LANDED 2026-09-02 (owner-directed): migration 718** flipped all four suppressing
+> surfaces (bullet, rule-13 floor, worked example, skeleton; rule 16 kept, rule-3 pages exempt) —
+> live at 19:59Z, council corr `2dae4f20`. **The check above stays**: for a site PLANNED after
+> 2026-09-02 ~20:00Z, zero illustration/infographic entries is now a defect signal, not
+> compliance; for older plans it remains expected history. First canary = portfolio
+> positioning's next remake brief.
 
 ### 4.7 Article pages are one prose slab — there is no structure to place imagery INTO (added 2026-09-02)
 Even with illustrations planned, in-article imagery has nowhere to land: measured 2026-09-02,
@@ -375,3 +381,78 @@ See the companion check under 4.2: distinct `background-image` URLs vs pages car
 **Adding an entry:** category, what it looks like, a runnable check, and the instance that
 produced it. If you cannot write the check, say so explicitly (see 1.2) — a named unmechanisable
 category is worth more than a weak check that looks like the others and quietly does not work.
+
+## 10. THE SITE'S TEMPERATURE CONTRADICTS ITS VERTICAL (added 2026-09-02, from the owner's gamedesign.uk review — "it is a major error")
+
+A games site shipped as a sober print journal: one image (the logo) plus three pencil-and-paper
+still lifes under a 60% black wash, zero games, zero interactive elements, an articles index with
+zero articles that describes what the articles would be like, and copy that examines game design
+like a legal periodical. **Every internal check passed.** The owner: *"It is a game design site —
+why isn't it full of games and images and excitement?"* Full instance and mechanism:
+`bugs_open/446`. The lesson is the file's premise again: presence checks (images resolve, sections
+exist, claims registered) cannot see APPROPRIATENESS. A site with nothing to say, saying it
+carefully, is green. Referent per vertical — `oufe.com` (restructuring finance) is CORRECTLY sober;
+the defect is the mismatch, not the register.
+
+### 10.1 The spec bans what the vertical is made of
+The lane's own `imagery_style_guide.avoid` read *"screenshots or renders of real or invented games;
+game characters… cartoon or anime styling; saturated primaries"*, and the generated hero prompts
+carried it verbatim: *"…a folded document and a pencil on a warm linen surface… **no game imagery**."*
+The pipeline obeyed. **Briefs govern** (designblog found the same: its restraint came from its brief).
+**Check, before dispatch:** read the site's `imagery_style_guide` and `mission`/`mission_brief`
+against the classifier's vertical nouns —
+```sql
+SELECT data->>'avoid' FROM site_specs WHERE site_id='<id>' AND aspect='imagery_style_guide' AND is_current;
+SELECT data->>'industry', data->>'category' FROM site_specs WHERE site_id='<id>' AND aspect='classification' AND is_current;
+```
+A ban that names the vertical's own subject (games on a games site, food on a food site, faces on a
+portrait site) is the defect. **Check, after build:** the prompts actually sent —
+```sql
+SELECT result->'response'->'image_result'->>'prompt' FROM site_work_items
+ WHERE site_id='<id>' AND item_type='needs_imagery' AND status='complete';
+```
+`grep -ci "no <vertical noun>"` over them; any hit is 10.1 fired.
+
+### 10.2 An index page with zero members of its own type (the brief-echo shape — `bugs_open/444`)
+The served page is 200 at full weight, headed with meta-prose ("What the pieces do", "What they
+avoid", "What gets included", "How the entries are written") and lists nothing. Mechanism here: the
+plan created ONE article page with ZERO sections, so the type had no producer at all.
+**Check, at the plan:** for every `section-index` page, count planned content pages in its section —
+```sql
+SELECT spp.name, (SELECT count(*) FROM site_plan_pages c WHERE c.plan_id=spp.plan_id AND c.parent_section=spp.slug AND c.role<>'section-index') AS members
+FROM site_plan_pages spp WHERE spp.plan_id=(SELECT id FROM site_plans WHERE site_id='<id>' AND is_current) AND spp.role='section-index';
+```
+`members = 0` before a word is written is the whole defect; 444's plan-time refusal (in council
+2026-09-02) is the automated form. **Check, at the artefact:**
+`curl -s <index-url> | grep -ciE 'what (they|we) avoid|what gets included|how the entries are written|what the pieces do'`
+— any hit on an index page is brief-echo. Negative-identity headings ("What they avoid") are ALSO
+owner-banned copy in their own right (2026-09-02).
+
+### 10.3 A hero over a 404 — the CSS-url shape 4.2 cannot see
+`/articles/index.html` rendered `background-image: linear-gradient(…), url('/assets/images/hero.jpg')`
+and that path was 404: the planner requested no site-scope hero and none for the section-index, so
+the template's default had nothing behind it. `check_image_url_404` inspects `<img src>` only.
+**Check:** extend 4.2's second grep with a resolve step —
+```bash
+curl -s "$URL" | grep -oE "url\('?[^')]+'?\)" | grep -oE "/[^')]+" | sort -u | while read -r u; do printf "%s %s\n" "$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN$u")" "$u"; done
+```
+Any non-200 is a hero (or section) painting a gradient over nothing. **Control:** the same default
+path served 200 on all six other sites probed — do not read one site's 404 as a fleet defect.
+
+### 10.4 Zero interactive or playable elements on an interactive vertical
+The practice seat of a games pair had no game, no demo, no embed, no playable anything, and one
+link to the sibling's tools. **Check:**
+`curl -s "$URL" | grep -ciE '<canvas|<iframe|<video|data-game|data-tool|<button(?![^>]*type="submit")'`
+across the site's pages, and `grep -c 'gamesdesign.co.uk'` (or the vertical's tool host) for cross-
+links. On a games / tools / demo vertical, a site-wide zero on the first and ≤1 on the second is
+this category. Not a rule for every vertical — a law firm scores zero and is right to.
+
+### 10.5 The class has no detector, and the fix is a reviewer with a referent
+Nearest instrument: the `experience-promise` family (live 2026-09-02) checks a page delivers what
+its own headings promise — which a restrained site does, immaculately. `content-quality-auditor`
+post-migration-694 carries a "does an index list its own items or write ABOUT itself" dimension
+(filing_mode=record) and is the one that should catch 10.2. Nothing reads the served page against
+the VERTICAL's temperature. Proposed in `bugs_open/446` §6.7: a flag-only reviewer seat given the
+classifier's vertical and the served bytes; the owner's two critiques tonight (designblog,
+gamedesign.uk) are its first two training cases. Until it exists, **a human reads the site** — which
+is how both were found.
