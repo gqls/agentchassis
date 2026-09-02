@@ -1,0 +1,82 @@
+# RFC_063 — The plan tables are becoming the capability tier, and six real sites are not in them
+
+**Status: OPEN — owner decision requested.** Filed 2026-09-02 by session "bugs_open/443"
+(lane `bugfix_443_fallback_tier_subjects`), spun out of `bugs_open/443` §4's closing
+observation, at the finetuning lane's and the council architecture seat's prompting (corr
+`b7c59309`, two advisory objections on exactly this).
+
+## The pattern, stated once
+
+New per-section and per-site capability keeps landing in the `site_plans` table family and
+nowhere else. As of 2026-09-02:
+
+| capability | store | reachable without a current `site_plans` row? |
+|---|---|---|
+| per-section fact scoping (151 cand 1) | `site_plan_sections.assigned_fact_ids` | since today: `pages.section_facts` (PBP-051) |
+| per-section subjects (PBP-049) | `site_plan_sections.subject` | since today: `pages.section_subjects` (PBP-051) |
+| route-1 hero imagery (IMG-078) | `site_plan_imagery.plan_id → site_plans` | **NO** |
+| tier-4 sibling layout synthesis | `site_plan_pages` roles | NO (returns nothing) |
+| plan-version rebuild stamping | `pages.built_from_plan_version` | NO (no version to stamp) |
+
+`[MEASURED 2026-09-02]` **6 real sites / 203 deployed pages** have no current plan row:
+finetuning.uk (57), ai-agent-orchestration.com (47), gaswholesalers.com (41), loancash.co.uk
+(30), cookly.uk (15), lampenkap.com (13). (19 further `pool-*.internal` rows are plan-less with
+zero deployed pages — excluded, counting them triples the apparent radius.) All six carry a
+current `site_specs.site_plan` ASPECT (the older generation's store), so they are not
+unplanned sites — they are sites whose planning history predates the tables.
+
+The bug that surfaced this: 11 of those pages repeat a component type, 11 of 11 served real
+near-duplicate sections (≥8 verbatim h2 pairs), because subjects were structurally unreachable
+at their serving tier. Fixed for subjects+facts by PBP-051 — but that fix is **the pattern
+this RFC asks about**: a per-capability fallback arm, added capability by capability, forever.
+
+## The two options, costed
+
+**A. Keep adding fallback arms (the PBP-051 pattern).** Each new plan-table capability grows a
+same-row/same-object sibling on the fallback tiers, with alignment guards and a detector.
++ Cheap per capability (~200 lines + tests this time); no birth-path risk; ships with the
+  capability.
+− Never fixes table-keyed capability (`site_plan_imagery` cannot be reached this way without
+  duplicating the whole table one tier down); the guard surface grows with every arm; the
+  architecture seat's objection on record: *"the fix compensates for uncoordinated writers
+  rather than resolving the coordination gap"*.
+
+**B. Converge the six sites into the plan tables** — materialise a minimal current
+`site_plans` row + `site_plan_pages`/`site_plan_sections` derived from live `pages` (an
+identity conversion: the plan says exactly what the pages already say).
++ Fixes the CLASS: subjects, facts, imagery, sibling synthesis and version stamping all become
+  reachable; the estate converges on one capability tier instead of two.
+− It is a PROGRAMME, not a patch (RFC_034's own ruling for the analogous conversion):
+  `reconcile_site_plan` emits `needs_page` rebuild items against plan pages, so a materialised
+  plan touches the rebuild path of 203 deployed pages. The reconciler's decision 1 skips
+  "deployed at current version, or older version with unchanged composition" — an identity
+  conversion should mostly skip, **but this is asserted, not measured**, and pages with
+  `build_status='needs_rebuild'` (17 in this cohort) and the 37 empty-`sections` pages have
+  non-obvious outcomes (an empty-sections page currently no-ops at `mark_no_ready_sections`;
+  on a converged site tier-4 synthesis could give it a borrowed layout instead — a behaviour
+  change). **21 files consume current-plan existence as of 2026-09-02** — each is a blast
+  radius to measure per site before any conversion dispatches.
+
+## What is asked of the owner
+
+1. Is B the destination (with A as interim, which is what today's state already is), or is A
+   the accepted steady state? The 2026-08-17 RFC_034 ruling pattern ("hybrid shape, run
+   through the framework, one cohort first") fits B: convert ONE site (suggest cookly.uk, 15
+   pages, zero repeat-layouts, smallest blast radius), measure the reconciler's actual
+   behaviour against it, then decide the remaining five.
+2. If B: whether the conversion runs as a new framework action (a `materialise_site_plan`
+   work-item type with the identity-conversion property asserted by its own guard) — per the
+   2026-08-04 every-site-through-the-framework ruling, a hand-INSERT of plan rows is not on
+   the table.
+
+**What this RFC does NOT ask:** permission for PBP-051, which shipped under the estate's
+after-the-fact review posture (owner ruling 2026-07-29 §2) with council approval `b7c59309`
+and is correct under either answer here — the sibling columns remain valid for any page a
+plan does not name.
+
+Consumers told (2026-07-29 §3): `bugs_open/114` lane (IMG-078 is the capability B unblocks
+for these sites), apis.uk lane (PBP-049), finetuning lane (largest affected site),
+copy_quality_two_stage (subjects precondition their experiments).
+
+Evidence trail: `bugs_open/443` §§4–8, `bugfix_443_fallback_tier_subjects/PLAN_2026-09-02` +
+`NOTES`, PBP-049/PBP-051 register entries.

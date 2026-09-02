@@ -33,3 +33,25 @@ Bigger question we are NOT deciding here, filed for you as RFC_063: more and mor
 sites aren't in them. Do we bring those sites into the tables properly (bigger job, fixes the
 class), or keep adding fallback support capability by capability? The fix above is correct
 under either answer.
+
+## 2026-09-02, end of day — fix approved, committed, columns live; the writer step waits on you
+
+The review council approved the plan first time (eleven advisory notes, none blocking — each
+answered with a measurement, recorded in NOTES). The code is committed and will ride the next
+chassis build; the two new database columns are already live (safe first — the code that reads
+them tolerates their absence and vice versa).
+
+Concretely, after the next roll: a page on one of the six table-less sites can carry one line
+of "what THIS section is about" per section, stored right beside its section list so the two
+cannot drift apart; and whenever any page anywhere builds a repeated section type with no such
+line, a note is recorded instead of the problem passing silently.
+
+What still stands between the finetuning pages and visibly distinct headings: seed 641, the
+writer-prompt change that is waiting on your read. Until it lands, the topics reach the writer
+and stop there — true for every site, planned or not.
+
+The bigger question is now written up for you as RFC_063: do we bring the six older sites into
+the planning tables properly (fixes hero imagery for them too; suggest trying it on the
+smallest site first), or keep adding per-capability fallbacks like today's? Today's fix is
+correct either way, so there is no urgency — but the imagery lane is blocked on exactly this
+for those sites.
