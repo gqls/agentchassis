@@ -219,7 +219,9 @@ Enabling change made first: `walk` now emits `DOMAIN\t<name>\t<YYYY-MM>` —
 the expiry month is the list command's own query key and was being flattened
 away by a `set()`. Exact expiry DATES would need `domain:info` per domain
 (~1,500 calls); the month is what the walk yields and is the offer unless
-valuation needs better. Told them the three retail-registrar inventories
+valuation needs better. **ANSWERED same evening: month precision is
+SUFFICIENT (valuation session, 2026-09-02) — expiry only feeds a renewal-cost
+column. The per-domain enrichment loop is DO-NOT-BUILD.** Told them the three retail-registrar inventories
 (Dynadot 451 mostly-.com / Porkbun 683 / Spaceship 203, all measured 09-02)
 live in the domains_cloudflare_rollout lane with proven read clients — .com
 being in scope makes those their next asks, not ours.
