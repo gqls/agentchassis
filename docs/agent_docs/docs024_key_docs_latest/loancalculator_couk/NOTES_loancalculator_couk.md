@@ -6808,3 +6808,21 @@ deadline trap is live for it (payday proposition). Measured across the day, flee
 **five wrong claims found across three sites** — the register work is finding errors at
 a steady rate, which is the strongest argument it should exist. Claims-verification
 lane (register mechanism + Q6 rule-span checker) has our results and the 699 header.
+
+### 699 verdict: APPROVED (1 advisory, medium) — and the advisory was verified, not filed
+
+Council `1f259a95`: **approved**, one medium advisory from bug_historian — a raw-SQL
+register INSERT risks a later TYPED writer (WriteSiteSpecAction / an EvidenceFact
+struct) silently dropping fields the struct does not model (`corrects_site_citation`,
+`rule`, `writer_line`) on re-serialisation.
+
+**Disposition, verified in the code the same hour `[MEASURED 2026-09-02]`:** the daily
+writer is SAFE — `refresh_evidence_base_action.go` unmarshals `data` into
+`map[string]interface{}` (`:338`), mutates only the keys it manages, and
+`writeRefreshedEvidenceBase` (`:1440-1500`) marshals THE SAME MAP back
+(supersede-and-insert, CAS-guarded on the row id, `pinned` carried). Unknown keys
+round-trip losslessly. The HAZARD STANDS for any future typed writer to this aspect —
+that is the claims-verification lane's seam (they own the mechanism), and they have
+been told with the verification attached. Note as designed: after the first refresher
+pass the row's `created_by` becomes `evidence-refresher`, so 699's ROLLBACK guard will
+refuse — correct, per its own header.
