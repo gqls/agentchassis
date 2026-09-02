@@ -29,6 +29,23 @@ ten-year registrations exist and a 12-month lookahead misses them.
 porkbun, nominet, spaceship, afternic). Replies arrive as
 `<cross-session-message>` turns in this session.
 
+## Dynappraisal daily window (quota 300/day, 429 at the cap; any session may run)
+
+Sequence for each day until the estate is appraised (dynadot lane's script,
+their `956708e70` — reads the "domain" column BY HEADER NAME, so both files
+below feed it unchanged; a file with no domain column is refused):
+
+1. One non-Dynadot test call (answers whether Dynappraisal takes foreign
+   domains — unanswered as of 2026-09-02; 429-on-exhausted-quota is
+   inconclusive, only a fresh window answers it).
+2. `scripts/domains/dynadot-appraise-all.sh docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/dynadot_domains_2026-09-02.csv docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/dynadot_valuations_2026-09-02.csv`
+   (finishes the 151 Dynadot stragglers; idempotent — skips rows already present).
+3. If the test passed: same command with
+   `inbound/appraisal_priority_2026-09-03.csv` as input and the SAME output
+   file — appends, skips duplicates, financial/home-garden land top-down until
+   the day's 429. Reset timezone unstated; the first successful call dates the
+   window.
+
 ## Prior-conversation mining
 
 Transcripts live at `~/.claude/projects/-home-ant-projects-agentchassis/*.jsonl`.
