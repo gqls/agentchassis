@@ -346,3 +346,52 @@ sites so a removed one cannot pass unnoticed.
   it is linted (the safe default). I confirmed `council_scope_drift_warn()` **is** currently
   warning about it on every 097/098 run, exactly as 314 designed it to. That mechanism works.
 - **The `--record-only` refusal is already a LANDMINE entry** (2026-08-18). Cited, not re-filed.
+
+### Council verdict: APPROVED, round 1, `e50b1d3d-5e93-4244-963e-347999f88db6`
+
+`decided_by: "all reviewers approve"`. 8 seats abstained (relevance gating), no high-severity
+objection, `gated_by_truncation: false`. Two LOW objections and one "missing", answered here
+rather than left in the artefact.
+
+**`editquality` LOW 1 — "if `pattern-check.py` references the old symbol elsewhere … those would
+silently break or reference an undefined name. Worth confirming before merge."**
+**Confirmed, and it is clean.** Checked against the shipped file (working tree verified identical
+to the commit first, so this is the code that shipped, not my draft):
+
+```sh
+grep -n "MIGRATION_NAME" scripts/pattern-check.py
+# 442:MIGRATION_NAME_RE = …      456: … MIGRATION_NAME_RE.match(name) …      — no bare MIGRATION_NAME
+grep -rn "MIGRATION_NAME\|migration_is_lintable\|MIGRATION_NEVER_REPLAYED" --include='*.py' --include='*.go' --include='*.sh' .
+# only pattern-check.py itself, its parity test, and one line of guidance text in the caller
+```
+
+The single surviving instance of the old lowercase literal is at `:388`, inside the comment that
+records it as history ("This predicate **used to be** `^\d{3}_[a-z0-9_]+\.sql$`"), which is
+deliberate. `audit-advisory-findings.py` imports only `CHECKS`/`changed_files`, both unchanged.
+**A good objection: the rename WAS the risk in this edit, and the seat named it without being
+told.** It cost one grep to discharge, which is the right price.
+
+**`editquality` LOW 2 — `shNameRe` could false-positive on a benign reformat of
+`run-migrations.sh` (e.g. reflowing the pipe continuation).** Accepted, and it is the stated
+design intent rather than an oversight — risk 3 of the submission says so, and the three sibling
+parity tests in that package make the same trade. **Loud-and-occasionally-wrong beats
+silent-and-sometimes-blind here**, because the failure it guards is a check that stops covering
+things without saying so. Worth noting the shape of the false positive is benign: the test
+`t.Fatalf`s with "literal not found", which names the file and sends the reader to the rule — not
+a wrong claim about the rule itself.
+
+**`tooling_provenance` MISSING — "whether `scripts/pattern-check.py` is (or should be) a
+`doc_plans`/`doc_notes` subject with prior decisions to load before this edit".**
+Not done, and stated rather than silently dropped — **this is the same objection 314's own round
+raised** (it appears in this file above, under "Answered on the record"), and the answer has not
+changed: no `doc_plans` subject exists for this mechanism, the council's verdict notes are
+per-run artefacts, and `LANDMINES.md` is this estate's prescribed channel for exactly this class
+— which is where the entry went (`072e916dc`, synced to `doc_notes` by
+`landmines-verify-dispatch.sh`, correlation `afb70101`). Recorded as a standing open question for
+whoever decides D10, not as a task for this lane. **Twice-raised by the same seat on the same
+mechanism is itself a signal**, and it is now written where that decision will be made.
+
+**No trailer amend, deliberately.** The commit carries `Council-Submitted: e50b1d3d…`; `098`
+resolves the correlation at report time and credits the commit automatically now the verdict is
+approved. Forward-only forbids an amend, and writing `Council-Reviewed:` in a later, unrelated
+commit would be a false join key. Nothing further is owed.
