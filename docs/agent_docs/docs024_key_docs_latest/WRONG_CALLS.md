@@ -58852,3 +58852,34 @@ the one-row dump a reflex before any jsonb-keyed census.
 
 Family: a-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-demand-control
 (the zero PASSED while blind — the demand control here is one row whose spec you have read).
+
+- **2026-09-02 — vigilant_designer_offer_analysis — I promised a peer lane that my lockstep would go
+  RED when they cut v2, and as the file stood it would have gone GREEN.** Building the producer
+  register gate I wrote a bidirectional lockstep between Go and
+  `BANNED_REGISTER_v1.json`, and told `copy_quality_two_stage` in terms: *"when you cut v2, the build
+  goes red until `registerwords.go` is updated — that is the drift protection this lane could never
+  enforce from a docs file."* They believed it and recorded it as the contract.
+  **It was false, and the register's own rule is what made it false.** Every assertion in the file was
+  anchored to the literal filename `BANNED_REGISTER_v1.json`, and the register's usage rule says *"a
+  new version is a new file line, never an in-place semantic change."* So the day v2 is cut, v1 keeps
+  existing, keeps reporting `"version": 1`, and every test keeps PASSING while the estate runs a
+  register Go does not implement. My guard would only have fired on the one action their rule forbids
+  — editing v1 in place.
+  **What caught it:** not a test and not a review — *thinking about how the other lane's next commit
+  would actually land*, prompted by them telling me v2 was now GO. Nothing in my own suite could have
+  caught it, because the suite was the thing with the hole.
+  **The cheap check that would have, and it generalises:** when you anchor a check to a versioned
+  artefact, ask *"what does the NEXT version look like on disk, and does my check see it?"* A check
+  that enumerates from a fixed name cannot see an ADDITION — this is `a census goes stale by
+  ADDITION` pointed at a test rather than at a count, and the failure mode is the worst kind: a
+  confident green over an unenforced rule.
+  **Fixed** (`91e2ad706`) by reading no filename at all: glob the directory, parse the version out of
+  every `BANNED_REGISTER_v*.json`, assert the Go constant equals the HIGHEST present, and assert the
+  file the rest of the suite reads IS that highest one.
+  ⚠ **And the fix was DEMONSTRATED rather than asserted** — simulated the v2 cut, watched the new
+  guard fail *and watched the rest of the suite return `ok`*, which is the hole shown rather than
+  argued. A guard for a state that has never existed is exactly the guard most likely to be vacuous;
+  inducing the state is the only way to know.
+  Tally: **a-check-anchored-to-a-version-cannot-see-the-next-one** ×1,
+  **a-promise-made-to-a-peer-is-a-durable-claim** ×1 (they had recorded it as their contract; a false
+  assurance to another lane outlives the conversation that produced it).
