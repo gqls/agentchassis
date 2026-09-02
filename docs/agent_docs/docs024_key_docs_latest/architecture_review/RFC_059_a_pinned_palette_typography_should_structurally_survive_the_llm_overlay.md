@@ -1,6 +1,75 @@
 # RFC_059 — a pinned palette/typography should structurally survive the LLM overlay
 
-**Status: DRAFT**
+**Status: DRAFT — DO NOT RATIFY AS WRITTEN. Three defects found in review the same
+day it was filed (2026-09-02); §§1-7 below are the ORIGINAL text, left unedited so
+the objections can be read against them. Start at §0.**
+
+## §0. Review objections (2026-09-02, Fable architecture review, same day as filing)
+
+Recorded in the file per PROCESS_architecture_review.md ("objections and revisions
+happen in the file, visibly"). All figures measured against the live DB.
+
+**O1 — the fix pins the WRONG STORE, and would repaint two of this RFC's own named
+canaries.** §2.1's code returns `out` after copying `themePalette` — i.e. it serves
+`comp.Palette`, the site's **`palettes` row**, never `reference_values`. The prose
+throughout says `reference_values` is what gets held. Those two stores drift: of 33
+composed sites with a current `design_intent`, **4** disagree on background/primary/
+text — `cv1.co.uk`, `finetuning.uk`, `gaswholesalers.com`, `loanzy.uk`. Two of them
+are the canaries §5 nominates. Their `palettes` row holds the fleet default while
+`reference_values` holds the real served colour, and they render correctly TODAY only
+because the LLM overlay carries `reference_values` through the prompt. This fix would
+skip that overlay and ship them the generic default — the canary failing in the
+opposite direction to the one being watched.
+→ When pinned, overlay `reference_values` onto the theme palette
+(`buildPaletteMap(comp.Palette, referenceValues)`), do not return the composition row.
+
+**O2 — the discriminator discriminates nothing; the "unchanged" population is empty.**
+§2 claims sites without `reference_values` behave exactly as today. Measured: **34 of
+34** sites with a current `design_intent` have non-empty `palette.reference_values`
+(31 for typography). **25 of the 34** were written by `domain-research-classifier`,
+whose output migration 613's own header calls "an unsteered coin-flip that lands dark
+about a third of the time". So this ships a fleet-wide palette freeze, mostly onto
+machine guesses, and makes the boxingonline contradiction class (§1) permanent rather
+than merely undetected.
+→ Gate on an explicit opt-in lock INSIDE the spec data — e.g.
+`design_intent.palette.locked: true` — written by `apply_theme_kit` and by human pin
+migrations, never automatically. That is also the shape OWNER RULING 2026-08-02 §2
+prescribes (opt-in field, unsafe default OFF), and under RFC_022 such a field with no
+live consumers is not itself architecture-scope.
+→ §3's rejection of `site_specs.pinned` is reasoned wrongly: a READER needs one
+`SELECT pinned … WHERE aspect='design_intent'`, not changes to the shared writer, and
+"no behavioural gain over presence" is backwards (presence separates nothing; `pinned`
+is true on 4 rows, all human-set). The real objection to `pinned` — which this RFC did
+not make — is that it is **lost on supersede** (both `WriteSiteSpecAction` and
+`apply_theme_kit` omit it on INSERT; 2 of the 4 pinned rows are no longer current).
+That argues for the in-data key, not for presence.
+
+**O3 — Bar 1 of PROCESS_architecture_review FAILS: no measured instance of the
+defect.** The bar asks for a defect the current design cannot express a fix for, with
+live figures. §1's robot-hands citation is the *no-`reference_values` → invent* branch,
+which DES-052 already closed. The boxingonline case was refuted by a peer session and
+is (correctly) disclaimed in §1 — but nothing replaced it. Migration 350's own
+correction says the one observed pinned run "reproduced the pinned values exactly".
+§7's first acceptance checkbox is "confirm the served palette DOES drift" — i.e. the
+defect's existence is listed as future work.
+→ Run the induced-fault test, or a `090` diagnosis, BEFORE ratification. If the drift
+cannot be reproduced on a pinned site, this RFC has no subject and should be withdrawn
+in favour of the much smaller O1 fix (make the two stores agree).
+
+**Lesser points:** Bar 4's "no migration" is false — the §2.3 prompt change is a live
+config migration to `agent_definitions`, and needs its `_ROLLBACK.sql`. Bar 3's single
+stage is fine but should say "one stage, deliberately" rather than describing itself as
+staged. §2's advisory check should read the structured `design_intent.dark_light.scheme`
+(present on 9/34) before keyword-scanning `colour_mood`. The "~15-line diff" figure
+excludes that check. §2's line "`enforceLayoutScheme` is documented as
+`buildPaletteMap`'s only non-test caller" is garbled — `enforceLayoutScheme` is not a
+caller; the underlying fact (one call site, `:125`, with a comment warning against a
+second) is correct. Consumers of the changed guarantee — the classifier lane and the
+adoption lane — must be TOLD, not merely measured (OWNER RULING 2026-07-29 §3).
+
+---
+
+**Status of the original draft below: unedited.**
 
 Filed 2026-09-02, session "themes", as Track B of the theme-kit plan
 (`/home/ant/.claude/plans/please-think-hard-about-starry-locket.md` §6) —
