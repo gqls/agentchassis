@@ -56,10 +56,13 @@ first pass = correct) · 10 CONFIRMED (axis; implementation AFTER D per their H4
   x_not_y, its briefing 8 — the wash campaign cleans STOCK, the briefing agent needs its own
   gate for FLOW (the offer lane's Decision-E argument, one producer along) — ADD TO THE
   OWNER'S LIST. (c) Whether banned WORDS get a page-side repair arm (today: shapes repair,
-  words only detect) — design question, queued. (d) the empty-room class is SPLIT: designblog's
-  four listing pages route to portfolio positioning's bugs_open/444 candidate 1 (plan-side
-  refusal of zero-item listing pages — closes that half upstream); the title-promise design
-  narrows to the NON-listing half only. designblog offers served-vs-stored test cases.
+  words only detect) — design question, queued. (d) the empty-room class is SPLIT and now
+  PRECISELY scoped: 444's gate is IMPLEMENTED (6525b45ae, r2 in council) and refuses
+  typed-listing zero-source pages at plan time; its pinned blind spot (register BLD-028) is a
+  listing-in-fact page typed `content` — the GLOSSARY shape, which is the ONLY writer-prose
+  instance class (the directories rendered hollow from a resolver error, not writer output —
+  my 3–6 count corrected in NOTES). The title-promise demonstration scopes to exactly that:
+  a titled promise with no data on an untyped-listing page. designblog offers test cases.
 
 
 - ~~Council verdicts to read~~ **BOTH APPROVED round 1** (v2 UNANIMOUS; 706's constitution
