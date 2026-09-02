@@ -19345,6 +19345,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
   challenge-page title is a fetch failure, not a clean page. Fetch with curl (or
   a real UA) and scan the SAVED copies, so the fetch layer and the scan layer
   fail separately and visibly.
+- **⚠ ADDENDUM 2026-09-02, bugs_open/414 lane (invited by the author) — THE SAME
+  COMFORTABLE ZERO ARRIVES WHEN THE CORPUS IS TRUNCATED IN TRANSIT, AND NEITHER
+  CHECK ABOVE SEES IT.** The footprint is wider than "fetch-based": it is *any
+  scan whose input crosses a transport*. Measured 2026-08-27 exporting the live
+  component corpus for a `cmd/claimscan` dry run — a single
+  `kubectl exec … psql` stream ended with "unexpected EOF" **after printing
+  plausible output** and delivered **2,283 of 2,585 rows**. No 403, no challenge
+  page, every delivered row intact and full-sized. So the planted-text control
+  still fires (its row survived) and the per-page size/title gate passes on all
+  2,283 — both halves above report healthy while the scan runs over 88% of the
+  corpus and reports clean. A second attempt, a per-domain loop, delivered 51
+  rows because `kubectl exec -i` ate the loop's stdin, which at least looked
+  wrong. **The control the transport case needs is a THIRD one: reconcile the
+  ROW COUNT at all three points** — source (`SELECT count(*)` with the scan's own
+  predicate), transport (`wc -l` inside the pod), destination (`wc -l` locally) —
+  and refuse to scan unless they agree. Write the export to a file *inside* the
+  pod and `kubectl cp` it out, so the transport has a size to check rather than a
+  stream to trust. Sibling shape, same evening: an ABSENCE reported to another
+  lane from a result set truncated by `head -14` — three of twelve rows visible,
+  the refuting row sorted first. **Whenever a zero is the answer you would like,
+  ask what the instrument would have shown had it only seen part of the input.**
 - **relations:** the "Cloudflare refuses in front of the island" entry above
   (that one is about ATTRIBUTING a refusal; this one is about a scan silently
   converting refusals into a comfortable zero) · MEMORY
