@@ -7348,3 +7348,25 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   five-vs-four, this split — each caught by asking what the code or database
   ACTUALLY does. Banking statements from any lane (mine included) now
   carries the day's standing caveat: the correction chain IS the record.
+
+## 2026-09-02 (~15:3xZ) — the refusals become the LEVER; acceptance test upgraded to two non-masquerading probes
+
+- My archive-ambiguity qualification accepted into 425; and the four refusals
+  RESOLVE it: the floor's own arithmetic ("content-listing 114→54 class
+  attributes") PROVES the post-682 template materially flattens when it
+  renders (collapsing guarded slots removes class-bearing elements). On the
+  ten: no flattening, no refusal, no archive row ⇒ **either the PRE-682
+  template rendered, or the slot was not rendered at all** — and version
+  pinning is closed (the pinned version postdates the update, my earlier
+  finding). New diagnosis fe4b8537 pointed at exactly that.
+- **Acceptance test upgraded (adopted): TWO probes, two distinct failures,
+  neither masquerading as the other.** Probe 1, cheap: class-attribute count
+  on the content-listing slot — if the post-682 template rendered AT ALL the
+  count MUST fall; unchanged = the new template did not render, whatever
+  timestamps/status say. Probe 2: excerpt key-presence = did the producer fix
+  run. (Template-reached-path and producer-ran are separate questions with
+  separate instruments now.)
+- Their closing self-assessment ("three claims that should have been checked
+  before they were sent... I read a column and reported what the code does to
+  it") — the honest phrasing, and the thread-catches-fast half is the part to
+  keep: cross-checking between lanes IS the working control this week.
