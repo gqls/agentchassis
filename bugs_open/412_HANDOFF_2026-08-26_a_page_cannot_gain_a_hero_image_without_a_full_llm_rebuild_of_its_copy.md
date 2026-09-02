@@ -440,3 +440,40 @@ The finetuning lane's name-vs-capability matcher warning (4 hero-named component
 reference neither image field; all zero-instance today) is mooted by the plan-row
 design — no component matching at all — and already closed in IMG-077's predicate,
 which is capability-based.
+
+### §11b — the route-1 design's DOMAIN OF VALIDITY, stated before anyone measures a green acceptance (from the owning lane's own catch, 2026-09-02 night)
+
+**The blind spot** (finetuning lane, cross-session; re-derived independently before
+recording): `site_plan_imagery.plan_id` hangs off `site_plans`, so a site with **no
+current plan row has nowhere for the route-1 upsert to attach**. `[MEASURED 2026-09-02,
+re-derived: deployed_at IS NOT NULL, pool-* excluded]` **6 real sites, 203 deployed
+pages by this predicate** (their census read 186 by theirs — same set, same scale):
+finetuning.uk 57 · ai-agent-orchestration.com 47 · gaswholesalers.com 41 ·
+loancash.co.uk 30 · cookly.uk 15 · lampenkap.com 13. **The exposure is LIVE for 114's
+class:** four of the six hold **46 active content-hero assets** between them
+(ai-agent-orchestration 17, finetuning 14, loancash 9, lampenkap 6).
+
+**Why acceptance alone would never say this:** the planned fixture (webdesign.co.uk)
+HAS a current plan. A green canary + green rollup trend would read as "shipped" while
+these six sites are structurally unreachable by route 1 — the finetuning.uk exclusion's
+shape, one table along, which is exactly why it is stated here instead of discovered.
+
+**What bounds the damage, also stated:** route 2 (Lane B) is PLAN-INDEPENDENT — it
+resolves `ContentHeroKey` straight from `assets` — so plan-less sites are not dead
+ground for delivery generally; they are outside route 1's domain only. The round-2
+design therefore owes three things: (1) the upsert's no-current-plan case is a LOUD
+disposition (`skipped_no_current_plan`), never silence; (2) acceptance adds a SECOND
+canary on one plan-less site (gaswholesalers.com suggested — it is also a
+`bugs_open/398` site, so two lanes already touch it) so the gap is measured, not
+inferred; (3) the round-2 submission states plainly whether route 1 is knowingly
+plan-backed-only with route 2 as the plan-less path, or whether a plan-less delivery
+arm is in scope.
+
+**The wider geometry, cross-linked:** `bugs_open/443` (filed the same day, same lane)
+finds the identical boundary from the copy side — `load_page_sections_from_spec`
+publishes `section_subjects` only when `specSource == 'site_plan_tables'`, so plan-less
+sites cannot scope their sections either. Two symptoms, one fact: **the plan tables are
+becoming the tier where capability lives, and six real sites are not in them.** Whether
+those six should GAIN plans (the structural fix) or every plan-tier capability owes a
+plan-less arm is an owner-shaped question that neither lane should answer alone;
+recorded here and in 443 so whoever works either finds both.
