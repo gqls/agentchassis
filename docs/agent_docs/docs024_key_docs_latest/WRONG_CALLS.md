@@ -108,6 +108,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **treat any check whose failure triggers an automated REWRITE as production configuration — a wrong test does not merely fail, it becomes the specification the repair loop faithfully implements, and it will damage correct code to satisfy it** | **1** |
 | **a text-stripping metric INVERTS on truncated input — the strip silently no-ops when its closing tag was cut, so the worst case scores best; measure positionally (`strpos`) instead of by what survives a `regexp_replace`** | **1** |
 | **name the DISTURBANCE's timescale before choosing a stability test's window — N runs back-to-back share a query plan and a heap, so they cannot see drift that happens over hours; the sampling interval is part of the claim** | **1** |
+| **`ls -t` / `git log --since=<your last read>` the lane you are about to act IN (or point the next session INTO) before writing the action item — clearing the blocker you were watching is not re-reading the lane; the disconfirming evidence arrives by another session's commit while you are busy verifying yours** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -59659,3 +59660,30 @@ the instrument answered a narrower question than the one asked.
 - **Cost.** One council round's edit-5 discussion partly about a phantom sentence (the round REVISEd
   on other, real grounds, so no wrong change shipped); the round-2 submission carries the corrected
   live anchor.
+
+## 2026-09-02 — "unblocked, ours to do" written into a handoff 75 minutes after the evidence against it was committed (session site_delivery_and_editor)
+
+- **The claim.** `site_delivery_and_editor/HANDOFF_2026-09-02b_continue_here.md` §1.1: "FIRE
+  the transparent logo regen — unblocked, ours to do." Written ~21:0xZ on verifying that
+  `b2322a203` was aboard the fresh roll — which it was.
+- **Why it was false.** The roll was the OLD blocker. The 417 lane's CONTRIB in the very
+  directory §1.1 points the reader at (rounds 1–3, last 19:45Z, committed `7fc657116` at
+  19:45Z, and folded into `bugs_open/424` itself) had already shown the matte's fail-closed
+  guard is blind to its own failure mode — 1 usable of 4 stored, identical `border_keyed=1.000`
+  on a failure and a success — and no commit since `b2322a203` touches the guard. There is no
+  asset revert seam. The 424 lane's own handoff lists "test on boxingonline?" as OWNER
+  decision #2.
+- **What caught it.** The next session's cold-start read: `ls -t` of the 424 lane dir put the
+  CONTRIB above the handoff §1.1 cited. Not a measurement — a directory listing.
+- **The mistake, precisely.** The item verified the one condition it had been waiting on and
+  treated that as the whole gate. **Clearing the blocker you were watching is not re-reading
+  the lane you are about to act in.** The disconfirming evidence arrived by another session's
+  commit while this one was busy verifying the roll — the shared-tree class CLAUDE.md's first
+  paragraph names: you cannot see any other session's actions except by looking.
+- **The cheap check that would have.** Before writing "ours to fire" against another lane's
+  mechanism: `ls -t <that lane's dir> | head` and `git log --since=<your last read> --
+  <that lane's dir> bugs_open/<its bug>`. Read anything newer than the file you are citing
+  first. Ten seconds.
+- **Cost.** None realised — the regen was not fired. Had the next session trusted §1.1 as
+  written (the first item, marked "ours"), a ~3-in-4 chance of an irreversible unusable logo
+  on the first paid customer's site, reported as success.

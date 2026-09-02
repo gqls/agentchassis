@@ -500,3 +500,41 @@ Correction to the entry above, same evening: the contact-page "not found" work
 now running. I've sent that thread what closes our half (a real "not found" served at
 the public address) and a warning about the hourly publishing cycle we're both using
 tonight, so neither of us misreads the other's publish.
+
+## 2026-09-02 (late evening, fresh session) — the release landed, but I am NOT regenerating the logo tonight, and here is why
+
+The release you built this evening is running, and I checked it the proper way: I asked
+each of the two services involved what code they were built from, and both answered with
+the same commit, which contains every fix we were waiting on. So the contact page's "not
+found", the card summaries on the home page, and the analytics tag are all now able to
+arrive. Each arrives on its own schedule without anyone pushing it, and I am watching the
+live site for all three. The contact page should flip at the site's next publishing tick,
+which falls a few minutes before the hour.
+
+The transparent logo is different, and the previous note from this thread got it wrong.
+It said the logo regeneration was now unblocked and ours to fire. The release condition
+is met, but another thread had already run the new logo mechanism on three other sites
+this afternoon and read the results pixel by pixel. What they found: the mechanism works
+about one time in four, and the safety check that is supposed to refuse a bad result
+cannot tell a good one from a bad one. It gave the same perfect score to a logo that came
+out properly transparent and to one that came out entirely opaque. Three sites are now
+serving an unusable logo that the system believes is fine.
+
+Nothing about tonight's release changes that. The fix that went out corrects the wording
+of the instruction to the image model; it does not touch the safety check, which is
+unchanged in the code. And a generated logo cannot be undone: there is no "put the old one
+back". Boxingonline's current logo, the solid dark mark whose shape you approved, is
+correct and serving. A regeneration tonight would have roughly a three-in-four chance of
+replacing it with something worse, on the site of our first paying customer, while
+reporting success. So I have not fired it, and I have corrected the note that said to.
+
+This needs you on two points. First, the thread that owns the logo mechanism
+(bugs_open/424) needs to fix the safety check so it measures transparency rather than
+whether the background was merely reached, and that means another release. Second,
+whether boxingonline should be the first real test of the repaired mechanism at all, or
+whether we prove it on one of our own sites first. Their own handoff already lists that as
+your decision. Until one of those happens the interim logo stays, and delivery stays held
+on your fix-everything ruling as before.
+
+One practical thing: the cluster credentials expired partway through this session, so I
+can watch the site itself but cannot read the database until you refresh them.

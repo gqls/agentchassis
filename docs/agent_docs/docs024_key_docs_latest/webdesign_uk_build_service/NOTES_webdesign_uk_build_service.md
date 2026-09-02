@@ -7773,3 +7773,79 @@ lane's per the ownership ruling.
   §1.6b: rerender path ⇒ still-suffixed cards after the wave are NOT a new
   failure; and the pre-delivery SITE_DEFECT_CATEGORIES sweep should run only
   after roll + HOLD + GTM wave settle.
+
+## 2026-09-02 (~21:0xZ) — THE ROLL LANDED: v1.0.1355, all four gating commits ABOARD; three convergence waves now inbound
+
+- **Roll verified at the artefact, per service** (owner announced a fresh build;
+  believed only after the probe): agent-chassis pods `8ddbf8958-cd2h9/vppjz`
+  started 20:56:43/20:57:10Z on `v1.0.1355`; startup provenance line read from
+  the pod: `git_commit=0d2feee2ff61d89b3f18588cdd81b569fc2c4ee6` (0d2feee2f,
+  447 lane's commit, 20:24Z). Ancestry (`git merge-base --is-ancestor <c> <stamp>`),
+  all four ABOARD: `b2322a203` (424 logo), `b60d66e3c` (429 contact sweep,
+  th1→th2), `9f6f91325` + `c1178442d` (425 cards Go half).
+- **Served probes at ~21:0xZ, controls held** (index 200, article-card 24):
+  `contact.html` **still 200** — expected pre-convergence (ONE republish per
+  opted-in site on its NORMAL slot; do not force) · `GTM-PQ3WCTBD` **0** —
+  stale_chrome wave not yet fired · `article-card__excerpt` **0** — 425's HOLD
+  listing rerender not yet applied (components lane's to apply). index
+  last-modified 20:53:26Z (pre-roll reconciler tick, unrelated).
+- **Net: nothing is wrong; three waves are inbound** (429 rotation republish,
+  425 HOLD rerender, GTM chrome pass) plus one dispatch that is now OURS to
+  fire (424 transparent logo regen). Pre-delivery sweep waits for all of it.
+  New handoff cut: `site_delivery_and_editor/HANDOFF_2026-09-02b_continue_here.md`.
+
+## 2026-09-02 (~21:2xZ, fresh session) — handoff §1.1 RETRACTED: the logo regen is NOT ours to fire; the guard is blind to the failure it exists to catch
+
+- **The correction, and what caught it.** `HANDOFF_2026-09-02b` §1.1 said "FIRE the
+  transparent logo regen — unblocked, ours to do." Following its own pointer into the
+  424 lane dir, `ls -t` listed a CONTRIB from the 417 lane ABOVE the handoff §1.1 cites —
+  rounds 1–3 (17:0x → 19:45Z), committed `7fc657116` at 19:45Z, ~75 min before §1.1 was
+  written. The previous session verified the ROLL condition (correctly) and did not
+  re-read the lane it was pointing the next session into. Retracted in place in the
+  handoff; WRONG_CALLS row appended.
+- **What the CONTRIB establishes** `[MEASURED by the 417 lane at the stored bytes; the
+  mechanism re-read at the code by me]`: the fail-closed guard gates on
+  `stats.BorderKeyed` (`dynamic_adapter.go:683`), which counts border-flood MEMBERSHIP at
+  `dist <= outer` (`keyground.go:104/131/149`); a pixel only reaches alpha 0 at
+  `dist <= inner` (`:176`). Five fleet runs on `v1.0.1354`, all queue-triggered (the
+  "do not trigger" line never bound the fleet): **1 usable of 4 stored + 1 correct
+  refusal**; `border_keyed=1.000` on designblog (0.0% transparent) AND websitepromotion
+  (87.4%). Same score, opposite outcomes. Three sites now serve an unusable logo the
+  platform believes is fine.
+- **Why the roll does not change this:** `git log b2322a203..HEAD -- internal/adapters/
+  imagegenerator/keyground.go dynamic_adapter.go` → EMPTY. `b2322a203` fixed the PROMPT
+  contradiction; the guard on `v1.0.1355` is byte-identical to the one that passed those
+  failures. Roll verified on BOTH services this time (the 424 RUNBOOK says both must
+  carry it): image-generator-adapter provenance `0d2feee2f` read from pod
+  `588ffc76b9-fddqd` at 20:56:58Z; all five gating commits (`6440ec968`, `b2322a203`,
+  `b60d66e3c`, `9f6f91325`, `c1178442d`) → ancestor of the stamp.
+- **Why it is the owner's call and not mine:** no asset revert seam (424 §"why there is
+  no clean revert" — store upserts, retract deletes); first paid customer; the 424 lane's
+  own handoff lists this exact question as owner decision #2, "not this session's call".
+  CLAUDE.md: check that the evidence supports the specific state-changing action. It
+  does not — a fire is ~3-in-4 to replace a correct mark with an unusable one that
+  reports success.
+- **The fleet cannot fire it behind us** (the CONTRIB's trap: a manual "do not trigger"
+  does not bind the queue): no open `needs_imagery:site:-:logo` for `d2aa5206` at 21:0xZ
+  (3 open fleet-wide: sites `38c1ccd3` ×2, `0162cde4` ×1 — neither is boxingonline); last
+  logo run on this site = the interim `00aa1796` (10:40Z); asset `20ce80fb` `updated_at`
+  10:40:12Z, `mime_type` empty (433's class).
+- **Waves at 21:0xZ (all pre-convergence, controls held):** contact.html 200 (last-mod
+  10:51:33Z) / index 200 (20:53:26Z) · `GTM-PQ3WCTBD` 0 · `article-card__excerpt` 0 /
+  `article-card` 24 · consent 0 · mailto/tel 0. This site's reconciler slot is ~:52 past
+  the hour `[INFERRED from three ticks: 18:51:51/18:52:10, 19:52:29, 20:52:47/20:53:03Z
+  COMPLETED orchestrations with domain=boxingonline; index last-modified 20:53:26Z]` →
+  first post-roll tick ~21:52Z. Served-site monitor armed (60s poll, emits on each wave,
+  control on index status).
+- **`customer_access_tokens` = 0** at 21:0xZ (no delivery happened).
+- **Instrument lost mid-session:** the shared kubeconfig token expired ~21:1xZ (every
+  kubectl → `Unauthorized`; the sanctioned JWT-expiry check confirms). Owner-only
+  refresh. Served-site probes are enough for the three waves; `published_hash` `th2:`
+  and the HOLD's rerender rows wait for the token.
+- **Item 3 (cards) state:** no `page_rerender` rows for boxingonline since 17:31Z at the
+  last DB read (21:0xZ) → the components lane has NOT applied `683_…_HOLD.sql` yet. Their
+  header's precondition (probe `ListItemExcerpt` in every chassis pod) is now satisfiable
+  on `v1.0.1355`; theirs to apply.
+- Messaged: `boxingonline.com` (retraction + waves + token), `bugs_open/424` (the guard
+  finding blocks this lane; what unblocks), `bugs_open/429` (slot observation; th2: flip
+  is theirs to read while I have no DB).
