@@ -73,8 +73,18 @@ asset) plus `length(js_content)` (is the asset it references actually populated)
 — those two signals together are what actually distinguishes broken from fine, not the
 presence of any `<script` substring.
 
-**Anyone re-running this census: don't reuse the loose check.** The corrected query, one
-row per genuinely-broken fork fleet-wide, as of 2026-09-02:
+**Anyone re-running this census: don't reuse the loose check — and a `src=`-excluding
+check is not enough either.** Credit: `webdesign-tool-rebuild` (grind seat), second
+correction. A regex that merely excludes the `<script src=...>` reference tag
+(`<script(?![^>]*src=)`) still misreads `tool-provocation-heat-rater`'s fork as "has real
+inline behaviour", because that row's one non-reference `<script>` tag has a
+1,781-character body that is **entirely a `/* === tool-doc === ... */` comment** — the
+platform-wide convention every generated tool's script carries (which is exactly why
+`collectJSAssets` calls `StripToolDocHeader(jsContent)` before publishing). **Any "does
+this still have inline JS" check on this estate is measuring the header comment unless it
+strips comments first.** The check that actually distinguishes broken from fine: take
+every non-`src=` `<script>` body, strip `/* */` and `//` comments, and test whether any
+executable text remains.
 ```sql
 SELECT f.id, f.name, f.function
 FROM content_components f
@@ -86,7 +96,10 @@ WHERE f.component_level = 'tool'
 ```
 This returns exactly the two rows in §2's table. Whether one is "live damage" still
 requires the `page_components` join in §2 — a row matching this query with no linked page
-is latent, not live.
+is latent, not live. [MEASURED 2026-09-02, webdesign-tool-rebuild, re-run with the
+comment-stripping check across all 7 forks that originally looked ambiguous]: 5 of 7 have
+genuine executable JS remaining (fine); 2 of 7 have zero executable residue
+(`tool-equity-release`, latent; `tool-provocation-heat-rater`, **live**, matching §2).
 
 ## 4. Why this is NOT being fixed in this filing — the scoping mismatch
 
