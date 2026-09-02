@@ -178,10 +178,16 @@ gap (source enablement for sites with zero `content_sources` rows):
    `idea.uk`'s 2026-08-25 spec entry is the worked example: `recommended:
    true`, `source_types`, `vertical_keywords`) AND a `content_sources` row
    (`source_type='rss'`, the WebProNews URL, with the editorial caution
-   above). Their plan-time gate (council pending as of their message, corr
-   `c0990eb3`) will hold un-enabled news pages behind a `capability_gap`
-   named `news_source_enablement` — this lane's enablement work is what
-   turns that receipt green. Their plan:
+   above). **UPDATE (received after this handoff was first written, via
+   `Portfolio positioning`): the plan-time gate is now council-APPROVED
+   (round 3, 2026-09-02 20:53Z) and migration 720 is applied — the
+   planner's prompt half is LIVE, not pending.** Their `capability_gap`
+   named `news_source_enablement` will hold un-enabled news pages until
+   this lane's enablement work lands. Confirmed live and empty right now:
+   `https://advertise.co.uk/news/index.html` serves 200 at ~61 KB, zero
+   items — a directory-of-prose until a source exists; nothing on their
+   side blocks starting once cluster access is back. Recipe: their own
+   `RUNBOOK_remake_release.md` §6. Their plan:
    `bugfix_444_empty_listing_pages/PLAN_2026-09-02_listing_source_gate.md`.
 
 **Suggested order once §3 is verified**: read `idea.uk`'s 2026-08-25
