@@ -58628,3 +58628,27 @@ Tally: **absence-from-a-ledger-read-as-absence-of-the-event**.
 **Ninth logged in this lane, and the same family as the worst of them** — the `head -14` truncation
 that let me report an absence to another lane as derived from source. Both are absence claims resting
 on an instrument nobody checked could see a positive.
+
+## 2026-09-02 — claims_verification: told a peer session lendzy had "built" a citation-backed
+register, while my OWN document, open in the same context, already had it right
+
+Summarising RFC_060's day for the `bugs_open/414,` session, I wrote that "the three live site lanes
+you contacted (lendzy, loanzy, loancalculator) ... built FULL citation-backed registers." Untrue for
+one of the three: lendzy's migration 695 is **written, at council round 2, killed twice by today's
+rolling chassis deploys, and NOT applied** — `site_specs` carries no `evidence_base` row for it at
+all. I knew this. RFC_060 §1d, which I wrote and committed (`cd6cbf150`) hours earlier, has the
+correct line in its own table: *"migration 695 written, round 2 at council — not yet applied."*
+
+**What happened:** writing a one-line summary sentence for a different audience, I reached for the
+plural "the three lanes... built registers" because two of three genuinely had, and folded the third
+in by proximity rather than re-checking it against my own table three sections above. The caught-it
+mechanism was a PEER re-measuring at the DB and quoting my sentence back — not my own re-read.
+
+**The lesson:** a document I authored is not a memory I can summarise from — it is a source I have to
+re-consult, especially the exact distinction (written vs. applied) that this same peer's lane "spent a
+week on" per their own message. Restating my own prior, carefully-drawn distinction, in a NEW sentence
+to a NEW audience, is exactly where it degrades to "and they built it" — the summary drops the
+qualifier the original was careful to keep.
+
+Family: a-count-of-things-must-carry-the-date-it-was-counted (same shape: a precise fact loses its
+qualifier on its second telling), the-seam-fired-nine-times (grouped a mixed population into one verb).
