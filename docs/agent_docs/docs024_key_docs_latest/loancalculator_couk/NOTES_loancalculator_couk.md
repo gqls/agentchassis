@@ -6907,3 +6907,16 @@ supersede-and-merge CTE — a fair drift observation; a stored function is the
 claims-verification lane's seam (they own the register mechanism) and the council
 report carries it to them. guardian lows: no in-flight writer (1 current row verified);
 single-site data change, no architecture signal.
+
+### Addendum, for the record's precision (lendzy relay)
+
+The verification ladder has THREE distinct rungs, and different lanes were each missing
+a different one: lendzy's original probe was already post-apply against stored values —
+their gap was CONSUMER-FORM fidelity (bare pattern vs the `"(?i)"+pattern` the consumer
+actually compiles, claims.go:346); ours was source-vs-stored (the escaping layer). The
+full ladder is now lendzy RUNBOOK **§8f**, credited to 707's round: stored form at apply
+→ stored bytes + consumer-form probe-fire post-apply → read the first real findings.
+Lendzy re-verified 5/5 under it; claims.go:348 confirmed by them as the silent QuoteMeta
+fallback. Fleet: farmerinsurance's empty banned_claims routed to the loanzy session
+(their lane holds it) with 707 cited; **loancash remains the only true register
+absence** (unowned, owner aware).
