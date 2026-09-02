@@ -260,3 +260,78 @@ the field GUARANTEES and is RFC-scope; the census and the warning are the eviden
 would need. Also deferred: the 7 pre-473 `literal_markdown` items (a different mechanism, one
 layer up), and any retro-repair of the 129 (86 are assemble-by-design and no discriminating
 marker exists).
+
+---
+
+## 2026-09-02 — ROUND 3 SUBMITTED, and re-measuring corrected one of our own answers
+
+Picked up from `bugsweep_2026_08_26/HANDOFF_2026-08-26_continue_here.md` §5, which recorded
+round 3 as owed with the gating fix already in the tree. Confirmed before acting: exactly
+**two** `council_report` artifacts exist on `f2e4ac2a`, both `revise`, both 2026-08-26 —
+so no third round had been submitted in the intervening week.
+
+⚠ **`orchestration_states` is the wrong table to ask.** It returned ZERO rows for this
+correlation, which reads like "never submitted" and actually means the runs have aged out.
+The verdict is an artefact: query `diagnosis_artifacts`. (This is the exact trap recorded in
+`WRONG_CALLS.md` on 2026-09-02 by the lane that reported a verdict as "still running".)
+
+### What each r2 objection's state actually was
+
+| objection | state at r3 |
+|---|---|
+| `debug_historian` [HIGH] edit 7 — 656's `SELECT INTO` had no `STRICT`, no row-count guard | **FIXED in the shipped file**, verified by reading it: an explicit count guard that RAISEs unless exactly 1 active row, and `INTO STRICT` on BOTH the pre-image anchor and the post-UPDATE verify |
+| `editquality` [medium] ×2 — sketches did not show the constants or the pin test | **SUBMISSION-ACCURACY failure, not a code one.** Both exist in the tree; the r2 sketches were written from the design. Corrected in r3 with verbatim tree excerpts |
+| `debug_historian` [medium] — no pod-grep | **DONE** 08-26, both pods, with a negative control in the same exec |
+| `bug_historian` [medium] — WARN lives only in `create_rerender_items` | **REAL AND UNFIXED**, now stated explicitly as the residual rather than left implicit. Gate-side loudness is new authority on a shared seam and ships opt-in default-OFF under the owner ruling 2026-08-02 §2 |
+| `guardian` [medium] — enumerate callers seeing a behaviour change | **RE-MEASURED, AND OUR PREVIOUS ANSWER WAS TOO STRONG** — see below |
+| `guardian` [low] — `platform/livespec` RED at HEAD | **STILL RED, seven days on.** Reported with its current state, not its r2 state |
+
+### The correction: "MEASURED: ZERO" answered a different question than the seat asked
+
+The 08-26 handoff recorded the guardian objection as **"MEASURED: ZERO, over full live+archive
+history"**. That figure is true of realised **ITEMS**. The seat asked about **CALLERS**. Those
+are different questions, and the item answer cannot settle the caller one — because **pre-fix
+the action DISCARDED the reason**, so a caller that passed `template_changed` produced an item
+carrying no reason at all and is invisible to any query keyed on `spec->>'reason'`.
+
+Answered config-side instead `[MEASURED 2026-09-02]` — three live agents call the action:
+
+- `nav-updater` — passes NO reason. Mechanically unaffected.
+- `tool-generator` (step `enqueue_rerender`) — passes NO reason. Mechanically unaffected.
+- **`rerender-pages` — passes `input_data.spec.reason` THROUGH**, with `component_id`.
+
+So there **is** one caller whose behaviour changes, and the honest submission concedes it
+rather than repeating the zero.
+
+### The discriminator, stated because it is disconfirmable
+
+`[MEASURED 2026-09-02]` of 78 live `page_rerender` items on `template_changed`: **64 keyless**
+(the fixer's raw INSERT signature) and **14 keyed** — and all 14 carry a **SITE** id in the key,
+which is migration 615's fan-out shape
+(`'page_rerender_'||page_name||'_'||site_id||'_template_changed'`). **ZERO carry a PAGE id**,
+which is the action's shape. No `literal_markdown` items exist at all.
+
+The tell that makes it checkable rather than asserted: two `gaswholesalers.com` rows share ONE
+uuid across DIFFERENT pages, so that uuid is a site, not a page. `[MEASURED 2026-09-02]` 3 of
+the keyed items are dated 08-25 (615's apply) and 11 are dated 08-31, so 615's fan-out ran
+again — worth knowing, not a defect of this fix.
+
+⚠ **The keyless/keyed heuristic recorded earlier ("334 of 338 keyless") is NOT the same
+discriminator** and would have given the wrong answer here: it counts 615's hand-rolled INSERT
+as if it were the action, because 615 deliberately composes an action-shaped key. Resolve by
+whether the uuid is a site or a page.
+
+### Adjacent, flagged not fixed
+
+- **`platform/livespec` is RED at committed HEAD** — `TestNoNewMigrationFileReadersOutsideTheAllowList`
+  fails on `platform/orchestration/actions/write_audit_findings_origin_test.go` (405 lane,
+  `ffa1707b3`). Both paths clean in the tree, so it is committed breakage, unchanged for seven
+  days, on the same allow-list seam this plan touches. The test's own text names the two
+  sanctioned remedies. Not touched — it is the 405 lane's file.
+- The 097 trigger now WARNs that `_RELOCK` is an unclassified migration suffix in
+  `sql_for_agents`, treated as IN scope by the safe default. Someone should classify it in
+  `COUNCIL_SCOPE_NOT_THE_CHANGE_RE` if it is not the change (`bugs_open/314`).
+
+**Submitted** on the same correlation, `RESUBMIT_CORR=f2e4ac2a-2bfc-4c82-ac99-d5fd7616edef`,
+so the trail accumulates. Draft: `scratchpad/submission_404_r3.json` (session scratch).
+Verdict not yet read at time of writing — the weaker true statement, not "still running".
