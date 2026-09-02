@@ -1,0 +1,54 @@
+<!-- Consent Mode v2 + banner (PECR; owner decision 2026-09-02). Must sit INSIDE the
+     gtm_container_id gate, BEFORE the GTM loader. Self-contained; no external requests. -->
+<script>
+window.dataLayer=window.dataLayer||[];
+function gtag(){dataLayer.push(arguments);}
+gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied'});
+(function(){
+var KEY='cc_v1',doc=document,ch='';
+try{ch=localStorage.getItem(KEY)||'';}catch(e){}
+if(ch==='g'){gtag('consent','update',{analytics_storage:'granted'});}
+function save(v){try{localStorage.setItem(KEY,v);}catch(e){}}
+function wipeGa(){
+  var parts=doc.cookie.split(';'),i,name,host=location.hostname,doms=[host,'.'+host],ds,exp='; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  if(host.indexOf('.')>0){doms.push('.'+host.split('.').slice(-2).join('.'));}
+  for(i=0;i<parts.length;i++){
+    name=parts[i].split('=')[0].replace(/^\s+/,'');
+    if(name.indexOf('_ga')===0){
+      doc.cookie=name+'='+exp;
+      for(ds=0;ds<doms.length;ds++){doc.cookie=name+'='+exp+'; domain='+doms[ds];}
+    }
+  }
+}
+function el(tag,css,txt){var e=doc.createElement(tag);if(css)e.style.cssText=css;if(txt)e.textContent=txt;return e;}
+var BTN='font:inherit;padding:9px 22px;border-radius:5px;cursor:pointer;min-width:110px';
+function choose(v){
+  save(v);
+  if(v==='g'){gtag('consent','update',{analytics_storage:'granted'});}
+  else{gtag('consent','update',{analytics_storage:'denied'});wipeGa();}
+  var b=doc.getElementById('cc-bar');if(b)b.remove();
+  pill();
+}
+function bar(){
+  if(doc.getElementById('cc-bar'))return;
+  var w=el('div','position:fixed;left:0;right:0;bottom:0;z-index:2147483000;background:#1c1c28;color:#fff;font:15px/1.5 system-ui,sans-serif;padding:14px 18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;box-shadow:0 -2px 12px rgba(0,0,0,.35)');
+  w.id='cc-bar';w.setAttribute('role','dialog');w.setAttribute('aria-label','Cookie consent');
+  w.appendChild(el('span','max-width:560px','We would like to count visits using Google Analytics. No cookies are set unless you accept.'));
+  var ok=el('button',BTN+';background:#fff;color:#1c1c28;border:1px solid #fff','Accept');
+  var no=el('button',BTN+';background:none;color:#fff;border:1px solid #fff','No thanks');
+  ok.onclick=function(){choose('g');};
+  no.onclick=function(){choose('d');};
+  w.appendChild(ok);w.appendChild(no);
+  doc.body.appendChild(w);
+}
+function pill(){
+  if(doc.getElementById('cc-pill'))return;
+  var p=el('button','position:fixed;left:10px;bottom:10px;z-index:2147482999;background:#1c1c28;color:#fff;font:12px system-ui,sans-serif;padding:5px 10px;border-radius:12px;border:1px solid #555;cursor:pointer;opacity:.75','Cookies');
+  p.id='cc-pill';p.setAttribute('aria-label','Cookie settings');
+  p.onclick=function(){var b=doc.getElementById('cc-bar');if(b){b.remove();}else{bar();}};
+  doc.body.appendChild(p);
+}
+function init(){if(ch===''){bar();}pill();}
+if(doc.readyState==='loading'){doc.addEventListener('DOMContentLoaded',init);}else{init();}
+})();
+</script>

@@ -53,6 +53,14 @@
 > pull before trusting an old copy. Remaining: §6.2 seeder+detector build (mine), 11 review rows,
 > cv1 membership, Search Console SA, consent banner.
 
+> **2026-09-02 late — CONSENT (Option A) SHIPPED to the templates.** Owner chose A; **STY-060**:
+> Consent Mode v2 all-denied + self-contained banner, inside the GTM gate, before the loader, in
+> all three head templates at **20:55:43Z**; proven 26/26 in headless Chromium against the live
+> container BEFORE applying (`consent/consent_block.html`, `sql/c3_consent_mode_banner.sql`,
+> NOTES §28). Reaches each site via its stale_chrome rebuild — watch `check_gtm_state.sh --sites`
+> (`consent=` column; also `gtm=`). Fail-safe: broken banner ⇒ consent stays denied. **OWED:
+> per-site cookie/privacy policy pages (phase 2, through the framework) + the §6.2 seeder.**
+
 ## 1. Verify before doing anything — one command
 
 ```bash

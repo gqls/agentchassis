@@ -52,10 +52,11 @@ if [ "$DO_SITES" = 1 ]; then
   n=$(grep -c . "$TMP/domains.txt")
   # mapfile, not a while-read loop: LANDMINES 2026-08-24, a stdin-forwarding call inside the loop eats the list
   mapfile -t DOMS < "$TMP/domains.txt"
-  printf '%s\n' "${DOMS[@]}" | xargs -P 6 -I{} sh -c 'b=$(curl -sL --max-time 25 -w "\n__HTTP=%{http_code} __URL=%{url_effective}" "https://{}/"); c=$(printf "%s" "$b" | grep -c googletagmanager); h=$(printf "%s" "$b" | tail -1); printf "%-34s gtm=%s %s\n" "{}" "$c" "$h"' | sort > "$TMP/served.txt"
+  printf '%s\n' "${DOMS[@]}" | xargs -P 6 -I{} sh -c 'b=$(curl -sL --max-time 25 -w "\n__HTTP=%{http_code} __URL=%{url_effective}" "https://{}/"); c=$(printf "%s" "$b" | grep -c googletagmanager); k=$(printf "%s" "$b" | grep -c cc_v1); h=$(printf "%s" "$b" | tail -1); printf "%-34s gtm=%s consent=%s %s\n" "{}" "$c" "$k" "$h"' | sort > "$TMP/served.txt"
   cat "$TMP/served.txt" | sed 's/^/   /'
   got=$(grep -c . "$TMP/served.txt"); serving=$(grep -c 'gtm=[1-9]' "$TMP/served.txt" || true)
-  echo "   VERDICT: $serving of $got sites serve the snippet (list=$n, checked=$got — these MUST match)"
+  consenting=$(grep -c "consent=[1-9]" "$TMP/served.txt" || true)
+  echo "   VERDICT: $serving of $got sites serve the snippet; $consenting of $got serve the consent block (list=$n, checked=$got — these MUST match)"
 fi
 
 if [ "$DO_DB" = 1 ]; then

@@ -525,3 +525,27 @@ comparison crossing that instant compares a source to its own absence (039 §4).
 position changed in fact at the same instant**: `_ga` cookies now set on ~30 sites, no consent
 banner anywhere — the owner's standing decision, now live rather than theoretical; consent is the
 open compliance item.
+
+---
+
+## 2026-09-02 (late) — Option A built, proven locally, applied to the templates
+
+**28.** Owner: "let's do A". Built here (this lane owns Google). Design decisions, with reasons:
+**inline block in the head templates** (atomic with the GTM gate; ships via the same stale_chrome
+wave; no per-site asset deploys), **inside the `{{if .gtm_container_id}}` gate** (untagged and
+customer sites get neither tag nor banner), **Consent Mode v2 all-denied defaults pushed before the
+loader** (GA4 cookieless until Accept — the fail direction of any banner bug is LESS tracking),
+**noscript left alone** (a GA4-only container fires nothing in ns.html; 6 more template edits for
+zero cookie difference), **localStorage `cc_v1`** for the choice, withdrawal wipes `_ga*`.
+**Proven BEFORE any template was touched:** 26/26 assertions in headless Chromium driven through
+`chromium.chromedriver` over plain HTTP (no websocket dep on this box; ⚠ snap Chromium refuses a
+profile under a hidden home dir — use `~/snap/chromium/common/`): no cookie pre-consent, cookie
+only after Accept, wiped on withdraw, both choices persist. ⚠ Contamination note: the harness
+loaded the REAL container, so a handful of GA4 hits exist with hostname `127.0.0.1` from ~21:35 BST
+— filter by hostname. `c3_consent_mode_banner.sql` applied at **20:55:43.99Z (template
+updated_at)** after a clean dry run (one post-condition corrected first: `cc_v1` appears ONCE — the
+KEY constant — not three times; my own assertion had counted call sites, not the literal).
+Positions verified in all three templates: gate → consent → loader. No convergence yet at 21:05Z;
+drain observable via `check_gtm_state.sh --sites` (new `consent=` column). Registered **STY-060**.
+**OWED next: per-site cookie/privacy policy pages** (the information half; banner text is the
+interim notice) — through the framework, not hand-written.

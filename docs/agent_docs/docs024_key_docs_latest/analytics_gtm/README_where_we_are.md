@@ -292,3 +292,20 @@ evening, so give it a few days before the numbers mean much, and always split re
 And your sites now set cookies for real, with no consent banner anywhere — that was your call and
 it stands, but it has moved from "theoretical" to "live", and it's the one compliance item I'd not
 leave too long.
+
+## 2026-09-02 (late) — the cookie banner is built, tested, and rolling out
+
+Your option A is done at my end. Every site that carries your tag will now also carry a small bar:
+"We would like to count visits using Google Analytics. No cookies are set unless you accept" —
+Accept or No thanks, equal buttons, and a little "Cookies" pill in the corner so anyone can change
+their mind later. Until someone accepts, Google sets no cookies at all and just gets anonymous
+counts; if they later say no, their Google cookies are deleted.
+
+I did not take the banner's word for any of that: before touching a single site I ran it in a real
+browser against your live container — no cookie before accepting, cookie only after, gone again on
+withdrawal, twenty-six checks in all, every one passed. And the way it's built, if the banner ever
+breaks the result is less tracking, not secret tracking.
+
+It reaches the sites the same way the tag did: each site rebuilds itself over the next hours. One
+thing is still owed for full compliance and I've queued it: a proper cookies/privacy page on each
+site — the banner's wording covers the basics meanwhile.
