@@ -124,3 +124,38 @@ runs — once the browser step is fixed.
 The review council approved it on the third round. Both earlier rounds found something real: one
 was a live defect in my own code that would have quietly attributed a page's problems to a
 different page, and I would not have found it without them.
+
+---
+
+**2026-09-02.**
+
+It works, and I can now show you the number that settles it.
+
+The audit used to look at the same sixty pages of webdesign.co.uk every time, for ever. Ninety-one
+pages — including every one of the forty-five "guide" pages — had never been looked at once, and on
+the old behaviour never would have been.
+
+Over the last six days it ran three times on its own schedule, with nobody watching. I added up the
+pages it visited across those three runs and removed duplicates: **151 pages, out of 151 that are
+live on the site. Nothing missed.** The third run finished the last thirty-seven and tidied its
+bookmark away, which is exactly what it should do at the end of a lap.
+
+I also checked that the harder way — not "did it visit 151 things" but "is there any live page it
+did not visit". The answer is none.
+
+The other thing I promised to settle was whether last week's small correction had actually shipped.
+It had, and I proved it rather than assumed it: I set up a test where the two possible answers gave
+completely different results — if the fix was live the audit would start at the top of the site, if
+it wasn't it would start at the very last page. It started at the top. So hand-runs and scheduled
+runs now share one bookmark, which was the point.
+
+Two smaller things confirmed along the way: a second site, loanandmortgagecalculator.co.uk, crossed
+the same size threshold and completed its own lap unaided; and the design-critique tool correctly
+kept its old behaviour, which we deliberately left alone.
+
+**One thing is left, and it is why I am not calling this finished.** You asked for two things back
+on the 25th: the rotation, and a watchdog to read the warnings the audit writes. The rotation is
+done. The watchdog is written and tested — but nothing is scheduled to run it, so at the moment it
+is a smoke alarm sitting in a cupboard. It needs one small piece of deployment config, and until
+that exists I would rather leave the bug open than tell you it is closed. It is the only item in
+the handoff.
