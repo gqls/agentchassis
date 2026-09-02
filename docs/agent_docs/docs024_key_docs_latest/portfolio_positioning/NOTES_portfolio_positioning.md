@@ -3636,3 +3636,18 @@ gamedesign.uk (proposed 2026-09-02; neighbours + must_nots machine-readable; rev
 the owner-reviewed brief lands elsewhere).** Register-before-build satisfied for their dispatch.
 Their orphan finding (site serving with pages rows DELETED — invisible to
 audit-archived-still-serving) is theirs to file; flagged the 359 family for their grep.
+
+### (d) gamedesign.uk peer lane: steer ADOPTED as binding; and their root cause raises our register debt's stakes
+
+Peer confirmed GD2 unchanged (their commit eba9c3bb6); all four steer points + collision list
+binding on their brief; they take the oufe pre-seed route WITH name+network_id set explicitly.
+Their April root cause (adoption ran gamedesign.uk as both source and destination; rerender
+published empty placeholders pre-guards; CLOSED by three dated guards, their code-read) needs
+nothing from GD1/GD2. **The fact that is OURS to keep: a platform-deployed domain served
+publicly for 4.5 months with NO sites row and NO pages rows — invisible to
+audit-archived-still-serving (keys on pages.status='archived'; deleted rows are not archived
+rows). A register row is currently the only artefact that would ever notice such an orphan.
+That upgrades the "21 portfolio domains have no register row" debt (handoff §3, counted
+2026-08-21) from tidiness to a serving-side blind spot** — worth saying when the owner next
+prioritises. The bug filing for the orphan/detector gap stays THEIRS (owner steering their
+lane; they are grepping the 359 family first).
