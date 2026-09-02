@@ -12089,8 +12089,30 @@ code change owed at the next roll, tracked in RFC_015 §5.
   `ON CONFLICT DO NOTHING` and never `DO UPDATE` — a daily re-write bumps `updated_at` and makes
   the row **unreapable for ever** (`bugs_closed/213`) — and key the item on the FINDING, not the
   site, or one site's second bad pattern is invisible behind its first.
-  **The seam belongs to the claims-verification lane; this entry records the argument and the
-  costing, it does not reserve the work.**
+  ~~**The seam belongs to the claims-verification lane; this entry records the argument and the
+  costing, it does not reserve the work.**~~
+- > **BUILT THE SAME EVENING by the claims-verification lane — `e5b1a0f01`, 2026-09-02 19:30 —
+  > and NOT YET RUNNING.** Verified at HEAD rather than taken from the report:
+  > `checkBannedClaimPatterns` (`refresh_evidence_base_action.go:332`, pure, and its comment
+  > states it re-runs *exactly* the compile `claims.go:348` performs) is called at `:423` inside
+  > the per-site refresh, and `createInvalidBannedClaimPatternItems` (`:1736`) files at `:700`
+  > with **`dropOnConflict`** (`:1778`), keyed **per pattern** — both filing traps taken. Note the
+  > file's sibling items deliberately use `refreshOnConflict` because they are keyed per SITE;
+  > that contrast at `:1728` is the thing to read before copying either.
+- ⚠ **So until the next chassis roll, this entry's manual remedy is still the only guard, and the
+  gap is longer than a roll.** `[MEASURED 2026-09-02 ~19:40]` the running pods are **160 and 174
+  minutes old**, i.e. started ~16:46–17:00, and the commit is **19:30** — the detector is not in
+  the running binary. Go is inert until an image is rebuilt and rolled; **then** it fires on the
+  next daily `evidence-freshness` pass (~09:09). Two gates, not one, and neither is announced.
+  **The failure mode to avoid is the one this estate keeps filing:** reading "built" as "covered",
+  and stopping the hand-probing that is currently the only thing catching a typo. **Go-compile and
+  probe-fire your patterns until you have seen the detector's first findings**, and confirm at the
+  artefact rather than at the commit.
+  Council round `bc3697a5-0a89-4f33-9f85-5647f10d7c40` — **`Council-Submitted:`, which is a
+  submission and NOT a verdict**; do not read it as approval, and expect at least one real
+  objection (the round's own reviewer questioned the `item_key` not being type-scoped against
+  `idx_swi_dedup`). **The seam belongs to the claims-verification lane; this entry records the
+  argument, the costing and now the state, and does not reserve the work.**
 - **`[MEASURED 2026-08-17, remortgagecalculator.uk pilot seed]`:** all **6 of 6** patterns inert on the first apply. The seed's own verify block asserted `jsonb_array_length(banned_claims) = 6` and **passed** — a count comes out identical whether the guards work or not, which is the same shape as `WRONG_CALLS`' "a `[MEASURED]` figure is only evidence if it could have come out otherwise".
 - **the check — probe, never count.** Assert BEHAVIOUR with strings that must match *and* strings that must not (a guard matching everything is as broken as one matching nothing, and only the pair tells them apart). **Do it in Go, not SQL:** Postgres ARE and Go RE2 disagree on word boundaries — PG spells it `\y`, and `\b` is *backspace* — so a `psql … ~ pattern` probe is a check in the wrong engine and will lie to you in both directions. Worked pair: `datahelpers/claims_banned_pattern_escaping_test.go` (semantics, compiled exactly as production does) + the seed's own structural guard.
 - **for the structural half, avoid `LIKE` entirely — use `position()` + `chr(92)`.** In `LIKE`, backslash is itself the default ESCAPE character, so `'%\b%'` means *"the letter b"* and would pass on any pattern containing `b`; `position(chr(92)||'b' in p) > 0` has no escape semantics to reason about. `chr(92)` also survives an authoring channel that rewrites `\uXXXX` into the character it denotes — which is how the same file's `£` check ended up searching for `£`, the very thing it was meant to confirm, and refusing correct data twice (MEMORY: `escape-sequence-emission-trap`).
