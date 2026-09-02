@@ -554,3 +554,24 @@ at the guide URL. Real action: repoint two nav links, retract two shells — tha
 call, recorded in 315. **The cheap check I skipped: before recommending "build X", ask whether X
 already exists at another URL.** One `SELECT url FROM pages WHERE site_id=… AND url ILIKE '%llm-cost%'`.
 Corrected in 432 §3a; nothing routes here.
+
+---
+
+## 2026-09-02, ~19:55Z — favicon live; the owner's list is empty
+
+`needs_brand_head_assets:favicon` claimed → complete within ~25 min. **At the artefact**
+`[MEASURED ~19:55Z, cache-busted]`: `/assets/images/favicon.png` 200, 8,640 B, `image/png`, PNG
+signature valid, **64×64**; `/assets/images/og-card.png` 200, 159,864 B; `logo.png` 200. Homepage
+`<head>`: `<link rel="icon" href="/assets/images/favicon.png">` + `apple-touch-icon`. The
+monitor's own final probe printed `000` — a curl transport failure inside the script (its
+`|| echo 000` concatenated with `-w`), the same 000-then-200 shape `contact.html` showed at 18:00.
+**A status is not an artefact, and a monitor's probe is not either: I read the file.**
+
+Every open item from the 18:10 HANDOFF block is now resolved or ruled: (1) article slot
+CANCELLED + page archived; (2) legal pages ruled unnecessary; (3) favicon LIVE; (4)
+llm-cost-calculator is ai-agent-orchestration's, and moot (tool exists) — theirs; (5) 432 stays
+OPEN pending scheduling of IMP-059 (keyboard-run today) — a platform item, not this site's.
+
+**Still watching, not blocking:** the next discovery/planner rotation must not re-file work at
+the archived `article` page (356's class). One query, tomorrow:
+`SELECT item_type,status,created_at FROM site_work_items WHERE page_id='2ea5d983-b798-4bb2-b30a-5e3047369561' AND created_at > '2026-09-02 19:20';` — expect 0 rows.

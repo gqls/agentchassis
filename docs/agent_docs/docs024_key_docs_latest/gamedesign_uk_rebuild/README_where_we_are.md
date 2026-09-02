@@ -174,3 +174,13 @@ no article to put in it, and three buttons that have nothing to point at until a
 Both are the system declining to ship something empty. And two things are simply absent: a
 favicon, and privacy and terms pages — the plan didn't include them and nothing links to them,
 but a public site probably wants a privacy notice. Say the word and I'll get them planned.
+
+## 2026-09-02, about 20:00 — done
+
+Your four answers are all carried out. The article slot is cancelled, there are no privacy or
+terms pages, the favicon is live — made from the logo, showing in the tab — and the calculator
+question turned out to belong to a different site where the tool already exists. The sibling has
+stopped using this site's name and I checked that on its pages. gamedesign.uk has nothing left
+waiting on you. What carries on after this lane is the monitoring check I built for the gap that
+caused all this (it runs by hand today; it should run on a schedule), and the eight other domains
+we're serving without a record of, which you said to adopt later with care.

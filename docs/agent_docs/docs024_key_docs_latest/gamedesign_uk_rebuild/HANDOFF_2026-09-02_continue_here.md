@@ -71,6 +71,18 @@ Bug filed: `bugs_open/432_HANDOFF_2026-09-02_a_site_whose_db_rows_were_deleted_k
 > (4) llm-cost-calculator.html retract-vs-rebuild (from 315's lane); (5) 432 stays open until the
 > reconciler is scheduled (IMP-059 gap 1) or keyboard-run is ruled enough. Lane closes on (1)+(2).
 
+> ## ✅✅ UPDATE 2026-09-02 ~20:00Z — OWNER'S LIST EMPTY; LANE CLOSEABLE
+>
+> All four rulings executed and verified at the artefact (NOTES 19:25Z, 19:55Z): article slot
+> cancelled + archived (`SEED_2026-09-02b`); no legal pages; **favicon LIVE** (64×64 PNG + OG
+> card, head-referenced); llm-cost-calculator is ai-agent-orchestration's and MOOT (tool exists).
+> Sibling renamed to GamesDesign.co.uk and verified at their artefact; their one inbound link
+> repointed. Second SUMMARY: `SUMMARY_2026-09-02b_…`.
+> **If you are picking this up cold:** the only thing owed by THIS lane is the one-query watch in
+> NOTES 19:55Z (no work re-filed at the archived `article` page after the next rotation). Then
+> close. `bugs_open/432` (scheduling IMP-059) and the 8-domain adoption backlog are platform /
+> owner items, not this lane's.
+
 ## 1. What this lane is, in one paragraph
 
 The owner asked for gamedesign.uk to be fixed — "it is in a bad way". It is: five of its linked
