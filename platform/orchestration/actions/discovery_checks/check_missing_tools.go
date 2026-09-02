@@ -36,7 +36,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
@@ -223,29 +222,6 @@ func (c *MissingToolsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 		return nil, fmt.Errorf("missing_tools: marshal spec: %w", err)
 	}
 
-	// Growth posture (owner decision 5, 2026-08-31): on 'hold' the item is
-	// FILED but not DISPATCHED — born in the record shape (deferred, no
-	// handler) the promoter refuses by construction. This check is one of the
-	// tool chain's two HEADS; the rationale and the exact set live with
-	// datahelpers.GrowthGatedItemTypes.
-	status := "detected"
-	handlerAgent := "tool-suggester"
-	if posture, perr := datahelpers.SiteGrowthPosture(dctx.Ctx, dctx.DB, dctx.SiteID.String()); perr != nil {
-		// Fail open, loudly: a read error must not stop fleet-wide tool growth.
-		dctx.Logger.Warn("missing_tools: growth posture read failed — treating as open", zap.Error(perr))
-	} else if posture == datahelpers.GrowthPostureHold {
-		status = "deferred"
-		handlerAgent = ""
-		summary = "[growth held] " + summary
-		spec["growth_held"] = true
-		spec["growth_handler"] = "tool-suggester"
-		spec["growth_release_recipe"] = "owner release: UPDATE site_work_items SET status='detected', handler_agent=spec->>'growth_handler' WHERE id='<this row>'"
-		specBytes, err = json.Marshal(spec)
-		if err != nil {
-			return nil, fmt.Errorf("missing_tools: marshal held spec: %w", err)
-		}
-	}
-
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
 		SiteID:       dctx.SiteID,
 		Source:       "discovery",
@@ -255,8 +231,8 @@ func (c *MissingToolsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 		Summary:      summary,
 		SpecJSON:     string(specBytes),
 		Priority:     130,
-		HandlerAgent: handlerAgent,
-		Status:       status,
+		HandlerAgent: "tool-suggester",
+		Status:       "detected",
 		CreatedBy:    dctx.AgentType,
 		ItemKey:      fmt.Sprintf("evaluate_tools:%s", dctx.SiteID),
 		BatchID:      dctx.BatchID,

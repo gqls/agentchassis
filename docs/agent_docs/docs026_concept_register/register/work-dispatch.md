@@ -203,10 +203,16 @@ separate register files).
   `growth_held/growth_handler/growth_release_recipe`, `recurrenceExpected=true` so a held
   predecessor closing never feeds the anti-churn strikes. FILED, not skipped — the signal
   is kept; release is a one-UPDATE human verb from the spec's own recipe. The heads:
-  `check_missing_tools` (files `evaluate_tools`) and `CreateWorkItemAction`
-  (tool-suggester files `add_tool` through it); everything downstream (tool-generator /
-  tool-deployer guide pages) runs only as a consequence of an add_tool executing, so no
-  downstream guard exists ON PURPOSE. `source='owner-request'` bypasses — the owner asking
+  `check_missing_tools` (files `evaluate_tools`) and tool-suggester (files `add_tool` via
+  create_work_item); everything downstream (tool-generator / tool-deployer guide pages)
+  runs only as a consequence of an add_tool executing, so no downstream guard exists ON
+  PURPOSE. **The check lives as a DOOR in `writeWorkItem`** (the third policy door, beside
+  the owned-page park and the unregistered-handler demotion; `insertWorkItem` wraps
+  `writeWorkItem`, so discovery sweeps, config steps and direct Go callers ALL cross it) —
+  relocated there from per-producer guards by the council's round 1 (corr 1e735fa2): a
+  guard covers the producers you found, a door covers the ones you didn't. Kill-switch
+  `DISABLE_GROWTH_POSTURE_DOOR`, ships armed. The held item KEEPS its item_type/item_key
+  (ownedPageParkedItem's retraction-contract lesson, bugs_open/342). `source='owner-request'` bypasses — the owner asking
   is not growth to refuse. Audit-seat growth types have filed as record-mode verdicts since
   migration 624; that half needed nothing. Fail-open on a posture read error, loudly.
 - **why it exists:** owner decision 5 of 2026-08-31; worked cases apis.uk (sprouting
@@ -214,9 +220,10 @@ separate register files).
   growth EXECUTED — 5 calculators live in ~26h, 0 sources; the same site's evidence-first
   route fenced+reconciled the same week — `loanzy_uk_example_site/CONTRIB_2026-08-31_agritec…`).
 - **sources:** platform/orchestration/datahelpers/growth_posture.go (`SiteGrowthPosture`,
-  `GrowthGateApplies`, `GrowthGatedItemTypes`); discovery_checks/check_missing_tools.go;
-  actions/create_work_item_action.go; tests: create_work_item_growth_posture_test.go,
-  check_missing_tools_test.go (`TestMissingTools_GrowthHold_*`); design + producer census:
+  `GrowthGateApplies`, `GrowthGatedItemTypes`); actions/growth_posture_door.go
+  (`applyGrowthPostureDoor`) wired in load_work_item_actions.go's `writeWorkItem`;
+  tests: growth_posture_door_test.go (hold / open+unknown / read-error fails open /
+  non-gated never probed, ordered / pure-half table); design + producer census:
   loanzy_uk_example_site/PLAN_2026-08-25_…_switch_the_loop_back_on.md ADDITION 2026-08-31.
 - **relations:** the record shape and its refusal proof are RFC_056 / filing_mode's
   (write_audit_findings_filing_mode_test); WDS-017/018 are the neighbouring write/promoter

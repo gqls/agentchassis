@@ -1933,6 +1933,19 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		}
 	}
 
+	// --- Growth posture door (owner decision 5 of 2026-08-31, WDS-020) ---
+	// Third policy door at this seam, same ordering argument as the owned-page
+	// door above: it runs BEFORE the anti-churn brake so the strike count is
+	// never consulted for a row we are not dispatching, and 291's registration
+	// block below sees `deferred` and skips. Runs after the owned-page door —
+	// an owned-page park already produced the held shape, and the growth probe
+	// would be a wasted read on a row that is no longer dispatchable
+	// (workItemStatusHeadsForDispatch gates it either way). Full rationale,
+	// including why a door and not per-producer guards: growth_posture_door.go.
+	if !ownedParked {
+		item = applyGrowthPostureDoor(ctx, tx, item, logger)
+	}
+
 	// --- The anti-churn brake: two arms, two DIFFERENT dispositions (bugs_open/326, option D) ---
 	// Skipped entirely for recurrence-expected items (see workItem.recurrenceExpected):
 	// for an action request a terminal predecessor is a SUCCESS, not a strike, and

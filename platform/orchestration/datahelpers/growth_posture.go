@@ -21,17 +21,25 @@
 // posture (the structure floor from migration 618 lives beside this key), so
 // the vocabulary rhymes with the estate instead of adding a peer namespace.
 //
-// WHICH PRODUCERS CONSULT THIS, and why the set is exactly two [MEASURED
-// 2026-08-31, 30-day census in the PLAN]: the audit seats' growth types
-// (needs_content_page / needs_content_planning from the five model seats) have
-// filed as record-mode verdicts since migration 624 — that half is already
-// held. The half that still dispatches is the TOOL CHAIN, and it has two
-// HEADS: check_missing_tools files `evaluate_tools`, and tool-suggester files
-// `add_tool` through the generic create_work_item action. Everything further
-// down (tool-generator / tool-deployer filing the guide-page
-// needs_content_page rows) runs only as a consequence of an add_tool
-// executing, so guarding the heads cuts the chain at its roots — the
-// downstream filings need, and get, no guard of their own.
+// WHERE THE CHECK RUNS: the growth door in writeWorkItem
+// (growth_posture_door.go), beside the owned-page policy door — the one seam
+// EVERY filing passes (insertWorkItem is a thin wrapper over writeWorkItem,
+// so discovery sweeps, config-driven create_work_item steps and direct Go
+// callers all cross it). That placement was the council's round-1 point
+// (corr 1e735fa2): a per-producer guard covers the producers you found, a
+// door covers the ones you didn't — and no census over a rolling-window
+// table has to stay true for the hold to hold.
+//
+// WHY THE TYPE SET IS SMALL [MEASURED 2026-08-31, 30-day census in the PLAN]:
+// the audit seats' growth types (needs_content_page / needs_content_planning
+// from the five model seats) have filed as record-mode verdicts since
+// migration 624 — that half is already held. The still-dispatching growth is
+// the TOOL CHAIN, whose heads are `evaluate_tools` (check_missing_tools) and
+// `add_tool` (tool-suggester via create_work_item). Everything further down
+// (tool-generator / tool-deployer filing the guide-page needs_content_page
+// rows) runs only as a consequence of an add_tool executing, so holding the
+// heads holds the chain — and because the door is at the shared seam, a
+// third producer of either type is held too, wherever it files from.
 //
 // `source == "owner-request"` BYPASSES the hold: the owner asking for a tool
 // is not growth to refuse (the webdesign-tool-rebuilds lane files add_tool
@@ -71,11 +79,19 @@ func GrowthGateApplies(itemType, source string) bool {
 	return GrowthGatedItemTypes[itemType] && source != GrowthPostureSourceBypass
 }
 
+// GrowthPostureQuerier is the narrow read surface SiteGrowthPosture needs —
+// same pattern as PlanSectionQuerier in this package. *sql.DB and *sql.Tx
+// both satisfy it, which matters because the caller is a door inside
+// writeWorkItem's transaction.
+type GrowthPostureQuerier interface {
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
 // SiteGrowthPosture reads the site's growth posture. Absent settings, an
 // absent key, or any value other than GrowthPostureHold all return "open" —
 // the fail-open direction is deliberate (the switch is an opt-in hold; a read
 // error must not silently stop fleet-wide tool growth).
-func SiteGrowthPosture(ctx context.Context, db *sql.DB, siteID string) (string, error) {
+func SiteGrowthPosture(ctx context.Context, db GrowthPostureQuerier, siteID string) (string, error) {
 	var posture string
 	err := db.QueryRowContext(ctx,
 		`SELECT COALESCE(settings->'maintenance_profile'->>'growth_posture', 'open')

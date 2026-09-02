@@ -13,7 +13,6 @@ package discovery_checks
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -134,7 +133,6 @@ func TestMissingTools_BehindRatio_ShortensCooldownAndExplainsWhy(t *testing.T) {
 	expectRatio(mock, siteID, 6)
 	expectArticleCount(mock, siteID, 18)
 	expectCooldown(mock, siteID, 7, false) // 7, not 30 — this is the behaviour change
-	expectGrowthPosture(mock, siteID, "open")
 
 	res := runCheck(t, db, siteID)
 	if len(res.WorkItems) != 1 {
@@ -191,7 +189,6 @@ func TestMissingTools_NoTools_UnaffectedByRatio(t *testing.T) {
 	expectToolCount(mock, siteID, 0)
 	expectRatio(mock, siteID, 0) // configured off explicitly
 	expectCooldown(mock, siteID, 7, false)
-	expectGrowthPosture(mock, siteID, "open")
 
 	res := runCheck(t, db, siteID)
 	if len(res.WorkItems) != 1 {
@@ -199,84 +196,6 @@ func TestMissingTools_NoTools_UnaffectedByRatio(t *testing.T) {
 	}
 	if contains(res.WorkItems[0].SpecJSON, "content_tools_ratio") {
 		t.Errorf("spec %s should carry no ratio fields when the ratio is off", res.WorkItems[0].SpecJSON)
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("unmet expectations: %v", err)
-	}
-}
-
-func expectGrowthPosture(mock sqlmock.Sqlmock, siteID uuid.UUID, posture string) {
-	mock.ExpectQuery(`growth_posture`).
-		WithArgs(siteID.String()).
-		WillReturnRows(sqlmock.NewRows([]string{"posture"}).AddRow(posture))
-}
-
-// Growth posture 'hold' (owner decision 5, 2026-08-31): the item is FILED, in
-// the record shape — deferred, handler-less, release recipe in the spec. The
-// promoter's scored CTE excludes a handler-less row before any door runs
-// (write_audit_findings_filing_mode_test proves that shape unpromotable), so
-// asserting the shape here is asserting the hold.
-func TestMissingTools_GrowthHold_FilesHeldNotDispatchable(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("sqlmock: %v", err)
-	}
-	defer db.Close()
-	siteID := uuid.New()
-
-	expectToolCount(mock, siteID, 0)
-	expectRatio(mock, siteID, -1)
-	expectCooldown(mock, siteID, 7, false)
-	expectGrowthPosture(mock, siteID, "hold")
-
-	res := runCheck(t, db, siteID)
-	if len(res.WorkItems) != 1 {
-		t.Fatalf("got %d work items, want 1 — a hold FILES, it does not skip", len(res.WorkItems))
-	}
-	item := res.WorkItems[0]
-	if item.Status != "deferred" {
-		t.Errorf("status = %q, want deferred", item.Status)
-	}
-	if item.HandlerAgent != "" {
-		t.Errorf("handler = %q, want empty — a handler-less row is what the promoter cannot score", item.HandlerAgent)
-	}
-	if !contains(item.Summary, "[growth held]") {
-		t.Errorf("summary %q missing the held marker", item.Summary)
-	}
-	for _, want := range []string{`"growth_held":true`, `"growth_handler":"tool-suggester"`, `"growth_release_recipe"`} {
-		if !contains(item.SpecJSON, want) {
-			t.Errorf("spec %s missing %s", item.SpecJSON, want)
-		}
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("unmet expectations: %v", err)
-	}
-}
-
-// A posture read ERROR fails open: the item files exactly as it would with no
-// switch at all. An opt-in hold must not stop fleet growth by breaking.
-func TestMissingTools_GrowthPostureReadError_FailsOpen(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("sqlmock: %v", err)
-	}
-	defer db.Close()
-	siteID := uuid.New()
-
-	expectToolCount(mock, siteID, 0)
-	expectRatio(mock, siteID, -1)
-	expectCooldown(mock, siteID, 7, false)
-	mock.ExpectQuery(`growth_posture`).
-		WithArgs(siteID.String()).
-		WillReturnError(fmt.Errorf("connection reset"))
-
-	res := runCheck(t, db, siteID)
-	if len(res.WorkItems) != 1 {
-		t.Fatalf("got %d work items, want 1", len(res.WorkItems))
-	}
-	if res.WorkItems[0].Status != "detected" || res.WorkItems[0].HandlerAgent != "tool-suggester" {
-		t.Errorf("fail-open shape wrong: status=%q handler=%q, want detected/tool-suggester",
-			res.WorkItems[0].Status, res.WorkItems[0].HandlerAgent)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
