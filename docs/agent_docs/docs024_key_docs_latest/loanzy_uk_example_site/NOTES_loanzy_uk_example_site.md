@@ -2441,3 +2441,28 @@ had it only seen part of the input.**
 - Council corr cea2a32c (Council-Submitted). RFC_060 gains an insurance data point built
   as a sector set rather than an adaptation. Register state across my sites: loanzy 3/5,
   farmer 7/5 — both halves live on both.
+
+## 2026-09-02 (last) — s77 registered (716); the NDL fact REFUSED taught the third host signature
+- Copy lane handed two facts from the owner-ruled get-help evidence pass. CCA s.77 verified
+  and shipped (716, applied, corr 7e927a7b; renumbered 714→716 — the numbering race caught
+  me AGAIN minutes after I wrote the check down; the discipline that actually works is:
+  claim the number by LOOKING at max+1 in the same command that writes the file).
+- **⚠ MISSTEP: committed 716 WITHOUT its Council-Submitted trailer** (forward-only, no
+  amend). Disclosed inside the submission itself; 098's join for this commit needs this
+  note. Check that actually works: the trailer belongs in the commit message I draft BEFORE
+  the submit step, with the corr pasted in — I had inverted the order (applied+committed,
+  then submitted).
+- **The National Debtline fact REFUSED — the third unregistrable-host signature:
+  UA-DIFFERENTIAL SERVING.** Both natural hosts serve full pages to curl (real title, full
+  size, quotes present — every curl-side control passes) and NOTHING to the production
+  fetcher's UA: even "free" fails QuoteFoundInText. Defeats the blind-zero landmine's both
+  halves AND the challenge-page tell; only the write-time probe THROUGH the production
+  matcher catches it — RUNBOOK §8 step 4's rule proven necessary for a third, different
+  reason. Census so far: challenge-page class (maps/moneyhelper), UA-differential class
+  (nationaldebtline/moneyadvicetrust). Relayed to the mirror design.
+- Relay-vs-page corrections sent to the copy lane for bd03c2b3: the page says "a charity
+  run by the Money Advice Trust" (not "a debt advice service run by"), and "We never charge
+  for our support" is not on the cited page. Even a precision-focused evidence pass
+  paraphrased — the matcher, not the reader, is the arbiter of verbatim.
+- Register end-state tonight: loanzy 4 facts / 5 bans; farmer 7 / 5. Verdict watches open:
+  702 (48eec07c), 713 (cea2a32c), 716 (7e927a7b).
