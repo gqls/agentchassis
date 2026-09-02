@@ -118,6 +118,32 @@ to both.
   post-roll: re-fire a rerender at this page while unbuilt → the ask files/dedups.
   **Inert until an agent-chassis roll; verify at the per-service stamp.**
 
+## COUNCIL: r1 REVISE (objections right, all answered) -> r2 APPROVED 2026-09-02
+
+Corr `2be8ec34`. Round 1's two HIGH objections (ON CONFLICT convention, prior-art
+gap) are GONE in r2 — the writeWorkItem refactor and the gap analysis answered
+them. r2 approved with 3 advisories, none high; dispositions:
+- *sketch still shows a raw ON CONFLICT* (editquality/guidelines/prior_art, medium)
+  — a SUBMISSION-vs-CODE mismatch: my r2 rationale said the INSERT was gone but I
+  left the stale literal in the plan SKETCH. VERIFIED AT THE CODE, not asserted:
+  `grep -c 'ON CONFLICT' rerender_single_page_action.go` = **0**; the helper calls
+  `writeWorkItem(..., dropOnConflict, ...)` (line ~1300), whose own INSERT carries
+  the literal `ON CONFLICT (site_id, item_key) WHERE ...` matching idx_swi_dedup
+  (load_work_item_actions.go:2170). The convention is satisfied by the seam.
+- *consumer wiring has no unit test* (editquality, medium) — TRUE and stated: the
+  producer conversion is action-level tested + mutation-proved; the consumer
+  skip-branch wiring's proof is the live motivating case post-roll (re-fire a
+  rerender at an unbuilt 0-component page -> the ask files/dedups). Heavy
+  scaffolding for a full RerenderSinglePageAction test; deferred deliberately.
+- *componentless zero-count needs SQL* (prior_art, low) — re-proven:
+  `SELECT count(*) FROM agent_definitions WHERE default_config::text LIKE
+  '%componentless_pages%' AND is_active ...` = **0**.
+- throughput of the per-page EXISTS probe (guardian, low): one indexed existence
+  check per page in a bounded loop; acceptable.
+
+Both `Council-Submitted` commits (8eca969cb, 8a0b927f5) are credited by 098 now
+the chain is approved.
+
 **Criterion 1, driven to the framework's own edge** (2026-09-02 ~17:20Z):
 - Hand-filed `needs_content_page` (`a423f7ea…`, the code path's stable key so later
   code filings dedup) ran within the hour and parked HONESTLY at
