@@ -190,6 +190,20 @@ from `ResolvedData`**, not that it lost a merge.
 | **version pinning** | the pinned version postdates the template update and carries the guard |
 | a **third producer** of `articles` | only `rebuild_blog_listing` writes `"articles"` literally; the generic path writes `resolvedData[fieldName]`. Both fixed |
 
+### ⚠ THE RERENDER PATH DELETE/re-INSERTs THE ROW — three consequences for how you verify
+
+`[MEASURED 2026-09-02]` two rerenders of boxingonline `/index.html` produced two **new
+`page_components.id`s**: `7dead3e5` at 21:22:26Z, `9e643633` at 21:30:07Z. The path replaces the
+row; it does not `UPDATE` it.
+
+1. **Never key a before/after on the instance id.** It differs on every rerender whether or not
+   anything changed. Key on `page_id` + `slot_name`.
+2. **A fresh instance id is NOT evidence of new content.** It is evidence the row was replaced,
+   which happens on the runs that reproduce the old shape exactly.
+3. **This is why `page_component_history` is reliable here** — the rows come from the **DELETE**
+   trigger, not an update trigger — **and why `page_id` is the only sane join**: it survives the
+   replacement, and `component_id` is NULL on 44,555 of 45,285 rows.
+
 ### ⭐ THE EXPERIMENT TO RUN FIRST — it breaks the ambiguity that blocked this all evening
 
 Proposed by the `site_delivery_and_editor` lane as a question ("would a rebuild of boxingonline
