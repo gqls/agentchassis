@@ -304,6 +304,37 @@ and the data was thin".
 The cheap eliminations above are done; what remains is inside the execution, which is exactly
 what the loop is for.
 
+### ANSWERED: the producer fix does NOT execute on the RERENDER path — a controlled A/B on one binary
+
+`[MEASURED 2026-09-02]` The two paths were run against **the same site, the same component, the
+same binary (v1.0.1354), three minutes apart**:
+
+| path | dispatched as | result on `content_data.articles[0]` |
+|---|---|---|
+| **build** — `needs_page` rebuild (`7f1f4993`, 17:23:02Z) | delivery lane's own fix | **`excerpt` key PRESENT, title suffix STRIPPED** |
+| **rerender** — `page_rerender`, `reason='template_changed'` (`684`, 17:26:52Z) | this lane, on boxingonline `/index.html` | **no `excerpt` key, title suffix INTACT** |
+
+**Controls, all clean, because this is the claim the whole day has been failing to establish:**
+
+- the rerender **wrote** — `page_components.updated_at` 17:26:19 **and 8 `page_component_history`
+  rows at 17:26:19** for that page (keyed on `page_id`, the `NOT NULL` column). Not a refused save.
+- **zero** `SECTION COMPONENT FLOOR REFUSED` entries fleet-wide in the surrounding 20 minutes.
+- the slot is still bound to the **canonical** `content-listing`, not a per-site fork.
+- the rendered markup carries **no** `article-card__category` — the post-682 template ran.
+
+**So the stale-pod hypothesis is dead**, and with it my own one-pod-of-two hole: the same binary
+produces the fixed shape via one path and the old shape via the other, minutes apart. The
+difference is the **path**, not the image, not the timing, not the template.
+
+**This is exactly what the council's `render_guardian` seat objected to in round 2** — that the
+plan cited reason-branching and never showed the scoped path re-invoking the projection. The
+citation I answered with was real and describes `planSection` calling `queryresolve.Resolve`
+unconditionally; the behaviour disagrees with it, and the behaviour is what ships.
+
+**The open question is now small, concrete, and well-posed:** the rerender path builds its
+`articles` array through something that is not the fixed `resolvePagesWhereType`. The delivery
+lane's hypothesis — the fix landed in the wrong producer *for this path* — is the surviving one.
+
 ### SETTLED AT THE MARKUP — read this section first; the three readings below it are superseded
 
 `[MEASURED 2026-09-02]` The pre-682 and post-682 templates leave **different fingerprints**, and
