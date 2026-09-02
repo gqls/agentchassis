@@ -5297,3 +5297,22 @@ fresh sweep (updated_at moves) still says 20 does `check_tool_health.go` rules 1
 `cannot get array length of a scalar`; the count lives in the row's `summary` text ("N finding(s)…").
 Select the raw row before writing jsonb path expressions. (2) an `ORDER BY 2` against a single
 concatenated output column — schema-first applies to my own SELECT list too. Both cost one query each.
+
+## 2026-09-02 — PLATFORM SEAT: cross-lane query answered — the fork path's js_content drop is NOT ours, but it is real (12/72)
+
+The "theme kits" session asked whether `deploy_tool_action.go`'s fork INSERT...SELECT (~332-361,
+which does NOT copy `js_content` — the code's own comment flags it, "harmless while tools stay
+inline") ever surfaced in this lane's grading. Answered with measurements, both worth keeping:
+
+- **The negative, for this lane:** zero `js_content` mentions in this entire NOTES file before this
+  entry (`grep -c` = 0). The rebuild queue creates natively via `create_tool_component`
+  (RUNBOOK:380,451) and never drives the library-fork path, and our serve-grades read SERVED bytes
+  of native pages — so this class was structurally invisible to us, correctly.
+- **The positive, for their filing `[MEASURED 2026-09-02]`:** 72 tool forks fleet-wide; 12 have a
+  parent with non-empty `js_content`; ALL 12 lost it. 10 keep behaviour inline (latent only). TWO
+  ACTIVE forks reference an asset published FROM `js_content` (`collectJSAssets`, per
+  bugs_closed/041 + /024): `tool-provocation-heat-rater-vonc-com-vonc-com` and
+  `tool-equity-release_pre_037-mortgagecalculator-co-uk` — live-damage candidates in 041's class.
+- Filing is theirs (their find, outside our queue); told them the two traps (deploy_tool_action.go
+  deliberately NOT in COMPONENT_WRITE_ALLOWED — a pattern-check fire is TRUE; council scope for the
+  platform/ diff) and that the 2-line door-fix does not backfill the 12 existing rows.
