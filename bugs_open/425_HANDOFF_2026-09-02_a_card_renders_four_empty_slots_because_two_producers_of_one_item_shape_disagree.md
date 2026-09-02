@@ -171,6 +171,48 @@ emitting only `meta_description` starved the other. Both producers now emit **bo
 > `bl-card-excerpt`, which is how you can see it. **That is a door held shut by an unrelated
 > mechanism, not a guarantee** — and it is a loose thread worth pulling (see below).
 
+## The third value in the same row — `nav_label` — and why it is not the drop-in it looks like
+
+Raised by the boxingonline lane after confirming the crux, 2026-09-02. The same item carries a
+**third** differently-named text value that nothing renders:
+
+```
+"title":            "Cruiserweight Is Boxing's Best-Kept Secret — And It Won't Stay That Way | Boxing Online"
+"meta_description": "Discover why cruiserweight boxing sits between light heavyweight and heavyweight, …"
+"nav_label":        "Cruiserweight's Rise"
+```
+
+So **three differently-named values feed two visible slots on one item**, and that is the
+sharper statement of fix-candidate 4 below: the missing per-item vocabulary is not only why
+slots go unguarded, it is why **nothing in the system can say which of `title` and `nav_label`
+is the headline.** Both are just keys a resolver happened to write.
+
+Whether a card should show the short label or the full headline is a design judgement and it
+sits with the visual-designer seat, not here. **But it must be made against this measurement,
+because `nav_label` is not populated enough to be a headline source:**
+
+`[MEASURED 2026-09-02]` over the **303** active/deployed `blog-post` pages fleet-wide:
+
+| | count | share |
+|---|---|---|
+| `nav_label` NULL or empty | **256** | **84.5%** |
+| carries the `" \| "` suffix itself | 28 | 9.2% |
+| identical to `title` (so no shorter) | 24 | 7.9% |
+
+Only ~47 of 303 carry a distinct, non-empty label at all. And **on boxingonline, the site that
+makes it look good, 2 of its 7 posts are unusable**: one `nav_label` is empty, and one is
+`"Article | Boxing Online"` — which is both a placeholder and carries the very suffix this bug
+strips.
+
+So "render `nav_label` instead" would blank most cards fleet-wide, and on this site would
+produce one card with no headline and one headed *"Article | Boxing Online"*. Even the careful
+form — `nav_label` when present, else `title` — yields a **mixed grid**, some cards with
+four-word headings beside others at 68 characters, which is a worse grid than consistent long
+ones. If the shorter headline is wanted, the honest route is a **populated** display-headline
+field, not a fallback chain over a column that is empty 84.5% of the time.
+
+Recorded here so the next reader of that row does not rediscover `nav_label` and reach for it.
+
 ## Fix candidates, ordered by what closes the door
 
 1. **DONE — share the rules.** `queryresolve.ListItemTitle` / `ListItemExcerpt`, one
@@ -183,7 +225,8 @@ emitting only `meta_description` starved the other. Both producers now emit **bo
    an intentional blank.
 3. **DONE — detect the class** (`check_card_slot_guards.py`) and un-blind its sibling.
 4. **OPEN, and the only one that makes the bad state unrepresentable: give `input_schema` a
-   per-item field vocabulary.** Today `required` / `on_missing` / `fallback` exist per
+   per-item field vocabulary.** *(Its cost is now visible in two directions: unguarded slots,
+   AND three unranked names for two slots — see the `nav_label` section above.)* Today `required` / `on_missing` / `fallback` exist per
    TOP-LEVEL field and the resolver honours them — but there is no vocabulary for the fields
    INSIDE an array item. `articles {required: true, on_missing: skip_section}` governs
    whether the listing renders at all and says **nothing whatever** about
