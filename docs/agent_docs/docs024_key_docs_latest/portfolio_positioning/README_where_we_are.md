@@ -1320,3 +1320,12 @@ only you can do. The same will be true for the three cluster sites when they fin
 be worth doing all four domains as one Nominet batch, which is the bulk approach you ruled for
 anyway. If you create the DNS-scoped Cloudflare token the runbook describes (the correction from
 2026-08-18 has the exact permission recipe), I can script everything except the Nominet step.
+
+**2026-09-02, night — all four sites are built and deployed. One Cloudflare step stands between them and the world.**
+
+Advertise, SEO tools, website promotion and the design blog all went through the full pipeline
+today — the whole first wave of remakes, built in a single day. The nameservers you set are the
+right ones; the missing half is that the four domains need adding as zones in the Cloudflare
+dashboard (Add site → each domain, free plan). Until then all four domains answer nothing at
+all — old sites included. The moment the zones exist I add the worker routes; each zone also
+needs one proxied A record (dashboard, or give me the DNS token and I do it all).

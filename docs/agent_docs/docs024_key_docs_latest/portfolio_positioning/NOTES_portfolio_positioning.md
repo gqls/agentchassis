@@ -3783,3 +3783,22 @@ watching remake №1 end-to-end and its domain no longer resolves:
   nominet lane's README). Once the zones are active the four serve the portfolio router —
   №1's remake appears there when its build deploys; nothing for your lane to do except know
   that an HTTP probe of advertise.co.uk today measures DNS state, not build state.
+
+### (k) ALL FOUR remakes DEPLOYED in one day — serving now gated ONLY on Cloudflare zones
+
+advertise 16:23Z · seotools ~18:2xZ · websitepromotion ~18:3xZ · designblog ~18:5xZ. Convergence
+waves still drain on all four (rerenders, designblog's 6 content_rewrite items, one 424-class
+imagery retry on websitepromotion — that bug lane's). Standing review piles for LATER batch
+verification at artefacts: ~54 unresolved_cta across the trio (the advertise precedent says most
+resolve when hubs render) · seotools' 7 + websitepromotion's 1 owned_page_review (TRUE until the
+design-discovery sweep files their evaluate_tools — seotools DEPLOYED without its 7 planned
+tools; self-heals via the sweep, invisible while the domain is dark) · websitepromotion's
+claims_unverified (owner) · advertise's negation flag (owner).
+
+**DNS state 18:0x–19:0xZ: all four domains LAME-DELEGATED** — owner set alexis/leah at Nominet
+(correct pair, matches the account's 36 zones) BEFORE zones existed; registry answers SERVFAIL
+"no reachable authority". Old sites dark; new sites unreachable. Remedy = create the four zones
+in the CF account (dashboard, or the never-created DNS token per RUNBOOK's 08-18 recipe); then
+apex proxied A (dashboard/token) + worker route (this lane's 404-token CAN, step 5). Zone watch
+armed; routes get added the moment zones appear. ⚠ the runbook's order (zone FIRST, then NS)
+exists precisely because of this failure shape — worth a LANDMINES entry if it recurs.
