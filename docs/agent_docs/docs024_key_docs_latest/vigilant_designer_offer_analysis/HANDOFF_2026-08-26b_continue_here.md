@@ -616,8 +616,19 @@ named same-file passenger; they were told, nothing lost.
 
 **Shipped, four commits.** `f7156fb54` Go (inert until the roll) · `06b10a1d8` wiring `681_HOLD`
 (+`_ROLLBACK`) · `40ab44bdf` LANDMINE · `af312bc1c` register **CQ-034**.
-Council: **`4054f4d9-cd75-4b9c-8b8c-b7b86f11de1e`** — ⚠ **VERDICT NOT READ. That is the first thing
-you owe.** The code is on the shared branch; a REVISE must be acted on.
+Council: **`4054f4d9-cd75-4b9c-8b8c-b7b86f11de1e`** — ~~⚠ **VERDICT NOT READ. That is the first thing
+you owe.** The code is on the shared branch; a REVISE must be acted on.~~
+> **RESOLVED 2026-09-02 — and this line is why it took two days.** Round 1 returned **REVISE** at
+> **2026-08-31 17:26:15Z**, ~20 minutes after submission and while I was still working; I polled the
+> ORCHESTRATION five times, saw it progressing, and reported "still running". **Progress observed at
+> T is not absence of a result at T+n, and `orchestration_states` is the wrong table** — the verdict
+> is a `diagnosis_artifacts` row and the run's `current_step` says nothing about whether the report
+> exists. The obligation was recorded correctly here and *that made the system look healthy*: **a
+> correctly-recorded obligation is not a discharged one.** (`WRONG_CALLS.md`, 2026-09-02.)
+> **Round 2 is APPROVED** (2026-09-02 13:19Z, 16 reviewers, 1 abstained, no high-severity
+> objections). Every advisory acted on or recorded as open — see NOTES §"Round 2: APPROVED".
+> ⚠ **Read the REPORT, not the decision field:** this approval carried nine objections, two of them
+> real (an unqueried exclusivity claim, and a merge constraint I was relying on by luck).
 
 **Owner ruled REPAIR** over fail and drop, after the three modes were costed to him. FAIL leaves the
 site's previous (also dirty) ordering current, so nothing gets cleaner and one tic costs a whole

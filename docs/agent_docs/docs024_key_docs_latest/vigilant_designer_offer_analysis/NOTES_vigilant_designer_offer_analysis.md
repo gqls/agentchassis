@@ -3494,6 +3494,10 @@ a future session should re-run rather than re-derive.**
 
 **Round 2 submitted** `RESUBMIT_CORR=4054f4d9…` (the trail accumulates under the original
 correlation; run orch `83548697-cad0-4f5b-a075-c0fd7d51a632`). ⚠ **READ THIS ONE.**
+> **APPROVED 2026-09-02 13:19Z.** Read at the report, not the decision field — see the next section.
+> This time the wait was a background watcher that exits on the verdict OR on a terminal run state,
+> not a manual poll: the failure above was reporting "still running" from a run that was still
+> running *when I last looked*, which is a different claim.
 
 ### Unchanged and still true
 
