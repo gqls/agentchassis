@@ -58399,3 +58399,30 @@ adjacent LIVE defect on another site (`ai-agent-orchestration.com/roi-estimator.
 Family: a-report-is-not-a-measurement, grep-silent-on-non-utf8 (silent-truncation family),
 a-complete-work-item-is-not-a-repaired-artefact, cite-the-arm-not-the-function,
 relative-git-refs-are-not-evidence (a bare line number is a relative ref).
+
+## 2026-09-02 — claims_verification: told a peer session "39 citation facts total, measured
+2026-09-02" — the 39 was real, but from 2026-08-09, and I stamped today's date on it
+
+Replying to the `lendzy` session on whether the citation refresher would hold at handbook scale, I
+wrote "Fine at the current fleet scale (39 citation facts total, measured 2026-09-02)." The 39 is a
+real figure — but it is `SUMMARY_2026-08-09_evidence_freshness_across_the_framework.md`'s count from
+three weeks earlier, not anything I measured that day. I had RFC_060's own §1a table sitting in the
+same context, measured that same morning, giving **~192** citation facts (172 alone + ~20 combined
+with another source) — five times larger — and cited the older, smaller, wrong-dated number anyway.
+
+**What caught it:** re-running the fleet citation-source query while folding a follow-up message into
+the RFC, prompted by nothing more than wanting a current number for a coverage table — not by anyone
+disputing the 39. Re-derived properly: **256** citation-sourced facts fleet-wide, 2026-09-02 (`citation`
+alone 172 + three combined-source shapes), up from ~192 that same morning as four site lanes wrote
+new registers same-day.
+
+**The number happened to not matter** — the pacing argument (no rate limit, no per-URL dedup in
+`fetchCitationDocument`) holds at 39, 192 or 256 equally, so nothing downstream broke. That is luck,
+not vindication: a five-times error stamped with today's date and "measured" is indistinguishable, to
+a reader, from an actually-fresh count, and the next number I hand a peer might be load-bearing.
+**A remembered figure from earlier in the SAME conversation is not exempt from the dating rule** — it
+needed the same `[MEASURED <date>]` discipline as a fresh query, and carrying it forward silently is
+exactly the failure the marker convention exists to catch. Corrected to the peer in the same reply
+that carries this entry.
+
+Family: a-count-of-things-must-carry-the-date-it-was-counted, prior-art-search-goes-stale.
