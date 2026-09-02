@@ -4535,3 +4535,63 @@ another lane's tool work (`tool-deployer`, `tool-improver`, `tool-auditor`) and 
 
 `site-discovery-rotation-design` is now **enabled** (10,800 s). The 08-18 handoff recorded it as
 `enabled=false` and *"the owner's separate call"* — that has changed since, not by this lane.
+
+## 2026-09-02 — state check for a fresh handoff: BOTH of the owner's targets need re-aiming
+
+### The dead calculators are already fixed — by another lane, in the week we were away
+
+Measured today: `tool-equity-release.js` **200** (was 404); `tool-btl-investor.js` still 404 but
+**referenced by nothing** — 0 occurrences in the live page, 0 in stored `page_components`. Both tool
+pages now carry ~6 KB of **inline** JS with real inputs and buttons. Item `d5131e25` closed
+`complete` 08-27; **`a7c5d5ab` is still `detected` and is STALE.**
+
+**Third stale-open item on this site in two weeks** (after the `unbuilt_internal_link` on 08-21).
+The check stands: *a parked item is not evidence its condition survives* — re-probe before acting.
+
+What is actually unresolved: 2 `improve_tool` **failed** (08-27) on
+`step load_tool failed: … query_database: query param path 'input_da…'` — an **infrastructure**
+failure, so `tool-deposit-tracker` and `tool-remortgage-savings` have acceptance **unverified**,
+not failed. That distinction is the whole finding.
+
+### "Wire up the existing images" would have changed nothing — and three pages prove it
+
+The obvious job is to point each tool hero at its own `content-hero-tool-*.jpg`. **That is already
+done on three pages and makes no difference:**
+
+| page | `content_data.background_image` | renders a background? |
+|---|---|---|
+| `tool-equity-release` | its own content-hero | **NO** |
+| `tool-overpayment` | its own content-hero | **NO** |
+| `tool-simple` | its own content-hero | **NO** |
+| 7 other `tool-*` pages | `/assets/images/hero.jpg` | **NO** |
+| **8 `tool-*-guide` pages — same component, same field** | `/assets/images/hero.jpg` | **YES** |
+
+So it is not the data and not the template: `html_template` **does** emit
+`{{if or .hero_url .background_image}}…url('{{or .hero_url .background_image}}')`, and the value
+sits in `content_data` while being **absent from `rendered_html`**. The value is not reaching the
+render context, and only on this page type.
+
+⚠ `background_image` is `source: site_assets.hero` — **resolver-populated, not an LLM field**.
+MEMORY `the-framework-writes-the-content-not-you` records a wasted run from asking a writer to set a
+resolver-owned URL; check the populator before editing anything.
+
+**Had I acted on the owner's instruction literally I would have wired 11 more pages and reported
+success, and 14 tool pages would still show no image.** The guide-vs-tool control is what stopped
+that — same component, one renders, one does not.
+
+### A fake regression I generated and caught
+
+Re-running the image audit with a **different extractor** (no CSS `url()`) gave *"6 pages with
+images, 36 without"* against last week's 28/14 — which reads as a catastrophic regression. Re-run
+with the **original** extractor: **28/14, identical.** Distinct images referenced did rise 9 → 12.
+
+**The check: when you re-measure to COMPARE, re-run the original query, not a new one that answers
+the same question differently.** A changed instrument and a changed world are indistinguishable in
+the number alone. (And `snippets.js` gave one 404 in 13 probes — fine; third transient
+false-negative on this site in two weeks.)
+
+### Handoff written
+
+`docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/HANDOFF_2026-09-02_continue_here.md`,
+superseding the 08-21 file. Leads with both re-aimings, because a fresh session acting on either
+instruction as stated would spend a day and move nothing.
