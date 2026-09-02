@@ -219,3 +219,40 @@ LEFT JOIN assets ca ON ca.site_id=p.site_id AND ca.entity_type='page' AND ca.ent
      AND ca.purpose='card' AND ca.status='active'
 WHERE p.page_type='tool' AND p.status='active' GROUP BY 1;
 ```
+
+## The 090 diagnosis run on defect #1 (fired 2026-09-02, owner authorised)
+
+**Question put to the loop:** a `page_rerender` item carrying `spec.reason=section_data_resolved`,
+correctly specced and consumed on a healthy queue, reaches `complete` and deploys — and
+`page_components.content_data` for the listing component is never rewritten.
+
+```
+INTAKE_CORRELATION=d4f745e6-3f79-42a8-8f71-bb611736912c   # the intake record
+RUN_CORRELATION_ID=149ec925-ffb7-41eb-806a-1595b8ff2226   # <- artifacts are written under THIS
+```
+Env used: `RUNTIME_SITE=leopardessconsulting.co.uk`, `SITE_ID=4851f6fc-…`, `PAGES=blog`,
+`SLUG=section_data_resolved_completes_without_rewriting_array`, `SEED_SCOPE=` the three files
+(`rerender_page_sections_action.go:RerenderPageSectionsAction`,
+`queryresolve.go:resolvePagesWhereType`, `page_list_reresolve.go`).
+
+⚠ **It refused first, and `FORCE=1` was correct here — read this before copying the flag.** The
+page-keyed coverage probe (`PAGES=blog`) matched ~30 open items and blocked. Two reasons none of
+them was in-flight work on this mechanism:
+1. The biggest block of hits **was this lane's own finding** — the nine
+   `page_rerender_blog_…_section_data_resolved` rows at `unresolved`. They are born TERMINAL
+   (see `bugs_open/384` UPDATE 09-02): nobody is working them and nobody can.
+2. The rest are other sites' pages that happen to be named `blog` (`misdirected_cta` on
+   ai-agent-orchestration, `required_fields_missing` from July, `voice:` from 2026-07-17).
+
+**A property of the probe worth knowing:** its coverage clause is
+`status NOT IN ('complete','cancelled','rejected')`, so a row parked in the terminal-but-unlisted
+status `unresolved` reads to it as OPEN, IN-FLIGHT work. A born-dead backlog therefore *blocks
+diagnosis of the very defect that created it*. `PAGES=` matches page NAME across ALL sites — narrow
+it, or expect this.
+
+Read the verdict (use the RUN correlation, not the intake one):
+```sql
+SELECT current_step, status FROM orchestration_states
+ WHERE collected_data->'input_data'->>'correlation_id' = '149ec925-ffb7-41eb-806a-1595b8ff2226';
+SELECT body FROM doc_notes WHERE categories ? 'diagnosis' ORDER BY created_at DESC LIMIT 1;
+```
