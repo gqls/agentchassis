@@ -230,6 +230,51 @@ errors `page_id not found in input`, 29/29 pages), and it must carry **NO `spec.
 `reason=section_data_resolved` runs `rerender_page_sections`, whose pre-check escalates the whole
 page to the content-writer on any missing `source:"llm"` field.
 
+**Filing the propagation items by hand — the exact INSERT, with the three things that bite.**
+```sql
+BEGIN;
+INSERT INTO site_work_items
+  (site_id, item_type, item_key, status, handler_agent, priority, source, created_by, summary, spec)
+SELECT p.site_id, 'page_rerender',
+       'page_rerender_'||p.name||'_'||p.site_id,   -- DISTINCT per page: idx_swi_dedup is UNIQUE
+       'triaged',                                   -- (1) claim gate: status IN ('triaged','approved')
+       'page-rerender',                             -- (2) handler_agent as a COLUMN, not a spec key
+       80, 'side_effect',
+       'bugfix-417-lane',                           -- (3) created_by is NOT NULL, no default
+       'Assemble-mode rerender: <why>',
+       jsonb_build_object('domain','<domain>','page_id',p.id::text,'page_name',p.name)  -- NO 'reason'
+FROM pages p JOIN sites s ON s.id=p.site_id
+WHERE s.domain='<domain>' AND p.deployed_at IS NOT NULL;
+
+DO $$
+DECLARE n int; bad int;
+BEGIN
+  SELECT count(*) INTO n FROM site_work_items w JOIN sites s ON s.id=w.site_id
+   WHERE s.domain='<domain>' AND w.item_type='page_rerender'
+     AND w.status='triaged' AND w.handler_agent='page-rerender';
+  IF n <> <expected> THEN RAISE EXCEPTION 'expected <expected> claimable, got %', n; END IF;
+  SELECT count(*) INTO bad FROM site_work_items w JOIN sites s ON s.id=w.site_id
+   WHERE s.domain='<domain>' AND w.item_type='page_rerender'
+     AND w.status='triaged' AND (w.spec ? 'reason');
+  IF bad <> 0 THEN RAISE EXCEPTION 'assemble mode needs NO spec.reason, % carry one', bad; END IF;
+END $$;
+COMMIT;
+```
+- **`status='triaged'` + `handler_agent` as a COLUMN** — a `pending` item with an empty handler
+  inserts cleanly and is **unclaimable for ever**, with no error and no log. LANDMINES has this one;
+  it is the reason the copy-the-completed-row instinct fails.
+- **`created_by` is NOT NULL with no default** and is easy to miss because the template row shows a
+  value that looks incidental. The five NOT-NULL-no-default columns are `site_id, source, item_type,
+  summary, created_by`. Use a **distinctive** `created_by` for a hand-filed repair (nothing gates on
+  it for `page_rerender` — the claim gate reads `status` + `handler_agent`), so the batch stays
+  greppable afterwards: `WHERE created_by='<your lane>'`.
+- **The `DO`/`RAISE` block is what makes the guard real.** A verify block of bare `SELECT`s cannot
+  stop the `COMMIT`. Both guards above fired usefully in rehearsal.
+- **Scope the page list to `deployed_at IS NOT NULL`, then PROBE.** websitepromotion has 12 active
+  pages and only 11 are served; `tool-channel-prioritiser` is `active` with `deployed_at` NULL and
+  genuinely 404s (invented-path control 404, known-good sibling 200). Filing for it would have been
+  a rerender of something nobody can see.
+
 **Verify at the artefact, in this order** — the middle one is the one people skip:
 ```sql
 SELECT slot_name, updated_at, length(rendered_html) AS len,
