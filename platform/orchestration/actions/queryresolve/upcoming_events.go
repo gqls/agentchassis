@@ -28,11 +28,41 @@
 // directories) — confirmed unrelated to this bug's "entity-directory" PAGE
 // ROLE by name only; see bugs_open/427 §4.4.
 //
-// NOTHING IS INVENTED: a fact whose event_date does not parse is EXCLUDED and
-// logged, never rendered with a guessed date — the research spec's own
+// NOT `evidence-chart` (content_components function="evidence-chart"), the
+// platform's existing "render an evidence_base fact on a page" component
+// (council prior_art_librarian, round 08f56b7e — checked, not argued from
+// silence): that component's schema declares `source:
+// "site_specs.evidence_base.charts"`, a SEPARATE declared array
+// (`data.charts[]`, each a `{id, title, points, max, unit, ...}` numeric
+// series) resolved through the `site_specs.*` source mechanism, not
+// `query.*` — it plots audited numbers over time, with no per-item
+// date/venue/participant shape and no filtering, sorting or pagination. A
+// repeating list of discrete, individually-dated real-world events is a
+// different shape needing a different mechanism, not an extension of that
+// one.
+//
+// EVIDENCE-GATED (added after council REVISE 08f56b7e, compliance HIGH): a
+// fact renders only if it carries BOTH a citation URL and quote — the same
+// bar VerifyAndRegisterCitationsAction already requires to REGISTER a fact,
+// enforced again here because this resolver must not depend on that being
+// the only write path forever (a hand-edited or future-written fact with
+// event_date but no citation must not silently render as fact). This is a
+// live, real-world-consequential surface (fight dates, venues, real named
+// people) — compliance's objection was that "date parses and is non-past"
+// alone let an unevidenced fact through; excluded-and-logged is the same
+// posture already used for an unparseable date, not a new failure mode.
+//
+// NOTHING IS INVENTED: a fact whose event_date does not parse, or whose
+// citation is missing/incomplete, is EXCLUDED and logged, never rendered
+// with a guessed date or an unevidenced claim — the research spec's own
 // lessons.avoid[] names a wrong fight date as actively harmful. A missing
 // venue/broadcaster/participants is an absent key, not a placeholder; the
-// template's own {{if}} guards decide what to show for it.
+// template's own {{if}} guards decide what to show for it. Every rendered
+// item also carries a constant `disclaimer` string (compliance MEDIUM: a
+// schedule can change after the citation was verified) — the eventual
+// component template must render it near the fixture, not discard it,
+// exactly as the caveat-travels-with-the-claim rule already applies
+// elsewhere on this estate.
 
 package queryresolve
 
@@ -54,6 +84,13 @@ const (
 	upcomingEventsDefaultLimit = 20
 	upcomingEventsMaxLimit     = 50
 )
+
+// upcomingEventDisclaimer travels with every rendered fixture (council
+// compliance, round 08f56b7e, MEDIUM): a citation proves the source said
+// this at the time it was verified, not that it still holds — schedules
+// change (postponed, cancelled, moved). The eventual component template
+// must render this near the fixture, not drop it; it is not decoration.
+const upcomingEventDisclaimer = "Schedule details can change after this was checked — confirm with an official source before relying on it."
 
 // upcomingEvent is one dated fact, selected and validated but not yet
 // projected for template rendering.
@@ -123,6 +160,7 @@ func resolveUpcomingEvents(ctx context.Context, db *sql.DB, siteID uuid.UUID, li
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 	var events []upcomingEvent
 	skippedUnparseable := 0
+	skippedUnevidenced := 0
 	for _, fr := range factsRaw {
 		fact, ok := fr.(map[string]interface{})
 		if !ok {
@@ -147,6 +185,15 @@ func resolveUpcomingEvents(ctx context.Context, db *sql.DB, siteID uuid.UUID, li
 
 		src, _ := fact["source"].(map[string]interface{})
 		cit, _ := src["citation"].(map[string]interface{})
+		citURL := strings.TrimSpace(datahelpers.GetStringField(cit, "url", ""))
+		citQuote := strings.TrimSpace(datahelpers.GetStringField(cit, "quote", ""))
+		if citURL == "" || citQuote == "" {
+			skippedUnevidenced++
+			logger.Warn("queryresolve: event fact has no citation url/quote — excluded, never rendered unevidenced",
+				zap.String("site_id", siteID.String()),
+				zap.String("fact_id", datahelpers.GetStringField(fact, "id", "")))
+			continue
+		}
 		events = append(events, upcomingEvent{
 			FactID:       datahelpers.GetStringField(fact, "id", ""),
 			Date:         date,
@@ -170,8 +217,11 @@ func resolveUpcomingEvents(ctx context.Context, db *sql.DB, siteID uuid.UUID, li
 		events = events[:limit]
 	}
 
-	if skippedUnparseable > 0 {
-		logger.Info("queryresolve: resolved upcoming_events", zap.Int("items", len(events)), zap.Int("skipped_unparseable_date", skippedUnparseable))
+	if skippedUnparseable > 0 || skippedUnevidenced > 0 {
+		logger.Info("queryresolve: resolved upcoming_events",
+			zap.Int("items", len(events)),
+			zap.Int("skipped_unparseable_date", skippedUnparseable),
+			zap.Int("skipped_unevidenced", skippedUnevidenced))
 	} else {
 		logger.Info("queryresolve: resolved upcoming_events", zap.Int("items", len(events)))
 	}
@@ -191,9 +241,10 @@ func projectUpcomingEvents(events []upcomingEvent) []map[string]interface{} {
 			title = e.Claim
 		}
 		m := map[string]interface{}{
-			"fact_id": html.EscapeString(e.FactID),
-			"title":   html.EscapeString(title),
-			"date":    html.EscapeString(e.DateText),
+			"fact_id":    html.EscapeString(e.FactID),
+			"title":      html.EscapeString(title),
+			"date":       html.EscapeString(e.DateText),
+			"disclaimer": upcomingEventDisclaimer,
 		}
 		if len(e.Participants) > 0 {
 			participants := make([]string, 0, len(e.Participants))

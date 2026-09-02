@@ -222,7 +222,16 @@ const (
 	// fact's daily re-verification) and, per-fact, by whatever registers a new
 	// dated event fact (news_feed_ingestion's verify_and_register_citations
 	// extension).
-	DepEvidenceBase SourceDependency = "evidence_base"
+	//
+	// Literal is "site_specs.evidence_base", not the bare "evidence_base" this
+	// constant shipped with initially (council REVISE 08f56b7e, guardian +
+	// architecture, both low severity but "settle before merge, not left to
+	// reviewer preference"): every sibling literal (content_feed_items,
+	// directory_entities, business_intel, products) names a real TABLE this
+	// dependency reads; evidence_base is not a table, it is one `aspect` value
+	// on the shared `site_specs` table, and a bare "evidence_base" would read
+	// as if it were its own store to the next person adding a fifth class.
+	DepEvidenceBase SourceDependency = "site_specs.evidence_base"
 )
 
 // sourceDependencies declares, per query base, WHICH dependency classes its

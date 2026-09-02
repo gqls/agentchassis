@@ -68,19 +68,43 @@ func TestResolveUpcomingEvents_SelectionOrderingAndExclusions(t *testing.T) {
 			"venue":        "Wembley Stadium", "broadcaster": "DAZN",
 			"source": map[string]interface{}{"citation": map[string]interface{}{
 				"title": "Fury vs Usyk announced", "url": "https://example.com/fury-usyk",
+				"quote": "Fury will fight Usyk",
 			}},
 		},
 		{ // the sooner of the two future events — must sort first
 			"id": "EVT-sooner", "kind": "entity", "event_date": future2,
 			"participants": []interface{}{"Anthony Joshua", "Deontay Wilder"},
+			"source": map[string]interface{}{"citation": map[string]interface{}{
+				"url": "https://example.com/joshua-wilder", "quote": "Joshua vs Wilder confirmed",
+			}},
 		},
 		{ // unparseable date — excluded, never guessed
 			"id": "EVT-bad-date", "kind": "entity", "event_date": "sometime in March",
 			"participants": []interface{}{"A", "B"},
+			"source": map[string]interface{}{"citation": map[string]interface{}{
+				"url": "https://example.com/ab", "quote": "A vs B",
+			}},
 		},
 		{ // a concluded event — not "upcoming"
 			"id": "EVT-past", "kind": "entity", "event_date": past,
 			"participants": []interface{}{"C", "D"},
+			"source": map[string]interface{}{"citation": map[string]interface{}{
+				"url": "https://example.com/cd", "quote": "C vs D",
+			}},
+		},
+		{ // has a citation URL but no quote — must be excluded, not just warned
+			"id": "EVT-no-quote", "kind": "entity", "event_date": future2,
+			"participants": []interface{}{"E", "F"},
+			"source": map[string]interface{}{"citation": map[string]interface{}{
+				"url": "https://example.com/ef",
+			}},
+		},
+		{ // has a citation quote but no url — must be excluded
+			"id": "EVT-no-url", "kind": "entity", "event_date": future2,
+			"participants": []interface{}{"G", "H"},
+			"source": map[string]interface{}{"citation": map[string]interface{}{
+				"quote": "G vs H",
+			}},
 		},
 	}
 
@@ -107,10 +131,54 @@ func TestResolveUpcomingEvents_SelectionOrderingAndExclusions(t *testing.T) {
 	if items[1]["source_url"] != "https://example.com/fury-usyk" {
 		t.Errorf("source_url missing or wrong: %#v", items[1])
 	}
-	// The sooner event carries no venue/broadcaster/source — absent keys,
-	// not empty-string placeholders, so a template's {{if}} can tell.
+	// The sooner event carries no venue/broadcaster — absent keys, not
+	// empty-string placeholders, so a template's {{if}} can tell.
 	if _, has := items[0]["venue"]; has {
 		t.Errorf("event with no stated venue must omit the key entirely, got %#v", items[0])
+	}
+	// Every item carries the disclaimer regardless of how complete it is —
+	// compliance's caveat-travels-with-the-claim requirement (council REVISE
+	// 08f56b7e).
+	for _, it := range items {
+		if it["disclaimer"] != upcomingEventDisclaimer {
+			t.Errorf("every item must carry the disclaimer, got %#v", it)
+		}
+	}
+}
+
+// TestResolveUpcomingEvents_RequiresCitation — council REVISE 08f56b7e,
+// compliance HIGH: a fact must not render real-world scheduling claims
+// (fights, venues, real people) with nothing checking it is actually
+// evidenced. Both halves of a citation (url, quote) are required; either
+// alone is not enough, and a fact with neither or only one is excluded and
+// logged exactly like an unparseable date, not silently rendered.
+func TestResolveUpcomingEvents_RequiresCitation(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	future := time.Now().UTC().AddDate(0, 0, 5).Format("2006-01-02")
+	facts := []map[string]interface{}{
+		{"id": "EVT-none", "kind": "entity", "event_date": future, "participants": []interface{}{"A", "B"}},
+		{"id": "EVT-url-only", "kind": "entity", "event_date": future, "participants": []interface{}{"C", "D"},
+			"source": map[string]interface{}{"citation": map[string]interface{}{"url": "https://example.com/cd"}}},
+		{"id": "EVT-quote-only", "kind": "entity", "event_date": future, "participants": []interface{}{"E", "F"},
+			"source": map[string]interface{}{"citation": map[string]interface{}{"quote": "E vs F"}}},
+		{"id": "EVT-both", "kind": "entity", "event_date": future, "participants": []interface{}{"G", "H"},
+			"source": map[string]interface{}{"citation": map[string]interface{}{"url": "https://example.com/gh", "quote": "G vs H"}}},
+	}
+	mock.ExpectQuery("FROM site_specs").WillReturnRows(
+		sqlmock.NewRows([]string{"data"}).AddRow(registerRow(t, facts)))
+
+	got, err := resolveUpcomingEvents(context.Background(), db, uuid.New(), 0, zap.NewNop())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	items := got.([]map[string]interface{})
+	if len(items) != 1 || items[0]["fact_id"] != "EVT-both" {
+		t.Fatalf("want exactly EVT-both (the only fact with both url and quote), got %#v", items)
 	}
 }
 
@@ -127,6 +195,9 @@ func TestResolveUpcomingEvents_EscapesUntrustedText(t *testing.T) {
 			"id": "EVT-xss", "kind": "entity", "event_date": future,
 			"participants": []interface{}{"<script>alert(1)</script>"},
 			"venue":        "Arena & Co",
+			"source": map[string]interface{}{"citation": map[string]interface{}{
+				"url": "https://example.com/xss", "quote": "the fixture",
+			}},
 		},
 	}
 	mock.ExpectQuery("FROM site_specs").WillReturnRows(
@@ -156,6 +227,9 @@ func TestResolveUpcomingEvents_LimitDefaultAndCap(t *testing.T) {
 				"id": uuid.New().String(), "kind": "entity",
 				"event_date":   time.Now().UTC().AddDate(0, 0, i+1).Format("2006-01-02"),
 				"participants": []interface{}{"A", "B"},
+				"source": map[string]interface{}{"citation": map[string]interface{}{
+					"url": "https://example.com/x", "quote": "A vs B",
+				}},
 			})
 		}
 		return facts

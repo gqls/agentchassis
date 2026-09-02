@@ -626,8 +626,18 @@ func refreshOneSiteEvidence(
 		// bugs_open/427: the register just changed (a fact re-synced, a
 		// human's edit re-read on the next pass, or a new event fact's daily
 		// re-verification). Tell any page that consumes it via
-		// query.upcoming_events. Skipped on a CAS miss above — nothing was
-		// actually written, so nothing needs re-resolving.
+		// query.upcoming_events. This sits AFTER writeRefreshedEvidenceBase
+		// has returned successfully, and reads the OUTCOME it already
+		// recorded rather than re-deriving one — it introduces no new gate.
+		// "skipped_concurrent_edit" is that function's PRE-EXISTING sentinel
+		// (set at its CAS-miss branch, :1471, not added by this change): a
+		// concurrent human edit won the race, the write was REFUSED, and
+		// `eb`/`res` describe a register that was never persisted — so there
+		// is nothing new for a consumer to re-resolve, and querying
+		// ConsumerPages here would be correct-but-pointless work on every
+		// contested write. (Council REVISE 08f56b7e, guardian: asked where
+		// this sits relative to the CAS guard and whether the sentinel was
+		// new — answered here rather than left implicit.)
 		if res.WriterBlock != "skipped_concurrent_edit" {
 			res.EvidenceConsumerPagesQueued = queueEvidenceBasePageRerenders(ctx, db, siteID, logger)
 		}
