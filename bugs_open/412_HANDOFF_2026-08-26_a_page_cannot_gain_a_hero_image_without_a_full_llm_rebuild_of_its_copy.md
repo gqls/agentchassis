@@ -356,3 +356,38 @@ here because they correctly said nobody should start until one of the two is wri
 it through the council on it. Ping this lane for anything from the finetuning.uk case and it will be
 re-measured on the day rather than quoted from here — §9 exists because a figure in this very file
 was quoted while its pipeline was still draining.
+
+---
+
+## §11 BUILD RECORD 2026-09-02 (bugfix_114_imagery_wiring lane, executing §10's handover) — candidate 1 is BUILT, opt-in default OFF, council corr `bd78490d`
+
+**What shipped** (same commit as this note; register **IMG-078**): `wirePageHeroOnLanding`
+— at the landing event, in the same transaction as the re-render emit, the landed content
+hero's **deployer-derived** URL is written into the page's hero-family component rows'
+`content_data.hero_url`, ONLY where both `hero_url` and `background_image` currently hold
+empty / the legacy literal / the site-wide fallback (fills §1's symptom, never fights a
+page-specific value), and never onto a `bugs_open/357` fragment row. The stored value is
+the deterministic floor §8 showed the build path failing to provide: the LLM-free rerender
+serves it, and `carryStored` preserves it when `plan_sections` resolves nothing.
+
+**Armed by** `docs/agent_docs/sql_for_agents/710_arm_wire_hero_on_landing_HOLD.sql`
+(held until the carrying image rolls; exactly ONE live carrier fleet-wide —
+image-build-handler's `flag_rebuild` — enumerated in the migration header). Opt-in,
+default OFF per the 2026-08-02 §2 ruling; withdrawal is setting the key false, no roll.
+
+**Deliberately deferred: candidate 2's light-vs-heavy emission switch.** The floor first;
+changing what the shared emission files is its own round. Until then landings still
+trigger the heavy `needs_page` — §2's disguise stands and candidate 3 (stop the disguise)
+remains open too.
+
+**Acceptance protocol, agreed with this bug's owning lane (cross-session, 2026-09-02):**
+finetuning.uk is EXCLUDED as evidence in either direction — 664 changed the JOIN, 649
+changed the SCHEMA, two defects overlap and a before/after cannot attribute a delta
+(their refinement, recorded verbatim in the code header). Acceptance runs on IMG-077's
+`unwired` rollup sites once that check rolls + migration 708 applies; its predicate
+already performs the image-capability pre-check. Their standing offer: re-measure the
+finetuning.uk baseline on the day rather than quoting it.
+
+Four mutation proofs run and watched to fail (clean-worktree run — the shared tree's
+test build was broken by another session's in-flight WIP at the time). Verify-later
+list: IMG-078's register entry.

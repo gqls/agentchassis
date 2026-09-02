@@ -81,7 +81,13 @@ var FlagPageImageRebuildInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{"site_id"},
 	Optional:    []string{"scope", "scope_ref"},
-	Defaults:    map[string]interface{}{},
+	// wire_hero_on_landing arms wirePageHeroOnLanding (bugs_open/412 candidate
+	// 1) — opt-in, default OFF per the 2026-08-02 §2 ruling; armed for
+	// image-build-handler by migration 710 (held until the carrying image
+	// rolls). Declared here so the unknown-config-key audit reads it as
+	// intentional the day the migration lands.
+	ConfigKeys: []string{"wire_hero_on_landing"},
+	Defaults:   map[string]interface{}{},
 }
 
 func init() {
@@ -191,6 +197,16 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 	}, logger); err != nil {
 		return nil, fmt.Errorf("emit needs_page re-render: %w", err)
 	}
+	// 2b. Wire the landed content hero into the page's STORED hero fields, in
+	//     the same transaction (bugs_open/412 candidate 1) — opt-in, default
+	//     OFF; see wire_page_hero_on_landing.go for the full argument. The
+	//     stored value is what the LLM-free rerender serves and what
+	//     carryStored preserves when plan_sections resolves nothing, so this is
+	//     the deterministic floor under the re-render emitted above.
+	wireEmit := "disabled"
+	if heroWireArmed(params.StepConfig.Config) {
+		wireEmit = wirePageHeroOnLanding(ctx, tx, siteID, pageName, logger)
+	}
 	// 3. Derive this page's listing card, in the SAME transaction, if the page
 	//    now has a content hero and no card yet (bugs_open/114). See
 	//    emitContentCardDerive for why this cannot wait for the sweep.
@@ -210,6 +226,7 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 	logger.Info("flag_page_image_rebuild: queued page re-render",
 		zap.String("site_id", siteID.String()), zap.String("page", pageName),
 		zap.String("sections_source", sectionSource),
+		zap.String("hero_wire", wireEmit),
 		zap.String("card_derive", cardEmit),
 		zap.String("page_list_reresolve", listEmit),
 		zap.Int("declared_sections", len(declared)))
@@ -218,6 +235,7 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 		"page_name":           pageName,
 		"needs_page_emit":     "raised",
 		"sections_source":     sectionSource,
+		"hero_wire":           wireEmit,
 		"card_derive":         cardEmit,
 		"page_list_reresolve": listEmit,
 	}, nil
