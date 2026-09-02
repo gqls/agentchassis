@@ -122,6 +122,14 @@ reproduces the sibling, which D2 forbids. The brief contains no `"` or `\` so 08
 `sed|tr|sed` fold is lossless (checked by running its exact pipeline over the file).
 **Gotcha:** no orchestration dispatch within ~300 s of a chassis pod (re)start — the spawn is
 silently dropped. The fleet was mid-roll at 16:19 on 2026-09-02; check §5 first.
+**Gotcha (bugs_open/438, measured 2026-09-02):** a COMPLETED submitter does NOT mean the brief
+landed. `persist_mission` fails on every fresh submit (082 sends `mission_brief`, not
+`mission`), and the step that does carry it, `persist_mission_brief`, fails on 3 of 12 sites.
+Verify before trusting the classifier's output:
+`SELECT length(data->>'text') FROM site_specs WHERE aspect='mission_brief' AND is_current AND site_id='<id>';`
+— expect the brief's length (2,892 here). Three `agent_error_log` rows from the submitter
+(`persist_mission`/`persist_roadmap`/`persist_roadmap_brief`, "missing required fields:
+[spec_data]") are the NORMAL fingerprint of a fresh submit, not a problem with your build.
 **Gotcha:** the classifier queues behind the fleet. Find the run by payload, not by the printed
 id: `SELECT current_step,status FROM orchestration_states WHERE collected_data->'input_data'->>'domain'='gamedesign.uk' ORDER BY created_at DESC LIMIT 3;`
 

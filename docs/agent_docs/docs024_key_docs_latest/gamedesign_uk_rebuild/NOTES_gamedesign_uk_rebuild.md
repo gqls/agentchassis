@@ -310,3 +310,24 @@ present, `created_by` mine). When composition resolves, `palette_source` on this
 `design_intent_values` ⇒ rung 2 won WITH a populated `mission` row present, which would sharpen
 438 from "nothing populates it" to "rung 1 does not read what is there". Owed to theme kits
 either way.
+
+---
+
+## 2026-09-02, ~17:35Z — 438 measured fleet-wide from this lane's three error rows
+
+Theme kits took the "three error rows per fresh submission" datum and counted it over the
+30-day `agent_error_log` retention: `persist_mission` 16 rows / 12 sites, `persist_roadmap`
+16 / 12, `persist_roadmap_brief` 14 / 11 — and **`persist_mission_brief` itself 6 / 3**. So the
+step that happened to carry MY brief (verified: `mission_brief.text`, 2,892 chars, and the
+classifier read it) **fails on a quarter of the sites it runs on**; on those, the submitter
+wrote neither `mission` nor `mission_brief` and the classifier ran with no brief at all.
+`082` sends no roadmap key whatsoever (`grep -c roadmap` = 0), so both roadmap steps fail by
+construction on every fresh submit — 30 of 52 error rows are from steps that cannot succeed.
+
+Their own correction: the four `persist_*` steps' `error_step` fields form a **linear
+continuation chain** (`persist_mission → persist_mission_brief → persist_roadmap →
+persist_roadmap_brief → create_research_item`), not a designed recovery pair. Mission being
+"rescued" by mission_brief is incidental ordering. For this lane: **verify the brief landed on
+every fresh submission — `SELECT length(data->>'text') FROM site_specs WHERE aspect =
+'mission_brief' AND is_current AND site_id = …` — never assume it from a COMPLETED submitter.**
+(RUNBOOK §7 gets this line.)
