@@ -61,6 +61,11 @@ docs/
 # on 2026-08-23 without it, exactly as predicted, and that loud failure is the
 # whole reason the registry is a COPY rather than a mount.
 !docs/agent_docs/docs024_key_docs_latest/architecture_review/finding_code_registry.json
+# Fourth, same argument: render-truncation-check (bugs_open/394, owner decision 4)
+# ships its acks file the same way. This line too was written only after a release
+# build failed loudly on the missing COPY (2026-09-02) — the second firing of the
+# warning above, exactly as written.
+!docs/agent_docs/docs024_key_docs_latest/architecture_review/render_truncation_acks.json
 scripts/migration/
 scripts/deployment/
 
