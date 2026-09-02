@@ -19,38 +19,24 @@ what the owner rules. One day old and dense — everything below happened 2026-0
 
 ---
 
-## 1. FIRST ACTIONS for the next session (in order)
+## 1. FIRST ACTIONS — ✅ ALL DONE 2026-09-02 ~21:xx after the owner refreshed the token
 
-1. **Kubeconfig token was EXPIRED at handoff time** (the standing 3-day expiry; the
-   owner refreshes it — `kubeconfig-token-expires-every-3-days` memory). Nothing
-   cluster-side can be checked until then.
-2. **Read the 718 council verdict — the run may have been ROLL-KILLED.** A fresh chassis
-   build deployed right at handoff time, and a roll kills in-flight councils (the lendzy
-   lane's 695 was roll-killed twice). Last seen: `gate_tooling_provenance | EXECUTING_STEP`
-   at ~20:25Z. Check by payload, never by printed id:
-   ```sql
-   SELECT current_step, status, updated_at FROM orchestration_states
-   WHERE collected_data->'input_data'->>'fix_correlation_id' =
-         '2dae4f20-3baf-46f9-96c5-fb35609ed7bd';
-   ```
-   - APPROVED → nothing owed (the commit carries `Council-Submitted:`, 098 credits it).
-   - REVISE/REJECTED → read the objections (`SELECT body FROM doc_notes WHERE categories ?
-     'council-gate' ORDER BY created_at DESC LIMIT 1;`) and ACT — the change is live.
-   - Run dead/missing after ~an hour → resubmit:
-     `097_TRIGGER… docs/agent_docs/docs024_key_docs_latest/designblog_couk/COUNCIL_SUBMISSION_718.json`
-     with `RESUBMIT_CORR=2dae4f20-3baf-46f9-96c5-fb35609ed7bd` in the environment so the
-     trail accumulates. (Submission JSON preserved in this directory for exactly this case.)
-3. **Confirm 718 still in effect** (it's DB config — a roll cannot revert it, but verify
-   rather than assume; ~30 s):
-   ```sql
-   SELECT (length(t)-length(replace(t,'Content-carrying imagery is EXPECTED','')))>0 AS new_bullet,
-          position('Use sparingly in v1' in t)=0 AS suppressor_gone
-   FROM (SELECT default_config #>> '{workflow,steps,plan_site,config,prompt_template}' AS t
-         FROM agent_definitions WHERE type='build-site-planner' AND is_active
-           AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL) s;
-   ```
-4. **Remember the fresh roll's dispatch rule**: no orchestration dispatch within ~300s of a
-   chassis pod restart — spawns silently dropped (CLAUDE.md).
+> **RESOLVED before the session ended — nothing here is owed any more:**
+> **718 verdict = APPROVED, round 1** (`complete_approved` 20:06:19Z — the run finished
+> BEFORE the roll; never killed). 2 advisory objections, none high-severity; both
+> guardian containment points were already satisfied mechanically by the migration's
+> own at-apply guards (anchors re-asserted in-transaction; exactly-1-active-row
+> precondition + ROW_COUNT=1). bug_historian's medium — a MECHANICAL
+> plan-validation/discovery check against `component_expresses` for imagery entries
+> whose target section cannot display them — is the one real follow-up, **routed to
+> inline guide imager** (their vocabulary + their 61-orphan census in 114). 718
+> re-confirmed in effect post-roll. Full dispositions: NOTES, final 2026-09-02 entry.
+> Trailer: `Council-Submitted:` on `40dbeaea4` is auto-credited by 098 now; no amend.
+> Full report: `diagnosis_artifacts` `kind='council_report'` corr `2dae4f20` (read the
+> `body` column). `COUNCIL_SUBMISSION_718.json` in this directory is now archival.
+
+Still standing from this list: only the general rule — **no orchestration dispatch
+within ~300s of a chassis pod (re)start** (a fresh build rolled ~21:00 2026-09-02).
 
 ## 2. What is DONE and PROVEN (all 2026-09-02)
 

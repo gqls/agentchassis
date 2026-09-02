@@ -531,3 +531,41 @@ CRITIQUE-doc-first reading order for a fresh session).
 > `docs/agent_docs/docs024_key_docs_latest/news_feed_ingestion/HANDOFF_2026-09-02b_continue_here.md`
 > §4. Routing table above now fully ACKed, every row. (They too are handing
 > off on the fleet-wide kubectl expiry.)
+
+## 2026-09-02 (post-refresh) — 718 verdict: APPROVED round 1; run was NOT roll-killed
+
+Token refreshed; both first actions green. The council run COMPLETED
+`complete_approved` at **20:06:19Z** — seven minutes after apply, BEFORE the
+roll, so no kill. 718 re-confirmed in effect post-roll (new bullet present,
+suppressor gone). Verdict: **APPROVED, round 1, 2 advisory objections, none
+high-severity** (8 approve / 2 object / 7 abstained). Full report in
+`diagnosis_artifacts kind='council_report'` corr `2dae4f20` (column is `body`,
+not artifact_data).
+
+The objections, and their state:
+- **bug_historian (medium):** the display-capability limit is instruction-only
+  — wants a MECHANICAL plan-application-time or discovery check that refuses/
+  flags an imagery entry whose target section cannot express it (their named
+  instrument: validate against `component_expresses`). Cites 039/044/114 as
+  the recurring silent-drop class. **This is the real follow-up** — routed to
+  inline guide imager (owns `component_expresses`/IMG-074/075 and the 114
+  CONTRIB where the 61-orphan census already lives). The architecture seat's
+  framing agrees: a monitoring item; if undisplayable imagery recurs
+  post-718, the next move is a mechanical section-compatibility guard, not a
+  redesign.
+- **guardian (medium):** "re-verify anchors immediately before apply" —
+  SATISFIED MECHANICALLY: the migration re-reads the row and re-asserts all
+  five anchor counts at execution time inside the same transaction; the apply
+  passed those guards at 19:59:56Z. **(low):** the two-active-rows
+  agent_definitions landmine — the migration's precondition (`exactly 1
+  active row` else RAISE) plus `ROW_COUNT=1` on the UPDATE proves
+  build-site-planner is not one of the afflicted types. **(low):** fleet cost
+  increase — flagged for the record; owner ruled.
+- **prior_art_librarian (missing):** IMG-075 liveness is a deployed-binary
+  claim their seat can't settle — a pod-grep would; noted, not owed here (the
+  claim is inline guide imager's, made with capability probes on the 15:39
+  roll).
+
+Trailer state: commit `40dbeaea4` carries `Council-Submitted:` — 098 credits
+it automatically now the correlation is approved; forward-only forbids an
+amend, and none is needed.
