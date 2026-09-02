@@ -537,7 +537,17 @@ Raised by the `loanzy.uk` lane, seconded by lendzy, from the same day's register
 > enabled, 86400s, last completed 2026-09-02 09:08:58 — verified, not assumed). A compile pass
 > inside that existing loop is the census→cron step RFC_006 and WFA-013 have both already shipped.
 > **If Q7 is built as a sweep, it should carry this in the same pass** — one loop, two guarantees,
-> and the claims-verification lane owns both. Full costing and the two filing traps
+> and the claims-verification lane owns both. **BUILT 2026-09-02 (`e5b1a0f01`):** the banned_claims
+> half only — `checkBannedClaimPatterns` (pure, re-runs claims.go:348's exact compile) wired into
+> `refreshOneSiteEvidence`, filing via `createInvalidBannedClaimPatternItems`
+> (`insertWorkItem`/`dropOnConflict`, keyed per pattern via fnv64a, never `refreshOnConflict` —
+> `bugs_closed/213`). Six tests, mutation-verified in an isolated `git worktree` (another session's
+> unrelated uncommitted WIP was breaking `go test` for the whole package at the time — the worktree
+> sidestepped it without touching their files): flipping the conflict policy in a scratch copy made
+> the discriminating test fail on an unexpected extra query, confirming it actually distinguishes
+> DO-NOTHING from DO-UPDATE rather than passing vacuously. **Council-Submitted: `bc3697a5`.** Q7's
+> own half (facts / host admission) is NOT built — still open, still needs the owner's steer on
+> shape. Full costing and the two filing traps
 > (`ON CONFLICT DO NOTHING`; key on the finding, not the site): `LANDMINES.md`, the
 > banned-claims-escaping entry, amended 2026-09-02.
 
