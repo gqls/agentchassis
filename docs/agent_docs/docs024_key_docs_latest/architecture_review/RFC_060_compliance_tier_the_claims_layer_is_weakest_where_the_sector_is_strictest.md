@@ -129,6 +129,56 @@ have caught it (a challenge-page title never matches a real quote); the migratio
 shipped all four registers today has no equivalent gate. **A write-time verification guarantee that
 only one of the register's two write paths enforces is not a guarantee** — see §3e.
 
+### 1e. The sector-set question answered itself, 3 of 3, by sites choosing independently (2026-09-02, evening)
+
+The proposal that finance sites share a **curated banned-claims set** is the part of this RFC most
+likely to look obviously right and be wrong. It now has a measurement, and it came from the sites
+rather than from me: **three finance sites independently adopted a shared set today and all three
+declined the same pattern — a literal `%APR` ban — each with its own live-copy census.**
+
+| site | migration | why it declined the literal-APR arm |
+|---|---|---|
+| `loanzy.uk` | 702 | declined on its own copy census |
+| `adversecreditmortgage.uk` | (source set) | the arm was never in the set it contributed |
+| `loancalculator.co.uk` | 707 | the pattern matches **twice** on live copy — `compare-loans`' deliberately illustrative *"a 7.9% APR loan and an 8.4% APR loan"* |
+
+**On a loan-calculator site the illustrative APR IS the pedagogy.** That is §1c's
+convict-the-site-for-doing-its-job class with a page and a sentence attached, and it is now the
+majority outcome rather than a hazard I inferred. Three sites, three independent calls, same arm.
+
+**Why this is decisive for Decision 3 rather than merely cautionary.** It compounds with the
+structural finding in §3b/§3d from the opposite end of the layer: `scanBannedClaims` has **no
+regulatory-citation exemption**. So a curated set containing a figure pattern would re-convict at
+**blocker** severity exactly the content `cmd/regcheck`'s number scan now exempts at error severity
+(`fad209b92`) — the two halves of the layer disagreeing about the same sentence, with the stricter
+half winning and the sector's own honest copy losing. **A shared sector set cannot safely carry a
+figure pattern until citation recognition reaches the banned-claims layer** — which is Q5, and this
+is the second independent reason to sequence it first.
+
+**A second refinement from the same day, same shape.** `loancalculator` recommends adopting
+`loanzy` 702's **narrowed** no-credit-check form — banning the *lending promise*, not the phrase —
+because calculator and tool sites truthfully describe their own tools as involving no credit check,
+and the broad form permanently refuses that honest sentence. Same failure as the APR arm: a
+sector-wide pattern meeting a site whose **archetype** makes the banned phrase true.
+
+**What this says about the axis the owner already moved.** Both findings are archetype collisions,
+not sector collisions — every site here IS finance, and the sector key predicts nothing about
+either. The owner's instinct that the tier wants *"a semantic decision layer rather than sector
+specific"* (§3a) is not merely tidier; on the only evidence this RFC has, **sector is the key that
+would have got both of these wrong.**
+
+⚠ **And a live authoring trap on the mechanism the whole idea rests on** (`LANDMINES`, corrected
+2026-09-02, `4f1ca1384`): a per-site pattern that fails to compile degrades **silently** to a
+literal of its own source text (`claims.go:348`) — no logger, no error path, and the admin door
+counts patterns without ever compiling one. It is then armed, listed, counted and **inert**, and
+every count-based verification passes. `[MEASURED 2026-09-02]` the fleet is clean today — **239
+live per-site patterns across 19 sites, 0 non-compiling, 0 doubled-backslash**, controls firing —
+but *a curated set distributed to N sites is exactly the mechanism that would propagate one typo
+into N silently inert guards*, and the census is stale by ADDITION on the next seed. Any shared-set
+proposal owes a compile-and-probe step at distribution time; `loancalculator` 707 is the worked
+example (8/8 probe-fired, then a 0-match census over all 28 served pages so arming could not refuse
+a current save).
+
 ---
 
 ## 2. What is being proposed
