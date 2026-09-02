@@ -59396,3 +59396,16 @@ automates elsewhere (wrong-key queries reading as absence — the bugfix_390 lan
   looks broken and is not.
   Tally: **relayed-an-objection-without-reading-the-code** ×1 (new);
   **verification-applied-asymmetrically-to-positive-vs-negative-claims** ×1 (new).
+
+- **2026-09-02, copy_quality_two_stage** — recorded two "verbatim" National Debtline quotes in
+  a release item's evidence note that are NOT on the cited page: my WebFetch prompt asked
+  "quote the exact wording" and the tool's summarising model returned PARAPHRASES formatted as
+  quotes ("a debt advice service run by…" for the page's "a charity run by…"; "We never charge
+  for our support" for the page's "Free to use. Always. All our help and information is
+  completely free for everyone, forever."). The substance was right; the quotes were the
+  instrument's. What caught it: the loanzy lane re-fetching the page to REGISTER the fact —
+  their production matcher demands the literal text and found neither string. Cheap check
+  skipped: when a quote is load-bearing, curl the raw page and grep the quoted string — one
+  command, and it is exactly what their register's QuoteFoundInText does at write time. Tally:
+  **a-summarisers-quote-is-a-paraphrase-until-grepped** (kin of a-citation-is-not-a-read: I
+  cited the page; only the register's matcher actually read it).
