@@ -969,3 +969,79 @@ exactly 8, in both directions.
 - **Agent types keep the `-manual` suffix** while scheduled. Carried in `description`
   rather than renamed, because renaming `agent_definitions.type` risks in-flight dispatch
   and breaks 321/371's own verify queries.
+
+## §15.9 — Council `c08d263a` (Go half): APPROVED, and what its objections were owed
+
+**APPROVED**, 3 advisory objections, none high-severity. Health signals read the *gate's*
+way, not the 4-seat council's: `unreadable: 0`, `gated_by_truncation: false`, and
+`reviewers 9 + abstained 8 = 17` — every seat accounted for, the 8 filter-skipped by the
+relevance gate. (`abstained: 0` is the **wrong** check on the 16/17-seat gate; it would
+just mean every seat fired.)
+
+Two medium objections were sound and are **discharged with evidence, not argument**:
+
+**1. `debug_historian` — the load-bearing safety figure was three days stale.** Correct,
+and the seat is right that this lane has a WRONG_CALLS history of exactly that. The
+"0 unstamped approved rows" count came from 08-31 and was cited in a 09-02 submission.
+**Re-run fresh 2026-09-02:**
+
+| domain | status | total | unstamped |
+|---|---|---|---|
+| `vonc.com` | approved | **23** | **0** |
+| `calibration.vonc.com` | approved | 8 | 8 |
+
+Claim holds, now on a same-day measurement. **The lesson is not "the number was fine" —
+it is that a load-bearing count must be re-read at submission time, because the one time
+it has moved is the time nobody re-read it.**
+
+**2. `architecture` — `railOnly` pinned to a literal 8 coupled the test to fixture SIZE.**
+Correct: a legitimate regeneration of `realProvocations` would fail it for a reason
+unrelated to the rule. **Fixed** — the expectation is now derived
+(`len(realProvocations) - emptyBodied`), so it states the property (*every body-carrying
+entry is pre-rail prose and must fail the rail*) rather than a count. Re-proven by
+mutation: loosening the thresholds still collapses it to 0 and fires.
+
+**`guardian` — blast radius asserted by naming convention only.** Measured instead:
+
+```
+provocation-feed-publisher   | render_provocation_feed
+provocation-gate-calibration | gate_provocation
+provocation-generator-manual | gate_provocation, generate_provocations
+provocation-scheduler-manual | schedule_provocations
+```
+
+**Four agents, all in this lane. No other consumer of any touched action.**
+
+**`reuse_agent` — was the existing voice/prose machinery considered?** Yes, and it is not
+a fit, for three reasons rather than by assertion: `check_voice_tells` operates on
+**rendered page components**, not generation candidates; its contract is explicitly
+*"never an unreviewed auto-rewrite"* — it files HITL items, which is the opposite of a
+synchronous reject in a pipeline with no human; and **nothing has ever closed a
+`voice_tells` item**, so routing provocations at it would feed a queue with no drain.
+
+### §15.9a — ACCEPTED DEBT, recorded because the seat asked for it to be
+
+The `architecture` seat declined to block but put this on record, and it is right:
+
+> *"a policy TOGGLE being carried as source-code surgery rather than as a single
+> config-driven gate … Given three reversals already, a fourth is not hypothetical."*
+
+**Accepted as debt, with a stated trigger: if this policy flips a FOURTH time, the flip
+itself is not the work — converting approval into a single config-driven gate is.** Doing
+it now would build a switch on the day the owner said he does not want the position it
+switches to, which is how mechanisms rot unexercised (the same argument the owner used on
+2026-07-29 to refuse default-OFF switches for seams). But the seat's cost analysis stands:
+every reversal currently costs a review-and-deploy cycle plus the risk of unpairing two
+predicates in two files.
+
+**`guardian`'s sequencing concern** — that the fatal rail ships ahead of its dispatch
+config and therefore stands idle — is answered by the config half already existing:
+`685_HOLD` is committed (`83ab0b455`) with a mechanical ordering guard, not "tracked" or
+promised. The interim state (rail live, nothing generating) is inert rather than harmful:
+with no generator running, there is nothing for it to reject, and the site continues
+serving what it already served. **Image before config is also the house rule**, and 685's
+guard enforces that direction rather than trusting sequencing.
+
+**`debug_historian`'s second point is OWED and not done:** after the roll, verify at the
+**pod** that the deployed binary actually rejects a known-bad fixture — a unit test is not
+a deployed binary. Added to `RUNBOOK §16f` step 2.

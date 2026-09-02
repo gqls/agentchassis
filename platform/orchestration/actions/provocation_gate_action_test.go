@@ -498,12 +498,23 @@ func TestGateAcceptsTheRealProvocations(t *testing.T) {
 	//   FEWER than 8 means the rail stopped rejecting prose it rejected on 2026-09-02
 	//   — most likely someone loosened the thresholds. That is not automatically
 	//   wrong, but it must be a decision, not a drift, so it fails here and gets read.
-	if railOnly != 8 {
-		t.Errorf("expected exactly 8 pre-rail entries to fail ONLY on readability, found %d.\n"+
-			"Fewer means the rail was loosened — check maxSentenceWords/maxAvgWords/"+
-			"maxLongWordRatio against provocation_readability.go and say so out loud; the "+
-			"rail is the only deterministic check between the generator and the live site "+
-			"since the human-approval stamp was removed on 2026-09-02.", railOnly)
+	// DERIVED, NOT HARDCODED — the council's `architecture` seat objected (corr
+	// c08d263a, 2026-09-02) that pinning this to a literal 8 couples the test to the
+	// current SIZE of a live-derived fixture, so a legitimate regeneration of
+	// realProvocations would fail it for a reason unrelated to the rule it guards.
+	// Correct, so the expectation is now the property itself: EVERY entry that has a
+	// body is pre-rail prose and must fail the rail.
+	wantRailOnly := len(realProvocations) - emptyBodied
+	if railOnly != wantRailOnly {
+		t.Errorf("expected all %d body-carrying corpus entries to fail ONLY on readability, found %d.\n"+
+			"FEWER means either the rail was loosened — check maxSentenceWords/maxAvgWords/"+
+			"maxLongWordRatio in provocation_readability.go — or realProvocations has been "+
+			"regenerated and now mixes post-rail writing, in which case the blanket "+
+			"pre-rail reasoning behind this exemption no longer holds and needs revisiting. "+
+			"Both are real findings; neither should be silenced by widening the exemption. "+
+			"The rail is the only deterministic check between the generator and the live "+
+			"site since the human-approval stamp was removed on 2026-09-02.",
+			wantRailOnly, railOnly)
 	}
 }
 
