@@ -428,3 +428,16 @@ afternoon, dispatch carried on without a blip, and the review council is looking
 parallel. An old half-finished draft fix for the same problem from three weeks ago was also
 defused — it had crept into the migrations folder where a bulk apply could have run it, and
 it would have re-broken things in subtler ways.
+
+2026-09-02 evening — your £/$2,000 monthly budget is set and the meter is armed (nothing
+sheds yet — that still waits on the release and your final "enable"). One thing said out
+loud so it's a choice rather than a surprise: the fleet currently spends about $99 a day
+when fully busy, which is roughly $3,000 a month — so at $2,000, once enforcement is on,
+the governor will actively slow things down in the second half of a typical month: routine
+AI maintenance pauses around day 14, new site builds around day 17, research around day 19.
+If holding spend to $2,000 is the intent, that's exactly what you'll get, in that order,
+with the dashboard view showing what's paused and why. If you'd rather shedding stay rare,
+a bigger number does that — it's one line to change, any time. Also: please make sure the
+Anthropic console cap is set ABOVE $2,000, otherwise the account's own wall still arrives
+before the governor's gentler one. September's spend will tick along on the meter either
+way, so we'll see the real crossing dates within a couple of weeks.

@@ -1412,3 +1412,21 @@ The 384 lane's two corrections landed within the hour and both were right:
    confounding every site); their 09-02→04 self-resume prediction remains the clean test.
 4. Their `unresolved`-is-terminal overcount trap adopted as a RUNBOOK caveat on the
    work_items_open baseline figure.
+
+## 2026-09-02 ~18:26Z — OWNER SET THE BUDGET: $2,000/month; the meter is ARMED (enforcement still off)
+
+**Owner (chat, verbatim): "my budget is $2000 per month."** Set at 18:26Z
+(`UPDATE governor_config SET monthly_budget_usd = 2000`), read back: enabled still FALSE,
+thresholds 70/85/95 → **L1 $1,400 · L2 $1,700 · L3 $1,900**. September MTD at set time:
+$241.92, level 0.
+
+**Stated to the owner plainly (this is a THROTTLE, not a guard-rail):** the measured
+post-recovery burn is ~$99/day ≈ $3,000/natural month, so at $2,000 the governor — once
+enabled — will actively constrain: at current burn L1 (maintenance sheds) lands ~day 14,
+L2 (builds) ~day 17, L3 (research) ~day 19 of each month. That is a legitimate owner
+choice (hold spend to $2k) and the system will do exactly that; flagged so it is chosen,
+not discovered. Their console cap must sit ABOVE $2,000 (~$2,200–2,500+) or the account
+wall still fires first. One line changes the number at any time; September's metering
+(running regardless of enablement) will show the real crossing dates.
+Remaining to live enforcement: the release (dec5ad61b in the chassis) → 674 apply (its
+header procedure incl. the 657-VERIFY lockstep + canary) → owner's "enable".
