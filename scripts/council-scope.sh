@@ -92,6 +92,14 @@
 # the previous fortnight were in scope by this regex and in no bucket of that report, across
 # four lanes. Change both, in one commit.
 #
+# ── OWNER RULING 2026-09-02: cmd/brief-negation-check enters scope. ──────────────
+# Raised by the 414 lane on 08-31, ruled GO by the owner 2026-09-02 (copy lane's
+# ledger). Same argument that admitted cmd/config-key-audit: the binary FILES WORK
+# ITEMS against live sites (brief_supplies_negation + spec claims), so its rules act
+# on production, and its word arm (v1.0.1352) is now the estate's only reader of the
+# banned-words register in briefs. Widened HERE and in 098's SCOPE_PATHS in the SAME
+# commit, per the CLAUDE.md warning that a path in one and not the other is invisible
+# to the coverage report.
 # ── OWNER RULING 2026-08-24: scripts/pattern-check.py enters scope. ──────────────
 # The 2026-08-23 widening admitted cmd/config-key-audit on the reasoning that the
 # DETECTOR LOGIC FOR THE CHECK FLEET had accumulated where the gate could not see it.
@@ -118,7 +126,7 @@
 # ⚠ ANCHORED TO THE ONE FILE ($), not to scripts/. Adding a second detector file means
 # editing this regex AND 098's SCOPE_PATHS — see the warning directly above, which is
 # what caught this change before it shipped half-done.
-COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/|^cmd/config-key-audit/|^scripts/pattern-check\.py$'
+COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/|^cmd/config-key-audit/|^cmd/brief-negation-check/|^scripts/pattern-check\.py$'
 # VERBATIM from scripts/migration/run-migrations.sh:283 (the appliable-name grep).
 # Change this only together with the runner.
 COUNCIL_SCOPE_MIGRATION_RE='^docs/agent_docs/sql_for_agents/[0-9]{3}_[A-Za-z0-9_]+\.sql$'

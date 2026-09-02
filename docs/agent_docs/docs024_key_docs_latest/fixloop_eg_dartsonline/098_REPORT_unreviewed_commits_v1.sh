@@ -102,7 +102,7 @@ WINDOW_DAYS="${1:-7}"
 # scripts/pattern-check.py added 2026-08-24 (owner ruling — see council-scope.sh's rationale
 # beside COUNCIL_SCOPE_CODE_RE). A FILE, not a directory: git log takes it as a pathspec
 # happily, and the post-filter re-tests it against the authoritative regex anyway.
-SCOPE_PATHS=(platform internal pkg cmd/config-key-audit scripts/pattern-check.py docs/agent_docs/sql_for_agents)
+SCOPE_PATHS=(platform internal pkg cmd/config-key-audit cmd/brief-negation-check scripts/pattern-check.py docs/agent_docs/sql_for_agents)
 NS='ai-persona-system'
 PG_POD='postgres-clients-0'
 
