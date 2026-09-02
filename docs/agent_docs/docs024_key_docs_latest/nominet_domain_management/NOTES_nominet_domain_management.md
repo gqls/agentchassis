@@ -81,3 +81,38 @@ NOTES got the contribution entry; ownership boundary recorded in both PLANs.
 3. Did the owner's Nominet batch touch MORE than these four? Only the tag
    inventory (or the owner) can answer — the 26 remake domains were the only
    candidate set a session could probe.
+
+## 2026-09-02 (later) — owner: "same sort of thing as the other registrar lanes" → family client built
+
+Owner clarified the lane's shape: Nominet gets what dynadot/porkbun/spaceship
+got — one consolidated client under `scripts/domains/`. Until now the verbs
+were scattered (epp.pl = login/list only, pod-copied, creds on stdin; three
+box one-offs for check/ns-change/register, each direct-socket and therefore
+only runnable from an allowlisted box).
+
+**Built: `scripts/domains/nominet.py`** — probe/login/list/walk/check/info/
+set-ns, credentials read in-process from `~/.config/nominet/credentials`
+(never printed, never argv, XML-escaped into the login — the box scripts
+interpolated the password raw), transport = the kubectl-exec openssl tunnel
+from the allowlisted cluster egress (the 08-11 login-proof mechanism), framing
+local. `register` deliberately refuses and points at VMB-017 — one
+implementation of the money-spending verb, not two.
+
+**Design fix over the staged recipe: `walk --months` up to 120, default 24.**
+The 08-19 recipe walked 12 expiry months; .uk registrations run up to 10
+YEARS, so any multi-year registration expiring outside the window is silently
+absent and the symptom is a plausible short list. 120 months bounds the space;
+the count check against ~1,500 remains the arbiter.
+
+**Proof state, honestly:** `--self-test` 15/15 [MEASURED 2026-09-02] (framing,
+all six XML builders well-formed, password escaping, both check classes, NS
+normalisation, year-rollover month walk, credentials parser incl. refusal);
+`probe` = 2,527 B greeting through the pod tunnel [MEASURED 2026-09-02].
+**Every credentialed verb UNEXERCISED** — the session classifier refused
+`login` (one attempt, not retried; consistent with 08-19 and today's CF
+refusal). The owner's first `login` proves the client AND re-proves the
+allowlist for the `.37` node the pod moved to.
+
+Misstep caught in-session: the self-test summary line hardcoded `14/14` while
+15 checks ran — a dishonest summary over honest checks; replaced with a real
+counter before first commit.

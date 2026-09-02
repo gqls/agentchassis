@@ -26,27 +26,43 @@ kubectl -n ai-persona-system exec postgres-clients-0 -- sh -c \
 # expect ~2531
 ```
 
-## §2 The tag inventory (owner-run; P1)
+## §2 The family client: `scripts/domains/nominet.py` (added 2026-09-02)
+
+One consolidated client in the porkbun.py/dynadot.sh family style — credentials
+from `~/.config/nominet/credentials`, never printed, never argv; transport
+tunnels through `kubectl exec … openssl s_client` from the allowlisted cluster
+egress by default (`--direct` for a plain socket from an already-allowlisted
+box). Verbs: `probe` (credential-free) · `login` · `list YYYY-MM` ·
+`walk [--months N]` · `check` · `info` · `set-ns … [--apply]` (dry-run
+default). `register` is deliberately REFUSED there — VMB-017 keeps that verb
+(it costs money and carries the registrant rulings).
+
+**Proof state `[MEASURED 2026-09-02]`:** `--self-test` 15/15 (offline);
+`probe` 2,527 B greeting through the pod tunnel. **Every credentialed verb is
+UNEXERCISED** — the session classifier refuses them (correctly); the owner's
+first `login` is their proof.
+
+### The tag inventory (owner-run; P1)
 
 ```sh
-# 0. re-stage the client if the pod restarted:
-kubectl -n ai-persona-system cp scripts/domains/epp.pl postgres-clients-0:/tmp/epp.pl
-
 # 1. allowlist test — the only thing that proves egress:
-( set -a; . ~/.config/nominet/credentials; set +a; printf '%s\n%s\n' "$TAG" "$EPP_PASSWORD" ) \
-  | kubectl -n ai-persona-system exec -i postgres-clients-0 -- perl /tmp/epp.pl login
+python3 scripts/domains/nominet.py login
 
-# 2. twelve-month expiry walk:
-for m in 2026-09 2026-10 2026-11 2026-12 2027-01 2027-02 2027-03 2027-04 2027-05 2027-06 2027-07 2027-08; do
-  ( set -a; . ~/.config/nominet/credentials; set +a; printf '%s\n%s\n' "$TAG" "$EPP_PASSWORD" ) \
-    | kubectl -n ai-persona-system exec -i postgres-clients-0 -- perl /tmp/epp.pl list "$m"
-done | grep '^DOMAIN' | cut -f2 | sort -u > all_domains.txt; wc -l all_domains.txt
+# 2. the expiry walk — 120 months, because .uk registers up to 10 YEARS and a
+#    12-month walk is structurally short (any multi-year registration whose
+#    expiry falls outside the window is silently absent):
+python3 scripts/domains/nominet.py walk --months 120 > all_domains.txt
+grep -c '^DOMAIN' all_domains.txt
 ```
 
-**Sanity-check against ~1,500** (owner estimate 2026-08-19). A domain expiring
-outside the window is silently absent — a short count means widen the walk, not
-"the estate shrank". **The CSV export from Online Services is the better source**
-(checkable total, no EPP); prefer it if the owner is at the console anyway.
+**Sanity-check against ~1,500** (owner estimate 2026-08-19). **The CSV export
+from Online Services is still the better source** (checkable total, no EPP);
+prefer it if the owner is at the console anyway.
+
+Fallback (proven end-to-end with credentials 2026-08-19, unlike the new
+client): the `epp.pl` stdin recipe —
+`kubectl cp scripts/domains/epp.pl postgres-clients-0:/tmp/epp.pl`, then
+`( set -a; . ~/.config/nominet/credentials; set +a; printf '%s\n%s\n' "$TAG" "$EPP_PASSWORD" ) | kubectl -n ai-persona-system exec -i postgres-clients-0 -- perl /tmp/epp.pl login` (or `list YYYY-MM`).
 
 Classification (session-safe, no credentials —
 `portfolio_positioning/RUNBOOK_domain_inventory_and_classification.md` has the
@@ -64,7 +80,12 @@ dig +norec NS <domain> @dns1.nic.uk
 # a SERVFAIL from 1.1.1.1 with Cloudflare NS at the registry = dangling delegation (§5)
 ```
 
-## §4 Per-domain EPP operations (owner-run clients, proven family)
+## §4 Per-domain EPP operations (owner-run)
+
+Go-forward: the §2 client — `nominet.py check <names…>` / `info <domain>` /
+`set-ns <domain> --ns alexis.ns.cloudflare.com --ns leah.ns.cloudflare.com
+[--apply]` (dry-run default; host:create retry on 2303; verifies by re-reading).
+The proven originals remain as fallbacks until the owner's first nominet.py runs:
 
 - **check**: `idea_uk_vm_site/box/nominet-epp-domain-check.py` (VMB-016, read-only).
 - **NS change**: `idea_uk_vm_site/box/nominet-epp-ns-change.py` (VMB-015) —

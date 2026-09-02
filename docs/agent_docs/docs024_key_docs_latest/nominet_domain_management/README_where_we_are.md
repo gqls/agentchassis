@@ -36,3 +36,24 @@ Small tidy-up, no rush: the old read-only Cloudflare key (the file called
 `token`) has stopped working entirely. Everything now uses the newer
 `portfoliotoken`, so nothing is broken — but if you meant to keep two working
 keys, that one needs remaking.
+
+## 2026-09-02 (later) — Nominet now has one tool, like the other registrars
+
+You asked for the same shape as the Dynadot and Porkbun lanes, so there is now
+a single command for everything Nominet: `scripts/domains/nominet.py`. It can
+test the connection, list your domains, check availability, show a domain's
+details, and move nameservers (dry-run first, always). Registering new domains
+stays in the separate careful tool that spends money.
+
+Its offline checks all pass and it reaches Nominet from the cluster fine, but
+no logged-in command has run yet — my session isn't allowed to touch the
+credentials. Its first real outing doubles as the domain list you're owed:
+
+    ! python3 scripts/domains/nominet.py login
+    ! python3 scripts/domains/nominet.py walk --months 120 > all_domains.txt
+
+The first line proves the connection; the second lists every .uk domain on the
+tag into a file (a couple of minutes). One improvement over the old plan: the
+old recipe only looked twelve months ahead for renewal dates, but domains can
+be registered for up to ten years, so it could have quietly missed some — this
+walks the full ten.
