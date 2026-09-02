@@ -431,3 +431,33 @@ with the full diagnosis; did not implement.
   lane's part is done — composition stays as-is, the "honest colour use"
   decision and any imagery investment go to the owner as flavoured calls, nothing
   implemented from here.
+
+## 2026-09-02 (later still) — owner ruled on both; gave a real composition-level plan
+
+Owner ruled: use the accent deliberately (don't drop it); build per-section
+imagery for the homepage (vetcomparison = first live exercise of IMG-075).
+Both explicitly routed back to this lane for a composition-level view.
+
+**Accent: found a genuine, low-risk home for it, already inside the layout's
+own vocabulary.** `industry-hub`'s CSS template has a dedicated "independence
+claim" slot (`--color-independence-bg`/`-border`, the layout's own comment:
+"visible, not buried"), currently **unset in vetcomparison's palette** —
+falling to the layout's hardcoded blue default, which is the exact "third
+blue" the needs_design_review item flagged. Recommended repointing those two
+palette slots to accent-derived values: solves the accent-use ruling, the
+third-blue review item, and fits the site's actual semantics (an
+"independently reviewed" trust badge in green, not blue-on-blue) — three
+things from one palette edit. A palette-value change + re-render, not a
+component/structure write, so it shouldn't touch what 357 is guarding — flagged
+that as needing their confirmation, not asserted as safe.
+
+**Imagery: checked the layout has NO existing image-slot scaffold at all** —
+only generic `img{}` and hero-specific CSS. So this is greenfield CSS work at
+the layout layer too, not just `site_assets`/`site_plan_imagery` data-plumbing
+— whoever runs IMG-075's first exercise will need a companion layout treatment
+designed (placement, sizing, how it sits against the existing sections).
+Offered to design it once the decision is final; did not build it
+speculatively.
+
+Plan only, nothing implemented — matches `vetcomparison`'s own "plan now,
+write after" framing, and everything still sequences behind 357.
