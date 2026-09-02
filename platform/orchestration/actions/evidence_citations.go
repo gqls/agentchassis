@@ -164,7 +164,8 @@ func citationFactID(url, quote string) string {
 //   "candidates": path to the extracted array      (required) — each element:
 //       {claim, quote, url, publisher, title,
 //        value?, unit?, kind?, tolerance?, published?, writer_line?,
-//        staleness_days?, context_terms?}
+//        staleness_days?, context_terms?,
+//        event_date?, venue?, participants?, broadcaster?}
 //   "dry_run":    verify and report, write nothing (optional, default false)
 
 var VerifyAndRegisterCitationsInputSpec = datahelpers.ActionInputSpec{
@@ -296,7 +297,19 @@ func VerifyAndRegisterCitationsAction(ctx context.Context, params ActionParams) 
 			}},
 			"verified_at": today,
 		}
-		for _, k := range []string{"value", "unit", "tolerance", "writer_line", "staleness_days", "context_terms"} {
+		for _, k := range []string{
+			"value", "unit", "tolerance", "writer_line", "staleness_days", "context_terms",
+			// Event-shaped fields (bugs_open/427, news_feed_ingestion lane): a
+			// confirmed dated real-world event extracted from a feed item,
+			// registered with kind="entity" (datahelpers.FactKindEntity — "a
+			// named thing that exists"; "event" is NOT in the canonical
+			// vocabulary in claims.go and would silently demote to "metric"
+			// via CanonicalKind() while also tripping UnrecognisedKinds()'s
+			// per-build warning, bugs_open/105). Verification is unchanged —
+			// the same live-quote check applies to these facts as to any
+			// other kind; only the extra fields differ.
+			"event_date", "venue", "participants", "broadcaster",
+		} {
 			if v, has := cand[k]; has && v != nil {
 				fact[k] = v
 			}

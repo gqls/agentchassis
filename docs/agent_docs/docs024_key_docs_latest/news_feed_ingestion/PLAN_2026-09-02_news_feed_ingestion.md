@@ -100,9 +100,23 @@ NOTHING to how a citation is verified... reused UNCHANGED").
    to add `"event_date", "venue", "participants", "broadcaster"`. This is the
    entire extension needed on the writer side — `verifyCitationLive` and the
    supersede-write pattern (`writeCitationRegister`) are reused UNCHANGED, same
-   as `directory_claims.go`'s own precedent. Candidates carry `"kind": "event"`
-   (the action already defaults `kind` to `"metric"` when absent — no code
-   change needed there, just the prompt setting it).
+   as `directory_claims.go`'s own precedent. Candidates carry
+   `"kind": "entity"` (`datahelpers.FactKindEntity`, "a named thing that
+   exists" — a specific dated fight qualifies).
+
+   > **Correction, 2026-09-02 (caught by the `bugs_open/427` peer session
+   > before this was committed, reading the dirty tree).** The design
+   > originally said `"kind": "event"`. `EvidenceFact.Kind`'s vocabulary is
+   > CLOSED (`platform/orchestration/datahelpers/claims.go`, `bugs_open/105`):
+   > `metric | capability | entity | attestation`, with `count`/`metrics`/
+   > `counts` as the only live aliases. `"event"` is in neither set —
+   > `CanonicalKind()` would have silently demoted every registered fact to
+   > `"metric"`, and `UnrecognisedKinds()` (called from
+   > `validate_page_content.go`, every build) would have logged an
+   > "unrecognised kind" warning on every site, forever, until someone fixed
+   > it. `"entity"` is already canonical and fits the meaning exactly, so this
+   > is a one-word fix, not a rework — caught before the LLM prompt (item 4,
+   > not yet written) could bake the wrong literal in.
 6. **Wire into `feed-triage`'s own workflow** rather than a new agent +
    dispatcher. `apply_scores`'s `next_step` (currently `"complete"`) becomes a
    new `evaluate_condition` step gated on `relevant` count from `apply_scores`'

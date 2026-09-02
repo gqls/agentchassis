@@ -671,6 +671,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Verify researched candidate claims against their cited sources (verbatim-quote match) and register the survivors as citation facts; failures go to human review",
 		IsLocal:     true,
 	},
+	"load_feed_items_for_event_extraction": {
+		Handler:     LoadFeedItemsForEventExtractionAction,
+		Category:    "site",
+		Description: "Load content_feed_items rows scored relevant by feed-triage but not yet considered for dated-event extraction (event_extracted_at IS NULL)",
+		IsLocal:     true,
+	},
+	"mark_feed_items_event_extracted": {
+		Handler:     MarkFeedItemsEventExtractedAction,
+		Category:    "site",
+		Description: "Stamp event_extracted_at on content_feed_items rows considered by the event-extraction pass, whether or not a fact was registered from them",
+		IsLocal:     true,
+	},
 	"verify_and_register_directory_claims": {
 		Handler:     VerifyAndRegisterDirectoryClaimsAction,
 		Category:    "site",
