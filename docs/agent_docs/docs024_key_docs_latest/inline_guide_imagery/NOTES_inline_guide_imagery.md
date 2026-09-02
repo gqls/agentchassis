@@ -424,3 +424,51 @@ has no section-scope rows. It closes on the next roll.
 ⚠ **The lesson is the timing, not the outcome:** a commit made minutes before a roll is not in
 that roll, and "it went out with the build" is exactly the inference that feels safe and is
 unfalsifiable without the probe. Two and a half minutes was enough.
+
+### 9. Round 2 verdict: REVISE again, and the gating objection was me repeating a mistake I had just confessed
+
+`[2026-09-02 13:38Z]` **8 approve / 4 object, gated by `editquality` (HIGH).** The gating
+objection is not about the design at all:
+
+> "The rationale explicitly states a NINTH file … needs 'the byte-identical two-token mechanical
+> change' … but it is not included in the edit list, only named in prose 'to stay inside the
+> 8-edit budget.' This is the exact failure the rationale itself confesses to for round 1."
+
+Round 1 was objected to for naming call-site files in prose instead of listing them. I answered
+that objection **about the file it named**, and then did the identical thing with the ninth file.
+The class, not the instance — the same error `MEMORY.md` records as "an objection naming one file
+is naming a CATEGORY", which I have apparently learned to quote and not to apply. An 8-edit budget
+is not a reason to submit a non-compiling diff; the fix was to drop something else, and what came
+out is the round-1 test file that is **unchanged this round** — listing it showed a reviewer a diff
+that does not exist.
+
+**The three substantive objections, and what each one actually found:**
+
+- **`bug_historian` (medium) — "count ROWS, not names" (016b §9).** Correct, and the estate holds
+  the worked case `[MEASURED 2026-09-02]`: loancalculator.co.uk/index has plan ordering 1 =
+  `tool-loan-repayment` while live position 2 is `slot_name='tool-3'`, component function
+  `tool-loan-repayment`. Plan name and live slot differ; composition identical. Two consequences,
+  and only one is the guard's: the guard stands that page down (a false negative that costs the
+  feature, never correctness) — but **per-section binding could not have worked there anyway**,
+  because the map key IS the name and the two sides spell it differently. The guard makes an
+  existing miss explicit. The improvement it points at — key by the resolved component FUNCTION,
+  which `planSection` already holds — is named in round 3 and deliberately NOT rushed: the plan
+  side would need `component_name`→function resolution, i.e. `componentNameResolver`'s five arms,
+  and a hasty by-name resolution in this exact file is `bugs_closed/044`.
+- **`reuse_agent` (low) — `check_section_source_drift` already compares plan against live.** Read
+  it: it compares the authoritative plan against `pages.sections` (the CACHE), and its header says
+  both sides are viewed through `MergeLockedPageSlots` so that **locked rows are NOT drift**. Mine
+  compares the plan against the list the render path iterates, and must treat a locked row the
+  plan does not name as a reason to stand DOWN. Same shape, different second operand, **inverted
+  polarity** — merging is what makes that check correct and would make this guard agree exactly
+  when it must not.
+- **`debug_historian` (medium) — there is a LANDMINE on the exact symbols this rewrites.** True,
+  and **this lane filed it** on 2026-08-31 as part of this work. I did not cite my own entry in
+  `grounded_in`, which is why the seat had to point at it. Now quoted.
+
+Also `debug_historian` (low): my "1,082 active pages" never named the status predicate. Enumerated
+— `pages.status` has exactly **two** spellings today, `active` 1105 / `archived` 91, so the
+documented four-spelling trap does not apply here. And the figures **moved during the review**:
+1,082→1,105 active, 31→32 pages carrying section imagery, in one afternoon.
+
+Round 3 submitted on the same trail (envelope `d2dab332`).
