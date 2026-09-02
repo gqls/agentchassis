@@ -58909,3 +58909,64 @@ Family: a-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-
   of my own guess at it.** Check a peer's change against THEIR spelling of it, or wait for the file.
   Tally: **a-negative-control-that-is-a-true-positive** ×1,
   **a-simulation-of-someone-elses-change-tests-your-guess-not-their-change** ×1.
+
+- **2026-09-02 — mortgagecalculator_couk_adoption — my CONTROL returned the same zero as my target,
+  and I nearly closed a work item on it.** Checking whether anything still references
+  `/tools/assets/tool-btl-investor.js`, I ran
+  `page_components.rendered_html LIKE '%tool-btl-investor.js%'` → **0**, and controlled with
+  `snippets.js`, which every one of the site's 42 pages loads. **The control also returned 0** —
+  because `snippets.js` is injected by the chrome assembler and never stored in `page_components` at
+  all. A control that agrees with the target for a reason unrelated to the target proves nothing, and
+  it *looks* like corroboration. The honest control was
+  `/tools/assets/mortgage-lender-directory-listing.js`, which genuinely lives in a stored component
+  and returns **1**. The zero was real; my evidence for it was not.
+  **The cheap check:** pick the control by asking *"does this thing live in the column I am
+  querying?"*, not *"is this thing present on the site?"* One `GROUP BY` over what the column
+  actually holds (`SELECT substring(rendered_html from 'src="([^"]*\.js)"'), count(*) … GROUP BY 1`)
+  answers it before you choose.
+  **Same session, twice more, from careless extractors — both produced confident false findings:**
+  (a) I read `substring(rendered_html from '<img[^>]+src="([^"]+)"')` per row and reported that
+  `tool-cta` renders the stamp-duty card on all four tool pages. SQL `substring` returns the **first**
+  match; the component renders **six distinct** cards and stamp-duty is merely first every time.
+  There was no defect. (b) I tested `rendered_html LIKE '%background-image%'` and reported that four
+  pages render a background image; that matched the **CSS property name inside a `<style>` block**,
+  and the component paints a solid colour. **Count the matches before reading one**
+  (`regexp_matches(…,'g')` + `count(DISTINCT …)`), and test for the **value**, never the property
+  name.
+  ⚠ **All three are the same error wearing three costumes: I let an instrument that can only return
+  one answer stand in for a question that has many.** The blind control returns 0 whatever is true;
+  `substring` returns row one whatever the row contains; `LIKE '%background-image%'` returns true
+  whatever the value is. **A measurement is only evidence if it could have come out otherwise**, and
+  that test applies to the extractor, not just to the query.
+  Tally: **a-control-that-shares-the-targets-blindness** ×1,
+  **first-match-extractor-read-as-the-whole-set** ×1, **property-name-matched-as-a-value** ×1.
+
+- **2026-09-02 — I pointed the owner at an instrument three orders of magnitude too coarse
+  to see the thing it was supposed to prove, and it read as a failed change.**
+  Having swapped the webdesign.uk chat onto a separate Anthropic account, I told him the
+  proof the BUDGET (not merely the key) had moved would be "a small amount of spending
+  appearing" against the new account in the Console. He looked, saw **$0.00 of $55.00**,
+  and reported: *"it has not moved."* Reasonable — and the advice, not the swap, was
+  wrong. The chat's own ledger (`/var/lib/webdesign-chat/state.json`, the file its
+  daily ceiling depends on, so it cannot be stale) said it had spent **$0.003636** that
+  day and **$0.286 in its entire life** since launch. **The Console billing page rounds
+  to cents. It cannot resolve a third of a penny and never could**, so `$0.00` was the
+  correct output of an instrument that would have printed `$0.00` whether the swap had
+  worked, failed, or never been run. Same family as the blind control above: *a
+  measurement is only evidence if it could have come out otherwise* — and here I never
+  asked what the expected magnitude WAS before choosing the meter. One division
+  ($0.0036/day against a $0.01 resolution) would have shown it was unusable, and I had
+  every input needed to do it.
+  **The cheap checks that DO resolve it:** the key's **`Last used`** timestamp on the
+  Console's API-keys page (a clock, not a rounded dollar — and the estate's own memory
+  already names that field for the mirror-image question, "capped but billing says 0%"),
+  the Analytics/Usage view (tokens, not dollars), or the service's own spend ledger on
+  the box. The structural proof turned out to be sitting in his screenshot all along and
+  needed no spend at all: the workspace's org is capped at **$55/month**, and the fleet
+  measured **~$2,113 in August** — one pool cannot be both, so the budgets are
+  demonstrably separate.
+  **Second-order damage this nearly caused:** "it has not moved" is indistinguishable
+  from a genuinely failed swap, and the obvious remedy — re-run the swap, re-check the
+  key — would have burned the session chasing a working system.
+  Tally: **instrument-resolution-never-checked-against-expected-magnitude** ×1
+  (new); **a-measurement-that-could-not-have-come-out-otherwise** ×4.

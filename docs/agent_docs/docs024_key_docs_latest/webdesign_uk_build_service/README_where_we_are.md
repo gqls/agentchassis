@@ -2299,3 +2299,30 @@ proof that the budget genuinely moved, not just the key.
 
 I also tightened the permissions on your credential file — it was readable by any account
 on the machine, and the other key file beside it was not.
+
+**2026-09-02, evening — you were right to check, and the answer is good news.** The
+`$0.00` you saw was not a failed swap; it was me pointing you at the wrong gauge. The chat
+spends about a third of a penny a day — it has spent **29 pence in its entire life** — and
+that billing page rounds to whole pennies. It would have shown `$0.00` no matter what, so
+it could never have answered the question. My mistake, and I have written it up.
+
+Your screenshot did contain the proof, in a place neither of us was looking: it says that
+account is capped at **$55 a month**, and the background fleet spent about **$2,113 in
+August**. Those cannot be the same pot of money. So the chat really is on a separate
+budget now, which was the whole point.
+
+If you ever want to check it directly, the useful gauge is the key's "Last used" time on
+the API keys page — a clock rather than a rounded-down amount.
+
+**That $55 did reveal a genuine problem, which is now fixed.** The chat's own safety limit
+was $10 a day — about $300 a month — sitting inside an account that stops at $55. So the
+chat's own brake could never have been the one to act; the account limit would always have
+run out first, and when an account runs out the chat falls back to "please contact us
+directly". In other words, fixing the budget had quietly recreated the same outage from
+the opposite direction.
+
+I have lowered the chat's limit to **$1.50 a day** as you asked, which is about £35 a
+month and stays comfortably inside the account. It is still roughly 1,500 conversations a
+day — around 190 times what the chat actually uses — so no real customer will ever meet
+it. I checked the running service states the new limit itself, that your API key was not
+disturbed by the edit, and that the chat still answers properly on the live site.

@@ -7576,3 +7576,37 @@ unchanged at `79eafe5d414e`). Backup `/etc/webdesign-chat.env.bak-20260902T17134
   (their own ~20s log-window finding). Their round-2 council citation was right
   about planSection; the strip layer sits between the cited code and the merge.
   The hunt is theirs from here.
+
+## 2026-09-02 (later) — the ceiling lowered to $1.50, and the instrument that said the swap had failed
+
+**Owner reported "it has not moved" against the Console's $0.00 of $55.00.** The swap was
+fine; **my advice was not.** The chat's own ledger (`/var/lib/webdesign-chat/state.json`,
+the file its daily ceiling depends on, so it cannot be stale) reads **$0.003636 today**
+and **$0.286 across its entire life**. The billing page rounds to cents, so it would have
+printed `$0.00` whether the swap worked, failed, or never ran — an instrument that could
+not come out otherwise. Logged in `WRONG_CALLS.md` with the check that would have caught
+it in one division: **ask the expected magnitude BEFORE choosing the meter.** Resolving
+instruments instead: the key's `Last used` timestamp, Analytics (tokens), the box ledger.
+
+**The screenshot carried the real proof and needed no spend at all**: the workspace's org
+is capped at **$55/month**, and the fleet measured **~$2,113 August MTD** (D4 governor's
+meter, `544a59210`). One pool cannot be both, so the budgets ARE separate — the residual
+the 09-02 commit flagged as unmeasurable from here is now settled, by arithmetic.
+
+**But that same $55 exposed an inverted guard hierarchy, and it is the durable lesson.**
+The chat's own ceiling was **$10/day ≈ $300/month** inside a **$55/month** account. The
+inner brake could therefore never fire first: the account cap would, and **an account cap
+failing closed presents as the "contact us directly" line — the exact outage the swap was
+done to prevent.** Fixing the budget had quietly re-created the failure from the other
+end. **Guards must NEST: inner × period < outer.**
+
+- **Lowered to $1.50/day** (≈$45/month) on the owner's instruction. Verified at the
+  artefact: `sitechat on 127.0.0.1:8081 (max_turns=20, daily_ceiling=$1.50)` from the
+  RUNNING service, key fingerprint `cd3e51a196a7` asserted UNCHANGED across the rewrite
+  (the same file carries the key, the facts token and the contact details), facts still
+  fetching 27, and a live question through the public edge answered properly.
+- Headroom is ~187× today's spend; ~1,500 conversations/day.
+- **Why this edit got the swap script's full safety treatment despite being a non-secret
+  number:** `main.go` `log.Fatalf`s on an unparseable or <= 0 ceiling, so unlike a bad
+  KEY (which starts and degrades) a bad CEILING means the unit does not come up at all.
+  Validate, back up, one-line diff assertion, restart, auto-restore.

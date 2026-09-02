@@ -650,6 +650,38 @@ decision.
 
 ### Sizing the daily ceiling
 
+> **SET TO $1.50/day on 2026-09-02 (owner's instruction), and the REASON is the shape to
+> keep, not the number.** The guards must NEST: the chat's own daily ceiling × 30 has to
+> sit **under** the account's monthly cap, or the inner brake is decorative and the outer
+> one bites first. After the budget swap the chat sat on an account capped at **$55/month**
+> while its own ceiling was **$10/day ≈ $300/month** — so the account limit would always
+> have bitten first, and **an account limit failing closed presents as the "contact us
+> directly" line**, i.e. the exact outage the swap was done to prevent, re-created from
+> the other end. $1.50/day ≈ $45/month clears the cap with room.
+>
+> It is still enormously generous against real traffic: `[MEASURED 2026-09-02]` the chat
+> spends **$0.0036/day** and **$0.286 across its entire life** since launch, so $1.50 is
+> ~1,500 conversations a day.
+>
+> ```bash
+> # env var only — no rebuild. Validate as main.go will (it log.Fatalf's on an
+> # unparseable or <= 0 value, so a typo takes the chat DOWN, not degraded):
+> #   back up -> write ONE line -> assert the key's fingerprint is unchanged ->
+> #   restart -> restore automatically if the unit does not come back.
+> # Then read the RUNNING service's own statement, never the file:
+> ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+>   "journalctl -u webdesign-chat --since '-2 min' -o cat | grep 'sitechat on'"
+> # expect: sitechat on 127.0.0.1:8081 (max_turns=20, daily_ceiling=$1.50)
+> ```
+>
+> ⚠ **Do NOT verify a budget change on the Console's billing page.** It rounds to cents
+> and the chat spends fractions of a penny a day — it printed `$0.00` after the swap and
+> read as a failed change (`WRONG_CALLS.md` 2026-09-02). Use the key's **`Last used`**
+> timestamp, the Analytics/Usage view (tokens), or the box's own ledger:
+> `/var/lib/webdesign-chat/state.json` → `daily_spend_usd`.
+
+
+
 Haiku 4.5: $1.00/$5.00 per MTok (input/output). Measured live on the first real
 call through the tunnel (2026-08-09): 372 input + 11 output tokens = **$0.000427**
 for one turn. A full conversation of several turns is comfortably under a cent.
