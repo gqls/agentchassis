@@ -346,3 +346,82 @@ not an idle no-op. **This is the close condition for half 2.**
 **boxingonline.com remains `pending` deliberately** — a paid site mid-delivery whose served
 footer is a hand-patch; re-rendering replaces it, and that is the owning lane's call, not
 mine. `bugs_open/423` closes when they run it.
+
+
+---
+
+## COUNCIL ROUND 4 → REVISE, and the OWNER broke the tie (2026-09-02)
+
+Round 4 (the gate deletion) returned **REVISE**, gated by **bug_historian HIGH**, arguing
+the deletion makes a store failure "return a hard error UNCONDITIONALLY" on 7 workflows
+with no `error_step`, reproducing `bugs_closed/073` — an honest signal cascading into
+failing the whole workflow.
+
+**The factual premise is wrong, and it is corrected here so the trail does not mislead.**
+A store failure returns a non-nil error, but that error does **not** fail the step. Quoting
+the deciding arm rather than the function:
+
+```go
+// :333-338 — the error lands in a map, and only an UNSERVED slot is escalated
+chromeRenderFailed[slot] = renderErr.Error()
+if !chromeSlotHasStoredHTML(ctx, params.DB, siteID, slot) {
+    chromeUnserved = append(chromeUnserved, slot)
+}
+// :349 — and only THAT fails the step
+if len(chromeUnserved) > 0 { return nil, fmt.Errorf(...) }
+```
+
+A slot with previous bytes is a **degraded success**; the site keeps serving. `[MEASURED
+2026-09-02]` rows fleet-wide with NULL/empty `rendered_html`: **0**.
+
+**What was RIGHT in the objection, and is recorded rather than dismissed:** when a slot
+genuinely has nothing to serve, one bad slot does fail the whole run — there is no per-slot
+granularity. That is real, it is `073`'s shape, and **it is `bugs_open/260`'s design, not
+this change's** — this change routes a second failure kind into a disposition 260 already
+had reviewed and approved.
+
+### ⚖ OWNER RULING 2026-09-02 — UNGATED, and the deletion stands
+
+Three seats had now pushed in three directions across four rounds (guardian: do not
+escalate · bug_historian r3: the gate withholds an approved protection · bug_historian r4:
+the deletion cascades). CLAUDE.md's rule for exactly this — *"especially when seats
+disagree with each other … let a human break it"* — was applied instead of a fifth round.
+
+**The owner chose UNGATED.** A store refusal on a slot with nothing to serve fails the
+step, exactly as an execution failure has since 260. Already carried by `badff59a9`; ships
+on the next roll. **Not resubmitted for a round 5** — the council is advisory, it cannot
+overrule the owner, and a fifth round would spend credits to be told something already
+decided.
+
+Two round-4 objections were craft rather than disposition and are accepted without action,
+stated so they are not mistaken for oversights: *editquality* was right that the deleted
+test file should have been a visible edit rather than a `grounded_in` assertion (my third
+instance of that exact fault in this trail), and *prior_art* was right that it cannot
+verify a `site_components` population count because that table is outside its accessible
+schema — so that measurement is owner-verifiable, not council-verifiable, and is quoted
+with its query wherever it is used.
+
+---
+
+## ✅ CLOSED 2026-09-02 — fixed, live, and BOTH casualties repaired at the artefact
+
+Live on `agent-chassis:v1.0.1354` (probed at the binary with a removed-string control).
+
+| | before | after |
+|---|---|---|
+| `garden-tools.uk` footer | NULL since **2026-08-23** | `rendered`, 2,427 B, digest ok, **16:21:32Z** |
+| `boxingonline.com` footer | `pending`, hand-patch serving | `rendered`, 2,289 B, digest ok, **16:27:56Z** |
+| footers fleet-wide not `rendered` | 2 | **0** |
+| rows with NULL/empty `rendered_html` | 1 | **0** |
+
+**The webdesign lane's own pre-delivery probe passes on boxingonline** — `sites.email` is
+empty and the served footer carries **no mailto and no contact block**, gated at
+`component_library.go:1988`, which was that lane's stated close condition.
+
+And the content check that proves the mechanism rather than the absence of a crash: the
+offending label renders **intact**, em-dash preserved —
+`How We Assess Garden Tools — Our Methodology | Garden Tools UK`.
+
+**Residual, tracked elsewhere, not left implicit:** `bugs_open/435` (the `:1411` no-row-
+matched swallow, deferred on a measurement) and the follow-up to declare `ConfigKeys` for
+`render_site_components` so the RFC_022 counter can see its three undeclared keys.

@@ -1,4 +1,21 @@
-# HANDOFF — bugs_open/423, chrome UTF-8 · written 2026-09-02, ~15:5xZ
+# HANDOFF — bugs_closed/423, chrome UTF-8 · written 2026-09-02, ~15:5xZ · **CLOSED 16:4xZ**
+
+> ## ✅ THIS LANE IS COMPLETE. Read §0 first; the rest is the trail.
+>
+> **`bugs_closed/423`** — fixed, live on `v1.0.1354`, and **both casualties repaired at the
+> artefact**: garden-tools.uk 16:21:32Z (NULL for ten days → 2,427 B) and boxingonline.com
+> 16:27:56Z (2,289 B), footers fleet-wide not `rendered` **2 → 0**, and the webdesign lane's
+> pre-delivery probe **passes** (empty `sites.email`, no contact block in the served footer).
+> The offending em-dash label renders intact.
+>
+> **OWNER RULING 2026-09-02 — the escalation is UNGATED.** Council round 4 returned REVISE on
+> the gate deletion after rounds 1–3 had pushed the other way; three seats in three directions
+> meant the owner broke the tie per CLAUDE.md, not a fifth round. `badff59a9` carries it and
+> **ships on the next roll** — that is the one behaviour change still pending. See §6.
+>
+> **What is genuinely left:** `bugs_open/435` (a residual swallow, deferred on a measurement)
+> and a `ConfigKeys` declaration for `render_site_components`. Both are §8, both are optional,
+> neither blocks anything.
 
 **Read this first, then `NOTES_chrome_utf8.md` (newest at the bottom) and the bug file.**
 Everything below is either measured with its query attached, or marked as unverified.

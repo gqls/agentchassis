@@ -15001,3 +15001,88 @@ model for any dual-truth key you find: census BOTH halves against the system of 
 the SPEC (supersede), not the page. Bug files: this lane's contact trail (NOTES 2026-08-31
 night); `bugs_open/420` (order-intake billing-email — the neighbouring intake-side mechanism,
 delivery lane's file).
+
+### A rename that made ids UNIQUE left every test that names one unsatisfiable — and the test suite keyed on a shared name cannot be right for two differently-renamed copies (2026-09-02, `bugs_open/441`)
+
+`bugs_closed/283` gave interactive tool components instance-scoped element ids
+(`id="{{.InstanceID}}-foo"` → served as `id="c-<function>-foo"`) so two tools could share a page.
+Correct change, fully converted. **Nothing updated the acceptance criteria, which name `#foo`, and
+neither verification tier learned the prefix:** Tier 2's `anchorPresent` is a literal
+`strings.Contains(html, 'id="'+id+'"')`, Tier 4 hands the bare selector to Playwright. The ladder
+then reports *"anchor absent from deployed page"* for an element that is present under its new
+name — and files an `improve_tool`, so a fixer is dispatched at a working tool with
+`Root cause: unknown`. **134 of 187 anchor-absent failures in 45 days, across 99 tools, name an
+element that exists in that tool's own template.**
+
+**Three transferable checks, in order of how much they generalise.**
+
+**(1) A rename is not finished when every *caller* is converted — it is finished when every
+*describer* is.** Templates, fixtures, selectors, criteria fences, monitoring queries and docs
+name things by string and do not compile, so a conversion programme's own green light says nothing
+about them. Before closing one, grep the estate for the OLD spelling in non-code stores (here:
+`doc_plans.body`, one query, 172 of 173 fences still carrying bare ids) and put that number in the
+closing note. The conversion's five `CONTINUE_HERE` files never mention the word "criteria".
+
+**(2) When a test suite is keyed on a name that several artefacts share, ask whether those
+artefacts are still identical — because the suite has one answer and they may now need two.** The
+fence lives in `doc_plans` keyed on `content_components.function`; **10 functions have both a
+converted and an unconverted active row**, and 6 of those have a fence. Those six are unsatisfiable
+by construction: whatever selector you write, one row fails. **This is the check that decides the
+FIX**, not just the diagnosis — it rules out "regenerate the fences" (the obvious remedy, which the
+lane's own tooling would do automatically) and leaves only "teach the checker both spellings". A
+per-artefact remedy cannot repair a shared-key artefact.
+
+**(3) A checker that reports absence is claiming to distinguish present from absent — make it prove
+it, in the same run, on the same page.** The failure here is indistinguishable from a genuinely
+invented selector, and both arrive worded as *"anchor absent"*. The discriminating query is cheap
+and disconfirmable: for each absence, does the named id exist in that tool's template **under the
+prefix**? It could have come out near zero (all genuinely invented); it came out 72%. The same
+shape in reverse is the acceptance test for any fix: an invented anchor must still FAIL afterwards,
+or a checker that accepts everything looks exactly like a checker that was repaired.
+
+**The positive control that settled it, and why it beat a second measurement:** one function's two
+rows are served by two different sites — `garden-tools.uk` (converted, fence matches nothing, fails)
+and `relojistas.com` (unconverted, fence matches, passes). **Same fence, same checker, opposite
+verdicts, curled the same minute.** That single pair rules out "the fence is malformed" and "the
+checker is broken" simultaneously, which no amount of counting failures could. When a defect depends
+on a per-instance property, look for two instances that differ *only* in that property before
+reaching for a census.
+
+### A word-splitter turns a lone em-dash into a WORD, so `s[:1]` cuts a rune in half — and Postgres refuses the bytes while the code reports success (2026-09-02, `bugs_open/423`)
+
+**The mechanism, which is worth knowing before you have a symptom.** `strings.ToUpper(w[:1]) + w[1:]`
+is the estate's most common title-casing idiom (**8** call sites, census 2026-09-02). It is a BYTE
+slice. It is safe on every word that begins with an ASCII letter, which is almost all of them — so
+it survives years of correct behaviour and then fails on one page title. The trigger here was
+`strings.Fields` making a **standalone em-dash its own word** in *"Boxing Quiz — Test Your
+Knowledge"*: `w[:1]` takes one byte of a three-byte rune, `ToUpper` maps the orphan to U+FFFD, and
+`w[1:]` re-attaches the continuation bytes. Run it and you get `ef bf bd 80 94` — **first invalid
+byte `0x80`**.
+
+**Why this class does not degrade quietly: Postgres REFUSES invalid UTF-8.** It does not store
+mangled text; it kills the statement (`invalid byte sequence for encoding "UTF8": 0x80`, SQLSTATE
+22021). So the defect surfaces as a *write* failure a long way from the string that caused it.
+
+**The diagnostic trap, and the reason this took two sessions.** Postgres names the offending BYTE
+and never its POSITION. On a 40 KB document that is "0x80" and nothing else, so the only way to
+locate it has been to bisect the pipeline by hand. **`datahelpers.InvalidUTF8At` now exists for
+exactly this** — it returns the byte offset plus a `QuoteToASCII`'d window, and there is a gate on
+the chrome store that fires it. Use it before bisecting anything.
+
+**The transferable measurement.** "The document contains multi-byte characters" explains nothing —
+32 of 32 stored footers did, and all stored fine. **The cause must CUT at a byte offset.** The
+census that discriminates is: which documents contain a **word whose FIRST rune is multi-byte**?
+Fleet-wide that returned exactly 2 sites, and exactly those 2 had an unstored footer — zero false
+positives, zero false negatives, and it could have come out otherwise.
+
+**And the search-bounds lesson, which is the one I would most want inherited.** The predecessor's
+bug file carried a careful, CORRECT code read clearing "the surgery between `RenderTemplate` and the
+store". The cut was **before** `RenderTemplate`, in an input built 1,100 lines away. **A finding
+that clears a region is a statement about a WINDOW, and a bug file records the window's contents
+almost never its edges.** When you inherit "the code here is clean", enumerate the region they did
+not name rather than re-reading the one they did — here that was one grep for byte-indexed slices,
+and it found the cause on the first run.
+
+**Kin:** `bugs_open/027` §4b built `SafeCut` for the TRUNCATION shape of this identical class on
+2026-07-20 and nobody went looking for the CASING shape, which then bit two live sites for ten days.
+**Fixing one shape of a defect class and not censusing its siblings is the recurrence, not the fix.**
