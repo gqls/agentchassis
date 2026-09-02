@@ -273,6 +273,33 @@ source through `queryresolve.Resolve` **unconditionally** (no "only if missing" 
 `:1617-1618` merges `plan.ResolvedData` into the render context **last, so it wins**. Every step
 of that says the fresh array should reach the page. It does not.
 
+> **CORRECTED 2026-09-02, before it cost a diagnosis round.** I wrote above that garden-tools'
+> stored array holds four guides "while `query.blog_posts` would return five blog posts for that
+> site" — and the `site_delivery_and_editor` lane rightly proposed reading the rendered cards as a
+> discriminating test, since that would be the only page where stored and resolved differ.
+> **The premise was mine and it was wrong.** My count of five came from a query that did not
+> replicate the floor the resolver actually applies. `blog_posts` calls `resolvePagesWhereType`
+> with `listedOnly=true` → `ListedPageEligibilitySQL`: `deployed_at IS NOT NULL` **and**
+> `jsonb_array_length(p.sections) > 0`. The fifth page, `/blog/buying-guide-post.html`, has
+> `deployed_at` NULL, zero sections and `build_status='planned'` — it fails both clauses. The
+> resolver returns **the same four**. So garden-tools does not discriminate either, and the
+> rendered output showing four guides is consistent with both hypotheses.
+>
+> A census that does not replicate the predicate the code uses answers a different question, and
+> both of us had quoted the looser number.
+
+**THE DISCRIMINATOR THAT DOES WORK, and it is about a KEY rather than a value.** The fixed
+projection writes `"excerpt": ListItemExcerpt(metaDesc)` into the item map **unconditionally** —
+the key is present whatever the value, including empty string. The old projection never wrote it
+at all. `[MEASURED 2026-09-02]` the items written by these rerenders have **no `excerpt` key**
+(`content_data->'articles'->0 ? 'excerpt'` is false on every page checked).
+
+So this is not "the deck resolved empty". **Any item produced by the fixed code carries the key;
+these carry none, therefore they were not produced by the fixed code** — while the binary running
+them demonstrably contains the symbols. That narrows it to the resolution not executing on this
+path, or executing through something that is not `resolvePagesWhereType`, and it rules out "it ran
+and the data was thin".
+
 **Filed for diagnosis rather than guessed at: correlation `c19a975d-b32c-4ed8-825a-e8d6100bbec7`.**
 The cheap eliminations above are done; what remains is inside the execution, which is exactly
 what the loop is for.
