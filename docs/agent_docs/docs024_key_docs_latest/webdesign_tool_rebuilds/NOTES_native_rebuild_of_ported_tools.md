@@ -5317,6 +5317,23 @@ inline") ever surfaced in this lane's grading. Answered with measurements, both 
   deliberately NOT in COMPONENT_WRITE_ALLOWED — a pattern-check fire is TRUE; council scope for the
   platform/ diff) and that the 2-line door-fix does not backfill the 12 existing rows.
 
+> **CORRECTED 2026-09-02 (same day):** "TWO ACTIVE forks … live-damage candidates" was HALF right.
+> `is_active` on `content_components` is not deployment — I never joined to `page_components`.
+> Re-checked with the join: `tool-provocation-heat-rater-vonc-com-vonc-com` IS linked to a real
+> page (`/tools/provocation-heat-rater/index.html`, vonc.com) and theme-kits curled its asset to a
+> confirmed **404** — live damage, real. `tool-equity-release_pre_037-mortgagecalculator-co-uk` is
+> active but linked to NOTHING — latent only. Caught by the grind seat's recount + theme-kits'
+> direct check; my join re-run confirms. The cheap check I skipped: **an active component row is a
+> candidate; only the page join makes it deployed.** The 12/72 census itself stands (different
+> predicate — loss, not liveness).
+>
+> Also theirs, and important: the naive column-copy fix is WRONG — a fork's `html_template` is
+> instance-SCOPED (`ConvertTemplateToInstanceScope`) but `js_content` publishes verbatim/unscoped,
+> so pairing them creates a scoped-HTML/unscoped-JS id-mismatch class that today has ZERO instances
+> in production. That is the SAME seam as this lane's anchor-class acceptance defect (diagnosis
+> `91228c39`: bare ids can never match `c-<function>-` prefixed instances) — pointed them at it and
+> at staged_component_build, who own the criteria-vs-renderer decision.
+
 ## 2026-09-02 — a peer lane asked whether the `js_content` fork-drop bug has bitten our rebuilds. It has not, and here is why — plus two facts about this lane we did not have.
 
 The `themes` session (theme-kit registry plan, `/home/ant/.claude/plans/please-think-hard-about-starry-locket.md` §5)
