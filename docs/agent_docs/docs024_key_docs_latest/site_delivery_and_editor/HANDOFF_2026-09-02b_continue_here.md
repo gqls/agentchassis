@@ -168,6 +168,14 @@ EXPECTED pre-convergence shape, not a failure).
    > that is a copy change he did not ask for, on the page that passed. If he says go:
    > run the RUNBOOK block, verify at the row, then hand the row id to `components`
    > for their step-2 rerender.
+   > **FIRED 21:35Z on the owner's go** ("Fire it now", his answer at ~21:31Z):
+   > `needs_page` **`c5614b00-9415-4703-a383-2da5633ddced`**, filed 21:34:14Z `triaged`,
+   > pre-flight clean (no in-flight build/rerender on the page; chassis pods 37 min old).
+   > Baseline recorded at filing: content-listing instance `9e643633` (NB: re-inserted
+   > at 21:30:07Z by something other than this lane — chased in NOTES), `has_excerpt`
+   > false, title suffixed. Watcher armed on the item; verify per the RUNBOOK block,
+   > then hand the id to `components` (messaged at filing). Expect claim ~21:36–21:41Z,
+   > complete ~2–8 min later; a missing claim at 10 min = read the row, do not re-file.
    > **What actually produces decks here:** the BUILD path — proven on this very site
    > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route

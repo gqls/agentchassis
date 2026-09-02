@@ -7963,3 +7963,20 @@ lane's per the ownership ruling.
   (a `template_changed` rerender on the new baseline; key GONE ⇒ the rerender path rebuilds the
   array with old code, key SURVIVES ⇒ it never touches `articles`). Owner asked.
 - Waves at 21:29Z: none fired (monitor armed since ~21:10Z; first candidate tick ~21:52Z).
+
+## 2026-09-02 (21:35Z, clock-read) — owner said GO; index BUILD-path rebuild FIRED: `c5614b00`
+
+- Owner's answer to the one question put to him ("rebuild the home page now, knowing the build
+  path regenerates its written copy?"): **"Fire it now"** (~21:31Z). Filed at 21:34:14Z:
+  `needs_page` `c5614b00-9415-4703-a383-2da5633ddced`, exact `7f1f4993` shape (RUNBOOK block),
+  `triaged`. Pre-flight 21:34:12Z: 0 in-flight build/rerender items on the page; chassis pods
+  started 20:56/20:57Z (>300 s). Baseline at the row, recorded before filing: content-listing
+  instance **`9e643633`**, `has_excerpt` **false**, title0 "…Won't Stay That Way | Boxing…"
+  (suffix present — the 80-char cut shows it; my 21:22Z 70-char cut hid it).
+- **Unexplained at filing:** the content-listing instance on index changed id `7dead3e5` →
+  `9e643633` with `updated_at` 21:30:07Z — something re-inserted it between my 21:22Z read and
+  21:34Z. Not this lane. Queried the queue/history/orchestration for 21:25–21:34Z (result in the
+  next entry); asked the components lane whether it was their second rerender.
+- Watcher armed on the item (30 s poll → terminal state → row read: excerpt key, title, decks in
+  `rendered_html`, history keyed on `page_id`, `pages.deployed_at`). Components lane messaged
+  with the id; their step 2 (rerender on the new baseline) waits for my "new shape landed".
