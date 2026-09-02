@@ -41,6 +41,11 @@
 > page-level re-renders (measured: `failed`, `result={}`), so the wave's page item there fails by
 > design and they settle `build_status` themselves. 397 §9.
 
+> **2026-09-02:** D refilled to 8 in a week (~1 unkeyed new site/day); second c2 run at 20:10:33Z
+> cleared it (census A 30 / C 9 / B 0 / D 0). 397 §11. **Until the §6.2 seeder is built this is a
+> weekly manual tax — the seeder + §6.3 detector are this lane's next build.** Customer container
+> `GTM-TH5XGNQ4` created and verified same day; estate publish still pending (0 tags, 19:57Z).
+
 ## 1. Verify before doing anything — one command
 
 ```bash

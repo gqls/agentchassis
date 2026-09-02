@@ -332,3 +332,20 @@ Banked from the lanes' acks, 2026-08-26 (fuller versions in `analytics_gtm/NOTES
   > `d3f04b95a`). **cv1.co.uk remains the open half.** And per the owner's attached question ("is
   > that what GA4 is?"): the ruling keeps the CONTAINER on the site; nothing reports into GA4 until
   > the container carries a published Google Tag — 0 tags at 2026-08-26 10:50Z, re-measured.
+
+### §11 — 2026-09-02: the D bucket refilled to 8 in a week, and the second c2 run cleared it — §6.2 is now the cost centre
+
+Routed back by `agentchassis-33` (their census 20:08Z, independently reproduced here): **8 sites born
+since c2 (08-26) with no analytics key** — advertise.co.uk farmerinsurance.uk boxingonline.com
+websitepromotion.co.uk seotools.co.uk designblog.co.uk oxenunity.com gamedesign.uk — all network
+0002, all deployed, **158 pages**, growth ≈ 1 site/day exactly as §6.2 predicted. Three live lanes
+(designblog, gamedesign, boxingonline) notified before firing; **c2 re-applied `-v UNTAGGED=1` at
+2026-09-02 20:10:33Z (row stamp)** — INSERT 8, UPDATE 1 (boxingonline's `chrome` key preserved by
+the merge), all post-conditions passed. Census after: **A 30 · C 9 (the 8 + adversecreditmortgage,
+awaiting their rebuilds) · B 0 · D 0.**
+
+**Consequence: re-running c2 is now a ~weekly manual tax.** Two data points (12+4 sites on 08-26,
+8 on 09-02) make the seeder (§6.2) the fix that closes the door, and until it exists the honest
+stopgap is the §6.3 detector so the drift is at least seen daily rather than found by routing.
+designblog note for the wave: its four empty listing pages re-render empty by design (fill is
+upstream, `bugs_open/444`) — chrome timestamps, not content changes.

@@ -506,3 +506,11 @@ Google action from the whole 08-25/26 arc.
 dated addendum (`1539c1651`) with the inverted-verdict warning and the co-canonical pointers
 (397 §6.2 + this lane's handoff) — the three records agree. Handover complete; seeder +
 `analytics.mode` build remain this lane's, their intake/ZIP packages now cite the concrete id.
+
+**26.** `[2026-09-02 ~21:15 BST]` Second c2 run. agentchassis-33 routed 397 back with a fresh census
+(D=8, ~1 new unkeyed site/day since 08-26); reproduced it myself (all 8 net-0002, deployed, 158
+pages), notified the three live lanes (designblog, gamedesign, boxingonline — all acked or no
+objection), applied `-v UNTAGGED=1` at **20:10:33Z (row stamp, measured this time)**: INSERT 8,
+UPDATE 1 (boxingonline merge kept `chrome`), census A 30 / C 9 / B 0 / D 0. Kept 397 ownership.
+**The pattern is now priced: without the §6.2 seeder this is a weekly manual tax** — seeder (+ §6.3
+detector) is the next build in this lane, council scope.
