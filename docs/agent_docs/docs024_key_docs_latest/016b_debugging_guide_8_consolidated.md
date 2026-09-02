@@ -6815,8 +6815,10 @@ starts `FROM pages` / `FROM sites` is blind to that target *by construction*: it
 reported clean, it is **absent from the report**, which a reader cannot distinguish from
 "nothing to say".
 
-**The worked case.** `gamedesign.uk` served six pages of header + empty `<main>` + footer to
-the public from **2026-04-16 to at least 2026-09-02 — 4.5 months**. It has no `sites` row and
+**The worked case.** `gamedesign.uk` served ~~six pages~~ **five linked pages — thirteen files
+across the directory** (CORRECTED 2026-09-02, same day, by an independent re-investigation on a
+second model; the original count folded two 404s into the empties) of header + empty `<main>` +
+footer to the public from **2026-04-16 to at least 2026-09-02 — 4.5 months**. It has no `sites` row and
 no `pages` rows. `scripts/audit-archived-still-serving.sh` (built for exactly this class by
 `bugs_closed/359`) cannot see it, because archived-with-a-`deployed_at` is a predicate over
 rows that do not exist. Nobody found it by monitoring; the owner pointed a session at the
