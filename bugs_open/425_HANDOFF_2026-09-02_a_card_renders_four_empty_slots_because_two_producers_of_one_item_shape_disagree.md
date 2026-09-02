@@ -304,6 +304,40 @@ and the data was thin".
 The cheap eliminations above are done; what remains is inside the execution, which is exactly
 what the loop is for.
 
+### SETTLED AT THE MARKUP — read this section first; the three readings below it are superseded
+
+`[MEASURED 2026-09-02]` The pre-682 and post-682 templates leave **different fingerprints**, and
+testing for them splits the batch exactly along its status line:
+
+| | `article-card__category` | `article-card__meta` | `article-card__excerpt` | reading |
+|---|---|---|---|---|
+| **4 cancelled** | present | present | present | **pre-682 markup, untouched** |
+| **10 complete** | absent | absent | absent | **post-682 markup — the slots collapsed** |
+
+**So migration 682 IS delivered, on 10 of the 14 pages.** The empty card slots are gone. The four
+cancelled pages kept their pre-682 markup because the component floor refused the save outright,
+exactly as diagnosis `c19a975d` confirmed.
+
+**And the producer half is the part that did not run**: no `excerpt` key on any of the 14, and
+every title still suffixed. So the honest split is:
+
+- **template half → LANDED** (10 of 14; the other 4 blocked by the floor, which the same flattening
+  triggers)
+- **producer half → DID NOT EXECUTE** (categorical, by the key-presence test)
+
+> **WHY I GOT THIS WRONG TWICE, and the instrument is the lesson.** I reported "nothing wrote
+> content on any of the 14" on the strength of `page_component_history` holding zero rows for this
+> component. I ran a positive control and it passed — 389 rows across 5 other components in the
+> same window — and **the control was the wrong one.** It proved the TABLE works; it did not prove
+> the table works **for this component**. `[MEASURED 2026-09-02]` content-listing has **zero
+> history rows EVER**, against 45,285 in the table overall. Its writes bypass the archive
+> triggers, so its zero carries no information at all, and I built two corrections on it.
+>
+> **A positive control must exercise the same row population as the claim.** A control drawn from
+> the neighbours answers a question about the neighbours. This is the day's fourth turned-over
+> claim on this bug and the sharpest instance of the same habit: I keep reaching for a column
+> rather than the artefact, and the artefact — the stored markup — settled it in one query.
+
 ### DIAGNOSIS `c19a975d` CAME BACK **CONFIRMED** — and it explains 4 of the 14, not all of them
 
 **The confirmed mechanism:** `save_page_sections`'s SECTION COMPONENT FLOOR aborts the *whole
