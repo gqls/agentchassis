@@ -89,10 +89,10 @@ states the substitute plainly:
   and their full `spec` key list were read from the live DB **earlier in the same session, before
   the token expired**; the code in §2 is quoted from the working tree at HEAD; the two-row
   `content_components` fact for `tool-deposit-tracker` was likewise measured live.
-- **NOT yet measured, and marked so — do not quote a size for this bug:** `[UNMEASURED]` how many
+- ~~**NOT yet measured, and marked so — do not quote a size for this bug:** `[UNMEASURED]` how many
   `improve_tool` rows fleet-wide are `failed` with this error, and `[UNMEASURED]` how many tool
-  functions have active rows on more than one site. Both are one query each; §5 gives them. **Run
-  them before deciding priority.**
+  functions have active rows on more than one site.~~ **MEASURED 2026-09-02, once the token was
+  refreshed — see §5, which now carries the numbers.**
 
 This is close to the self-evidencing case the CLAUDE.md diagnosis rule exempts — the error message
 names the exact path, the only writer of that path is six lines away and conditional, and the
@@ -117,7 +117,24 @@ UNVERIFIED-AT-SCALE rather than dressed up as complete.
 **Do not** fix this by making `load_tool` tolerate a missing `page_id` — a fixer that proceeds
 without knowing which page it is repairing is `bugs_closed/285` waiting to happen.
 
-## 5. The two queries this bug is missing
+## 5. Blast radius — MEASURED 2026-09-02
+
+| measure | value |
+|---|---|
+| `improve_tool` rows `failed` with this exact error | **16**, across **12 sites**, 2026-08-26 → 2026-09-02 |
+| **all** `failed` `improve_tool` rows fleet-wide (the control) | **26**, across 14 sites |
+| **so this defect is** | **62% of every failed `improve_tool` on the estate** |
+| tool functions placed on more than one site (the population the join mishandles) | **42** |
+
+The control is what makes the 16 mean something: failure is not the normal state of `improve_tool`,
+and this one error accounts for nearly two thirds of it. The window opening on 2026-08-26 is worth a
+look by whoever fixes this — it is one day after the Tier-4 due-sweep widened, so the defect is
+plausibly older than the evidence and simply had no traffic before then. **`[INFERRED]` — I have not
+checked what changed on 08-26.**
+
+### The queries, for re-running
+
+
 
 ```sql
 -- (a) fleet-wide blast radius of the observed failure

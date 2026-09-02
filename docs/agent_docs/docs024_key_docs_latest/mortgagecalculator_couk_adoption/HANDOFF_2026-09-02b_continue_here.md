@@ -106,8 +106,33 @@ not stale, they are unread. Why splits perfectly:
 | **bare ids** | 10 (affordability, bridging-loan, equity-release, fee-analyser, overpayment, portfolio, rate-forecaster, repayment, simple, stamp-duty) | **no, for 9** | **valid** |
 
 The two axes are one axis: the conversion only touched components with a `content_components` row,
-which is exactly the eligibility test. **So every tool the ladder can see has a broken fence, and
-every tool with a good fence is invisible to it.**
+which is exactly the eligibility test.
+
+> **CORRECTED 2026-09-02 evening, once the token came back.** This section originally concluded
+> *"every tool the ladder can see has a broken fence"*. **Wrong — only TWO are broken.** I inferred
+> staleness from "the page is scoped"; it actually requires the FENCE to name a scoped id, and most
+> of these fences anchor on classes or on wrapper ids the conversion never touched. Re-tested by
+> reimplementing `selectorAnchor` + `anchorPresent` exactly: `tool-deposit-tracker` (8 of 9 anchors
+> absent) and `tool-remortgage-savings` (7 of 9) are stale; `tool-bridging-compound`,
+> `tool-overpayment-priority` and `tool-rate-scenarios` are **satisfiable today**. Three more
+> (`tool-btl-investor`, `tool-credit-health-check`, `tool-rate-stress-test`) have **no fence at
+> all** — a cheaper, different problem. ⚠ My first cut of that test was ALSO wrong the other way:
+> it matched the whole selector as an id, so `#bridgeForm button[type=submit]` read as missing.
+> **Implement the platform's rule, don't approximate it.**
+
+**The verification scoreboard, from the verdict record (2026-09-02):**
+
+| tool | state |
+|---|---|
+| `simple`, `tool-overpayment-priority`, `tool-rate-scenarios` | **PASSING** (⚠ `simple`'s pass is desktop only — 4 mobile checks SKIPPED) |
+| `tool-bridging-compound` | **stale FAIL** — repaired 08-26 12:21, page rebuilt 23:07, never re-run. Fresh run `21b2d81d` fired 21:27 |
+| `tool-deposit-tracker`, `tool-remortgage-savings` | FAILING — `441` stale fence, and their fixer is blocked by `448` |
+| `tool-btl-investor`, `tool-credit-health-check`, `tool-rate-stress-test` | no fence (`needs_criteria`) |
+| the 9 adopted pages | ineligible — needs `701` |
+
+⚠ **A FAIL outlives its own repair when the fixer does not re-run the check.** `bridging-compound`'s
+newest verdict is a failure that predates its own fix by nine hours. Do not read the verdict record
+as current state without checking `page_components.updated_at` against the verdict timestamp.
 
 **`tool-simple` is the only exception** — bare ids *and* eligible (key `simple`). It is the one tool
 here that can be verified today. ⚠ **And it is migration 701's designated pilot**: 701 moves its key

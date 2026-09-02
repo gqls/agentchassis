@@ -4946,3 +4946,83 @@ that stopped at that line, in the order it should resume:
    conversion and cannot satisfy a split function. None of this site's 8 is split
    `[UNMEASURED — the query is in the (c) block above, needs the cluster]`, so it is safe here and
    nowhere in general.
+
+## 2026-09-02 (d) — token refreshed; the real scoreboard, and TWO corrections to my own claims from three hours ago
+
+### CORRECTION 1 — "every ladder-visible tool has a stale fence" was WRONG. Only two are stale.
+
+`## 2026-09-02 (c)` above says the site splits cleanly and *"every tool the ladder can see has a
+stale fence"*. **That does not survive testing against the platform's own anchor rule.** I inferred
+staleness from "the page is instance-scoped"; staleness actually requires the FENCE to name a
+scoped id, and most of these fences anchor on classes or on wrapper ids the conversion never
+touched.
+
+Re-tested by reimplementing `selectorAnchor` (`^\s*([#.]?[A-Za-z][A-Za-z0-9_-]*)`) and
+`anchorPresent` exactly, over every check's `selector`, `steps[].selector` and `expect.selector`:
+
+| fence | anchors | absent | verdict |
+|---|---|---|---|
+| `tool-bridging-compound` | 3 | **0** | satisfiable |
+| `tool-overpayment-priority` | 3 | **0** | satisfiable |
+| `tool-rate-scenarios` | 3 | **0** | satisfiable |
+| `tool-deposit-tracker` | 9 | **8** | STALE — `441` |
+| `tool-remortgage-savings` | 9 | **7** | STALE — `441` |
+
+**So `441` blocks exactly TWO tools on this site, not eight** — and they are precisely the two whose
+`improve_tool` failed. ⚠ **My first version of this test was also wrong**, in the opposite
+direction: I matched the whole selector string as an id, so `#bridgeForm button[type=submit]`
+counted as "missing" and bridging-compound read as stale. **Implement the platform's rule, do not
+approximate it** — the anchor is the LEFTMOST token, and that one detail moved a tool between
+buckets.
+
+Three of the nine eligible tools (`tool-btl-investor`, `tool-credit-health-check`,
+`tool-rate-stress-test`) have **no fence at all** — `needs_criteria` notes, no PLAN. They are
+unverified for want of a fence, which is a different problem from `441` and cheaper to fix.
+
+### CORRECTION 2 — the split in `bugs_open/441` is at the RENDERING, not the template
+
+Filed as 10 split functions / 6 with a fence, measured over `html_template`. The fence is judged
+against the **deployed page**, so the right surface is `page_components.rendered_html`. Re-measured:
+**214 tool functions with placements, 16 split at the rendering, 8 of those holding a fence** (was
+10/6). And the cause is different from what I filed: `tool-credit-health-check` and
+`tool-rate-stress-test` have **every active row scoped** and still serve bare ids on
+`loancalculator.co.uk`, because those two placements were last rendered **2026-08-02** and
+**2026-08-09** — before the conversion. **A converted template does not convert the pages already
+built from it.** Corrected visibly in the bug file; it makes candidate 1 stronger, since you cannot
+fix a stale rendering by converting a template.
+
+### The actual verification scoreboard, from the verdict record
+
+| tool | last PASS | last FAIL | state |
+|---|---|---|---|
+| `simple` | 08-26 | — | **PASSING** (desktop; 4 mobile checks SKIPPED) |
+| `tool-overpayment-priority` | 08-27 00:46 | 08-26 19:11 | **PASSING** |
+| `tool-rate-scenarios` | 08-26 11:58 | 08-25 23:53 | **PASSING** |
+| `tool-bridging-compound` | 08-09 | 08-26 11:57 | **stale FAIL** — see below |
+| `tool-deposit-tracker` | — | 08-27 | FAILING — `441` |
+| `tool-remortgage-savings` | — | 08-27 | FAILING — `441` |
+| `tool-btl-investor` / `tool-credit-health-check` / `tool-rate-stress-test` | — | — | no fence |
+| the 9 adopted pages | — | — | ineligible (needs `701`) |
+
+### `tool-bridging-compound`'s failure is STALE — it was repaired the same day and never re-run
+
+Verdict `2026-08-26 11:57:52`: *"expected element `#results` absent after interaction"*, desktop and
+mobile. But `#results` **is** in the served page today, and the expect test is
+`page.Count(selector) == 0` — a DOM count, **not** a visibility test (`run_checks_action.go:750`),
+so a hidden-but-present div would pass. The explanation is chronology, not mechanism:
+
+```
+11:57:52  Tier-4 FAILS, raises improve_tool f80d3397
+12:21:03  f80d3397 completes  (the repair)
+23:07:24  page_components re-rendered          <- the fix reaches the page
+   —      no acceptance run since
+```
+
+So the tool was fixed nine hours after it failed and **the failing verdict is the newest one on
+record**. ⚠ **This is a general shape worth carrying: a FAIL outlives its own repair whenever the
+fixer does not re-run the check.** Anyone reading the verdict record — including me, three hours
+ago — sees a failing tool. Fired a fresh run to settle it: `acceptance_run` **`21b2d81d`**,
+dispatched 21:27, coverage-checked first (no open acceptance work on that target).
+
+⚠ Also worth noting from the `simple` pass: **4 mobile checks were SKIPPED** and only desktop ran.
+A "PASSED" verdict here means *passed on desktop*. `[UNMEASURED]` why the mobile profile skipped.

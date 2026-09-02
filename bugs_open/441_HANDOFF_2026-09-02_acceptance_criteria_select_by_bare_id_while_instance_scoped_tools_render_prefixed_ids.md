@@ -74,9 +74,38 @@ is not malformed and the checker is not simply broken. The only difference is wh
 row was converted.
 
 **This is also the proof that editing the criteria cannot fix this.** One fence, two id shapes;
-whatever you write, one of the two sites fails. [MEASURED 2026-09-02] **10 tool functions are
-"split" this way** (≥1 converted row and ≥1 unconverted row under one function), and **6 of them
-have a current criteria fence**. Those six are unsatisfiable by construction today.
+whatever you write, one of the two sites fails.
+
+> **CORRECTED 2026-09-02, same day, before anyone acted on it — I measured the split on the wrong
+> surface and both the number and the CAUSE were wrong.** The original text read: *"[MEASURED
+> 2026-09-02] **10 tool functions are "split" this way** (≥1 converted row and ≥1 unconverted row
+> under one function), and **6 of them have a current criteria fence**."* That counted
+> `content_components.html_template` — **templates**. The fence is judged against the **deployed
+> page**, so the surface that matters is `page_components.rendered_html`. Re-measured there:
+>
+> | | value |
+> |---|---|
+> | tool functions with live placements | **214** |
+> | **split AT THE RENDERING** (some placements scoped, some bare) | **16** |
+> | …of those, holding a current criteria fence — unsatisfiable by construction | **8** |
+> | all-scoped / all-bare | 162 / 36 |
+>
+> **And the cause is not what I said.** These are not unconverted templates. `tool-credit-health-check`
+> and `tool-rate-stress-test` each have every active row scoped, and still serve **bare** ids on
+> `loancalculator.co.uk` — because those two placements were last rendered **2026-08-02** and
+> **2026-08-09**, before the conversion, and a tool's `rendered_html` is written once and served
+> verbatim. **A converted template does not convert the pages already built from it.**
+>
+> **What caught it:** checking whether this lane's own 8 tools were safe to re-fence. A per-placement
+> count (`regexp_matches(…,'g')` over `rendered_html`) disagreed with the per-template count, and the
+> two stale dates explained the gap.
+>
+> **This makes candidate 1 stronger, not weaker.** You cannot fix the split by converting templates —
+> they are already converted. You would have to re-render every placement, and **any page that later
+> goes stale re-breaks its fence**. Only a checker that accepts both spellings is stable under a
+> half-rendered estate.
+
+Those eight are unsatisfiable by construction today.
 
 ## 5. Size of the damage, with the control
 

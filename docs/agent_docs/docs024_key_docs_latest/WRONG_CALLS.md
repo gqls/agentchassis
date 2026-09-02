@@ -59771,3 +59771,29 @@ the instrument answered a narrower question than the one asked.
 - **Cost.** ~10 minutes of probe confusion at verification time; zero wrong conclusions
   shipped (the NUL-split battery from LANDMINES:16992 then proved the gate live with
   coherent controls: build ∈ [6525b45ae, c610898d1)). The runbook is corrected in place.
+
+- **2026-09-02 — mortgagecalculator_couk_adoption — I approximated a checker's rule instead of
+  implementing it, and moved a tool between buckets twice in one hour.** Testing which acceptance
+  fences are stale, I compared each criteria `selector` to the page as though the whole string were
+  an element id. `#bridgeForm button[type=submit]` therefore read as ABSENT, and
+  `tool-bridging-compound` was recorded as having a stale fence. The platform tests the **anchor** —
+  the leftmost token, `anchorRe = ^\s*([#.]?[A-Za-z][A-Za-z0-9_-]*)` — so the real anchor is
+  `#bridgeForm`, which is present, and the fence is satisfiable. Reimplementing `selectorAnchor` and
+  `anchorPresent` verbatim moved that tool back.
+  **The same hour, the same shape at a larger scale:** I filed `bugs_open/441` claiming *"10 tool
+  functions are split, 6 with a fence"*, measured over `content_components.html_template`. The fence
+  is judged against the DEPLOYED page, so the surface that matters is `page_components.rendered_html`
+  — where it is **16 split, 8 with a fence**, and the CAUSE is different: two placements serve bare
+  ids under a fully converted template because they were last rendered before the conversion. **A
+  converted template does not convert the pages already built from it.** Corrected in the bug file
+  the same day, before anyone acted on it.
+  ⚠ **Both errors flattered my own hypothesis** — the first made a healthy tool look broken by my
+  bug, the second made my bug look tidier than it is (unconverted templates, rather than a
+  half-rendered estate that will keep regressing). **That is the direction to distrust: when an
+  approximation lands on the side of the story you are already telling, it is not a shortcut, it is
+  a thumb on the scale.**
+  **The cheap check:** when you are testing whether a CHECKER would pass, copy the checker's
+  predicate — its regex, its column, its table — rather than writing one that means the same thing
+  to you. And name the surface the real consumer reads: template vs rendering, stored vs served.
+  Tally: **approximated-the-rule-instead-of-implementing-it** ×1,
+  **measured-the-wrong-surface-template-vs-rendering** ×1.
