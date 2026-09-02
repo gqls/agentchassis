@@ -341,3 +341,31 @@ confirmed by three lanes now, not just asserted by one. Who designs the new
 archetype is going to the owner as a priority call, not assigned by either
 session. `designblog.co.uk` closed the loop: "nothing further needed" — no
 reply owed.
+
+## 2026-09-02 (later) — `vetcomparison` asked for a design-pass view before touching anything
+
+Owner wants vetcomparison.uk's homepage "a bit better designed", content
+frozen. Asked this lane specifically, with a full brief including a parked
+`palette_contrast` capability gap (`d6da17b4`: accent `#10b981` used as ink on
+`#f8fafc`, 2.42:1 vs 3.0:1 needed) and a hard sequencing constraint —
+`bugs_open/357`'s migration 701 (retyping the homepage's comparison tool out of
+a mislabelled `hero` row) MD5-census-guards this exact page and aborts on any
+concurrent write.
+
+**Recommended NOT re-resolving the composition** — `industry-hub` is the right
+fit, palette/imagery were deliberately pinned 2026-08-24, a fresh resolve risks
+the colour-churn landmine for no gain.
+
+**Diagnosed the contrast gap precisely rather than repeating their summary.**
+Checked the served stylesheet: `--color-accent-text`/`--color-accent-ink` are
+already correctly derived (`#0f172a`, would pass). The bug is the `latest-news`
+component's own embedded CSS (`.news-card-title a:hover`) hardcoding raw
+`--color-accent` as ink instead of the pre-derived text slot — a one-line
+template fix, not a palette defect. **Fleet-relevant**: this component
+(`content_components` id `77dafa26…`) is live on **8** deployed sites, so the
+fix belongs at the shared template, not per-site.
+
+**Not touching it.** Even a shared-template edit could conceivably fall inside
+357's write guard and I don't know its exact scope — recommended it wait for
+their remainder batch rather than risk an abort for a fix this small. Replied
+with the full diagnosis; did not implement.
