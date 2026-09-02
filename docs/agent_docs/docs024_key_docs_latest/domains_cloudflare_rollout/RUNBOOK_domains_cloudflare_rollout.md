@@ -7,7 +7,7 @@
 | Cloudflare **(read-only)** | `~/.config/cloudflare/token` | the token, one line. PRESENT — but **READ-ONLY**, see below |
 | Cloudflare **(read-write)** | `~/.config/cloudflare/portfoliotoken` | ⚠ **THIS is the one that can WRITE.** Added 2026-08-18, undocumented until 2026-08-25 |
 | Nominet | `~/.config/nominet/credentials` | `TAG=…` and `EPP_PASSWORD=…` lines. PENDING |
-| Dynadot | `~/.config/dynadot/credentials` | `API_KEY=…`. PENDING |
+| Dynadot | `~/.config/dynadot/credentials` | `API_KEY=…` (+ `API_SECRET=…`, unused by API3, kept for the RESTful API). **PRESENT 2026-09-02 — `list_domain` PROVEN (451 domains), writes not yet** |
 | Porkbun | `~/.config/porkbun/credentials` | `API_KEY=…` and `SECRET_API_KEY=…`. PENDING |
 | Spaceship | `~/.config/spaceship/credentials` | `API_KEY=…` and `API_SECRET=…`. **PRESENT 2026-09-02 — read paths PROVEN, writes not yet** |
 
@@ -102,12 +102,17 @@ becomes an invalid bearer header.
   non-zero unless the response carries `ResponseCode 0` — so an `&&` chain
   cannot mistake an API error body for a success. Endpoint + error path proven
   2026-09-02 with a bogus key (`{"ResponseCode":"-1","Error":"invalid key"}`);
-  happy path pending the real key.
+  **happy path PROVEN later the same day: `list_domain` returned the full
+  inventory, ResponseCode 0.** Writes (`set_ns`/`add_ns`) not yet exercised.
 - API key: control panel → Tools → API. Legacy API3: `https://api.dynadot.com/api3.json?key=…&command=…`.
 - If the API settings page offers an IP allowlist, leave it UNSET or allowlist
   the five cluster node IPs — NEVER the office line, which rotates both address
   families (see Egress).
-- `list_domain` = full inventory (paginated). `set_ns` sets nameservers,
+- `list_domain` = full inventory ~~(paginated)~~ — **CORRECTED 2026-09-02: the
+  live response has NO pagination fields** (top-level keys `ResponseCode` /
+  `Status` / `MainDomains` only; **451** domains as of 2026-09-02 arrived in one
+  302 KB body). Sanity-check the count against the control panel total before
+  treating it as complete. `set_ns` sets nameservers,
   comma-separates multiple domains per call — **but the target nameservers must
   already exist in the account** (`add_ns` them once, first).
 - Rate tier by spend level: Regular = 1 thread, 60 req/min. Fine for thousands

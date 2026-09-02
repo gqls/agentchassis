@@ -596,3 +596,29 @@ once the site serves — no cleanup needed.
   real repoint. A read success is not a write capability (this lane's Cloudflare
   token lesson, 08-25).
 - Raw inventory snapshot lives in the 09-02 session scratchpad only (not committed).
+
+## 2026-09-02 — CONTRIBUTION: Dynadot key IN (second of the three registrar keys); read path proven
+
+- Owner placed `~/.config/dynadot/credentials` (API_KEY 42 chars + API_SECRET 64
+  chars — the secret is for the RESTful API, unused by API3). File arrived mode
+  **664/775** despite the umask instruction; tightened to 600/700 before any call.
+- New wrapper `scripts/domains/dynadot.sh <command> [param=value …]` (commit
+  `527d92fea`): reads the credentials file, never prints the key, asserts
+  `ResponseCode 0` and exits 1 otherwise. Error path proven with a bogus key
+  (`{"ResponseCode":"-1","Error":"invalid key"}`) before the real key existed.
+- **`list_domain` PROVEN**: ResponseCode 0, **451** domains as of 2026-09-02, one
+  302,594-byte body. **No pagination fields in the response** — RUNBOOK's
+  "(paginated)" corrected in place. Count not yet cross-checked against the
+  control panel total ([UNVERIFIED] whether 451 is everything).
+- Inventory shape (counts as of 2026-09-02): 442 `.com` + 4 `.uk` + 1 each
+  `.shop`/`.info`/`.org`/`.co.uk`/`.club`. Nameservers: 220 × afternic pair,
+  174 × afternic pair + a `verify.hn` verification host, 39 × atom.com pair,
+  **7 × cloudflare alexis/leah (already on CF)**, 4 × Dynadot parking,
+  4 × spaceship launch pair, 1 × uk-noc/us-noc, 1 × afternic ns3/ns4,
+  1 × verify.hn alone. All 451 auto-renew, all 451 locked; soonest expiries
+  2026-09-18 (reanimatica.com, presole.com).
+- Writes (`add_ns`/`set_ns`) deliberately NOT exercised yet — nothing needed
+  repointing today, and the RUNBOOK gotcha stands: `set_ns` targets must already
+  exist in the account (`add_ns` once, first).
+- Registrar-key state after today: Spaceship IN (ef3157cec, other session),
+  Dynadot IN (this entry) — **only Porkbun still owed.**
