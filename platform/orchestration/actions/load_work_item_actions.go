@@ -659,6 +659,7 @@ func aliasGuidanceIntoSuggestion(spec map[string]interface{}) {
 //     Named item_pipeline to avoid collision with site_record.pipeline
 //   - handler_agent (optional) — filter by handler agent type
 //   - max_items (optional, default 50)
+//
 // governorShedClauseFor returns the loader's spend-governor filter: empty (the
 // statement stays byte-identical to the pre-governor one) unless the step
 // config opts in with honour_spend_governor: true. Split out of
