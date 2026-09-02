@@ -88,6 +88,30 @@ Every point checked; **every point confirmed.**
 | 7 | Not enough images/infographics | CONFIRMED. **Exactly 1 `<img>` tag per page** on all 6 pages fetched (/, inspiration, the-design-feed, tools/smart-contrast, uk-studios-directory, glossary), as of 2026-09-02. |
 | 8 | Design identical to sibling sites | The shared-chrome/shared-hero composition is the pipeline's design (one composition library, one chrome pattern); the sibling remakes shipped through the same pipeline the same day. Routed to the five design threads (see §3) rather than re-measured here — it is a mechanism property, not a per-page defect. |
 
+> **ADDENDUM 2026-09-02 (sharpens #7):** the one `<img>` per page is the **header
+> logo** — chrome, not content (verified at the served bytes: all 6 pages'
+> single img is `/assets/images/logo.png` inside `<header>`). The components
+> thread's stored-markup census the same day agrees and adds controls:
+> designblog.co.uk carries **ZERO images across all 50 of its component slots**;
+> advertise.co.uk 1 of 62, websitepromotion.co.uk 1 of 37 — against controls of
+> 4/43 (garden-tools.uk) and 5/48 (boxingonline.com), so the query does detect
+> images. The three remakes are the most image-poor sites on the estate. ~~Content
+> imagery on this site is not sparse — it is absent.~~
+>
+> **CORRECTED 2026-09-02 (same evening; caught by the editorial_design_uplift
+> lane, re-verified here on the served bytes):** "absent" was FALSE — heroes on
+> this estate render as CSS `background-image` URLs, invisible to any `<img>`
+> census, and **every one of the 6 pages serves a real hero image**
+> (`/assets/images/hero-*.jpg` behind a darkening gradient). Both measurements
+> above were correct and both encoded "image = `<img>` tag" — two agreeing
+> measurements sharing an encoding are one measurement (WRONG_CALLS 2026-09-02).
+> The corrected statement: designblog serves **heroes + section icons + a logo
+> (10 planned imagery rows, all active) and has ZERO illustration and ZERO
+> infographic rows** — the owner's complaint survives intact; the "zero images"
+> number does not. Also found in the recount: the 6 pages share only **3
+> distinct hero files** (the feed and the contrast tool reuse the homepage's
+> hero) — a sameness finding of its own.
+
 ### The pattern behind #2–#5
 
 Four listing-type pages (directory, glossary, inspiration, feed) all shipped as
