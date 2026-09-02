@@ -365,8 +365,10 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 	// Parse sections
 	// Archetype-aware default: a recognised page type gets its archetype
 	// shape rather than a generic text block that competes with structured
-	// content. Unknown types keep the generic default.
-	sections := defaultSectionsForPage(pageName, pageType)
+	// content. Unknown types keep the generic default. sectionsForPage
+	// consults page_archetypes (site -> theme kit -> fleet), falling back
+	// to defaultSectionsForPage's Go switch only when nothing matches.
+	sections := sectionsForPage(ctx, db, siteID, pageName, pageType, logger)
 	if sectionsRaw, ok := newPlan["sections"].([]interface{}); ok && len(sectionsRaw) > 0 {
 		raw := make([]string, 0, len(sectionsRaw))
 		for _, s := range sectionsRaw {
@@ -899,8 +901,8 @@ func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interf
 
 	// Sections: plan's list resolved to canonical component functions
 	// (same treatment as new_page), else the archetype default for the
-	// target type.
-	sections := defaultSectionsForPage(pageName, targetType)
+	// target type (page_archetypes, same resolution order as applyNewPage).
+	sections := sectionsForPage(ctx, db, siteID, pageName, targetType, logger)
 	if sectionsRaw, ok := retypePlan["sections"].([]interface{}); ok && len(sectionsRaw) > 0 {
 		raw := make([]string, 0, len(sectionsRaw))
 		for _, s := range sectionsRaw {

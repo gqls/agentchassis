@@ -393,8 +393,37 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 	// three FKs. The renderer joins through css_themes to reach them.
 	//
 	// header_component_id and footer_component_id are left NULL at install
-	// time — webdesign-agent populates these later when it renders the
-	// header and footer components.
+	// time by default — webdesign-agent populates these later when it
+	// renders the header and footer components. The one exception: a
+	// theme-kit default pin, applied here (not deferred) exactly like
+	// fork_theme_from_site_action.go's own chrome pins — same
+	// chromePinEligibleSQL guard, so a kit can never pin an ineligible row.
+	var kitHeaderID, kitFooterID interface{}
+	if kit, ok, kerr := loadSiteThemeKitDefaults(ctx, params.DB, siteID); kerr == nil && ok {
+		if kit.HeaderComponentID.Valid {
+			if eligible, eerr := chromeComponentEligible(ctx, tx, kit.HeaderComponentID.UUID); eerr == nil && eligible {
+				kitHeaderID = kit.HeaderComponentID.UUID
+			} else if eerr != nil {
+				logger.Warn("InstallSiteCompositionAction: theme-kit header eligibility check failed",
+					zap.Error(eerr), zap.String("theme_kit", kit.ThemeKitName))
+			}
+		}
+		if kit.FooterComponentID.Valid {
+			if eligible, eerr := chromeComponentEligible(ctx, tx, kit.FooterComponentID.UUID); eerr == nil && eligible {
+				kitFooterID = kit.FooterComponentID.UUID
+			} else if eerr != nil {
+				logger.Warn("InstallSiteCompositionAction: theme-kit footer eligibility check failed",
+					zap.Error(eerr), zap.String("theme_kit", kit.ThemeKitName))
+			}
+		}
+		if kitHeaderID != nil || kitFooterID != nil {
+			logger.Info("InstallSiteCompositionAction: pinning theme-kit chrome",
+				zap.String("theme_kit", kit.ThemeKitName),
+				zap.Bool("header_pinned", kitHeaderID != nil),
+				zap.Bool("footer_pinned", kitFooterID != nil),
+			)
+		}
+	}
 	var collectionID uuid.UUID
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO style_collections (
@@ -405,7 +434,7 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 			source_site_id, source_domain, forked_at
 		) VALUES (
 			$1, $2, $3,
-			NULL, NULL,
+			$10, $11,
 			$4::jsonb, $5::jsonb, $6, $7::text[],
 			true, 'adopted', false,
 			$8, $9, NOW()
@@ -415,6 +444,7 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 		string(legacyPaletteJSON), string(legacyTypoJSON),
 		category, industryTagsLiteral,
 		siteID, domain,
+		kitHeaderID, kitFooterID,
 	).Scan(&collectionID)
 	if err != nil {
 		return nil, fmt.Errorf("insert style_collections: %w", err)

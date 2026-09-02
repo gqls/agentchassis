@@ -73,6 +73,29 @@ func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) 
 		return nil, nil
 	}
 
+	// A site with a current theme_kit_adoption spec chose its palette
+	// deliberately (686_theme_kits.sql) — this check must not re-dispatch
+	// webdesign-agent against it. That dispatch is exactly the colour-churn
+	// mechanism documented above (analyze_design re-rolls the palette on
+	// every run): a themed site failing this check for some OTHER reason
+	// (e.g. genuinely empty CSS) would just get its theme-kit colours
+	// overwritten with an LLM guess, which is a worse outcome than leaving
+	// the finding unraised. If a themed site needs a real design fix, that
+	// is a different, explicit path (reapply / a human ticket), not this
+	// check's silent re-roll.
+	var hasThemeKit bool
+	if err := dctx.DB.QueryRowContext(dctx.Ctx, `
+		SELECT EXISTS (
+		         SELECT 1 FROM site_specs
+		          WHERE site_id = $1 AND aspect = 'theme_kit_adoption' AND is_current = true
+		       )
+	`, dctx.SiteID).Scan(&hasThemeKit); err != nil {
+		return nil, err
+	}
+	if hasThemeKit {
+		return nil, nil
+	}
+
 	finding := &genericThemeFinding{}
 
 	// Check for webdesign spec. Two storage conventions exist:

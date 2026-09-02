@@ -1171,6 +1171,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Extract palette colours via priority cascade and create palette row",
 		IsLocal:     true,
 	},
+	"apply_theme_kit": {
+		Handler:     ApplyThemeKitAction,
+		Category:    "site",
+		Description: "Materialize a theme_kits row's defaults into one site (design_intent + queued composition)",
+		IsLocal:     true,
+	},
 
 	// layout taxonomy — expose current categories + industry_tags to prompts
 	"read_layout_taxonomy": {

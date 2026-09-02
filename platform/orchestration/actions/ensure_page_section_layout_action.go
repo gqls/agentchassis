@@ -145,7 +145,7 @@ func ensurePageSectionLayout(ctx context.Context, db *sql.DB, siteID uuid.UUID, 
 		}, nil
 	}
 
-	sections := defaultSectionsForPage(pageName, pageType)
+	sections := sectionsForPage(ctx, db, siteID, pageName, pageType, logger)
 
 	if err := insertSitePlanSectionRows(ctx, tx, currentPlanID, pageName, sections); err != nil {
 		return nil, err
