@@ -87,3 +87,18 @@ site is served within one interval.
 `bugs_open/413` (sibling seam, fixed by 657) · migration `285` (the selector↔loader
 eligibility agreement this gate was left out of) · `LANDMINES.md` 2026-08-26 "ONE ordering
 contract" entry (the general class) · WDS-002/WDS-003 in the work-dispatch register.
+
+## Addendum 2026-09-02 — re-verified, a THIRD narrowness found, and a fixing-session handoff cut
+
+Still valid `[MEASURED 2026-09-02]`: both trigger rows share `md5(pre_query) =
+200246f7ede3e33b14be2fc064efa7da`, text byte-identical to the filing read. **Third
+narrowness confirmed**: the gate's bare `s.locked_at IS NULL` lacks the selector's
+lock-EXCEPTION arm, so a fully-locked site whose excepted item is dispatchable is
+selector-admissible but gate-invisible — same class as the other two. 413/657 closed
+2026-09-02 (measured PASS), leaving this file the seam's only open drift.
+
+**COLD-START for the fixing session:**
+`docs/agent_docs/docs024_key_docs_latest/bugfix_415_fire_gate/HANDOFF_2026-09-02_continue_here.md`
+— chosen fix (candidate 1, gate ⊇ selector), the preflight md5 anchor, all traps (both-rows
+update; 584 VERIFY 1/7 pins PARITY not text, so no lockstep owed; the stale staged 213 file;
+the regexp_replace landmine), sidecar + council expectations, and the induced verification.
