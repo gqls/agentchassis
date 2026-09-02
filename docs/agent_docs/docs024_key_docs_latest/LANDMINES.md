@@ -19330,7 +19330,15 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **footprint:** any script that fetches served pages and greps/regexes their
   content (claim extraction, banned-claims testing, phrase censuses, link
   checks); `urllib.request`, `python3 -c` fetch loops, any scan over
-  Cloudflare-fronted or UA-filtering origins
+  Cloudflare-fronted or UA-filtering origins · **and (2026-09-02, per the
+  addendum below) any scan whose input CORPUS crosses a transport**:
+  `kubectl exec … psql` exports, `kubectl cp`, TSV corpus exports,
+  `cmd/claimscan`, `cmd/voicescan`, `cmd/regcheck`, any `-components <file>` run.
+  *(Footprint widened rather than the title, deliberately: the verifier
+  references entries by SLUG — `LANDMINES.md#<slug>` — so retitling would break
+  the reference armed for this entry. The title still says "fetch-based"; the
+  subject is a scan trusting its input corpus, and the SessionStart hook matches
+  on footprint, which is what has to carry the wider case.)*
 - **fires when:** you scan a site's served copy for a pattern and get 0 matches.
   No symptom — zero is exactly what a clean site returns, and the script exits 0
   either way. python-urllib's default User-Agent draws 403 on many of this
