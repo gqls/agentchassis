@@ -43,6 +43,14 @@ and approved; **frontend still not redeployed — 170 days old, this is the one 
    local node/npm needed). Backend's been live and approved for a while; the actual button
    sits in a 170-day-old undeployed frontend. Low risk (additive UI only), still a
    production deploy — held for confirmation rather than run on a generic "carry on".
+   **Addendum (`gap planner` session, 2026-09-02):** since this was written, a second
+   commit (`7c359649f`, `frontends/admin-dashboard/src/App.tsx`) added a dedicated
+   top-nav **"Review Queue"** tab that opens straight into the record-verdicts filter —
+   previously reachable only via a checkbox inside "All Items". No backend change, same
+   `/work-items` + `/release` endpoints already covered above. Verified with a
+   containerized `vite build` (this session has no local node/npm either) before
+   committing — build succeeded, no changes to any other file. Still subject to the same
+   deploy decision: this commit is on the branch, not yet in the running frontend either.
 3. **Should anyone release any of 428's 13 record-mode verdicts** (boxingonline's own:
    `e3c2b440-c006-40ec-be7a-88d0b689ed1e`)? The tool exists (pending #2). Using it on a
    specific row is a content call, not a code one.
