@@ -51,6 +51,17 @@ the instrument works — only then are the middle four meaningful. **Run it on B
 in LLM prompt text the chassis logs, so a careless grep returns a hit shaped exactly like a stamp.
 Already a LANDMINE; do not re-derive it.
 
+⚠ **A SECOND cause of "absent with clean controls", filed by another lane the same evening**
+(`LANDMINES.md`, *"A capability probe for INERT code reads ABSENT … the linker's dead-code
+elimination strips uncalled functions"*). It does **not** explain tonight's result — mine had a
+FAILING control, which is the token — but it qualifies the recipe: a symbol with **zero callers**
+can be stripped from the binary and probe absent on a build that genuinely contains the commit.
+That is not a risk for these four symbols (`sectionOrderAgrees` is called by `planSectionOrder`,
+which is called by `ensureAssets`, which every section render reaches) — but if you ever probe for
+something inert, **verify by ANCESTRY instead**: read the pod's `git_commit` from
+`service_binary_capabilities` and `git merge-base --is-ancestor <commit> <stamp>`. Two different
+failure modes, one identical symptom; tell them apart by whether your control passed.
+
 **Last VALID measurement:** `v1.0.1354` (pods 15:39/15:53), both replicas, controls both ways —
 `sectionRefForOrdinal` PRESENT, `sectionOrderAgrees` PRESENT, `sectionScopeRefOrdinal` PRESENT,
 `PlanSectionsAction` PRESENT, synthetic control ABSENT. Both halves of IMG-075 were live then.
@@ -166,7 +177,16 @@ needs the composition half.
    the mechanism's first real evidence, and it does not exist yet.
 3. **Leave the guide recompose with `dartsonline_traffic`** — it is their site and their call, and
    the justification is the owner's 08-31 ask, explicitly NOT "give the mechanism a driver".
-4. **Do not build the Phase-4 detector yet** (`check_unrendered_section_imagery`). ⚠ The PLAN's
+4. **An open offer from `bugfix_114_imagery_wiring`, which is a decision, not a task.** They
+   shipped `check_unrendered_page_imagery` (**IMG-077**, inert until the roll) covering the
+   ContentHeroKey population, and deliberately left the **section-scope** cases out of the first
+   cut because they are this lane's vocabulary. If a section-scope arm is wanted once that is
+   live, say so in `bugfix_114_imagery_wiring/NOTES_imagery_wiring.md` and it rides their
+   machinery — which is cheaper than building ours. Also from them: migration **709** deletes
+   `sites.content_data.illustration_url` on 4 sites and **cannot touch this lane's resolution**
+   (the content_data fallback covers `hero_url`/`logo_url` only) — so do not re-derive that when
+   the key disappears.
+5. **Do not build the Phase-4 detector yet** (`check_unrendered_section_imagery`). ⚠ The PLAN's
    "discovery has no driver" blocker is **stale** — discovery IS driven daily now (corrected in
    the PLAN) — but the hand query in the RUNBOOK already answers it, and it found the two live
    misses now in `bugs_open/114`. Build it when there is more than one consumer to protect.
