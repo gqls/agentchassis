@@ -1,6 +1,11 @@
 # HANDOFF — 410 (the PHASE-LOCK one) — ✅ CLOSED 2026-09-02. NOTHING IS OUTSTANDING.
 
-> ## ⚠ STOP — read this block before anything below it (added 2026-09-02)
+> ## ⚠ STOP — THIS DOC IS SUPERSEDED. The cold-start doc is now:
+> ## `docs/agent_docs/docs024_key_docs_latest/bugfix_410_feed_phase_lock/HANDOFF_2026-09-02_continue_here.md`
+>
+> (added 2026-09-02) — go there for current state, the two owner decisions, the one optional
+> check, and the traps. Everything below is kept only as the record of what was believed on the
+> 26th. It is **not** instructions.
 >
 > **The bug is CLOSED and the file has MOVED: `bugs_closed/410_HANDOFF_2026-08-26_next_fetch_at_…`.**
 > Everything under "§4 THE ONE OUTSTANDING TEST" is **DONE and its test set is EXPIRED**. Do not

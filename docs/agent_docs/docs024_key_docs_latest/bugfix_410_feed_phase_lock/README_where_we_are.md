@@ -149,3 +149,66 @@ sees a twelve-hour gap, that will probably be this, not the bug we just closed.
 Closed. It was fixed on the 26th, it went live the same evening, and as of this morning we have
 watched it work on real traffic rather than inferred it. The file has moved to the closed pile
 with the evidence attached.
+
+---
+
+## 2026-09-02, later — a new build went out, the fix survived it, and it passed the test a second time
+
+A fresh chassis build (`v1.0.1354`) was deployed this afternoon. I checked both running copies
+rather than trusting the version number, and **both carry the fix.**
+
+While I was there, another refresh pass had happened, so I ran the same test again on a completely
+different set of sites — and it passed again. **Three more sites were refreshed by a pass that
+fired two, four and seven minutes before those sites could possibly have been due.** That is six
+sites now, across two separate occasions, doing something that was flatly impossible before the
+fix. I am as confident as I can reasonably be.
+
+Two small things the second run showed that the first could not. There is always **exactly one
+site per pass that proves nothing** — it is whichever site got refreshed first last time, because
+its clock started closest to the timetable, so it lands on the borderline. I threw that one out
+both times. And the four sites that get turned away **rotate properly**: the four turned away this
+afternoon are precisely the four that got served this morning. Nobody is being starved; they are
+taking turns being late.
+
+One honest gap: the new build went out *after* this afternoon's pass, so everything I watched was
+produced by the previous build. The new one demonstrably contains the fix, but it hasn't had a
+turn yet. Tonight's pass, around ten to nine, will give it one. **That is a ten-minute check, not
+a blocker** — I've written it into the handoff with the exact query.
+
+### The decisions I need from you
+
+**First: do you want to lift the ten-site limit?**
+
+Each refresh pass will only take ten sites. We have fourteen, and since the fix all fourteen are
+genuinely due every time — which is the point of the fix. So four get turned away each pass and
+wait for the next one.
+
+The effect is that sites refresh about every **nine** hours instead of the intended six. Before
+the fix it was twelve, so we have recovered most of the gap, and nobody is stuck at the back of
+the queue. Lifting the limit from ten to fourteen would close the rest of it.
+
+**The cost is the reason this is yours and not mine: it roughly doubles how often we go out and
+fetch news.** That is the spend I flagged last week. I have not touched it.
+
+If you do lift it, one warning. The limit is a plain number sitting in the configuration, and the
+number of news sites grows every time we add one. Last week the right answer was twelve; today it
+is fourteen. Whatever number we set will quietly go out of date, so it is worth either working it
+out automatically or deliberately leaving room.
+
+**Second, and only if the answer to the first is "leave it": is nine hours simply what we do now?**
+
+If we accept nine, then what we say the system does (six-hourly news) and what it does (nine)
+differ permanently. That is fine as long as it is *written down as a decision* rather than sitting
+around as an unclosed job someone will keep picking up. I have put the full numbers into the other
+bug file that already owns this question (`bugs_open/316`), so it is recorded either way — but
+whether that file describes an accepted limit or an outstanding obligation is your call, not mine.
+
+### What is left on this lane
+
+Almost nothing. The bug is closed and needs no further work. Beyond your two decisions above and
+tonight's ten-minute confirmation, there is **one thing nobody owns**: nothing checks, on a
+schedule, that the two halves of the fix still agree with each other. If a future change quietly
+dropped the fix from the configuration half, the only symptom would be sites drifting back to
+twelve hours, and we would find out the slow way. Building that check is a small piece of new
+platform work that needs its own review round. **I did not build it, and I did not hold the bug
+open for it** — but it is the one real gap and I would rather name it than let it disappear.

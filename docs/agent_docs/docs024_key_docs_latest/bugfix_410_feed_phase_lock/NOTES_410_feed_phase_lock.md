@@ -289,3 +289,87 @@ whole pass**, which at a 6 h cadence is a 12 h gap for each, i.e. it reproduces 
 by a completely different mechanism. **A future reader measuring feed cadence will see this and
 may re-diagnose the phase lock.** Excluded from every count above; not filed as new (it has an
 owner) — recorded here so the exclusion is visible.
+
+---
+
+## 2026-09-02 16:17Z — chassis rolled to v1.0.1354; capability re-probed; the acceptance test ran a SECOND time and passed again
+
+`SELECT now()` = `2026-09-02 16:17:45Z`. A fresh chassis build was deployed between the two
+measurement sessions.
+
+### v1.0.1354 — re-probed on BOTH replicas, not inferred from the tag
+
+```
+agent-chassis-744cfb4bf-mwzgx   v1.0.1354   started 15:53:18Z
+agent-chassis-744cfb4bf-wchwh   v1.0.1354   started 15:39:42Z
+overlay pin (deployments/.../agent-chassis/overlays/production/uk_001): newTag: v1.0.1354
+```
+Capability probe, both replicas, all three strings in one breath:
+
+| probe | mwzgx | wchwh | meaning |
+|---|---|---|---|
+| `make_interval(secs => interval_seconds / 2.0)` | **2** | **2** | the two Go readers carry the look-ahead |
+| `interval_seconds / 7.0` | **0** | **0** | negative control |
+| `DispatchFeedSourcesAction: dispatched ingester` | **1** | **1** | positive control |
+
+⚠ **The `build provenance` startup line was ALREADY out of the retained log range** on pods that
+had been up ~25 minutes — `--tail=3000` on both returned nothing. This is the documented landmine
+(an empty grep there means "not in range", **not** "unstamped"), and it is worth recording how
+fast it happens on this service. **I did not go hunting for a commit sha**: a *discovery* grep for
+"some 40-hex string" matches Go's internal digit table and returns the same wrong answer on every
+service. The capability probe is the question that actually matters — is the behaviour in the
+binary — and it is answered, twice, with controls.
+
+### THE ACCEPTANCE TEST, SECOND INDEPENDENT RUN — pass pair 08:58:27 → 14:58:58
+
+Retained passes now: `09-01 14:57:11 C` · `09-01 20:57:41 **FAILED**` · `09-02 02:57:57 C` ·
+`09-02 08:58:27 C` · `09-02 14:58:58 C`. Same lower-bound test, a completely different site set:
+
+| site (6h-only) | dispatched 08:58 pass | earliest possible due | trigger fired EARLY by | 14:58 pass |
+|---|---|---|---|---|
+| fundamentallyai.com | 08:58:48 | 14:58:48 | **−9 s** → NOT discriminating | served (excluded) |
+| boxingonline.com | 09:01:31 | 15:01:31 | **2 m 33 s** | **SERVED 15:21:42** |
+| robot-hands.com | 09:02:56 | 15:02:56 | **3 m 58 s** | **SERVED 15:23:00** |
+| gaswholesalers.com | 09:05:48 | 15:05:48 | **6 m 50 s** | **SERVED 15:26:46** |
+| mortgagecalculator.co.uk | 09:11:38 | 15:11:38 | 12 m 40 s | capped out |
+| remortgagecalculator.uk | 09:14:20 | 15:14:20 | 15 m 22 s | capped out |
+| idea.uk | 09:16:56 | 15:16:56 | 17 m 58 s | capped out |
+| vetcomparison.uk | 09:18:35 | 15:18:35 | 19 m 37 s | capped out |
+
+**Three more sites served on a tick that fired minutes before they could possibly have been due.**
+Six discriminating passes now, across two independent pass-pairs and two disjoint site sets.
+
+**Two structural things this second run makes visible, which one run could not:**
+
+1. **The vacuous row is not luck — it is always the FIRST site dispatched in the pass.** Its fetch
+   lag is the smallest, so its due stamp lands closest to (and here just before) the next trigger.
+   First run: `mortgagecalculator` at −4 s. Second run: `fundamentallyai` at −9 s. **Expect exactly
+   one non-discriminating row per pass, and expect it to be the first dispatch.** Do not read its
+   reappearance as a fourth pass.
+2. **The rotation is real and it inverted.** The four capped out this time
+   (mortgagecalculator, remortgagecalculator, idea.uk, vetcomparison) are precisely the four that
+   *passed* last time, and three of the four that were capped out last time were served this time.
+   That is 554's `due_at` ordering doing exactly what it is for — nobody is starved, everyone is
+   late by turns.
+
+### End-to-end, both halves are proven by the SERVICE, not just by two probes
+
+Worth stating because it is stronger than either probe alone: the config half admits the *site*;
+the Go half then selects the site's *due sources*. If the Go half lacked the look-ahead, an
+admitted site would find zero due sources and complete as `no_sources` with `last_fetched_at`
+unmoved. **`last_fetched_at` moved on every served site.** So each served row is joint evidence
+for both halves — which is why the six passes are the real proof and the binary probe is only the
+corroboration.
+
+⚠ **What v1.0.1354 has NOT yet done.** It rolled at 15:39/15:53Z, *after* the 14:58:58 pass, so
+every observation above was produced by **v1.0.1352**. The new binary carries the capability
+(probed) but **has not yet been exercised on a live pass.** The next pass is **~20:59Z** and
+re-running the test on the 14:58:58 → ~20:59 pair confirms it end-to-end on the new build. That is
+a cheap optional confirmation, not a blocker — see the handoff.
+
+### State at 16:17Z, unchanged in substance
+
+- **14** eligible news sites, **12** six-hour-only. Config half: `LOOKAHEAD-PRESENT`,
+  `554+556-INTACT-LIMIT-10`. Cadence still 21600 s.
+- **4 sites stale beyond 6 h 15 m** — the four capped out of the 14:58 pass. This is the cap, not
+  the phase lock, and it is `bugs_open/316`.
