@@ -95,3 +95,61 @@ Council **SUBMITTED** `106802fc-ad14-4beb-b622-147c3a0ab982` (admission dry-run 
 ### Owed
 Read the council verdict. Then, **after the next chassis roll**, the artefact check: the two
 blank pages fill. 338 stays OPEN until then — a Go change is inert until an image rolls.
+
+### Council verdict — APPROVED, and it still found a real hole
+`106802fc-ad14-4beb-b622-147c3a0ab982`, 18:25Z. 9 approve, 2 advisory objections, none
+high-severity. `architecture` recorded `ARCHITECTURE_SIGNAL: point_fix | DEFLECTIONS: 0`
+and confirmed the RFC_022 shape. Several seats specifically credited the grep-corrected
+call-site enumeration — the misstep-3 correction was read as discipline, not as noise,
+which is an argument for recording missteps in the submission rather than tidying them.
+
+**`bug_historian` [medium] was RIGHT and is now `bugs_open/442`.** Its ask: confirm a
+failure-surfacing mechanism exists downstream of `metaDescriptionFailsCopyGates`'s
+non-empty return, or add one. Confirmed **absent** — the action returns a nil error, the
+live workflow has no conditional on `save_result` anywhere, `continue_on_error` is moot
+because nothing errors. My 338 fix narrows how often the gate fires; it does nothing about
+a true refusal being invisible.
+
+⚠ **Investigating it made it sharper than the objection knew.** The workflow's
+`result_message` — the only surface telling a person how to read the outcome — names four
+refusal reasons and omits all three copy-gate ones (`voice_tell`, `banned_claim`,
+`voice_gate_unreadable`), i.e. exactly the ones that caused 338. **Third stale-by-addition
+enumeration in one task.**
+
+`editquality` [medium] worried the partial diff orphaned `blocks` and would not compile.
+Answered by fact, not argument: `blocks` still goes to `checkBannedClaims`, and
+`verify-head-builds.sh` says OK at HEAD. A fair objection from a partial diff.
+
+### MISSTEP 4 — I cited a grep in bug 442 that does not return the number beside it
+Wrote *"the action returns **7** distinct reasons (`grep -n '"reason":' …`)"*. The number is
+right; **the cited command returns 4.** The four are literals in the result map; the three
+that matter are returned as bare strings from the gate helper. So the citation would have
+led the next reader to the very number the bug file exists to correct, and confirmed it.
+Caught by running it before committing — ~90 minutes after logging misstep 3, which is the
+same fault. Second row in `WRONG_CALLS.md`; the pair's shared check is **paste the output,
+not the command's name**. ⚠ And the asymmetry was itself the finding: the obvious single
+grep finds exactly the four already documented and reports the list as complete.
+
+### Another session swept my LANDMINES edit into their commit
+`381529d5a` (19:22:48) landed 86 seconds before mine (19:24:14) and carried my LANDMINES
+correction with it, so my own docs commit shows 4 files, not the 5 I named. **Nothing
+lost** — all three markers verified present in HEAD, forward-only holds. Recorded because
+CLAUDE.md warns about exactly this and it is easy to misread as a failed edit: the file was
+clean and `git show HEAD:` found my text, while `git log -- LANDMINES.md` named someone
+else's commit.
+
+### CQ-035's index row shipped in a SECOND commit
+The entry named the category file by pathspec and not `000_concept_index.md`, so it landed
+entry-without-row — the exact case the index header already narrates twice (WFA-022,
+TL-049) and the `pattern-check` advisory caught it at commit time. Row added in
+`6413ad1f4`: 2,052 → 2,053, CQ-035 confirmed unclaimed first, present as both row and entry.
+⚠ `WII-035` is a **duplicate row id** (two near-identical rows, lines 415/416) — verified
+present at HEAD before my edit, so another lane's; left unfixed rather than picking which
+description survives.
+
+### 404's round-4 verdict landed while this ran — APPROVED
+`f2e4ac2a-…`, 16:33:30Z: *"approved with 3 advisory objection(s) — none high-severity"*
+(`editquality`, `bug_historian`, `debug_historian` objecting, all advisory). That discharges
+the handoff §6 item 1. The r3/r4 commits already carry `Council-Submitted:`, so 098 credits
+them at report time with no amend. Reading those three objections is the 404 lane's, not
+mine — but note this round and mine BOTH approved while finding real defects.
