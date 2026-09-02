@@ -1279,3 +1279,52 @@ archived — the drain proven in §"the archive drains the site by itself".
 positional pick would send it to a **tool**, which is the wrong kind for that copy — it reads as a
 link to the about page, on the about page. **Flagged for the owner rather than resolved**; it is one
 field and it is the only judgement left in the class.
+
+### 2026-09-02 ~13:3xZ — the last judgement answered; **all three tool pages now ARCHIVED**; and the retraction's sequencing has a wrinkle worth stating
+
+**Owner, 2026-09-02: "that about button/text should point to the contact page I think."** That
+resolves the one field the 08-31 ruling did not cover, so **every labelled CTA in this class now has
+a decision** and the last archive was unblocked.
+
+Applied in one transaction (`SQL_2026-09-02_about_cta_to_contact_and_archive_aiao.sql`):
+
+- `aiao/about.html` `content-block-about.cta_url` → `/contact.html`. ⚠ Note its `cta_text` is
+  **NULL** in `content_data` — the served label *"Learn More About Us"* comes from the component
+  **template**, not the stored data. Durability is unaffected: KEEP #1's predicate
+  (`storedCTADestinationIsAuthored`) is **URL-based, not label-based**, so the destination is held
+  whatever supplies the wording. Worth knowing before anyone tries to fix such a button by editing
+  `content_data`'s label — there isn't one.
+- **`ai-agent-orchestration.com` archived.** All three tool pages are now `archived`; **0 remain
+  active**, asserted in-transaction. The shared library component stays `is_active` (owner decision 1),
+  also asserted.
+- **11 final rerenders queued.** ⚠ That net is deliberately wider than the 4 remaining
+  `content_data` fields: it matches `content_data OR rendered_html`, which catches pages whose stored
+  HTML still carries the link although their data is already clean. Those are the stale-render cases a
+  `content_data`-only census cannot see — the same over-narrow-population mistake as misstep 17, avoided
+  here by widening the predicate rather than the guard.
+
+### ⚠ THE RETRACTION SEQUENCING — the footer must be refreshed BEFORE the retraction, not by it
+
+`retract_page_graph.go` treats the three inbound surfaces differently, and the difference decides the
+order:
+
+| surface | treatment |
+|---|---|
+| `site_nav_items` row | **structural** — the retraction *deactivates* it itself |
+| `site_components.rendered_html` (site chrome, i.e. the **footer**) | **editorial** — the retraction **REFUSES** |
+| other pages' `page_components.rendered_html` | **editorial** — **REFUSES** |
+
+**So the nav row is not the blocker; the rendered footer is.** `[MEASURED 2026-09-02]` exactly one
+`site_nav_items` row remains (`aiao`, `/tools/password-entropy.html`, label *"Password Strength
+Physics"*, status `active`) and exactly one `site_components` row carries the link — the **aiao
+footer**, `rendered_html` yes / `content_data` **no**, because the footer's tool list is *generated*
+from the nav tables, not authored.
+
+**⇒ The order is: deactivate the nav row → refresh the footer (`nav-link-fixer`) → propagate to
+deployed pages in ASSEMBLE mode (`page-rerender`, NO `spec.reason`) → then retract.** Attempting the
+retraction first would simply refuse and name the footer — non-destructive, but a wasted round. ⚠ And
+do **not** reach for the agent whose name says navigation: it deletes every child-path link
+(LANDMINES, NAV-013). Worked script: `docs/leopardessconsulting/scripts/reconcile_footer_nav.sh`.
+
+**Remaining to close:** the 11 rerenders land → nav row + footer → retract ×3 → final sweep at the
+served bytes. No decisions left.
