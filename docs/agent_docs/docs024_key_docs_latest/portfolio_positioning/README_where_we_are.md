@@ -1329,3 +1329,15 @@ right ones; the missing half is that the four domains need adding as zones in th
 dashboard (Add site → each domain, free plan). Until then all four domains answer nothing at
 all — old sites included. The moment the zones exist I add the worker routes; each zone also
 needs one proxied A record (dashboard, or give me the DNS token and I do it all).
+
+**2026-09-02, late — they're live. All four.**
+
+advertise.co.uk, websitepromotion.co.uk, seotools.co.uk and designblog.co.uk now serve their
+new sites to the public — I've read the live pages themselves: the right titles, the tools
+serving, the old Drupal pages gone, and nothing anywhere saying "we don't sell advertising".
+Brief to live site in one day, four times over, through every check the platform owns.
+
+Small things that finish themselves over the next day: sitemaps appear on the next rotation
+pass, seotools' seven tools arrive via the discovery sweep, and a few final rerenders drain.
+I've written today up as a milestone summary you can read aloud
+(SUMMARY_2026-09-02_first_four_remakes_live.md). Eighteen remakes to go.
