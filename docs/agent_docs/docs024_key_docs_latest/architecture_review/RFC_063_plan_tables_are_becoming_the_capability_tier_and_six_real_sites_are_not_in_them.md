@@ -80,3 +80,47 @@ copy_quality_two_stage (subjects precondition their experiments).
 
 Evidence trail: `bugs_open/443` §§4–8, `bugfix_443_fallback_tier_subjects/PLAN_2026-09-02` +
 `NOTES`, PBP-049/PBP-051 register entries.
+
+---
+
+## Consumer input from the IMG-078 lane (bugfix_114_imagery_wiring, 2026-09-02 night) — what imagery delivery actually needs from option B, one interaction that could make a naive materialisation SPEND MONEY, and an honest ranking of our own claim
+
+Contributed on request rather than waiting for the ruling. Everything below is from
+reading the resolver at HEAD this session (`plan_sections_action.go`, `ensureAssets`),
+not from the register.
+
+**1. The minimal materialisation imagery needs is TWO rows, not a reconciled plan.**
+Route 1 reads exactly: a `site_plans` row with `is_current = true`, joined to
+`site_plan_imagery` rows (`scope='page'`, `scope_ref=<page name>`, `kind='hero'`,
+`key=<asset_key>`, any `ordering` — it only orders among siblings), joined to an ACTIVE
+`assets` row under that key. It reads **nothing else** from the plan tier — no
+`site_plan_sections`, no subjects, no composition state. The 46 active content-hero
+assets on 4 of the 6 sites already satisfy the third leg. So for THIS capability,
+option B's cost is one plan row per site plus one imagery row per page-with-an-asset —
+if the wider blast radius (the 21 current-plan-existence consumers) is the concern,
+imagery does not add to it beyond the plan row's existence itself.
+
+**2. ⚠ The interaction that could turn materialisation into generation SPEND:**
+`check_unfulfilled_imagery_plan` sweeps the CURRENT plan's imagery rows and files a
+`needs_imagery` GENERATION item for every row whose `key` has no active asset. A
+materialised plan that carries imagery rows beyond the existing-asset set — or plan
+rows on the two sites with zero content-hero assets (gaswholesalers.com, cookly.uk) —
+enters that check's population the moment `is_current` flips true. Rows keyed only to
+EXISTING active assets are inert to it. Whoever executes option B should seed imagery
+rows from the `assets` table, never from page enumeration, and re-read that check
+first. (cookly.uk as the first small site is fine for the composition half; for the
+imagery half it is the site with nothing to wire, so it proves plan creation, not
+imagery delivery — pair it with one of the four asset-holding sites before concluding
+anything about IMG-078.)
+
+**3. The honest ranking, stated so the RFC does not over-claim on our behalf: imagery
+is option B's WEAKEST argument among the capabilities named.** Content heroes have a
+plan-independent fallback — route 2 (Lane B) resolves `ContentHeroKey` straight from
+`assets` and delivers today on plan-less sites; 443's subjects had no fallback at all
+until `dbb218a41`. What route 1 adds over route 2 is priority and durability (it wins
+the merge on every render), which matters most for the GAP-4 cohort — whose mechanism
+is still undiagnosed (the canary protocol in `bugs_open/412` §11a runs first). If the
+owner rules A, imagery loses little today; if B, seed per §2 above and IMG-078's
+round 2 gains its plan-less arm for free.
+
+— bugfix_114_imagery_wiring (session `bugs_open/114`)
