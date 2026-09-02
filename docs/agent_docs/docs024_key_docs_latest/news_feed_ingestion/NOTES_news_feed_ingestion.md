@@ -430,3 +430,64 @@ orchestration `5947e320-9974-4a4f-b45c-00b727e7ffae`. Dispatch lane showed
 LAG 0 at submit time (queue clear, several other councils in flight
 concurrently — normal per the runbook). Following candidate #1's proven
 order: wait for the verdict before building/rolling anything.
+
+**Verdict landed: APPROVED, round 1, 3 advisory objections, none high-severity**
+(verified directly against `diagnosis_artifacts`, not taken from the trigger
+script's own printout). Checked the substantive ones rather than waving them
+through — none required a design change, but the checking surfaced one real
+fleet-wide finding:
+
+- `reuse_agent` (medium): had the plan searched for an existing per-site
+  locale/country signal before minting a new `region` key? Checked: `sites`
+  has no market/locale/country column; `site_specs` is a generic
+  aspect+jsonb store with nothing region-shaped found. Did find a related,
+  non-colliding precedent — `vet-pipeline-orchestrator` and
+  `area-sweep-orchestrator` already carry a `country: "GB"` config key, ISO
+  form, for a different pipeline (business-directory area search) feeding a
+  different external API. Different key name (`country` vs this lane's
+  `region`), different consuming API, no collision — but the ISO-vs-vendor
+  code choice ("GB" there, "uk"/"UK" here) is now visibly inconsistent
+  fleet-wide for the same underlying concept, for the concrete reason that
+  each was grounded in ITS OWN target API's documented convention rather
+  than an estate-wide standard. Worth a future unification if a third
+  region-aware pipeline appears; not blocking, not touched here.
+- `guardian` (medium): named the blast radius rather than asserting it.
+  `[MEASURED 2026-09-02]`: 11 agent types invoke `web_search`/
+  `fetch_news_search` (`adoption-researcher`, `area-sweep-discoverer`,
+  `brief-writer`, `directory-researcher`, `domain-research-classifier`,
+  `evidence-researcher`, `feed-ingester`, `finance-directory-researcher`,
+  `grounded-explainer`, `research-agent`, `vet-practice-verifier`); zero of
+  them carry a `region` key in their live config today, confirming the
+  change is inert for all 11 by measurement, not by assumption.
+- `guidelines`/`architecture` (minor/low): should `region` be registered on
+  an `ActionInputSpec`, and does it push `web_search` over the RFC_022
+  optional-key budget? Checked both — and found something worth recording
+  for its own sake, not just to close this objection: **`web_search` has
+  NO `ActionInputSpec` registered at all** (grepped
+  `RegisterActionInputSpec("web_search"` — zero hits), so
+  `scripts/audit-optional-key-budget.sh` lists it under **"NOT COUNTED — no
+  ActionInputSpec, so the optional surface is UNKNOWABLE, not zero"**
+  (10 carriers, alongside `execute_llm_prompt`, `call_agent`, and 100 other
+  live actions). This predates this change entirely — none of `web_search`'s
+  existing 5 config keys (`query`/`num_results`/`search_type`/`time_range`/
+  `provider`) were ever registered either, so adding one just for `region`
+  would be inconsistent, not completeness. **The RFC_022 budget mechanism
+  cannot see this action's surface at all, for reasons unrelated to this
+  fix** — recording this here because a session running the audit script
+  later could misread "not counted" as "under budget", which is the exact
+  opposite of what it means. Not this task's fix (retrofitting an
+  `ActionInputSpec` onto a 10-carrier shared action is its own
+  properly-scoped piece of work); flagging for whoever next touches
+  `web_search_action.go` or the RFC_022 tooling.
+
+`debug_historian`'s two objections were about process visibility, not the
+code: it read only the submission JSON's edit list, which named the main
+migration file but not that `_ROLLBACK.sql`/`_VERIFY.sql` sidecars already
+exist (they do — written before submission, following the `690` precedent
+exactly), and it correctly flagged that no pod-binary verification step was
+named as an explicit action. Noted for next submission: name sidecar files
+explicitly in the edit sketch, and list the post-roll verification as its
+own plan edit even when it's "just" a check.
+
+Committing with `Council-Reviewed: 8842fe96-9a71-4ea5-9993-2483f10712cb`
+next, then building both images.
