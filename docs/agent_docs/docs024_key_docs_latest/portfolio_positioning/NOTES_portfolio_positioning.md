@@ -3690,3 +3690,27 @@ that is 3×22 stale rows unless the validator re-checks at read time.
   absent. The check's own metadata already exempts 11 instructional negations; this one tripped
   the x_not_y shape matcher. Owner's word applies the fix text (whole-object content_direction
   rewrite) or closes it as accepted.
+
+### (g) FLEET LLM OUTAGE at 14:43Z — Anthropic credits exhausted, mid-remake; build paused, self-resuming
+
+At 14 of 18 plan pages built, two `needs_page` runs (news-index, uk-ad-spend-reference) failed
+with the provider's own words: *"Your credit balance is too low to access the Anthropic API."*
+Verified at the instrument the LANDMINES entry prescribes — `llm_call_log` success column,
+never orchestration statuses: **ok goes 2/1/... to 0 at 14:43Z, all calls failing since** —
+a fleet-wide LLM outage, not a build defect. Owner push-notified (terminal; no Remote Control).
+
+- The failed items self-requeued with `retry_after` ~15:00Z, attempt_count still 0 — when
+  credits return the build resumes UNAIDED; no re-queue owed. Watch attempt burn if the outage
+  spans multiple retry windows (max_attempts 3).
+- Recovery is proven ONLY by the first minute with ok>0 in `llm_call_log` (landmine: the fleet
+  looks green throughout — dispatch plumbing completes without calling any model). A session
+  monitor watches for exactly that.
+- Owner hint recorded in the push (memory: the-fleet-key-is-not-on-the-default-console-org):
+  the fleet key is NOT on the default console org — pick the account by the key's "Last used".
+- Also this window: earlier `needs_section_data` on the contact page = missing business email;
+  supplied `advertise@contactforsales.com` (estate catch-all convention, 11/12 recent sites),
+  superseded the identity spec with the email at BOTH the flat and nested paths (the
+  identity.email vs identity.contact.email landmine), completed the handlerless item —
+  `swi_no_handlerless_promotable` (a check constraint) refuses to re-queue such items, learned
+  by a rolled-back attempt. Contact page's own build item was still queued, so it picks the
+  datum up naturally.

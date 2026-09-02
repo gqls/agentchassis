@@ -1282,3 +1282,15 @@ phrase — "tell the reader what to do with the information, not just what the i
 That's a writing-style instruction, not a "we don't sell anything" claim, so my recommendation is
 to leave it exactly as it is; but the checker routes that decision to you by design. Say the word
 and I'll either clear it as accepted or edit it out.
+
+**2026-09-02, late afternoon — the build is paused on Anthropic credits, not on anything wrong.**
+
+Fourteen of the eighteen planned pages were built when the Anthropic account ran out of credits
+(14:43 UTC) — every AI call across the whole fleet now fails with "credit balance too low", so
+this pauses everything, not just advertise. The build queue is designed for this: the failed
+pages re-queue themselves and will resume without any hand-holding once credits are back.
+
+The one thing only you can do: top up the credits. One gotcha from last time — the fleet's API
+key is not on the org the console shows you by default; pick the right account by checking which
+key shows recent "Last used" activity. I'm watching for the first successful call and will
+confirm the build resumes.
