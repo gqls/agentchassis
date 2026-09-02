@@ -756,6 +756,26 @@ even once someone notices** — the cheap remedy is unavailable and the availabl
 Whoever picks up either should read the other; I have not verified 412's mechanism first-hand and
 am not asserting it, only pointing at the join.
 
+### 5. ADDENDUM, same day — the composition question, measured at the prose grain
+
+`[MEASURED 2026-09-02]` Across all **462** `blog-post` + `guide` pages fleet-wide, the composition
+is furniture around a single slab: `hero` on 362 pages, `call-to-action` on 329, `article-body` on
+310. And the decisive one:
+
+> **Maximum prose sections on ANY article page in the estate: 1. Pages carrying more than one: 0.**
+
+⚠ **The row COUNT alone would have overstated the opposite** — `blog-post` averages 2.7 section
+rows and `guide` 1.8, which does not read as "one slab" until you ask what the rows *are*. The
+extra rows are hero and CTA. Counting rows answers a different question from counting prose
+sections, and only the second one bears on this.
+
+So the planner has never composed an article out of parts, anywhere, regardless of what its menus
+offer — the `inline_guide_imagery` lane reached the same place from the selection side
+(illustration-capable sections are selected, but on `landing` pages, one per page, and **zero** on
+`blog-post`/`guide`). Three routes, one destination: **article-shaped output is one prose slab plus
+chrome**, and the ~189 orphaned content heroes are what happens when that slab has no hero beside
+it. Still a question, not a diagnosis — none of us has read the planner.
+
 **Not dispatched anywhere.** No site touched, no work item filed — both remedies are visible
 changes on live pages and belong to their owners, and the composition question belongs to whoever
 owns the planner.
