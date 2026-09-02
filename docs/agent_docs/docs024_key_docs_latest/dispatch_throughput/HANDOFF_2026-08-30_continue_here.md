@@ -65,6 +65,10 @@ That is D4's FOURTH live case.
 - **bugs_open/413 session:** fix applied + measured; closure suggested to them 08-30 ~21:25Z
   (their call). Residuals NOT theirs to close: candidate-2 age-floor policy (owner question,
   in README), **bugs_open/415** (fire-gate narrower than selector — untouched, unowned).
+  > **CORRECTED 2026-09-02 (by the 413/415 session):** 415 was taken up and CLOSED same day —
+  > migration `688` applied 13:28Z, gate ⊇ selector on BOTH rows (584 VERIFY 1/7 unaffected:
+  > parity, not text; your lane acked). Now `bugs_closed/415`. The age-floor question was also
+  > RULED (provisionally declined) — recorded in `bugs_closed/413`'s closing section.
 - **bugs_open/414 session:** all threads closed 08-27 (jointly corrected each other; their
   §7k and WRONG_CALLS carry the sequence). Nothing owed either way.
 - **396 lane:** their CONTRIB on 657's guard (paren-precedence presence tests) passed to the

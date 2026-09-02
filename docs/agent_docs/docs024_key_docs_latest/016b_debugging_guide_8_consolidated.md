@@ -6883,7 +6883,10 @@ unrepresentable — the selector ranks sites by min(created_at) over each site's
 the LOADER's ordering, K read live. Measured PASS at +2h (worst wait 6–10h → ~68 min; the 30h
 backlog site drained entirely) and +3.3d (0 pins, 0 stuck claims, lost claims 3.9% best-ever).
 Residuals live elsewhere: pinned ROWS still age within their sites (candidate 2 — an OWNER
-policy option, lane README) and the fire-gate's narrower spelling is `bugs_open/415`. File now
+policy option, lane README; provisionally DECLINED by the owner 2026-09-02) and the fire-gate's
+narrower spelling was `bugs_open/415` — **CLOSED 2026-09-02, migration `688`** (gate widened to
+admit what the selector admits; both trigger rows, applied + simulation-proven same day; now
+`bugs_closed/415`). File now
 in `bugs_closed/`.
 
 **`411`** — `check_image_source_unsatisfiable` states a rendering claim it never verifies;

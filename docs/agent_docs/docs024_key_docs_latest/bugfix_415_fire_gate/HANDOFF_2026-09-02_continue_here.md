@@ -1,4 +1,17 @@
-# HANDOFF 2026-09-02 — bugfix 415: the fire-gate `pre_query` is narrower than the selector — CONTINUE HERE
+# HANDOFF 2026-09-02 — bugfix 415: the fire-gate `pre_query` is narrower than the selector — ~~CONTINUE HERE~~ DONE
+
+> **COMPLETE 2026-09-02 (same day, fixing session = the resumed "bugs_open/413" session).
+> Do not start work from this file — it is a record now.** Migration `688` (+`_ROLLBACK`/
+> `_VERIFY`) committed `59e722812`, applied 13:28Z, VERIFY green, trigger fired 6 s
+> post-apply, all three narrownesses simulation-proven load-bearing. Bug file moved to
+> `bugs_closed/415` with the full closing evidence. Register WDS-002/WDS-003, LANDMINES
+> (three corrections + re-sync) and the throughput lane's 08-30 handoff all updated.
+> Council `Council-Submitted: 5f0cb450-e40f-4ffd-ac8e-01534caeac25`.
+> Two traps below went STALE between the handoff cut and the fix, both re-checked at the
+> artefact: (trap 3) the `213` file had become TRACKED (passenger in `0f3721c6e`) — a live
+> whole-dir `--apply` hazard, renamed `_SUPERSEDED` in `5cd756b99`; (trap 6) the fleet LLM
+> outage had CLEARED (76 ok / 0 failed in the hour before submission), so the council ran
+> normally. Everything else below was verified still true before acting on it.
 
 Written by the session that filed 415 and fixed/closed its sibling 413 (session name
 "bugs_open/413"). That session's arc is done; this file is everything the fixing session

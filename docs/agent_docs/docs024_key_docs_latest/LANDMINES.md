@@ -3132,6 +3132,7 @@ stage-2 template as well, or the exposure returns silently on the next rebuild.
   FROM site_work_items w JOIN sites s ON s.id=w.site_id
   WHERE w.status='claimed' AND w.claimed_at < now()-interval '30 minutes' ORDER BY w.claimed_at;
   ```
+- **⚠ UPSTREAM OF BOTH there was a THIRD spelling — the FIRE GATE — ALIGNED 2026-09-02 by migration `688` (`bugs_open/415`, closed).** `scheduled_tasks.pre_query` on `build-pipeline-trigger` decides *whether the trigger fires at all*, and was NARROWER than the selector three independent ways (`status='triaged'` only; `pipeline='build'`; bare `locked_at IS NULL`, no lock-exception arm) — so an approved-only, non-build, or lock-excepted-only backlog was selector-dispatchable and the trigger never fired to ask (an absence, no error anywhere; theoretical at 2026-09-02 volume, proven by simulation: each narrowness individually left the old gate silent where the new one fires). Post-688 the chain is **gate ⊇ selector ⊇ loader**: the gate deliberately omits `approval_mode`/`depends_on`/busy-skip — wider is the safe direction (a spare fire is one cheap no-op tick), so do NOT "fix" the gate to match the loader; that re-creates the drift. This entry's selector-vs-loader disagreement is the one that remains live and intended.
 - **source:** 2026-08-02, found while verifying `bugs_closed/154`'s fix, fixed by `sql_for_agents/285`, proven at the artefact (0 claims in the 68 min before; relojistas 5 / vetcomparison 2 / webdesign 1 in the 8 min after, in exact FIFO order, with `93f2a3b7` still `triaged` as the negative control). Register WDS-002. It retires a wrong call of mine recorded the same week — twice I logged ~90-minute fleet quiet spells as "comparable to known behaviour, not yet outside it"; **that range WAS this mechanism, and a recurring gap matching a known range is not thereby explained.**
 - **added:** 2026-08-02, bugfix_154_work_item_routing_columns lane
 
@@ -4322,7 +4323,9 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   dispatch loops at 23:23:13, 23:25:44, 23:28:13, and a chain ran four handlers deep
 - **why:** three predicates in one chain disagree.
   `scheduled_tasks.build-pipeline-trigger.pre_query` (**does** check
-  `s.locked_at IS NULL`, but it is a fleet-wide `HAVING COUNT(*)>0` existence test —
+  `s.locked_at IS NULL` — since migration `688`, 2026-09-02, the two-armed
+  lock-exception form, matching the selector — but it is a fleet-wide
+  `HAVING COUNT(*)>0` existence test —
   it decides only *whether to fire at all*, never *which site*), then
   `agent_definitions.build-pipeline-trigger.workflow.steps.find_dispatchable_site`
   (**no lock clause** — this is the one that picks the site), then `load_work_items`
@@ -13838,6 +13841,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the third face: `retry_after` is NULL on a terminal row by design.** The ladder clears it when the item reaches `failed`, so you cannot use "has a stamp" to find items that were ever retried. The durable trace of a *free* retry is `spec.transient_releases` (and `spec.last_transient_release`), not `retry_after`.
 - **do NOT reach for a parking status instead** if you are tempted to build something similar: `blocked` is drained every 600s by `feasibility-recheck`, which has **no timestamp condition** and sets `error = NULL`, so a cooldown parked there survives ten minutes and loses its reason (this is also why the table has held **zero** `blocked` rows for its entire history — drained, not unused); `deferred` is absent from `idx_swi_dedup`'s exclusion list, so the row keeps its dedup slot and its own detector cannot re-file it. A nullable timestamp on a row that stays `triaged` was chosen because it perturbs neither.
 - **relations:** register **WII-024** (the failure-write contract) · **SCH-024 / RFC_018** (`reaper_policies`, whose numbers this reads — the second consumer that RFC was waiting for) · this file's *"a periodic write to an open work item makes it UNREAPABLE for ever"* (WII-018 — the ladder writes ONCE per failure event for exactly that reason, and now also clears `claimed_at`, which makes a re-triaged row reapable at 48h where it was previously immortal) · this file's *"`deferred` is the ONLY parking state — a `blocked` one un-parks itself within 600s"* (the entry that made the column the right answer) · `bugs_open/307`
+- **2026-09-02:** migration `688` (`bugs_open/415`) replaced the whole `pre_query` value on both trigger rows (gate widened to admit what the selector admits); the `retry_after` arm was deliberately KEPT, so the "**four** read sites" count above still holds unchanged.
 - **source:** 2026-08-20, `bugfix_307_terminal_write_contract` lane — written when the mechanism shipped, before anyone has had the symptom
 - **added:** 2026-08-20, `bugfix_307_terminal_write_contract` lane
 
@@ -19166,3 +19170,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
   survived I would have joined them, got a mixed result, and never doubted the instrument.
   `WRONG_CALLS.md` same date.
 - **added:** 2026-09-02, bugfix_410_feed_phase_lock lane
+
+### A census grep for a defective IDIOM matches the doc comment on its own cure — so "is it gone?" answers "one site remains" for ever
+
+- **footprint:** `strings.ToUpper` · `UpperFirst` · `SafeCut` · `platform/orchestration/datahelpers/data_helpers.go` · any `grep -c` used as a class-fix completeness check
+- **the trap:** the honest way to write a shared primitive is to name, in its doc comment, the
+  broken idiom it replaces — that is what tells the next author not to re-hand-roll it. But the
+  census that found the eight call sites (`grep -rn "ToUpper(\w*\[:1\])"`) then matches **that
+  comment**. On a fully-fixed tree it returns **1**, which reads as "one call site was missed", and
+  a session acting on it either hunts a site that does not exist or "fixes" a comment into
+  uselessness. The inverse is worse: a reviewer who filters comments once, sees 0, and records
+  "class fix complete" has recorded something that stays true only until the next hand-roll.
+- **the check:** grep for the ASSIGNMENT shape, not the idiom — `grep -rn "ToUpper(\w*\[:1\]) *+"`
+  still matches prose, so the reliable form is to exclude comment lines
+  (`grep -rn ... | grep -v ':\s*//'`) or, better, ask the compiler: the primitive has a single
+  definition, so `grep -rn "UpperFirst(" --include="*.go" | wc -l` is the POSITIVE control and it
+  cannot be satisfied by a comment. **Always run both directions** — the count that must be 0 and
+  the count that must be 8 — because only the second one fails when someone adds a ninth hand-roll.
+- **the general shape, which is why this is here and not only in the register:** this is the
+  source-scanning-test landmine one step out. A completeness check over SOURCE TEXT makes your own
+  prose load-bearing, and the more carefully you document the cure the more reliably your detector
+  reports the disease.
+- **source:** 2026-09-02, `bugfix_423_chrome_utf8` lane (STY-059, `bugs_open/423`). Noticed while
+  the fix was being written, before it could mislead anyone — including me on the next pass.
+- **added:** 2026-09-02, bugfix_423_chrome_utf8 lane

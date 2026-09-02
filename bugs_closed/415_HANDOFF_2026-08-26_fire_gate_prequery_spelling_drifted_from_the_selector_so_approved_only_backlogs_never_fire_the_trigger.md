@@ -102,3 +102,34 @@ selector-admissible but gate-invisible — same class as the other two. 413/657 
 — chosen fix (candidate 1, gate ⊇ selector), the preflight md5 anchor, all traps (both-rows
 update; 584 VERIFY 1/7 pins PARITY not text, so no lockstep owed; the stale staged 213 file;
 the regexp_replace landmine), sidecar + council expectations, and the induced verification.
+
+## CLOSED 2026-09-02 — fixed AND live AND proven (fixing session, same day as the handoff)
+
+**Fix: candidate 1, migration `688_fire_gate_admits_what_the_selector_admits.sql`
+(+`_ROLLBACK`/`_VERIFY`), committed `59e722812`, APPLIED 2026-09-02 13:28Z.** Whole-value
+replacement on BOTH trigger rows in one statement (ROW_COUNT=2 asserted; both rows read back
+`md5 = 2ebd918b33b36d1b55014bbe60cc2dcb`): `status IN ('triaged','approved')`, pipeline
+filter removed, lock-exception arm added in the selector's cross-site spelling
+(`work_items_common.go:851-870`). approval_mode/depends_on/busy-skip deliberately stay
+selector-side — wider is the safe direction. Chain invariant now: **gate ⊇ selector ⊇ loader.**
+
+**Proven at the artefact, 2026-09-02:**
+- VERIFY sidecar mutation-proved: run against the pre-fix text it FAILED on the `'approved'`
+  assertion (exit 3); post-apply it passes on both rows.
+- Each narrowness proven load-bearing by read-only simulation over live data (the bug's
+  sanctioned "simulate" arm — live data held no divergent population: 102 eligible rows, all
+  triaged/build, 0 lock-exception entries): approved-only, non-build-only, and
+  lock-excepted-only populations each left the OLD gate silent (`f`) and fire the NEW (`t`).
+  Disconfirmable: any case could have read f/f or t/t.
+- Live path: trigger fired 13:28:30Z, six seconds after the apply; new gate measures ~1.3 ms
+  server-side (old: ~7.3 ms) — candidate 2's ~1.3 s/tick selector cost avoided.
+- 584 daily VERIFY stays green by construction (1/7 pins PARITY, not text) — confirmed by the
+  dispatch_throughput lane, pinged at commit and apply; they will hold 688's apply time
+  beside their next cadence read.
+
+**Housekeeping:** prior-art `213_dispatch_gate_matches_dispatcher.sql` renamed
+`_SUPERSEDED` (`5cd756b99`) — it had become TRACKED (passenger in `0f3721c6e`), making it a
+live whole-directory `--apply` hazard; the suffix puts it under the runner's SIDECAR_RE.
+Register WDS-002 (new fire-gate bullet) + WDS-003 updated; LANDMINES corrected in three
+places and re-synced. Council: `Council-Submitted: 5f0cb450-e40f-4ffd-ac8e-01534caeac25`
+(verdict pending at close; 098 credits the commit automatically on approval).
