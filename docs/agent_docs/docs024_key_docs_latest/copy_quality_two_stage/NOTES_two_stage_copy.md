@@ -3549,3 +3549,34 @@ REGULATORY KNOWLEDGE or the register fact, and nothing feeds the editor the regi
 defect SUPPLIED (the editor's request carrying SVC-MAPS-GOV's correction), or a targeted
 migration-style fix with owner-reviewed wording.** Also flagged on the item: the proposal's
 new copy introduces National Debtline + CCA-1974 claims not in the register — reviewer's call.
+
+---
+
+## 2026-09-02 (cont.) — rulings executed; the offer lane's em-dash hole joins the v2 cut
+
+**Executed this stretch:** ruling 1 (be23d897 RELEASED as two proven-shape section_edit items,
+`section_edit:be23d897:hero` + `:call-to-action`, review item closed with chat provenance) ·
+ruling 8 (council scope widened both halves one commit, admission proven `ca98a2d10`) ·
+ruling 5 (**706 APPLIED** — portfolio spec washed, kept-utterance asserted against over-wash,
+corr `7f0c4adb` submitted; post-706 use-cases rebuild filed — the wash reaches the artefact
+only through it) · rulings 9/10 relayed to the offer lane.
+
+**From the offer lane (their gate now live and repairing — n=2, a mechanism not a rate):**
+1. **THE EM-DASH HOLE, ours**: "— not a default to premium" evades every comma-anchored
+   x_not_y pattern (register JSON, negationtells.go's negXNotYRe, their layer-2 re-scan —
+   verified three ways, one REPAIRED artefact already carries it as a false-clean).
+   **Folded into the v2 cut** (owner's ruling 7 GO): v2 = the "plain words" class + the
+   em-dash x_not_y widening, negationtells.go (the shape authority) + register file +
+   registerwords.go lockstep, one council-gated change. Their deeper point adopted: a wash
+   battery is clean AGAINST THE REGISTER AS WRITTEN — the fleet brief wash must use the
+   v2 battery or it certifies against the old blindness.
+2. **Decision D seam split ACCEPTED as proposed**: their production side (question_hierarchy
+   + answered_by inside offer_ordering, gate-checked); our consumption side (writers read the
+   JOIN, ordering follows). Boundary held: the hierarchy is structured input, NEVER rendered
+   as prose into a prompt (the presumption shape). Acceptance criterion: a mostly-unanswered
+   first pass is the CORRECT result.
+3. **Sequencing adopted on their evidence**: D BEFORE the axis prompt change — their H4
+   re-measure (n=190, seller-axis intact) shows the gap is ABSENCE, not order; re-ranking
+   underived material reorders the same points. The axis ruling stands; its implementation
+   waits for the hierarchy to exist. Their self-correction (a widened proxy is a different
+   instrument, no improvement claim available) noted with respect.
