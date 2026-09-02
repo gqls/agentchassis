@@ -37,6 +37,19 @@ BEGIN
     END IF;
 END $$;
 
+-- Pre-mutation backup (council round 1, debug_historian, corr 9faa2a23): the
+-- row governs every site's discovery run, so the guarded UPDATE alone is not
+-- the discipline. TWO-ARG overload deliberately — it writes
+-- agent_definitions_backup (the one-arg form writes an is_snapshot row into
+-- agent_definitions itself; LANDMINES "snapshot_agent has TWO overloads").
+-- Verify the snapshot holds the PRE-change config, not that one merely exists:
+--   SELECT snapshot_taken_at,
+--          NOT ((default_config #> '{workflow,steps,run_checks,config,checks}') ? 'cta_rank_anomaly') AS has_old
+--   FROM agent_definitions_backup WHERE type='completeness-discovery-agent'
+--   ORDER BY snapshot_taken_at DESC LIMIT 1;   -- has_old must be true
+SELECT snapshot_agent('completeness-discovery-agent',
+    '715_enable_cta_rank_anomaly_check_HOLD.sql: pre-update');
+
 UPDATE agent_definitions
 SET default_config = jsonb_set(
         default_config,

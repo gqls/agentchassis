@@ -100,3 +100,42 @@ func TestRankPreservesThePreLeverBehaviour(t *testing.T) {
 		t.Error("CTAExcludedDestination changed meaning")
 	}
 }
+
+// TestRankAllOptedOutIsEmptyNotPanic answers the council's gating objection on
+// round 1 of corr 9faa2a23 (bug_historian, HIGH): what happens when the
+// eligibility filter leaves fewer candidates than callers consume — e.g. a
+// small site whose every tool is opted out en masse. The ranking returns an
+// EMPTY slice (never nil-panics, never fabricates), and every consumer
+// degrades by existing design, each pinned elsewhere and cited here:
+//   - chooseCTATargets len-guards [0]/[1] and returns zero-value candidates
+//     ("no sensible target"), pinned by TestChooseCTATargetsAllOptedOut;
+//   - the build path's setCTAField treats a zero-value target as UNRESOLVED
+//     and emitUnresolvedCTAItems files a needs_human_review work item — the
+//     absence is surfaced, not silent (resolve_internal_links_action.go:249:
+//     "the absence is only knowable HERE");
+//   - the repair path's applyCTARecompute guards `target.URL == ""` and keeps
+//     the stored value ("no valid target to offer: stored value left alone",
+//     resolve_internal_links_test.go);
+//   - the header fallback tests `primary.URL != ""` and renders no button
+//     (render_site_components_action.go:191-195) — the pre-436 degrade for a
+//     site with no eligible candidates, unchanged.
+func TestRankAllOptedOutIsEmptyNotPanic(t *testing.T) {
+	pages := fossilSite()
+	for i := range pages {
+		pages[i].IneligibleAsCTATarget = true
+	}
+	ranked := RankCTAPositionalCandidates("", pages)
+	if len(ranked) != 0 {
+		t.Fatalf("all-opted-out must rank empty, got %+v", ranked)
+	}
+	if ranked = RankCTAPositionalCandidates("index", nil); len(ranked) != 0 {
+		t.Fatalf("nil supply must rank empty, got %+v", ranked)
+	}
+	// One survivor: exactly one candidate comes back — the consumer taking
+	// [0] and [1] gets a real primary and a zero-value secondary.
+	pages[1].IneligibleAsCTATarget = false
+	ranked = RankCTAPositionalCandidates("", pages)
+	if len(ranked) != 1 || ranked[0].Name != "tool-agent-cost-model" {
+		t.Fatalf("single-survivor ranking wrong: %+v", ranked)
+	}
+}

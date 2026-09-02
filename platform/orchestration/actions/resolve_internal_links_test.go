@@ -217,3 +217,36 @@ func TestSetCTAFieldEmptyField(t *testing.T) {
 		t.Errorf("empty field name reported unresolved: %v", unresolved)
 	}
 }
+
+// TestChooseCTATargetsAllOptedOut pins the near-empty-after-filter behaviour
+// the council's round-1 gating objection asked for (corr 9faa2a23): opting out
+// every candidate must yield ZERO-VALUE targets — the long-documented "no
+// sensible target" degrade ("Zero-value contentHub => no sensible target"; the
+// gated template renders no button; setCTAField reports the slot unresolved
+// and a needs_human_review item is filed) — never a panic and never an
+// arbitrary survivor. One eligible survivor fills primary only.
+func TestChooseCTATargetsAllOptedOut(t *testing.T) {
+	interactive := []contentHub{
+		{Name: "tool-a", Title: "A", URL: "/tools/a.html", Area: "tools", NavOrder: 1, IneligibleAsCTATarget: true},
+		{Name: "tool-b", Title: "B", URL: "/tools/b.html", Area: "tools", NavOrder: 100, IneligibleAsCTATarget: true},
+	}
+	hubs := []contentHub{
+		{Name: "guides", Title: "Guides", URL: "/guides/index.html", Area: "guides", NavOrder: 10, IneligibleAsCTATarget: true},
+	}
+	primary, secondary := chooseCTATargets("", "index", interactive, hubs)
+	if primary.URL != "" || secondary.URL != "" {
+		t.Errorf("all-opted-out must return zero-value targets, got (%q, %q)", primary.URL, secondary.URL)
+	}
+	// The header fallback's call shape degrades identically (its caller then
+	// renders no button via its own primary.URL != "" guard).
+	primary, secondary = chooseCTATargets("", "", interactive, hubs)
+	if primary.URL != "" || secondary.URL != "" {
+		t.Errorf("header form: all-opted-out must return zero values, got (%q, %q)", primary.URL, secondary.URL)
+	}
+	// One survivor: primary set, secondary zero — [1] is len-guarded.
+	hubs[0].IneligibleAsCTATarget = false
+	primary, secondary = chooseCTATargets("", "index", interactive, hubs)
+	if primary.URL != "/guides/index.html" || secondary.URL != "" {
+		t.Errorf("single survivor: got (%q, %q), want (/guides/index.html, \"\")", primary.URL, secondary.URL)
+	}
+}
