@@ -260,6 +260,8 @@ dispatched into a build action**. The detector is not the missing piece; the con
   including boxingonline's own `e3c2b440-c006-40ec-be7a-88d0b689ed1e`.
 - `llm_call_log` id `63d9b370-3f2d-41db-82b9-1dfed5204225` — the worked boxingonline.com case,
   both `prompt_rendered` and `response_text` cited in full in §2.
+- `docs024_key_docs_latest/bugfix_427_event_render/HANDOFF_2026-09-02_continue_here.md` —
+  the cross-bug continuation handoff (this bug + 427), written for a fresh session.
 
 ## 9. Status update, 2026-09-02 (same day, resuming session) — fixed, narrower than first proposed
 
