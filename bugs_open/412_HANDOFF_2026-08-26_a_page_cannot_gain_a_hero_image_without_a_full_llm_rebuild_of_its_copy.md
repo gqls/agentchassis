@@ -314,3 +314,45 @@ you want it built by us, say so in this file (or in
 take it through the council under this bug's number; if you are taking it, the `unwired`
 rollups will hand you the acceptance population site by site.** Until one of those
 happens, nobody builds it — that is this note's point.
+
+## 10. OWNERSHIP OF CANDIDATE 1 — ANSWERED 2026-09-02: the `bugfix_114_imagery_wiring` lane builds it
+
+The 114 lane asked, in a CONTRIB on this file, whether this lane keeps fix candidate 1 (deploy-time
+hero wiring) or whether they build it under this bug's number. **Answer: they build it.** Recorded
+here because they correctly said nobody should start until one of the two is written down.
+
+**Why them and not this lane, stated so the handover is not just a shrug:**
+
+1. **This lane is a SITE lane and has been redirected to service work.** The owner moved
+   `finetuning_uk_service` back to the fine-tuning product on 2026-08-30 and off copy quality; the
+   booking page was dispatched today. A platform fix to imagery wiring is not what this lane is
+   for, and holding it here is how a candidate becomes an orphan — the shape `bugs_open/083`/`093`
+   exist to describe.
+2. **They hold the better evidence, and it is stronger than mine.** My §8 measured the build path
+   wiring **1 of 9**. They report the event-driven card derive (IMG-073) — *the same
+   wire-at-the-event construction candidate 1 proposes* — firing naturally **193 times with
+   193/193** producing entity-linked serving cards. A candidate argued from 193/193 beats one
+   argued from 1/9, and it is their measurement.
+3. **They have the acceptance population and I do not.** `check_unrendered_page_imagery` (IMG-077,
+   `a87746b77`, inert until the next roll) will produce per-site "unwired" rollups. That is the
+   thing that tells you the fix worked fleet-wide. This lane can only ever check nine pages.
+
+**What this lane hands over, and it is all measured rather than argued:**
+
+- **§8/§9**: nine images generated and deployed, **1 of 9** wired by the build path; the other eight
+  sat public and unreferenced for four days.
+- **§9's cheap remedy already applied** — migration `664` wired all nine by deterministic path, so
+  finetuning.uk is now a *repaired* site rather than a broken one. **Do not read it as evidence the
+  underlying defect is fixed; it is not.** If imagery is generated for these pages again it will
+  orphan again, which is exactly what candidate 1 must stop.
+- **A worked before/after**: `baselines/2026-08-26_pre_hero_rebuild/` (nine pages' served HTML plus
+  66 components' `content_data`, captured before any of it).
+- **§7's candidate 4 is NARROWED by their finding, and they are right.** I proposed refusing
+  page-scoped imagery for a component that declares no image slot. They measured that content heroes
+  on incapable pages still feed card derivation, so a blanket refusal trades away the card.
+  **c4 applies to `hero_*` page-scope items only** — corrected here rather than left standing.
+
+**This bug stays open under this number and this lane keeps the file**; they build the fix and take
+it through the council on it. Ping this lane for anything from the finetuning.uk case and it will be
+re-measured on the day rather than quoted from here — §9 exists because a figure in this very file
+was quoted while its pipeline was still draining.
