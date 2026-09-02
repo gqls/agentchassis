@@ -505,3 +505,47 @@ that is in the register entry rather than only in the submission.
 
 **Still not shipped.** The approval is of code that is committed and, for rounds 2–3, not yet in
 any binary. Next roll carries it; the probe list above is what to run then.
+
+### 11. The population this lane's PLAN never measured — 432 guide pages, 0 composed the way the plan proposes
+
+Prompted by a peer lane's rollback (below), applied to my own advice, and it bears on the PLAN's
+core proposal rather than only on the CONTRIB I corrected. `[MEASURED 2026-09-02]`
+
+```
+active guide/blog pages fleet-wide              432
+  ...with a hero component                      330   (76%)
+  ...with MORE THAN ONE illustrated section       0
+```
+
+**Zero.** The fleet pattern is hero-section-for-imagery, article-body-for-prose. The PLAN's
+route — one `illustrated-text-block` per h3 — has no instance anywhere in the estate, and
+`grip-styles` would be the first. That is not an argument against it: 432 pages of banner-plus-
+wall-of-text is the complaint, not the standard. But it changes the status of the recommendation
+from "adopt the pattern" to "run the experiment", and the PLAN does not say so anywhere.
+
+**Why I only measured it today.** A peer lane (`editorial_design_uplift`) applied a migration
+giving `article-body` an image field, having measured the component, the assets, all three
+resolver arms, the llm-dispatch mechanism, the alias map and the precedents — and then found that
+**292 of 301 pages carrying that component already show the same image through their hero**, so
+it would have rendered twice on 97% of the population. They rolled it back within 25 minutes,
+prompted by the vonc.com case I had sent them from bug 114, and were careful to label "0 of 301
+instances acquired the field" as luck rather than a control they had built.
+
+**Eleven council seats approved that migration and none could have caught it.** That is not a gap
+in the gate: a submission can be entirely accurate about the change and entirely silent about the
+estate around it, and the estate is the one input a reviewer cannot fetch. Their sentence, which
+I have adopted: **a remedy is fitted to a POPULATION, not to a defect.**
+
+⚠ **So the check that belongs in this lane's next submission, and in the PLAN's Phase 1:** before
+changing how a shared component behaves — or recommending a composition — ask what the OTHER
+instances already do, and state it. I measured this change's blast radius carefully (reachable
+components, instances per page, plan-vs-live agreement) and never asked what a healthy guide page
+looks like, which is the same question one level out.
+
+**Their reframe is worth carrying too, because it explains something I had filed as an oddity.**
+The six boxingonline blog pages have no hero component AND no page-scope plan hero — which is
+exactly the case `ContentHeroKey` exists to generate a per-article image FOR. So those images are
+the system correctly compensating for a composition gap and then having nowhere to put the
+result. The real question is why the planner composed those pages without a hero when 330 of 432
+peers have one — page composition, upstream of any component change. Logged here because this
+lane's Phase 2 would otherwise inherit the same wrong altitude.
