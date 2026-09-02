@@ -15,6 +15,13 @@
 --     {"name","subject"} objects instead of forcing plain strings.
 --  2. The JSON example shows a repeated component with two DISTINCT subjects.
 --
+-- RE-DERIVED 2026-09-02 against the live row: the first apply attempt was
+-- correctly REFUSED by this file's own anchor guard — bugs_open/380's seed had
+-- rewritten rule 17's tail ("use plain strings only" -> "still use the object
+-- form with facts:[] on every section"). That change HELPS this one (object
+-- form is now unconditional, so "subject" can ride everywhere); the subject
+-- sentences now insert BEFORE the 380 sentence, which is kept verbatim.
+--
 -- WHY: pages.sections carried nothing but component names, so N same-named
 -- slots got one identical brief — apis.uk served four solitary-bee sections
 -- and a content_rewrite rewrote all six sections about the waggle dance.
@@ -71,7 +78,7 @@ BEGIN
         RAISE EXCEPTION '640: already applied — subject rule present';
     END IF;
 
-    c1 := (length(t) - length(replace(t, $a1$When no Verified Facts are listed, use plain strings only.$a1$, ''))) / length($a1$When no Verified Facts are listed, use plain strings only.$a1$);
+    c1 := (length(t) - length(replace(t, $a1$When no Verified Facts are listed, still use the object form with "facts": [] on every section — a plain string there leaves the writer unconstrained, which is the failure this rule exists to prevent (bugs_open/380).$a1$, ''))) / length($a1$When no Verified Facts are listed, still use the object form with "facts": [] on every section — a plain string there leaves the writer unconstrained, which is the failure this rule exists to prevent (bugs_open/380).$a1$);
     c2 := (length(t) - length(replace(t, $a2$"sections": [{"name": "hero", "facts": []}, {"name": "features", "facts": ["F1-example-id"]}, {"name": "call-to-action", "facts": []}]$a2$, ''))) / length($a2$"sections": [{"name": "hero", "facts": []}, {"name": "features", "facts": ["F1-example-id"]}, {"name": "call-to-action", "facts": []}]$a2$);
     IF c1 <> 1 OR c2 <> 1 THEN
         RAISE EXCEPTION '640: live prompt has drifted (anchor counts %/%; both must be 1) — re-derive this seed from the live row', c1, c2;
@@ -85,8 +92,8 @@ SET default_config = jsonb_set(
         to_jsonb(
             replace(replace(
                 default_config->'workflow'->'steps'->'plan_site'->'config'->>'prompt_template',
-                $a1$When no Verified Facts are listed, use plain strings only.$a1$,
-                $r1$Any object entry may also carry a "subject": one line saying what THIS section specifically covers, distinct from every sibling section's subject on the page. A "subject" is REQUIRED on every entry whose component name appears more than once on the same page — repeated components without subjects all receive the same brief, and the writer then produces the same section several times. When no Verified Facts are listed, use plain strings, or {"name": …, "subject": …} objects where a component repeats.$r1$),
+                $a1$When no Verified Facts are listed, still use the object form with "facts": [] on every section — a plain string there leaves the writer unconstrained, which is the failure this rule exists to prevent (bugs_open/380).$a1$,
+                $r1$Any object entry may also carry a "subject": one line saying what THIS section specifically covers, distinct from every sibling section's subject on the page. A "subject" is REQUIRED on every entry whose component name appears more than once on the same page — repeated components without subjects all receive the same brief, and the writer then produces the same section several times. When no Verified Facts are listed, still use the object form with "facts": [] on every section — a plain string there leaves the writer unconstrained, which is the failure this rule exists to prevent (bugs_open/380).$r1$),
                 $a2$"sections": [{"name": "hero", "facts": []}, {"name": "features", "facts": ["F1-example-id"]}, {"name": "call-to-action", "facts": []}]$a2$,
                 $r2$"sections": [{"name": "hero", "facts": []}, {"name": "features", "facts": ["F1-example-id"], "subject": "What the platform does"}, {"name": "features", "facts": [], "subject": "How a team adopts it"}, {"name": "call-to-action", "facts": []}]$r2$)
         )
@@ -106,7 +113,7 @@ BEGIN
 
     IF position('may also carry a "subject"' in t) = 0
        OR position('"subject": "How a team adopts it"' in t) = 0
-       OR position('When no Verified Facts are listed, use plain strings only.' in t) > 0 THEN
+       OR position('still use the object form with "facts": []' in t) = 0 THEN
         RAISE EXCEPTION '640: verify failed — the subject rule or example is missing, or the old sentence survived';
     END IF;
 END $$;
