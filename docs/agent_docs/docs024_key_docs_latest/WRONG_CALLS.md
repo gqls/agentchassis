@@ -57539,3 +57539,46 @@ assume it informed the filename.
 - **the cheap check that would have caught it, and which I then adopted:** **induce the verify block before the real apply.** Run it against the UNGUARDED template inside a transaction you roll back, and require it to RAISE. It did, naming all six slots — and running it that way is also what proved the rewritten test discriminates. Two minutes, no risk, and it converts "the verify block passed" from a fact about the migration into a fact about the verify block.
 - **the near miss worth naming:** had I written the verify as a block of `SELECT`s, as many migrations in this tree still do, **the transaction would have COMMITTED** — `ON_ERROR_STOP` does not fire on a non-empty result set. The wrong-but-harmless outcome I got was a property of the `DO`/`RAISE` shape, not of my care. RFC_006's rule earned its place here.
 - **also on this lane, in the honest direction:** the render proof I wrote to check the new template found a defect I had not been told about and was not looking for — `section__header`'s children were guarded, its wrapper was not, so a section with no title rendered an empty `<div>` with a margin. It was found only because the proof asserted "no empty elements anywhere" rather than "the four reported slots are gone". **An assertion narrowed to the reported symptom would have passed.**
+
+---
+
+### 2026-09-02 — bugs_open/314 lane: `comm` told me the blind spot was 660 files. It is 5. And I nearly wrote the 660 down.
+
+- **the claim / the action:** re-verifying bug 314's residual — that `scripts/pattern-check.py:385`'s
+  lowercase-only migration pattern cannot see part of the runner's appliable set — I sized the gap with
+  `comm -23 <(ls … | grep -E '<runner pattern>' | sort) <(ls … | grep -E '<lint pattern>' | sort)`.
+  It printed **660**, which I was one keystroke from putting in the bug file as the measured exposure.
+- **why it was wrong:** `comm` requires both inputs sorted in ITS collation, and the shell's `sort` here
+  disagreed with it. The real number is **5**. Two orders of magnitude, in the alarming direction — the
+  kind of error that gets a fix over-scoped and an owner over-worried.
+- **what caught it:** not the warning. `comm` DID print `comm: file 1 is not in sorted order` to stderr,
+  and I had already read past it — it looks like housekeeping noise next to a confident-looking number.
+  What actually caught it was **reading the listing instead of the count**: it contained
+  `346_site_discovery_rotation.sql`, plainly lowercase, plainly matched by the very pattern it was
+  supposedly missing. A result that contradicts itself on its own face.
+- **the cheap check that would have caught it:** a **membership control on the output** — take one line
+  of the result and test it against the predicate by hand. A set-difference that returns an element
+  which demonstrably fails the difference is not a small error, it is a broken instrument, and one
+  spot-check finds it. Cost: one `grep -E '<lint pattern>' <<< '346_site_discovery_rotation.sql'`.
+- **the standing lesson, already in MEMORY and not applied by me:** *"ask git about git, not `comm`"*
+  (`comm-and-sort-disagree-on-collation.md`). I had this exact lesson available and reached for `comm`
+  anyway, because the task felt like set arithmetic rather than a git question. **Knowing the lesson did
+  not fire it** — which is the same gap `pattern-check.py`'s own docstring was written about, and I hit
+  it while working on that file. `grep -vE` under `LC_ALL=C` needs no second input and no collation
+  agreement; there was never a reason to introduce a second sorted stream.
+- **tally:** **a-set-operation-whose-inputs-disagree-on-collation** ×1 (second instance fleet-wide),
+  **a-warning-on-stderr-read-past-because-the-number-looked-plausible** ×1.
+
+- **2026-09-02, same lane, in the honest direction — and it inverted my own recommendation.** I asked a
+  planning agent to reason about whether `_HOLD.sql` migrations should be linted, and I handed it my
+  framing: *"the runner never applies a `_HOLD`, so it never replays one — which argues the lint should
+  keep skipping them."* Before it answered I went to check the premise with
+  `git log --all --diff-filter=R -M -- docs/agent_docs/sql_for_agents/`: `_HOLD` files are **renamed to
+  drop the suffix once ordering allows — 37 rename events across 26 distinct files, 2026-08-01 through
+  2026-08-31**. So a `_HOLD` is applied BY HAND, left unrecorded in the ledger, and then renamed INTO the
+  runner's appliable set, where the runner finds it pending and replays it. That is bugs_open/007 Class C
+  end to end. `_HOLD` is not the lowest-risk category for that lint, it is the **highest**, and my framing
+  would have written the worst case out of the fix. Cheap check that caught it: **asking the file system
+  what happens to these files over time, rather than reasoning from what the runner does to them today** —
+  one `--diff-filter=R` on the directory. Recorded because the near-miss shape is general: *a premise
+  handed to a reviewer as background is not reviewed, it is inherited.*

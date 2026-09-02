@@ -44,3 +44,93 @@ review activity than before — I measured it at roughly a fifth more, against a
 review costs were cut by three quarters earlier this month. I have written down a specific
 threshold at which we should switch to a cheaper reviewer panel for configuration rather than
 turn the reviewing back off.
+
+---
+
+## 2026-09-02 — picking this lane back up, for the loose end it left
+
+This lane closed on 20 August. I have reopened it to finish the one loose end named in its own
+close-out note, and to check the other one is still a loose end at all.
+
+**First, what the two loose ends were.** When we fixed the review gate so it could look at
+configuration changes, we left two things undone and wrote them down. One: the reviewers still
+could not look at changes to *their own tooling*. Two: there was a fourth copy of the rule that
+says "which files are migrations", living in a different script, and it had already fallen out of
+step with the others.
+
+**The first one has largely fixed itself, by other people.** Two more widenings happened after we
+went quiet — on 23 and 24 August the owner ruled that the detector code for the nightly check
+fleet, and then the commit-time checker script, should both be reviewable. So the gap we named has
+been closed from two directions by other threads. What remains of it is narrow: the review gate's
+own two scripts still cannot be reviewed. I have not touched that, because nobody has asked for it
+and it is a judgement call, not a defect.
+
+I want to flag one good sign in that. When those two widenings went in, each of them correctly
+edited *both* halves of the scope — the rule itself and a second, hand-kept list in the coverage
+report. That second list is a trap this lane wrote up in August precisely because it is easy to
+miss. It did not catch anyone out. The warning worked.
+
+**The second one is real, and I have now measured it rather than asserted it.** Here is the thing
+in plain terms.
+
+There is a script that runs on every single commit, in every session, and quietly reads what you
+are about to commit looking for a handful of known mistakes. One of those mistakes is a database
+change that cannot safely be run twice — if it ever gets run a second time it stops the whole
+migration system dead, and that has happened for real: one such file blocked everything for three
+days.
+
+For that check to work, the script has to decide which of your files *are* database changes. It
+decides that by the filename. And its rule for filenames was written to only recognise names in
+lower case. The actual migration system accepts capital letters too. So any database change with a
+capital letter anywhere in its name has been sailing straight past the check, silently, since the
+check was written.
+
+**How much?** 743 files are real, live database changes. The check could see 738 of them. So five
+were invisible. That is the honest number, and I nearly reported it as 660 — I used the wrong tool
+to compare the two lists and it gave me a nonsense answer that I did not immediately disbelieve. It
+is written up in the shared mistakes log.
+
+**And now the good news, which I want to state as plainly as the bad.** All five of those invisible
+files are, as it happens, already written safely. So nothing is broken today. What we have is a
+hole in a smoke alarm, not a fire. The next file of that shape is the one that would have got hurt.
+
+**One thing turned out to be the opposite of what everyone assumed, including me.** There is a
+convention here for a database change that has to wait its turn: you park it with a special name
+until the ordering is right. The obvious assumption — mine, and the assumption of the lane that
+writes the most of these — is that a parked file is not yet live, so the check need not look at it.
+
+That is backwards. I checked what actually happens to parked files over time: they get renamed to
+drop the parking suffix, 26 of them in the last month. And then I found the reason, in the code:
+the system **refuses** to record a parked file as "already done" — it will only record it under its
+grown-up name. So the sequence is forced. You apply the parked file by hand, you rename it, and
+only then can you record it. In the gap between the rename and someone remembering to record it,
+the system sees a file it thinks has never been run, and runs it again.
+
+So parked files are not the safest category for this check. They are the **most** dangerous one,
+because they are the only kind that is *guaranteed* to be applied by hand before the system knows
+anything about them. The check should look at them hardest, and it currently does not look at them
+at all.
+
+**Working with another thread on this.** The lane that writes most of these files is active right
+now, so I told them before changing anything under them. That went well and in both directions.
+They first told me parked files are never renamed — which was true of their own practice and not
+of anybody else's, and they corrected it themselves within the hour once they checked the house
+rule. In return, my heads-up made them go and look at their own files, and they found **seven** live
+database changes that had been applied by hand and never recorded — which is exactly the dangerous
+state described above, sitting there unnoticed since August. They have since recorded all seven.
+
+That is worth saying out loud: the message that fixed a real problem was not the fix. It was
+telling a neighbouring thread what I was about to touch.
+
+**One new thing to raise, which is not mine to fix in this change.** They suggested I also add a
+check for "files that have been applied by hand but never recorded". I looked, and that check
+already exists — it is what the migration tool prints by default, for free, every time anyone runs
+it without arguments. Their seven files would have appeared on that list on any day for a month.
+So this is not a missing safeguard; it is a safeguard nobody runs. That is a different kind of
+problem and deserves its own item rather than being bolted onto this one. I am filing it, at their
+request, and crediting them.
+
+**Nothing needs a decision from you.** The change itself is small and cannot break anything — the
+script it touches is advisory and is forbidden from blocking a commit. I am putting it through the
+reviewer council, which is possible only because of the widening this very lane shipped in August;
+before that, fixing this would have required the override.
