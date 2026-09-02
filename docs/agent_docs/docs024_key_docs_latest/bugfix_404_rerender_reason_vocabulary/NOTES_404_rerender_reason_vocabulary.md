@@ -335,3 +335,42 @@ whether the uuid is a site or a page.
 **Submitted** on the same correlation, `RESUBMIT_CORR=f2e4ac2a-2bfc-4c82-ac99-d5fd7616edef`,
 so the trail accumulates. Draft: `scratchpad/submission_404_r3.json` (session scratch).
 Verdict not yet read at time of writing — the weaker true statement, not "still running".
+
+### 2026-09-02 (later) — r3 verdict: REVISE, and the gating objection was MY repeat of r3's own lesson
+
+`[MEASURED 2026-09-02]` verdict landed 13:53:03Z: **revise**, `decided_by: gating objection from
+editquality`, 3 abstained. **Nine seats approved** (`reuse_agent`, `guidelines`,
+`tooling_provenance`, `adoption_guardian`, `improvement_guardian`, `render_guardian`,
+`debug_historian`, `constitution`, `mission`, `architecture`). The design drew no objection in
+either round — every gating objection so far has been about SUBMISSION ACCURACY.
+
+**The gate: `editquality` [HIGH] on edit 7, seconded independently by `prior_art_librarian`
+[HIGH].** r3 existed to fix "the narrative claims what the sketches do not show", and I corrected
+edits 1, 4 and 8 while leaving **r2's pre-fix sketch on edit 7 — the one edit the r2 gating HIGH
+was about.** Full entry in `WRONG_CALLS.md`; the transferable half is that I *had* verified the
+guard at the artefact, and that real check made the claim feel safe while the thing I was actually
+publishing went unchecked.
+
+Second self-inflicted fault the same round: correcting edit 4 I **replaced** its sketch instead of
+adding to it, deleting the corpus-lint test that edit 3's rationale still referenced.
+
+### r4, submitted with the check that would have caught it
+
+Before submitting r4 I asserted on the SUBMISSION rather than the tree — a loop over `plan.edits`
+checking each sketch contains the strings its rationale claims, plus a negative control that the
+superseded text is gone. Nine PASS lines, under a second. Any round claiming "sketches corrected"
+can afford this.
+
+| r3 objection | r4 |
+|---|---|
+| `editquality`/`prior_art_librarian` [HIGH] edit 7 — sketch showed neither guard | Sketch is now the shipped file verbatim (lines 80–121): count guard, the RAISE, `INTO STRICT` on both reads, idempotency-before-snapshot |
+| `prior_art_librarian` [medium] — "exactly 1 active row" asserted with no query | Query shown and **re-run today**: component-template-fixer 1, page-rerender 1, rerender-pages 1. States it proves the guard INERT, not unnecessary |
+| `editquality` [medium] edit 4 — corpus lint no longer shown | Both tests shown, including the positive controls naming migrations 460 and 473 |
+| `reuse_agent` [medium] edit 1 — `operation:add` vs "already in the tree" | Framing restored: this code is COMMITTED AND LIVE, review here is after-the-fact by the owner ruling 2026-07-29 §2 |
+| `debug_historian` [medium] edit 7 — `_ROLLBACK` not in the edits list | It exists; `_ROLLBACK` sidecars are refused client-side by `council-scope.sh`. r2 said so and r3 dropped the sentence |
+| `guardian` [low] edit 5 — census blind to hand-dispatched callers | **Conceded and named.** A config scan cannot see a kcat/kubectl dispatch — something this lane did today for a nav rebuild |
+| `guardian` [medium] edit 3 — allow-list RED at HEAD | Still red, still the 405 lane's file, named with no mitigation claimed |
+| `tooling_provenance` [low] edit 7 — "every RAISE cites '655:'" | ⚠ **FALSE, and checked rather than obeyed.** `'656:` appears 9 times, `'655:` zero. Complying would have introduced the defect it warned of |
+
+Submitted on the same correlation. `RUN_ORCH_ID=40639f27-fdca-4059-92bd-1a01d9f55f57`.
+Draft: `scratchpad/submission_404_r4.json`. **Verdict not read at time of writing.**

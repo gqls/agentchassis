@@ -58458,3 +58458,37 @@ baseline" is zero over an EMPTY denominator. **Count the RUNS before you quote a
 
 Family: a-post-fix-zero-needs-a-demand-control, thunder-reaper-fires-but-has-never-reaped,
 a-complete-work-item-is-not-a-repaired-artefact.
+
+- **2026-09-02 — bugfix_404 — I wrote a council round whose ENTIRE PURPOSE was "the narrative
+  claimed what the sketches did not show", and left the stale sketch on the ONE edit the gating
+  objection was about.** Round 2 was gated by `debug_historian` [HIGH] on edit 7 (migration 656's
+  type-scoped `SELECT ... INTO` with no `STRICT`). Round 3's job was to correct the submission.
+  I read the shipped migration, confirmed the count guard and `INTO STRICT` were genuinely there,
+  asserted both in the r3 rationale — and corrected the sketches for edits 1, 4 and 8 only.
+  **Edit 7 kept r2's pre-fix text.** So r3 claimed the fix in prose with the unfixed code displayed
+  directly beneath it. `editquality` gated on it at HIGH and `prior_art_librarian` raised the same
+  HIGH independently, both from the submission alone with no access to the tree.
+  **Why the wrong thing looked right:** I had verified the fix at the ARTEFACT — grepped the file,
+  saw the guard, saw `INTO STRICT` twice. That check passed and was real, and it made me feel the
+  claim was safe. But the claim was being made in a SUBMISSION, and I never checked the submission.
+  **Checking the artefact is not checking what you are showing the reviewer.** A submission is its
+  own artefact and it can be wrong while the code is right.
+  **Second, self-inflicted, same round:** correcting edit 4 I REPLACED its sketch rather than adding
+  to it, which deleted the corpus-lint test that edit 3's rationale still referred to. A reference
+  survived while its referent vanished — so my fix for one internal-consistency gap opened another.
+  `editquality` caught that too.
+  **The cheap check that would have:** assert on the submission, not on the tree — one loop over
+  `plan.edits` asserting each sketch CONTAINS the strings the rationale claims for it, plus a
+  negative control that the superseded text is gone. Written for r4, it runs in under a second and
+  prints nine PASS lines. Any round that says "corrected the sketches" can afford it, and the
+  assertion is mechanical precisely because the claim is.
+  **What it cost:** one council round, which is the cheap place to be wrong — the design drew no
+  objection in either round (nine seats approved r3) and every gating objection has been about
+  submission accuracy, never the mechanism.
+  ⚠ **Also recorded because I nearly complied with a FALSE objection in the same round:**
+  `tooling_provenance` [low] said "every RAISE EXCEPTION ... cites '655:'" in migration 656.
+  Measured: `'656:` appears **9** times, `'655:` **ZERO**. Editing correct text to satisfy it would
+  have INTRODUCED the defect it warned about. A seat's objection is evidence to check, not an
+  instruction to obey.
+  Tally: **verified-the-artefact-not-the-claim-about-it** ×1,
+  **a-correction-that-overwrote-what-it-should-have-added** ×1.
