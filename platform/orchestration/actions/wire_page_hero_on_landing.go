@@ -65,6 +65,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/imageryplan"
 	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
@@ -141,7 +142,7 @@ func wirePageHeroOnLanding(
 		   AND cc.id = pc.component_id
 		   AND (cc.function = 'hero' OR cc.function LIKE 'hero-%'
 		        OR cc.function LIKE '%-hero' OR cc.category = 'hero')
-		   AND pc.build_status IS DISTINCT FROM 'removed'
+		   AND `+datahelpers.NotRemoved("pc")+`
 		   AND NOT (`+fragmentMarkerPredicate("pc.rendered_html")+`)
 		   AND COALESCE(pc.content_data->>'hero_url', '') IN ('', $3, $5)
 		   AND COALESCE(pc.content_data->>'background_image', '') IN ('', $3, $5)

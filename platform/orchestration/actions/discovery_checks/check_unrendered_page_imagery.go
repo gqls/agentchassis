@@ -176,7 +176,7 @@ func (c *UnrenderedPageImageryCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 		   AND `+datahelpers.PageWantedLivePredicateFor("p")+`
 		   AND EXISTS (SELECT 1 FROM page_components pc0
 		                WHERE pc0.page_id = p.id
-		                  AND pc0.build_status IS DISTINCT FROM 'removed')
+		                  AND `+datahelpers.NotRemoved("pc0")+`)
 		 ORDER BY p.id
 		 LIMIT `+fmt.Sprint(unrenderedImageryMaxCandidates), dctx.SiteID)
 	if err != nil {
@@ -217,17 +217,17 @@ func (c *UnrenderedPageImageryCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 			SELECT
 			  EXISTS (SELECT 1 FROM page_components rc
 			           WHERE rc.page_id = $1::uuid
-			             AND rc.build_status IS DISTINCT FROM 'removed'
+			             AND `+datahelpers.NotRemoved("rc")+`
 			             AND rc.rendered_html LIKE '%' || $2 || '%'),
 			  EXISTS (SELECT 1 FROM page_components pc
 			            JOIN content_components cc ON cc.id = pc.component_id
 			           WHERE pc.page_id = $1::uuid
-			             AND pc.build_status IS DISTINCT FROM 'removed'
+			             AND `+datahelpers.NotRemoved("pc")+`
 			             AND (cc.html_template LIKE '%hero_url%' OR cc.html_template LIKE '%background_image%')),
 			  EXISTS (SELECT 1 FROM page_components pc
 			            JOIN content_components cc ON cc.id = pc.component_id
 			           WHERE pc.page_id = $1::uuid
-			             AND pc.build_status IS DISTINCT FROM 'removed'
+			             AND `+datahelpers.NotRemoved("pc")+`
 			             AND (cc.html_template LIKE '%hero_url%' OR cc.html_template LIKE '%background_image%')
 			             AND NOT (`+fragmentMarkerPredicateSQL("pc.rendered_html")+`))
 		`, cand.pageID, webPath).Scan(&referenced, &capable, &capableNonFragment)
