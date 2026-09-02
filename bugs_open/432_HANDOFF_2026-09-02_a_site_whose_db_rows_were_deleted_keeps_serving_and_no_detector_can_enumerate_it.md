@@ -142,8 +142,20 @@ with a row. Two more on other sites from the same 04-18 fleet-wide born-empty wa
 serve empty: `ai-agent-orchestration.com/llm-cost-calculator.html` (row `archived`,
 deployed 04-18 — `bugs_closed/359`'s class, still serving) and
 `robot-hands.com/learning-center-article.html` (row url is `/blog/…`, served at root — a
-`pages.url` probe would miss it) [Fable, MEASURED 2026-09-02]. **Not filed separately by
-this session** — they are other lanes' sites; flagged to the owner.
+`pages.url` probe would miss it) [Fable, MEASURED 2026-09-02]. ~~**Not filed separately by
+this session** — they are other lanes' sites; flagged to the owner.~~
+
+> **UPDATE 2026-09-02 evening:** owner ruled "reopen 315 and hand it to that site's lane" —
+> done. `bugs_open/315` is REOPENED and owned by `site_ai_agent_orchestration`, which built the
+> fix the same day (`8eca969cb` + `8a0b927f5`, Council-Submitted `2be8ec34`; inert until a
+> chassis roll): both the consumer skip-branch and the producer loop now file a deduped
+> `needs_content_page` instead of a guaranteed-skip rerender. Their census, corrected by the
+> council from my "one instance": **14 rows** `active` + `deployed_at IS NOT NULL` + 0
+> component rows. `llm-cost-calculator.html` (archived-and-serving) is recorded there as an
+> **owner decision** — retract vs un-archive-and-build. `robot-hands.com/learning-center-article`
+> is taken into that session's robot-hands list. Also surfaced there: `componentless_pages` is
+> a built discovery check enabled in ZERO discovery agents, and would not catch a `sections=[]`
+> page anyway — the real gap sits between `check_sectionless_pages` and it.
 
 ## 4. The absence, scoped — and the disconfirming check I ran
 

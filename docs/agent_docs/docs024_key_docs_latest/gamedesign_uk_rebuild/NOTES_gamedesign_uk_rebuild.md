@@ -331,3 +331,22 @@ persist_roadmap_brief → create_research_item`), not a designed recovery pair. 
 every fresh submission — `SELECT length(data->>'text') FROM site_specs WHERE aspect =
 'mission_brief' AND is_current AND site_id = …` — never assume it from a COMPLETED submitter.**
 (RUNBOOK §7 gets this line.)
+
+---
+
+## 2026-09-02, ~17:45Z — 315 accepted by its new owner; fix built same day
+
+`AI page 3` (site_ai_agent_orchestration) accepted the reopen with every figure re-verified at
+the artefact. Fix: `8eca969cb` + `8a0b927f5` (writeWorkItem refactor after council r1 objected
+to a hand-rolled ON CONFLICT), Council-Submitted `2be8ec34`, **inert until a chassis roll**.
+Both doors closed: consumer skip-branch and producer loop now file a deduped
+`needs_content_page`. Criterion 1 driven to the framework's edge, not hardcoded: a hand-filed
+`needs_content_page` parked honestly at `needs_human_review` (`sections=[]`, no spec), so they
+filed `needs_content_planning` first — the page's SHAPE is the planner's/owner's call.
+**Census corrected by the council: 14 rows, not my "one instance"** (`deployed_at IS NOT NULL`
+is the honest census predicate; the liveness predicate gave 2). Prior art surfaced:
+`componentless_pages` is built, enabled in ZERO discovery agents, and needs sections PRESENT —
+roi-estimator sits in the gap between it and `check_sectionless_pages`. Recorded in 432 §3a.
+
+**Owner decision surfaced by them, carried here:** `ai-agent-orchestration.com/llm-cost-calculator.html`
+— archived, still serving empty (359's class). Retract, or un-archive and build. Not acted on.
