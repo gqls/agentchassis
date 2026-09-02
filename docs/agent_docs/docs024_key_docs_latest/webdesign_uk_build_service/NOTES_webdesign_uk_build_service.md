@@ -7138,3 +7138,17 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   retraction payload-gated → mirror → sweep asserting the PEER-AGREED close
   criterion (contact 404 AND zero inbound links) + exactly one Fight Calendar
   label per header + guides-index guide/blog counts + interim logo hash/dims.
+
+- **Pattern now seen TWICE, per the peer, worth its own line: "undoing our own
+  override restores an older default nobody is looking at."** Instance 1: the
+  guide retype (removing blog-post typing dropped them out of every resolver).
+  Instance 2: dropping the CTA keys would have fallen back to the template's
+  default cta_url — the very Get Started→/contact.html being removed. The tidy
+  removal reintroduces the thing it removes; before deleting any override,
+  find what the ABSENT state resolves to.
+- Peer's round-4 baseline banked (45 failures expected, all accounted): their
+  LINKS-ON-PAGES unit vs my SOURCES unit are the same fact (~42 of 45 are the
+  chrome header/footer Contact entries rendering on all 21 pages). Chrome
+  reaches the other 17 pages only via nav-updater's full reassembly — the sweep
+  is what proves coverage, not the receipt. Their five assertions + BLIND
+  (failed fetch ≠ pass) are the agreed close.
