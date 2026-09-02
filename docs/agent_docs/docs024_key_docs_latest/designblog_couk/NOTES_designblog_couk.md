@@ -269,6 +269,21 @@ those to the owner as unblocked/unstarted AND unverified-effect.
 Routed onward at their request: **inline guide imager** (owns in-body imagery,
 has the mig-644 counter-example) — message sent.
 
+## 2026-09-02 (copy loop closed) — division of labour settled on the empty-room class
+
+Copy quality two stage confirmed my representation of the four classes is
+accurate as reported, and recorded a real design consequence (their commit
+`1b5209a1a`, with attribution): their title-promise gate design now
+**deliberately narrows to the NON-listing half** of the empty-room class (a
+titled promise with no data behind it), because 444's candidate (1) — plan
+validation refusing/degrading a listing page whose item source resolves to
+zero — closes the listing half upstream of any writer fix. So the two
+mechanisms are complements, not overlaps: **444(1) guards listing pages at
+plan time; their gate guards titled promises everywhere else.** They carry the
+birth-producer finding to the owner themselves, and will come back to this
+lane for served-vs-stored test cases when the repair re-ask fix is sized —
+standing offer holds.
+
 (Will be updated in place with send + ACK status; "the owner asked for receipt
 to be checked" is the reason this table exists.)
 
