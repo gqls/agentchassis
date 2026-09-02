@@ -427,3 +427,58 @@ candidate, not this patch's job"*, and agreed folding it in here would be scope 
 answered in §(ff), before the verdict came back: `resolveWorkItems` does not filter on
 `handler_agent`, so flag-only rows retract on a clean re-probe. Good question, and the one
 place I was ahead of the council rather than behind it.
+
+---
+
+## 2026-09-02, night — the skip link is LIVE and proven at the artefact; the backlog movement is NOT mine
+
+**(mm) Stage 1 of the RUNBOOK gate PASSES.** The fleet rolled at **20:56:43Z** (pod
+`agent-chassis-8ddbf8958-cd2h9`). Probed the running binary for `data-skip-link` — present —
+**with both controls in the same breath**: the older `GROWTH_DOOR_PROBE_FAILED` present, an
+invented `ZZ_IMPOSSIBLE_LITERAL_ZZ` absent. ⚠ The absent-control TIMED OUT on the first
+attempt (a full-binary grep for a non-matching string is slow) and I re-ran it alone rather
+than reporting the two that had returned. **An incomplete control is not a control** — the
+timeout case is `rc=124` and reads nothing like `rc=1`.
+
+**(nn) Stage 1b PASSES on three real served pages**, each re-rendered after the roll:
+`robot-hands.com/product-detail.html`, `gamesdesign.co.uk/games/economy-simulator/`,
+`gaswholesalers.com/tools/fuel-margin-calculator/`. All three carry `class="skip-link"` ×1,
+`id="content"` **×1 — not 2**, and the CSS marker ×1. Read the emitted markup rather than
+trusting the counts:
+
+```
+<style data-skip-link="1">.skip-link{position:absolute;left:-9999px;…
+   background:var(--color-primary,#1a1a1a);color:var(--color-primary-text,#ffffff)}
+   .skip-link:focus{left:0}</style>
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+…</header> … <span id="content" tabindex="-1"></span>
+<main>
+```
+
+Order verified positionally: body 62136 < anchor 62143 < header 62444 < target 65085 <
+main 65126.
+
+**And the council's objection is resolved AT THE ARTEFACT, not just in the source.**
+robot-hands.com defines `--color-primary: #1A1F2E` and `--color-primary-text: #ffffff`, so
+the link renders in the site's own brand rather than the fallback. That is the thing
+`render_guardian` said the `--brand-*` version could never do, now checked on a live page.
+
+**(oo) THE BACKLOG MOVED AND IT IS NOT MY FIX. Checked before claiming it.**
+`head_essentials_missing` open fell 978 → **968**, and 10 rows completed today — which reads
+exactly like the fix draining the pile on its first night. It is not. Every one of the 10 is
+lendzy.co.uk, completed at **19:05:17** — **one hour and fifty-one minutes BEFORE the roll**.
+They gained a skip link by some other route (another lane's design run, unidentified). The
+retraction reasons are the check's own *"re-probed …: title, skip-link and footer all
+present"*, so the mechanism works — but the cause is not mine.
+
+**Zero retractions are attributable to this change yet**, and that is expected, not a
+disappointment: a row clears only after its page re-renders AND the structural check next
+runs over that site, whose rotation is hours. **`[MEASURED 2026-09-02 21:2xZ]` open =
+968.** Anyone reading a lower number later must check the completion TIMESTAMPS against the
+roll at 20:56:43Z before crediting it here.
+
+  The trap in one line: **a number that moves the way your fix predicts, in the window your
+  fix landed, is not evidence your fix moved it.** The timestamps were one column away and
+  the wrong reading was the comfortable one.
