@@ -967,3 +967,32 @@ with was real but bounded — it proved the test could detect the failures *I ha
 failure I had not imagined was sitting inside my own test as a passing assertion. Two things caught
 it and neither was mine: an outside reader with a different frame, and then a probe written to test
 *their* claim rather than my code.
+
+### 2026-09-02, close — a `/code-review` at the end, and what it actually reviewed
+
+Ran `/code-review` after the lane was complete. **15 findings, none of them this lane's.** They named
+`save_page_meta_description_action.go`, `voicetells.go`, `registerwords.go`,
+`check_unrendered_page_imagery.go` and migration `694` — files this session never opened. Nothing
+about `690`, `700`, their sidecars or the docs.
+
+**The cause is structural, not a reviewer fault:** a bare diff review on this tree reads the working
+directory, which holds ~10 concurrent sessions' WIP at once. So it reviewed the union of everyone's
+half-finished work and reported it to me in the second person. The real hazard is that acting on a
+finding means **editing another lane's code mid-flight** — the one thing CLAUDE.md most consistently
+forbids. Written up as a LANDMINE, because a session with no symptom would reasonably assume the
+findings were theirs.
+
+**One check that stopped me over-reacting:** two findings named files that turn out to be
+**untracked**, so the red `TestNoHandSpelledTombstonePredicate` is a working-tree failure belonging
+to whoever is writing them — **not a red HEAD**. `git ls-files --error-unmatch` settled it in one
+command. I have NOT independently tested HEAD as a whole and said so rather than implying I had.
+
+**Two findings are worth routing** and are recorded in the handoff §4b as not-done: the untracked
+`BANNED_REGISTER_v2.json` that `registerwords.go` already references (a pathspec commit of the Go
+alone breaks HEAD for everyone), and a deleted false-positive guard case that turned the suite green
+while leaving the `plain_words` pattern flagging ordinary prose. Both belong to their lanes; CONTRIBs
+not written.
+
+**What I would keep from this:** "run a reviewer over your work" and "run a reviewer over the diff"
+are the same command here and different actions. On a single-session repo they coincide; on this one
+they do not, and the report gives you no signal that they diverged.

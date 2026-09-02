@@ -161,11 +161,44 @@ at `triaged` — a shape production cannot produce — and was rejected. Correct
 - **No parked row has been released.** 170 unattributable; of the attributable ones, **60 carry
   another lane's live `"un-park after rebuild verify"` condition.** ⚠ **Do not sweep them — ask the
   holders.** `unpark_work_items` is scoped to one `parked_by` for exactly this reason.
-- **Council verdict on `dcd2b3c9` not read.**
+- ~~**Council verdict on `dcd2b3c9` not read.**~~ **READ 2026-09-02: APPROVED, 4 advisory objections, none high. All four are answered — one in code (migration `700`), three in `700`'s file header.**
 - **The `657` CONTRIB** (see the 08-26b handoff §4) was left with the `dispatch_throughput` lane;
   no reply checked this session.
 
+## 4b. ⚠ A `/code-review` WAS RUN AT THE END OF 2026-09-02 — AND NONE OF ITS 15 FINDINGS ARE THIS LANE'S
+
+**Do not spend a fresh session chasing them, and do not "fix" them.** The run reviewed the *working
+tree*, and on this tree that means roughly ten other sessions' uncommitted work. Its findings name
+`save_page_meta_description_action.go`, `voicetells.go`, `registerwords.go`,
+`check_unrendered_page_imagery.go` and migration `694` — **not one touches `690`, `700`, their
+sidecars, or anything this lane wrote.** The reviewer's own scope note says HEAD advanced ~3 commits
+mid-pass and two findings were being edited underneath it, so parts of that picture were already
+stale when it reported.
+
+**Two are worth ROUTING to their owners — as CONTRIBs, not as fixes. Neither is done.**
+
+- **`BANNED_REGISTER_v2.json` is UNTRACKED while `registerwords.go` already points at it**
+  (`registerwords.go:52/56`, `registerwords_test.go:28`). A pathspec commit of the Go without
+  `git add`-ing the JSON puts a HEAD in the tree that cannot load its own register — red
+  `datahelpers` for every session. Prospective, not done. CLAUDE.md's "new files must be `add`ed
+  first" is exactly this.
+- **A `plain_words` false-positive guard case was deleted rather than the pattern narrowed**
+  (`registerwords_test.go:158`). The suite went green while the pattern still flags ordinary prose
+  like *"in plain terms"*. That is the fix-the-checker-to-agree-with-the-break shape — but it is
+  someone's live decision, so route it, do not reverse it.
+
+**Verified by me, so a fresh session need not re-check:** both
+`check_unrendered_page_imagery.go` and `BANNED_REGISTER_v2.json` are **UNTRACKED**, therefore **not
+at HEAD**, therefore the red `TestNoHandSpelledTombstonePredicate` is a **working-tree** failure
+belonging to the session writing those files — **not a red HEAD**. ⚠ I did **not** independently
+test HEAD as a whole; other lanes have tracked-and-modified files I did not build.
+
 ## 5. ⚠ TRAPS — the expensive ones, unchanged plus two new
+
+- **`/code-review` ON THIS TREE REVIEWS EVERY SESSION'S UNCOMMITTED WORK, NOT YOURS.** The working
+  tree carries ~10 lanes' WIP, so a bare diff review returns findings about files you never opened,
+  written in the second person. Acting on them means editing another lane's half-finished code. Scope
+  it to your own paths, and check `git log`/`git status` for who owns a file before touching it.
 
 - **`run-migrations.sh --apply` takes EVERY pending file (271 today).** Scope by hand.
 - **A migration number is not reserved by creating the file.** `691` was taken by another session
