@@ -5494,3 +5494,24 @@ wedged the orchestration until the 4h reaper. Fixed in `6e2d4a039`; details bugs
   `paths_tried` key) — a log-volume heuristic for this failure dies with the fix.
 - **Ready-made check for whoever verifies the next roll:** binary probe for `paths_tried` →
   expect PRESENT; today's ABSENT-with-positive-control baseline is the proof the probe can fail.
+
+## 2026-09-02 — PLATFORM SEAT: vetcomparison consult — add_tool→tool-generator confirmed as the novel-tool path; TL-043 register entry clarified
+
+vetcomparison asked (owner-ruled build of tool-compliance-deadline-calculator) what built their two
+live tools and whether TL-043's zero-facts refusal blocks a new client-side tool. Answered from
+evidence, all `[MEASURED 2026-09-02]`:
+
+- Their tools came from `add_tool` items → tool-generator (`created_from='generated'`,
+  `source_agent_type='tool-generator'` on both component rows). The items were invisible to them for
+  two reasons: wrong window (components born 08-02/08-12, not 08-18/19) and the items are in
+  `site_work_items_archive` — the closer-census trap, claiming victims a month on.
+- The TL-043 zero-facts refusal sits INSIDE `if requiresBackend` (`deploy_tool_action.go:227`), and
+  the tool-generator path carries no arm of the gate at all — so a client-side novel tool owes it
+  nothing. **Clarified the TL-043 register entry with a dated line** (a reader took the index's
+  "zero evidence_base facts also refuses" as gating all deploys — the entry invited it).
+- Verified at the live row, not the seed: `tool-generator.save_tool.adopt_existing_page = true`, so
+  their pre-existing planned/0-component page row gets adopted, not collided with (TL-044).
+- Handed over two traps: seed the CMA relative periods as evidence_base facts for TL-045/CLM-022
+  fact-drift routing (their bracketed-placeholder rail is exactly that lifecycle), and the
+  anchor-class acceptance defect (91228c39) — their 08-25
+  `acceptance_fail:tool-pet-treatment-cost-estimator` row is worth re-reading against it.
