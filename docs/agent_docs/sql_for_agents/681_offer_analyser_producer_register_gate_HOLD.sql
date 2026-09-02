@@ -10,11 +10,36 @@
 -- output — so applying it early does not merely add an inert step, it breaks
 -- the ordering write outright.
 --
--- Check the roll at the ARTEFACT before applying, per service, never at the tag:
---   kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
---   git merge-base --is-ancestor f7156fb54 <the sha that line reports>
--- An empty grep means "not in range" (it is a STARTUP line and it scrolls), not
--- "unstamped" — fall back to the binary probe with a control, LANDMINES.md.
+-- ⚠ HOW TO PROVE THE CODE IS LIVE — AND A TAG DOES NOT PROVE IT (council round 2,
+-- debug_historian, medium: the precondition named a check without saying what
+-- would satisfy it). A same-tag rebuild serves the node's cached binary, so
+-- IMAGE_TAG and `kubectl get deploy -o jsonpath=...image` can both read new over
+-- a stale process. Two acceptable proofs, in order of preference:
+--
+--  1. The service's own provenance line, then an ancestry test:
+--       kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 \
+--         | grep -m1 'build provenance'
+--       git merge-base --is-ancestor f7156fb54 <the sha that line reports>
+--     ⚠ It is a STARTUP line and it SCROLLS — on a busy agent-chassis it is out
+--     of reach within hours. An empty grep means "not in range", NOT "unstamped".
+--
+--  2. PROBE THE RUNNING BINARY FOR A SYMBOL THIS CHANGE INTRODUCED, with BOTH
+--     controls in the same breath (a probe with no controls proves nothing —
+--     a grep that matches everything and one that matches nothing look identical
+--     when you only read the exit code):
+--       POD=$(kubectl -n ai-persona-system get pod -l app=agent-chassis \
+--              -o jsonpath='{.items[0].metadata.name}')
+--       # MUST be present (introduced by f7156fb54):
+--       kubectl -n ai-persona-system exec $POD -- grep -ac 'repair_ordering_register' /proc/1/exe
+--       # MUST be absent (never existed — the negative control):
+--       kubectl -n ai-persona-system exec $POD -- grep -ac 'repair_ordering_regsiter' /proc/1/exe
+--     Never `strings` (absent from the debian-slim images; behind the customary
+--     2>/dev/null its failure is indistinguishable from "not stamped"). Both traps
+--     are in LANDMINES.md.
+--
+-- ⚠ AND PROBE THE POD THAT WILL RUN THIS AGENT. `-l app=<subsystem>` can select a
+-- pod of a different service (one image, every label), and `logs deploy/X` reads
+-- one pod of N. Check every replica before concluding.
 --
 -- WHY THE STEP GOES HERE AND NOT BEFORE THE CARDINAL GATE. The cardinal gate
 -- DROPS points that assert a quantity absent from the field they cite. Repairing
@@ -22,6 +47,19 @@
 -- copy nobody will read, and worse, it would repair the text the drop record
 -- quotes — so the audit trail would show a violation that no longer matches the
 -- point it names. Cardinals first, register second.
+--
+-- ⚠ TWO SIMILAR-BUT-DIFFERENT LITERALS APPEAR BELOW. DO NOT SWAP THEM (council
+-- round 2, editquality, low). They are an INPUT READ and an OUTPUT WRITE and they
+-- belong to different steps:
+--
+--   'ordering_checked.object'           <- what THIS step READS.  It is the
+--                                          CARDINAL gate's output_field + .object.
+--   'ordering_register_checked.object'  <- what the WRITE reads.  It is THIS
+--                                          step's own output_field + .object.
+--
+-- Swapping them silently bypasses one gate or the other while every guard below
+-- still passes, which is why the verify block asserts the read side against the
+-- predecessor's declared output_field rather than against a literal.
 --
 -- ⚠ THE CHAIN IS THREADED THROUGH `object`, AND THE REPO SQL IS STALE ON THIS.
 -- Migration 408 shows `write_offer_ordering.spec_data = offer_analysis.result.ordering`.
@@ -83,6 +121,14 @@ BEGIN
 END $$;
 
 -- ── 1. Insert the step ───────────────────────────────────────────────────────
+-- ⚠ jsonb_set IS STRICT: any NULL argument returns NULL for the WHOLE document,
+-- silently. The documented way this bites on agent_definitions.default_config is
+-- a correlated subquery in the value position that finds no row — the config is
+-- then NULLed and the agent is dead with no error. EVERY value below is a LITERAL
+-- (jsonb_build_object / a quoted ::jsonb), no subquery anywhere in this file, so
+-- that path is closed by construction rather than by care. Keep it that way: if a
+-- future edit needs a looked-up value, COALESCE it and assert non-NULL before the
+-- jsonb_set, or the failure is invisible until the next run of the agent.
 UPDATE agent_definitions
    SET default_config = jsonb_set(
          default_config,

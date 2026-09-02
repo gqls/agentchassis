@@ -3500,3 +3500,70 @@ correlation; run orch `83548697-cad0-4f5b-a075-c0fd7d51a632`). ⚠ **READ THIS O
 The gate is **still inert** — `681` is `_HOLD` and must not be applied until an image carries
 `f7156fb54`. Nothing has run through it. **23–24% is the baseline it has to move**, and that is
 measurable only after the wiring applies, from `register_repairs` / `register_repairs_summary`.
+
+### Round 2: APPROVED (2026-09-02 13:19Z) — and the advisories were worth acting on
+
+`4054f4d9`, round 2: **approved**, **16 reviewers** (up from 11 — the widened plan drew more seats),
+1 abstained, *"2 advisory objections — none high-severity"*. `bug_historian` and `guardian` still
+recorded `object` at medium; both are answered below rather than waved through.
+
+⚠ **I read the REPORT, not the decision field.** An approved verdict carrying nine objections is not
+the same as a clean one, and the two that mattered were cheap to close.
+
+- **`guardian` MEDIUM + its missing item — "no confirmation `repair_ordering_register` has no other
+  callers across `agent_definitions`".** Fair: I had *argued* exclusivity and never *queried* it.
+  `[MEASURED 2026-09-02]` exactly **one** row references `write_offer_ordering` / `ordering_checked`
+  — `offer-analyser`, live, not a snapshot — and **zero** reference `repair_ordering_register` or
+  `register_repairs`, across every non-deleted definition including snapshots. Exclusivity is now
+  evidence.
+- **`editquality` + `guardian` + `bug_historian`, LOW ×3 — the deep-merge interaction is claimed
+  tested but only the action's own output is exercised.** All three were right and it was the same
+  gap: my tests proved what the action RETURNS, and `bugs_open/327` is entirely about what
+  `write_site_spec` then does with it. Added `TestBothKeysSurviveTheDeepMergeEndToEnd`, driving the
+  real `siteSpecDeepMerge` with a stored row carrying a stale record AND a stale summary.
+  ⚠⚠ **And it surfaced a constraint I did not know I depended on.** `siteSpecDeepMerge` **RECURSES
+  into map-vs-map**, so a summary built as a `map` that omitted a zero field would inherit the
+  PREVIOUS run's value for it — a clean run reporting the last dirty run's `still_violating`.
+  `registerSummary` is a STRUCT, which marshals every field, so the replace is total. That was luck,
+  not design, until now: `TestAMapSummaryWouldInheritStaleFieldsUnderTheMerge` demonstrates the
+  failure on purpose so the constraint is visible rather than folklore.
+- **`guidelines` LOW — the new `record_key+"_summary"` is a nested addition to a shared seam's
+  carried object, and the 2026-08-11 owner ruling requires it be named in the CONCEPT REGISTER or
+  contract-declared; a lane NOTES file is neither.** Correct, and it is a ruling rather than a
+  preference. **CQ-034 now names both keys and their full field lists**, plus the struct-not-map
+  constraint above.
+- **`debug_historian` MEDIUM — the `_HOLD` precondition said "per-service build-provenance check"
+  without saying what would satisfy it.** Right: a tag proves nothing (a same-tag rebuild serves the
+  node's cached binary). The migration header now carries both accepted proofs — the provenance log
+  line plus `git merge-base --is-ancestor`, with the warning that it is a STARTUP line that scrolls
+  so an empty grep means *"not in range"* not *"unstamped"* — **and the binary symbol probe with BOTH
+  controls in the same breath** (`repair_ordering_register` must be present,
+  `repair_ordering_regsiter` must be absent), never `strings`, and a note to probe the pod that will
+  actually run the agent.
+- **`debug_historian` LOW — `jsonb_set` is STRICT; a correlated subquery finding no row NULLs the
+  whole `default_config` silently.** Not reachable here (every value is a literal) but that was true
+  by accident of drafting, so the file now says so and tells a future editor what to do instead.
+- **`editquality` LOW — `ordering_checked.object` vs `ordering_register_checked.object` are easy to
+  confuse in hand-authored `jsonb_set`.** They are an INPUT READ and an OUTPUT WRITE belonging to
+  different steps; the header now spells that out, and the verify block already asserts the read side
+  against the predecessor's declared `output_field` rather than a literal.
+- **`architecture` LOW — the NOTES should say that 3 of the 11 aspects are EXEMPTION-LICENSED rather
+  than merely ungated, since that is materially worse and should weight the eventual RFC.**
+  ⚠ **Agreed and stated here explicitly: the eight merely-ungated aspects leak; the three exempt ones
+  LAUNDER.** `content_direction.formatted`, `identity.key_differentiators` and
+  `identity.target_audience` are on `rewrite_negations`' `defaultBriefFields`, so a construction
+  there is found on the page, matched as brief-supplied, and deliberately left in SERVED copy. When
+  the third analyser→writer path triggers the RFC, **those three rank first — not by volume, by
+  mechanism.**
+- **`bug_historian` MEDIUM (standing)** — the 016b §9 "one call site guarded, sibling stays generic"
+  pattern. Answered as far as this change can: the scope claim is withdrawn, the audit is recorded
+  above, and the third-path RFC trigger is adopted. It remains a correct standing objection about the
+  estate, not a defect in this change.
+- **`reuse_agent` LOW** — accepts the four-point argument, notes the duplication is now real and the
+  extraction deferred to the third caller. Recorded; that is the agreed trigger.
+- **`tooling_provenance` missing** — asks whether the travelling-docs surface should be a `doc_notes`
+  row rather than this markdown file, given `doc_notes.subject_type` is CHECK-constrained and this
+  lane's subject is an agent workflow. **Open question, not actioned**: the constraint is real and
+  the right vocabulary is not obvious. Worth deciding once, estate-wide, rather than guessing here.
+- **`prior_art_librarian` missing** — cannot itself verify the live-row-vs-seed-408 claim the
+  migration hinges on. `[VERIFIED 2026-09-02, live row]` it holds; it is also now a LANDMINE.

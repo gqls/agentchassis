@@ -409,3 +409,97 @@ func TestBothArtefactKeysAreWrittenOnTheCleanPath(t *testing.T) {
 		t.Error("an unrelated key was dropped")
 	}
 }
+
+// ⚠⚠ TestBothKeysSurviveTheDeepMergeEndToEnd — the objection THREE seats raised
+// on round 2 (editquality, guardian, bug_historian, all low): the action's own
+// tests prove what it RETURNS, not what write_site_spec then does with it.
+//
+// That gap is the whole of bugs_open/327: siteSpecDeepMerge merges the incoming
+// document over the STORED one, so a key the incoming document omits keeps the
+// previous run's value and reads as current. Testing the action's output alone
+// cannot see it — the stale value only appears once a real prior row is on the
+// other side of the merge.
+//
+// So this drives the ACTUAL merge function write_site_spec uses, with a stored
+// row that carries a stale record AND a stale summary from an earlier dirty run.
+func TestBothKeysSurviveTheDeepMergeEndToEnd(t *testing.T) {
+	// What a previous, DIRTY run left in site_specs.
+	stored := map[string]interface{}{
+		"reader_goal": "understand the cost",
+		"lead_with":   []interface{}{map[string]interface{}{"rank": float64(1), "point": "old"}},
+		"register_repairs": []interface{}{
+			map[string]interface{}{"index": float64(0), "outcome": "kept", "reason": "truncation_only"},
+		},
+		"register_repairs_summary": map[string]interface{}{
+			"checked": float64(6), "violations": float64(4),
+			"repaired": float64(1), "still_violating": float64(3),
+		},
+	}
+
+	// What a later, CLEAN run returns. This is the exact shape the action builds.
+	incoming := withKey(
+		withKey(map[string]interface{}{
+			"reader_goal": "understand the cost",
+			"lead_with":   []interface{}{map[string]interface{}{"rank": float64(1), "point": "new"}},
+		}, "register_repairs", []registerRepairRecord{}),
+		"register_repairs_summary", newRegisterSummary(6, 0, 0))
+
+	merged := siteSpecDeepMerge(stored, incoming)
+
+	// 1. The record must be REPLACED by the empty array, not kept.
+	recs, ok := merged["register_repairs"].([]registerRepairRecord)
+	if !ok {
+		t.Fatalf("register_repairs did not survive as the incoming value: %T", merged["register_repairs"])
+	}
+	if len(recs) != 0 {
+		t.Errorf("a clean run must clear the record; %d stale rows survived the merge", len(recs))
+	}
+
+	// 2. ⚠ THE SUMMARY IS A MAP, WHICH IS THE DANGEROUS CASE. siteSpecDeepMerge
+	// RECURSES into map-vs-map, so a summary written as a map merges KEY BY KEY
+	// with the stored one — any field the new summary omitted would keep the old
+	// run's number. A struct that marshals every field is what makes the replace
+	// total; this asserts the outcome rather than the reasoning.
+	sum, ok := merged["register_repairs_summary"].(registerSummary)
+	if !ok {
+		t.Fatalf("summary did not survive as the incoming value: %T", merged["register_repairs_summary"])
+	}
+	if sum.StillViolating != 0 || sum.Violations != 0 || sum.Repaired != 0 {
+		t.Errorf("a clean run's summary must not inherit the previous dirty run's counts: %+v", sum)
+	}
+	if sum.Checked != 6 {
+		t.Errorf("checked should be this run's own count, got %d", sum.Checked)
+	}
+
+	// 3. And the keys the action never touches must be preserved by the merge.
+	if merged["reader_goal"] != "understand the cost" {
+		t.Error("the merge dropped an unrelated stored key")
+	}
+}
+
+// ⚠ TestAMapSummaryWouldInheritStaleFieldsUnderTheMerge — the DISCONFIRMING case
+// for the test above, and the reason the summary is a struct and not a map.
+//
+// If a future edit builds the summary as a map[string]interface{} and omits a
+// field (say, because it is zero), siteSpecDeepMerge recurses and the STORED
+// value for that field survives — a clean run reporting the previous run's
+// still_violating. This test demonstrates that failure on purpose, so the
+// constraint is visible rather than folklore.
+func TestAMapSummaryWouldInheritStaleFieldsUnderTheMerge(t *testing.T) {
+	stored := map[string]interface{}{
+		"register_repairs_summary": map[string]interface{}{
+			"checked": float64(6), "still_violating": float64(3),
+		},
+	}
+	// A partial map summary — the mistake this guards against.
+	incoming := map[string]interface{}{
+		"register_repairs_summary": map[string]interface{}{"checked": float64(6)},
+	}
+	merged := siteSpecDeepMerge(stored, incoming)
+	got := merged["register_repairs_summary"].(map[string]interface{})
+	if got["still_violating"] != float64(3) {
+		t.Fatalf("premise broken: the merge no longer recurses into maps, so the struct requirement may be stale — re-read siteSpecDeepMerge (got %v)", got["still_violating"])
+	}
+	// The stale 3 survived: that is exactly what a map-shaped summary would ship.
+	// registerSummary is a STRUCT precisely so the merge replaces it wholesale.
+}
