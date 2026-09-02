@@ -1305,3 +1305,25 @@ consequences for THIS lane's measurements, held for the next reads:
   changes are not attributable to either alone (stage B stays inert, but the tail change
   is theirs). Expect the daily VERIFY's zombie-tail NOTICE count to drop too (their wedge
   class feeds the 'reaper: stale EXECUTING_STEP' spelling the 08-27 widening covered).
+
+### 2026-09-02 (later) — stage B r1 REVISE: the council made the design BETTER; r2 in flight
+
+r1 verdict (corr 8f4bb57d): REVISE, gating = bug_historian (selector/loader shedding is
+INVISIBLE — a withheld item indistinguishable from a stuck one), with the architecture seat
+naming the right fix for a different objection: no canonical source for a predicate
+hand-copied four times. **Both built rather than argued** `[all MEASURED 2026-09-02]`:
+- **Migration 675** (applied + recorded same hour): `governor_admits(item_type)` — the ONE
+  canonical predicate; Go and the selector now emit a one-line call; the posture rules moved
+  from string assertions to EXECUTION probes (every shed level driven against synthetic
+  states inside the verify, incl. DELETE-the-state-row fail-open). Plus
+  **`governor_withheld_now`** — the shed-event view (withheld vs stuck, one query).
+- Go collapse committed `6a84e3dc1`; 674 rewritten to the call + function-exists preflight;
+  chained dry-run green post-rewrite; 675 pair committed `c2a95fc90`.
+- Evidence answers: 671 CREATES the map table (r1's editquality couldn't see schemas);
+  674's verify already EXECUTE-probes the full query; consumer censuses — load_work_items =
+  {build-dispatch-loop, site-work-orchestrator}, claim_work_item = {build-dispatch-loop,
+  **diagnose-dispatch-loop** (new datum)}, fleet flag census 0; the 413-hog argument
+  RE-DERIVED from the live selector's quoted clauses (prior_art's fair procedural point —
+  same lesson as the stage-A round: derive, don't retell).
+r2 resubmitted on the same corr; verdict monitor to be re-armed. The travelling doc_notes
+decision record written (tooling_provenance).
