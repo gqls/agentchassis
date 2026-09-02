@@ -158,6 +158,16 @@ EXPECTED pre-convergence shape, not a failure).
    > components lane's ⭐ experiment (their handoff: a `needs_page` rebuild of index
    > "would not destroy the repro — it makes it strictly better", then a rerender to see
    > whether the key survives). They hold the sequencing; this lane did not fire it.
+   > **21:28Z: the components lane has handed the rebuild to this lane** ("fire it
+   > whenever suits; it cannot damage the repro") and confirmed the defect SURVIVES
+   > v1.0.1355 with both chassis pods probed carrying the fix. **Prepared, NOT fired:**
+   > exact INSERT + pre-flight + verification in this dir's RUNBOOK ("BUILD-path
+   > rebuild for the card decks"). Held for the OWNER's go because the build path
+   > REGENERATES the page's LLM-written copy (webdesign NOTES 17:3xZ: build
+   > regenerates, rerender carries) — on the home page he reviewed point by point,
+   > that is a copy change he did not ask for, on the page that passed. If he says go:
+   > run the RUNBOOK block, verify at the row, then hand the row id to `components`
+   > for their step-2 rerender.
    > **What actually produces decks here:** the BUILD path — proven on this very site
    > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route

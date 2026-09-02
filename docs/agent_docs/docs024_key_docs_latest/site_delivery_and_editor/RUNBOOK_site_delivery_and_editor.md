@@ -118,3 +118,75 @@ which needs `page_id` in spec AND column — its own LANDMINE); claim latency wh
 correctly filed is ~2 min (measured twice 2026-09-02); ~300s no-dispatch after a
 chassis pod restart. Worked example: item `7f1f4993` (guides-index, this dir's
 NOTES sibling in webdesign lane, 2026-09-02 ~17:1xZ).
+
+
+## boxingonline /index.html — BUILD-path rebuild for the card decks (prepared 21:28Z on 2026-09-02; NOT FIRED — owner's go)
+
+**Why this and not a rerender:** on both `v1.0.1354` and `v1.0.1355` the RERENDER path does not
+execute the fixed list-item producer (bugs_open/425 §2; measured again 21:22Z: rerender
+`b238bed9` wrote, `articles[0]` still has no `excerpt` key). The BUILD path does (guides-index
+`7f1f4993`, 17:23:02Z, same site). The components lane has asked for exactly this rebuild as the
+experiment that breaks their ambiguity (their handoff §2 ⭐) and says it cannot damage the repro.
+
+**⚠ What it changes beyond the cards:** the build path DELETE/re-INSERTs the page's components and
+**regenerates the LLM-written fields** (webdesign NOTES 17:3xZ: "build regenerates; the stored-carry
+expectation was the RE-RENDER path's behaviour") — so hero / featured / info-card-grid /
+call-to-action copy on the home page is rewritten by the current planner, not carried. The owner
+reviewed this page point by point (OWNER_REVIEW 08-31); a regeneration can re-introduce the classes
+he flagged (meta-copy, AI-tell) on the page that passed. Previous render is archived in
+`page_component_history` keyed on `page_id` (revert = manual restore, not a button). The 4 open
+`empty_section:…:featured-content` items on this page (`66aab479`, `ea4de903`) may resolve or
+re-file. Chrome will be current (GTM id now in `site_config`; 423 footer gate live), so the GTM
+count on index moving after THIS is the rebuild, not the stale_chrome pass.
+
+**Pre-flight (all three, every time):**
+```sql
+-- 1. queue: nothing in flight on the page
+SELECT id,item_type,status,spec->>'reason' FROM site_work_items
+ WHERE site_id='d2aa5206-73bc-4707-a69c-2702c1eb9152' AND status NOT IN ('complete','cancelled','rejected')
+   AND item_type IN ('needs_page','page_rerender') AND (spec->>'page_name'='index' OR page_id='0ff07948-8e6f-477a-9069-452d1a2aecca');
+-- 2. baseline you will compare against (record it)
+SELECT id, (content_data->'articles'->0) ? 'excerpt' AS has_excerpt, updated_at FROM page_components
+ WHERE page_id='0ff07948-8e6f-477a-9069-452d1a2aecca' AND content_data ? 'articles';
+```
+3. chassis pods older than 300 s (`kubectl -n ai-persona-system get pods -l app=agent-chassis`).
+
+**The dispatch** — the exact shape of `7f1f4993` (which is the exact shape of `bccedf9c`), page
+fields swapped. The two fields a hand-filed row silently needs are `pipeline='build'` and
+`approval_mode='auto'` (build-dispatch-loop sets no pipeline default; a row without them sits
+`triaged` for ever — the previous session's seven-minute trap). `handler_agent` must be set.
+```sql
+INSERT INTO site_work_items
+  (site_id, source, item_type, severity, summary, page_id, priority, handler_agent, status,
+   created_by, approval_mode, pipeline, spec)
+VALUES
+  ('d2aa5206-73bc-4707-a69c-2702c1eb9152', 'operator', 'needs_page', 'medium',
+   'Rebuild index (BUILD path) so content-listing re-resolves through the fixed producer: excerpt key + suffix-free titles on the home page cards (owner item 14; bugs_open/425 §2 experiment step 1 for the components lane)',
+   '0ff07948-8e6f-477a-9069-452d1a2aecca', 10, 'page-build-handler', 'triaged',
+   'site_delivery_and_editor-session', 'auto', 'build',
+   '{"reason":"rebuild_cleared_component","handler":"page-build-handler","page_name":"index","page_role":"landing"}'::jsonb)
+RETURNING id, created_at;
+```
+Expect claim within ~2–7 min (`claimed_by='build-dispatch-loop'`), complete ~2–8 min after
+(`7f1f4993`: filed 17:14:58 → claimed 17:21:10 → complete 17:23:02). A missing claim at 10 min
+= read the row, not re-file.
+
+**Verify at the row, then the artefact:**
+```sql
+SELECT pc.id, pc.updated_at, jsonb_array_length(pc.content_data->'articles') AS n,
+       (pc.content_data->'articles'->0) ? 'excerpt' AS has_excerpt,
+       left(pc.content_data->'articles'->0->>'title',80) AS title0,
+       (SELECT count(*) FROM regexp_matches(pc.rendered_html,'article-card__excerpt','g')) AS decks_in_html
+FROM page_components pc WHERE pc.page_id='0ff07948-8e6f-477a-9069-452d1a2aecca' AND pc.content_data ? 'articles';
+-- the write: history keyed on page_id (component_id is NULL on 44,555/45,285 rows — never key on it)
+SELECT count(*), min(created_at), max(created_at) FROM page_component_history
+ WHERE page_id='0ff07948-8e6f-477a-9069-452d1a2aecca' AND created_at > now() - interval '15 minutes';
+```
+Success = `has_excerpt` true, `title0` suffix-free, `decks_in_html` > 0 (the 682 fingerprint
+INVERSION — decks present is the success state on data-carrying items). Then the served page after
+the next mirror tick (~:52): `curl -s https://boxingonline.ugg2.com/index.html | grep -c
+article-card__excerpt` non-zero with `article-card` as the control; date the object against
+`pages.deployed_at` before accepting lag. **Then tell the components lane the row id** — their step 2
+is a `template_changed` rerender on top of the new baseline, and which way the key goes is their
+discriminator. Also read the regenerated copy against OWNER_REVIEW's classes before calling item 14
+done — the cards are not the only thing that changed.
