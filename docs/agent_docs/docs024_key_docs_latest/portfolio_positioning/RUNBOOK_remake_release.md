@@ -65,11 +65,16 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   (happened on gamedesign.uk 2026-09-02, `bugs_open/447`, held reversibly). Until 447 lands,
   eye every evaluate_tools/add_tool wave on a paired site against the pair rule; the
   brief-fidelity auditor RECORDS the violation but dispatches nothing.
-- ⚠ Once 444's repair rolls (council corr `c0990eb3`, submitted 2026-09-02 late): a DEFERRED
-  listing section means the item source ERRORED — check the exporter config / kind opt-in,
-  NOT the component. New deferred-section HITL rows where there was silence are genuine
-  findings, not noise; nothing new can FAIL a build that previously completed. (Pre-repair,
-  the same condition built HOLLOW and completed normally — 444's original symptom.)
+- ⚠ Once 444's repair rolls (council corr `c0990eb3`; 2 REVISE rounds landed real
+  improvements, round 3 pending; **migration 720 committed but HELD unapplied until the
+  verdict — nothing changes for in-flight briefs yet**): a DEFERRED listing section means the
+  item source ERRORED — check the exporter config / kind opt-in, NOT the component. New
+  deferred-section HITL rows where there was silence are genuine findings, not noise; nothing
+  new can FAIL a build that previously completed. (Pre-repair, the same condition built HOLLOW
+  and completed normally — 444's original symptom.) **And a MISSING gate receipt whose
+  item_key recently hit a terminal row may be the shared anti-churn policy deferring it ~3h
+  (bugs_open/326) — not gate failure; the findings row still lands.** A replan never drops a
+  BUILT listing page (their round-1 preserve rule + test).
 
 ## 3. Serve cutover (Cloudflare + Nominet) — ZONE FIRST
 
