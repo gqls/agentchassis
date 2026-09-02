@@ -59831,3 +59831,14 @@ clock-based sentence next to it.
 
 Family: relative-git-refs-are-not-evidence, prove-a-deploy-at-the-artefact,
 a-claim-about-behaviour-is-not-the-behaviour.
+- [2026-09-02b, webdesign_tool_rebuilds platform seat] SAME SHAPE, SAME DAY, SECOND INSTANCE: cited
+  three status=complete add_tool items to a peer lane as "worked examples … Copy that shape" —
+  all three produced NOTHING (no page row, 404; one `completed_steps: 0` + stored retry_payload,
+  two input-spec echoes as results). The peer verified at the artefact before relying on my
+  citation; I had not. This is the ×1 entry above re-committed within hours: there I read
+  `is_active` as deployed, here I read `complete` as built — and "a complete work item is not a
+  repaired artefact" has been in my own memory index the whole time. The cheap check, sharpened:
+  a row offered to ANYONE as a worked example owes one artefact probe first (page row exists /
+  URL 200 / result carries the handler's reply, not an echo). Reading the confession is evidently
+  not the same as learning from it — the 425 entry above says the same thing.
+  **tally:** **a-status-column-read-as-a-deployment-fact** ×2.

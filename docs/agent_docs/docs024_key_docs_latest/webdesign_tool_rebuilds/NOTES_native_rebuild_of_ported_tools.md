@@ -5515,3 +5515,17 @@ evidence, all `[MEASURED 2026-09-02]`:
   fact-drift routing (their bracketed-placeholder rail is exactly that lifecycle), and the
   anchor-class acceptance defect (91228c39) — their 08-25
   `acceptance_fail:tool-pet-treatment-cost-estimator` row is worth re-reading against it.
+
+> **CORRECTED 2026-09-02 (same day, caught by the vetcomparison session at the artefact):** "Their
+> own site has FRESHER worked examples: three add_tool items filed 08-25 … all complete … Copy that
+> shape" — the SHAPE stands, the EXAMPLES were unsound. All three 08-25 novel items are
+> status=complete with NO page row and 404 at their would-be URLs: one carries
+> `completed_steps: 0` + a stored `retry_payload` (the spawn→call handshake class), the other two
+> hold input-spec ECHOES as results (the extractor-echo family, not 287's spawn-record shape —
+> distinct signatures worth keeping apart in any filing). Only the 08-28 `add_tool_rebuild`
+> genuinely produced a page. I cited `status=complete` as proof of success HOURS after logging
+> "a-status-column-read-as-a-deployment-fact" in WRONG_CALLS for the is_active version of the same
+> mistake, with "a complete work item is not a repaired artefact" sitting in my own memory index.
+> The cheap check: never cite a row as a worked example without one artefact probe. Tally is now
+> ×2 in WRONG_CALLS. The path claim itself is unchanged — proven by the 08-02/08-12 builds and the
+> 08-28 rebuild, all verified at components/pages, not at status.
