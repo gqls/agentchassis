@@ -16,7 +16,7 @@ func fleetSeedRows() []archetypeRow {
 		{MatchKind: "page_type", MatchValue: "section-index", Sections: []string{"hero", "content-listing"}},
 		{MatchKind: "page_name", MatchValue: "faq", Sections: []string{"hero", "faq", "call-to-action"}},
 		{MatchKind: "page_name_contains", MatchValue: "faq", Sections: []string{"hero", "faq", "call-to-action"}},
-		{MatchKind: "page_name", MatchValue: "contact", Sections: []string{"contact-hero", "contact-form", "contact-info"}},
+		{MatchKind: "page_name", MatchValue: "contact", Sections: []string{"hero-contact", "contact-form", "contact-info"}},
 		{MatchKind: "page_name", MatchValue: "pricing", Sections: []string{"hero", "pricing", "faq", "call-to-action"}},
 		{MatchKind: "page_name_contains", MatchValue: "pricing", Sections: []string{"hero", "pricing", "faq", "call-to-action"}},
 		{MatchKind: "page_name", MatchValue: "about", Sections: []string{"hero-about", "about-content", "call-to-action"}},
@@ -47,7 +47,15 @@ func TestMatchArchetypeRows_ParityWithDefaultSectionsForPage(t *testing.T) {
 		{"entity-directory by type", "practices", "entity-directory", true, nil},
 		{"faq by equality", "faq", "", true, nil},
 		{"faq by contains", "some-faq-page", "", true, nil},
-		{"contact", "contact", "", true, nil},
+		// DELIBERATE deviation from the Go switch, like section-index below.
+		// The switch returns "contact-hero" as the first slot; that function
+		// has ZERO content_components rows in any state — the name is
+		// transposed. [MEASURED 2026-09-02] 18 live contact pages render
+		// "hero-contact", 0 render "contact-hero", and the sibling about case
+		// already uses "hero-about". A faithful port would have made a dead
+		// name into seeded data.
+		{"contact — CORRECTED, switch's first slot is a dead name", "contact", "", false,
+			[]string{"hero-contact", "contact-form", "contact-info"}},
 		{"pricing by equality", "pricing", "", true, nil},
 		{"pricing by contains", "our-pricing-plans", "", true, nil},
 		{"about", "about", "", true, nil},

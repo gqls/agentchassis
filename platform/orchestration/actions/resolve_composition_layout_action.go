@@ -151,6 +151,23 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 				zap.String("layout_id", kit.LayoutID.UUID.String()),
 				zap.String("layout_name", kitLayoutName),
 			)
+			// Report the scheme comparison honestly rather than hardcoding
+			// false: siteScheme is computed above and a kit CAN name a layout
+			// whose scheme contradicts the site's brief (the kit is a human's
+			// general choice; the brief is about this site). Honouring the kit
+			// is deliberate — but claiming the two agreed when they did not
+			// would put a false value in the same field the tag-matching path
+			// uses truthfully, and downstream reads it as "no mismatch here".
+			kitSchemeMismatch := siteScheme != "" && kitLayoutScheme != "" &&
+				siteScheme != kitLayoutScheme
+			if kitSchemeMismatch {
+				logger.Warn("ResolveCompositionLayoutAction: theme-kit layout contradicts the site's derived scheme — honouring the kit",
+					zap.String("site_id", siteID.String()),
+					zap.String("theme_kit", kit.ThemeKitName),
+					zap.String("site_scheme", siteScheme),
+					zap.String("kit_layout_scheme", kitLayoutScheme),
+				)
+			}
 			return map[string]interface{}{
 				"layout_id":          kit.LayoutID.UUID.String(),
 				"layout_name":        kitLayoutName,
@@ -158,7 +175,7 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 				"candidates":         []string{kitLayoutName},
 				"is_fallback":        false,
 				"scheme":             kitLayoutScheme,
-				"is_scheme_mismatch": false,
+				"is_scheme_mismatch": kitSchemeMismatch,
 				"site_tags":          collectNormalisedSiteTags(category, industryTags),
 				"review_item_queued": nil,
 				"source":             "theme_kit_default",

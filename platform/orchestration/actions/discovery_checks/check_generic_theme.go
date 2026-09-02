@@ -55,6 +55,9 @@ type genericThemeFinding struct {
 	CSSLength        int    `json:"css_length"`
 	UsesDefaultColor bool   `json:"uses_default_color"`
 	Detail           string `json:"detail"`
+	// SuppressedByThemeKit records that the palette-taste arms fired but were
+	// deliberately not raised because the site sits on an applied theme kit.
+	SuppressedByThemeKit bool `json:"suppressed_by_theme_kit,omitempty"`
 }
 
 func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) {
@@ -73,27 +76,37 @@ func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) 
 		return nil, nil
 	}
 
-	// A site with a current theme_kit_adoption spec chose its palette
-	// deliberately (689_theme_kits.sql) — this check must not re-dispatch
-	// webdesign-agent against it. That dispatch is exactly the colour-churn
-	// mechanism documented above (analyze_design re-rolls the palette on
-	// every run): a themed site failing this check for some OTHER reason
-	// (e.g. genuinely empty CSS) would just get its theme-kit colours
-	// overwritten with an LLM guess, which is a worse outcome than leaving
-	// the finding unraised. If a themed site needs a real design fix, that
-	// is a different, explicit path (reapply / a human ticket), not this
-	// check's silent re-roll.
-	var hasThemeKit bool
+	// Does this site sit on a theme kit whose palette was actually applied?
+	// Used BELOW, after the finding is computed — not as an early return.
+	//
+	// The suppression is narrow on purpose. Re-dispatching webdesign-agent at
+	// a themed site re-rolls its palette (the colour-churn mechanism this
+	// file's own history documents), so the "looks default / no webdesign
+	// spec" arms must not fire. But the CSSLength == 0 arm is a different
+	// fact — the head component has NO CSS at all — and no other discovery
+	// check reads head CSS, so suppressing that arm would leave a themed site
+	// silently unstyled with nothing able to notice. An early return did
+	// exactly that.
+	//
+	// Keyed on `applied.palette`, not on the row existing: a fill_gaps apply
+	// that skipped the palette (site already had its own design_intent)
+	// changed no colours, so there is nothing for this check to be deferring
+	// to. The join to theme_kits also requires the kit still be active — a
+	// deactivated kit must not exempt its sites for ever.
+	var themeKitAppliedPalette bool
 	if err := dctx.DB.QueryRowContext(dctx.Ctx, `
 		SELECT EXISTS (
-		         SELECT 1 FROM site_specs
-		          WHERE site_id = $1 AND aspect = 'theme_kit_adoption' AND is_current = true
+		         SELECT 1
+		           FROM site_specs ss
+		           JOIN theme_kits tk ON tk.id::text = ss.data->>'theme_kit_id'
+		          WHERE ss.site_id = $1
+		            AND ss.aspect = 'theme_kit_adoption'
+		            AND ss.is_current = true
+		            AND tk.is_active = true
+		            AND COALESCE((ss.data->'applied'->>'palette')::boolean, false)
 		       )
-	`, dctx.SiteID).Scan(&hasThemeKit); err != nil {
+	`, dctx.SiteID).Scan(&themeKitAppliedPalette); err != nil {
 		return nil, err
-	}
-	if hasThemeKit {
-		return nil, nil
 	}
 
 	finding := &genericThemeFinding{}
@@ -159,18 +172,32 @@ func findGenericTheme(dctx DiscoveryCheckContext) (*genericThemeFinding, error) 
 
 	// Determine if this is a problem
 	isGeneric := false
+	suppressedByThemeKit := false
 	if !finding.HasWebdesignSpec {
 		finding.Detail = "No webdesign spec in site_specs or sites.content_data.color_scheme — agent never produced themed CSS"
 		isGeneric = true
+		suppressedByThemeKit = themeKitAppliedPalette
 	} else if finding.UsesDefaultColor {
 		finding.Detail = "CSS uses default fallback colours — webdesign may have had no identity context"
 		isGeneric = true
+		suppressedByThemeKit = themeKitAppliedPalette
 	} else if finding.CSSLength == 0 {
+		// NOT suppressible by a theme kit. "This site has no CSS at all" is
+		// not a palette-taste judgement the kit already answered, and no other
+		// discovery check looks at head CSS — staying silent here would leave
+		// a themed site unstyled with nothing able to notice.
 		finding.Detail = "Head component has no CSS content"
 		isGeneric = true
 	}
 
 	if !isGeneric {
+		return nil, nil
+	}
+	if suppressedByThemeKit {
+		// Recorded, not merely skipped: a suppression that leaves no trace is
+		// indistinguishable from a check that never ran.
+		finding.Detail += " — SUPPRESSED: site is on a theme kit whose palette was applied; re-dispatching webdesign-agent would re-roll those colours. Change the kit (apply_theme_kit mode=reapply) or raise this by hand."
+		finding.SuppressedByThemeKit = true
 		return nil, nil
 	}
 

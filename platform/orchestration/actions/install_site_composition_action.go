@@ -609,8 +609,18 @@ func buildResolvedCompositionSpec(
 	typographySource := mapTypographySourceToLineageEnum(
 		readStringFromContext(collectedData, "composition_typography.source"),
 	)
+	// A theme-kit layout is NOT a library tag match, and recording it as one
+	// writes a false structured fact into the lineage the enum exists to make
+	// queryable: nothing could then separate "the matcher scored this highest"
+	// from "a human chose this kit". The free-text `reasoning` below carries
+	// the truth but is not queryable, which is the whole point of the enum.
+	// Requires 689_theme_kits.sql's validator widening to be LIVE first —
+	// validate_resolved_composition_spec REFUSES an unknown layout_source.
 	layoutSource := "library_match"
-	if readBoolFromContext(collectedData, "composition_layout.is_fallback") {
+	switch {
+	case readStringFromContext(collectedData, "composition_layout.source") == "theme_kit_default":
+		layoutSource = "theme_kit_default"
+	case readBoolFromContext(collectedData, "composition_layout.is_fallback"):
 		layoutSource = "library_fallback"
 	}
 

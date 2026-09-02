@@ -39,19 +39,28 @@ import (
 // case it falls straight to the Go switch.
 func sectionsForPage(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName, pageType string, logger *zap.Logger) []string {
 	if db != nil {
-		if rows, ok := pageArchetypeRows(ctx, db, siteID, nil); ok {
+		if rows, ok := pageArchetypeRows(ctx, db, siteID, nil, logger); ok {
 			if sections, matched := matchArchetypeRows(rows, pageName, pageType); matched {
 				return sections
 			}
 		}
-		if kit, ok, kerr := loadSiteThemeKitDefaults(ctx, db, siteID); kerr == nil && ok {
-			if rows, ok := pageArchetypeRows(ctx, db, uuid.Nil, &kit.ThemeKitID); ok {
+		kit, ok, kerr := loadSiteThemeKitDefaults(ctx, db, siteID)
+		if kerr != nil && logger != nil {
+			// Not fatal — the kit scope is skipped and the fleet row still
+			// serves. Logged because a swallowed error here means the kit has
+			// silently stopped steering this site's structure and nothing else
+			// would ever say so.
+			logger.Warn("sectionsForPage: theme-kit lookup failed — kit scope skipped",
+				zap.Error(kerr), zap.String("site_id", siteID.String()))
+		}
+		if kerr == nil && ok {
+			if rows, ok := pageArchetypeRows(ctx, db, uuid.Nil, &kit.ThemeKitID, logger); ok {
 				if sections, matched := matchArchetypeRows(rows, pageName, pageType); matched {
 					return sections
 				}
 			}
 		}
-		if rows, ok := pageArchetypeRows(ctx, db, uuid.Nil, nil); ok {
+		if rows, ok := pageArchetypeRows(ctx, db, uuid.Nil, nil, logger); ok {
 			if sections, matched := matchArchetypeRows(rows, pageName, pageType); matched {
 				return sections
 			}
@@ -75,24 +84,35 @@ type archetypeRow struct {
 // uuid.Nil + nil for the fleet scope. The second bool return is false only
 // on a query error (treated as "no rows in this scope", not a hard failure
 // — a page_archetypes outage must not break a page build).
-func pageArchetypeRows(ctx context.Context, db *sql.DB, siteID uuid.UUID, themeKitID *uuid.UUID) ([]archetypeRow, bool) {
+func pageArchetypeRows(ctx context.Context, db *sql.DB, siteID uuid.UUID, themeKitID *uuid.UUID, logger *zap.Logger) ([]archetypeRow, bool) {
+	// ORDER BY is load-bearing, not tidiness. Two rows in one scope can both
+	// match (page_name_contains 'faq' and 'pricing' both match
+	// "pricing-faq-guide"), and the Go switch this replaces was DETERMINISTIC
+	// about it — first case in source order wins, faq before pricing. Without
+	// an ORDER BY the resolver would serve whichever row the heap returned,
+	// which can change after a VACUUM with no code change at all. Longest
+	// match_value first is the defensible rule (the more specific pattern
+	// wins), then oldest, then id as a total tiebreak so the result is stable.
+	const selectCols = `SELECT match_kind, match_value, sections FROM page_archetypes `
+	const orderBy = ` ORDER BY length(match_value) DESC, created_at ASC, id ASC`
 	var query string
 	var args []interface{}
 	switch {
 	case siteID != uuid.Nil:
-		query = `SELECT match_kind, match_value, sections FROM page_archetypes
-		          WHERE site_id = $1 AND is_active = true`
+		query = selectCols + `WHERE site_id = $1 AND is_active = true` + orderBy
 		args = []interface{}{siteID}
 	case themeKitID != nil:
-		query = `SELECT match_kind, match_value, sections FROM page_archetypes
-		          WHERE theme_kit_id = $1 AND is_active = true`
+		query = selectCols + `WHERE theme_kit_id = $1 AND is_active = true` + orderBy
 		args = []interface{}{*themeKitID}
 	default:
-		query = `SELECT match_kind, match_value, sections FROM page_archetypes
-		          WHERE theme_kit_id IS NULL AND site_id IS NULL AND is_active = true`
+		query = selectCols + `WHERE theme_kit_id IS NULL AND site_id IS NULL AND is_active = true` + orderBy
 	}
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
+		if logger != nil {
+			logger.Warn("pageArchetypeRows: query failed — this scope will be skipped",
+				zap.Error(err), zap.String("scope", archetypeScopeName(siteID, themeKitID)))
+		}
 		return nil, false
 	}
 	defer rows.Close()
@@ -127,9 +147,32 @@ func pageArchetypeRows(ctx context.Context, db *sql.DB, siteID uuid.UUID, themeK
 		// through" — the lost row could have been the match. Refuse the
 		// whole scope; sectionsForPage's caller falls through to the next
 		// scope (and ultimately the Go switch), same as a query error.
+		//
+		// Falling through is right; doing it SILENTLY was not. A thinned site
+		// scope drops to the fleet row and ships a different page structure
+		// with nothing recording that a more specific rule was lost — which is
+		// the 410 shape this guard cites while reproducing it one level up.
+		if logger != nil {
+			logger.Warn("pageArchetypeRows: scan shortfall — refusing this scope, falling through to the next",
+				zap.Error(shortfall), zap.String("scope", archetypeScopeName(siteID, themeKitID)),
+				zap.Int("offered", offered), zap.Int("kept", len(out)))
+		}
 		return nil, false
 	}
 	return out, true
+}
+
+// archetypeScopeName names a scope for logs, so a warning says WHICH of the
+// three lookups was skipped rather than just that one was.
+func archetypeScopeName(siteID uuid.UUID, themeKitID *uuid.UUID) string {
+	switch {
+	case siteID != uuid.Nil:
+		return "site:" + siteID.String()
+	case themeKitID != nil:
+		return "theme_kit:" + themeKitID.String()
+	default:
+		return "fleet"
+	}
 }
 
 // matchArchetypeRows applies the switch's own precedence within one scope's

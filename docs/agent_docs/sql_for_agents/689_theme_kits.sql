@@ -105,13 +105,120 @@ CREATE TABLE IF NOT EXISTS page_archetypes (
   forked_from_archetype_id uuid REFERENCES page_archetypes(id) ON DELETE SET NULL,
   created_by       text NOT NULL DEFAULT 'system',
   created_at       timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (theme_kit_id, site_id, match_kind, match_value)
+  -- NULLS NOT DISTINCT is load-bearing, not decoration (PG15+; server is
+  -- 15.18, checked 2026-09-02). The CHECK above guarantees at least one of
+  -- theme_kit_id/site_id is NULL in EVERY row, and under Postgres's default
+  -- (NULLS DISTINCT) two NULLs never conflict — so a plain UNIQUE here can
+  -- NEVER fire, and the seed's ON CONFLICT DO NOTHING below would be dead
+  -- code: a hand re-run (psql -f, which is how _HOLD files get applied here)
+  -- would insert 14 duplicate fleet rows, and a future site-scope writer
+  -- could file two page_name='faq' rows for one site with the resolver
+  -- serving whichever the heap returned first.
+  UNIQUE NULLS NOT DISTINCT (theme_kit_id, site_id, match_kind, match_value)
 );
 
 CREATE INDEX IF NOT EXISTS idx_page_archetypes_theme_kit ON page_archetypes(theme_kit_id) WHERE theme_kit_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_page_archetypes_site ON page_archetypes(site_id) WHERE site_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_page_archetypes_fleet ON page_archetypes(match_kind, match_value)
   WHERE theme_kit_id IS NULL AND site_id IS NULL AND is_active;
+
+-- ── widen resolved_composition's layout_source enum ────────────────────
+--
+-- `validate_resolved_composition_spec` (103_site_design_planner.sql) ENFORCES
+-- layout_source against a closed list and REFUSES an unknown value. Before
+-- this, a theme-kit-chosen layout was written as 'library_match' — a FALSE
+-- structured fact: it was not a weighted tag match, and no query could
+-- separate "the library scored this highest" from "a human picked this kit".
+-- Free-text `reasoning` carried the truth but is not queryable, which is the
+-- whole reason the enum exists.
+--
+-- ORDERING: this half must be LIVE BEFORE the Go half emits the new value —
+-- widening the accepted set breaks nothing (no existing row uses it), while a
+-- binary emitting 'theme_kit_default' against the old function would have its
+-- resolved_composition spec refused outright. Migration first, then the roll.
+CREATE OR REPLACE FUNCTION validate_resolved_composition_spec(spec jsonb)
+RETURNS text AS $validate_rcs$
+DECLARE
+    required_id_fields text[] := ARRAY[
+        'css_theme_id','palette_id','layout_id','typography_set_id'
+    ];
+    required_name_fields text[] := ARRAY[
+        'css_theme_name','palette_name','layout_name','typography_name'
+    ];
+    f text;
+    lineage jsonb;
+    palette_src text;
+    layout_src text;
+    typography_src text;
+BEGIN
+    IF spec IS NULL OR jsonb_typeof(spec) != 'object' THEN
+        RETURN 'resolved_composition spec must be a JSON object';
+    END IF;
+
+    FOREACH f IN ARRAY required_id_fields LOOP
+        IF (spec ->> f) IS NULL THEN
+            RETURN format('resolved_composition.%s is required', f);
+        END IF;
+        -- Very loose UUID check (36 chars with hyphens); full validation is
+        -- Go's job via uuid.Parse. This just catches obviously wrong values.
+        IF length(spec ->> f) != 36 THEN
+            RETURN format('resolved_composition.%s does not look like a UUID (length=%s)',
+                          f, length(spec ->> f));
+        END IF;
+    END LOOP;
+
+    FOREACH f IN ARRAY required_name_fields LOOP
+        IF (spec ->> f) IS NULL OR (spec ->> f) = '' THEN
+            RETURN format('resolved_composition.%s is required and non-empty', f);
+        END IF;
+    END LOOP;
+
+    -- lineage required with its three source fields
+    lineage := spec -> 'lineage';
+    IF lineage IS NULL OR jsonb_typeof(lineage) != 'object' THEN
+        RETURN 'resolved_composition.lineage must be a JSON object';
+    END IF;
+
+    palette_src := lineage ->> 'palette_source';
+    IF palette_src IS NULL THEN
+        RETURN 'resolved_composition.lineage.palette_source is required';
+    END IF;
+    IF palette_src NOT IN ('fingerprint','library_reuse','mission_hint',
+                           'design_intent_values','archetype_default') THEN
+        RETURN format('resolved_composition.lineage.palette_source %L is not a known value', palette_src);
+    END IF;
+
+    layout_src := lineage ->> 'layout_source';
+    IF layout_src IS NULL THEN
+        RETURN 'resolved_composition.lineage.layout_source is required';
+    END IF;
+    IF layout_src NOT IN ('library_match','library_fallback','mission_hint',
+                          'needs_new_layout_candidate','theme_kit_default') THEN
+        RETURN format('resolved_composition.lineage.layout_source %L is not a known value', layout_src);
+    END IF;
+
+    typography_src := lineage ->> 'typography_source';
+    IF typography_src IS NULL THEN
+        RETURN 'resolved_composition.lineage.typography_source is required';
+    END IF;
+    IF typography_src NOT IN ('fingerprint_font_family_match','archetype_default',
+                              'layout_default','mission_hint','fallback_sans_modern') THEN
+        RETURN format('resolved_composition.lineage.typography_source %L is not a known value', typography_src);
+    END IF;
+
+    IF (spec ->> 'reasoning') IS NULL OR (spec ->> 'reasoning') = '' THEN
+        RETURN 'resolved_composition.reasoning is required';
+    END IF;
+    IF (spec ->> 'resolved_by') IS NULL THEN
+        RETURN 'resolved_composition.resolved_by is required';
+    END IF;
+    IF (spec ->> 'resolved_at') IS NULL THEN
+        RETURN 'resolved_composition.resolved_at is required';
+    END IF;
+
+    RETURN NULL;
+END;
+$validate_rcs$ LANGUAGE plpgsql IMMUTABLE;
 
 -- ── site_specs aspect used by apply_theme_kit_action.go ────────────────
 --
@@ -147,8 +254,8 @@ VALUES
     'Ported from defaultSectionsForPage (equality half of the faq case).', 'seed'),
   (NULL, NULL, 'page_name_contains', 'faq', '["hero","faq","call-to-action"]'::jsonb,
     'Ported from defaultSectionsForPage (contains half of the faq case).', 'seed'),
-  (NULL, NULL, 'page_name', 'contact', '["contact-hero","contact-form","contact-info"]'::jsonb,
-    'Ported from defaultSectionsForPage.', 'seed'),
+  (NULL, NULL, 'page_name', 'contact', '["hero-contact","contact-form","contact-info"]'::jsonb,
+    'Ported from defaultSectionsForPage, with its first slot CORRECTED: the Go switch returns "contact-hero", which has ZERO content_components rows in any state — the name is transposed. [MEASURED 2026-09-02] 18 live contact pages render "hero-contact", 0 render "contact-hero", and the sibling about case already uses the same hero-<x> order ("hero-about"). Porting the typo faithfully would have baked a dead name into data.', 'seed'),
   (NULL, NULL, 'page_name', 'pricing', '["hero","pricing","faq","call-to-action"]'::jsonb,
     'Ported from defaultSectionsForPage (equality half of the pricing case).', 'seed'),
   (NULL, NULL, 'page_name_contains', 'pricing', '["hero","pricing","faq","call-to-action"]'::jsonb,

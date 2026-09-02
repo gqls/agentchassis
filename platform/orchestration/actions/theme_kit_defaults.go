@@ -57,10 +57,17 @@ type siteThemeKitDefaults struct {
 
 func loadSiteThemeKitDefaults(ctx context.Context, db *sql.DB, siteID uuid.UUID) (siteThemeKitDefaults, bool, error) {
 	var out siteThemeKitDefaults
+	// Compare as TEXT, never `(ss.data->>'theme_kit_id')::uuid`. The cast
+	// raises 22P02 (invalid_text_representation) on any malformed or non-uuid
+	// value in that key — and because a spec's `data` is free-form jsonb that
+	// several writers can touch, one bad row would make this query throw for
+	// EVERY site, not just that one. Every caller treats an error as "no kit",
+	// so the failure mode is the kit silently ceasing to steer anything.
+	// Text comparison simply does not match a malformed value.
 	row := db.QueryRowContext(ctx, `
 		SELECT tk.id, tk.name, tk.layout_id, tk.header_component_id, tk.footer_component_id
 		FROM site_specs ss
-		JOIN theme_kits tk ON tk.id = (ss.data->>'theme_kit_id')::uuid
+		JOIN theme_kits tk ON tk.id::text = ss.data->>'theme_kit_id'
 		WHERE ss.site_id = $1 AND ss.aspect = 'theme_kit_adoption' AND ss.is_current = true
 		  AND tk.is_active = true
 	`, siteID)
