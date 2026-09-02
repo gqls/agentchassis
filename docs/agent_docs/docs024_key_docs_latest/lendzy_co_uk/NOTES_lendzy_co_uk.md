@@ -332,3 +332,32 @@ input for the registration path and the mirror.
 that ran the method found errors. Five wrong live claims across three sites in one day is not a
 tail risk; it is what "unchecked citations" means at this fleet's scale. The Q6 checker and the
 mirror are being built against that rate, not against a hypothetical.
+
+## 2026-09-02 (k) — the roll, the apply, and the RAISE that aborted it
+
+**The chassis rolled at ~15:39Z** (new replicaset `744cfb4bf`; the whole agent fleet cycled behind
+it). My monitor armed seconds AFTER the new pods existed, so its roll-detection baseline was
+post-roll and would never have fired — caught by reading the baseline timestamp in the armed
+message against the pod age measured half an hour earlier. *A watcher's baseline can race the event
+it watches; read the baseline as data, not as setup.*
+
+Both in-flight council runs (693 r3, 695 r2) froze at the roll instant and stayed ~10 min stale
+with their executing pods gone — **resubmitted on their existing correlations** per the estate
+precedent, trail kept.
+
+**696 applied at ~15:46Z, on the second attempt.** The first apply ABORTED at the verify block:
+`RAISE EXCEPTION` with a parameter but no `%` placeholder is a **compile-time** error in PL/pgSQL,
+so the single wrapped transaction rolled everything back (verified pre-state `4 | 0 | 0` before
+retrying — the abort cost nothing but minutes). A mechanical audit of every RAISE across all six
+lane migration files found exactly TWO mismatches, both in 696's pair, both fixed (`9e5a689b7`).
+*The lesson: the DO/RAISE discipline this lane preaches has its own failure mode — a RAISE that
+cannot compile fails the migration for the wrong reason at the last block; audit placeholder
+counts mechanically, not by eye.*
+
+Second apply, clean:
+> `696 OK: CONC 6.7.17 extinct; 10 CPA cites now 7.6.12; spec superseded; 2 tool templates
+> corrected (lendzy + the loancash fork); 11 rerenders queued` — plus `bak_696_citation_surgery`
+> (9 rows) and `bak_696_component_templates` (2) kept.
+
+Watcher armed on the 11 rerenders; the POST-APPLY artefact check runs when they are all terminal.
+695/693 remain UNAPPLIED, awaiting their (resubmitted) verdicts.
