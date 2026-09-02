@@ -33,6 +33,8 @@
 --    record is THIS FILE — append one line directly below this block and commit
 --    it (pathspec):  -- APPLIED <date> by <session>; roll verified at <stamp sha>
 
+-- APPLIED 2026-09-02 by the apis.uk session; roll verified at the pod FIRST by capability probe on agent-chassis-744cfb4bf-mwzgx: section_subjects=1, SUBJECT_MISSING_ON_REPEATED_COMPONENT=1, +control section_facts=2, -control 0. Live post-check: plan_sections config carries section_subjects=spec_sections.section_subjects.
+
 SELECT snapshot_agent('page-build-handler', '639_page_build_handler_wires_section_subjects_HOLD.sql: pre-update');
 
 BEGIN;

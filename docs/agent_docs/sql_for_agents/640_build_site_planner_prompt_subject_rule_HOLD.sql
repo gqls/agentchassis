@@ -42,6 +42,8 @@
 --    record is THIS FILE — append one line directly below this block and commit
 --    it (pathspec):  -- APPLIED <date> by <session>; roll verified at <stamp sha>
 
+-- APPLIED 2026-09-02 by the apis.uk session (SECOND attempt; the first was correctly REFUSED by the anchor guard against bugs_open/380's drift and the seed was re-derived, see header). Same pod verification as 639. Live post-check: subject rule + 380 sentence + example all present.
+
 SELECT snapshot_agent('build-site-planner', '640_build_site_planner_prompt_subject_rule_HOLD.sql: pre-update');
 
 BEGIN;
