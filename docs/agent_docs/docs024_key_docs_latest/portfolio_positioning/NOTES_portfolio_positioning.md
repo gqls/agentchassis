@@ -3811,3 +3811,12 @@ backups bak_gdcouk_rename_20260902_*; class bug filed by the gamedesign.uk sessi
 bugs_open/439). NEW pair fact on both GD rows: sibling's guide-p2p-architecture deep-links to
 gamedesign.uk/games/p2p-networking/ — GD2's rebuild brief must keep/redirect that path or have
 the sibling drop the link; both site sessions informed.
+
+### (m) Rename serve-verified by the gamesdesign session; Pro-tier name/home recorded UNDECIDED
+
+Their verification: 0/31 serving pages carry the old brand; the p2p link races were caught and
+re-dispatched. Register residue recorded on GD1+GD2: "GamesDesign.co.uk Pro" now exists in one
+served meta (contact) + the never-built premium.html title — my earlier "Pro name in no current
+spec" was TRUE of specs but the name lived in pages.title/meta (a lesson: a spec census is not a
+pages census). The paid tier's NAME and HOME stay undecided; owner call at GD2 brief time.
+Their lane docs: docs024_key_docs_latest/gamesdesign_couk/ (dc1764660, bf0dc007d).
