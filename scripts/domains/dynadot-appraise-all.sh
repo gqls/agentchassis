@@ -2,7 +2,10 @@
 # Walk Dynadot's Dynappraisal (RESTful v2) over a domain list, RESUMABLY.
 #
 # Usage: dynadot-appraise-all.sh <domains.csv> <valuations.csv>
-#   <domains.csv>    header + domain in column 1 (the inbound inventory CSV).
+#   <domains.csv>    CSV with a header row containing a "domain" column — found
+#                    BY NAME, not position (the inventory CSV has it first, the
+#                    priority list has it second; positional parsing is the
+#                    OPP-013 paste trap).
 #   <valuations.csv> created with header if absent; domains already present are
 #                    SKIPPED, so re-running after the daily quota 429 resumes
 #                    exactly where it stopped. Appraisal quota is PER DAY by
@@ -18,6 +21,11 @@ if [[ $# -ne 2 ]]; then
 fi
 src="$1"; out="$2"
 client="$(dirname "$0")/dynadot-restful.sh"
+col=$(head -1 "$src" | tr -d '\r' | tr ',' '\n' | grep -nx 'domain' | cut -d: -f1)
+if [[ -z "$col" ]]; then
+  echo "dynadot-appraise-all.sh: no 'domain' column in $src header: $(head -1 "$src")" >&2
+  exit 2
+fi
 [[ -f "$out" ]] || echo "domain,valuation,currency,source" > "$out"
 today=$(date +%F)
 fetched=0; skipped=0
@@ -40,7 +48,7 @@ while IFS= read -r d; do
   fetched=$((fetched+1))
   [[ $((fetched % 25)) -eq 0 ]] && echo "progress: $fetched fetched this run"
   sleep 1.2
-done < <(tail -n +2 "$src" | cut -d, -f1)
+done < <(tail -n +2 "$src" | cut -d, -f"$col" | tr -d '\r')
 
 total=$(( $(wc -l < "$out") - 1 ))
 echo "done: $fetched fetched this run, $skipped already present, $total total rows in $out"
