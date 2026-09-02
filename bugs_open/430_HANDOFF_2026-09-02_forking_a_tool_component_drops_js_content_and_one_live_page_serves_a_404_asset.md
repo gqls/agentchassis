@@ -153,11 +153,19 @@ gate before or alongside committing, per CLAUDE.md.
 
 1. **Resolve the scoping question first** (§4), then extend the fork INSERT's column
    list — the actual code change is still small once the scoping approach is decided.
-2. **Backfill**: the two existing broken forks (§2) are a separate, smaller follow-up —
-   fixing the fork path going forward does not repair rows already forked. `befacff0`
-   (latent) can wait; `2c7f7c67` (live, 404ing right now) is the one worth a manual
-   backfill (copy the parent's current `js_content`, scoped correctly per whatever §4
-   resolves to) independent of when the general fix lands.
+2. **Backfill — and this does NOT self-heal.** [CONFIRMED 2026-09-02,
+   `webdesign-tool-rebuild`]: nothing in vonc.com's queue will re-fork or re-deploy
+   `tool-provocation-heat-rater`. The only open items on that page are five
+   `misdirected_cta` page_rerenders sitting `unresolved` after 2 attempts each
+   (`675c382f`, `54c94bbe`, `a2ceee2b`, `73df8ced`, `cd3558e5`) plus two deferred
+   content items — none of them touch this component, and any rerender that DOES fire
+   would reassemble the page from the same `2c7f7c67` row, republishing the same dead
+   reference. `who-owns.py tool-provocation-heat-rater` returns no owner. Fixing the
+   fork path (§4, once resolved) stops NEW damage; it does not repair `2c7f7c67` — that
+   needs an explicit backfill (copy the parent's current `js_content`, scoped correctly
+   per whatever §4 resolves to, or re-fork the component after the path is fixed),
+   independent of when the general fix lands. `befacff0` (latent, not deployed) can
+   wait.
 3. Not recommended: leave as-is. `store_generated_component_action.go:242` separates
    inline `<script>` into `js_content` on every store, so the set of parents with
    separated JS — and therefore the set of forks that would lose it — grows by addition,
