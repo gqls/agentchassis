@@ -416,3 +416,14 @@ option written up in the lane README with the floor data behind it; (2) the fire
 narrower eligibility spelling is `bugs_open/415`, untouched. (3) Housekeeping: the migration
 trio dropped its `_HOLD` suffix and was `--record-only`'d on 2026-09-02 (bugs_closed/150
 lifecycle) — historical references to the `_HOLD` names in this file were true when written.
+
+> **Residual (1) RULED — candidate 2 provisionally DECLINED (owner, 2026-09-02, routed via
+> the dispatch_throughput lane, flagged not-yet-final):** *"no need to reorder because
+> everything flows through well and we can scale to meet excess demand."* No new ordering
+> machinery; flow + capacity is the policy. What this accepts, stated honestly by the ruling
+> itself: per-ITEM waits stay unbounded during sustained inflow to a busy site (the ~16h
+> pinned-row shape measured 08-31) — bounded in practice by the queue now draining to empty
+> regularly. Revisit trigger is MECHANICAL: the pin census's oldest-row age tail growing
+> across reads (dispatch_throughput RUNBOOK). The same default covers this file's candidate
+> 3 (escalating ancient attempt-0 rows): declined unless it ever closes a measured defect.
+> Ordering decisions route to the dispatch_throughput lane per the 08-26 split.
