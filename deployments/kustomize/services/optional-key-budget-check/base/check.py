@@ -82,6 +82,7 @@ OPTIONAL_KEY_COUNTS = {
     "apply_feed_scores": 2,
     "apply_gap_plan": 3,
     "apply_section_edit": 7,
+    "apply_theme_kit": 1,
     "assemble_upload_manifest": 5,
     "bind_site_experience": 6,
     "check_endpoint_health": 1,
