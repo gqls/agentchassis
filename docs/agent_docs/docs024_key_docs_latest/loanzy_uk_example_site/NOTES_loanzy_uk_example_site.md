@@ -2372,3 +2372,19 @@ defect it finds" — worked case #3, and this time the finding was the ARCHITECT
   strict-APR is their harmonisation target. Lesson for my file: what read as sloppy
   rounding was two CORRECT conventions plus one real defect — the inconsistency census was
   right to flag, wrong about the mechanism; the fix queue carries all three derivations.
+
+## 2026-09-02 — 697/698 round 1 REVISE (compliance HIGH); every objection answered by measurement, round 2 on the trail
+- compliance HIGH (live MaPS misrepresentation left served): the routing round 1 promised had
+  HAPPENED but postdated the submission — copy lane's 8-page census + stage-2 canary at
+  get-help (their corr 01e77807) + owner batch queue. Round 2 cites the artefacts.
+- debug_historian's clobber worry — the best objection of the round — MEASURED AWAY: farmer's
+  entity facts were written by evidence-researcher via `verify_and_register_citations`, which
+  MERGES (id map, skip dupes, append — evidence_citations.go:233-318); the lossy
+  write_site_spec path is not in that workflow. My policy facts survive future runs.
+- TOCTOU on the supersede: structurally impossible to yield 0-or-2 current rows —
+  idx_site_specs_current is UNIQUE (site_id,aspect) WHERE is_current, and 698's
+  UPDATE+INSERT is one data-modifying CTE in one txn. Post-apply battery: exactly-1-current
+  per site; 3/3 + 7/7 facts (incl. carried-forward entity facts) with url + quote>15.
+- Lesson: routing done via SendMessage is INVISIBLE to a council reading the plan — when a
+  submission claims "routed to X", either produce the artefact in the change or expect the
+  round; citing the peer's own correlation ids after the fact is the honest repair.
