@@ -4109,6 +4109,17 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// ── Listing pages must have a resolvable item source (bugs_open/444) ────
+	// Opt-in via step config; default false = exactly the prior behaviour.
+	// A listing-family page (news-index, entity-directory, section-index,
+	// blog-index, or any page carrying a listing component) whose item source
+	// resolves to nothing for THIS site is held out of the plan and filed as a
+	// capability_gap naming the missing producer — never built as meta-prose.
+	if enforce, _ := config["enforce_listing_sources"].(bool); enforce {
+		pages = enforceListingItemSources(ctx, params, pages, existingPages)
+		plan["pages"] = pages
+	}
+
 	params.Logger.Info("ValidateSitePlanAction: Complete", zap.Int("pages", len(pages)))
 	return plan, nil
 }

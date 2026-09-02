@@ -2764,6 +2764,16 @@ func planSection(ctx context.Context, sectionName string, section sectionRef, co
 					if carryStored() {
 						continue
 					}
+					// A declared fallback still beats a deferral — a build that
+					// previously succeeded via fallback must keep succeeding
+					// (council round 1, render_guardian). Measured 2026-09-02:
+					// ZERO of the 17 required/min_items query fields fleet-wide
+					// declare one, so this arm is future-proofing, not a live
+					// behaviour change.
+					if fallback != nil {
+						resolvedData[fieldName] = fallback
+						continue
+					}
 					shouldDefer = true
 					missingFields = append(missingFields, missingField{
 						Field:     fieldName,

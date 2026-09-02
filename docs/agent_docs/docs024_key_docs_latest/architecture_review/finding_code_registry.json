@@ -380,5 +380,13 @@
   "owner_lane": "bugfix_443_fallback_tier_subjects",
   "why": "Observe-only by design: the build proceeded, and the row records that a page built N same-typed sections with no subject to tell the instances apart — identical briefs, near-duplicate output predicted (bugs_open/443: 11 of 11 such pages served real repetition, measured 2026-09-02). Expected reader today: whoever backfills subjects for the 443 cohort and the RFC_063 decision. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567): a lost row costs a re-observation on the next build of the same page, not a lost fact. Bounded: 25 repeat-layout pages fleet-wide as of 2026-09-02, one row per rebuild of one of them at worst. Revisit disposition when an automated consumer exists.",
   "note": "Build-side sibling of SUBJECT_MISSING_ON_REPEATED_COMPONENT (planner-side, write_site_plan, apis.uk lane): distinct code because the remedy differs — the planner one means the PLAN is malformed (replan / write subject rows, rule 17); this one means the page WAS BUILT with no subjects reachable at its serving tier (site_plan_sections.subject for planned sites; pages.section_subjects for plan-less pages, bugs_open/443). Deliberately NOT gated on the page carrying any subject: the pages this surfaces can never carry one."
+ },
+ "LISTING_PAGE_HELD_NO_ITEM_SOURCE": {
+  "disposition": "human-evidence",
+  "writer": "platform/orchestration/actions/listing_item_sources.go (enforceListingItemSources, via LogActionFindings)",
+  "reader_sink": "agent_error_log",
+  "owner_lane": "bugfix_444_empty_listing_pages",
+  "why": "The durable record that validate_site_plan's listing-source gate (opt-in, migration 720) HELD a listing page out of a plan because its item source resolved to zero — so 'the gate fired' and 'the planner proposed nothing unfillable' never produce identical evidence (bugs_open/444). The ACTIONABLE artefact is the paired capability_gap work item (item_key capability_gap:<page_type>:<page_name>, spec.gap_kind=producer_missing, spec.builder_needed names the enablement); this row is the gate's own audit trail. A lost row costs nothing operational — the work item is the receipt — so the standard retention window is accepted.",
+  "note": "One row per held page per plan run. Expected readers: the enablement operator answering a capability_gap (the row carries the same producer_needed slug), and anyone auditing why a planned page never appeared. Sibling of the gate's Warn logs, which do not survive pod restarts — the entire reason this durable row exists (the 444 diagnosis lost the build-time Warn lines to a restart)."
  }
 }

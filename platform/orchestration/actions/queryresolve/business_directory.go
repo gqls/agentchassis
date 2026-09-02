@@ -38,6 +38,17 @@ type businessDirectoryConfig struct {
 	BusinessTypeILike string
 }
 
+// HasBusinessDirectoryConfig reports whether siteID has a
+// directory-json-exporter config row — the exact precondition
+// resolveBusinessDirectory requires before it will return entries (it ERRORS
+// without one, deliberately: bugs_open/206). Exported for plan-time validation
+// (bugs_open/444) so the gate and the renderer share ONE predicate and cannot
+// drift.
+func HasBusinessDirectoryConfig(ctx context.Context, db *sql.DB, siteID uuid.UUID) (bool, error) {
+	_, ok, err := lookupBusinessDirectoryConfig(ctx, db, siteID)
+	return ok, err
+}
+
 // lookupBusinessDirectoryConfig finds the exporter config for siteID's own
 // domain. Matches by domain (scheduled_tasks carries no site_id column) and
 // by target_agent_type (there is exactly one such task fleet-wide today,
