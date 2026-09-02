@@ -1650,3 +1650,85 @@ team as part of their repair?** Waiting is my recommendation — it is a few day
 wrong order means doing it twice.
 
 Everything else on my side is either done or handed to the team that owns it.
+
+---
+
+## 2026-09-02, evening — with the login working again, I got real answers. Two of them are about my own mistakes.
+
+**The headline: four of the calculators are now confirmed working by a real browser, and I found
+out that "working" means less than I thought it did.**
+
+### I was wrong twice this afternoon, and both errors flattered my own theory
+
+I told you this morning that the machine which checks the calculators was being lied to, and that
+this affected every calculator it could see on this site. **Only two, not eight.** I had assumed
+that because a page had been renamed internally, the test written for it must be out of date. That
+only follows if the test actually names one of the renamed parts, and most of them don't — they
+point at things the rename never touched. When I tested it properly instead of reasoning about it,
+five of the tests turned out to be perfectly good.
+
+The second error was in the bug report I filed. I measured the problem by looking at the master
+copy of each calculator, when what actually gets tested is the published page. Measured the right
+way the problem is bigger (sixteen calculators affected, not ten) and the cause is different: some
+published pages are simply old, built before the rename, so they still carry the old names even
+though their master copy was updated. I corrected the bug report the same day, before anyone acted
+on it.
+
+**Both mistakes made my own story look tidier than the truth.** That is the direction to be
+suspicious in, and I have written it down where I keep that sort of thing.
+
+### One calculator was recorded as broken and had been fixed nine hours later
+
+The bridging-loan compound calculator's most recent verdict said it failed. Looking at the
+timestamps: it failed at 11:57 one morning, an automatic repair finished at 12:21, and the page was
+rebuilt at 23:07 — and then nothing ever re-checked it. **So the failure was newer than the fix on
+paper, and older than it in reality.** I ran a fresh check this evening and it passes: all nine
+tests, on desktop and on mobile, including the exact one that had failed. It took forty-eight
+seconds.
+
+That is worth remembering as a general thing: **a failure notice outlives its own repair whenever
+the thing that fixes it doesn't re-run the test.**
+
+### The uncomfortable finding: the tests don't check the arithmetic
+
+This is the one I would most like you to know about. There are two kinds of test on this site and
+they check opposite halves of the problem.
+
+The older tests, written by hand for the original calculators, check **the sums are right** — feed
+in a mortgage, confirm the monthly payment is the exact expected figure. They check nothing else:
+not whether the page loads, not whether it works on a phone.
+
+The newer tests, written automatically, check **the calculator is alive** — the page loads, nothing
+errors, it fits a phone screen, and something appears when you press the button. They do not check
+a single number.
+
+So when I tell you a calculator "passes", ask which kind. Two of the four passing tools pass a test
+that would be equally happy if the calculator printed a wrong figure with confidence.
+
+I checked whether this is just us: across the whole estate the automatic writer has produced **170**
+of these tests and **107 of them assert no expected value at all**. The reason is small and fixable
+— the instructions that agent works from list the test types it can use, and the one that checks a
+number simply isn't on the list. It has never been told it exists. One team's tests do use both
+kinds together, so it plainly works; nobody told the generator about it.
+
+I have filed that, with a warning attached: the fix must not be "let the generator make up the
+expected answers", because it would then pin whatever the calculator does today, bugs included. The
+expected figures have to come from somewhere other than the calculator — which is exactly what the
+hand-written tests on this site already do.
+
+### Where the calculators actually stand
+
+- **Four confirmed working** — but see the caveat above about what the checks cover.
+- **Two genuinely blocked**, by the two faults I filed today: the test looks for parts under their
+  old names, and the automatic repairer that should fix it can't start because of a separate flaw
+  in how the job is created. That second one accounts for **62% of all failed repair jobs across
+  the estate**, so it is not just us.
+- **Three have no test at all** — writing them is real work, needing a trustworthy source for each
+  expected figure, and I have not started it.
+- **Nine cannot be tested yet** and need the other team's repair to land first.
+
+### What I have not done
+
+I still haven't touched the images, for the reasons in my last note — both fixes belong to other
+teams and one of them is mid-flight. **The question I asked you earlier still stands**: wait for
+their repair, or hand them the whole imagery job. Nothing else is waiting on you.
