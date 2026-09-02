@@ -83,7 +83,18 @@ pages**:
 | cookly.uk | 15 |
 | lampenkap.com | 13 |
 
-Still not censused: **how many of those 186 pages actually repeat a component type** — that is what
+> **CORRECTED 2026-09-02, same day — the 186 is too narrow and the better figure is 203.**
+> `build_status='deployed'` (my predicate) is a strict subset of `deployed_at IS NOT NULL` (the
+> `bugs_open/114` lane's, derived independently). The 17-page gap is entirely
+> **`build_status='needs_rebuild'`** — gaswholesalers.com 9, finetuning.uk 5,
+> ai-agent-orchestration.com 3: pages that HAVE deployed and are flagged to rebuild. For any
+> defect that bites *at render*, those 17 are the highest-value pages in the cohort, not a
+> rounding error — and my predicate silently dropped exactly them. **Use 203.** The lesson
+> generalises past this bug: `build_status='deployed'` answers "in the deployed state now",
+> `deployed_at IS NOT NULL` answers "has ever deployed", and a rebuild-pending page is invisible
+> to the first while being the most likely thing to re-render next.
+
+Still not censused: **how many of those 203 pages actually repeat a component type** — that is what
 converts exposure into damage, and it is the one query left. A page whose layout has no repeated
 type is exposed but unharmed.
 
