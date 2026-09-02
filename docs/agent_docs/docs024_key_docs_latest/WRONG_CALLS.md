@@ -57702,3 +57702,49 @@ measurement rather than reading their conclusion.**
 
 Family: a-report-is-not-a-measurement, a-post-fix-zero-needs-a-demand-control,
 a-pass-from-a-blind-check-outlives-the-blindness, shell-tool-traps-committing.
+
+---
+
+## 2026-09-02 — I computed a contrast ratio for a CSS rule the site never instantiates, and nearly reported it as live damage (`gamedesign.uk` lane)
+
+**The claim I was about to make.** gamedesign.uk's stylesheet defines `--color-card-bg: #ffffff`
+inside an otherwise dark palette (`--color-text: #e0e0e0`). I computed the pair: **1.32:1** —
+light-grey body text on a white card, effectively invisible. I had it written up as the site's
+headline defect, with the arithmetic, matching the known `bugs_open/113` shape (a generated dark
+palette carrying the layout's light literals). Everything about it was *true* except the part
+that mattered.
+
+**What caught it.** Before reporting, I extracted the classes the MARKUP actually uses — regex
+over the body with `<style>` stripped — and got 18, **every one of them header or footer**.
+`card` was not among them. No page on the site instantiates the rule. The stylesheet says it;
+the site never renders it.
+
+**The cheap check that would have.** *Enumerate the classes present in the markup before
+reasoning from the stylesheet.* One regex, and it comes first, not last. **A CSS rule is not
+damage until the markup instantiates it** — a declaration is a claim about what *would* happen,
+and the population it would happen to can be empty.
+
+**The near-identical second one, same hour.** Six pages all measured ~15.8 kB, which reads like
+one page served six times, and I was drafting "duplicate content across the site". md5 + `<title>`
+per page: all distinct, all correctly titled. The similarity was that each is ~15.8 kB of inline
+`<style>` wrapped around an *empty body* — the pages differ in exactly the part that had been
+deleted. **Similar SIZE is not identical CONTENT; hash before claiming duplication.**
+
+**Why both are the same error.** In each case I measured a proxy that was genuinely present
+(a declaration; a byte count) and reported it as the property it usually implies (a rendered
+colour; identical content). This is the same family as this file's `<script>`-tag entry above,
+and it is now the fourth instance: **the construct was there, and it did nothing.** The general
+form: *when your evidence is the presence of a construct, name the population it acts on, and
+count it.* An empty population is not a small effect — it is no effect, and it reads identically
+until you look.
+
+**What I got right, and why it is worth recording next to the misses.** The same discipline
+applied to the real finding held it up: the empty `<main>` claim could have been client-side
+injection, so I checked the scripts (one 320-char menu toggle) and re-fetched with a Chrome UA —
+same empty `<main>`. And the "the adoption did it" claim could have been a fleet-wide rerender
+bug, so I ran the seven-site control (gamedesign.uk 4 of 11 files emptied; the other six sites
+0 of 139). **Both survived a test that could have killed them, which is the only reason they are
+in `bugs_open/432` as evidence rather than as a story.**
+
+Family: a-report-is-not-a-measurement, a-css-fallback-is-present-and-inoperative,
+a-client-side-absence-is-not-an-absence, two-defects-can-wear-one-symptom.

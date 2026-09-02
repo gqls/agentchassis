@@ -6805,6 +6805,45 @@ which is exactly the input shape most likely to be under-tested.
 **Related:** `bugs_open/113` (same mechanism family — a different composition-resolver
 defect, palette merge rather than layout pick, on the same site).
 
+### A detector that enumerates FROM the rows cannot see a target whose rows were DELETED — and the report reads as "nothing to say", not as a gap (2026-09-02, `bugs_open/432`)
+
+**The shape.** A retirement mechanism sets a STATUS (`pages.status='archived'`) and a
+detector is built to find things in that status still serving. Correct, and it closes the
+case it was built for. But a row can also leave by a second door — **hard deletion** — and
+then there is no status to be in, because there are no values at all. Every check that
+starts `FROM pages` / `FROM sites` is blind to that target *by construction*: it is not
+reported clean, it is **absent from the report**, which a reader cannot distinguish from
+"nothing to say".
+
+**The worked case.** `gamedesign.uk` served six pages of header + empty `<main>` + footer to
+the public from **2026-04-16 to at least 2026-09-02 — 4.5 months**. It has no `sites` row and
+no `pages` rows. `scripts/audit-archived-still-serving.sh` (built for exactly this class by
+`bugs_closed/359`) cannot see it, because archived-with-a-`deployed_at` is a predicate over
+rows that do not exist. Nobody found it by monitoring; the owner pointed a session at the
+domain.
+
+**Why it generalises past this one bug.** The whole family shares the assumption:
+`bugs_open/098` (archiving does not retract), `304` (retracting the last page), `356`
+(discovery selects on the build axis), `429` (the mirror never propagates deletions) — each
+presupposes a row exists and asks whether its state is honoured. **Deletion is the case where
+the question cannot be asked at all.** A status vocabulary can never cover it; only
+enumerating the OTHER side and reconciling inward can.
+
+**The check.** When you build or trust a detector for "X is retired but still live", ask what
+happens when X's row is **deleted rather than marked**. If the answer is "it drops out of the
+query", the detector has a silent second population, and the fix direction is the opposite of
+the one that feels natural: **enumerate the SERVING surface** (bucket keys, DNS + crawl) and
+reconcile INTO the database, rather than enumerating the database and probing outward.
+
+**And when you assert the absence, open the candidates that could refute it.** Censusing
+`cmd/`, `scripts/` and the in-chassis Go by enumeration axis turned up two services with
+bucket-shaped grep hits. Both were false: `instanceaudit`'s were a Go `map` named `buckets`,
+`component-render-check`'s was the word in a prose comment. Every genuine bucket-lister in
+the tree is the **write** path (`publisher.go`, `b2worker.go`, `s3.go`, `publish_site_action.go`)
+— code putting objects there, never reading the listing back. A grep COUNT would have
+recorded two contradictions to the claim; opening them is what turned the census into
+evidence.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
