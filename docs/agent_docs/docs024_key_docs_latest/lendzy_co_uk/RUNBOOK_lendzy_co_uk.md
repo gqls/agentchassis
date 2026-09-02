@@ -206,3 +206,15 @@ grouped MaPS under "FCA-authorised services"; MaPS is the statutory guidance bod
   on all five registers at once. That seam belongs to the claims-verification lane; forwarded to
   them with the structural pin proposal (a round-trip test: write a register carrying an unmodelled
   key, run the writer, assert the key survives).
+
+### 8e. Banned-claims layer has NO regulatory-citation exemption (verified by the 414 lane, 2026-09-02)
+
+`fad209b92`'s exemption for a figure quoted beside its named rule lives in `isExcludedNumber` /
+`ScanUnregisteredNumbers` **only**. `scanBannedClaims` consults no such exemption — so a banned
+pattern containing a figure shape re-convicts, at BLOCKER severity, the very content the number
+scan correctly exempts at error severity. This is why lendzy's register deliberately omits the
+sibling set's literal-rate pattern, and why **no curated sector set may contain a figure pattern
+until the exemption reaches the banned-claims layer** (on record in RFC_060). The evidence that
+settled it: lendzy's 3 legitimate credit-union-cap hits, plus loanzy's calculator truthfully
+saying "There's no credit check involved" about itself — two sites, two different false-positive
+routes, one pattern, disagreement on contact rather than over time.
