@@ -31,10 +31,10 @@ import (
 // ctaUniverseRows is one site's worth of pages as CTALabelUniverseSQL returns
 // them: a tool, a hub, and the contact page that the old supply filtered out.
 func ctaUniverseRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"id", "name", "title", "nav_label", "url", "page_type"}).
-		AddRow("1", "tool-breakeven", "Break-Even Volume Calculator", "", "/tools/breakeven.html", "tool").
-		AddRow("2", "services", "Services", "", "/services.html", "section-index").
-		AddRow("3", "contact", "Contact our supply team", "", "/contact.html", "content")
+	return sqlmock.NewRows([]string{"id", "name", "title", "nav_label", "url", "page_type", "eligible_as_cta_target"}).
+		AddRow("1", "tool-breakeven", "Break-Even Volume Calculator", "", "/tools/breakeven.html", "tool", true).
+		AddRow("2", "services", "Services", "", "/services.html", "section-index", true).
+		AddRow("3", "contact", "Contact our supply team", "", "/contact.html", "content", true)
 }
 
 // TestRerenderCTAStateOffersTheContactPage pins the REPAIR path's supply — the
@@ -50,10 +50,10 @@ func TestRerenderCTAStateOffersTheContactPage(t *testing.T) {
 
 	// The two positional loaders and the validity set still run; only their
 	// shape matters here, so they return nothing.
-	empty := sqlmock.NewRows([]string{"name", "title", "url", "nav_order"})
+	empty := sqlmock.NewRows([]string{"name", "title", "url", "nav_order", "eligible_as_cta_target"})
 	mock.ExpectQuery("page_type = 'section-index'").WillReturnRows(empty)
 	mock.ExpectQuery(`page_type IN \('tool', 'game'\)`).WillReturnRows(
-		sqlmock.NewRows([]string{"name", "title", "url", "nav_order"}))
+		sqlmock.NewRows([]string{"name", "title", "url", "nav_order", "eligible_as_cta_target"}))
 	// THE ASSERTION: the universe query is issued at all. Matched on the
 	// build-state predicate, which is the part of it no other query on pages
 	// carries — a re-point at the hub loaders fails here, not on a value check.
@@ -119,10 +119,10 @@ func TestResolveInternalLinksBuildPathOffersTheContactPage(t *testing.T) {
 
 	siteID := uuid.New()
 	mock.ExpectQuery("page_type = 'section-index'").WillReturnRows(
-		sqlmock.NewRows([]string{"name", "title", "url", "nav_order"}))
+		sqlmock.NewRows([]string{"name", "title", "url", "nav_order", "eligible_as_cta_target"}))
 	mock.ExpectQuery(`page_type IN \('tool', 'game'\)`).WillReturnRows(
-		sqlmock.NewRows([]string{"name", "title", "url", "nav_order"}).
-			AddRow("tool-breakeven", "Break-Even Volume Calculator", "/tools/breakeven.html", 10))
+		sqlmock.NewRows([]string{"name", "title", "url", "nav_order", "eligible_as_cta_target"}).
+			AddRow("tool-breakeven", "Break-Even Volume Calculator", "/tools/breakeven.html", 10, true))
 	mock.ExpectQuery("SELECT url FROM pages").WillReturnRows(
 		sqlmock.NewRows([]string{"url"}).AddRow("/contact.html").AddRow("/tools/breakeven.html"))
 	mock.ExpectQuery(`build_status, ''\) = 'planned'`).WillReturnRows(ctaUniverseRows())

@@ -59260,3 +59260,16 @@ above, a-report-is-not-a-measurement.
   dispatcher look broken and reinforced the wrong theory. **A selector's instantaneous exclusions
   must come OUT of a query about ordering**: it hid every site whose loop was in flight, i.e.
   precisely the sites that were ahead of me.
+
+- **2026-09-02 — bugfix_436_cta_eligibility — I numbered two migrations from a directory listing
+  40 minutes old.** `ls` said 709 was latest when I started research; by the time I WROTE the files,
+  another session had committed `710_arm_wire_hero_on_landing_HOLD.sql` (and 712, 713 arrived too).
+  Caught before MY commit by reading the ledger the moment `git log` showed HEAD had moved — renamed
+  to 714/715 while still uncommitted, so it cost a rename instead of a permanent filename clash.
+  **The existing cheap check covers this exactly and I skipped it:** *"re-run
+  `ls docs/agent_docs/sql_for_agents/ | sed 's/_.*//' | sort -n | tail` in the same message that
+  writes the file. It costs one line and it is only correct at that instant."* A listing is a
+  snapshot; at this tree's commit rate its half-life is minutes, same as `git status` (CLAUDE.md
+  says so in terms).
+  Tally: **a-number-taken-from-memory-not-from-the-directory** ×2 (this instance: taken from the
+  directory, but from a 40-minute-old read of it — the same failure one notch subtler).

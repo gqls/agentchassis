@@ -86,6 +86,17 @@ type LabelMatchCandidate struct {
 	Title       string
 	URL         string
 	Interactive bool // page_type tool/game — preferred destination on a tie
+	// IneligibleAsCTATarget is `NOT pages.eligible_as_cta_target` — true only
+	// when the row EXPLICITLY opts out of being a CTA destination
+	// (bugs_open/436). INVERTED from the column on purpose: this struct's zero
+	// value must mean "eligible", because candidates are built literally in
+	// tests and by callers that predate the flag, and a zero value meaning
+	// "ineligible" would silently refuse every label match fleet-wide.
+	// BestLabelMatchForPage REFUSES (ok=false) when the best match carries
+	// this — the page deliberately STAYS in the pool, because removing it lets
+	// a weak-token runner-up win instead (measured for the self-link rule,
+	// cta_label_universe.go: 10 of 35 wrote somewhere else, most wrong).
+	IneligibleAsCTATarget bool
 	// identityTokens come structurally from the page's own name/title — its
 	// identity. tokens is the wider union of identityTokens plus nav_label
 	// (description). BestLabelMatch ranks identityTokens overlap first for

@@ -69,7 +69,8 @@ import (
 const CTALabelUniverseSQL = `
 	SELECT p.id::text, p.name, COALESCE(p.title, p.name),
 	       COALESCE(p.nav_label, ''), p.url,
-	       COALESCE(p.page_type, 'content')
+	       COALESCE(p.page_type, 'content'),
+	       p.eligible_as_cta_target
 	FROM pages p
 	WHERE p.site_id = $1
 	  AND p.status NOT IN ('deleted', 'archived')
@@ -82,11 +83,22 @@ const CTALabelUniverseSQL = `
 // query: the homepage is never a candidate (link copy rarely names it), and a
 // page whose name/title/nav_label yield no distinctive token can never be
 // matched at all. ok=false means "not a candidate", not "error".
-func CTALabelCandidateRow(id, name, title, navLabel, url, pageType string) (LabelMatchCandidate, bool) {
+//
+// eligibleAsCTATarget is the pages column verbatim. An OPTED-OUT page is
+// deliberately still a candidate (bugs_open/436): the match must be able to
+// FIND it and then REFUSE it — dropping it from the pool instead would let a
+// weak-token runner-up win, the exact failure measured for the self-link rule
+// (10 of 35 wrote somewhere else, most wrong; see BestLabelMatchForPage).
+func CTALabelCandidateRow(id, name, title, navLabel, url, pageType string, eligibleAsCTATarget bool) (LabelMatchCandidate, bool) {
 	if name == "index" || name == "home" {
 		return LabelMatchCandidate{}, false
 	}
-	return NewLabelMatchCandidate(id, name, title, url, pageType == "tool" || pageType == "game", navLabel)
+	c, ok := NewLabelMatchCandidate(id, name, title, url, pageType == "tool" || pageType == "game", navLabel)
+	if !ok {
+		return c, false
+	}
+	c.IneligibleAsCTATarget = !eligibleAsCTATarget
+	return c, true
 }
 
 // LoadCTALabelUniverse returns every page on the site a CTA label may name.
@@ -106,10 +118,11 @@ func LoadCTALabelUniverse(ctx context.Context, db *sql.DB, siteID uuid.UUID) ([]
 	var out []LabelMatchCandidate
 	for rows.Next() {
 		var id, name, title, navLabel, url, pageType string
-		if err := rows.Scan(&id, &name, &title, &navLabel, &url, &pageType); err != nil {
+		var eligible bool
+		if err := rows.Scan(&id, &name, &title, &navLabel, &url, &pageType, &eligible); err != nil {
 			continue // one unreadable row must not cost the whole universe
 		}
-		if c, ok := CTALabelCandidateRow(id, name, title, navLabel, url, pageType); ok {
+		if c, ok := CTALabelCandidateRow(id, name, title, navLabel, url, pageType, eligible); ok {
 			out = append(out, c)
 		}
 	}
@@ -167,6 +180,18 @@ func BestLabelMatchForPage(label string, candidates []LabelMatchCandidate,
 		return LabelMatchCandidate{}, false, false
 	}
 	if pageURL != "" && NormalizePagePath(best.URL) == NormalizePagePath(pageURL) {
+		return LabelMatchCandidate{}, false, false
+	}
+	// A page opted out of CTA targethood (pages.eligible_as_cta_target=false,
+	// bugs_open/436) is REFUSED, not dropped from the pool: the label match
+	// runs AHEAD of the positional pick at both writers, so without this the
+	// opt-out has a hole exactly the shape of 391's lock-in — a page the
+	// ranking refuses still wins through its own copy. Refusal, like the
+	// self-link rule above, means NO OPINION: the keeps decide, then the
+	// positional pick (which also refuses the page). Dropping the page from
+	// the candidate list instead was measured wrong for self-links — once the
+	// best candidate is removed, a single shared token lets noise win.
+	if best.IneligibleAsCTATarget {
 		return LabelMatchCandidate{}, false, false
 	}
 	return best, true, false

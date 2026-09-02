@@ -63,12 +63,12 @@ type MisdirectedCTACheck struct{}
 
 func (c *MisdirectedCTACheck) Name() string { return "misdirected_cta" }
 
-// ctaExcludedAreas mirrors resolve_internal_links' areasExcludedFromCTA —
+// ctaExcludedAreas is resolve_internal_links' areasExcludedFromCTA —
 // destinations that link copy never "names" and CTAs should not target.
-// Duplicated (not imported) because actions imports this package.
-var ctaExcludedAreas = map[string]bool{
-	"about": true, "contact": true, "privacy": true, "terms": true, "legal": true,
-}
+// Was a hand-mirrored copy ("duplicated (not imported) because actions
+// imports this package") until bugs_open/436 moved the set itself to
+// datahelpers, where this package CAN read it; the two can no longer drift.
+var ctaExcludedAreas = datahelpers.CTAExcludedAreas
 
 // ctaComponentScanQuery is the deployed-HTML scan shared by this check and
 // check_cta_nonpage — one spelling, so the two CTA checks cannot disagree on

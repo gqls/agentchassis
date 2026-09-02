@@ -43,6 +43,29 @@ func TestChooseCTATargetsInteractiveFirst(t *testing.T) {
 	}
 }
 
+// TestChooseCTATargetsRefusesAnOptedOutPage pins bugs_open/436's lever at the
+// wrapper all three callers share — build resolve, rerender recompute, and the
+// site HEADER fallback, whose exact call shape (pageName "") the second half
+// uses: that caller's output is never persisted, so this test is the only
+// place its behaviour change is cheaply visible. The ranking itself is pinned
+// in datahelpers/cta_positional_test.go; this asserts the wrapper actually
+// routes through it.
+func TestChooseCTATargetsRefusesAnOptedOutPage(t *testing.T) {
+	interactive := []contentHub{
+		{Name: "tool-fossil", Title: "Off-Topic Toy", URL: "/tools/fossil.html", Area: "tools", NavOrder: 1, IneligibleAsCTATarget: true},
+		{Name: "tool-on-topic", Title: "On Topic", URL: "/tools/on-topic.html", Area: "tools", NavOrder: 100},
+	}
+	primary, _ := chooseCTATargets("", "index", interactive, nil)
+	if primary.URL != "/tools/on-topic.html" {
+		t.Errorf("build-path primary = %q, want the eligible tool", primary.URL)
+	}
+	// The header fallback's call shape: pageType "", pageName "".
+	primary, _ = chooseCTATargets("", "", interactive, nil)
+	if primary.URL != "/tools/on-topic.html" {
+		t.Errorf("header-fallback primary = %q, want the eligible tool", primary.URL)
+	}
+}
+
 func TestChooseCTATargetsExcludesUtilityAreas(t *testing.T) {
 	hubs := []contentHub{
 		{Name: "contact-hub", Title: "Contact", URL: "/contact/index.html", Area: "contact", NavOrder: 1},

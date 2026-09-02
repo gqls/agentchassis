@@ -135,6 +135,15 @@ const (
 	// names nothing (bugs_open/308). Distinct from NamesNothing because it is a
 	// CONTENT defect with a known shape: the button should not be there.
 	SilenceNamesItsOwnPage
+	// SilenceNamesIneligiblePage — the copy names a page whose row opts out of
+	// CTA targethood (pages.eligible_as_cta_target=false, bugs_open/436). The
+	// matcher found it and refused to stand behind it, exactly as for a
+	// self-link. Distinct from NamesNothing because it is actionable copy: the
+	// button promises a destination the estate has ruled out, so the copy —
+	// not the link — is what needs a human's eye. Folding it into
+	// NamesNothing would silence the only signal that the lock-in loop's raw
+	// material (copy naming an excluded page) still exists on a page.
+	SilenceNamesIneligiblePage
 )
 
 func (s CTALabelSilence) String() string {
@@ -145,6 +154,8 @@ func (s CTALabelSilence) String() string {
 		return "ambiguous"
 	case SilenceNamesItsOwnPage:
 		return "names_its_own_page"
+	case SilenceNamesIneligiblePage:
+		return "names_ineligible_page"
 	default:
 		return ""
 	}
@@ -171,13 +182,20 @@ func JudgeCTALabel(label, destination string, candidates []LabelMatchCandidate,
 		if ambiguous {
 			return CTALabelJudgement{Verdict: CTALabelNoOpinion, Silence: SilenceAmbiguous}
 		}
-		// Separate "names its own page" from "names nothing". BestLabelMatchForPage
-		// folds both into !ok, so ask the underlying matcher whether it found a
-		// page at all: if it did, the only way we got here is the self-link rule.
+		// Separate "names its own page" and "names an ineligible page" from
+		// "names nothing". BestLabelMatchForPage folds all three into !ok, so
+		// ask the underlying matcher whether it found a page at all: if it
+		// did, one of the two refusal rules is why we are here. Self-link is
+		// checked first, matching the refusals' order in BestLabelMatchForPage
+		// — a page that is both its own page and opted out reports the more
+		// specific content defect.
 		if selfBest, selfOK, _ := BestLabelMatch(label, candidates); selfOK {
 			if (pageName != "" && selfBest.Name == pageName) ||
 				(pageURL != "" && NormalizePagePath(selfBest.URL) == NormalizePagePath(pageURL)) {
 				return CTALabelJudgement{Verdict: CTALabelNoOpinion, Silence: SilenceNamesItsOwnPage}
+			}
+			if selfBest.IneligibleAsCTATarget {
+				return CTALabelJudgement{Verdict: CTALabelNoOpinion, Silence: SilenceNamesIneligiblePage}
 			}
 		}
 		return CTALabelJudgement{Verdict: CTALabelNoOpinion, Silence: SilenceNamesNothing}

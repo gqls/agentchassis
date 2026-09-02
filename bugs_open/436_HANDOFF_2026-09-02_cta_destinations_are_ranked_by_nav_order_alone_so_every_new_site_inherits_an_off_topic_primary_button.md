@@ -59,6 +59,41 @@ opt-out and assert it **is** eligible again. Both directions in one run. And ass
 fallback separately (constraint 1): it is a different call site whose output is never persisted, so a
 `content_data` check cannot see it.
 
+## IN PROGRESS 2026-09-02 (evening) — the lever + alarm are BUILT; council round pending; Go inert until the roll
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_436_cta_eligibility/` (PLAN, NOTES, RUNBOOK,
+README). Register entry **LNK-041** carries the full design. Re-verified at HEAD before building:
+mechanism unchanged, and the open queue independently corroborates it `[MEASURED 2026-09-02]` (two
+deferred verdicts describing a 63-tool site's "two arbitrary tools … as default fallback CTAs").
+
+What shipped, honouring all three constraints:
+1. **`pages.eligible_as_cta_target boolean NOT NULL DEFAULT true`** (migration `714`; default true =
+   today's behaviour byte for byte). Read at the **RANKING** — supply SQL + ordering moved to
+   `datahelpers/cta_positional.go` (shared with the detector; constraint 1), `RankCTAPositionalCandidates`
+   drops opted-out pages for all three `chooseCTATargets` callers including the header fallback,
+   which has its own named test (`TestRankHeaderFormRefusesAnOptedOutPage`).
+2. **`LoadCTALabelUniverse` bound** (constraint 2) — by **refusal, not removal**:
+   `BestLabelMatchForPage` declines an opted-out best match while the page stays in the pool
+   (dropping it lets a one-token runner-up win — the measured self-link failure). `JudgeCTALabel`
+   gains silence reason `names_ineligible_page` so 399's judge keeps a first-class signal.
+3. **Consumers enumerated** (constraint 3) — in the PLAN, the LNK-041 entry, and the council
+   submission: 3 ranking callers, 4 universe callers, 3 `BestLabelMatchForPage` callers. No new
+   action-input key, so the RFC_022 optional-key budget is untouched.
+4. **Candidate 4** = discovery check `cta_rank_anomaly`: fires when the site-level rank-1 CTA
+   target holds a unique-minimum `nav_order` below the default with a ≥50 lead, among ≥3 eligible
+   interactive candidates; review-only; positively retracts when healthy. Enabled by
+   `715_…_HOLD.sql`, ⛔ **hand-applied only after the roll** (the discovery runner FAILS the step
+   on an unregistered check name).
+
+**Stated limits (not regressions):** the lever does not unlock already label-locked fields on the
+recompute path (KEEP #2 holds any valid stored page — 391's own finding); keeps/nav/listings are
+untouched; the all-default alphabetical-winner shape (webdesign) is candidate 3, deliberately not
+built. No page is opted out yet — owner decisions.
+
+**Remaining to close:** council verdict → roll → apply `714` (safe anytime; may go first) → induced
+canary both directions incl. the header button at the served bytes → hand-apply `715` → first fleet
+pass of the check. Then this bug is fixed-and-live.
+
 ## Relations
 
 - `bugs_closed/391` — the damage this caused, fixed; its lane docs carry the full evidence.

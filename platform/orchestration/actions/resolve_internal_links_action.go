@@ -61,16 +61,17 @@ func init() {
 	datahelpers.RegisterActionInputSpec("resolve_internal_links", ResolveInternalLinksInputSpec)
 }
 
-type contentHub struct {
-	Name     string
-	Title    string
-	URL      string
-	Area     string
-	NavOrder int
-}
+// contentHub is now the shared positional-candidate type (bugs_open/436): the
+// supply SQL, the ranking and the eligibility filter live in
+// datahelpers/cta_positional.go so the cta_rank_anomaly discovery check can
+// compute the same rank-1 the writers do without a hand-mirrored copy.
+type contentHub = datahelpers.CTAPositionalCandidate
 
 // areasExcludedFromCTA names the utility areas a FRESH CTA pick must never land
-// in. It governs the POSITIONAL PICK ONLY — rank(), below.
+// in. It governs the POSITIONAL PICK ONLY — datahelpers.RankCTAPositionalCandidates.
+// The set itself moved to datahelpers.CTAExcludedAreas (bugs_open/436) so the
+// discovery checks stop carrying a hand-mirrored copy; this alias keeps every
+// in-package reference and test meaning exactly what it always did.
 //
 // It NO LONGER governs the label match (bugs_open/308 Phase B): that supply is
 // datahelpers.LoadCTALabelUniverse, which deliberately offers utility pages so
@@ -83,9 +84,7 @@ type contentHub struct {
 // contact" is a different and much stronger claim that happens to reuse the same
 // set. See storedCTADestinationIsAuthored for the deliberate asymmetry, and
 // resolve_internal_links_authored_destination_test.go for the test that pins it.
-var areasExcludedFromCTA = map[string]bool{
-	"about": true, "contact": true, "privacy": true, "terms": true, "legal": true,
-}
+var areasExcludedFromCTA = datahelpers.CTAExcludedAreas
 
 // ctaFieldNames maps a CTA component to its primary/secondary url field names.
 // An empty second entry means the component has a single CTA url field.
@@ -644,32 +643,22 @@ func targetTitle(t contentHub) string {
 }
 
 // chooseCTATargets — v2: interactive pages (tool/game) first, then content
-// hubs, each group by nav_order; excluding the page itself (by name) and
-// utility/legal destinations. Zero-value contentHub => no sensible target.
-// pageType is carried for a future intent-aware (LLM) upgrade; v2 does not
-// branch on it. Sites with no interactive pages behave exactly as v1.
+// hubs, each group by nav_order; excluding the page itself (by name),
+// utility/legal destinations, and pages whose row opts out of CTA targethood
+// (`pages.eligible_as_cta_target = false`, bugs_open/436). Zero-value
+// contentHub => no sensible target. pageType is carried for a future
+// intent-aware (LLM) upgrade; v2 does not branch on it. Sites with no
+// interactive pages behave exactly as v1.
+//
+// The ordering and every filter live in datahelpers.RankCTAPositionalCandidates
+// so the cta_rank_anomaly discovery check computes the same rank-1 this
+// function hands to all three of its callers — the build-time resolver, the
+// rerender recompute, and the site header fallback (whose output is never
+// persisted, which is why the eligibility filter binds HERE and not in a
+// loader's WHERE clause).
 func chooseCTATargets(pageType, pageName string, interactive, hubs []contentHub) (contentHub, contentHub) {
-	rank := func(candidates []contentHub) []contentHub {
-		ordered := make([]contentHub, 0, len(candidates))
-		for _, h := range candidates {
-			if areasExcludedFromCTA[h.Area] || ctaExcludedDestination(h.URL) {
-				continue
-			}
-			if pageName != "" && h.Name == pageName { // don't point a page's hero at itself
-				continue
-			}
-			ordered = append(ordered, h)
-		}
-		sort.SliceStable(ordered, func(i, j int) bool {
-			if ordered[i].NavOrder != ordered[j].NavOrder {
-				return ordered[i].NavOrder < ordered[j].NavOrder
-			}
-			return ordered[i].Name < ordered[j].Name
-		})
-		return ordered
-	}
-
-	ordered := append(rank(interactive), rank(hubs)...)
+	ordered := append(datahelpers.RankCTAPositionalCandidates(pageName, interactive),
+		datahelpers.RankCTAPositionalCandidates(pageName, hubs)...)
 
 	var primary, secondary contentHub
 	if len(ordered) > 0 {
@@ -682,17 +671,11 @@ func chooseCTATargets(pageType, pageName string, interactive, hubs []contentHub)
 }
 
 // ctaExcludedDestination reports whether a URL lands in an area a CTA should
-// never point at (contact, legal, about...). firstPathSegment cannot express
-// this for top-level pages ("/contact.html" has no second slash), so the test
-// normalises first and strips the .html suffix: "/contact.html" -> "contact",
-// "/legal/privacy.html" -> "legal".
+// never point at (contact, legal, about...). Shared as
+// datahelpers.CTAExcludedDestination (bugs_open/436); this wrapper keeps the
+// in-package call sites and tests unchanged.
 func ctaExcludedDestination(url string) bool {
-	p := strings.TrimPrefix(datahelpers.NormalizePagePath(url), "/")
-	if i := strings.IndexByte(p, '/'); i >= 0 {
-		p = p[:i]
-	}
-	p = strings.TrimSuffix(p, ".html")
-	return areasExcludedFromCTA[p]
+	return datahelpers.CTAExcludedDestination(url)
 }
 
 // storedCTADestinationIsAuthored reports whether an ALREADY-STORED CTA url must
@@ -902,51 +885,22 @@ func sectionResolvedData(section map[string]interface{}) map[string]interface{} 
 // That is the disconfirming test this change rests on, and it could have come
 // out the other way, because the broader predicate did.
 func loadContentHubs(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) ([]contentHub, error) {
-	return loadCTACandidatePages(ctx, params, siteID, logger, "loadContentHubs", `
-		SELECT name, COALESCE(title, name), url, COALESCE(nav_order, 100)
-		FROM pages
-		WHERE site_id = $1
-		  AND page_type = 'section-index'
-		  AND status IN ('active', 'deployed')
-		  AND `+datahelpers.PageMayBeLinkedPredicateFor("")+`
-	`)
+	hubs, err := datahelpers.LoadCTAPositionalCandidates(ctx, params.DB, siteID, datahelpers.CTAPositionalHubsSQL)
+	if err != nil {
+		return nil, fmt.Errorf("loadContentHubs: %w", err)
+	}
+	return hubs, nil
 }
 
 // loadInteractivePages returns the site's tool/game pages — the destinations a
 // CTA should prefer over a content hub when both exist ("Enter the Gauntlet"
 // should land on the Gauntlet, not a section index).
 func loadInteractivePages(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) ([]contentHub, error) {
-	return loadCTACandidatePages(ctx, params, siteID, logger, "loadInteractivePages", `
-		SELECT name, COALESCE(title, name), url, COALESCE(nav_order, 100)
-		FROM pages
-		WHERE site_id = $1
-		  AND page_type IN ('tool', 'game')
-		  AND status IN ('active', 'deployed')
-		  AND `+datahelpers.PageMayBeLinkedPredicateFor("")+`
-	`)
-}
-
-func loadCTACandidatePages(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger, caller, query string) ([]contentHub, error) {
-	rows, err := params.DB.QueryContext(ctx, query, siteID)
+	pages, err := datahelpers.LoadCTAPositionalCandidates(ctx, params.DB, siteID, datahelpers.CTAPositionalInteractiveSQL)
 	if err != nil {
-		return nil, fmt.Errorf("%s query failed: %w", caller, err)
+		return nil, fmt.Errorf("loadInteractivePages: %w", err)
 	}
-	defer rows.Close()
-
-	var hubs []contentHub
-	for rows.Next() {
-		var h contentHub
-		if err := rows.Scan(&h.Name, &h.Title, &h.URL, &h.NavOrder); err != nil {
-			logger.Warn(caller+": scan error", zap.Error(err))
-			continue
-		}
-		h.Area = firstPathSegment(h.URL)
-		hubs = append(hubs, h)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s iteration failed: %w", caller, err)
-	}
-	return hubs, nil
+	return pages, nil
 }
 
 // loadResolverPageSet is the PAGE-CONTENT link-target set: every page the
@@ -983,10 +937,7 @@ func loadResolverPageSet(ctx context.Context, params ActionParams, siteID uuid.U
 }
 
 // firstPathSegment("/tools/index.html") -> "tools"; "/index.html" -> "".
+// Shared as datahelpers.FirstPathSegment (bugs_open/436).
 func firstPathSegment(url string) string {
-	trimmed := strings.TrimPrefix(url, "/")
-	if i := strings.IndexByte(trimmed, '/'); i >= 0 {
-		return trimmed[:i]
-	}
-	return ""
+	return datahelpers.FirstPathSegment(url)
 }

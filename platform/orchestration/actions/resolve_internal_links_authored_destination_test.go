@@ -287,13 +287,13 @@ func TestFreshPickRefusesUtilityWhileStoredUtilityIsKept(t *testing.T) {
 	// Asserted at the membership rule rather than the query, because that rule
 	// is the only place a page can be excluded from candidacy — there is no
 	// area predicate left in CTALabelUniverseSQL to assert the absence of.
-	if _, ok := datahelpers.CTALabelCandidateRow("1", "contact", "Contact us", "", "/contact.html", "content"); !ok {
+	if _, ok := datahelpers.CTALabelCandidateRow("1", "contact", "Contact us", "", "/contact.html", "content", true); !ok {
 		t.Error("the CTA label universe refused a contact page — bug 308's repair " +
 			"target is unreachable again and the widening has been undone")
 	}
 	// …and the homepage is still not a candidate, which is the one exclusion
 	// that survived the widening.
-	if _, ok := datahelpers.CTALabelCandidateRow("2", "index", "Home", "", "/index.html", "content"); ok {
+	if _, ok := datahelpers.CTALabelCandidateRow("2", "index", "Home", "", "/index.html", "content", true); ok {
 		t.Error("the CTA label universe offered the homepage as a candidate")
 	}
 

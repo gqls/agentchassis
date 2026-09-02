@@ -254,6 +254,7 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"deactivated_component":         {catMechanical, "all 41 carry component_id"},
 	"empty_internal_href":           {catMechanical, "all 21 carry page_id"},
 	"cta_names_unknown_destination": {catMechanical, "all 47 carry page_id; sibling finding of misdirected_cta"},
+	"cta_rank_anomaly":              {catMechanical, "review-only, no handler (bugs_open/436): whether a fossil nav_order is deliberate needs a human who knows the site's premise, so auto-completion would be wrong by design; the check itself positively retracts via Resolved/AllOfType when it observes a healthy rank-1, so the open population self-corrects without a verifier"},
 	"cta_names_nonpage_destination": {catMechanical, "review-only, no handler (bugs_open/299 round 1): repair deliberately withheld until the non-page keep branches are proven live — a cta_links_stale item here IS the LANDMINES recompute clobber; predicate is classifyNonPageAnchor, re-runnable when a verifier is wanted"},
 	"cta_tel_malformed":             {catMechanical, "review-only, no handler: predicate is datahelpers.NormalizeTelHref, trivially re-runnable; the unambiguous forms self-heal via the keep branches, the refused residue (+440… collapsed trunk) NEEDS a human, so auto-completion would be wrong by design (bugs_open/299)"},
 	"voice_tells":                   {catMechanical, "all 25 carry page_id; predicate is check_voice_tells"},
