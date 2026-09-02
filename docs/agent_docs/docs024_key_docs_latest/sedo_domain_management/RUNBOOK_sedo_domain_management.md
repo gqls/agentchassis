@@ -54,21 +54,21 @@ kubectl -n ai-persona-system create secret generic sedo-api-credentials \
 rm "$HOME/sedo.env"
 ```
 
-Then in any session: `scripts/sedo-api.sh --check-secret` (prints key NAMES
+Then in any session: `scripts/domains/sedo-api.sh --check-secret` (prints key NAMES
 only, never values) and you're live.
 
 ## §4 Using it (any session)
 
 ```bash
-scripts/sedo-api.sh --self-test      # offline; no cluster needed
-scripts/sedo-api.sh --probe         # cluster + API reachability, NO creds needed
+scripts/domains/sedo-api.sh --self-test      # offline; no cluster needed
+scripts/domains/sedo-api.sh --probe         # cluster + API reachability, NO creds needed
                                     #   expects SEDOFAULT E7 ("Partnerid doesn't exist")
-scripts/sedo-api.sh --check-secret  # secret present + all four keys named
+scripts/domains/sedo-api.sh --check-secret  # secret present + all four keys named
 
-scripts/sedo-api.sh DomainList 'results=100'            # portfolio, first page
-scripts/sedo-api.sh DomainList 'results=100' 'startfrom=100'   # next page
-scripts/sedo-api.sh DomainStatus 'domain[]=example.com'
-scripts/sedo-api.sh DomainInsert  # see the function doc for its params first
+scripts/domains/sedo-api.sh DomainList 'results=100'            # portfolio, first page
+scripts/domains/sedo-api.sh DomainList 'results=100' 'startfrom=100'   # next page
+scripts/domains/sedo-api.sh DomainStatus 'domain[]=example.com'
+scripts/domains/sedo-api.sh DomainInsert  # see the function doc for its params first
 ```
 
 Common functions (Basic API): `DomainList`, `DomainListExtended`,

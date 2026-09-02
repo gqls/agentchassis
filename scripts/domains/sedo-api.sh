@@ -12,13 +12,13 @@
 # Nothing secret ever appears in argv, the overrides JSON, or kubectl output.
 #
 # Usage:
-#   scripts/sedo-api.sh --self-test              # offline checks, no cluster
-#   scripts/sedo-api.sh --probe                  # cluster + API reachability, NO creds
+#   scripts/domains/sedo-api.sh --self-test              # offline checks, no cluster
+#   scripts/domains/sedo-api.sh --probe                  # cluster + API reachability, NO creds
 #                                                #   (dummy auth; expects SEDOFAULT E7)
-#   scripts/sedo-api.sh --check-secret           # secret exists? prints KEY NAMES only
-#   scripts/sedo-api.sh <Function> [k=v ...]     # real call, e.g.:
-#   scripts/sedo-api.sh DomainList 'results=100'
-#   scripts/sedo-api.sh DomainStatus 'domain[]=example.com'
+#   scripts/domains/sedo-api.sh --check-secret           # secret exists? prints KEY NAMES only
+#   scripts/domains/sedo-api.sh <Function> [k=v ...]     # real call, e.g.:
+#   scripts/domains/sedo-api.sh DomainList 'results=100'
+#   scripts/domains/sedo-api.sh DomainStatus 'domain[]=example.com'
 #
 # Function reference: https://api.sedo.com/apidocs/v1/Basic/
 # Responses are XML; errors come back IN-BAND as <SEDOFAULT> with HTTP 200

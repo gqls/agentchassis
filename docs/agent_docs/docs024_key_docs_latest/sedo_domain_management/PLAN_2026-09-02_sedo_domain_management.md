@@ -16,7 +16,7 @@ parking) by Claude sessions, via Sedo's API.
 
 ## Decisions, with reasons
 
-1. **Bootstrap client is a script (`scripts/sedo-api.sh`), not a Go
+1. **Bootstrap client is a script (`scripts/domains/sedo-api.sh`), not a Go
    adapter.** Nothing consumes Sedo data yet and the owner has no account
    yet; a platform adapter before the first credentialed call would be
    speculation. Revisit at Phase 4: if Sedo becomes load-bearing (scheduled
@@ -62,3 +62,13 @@ nameservers, a decided item in the improvement-loop lane, D2). **Moving any
 domain's parking or nameservers to Sedo routes through the lane that owns
 that domain** — this lane provides the API plumbing, it does not re-point
 domains.
+
+**Added 2026-09-02, same day:** the **domains_cloudflare_rollout lane**
+(active — its porkbun.py landed 62 seconds before this lane's first commit)
+owns the registrar estate itself: Nominet EPP + Dynadot/Porkbun/Spaceship
+helpers under `scripts/domains/`, rolling the portfolio onto Cloudflare.
+`sedo-api.sh` was moved into that directory to sit with its family.
+Division of labour: **registrars + DNS/NS = their lane; the Sedo
+marketplace/parking account = this one.** A future "park domain X at Sedo"
+touches both (Sedo-side setup here, NS repoint there) — coordinate via the
+lane docs, do not reach into their scripts.

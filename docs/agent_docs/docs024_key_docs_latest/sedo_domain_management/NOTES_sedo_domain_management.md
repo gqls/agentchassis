@@ -38,7 +38,21 @@
   `]`-first idiom). Caught by the script's own `--self-test` on first run —
   which is the argument for writing the self-test before the first use.
 
-**Built:** `scripts/sedo-api.sh` (self-test PASS 7/7; probe PASS; secret
+**Built:** `scripts/domains/sedo-api.sh` (self-test PASS 7/7; probe PASS; secret
 missing → clear pointer to RUNBOOK §3). Credentialed path UNEXERCISED —
 blocked on owner obtaining the account + SignKey (RUNBOOK §1–§3).
 Registered as OPP-012.
+
+## 2026-09-02 (later) — concurrent-lane discovery, script relocated
+
+The first commit's scope report ran while HEAD had moved: 62 seconds
+earlier the **domains_cloudflare_rollout** lane committed
+`scripts/domains/porkbun.py` — that lane (open since 08-03, active now)
+already holds registrar helpers (porkbun/dynadot/epp/spaceship plans) under
+`scripts/domains/`. My prior-art grep for "sedo" could not have found it
+(different keyword, different service class) — the commit stream found it,
+which is the shared-tree working as designed. Moved `sedo-api.sh` →
+`scripts/domains/` (git mv; both paths named on the commit per the
+LANDMINES entry; verified single copy at HEAD), re-pointed every reference,
+added the missing OPP-012 index row the pattern check caught, and wrote the
+division of labour into PLAN "Cross-lane constraint".
