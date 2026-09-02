@@ -39,6 +39,7 @@ type WebSearchResult struct {
 //   - search_type: "web", "news", or "images" (default: "web")
 //   - time_range: "day", "week", "month", or "year" (optional recency filter)
 //   - provider: specific provider to use (optional)
+//   - region: geo-target search results, e.g. "uk" (optional; provider default applies if absent)
 func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing WebSearchAction",
 		zap.String("step_name", params.ExecutionContext.StepName),
@@ -72,6 +73,11 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 	provider := ""
 	if p, ok := config["provider"].(string); ok {
 		provider = p
+	}
+
+	region := ""
+	if r, ok := config["region"].(string); ok {
+		region = r
 	}
 
 	// Get client ID
@@ -167,6 +173,7 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 				"search_type": searchType,
 				"time_range":  timeRange,
 				"provider":    provider,
+				"region":      region,
 			},
 			// Include reply routing in body as well
 			"reply_to_topic": myResponsesTopic,
@@ -200,6 +207,7 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.Int("num_results", numResults),
 		zap.String("search_type", searchType),
 		zap.String("time_range", timeRange),
+		zap.String("region", region),
 	)
 
 	// Send to adapter
@@ -225,6 +233,7 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 			"search_type":     searchType,
 			"time_range":      timeRange,
 			"provider":        provider,
+			"region":          region,
 			"timestamp":       time.Now().UTC().Format(time.RFC3339),
 			"responses_topic": myResponsesTopic,
 		},

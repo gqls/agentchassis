@@ -107,6 +107,49 @@ func TestFirecrawlWebSearchOmitsSourcesAndTbs(t *testing.T) {
 	}
 }
 
+// bugs_open/316 rider (owner ask 2026-08-31, "the news is from America...
+// UK news for all .co.uk and .uk sites"): Firecrawl's own /v2/search docs
+// state "country" geo-targets both web and news sources and defaults to
+// "US" when absent — the load-bearing cause of the complaint.
+
+func TestFirecrawlSendsCountryWhenRegionSet(t *testing.T) {
+	var gotBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		json.Unmarshal(raw, &gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"success":true,"data":{"news":[]}}`)
+	}))
+	defer srv.Close()
+
+	p := &FirecrawlProvider{apiKey: "test", httpClient: srv.Client(), apiURL: srv.URL, logger: zap.NewNop()}
+	if _, err := p.Search(context.Background(), "boxing news", 5, SearchOptions{SearchType: "news", Region: "uk"}); err != nil {
+		t.Fatalf("Search returned error: %v", err)
+	}
+	if gotBody["country"] != "UK" {
+		t.Fatalf("request country = %v, want UK", gotBody["country"])
+	}
+}
+
+func TestFirecrawlOmitsCountryWhenRegionNotSet(t *testing.T) {
+	var gotBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		json.Unmarshal(raw, &gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"success":true,"data":{"web":[]}}`)
+	}))
+	defer srv.Close()
+
+	p := &FirecrawlProvider{apiKey: "test", httpClient: srv.Client(), apiURL: srv.URL, logger: zap.NewNop()}
+	if _, err := p.Search(context.Background(), "anything", 5, SearchOptions{}); err != nil {
+		t.Fatalf("Search returned error: %v", err)
+	}
+	if _, present := gotBody["country"]; present {
+		t.Fatalf("a site with no region config must not send a country override, got %v", gotBody["country"])
+	}
+}
+
 func TestFirecrawlDeclinesUnparseableSearchType(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("provider must decline before making an HTTP request")
@@ -167,6 +210,46 @@ func TestScrapingBeeWebSearchOmitsSearchType(t *testing.T) {
 	}
 	if got, present := gotQuery["search_type"]; present {
 		t.Fatalf("web search must not send search_type, got %v", got)
+	}
+}
+
+// bugs_open/316 rider — same geo-targeting for the fallback provider,
+// verified against ScrapingBee's own docs: country_code targets the
+// underlying Google scrape.
+
+func TestScrapingBeeSendsCountryCodeWhenRegionSet(t *testing.T) {
+	var gotQuery map[string][]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"news_results":[]}`)
+	}))
+	defer srv.Close()
+
+	p := &ScrapingBeeProvider{apiKey: "test", httpClient: srv.Client(), apiURL: srv.URL, logger: zap.NewNop()}
+	if _, err := p.Search(context.Background(), "boxing news", 5, SearchOptions{SearchType: "news", Region: "uk"}); err != nil {
+		t.Fatalf("Search returned error: %v", err)
+	}
+	if got := gotQuery["country_code"]; len(got) != 1 || got[0] != "UK" {
+		t.Fatalf("country_code param = %v, want [UK]", got)
+	}
+}
+
+func TestScrapingBeeOmitsCountryCodeWhenRegionNotSet(t *testing.T) {
+	var gotQuery map[string][]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"organic_results":[]}`)
+	}))
+	defer srv.Close()
+
+	p := &ScrapingBeeProvider{apiKey: "test", httpClient: srv.Client(), apiURL: srv.URL, logger: zap.NewNop()}
+	if _, err := p.Search(context.Background(), "anything", 5, SearchOptions{}); err != nil {
+		t.Fatalf("Search returned error: %v", err)
+	}
+	if got, present := gotQuery["country_code"]; present {
+		t.Fatalf("a site with no region config must not send a country_code override, got %v", got)
 	}
 }
 

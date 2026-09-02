@@ -81,6 +81,36 @@ func TestDeclinedSearchTypeFallsThroughWithoutRetry(t *testing.T) {
 	}
 }
 
+// bugs_open/316 rider (owner ask 2026-08-31, UK-news default): the request's
+// "region" key must parse off the wire and reach the fallback chain's opts,
+// exactly like search_type/time_range already do.
+
+func TestExtractRequestPayloadParsesRegion(t *testing.T) {
+	a := &Adapter{logger: zap.NewNop()}
+	raw := []byte(`{"body":{"action":"search","data":{"query":"boxing news","region":"uk"}}}`)
+
+	req, err := a.extractRequestPayload(raw, zap.NewNop())
+	if err != nil {
+		t.Fatalf("extractRequestPayload returned error: %v", err)
+	}
+	if req.Data.Region != "uk" {
+		t.Fatalf("Data.Region = %q, want uk — the region key did not survive the wire format", req.Data.Region)
+	}
+}
+
+func TestRegionReachesTheProvider(t *testing.T) {
+	fake := &fakeProvider{name: "fake"}
+	a := newTestAdapter(fake)
+
+	opts := providers.SearchOptions{SearchType: "news", Region: "uk"}
+	if _, _, _, err := a.performSearchWithFallback("q", 5, "", opts); err != nil {
+		t.Fatalf("performSearchWithFallback returned error: %v", err)
+	}
+	if fake.gotOpts.Region != "uk" {
+		t.Fatalf("provider received region %q, want uk", fake.gotOpts.Region)
+	}
+}
+
 func TestAllProvidersDecliningFailsLoudlyNamingTheSearchType(t *testing.T) {
 	a := newTestAdapter(
 		&fakeProvider{name: "one", declines: true},

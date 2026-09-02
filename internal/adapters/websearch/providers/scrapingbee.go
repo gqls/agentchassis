@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -70,6 +71,12 @@ func (s *ScrapingBeeProvider) Search(ctx context.Context, query string, numResul
 				zap.String("time_range", opts.TimeRange))
 		}
 	}
+	// country_code geo-targets the underlying Google scrape (verified
+	// against ScrapingBee's own docs); absent means Google's own default
+	// applies, same opt-in-per-source rationale as the Firecrawl provider.
+	if opts.Region != "" {
+		params.Add("country_code", strings.ToUpper(opts.Region))
+	}
 
 	searchURL := fmt.Sprintf("%s?%s", s.apiURL, params.Encode())
 
@@ -77,7 +84,8 @@ func (s *ScrapingBeeProvider) Search(ctx context.Context, query string, numResul
 		zap.String("query", query),
 		zap.Int("num_results", numResults),
 		zap.String("search_type", opts.SearchType),
-		zap.String("time_range", opts.TimeRange))
+		zap.String("time_range", opts.TimeRange),
+		zap.String("region", opts.Region))
 
 	// Create request with context
 	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)

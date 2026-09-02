@@ -74,6 +74,14 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 				zap.String("time_range", opts.TimeRange))
 		}
 	}
+	// v2's "country" param geo-targets both web and news sources (verified
+	// against Firecrawl's own docs) and defaults to "US" when absent —
+	// bugs_open/427 rider: this default is why a UK site's news came back
+	// American. Region is opt-in per source (SeedContentSourcesAction sets
+	// it for .uk/.co.uk sites), so absence here preserves the prior default.
+	if opts.Region != "" {
+		payload["country"] = strings.ToUpper(opts.Region)
+	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -84,7 +92,8 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 		zap.String("query", query),
 		zap.Int("num_results", numResults),
 		zap.String("search_type", opts.SearchType),
-		zap.String("time_range", opts.TimeRange))
+		zap.String("time_range", opts.TimeRange),
+		zap.String("region", opts.Region))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", f.apiURL, bytes.NewBuffer(body))
 	if err != nil {

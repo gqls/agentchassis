@@ -220,6 +220,132 @@ submission itself*. All were independently re-verified true here regardless —
 but the next submission should quote the evidence inline rather than making
 the council re-derive it.
 
+## UK-news default for `.uk`/`.co.uk` sites — design (2026-09-02, resumed after session switch)
+
+Owner ask (`CONTRIB_2026-08-31_from_loanzy_lane_owner_wants_uk_news_default_for_uk_tlds...md`):
+*"The news is from America. I'd like it to be UK news for all .co.uk and .uk
+sites, perhaps as a flag with a UK default."*
+
+**Root cause, found by reading the actual provider code and fetching the
+providers' own API docs (not assumed):** `providers.SearchOptions` (`provider.go:37-44`)
+already declares a `Region string // us, uk, etc.` field — **but nothing has
+ever populated it**, and nothing reads it except a dead comment in
+`duckduckgo.go`. The adapter's own `SearchOptions{...}` construction
+(`adapter.go:217-220`) sets only `SearchType`/`TimeRange`. Checked live:
+`PRIMARY_SEARCH_PROVIDER=firecrawl` (`kubectl get deploy web-search-adapter`
+env, 2026-09-02) — Firecrawl is the operative provider, not a fallback.
+**Fetched Firecrawl's own `/v2/search` API docs directly**: it supports a
+`country` parameter (ISO code) that **defaults to `"US"`** and applies to both
+`web` and `news` sources — this default is almost certainly the literal,
+load-bearing cause of "the news is from America", not a downstream ranking
+effect. ScrapingBee's Google-proxy API (the first fallback) separately
+supports `country_code` (also verified against its own docs) — both APIs use
+`"UK"` as their United Kingdom value, matching `SearchOptions.Region`'s own
+doc comment exactly, so no value-translation table is needed.
+
+**DuckDuckGo (the second fallback) is out of scope, checked not assumed:**
+`TestDuckDuckGoDeclinesNews` (`search_options_test.go:173`) proves the DDG
+provider declines `search_type: "news"` outright
+(`ErrUnsupportedSearchType`) — and `FetchNewsSearchAction` always sets
+`search_type: "news"` for a `news_search` source
+(`feed_fetch_async_actions.go:158`). So DDG structurally never serves this
+pipeline's requests regardless of region — its hardcoded, unconditional
+`kl=uk-en` (`duckduckgo.go:139`, a separate pre-existing latent oddity: every
+*web*-type DDG fallback search today is silently UK-locked regardless of the
+requesting site) is real but irrelevant to this fix and is being left alone —
+touching it would be scope creep with no effect on the bug being fixed.
+
+**Where the value flows (single choke point, verified by reading, not
+inferred):** `content_sources.config` (jsonb) → `FetchNewsSearchAction`
+(`feed_fetch_async_actions.go`, reads `sourceConfig[...]`, sets
+`params.StepConfig.Config[...]`, mirrors the existing `time_range` block at
+lines 163-168) → `WebSearchAction` (`web_search_action.go`, mirrors the
+existing `timeRange`/`provider` reads at lines 62-75, adds `region` to
+`adapterRequest["body"]["data"]`) → adapter's `RequestPayload.Data` →
+`SearchOptions.Region` (`adapter.go:217-220`) → each provider's `Search`.
+This is the ONLY path `news_search` sources take — `api_news` (xAI/Grok
+sources, a different content_sources.source_type) is a separate mechanism,
+untouched, out of charter (matches the routing session's own measurement of
+"48 `news_search` configs").
+
+**Value convention:** lowercase `region` key, value `"uk"` — matches
+`SearchOptions.Region`'s existing doc comment ("us, uk, etc."). Upper-cased
+only at each provider's call site where the external API's documented
+examples are upper-case (`strings.ToUpper(opts.Region)`).
+
+**No existing TLD-derivation mechanism anywhere in the codebase** (grepped
+`platform/orchestration/actions/*.go` for TLD/suffix logic before building a
+second one, per this lane's own open design question #4) — the closest
+precedent is `isBlockedDomain`'s `strings.HasSuffix` pattern (`helpers.go:151`),
+reused for the new `.uk` check (`.uk` as a suffix already covers `.co.uk`
+without a separate branch).
+
+**Blast radius, measured before building** (`[MEASURED 2026-09-02]`):
+```sql
+SELECT count(DISTINCT s.id), count(*) FROM sites s
+JOIN content_sources cs ON cs.site_id = s.id
+WHERE cs.source_type = 'news_search'
+  AND (lower(s.domain) LIKE '%.co.uk' OR lower(s.domain) LIKE '%.uk');
+```
+**6 sites / 26 of 52 fleet-wide `news_search` source rows** — `farmerinsurance.uk`,
+`idea.uk`, `loanandmortgagecalculator.co.uk`, `mortgagecalculator.co.uk`,
+`remortgagecalculator.uk`, `webdesign.co.uk`. None carry any region-shaped key
+today (confirms the routing session's fleet-wide zero). Because
+`seedNewsSearchSources` inserts `ON CONFLICT (site_id, name) DO NOTHING`, a
+seed-time-only fix would **never** touch these 26 already-provisioned rows —
+satisfying the owner's actual ask ("for all .co.uk and .uk sites", not just
+future ones) needs a backfill migration alongside the code change, scoped
+exactly to this measured set.
+
+### Build plan
+
+1. **`seed_content_sources_action.go`**, `seedNewsSearchSources`: thread
+   `domain` (already loaded at the call site, `line ~187`) into the function,
+   add `if strings.HasSuffix(strings.ToLower(domain), ".uk") { config["region"] = "uk" }`
+   before marshalling — same "a human inspecting a row can see it" rationale
+   as PLAN item 3 above. Covers every future `.uk`/`.co.uk` site from the next
+   `content-feed-orchestrator` seed cycle onward.
+2. **`feed_fetch_async_actions.go`**, `FetchNewsSearchAction`: read
+   `sourceConfig["region"].(string)`, pass through to
+   `params.StepConfig.Config["region"]` — mirrors the `time_range` block
+   exactly.
+3. **`web_search_action.go`**, `WebSearchAction`: read `config["region"].(string)`
+   (mirrors `timeRange`/`provider`), add to `adapterRequest["body"]["data"]["region"]`,
+   the log line, and `Metadata` — parity with every other passthrough param.
+4. **`internal/adapters/websearch/adapter.go`**: add `Region string
+   \`json:"region,omitempty"\`` to `RequestPayload.Data`; set
+   `opts.Region = req.Data.Region` in the `SearchOptions{...}` construction;
+   add to the "Executing search" log line.
+5. **`firecrawl.go`**: `if opts.Region != "" { payload["country"] =
+   strings.ToUpper(opts.Region) }`.
+6. **`scrapingbee.go`**: `if opts.Region != "" { params.Add("country_code",
+   strings.ToUpper(opts.Region)) }`.
+7. **Migration `691_...sql`** (additive, no schema change — jsonb key only):
+   backfill UPDATE on the exact 26 measured rows (`source_type='news_search'`
+   AND site domain suffix `.uk` AND `NOT (config ? 'region')`, idempotent),
+   DO/RAISE verify block asserting the touched-row count against a
+   pre-transaction `SELECT count(*)` (CLAUDE.md: a bare `SELECT` verify cannot
+   stop a bad `COMMIT`). `_ROLLBACK.sql` strips the key back out on the same
+   predicate; `_VERIFY.sql` for a human eyeball of the after-state.
+
+**No `agent_definitions.default_config` workflow change needed** — unlike
+candidate #1, `region` flows entirely through already-wired config lookups in
+already-wired steps; nothing new to seed into a live workflow.
+
+**Two images to build and roll, not one** — `platform/orchestration/actions`
+(steps 1-3) lives in the `agent-chassis` binary; `internal/adapters/websearch`
+(steps 4-6) is its own deployable, `web-search-adapter`
+(`cmd/web-search-adapter`, confirmed via its own kustomize dir and a running
+pod `web-search-adapter-*`). Both need `IMAGE_TAG` bumps and rolls.
+
+**Verification plan**: dispatch a real `fetch_news_search` against a live,
+non-parked `.uk` site (`webdesign.co.uk`, `idea.uk`, or
+`farmerinsurance.uk` — NOT `mortgagecalculator.co.uk`, flagged elsewhere in
+the fleet's own comments as parked/404-on-the-wire) after the backfill,
+confirm the request actually reaching Firecrawl carries `country: "UK"`
+(adapter logs), and spot-check returned result URLs/publishers skew UK
+(BBC/Sky/Reuters UK bureau etc.) rather than trusting a 200 status alone.
+
 ## Open questions
 
 - Should the extraction LLM step run per-site (as designed, riding feed-triage's

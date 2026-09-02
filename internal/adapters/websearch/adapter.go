@@ -47,6 +47,7 @@ type RequestPayload struct {
 		SearchType string `json:"search_type,omitempty"` // web, news, images
 		TimeRange  string `json:"time_range,omitempty"`  // day, week, month, year
 		Provider   string `json:"provider,omitempty"`    // specific provider to use
+		Region     string `json:"region,omitempty"`      // geo-target results, e.g. "uk"
 	} `json:"data"`
 	ReplyToTopic string `json:"reply_to_topic,omitempty"` // Sometimes included in body
 }
@@ -217,6 +218,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	opts := providers.SearchOptions{
 		SearchType: req.Data.SearchType,
 		TimeRange:  req.Data.TimeRange,
+		Region:     req.Data.Region,
 	}
 
 	l.Info("Executing search",
@@ -224,6 +226,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		zap.Int("num_results", req.Data.NumResults),
 		zap.String("search_type", opts.SearchType),
 		zap.String("time_range", opts.TimeRange),
+		zap.String("region", opts.Region),
 	)
 
 	// Perform search with fallback

@@ -309,3 +309,104 @@ limit) this has never bitten, but it theoretically could if the recommended
 population grows well past the per-cycle limit. Recording this here rather
 than building anything for it: no live defect, already tracked, not a lever
 worth pulling on unmeasured risk.
+
+---
+
+**Session switch, resumed here.** Continued lane priority #2's third rider:
+UK-news default for `.uk`/`.co.uk` sites. Confirmed via `who-owns.py 316`
+that no one else picked this up in the interim and the tree had no dirty
+files touching the target areas.
+
+Finished the read the handoff left mid-way: `web_search_action.go` in full,
+then the actual provider layer it hands off to
+(`internal/adapters/websearch/adapter.go` + `providers/*.go`) — the handoff
+had only read the orchestration-action half and correctly flagged "check
+what the underlying search API actually calls it" as the next step.
+
+**Found the exact mechanism, not assumed:** `providers.SearchOptions`
+already declares `Region string // us, uk, etc.` — but nothing populates it
+(`adapter.go`'s `SearchOptions{...}` construction sets only `SearchType`/
+`TimeRange`) and nothing reads it except a dead comment in `duckduckgo.go`.
+Checked the live deployment: `PRIMARY_SEARCH_PROVIDER=firecrawl`
+(`kubectl get deploy web-search-adapter` env) — Firecrawl is the operative
+provider, not a fallback. **Fetched Firecrawl's own `/v2/search` API docs**
+(WebFetch, not assumed from memory): a `country` parameter geo-targets both
+`web` and `news` sources and **defaults to `"US"`** when absent — almost
+certainly the literal cause of "the news is from America". Also fetched
+ScrapingBee's docs (the first fallback): `country_code`, same convention.
+Both use `"UK"` as their value for the United Kingdom, matching
+`SearchOptions.Region`'s own doc comment — no translation table needed.
+
+**DuckDuckGo turned out to be a dead end for this specific bug, checked not
+assumed:** `TestDuckDuckGoDeclinesNews` already proves DDG declines
+`search_type: "news"` outright, and `FetchNewsSearchAction` always forces
+`search_type: "news"` for a `news_search` source — so DDG structurally never
+serves this pipeline's requests regardless of region. Its own hardcoded,
+unconditional `kl=uk-en` (a separate, real, pre-existing oddity — every
+*web*-type DDG fallback search is silently UK-locked today) is real but out
+of scope: fixing it would be scope creep with zero effect on this bug. Left
+it alone rather than touching a file "while I'm in there" for no benefit.
+
+**Confirmed no existing TLD-derivation mechanism** before building a second
+one (the lane's own open design question #4) — grepped
+`platform/orchestration/actions/*.go` for TLD/suffix logic; nothing exists.
+Reused `isBlockedDomain`'s `strings.HasSuffix` pattern (`helpers.go`) for the
+new `regionForDomain` helper.
+
+**Measured blast radius before writing any code**
+(`[MEASURED 2026-09-02]`): 6 sites / 26 of 52 fleet-wide `news_search`
+source rows carry a `.uk`/`.co.uk` domain (`farmerinsurance.uk`, `idea.uk`,
+`loanandmortgagecalculator.co.uk`, `mortgagecalculator.co.uk`,
+`remortgagecalculator.uk`, `webdesign.co.uk`), none carrying any
+region-shaped key. This mattered for the design, not just as a sanity check:
+`seedNewsSearchSources` inserts `ON CONFLICT (site_id, name) DO NOTHING`, so
+a seed-time-only fix would never touch these 26 already-provisioned rows —
+the owner asked for "all .co.uk and .uk sites", so a backfill migration is
+required alongside the code change, not optional polish.
+
+Full design written into PLAN before any code was touched (this file's own
+lane discipline).
+
+**Built, following the design exactly:**
+- `seed_content_sources_action.go`: new `regionForDomain` helper +
+  `seedNewsSearchSources` now takes `domain`, sets `config["region"]` for
+  `.uk` sites.
+- `feed_fetch_async_actions.go`: `FetchNewsSearchAction` passes
+  `source_config.region` through, mirroring the existing `time_range` block.
+- `web_search_action.go`: reads `config["region"]`, threads it into the
+  adapter request body, the log line, and `Metadata` — parity with every
+  other passthrough param.
+- `internal/adapters/websearch/adapter.go`: `RequestPayload.Data.Region`,
+  threaded into `SearchOptions.Region`.
+- `firecrawl.go` / `scrapingbee.go`: set `country` / `country_code`
+  respectively when `opts.Region != ""`; absent stays absent (provider
+  default applies), so this is opt-in per source, not a global default flip.
+
+**Tests written to the house pattern** (matched `search_options_test.go`'s
+existing style at both layers rather than inventing a new one): region
+passthrough at the action layer (`web_search_options_test.go`), at the
+adapter layer including a real JSON-wire round trip
+(`extractRequestPayload` parsing `"region":"uk"`, not just the struct
+literal), and at each provider (`country`/`country_code` sent when Region is
+set, omitted — not defaulted to empty-string sent — when it isn't), plus a
+table test for `regionForDomain` including a deliberate near-miss
+(`notreally.uk.com` — a different TLD ending in "uk.com", not ".uk").
+
+**Verified against committed HEAD, not the working tree** — the working
+tree currently has an unrelated pre-existing build break in
+`apply_theme_kit_action.go` (another session's uncommitted WIP, confirmed via
+`git status` on that file, not caused by anything here). Used
+`scripts/verify-head-builds.sh --with <file> ... --test` (CLAUDE.md's own
+prescribed tool for exactly this situation) rather than trusting a broken
+`go build ./...` on the shared tree. All 9 overlaid files, both changed
+packages, full test suite: green against HEAD.
+
+**Migration `691_uk_news_search_region_default.sql`** written (+ `_ROLLBACK`
++ `_VERIFY`), following `608`'s single-statement-backfill style scaled to a
+count-guarded multi-row UPDATE, matching `690`'s DO/RAISE discipline (a bare
+`SELECT` verify cannot stop a `COMMIT`). Guard checks for exactly 26 pending
+rows, treats 0 as "already applied" (matches the migration runner's own
+probe convention), and refuses on any other count — the population may have
+moved since the census. Not yet applied — that's the next step, following
+candidate #1's exact playbook: commit, submit to council, THEN apply/build/
+roll, never before.

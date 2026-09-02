@@ -107,7 +107,7 @@ func FetchScrapeAction(ctx context.Context, params ActionParams) (interface{}, e
 //
 // Source config shape:
 //
-//	{"query": "UK wholesale gas prices news", "num_results": 5, "time_range": "week"}
+//	{"query": "UK wholesale gas prices news", "num_results": 5, "time_range": "week", "region": "uk"}
 //
 // or (multiple queries — takes first, each additional query should be a separate source):
 //
@@ -165,6 +165,12 @@ func FetchNewsSearchAction(ctx context.Context, params ActionParams) (interface{
 	// own recency ranking applies.
 	if tr, ok := sourceConfig["time_range"].(string); ok && tr != "" {
 		params.StepConfig.Config["time_range"] = tr
+	}
+	// Optional region ("uk", ...) — seeded by SeedContentSourcesAction for
+	// .uk/.co.uk sites, passed through to the provider's geo-targeting
+	// param; absent means the provider's own default applies.
+	if region, ok := sourceConfig["region"].(string); ok && region != "" {
+		params.StepConfig.Config["region"] = region
 	}
 
 	logger.Info("FetchNewsSearchAction: delegating to WebSearchAction",

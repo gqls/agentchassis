@@ -196,7 +196,7 @@ func SeedContentSourcesAction(ctx context.Context, params ActionParams) (interfa
 	for _, sourceType := range sourceTypes {
 		switch sourceType {
 		case "news_search":
-			n, err := seedNewsSearchSources(ctx, params, siteID, verticalKeywords, logger)
+			n, err := seedNewsSearchSources(ctx, params, siteID, domain, verticalKeywords, logger)
 			if err != nil {
 				logger.Warn("SeedContentSourcesAction: failed to seed news_search sources",
 					zap.Error(err))
@@ -251,7 +251,7 @@ func SeedContentSourcesAction(ctx context.Context, params ActionParams) (interfa
 
 // seedNewsSearchSources creates one content_source per vertical keyword
 // with source_type = 'news_search'.
-func seedNewsSearchSources(ctx context.Context, params ActionParams, siteID uuid.UUID, keywords []string, logger *zap.Logger) (int, error) {
+func seedNewsSearchSources(ctx context.Context, params ActionParams, siteID uuid.UUID, domain string, keywords []string, logger *zap.Logger) (int, error) {
 	seeded := 0
 	for _, keyword := range keywords {
 		keyword = strings.TrimSpace(keyword)
@@ -263,6 +263,14 @@ func seedNewsSearchSources(ctx context.Context, params ActionParams, siteID uuid
 		config := map[string]interface{}{
 			"query":       keyword,
 			"num_results": 10,
+		}
+		// UK-TLD sites default to UK-region search results (owner ask
+		// 2026-08-31: "the news is from America... UK news for all .co.uk
+		// and .uk sites"). Set here, not derived at query time, so a human
+		// inspecting the row can see it — and so it can be overridden by
+		// editing this jsonb config directly, the "flag" the owner asked for.
+		if region := regionForDomain(domain); region != "" {
+			config["region"] = region
 		}
 		configJSON, err := json.Marshal(config)
 		if err != nil {
@@ -292,6 +300,19 @@ func seedNewsSearchSources(ctx context.Context, params ActionParams, siteID uuid
 		}
 	}
 	return seeded, nil
+}
+
+// regionForDomain derives a news_search region default from a site's
+// domain's TLD. Returns "" (no default) for anything not recognised — no
+// existing mechanism in this codebase derives anything from TLD, so this is
+// deliberately narrow rather than a general locale-inference table.
+// ".uk" as a suffix already covers ".co.uk" (same reasoning as
+// isBlockedDomain's suffix check in helpers.go), so no separate branch.
+func regionForDomain(domain string) string {
+	if strings.HasSuffix(strings.ToLower(domain), ".uk") {
+		return "uk"
+	}
+	return ""
 }
 
 // seedAPINewsSources creates one content_source with source_type = 'api_news'

@@ -112,3 +112,99 @@ func TestFetchNewsSearchPassesTimeRangeThrough(t *testing.T) {
 		t.Fatalf("payload time_range = %v, want week — source_config time_range was not passed through", data["time_range"])
 	}
 }
+
+// Regression tests for the UK-news-default rider on bugs_open/316 (owner ask
+// 2026-08-31): a source's "region" config key must reach the adapter
+// request, and .uk/.co.uk domains must derive "uk" at seed time.
+
+func TestWebSearchActionPayloadCarriesRegion(t *testing.T) {
+	producer := &capturingProducer{}
+	params := searchTestParams(producer)
+	params.StepConfig = models.Step{Config: map[string]interface{}{
+		"query":  "web platform news",
+		"region": "uk",
+	}}
+
+	if _, err := WebSearchAction(context.Background(), params); err != nil {
+		t.Fatalf("WebSearchAction returned error: %v", err)
+	}
+
+	data := producedSearchData(t, producer)
+	if data["region"] != "uk" {
+		t.Fatalf("payload region = %v, want uk — the geo-target never reached the adapter", data["region"])
+	}
+}
+
+func TestWebSearchActionPayloadOmitsRegionWhenNotConfigured(t *testing.T) {
+	producer := &capturingProducer{}
+	params := searchTestParams(producer)
+	params.StepConfig = models.Step{Config: map[string]interface{}{"query": "web platform news"}}
+
+	if _, err := WebSearchAction(context.Background(), params); err != nil {
+		t.Fatalf("WebSearchAction returned error: %v", err)
+	}
+
+	data := producedSearchData(t, producer)
+	if data["region"] != "" {
+		t.Fatalf("payload region = %v, want empty — a site with no region config must not fabricate one", data["region"])
+	}
+}
+
+func TestFetchNewsSearchPassesRegionThrough(t *testing.T) {
+	producer := &capturingProducer{}
+	params := searchTestParams(producer)
+	params.StepConfig = models.Step{}
+	params.CollectedData = map[string]interface{}{
+		"input_data": map[string]interface{}{
+			"source_config": map[string]interface{}{
+				"query":  "boxing news",
+				"region": "uk",
+			},
+		},
+	}
+
+	if _, err := FetchNewsSearchAction(context.Background(), params); err != nil {
+		t.Fatalf("FetchNewsSearchAction returned error: %v", err)
+	}
+
+	data := producedSearchData(t, producer)
+	if data["region"] != "uk" {
+		t.Fatalf("payload region = %v, want uk — source_config region was not passed through", data["region"])
+	}
+}
+
+func TestFetchNewsSearchOmitsRegionWhenSourceConfigHasNone(t *testing.T) {
+	producer := &capturingProducer{}
+	params := searchTestParams(producer)
+	params.StepConfig = models.Step{}
+	params.CollectedData = map[string]interface{}{
+		"input_data": map[string]interface{}{
+			"source_config": map[string]interface{}{"query": "boxing news"},
+		},
+	}
+
+	if _, err := FetchNewsSearchAction(context.Background(), params); err != nil {
+		t.Fatalf("FetchNewsSearchAction returned error: %v", err)
+	}
+
+	data := producedSearchData(t, producer)
+	if data["region"] != "" {
+		t.Fatalf("payload region = %v, want empty — a source with no region key must not fabricate one", data["region"])
+	}
+}
+
+func TestRegionForDomain(t *testing.T) {
+	cases := []struct{ domain, want string }{
+		{"boxingonline.com", ""},
+		{"webdesign.co.uk", "uk"},
+		{"idea.uk", "uk"},
+		{"WEBDESIGN.CO.UK", "uk"},
+		{"notreally.uk.com", ""}, // .uk.com is a different TLD, not a .uk suffix
+		{"", ""},
+	}
+	for _, tc := range cases {
+		if got := regionForDomain(tc.domain); got != tc.want {
+			t.Errorf("regionForDomain(%q) = %q, want %q", tc.domain, got, tc.want)
+		}
+	}
+}
