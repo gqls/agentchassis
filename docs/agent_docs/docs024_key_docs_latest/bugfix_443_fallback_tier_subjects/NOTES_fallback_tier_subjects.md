@@ -108,3 +108,22 @@
   with it in the tree.
 - Tests: full `platform/orchestration/actions` green; `cmd/config-key-audit` green (registry
   self-consistency required naming the retention window in the `why` — fixed).
+
+## 2026-09-02 (close of session) — shipped state
+
+- **Committed:** `dbb218a41` (fix + tests + registry + register + bug §8; Council-Reviewed
+  b7c59309, APPROVED r1), `c03b82c61` (mig txn wrap), `42463ec61` (RFC_063 + sha stamp +
+  owner log). HEAD verified building via verify-head-builds.sh after the main commit.
+- **Migration 717 APPLIED 2026-09-02** by this session (hand-apply + --record-only, note in
+  ledger; both columns schema-verified nullable jsonb). Column-before-binary satisfied — Go
+  half inert until the next chassis roll.
+- **Messages sent (all delivered):** bugs_open/444 (passenger committed; their
+  LISTING_PAGE_HELD_NO_ITEM_SOURCE registry entry owed in their commit), finetuning (canary
+  plan, recipe change, backfill offer), apis.uk (consumers-told, PBP-049 superseded line,
+  641 acceptance population grew), copy_quality_two_stage (second subjects source; 8003c51a
+  sits on the canary page), bugs_open/114 (RFC_063 pointer, IMG-078 named).
+- **Open for the next session of this lane:** (1) post-roll pod probe (RUNBOOK, with
+  controls) then Stage A on your-own-model — finetuning may run the backfill themselves,
+  check their reply first; (2) Stage B after seed 641 lands (owner-read gated — not ours to
+  apply); (3) RFC_063 awaits the owner; (4) watch the detector read-back query after the
+  roll — first rows should be the 25-page cohort as their rebuilds occur.
