@@ -55,16 +55,40 @@ request — which removes the immediate exposure but not the class.
   beside `/internal/orders`. Couples every customer site's forms to one host we operate.
 - **(b) The cluster.** A service behind the existing ingress, reachable from anywhere.
   Consistent with the rest of the estate; a new public surface to defend.
-- **(c) The publish worker.** The b2worker already sits in front of every static site. A form POST
-  never leaves the edge. Cheapest per request; puts application logic in the publishing seam,
-  which is a boundary this estate has otherwise kept clean.
+- **(c) The publish worker.** ~~The b2worker already sits in front of every static site. A form
+  POST never leaves the edge. Cheapest per request; puts application logic in the publishing seam,
+  which is a boundary this estate has otherwise kept clean.~~
+  > **CORRECTED 2026-09-02 by the publish-seam owner's review (see §5). My (c) named a component
+  > that cannot receive a POST.** "The publish worker" is TWO things: the Go **mirror**
+  > (`platform/publish/b2worker.go`) is a BATCH job, not in the request path, and can never be a
+  > receiver; the **serving edge** (`scripts/cloudflare/worker.js`) is the only candidate, and it
+  > is ONE ~207-line deployment serving every static site. Any future version of (c) must name
+  > the edge worker specifically.
 - **(d) Per-site, VM-hosted only.** Do nothing for static sites; make a real backend the reason a
   site is VM-hosted. Honest and cheap, but it means static sites can never take a message, which
   contradicts "extensible".
 
-*My view, offered as a view:* (b) or (c). (a) makes a customer-facing capability depend on a host
-built for our own shopfront, and the failure mode — the box down, customer enquiries silently
-lost — is the kind this estate has been bitten by.
+~~*My view, offered as a view:* (b) or (c).~~ **(c) IS OPPOSED BY THE SEAM OWNER, on four cited
+grounds, and I accept the verdict — the argument I made for it does not survive its own premise:**
+
+1. **It has no safe store.** The edge's only credentialed storage is the serving bucket — and
+   since `b60d66e3c` the mirror **converges**, sweeping anything under a site prefix with no
+   source. Edge-stored submissions would delete themselves. So (c) needs new infrastructure and
+   secrets anyway, **which erases the "cheapest, nothing new" argument that was its whole appeal.**
+2. **It would poison every served-status probe, fleet-wide, for ever.** Acceptance is now a served
+   404/200 pair checked before `published_hash` is written. A POST path that can return 200 makes
+   every such probe theory-laden and adds carve-outs to all of them (`robots.txt` is the
+   precedent).
+3. **It would put D4's riskiest surface where no gate can see it.** `worker.js` is outside council
+   scope (`council-scope.sh:129`) and deploys by hand, off-roll — so the abuse surface I named as
+   "most likely to be under-scoped" would live in the one place nothing reviews.
+4. **(b) is supported.** And the honest form of (c) — a separate worker/route with its own
+   storage — is really **"(b) at the edge"** and should be costed as such rather than as a free
+   ride on existing infrastructure.
+
+**(a) remains weak for the reason I gave** — it makes a customer-facing capability depend on a
+host built for our own shopfront, and "the box is down, enquiries silently lost" is a failure this
+estate has been bitten by. **So the live choice is (b), (d), or (b)-at-the-edge honestly costed.**
 
 ### D2 — what happens to a submission?
 Storage (a table, per-site scoped), notification (email to an operator or the site owner), or
@@ -109,5 +133,24 @@ Choose an option, estimate effort, or propose a schema. The owner asked for some
 extend in another thread; committing to an implementation here would foreclose exactly the
 choices he wants to make. Nor does it touch the 22 existing components — that is D6, unsettled.
 
-**Not yet reviewed by anyone.** `site_delivery_and_editor` has offered to review a draft against
-the publish seam (they own it, and D1(c) is squarely theirs); that review has not happened.
+**REVIEWED 2026-09-02 by the publish-seam owner** — `site_delivery_and_editor`, who own the seam
+D1(c) proposed to use:
+`docs024_key_docs_latest/site_delivery_and_editor/REVIEW_2026-09-02_form_endpoint_preplan_D1_vs_publish_seam.md`
+(commit `df56c1cf0`). **Verdict: (c) opposed on four cited grounds, (b) supported, D2's deferral
+to 420 confirmed correct.** Folded into D1 above with my original view struck through rather than
+edited away — the reasoning I got wrong is the part worth keeping, since it was wrong about *what
+the component is*, not about what would be desirable.
+
+**Two further review points, carried into the decisions they affect:**
+
+- **D3 — at any shared receiver, derive the site's identity from a TOKEN or the receiving ROUTE,
+  never from the `Origin` header.** An attacker sets Origin. This is the estate's proxy-chain
+  lesson applied to a surface that does not exist yet, which is the cheapest possible moment to
+  apply it.
+- **D5 must not drag D1 toward (c).** A thank-you page is just a published page, so the
+  visitor-feedback decision creates no pressure to put the receiver at the edge. Worth stating
+  because "the response has to come from somewhere" is exactly the argument that would otherwise
+  smuggle (c) back in.
+
+**Still unreviewed:** D4 (abuse) by anyone with a security seat, and the whole plan by the owner,
+who asked for it as something he would extend in another thread rather than approve here.
