@@ -316,7 +316,30 @@ and the row on disk stays whatever the last successful save produced.
 That is a better mechanism than the one I hypothesised. I was looking for a merge that stored data
 won; there is no merge, because there is no write.
 
-> **But it does not cover the majority, and saying it did would be the comfortable read.**
+> **CORRECTED 2026-09-02, third revision of this section — the "10 wrote, 4 did not" split below
+> is WRONG, and the DB's own archive says so.** `page_components` carries archive triggers that
+> fire when `content_data` changes (`trg_page_component_content_archive_upd`) or `rendered_html`
+> changes (`trg_page_component_artefact_archive_upd`), writing to `page_component_history`.
+> `[MEASURED 2026-09-02]` for component `aa3e4b68` (content-listing) in the last four hours:
+> **ZERO archive rows.** Positive control, same window, same table: **389 rows across 5 other
+> components**, including at 14:13, 14:14 and 14:15 — the exact minutes two of these very pages'
+> items completed. So the archive was working and content-listing simply never changed.
+>
+> **Neither `content_data` nor `rendered_html` changed on ANY of the 14.** The fresh
+> `page_components.updated_at` on the ten reflects a write that touched neither content column —
+> metadata only. I read a moving `updated_at` as "something wrote content", and it is not that.
+> There is no `updated_at` trigger on this table (checked), so the column is set by whatever
+> `UPDATE` the code issues, which need not touch content at all.
+>
+> **And that sharpens the open question rather than closing it.** Other components on the *same
+> pages* DID archive in that window (the `delete`/insert pairs at 14:13–14:15), so the page-level
+> save was not wholly refused there — only content-listing's slot produced no change. A slot that
+> re-renders to a **byte-identical** result writes nothing, because the trigger's condition is
+> `IS DISTINCT FROM`. So the live question is now much narrower than "what wrote pre-fix data":
+> **why does this slot re-render byte-identically on a binary whose projection would change its
+> title?**
+
+> **The superseded reading is kept below deliberately, because the correction is the point.**
 > `[MEASURED 2026-09-02]` across all 14 target pages: **every one** has no `excerpt` key and a
 > suffixed title. The **4 cancelled** pages carry stale `page_components.updated_at` (03:10, 22:36,
 > 22:37 — from before this work), which is exactly the "nothing was written" signature the
