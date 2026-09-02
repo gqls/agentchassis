@@ -1837,3 +1837,14 @@ COMMIT clean, population 22 → 21. Post-conditions, all MET:
 Remainder: `-v scope=remainder` (21 rows; its own guard re-verifies the pilot state first).
 Per the header's sign-off design, the owner's hand applies it — explicitly covering
 ownerless gamesdesign.
+
+**After-care disclosure (vetcomparison lane, 2026-09-02):** the bytes 701 adopts as
+`tool-vet-comparison` CARRY three parked `contrast_failure` items (run `1022be1e`, parked by
+migration 389: `SPAN.result-count` 4.10:1, `P.tool-description` / `P.disclaimer` 4.14:1 —
+muted grey on near-white, verified serving today). Deliberately NOT fixed pre-apply — an edit
+would drift the census and abort the run. Post-remainder, the new component's
+`html_template` is the natural home: one edit fixes all three, then a rerender ships it —
+the vetcomparison design pass (site design planner) is queued to make that edit, and the
+three item ids stay on vetcomparison's queue for whoever closes them with evidence. Adoption
+= identity repair, not a quality endorsement of the carried bytes; a later deliberate
+template edit diverging template-from-bytes is the normal component-edit flow doing its job.
