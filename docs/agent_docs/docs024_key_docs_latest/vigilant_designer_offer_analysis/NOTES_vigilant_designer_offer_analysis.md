@@ -3641,3 +3641,90 @@ still ships dirty**. A reader seeing only `repaired: 0` would have to work out w
 baseline it has to move, and the next natural run (`offer-analyser` fires roughly hourly) is the
 first that can move it. **Do not report this as working until a post-`682` run shows a repair —
 and note that a run finding no violations is a real result, not evidence either way.**
+
+### ✅ 2026-09-02 ~18:15Z — THE GATE REPAIRED, AND THE REPAIRS ARE GOOD
+
+First post-`682` run: `{"clean": false, "checked": 6, "violations": 2, "repaired": 2, "unrepaired": 0}`
+on `garden-tools.uk`. **⚠ Judged-and-accepted is not the same as good, so I read the artefact:**
+
+| rank | from → to | violation |
+|---|---|---|
+| 1 | *"…to an **honest,** specific tool recommendation…"* → *"…to **a** specific tool recommendation…"* | `word:honest` |
+| 4 | *"**Honest** coverage runs from…"* → *"**Coverage** runs from…"* | `word:honest` |
+
+Both **surgical**: the banned word deleted, the grammar corrected around it (`an`→`a`, capitalisation),
+everything else byte-identical. That is exactly the register's prescribed treatment for the word arm
+(*"delete the label"*), and no meaning was lost.
+
+Both points are `differentiated: true`, so they passed layer 3 (trivially — the deletions are tiny)
+and **layer 4 correctly did NOT fire**: a word deletion is not a truncation, so the `to` is not a
+prefix of the `from`. The prefix test is aimed at truncate-before-the-comparison and it discriminated
+properly on its first live encounter with a differentiated point.
+
+**So the chain is proven end to end:** mint → cardinal gate → register gate → judged repair →
+`write_site_spec` deep merge → persisted artefact. `[MEASURED 2026-09-02]` **2 of 2 repaired, 0
+unrepaired.** ⚠ **n=2. That is a working mechanism, NOT a rate.** 23–24% is still the baseline, and
+moving it needs days of mints, not one run. Do not quote 100%.
+
+#### ⚠ AND THE SAME ARTEFACT SHOWS A HOLE IN THE REGISTER — the em-dash form is invisible to BOTH scanners
+
+The rank-4 point the gate just declared repaired still ends:
+
+> *"…straight guidance at every price point **— not a default to premium.**"*
+
+That is the `x_not_y` instinct with an **em dash instead of a comma**, and nothing sees it.
+`[VERIFIED 2026-09-02]` from three directions:
+- **all six** `BANNED_REGISTER_v1` shape patterns MISS it (the `x_not_y` pattern is `,\s+not\s+\w` —
+  a comma is required);
+- the Go scanner misses it too: `negXNotYRe` is
+  `[\pL\pN)"'’],\s+(?:not|never)\s+…` — also comma-anchored;
+- and **production proves it**: layer 2 re-scans every candidate with the FULL register and would
+  have rejected this repair as `still_shape_x_not_y`. It accepted it. Zero hits.
+
+⚠ **This is `a PASS from a BLIND check outlives the blindness`, arriving through my own gate.** The
+gate did not introduce the construction and is not at fault — but the artefact now records that point
+as `outcome: repaired`, which a later reader will take as *clean*. **A repaired point is clean
+against the register as it is written, not against the owner's actual objection.**
+**Relayed to `copy_quality_two_stage`** — it is their register and their scanner, and it is a
+candidate for v2. Not fixed here: widening a shared shape pattern is their seam, and I would be
+changing what every consumer of `ScanDefineByNegation` sees.
+
+### 2026-09-02 — THREE OWNER RULINGS, RELAYED (⚠ second-hand, via `copy_quality_two_stage`)
+
+⚠ **I did not hear these from the owner directly.** Recorded as strong leads per this lane's own §G
+practice, because a cross-lane agreement living only in a chat message dies when either session
+closes. His words as relayed: *"yes to both, we can see if it works"* (their rulings ledger, 2026-09-02).
+
+1. **DECISION D IS GO** — build `question_hierarchy` + `answered_by`. The analysis half is MINE, the
+   writer/ordering consumption half is theirs; they have asked me to propose the seam split.
+2. **THE AXIS IS CONFIRMED** — buyer-relevance + readability GOVERN heroes; **differentiation demotes
+   to an INPUT**. This directly contradicts what `offer-analyser`'s ranking guidance currently does.
+3. **(FYI, theirs)** the exemption-as-licence question ruled **option (a): clean the briefs
+   fleet-wide, gate semantics untouched.** My 32-of-34 measurement earned the ruling. Their campaign;
+   nothing owed from this lane. **The third-path RFC trigger stands unchanged** — no new
+   analyser→writer path is created by any of it.
+
+#### ⚠⚠ RULINGS 1 AND 2 ARE COUPLED, AND DOING 2 FIRST WOULD ACHIEVE NOTHING
+
+The ranking axis is confirmed to invert. But **H4 already measured that re-ranking cannot surface
+material that was never derived** — the gap is ABSENCE, not order. Re-measured today:
+
+| rank | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| **% differentiated** (2026-09-02, n=190) | 100 | 100 | 85 | 65 | 32 | 53 |
+
+Still monotonic in the same shape as 08-31 (100/100/97/61/31/30) — the seller's axis is intact and
+has not drifted.
+
+> **⚠ AND I ALMOST MISREPORTED THE OTHER HALF.** My effort/practicality proxy returned **57 of 190
+> (30%)** today against H4's **19 of 186 (10%)** on 08-31 — which reads as the gap closing on its own.
+> **It is not comparable: I WIDENED THE REGEX** (added cost/price/£/free/quick/simple/step to the
+> original effort/time terms). **A different instrument is not a different result.** The honest
+> statement is that the absence has NOT been re-measured on the original proxy, and no claim of
+> improvement is available. Re-run H4's exact proxy before quoting any movement.
+
+**So the sequence is: derive the hierarchy (D) FIRST, then re-rank against it.** Changing
+`offer-analyser`'s ranking guidance now would reorder a corpus that has almost nothing to reorder
+*on*, and would spend a prompt migration to produce a differently-ordered list of the same
+seller-axis points. The agreed acceptance criterion already anticipates this: **the first pass comes
+back mostly `unanswered` at the top — the correct result, not a failure.**
