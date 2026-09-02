@@ -66,3 +66,78 @@ scope is how the objection surface grows. Whoever builds it should add a feed.xm
 `bugs_closed/184` (llm_markdown slug — the page-surface bug this is the sibling of);
 CQ-019 (register); `docs024_key_docs_latest/bugfix_184_literal_markdown/` NOTES 2026-08-19
 ~21:00Z; council `060bcc0a` round 6 (`bug_historian`, advisory LOW).
+
+---
+
+# ADDENDUM 2026-09-02 — NO LONGER LATENT, and surface 1's "Fixed" is conditionally FALSE
+
+**Added by the boxingonline.com session** (first paid customer build), from the owner's second
+review. **Two changes to this file's status, both measured 2026-09-02, queries inline.**
+
+## 1. The re-review trigger has fired — but on the NEWS PAGE, not on RSS
+
+This file's §"When it stops being latent" watches for a second site enabling `rss_feed`. That is
+not what happened. **The defect is live on surface 1 — the news page — which this file records as
+`**Fixed.**`** (`queryresolve/news_items.go projectNewsItems`, commit `f3939f27d`, live
+v1.0.1315).
+
+Served now at `https://boxingonline.ugg2.com/news/index.html`, a **paid customer site**:
+
+- **5** occurrences of literal `](http` rendered as page text
+- e.g. `- Tennis (W)\n- [NLL (Lacrosse)](https://www.espn.com/boxin...`
+- e.g. `Itauma (14-1, 12 KOs) ultimately punched himself out and [lost in the ninth round](https://sports.yahoo.com/boxing/live/moses-itauma-vs-filip-hrgovic-live-results-round-by-round-updates-...`
+- `NLL (Lacrosse)` and `MLB` are **ESPN's own cross-sport navigation**, captured as article text.
+
+Present in `page_components.content_data` AND `rendered_html` for the `news-listing` slot, so it
+is baked in, not a render-time artefact. The kill switch is **unset** on all pods checked
+(`DISABLE_NEWS_MARKDOWN_STRIP` empty on both `agent-chassis` replicas and `core-manager`), so the
+strip was enabled and ran.
+
+## 2. WHY the strip does not catch these — this file predicted it, in the wrong section
+
+`content_feed_items.source_summary` **is stored already truncated**, at ≤200 chars with a
+trailing ellipsis. Truncating a `[text](url)` link mid-URL leaves `[text](url` — **an unclosed
+half-pattern that a complete-link regex cannot match.**
+
+```sql
+SELECT count(*) FILTER (WHERE source_summary LIKE '%](http%')  AS with_md_link,
+       count(*) FILTER (WHERE source_summary ~ '\]\([^)]*$')   AS unclosed,
+       count(*)                                                 AS total
+  FROM content_feed_items WHERE created_at > now() - interval '30 days';
+-- with_md_link = 518 · unclosed = 282 · total = 5779
+```
+
+**282 of 518 markdown links reaching the strip — 54% — are already incomplete before it runs.**
+
+This file's own fix candidate for surface 3 states the hazard exactly: *"strip BEFORE truncate — a
+link cut mid-URL is a half-pattern nothing"*. **The same hazard already applies upstream of
+surface 1**, where the truncation happens at ingest rather than at render, so no ordering change
+inside `projectNewsItems` can reach it. The strip is correct for complete links and structurally
+blind to truncated ones — which is why surface 1 measured clean when it was written and serves
+dirty now.
+
+`[UNVERIFIED]` **which** code truncates at ingest — I measured the stored shape (≤200 chars,
+trailing ellipsis, 54% unclosed) and did not read the writer. Naming it is the first job.
+The feed lane's own pointer for the adjacent extraction question:
+`feed_normalize_action.go:192-194` ("Get content - prefer markdown, then HTML") takes
+`markdown_content` straight from the firecrawl adapter — supplied by the news_editorial_features
+session, who verified my page measurements independently and declined the work as out of lane.
+
+## 3. Status change proposed
+
+**LATENT → LIVE, severity LOW → the owner has seen it on a paid deliverable.** Surface 1 should be
+re-marked from `**Fixed.**` to *fixed for complete links; blind to pre-truncated ones*, because a
+future reader will otherwise treat the news page as a solved surface. Note this is the
+`a-pass-from-a-blind-check-outlives-the-blindness` shape: the 08-19 measurement was honest and
+correct, and the population it measured has since changed.
+
+## 4. Two things NOT part of this bug, recorded so they are not folded in
+
+- **Relevance/vertical gating** — 12–13 UFC/MMA mentions on a boxing site. Different seam
+  (`feed_news_recommendation_action.go` territory per the news lane), not a markdown defect.
+- **Verification trap, corrected in both directions.** `boxingonline.com` is a parked catch-all
+  (invented path → **200**, real page → 114 bytes). The SERVING host is
+  `boxingonline.ugg2.com` (`sites.publish_target='b2worker'`), which **404s an invented path
+  correctly**. So status codes ARE usable — **probe the slug, never the customer domain.**
+  `probe-page-url.sh` reports CONTROL-FAIL if handed the customer domain, and that verdict is
+  about the argument, not about the site.
