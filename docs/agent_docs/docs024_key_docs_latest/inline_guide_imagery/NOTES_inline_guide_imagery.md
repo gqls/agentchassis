@@ -549,3 +549,42 @@ the system correctly compensating for a composition gap and then having nowhere 
 result. The real question is why the planner composed those pages without a hero when 330 of 432
 peers have one — page composition, upstream of any component change. Logged here because this
 lane's Phase 2 would otherwise inherit the same wrong altitude.
+
+### 12. First driver seeded (and NOT exercised), and the measurement that inverts this lane's phasing
+
+**The offer was taken.** `[MEASURED 2026-09-02]` `apis.uk/index` now carries six `scope='section'`
+illustration rows — `index:1`–`index:6`, the exact keys and ordinals from the CONTRIB,
+`source='manual'`, `locked_by='apis_uk_bees_homepage'`, created **16:47:03Z** — about seven hours
+after the guards shipped.
+
+⚠ **Armed is not exercised, and I nearly wrote it up as if it were.** That page's
+`page_components` still read `updated_at = 2026-08-24`. **Nothing has re-resolved, so the branch
+has never actually run.** The mechanism has a driver and no evidence. What will produce evidence:
+a re-resolving render (`reason=section_data_resolved` / `image_landed`), or — decisively — that
+page's next `content_rewrite`, which is the exact event this was written to survive, on the exact
+page whose six values it was written to protect. An assemble-only re-render in the meantime
+changes nothing, because the images are already in `content_data`, and must not be read as
+failure.
+
+**And the measurement that matters more than any of the above** `[MEASURED 2026-09-02]`, prompted
+by `dartsonline_traffic` asking what fraction of pages can actually host one of these:
+
+```
+active content pages (blog/guide/article) fleet-wide   442
+  ...carrying ANY illustration-capable section           9
+  ...carrying MORE THAN ONE (can host a figure SET)      1
+```
+
+**The population that wants per-section imagery and the population that can accept it differ by
+two orders of magnitude, and no amount of seeding closes that: there is nowhere to put the rows.**
+dartsonline is the worked case — all 22 of its content pages are exactly `hero` + `article-body` +
+`call-to-action`, and neither illustration-capable component appears anywhere on the site. So
+"re-plan grip-styles" was never the task; "re-plan the content estate" is.
+
+⚠ **This inverts this lane's own phasing.** The PLAN treats composition as Phase-1 groundwork and
+the durable binding as the hard part. The binding took three council rounds and is done; the
+composition it depends on exists on **one** page in the fleet. **The constraint was never
+component capability.** `editorial_design_uplift` reached the same place from the opposite
+direction the same afternoon — asking why the planner composed six blog pages with no hero when
+330 of 432 peers have one — and neither of us was looking for it. Two lanes, two starting points,
+one answer: **what the planner composes.**
