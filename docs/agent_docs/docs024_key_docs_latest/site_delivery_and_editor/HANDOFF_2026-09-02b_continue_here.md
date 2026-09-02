@@ -69,6 +69,18 @@ EXPECTED pre-convergence shape, not a failure).
    > asset `20ce80fb` updated 10:40:12Z. CONTRIB r3 also notes the one good run carries
    > a magenta fringe at the mark's edge (despill incomplete) — even a pass wants an
    > eyeball before it serves. Messaged: boxingonline.com, bugs_open/424, bugs_open/429.
+   > **UPDATE 21:26Z (clock-read):** unblock (a) is now COMMITTED and council-APPROVED —
+   > `fcbe6071c` (21:17:18Z, 424 lane: `BorderKeyed` computed from each pixel's FINAL
+   > alpha==0, not BFS reachability; mutation-proven regression test), verdict `52bd50a1`
+   > approved with no objections — but **NOT aboard `v1.0.1355`** (`git merge-base
+   > --is-ancestor fcbe6071c 0d2feee2f` → no). So (a) = the NEXT roll of
+   > image-generator-adapter (+ chassis; the 424 RUNBOOK says both). After that roll,
+   > (b) the owner's decision #2 (boxingonline vs a lower-stakes site first) STILL
+   > stands, and the first real generation is a CALIBRATION run (424 handoff item 3):
+   > read `border_keyed` AND chunk-scan the PNG bytes, never one alone. The 424 lane
+   > also reports designblog / seotools / gamedesign still serve the broken near-opaque
+   > logos and has flagged that to the owner as urgent; their work items are NOT to be
+   > reset before that roll.
 2. **Contact-404 — WATCH ONLY, never force the reconciler.** `b60d66e3c` (429,
    council b576bcc6 APPROVED 18:52Z) converges each opted-in site ONCE on its
    normal rotation slot: boxingonline's publish result should read
@@ -102,6 +114,10 @@ EXPECTED pre-convergence shape, not a failure).
    **Do NOT report cards fixed until this check passes.** The 420-addenda
    discriminator applies if confused: served object last-modified older than
    pages.deployed_at = mirror lag (wait); newer = dirty source (look upstream).
+   `[21:21Z, DB, token back]` Both opted-in sites still `th1:` — boxingonline
+   `published_at` 20:53:33Z (the pre-roll tick); **noted.co.uk last published
+   2026-08-16** (17 days of no drift — the th1→th2 prefix change is what will make it
+   republish). Which of the two the ~21:52Z tick services first is unknown.
    > **CORRECTED 2026-09-02 ~21:18Z (next session, from the components lane's own
    > post-roll handoff `../components_lane_425/HANDOFF_2026-09-02_continue_here.md`,
    > commit `753c3e6bf`, 21:10Z): there is NO HOLD apply to wait for, and decks will
@@ -126,6 +142,22 @@ EXPECTED pre-convergence shape, not a failure).
    > So "`v1.0.1355` should not change the rerender-path result" is `[INFERRED from
    > commit messages]`, not measured — the components lane's §0 item 2 discriminator
    > re-run IS the measurement. Item 4's chrome wave is still the rerender path either way.
+   > **MEASURED 21:26Z: the discriminator ran, and the roll did NOT change the answer.**
+   > The components lane filed `page_rerender` `b238bed9` on index at 21:21:04Z
+   > (summary "bugs_open/425 §0 item 2: post-roll discriminator on v1.0.1355",
+   > reason `template_changed`), claimed by `build-dispatch-loop` 21:21:54Z, complete
+   > 21:22:26Z; `pages.deployed_at` 21:22:23Z; all four `page_components` on the page
+   > `updated_at` 21:22:14Z; **8 `page_component_history` rows keyed on `page_id`** at
+   > 21:22:14Z (the write happened). At the row: content-listing `7dead3e5`
+   > `articles[0]` has **NO `excerpt` key**; `rendered_html` carries **0**
+   > `article-card__excerpt` vs **24** `article-card`. Baseline control: guides-index
+   > (build path, `2e738efd`) `articles[0]` HAS `excerpt`. So on `v1.0.1355` the
+   > rerender path still does not execute the producer, the four other roll commits did
+   > not change it, and the served /index.html will STILL show 0 decks after the
+   > ~21:52Z mirror tick — **not a new failure**. The route to decks on this site is the
+   > components lane's ⭐ experiment (their handoff: a `needs_page` rebuild of index
+   > "would not destroy the repro — it makes it strictly better", then a rerender to see
+   > whether the key survives). They hold the sequencing; this lane did not fire it.
    > **What actually produces decks here:** the BUILD path — proven on this very site
    > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route

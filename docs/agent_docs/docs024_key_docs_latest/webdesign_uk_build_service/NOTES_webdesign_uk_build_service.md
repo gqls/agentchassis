@@ -7911,3 +7911,33 @@ lane's per the ownership ruling.
   still 200" would read as AFTER the ~21:52Z reconciler tick; it was 33 minutes before it. The
   tick has not happened as of this line. WRONG_CALLS tally row "record the CLOCK beside a
   reading, never infer it afterwards" incremented.
+
+## 2026-09-02 (21:26Z, clock-read) — token back; the roll does NOT change the rerender-path answer (MEASURED); 424 guard fix committed + approved, roll-bound
+
+- **Token refreshed by the owner** (his message, ~21:20Z). First reads: `customer_access_tokens`
+  **0**; both b2worker sites `th1:` (boxingonline `published_at` 20:53:33Z — the pre-roll tick;
+  noted.co.uk 2026-08-16, i.e. no drift for 17 days, so the prefix flip is what will republish
+  it); no `needs_imagery` for boxingonline since the interim `00aa1796` (10:40Z).
+- **The components lane ran their §0 item 2 discriminator on v1.0.1355** — `page_rerender`
+  `b238bed9` on index, filed 21:21:04Z, claimed `build-dispatch-loop` 21:21:54Z, complete
+  21:22:26Z; index `deployed_at` 21:22:23Z; 4/4 `page_components` `updated_at` 21:22:14Z; **8
+  `page_component_history` rows keyed on `page_id`** at 21:22:14Z (their control — the write
+  happened; NB the only history rows fleet-wide in 21:21–21:24Z are these 8, so the window
+  control is the same rows, not an independent one; the table's health was proven earlier by
+  their 389-row control). **At the row: content-listing `7dead3e5` `articles[0]` has NO
+  `excerpt` key; `rendered_html` 0 × `article-card__excerpt` vs 24 × `article-card`.** Guides-index
+  `2e738efd` (build path) `articles[0]` HAS `excerpt` — the baseline control. So the
+  `[INFERRED]` in the previous entry is now `[MEASURED 21:22Z at the row]`: the rerender path on
+  v1.0.1355 does not execute the producer, and the four unread roll commits on those files
+  did not change it. Served /index.html will still read 0 decks after the ~21:52Z mirror
+  tick — not a new failure; the monitor's "425 WAVE" line staying silent is the expected
+  shape.
+- **424 guard fix**: `fcbe6071c` (21:17:18Z; `BorderKeyed` from final alpha==0; mutation-proven
+  test) — council **APPROVED** `52bd50a1`, no objections (424 lane's message). `git merge-base
+  --is-ancestor fcbe6071c 0d2feee2f` → **NOT aboard** v1.0.1355 → the NEXT roll. Handoff §1.1
+  updated: (a) is "next roll", (b) owner decision #2 unchanged, then a calibration run. The 424
+  lane has flagged the three sites serving broken logos to the owner as urgent and is NOT
+  resetting their items pre-roll (a retry on the unfixed build = a fourth bad result).
+- **Per-pod probes** (components' recipe, every pod, with controls): running in the background
+  — each `grep -a` over `/proc/1/exe` takes ~30 s, and the first attempt timed out at 2 min with
+  only `cd2h9 | ListItemExcerpt PRESENT`, `resolvePagesWhereType PRESENT`. Results to follow.

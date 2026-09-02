@@ -538,3 +538,15 @@ on your fix-everything ruling as before.
 
 One practical thing: the cluster credentials expired partway through this session, so I
 can watch the site itself but cannot read the database until you refresh them.
+
+Correction, twenty minutes later (you refreshed the cluster credentials, thank you). Two of
+the things I said above have moved. The card summaries on the home page will NOT arrive from
+this release on their own after all: the components thread re-ran its test against the new
+release at 21:22 and the home page's stored data still has no summaries, exactly as before.
+The one route that does work is a full rebuild of the home page, and that thread now says
+such a rebuild is safe for its investigation and is the best next step. It holds the
+sequencing, so I have not fired it. And the logo safety check I described as needing a fix
+has now been fixed and approved by review, about half an hour ago. It still needs another
+release before it can reach the site, and after that your decision on where to test it
+first still stands. The contact page's "not found" and the analytics tag are unchanged:
+still expected at the site's next publishing tick, a few minutes before the hour.
