@@ -575,3 +575,89 @@ OPEN pending scheduling of IMP-059 (keyboard-run today) — a platform item, not
 **Still watching, not blocking:** the next discovery/planner rotation must not re-file work at
 the archived `article` page (356's class). One query, tomorrow:
 `SELECT item_type,status,created_at FROM site_work_items WHERE page_id='2ea5d983-b798-4bb2-b30a-5e3047369561' AND created_at > '2026-09-02 19:20';` — expect 0 rows.
+
+---
+
+## 2026-09-02, ~20:30–21:30Z — the owner reviewed the site and it was WRONG; the lane reopened
+
+Owner, verbatim: *"this site needs to be seen again by the checkers. please run the improvement
+loop over it. it suffers from the same problems that designblog.co.uk etc suffered with. please
+correspond with that blog to determine the best fixes. We need to change the design and copy. hero
+images are missing e.g. articles/index.html that same page shows an explanation of the brief and so
+on. It is a game design site why isn't it full of games and images and excitement — please add that
+to the errors list it is a major error."*
+
+**The 20:00 "closeable" SUMMARY was wrong at the ARTEFACT** — I verified presence (pages, links,
+sitemap, favicon) and never read the site as its reader would. Every presence check passed on a
+brief-shaped void. The root causes are mine and are stated in `bugs_open/446` §3.1: the
+`imagery_style_guide` I seeded BANNED game imagery (the hero prompts say "no game imagery"
+verbatim; the pictures are pencils and paper), and the brief asked for "restrained practice
+journal". Briefs govern; the pipeline obeyed.
+
+**Measured (cache-busted, control 404):** 1 `<img>` per page (logo); `/articles/index.html` = 0
+articles + brief-echo prose incl. a "What they avoid" list (owner-banned negative-identity copy);
+its hero = `url('/assets/images/hero.jpg')` → **404** (planner requested no site-scope hero; every
+other site probed HAS one — controlled, not a fleet claim); home/about/contact heroes exist as CSS
+backgrounds under a 50–70% black wash — **and about + contact both render `hero-home.jpg`**;
+`hero-about.jpg` / `hero-contact.jpg` referenced on 0 pages. My first census said otherwise
+because `grep -l hero-about` matched `data-component="hero-about"`, not the filename — anchor on
+filename+extension with a control (WRONG_CALLS-worthy; SITE_DEFECT_CATEGORIES 10.3b carries it).
+
+**Improvement loop run (corr `8b2473ab`, 20:00Z):** the auditors filed **27 record-mode verdicts**
+that say everything the owner said — zero articles, index writes about itself, empty featured
+section, hardcoded hero overlay, CTA `#8b0000` clashing with the accent, "second heading defines
+what the site is not", no author, and `gamedesign@contactforsales.com` reads as a placeholder to
+this audience. **`[verdict, not dispatched]`, all 27.** The checkers see it; record mode acts on
+nothing. 446 §4a.
+
+**Cross-lane (owner: "correspond with that blog"):** designblog's CRITIQUE is near word-for-word
+ours; their routing joined rather than duplicated: 444 (brief-echo; my hub is a fourth mechanism —
+no article pages exist; their resolver DOES hold `section-index`, corrected after I said otherwise),
+114 (imagery; inline guide imager's predicate-derived population: **7 components, 157 instances,
+61 of 65 page heroes orphaned, hero-tool 76**, one counter-instance that may be the cheaper fix),
+components (mechanism: site-wide `hero_url` injection, aliasing gated on an image-TYPED field —
+**they own the migration**; I verify at my artefact), theme kits / site design planner / copy
+quality two stage (routed by designblog; not re-opened by me). **Migration 718 landed 19:59Z**: the
+planner prompt now EXPECTS content imagery — my re-plan inherits it.
+
+**Filed:** `bugs_open/446` (the owner's "major error", with my root cause stated), CONTRIB to 444,
+`SITE_DEFECT_CATEGORIES.md` §10 (the owner-directed errors list — "add that to the errors list"
+means THAT file): 10.1 the spec bans what the vertical is made of · 10.2 index with zero members ·
+10.3 hero over a CSS-url 404 · 10.3b the WRONG hero passes presence checks · 10.4 zero interactive
+elements on an interactive vertical · 10.5 no detector; a reviewer with a referent.
+
+**Re-seeded (`SEED_2026-09-02c`):** imagery_style_guide v2 (game art, big, bold, stylised where the
+game is; stationery banned instead), evidence_base v2 (name released games, describe observable
+play; ban sales/scores/internal-decision claims and brief-echo headings as SHAPES), design_intent
+v2 (games magazine, not print journal). Brief v2 (`MISSION_2026-09-02b`, 3,590 chars): "full of
+games, images and energy… name the games… playable illustrations embedded… never explain its own
+brief". **Re-dispatched 20:10:59Z via 082, corr `aab87c0c-f731-4a64-a20f-0e81fc5c8375`**; brief
+v2 verified in `mission_brief.text`; classifier queued. Monitor armed.
+
+**Owner decisions surfaced by the auditors, not mine to make:** (1) the contact email domain —
+`contactforsales.com` reads as a placeholder to senior studio professionals (×3 verdicts); (2) an
+author / editorial identity — the evidence rules forbid inventing one, so the site is anonymous
+until an identity is supplied; (3) newsletter/RSS — no repeat-visit mechanism (feed lane's
+mechanism exists; undriven per site).
+
+---
+
+## 2026-09-02, ~22:30Z — cluster token expired mid-rebuild; watching at the artefact instead
+
+`kubectl` → `Unauthorized` (the 3-day kubeconfig expiry; owner refreshes). The DB monitor's last
+reading ("plan imagery rows:" empty) was this, not a plan change. Stopped it. Re-armed a curl-only
+monitor on the served site — sitemap URLs, the four hero `url()`s (filename-anchored), the articles
+page's text length and whether "What they avoid" is present — which is the verification that
+matters anyway. Last DB-side state before the token died (~22:20Z): cascade #2 through classifier
+(20:16) and vertical research (claimed 20:17); classifier's v2 `design_intent` = `bold-creative`,
+game imagery, gold accent `#D4A017`, "sensibility of a magazine". Plan not yet written.
+
+**Also done ~22:10–22:25Z:** `growth_posture='hold'` set (SEED e; WDS-020 live in stamp ebf27c60
+by ancestry check; first of 39 sites; unexercised here until the next loop run); 447 candidate 3
+STRUCK on the loop owner's refutation; 444 CONTRIB completed with page_type + sections + the
+second mechanism (the planned article had `parent_section` EMPTY at `/blog/`).
+
+**When the token is back, first three reads:** the new `site_plans` row (pages, roles,
+`parent_section`, imagery rows — against 444's predicate and 446 §3.3's "site-scope hero"), any
+`add_tool` filed in RECORD shape (WDS-020's demand test), and the served hero `url()`s after the
+rerender for `components`' migration 721 (their first live test).
