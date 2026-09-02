@@ -5316,3 +5316,69 @@ inline") ever surfaced in this lane's grading. Answered with measurements, both 
 - Filing is theirs (their find, outside our queue); told them the two traps (deploy_tool_action.go
   deliberately NOT in COMPONENT_WRITE_ALLOWED — a pattern-check fire is TRUE; council scope for the
   platform/ diff) and that the 2-line door-fix does not backfill the 12 existing rows.
+
+## 2026-09-02 — a peer lane asked whether the `js_content` fork-drop bug has bitten our rebuilds. It has not, and here is why — plus two facts about this lane we did not have.
+
+The `themes` session (theme-kit registry plan, `/home/ant/.claude/plans/please-think-hard-about-starry-locket.md` §5)
+flagged that the fork path in **`deploy_tool_action.go:332-361`** does an `INSERT ... SELECT` whose
+column list **omits `js_content`**, and asked whether we had hit it. Confirmed at the code — the
+comment says so itself: *"js_content is also not copied (the known landmine — see 019 correction);
+harmless while tools stay inline."*
+
+**Answer: no, and it cannot bite our current output.** `[MEASURED 2026-09-02]` every rebuild is
+`created_from='generated'`, `source_agent_type='tool-generator'`, `forked_from` NULL — we generate,
+we never fork — and **0 of this lane's live tool components carry `js_content`**; the JS is inline in
+`html_template`, which the fork *does* copy. The pre-file library-claim gate returning 0 rows every
+time also means `create_tool_component_action`'s fork branch was never reached.
+
+### Fact 1 for this lane: OTHER LANES FORK OUR TOOLS, WITHIN HOURS, AND WE HAD NOT NOTICED
+
+`[MEASURED 2026-09-02]` **9 active forks descend from components currently placed on webdesign.co.uk,
+across 8 distinct tools.** The one I can date exactly: `tool-privacy-redactor` was built by me at
+**19:02Z on 08-26** (`d329d1d7`) and forked to **finetuning.uk** at **22:02Z the same day**
+(`de60899f`, `source_agent_type='tool-deployer'`) — **three hours later.**
+
+That matters beyond this bug report and is worth carrying:
+- **A retire is not the end of a tool's blast radius.** Our rebuilds are being adopted by other sites,
+  so a defect we ship propagates outward on a timescale of hours, and fixing it in our row does **not**
+  fix the forks (they are independent rows with their own `html_template`).
+- It also explains a shape that would otherwise look wrong in our own gate: **`tool-privacy-redactor`
+  has two active `content_components` rows.** That is legal — the fleet-wide unique index is
+  `WHERE forked_from IS NULL`, so exactly one unforked row plus N forks is the intended state — but a
+  session running the library-claim gate and seeing two rows should not read it as a duplicate. Ours
+  is the one on our page (`6abb30e0` → `d329d1d7`, `forked_from` NULL); the fork sits on finetuning.uk.
+
+### Fact 2: the damage figure I first computed was WRONG, and the wrong one was the bigger one
+
+My first query — *"active forks whose parent has `js_content` and which have none"* — returned **7**,
+and I nearly relayed that as the blast radius. **It conflates two histories.** A fork taken *before*
+its parent was separated keeps the JS **inline** and lost nothing; the parent only gained `js_content`
+later. **6 of the 7 have inline `<script>` and are not this bug at all.**
+
+The only shape the bug can actually produce is: parent **already separated** + fork has
+`<script src>` + **no** inline body + **no** `js_content`. Filtered on that, it is **exactly one row
+fleet-wide** — `tool-equity-release` fork `befacff0`, forked 2026-08-26, JS unreachable — and it is on
+**no page** (0 live slots), so **latent, zero live damage**.
+**The lesson is the session's own, again: a join that matches a SHAPE is not the same as a join that
+matches a CAUSE.** `parent has js_content AND fork does not` describes the end state of two different
+sequences, and only one of them is the defect. Ask what else could produce this row.
+
+### What I told them, including a caveat on the fix
+
+`store_generated_component_action.go:242` separates inline `<script>` into `js_content` on **every**
+store, so the population that *would* lose JS on a fork grows by addition — **7 of 261 active tool
+components today**, and the comment's "harmless while tools stay inline" expires by birthday, exactly
+like the writer-census landmine. That decay, not present damage, is the argument for fixing it.
+
+⚠ **And the proposed 2-line fix has a trap this lane has already paid for.** The fork's
+`html_template` is **not** the parent's — it is `$6 = scopedToolHTML`, the parent's template through
+`ConvertTemplateToInstanceScope`, which rewrites `id="x"` → `id="c-<function>-x"`. `js_content` is
+published **verbatim** (`collectJSAssets`, only `StripToolDocHeader`). So a raw column copy pairs
+**scoped HTML with unscoped JS** — the identical mismatch that generated the **41** false
+*"interaction anchor #X absent"* findings against our rebuilds (`needs_diagnosis 91228c39`).
+`[UNVERIFIED as live — and I checked]`: **0** components today are both scoped and separated, so the
+combination has never existed and I cannot show it failing. Their fix would create the first ones.
+Raised as a design question, not asserted as a bug.
+
+**Integrity re-checked while I was in there, a week on:** `[MEASURED 2026-09-02]` **49 `removed` + 14
+`deployed` = 63, 0 dual-slot pages** — unchanged since 08-26, nothing regressed.
