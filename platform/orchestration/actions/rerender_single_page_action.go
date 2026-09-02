@@ -195,9 +195,18 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 			zap.String("page_name", pageInfo.Name),
 			zap.String("reason", reason),
 			zap.Strings("planned_sections", assembly.PlannedSections))
+		// bugs_open/315 (reopened 2026-09-02): a page with ZERO component rows
+		// is a guaranteed skip, and the skip completes the work item — nine
+		// completed rerenders accumulated on one empty page while nothing
+		// routed it to the BUILD queue. Convert: file a deduped
+		// needs_content_page ask so the skip leaves a visible build demand
+		// behind, whichever producer filed the rerender.
+		buildAskFiled := fileBuildAskForEmptyPage(ctx, params.DB, pageInfo.SiteID,
+			pageID, pageInfo.Name, assembly.PlannedSections, params.Logger)
 		return map[string]interface{}{
 			"success":          false,
 			"skipped":          true,
+			"build_ask_filed":  buildAskFiled,
 			"reason":           reason,
 			"planned_sections": assembly.PlannedSections,
 			"component_rows":   assembly.ComponentRows,
@@ -1244,4 +1253,58 @@ func buildDefaultHead(page *PageInfo) string {
     <title>%s</title>
     <link rel="stylesheet" href="/assets/css/styles.css">
 </head>`, page.Title)
+}
+
+// fileBuildAskForEmptyPage converts a rerender of a page with ZERO component
+// rows into a visible build ask: a deduped needs_content_page item for
+// page-build-handler. bugs_open/315 (reopened 2026-09-02): the roi-estimator
+// page collected NINE completed page_rerender items while serving an empty
+// <main>, because a 0-component skip completes the item and nothing files the
+// build the page actually needs. The item_key is stable per page, so repeated
+// skips dedup against the open ask (idx_swi_dedup) instead of churning.
+//
+// This is a NEW PRODUCER of needs_content_page (the tool-deployer is the
+// other) — named in the concept register per bugs_open/213's second-producer
+// lesson. Failure here never fails the skip: a page that cannot file its ask
+// still skips honestly, and the insert error is logged.
+func fileBuildAskForEmptyPage(ctx context.Context, db *sql.DB, siteID uuid.UUID,
+	pageID uuid.UUID, pageName string, plannedSections []string, logger *zap.Logger) bool {
+	if db == nil {
+		return false
+	}
+	spec := map[string]interface{}{
+		"source":    "page-rerender-empty-skip",
+		"page_id":   pageID.String(),
+		"page_name": pageName,
+		"reason":    "page_rerender skipped: 0 component rows, nothing to assemble — the page needs a BUILD, not a rerender (bugs_open/315 reopen)",
+	}
+	if len(plannedSections) > 0 {
+		spec["planned_sections"] = plannedSections
+	}
+	specJSON, _ := json.Marshal(spec)
+	res, err := db.ExecContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity, summary,
+			page_id, priority, handler_agent, status, created_by, spec, item_key
+		) VALUES ($1, 'page-rerender-empty-skip', 'build', 'needs_content_page',
+		          'medium', $2, $3, 50, 'page-build-handler', 'triaged',
+		          'rerender_single_page_action', $4::jsonb, $5)
+		ON CONFLICT DO NOTHING
+	`, siteID,
+		fmt.Sprintf("Page %q has 0 component rows — a rerender cannot help; build it", pageName),
+		pageID, string(specJSON), "needs_content_page:"+pageID.String())
+	if err != nil {
+		logger.Warn("fileBuildAskForEmptyPage: insert failed (the skip still returns)",
+			zap.String("page_name", pageName), zap.Error(err))
+		return false
+	}
+	n, _ := res.RowsAffected()
+	if n > 0 {
+		logger.Info("fileBuildAskForEmptyPage: build ask filed",
+			zap.String("page_name", pageName), zap.String("page_id", pageID.String()))
+	} else {
+		logger.Info("fileBuildAskForEmptyPage: build ask already open (dedup)",
+			zap.String("page_name", pageName))
+	}
+	return n > 0
 }

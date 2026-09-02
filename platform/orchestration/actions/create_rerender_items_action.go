@@ -382,6 +382,7 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 
 	batchID := uuid.New()
 	itemsCreated := 0
+	var emptyPagesConverted []string
 
 	for _, pageRaw := range pages {
 		page, ok := pageRaw.(map[string]interface{})
@@ -409,6 +410,24 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 		// Scoped rerender: skip pages that don't use the changed component.
 		if scoped && !dependentPages[pageID] {
 			continue
+		}
+
+		// bugs_open/315 (reopened 2026-09-02): an assemble-only item on a page
+		// with ZERO component rows is a guaranteed skip that still completes —
+		// nine such completions accumulated on one empty page. Do not file the
+		// useless rerender; file the build ask the page actually needs (same
+		// deduped item fileBuildAskForEmptyPage files on the consumer side, so
+		// both doors converge on ONE open needs_content_page item). Scoped
+		// runs are unaffected: dependent pages have components by construction.
+		if !scoped {
+			var hasComponents bool
+			if err := params.DB.QueryRowContext(ctx,
+				`SELECT EXISTS(SELECT 1 FROM page_components WHERE page_id = $1)`,
+				pageUUID).Scan(&hasComponents); err == nil && !hasComponents {
+				fileBuildAskForEmptyPage(ctx, params.DB, siteID, pageUUID, pageName, nil, logger)
+				emptyPagesConverted = append(emptyPagesConverted, pageName)
+				continue
+			}
 		}
 
 		spec := map[string]interface{}{
@@ -441,12 +460,20 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 	logger.Info("CreateRerenderItemsAction: Complete",
 		zap.Int("pages_total", len(pages)),
 		zap.Int("items_created", itemsCreated),
+		zap.Strings("empty_pages_converted_to_build_asks", emptyPagesConverted),
 		zap.String("batch_id", batchID.String()))
 
 	out := map[string]interface{}{
 		"items_created": itemsCreated,
 		"pages_total":   len(pages),
 		"batch_id":      batchID.String(),
+	}
+	if len(emptyPagesConverted) > 0 {
+		// In the RESULT, not only a pod log (the unknown_reason rule below,
+		// same reasoning): "why did my page get no rerender item?" must be
+		// answerable from the step result. These pages have 0 component rows;
+		// each got a deduped needs_content_page ask instead (bugs_open/315).
+		out["empty_pages_converted_to_build_asks"] = emptyPagesConverted
 	}
 	if unknownReason != "" {
 		// In the RESULT, not only in a pod log. A log line scrolls; a step result
