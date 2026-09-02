@@ -501,3 +501,8 @@ handoff + RUNBOOK (with the inverted-verdict warning: 0 tags is CORRECT for this
 tag appearing IS the §5 re-ruling trigger). Id handed to the webdesign.uk lane. Estate GTM-PQ3WCTBD
 re-read in the same hour: still 0 tags — the owner's publish click is now the only outstanding
 Google action from the whole 08-25/26 arc.
+
+**25.** `[2026-09-02]` webdesign.uk confirmed: `GTM-TH5XGNQ4` recorded in their DECISION doc §5 as a
+dated addendum (`1539c1651`) with the inverted-verdict warning and the co-canonical pointers
+(397 §6.2 + this lane's handoff) — the three records agree. Handover complete; seeder +
+`analytics.mode` build remain this lane's, their intake/ZIP packages now cite the concrete id.
