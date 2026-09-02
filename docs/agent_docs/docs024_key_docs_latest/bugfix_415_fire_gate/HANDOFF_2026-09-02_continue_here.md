@@ -121,9 +121,13 @@ this dir gets NOTES/README if the work outlives one session. Commit per task by 
 grep LANDMINES for `scheduled_tasks`/`pre_query`/`build-pipeline-trigger` at session start
 (the hook only shows dirty-file matches).
 
-## Owner decisions (context, none blocking)
+## Owner decisions (context, none blocking — UPDATED 2026-09-02 late)
 
-Candidate 2 for 415 (delete the gate) only if he prefers it over widening. Unrelated but
-adjacent, already on his desk via the throughput lane's README: the positional-wait fairness
-bound (413's candidate 2 — recommendation: wait for the floor meter) and the D4 spend
-governor / credit top-ups.
+Candidate 2 for 415 (delete the gate) only if he prefers it over widening — and the
+throughput lane has confirmed 415 is admission-correctness, not ordering, so it stays this
+lane's call: proceed with widening. **The adjacent ordering questions are now RULED
+(provisionally): 413's candidate 2 age-floor DECLINED** ("no need to reorder — flow +
+capacity"; recorded with its mechanical revisit trigger in `bugs_closed/413`'s closing
+section), and the same decline-by-default covers any other reordering variant. **Ordering
+decisions route to the dispatch_throughput lane** (the 08-26 split), not to the owner
+directly. D4 / credit top-ups remain with that lane.
