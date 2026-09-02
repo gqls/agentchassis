@@ -193,9 +193,23 @@ separate register files).
 
 ### WDS-020 — per-site growth posture: "this site is ready" holds the tool chain at its two heads
 
-- **status:** built 2026-09-02 (Go — inert until the next roll); no site holds yet. Opt-in,
-  unsafe side OFF (absent key = today's behaviour), zero live consumers until an owner sets
-  it — RFC_022's not-architecture-scope shape, normal council gate.
+- **status:** ~~built 2026-09-02 (Go — inert until the next roll); no site holds yet~~
+  **CORRECTED 2026-09-02 by the improvement_loop lane — THE DOOR IS LIVE AND HAS A CONSUMER.**
+  The roll happened the same day: probed the running `agent-chassis` binary for
+  `GROWTH_DOOR_PROBE_FAILED` — **present**, with both controls in the same breath (the older
+  `OWNED_PAGE_DOOR_PROBE_FAILED` present, an invented literal absent). `c2349955d` is an
+  ancestor of the running stamp `ebf27c60` (verified independently by the gamedesign.uk lane).
+  **First holding site: gamedesign.uk, set ~22:10Z 2026-09-02** (`bugs_open/447`) — so
+  "zero live consumers" is also spent. `[MEASURED 2026-09-02]` **1 of 39** active sites holds;
+  the other 38 are unset, i.e. open.
+  **Why this line mattered:** it read "inert until the next roll" for as long as the door was
+  running, which is the `LANDMINES.md` "a register STATUS line is a snapshot that outlives its
+  truth" trap — and it nearly stopped a lane relying on a control that was working. It was
+  caught by a peer probing the artefact rather than believing this entry.
+  **Pending, owner-decided 2026-09-02, not yet applied:** migration `722` sets the
+  `sites.settings` column DEFAULT so a NEW site is born holding. Existing rows untouched by
+  design. Opt-in shape and unsafe-side-OFF still describe the per-site key; they no longer
+  describe the birth default.
 - **what:** `sites.settings->'maintenance_profile'->>'growth_posture' = 'hold'` makes the
   two HEADS of the tool growth chain file their items in the RECORD SHAPE — born
   `status='deferred'`, `handler_agent=''` (the promoter excludes a handler-less row from its
