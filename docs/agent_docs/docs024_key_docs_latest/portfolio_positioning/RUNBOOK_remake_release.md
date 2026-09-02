@@ -99,5 +99,21 @@ diff to the `theme kits` session either way (feeds their 438 read).
 
 Per-domain vertical · best-in-vertical · no-omission · fullness · no negative-identity ·
 LAYOUT intent naming a distinct layout (prefer the nine unused) · COLOUR referent = nearest
-estate neighbour's actual served values · 444 enablement (feed content_sources row /
-directory KIND exists) or hold listing page-types back · grep the plan for `contact-hero`.
+estate neighbour's actual served values · grep the plan for `contact-hero` ·
+**444 pre-enablement, per the fixing thread's recipe (2026-09-02)** — fire direction needs NO
+new field; instead, BEFORE firing a brief that wants listing pages:
+- FEEDS: author `content_features.news_feed` in the classification spec (idea.uk 2026-08-25 is
+  the worked example — the 6-hourly trigger then seeds `content_sources` itself), or seed
+  sources directly.
+- DIRECTORIES: DIR-001's seven-place kind checklist, or a `directory-json-exporter` config row
+  (the vetcomparison pattern — that row is the filled-vs-hollow discriminator).
+- GLOSSARY/SHOWCASE: no producer exists (444 candidate 3) — keep these page types out or
+  explicitly conditional until one does.
+Post-plan receipt query (once their validator lands — opt-in on validate_site_plan, files
+capability_gap per dropped page):
+```sql
+SELECT item_key, spec->>'builder_needed', summary FROM site_work_items
+ WHERE site_id=:site AND item_type='capability_gap'
+   AND spec->>'gap_kind'='producer_missing'
+   AND status NOT IN ('complete','cancelled','rejected');
+```

@@ -45,6 +45,21 @@ missing items — a section writer given a listing section with no items writes 
 intent. Pages with items (idea.uk news) do not show the pattern. The copy lane can confirm at
 the prompt; fixing copy without items would produce nicer prose about an empty page.
 
+> **CORRECTED 2026-09-02 (same night, by the fixing thread "bugs_open/444" — their code-read,
+> credited):** the "writer proses over missing items" mechanism holds for the GLOSSARY only
+> (generic-text-block, LLM prose). The DIRECTORY pages are NOT writer output: `resolveBusinessDirectory`
+> deliberately ERRORS on a missing exporter config (206's loud-failure rule) and `plan_sections`'
+> error branch deliberately bypasses `on_missing` (054's don't-mask-errors rule) — **two correct
+> guards in series produced the silent hollow section both exist to prevent.** The NEWS page's
+> items field is `required:false` BY DESIGN (client refresh is the freshness path), so its
+> emptiness is legal at the render layer. My §"copy half [INFERRED]" was right to carry the
+> marker: correct for glossary, wrong for the other two. Their conclusion independently confirms
+> fix candidate (1): only PLAN-TIME validation closes all three mechanisms. Also: a FIFTH
+> instance, seotools.co.uk /directory/index.html (their served-body measurement), and the
+> discriminator — vetcomparison's identical bare directory-listing is FILLED because it alone
+> has a `directory-json-exporter` config row. Fix plan:
+> `bugfix_444_empty_listing_pages/PLAN_2026-09-02_listing_source_gate.md`.
+
 ## Related, same build-path family (measured tonight)
 
 No remake got a TOOLS nav link or a `/tools/index.html` hub: advertise's nav is
@@ -52,6 +67,52 @@ index/guides/news/channels-directory/glossary with `nav_order` 4 conspicuously a
 seven tool pages serve. Tool pages arrive post-plan via tool-deployer; the nav rebuild ran
 before they existed; the plan never planned a tools hub. (311 is CLOSED — the planner CAN see
 library tools on sites that have them; the residue is ORDER: plan before tools exist.)
+
+## Fixing-thread findings (2026-09-02 late evening, session "bugs_open/444")
+
+The class fix now has a thread (this file's candidate (1) — the portfolio_positioning
+handoff recorded it unowned). Working docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_444_empty_listing_pages/`. New findings,
+all measured tonight unless marked:
+
+- **A FIFTH instance: seotools.co.uk `/directory/index.html`** — same headline-only
+  `directory-listing`, measured at the served body and the `page_components` row. Bare
+  `directory-listing` is planned on **4 sites as of 2026-09-02**: the three empty ones plus
+  vetcomparison.uk, which is FILLED — the discriminator is below.
+- **Mechanism (2) refined — the emptiness is not a missing contract but two correct guards
+  composing in series.** The `directory-listing` schema ALREADY declares
+  `entries: {source: query.business_directory, required: true, min_items: 1, on_missing:
+  skip_section}` (since 2026-08-08). It didn't fire because `resolveBusinessDirectory`
+  returns an **error** (not an empty list) for a site with no `directory-json-exporter`
+  config row (deliberate, bugs_open/206 council round: misconfiguration must be loud), and
+  `plan_sections`' error branch deliberately does NOT route errors into `on_missing`
+  (bugs_open/054: an errored resolve must not be masked as no-data) — one Warn log, field
+  unresolved, section stays READY. Verified: the build orchestration's stored
+  `section_plan` (`d0a858be-…`) shows directory-listing ready/headline-only/no
+  resolved_data, and the resolver's own lookup SQL re-run tonight returns a config row
+  only for vetcomparison. Build-time logs unrecoverable (pods restarted after the build).
+- **Mechanism (1) refined — news-listing's emptiness is LEGAL by design.** Its `items`
+  field is `required: false, on_missing: skip_field` because the client-side JSON refresh
+  is the freshness path between rerenders; `items: []` in advertise's stored content_data
+  confirms the path. So no render-layer contract can close the news case without breaking
+  the legitimate empty-between-feed-runs state on sites WITH sources.
+- **Why the four remakes have no sources: the classifier cannot reach these verticals.**
+  `matchVerticalNews` reads industry/site_type/category + domain substrings; none of the
+  four remakes' current classification specs carry `content_features` AT ALL (measured).
+  idea.uk's working feed exists because its `content_features.news_feed` was HAND-AUTHORED
+  2026-08-25. The planner plans a news page independently of the classification driver
+  that would feed it — two mechanisms that never meet.
+- **Consequence for fix design:** the render layer either cannot (news) or must not
+  (directory — both guards are correct) close the class alone. Candidate (1), plan-time
+  validation, is confirmed as the only door that closes all three mechanisms. Secondary
+  repair identified: in `plan_sections`, an errored resolve of a REQUIRED field should
+  DEFER the section (the existing loud HITL path) instead of leaving it ready — preserves
+  the 054/206 distinction while ending the hollow-section outcome.
+- The glossary/showcase absence claim RE-VERIFIED (information_schema + non-test Go grep:
+  zero producers). The glossary pages are typed `content` with `generic-text-block` —
+  invisible to any page_type/component-based gate; that half stays with the planner-prompt
+  conditionality + the copy lane's title-promise design (split already recorded in their
+  NOTES).
 
 ## Fix candidates, ordered by what closes the door
 
