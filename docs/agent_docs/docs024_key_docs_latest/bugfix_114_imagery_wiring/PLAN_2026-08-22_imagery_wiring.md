@@ -293,3 +293,27 @@ states explicitly handed to 357 (fragment slots), 412 (unwired delivery), and th
   protocol excludes finetuning.uk and runs on IMG-077 `unwired` sites.
 - **The deferred half of 412 (candidate 2, light-vs-heavy emission) remains theirs/ours
   jointly AFTER the floor is proven** — deliberately not in any current submission.
+
+### ADDENDUM 2026-09-02, last — RFC_063 RULED (option B) and this lane CLAIMS the imagery seeding step, with its preconditions stated
+
+The owner ruled tonight: the six plan-less sites converge into the plan tables, with a
+scoped hand-insert exception (closed backfill only — the ruling's verbatim scope is in
+RFC_063's OWNER RULING appendix, `01a3b96ac`). **This lane claims the IMAGERY SEEDING
+step of the conversion, and only that step:**
+
+- **What it is:** per converted site, `site_plan_imagery` page-scope hero rows seeded
+  FROM THE ASSETS TABLE (`key = existing active asset_key` under the ContentHeroKey
+  convention) — never from page enumeration, per this lane's own spend-trap finding
+  (`check_unfulfilled_imagery_plan` generates for any plan row whose key lacks an
+  active asset). Four sites have assets to seed (ai-agent-orchestration 17,
+  finetuning 14, loancash 9, lampenkap 6); gaswholesalers and cookly seed ZERO rows.
+- **Sequenced strictly after:** (1) the ruling's unwaived one-site reconciler-skip
+  proof, and (2) the composition half creating each site's current `site_plans` row
+  (imagery rows hang off `plan_id`). Both belong to whoever takes the composition
+  half — NOT claimed here.
+- **Why this lane:** it wrote the two-row minimal-materialisation spec, owns the
+  route-1 consumer (IMG-078), and the seeded rows are the wiring round 2's plan-less
+  arm arriving "for free" exactly as the RFC contribution predicted. The seeding SQL
+  will go through the council as a migration like everything else here.
+- **finetuning.uk stays excluded from IMG-078 ACCEPTANCE** even once converted — the
+  664/649 attribution overlap (412 §11) is unchanged by the ruling.
