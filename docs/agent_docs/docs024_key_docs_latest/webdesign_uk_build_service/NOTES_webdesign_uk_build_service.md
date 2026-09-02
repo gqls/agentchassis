@@ -7014,3 +7014,24 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   the asset store UPSERTS — row 20ce80fb keeps created_at 2026-08-31 after
   today's regeneration, so any check keyed on the row's age reads STALE. Verify
   regenerations by content hash + work item, never created_at.
+
+## 2026-09-02 (contd) — 424 filed by the 417 lane (my artefact half credited); interim solid-ground regen FIRED
+
+- **bugs_open/424**: the transparency capability gap, three-layer split confirmed
+  (417 input licence · 421 output acceptance · 424 pipeline capability). Their
+  code census confirms my class finding fleet-wide: no output_format/alpha in
+  banana/provider.go, ZERO background-removal anywhere, no ground knob in
+  kindDefaults. **No asset revert seam exists** (store upserts; retract deletes,
+  never restores) — recorded in 424 as fix candidate 4; the banked 08-31 bytes
+  have no sanctioned path back, so restore was NOT an option.
+- **INTERIM (their proposal, my dispatch): solid-ground regen** — ground colour
+  MEASURED at the served CSS (--color-header-bg: #0a0a0a), named exactly in a
+  narrow GROUND clause (no gradient/pattern/chequerboard/panels; the word
+  'transparent' deliberately absent — it is the word that fails). Constraint
+  honoured: composedPaletteDirection's logo exclusion NOT reopened — this is a
+  prompt clause, not palette plumbing. Item 00aa1796, corr aae1ddc4. Verify at
+  the served asset after the next mirror: hash changed + corner pixels ≈ #0a0a0a
+  + text-free + single comp (chunk scan + eyeball, as established).
+- 417 status held to the pre-registered reading: "one for one", the fence still
+  owed. Their WRONG_CALLS postscript (422/424 renumber) noted — "a measurement
+  you request but don't read is worth less than one you never ran".
