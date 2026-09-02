@@ -407,3 +407,63 @@ is CLAIMED; if it sits triaged for long, that is the throughput lane's starvatio
 
 Benign warn row at 17:42:39 (`page-rerender`/`render_page`): "Outbound link suppression SKIPPED —
 refused-target set unavailable or site has not shipped (bugs_open/328)". Expected pre-ship.
+
+---
+
+## 2026-09-02, ~18:05Z — SITE LIVE. Verification at the artefact, and the palette reading
+
+**Served, cache-busted, control 404** `[MEASURED 2026-09-02 ~18:00Z]`:
+
+| path | code | bytes | main text |
+|---|---|---|---|
+| `/` | 200 | 59,023 | 2,118 — title "gamedesign.uk — The Practice of Game Design" |
+| `/about.html` | 200 | 10,455 | 5,335 |
+| `/contact.html` | 200 | 7,733 | 1,984 (first probe 000, second 200 — 359's retry rule; transient) |
+| `/articles/index.html` | 200 | 8,396 | 2,148 |
+| `/blog/article.html` | 404 | — | parked slot, **linked from nowhere** — not a dead link |
+| `/privacy.html`, `/terms.html` | 404 | — | **not in the plan and not linked** — the old footer linked them, the new one does not |
+| `/sitemap.xml` | 200 | 507 | the four live pages, article correctly absent |
+| `/assets/css/styles.css` | 200 | 19,977 | LAYOUT: magazine-grid |
+| `/assets/images/favicon.png` | **404** | — | the one dead internal reference; logo.png 200 |
+
+Constraint sweep on the four live pages: `href="mailto:"` empty **0** (footer now
+`mailto:gamedesign@contactforsales.com`); "game room" 0; "GameDesign.uk Pro" 0; "calculator" 0;
+links to `gamesdesign.co.uk` on `/` and `/about.html` — the sibling cross-link positioning asked
+for. Homepage opening: *"Game design, examined as a practice, not a pitch. Writing for people who
+already run the reviews, own the sign-off and have opinions about the pipeline, on the parts of
+the job that are more judgement than arithmetic."*
+
+**THE PALETTE READING — the "not a pin" ruling, measured on a hand-seeded composition:**
+
+| slot | seed (= composed palette row, `mission_hint`) | classifier `design_intent` (rung 2) | **served `styles.css`** |
+|---|---|---|---|
+| background | #F4F1EA | #F5F0E8 | **#F5F0E8** ← classifier's |
+| accent | #A6521F | #9B4E2A | **#9B4E2A** ← classifier's |
+| surface | #FFFFFF | — | #EDE7DB |
+| primary | #33302B | — | #2C1F14 |
+| secondary | #6E6558 | — | #5C4033 |
+| text | #23211E | — | #1E1410 |
+| text-muted | #6B655C | — | #6B5A4E |
+| border | #DDD6C9 | — | #D4C9BA |
+
+**The composed palette row and the served stylesheet disagree on all eight slots.** Where the
+classifier wrote a value, the CSS carries the classifier's; the rest are re-derived warmer
+browns. So `palette_source=mission_hint` was true at composition and **did not reach the
+stylesheet** — the render overlay (webdesign-agent) took its values from `design_intent`, not
+from `resolved_composition.palette_id`. Under the owner's 2026-09-02 ruling this is permitted
+and expected ("full authority to ignore our set of themes"). The DIRECTION held completely —
+warm paper, earth accent, serif throughout (Playfair / Libre Baskerville), light — which is
+what the owner asked for. **Recorded as values, not a complaint**, per theme kits' request.
+Whether `resolved_composition.palette_id` should describe the served site is theme kits' /
+site_design_planner's seam question; noted to them, not filed by me.
+
+**Open items on the site:** `article` parked (0 sections — owner/planner: leave or cancel);
+3× `unresolved_cta` (gated, no dead links, "no eligible content hub" — self-resolves when
+articles exist); `site_unreachable:detected` (stale — `/` is 200; clears on next rotation);
+4× post-design `page_rerender` in flight (the restyle); 2× `needs_page:triaged` (post-design
+re-files). Missing favicon: `/assets/images/favicon.png` 404.
+
+**Cascade wall-clock: dispatch 17:07:55 → homepage live ~17:56 → styled by ~18:00. Under an
+hour.** The HANDOFF's "budget hours" was a busy-fleet figure.
+
+**432 reconciler, re-run:** gamedesign.uk must now be OK (row + 5 pages) — verify below.

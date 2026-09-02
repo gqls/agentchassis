@@ -55,6 +55,22 @@ Bug filed: `bugs_open/432_HANDOFF_2026-09-02_a_site_whose_db_rows_were_deleted_k
 > class bug; close. **432 stays open** until the reconciler is scheduled (IMP-059 gap 1) or the
 > owner says keyboard-run is enough.
 
+> ## ✅ UPDATE 2026-09-02 ~18:10Z — SITE LIVE AND VERIFIED AT THE ARTEFACT
+>
+> Dispatch 17:07:55 → homepage live ~17:56 → styled ~18:00. Four pages serve with content
+> (`/` 2,118 chars, `/about` 5,335, `/contact` 1,984, `/articles/` 2,148), sitemap 200, control
+> 404, no empty `mailto:`, no forbidden phrases, sibling cross-linked, every internal link 200
+> except `/assets/images/favicon.png`. Full table + the palette reading: NOTES 18:05Z.
+> First SUMMARY written: `SUMMARY_2026-09-02_gamedesign_uk_rebuild.md`.
+> **Served palette ≠ composed palette on all 8 slots** (overlay took the classifier's values) —
+> permitted by the owner's ruling; reported to theme kits as values. `audit-rowless-serving-domains`:
+> gamedesign.uk now OK (absent), oxenunity.com ROW_NO_PAGES.
+>
+> **STILL OWED / OWNER DECISIONS:** (1) `article` slot parked at `needs_human_review` — leave or
+> cancel; (2) no privacy/terms pages — not planned, not linked; want them?; (3) favicon 404;
+> (4) llm-cost-calculator.html retract-vs-rebuild (from 315's lane); (5) 432 stays open until the
+> reconciler is scheduled (IMP-059 gap 1) or keyboard-run is ruled enough. Lane closes on (1)+(2).
+
 ## 1. What this lane is, in one paragraph
 
 The owner asked for gamedesign.uk to be fixed — "it is in a bad way". It is: five of its linked

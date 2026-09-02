@@ -155,3 +155,22 @@ the other eight are your adoption backlog for after this one.
 
 315 is reopened and handed to the ai-agent-orchestration lane. The name clash is with the new
 gamesdesign.co.uk session, with "GamesDesign.co.uk" as the recommended name.
+
+## 2026-09-02, about 18:10 — it's live
+
+gamedesign.uk is serving a real site. Four pages — home, about, contact, articles — with proper
+copy, a sitemap, your contact address in the footer, and every link working. The homepage opens
+"Game design, examined as a practice, not a pitch," which is about as close to the brief as I could
+have hoped. The classifier, in its own notes, called it "editorial — not a tool platform; those
+live on the sister domain." It took fifty minutes from dispatch to a styled homepage.
+
+The look is what you asked for: warm paper, dark ink, a rust accent, serif headings and body. The
+exact colours are not the ones we seeded — the renderer took the classifier's near-identical
+values instead and warmed the rest. That is the "starting point, not a lock" rule you set today
+doing what it says, and I've passed the numbers to theme kits rather than argued with them.
+
+Two things are parked on purpose and need a word from you: an article slot the planner made with
+no article to put in it, and three buttons that have nothing to point at until articles exist.
+Both are the system declining to ship something empty. And two things are simply absent: a
+favicon, and privacy and terms pages — the plan didn't include them and nothing links to them,
+but a public site probably wants a privacy notice. Say the word and I'll get them planned.
