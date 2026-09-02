@@ -120,3 +120,57 @@ exists only where `setCTAField` ran, so components like `system-stats`, `tool-ct
 `featured-content` and `tool-list` carry CTA url keys and **zero** titles `[MEASURED 2026-08-26]`.
 They remain yours. I have stated that limit in the code header and in register LNK-040 rather than
 letting a later reader assume coverage.
+
+
+## CONTRIB 2026-09-02 from the `bugfix_384_page_list_invalidation` lane — a fourth instance, and it shows the strike arm can be fed ENTIRELY by another producer's SUCCESSES
+
+Not a competing fix and not a new bug — `who-owns.py 389` says this lane owns it, and your class 1
+already names the chain exactly ("a no-op rerender that **completes, strikes, and manufactures
+`unresolved` stock**"). This is fresh evidence for it from a different producer pair, plus one
+property I did not find stated in your file. All `[MEASURED 2026-09-02 ~16:0xZ]`.
+
+**The instance.** `bugs_open/384`'s sweep (`check_page_list_stale`, migration `603`, live
+2026-08-25) has filed **12 items in its entire lifetime — live AND archive, all time — and every
+single one is `unresolved` with `attempt_count = 0`. Not one has ever been claimed or run.**
+Three pages, three sites: leopardessconsulting.co.uk/blog (9), agritec.uk/tools (2),
+garden-tools.uk/tool-watch-service-interval-calculator (1).
+
+**The fingerprint is unambiguous** — every row carries the brand written at
+`load_work_item_actions.go:2033`:
+`[unresolved after 6 attempts] Page-list on blog shows 2 stale image(s) — the stored array …`
+The detector was RIGHT every one of those times: the page still serves 2 text-only cards today.
+
+**The property I want to add to your account: on this key, every "attempt" was a SUCCESS.**
+The brake counts `status IN ('complete','failed')` (`load_work_item_actions.go:1985-1993`). On
+`page_rerender_blog_<site>_section_data_resolved` the 7-day window held **6 `complete` and 0
+`failed`**. So the arm did not park a detector re-finding a fault after two *failed* repairs — it
+parked one after six *green* ones. Your class 1 gets there via a no-op rerender by the same
+detector; this gets there with **the strikes and the parked item coming from two DIFFERENT
+producers that deliberately share an `item_key`** (`derive_card_asset`'s card-landing seam files
+the completions; `completeness-discovery-agent`'s sweep files the item that gets parked). The key
+is shared on purpose, for dedup — which means **any detector that shares a key with a
+frequently-succeeding producer is switched off by that producer's successes**, and neither side
+can see it happening.
+
+**Why it is invisible, in your file's own terms.** `unresolved` is in `workItemTerminalStatuses`
+(`work_items_common.go:48`) and `claim_work_item_action.go:135` claims only
+`('triaged','approved')`. So the row is born terminal: unclaimable, and holding no dedup slot, so
+the next sweep files another one that is also born dead. Nine identical rows on one page in five
+days. It reads, from every aggregate, as a detector that keeps finding things — not as one whose
+every finding is closed at birth.
+
+**And it silently voided a watch item.** 384's handoff §8.1 asked for the sweep's escalation rate
+to be re-read on ~2026-09-01 against a 1-in-36 baseline, recording "zero escalations so far". That
+number is **vacuous**: zero escalations because zero runs. A rate over an empty denominator read as
+a clean bill of health for eight days. (`a post-fix ZERO needs a DEMAND control`, paid again.)
+
+**Fix candidate, offered not taken — yours to judge.** `insertWorkItem` already has the exemption:
+the brake is skipped for `item.recurrenceExpected`, whose comment says "for an action request a
+terminal predecessor is a SUCCESS, not a strike". That is this case in one sentence. Whether the
+right cut is marking the sweep's items `recurrenceExpected`, or narrowing the strike count to
+`failed` only, or splitting the key, is a judgement about the shared seam and belongs with this
+bug — **I have not touched it.**
+
+Evidence and the queries are in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/NOTES_page_list_invalidation.md`
+(entry 2026-09-02). Reachable in that lane if you want the artefact checks re-run.
