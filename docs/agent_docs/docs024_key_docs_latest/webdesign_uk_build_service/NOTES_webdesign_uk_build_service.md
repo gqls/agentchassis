@@ -7794,7 +7794,7 @@ lane's per the ownership ruling.
   fire (424 transparent logo regen). Pre-delivery sweep waits for all of it.
   New handoff cut: `site_delivery_and_editor/HANDOFF_2026-09-02b_continue_here.md`.
 
-## 2026-09-02 (~22:14Z, fresh session) — handoff §1.1 RETRACTED: the logo regen is NOT ours to fire; the guard is blind to the failure it exists to catch
+## 2026-09-02 (~21:14Z, fresh session) — handoff §1.1 RETRACTED: the logo regen is NOT ours to fire; the guard is blind to the failure it exists to catch
 
 - **The correction, and what caught it.** `HANDOFF_2026-09-02b` §1.1 said "FIRE the
   transparent logo regen — unblocked, ours to do." Following its own pointer into the
@@ -7850,7 +7850,7 @@ lane's per the ownership ruling.
   finding blocks this lane; what unblocks), `bugs_open/429` (slot observation; th2: flip
   is theirs to read while I have no DB).
 
-## 2026-09-02 (~22:18Z) — handoff §1.3 CORRECTED too: the HOLD already ran pre-roll; the rerender-path defect is upstream of any roll; decks will not arrive by themselves
+## 2026-09-02 (~21:18Z) — handoff §1.3 CORRECTED too: the HOLD already ran pre-roll; the rerender-path defect is upstream of any roll; decks will not arrive by themselves
 
 - **Source:** the components lane's post-roll handoff
   `components_lane_425/HANDOFF_2026-09-02_continue_here.md` (commit `753c3e6bf`, 21:10Z —
@@ -7907,7 +7907,7 @@ lane's per the ownership ruling.
   corrections it read **21:18:58Z**. The labels I wrote in between ("~21:2xZ", "~21:4xZ",
   "~21:5xZ") were never read from a clock — I estimated elapsed time from the amount of work
   done and overstated it by ~30 minutes. Re-anchored above to the commit clock (`87a923190` =
-  22:14Z, `8f2f2bab7` = 22:18Z) and to `date`. Why it matters here: "~21:5xZ, still 0 decks / contact
+  21:14Z, `8f2f2bab7` = 21:18Z) and to `date`. Why it matters here: "~21:5xZ, still 0 decks / contact
   still 200" would read as AFTER the ~21:52Z reconciler tick; it was 33 minutes before it. The
   tick has not happened as of this line. WRONG_CALLS tally row "record the CLOCK beside a
   reading, never infer it afterwards" incremented.

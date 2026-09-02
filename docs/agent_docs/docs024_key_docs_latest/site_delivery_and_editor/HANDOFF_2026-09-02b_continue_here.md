@@ -23,7 +23,7 @@ stays HELD on the owner's fix-everything cut-line**; `customer_access_tokens` = 
 (checked 19:3xZ). As of ~21:0xZ NONE of the three convergence waves had fired yet
 (contact.html 200, GTM count 0, excerpt decks 0 — all with controls held; that is the
 EXPECTED pre-convergence shape, not a failure).
-> **~22:18Z:** two of §1's four premises are corrected below in place — §1.1 (logo
+> **~21:18Z:** two of §1's four premises are corrected below in place — §1.1 (logo
 > regen: DO NOT FIRE, owner decision) and §1.3 (cards: no HOLD pending; the rerender
 > path is the open defect and the roll does not touch it). §1.2 and §1.4 stand.
 
@@ -39,7 +39,7 @@ EXPECTED pre-convergence shape, not a failure).
    orchestration row is latency, NOT a dropped dispatch — find the run by
    payload, never re-fire on that evidence. Owner's ruling being satisfied here:
    no baked background, text-free single composition.
-   > **CORRECTED 2026-09-02 ~22:14Z (this lane, next session, cold-start re-read of
+   > **CORRECTED 2026-09-02 ~21:14Z (this lane, next session, cold-start re-read of
    > the dir this item points at): item 1 is NOT unblocked — DO NOT FIRE.** The roll
    > half is true and is now verified on BOTH services: image-generator-adapter's
    > provenance line read from pod `588ffc76b9-fddqd` (20:56:58Z) = stamp `0d2feee2f`,
@@ -74,7 +74,7 @@ EXPECTED pre-convergence shape, not a failure).
    normal rotation slot: boxingonline's publish result should read
    `published:true, deleted:1` (contact.html), then no-drift again. At ~21:0xZ
    contact.html still served 200 (index control 200) — pre-convergence, expected.
-   `[ADDED ~22:14Z]` This site's reconciler slot is ~:52 past the hour `[INFERRED
+   `[ADDED ~21:14Z]` This site's reconciler slot is ~:52 past the hour `[INFERRED
    from three ticks — COMPLETED orchestrations with domain=boxingonline at
    18:51:51/18:52:10, 19:52:29, 20:52:47/20:53:03Z; index last-modified 20:53:26Z]`,
    so the first POST-roll tick (pods 20:56/57Z) is ~21:52Z — probe the pair after
@@ -102,7 +102,7 @@ EXPECTED pre-convergence shape, not a failure).
    **Do NOT report cards fixed until this check passes.** The 420-addenda
    discriminator applies if confused: served object last-modified older than
    pages.deployed_at = mirror lag (wait); newer = dirty source (look upstream).
-   > **CORRECTED 2026-09-02 ~22:18Z (next session, from the components lane's own
+   > **CORRECTED 2026-09-02 ~21:18Z (next session, from the components lane's own
    > post-roll handoff `../components_lane_425/HANDOFF_2026-09-02_continue_here.md`,
    > commit `753c3e6bf`, 21:10Z): there is NO HOLD apply to wait for, and decks will
    > NOT arrive by themselves.** (a) `683_…_HOLD` was applied BEFORE the roll — batch
@@ -131,7 +131,7 @@ EXPECTED pre-convergence shape, not a failure).
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route
    > if the components lane's post-roll re-run of their §2 discriminator (their §0 item
    > 2, needs the token) still shows the rerender path broken. Not fired tonight: no DB,
-   > and it is a joint call with the components lane (messaged ~22:18Z). Success criterion
+   > and it is a joint call with the components lane (messaged ~21:18Z). Success criterion
    > unchanged: NON-ZERO `article-card__excerpt` with real copy + suffix-free titles on
    > /index.html. Also owed after ANY rerender here: `721`'s effect on the six hero
    > components (applied pre-roll, "needs a re-render to show") — approval-readout B.8.
@@ -229,4 +229,4 @@ dir) → SITE_DEFECT_CATEGORIES §0 → bugs 424/425/429 handoffs (all
 2026-09-02) → RUNBOOK (this dir; corrected delivery recipes) →
 `../dispatcher_thread/DISPATCHER_README_start_here.md`.
 
-> **Timestamp correction, 21:20Z:** the in-place labels above originally read "~21:2xZ / ~21:4xZ / ~21:5xZ"; they were INFERRED, not read from the clock, and overstated elapsed time by ~30 min (the whole session's work sits between 21:03Z and 21:19Z). Re-anchored to the commit clock (22:14Z, 22:18Z) and `date`. The reconciler tick at ~21:52Z had NOT happened when any of it was written.
+> **Timestamp correction, 21:20Z:** the in-place labels above originally read "~21:2xZ / ~21:4xZ / ~21:5xZ"; they were INFERRED, not read from the clock, and overstated elapsed time by ~30 min (the whole session's work sits between 21:03Z and 21:19Z). Re-anchored to the commit clock (21:14Z, 21:18Z) and `date`. The reconciler tick at ~21:52Z had NOT happened when any of it was written.
