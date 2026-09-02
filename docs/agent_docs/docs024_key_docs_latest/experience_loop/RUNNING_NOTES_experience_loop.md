@@ -1577,3 +1577,73 @@ pre-694, 3 pages).
 It carries the two outstanding promises to peer lanes (designblog: build the empty-index rule and
 re-run; vetcomparison: re-run both detectors plus the widened auditor after migration 701), the
 SQ-004 `--site` control bug, and the routing step that is still the original task.
+
+---
+
+## 2026-09-02 (post-roll, token refreshed) — 694 survives the roll, the NEW DIMENSIONS FIRE, and my manual dispatch does nothing
+
+Token refreshed by the owner; the §0b checks from `HANDOFF_2026-09-02b` are now run.
+
+### 0b(a) PASS — 694 survived the chassis roll to v1.0.1355
+
+All markers present on the live row: allow-list gone, `<style[^>]*?>` non-greedy strip,
+`ORDER BY pc.position`, all four promise dimensions, `filing_mode` still `record`. Pods
+`agent-chassis-8ddbf8958-*` started 20:56/20:57Z on `v1.0.1355`.
+Note the row's `updated_at` has now moved three times since my apply (14:36 mine → 15:38 →
+**20:55:58**, just before the roll), each time with **no snapshot taken**. Every marker survives
+each write, so nothing I changed is being reverted — but the check is cheap and stays worth running.
+
+### 0b(b) PASS — and this is the result the whole task was for
+
+The sweep audited **gamesdesign.co.uk** at 21:27/21:28Z: **21 pages across 6 page_types, 9,482
+input tokens**. Pre-694 the same seat sent **1,744** tokens averaged over 3 pages. That is a 5.4x
+widening of what the model is shown, live, unattended.
+
+**The four new dimensions are not decoration — they fired, and they produced the owner's own
+complaint classes on a site nobody pointed them at:**
+
+| finding | dimension | what it says |
+|---|---|---|
+| [HIGH] `/guides/index.html` | 6 PROMISE | hero CTA labelled "Launch Cooldown & Resource Cost Analyser" links to `/games/auto-battler/` — names one tool, opens another |
+| [HIGH] `/guides/economy-basics/` | 6 PROMISE | body promotes the Sink & Faucet Modeller; both CTAs go to two different tools, neither of them it |
+| [HIGH] `/games/p2p-networking/` | **8 TOOL DATA** | *"asks the reader to supply a Host ID obtained from another user in a separate session … A tool that requires external coordination to produce any output is a form stub, not a working tool."* |
+| [MED] `/index.html` | **9 GUIDE PROMINENCE** | *"The explainer leads the usable thing it explains, inverting the priority the site's own value proposition demands."* |
+
+The third and fourth are the owner's boxingonline complaints — *"the tool requires the user to
+input all the details"* and *"the guide is more prominent than the tool"* — **restated
+independently by the seat, on a different site, unprompted.** That is the capability he asked for,
+working. It is what a checker that can see the site looks like.
+
+### 0b(c) STILL OPEN — boxingonline has not been reached, and I could not force it
+
+Its latest audit remains **06:23Z, pre-694, 3 pages**. The sweep takes one site per 900s tick over
+~54 sites and has not come round.
+
+> **MISSTEP, corrected here in full, because I published the wrong reading twice before catching
+> it.** I dispatched the seat by hand at boxingonline twice (corr `30b5a2c5`, then `34cb071c`).
+> Both produced **no `orchestration_states` row**. First I read that as latency (CLAUDE.md's own
+> advice). Then, seeing chassis logs marked `stateless:true` on the generic topic, I hypothesised
+> that generic-topic runs simply persist no row — and *then* I found two successful
+> `content-quality-auditor` LLM calls in the window and reported that "the audit ran".
+> **All three readings were wrong.** The two LLM calls carry correlation `0f0dc48e`, which is
+> **neither of mine** — they are the sweep's run on gamesdesign.co.uk. Checked directly:
+> ```sql
+> SELECT count(*) FROM llm_call_log       WHERE correlation_id IN ('30b5a2c5…','34cb071c…');  -- 0
+> SELECT count(*) FROM orchestration_states WHERE correlation_id IN ('30b5a2c5…','34cb071c…');  -- 0
+> ```
+> **My dispatches did nothing at all: zero rows, zero LLM calls, twice.** The publish receipt was
+> genuine (`kafka_publish_checked` printed PUBLISHED both times) — so a real receipt on a real
+> topic proves the MESSAGE LEFT, and nothing whatever about anything consuming it.
+>
+> **The check that would have saved all three errors is one query, and it is the same query every
+> time: does the work carry MY correlation?** I had a correlation id in hand from the moment I
+> published and did not join on it — I looked at a time window instead, and a busy fleet always has
+> something in a time window. `scratchpad/fire_cqa.sh` is therefore **NOT a working dispatcher** —
+> do not copy it, and do not re-run it expecting an audit. Modelled on `fire-offer-analyser.sh`,
+> which presumably works for its own seat; what differs for this one is undiagnosed and was not
+> worth chasing, because the sweep reaches every site unaided.
+
+**So the honest status of the original task:** 694 is live, proven across the estate, and its new
+dimensions demonstrably produce the owner's complaint classes. It has still never run on the site
+that prompted it, and that remains 0b(c) for whoever picks this up — by WAITING for the sweep, not
+by re-running my script.

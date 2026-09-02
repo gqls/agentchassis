@@ -12,6 +12,45 @@ turned out to be three jobs, then this file for what is done and what is left.
 
 ## 0. DO THIS FIRST — two things, and neither is optional
 
+> ### ✅ RESOLVED 2026-09-02 ~21:30Z — the owner refreshed the token and §0 was RUN. Read this, then skip to §2.
+>
+> - **0a token** — cleared.
+> - **0b(a) 694 survived the roll: PASS.** Chassis is `v1.0.1355` (pods up 20:56/20:57Z). All
+>   markers present on the live row; `filing_mode` still `record`. (The row's `updated_at` has
+>   moved three times since the apply — 14:36 mine, 15:38, 20:55:58 — each with no snapshot. Every
+>   marker survives each write; keep re-running the check rather than assuming.)
+> - **0b(b) behaviour: PASS, and it is the result the task was for.** The sweep audited
+>   **gamesdesign.co.uk** at 21:27/21:28Z — **21 pages across 6 page_types, 9,482 input tokens**
+>   against a pre-694 average of **1,744** over 3 pages. **The four new dimensions fired and
+>   produced the owner's own complaint classes on a site nobody aimed them at:** two HIGH promise
+>   findings (a CTA labelled for one tool that opens another), one dimension-8 finding — *"A tool
+>   that requires external coordination to produce any output is a form stub, not a working tool"*
+>   — and one dimension-9 finding — *"The explainer leads the usable thing it explains."* Those
+>   last two are the owner's fighter-comparator and guide-prominence complaints, restated
+>   independently by the seat.
+> - **0b(c) boxingonline: STILL OPEN.** Latest audit is still **06:23Z, pre-694, 3 pages**. The
+>   sweep takes one site per 900s tick across ~54 sites and has not returned. **Wait for it.**
+>
+> ### ⛔ `scratchpad/fire_cqa.sh` IS NOT A WORKING DISPATCHER — do not copy or re-run it
+> I fired it at boxingonline twice (`30b5a2c5`, `34cb071c`). Both produced **zero
+> `orchestration_states` rows AND zero `llm_call_log` rows** — they did nothing at all, twice.
+> `kafka_publish_checked` printed a genuine PUBLISHED receipt both times, so **a real receipt on a
+> real topic proves the message LEFT and nothing about anything consuming it.**
+> I then misread this three ways in a row — latency, then "generic-topic runs are stateless so no
+> row is persisted", then "the audit ran" on the strength of two `content-quality-auditor` LLM
+> calls in the same time window. Those calls carry correlation `0f0dc48e`: **the sweep's run on
+> gamesdesign.co.uk, not mine.**
+> **The one query that kills all three errors — join on YOUR correlation, never on a time window:**
+> ```sql
+> SELECT count(*) FROM llm_call_log        WHERE correlation_id = '<your corr>';
+> SELECT count(*) FROM orchestration_states WHERE correlation_id = '<your corr>';
+> ```
+> A busy fleet always has something in a time window. It is modelled on `fire-offer-analyser.sh`;
+> what differs for this seat is undiagnosed and was not worth chasing, because the sweep reaches
+> every site unaided.
+
+
+
 ### 0a. The kubeconfig token is EXPIRED. You cannot verify anything until the owner refreshes it.
 
 At 21:09Z every cluster call returned `You must be logged in to the server (Unauthorized)`,
