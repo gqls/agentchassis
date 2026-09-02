@@ -791,3 +791,60 @@ populates the field it reads — it is not selecting low-value work over high-va
 the `dispatch_throughput` lane's finding to take forward, not this bug's**, and it does NOT explain
 the blog listing (different population, different handlers). Handed to them with that separation
 stated; I have not read the promoter's pre_query or bugs 444/430/454, and have filed nothing.
+
+### RETRACTION 2026-09-02 19:1xZ — my "handler door parks 100% of the detected population" finding is WRONG (and the `dispatch_throughput` lane refuted it)
+
+**RETRACTED:** the claim in the update above that the promoter's handler door "parks the entire
+detected population by construction, because no detector populates the field it reads". **Do not
+quote it. There is no bug there.**
+
+**Verified myself at the source** (not taken on the peer's report — `scheduled_tasks.pre_query` for
+`detected-item-promoter`, 94 lines):
+- line 51, inside the `scored` CTE: `AND COALESCE(wi.handler_agent, '') <> ''`
+- the `held` CTE comment, verbatim: *"What the doors refused. Flag-only rows (no handler_agent) are
+  NOT here: they are excluded by `scored` itself, because `detected` is where they belong
+  permanently and holding is not what is happening to them."*
+
+So handler-less rows are **excluded from scoring upstream** — the doors never see them.
+`head_essentials_missing` and the other 11 types are **FLAGS**: records with no automated handler,
+whose permanent resting place IS `detected`. The doors govern only handler-bearing rows, and the
+promoter reports those holds with reasons every tick (`held_detail`). The fork I left the peer
+("is handler_agent set at detection, or filled by the promoter?") has answer **neither** — handler
+assignment is a deliberate third act that turns a flag into work.
+
+**My error, precisely:** I reconstructed the door from the peer's prose description and tested rows
+against **my reconstruction** (`EXISTS(SELECT 1 FROM agent_definitions WHERE type=handler_agent…)`),
+which is trivially false for an empty string. I never read the query. **The rows do not fail that
+door; they never reach it.** The tell was in my own output and I walked past it: **1,386 of 1,386
+failing exactly one door and 0 failing any other.** A real filter discriminates — a 100%/0% split
+is the signature of having measured a **definition**, not a filter.
+
+## CONFIRMATION FROM THE `dispatch_throughput` LANE — a better control than mine for §4's chain
+
+They ran 21-day daily rerender-family completions (live+archive) across my five comparison sites.
+**The discriminating signal is post-outage recovery**, which my snapshot could not see:
+
+| site | 09-01 | 09-02 | recovered? |
+|---|---|---|---|
+| dartsonline.com | 268 | 106 | yes |
+| gaswholesalers.com | 52 | 139 | yes |
+| relojistas.com | 40 | 72 | yes |
+| **leopardessconsulting.co.uk** | **2** | **1** | **no** |
+
+leopardess froze at 08-28 (…89, 179, then 5, 4, 2, 1) exactly as the two-strike reading predicts,
+and is **uniquely unable to recover** while its comparators did. That is much stronger than my
+branded-count control, which could not separate leopardess from relojistas.
+
+⚠ **The weekly PERIODICITY remains untestable** — the 08-28→31 trough is the fleet-wide LLM outage
+(99%+ call failure; every site dips), so there is no clean sawtooth baseline in this window. **Do
+not claim a sawtooth.** The 09-03 self-resume prediction is the clean test.
+
+**They also confirmed:** branded-only sites are invisible to their per-site floor (no eligible rows,
+no attempts, no losses — the 413 absence shape), so **this two-strike mechanism is now the one
+absence-maker their meters cannot see**, which argues for `bugs_open/389` fixing it at source rather
+than metering around it. On ">80% of a healthy site's rerender work suppressed by a brake that counts
+SUCCESSES as strikes" they have no baseline but would not defend it as design — that judgement is
+389's owner's.
+
+**If leopardess resumes on/after ~2026-09-03 21:30Z, stamp the resume time into 389's evidence** —
+their request, and it is the confirmation that mechanism needs.
