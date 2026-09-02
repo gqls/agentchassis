@@ -2,9 +2,18 @@
 
 **Filed 2026-09-02** by the `site_design_planner` thread (opened same day, no prior
 owner — see `docs/agent_docs/docs024_key_docs_latest/site_design_planner/`).
-**Status: FIXED IN CODE (`bd8e45aba`), submitted to council
-(`Council-Submitted: bd469ba1-228e-443e-a04d-6a577a210e5d`), INERT UNTIL THE NEXT
-CHASSIS ROLL.** Per CLAUDE.md's bar, stays in `/bugs_open/` until verified live.
+**Status: FIXED IN CODE (`bd8e45aba`), COUNCIL APPROVED**
+(`bd469ba1-228e-443e-a04d-6a577a210e5d`, verdict read 2026-09-02 — no objections
+required a revision), **STILL INERT — the deployed chassis binary
+(`a2732c7207da4f24ed3aceb6f62b238605db0530`, checked via
+`service_binary_capabilities`) predates this commit** (`git merge-base
+--is-ancestor bd8e45aba a2732c7207d...` → false; the reverse holds → true, so the
+deployed build is an ancestor of, not a descendant of, this fix). Per CLAUDE.md's
+bar, stays in `/bugs_open/` until verified live at the served behaviour, not just
+approved in code review. The commit already carries `Council-Submitted:` — do
+**not** amend it to add `Council-Reviewed:`; forward-only forbids the amend and
+098's own report resolves this correlation to APPROVED automatically once it
+runs, crediting the commit without any edit.
 
 Grepped `/bugs_open/` and `/bugs_closed/` for `resolve_composition_layout`,
 `extractClassificationTags` and `needs_new_layout_candidate` before filing — zero
