@@ -558,3 +558,29 @@ DESIGN. The read when they land is therefore layered:
 3. `page_components.updated_at` bumped + served inputs still 3/1/2;
 and if (2) is not surfaced, the honest status is "resolution proven to NOT ERROR; proven to have
 RUN only as far as the result payload discriminates" — recorded as such, not rounded up.
+
+## 2026-09-02 (t) — the template-path proof LANDED: 693 is closed with no asterisk
+
+The three `template_changed` rerenders completed (~21:33Z), and the layered read closed every gap:
+
+1. **Routing**: `template_changed` is one of the five literals and routes to
+   `rerender_page_sections` — the action where an unresolved component is FATAL, and which errored
+   on these exact pages in their pre-693 state. **Completion is resolution.**
+2. **The artefact, by HASH not proximity**: each proof-run's `files_sha256` equals the served
+   page's sha256 exactly — `a76037f9…`, `2797d4ee…`, `bb0fbb93…` — so the bytes on the wire ARE
+   those runs' own output. Inputs 3/1/2 throughout.
+3. The result payloads carry the full `rendered_page.html`, deploy commit and per-file sha —
+   which is what made (2) possible without inference.
+
+**And the populated-plan complement arrived from production itself**: bugs_open/357 is CLOSED at
+population 0 — all 22 pages, 21 adoptions + one §9.3 fork — and hours later a news wave
+organically rebuilt vetcomparison/index end-to-end through plan → resolve → RENDER, reproducing
+the adopted tool to within one trailing newline through a full delete-and-reinsert. The
+template-equals-bytes property is now proven on both arms: our NULL-id/empty-plan case by the
+directed proof above, their wrong-id/populated-plan case by an unprompted production rebuild.
+
+Their parting caution (that 693's original rerenders likely re-shipped stored bytes) was correct
+and is (r)'s finding — with the stamps unaffected (assemble also reaches the deployed branch,
+measured at (m)) and now superseded by the real render above.
+
+**Day-one ledger closes: every owner ask delivered, every claim at artefact strength.**
