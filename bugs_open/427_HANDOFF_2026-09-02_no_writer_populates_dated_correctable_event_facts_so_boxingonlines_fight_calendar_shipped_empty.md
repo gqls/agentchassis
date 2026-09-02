@@ -85,6 +85,21 @@ none":
 
 `boxingonline.com` sits in the thin end: 2 rows, 3 facts total, 0 `allowed_entities`.
 
+**The combined figure is the one that actually settles §3's question, and it was derived
+independently twice — once here, once by `boxingonline.com`, matching exactly on
+re-check** `[MEASURED 2026-09-02, both sessions, identical query shapes]`: folding the
+34 no-row sites in with the 20-that-have-a-row distribution above, **37 of 54 sites (69%)
+hold ZERO facts, and 42 of 54 (78%) hold five or fewer.** Only 12 sites carry a corpus
+worth the name, and exactly one exceeds 50 facts.
+
+That is the decisive form of the backfill-vs-pipeline question this section opened with.
+63% with no row could still be explained away as "those sites are young, or the pipeline
+just hasn't reached them yet." 78% at five facts or fewer, concentrated almost entirely in
+a single outlier site, cannot be — it is the shape of a mechanism that has never routinely
+run, with a handful of hand-populated exceptions (the dartsonline PDC facts, migration
+`494`, are one of them). **`boxingonline.com` is not the anomaly here. It is the typical
+case, and the typical case is empty.**
+
 > **Correction to a figure already in circulation on this bug.** The `boxingonline.com`
 > session's own message describing this bug quoted "facts (444 sites)" from a fleet key
 > census. `[MEASURED 2026-09-02]` **444 is a ROW count, not a site count** — it is
@@ -174,6 +189,14 @@ that tags topics/credibility runs on it at volume), **there is no step that turn
 article confirms a fight" into a structured, dated, correctable record** — the shape
 `entity_ids` was declared for and never given.
 
+**Method note, flagged by `boxingonline.com` as worth stating rather than leaving
+implicit.** Re-running the inherited "three zeros" instead of citing them, finding one had
+moved, tracing why, and recording the movement anyway is a live instance of this estate's
+own standing rule that a census goes stale by ADDITION and reads as current forever — a
+bug arguing "do not trust an inherited figure" (as §3's `444`→`20` correction also does)
+would be self-refuting if it then inherited one without checking. Both corrections in this
+file were caught the same way: re-derive before citing, not after being contradicted.
+
 ## 5. Why this is one bug, not two
 
 Both ends are the same missing capability seen from either side. `evidence_base` is the
@@ -188,7 +211,10 @@ question returns in a month under a different site's name.
 ## 6. Constraints on the fix, from the owner and from the site
 
 - **Owner ruling (via `boxingonline.com`, 2026-09-02): fix before this site is delivered.**
-  There is real time — not an emergency — but the cut-line is explicit.
+  There is real time — not an emergency — but the cut-line is explicit, and it makes this
+  bug's status sharper than "open": it is **currently blocking a paid deliverable**, not
+  queued behind one. `boxingonline.com` has told the owner this bug is where the one
+  unstaffed piece (the feed lanes) now lives.
 - **Do not invent a parallel store.** `evidence_base` already has 444 historical rows and
   is read by the claims-gating pipeline and the writer; a second corpus for "dated facts"
   specifically would just relocate this exact bug.
