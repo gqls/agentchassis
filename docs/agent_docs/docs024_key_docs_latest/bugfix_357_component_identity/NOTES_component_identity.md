@@ -1877,3 +1877,23 @@ control.
 3. Then close 357 at population 0 verified at the artefacts: move the bug file, 016b §10 row,
    SUMMARY milestone, workstream memory, closing notes to lendzy / vetcomparison /
    mortgagecalculator CONTRIB.
+
+### 2026-09-02 ~22:00Z — CLOSED. Final sweep explained, the organic proof, and the last corrections
+
+Token refreshed (confirmed first-hand, not on the peer's word). Final sweep initially read
+total=21/one_row=9 — BOTH explained benign on inspection: 12 pages gained their second
+PLANNED section (`generic-text-block`, timestamps 01:33–17:46, i.e. the day's ordinary
+rebuild waves, pre-apply — and Layer 2 preserved every tool row byte-identically through
+them, incidental evidence the carry works); and vetcomparison/index was rebuilt ORGANICALLY
+at 21:15Z by the news wave — pinned row replaced by the full 4-row plan set, the tool row
+re-rendered FROM THE ADOPTED TEMPLATE (`post + '\n' = pre`, one trailing newline, proven by
+equality), identity kept through delete-and-reinsert, served page re-verified green. That
+organic event supersedes the planned proof-vehicle rerender — the template route ran in
+production, unprompted, on the hardest page. The reason-literal trap that made the filed
+rerenders vacuous was ALREADY INDEXED as 016b §10 row 404 before the migration was written —
+"grep the index for the mechanism" applies to WRITING work items, not just filing bugs.
+
+Bug file moved to `bugs_closed/` with the closing section; §10 gains the 357 closed row;
+SUMMARY_2026-09-02 written (milestone: the lane's purpose achieved). Rollback note for
+posterity: vetcomparison's row is now legitimately post-organic-rebuild — a 701 rollback
+would abort on it by design ("neither state"), resolve by hand from `pre_row` if ever needed.

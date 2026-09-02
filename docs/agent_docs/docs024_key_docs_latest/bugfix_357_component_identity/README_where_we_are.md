@@ -673,3 +673,15 @@ warning file that used to say "rebuilding an adopted page crashes everything" no
 actually true today: it doesn't crash, it quietly does nothing, and quietly-nothing is the
 thing to check for. What's left is yours: run the one-page pilot (the command is in the
 notes), check the page still works, then run the other twenty-one.
+
+**2026-09-02, night — the bug is closed.** You applied the repair yourself in two stages and
+every guard passed; all twenty-two pages now own their tools under honest names, and the
+served sites never moved a byte. Then the system handed us the proof we couldn't manufacture:
+the evening news refresh rebuilt the vetcomparison homepage through the entire new machinery
+— and rebuilt the tool perfectly. That was the exact scenario this whole lane existed to make
+safe, happening on its own, hours after the repair landed. One honest asterisk is in the
+notes: the migration's own "verify" rerenders turned out to prove less than they seemed (a
+neighbouring lane caught why, and the file is corrected for any future run) — the organic
+rebuild is the proof that counts. 357 is in the closed pile. Still open and handed on: the
+save-refusal defect (406), and the vetcomparison contrast tidy-up now unblocked for the
+design pass.

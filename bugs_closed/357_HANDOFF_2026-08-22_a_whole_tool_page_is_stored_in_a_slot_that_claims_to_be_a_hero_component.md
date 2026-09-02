@@ -948,3 +948,42 @@ pilot's verification-at-the-DB-row-and-the-served-page will show it** — the ch
 
 This does not change our advice — ship 701, it makes nine invisible tools verifiable — but the
 re-key `UPDATE` is no longer a tidy-up to schedule afterwards. It belongs in the pilot.
+
+---
+
+## CLOSED 2026-09-02 — population 0, verified at the served artefacts
+
+**The complaint:** 22 live `page_components` rows declared themselves the shared `hero`
+component while storing whole interactive tools. **The state at close:** the bug's own
+predicate returns **0**; all 22 rows carry per-tool adopted identities.
+
+**The repair (owner decision "Option B", migration 701, council APPROVED r3 corr `df6c1b41`):**
+per row, a `content_components` entry whose `html_template` IS the stored bytes
+(`created_from='adopted'`, `component_level='tool'`, one RFC_036 §9.3 fork), with the plan
+repointed in the same transaction at both levels (`site_plan_sections` + `pages.sections`)
+and slot = plan element = cc.name aligned. Applied by the owner's hand: pilot
+(`tool-simple`) 19:03Z green on every clause, remainder 21 rows ~19:35Z, COMMIT clean, all
+guards passed. Backup: `page_components_backup_357b_20260902` (kept).
+
+**Verified at the artefacts (2026-09-02 ~21:10–21:5xZ):**
+- 22/22 served pages: HTTP 200 with browser Accept, interactive controls present, scripts
+  present, **zero `data-component="hero"`**; per-domain invented-URL controls all 404.
+- 21/22 stored rows byte-identical to the pinned census through the day's rebuild waves;
+  the 22nd (vetcomparison/index) was REBUILT ORGANICALLY at 21:15Z by the news wave — and
+  that rebuild is the close's strongest evidence: the repointed plan resolved the adopted
+  component, **rendered the template**, reproduced the tool to within one trailing newline
+  (`post + '\n' = pre`, proven by equality), kept `created_from='adopted'` through a full
+  delete-and-reinsert save, and the served page still carries the working tool. The
+  regeneration-is-a-no-op property — the reason Option B was chosen over 578's untestable
+  carry dependency — held in vivo, unprompted.
+- The migration's own 16 filed rerenders shipped correct artefacts but took `render_page`
+  (the §10 row-404 reason-vocabulary trap — prose in a parsed field); corrected in the HOLD
+  file for any re-run. The organic rebuild above is what exercised the real route.
+
+**What this lane leaves behind:** phase 2 (stop the mislabel at birth) live since 08-25 with
+the growth-guard as its regression tripwire; `bugs_closed/408` (found and fixed en route);
+`bugs_open/406` (the sibling refusal defect — DIAGNOSED, fix still owed, shared-seam,
+council-gated); migration 578 superseded-for-this-population (its file untouched, per its
+own header note in 701); the walker-family census; and three parked vetcomparison contrast
+items whose natural home is now the adopted component's template (their lane's design pass
+is queued). Full trail: `docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/`.
