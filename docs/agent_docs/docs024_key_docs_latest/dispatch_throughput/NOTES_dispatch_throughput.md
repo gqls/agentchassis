@@ -1327,3 +1327,20 @@ hand-copied four times. **Both built rather than argued** `[all MEASURED 2026-09
   same lesson as the stage-A round: derive, don't retell).
 r2 resubmitted on the same corr; verdict monitor to be re-armed. The travelling doc_notes
 decision record written (tooling_provenance).
+
+### 2026-09-02 (r2→r3) — stage B r2 REVISE dispositioned; the big objection was a SCOPE MISREADING, stated precisely rather than re-argued
+
+r2 gating (debug_historian HIGH, replace() silent no-op): the shipped 674 ALREADY carried the
+demanded checks (md5-exact preflight + post-text occurrence count + busy-skip survival before
+the EXECUTE probe) — the r2 sketch under-showed them; an explicit pre-replace anchor-count arm
+added anyway (aeab60fcb, commented redundant-by-construction), chained dry-run re-run green.
+The three-seat "conceded monopoly, no mitigation" cluster mis-scoped the r2 derivation: it
+condemned the REJECTED claim-only design; the built 674 excludes withheld rows INSIDE elig,
+BEFORE ranking — a fully-shed site is invisible, not monopolist. True residual now a TRACKED
+RISK: the claim-step race costs ≤1 loop turn per level flip (120s-bounded), self-healing.
+New evidence attached to r3 `[all MEASURED 2026-09-02]`: EXPLAIN ANALYZE — 101 candidate rows
+through governor_admits() in 55ms incl. sort (map PK confirmed); dated zero-flag census;
+doc_notes decision row id 1032c8f4; ai_endpoint_unavailable at claim_work_item_action.go:290
+(availability) vs spend_governor_shed (policy) — distinct reasons, same seam, compose not
+compete; fuel.go's stage-A ruling re-cited (cross-corr invisibility strikes again — seats
+cannot see 80df0963 from 8f4bb57d). r3 submitted; monitor re-armed.
