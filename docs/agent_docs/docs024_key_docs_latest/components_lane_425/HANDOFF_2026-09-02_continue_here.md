@@ -185,7 +185,8 @@ from `ResolvedData`**, not that it lost a merge.
 | **`queryListBelowContract`** → `handleMissingField()` → key never written | the base returns **6** items for this site under its own `listedOnly` floor, and the field declares **no `min_items`** |
 | **whole-page escalation** to the writer (STY-048) | **0** `needs_page` items created |
 | **`save_page_sections` refusing** | row written *and* archived; 0 floor refusals in the window |
-| **stale/cached binary** | killed by the A/B — one binary, two paths, opposite results, minutes apart |
+| **stale/cached binary** | killed by the A/B — one binary, two paths, opposite results, minutes apart. **Re-confirmed post-roll:** both pods on v1.0.1355 probed with both controls, and a rerender still produces the old shape |
+| **the rerender REASON** (`template_changed` vs `section_data_resolved`) | **[MEASURED 2026-09-02 21:30Z]** a `section_data_resolved` rerender of the same page produced the **same old shape** — no `excerpt`, suffix intact. The reason is not the variable, matching the code: the only reason-gated behaviour inside `rerender_page_sections_action.go` is the literal-markdown strip, and `check_rerender_mode` routes all five recognised reasons to the same step |
 | **version pinning** | the pinned version postdates the template update and carries the guard |
 | a **third producer** of `articles` | only `rebuild_blog_listing` writes `"articles"` literally; the generic path writes `resolvedData[fieldName]`. Both fixed |
 
