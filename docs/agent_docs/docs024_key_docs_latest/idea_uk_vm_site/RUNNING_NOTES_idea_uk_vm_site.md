@@ -6093,3 +6093,18 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
   and the ab-test page (`fbbf828b`) failed its assemble yet again — owner choice §5.1 still open.
 - Full case: `bugs_open/425`. Verify after it runs: guides-index cards carry decks, no " | idea.uk"
   in headlines, no empty card elements — at the served page, not the row status.
+
+> **§X.68 addendum, 2026-09-02 ~14:1xZ — the rerender was REFUSED, by a guard the pre-flight did not
+> cover.** `811dac68` attempt 1: **SECTION COMPONENT FLOOR REFUSED — content-listing 69→34 class
+> attributes, 49% kept vs floor 50%** (`bugs_open/253`'s guard; verbatim error in the row). The
+> mechanism is the fix's own headline feature: unfed card slots COLLAPSE rather than render empty,
+> and every collapsed element carried layout classes — the guard reads the intended collapse as
+> flattening, and our fed/unfed ratio lands ONE element short of the floor. The peer pre-checked the
+> TEXT-shrink guard ("cards can be filled"), not the class-attribute COMPONENT floor — siblings, and
+> the second one fired. Retries are deterministic; the row burns to failed unless the components
+> lane sets `section_component_floor` on the step (the error's own suggestion — their batch, their
+> call). Messaged them at 14:1x with the verbatim error + the ratio point (other batch sites may
+> pass or fail by luck of fed/unfed ratio). **Transferable:** a pre-flight that names ONE guard in a
+> family is not a pre-flight of the family — the floors here differ in what they COUNT (text bytes
+> vs class-bearing elements), so a change can be additive by one measure and destructive by the
+> other.
