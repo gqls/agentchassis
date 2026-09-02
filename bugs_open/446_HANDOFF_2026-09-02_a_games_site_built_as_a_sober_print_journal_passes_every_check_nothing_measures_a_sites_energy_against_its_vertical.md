@@ -84,13 +84,30 @@ that requested no site-level hero. Small detector gap alongside: `check_image_ur
 
 ### 3.4 Even the working heroes are muted by the template
 
-Home/about/contact reference their generated images correctly — as CSS backgrounds under
+~~Home/about/contact reference their generated images correctly~~ **CORRECTED ~21:00Z (§3.6): only home does; about and contact wear the HOMEPAGE's image.** All three render heroes as CSS backgrounds under
 `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6))` with `--hero-ink: #fff`. A 50–60% black wash
 over every hero on a warm-paper site, with white text. This is the "same as every other site"
 grammar the owner named on designblog the same evening (their `CRITIQUE_2026-09-02`): the hero
 component's overlay is fixed, not palette-aware, so a light editorial palette gets a dark hero
 regardless. `bugs_open/114` is adjacent (imagery deployed and never referenced); this is the
 next case along — referenced, and flattened.
+
+### 3.6 Two pages wear the WRONG hero, and every has-an-image check passes (found by inline guide imager via designblog; re-measured here)
+
+Filename+extension-anchored census across the four served pages, control `hero-home.jpg` = 3:
+**`hero-about.jpg` 0 references, `hero-contact.jpg` 0** — both generated, deployed, 200, plan-rowed,
+and orphaned. `/about.html` and `/contact.html` both render `url('/assets/images/hero-home.jpg')`.
+At the library: `hero` (38 sites) declares `background_image` in `input_schema` sourced
+`site_assets.hero`; **`hero-about` (28 sites) and `hero-contact` (25 sites) declare NO image field**
+while their templates read `{{or .hero_url .background_image}}` — so the resolver's per-page asset
+has nowhere to land and the template falls through (to the site hero, via something upstream
+supplying `hero_url`; the nominal default is `/assets/images/hero.jpg`). Fleet-wide by
+construction: every site's about and contact wear the homepage picture or nothing. Routed to the
+`components` session with the measured fix (declare the field, same shape as `hero`).
+**The lesson for the checks:** "does the page have a hero image" is a PRESENCE test; the wrong
+image passes it. **And the lesson for the census:** my first grep matched
+`data-component="hero-about"` (the CSS class), not the filename, and reported the opposite of the
+truth — anchor on filename + extension with a known-referenced control.
 
 ### 3.5 The copy is a legal journal
 

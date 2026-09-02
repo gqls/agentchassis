@@ -439,6 +439,15 @@ curl -s "$URL" | grep -oE "url\('?[^')]+'?\)" | grep -oE "/[^')]+" | sort -u | w
 Any non-200 is a hero (or section) painting a gradient over nothing. **Control:** the same default
 path served 200 on all six other sites probed — do not read one site's 404 as a fleet defect.
 
+### 10.3b The WRONG hero — a presence check passes on the homepage's picture
+Two pages wore the homepage's hero while their own generated heroes sat orphaned (0 references,
+files 200). Cause at the library: `hero-about` (28 sites) and `hero-contact` (25 sites) declare no
+image field, so the per-page asset falls through. **Check:** a filename+extension-anchored census —
+for each `assets`/`site_plan_imagery` hero row, `grep -c '<file>.jpg'` across the served pages, with
+a known-referenced hero as the control; then count DISTINCT hero urls against pages carrying a hero
+(4.2's companion). One url on N pages is this category. ⚠ **Do not census with an unanchored
+`LIKE '%hero-about%'`** — it matches `data-component="hero-about"` and says the opposite of the truth.
+
 ### 10.4 Zero interactive or playable elements on an interactive vertical
 The practice seat of a games pair had no game, no demo, no embed, no playable anything, and one
 link to the sibling's tools. **Check:**

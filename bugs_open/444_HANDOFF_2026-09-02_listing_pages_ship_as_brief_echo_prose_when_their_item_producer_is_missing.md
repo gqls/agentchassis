@@ -153,4 +153,4 @@ by the gamedesign.uk lane and filed in full as `bugs_open/446` §3.2 (which also
 wider critique: no game imagery — a SPEC error the lane wrote itself — a hero over a 404, and the
 class "nothing measures a site's energy against its vertical"). Not re-verified through the 090
 loop; measured at the served bytes with a same-domain 404 control.
-
+**Addendum ~21:05Z, for the 444 session's resolver:** the page's `page_type` is **`section-index`**, not `blog-index` — the planner typed an editorial site's articles hub as a generic section index. A refusal keyed on `blog-index` alone will not hold this shape; the plan-side predicate needs "section-index whose section contains 0 planned content pages" regardless of type.
