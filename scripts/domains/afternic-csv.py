@@ -377,13 +377,13 @@ def self_test():
         # valuation feed: BIN wins, floor is the fallback, source is named
         val = write_valuation_csv(rows + [{"domain": "floor-only.com",
                                            "floor": 500.0, "status": "Listed"}],
-                                  td / "val.csv", "USD")
+                                  td / "val.csv", "USD-assumed")
         lines = val.read_text().splitlines()
         t("valuation header", lines[0] == "domain,price,currency,status,price_source")
-        t("BIN preferred + integral price",
-          "relojistas.com,25000,USD,Listed,buy_now" in lines)
+        t("BIN preferred + integral price + assumption travels in the cell",
+          "relojistas.com,25000,USD-assumed,Listed,buy_now" in lines)
         t("floor fallback named as floor",
-          "floor-only.com,500,USD,Listed,floor" in lines)
+          "floor-only.com,500,USD-assumed,Listed,floor" in lines)
         t("no price -> empty cells + source none",
           "example.co.uk,,,In Verification,none" in lines)
 
@@ -405,7 +405,10 @@ def main():
     val = sub.add_parser("valuation-csv")
     val.add_argument("snapshot")
     val.add_argument("--out")
-    val.add_argument("--currency", default="USD")
+    # "USD-assumed" until a real export confirms its currency marking — the
+    # valuation lane asked that the assumption travel IN the cell (2026-09-02);
+    # once confirmed, pass --currency USD (or what the export says) explicitly.
+    val.add_argument("--currency", default="USD-assumed")
     args = ap.parse_args()
     if args.self_test:
         self_test()

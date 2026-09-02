@@ -80,3 +80,11 @@ FLOOR without knowing it would read low listings as low askings. Flagged to
 them in the ack. Self-test now 17/17 PASS (4 new cases); one test fix on the
 way in was the TEST's own newline handling (`read_text()` translates the
 csv module's `\r\n`), not the writer.
+
+**Spec CONFIRMED by the valuation session (same day)**, with one refinement
+adopted: the currency ASSUMPTION must travel in the cell, not sit silently
+in our docs — so the default currency value is now the literal
+`USD-assumed`; a plain `USD` appears only once a real export confirms its
+marking (then `--currency USD` explicitly). They will carry each figure's
+date as the export-file date. Repricing division confirmed: desired prices
+from their lane, bulk-XLSX from ours, upload click stays with the owner.

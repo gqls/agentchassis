@@ -75,8 +75,11 @@ git commit docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/afte
 Columns: `domain,price,currency,status,price_source` — price is buy_now,
 else floor, else min_offer, and `price_source` names which (a floor is not
 an asking price; the extra column is deliberate so the valuation can tell).
-Currency defaults to USD, `[ASSUMED]` until the first real export shows its
-own currency marking — re-check then.
+Currency: the cell carries **`USD-assumed`** until the first real export
+shows its own currency marking — the valuation lane asked that the
+assumption travel in the cell itself, not sit silently in our docs. Once
+confirmed, pass `--currency USD` (or whatever the export says) and the
+plain code takes over.
 
 ## §4 Verification + NS state (any session, no files needed)
 
