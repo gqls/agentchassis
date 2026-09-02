@@ -58652,3 +58652,42 @@ qualifier the original was careful to keep.
 
 Family: a-count-of-things-must-carry-the-date-it-was-counted (same shape: a precise fact loses its
 qualifier on its second telling), the-seam-fired-nine-times (grouped a mixed population into one verb).
+
+## 2026-09-02 — I proved "the array was never rewritten" from a column nothing guarantees (bugfix_384 lane)
+
+**The claim.** Across three documents and two commit messages I asserted that two `page_rerender`
+runs "completed green and rewrote nothing", and the evidence was always the same: the listing row's
+`page_components.updated_at` still read 2026-08-27 21:34:20, an hour before the cards landed. I
+cited the lane's own RUNBOOK line — measured 08-25 — that the column advances whenever the array is
+rewritten.
+
+**What was wrong with it.** That line is an observation about what the writer's SQL happened to do
+on one occasion, and I had promoted it to a database guarantee. **`page_components` has no
+`updated_at` trigger** — I checked `pg_trigger` only afterwards, and the only triggers on the table
+are the two artefact-archive ones. So a frozen `updated_at` was consistent with "never written" AND
+with "written with an identical value" AND with "written by a path whose SQL omits the column". I
+could not tell those apart and had not noticed I needed to.
+
+**What caught it.** The `090` diagnosis loop (run corr `149ec925`) returned **UNVERIFIABLE** rather
+than agreeing with me, and its "still needed" list named the exact ambiguity: *the row was never
+touched, versus touched but the value was unchanged.* Nothing else in five days of my own work had
+surfaced it.
+
+**The conclusion survived — that is the uncomfortable part.** `page_component_history` (whose
+archive triggers fire on real change) has no row at either completion time, so the runs really did
+write nothing. **Being right is not the same as having shown it**, and had it gone the other way I
+would have shipped a confident wrong mechanism into a bug file that three other lanes read.
+
+**The cheap check I skipped.** Before resting a claim on a timestamp column, ask what maintains it:
+`SELECT tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE c.relname='<table>' AND
+NOT t.tgisinternal;` — one query, and it tells you whether the column is a guarantee or a habit.
+And where a history/archive table exists, prefer it: it records the WRITE, not a side effect of one,
+and its `application_name` names the writer.
+
+**The bonus.** Chasing the loop's objection is what produced the actual finding — that
+`rerender_page_sections` has written a listing array zero times in 14 days while
+`rebuild_blog_listing` did all of them. **An UNVERIFIABLE verdict paid for itself twice: it caught
+an unsound proof and it pointed at the instrument that replaced it.**
+
+Family: a-claim-about-behaviour-is-not-the-behaviour, a-complete-work-item-is-not-a-repaired-artefact,
+writes-the-field-is-not-reads-the-field.

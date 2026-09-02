@@ -458,3 +458,56 @@ RUN`; the check that would have caught it is one query — **count the RUNS befo
 **Still open:** defect #1's mechanism, now sharply targeted for the `090` — a correctly-specced
 `section_data_resolved` item, consumed in a healthy window, completing green without rewriting its
 array. Not fired; owner's call.
+
+## 2026-09-02 ~17:15Z — the 090 (UNVERIFIABLE) and what its missing-evidence list exposed
+
+Run: intake `d4f745e6-3f79-42a8-8f71-bb611736912c`, **run corr
+`149ec925-ffb7-41eb-806a-1595b8ff2226`**, 5 iterations, 3 orchestrations COMPLETED, ~15 min
+end-to-end. Verdict **`UNVERIFIABLE` / "NOT CONFIRMED (stopped: iteration-cap)"**.
+
+**It was worth the run, and not because it agreed with me.** It reproduced my state evidence
+independently, then refused to conclude and listed what it lacked — and one item on that list was a
+hole in MY reasoning that I had not seen: *"the row was never touched" vs "touched but the value
+was unchanged"*. I had been treating a frozen `page_components.updated_at` as proof of no write.
+
+- **`page_components.updated_at` is NOT trigger-maintained.** No trigger sets it; only the app's
+  own UPDATE does. So my inference was unsound even though it turned out correct. The RUNBOOK's
+  08-25 line ("that column advances when the array is rewritten") is an observation about the
+  writer's SQL, not a database guarantee — I had promoted it to one.
+- **`page_component_history` is the sound instrument.** Two archive triggers fire on real change
+  (rendered_html changed; or content_data changed with html static). No row at 22:58:18 or
+  09:40:36 ⇒ those runs changed neither. Alternative closed properly this time.
+
+**Then the history table answered a question I had not thought to ask: WHO writes these arrays.**
+`application_name` is on every archive row.
+- This listing's last four writes are all `action:rebuild_blog_listing` (08-26 15:30:33,
+  08-26 22:02:54, 08-27 06:55:03, 08-27 21:34:20).
+- Fleet census, every component with a `query.*` array field, 14 days `[MEASURED 2026-09-02]`:
+  `action:rebuild_blog_listing` 5 writes / 1 page; `psql` 1 write / 1 page (another lane's hand
+  write). **`rerender_page_sections`: ZERO.**
+- And the live `page-rerender` workflow has **no `rebuild_blog_listing` step** —
+  `check_rerender_mode → rerender_sections → check_escalated → save_sections → render_page →
+  check_skipped → deploy_page → update_status → complete`.
+
+**So the seam files an item whose workflow renders and deploys but has not, in 14 days, rewritten a
+listing array.** That is why it completes green with a real commit sha and repairs nothing.
+
+**⚠ This casts doubt on §4 of the 08-26 handoff — the "four natural demonstrations".** The
+08-26 15:30:33 archive row IS the celebrated leopardess repair (pre-image 11 blank of 11), and its
+writer is `action:rebuild_blog_listing`. The seam files `page_rerender`. **[INFERRED]** the other
+three are the same shape; nobody has checked their `application_name` and that is the next
+session's first job. If it holds, this lane's headline evidence was attributing another action's
+repairs to its own seam — the whole "proven four times on natural triggers" claim rests on it.
+
+**Two seeding mistakes, both mine, both now in the RUNBOOK:**
+1. `SEED_SCOPE` with `file.go:EntrySymbol` gave the loop the entry function and omitted
+   `rerenderFlatSections`, the callee holding the deciding branch. **Seed whole files** unless you
+   already know the branch is inside the symbol you name.
+2. The bundle's agent auto-gather does not fetch workflow steps, so the loop listed
+   `check_rerender_mode`'s config as missing — **a fact I already had and failed to put in the
+   symptom text.** If a live config value is load-bearing, quote it in the symptom.
+
+**Where this leaves the diagnosis.** Sharper than when I started: not "why does the sections branch
+skip the section" but **"is `rerender_page_sections` supposed to rewrite a `query.*` array at all,
+or was the seam pointed at the wrong vehicle from the outset?"** A re-run with whole-file seeds and
+the workflow steps quoted is cheap and is the obvious next move — owner's call.
