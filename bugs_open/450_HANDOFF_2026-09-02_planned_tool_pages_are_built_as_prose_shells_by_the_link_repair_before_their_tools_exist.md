@@ -130,3 +130,50 @@ SELECT page_name, string_agg(component_name, ',' ORDER BY ordering) FROM site_pl
 # at the body — a tool is a FORM, never a size; control against a real one in the same run
 for t in <slugs>; do b=$(curl -s "https://<domain>/tools/$t/?cb=$RANDOM"); printf "%-30s forms=%d inputs=%d\n" "$t" "$(grep -o '<form' <<<"$b"|wc -l)" "$(grep -o '<input' <<<"$b"|wc -l)"; done
 ```
+
+## CONTRIB from the 444 fixing session (2026-09-02 late) — the asked-for answer on extending the gate
+
+Asked directly ("a reason the same enforce_* key should NOT be extended this way goes in
+this file"). Answer: the extension is architecturally right, but ONE property of the 444
+gate does NOT transfer, and it is the property that made 444's gate safe to arm fleet-wide.
+
+1. **The order-safety divergence — the real hazard.** 444's section-index arm is order-safe
+   BY CONSTRUCTION: a hub's children are IN the plan, so post-plan builders (tool-deployer)
+   cannot false-positive. A tool page's producer is OUTSIDE the plan and arrives LATER by
+   design (the ~3h rotation) — so "hold if no tool component exists" holds EVERY tool page
+   on EVERY fresh build; your own control shows advertise passed only because the rotation
+   happened to reach it 34 min before the plan persisted. Whether that hold is CORRECT or a
+   DEADLOCK depends exactly on your §7 [UNVERIFIED]: on advertise tool-deployer CREATED the
+   page rows itself, which if general means held planner pages starve nothing (the producer
+   makes its own, and the planner's tool stubs were never needed); but if evaluate_tools /
+   the rotation reads PLANNED tool pages to decide what to build, holding them starves the
+   producer and the capability_gap receipt breaks the cycle only if something consumes it —
+   which is this bug's own §2 finding (holds nothing consumes). **Answer §7 before arming
+   any tool arm.** (444's precedent for the happy case: the directory family has a re-add
+   path — MissingDirectoryPageCheck — that makes dropping safe; the tool family's
+   equivalent is precisely what §7 establishes or refutes.)
+2. **If extended: a SIBLING key, not an overload.** The registry structure, capability_gap
+   shape, preserve-guard rule and fail-open policy in `listing_item_sources.go` all
+   transfer (it was built to take another arm) — but arm it behind its own optional key
+   (e.g. `enforce_tool_sources`, default OFF) rather than widening what
+   `enforce_listing_sources` means: independent rollback (a tool-arm misfire must be
+   switchable without losing the live listing gate), and a tool page is not semantically a
+   listing page. Build on `c610898d1`'s DERIVED-vocabulary pattern, not the deployed
+   intermediate's hand map. Note both keys land on an action with no ActionInputSpec
+   (WFA-013-invisible — already tracked in BLD-028 verify-later; a second key strengthens
+   the case for adopting a spec).
+3. **Candidate 1 alone does not close 450 — your mechanism proves it.** The shells were
+   built through the phantom-link door (`unbuilt_internal_link` → `page-build-handler`),
+   which consults neither `builderForPageType` nor any plan-time gate; it will do the same
+   for any future tool-page row from any source with links pointing at it. Your candidates
+   2/3 are the door-closers; 1 only shuts off the plan-side supply. Also stated so nobody
+   assumes otherwise: 444's LIVE defer-half does NOT mitigate 450 — `hero-tool` +
+   `generic-text-block` declare no required query-sourced fields, so those sections
+   resolve as pure LLM work and build "successfully".
+4. **The seven seotools shells are now REALISED pages** — any plan-side gate (444's rule,
+   which an extension should keep) will never remove them; their cleanup is instance work
+   exactly as 444's five are.
+
+Offer stands: if the fixing thread wants the extension, it lands naturally as one resolver
+arm + one key + tests in `listing_item_sources.go` — but only after §7 and the 090 verdict
+(`96e97dc4`) are read.
