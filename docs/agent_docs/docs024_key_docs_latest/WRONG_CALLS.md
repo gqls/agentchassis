@@ -59456,3 +59456,45 @@ automates elsewhere (wrong-key queries reading as absence — the bugfix_390 lan
   in the memory index as a standing instruction. This is a session that had it, skipped it, and
   paid the documented price — which is an argument for automating the grep at the point a census
   is written, not for writing the instruction down again.
+
+---
+
+## 2026-09-02 — inline_guide_imagery: a `LIMIT` counted section ROWS while my claim counted PAGES
+
+**The claim.** "Of the nine pages carrying an illustration-capable section, six were composed by a
+planner after migration 644 — **the pre-644 outlier is apis.uk's hand-built page**." Published in
+a concept-register entry, the lane's NOTES, an owner-facing read-out and two cross-lane messages,
+inside about forty minutes.
+
+**Why it was wrong.** There were **three** pre-644 pages, not one: idea.uk/index (2026-08-10) and
+vonc.com/index (2026-08-18) as well as apis.uk (08-24). The count that carried the argument (six
+after 644, adoption live and growing) was right and is unaffected — 9 pages = 3 before + 6 after.
+The characterisation was false.
+
+**The cause, which is the transferable half.** My query selected one row per section and ended
+`ORDER BY created_at DESC LIMIT 12`. **apis.uk contributes SIX rows on its own**, so half the
+visible window was a single page and the two oldest single-section pages fell off the end — and
+nothing in the output indicates that anything has. My query's unit was the section row; my claim's
+unit was the page. A `LIMIT` is a display convenience right up to the moment the rows you cannot
+see are the ones deciding the sentence.
+
+**What caught it.** The `dartsonline_traffic` lane re-deriving the list independently and sending
+back a longer one. **Third correction that afternoon caught by a peer re-running my own figures
+rather than by me** — the others being a 19-day-old census I quoted undated, and a static count I
+read as evidence of absence without checking `created_at`.
+
+**The cheap check that would have.** **When the claim is about pages, `GROUP BY` the page before
+capping anything.** The corrected query aggregates to one row per page and needs no cap at all,
+because the true population is nine — a number small enough that the `LIMIT` was never doing any
+work except hiding a third of it. More generally: **before adding `LIMIT`, ask whether the row is
+the thing you are counting.** If one entity can contribute many rows, a cap silently re-weights
+the sample toward whichever entity is most prolific — here, the one page that was already the
+known outlier.
+
+**A sibling from the same afternoon, other lane, same shape:** counting section ROWS on article
+pages reads as "2.7 sections, not a slab" until you ask what the rows are — they are hero and CTA,
+and the prose-section count is 1 everywhere. Counting rows answered a different question from the
+one being asked, in both cases.
+
+**Tally:** **a-limit-can-hide-the-rows-that-decide-the-claim** ×1,
+**count-the-unit-your-claim-is-about** ×2 (one each, two lanes, one afternoon).
