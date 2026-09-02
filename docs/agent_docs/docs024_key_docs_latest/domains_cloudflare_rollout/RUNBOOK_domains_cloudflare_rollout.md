@@ -97,7 +97,16 @@ becomes an invalid bearer header.
 
 ## Dynadot
 
+- **Wrapper: `scripts/domains/dynadot.sh <command> [param=value …]`** (added
+  2026-09-02). Reads the credentials file, never prints the key, and exits
+  non-zero unless the response carries `ResponseCode 0` — so an `&&` chain
+  cannot mistake an API error body for a success. Endpoint + error path proven
+  2026-09-02 with a bogus key (`{"ResponseCode":"-1","Error":"invalid key"}`);
+  happy path pending the real key.
 - API key: control panel → Tools → API. Legacy API3: `https://api.dynadot.com/api3.json?key=…&command=…`.
+- If the API settings page offers an IP allowlist, leave it UNSET or allowlist
+  the five cluster node IPs — NEVER the office line, which rotates both address
+  families (see Egress).
 - `list_domain` = full inventory (paginated). `set_ns` sets nameservers,
   comma-separates multiple domains per call — **but the target nameservers must
   already exist in the account** (`add_ns` them once, first).
