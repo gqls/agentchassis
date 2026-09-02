@@ -1120,3 +1120,62 @@ Also carried, from `debug_historian`'s advisories: the 016 back-catalogue has ti
 both "deployed hero images exist but the page renders the fallback" and "two rebuild routes —
 only page-build-handler re-resolves section sources". The second reinforces the rollout note
 already in the header; the first is worth a pointer for whoever revisits this class.
+
+### 2026-09-02 — 686 APPLIED and RECORDED (owner go-ahead), and bug 426 changed how I applied it
+
+**Applied 2026-09-02 ~14:55 BST**, on the owner's explicit instruction. Pre-check first: template
+still at md5 `002cbcd9…`, len 1378, `already_applied=false` — so the guard's precondition held and
+no other session had touched the row in the two hours since approval.
+
+```
+NOTICE:  686: article-body updated (id 5835b2e1-50d7-4f20-8a9c-8da4d270ae3d)
+NOTICE:  686 VERIFY: OK — guarded block present, content intact, both new fields optional
+COMMIT
+```
+
+**Verified independently of the migration's own VERIFY block**, at the row:
+
+| new md5 | len | guarded block | `<no value>` literal | url source | alt source | content source |
+|---|---|---|---|---|---|---|
+| `80d531ce726798c2d5ce2b5f3542f3e2` | **1730** | present | absent | `site_assets.hero` | `llm` | `llm` (intact) |
+
+**1730 is an independent cross-check**: the local harness computed exactly 1730 for the new
+template hours earlier, from a completely different code path (Go `text/template` over the dumped
+old template). Two routes to the same byte count.
+
+**Control on the blast radius:** `page_components` untouched — 301 live `article-body` instances,
+**0** carrying `hero_image_url`, most recent row write `13:46:47Z`, i.e. before my apply. Existing
+pages therefore render exactly as before, which is what the {{if}} guard promised. ⚠ Note the
+instance count is now **301**, not the 297 the submission quoted this morning — that is the census
+drift already logged (297 → 298 → 301 in one day). The submission's figure was correct-as-of and
+dated; **do not quote it bare.**
+
+**BUG 426 CHANGED THE METHOD, and it is the reason this is not a defect.** That bug — filed today
+by the `bugfix_314_council_scope` lane — is exactly *"a migration applied by hand and never
+recorded in the ledger looks, to the runner, like one that has never been applied; the next
+`--apply` replays it"*. Seven live instances accumulated in one lane over a month. **I hand-applied
+686** (the runner has no single-file apply, and `--apply` takes EVERY pending file — the documented
+trap), which is precisely the shape that produces instance #8. So the second step was not optional:
+
+```
+./scripts/migration/run-migrations.sh --record-only 686_article_body_hero_image_capability.sql \
+  --note 'applied by hand 2026-09-02 … md5 80d531ce…, len 1730 … content field still source llm …'
+```
+→ `== 686_article_body_hero_image_capability.sql recorded (applied_by='record-only')`
+
+**Reading a bug before acting is what made this two commands instead of a month-long invisible
+drift.** The user asked for 426's state in the same breath as the apply, which is the only reason I
+read it first.
+
+**Also ran the mandated dry-run** (CLAUDE.md: "dry-run per SESSION and after every roll") — which
+is 426's own §8 first action, the fleet-wide `Pending (N)` census it explicitly leaves
+`[UNMEASURED]`. ⚠ Two process notes for anyone repeating it: it is SLOW (probes each pending file
+in a doomed transaction, minutes not seconds), and **piping it through `tail` withholds ALL output
+until it finishes**, which reads exactly like a hang. Another session was running the same census
+concurrently.
+
+**STILL NOT DONE, and it is not mine:** the six boxingonline articles do not show their heroes yet.
+The capability now exists; the pages need a **re-resolving** path (scoped rerender or resave), not
+a plain assemble-mode page-rerender, which would redeploy the stored HTML unchanged and make this
+look like it failed. That is `site_delivery_and_editor`'s call. `news-listing` still has the
+identical defect and still has no change written.
