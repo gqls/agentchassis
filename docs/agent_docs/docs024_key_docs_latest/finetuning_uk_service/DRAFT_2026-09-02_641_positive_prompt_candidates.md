@@ -3,8 +3,13 @@
 **Status: AWAITING the owner's framing pick (question 1 below). Question 2 is ANSWERED.**
 This supersedes the inserted block in `sql_for_agents/641_..._HOLD.sql` as the text the owner
 will eventually read — **641 must NOT be applied as written**; its gate-2 owner read came back
-as a REDRAFT direction, not an approval. The file belongs to the `bugs_open/443` lane; redraft
-is collaborative (they have been told).
+as a REDRAFT direction, not an approval.
+> **CORRECTED 2026-09-02 (late): 641 is the `apis.uk` lane's file, NOT `bugs_open/443`'s** — it
+> is PBP-049's seed, their council round, their voids-on-edit convention. The 443 session caught
+> my misattribution and has relayed this draft, the mechanics list and the untested sibling-range
+> flag to apis.uk directly, so the redrafted text lands in the owner's file. My part is unchanged:
+> owner picks the framing → I test-render → apis.uk writes the final SQL → owner reads the exact
+> final words.
 
 ## The owner's directive, 2026-09-02 (his words, from chat)
 

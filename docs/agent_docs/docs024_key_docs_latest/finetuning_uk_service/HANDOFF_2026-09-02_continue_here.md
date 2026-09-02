@@ -26,8 +26,11 @@ delivery and the bug list — nothing in it is retracted). Technical log:
 >    verbatim, the ANSWERED question (prompt-as-demonstration, NO specimen answer), the OPEN
 >    question (which scene: reply-to-a-person / write-for-a-person / just-the-subject — three
 >    filled-in candidates, lane recommends the middle), and the mechanics the final SQL must keep
->    (subject guard, placement, no em dashes, sibling-list render UNTESTED). The `bugs_open/443`
->    session has been told; 641 is their file, so the redraft goes to them as a proposal.
+>    (subject guard, placement, no em dashes, sibling-list render UNTESTED). ~~641 is the 443
+>    session's file~~ **CORRECTED: 641 is the `apis.uk` lane's file** (PBP-049's seed) — the 443
+>    session caught this and has relayed the full redraft direction to apis.uk, so the final SQL
+>    is written by its owner; this lane's part is the framing pick, the test-render, and carrying
+>    the exact final words to the owner.
 > 3. **So the "641 HELD — owner read only" row in the table below is superseded**: the gate is
 >    now *owner picks a framing → test-render → final text → fresh owner read of those exact
 >    words*. Stage B of the backfill plan depends on the REDRAFTED 641; Stage A is unaffected.
