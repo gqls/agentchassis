@@ -1771,3 +1771,23 @@ Migration pair `700_retype_357_population_by_adoption_HOLD[.../_ROLLBACK].sql` d
 fable with the full dossier; review → place → council → owner-sequenced apply (pilot
 tool-simple first). 408 fix approved and committed but NOT yet rolled — the roll is still
 wanted before any rebuild-dependent verification.
+
+### 2026-09-02 (later) — migration is **701**, not 700 (number collision); drafted, reviewed, SUBMITTED corr `df6c1b41`
+
+> **CORRECTED 2026-09-02: every "700" in today's earlier PLAN/NOTES entries reads 701.** The
+> 396 lane committed its own `700_park_provenance_covers_the_handler_repoint.sql` twenty
+> minutes before my placement (`1f0cd8ae2`) — the known migration-number-collision landmine.
+> Renumbered throughout (files, GUC `m701.scope`, abort/verify strings); both files re-parse
+> clean (20 + 10 statements) after the rename.
+
+The fable draft came back with TWO findings that corrected my own brief, both re-verified
+first-hand: **tool-ttk-calculator has ZERO plan rows** (my "exactly one per page" was 21/22 —
+WRONG_CALLS today; its repair is sections-only, guard pins the zero) and **a second unplaced
+fork already sits on function tool-equity-release** (`befacff0`, disclosed to council as the
+RFC_036 §11-addendum-2 tail). Also from the draft: vetcomparison names its component
+`tool-vet-comparison` rather than claiming the fleet-wide function `index`; the self-caught
+Guard-1 defect (first cut refused its own remainder run) is recorded in the DESIGN notes with
+the reviewer walk-table. Census in the SQL mechanically diffed against my pinned baseline:
+22/22 pc_ids + md5s exact. Submission `df6c1b41-b600-41d1-8f7e-3e96fe422b31`; scope=pilot is
+the DEFAULT apply mode; the pilot rides the page-rerender path which does NOT contain 408
+(measured), so it need not wait for the roll.

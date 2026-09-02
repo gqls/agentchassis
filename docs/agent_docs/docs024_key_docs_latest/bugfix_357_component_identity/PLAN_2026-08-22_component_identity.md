@@ -379,4 +379,4 @@ ordering 0 per page in each site's single current plan; ONE function collision
 (tool-equity-release vs library row tool-equity-release_pre_037 a5236dec) → that one adopted
 row forks per RFC_036 §9.3; section resolution tries stored component_id FIRST, so repointed
 rows resolve directly. Pilot: mortgagecalculator/tool-simple first, then the remainder.
-Migration: **700_retype_357_population_by_adoption_HOLD.sql** (by hand, never the runner).
+Migration: **701**_retype_357_population_by_adoption_HOLD.sql (by hand, never the runner). > CORRECTED 2026-09-02: was written "700" here; renumbered after the 396 lane committed its own 700 first — the migration-number-collision landmine.
