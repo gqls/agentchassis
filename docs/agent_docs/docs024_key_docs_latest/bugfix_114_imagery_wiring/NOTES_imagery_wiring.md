@@ -782,3 +782,16 @@ ec2b3353d, d1cf3aac3 resolve via their Council-Submitted trailers) · IMG-078 wi
 412 §11a/§11b — plan-less domain limit and canary site recorded). Closing bar: items
 1–3 MET and measured; item 4 built + approved, inert until a chassis roll carries
 `d1cf3aac3`+ and migration 708 is applied per its runbook.
+
+### 2026-09-02 postscript — RFC_063 filed by the 443 lane; this lane's consumer input is in it
+
+The plan-less tier boundary (412 §11b) is now an owner decision:
+`architecture_review/RFC_063_plan_tables_are_becoming_the_capability_tier…`. This lane
+contributed (commit `b587f116e`): the two-row minimal materialisation route 1 needs, the
+`check_unfulfilled_imagery_plan` spend trap for a naive option-B seed (seed imagery rows
+from the ASSETS table, never from page enumeration; cookly.uk proves plan creation but
+holds zero content-hero assets), and the honest down-ranking — imagery is B's weakest
+argument because route 2 is plan-independent. The 443 lane anchored the qualifications
+into the RFC's top-down path. **For whoever runs the wiring's round 2: the plan-less arm
+now depends on the RFC_063 ruling — option B gives it for free, option A means route 2
+stays the plan-less path and the round-2 submission says so as scope.**
