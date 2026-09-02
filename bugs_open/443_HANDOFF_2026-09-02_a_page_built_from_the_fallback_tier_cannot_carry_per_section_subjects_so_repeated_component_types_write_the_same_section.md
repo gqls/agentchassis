@@ -24,6 +24,28 @@ Served headings, `[MEASURED 2026-09-02]`:
 | 5 | `faq` | Questions people ask before booking |
 | 6 | `call-to-action` | Booking the hour starts with a conversation. |
 
+> ## ⚠ ADDED 2026-09-02 (later) — `playground` is the WEAKEST case. Verify against `your-own-model`.
+>
+> I filed this from the page I had just built and did not check its siblings first. **All three
+> pages this site has built through tier 3 repeat, and the two OLDER ones repeat VERBATIM:**
+>
+> | page | the three `generic-text-block` h2s | copy written |
+> |---|---|---|
+> | `your-own-model.html` | **"How it works" × 3, identical** | 2026-08-27 |
+> | `technical-details.html` | **"The model and its licence" × 3, identical** | 2026-08-27 |
+> | `playground.html` | "What you actually do in the hour" / "What you do in the hour" / "What you do in the hour" | 2026-09-02 |
+>
+> Three independent builds, three weeks apart, same tier, same 6-slot layout, same result. That is
+> the control this file was filed without, and it goes the RIGHT way — but a reader should know it
+> was run afterwards, not before. **`your-own-model` is the better verification target**: verbatim
+> identical headings cannot be argued away as stylistic variation.
+>
+> `your-own-model` is the £99 front-door page and has served three identical headings since
+> **2026-08-27** (`page_components.created_at`/`updated_at`, all six rows).
+> ⚠ **Do NOT connect this to the owner's "very AI sounding" verdict** — that verdict is dated
+> 2026-08-25 and this copy postdates it. Independent facts; the temptation to join them is strong
+> and the dates refuse it.
+
 ## 2. Root cause — a deliberate tier gate, with an unintended consequence
 
 `load_page_sections_from_spec_action.go:511-515` publishes the per-section scoping arrays
@@ -53,6 +75,11 @@ structurally unreachable.** Every page on such a site resolves at tier 2, 3 or 4
 `section_subjects` is never populated, so every repeated component type in the layout receives the
 identical page-level brief. **Three `generic-text-block` slots therefore produce three attempts at
 the same section — this is the predicted output, not a bad roll of the writer.**
+
+> **ADDED 2026-09-02 (later) — the SAME gate publishes `section_facts`, and the original filing
+> underplayed it.** Lines 508-510 are the `section_facts` arm and 511-515 the `section_subjects`
+> arm, both conditioned on `specSource == "site_plan_tables"`. So a plan-less page cannot scope
+> **facts** per section either. **A fix that carries only subjects fixes half of this.**
 
 ## 3. Why the brief did not save it
 
@@ -94,9 +121,38 @@ pages**:
 > `deployed_at IS NOT NULL` answers "has ever deployed", and a rebuild-pending page is invisible
 > to the first while being the most likely thing to re-render next.
 
-Still not censused: **how many of those 203 pages actually repeat a component type** — that is what
-converts exposure into damage, and it is the one query left. A page whose layout has no repeated
-type is exposed but unharmed.
+**CENSUSED 2026-09-02 (later) — and it DEFLATES this bug, which is worth saying plainly.**
+Exposure is 203 pages; **actual damage is 11.** Pages whose layout repeats a component type:
+
+| site | pages repeating a type | deployed pages |
+|---|---|---|
+| finetuning.uk | 4 | 53 |
+| gaswholesalers.com | 4 | 31 |
+| ai-agent-orchestration.com | 3 | 40 |
+| loancash.co.uk | **0** | 26 |
+| cookly.uk | **0** | 9 |
+| lampenkap.com | **0** | 7 |
+
+So three sites carry all of it and three carry none. **Size the fix against 11 pages, not 203** —
+though note the fix is framework-wide either way, because the 192 unaffected pages are unaffected
+only for as long as nobody adds a repeated slot to one.
+
+⚠ **The obvious census query drops pages SILENTLY, and I nearly published the wrong number a
+second time.** `CROSS JOIN LATERAL (SELECT count(*) FROM jsonb_array_elements_text(p.sections)
+GROUP BY …)` yields no rows for an EMPTY `sections` array, so the page disappears from the result
+instead of counting as zero. **37 of the 203 have empty `pages.sections`** and vanished that way —
+the totals above sum to 166, not 203, and that gap IS the artefact. Use `LEFT JOIN LATERAL` or
+`COALESCE(jsonb_array_length(...),0)`.
+Those 37 are independently worth someone's attention: an empty-`sections` page is exactly what
+no-ops at `mark_no_ready_sections` if anything ever rebuilds it (see the LANDMINES entry
+"A hand-made page whose `sections` is `[]`…").
+
+Still not censused: **whether all 11 are actually SERVING repeated headings.** Repeating a
+component type is the necessary condition; three of the 11 are confirmed serving duplicates
+(finetuning.uk's three, read off the live pages). The other 8 — gaswholesalers.com 4,
+ai-agent-orchestration.com 3, finetuning.uk 1 — have the layout but nobody has read their served
+headings. **Read them at the served page, not from `rendered_html`.** That is the one query left,
+and it is the difference between 11 pages damaged and 3.
 
 ⚠ **The same tier boundary bites a second, unrelated mechanism.** `site_plan_imagery.plan_id` hangs
 off `site_plans` too, so the `bugs_open/114` lane's route-1 hero delivery (IMG-078) cannot reach
