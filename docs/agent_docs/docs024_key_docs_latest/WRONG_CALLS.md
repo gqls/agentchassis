@@ -58324,3 +58324,35 @@ by `grep -c "bugs_closed/054"` returning 1, and the claim is true as read.
 
 Tally: **claim-published-by-a-`;`-after-a-failed-precondition** x1,
 **stale-sketch-contradicting-its-own-rationale** x1 (round 2, caught by the council not by me).
+
+---
+
+### 2026-09-02 — components lane (`bugs_open/425`): I declared a working instrument broken because I filtered on a column that is 98% NULL, and told a peer to stop using it
+
+- **the claim:** *"`page_component_history` has zero rows for content-listing, ever — its writes
+  bypass the archive triggers, so its zero carries no information."* Sent to the
+  `site_delivery_and_editor` lane with an instruction to strike the instrument from their notes.
+  They did.
+- **why it was wrong:** `[MEASURED 2026-09-02]` `page_component_history.component_id` is **NULL on
+  44,555 of 45,285 rows (98.4%)**. My query filtered `WHERE component_id = '<uuid>'`. It returned
+  zero because the column is empty, not because nothing archived. Keyed on `page_id` — which is
+  `NOT NULL` — the same table holds rows for all 10 rerendered pages at the exact rerender minutes
+  and none for the 4 refused ones: the correct answer, and the one that corroborates the markup
+  evidence.
+- **the check, and it is one line before the filter, not after the surprise:**
+  `SELECT count(*) FILTER (WHERE <col> IS NOT NULL), count(*) FROM <table>` — **a filter on a
+  mostly-NULL column returns zero and reads exactly like "no such rows".** Prefer a `NOT NULL`
+  column as the join key whenever one exists; here `page_id` was sitting next to the one I chose.
+- **what makes it worse than an ordinary slip:** I had *just* written the correct general rule —
+  "a positive control must exercise the same row population as the claim" — and applied it to
+  conclude the instrument was blind. The rule is right. The premise it was applied to was
+  manufactured by my own query. **A well-stated methodological rule reasoning from a false premise
+  produces a confident, quotable, wrong conclusion**, and it travelled: a peer acted on it inside
+  the hour.
+- **the day's tally on one bug, because the count is the point:** five claims of mine overturned —
+  `nav_label`'s population, the resolver's five-versus-four, the write split, the archive's
+  coverage, and this. **Every one has the same shape: I queried a column, or a table about a
+  column, instead of reading the artefact.** The two instruments that settled it in the end were
+  the served markup's template fingerprint and the guard's own arithmetic. The peer's summary is
+  the better statement of it than mine: *every instrument that survived today reads the artefact;
+  every instrument that fell reads a column, or a table about a column.*

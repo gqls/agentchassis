@@ -325,6 +325,22 @@ every title still suffixed. So the honest split is:
   triggers)
 - **producer half → DID NOT EXECUTE** (categorical, by the key-presence test)
 
+> **AND THE INSTRUMENT WAS NEVER BROKEN — my QUERY was. Fifth revision, same habit.**
+> `[MEASURED 2026-09-02]` `page_component_history.component_id` is **NULL on 44,555 of 45,285
+> rows (98.4%)**. My "zero rows for this component, ever" filtered on that column, so it returned
+> zero for a reason that has nothing to do with archiving. Keyed on `page_id` instead, the archive
+> holds rows for **all 10 completed pages at exactly the rerender minutes** (13:51–14:14) and
+> **none for the 4 cancelled** — which is precisely the split the markup fingerprint shows, from
+> an independent instrument.
+>
+> So the archive corroborates rather than contradicts: content changed on the ten, did not on the
+> four. **Two instruments now agree, and I had declared the working one broken and told a peer to
+> strike it.** Before filtering on a column, check the column is populated — a filter on a
+> mostly-NULL column returns zero and reads exactly like "no such rows".
+>
+> **The paragraph below is kept as written, because its reasoning was sound and its premise was
+> not.** The rule it states is right; it simply was not the rule that applied here.
+
 > **WHY I GOT THIS WRONG TWICE, and the instrument is the lesson.** I reported "nothing wrote
 > content on any of the 14" on the strength of `page_component_history` holding zero rows for this
 > component. I ran a positive control and it passed — 389 rows across 5 other components in the
