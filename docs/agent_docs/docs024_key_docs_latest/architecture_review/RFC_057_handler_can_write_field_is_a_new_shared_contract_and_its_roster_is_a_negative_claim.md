@@ -1,6 +1,6 @@
 # RFC 057 — `HandlerCanWriteField` is a new shared contract, and its roster is a NEGATIVE claim nothing re-checks
 
-**Status: DRAFT, raised 2026-08-25 by the `vigilant_designer_offer_analysis` lane.
+**Status: ⚠ RULED BY THE OWNER 2026-09-02 — see §9. Raised 2026-08-25 by the `vigilant_designer_offer_analysis` lane.
 RETROSPECTIVE (the RFC_002 shape): the mechanism is committed (`af3194204` + `a48c5c942`,
 `Council-Submitted: 021cb965`, APPROVED round 1) by the `bugs_open/395` lane and is inert until the
 next roll. Register entry **WII-035**.**
@@ -259,3 +259,71 @@ closed by a build-time test rather than by a scheduled job that can itself stop 
 ⚠ **This is a change of premise, not of conclusion, and the author's §4 concession stands.** Nothing
 here argues the drift audit should not be built — only that Q1's *"the risk is entirely in the
 growth"* can no longer be the sentence the ruling rests on.
+
+---
+
+## 9. ⚠ OWNER RULING, 2026-09-02 — both questions answered
+
+Recorded by the `routing_capability_guard` lane, which put §6's two questions to the owner with a
+recommendation on each. **The owner's words: *"I accept your recommended decisions here."*** Recorded
+here rather than only in that lane's handoff, because this RFC is where a reader looks for the answer.
+
+### Q1 — *is a hand-maintained negative-capability roster acceptable without its drift audit?* → **DEFER, WITH A TRIGGER**
+
+**Read §8 first: the question had already narrowed.** §6 Q1 was posed as one question and is two —
+**completeness** (a handler never considered) and **staleness** (a handler that later gains a
+capability). The defect that actually fired was completeness, which §4's proposed audit would never
+have caught.
+
+- **The completeness half is BUILT, COUNCIL-APPROVED (`76231f57`, all reviewers) and LIVE** on
+  `v1.0.1354`: the roster is total over the routable-handler universe, an unconsidered handler answers
+  `known=false`, and a source scan fails when the router gains a route the roster has not measured.
+- **The staleness half — §4's live-drift audit — is DEFERRED.** The reasoning the owner accepted:
+  staleness fails in the **safe** direction (the roster over-refuses, filing a visible
+  `capability_gap` row that two live readers already consume), whereas the completeness failure was
+  **silent**, and silence is what the build-time test now removes.
+
+⚠ **The deferral is conditional and the condition is now MECHANICAL.** §4's own sentence — *"one entry
+is a measurement, ten entries with no audit is a stale map with an enforcement mechanism attached to
+it"* — is the condition, so it is enforced by
+`TestTheDriftAuditDeferralTriggerHasNotFired` (`cb69a033c`), which **fails the moment the roster holds
+a third field** and carries the ruling, what is owed, and the method into the failure message.
+**Whoever ships the audit must DELETE that test, not raise its threshold** — raising it silently
+re-grants a deferral the owner scoped to a two-field roster.
+
+*(A deferral recorded only in this document would have been the exact shape of the landmine both
+lanes filed on 2026-08-25: a rule that exists only as prose gets broken by the next producer. §4 is
+that landmine firing on its own remedy; this is the remedy not repeating it.)*
+
+### Q2 — *does the estate want a seam for "these two changes must land together"?* → **NO, DO NOT BUILD IT**
+
+The recommendation the owner accepted, with the evidence that arrived while answering the council on
+the completeness fix:
+
+**The near-miss this question exists to prevent was between this roster and an emit gate that does not
+exist.** `[MEASURED 2026-09-02]` zero Go references to `field_writable`; zero live work items carrying
+the stamp (0 of 57 holding a predicate); `HandlerCanWriteField` has **exactly one** production call
+site. §5 of this RFC says the stamp is unbuilt in as many words. **A synchronisation seam would have
+had one half to synchronise** — and both lanes, including this RFC's author and the guardian seat,
+reasoned for a week about sequencing a dependency that was never live.
+
+What actually prevents the drift is the cheaper rule already in force and already enforced: **one
+shared function, no copies** (`TestThePageFieldWriterRosterIsDefinedExactlyOnce`). §2's own argument —
+that two hand-maintained answers drift because each looks internally correct — is better served by
+making the shared thing singular than by building a protocol for keeping two copies aligned.
+
+### What this closes, and what it does not
+
+- **CLOSED:** §6's two questions; §4's residual is now a dated, triggered deferral rather than an open
+  concession.
+- **NOT CLOSED, and deliberately:** the drift audit itself. It remains unbuilt and unclaimed, and the
+  trigger above is what will find its author.
+- **PROSPECTIVE:** whoever builds the CLM-024 emit stamp inherits a roster in which
+  `title`/`content-gap-planner` is TRUE. Five `doc_notes` rows (`subject_type='decision'`, keyed on
+  `CLM-024`, `HandlerCanWriteField`, `pageFieldWriters`, `routableHandlers`, and the file) carry that
+  to them in their own tooling.
+
+⚠ **The author of this RFC has not commented on §8 or on these rulings.** Asked 2026-09-02 ~15:00Z;
+nothing received by 16:13Z through commits, `doc_notes` or messages, while that lane was actively
+committing other work. **Their silence is not agreement** — §8 argues for narrowing their own §4
+concession, and it stands unanswered by its author.
