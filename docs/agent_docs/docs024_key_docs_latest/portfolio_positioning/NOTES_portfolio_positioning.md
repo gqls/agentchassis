@@ -4026,4 +4026,12 @@ session's — kustomize overlays, 444's bug file, platform tests).
 > door and risks starving the tool rotation (a tool's producer is outside the plan by design).
 > 450's candidate order now reads (2)/(3) first, (1) conditional on §7 + a sibling key. What
 > caught it: asking the adjacent lane the one question their gate could answer, in their file.
+- **(u) follow-up, verified at the body**: websitepromotion `needs_page` d0a5c53f (re-queued
+  21:39Z) → claimed, writer ran clean, deployed 21:41:02Z, page `deployed_at` 21:45:39Z;
+  `/blog/promote-website-free-uk.html` 200 / 70,325 B with `hero-free-promotion.jpg` as the hero
+  background-image, 0 × "to be added". My first probe 404'd at the ROOT path — the page lives
+  under `/blog/`; read `pages.url` before curling (probe-page-url lesson, again).
+- **090 on 450**: still `diagnosing` at 21:48Z (route step); a background watch prints the
+  verdict when the item leaves `diagnosing`; if this session ends first, the query in the
+  handoff addendum 2 is the pickup.
 

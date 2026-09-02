@@ -203,7 +203,10 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   first).
 - **websitepromotion:** `needs_page` d0a5c53f re-queued `triaged` — its 18:25Z block was
   `placeholder_text` "to be added" matched inside natural prose ("asking to be added to the
-  relevant page"), a false positive; fresh writer run per NOTES (f); escalate on recurrence.
+  relevant page"), a false positive; fresh writer run per NOTES (f) — **DONE**: claimed within
+  2 min, deployed 21:41:02Z (`869b1eca`), page `deployed_at` 21:45:39Z, 4 components refreshed,
+  no placeholder block; served body verified 200 / 70,325 B, `hero-free-promotion.jpg` present
+  as the hero background, 0 × "to be added". One `CTA_LABEL_MISMATCH` warning (cosmetic).
   Its `tool-channel-prioritiser` is the one undeployed page: 450's class, no shell yet (no link
   repair reached it) — the hold cd2fda11 stays.
 - **designblog** rows (`needs_section_data` featured_post, `capability_gap` deferred,
