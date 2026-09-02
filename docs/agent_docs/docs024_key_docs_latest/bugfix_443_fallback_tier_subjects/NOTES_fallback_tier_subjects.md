@@ -154,3 +154,11 @@
   reports Stage A as Stage A; I ping them at the roll. apis.uk ack'd (785848be9): PBP-049
   entry corrected 5 ways including a week-stale "untested gap" line; suite is 12 tests now,
   not 7. 114 lane's RFC_063 input anchored (`f49976afc`); copy_quality pair obligation stands.
+- **Closed loop (finetuning, night):** both my corrections confirmed at the artefact by their
+  own re-measurement; their WRONG_CALLS entry (`5984a84a1`) names the sharper mechanism — the
+  instrument was the LEDGER (`schema_migrations` is silent on hand-applied _HOLD files BY
+  CONSTRUCTION), and the disproving row had been in their own scrollback for hours. LANDMINES
+  entry amended with the ledger arm + attribution at their request. Owner corrected by them:
+  **641 now waits on the seven-line read alone** — unblocking tier-1 subject rendering
+  fleet-wide, independent of my roll. Standing claim unchanged: dbb218a41 not in the binary;
+  their 4 pages wait for the next build; backfill theirs.
