@@ -126,3 +126,99 @@ theirs and is the right substrate at handbook scale, whether anyone already mirr
 regulatory corpus, and where they want the boundary between per-site register work and platform
 verification. **Design held until they reply** — building a second spelling of their mechanism
 is the failure mode to avoid.
+
+## 2026-09-02 (e) — the claims-verification thread's answers, and what they change
+
+Replied within the hour. Their answers, attributed, because the design rests on them:
+
+- **They own the register/scan/audit layer** (CLM-025…CLM-030,
+  `docs026_concept_register/register/claims-verification.md`) and filed `RFC_060`.
+- **The daily refresher is theirs** — `refresh_evidence_base_action.go` + `evidence_citations.go`
+  (CLM-007/008). One fact = one URL + one verbatim quote, re-fetched daily, quote re-checked against
+  visible text, 403/5xx classified *unknown* and never drift. **This is the owner's "check with
+  their online version each time", already built.**
+- **`fad209b92` already excludes regulatory citations** (CONC, MCOB…) from the business-number
+  scan, so lendzy's "0.8% per day under CONC 5A" shape needs nothing new and nothing waited on.
+- **Where it breaks at handbook scale:** `fetchCitationDocument` is one unthrottled
+  `http.DefaultClient.Do` per fact — no delay, no caching, no dedup across facts sharing a URL.
+  Fine at the fleet's **39** citation facts (their measurement, 2026-09-02); not fine when one site
+  cites dozens of handbook rules daily. **Pace it before scaling, not after being blocked.**
+- **No FCA mirror exists**, but the Companies House enrichment pipeline
+  (`017_companies_house_enrichment.md`) is the pattern: bulk-collect an external authority into a
+  local table, paginated, **deliberately throttled to ~7% of the published cap**, scheduled, then
+  queried locally. Build the mirror as its sibling, **not** inside `evidence_base`.
+- **The boundary** is already drawn: "a fact cites a rule" is register content (no code); "the
+  platform re-verifies the citation" is CLM-008. Genuinely new: *discovering* which rules changed
+  (nothing does this — the refresher only re-checks quotes a human already chose to cite), and
+  pacing.
+- They folded the sector-generalisation question into `RFC_060` §3b as Q5, and asked that design
+  docs route through their thread or cite RFC_060 so the estate does not grow two accounts of one
+  register mechanism.
+
+## 2026-09-02 (f) — the machinery WORKS against the FCA Handbook, proven with the production matcher
+
+The question that had to be answered before writing a single fact: **would a quote we store
+actually match what the refresher extracts?** A quote that does not match is classified
+`citation_lost` — drift — **every day, for ever**, and a false alarm is indistinguishable from a
+real one.
+
+I did **not** answer it with my own regex extraction, because a mirror of the extraction passes
+happily while production disagrees. `cmd/fcaquotecheck` calls the real
+`datahelpers.VisibleTextFromHTML` (i.e. `ExtractAssertionText`) and `datahelpers.QuoteFoundInText`.
+
+`[MEASURED 2026-09-02]` against `https://handbook.fca.org.uk/handbook/conc5a` — HTTP 200,
+477,729 raw bytes reducing to **44,121 visible characters**:
+
+| quote | matched |
+|---|---|
+| `exceed or are capable of exceeding 0.8% of the amount of credit provided under the agreement calculated per day` | **true** |
+| `exceed or are capable of exceeding the amount of credit provided under the agreement` | **true** |
+| `cumulatively in relation to multiple breaches of the agreement) exceed or are capable of exceeding £15` | **true** |
+| a deliberately absent control string | **false** |
+
+Positive and negative controls in the same run. **So the FCA Handbook is compatible with the
+existing citation machinery as it stands, and Phase B-i needs no code at all.**
+
+The chapter also parses cleanly into individual rules — `[MEASURED]` **78** rules in CONC 5A,
+each with its id, effective date and R/G type, by splitting visible text on
+`CONC 5A.\d+.\d+ dd/mm/yyyy [RG]`. That is what makes "rule by rule" mechanical rather than
+aspirational.
+
+⚠ **The URL scheme is NOT uniform** and a collector must not assume one form. `handbook/conc5a`
+works; `handbook/conc6/7` does **not** (bare title — a miss, caught by the landmine's own control);
+`handbook/CONC/6/7.html` works. Confirm every fetch by title, never by status.
+
+## 2026-09-02 (g) — TWO OF LENDZY'S RULE CITATIONS ARE WRONG, and this is the ask paying for itself
+
+Surveyed every page's factual claims and checked each cited rule against the handbook text.
+`[MEASURED 2026-09-02]`
+
+**Correct, verified by section title and text:** `CONC 5A` (0.8%/day, the 100% total cost cap, the
+£15 default cap) · `CONC 5.2A` = *Creditworthiness assessment* · `CONC 7.3` = *Treatment of
+customers in or approaching arrears or in default* · `DISP 1.6` = *Complaints time limit rules* ·
+`DISP 2.8` = *Was the complaint referred to the Financial Ombudsman Service in time?*
+
+**Wrong:**
+
+| the site says | the handbook says |
+|---|---|
+| rollover-rules: *"Financial Conduct Authority (FCA) rule **CONC 6.7.17** limits how many times a firm can refinance"*, and *"This is an FCA rule called CONC 6.7.17"* | **CONC 6.7.17** is the DEFINITIONS rule — *"In CONC 6.7.18 R to CONC 6.7.23 R 'refinance' means to extend…"*. The two-rollover limit is **CONC 6.7.23**: *"A firm must not refinance high-cost short-term credit (other than by exercising forbearance) on more than two occasions."* |
+| cant-pay and your-rights: the two-attempt card limit *"is set by FCA rule **CONC 6.7.23**"*, and *"Trying a third time breaches FCA rule CONC 6.7.23"* | **CONC 6.7.23** is the refinance limit above. The continuous-payment-authority limit is **CONC 7.6.12**: *"a firm must not request a payment service provider to make a payment, under a continuous payment authority … if it has done so … on two previous occasions and those previous payment requests have been refused."* |
+
+**Both substantive claims are TRUE** — two rollovers, two card attempts. Only the attributions are
+wrong, and they are wrong in a shifted pattern: the rollover claim points at the definitions rule,
+and the CPA claim points at the rollover rule.
+
+Honesty about strength: the rollover one admits a generous reading, since CONC 6.7.17 *introduces*
+the range "CONC 6.7.18 R to CONC 6.7.23 R" and so is a pointer to the rollover block — "imprecise"
+is arguable there. **The CPA one is not arguable**: CONC 6.7.23 is about refinancing and says
+nothing about card payments.
+
+This is the whole ask demonstrated on day one. A site telling people in financial difficulty which
+rule protects them, citing the wrong rule, is exactly the damage a register prevents — and note
+that **no existing check could have caught it**: every claims detector asks whether a claim is
+supported, and none asks whether the *rule number* is the rule that says it.
+
+**NOT YET FIXED.** The wrong numbers are in served copy, so repairing them changes published prose,
+and the estate is deliberately careful about automated rewrites of published copy. Recorded here
+and put to the owner rather than fixed unilaterally.
