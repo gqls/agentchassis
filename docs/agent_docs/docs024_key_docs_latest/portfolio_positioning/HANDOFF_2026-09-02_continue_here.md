@@ -117,10 +117,15 @@ verdict~~ **landed APPROVED 20:53Z — runbook §2 carries it, addendum below**)
   so runbook §6's pre-enablement is the belt and the Go gate the braces; nothing further to
   wait on from 444 before firing. ⚠ [DB] designblog filed `needs_section_data` at 21:04:44Z
   reading *"required query source errored: queryresolve.Resolve: unknown query name
-  featured_post"* — that is the SHAPE of 444's "errored REQUIRED field defers loudly", which
-  would mean the late roll DID carry `6525b45ae` [INFERRED — stamp unread]. Theirs (444 +
-  designblog sessions) to prove at the chassis stamp; recorded here so the row is not read as
-  a new bug.
+  featured_post"* — that is the SHAPE of 444's "errored REQUIRED field defers loudly", ~~which
+  would mean the late roll DID carry `6525b45ae` [INFERRED — stamp unread]~~ **CORRECTED by the
+  444 session (21:3xZ): CONFIRMED as their repair firing — "required query source errored:" is
+  a novel Reason string born in the defer branch that rode 443's `dbb218a41` (committed
+  20:08:04Z), and `featured_post` is one of the FIVE unregistered query bases their round-2
+  census predicted. So the row proves the roll carried `dbb218a41` (the DEFER half) and says
+  NOTHING about `6525b45ae` (the GATE, a separate commit 16 min later) — the per-service stamp
+  is the only discriminator, and their three-part liveness check is their first task after the
+  refresh (their NOTES `d6429a362`).** Recorded here so the row is not read as a new bug.
 - **§1a, measured at the bodies ~21:15Z:**
   - **sitemaps**: websitepromotion 200/1,401 B · designblog 200/1,854 B · **advertise 404 ·
     seotools 404 — explained, not a fault**: [DB] both were selected by 642 while lame-delegated

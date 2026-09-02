@@ -164,7 +164,11 @@ new field; instead, BEFORE firing a brief that wants listing pages:
   explicitly conditional until one does.
 Post-plan receipt query (opt-in on validate_site_plan, files capability_gap per dropped page —
 **returns rows ONLY after a chassis roll carrying `6525b45ae`**; before that the prompt half
-alone makes the planner decline the page, with no receipt. 444 session, 2026-09-02):
+alone makes the planner decline the page, with no receipt. ⚠ So an EMPTY result is ambiguous
+between gate-not-live and nothing-held until the stamp is read. The half you CAN read without
+the stamp: `needs_section_data` rows whose summary carries "required query source errored:" —
+that Reason string exists only in 444's defer branch (`dbb218a41`), so its presence proves the
+DEFER half rolled; it does not prove the gate did. 444 session, 2026-09-02):
 ```sql
 SELECT item_key, spec->>'builder_needed', summary FROM site_work_items
  WHERE site_id=:site AND item_type='capability_gap'

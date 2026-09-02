@@ -3971,3 +3971,12 @@ session's — kustomize overlays, 444's bug file, platform tests).
 > to write with a Z came from a tool that printed the zone, or it did not. Fixed in place in all
 > three files; the memory snippet now prints UTC; WRONG_CALLS row added.
 
+> **CORRECTED 2026-09-02 21:3xZ by the 444 session (their message):** my (t)/addendum inference
+> "designblog's 21:04:44Z deferral ⇒ the roll carried `6525b45ae`" was HALF right. The row IS
+> their repair firing (novel Reason string; `featured_post` one of five predicted unregistered
+> bases), but it proves only `dbb218a41` (defer half, 20:08:04Z) rolled — the gate `6525b45ae`
+> is a separate commit 16 min later and only the per-service stamp discriminates. Handoff
+> addendum struck-and-corrected; runbook §6 now says an empty receipt query is ambiguous until
+> the stamp is read. The check I skipped: two commits can ride one roll or not — a symptom that
+> names one of them is evidence for that one only.
+
