@@ -164,7 +164,17 @@ largest; nobody had named it), `hero-services` 6/6, `hero-case-studies` 4/5, `te
 hero and 61 of those render something else** — orphaned. **Counter-instance:** 4 of the 65 DO get
 their own asset (e.g. `leopardessconsulting.co.uk/tool-automation-savings-estimator`) with no
 field declared, so some other writer supplies it there — **identify that route first; if it
-generalises it is cheaper than editing seven components.** Their sampling lesson, kept: my
+generalises it is cheaper than editing seven components.** ~~Their sampling lesson~~ → **RESOLVED
+~21:50Z: `components` applied migration 721** — six components by predicate (hero-tool 77,
+about-hero 43, contact-hero 25, services-hero 6, case-studies-hero 5, use-cases-hero 2 = 158
+live) now declare `background_image` typed `image` sourced `site_assets.hero` with the fallback,
+copied verbatim from `hero`; verified 6/6 pass the gate's own predicate; guards induced (wrong
+type / wrong path / stray field all ABORT); rollback `721_…_ROLLBACK.sql` deletes only the key it
+wrote. **The cheaper route was measured and REJECTED:** the leopardess counter-instance renders its
+own hero because `background_image` sits in that instance's stored `content_data` — exactly ONE
+such instance per component, five in all: an anomaly, not a mechanism. Do not re-propose it.
+gamedesign.uk's rebuild rerender (corr `aab87c0c`) is the first live test; this lane reads the
+served `url()`s with the filename control and reports back, right or wrong. The sampling lesson stands: my
 re-measure was right for this site and would have been wrong as a fleet claim — the fleet was
 found by looking at five instances, not by reasoning from the schema. `components` holds the fix
 (council scope); this lane verifies at its own artefact.
