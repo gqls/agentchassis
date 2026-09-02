@@ -10,10 +10,11 @@
 --
 -- WHAT IT DOES (two rows, three writes):
 --   1. Teaches `find_dispatchable_site` (build-pipeline-trigger, the post-657 text,
---      md5 d29807313a8f6ed543a541c35c1626c4) the spend-governor clause, inserted before the
---      busy-skip clause — TOKEN-IDENTICAL to Go's workItemNotGovernorShedSQL("wi") (the
---      cross-media lockstep; whitespace differs, every token equal). Without this the loader's
---      filter alone would re-create the bugs_closed/413 selection hog under shed.
+--      md5 d29807313a8f6ed543a541c35c1626c4) the spend-governor clause — a ONE-LINE call to
+--      `governor_admits(wi.item_type)` (migration 675, the single canonical predicate; the
+--      8f4bb57d r1 architecture revision — Go emits the identical call, so the cross-media
+--      lockstep is structural, not string-compared). Without this the loader's filter alone
+--      would re-create the bugs_closed/413 selection hog under shed.
 --   2. Sets honour_spend_governor: true (bare jsonb boolean) on the dispatch loop's
 --      load_items step and its process_item sub-workflow claim step.
 -- STILL INERT AFTER APPLY: governor_config.enabled=false and monthly_budget_usd NULL remain
@@ -35,11 +36,15 @@ BEGIN
     AND deleted_at IS NULL
   ORDER BY version DESC LIMIT 1;
   IF m IS NULL THEN RAISE EXCEPTION '674 REFUSED: no live build-pipeline-trigger row.'; END IF;
-  IF position('governor_work_class_map' in q) > 0 THEN
+  IF position('governor_admits' in q) > 0 THEN
     RAISE EXCEPTION '674 REFUSED: selector already carries the governor clause — already applied (replay).';
   END IF;
   IF m <> 'd29807313a8f6ed543a541c35c1626c4' THEN
     RAISE EXCEPTION '674 REFUSED: selector md5 % is not the post-657 text — drifted, investigate before overwriting.', m;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='governor_admits') THEN
+    RAISE EXCEPTION '674 REFUSED: governor_admits() missing — apply 675 first (the flags call it).';
   END IF;
 
   SELECT count(*) INTO n FROM agent_definitions WHERE type='build-dispatch-loop';
@@ -64,7 +69,7 @@ SET default_config = jsonb_set(default_config,
   to_jsonb(replace(
     default_config#>>'{workflow,steps,find_dispatchable_site,config,query}',
     'AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'')',
-    'AND NOT COALESCE((SELECT gc.enabled AND COALESCE(m.llm_bearing, true) AND gs.shed_level >= CASE COALESCE(m.class, ''maintenance'') WHEN ''maintenance'' THEN 1 WHEN ''build'' THEN 2 ELSE 3 END FROM governor_config gc JOIN governor_state gs ON gs.id = 1 LEFT JOIN governor_work_class_map m ON m.item_type = wi.item_type WHERE gc.id = 1), false) AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'')'
+    'AND governor_admits(wi.item_type) AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'')'
   ))
 )
 WHERE type='build-pipeline-trigger' AND is_active AND COALESCE(is_snapshot,false)=false
@@ -88,7 +93,7 @@ BEGIN
     AND deleted_at IS NULL ORDER BY version DESC LIMIT 1;
 
   -- The clause landed exactly once, and the busy-skip survived it.
-  n := (length(q) - length(replace(q, 'governor_work_class_map', ''))) / length('governor_work_class_map');
+  n := (length(q) - length(replace(q, 'governor_admits', ''))) / length('governor_admits');
   IF n <> 1 THEN RAISE EXCEPTION '674 VERIFY: governor clause appears % times in the selector, expected exactly 1', n; END IF;
   IF position('active.status = ''claimed''' in q) = 0 THEN
     RAISE EXCEPTION '674 VERIFY: the busy-skip clause is gone — the replace anchor mis-fired';

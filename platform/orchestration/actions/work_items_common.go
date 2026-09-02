@@ -889,42 +889,26 @@ func siteLockExceptionSQL() string {
 // `spend-governor-state` task. LLM-free rows are never withheld — withholding
 // them saves nothing and stops serving.
 //
-// THREE POSTURE RULES, each load-bearing:
+// THE LOGIC LIVES IN ONE PLACE AND IT IS NOT HERE. `governor_admits(item_type)`
+// (migration 675) is the single canonical predicate — this renderer emits a
+// one-line CALL, and so does the dispatch selector's config text (migration
+// 674). That was the council's architecture revision on corr 8f4bb57d r1: four
+// hand-copied spellings of one rule across two Go files and a jsonb-stored
+// query is a drift machine no VERIFY string-compare can keep honest; a function
+// makes the lockstep structural. Do NOT re-spell the shed logic in Go — the
+// posture rules (fail-open on an unreadable governor; unmapped item_type sheds
+// earliest as maintenance+llm_bearing; enabled=false is identity) are execution-
+// proven by 675's verify probes and documented on the function itself.
 //
-//  1. FAIL-OPEN, mechanically. The whole predicate is wrapped
-//     `NOT COALESCE((...), false)`: an absent config row, an absent state row,
-//     or any NULL leaking out of the subquery reads as "not shed". A governor
-//     that cannot be read must never become a governor that sheds everything.
-//  2. An UNMAPPED item_type defaults to maintenance + llm_bearing — it sheds
-//     EARLIEST. The safe default for an unknown spender is the opposite
-//     direction from rule 1, on purpose: unreadable governor = do nothing;
-//     unknown work under a readable governor = assume it spends.
-//  3. `gc.enabled = false` short-circuits the whole clause to TRUE for every
-//     row (NOT COALESCE(false AND …)), so with the governor disabled the
-//     statement is semantically identical to not having the clause at all.
-//     The flag ships false; flipping it is the owner's deliberate act.
+// ⚠ The SELECTOR must carry the same call (674 does this), or shed-only sites
+// become selection hogs: the selector would rank a site by rows the loader then
+// refuses to load, and the site never goes busy — the bugs_closed/413
+// starvation shape, governor edition.
 //
-// ⚠ CROSS-MEDIA LOCKSTEP (the bugs_open/307 discipline): the dispatch selector
-// (`find_dispatchable_site`, agent config — a CROSS-SITE scan, see the ⚠⚠ note
-// on siteLockExceptionSQL above for why fragments do NOT transplant) must carry
-// the SAME rule in its own spelling, or shed-only sites become selection hogs:
-// the selector would rank a site by rows this loader then refuses to load, and
-// the site never goes busy — the bugs_closed/413 starvation shape, governor
-// edition. The stage-B migration that teaches the selector this rule pins BOTH
-// spellings; do not edit one without the other.
+// ⚠ ORDERING: the function must exist before any step config flips
+// honour_spend_governor on. 675 applies with stage A (inert — nothing calls
+// it); the flags arrive only via held 674, whose preflight asserts the
+// function exists.
 func workItemNotGovernorShedSQL(alias string) string {
-	it := alias + ".item_type"
-	return `NOT COALESCE((
-		    SELECT gc.enabled
-		       AND COALESCE(m.llm_bearing, true)
-		       AND gs.shed_level >= CASE COALESCE(m.class, 'maintenance')
-		             WHEN 'maintenance' THEN 1
-		             WHEN 'build'       THEN 2
-		             ELSE                    3
-		           END
-		    FROM governor_config gc
-		    JOIN governor_state gs ON gs.id = 1
-		    LEFT JOIN governor_work_class_map m ON m.item_type = ` + it + `
-		    WHERE gc.id = 1
-		  ), false)`
+	return "governor_admits(" + alias + ".item_type)"
 }

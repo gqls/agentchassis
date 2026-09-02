@@ -14,10 +14,10 @@ BEGIN
   FROM agent_definitions
   WHERE type='build-pipeline-trigger' AND is_active AND COALESCE(is_snapshot,false)=false
     AND deleted_at IS NULL ORDER BY version DESC LIMIT 1;
-  IF q IS NULL OR position('governor_work_class_map' in q) = 0 THEN
+  IF q IS NULL OR position('governor_admits' in q) = 0 THEN
     RAISE EXCEPTION '674 ROLLBACK REFUSED: selector does not carry the governor clause — 674 is not applied.';
   END IF;
-  n := (length(q) - length(replace(q, 'governor_work_class_map', ''))) / length('governor_work_class_map');
+  n := (length(q) - length(replace(q, 'governor_admits', ''))) / length('governor_admits');
   IF n <> 1 THEN
     RAISE EXCEPTION '674 ROLLBACK REFUSED: clause appears % times — hand-edited since apply, investigate.', n;
   END IF;
@@ -34,7 +34,7 @@ SET default_config = jsonb_set(default_config,
   '{workflow,steps,find_dispatchable_site,config,query}',
   to_jsonb(replace(
     default_config#>>'{workflow,steps,find_dispatchable_site,config,query}',
-    'AND NOT COALESCE((SELECT gc.enabled AND COALESCE(m.llm_bearing, true) AND gs.shed_level >= CASE COALESCE(m.class, ''maintenance'') WHEN ''maintenance'' THEN 1 WHEN ''build'' THEN 2 ELSE 3 END FROM governor_config gc JOIN governor_state gs ON gs.id = 1 LEFT JOIN governor_work_class_map m ON m.item_type = wi.item_type WHERE gc.id = 1), false) AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'')',
+    'AND governor_admits(wi.item_type) AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'')',
     'AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'')'
   ))
 )
