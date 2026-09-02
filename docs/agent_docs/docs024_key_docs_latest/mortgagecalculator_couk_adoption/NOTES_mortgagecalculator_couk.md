@@ -5026,3 +5026,47 @@ dispatched 21:27, coverage-checked first (no open acceptance work on that target
 
 ⚠ Also worth noting from the `simple` pass: **4 mobile checks were SKIPPED** and only desktop ran.
 A "PASSED" verdict here means *passed on desktop*. `[UNMEASURED]` why the mobile profile skipped.
+
+### The deepest answer to "verify the tools": where the ladder DOES run, it is not checking the sums
+
+Chasing why `simple`'s pass reported *"4 skipped: computes-defaults@mobile, …"* led somewhere much
+larger than a skipped profile. The skip itself is benign — `simple`'s fence declares doc-level
+`profiles: ["desktop","mobile"]` while every check is pinned `profiles: ["desktop"]`, so the mobile
+pass has nothing applicable. But reading the fence to find that out exposed the real gap.
+
+**The two fence families on this site test disjoint things, and neither is complete:**
+
+| family | check types | asserts | blind to |
+|---|---|---|---|
+| lane-authored (10, installed 08-10..08-17) | `computed_values` ×4 | **the numbers are right** | whether the page loads, errors, or fits a phone |
+| `tool-generator` (5) | `interaction`, `no_console_errors`, `no_horizontal_overflow`, `page_status_ok`, `selector_exists` | **the tool is alive and responds** | **whether any number it prints is correct** |
+
+Fleet-wide, and this is `bugs_open/449` (filed): **`tool-generator` has written 170 current fences;
+107 of them (63%) assert no expected value of any kind, and 0 use `computed_values`** — a check type
+the runner implements (`run_checks_action.go:708`, `:809`) and that works, since `simple` passes
+four of them. Cause, in one place: neither fence-authoring agent's `default_config` mentions the
+type. `tool-generator` and `experience-planner` both know `interaction` and `selector_exists`;
+neither knows `computed_values`. **The type is absent from the prompt, so it is never a candidate.**
+
+⚠ **My first version of that finding was too strong and I corrected it before filing.** I wrote
+"zero generated fences assert a computed value" — true of the check *type*, false of the behaviour:
+**63 of the 170 use `interaction.expect.text_matches`**, and some patterns are real values
+(`\$1000\.00`, `40.0%`). The defensible number is the 107 that assert nothing. And
+`operator:staged_component_build` is the existence proof that both can live in one fence — 6 of its
+8 carry `computed_values` *and* `interaction`.
+
+**What this does to our three "PASSING" verdicts — say it this way to the owner:**
+
+- `tool-overpayment-priority`, `tool-rate-scenarios`: their fences contain no value assertion at all.
+  PASS = *the page loads and something appears when you click*. **Nothing about the arithmetic.**
+- `simple`: PASS = *four sums are right, on desktop*. No boot, console, status or mobile check.
+
+**Not one tool on this site is verified for both correctness and health.** That is the honest answer
+to the owner's question, and it is a better answer than a green tick would have been.
+
+### Run dispatched
+
+`acceptance_run` `21b2d81d` — claimed by `build-dispatch-loop` at 21:32:29, 5m38s after insert
+(RUNBOOK §14 says ~3 min to claim, ~30 min to complete; 5–6 min is within normal queue latency, not
+a fault). Verdict lands as a `doc_notes` row, **not** on the work item — read the note, not the
+status.

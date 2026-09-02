@@ -130,6 +130,20 @@ which is exactly the eligibility test.
 | `tool-btl-investor`, `tool-credit-health-check`, `tool-rate-stress-test` | no fence (`needs_criteria`) |
 | the 9 adopted pages | ineligible — needs `701` |
 
+⚠ **AND A "PASSING" VERDICT HERE IS WEAKER THAN IT SOUNDS — `bugs_open/449` (filed today).** The
+two fence families on this site test disjoint things. The 10 lane-authored fences are
+`computed_values` only — the sums are right, and nothing about whether the page loads. The 5
+`tool-generator` fences are `interaction`/`console`/`overflow`/`status`/`selector_exists` only —
+the tool is alive, and **nothing about whether any number it prints is correct**. Fleet-wide:
+**107 of `tool-generator`'s 170 current fences assert no expected value at all**, and **0 use
+`computed_values`**, because neither fence-authoring agent's prompt mentions that type. So:
+
+- `tool-overpayment-priority`, `tool-rate-scenarios` PASS = *loads, and something appears on click*.
+- `simple` PASSES = *four sums are right, on desktop* (its checks are all `profiles: ["desktop"]`,
+  which is also why its mobile pass skipped everything — benign, not a runner fault).
+
+**Not one tool on this site is verified for both correctness and health.**
+
 ⚠ **A FAIL outlives its own repair when the fixer does not re-run the check.** `bridging-compound`'s
 newest verdict is a failure that predates its own fix by nine hours. Do not read the verdict record
 as current state without checking `page_components.updated_at` against the verdict timestamp.
