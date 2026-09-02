@@ -58356,3 +58356,46 @@ Tally: **claim-published-by-a-`;`-after-a-failed-precondition** x1,
   the served markup's template fingerprint and the guard's own arithmetic. The peer's summary is
   the better statement of it than mine: *every instrument that survived today reads the artefact;
   every instrument that fell reads a column, or a table about a column.*
+
+---
+
+## 2026-09-02 — four wrong calls in one bug file, surfaced by re-running the investigation on a second model, and one of the second model's refutations was wrong too (`gamedesign.uk` lane, `bugs_open/432`)
+
+**1. An absent file measured as an empty file.** My before/after loop did
+`c=$(git log -1 --before=<date> -- $f)` then `git show $c:$f | python3 -c "...print(len(main_text))"`.
+For a file with no commit before the cutoff, `$c` is **empty**, `git show :$f` errors to stderr,
+python reads empty stdin, and prints **0**. I recorded "0 chars both before and after — never
+populated" for two files that **did not exist** on that date. The claim was true by accident for
+one of the three and false for two. **The check: `wc -c` the thing you are about to measure, and
+treat an empty input as a REFUSAL, not a zero.** Same family as this file's `kubectl exec` entry:
+the pipeline did not error, it did less, and the shortfall printed as the healthy-looking number.
+
+**2. A count that folds two categories into one figure.** "Six of nine linked pages serve an empty
+`<main>`" was five empties plus two 404s. Each row in my own table was correct; the sentence summing
+them was not. **Tabulate by category before you write the sum.**
+
+**3. A metric that did not say what it stripped.** "Homepage 5,977 chars → 0" stripped tags but kept
+the inline `<style>` text sitting INSIDE `<main>`, so ~60% of the number was CSS. Direction held;
+the figure was not comparable to anyone else's. **State the metric next to the number, or the number
+is not reproducible.**
+
+**4. A rescue called a guard.** I listed `load_page_sections_from_spec_action.go` fallback 4 as one
+of "three guards" that closed the defect. It borrows a sibling's layout at BUILD time; its terminal
+branch still returns an empty list as a silent success. It never refuses. **"Guard" means a code path
+that REFUSES; if you cannot quote the refusal, it is not one.**
+
+**5. And the correction I nearly accepted.** The re-investigation refuted my "20+ top-level domain
+directories" with "19 — the Action's own filter". I re-ran the Action's regex myself: **36**. Both
+wrong; mine low, theirs lower. A refutation is a claim too. **Re-measure the refutation before you
+replace your number with it** — I had already written the `CORRECTED` block with 19 in my head.
+
+**The cheapest fix for all five was the same act:** hand the evidence to a second investigator
+ordered to measure BEFORE reading the conclusions, then re-measure every refutation that carries
+weight. Cost ~25 minutes of a background agent. What it found that no re-read would have: an
+adjacent LIVE defect on another site (`ai-agent-orchestration.com/roi-estimator.html`, empty
+`<main>`, 0 component rows, eight rerenders `complete`) that turns "the defect is closed" into
+"closed for new publishes only".
+
+Family: a-report-is-not-a-measurement, grep-silent-on-non-utf8 (silent-truncation family),
+a-complete-work-item-is-not-a-repaired-artefact, cite-the-arm-not-the-function,
+relative-git-refs-are-not-evidence (a bare line number is a relative ref).

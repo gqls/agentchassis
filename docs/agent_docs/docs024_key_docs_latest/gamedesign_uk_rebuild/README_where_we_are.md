@@ -83,3 +83,37 @@ workflow, balance sign-off, pipelines, hiring, tooling reviews, opinion. Written
 and producers rather than learners. They've asked that it avoid the free-tool and
 guide-library formats entirely and link to the sibling instead, so the two don't compete.
 They also flagged domains to stay clear of, and have written the register rows.
+
+## 2026-09-02, later — you asked for a second look on Fable. Here is what it changed.
+
+I ran the whole investigation again on a different model, told it to measure before reading my
+conclusions, then grade me. The big picture held: the adoption wiped the pages, the rerender
+published the empty shells, that specific day's damage was unique to gamedesign.uk, and nothing
+in our monitoring can see a site that has no database rows. All reproduced independently.
+
+Seven details were wrong, and I've corrected each one in place with a note saying what caught it.
+The ones you'd care about: it's five empty pages, not six (the other two are missing pages, not
+empty ones), and across the whole directory it's actually thirteen empty files out of forty-seven,
+not just the ones in the menu. Two of the "never populated" pages I named didn't exist yet on the
+day I was measuring — my script read a missing file as an empty one. And I called three things
+"guards" when only two of them actually refuse to publish; the third just tries to help a page
+build. None of that changes the conclusion, but it was wrong and it's fixed.
+
+One correction of the correction: it told me there are 19 site directories in the deploy repo,
+and I'd said "20 or more". I counted properly. It's 36, and eight of them have no database row.
+So I re-check what a second investigator tells me too.
+
+**The thing it found that I had missed is the one worth your attention.** I'd said this class of
+defect was closed because the publish step now refuses to write an empty page. That's true — but
+only for new pages. If an empty page is *already* out there and its row has no content blocks,
+every rerender since then has quietly "completed" without touching it. There's one live right now
+on ai-agent-orchestration.com — the ROI estimator page — with eight completed rerenders since late
+August and still an empty body. Two more empties from the same April wave are still serving on
+other sites. Those are other lanes' sites so I haven't filed on them; I've recorded them in the
+bug file and I'm flagging them to you here. That's a "rerender says done, page still broken"
+problem, and we have a closed bug (315) whose description matches it exactly.
+
+Two small extras from the second look: the original hand-written homepage for gamedesign.uk
+survives as a stray untracked file in the deploy repo, if the rebuild wants to see what the site
+used to say; and about half of gamesdesign.co.uk's page titles still say "GameDesign.uk" — that's
+the sibling site's problem, and its lane's.

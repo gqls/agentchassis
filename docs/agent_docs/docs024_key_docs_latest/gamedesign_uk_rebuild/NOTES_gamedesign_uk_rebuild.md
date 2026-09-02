@@ -150,3 +150,49 @@ It is also invisible to the detector built for this class:
 at all. **359 covers a retired PAGE; this is a whole SITE whose rows were deleted while its
 artefacts kept serving** — the same gap one level up, outside that detector by
 construction. Candidate for its own bug file; not yet filed (see README).
+
+---
+
+## 2026-09-02 — independent re-investigation on Fable (owner's request), and what it corrected
+
+Owner: "please investigate these errors again using fable." Launched a fresh general-purpose
+agent on `claude-fable-5` with the symptoms and evidence pointers, ordered to MEASURE before
+reading my write-up, then grade it and hunt for what I missed. ~24 min, 87 tool calls, read-only.
+Its scratch is under `scratchpad/fable/`.
+
+**What held, reproduced independently:** the fabricated-URL control; the no-row state at three
+widths plus a site-id text sweep; the `f9838491d` diff; **the 4/11 vs 0/139 discriminating
+control, exactly**; both source and destination = gamedesign.uk (single-domain trigger,
+archive `site_record`, 04-16 handoff); "wiped and recreated"; guards `d777cb4d2` (05-12) and
+`6579e9ae1` (07-27) as real code; no serving-side enumerator anywhere; the sibling's 40 pages.
+
+**What it refuted, and I re-measured before accepting — because a second report is still a
+report:**
+
+| my claim | what was true | caught by |
+|---|---|---|
+| "six of nine linked pages empty" | **five** empty + **two 404s**; whole dir **13 of 47** empty | walking the directory, tabulating by category |
+| `tools.html`/`services.html`/`getting-started.html` "0 chars both before and after — never populated" | two of the three **did not exist** on 04-16 (born 04-18). My loop's `$c` was EMPTY for a file with no pre-cutoff commit, `git show :path` errored, python got empty stdin and printed **0**. **An absent file measured as an empty file.** | Fable's per-file walk; confirmed by re-reading my own script |
+| homepage "5,977 chars" | metric-dependent: mine stripped tags but kept the inline `<style>` text INSIDE `<main>`; Fable's strips script/style → 2,473. Direction (→0) holds; the number needed its metric stated | comparing the two scripts |
+| "three guards" incl. `load_page_sections_from_spec` fallback 4 | **two** publish guards + one **build-side rescue**; that file never refuses an empty list | reading its terminal branch |
+| `rerender_single_page_action.go:581-602` | 652–673 for Fable, **680** at `11414e733` for my spot-check — the file moves daily | `grep -n` at HEAD; cite sha+string, never a bare line |
+| "with it every handle any detector or repair path had" | **1,147 `site_work_items_archive` rows** still carry `site_id` + `domain` | Fable's archive query |
+| `[UNVERIFIED]` running binary carries the guards | **VERIFIED**: stamp `a2732c72…` via `service_binary_capabilities`; all five commits ancestors; HEAD→stamp NO / stamp→HEAD YES as controls | Fable (the CLAUDE.md log grep is out of range at `--tail=20000`) |
+| "20+ top-level domain dirs" | **36** match the Action's filter, **8** row-less — I guessed LOW. **Fable said 19, also wrong.** | `ls -d */` + the Action's own regex + `SELECT domain FROM sites` |
+
+**What it found that I missed — the one that matters:**
+`ai-agent-orchestration.com/roi-estimator.html` serves `<main>\n\n</main>` (control 404); row
+`active`/`deployed`, **0 component rows**, **eight `page_rerender` items `complete` 08-26→09-02**.
+Spot-checked myself: confirmed. So the guard I called "closed" fires, reports `skipped`,
+`check_skipped` routes to `complete_skipped`, the item closes as complete, the empty artefact is
+untouched. **"Closed" is true for NEW publishes only.** `bugs_closed/315`'s profile, live. Two
+more from the same 04-18 fleet-wide born-empty wave still serve empty (`llm-cost-calculator.html`
+archived-and-serving; `robot-hands.com/learning-center-article.html` url-shape mismatch). Other
+lanes' sites — flagged to owner, not filed by me.
+
+Also: `index.html-gamedesign.uk` is **untracked** (`??`, mtime 2026-05-20) and byte-identical to
+the original hand-built homepage at `04dc4200b` — the best surviving copy of the original home
+copy, if the rebuild wants to reference it. And **23 of 49 gamesdesign.co.uk page titles read
+"… | GameDesign.uk"** — a brand leak on the SIBLING; that lane's, not mine.
+
+All corrections applied in place in `bugs_open/432` (six `CORRECTED` blocks) and here.
