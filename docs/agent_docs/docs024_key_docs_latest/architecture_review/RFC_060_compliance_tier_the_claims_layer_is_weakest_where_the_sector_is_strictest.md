@@ -545,11 +545,23 @@ Raised by the `loanzy.uk` lane, seconded by lendzy, from the same day's register
 > unrelated uncommitted WIP was breaking `go test` for the whole package at the time — the worktree
 > sidestepped it without touching their files): flipping the conflict policy in a scratch copy made
 > the discriminating test fail on an unexpected extra query, confirming it actually distinguishes
-> DO-NOTHING from DO-UPDATE rather than passing vacuously. **Council-Submitted: `bc3697a5`.** Q7's
-> own half (facts / host admission) is NOT built — still open, still needs the owner's steer on
-> shape. Full costing and the two filing traps
-> (`ON CONFLICT DO NOTHING`; key on the finding, not the site): `LANDMINES.md`, the
-> banned-claims-escaping entry, amended 2026-09-02.
+> DO-NOTHING from DO-UPDATE rather than passing vacuously. **Council-Reviewed: `bc3697a5` — APPROVED
+> 2026-09-02 18:39:52Z**, 3 advisory objections, none high-severity, `abstained:6`. Read the verdict
+> directly, not the correlation alone: `prior_art_librarian`'s absence claim ("nothing else validates
+> per-site pattern compile-ability") was checked afterward — every consumer of `BannedClaims`,
+> `discovery_checks/check_unverified_claims.go` included, goes through `ParseEvidenceBase`'s SAME
+> silent fallback; no other check exists, the claim holds. `tooling_provenance` correctly flagged no
+> NOTES entry was planned — `claims_verification/NOTES_claims_verification.md`, 2026-09-02 entry, now
+> is one. `editquality`'s item_key objection read the SUBMISSION SKETCH, which under-described the
+> real key format (it DOES carry an `invalid_banned_claim_pattern:` type prefix, per the sibling
+> convention) — a submission-quality gap, not a code defect; the real function was correct throughout.
+> ⚠ **COMMITTED, NOT RUNNING** `[MEASURED ~19:40]` — both `agent-chassis` pods started before the
+> 18:30Z commit (caught by the `bugfix_414` lane verifying at the pod, not by this thread's own
+> report). Needs an image build + roll (owner's call), then waits for the next daily
+> `evidence-freshness` tick (~09:09) before the first finding could appear. Q7's own half (facts /
+> host admission) is NOT built — still open, still needs the owner's steer on shape. Full costing and
+> the two filing traps (`ON CONFLICT DO NOTHING`; key on the finding, not the site): `LANDMINES.md`,
+> the banned-claims-escaping entry, amended 2026-09-02.
 
 **The gap.** `verify_and_register_citations` (V5/CLM-008) checks a candidate citation's host BEFORE
 admitting it: fetch the URL, require the quote in the visible text, reject on failure. That is real
