@@ -7084,3 +7084,34 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   rerenders worked — chrome is re-assembled — and why content fixes need the
   build path, not rerender.)
 - /contact.html still 200 = round 3 mid-flight, expected, not lost.
+
+## 2026-09-02 (contd) — TWO CORRECTIONS to the previous entry (both caught by peers reading the code/census rather than relaying)
+
+> **CORRECTED 2026-09-02:** the previous entry's note (c) — "a page_rerender
+> applies a TEMPLATE change only when spec.reason ∈ {section_data_resolved,
+> template_changed}" — is WRONG in the false-confidence direction.
+> `platform/livespec/rerender_reasons.go:83-89`: `section_data_resolved` (and
+> `image_landed`) are DELIBERATELY not always stamped — **without a
+> `component_id` they degrade to assemble-only** (REB-001's designed degrade).
+> The accurate check: **the discriminator is whether the rerender item carried a
+> component_id, not what the reason says** — check both, component_id is
+> load-bearing. Caught by experience_loop refusing to propagate the relayed
+> version and reading the code; relayed to me by the boxingonline session with
+> the correction owned.
+
+> **CORRECTED 2026-09-02:** the previous entry's pair-record — "Sunday's retype
+> created instance 3" — is TOO NARROW as causation. **dartsonline.com's guides
+> index has the same defect with NO retype in its history** (nine blog-post-
+> typed guides in /guides/, all orphaned, index lists none). The retype is ONE
+> ROUTE INTO the state; the mechanism is the resolver class itself. The
+> do-not-retype-back warning STANDS; the causal sentence must not be used to
+> scope a fix — a fix scoped to "undo our retype's consequences" repairs one
+> site and leaves dartsonline untouched.
+
+- The class now has a NIGHTLY check (experience_loop's rule C: an index-role
+  page whose own directory holds active pages while its listing shows zero) —
+  2 findings / 34 index pages fleet-wide: boxingonline + dartsonline, the
+  second site being the proof the mechanism predates us. Their rule B (compare
+  the query's ask vs return) was REFUSED on a real census: the resolver stores
+  the resolved array and DISCARDS THE INTENT (data_path empty fleet-wide), so
+  for ~99% of listings there is nothing to compare against.
