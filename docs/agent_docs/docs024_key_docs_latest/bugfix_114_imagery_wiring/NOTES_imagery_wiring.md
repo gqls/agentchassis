@@ -724,3 +724,31 @@ never touched).
 **In flight at time of writing:** detector round 2 (same trail `3b568104`), 709
 standalone (`151a51db`), the wiring (`bd78490d`). All three verdicts owed a read by
 whoever is next here if this session ends first — query in the RUNBOOK.
+
+### 2026-09-02 night — the wiring's REVISE is RIGHT, round 2 is parked behind a GAP-4 canary, and a shared-tree race cost five predicates
+
+**The wiring (corr `bd78490d`) drew a REVISE and the gating objection improves the
+design.** Full triage + the round-2 protocol: `bugs_open/412` §11a. The short form: the
+content_data floor loses to the resolver's own fresh-merge on exactly the GAP-4 pages
+that need it (bug_historian, twice, high); the raw UPDATE bypassed the lock guard stack
+(render_guardian); and the seats converge on the resolver's own vocabulary — a
+`site_plan_imagery` page-scope row at the landing (route 1) instead of a fifth
+content_data writer. **But route 1 shares route 2's `pageName != ""` gate, so the
+diagnosis comes first**: one controlled rerender on a quiet unwired page with the
+disposition logs watched. The committed code is opt-in OFF and 710 is HELD — nothing
+regresses while parked. Four of the round's objections were misapprehensions (symbols
+the seats could not see exist — they were committed this week); round 2 cites shas.
+
+**Shared-tree race, cost five predicates:** commits `ed8480a25`/`8aa51f599` hand-spelled
+`build_status IS DISTINCT FROM 'removed'` while `def8126e3` (another session, same
+hours) single-sourced it as `datahelpers.NotRemoved` with a source-scan test — so HEAD's
+`TestNoHandSpelledTombstonePredicate` went red for every session until `d1cf3aac3`
+adopted the helper at all five sites. Flagged cross-session by `bugs_open/436` within
+the hour, which is the coordination working. (Their message also attributed a третьей…
+a third session's broken untracked test file to this lane — corrected in the reply;
+worth the reminder that "dirty in the tree" carries no authorship.)
+
+**Also mooted by the design shift:** the finetuning lane's name-vs-capability matcher
+warning (4 hero-named components with no image field, all zero-instance) — the plan-row
+design matches no components at all, and IMG-077's predicate was already
+capability-based.

@@ -391,3 +391,52 @@ finetuning.uk baseline on the day rather than quoting it.
 Four mutation proofs run and watched to fail (clean-worktree run — the shared tree's
 test build was broken by another session's in-flight WIP at the time). Verify-later
 list: IMG-078's register entry.
+
+### §11a — the candidate-1 build drew a REVISE (corr `bd78490d`, round 1, 2026-09-02 evening), and the gating objection is RIGHT: the resolver defect comes first
+
+Seven seats reviewed; the triage, so round 2 does not relitigate it:
+
+**Objections that STAND and change the plan:**
+- **bug_historian [high] ×2 + guardian [medium]:** the content_data floor can be
+  CLOBBERED — on rerender, `plan_sections` re-resolves `site_assets.hero` and fresh data
+  merges last; on exactly the GAP-4 pages that need the floor, the resolver's fallback
+  value would overwrite it, reproducing the symptom invisibly. And the floor "patches
+  around" a defect (GAP 4) that is diagnosable NOW: the fallback-disposition logging
+  shipped 08-22 is live, so the UNVERIFIABLE verdict has an instrument at last.
+- **render_guardian [medium]:** the raw UPDATE bypasses the lock/claims guard stack
+  (`page_components.locked_at`/`lock_type` unchecked). Any direct-write design must
+  honour it — or not write this table at all.
+- **reuse/architecture:** prefer the resolver's own vocabulary over a fifth bespoke
+  content_data writer.
+
+**The better design all four point at, for round 2:** at the landing event, UPSERT a
+`site_plan_imagery` PAGE-SCOPE hero row (`scope='page', scope_ref=<page>,
+kind='hero', key=ContentHeroKey(page)`) when the current plan has none for that page —
+the resolver's own ROUTE 1 (top priority, read by BOTH render paths, joined to active
+assets) then delivers on every render, with no content_data write, no lock bypass, no
+clobber, and no new derivation. Caveat that blocks shipping it blind: route 1 shares
+route 2's `pageName != ""` gate, so **if GAP 4's cause is an empty pageName at the
+resolver, NEITHER design fixes the cohort** — which is why diagnosis precedes round 2.
+
+**Objections that were misapprehensions (seats cannot see the tree):**
+`discovery_checks.InteractiveStructuralMarkers`, its lockstep test,
+`emitContentCardDerive`, and `page_list_reresolve_test.go:275` all EXIST — commits
+`a87746b77` (this week) and the 08-22 IMG-073 commit; round 2 will cite shas.
+
+**The protocol before round 2** (recorded here so it survives this session):
+1. Trigger a controlled single-page rerender on ONE `unwired`-state page of a QUIET
+   site (webdesign.co.uk is busy — 451 open items — and its unwired pages are not
+   blog-post typed; pick from the IMG-077 census query in the 114 RUNBOOK), and
+   capture the chassis logs' resolver dispositions during it — the eligibility line
+   says whether the page-scoped routes even ran.
+2. If pageName reaches the resolver and route 2 still missed → the disposition names
+   the arm; fix THAT. If pageName was empty → fix the invocation, and neither
+   delivery mechanism is needed.
+3. Round 2 of `bd78490d` then ships whichever of (resolver fix | plan-row upsert)
+   the evidence licenses — the committed opt-in code stays OFF and inert meanwhile
+   (migration 710 stays HELD; nothing regresses).
+
+The finetuning lane's name-vs-capability matcher warning (4 hero-named components
+reference neither image field; all zero-instance today) is mooted by the plan-row
+design — no component matching at all — and already closed in IMG-077's predicate,
+which is capability-based.
