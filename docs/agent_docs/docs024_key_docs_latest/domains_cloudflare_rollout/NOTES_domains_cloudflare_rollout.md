@@ -696,3 +696,18 @@ once the site serves — no cleanup needed.
   `docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/`:
   domains CSV (451 rows), listings CSV (5 rows, corrected from header-only),
   valuations CSV (partial or full depending on where today's cap fires).
+
+## 2026-09-02 (evening) — OPEN QUESTION for tomorrow's appraisal quota window
+
+- The valuation lane asks: does `domain_appraisal` accept domains NOT on this
+  Dynadot account? If yes, the whole ~1,337-domain retail estate (and ~1,500
+  Nominet .uk names after) is appraisable at 300/day for a uniform valuation
+  column. Probe of aakn.com (Porkbun-registered) today returned only the 429 —
+  **inconclusive**: the quota check may well precede domain validation.
+- Tomorrow's sequencing (no constraint, it all fits): 1 test call on a
+  non-Dynadot domain + the 151-domain resume
+  (`scripts/domains/dynadot-appraise-all.sh <inbound domains.csv> <inbound
+  valuations.csv>`) = 152 of 300; if the test passes, ~148 headroom starts the
+  valuation lane's priority list (financial + home-garden categories first —
+  they will send it). Reset window unknown ("try again tomorrow", timezone
+  unstated) — the first 200 of the day dates it.
