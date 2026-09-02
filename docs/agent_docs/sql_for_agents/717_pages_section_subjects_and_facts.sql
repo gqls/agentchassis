@@ -33,6 +33,8 @@
 --
 -- Council: Council-Submitted b7c59309-1f70-448f-9d20-1c47ebf64196.
 
+BEGIN;
+
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS section_subjects jsonb;
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS section_facts jsonb;
 
@@ -52,3 +54,5 @@ BEGIN
         RAISE EXCEPTION '717: expected 2 nullable jsonb columns on pages, found %', n;
     END IF;
 END $$;
+
+COMMIT;
