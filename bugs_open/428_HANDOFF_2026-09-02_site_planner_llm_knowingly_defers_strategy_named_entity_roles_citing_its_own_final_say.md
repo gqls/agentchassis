@@ -300,3 +300,48 @@ Approved, and shipped same session:
 - **No code change actually dispatches any of the 13 rows.** That remains a human decision,
   one row at a time, through the new button — which is the point.
 - Full writeup, decisions and reasoning: `docs024_key_docs_latest/bugfix_428_planner_deferral/`.
+
+## 10. Status update, 2026-09-02 (later same day) — verdicts read, deploy gap found
+
+**Council verdicts, checked at the artefact, not assumed:**
+- Migration `687` (the prompt fix): **APPROVED**.
+- The release-surface backend (`38be9226…`): **APPROVED**.
+
+**Fresh chassis build confirmed live, both `agent-chassis` and `core-manager`**, commit
+`ebf27c60377f984fd2847a1d5d88ff87ae01ebf7` — verified via `service_binary_capabilities`
+(agent-chassis, every pod uniform) and `core-manager`'s own startup log directly (not
+scrolled, far lower volume). `git merge-base --is-ancestor` confirms every commit this
+bug made is an ancestor. **So `HandleReleaseRecordVerdict` and the `filing_mode` list
+filter are live in `core-manager` right now** — an operator with API access (or `curl`)
+can already release a verdict.
+
+**Real gap found, not yet closed: the admin-dashboard FRONTEND has not been rebuilt or
+redeployed.** `kubectl get deployment admin-dashboard` shows its pods are **170 days
+old** — the "Deferred" status option, the "Record verdicts only" filter, and the "Review
+& Release" button this bug committed to `frontends/admin-dashboard/src/App.tsx` are on
+the branch but not in the running UI. Nobody can actually SEE or click the release
+surface yet, even though the API underneath it is live. This was not caught earlier
+because this session has no `node`/`npm` to build the frontend locally and defaulted to
+"committed, backend confirmed live" without separately checking the frontend's own
+deploy state — worth logging as a genuine miss, not a false claim (nothing was ever
+asserted as deployed that wasn't checked), but a gap in what got checked.
+
+## 11. What is left before this lane can close
+
+- [ ] **Deploy the admin-dashboard frontend.** `make admin-dashboard` (builds via Docker —
+  no local node/npm needed — pushes, and applies the kustomize overlay). This is a
+  production deploy action; this session did not do it unilaterally and it should be
+  confirmed before running. Until this happens, bug 428's release surface is API-only.
+- [ ] **A human actually uses the release surface** on at least one of the 13 verdicts
+  (worked case: boxingonline's own `e3c2b440-c006-40ec-be7a-88d0b689ed1e`) once the
+  frontend is live — this is the operational decision named in `bugs_open/427` §10.2, not
+  a code task.
+- [ ] **Watch for the next council verdict** on anything resubmitted from this bug — none
+  outstanding as of this update (both verdicts are in).
+- [ ] **Not this lane's job, tracked elsewhere:** the follow-up sample bug 428 §4 itself
+  named — checking, once real `plan_site` calls accumulate against the tightened prompt,
+  whether `strategy_notes` actually names omitted roles individually now (no automated
+  check for this; a manual `llm_call_log` sample in a future session). `bugs_open/206`'s
+  data-coverage gap (3 verticals only). Candidate #2 as originally worded (an automated
+  dispatcher) stays refused pending an actual owner ruling on RFC_056, not a future
+  session's unilateral call.
