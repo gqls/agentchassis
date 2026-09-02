@@ -25,8 +25,12 @@ register    ✅ LIVE — 12 facts (7 CCA 1974 sections, 2 SIs, 3 FCA Handbook ru
 ## What the register changes, from today
 
 - The **daily refresher** re-fetches all 12 citation URLs (legislation.gov.uk AND
-  handbook.fca.org.uk) and re-checks the verbatim quotes. A `citation_lost` on a
-  legislation URL may mean the LAW moved (revised text) — that is the design.
+  handbook.fca.org.uk) and re-checks the verbatim quotes. **Its first live pass over
+  this register is 2026-09-03 ~09:09** (`last_completed` was 09:08:58 on 09-02, before
+  699 applied — verified by the 414 lane at `resolveEvidenceSites`). **READ those first
+  findings** rather than treating silence as clean — the 414 relay's standing
+  instruction. A `citation_lost` on a legislation URL may mean the LAW moved (revised
+  text) — that is the design.
 - **`HasScannableRegister` now arms `ScanUnregisteredNumbers`** on future saves for
   this site. Measured-safe: RFC_060 §1c ran the scan over this site's own 474-component
   export with ZERO findings, and `fad209b92`'s regulatory exclusions are live. If a
