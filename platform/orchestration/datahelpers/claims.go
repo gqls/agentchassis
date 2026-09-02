@@ -800,6 +800,30 @@ var labelPrefixRe = regexp.MustCompile(`(?i)\b(band|tier|step|phase|part|stage|l
 // FCA Handbook sourcebooks plus the prudential ones. Two-letter codes (LR, PR,
 // TC, EG) are DELIBERATELY ABSENT: even uppercase they are too collidable, and
 // the measurement did not need them.
+//
+// ⚠ VERIFIED, not assumed — three council seats asked the same question
+// independently (corr 1dd3d298, all medium) and they were right to: this file
+// carries a landmine that "every banned_claims pattern is compiled with a forced
+// (?i)", which would make the case-sensitivity above compile-time true and
+// runtime false. Checked 2026-09-02, three ways:
+//
+//  1. the forced (?i) lives ONLY in the four BANNED-CLAIM compilers
+//     (claims.go:~346 per-site, claims_global.go, claims_regulated.go,
+//     claims_practice.go) — each wraps `bans[i].Pattern`. These two regexes are
+//     not banned claims and never reach that path; they are compiled here, at
+//     package level, with a bare regexp.MustCompile and no (?i). Contrast
+//     labelPrefixRe directly above, which carries `(?i)` in its own literal —
+//     the difference is visible in one screenful, deliberately.
+//  2. nothing case-folds the scanned text before the exclusion tests run. The
+//     ToLower calls in this file are fact-Kind normalisation, a mailto href
+//     check, allowed-entity normalisation, the surface key, the finding DEDUP
+//     key (applied after the tests) and the magnitude-word suffix (applied to
+//     text after the number). None touches the block or the window.
+//  3. behaviourally, which is the one that would survive a refactor of 1 and 2:
+//     TestRegulatoryExclusionDoesNotLaunderBusinessNumbers asserts that
+//     "We processed 12 conc records last year." is still CAUGHT. If a forced
+//     (?i) ever reaches these patterns, that fixture starts passing silently
+//     and that test starts failing loudly.
 const regulatoryRulebookCodes = `(?:CONC|MCOB|ICOBS|BCOBS|COBS|DISP|SYSC|PRIN|CASS|PERG|CREDS|COLL|DEPP|GENPRU|MIPRU|BIPRU|IPRU|FEES|SUP|MAR|DTR)`
 
 // Shape 1 — the number IS the citation: "CONC 5A", "MCOB 4.1". The digits are

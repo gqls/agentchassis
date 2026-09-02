@@ -417,3 +417,27 @@ func TestRegulatoryExclusionDoesNotLaunderBusinessNumbers(t *testing.T) {
 		}
 	}
 }
+
+// The COMPILE-TIME half of the case-sensitivity property, asserted directly
+// rather than left to inference from behaviour (council 1dd3d298: three seats
+// asked whether the forced `(?i)` applied to banned_claims reaches these two).
+// It does not — but a future refactor routing them through a shared compiler
+// would break the SUP/MAR/DISP narrowing silently, and this is the tripwire.
+func TestRegulatoryCitationPatternsAreCaseSensitive(t *testing.T) {
+	for name, re := range map[string]*regexp.Regexp{
+		"rulebookCitationPrefixRe":    rulebookCitationPrefixRe,
+		"regulatoryCitationContextRe": regulatoryCitationContextRe,
+	} {
+		if strings.Contains(re.String(), "(?i)") {
+			t.Errorf("%s carries (?i) — the case-sensitivity this exclusion depends on is gone, and "+
+				"short codes like SUP/MAR/DISP will now swallow ordinary prose: %s", name, re.String())
+		}
+	}
+	// And the property that actually matters, at the level a caller sees it.
+	if rulebookCitationPrefixRe.MatchString("we ran conc ") {
+		t.Errorf("lower-case 'conc' exempted a number — the codes must be uppercase-only")
+	}
+	if !rulebookCitationPrefixRe.MatchString("under CONC ") {
+		t.Errorf("upper-case 'CONC' failed to match — the exclusion is inert")
+	}
+}
