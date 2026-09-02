@@ -172,3 +172,95 @@ struct-roundtrip landmine") — checking this directly next.
 > has no explicit file list, empty-diff or not, and if genuinely nothing of
 > mine needs a pathspec (a pure record-keeping commit), check the index is
 > actually clean before trusting `--allow-empty` to mean that.
+
+Owner said "please go ahead" on building + rolling the image and wiring the
+workflow. Built `agent-chassis` from committed HEAD — **not** at the working
+tree's current `IMAGE_TAG` (`v1.0.1351`): that value was itself an UNCOMMITTED
+edit (another session's WIP), and `docker manifest inspect` confirmed
+`v1.0.1351` already exists in the registry and is already the LIVE deployed
+tag — reusing it would have overwritten someone else's already-shipped image
+under the same tag with different content. Built+pushed+deployed at a fresh
+`v1.0.1352` instead (confirmed unused first). Verified at the artefact, not
+the roll: both new pods' `/proc/1/exe` contain my exact build commit
+(`a2732c72...`, positive control) and do NOT contain the current (later, by
+then) HEAD sha (negative control — deliberately NOT the "40 zeros" control,
+which LANDMINES.md already documents as matching Go's binary padding and
+hiding a stale build; used a real, meaningful sha instead). Both new action
+names (`load_feed_items_for_event_extraction`, `mark_feed_items_event_extracted`)
+present in the binary.
+
+Wired the extraction chain into `feed-triage`'s live workflow config
+(`agent_definitions.default_config`, DB-live, image already rolled so the
+actions exist): `apply_scores` → `check_for_events` (gate) →
+`load_for_event_extraction` → `extract_event_facts` (new LLM step) →
+`register_event_facts` (`verify_and_register_citations`) →
+`mark_event_extracted` → `complete`. Extraction prompt modelled directly on
+`evidence-researcher`'s `extract_claims` step (same verbatim-quote,
+machine-checked discipline: "the url will be re-fetched and rejected unless
+your quote appears in it verbatim") — never invents `event_date`/`venue`/
+`participants`/`broadcaster`, omits any field the source text doesn't state
+rather than guessing. Applied via a guarded DO/RAISE transaction (drift check
+before, full verify after each field), same discipline as the SQL migrations.
+
+**Caught a real design gap by testing against real data before declaring this
+done, not by inspection.** boxingonline.com already has 29 `content_feed_items`
+rows at `status='relevant'` with `event_extracted_at IS NULL` (a real backlog
+this mechanism should process on its first run). But `check_has_items` — the
+step BEFORE `apply_scores` — short-circuits straight to `complete` whenever
+there are zero `status='ingested'` items that cycle, which bypasses
+`apply_scores` (and therefore my whole new chain) entirely. In steady state
+(bursty ingestion, most triage cycles finding nothing new to score) this would
+mean the extraction chain almost never runs, backlog or no backlog — the
+opposite of what candidate #1 is for. **Fixed before it could misbehave in
+production**: restructured so BOTH paths (fresh triage work this cycle, or an
+empty ingest queue) converge on `load_for_event_extraction`, which gates
+purely on its OWN live count (`extraction_items.count`) rather than on
+whether this cycle's triage scored anything — `check_has_items`'s zero-branch
+and `apply_scores`'s next_step both now point at the loader; `check_for_events`
+moved to after it and keys on `extraction_items.count` instead of
+`triage_result.relevant`. Verified the corrected shape with a DO/RAISE block
+reading back all six fields, not just re-running the same UPDATE and trusting
+it worked.
+
+Then actually tested it, not just wired it: dispatched a real `feed-triage`
+run for boxingonline.com (`scripts/kafka-publish-lib.sh`, the OPP-009 pattern
+from `idea_uk_vm_site/scripts/dispatch_content_feed_orchestrator.sh`, adapted
+to `agent_type=feed-triage`) — landed clean, correlation `bf4556cf-1ed4-4400-
+b963-65b6e8d289d7`, watching progress via Monitor rather than a sleep loop.
+
+**Second real mistake this session, caught immediately by the test rather than
+by review — migration 684 was never actually applied.** I wrote it, verified
+its own DO/RAISE guards were correct by reading them, and moved on — but never
+ran it against the live DB. The dispatched run FAILED at
+`load_for_event_extraction`: `column cfi.event_extracted_at does not exist
+(SQLSTATE 42703)`. Exactly the value of testing the mechanism end-to-end
+instead of stopping at "the code is written and the config is wired": a code
+review would not have caught this (the Go code and the migration file were
+both individually correct), only running it did. Fixed: applied the migration
+by hand directly (`psql < 684_....sql`, its own verify block went green),
+then registered it properly — `run-migrations.sh --record-only`, not a
+hand-written ledger row — with a note naming exactly how it was caught.
+Deliberately did NOT run the bulk `--apply` (CLAUDE.md: it takes EVERY pending
+file, and "pending" on this tree almost never means "yours" — a background
+dry-run I started to check the queue was still running minutes later against
+what is evidently a long queue from other concurrent sessions; stopped it once
+the hand-apply path made it moot).
+
+**Re-ran the same dispatch after the fix — full chain green, real data, real
+output.** `score_relevance → load_for_event_extraction → check_for_events →
+extract_event_facts → register_event_facts → mark_event_extracted → complete
+→ COMPLETED`. Checked the actual artefact, not the status: boxingonline.com's
+`evidence_base` gained **6 new dated event facts** (kind="entity", `CIT-`
+prefixed ids, e.g. a real, verified fight result — "Filip Hrgovic stopped
+Moses Itauma in round 9... on August 30, 2026" at "The O2 Arena", citation
+url `boxing247.com/...`, quote confirmed live by `verifyCitationLive`).
+`participants` populated on all 6; `broadcaster` on 0 of 6 — checked this is
+correct, not a bug: no source article in this batch stated a broadcaster, and
+the prompt's "never invent" instruction held rather than fabricating one. 49
+`content_feed_items` rows now carry `event_extracted_at` (the 29-item
+pre-existing backlog plus 20 freshly triaged this run) — the backlog-draining
+behaviour the `check_has_items` restructure was specifically fixed to enable.
+
+This is candidate #1, live, working, against the actual motivating site.
+What's left for 427 fully: candidate #2 (peer, in progress) and candidate #3
+(blocked on the separate page-role diagnosis). This lane's build is done.

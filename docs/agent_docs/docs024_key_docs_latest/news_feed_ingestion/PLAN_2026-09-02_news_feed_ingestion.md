@@ -1,5 +1,18 @@
 # PLAN — news_feed_ingestion
 
+**Candidate #1 STATUS: LIVE and PROVEN, 2026-09-02.** Image v1.0.1352 built
+from committed HEAD, pushed, rolled, verified at the binary (sha controls, not
+the roll status). Workflow wired into `feed-triage`'s live config, migration
+684 applied by hand and recorded (see NOTES — it was initially MISSED and
+caught by the first end-to-end test failing, not by review). Re-dispatched
+against boxingonline.com (the motivating site) end to end: 6 new dated event
+facts registered in its `evidence_base`, verified live against their source
+articles, real fight results with venues/participants, nothing fabricated.
+49 `content_feed_items` rows (backlog + fresh) now carry `event_extracted_at`.
+Council-approved (`4849c95f...`) before the roll. What remains on bug 427:
+candidate #2 (peer, in progress) and candidate #3 (blocked on a separate
+diagnosis) — this lane's own build is complete.
+
 Started 2026-09-02. Charter proposed by the `calendar` session (peer handoff, in
 chat) after it filed `bugs_open/427`, adopted here after independent verification
 (read 427 in full, ran `who-owns.py` on 427/316, checked the tree for any in-flight

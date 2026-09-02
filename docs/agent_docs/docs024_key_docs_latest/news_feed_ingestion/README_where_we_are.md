@@ -39,3 +39,40 @@ correct as they change — fight dates move) and a third (a proper page to rende
 the fixtures onto) that come after, plus an older, separate feed-scheduling bug
 (some sites' news updates were consistently arriving late) that I'll pick up once
 this is done.
+
+**Update, same day: it's built, live, and actually working.** After the code
+was reviewed and approved by the platform's automated review panel, I built a
+new version of the service, put it live on the cluster, and connected the new
+step into the existing news pipeline. I made two mistakes along the way and
+want to be upfront about both, because neither would have been caught by just
+reading the code carefully — only by actually running it.
+
+First: partway through recording the review approval, I ran a git command
+without telling it which files to include, and it accidentally swept in a
+couple of other people's unrelated, already-half-finished changes into my
+commit. I checked carefully afterwards and nothing was lost or broken — both
+of those other changes had already been safely saved elsewhere — but it's the
+kind of mistake that could have caused real confusion, and I've written it up
+so I don't repeat it.
+
+Second, and more important: I'd written the database change that this whole
+feature depends on, checked it carefully, but then never actually ran it. I
+only found out because I tested the real thing end-to-end against
+boxingonline.com's actual data — the run failed right away with a clear "that
+column doesn't exist" error. I fixed it immediately and re-ran the test.
+
+That second test is the good news: it worked. The system pulled in
+boxingonline.com's real backlog of boxing news, asked an AI step to find
+which articles named a specific, dated fight, checked each one against the
+actual live article to make sure nothing was made up, and wrote six real
+fight facts into the site's record — including a real result ("Hrgovic
+stopped Itauma in round 9... on August 30, 2026, at The O2 Arena") with the
+venue and fighters named, sourced back to the original article. Where an
+article didn't mention something (like which broadcaster showed it), it
+correctly left that blank rather than guessing.
+
+So the mechanism the bug asked for now exists and has proven itself against
+the real site. What's left on this bug isn't mine to build — a peer session
+is doing the "keep dates up to date" piece, and the "build a proper calendar
+page from these facts" piece is waiting on a separate diagnosis about how the
+site-builder assigns page types. My own piece here is done.
