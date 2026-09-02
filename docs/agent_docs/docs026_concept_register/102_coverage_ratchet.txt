@@ -26,6 +26,7 @@ durable_write_guard
 empty_sections_loop_integrity
 experience_loop
 fabricated_stats_043
+gamedesign_uk_rebuild
 gauntlet_dead_cta
 hero_tool_component_045
 idea_uk_section_data_missing
