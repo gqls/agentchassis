@@ -23,6 +23,9 @@ stays HELD on the owner's fix-everything cut-line**; `customer_access_tokens` = 
 (checked 19:3xZ). As of ~21:0xZ NONE of the three convergence waves had fired yet
 (contact.html 200, GTM count 0, excerpt decks 0 — all with controls held; that is the
 EXPECTED pre-convergence shape, not a failure).
+> **21:4xZ:** two of §1's four premises are corrected below in place — §1.1 (logo
+> regen: DO NOT FIRE, owner decision) and §1.3 (cards: no HOLD pending; the rerender
+> path is the open defect and the roll does not touch it). §1.2 and §1.4 stand.
 
 ## 1. NEXT, in order
 
@@ -76,6 +79,13 @@ EXPECTED pre-convergence shape, not a failure).
    18:51:51/18:52:10, 19:52:29, 20:52:47/20:53:03Z; index last-modified 20:53:26Z]`,
    so the first POST-roll tick (pods 20:56/57Z) is ~21:52Z — probe the pair after
    ~21:55Z, and treat a still-200 before then as nothing at all.
+   `[429 lane, 21:3xZ]` Rotation ORDER is unconfirmed without the token: if
+   `noted.co.uk` (the other opted-in site) is ahead in the queue, the ~21:52Z tick
+   services IT (expect a full th2 republish there) and boxingonline waits for ~22:52Z.
+   **A still-200 after ONE tick is not a signal; two boxingonline-serviced ticks with a
+   200 would be.** Both lanes have a monitor on the pair; whoever sees the 404 first
+   pings the other; the 429 lane does the `published_hash` th2: read + `bugs_closed`
+   move once the token returns.
    When it 404s (and a kept page still 200s — probe the PAIR), strike this item;
    the 429 lane also verifies server-side. ⚠ Flip-side landmine now live:
    anything hand-placed under a `*.ugg2.com` prefix is swept on next drift.
@@ -92,6 +102,39 @@ EXPECTED pre-convergence shape, not a failure).
    **Do NOT report cards fixed until this check passes.** The 420-addenda
    discriminator applies if confused: served object last-modified older than
    pages.deployed_at = mirror lag (wait); newer = dirty source (look upstream).
+   > **CORRECTED 2026-09-02 ~21:4xZ (next session, from the components lane's own
+   > post-roll handoff `../components_lane_425/HANDOFF_2026-09-02_continue_here.md`,
+   > commit `753c3e6bf`, 21:2xZ): there is NO HOLD apply to wait for, and decks will
+   > NOT arrive by themselves.** (a) `683_…_HOLD` was applied BEFORE the roll — batch
+   > `…000683`, 10 complete / 4 cancelled (section-component floor, by design); on this
+   > site those are the `page_rerender` rows `22421f7b` (17:25:06Z) and `68b4fb82`
+   > (17:31:14Z), both `complete`, both the APPROVAL_READOUT §D "ran twice, reported
+   > success, stored data unchanged". (b) The open defect is upstream of any roll: on ONE
+   > binary (`v1.0.1354`, Go fix `f57f5ad1f` aboard since 12:28Z) the BUILD path writes
+   > `excerpt` + strips the suffix and the RERENDER path does neither — reproduced three
+   > times, seven branches eliminated by reading, three diagnosis runs failed
+   > (their §2). `9f6f91325`/`c1178442d` are council-r3 refactors (reuse
+   > `datahelpers.SafeCut`/`TruncateString`; 683 header wording) — not a fix for §2.
+   > ~~`git log …` shows nothing else in the roll touching that path~~ **CORRECTED
+   > 21:5xZ, same session, by running the check I had cited before it ran (classifier
+   > outage delayed it): FOUR other roll commits touch those files** — `6525b45ae`
+   > (444's listing-page item-source gate: `plan_sections_action.go` +10,
+   > `queryresolve/business_directory.go`), `dbb218a41` (443 fallback-tier subjects:
+   > `plan_sections_action.go` +102), `3b1389ca0` (137 runtime-fill exemption:
+   > `rerender_page_sections_action.go`, 1 line), `987ed3b3b` (427: `queryresolve.go`,
+   > `upcoming_events.go`). None names 425 or `list_item_text.go`; **diffs NOT read.**
+   > So "`v1.0.1355` should not change the rerender-path result" is `[INFERRED from
+   > commit messages]`, not measured — the components lane's §0 item 2 discriminator
+   > re-run IS the measurement. Item 4's chrome wave is still the rerender path either way.
+   > **What actually produces decks here:** the BUILD path — proven on this very site
+   > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
+   > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route
+   > if the components lane's post-roll re-run of their §2 discriminator (their §0 item
+   > 2, needs the token) still shows the rerender path broken. Not fired tonight: no DB,
+   > and it is a joint call with the components lane (messaged 21:4xZ). Success criterion
+   > unchanged: NON-ZERO `article-card__excerpt` with real copy + suffix-free titles on
+   > /index.html. Also owed after ANY rerender here: `721`'s effect on the six hero
+   > components (applied pre-roll, "needs a re-render to show") — approval-readout B.8.
 4. **GTM wave — watch, third-party-owned.** Analytics lane wrote
    `analytics.gtm_container_id=GTM-PQ3WCTBD` into `site_specs.site_config`; the
    `chrome` key SURVIVED the merge (header_slots + fight-calendar CTA verified

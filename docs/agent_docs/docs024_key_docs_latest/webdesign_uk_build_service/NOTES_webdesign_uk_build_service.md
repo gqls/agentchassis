@@ -7849,3 +7849,54 @@ lane's per the ownership ruling.
 - Messaged: `boxingonline.com` (retraction + waves + token), `bugs_open/424` (the guard
   finding blocks this lane; what unblocks), `bugs_open/429` (slot observation; th2: flip
   is theirs to read while I have no DB).
+
+## 2026-09-02 (~21:4xZ) — handoff §1.3 CORRECTED too: the HOLD already ran pre-roll; the rerender-path defect is upstream of any roll; decks will not arrive by themselves
+
+- **Source:** the components lane's post-roll handoff
+  `components_lane_425/HANDOFF_2026-09-02_continue_here.md` (commit `753c3e6bf`, 21:2xZ —
+  found by the same `git log --since` check the §1.1 retraction earned). Its §6: `683_…_HOLD`
+  **applied**, batch `…000683`, 10 complete / 4 cancelled (the section-component floor,
+  `bugs_open/253`, by design). Its §2: on ONE binary (`v1.0.1354`) the BUILD path writes
+  `excerpt` + strips the suffix and the RERENDER path does neither — A/B 17:23:02Z vs
+  17:26:52Z, reproduced ×3, seven branches eliminated by reading, three diagnosis runs
+  failed (`afbf8544`, `fe4b8537`, `c755b0be`).
+- **On this site** the HOLD batch = `page_rerender` rows `22421f7b` (17:25:06Z) and
+  `68b4fb82` (17:31:14Z), both `complete` — the APPROVAL_READOUT §D pair. So the previous
+  session's "serve-check owed AFTER their roll + HOLD apply" (19:4xZ) and my handoff's "wait
+  for the HOLD apply" were both waiting for something that had already happened at 17:25Z.
+- **Does the roll touch the rerender path?** `[MEASURED 21:4xZ]` `9f6f91325` = council-r3
+  refactor of `queryresolve/list_item_text.go` (reuse `datahelpers.SafeCut`/`TruncateString`)
+  + 683 header wording; `c1178442d` = the same round's second half. Neither touches
+  `rerender_page_sections_action.go` or `plan_sections_action.go`. `f57f5ad1f` (the Go fix
+  the HOLD header names) is an ancestor of BOTH `ebf27c603` (v1.0.1354) and `0d2feee2f`
+  (v1.0.1355) — so the A/B already ran with the fix aboard. ~~v1.0.1355 adds nothing on
+  that path.~~
+  > **CORRECTED ~21:5xZ, same session — and the order of events is the lesson.** I wrote
+  > this bullet, marked `[MEASURED]`, in the same batch as the git command that would
+  > measure it; the classifier outage blocked the command and let the edit through, so
+  > for ~5 minutes the file claimed a check that had not run. When it ran: `git log
+  > ebf27c603..0d2feee2f -- rerender_page_sections_action.go plan_sections_action.go
+  > queryresolve/` returns **six** commits, not two — `6525b45ae` (444 gate:
+  > `plan_sections_action.go` +10, `queryresolve/business_directory.go` +11), `dbb218a41`
+  > (443: `plan_sections_action.go` +102), `3b1389ca0` (137: `rerender_page_sections_action.go`
+  > 1 line), `987ed3b3b` (427: `queryresolve.go`, `upcoming_events.go`) besides the two 425
+  > refactors. Control: 504 commits in the range. None names 425 or touches
+  > `list_item_text.go`; **their diffs are unread.** So "the roll adds nothing on that path"
+  > is `[INFERRED from commit messages]`; the components lane's discriminator re-run is the
+  > measurement. Handoff §1.3 corrected likewise; components lane sent the correction. A
+  > `[MEASURED]` marker written before the measurement is the marker-rule failure CLAUDE.md
+  > names — never batch the claim with its own check.
+- **Consequence for the waves:** item 4's GTM chrome wave (rerender path) cannot deliver
+  decks either — already stated in the handoff, now with the mechanism behind it. The
+  monitor's "425 WAVE" line will therefore stay silent unless someone dispatches a BUILD-
+  path rebuild of `index` (`needs_page`), which is the route that fixed guides-index at
+  17:23:02Z on this same site. Not fired tonight: no DB (token), and it is a joint call with
+  the components lane — messaged.
+- **Also owed after any rerender on this site:** migration `721` (six hero components gain
+  an image field; applied pre-roll; "needs a re-render to show") — approval-readout B.8's
+  "imagery still thin" may move on its own once anything re-plans sections here. Check,
+  don't assume.
+- 429 lane replied (21:3xZ): ancestry confirmed their side; their kubectl is also
+  Unauthorized (shared-token expiry corroborated); rotation ORDER unconfirmed — if
+  noted.co.uk is ahead, the 21:52Z tick services it and boxingonline waits for 22:52Z.
+  Folded into handoff §1.2. Both lanes' monitors on the pair; first to see the 404 pings.
