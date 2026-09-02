@@ -721,3 +721,73 @@ six days? Answer that and defect #1 is closed. **Not yet investigated.**
 **Status of the three findings:** defect #1 now localised to the blog-listing path (above);
 defect #2 (sweep born terminal) contributed to `bugs_open/389`; owned-page residual unchanged.
 384 stays open.
+
+## UPDATE 2026-09-02 18:3xZ — why `rebuild_blog_listing` stopped: the site is out of rerender-pages service, and the two-strike arm is why
+
+`[ALL MEASURED 2026-09-02]`
+
+**The chain, end to end:**
+1. `rebuild_blog_listing` exists in exactly **one** live agent — `rerender-pages` (queried live
+   `agent_definitions`; `page-rerender` does not have it).
+2. `rerender-pages` is spawned by `build-dispatch-loop` — **36 of its 37 runs** in 24h.
+3. In those 24h it ran **37 times across 17 distinct sites, ZERO of them leopardess.**
+4. leopardess DOES get items handled by `rerender-pages` — **18 in 7 days** (live+archive). But:
+   **`deactivated_component` 10 unresolved / 10 branded `[unresolved after N attempts]`;
+   `needs_rerender` 5 unresolved / 5 branded; only 3 complete, all on 08-26/27.** The last of those
+   completed **21:22–21:33 on 08-27** — and `rebuild_blog_listing`'s last write was **21:34:20**.
+   The site's rerender pipeline stops at that minute and has not restarted.
+5. So: born-terminal items → nothing eligible for `rerender-pages` → no `rebuild_blog_listing` →
+   the blog array is never rebuilt → the two cards stay blank.
+
+**This is defect #2 (389's mechanism) CAUSING defect #1's persistence.** The strikes that closed the
+door were this lane's own seam succeeding repeatedly on 08-26/27 after card landings.
+
+**⚠ But the brand is NOT unique to leopardess — do not state that it is.** Control across served
+sites, `rerender-pages` items, 7 days:
+
+| site | items | unresolved | branded | complete | rerender-pages runs 24h |
+|---|---|---|---|---|---|
+| relojistas.com | 43 | 36 | 36 | 7 | 3 |
+| dartsonline.com | 24 | 17 | 17 | 7 | 3 |
+| **leopardessconsulting.co.uk** | 18 | 15 | 15 | **3 (none since 08-27)** | **0** |
+| gaswholesalers.com | 22 | 13 | 13 | 9 | 4 |
+| boxingonline.com | 10 | 3 | 3 | 4 | 10 |
+
+The arm suppresses a large share of rerender work fleet-wide. Served sites survive because SOME
+keys still get through; leopardess has none left that do. **[INFERRED, not proven]** that is the
+discriminator.
+
+**TESTABLE PREDICTION — check this first next session.** The brake counts terminal siblings over a
+**rolling 7 days**. leopardess's strikes fall on 08-26/27, so they age out **2026-09-02 → 09-04**.
+If the reading is right the keys become filable again and the site should resume unaided, and the
+blog page may repair itself. **If it repairs without intervention, the chain above is confirmed; if
+it does not, the chain is wrong and something else holds the site.** Either outcome is decisive —
+this is the cheapest experiment available and it costs nothing but a re-read.
+It also implies a **weekly sawtooth**: a site repaired successfully enough freezes its own rerender
+service for a week. Put to the `dispatch_throughput` lane; unanswered as of writing.
+
+## Correspondence with the `dispatch_throughput` lane (2026-09-02) — two answers and one finding that is THEIRS, not this bug's
+
+Asked them directly (they own dispatch). Their replies, and what came back:
+
+- **Promotion is `detected-item-promoter`**, a 900s scheduled task, enabled and firing (last tick
+  18:18Z), **independent of site selection** — so my "deadlock" reading was wrong in that form too.
+  It promotes through doors: `pipeline IN ('build','content','design')`, handler registered+active,
+  plus known-good doors from bugs 444/430/454.
+- **`sites.build_status` is inert for dispatch** — not in the selector's clause list. `pending`
+  frozen on leopardess is a symptom of non-visit, not a cause. (I had flagged it as a suspect.)
+- They have added a **zero-eligible starvation census** to their runbook beside the per-site floor
+  (their commit `155c36812`), because a zero-eligible site contributes nothing to the floor meter —
+  the same absence-shaped damage as 413, one layer earlier.
+
+**And the dig they asked for, which generalised:** why do leopardess's 51 `detected` rows fail a
+door? **All 51 pass the pipeline door and fail the handler door — `handler_agent` is EMPTY.**
+Fleet-wide: **1,386 `detected` rows across 35 sites, 1,386 with an empty `handler_agent` (100%);
+zero with a merely-inactive handler; zero failing the pipeline door.** 12 item_types, oldest
+2026-07-26 (`head_essentials_missing` 978 rows / 31 sites leads it).
+
+So the handler door parks the entire detected population **by construction**, because no detector
+populates the field it reads — it is not selecting low-value work over high-value work. **That is
+the `dispatch_throughput` lane's finding to take forward, not this bug's**, and it does NOT explain
+the blog listing (different population, different handlers). Handed to them with that separation
+stated; I have not read the promoter's pre_query or bugs 444/430/454, and have filed nothing.
