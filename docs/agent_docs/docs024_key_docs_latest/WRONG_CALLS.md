@@ -59018,3 +59018,34 @@ Family: a-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-
   Tally: **prose-as-control-offered-as-a-remedy** ×1 (new);
   **rejected-an-option-without-checking-its-actual-cost** ×1 (new);
   **a-clean-measurement-licensing-an-unrelated-conclusion** ×1 (new).
+
+---
+
+## 2026-09-02 — I wrote a LANDMINES remedy from the composition record, one artefact short of the served site (`gamedesign.uk` lane)
+
+**The claim, written into a PROSPECTIVE doc.** At ~17:45 I appended a landmine saying: seed a
+palette in `mission.preferred_palette`, because it is rung 1 of the cascade and nothing on the
+fresh path writes `mission`, so it survives — measured: `palette_source=mission_hint`, palette row
+byte-for-byte the seed. All true. All about the composition record.
+
+**What caught it, ~45 minutes later.** Reading the served `styles.css` (which I had already
+planned to do, for a different reason — the owner's "not a pin" ruling). None of the eight served
+core slots was the composed value; two were the classifier's `design_intent` values and six were
+re-derived. Theme kits then read the mechanism: `render_css_from_spec` is spec-wins on the eight
+core slots and `analyze_design` reads `design_intent`, never the palette row. **The cascade I had
+just told every future reader to use decides colours the public never sees.**
+
+**The cheap check that would have.** The remedy in a prospective entry must be measured at the
+LAST artefact in the chain, not the last one I had looked at. `curl styles.css | grep -- --color-`
+takes two seconds and I ran it anyway — I just wrote the landmine before running it. **Do not
+write "the check" into LANDMINES until the check has been exercised at the artefact the reader
+will care about.** A composition record is a status; the stylesheet is the artefact.
+
+**Why it is worth a row.** This is the memory index's `a-complete-work-item-is-not-a-repaired-
+artefact` one level up: a *resolved composition* is not a *rendered palette*. And it fired on a
+document whose whole purpose is to be read BEFORE a symptom — so an uncorrected version would have
+sent the next session to seed the wrong aspect with full confidence and a citation. Corrected in
+place, visibly, with theme kits' mechanism, ~18:30Z.
+
+Family: a-complete-work-item-is-not-a-repaired-artefact, prove-a-deploy-at-the-artefact-index,
+a-report-is-not-a-measurement.

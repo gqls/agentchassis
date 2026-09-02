@@ -467,3 +467,22 @@ re-files). Missing favicon: `/assets/images/favicon.png` 404.
 hour.** The HANDOFF's "budget hours" was a busy-fleet figure.
 
 **432 reconciler, re-run:** gamedesign.uk must now be OK (row + 5 pages) — verify below.
+
+---
+
+## 2026-09-02, ~18:30Z — the palette mechanism, and a correction to my own landmine
+
+Theme kits verified the served table byte-for-byte and read the mechanism: `render_css_from_spec`
+→ `buildPaletteMap(comp.Palette, specPalette)`, **8 core slots are spec-wins by design
+(DES-003/DES-042)**; `analyze_design` reads `design_intent`, never the composed palette row. So
+`mission_hint` won the composition and lost the render, by construction. **No submission-side
+seed can put a chosen core colour on a site**; the lever on served colour is the BRIEF, which the
+classifier turns into `design_intent`, which is what the overlay reads. 438 §6a-ter records it as
+the ruling working, not a defect — and warns future readers not to file it as one.
+
+**Corrected my own LANDMINES entry (written ~17:45, wrong at ~18:30) in place**, and logged the
+wrong call: I wrote a prospective remedy from the composition record without first reading the
+stylesheet. The SEED file's header comments (§2 "your reliable lever") are now historically
+accurate about composition and wrong about the artefact — left as written with this NOTE as the
+correction, since the file is applied history, not guidance. Theme kits' own advice to me was
+wrong the same way and they said so first.
