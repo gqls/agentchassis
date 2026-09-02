@@ -4,8 +4,17 @@
 hand-insert permitted for this closed backfill.** See the OWNER RULING appendix (recorded by
 the finetuning lane, `01a3b96ac`) for his verbatim words, the scope of the framework-ruling
 exception, and what the ruling does NOT waive: the one-site reconciler-skip proof before any
-insert, and the IMG-078 lane's cookly-pairing + seed-from-assets caveats. **Execution is
-UNASSIGNED as of the ruling** — first step is the measurement, not the insert. Filed
+insert, and the IMG-078 lane's cookly-pairing + seed-from-assets caveats. **Execution, as of
+2026-09-02 late night: the IMAGERY SEEDING step is CLAIMED by the `bugfix_114_imagery_wiring`
+lane** (their PLAN, `448671d18`; scope: per converted site, `site_plan_imagery` page-scope hero
+rows seeded from the `assets` table under the ContentHeroKey convention — ai-agent-orchestration
+17, finetuning 14, loancash 9, lampenkap 6, gaswholesalers/cookly zero; ships as a
+council-reviewed migration; sequenced strictly AFTER the reconciler-skip proof and after the
+composition half creates each `site_plans` row; finetuning.uk stays excluded from IMG-078
+acceptance per their 664/649 overlap). **The COMPOSITION half and the reconciler-skip
+MEASUREMENT remain UNASSIGNED** — the measurement is the first act, and the 114 lane offers
+joint design (their RUNBOOK census queries; the needs_rebuild-17 split in their 412 §11b
+addendum). Filed
 2026-09-02 by session "bugs_open/443" (lane `bugfix_443_fallback_tier_subjects`), spun out of
 `bugs_open/443` §4's closing observation, at the finetuning lane's and the council
 architecture seat's prompting (corr `b7c59309`, two advisory objections on exactly this).
