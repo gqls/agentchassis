@@ -109,3 +109,9 @@ times, correction block in place).
   (WRONG_CALLS 2026-08-26b — the replace_existing over-generalisation).
 - Bug numbers collide (401 is uniquely ours today, but 410 now names two — CLAUDE.md list);
   resolve by slug, `git log` the file path.
+- **ADDED 2026-09-02 — after the first chassis roll carrying `6e2d4a039` (bugs_open/408):** an
+  assemble_page failure that used to CRASH the pod becomes a quietly SKIPPED page — the
+  orchestration completes and the page is simply untouched, with the reason in
+  `assembled_page.skip_reason` ("no content found at <path>"). **Read skip_reason before believing
+  a rebuild ran on an untouched page.** Deploy check: binary probe for `paths_tried` → PRESENT
+  once the fix ships (2026-09-02 baseline on v1.0.1352: ABSENT, positive control present — NOTES).

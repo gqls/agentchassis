@@ -5470,3 +5470,27 @@ Raised as a design question, not asserted as a bug.
 > vonc.com nor the fork path — what we contributed was the measurement and the caveat, and both are
 > cited there. The prospective half is in `LANDMINES.md` (tool-doc comment reads as behaviour), the
 > retrospective half in `WRONG_CALLS.md`, both dated 2026-09-02.
+
+## 2026-09-02 — PLATFORM SEAT: bugs_open/408 FYI verified — fix NOT in today's roll; rebuild failures change SHAPE at the next one
+
+The 357 lane messaged both seats: `extractFieldValue` (assemble_page — which page-rebuild,
+pageflow-builder and site-work-orchestrator all run) recursed forever when a `content_field`
+resolved on no path form — a skipped content writer or a typo'd step field crashed the pod and
+wedged the orchestration until the 4h reaper. Fixed in `6e2d4a039`; details bugs_open/408 §9.
+
+- **Their "INERT until the next roll" verified CURRENT, not stale** (the a-stale-status-line class
+  cuts both ways): chassis rolled TODAY 12:28Z (`v1.0.1352`) but `6e2d4a039` was committed 13:53Z —
+  AFTER the roll, so it cannot be aboard. Capability probe agrees `[MEASURED 2026-09-02 ~evening]`:
+  `paths_tried` (unique to the fix — one source hit, `multipage_actions.go:1279`) **ABSENT** from
+  `/proc/1/exe`; positive control `"Field not found in path"` (present in old AND new code)
+  **PRESENT** — so the instrument works and the absence is real. Startup provenance lines were
+  already rotated out on both pods (~9.5h old), and the tag-bump commit `51e05a374` is NOT the
+  stamp (probed absent — bugs_open/249's straddle, live again).
+- **What changes for this lane at the next roll:** an assemble failure that used to die LOUDLY now
+  degrades QUIETLY — orchestration completes, page untouched, `assembled_page.skip_reason` says
+  "no content found at <path>". **An untouched page after a rebuild needs `skip_reason` read before
+  believing the rebuild ran** — a new quiet-degradation shape stacked on "complete is not proof".
+  Also the "Field not found in path" log line drops from thousands per incident to ONE (with
+  `paths_tried` key) — a log-volume heuristic for this failure dies with the fix.
+- **Ready-made check for whoever verifies the next roll:** binary probe for `paths_tried` →
+  expect PRESENT; today's ABSENT-with-positive-control baseline is the proof the probe can fail.
