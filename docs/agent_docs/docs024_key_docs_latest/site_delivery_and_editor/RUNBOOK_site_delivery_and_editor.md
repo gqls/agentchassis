@@ -84,3 +84,12 @@ because they all describe the state after the LAST seed. Verified live 2026-08-3
 by two sessions independently. If a retry is unavoidable before the roll, run the
 full 19-page served-sweep AFTERWARDS — the post-action check is the only one that
 can catch it. Fix is committed (162877051), inert until the chassis roll.
+
+### RE-SEED BLOCK LIFTED 2026-09-02 — the 420 fix is verified LIVE in the chassis
+
+Verified at the binary (pods restarted 2026-09-01 21:00Z): `published_contact`
+PRESENT, `email_was_intake_value` ABSENT (a REMOVED-string control — commit
+162877051 deletes that log literal, so absence confirms the new code), invented
+control absent. A re-seed of boxingonline no longer refills sites.email — the
+intake email lands as delivery contact only, and the published contact requires
+the explicit `direction.published_contact` key. The block above is historical.
