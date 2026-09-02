@@ -352,7 +352,7 @@ func buildRenderContextFromCollectedData(collectedData map[string]interface{}, l
 			ctx.Domain = domain
 			// Default logo from domain
 			if parts := strings.Split(domain, "."); len(parts) > 0 && len(parts[0]) > 0 {
-				ctx.LogoText = strings.ToUpper(parts[0][:1]) + parts[0][1:]
+				ctx.LogoText = datahelpers.UpperFirst(parts[0])
 			}
 		}
 
@@ -1432,7 +1432,7 @@ func buildHeaderConfig(collectedData map[string]interface{}, currentPageName str
 				name := parts[0]
 				// Capitalize first letter, handle common suffixes
 				if len(name) > 0 {
-					config.LogoText = strings.ToUpper(name[:1]) + name[1:]
+					config.LogoText = datahelpers.UpperFirst(name)
 				}
 			}
 		}

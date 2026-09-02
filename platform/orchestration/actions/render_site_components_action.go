@@ -1098,7 +1098,7 @@ func renderAndStoreSiteComponent(
 		// template that cannot execute is not something a re-render fixes, and
 		// a signal that exists only inside a failed step is a signal nobody
 		// reads (the same reasoning as the dead-control emit above).
-		emitChromeRenderFailedItem(ctx, db, siteID, componentID, slot, renderErr, serving, logger)
+		emitChromeRenderFailedItem(ctx, db, siteID, componentID, slot, "failed to render", renderErr, serving, logger)
 		return false, false, degraded, fmt.Errorf("chrome slot %q failed to render: %w", slot, renderErr)
 	}
 
@@ -1326,6 +1326,39 @@ func renderAndStoreSiteComponent(
 	// next overwrite is how a hand patch is told from a machine render. Only
 	// this path may write the digest — a stamp beside patched bytes silences
 	// the detector.
+	// Rune-safety gate (bugs_open/423). Postgres refuses invalid UTF-8, and its
+	// error names the offending BYTE but never its position — `invalid byte
+	// sequence for encoding "UTF8": 0x80` — so the refusal below can tell you a
+	// multi-byte rune was cut somewhere in 40 KB and nothing more. Checking
+	// here instead means the report carries the OFFSET and the neighbouring
+	// text, so the next byte-indexed slice introduced anywhere upstream of this
+	// seam is attributable in one read rather than by bisecting the pipeline.
+	// That is the door-closing half of 423: its own root cause is fixed at
+	// source (datahelpers.UpperFirst), but nothing stopped the NEXT one.
+	//
+	// REFUSE, do not sanitise. strings.ToValidUTF8 would make the store
+	// succeed, and this path has no gate downstream — whatever it stores is
+	// what the site serves (bugs_open/260) — so sanitising would ship silently
+	// mangled text over working chrome AND leave the upstream cut in place to
+	// keep producing it. Refusing keeps the previous bytes serving, which is
+	// the disposition this function already takes for every other bad render.
+	if off, window, bad := datahelpers.InvalidUTF8At(renderedHTML); bad {
+		serving := chromeSlotHasStoredHTML(ctx, db, siteID, slot)
+		utf8Err := fmt.Errorf("chrome slot %q rendered invalid UTF-8 at byte %d of %d, near %s — a byte-indexed slice upstream cut a multi-byte rune (bugs_open/423)",
+			slot, off, len(renderedHTML), window)
+		logger.Error("site chrome: rendered bytes are not valid UTF-8 — not storing",
+			zap.String("slot", slot),
+			zap.String("component_id", componentID.String()),
+			zap.String("site_id", siteID.String()),
+			zap.Int("invalid_at_byte", off),
+			zap.Int("total_bytes", len(renderedHTML)),
+			zap.String("near", window),
+			zap.Bool("existing_row_keeps_serving", serving),
+		)
+		emitChromeRenderFailedItem(ctx, db, siteID, componentID, slot, "rendered invalid UTF-8", utf8Err, serving, logger)
+		return false, false, degraded, utf8Err
+	}
+
 	res, err := db.ExecContext(ctx, `
 		UPDATE site_components AS sc
 		SET rendered_html = $1, build_status = 'rendered', updated_at = now(),
@@ -1335,10 +1368,29 @@ func renderAndStoreSiteComponent(
 	`, renderedHTML, siteID, slot)
 
 	if err != nil {
-		logger.Error("Failed to store rendered component",
+		// bugs_open/423 half 1, the OBSERVABILITY defect. This branch used to
+		// return a NIL error, so the caller's chrome_render_failed map never
+		// heard that the store had failed: the step reported SUCCESS with
+		// `rendered.<slot>=false` as its only trace, ineligible_chrome and
+		// locked_slots_preserved stayed empty, and two sessions spent about an
+		// hour eliminating locks, component eligibility and empty content_data
+		// before a live pod-log capture named the actual refusal.
+		//
+		// A store that fails has exactly the disposition of a template that
+		// will not execute — the previously stored bytes keep serving, and a
+		// site with nothing stored for this slot must not go live — so it takes
+		// the SAME surface the execution-failure branch already built for
+		// bugs_open/260, rather than a second chrome-failure channel.
+		serving := chromeSlotHasStoredHTML(ctx, db, siteID, slot)
+		storeErr := fmt.Errorf("chrome slot %q rendered but could not be stored: %w", slot, err)
+		logger.Error("site chrome: store failed — the slot keeps whatever it was serving",
 			zap.String("slot", slot),
+			zap.String("component_id", componentID.String()),
+			zap.String("site_id", siteID.String()),
+			zap.Bool("existing_row_keeps_serving", serving),
 			zap.Error(err))
-		return false, false, degraded, nil
+		emitChromeRenderFailedItem(ctx, db, siteID, componentID, slot, "rendered but was not stored", storeErr, serving, logger)
+		return false, false, degraded, storeErr
 	}
 
 	// Zero rows means the row is locked or gone. Before this gate the result
@@ -1436,7 +1488,12 @@ func emitChromeDeadControlItem(ctx context.Context, db *sql.DB, siteID, componen
 
 	summary := fmt.Sprintf("Dead chrome control on %s slot: no destination for %s (dropped)", slot, fieldList)
 	if len(summary) > 250 {
-		summary = summary[:247] + "..."
+		// bugs_open/423 — rune-safe, via the estate's one truncation primitive.
+		// This mattered most at the chrome_render_failed emitter, whose summary
+		// interpolates an arbitrary error string: a byte slice there could mint
+		// invalid UTF-8 and fail its own INSERT, so the surface that reports a
+		// chrome failure would die of the disease it exists to report.
+		summary = datahelpers.SafeCut(summary, 247) + "..."
 	}
 	itemKey := fmt.Sprintf("chrome_dead_control:%s:%s:%s", siteID, slot, fieldList)
 
@@ -1619,7 +1676,7 @@ func buildServicesHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 		words := strings.Fields(label)
 		for i, w := range words {
 			if len(w) > 0 {
-				words[i] = strings.ToUpper(w[:1]) + w[1:]
+				words[i] = datahelpers.UpperFirst(w)
 			}
 		}
 		label = strings.Join(words, " ")
@@ -1657,8 +1714,16 @@ func buildServicesHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 // a key that changes under repointing would mint a second open item for one
 // defect (the lesson emitSectionDeadControlItem's own header records from
 // image_url_404's site-wide key going the other way).
+//
+// PHASE was added with bugs_open/423, when the store-failure and UTF-8-refusal
+// branches adopted this surface. The item_key deliberately does NOT carry it —
+// a slot that is broken is one problem however far down the path it broke, and
+// a phase in the key would mint a second open item when the same slot failed
+// differently on the next run. But the SUMMARY must carry it, because "failed
+// to render" printed over a store failure is precisely the kind of queue entry
+// that sends the next reader to the wrong half of the pipeline.
 func emitChromeRenderFailedItem(ctx context.Context, db *sql.DB, siteID, componentID uuid.UUID,
-	slot string, renderErr error, stillServing bool, logger *zap.Logger) {
+	slot, phase string, renderErr error, stillServing bool, logger *zap.Logger) {
 
 	if db == nil || siteID == uuid.Nil {
 		logger.Warn("render_site_components: no site identity available, chrome_render_failed item not filed",
@@ -1673,20 +1738,33 @@ func emitChromeRenderFailedItem(ctx context.Context, db *sql.DB, siteID, compone
 		"render_error":  renderErr.Error(),
 		"still_serving": stillServing,
 		"source":        "render_site_components",
-		"fix": "This chrome component's template could not be executed, so the " +
-			"render was NOT stored (bugs_open/260). If still_serving is true the " +
-			"slot keeps its previous bytes and the site is stale, not broken; if " +
-			"false the slot has never rendered and the build was failed. The " +
-			"error names the template expression and the offending value: fix " +
-			"the component template, or the site data the template reads, then " +
-			"re-render the site chrome. Do not 'fix' it by reinstating a " +
-			"fallback renderer — that is the defect this replaced.",
+		"phase": phase,
+		"fix": "This chrome slot was NOT stored, so nothing new was published " +
+			"(bugs_open/260). If still_serving is true the slot keeps its " +
+			"previous bytes and the site is stale, not broken; if false the slot " +
+			"has never rendered and the build was failed. Read `phase` for which " +
+			"half failed. 'failed to render' — the template could not be " +
+			"executed: the error names the expression and the offending value, " +
+			"so fix the component template or the site data it reads. 'rendered " +
+			"invalid UTF-8' — a byte-indexed slice upstream cut a multi-byte " +
+			"character; the error carries the byte offset and the surrounding " +
+			"text, and datahelpers.UpperFirst / SafeCut are the rune-safe " +
+			"primitives the cutting code should be using (bugs_open/423). " +
+			"'rendered but was not stored' — the render was fine and the " +
+			"database refused the write; the error is the driver's own. Then " +
+			"re-render the site chrome. Do not 'fix' any of them by reinstating " +
+			"a fallback renderer — that is the defect this replaced.",
 	}
 	specJSON, _ := json.Marshal(spec)
 
-	summary := fmt.Sprintf("Chrome %s failed to render: %v", slot, renderErr)
+	summary := fmt.Sprintf("Chrome %s %s: %v", slot, phase, renderErr)
 	if len(summary) > 250 {
-		summary = summary[:247] + "..."
+		// bugs_open/423 — rune-safe, via the estate's one truncation primitive.
+		// This mattered most at the chrome_render_failed emitter, whose summary
+		// interpolates an arbitrary error string: a byte slice there could mint
+		// invalid UTF-8 and fail its own INSERT, so the surface that reports a
+		// chrome failure would die of the disease it exists to report.
+		summary = datahelpers.SafeCut(summary, 247) + "..."
 	}
 
 	compID := componentID
@@ -1776,7 +1854,12 @@ func emitCTAOverrideRejectedItem(ctx context.Context, db *sql.DB, siteID uuid.UU
 
 	summary := fmt.Sprintf("Header CTA override %q refused by chrome link policy; serving derived CTA", override)
 	if len(summary) > 250 {
-		summary = summary[:247] + "..."
+		// bugs_open/423 — rune-safe, via the estate's one truncation primitive.
+		// This mattered most at the chrome_render_failed emitter, whose summary
+		// interpolates an arbitrary error string: a byte slice there could mint
+		// invalid UTF-8 and fail its own INSERT, so the surface that reports a
+		// chrome failure would die of the disease it exists to report.
+		summary = datahelpers.SafeCut(summary, 247) + "..."
 	}
 
 	tx, err := db.BeginTx(ctx, nil)

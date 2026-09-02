@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/PuerkitoBio/goquery"
@@ -1039,6 +1040,78 @@ func TruncateString(s string, maxLength int) string {
 	return SafeCut(s, maxLength) + "..."
 }
 
+// UpperFirst upper-cases the FIRST RUNE of s and leaves the rest byte-identical.
+//
+// It is the rune-safe replacement for the `strings.ToUpper(s[:1]) + s[1:]`
+// idiom this estate hand-rolled at eight call sites (census 2026-09-02). That
+// idiom is a BYTE slice: when the first rune is multi-byte it hands ToUpper a
+// lone lead byte — which decodes as U+FFFD — and then re-attaches the orphaned
+// continuation bytes, so the result is invalid UTF-8. Postgres REFUSES invalid
+// UTF-8, so the corrupted string does not degrade quietly; it kills whatever
+// statement tries to persist it.
+//
+// bugs_open/423 is the worked case, and it is worth stating because the trigger
+// looks harmless: a word-splitter made a standalone em-dash in a page title
+// ("Boxing Quiz — Test Your Knowledge") its own word, w[:1] cut it after one
+// byte, and the site's footer store failed with `invalid byte sequence for
+// encoding "UTF8": 0x80` — on two live sites, for ten days and two weeks
+// respectively, reported as nothing at all.
+//
+// On ASCII input the output is byte-identical to the idiom it replaces, which
+// is what made converting every call site in one pass safe.
+func UpperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	r, size := utf8.DecodeRuneInString(s)
+	if r == utf8.RuneError && size <= 1 {
+		// Already invalid UTF-8 on the way in. Return it untouched rather than
+		// substituting U+FFFD: this helper's job is to not CREATE the defect,
+		// and silently rewriting a caller's bad bytes would hide one that a
+		// validator upstream should be naming.
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[size:]
+}
+
+// invalidUTF8Window is how many bytes either side of a bad byte the report
+// carries. Wide enough to recognise the offending text, short enough to log.
+const invalidUTF8Window = 48
+
+// InvalidUTF8At returns the byte offset of the first invalid UTF-8 sequence in
+// s together with a printable window around it, or found=false when s is clean.
+//
+// It exists because Postgres names the offending BYTE and never its position —
+// `invalid byte sequence for encoding "UTF8": 0x80` — so a store refusal on a
+// 40 KB document tells you a multi-byte rune was cut somewhere in it and
+// nothing more, and the only way to find out where has been to bisect the
+// pipeline by hand (bugs_open/423 cost two sessions roughly an hour before the
+// mechanism was even named).
+//
+// The window is QuoteToASCII'd deliberately: the result is pure ASCII with each
+// bad byte shown as \x80, so the report can be logged, persisted and put in a
+// work item WITHOUT reproducing the defect it describes. A diagnostic that
+// cannot itself be stored is the shape this bug already bit us with once, at
+// the summary truncations in the chrome failure-reporting path.
+func InvalidUTF8At(s string) (offset int, window string, found bool) {
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && size <= 1 {
+			lo := i - invalidUTF8Window
+			if lo < 0 {
+				lo = 0
+			}
+			hi := i + invalidUTF8Window
+			if hi > len(s) {
+				hi = len(s)
+			}
+			return i, strconv.QuoteToASCII(s[lo:hi]), true
+		}
+		i += size
+	}
+	return 0, "", false
+}
+
 func GetValueByPath(data map[string]interface{}, path string, logger *zap.Logger) (interface{}, bool) {
 	keys := strings.Split(path, ".")
 	var current interface{} = data
@@ -1977,7 +2050,7 @@ func FunctionToDisplayName(function string) string {
 	parts := strings.Split(function, "-")
 	for i, p := range parts {
 		if len(p) > 0 {
-			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+			parts[i] = UpperFirst(p)
 		}
 	}
 	return strings.Join(parts, " ")

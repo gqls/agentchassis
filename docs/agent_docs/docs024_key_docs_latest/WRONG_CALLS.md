@@ -57891,3 +57891,44 @@ your-action-moves-you-to-the-back-of-the-selector, a-closer-census-cannot-see-wh
   to time out that minute.
   Tally: **a-self-test-row-that-pins-the-defect** x1,
   **non-answer-scored-as-the-reassuring-answer** x1.
+
+## 2026-09-02 — I inherited a predecessor's search BOUNDS along with its (correct) code read, and looked in the wrong half of the pipeline
+
+**Lane:** `bugfix_423_chrome_utf8` (`bugs_open/423`, STY-059).
+
+**What I did.** The bug file's 08-31 addendum contained a careful code read: *"renderedHTML reaches
+the bind unsliced; the only surgery between RenderTemplate (:1075) and the store is
+DropDeadURLControls (:1227) and injectBrandHeadTags (:1261)"*, and it left one un-discharged reading
+about `maskNonMarkup` masking mid-rune. I started there — opened `markup_spans.go` and began
+reasoning about whether a span boundary could land inside a multi-byte character.
+
+**Why it was wrong.** The predecessor's code read was **correct and I still could not use it**,
+because its conclusion was scoped to *"between RenderTemplate and the store"*. The corrupting cut is
+**before** `RenderTemplate` — in `buildServicesHTML`, which builds one of the template's INPUTS at
+`:125`, ~1,100 lines away from the failing statement and in a different phase of the function.
+A read that clears the surgery between A and B **bounds its own search**, and inheriting the
+conclusion silently inherits the bounds.
+
+**What caught it.** Not the reasoning — a census. I ran
+`grep -rn "\[:[0-9]\+\]\|\[:1\]" ` over the render path instead of continuing to read, and
+`render_site_components_action.go:1622` (`strings.ToUpper(w[:1]) + w[1:]`) was in the output. One
+`go run` then produced `ef bf bd 80 94` — the live error's `0x80`, exactly.
+
+**The cheap check that would have:** when a predecessor has EXCLUDED a region, the next move is to
+enumerate the region they did not name, not to re-read the one they did. Here that is one command:
+census every byte-indexed slice on the whole path (inputs included), then test the candidates by
+EXECUTION rather than by reading. Total cost ~4 minutes, and it needed no theory about regex offsets
+at all. **Generalised: a "the surgery here is clean" finding is a statement about a WINDOW; always
+ask what the window's left edge is before you accept the conclusion, because a bug file records the
+window's contents and almost never its edges.**
+
+**NEAR-MISS the same session, caught before it shipped.** `gofmt -l` flagged
+`render_site_components_action.go` after my edits and my reflex was `gofmt -w`. The diff turned out
+to be a **pre-existing** alignment line from another lane's commit (`effc3a090`, `cta_override_rejected`);
+`gofmt -w` would have taken it as a same-file passenger into my pathspec commit — the exact class
+CLAUDE.md warns a pathspec cannot protect against. **The cheap check, which is 5 seconds:**
+`git show HEAD:<path> > /tmp/x.go && gofmt -l /tmp/x.go` before ever writing formatting to a shared
+file. If HEAD is already unformatted, the change is not yours to make.
+
+Tally: **inherited-search-bounds-with-an-inherited-conclusion** x1,
+**gofmt-w-on-a-shared-file-as-a-same-file-passenger** x1 (near-miss, not shipped).

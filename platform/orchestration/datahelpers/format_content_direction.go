@@ -116,7 +116,7 @@ func sortedKeys(m map[string]interface{}) []string {
 func HumaniseKey(key string) string {
 	key = strings.ReplaceAll(key, "_", " ")
 	if len(key) > 0 {
-		return strings.ToUpper(key[:1]) + key[1:]
+		return UpperFirst(key)
 	}
 	return key
 }

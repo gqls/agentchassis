@@ -208,7 +208,7 @@ func extractLogoTextFromParams(params ActionParams) string {
 			parts := strings.Split(domain, ".")
 			if len(parts) > 0 && len(parts[0]) > 0 {
 				name := parts[0]
-				return strings.ToUpper(name[:1]) + name[1:]
+				return datahelpers.UpperFirst(name)
 			}
 		}
 	}

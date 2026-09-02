@@ -116,3 +116,119 @@ footer row's updated_at moves, `rendered_html_digest = md5(rendered_html)`, and 
 served footer still carries NO contact block (sites.email empty gates it —
 component_library.go:1988) — that last probe is the pre-delivery check the
 boxingonline session defined.
+
+---
+
+## ROOT CAUSE FOUND AND FIXED 2026-09-02 — half 2 is `w[:1]`, and it is a class, not a case
+
+**By the bugfix_423 lane** (`docs/agent_docs/docs024_key_docs_latest/bugfix_423_chrome_utf8/`).
+Council `Council-Submitted: dc62975f-9d38-4b3c-9174-330307b9df95`.
+**Go, so INERT until the next chassis roll.**
+
+### The cutter, named
+
+`buildServicesHTML` (this file's own `render_site_components_action.go:1622`, called
+at `:125` to build the **footer** "Our Services" column):
+
+```go
+words := strings.Fields(label)
+for i, w := range words {
+    if len(w) > 0 { words[i] = strings.ToUpper(w[:1]) + w[1:] }   // ← a BYTE slice
+}
+```
+
+`strings.Fields` makes a **standalone em-dash its own word**. `w[:1]` then cuts a
+3-byte rune after one byte: `ToUpper` of the lone lead byte decodes as U+FFFD, and
+`w[1:]` re-attaches the orphaned continuation bytes.
+
+`[MEASURED 2026-09-02, by execution]` — `go run`, not inference:
+
+```
+"—dash"  -> ef bf bd 80 94 64 61 73 68   valid=false
+"“quote" -> ef bf bd 80 9c ...           valid=false
+"École"  -> ef bf bd 89 ...              valid=false
+```
+
+**The first invalid byte is `0x80`** — verbatim the byte in the live pod capture at
+the top of this file. The trigger on this site is
+`pages.title` for `tool-boxing-trivia-quiz`: **"Boxing Quiz — Test Your Knowledge |
+Tools"** (active, `in_header`, `nav_order` 200 — inside the query's `LIMIT 6`).
+
+### It beats both graders, and the disconfirming result was available
+
+**Grader 1 satisfied.** This CUTS at a byte offset; it does not merely contain a
+multi-byte character. `[MEASURED 2026-09-02]` the discriminating census, run both
+ways so it could have come out otherwise:
+
+| census | result |
+|---|---|
+| sites with a services-column label (same predicate, within `LIMIT 6`) containing a word whose **first rune is multi-byte** | **exactly 2** — boxingonline.com, garden-tools.uk |
+| sites whose `site_components` footer is **not** `build_status='rendered'` | **exactly the same 2** |
+
+Zero false positives, zero false negatives; every other footer on the fleet is
+`rendered` with `rendered_html_digest = md5(rendered_html)`.
+
+**Grader 2's theory is not needed and is not implicated.** The empty-`sites.email`
+/ dead-mailto timing fit was a coincidence of the same afternoon's data changes.
+The `DropDeadURLControls` and `maskNonMarkup` readings the 08-31 addendum left
+undischarged are **not the cause** — that addendum's code read was right that
+`renderedHTML` reaches the bind unsliced; the cut happens **earlier**, in an input
+built at `:125`, before `RenderTemplate` ever runs. The un-discharged mid-rune
+masking reading remains un-discharged and is now **not urgent**: it can no longer
+reach the database unnoticed, because of the gate below.
+
+### A SECOND CASUALTY, older than this bug
+
+**garden-tools.uk**'s footer has been failing since **2026-08-23** — ten days, on a
+different trigger word ("How We Assess Garden Tools **—** Our Methodology | Garden
+Tools UK") — and nobody knew, because of half 1. Its `rendered_html` is **NULL**,
+not stale: nothing has ever been stored for that slot.
+
+### What shipped
+
+1. **`datahelpers.UpperFirst`** — one rune-safe primitive, and **all 8 call sites of
+   the idiom converted** (census 2026-09-02, non-test Go: `assemble_from_library.go:211`,
+   `render_site_components_action.go:1622`, `component_library.go:1379`,
+   `multipage_actions.go:355` and `:1435`, `format_content_direction.go:119`,
+   `data_helpers.go:1980`, `cmd/webdesignport/harvest.go:411`). ASCII parity with
+   the old idiom is pinned by test — that is what made a one-pass conversion safe.
+   ⚠ The estate had **already** fixed the TRUNCATION shape of this class on
+   2026-07-20 (`SafeCut`, `bugs_open/027` §4b) and never found the CASING shape.
+2. **Half 1** — the store-failure branch takes the same `chrome_render_failed`
+   surface as the execution-failure branch, with the same disposition.
+3. **The three `summary[:247]` truncations** → `datahelpers.SafeCut`, in the same
+   pass, exactly as the 08-31 addendum required.
+4. **A pre-store rune-safety gate** — the door-closer. Postgres names the offending
+   BYTE and never its POSITION, so a refusal on a 40 KB document says "0x80" and
+   nothing about where. `datahelpers.InvalidUTF8At` reports the **offset** and a
+   `QuoteToASCII`'d window, so the **next** byte-indexed slice introduced anywhere
+   upstream is attributable in one read rather than by bisection. It **refuses**
+   rather than sanitising: this path has no gate downstream, so `ToValidUTF8` would
+   ship silently mangled text over working chrome AND leave the cutter in place.
+5. **`emitChromeRenderFailedItem` gained a `phase`** — its operator-facing text said
+   "the template could not be executed", which is false for two of its three callers
+   now. Reusing a surface means fixing its prose.
+
+Registered as **STY-059**. Five tests, each **mutation-proven red** 2026-09-02 (the
+`UpperFirst` revert's failure output reproduces `ef bf bd 80 94` verbatim).
+
+### ⚠ BEHAVIOUR CHANGE, and it lands on a live site
+
+A slot whose store fails **and which has nothing stored to serve** now fails the
+step, via the existing `bugs_open/260` caller logic. **garden-tools.uk's footer is
+exactly that case**, so its next build fails where it previously reported success.
+Held to be correct — a site must not go live with a missing footer, and a build
+failing loudly beats another ten days of silence — but flagged to the council as
+the edit most wanting an argument.
+
+### Still open
+
+- **The fix is INERT until the next chassis roll.** Both casualties stay broken
+  until then; boxingonline.com's served footer remains the 16:05 hand patch.
+- **Scoped out deliberately:** the sibling `no row matched` branch (~`:1357`) still
+  returns a nil error. That is the row-locked-or-gone case, it has its own lock arm
+  above it, and widening it is a different blast radius. Named so the next reader
+  sees it was considered, not missed.
+- **Verification after the roll** is unchanged from §"How to verify" above, plus:
+  `rendered.footer=true` for **both** sites, and a re-run of the two-way census
+  returning **zero** rows on the left column.

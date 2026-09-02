@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
@@ -408,7 +409,7 @@ func titleCase(s string) string {
 		if p == "" {
 			continue
 		}
-		parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		parts[i] = datahelpers.UpperFirst(p)
 	}
 	return strings.Join(parts, " ")
 }

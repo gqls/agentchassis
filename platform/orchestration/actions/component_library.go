@@ -1376,7 +1376,7 @@ func contextToInterfaceMap(ctx *RenderContext) map[string]interface{} {
 	if logoText == "" && ctx.Domain != "" {
 		parts := strings.Split(ctx.Domain, ".")
 		if len(parts) > 0 && len(parts[0]) > 0 {
-			logoText = strings.ToUpper(parts[0][:1]) + parts[0][1:]
+			logoText = datahelpers.UpperFirst(parts[0])
 		}
 	}
 	if logoText == "" {
