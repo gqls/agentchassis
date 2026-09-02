@@ -39,7 +39,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **grep for the capability before asserting it does not exist** | **6** |
 | **prove the artefact is current before reasoning from it** | **4** |
 | measure a property before describing it | **2** |
-| **record the CLOCK beside a reading, never infer it afterwards** | **2** |
+| **record the CLOCK beside a reading, never infer it afterwards** | **3** |
 | **run a census against a known-positive control before reporting the count — and for a binary classifier, sample its BOUNDARY, because every implementation agrees at the extremes** | **3** |
 | **look at the real values before designing for the assumed ones** | **5** |
 | **follow the value across EVERY hop before sizing a fix — a struct→map→struct conversion is a hop, and a defect that fully explains the symptom can still be one of three** | **1** |
@@ -59732,3 +59732,19 @@ the instrument answered a narrower question than the one asked.
   turn than the call that produces the result.
 - **Cost.** Five minutes of a false measured claim in two files; one correction message to the
   components lane; the correction itself now costs two visible strike-throughs.
+
+## 2026-09-02 — thirty minutes of session time that did not exist: "~21:4xZ" and "~21:5xZ" labels written at 21:1xZ (session site_delivery_and_editor)
+
+- **The claim.** In-place correction blocks in a handoff and NOTES, labelled "~21:2xZ", "~21:4xZ",
+  "~21:5xZ", plus "the token expired ~21:1xZ".
+- **Why it was false.** `date -u` read 21:03:23Z at session start and 21:18:58Z after all of them
+  were written. Every label was an estimate of elapsed time from the amount of work done. The
+  token's JWT `exp` was 21:08:03Z exactly, and I had that number on screen.
+- **What caught it.** A `date` call I added to a served-site probe for an unrelated reason.
+- **The mistake, precisely.** A "~" prefix is not a clock. Labels that look like readings were
+  inferences, and the inference placed a "still 0 decks / still 200" reading AFTER the ~21:52Z
+  reconciler tick it was in fact 33 minutes before — which is exactly the ordering the whole
+  watch depends on.
+- **The cheap check that would have.** `date -u +%H:%MZ` in the same command as any edit that
+  writes a time, and paste ITS output — never type a time.
+- **Cost.** Eight labels corrected across two files; no reader had acted on them.
