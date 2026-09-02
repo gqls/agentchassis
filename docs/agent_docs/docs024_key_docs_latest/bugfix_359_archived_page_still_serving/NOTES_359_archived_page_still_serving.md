@@ -229,3 +229,59 @@ than only here — a reader of the table needs to know two of its rows were once
 6. Verify the DISCONFIRMING PAIR at the artefact — an item for a page the census says serves,
    and NO item for one it says already 404s. **A zero before it has ever flagged a known-live
    case is not a clean reading.**
+
+---
+
+## 2026-09-02 — the census instrument was under-reporting, and re-running it is what found that
+
+Picked up from `bugsweep_2026_08_26/HANDOFF_2026-08-26_continue_here.md` §9, whose first
+check is *"359's acceptance — THE PAIR, not one arm"*. The acceptance still holds. The
+instrument did not.
+
+**The acceptance, re-established today and stronger than at close.** The Go detector filed
+**8** `archived_page_still_serving` items between 2026-08-26 22:32Z and 2026-08-27 02:02Z,
+across all five affected sites, and has filed nothing since. Six days of silence is the
+shape of a stalled detector, so it needed a demand control rather than a shrug: the check
+is still live in config (`availability-discovery-agent` checks array is still the three),
+and resolving the 8 item keys to pages gives **exactly** the 8 pages today's census finds
+serving — same domains, same URLs. Coverage is complete, so the silence is correct
+de-duplication. `[MEASURED 2026-09-02]`
+
+**The defect.** `verdict()` ended `if 200 -> SERVING; else correctly-absent`. A curl `000`
+— no HTTP answer at all — was therefore printed and counted as absence. Controls A and B
+are per-DOMAIN and fetched once per run, so **neither can see a per-PAGE transport
+failure**: the origin is up, the sibling is 200, and one page simply does not answer.
+
+**What caught it was running the census twice, not reading it.** Two runs ten minutes
+apart disagreed — 7 serving vs 8 — because `fundamentallyai.com/blog/ai-readiness-checker-guide.html`
+answered `000` and then `200`. That page is one of the 8 the Go detector had already
+flagged on 08-27, so two instruments disagreed about one URL and only the shell one was
+wrong. A single run under-reports and cannot say so.
+
+**The self-test had pinned it.** The row
+`check "target transport failure, controls hold" 000 404 200 0` asserted the defect as
+required behaviour, so the suite passed at full strength while the census mis-scored. That
+is the fourth instance of the 08-26 handoff's own §6 lesson, and the sharpest: the test did
+not merely fail to notice, it specified the wrong answer.
+
+**Fixed** in `4e26b1063` — `fetch_code` retries a `000` once with its own full timeout
+budget; a persistent `000` is `UNJUDGEABLE-target-transport` (rc 2, a refusal), never
+absence; both self-test rows corrected with the reason inline. **Mutation-proven:**
+deleting the branch fails both rows, and the mutant reproduces the old behaviour exactly
+(run, not asserted — §6's first habit).
+
+**Post-fix census, stable across runs** `[MEASURED 2026-09-02]`:
+`population 61: 8 archived AND serving, 52 correctly absent, 1 unjudgeable`. The one
+refusal is `boxingonline.com /contact.html`, whose invented-URL control returns 200 — a
+catch-all origin, correctly unjudgeable, pre-existing and unrelated to this change.
+
+⚠ **What this does NOT disturb:** the close of 359 rested on the disconfirming pair
+observed at the **Go detector** (run `9ca6a795`, both arms), not on this script. The close
+stands. What is affected is any bare count quoted from a single pre-fix run — it is low by
+however many targets happened to time out in that minute.
+
+**Also checked, since the handoff's second question was "did anything break?":**
+`DISCOVERY_CHECK_ERROR` over 7 days is **48 rows**, of which only **2** name
+`archived_page_still_serving`, and one of those is `mortgagecalculator.co.uk` erroring on
+all three checks the same day — a site-level failure, not a check defect. The background is
+fleet-wide across many check types and predates this work.
