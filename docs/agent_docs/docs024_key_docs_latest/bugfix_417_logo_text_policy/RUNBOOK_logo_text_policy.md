@@ -70,15 +70,29 @@ the FAIL sets — the claim you can actually make is "every failure in my set is
 The census proves the instruction arrived; only the eye proves it was obeyed, and the eye needs
 the file. Three routes, in order of preference.
 
-**1. The site, if it is published.** Only sites with `publish_project` set are served:
-```sql
-SELECT domain, publish_target, publish_project FROM sites WHERE domain = '<domain>';
+**1. The site — TRY THIS FIRST, and do not use `publish_target` to decide whether to bother.**
+
+> **CORRECTED 2026-09-02 19:45, same session, and I had written the wrong rule here four hours
+> earlier.** The original text said *"Only sites with `publish_project` set are served"* and sent
+> readers to the bucket. **That is false.** `publish_target`/`publish_project` govern **mirroring to
+> a SECOND hostname** (`platform/publish/publisher.go`: "copies the tree under a second hostname
+> prefix … served by the existing `*.ugg2.com` worker"); the site's own domain serves whenever its
+> DNS points at the worker, which is independent of that column. **Measured 19:45: five domains —
+> websitepromotion.co.uk, designblog.co.uk, seotools.co.uk, advertise.co.uk, gamedesign.uk — all
+> have `publish_target` EMPTY and all return 200 on `/index.html` with a 404 invented-path
+> control.** I generalised a serving rule from a column that does not control serving, on a sample
+> of one domain that happened to be failing for an unrelated reason.
+
+```bash
+curl -sS -o out.png -w '%{http_code} %{size_download} %{content_type}\n' \
+     "https://<domain>/assets/images/logo.png"
+curl -sS -o /dev/null -w '%{http_code}\n' "https://<domain>/zzz-not-real-control.png"   # must NOT be 200
 ```
-Then `curl https://<publish_project>/assets/images/logo.png`. ⚠ **The customer's own domain is
-usually NOT ours** — advertise.co.uk serves a stranger's Drupal site and 404s every path, which
-reads exactly like a broken deploy. Always run the two controls (invented path must 404, a
-known-good sibling must 200). Overriding `Host:` against the worker does not work — Cloudflare
-403s it.
+⚠ **A domain can be repointed mid-session.** advertise.co.uk returned 404 with a stranger's Drupal
+markup at ~17:00 and served our own site at 19:45 — so "not ours" is a reading with a shelf life of
+hours, not a property. **Re-probe before repeating it.** Always run the invented-path control (a
+parked domain 200s every path).
+⚠ Overriding `Host:` against the `*.ugg2.com` worker does not work — Cloudflare 403s it.
 
 **2. Otherwise, from the bucket, THROUGH A POD** (owner 2026-08-23: never read a key into the
 session). The B2 **native** API needs no SigV4, so BusyBox `wget` is enough — the S3 endpoint
@@ -112,4 +126,9 @@ under `.png` keys and served as `image/png`:
 head -c 4 out.bin | od -An -tx1     # 89504e47 = PNG, ffd8ffe0 = JPEG
 file out.bin                        # also gives dimensions and whether alpha is present
 ```
+⚠ **ASSERT THE BYTE COUNT — the base64-through-`kubectl exec` pipe truncates silently.** Hit
+2026-09-02: 776,498 of 1,081,560 bytes arrived, and `file` and PIL both still reported
+`PNG 1024x1024 RGBA` correctly off the header — the loss only surfaced on *pixel* access. Echo the
+size from inside the pod (`echo "POD_BYTES=$(wc -c < /tmp/a.bin)" >&2`) and compare with the local
+file before believing any measurement over the pixels.
 This is why `assets.mime_type` cannot be backfilled from the extension — see `bugs_open/433`.

@@ -139,3 +139,60 @@ to the worst case for a colour-distance matte, whatever the prompt says.
 §"Fetch a generated asset's BYTES and LOOK at it".
 
 — the `bugfix_417_420` lane
+
+---
+
+# ROUND 3 — 19:45Z. Five runs now, and the conclusion is SHARPER, not weaker: `border_keyed=1.000` on both a success and a failure
+
+**Correction to round 2 first: your matte is not uniformly broken.** One run produced a properly
+keyed logo. That makes the structural finding stronger, because the guard scored it identically to
+one that failed.
+
+## The full run table `[MEASURED 2026-09-02 19:45]`
+
+All five ran on the **same** chassis build (`v1.0.1354`, pods 15:39/15:53Z) — I re-probed the
+running binary with a control pair (`"Render a text-free mark"` PRESENT, `"must use no shade of
+magenta or pink anywhere"` **absent**, impossible-string absent). **So `b2322a203` is still NOT
+deployed, and every run below carried the identical contradicted prompt and the identical
+`key_hex=#FF00FF`.** The variance is the model, not the prompt, not the build.
+
+| time | site | `border_keyed` | outcome | fully transparent |
+|---|---|---|---|---|
+| 17:03 | designblog.co.uk | **1.000** | stored | **0.0%** ❌ |
+| 17:10 | seotools.co.uk | 0.9998 | stored | **0.0%** ❌ |
+| 17:15 | websitepromotion (try 1) | **0** | **REFUSED** ✅ | — |
+| 17:58 | gamedesign.uk | **1.000** | stored | **0.0%** ❌ |
+| 18:00 | websitepromotion (try 2) | **1.000** | stored | **87.4%** ✅ |
+
+Verified at the source objects, and for websitepromotion also at the deployed file
+(`https://websitepromotion.co.uk/assets/images/logo.png`, 400×218 RGBA, 84.3% transparent).
+
+## Why this is the finding, stated as sharply as it goes
+
+**`border_keyed = 1.000` appears on designblog (0.0% transparent, unusable) and on websitepromotion
+(87.4% transparent, correct).** Identical score, opposite outcomes. That is a complete, single-line
+demonstration that the statistic is measuring the wrong thing — no threshold argument required, and
+no appeal to the prompt contradiction. §3's mechanism explains it exactly: `BorderKeyed` counts
+flood *membership* (`dist <= outer`), and both a ground at `d≈5` and a ground at `d≈95` are members.
+
+**The guard is not useless — it is one-sided.** It correctly refused the 17:15 run (`border_keyed=0`,
+the model painted nothing near the key). It cannot see the middle band, which is where 3 of 4 stored
+artefacts landed. So: keep it, and add the border-*transparency* statistic beside it.
+
+## Revised hit rate, and what it costs today
+
+**1 good of 4 stored (25%), plus 1 correct refusal of 5 attempts.** Three sites are now carrying an
+unusable logo that the platform believes is fine. websitepromotion's good one still shows a faint
+**magenta fringe** on the mark's edges — `despill` is not fully removing key spill at the graded
+edge, which is worth a look once the guard is fixed.
+
+## What round 2 got wrong, so you can discount it correctly
+
+Round 2 said the drift range 65→105 was stable and implied a threshold retune could not work. With
+websitepromotion in the sample that is **overstated**: the model *can* land inside `inner=48`, so
+the constants are not obviously wrong — the **variance** is the problem, and a guard that cannot
+detect the bad tail is what makes the variance expensive. My earlier "seotools rules out the
+contradiction excuse" still holds and is now redundant: the contradiction was live for the good run
+too.
+
+— the `bugfix_417_420` lane

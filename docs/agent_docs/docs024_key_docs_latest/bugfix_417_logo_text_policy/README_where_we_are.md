@@ -140,3 +140,48 @@ it as contaminated in what I sent them, and said plainly that their number is st
 **Nothing here changes what is waiting on you.** The four decisions in the handoff — the identity
 model, the derived-contacts question, the intake chat needing to ask about contact details before
 ordering reopens, and bug 421 still having no owner — are all exactly where they were.
+
+---
+
+**2026-09-02, later still — you asked why websitepromotion has no logo. Here is the answer, and a correction to what I told you above**
+
+**First, a correction.** Earlier this evening I wrote that "advertise.co.uk's own domain is not
+ours" and that "only two of our sites are actually published to the open internet right now."
+**The second part was wrong when I wrote it.** I checked a column called `publish_target`, found it
+set on only two sites, and concluded it decided whether a site was live. It does not — it controls
+copying a site to a *second* address. A site's own domain goes live when its DNS is pointed at our
+server, which that column knows nothing about. Checked properly just now: five sites all have that
+column empty and all five are live, including advertise.co.uk, which is now serving our site with
+its logo in place. It was showing a stranger's page at five o'clock, so it was repointed somewhere
+in between. I have corrected this where I wrote it, including in the runbook, and logged it.
+
+It cost me some time going the long way round to fetch images, and nothing else.
+
+**Now, the logo.** websitepromotion **does** have one. It was generated at one minute past six this
+evening, it is a paper-plane-and-signal mark with no lettering, and it is sitting on the site right
+now — `websitepromotion.co.uk/assets/images/logo.png` returns it. What is missing is the `<img>`
+tag: the header still says the site's name in text.
+
+The reason is a stale piece of the page rather than a missing file. The site's header is built once
+and stored, and that header was built at **half past five**, half an hour *before* the logo existed
+— its stored record of what it was built from lists the logo as empty. The page itself was rebuilt
+at 18:01, after the logo arrived, but rebuilding the page just slots the already-built header back
+in. So a fresh page keeps an old header, and the header is the only part that knows about logos.
+
+**This is not just websitepromotion.** Of 34 sites that have a logo, **29 show it and 5 do not** —
+websitepromotion, webdesign.co.uk, ai-agent-orchestration.com, loanandmortgagecalculator.co.uk and
+cookly.uk. And they are not all the same fault: two had their header built before the logo arrived,
+but **webdesign.co.uk's header was built afterwards, with the logo listed as an input, and still
+came out as text.** That second one is a different problem and I have not diagnosed it.
+
+I have not fixed any of them. Re-rendering headers on five live sites is a visible change to
+customer-facing pages and it is not this lane's work — say the word and I will either do it or
+route it to whoever owns the header pipeline.
+
+**One caution if you do want it done quickly.** The logo that would appear on websitepromotion has
+a faint magenta outline around its edges — a leftover from the background-removal step another lane
+shipped today. It is much less bad than what the same step did to two other sites this evening
+(there it left the whole background as a coloured veil), but it is visible. That step is unreliable
+rather than broken: five attempts tonight produced one good result, three bad ones and one correct
+refusal — **and its own safety check gave the good one and a bad one exactly the same perfect
+score**, so nothing in the system can currently tell them apart. I have sent that lane the evidence.

@@ -59273,3 +59273,44 @@ above, a-report-is-not-a-measurement.
   says so in terms).
   Tally: **a-number-taken-from-memory-not-from-the-directory** ×2 (this instance: taken from the
   directory, but from a 40-minute-old read of it — the same failure one notch subtler).
+
+---
+
+## 2026-09-02 (same session, four hours later) — I invented a serving rule from one failed probe and a plausible column, and wrote it into a runbook (bugfix 417/420 lane)
+
+**The claim.** *"Only sites with `publish_project` set are served"* — written into
+`RUNBOOK_logo_text_policy.md`, this lane's NOTES, and the owner's `README_where_we_are.md`, with the
+gloss *"only two of our sites are actually published to the open internet right now."*
+
+**Why it was wrong.** `publish_target`/`publish_project` govern mirroring a site to a **SECOND**
+hostname — `platform/publish/publisher.go` says so in the doc comment I had already opened to get
+the bucket name: *"copies the tree under a second hostname prefix in the same portfolio-sites
+bucket, served by the existing `*.ugg2.com` worker."* A site's own domain serves whenever its DNS
+points at the worker, which that column knows nothing about. **Measured 19:45: websitepromotion,
+designblog, seotools, advertise and gamedesign all have `publish_target` EMPTY and all return 200
+with a 404 invented-path control.**
+
+**How I got there.** I curled advertise.co.uk, got a 404 and a stranger's Drupal markup, then
+queried `publish_target` across five domains, saw two populated, and joined the two facts into a
+rule. **One failing probe plus a column whose name fits is not a mechanism.** The tell I walked
+past: I had already read the very comment that says what the column is for.
+
+**What it cost.** I fetched two logos out of the storage bucket through a pod — a genuinely useful
+recipe, but unnecessary for the job in hand — and, worse, I wrote the wrong rule into a RUNBOOK for
+other sessions and into the owner's plain-English log before disproving it.
+
+**What caught it.** The owner sent a screenshot of websitepromotion.co.uk serving. A domain I had
+implicitly classed as unserved was plainly live.
+
+**The cheap check I skipped.** **Curl the domain.** One command, no schema knowledge, and it
+answers the actual question ("is this served?") rather than a proxy for it. Where I did reach for a
+column, the check is: `grep -rn "<column>" platform/ internal/` and read the type's doc comment
+before letting the column mean anything — the answer was already in a file open in the same session.
+
+**A second, independent staleness trap in the same claim.** advertise.co.uk 404'd at ~17:00 and
+served our own site at 19:45 — **repointed mid-session**. So even the half that was true had a
+shelf life of about two hours. Any "domain X is not ours" note needs a timestamp and a re-probe, not
+a restatement.
+
+Family: a-report-is-not-a-measurement, prior-art-search-goes-stale, a-parked-domain-200s-every-path,
+a-claim-about-behaviour-is-not-the-behaviour.

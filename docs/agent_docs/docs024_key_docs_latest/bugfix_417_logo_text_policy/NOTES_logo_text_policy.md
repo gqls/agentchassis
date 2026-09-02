@@ -260,9 +260,29 @@ counts flood *membership* (`dist <= outer`), while transparency needs `dist <= i
 scores 1.000 on a ground it left 98% opaque. **That is structural and survives any threshold or
 prompt fix.** Contributed to 424, not filed as a new bug — their lane, their fix, shipped today.
 
-### Serving: the customer's own domain is usually not ours
+### Serving: I wrote a rule here that was WRONG, four hours before disproving it
 
-advertise.co.uk 404s every path and serves a stranger's Drupal install; only sites with
-`publish_project` set are served by the `*.ugg2.com` worker (2 of them fleet-wide today).
-A `Host:` override against the worker is 403'd by Cloudflare. This is a trap for anyone verifying
-"is the fix live on the site?" — the site may never have been served at all.
+What I wrote at ~17:30: *"advertise.co.uk 404s every path and serves a stranger's Drupal install;
+only sites with `publish_project` set are served by the `*.ugg2.com` worker (2 of them fleet-wide
+today)."*
+
+> **CORRECTED 2026-09-02 19:45 (same session).** The second half is **false and was false when I
+> wrote it.** `publish_target`/`publish_project` govern mirroring to a **second** hostname
+> (`publisher.go`: *"copies the tree under a second hostname prefix … served by the existing
+> `*.ugg2.com` worker"*). A site's OWN domain serves whenever its DNS points at the worker —
+> nothing to do with that column. **Measured 19:45: websitepromotion.co.uk, designblog.co.uk,
+> seotools.co.uk, advertise.co.uk and gamedesign.uk all have `publish_target` EMPTY and all serve
+> 200 with a 404 invented-path control.**
+>
+> The first half was true at 17:00 and stale by 19:45 — advertise.co.uk now serves our own site,
+> header and all. **The domain was repointed mid-session.**
+>
+> **How I got it wrong:** I read `publish_target` on 5 rows, saw 2 populated, saw the one domain I
+> had actually curled return 404, and turned that into a serving rule. **One failing probe plus a
+> plausible-looking column is not a mechanism** — and `publisher.go`'s own doc comment, which I had
+> already read for the bucket name, says what the column is for. The cost: it sent me to the bucket
+> for bytes I could have curled, and I wrote the wrong rule into the RUNBOOK and into the owner's
+> README before disproving it. Logged in `WRONG_CALLS.md`.
+
+Still true and still worth keeping: a `Host:` override against the worker is 403'd by Cloudflare,
+and a parked domain 200s every path — so **always run the invented-path control**.

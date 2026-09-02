@@ -197,3 +197,14 @@ what JPEG chroma subsampling degrades most on a saturated key.
 
 Full evidence, the recovered per-pixel distances, and the 12-of-12 JPEG census:
 `docs024_key_docs_latest/bugfix_424_logo_transparency/CONTRIB_2026-09-02_from_417_lane_the_matte_ran_for_the_first_time_and_the_guard_scored_it_1000_on_an_artefact_with_zero_transparent_pixels.md`
+
+**UPDATED 19:45Z — five runs, and the sharpest form of the finding: `border_keyed=1.000` appears on
+BOTH a failure and a success.** designblog 17:03 scored 1.000 → 0.0% transparent (unusable);
+websitepromotion 18:00 scored 1.000 → 87.4% transparent (correct). Identical guard score, opposite
+outcomes, same chassis build (`v1.0.1354` — re-probed with a control pair; `b2322a203` still NOT
+deployed), same `key_hex`, same contradicted prompt. **The matte is not uniformly broken — it is
+high-variance, and the guard is blind to the bad tail:** 1 good of 4 stored, plus 1 correct refusal
+(`border_keyed=0`, 17:15) of 5 attempts. Three sites now carry an unusable logo the platform
+believes is fine. Round 2's "the drift range is stable" is thereby **overstated** — the model can
+land inside `inner`; it is the variance, not the constants, that the guard fails to police.
+Full table in the CONTRIB.
