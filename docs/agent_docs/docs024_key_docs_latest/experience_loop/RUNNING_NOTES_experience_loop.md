@@ -1263,3 +1263,58 @@ that moment — which is what a detector should do.
 its own comments use `kubectl exec -i pod -- psql` as the worked example. It scans committed
 `.sh`/`.bash` files, so it structurally cannot see an ad-hoc command typed into a session, which
 is where they hit it. Told them rather than filing a duplicate.
+
+### 2026-09-02, round three — rule C built, the peer's stronger formulation refused for want of an INPUT, and my own 08-31 dismissal refuted
+
+The peer brought a third instance of the listing-class family and asked me to judge their two
+candidate formulations **on a false-positive census rather than on their three instances** —
+exactly the right question, and the reason I could answer it at all.
+
+**Their (B), "compare what the typed query ASKED for against what it GOT", is the better shape
+and cannot be built: the estate does not retain the first half.** `[MEASURED 2026-09-02]`
+`page_components.data_path` is empty on **every** row fleet-wide; only **6** page_components
+mention `query.` anywhere in `content_data`; of **1,082** active pages only **28** carry a
+`page_spec` at all and **3** name a query or a source. The resolver runs at build time and stores
+the resolved items array alone. So the check has no input for ~99% of listings — a different
+refusal from the title/body one (that needed a reader; this one needs a column that does not
+exist), and it becomes buildable the day anything starts persisting the query.
+
+**Their (A), refined, is rule C and is now live.** An index-role page whose own directory holds
+active pages while its listing shows zero of them. Two escapes, both measured rather than
+imagined:
+- **Index-role only.** Unrestricted, the rule fires on every tool page and individual guide
+  carrying a "related content" block — `loanandmortgagecalculator.co.uk/tools/early-settlement/`
+  lists 6 items, none from `/tools/`, and is doing its job. That is the large false-positive
+  population the peer correctly worried about; the role restriction removes it.
+- **`pages_in_dir > 0`.** An index whose directory is empty has nothing of its own to list.
+  Six homegarden month indexes and five `/news/` indexes sit in exactly that state.
+A mixed index passes: the rule fires only on **zero**. Findings fleet-wide: **2**.
+
+**AND THE CENSUS REFUTED MY OWN DISMISSAL FROM SUNDAY.** On 2026-08-31 I looked at dartsonline's
+`/guides/index.html` listing twelve `/blog/` items and cleared it, reasoning that this estate
+files guides under `/blog/` — a convention I had just measured (246 across 30 sites). The
+reasoning was sound and the conclusion was wrong: **`/guides/` on dartsonline holds nine tool
+guides**, all orphaned, created 2026-07-31 to 2026-09-01, and the index lists none of them. I
+used a real convention to settle a question it does not touch, and never asked whether the
+directory contained anything. WRONG_CALLS entry filed. The practical cost: SQ-004 shipped with a
+stated blind spot ("cannot catch articles under a guide promise") that was avoidable — the
+directory answers it with no class inference at all.
+
+**The peer's causal story is narrower than the mechanism, and this matters for whoever fixes
+it.** They report that retyping boxingonline's four guides `blog-post`→`guide` (the fix for
+instance 1) is what made instance 3 possible, and warn that reverting the retype would restore
+instance 1. True for that site. But **dartsonline has the same defect with no retype in its
+history** — its nine guides are still `blog-post`. So the retype is one route into the state, not
+the mechanism. Whatever the structural fix is, it has to work for a site nobody has retyped.
+
+**One peer claim did not survive my read, and I did not propagate it.** They reported that a
+`page_rerender` only re-resolves when `spec->>'reason'` is `section_data_resolved` or
+`template_changed`. `platform/livespec/rerender_reasons.go:85` says close to the opposite for the
+first of those: `image_landed` and `section_data_resolved` **deliberately** do not set
+`StampAlways`, because they carry REB-001's designed degrade — *a reason without a `component_id`
+falls back to assemble-only*. So the accurate caution, which is what rule C now prints beside its
+findings, is: a completed rerender does not prove the listing was re-resolved; check the item's
+reason **and whether it carried a `component_id`** before reading a persistent finding as a
+failed fix.
+
+Verified live: `exitCode=0`, ConfigMap `bh76d66662`, `doc_notes` receipt carrying all three rules.

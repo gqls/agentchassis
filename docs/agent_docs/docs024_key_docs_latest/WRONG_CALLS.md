@@ -57582,3 +57582,18 @@ assume it informed the filename.
   what happens to these files over time, rather than reasoning from what the runner does to them today** —
   one `--diff-filter=R` on the directory. Recorded because the near-miss shape is general: *a premise
   handed to a reviewer as background is not reviewed, it is inherited.*
+
+- **2026-09-02, experience_loop** — on 2026-08-31 I looked at dartsonline.com`/guides/index.html`
+  listing twelve `/blog/` items, and cleared it as a false positive on the reasoning that *this
+  estate files guides under `/blog/`* (which I had just measured: 246 guide-shaped pages typed
+  `blog-post` across 30 sites). The reasoning was sound, the measurement was real, and **the
+  conclusion was wrong**: `/guides/` on that site holds **nine tool guides**, all orphaned
+  (`in_header=false`), created 2026-07-31 to 2026-09-01, and its guides index lists **none** of
+  them. I applied a true convention as though it settled a question it does not touch, and never
+  asked the one cheap question that decides it — *does that directory contain anything?* What
+  caught it: a peer brought a third instance of the family four days later and asked me to census
+  false positives; the census I wrote to defend my own dismissal refuted it. Cost: three days, and
+  a detector shipped 2026-08-31 whose stated blind spot ("cannot catch articles under a guide
+  promise") was avoidable — the directory answers it without any class inference at all. Tally:
+  **a-real-convention-used-to-settle-a-question-it-does-not-decide**, kin of
+  **signal-asserted-without-a-disconfirming-case** (sixth of that family in four days).

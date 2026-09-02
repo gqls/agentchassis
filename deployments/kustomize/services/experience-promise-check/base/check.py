@@ -148,6 +148,42 @@ def e_first(d):
     return d[sorted(d.keys())[0]]
 
 
+def judge_index(row):
+    """An index page that lists NONE of the pages sitting in its own directory.
+
+    This closes the blind spot the sibling listing-class check states in its own docstring:
+    that check catches guides/tools appearing under an editorial promise, and CANNOT catch
+    the reverse, because `/blog/` is where this estate files guides and no class inference
+    survives that. Rule C needs no class inference at all. It asks one question the site
+    answers itself: this index sits at /guides/, so does it show what is in /guides/?
+
+    THE ESCAPE IS `pages_in_dir`, and it is doing the heavy lifting. On 2026-08-31 I looked
+    at dartsonline's /guides/index.html listing twelve /blog/ items and dismissed it as
+    correct, reasoning that this estate files guides under /blog/. That reasoning was
+    sound and the conclusion was WRONG: /guides/ on that site holds NINE tool guides, all
+    orphaned, none of them listed. The convention is real; it simply does not settle the
+    question, and I never asked whether the directory had anything in it.
+
+    Restricted to INDEX-ROLE pages for the other escape. Measured 2026-09-02 without that
+    restriction, the rule fires on every tool page and individual guide carrying a "related
+    content" block — a page at /tools/x/ listing six items elsewhere is doing its job. The
+    unrestricted population is large; the restricted one is two.
+    """
+    urls = [u for u in (row.get("item_urls") or []) if u]
+    d = row.get("dir") or ""
+    own = [u for u in urls if u.startswith(d)]
+    detail = {"n_items": len(urls), "listed_from_own_dir": len(own),
+              "pages_in_dir": row.get("pages_in_dir") or 0}
+    if not urls:
+        return "empty", detail
+    # ESCAPE — nothing of its own to list, so listing elsewhere is the right behaviour.
+    if detail["pages_in_dir"] == 0:
+        return "ok", detail
+    if own:
+        return "ok", detail
+    return "ignores_own_section", detail
+
+
 def judge_tool(page):
     """One tool page -> verdict.
 
@@ -211,6 +247,33 @@ WHERE p.status = 'active' AND p.page_type = 'tool' __SITE__;
 # postgres directly and the chunking is merely harmless. Chosen by bisection, not by taste.
 CHUNK = 8
 
+# Rule C's corpus. `pages_in_dir` counts the ACTIVE pages living under the index's own
+# directory, excluding the index itself — that count is the whole escape clause: an index
+# whose directory is empty has nothing of its own to list and must not be reported.
+INDEX_SQL = r"""
+WITH inst AS MATERIALIZED (
+  SELECT p.id, p.site_id, s.domain, p.url AS host, p.page_type,
+         '/' || split_part(trim(leading '/' from p.url),'/',1) || '/' AS dir,
+         COALESCE(pc.content_data->'articles', pc.content_data->'items') AS arr
+  FROM page_components pc
+  JOIN pages p ON p.id = pc.page_id
+  JOIN sites s ON s.id = p.site_id
+  WHERE p.status = 'active'
+    AND p.page_type IN ('section-index','blog-index','news-index','entity-directory')
+    AND jsonb_typeof(COALESCE(pc.content_data->'articles', pc.content_data->'items')) = 'array'
+    AND p.url ~ '^/[^/]+/' __SITE__
+), sized AS MATERIALIZED (
+  SELECT * FROM inst WHERE jsonb_array_length(arr) > 0
+)
+SELECT COALESCE(jsonb_agg(jsonb_build_object(
+         'domain', domain, 'host', host, 'page_type', page_type, 'dir', dir,
+         'item_urls', (SELECT jsonb_agg(e->>'url') FROM jsonb_array_elements(arr) e),
+         'pages_in_dir', (SELECT count(*) FROM pages q
+                           WHERE q.site_id = sized.site_id AND q.status = 'active'
+                             AND q.url LIKE sized.dir || '%' AND q.url <> sized.host)
+       )), '[]'::jsonb) FROM sized;
+"""
+
 
 def _psql_argv(sql):
     """kubectl exec from a workstation; a direct dial from inside the cluster."""
@@ -247,7 +310,8 @@ def fetch(site=None):
     if len(tools) != total:
         print(f"fetch incomplete: {len(tools)} of {total} tool pages returned", file=sys.stderr)
         sys.exit(2)
-    return {"nav": nav, "tools": tools}
+    indexes = json.loads(_q(INDEX_SQL.replace("__SITE__", clause)) or "[]")
+    return {"nav": nav, "tools": tools, "indexes": indexes}
 
 
 def analyse(data):
@@ -273,6 +337,15 @@ def analyse(data):
         else:
             ok += 1
 
+    index_findings, index_ok = [], 0
+    for row in data.get("indexes", []):
+        verdict, detail = judge_index(row)
+        if verdict == "ignores_own_section":
+            index_findings.append({"domain": row["domain"], "host": row["host"],
+                                   "page_type": row["page_type"], "dir": row["dir"], **detail})
+        elif verdict == "ok":
+            index_ok += 1
+
     n_tools = len(data.get("tools", []))
     return {
         "measured_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -282,6 +355,8 @@ def analyse(data):
         "rule_b_nothing_usable": tool_findings,
         "tool_pages_never_built": not_built,
         "tool_pages_ok": ok,
+        "index_pages_scanned": len(data.get("indexes", [])),
+        "rule_c_ignores_own_section": index_findings,
         # DEMAND CONTROL: rule B is only evidence if a tool page can pass it. If these go
         # to zero the regexes have drifted, and every "clean" tool page is unexamined.
         "demand_control": demand,
@@ -296,6 +371,8 @@ def note_body(r):
              f"tool pages scanned.",
              f"Rule A (two doors, one name): {len(r['rule_a_two_doors_one_name'])}",
              f"Rule B (tool page with nothing usable): {len(r['rule_b_nothing_usable'])}",
+             f"Rule C (an index listing none of its own directory): "
+             f"{len(r.get('rule_c_ignores_own_section', []))}",
              f"Separately, tool pages never built (no rendered html): "
              f"{len(r['tool_pages_never_built'])}",
              ""]
@@ -315,6 +392,17 @@ def note_body(r):
     for f in r["tool_pages_never_built"]:
         lines.append(f"[--] {f['domain']}{f['url']}: no rendered html at all (never built; "
                      f"a different defect from rule B, not mixed into it)")
+    for f in r.get("rule_c_ignores_own_section", []):
+        lines.append(f"[C] {f['domain']}{f['host']} ({f['page_type']}): {f['pages_in_dir']} "
+                     f"active pages live in {f['dir']} and the listing shows NONE of them "
+                     f"({f['n_items']} items, all from elsewhere).")
+    if r.get("rule_c_ignores_own_section"):
+        lines.append("    a completed page_rerender does NOT prove the listing was "
+                     "re-resolved: some reasons degrade to assemble-only when the item "
+                     "carries no component_id (platform/livespec/rerender_reasons.go:85), "
+                     "re-shipping the stored array byte for byte and completing anyway. "
+                     "Check the item's reason AND its component_id before reading a "
+                     "persistent finding as a failed fix.")
     d = r["demand_control"]
     lines += ["",
               f"Demand control: of {r['tool_pages_scanned']} tool pages, "
@@ -357,6 +445,12 @@ def run(args):
     for f in r["rule_b_nothing_usable"]:
         print(f"    {f['domain']}{f['url']}  — {f['chars']} chars, no control, "
               f"no inline data, no fetch")
+    print(f"\n  RULE C — an index listing none of its own directory: "
+          f"{len(r.get('rule_c_ignores_own_section', []))}"
+          f"  (of {r.get('index_pages_scanned', 0)} index pages)")
+    for f in r.get("rule_c_ignores_own_section", []):
+        print(f"    {f['domain']}{f['host']}  ({f['page_type']}) — {f['pages_in_dir']} pages "
+              f"in {f['dir']}, {f['listed_from_own_dir']} of {f['n_items']} items from it")
     if r["tool_pages_never_built"]:
         print(f"\n  SEPARATELY — tool pages with no rendered html "
               f"({len(r['tool_pages_never_built'])}); never built, a different defect:")
@@ -438,11 +532,44 @@ def self_test():
         else:
             print(f"  PASS  {name}")
 
+    # RULE C — both fixtures are pages measured on 2026-09-02.
+    c_cases = [
+        ("boxingonline /guides/index.html: 4 guides in /guides/, listing shows 0 of them",
+         {"dir": "/guides/", "pages_in_dir": 4,
+          "item_urls": ["/blog/a.html", "/blog/b.html", "/blog/c.html"]},
+         "ignores_own_section"),
+        ("dartsonline /guides/index.html: 9 orphaned tool guides in /guides/, 0 listed "
+         "(the case I wrongly cleared on 2026-08-31)",
+         {"dir": "/guides/", "pages_in_dir": 9,
+          "item_urls": ["/blog/x.html"] * 12},
+         "ignores_own_section"),
+        ("ESCAPE: an index whose directory is empty has nothing of its own to list",
+         {"dir": "/news/", "pages_in_dir": 0, "item_urls": ["/blog/a.html"] * 20},
+         "ok"),
+        ("an index listing its own section is fine",
+         {"dir": "/guides/", "pages_in_dir": 14,
+          "item_urls": ["/guides/a.html", "/guides/b.html"]},
+         "ok"),
+        ("a MIXED index (some own, some elsewhere) is fine — the rule fires only on zero",
+         {"dir": "/guides/", "pages_in_dir": 6,
+          "item_urls": ["/guides/a.html"] + ["/blog/b.html"] * 6},
+         "ok"),
+    ]
+    for name, row, expected in c_cases:
+        got, _ = judge_index(row)
+        if got != expected:
+            failures.append(f"    {name}: expected {expected}, got {got}")
+        else:
+            print(f"  PASS  {name}")
+
     # The note path, which the cluster had to find for this lane once already.
     sample = analyse({"nav": boxing and [{**e, "domain": "boxingonline.com"} for e in boxing],
                       "tools": [{"domain": "boxingonline.com",
                                  "url": "/tools/fight-calendar/index.html",
-                                 "html": "<p>How we build the fight calendar</p>"}]})
+                                 "html": "<p>How we build the fight calendar</p>"}],
+                      "indexes": [{"domain": "boxingonline.com", "host": "/guides/index.html",
+                                   "page_type": "section-index", "dir": "/guides/",
+                                   "pages_in_dir": 4, "item_urls": ["/blog/a.html"]}]})
     try:
         body = note_body(sample)
     except Exception as exc:                       # noqa: BLE001 — report, never raise
@@ -450,7 +577,7 @@ def self_test():
     else:
         if "$epc$" in body:
             failures.append("    note body contains the dollar-quote tag it is wrapped in")
-        elif "[A]" not in body or "[B]" not in body:
+        elif "[A]" not in body or "[B]" not in body or "[C]" not in body:
             failures.append("    note body drops a rule's findings")
         else:
             print("  PASS  doc_notes body builds and carries both rules")
