@@ -66,6 +66,21 @@ WHERE ss.aspect='classification' AND ss.is_current AND NOT (ss.data ? 'industry_
 ORDER BY ss.created_at;
 ```
 
+**Fleet population sized more precisely** — contributed by the `finetuning`
+session, which verified the finding first-hand on its own site before recording
+it and sized the rest while checking (2026-09-02, credited here). Of the 34
+current classification specs: **29 carry the modern shape** (both `category` and
+`industry_tags`, earliest 2026-06-05); **4 carry the legacy shape** (neither
+field, the table above); **1 carries a third, partial shape** —
+`robot-hands.com` (`created_by=imagery-best-in-class-i1`, 2026-07-10): has
+`industry_tags` (9 real tags: `interactive-platform`, `tools`, `tool-portal`,
+`calculators`, `technical-reference`, `professional-dark`, `engineering`,
+`developer-tools`, `utility-platform`) but no `category`. **Checked this is
+already fully handled by the fix** — `readClassificationFromContext`'s step 1
+uses `industry_tags` directly when present regardless of `category`, and
+`category` independently falls back to `site_type` (`"interactive-platform"`
+here) when absent. No fifth affected site, no third code path needed.
+
 **`ai-agent-orchestration.com` is the concrete, reproducible case.** Its `identity`
 spec (`site_specs`, present since 2026-05-01, most recently re-stamped
 2026-08-24) carries real, usable data:
@@ -148,6 +163,19 @@ commit. Re-run the build check once that lands before trusting a fleet build.
   `needs_new_layout_candidate` item, so nothing is stuck for them today; they are
   named here only so the next thread that re-runs the query above doesn't
   re-derive this same list from scratch.
+- **No `site_specs`/`classification` data backfill is planned or needed for
+  this bug.** Raised directly by the `finetuning` session (2026-09-02, holding
+  its own booking-flow page rather than hand-editing the spec, since a
+  `needs_composition` re-resolve on that new page would otherwise hit exactly
+  this gap): the fix is entirely on the resolver side (derives from `identity`,
+  already present and correct for all 5 sites named in this file), so once
+  `bd8e45aba` rolls, no site's `classification` row needs editing for the
+  layout resolver to work correctly. **This does not mean the legacy shape is
+  fine generally** — `evaluate_news_feed` and others read `category`/
+  `industry_tags`/`site_type` from `classification` directly for their own,
+  unrelated purposes (vertical-news matching etc.), and a genuinely modernised
+  classifier output would still be a real improvement for those consumers. That
+  is out of this bug's scope; not claimed fixed here.
 
 ## Verification owed at the next roll
 
