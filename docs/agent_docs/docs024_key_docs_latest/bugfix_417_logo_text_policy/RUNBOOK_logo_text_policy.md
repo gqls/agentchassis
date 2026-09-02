@@ -132,3 +132,79 @@ file out.bin                        # also gives dimensions and whether alpha is
 size from inside the pod (`echo "POD_BYTES=$(wc -c < /tmp/a.bin)" >&2`) and compare with the local
 file before believing any measurement over the pixels.
 This is why `assets.mime_type` cannot be backfilled from the extension — see `bugs_open/433`.
+
+## A site has a logo asset but the header still shows TEXT — decide it, then fix it
+The header emits an image only when `HeaderConfig.LogoURL != ""`
+(`multipage_actions.go:1635`); otherwise it falls through to `<span class="logo-text">`.
+`LogoURL` is resolved in `render_site_components_action.go:513-528` by a join that needs **three**
+things at once — a **current** plan, a `site_plan_imagery` row with `scope='site' AND kind='logo'`,
+and an `assets` row whose `asset_key` equals that row's `key` **and** `status='active'`.
+
+**Run this BEFORE dispatching anything — it says whether a re-render can possibly help:**
+```sql
+SELECT s.domain,
+       (SELECT count(*) FROM site_plan_imagery spi
+          JOIN site_plans sp ON sp.id=spi.plan_id AND sp.is_current
+         WHERE sp.site_id=s.id AND spi.scope='site' AND spi.kind='logo') AS plan_logo_rows,
+       (SELECT a.asset_key FROM site_plan_imagery spi
+          JOIN site_plans sp ON sp.id=spi.plan_id AND sp.is_current=true
+          JOIN assets a ON a.site_id=sp.site_id AND a.asset_key=spi.key AND a.status='active'
+         WHERE sp.site_id=s.id AND spi.scope='site' AND spi.kind='logo'
+         ORDER BY spi.ordering LIMIT 1) AS resolves_to,
+       coalesce(nullif(s.logo_url,''),'(empty)') AS legacy_fallback
+FROM sites s WHERE s.domain = '<domain>';
+```
+`resolves_to = 'logo'` ⇒ a chrome re-render will produce an `<img>`. **`resolves_to` NULL with
+`plan_logo_rows = 0` ⇒ a re-render changes NOTHING** — the site owns a logo asset the current plan
+never asked for, and the fix is a plan row, not a render. Measured 2026-09-02: of **34** sites with
+an active logo asset, **29** headers show the image and **5** do not — and of those 5, two
+(ai-agent-orchestration.com, cookly.uk) have zero plan rows AND an empty legacy `sites.logo_url`,
+so they are unreachable by re-render.
+
+**Two more pre-flight checks, both of which stopped a dispatch on 2026-09-02:**
+```sql
+-- 1. LOCKED chrome is refused by any forced render, by design (bugs_open/069).
+SELECT slot_name, locked_at, lock_type FROM site_components sc JOIN sites s ON s.id=sc.site_id
+ WHERE s.domain='<domain>' AND sc.slot_name IN ('header','footer','head');
+-- loanandmortgagecalculator.co.uk: all three PERMANENT since 2026-08-05. Do not force; ask.
+-- 2. Open work on the site (CLAUDE.md's dispatch rule).
+SELECT item_type, status, count(*) FROM site_work_items w JOIN sites s ON s.id=w.site_id
+ WHERE s.domain='<domain>' AND w.status NOT IN ('complete','cancelled','rejected')
+ GROUP BY 1,2 ORDER BY 1;
+```
+
+**Dispatch — `rerender-chrome` (seed 351), the narrow tool.** Two steps, no LLM, no page fan-out;
+it renders header/footer/head into `site_components` and stamps the digest. Use the publish lib so
+the receipt is asserted (`kcat -P` exits 0 having sent nothing):
+```bash
+source scripts/kafka-publish-lib.sh
+CORR=$(cat /proc/sys/kernel/random/uuid)
+PAYLOAD=$(printf '{"action":"orchestrate","config":{"agent_type":"rerender-chrome"},"input_data":{"site_id":"%s","domain":"%s"}}' "$SITE_ID" "$DOMAIN")
+kafka_publish_checked --topic system.agent.generic.requests --payload "$PAYLOAD" --correlation "$CORR" \
+  --header action=orchestrate --header message_type=request \
+  --header from_agent_type=user --header from_agent_id=cli \
+  --header "request_id=$CORR" --header responses_topic=system.agent.generic.responses
+```
+⚠ **`system.agent.generic.requests` is single-partition/single-consumer — measured publish→run
+latency 25–36 minutes under load. A missing `orchestration_states` row is LATENCY, not a drop.
+Do not re-fire.**
+
+**⚠ THE HALF THAT IS EASY TO MISS: `rerender-chrome` does NOT touch deployed pages.** Its own
+`complete` step says so — *"No page assembly, no deploys — served pages are untouched until their
+own next rerender."* So the header in `site_components` gains its `<img>` and **the live site does
+not change.** Propagate with `page-rerender` in **assemble mode**, and mind the two traps recorded
+by the leopardess lane: the assemble branch needs **`page_id`, not `page_name`** (`page_name` alone
+errors `page_id not found in input`, 29/29 pages), and it must carry **NO `spec.reason`** — sending
+`reason=section_data_resolved` runs `rerender_page_sections`, whose pre-check escalates the whole
+page to the content-writer on any missing `source:"llm"` field.
+
+**Verify at the artefact, in this order** — the middle one is the one people skip:
+```sql
+SELECT slot_name, updated_at, length(rendered_html) AS len,
+       (rendered_html LIKE '%logo-img%') AS has_img,
+       (rendered_html_digest = md5(rendered_html)) AS digest_ok
+FROM site_components sc JOIN sites s ON s.id=sc.site_id WHERE s.domain='<domain>';
+```
+then `curl -s https://<domain>/index.html | grep -o 'logo-img\|logo-text'` for the SERVED page.
+**The component row and the served page are different facts** and the whole point of the
+propagation step is the gap between them.
