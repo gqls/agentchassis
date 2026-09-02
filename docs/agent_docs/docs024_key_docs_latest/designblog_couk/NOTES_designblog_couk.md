@@ -326,6 +326,22 @@ neither is this lane. Full write-up:
 of today's 15:39 roll). Relayed to editorial design uplift (their 08-31
 question, now answered).
 
+## 2026-09-02 — this session's defect classes pushed to the fleet acceptance checklist (owner ask)
+
+Owner: "add these site errors to SITE_DEFECT_CATEGORIES.md". The file already
+existed (created earlier today from the boxingonline review — same purpose,
+append-only, any thread may add). Added from this session:
+**1.5** (AI-tell copy that went THROUGH the gate), **2.6** (live surface with
+no nav path — the tools-nav class), **4.6** (chrome-only imagery plan; planner
+obeying), **4.7** (one-slab articles), **§9** (cross-site sameness: 9.1
+component overlap + three-names caveat, 9.2 identical chrome, 9.3 identical
+layout/445, 9.4 hero reuse). Extended in place: **2.2** (designblog's four
+empty pages + the 444 no-producer upstream check + the rule-C blindness note),
+**4.2** (visible CORRECTION: the `<img>` check is half-blind to CSS-background
+heroes — run both greps). New-site reviews should run
+`docs/agent_docs/docs024_key_docs_latest/SITE_DEFECT_CATEGORIES.md` top to
+bottom; this lane keeps its instances here and points there for the classes.
+
 (Will be updated in place with send + ACK status; "the owner asked for receipt
 to be checked" is the reason this table exists.)
 

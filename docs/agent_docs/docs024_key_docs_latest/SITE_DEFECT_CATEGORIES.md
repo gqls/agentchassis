@@ -82,6 +82,21 @@ site, off-topic items.
 **Check:** `grep -c '](http'`, `grep -o '\.\.\.' | wc -l`, and an off-vertical term count.
 **Related:** `bugs_open/332`.
 
+### 1.5 AI-tell copy that went THROUGH the copy gate (added 2026-09-02, designblog review)
+Verbose tool-link paragraphs, closers like *"before your users have to"* / *"a starting point,
+not the final word"* / *"says so plainly"*, and a 450-char essay in a BUTTON field — **on a build
+that ran the full gated copy path.** The copy lane's decomposition (measured at the build's own
+markers): the gate SAW and TARGETED one example and the repair model returned
+`no_answer_for_target`, so the original shipped by design; banned WORDS currently have
+detection-only (nightly checker), no page-side repairer; the rest are ruled classes queued.
+**Gate-ran is not gate-repaired.**
+**Check:** grep served pages for the known tells (`plainly`, `honest`, `before your .* have to`,
+`starting point, not the final word`); flag any control-labelled field (`button`, `label`,
+`secondary_cta`) whose value exceeds ~120 chars. The nightly banned-words checker covers BRIEFS —
+it does not repair pages.
+**Seen:** designblog.co.uk /tools/smart-contrast + the-design-feed, 2026-09-02 (owner quoted two
+verbatim); same-day siblings advertise/websitepromotion expected to carry the same classes.
+
 ---
 
 ## 2. LISTINGS AND NAVIGATION
@@ -98,6 +113,20 @@ happens to be the right one for that page. A zero is not evidence the page is we
 Emptiness does not present as emptiness; it presents as well-written in-voice policy prose that
 validates clean.
 **Check:** listable-item count of every index-role page; zero is a finding on its own.
+**Also seen (2026-09-02, designblog.co.uk — FOUR pages on one day-old site):** glossary 0 terms,
+inspiration 0 showcases, feed 0 entries, studios directory 0 studios; the tell is meta-`<h3>`s
+about the intended content ("What gets included", "How the entries are written"). Same shape on
+advertise same day ⇒ class home is **`bugs_open/444`**.
+**Upstream check (444) — ask whether anything could EVER fill it, per page type:** FEED → does the
+site have `content_sources` rows (all four 09-02 remakes: 0)? DIRECTORY → is the entity kind
+registered in the DIR-001 pipeline? GLOSSARY/INSPIRATION-type item pages → **no item producer
+exists anywhere in the estate** as of 2026-09-02. A zero with no producer is a PLAN defect, not a
+content delay; 444's fix candidate is plan validation refusing/degrading a listing page whose item
+source resolves to zero.
+**⚠ the automated rules cannot see this case:** experience-loop rule C drops an index with no
+`articles`/`items` array **before the rule runs** — an index that lists NOTHING is invisible to it
+by construction (empty-index rule in build, experience loop, 2026-09-02). Until it lands, this
+check is manual.
 
 ### 2.3 Duplicate nav entries — BOTH directions
 Two pages sharing one label, AND one page under two labels. A rule written for one half cannot
@@ -114,6 +143,20 @@ The row is populated and ordered and still absent, because a *type bar* classifi
 (`page_type='tool'` is barred from primary nav). Debugging the row finds nothing wrong.
 **Check:** compare `pages WHERE in_header` against the served `<header>`. Remedy is the
 declaration mechanism (`site_specs.data->'chrome'->'header_slots'`), not the row.
+
+### 2.6 A live surface with no nav path at all (added 2026-09-02, designblog review)
+Working tool pages serving 200, reachable ONLY through body copy — no nav link, and no hub page
+for the family. Distinct cause from 2.5: **tool pages arrive post-plan via tool-deployer, the nav
+rebuild runs before they exist, and the plan never plans a tools hub** — so nothing was ever
+misconfigured; the page the link would point at was never planned. On advertise the same day:
+seven tools serving, no /tools/index.html, `nav_order` 4 conspicuously empty.
+**Check:** for each deployed page-type family (`tool`, `guide`, …), does at least one served nav
+label reach it (directly or via a hub)? A family with N serving pages and zero nav paths is the
+finding. Cheap per-site remedy: a tools section-index page with `in_header`, then a nav rebuild.
+Class ownership is split (site-planner: plan the hub when tools are coming; bugfix-149
+nav-membership family).
+**Seen:** designblog.co.uk (smart-contrast serving, 6 nav links, none tools), advertise.co.uk,
+both 2026-09-02.
 
 ---
 
@@ -152,6 +195,15 @@ display.** Fleet 2026-09-02: 65 of 429 components carry image markup; 364 do not
 
 ### 4.2 Everything except the logo
 **Check:** `curl … | grep -o '<img[^>]*>' | wc -l` per page. A count of 1 is the logo alone.
+> **CORRECTED 2026-09-02 (designblog review; WRONG_CALLS same day, commit `5d76472d8`): the
+> check above is HALF-BLIND — heroes on this estate render as CSS backgrounds, invisible to any
+> `<img>` count.** An "images absent" verdict off `<img>` alone was published and was false. Run
+> BOTH greps, always together:
+> `grep -o '<img[^>]*>' | wc -l` **and** `grep -o "background-image:[^;}]*url([^)]*)"`.
+> Two agreeing measurements that share an encoding are one measurement.
+**Companion check — hero REUSE within a site:** count distinct `background-image` URLs against
+pages carrying a hero. designblog 2026-09-02: 6 pages, **3 distinct hero files** (the feed page
+and the contrast tool both wear the homepage's hero) — sameness inside one site.
 
 ### 4.3 Invented brand identity in a generated asset
 A logo lettered with a brand name nobody chose ("BOXING NEWS" on Boxing Online; "Farm Shield
@@ -170,6 +222,32 @@ Invisible on the one surface it is used on, wrong everywhere else. Owner ruling 
 background behind a logo shouldn't be part of the logo."*
 **Check:** PNG colour type 6 or 4, **or** a `tRNS` chunk — test for both; either alone gives a
 false negative. **Related:** `bugs_open/424`.
+
+### 4.6 The imagery plan is chrome-only — and the planner is OBEYING, not failing (added 2026-09-02)
+A site ships with heroes + icons + a logo and nothing that carries content: **zero illustration
+rows, zero infographic rows planned.** Fleet totals ever requested (measured 2026-09-02): hero
+399 / icon 211 / logo 50 / illustration 25 / **infographic 1**. The live `build-site-planner`
+prompt already carries the full `kind` vocabulary; three things in it suppress the rest — a
+verbatim *"use sparingly in v1 — most plans will have zero section-scope entries"* instruction, a
+chrome-only stated minimum (rule 13), and a worked example whose sections block shows ONLY icons
+(exemplars ship verbatim). **So the near-zero is compliance; no vocabulary or machinery fix moves
+it — the remedy is a deliberate prompt edit (owner cost decision), keeping rule 16
+(one-image-per-entry) in the same change.**
+**Check:** `SELECT kind, count(*) FROM <planned imagery rows for the site> GROUP BY 1;` — a plan
+with no illustration/infographic entries on a content site is this category.
+**Source:** inline_guide_imagery `NOTES_inline_guide_imagery.md` §15 (verbatim prompt quotes);
+designblog_couk lane NOTES 2026-09-02.
+
+### 4.7 Article pages are one prose slab — there is no structure to place imagery INTO (added 2026-09-02)
+Even with illustrations planned, in-article imagery has nowhere to land: measured 2026-09-02,
+across all 462 blog/guide pages fleet-wide the maximum prose-section count on any article page is
+**1**; of 9 illustration-capable sections fleet-wide, 8 are on LANDING pages and 0 on blog/guide.
+**A prompt/plan fix for 4.6 puts pictures on landing pages only; in-article imagery additionally
+needs composition change.** Keep the two asks separate.
+**Check:** count prose sections per article-role page. **⚠ count the unit the claim is about** —
+section ROWS include hero and CTA; the PROSE count is what decides this (WRONG_CALLS 2026-09-02,
+inline_guide_imagery).
+**Related:** `bugs_open/114` (three lanes converged on this the same day).
 
 ---
 
@@ -248,6 +326,49 @@ a card fix ran twice on one page with `reason='template_changed'` — the discri
 sessions had converged on that day — and the stored data was unchanged, while the same fix via
 the BUILD path ten minutes earlier came out correct. Same binary, same site.
 **A correct reason is necessary and not sufficient. Always close on the artefact.**
+
+---
+
+## 9. CROSS-SITE SAMENESS (added 2026-09-02, from the owner's designblog review)
+
+**No single-site audit can see this class** — `visual-design-auditor` audits one site in
+isolation and scores coherence, not distinctiveness, so a site can pass every per-site check and
+still be the owner's *"the design is exactly the same as all the other sites"*. These checks
+compare a NEW site against a cohort (its build-wave siblings, or the fleet). Owner directive
+2026-09-02: sites should differ — different chrome, different hero treatments, different section
+rhythms; *"we are trying to make these sites best in class."*
+
+### 9.1 Component-set overlap with the cohort
+Measured 2026-09-02: the fleet's top-10 components carry **78–87% of ALL slots** on typical
+sites; two thirds of the 156-component section library is unused or single-site. Sameness is a
+SELECTION property, not library poverty.
+**Check:** the cohort-overlap query in
+`designblog_couk/RUNBOOK_designblog_couk.md` (§ pre-flight) — anything on ALL cohort sites is the
+sameness, its instance count is the size.
+**⚠ Components carry THREE names** — 76% of active components have `name <> function`, and
+`page_components.slot_name` agrees with neither reliably (LANDMINE `0b3151337`). Resolve through
+`component_id`, and state WHICH column your count reads; a zero from the wrong column reads as
+"does not exist" and licenses rebuilding a thing that is on half the estate.
+
+### 9.2 Identical chrome by construction
+36 of 37 sites render the same `site-header` + `site-footer` (measured 2026-09-02) while 10
+chrome-eligible header functions sit unused — `ChromeSlotFunction()` hardcodes slot→function, and
+only 6 of 40 `style_collections` pin `header_component_id`.
+**Check:** does the new site's `style_collections` row pin a header/footer, or is it falling
+through to the hardcoded default (NULL links)? A per-site `UPDATE` pinning an unused header is
+the available-today remedy; `page_archetypes` (theme kits, committed-unapplied) is the mechanism.
+
+### 9.3 Identical layout because the library has one answer for this site shape
+All three 09-02 remakes resolved to `magazine-grid` — matcher verified correct; the library holds
+exactly ONE professional-register editorial layout and NO "content hub with embedded tools"
+archetype, so different briefs converge honestly. 9 of 18 layouts have never been chosen by any
+live site; 3 carry 73% of the fleet.
+**Check:** compare the new site's resolved layout against its cohort's; three-in-a-row identical
+is this category. **Related:** `bugs_open/445` (the archetype gap is the fix that compounds).
+
+### 9.4 One hero image wearing several pages (within-site sameness)
+See the companion check under 4.2: distinct `background-image` URLs vs pages carrying a hero
+(designblog: 6 pages, 3 files).
 
 ---
 
