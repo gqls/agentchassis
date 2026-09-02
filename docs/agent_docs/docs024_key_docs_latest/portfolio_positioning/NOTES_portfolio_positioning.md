@@ -3593,3 +3593,27 @@ Watch-points for the end-to-end (this is remake №1 — the thing we watch, per
 - at build review: the DECISION's guard — no negative-identity copy baked into chrome/footer
   ("we don't sell advertising" must not become load-bearing served copy).
 - the site row should reach `deployed` by pipeline action, not by hand.
+
+### (b) First stall of remake №1 — a NULL `name` planted 08-26 fired at release; all six brief rows carried it
+
+The cascade ran clean through classifier (12:15→12:17Z, mission_brief untouched — `5dac12fd`
+still current, four new aspects written) → vertical research → strategy → briefing, then
+`needs_site_plan` attempt 1 FAILED: `ensure_site_record` → `upsertSite` → *"Scan error on
+column \"name\": converting NULL to string"*. Cause: the minimal site rows this lane creates
+for the brief-writer (domain+status+locked, buytoletcalculator precedent) leave `name` and
+`network_id` NULL; `upsertSite`'s RETURNING scans BOTH bare (no COALESCE — unlike
+email/company/tagline etc.), and its ON CONFLICT arm only bumps `updated_at`, never backfills.
+So the trap arms at brief time and fires at RELEASE, weeks later, on the first item whose
+workflow runs `ensure_site_record`.
+
+- **Data fixed 12:5xZ, all SIX rows in one guarded UPDATE** (advertise + the five held briefs
+  — every one carried the same NULLs, so each future release would have stalled the same way):
+  `name = domain`, `network_id = 00000000-0000-0000-0000-000000000002` (the only network in
+  use, 33 sites). Item retries at 13:01:04Z (attempt 1/3 consumed; dispatcher retry, no hand
+  re-fire needed).
+- **Door closed at the source**: `scripts/fire-brief-writer.sh` header now spells out the full
+  INSERT (name+network_id included) and the exit-3 message points at it. The next lane creating
+  a site row for a brief gets told at the point of use.
+- Platform-side residual, deliberately NOT fixed here: `upsertSite` could COALESCE name in the
+  RETURNING or backfill on conflict — that is a platform/ change (council scope) and the data
+  fix removes the live need; noting it rather than shipping a seam mid-watch.

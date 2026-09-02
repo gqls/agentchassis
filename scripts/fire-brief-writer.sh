@@ -24,6 +24,15 @@
 # ⚠ The site row must exist — `write_site_spec` needs a site_id. For a test domain,
 # create it LOCKED (`locked_at = now()`), so that even if something else tries to
 # dispatch a build for it, `find_dispatchable_site` excludes it.
+#
+# ⚠ AND the row must carry `name` and `network_id` (2026-09-02, first release):
+#   INSERT INTO sites (domain, name, network_id, status, locked_at)
+#   VALUES ('<domain>', '<domain>', '00000000-0000-0000-0000-000000000002', 'test', now());
+# A minimal row (domain+status only) satisfies THIS script and the whole brief flow,
+# then fails at RELEASE — weeks later — when the build's ensure_site_record scans
+# name/network_id without COALESCE: "Scan error on column \"name\": converting NULL
+# to string". Measured on advertise.co.uk: brief written 08-26, release failed 09-02;
+# all six brief-lane rows carried the same NULLs and were backfilled that day.
 set -uo pipefail
 
 DOMAIN="${1:-}"
@@ -33,7 +42,7 @@ DIRECTION="${2:-}"
 PSQL="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db"
 
 SITE_ID=$($PSQL -tAc "SELECT id FROM sites WHERE domain='${DOMAIN//\'/\'\'}';" | tr -d '[:space:]')
-[ -n "$SITE_ID" ] || { echo "no sites row for $DOMAIN — create one first (LOCKED, if it is a test)" >&2; exit 3; }
+[ -n "$SITE_ID" ] || { echo "no sites row for $DOMAIN — create one first with name+network_id set (see header; LOCKED, if it is a test)" >&2; exit 3; }
 
 LOCKED=$($PSQL -tAc "SELECT locked_at IS NOT NULL FROM sites WHERE id='$SITE_ID';" | tr -d '[:space:]')
 echo "site:   $DOMAIN ($SITE_ID)  locked=$LOCKED"
