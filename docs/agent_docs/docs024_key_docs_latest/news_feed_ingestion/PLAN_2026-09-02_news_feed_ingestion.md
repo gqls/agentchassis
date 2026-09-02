@@ -163,6 +163,50 @@ Blocked on diagnosis `d6d350ec-e16b-4792-9282-ca5155369791` (UNVERIFIABLE,
 iteration-capped) — site-planner territory. Not this lane's build; watching, not
 duplicating.
 
+## Council verdict on candidate #1's submission (2026-09-02)
+
+**APPROVED** (`4849c95f-2594-48e6-87b9-acee6341b0f8`, verified directly against
+`diagnosis_artifacts`, not taken on a peer's report), 5 advisory objections,
+none high-severity. Two worth recording:
+
+- **`architecture` seat**: the four new event fields are written only via raw
+  map keys, and the typed `EvidenceFact` struct (`claims.go`) used elsewhere
+  for parsing may silently drop them on any round-trip. **Checked directly,
+  not just accepted**: `LANDMINES.md` already documents this exact hazard
+  ("Parsing evidence_base through its own typed struct and writing it back
+  DELETES every citation, writer_line, unit and staleness_days on the site") —
+  `EvidenceFact` was *already* missing `unit`/`writer_line`/`staleness_days`
+  before this lane's change, and the landmine states plainly that both live
+  writers (`refresh_evidence_base_action.go`, `evidence_citations.go`)
+  "avoid it only because they never use the struct: both work on
+  `map[string]interface{}`... that is deliberate." This lane's extension
+  follows the identical, already-established pattern — not a new risk, a
+  fourth confirmation of an existing one. No action needed; noted for whoever
+  next touches `EvidenceFact` that the gap is now 4 fields wider, not 4 fields
+  newer.
+- **`guardian` seat**: two shared-consumer checks, both verified clean —
+  `grep -rn "range fact\b\|for.*fact\[" platform/orchestration/` finds nothing
+  that enumerates `evidence_base` fact keys positionally/exhaustively (the
+  widened allowlist can't break an exhaustive reader because none exists), and
+  a query against `agent_definitions.default_config` for either new action
+  name returns zero rows (no collision with any live workflow).
+- The `architecture` seat's broader point — is `evidence_base`'s flat
+  `facts[]` array the right shape for a *growing* corpus of dated, multi-field
+  events (participants arrays, venues, no index, no dedup) — is not a defect
+  in this submission and not acted on here. Recorded as a real open question
+  for if/when a second or third event/calendar site is built on the same
+  mechanism: at that point `entity_ids`/`duplicate_of`'s original,
+  never-answered purpose (§ above) may be worth revisiting properly rather
+  than continuing to bolt scalar fields onto the array.
+
+Also recorded for next time: `prior_art_librarian` correctly noted this
+submission's load-bearing claims (closed `Kind` vocabulary, `verifyCitationLive`/
+`writeCitationRegister`'s existence, the three-writer enumeration) were
+asserted from having read the source, but not attached as evidence *in the
+submission itself*. All were independently re-verified true here regardless —
+but the next submission should quote the evidence inline rather than making
+the council re-derive it.
+
 ## Open questions
 
 - Should the extraction LLM step run per-site (as designed, riding feed-triage's
