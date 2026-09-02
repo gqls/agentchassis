@@ -3630,3 +3630,13 @@ the record, theirs is the belt, nothing about the design moves. Their two statis
 restatements adopted verbatim so neither lane quotes loosely: 10%→30% is a widened instrument,
 not a move; P(≤1 dirty of 12 | rate unchanged)=0.193, so ~25 post-gate points before even a
 halving is detectable.
+
+**Ruling-1b postscript (loanzy's write-time matcher corrected my evidence):** CCA s.77 is
+REGISTERED (their 716). National Debtline is TRUE but UNREGISTRABLE — the host serves curl
+full content while blocking the production fetcher's user agent (their THIRD
+unregistrable-host signature; a citation would read citation_lost daily forever). ⚠ And my
+two "verbatim" NDL quotes were WebFetch's paraphrases-formatted-as-quotes — the page says
+"a charity run by the Money Advice Trust" and "Free to use. Always. All our help and
+information is completely free for everyone, forever." The bd03c2b3 note carries the visible
+correction; WRONG_CALLS carries the lesson (a summariser's quote is a paraphrase until
+grepped). The trims themselves stand — loanzy read them as right.
