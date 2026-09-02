@@ -3749,3 +3749,21 @@ Site row flipped to `deployed` by the pipeline at 16:23:25Z. Verified at ARTEFAC
   apex proxied A + worker route (scriptable). **Same cutover will be owed for
   websitepromotion/seotools/designblog** — consider doing all four as one Nominet batch,
   which is exactly the bulk shape the 08-18 owner ruling prescribed.
+
+### (j) Three owner asks in one evening burst — all routed, none executed out of lane
+
+1. **gamesdesign.co.uk naming (owner via the gamedesign.uk peer, then directly)**: the site must
+   stop using the brand "GameDesign.uk" (23/49 titles as of 09-02, inherited verbatim at the
+   June adoption). Owner then ruled THIS lane must not touch the site and started a dedicated
+   session (`gamesdesign.co.uk` [783baf]). What this lane did: GD1 records the ruling + the
+   recommendation ("GamesDesign.co.uk", domain-as-brand, recommended-not-decided); full evidence
+   package handed to the new session (measurement — four current specs carried the string at
+   ~17:45Z, down from the peer's six, re-count before acting — plus supersede-not-update,
+   case-sensitive replace, ~23 rerenders); the class bug ("adoption carries source company_name
+   verbatim") stays the gamedesign.uk peer's to file.
+2. **WebProNews RSS feed (owner)**: details measured and CONTRIB'd to the news lane
+   (`news_feed_ingestion/CONTRIB_2026-09-02_..._webpronews_feed_candidate.md`, commit
+   ebc050732) + messaged to the `feed lane` session. Key fact: the "current consumer" is the
+   OLD Drupal advertise.co.uk (dies at DNS cutover); wholesale-import caution attached.
+3. **indoorplanters.uk acquired (owner)**: register stub `GDN1b` written (twin of the briefed
+   .co.uk; P5 pair decision owed before either builds).
