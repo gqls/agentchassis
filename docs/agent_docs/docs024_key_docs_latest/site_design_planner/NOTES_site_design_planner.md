@@ -203,3 +203,17 @@ capability at all — not mine to decide unilaterally either. **Replied
 acknowledging the finding, confirmed independent verification, declined to pick
 a candidate without the gamedesign.uk lane and/or the owner weighing in given
 the named cross-lane consequence.**
+
+**Update from `theme kits`, same day:** the typography measurement is now in
+438 itself (`typography_source`: `fingerprint_font_family_match` 30,
+`fallback_sans_modern` 1, `mission_hint` 0 — same shape as palette, both rungs
+confirmed dead). **§6's overwrite hazard is CORRECTED, not just restated** —
+`write_site_spec` deep-merges, so candidate 1 would NOT actually clobber
+`gamedesign.uk`'s hand-seeded row as originally warned; the real (narrower)
+hazard is any writer that supersedes-without-merging, which exists elsewhere in
+the tree. My caution above is therefore partly stale — worth knowing, not
+worth chasing down and rewriting mid-file, since a live discriminating test is
+already running: `gamedesign.uk` is the first site ever to reach composition
+with a populated `mission.preferred_palette` row, and whether it resolves via
+`mission_hint` settles whether 438's whole mechanism account is right or needs
+reopening. Not acting until that lands — they said they'll report the result.
