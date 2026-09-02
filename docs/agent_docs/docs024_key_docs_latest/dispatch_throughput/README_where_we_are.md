@@ -410,3 +410,21 @@ queue now regularly drains to empty, those waits end naturally. We watch one num
 of the oldest waiting item) and revisit only if it trends up. Your clients-first ruling for
 paid work during signup bursts is untouched by this. When you're ready to make it final,
 one word does it.
+
+2026-09-02 afternoon — the last known gap in the dispatch chain is closed. Since the earlier
+fixes, three different pieces of the system each held their own definition of "is there work
+to dispatch", and the first of them — the cheap check that decides whether the dispatcher
+wakes up at all — was stricter than the ones behind it. In three specific situations (work a
+human had approved but nothing else pending; work labelled for a pipeline other than "build";
+work on a locked site that had been explicitly excepted from the lock) the system would have
+had dispatchable work and simply never woken up to look, with nothing anywhere reporting a
+problem. None of those situations occurs today — that's exactly why it was worth fixing
+cheaply now rather than diagnosing it expensively later, because the quiet end-of-backlog
+state we're steering toward is where it would have bitten. The fix makes the wake-up check
+deliberately a little more generous than the dispatcher behind it (a spare wake-up costs
+almost nothing; a missed one is invisible), and each of the three situations was proven
+against the live database: the old check stays silent, the new one fires. Applied this
+afternoon, dispatch carried on without a blip, and the review council is looking at it in
+parallel. An old half-finished draft fix for the same problem from three weeks ago was also
+defused — it had crept into the migrations folder where a bulk apply could have run it, and
+it would have re-broken things in subtler ways.
