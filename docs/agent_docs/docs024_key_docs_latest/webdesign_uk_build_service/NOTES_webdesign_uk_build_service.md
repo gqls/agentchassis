@@ -7629,3 +7629,15 @@ end. **Guards must NEST: inner × period < outer.**
   rotation tonight; my 18:48Z guides-index serve-watch rides undisturbed. Their
   pings: roll landed → watch may see a full republish; contact 404 serves →
   strike handoff §1.5.
+
+- **429 follow-up (~18:2xZ)**: both refinements ADOPTED — bulk floor (refuse >20
+  orphans AND >50% of destination; override only via explicit opt-in default-OFF
+  input, the 2026-08-02 §2 shape) + the deleted-404/kept-200 acceptance pair,
+  both pre-published_hash. Truncation hazard answered AT THE CODE:
+  storage.S3Client.ListObjects (s3.go:170) is a ListObjectsV2Paginator run to
+  exhaustion, mid-pagination error aborts the WHOLE listing — loud, not partial;
+  floor kept as belt. > **CORRECTED same hour:** my "zero zip cost PROVIDED the
+  rehearsal cuts post-roll" was over-strict — zip keys carry only the 12-hex sha
+  tail, so the cut is unaffected either way. The rule that survives: no zip link
+  recorded anywhere before the cut. Their design → adversarial review → council;
+  two pings still owed.
