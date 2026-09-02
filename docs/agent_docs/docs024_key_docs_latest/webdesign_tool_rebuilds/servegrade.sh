@@ -16,7 +16,22 @@ if [ -z "$lm" ]; then echo "REFUSING TO GRADE: no last-modified header (cannot p
 lme=$(date -u -d "$lm" +%s 2>/dev/null) || { echo "REFUSING: unparseable last-modified '$lm'"; exit 1; }
 cte=$(date -d "$completed UTC" +%s)   # completed_at comes from Postgres in UTC; -u does NOT make -d parse as UTC
 echo "last-modified=$lm"
-if [ "$lme" -le "$cte" ]; then echo "REFUSING TO GRADE: artefact ($lm) NOT newer than completed_at ($completed) — stale copy"; exit 1; fi
+if [ "$lme" -le "$cte" ]; then
+  echo "REFUSING TO GRADE: artefact ($lm) NOT newer than completed_at ($completed) - stale copy"
+  cat <<'SKIPHELP'
+  Two causes, and they need OPPOSITE responses - do not just re-poll:
+  (a) S3 has not published yet          -> wait and re-run (measured lag 11-97s)
+  (b) the rerender SILENTLY SKIPPED     -> the item reads complete and the page was never
+      reassembled, so waiting is futile. Since bugs_open/408 (chassis >= 6e2d4a039) a
+      content_field resolving on no path SKIPS instead of crashing the pod.
+      Distinguish them before re-polling - non-null skip_reason means (b):
+        SELECT collected_data->'assembled_page'->>'skip_reason'
+        FROM orchestration_states
+        WHERE collected_data->'input_data'->>'work_item_id' = 'THE-RERENDER-ITEM-ID'
+        ORDER BY created_at DESC LIMIT 1;
+SKIPHELP
+  exit 1
+fi
 echo "freshness OK: artefact is $((lme-cte))s after completed_at"
 echo "--- NEGATIVES (served must be 0; ported must be >=1 or the control is worthless) ---"
 fail=0
