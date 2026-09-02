@@ -58522,3 +58522,47 @@ reason to run it for only one of the two.
 
 **Caught by:** the user asking me to verify a fresh build and produce a handoff, which
 made checking deploy state necessary again — not by a review catching the gap on its own.
+
+---
+
+## 2026-09-02 — I piped a search through `head -8`, read the truncation as an absence, and wrote a duplicate of a file that already existed
+
+**Lane:** vigilant_designer_offer_analysis (the post-mint register gate, owner Decision E).
+
+**The claim I made, in my own shell output:** `grep -rn "plainly\|BANNED_REGISTER" --include=*.go platform/ | head -8`, followed by an `echo` I had written in advance reading
+**`(empty = the banned WORDS have no Go home yet)`**. The eight lines returned were comments and
+test fixtures, so I concluded the banned-word vocabulary was unimplemented and **wrote a new
+`datahelpers/bannedregister.go` to hold it.**
+
+**What was true:** the grep returns **55** lines. `datahelpers/registerwords.go` had held the words
+since 2026-08-31 — with the patterns byte-identical to the register JSON, plus `Treatment` and
+`Authority` per word, a documented per-site exemption my version lacked, and a lockstep parity test.
+Every symbol I wrote already existed under a better name. **The compiler found it, not me:**
+`BannedRegisterVersion redeclared in this block`.
+
+**Why the check failed in the specific way it did, which is the transferable part.** `head` did not
+lie — I asked for eight lines and got eight. **The error was writing the interpretation BEFORE the
+result.** That pre-written `echo` turned a truncated sample into a stated conclusion, and it read as
+a considered finding in my own scrollback ten minutes later. **A pipeline that caps its output cannot
+distinguish "few" from "capped", and an `echo` asserting the meaning removes the one cue that would
+have prompted a second look.**
+
+**The cheap checks, either of which was one word:**
+- **Count before you look**: `grep -rc … | wc -l` first, then read. If the count equals your cap, you
+  have not seen the population — the same "confirm the denominator" rule this file already carries.
+- **Never pre-write the conclusion.** `echo "(empty = …)"` is a hypothesis printed as a result. Print
+  the number and read it.
+
+**The compounding half, and the reason this is not just a tidy-up:** the absence claim licensed
+**writing code**, and reuse-before-build is a standing rule here precisely because the estate keeps
+paying for near-duplicates. `PLAN_2026-08-25b` §8d records the same lane catching this correctly a
+week earlier — *"the reuse check is what caught it, and only because 605's header made it a required
+step rather than a good habit."* **I had the rule, I had the precedent in my own lane's plan, and I
+skipped the step because a truncated grep told me the ground was empty.**
+
+Nothing shipped: the duplicate was deleted, the hook reverted, the build verified clean, and no
+commit was made.
+
+Family: [[a-subagent-report-is-another-doc]] · [[a-closer-census-cannot-see-what-it-succeeded-at]] ·
+2026-08-26e above (widen the population before trusting a refutation — this is its shell-shaped twin)
+· confirm-the-denominator.
