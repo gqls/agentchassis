@@ -1267,3 +1267,28 @@ not text and both rows move in one statement → stays green; 688 is scheduled_t
 stage B's agent_definitions/governor anchors are untouched. Watch beside the next routine
 read: fire cadence p50 (~60s) and no-op turn share — a spare fire is a cheap tick, a TREND
 is a report to them.
+
+## 2026-09-02 (evening) — D4 STAGE B BUILT END-TO-END (Go committed, config held); council r1 in flight
+
+Owner's "carry on" taken as the stage-B go-ahead (ships off — stated to them, no objection).
+**The design CORRECTION found at the code before building** (PLAN §stage-B correction,
+3c1b81d91): claim-only enforcement would re-create the 413 selection hog under shed —
+the filter lives at SELECTOR + LOADER (where eligibility is defined) with the claim as the
+race backstop. **Go half committed `dec5ad61b` (+gofmt `c0a18f37d`)**: renderer
+workItemNotGovernorShedSQL with three mutation-tested posture rules (fail-open
+NOT COALESCE(...,false); unmapped type = maintenance+bearing, sheds earliest; enabled=false
+= identity), loader flag honour_spend_governor (honour_site_lock's exact shape, helper
+extracted so byte-identical-off is a TESTED branch), claim backstop with its own
+spend_governor_shed reason. Both named mutations executed and killed by the intended
+assertions `[MEASURED 2026-09-02]`; one TRANSIENT peer half-save broke the package mid-proof
+(all three runs "[build failed]" incl. post-revert — the shared-tree reality), detected via
+numstat + rebuild, proofs re-run clean. A lucky structural fact, checked not assumed: the
+predicate binds only wi.item_type (no $1), so the IDENTICAL spelling embeds in the selector —
+unlike siteLockExceptionSQL's ⚠⚠ non-transplant. **Config half = 674_HOLD + ROLLBACK,
+committed after a chained dry-run** (apply→rollback in one rolled-back txn: clause lands
+once, selector still EXECUTEs, flags bare-true, governor stays disabled, restore md5-exact
+d29807313, nothing persisted; snapshot_agent signature is (type, reason) — first dry-run
+caught my (id, reason) guess). Council corr `8f4bb57d` r1 pending (verdict monitor armed).
+**Sequence to live**: verdict → chassis image with dec5ad61b rides the owner's next release
+(releases are WHOLE-FLEET, owner runs them) → stamp-check both replicas → hand-apply 674 →
+drop suffix + record → owner sets budget → owner flips enabled (the one deliberate act).
