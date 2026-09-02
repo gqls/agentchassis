@@ -1335,3 +1335,57 @@ with its trigger. **No code is owed either way.**
 no finding has ever named `title` on the content-gap-planner route (§18c). The correction is
 verified as SHIPPED, never as EXERCISED. Closing the lane is right; recording it as *proven in
 production* would not be.
+
+---
+
+## 20. OWNER RULED RFC_057 — 2026-09-02. Q1 DEFER (with a mechanical trigger), Q2 DO NOT BUILD
+
+**Owner, 2026-09-02: *"I accept your recommended decisions here."*** Both questions ruled, on this
+lane's recommendations. **`RFC_057` is answered and this lane's close condition (§19c) is met.**
+
+### 20a. Q1 — the live-drift audit is DEFERRED, and the deferral is CODE, not a sentence
+
+The audit `RFC_057` §4 asks for stays unbuilt. The reasoning on record: staleness fails in the SAFE
+direction (the roster over-refuses, filing a visible `capability_gap` row that two live readers
+already consume), whereas the COMPLETENESS failure was silent — and that half is now closed, approved
+and live.
+
+⚠ **A deferral written only in an RFC is exactly the shape this lane exists because of.** `RFC_057`
+§4's own condition is *"one entry is a measurement, ten entries with no audit is a stale map with an
+enforcement mechanism attached to it"* — so the deferral is CONDITIONAL, and a condition nothing
+checks is not a condition.
+
+So it is a test (`cb69a033c`): **`TestTheDriftAuditDeferralTriggerHasNotFired` fails the moment the
+roster holds a third field.** Not to block the growth — to put the owed work in front of the person
+making it, while they are already measuring writers. Its message carries the ruling and date, what is
+owed, the two methods that are easy to get wrong (action registry not column search; never a
+`workflow.steps` walk), the spawn-closure requirement, and **"delete this test in the same commit
+that ships the audit"**. Mutation-proven: a third field turns it red with the full message.
+
+⚠ **Whoever ships the audit must DELETE the test, not raise the number** — raising it silently
+re-grants a deferral the owner scoped to a two-field roster. That is stated in the test and in the
+submission's risks.
+
+### 20b. Q2 — no general "these two changes must land together" seam
+
+Not built, and §16a is the evidence that turned up while answering the council: **the near-miss Q2
+exists to prevent was between this roster and an emit gate that does not exist.** A synchronisation
+seam would have had one half to synchronise. What actually prevented the drift is the cheaper rule
+already in force — *one shared function, no copies*, enforced by
+`TestThePageFieldWriterRosterIsDefinedExactlyOnce`.
+
+### 20c. ⚠ A TRAILER ERROR OF MINE, corrected forward because it cannot be amended
+
+**`cb69a033c` carries `Council-Submitted: 76231f57…` and that is WRONG.** That correlation covers the
+roster totality fix and is **APPROVED**; the council never saw this test. Left as-is it would have the
+coverage report credit a change with a review it never had — the report's own dishonesty surface, and
+in a lane whose entire subject is capability claims that nobody checked.
+
+Forward-only forbids an amend, so: **the deferral test was submitted on its OWN correlation,
+`32aeebfd-b835-419f-906a-996ed44f815a`** (dispatched 2026-09-02, run `6daff45d`). **Read `cb69a033c`'s
+trailer as void and this section as its replacement.** Still owed: that verdict.
+
+**Why it happened, since it is the same failure this lane keeps finding:** I copied the trailer from
+the previous commit in the same file without re-checking what it referred to. Inheriting a
+neighbouring artefact's claim rather than measuring it — §9, §12 and §16a were all that shape in other
+people's work or in mine, and this is the fourth, in a commit message.
