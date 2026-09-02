@@ -1389,3 +1389,66 @@ trailer as void and this section as its replacement.** Still owed: that verdict.
 the previous commit in the same file without re-checking what it referred to. Inheriting a
 neighbouring artefact's claim rather than measuring it — §9, §12 and §16a were all that shape in other
 people's work or in mine, and this is the fourth, in a commit message.
+
+---
+
+## 21. LANE STATUS: CLOSEABLE. What a new chat needs, in one screen
+
+**Written 2026-09-02 as the cold-start entry point. Read this section first; §§1–20 are the record.**
+
+### 21a. The state
+
+**All four decisions are ruled. The engineering is finished, reviewed and live. Nothing is inert.**
+
+| | |
+|---|---|
+| **rule 3b** (`WII-035`) | live since `v1.0.1341`, on `v1.0.1354` now. **48 firings, 32 sites, every one correct** |
+| **§9's defect** (roster's `title` entry was FALSE) | fixed · council **APPROVED** `76231f57` all reviewers · **LIVE**, probed at the artefact |
+| **decision 1** (rewrite published descriptions) | **RULED YES.** Not this lane's build — §12 shows the authority already exists as an opt-in flag |
+| **decision 2** (widen the predicate vocabulary) | **RULED, APPROVED.** The other lane's seam; no ordering constraint on them |
+| **decision 3** (roster audit) | **RULED YES — it WAS §9f.** Built, approved, live |
+| **decision 4** (`RFC_057`) | **RULED: Q1 defer-with-trigger, Q2 do not build.** Recorded in the RFC as §9 |
+
+### 21b. The three things still owed, none of them large
+
+1. **Two council verdicts to READ.** `32aeebfd-b835-419f-906a-996ed44f815a` (the deferral trigger,
+   dispatched 2026-09-02 ~16:45Z). ⚠ **And note §20c:** `cb69a033c`'s `Council-Submitted:` trailer
+   names the wrong (approved) correlation and is **void** — `32aeebfd` is the real one. Do not "tidy"
+   that by adding a trailer to a later commit.
+2. **Decisions 1 and 2 leave this lane.** Decision 1 → `bugs_open/320`'s lane (its subject is
+   `pages.meta_description`, and §12 is the finding that makes it cheap). Decision 2 → the
+   `vigilant_designer_offer_analysis` lane. **This handoff should stop being their record.**
+3. **The other lane has never answered §8/§20** (checked three ways, §18d). Their silence is **not**
+   agreement, and §8 argues for narrowing their own concession. If they come back with a different
+   read of the staleness risk, that is worth reopening `RFC_057` Q1 on.
+
+### 21c. The five things a future session will otherwise get wrong
+
+1. **Zero firings does not mean the guard is broken, and does not mean it is healthy.** Rule 3b fires
+   only on a finding carrying an acceptance predicate, and **exactly one producer emits those**
+   (`offer-analysis`, ~23% of its output, §13c). Measure DEMAND before reading any zero here.
+2. **The tripwire is INVERTED as of `v1.0.1352`.** A `content-gap-planner` row in
+   `would_have_routed_at` used to mean the latent defect had gone live. It now means **the fix has
+   regressed**.
+3. **Do not probe with `across live+archive`** — §17 said to, and §18b explains why that instruction
+   is now wrong: my own next commit edited the string. Use
+   `git merge-base --is-ancestor <fix> <what-shipped>`, or a literal verified present at both shas.
+4. **The 989-completion figure is live 0 / archive 989.** A live-only query returns 0 and reads as a
+   refutation. A council reviewer's own check hit this.
+5. **`who-owns.py` cannot see `features_open/`** — it answers for the bug namespace only and returns
+   a confident wrong owner (`LANDMINES.md`).
+
+### 21d. The one honest caveat on the whole lane
+
+**The fix is live, reviewed and never exercised.** No finding has ever named `title` on the
+content-gap-planner route — 0 in the mechanism's lifetime, against a working demand control. Every
+claim in this file is "verified as SHIPPED"; **none is "verified in production"**, and closing the
+lane does not change that. If someone later needs the behavioural proof, it needs a title-predicate
+finding on that route, which no amount of waiting has yet produced.
+
+### 21e. Closing condition
+
+**Met.** All rulings are in, the code is live and approved, the record is filed in the five places the
+estate keeps it (`bugs_open/395` CONTRIB · `LANDMINES.md` ×2 · `WRONG_CALLS.md` ×3 · `RFC_057` §8/§9 ·
+five `doc_notes` rows). **This lane can close once §21b's three items are discharged — and none of
+them is code.**
