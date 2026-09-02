@@ -3700,7 +3700,10 @@ available (blast radius: one page's sections).
 > - *"FCA rule citation corrected by migration 696 (owner decision 2026-09-02)"* — 11 items
 > - *"component adopted by migration 693 — first rerender since the component_id was NULL"* — 3
 >
-> All 30 completed and all 30 re-shipped stored HTML unchanged.
+> All 30 completed and all 30 re-shipped stored HTML unchanged. ~~Both lanes believed their
+> repairs had propagated; one of them was correcting an FCA rule citation.~~ ← **struck; see the
+> correction immediately below. The struck sentence is kept because it is the mistake, and the
+> mistake is the transferable part.**
 >
 > **⚠ CORRECTED WITHIN THE HOUR, BY BOTH LANES — "the rerender was a no-op" is NOT the same as
 > "the repair did not land", and I asserted the second from the first.** Whether a no-op matters
