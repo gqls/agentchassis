@@ -3617,3 +3617,22 @@ workflow runs `ensure_site_record`.
 - Platform-side residual, deliberately NOT fixed here: `upsertSite` could COALESCE name in the
   RETURNING or backfill on conflict — that is a platform/ change (council scope) and the data
   fix removes the live need; noting it rather than shipping a seam mid-watch.
+
+### (c) gamedesign.uk steer for a peer lane — new register family GAMES/GAME DESIGN, rows GD1+GD2
+
+A peer session (owner-directed) is rebuilding gamedesign.uk FRESH via 082 and asked this lane
+for the differentiated position vs gamesdesign.co.uk (the healthy sibling, another lane's build,
+rebuilt 09-01). Steer given, grounded not invented: P5 applied (.co.uk=authority/.uk=instrument)
+→ gamedesign.uk = the professional/studio PRACTICE side (editorial/process/workflow for teams;
+leads/producers/professional designers), sibling keeps free tools+guides+learning; commercial
+slot PREPARED never claimed (the advertise §3 pattern; sibling's live strategy records a
+paid-tier path — but the literal "GameDesign.uk Pro" name is in NO current sibling spec,
+verified, so the name was flagged unrecorded). Collisions named: designblog.co.uk (design
+editorial, brief fired today) · cartoon.co.uk PROTECTED · gamerooms.co.uk stub · writesy.uk.
+Neither game domain had a register row (verified '%game%' sweep — only the gamerooms stub).
+**Rows written to `positioning_register` (DB ONLY — MD copy untouched, two-copies rule):
+GD1 gamesdesign.co.uk (documents the occupied position; their build untouched) · GD2
+gamedesign.uk (proposed 2026-09-02; neighbours + must_nots machine-readable; revise on ask if
+the owner-reviewed brief lands elsewhere).** Register-before-build satisfied for their dispatch.
+Their orphan finding (site serving with pages rows DELETED — invisible to
+audit-archived-still-serving) is theirs to file; flagged the 359 family for their grep.
