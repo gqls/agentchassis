@@ -2409,3 +2409,14 @@ defect it finds" — worked case #3, and this time the finding was the ARCHITECT
   **119 failures / 6 sites / 14 days** (remortgagecalculator 53, loanzy 35, farmer 24…).
   Filed at the component-contract family; renumbered 423→437 at filing (423 taken — check
   the MAX of the sequence, not the last number you saw).
+
+## 2026-09-02 (close) — the blind-zero landmine grew its third mechanism within the hour
+The 414 lane appended (fe183038e, invited): transport truncation — a kubectl-exec psql
+stream that EOF'd after plausible output, delivering 2,283 of 2,585 rows — passes BOTH my
+controls (the planted row survived; every delivered row full-sized) while scanning 88% of
+the corpus. Their third control: reconcile the row count at source/transport/destination
+and refuse to scan on disagreement; export to a file in the pod + kubectl cp, so transport
+has a size to check, not a stream to trust. Accepted as-is: the entry's subject was never
+"fetch" but "a scan trusting its input corpus". The general form, theirs, worth keeping:
+**whenever a zero is the answer you would like, ask what the instrument would have shown
+had it only seen part of the input.**
