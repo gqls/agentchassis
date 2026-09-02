@@ -27,10 +27,25 @@ persisted; a violating point is restated by one judged model call.
 |---|---|
 | Go | `platform/orchestration/datahelpers/registerwords.go`, `platform/orchestration/actions/repair_ordering_register_action.go` (+ tests), `registry.go`. Commit `f7156fb54` |
 | wiring | `docs/agent_docs/sql_for_agents/681_offer_analyser_producer_register_gate_HOLD.sql` — **APPLIED** 17:15Z, in `schema_migrations` |
-| the model | `docs/agent_docs/sql_for_agents/682_offer_analyser_register_gate_ai_service.sql` — **APPLIED** 17:17Z |
+| the model | `docs/agent_docs/sql_for_agents/682_offer_analyser_register_gate_ai_service.sql` — **APPLIED** 17:18:22Z ⚠ see the number clash below |
 | council | `4054f4d9-cd75-4b9c-8b8c-b7b86f11de1e` — **APPROVED round 2**, 16 reviewers. Round 1 was REVISE |
 
 Live chain: `verify_ordering_cardinals` → `repair_ordering_register` → `write_offer_ordering`.
+
+> ### ⚠ MIGRATION NUMBER 682 IS USED TWICE, AND IT IS MY DOING
+> `682_content_listing_collapse_empty_card_slots.sql` (another lane, committed `f57f5ad1f` at
+> 11:51) and `682_offer_analyser_register_gate_ai_service.sql` (mine, 18:17) share a number.
+> **Cause:** I took 681 on **08-31**, when 680 genuinely was the maximum, then took 682 **on 09-02
+> without re-running the check** — and the runbook says to check *at write time* precisely because
+> "concurrent sessions take numbers hourly". They took twenty while I worked: the max is now **710**.
+> **What it does NOT break:** the runner keys on FILENAME and both rows are in `schema_migrations`,
+> so neither is pending and neither will re-apply. Both are already applied, so ordering is moot.
+> **Deliberately NOT renamed.** Renaming needs a live `UPDATE` on the ledger to keep the row matching
+> the file — a write against production to fix a cosmetic clash, with the `git mv` + pathspec
+> copy-trap on top. The estate's own precedent for colliding numbers is *resolve by slug*, and these
+> two slugs could not be less alike. **Recorded so the next reader is not surprised; the receiving
+> session may overrule this and rename, in which case update the ledger row in the same breath.**
+> ⚠ **And take the number at WRITE TIME, from `ls`, every time — not from the last one you used.**
 
 ### What it has actually done — and what that does NOT yet prove
 

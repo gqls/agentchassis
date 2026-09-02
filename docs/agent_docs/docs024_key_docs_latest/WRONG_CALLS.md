@@ -59080,6 +59080,24 @@ not even checking the artefact, only claiming the check's name. **A citation of 
 its output.** Same session also caught, by the same habit, that `bugs_open/338` §4's own check
 list had gone stale by addition — so the rule earned its keep twice in one task.
 
+**SECOND INSTANCE, same session, ~90 minutes later — so the tally is the point, not the
+anecdote.** Filing `bugs_open/442` I wrote *"the action returns **7** distinct reasons
+(`grep -n '"reason":' save_page_meta_description_action.go`)"*. The number is right. **The
+command I cited returns 4.** Four reasons are string literals in the result map; the three
+that matter — `voice_tell`, `banned_claim`, `voice_gate_unreadable` — are returned as bare
+strings from a helper and are invisible to that grep. So the citation would have led the
+next reader to the number the bug file exists to correct, and confirmed it.
+
+Caught by running the grep before committing, having just written the row above. **The
+asymmetry turned out to be the finding**: the obvious single grep finds exactly the four
+already documented and reports the list as complete. Both commands are now in the file with
+their outputs.
+
+**What the pair says.** The first instance was a claim I never checked; the second was a
+claim I HAD checked, by a different route, then cited a command I had not run against it.
+The check that fixes both is the same and it is mechanical: **paste the command's output,
+not its name.** If the output is not worth pasting, the citation is decoration.
+
 Family: cite-the-arm-not-the-function, a-justification-in-an-evidence-column-reads-as-evidence,
 a-subagent-report-is-another-doc, an-objection-naming-one-file-is-naming-a-category.
 
@@ -59121,3 +59139,25 @@ answer to their open question; they spent a read refuting it. Retracted in both 
 
 Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
 a-measurement-answers-the-question-you-encoded.
+
+- **2026-09-02 — vigilant_designer_offer_analysis — I took a migration number from MEMORY of the last
+  one I used, two days after checking, and collided with another lane.** I wrote `681` on 08-31 after
+  running the runbook's check, when `680` genuinely was the maximum. On 09-02 I needed a second
+  migration and took `682` **without re-running the check** — because it was "the next one after
+  mine". Another lane had taken `682` at 11:51 that morning, six hours earlier
+  (`682_content_listing_collapse_empty_card_slots.sql`, commit `f57f5ad1f`). Both are now applied.
+  **The runbook says the check must run AT WRITE TIME and says why** — *"concurrent sessions take
+  numbers hourly"*. That was not a caution about a rare race: between my two migrations the estate
+  consumed **681 → 710**, twenty-nine numbers in about 48 hours.
+  **What made it invisible:** my number was correct when I derived it, and nothing about holding a
+  `_HOLD` file for two days makes the derivation stale-looking. **A number is not a fact about your
+  work, it is a fact about the DIRECTORY at an instant** — the same shape as this file's own
+  *a census goes stale by ADDITION*, arriving through a filename rather than a count.
+  **Cost, and why it is small:** the runner keys on FILENAME and both rows are in
+  `schema_migrations`, so neither is pending and neither re-applies; both were applied already, so
+  ordering is moot. It is a naming clash, not a live fault. **Deliberately not renamed** — that needs
+  a production `UPDATE` on the ledger to keep row and file matching, which is a larger risk than the
+  clash. Documented in the lane handoff instead.
+  **The cheap check:** re-run `ls docs/agent_docs/sql_for_agents/ | sed 's/_.*//' | sort -n | tail`
+  in the same message that writes the file. It costs one line and it is only correct at that instant.
+  Tally: **a-number-taken-from-memory-not-from-the-directory** ×1.
