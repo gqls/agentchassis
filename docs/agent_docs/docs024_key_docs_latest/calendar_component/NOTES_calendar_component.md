@@ -69,6 +69,16 @@ promises a fixture list and delivers a hero banner plus an essay describing a fi
 list that isn't there — the exact shape of `bugs_closed/381`'s defect class, on a page
 type that bug never touched.
 
+> **UPDATE 2026-09-02, later.** Filed as `bugs_open/427`, jointly with `boxingonline.com`.
+> They independently re-derived both this lane's `444`→`20` correction (identical query,
+> identical result) AND went further with a distribution neither of us had stated cleanly:
+> folding the 34 no-row sites into the 20-that-have-a-row bucket counts, **37 of 54 sites
+> (69%) hold zero facts and 42 of 54 (78%) hold five or fewer** — checked independently
+> here too, same buckets, same numbers. That is the stronger form of the argument: 63%
+> with no row alone could be explained as "those sites are young"; 78% at five-or-fewer,
+> concentrated in one outlier, cannot be. `boxingonline.com` is the typical case, not the
+> anomaly. Full writeup in the bug file §3. Ownership of the FIX is still open.
+
 This isn't a NAMING gap this lane can shrug off as unrelated (contrast PLAN §0.3's
 `darts-calendar-density`, which is genuinely a different thing). This one is load-bearing:
 the site's own `design_intent.layout_preference` explicitly asked for "a dedicated
