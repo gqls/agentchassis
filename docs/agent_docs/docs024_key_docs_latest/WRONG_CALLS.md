@@ -57959,3 +57959,80 @@ inline code in commit messages (`'if !known || canWrite'`), or write the message
 the pre-commit block where the shell error surfaces (`LANDMINES.md` already carries that half).
 
 Family: shell-tool-traps-committing, a-report-is-not-a-measurement (knowing ≠ checking).
+
+## 2026-09-02 — bugfix_426_migration_ledger_drift: copied a sibling's "exit 1 on findings"
+## convention without checking whether ITS premise (findings are rare) held for MY check
+
+Building the migration-ledger-drift-check CronJob (bugs_open/426), I copied
+`single-owner-carriers-check`'s stated convention verbatim: "exit non-zero on findings — a
+second, independent signal via K8s Job status." It reads as a general good practice for a
+quiet CronJob, so I applied it without re-deriving whether it actually fit my check.
+
+**Why it was wrong.** That convention's soundness rests on an unstated premise: findings must
+be RARE, so `backoffLimit`'s retry and a red Job status are cheap and meaningful. My check's
+findings are the *ordinary daily state* on this estate — the very first live run found 72 of
+158 pending migrations needing review. Exiting 1 on that made `backoffLimit: 1` re-run the
+entire clone-and-probe a second time (confirmed: two pods, two real doc_notes writes 44
+seconds apart) and still ended `BackoffLimitExceeded` — a Job that reads "broken" every single
+day, forever, for correctly doing its job.
+
+**What caught it.** Not a design review — the first live manual trigger against production.
+Querying `doc_notes` directly (not trusting the Job's own status) showed the check had worked
+perfectly, twice; only the exit-code convention was wrong. A paper plan would not have
+surfaced this — the failure mode only exists once you have a real, non-trivial finding
+population to run against, and mine only differs from the precedent's in that one property.
+
+**The cheap check that would have:** before reusing a "fail loudly on findings" convention
+from a precedent, ask what THAT precedent's finding rate actually is (or is expected to be),
+not just whether the shape of the check looks similar. A convention justified by "findings are
+rare" is not portable to a check whose entire premise is that findings are common — copying
+the mechanism without copying (and checking) the premise it depends on is the general shape of
+the mistake, not anything specific to Job retries.
+
+Family: a-report-is-not-a-measurement (a precedent's stated rationale is a claim about ITS
+domain, not a portable rule), missteps-need-a-check-not-a-paragraph.
+
+---
+
+## 2026-09-02 — my mutation "proofs" were bad mutations again, twice in one sitting, a week after I wrote the row about it
+
+**Session `bugsweep3`, `bugs_open/394`, proving the render-truncation reader's new dormancy rule.**
+
+**The claim I was about to make.** "Dormancy is mutation-proven in both directions."
+
+**What actually happened.** Two of my three mutations proved nothing, in two different ways:
+
+- **MUT-A** (`if haveClock {` → `if false {`) **did not compile** — it orphaned a variable. The
+  run printed `FAIL … [build failed]`, which at a glance reads exactly like the red I wanted. A
+  mutation that does not build has not tested the guard; it has tested the compiler.
+- **MUT-B** (`dormantAfterDays = 14` → `0`) **passed**, and I nearly recorded that as "the
+  threshold is not load-bearing". It is not what the mutation showed. Dormancy is measured
+  *relative to the newest row in the dataset*, so the newest group's age difference is 0 and
+  `0 > 0` is false — **the live group is never dormant at any threshold**. The mutation could not
+  change the outcome the test asserts. The mutation that discriminates is inverting the
+  comparison (`>` → `<`), which marks the LIVE group dormant and the stale one live; that one
+  fails correctly.
+
+**What caught it.** Reading the output instead of the exit status: `[build failed]` is not `---
+FAIL: TestX`, and a PASS after a mutation is the signal to stop, not to move on.
+
+**Why this row exists when 2026-08-26 already has one.** That row says *"before running a mutation,
+prove it is not vacuous"*. I wrote it, and eight days later produced two more vacuous mutations on
+the first attempt. **One row is an anecdote; the tally is the point** — and the tally now says this
+is not a slip I will remember my way out of, it is a step I keep skipping. So the check has to be
+mechanical rather than remembered:
+
+1. **`go build` the mutated tree BEFORE running the test.** A build failure is not a red test.
+2. **Predict the mutated result and say which assertion moves.** MUT-B would have died here:
+   asked "which line of the test changes?", the answer is "none — the live group is never dormant
+   at any threshold", and that is the definition of vacuous.
+3. **Prefer inverting a comparison to zeroing a constant.** Zeroing usually lands on a boundary the
+   fixture already satisfies; inverting swaps which case is selected and almost always moves an
+   assertion.
+
+**And the one that did work is worth keeping too:** MUT-C (treat an unreadable timestamp as
+dormant) failed correctly, which is what proves the fail-toward-alarming choice is real and not
+just a comment — *a clock we cannot read must not switch a check off.*
+
+Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
+a-quiet-test-passes-when-the-rule-is-gone.
