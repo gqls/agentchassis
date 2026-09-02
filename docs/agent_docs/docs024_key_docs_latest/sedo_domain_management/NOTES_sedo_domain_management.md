@@ -56,3 +56,30 @@ which is the shared-tree working as designed. Moved `sedo-api.sh` →
 LANDMINES entry; verified single copy at HEAD), re-pointed every reference,
 added the missing OPP-012 index row the pattern check caught, and wrote the
 division of labour into PLAN "Cross-lane constraint".
+
+## 2026-09-02 (evening) — owner supplied the bulk-listing format; DomainInsert mapped
+
+Secret still absent (`--check-secret`, 17:31 BST) — P2 remains with the
+owner; self-test still 7/7 at HEAD.
+
+Owner provided Sedo's Domain Importer template
+(`~/Downloads/Example_File_Domain_Importer.xlsx`). No xlsx reader installed
+(openpyxl/pandas both absent) — unzipped it and parsed the sheet XML +
+sharedStrings directly. Seven columns, eleven example rows, no embedded
+`dataValidation` elements, authored 2021 in Excel. Decoded content and
+column semantics now in RUNBOOK §6.
+
+Fetched the DomainInsert function doc
+(`apidocs/v1/Basic/functions/sedoapi_DomainInsert.html` — NB the guessed
+URL `Basic/DomainInsert.html` 404s; the index page gives the real paths):
+`domainentry` array ≤50/request; per-entry `domain`/`forsale`/`price`/
+`minprice`/`fixedprice`/`currency` all required, plus `domainlanguage`
+(NOT in the sheet — the web importer defaults it, API callers must pass
+it); `category` optional ≤3. Two behaviours worth their lines: insert is
+ASYNC (post-hoc checks, failures arrive by email), and EVERY insert
+auto-enables parking regardless of `forsale` — recorded in RUNBOOK §6
+because it interacts with the cross-lane parking constraint.
+
+Wire shape for the array param is `[INFERRED]` from the doc's own
+`http_build_query` example (the literal nested-key URL is never printed);
+the planned first one-domain call doubles as its confirmation.

@@ -107,3 +107,61 @@ call — param shapes vary.
   config file. If a legitimate Sedo param ever needs a richer charset,
   widen the validation *and* re-check both quoting layers — do not just
   delete the check.
+
+## §6 Domain input format — the importer sheet, and its DomainInsert mapping
+
+The owner supplied Sedo's official bulk-listing template
+(`Example_File_Domain_Importer.xlsx`, decoded 2026-09-02: one sheet, seven
+columns, eleven example rows, **no embedded validation rules** — the
+semantics below come from those rows plus the DomainInsert function doc).
+This column set is the lane's canonical "list these domains" input, whether
+the owner uploads a sheet in Sedo's web UI or we push the same data via API.
+
+| Sheet column | Values seen | DomainInsert param | Notes |
+|---|---|---|---|
+| Domain Name | `example1.tld` | `domain` | ACE/punycode form |
+| Selling Option | `MAKE_OFFER` / `BUY_NOW` / blank | `fixedprice` | BUY_NOW=1, MAKE_OFFER=0 |
+| For Sale | yes/no (case-insensitive) / blank | `forsale` | yes=1, no=0 |
+| Price | number / blank | `price` | 0 = no price |
+| Minimum Price | number / blank | `minprice` | 0 = no minimum; seen only with MAKE_OFFER |
+| Currency | EUR/USD/GBP / blank | `currency` | 0=EUR 1=USD 2=GBP |
+| Action Type | `DELETE` / blank | — | DELETE = remove from account → API `DomainDelete`, not an insert param |
+
+API-only, not in the sheet (the web importer defaults them; API callers pass
+them):
+- `domainlanguage` — ISO 639-1, **required per entry** on API calls (`en`
+  for this estate);
+- `category` — optional, ≤3 ids per domain (`sedoapi_Categories` reference).
+
+DomainInsert facts (function doc, fetched 2026-09-02):
+- max **50** entries per request;
+- **insert is asynchronous** — entries "first have to pass a couple of
+  checks"; a domain missing from DomainList right after an `ok` insert is
+  NOT a failure (failed checks arrive by email to the account address);
+- **every inserted domain is auto-enabled for parking, for-sale or not** —
+  this interacts with the cross-lane parking constraint (PLAN): inserting a
+  domain here has a Sedo-side parking effect even with `forsale=0`, so
+  "add to Sedo" stays a per-domain decision;
+- the response is per-entry: `status` = `ok` or a fault code, with a
+  `message` — **check every item**, not just the HTTP layer or the absence
+  of a `<SEDOFAULT>`.
+
+Wire shape: the function doc's own example builds the query with PHP
+`http_build_query`, i.e. PHP-nested keys — which the script's param charset
+accepts:
+
+```bash
+scripts/domains/sedo-api.sh DomainInsert \
+  'domainentry[0][domain]=example-site.co.uk' \
+  'domainentry[0][forsale]=1' \
+  'domainentry[0][fixedprice]=0' \
+  'domainentry[0][price]=500' \
+  'domainentry[0][minprice]=100' \
+  'domainentry[0][currency]=2' \
+  'domainentry[0][domainlanguage]=en'
+```
+
+`[INFERRED]` the nested-key encoding — the doc never prints the literal
+URL, only the `http_build_query` call that would produce it. The first real
+call is ONE domain, and confirming this shape (per-entry `status=ok`) is
+part of what that call is for.

@@ -47,8 +47,11 @@ parking) by Claude sessions, via Sedo's API.
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call
-  (DomainInsert) only after reading its function doc and with one domain,
-  not a batch.
+  (DomainInsert) with one domain, not a batch. *Function doc read and
+  column mapping recorded 2026-09-02 (RUNBOOK §6 — the owner's importer
+  sheet maps 1:1 onto `domainentry`); the one-domain call also confirms
+  the `[INFERRED]` nested-key wire shape, and note every insert
+  auto-enables Sedo parking regardless of `forsale`.*
 - **P4 — decide what to automate (owner decision).** Candidates: listing
   chosen domains for sale, price management, pulling parking stats into
   traffic-analytics. Also decide the Go-adapter question (decision 1).

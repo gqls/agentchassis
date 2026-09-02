@@ -29,3 +29,23 @@ Nothing else moves until Sedo approves the access request. One thing I've
 deliberately NOT set up: automatically moving any domain's parking or
 nameservers to Sedo — a couple of your domains are parked at Dan/Afternic
 and other work depends on that, so re-pointing stays a per-domain decision.
+
+## 2026-09-02 (evening) — your importer spreadsheet decoded and mapped
+
+You sent over Sedo's example spreadsheet for bulk domain listing. I've
+decoded it and written up what each column means, and matched it
+column-for-column to the API call we'll use — so the same sheet can drive
+either route: you uploading it on Sedo's website, or us pushing the data
+through the API. The write-up is in the RUNBOOK, §6.
+
+Two things worth knowing from Sedo's own docs: adding a domain doesn't take
+effect instantly (it goes through their checks first, and any failures come
+to you by email), and every domain added gets parking switched on
+automatically — even ones marked not-for-sale. That second one matters
+because some of your domains are parked elsewhere, so "add it to Sedo"
+stays a per-domain decision, exactly like the nameserver question.
+
+Still waiting on the account and the two API codes from Sedo (your steps:
+RUNBOOK §1–§3). Everything on my side is ready — once the codes are sealed
+in, the first call will list one domain, checked end to end, before any
+batch.
