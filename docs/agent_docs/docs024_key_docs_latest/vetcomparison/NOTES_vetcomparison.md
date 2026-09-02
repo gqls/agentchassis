@@ -1731,3 +1731,22 @@ here: `curl -s https://vetcomparison.uk/guides/index.html | grep -c animal-healt
 claimed-first directory ordering (89cb6addb) → THEN rerender directory-index (the 51 VHC cards);
 council verdict for corr 09cf68c2 unread; next scheduled directory export (~08-28) emits the
 town-qualified VHC names.
+
+## 2026-09-02 — relist CONFIRMED landed; 357 lane's migration 701 heads-up answered
+
+The owed check from 08-27 closes: guides-index lists the AHC guide (live grep: 3 references) —
+relist `d9327bab` completed unattended, as predicted. **My lane's queue is EMPTY** (0 open items
+created_by this lane, verified by query).
+
+**bugs_open/357 lane heads-up (cross-session):** their migration 701 (council corr df6c1b41,
+HOLD sidecar) retypes the HOMEPAGE's comparison tool out of its mislabelled 'hero'
+page_components row into its own adopted component ('tool-vet-comparison'), identity+plan only,
+md5-census-guarded, abort-on-concurrent-write; a rebuild can then no longer mint a hero band
+over the tool — the protection this site's bug-020 history argues FOR. Answered CLEAR with two
+verified datapoints: the index page's 40 open items are ALL non-dispatchable (24 stale_news
+unresolved, 12 deferred, 2 needs_human_review, 2 detected — none triaged/approved), so the live
+race risk for their apply is the continuous machinery (news refresh ~6h touches index's
+latest-news; rerender waves), not the work-item queue; and my lane never wrote index components
+(08-24 hero-home.jpg was an asset FILE deploy, invisible to a components census). After their
+apply lands: the index plan element reads 'tool-vet-comparison-vetcomparison-uk' — do not read
+that as drift.
