@@ -2034,29 +2034,49 @@ func recordRetryFeedback(ctx context.Context, db *sql.DB, logger *zap.Logger,
 // if it declares slots, else "agent" if any field has source="llm", else
 // "template".
 //
-// This ensures render_mode is always consistent with the schema rather than
-// being hardcoded at creation time. The page-content-writer workflow's
+// This keeps render_mode consistent with the schema rather than hardcoded at
+// creation time.
+//
+// ⚠⚠ NOTHING READS render_mode. `[MEASURED 2026-09-02]` — and the sentence that
+// stood here for months said the opposite, so read this before building on it.
+//
+// The full chain, end to end:
+//
+//	WRITTEN  by this function, at store_generated_component_action.go:732 (INSERT)
+//	         and :822 (UPDATE).
+//	SCANNED  into Component.RenderMode at load_component_library_actions.go:228
+//	         and :275.
+//	READ     by nothing. `.RenderMode` has no other use anywhere in platform/ or
+//	         internal/.
+//
+// The claim this paragraph used to make — "the page-content-writer workflow's
 // check_render_mode conditional routes sections to LLM generation when
-// render_mode == "agent"; without this derivation every component would
-// permanently take the template-only path regardless of its content needs.
+// render_mode == 'agent'" — is FALSE in three separate ways, each of which cost
+// real work on correlation 53d71504:
 //
-// ⚠ WHERE check_render_mode ACTUALLY LIVES `[MEASURED 2026-08-31]`. It is NOT a
-// top-level step. The live page-content-writer definition has 14 top-level steps
-// (build_render_context, check_planned_sections, check_section_plan, compile_page,
-// complete, fail_no_ready_sections, load_site_specs, plan_sections,
-// prepare_link_context, process_sections_loop, resolve_links, select_sections,
-// spawn_link_resolver, spawn_research_agent) and check_render_mode is none of
-// them — it is nested INSIDE process_sections_loop.
+//  1. check_render_mode is not a top-level step. The live definition has 14
+//     top-level steps and it is none of them; it sits under
+//     {workflow,steps,process_sections_loop,config,sub_workflow,steps}. A
+//     migration was designed and twice revised against the top-level path.
+//  2. It is a BINARY conditional, not a conditions array:
+//     {"action":"conditional","config":{"condition":"current_section.llm_field_specs != null",
+//     "then_step":"check_needs_research","else_step":"render_from_template"}}
+//     so there is no arm list to append to. (A jsonb_set whose new_value is
+//     `NULL || jsonb_build_array(...)` nulls the WHOLE default_config document —
+//     verified live.)
+//  3. It does not test render_mode AT ALL. It branches on
+//     current_section.llm_field_specs. The step that DOES contain "rerender_mode"
+//     is check_rerender_mode on the page-rerender agent, which is a different
+//     step on a different agent and branches on input_data.spec.reason.
 //
-// This paragraph used to say only "the page-content-writer workflow's
-// check_render_mode conditional", which reads as top-level, and that reading cost
-// three council rounds (correlation 53d71504): a migration was designed and twice
-// revised against the path {workflow,steps,check_render_mode,...}, which does not
-// exist. `default_config->'workflow'->'steps' ? 'check_render_mode'` returns FALSE
-// against the real document. Anyone editing that step must find it under
-// process_sections_loop, and must guard the shape before writing: a jsonb_set
-// whose new_value is `NULL || jsonb_build_array(...)` nulls the WHOLE
-// default_config document, verified live the same day.
+// SO: changing what this function returns changes a stored column that no
+// consumer acts on. That is not a reason to remove the derivation — the column is
+// honest metadata and something may yet read it — but it IS a reason to stop
+// treating render_mode as a routing signal. features_open/035's plan to "teach
+// check_render_mode to route composite" cannot work as written: there is nothing
+// to teach. Routing a composite to a composition build needs either a consumer
+// for this column, or a different signal entirely, and that is an open design
+// question rather than a migration.
 //
 // Called by both the INSERT (creation) and UPDATE (regeneration) paths in
 // StoreGeneratedComponentAction so the value is always up to date. That is also
