@@ -161,3 +161,18 @@ synthetic truncation row → red; mutation-proved both ways. Registry follow-up:
 - The `5 of 26` row is `[UNEXPLAINED]`; resolve it by reading the dispatching config, not by
   assuming the cap is 60 everywhere.
 - Rows expire (365d declared; 14d once a consumer resolves them) — extract before resolving.
+
+---
+
+**2026-09-02, contributed by the release-unblock session (not this lane):** the reader's image
+could not build at the 2026-09-02 release — `.dockerignore` ignores `docs/`, and
+`render_truncation_acks.json` had no `!` un-ignore line (its four elder siblings each do), so
+the dockerfile's COPY of the acks file failed with "not found" and killed `make release` at
+`build-render-truncation-check`. Fixed in `ebf27c603` (one line in `.dockerignore`);
+`make build-render-truncation-check` then passed, and the fix is an ancestor of chassis stamp
+`0d2feee2ff61` (the 21:00Z roll). **For whoever verifies this check's first run:** the image
+only became buildable at `ebf27c603` — a "built" record from earlier the same day (`6dc288aaf`,
+which is where the dockerfile and its COPY line were born) predates a buildable image. The
+CronJob's live existence and first `doc_notes` row were NOT verifiable by the fixing session
+(kubeconfig token expired); that verification stays with this lane. Trap distilled:
+LANDMINES "A new ack-shipping check's image fails at RELEASE time".

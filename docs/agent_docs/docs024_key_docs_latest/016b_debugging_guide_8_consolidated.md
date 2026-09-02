@@ -15106,3 +15106,23 @@ page reads well; the better the prose, the stronger the signal that the writer h
 list. Then ask WHICH of the three absences you have (source row / kind / producer) before
 routing — they have three different owners. Case detail: `bugs_open/444`.
 
+### A docker COPY reports "not found" for a file that is committed, on disk, and in the build context — `.dockerignore` excluded it after extraction, and every natural suspect is innocent (2026-09-02, no bug file — broke and was fixed the same day, `ebf27c603`)
+
+**The mechanism.** `ref_build` extracts `git archive HEAD` into a clean context, so the reflex
+reading of `failed to compute cache key ... "<path>": not found` is "the file is uncommitted" —
+the exact failure the committed-HEAD build exists to make loud, and the wrong one here. Docker
+applies `.dockerignore` to the context after extraction: `docs/` is ignored wholesale with
+per-file `!` exceptions, so a docs-shipped file with no exception line is absent from the
+builder stage while `ls`, `git ls-tree HEAD`, and the archive all contain it. Fired on
+`render_truncation_acks.json` (the fifth ack-shipping check image; its four elder siblings each
+have their `!` line), killing `make release` at `build-render-truncation-check` — the check's
+own dockerfile and `bugs_open/394`'s lane records both read as "built" while the image could
+not build.
+
+**The check.** When a docker COPY "not found" names a path that `git ls-tree HEAD -- <path>`
+returns: read `.dockerignore` next, not `git status` — look for a directory exclusion covering
+the path with no matching `!` line, and remember later patterns win. The fix is one un-ignore
+line, and it must be COMMITTED before `make build-*` can see it (the context is committed
+HEAD). Prospective twin, for when you are ADDING such a check rather than debugging one:
+LANDMINES "A new ack-shipping check's image fails at RELEASE time".
+
