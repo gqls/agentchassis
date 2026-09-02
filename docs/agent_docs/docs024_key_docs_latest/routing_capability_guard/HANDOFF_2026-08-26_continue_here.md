@@ -1452,3 +1452,57 @@ finding on that route, which no amount of waiting has yet produced.
 estate keeps it (`bugs_open/395` CONTRIB · `LANDMINES.md` ×2 · `WRONG_CALLS.md` ×3 · `RFC_057` §8/§9 ·
 five `doc_notes` rows). **This lane can close once §21b's three items are discharged — and none of
 them is code.**
+
+---
+
+## 22. THE RFC AUTHOR ANSWERED AFTER THE RULING — §21b item 3 is DISCHARGED (2026-09-02)
+
+§18d/§21b recorded that the other lane had never commented and that their silence was not agreement.
+**They replied.** Recorded here because §21b listed it as outstanding, and in `RFC_057` §9a/§9b
+because that is where the ruling lives.
+
+**They do not object to the Q1 defer.** They raise a qualification, and it is a better statement of
+the risk than the reasoning it qualifies:
+
+> Q1 rests on staleness failing in the SAFE direction — the roster over-refuses and files a visible
+> row. **That assumes the roster is CONSULTED.**
+
+**Their evidence is first-hand, from their own lane, and worse than anything this lane found:** their
+producer gate — ~630 lines, council-submitted, in the running binary, verified by merge-base with a
+control both ways — **is wired to nothing.** Ten workflow steps on `offer-analyser`, none calls it.
+**254 points minted since it shipped, 65 born dirty (25%) against a 23% baseline. Live and inert for
+two days.** Mine was latent and never fired; theirs is live and costing.
+
+**So the risk to name is not "the roster goes stale" but "the roster is never asked"** — and an
+unwired guard fails **SILENT**, which is the exact property the completeness half was built to remove.
+
+### 22a. Tested against this roster rather than filed — and the discriminator is worth carrying
+
+`[MEASURED 2026-09-02]` this roster is not exposed to that failure, for a **structural** reason:
+
+- **Theirs is CONFIG-WIRED** (an agent workflow step — a config that omits it disables it silently).
+  **This is CALL-WIRED**: `classifyFindingRoute` has exactly one caller, already wrapped by
+  `withUnwritableFieldGuard` inside `classifyFinding` (`write_audit_findings_action.go:441`), which
+  itself has one caller in the finding-write loop (`:1054`). No route bypasses the guard; no config
+  can decline it. **That asymmetry is the whole difference between their outcome and this one.**
+- **Receipt, not a code read:** 48 rule-3b rows across 33 sites, latest 2026-09-02 04:52Z, and **each
+  exists only because `HandlerCanWriteField` returned `known=true`.**
+
+⚠ **Not over-read:** all 48 predate `v1.0.1352` (12:28Z that day). **The call path is proven
+exercised; the corrected verdict is not.**
+
+### 22b. The addition to the ruling both lanes endorse
+
+**When the emit-side stamp is built, the first check is not *is the roster current* but *does anything
+actually call it* — answered with a MEASUREMENT, not a code read.** In `RFC_057` §9a.
+
+### 22c. A joint `WRONG_CALLS` entry, filed as ONE row at their suggestion
+
+Two lanes, one week, confident and opposite: I warned them their gate was contaminated when it does
+not exist; they held my mechanism as urgent using an instrument blind to the event. **The shared
+shape: *"my instrument agreed with me" is the feeling of having checked.*** Both of us had an
+instrument, both read it correctly, and both answered a question adjacent to the one that mattered.
+
+**The half worth keeping:** both errors were made while being unusually careful — mid-council,
+mid-coordination, writing things down for each other — and **neither was caught by the care. Each was
+caught by the other lane.**
