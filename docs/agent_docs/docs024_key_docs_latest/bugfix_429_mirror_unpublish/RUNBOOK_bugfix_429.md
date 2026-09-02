@@ -44,3 +44,17 @@ go test ./cmd/config-key-audit/ -run 'BudgetCron' -count=1   # parity: check.py 
 ```
 Gotcha: after editing `check.py`, the CLUSTER keeps the old literal until the
 kustomize overlay is re-applied (CLAUDE.md RFC_022 note).
+
+## Before ANY hand dispatch with allow_bulk_unpublish:true (council advisory, debug_historian)
+
+Prove the binary that will run the sweep carries it — the flag lifts the bulk
+floor, so a stale image with the flag honoured but the floor absent is the
+worst combination. The site-publisher spawned pod runs the chassis image:
+
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+# then: git merge-base --is-ancestor b60d66e3c <the stamp>  (exit 0 = carries the sweep)
+# stamp scrolled? binary probe with BOTH controls (present sha + absent sha) per CLAUDE.md
+```
+Gotcha: per SERVICE, not per fleet; an empty grep means "out of log range", not
+"unstamped".

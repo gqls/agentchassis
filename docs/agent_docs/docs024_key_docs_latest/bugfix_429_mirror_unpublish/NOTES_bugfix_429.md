@@ -59,3 +59,48 @@
   early commit heads-up on top of the two agreed pings. Council verdict watch
   running in background (poll by payload corr, per the ~30 min queue-latency
   rule — a missing row is latency, not a dropped dispatch).
+
+## 2026-09-02 — council verdict READ and advisories adjudicated
+
+**APPROVED round 1** (corr `b576bcc6`, "4 advisory objection(s) — none high-severity",
+9 abstained). Full report: `diagnosis_artifacts` kind=`council_report`, that corr.
+Adjudication of each advisory, with the measurement where one was asked for:
+
+1. **Interface widening "asserted, not evidenced"** (editquality, guardian,
+   prior_art, architecture — the recurring one). ANSWERED BY MEASUREMENT
+   `[MEASURED 2026-09-02]`: repo-wide grep for `ObjectStore` outside
+   `platform/storage` returns exactly **7** files (publisher.go, b2worker.go +
+   test, publish_site_action.go + test, zip_deliverable_action.go + test) — all
+   in the commit or compile-covered (zip tests share `pubFakeStore`); `cfpages`
+   takes NO store (`NewCFPages()` — `For` passes no Deps.Store), so it cannot
+   break; `storage.S3Client.Delete` is real (s3.go:142, cited in grounded_in).
+   Belt: full-tree `verify-head-builds.sh` at HEAD b60d66e3c+ — see below.
+2. **"Why a third deletion-safety convention instead of the retraction
+   actions' dry_run pattern"** (reuse_agent, prior_art). Adjudicated, recorded
+   here as the reasoned answer the seats asked for: the retraction actions
+   (`retract_page_deployment`, `retract_asset_files`) delete AT SOURCE with a
+   human in the dispatch loop — dry_run-default-TRUE is the right guard there.
+   The sweep runs UNATTENDED on the scheduled reconciler; a dry_run default
+   there would mean the mirror never deletes anything on the automatic path,
+   which IS bug 429 (an undriven mechanism). The floor+opt-in flag is the
+   unattended-path analogue: routine convergence automatic, only the dangerous
+   bulk shape gated on a human. Wiring retraction actions to also hit the
+   mirror is the bug file's fix candidate 2, considered and rejected THERE
+   (leaves orphans from any other cause unswept); `b2 sync --delete` is a CLI
+   pattern in gqls/sites' GH workflow, not Go machinery in this repo — the
+   sweep extends DGH-008's existing in-repo copy+verify mechanism instead of
+   importing a CLI into the spawned pod.
+3. **"Other code reading the th1: literal"** (guardian). Already measured
+   pre-submission (fork review): fleet grep found one historical doc-comment
+   quote (`check_page_content_divergence.go:196`) and no code, no
+   source-scanning test outside the publish package; DB rows carrying th1: are
+   the intended drift. In the lane PLAN; should have been in grounded_in.
+4. **"No pod-verification step before trusting the sweep/flag in production"**
+   (debug_historian). Accepted — added to RUNBOOK: before ANY hand dispatch
+   with `allow_bulk_unpublish:true`, prove the spawned-pod image carries the
+   sweep (stamp ancestor-check or capability probe with present+absent
+   controls), never trust the roll.
+- Belt landed `[MEASURED 2026-09-02]`: full-tree `verify-head-builds.sh` → "OK —
+  HEAD 0ba331483 builds" (HEAD by then already carried other lanes' commits on
+  top of b60d66e3c, so the widened ObjectStore compiles against the WHOLE
+  shared tree, not just the packages the fix touched).
