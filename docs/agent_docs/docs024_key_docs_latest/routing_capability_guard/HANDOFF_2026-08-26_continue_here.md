@@ -1213,3 +1213,70 @@ in the mechanism's lifetime.
 **The tripwire is unchanged and now means the opposite of what it did:** a `content-gap-planner` row
 appearing in `would_have_routed_at` used to mean "the latent defect has gone live". From `v1.0.1352`
 it would mean **the fix has regressed**.
+
+---
+
+## 18. COUNCIL ROUND 2 = APPROVED · `v1.0.1354` · 2026-09-02 16:13Z
+
+### 18a. APPROVED, all reviewers — the §9 fix is reviewed, live and closed as engineering
+
+`COUNCIL GATE — APPROVED — all reviewers approve`, correlation
+`76231f57-1378-4731-86cc-b4a5ac4a0556`, 2026-09-02 13:50Z. Round 1's three objections were all
+acted on with measurements rather than argument (§16); round 2 drew none.
+
+⚠ **Both commits carry `Council-Submitted:`, not `Council-Reviewed:`, and that is correct and
+needs no repair.** Forward-only forbids an amend, and `098` resolves the correlation at REPORT
+time — so `7b3d21d36` and `fae9e269b` are credited automatically now that the correlation is
+approved. **Do not "fix" this by adding a trailer to a later commit**; that would claim a review
+for a change the council never saw.
+
+### 18b. Live on `v1.0.1354` — and my own §17 probe literal was destroyed by my own next commit
+
+`[MEASURED 2026-09-02 16:13Z]` pods up 15:39Z / 15:53Z.
+
+| probe | result | means |
+|---|---|---|
+| `no_writer_for_page_field` | PRESENT | positive control |
+| `zzz_invented_control_395` | absent | negative control |
+| `THREE WEEKS BEFORE` | **PRESENT** | the corrected roster is live |
+| `ARCHIVE 989` | PRESENT | carries `fae9e269b` (the revise) |
+| ~~`across live+archive`~~ | **absent** | ⚠ **NOT a regression — see below** |
+
+⚠ **§17 told the next session to probe for `across live+archive` as proof the fix had shipped. That
+literal no longer exists**, because `fae9e269b` — my own next commit, written to answer the council —
+**edited that very string**: `"989 times across live+archive"` became
+`"989 times [live 0 / ARCHIVE 989…]"`. A session following §17's instruction today gets `absent` on
+the line labelled *"should be PRESENT"* and would reasonably conclude **the fix had been reverted**.
+
+**The general form, and it is a new one for this lane's list: a probe literal is only a
+capability probe while nobody edits the string.** Anything in a `Why`/evidence string is *documentation*
+and is therefore exactly the kind of text a later commit rewrites. Choose a literal for STABILITY, or
+re-derive it from the commit you are actually testing for. Settled here two ways, both cheap:
+
+```bash
+git merge-base --is-ancestor 7b3d21d36 fae9e269b   # true ⇒ carrying the revise carries the fix
+# and a literal that survives BOTH commits, verified against both trees before probing:
+git show <sha>:<file> | grep -c 'THREE WEEKS BEFORE'   # 1 at both shas
+```
+
+### 18c. Still zero demand — the correction remains unexercised
+
+48 rule-3b firings total, **0 since the roll**; **0** parks have ever displaced `content-gap-planner`;
+**1** predicate-bearing finding filed today. The fix is live and reviewed; it has still never been
+asked the question it exists to answer. **"Verified as shipped and reviewed" — not "verified in
+production".** Per §17 the tripwire is inverted: a `content-gap-planner` row in `would_have_routed_at`
+would now mean the fix has REGRESSED.
+
+### 18d. ⚠ The other lane has NOT responded on `RFC_057`, checked three ways
+
+Asked 2026-09-02 ~15:00Z for their reading of §6 Q1 before the owner rules. As of 16:13Z, **nothing**:
+
+- **Commits:** every commit since 2026-08-31 matching `RFC_057|routing_capability|pageFieldWriters|HandlerCanWriteField|capability roster` is **mine**.
+- **`RFC_057` itself:** zero commits by anyone since my CONTRIB (`5c28fc10b`).
+- **`doc_notes`:** the only new rows on these subjects are the five I wrote.
+- **Messages:** none received.
+
+**They are active** — committing daily on their own producer-register-gate work — so this is a queue,
+not a disappearance. **Do not read the silence as agreement**, and do not attribute a position to them:
+the §8 CONTRIB argues for narrowing *their own* §4 concession, and it currently stands unanswered by
+its author.
