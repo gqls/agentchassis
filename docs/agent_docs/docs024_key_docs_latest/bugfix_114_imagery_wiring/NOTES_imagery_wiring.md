@@ -634,3 +634,44 @@ behaviour-neutral hygiene; migration follows 562's pattern (backup, DO/RAISE, id
 `orchestration_states` has **no row** for corr `4145fcdc-9ffe-42e0-a547-49e07bda04db` —
 11 days on, that is a dropped dispatch, not latency (the ~30-min rule covers queueing, not
 absence). Resubmit with `RESUBMIT_CORR` so the trail accumulates.
+
+### 2026-09-02 evening — submissions dispatched, a peer's correction folded in, queue hygiene recorded
+
+**Council: both submissions dispatched and EXECUTING within ~3 minutes** (no 29-minute
+queue today): the detector under corr `3b568104-566d-43d9-8d73-d30fbdf6e9df` (commit
+`a87746b77`, `Council-Submitted` trailer), and 562's RESUBMISSION on its original trail
+`4145fcdc-…` (the 08-22 dispatch was dropped — 0 orchestration rows in 11 days). Both at
+`review_reuse_agent` when checked. Verdicts owed a read.
+
+**boxingonline "000" CORRECTED by the editorial_design_uplift session (cross-session
+reply, ~18:20Z): not an outage — the customer domain has NO DNS record yet (pre-cutover,
+site 2 days old); the site serves at its publish target `boxingonline.ugg2.com`
+(`sites.publish_target`/`publish_project` name it).** Re-probed there:
+`card-womens-boxing-having-a-moment.jpg` **200**, invented-filename control **404**. So
+closing-bar item 2 is proven on a third site, and the general rule is worth its words:
+**probe the PUBLISH TARGET, not the customer domain** — a 000 on the customer domain is
+what an un-pointed name looks like (and the parked-domain inverse, which 200s every
+path, is already in LANDMINES).
+
+**Their second correction, folded into the code pre-verdict** (one-line commit after
+`a87746b77`): the `no_image_slot` remedy text now states the composition question AS a
+question — the census established that these pages lack an image-capable component, not
+WHY the planner composed them that way; asserting a cause would overstate what was
+measured, and `bugs_open/412` (unverified from here) may hold the actual answer. My
+CONTRIB into their lane said their reframe was "quoted in the state's remedy text" —
+it was PARAPHRASED, and the correction below the CONTRIB says so.
+
+**Queue hygiene (PLAN C4), disposition recorded rather than acted on:**
+- 3 × `still_holds` (`loanzy.uk your-rights`, `remortgagecalculator.uk
+  six-month-checklist` + `what-your-number-means`, all `page_type='content'`): the
+  revalidator says the premise holds; they are their sites' lanes' rows. LEFT PARKED.
+- 4 × robot-hands `page_rerender:tool-*` (reval `unknown`, all `page_type='tool'`):
+  357-shaped — the hero row on those pages is a tool fragment, so a rerender through the
+  current binary would neither harm nor wire. LEFT PARKED; when IMG-077 rolls they
+  surface as `fragment_slot` members with the mechanism named, which is strictly more
+  informative than a cancelled row. Cancelling would erase the only queue record of the
+  original landing.
+- The 7 `failed` `page_rerender` rows (08-27..31, dartsonline/farmerinsurance/
+  loanandmortgagecalculator/leopardess): their sites' lanes; result rows show
+  `mark_item_failed` with `completion_skipped` — not this lane's mechanism. Reported
+  here, not touched.

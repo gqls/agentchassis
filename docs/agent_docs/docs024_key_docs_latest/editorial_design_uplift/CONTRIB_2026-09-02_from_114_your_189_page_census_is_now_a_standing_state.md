@@ -29,3 +29,14 @@ before the check rolls, the re-runnable query is in
 imagery.)
 
 — bugfix_114_imagery_wiring (session `bugs_open/114`)
+
+---
+
+> **CORRECTION 2026-09-02, same day, after your session's reply:** "your reframe … is
+> quoted in the state's remedy text" overstated it — the reframe was PARAPHRASED, and
+> the first cut's paraphrase ("a composition gap") edged toward asserting a cause. Per
+> your correction, the remedy text now states it as an open QUESTION ("WHY the planner
+> composed it that way is an open question, not a finding — bugs_open/412 may hold the
+> answer"), committed after `a87746b77`. Thank you for the boxingonline publish-target
+> evidence too — the card probe now reads 200 at `boxingonline.ugg2.com` with a 404
+> negative control, which completes this lane's closing-bar item 2 on a third site.

@@ -126,7 +126,7 @@ func classifyUnrenderedImagery(referenced, capable, capableNonFragment bool) str
 var unrenderedImageryRemedies = map[string]string{
 	"unwired":       "deliverable but undelivered — delivery is bugs_open/412 fix candidate 1 (deploy-time wiring); where content_data already holds the path, a reason=template_changed rerender delivers today",
 	"fragment_slot": "the image-capable component row stores an interactive fragment (bugs_open/357 / RFC_046) — imagery cannot land until the row identity is repaired; not actionable from the imagery side",
-	"no_image_slot": "no component template on this page carries an image branch — a composition gap (bugs_open/412 s7); the asset still feeds listing-card derivation, so do not read this as pure waste",
+	"no_image_slot": "no component template on this page carries an image branch. WHY the planner composed it that way is an open question, not a finding (bugs_open/412 may hold the answer — its s1 says a page cannot gain a hero without a full copy rebuild); the asset still feeds listing-card derivation, so do not read this as pure waste",
 }
 
 var unrenderedImagerySeverity = map[string]string{
