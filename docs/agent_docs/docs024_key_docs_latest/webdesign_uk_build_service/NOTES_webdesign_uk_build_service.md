@@ -7035,3 +7035,24 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
 - 417 status held to the pre-registered reading: "one for one", the fence still
   owed. Their WRONG_CALLS postscript (422/424 renumber) noted — "a measurement
   you request but don't read is worth less than one you never ran".
+
+## 2026-09-02 (contd) — the retraction guard chain taught the deletion order; round 3 running
+
+- Round 1 REFUSED: "page is active — retracting a live page is not what archiving
+  means" (archive-then-retract is the design; archiving is the documented hand
+  SQL step). ⚠ My wave read the orchestration STATUS, not the retraction
+  PAYLOAD — completed-with-refusal again; the round-2+ scripts read the payload
+  and STOP on retracted=0 rather than looping.
+- Round 2 (after archive) REFUSED on the NEXT guard: "still linked from live
+  content — repair or remove those links first", listing nav_inbound (the
+  Contact nav row) and editorial_inbound (the prose links). RIGHT both times:
+  my prose rerenders had run while contact was still ACTIVE, so link-repair had
+  nothing to repair — the guard chain structurally guarantees a deletion mints
+  zero dead links, and it caught my wrong ordering twice, visibly, in the
+  payload. **The correct order (guard-taught): archive → nav rebuild → prose
+  rerenders (links now target an archived page ⇒ repaired) → retract → mirror.**
+- Round 3 running exactly that (script retract_round3.sh; retraction payload
+  gated; final sweep asserts contact 404 + zero contact links + email 0 +
+  controls + the interim logo's hash/dims). Worth a register/landmine note once
+  verified: the retraction guards are the worked example of refusal-with-
+  reasons done right — contrast 423's reasonless false.
