@@ -3729,3 +3729,23 @@ deployed). Advertise at this point: ~15/18 plan pages done post-outage, imagery 
 rerenders queued. The owner's review queue now holds only the two TEST briefs
 (indoorplanters, buytoletcalculator) + the advertise negation flag (recommendation standing:
 keep as is).
+
+### (i) Remake №1 BUILT AND DEPLOYED — 16:23:25Z; the domain still serves Drupal because DNS was never cut over
+
+Site row flipped to `deployed` by the pipeline at 16:23:25Z. Verified at ARTEFACTS, not statuses:
+- `gqls/sites` repo holds the complete `advertise.co.uk/` tree; built homepage 72,283 B,
+  title "Advertise.co.uk — The UK Guide to Advertising", **0 negative-identity phrases** (the
+  DECISION guard held); 24 pages, 20 deployed + 4 in the convergence wave (`needs_rebuild`:
+  index, contact, regulation-map, ad-auctions blog — imagery weave + rerender items draining).
+- All 6 `unresolved_cta` items verified OVERTAKEN at the repo artefact (3 resolved CTA hrefs
+  per guide, 0 empty) and closed with evidence. Owner's negation flag stays open (theirs).
+- ⚠ **A "deployed" site row does NOT mean the domain serves it.** advertise.co.uk still serves
+  the OLD Drupal 7 site: NS = dns.us-noc.com/dns.uk-noc.com (legacy host, A 62.182.23.30).
+  My first curl mis-read the Drupal "Page not found | Advertise" 404s as the new site's — the
+  worked lesson: a branded 404 title is NOT proof of which stack answered; read the Generator
+  meta. The RUNBOOK (dns_pointing_a_domain_at_the_serving_worker) governs the cutover:
+  CF zone (needs the DNS-scoped token — `~/.cloudflare/dns-token.env` was NEVER created; only
+  the Workers-scoped 404-token exists) → owner sets NS at Nominet (manual, no access) →
+  apex proxied A + worker route (scriptable). **Same cutover will be owed for
+  websitepromotion/seotools/designblog** — consider doing all four as one Nominet batch,
+  which is exactly the bulk shape the 08-18 owner ruling prescribed.
