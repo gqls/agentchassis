@@ -263,3 +263,27 @@ that path the `skipped` key is **ABSENT on normal runs** (36 rows carry it; all 
 — a check testing `skipped='false'` matches nothing and looks clean; **test for `'true'`**.
 Their lane's WRONG_CALLS has the fuller account (a mutation test that proved a branch
 EXECUTES without proving its query CAN MATCH).
+
+## 11. CLOSED 2026-09-02 — fixed AND live AND the crash input exercised in production
+
+- **Live at the binary:** `v1.0.1354`, `paths_tried` PRESENT at `/proc/1/exe` against the
+  webdesign-tool-rebuilds lane's pre-proven discriminating baseline (ABSENT on `v1.0.1352`,
+  positive control PRESENT both times).
+- **§6 end-to-end RUN, 2026-09-02 ~18:1x-18:3xZ:** cv1.co.uk flagged and rebuilt through the
+  real pipeline (canary corr `6e84a4e3-726d-4ddc-a497-717c0469e238`, receipt-asserted
+  publish). Iteration 0 hit THE EXACT CRASH INPUT — an adopted page whose writer skipped, so
+  `page_content_0.response.page_html` resolved on no candidate form — and produced:
+  `assembled_page.skipped=true, skip_reason="no content found at
+  page_content_0.response.page_html"` (the FIXED code's own message), save ran and exited
+  clean, `update_page_status` reached, **the whole orchestration chain COMPLETED**
+  (`0711ef20`, parent `557052ef`) in minutes, **both chassis pods restartCount 0**
+  (baseline pinned pre-dispatch). Under the old code this input never returns — three
+  orchestrations died on it 2026-08-26, each wedged 4h. Both adopted rows byte-identical
+  after (md5s `26f484f2…`/`291b88d8…`, 1 row each).
+- **Not captured, stated honestly:** the one-Warn-vs-12,654 log-line count — the spawned
+  rebuilder pod's log stream returned empty at capture time (the ephemeral-pod trap this
+  file's own relations note). The count claim rests on structure instead: a 12,654-line
+  flood ends in a dead pod, and the pods lived.
+- **The green canary is NOT precondition-4 evidence for 357/578/701** — §8/§10 stand.
+- Verified how the closing bar asks: at the binary, at the orchestration record, and at the
+  artefact rows — not at a status.

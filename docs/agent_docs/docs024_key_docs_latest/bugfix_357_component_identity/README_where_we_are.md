@@ -660,3 +660,16 @@ half-finished work sitting in it that would have broken everyone's build if we'd
 blindly — we messaged them, they committed their half within minutes, and both changes now
 coexist cleanly. Next: the fleet build, then the live check, then back to the main 357 repair
 via the one-page trial we proposed on the 26th.
+
+**2026-09-02, close of day.** Three things landed together. The repair migration (701) is
+approved — it took three review rounds, and every round made it genuinely better: round one
+made the misconfiguration case countable and forced a controlled re-census that caught my own
+"all pages have a plan row" error; round two made us read two existing mechanisms we'd have
+otherwise ignored and prove — at the running binary, not in the source — that the fork logic
+the future depends on is actually deployed. The crash bug (408) is closed properly: the fix
+is live, and we re-ran the exact input that used to kill the pod — it now completes in
+minutes with a polite "nothing to do" instead of a dead pod and a four-hour wedge. And the
+warning file that used to say "rebuilding an adopted page crashes everything" now says what's
+actually true today: it doesn't crash, it quietly does nothing, and quietly-nothing is the
+thing to check for. What's left is yours: run the one-page pilot (the command is in the
+notes), check the page still works, then run the other twenty-one.

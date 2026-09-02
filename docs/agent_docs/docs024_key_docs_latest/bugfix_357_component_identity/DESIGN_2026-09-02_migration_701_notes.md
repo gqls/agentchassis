@@ -464,3 +464,27 @@ editquality, tooling_provenance, debug_historian now approve). New gate: prior_a
 bugs_open/408 fix** (`paths_tried` PRESENT against the webdesign-tool-rebuilds lane's proven
 discriminating baseline) — 408 is fixed AND live at the binary; its §6 end-to-end check is
 now cheap and owed separately.
+
+---
+
+## APPROVED — round 3, corr `df6c1b41`, 2 advisories (none high), both dispositioned
+
+1. **bug_historian (medium) — the 22 newly enter check_tool_health → tool-improver scope,
+   and case 012 (improver truncates component) is the documented damage shape.** ACCEPTED AS
+   INTENDED with the guards named: entering tool-health scope is what being real library
+   tools MEANS (693's doc_note says "intentionally" and ours carries the same); 012 is
+   CLOSED and its class is exactly what `toolTemplateValid` was calibrated against — a
+   truncated rewrite FAILS the guard and the re-render loop stays on the carry-stored-HTML
+   path rather than deploying broken markup. The pilot's verification includes the served
+   page, which would catch an improver-shaped regression on the one page before the
+   remainder runs.
+2. **bug_historian (low) — case 044's empty-schema-deferral heuristic vs our
+   `input_schema` NULL adopted rows:** NAMED AS A PILOT WATCH ITEM — if a re-plan defers the
+   adopted section by that heuristic, the pilot's save shape shows it (section absent from
+   the writer output) before the remainder runs. Resolution is id-first regardless.
+3. **guardian (medium) — the 21 fleet-wide claims:** standing acceptance, unchanged — the
+   owner-acceptance line in the header is the decision record.
+4. **guardian (low) — gamesdesign has no owning lane:** header now says the owner's
+   hand-apply EXPLICITLY covers gamesdesign's 10 rows (nobody else can speak for that site).
+
+**Verdict read in full; commits may carry `Council-Reviewed: df6c1b41-b600-41d1-8f7e-3e96fe422b31`.**

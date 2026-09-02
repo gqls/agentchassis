@@ -1791,3 +1791,27 @@ the reviewer walk-table. Census in the SQL mechanically diffed against my pinned
 22/22 pc_ids + md5s exact. Submission `df6c1b41-b600-41d1-8f7e-3e96fe422b31`; scope=pilot is
 the DEFAULT apply mode; the pilot rides the page-rerender path which does NOT contain 408
 (measured), so it need not wait for the roll.
+
+### 2026-09-02 (close of day) — 701 APPROVED r3; bugs_open/408 CLOSED with the crash input exercised in production; the pilot awaits the owner's hand
+
+**701: APPROVED round 3** (corr `df6c1b41`, 2 advisories none-high, both dispositioned in the
+DESIGN notes — tool-health scope is intentional with `toolTemplateValid` as the 012-class
+guard; the 044 heuristic is a named pilot watch item; the gamesdesign sign-off line added to
+the header). Three rounds total; round 2's report was initially misread mid-run (a
+byte-identical round-1 copy surfaced before completion — corrected in-session before acting).
+
+**408: CLOSED.** v1.0.1354 carries the fix (capability probe vs the proven baseline), and the
+§6 end-to-end ran through the real pipeline: cv1 flagged, receipt-asserted dispatch (corr
+`6e84a4e3`), iteration 0 hit the exact crash input and produced the fixed code's own skip
+message, chain COMPLETED in minutes, pods restartCount 0, both adopted rows byte-identical
+after; flags reset to `deployed`. File moved to `bugs_closed/` with the evidence (§11); 016b
+§10 row updated; LANDMINES gains the defusal entry (the crash arm is dead; the
+completed-but-skipped arm is the live trap now) and the verifier armed via
+`landmines-verify-dispatch.sh`. Honestly stated in §11: the one-vs-12,654 log count was not
+captured (ephemeral pod, empty stream) — the count claim rests on structure (a flood ends in
+a dead pod; the pods lived).
+
+**Ready for the owner:** the pilot apply —
+`kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -v scope=pilot < docs/agent_docs/sql_for_agents/701_retype_357_population_by_adoption_HOLD.sql`
+(defaults to pilot even without the flag; pre-apply `ls | grep '^701'` per the header; then
+the header's post-conditions, then `scope=remainder`).

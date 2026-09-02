@@ -243,7 +243,11 @@
 -- round 2, guardian missing): no register names an owner of the tool-function
 -- namespace; naming follows CLC-020. This file is applied BY THE OWNER'S HAND,
 -- and that application is the sign-off on the claims — stated here so the
--- acceptance is a decision, not a side effect.
+-- acceptance is a decision, not a side effect. THE SAME SIGN-OFF COVERS
+-- gamesdesign.co.uk EXPLICITLY (round 3, guardian low): that site has NO
+-- owning lane (workstreams index, 2026-09-02), so nobody but the owner can
+-- speak for its 10 rows — 6 of them rebuild_policy='owned', repaired without
+-- a rerender. Applying scope=remainder/all IS the owner speaking for it.
 --
 -- BINDING-FREE IS GUARDED AT APPLY, NOT FOR EVER (council round 2,
 -- bug_historian): template_closed is a quality-score field, not an edit lock
