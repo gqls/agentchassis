@@ -21,7 +21,19 @@ lands in aspect **`mission_brief`**. So the cascade's top rung is unreachable by
 pipeline that builds sites, and a human's stated colour preference cannot reach the
 palette picker through the normal route.
 
-The same applies to `extractTypographySignal`'s `mission.preferred_typography`.
+**The same applies to `extractTypographySignal`'s `mission.preferred_typography`, and
+this half is measured too, not inferred.** `resolve_composition_typography_action.go:214`
+reads `loadSpecAspectFromContext(..., "mission", ...)` and returns `"mission_hint"` on a
+hit — same aspect, same dead rung. Independently code-read by the `site_design_planner`
+lane (who own the file) before it was written here. Census of the same 31 compositions:
+
+| typography_source | count |
+|---|---|
+| `fingerprint_font_family_match` | 30 |
+| `fallback_sans_modern` | 1 |
+| **`mission_hint`** | **0** |
+
+So it is not one rung. **Both cascades' human-preference rungs have never fired.**
 
 ## 2. Mechanism, verified
 
@@ -131,10 +143,73 @@ cannot supply is the shape this estate keeps rediscovering (`generic_theme`'s
 
 `gamedesign.uk` (site `8f17eb73-fc74-4718-8371-b3125bc4e414`) was deliberately seeded
 with `mission.preferred_palette` on 2026-09-02 precisely because nothing overwrites
-that aspect. **Fix candidate 1 removes that property**: once `persist_mission` reads
-the sent key, a rebuild would overwrite the hand-seeded row with the submitted brief.
-Tell that lane before applying it. This is the general hazard, not a special case —
-any advice of the form "seed X, it survives" is resting on this bug.
+that aspect.
+
+> **CORRECTED 2026-09-02, hours after filing — this section over-stated the hazard.**
+> It read: *"Fix candidate 1 removes that property: once `persist_mission` reads the
+> sent key, a rebuild would overwrite the hand-seeded row."* **That is wrong, and the
+> correction narrows the tripwire to something much more specific.** Caught by the
+> `gamedesign.uk` lane, verified here by reading the merge:
+>
+> `WriteSiteSpecAction` **always deep-merges** (`site_spec_actions.go:246`,
+> `merged := siteSpecDeepMerge(currentData, specMap)`), and
+> `siteSpecDeepMerge` recurses only when the value is a map on BOTH sides — otherwise
+> `result[k] = srcVal`. A brief arrives as `{"text": "…"}`, so a repointed
+> `persist_mission` **ADDS `text` beside `preferred_palette`** and leaves the palette
+> untouched. A hand-seeded palette therefore SURVIVES fix candidate 1.
+>
+> **The real hazard is narrower and easier to walk into: a fix that does not go through
+> `write_site_spec`.** Any supersede-without-merge writes a fresh row and drops every
+> key it does not carry. That pattern exists in this codebase — `apply_theme_kit_action.go`'s
+> own `supersedeAndInsertSpecWhole` is one, deliberately, for a point-in-time lineage
+> record. **So the instruction to a fixer is not "beware overwriting", it is: keep
+> using the merging writer, and do not "tidy" the merge away as redundant.**
+>
+> Also measured: gamedesign.uk's `domain-submitter` run COMPLETED at 17:07:57Z, so
+> `persist_mission` cannot re-run on that site at all without a fresh `082` submit.
+> Its `mission` row still carries `preferred_palette`, still has no `text`.
+
+**A separate, live confirmation from the same site — `site_specs.pinned` does not
+survive a supersede, in production.** The manual `design_intent` row was written with
+`pinned=true`; the classifier wrote its own `design_intent` at 17:11:32Z and the
+pinned row is now `is_current=false`. `pinned` protected nothing. This is the
+production evidence for a claim previously only read out of the code (neither
+`WriteSiteSpecAction`'s INSERT nor `apply_theme_kit`'s carries `pinned` forward), and
+it is why the sanctioned human lock is an in-data key (`design_intent.<dim>.locked`)
+rather than that column. Anyone reaching for `pinned` to hold a design value should
+read this paragraph first.
+
+**The general lesson, which outlives this bug:** the advice "seed X, it survives" was
+resting on a defect, and when the defect's shape was examined properly the advice
+turned out to be right for a *different* reason than given. Both the original warning
+and the original reassurance were sound conclusions from unsound mechanisms. Check
+which writer touches the row, not whether something "overwrites".
+
+## 6a. A live test of this bug is IN FLIGHT — read its result before acting
+
+`gamedesign.uk` is building right now (dispatched 17:07:55Z, corr
+`f07313f6-976c-4593-9e5e-44892008fb74`) and is the first site in the estate's history
+with a populated `mission.preferred_palette` at composition time. Its
+`resolved_composition.lineage.palette_source` is therefore a genuine experiment, and
+the two outcomes mean opposite things for this bug:
+
+- **`mission_hint`** → rung 1 fired for the first time in production. §3's zero was
+  caused by the aspect being empty, exactly as this file argues, and the diagnosis
+  holds.
+- **`design_intent_values`** → rung 2 won *even with a populated `mission` row
+  present*. That would be a **stronger and different** finding than this file makes:
+  it would mean rung 1 does not read what is actually there, and §2's mechanism is
+  incomplete. **This file would need reopening, not closing.**
+
+Experiment framed by the `gamedesign.uk` lane, who will report the value either way.
+**Do not act on a fix candidate until it lands** — one of the two outcomes invalidates
+the diagnosis.
+
+⚠ Note the classifier has already deep-merged its own `design_intent` over the seeded
+one (17:11:32Z), landing within two hex steps of the seeded palette (`#F5F0E8` vs
+`#F4F1EA`, accent `#9B4E2A` vs `#A6521F`). So rung 2 now holds near-identical values
+to rung 1 — which makes the test cleaner, not muddier: the two rungs cannot be told
+apart by the COLOURS, only by the `palette_source` string. Read the string.
 
 ## 7. How to verify a fix
 
