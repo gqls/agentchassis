@@ -13,9 +13,13 @@ any unmarked assertion here as owing you a re-run, and prefer the artefact queri
 (checked `get ns` and `get pods -n ai-persona-system`, both fail). That is the 3-day
 kubeconfig token expiry; **the owner refreshes it.**
 
-**A fresh chassis build was deployed at ~21:00Z** (dated by another lane's commit
-`986127a78`, which calls it "the 2026-09-02 21:00Z roll"). **I could not verify anything
-against it.** The first three things to do when the token is back:
+**A fresh chassis build was deployed at ~21:00Z.** `[RELAYED, not verified by me]` the
+`site_delivery_and_editor` lane reports chassis pods `8ddbf8958-cd2h9`/`vppjz` started
+20:56:43/20:57:10Z on **v1.0.1355**, provenance **`0d2feee2f`** read from the pod by that lane's
+previous session, and that `f57f5ad1f` is an ancestor of both v1.0.1354 and v1.0.1355 — so the
+§2 A/B already had the producer fix aboard and v1.0.1355 should not change its answer. **I could
+not verify any of that**: the token expired ~21:08Z, before I could probe. Treat it as a peer's
+reading until item 1 below is run. The first three things to do when the token is back:
 
 1. **Probe EVERY pod, with controls** — not one, because two pods of one ReplicaSet are not
    guaranteed identical (same-tag cached image), and probing one of two left a hole in this
@@ -122,6 +126,40 @@ from `ResolvedData`**, not that it lost a merge.
 | **stale/cached binary** | killed by the A/B — one binary, two paths, opposite results, minutes apart |
 | **version pinning** | the pinned version postdates the template update and carries the guard |
 | a **third producer** of `articles` | only `rebuild_blog_listing` writes `"articles"` literally; the generic path writes `resolvedData[fieldName]`. Both fixed |
+
+### ⭐ THE EXPERIMENT TO RUN FIRST — it breaks the ambiguity that blocked this all evening
+
+Proposed by the `site_delivery_and_editor` lane as a question ("would a rebuild of boxingonline
+`/index.html` destroy a repro you still need?"). **It would not — it makes the repro strictly
+better**, and it is now the highest-value next action.
+
+**The ambiguity, stated plainly:** today the stored array is the OLD shape, and a rerender
+produces the OLD shape. Those two are *byte-identical*, so I cannot tell whether the rerender
+**overwrote stored with an old-shape rebuild** or **never touched the key and stored simply
+survived**. Every reading this evening ran into that wall.
+
+**A build-path rebuild removes the wall by changing the baseline:**
+
+1. Fire a `needs_page` rebuild of boxingonline `/index.html` (the build path is the known-working
+   route — `guides-index` did exactly this at 17:23:02Z and produced `excerpt` present, suffix
+   stripped). Confirm the new shape landed: `content_data->'articles'->0 ? 'excerpt'` → true.
+2. Then fire a `page_rerender`, `reason='template_changed'`, `spec.page_name='index'`.
+3. **Read the key again. The two outcomes now say opposite things:**
+
+| after the rerender | conclusion |
+|---|---|
+| `excerpt` key **GONE** (reverted to old shape) | the rerender path **actively rebuilds** the array with code that is not the fixed projection — it overwrites good data with old-shape data |
+| `excerpt` key **SURVIVES** | the rerender path **never touches** `articles`; `ResolvedData` lacks the key and stored wins by default |
+
+Either answer halves the remaining search space, and neither is available while stored and
+produced are identical.
+
+⚠ **Confirm at `page_component_history` keyed on `page_id`** (NOT `component_id`, which is NULL
+on 44,555 of 45,285 rows) that the rerender actually wrote — and take a same-window positive
+control from another component, or an absence proves nothing.
+
+⚠ **Cost of being wrong:** none to the repro. The defect reproduced on demand three times by
+re-filing a rerender, so the old state is one dispatch away whichever result comes back.
 
 ### What has NOT been established
 
