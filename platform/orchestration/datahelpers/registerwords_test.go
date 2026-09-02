@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"testing"
 )
 
@@ -214,5 +215,72 @@ func TestRegisterWordPatternsCompileUnderRE2(t *testing.T) {
 		if _, err := regexp.Compile(s.Pattern); err != nil {
 			t.Errorf("register banned_shapes pattern %q does not compile under RE2: %v", s.Pattern, err)
 		}
+	}
+}
+
+// ⚠⚠ TestNoNewerRegisterVersionIsUnaccountedFor — the hole in every OTHER test in
+// this file, closed before it could open.
+//
+// Every assertion above is anchored to the literal `BANNED_REGISTER_v1.json`. The
+// register's own usage rule is that "a new version is a NEW FILE line, never an
+// in-place semantic change" — so the day a v2 is cut, v1 keeps existing, keeps
+// saying version 1, and every test above keeps PASSING while the estate runs a
+// register the Go gate does not implement. The lockstep guards drift WITHIN a
+// version and is blind to the ARRIVAL of one.
+//
+// That is this estate's "a census goes stale BY ADDITION" shape pointed at a
+// test: it enumerates from a fixed filename, so a new file is invisible to it,
+// and the failure mode is a confident green.
+//
+// So this test does not read a filename. It ENUMERATES the register directory and
+// asserts the Go constant tracks the HIGHEST version present. A v2 landing makes
+// the build red until registerwords.go moves — which is the contract this package
+// exists to hold, applied to the version axis rather than the word axis.
+func TestNoNewerRegisterVersionIsUnaccountedFor(t *testing.T) {
+	dir := filepath.Dir(registerRelPath)
+	matches, err := filepath.Glob(filepath.Join(dir, "BANNED_REGISTER_v*.json"))
+	if err != nil {
+		t.Fatalf("globbing the register directory failed: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("no BANNED_REGISTER_v*.json found under %s — the register moved; update registerRelPath, BannedRegisterPath and this glob together", dir)
+	}
+
+	verRe := regexp.MustCompile(`BANNED_REGISTER_v(\d+)\.json$`)
+	highest, highestFile := 0, ""
+	for _, m := range matches {
+		sub := verRe.FindStringSubmatch(filepath.Base(m))
+		if sub == nil {
+			t.Errorf("register file %q does not carry a parseable version — the naming convention is what this guard reads", m)
+			continue
+		}
+		n, err := strconv.Atoi(sub[1])
+		if err != nil {
+			t.Errorf("unparseable version in %q: %v", m, err)
+			continue
+		}
+		if n > highest {
+			highest, highestFile = n, m
+		}
+	}
+
+	if highest != BannedRegisterVersion {
+		t.Fatalf(`the highest register version on disk is v%d (%s) but this package implements v%d.
+
+A NEW REGISTER VERSION HAS LANDED AND GO DOES NOT ENFORCE IT. Every other test in
+this file is anchored to the v%d filename and will keep passing regardless, which
+is exactly why this one enumerates instead. To close it, in ONE commit:
+  - update BannedRegisterVersion and BannedRegisterPath in registerwords.go
+  - update registerRelPath in this file
+  - reconcile bannedRegisterWords against the new file's banned_words
+  - confirm every new banned_shapes name exists in NegationShapeNames()`,
+			highest, highestFile, BannedRegisterVersion, BannedRegisterVersion)
+	}
+
+	// And the file the rest of this suite reads must BE that highest one, or the
+	// lockstep is holding Go against a superseded register.
+	if filepath.Base(registerRelPath) != filepath.Base(highestFile) {
+		t.Errorf("the lockstep reads %s but the highest version present is %s — the suite is validating against a superseded register",
+			filepath.Base(registerRelPath), filepath.Base(highestFile))
 	}
 }
