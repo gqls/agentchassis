@@ -7299,3 +7299,22 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   `excerpt` key in content_data->'articles'->0 = "the fixed projection
   executed"; the deck's visual quality = "this page has data". The pair we
   spent the afternoon conflating, now separated by one jsonb key probe.
+
+## 2026-09-02 (~14:5xZ) — c19a975d CONFIRMED a mechanism for 4 of 14; boxingonline's two are in the UNEXPLAINED ten
+
+- Confirmed (their 090): save_page_sections' section-component floor ABORTS THE
+  WHOLE SAVE ("Nothing was written") — the resolved array is computed WITH the
+  fix, then discarded; the row keeps the last successful save. No merge exists
+  to lose to; there is no write. Explains the 4 CANCELLED pages (stale
+  page_components.updated_at + agent_error_log floor refusals).
+- **The 10 COMPLETED pages — boxingonline's index (13:59) and guides-index
+  (13:58) among them — are UNEXPLAINED**: fresh updated_at, pre-fix item shape
+  (no excerpt key, suffixed title), zero floor refusals logged. Something
+  executed a write that produced pre-fix output on a binary containing the
+  fix. Key-presence discriminator holds across all 14. Acceptance probes stay
+  PARKED until the ten are explained; components lane pings.
+- **Banked, the one-column discriminator**: a page byte-identical after a
+  rerender is EITHER a floor refusal (updated_at STALE) or an executed-but-
+  old-shape write (updated_at FRESH) — distinguishable from
+  page_components.updated_at alone, no content read needed. The floor's
+  failure mode is total, not partial.
