@@ -1383,12 +1383,27 @@ func (h *SiteAdminHandlers) HandleRequestChangesWorkItem(c *gin.Context) {
 		return
 	}
 
+	// status='needs_human_review' is the load-bearing half of "not cluster-routed",
+	// and the first cut got it wrong twice over — council 9f1cb042 round 1
+	// (editquality, gating) objected that the empty-handler_agent-at-triaged claim
+	// was asserted, not verified, and verification proved the objection right at
+	// two artefacts: (1) LoadWorkItemsAction's WHERE has no pipeline default
+	// (item_pipeline is optional config) and build-dispatch-loop's load_items
+	// config sets no item_pipeline, so a bare triaged row here WOULD have been
+	// loaded and claimed on the site's next dispatch pick; (2) the schema itself
+	// refuses the shipped shape — CHECK swi_no_handlerless_promotable forbids an
+	// empty handler_agent at triaged/approved/claimed, so the first cut's INSERT
+	// could never have succeeded at runtime. needs_human_review is outside both
+	// the loader's status set (triaged/approved) and the constraint's forbidden
+	// set, and it says what is true: the item awaits human-side routing (the
+	// dispatcher thread), never a cluster handler. approval_mode='manual' stays
+	// as defence in depth against any future status transition.
 	var newID uuid.UUID
 	err = h.db.QueryRowContext(ctx, `
 		INSERT INTO site_work_items (
 			site_id, source, pipeline, item_type, severity, summary,
-			spec, priority, handler_agent, status, created_by
-		) VALUES ($1, 'owner', 'delivery', 'owner_critique', 'high', $2, $3::jsonb, 10, '', 'triaged', 'admin-request-changes')
+			spec, priority, handler_agent, status, approval_mode, created_by
+		) VALUES ($1, 'owner', 'delivery', 'owner_critique', 'high', $2, $3::jsonb, 10, '', 'needs_human_review', 'manual', 'admin-request-changes')
 		RETURNING id
 	`, siteID, summary, specJSON).Scan(&newID)
 	if err != nil {
