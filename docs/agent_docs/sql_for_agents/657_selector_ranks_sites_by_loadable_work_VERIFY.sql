@@ -29,7 +29,12 @@
 
 DO $verify$
 DECLARE
-    v_new_md5 CONSTANT text := 'd29807313a8f6ed543a541c35c1626c4';
+    -- 2026-09-02: 674 (D4 stage B, council 8f4bb57d APPROVED) inserted the spend-governor
+    -- clause 'AND governor_admits(wi.item_type)' into this selector — the md5 moved WITH a
+    -- reviewed change, which is the ONE sanctioned reason to touch this constant (the
+    -- header's do-not-widen warning is about drift, not about lockstep with an approved
+    -- edit; council 8f4bb57d r3, guardian advisory, mandated exactly this same-sitting edit).
+    v_new_md5 CONSTANT text := 'fcbe8821a2a56512911955735796460e';
     v_rows    int;
     v_q       text;
     v_k       int;
