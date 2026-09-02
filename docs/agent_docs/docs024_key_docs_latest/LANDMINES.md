@@ -3760,6 +3760,18 @@ deliberately:
 - **fires when:** you write a predicate meaning "don't touch a page a visitor can
   see" — a replan guard, a re-type guard, an overwrite refusal, a repair
   candidate set
+  > **BROADENED 2026-09-02 (finetuning_uk_service lane) — it also fires when you are
+  > merely COUNTING, and that is how I read straight past this entry.** I sized a bug's
+  > blast radius with `build_status='deployed'` and reported **186** pages; the correct
+  > figure was **203**. The 17 I dropped were all `needs_rebuild` — pages that HAVE
+  > shipped and are flagged to rebuild — and for a defect that bites *at render* those
+  > are the HIGHEST-value pages in the cohort, so the predicate discarded exactly the
+  > ones that mattered most. No write, no guard, no symptom: just a census, quietly 9%
+  > wrong in the direction that understates. **A census is a predicate too.** Reach for
+  > `PageHasShippedPredicateFor` here as well, or spell it `deployed_at IS NOT NULL`
+  > when the question is "has ever been live". Caught by the `bugs_open/114` lane
+  > re-deriving the same cohort independently and getting a different number —
+  > `bugs_open/443`, `bugs_open/412` §11b.
 - **the tell:** nothing. The guard reads perfectly, passes review, and protects
   the 491 `deployed` rows exactly as intended. The 46 `needs_rebuild` rows walk
   straight through it, and **35 of them carry a non-null `deployed_at`** — they

@@ -59428,3 +59428,31 @@ automates elsewhere (wrong-key queries reading as absence — the bugfix_390 lan
   middle of correcting someone else's stale claim, which is precisely when a borrowed number feels
   safest. Tally: **a-relayed-figure-loses-its-date** (kin of *a report is not a measurement* and of
   the handoff's own "a `[MEASURED]` marker on a figure you were TOLD is a false claim").
+
+## 2026-09-02 (b) — I walked into a landmine that was already written down, because I never grepped for it (finetuning_uk_service)
+
+- **The claim.** Sizing `bugs_open/443`, I reported **186** deployed pages exposed on plan-less
+  sites, using `pages.build_status = 'deployed'`.
+- **Why it was false.** The right figure was **203**. The 17-page gap is entirely
+  `build_status='needs_rebuild'` — pages that HAVE deployed and are flagged to rebuild. For a
+  defect that fires *at render*, those are the most valuable pages in the cohort, not the least.
+  My predicate dropped precisely the ones the fix would reach first.
+- **What caught it.** Not me. The `bugs_open/114` lane re-derived the same cohort independently,
+  got 203, and said so. Two dated figures 9% apart is what forced the reconciliation.
+- **The check that would have.** `grep -n "build_status" LANDMINES.md`. **The entry already
+  existed** — "`pages.build_status = 'deployed'` is NOT 'is this page live' — 35 of 46
+  `needs_rebuild` rows have already shipped and are still being served" — and it even names the
+  shared builder to use instead (`PageHasShippedPredicateFor`). I had the answer in the repo and
+  did not look.
+- **Why I read past it, which is the transferable part.** The entry's **"fires when"** described
+  writing a *guard* — "don't touch a page a visitor can see". I was not writing a guard, I was
+  **counting**, so nothing in it matched what I thought I was doing. **A landmine indexed by
+  INTENT is invisible to a reader with a different intent but the same predicate.** The footprint
+  named `pages.build_status`, which WOULD have matched — if I had grepped by symbol rather than
+  relying on recognising the situation. The SessionStart hook could not help: it matches entries
+  against files already dirty in the tree, and a table/column footprint has no path to match.
+  I have broadened that entry's "fires when" to name censuses explicitly.
+- **The tally this belongs to.** "Grep LANDMINES for the SYMBOL you are about to trust" is already
+  in the memory index as a standing instruction. This is a session that had it, skipped it, and
+  paid the documented price — which is an argument for automating the grep at the point a census
+  is written, not for writing the instruction down again.
