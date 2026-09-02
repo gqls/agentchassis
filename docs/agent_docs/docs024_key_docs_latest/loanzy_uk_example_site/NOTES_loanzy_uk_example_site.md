@@ -2388,3 +2388,24 @@ defect it finds" — worked case #3, and this time the finding was the ARCHITECT
 - Lesson: routing done via SendMessage is INVISIBLE to a council reading the plan — when a
   submission claims "routed to X", either produce the artefact in the change or expect the
   round; citing the peer's own correlation ids after the fact is the honest repair.
+
+## 2026-09-02 (late) — 697/698 APPROVED r2; banned_claims shipped (702); and the arming advice found a fleet bug
+- 697/698: **APPROVED round 2** (2 advisories, none high) after the roll killed the first
+  r2 run (stale EXECUTING row, last update predating the second pod start — resubmitted per
+  lendzy's advice, verdict ~40min later).
+- **702 applied**: loanzy banned_claims = 5 (sibling's set; no-credit-check NARROWED — the
+  broad form flags loanzy's own honest calculator sentence; literal-%APR OMITTED — worked
+  examples are pedagogy). Pre-ship scan: 0 hits/27 serving pages, planted control 5/5.
+  **Misstep caught in the same pass: the first scan was a BLIND ZERO** — python's default
+  UA 403'd on every page while exiting 0; the a-post-fix-zero-needs-a-demand-control class,
+  caught because the positive control ran in the same batch (4/5 exposed the second gap:
+  the planted text missed a pattern). Curl re-fetch → honest zero.
+- Migration numbering under load: 699→700→702 in ONE HOUR (loancalculator + park-provenance
+  lanes claimed between my writes) — the register instruction is propagating fleet-wide.
+- **The 414 lane's "read the first findings after arming" advice found bugs_open/437**:
+  3 of loanzy's 30 active pages 404 — never built since 08-18 (`/your-rights.html` linked
+  inline from live copy) — cause: mechanism-flow `steps[].branches` declared array-of-objects,
+  writer emits string, render refuses, two-strike brands `unresolved` = queue reads handled.
+  **119 failures / 6 sites / 14 days** (remortgagecalculator 53, loanzy 35, farmer 24…).
+  Filed at the component-contract family; renumbered 423→437 at filing (423 taken — check
+  the MAX of the sequence, not the last number you saw).
