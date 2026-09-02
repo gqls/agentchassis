@@ -10,7 +10,12 @@ registered through the fully-verified path can still name the wrong rule, perman
 register's write-time verification guarantee is enforced by only ONE of its two write paths; today's
 four hand-written registers (§1d) all bypassed it. **§1d (2026-09-02): day one of the register
 programme found five wrong live claims in one day**, across three independent lanes, just from
-reading the cited source. Nothing built yet. See §3a, §3b, §3d, §3e.
+reading the cited source. ~~Nothing built yet.~~ **CORRECTED 2026-09-02 evening — the TIER is
+unbuilt, but Q7's `banned_claims` half IS built, council-APPROVED and committed (`e5b1a0f01`,
+§3e); it is not yet RUNNING (needs a chassis roll, then the next daily `evidence-freshness`
+pass).** A header reading "nothing built" over a shipped, approved detector is the stale-status
+trap this estate keeps filing — the state now lives in §3e and is stated there in full.
+See §3a, §3b, §3d, §3e.
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
 *"what can I do about the poisoned register hole, and shouldn't compliance be strong for sites that
