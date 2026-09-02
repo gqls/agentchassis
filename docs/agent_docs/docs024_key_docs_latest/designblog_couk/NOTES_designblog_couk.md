@@ -569,3 +569,34 @@ The objections, and their state:
 Trailer state: commit `40dbeaea4` carries `Council-Submitted:` — 098 credits
 it automatically now the correlation is approved; forward-only forbids an
 amend, and none is needed.
+
+## 2026-09-02 (late night) — the component fix landed FAST and repaired NOTHING; guard feasible; IMG-075 re-proven
+
+inline guide imager, three findings (all relayed/recorded):
+
+1. **URGENT, relayed to components:** six of the seven orphan-class components
+   gained an asset-sourced image field at **20:15:47Z** — and the 61 orphaned
+   pages are UNCHANGED; **9 re-rendered since the fix, 0 recovered**. The
+   field is necessary-not-sufficient: only `image_landed` /
+   `section_data_resolved` re-renders RE-RESOLVE; all other reasons redeploy
+   stored HTML. Closing the class = re-resolving re-renders across the 61 +
+   verification at the SERVED bytes (filename-anchored with control), never
+   the component row (which now reads correct everywhere). Also flagged:
+   confirm which seventh component was left out and why.
+2. **The bug_historian guard IS feasible:** `component_expresses`' own
+   predicate (`source LIKE 'site_assets.%' AND type IN ('url','image',
+   'image_url')`) is exactly the discriminator. ⚠ **Validation caveat:** any
+   test of the guard from now on measures the REPAIRED population — the 20:15
+   fix changed what `component_expresses` returns for the class 75 min after
+   the census; a clean result ≠ guard useless (they nearly published that
+   refutation and caught the staleness themselves — a measurement went stale
+   inside two hours). Sequencing agreed all round: canary base rate first;
+   **IMG-077** (a section-scope arm on `check_unrendered_page_imagery`,
+   offered by the bugfix_114 lane) is the cheaper instrument to consider
+   before any new mechanism. One plan, in `bugs_open/114`.
+3. **prior_art's IMG-075 liveness note DISCHARGED:** re-probed post-roll on
+   `v1.0.1355`, both replicas, errors unsuppressed, negative control absent
+   with visible exit code. ⚠ their first probe returned "absent" for all six
+   INCLUDING the must-be-present control — the expired token behind
+   `2>/dev/null` turned a failed exec into the word "absent" (the never-
+   extract-keys/probe-from-pod family's oldest trap, still biting).
