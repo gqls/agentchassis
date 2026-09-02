@@ -3726,3 +3726,13 @@ ai-agent-orchestration.com (their census: 11 affected pages, those three sites, 
 check for repeated component types first and attribute repeats to 443, not to voice. Their
 date discipline honoured and repeated here: the owner's 08-25 "very AI sounding" verdict
 PREDATES this copy (written 08-27) — the two are independent; do not join them.
+
+**443 read-rule sharpened (their verification of my cross-check, confirmed against the layout
+census):** the four finetuning pages are your-own-model, technical-details, playground,
+our-position-on-ai — none of this lane's canaries, so the published register measurements
+stand unasterisked, now verified on BOTH sides. And the fourth page is the counterexample
+that matters: **its two repeating blocks are NON-ADJACENT** (a features block between them;
+"Our Honest Position on AI" twice, also duplicating the page title) — so the repeat check is
+per component TYPE across the whole page, never a consecutive-run scan. Relayed to the 443
+session by them; my identically-specified-slots framing carried into their bug file with
+attribution.
