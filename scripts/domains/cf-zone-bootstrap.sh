@@ -101,6 +101,22 @@ for D in "$@"; do
     echo "status: $ST (poll $i)"
     [ "$ST" = active ] && break
   done
-  [ "$ST" = active ] || echo "NOTE: still '$ST' — pending after NS repoint usually clears on Cloudflare's own re-check within the hour; re-run --check later"
+  if [ "$ST" != active ]; then
+    # a pending zone has two very different causes: propagation (clears alone)
+    # and a PAIR MISMATCH (never clears) — measured 2026-09-02: this account
+    # assigns betty/ivan to new zones while the estate's older zones sit on
+    # alexis/leah, so a delegation copied from an old zone never activates.
+    ASSIGNED=$(parse "$(cf GET "/zones/$ZID")" "','.join(sorted(d['result']['name_servers']))")
+    REG=$(dig +norec NS "$D" @dns1.nic.uk +time=3 +tries=1 2>/dev/null \
+          | awk '/\tNS\t/{print tolower($5)}' | sed 's/\.$//' | sort | paste -sd, -)
+    echo "assigned-ns: $ASSIGNED"
+    echo "registry-ns: ${REG:-unreadable (non-.uk or query failed — compare by hand)}"
+    if [ -n "$REG" ] && [ "$REG" != "$ASSIGNED" ]; then
+      echo "PAIR MISMATCH: the registry delegates to a DIFFERENT pair than Cloudflare assigned — this zone can NEVER activate until the registrar-side NS move to the assigned pair" >&2
+      FAIL=1
+    else
+      echo "NOTE: still '$ST' — pairs match (or unverified); Cloudflare's own re-check usually clears it within the hour; re-run --check later"
+    fi
+  fi
 done
 exit $FAIL

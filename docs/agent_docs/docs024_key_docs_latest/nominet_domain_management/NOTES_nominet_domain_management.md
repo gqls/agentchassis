@@ -130,3 +130,31 @@ Owner ran `python3 scripts/domains/nominet.py login` in-session:
    `.26`, the pod has since moved, and this is the first login from the new
    node. The owner's "all five added" claim of 08-11 now has a second data
    point.
+
+## 2026-09-02 (evening, cont.) — zones created BUT Cloudflare assigned betty/ivan: the cutover now needs the NOMINET side moved
+
+Owner ran `cf-zone-bootstrap.sh` on the four dark domains. All four zones
+created + wired + verified 2/2+2/2 against the reference `[MEASURED
+2026-09-02]` — **and every one was assigned `betty/ivan.ns.cloudflare.com`,
+not alexis/leah**. The registry delegates the four to alexis/leah (the owner's
+batch copied the pair the older zones use), so the zones sit `pending` and
+**can never activate on the current delegation** — pair mismatch, not
+propagation. My script's "usually clears within the hour" note was the wrong
+guidance for this case; fixed in place: it now compares the registry
+delegation against the assigned pair and FAILS loudly on mismatch.
+
+This ANSWERS OPP-014's verify-later question: new zones on this account get
+**betty/ivan** `[MEASURED 2026-09-02, 4/4]`; the 32 alexis/leah zones are the
+older cohort. Consequence for every future cutover: **take the pair from the
+zone-create response, never from a sibling zone** (the rollout RUNBOOK already
+says this; now there is a 4-domain measurement behind it).
+
+**Fix staged (owner-run, our lane's verb):** repoint the four at Nominet to
+betty/ivan via `nominet.py set-ns … --apply`, then re-run the bootstrap (idempotent)
+to re-trigger activation. The alexis/leah delegation currently serving REFUSED
+continues until then.
+
+Also: the owner's first `walk` attempt failed at the greeting (30 s read
+timeout); a credential-free `probe` immediately after answered 2,527 B —
+transient (or a connection-rate throttle from the several connects in quick
+succession), not structural. Walk still owed; retry.
