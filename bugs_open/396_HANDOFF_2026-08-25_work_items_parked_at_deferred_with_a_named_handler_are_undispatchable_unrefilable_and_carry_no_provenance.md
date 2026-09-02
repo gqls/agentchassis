@@ -351,7 +351,7 @@ reason to delay their apply:
 **Current handoff:** `docs/agent_docs/docs024_key_docs_latest/deferred_work_item_park/HANDOFF_2026-08-26b_continue_here.md`
 
 
-## 6f. ✅ 2026-09-02 — THE STANDING RESIDUAL IS CLOSED IN CODE: migration `690` refuses an untraceable park. ⚠ BUILT AND TESTED, **NOT YET APPLIED**.
+## 6f. ✅ 2026-09-02 — THE STANDING RESIDUAL IS CLOSED, LIVE AND PROVEN: migration `690` refuses an untraceable park
 
 **§6 candidate 1 is built.** *"A park writes parked_by + parked_reason or it does not happen —
 enforced where the write happens, not by convention."* That enforcement is now
@@ -360,9 +360,13 @@ enforced where the write happens, not by convention."* That enforcement is now
 committed at `a027bf03b`. Register entry **WII-037**. Council **SUBMITTED**
 `dcd2b3c9-cf38-4887-803a-9df6e27dcefe`.
 
-> ### ⚠ IT IS NOT APPLIED. `schema_migrations` has NO `690` row and the trigger is NOT attached.
-> The apply is a live schema change and was gated in the building session. **Today this protects
-> nothing.** Recipe in §6f's last block. Do not cite WII-037 as a control until you have checked.
+> ### ✅ APPLIED AND PROVEN AT THE ARTEFACT, 2026-09-02 16:16Z
+> `trg_site_work_items_park_provenance` is **attached and enabled** (`tgenabled='O'`) on
+> `site_work_items`, beside the pre-existing `trg_site_work_items_updated_at`. Ledger row present
+> (`690_refuse_untraceable_park.sql`, `applied_by='record-only'`). The migration's own post-check
+> passed **6 assertions before COMMIT**; the independent `_VERIFY` sidecar then passed **all 6
+> against the live trigger, exit 0**, ending in `ROLLBACK` with **zero litter rows**.
+> ⚠ Council `dcd2b3c9` verdict **not yet read** — no approval is claimed.
 
 ### What it refuses, and the scope that keeps it safe
 

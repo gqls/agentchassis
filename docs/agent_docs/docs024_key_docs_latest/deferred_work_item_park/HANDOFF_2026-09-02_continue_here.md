@@ -1,4 +1,4 @@
-# HANDOFF 2026-09-02 — `bugs_open/396`: the standing residual is CLOSED IN CODE. **ONE thing is owed: apply migration `690`.**
+# HANDOFF 2026-09-02 — `bugs_open/396`: the standing residual is CLOSED, LIVE AND PROVEN. **Nothing is owed.**
 
 **Supersedes `HANDOFF_2026-08-26b_continue_here.md`** (same directory), kept for the record.
 Read this box. Everything below it is evidence or recipe.
@@ -11,14 +11,21 @@ Read this box. Everything below it is evidence or recipe.
 > | `sites.lock_except_item_ids` — migrations `632` + `633` | **LIVE, and PROVEN in production** |
 > | `honour_site_lock` arm in `LoadWorkItemsAction` | **LIVE** on `v1.0.1345`, both replicas |
 > | park verb `park_work_items()` — `621`, WII-034 | applied, **DEMOTED** (see the old handoff §5) |
-> | **`refuse_untraceable_park()` — migration `690`, WII-037** | ⚠ **BUILT + TESTED + COMMITTED, _NOT APPLIED_** |
+> | **`refuse_untraceable_park()` — migration `690`, WII-037** | ✅ **LIVE AND PROVEN 2026-09-02 16:16Z** |
 >
-> ## ⛔ THE ONE THING OWED — APPLY `690`. IT PROTECTS NOTHING UNTIL YOU DO.
+> ## ✅ APPLIED 2026-09-02 16:16Z — NOTHING IS OWED ON THIS LANE
 >
-> `schema_migrations` has **no `690` row** and `trg_site_work_items_park_provenance` is **not
-> attached** in production. The change is committed (`a027bf03b`) and inert. **The apply was
-> blocked by the building session's own harness classifier** — a permission boundary on live
-> schema changes, not a doubt about the change. It needs a human, or a session permitted to run it.
+> The owner ran the apply by hand (the building session's harness classifier gates live schema
+> changes, which is why it could not). `trg_site_work_items_park_provenance` is **attached and
+> enabled** (`tgenabled='O'`); the ledger row is recorded `applied_by='record-only'`; **zero litter
+> rows** remain from the self-test. The migration's post-check passed **6 assertions before
+> COMMIT**, and the independent `_VERIFY` then passed **all 6 against the live trigger, exit 0**.
+>
+> ⚠ **The one thing still open is not work: council `dcd2b3c9`'s verdict has NOT been read.**
+> Read it before writing `Council-Reviewed:` anywhere — `098` buckets an unread claim as MISMATCH,
+> which is the coverage report's dishonesty surface.
+>
+> **The commands below are kept as the record of how it was applied, and as the re-verify recipe.**
 >
 > ```bash
 > # 1. apply — the file SELF-TESTS and aborts before COMMIT if the guard does not fire
@@ -109,7 +116,7 @@ at `triaged` — a shape production cannot produce — and was rejected. Correct
 
 ## 4. What is NOT closed — stated so silence is not read as completion
 
-- **`690` IS NOT APPLIED.** The whole of §"THE ONE THING OWED".
+- ~~**`690` IS NOT APPLIED.**~~ **APPLIED 2026-09-02 16:16Z and proven at the artefact.** What remains is only to READ council `dcd2b3c9`'s verdict — do not write `Council-Reviewed:` until you have.
 - **It enforces presence, not truth.** A false `parked_by` still passes. Nothing short of review
   catches that, and it is a much smaller problem than an anonymous park.
 - **It cannot attribute the 170 existing rows.** That information was never written.

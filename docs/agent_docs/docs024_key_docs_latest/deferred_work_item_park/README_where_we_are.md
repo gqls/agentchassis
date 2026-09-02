@@ -323,3 +323,25 @@ is to apply just this one file by hand, which is what I have documented.
 **Withdrawing it is one line**, takes effect instantly, and needs no rebuild — and that line is
 printed in the error message itself, so anyone blocked by this at an awkward moment is told how to
 turn it off without having to find the documentation.
+
+### Applied, and confirmed working — 2026-09-02
+
+You ran it, and it went in cleanly. The safeguard is now live.
+
+Two independent confirmations, not one. The change **tests itself as it installs**: it deliberately
+attempts a nameless hold and refuses to install at all if that attempt succeeds — which is why it
+was safe to hand you the command rather than talk you through checking anything. That passed six
+checks before it committed. Then I ran the separate verification against the now-live safeguard and
+it passed all six again, cleaning up after itself and leaving no test records behind.
+
+I also confirmed the plumbing directly: the new rule is attached and switched on, sitting alongside
+the one that was already there without interfering with it, and the change is recorded in the
+migration ledger with a note explaining it was applied by hand.
+
+**One thing genuinely outstanding, and it is not work:** the peer review I submitted has not
+returned its verdict yet. I have not claimed approval anywhere, and the documents say so — a
+reviewed-stamp on an unread verdict is exactly the kind of false claim the review-coverage report
+exists to catch.
+
+So: the hole that let jobs be put on hold anonymously is closed. It cannot recover the names of the
+170 already sitting there — that information was never written down — but it stops the 171st.

@@ -887,3 +887,27 @@ WII-034 and WII-036 both stated the trigger residual as open, and WII-036's stat
 config half was HELD and the scheduler proof unobtained — both untrue since 08-26. Council seats
 read the register as ground truth, so all five stale claims were struck through and corrected in
 place. WII-036 was also **missing from the concept index entirely**; added, with WII-037.
+
+### ✅ 2026-09-02 16:16Z — APPLIED by the owner, and proven at the artefact
+
+The owner ran the apply by hand (my session's harness classifier gates live schema changes). It
+committed cleanly, with the post-check's own NOTICE in the output: **6 assertions passed before
+COMMIT**.
+
+Then the independent `_VERIFY` sidecar against the **live** trigger: **all 6 passed, exit 0**,
+ending in `ROLLBACK`. Structural confirmation in the same breath —
+`trg_site_work_items_park_provenance` attached and **enabled** (`tgenabled='O'`), sitting beside the
+pre-existing `trg_site_work_items_updated_at` with no interference; ledger row recorded
+(`applied_by='record-only'`, with the note saying why `--apply` was not used); and **zero litter
+rows** (`item_key LIKE 'MIGRATION_690_%'` = 0), so the self-test cleaned up after itself as designed.
+
+⚠ **Council `dcd2b3c9` verdict is still UNREAD.** The commit carries `Council-Submitted:`, which
+asserts nothing and lets `098` credit it automatically once the verdict turns approved. **Nobody
+should write `Council-Reviewed:` for this until they have actually read the verdict** — `098`
+buckets an unread claim as MISMATCH, which is the report's dishonesty surface.
+
+**Worth noting about the apply itself:** the migration is self-proving, so "it applied" and "the
+guard works" were established by the same command — the post-check would have aborted the
+transaction before `COMMIT` if the refusal had not fired. That is the property that made handing the
+command to someone else safe: they did not have to interpret anything, and a broken guard could not
+have installed itself quietly.
