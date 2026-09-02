@@ -148,6 +148,15 @@ additionally carries the owner-confirmed $12k Afternic floor, 2026-07-28).
 They message this session when OUTPUT columns freeze — nothing owed from
 this lane until then.
 
+**Dynadot completeness CLOSED + draft1 refreshed (same evening, later):**
+owner panel cross-check + fresh re-pull confirm `list_domain` complete;
+451 → **453** purely by addition (overhead-cranes.com, paper-cups.com,
+added by the owner today; zero drops). Their inbound CSV refreshed in
+place (`574a04290`); draft1 regenerated from it — **1,320** rows, CSV diff
+exactly the two insertions, fence unchanged at 19. Standing practice per
+their note: the owner adds domains on occasion, so **re-pull all registrar
+CSVs immediately before any sheet the owner will actually upload**.
+
 **Dynadot follow-up (same evening):** appraisals landed for **300 of 451**
 (daily quota fired at exactly 300; remainder resumes tomorrow,
 idempotent). And a correction to "0 listings": `isForSale` is unreliable

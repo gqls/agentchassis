@@ -82,3 +82,9 @@ nameservers move (which nobody is doing), but you'll see them all as
 Your three remaining moves, whenever suits: upload the sheet (or wait for
 the priced version), run the Nominet walk, and send the API-access email
 (RUNBOOK §2) so future changes don't need manual uploads at all.
+
+Small update, same evening: the Dynadot count was double-checked against
+your control panel — complete, and grew to 453 with the two domains you
+added today (overhead-cranes.com, paper-cups.com). The sheet now holds
+1,320. Since you add domains from time to time, we'll re-pull all the
+registrar lists right before any version you actually upload.
