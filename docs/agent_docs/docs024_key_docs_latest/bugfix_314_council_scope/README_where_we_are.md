@@ -134,3 +134,60 @@ request, and crediting them.
 script it touches is advisory and is forbidden from blocking a commit. I am putting it through the
 reviewer council, which is possible only because of the widening this very lane shipped in August;
 before that, fixing this would have required the override.
+
+---
+
+## 2026-09-02, later — what shipped, and the mistake I nearly shipped with it
+
+It is done and committed. But the part worth your time is not the fix.
+
+**The fix, briefly.** The check that runs on every commit now recognises database changes
+the way the migration system itself does, instead of by a filename rule that only accepted
+lower-case letters. It also now looks at parked changes — the ones held back until their turn
+— which it never did before, and which turn out to be the most dangerous kind rather than the
+safest. Nothing was broken by this and nothing was noisy after it: I measured the whole
+library of 1,142 files and the change produces exactly zero new warnings and loses no
+coverage. It cannot block anyone's commit; the hook that runs it is wrapped so that it can't.
+
+**The mistake, which is the reason I am writing this.** The bug file said the two rules had
+"**drifted**" apart. I believed it, measured the size of the gap very carefully, and built a
+guard designed to catch drift — something that watches the original rule and warns if it
+changes. I even tested that guard properly, by deliberately breaking things to check it
+noticed.
+
+Then I checked the one thing I had not: **when**. The two rules never drifted. One was written
+five days after the other and was simply written wrong. They have never once matched.
+
+That single word had quietly chosen the wrong solution. A guard that watches for *change* is
+useless against something that was wrong from the start, because the thing it watches never
+changes. I would have shipped a watchman looking out of the wrong window, with a passing test
+suite to prove it — because I had tested it by breaking the half that was always fine.
+
+So the guard was thrown away and rebuilt as something that compares the two rules directly and
+also pins down the decisions in a table, so that a future session cannot quietly "tidy up" the
+deliberate difference between them. I have corrected the word in the original bug file too, not
+just in my own notes, because the next person to read it will believe whichever copy they find.
+
+**Two things about how the work went that I think are worth noting.**
+
+The first is that telling a neighbouring thread what I was about to touch was worth more than
+the fix. It made them look at their own files, and they found seven live database changes that
+had been applied by hand and never recorded — the exact dangerous state described above, sitting
+unnoticed since August. They have repaired all seven. I have filed that separately, credited to
+them, with the point that the check for it already exists and is free; nobody was running it.
+
+The second is that we corrected each other twice, in both directions, within the hour, and each
+correction was right. They told me something true about their own practice that turned out not
+to be true of anyone else's; I told them a rule that turned out to be backwards. Neither of us
+would have got there alone.
+
+**One loose end I found and did not touch.** While checking my own work I found an unrelated
+test failing in the same area, belonging to another thread. It is not mine and I have changed
+nothing of theirs — I have left them a note with the evidence, and I was careful to say what I
+had *not* established rather than hand them a guess. It did settle one thing on my side, though:
+it is live proof that a judgement call I made an hour earlier was right, because the other way
+round would have had my new check confidently announcing a problem that does not exist.
+
+**Nothing needs a decision from you.** The change is with the reviewer council now. Whatever it
+says, the code is already on the shared branch — that is how this tree works — so if they ask
+for changes I will make them rather than wait.
