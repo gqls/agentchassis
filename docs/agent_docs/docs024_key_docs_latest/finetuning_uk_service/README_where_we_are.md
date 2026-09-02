@@ -1136,3 +1136,41 @@ it repeats itself in the middle, and that is logged as a fault to fix rather tha
 live with. If you would rather it not sit there repeating while the fix is worked out, say so and
 I will take the page down or cut it to fewer sections — both are reversible, and both are your
 call rather than mine.
+
+**2026-09-02 (later) — it turns out the new page was not the problem. Two older ones are worse.**
+
+After I wrote the note above, another session picked up the bug and asked me whether I had any
+context I had not written down. That prompted me to check something I should have checked before
+filing it: whether the other pages built the same way have the same fault.
+
+They do, and they have it worse.
+
+Your main offer page — the £99 one, your-own-model — has three sections in the middle whose
+headings are "How it works", "How it works", and "How it works". Identical, three times. The
+technical page does the same with "The model and its licence". The new playground page, the one I
+told you about earlier, is actually the mildest of the three, because at least its three headings
+are worded differently from each other.
+
+The offer page has been like that since 27 August. Six days, on the page the whole service points
+at. I did not spot it, and I had been on that page repeatedly.
+
+I want to be careful about one thing, because it would be easy and wrong to join it up. When you
+reviewed the site in August and said it sounded like AI, that was on 25 August, and this copy was
+written on the 27th. So this repetition is not what you were reacting to. They are two separate
+problems that happen to sit on the same page.
+
+But it does mean something for the copy work. If someone rewrites that page to sound more human,
+it will still say "How it works" three times, because that is not a writing problem — the system
+asks for the same section three times and has no way to tell the three apart. I have told the copy
+team so they do not spend effort on a page where the most obvious flaw is out of their reach.
+
+The good news is that the fault is narrower than I feared. Across everything we run, eleven pages
+have the shape that triggers it — four of yours, four on gaswholesalers, three on
+ai-agent-orchestration. Three other sites have none at all. So this is a real bug worth fixing
+properly, not a fire.
+
+Someone else has taken the fix on and is doing it framework-wide rather than patching our site,
+which is the right way round. Nothing needed from you. I would only say that the offer page now
+has a visible flaw on it that I did not know about this morning, and if you would rather it did
+not sit there while the fix goes through, that is worth telling me — the same choice as the
+playground page, and the same answer applies: I can shorten it, but I should not hand-write it.
