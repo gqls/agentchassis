@@ -1,6 +1,7 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
-**Status: DRAFT — for the owner. Nothing here is built.**
+**Status: OWNER-DECIDED 2026-09-02 on Q1, Q2 and Q4; Q3's AXIS decided (semantic, not sector) with the
+vocabulary proposed below for confirmation. Nothing is built yet. See §3a.**
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
 *"what can I do about the poisoned register hole, and shouldn't compliance be strong for sites that
@@ -145,6 +146,89 @@ platform will let copy lean on it.
    least an attester and a date.
 
 ---
+
+## 3a. OWNER DECISIONS, 2026-09-02 — and where the axis moved
+
+**Q1 — DECIDED: requiring registers is the right choice.** The tier proceeds, and the register
+requirement (§2b(ii)) is its point rather than a side effect. §4's content work — populating the five
+missing registers — leads, because it is what makes the requirement satisfiable.
+
+**Q2 — DECIDED as proposed: (ii), then (iii), then (i).**
+
+**Q4 — DECIDED as proposed:** the tier is a RECORD (who declared it, when, on what basis), not a flag,
+mirroring `RegulatedAttestation`. A boolean nobody signed is unfalsifiable six months later.
+
+**Q3 — the owner chose a NAMED tier and questioned the boundaries: *"maybe it should have a semantic
+decision layer rather than sector specific"*. I agree, and the estate has already reached for the same
+thing twice without anyone joining them up.**
+
+### Why sector is the wrong key for THESE three enforcements
+
+Read what (i), (ii) and (iii) actually respond to. None of them is about an industry:
+
+| enforcement | what actually drives it |
+|---|---|
+| register REQUIRED | does this site assert **external facts** — rules, figures, data — as true? |
+| fact-quality floor | what is the **cost of a wrong number** here? |
+| practice severity | does anyone **rely** on "we checked X"? |
+
+Sector is a *proxy* for those, and a leaky one in both directions. A mortgage calculator that quotes
+no figures needs less than a foraging site that says which mushrooms are safe; `vetcomparison.uk`
+carries animal-health consequence and is not "finance"; a "know your rights" content site is
+legal-adjacent without being a law firm. And sector boundaries have no ground truth, so every edge
+case becomes an argument — whereas *"does this site quote external rules as fact?"* has a yes or no.
+
+**The estate already agrees with the owner, in two places, and neither is joined up:**
+
+1. **The claims layer's existing controls are claim-shaped, not sector-shaped.**
+   `RegulatedAttestation` is not "this is a finance site" — it is "this firm is authorised, here is the
+   FRN". `OperatingHistoryAttestation` is not "this is a reviews site" — it is "we really do test
+   things, here is who attested". A sector tag would be the odd one out among its own siblings.
+2. **`site_archetype.constraints` is ALREADY a semantic compliance layer** — and nothing enforces it.
+   `loancalculator.co.uk` carries, in prose: *"Never make calculators appear to give regulated
+   financial advice"*, *"Never add real lender recommendations or ranked product tables without FCA
+   authorisation disclaimers"*, *"Never reposition the site as a lender or broker without appropriate
+   regulatory framing"*. `[MEASURED 2026-09-02: 8 sites have an archetype; 5 mention regulation; all 8
+   carry a `constraints` array.]`
+
+⚠ **But `site_archetype` must NOT become the key.** It is **agent-written prose**, and a guarantee
+conditional on an LLM classifier inherits that classifier's gaps. It is evidence that the semantic
+axis is the natural one — not a foundation to enforce on. The tier is declared by a person.
+
+### Proposed vocabulary: a three-rung POSTURE ladder, each rung adding exactly one enforcement
+
+Named, as the owner asked, but named for the **claim relationship** rather than the industry. Ordered,
+because a ladder is what makes "named tier" workable where overlapping booleans would not be — lendzy
+is simultaneously "quotes external rules" and "readers act on it", and a single name has to hold both.
+
+| rung | means | requires |
+|---|---|---|
+| **`standard`** (absent — the default) | the site's claims are about its own offering | today's behaviour, unchanged |
+| **`sourced`** | the site asserts **external** facts, rules or figures as true | a scannable register (§2b(ii)) |
+| **`relied_upon`** | a reader may act on those assertions to their **financial, legal, medical or safety detriment** | everything in `sourced`, plus the fact-quality floor (iii) and raised practice severity (i) |
+
+Worked: `lendzy.co.uk`, `loancalculator.co.uk`, `vetcomparison.uk` → `relied_upon`. A reviews site
+saying "we tested six mowers" → `sourced` at least. `webdesign.uk` → `standard` or `sourced`
+depending on whether its figures are about itself or the world.
+
+### Where sector still has a job — and it is a different one
+
+Not "sector is wrong", but "sector is not the key for these three". It has exactly one real use:
+**a shared banned-claim set** — "guaranteed acceptance", "no credit check", "guaranteed compensation"
+are sector-specific falsehoods, and a `finance` label would let one curated set attach to every site
+in that sector instead of each hand-rolling its own `banned_claims`. That is additive, needs none of
+this design, and can be a separate optional field later. It should **not** be smuggled in as the key
+now, because doing so would tie the register requirement to an argument about industry boundaries.
+
+### The one thing I would push back on, stated so it is on the record
+
+A declared posture is a **judgement**, and judgements drift — a site that starts `standard` and grows
+a rates table is now `relied_upon`, and nothing notices. The Q4 record (who, when, on what basis) is
+the mitigation, but it is a weak one. If this ever needs strengthening, the honest instrument is a
+**detector that flags a mismatch** — a `standard` site whose copy quotes rulebook citations or
+regulatory figures is a candidate for re-posturing — which is cheap to build on the machinery that
+already exists and would be the natural Phase 2. **Not proposed now**; recorded so it is a decision
+rather than an oversight.
 
 ## 4. What this lane has already done, so the RFC is not the whole answer
 
