@@ -58970,3 +58970,51 @@ Family: a-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-
   key — would have burned the session chasing a working system.
   Tally: **instrument-resolution-never-checked-against-expected-magnitude** ×1
   (new); **a-measurement-that-could-not-have-come-out-otherwise** ×4.
+
+- **2026-09-02 — bugfix_414 lane — I published a remedy into a fleet-wide ledger that
+  this estate had already RULED inadequate, twice, and cited one of the rulings myself
+  three days earlier.** Correcting a `LANDMINES` entry (a per-site `banned_claims`
+  pattern that fails to compile degrades **silently** to a literal of its own source
+  text and is armed, listed, counted and inert), I measured the fleet clean — 239
+  patterns, 19 sites, 0 bad, broken controls firing — and then wrote the remedy as
+  **recorded practice**: "Go-compile and probe-fire each pattern before arming", plus
+  two unbuilt options, on the stated ground that *"a clean census does not justify new
+  platform surface"*.
+  **What was wrong.** Practice-as-remedy IS prose-as-control, which the owner ruled on
+  in 2026-08-02 §2 — *"a comment is not a control on a tree this many sessions share"* —
+  and it is `RFC_006`'s exact shape, where a CI-time check **structurally cannot** gate
+  live config so the ruled fix was a **daily runtime check**, not a better document. My
+  own entry had just established that the only existing guard is
+  `TestEveryGlobalPatternIsAValidRegex`, i.e. the CI half; I found that test, cited it,
+  and did not draw the conclusion sitting in it. Worse, the remedy depends on every
+  future seed author reading the landmine first, and the same day's **five hand-authored
+  sets arrived through THREE lanes in one afternoon** — the author population is
+  precisely the one that skims.
+  **What caught it:** the `loancalculator_couk` lane, within the hour, on a mild
+  disagreement I had explicitly invited by naming the unbuilt option. Their third point
+  is the transferable one: **the failure mode here is silent BY CONSTRUCTION** — an
+  inert pattern yields no finding, no error, and a green scan indistinguishable from
+  clean copy — and *a guard whose failure mode is silence is the strongest possible
+  candidate for mechanical verification*, which inverts my "no damage yet, so record it"
+  reasoning: no-damage-yet is what that failure mode looks like either way.
+  **The premise never applied.** I rejected "new platform surface" without checking
+  whether the proposal needed any. It did not: `evidence-freshness` already runs daily
+  (86400s, enabled, completed 09:08:58 that morning) and `resolveEvidenceSites` already
+  selects **every** site with a current `evidence_base` — `input_data` `{}`, `pre_query`
+  NULL — then loads the whole register per site. A compile pass is a few lines in a loop
+  already running over exactly the right population.
+  **The cheap check, and it is two questions, not a judgement:** before offering a
+  documented practice as a control, ask (1) *has this estate ruled on prose-as-control
+  for this shape?* — `RFC_006` and the 2026-08-02 ruling are both one grep away, and I
+  had cited `RFC_006` in my own bug file three days before — and (2) *does the mechanism
+  I am declining actually need new surface, or is there a loop already running over this
+  population?* One `scheduled_tasks` query answered (2) and I never ran it until someone
+  else asserted the answer.
+  **Recorded rather than quietly fixed** because the near-miss shape is the point: a
+  clean measurement made the weak remedy feel earned. The census was real, the controls
+  fired, the number was right — and it licensed a conclusion about *what to build* that
+  it had no bearing on whatsoever. **A good measurement is not evidence for an
+  unrelated design decision.**
+  Tally: **prose-as-control-offered-as-a-remedy** ×1 (new);
+  **rejected-an-option-without-checking-its-actual-cost** ×1 (new);
+  **a-clean-measurement-licensing-an-unrelated-conclusion** ×1 (new).
