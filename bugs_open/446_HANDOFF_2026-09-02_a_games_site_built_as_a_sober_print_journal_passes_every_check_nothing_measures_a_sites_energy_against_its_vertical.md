@@ -117,6 +117,58 @@ for *"short sentences… do not call anything powerful, seamless…"* and got an
 Zero interactive elements, zero games, zero references to any actual game. The sibling
 `gamesdesign.co.uk` has 11 playable tools and 4 games; the practice seat has prose about process.
 
+## 4a. What the improvement loop found when run, ~20:00Z — EVERYTHING, in a mode nothing acts on
+
+Owner: *"this site needs to be seen again by the checkers."* The loop (corr `8b2473ab`) ran
+quality / design / completeness / acceptance discovery, design-audit, visual-design-auditor and
+content-quality-auditor, and filed **27 verdicts on this site, all `filing_mode=record`, status
+`deferred`, summary prefixed "[verdict, not dispatched]"**. Among them, verbatim:
+- *"The articles index page writes about itself and its editorial standards at length but lists
+  zero actual articles, making it a dead end"* (content_rewrite, high)
+- *"The featured article section on the home page is completely empty… a visible broken section on
+  the most prominent page"* (content_rewrite, high) — and its spacing twin: a blank white band
+- *"Hero section uses hardcoded rgba overlay and references a custom --hero-ink property not
+  defined in the theme's CSS variable system, creating an isolated colour island"* (needs_design_review, high)
+- *"--color-cta-bg and --color-badge-bg as #8b0000 (dark red)… but the brand palette specifies
+  --color-accent as #9B4E2A… a clashing dark crimson"* (needs_design_review, high)
+- *"The second heading defines what the site is not, rather than routing the visitor toward what
+  it is"* (content_rewrite)
+- *"No article detail page exists anywhere in the page inventory"* (needs_content_planning, high)
+- *"gamedesign@contactforsales.com… signals a placeholder or third-party lead-capture service,
+  which undermines trust with the professional studio audience"* (×3) — **owner-supplied address;
+  flagged to the owner, not changed**
+- *"no named author, no studio background, no publication history"* (×2) — **the evidence rules
+  forbid inventing one; needs an owner-supplied identity or stays anonymous by design**
+
+So the instruments DISCRIMINATE. §1's premise narrows: the checks that matter are not blind, they
+are **record-only** — and a record-only verdict is the same as no verdict to the site. Whether
+record mode should dispatch on a brand-new build is the experience-loop lane's question; the
+owner's "seen again by the checkers" was satisfied and changed nothing.
+
+## 4b. The wrong-hero mechanism and its true population (components + inline guide imager, ~21:20Z)
+
+`plan_sections_action.go:2897-2936` (components' reading): `BuildRenderContext` injects a
+SITE-WIDE `hero_url` for legacy templates; an "authoritative hero aliasing" block overrides it per
+page — its own comment: *"without it, `{{or .hero_url .background_image}}` picks the site-wide
+value and every page shows the same image"* — and that block is **gated on `sectionHasImageField`**,
+which tests the declared type `== "image" || "image_url"`. A component declaring no image-typed
+field never runs the override. **A fix must add `background_image` typed `"image"`** (copy `hero`'s
+field verbatim); a `string`-typed field leaves the gate false and ships inert while every presence
+check passes.
+
+**Population, derived from the PREDICATE not the reported case** (inline guide imager, in
+`bugs_open/114` second CONTRIB): **seven** components read an image key with no `site_assets`
+source — `hero-about` 28 sites/43 instances, `hero-contact` 25/25, **`hero-tool` 23/76** (the
+largest; nobody had named it), `hero-services` 6/6, `hero-case-studies` 4/5, `teaser-reveal-panel`
+2/5, `hero-use-cases` 2/2. Of **157 live instances, 65 have their own planned+active page-scope
+hero and 61 of those render something else** — orphaned. **Counter-instance:** 4 of the 65 DO get
+their own asset (e.g. `leopardessconsulting.co.uk/tool-automation-savings-estimator`) with no
+field declared, so some other writer supplies it there — **identify that route first; if it
+generalises it is cheaper than editing seven components.** Their sampling lesson, kept: my
+re-measure was right for this site and would have been wrong as a fleet claim — the fleet was
+found by looking at five instances, not by reasoning from the schema. `components` holds the fix
+(council scope); this lane verifies at its own artefact.
+
 ## 4. What passed
 
 `site_unreachable` (clears), `page_content_divergence` (bytes match the commit), the CTA resolver
