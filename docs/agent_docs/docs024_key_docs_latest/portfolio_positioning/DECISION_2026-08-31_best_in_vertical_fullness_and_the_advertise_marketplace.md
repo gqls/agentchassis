@@ -81,3 +81,32 @@ fullness expectation (page-type variety, a feed where the subject sustains one, 
 Build sequencing (single-pagers first, insurance last), the held-at-review gate, the do-not-fire
 rule on websitepromotion/seotools/designblog until Q2 (cluster hub) is answered — **Q2 is still
 open; the owner answered Q3, not Q2.**
+
+---
+
+## EXECUTED 2026-09-02 — three further owner rulings, all acted on the same day
+
+Owner's follow-up message, verbatim on the load-bearing parts:
+
+1. **Negative-identity claims stay OUT of site copy by default, fleet-wide.** *"don't say we
+   don't sell anything, don't say we don't sell advertising (or anything else — we will be
+   selling a lot of things). By default leave this sort of claim out altogether. It is ok in
+   some of the legal/finance compliance sites because it's pertinent but not really anywhere
+   else."* Applied to the advertise brief (below); CONTRIB'd to the copy lane, whose
+   best-in-class propagation carrier is this ruling's natural fleet-wide home. (lendzy's
+   "not a lender" line is the sanctioned exception shape.)
+2. **The fullness release edit: APPLIED.** Brief revision `5dac12fd` (owner original `c9210c3e`
+   preserved): Glossary + News Digest promoted → `valuable`; Platform Guides fan-out explicit
+   ("One page per platform — six pages"); `must_nots[4]` rationale clause dropped ("…it does not
+   sell it" gone — the behavioural rule "Must not promise advertising results to visitors."
+   stays); new must_not prohibiting negative-identity copy; Q1/Q2/Q3/Q5 annotated ANSWERED.
+   `BRIEF_2026-08-31_advertise_co_uk_for_review.md` re-rendered from the revision.
+   **The build is still HELD — the owner applied the edit, not the release.**
+3. **Q2 ANSWERED: advertise.co.uk IS the flagship of the marketing cluster.** (The owner wrote
+   "advertise.uk" — that domain is nowhere in the portfolio or `sites`; read as a slip for
+   advertise.co.uk and flagged back.) The gate on the cluster briefs LIFTED → **all three fired
+   2026-09-02** with directions carrying: flagship deference, per-domain vertical (promotion
+   craft / SEO tooling-as-instrument / design editorial), best-in-vertical + no-omission,
+   fullness, no negative-identity copy. Sites rows `test`+LOCKED per precedent.
+   websitepromotion `a6fae8ee` · seotools `9ca54346` · designblog `d8eb90be` — each holds at
+   `needs_human_review`; before-snapshots in `salvage/<domain>/`.

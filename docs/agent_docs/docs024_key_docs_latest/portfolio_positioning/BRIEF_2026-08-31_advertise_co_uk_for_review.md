@@ -1,6 +1,6 @@
 # Brief for review — advertise.co.uk
 
-> Rendered 2026-08-31 from the live row for reading only. The database row is authoritative
+> Rendered 2026-09-02 from the live row (revision 5dac12fd — owner release edits applied; original preserved under c9210c3e) for reading only. The database row is authoritative
 > (`site_specs` aspect `mission_brief`, `is_current`); this file is a snapshot and is
 > not read by anything. Nothing builds until the review item is released.
 
@@ -82,7 +82,7 @@ The obvious online resources for 'advertising' are: (1) agency and platform mark
 -
   **Kind:** guide
   **Name:** Platform Guides Series
-  **What:** Individual explainer pages for each major advertising platform — Google Ads, Meta Ads, Amazon Advertising, LinkedIn Campaign Manager, TikTok Ads, YouTube — covering: how the platform makes money, how targeting works, minimum budgets, ad formats available, and the platform's specific policies advertisers must follow. Practical and mechanics-focused, not a tutorial for operating the dashboards.
+  **What:** Individual explainer pages for each major advertising platform — Google Ads, Meta Ads, Amazon Advertising, LinkedIn Campaign Manager, TikTok Ads, YouTube — covering: how the platform makes money, how targeting works, minimum budgets, ad formats available, and the platform's specific policies advertisers must follow. Practical and mechanics-focused, not a tutorial for operating the dashboards. One page per platform — six pages.
   **Priority:** valuable
 -
   **Kind:** editorial
@@ -108,12 +108,12 @@ The obvious online resources for 'advertising' are: (1) agency and platform mark
   **Kind:** data
   **Name:** Advertising Glossary
   **What:** A comprehensive, plain-English definition of every term a person encounters when reading about or buying advertising: from Above the Fold to Viewability, including programmatic jargon, platform-specific terms, and measurement metrics. Optimised as a reference page people bookmark.
-  **Priority:** aspirational
+  **Priority:** valuable
 -
   **Kind:** news
   **Name:** UK Advertising News Digest
   **What:** A selective digest of significant regulatory decisions (ASA rulings, Ofcom findings), platform policy changes, and industry-level shifts — published when events warrant it, not on a forced daily schedule. The subject does change enough to sustain modest news coverage, particularly on the regulatory and policy side.
-  **Priority:** aspirational
+  **Priority:** valuable
 
 ## Tool opportunities
 
@@ -147,17 +147,18 @@ False
 - Must not carry or display third-party advertising in a way that undermines its editorial independence, given that advertising opacity is a core subject of the site
 - Must not present the Ad Claim Sense-Check tool as legal advice — it must carry a clear statement that it is for education only and that anyone with a compliance question should consult a qualified lawyer or contact the ASA pre-clearance services
 - Must not imply authorisation by the ASA, CAP, Ofcom, ICO, CMA, or FCA — it is not a regulator and must not be mistaken for one
-- Must not promise advertising results to visitors — it explains advertising, it does not sell it
+- Must not promise advertising results to visitors.
 - Must not scrape, republish, or reproduce ASA adjudication texts in a way that misrepresents their conclusions or implies endorsement by the ASA
 - Must not make specific investment recommendations about advertising spend — the Channel Matcher is an orientation tool, not financial advice
+- Must not carry negative-identity claims in site copy — no 'we don't sell advertising', 'we sell nothing', 'we are not an agency' or similar; by default such statements stay out of copy altogether (owner ruling 2026-09-02: pertinent only on legal/finance compliance sites, which this is not). The behavioural prohibitions in this list constrain what the site does; they are not to be restated as identity copy.
 
 ## Open questions
 
-- Portfolio position is unrecorded: the owner should confirm whether advertise.co.uk is intended to be a broad advertising-as-a-subject reference site (the interpretation used here) or whether it has a narrower intended role — for example, as a lead-generation site for advertising services (which would require a completely different brief and would conflict with the must-nots above)
-- The three estate neighbours (websitepromotion.co.uk, seotools.co.uk, webdesign.uk) suggest a cluster of marketing-adjacent sites; the owner should define whether advertise.co.uk is the 'parent' or hub of that cluster, which would affect navigation, internal linking strategy, and how broadly to cover digital marketing overlap topics like PPC and social media advertising
-- Monetisation model: a site that covers advertising honestly and does not itself sell advertising services needs an alternative revenue model — the owner should decide whether this is display advertising (potentially ironic but viable), affiliate links to advertising tools (HubSpot, Semrush, etc.), a paid directory, or something else, as this affects content tone and what the must-nots permit
+- Portfolio position is unrecorded: the owner should confirm whether advertise.co.uk is intended to be a broad advertising-as-a-subject reference site (the interpretation used here) or whether it has a narrower intended role — for example, as a lead-generation site for advertising services (which would require a completely different brief and would conflict with the must-nots above) [ANSWERED 2026-09-02, owner: broad advertising-as-a-subject reference — build as briefed. A later, deliberate addition will sell advertising space on the estate's own network, directly preferred; pivot-time amendments listed in the lane's DECISION_2026-08-31.]
+- The three estate neighbours (websitepromotion.co.uk, seotools.co.uk, webdesign.uk) suggest a cluster of marketing-adjacent sites; the owner should define whether advertise.co.uk is the 'parent' or hub of that cluster, which would affect navigation, internal linking strategy, and how broadly to cover digital marketing overlap topics like PPC and social media advertising [ANSWERED 2026-09-02, owner: advertise.co.uk IS the flagship/hub of the marketing cluster.]
+- Monetisation model: a site that covers advertising honestly and does not itself sell advertising services needs an alternative revenue model — the owner should decide whether this is display advertising (potentially ironic but viable), affiliate links to advertising tools (HubSpot, Semrush, etc.), a paid directory, or something else, as this affects content tone and what the must-nots permit [ANSWERED 2026-09-02, owner: eventual own-network advertising sales, directly preferred; nothing sold at launch.]
 - The Ad Claim Sense-Check tool covers UK law (ASA/CAP) rather than US law (FTC) — the owner should confirm the site is definitively UK-focused, since the domain is .co.uk but the research surfaced US-centric material, and the editorial angle should be consistent throughout
-- News section viability: ASA rulings and platform policy changes provide a real news stream, but producing a digest requires editorial resource on an ongoing basis; the owner should decide at the outset whether this is in scope or whether the site is purely evergreen reference content
+- News section viability: ASA rulings and platform policy changes provide a real news stream, but producing a digest requires editorial resource on an ongoing basis; the owner should decide at the outset whether this is in scope or whether the site is purely evergreen reference content [ANSWERED 2026-09-02: in scope — the News Digest is promoted to valuable under the owner's fullness ruling.]
 
 ## Research quality
 

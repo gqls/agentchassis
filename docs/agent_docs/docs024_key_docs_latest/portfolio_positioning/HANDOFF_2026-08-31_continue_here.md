@@ -152,3 +152,15 @@ applied). §1d changes accordingly: on release, apply the prepared edit + record
 (monetisation = own-network ad sales, direct preferred). **Q2 (cluster hub) remains the open
 question gating the next briefs.** Fire directions for future briefs now carry best-in-vertical +
 no-omission + fullness until the copy lane's propagation plan ships.
+
+**Addendum 2026-09-02 — the owner ruled; §1d is overtaken by events:** fullness edit APPLIED
+(brief revision `5dac12fd`, original preserved; review file re-rendered) · negative-identity
+claims default OUT of copy fleet-wide (recorded in the DECISION file's EXECUTED addendum,
+CONTRIB'd to copy_quality_two_stage — do not build copy machinery here) · **Q2 ANSWERED:
+advertise.co.uk IS the marketing-cluster flagship** → the three cluster briefs FIRED
+(websitepromotion `a6fae8ee` · seotools `9ca54346` · designblog `d8eb90be`), each `test`+LOCKED,
+each holding at `needs_human_review` on completion, before-snapshots salvaged. **The review
+queue is now up to six briefs; the advertise BUILD is still held — the owner edited, and has
+not yet said "go build". That word, plus reviews of the three cluster briefs, are the owner
+actions the programme now waits on.** Verify the three briefs landed (the fire script's three
+queries per domain) if NOTES 2026-09-02 shows the in-flight marker unresolved.

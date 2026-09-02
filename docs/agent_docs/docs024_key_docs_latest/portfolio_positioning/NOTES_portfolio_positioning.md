@@ -3527,3 +3527,23 @@ compatibility analysed element-by-element: nothing forecloses it, three lines am
 measured: the brief is 16 items / 8 kinds ≈ 30–40+ pages via fan-outs, but glossary + news sit
 in `aspirational`; release edit prepared (two promotions + explicit fan-out counts), NOT applied.
 **Q2 (cluster hub) is still the open owner question — Q3 is answered, Q2 is not.**
+
+## 2026-09-02 — three owner rulings executed: the edit applied, the cluster gate lifted, three briefs fired
+
+Owner's follow-up (recorded in the DECISION file's EXECUTED addendum): negative-identity claims
+default OUT of copy fleet-wide (legal/finance compliance the exception) · apply the fullness
+edit · **Q2 ANSWERED — advertise.co.uk is the flagship of the marketing cluster** ("advertise.uk"
+in the message is nowhere in the portfolio or `sites` — read as a slip, flagged back).
+
+- **Brief revision `5dac12fd` applied** (original `c9210c3e` preserved; first attempt aborted on
+  a syntax error and ROLLED BACK — verified single-current before retrying with a CTE form).
+  Guards asserted every index before edit. Contents per the DECISION addendum. Review file
+  re-rendered. **Build still HELD** — edit ≠ release; the owner has not said "go build".
+- **Cluster briefs fired** (~10:0xZ): websitepromotion `a6fae8ee` · seotools `9ca54346` ·
+  designblog `d8eb90be`. Sites rows `test`+LOCKED. Directions carry flagship deference +
+  per-domain vertical + best-in-vertical/no-omission + fullness + no negative-identity copy.
+  Before-snapshots: `salvage/<domain>/index.html` (8,058 B / 7,741 B / 39,286 B, all real HTML).
+  [IN FLIGHT — outcome below; if absent, the three verification queries in
+  `scripts/fire-brief-writer.sh`'s output are the pickup.]
+- **CONTRIB to copy_quality_two_stage**: the negative-identity ruling handed to the lane that
+  owns copy doctrine + the propagation carrier. We do NOT build fleet copy machinery here.

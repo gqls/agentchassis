@@ -1226,3 +1226,23 @@ spells out the fan-outs; one word from you on release and it's applied.
 
 Still waiting on the one question only you can answer: is advertise.co.uk the flagship of the
 marketing cluster? That's what the next three briefs are queued behind.
+
+**2026-09-02 — your three answers are in effect: the brief is edited, and the cluster briefs are being written.**
+
+The advertise brief now carries your changes: the glossary and the news digest are promoted into
+the plan proper, the platform guides are spelled out as six pages, and — per your ruling — the
+brief now explicitly forbids "we don't sell…" style statements in the site's copy, with the old
+"it does not sell advertising" framing removed. Your original machine-written brief is preserved
+underneath, so the difference is auditable. **The build is still held: you've edited, you haven't
+yet said "go build". One word does it.**
+
+Your ruling about negative-identity claims is recorded as fleet-wide and handed to the thread
+that owns copy standards (the same one whose best-in-class plan is waiting on your go — these two
+rulings will travel together). The legal/finance exception is noted; lendzy's "not a lender" line
+stays.
+
+And with your flagship answer, the three marketing-cluster briefs are being written now —
+website promotion, SEO tools, and design blog — each told advertise.co.uk is the flagship, each
+told to own its own patch, match and better what its competitors offer, and plan a full site.
+They'll hold for your review exactly like the first one. (Small note: you wrote "advertise.uk" —
+we don't own that domain; I've taken it as advertise.co.uk throughout.)
