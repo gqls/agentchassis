@@ -964,3 +964,64 @@ The lane was idle 11 days. Full evidence with queries:
 > `check_undeployed_assets` half 1 once IMG-077 rollups are live — its parked backlog
 > read **1,662** at the council's re-measure, +11 in hours. Evidence: lane NOTES,
 > 2026-09-02 late entry.
+
+### CONTRIB 2026-09-02 (later) — the same defect at FLEET SCALE: 61 pages whose own hero was generated and is not the one they render
+
+**From:** `inline_guide_imagery`, extending the CONTRIB above after the `gamedesign.uk` and
+`designblog.co.uk` lanes measured it on a third site. **Not dispatched anywhere.**
+
+**The third variant, and it is the largest.** Above: a field sourced `site_assets.image` (resolves
+to the page hero) and a field with an EMPTY source (written by nobody). This one is **no image
+field at all, on a component whose template renders one anyway** — the template reads
+`{{or .hero_url .background_image}}` from the render context while the schema declares neither, so
+the per-page hero the resolver holds has nowhere to land and the site-wide value fills the slot.
+
+**Derived from the predicate rather than from a guess list** — I first named three components from
+the reported case, guessed a fourth correctly, and realised the list was a hunch. Every active
+component whose template reads an image key and whose schema names no `site_assets` source
+`[MEASURED 2026-09-02]`:
+
+| component | sites | live instances |
+|---|---|---|
+| `hero-about` | 28 | 43 |
+| `hero-contact` | 25 | 25 |
+| **`hero-tool`** | **23** | **76** |
+| `hero-services` | 6 | 6 |
+| `hero-case-studies` | 4 | 5 |
+| `teaser-reveal-panel` | 2 | 5 |
+| `hero-use-cases` | 2 | 2 |
+
+⚠ **The consequence is NOT uniform, and a blanket claim here would be false** — I sampled before
+asserting and one instance disproved it. `leopardessconsulting.co.uk/tool-automation-savings-estimator`
+renders its OWN `hero-tool-automation-savings-estimator.jpg` despite its component having no such
+field, so some other writer supplies it. Others in the same sample render the homepage's hero, the
+site-wide default, or nothing.
+
+**So the damage was counted rather than inferred** `[MEASURED 2026-09-02]`:
+
+```
+live instances of the class                                   157
+  ...whose page HAS its own page-scope hero, planned + active  65
+  ...where the rendered background is NOT that asset           61   <- orphaned
+```
+
+**61 pages had a hero generated, deployed and made active specifically for them, and render
+something else** — the homepage's hero, a site-wide default, or nothing. Four of the 65 do get
+their own, by whatever route leopardess takes; that route is worth identifying, because it is the
+cheap fix if it generalises.
+
+**Why no existing check sees it.** The page HAS a hero image on screen, so a "missing image" check
+passes; it is a CSS `background-image`, so `<img>`-shaped checks (incl. `check_image_url_404.go`)
+never look; the URL served is real, so a 404 check passes; the asset row is `active` and the plan
+row is correct, so both of those pass. **A page wearing the WRONG image passes every check written
+to catch a page wearing NO image.**
+
+⚠ **And the census that answers "is this asset referenced?" lies here by construction** — matching
+on the asset key's stem finds the CSS class and `data-component` attribute of the component named
+after it. Anchor on the filename with an extension, and run a control. Filed as a LANDMINE
+2026-09-02 with the worked instance.
+
+**The fix named by the reporting lanes** — give these components a `background_image` field sourced
+`site_assets.hero`, the shape `hero` already has (38 sites, 638 instances, working) — is a
+component-library change, not a pipeline one, and has gone to that thread. It is the correct shape;
+the 4 non-orphaned instances suggest checking the alternative route first in case it is cheaper.
