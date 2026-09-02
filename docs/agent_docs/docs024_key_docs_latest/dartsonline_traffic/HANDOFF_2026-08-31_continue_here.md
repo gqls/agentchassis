@@ -204,6 +204,47 @@ a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants e
 > **grip-styles remains the right canary** (the owner named it, and IMG-075's own test fixtures are
 > modelled on it), but do it as a canary, not as if it were the whole job.
 >
+> **⚠ THE "LIVE 2026-09-01 21:00" DATE ABOVE IS ROUND 1 ONLY — corrected 09-02 by the owning lane.**
+> `v1.0.1351` carried round 1. **Round 2's `sectionOrderAgrees` — the guard that stands the binding
+> down on plan-vs-live disagreement, i.e. the thing that stops a silent MIS-bind — only rolled with
+> `v1.0.1354`, pods up 2026-09-02 15:39:42 and 15:53:18.** So there was an unguarded window of about
+> 18 hours. `inline_guide_imagery` probed at ~13:20 against `v1.0.1352` and correctly found it
+> ABSENT; my probe found it PRESENT because it ran after the 15:39 roll. **Both readings were right;
+> they are different binaries.** Nothing to redo — but do not cite "live since 09-01" for the guard.
+>
+> **THE PER-PAGE CENSUS, from `inline_guide_imagery` and re-derived independently here
+> `[MEASURED 2026-09-02]` — they agree exactly:**
+> - **9 of 13 `/blog/*` pages BIND today, and `grip-styles` is one of them** (plan 3 / live 3,
+>   sequences matching): barrel-weight, beginners, board-setup, brand-comparison, flight-shapes,
+>   **grip-styles**, shaft-length, steel-tip-vs-soft-tip, tungsten-guide.
+> - **4 do NOT, and not because of drift — they have ZERO rows in the current plan** while carrying
+>   three built components each: `barrel-shapes`, `checkout-chart`, `dart-balance`, `dart-points`.
+>
+> > **⚠ THOSE FOUR ARE THIS LANE'S OWN, AND THE CAUSE IS IN OUR HISTORY.** They are *exactly* the
+> > four articles commissioned by `SQL_2026-08-20_content_batch_week1.sql` — "barrel shapes, dart
+> > balance, points, and a checkout chart" in `README_where_we_are`'s own words. **So that content
+> > route built and deployed four live pages without writing plan sections for them.** They serve
+> > fine today; the exposure is that they exist in the built world and not in the planned one, so
+> > **a re-plan has nothing to preserve them from**, and they can never bind section imagery.
+> > Worth attention independently of imagery — and worth checking before the next content batch,
+> > because if the route still does this, every future article lands the same way.
+>
+> **⚠ SEQUENCE MATTERS, and getting it wrong looks like the mechanism failing.** The build path
+> compares the plan against `pages.sections` (synced from the plan) so they agree during a rebuild
+> and the binding engages; the **re-render** path compares against stored `page_components`. Between
+> a recompose and the rebuild landing, a re-render therefore sees plan≠live and stands down —
+> **correctly**, because the ordinals name a composition the page does not have yet. So:
+> **recompose → seed rows → rebuild → verify → only then re-render freely.**
+>
+> **⚠ THERE IS NO PRECEDENT TO COPY. Treat the recompose as an experiment on a live page.**
+> `[MEASURED 2026-09-02, inline_guide_imagery]` 432 active guide/blog pages fleet-wide, 330 with a
+> hero, and **ZERO with more than one illustrated section**. Measured here from the other side and
+> agreeing: **only 9 active pages in the entire estate carry an illustration-capable component at
+> all** (across 8 sites — idea.uk 2, then apis.uk, vonc, remortgagecalculator, oufe, robot-hands,
+> webdesign.uk, lendzy with 1 each), and **32 sites have none**. **grip-styles would be the first
+> page in the estate composed this way**, so there is nothing to compare against and the
+> verification step is the whole safety margin.
+
 > **⚠ TWO THINGS THAT WILL MAKE THIS LOOK DONE WHEN IT IS NOT:**
 > 1. **Grade it with a `content_rewrite`, NOT a page re-render.** Only `reason=image_landed` and
 >    `reason=section_data_resolved` re-resolve; **every other re-render reason redeploys the stored
