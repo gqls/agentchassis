@@ -3745,3 +3745,14 @@ surface as `sections_ready[].subject`. (2) Parked proposal `8003c51a` (your-own-
 CANCELLED with reason: the page is the 443 repair canary and will be rebuilt under it,
 invalidating the exact-match edits — a fresh hand-fire against the repaired page is the
 replacement if wanted. It was never in the owner's announced batch, so his queue is untouched.
+
+> **CORRECTED 2026-09-02 (444 session's census):** my "empty-room instances 3–6" line
+> overcounted — of the seven original zero-content instances, **only the glossary-shaped
+> pages are writer prose**; the directory pages rendered HOLLOW after a resolver error (two
+> guards in series, their bug file) and no writer wrote a manifesto there. The
+> title-promise/empty-room demonstration scopes to the WRITER-PROSE shape only: **a titled
+> promise with no data behind it on a page the plan does not type as a listing** (their gate
+> — 6525b45ae, c0990eb3 r2 under review — refuses typed-listing zero-source pages at plan
+> time; its stated blind spot, pinned by their test + register BLD-028, is a listing-in-fact
+> page typed `content` with generic sections — exactly both shipped glossaries, exactly ours).
+> Their migration 720 additionally discourages planning such pages without a producer.
