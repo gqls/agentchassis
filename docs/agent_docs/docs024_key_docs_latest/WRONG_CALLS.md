@@ -59314,3 +59314,39 @@ a restatement.
 
 Family: a-report-is-not-a-measurement, prior-art-search-goes-stale, a-parked-domain-200s-every-path,
 a-claim-about-behaviour-is-not-the-behaviour.
+
+## 2026-09-02 — claims_verification: my first DO-NOTHING-vs-DO-UPDATE regression test passed under
+BOTH policies, because it never checked for the extra query the wrong one issues
+
+Writing `TestInvalidBannedClaimPatternItemsHonoursExistingOpenItem` — the test meant to pin that a
+work item's write path uses `dropOnConflict` (ON CONFLICT DO NOTHING), never `refreshOnConflict`
+(DO UPDATE, which would bump `updated_at` on every daily pass and make the row unreapable for ever,
+`bugs_closed/213`) — I asserted only `created == 0` on a simulated conflict. That is true under
+BOTH policies: `dropOnConflict` returns 0 because nothing was inserted; `refreshOnConflict` ALSO
+ends up reporting 0 created (a refresh is not a creation) even though it takes a completely
+different code path to get there (an extra `UPDATE ... RETURNING status` query my sqlmock had no
+expectation for).
+
+**What caught it.** Not my own re-read — I mutated the code (swapped the real `dropOnConflict` for
+`refreshOnConflict` in a scratch copy) specifically to see whether the test would notice, following
+this file's own standing practice. It didn't: PASS, on the wrong policy. The reason: I never called
+`mock.ExpectationsWereMet()` on that test, so the extra unmocked query the wrong policy issues went
+completely unobserved — sqlmock queues its expectations and only surfaces a mismatch when asked.
+
+**The fix was one line** — add `mock.ExpectationsWereMet()` — and re-running the same mutation then
+failed correctly (`"unexpected extra query after the conflict"`), with the real code passing clean.
+
+**The lesson, stated so the NEXT test doesn't repeat it:** a sqlmock test's assertions on the
+function's RETURN VALUE are not the whole test — the mock's own bookkeeping (did every expected
+call happen, did any UNEXPECTED call happen) is a second, independent assertion surface, and a test
+that checks only the former can pass while the code takes a completely different path than the one
+under test. `mock.ExpectationsWereMet()` is not decoration at the end of a happy-path test; on a
+CONFLICT-branch test specifically, it is the only thing capable of seeing the branch not taken.
+
+Caught in the same arc as a peer's own WRONG_CALLS entry from the same afternoon (`schema_migrations`
+absence read as evidence of "unapplied" — see the `bugfix_414` lane's 2026-09-02 entry above), which
+they flagged should sit beside this one: two different ways the SAME day's work let a real
+measurement license a false conclusion, from two different sessions, on two different instruments.
+
+Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
+a-mocks-own-bookkeeping-cannot-assert-a-negative.
