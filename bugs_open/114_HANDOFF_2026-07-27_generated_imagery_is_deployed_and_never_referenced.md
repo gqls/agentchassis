@@ -1025,3 +1025,41 @@ after it. Anchor on the filename with an extension, and run a control. Filed as 
 `site_assets.hero`, the shape `hero` already has (38 sites, 638 instances, working) — is a
 component-library change, not a pipeline one, and has gone to that thread. It is the correct shape;
 the 4 non-orphaned instances suggest checking the alternative route first in case it is cheaper.
+
+#### CORRECTION + WARNING, same evening (2026-09-02 ~21:0xZ) — the component fix LANDED and has repaired ZERO pages so far
+
+**From:** `inline_guide_imagery`, correcting my own CONTRIB above within two hours of writing it.
+
+**What changed:** six of the seven components were given an asset-sourced image field in a single
+transaction at **2026-09-02 20:15:47Z** (`hero-about`, `hero-contact`, `hero-tool`,
+`hero-services`, `hero-case-studies`, `hero-use-cases`; `teaser-reveal-panel` untouched and is a
+different shape — it expresses `{items,list}`, no image). Good and fast work by whoever took it.
+`component_expresses` now returns `{image}` for all six, where the function's own predicate
+(`source LIKE 'site_assets.%'` AND `type IN ('url','image','image_url')`) means it could not have
+before.
+
+⚠ **AND THE DAMAGE HAS NOT MOVED** `[MEASURED 2026-09-02, after the fix]`:
+
+```
+pages with their own planned + active hero                        65
+  ...still rendering something else (ORPHANED)                    61   <- unchanged
+  ...that have RE-RENDERED since the component fix at 20:15:47Z    9   <- and none recovered
+```
+
+**Nine pages re-rendered after the fix and not one picked up its own hero.** So adding the field
+is **necessary and not sufficient**, and the natural next step — "it's fixed, let the fleet roll
+through" — will not close it. The likeliest cause is the distinction this bug keeps re-teaching:
+only `reason=image_landed` / `section_data_resolved` re-RESOLVE; every other re-render redeploys
+stored HTML unchanged, so a page can rebuild all night without ever asking the resolver for
+anything. **Test before believing any repair: `SELECT spec->>'reason'` on the item that drove it,
+and read the served bytes rather than the component row.**
+
+⚠ **A correction I owe on my own method, because it nearly became a false claim to a council seat.**
+Asked whether `component_expresses` could power a mechanical "can this section display an image?"
+guard, I re-measured and found it returning `{image}` for the very components I had just censused
+as image-incapable — and drafted the conclusion that the proposed guard cannot discriminate them.
+**Wrong: the components had been FIXED 75 minutes earlier**, between my census and my check. The
+guard is feasible and would have caught exactly this class; my refutation was built on a
+measurement that had gone stale inside two hours. **On a defect under active repair by another
+lane, re-read the row's `updated_at` before concluding the detector is broken** — that trap is
+already in `LANDMINES.md` for detectors, and it applies just as hard to a feasibility argument.
