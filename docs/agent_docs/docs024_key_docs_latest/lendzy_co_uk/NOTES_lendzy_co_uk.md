@@ -306,3 +306,29 @@ Also recorded: the 47 items need no hand-retraction — `unbuilt_internal_link` 
 verifier (`check_phantom_internal_links.go:451`) judging by `NeverDeployedPagePredicate`, so they
 resolve on revalidation once the pages stamp. Hand-closing them would blind the mechanism that
 filed them.
+
+## 2026-09-02 (j) — the register programme's first day, fleet-wide: four sites done, five wrong claims found
+
+The owner's decision 5 propagated faster than expected — both notified lanes executed same-day:
+
+| site | migration | facts | wrong claims found in live copy |
+|---|---|---|---|
+| lendzy.co.uk | 695 (council r2 in flight) | 8 | **2** — the 6.7.17/6.7.23 pair (this lane, (g)) |
+| loanzy.uk | 697 (applied) | CCA s.66A, StepChange, MaPS | **1** — MaPS grouped under "FCA-authorised services"; it is the statutory guidance body, not an FCA firm |
+| farmerinsurance.uk | 698 (applied; supersede-and-merge preserving existing facts) | ICOBS 8.1.1, DISP 1.6.2/3.6.6, ELCI 1998 reg 3 | 0 (insurance sources; method held unchanged) |
+| loancalculator.co.uk | 699 (applied) | 12 (9 statute: CCA 1974 + SIs) | **2** — "ten working days" that is 12 (SI 1983/1564 reg 4); an invented "10%/12mo" ERC-free threshold that is £8,000/12mo (s.95A(2)(a)) |
+
+**loancash.co.uk is the remaining gap — no session** (and it serves lendzy's propagated wrong
+rollover cite, which 696 fixes as a specific error; its register remains unwritten).
+
+New traps contributed by the peers, folded into RUNBOOK §8b/8c with attribution: Cloudflare-
+challenged hosts (maps.org.uk, moneyhelper.org.uk) pass a human eyeball and fail unattended for
+ever — refuse them at write time; gov.uk founding-name slugs; legislation.gov.uk 200s wrong paths
+exactly as the FCA host does; near-identical 1983 SI names (1569 vs 1564 — only reading the
+schedule discriminates). The host-admission rule is forwarded to claims-verification as design
+input for the registration path and the mirror.
+
+**The base rate, stated because it is now measured and it reframes the programme:** every lane
+that ran the method found errors. Five wrong live claims across three sites in one day is not a
+tail risk; it is what "unchecked citations" means at this fleet's scale. The Q6 checker and the
+mirror are being built against that rate, not against a hypothetical.
