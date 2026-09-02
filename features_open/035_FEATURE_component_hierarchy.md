@@ -624,6 +624,21 @@ P1–P3 have held on editorial pages for real weeks. The un-owned-page question
    found afterwards. *Falsifier for P1: compose one page, then assert the
    occurrence sequence the flat pass computes is unchanged from before
    composition — not merely that the page renders.*
+   **Related, and settle it BEFORE writing any plan-vs-live comparison in P1**
+   (contributed by the same lane, 2026-09-02): `check_section_source_drift`
+   already compares the plan against `pages.sections`, but it views **both sides
+   through `MergeLockedPageSlots`, so a locked row is NOT drift** — whereas an
+   occurrence-based guard must stand down on exactly that input, because the
+   ordinal indexes the plan and a locked insertion shifts every later occurrence.
+   Same shape, different second operand, **inverted polarity**. Reusing the
+   existing drift check for a composition-ordering guard would therefore be a
+   correct-looking reuse that is wrong in the one case it exists for. Their
+   second finding is the reason the key matters at all: `slot_name` is NOT the
+   component name — the worked case is `loancalculator.co.uk/index`, plan
+   ordering 1 `tool-loan-repayment` vs live position 2 `slot_name='tool-3'` with
+   component function `tool-loan-repayment`, i.e. identical composition, different
+   spelling. **Count rows and resolve the function; never match by name** (a hasty
+   by-name match in that file is `bugs_closed/044`).
    ⚠ Note the ordering trap this creates with §6.x's other work: the guard the
    other lane relies on is **not yet in the running binary** (their round-2
    commit missed the 2026-09-02 12:28 roll), so a P1 that lands before their
