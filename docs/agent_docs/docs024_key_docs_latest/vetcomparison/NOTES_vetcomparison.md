@@ -1820,3 +1820,20 @@ thin page (IMG-075 first-exercise risk stated); (c) deadline calculator: build (
 or drop the row+nav_label. Phase 3, post-701 reads — content-quality-auditor + experience
 re-run + rendered-heights check for the proportion hypothesis. Sequencing rail unchanged:
 NOTHING writes index components/plan until 357's migration 701 lands.
+**Final refinements, same exchange (2026-09-03):** (a) vigilant designer's SECOND self-correction:
+the accent is VESTIGIAL, not absent — six stylesheet rules: ONE static visible use
+(`.latest-news-section .section-heading::before` decorative mark), two hover states, three dead
+(.news-more-link); their regex had only matched the alias because every real use carries a
+fallback. Latent second identity: the fallback is AMBER #d97706 throughout — if --color-accent
+ever unsets, the page goes amber. (b) They then independently CONFIRMED my grey-items correction
+(4.14:1 on page bg, 4.33:1 on card white — real, standing, not accent) and put their
+inference-as-finding error on the record themselves. (c) Their counting caution matters for the
+post-701 fix: rendered-element counts (result-count ×1, tool-description ×1, disclaimer ×1
+static) differ from raw occurrences, AND result-count is near-certainly runtime-injected by the
+tool — **one browser check of the tool's dynamic output before sizing the template edit** ("1
+element" vs "every result row" are different jobs). (d) Consensus ranking: **primary #2563eb at
+4.94:1 (0.44 headroom, load-bearing) is the sharpest single finding.** (e) 357: pilot GREEN
+(md5 unchanged through a real rerender); remainder batch incl. our index awaits the OWNER'S
+hand; post-apply the 3-grey fix = one edit to tool-vet-comparison-vetcomparison-uk's
+html_template + rerender. (f) The colour-churn memory line was already corrected by another
+session (reference_values not a pin, owner 09-02) — no edit owed.
