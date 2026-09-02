@@ -1246,3 +1246,24 @@ website promotion, SEO tools, and design blog — each told advertise.co.uk is t
 told to own its own patch, match and better what its competitors offer, and plan a full site.
 They'll hold for your review exactly like the first one. (Small note: you wrote "advertise.uk" —
 we don't own that domain; I've taken it as advertise.co.uk throughout.)
+
+**2026-09-02, later — you said "go build advertise", and the build is running.**
+
+Thanks for confirming the domain — advertise.co.uk it is (advertise.uk isn't in the portfolio,
+so everything was already pointed at the right one).
+
+The release went exactly as the machinery was designed to work. Your review item is closed with
+your approval recorded on it. The build queue was handed the "research and classify this domain"
+task that starts every framework build, and the site row was unlocked as the last, deliberate
+step — so nothing could start until everything was in place. The pipeline picked it up within
+thirty seconds of the unlock, and as I write this the classifier is reading the site's specs —
+including your edited brief, with your changes and the original preserved underneath.
+
+This is the first of the 22 remakes to go through the framework end to end, so we're watching it
+closely: research first, then strategy, the content plan, the pages themselves, and finally
+deployment to the live domain. The old single-page site (the Drupal feed aggregator) is safely
+snapshotted and will be overwritten when the new site deploys. The guard we agreed on stays in
+force at build review: no "we don't sell advertising" style copy anywhere on the served site, so
+the door stays open for selling space on the network later.
+
+The five other briefs (three real, two test) are still in your queue, holding for your review.

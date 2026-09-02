@@ -164,3 +164,16 @@ queue is now up to six briefs; the advertise BUILD is still held — the owner e
 not yet said "go build". That word, plus reviews of the three cluster briefs, are the owner
 actions the programme now waits on.** Verify the three briefs landed (the fire script's three
 queries per domain) if NOTES 2026-09-02 shows the in-flight marker unresolved.
+
+**Addendum 2026-09-02b — "go build advertise" ARRIVED and was EXECUTED; §1d is closed for №1:**
+the owner confirmed the domain (advertise.co.uk; advertise.uk was a slip, now owner-confirmed)
+and said the release word. Released 12:13–12:15Z per the review item's own `how_to_release`:
+review item `518ed780` → complete (approved_by owner) · `needs_domain_research`
+`research_advertise.co.uk` created triaged (domain-submitter shape) · site `d991a5b8` off
+`test`+LOCKED → `active`, unlock LAST. Claimed by `build-dispatch-loop` 12:15:21Z, first tick;
+classifier orchestration `e44a44d7-…` running against the owner-edited brief (`5dac12fd`).
+**The lane's live task is now WATCHING remake №1 end-to-end** (NOTES 2026-09-02 (later) has the
+watch-points: cascade after classifier, handshake-race caution, the negative-identity copy guard
+at build review, site row reaches `deployed` by pipeline not by hand). The owner's queue still
+holds five briefs (websitepromotion / seotools / designblog real; indoorplanters /
+buytoletcalculator test).

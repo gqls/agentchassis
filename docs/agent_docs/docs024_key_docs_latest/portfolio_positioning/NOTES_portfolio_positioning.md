@@ -3555,3 +3555,41 @@ all three carry the negative-identity rule and name the flagship (websitepromoti
 differentiation; the other two elsewhere — their verticals sit further from the flagship's
 ground, review-gate judgement). Review renders: `BRIEF_2026-09-02_<domain>_for_review.md` ×3.
 The owner's queue: SIX briefs (3 real, 2 test, advertise edited-awaiting-"go build").
+
+## 2026-09-02 (later) — "go build advertise": the first remake RELEASED, build running
+
+Owner's message: *"I own advertise.co.uk not advertise.uk, sorry. go build advertise."* — the
+domain confirmation closes the 09-02 slip question exactly as we read it (advertise.co.uk; the
+lane had flagged it back), and "go build" is the release word §1d was waiting on.
+
+**Release executed 12:13–12:14Z, per the review item's own `how_to_release`** (spec of work item
+`518ed780`: "Create the needs_domain_research item for this site (handler
+domain-research-classifier)…" — no held research item existed, verified before acting):
+
+1. `needs_brief_review` `518ed780` → `complete`, `approved_by='owner'`, result records the
+   release, the brief revision (`5dac12fd`, still `is_current`, owner original `c9210c3e`
+   underneath — re-verified before release) and the owner instruction verbatim.
+2. Inserted `needs_domain_research`, `item_key='research_advertise.co.uk'`, status `triaged`,
+   handler `domain-research-classifier`, priority 5 / severity high / pipeline build — the
+   domain-submitter Flow A shape (matched against `research_farmerinsurance.uk`), source
+   `brief-release`, spec carries domain + brief revision. Dedup index checked first: key free.
+3. **The deliberate release act, separate transaction, LAST**: site row `d991a5b8` off
+   `test`+LOCKED → `status='active'` (upsertSite's value, pilot-seed precedent), `locked_at`
+   NULL — guarded on the exact prior values. Work items first, unlock last, so the moment of
+   release was a single act on an otherwise-prepared board.
+
+**Dispatch verified at every hop, not assumed**: selector-eligibility dry-run (the live
+`find_dispatchable_site` CTE, expanded) showed advertise as the ONLY eligible site fleet-wide;
+`build-pipeline-trigger` (30s cadence) fired 12:14:58Z; item CLAIMED by `build-dispatch-loop`
+12:15:21Z — first tick after release; handler orchestration `e44a44d7-682d-4a14-840d-74c34c6aa78b`
+EXECUTING `read_site_specs` for advertise.co.uk at 12:15:2xZ. Flow A read-and-extends: the
+classifier is reading the specs that include the owner-edited mission_brief.
+
+Watch-points for the end-to-end (this is remake №1 — the thing we watch, per §1d):
+- `SELECT current_step, status FROM orchestration_states WHERE orchestration_id='e44a44d7-…';`
+- the cascade after the classifier: strategy → briefing → plan → build items on site
+  `d991a5b8`; spawn→call handshake races are a known fleet flake — never cancel a FAILED
+  handler row pre-diagnosis (memory: 2 COMPLETED / 2 FAILED all-history).
+- at build review: the DECISION's guard — no negative-identity copy baked into chrome/footer
+  ("we don't sell advertising" must not become load-bearing served copy).
+- the site row should reach `deployed` by pipeline action, not by hand.
