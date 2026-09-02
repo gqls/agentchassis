@@ -1366,3 +1366,25 @@ owner's next release carries dec5ad61b → stamp-check both replicas → apply 6
 its header, incl. the 657-VERIFY lockstep + canary) → drop suffix + record → owner sets the
 budget (recommendation $4,500 given) → owner flips enabled. Three commits this arc carry
 `Council-Submitted:`; this NOTES commit carries the earned `Council-Reviewed:`.
+
+### 2026-09-02 — 384's ask answered: the floor meter has a SECOND blind spot (zero-eligible sites), and the detected→triaged promoter is firing-but-strict fleet-wide
+
+The 384 lane asked three dispatch questions (leopardess blog listing never rebuilds — no
+build-dispatch-loop in 24h). Answers, all `[MEASURED 2026-09-02]`:
+1. **Promotion = `detected-item-promoter`** (scheduled_tasks, 900s, fire_message=f) —
+   ENABLED and ticking (18:18Z today), INDEPENDENT of site selection: their
+   selection-first-deadlock hypothesis refuted. But it promotes through deliberate DOORS
+   (pipeline IN build/content/design; handler registered+active; a known-good door — the
+   444/430/454 door-closers), and **30 sites hold detected>0 with ZERO triaged/approved**
+   (webdesign.co.uk 158 since 08-04, finetuning 77 since 07-26, leopardess 51). Whether the
+   doors are correctly parking low-value work or over-holding is OPEN — reading the full
+   pre_query + the three cited bugs decides it; flagged to 384, either lane may file after
+   that read. ⚠ my own 08-30 "backlog fully drained" partly re-reads under this: empty
+   triaged ≠ no demand — some demand was parked at 'detected'.
+2. `sites.build_status` is NOT read by the selector (the verified clause list) — inert for
+   dispatch.
+3. **Their instinct confirmed: the floor is BLIND to zero-eligible sites** (its WHERE
+   requires eligible rows). RUNBOOK gains the zero-eligible census beside the floor, with
+   the promoter-state read attached (a big census = a promotion question, not a selector one).
+Their born-terminal find (insertWorkItem two-strike arm counting another producer's
+successes) is 389/CONTRIB territory — noted, not this lane's.

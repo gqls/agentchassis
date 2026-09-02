@@ -275,6 +275,29 @@ FROM ranked r GROUP BY domain, site_id
 ORDER BY 3 LIMIT 25;
 ```
 
+## Zero-eligible starvation census (added 2026-09-02, prompted by the bugs_open/384 lane; the floor CANNOT see this)
+
+```sql
+-- ⚠ THE FLOOR METER'S BLIND SPOT: the per-site floor requires ELIGIBLE (triaged/approved)
+-- rows to exist — a site starved by having NONE (everything stuck at 'detected', awaiting
+-- the detected-item-promoter's doors) contributes NOTHING to the floor and reads as absence.
+-- Same damage class as 413: invisible to every aggregate. [MEASURED 2026-09-02: 30 sites
+-- held detected>0 with zero triaged/approved; worst webdesign.co.uk 158 rows since 08-04.]
+-- Run this BESIDE the floor. Interpretation needs the promoter's state next to it:
+-- detected-item-promoter (scheduled_tasks, 900s) fires independently of site selection and
+-- holds rows back through deliberate doors (pipeline allow-list, handler-registered,
+-- known-good — door-closers from 444/430/454). A big census here is a PROMOTION question,
+-- never a selector one.
+SELECT s.domain, t.det, t.oldest::date oldest_detected
+FROM (SELECT site_id, count(*) FILTER (WHERE status='detected') det,
+             min(created_at) FILTER (WHERE status='detected') oldest
+      FROM site_work_items GROUP BY site_id
+      HAVING count(*) FILTER (WHERE status='detected') > 0
+         AND count(*) FILTER (WHERE status IN ('triaged','approved')) = 0) t
+JOIN sites s ON s.id=t.site_id ORDER BY t.det DESC LIMIT 15;
+SELECT name, enabled, last_triggered_at FROM scheduled_tasks WHERE name='detected-item-promoter';
+```
+
 ## Phase 3 apply + post-checks (added 2026-08-26 — apply ONLY per the HANDOFF gate)
 
 ```bash
