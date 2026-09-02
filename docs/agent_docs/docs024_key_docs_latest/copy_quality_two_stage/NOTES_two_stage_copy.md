@@ -3471,3 +3471,38 @@ thing must be carried by the body or the page not written — sibling of the emp
 demonstration, one level up), **(b) the CQ-032 tell built into the audit/scanner family, (c)
 the guide-rewrite execution under the new ruling** (see ledger 2026-09-02: shorter licensed).
 Cut-line ruling gives time to do (a) properly — writer-side, not per-site patching.
+
+---
+
+## 2026-09-02 — the offer lane's fleet audit: the exemption is a LICENCE channel; the word arm SHIPPED (v1.0.1352)
+
+Their audit (vigilant_designer, their NOTES hold the query): 11 writer-visible aspects carry
+BANNED_REGISTER violations fleet-wide; the three fields `rewrite_negations` EXEMPTS as
+brief-supplied (content_direction.formatted, identity.key_differentiators/target_audience)
+carry constructions on **32 of 34 sites** — so a dirty brief does not merely evade the gate,
+it LICENSES its construction onto served copy (the gate matches it as supplied and leaves it,
+by design and by the owner's own voice-precedence rule). Fleet canary residue is therefore
+part TRANSCRIPTION, not invention. Their proposed alternative — a CONDITIONAL exemption
+(honour a supplied phrase only when the brief field is register-clean) — would change what
+"a site's own voice outranks these rules" means in practice → **owner decision, not a lane's**
+(added to the outstanding list). The lane-consistent alternative is the fleet brief WASH
+(646/647's proven per-site shape, 33 sites to go) — deliberate, supersede-based, and it
+closes the licence at the source without touching the gate's semantics.
+
+**Built and shipped same day: the WORD ARM in `cmd/brief-negation-check` (v1.0.1352,
+commit `51e05a374`, tag+overlay one commit, artefact-verified at the cronjob image).** Their
+finding: `plainly`/`honest*` — the owner's two first-named words — had NO reader in this
+binary (six scan sites, all shapes). Now: quoted/list handovers FILE (labelled `word:<name>`,
+shape precedence per span — one finding per span, itemKey stability), instructional word use
+COUNTED in a new column, first-cycle label in the report. Happy-path read performed BEFORE
+ship (the lane's own reading-rule landmine): word delta = +2 supplied (apis.uk `word:plainly`,
+idea.uk `word:honest`, both already filing on shapes) + ~92 instructional fleet-wide.
+
+**⚠ CORRECTION to the 08-31 handoffs' standing-read line, mine to own:** "0 of 36 sites" was
+the SPEC-CLAIMS half of the report; the brief-supplies half read **10 of 33 in this very
+morning's cron run** — two N-of-Ms under one phrase, and I burned a scanner-drift
+investigation on the conflation before the doc_notes record resolved it. The daily read is
+TWO numbers, now written that way in the handoff. Also noted: several "supplied" shape
+findings fleet-wide are QUOTED TEMPLATE DEMONSTRATIONS in briefs ("X is Y, not Z",
+"not just X but Y" quoted as patterns) — the exact class 646/647 washed on finetuning,
+alive in other sites' briefs; strengthens the fleet-wash case.

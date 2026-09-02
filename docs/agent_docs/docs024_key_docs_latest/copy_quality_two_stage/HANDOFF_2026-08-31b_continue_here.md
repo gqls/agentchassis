@@ -88,6 +88,17 @@ afternoon→night entries are this session's full trail). The owner does NOT wan
 
 ## OWNER DECISIONS OUTSTANDING (updated; raise, don't re-derive)
 
+11. **NEW (2026-09-02): the exemption-as-licence question.** The writer-seam gate exempts
+    brief-supplied constructions (his own voice-precedence rule) — and the offer lane
+    measured constructions in the exempted fields on **32 of 34 sites**, so dirty briefs
+    LICENSE the register onto served copy fleet-wide. His choice: (a) fleet brief WASH
+    (646/647's per-site shape, closes it at the source, semantics untouched — the
+    lane-consistent default), (b) CONDITIONAL exemption (honour supplied phrases only from
+    register-clean briefs — changes what voice-precedence means), or (c) leave it and let the
+    daily check's findings drive per-site edits. Standing-read correction that belongs with
+    this: the daily report carries TWO N-of-Ms — brief-supplies (10 of 33 this morning,
+    pre-word-arm) and spec-claims (0 of 36) — never one number.
+
 1. Decision D (question hierarchy) — unchanged.
 2. The axis confirmation — unchanged.
 3. Fund the xAI team — unchanged (bugs_open/418).
