@@ -64,6 +64,14 @@ identity conversion: the plan says exactly what the pages already say).
    through the framework, one cohort first") fits B: convert ONE site (suggest cookly.uk, 15
    pages, zero repeat-layouts, smallest blast radius), measure the reconciler's actual
    behaviour against it, then decide the remaining five.
+   > **Qualified by the IMG-078 lane's consumer input below (2026-09-02, `b587f116e`):**
+   > cookly.uk holds ZERO content-hero assets, so it proves plan creation but nothing about
+   > imagery delivery — pair it with one of the four asset-holding sites before concluding
+   > anything about IMG-078. And whoever seeds imagery rows must seed from the `assets`
+   > table, never page enumeration: `check_unfulfilled_imagery_plan` files GENERATION items
+   > (real spend) for any current-plan imagery row whose key lacks an active asset. Their
+   > section also honestly DOWN-RANKS imagery as an argument for B — read it before weighing
+   > the table above.
 2. If B: whether the conversion runs as a new framework action (a `materialise_site_plan`
    work-item type with the identity-conversion property asserted by its own guard) — per the
    2026-08-04 every-site-through-the-framework ruling, a hand-INSERT of plan rows is not on
