@@ -69,6 +69,38 @@ promises a fixture list and delivers a hero banner plus an essay describing a fi
 list that isn't there — the exact shape of `bugs_closed/381`'s defect class, on a page
 type that bug never touched.
 
+## 2026-09-02 — `theme kits` proposed `page_archetypes` as a fit for PLAN §2; traced it and it isn't, but it found a real adjacent gap
+
+`theme kits` (session, plan `please-think-hard-about-starry-locket.md` §4) is replacing
+`apply_gap_plan_action.go`'s hardcoded `defaultSectionsForPage` switch with a fleet/theme/
+site-scoped `page_archetypes` table, and asked whether it fits PLAN §2's open question
+(one page with `period-calendar` vs. homegarden's 17 month pages).
+
+**Traced before answering, rather than taking the framing at face value.** It doesn't fit:
+`defaultSectionsForPage` only fires when the LLM's own section list comes back **empty** —
+a late fallback. `reconcile_site_plan_action.go`, which actually minted the 17 month pages,
+reads sections purely from `site_plan_sections` (the LLM's own plan output) and has no
+Go-side default of its own. So the 17-page shape was the planning LLM's judgment, not
+anything `page_archetypes` touches. Different question, different code path — confirmed by
+reading `reconcile_site_plan_action.go` end to end (no `switch`/`case`/default-sections
+function in it) before replying, not inferred from the file's name.
+
+**But it does intersect something real, currently live, in the exact file being ported.**
+`defaultSectionsForPage`'s switch has no case for `page_type='section-index'` — only
+`news-index` and `entity-directory` — so any section-index page reaching this fallback
+(LLM omits sections, or `ensure_page_section_layout_action.go` fires because the page has
+no layout — `bugs_open/206`'s own residual class, and one of `theme kits`' three rewire
+targets) falls to the bare default `hero, generic-text-block, call-to-action`. That is
+`bugs_closed/381`'s exact prose-only degradation, on a path 381's fix (the LLM-facing menu,
+migrations 591-595) never reached — this Go fallback still cannot produce `checklist`,
+`period-calendar` or `comparison-table` for any page type, and their planned parity test
+would faithfully preserve that gap rather than close it. Flagged to them as a two-line
+addition worth making while the switch is already being rewritten; left the call to them.
+
+Declined to seed a `period-calendar`-carrying archetype now — that would be designing ahead
+of PLAN §2's still-open decision. Told them it's the right eventual home for that entry
+once (if) the decision lands, not before.
+
 > **UPDATE 2026-09-02, later still — staffed.** A fresh session ("feed lane") appeared,
 > independently verified the 427 write-up and the ownership gap (read the bug in full,
 > ran `who-owns.py` on 427/316), and accepted the charter proposed to them: the raw
