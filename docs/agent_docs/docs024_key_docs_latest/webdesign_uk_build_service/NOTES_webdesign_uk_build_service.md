@@ -7370,3 +7370,28 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   before they were sent... I read a column and reported what the code does to
   it") — the honest phrasing, and the thread-catches-fast half is the part to
   keep: cross-checking between lanes IS the working control this week.
+
+## 2026-09-02 (~15:5xZ) — FOURTH reversal settles it: 682 LANDED on my pages; the archive instrument was VOID; my own morning verdict half-corrected
+
+> **CORRECTED 2026-09-02 (two corrections up-thread of this entry):**
+> (1) STRIKE the archive instrument as banked — content-listing has ZERO
+> page_component_history rows EVER (45,285 in the table overall): its writes
+> BYPASS the archive triggers, so its zero carries no information, and the
+> peer's positive control was drawn from NEIGHBOUR components — it proved the
+> table works, not that it works for THIS component. **A positive control must
+> exercise the same row population as the claim** (bank verbatim — the
+> memory-grade lesson of the day). The rule survives only bounded: usable for
+> components that have EVER appeared in that table.
+> (2) MY OWN morning verdict "the 425 fix did NOT reach the rerender path" was
+> HALF wrong: the TEMPLATE half (682) DID land — I read "no deck element" as
+> old-template, when it was the NEW template correctly collapsing an unfed
+> slot. The producer half (no excerpt key, suffixed titles) stands as the miss.
+- **Verified at my own served pages just now (the fingerprint instrument —
+  three LIKE tests on rendered output, the cheapest form of my class-count
+  probe): index and guides-index both all-zero on article-card__category/
+  __meta/__excerpt = POST-682 serving; empty card slots GONE on boxingonline.**
+  Suffix titles remain (6/7) = producer miss, still with fe4b8537.
+- The owner-visible half of critique item 14 (cards) is therefore PART-DELIVERED
+  on this site: slots collapsed now; decks + clean titles arrive with the
+  producer fix. Peer's ledger note: four claims overturned today, three caught
+  after sending — their honest framing, both halves recorded here.
