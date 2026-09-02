@@ -49,11 +49,11 @@ import (
 // BannedRegisterVersion is the register version this file implements. It is
 // asserted against the JSON's own `version` field by the lockstep test, so a
 // register bumped without a Go change fails the build rather than drifting.
-const BannedRegisterVersion = 1
+const BannedRegisterVersion = 2
 
 // BannedRegisterPath is where the authority lives, for citation in findings and
 // records. Nothing reads it at runtime — see the header for why.
-const BannedRegisterPath = "docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/AUDIT_prompts/BANNED_REGISTER_v1.json"
+const BannedRegisterPath = "docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/AUDIT_prompts/BANNED_REGISTER_v2.json"
 
 // bannedRegisterWord is one banned-word rule, carrying the owner's authority so
 // a finding can say WHY a word is refused rather than merely that it is.
@@ -65,7 +65,7 @@ type bannedRegisterWord struct {
 	re        *regexp.Regexp
 }
 
-// bannedRegisterWords is banned_words from BANNED_REGISTER_v1, in file order.
+// bannedRegisterWords is banned_words from BANNED_REGISTER_v2, in file order.
 //
 // ⚠ THE ONE BLESSED EXCEPTION IS NOT ENCODED HERE. The register records that
 // idea.uk's report hero may say "honest" (decision record D-005). A per-site
@@ -84,6 +84,12 @@ var bannedRegisterWords = []bannedRegisterWord{
 		Pattern:   `\bhonest(?:ly|y)?\b`,
 		Authority: "owner ruling 2026-07-26 (writer rule 19)",
 		Treatment: "delete the label; keep being straight",
+	},
+	{
+		Name:      "plain_words",
+		Pattern:   `\b(?:in\s+)?plain\s+(?:words|english|terms|language)\b`,
+		Authority: "owner ruling 2026-09-02 (v2 GO), generalising ruling 9",
+		Treatment: "delete the label; a site that must SAY its words are plain is not showing it",
 	},
 }
 

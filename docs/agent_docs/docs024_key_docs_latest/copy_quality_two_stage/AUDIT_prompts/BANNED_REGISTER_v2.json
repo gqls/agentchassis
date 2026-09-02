@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "date": "2026-09-02",
+  "authority": "copy_quality_two_stage/OWNER_RULINGS_2026-08-25_six_decisions_on_the_copy_machinery.md",
+  "usage_rule": "Structured input ONLY. Never paste these patterns or their examples as prose into a prompt or a critic's window: prompt text demonstrating a form teaches it and scores as it (prompt-text-poisons-its-own-detector; the 305 gate's re-ask carries no rule text for the same reason). Consumers cite this file by path+version; a new version is a new file line, never an in-place semantic change.",
+  "banned_words": [
+    {
+      "pattern": "\\bplainly\\b",
+      "authority": "ruling 9, 2026-08-31",
+      "owner_words": "no one says 'plainly'",
+      "treatment": "delete the label; if the sentence needs the meaning, show it by being plain"
+    },
+    {
+      "pattern": "\\bhonest(?:ly|y)?\\b",
+      "authority": "owner ruling 2026-07-26 (writer rule 19)",
+      "owner_words": "the word was overused across the estate",
+      "treatment": "delete the label; keep being straight; the one blessed exception is idea.uk's report hero (decision record D-005)"
+    },
+    {
+      "pattern": "\\b(?:in\\s+)?plain\\s+(?:words|english|terms|language)\\b",
+      "name": "plain_words",
+      "authority": "owner ruling 2026-09-02 (decision 7: v2 GO), generalising ruling 9",
+      "owner_words": "go ahead",
+      "treatment": "delete the label; a site that must SAY its words are plain is not showing it — same remedy as 'plainly'"
+    }
+  ],
+  "banned_shapes": [
+    {
+      "name": "x_not_y",
+      "pattern": "[,—–-]\\s+not\\s+\\w|\\s[—–]\\s*not\\s+\\w",
+      "treatment": "truncate before the comparison (ruling 7): keep the first half, end the sentence",
+      "note": "v2: dash-separated forms added (em/en dash, spaced or unspaced; spaced hyphen) — documentation proxy; negXNotYRe in negationtells.go decides"
+    },
+    {
+      "name": "not_x_but_y",
+      "pattern": "\\bnot\\s+[^.,;]{1,40}\\s+but\\s+",
+      "treatment": "as x_not_y"
+    },
+    {
+      "name": "rather_than",
+      "pattern": "\\brather than\\b",
+      "treatment": "as x_not_y; forgiveness level pending owner Q-A",
+      "note": "the canary proved the model prior produces this without any demonstration present; only mechanical repair or a different model clears it"
+    },
+    {
+      "name": "instead_of",
+      "pattern": "\\binstead of\\b",
+      "treatment": "as x_not_y; named by the owner in ruling 7; gate-vocabulary addition pending Q-B"
+    },
+    {
+      "name": "not_just",
+      "pattern": "\\bnot (?:just|only|merely)\\b",
+      "treatment": "as x_not_y; gate-vocabulary addition pending Q-B"
+    },
+    {
+      "name": "negative_reveal",
+      "pattern": "\\b(?:isn't|is not|aren't|are not)\\s+(?:a|an|about|the)\\b",
+      "treatment": "state the positive fact first; fold any earned contrast in afterwards",
+      "note": "broad proxy; the gate's own definition is narrower (opening-reveal); read before convicting mid-sentence matches"
+    }
+  ],
+  "banned_classes_no_regex": [
+    {
+      "name": "internal_directive_explanation",
+      "authority": "ruling 10, 2026-08-31",
+      "owner_words": "very much about our internal directives rather than describing what we do in terms that the user will understand might be a benefit to them",
+      "shape": "copy that explains WHY we wrote it the way we wrote it, or narrates our editorial rules as content",
+      "detection": "read; no reliable regex"
+    },
+    {
+      "name": "presumption",
+      "authority": "ruling 12, 2026-08-31 + the homegarden review",
+      "owner_words": "we mustn't presume to know what they want or what things actually are useful to them",
+      "shape": "asserting the visitor's intent, situation or need as fact; conditional openings (if/when/where) are the compliant form",
+      "detection": "openers asserting the reader's state; read"
+    },
+    {
+      "name": "register_labelling",
+      "authority": "generalisation of both word bans",
+      "shape": "any sentence describing the site's own tone, method or virtue as a selling point",
+      "detection": "read"
+    }
+  ],
+  "changelog": "v2 (owner ruling 2026-09-02, decision 7 GO): (1) banned_words gains the plain-words register-labelling collocation family — the 'plainly' cousin flagged in 668's header (mortgagecalculator r6) and ruled in. (2) x_not_y's documentation pattern gains the dash-separated form ('straight guidance at every price point — not a default to premium') found live by the offer lane's gate on garden-tools.uk: comma-anchored patterns missed it in the register, negationtells.go AND the gate's re-scan — a repaired point was recorded clean while carrying it. The Go regex (negXNotYRe) is the authority and widens in the same commit; same shape NAME, per the lockstep's names-only contract."
+}

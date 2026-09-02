@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/datahelpers/registerwords_test.go
 //
-// THE LOCKSTEP. BANNED_REGISTER_v1.json is the owner's authority and this
+// THE LOCKSTEP. BANNED_REGISTER_v2.json is the owner's authority and this
 // package is what enforces it; the two are held together here, in both
 // directions, so neither can move without the build saying so.
 //
@@ -25,7 +25,7 @@ import (
 // registerRelPath is the register's location relative to THIS package. The test
 // resolves it rather than hardcoding an absolute path so it runs anywhere the
 // repo is checked out.
-const registerRelPath = "../../../docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/AUDIT_prompts/BANNED_REGISTER_v1.json"
+const registerRelPath = "../../../docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/AUDIT_prompts/BANNED_REGISTER_v2.json"
 
 type registerFile struct {
 	Version     int    `json:"version"`
@@ -155,7 +155,7 @@ func TestScanBannedRegisterWordsCatchesTheOwnersTwoWords(t *testing.T) {
 func TestScanBannedRegisterWordsLeavesOrdinaryProseAlone(t *testing.T) {
 	clean := []string{
 		"Dishonesty is not the issue here.", // substring of "honest" inside another word
-		"The plain English version is shorter.",
+		"A plain white background improves contrast.",
 		"Every figure traces to a named source.",
 		"A weekly guide to what is on and where to watch it.",
 	}
@@ -221,7 +221,7 @@ func TestRegisterWordPatternsCompileUnderRE2(t *testing.T) {
 // ⚠⚠ TestNoNewerRegisterVersionIsUnaccountedFor — the hole in every OTHER test in
 // this file, closed before it could open.
 //
-// Every assertion above is anchored to the literal `BANNED_REGISTER_v1.json`. The
+// Every assertion above is anchored to the literal `BANNED_REGISTER_v2.json`. The
 // register's own usage rule is that "a new version is a NEW FILE line, never an
 // in-place semantic change" — so the day a v2 is cut, v1 keeps existing, keeps
 // saying version 1, and every test above keeps PASSING while the estate runs a

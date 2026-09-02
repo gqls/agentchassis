@@ -73,7 +73,14 @@ var (
 	// "…what's possible, not what survives production" — the owner's sentence.
 	// The leading character class is how RE2 does a lookbehind: the match
 	// deliberately includes the char before the comma.
-	negXNotYRe = regexp.MustCompile(`(?i)[\pL\pN)"'’],\s+(?:not|never)\s+(?:just\s+|merely\s+|simply\s+|only\s+)?[\pL\pN]`)
+	// v2 (2026-09-02): the separator admits an em/en dash (spaced or unspaced)
+	// and a spaced hyphen, as well as the comma. Found live by the offer lane's
+	// producer gate: "straight guidance at every price point — not a default to
+	// premium" passed every comma-anchored consumer — including that gate's own
+	// re-scan — and shipped inside a point recorded as REPAIRED. Same shape
+	// name; the register's v2 entry is the documentation proxy, this regex
+	// decides (BANNED_REGISTER_v2; registerwords lockstep is names-only).
+	negXNotYRe = regexp.MustCompile(`(?i)[\pL\pN)"'’](?:[,—–-]\s+|\s[—–]\s*)(?:not|never)\s+(?:just\s+|merely\s+|simply\s+|only\s+)?[\pL\pN]`)
 
 	// "not a framework, but a system" — the shape voicetells.go already had.
 	negNotXButYRe = regexp.MustCompile(`(?i)\bnot (?:just |merely |simply |about |only )?[^.;:]{2,50},\s*but\b`)
