@@ -1927,3 +1927,19 @@ closes the third-blue + 3 grey contrast items with evidence; imagery sequences a
 batch. The 08-25 tool trio (transparency-audit, rights-checklist, ownership-checker): NOT
 re-filed by this lane — they're tool-suggester content-bearing tools ("CMA now requires…"
 phrasing = claim-class risk while the Order is draft); re-filing is an owner call, offered.
+
+**Accent batch verification (2026-09-02 ~22:0xZ): HALF-LANDED, miss located to one artefact.**
+PASSED: core palette survived the needs_design regen byte-identical (all four slots compared old
+vs new — the planner's bug-113 risk didn't bite, and NOTE: their stated safety, reference_values,
+was owner-retired 09-02, so my comparison was the ONLY guard); palette independence values in the
+served stylesheet; the latest-news template fix renders (6× green fallbacks on the page). MISS:
+the served index still carries 12× amber + the banner renders the OLD blues — ALL located in
+**site_components slot 'head'** (amber=12, #f0f9ff=2): the banner's embedded CSS DEFINES
+`--color-independence-bg: #f0f9ff` locally, beating the palette (the consumption-gap family, one
+level up). Index page_components and pages.rendered_* chrome columns are CLEAN — the head chrome
+row alone. Remaining step = fix the head chrome's SOURCE to consume the palette vars, then a
+chrome refresh (refresh_site_components:true path); two cautions passed to the planner: the 08-11
+chrome_divergence_overwritten incident (check for hand patches first), and fix-the-source-not-
+the-row. Third-blue review item stays OPEN until the callout serves green. The stylesheet's own
+6 amber fallbacks (news rules duplicated into styles.css by the generator) are the same
+source-level question — noted for the same patch.
