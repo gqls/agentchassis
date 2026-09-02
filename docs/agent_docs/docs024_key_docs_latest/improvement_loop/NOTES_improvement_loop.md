@@ -150,3 +150,39 @@ image — to check at the time of the fan-out, not now.
 So the honest size of "findings that need a human decision" is **nowhere near 1,385**,
 and a screen showing that number would have been the wrong instrument. This is why plan
 item 4 sits behind items 2 and 3.
+
+---
+
+## 2026-09-02, evening — the pointing census (owner asked for the list)
+
+**(q) Probed all 34 active domains rather than the 2 I had stumbled on.** Script kept at
+`improvement_loop/probe_serving.sh`. `[MEASURED 2026-09-02]` **31 SERVING, 2 PARKED,
+1 soft-404.** The two parked are `boxingonline.com` and `adversecreditmortgage.co.uk` —
+exactly the two the head-essentials evidence had pointed at, now established by census
+rather than by anecdote.
+
+**(r) The cause is DELEGATION, and I nearly reported the wrong fix.** My first instinct
+was "the A record is wrong". `dig NS` says otherwise:
+
+| domain | NS | A |
+|---|---|---|
+| boxingonline.com | `ns1/ns2.afternic.com` | 13.248.169.48, 76.223.54.146 |
+| adversecreditmortgage.co.uk | `ns1/ns2.dan.com` | 76.223.54.146, 13.248.169.48 |
+| cookly.uk, farmerinsurance.uk, agritec.uk, webdesign.uk (all serving) | `alexis/leah.ns.cloudflare.com` | 104.21.x / 172.67.x |
+
+Both parked domains are still authoritative at the **marketplace** that sold them
+(Afternic and Dan.com are the same operator, hence identical parking IPs). **An A record
+set at the registrar would have done nothing**, because the domain is not delegated to
+where that record lives. Recorded because "point the domain" and "change the A record"
+are not the same instruction and I would have given the second one.
+
+**(s) noted.co.uk is a soft 404, not a pointing problem.** Root and an invented path
+returned byte-identical 75,546 bytes, which is the same signature as a parked domain.
+It is not one: `/privacy.html` (67,008 b) and `/about.html` (66,659 b) return their own
+distinct titles. Only *unknown* paths fall back to the home page. **The signature that
+identifies a parked domain also identifies a soft 404** — a second fetch of a page that
+should exist is what separates them, and the first version of my script would have
+called this one parked. Handed to the `noted_rebuild` lane, not fixed here.
+
+**(t) The count of active pages behind the two parked domains: 40** (21 + 19). Built,
+deployed, reaching nobody.

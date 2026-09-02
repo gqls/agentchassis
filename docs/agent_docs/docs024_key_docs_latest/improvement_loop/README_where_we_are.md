@@ -93,3 +93,46 @@ change to the page furniture on every site we run.
 Second, is boxingonline.com parked on purpose — a domain we hold but do not serve — or
 has it come unpointed without anyone noticing? The answer decides whether those 20
 findings are damage or noise.
+
+---
+
+**2026-09-02, later — you asked which domains to point. The answer is two, and it is the
+nameservers, not the addresses.**
+
+I checked all 34 of our live domains rather than just the two I'd tripped over, because
+the way I found the first two was luck and I didn't want to hand you a partial list.
+Thirty-one are serving properly. Two are not, and both are the same story.
+
+**boxingonline.com** and **adversecreditmortgage.co.uk** were bought and never moved off
+the domain marketplace that sold them. Their nameservers still say Afternic and Dan.com —
+the same company behind both, which is why they show identical parking addresses. Every
+address on them returns a 114-byte stub that bounces the visitor to a "lander" page.
+
+**The important detail: pointing the A record at our servers will not work.** The domains
+aren't delegated to us, so a record set at the registrar has nowhere to take effect. What
+needs changing is the nameservers, to the pair every one of our working sites uses:
+
+```
+alexis.ns.cloudflare.com
+leah.ns.cloudflare.com
+```
+
+Nothing on our side is broken and nothing needs rebuilding. **Forty pages are finished
+and sitting behind a delegation nobody changed** — 21 on boxingonline, 19 on
+adversecreditmortgage. Once you've pointed them they should simply appear.
+
+The full list, the evidence and the re-check script are in
+`docs/agent_docs/docs024_key_docs_latest/improvement_loop/POINTING_2026-09-02_domains_to_repoint.md`.
+Tell me when you've pointed them and I'll confirm at the pages rather than assume.
+
+One thing I want to flag rather than bury: **adversecreditmortgage.co.uk filed no quality
+findings at all** while serving that stub — it is one of only two sites on the estate with
+a completely clean sheet. That is not a clean bill of health, it is the checker not
+looking. I don't yet know why, and I've put it on my list. It is the same lesson as the
+false findings on farmerinsurance, from the other direction: I can't yet take either a
+finding or the absence of one at face value, which is the first thing this lane needs to
+fix.
+
+Separately, noted.co.uk returns the home page for addresses that don't exist rather than
+a proper "not found". Real pages are fine. It's not a pointing problem and not mine —
+I've passed it to the lane that owns that site.
