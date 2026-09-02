@@ -410,3 +410,23 @@ probe convention), and refuses on any other count — the population may have
 moved since the census. Not yet applied — that's the next step, following
 candidate #1's exact playbook: commit, submit to council, THEN apply/build/
 roll, never before.
+
+Committed (`0a408f8db`) — pathspec-only, 14 files, commit-scope report showed
+no passenger. Noted the pattern-check's `silent-reply-drop` flag at
+`adapter.go:617` (`sendResponse`): pre-existing, nowhere near this change's
+edits (which touch lines 44-49 and 217-227), not this task's scope — it's
+already a tracked, named pattern (016b §9 / bugs_closed/062) whose fix is
+its own RFC-scale item per the pattern-check's own text.
+
+**Missed the `Council-Submitted:` trailer on that commit** — submitted to
+the gate after committing, and forward-only forbids amending to add it
+retroactively. Recording the correlation in this follow-up commit's message
+instead (both name the same 691/691-adjacent Go+migration work; 098 will
+join on the trailer in THIS commit, not the missing one on the code commit).
+
+Submitted to council gate: dry-run validated clean first (`DRY_RUN=1`), then
+the real dispatch. `SUBMISSION_CORR=8842fe96-9a71-4ea5-9993-2483f10712cb`,
+orchestration `5947e320-9974-4a4f-b45c-00b727e7ffae`. Dispatch lane showed
+LAG 0 at submit time (queue clear, several other councils in flight
+concurrently — normal per the runbook). Following candidate #1's proven
+order: wait for the verdict before building/rolling anything.
