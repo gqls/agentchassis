@@ -36,7 +36,16 @@
 -- that purpose) and its remedy is a deploy, which is how its 1,651-row parked
 -- backlog was built (bugs_open/114, NOTES 2026-09-02).
 --
--- APPLY IT BY HAND, in this order (648's runbook, adapted):
+-- APPLY IT BY HAND, in this order (648's runbook, adapted). ⚠ PREFLIGHT FIRST
+-- (round-3 guardian advisory): the duplicate-active-rows landmine — four agent
+-- types carry TWO active definition rows and only the higher version loads.
+-- The in-transaction needle-gate below already refuses on n<>1, but check
+-- BEFORE spending the apply attempt:
+--   SELECT count(*) FROM agent_definitions WHERE type='design-discovery-agent'
+--    AND is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL;
+-- Expect exactly 1 ([MEASURED 2026-09-02] design-discovery-agent is NOT among
+-- the duplicated four — but "no duplicate exists" and "a duplicate cannot
+-- cause damage" are different properties, and the four-type list grows).
 --
 --   1. CONFIRM THE RUNNING CHASSIS REGISTERS THE CHECK — probe the CAPABILITY
 --      with a positive and a negative control:

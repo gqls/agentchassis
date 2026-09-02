@@ -744,11 +744,41 @@ the seats could not see exist — they were committed this week); round 2 cites 
 hours) single-sourced it as `datahelpers.NotRemoved` with a source-scan test — so HEAD's
 `TestNoHandSpelledTombstonePredicate` went red for every session until `d1cf3aac3`
 adopted the helper at all five sites. Flagged cross-session by `bugs_open/436` within
-the hour, which is the coordination working. (Their message also attributed a третьей…
-a third session's broken untracked test file to this lane — corrected in the reply;
+the hour, which is the coordination working. (Their message also attributed a
+third session's broken untracked test file to this lane — corrected in the reply;
 worth the reminder that "dirty in the tree" carries no authorship.)
 
 **Also mooted by the design shift:** the finetuning lane's name-vs-capability matcher
 warning (4 hero-named components with no image field, all zero-instance) — the plan-row
 design matches no components at all, and IMG-077's predicate was already
 capability-based.
+
+### 2026-09-02 close — the detector is APPROVED (round 3, corr `3b568104`, 19:09Z)
+
+**"approved with 3 advisory objection(s) — none high-severity."** Ten advisories across
+seats in total; adjudication:
+- **guardian [medium], duplicate-active-rows preflight for 708**: ACTED ON — the apply
+  runbook now opens with the preflight query and the landmine's name (the needle-gate
+  already refuses in-transaction; the preflight saves the apply attempt).
+- **bug_historian/reuse [medium] ×2, the 033 queue + the undeployed_assets coexistence**:
+  already tracked — the queue's working surface is 033's, and the narrow-or-retire
+  follow-up is in this PLAN's addendum and the bug file. The reuse seat is right that a
+  sequenced unification has no forcing function; the forcing function is now the rollups
+  themselves — once live they make the older check's false positives countable, which is
+  the evidence the retirement decision needs.
+- **prior_art_librarian [medium/low] ×4, verify-the-assertions**: the assertions (file
+  lines, 709's APPROVED verdict, the CONTRIB file, the rolling-window caveat on the
+  1,651 count) are all evidenced in this NOTES file and the diagnosis_artifacts rows;
+  the rolling-window point is fair — that count carries its date everywhere it appears,
+  and its LANDMINES entry says the born-parked query is the re-derivation.
+- Remaining lows: the two mirrors (lockstep-fenced, single-sourcing offered to 357),
+  the 24→25 apply-time re-derive (already in the header).
+
+**FINAL LEDGER for this resumption, all corrs:** 562 repair **APPROVED** (`4145fcdc`,
+trail completed after the dropped dispatch) · 709 dead-keys **APPROVED** (`151a51db`) ·
+IMG-077 detector **APPROVED round 3** (`3b568104` — commits a87746b77, 0ea807252,
+ec2b3353d, d1cf3aac3 resolve via their Council-Submitted trailers) · IMG-078 wiring
+**REVISE, deliberately parked** behind the GAP-4 canary protocol (`bd78490d`,
+412 §11a/§11b — plan-less domain limit and canary site recorded). Closing bar: items
+1–3 MET and measured; item 4 built + approved, inert until a chassis roll carries
+`d1cf3aac3`+ and migration 708 is applied per its runbook.
