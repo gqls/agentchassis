@@ -94,6 +94,39 @@ Pass = one distinct illustration per grip-style section, plus the logo. Then fir
 `content_rewrite` at the page and run it again: **the images surviving a rewrite is the whole point
 of the mechanism**, and it is the only check that distinguishes this from what August did.
 
+## 3b. WHAT THE OTHER 432 GUIDE PAGES DO — added after filing, and it changes how to treat step 1
+
+⚠ **CORRECTION TO THE FRAMING ABOVE (2026-09-02, later).** I gave you a recipe without telling
+you what the rest of the estate does, which is the half a recommendation is incomplete without.
+`[MEASURED 2026-09-02]`:
+
+```
+active guide/blog pages fleet-wide              432
+  ...with a hero component                      330   (76%)
+  ...with MORE THAN ONE illustrated section       0
+```
+
+**Zero. `grip-styles` would be the first page in the estate composed this way.** The fleet
+pattern is hero-section-for-imagery, article-body-for-prose, and 432 pages follow it — which is
+also precisely the shape the owner is complaining about, so this is not an argument against doing
+it. But it changes what step 1 IS:
+
+- **There is no precedent to copy and no page to compare against.** Treat the recompose as an
+  experiment on one page with a verification step, not as adopting a known-good pattern. If the
+  writer produces six thin sections instead of one coherent article, that is a real outcome and
+  the page is live while you find out.
+- **`grip-styles` keeps its hero** (it has one today: hero / article-body / call-to-action), so
+  this adds per-section figures rather than replacing the banner.
+- **Nothing else in the estate will regress from it**, because the per-section binding it relies
+  on can be reached by exactly two components and no other page carries more than one instance of
+  either.
+
+I owe this note to a peer lane who applied a migration today, measured its motivating case, and
+found afterwards that 292 of 301 pages carrying the target component already showed the same
+image through their hero — so the change would have rendered it twice on 97% of the population.
+They rolled it back. **The check is one query: before changing how a shared component behaves,
+ask what the other instances already do.** I had not asked it before writing you this recipe.
+
 ## 4. One thing to know before you start
 
 The binding **stands down** — silently and by design — if the plan's section order and the page's
