@@ -305,3 +305,67 @@ here as the shared diagnosis both approaching lanes converged on.
   fixture data would come from).
 - Diagnosis run in progress, correlation `d6d350ec-e16b-4792-9282-ca5155369791` — why the
   planner drops page roles the strategy names. Read before assuming a shared cause with §6.
+
+## 9. Status update, 2026-09-02 (same day, resuming session)
+
+Within hours of filing, three sessions picked up different pieces independently,
+each verified before building rather than duplicating another's work. Status as of
+this update — **check each lane's own docs for anything past this point**, this is a
+snapshot:
+
+- **Candidate #1 (populate), owned by `news_feed_ingestion`** (opened by the
+  owner-named "feed lane" session; see that lane's PLAN):
+  part 1 committed (`a7a134af7`) — new load/mark actions plus an extension of
+  `VerifyAndRegisterCitationsAction`'s field pass-through list, reusing its
+  verification and CAS-write unchanged. Corrected before shipping: candidates carry
+  `kind="entity"`, not `"event"` — the latter isn't in `EvidenceFact.Kind`'s closed
+  vocabulary (`datahelpers/claims.go`, `bugs_open/105`) and would silently demote to
+  `"metric"` while tripping a per-build warning. Submitted for council review
+  (`SUBMISSION_CORR=4849c95f-2594-48e6-87b9-acee6341b0f8`). Part 2 (wiring the
+  extraction into `feed-triage`'s live workflow config) deliberately not done yet —
+  needs the image built and rolled first.
+- **Candidate #2 (correct), resolved with far less new code than the fix
+  candidates anticipated** (`bugfix_427_event_render`, this session): tracing
+  `refreshOneSiteEvidence`'s actual dispatch condition (keyed on `fact.source`
+  contents, not `kind`) found that ANY fact carrying `source.citation` — which
+  every fact candidate #1 registers does, regardless of `kind` — is **already**
+  re-verified daily by the existing, unmodified citation-refresh arm. No new
+  `source.feed_item` marker, no new dispatch branch. What tracing the actual
+  CONSUMERS of the new fields did find, and fixed: `composeWriterBlock` only
+  substitutes `{value}`, so a `writer_line` using `{event_date}`/`{venue}`/
+  `{participants}`/`{broadcaster}` would have shipped those tokens unsubstituted
+  into the writer's prompt. Fixed, mutation-tested, committed (`f865153f8`),
+  submitted (`SUBMISSION_CORR=d0442d50-e383-477f-9ed8-19eaaeea3d93`). **Residual,
+  named not dropped**: a correction published as a separate, later article (not an
+  edit to the original) needs same-event matching across feed items — unbuilt,
+  follow-up bug territory, `content_feed_items.duplicate_of` is the column that
+  would eventually get a writer for it.
+- **The render target** (`bugfix_427_event_render`, this session) — the piece
+  none of the original fix candidates named directly: even a populated,
+  correctable fact was never going to reach the page without something to put it
+  there. Built as `query.upcoming_events`, a new resolver using the estate's
+  existing query-source + dependency-class mechanism (RFC_052) rather than a new
+  action, HTML-patching, or a client-fetched JSON file — same shape as
+  `latest_news`/`news_archive`. Plus `queueEvidenceBasePageRerenders`, the
+  propagation half that makes a human's correction (or the daily citation
+  re-verification) actually reach a consuming page. Committed (`da2ab0d44`),
+  submitted (`SUBMISSION_CORR=08f56b7e-61e4-42d1-a3b6-13d700dd833c`). **Not yet
+  built**: the component that actually declares the new source on
+  `/tools/fight-calendar/index.html` — deliberately deferred until candidate #1's
+  part 2 produces a real fact to point at; placing an empty list now would look
+  like a fix without being one. Registered:
+  `docs026_concept_register/register/page-build-pipeline.md` PBP-048.
+- **Candidate #3 (entity-directory page role) — root cause now DIAGNOSED, filed
+  separately.** `gap_planner` resolved the `d6d350ec…` diagnosis this bug's §6
+  pointed at: **not a wiring drop.** `recommended_page_types` IS in the
+  planner's prompt and the model reads it correctly — the planning LLM
+  *deliberately* defers `entity-page`/`entity-directory` at launch, exercising a
+  "you have final say on architecture" license the prompt itself grants, then
+  states its reasoning in `strategy_notes`. Fleet-sampled: ~76% omission rate
+  when a strategy names these roles (33 sampled, 25 cleanly evaluable, 19
+  omitted at least one). 13 `site_work_items` rows already detect this shape
+  fleet-wide and nothing dispatches them. Filed as
+  `bugs_open/428_HANDOFF_2026-09-02_site_planner_llm_knowingly_defers_strategy_named_entity_roles_citing_its_own_final_say.md`
+  — read that file, not this one, for anything touching the planner's behaviour.
+  Nothing built here depends on 428 landing: `query.upcoming_events` renders onto
+  the *existing* tool page, not a future `entity-page`/`entity-directory` page.
