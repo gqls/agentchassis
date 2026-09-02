@@ -511,3 +511,30 @@ repairs to its own seam — the whole "proven four times on natural triggers" cl
 skip the section" but **"is `rerender_page_sections` supposed to rewrite a `query.*` array at all,
 or was the seam pointed at the wrong vehicle from the outset?"** A re-run with whole-file seeds and
 the workflow steps quoted is cheap and is the obvious next move — owner's call.
+
+### 2026-09-02 ~17:35Z — RETRACTION of my own fleet census, 20 minutes after writing it
+
+Checking the other three demonstrations returned **0 rows for finetuning.uk and vonc.com**, which
+was too clean. Tested the filter instead of believing it:
+**44,781 of 45,540 `page_component_history` rows (98.3%) match no live `page_components` row**,
+because `save_page_sections` DELETES and RE-INSERTS the row (`op=delete`,
+`source=save_page_sections_overwrite`) rather than updating in place. My census joined on
+`pc.id = h.component_id`, so it ran over 1.7% of the table — and the 1.7% it kept was precisely the
+in-place writers. **`rebuild_blog_listing` looked like "the only writer" because it is the only one
+whose history rows stay joinable.**
+
+Corrected, keyed on `page_id` (14d, listing-hosting pages): `save_page_sections_overwrite`
+**4,969 rows / 161 pages**, newest today 17:26; `action:section_editor.update` 93/49; `psql` 12/9.
+So the rerender path's writer is prolific. **RETRACTED in `bugs_open/384` and logged in
+`WRONG_CALLS.md`.**
+
+**What survives:** the leopardess/blog finding, because it was keyed on `page_id` from the start —
+four writes since 08-25, all `rebuild_blog_listing`, **none at 22:58:18 or 09:40:36, not even a
+`save_page_sections_overwrite` row.** So on this page, two runs reached `deploy_page` with a real
+commit sha and the save step wrote nothing.
+
+**Next question, replacing the retracted one:** why does a run reach deploy with `save_sections`
+writing nothing? Untested candidates: every section carried so the save is a no-op; `check_escalated`
+routes around it; or `render_page`/`rerender_single_page` deploys from stored `content_data`
+independently of the save. **Anyone re-checking the §4 demonstrations must key on `page_id`** — a
+`save_page_sections` repair is invisible to a component-id join.

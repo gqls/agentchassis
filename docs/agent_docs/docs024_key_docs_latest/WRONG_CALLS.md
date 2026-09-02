@@ -58783,3 +58783,42 @@ a-closer-census-cannot-see-what-it-succeeded-at, prove-a-deploy-at-the-artefact.
 
 Family: prompt-text-poisons-its-own-detector, a-report-is-not-a-measurement,
 your-measurement-answers-the-question-you-encoded.
+
+## 2026-09-02 (second, same session) — a census whose JOIN silently dropped 98.3% of the table, and the survivor bias pointed at a culprit (bugfix_384 lane)
+
+**The claim.** "`rerender_page_sections` has written a listing array **zero times in 14 days**;
+the only writers are `action:rebuild_blog_listing` (5) and one hand `psql` (1)." I put it in
+`bugs_open/384` as a measured table, and drew the structural conclusion that the 384 seam was
+"pointed at the wrong vehicle" — because the workflow it files for contains no rebuild step.
+
+**What was wrong.** The census joined
+`page_component_history h JOIN page_components pc ON pc.id = h.component_id`. **`save_page_sections`
+deletes and re-inserts the `page_components` row instead of updating in place**, so every history
+row it writes points at a row id that no longer exists. **44,781 of 45,540 rows (98.3%) match no
+live `page_components` row.** The census ran over 1.7% of the data.
+
+**The bias was not random, which is what made it convincing.** The join preserved exactly the
+writers that UPDATE IN PLACE and destroyed exactly the writers that DELETE-AND-REINSERT. So the
+survivor was `rebuild_blog_listing`, and the "missing" writer was the very one I was investigating.
+**The instrument selected for the answer it gave me** — a zero that could not have come out any
+other way, which is the disconfirmability rule in the CLAUDE.md working-docs section, failed in full.
+Keyed on `page_id` instead, `save_page_sections_overwrite` shows **4,969 writes across 161 pages**
+in the same window.
+
+**What caught it.** Checking a DIFFERENT question — "did finetuning.uk's three listings get
+rewritten?" — returned 0 rows, which was implausible enough that I tested the filter itself before
+reading anything into it: `SELECT count(*) ... WHERE NOT EXISTS (live row)`. That count is what
+exposed it. **The zero I did not believe saved the zero I did.**
+
+**The cheap check I skipped.** Before a census over a history/audit table, ask what fraction of it
+your join actually reaches: `SELECT count(*) FILTER (WHERE <join succeeds>), count(*) FROM <table>`.
+One query, and it converts "N writes" from a claim into a claim with a denominator. **A join to a
+LIVE table is not a neutral filter when the live table's rows are recreated** — id-stability is a
+property to check, not assume. Key on the stable identifier (`page_id` here), not the row id.
+
+**Cost.** The wrong table sat in `bugs_open/384` for about twenty minutes and is now retracted in
+place. The page-specific finding it was mixed in with survived only because that one had been keyed
+on `page_id` by accident of how I wrote it first.
+
+Family: a-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-demand-control,
+a-closer-census-cannot-see-what-it-succeeded-at.
