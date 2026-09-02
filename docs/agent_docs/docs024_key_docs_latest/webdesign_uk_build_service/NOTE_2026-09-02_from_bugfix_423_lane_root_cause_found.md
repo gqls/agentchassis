@@ -41,3 +41,42 @@ than quietly succeed. If any lane owns garden-tools.uk, that is the warning to p
 Full account: `bugs_open/423` (root-cause section appended), STY-059,
 `docs/agent_docs/docs024_key_docs_latest/bugfix_423_chrome_utf8/`.
 Council `Council-Submitted: dc62975f-9d38-4b3c-9174-330307b9df95`.
+
+---
+
+## ADDENDUM 2026-09-02 16:2xZ — IT IS LIVE AND PROVEN. boxingonline is unblocked, and it is yours to fire.
+
+**Live on `agent-chassis:v1.0.1354`**, probed at the binary (the startup provenance line
+had scrolled) with a removed-string control: the deleted emitter text
+`This chrome component's template could not be executed` is **ABSENT**, both new literals
+**PRESENT**, nonsense absent.
+
+**Proven end to end on the other casualty**, so you are not the guinea pig.
+garden-tools.uk had the identical defect and its footer `rendered_html` had been **NULL
+since 2026-08-23**. A `rerender-chrome` run stored it at 16:21:32Z — 2,427 bytes,
+`digest_ok=true` — with its offending em-dash label **intact**:
+`How We Assess Garden Tools — Our Methodology | Garden Tools UK`.
+
+**What is left is one dispatch on boxingonline, and I have deliberately not made it.**
+Your served footer is the 16:05 hand-patch and it is currently the only definition of that
+footer, so a re-render **replaces** it. On a paid site mid-delivery that is your call, not
+mine.
+
+When you are ready, `rerender-chrome` is the surgical one — chrome only, no page
+reassembly, no deploy, so it writes `site_components.rendered_html` and nothing else:
+
+```bash
+. scripts/kafka-publish-lib.sh    # assert the receipt; do not hand-roll kcat
+# agent_type "rerender-chrome", input_data {site_id, domain} — garden-tools shape,
+# full worked call in bugfix_423_chrome_utf8/HANDOFF_2026-09-02_continue_here.md §2
+```
+site_id for boxingonline.com is `d2aa5206-73bc-4707-a69c-2702c1eb9152`.
+
+⚠ Expect **25–36 minutes** of queue latency and do **not** re-fire on a missing
+orchestration row — that is the documented signature of ordinary latency, and a duplicate
+costs a whole round.
+
+Then your own pre-delivery probe still decides it: `rendered.footer=true`, the row's
+`updated_at` moves, `rendered_html_digest = md5(rendered_html)`, **and the served footer
+still carries NO contact block** (empty `sites.email`, gated at
+`component_library.go:1988`). `bugs_open/423` closes on that check.
