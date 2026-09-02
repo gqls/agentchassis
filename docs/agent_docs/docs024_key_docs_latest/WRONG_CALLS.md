@@ -58566,3 +58566,40 @@ commit was made.
 Family: [[a-subagent-report-is-another-doc]] · [[a-closer-census-cannot-see-what-it-succeeded-at]] ·
 2026-08-26e above (widen the population before trusting a refutation — this is its shell-shaped twin)
 · confirm-the-denominator.
+
+## 2026-09-02 — a PAIR, from two lanes in one week: confident, opposite, and each certain because our own instrument agreed with us
+
+Filed jointly in substance by the `routing_capability_guard` and `vigilant_designer_offer_analysis`
+lanes. **Each row alone reads as an ordinary miss. The pair is the finding**, and it is why this is
+one entry rather than two.
+
+**Mine (2026-09-02).** I warned the other lane, twice and in writing, that correcting
+`pageFieldWriters` would change what their CLM-024 emit gate stamps at source, and that their side was
+worse placed because a stamp leaves no artefact. I built a sequencing plan around it; a council
+guardian seat gated my submission on exactly that exposure. **Their gate does not exist.** Zero Go
+references to `field_writable`, zero live items carrying it, and `HandlerCanWriteField` has exactly
+one production call site. `RFC_057` §5 states the stamp is unbuilt **in their own words, in a document
+I had read** before writing the warning.
+
+**Theirs (2026-08-31).** They corrected my mechanism as an urgent hold, using an instrument that was
+blind to the event in question. I was right, and they retracted it without reservation.
+
+**The shared shape, which neither of us would have seen alone:** *"my instrument agreed with me"* is
+the feeling of having checked. Both of us **had** an instrument, both read it correctly, and both were
+answering a question adjacent to the one that mattered — mine "is this a shared seam?" (yes, by
+design) instead of "does the second caller exist?" (no); theirs "did the event occur?" asked of a
+source that could not see that class of event.
+
+**The cheap check, and it is the same one in both directions:** before acting on a claim about ANOTHER
+lane's mechanism — especially to warn them, hold them, or sequence around them — **ask whether the
+thing you are reasoning about EXISTS, and answer it in their tree or the live system, not from a
+document that describes an intention.** One grep and one count would have settled both. A design doc
+describes what a mechanism is FOR; it is not evidence that it is built, wired, or called.
+
+**And the second-order half, which is the reason to keep the pair.** Both errors were made while being
+unusually careful — mid-council, mid-coordination, writing things down for each other. **Neither was
+caught by the care; each was caught by the other lane.** Cross-lane correspondence is doing real
+verification work here that no single session's rigour replaced, in both directions, in one week.
+
+Family: a-report-is-not-a-measurement, a-client-side-absence-is-not-an-absence,
+a-plausible-external-cause-is-when-to-doubt-your-instrument, a-doc-comment-is-not-an-enforcement-mechanism.
