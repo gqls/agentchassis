@@ -23,6 +23,11 @@
 -- count is not 8, the register has moved on — the guard below will refuse, and
 -- that refusal is correct. Re-state the reason for reverting before forcing it.
 
+-- ROUND 2 NOTE: the doc_notes correction record migration 695 writes is
+-- deliberately NOT deleted here. It records a fact about the world (the site
+-- cited two wrong rules, and what the right ones are) that stays true whether
+-- or not the register exists. Deleting the register must not delete the record.
+
 BEGIN;
 
 DO $$

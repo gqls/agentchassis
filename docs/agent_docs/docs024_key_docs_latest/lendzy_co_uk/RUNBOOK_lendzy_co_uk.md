@@ -155,3 +155,21 @@ The whole method, in order. It needs no new code. Worked end to end on lendzy (m
 7. **The payoff:** the moment the row exists, the existing daily refresher starts re-fetching your
    citations and re-checking your quotes against the live handbook. An empty register produces a
    clean run for ever — that clean run is the thing you are replacing.
+
+### 8b. Two host traps found by the loanzy lane running this method (2026-09-02) — check the HOST before the quote
+
+- ⚠ **A Cloudflare-challenged host passes a human eyeball and fails unattended for ever.**
+  `maps.org.uk` and `moneyhelper.org.uk` both sit behind a "Just a moment..." challenge: a citation
+  there looks perfect in a browser and then classifies as drift **every day**, caused by the HOST,
+  not the quote. Step 4 (the production-matcher probe) catches it — the quote will not match a
+  challenge page — which is why step 4 is not optional. **Rule: a source must be verifiable
+  UNATTENDED at write time; reject a challenge-page title as a source outright.** (Proposed as a
+  write-time admission rule for the register mechanism — claims-verification lane's call.)
+- ⚠ **gov.uk keeps organisation pages at their FOUNDING-name slug.** The Money and Pensions
+  Service page lives at `single-financial-guidance-body` while titling itself MaPS — a name-guessed
+  URL 404s. Never compose a URL from an organisation's current name; find the page, then store the
+  URL that answered.
+
+Their run also proves the method transfers: ICOBS/DISP/statutory-instrument sources verified first
+try (farmerinsurance, migration 698), and it found the fleet's THIRD wrong attribution — loanzy
+grouped MaPS under "FCA-authorised services"; MaPS is the statutory guidance body, not an FCA firm.

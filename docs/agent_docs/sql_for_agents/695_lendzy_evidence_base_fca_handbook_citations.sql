@@ -54,6 +54,51 @@
 -- rules included -- see LANDMINES.md. The eight URLs here were each confirmed by
 -- <title>, never by status.
 --
+-- ROUND 2 (2026-09-02), answering the council's round-1 objections with evidence:
+--
+-- (a) editquality HIGH, the lossy round-trip: the hazard is real and DOCUMENTED,
+--     and its own landmine text is the answer — the typed structs
+--     (EvidenceBase/EvidenceFact/EvidenceSource) are lossy, and precisely for
+--     that reason "the two live writers avoid it... both work on
+--     map[string]interface{} and marshal that (refresh_evidence_base_action.go:683,
+--     evidence_citations.go:350). That is deliberate." So the daily refresher —
+--     the consumer this migration relies on — does NOT delete `rule` or
+--     `corrects_site_citation`. What the objection still buys, because a FUTURE
+--     writer could round-trip through the struct: the two corrections are now
+--     ALSO recorded outside the round-trip surface entirely — a doc_notes row
+--     (below), plus site_specs.notes (a real column, not inside data), plus the
+--     lane NOTES and migration 696 itself. Losing the jsonb fields would now
+--     lose a convenience, not the record.
+--
+-- (b) pinned (editquality med, prior_art med): NOT load-bearing, stated plainly —
+--     write_site_spec ignores and drops `pinned` (its landmine). It is set as
+--     convention only; durability rests on (a)'s analysis and the doc_notes row.
+--
+-- (c) the truncated site_id (two seats, low): review-sketch shorthand only. THIS
+--     file has carried the full UUID throughout; a guard below now also resolves
+--     the id against `sites` and aborts unless it names lendzy.co.uk.
+--
+-- (d) prior_art med, the dispatch absence: NAMED AND MEASURED. Scheduled task
+--     `evidence-freshness`: enabled, interval 86400s, last_triggered_at
+--     2026-09-02 09:08:57Z [MEASURED]. Its site selection is
+--     `SELECT site_id FROM site_specs WHERE aspect='evidence_base' AND
+--     is_current=true` (refresh_evidence_base_action.go:278) — fleet-wide by
+--     aspect, no per-site registration. Lendzy is reached on the first daily
+--     tick after this row exists, with no further action.
+--
+-- (e) compliance med, urgency of the live wrong citations: OVERTAKEN BY EVENTS
+--     the same day — the owner ruled "please fix both"; migration 696 (committed,
+--     council corr bb352ee8) corrects every storage layer including the
+--     content_direction spec and the loancash fork, and files 11 rerenders.
+--     Apply is sequenced after the announced chassis roll settles. Not routine,
+--     and no longer merely tracked: fixed, pending apply.
+--
+-- (f) compliance low, the standing gap: correct, and it stays NAMED — a Handbook
+--     re-numbering could invalidate `rule` silently, because the daily check
+--     verifies URL+quote, not the rule id. The closer is the rule-span checker
+--     (RFC_060 §3d/Q6), owner-approved to build 2026-09-02, claims-verification
+--     lane's. Until it ships, `rule` is a human-verified field, dated.
+--
 -- Lane: docs/agent_docs/docs024_key_docs_latest/lendzy_co_uk/
 -- Rollback: 695_..._ROLLBACK.sql
 
@@ -70,6 +115,13 @@ BEGIN
   IF n <> 0 THEN
     RAISE EXCEPTION '695 ABORT: lendzy already has % evidence_base row(s) - read them before writing', n;
   END IF;
+
+  -- (c): the UUID must resolve to the site this migration believes it names.
+  SELECT count(*) INTO n FROM sites
+   WHERE id = '8ff093d5-1f19-453b-9439-a10379bbcd76' AND domain = 'lendzy.co.uk';
+  IF n <> 1 THEN
+    RAISE EXCEPTION '695 ABORT: site 8ff093d5-1f19-453b-9439-a10379bbcd76 does not resolve to lendzy.co.uk';
+  END IF;
 END $$;
 
 INSERT INTO site_specs (site_id, aspect, data, source, source_agent, created_by, is_current, pinned, notes)
@@ -83,6 +135,25 @@ VALUES (
   true,
   true,
   'Eight FCA Handbook rule citations, each quote verified through datahelpers.QuoteFoundInText via cmd/fcaquotecheck on 2026-09-02 with a negative control in the same run. Two facts carry corrects_site_citation: the served pages attribute the rollover limit to CONC 6.7.17 (it is 6.7.23) and the CPA limit to CONC 6.7.23 (it is 7.6.12). Copy not touched - owner decision.'
+);
+
+-- Durable record of the two corrections OUTSIDE the jsonb round-trip surface
+-- (round-2 (a)): a future struct-based writer can lose fields inside data; it
+-- cannot touch this row.
+INSERT INTO doc_notes (subject_type, subject_key, site_id, body, categories, source, created_by)
+VALUES (
+  'site', 'lendzy.co.uk', '8ff093d5-1f19-453b-9439-a10379bbcd76',
+  'CITATION CORRECTIONS OF RECORD (2026-09-02, migration 695; served-copy fix is migration 696). '
+  || 'The two-rollover limit for high-cost short-term credit is CONC 6.7.23 ("A firm must not refinance '
+  || 'high-cost short-term credit (other than by exercising forbearance) on more than two occasions") - '
+  || 'the site had cited CONC 6.7.17, the definitions rule. The two-attempt continuous payment authority '
+  || 'limit is CONC 7.6.12 - the site had cited CONC 6.7.23, the refinance rule. Both substantive claims '
+  || 'were always true; the attributions were shifted. Verified against the rule text at '
+  || 'handbook.fca.org.uk on 2026-09-02; quotes verified through datahelpers.QuoteFoundInText with '
+  || 'negative controls. The evidence register (site_specs aspect evidence_base, migration 695) carries '
+  || 'the same corrections as facts FCA-CONC-6-7-23 and FCA-CONC-7-6-12 with corrects_site_citation keys.',
+  '["lendzy","citation-correction","evidence-base"]'::jsonb,
+  'lendzy_co_uk lane', 'lendzy_co_uk lane (migration 695)'
 );
 
 -- VERIFY as DO/RAISE. A verify block of bare SELECTs cannot stop the COMMIT.
@@ -117,7 +188,15 @@ BEGIN
     RAISE EXCEPTION '695 VERIFY: expected 2 facts recording a corrected site citation, found %', ncorr;
   END IF;
 
-  RAISE NOTICE '695 OK: lendzy evidence register created - 8 FCA citations, 2 correcting a live misattribution';
+  SELECT count(*) INTO ncorr FROM doc_notes
+   WHERE site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76'
+     AND created_by = 'lendzy_co_uk lane (migration 695)'
+     AND categories ? 'citation-correction';
+  IF ncorr <> 1 THEN
+    RAISE EXCEPTION '695 VERIFY: durable doc_notes correction record not found (%)', ncorr;
+  END IF;
+
+  RAISE NOTICE '695 OK: lendzy evidence register created - 8 FCA citations, 2 correcting a live misattribution, doc_notes record written';
 END $$;
 
 COMMIT;
