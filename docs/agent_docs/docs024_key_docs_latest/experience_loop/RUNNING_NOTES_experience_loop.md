@@ -1544,3 +1544,36 @@ detector for over-reporting.
 3. Routing `content-quality-auditor` into `site-work-orchestrator` (the original task's step 3),
    held until a post-694 audit is observed on a real build.
 4. The planner-side half of CONTRIB ask 3 (refusing to select a tool when we hold no data for it).
+
+---
+
+## 2026-09-02 (close) — fresh chassis rolled; post-roll verification BLOCKED on token expiry
+
+Owner reports a fresh chassis build deployed (~21:0xZ). Two notes, and the second is the reason
+this entry exists rather than a tick.
+
+**1. 694 should be untouched by a roll, and I did not get to prove it.** The migration edits
+`agent_definitions.default_config` — DB config, live immediately, no Go — so a chassis roll has no
+mechanism to revert it. That is a sound argument and it is still an argument. At 21:09Z every
+cluster call returned `You must be logged in to the server (Unauthorized)`, including
+`kubectl get --raw /version`, which is the fleet-wide kubeconfig-expiry signature (owner refreshes;
+context `personae-uk001-prod-agent-chassis-cluster`). So the post-roll check is **OUTSTANDING, not
+passed**, and it is written as step 0b of the new handoff with the exact queries and the expected
+row.
+
+**The trap I am deliberately not walking into:** with an expired token, every query returns nothing,
+and "nothing" is indistinguishable from a clean result. Had I run the verification anyway and read
+the empty output as "no problems", that is a false pass built on a dead connection — the same shape
+as `a-post-fix-ZERO-needs-a-DEMAND-control`. Nothing verified today after 21:09Z should be quoted.
+
+**2. What still needs proving once the token is back**, in priority order: (a) 694's markers still
+present on the live row; (b) the behavioural check — post-roll audits sampling 14–18 pages with
+`has_new_columns = t`, because the config reading right is not the same as the seat sampling right;
+(c) boxingonline's first post-694 audit, which has **still never happened** (its latest is 06:23Z,
+pre-694, 3 pages).
+
+**Handoff written:**
+`docs/agent_docs/docs024_key_docs_latest/experience_loop/HANDOFF_2026-09-02b_after_694_the_empty_index_rule_and_the_routing_still_owed.md`
+It carries the two outstanding promises to peer lanes (designblog: build the empty-index rule and
+re-run; vetcomparison: re-run both detectors plus the widened auditor after migration 701), the
+SQ-004 `--site` control bug, and the routing step that is still the original task.
