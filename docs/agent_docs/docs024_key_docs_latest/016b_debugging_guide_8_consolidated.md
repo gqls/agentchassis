@@ -7110,6 +7110,7 @@ See `/bugs_closed/README.md`.
 | 407 | **A site cannot put its OWN most important page in its own header.** Membership of the primary nav was decided by a hardcoded, FLEET-WIDE list of page NAMES (`navPriorityTier`), and `nav_order` only sorted WITHIN a tier — so a site's own page at `nav_order` 1 sat behind every tier-2 page at `nav_order` 100. The owner asked for finetuning.uk's £99 offer page to go in the header, named four pages he would displace, and got `Pricing` in the slot; nothing warned, and the row said `in_header = true` throughout. ⚠ **Extending the fleet list is REFUSED on measurement, not preference**: three site-specific names were hardcoded into tier 2 to fix this once, and `[MEASURED 2026-08-26 at the SERVED page]` ONE of them is in that site's header and its two siblings are not. ⚠ **The filed count of 8 across 5 sites is really 5 across 3** — the file warned a second cause was mixed in and could not separate it; the separator is not a timestamp but a REPLAY of the deterministic classifier in SQL, diffed against the stored nav (rank > cap = this bug · rank ≤ cap = stale nav · not a candidate = barred by type/URL). `idea.uk/report` is the third case: `page_type='tool'`, and no rebuild would ever place it | **OPEN — FIX BUILT, COUNCIL-APPROVED r1 (`cb67cc71`), COMMITTED `74e92e961`, INERT until migration 654 applies after the roll.** Ships the owner's own candidate 1: a site declares `site_specs.data->'chrome'->'header_slots'`, an ORDERED array of page names, and those take the leading primary slots ahead of every undeclared candidate; the tier table degrades to a fallback. **ORDERED, not a tier bump, because half the damage is SAME-TIER ties** (gaswholesalers' absent page and the three beating it are all tier 3 at `nav_order` 100). Opt-in, unsafe side OFF — `[MEASURED 2026-08-26]` 0 of 51 sites declare, and `nav_membership_test.go` (bugs_open/149 A2's invariant) passes with a ZERO DIFF. Register **NAV-014**. ⚠ **ONE OWNER DECISION IS OWED** (§B): the declaration overrides three membership guards at once — `in_header`, `neverPrimaryTypes` and the child-URL bar — which the guardian seat correctly called a widening beyond 'fix the tier order'. ⚠ The declaration MOVED TABLE after the council: the first draft used `sites.settings` on a rationale asserting *'there is NO site_specs table'*, read off a `\dt` listing truncated at 20 rows — it sorts on line 21, and its `site_config` aspect already holds per-site header CTA config |
 | 408 | **Two inverse path fallbacks in `extractFieldValue` recurse forever, so an unresolvable `content_field` crashes the agent pod with a stack overflow.** `multipage_actions.go:1207-1223`: fallback A strips `.response.` and recurses, fallback B adds it back and recurses — exact inverses, no depth bound, no visited set. `page_content_0.response.page_html` ping-pongs until the goroutine stack passes 1 GB. **The caller is innocent** — `AssemblePageAction:106` already treats `""` as "skip this page"; the function just never returns | **CLOSED 2026-09-02 — fixed, live at `v1.0.1354` (capability probe), and the exact crash input exercised in production post-fix** (canary corr `6e84a4e3`: clean skip, chain COMPLETED, pods restartCount 0 — vs 12,654 identical log lines, `exitCode: 2` and 3 orchestrations lost to the 4h reaper on 2026-08-26). Fix `6e2d4a039`+`b8bf40694` (council `3918db52`, APPROVED r1): bounded ordered-candidate loop over a pure walk helper, one Warn per failed lookup with `paths_tried`, plus a COUNTABLE misconfiguration signal (`ASSEMBLE_CONTENT_FIELD_UNRESOLVED` when upstream declared no skip). ⚠ the test lesson stands: a plain assert cannot fail on non-termination — `go test -timeout` + a mutation control against the OLD code (FAILED by stack overflow in 3.7s) |
 | 410 | **`next_fetch_at` is stamped `NOW() + fetch_interval` at FETCH time, so a 6 h interval on the 6 h `content-feed-refresh` trigger falls due SECONDS after the next pass fires — every news site whose sources are all 6-hourly is served every OTHER run, a 12 h cadence under a 6 h label.** Both stamp arms (`dispatch_feed_sources_action.go:276` optimistic, `feed_actions.go` `UpdateSourceTimestamps`) anchor to the fetch, which lands 10 s–9 min after the trigger; the trigger drifts only 3–30 s per pass. NOT `316` (ordering under the cap; the cap was not binding: 10 due, 10 dispatched) and it survives 316's fix | **OPEN — filed 2026-08-26** by the idea.uk lane, first-hand (declared). 48 h census: **every 6h-only site ran at ~20:47 and ~08:47 (12 h apart)**; the two sites holding a 3 h/4 h source ran at all four passes (control). idea.uk's worked case: five `next_fetch_at` 08:46:15–31 vs trigger 08:46:06. Blast radius **10 of 12** news sites at half the documented cadence; nothing surfaces it (`stale_news_section` keys on 72 h). Prospective prediction for the 14:46/20:46 passes recorded in the file BEFORE they ran. Fix: look-ahead of half the cadence in BOTH gating layers (site query is config; source query is Go) |
+| 450 | **Planned tool pages are built as prose shells by the phantom-link repair before their tools exist, and serve 200.** The planner names `hero-tool,generic-text-block` for a tool page whose tool does not yet exist (tools arrive via the ~3 h/site design rotation); `validate_site_plan`'s `owned_page_review` hold has no consumer; `unbuilt_internal_link` (one per LINK) routes the target to `page-build-handler`; the owned-page guard reads `rebuild_policy='owned'`, which planned tool pages never carry. seotools.co.uk 7/7 (2026-09-02); 61 tool-type pages without a tool-level component across 10 sites [MEASURED 2026-09-02, upper bound]. Control: advertise.co.uk, whose plan persisted after its tools existed. 090 run `96e97dc4`. |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
@@ -15126,4 +15127,34 @@ the path with no matching `!` line, and remember later patterns win. The fix is 
 line, and it must be COMMITTED before `make build-*` can see it (the context is committed
 HEAD). Prospective twin, for when you are ADDING such a check rather than debugging one:
 LANDMINES "A new ack-shipping check's image fails at RELEASE time".
+
+### A tool URL that serves 200 at full weight with the tool's own headline is not a tool — a plan can name a tool page before its tool exists, and every generic writer will fill it (2026-09-02, `bugs_open/450`)
+
+seotools.co.uk deployed with seven planned tool pages. Three hours later all seven served 200
+at ~56 KB, each with its tool's headline, and not one `<form>` or `<input>`. Page rows
+`deployed`, components `deployed`, link checkers clearing. The plan had named every tool page
+as `hero-tool,generic-text-block` because no tool component existed when the plan was written
+(tools arrive via the design rotation, hours to days later); the plan validator filed an
+`owned_page_review` hold that nothing consumes; hub pages linked the unbuilt URLs; the
+phantom-link check filed one `unbuilt_internal_link` per link routed to the generic builder;
+the owned-page guard reads `rebuild_policy='owned'`, which planned tool pages never carry; so
+the generic builder built exactly what the plan said, 2–6 times per page, and deployed it.
+The control was advertise.co.uk the same morning: the rotation happened to reach it before
+its plan persisted, so the plan named the real tool components and nothing went wrong.
+
+The transferable rules:
+
+- **A tool is a form, never a size.** Judge a tool page by `<form>`/`<input>`/`<select>` counts
+  at the served body, with a known-real tool page probed in the same run as the control. Size,
+  status, headline and a 200 all pass on a prose shell.
+- **The same item text carries opposite truths.** `owned_page_review` "not_built" was a stale
+  validator on advertise (close with evidence) and TRUE on seotools (keep). Only the artefact
+  tells them apart; the item's wording never will.
+- **A hold nobody consumes is a log line.** If a validator's finding is meant to stop a
+  producer, find the producer's predicate and check the finding reaches it. Here two
+  predicates shared the word "owned" and never met.
+- **Ordering luck is not a design.** When a site "worked" and its sibling did not, ask what
+  ran first, not what ran at all — the design-rotation timestamp was the whole difference.
+
+Case detail, spread census, fix candidates: `bugs_open/450`.
 

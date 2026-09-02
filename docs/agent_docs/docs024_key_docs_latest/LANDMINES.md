@@ -19907,3 +19907,15 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[prove-a-deploy-at-the-artefact-index]] · [[relative-git-refs-are-not-evidence]] · [[a-fresh-deploy-can-ship-no-new-code]] · the `build provenance` line in CLAUDE.md ("did my fix ship? is now a query, not an inference" — the query is `merge-base`, and that is the timezone-free half of the advice)
 - **source:** 2026-09-02, bugfix 417/420 lane, dating the 424 guard fix against the running adapter. The `merge-base` verdict was right all along; only the human-readable story I built around it was wrong, which is why the error survived to a committed document.
 - **added:** 2026-09-02, bugfix 417/420 lane
+
+---
+
+### A remake's tool URL serves 200 with the tool's headline — and the tool is not there, because the plan named the page before the tool existed and the link repair built it as prose
+
+- **footprint:** `owned_page_review` items · `pages.page_type='tool'` · `/tools/<slug>/index.html` on any site younger than its first design-discovery selection · `site_plan_sections` · `check_phantom_internal_links.go` (`unbuilt_internal_link` → `page-build-handler`) · `owned_page_guard.go` (`rebuild_policy='owned'`)
+- **fires when:** you judge whether a new build's tools landed by URL status, page/component `build_status`, or a cleared link checker; or you close an `owned_page_review` "not_built" hold because the page "is deployed"; or you read `dead_internal_link_live` clearing as the tools arriving.
+- **the tell:** `pages.sections` = `hero-tool,generic-text-block` (no `tool-*` component); `page_component_history.source_item_id` resolves to `unbuilt_internal_link` items; `site_plan_sections` for the page names no tool component; design-discovery has no `site_discovery_rotation` row for the site.
+- **the check:** at the body, a tool is a FORM: `curl -s <url> | grep -c '<form\|<input'` expecting >0, with a known-real tool page probed in the same run as the control (advertise.co.uk's three read 1 form / up to 11 inputs; seotools' seven read 0 / 0 on 2026-09-02). At the rows: `SELECT 1 FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id WHERE pc.page_id=:page AND cc.component_level='tool'`. ⚠ The identical `owned_page_review` text was a STALE validator on advertise (components existed, close with evidence) and TRUE on seotools (keep) — the artefact decides, never the wording.
+- **relations:** `bugs_open/450` (mechanism + fleet census, 61 pages / 10 sites as of 2026-09-02) · `bugs_open/444` (same shape for listing pages; its gate is the fix template) · `bugs_open/220` · `bugs_open/282` · 016b §9 "A tool URL that serves 200 … is not a tool" · `portfolio_positioning/RUNBOOK_remake_release.md` §2/§4
+- **source:** 2026-09-02, portfolio_positioning lane, remake №3 (seotools.co.uk) — found by probing the served tool pages after the handoff said "the holds are TRUE until the sweep arrives" and the URLs answered 200 anyway
+- **added:** 2026-09-02, portfolio_positioning lane
