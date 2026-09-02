@@ -196,3 +196,58 @@ contradiction excuse" still holds and is now redundant: the contradiction was li
 too.
 
 — the `bugfix_417_420` lane
+
+---
+
+# ROUND 4 — 21:00Z. The fix (`fcbe6071c`) verifies 4/4 against the real artefacts, and is NOT yet live
+
+The 424 lane fixed this within the hour and mutation-proved it (reinstated the old computation,
+watched the new test fail at 1.000, restored). `BorderKeyed` now counts border pixels whose
+**final alpha is 0** rather than BFS reachability. What follows is the empirical half they flagged
+as still owed — *"reasoning from your data, not yet re-verified against a real post-fix run."*
+
+## The new statistic, replayed on four real production artefacts `[MEASURED 2026-09-02 21:00Z]`
+
+`finalAlpha` is computed on exactly the bytes that get uploaded, so the stored PNGs **are** a
+faithful input for the new statistic. Border ring = outermost pixel ring; fraction with `alpha==0`;
+threshold `keyGroundMinBorderKeyed = 0.95`, unchanged by the fix:
+
+| artefact | new `BorderKeyed` | new guard | correct? |
+|---|---|---|---|
+| websitepromotion.co.uk (the 87.4%-transparent success) | **0.9993** | PASS | ✅ |
+| designblog.co.uk | 0.0000 | REFUSED | ✅ |
+| seotools.co.uk | 0.0000 | REFUSED | ✅ |
+| gamedesign.uk | 0.0000 | REFUSED | ✅ |
+
+Both halves hold on real data, with `inner`/`outer` untouched — which also confirms round 3's
+reading that this was **variance the guard could not see**, not a threshold miscalibration.
+
+**⚠ What this is NOT, stated so nobody quotes it as more than it is:** it replays the *statistic*,
+not the code path. Decode → flood → grade never ran. It can catch a discrimination regression and
+nothing else; a real post-fix generation is still owed.
+
+**⚠ The margin is now the thing to watch.** websitepromotion passes with only **3 of 4,348** border
+pixels non-transparent. That is comfortable here *because the prompt forbids edge-bleed* ("the
+artwork must not touch the image edges") — so that prompt clause has quietly become load-bearing
+for the guard. A design that legitimately reaches the border would be refused as a matte failure.
+
+## The fix is committed but NOT in the running adapter `[MEASURED 2026-09-02 21:00Z]`
+
+- adapter pods: `v1.0.1355`, started **20:56:52Z**, build provenance `git_commit=0d2feee2ff61d89b3f18588cdd81b569fc2c4ee6`
+- `git merge-base --is-ancestor fcbe6071c 0d2feee2f` → **NO**
+- control: `git merge-base --is-ancestor 6440ec968 0d2feee2f` → **YES** (the original matting fix is
+  in the same stamp, so the comparison is sound, not a broken invocation)
+
+The roll landed ~20 minutes after the fix commit and picked up a build that predates it.
+
+**⚠ A binary grep cannot answer this one.** The fix adds no string literal — its only added quoted
+text is inside a comment — so there is no needle and no removed-string control. I nearly reported
+"absent" off `borderTransparent`, which is a **local variable** and would never have been in the
+binary whatever the truth was. The build-provenance stamp is the only working instrument here, and
+this is a clean example of the case CLAUDE.md's "ask the service what it is running" rule exists for.
+
+## Live damage while it waits
+
+designblog.co.uk, seotools.co.uk and gamedesign.uk each serve `/assets/images/logo.png` at 200 and
+carry `logo-img` in their served markup — i.e. **all three veiled logos are live now.** Until the
+fix rolls, a regeneration reproduces the same class. Left to the 424 lane to decide; not touched.

@@ -254,3 +254,16 @@ post-fix generation; treat as a working hypothesis, not a settled fact.
 Full detail: `docs024_key_docs_latest/bugfix_424_logo_transparency/NOTES_logo_transparency.md` and
 the updated `HANDOFF_2026-09-02_continue_here.md`.
 Full table in the CONTRIB.
+
+**UPDATED 21:00Z — `fcbe6071c` verifies 4/4 on real artefacts, and is NOT yet live (417 lane).**
+Replaying the new `BorderKeyed` (border pixels with final alpha 0) against the four stored
+production artefacts, threshold 0.95 unchanged: websitepromotion **0.9993 PASS**; designblog,
+seotools, gamedesign **0.0000 REFUSED**. Both halves correct, `inner`/`outer` untouched — so this
+was variance the guard could not see, not a threshold problem. ⚠ It replays the STATISTIC, not the
+code path; a real post-fix generation is still owed. ⚠ Margin: websitepromotion passes on 3
+non-transparent border pixels of 4,348, so the prompt's "artwork must not touch the image edges"
+clause is now load-bearing for the guard.
+**Not live:** adapter `v1.0.1355` (started 20:56:52Z) stamps `0d2feee2f`, and
+`git merge-base --is-ancestor fcbe6071c 0d2feee2f` is NO, while the control `6440ec968` is YES.
+No string-literal needle exists for this fix, so only the provenance stamp can answer it.
+All three veiled logos are serving live meanwhile. Detail: the CONTRIB, round 4.
