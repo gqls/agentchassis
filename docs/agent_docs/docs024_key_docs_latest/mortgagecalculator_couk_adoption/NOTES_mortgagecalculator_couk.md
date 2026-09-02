@@ -5070,3 +5070,40 @@ to the owner's question, and it is a better answer than a green tick would have 
 (RUNBOOK §14 says ~3 min to claim, ~30 min to complete; 5–6 min is within normal queue latency, not
 a fault). Verdict lands as a `doc_notes` row, **not** on the work item — read the note, not the
 status.
+
+### VERDICT: `tool-bridging-compound` PASSES — the stale-fail diagnosis is confirmed at the artefact
+
+`acceptance_run` `21b2d81d`: inserted 21:27:00, claimed 21:32:29, **complete 21:33:17** — 6m17s
+end to end, of which the run itself was 48 seconds. (RUNBOOK §14's "~30 minutes created→complete"
+is the neighbouring lane's figure under load; note the real spread rather than treating 30 min as
+the expectation.)
+
+**doc_note `f6d333ef` — Tier-4 acceptance PASSED, all 9 checks, desktop AND mobile:**
+`boots@desktop, status@desktop, calculate-shows-results@desktop, console@desktop, boots@mobile,
+status@mobile, mobile-fit@mobile, calculate-shows-results@mobile, console@mobile` (1 skipped,
+`mobile-fit@desktop`, correctly — it is pinned to mobile).
+
+**`calculate-shows-results` is the exact check that failed on 08-26 on both profiles.** It now
+passes on both. So the chronology diagnosis holds: repaired 12:21, page rebuilt 23:07, and the
+failing verdict simply outlived its own fix by never being re-run. **This is the confirming
+instance of that shape** — I predicted the pass from the timestamps before firing the run, and the
+run agreed.
+
+The accompanying `render-critique` (`24466871`) returned **FINDINGS: none** on both profiles. It
+noted that several footer links appear under both "Quick Links" and "Explore" and judged it
+intentional site structure; `[UNCHECKED]` whether that duplication is wanted — it is site chrome,
+not this tool, and out of scope here, but someone should decide.
+
+### Scoreboard after the run
+
+| state | tools |
+|---|---|
+| **PASSING** | `simple`, `tool-overpayment-priority`, `tool-rate-scenarios`, **`tool-bridging-compound`** (4) |
+| FAILING — `441` stale fence, fixer blocked by `448` | `tool-deposit-tracker`, `tool-remortgage-savings` (2) |
+| no fence at all (`needs_criteria`) | `tool-btl-investor`, `tool-credit-health-check`, `tool-rate-stress-test` (3) |
+| ineligible for the ladder — needs `701` | the 9 adopted pages |
+
+⚠ **All four passes are still subject to `bugs_open/449`** — `bridging-compound`'s fence is the best
+on the site (9 checks, both profiles, boot + status + console + overflow + interaction) and it
+**still asserts no number**. It proves the calculator responds; it does not prove the calculator is
+right.

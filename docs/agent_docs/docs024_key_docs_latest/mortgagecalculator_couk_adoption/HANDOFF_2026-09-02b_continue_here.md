@@ -125,7 +125,7 @@ which is exactly the eligibility test.
 | tool | state |
 |---|---|
 | `simple`, `tool-overpayment-priority`, `tool-rate-scenarios` | **PASSING** (⚠ `simple`'s pass is desktop only — 4 mobile checks SKIPPED) |
-| `tool-bridging-compound` | **stale FAIL** — repaired 08-26 12:21, page rebuilt 23:07, never re-run. Fresh run `21b2d81d` fired 21:27 |
+| `tool-bridging-compound` | **PASSING** — confirmed 2026-09-02 21:33 by run `21b2d81d`: all 9 checks, desktop AND mobile, including the `calculate-shows-results` check that failed on 08-26. Its 08-26 FAIL was stale (repaired 12:21, page rebuilt 23:07, never re-run) |
 | `tool-deposit-tracker`, `tool-remortgage-savings` | FAILING — `441` stale fence, and their fixer is blocked by `448` |
 | `tool-btl-investor`, `tool-credit-health-check`, `tool-rate-stress-test` | no fence (`needs_criteria`) |
 | the 9 adopted pages | ineligible — needs `701` |
