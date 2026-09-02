@@ -1,0 +1,132 @@
+# deployments/kustomize/services/migration-ledger-drift-check/base/cronjob.yaml
+#
+# bugs_open/426: `scripts/migration/run-migrations.sh`'s default dry run already
+# computes, for free, exactly the set this estate cares about — appliable
+# migrations with no `schema_migrations` row, each probed to say whether its own
+# guard thinks it has already been applied by hand. CLAUDE.md already mandates
+# running it "per session and after every roll". Nobody drove it on a schedule,
+# so the signal only ever surfaced when a human happened to run it — seven real
+# instances of "applied by hand, never recorded" sat unnoticed for a month
+# before one lane found them by chance. A live re-run the day this was built
+# found THIRTY-FOUR — see docs/agent_docs/docs024_key_docs_latest/
+# bugfix_426_migration_ledger_drift/NOTES_migration_ledger_drift.md. This is
+# candidate 1 from the bug file: drive the existing check on a schedule and
+# make its silence legible, the same shape already proven by
+# single-owner-carriers-check (RFC 006) and the RFC_022 quiet-checks.
+#
+# WHY A CRONJOB AND NOT A GIT HOOK. The signal only has a true answer against
+# LIVE database state (has this file actually been applied, by anyone, any way)
+# — a pre-commit hook sees neither the ledger nor the live schema, and putting a
+# cluster + GitHub round trip in the commit path of ~30 concurrent sessions for
+# a question that changes underneath every one of them is the wrong place for
+# this check to live.
+#
+# WHY THIS FETCHES REAL MIGRATION FILES VIA A SPARSE GIT CLONE INSTEAD OF
+# RUNNING scripts/migration/run-migrations.sh's OWN kubectl-exec DEFAULT: this
+# job's service account has no pods/exec RBAC in ai-persona-system (same
+# constraint bugs-open-staleness-sweep's own header documents), so it connects
+# to Postgres directly with a secret, same as every sibling check here. Unlike
+# every sibling, this check needs the migration files' REAL SQL TEXT (to probe
+# it), not just DB state or file metadata — see check.sh's own header for why a
+# sparse, shallow, partial clone (measured 1.8s against the real repo, 16MB)
+# was chosen over both re-implementing the runner's vocabulary (forbidden by
+# bugs_open/426 §4) and a per-file GitHub Contents API fetch.
+#
+# check.sh runs the UNMODIFIED run-migrations.sh (only PSQL_CMD and
+# MIGRATIONS_DIR overridden) and only PARSES its own existing output
+# vocabulary — zero duplicate logic for "what counts as a migration".
+#
+# Out of council-review scope: deployments/ isn't platform/|internal/|pkg/|
+# cmd/config-key-audit/|scripts/pattern-check.py (scripts/council-scope.sh), and
+# nothing here edits run-migrations.sh itself. Same treatment
+# single-owner-carriers-check's own commit message states for the identical
+# situation — not submitted.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: migration-ledger-drift-check
+  labels:
+    app: migration-ledger-drift-check
+    component: config-integrity
+spec:
+  # 07:45 UTC — surveyed every live daily check's schedule (all cluster in the
+  # 06:00-08:00 UTC band); 07:45 and 07:50 were the only free minutes. Clear of
+  # database-backup (02:00) and the weekly bugs-open-staleness-sweep (Sunday
+  # 06:00).
+  schedule: "45 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Generous relative to siblings (300-900s): this job probes every pending
+      # migration (executes each in a doomed transaction), a workload with no
+      # comparable precedent among the other daily checks, and the pending
+      # count only grows as more sessions add migrations. Revisit from the
+      # first real run's actual wall-clock time (see PLAN §6) rather than
+      # assuming this is enough headroom forever.
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: migration-ledger-drift-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  # grep must be GNU grep (Alpine's package, not the BusyBox
+                  # applet): run-migrations.sh's idempotency lint uses `grep
+                  # -oiP` (PCRE), which BusyBox grep does not support and fails
+                  # on silently-ugly, once per pending file (measured live
+                  # when this was built — see check.sh's header and this
+                  # workstream's PLAN §3).
+                  apk add --no-cache bash git grep >/tmp/apk.log 2>&1
+                  bash /scripts/check.sh
+              env:
+                - name: MIGRATION_CHECK_REF
+                  # No default, deliberately (matches bugs-open-staleness-
+                  # sweep's SWEEP_REF discipline): a human bumps this by hand
+                  # when the platform's live working branch changes. Set here
+                  # to the branch this job was built and tested against.
+                  value: "087_towards_multiple_domains"
+                - name: REPO_OWNER
+                  value: "gqls"
+                - name: REPO_NAME
+                  value: "agentchassis"
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: GITHUB_READ_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: GITHUB_READ_TOKEN
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: migration-ledger-drift-check-script
+                defaultMode: 365

@@ -152,3 +152,55 @@ control that proves the mechanism works at all.
 - `CLAUDE.md`, "Migration runner practice" — the mandate that already exists and was not followed.
 - RFC_022 / `optional-key-budget-check` — the precedent for candidate 1, including why a clean run
   must still write a row.
+
+## 10. UPDATE 2026-09-02 (later, same day) — candidate 1 FIXED and LIVE; candidate 2 is the open residual
+
+**Status change: STILL OPEN, but only for candidate 2 now.** Candidate 1 (§5.1 —
+drive the existing dry run on a schedule, make its silence legible) is built,
+deployed, and proven against production. This is not "committed, inert until a
+roll" — there is no image or roll involved; the mechanism is a CronJob, applied
+directly, and already ran twice for real against the live cluster before this note
+was written.
+
+**Before building anything, re-ran the dry run myself to check the bug was still
+real.** It was — worse, in fact: **34 live "applied by hand, unrecorded" instances
+right now**, not the seven the bug documents (those seven, from `dispatch_throughput`'s
+own repair, correctly did not reappear). Full measurement, precedent research, and
+the build+deploy trail: `docs/agent_docs/docs024_key_docs_latest/
+bugfix_426_migration_ledger_drift/` (NOTES + PLAN, the standing five).
+
+**What shipped:** `deployments/kustomize/services/migration-ledger-drift-check/` —
+a daily CronJob (`45 7 * * *` UTC), `postgres:16-alpine`, no custom image. It
+fetches the real migrations directory via a sparse, shallow, partial `git clone`
+(measured 1.8s for the 16MB directory) and runs `scripts/migration/run-migrations.sh`
+**completely unmodified** (only `PSQL_CMD`/`MIGRATIONS_DIR` overridden) — zero
+duplicate vocabulary, per this file's own §4. Writes ONE `doc_notes` row
+(`subject_type='pipeline'`, `subject_key='migration-ledger-drift'`) every run,
+including clean runs, per §5's RFC_022 precedent.
+
+**Live-tested twice against production**, not just designed: first run exposed a
+real defect (exiting non-zero on findings caused a full re-run + a permanently
+"Failed" Job, because unlike `single-owner-carriers-check`'s rare findings, this
+check's findings are the ordinary daily state — 72 of 158 pending on the very
+first run); fixed and re-run cleanly. Second run: single pod, exit 0, real
+`doc_notes` row, **158 pending / 81 clean / 72 needing review (34 ALREADY, 38
+INCONCLUSIVE, 0 DUP)** — confirmed by reading the row directly from
+`doc_notes`, not by trusting Job status. Full trail, including the two mid-flight
+defects found and fixed before/after deploying: this workstream's PLAN §3/§3b.
+
+**Candidate 2 (§3's second finding — the probe's `ALREADY` verdict only fires when
+a guard's message matches `/already/i`) is DELIBERATELY NOT fixed by this change**,
+and is the reason this bug stays open rather than closing. Mitigated at the report
+layer instead (the new job's NEEDS-REVIEW bucket includes `INCONCLUSIVE`, not just
+`ALREADY` — confirmed live: 38 of today's 72 flagged items are exactly this
+class), which the `dispatch_throughput` lane flagged independently and unprompted
+when told about the 34-vs-7 measurement (credited in this workstream's NOTES). But
+the underlying contract in `run-migrations.sh`'s `probe_file()` is still prose-
+matched, not structural, and fixing that properly means editing a script ~30
+concurrent sessions rely on interactively — a separate, higher-stakes change,
+deliberately left for whoever picks this up next. See the workstream PLAN §1 for
+the full reasoning on why it wasn't bundled in.
+
+**Verification owed to a future thread, not done here:** watch for the job's first
+*scheduled* (not manually triggered) run at 07:45 UTC and confirm it behaves the
+same as the manual triggers did.
