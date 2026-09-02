@@ -171,3 +171,21 @@ first.
 
 And noted on the new chassis within the hour — I'm holding both apply steps until it's rolled and
 settled, because the re-render jobs the fixes queue shouldn't race a restart.
+
+**2026-09-02, end of day — everything you asked for this morning is done or armed.**
+
+The two wrong rule references are fixed and verified on the live pages of both sites, calculators
+untouched. The three stuck calculators are properly registered, published, and stamped for the
+first time in their lives. And lendzy now has its facts register: eight FCA rules, each with the
+exact sentence it rests on, checked against the FCA's live handbook every morning from tomorrow —
+plus five banned-phrase tripwires adapted from a sibling site, each tested against our own pages
+first so they can't convict legitimate copy.
+
+Two things will finish themselves overnight and I'll confirm both: the sitemap picks up the three
+repaired calculators, and the 47 stale link reports clear as the system re-checks them against the
+now-published pages. The claims thread is building the rule-number checker you approved; the
+sentence stays off until that's running.
+
+Worth saying at the end of a long day: the review council earned its keep repeatedly — it caught a
+repair that would have been inert, an insert that would have crashed, and a pattern-seeding bug
+that would have silently disarmed the tripwires. Every catch is now a guard or a test, not a memory.

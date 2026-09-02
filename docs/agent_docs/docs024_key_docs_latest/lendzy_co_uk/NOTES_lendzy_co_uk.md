@@ -414,3 +414,28 @@ the same path 696's did, same site, same day, fresh chassis.
 **695 remains the only unapplied piece.** Its resubmitted council run froze at the second roll
 (review_tooling_provenance, 15+ min stale) and the fleet was still cycling new pods at 16:1x —
 resubmission waits for a stable window (monitor armed) rather than feeding a third run to a roll.
+
+## 2026-09-02 (n) — 695 APPLIED: every migration is live, and the day's programme is complete
+
+Approved round 2 (2 advisories + several lows), applied ~17:0xZ after acting on them: two new
+verify arms assert the STORED regex form mechanically (zero double backslashes; the single-escaped
+`\b` present in all 5 — the double-escape landmine where a pattern compiles and matches nothing can
+now fail the migration instead of shipping), and the rollback header states the real refusal
+mechanism (the refresher SUPERSEDES, so a post-refresher rollback aborts at the zero-rows check,
+correctly). Read-back: **8 facts | 5 banned patterns | `\bguaranteed…` single-escaped | created_by
+the lane.**
+
+The banned set is the calibrated adaptation of adversecreditmortgage's ((n-1), RUNBOOK §8b/8e):
+four adopted, `no credit checks?` narrowed on the measured UI false positive, the literal-rate
+pattern deliberately absent with the measurement recorded inside the register.
+
+**What arms from here, on schedules not ours:** the daily `evidence-freshness` tick (last ran
+09:08Z) starts re-verifying all 8 quotes against the live Handbook tomorrow morning; the numeric
+scan arms on lendzy for the first time — and per the 414 lane's sizing, arms CLEAN (zero unbacked
+business numbers post-`fad209b92`); the sitemap picks up the three repaired tool pages on its next
+rotation (27 → 30); the 47 `unbuilt_internal_link` items drain as revalidation re-judges them.
+RUNBOOK's standing instruction: **read the first `claims_unverified` findings rather than assuming
+silence is cleanliness** — a register's first live pass is a measurement, not a formality.
+
+End of day one. Three migrations written, reviewed (7 council rounds between them, every REVISE
+answered by measurement), applied, and verified at the artefact where an artefact exists.
