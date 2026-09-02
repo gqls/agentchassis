@@ -534,7 +534,24 @@ const skipLinkMarker = `data-skip-link="1"`
 // too, not an inline style — deliberately, so a site stylesheet that later
 // grows its own `.skip-link` rules can still override this one on specificity
 // in the normal way.
-const skipLinkCSSBlock = `<style ` + skipLinkMarker + `>.skip-link{position:absolute;left:-9999px;top:0;z-index:100;padding:12px 20px;font-weight:700;background:var(--brand-accent,#000);color:var(--brand-primary,#fff)}.skip-link:focus{left:0}</style>`
+//
+// ⚠ THE VARIABLE NAMES ARE `--color-*`, AND THIS IS NOT COSMETIC. The first
+// version of this block used `var(--brand-accent,#000)` / `var(--brand-primary,
+// #fff)`. The council's render_guardian seat objected (medium, round 1, corr
+// 3c71ec77) that no such properties exist anywhere on this estate — so the
+// fallback would fire on EVERY site and the link would be hard-coded
+// black-on-white while LOOKING like it inherited the brand. Measured on four
+// live stylesheets (cookly.uk, finetuning.uk, agritec.uk, webdesign.co.uk):
+// `--brand-*` occurs 0 times, `--color-primary` 12-19 times each. The seat was
+// right and this is the corrected pair.
+//
+// `--color-primary` / `--color-primary-text` chosen over the `--color-cta-*` and
+// `--color-accent-*` pairs because it is the one that is a CONTRASTING pair by
+// construction on every site measured (a dark ground with `#ffffff` text on all
+// four), where `--color-cta-bg` is a pale beige on three of the four and a
+// linear-gradient on the fourth. The fallbacks stay legible on their own for a
+// site that defines neither.
+const skipLinkCSSBlock = `<style ` + skipLinkMarker + `>.skip-link{position:absolute;left:-9999px;top:0;z-index:100;padding:12px 20px;font-weight:700;background:var(--color-primary,#1a1a1a);color:var(--color-primary-text,#ffffff)}.skip-link:focus{left:0}</style>`
 
 // skipLinkAnchor is the first element inside <body>; skipLinkTarget sits
 // between the header and <main>. They are a pair: emitting either alone is a

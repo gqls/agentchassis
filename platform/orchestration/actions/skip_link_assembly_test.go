@@ -24,6 +24,7 @@ package actions
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -194,5 +195,47 @@ func TestInjectSkipLinkCSS_HeadWithNoCloseTagStillShipsTheRules(t *testing.T) {
 	out := injectSkipLinkCSS(`<title>x</title>`)
 	if !strings.Contains(out, skipLinkMarker) {
 		t.Fatal("the CSS block was dropped when the head had no </head>")
+	}
+}
+
+// TestSkipLinkCSS_ReferencesOnlyCustomPropertiesTheEstateDefines exists because
+// the council's render_guardian seat caught the first version of this block
+// referencing `--brand-accent` / `--brand-primary`, which are defined NOWHERE on
+// this estate (corr 3c71ec77, medium). The failure mode is the nasty kind: the
+// CSS is valid, the fallback fires, the link renders — it simply renders
+// hard-coded black-on-white on every site while LOOKING like it inherits the
+// brand. Nothing visual is broken enough to notice.
+//
+// The allow-list is measured, not guessed: fetched from four live stylesheets on
+// 2026-09-02 (cookly.uk, finetuning.uk, agritec.uk, webdesign.co.uk), which
+// define 51 custom properties between them, `--brand-*` zero times and
+// `--color-primary` 12-19 times each. Extend the list only with a name you have
+// confirmed the same way — the point of the test is that an invented name fails.
+func TestSkipLinkCSS_ReferencesOnlyCustomPropertiesTheEstateDefines(t *testing.T) {
+	defined := map[string]bool{
+		"--color-primary":      true,
+		"--color-primary-text": true,
+	}
+
+	refs := regexp.MustCompile(`var\((--[a-z0-9-]+)`).FindAllStringSubmatch(skipLinkCSSBlock, -1)
+	if len(refs) == 0 {
+		t.Fatal("the block references no custom properties at all — it should inherit the site's brand, not hardcode a colour")
+	}
+	for _, m := range refs {
+		if !defined[m[1]] {
+			t.Errorf("skipLinkCSSBlock references %q, which this estate does not define — "+
+				"the fallback would fire on every site and the link would be hardcoded, "+
+				"looking brand-aware while being nothing of the sort. Confirm the name against "+
+				"a live styles.css before adding it to the allow-list.", m[1])
+		}
+	}
+
+	// Every reference must carry a fallback: a site that has not been through a
+	// design run yet defines none of these, and `var(--x)` with no fallback
+	// resolves to nothing — an unpainted link on a white ground.
+	for _, m := range refs {
+		if !regexp.MustCompile(regexp.QuoteMeta("var("+m[1]) + `\s*,`).MatchString(skipLinkCSSBlock) {
+			t.Errorf("var(%s) has no fallback — a site with no design run yet would render the link unpainted", m[1])
+		}
 	}
 }
