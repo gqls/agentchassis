@@ -281,3 +281,39 @@ key is the isolation actually available — and arguably the better one, since i
 the risky half at RUNTIME, per step, with no revert and no roll.
 
 Round 2 resubmitted on the same correlation.
+
+
+## COUNCIL ROUND 3 → APPROVED — and one advisory reversed the round-2 design (2026-09-02)
+
+**APPROVED**, 2 advisories, **none high**. But acting on `bug_historian`'s medium
+advisory undid what rounds 1–2 argued about, so it is recorded here rather than filed
+as a tidy win.
+
+**The opt-in escalation gate is DELETED.** The advisory: with the key OFF, a slot with
+nothing ever stored that the UTF-8 gate refuses does not fail the build — and
+`bugs_closed/054` already ruled that filing an item without failing the step is
+insufficient escalation for an unserved chrome slot. Checking it made things worse than
+the advisory said: **the arm could never gate "store failures" at all.** Escalation is
+reached only through `chromeUnserved`, which is appended to only when
+`!chromeSlotHasStoredHTML`. So the single thing my key gated was **a slot with nothing to
+serve** — exactly the state `bugs_open/260` and `054` had already ruled must fail,
+greenfield builds explicitly included.
+
+**And the enumeration the guardian demanded argues against the gate, not for it.**
+`[MEASURED 2026-09-02]` across the whole fleet **exactly ONE** `site_components` row has
+NULL or empty `rendered_html` — garden-tools.uk's footer, which this change repairs. The
+flag protected seven pipelines from a population of **one**.
+
+> **The transferable error, and it is mine:** the seven-workflow figure bounds **WHO is
+> affected when the arm fires**. It says nothing about **HOW OFTEN it can fire**. I
+> answered the second question with the first question's number, and did it for two
+> rounds while believing I had measured the blast radius. A count of consumers is not a
+> count of occasions.
+
+Deleting it also dissolved four advisories rather than deferring them (the undeclared key
+failing open on a typo, its invisibility to the RFC_022 counter, the untested armed path,
+and bug_historian's own) — a fair sign the simpler design was right.
+
+Two seats moved me in opposite directions and the **measurement**, not the seniority of
+the objection, decided between them. Round 4 resubmitted so the trailer describes the code
+that exists.

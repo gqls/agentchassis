@@ -129,3 +129,26 @@ cp <file> /tmp/.bak; trap 'cp /tmp/.bak <file>' EXIT
 Round 2's two mutations: deleting the escalation gate (returns round 1's behaviour) kills
 `TestStoreRefusalDoesNotEscalateByDefault`; an arm that ignores its config key kills
 `TestStoreRefusalEscalatesWhenArmed`. Both red, then green after revert.
+
+## Deploy verification after the roll (debug_historian, council round 3)
+
+Git and CI green are not proof, and a same-tag rebuild can ship a stale binary. Ask the
+service what it is running:
+
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor <the commit carrying this fix> <the stamp>
+```
+
+⚠ That line is emitted at STARTUP, so on a busy service it has already scrolled — an empty
+result means "not in range", **not** "unstamped". Fall back to the binary probe, and run
+**both** controls in the same breath:
+
+```bash
+kubectl -n ai-persona-system exec <pod> -- grep -aq "<sha that MUST be present>" /proc/1/exe
+kubectl -n ai-persona-system exec <pod> -- grep -aq "<sha that MUST be absent>"  /proc/1/exe
+```
+
+Never `strings` (absent from these images, and its failure is indistinguishable from "not
+stamped"), and never a discovery grep for "some 40-hex string" — that matches Go's internal
+digit table and returns the same wrong answer on every service.

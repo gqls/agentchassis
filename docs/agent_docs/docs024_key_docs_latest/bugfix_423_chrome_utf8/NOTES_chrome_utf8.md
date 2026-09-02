@@ -143,3 +143,27 @@ so it is its own change. Same argument the guardian used against my round-1 esca
 ⚠ **Misstep, logged in WRONG_CALLS:** I published round 3 in the same shell call whose edit
 had just failed an assertion, joined with `;`. The submission asserted a code citation that
 did not exist for four minutes. `&&`, not `;`, behind anything that tells someone else.
+
+
+## 2026-09-02 — round 3 APPROVED, and then I deleted the thing round 2 was about
+
+bug_historian's medium advisory sent me back to my own caller and I found that the opt-in
+arm could never gate what I thought it gated. `chromeUnserved` is appended to only when
+`!chromeSlotHasStoredHTML`, so the arm's entire reach was "a slot with nothing to serve" —
+the case 260 and 054 already ruled must fail.
+
+**My round-2 reasoning error, stated so I do not repeat it:** I measured **7 workflows
+with no error_step** and treated that as the blast radius. It is not. It bounds WHO is hit
+when the arm fires; it says nothing about HOW OFTEN it can fire. The second number is ONE
+row fleet-wide. I answered the wrong question with a real measurement, which is worse than
+not measuring, because it *felt* rigorous — and it survived a HIGH objection, a redesign
+and two rounds of review before a seat asked the question from the other end.
+
+Gate deleted, sentinel deleted, key deleted, three tests deleted with it. Full suite green
+under an overlay isolating 17 peer files. Strictly less machinery than round 3, and it
+dissolved four advisories instead of deferring them.
+
+⚠ Overlay gotcha found the hard way: my first re-run FAILED because the overlay pinned my
+own DELETED test file back from HEAD (`git status` shows ` D`, and the script treated it
+like any tracked peer file). A deleted file of your own must map to `""`, not to its HEAD
+copy — otherwise you are testing a symbol you just removed.

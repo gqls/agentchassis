@@ -8,7 +8,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -332,11 +331,11 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			// result, AND it files a human-review item, AND the one case with
 			// nothing to fall back on fails the step outright.
 			chromeRenderFailed[slot] = renderErr.Error()
-			// bugs_open/423: reporting is unconditional (it is the bug);
-			// ESCALATING a store refusal to a step failure is opt-in, because
-			// all 7 workflows dispatching this action declare no error_step.
-			if escalateUnservedChromeSlot(params.StepConfig.Config, renderErr) &&
-				!chromeSlotHasStoredHTML(ctx, params.DB, siteID, slot) {
+			// bugs_open/423: a store refusal takes the SAME disposition as an
+			// execution failure. Ungated — see the note above chromeSlotHasStoredHTML's
+			// caller-side reasoning: this arm only ever fires for a slot with
+			// nothing to serve, which bugs_open/260 already ruled must fail.
+			if !chromeSlotHasStoredHTML(ctx, params.DB, siteID, slot) {
 				chromeUnserved = append(chromeUnserved, slot)
 			}
 		}
@@ -386,78 +385,38 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	}, nil
 }
 
-// chromeStoreRefusedError marks a chrome failure that happened AFTER the
-// template executed cleanly — the STORE refused the bytes. It exists only to be
-// distinguished from an execution failure at the caller, because the two carry
-// DIFFERENT authority to fail a build (bugs_open/423, council dc62975f round 1,
-// guardian HIGH).
+// WHY THERE IS NO OPT-IN ESCALATION GATE HERE, having had one for two rounds
+// (bugs_open/423; council dc62975f rounds 1-3, guardian then bug_historian).
 //
-// bugs_open/260 ruled that a chrome template that cannot execute may fail the
-// step when the site has nothing stored to serve. Extending that to a STORE
-// refusal reads as the same disposition, and the first cut of this fix asserted
-// exactly that. The guardian seat asked for the blast radius rather than the
-// analogy, and the enumeration is why this type exists: `[MEASURED 2026-09-02]`
-// **7** live workflows dispatch the render_site_components action —
-// nav-updater, nav-link-fixer, rerender-chrome, rerender-site, rerender-pages,
-// pageflow-builder, site-work-orchestrator — and **every one of them declares
-// no `error_step`, no `on_error` and no `continue_on_error`**, so a hard step
-// failure has no handler anywhere and takes the whole orchestration with it.
-// That is new authority over seven pipelines, which is not something to acquire
-// by analogy inside a bug fix.
+// Round 1 let a store refusal fail the step by analogy with bugs_open/260. The
+// guardian seat objected HIGH: enumerate the blast radius, do not assert it.
+// `[MEASURED 2026-09-02]` **7** live workflows dispatch this action — nav-updater,
+// nav-link-fixer, rerender-chrome, rerender-site, rerender-pages, pageflow-builder,
+// site-work-orchestrator — and every one declares no `error_step`, no `on_error`
+// and no `continue_on_error`, so a step failure has no handler anywhere. Round 2
+// therefore put the escalation behind an opt-in key with the unsafe default OFF.
 //
-// PRECEDENT, and what is NOT new here (council dc62975f round 2, bug_historian):
-// bugs_closed/054 is this estate's ruling that a named log is OBSERVABILITY, not
-// ESCALATION — the council returned REVISE twice on that point before it landed —
-// and its remedy was to file a work item through a chrome-specific emitter. This
-// change builds no parallel mechanism: both new failure kinds go through the SAME
-// emitChromeRenderFailedItem with the SAME item_key shape. The sentinel and the
-// config key decide only whether a REPORTED failure additionally fails the step,
-// which 054 settled for unresolvable FIELDS and never for a refused STORE.
-type chromeStoreRefusedError struct{ err error }
-
-func (e *chromeStoreRefusedError) Error() string { return e.err.Error() }
-func (e *chromeStoreRefusedError) Unwrap() error { return e.err }
-
-// chromeStoreEscalateConfigKey arms the ESCALATION half of bugs_open/423: a
-// chrome slot whose STORE was refused, on a site with nothing stored to serve,
-// fails the step instead of completing as a degraded success.
+// THAT WAS AN OVER-CORRECTION, and bug_historian caught it in round 3. The
+// escalation is reached ONLY through `chromeUnserved`, which is only appended to
+// when `!chromeSlotHasStoredHTML` — so the arm could never gate "store failures"
+// at all. It gated exactly one thing: **a slot with nothing to serve**. And that
+// is the state bugs_open/260 and bugs_closed/054 already ruled on — a site must
+// not go live with a missing header, footer or head, deliberately including
+// greenfield builds. Defaulting it OFF withheld an approved protection from the
+// only case it was written for.
 //
-// Default OFF, and the unsafe side IS the default, per the owner ruling of
-// 2026-08-02 §2 and the three sibling keys in mistyped_llm_fields_gate.go. Unset
-// means today's behaviour byte for byte: the failure is REPORTED — it lands in
-// the action result's chrome_render_failed map and files a needs_human_review
-// item — but it does not fail anybody's build.
+// The enumeration the guardian actually asked for finishes the argument rather
+// than supporting the gate: `[MEASURED 2026-09-02]` across the whole fleet exactly
+// **ONE** row can reach it — garden-tools.uk's footer, `rendered_html` NULL — and
+// this change repairs it at source. A site with no chrome ROW at all takes the
+// `no row matched` path instead, which is bugs_open/435 and still silent.
 //
-// ⚠ WHY THE REPORTING HALF IS NOT GATED AND THIS IS: the reporting half is the
-// bug. A store refusal returning a nil error is what let garden-tools.uk sit
-// broken for ten days, and gating a fix for silence behind a flag nobody sets
-// reproduces the silence. Escalation is a different thing — it is not needed to
-// repair either casualty (both are fixed at source by datahelpers.UpperFirst),
-// so arming it today would buy nothing and risk seven pipelines.
-//
-// The trigger to flip it: the first chrome_render_failed item whose spec.phase
-// is "rendered but was not stored" on a site with nothing serving, i.e. the day
-// a store refusal actually costs a site its chrome rather than merely being
-// noticed.
-const chromeStoreEscalateConfigKey = "escalate_chrome_store_failure"
-
-// escalateUnservedChromeSlot is the DECIDING ARM, factored out so a test
-// exercises exactly what the action runs rather than a restatement of it (the
-// refusePersistForAbsentRequired precedent).
-//
-// An EXECUTION failure escalates unconditionally — that is bugs_open/260's
-// existing, reviewed authority and this change does not touch it. A STORE
-// refusal escalates only when this step is armed. Fail-OPEN on a mistyped config
-// value, exactly as the sibling keys: a config mistake must not switch on a
-// build-failing escalation across seven workflows by accident.
-func escalateUnservedChromeSlot(config map[string]interface{}, renderErr error) bool {
-	var refused *chromeStoreRefusedError
-	if !errors.As(renderErr, &refused) {
-		return true // an execution failure: bugs_open/260, unchanged
-	}
-	armed, _ := config[chromeStoreEscalateConfigKey].(bool)
-	return armed
-}
+// So the key and its sentinel are DELETED rather than left inert. A flag whose
+// measured population is one row, which withholds a ruled-on protection and which
+// nothing declares in ConfigKeys (so a typo in a future arming migration fails
+// open silently), is not caution — it is a mechanism rotting unexercised, and this
+// estate has been bitten by that before. A store refusal now takes bugs_open/260's
+// existing, reviewed disposition, unchanged and ungated.
 
 // SiteDataFull contains all site data needed for rendering
 type SiteDataFull struct {
@@ -1422,8 +1381,8 @@ func renderAndStoreSiteComponent(
 	// the disposition this function already takes for every other bad render.
 	if off, window, bad := datahelpers.InvalidUTF8At(renderedHTML); bad {
 		serving := chromeSlotHasStoredHTML(ctx, db, siteID, slot)
-		utf8Err := &chromeStoreRefusedError{fmt.Errorf("chrome slot %q rendered invalid UTF-8 at byte %d of %d, near %s — a byte-indexed slice upstream cut a multi-byte rune (bugs_open/423)",
-			slot, off, len(renderedHTML), window)}
+		utf8Err := fmt.Errorf("chrome slot %q rendered invalid UTF-8 at byte %d of %d, near %s — a byte-indexed slice upstream cut a multi-byte rune (bugs_open/423)",
+			slot, off, len(renderedHTML), window)
 		logger.Error("site chrome: rendered bytes are not valid UTF-8 — not storing",
 			zap.String("slot", slot),
 			zap.String("component_id", componentID.String()),
@@ -1460,7 +1419,7 @@ func renderAndStoreSiteComponent(
 		// the SAME surface the execution-failure branch already built for
 		// bugs_open/260, rather than a second chrome-failure channel.
 		serving := chromeSlotHasStoredHTML(ctx, db, siteID, slot)
-		storeErr := &chromeStoreRefusedError{fmt.Errorf("chrome slot %q rendered but could not be stored: %w", slot, err)}
+		storeErr := fmt.Errorf("chrome slot %q rendered but could not be stored: %w", slot, err)
 		logger.Error("site chrome: store failed — the slot keeps whatever it was serving",
 			zap.String("slot", slot),
 			zap.String("component_id", componentID.String()),
