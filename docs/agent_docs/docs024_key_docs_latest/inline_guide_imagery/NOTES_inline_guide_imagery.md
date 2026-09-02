@@ -340,3 +340,49 @@ which would have meant the guard had quietly killed the feature — that is why 
 query rather than a sentence saying the guard is conservative. The full SQL (a plan-sequence vs
 live-sequence comparison, site-level slots filtered) is in the scratch of this session; it is
 worth re-running rather than quoting, because the sequences move on every re-plan and rebuild.
+
+### 6. My own blast-radius caution named the wrong population — a row census is not a reachability census
+
+I had written, in the register, in the council submission and in the commit message, that `icon`
+was "the case to watch" because it reaches 10 section-scope rows on one page against illustration's
+maximum of one. That was inferred from a count of ROWS. The branch does not read rows; it reads a
+component field whose `source` names a kind. So I asked which components can actually walk through
+it `[MEASURED 2026-09-02]`:
+
+```sql
+SELECT v->>'source', count(*) AS fields, count(DISTINCT cc.id) AS components,
+       string_agg(DISTINCT cc.function, ', ')
+  FROM content_components cc, jsonb_each(cc.input_schema->'fields') AS f(k,v)
+ WHERE cc.is_active AND v->>'source' IN ('site_assets.illustration','site_assets.icon','site_assets.infographic')
+ GROUP BY 1;
+-- site_assets.illustration | 2 | 2 | brief-explanation, illustrated-text-block
+-- (no rows for icon; no rows for infographic)
+```
+
+**Zero components source `site_assets.icon` or `site_assets.infographic`.** Icon fields are reached
+by their literal asset key (`site_assets.icon_speed`), and the per-section map holds **kind keys
+only** — so a literal-key lookup falls straight through to the unchanged page-wide map. The icon
+population is not merely unlikely to be affected; it is unreachable.
+
+And then the second half, which is the one that matters:
+
+```sql
+SELECT s.domain, p.name, count(*) FROM page_components pc
+  JOIN content_components cc ON cc.id=pc.component_id
+  JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ WHERE cc.function IN ('brief-explanation','illustrated-text-block') GROUP BY 1,2 ORDER BY 3 DESC;
+-- apis.uk index 6 · idea.uk index 1 · idea.uk tools 1 · lendzy 1 · oufe 1 · remortgagecalculator 1
+-- · robot-hands 1 · vonc 1 · webdesign.uk 1
+```
+
+**One page in the estate has more than one instance of a component that can reach this binding.**
+On a single-instance page, per-section and page-wide resolution are identical by construction. So
+the live blast radius of IMG-075 is exactly `apis.uk/index`, and only once section-scope rows are
+seeded there.
+
+⚠ **The lesson, and it is worth more than the correction:** a row census answers *how much data
+exists*, never *which code path can read it*. I cautioned about the wrong population for two days —
+in a register entry, a council submission and a commit message — on the strength of a number that
+was accurate and irrelevant. The check that would have caught it is the one above and it is a
+single query: **before naming a population as the risk, ask what would have to name it in a schema
+for the branch to fire.**
