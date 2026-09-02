@@ -668,9 +668,12 @@ SELECT id, publish_on, human_approved_at IS NOT NULL AS human_read,
  ORDER BY publish_on NULLS LAST;
 ```
 
-**Then retire by id.** `retired` is the existing vocabulary (`approved` / `retired` /
-`rejected`; 15 rows already retired), and `loadProvocations` selects `status='approved'`
-only, so a retired row leaves the feed on the next publish:
+**Then retire by id.** `retired` is the existing vocabulary — the CHECK constraint
+`provocations_status_check` allows exactly `draft` / `approved` / `rejected` / `retired`
+(read it from `\d provocations`, not from the values that happen to be present:
+`[MEASURED 2026-09-02]` only three of the four are in use, so a census of live rows would
+have told you `draft` does not exist). `loadProvocations` selects `status='approved'` only,
+so a retired row leaves the feed on the next publish:
 
 ```sql
 UPDATE provocations SET status='retired'

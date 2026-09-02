@@ -183,3 +183,21 @@ buffer real but unusable).
 ⚠ Also do not chase the feed's `generated_at: 2026-08-22` **or** its
 `Last-Modified: 01 Sep`. The two disagreeing is the no-change skip working as designed
 (`provocation_feed_action.go:833`); neither is a liveness signal. See the `NOTES` tail.
+
+## > **CORRECTED again 2026-09-02 (evening) — Owed 2 is CLOSED. The prose HAS been read.**
+
+Owner, on all eight bodies presented in full: *"you don't need to retire any of the
+suggested challenges."* **All three "Owed" items above are now discharged or ruled.** The
+only thing left in this lane is a watch: confirm the site turns over on 2026-09-03 (read
+`today.slug`, never a timestamp — see the previous correction).
+
+⚠ **BUT `human_approved_at` IS STILL NULL ON ALL EIGHT ROWS, AND THAT IS NOT EVIDENCE OF
+ANYTHING.** The stamping write was blocked by a session sandbox and deliberately not worked
+around. **Do not query that column and conclude the prose is unread** — it was read on
+2026-09-02, and the record lives in `NOTES` / `README_where_we_are`, which also carry the
+exact `UPDATE` that is owed and this lane's verbatim-quote convention for
+`human_approved_by`.
+
+Nothing is blocked by it: `[MEASURED 2026-09-02]` `grep -rn 'human_approved' --include=*.go
+platform/ internal/ pkg/ cmd/` returns two hits, **both struck-through comments**, and zero
+in tests. The column gates nothing; it only under-reports.

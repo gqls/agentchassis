@@ -2736,3 +2736,44 @@ liveness check is `scheduled_tasks.last_triggered_at` plus the dated queue, both
 The disconfirming observation for the turnover claim would be the 09-03 entry's slug
 failing to appear in `today.slug` on 09-03 — **that** is the check worth running tomorrow,
 not a timestamp comparison.
+
+### 2026-09-02 (evening, later still) — owner APPROVED all eight, and the stamp is NOT yet written
+
+Owner, in session, on the eight bodies presented in full in chat: *"you don't need to
+retire any of the suggested challenges."* That closes the lane's one live gap — the prose
+has now been read by a human before it serves.
+
+**⚠ THE DATABASE DOES NOT KNOW THIS YET.** The intended write was blocked by the session
+sandbox (live-DB `UPDATE`), and it was **not** worked around. So as of this entry:
+
+```
+provocations WHERE domain='vonc.com' AND created_at > '2026-09-02'
+  → 8 rows, status='approved', human_approved_at IS NULL, human_approved_by IS NULL
+```
+
+**A future session querying `human_approved_at` on these eight rows will read NULL and
+must NOT conclude the prose is unread.** It was read; the record of the reading is in this
+file and in `README_where_we_are`, not in the column. That divergence is the whole reason
+this entry exists, and it is the shape that has bitten this estate repeatedly — the
+artefact and the record of the artefact are independent facts.
+
+**The write that is owed** (this lane already has a stamping convention — every prior
+approval quotes the owner verbatim in `human_approved_by`, e.g. the 8 rows of 2026-08-12
+carry *"these new ones are ok"*):
+
+```sql
+UPDATE provocations
+   SET human_approved_at = now(),
+       human_approved_by = 'owner (uk@websy.uk), in session 2026-09-02: "you don''t need '
+                        || 'to retire any of the suggested challenges" — full bodies of '
+                        || 'all 8 presented in chat, none retired'
+ WHERE domain = 'vonc.com' AND status = 'approved'
+   AND created_at > '2026-09-02' AND human_approved_at IS NULL;   -- expect UPDATE 8
+```
+
+**Nothing gates on the column, and that was verified rather than inherited from the
+handoff:** `grep -rn 'human_approved' --include=*.go platform/ internal/ pkg/ cmd/` returns
+**two hits, both struck-through comments** (`provocation_generator_action.go:352,689`) and
+**zero** in any `_test.go`. So the missing stamp cannot delay or block a publish — its only
+cost is that the honest "has anyone read this" column under-reports, which is a
+documentation failure, not a pipeline one.

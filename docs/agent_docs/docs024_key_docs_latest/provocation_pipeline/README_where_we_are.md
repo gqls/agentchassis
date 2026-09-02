@@ -1396,3 +1396,24 @@ It has not: the publisher deliberately does nothing when the content has not cha
 that stamp only moves when the writing on the site actually moves. The site is meant to be
 showing 22 August until tomorrow. The real check is whether Thursday's piece appears on
 Thursday, and I will look.
+
+## 2026-09-02 (evening) — you have read the eight, and they all stand
+
+You read all eight pieces and said none of them need pulling. That closes the last thing
+the pipeline was waiting on a person for: the machine can write and publish on its own, but
+nobody had checked that what it wrote made sense, and now someone has.
+
+One honest caveat, because it will look wrong to whoever picks this up next. The database
+has a column recording who read a piece and when, and I could not write to it — the safety
+rules on this session blocked the change, and I did not go around them. So the eight rows
+still look unread in the database even though you have read them. The record of your
+approval is in the written notes instead. Anyone querying that column will get the wrong
+impression, which is why I have said so in two places rather than one.
+
+Nothing waits on that. The column stopped controlling anything when the permission step was
+removed, and I checked that myself rather than taking the previous note's word for it — no
+running code reads it at all. It is a record, not a gate. If you want it filled in, it is a
+single one-line change to the database and I can run it as soon as I am allowed to.
+
+What is left is a watch, not a task: Thursday is the first day the site turns over with
+nobody watching. I will check the page actually changes.
