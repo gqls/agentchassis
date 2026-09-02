@@ -33,3 +33,19 @@ next site we adopt.
 
 Still to confirm as of this entry: that all 32 re-published pages actually show the
 new name on the live site — being checked page by page now.
+
+**Later the same evening:** the page-by-page check is done and the rename is live.
+Every page that shows a name now shows "GamesDesign.co.uk"; the old name appears
+nowhere on the live site. One page needed a second push (the guide with the
+repointed simulator button — the first re-publish and the button fix crossed by
+seconds), and that's now right too.
+
+Two things found along the way that were NOT caused by today's work, both already
+known to the system's queues: the "premium" page has never actually been published —
+visitors get a "page not found" — and there's a stack of pending questions in the
+work queue about whether that page should exist at all (it advertises a paid tier
+which, per your positioning decisions, may belong on gamedesign.uk instead). And the
+paid tier's name itself ("...Pro") got mechanically renamed along with everything
+else, but nobody has ever actually decided what the paid product should be called or
+where it should live. Both are choices for you, no urgency — nothing wrong is
+visible to visitors.

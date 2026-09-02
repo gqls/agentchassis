@@ -72,6 +72,48 @@ carries source brand verbatim); the seam fix is theirs/whoever takes 439 — NOT
 lane. Per 439 §6, no fleet-zero claim from this site's census: our rows are manually
 renamed, so seam verification needs a fresh cross-domain adoption.
 
-### Rerender verification
+### Rerender verification (same day, served artefacts, cache-busted)
 
-(pending at time of writing — see next entry)
+Dispatch: 32/32 published with receipts (kafka-publish-lib, 0 failures), 32/32
+orchestrations COMPLETED. Served verification per page (old string 0 case-sensitive
++ new string ≥1 demand control + body-size control):
+
+- **24/32 clean PASS** (23 first pass; guide-p2p-architecture after one
+  re-dispatch — its first rerender raced the link-fix commit by seconds and served
+  the dead absolute link; re-dispatched, now serves local-link×2, old 0, new 3).
+- **6 pages serve NEITHER string and that is CORRECT**: bayesian-ranking-guide +
+  the five tool-*-guide flat pages carry their hits only in `content_data` fields
+  the template does not render (`rendered_html` has zero new-string in the DB too);
+  their titles never had the brand. My demand control was over-strict for them —
+  the data is renamed, nothing served needed to change. All six 200 with old=0.
+- **premium.html: pre-existing 404, NOT rename damage.** `deployed_at` and
+  `last_built_at` NULL, file absent from the sites repo — the page row is active
+  but was never built. Its rerender honestly reported `complete_skipped` (no
+  deploy_result, no error): the never-deployed predicate refusing to "re"-render an
+  unpublished page. Class = `bugs_open/349` (a never-built page row still wanted
+  live); the page's fate is already queued several times over
+  (needs_content_page/needs_content_planning/content_rewrite, most deferred or
+  needs_human_review — including a verdict that a premium gate may be structurally
+  irreconcilable with the site's no-data-storage promise). NOT released by this
+  lane: publishing a Pro page is a positioning/owner decision (GD2 records the
+  paid tier's future home as gamedesign.uk).
+
+**Verify-script misstep, recorded:** the body-size control (≥2KB) was meant to
+catch a broken page masquerading as "no-new-string" — but the 404 page is ~larger
+than 2KB, so premium's 404 read as a content anomaly rather than a missing page.
+Check the HTTP STATUS, not the body size; the status check is what separated the
+six benign no-string pages (200) from the one real absence (404).
+
+**Positioning residue to flag (flagged to the positioning session 2026-09-02):**
+the mechanical replace also turned `pages.title` "GameDesign.uk Pro — For Studios
+& Design Programmes" (premium) and the contact-index meta's "licensing
+GameDesign.uk Pro" into "GamesDesign.co.uk Pro…" forms. Correct per the ruling
+(the old brand had to go) but "GamesDesign.co.uk Pro" as a PRODUCT name is nobody's
+decision yet — the peers verified "GameDesign.uk Pro" appears in no current spec,
+and GD2 assigns the paid tier to the sibling. Premium 404s so nothing serves it;
+the contact page does serve its meta. Owner/positioning call, not this lane's.
+
+**End state 2026-09-02:** zero case-sensitive 'GameDesign.uk' anywhere in
+site_specs (current), pages, site_plan_pages, page_components, or any of 31
+serving pages; the only lowercase 'gamedesign.uk' remaining is
+`identity.adopted_from` (a fact). Site serves as "GamesDesign.co.uk".
