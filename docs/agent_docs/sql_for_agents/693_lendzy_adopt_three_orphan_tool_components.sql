@@ -52,6 +52,61 @@
 -- is still correct to file: relying on someone else's scheduled batch to notice
 -- is how a repair sits inert for a fortnight and reads as done.
 --
+-- ROUND 3 (2026-09-02), answering all four round-2 findings with evidence:
+--
+-- (a) prior_art_librarian HIGH — the rerender INSERT omitted the FIRST-CLASS
+--     page_id column (set only inside spec) and, worse, the NOT-NULL created_by
+--     column entirely: as written, round 2 would have ERRORED at apply. Both
+--     columns are now set, matching the live producer's rows
+--     [MEASURED 2026-09-02: all 7,481 'rerender-pages' items carry page_id
+--     non-NULL, created_by='rerender-pages']; the verify now asserts
+--     page_id IS NOT NULL on the queued rows.
+--
+-- (b) prior_art_librarian MEDIUM — the named prior class EXISTS and is
+--     bugs_open/357 ("a whole tool page is stored in a slot that claims to be a
+--     hero component", OWNED, active session, 090 run 63d4d1a7 pending). Same
+--     family — a whole working tool stored under a FALSE component identity,
+--     one row per page — different arm: 357's rows carry a WRONG component_id
+--     (the shared hero), so a regeneration would swap a working 16KB tool for a
+--     2KB title band, and their park is load-bearing; lendzy's rows carry a
+--     NULL component_id, so nothing resolves and the page can never deploy.
+--     357's §3 hazard CANNOT fire here, structurally: adoption makes the
+--     declared template BYTE-IDENTICAL to the stored tool, so the regeneration
+--     that is their disaster is our no-op. (And adoption may be exactly their
+--     fix shape — CONTRIB'd to their session, not decided for them.)
+--
+-- (c) bug_historian — "will resolveComponent actually resolve the new rows, or
+--     silently drop them at the template guard?" ANSWERED WITH THE PRODUCTION
+--     FUNCTION, not inspection: a one-shot in-package test ran all three
+--     adopted bodies through toolTemplateValid (the guard
+--     loadComponentSchemasByID applies to component_level='tool') — all three
+--     PASS, and a >100-char truncated control is REJECTED in the same run.
+--     (The first control was VACUOUS — 31 chars, under the guard's 100-char
+--     stub floor, so it passed while proving nothing; the lane NOTES log it.)
+--
+-- (d) editquality's 'missing' — how the 47 unbuilt_internal_link items clear:
+--     they carry a REGISTERED verifier (check_phantom_internal_links.go:451,
+--     RegisterVerifier("unbuilt_internal_link", VerifyUnbuiltInternalLinkResolved))
+--     whose shipped/unbuilt judgement is datahelpers.NeverDeployedPagePredicate —
+--     the moment these pages stamp, revalidation resolves the items without any
+--     link being edited. No edit here retracts them by hand, deliberately:
+--     hand-closing 47 rows the verifier exists to judge would blind the very
+--     mechanism that filed them.
+--
+-- POST-CONDITIONS FOR THE OPERATOR (the migration cannot observe its async
+-- outcome — run these after the three rerenders reach 'complete'):
+--   1. SELECT name, build_status, deployed_at FROM pages
+--       WHERE site_id='8ff093d5-1f19-453b-9439-a10379bbcd76'
+--         AND name IN ('tool-price-cap-checker','tool-true-cost-calculator',
+--                      'tool-complaint-deadline-calculator');
+--      -- all three: build_status='deployed', deployed_at NOT NULL
+--   2. At the ARTEFACT, with the invented-URL control: the three URLs serve 200
+--      and their <input> counts are UNCHANGED (3 / 1 / 2) — RUNBOOK §2.
+--   3. curl https://lendzy.co.uk/sitemap.xml | grep -c '<loc>'  -- expect 30
+--   4. The 47: SELECT count(*) FROM site_work_items
+--       WHERE site_id='8ff093d5-...' AND item_type='unbuilt_internal_link'
+--         AND status='needs_human_review';  -- falling to 0 as revalidation runs
+--
 -- Lane: docs/agent_docs/docs024_key_docs_latest/lendzy_co_uk/
 -- 090 diagnosis: intake 1ff4c475-6977-4631-b641-993735429186,
 --                run 89a84ad3-5668-44b3-a089-f9d6c0df7cbb
@@ -201,7 +256,8 @@ BEGIN
 END $$;
 
 INSERT INTO site_work_items
-    (site_id, item_type, item_key, status, handler_agent, priority, source, summary, spec)
+    (site_id, item_type, item_key, status, handler_agent, priority, source, summary,
+     page_id, created_by, spec)
 SELECT
     p.site_id,
     'page_rerender',
@@ -211,6 +267,8 @@ SELECT
     80,
     'lendzy_co_uk lane (migration 693)',
     'Rerender page: ' || p.name,
+    p.id,
+    'lendzy_co_uk lane (migration 693)',
     jsonb_build_object(
         'domain',    'lendzy.co.uk',
         'page_id',   p.id::text,
@@ -278,7 +336,7 @@ BEGIN
    WHERE site_id = '8ff093d5-1f19-453b-9439-a10379bbcd76'
      AND item_type = 'page_rerender'
      AND source = 'lendzy_co_uk lane (migration 693)'
-     AND status = 'triaged';
+     AND status = 'triaged' AND page_id IS NOT NULL;
   IF queued <> 3 THEN
     RAISE EXCEPTION '693 VERIFY: expected 3 queued rerenders, found % — the repair would be inert', queued;
   END IF;

@@ -272,3 +272,37 @@ confirm-or-refute and did not consider the third, which is the one that happened
 to engage the question at all. A run that produces no verdict is not a neutral event: it costs the
 time you spent waiting for it, and if you are not careful it gets quoted later as though the
 absence of refutation were support.
+
+## 2026-09-02 (i) — 693 round 2 REVISE: two real defects and a named sibling class, all answered by measurement
+
+The council's round 2 found what round 2 deserved to be caught on:
+
+- **The rerender INSERT was broken twice over** (prior_art_librarian, HIGH): it omitted the
+  first-class `page_id` column — the live producer sets it on **all 7,481** of its rows
+  `[MEASURED]` — and omitted `created_by` entirely, which is NOT NULL with no default, so the
+  round-2 migration would have **errored at apply**. Both fixed in 693 AND pre-emptively in 696,
+  whose own council round had not yet reported the same defect it inherited from the same author.
+- **The named prior class exists**: `bugs_open/357` — whole working tools stored under a FALSE
+  component identity, one row per page. Their arm: component_id points at the shared `hero`, so
+  regeneration would swap a 16KB tool for a 2KB title band, and their park is load-bearing. Our
+  arm: component_id NULL, so nothing resolves and the page can never deploy. Structural point that
+  matters both ways: **adoption makes the declared template byte-identical to the stored tool, so
+  the regeneration that is their disaster is our no-op** — and may be their fix shape too
+  (CONTRIB'd to their session; their 090 run 63d4d1a7 is still pending, not prejudged).
+- **bug_historian's "will it actually resolve"** was answered with the production function: all
+  three adopted bodies PASS `toolTemplateValid` (the guard `loadComponentSchemasByID` applies at
+  `component_level='tool'`), truncated control REJECTED, via a one-shot in-package test (created,
+  run, deleted — never committed).
+
+**Misstep, logged because it is the point: my first probe control was VACUOUS.** I passed a
+31-char truncated string as the must-fail control; `toolTemplateValid` allows anything under
+**100 chars** through as a deliberate stub, so the control PASSED and the run proved nothing — and
+the three PASSes I wanted were sitting right there looking like a result. The probe's own
+control-failed arm is what caught it. *A control must be able to fail for the reason the real case
+would fail, not merely be wrong-shaped* — a control under the guard's stub floor tests the floor,
+not the guard.
+
+Also recorded: the 47 items need no hand-retraction — `unbuilt_internal_link` carries a registered
+verifier (`check_phantom_internal_links.go:451`) judging by `NeverDeployedPagePredicate`, so they
+resolve on revalidation once the pages stamp. Hand-closing them would blind the mechanism that
+filed them.

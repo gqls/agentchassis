@@ -218,12 +218,15 @@ BEGIN
 END $$;
 
 INSERT INTO site_work_items
-    (site_id, item_type, item_key, status, handler_agent, priority, source, summary, spec)
+    (site_id, item_type, item_key, status, handler_agent, priority, source, summary,
+     page_id, created_by, spec)
 SELECT p.site_id, 'page_rerender',
        'page_rerender_'||p.name||'_'||p.site_id||'_assemble',
        'triaged', 'page-rerender', 80,
        'lendzy_co_uk lane (migration 696)',
        'Rerender page: '||p.name,
+       p.id,
+       'lendzy_co_uk lane (migration 696)',
        jsonb_build_object('domain', s.domain, 'page_id', p.id::text,
                           'filename', ltrim(p.url,'/'), 'page_name', p.name,
                           'reason', 'FCA rule citation corrected by migration 696 (owner decision 2026-09-02)')
@@ -276,7 +279,8 @@ BEGIN
 
   -- 11 rerenders queued
   SELECT count(*) INTO r FROM site_work_items
-   WHERE source='lendzy_co_uk lane (migration 696)' AND item_type='page_rerender' AND status='triaged';
+   WHERE source='lendzy_co_uk lane (migration 696)' AND item_type='page_rerender' AND status='triaged'
+     AND page_id IS NOT NULL;
   IF r <> 11 THEN RAISE EXCEPTION '696 VERIFY: expected 11 queued rerenders, found %', r; END IF;
 
   RAISE NOTICE '696 OK: CONC 6.7.17 extinct; 10 CPA cites now 7.6.12; spec superseded; 2 tool templates corrected (lendzy + the loancash fork); 11 rerenders queued';
