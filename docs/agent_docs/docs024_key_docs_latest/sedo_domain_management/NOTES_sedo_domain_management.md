@@ -140,3 +140,10 @@ verifies its own artefact by re-reading the zip). Generated
 Outstanding: Nominet ~1,500 .uk (owner walk) → draft2; prices import once
 the valuation lane freezes/ships `OUTPUT_prices`; owner still owes the §2
 API-access email + §3 secret for the API route.
+
+**Reconciliation closed (valuation lane, same evening):** their ingest
+matches 1,337/0-dupes exactly; the 19-domain fence is adopted into their
+model as `keep_or_sell=KEEP` overrides regardless of rank (relojistas.com
+additionally carries the owner-confirmed $12k Afternic floor, 2026-07-28).
+They message this session when OUTPUT columns freeze — nothing owed from
+this lane until then.
