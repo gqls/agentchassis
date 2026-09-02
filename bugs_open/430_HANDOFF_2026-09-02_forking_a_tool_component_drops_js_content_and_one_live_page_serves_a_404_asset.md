@@ -114,6 +114,16 @@ consistent, or (b) confirm the specific components affected don't reference scop
 their JS and a plain copy is safe for those. Do not ship a bare column-list fix without
 resolving this.
 
+**Not a new seam — same mechanism as an already-diagnosed defect.** Credit:
+`webdesign-tool-rebuilds` (platform seat). `ConvertTemplateToInstanceScope`'s
+instance-prefixing (`InstanceToken = "c-"+function`) is exactly what broke 110/112 of the
+tool-health check's historical failures in `staged_component_build`'s own diagnosis
+`91228c39` (corr `2b64e510`) — bare acceptance-criteria selectors there, verbatim
+`js_content` here, same "anything bare can never match the rendered instance" mechanism.
+**Route the scoping question to `staged_component_build` (active lane) rather than treat
+it as fresh** — they already own the criteria-vs-renderer decision this bug's fix depends
+on.
+
 ## 5. Scope note for anyone touching `deploy_tool_action.go`
 
 `scripts/pattern-check.py`'s `check_unrepaired_component_write` deliberately does **not**
