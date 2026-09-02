@@ -55,3 +55,24 @@ password you provided), and the three registrar keys when you get a moment. A
 subtle trap got written down for future sessions: both services happily pass
 their "is it working?" checks even when the address lock is the thing that's
 broken — we now know to test with a real call instead.
+
+## 2026-09-02 — Spaceship is connected
+
+You created the Spaceship API key and put it in the credentials file; I checked it
+works and pulled the full list. 203 domains sit at Spaceship, essentially all
+parked at the two marketplaces (144 pointing at aftermarket.com nameservers, 58 at
+atom.com, plus one already on Cloudflare). Nothing has been changed anywhere —
+reading only so far.
+
+There is now a small command-line tool (scripts/domains/spaceship.py, alongside
+the Porkbun and Dynadot ones another session built today) that lists domains and,
+when we're ready, repoints nameservers to Cloudflare. The repointing side hasn't
+been tried yet — the first real repoint will be its test.
+
+On renewals: 17 of the 203 expire before the New Year, six of them within about
+three weeks, but all 17 have auto-renew on, so nothing lapses by itself. The 14
+domains with auto-renew off all run until at least June 2027.
+
+Of the three registrar keys you owed the rollout, Spaceship is now in. Dynadot and
+Porkbun are still outstanding — same shape when you get a moment: create the key,
+drop it in the credentials file named in the runbook, in a separate terminal.

@@ -9,7 +9,7 @@
 | Nominet | `~/.config/nominet/credentials` | `TAG=…` and `EPP_PASSWORD=…` lines. PENDING |
 | Dynadot | `~/.config/dynadot/credentials` | `API_KEY=…`. PENDING |
 | Porkbun | `~/.config/porkbun/credentials` | `API_KEY=…` and `SECRET_API_KEY=…`. PENDING |
-| Spaceship | `~/.config/spaceship/credentials` | `API_KEY=…` and `API_SECRET=…`. PENDING |
+| Spaceship | `~/.config/spaceship/credentials` | `API_KEY=…` and `API_SECRET=…`. **PRESENT 2026-09-02 — read paths PROVEN, writes not yet** |
 
 Gotcha: read the token with `tr -d '[:space:]'` — a trailing newline in the file
 becomes an invalid bearer header.
@@ -126,12 +126,28 @@ becomes an invalid bearer header.
 
 ## Spaceship
 
-- Keys: dashboard → API Manager → "New API key". Grant `domains:read` +
-  `domains:write` only.
+- Keys: dashboard → API Manager → "New API key". **Key IN and read paths PROVEN
+  2026-09-02** (`domains` list, domain info/NS read, DNS record read all answer —
+  so `domains:read` + `dnsrecords:read` are granted for certain). **The write
+  side is UNEXERCISED**: no NS or DNS write has been attempted, so both the
+  `domains:write` scope and the doc-derived set-ns body shapes are unproven until
+  the first real repoint — a read success is not a write capability (the
+  read-only Cloudflare token above is this lane's own worked proof).
 - Base `https://spaceship.dev/api/v1`; auth headers `X-Api-Key` / `X-Api-Secret`.
+- **Client: `scripts/domains/spaceship.py`** (`domains` / `info` / `ns` / `set-ns`
+  / `dns` / `dns-put` / `dns-delete` / `raw`) — same family as `porkbun.py` and
+  `dynadot.sh`; reads the credentials file, never prints key material.
 - `GET /v1/domains?take=100&skip=N` lists; `PUT /v1/domains/{domain}/nameservers`
-  repoints. Rate limits: list 300/300s; NS updates **5 per domain**/300s; most
-  ops 30/30s per user.
+  repoints — body `{"provider":"custom","hosts":[…]}`, or `{"provider":"basic"}`
+  with hosts **omitted** to revert to Spaceship's own NS. Rate limits: list
+  300/300s; NS updates **5 per domain**/300s; most ops 30/30s per user.
+- Inventory `[MEASURED 2026-09-02]`: **203** domains (API `total` agrees), all
+  `registered`. NS: **144** × aftermarket.com, **58** × atom.com, **1** ×
+  cloudflare — near-all parked at marketplaces, and DNS is not hosted at
+  Spaceship (0 records on the sampled zone), so the NS repoint is the only
+  Spaceship-side write the rollout needs. Renewals: 17 expire before 2027-01-01,
+  **all 17 autoRenew=true**; 14 domains have autoRenew=false, none expiring
+  before 2027-06. Snapshot JSON in the 09-02 session scratchpad only.
 
 ## Verification pattern (end of run)
 

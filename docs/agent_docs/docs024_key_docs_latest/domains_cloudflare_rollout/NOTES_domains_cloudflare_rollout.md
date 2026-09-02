@@ -574,3 +574,25 @@ once the site serves — no cleanup needed.
   allowlist). Remaining for the full rollout run: the three registrar keys
   (owner: later) + the owner's CSV export of the domain inventory if
   preferred over the EPP list-by-month walk.
+
+## 2026-09-02 — Spaceship key IN; read paths proven; client shipped
+
+- Owner created the API key (API Manager) and filled `~/.config/spaceship/credentials`
+  (0600) in a separate terminal — the key never entered the session transcript
+  (owner ruling 08-23).
+- Auth proven live: `GET /v1/domains` 200 with `X-Api-Key`/`X-Api-Secret` exactly as
+  this RUNBOOK recorded on 08-03.
+- Inventory `[MEASURED 2026-09-02]`: **203** domains (API `total` field agrees),
+  all `lifecycleStatus=registered`. NS split: 144 aftermarket.com / 58 atom.com /
+  1 cloudflare. DNS is NOT hosted at Spaceship (0 records on sampled zone
+  air-frier.com) — the NS repoint is the only Spaceship-side write the rollout needs.
+- Renewals: 17 expire before 2027-01-01 and **all 17 have autoRenew=true** (first
+  sample suggested all-on account-wide; full snapshot says 189 true / 14 false —
+  the 14 all expire 2027-06 or later, so nothing lapses soon).
+- Client: `scripts/domains/spaceship.py`, modelled on `porkbun.py` (family style).
+  Read commands (`domains`, `ns`, `dns`, `info`) proven live; **WRITE PATHS
+  UNEXERCISED** — `set-ns` body shapes are doc-derived (`custom`+hosts /
+  `basic` with hosts omitted) and `domains:write` is unproven until the first
+  real repoint. A read success is not a write capability (this lane's Cloudflare
+  token lesson, 08-25).
+- Raw inventory snapshot lives in the 09-02 session scratchpad only (not committed).
