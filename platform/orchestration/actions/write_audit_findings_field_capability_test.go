@@ -396,6 +396,22 @@ func TestHandlerCanWriteFieldReportsAnUnmeasuredHandlerAsUNKNOWN(t *testing.T) {
 // Without this, the totality test above is circular: routableHandlers would be
 // whatever the roster already covers, and the roster would be total over itself.
 //
+// ⚠⚠ THIS TEST IS TECH DEBT, AND BOTH THE `editquality` AND `guardian` SEATS WERE
+// RIGHT TO SAY SO (council 76231f57). It derives ground truth by parsing another Go
+// file's LITERAL FORMATTING — `HandlerAgent: "x"` on one line — so it couples the
+// router's coding style to this test passing, and its own first draft over-read and
+// harvested a DedupKey format string as a handler name. It is the sole guarantor that
+// routableHandlers is a measurement rather than a list somebody typed, which makes a
+// fragile mechanism load-bearing.
+//
+// It is kept because the alternative available today is worse (no check at all, which
+// is what let bugs_open/395 §9 ship), and because its failure direction is loud: a
+// router edit this scan cannot parse makes it UNDER-read, which fails the set-equality
+// assertion rather than passing it. But the durable fix is for the router to expose its
+// handler universe as a Go value that both it and this roster read — one declaration,
+// no parsing — at which point this test should be DELETED, not maintained. Whoever
+// touches classifyFindingRoute's routing shape next is best placed to do that.
+//
 // ⚠ COMMENTS AND STRUCT KEYS ARE STRIPPED FIRST. A source scan that reads its own
 // prose passes vacuously (LANDMINES: "a source-scanning test makes your COMMENTS
 // load-bearing"), and this file's neighbours discuss these very agent names — the

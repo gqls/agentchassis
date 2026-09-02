@@ -267,13 +267,22 @@ var pageFieldWriters = map[string]pageFieldWriteRule{
 			"content-gap-planner is named by classifyFindingRoute at write_audit_findings_action.go:696 " +
 			"(Rule 5) and :712 (Rule 6), carries `apply_gap_plan` as a live workflow step (resolved " +
 			"nesting-safe via jsonb_path_query_array($.**.action), never a workflow.steps walk), and " +
-			"completes that route 989 times across live+archive. Hence WritableBy true. " +
+			"completes that route 989 times [live 0 / ARCHIVE 989, measured 2026-09-02]. ⚠ THE LIVE TABLE " +
+			"ALONE RETURNS 0 and that is not a refutation — completing a row ARCHIVES it, so the successes " +
+			"are all in site_work_items_archive by construction; a council reviewer's own check saw the 0. " +
+			"Query both. Hence WritableBy true. " +
 			"(2)-(5) UpsertPageForRole's Refresh list -> updatePageColumns emits a bare " +
 			"`UPDATE pages SET title = $n` from create_report_page_action.go:178, " +
 			"deploy_tool_action.go:464 and :636, and create_tool_component_action.go:653; that helper " +
 			"was born 2026-08-02, THREE WEEKS BEFORE the original census, so this was an omission at " +
-			"authoring and not staleness. Their agents (report-builder, tool-deployer, tool-generator) " +
-			"are not routable handlers, so they do not change any verdict here. " +
+			"authoring and not staleness. [MEASURED 2026-09-02, council 76231f57 editquality objection] " +
+			"THEIR OWNING AGENTS ARE report-builder, tool-deployer AND tool-generator — the complete set " +
+			"carrying create_report_page / create_tool_component / deploy_tool_to_site — and that set is " +
+			"DISJOINT from routableHandlers AND from every spawn closure of it (page-content-writer, " +
+			"page-rerender, internal-link-resolver, research-agent, site-asset-renderer). So writers " +
+			"(2)-(5) change no verdict in this roster: no finding can be routed at an agent that reaches " +
+			"them. Recorded because 'they are not routable handlers' was ASSERTED in the first submission " +
+			"and a reviewer was right to ask which handlers they were. " +
 			"The other seven handlers are false, each measured through its own spawn closure: " +
 			"page-build-handler reaches page-content-writer, page-rerender, internal-link-resolver and " +
 			"research-agent, none of which writes the column (bugs_open/395 §9e); webdesign-agent " +
@@ -301,9 +310,21 @@ var pageFieldWriters = map[string]pageFieldWriteRule{
 // roster is now total over routableHandlers and a gap is loud; this arm is what
 // makes the failure SAFE in the moment it happens rather than silent.
 //
-// ⚠ IT IS EXPORTED FOR ONE REASON: the emit gate (CLM-024) calls it too, so a
-// predicate over an unwritable field is stamped at source with the same verdict
-// this routing seam acts on. Two hand-maintained answers to "can this handler
+// ⚠ IT IS EXPORTED FOR ONE REASON: the emit gate (CLM-024) is INTENDED to call it
+// too, so a predicate over an unwritable field would be stamped at source with the
+// same verdict this routing seam acts on.
+//
+// ⚠⚠ BUT THAT SECOND CALLER DOES NOT EXIST YET, and this comment said it did.
+// [MEASURED 2026-09-02, forced by council 76231f57's guardian objection] there are
+// ZERO Go references to `field_writable` anywhere in the repo, ZERO live work items
+// carry the stamp (0 of 57 rows holding a predicate), and `HandlerCanWriteField` has
+// EXACTLY ONE production call site — withUnwritableFieldGuard, in this file, 30 lines
+// below. RFC_057 §5 says so in as many words ("not a decision on my emit-side stamp,
+// which is unbuilt"), and this comment — and the risks section of the council
+// submission that shipped the totality fix — both described the seam as live anyway.
+// The habit of repeating a doc's framing without checking it is the exact failure this
+// whole file exists to guard against, committed in the file's own header.
+// So: ONE caller today. The export is for a caller that is planned, not present. Two hand-maintained answers to "can this handler
 // write this field" is precisely the drift class the council reviews for — and
 // the failure would be silent, because each side would look internally correct.
 // One roster, two callers. Do not copy this map.
