@@ -4,8 +4,11 @@
 Two open addenda, neither blocking §3c's three build tracks: **Q5** (§3b) — citation-code recognition
 is finance-only, doesn't generalise to other regulated sectors. **Q6** (§3d, new) — a citation can be
 substantively true and still name the wrong rule; nothing today checks attribution, only presence
-(found live on lendzy.co.uk: 2 of 7 existing citations mis-attributed). Nothing is built yet.
-See §3a, §3b, §3d.
+(found live on lendzy.co.uk: 2 of 7 existing citations mis-attributed). **CONFIRMED STRUCTURAL
+2026-09-02** — the FCA Handbook has no rule-level URL, so this is not confined to legacy prose; a
+fact registered through the fully-verified path can still name the wrong rule, permanently. A cheap
+fix shape (span-match within already-fetched text, no new fetch) is sketched but not built or
+decided. Nothing is built yet. See §3a, §3b, §3d.
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
 *"what can I do about the poisoned register hole, and shouldn't compliance be strong for sites that
@@ -349,14 +352,35 @@ number. On a `relied_upon` site — the rung this RFC's own ladder reserves for 
 what's claimed to their financial/legal/medical/safety detriment — an accurately-sourced-but-
 mis-attributed rule is arguably worse than an unsupported one: it reads as MORE trustworthy, not less.
 
-**Not this addendum's job to design the fix**, and not lendzy's lane's job either — they are
-correctly not proposing a mechanism, only handing over the case. Recorded as Q6 because it changes
-what `sourced` (or `relied_upon` specifically — attribution matters more the higher the stakes) could
-be understood to GUARANTEE, which is the 2026-07-29 §1 RFC trigger. Candidate shapes, none decided:
-require verification against the SPECIFIC cited URL at registration time (already how V5's
-`verify_and_register_citations` is described — if so, the gap may be upstream, in unregistered prose
-that predates the register rather than in the registration path itself, and needs checking before
-concluding anything); or a distinct "citation attribution" check separate from "citation drift".
+**RESOLVED 2026-09-02 — the gap is STRUCTURAL, not confined to legacy prose.** Registration DOES
+already verify the specific cited URL: `VerifyAndRegisterCitationsAction` (`evidence_citations.go:182`)
+fetches the candidate's own URL and rejects anything whose quote is absent — a fact cannot enter the
+register with a quote missing from the page it names. That is not where this fails. **The FCA Handbook
+has no rule-level URL** `[MEASURED 2026-09-02, lendzy lane]`: CONC 6.7 is ONE page holding 54 rules
+(6.7.17 and 6.7.23 both live on `handbook/CONC/6/7.html`), and every rule-level URL variant tried
+(`.../6.7.23.html`, `conc6.7.23`) 200s to the wrong page. So a quote genuinely belonging to 6.7.23
+verifies perfectly against a citation LABELLED 6.7.17 — same page, same bytes, same fetch.
+`verifyCitationLive` answers *"is this quote on this page"*, which is right for a news source and
+insufficient for a rulebook, where the page is a chapter and the citation is a line. **A fact
+registered tomorrow through the fully-verified path, naming the wrong rule, passes registration and
+passes every subsequent daily re-check, for ever.**
+
+**Proposed fix shape** (design only, not built, not decided who builds it or when — changes what a
+`sourced`/`relied_upon` citation guarantees fleet-wide, so it needs the same treatment as Q5): no new
+fetch is required. The visible text already retrieved partitions on the rule-heading pattern
+`CONC \d+[A-Z]?\.\d+\.\d+` followed by a `dd/mm/yyyy` date and an `R`/`G` marker — the same split that
+gave 78 identified rules on CONC 5A and 54 on CONC 6.7. Checking "does the quote fall within the SPAN
+belonging to the rule this fact names" is a narrowing of the existing page-level check, using data
+already in hand — not a new dependency. **The trap for whoever builds it:** anchor the span on the
+id **plus its date and R/G marker**, never the bare id — rule text routinely cross-references other
+rule ids inline (CONC 6.7.17 itself names the range "CONC 6.7.18 R to CONC 6.7.23 R"), so "find the id,
+take what follows" lands inside a neighbour's cross-reference and silently spans the wrong text. The
+date+marker suffix is what distinguishes a rule's own heading from a mention of it — present on all
+78 and all 54 rules measured.
+
+Full measurement table and write-up:
+`docs/agent_docs/docs024_key_docs_latest/lendzy_co_uk/PLAN_2026-09-02_lendzy_co_uk.md` §B5
+(`9da3363a6`).
 
 **Not fixed unilaterally, correctly** — the two mis-citations are in served copy; rewriting published
 prose on an automated finding is authority the owner withheld 2026-08-21 (`bugs_open/320` §15). Routed
