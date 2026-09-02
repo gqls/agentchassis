@@ -130,6 +130,49 @@ directly. **A gap-detection mechanism already runs and already caught this** (in
 `d6d350ec` and of this filing) — every one of the 13 rows is captured as a verdict and **none is
 dispatched into a build action**. The detector is not the missing piece; the consumer is.
 
+> **CORRECTION 2026-09-02 (resuming session), load-bearing for §6 candidate 2: this is NOT an
+> unbuilt consumer — it is RFC_056, a deliberate owner-ruled circuit breaker, checked at the
+> artefact rather than assumed.** All 16 rows this section's filter actually returns (13 after
+> excluding 2 keyword false-positives that mention "entity-page" only in passing — see below)
+> carry `spec->>'filing_mode' = 'record'`, `[MEASURED 2026-09-02]` on every one of them, e.g.
+> boxingonline's own `e3c2b440-c006-40ec-be7a-88d0b689ed1e`: `created_by='offer-analysis'`,
+> `handler_agent=''`, `spec.filing_mode='record'`, `spec.routed_handler='page-build-handler'`.
+> That shape is `write_audit_findings_action.go`'s `recordOnlyFinding` (RFC_056, shipped
+> 2026-08-25): an LLM-audit-seat finding filed as a **verdict row nothing can dispatch by
+> construction** — `detected-item-promoter` and `triage_detected_items` both refuse it
+> (`handler_agent=''`), and the routing is preserved only in `spec.routed_handler` for a human
+> or a later migration to release by hand via `spec.release_recipe`.
+>
+> **Why, in the action's own words**: *"The LLM audit seats of the improvement loop … file
+> findings that are OPINIONS about pages that already work ('aspirational improvements') …
+> whose handlers REGENERATE the page … The owner's ruling: keep the seats — they are the site
+> acceptance council — but stop the rewrites."* The motivating incident is closed and dated:
+> `bugs_closed/238` — an `offer-analysis`-family audit's dispatched finding regenerated
+> finetuning.uk's homepage case-studies section and shipped five `<img src="">` on a live page,
+> asked for by nobody, destroying the original card copy in the process (not restorable by
+> pasting URLs back). RFC_056 shipped eight days after that incident, specifically to stop this
+> class of automatic dispatch.
+>
+> **This means §6 candidate 2 as worded — "wire the existing detector to a dispatcher" — would
+> REBUILD the exact promoter the owner ruled out, for the exact class of finding (an LLM audit
+> seat's opinion) that caused the incident RFC_056 exists to prevent.** It is not the lowest-risk
+> candidate; on the evidence here it is the one candidate that directly reverses a recent,
+> named, owner-authored safety ruling. A fix along these lines needs to go THROUGH that
+> ruling, not around it — e.g. a human-reviewed release surface using `spec.release_recipe` as
+> designed, or an owner decision to carve out a narrow, well-evidenced exception for this
+> specific shape (unambiguous strategy-named role, zero component built) — not a general
+> promoter for `filing_mode='record'` rows. Read `write_audit_findings_action.go`'s full "WHY IT
+> EXISTS" comment before building anything here.
+>
+> Also corrects §4's own count in passing: **13, not this section's originally-implied "every
+> matching row" —** a plain `ILIKE '%entity-page%' OR ILIKE '%entity-directory%'` on the summary
+> returns **16** `[MEASURED 2026-09-02]`; two of those three extra rows are keyword
+> false-positives for a DIFFERENT finding (one about catalogue depth mentioning "entity-page
+> volume" in passing, one about imagery compliance on an entity-page template that already
+> **exists and is live on 8 pages** — not a never-planned-role instance at all). Hand-verifying
+> is what narrows 16 back to something close to this section's original 13; a keyword count
+> alone over-states the population by ~20% here.
+
 ## 5. What this is NOT
 
 - **Not `bugs_open/206`'s defect** — and a correction to this section, found 2026-09-02 while
@@ -165,12 +208,22 @@ dispatched into a build action**. The detector is not the missing piece; the con
    has the recommended_page_types list from the same collected_data available) to simply
    requiring `strategy_notes` to address every named `page_type` in `recommended_page_types` by
    name, not just the ones the model chose to keep.
-2. **Wire the existing detector to a dispatcher.** Lowest-risk, no planner-prompt change: the 13
-   `needs_content_page`/`needs_content_planning` deferred verdicts (§4) are already correct,
-   already scoped, and already sitting idle. Whatever currently produces them but stops at
-   `deferred` needs a next step that turns the verdict into a `needs_page` (or similar) work
-   item — this alone would fix every site already caught, boxingonline included, without
-   touching the LLM's behaviour on new builds.
+2. ~~**Wire the existing detector to a dispatcher. Lowest-risk, no planner-prompt change.**~~
+   **CORRECTED 2026-09-02 — this is NOT lowest-risk; see §4's correction.** These 13 rows are
+   `filing_mode='record'` verdicts (RFC_056, 2026-08-25) — a deliberate owner-ruled circuit
+   breaker stopping automatic dispatch of LLM-audit-seat opinions, built specifically because an
+   earlier auto-dispatch of exactly this kind of finding damaged a live page
+   (`bugs_closed/238`). A general promoter for this `(item_type, status)` pair is also far too
+   broad regardless — **1,284 rows total** carry `item_type IN
+   ('needs_content_page','needs_content_planning') AND status='deferred'`
+   `[MEASURED 2026-09-02, gap_planner]`, not just the 13; most are unrelated deferrals for
+   unknown reasons. Any fix here must (a) filter to the exact narrow shape both filing sessions
+   hand-verified (the `[verdict, not dispatched]` + named-entity-role summary text, not the
+   item_type/status pair alone), and (b) go THROUGH RFC_056's release path rather than around
+   it — a human-reviewed release surface keyed on `spec.release_recipe`, or an explicit owner
+   decision to except this specific shape, not a standing automated promoter. Read
+   `write_audit_findings_action.go`'s "WHY IT EXISTS" comment in full before building anything
+   under this candidate.
 3. **Fix the prompt formatting** — `{{toJSON .site_specs.specs.strategy}}` instead of the bare
    interpolation (§1). Cheap, does not by itself fix the omission rate (§2 proves the model
    already parses the ugly form), but removes a real confound for the next thread that has to
