@@ -16,10 +16,15 @@ Stage B (Go: renderer + loader flag + claim backstop, commits `dec5ad61b`→`c0a
 `6a84e3dc1`; config: `674_..._HOLD.sql`) is council-APPROVED (corr `8f4bb57d`, r3, all
 advisories built in). **The owner set the budget: $2,000/month (18:26Z, verbatim in NOTES)**
 — thresholds L1 $1,400 / L2 $1,700 / L3 $1,900; September MTD ~$244 at set time; the state
-task recomputes against it every 120s (proven at its own tick 18:31Z). **The owner reports a
-fresh chassis build DEPLOYED (~21:00Z chat) — but the kubeconfig token expired 21:08Z (the
-3-day cycle) three minutes before the stamp check could run**, so whether the roll carries
-`dec5ad61b` is UNVERIFIED. Everything below step 1 is gated on that.
+task recomputes against it every 120s (proven at its own tick 18:31Z). **UPDATE ~21:45Z, same evening: the token was refreshed and NEXT steps 0–5 ALL EXECUTED
+CLEAN** — both replicas capability-probed (present+absent controls), **674 applied 21:27:14Z**
+(new selector md5 `fcbe8821`), the 657-VERIFY lockstep done and green in the same sitting,
+the 10-minute canary clean (11 fires, 0 governor refusals, 0 withheld while disabled), the
+suffix dropped and the ledger updated. **ALL that remains of D4 is the owner's two acts:
+raise the console cap above \$2,000, then `UPDATE governor_config SET enabled=true WHERE
+id=1;`** — then observe the first shed cycle and unlock option C (NEXT-7). ⚠ small find at
+the rename: number 674 is SHARED with another lane's `674_farmer_cull_...` — resolve by slug.
+The NEXT list below is kept for the record of HOW it was done.
 
 ## NEXT (the exact sequence; steps 2–5 are written in 674's own header too)
 

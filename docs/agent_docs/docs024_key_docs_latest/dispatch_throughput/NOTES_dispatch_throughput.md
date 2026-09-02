@@ -1443,3 +1443,28 @@ suffix-drop+record, the enable sequence with the console-cap dependency, the ref
 card, and the day's traps (verbatim-sketch, uniform-split, flag-layer, unresolved-terminal,
 record-on-apply). Governor state at close: budget $2,000 armed, level 0, $244 MTD,
 heartbeat live, enforcement three switches from real (verified roll → 674 → enable).
+
+## 2026-09-02 ~21:4xZ — TOKEN REFRESHED; THE WHOLE 674 SEQUENCE EXECUTED CLEAN; D4 is ONE OWNER ACT FROM LIVE
+
+Owner refreshed the kubeconfig; the handoff's NEXT ran end-to-end `[all MEASURED 2026-09-02]`:
+1. **Stamp check → capability probes** (the provenance grep matched an in-log QUOTATION of
+   docs about the provenance check — prose-poisons-detector, live; fell back to the binary
+   probe per the memory): both replicas (`8ddbf8958-cd2h9`/`-vppjz`, started 20:56/20:57Z)
+   carry `governor_admits(`/`spend_governor_shed`/`honour_spend_governor`, absent-control 0
+   on both. ⚠ the absent-control TIMED OUT the first combined run (cannot stop early — the
+   396 lane's exact experience); re-run alone, clean.
+2. **674 APPLIED 21:27:14Z** — refusal arms passed, NOTICE green, governor still disabled.
+   New selector md5 **fcbe8821a2a56512911955735796460e**.
+3. **657-VERIFY lockstep same sitting** (r3 guardian): md5 constant → fcbe8821 with a
+   comment recording WHY touching it was sanctioned; run green (K=8 live, 6 eligible/0
+   pinned, next pick gaswholesalers). Commit 50c47efd5.
+4. **Canary clean** (21:27→21:37): 11 fires (~60s cadence), 11 loops/8 sites, 29 claims won,
+   **0 spend_governor_shed refusals, 0 withheld rows** — disabled = byte-identical, proven
+   on live traffic.
+5. **Suffix dropped + ledger-recorded in one motion** (6385e6d00; both paths on the commit;
+   ls-tree one appliable 674… which revealed a NUMBER COLLISION: another lane's
+   `674_farmer_cull_spec_wash_three_prose_aspects.sql` — numbering-not-a-mutex; resolve by
+   SLUG, as with bug numbers).
+**Remaining for D4, both the owner's:** console cap above $2,000, then
+`UPDATE governor_config SET enabled=true WHERE id=1;` — after which watch the first shed
+cycle and unlock option C.
