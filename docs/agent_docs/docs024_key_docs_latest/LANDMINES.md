@@ -18975,3 +18975,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `a-post-fix-zero-needs-a-demand-control` · `a-stale-page-holds-every-improvement-since-it-rendered` · `a-closer-census-cannot-see-what-it-succeeded-at` (an action that removes your evidence) · SQ-004 / SQ-005 in the concept register
 - **source:** 2026-09-02, experience_loop lane, building the two checks the boxingonline owner review asked for. Both motivating cases were repaired by other lanes mid-build, five weeks apart in the docs and five minutes apart on the clock.
 - **added:** 2026-09-02, experience_loop lane.
+
+---
+
+### A LOGO REGENERATION UPDATES THE ASSET ROW IN PLACE — `created_at` still reads the ORIGINAL generation, so "when was this last generated?" answers with the wrong date and every regeneration is invisible to a time-keyed census
+
+- **footprint:** `assets` · `assets.created_at` · `assets.origin_prompt` · `asset_key` · `store_image_asset` · `platform/orchestration/actions/v3_site_actions.go` (the asset UPSERT) · `derive_brand_head_assets`
+- **fires when:** you census image generations by date — "did anything generate since the roll?", "when did this site last get a logo?", "show me post-fix generations" — or when you verify that a regeneration you dispatched actually happened.
+- **the trap:** the asset store is an **UPSERT** keyed on the site/asset identity, not an insert. `origin_prompt` is refreshed (`origin_prompt = COALESCE(EXCLUDED.origin_prompt, assets.origin_prompt)`) while **`created_at` keeps the ORIGINAL row's value**. Measured 2026-09-02: boxingonline.com's logo was regenerated and completed at 10:25Z, and its `assets` row still read `created_at = 2026-08-31 12:56:10` — the timestamp of the *previous, defective* generation. A census asking `SELECT max(created_at) FROM assets WHERE asset_key='logo'` reported the last logo generation as two days earlier than it was, and `WHERE created_at > '<the roll>'` returned **zero logo generations** on a day one had just completed.
+- **the check — key on the CONTENT or the work item, never the row's age:**
+  ```sql
+  -- did the regeneration land? read what the prompt now CONTAINS:
+  SELECT (origin_prompt LIKE '%<a literal only the new prompt can carry>%')
+    FROM assets WHERE id = '<asset id>';
+  -- or ask the work item, which is insert-per-dispatch:
+  SELECT item_type, status, updated_at FROM site_work_items WHERE id = '<item id>';
+  ```
+  ⚠ And when you pick that literal, **check it is unique to the producer you mean.** On this same row, a Go-appended clause ("Render a text-free mark: …") and a migration's washed clause ("…: render a text-free mark with no lettering…") differed only by a **capital letter**, so a `LIKE` would have told them apart only by luck of Postgres's case sensitivity. Choose a phrase one producer emits and the other cannot.
+- **why the wrong result looks exactly right:** `created_at` on an `assets` row is the most natural thing in the world to trust, the query is one line, and the answer it returns is a real date for a real generation — just the wrong one. Worse, the failure is **silently self-confirming for a fix**: a post-fix census filtered on `created_at > <roll>` returns zero rows, which reads as "nothing has exercised this yet, no news", exactly when a generation HAS run and could have disconfirmed you.
+- **relations:** `a-post-fix-zero-needs-a-demand-control` (the zero this produces is indistinguishable from a quiet fleet) · `a-stale-page-holds-every-improvement-since-it-rendered` · `bugs_open/417` (where it fired) · `bugs_open/235` (logo stored as hero) · `a-repro-regenerated-from-source-is-destroyed-by-the-render`
+- **source:** 2026-09-02, bugfix 417/420 lane, running the post-roll census for 417. The earlier read ("last logo asset: 2026-08-31") was reported to two other lanes as "no logo has been generated since the roll" before the peer lane's message revealed a regeneration had completed that morning.
+- **added:** 2026-09-02, bugfix 417/420 lane.

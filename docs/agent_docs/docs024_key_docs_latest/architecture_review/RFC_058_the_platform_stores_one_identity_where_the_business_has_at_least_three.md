@@ -140,10 +140,21 @@ invite the same fallback confusion the register already suffered.
 1. **No identity may reach a published surface without an explicit, recorded consent** — the
    2026-08-31 class ruling, which this RFC must not weaken. Absent an answer, the site publishes
    none.
-2. **Absence must not fall back to another identity.** This is the trap that makes an identity
-   model decorative: `bugs_open/420` §C is live proof — `sync_site_identity` reads a
-   classifier-derived contact into the published column today, with nobody asked, precisely
-   because an empty field invited a fill.
+2. **Absence must not fall back to another identity, and "deliberately absent" must be
+   REPRESENTABLE — distinct from "not yet known".** This is the trap that makes an identity model
+   decorative, and it has now been proved twice at two different layers:
+   - at the COLUMN layer, `bugs_open/420` §C is live proof — `sync_site_identity` reads a
+     classifier-derived contact into the published column today, with nobody asked, precisely
+     because an empty field invited a fill;
+   - at the SPEC layer (contributed by the `site_delivery_and_editor` lane from the boxingonline
+     incident, 2026-09-02): **the fill-only-if-empty guards INVERTED into a refill vector the
+     moment emptiness became deliberate.** Those guards exist to protect an operator's correction,
+     and they are correct while "empty" means "not yet known". The owner's ruling made empty mean
+     "we asked and the answer is none" — and every one of those guards then read it as a hole to
+     fill.
+   So a two-state field (set / empty) cannot express this model. Whatever wins must distinguish
+   **not yet known** from **deliberately none**, or every fill-only-if-empty writer in the estate
+   silently overturns a customer's decision. This is the sharpest single constraint in this RFC.
 3. **The evidence register must be able to say whose claim it holds.** A `business_name` fact
    seeded from the ordering party is a claim about the wrong entity.
 4. **Every reader moves with the write.** `bugs_open/420`'s census — **4 writers and 14 readers of
