@@ -394,3 +394,62 @@ would be running immediately after the writer that just produced the page, with 
 between, and that is close to the arrangement that misbehaved before. My recommendation is to
 record only, and to make the findings part of what you see when you approve the site — but it is
 your call and it is the difference between a checker that reports and a checker that acts.
+
+---
+
+**2026-09-02, evening — the auditor now has its eyes open, and it is live.**
+
+Earlier today I told you the content quality auditor was looking at four pages out of twenty-two,
+and that plugging it into the build would not have caught anything you complained about. That is
+fixed and running.
+
+The change went through the reviewer council. It came back needing revision first, and the
+objection was a good one — it found a real bug in my fix. My code for stripping stylesheets out of
+a page had a subtle fault: on a page with two separate style blocks it would delete everything
+between them, including the actual writing. I had not noticed because the page I tested on only
+had one block. I measured how often it would bite — seven pages across the whole estate, but on
+every one of those seven it destroyed text, up to nine thousand characters on the worst. It would
+have done that silently, which is the same class of fault the change exists to prevent. I fixed it
+by copying an approach we had already proven elsewhere, and I added a check that fails if the bad
+version ever comes back. Second time round it was approved.
+
+It is applied and I have watched it working. Every audit the system has run since sees fourteen to
+eighteen pages instead of three. Boxing Online itself now resolves to eighteen pages across eight
+kinds. One caution I want to be straight about: the sweep works through about fifty sites at one
+per quarter hour, so it has not come back round to Boxing Online yet. The improvement is proven
+across the estate but not yet on the site that prompted it, and I would rather say that than let a
+good number stand in for the one you actually asked about.
+
+**Two other threads asked me for things today, and one of them found a real hole in my own work.**
+
+The designblog lane reported four pages that list nothing — a glossary with no terms, a directory
+with no studios — each carrying prose about what it intends to contain. My detectors reported
+nothing. My first thought was scheduling: they run early morning and the sites were built at
+lunchtime. That was true and it was not the real answer. I ran them by hand and they still found
+nothing, because the rule asks "is this index listing the wrong kind of thing?" and that question
+quietly assumes it is listing something. **An index that lists nothing is invisible to it.** That
+is now the second time this exact gap has shown up, which is what makes it worth building rather
+than noting, and I have taken it on.
+
+While I was there I found a smaller fault in my own tool: when you point it at one site, its
+self-check reports a failure that actually means "not applicable". That matters more than it
+sounds, because that line is the one that tells you whether a clean result can be trusted — and if
+it cries wolf on every run, people stop reading it. I told the other thread to treat that
+particular clean result as untested rather than good.
+
+The vetcomparison lane asked for an experience read on their homepage. Their promise ledger came
+back clean, with one finding: a tool page that was planned and never built, which returns a 404
+but which nothing currently links to. It is half-wired rather than broken — it has a navigation
+label set while sitting outside the navigation, so the moment anyone switches that on it becomes a
+dead link. They tell me it was a deliberate hold from July and they are putting the decision to
+you today.
+
+**Your design directive about sites not all sharing the same nav-and-big-hero shape** was passed
+to me but it is not my thread's work, so I did not quietly adopt it. It has been routed to the
+threads that own composition — components, theme kits, the site design planner, the vigilant
+designer and the editorial design uplift lane — and they have all acknowledged it.
+
+**What is left on my side.** Build the empty-index rule. Fix the self-check bug above. Then the
+last step of the original job — putting the auditor into the build sequence — which I am
+deliberately holding until I have watched one real audit run on a freshly built site, because
+wiring in a checker before you have seen it work is how we got here.
