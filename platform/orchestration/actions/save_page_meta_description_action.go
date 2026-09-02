@@ -52,9 +52,15 @@
 // every rendered_html census — is BLIND to `pages.title` and
 // `pages.meta_description`. So running that check would pass this text without
 // ever looking at it. What is reused instead is the layer underneath, which does
-// take plain text: `VoiceGate.ScanVoice([]string, longForm)` and
+// take plain text: `VoiceGate.ScanVoiceSingleValue(string)` and
 // `checkBannedClaims([]string, …)`. Same rules, same site config, applied to the
 // one string that is actually about to be published.
+//
+// ⚠ SingleValue, not ScanVoice (bugs_open/338). This field is ONE VALUE, and the
+// gate's counts-per-page and shares-over-sentences are not measurements at that
+// sample size — they refused a good 24-word description as "mean sentence length
+// 24.0 words" and left the page blank on an hourly schedule. The per-hit
+// patterns and the em-dash RATE still apply and are unchanged.
 //
 // Both are OPT-IN AT THE SITE, exactly as they are everywhere else: a site with
 // no `voice` spec has no gate, and a site with no evidence register is still
@@ -281,7 +287,6 @@ func resolveMetaDescriptionPageID(ctx context.Context, params ActionParams, conf
 	return uuid.Nil, nil
 }
 
-
 // metaDescriptionFailsCopyGates runs the site's own voice and claims rules over
 // the candidate sentence. Returns ("", "") when it may be published.
 //
@@ -310,9 +315,21 @@ func metaDescriptionFailsCopyGates(ctx context.Context, params ActionParams, can
 			zap.Error(err))
 		return "voice_gate_unreadable", err.Error()
 	} else if gate != nil {
-		// longForm=false: a meta description is one sentence, never an essay, so
-		// the relaxed long-form thresholds must not apply to it.
-		if findings := gate.ScanVoice(blocks, false); len(findings) > 0 {
+		// ScanVoiceSingleValue, NOT ScanVoice (bugs_open/338).
+		//
+		// A meta description is ONE VALUE, not a corpus, and the gate carries
+		// two kinds of rule. The per-hit patterns and the em-dash rate mean the
+		// same thing here as on a page and still apply. The counts-per-page and
+		// shares-over-sentences do not: over a sample of one, "mean sentence
+		// length" is just this sentence's length, so a good 24-word description
+		// was refused against a trip of 22 and the page stayed blank on an
+		// hourly schedule. The classification lives next to the checks in
+		// datahelpers/voicetells.go and is guarded by a test, so a check added
+		// later cannot silently reach this field.
+		//
+		// This does NOT relax the site's own thresholds — that would disable the
+		// rules for the site's PAGES too, which is where they work.
+		if findings := gate.ScanVoiceSingleValue(candidate); len(findings) > 0 {
 			f := findings[0]
 			return "voice_tell", fmt.Sprintf("%s: %s (%q)", f.Check, f.Reason, f.Matched)
 		}

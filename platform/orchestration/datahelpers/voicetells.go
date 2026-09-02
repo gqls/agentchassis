@@ -378,3 +378,110 @@ func firstWords(s string, n int) string {
 	}
 	return strings.Join(f, " ")
 }
+
+// ---------------------------------------------------------------------------
+// Single-value fields (bugs_open/338)
+//
+// The gate was built for a PAGE. Applied to one short value — a meta
+// description, a title, a nav label, an alt text — some of its signals stop
+// being measurements. This section is the classification that says which, and
+// `ScanVoiceSingleValue` is the entry point a short-field caller should use
+// instead of `ScanVoice`.
+//
+// THE AXIS IS NOT "content rule vs density rule", which is the obvious cut and
+// the wrong one. It is what the signal is a rate OF:
+//
+//   - A rate over WORDS reduces correctly at any length. `em_dash_density` is
+//     `emDashes / totalWords * 1000`, so over a 20-word description one em dash
+//     scores 50 against a default trip of 3. It already means "contains an em
+//     dash" — for any field under 333 words, which every single-value field is —
+//     and it still honours a site that set the trip high to switch the rule off.
+//     KEEPING it is therefore strictly better than the flat "contains an em
+//     dash" test bugs_open/338 §4 asked for, which would have duplicated a
+//     working rule in a form that ignores the site's own config.
+//   - A COUNT over a page (`triads_per_page`, `contrasts_per_page`) or a SHARE
+//     over sentences (`long_sentence_share`, and the mean arm of the same
+//     check) does not reduce. Over one sentence a share is 0 or 1, a mean is
+//     just that sentence's length, and a per-page count can essentially never
+//     be reached. These are the ones that must not gate a single value: they
+//     are the reason a good 24-word description was refused as "mean sentence
+//     length 24.0 words" against a trip of 22.
+//   - A per-hit PATTERN (`banned_phrase`, `strawman`, `flourish_ending`) is
+//     true of any string, however short, and travels unchanged.
+//
+// `flourish_ending` is kept DELIBERATELY, not by omission (338 §4 asked for the
+// call to be made explicitly): it anchors on the opening of the final sentence
+// ("Ultimately,", "In short,"), so at n=1 it is an ordinary pattern match on
+// the only sentence there is, and a description opening that way is exactly the
+// tell it was written to catch.
+
+// VoiceCheckKind says whether a check survives being applied to a single short
+// value, or needs a corpus to mean anything.
+type VoiceCheckKind int
+
+const (
+	// VoiceCheckPerValue is a per-hit pattern or a rate over words. It means
+	// the same thing over one sentence as over a page.
+	VoiceCheckPerValue VoiceCheckKind = iota
+	// VoiceCheckCorpusOnly is a count over a page or a share over sentences.
+	// Over a sample of one it degenerates and must not gate.
+	VoiceCheckCorpusOnly
+)
+
+// voiceCheckKinds classifies EVERY check name ScanVoice can emit.
+//
+// It is exhaustive on purpose, and TestEveryVoiceCheckIsClassified fails if a
+// new `Check:` literal appears in this file without an entry here. That test is
+// the point of the map: bugs_open/338's own §4 enumerated the check names and
+// was already stale by the time it was picked up — `negation_density` had been
+// added by bugs_open/305 and appeared in no list. A new check must not be able
+// to reach a single-value field, or silently vanish from one, because nobody
+// remembered this map existed.
+var voiceCheckKinds = map[string]VoiceCheckKind{
+	"banned_phrase":    VoiceCheckPerValue,   // pattern; true of any string
+	"strawman":         VoiceCheckPerValue,   // per-hit shape; true of any string
+	"flourish_ending":  VoiceCheckPerValue,   // anchored pattern on the final sentence
+	"em_dash_density":  VoiceCheckPerValue,   // rate over WORDS — reduces to "contains an em dash"
+	"long_sentences":   VoiceCheckCorpusOnly, // share over sentences + mean; 0-or-1 at n=1
+	"no_contractions":  VoiceCheckCorpusOnly, // needs min_sentences_for_contraction_check sentences
+	"triad_density":    VoiceCheckCorpusOnly, // count per PAGE
+	"negation_density": VoiceCheckCorpusOnly, // count per PAGE (bugs_open/305)
+}
+
+// VoiceCheckKindOf reports how a check behaves on a single short value, and
+// whether it is classified at all.
+func VoiceCheckKindOf(check string) (VoiceCheckKind, bool) {
+	k, ok := voiceCheckKinds[check]
+	return k, ok
+}
+
+// ScanVoiceSingleValue runs the site's voice gate over ONE short value — a meta
+// description, a page title, a nav label — keeping only the signals that still
+// mean something at that sample size (see the classification above).
+//
+// Use this, not ScanVoice, whenever the input is one value rather than a page's
+// prose. ScanVoice is unchanged and stays correct for pages.
+//
+// An UNCLASSIFIED check is kept, and named in the finding's Reason. Keeping it
+// preserves today's gating rather than quietly widening what may be published;
+// the test that guards the map is what stops that fallback being reached in
+// practice.
+func (g *VoiceGate) ScanVoiceSingleValue(value string) []VoiceFinding {
+	if g == nil || strings.TrimSpace(value) == "" {
+		return nil
+	}
+	var kept []VoiceFinding
+	for _, f := range g.ScanVoice([]string{value}, false) {
+		kind, classified := VoiceCheckKindOf(f.Check)
+		if !classified {
+			f.Reason = f.Reason + " [unclassified for single-value fields — see voiceCheckKinds]"
+			kept = append(kept, f)
+			continue
+		}
+		if kind == VoiceCheckCorpusOnly {
+			continue
+		}
+		kept = append(kept, f)
+	}
+	return kept
+}
