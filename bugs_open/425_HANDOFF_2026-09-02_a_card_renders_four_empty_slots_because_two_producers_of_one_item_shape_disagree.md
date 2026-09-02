@@ -100,7 +100,7 @@ bug is about a **field inside a present item**. No detector existed for that cla
 | half | state |
 |---|---|
 | `content-listing` renders no empty slot | **LIVE** — migration `682`, applied + ledgered 2026-09-02, config so live on apply |
-| both producers share one title/deck rule | **COMMITTED, INERT** until the next chassis roll — Go |
+| both producers share one title/deck rule | **LIVE** — the roll landed 2026-09-02 12:28 UTC; verified at the running binary, see below |
 | a detector for this class exists | **LIVE** — `scripts/check_card_slot_guards.py` |
 | 054's lint can see the whole library | **LIVE** — `scripts/check_list_empty_states.py` widened |
 
@@ -210,6 +210,40 @@ assemble-mode reason aborts too.
 `spec->>'reason'` on it — a row with no reason took assemble mode and structurally cannot have
 picked this up, however fresh the page looks. That is `bugs_open/384`'s own filing error,
 which it corrected an hour later.
+
+### The Go half went LIVE 2026-09-02 12:28 UTC — verified at the artefact, with controls
+
+Both `agent-chassis` pods restarted at 12:28:03 and 12:28:24 UTC (a fleet roll, 0 restarts on
+the new ReplicaSet). The startup `build provenance` line had already scrolled out of range by the
+time I looked — **an absent grep there means "not in range", not "unstamped"** — so the binary
+probe is the honest instrument, and it needs controls in both directions or it proves nothing:
+
+| probed symbol | result | why it is in the probe |
+|---|---|---|
+| `ListItemExcerpt` | **PRESENT** | created by this fix |
+| `ListItemTitle` | **PRESENT** | created by this fix |
+| `resolvePagesWhereType` | PRESENT | pre-existing **positive control** — a probe that found nothing would be indistinguishable from a broken probe |
+| `ListItemTitleXYZNOTREAL` | absent | invented **negative control** — and it *contains* `ListItemTitle` as a substring, so its absence also proves the grep is not matching loosely |
+
+So the producer fix is running. `[MEASURED 2026-09-02]` — and note this probes the **capability**,
+not the commit, which is the stronger question: it answers "is the code there" without depending
+on a stamp that may be out of log range.
+
+⚠ **THE ROLL ALSO KILLED THE COUNCIL ROUND MID-FLIGHT**, and that is a documented trap rather than
+bad luck: a deploy restarts the chassis and every in-flight orchestration dies where it stood.
+Three runs froze within 40 seconds of each other at 12:27–12:28 — mine at `review_render_guardian`,
+two other lanes' at `review_prior_art` — and all three sat in `EXECUTING_STEP` for over an hour
+looking exactly like a slow seat. **The tell is the correlation between runs, not the duration:**
+one stuck run is latency, three stuck at the same minute is an event. `kubectl get pods -l
+app=agent-chassis -o custom-columns=...startTime` settles it in one command.
+
+### What is now unblocked
+
+Migration `683`'s stated precondition is **met**: the Go is live, so a re-render will re-resolve
+`articles` through the fixed projection and produce a clean headline and a real deck. `683` is
+still deliberately unapplied — **applying it files rerenders across 14 pages on 6 sites owned by
+other lanes, which is a dispatch decision and not a schema change.** The header carries the
+one-line narrowing to a single domain for whoever takes it.
 
 ### Verify
 
