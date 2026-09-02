@@ -120,3 +120,23 @@ and ran; two repair arms are missing and one repair call failed silently.
 All seven threads you named (plus three more the answers pointed at) have now
 confirmed receipt of your best-in-class message, and every one answered with
 measurements rather than promises.
+
+## 2026-09-02, later still — a correction to the imagery story: it's not a missing word, it's an instruction
+
+The thread that owns in-body imagery read the live planner prompt and
+corrected the picture I gave you above. The planner's prompt already knows the
+words "illustration" and "infographic" — the vocabulary isn't missing. What
+keeps the numbers near zero is the prompt itself: it literally instructs "use
+sparingly — most plans will have zero section-scope entries", its stated
+minimum is logo-plus-heroes only, and its worked example shows only icons and
+no infographic at all. Models copy the example's shape, so one infographic
+ever planned is the planner doing as told, not failing.
+
+That means the fix is a deliberate edit to the planner's instructions and
+example — which costs real generated images on every future build, so it's a
+decision, not a bug fix. Two strings attached: the one-image-per-entry rule
+must survive the edit (or image generation produces botched collages), and
+article pages currently have no structure to hold in-text images anyway — so
+this edit alone gets pictures onto landing pages, and putting images inside
+articles additionally needs the article-structure work (bugs_open/114). Those
+are two separate asks and I'll keep them separate.

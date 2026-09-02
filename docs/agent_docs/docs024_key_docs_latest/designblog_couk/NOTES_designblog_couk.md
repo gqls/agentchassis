@@ -284,6 +284,48 @@ birth-producer finding to the owner themselves, and will come back to this
 lane for served-vs-stored test cases when the repair re-ask fix is sized —
 standing offer holds.
 
+## 2026-09-02 (imagery answer lands) — NOT a vocabulary gap: the planner is OBEYING its prompt
+
+**Inline guide imager answered the open question, and it REFINES the
+"vocabulary gap" framing recorded above** (and relayed to the owner — corrected
+in README same evening): the live `build-site-planner` prompt **already carries
+the full vocabulary** (`kind` enum documents `illustration` and `infographic`;
+rule 15 repeats it). What suppresses them is three things in the same prompt,
+verbatim quotes in their write-up:
+1. An explicit default-to-zero instruction: *"Use sparingly in v1 — most plans
+   will have zero section-scope entries."*
+2. The stated MINIMUM is chrome only (rule 13: logo + heroes); no floor for
+   illustration/infographic.
+3. **The worked example's `sections` block contains ONLY icons; no infographic
+   appears anywhere in the example** — and this estate's recorded trap is that
+   a quoted exemplar ships verbatim ([[a-quoted-exemplar-in-a-prompt-is-copied-verbatim]];
+   same mechanism as the copy lane's "demonstrations govern, instructions
+   don't").
+So hero 399 / icon 211 / logo 50 / illustration 25 / infographic 1 is **the
+planner obeying** — nothing is failing, which is why vocabulary work cannot
+move it. **644 does not transfer**: it fixed component SELECTION
+(`component_expresses` had no image token), independent of the `imagery` block
+that decides whether a picture is REQUESTED (evidence: 9 pages with an
+illustration-capable section and no imagery row; vonc.com/about with a planned
+illustration and no section that can show it — both in `bugs_open/114`).
+
+⚠ **Two cautions attached to any prompt edit** (blast radius = every new
+build, incl. the 18 remakes; cost = real generated images per section):
+- Keep rule 16 ("each entry produces exactly ONE image") in the SAME edit, or
+  section-scope volume produces multi-panel collage failures.
+- **Article pages have nowhere to put images yet** (462 article pages, max 1
+  prose section; 8 of 9 illustration-capable sections fleet-wide are on
+  LANDING pages, 0 on blog/guide) — a prompt change lands pictures on landing
+  pages only; in-article imagery ALSO needs composition (114). **The two asks
+  must be separated when put to the owner.**
+
+They are not editing the prompt (planner owners' seam + a cost decision);
+neither is this lane. Full write-up:
+`docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/NOTES_inline_guide_imagery.md`
+§15 (mechanisms: IMG-074 selection-side; IMG-075 per-section binding, live as
+of today's 15:39 roll). Relayed to editorial design uplift (their 08-31
+question, now answered).
+
 (Will be updated in place with send + ACK status; "the owner asked for receipt
 to be checked" is the reason this table exists.)
 
