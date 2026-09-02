@@ -146,6 +146,16 @@ becomes an invalid bearer header.
   family as `spaceship.py` and `dynadot.sh`; reads the credentials file, never
   prints key material, exits non-zero on any non-SUCCESS response. `domains`
   paginates `listAll` completely: **683** domains, all ACTIVE, as of 2026-09-02.
+- **Marketplace comps: `/marketplace/getAll`** (needs auth, no opt-in) — the whole
+  public marketplace, **43,209** listings as of 2026-09-02, fields domain/price/
+  tld/sld_length/create_date (price integer, currency unstated — USD [INFERRED
+  from the site]). Unfiltered mode pages 5,000/call via `start`/`limit`; ⚠ **any
+  filter param (`query`/`tlds`/`sldLength*`/`sortName`) switches it to filtered
+  mode, which CAPS at 1,000 matches with no truncation signal — page the whole
+  thing and filter locally instead.** No appraisal endpoint exists anywhere in
+  the API (grepped the full reference, 2026-09-02), and 0 of our 683 were listed.
+  Worked pulls: 3 CSVs in `docs024_key_docs_latest/domain_valuation/inbound/`
+  (`porkbun_domains`/`comps_uk`/`comps_com`, all `_2026-09-02`).
 - ~~[ASSUMED] API access may need enabling per-domain (bulk toggle in Domain
   Management) — the docs page didn't confirm; the error on a disabled domain is
   explicit, so the first listing/update call settles it.~~ **MEASURED 2026-09-02:
