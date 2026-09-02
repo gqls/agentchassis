@@ -383,6 +383,61 @@ one (17:11:32Z), landing within two hex steps of the seeded palette (`#F5F0E8` v
 to rung 1 — which makes the test cleaner, not muddier: the two rungs cannot be told
 apart by the COLOURS, only by the `palette_source` string. Read the string.
 
+## 6a-ter. RUNG 1 WON THE COMPOSITION AND LOST THE RENDER — the served site carries none of it
+
+Reported by the `gamedesign.uk` lane, verified here by reading the artefact
+(`curl https://gamedesign.uk/assets/css/styles.css`, 19,977 B, HTTP 200, cache-busted,
+~18:00Z 2026-09-02). **This is the most consequential datum in the file and it changes
+what a fix would have to do.**
+
+| slot | composed palette row (rung 1, the seed) | classifier `design_intent` (rung 2) | **SERVED** |
+|---|---|---|---|
+| background | `#F4F1EA` | `#F5F0E8` | **`#F5F0E8`** ← rung 2's |
+| accent | `#A6521F` | `#9B4E2A` | **`#9B4E2A`** ← rung 2's |
+| surface | `#FFFFFF` | — | `#EDE7DB` |
+| primary | `#33302B` | — | `#2C1F14` |
+| secondary | `#6E6558` | — | `#5C4033` |
+| text | `#23211E` | — | `#1E1410` |
+| text_muted | `#6B655C` | — | `#6B5A4E` |
+| border | `#DDD6C9` | — | `#D4C9BA` |
+
+**Not one of the eight composed values reached the stylesheet.** Where the classifier
+had written a value, the served CSS carries the classifier's; the other six are the
+overlay's own re-derivations. So `resolved_composition.palette_id` points at a
+`palettes` row that describes nothing the public sees.
+
+**The mechanism is not new — it is the documented merge rule, observed cleanly.**
+`render_css_from_spec_action.go:125` calls `buildPaletteMap(comp.Palette, specPalette)`
+and the 8 CORE slots are spec-wins by design (DES-003/DES-042). `analyze_design` reads
+`design_intent` — rung 2's home — never the composed palette row. So:
+
+> **The palette cascade's rungs decide only the SPECIALISED slots for any site that
+> gets a design overlay. All eight core colours are the LLM's.** Winning rung 1 is
+> winning an argument about a row the renderer does not consult for those slots.
+
+**Consequence for the fix candidates, and it is the important part.** §6c established
+that candidates 1 and 2 cannot deliver a preference into the composition. This
+establishes that even candidate 4 (teach `082` to send a structured preference) would
+deliver it into the composition **and then have it overwritten at render**. A fix on
+the submission side alone cannot put a human's chosen colour on the site. The only
+thing that would is a change to the render merge — **which is RFC_059, and the owner
+WITHDREW it deliberately on 2026-09-02**, ruling the machine must be free to override
+or ignore any theme.
+
+**So this is the ruling working, not a defect, and it must not be filed as one.** The
+direction held completely on this site (warm paper, earth accent, serif, light) —
+because the BRIEF steered the overlay well, not because any rung or pin held. **The
+lever on served colour is the brief, not the cascade.** That is worth stating plainly
+because every instinct in this file's earlier sections points the other way.
+
+**The open seam question, raised by the reporting lane and deliberately not filed by
+either of us:** should `resolved_composition` — a decision record, schema-validated,
+with a lineage enum — describe core colours the public never sees? That is a coherence
+question about a record, not a colour question, and it is an owner call. Note it
+generalises: migration `691` repointed three sites onto per-site palette rows holding
+what they already served, which fixes the disagreement at those rows but not the
+general fact that the row is not what drives core colour under an overlay.
+
 ## 6c. `site_design_planner` lane: fix candidate 1, as specified, does not do what §7 claims — and it would regress the one producer that already works
 
 Verified rather than assumed, before touching anything, because §6a's success made
