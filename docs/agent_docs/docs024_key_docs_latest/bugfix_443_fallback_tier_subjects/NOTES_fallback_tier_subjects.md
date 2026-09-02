@@ -133,3 +133,24 @@
   (three identical briefs → three subjects) on whether subject-scoping alone reduces AI-tell
   density. They cancelled proposal `8003c51a` (their call, reason on the item) so the canary
   rebuild has nothing pending under it.
+
+## 2026-09-02 (night) — corrections in both directions with the finetuning lane; state as verified
+
+- **Their catch (real, banked):** my RUNBOOK's shipped-probe originally leaned on literals
+  that do not discriminate dbb218a41 — `section_subjects` is the RAILS literal (born
+  35905c547, already rolled) and `without_subject` pre-exists in write_site_plan. Their pod
+  measurement with both controls: `subjects_attached`=0 / `facts_attached`=0 (genuinely new,
+  absent at dbb218a41^) are THE probes. RUNBOOK corrected (`d654b8196`). My fix is NOT in the
+  running binary — expected, rides the next roll.
+- **My corrections back (artefact-verified before asserting):** their "639 NOT applied (still
+  _HOLD)" and "gate 1 on 641 not cleared" both invert — the _HOLD suffix never changes on
+  apply (state = header APPLIED line + live row; wiring re-measured live minutes before
+  replying), and 641's gate 1 gates on the RAILS image + 639, both satisfied (their own probe
+  showed the rails literal in the binary). **641 waits only on gate 2 (owner read), which the
+  finetuning lane is actively moving — it does NOT need my roll.** New LANDMINES entry for
+  the _HOLD-filename trap (fired today, live instance; rode `021906ed8` as a same-file
+  passenger — third passenger event today, all verified in HEAD, all benign).
+- **Division of labour confirmed:** finetuning lane runs backfill+rebuild (their briefs) and
+  reports Stage A as Stage A; I ping them at the roll. apis.uk ack'd (785848be9): PBP-049
+  entry corrected 5 ways including a week-stale "untested gap" line; suite is 12 tests now,
+  not 7. 114 lane's RFC_063 input anchored (`f49976afc`); copy_quality pair obligation stands.
