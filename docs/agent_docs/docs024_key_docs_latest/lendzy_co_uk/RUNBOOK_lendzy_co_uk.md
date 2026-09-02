@@ -189,3 +189,20 @@ grouped MaPS under "FCA-authorised services"; MaPS is the statutory guidance bod
   labelled FCA-authorised) · loancalculator 2 (a "ten working days" that is 12; an invented "10%
   per 12 months" threshold that is £8,000/12mo, s.95A(2)(a)). **Run the method expecting to find
   errors, not to confirm correctness** — every lane that has looked found some.
+
+### 8d. Register lifecycle facts (from the loancalculator lane's 699 verdict + their verification, 2026-09-02)
+
+- **Your rollback guard EXPIRES after the first refresher pass, by design.** The daily refresher's
+  write is a CAS-guarded supersede-and-insert — the new current row's `created_by` is the
+  refresher's, not your lane's — so a rollback keyed on your `created_by` refuses from the next
+  morning. **That refusal is correct**: the register has moved on and carries the refresher's work;
+  the rollback headers say to re-state the reason before forcing anything.
+- **Unknown keys survive the daily writer, verified at the code not the landmine alone**
+  (loancalculator lane, pre-run): `refresh_evidence_base_action.go` unmarshals into
+  `map[string]interface{}` (:338), mutates only its own keys, and marshals THE SAME MAP back
+  (:1440–1500). So `corrects_site_citation`, `rule`, `writer_line` round-trip losslessly today.
+- ⚠ **The field-loss class is one typed-writer commit away** — any future writer that round-trips
+  this aspect through the typed structs (EvidenceFact et al.) silently drops every unmodelled key
+  on all five registers at once. That seam belongs to the claims-verification lane; forwarded to
+  them with the structural pin proposal (a round-trip test: write a register carrying an unmodelled
+  key, run the writer, assert the key survives).
