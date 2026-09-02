@@ -335,6 +335,35 @@ unconditionally; the behaviour disagrees with it, and the behaviour is what ship
 `articles` array through something that is not the fixed `resolvePagesWhereType`. The delivery
 lane's hypothesis — the fix landed in the wrong producer *for this path* — is the surviving one.
 
+### Reproducible, and four branches eliminated by reading them
+
+`[MEASURED 2026-09-02]` **Three** rerenders of boxingonline `/index.html` — 13:59, 17:26, 17:32 —
+all wrote (fresh `updated_at`, archive rows), all produced **6 items in the old shape**: no
+`excerpt` key, title suffixed. Two of the three ran on the post-roll binary that demonstrably
+carries the fix. It reproduces on demand.
+
+Because `mergedContent` is `stored ⊕ plan.ResolvedData` with **ResolvedData last**, an unchanged
+stored array means the key was **missing from `ResolvedData`** — not that it lost a merge. Four
+branches that would produce that absence, each eliminated at the code or the artefact:
+
+| branch | why it is not this |
+|---|---|
+| the literal-markdown **strip** (`rerender_page_sections_action.go` ~:1600) | gated on `spec.reason == 'literal_markdown'`; the dispatch used `template_changed`. It also mutates values, never deletes keys |
+| **`queryListBelowContract`** → `handleMissingField()` → key never written | the base returns **6** items for this site under its own `listedOnly` floor, and the field declares **no `min_items`** |
+| **whole-page escalation** to the content writer (STY-048) | **0** `needs_page` items created |
+| **`save_page_sections` refusing** | the row was written *and* archived at the rerender minute; **0** floor refusals fleet-wide in the window |
+
+**An instrumented run did not settle it**, and the reason is worth recording: live tails on both
+pods during a rerender captured no `queryresolve:` or `plan_sections:` message at all — but the
+pods serve every agent, so the surrounding lines cannot be attributed to this run without
+correlation filtering, and **I have no positive control that the resolver's line would appear if it
+did run.** An absence with no control is the day's recurring mistake, so it is recorded as
+inconclusive rather than as evidence the resolver never fired.
+
+**Filed with these eliminations as `c755b0be-8035-4108-bf24-5b216ca327a5`** — a far better-posed
+symptom than the two runs before it, both of which failed partly because the symptom was vague
+about which branches were already ruled out.
+
 ### SETTLED AT THE MARKUP — read this section first; the three readings below it are superseded
 
 `[MEASURED 2026-09-02]` The pre-682 and post-682 templates leave **different fingerprints**, and
