@@ -57636,3 +57636,15 @@ assume it informed the filename.
   it believes is free against the listing. A measurement you request but don't
   read is worth less than one you never ran — reading someone's confession is
   evidently not the same as learning from it.
+- [2026-09-02, webdesign_tool_rebuilds platform seat] Named TWO forks "ACTIVE … live-damage
+  candidates" for the js_content fork-drop on `is_active` alone — one of them
+  (`tool-equity-release_pre_037-mortgagecalculator-co-uk`) is linked to NO page: latent, not live.
+  `is_active` on `content_components` is a lifecycle flag, not deployment; only the
+  `page_components`/`pages` join says a component is deployed, and my census never joined it. What
+  caught it: the grind seat's recount plus the theme-kits session curling the OTHER fork's asset to
+  a real 404 (that one WAS live — the instinct was right, the instrument was half-blind). The cheap
+  check: any "live damage" claim about a component row owes the page join IN THE SAME QUERY —
+  liveness is a property of the page, never of the component row. Same family as "a complete work
+  item is not a repaired artefact": a status column answers its own lifecycle question, not the one
+  you asked it.
+  **tally:** **a-status-column-read-as-a-deployment-fact** ×1.
