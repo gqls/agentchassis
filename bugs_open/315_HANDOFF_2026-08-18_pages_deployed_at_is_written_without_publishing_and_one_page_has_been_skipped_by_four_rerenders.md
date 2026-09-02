@@ -1,7 +1,62 @@
 # 315 — `pages.deployed_at` is stamped whether or not the object is written, and one page has now been skipped by FOUR completed rerenders
 
 **Filed 2026-08-18** by the `webdesign_tool_rebuilds` lane.
-**Status: CLOSED 2026-08-21 — fixed AND live AND proven at the artefact.**
+~~**Status: CLOSED 2026-08-21 — fixed AND live AND proven at the artefact.**~~
+**Status: REOPENED 2026-09-02 (owner ruling) — the STAMP half stayed fixed; the SKIP half is live. Handed to the `site_ai_agent_orchestration` lane (session "AI page 3").**
+
+> ## ⚠ REOPENED 2026-09-02 — §3's shape is live on a different page, and the fix that closed this file cannot reach it
+>
+> Found by the `gamedesign.uk` lane's independent re-investigation (Fable, 2026-09-02) while
+> tracing a fleet-wide born-empty rerender wave of **2026-04-18**; spot-checked and pinned by
+> that lane. Owner ruling, same day: *"315 shaped defect — reopen it and hand it to that site's
+> lane to fix."* Cross-reference: `bugs_open/432` §3a (where it was first recorded).
+>
+> **The instance, all `[MEASURED 2026-09-02]`:**
+>
+> `https://ai-agent-orchestration.com/roi-estimator.html` serves **200, 12,138 bytes,
+> `<main>\n\n</main>`** — header, footer, nothing between. Same-domain invented-URL control:
+> **404**. Row `94b5f2db-585b-4266-a378-ade5aee1d1a9`: `status=active`, `build_status=deployed`,
+> `deployed_at=2026-05-02 17:14:18`, `content_hash IS NULL`, **0 `page_components` rows**.
+> **Nine `page_rerender` items `complete`** on it, first filed 2026-08-26, latest 2026-09-02 —
+> plus `content_rewrite:unresolved`, `content_rewrite:deferred`, `needs_copy_edit:deferred`,
+> `canonical_mismatch:detected`, `head_essentials_missing:detected`. The object was born empty
+> in the 04-18 wave (13 files across four sites that day) and has never held content.
+>
+> **What held from the close — read this before re-litigating candidates 1/2/4:** `deployed_at`
+> did NOT move across nine rerenders (still 05-02), and `content_hash` was never written — so
+> candidate 2's "refuse the stamp on a reported skip" is doing exactly its job. This is not a
+> regression of the fix. It is the half the fix was never aimed at.
+>
+> **What is live:** a `page_rerender` on a page with **zero component rows** is a *guaranteed*
+> skip — `assemblePage` returns `""` (`rerender_single_page_action.go`, `d777cb4d2`), the step
+> returns `skipped: true`, `page-rerender`'s `check_skipped` routes to `complete_skipped`, and
+> the item closes **`complete`**. The rotation re-files it; it completes again. Nine times. The
+> page needs a **BUILD** (`needs_content_page` — there is nothing to assemble), not a rerender,
+> and nothing routes a 0-component page from the rerender queue to the build queue. The
+> `content_rewrite` items that *would* have written content are `unresolved`/`deferred`.
+> Meanwhile an empty page serves 200 under an `active` row, invisible to `bugs_open/349`
+> (that is the **404** shape — never deployed) and to `page_content_divergence` (the served
+> bytes DO match what was last committed; the defect is that what was committed is empty).
+>
+> **Two more from the same 04-18 wave still serve empty** (Fable, 2026-09-02, not re-pinned by
+> the reopening lane): `ai-agent-orchestration.com/llm-cost-calculator.html` — row `archived`,
+> deployed 04-18, **`bugs_closed/359`'s class, still serving**; and
+> `robot-hands.com/learning-center-article.html` — row url is `/blog/…`, served at root, a
+> URL-shape mismatch a `pages.url` probe would miss. Other lanes' sites; named here, not owned here.
+>
+> **What closes the reopen** (proposed, for the owning lane to accept or amend):
+> 1. `/roi-estimator.html` serves a non-empty `<main>` (built, not rerendered), with
+>    `content_hash` set and `deployed_at` moved — verified at the served bytes with the control.
+> 2. A `page_rerender` filed against a page with **0 component rows** either (a) refuses at
+>    filing, (b) converts to `needs_content_page`, or (c) closes as something that is NOT
+>    `complete` — the choice is the owning lane's; the test is that nine completions on an
+>    untouched page cannot happen again. `bugs_open/213`'s lesson applies: do not add a second
+>    producer on an existing `item_type` without naming it in the register.
+> 3. A census: `SELECT p.url FROM pages p WHERE p.status='active' AND p.build_status='deployed'
+>    AND NOT EXISTS (SELECT 1 FROM page_components pc WHERE pc.page_id=p.id)` — every row is a
+>    candidate for this shape. **Count it and date it**; this file has one instance, not a rate.
+>
+> Everything below this block is the file as closed on 2026-08-21, unchanged.
 
 > **WHAT CLOSED IT.** All four fix candidates are resolved or deliberately re-scoped:
 >
