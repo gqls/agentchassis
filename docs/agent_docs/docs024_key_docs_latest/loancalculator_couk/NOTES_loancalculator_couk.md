@@ -6864,3 +6864,18 @@ renamed to 707 before anything referenced it. `created_by` hands to 707, so 699'
 rollback guard now refuses — correct per both headers. First-findings review after
 arming is the 414 relay's standing instruction: nothing to review today (0 matches),
 the next save through the claims floor is the first live exercise.
+
+### 2026-09-02, close — the QuoteMeta parenthetical became a landmine correction
+
+The 414 lane tested 707's header claim and found it CONTRADICTED the live banned-claims
+escaping landmine ("a pattern that fails to compile is caught" — true only for the
+Go-authored fleet set, pinned by a CI test that structurally cannot see DATA-authored
+patterns; the per-site door at claims.go:348 is silent on both halves). Corrected as
+`4f1ca1384`, with a fleet census: 239 live per-site patterns across 19 sites, 0 broken,
+2 planted controls firing — clean baseline, stale by ADDITION on the next seed. **707's
+compile+probe+census method is now the RECORDED remedy** for register authors. The
+literal-%APR exclusion is a 3-of-3 measured convergence (us, loanzy 702,
+adversecreditmortgage) going into RFC_060. My position on the unbuilt mechanical check —
+fold a compile-and-report into the daily refresher's existing loop rather than leave the
+remedy as prose or build new surface — sent to 414 to carry to claims-verification, who
+own the seam. farmerinsurance's empty banned_claims flagged to the lendzy relay, not us.
