@@ -58256,3 +58256,36 @@ an instruction someone will act on, name the column that makes it true.**
 were "a detector gap". They were not — the check gates on `PageHasShippedPredicateFor`
 and nothing there has shipped. A confident suspicion, wrong, recorded in the same voice as
 the findings around it.
+
+---
+
+### 2026-09-02 — components lane (`bugs_open/425`): I published a census that did not replicate the resolver's own floor, and a peer built a discriminating test on it
+
+- **the claim:** *"garden-tools.uk's stored array holds four GUIDE pages while `query.blog_posts`
+  would return five blog posts for that site"* — written into `bugs_open/425` and sent to two
+  lanes as evidence that the stored array had not been re-resolved.
+- **why it was wrong:** my count came from `WHERE page_type='blog-post' AND status='active'`. The
+  resolver applies more than that. `blog_posts` calls `resolvePagesWhereType` with
+  `listedOnly=true`, which adds `ListedPageEligibilitySQL` — `deployed_at IS NOT NULL` **and**
+  `jsonb_array_length(p.sections) > 0`. The fifth page has `deployed_at` NULL, zero sections and
+  `build_status='planned'`, so it fails both clauses. **The resolver returns the same four.**
+- **what it cost, and what caught it:** the `site_delivery_and_editor` lane proposed an excellent
+  test off that figure — garden-tools was the only page where stored and resolved appeared to
+  differ, so reading the rendered cards would have discriminated between "resolution does not run"
+  and "resolution runs with the old projection". It would have spent a diagnosis round proving
+  nothing. Caught because I asked *"would the fifth row actually pass the floor?"* before reporting
+  the result, rather than after.
+- **the check, and it is the general form:** **a census offered as evidence about what CODE
+  returns must replicate that code's predicate, not a reasonable-looking approximation of it.**
+  Open the function, find the eligibility constant, splice it in. Here the constant is exported
+  and one grep away (`ListedPageEligibilitySQL`), so the honest query cost the same as the wrong
+  one. The tell that should have prompted it: I was quoting a number to prove a *difference*, and
+  a difference is exactly what a missing filter manufactures.
+- **the better instrument it produced:** the discriminator that works is a **KEY, not a value**.
+  The fixed projection writes `"excerpt"` into the item map unconditionally, so its presence
+  proves the fixed code executed regardless of whether the deck had content. The items in question
+  have no such key. That separates *"did the fix reach the path"* from *"does this page have
+  data"* — the pair the whole afternoon had been conflating, including in the failed test above.
+- **related:** the same session's earlier `nav_label` correction (I read the raw column and
+  reported a blanking risk the projection's `COALESCE` rescues) is the same error class twice in
+  one day: **reading a column instead of reading what the code does to it.**
