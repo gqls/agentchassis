@@ -91,3 +91,18 @@ Re-run the improvement loop over gamedesign.uk after the fix: `add_tool` count f
 **0** while the brief still says no tools — and the disconfirming half: run it over
 `gamesdesign.co.uk`, where tools ARE the seat, and `add_tool` must still fire. A zero on both is a
 blinded suggester, not a fixed one.
+
+## 7. Register surface and precedent (positioning lane, ~22:00Z)
+
+- **GD2 now states the machine-readable intent: `hosts_tools = FALSE`.** The flag itself ships as
+  447's build — opt-in, unsafe default OFF, per the 2026-08-02 §2 ruling — so candidate 1 has a
+  register row to consume rather than parsing prose. GD1 records the violation and the mechanism
+  (*"a dispatch-mode agent that never reads the seat cannot honour a seat split"*). The class is
+  stamped on GDN1b (the indoorplanters `.co.uk`/`.uk` pair, acquired 2026-09-02) and on the remake
+  programme's release runbook: every P5 pair's `evaluate_tools`/`add_tool` waves get eyed against the
+  pair rule until this lands.
+- **Precedent for a council round:** `bugs_open/444`'s `plan_sections` finding is kin — two correct
+  guards in series producing the exact failure both prevent. Same structural shape from the other
+  side: dispatch-mode machinery composing with record-mode guards produces damage the guards
+  correctly describe two minutes too late.
+
