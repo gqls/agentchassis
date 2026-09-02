@@ -30,12 +30,12 @@ diagnosis `fe4b8537`, components lane).
 
 ## 1. NEXT, in order
 
-1. **Footer serve-verify** — a finisher was running at handoff time
-   (`scratchpad/footer_serve_verify.sh` shape: wave quiesce → forced mirror →
-   3-page probe for `footer-contact=0`, email=0, control>0). If it didn't report:
-   re-run the probe by hand; the ROW is already verified green
-   (rendered.footer=true, digest=md5, no contact block, len 2289, 16:27:56Z —
-   NOTES ~16:2x entry). This closes the last 423 consequence on this site.
+1. ~~**Footer serve-verify**~~ ✅ **DONE 16:5xZ, before this handoff was picked
+   up**: wave drained, mirror published, served probes across three page types
+   all read `footer_contact=0, email=0, control 7-19` —
+   **"SERVED FOOTER VERIFIED: genuine regeneration, contactless,
+   fleet-serving."** The last 423 consequence on this site is CLOSED: the
+   footer is a real machine render at both the row and the served pages.
 2. **Cards, producer half** — WAIT for the components lane (session name
    `components`) to ping with `fe4b8537`'s answer, then run the agreed two-probe
    acceptance on /index.html and /guides/index.html: (a) template fingerprint —

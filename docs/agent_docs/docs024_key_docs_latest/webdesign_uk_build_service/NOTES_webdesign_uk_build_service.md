@@ -7439,3 +7439,11 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
 - **HANDOFF CUT for the new chat**:
   `docs/agent_docs/docs024_key_docs_latest/site_delivery_and_editor/HANDOFF_2026-09-02_continue_here.md`
   (supersedes 08-31). Joint cold-start moves there.
+
+## 2026-09-02 (~16:5xZ) — FOOTER SERVE-VERIFIED: the 423 chain closes on this site
+
+- The serve-verifier passed: wave drained, mirror published, probes on
+  /index.html, /about.html and a /blog/ article all read footer_contact=0,
+  email=0, controls 7-19. **The footer is a genuine machine render at the row
+  AND the served pages — the hand-patch era is over on this site.** Handoff
+  §1.1 struck DONE in place.
