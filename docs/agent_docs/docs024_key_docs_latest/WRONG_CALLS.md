@@ -59552,3 +59552,42 @@ tag", so their agreement proved consistency, not truth.
 **What caught all three, and it was not me.** (1) the compiler — `redeclared in this block`. (2) and (3) another lane checking before forwarding. ⚠ **In every case the error was already in someone else's document when it was caught.** The estate's tolerance for this is the reason it costs a re-read rather than a rebuild, and that tolerance is not a licence.
 
 Family: 2026-08-26e above (widen the population before trusting a refutation) · 2026-08-31 (correcting a peer with an instrument blind to the event) · [[a-closer-census-cannot-see-what-it-succeeded-at]] · [[a-css-fallback-is-present-and-inoperative]] — which is (2) inverted, and I had read it.
+
+---
+
+## 2026-09-02 — a reference census matched the COMPONENT NAME, not the asset filename, and said the opposite of the truth
+
+**The claim I was about to make.** Asked whether two generated hero assets on gamedesign.uk were
+bound, I counted references with `rendered_html LIKE '%hero-about%'` and got **1 each** — which
+reads as "yes, referenced, nothing to see".
+
+**Why it was wrong.** The matches were the CSS class `hero-about` and the attribute
+`data-component="hero-about"` in the component's own markup. The asset filename is
+`hero-about.jpg`. Anchoring the predicate on the extension gives **0 and 0**, with
+`hero-home.jpg` at **3** as the control — so both page-specific heroes are referenced NOWHERE and
+both pages render the homepage's picture instead.
+
+**The general shape, which is nastier than a sloppy `LIKE`:** the component is *named after the
+thing its asset is named after*. `hero-about` the component and `hero-about.jpg` the file share a
+stem by construction, across the whole estate. **So an unanchored reference census on any
+page-scoped asset is guaranteed to find the component that was supposed to display it, whether or
+not it does** — the false positive is not random, it is systematically the exact case you are
+investigating.
+
+**What caught it.** Going to look at WHERE the references were instead of trusting the count. The
+`substring(... from '[^"'']*hero-(about|contact)[^"'']*')` came back as the bare words `about`
+and `contact` — no path, no extension — which is not what a filename reference looks like.
+
+**The cheap check.** **Anchor an asset-reference predicate on something only the artefact has** —
+the extension (`%hero-about.jpg%`), or the full deployed path from
+`storage.DeployedWebPath`. And run a positive control in the same query: an asset you know IS
+displayed must come back non-zero, or the predicate is measuring nothing.
+
+**Third time in one afternoon that a query of mine counted the wrong unit** — a `LIMIT` over
+section rows supporting a claim about pages; a static count read as absence without `created_at`;
+and now a substring matching a component name in place of a filename. All three were caught, two
+of them by peers re-deriving. The common form: **the thing I matched and the thing I was claiming
+about were different objects that happen to share a name or a row.**
+
+**Tally:** **count-the-unit-your-claim-is-about** ×3 (one afternoon),
+**anchor-an-asset-census-on-the-filename-not-the-stem** ×1.
