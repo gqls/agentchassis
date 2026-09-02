@@ -788,6 +788,37 @@ var phoneContextRe = regexp.MustCompile(`(?i)(\bphone\b|\bcall\b|\btel\b|\+\d{1,
 // Label-prefixed numbers ("Band 3", "Tier 2", "Step 1") are ordinals, not claims.
 var labelPrefixRe = regexp.MustCompile(`(?i)\b(band|tier|step|phase|part|stage|level|section|chapter|question|rule|point|option|version|v)\s*$`)
 
+// REGULATORY CITATIONS (bugs_closed/414 follow-up, 2026-09-02). On a
+// finance site a rule reference is not a quantity, and there are two shapes.
+//
+// THE CODE LIST IS CASE-SENSITIVE AND THAT IS THE POINT. A real citation is
+// written in capitals — "CONC 5A", never "conc 5a" — so requiring uppercase is
+// what lets short codes like SUP, MAR and DISP be in the list at all. With
+// `(?i)` they would swallow ordinary prose ("...on the map 5 miles..."), which
+// is how a narrow exclusion turns into a silent hole in the scan.
+//
+// FCA Handbook sourcebooks plus the prudential ones. Two-letter codes (LR, PR,
+// TC, EG) are DELIBERATELY ABSENT: even uppercase they are too collidable, and
+// the measurement did not need them.
+const regulatoryRulebookCodes = `(?:CONC|MCOB|ICOBS|BCOBS|COBS|DISP|SYSC|PRIN|CASS|PERG|CREDS|COLL|DEPP|GENPRU|MIPRU|BIPRU|IPRU|FEES|SUP|MAR|DTR)`
+
+// Shape 1 — the number IS the citation: "CONC 5A", "MCOB 4.1". The digits are
+// part of the rule's name, exactly as "Tier 2" is handled by labelPrefixRe.
+var rulebookCitationPrefixRe = regexp.MustCompile(`\b` + regulatoryRulebookCodes + `\s*$`)
+
+// Shape 2 — a REGULATORY FIGURE quoted WITH its rule: "0.8% per day under
+// CONC 5A". The figure is the regulator's, not a claim about this business, and
+// quoting it beside its rule is the behaviour these sites' own briefs REQUIRE
+// ("every regulatory figure must be quoted together with the named rule it
+// comes from"). So the site doing the right thing was what tripped the scan.
+//
+// ⚠ THE TEST IS FOR A CITATION, NOT FOR THE REGULATOR'S NAME. An earlier draft
+// included bare `FCA`/`PRA`/`FOS`, which on a consumer-credit site appears in
+// nearly every paragraph and would have switched the numeric scan off for the
+// whole sector — the opposite of what this change is for. A code followed by a
+// digit is a citation; "the FCA" is a subject.
+var regulatoryCitationContextRe = regexp.MustCompile(`\b` + regulatoryRulebookCodes + `\s*\d`)
+
 // A day number in a written-out date: "28 July 2026", "1 January", "3rd March".
 // The composite-token test above catches ISO dates (2026-07-28) but not dates
 // written the way British English actually writes them, which is the platform's
@@ -1068,6 +1099,12 @@ func (eb *EvidenceBase) ScanUnregisteredNumbers(blocks []string, surface ClaimSu
 			if phoneContextRe.MatchString(window) {
 				continue
 			}
+			// A figure quoted beside its rule is the REGULATOR'S number, not a
+			// claim about this business — and quoting it that way is what the
+			// finance sites' own briefs require of them.
+			if regulatoryCitationContextRe.MatchString(window) {
+				continue
+			}
 			val, ok := parseClaimNumber(token, block[loc[1]:])
 			if !ok {
 				continue
@@ -1198,6 +1235,11 @@ func isExcludedNumber(block string, start, end int) bool {
 
 	// Label-prefixed ordinal: "Band 3", "Tier 2".
 	if labelPrefixRe.MatchString(block[:start]) {
+		return true
+	}
+
+	// Rulebook citation: the digits of "CONC 5A" are the rule's name.
+	if rulebookCitationPrefixRe.MatchString(block[:start]) {
 		return true
 	}
 

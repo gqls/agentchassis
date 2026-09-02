@@ -344,3 +344,76 @@ func TestNegationGuardIsParameterisedByDomain(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// REGULATORY CITATIONS (bugs_closed/414 follow-up, 2026-09-02).
+//
+// The fixtures are the REAL sentences that tripped the scan when it was armed
+// against the register-less finance sites, not sentences I wrote to match the
+// fix. Both are the site doing exactly what its brief requires.
+// ---------------------------------------------------------------------------
+
+func regNumberFindings(t *testing.T, sentence string) []ClaimFinding {
+	t.Helper()
+	// A register with a banned claim and NO facts is what arms the numeric scan
+	// on these sites — the state five live finance sites would be in the moment
+	// anyone gave them a register.
+	eb := &EvidenceBase{BannedClaims: []BannedClaim{{Pattern: "zzz-never-matches"}}}
+	return eb.ScanUnregisteredNumbers([]string{sentence}, ClaimSurface{})
+}
+
+func TestRegulatoryCitationsAreNotBusinessNumbers(t *testing.T) {
+	// ⚠ THESE ARE THE REAL PAGE NEIGHBOURHOODS, extracted from the live
+	// components that the scan flagged — not sentences written to match the fix.
+	// The first drafts of these fixtures were single sentences, and they PASSED
+	// BEFORE THE FIX EXISTED, because a lone sentence carries no
+	// businessClaimContextRe noun and the scan never reached it. A must-pass
+	// fixture that passes on the unfixed code proves nothing. The window has to
+	// be as wide as the page's, which is why "This site is independent" and the
+	// surrounding prose are kept: they are what makes the scan look at all.
+	mustPass := []string{
+		// lendzy.co.uk /about, `differentiators` — a regulatory figure quoted
+		// beside its rule, which this site's brief REQUIRES of every such figure.
+		"This site is independent of the FCA and always will be. It exists to explain what a lender " +
+			"must do, may not do, and what you can claim when a rule is broken, not to sell you " +
+			"anything. The rulebook, translated into rights. The price cap under CONC 5A, the " +
+			"affordability duties under CONC 5.2A, the continuous payment authority limits, and the " +
+			"two-rollover cap each get their own page.",
+		// loancash.co.uk /index — the flagged digit was the "5" of CONC 5A itself.
+		"It is a plain account of what a lender is and is not allowed to do, sourced from this site " +
+			"and the FCA's own rulebook. High-cost short-term credit (HCSTC) is capped by three fixed " +
+			"numbers under CONC 5A, the section of the FCA rulebook that governs this market. " +
+			"Interest and fees cannot exceed 0.8% per day of the amount borrowed.",
+		// Family generality, in the same shape.
+		"Our clients ask what happens in arrears: MCOB 13.3 sets out what the lender must do.",
+		"This site explains what DISP 1.6 requires of a firm handling your complaint.",
+	}
+	for _, s := range mustPass {
+		if f := regNumberFindings(t, s); len(f) != 0 {
+			t.Errorf("FALSE POSITIVE — a regulatory citation read as a business number: %+v\n  in: %q", f, s)
+		}
+	}
+}
+
+func TestRegulatoryExclusionDoesNotLaunderBusinessNumbers(t *testing.T) {
+	mustCatch := []string{
+		// A genuine business claim. No citation shape anywhere in the window.
+		"We have helped 4,200 clients challenge unaffordable lending.",
+		// The regulator's NAME is not a citation — this must still be scanned,
+		// which is why bare FCA/PRA/FOS are deliberately not in the pattern.
+		"Our staff of 37 is bigger than any other FCA-focused service.",
+		// Lower-case "conc" is not a citation; the codes are case-sensitive, and
+		// that is what lets short codes like SUP and MAR be in the list at all.
+		"We processed 12 conc records last year.",
+		// ⚠ EVERY SENTENCE HERE CARRIES A `businessClaimContextRe` NOUN
+		// (clients / staff / records), and that is not incidental. My first
+		// draft used "advisers", "team" and "tests" — none of which is in that
+		// list — so the scan never reached them and the test failed while the
+		// exclusion was working correctly. A must-catch fixture that cannot fire
+		// on the UNFIXED code proves nothing; check it fires before you trust it.
+	}
+	for _, s := range mustCatch {
+		if f := regNumberFindings(t, s); len(f) == 0 {
+			t.Errorf("the exclusion swallowed a real business number: %q", s)
+		}
+	}
+}
