@@ -1170,3 +1170,46 @@ verdict.** The code is on the shared branch either way (forward-only), package s
 correction was proposed as its own edit and *"a fix plan proposes changes, not observations"*. Folded
 into the real Why-string edit. Worth knowing before writing a submission whose main content is a
 corrected claim.
+
+---
+
+## 17. §9's FIX IS LIVE — `v1.0.1352`, 2026-09-02. §15c's "inert until a roll" is DISCHARGED
+
+**Probed at the artefact with a four-way test that dates the binary between my own two commits**, so
+"it rolled" is not inferred from the tag:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'no_writer_for_page_field' /proc/1/exe # PRESENT — positive control
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'zzz_invented_control_395' /proc/1/exe # absent  — negative control
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'across live+archive'      /proc/1/exe # PRESENT — 7b3d21d36, the fix
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'ARCHIVE 989'              /proc/1/exe # absent  — fae9e269b, the revise
+```
+
+**The third and fourth lines are the useful pair.** Both are `Why`-string literals from the same
+field in the same file, one from each of this lane's two commits — so the probe does not merely say
+"something new shipped", it places the binary **between** them. `7b3d21d36` (2026-08-31 17:12) is in;
+`fae9e269b` (2026-09-02 14:41) is not, which is exactly right for a roll at **12:28Z**. The revise
+round changed only comments and evidence strings, so nothing behavioural is waiting.
+
+**So the roster correction is in production**: `title`/`content-gap-planner` now answers TRUE, an
+unconsidered handler now answers UNKNOWN, and a finding routed at content-gap-planner naming `title`
+will no longer be parked as a capability gap.
+
+### 17a. What it has done so far: nothing, and that is the expected reading
+
+`[MEASURED 2026-09-02 ~15:00Z]` 48 rule-3b firings total, **0 since the roll**; **0** parks ever
+displaced `content-gap-planner`, before or after; **0** predicate-bearing findings filed since the
+roll.
+
+⚠ **The last figure is why the first two mean nothing yet.** Rule 3b can only fire on a finding
+carrying an acceptance predicate, and none has been filed in the ~2.5 hours since the roll — so this
+is **zero demand, not zero effect**, and the correction has not yet been exercised. Per §13c the
+predicate rate is ~23% of one producer's output and that producer's volume has been low. **Do not
+report the correction as "verified in production"; it is verified as SHIPPED.** The behavioural
+proof needs a title-predicate finding on the content-gap-planner route, which has never yet occurred
+in the mechanism's lifetime.
+
+**The tripwire is unchanged and now means the opposite of what it did:** a `content-gap-planner` row
+appearing in `would_have_routed_at` used to mean "the latent defect has gone live". From `v1.0.1352`
+it would mean **the fix has regressed**.
