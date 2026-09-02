@@ -3039,3 +3039,26 @@ item completed honestly with the route+corr in result. **Live smoke 17/17**
 against the new editor page on the OLD engine — the chunked path inert
 exactly as designed. Remaining: the owner's two box blocks (RUNBOOK "Large
 uploads") and the >30 MB acceptance probe after them.
+
+---
+
+## 2026-09-02 — LARGE-UPLOADS ENGINE DEPLOYED by the owner; verified at the artefact; smoke 17/17
+
+Owner ran the two box blocks (2026-08-31→09-02 session): binary installed
+(rollback at `/root/noted-engine.pre-20260831`), unit active, health ok;
+nginx 30m→100m, `nginx -t` clean, reloaded. Verification from this side:
+
+- **Capability probe, decisive by construction**: a self-cleaning throwaway's
+  `/api/me` answered `small_upload_max: 26214400` — a KEY the old binary
+  cannot emit (no control needed; absence-vs-presence is the discriminator).
+  Defaults intact: max_upload 25 MiB, quota 50 MiB, overrides NULL.
+- **Shopfront control byte-identical** across the whole touch (200, 69,304 B
+  before and after — same-day baseline per the RUNBOOK gotcha).
+- **Live smoke 17/17** against the new engine (media, board, deletion — the
+  throwaway self-cleaned).
+
+The chunked path is now REACHABLE but closed by default everywhere (default
+max_upload = small cap). **Remaining, optional timing:** the >30 MB
+end-to-end probe (RUNBOOK "Large uploads" — throwaway + box-psql override +
+a real ~35 MB file through the editor + self-delete). The paid tier
+discussion resumes on the owner's word after that proof.

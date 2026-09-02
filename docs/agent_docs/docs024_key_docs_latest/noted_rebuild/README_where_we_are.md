@@ -651,3 +651,14 @@ One small operational note: your site's queued rebuild sat two hours behind
 other sites' backlogs today — a scheduling quirk another team diagnosed this
 very morning — so I used the documented direct route instead, and left the
 measurement with that team.
+
+---
+
+2026-09-02. You ran the two server commands and the big-files machinery is
+now fully in place: the server speaks the new protocol (proved by a
+disposable test account that saw the new capability, then deleted itself),
+the site's other tenant was untouched (byte-identical before and after), and
+all seventeen live checks pass. Nothing changes for any existing account
+until we deliberately raise its limit — that's the paid tier's switch, still
+parked for your pricing decisions. The one proof left, whenever you feel
+like it: the real ~35 MB upload described at the end of the runbook.
