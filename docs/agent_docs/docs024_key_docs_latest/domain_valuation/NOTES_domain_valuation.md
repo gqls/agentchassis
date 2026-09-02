@@ -111,3 +111,18 @@
 - **Sequencing rule adopted** (dynadot's point): no keen price ships anywhere
   until the owner's Afternic export is in — avoid undercutting/contradicting
   live asks we haven't seen.
+- **Cross-registrar Dynappraisal test INCONCLUSIVE today** (429 fires before
+  domain validation on an exhausted quota) — tests on tomorrow's reset; reset
+  timezone unstated, first successful call dates the window. Plan recorded in
+  rollout lane NOTES (`691f545e1`): test call → 151 resume → ~148 headroom
+  starts the priority list. **Priority list committed**:
+  `inbound/appraisal_priority_2026-09-03.csv` (886 non-Dynadot retail domains,
+  financial → home-garden → value cats → brandables/foreign/misc last).
+- **Porkbun .com comps DELIVERED** (their `2a8d3aed8`):
+  `inbound/porkbun_comps_com_2026-09-02.csv`, 1,204 unique listings, 40 stems,
+  matched_stem multi-valued (semicolon). Biggest stems agent 184 / health 115 /
+  robot 109; cap never fired. ⚠ `hire` rows include -shire noise
+  (worcestershire etc.) — filter before use. **aluminium AND aluminum = 0,
+  packaging = 0 marketplace-wide** — thin-demand signal for those categories,
+  usable in the keep/sell call. Porkbun lane's valuation involvement COMPLETE
+  (API toggle = repricing writes only).
