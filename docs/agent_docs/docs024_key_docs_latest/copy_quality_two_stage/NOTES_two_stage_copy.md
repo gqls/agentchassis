@@ -3538,3 +3538,14 @@ Since the pages say "APR", the strict-APR figures are the defensible harmonisati
 or drop the false precision entirely. The fix needs ONE stated convention across all pages;
 queued with these numbers so no session re-derives them. Loanzy rightly refused to register
 the inconsistency as facts ("a register must not launder an inconsistency into an authority").
+
+**get-help canary verdict (proposal `bd03c2b3`, gate PASS, annotated for review):** the editor
+did NOT catch the misattribution class unprompted — its judgement went entirely to repetition
+(a real defect, well fixed, and its new copy happens to describe MaPS correctly) while the
+wrong "FCA-regulated … Money and Pensions Service" grouping sits in the HERO, untouched.
+Contrast with farmer: there the defect was self-evident from destinations; here it needs
+REGULATORY KNOWLEDGE or the register fact, and nothing feeds the editor the register.
+**Lesson for the batch: the 8-page MaPS fix cannot ride generic editor runs — it needs the
+defect SUPPLIED (the editor's request carrying SVC-MAPS-GOV's correction), or a targeted
+migration-style fix with owner-reviewed wording.** Also flagged on the item: the proposal's
+new copy introduces National Debtline + CCA-1974 claims not in the register — reviewer's call.
