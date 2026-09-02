@@ -133,3 +133,42 @@ Replied to the peer confirming the fix, the mutation test, and the council
 submission; gave them the go-ahead on fix candidate #2 (refresh_evidence_base
 extension) and the interim-render design, both of which this lane's PLAN already
 deferred, so no overlap.
+
+Peer's `composeWriterBlock` fix (candidate #2 part 1, `f865153f8`) verified
+independently: read the diff, ran its own tests, confirmed field names match
+this lane's extraction fields exactly. Recorded in PLAN.
+
+Council verdict for candidate #1 came back: verified directly against
+`diagnosis_artifacts` (not taken on the peer's report, though they flagged it
+first) — **APPROVED**, 5 advisory objections, none high-severity. The one worth
+real follow-up: `architecture` seat flags that the four event fields are written
+only via raw map keys, and the typed `EvidenceFact` struct used elsewhere for
+parsing may silently drop them on any round-trip ("consistent with the existing
+struct-roundtrip landmine") — checking this directly next.
+
+> **Mistake, recorded visibly rather than left implicit.** Committing the
+> approval record, I ran `git commit --allow-empty -m "..."` with **no
+> pathspec** — reasoning (wrongly) that `--allow-empty` meant "this commits
+> nothing new." It doesn't: `--allow-empty` only permits a commit whose diff
+> against HEAD is empty; without a pathspec, `git commit` still commits
+> whatever is in the INDEX, exactly the bare-`git commit -m` shape CLAUDE.md
+> explicitly forbids. The index held other sessions' staged files left over
+> from session start (`git status` at the very first turn of this session
+> already showed them staged) — two `bugs_open/`→`bugs_closed/` deletions
+> (359, 364) and three `sql_for_agents/` files (a new 213 migration, two
+> already-superseded 648/654 `_HOLD` file deletions). **Checked for actual
+> harm before writing this off as harmless**: `git log` shows 359/364's
+> `bugs_closed/` halves and 648/654's renamed non-HOLD names were ALL already
+> committed in earlier commits (`f5108dd47`, `ace31f564`) — what rode along was
+> only the STALE leftover deletions of the old paths, already-orphaned by
+> those earlier commits, not a live half-completed move. The 213 file is
+> complete and coherent (read in full — proper header, BEGIN/COMMIT, guard
+> blocks), not a half-written passenger. **No data lost, no half-move landmine
+> triggered** — but the commit message still doesn't mention any of it, which
+> is exactly the "four threads' work under one thread's message" harm CLAUDE.md
+> names, regardless of luck. Lesson: `--allow-empty` is not a substitute for a
+> pathspec — it changes whether git ALLOWS a no-diff commit, not what gets
+> swept into it. Run `git status --short` immediately before any commit that
+> has no explicit file list, empty-diff or not, and if genuinely nothing of
+> mine needs a pathspec (a pure record-keeping commit), check the index is
+> actually clean before trusting `--allow-empty` to mean that.
