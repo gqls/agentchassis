@@ -905,3 +905,68 @@ recorded in `finding_code_registry.json` as the `consumed` reader — but **no C
 `consumed` claim is true about the code and false about the estate, which is exactly the state
 `DBG-075` exists to prevent. The `/bugs_closed/` bar is "fixed AND live"; half of this is not yet
 live, so it stays in `/bugs_open/`.
+
+---
+
+## 2026-09-02 16:1xZ — the CronJob is DEPLOYED and PROVEN AT THE POD, and the council approved
+
+### Deployed by the release, not by hand
+
+`[MEASURED 2026-09-02]`
+
+```
+NAME                      SCHEDULE     SUSPEND   LAST     IMAGE
+render-truncation-check   50 7 * * *   false     <none>   docker.io/aqls/render-truncation-check:v1.0.1354
+```
+
+Chassis is on the same tag (`v1.0.1354`), so the release carried both. `LAST: <none>` — the
+schedule has not fired yet; next is **07:50Z tomorrow**.
+
+### Proven at the pod, which is exactly what the council asked for
+
+Council `f49da30d` returned **APPROVED**, 2 advisories, none high-severity. The substantive one:
+
+> **debug_historian, MEDIUM:** *"New CronJob shipping a binary with genuinely new logic (dormancy
+> arm) has no specified post-deploy verification against the running pod. The plan relies entirely
+> on pre-ship dry-runs…"*
+
+Right, and answered by doing it rather than by promising it. A manual Job created **from the
+CronJob** (`kubectl create job --from=cronjob/render-truncation-check`) — same image, same CMD, same
+env, so it exercises the shipped artefact and not a hand-rolled approximation:
+
+```
+render-truncation: 19 RENDER_AUDIT_TRUNCATED row(s) across 4 site(s) and 2 caller(s)
+  in an agent_error_log holding 61872 row(s); 0 finding(s); 1 dormant group(s);
+  acks=/app/render_truncation_acks.json
+  [dormant] loancalculator.co.uk / render-audit-agent: newest row is >14d behind …
+  Every truncation row is accounted for …
+```
+
+Pod `Succeeded`, job `succeeded=1`. Three things that only an in-cluster run can establish, and all
+three hold: the image pulls (no `ImagePullBackOff`, which this fleet reports as RUNNING); the acks
+file really shipped **in-image** (`acks=/app/render_truncation_acks.json`, the container path, not
+a repo path); and the DB env wiring works (61,872 rows read).
+
+**And the durable half, which is the difference between "ran" and "ran and recorded":**
+
+```
+2026-09-02 16:17:57Z | render-truncation | render-truncation: 19 … 0 finding(s); 1 dormant group(s)
+```
+
+One `doc_notes` row per run, clean included — so a MISSING row means the job did not run and can
+never read as "nothing is wrong". The manual Job was deleted afterwards; `successfulJobsHistoryLimit`
+only reaps jobs the CronJob itself creates.
+
+### The other two advisories, answered from the tree
+
+- **editquality, MEDIUM — "no edit flips the registry to `consumed`".** Already done, and before
+  this submission: `41b03241d` (2026-08-26) set `disposition: consumed`,
+  `reader: cmd/config-key-audit/rendertruncation.go:1`, `reader_sink: agent_error_log`. Verified
+  again just now. The seat was reading the plan, which is the right thing for it to do — the edit
+  was absent from THIS submission because it had shipped in an earlier round of the same
+  correlation trail. Nothing to change.
+- **bug_historian, LOW — dormancy shares the structural risk of a silent drop.** Accepted and
+  already mitigated in the shipped design rather than in prose: dormant groups are **counted and
+  NAMED** in every run (the pod output above names loancalculator), and the blind spot is stated in
+  the dockerfile header, the CronJob header and the handoff. The distinction the seat is drawing —
+  named exception versus silent drop — is the one this implementation is on the right side of.
