@@ -21,7 +21,16 @@ for nine days (`bugs_open/114`, foot correction of 2026-08-14).
 The brief was right about the mechanism, the class (238/226/229, not 114), and the crux.
 Four factual points have moved or were incomplete:
 
-1. **Blast radius is 93 instances / 18 sites, not 91 / 17.** `[MEASURED]`
+1. **Blast radius is 93 instances / 18 sites, not 91 / 17.** `[MEASURED 2026-08-14]`
+   > **RE-MEASURED 2026-09-02: 298 instances across 31 sites** — same single component id, same
+   > query. **3.2× in 19 days, and the number moved by ONE between two runs a minute apart**
+   > (the peer lane re-measuring alongside saw 297→298, 30→31 sites). This is the owner's
+   > 2026-08-22 ruling in miniature: a census does not go wrong, it goes STALE BY ADDITION and
+   > reads as current for ever. The figure below was right when written; every later document
+   > that repeated it — including a cross-lane message I sent this morning asserting "every one
+   > of its 93 instances" — inherited a number three times too small. **Caught by a peer
+   > re-running it, not by any reader of this file.** Re-run before quoting:
+   > `SELECT count(*), count(DISTINCT p.site_id) FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id JOIN pages p ON p.id=pc.page_id WHERE cc.function='article-body';`
    ```sql
    SELECT s.domain, count(pc.id) FROM page_components pc
    JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
@@ -263,7 +272,7 @@ Silence is what cost nine days. Three layers, ordered by what they actually cove
 
 ## 5. Blast radius — named, per CLAUDE.md 2026-07-29 §3
 
-`article-body` consumers (93 instances, 18 sites `[MEASURED]`, query in §0.1):
+`article-body` consumers (~~93 instances, 18 sites~~ → **298 instances, 31 sites `[MEASURED 2026-09-02]`**, query in §0.1; the site list below is the 2026-08-14 population and is likewise short by 13 sites):
 **finetuning.uk (19), ai-agent-orchestration.com (12), dartsonline.com (11),
 leopardessconsulting.co.uk (11), fundamentallyai.com (8), gamesdesign.co.uk (7),
 robot-hands.com (5), mortgagecalculator.co.uk (3), vonc.com (3), vetcomparison.uk (3),
