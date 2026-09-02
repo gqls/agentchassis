@@ -192,17 +192,64 @@ it as a property of that site rather than of the pipeline.
 
 ## 5. Fix candidates, ranked
 
-1. **Point `persist_mission` at the key that is actually sent.** Change its
+> **⚠ CORRECTED 2026-09-02 — CANDIDATES 1 AND 2 ARE BOTH REFUTED. DO NOT ACT ON THEM.**
+> Read §6c first (`site_design_planner` lane); it is better evidenced than this section
+> was and it changes the conclusion. The short form, and it reframes the whole bug:
+>
+> **`extractPaletteSignal` requires `mission["preferred_palette"]` to be a MAP — an
+> exact key in an exact shape. Nothing in `082` produces that shape under any key.**
+> `--mission`/`--mission-file` both resolve to one free-text string, wrapped
+> `{"text": "..."}`. There is no `--palette` flag, no structured alternative.
+>
+> So **no amount of re-pointing or re-reading conjures a map that is never sent**:
+> - **Candidate 1** (repoint `persist_mission` → `mission_brief`) would write
+>   `{"text": "..."}` into aspect `mission`. Still no `preferred_palette` key. Rung 1
+>   still never fires. **It fixes nothing** — and worse, it would REGRESS the one
+>   producer that already works: `210_vonc_trigger/080_submit_vonc.sh` sends a genuinely
+>   structured `input_data.mission` (8+ fields) alongside `mission_brief`, which is why
+>   `vonc.com` has the only pre-existing `mission` row. Repointing would capture the free
+>   text instead of the rich object on any future Tier-3-style submission.
+> - **Candidate 2** (have the cascade also read `mission_brief`) dies to the same fact
+>   from the other side: `mission_brief` holds free-text prose, not a
+>   `preferred_palette` map, so the reader would find nothing there either. My original
+>   text half-anticipated this ("its shape is not guaranteed to carry a
+>   `preferred_palette` map at all") and then ranked it anyway.
+>
+> **The reader is not broken and the writer is not mis-pointed. The standard submission
+> path simply has no way to EXPRESS a design preference.** That is a capability gap,
+> not a wiring bug — which is a different kind of thing to fix and a different kind of
+> decision to take. §3's `mission_hint` zero was never caused by a typo.
+>
+> **What survives:**
+> - **Candidate 3 (retire the rung)** — still correct exactly as written below.
+> - **NEW candidate 4: give `082` a structured preference input** (e.g. `--palette`
+>   accepting the eight slots, or a `--design-file`). This is what would actually make
+>   rung 1 reachable through the front door. It is a real capability and a design
+>   question — **an owner call, not a config repoint.**
+>
+> Note gamedesign.uk (§6a) is not a counterexample: rung 1 fired there because a HUMAN
+> hand-wrote the structured map. The rung works fine when given its shape. Both sites
+> that have ever had a `mission` row got it from a bespoke path, never from `082`.
+
+1. ~~**Point `persist_mission` at the key that is actually sent.**~~ **REFUTED — see
+   the correction above. Left in place, struck, because the reasoning that made it look
+   like the leading candidate is instructive: it is exactly right about which key is
+   sent, and exactly wrong about whether sending it helps.** Original text: Change its
    `spec_data` to `input_data.mission_brief` (config, live on apply, no roll). One
    step's config; the fallback keeps `mission_brief` populated for its own consumers.
    ⚠ **This makes the rung live fleet-wide the moment it applies** — every future
    fresh build would start feeding its brief into rung 1, which is the intent, but it
    is a behaviour change on a shared seam and should be said out loud, not slipped in.
    ⚠ It would also start OVERWRITING any hand-seeded `mission` row on rebuild — see §6.
-2. **Point the cascade at the aspect that exists.** Have `extractPaletteSignal` read
+2. ~~**Point the cascade at the aspect that exists.**~~ **ALSO REFUTED, by its own
+   caveat.** Original text: Have `extractPaletteSignal` read
    `mission_brief` as well as `mission`. Wider blast radius (touches the resolver, and
    `mission_brief` is free-form brief prose written by two different producers, so its
    shape is not guaranteed to carry a `preferred_palette` map at all).
+   → That parenthetical was the refutation and I ranked it anyway. `mission_brief` is
+   free text; it does not carry the map; the reader would find nothing. **A caveat that
+   would sink a candidate is not a caveat, it is a disqualification** — worth noting as
+   a review habit, since I wrote it down and then did not act on what I had written.
 3. **Decide the rung is dead and say so.** If a human's palette preference is not
    meant to arrive this way, delete the rung and its doc comment rather than leave a
    documented lever that cannot be pulled. Cheapest, and honest.
