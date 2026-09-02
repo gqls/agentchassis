@@ -217,3 +217,26 @@ already running: `gamedesign.uk` is the first site ever to reach composition
 with a populated `mission.preferred_palette` row, and whether it resolves via
 `mission_hint` settles whether 438's whole mechanism account is right or needs
 reopening. Not acting until that lands — they said they'll report the result.
+
+**Second update, same day — scope grew, spot-checked both new claims
+independently before recording them:**
+- `082_submit_domain_unified.sh` sends no `roadmap` key at all
+  (`grep -c roadmap` → **0**, checked myself) — so `persist_roadmap` and
+  `persist_roadmap_brief` are dead on the only path that runs them, not merely
+  under-firing. Live rows: `roadmap` 1 site, `roadmap_brief` 4, against
+  `mission_brief` 22.
+- A demand control now exists: `agent_error_log` rows for
+  `missing required fields: [spec_data]`, 30-day window — re-ran their query
+  myself, exact match: `persist_mission` 16/12 sites, `persist_roadmap` 16/12,
+  `persist_roadmap_brief` 14/11, `persist_mission_brief` 6/3. This is the
+  before/after meter a fix should be judged against (should go to zero on the
+  next fresh submit).
+- Correction to the mechanism: `error_step` chains are a linear continuation,
+  not a designed fallback pair — `persist_mission_brief` "rescuing" the brief
+  is incidental ordering, not intended pairing. So deleting the dead
+  `persist_roadmap*` steps has no pairing to preserve.
+- Net effect on scope: what was "repoint one step" may now be "repoint one,
+  delete two" — a materially different, and if anything simpler, fix than
+  either of us was looking at. **Still not acting** — same gate as before
+  (`gamedesign.uk`'s `palette_source`), confirmed by them directly against the
+  live pipeline (`needs_strategy` triaged, composition not yet reached).
