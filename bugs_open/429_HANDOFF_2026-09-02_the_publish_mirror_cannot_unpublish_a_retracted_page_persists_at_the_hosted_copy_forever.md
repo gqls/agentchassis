@@ -41,6 +41,23 @@ exposure is direct navigation only. Accepted as the interim state by both verify
 sessions; the close criterion for the owner's deletion ruling stays OPEN on the
 404 half until this fix lands.
 
+## Discriminating observation (boxingonline session, 2026-09-02) — settles orphan-vs-latency
+
+The orphaned /contact.html serves **TWO fight-calendar references in its header**
+while all 20 live pages serve exactly ONE: the page was retracted BEFORE the
+round-4 nav rebuild, so its hosted object is **frozen at the pre-rebuild chrome**.
+An object still being published would have been reassembled with the new header
+like every other page. A stale header on the orphan is precisely what "the mirror
+copies keys and never removes a destination key whose source vanished" predicts —
+and it refutes the latency alternative, under which the page would be fresh. When
+verifying this bug (or its fix), do not re-litigate propagation delay: check
+whether the orphan's chrome is frozen relative to its live siblings.
+
+Enumeration note from the same round, keep BOTH predicates: `status NOT IN
+(archived,retired)` answers "what is the site" (20 pages); `deployed_at IS NOT
+NULL` answers "what could still be serving" (21 — it carries the orphan, and on
+this defect it is the predicate that catches it).
+
 ## Fix candidates
 
 1. **b2worker propagates deletions**: after copying, list the destination prefix and
