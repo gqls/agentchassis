@@ -471,3 +471,13 @@ blog-index — the fresh build path types an editorial hub generically, so
 the 444 session pre-verdict (their gate migration is in council NOW — cheaper
 to widen before round 2); offered /the-design-feed/ as the second instance of
 the section-index shape for a test pair.
+
+> **RESOLVED (444 session, same night): the section-index "gap" was NOT a
+> gap** — section-index is a first-class arm of their resolver (zero children
+> under the prefix → held, `builder_needed=section_children:<page>`), and
+> /the-design-feed/'s exact shape is their test suite's held-case fixture
+> (`TestResolveListing_SectionIndex_PlanChildren`, green). The blog-index-only
+> keying was an inference gamedesign and I both made from their earlier
+> message; corrected to gamedesign so their CONTRIB doesn't assert it. Kept
+> nuance: `content-listing` resolves by SITE-WIDE blog-post count
+> (`query.blog_posts` is unscoped), which is render-accurate.
