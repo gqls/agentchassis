@@ -238,3 +238,19 @@ construction**. A non-compiling pattern is worse: `claims.go:348` silently falls
 
 Lendzy's five: run post-apply, re-run in exact consumer form after the 707 upgrade — 5/5 compile,
 fire, stay silent; stored bytes clean.
+
+### 8g. The unregistrable-host census — THREE signatures now, and only one check catches all three
+
+`[As of 2026-09-02 evening, loanzy lane's two-evening census]`
+
+| signature | hosts found | what it defeats |
+|---|---|---|
+| Cloudflare challenge page | maps.org.uk, moneyhelper.org.uk | human eyeball (page looks fine in a browser) |
+| **UA-differential serving** | nationaldebtline.org, moneyadvicetrust.org | **both halves of the blind-zero check AND the challenge tell**: curl gets the complete page — real title, full size, every quote — while the production fetcher's bare `Mozilla/5.0` UA gets NOTHING; even the word "free" returns false through the matcher on a page whose curl copy carries it dozens of times |
+| founding-name slugs (gov.uk) | single-financial-guidance-body ≠ MaPS | name-composed URLs |
+
+**The one control that catches all three is §8 step 4: the write-time probe THROUGH the production
+matcher** (`cmd/fcaquotecheck` calls the production fetch + extraction). A host-acceptance check
+built on curl — any curl, however carefully instrumented — admits the UA-differential class by
+construction. **Never validate a citation host with an instrument other than the one that will
+re-check it daily.**

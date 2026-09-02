@@ -237,3 +237,20 @@ this lane acts on: in-flight council runs can be killed by a roll (693 round 2 `
 `dbae30ab`, 696 `bb352ee8` are all in flight — resubmit any that die rather than re-diagnose); no
 orchestration dispatch within ~300s of a chassis restart, so **migrations that file rerenders
 (693, 696) are applied after the roll settles**, never just before it.
+
+---
+
+## ADDITION 2026-09-02c — §B3b. The mirror's host-admission rule, sharpened twice by peer censuses
+
+The write-time admission rule (§B3's invented-rule control, plus the claims lane's challenge-page
+refusal) gains a binding constraint from the loanzy lane's UA-differential discovery
+(RUNBOOK §8g): **the admission check must run the PRODUCTION fetch path itself — the same client,
+same User-Agent, same extraction — never curl or any mirror of it.** nationaldebtline.org serves a
+complete, quote-bearing page to curl and nothing to the production fetcher; a curl-built acceptance
+check admits that host, and every fact on it then reads as drift daily for ever, with the planted
+control passing on the curl copy. This is the fcaquotecheck lesson (a mirror of the extraction
+passes while production disagrees) applied one level down, to the FETCH.
+
+Running census of refused hosts, to be carried into the mirror's config as seed data:
+challenge-page — maps.org.uk, moneyhelper.org.uk · UA-differential — nationaldebtline.org,
+moneyadvicetrust.org · (gov.uk admissible, but URLs never composed from current names).
