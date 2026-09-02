@@ -984,3 +984,72 @@ queries about a minute apart, and `site_plan_imagery` hero went 359 → 369 sinc
 The estate plans heroes continuously. The submission's "297 as of 2026-09-02" is correct-as-of
 and dated, which is the whole reason the dating rule exists — but nobody should quote it bare
 next week.
+
+### 2026-09-02 — council round 1: REVISE, and both HIGH objections were worth the round
+
+8 approve / 3 object, gated by `editquality`. Decision `revise`, correlation `4bf6c48f`.
+**Neither HIGH was answerable by argument — both named a landmine I had not consulted, and
+both were right that I had asserted by analogy.** Answered by measurement and resubmitted
+(round 2 envelope `f54dde26`, orchestration `a9a0e83d`).
+
+**editquality (HIGH, gating) — the landmine is REAL: `LANDMINES.md:6018`,** *"A component
+field whose `source` is not \"llm\" makes the content writer skip the LLM ENTIRELY and
+re-render from template — the run reports success and the copy never changes."* If that fired,
+686 would stop `article-body`'s TEXT being written on 297 instances, silently — catastrophically
+worse than the bug. **It cannot fire, for the mechanism the entry itself names:**
+`llmFieldSpecs` is appended only `if source == "llm"`; the tag is
+`json:"llm_field_specs,omitempty"`, so an EMPTY list serialises as **absent**; and
+`check_render_mode` branches on `current_section.llm_field_specs != null`. **The trap fires
+when a component has NO llm field at all.** `article-body` keeps `content` (source llm), so
+the list holds one entry and is never empty. The partition is per-FIELD, not per-component.
+
+**prior_art_librarian (HIGH) — `LANDMINES.md:18413`,** *"A COMPONENT FIELD SOURCED
+`site_assets.image` RENDERS THE PAGE'S OWN HERO, NOT A CONTENT IMAGE."* Their fear: all six
+articles show ONE shared site hero, replacing the measured defect with a different one.
+**Proven not to, two independent ways.** (a) The landmine's mechanism is ALIAS resolution —
+`imageRoleAliases` maps `image` → `hero`, taken because *"the literal key ALWAYS misses,
+because nothing anywhere populates `r.assets["image"]`"*. 686 sources the **literal** key
+`hero`, which IS populated, so the alias branch is never reached. (b) `r.assets["hero"]` is
+filled by three arms in order, and I measured which fires `[MEASURED 2026-09-02]`:
+
+| arm | source | fires for the six blog pages? |
+|---|---|---|
+| 1 | planner page hero | **NO** — page-scope plan hero rows exist for exactly four page names (about, contact, index, tool-fight-calendar), none of them blog pages |
+| 2 | `ContentHeroKey(pageName)` | **YES, 6 of 6** — each has an ACTIVE asset at exactly `'content_hero_'||replace(name,'-','_')`, which is `ContentHeroKey` verbatim (`imageryplan.go:233`) |
+| 3 | site brand hero | **CANNOT** — this site has ZERO site-scope hero rows |
+
+So each article resolves its OWN image, and the one arm that could serve a shared image is
+absent. Arm order fences it even if arm 2 missed.
+
+**A third landmine, raised by NO seat, which is this change's honest residual:**
+`LANDMINES.md:9271` — a true content **regeneration** (`tone_shift`/`content_rewrite`), unlike
+the merging re-render, DROPS non-llm keys when the resolver resolves nothing at that moment,
+and *"a gated field fails more quietly than an ungated one"* — exactly this field's shape
+(optional, `skip_field`, behind `{{if}}`). Not a reason not to ship: it is the standing
+behaviour of every non-llm field in the estate, and the key is rewritten while the asset is
+active. But **if the content hero is ever deactivated, the next regeneration drops the field
+silently — no error, no failed work item.** Now in the migration header. Same family as the
+`inline_guide_imagery` lane's `slot_name` carry-forward trap.
+
+**One of my round-1 claims was simply WRONG and is corrected:** I wrote that the
+`content-block-about` precedent has "both fields `required:false`, `on_missing: skip_field`".
+Measured: `image_src` has `on_missing=skip_field`; **`image_alt`'s `on_missing` is UNSET.**
+Behaviourally identical (`LANDMINES.md:9274` — it defaults to `skip_field` when omitted), but
+the claim as written was false. 686 sets it explicitly on both, i.e. stricter than the
+precedent. `news-listing` "same shape" is now verified too, not analogised: `items`
+(query.news_archive), `headline`, `subheadline`, `loading_text`, all llm — **no image field at
+all.**
+
+**Accepted without argument:** `bug_historian`'s medium — this is instance N+1 of the generic
+`missingkey=zero` class (016b §9 item 7), correctly guarded HERE and closing nothing
+fleet-wide. **Kept as a naming decision rather than conceded:** `reuse_agent`'s low objection
+that `hero_image_url` diverges from the precedent's `image_src`. It does, deliberately — that
+vocabulary is the subject of landmine 18413 precisely because it names a content slot and
+delivers chrome. Reusing it would import the confusion the landmine exists to prevent.
+
+**⚠ FOR WHOEVER APPLIES THIS (`render_guardian`, non-blocking but operationally load-bearing):
+existing instances need a path that RE-RESOLVES against `content_data` — a scoped rerender or
+a resave. A plain assemble-mode page-rerender redeploys the stored HTML unchanged**, so the
+field would never appear despite the assets existing, and the rollout would read as a no-op.
+Carried into the migration header, because the lane that applies this is not the lane that
+wrote it.

@@ -59,6 +59,105 @@
 -- (re-running after success is a no-op, not a double insert). Verification uses
 -- DO/RAISE, not SELECTs — a verify block of SELECTs cannot stop the COMMIT.
 
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ROUND 2 (2026-09-02) — answering the council's two HIGH objections WITH
+-- MEASUREMENTS, plus two landmines round 1 should have cited and did not.
+-- Verdict: revise (8 approve / 3 object; gated by editquality).
+--
+-- (1) editquality, HIGH: "a non-llm field may make the content writer skip the
+--     LLM entirely for this component" — would stop article-body's TEXT being
+--     written for all 297 instances, silently.
+--     THE LANDMINE IS REAL AND ROUND 1 DID NOT CITE IT. `LANDMINES.md:6018`:
+--     "A component field whose `source` is not "llm" makes the content writer
+--     skip the LLM ENTIRELY and re-render from template — the run reports
+--     success and the copy never changes."
+--     IT CANNOT FIRE HERE, and the reason is the mechanism, not the analogy.
+--     Read the three links the entry names: `plan_sections_action.go` appends to
+--     `llmFieldSpecs` only `if source == "llm"`; the struct tag is
+--     `json:"llm_field_specs,omitempty"`, so an EMPTY list serialises as ABSENT;
+--     and the live writer branches on `check_render_mode`'s
+--     `condition: "current_section.llm_field_specs != null"`.
+--     The trap therefore fires when a component has NO llm field at all — the
+--     list is empty, omitempty drops it, the condition is false, and the section
+--     takes `render_from_template`. **article-body KEEPS `content` with
+--     `source: llm`**, so `llmFieldSpecs` has exactly one entry, is never empty,
+--     and the condition stays true. Adding non-llm fields ALONGSIDE an llm field
+--     cannot empty a non-empty list. The dispatch is per-FIELD (fields are
+--     partitioned by source), not per-component.
+--
+-- (2) prior_art_librarian, HIGH: the `site_assets.image` landmine
+--     (`LANDMINES.md:18413`) says such a field renders THE PAGE'S OWN HERO, not
+--     a content image — so would all six articles show one shared site hero,
+--     replacing the measured defect with a different one?
+--     NO, and this is now PROVEN per page rather than argued.
+--     First, the landmine's mechanism is ALIAS resolution: `imageRoleAliases`
+--     maps `image` → `hero`, and the literal key `image` is taken because
+--     nothing ever populates `r.assets["image"]`. **This migration sources the
+--     LITERAL key `hero`, which IS populated**, so it never reaches the alias
+--     branch at all. The entry's own complaint is that a field NAMED like a
+--     content slot yields chrome; `hero_image_url` sourced `site_assets.hero`
+--     says exactly what it is (see the naming note below).
+--     Second, `r.assets["hero"]` is filled by three arms IN ORDER: the planner's
+--     page hero, then `ContentHeroKey(pageName)` (the article's OWN image), then
+--     the site brand hero as last resort. Measured for the six pages
+--     [MEASURED 2026-09-02]:
+--       * page-scope plan hero rows exist for exactly FOUR page names —
+--         about, contact, index, tool-fight-calendar — and for NONE of the six
+--         blog pages, so arm 1 misses on every one of them;
+--       * each of the six has an ACTIVE asset at exactly
+--         'content_hero_' || replace(page.name,'-','_'), which is
+--         `ContentHeroKey` verbatim (imageryplan.go:233) — 6 of 6, so arm 2 HITS
+--         with the article's own image;
+--       * this site has ZERO site-scope hero rows, so arm 3 — the only arm that
+--         could serve one shared image — cannot fire even if arm 2 somehow missed.
+--     So each article resolves to its own distinct hero. The failure mode the
+--     objection describes is unreachable on this data AND is fenced by arm order.
+--
+-- (3) A SECOND LANDMINE, raised by NO seat, which is the honest residual of this
+--     change: `LANDMINES.md:9271` — non-llm keys are DROPPED by a true content
+--     REGENERATION (`tone_shift`/`content_rewrite`), as opposed to the merging
+--     re-render, whenever the resolver resolves nothing at that moment; and
+--     "a gated field fails more quietly than an ungated one", which is exactly
+--     this field's shape (optional, `skip_field`, behind `{{if}}`).
+--     NOT A REASON NOT TO SHIP — it is the standing behaviour of every non-llm
+--     field in the estate, and while the asset is active the resolver resolves
+--     and the key is rewritten. But it means: if the content hero asset is ever
+--     deactivated or deleted, the next REGENERATION silently drops the field and
+--     the image disappears with no error and no failed work item. Stated here so
+--     the next reader inherits it rather than rediscovering it.
+--
+-- (4) prior_art, MEDIUM/LOW, both verified rather than left asserted:
+--     * The content-block-about precedent, exactly [MEASURED 2026-09-02]:
+--       `image_src`  source=site_assets.image, required=false, on_missing=skip_field
+--       `image_alt`  source=llm,               required=false, on_missing=(UNSET)
+--       Round 1 said "both required:false, on_missing skip_field". The alt's
+--       on_missing is UNSET — behaviourally the same (LANDMINES.md:9274: it
+--       "defaults to skip_field when the schema omits it"), but the claim as
+--       written was wrong and is corrected here. This migration sets it
+--       EXPLICITLY on both, which is stricter than the precedent, not looser.
+--     * news-listing "is the same shape" — verified, not analogised. Its fields
+--       are `items` (query.news_archive, array), `headline`, `subheadline`,
+--       `loading_text` (all llm). No image field of any kind, and its template
+--       carries no <img>/<figure>/background-image. The claim stands; it remains
+--       deliberately out of scope for this migration.
+--
+-- (5) reuse_agent, LOW: field names diverge from the precedent's image_src /
+--     image_alt vocabulary. DELIBERATE, and the divergence is the safer choice:
+--     the `site_assets.image` landmine exists precisely BECAUSE that vocabulary
+--     names a content slot while delivering the page hero. Reusing it here would
+--     import the confusion the landmine was written to prevent. `hero_image_url`
+--     + `site_assets.hero` names the role it actually resolves.
+--
+-- (6) render_guardian, non-blocking but operationally load-bearing FOR ROLLOUT:
+--     existing instances need a path that RE-RESOLVES against content_data — a
+--     scoped rerender or a resave. A plain page-rerender in assemble mode
+--     redeploys the stored HTML unchanged, so the new field would never appear
+--     despite the assets existing, and the roll-out would look like a no-op.
+--     Recorded here because the lane that applies this is not the lane that
+--     wrote it.
+-- ─────────────────────────────────────────────────────────────────────────────
+
 BEGIN;
 
 DO $$
