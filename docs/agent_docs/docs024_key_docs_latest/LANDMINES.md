@@ -12021,6 +12021,40 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **also fires on** (prose, not footprints — these cannot be grep keys): any `SEED_*.sql` writing `site_specs.aspect='evidence_base'`, and any dollar-quoted `$tag$ … $tag$` **JSON** literal holding a regex or a `\uXXXX` escape.
 - **fires when:** you seed a site's claims guard and verify it the obvious way — count the patterns, see the number you expected, move on. Two escaping layers are in play and only one is visible: the dollar-quoted SQL string passes bytes **literally**, and the JSON parser **then** unescapes. So `\\\\b` in the file stores `\\b` (a literal backslash then `b`), and `\\u00a3` stores the six characters `£` instead of `£`.
 - **why the wrong result looks exactly like the right one:** `claims.go` compiles with `regexp.Compile("(?i)"+p)` and falls back to `regexp.QuoteMeta` **only when compilation ERRORS**. `\\bguaranteed …` is a perfectly valid regex — it just never matches English prose — so it compiles, **the fallback never fires**, and the guard is loaded, listed, counted and inert. There is no error, no log line and no failure row; the site simply has no claims guard. **A pattern that fails to compile is caught. A pattern that compiles WRONG is not.**
+- > **CORRECTED 2026-09-02 (bugfix_414 lane, raised by the loancalculator_couk lane):** that
+  > last sentence is **wrong for the per-site patterns this entry is about**. A non-compiling
+  > pattern is caught **only in the fleet-wide set**, and only because that set is authored in
+  > **Go** and pinned by `TestEveryGlobalPatternIsAValidRegex` (`claims_global_test.go:376`) —
+  > a CI test, which by construction cannot see a pattern that arrives as **data**. A per-site
+  > pattern from `evidence_base` JSON hits the identical silent fallback at `claims.go:348`
+  > and **nothing anywhere reports it**: not the parser (no logger, no error path), not the
+  > admin door (`site_admin_handlers.go` counts `banned_claims` and guards against emptying
+  > the set — it never compiles a pattern), and not a migration (`ON_ERROR_STOP` cannot see a
+  > regex that Postgres never compiles). So **both** halves are silent for site-authored
+  > patterns, and the difference between them is only how inert you get: a non-compiling
+  > pattern degrades to a literal of its own source text, a mis-escaped one compiles and
+  > matches a literal backslash. Same outcome — armed, listed, counted, inert.
+- **the check for the compile half, fleet-wide, in the right engine** — extract every live
+  per-site pattern and compile it exactly as production does (`regexp.Compile("(?i)"+p)`),
+  with a deliberately broken control in the same run so a silent checker cannot read as a
+  clean fleet:
+  ```sql
+  SELECT s.domain, bc->>'pattern' FROM sites s
+  JOIN site_specs eb ON eb.site_id=s.id AND eb.aspect='evidence_base' AND eb.is_current
+  CROSS JOIN LATERAL jsonb_array_elements(eb.data->'banned_claims') bc;
+  ```
+  `[MEASURED 2026-09-02]` **239 patterns across 19 sites: 0 non-compiling, 0 doubled-backslash**
+  — a clean baseline, established the day five finance sites gained hand-authored sets, and the
+  controls (`best (loan|deal`, `\\bguaranteed`) both fired. **A clean result here is worth
+  re-establishing rather than inheriting**: the population grows every time a site is seeded,
+  and this census is stale by ADDITION the moment the next migration lands.
+- **so, when you author patterns for a site: Go-compile them AND probe-fire each one before
+  arming.** The loancalculator lane did exactly this for migration 707 (8/8 fired against real
+  copy, then a 0-match census over all 28 served pages so arming could not refuse a current
+  save) — that is the practice this entry is asking for, and it is currently the ONLY thing
+  standing between a typo and an inert guard. The unbuilt option, if someone wants to close it
+  properly: compile-check the patterns at the admin door, or add a data-driven sweep to
+  `cmd/claimscan`. Nothing has fallen through yet, which is why it is recorded rather than built.
 - **`[MEASURED 2026-08-17, remortgagecalculator.uk pilot seed]`:** all **6 of 6** patterns inert on the first apply. The seed's own verify block asserted `jsonb_array_length(banned_claims) = 6` and **passed** — a count comes out identical whether the guards work or not, which is the same shape as `WRONG_CALLS`' "a `[MEASURED]` figure is only evidence if it could have come out otherwise".
 - **the check — probe, never count.** Assert BEHAVIOUR with strings that must match *and* strings that must not (a guard matching everything is as broken as one matching nothing, and only the pair tells them apart). **Do it in Go, not SQL:** Postgres ARE and Go RE2 disagree on word boundaries — PG spells it `\y`, and `\b` is *backspace* — so a `psql … ~ pattern` probe is a check in the wrong engine and will lie to you in both directions. Worked pair: `datahelpers/claims_banned_pattern_escaping_test.go` (semantics, compiled exactly as production does) + the seed's own structural guard.
 - **for the structural half, avoid `LIKE` entirely — use `position()` + `chr(92)`.** In `LIKE`, backslash is itself the default ESCAPE character, so `'%\b%'` means *"the letter b"* and would pass on any pattern containing `b`; `position(chr(92)||'b' in p) > 0` has no escape semantics to reason about. `chr(92)` also survives an authoring channel that rewrites `\uXXXX` into the character it denotes — which is how the same file's `£` check ended up searching for `£`, the very thing it was meant to confirm, and refusing correct data twice (MEMORY: `escape-sequence-emission-trap`).
