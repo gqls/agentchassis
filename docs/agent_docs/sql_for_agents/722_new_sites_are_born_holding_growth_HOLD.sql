@@ -62,34 +62,66 @@ ALTER TABLE sites
 
 -- ── VERIFY, as DO/RAISE and not a SELECT ────────────────────────────────────────
 -- A verify block made of SELECTs cannot stop the COMMIT: ON_ERROR_STOP ignores a
--- non-empty result set (LANDMINES.md). These raise.
+-- non-empty result set (LANDMINES.md). These raise, and because the whole file is
+-- wrapped in BEGIN/COMMIT, a RAISE here rolls the ALTER TABLE back with it — the
+-- guard gates the mutation rather than reporting on one that already landed.
 DO $$
 DECLARE
   v_default text;
+  v_reads_as text;
   v_changed_rows bigint;
 BEGIN
   SELECT column_default INTO v_default
     FROM information_schema.columns
    WHERE table_name = 'sites' AND column_name = 'settings';
 
-  IF v_default IS NULL OR v_default NOT LIKE '%growth_posture%' THEN
-    RAISE EXCEPTION '722: the default was not set — column_default is %', COALESCE(v_default, '(null)');
+  IF v_default IS NULL THEN
+    RAISE EXCEPTION '722: sites.settings has no default at all';
   END IF;
 
-  -- The disconfirming half: this migration must have changed NO existing row. If it
-  -- somehow held a live site, that is the failure mode worth aborting for — the owner
-  -- decided about new sites, not about the 39 already running.
+  -- STRUCTURAL, NOT A SUBSTRING (council round 1, editquality, medium). A
+  -- LIKE '%growth_posture%' check passes on {"growth_posture":"hold"} (no nesting)
+  -- and on {"maintenance":{"growth_posture":"hold"}} (wrong parent) — i.e. on
+  -- exactly the wrong-depth defect it is supposed to catch, which this estate
+  -- produces repeatedly. So resolve the default through THE READER'S OWN PATH,
+  -- copied verbatim from datahelpers/growth_posture.go SiteGrowthPosture:
+  --   SELECT COALESCE(settings->'maintenance_profile'->>'growth_posture','open')
+  -- The default text is a quoted literal with a ::jsonb cast; strip the cast and
+  -- the outer quotes to recover the literal, then ask the reader's question of it.
+  v_reads_as := COALESCE(
+    (btrim(split_part(v_default, '::', 1), $q$'$q$)::jsonb)
+      -> 'maintenance_profile' ->> 'growth_posture',
+    'open');
+
+  IF v_reads_as <> 'hold' THEN
+    RAISE EXCEPTION '722: a NEW site would read as %, not hold. The default is % — the key '
+      'is at the wrong depth or under the wrong parent, and this migration would have '
+      'shipped ZERO effect while reporting success.', v_reads_as, v_default;
+  END IF;
+
+  -- The disconfirming half: this migration must have changed NO existing row.
+  --
+  -- IF THIS ARM FIRES, READ IT BEFORE ASSUMING A BUG IN THIS MIGRATION (council
+  -- round 1, guardian, low). It counts sites carrying ANY posture, and it cannot
+  -- distinguish "the default leaked onto existing rows" (impossible — a column
+  -- default never applies to an UPDATE) from "another lane set a posture by hand
+  -- between this file being written and being applied", which is legitimate and
+  -- expected: gamedesign.uk was set by hand on 2026-09-02 and is the 1 this
+  -- threshold allows. A fire here almost certainly means the SECOND thing. Re-read
+  -- the rows; if they were set deliberately, raise the threshold in a follow-up
+  -- commit that says whose they are. Do NOT delete anyone's posture to make it pass.
   SELECT count(*) INTO v_changed_rows
     FROM sites
    WHERE settings->'maintenance_profile'->>'growth_posture' IS NOT NULL;
 
   IF v_changed_rows > 1 THEN
-    RAISE EXCEPTION '722: % existing sites now carry a growth_posture; expected at most 1 '
-      '(gamedesign.uk, held by hand by its own lane earlier today). A column default must '
-      'not touch existing rows — investigate before committing.', v_changed_rows;
+    RAISE EXCEPTION '722: % sites carry a growth_posture; this file expected at most 1 '
+      '(gamedesign.uk, held by hand 2026-09-02). See the comment above this check — the '
+      'likely cause is another lane holding a site deliberately, not a leak.', v_changed_rows;
   END IF;
 
-  RAISE NOTICE '722 OK: new sites are born holding growth; % existing site(s) carry a posture, all set by hand.', v_changed_rows;
+  RAISE NOTICE '722 OK: a new site reads as "%"; % existing site(s) carry a posture, all set by hand.',
+    v_reads_as, v_changed_rows;
 END $$;
 
 COMMIT;
