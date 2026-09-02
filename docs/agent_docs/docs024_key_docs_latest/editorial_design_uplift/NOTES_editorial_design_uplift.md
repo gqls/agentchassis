@@ -933,3 +933,54 @@ resolved fields, **resolved last**" — so a newly resolvable field wins over st
 rather than being carried past. **This action exists for precisely the case 686 creates.**
 So the operational promise is: apply 686, fire a rerender at the six pages, and the images
 appear — no re-plan, no writer call, no backfill.
+
+### 2026-09-02 — 686 vs the per-section imagery binding: STRUCTURALLY immune, not merely currently safe
+
+The `inline_guide_imagery` lane raised a real hazard against 686 (their IMG-075 work): adding
+an image field to `article-body` makes it a third component able to reach the **per-section**
+imagery resolver, and on a page carrying TWO instances of one component the binding can
+attach a real figure to the WRONG section — which renders, deploys and looks correct. Their
+guard for it is written but **not in the running binary** (their round-2 commit missed the
+12:28 roll by ~2.5 minutes).
+
+They then measured the duplicate count themselves and reported zero, i.e. moot. **Reproduced
+here — both their spelling and a tombstone-filtered version return 0 pages with two
+`article-body` instances.** But "zero pages today" is a DATA fact, and their own guides design
+(one illustrated block per `h3`) is built to falsify it. So I checked the structure instead,
+and it is a better answer:
+
+```
+-- plan_sections_action.go, the query that populates r.sectionAssets:
+ WHERE sp.site_id = $1 AND spi.scope = 'section'
+   AND spi.scope_ref LIKE $2 || ':%'
+   AND spi.kind IN ('illustration', 'icon', 'infographic')
+```
+and `sectionAssetFor` is only a lookup into that map (`byKind[path]`). **686's field is
+sourced `site_assets.hero`, and `hero` cannot enter that map — excluded by a kind filter in
+CODE, not by the absence of data.** Hero resolves in the separate page-scope branch
+(`ContentHeroKey`), site brand hero as last resort. Census agrees and shows the filter is
+load-bearing rather than decorative `[MEASURED 2026-09-02]`: page/hero 369, section/icon 200,
+section/illustration 9, section/infographic 1, site/hero 3, site/logo 46 — **no section/hero
+row exists and no code path would read one.**
+
+**Kept, because it bites LATER:** their `slot_name` carry-forward trap. `save_page_sections`
+writes `slot_name = component name`, and `plan_sections`' carry-forward drops any slot whose
+rows repeat with differing `content_data`. So on a page with repeated same-component sections,
+a resolver-sourced field that resolves to nothing is **not** rescued by the carry — it is
+dropped, and `on_missing: skip_field` makes that silent. That is how apis.uk's six
+illustrations became one content-write away from vanishing. **Inapplicable to `article-body`
+while the duplicate count is zero; live the day the guides work makes it non-zero** — which is
+that lane's own stated direction, so this is a dependency between the two lanes, not a
+curiosity.
+
+**A figure of theirs did not reproduce, and it is the same shape as a correction they had just
+sent me.** They twice quoted "93 instances across 18 sites" for `article-body`. Measured with
+**their own query's spelling**: **297 rows, 1 distinct component, 30 sites** — and by
+`component_id` against the row 686 edits, the same 297/30. Told them; not guessing at their
+mechanism, but 3× matters when the reasoning rests on it.
+
+⚠ **And a census-drift datum worth having: it moved 297 → 298 (30 → 31 sites) between two
+queries about a minute apart, and `site_plan_imagery` hero went 359 → 369 since this morning.**
+The estate plans heroes continuously. The submission's "297 as of 2026-09-02" is correct-as-of
+and dated, which is the whole reason the dating rule exists — but nobody should quote it bare
+next week.
