@@ -468,3 +468,29 @@ One correction of mine. I told you that fact store was used by 444 sites. That w
 of database rows including old versions, repeated from another thread without my checking
 it. The real figure is twenty sites. It was caught by the session that went and re-derived
 it instead of using my number.
+
+---
+
+2 September, evening. The guides index now lists the four guides. This was the item we
+told you was stuck until the next software release, and that turned out to be wrong — the
+capability we needed has been in the running system all along, under a general name rather
+than the specific one we went looking for. What was genuinely true is that the page's list
+definition is shared with fourteen other pages across seven sites, so we could not simply
+edit it. Instead we made this one page its own private copy of the definition — identical
+in every respect except which kind of page it lists — and rebuilt the page. The build came
+back with exactly the four guides, each with its one-line summary underneath and a clean
+title, and the heading now matches what is beneath it. So the bridge you chose — people
+reach the guides through the guides index — is in place, without waiting for a release.
+
+Two things worth saying honestly alongside that. First, the rebuilt page also settled a
+question another thread was chasing: the card-summary fix does work on the current system;
+the earlier pages that missed it were built in a window where one of the two servers may
+have been running stale code. Re-rendering the homepage would confirm that cheaply. Second,
+while filing the rebuild I found that a hand-filed job can sit in the queue for ever,
+silently, if two bookkeeping fields are not set — mine did, for seven minutes, until I read
+the claiming code. That trap is now written down where the next person will meet it.
+
+The list of what still holds the delivery email back is shorter now: the transparent logo
+(waiting on the next release, genuinely this time — verified at the running system), the
+contact page returning a proper "not found" (bugs_open/429, unowned), and the calendar
+having real events to show (bugs_open/427).

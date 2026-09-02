@@ -7547,3 +7547,32 @@ unchanged at `79eafe5d414e`). Backup `/etc/webdesign-chat.env.bak-20260902T17134
 > binary — but the cheap check I skipped was `kubectl rollout history` / ReplicaSet
 > ages before dating anything against "the" roll. One roll a day is an assumption,
 > not a fact.
+
+## 2026-09-02 (~17:3xZ) — the 425 producer question SETTLED as a PATH split, not a pod/timing story; guides-index fix verified at the row; serve pending mirror
+
+- **7f1f4993 complete 17:23:02Z.** Row verification GREEN on the re-inserted slot
+  (new instance e6b51597 — the build DELETE/re-INSERTs; **the fork repoint SURVIVED
+  it**, still binding b475fe54): 4 items, all /guides/tool-*-guide.html, **excerpt
+  key PRESENT, titles suffix-free**, fresh guide-correct heading ("Every guide, in
+  one place" — build path regenerates llm fields; the stored-carry expectation in
+  the 17:1x entry was the RE-RENDER path's behaviour, build regenerates. Outcome
+  fine either way). Serve-side: mirror trailing (16:49 served vs 17:22:57
+  deployed_at — the 420 discriminator applied); watch armed.
+- **The components lane's A/B (their run, my build as the other arm) settles the
+  producer half**: one binary (v1.0.1354), one site, one canonical base, three
+  minutes apart — build path (7f1f4993, 17:23Z) produces the NEW item shape;
+  rerender path (item 684, template_changed, 17:26:52Z) produces the OLD shape,
+  with all four of their controls clean (write happened per page_id-keyed history;
+  no floor refusals; canonical binding; post-682 template rendered). **Stale-pod
+  and timing explanations are DEAD — the difference is the PATH.** My earlier
+  "may be the unprobed pod" framing is withdrawn with them.
+- **Handed them two citable pointers**: rerender_page_sections REUSES planSection
+  (:1437) and ResolvedData merges LAST and WINS (:1711-16) — so the old shape
+  means `articles` was ABSENT from ResolvedData at merge time on that path; the
+  two path-specific candidates are the resolved-data STRIP layer (~:1541-:1617,
+  deletes keys judged dirty before the merge — the articles array is full of
+  url-typed fields) and a silent resolution failure falling to no-key
+  (plan_sections:2710-22), discriminable only by tailing during an induced run
+  (their own ~20s log-window finding). Their round-2 council citation was right
+  about planSection; the strip layer sits between the cited code and the merge.
+  The hunt is theirs from here.
