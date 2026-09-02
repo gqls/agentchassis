@@ -238,3 +238,10 @@ writes anything broader is not.
   empty container `GTM-TH5XGNQ4` (owner ruling 2026-08-26, created 2026-09-02) — zero cookies by
   construction; a tag ever appearing in it is a re-ruling trigger, not progress.
 - Break GA4 reports down by **Hostname** or the estate is one merged number (§3 above stands).
+
+- **Addendum 2026-09-02 (late): consent is SHIPPING.** Owner chose the banner + Consent Mode v2
+  route; live in the three head templates at 20:55:43Z (STY-060), reaching each site as it
+  re-renders. From each site's convergence: **no cookies before opt-in** (GA4 falls back to
+  cookieless pings), banner with equal Accept/No-thanks, withdrawal wipes `_ga*`. GA4 numbers will
+  therefore UNDERCOUNT relative to the 09-02→convergence window — that step-change is the consent
+  gate arriving, not lost traffic. Cookie policy PAGES still owed per site.
