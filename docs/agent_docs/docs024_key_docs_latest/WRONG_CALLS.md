@@ -59607,3 +59607,34 @@ and when a verdict matters, keep a KNOWN-STATE CONTROL beside it: the empty cust
 (`GTM-TH5XGNQ4`) still reading NOT PUBLISHED is what proved the fixed parser wasn't simply saying
 yes to everything. Same class as `grep-silent-on-non-utf8` and the LANDMINES deleted-bullet check:
 the instrument answered a narrower question than the one asked.
+
+## 2026-09-02 (c) — I read a migration's status from `schema_migrations` when the answer was in `agent_definitions`, and I had already SEEN the right answer (finetuning_uk_service)
+
+- **The claim.** "639 is NOT applied" and "the chassis has NOT rolled with the rails", told to the
+  owner as *two* held migrations plus a pending roll standing between him and the fix.
+- **Why it was false.** Both wrong. `639_page_build_handler_wires_section_subjects_HOLD.sql` **is
+  applied and live**: the live `page-build-handler` row carries
+  `plan_sections.config.section_subjects = spec_sections.section_subjects` (and the `section_facts`
+  twin). And the rails commit **had** rolled — `section_subjects` is in the running binary and
+  `git grep` proves it was born in `35905c547` (0 files at `35905c547^`, 5 at the commit). So
+  641's gate 1 was already clear and only the owner read stood in the way.
+- **What caught it.** The `bugs_open/443` session re-measured at the artefact and told me. Not me.
+- **The mistake, precisely.** I queried `schema_migrations` for a filename beginning `639`, got
+  nothing, and read that as "not applied". **A `_HOLD` migration is applied BY HAND** — CLAUDE.md
+  says so — so the runner's ledger is not where its state lives. **The record is not the fact.**
+  A `_HOLD` file also keeps its `_HOLD` suffix forever; the applied-ness is a header line and,
+  authoritatively, the live row.
+- **The part that is genuinely embarrassing, and the transferable one.** I did not merely fail to
+  check the live row. **I had already read it, in this same session, hours earlier.** Diagnosing the
+  playground no-op I printed the live `plan_sections` step config and its output contained
+  `"section_subjects": "spec_sections.section_subjects"` — the exact disconfirming evidence, on my
+  own screen, in my own scrollback. I was looking for the section SOURCE at the time, saw what I
+  was looking for, and never registered the two keys beside it. Later, asking a different question,
+  I reached for a weaker instrument instead of the output I already had.
+- **The cheap check that would have.** `grep` my own earlier tool output before running a new query
+  about the same row. But the durable rule is the one my memory already states and I did not apply:
+  **"the seed is not the system — read `agent_definitions`."** `schema_migrations` answers *did the
+  runner apply a file*; it does not answer *is the behaviour live*, and for hand-applied `_HOLD`
+  files those come apart completely.
+- **Cost.** I told the owner he was behind two gates and a roll when he was behind one gate — his
+  own read of seven lines — and made his approval look less urgent than it was.
