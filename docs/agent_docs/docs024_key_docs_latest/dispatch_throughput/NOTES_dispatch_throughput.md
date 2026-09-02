@@ -1202,3 +1202,16 @@ file is FINISHED only when --record-only has run** — the apply and the record 
 of one act (same shape as commit-then-build). _HOLD files stay outside the ledger by design
 (never runner-probed; suffix never dropped). Answered 314 in full; offered them the
 appliable-but-unrecorded census as a possible sibling check, their call.
+
+### 2026-09-02 — my _HOLD answer to 314 was WRONG; corrected, and 658 completed per the documented sequence
+
+I told 314 "_HOLD is never renamed, ever" from this lane's live behaviour — then the
+migration-runner-practice memory (bugs_closed/150, 2026-08-01) showed the DOCUMENTED
+sequence is apply → DROP THE SUFFIX → --record-only (the runner refuses to record a
+sidecar on purpose; the rename is a required step). The lane had left 657/658 half-done at
+the hold stage and I described the drift as the norm. What caught it: reading the topic
+file before merging a "new" lesson into it. Corrected to 314 in writing; **658 renamed to
+`658_dispatch_phase3_batch_8.sql` + recorded (commit df0d718dd, both paths on the commit,
+ls-tree clean at HEAD)**; 657 flagged to its session (their file, their timing). The
+rename commit carries no council trailer deliberately: content 100% identical to the
+95099f95-approved file — the reviewed change is unchanged, only the name moved.
