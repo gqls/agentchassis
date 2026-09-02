@@ -489,6 +489,76 @@ func injectComponentCSS(headHTML, cssBlock string) string {
 	return cssBlock + headHTML
 }
 
+// ─── Skip link (bugs_open: head_essentials_missing, improvement_loop lane) ────
+//
+// WHAT A SKIP LINK IS. The first focusable element on the page, letting a
+// keyboard or screen-reader user jump straight past the navigation to the
+// content instead of tabbing through every nav item on every page.
+//
+// WHY IT IS HERE AND NOT IN THE HEADER COMPONENT. `[MEASURED 2026-09-02]` 32 of
+// the estate's 33 site headers point at ONE shared component
+// (58fde68f-9190-4e5e-b6a5-ea21cf27a9af) plus three forks of it, and not one of
+// them renders a skip link; the sole site that does
+// (loanandmortgagecalculator.co.uk) is the only one with no shared component at
+// all. Putting it in the header would therefore need the same edit in four
+// places today and in every future fork — and, worse, would separate the link
+// from the target it depends on. Here, the link and its target are emitted by
+// the same function, three lines apart, and a fork cannot lose one without the
+// other.
+//
+// THE TARGET IS A SPAN, NOT `<main id="content">`, for two reasons. It copies
+// the estate's one working exemplar verbatim (LMC's own header comment records
+// that its per-page `id="content"` wrapper was removed by decomposition and the
+// target now lives as an empty focusable span). And it leaves `<main>`
+// byte-identical, so nothing that reasons about `<main>`'s attributes or
+// counts headings inside it can be perturbed by this change.
+//
+// `tabindex="-1"` is required: without it browsers move the viewport but not
+// the focus ring, so the next Tab returns to the top of the nav — the exact
+// problem the link exists to solve.
+//
+// THE CSS TRAVELS WITH THE MARKUP, BY DESIGN. The alternative — adding the
+// rules to the site stylesheet — would make correctness depend on the CSS wave
+// landing BEFORE the page wave, and until it did, every one of 31 live client
+// sites would show a stray "Skip to content" at the top of every page. An
+// ordering rule an operator must remember is a defect; this has no ordering.
+// The cost is ~180 bytes per page.
+//
+// WHAT THE CHECK ACCEPTS. head_essentials_missing passes on
+// `a[href="#content"]` OR `.skip-link` (check_site_structural_validity.go:1065)
+// — this emits both signals, so it satisfies the check on either branch.
+const skipLinkMarker = `data-skip-link="1"`
+
+// skipLinkCSSBlock hides the link off-screen until it takes focus. The `:focus`
+// rule needs no `!important` because the base rule is a stylesheet declaration
+// too, not an inline style — deliberately, so a site stylesheet that later
+// grows its own `.skip-link` rules can still override this one on specificity
+// in the normal way.
+const skipLinkCSSBlock = `<style ` + skipLinkMarker + `>.skip-link{position:absolute;left:-9999px;top:0;z-index:100;padding:12px 20px;font-weight:700;background:var(--brand-accent,#000);color:var(--brand-primary,#fff)}.skip-link:focus{left:0}</style>`
+
+// skipLinkAnchor is the first element inside <body>; skipLinkTarget sits
+// between the header and <main>. They are a pair: emitting either alone is a
+// defect — a link to nowhere, or an unreferenced span — and
+// check_phantom_internal_links_fragments would file the first of those on
+// every page of the estate.
+const skipLinkAnchor = `<a class="skip-link" href="#content">Skip to content</a>`
+const skipLinkTarget = `<span id="content" tabindex="-1"></span>`
+
+// injectSkipLinkCSS places the rules immediately before </head>, following the
+// same shape and the same fallback as injectComponentCSS. Idempotent on its own
+// marker, so a head that already carries the block (a re-render of an
+// already-assembled page whose stored head was captured post-change) is left
+// alone rather than accumulating copies.
+func injectSkipLinkCSS(headHTML string) string {
+	if strings.Contains(headHTML, skipLinkMarker) {
+		return headHTML
+	}
+	if loc := reHeadClose.FindStringIndex(headHTML); loc != nil {
+		return headHTML[:loc[0]] + skipLinkCSSBlock + "\n" + headHTML[loc[0]:]
+	}
+	return skipLinkCSSBlock + "\n" + headHTML
+}
+
 // robotsNoindexTag is the exact tag injectRobotsNoindex inserts; its presence
 // is also the idempotency marker (same pattern as componentCSSMarker).
 const robotsNoindexTag = `<meta name="robots" content="noindex, nofollow">`
@@ -687,6 +757,11 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	// the same path as its markup.
 	head = injectComponentCSS(head, collectComponentCSS(ctx, db, page.ID.String(), logger))
 
+	// 5c. Skip-link styling. Injected into the head so the rules travel with the
+	// markup emitted at step 6 and never depend on the site's stylesheet having
+	// been re-rendered first. See the skipLinkAnchor block for the full why.
+	head = injectSkipLinkCSS(head)
+
 	// 6. Assemble
 	var html strings.Builder
 	// The document's language comes from the head component, not from Go
@@ -698,10 +773,19 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	html.WriteString(head)
 	html.WriteString("\n<body>\n")
 
+	// The skip link must be the FIRST focusable element in the document, so it
+	// precedes the header rather than living inside it.
+	html.WriteString(skipLinkAnchor)
+	html.WriteString("\n")
+
 	if header != "" {
 		html.WriteString(header)
 		html.WriteString("\n")
 	}
+
+	// ...and its target sits between the header and the content it names.
+	html.WriteString(skipLinkTarget)
+	html.WriteString("\n")
 
 	html.WriteString("<main>\n")
 	html.WriteString(sections)
