@@ -361,3 +361,31 @@ Second apply, clean:
 
 Watcher armed on the 11 rerenders; the POST-APPLY artefact check runs when they are all terminal.
 695/693 remain UNAPPLIED, awaiting their (resubmitted) verdicts.
+
+## 2026-09-02 (l) — 696 VERIFIED AT THE ARTEFACT: the wrong citations are off the wire, fleet-wide
+
+All 11 rerenders reached `complete` within ~20 minutes of apply, each with its own deploy
+commit sha. The committed POST-APPLY check then ran against served bytes, with the invented-URL
+404 control alongside. `[MEASURED 2026-09-02 ~16:0xZ]`
+
+| check | result |
+|---|---|
+| 7 content pages, `CONC 6.7.17` | **0 on every page** |
+| rollover-rules positives | `CONC 6.7.23` ×2 |
+| cant-pay positives | `CONC 7.6.12` ×2 |
+| both guides (at their **recorded** `pages.url`) | clean; corrected cites present |
+| lendzy tool | 6717=0, 6723=1, **inputs=8 unchanged** |
+| **loancash tool** (the propagated fork) | 6717=0, 6723=1, **inputs=8 unchanged** |
+| invented-URL control | 404 |
+
+Two working notes from the check itself:
+- My first pass at the guides used **composed** URLs and read 404 bodies (size 9) — the exact
+  bug-387 trap. The recorded `pages.url` (`/guides/…`) was the answer; RUNBOOK §2's discipline now
+  says so explicitly by example.
+- The CPA guide "stored 2 / served 1" alarm was my own grep's strictness: the served page carries
+  **2** bare `7.6.12`, the second not "CONC "-prefixed in serve form. Count with the loosest
+  pattern that is still unambiguous before treating a delta as loss.
+
+**Owner decision 1 is DONE end-to-end**: wrong rule numbers extinct in storage AND at the served
+artefact, on both sites, with working calculators unchanged. Remaining lane work rides on the
+resubmitted 693/695 verdicts.
