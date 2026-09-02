@@ -1,10 +1,11 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
 **Status: OWNER-DECIDED 2026-09-02 on Q1, Q2, Q3 AND Q4 — the tier design is fully decided.**
-§3b ADDENDUM 2026-09-02 (Q5, new, undecided): the citation-recognition mechanism the RFC's own
-precondition fix relies on is finance-only and does not generalise to other regulated sectors as built
-— this is the one open question, and it does not block build order (ii)/(iii)/(i) on finance sites,
-only how far (ii) can safely extend beyond finance today. Nothing is built yet. See §3a, §3b.
+Two open addenda, neither blocking §3c's three build tracks: **Q5** (§3b) — citation-code recognition
+is finance-only, doesn't generalise to other regulated sectors. **Q6** (§3d, new) — a citation can be
+substantively true and still name the wrong rule; nothing today checks attribution, only presence
+(found live on lendzy.co.uk: 2 of 7 existing citations mis-attributed). Nothing is built yet.
+See §3a, §3b, §3d.
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
 *"what can I do about the poisoned register hole, and shouldn't compliance be strong for sites that
@@ -315,6 +316,54 @@ does not block starting. Three independent tracks, in the owner's chosen order:
    design ahead of a second consumer).
 
 Then (iii) fact-quality floor and (i) severity follow, per Q2's decided order.
+
+---
+
+## 3d. ADDENDUM 2026-09-02 (Q6, NEW — undecided): a citation can be true, sourced, and still name the
+WRONG rule — nothing checks attribution, only presence
+
+Reported by the `lendzy_co_uk` lane, from Phase B-i of populating lendzy's register (the content work
+§3c/§4 recommends). Building `cmd/fcaquotecheck` (`c904ffd5d`, calls the SAME
+`datahelpers.VisibleTextFromHTML` / `QuoteFoundInText` the production refresher uses, not a
+reimplementation) to verify lendzy's seven existing rule-citations before registering them as facts,
+they found **five correct and two wrong** `[MEASURED 2026-09-02]`:
+
+- served copy cites **CONC 6.7.17** for the two-rollover limit — that rule is the DEFINITIONS clause
+  for the range; the substantive limit is **CONC 6.7.23**.
+- served copy cites **CONC 6.7.23** (the rule above) for the two-attempt continuous-payment-authority
+  limit; the substantive rule is **CONC 7.6.12**.
+
+**In both cases the underlying business claim is TRUE and the source domain is right — only the cited
+rule NUMBER is wrong.** This is a distinct failure mode from anything this layer currently checks:
+
+| existing check | asks |
+|---|---|
+| `ScanUnregisteredNumbers` | is this number backed by ANY registered fact? |
+| CLM-025 cold audit (LLM) | is this assertion supported by the register, wording-not-topic? |
+| CLM-008 citation refresh | does the REGISTERED quote still appear at the REGISTERED url, today? |
+
+None of them ask **"is the cited rule the rule that actually says this?"** — CLM-008 re-verifies
+whatever URL a fact already carries; it has no way to notice the URL was the wrong one from the start,
+because it was never told what "wrong" would look like for a citation rather than a plain business
+number. On a `relied_upon` site — the rung this RFC's own ladder reserves for readers who may act on
+what's claimed to their financial/legal/medical/safety detriment — an accurately-sourced-but-
+mis-attributed rule is arguably worse than an unsupported one: it reads as MORE trustworthy, not less.
+
+**Not this addendum's job to design the fix**, and not lendzy's lane's job either — they are
+correctly not proposing a mechanism, only handing over the case. Recorded as Q6 because it changes
+what `sourced` (or `relied_upon` specifically — attribution matters more the higher the stakes) could
+be understood to GUARANTEE, which is the 2026-07-29 §1 RFC trigger. Candidate shapes, none decided:
+require verification against the SPECIFIC cited URL at registration time (already how V5's
+`verify_and_register_citations` is described — if so, the gap may be upstream, in unregistered prose
+that predates the register rather than in the registration path itself, and needs checking before
+concluding anything); or a distinct "citation attribution" check separate from "citation drift".
+
+**Not fixed unilaterally, correctly** — the two mis-citations are in served copy; rewriting published
+prose on an automated finding is authority the owner withheld 2026-08-21 (`bugs_open/320` §15). Routed
+to the owner with a recommendation by the lendzy lane; this addendum is the platform-layer half.
+
+**Does not block §3c's three tracks.** Lane docs:
+`docs/agent_docs/docs024_key_docs_latest/lendzy_co_uk/` (PLAN §B).
 
 ---
 
