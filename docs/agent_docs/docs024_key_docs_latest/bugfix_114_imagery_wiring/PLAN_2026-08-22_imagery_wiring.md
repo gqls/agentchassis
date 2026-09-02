@@ -278,3 +278,18 @@ not silently cancelled. The 7 `failed` page_rerenders (08-27..31) belong to thei
 When C1 is live (or its verdict recorded), 114 moves to `bugs_closed/` with the residual
 states explicitly handed to 357 (fragment slots), 412 (unwired delivery), and the owner
 (composition/no-slot population).
+
+### ADDENDUM 2026-09-02 late — two tracked follow-ups out of the council round, and the 412 build
+
+- **C1 amendment:** the detector was REVISE'd round 1 (a landmine cited unread — see
+  NOTES) and resubmitted round 2 with 709 split out; 709 travels standalone, hardened.
+- **NEW follow-up (architecture seat, advisory): narrow or retire
+  `check_undeployed_assets` half 1** once IMG-077 rollups are live — two overlapping
+  mechanisms must not coexist indefinitely, and its parked backlog grows uncapped
+  (1,662 at the council's re-measure). The backlog's DISPOSITION is an owner decision;
+  the check's narrowing is this lane's follow-on work.
+- **DONE under `bugs_open/412` (their §10 handover): candidate 1 built** — IMG-078,
+  opt-in default OFF, migration 710 held. 412 §11 is the build record; acceptance
+  protocol excludes finetuning.uk and runs on IMG-077 `unwired` sites.
+- **The deferred half of 412 (candidate 2, light-vs-heavy emission) remains theirs/ours
+  jointly AFTER the floor is proven** — deliberately not in any current submission.

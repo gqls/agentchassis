@@ -932,3 +932,15 @@ The lane was idle 11 days. Full evidence with queries:
   wiring — their fix candidate 1; coordinated, not taken), `fragment_slot` →
   `bugs_open/357`, `no_image_slot` → the composition/planner question (+ the
   `check_content_image_missing` surface-widening owner decision, still unasked).
+
+> **UPDATE 2026-09-02 late evening:** migration 562's council verdict is now **APPROVED**
+> (corr `4145fcdc`, resubmitted after the original dispatch was dropped). The detector
+> (IMG-077) drew a round-1 REVISE — a landmine cited unread, answered and resubmitted on
+> the same trail; migration 709 split out per that round and hardened (standalone corr
+> `151a51db`, dry-run green against live data under ROLLBACK). And the `unwired` state's
+> remedy is BUILT: `bugs_open/412` §10 handed candidate 1 to this lane, §11 records the
+> build (IMG-078, commit `8aa51f599`, corr `bd78490d`, opt-in default OFF, migration 710
+> held). One new tracked follow-up from the architecture seat: narrow or retire
+> `check_undeployed_assets` half 1 once IMG-077 rollups are live — its parked backlog
+> read **1,662** at the council's re-measure, +11 in hours. Evidence: lane NOTES,
+> 2026-09-02 late entry.

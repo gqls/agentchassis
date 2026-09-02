@@ -675,3 +675,52 @@ it was PARAPHRASED, and the correction below the CONTRIB says so.
   loanandmortgagecalculator/leopardess): their sites' lanes; result rows show
   `mark_item_failed` with `completion_skipped` — not this lane's mechanism. Reported
   here, not touched.
+
+### 2026-09-02 late evening — the 412 handover executed, three council rounds in flight, and one procedural misstep the council caught
+
+**The 412 handover.** The owning finetuning lane answered the build-or-keep question in
+writing (`bugs_open/412` §10): THIS lane builds candidate 1 — their three stated reasons:
+their lane redirected off platform work; our 193/193 event-seam evidence beats their
+1-of-9; IMG-077's rollups give an acceptance population they structurally cannot. Their
+refinement folded into the design before building: finetuning.uk is excluded from
+acceptance NOT because it is "masked" but because 664 changed the JOIN and 649 the
+SCHEMA — two defects overlap there and a before/after cannot attribute a delta.
+
+**Built: `wirePageHeroOnLanding` (IMG-078, commit `8aa51f599`, council corr `bd78490d`).**
+At the landing event, same tx as the re-render emit: DeployedWebPath(ContentHeroKey)
+into hero-family rows' `content_data.hero_url`, only where BOTH image fields hold
+empty/legacy/site-fallback, never on a 357-fragment row. Opt-in default OFF
+(`wire_hero_on_landing`); armed post-roll by `710_…_HOLD.sql` for the ONE live carrier.
+Four mutation proofs in a clean worktree (`git worktree`, because another session's
+in-flight datahelpers WIP — `CTALabelCandidateRow` signature change on DIRTY files —
+broke the shared tree's actions test build; their plan, not our bug; routed around,
+never touched).
+
+**Council round 1 results (detector corr `3b568104` + 562's `4145fcdc`):**
+- **562: APPROVED**, round 1, 2 low advisories. The dropped-dispatch debt is discharged;
+  the 08-22 commit's `Council-Submitted` trailer resolves automatically via 098.
+- **Detector: REVISE**, gating objection from prior_art_librarian — and it was RIGHT:
+  I cited `storage.DeployedWebPath` as the single source of truth **without grepping
+  LANDMINES for the symbol**, the exact reflex the memory index demands
+  (grep-landmines-for-your-symbols). The landmine, now read in full: **FIXED AND LIVE
+  v1.0.1229** ("THE TRAP BELOW IS HISTORY"), historically brand-head-only, and its own
+  guidance prescribes page_components as the comparison surface for this population —
+  so the check was RIGHT by luck and is now right on the record (header carries the
+  landmine back; commit `0ea807252`). **Misstep logged here rather than WRONG_CALLS: no
+  false claim was recorded — the omission was an unread landmine, cost one round.**
+- Other round-1 objections, each acted on: 709 SPLIT into its own submission (guardian)
+  and hardened (debug_historian: pre-mutation counted gate 16/6/4/1-or-clean with abort
+  on partial, per-arm ROW_COUNT assertions, ROLLBACK sibling; bug_historian +
+  prior_art_librarian: the no-reader claim now VERIFIED — template sweep 0/0/0/1 with
+  the 1 analysed, field-source sweep 0, and the council's own read-only check agreed at
+  0 rows). **Dry-run of the full 709 against LIVE data under ROLLBACK: INSERT 18,
+  removed 16/6/4/1, every assertion green** (commit `ae8029c31`). reuse seat's overlap
+  question answered by premise in the header (the two neighbour checks trigger on
+  ABSENT assets; this one only on PRESENT ones). guardian's lockstep-ownership note
+  added. architecture seat's follow-up recorded in PLAN (below).
+- The council's own re-measure of the parked backlog: **1,662** (+11 on my morning
+  1,651 — stale by addition within hours; both figures dated).
+
+**In flight at time of writing:** detector round 2 (same trail `3b568104`), 709
+standalone (`151a51db`), the wiring (`bd78490d`). All three verdicts owed a read by
+whoever is next here if this session ends first — query in the RUNBOOK.
