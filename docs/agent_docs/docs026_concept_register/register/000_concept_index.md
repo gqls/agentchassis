@@ -613,6 +613,7 @@ an ID prefix, or a status word.
 | RAGK-002 | rag_lookup action (vector search + trigram fallback) | deployed | Embeds query, cosine search within collection, trigram fallback when Ollama down | rag-knowledge-base.md |
 | IMG-015 | check_unfulfilled_imagery_plan discovery check (Phase 2G.4) | deployed | Emits needs_imagery per unfulfilled site_plan_imagery row, priority-banded by scope. | imagery.md |
 | REB-007 | page-build-handler writes only planned sections (sections=0 → silent no-op rebuild) | deployed | Empty planned-section list makes a rebuild complete having written nothing | rebuild-cascade.md |
+| REB-008 | Routing-key half of the spec.reason split (ResolveRoutingReason, RoutingReasonSpecKey) | built-inert | Three-state resolver making present-but-unknown routing keys refusable; flip is RFC_062 phase 3 | rebuild-cascade.md |
 | DYN-007 | Runtime-fill mechanism (data-runtime-fill shells + client loaders) | deployed | Empty shells filled client-side from a JSON feed, proven three times over | dynamic-applications.md |
 | IMG-055 | Section-scope imagery pipeline — idea.uk verification | deployed | End-to-end plan→emit→generate→deploy→rebuild chain exercised live on idea.uk. | imagery.md |
 | FIX-001 | Diagnosis→fix loop programme / council loop (F0–F3) | deployed | End-to-end symptom-to-PR pipeline; PR #1 merged 2026-07-13 | fix-loop.md |
