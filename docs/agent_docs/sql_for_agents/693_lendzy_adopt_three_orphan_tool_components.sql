@@ -281,6 +281,28 @@ SELECT
                   'tool-true-cost-calculator',
                   'tool-complaint-deadline-calculator');
 
+-- Adoption decision of record (round-3 tooling_provenance advisory; doc_plans
+-- carries 0 rows for these tools [MEASURED 2026-09-02], so there is no
+-- travelling PLAN to preserve — this note IS the provenance). Also states
+-- explicitly, per the guardian advisory: registering these rows at
+-- component_level='tool' pulls the three pages into check_tool_health /
+-- tool_acceptance sweeps from now on, WHICH IS INTENDED — the owner ruled
+-- "keep the tools", and kept tools get health checks.
+INSERT INTO doc_notes (subject_type, subject_key, site_id, body, categories, source, created_by)
+VALUES (
+  'decision', 'lendzy.co.uk', '8ff093d5-1f19-453b-9439-a10379bbcd76',
+  'TOOL ADOPTION OF RECORD (migration 693, 2026-09-02): tool-price-cap-checker, '
+  || 'tool-true-cost-calculator and tool-complaint-deadline-calculator were born 2026-08-02 with a single '
+  || 'page_components row each (component_id NULL, slot_name ''section'') and could never rerender or earn '
+  || 'a deployed_at. Each now has a content_components row ADOPTED byte-for-byte from its own live '
+  || 'rendered_html (created_from=adopted, component_level=tool, zero template bindings — lossless by '
+  || 'measurement), and its page row is repointed. No LLM regeneration: the owner ruled keep working '
+  || 'tools. These pages now fall under tool health/acceptance sweeps, intentionally. '
+  || 'Sibling class: bugs_open/357 (wrong-id arm). Evidence: lendzy lane NOTES (c)/(i).',
+  '["lendzy","tool-adoption"]'::jsonb,
+  'lendzy_co_uk lane', 'lendzy_co_uk lane (migration 693)'
+);
+
 -- ---------------------------------------------------------------------------
 -- VERIFY, as DO/RAISE. A verify block of bare SELECTs CANNOT stop the COMMIT —
 -- ON_ERROR_STOP ignores a non-empty result set. This block can.

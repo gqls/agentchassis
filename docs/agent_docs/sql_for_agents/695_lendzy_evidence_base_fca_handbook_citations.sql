@@ -142,7 +142,7 @@ VALUES (
 -- cannot touch this row.
 INSERT INTO doc_notes (subject_type, subject_key, site_id, body, categories, source, created_by)
 VALUES (
-  'site', 'lendzy.co.uk', '8ff093d5-1f19-453b-9439-a10379bbcd76',
+  'decision', 'lendzy.co.uk', '8ff093d5-1f19-453b-9439-a10379bbcd76',
   'CITATION CORRECTIONS OF RECORD (2026-09-02, migration 695; served-copy fix is migration 696). '
   || 'The two-rollover limit for high-cost short-term credit is CONC 6.7.23 ("A firm must not refinance '
   || 'high-cost short-term credit (other than by exercising forbearance) on more than two occasions") - '
