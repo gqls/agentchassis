@@ -45,8 +45,8 @@ Bug filed: `bugs_open/432_HANDOFF_2026-09-02_a_site_whose_db_rows_were_deleted_k
 > `write_site_spec` deep-merges, so the fix ADDS `text` beside the palette; and my submitter has
 > already COMPLETED, so it cannot re-run without a re-submission. Classifier superseded my
 > `design_intent` (pinned did not hold) but in the SAME direction (`#F5F0E8`/`#9B4E2A`/light,
-> Playfair headings). **Read `palette_source` on composition** — first live test of `mission_hint`
-> ever; report the value to theme kits either way.
+> Playfair headings). ~~Read `palette_source` on composition~~ **RESOLVED 17:38:00Z:
+> `mission_hint` — rung 1 fired for the first time in production; palette byte-for-byte the seed; 438's diagnosis HOLDS.** Layout `magazine-grid` (not soft-editorial), typography Playfair + Libre Baskerville. Site plan = 5 pages. Design/pages/rerender/deploy still to land; then read the served `--color-*`.
 >
 > **WHAT IS LEFT (was §5 steps 5–9):** wait for the cascade; verify at the artefact (RUNBOOK §8)
 > — every file non-empty `<main>`, legal pages + sitemap 200, no empty `mailto:`, control 404;
