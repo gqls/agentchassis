@@ -1414,6 +1414,38 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		}, nil
 	}
 
+	// ── bugs_open/443: repeated component type, no subject to tell the
+	// instances apart ────────────────────────────────────────────────────
+	// Observe-only, build-side sibling of the planner-side
+	// SUBJECT_MISSING_ON_REPEATED_COMPONENT (write_site_plan, rule 17):
+	// distinct code because the remedy differs — the planner's says
+	// "replan"; this one says the page's SERVING TIER carries no subjects,
+	// so N same-typed slots are about to receive one identical brief and
+	// the near-duplicate output is the predicted result, not a bad roll.
+	// Deliberately NOT gated on any-subject-present: the planner's gate is
+	// retro-spam protection for pre-rule-17 plans, and the pages this
+	// exists to surface (fallback-tier, no reachable subject store) can
+	// never carry one. Bounded: [MEASURED 2026-09-02] 25 repeat-layout
+	// pages fleet-wide. Repeats are counted page-wide, not adjacently —
+	// non-adjacent repeats duplicate too (443's our-position-on-ai case).
+	for _, gap := range repeatedComponentSubjectGaps(sectionNames, sectionSubjects) {
+		LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
+			SiteID: siteIDStr,
+			Action: "plan_sections",
+			ErrorMessage: fmt.Sprintf("page %q builds %d %q sections and %d of them carry no subject — identical briefs, near-duplicate output predicted (bugs_open/443)",
+				pageName, gap.Repeats, gap.Component, gap.WithoutSubject),
+			ErrorCode: "REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT",
+			Severity:  "warning",
+			Context: map[string]interface{}{
+				"page_name":       pageName,
+				"component":       gap.Component,
+				"repeats":         gap.Repeats,
+				"without_subject": gap.WithoutSubject,
+				"remedy":          "give the repeated slots distinct subjects at the page's serving tier: site_plan_sections.subject for planned sites (rule 17, seed 640), pages.section_subjects for plan-less pages (bugs_open/443)",
+			},
+		}, logger)
+	}
+
 	// Load component schemas for these sections
 	components := loadComponentSchemas(ctx, params.DB, sectionNames, logger)
 
@@ -2714,8 +2746,37 @@ func planSection(ctx context.Context, sectionName string, section sectionRef, co
 					zap.Error(qerr))
 				// Resolver ERRORED — distinct from an empty result and must NOT be
 				// routed into on_missing, or a genuine failure would be masked as
-				// "no data" (the trap bugs_open/054 flags). Apply fallback if any,
-				// else leave the field unresolved.
+				// "no data" (the trap bugs_open/054 flags).
+				//
+				// For a REQUIRED (or min_items-declaring) field, "leave the field
+				// unresolved and proceed" shipped hollow listing sections at full
+				// page weight (bugs_open/444: resolveBusinessDirectory's designed
+				// loud failure, bugs_open/206, evaporated into this Warn line and
+				// the section built with only its LLM headline). So: offer the
+				// regeneration carry first (a rebuild during a transient error
+				// keeps the page's own last-good value; storedFieldValue refuses
+				// empties, so a never-filled field cannot be "carried"), else
+				// DEFER the section — the loud HITL path — rather than build it
+				// without the data it exists to show. on_missing is still never
+				// consulted for errors; defer is the third state that keeps
+				// error and no-data distinguishable.
+				if required || fieldMinItems > 0 {
+					if carryStored() {
+						continue
+					}
+					shouldDefer = true
+					missingFields = append(missingFields, missingField{
+						Field:     fieldName,
+						Source:    source,
+						OnMissing: onMissing,
+						Reason:    fmt.Sprintf("required query source errored: %v", qerr),
+						Type:      fieldType,
+						Items:     fieldItems,
+						MinItems:  fieldMinItems,
+					})
+					continue
+				}
+				// Optional field: apply fallback if any, else leave unresolved.
 				if fallback != nil {
 					resolvedData[fieldName] = fallback
 				}
@@ -3216,4 +3277,41 @@ func stringOrEmpty(v interface{}) string {
 		return s
 	}
 	return ""
+}
+
+// repeatSubjectGap names one component type that appears more than once in a
+// page's FILTERED section list while at least one of its instances carries no
+// subject — the bugs_open/443 shape: those instances receive identical briefs
+// and the near-duplicate output is the predicted result, not a bad roll.
+type repeatSubjectGap struct {
+	Component      string
+	Repeats        int
+	WithoutSubject int
+}
+
+// repeatedComponentSubjectGaps is the pure half of the build-side 443 detector,
+// separated so its negatives are provable without mock bookkeeping. Repeats are
+// counted PAGE-WIDE, not adjacently — non-adjacent instances duplicate too
+// (443's our-position-on-ai case). Deliberately not gated on the page carrying
+// any subject at all: the planner-side twin's gate is retro-spam protection,
+// while the pages this exists to surface can never carry one. Results are
+// sorted by component so the emitted rows are deterministic.
+func repeatedComponentSubjectGaps(sectionNames, sectionSubjects []string) []repeatSubjectGap {
+	repeats := map[string]int{}
+	subjectless := map[string]int{}
+	for i, n := range sectionNames {
+		repeats[n]++
+		if i >= len(sectionSubjects) || strings.TrimSpace(sectionSubjects[i]) == "" {
+			subjectless[n]++
+		}
+	}
+	var gaps []repeatSubjectGap
+	for name, n := range repeats {
+		if n < 2 || subjectless[name] == 0 {
+			continue
+		}
+		gaps = append(gaps, repeatSubjectGap{Component: name, Repeats: n, WithoutSubject: subjectless[name]})
+	}
+	sort.Slice(gaps, func(i, j int) bool { return gaps[i].Component < gaps[j].Component })
+	return gaps
 }

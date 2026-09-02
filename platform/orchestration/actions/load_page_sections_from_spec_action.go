@@ -81,6 +81,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
@@ -219,10 +220,37 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 					}
 					if name, _ := page["name"].(string); name == pageName {
 						if sections, ok := page["sections"].([]interface{}); ok {
-							for _, s := range sections {
+							// bugs_open/443: the SAME page object may carry the
+							// aligned sibling arrays validate_plan's normalise
+							// pass emits (section_subjects / section_facts).
+							// Same-object storage is alignment by construction —
+							// the tier-1-only rule was about CROSS-tier guessing,
+							// which this is not. RAW-index lookups before skips,
+							// appended in the same branch as the name, so a
+							// skipped non-string entry drops its scoping with it
+							// and the three lists cannot misalign (the PBP-049
+							// semantics, one tier down).
+							subjArr, _ := page["section_subjects"].([]interface{})
+							factArr, _ := page["section_facts"].([]interface{})
+							subjAligned := len(subjArr) == len(sections)
+							factAligned := len(factArr) == len(sections)
+							for i, s := range sections {
 								if sName, ok := s.(string); ok {
 									specSections = append(specSections, sName)
+									if subjAligned {
+										specSectionSubjects = append(specSectionSubjects, normaliseSubjectEntry(subjArr[i]))
+									}
+									if factAligned {
+										specSectionFacts = append(specSectionFacts, normaliseFactsEntry(factArr[i]))
+									}
 								}
+							}
+							if (len(subjArr) > 0 && !subjAligned) || (len(factArr) > 0 && !factAligned) {
+								logger.Warn("LoadPageSectionsFromSpec: aspect scoping arrays misaligned with the page's sections — ignored, never guessed (bugs_open/443)",
+									zap.String("page", pageName),
+									zap.Int("sections", len(sections)),
+									zap.Int("section_subjects", len(subjArr)),
+									zap.Int("section_facts", len(factArr)))
 							}
 						}
 						break
@@ -263,23 +291,75 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 			}
 		}
 
-		// If still empty, query pages table directly
+		// bugs_open/443: the pages row is the only aligned store for this
+		// tier's scoping arrays, whichever sub-path served the list. When the
+		// row itself serves the list, one statement reads list AND arrays
+		// (alignment by construction). When collected_data served it, the
+		// arrays apply only if the row's stored sections CONTENT-equal the
+		// served list — a same-length different list must not pass, so the
+		// test is equality, not length.
+		var rowSubjJSON, rowFactsJSON []byte
 		if len(specSections) == 0 {
+			// Query pages table directly — list and scoping arrays together.
 			var sectionsJSON []byte
 			err = params.DB.QueryRowContext(ctx, `
-				SELECT sections FROM pages
+				SELECT sections, section_subjects, section_facts FROM pages
 				WHERE site_id = $1 AND name = $2
-			`, siteID, pageName).Scan(&sectionsJSON)
+			`, siteID, pageName).Scan(&sectionsJSON, &rowSubjJSON, &rowFactsJSON)
 			if err == nil && sectionsJSON != nil {
 				json.Unmarshal(sectionsJSON, &specSections)
+			}
+		} else {
+			var rowSecJSON []byte
+			if rErr := params.DB.QueryRowContext(ctx, `
+				SELECT sections, section_subjects, section_facts FROM pages
+				WHERE site_id = $1 AND name = $2
+			`, siteID, pageName).Scan(&rowSecJSON, &rowSubjJSON, &rowFactsJSON); rErr != nil {
+				rowSubjJSON, rowFactsJSON = nil, nil
+			} else if len(rowSubjJSON) > 0 || len(rowFactsJSON) > 0 {
+				var rowSections []string
+				if json.Unmarshal(rowSecJSON, &rowSections) != nil || !stringSlicesEqual(rowSections, specSections) {
+					logger.Warn("LoadPageSectionsFromSpec: collected_data sections differ from the pages row — row scoping arrays ignored, never guessed (bugs_open/443)",
+						zap.String("page", pageName))
+					rowSubjJSON, rowFactsJSON = nil, nil
+				}
 			}
 		}
 
 		if len(specSections) > 0 {
 			specSource = "pages_table"
+			// Attach the row's aligned arrays (bugs_open/443). Length guard
+			// against a writer that replaced sections without re-aligning the
+			// siblings: misaligned = ignored with a WARN, kept for the
+			// operator, never applied, never destroyed.
+			attachRowArray := func(raw []byte, kind string, normalise func(interface{}) interface{}) []interface{} {
+				if len(raw) == 0 {
+					return nil
+				}
+				var entries []interface{}
+				if err := json.Unmarshal(raw, &entries); err == nil && entries == nil {
+					return nil // jsonb null: absent, not misaligned
+				} else if err != nil || len(entries) != len(specSections) {
+					logger.Warn("LoadPageSectionsFromSpec: pages row scoping array misaligned with sections — ignored, never guessed (bugs_open/443)",
+						zap.String("page", pageName),
+						zap.String("array", kind),
+						zap.Int("sections", len(specSections)),
+						zap.Int("entries", len(entries)))
+					return nil
+				}
+				out := make([]interface{}, 0, len(entries))
+				for _, v := range entries {
+					out = append(out, normalise(v))
+				}
+				return out
+			}
+			specSectionSubjects = attachRowArray(rowSubjJSON, "section_subjects", normaliseSubjectEntry)
+			specSectionFacts = attachRowArray(rowFactsJSON, "section_facts", normaliseFactsEntry)
 			logger.Info("LoadPageSectionsFromSpec: using pages.sections fallback",
 				zap.String("page", pageName),
-				zap.Int("sections", len(specSections)))
+				zap.Int("sections", len(specSections)),
+				zap.Bool("subjects_attached", len(specSectionSubjects) > 0),
+				zap.Bool("facts_attached", len(specSectionFacts) > 0))
 		}
 	}
 
@@ -433,11 +513,12 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	} else if len(lockedRows) > 0 {
 		merged, inserted, insertedAt := datahelpers.MergeLockedPageSlots(specSections, lockedRows)
 		if len(inserted) > 0 {
-			// Keep the tier-1 facts slice index-aligned: a merged section has
-			// no plan-time fact assignment (nil = unscoped), and the
+			// Keep the aligned facts slice index-aligned (tiers 1-3 can all
+			// carry one as of bugs_open/443): a merged section has no
+			// fact assignment (nil = unscoped), and the
 			// len(specSectionFacts) == len(specSections) guard below would
 			// otherwise drop the WHOLE payload silently.
-			if specSource == "site_plan_tables" && len(specSectionFacts) == len(specSections) {
+			if len(specSectionFacts) == len(specSections) {
 				for _, at := range insertedAt {
 					specSectionFacts = append(specSectionFacts, nil)
 					copy(specSectionFacts[at+1:], specSectionFacts[at:])
@@ -445,8 +526,8 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 				}
 			}
 			// subjects: same nil-insertion at the same indices, same guard — a
-			// merged locked row has no plan-time subject.
-			if specSource == "site_plan_tables" && len(specSectionSubjects) == len(specSections) {
+			// merged locked row has no subject.
+			if len(specSectionSubjects) == len(specSections) {
 				for _, at := range insertedAt {
 					specSectionSubjects = append(specSectionSubjects, nil)
 					copy(specSectionSubjects[at+1:], specSectionSubjects[at:])
@@ -488,6 +569,34 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 		}
 	}
 
+	// bugs_open/443: if the locked-row merge changed a tier-3 list whose
+	// scoping arrays we served, the row's STORED arrays are now misaligned
+	// with the sections just synced above. Re-align each attached array in
+	// storage (they were nil-padded at the merged indices in 5a, so they are
+	// aligned in memory). Unattached columns are deliberately untouched —
+	// never write over data we refused to read. Best-effort: on failure the
+	// stored array goes stale and the read guard ignores it next run, which
+	// is the documented degrade, not corruption.
+	if len(lockedMerged) > 0 && specSource == "pages_table" {
+		realign := func(column string, arr []interface{}) {
+			if len(arr) != len(specSections) {
+				return
+			}
+			payload, mErr := json.Marshal(arr)
+			if mErr != nil {
+				return
+			}
+			if _, uErr := params.DB.ExecContext(ctx,
+				`UPDATE pages SET `+column+` = $1::jsonb, updated_at = NOW() WHERE site_id = $2 AND name = $3`,
+				string(payload), siteID, pageName); uErr != nil {
+				logger.Warn("LoadPageSectionsFromSpec: could not re-align stored scoping array after locked-row merge (bugs_open/443)",
+					zap.String("column", column), zap.Error(uErr))
+			}
+		}
+		realign("section_subjects", specSectionSubjects)
+		realign("section_facts", specSectionFacts)
+	}
+
 	// Return as interface slice (consistent with how plan_sections reads it)
 	sectionsIface := make([]interface{}, len(specSections))
 	for i, s := range specSections {
@@ -501,17 +610,62 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 		"locked_sections_merged": lockedMerged,
 		"locked_merge_count":     len(lockedMerged),
 	}
-	// section_facts is emitted ONLY when the authoritative tier served the
-	// sections: it is read from site_plan_sections rows, so index-alignment
-	// with any other tier's list would be a guess, not a fact. Fallback-tier
-	// sections are simply unscoped.
-	if specSource == "site_plan_tables" && len(specSectionFacts) == len(specSections) {
+	// section_facts / section_subjects: aligned or absent, never guessed.
+	// The rule used to be "authoritative tier only"; since bugs_open/443 the
+	// real invariant is that the arrays are only ever FILLED where alignment
+	// is constructional — tier 1 (same site_plan_sections rows), tier 2 (same
+	// aspect page object, RAW-index across skips), tier 3 (same pages row,
+	// content-checked when collected_data served the list). Tier 4
+	// (same_role_sibling) must NEVER fill them: a borrowed skeleton's scoping
+	// would be another page's, which is exactly the guess this guard exists
+	// to prevent. The length equality below is therefore never satisfiable
+	// for tier 4 (arrays stay nil) and drops any payload the locked-row merge
+	// could not keep aligned.
+	if len(specSectionFacts) == len(specSections) {
 		result["section_facts"] = specSectionFacts
 	}
-	// section_subjects: same rule as section_facts — authoritative tier only,
-	// aligned or absent, never guessed against a fallback tier's list.
-	if specSource == "site_plan_tables" && len(specSectionSubjects) == len(specSections) {
+	if len(specSectionSubjects) == len(specSections) {
 		result["section_subjects"] = specSectionSubjects
 	}
 	return result, nil
+}
+
+// normaliseSubjectEntry maps a fallback-tier subjects entry to the same shape
+// tier 1 produces: a trimmed non-empty string, or nil for "no subject"
+// (bugs_open/443).
+func normaliseSubjectEntry(v interface{}) interface{} {
+	s, ok := v.(string)
+	if !ok {
+		return nil
+	}
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// normaliseFactsEntry maps a fallback-tier facts entry to tier 1's shape: a
+// []interface{} of fact ids, or nil for "unscoped" (bugs_open/443). Wrong
+// shapes degrade to unscoped, exactly as plan_sections' own factsAt does.
+func normaliseFactsEntry(v interface{}) interface{} {
+	if arr, ok := v.([]interface{}); ok {
+		return arr
+	}
+	return nil
+}
+
+// stringSlicesEqual reports element-wise equality; used to refuse scoping
+// arrays when a collected_data-served list differs from the pages row
+// (bugs_open/443) — the test must be content, not length.
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

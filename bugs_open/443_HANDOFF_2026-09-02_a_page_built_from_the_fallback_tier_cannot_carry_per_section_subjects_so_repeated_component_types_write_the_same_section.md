@@ -227,3 +227,52 @@ that read differently (`services`/`about` return tier2=1, `playground`/`your-own
 0/0/6); and the predicted symptom was then read off the **served** page, not the DB. The claim is
 cross-cutting, so a `090` run remains worth its cost to a later thread — it would be a genuine
 independent check, not a formality.
+
+## 8. Fix (2026-09-02, session "bugs_open/443", lane `bugfix_443_fallback_tier_subjects`)
+
+**Candidate 1 chosen and implemented, extended per §5's follow-ups: BOTH arrays (subjects and
+facts share the gate), and instance-scoped page-wide (non-adjacent repeats fire too, §4a).**
+Candidate 3's observe-only half is included; candidate 2 (sibling-aware writer) is not pursued
+(context cost, and two lanes independently concluded the fix belongs at the subject-publishing
+tier — copy_quality_two_stage's framing: these slots are not underspecified but *identically
+specified N times*, which is why the output is deterministic). The convergence alternative
+(give the 6 sites plan rows) is deliberately NOT this fix: `reconcile_site_plan` mints rebuild
+items against plan pages, so it is a programme touching 203 pages' birth path — filed as
+**RFC_063** for the owner. This fix is correct under either RFC outcome.
+
+What shipped (commit alongside this section; council corr `b7c59309`, submitted pre-verdict):
+
+- **Migration 717**: `pages.section_subjects` + `pages.section_facts`, nullable jsonb, aligned
+  by index with `pages.sections`. Column-only, apply before the roll (638's own order).
+- **Loader**: tier 3 reads the two columns in the same statement as sections (content-equality
+  guard when collected_data served the list — a same-length different list must not pass);
+  tier 2 reads the same-object sibling keys the normalise pass emits, RAW-index across skips;
+  tier 4 structurally never; LOCK-008 merge nil-inserts for every source and re-aligns the
+  stored tier-3 array after a merge; misaligned stored arrays are ignored with a WARN — kept,
+  inert, visible, never guessed, never auto-deleted.
+- **Detector**: `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` (registered, human-evidence) files
+  one durable row per repeated-type-without-subject at build time, before any planning work.
+  Bound: **25** repeat-layout pages fleet-wide as of 2026-09-02.
+- **Tests**: 7 guard-arm tests + a pure-function table; **3 mutations caught** (equality→length,
+  merge nil-insert removed, realign removed — each failed its named test).
+
+**Measurement closing §4's open question** `[MEASURED 2026-09-02]`: the last 7 unread pages
+(gaswholesalers 4, ai-agent-orchestration 3) were curled with per-domain invented-URL controls
+(both 404). **All 7 repeat — so 11 of 11 census-flagged pages serve real repetition, ≥8 with
+verbatim-identical h2 pairs.** The layout census is a confirmed damage proxy, 11/11.
+
+**Dependency, stated plainly:** the writer prompt is v4; seed 641 (v5, renders the subject) is
+owner-read gated and NOT applied, so subjects are stamped on `sections_ready[].subject` and
+writer-inert — for tier 1 exactly as for these tiers. §6's served-h2 verification is therefore
+**Stage B, post-641**; Stage A (post-roll, pre-641) asserts `sections_ready[].subject` is
+populated on a rebuilt tier-3 page and the detector goes quiet on it (demand control: a
+subjectless repeat page must still fire it). Canary: `your-own-model` (finetuning lane's
+choice, §4b), subjects backfilled from its brief via the lane RUNBOOK template; playground
+stays untouched as the demonstrating case.
+
+**Who was told** (2026-07-29 §3): apis.uk (PBP-049 owner — the "authoritative tier only" line
+in their entry is superseded by PBP-051), finetuning lane (canary + recipe gains the two
+columns), copy_quality_two_stage (their subjects-precondition gains a second source),
+bugs_open/114 lane (tier geometry shared; RFC_063 names IMG-078).
+
+Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_443_fallback_tier_subjects/`.

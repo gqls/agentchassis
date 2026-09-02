@@ -82,3 +82,17 @@ SELECT created_at, context->>'page', context->>'component', error_message
 FROM agent_error_log WHERE error_code='REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT'
 ORDER BY created_at DESC LIMIT 20;
 ```
+
+## Deploy verification (debug_historian advisory, council b7c59309)
+
+Trust the POD, not the tag/config/tests. After the roll, capability-probe the chassis binary
+with a present-control AND an absent-control in the same breath:
+
+```bash
+P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+kubectl -n ai-persona-system exec $P -- grep -ac 'REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT' /proc/1/exe  # >0 = shipped
+kubectl -n ai-persona-system exec $P -- grep -ac 'section_subjects' /proc/1/exe                          # >0 (present control, pre-existing)
+kubectl -n ai-persona-system exec $P -- grep -ac 'STRING_THAT_MUST_NOT_EXIST_443' /proc/1/exe            # 0 (absent control)
+```
+
+Then read the build provenance stamp and `git merge-base --is-ancestor <this fix's commit> <stamp>`.

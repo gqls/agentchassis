@@ -162,7 +162,7 @@ func TestLoadPageSectionsFromSpec_NoTierServedMeansNoMerge(t *testing.T) {
 	// Every tier misses.
 	mock.ExpectQuery("FROM site_plan_sections sps").WithArgs(siteID, "orphan").WillReturnRows(planRows())
 	mock.ExpectQuery("SELECT data FROM site_specs").WithArgs(siteID).WillReturnError(sql.ErrNoRows)
-	mock.ExpectQuery("SELECT sections FROM pages").WithArgs(siteID, "orphan").WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT sections, section_subjects, section_facts FROM pages").WithArgs(siteID, "orphan").WillReturnError(sql.ErrNoRows)
 	mock.ExpectQuery("same-role|site_plan_pages spp").WithArgs(siteID, "orphan").
 		WillReturnRows(sqlmock.NewRows([]string{"name", "comps"}))
 	// A locked row EXISTS on the page — and must NOT be merged into an

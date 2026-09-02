@@ -60,3 +60,51 @@
   this one, identical numbers), and the predicted symptom was measured at the served artefact
   11/11. A third re-read is what 090 would buy; the council gate reviews the FIX. Queue
   checked: 0 `awaiting_diagnosis`, no open work items on the mechanism.
+
+## 2026-09-02 (later) — implementation, council round, and the advisory answers
+
+- **Council corr `b7c59309-1f70-448f-9d20-1c47ebf64196`: APPROVED round 1**, 11 advisory
+  objections (headline "5 advisory — none high"), 8 seats abstained. Answers, each measured
+  where measurable:
+  - *editquality: does plan_sections even run for fallback pages?* YES — it is the
+    page-build-handler step downstream of load_spec_sections regardless of which tier served;
+    the demonstrating case is today's playground build itself (tier 3, 6 sections,
+    ready_count 6, COMPLETED). The detector sees every build that plans sections.
+  - *editquality: equality guard thin in the sketch* — implemented and MUTATION-PROVEN
+    (equality→length mutation made the same-length-different-content test fail; recorded in
+    the test file header).
+  - *reuse_agent: double-fire with the planner-side code on tier-1 pages* — accepted and
+    documented in the registry note: the planner code fires at PLAN-WRITE (once, pre-persist),
+    mine at BUILD (per build); a tier-1 page with a subjectless repeat can legitimately draw
+    both, and they correlate trivially on page_name. Different event, different remedy text —
+    kept distinct deliberately.
+  - *reuse_agent: why not a discovery check?* — named now: the finding needs the BUILD's own
+    in-memory filtered triple (what the writer was actually handed), which a scheduled
+    site-level sweep cannot reconstruct; precedent is the loader's own LOCKED_MERGE_SKIPPED
+    inline entry. Registered in the finding-code registry either way.
+  - *guardian: other consumers of the loader* — `[MEASURED 2026-09-02, live agent_definitions]`
+    exactly ONE active agent type carries `load_page_sections_from_spec` in config:
+    page-build-handler. (The tool-recreation-handler landmine concerns the SIBLING
+    load_page_record path, not this action.)
+  - *guardian: tier-1 regression from the guard change* — the 285-lane tests
+    (merge + facts alignment on tier 1) and the 7 PBP-049 tests all pass UNCHANGED; they are
+    the tier-1-unchanged assertion the seat asked for.
+  - *guardian: column-name collision in flight* — `[MEASURED 2026-09-02]` grep across
+    sql_for_agents: no other migration defines pages.section_subjects/section_facts (hits are
+    the 328/330/362/598 wiring/prompt seeds and SUPERSEDED files).
+  - *debug_historian: deploy verification* — pod capability probe added to RUNBOOK
+    (present + absent controls, provenance stamp + merge-base).
+  - *debug_historian: IF NOT EXISTS* — the actual migration file already uses
+    ADD COLUMN IF NOT EXISTS (the sketch predated the file).
+  - *architecture (both)* — on record: the seat holds that RFC_022's exception does not cover
+    schema additions to a heavily-written table, and that aligned-or-absent + detector
+    compensates for, rather than resolves, the writer-coordination gap; both routed into
+    RFC_063 (the convergence question), which now also records that this pattern shipped
+    first under the estate's after-the-fact review posture (2026-07-29 ruling 2).
+- **Same-file passengers, both directions:** my LANDMINES entry rode another session's
+  `b8547dfc2` (verified present in HEAD, nothing lost). My plan_sections commit carries
+  session bugs_open/444's error-defer hunk (~:2746, their council corr c0990eb3) by their own
+  proposal — verified coherent: complete comment + code, builds, full package tests green
+  with it in the tree.
+- Tests: full `platform/orchestration/actions` green; `cmd/config-key-audit` green (registry
+  self-consistency required naming the retention window in the `why` — fixed).
