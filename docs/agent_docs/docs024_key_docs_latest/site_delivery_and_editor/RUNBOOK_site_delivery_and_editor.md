@@ -93,3 +93,28 @@ PRESENT, `email_was_intake_value` ABSENT (a REMOVED-string control — commit
 control absent. A re-seed of boxingonline no longer refills sites.email — the
 intake email lands as delivery contact only, and the published contact requires
 the explicit `direction.published_contact` key. The block above is historical.
+
+### Hand-filing a `needs_page` rebuild (the shape that actually gets CLAIMED) — 2026-09-02
+
+The claim gate is `claim_work_item_action.go:135`: `status IN ('triaged','approved')`
+— an item filed at `pending` sits unclaimed FOR EVER with no error (LANDMINE
+2026-09-02, "hand-filed work item … UNCLAIMABLE"). And `handler_agent` must be set
+as a COLUMN (the `swi_no_handlerless_promotable` CHECK), not just as a spec key.
+
+```sql
+INSERT INTO site_work_items
+  (site_id, item_type, priority, summary, source, created_by, spec, status, handler_agent)
+VALUES (
+  '<site_id>', 'needs_page', 10, '<summary>', 'operator', '<session>-session',
+  '{"reason": "<reason>", "handler": "page-build-handler",
+    "page_name": "<page>", "page_role": "<role>"}',
+  'triaged', 'page-build-handler')
+RETURNING id;
+```
+
+Gotchas attached: check the queue for open items on the page FIRST (CLAUDE.md
+dispatch rule); `needs_page` resolves by `page_name` (unlike `page_rerender`,
+which needs `page_id` in spec AND column — its own LANDMINE); claim latency when
+correctly filed is ~2 min (measured twice 2026-09-02); ~300s no-dispatch after a
+chassis pod restart. Worked example: item `7f1f4993` (guides-index, this dir's
+NOTES sibling in webdesign lane, 2026-09-02 ~17:1xZ).
