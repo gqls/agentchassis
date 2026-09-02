@@ -225,3 +225,35 @@ whatever the planner is doing with articles specifically is where the remaining 
 **The correction I'd want you to take from this:** my previous note would have had you believe we
 build things nothing uses. On this occasion that was my error, not the system's — the counting was
 right and the conclusion I drew from it was not.
+
+## 2026-09-02 (late) — why the new sites have no pictures in the text: the planner was told not to ask
+
+Your critique of the designblog remake reached me this evening — not enough images, infographics
+and graphics, on that site and the two beside it, with eighteen more queued. That thread asked me
+what to change. I think I can now tell you the actual reason, and it is smaller and more fixable
+than anyone expected.
+
+**The system is doing what it was told.** The instructions we give the page planner list five
+kinds of picture it may ask for — logo, banner, illustration, icon, infographic. Then, a few
+paragraphs later, the same instructions say: *"Use sparingly — most plans will have zero"* for
+anything attached to a specific section, set the required minimum at a logo and a banner per page,
+and give a worked example whose section pictures are **only icons**. Infographics are permitted,
+never required, and never shown in the example.
+
+Across everything we have ever built, the planner has asked for **399 banners, 211 icons, 50
+logos, 25 illustrations and exactly one infographic.** That is not a broken system. That is a
+system obeying an instruction nobody had read next to the numbers.
+
+**So the fix is a paragraph of English, not an engineering project** — but it belongs to whoever
+owns that planner, it affects every site we build from then on, and it costs real money in
+generated images, so I have handed them the exact wording rather than changing it myself.
+
+**One honest caveat, because it decides what you'll actually see.** Changing that instruction will
+put pictures on the *home and landing* pages, where there is somewhere to put them. It will not
+put pictures inside your articles and guides — because, as I found earlier today, an article is
+built as a single unbroken block of text with no slots between paragraphs. Those are two separate
+problems and I would rather you heard that now than saw one of them fixed and wondered why the
+guides still looked the same.
+
+I have said the same to both threads working on this, so nobody reports the first as progress on
+the second.
