@@ -6108,3 +6108,17 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
 > family is not a pre-flight of the family — the floors here differ in what they COUNT (text bytes
 > vs class-bearing elements), so a change can be additive by one measure and destructive by the
 > other.
+
+> **CORRECTION 2026-09-02 ~14:3xZ to the addendum above — my "the honest knob" line is WRONG; do NOT
+> set `section_component_floor`.** The components lane read the source rather than the error text:
+> `save_sections_component_floor.go:158` reads it from **STEP config** — the page-rerender agent
+> definition — so **there is no per-page form: setting it lowers the flattening guard for EVERY
+> rerender in the fleet's highest-volume pipeline** to land one page. The error message offers the
+> knob without saying whom it is addressed to — same trap shape as its text sibling
+> `section_shrink_floor`, already in LANDMINES. Our item `811dac68` is CANCELLED by them (reason in
+> the row), as are 3 sibling refusals (dartsonline guides-index, robot-hands learning-center-hub, +1)
+> — 4 of 14 tripped the floor, confirming the ratio point. **Worse, from their own follow-up: the 6
+> COMPLETED pages got only the collapse half — no decks, suffixes still present; the producer half
+> never re-resolved**, contradicting the citation that answered the council's render_guardian
+> objection; that contradiction is going through the diagnosis loop (theirs). So the refusal on our
+> page was the guard being RIGHT: it stopped a collapse that carried no compensating deck.
