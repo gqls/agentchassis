@@ -414,3 +414,29 @@ their OWNER_REVIEW file + 09-02 additions carry the evidence):**
 - **Palette stays** ("the cream off white decision is fine") — no design churn.
 - **Cut-line: "build and fix everything before approval"** — nothing ships to the paid
   customer until right; the writer-side fixes get done properly, not patched per-site.
+
+**RULINGS (2026-09-02, direct in chat — ten decisions in one message):**
+1. Farmer /about proposal `be23d897`: **RELEASE**.
+1b. Loanzy /get-help proposal `bd03c2b3`: **"get the evidence and then trim it accordingly"** —
+   verify the National Debtline + CCA-1974 claims, register what verifies, trim what does not,
+   then release the trimmed edit.
+2. The MaPS class: **"fix it in the framework so the checkers check the veracity too"** (he has
+   discussed the veracity direction elsewhere today) — the durable fix is checker-side claim
+   verification against the evidence register, not hand-editing; the 8-page repair flows
+   through framework machinery.
+3. Stage-2 posture: **"I'll review them as a batch, please present them on the admin page and
+   let me know when to look"** — batch-present, batch-review; D2's per-item typing is retired
+   for this batch by his word.
+4. Exemption-as-licence: **option (a) — CLEAN THE BRIEFS** (fleet wash, 646/647's per-site
+   shape; gate semantics untouched).
+5. finetuning portfolio spec: **WASH IT** — verbatim: "We don't have to use AI slop - if we
+   use those words we cheapen our offering."
+6. xAI funding: he asked for the console URL (answered in chat; team `d443dd72-…`).
+7. BANNED_REGISTER v2 ("plain words" class): **GO** — new version line + registerwords.go
+   lockstep in one commit.
+8. `cmd/brief-negation-check` council scope: **GO** — council-scope.sh + 098 SCOPE_PATHS,
+   one commit.
+9. Decision D (question hierarchy): **YES** — "we can see if it works".
+10. The axis confirmation: **YES** — buyer-relevance + readability govern heroes;
+    differentiation demotes to an input. Changes the analyser's ranking guidance (offer lane
+    owns that surface — relayed).
