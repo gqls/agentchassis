@@ -22,6 +22,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
@@ -39,14 +40,14 @@ func TestEmptyPageRerenderConvertsToBuildAsk(t *testing.T) {
 	builtPage := uuid.New()
 
 	// Page A has 0 component rows: the EXISTS probe answers false, the action
-	// must file the needs_content_page ask (stable key) and NOT a rerender.
+	// must file the needs_content_page ask (via writeWorkItem, in its own tx)
+	// and NOT a rerender.
 	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM page_components`).
 		WithArgs(emptyPage).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-	mock.ExpectExec(`INSERT INTO site_work_items`).
-		WithArgs(siteID, sqlmock.AnyArg(), emptyPage, sqlmock.AnyArg(),
-			"needs_content_page:"+emptyPage.String()).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectBegin() // the shared filer runs writeWorkItem in its own tx
+	expectBuildAskWrite(mock, emptyPage, 1)
+	mock.ExpectCommit()
 
 	// Page B has components: EXISTS true, the normal page_rerender item files.
 	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM page_components`).
@@ -96,34 +97,51 @@ func TestEmptyPageRerenderConvertsToBuildAsk(t *testing.T) {
 func TestFileBuildAskForEmptyPage(t *testing.T) {
 	siteID := uuid.New()
 	pageID := uuid.New()
+	logger := zaptest.NewLogger(t)
 
-	// Filed: RowsAffected 1 -> true, with the stable per-page dedup key.
+	// Filed: the writeWorkItem INSERT reports a new row -> true.
 	db, mock, _ := sqlmock.New()
-	mock.ExpectExec(`INSERT INTO site_work_items`).
-		WithArgs(siteID, sqlmock.AnyArg(), pageID, sqlmock.AnyArg(),
-			"needs_content_page:"+pageID.String()).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	if !fileBuildAskForEmptyPage(context.Background(), db, siteID, pageID, "p", nil, zap.NewNop()) {
-		t.Error("RowsAffected=1 must report filed=true")
+	mock.ExpectBegin()
+	expectBuildAskWrite(mock, pageID, 1)
+	mock.ExpectCommit()
+	if !fileBuildAskForEmptyPage(context.Background(), db, siteID, pageID, "p", nil, logger) {
+		t.Error("a new row must report filed=true")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet: %v", err)
 	}
 	db.Close()
 
-	// Deduped: RowsAffected 0 (idx_swi_dedup conflict) -> false, no error.
+	// Deduped (idx_swi_dedup conflict, no row back) -> false, no error.
 	db2, mock2, _ := sqlmock.New()
-	mock2.ExpectExec(`INSERT INTO site_work_items`).
-		WillReturnResult(sqlmock.NewResult(0, 0))
-	if fileBuildAskForEmptyPage(context.Background(), db2, siteID, pageID, "p", nil, zap.NewNop()) {
-		t.Error("a deduped insert must report filed=false")
+	mock2.ExpectBegin()
+	expectBuildAskWrite(mock2, pageID, 0)
+	mock2.ExpectCommit()
+	if fileBuildAskForEmptyPage(context.Background(), db2, siteID, pageID, "p", nil, logger) {
+		t.Error("a deduped write must report filed=false")
 	}
 	db2.Close()
 
-	// Insert failure must never fail the skip: false, no panic.
+	// A door/write failure must never fail the skip: false, no panic.
 	db3, mock3, _ := sqlmock.New()
-	mock3.ExpectExec(`INSERT INTO site_work_items`).
+	mock3.ExpectBegin()
+	mock3.ExpectQuery(`SELECT COALESCE\(rebuild_policy`).
 		WillReturnError(errors.New("boom"))
 	if fileBuildAskForEmptyPage(context.Background(), db3, siteID, pageID, "p", nil, zap.NewNop()) {
-		t.Error("an insert error must report filed=false")
+		t.Error("a write error must report filed=false")
 	}
 	db3.Close()
-	_ = mock
+}
+
+// expectBuildAskWrite encodes writeWorkItem's query sequence for THIS item
+// shape (generic page, page-build-handler, status triaged): the policy-door
+// rebuild_policy read, then the INSERT. rows=1 -> a new row; rows=0 -> the
+// dedup conflict swallowed by the policy. If writeWorkItem grows a door that
+// queries before inserting, this helper is the one place to teach it.
+func expectBuildAskWrite(mock sqlmock.Sqlmock, pageID uuid.UUID, rows int64) {
+	mock.ExpectQuery(`SELECT COALESCE\(rebuild_policy`).
+		WithArgs(pageID).
+		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow("generic"))
+	mock.ExpectExec(`INSERT INTO site_work_items`).
+		WillReturnResult(sqlmock.NewResult(0, rows))
 }

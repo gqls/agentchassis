@@ -1282,29 +1282,51 @@ func fileBuildAskForEmptyPage(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		spec["planned_sections"] = plannedSections
 	}
 	specJSON, _ := json.Marshal(spec)
-	res, err := db.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			page_id, priority, handler_agent, status, created_by, spec, item_key
-		) VALUES ($1, 'page-rerender-empty-skip', 'build', 'needs_content_page',
-		          'medium', $2, $3, 50, 'page-build-handler', 'triaged',
-		          'rerender_single_page_action', $4::jsonb, $5)
-		ON CONFLICT DO NOTHING
-	`, siteID,
-		fmt.Sprintf("Page %q has 0 component rows — a rerender cannot help; build it", pageName),
-		pageID, string(specJSON), "needs_content_page:"+pageID.String())
+
+	// Through writeWorkItem, NOT a hand-rolled INSERT: the workItem struct's
+	// own comment records three call sites that hand-rolled this and inherited
+	// "none of the anti-churn, none of the honest boolean, and a bare conflict
+	// target that does not match idx_swi_dedup's partial predicate". The doors
+	// that live in that seam (owned-page routability, growth posture, whatever
+	// lands next) must apply to this producer without anyone remembering it.
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		logger.Warn("fileBuildAskForEmptyPage: insert failed (the skip still returns)",
+		logger.Warn("fileBuildAskForEmptyPage: begin failed (the skip still returns)", zap.Error(err))
+		return false
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	pid := pageID
+	w, err := writeWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		source:       "page-rerender-empty-skip",
+		pipeline:     "build",
+		itemType:     "needs_content_page",
+		severity:     "medium",
+		summary:      fmt.Sprintf("Page %q has 0 component rows — a rerender cannot help; build it", pageName),
+		spec:         string(specJSON),
+		pageID:       &pid,
+		priority:     50,
+		handlerAgent: "page-build-handler",
+		status:       "triaged",
+		createdBy:    "rerender_single_page_action",
+		itemKey:      "needs_content_page:" + pageID.String(),
+	}, dropOnConflict, logger)
+	if err != nil {
+		logger.Warn("fileBuildAskForEmptyPage: write failed (the skip still returns)",
 			zap.String("page_name", pageName), zap.Error(err))
 		return false
 	}
-	n, _ := res.RowsAffected()
-	if n > 0 {
+	if err := tx.Commit(); err != nil {
+		logger.Warn("fileBuildAskForEmptyPage: commit failed (the skip still returns)", zap.Error(err))
+		return false
+	}
+	if w.Inserted {
 		logger.Info("fileBuildAskForEmptyPage: build ask filed",
 			zap.String("page_name", pageName), zap.String("page_id", pageID.String()))
 	} else {
 		logger.Info("fileBuildAskForEmptyPage: build ask already open (dedup)",
 			zap.String("page_name", pageName))
 	}
-	return n > 0
+	return w.Inserted
 }
