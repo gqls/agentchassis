@@ -5454,3 +5454,19 @@ Raised as a design question, not asserted as a bug.
 > not see which selectors the block named, and as `window.onload` used as a control on a tool that
 > never had one. Three instances now. **When a check answers "is X there?", ask what X would look like
 > if it were there but inert.**
+
+> **Thread closed 2026-09-02 — where the finding landed, so this entry resolves rather than dangling.**
+> `bugs_open/430_HANDOFF_2026-09-02_forking_a_tool_component_drops_js_content_and_one_live_page_serves_a_404_asset.md`
+> `[VERIFIED — I read the file, not the relay]` it carries the **corrected** census (line ~100: *"5 of 7
+> have genuine executable JS remaining (fine); 2 of 7 have zero executable residue"*) and the
+> comment-stripping check (lines ~81–87), so my first wrong figure ("exactly one row … zero live
+> damage") is **not** propagated into the bug file. The untracked-instance point folded into its
+> existing backfill fix-candidate (§6.2) rather than becoming a separate row — the queue check I ran
+> supplied the "and nothing will repair it automatically" half, since the five `misdirected_cta`
+> rerenders queued on that page reassemble from the same component row and would republish the same
+> dead reference.
+>
+> **Nothing owed by this lane.** Recorded here because the peer owns 430 and this lane owns neither
+> vonc.com nor the fork path — what we contributed was the measurement and the caveat, and both are
+> cited there. The prospective half is in `LANDMINES.md` (tool-doc comment reads as behaviour), the
+> retrospective half in `WRONG_CALLS.md`, both dated 2026-09-02.
