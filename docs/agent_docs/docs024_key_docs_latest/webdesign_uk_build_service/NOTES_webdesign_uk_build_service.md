@@ -7278,3 +7278,24 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   floor-guard discipline banked as the COUNTER-EXAMPLE to the override pattern:
   they read what section_component_floor governed (fleet step config) BEFORE
   touching it, and cancelled four items with reasons instead.
+
+## 2026-09-02 (~14:3xZ) — my discriminator was VOID; the correction produced a better one (a KEY, not a value)
+
+- My garden-tools test did not discriminate: the components lane's "resolver
+  returns 5" census had not replicated resolvePagesWhereType's eligibility
+  floor (listedOnly ⇒ deployed_at NOT NULL + sections > 0; the fifth page fails
+  both) — the resolver returns the SAME FOUR guides, so stored = resolved
+  there too and the rendered output is consistent with both hypotheses.
+  Their words, the class in one line: **"a census that does not replicate the
+  predicate the code uses answers a different question."**
+- **The discriminator that works: the fixed projection writes the `excerpt`
+  KEY unconditionally (even empty — it's a map-literal entry); the old one
+  never writes it. These rerenders' items have NO key — absent, not empty —
+  therefore NOT produced by the fixed code, while the binary provably holds
+  both symbols.** Thin-data branch RULED OUT; narrowed to: resolution not
+  executing on this path, or executing through something that is not
+  resolvePagesWhereType. In 425 with the correction visible.
+- **My acceptance test when the fix lands, adopted**: presence of the
+  `excerpt` key in content_data->'articles'->0 = "the fixed projection
+  executed"; the deck's visual quality = "this page has data". The pair we
+  spent the afternoon conflating, now separated by one jsonb key probe.
