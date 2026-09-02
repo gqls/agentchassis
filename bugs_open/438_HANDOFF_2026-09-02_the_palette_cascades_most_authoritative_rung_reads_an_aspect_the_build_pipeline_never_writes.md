@@ -336,6 +336,89 @@ one (17:11:32Z), landing within two hex steps of the seeded palette (`#F5F0E8` v
 to rung 1 — which makes the test cleaner, not muddier: the two rungs cannot be told
 apart by the COLOURS, only by the `palette_source` string. Read the string.
 
+## 6c. `site_design_planner` lane: fix candidate 1, as specified, does not do what §7 claims — and it would regress the one producer that already works
+
+Verified rather than assumed, before touching anything, because §6a's success made
+candidate 1 look safe to act on and it is not, for a reason nobody in this file has
+named yet.
+
+**The pre-existing site behind §3's "one pre-existing site fleet-wide" was never
+named. It is `vonc.com`** (`site_specs`, `aspect='mission'`, `created_by=domain-submitter`,
+`created_at=2026-06-22`, still `is_current`). Its `mission` row does NOT carry
+`preferred_palette`/`preferred_typography` (checked: 8 keys, all `mission`/`tagline`/
+`positioning`/`content_tone`/`target_users`/`core_concepts`/`key_differentiators`/
+`measurable_objectives`, none of the two preference keys), and its
+`resolved_composition.lineage.palette_source` is `design_intent_values` — so this does
+**not** contradict §3's "`mission_hint` never fired before gamedesign.uk"; it explains
+the "1 pre-existing" row and nothing more.
+
+**What it does reveal: `persist_mission`'s `spec_data: "input_data.mission"` is not
+unreachable-by-construction. It has a real, working producer.**
+`scripts/initial_messages/210_vonc_trigger/080_submit_vonc.sh` (a "Tier 3 submission:
+domain + mission + roadmap + briefs", target `agent_type: domain-submitter`, same
+agent §2 maps) sends a **rich, structured `input_data.mission` object** — 8+ fields,
+`objective`/`positioning`/`tagline`/`key_differentiators`/`measurable_objectives` — in
+the SAME payload as `mission_brief` (both keys present, lines 62 and 65 of that
+script). `persist_mission` reads exactly the key this script sends and it worked,
+first try, 2026-06-22. **`082` is not the only submission path; it is the one
+standard-framework path, and it is the one that never sends `input_data.mission`.**
+Grepped `scripts/` for any other structured `"mission": {` sender: none — this is a
+single bespoke script, not a second framework path, but it is real and live
+(`vonc.com` is a deployed site).
+
+**Consequence for candidate 1.** `extractPaletteSignal` checks
+`mission["preferred_palette"]` as a `map[string]interface{}` — an exact key, an exact
+shape. `082` never sends that shape under any key: `--mission`/`--mission-file` both
+resolve to a single free-text string, wrapped as `{"text": "..."}"`, under
+`mission_brief` (`082_submit_domain_unified.sh:105-125,143`; grepped the whole script,
+no `--palette`/`--colour` flag, no structured alternative). **Repointing
+`persist_mission`'s `spec_data` to `input_data.mission_brief` would therefore write
+`{"text": "..."}"` into aspect `mission` — a string, never a `preferred_palette` map —
+and `extractPaletteSignal`'s check would still find nothing.** §7's own verification
+step ("Build one fresh site with a colour preference in its brief and confirm
+`resolve_composition_palette` returns `source: "mission_hint"`") **would fail if run
+as written** — a free-text brief cannot satisfy a structured-map check, repointed or
+not. This is not a smaller version of the bug; it is a different bug candidate 1 does
+not touch.
+
+**And it has a second cost, unflagged so far: it would silently stop capturing
+`vonc.com`-style structured mission data.** A Tier-3-style script sends BOTH
+`input_data.mission` (rich) and `input_data.mission_brief` (free text) in one payload.
+After candidate 1, `persist_mission` reads `mission_brief` instead — so the rich
+object such a script sends would land nowhere (still readable at
+`input_data.mission`, but nothing persists it any more), for the sake of relocating a
+free-text blob that was already going to land in `mission_brief` via the existing
+error-step chain regardless. **Net effect of candidate 1 as specified: solves nothing
+for `082`, and quietly breaks the one producer that currently works.**
+
+**What this changes about the fix candidates:**
+
+- **Candidate 1 needs correcting, not just applying.** `persist_mission` reading
+  `input_data.mission` is *correct* for the producer that actually sends that shape —
+  the bug is not the read, it's that the only standard-framework submission path
+  (`082`) has no way to populate it. The fix this estate probably wants is closer to
+  "teach `082` to optionally send a structured `mission` (or at minimum a
+  `preferred_palette`/`preferred_typography` sub-object) when a caller has one" — an
+  addition to the sender, not a repoint of the reader. That is a different, larger
+  change than "one step's config", and needs its own design (a CLI flag? a
+  `--mission-json` file merged in? does an LLM ever get asked to extract structured
+  preferences from free text, and should it?) — not decided here.
+- **Candidate 2** (read `mission_brief` from the cascade side) inherits the same
+  shape problem one level up — `mission_brief` is free text; the resolver would still
+  need something to turn "please use blue and gold" into a colour map, which does not
+  exist anywhere in this pipeline today (checked: no LLM step reads `mission_brief`
+  and writes `preferred_palette` to any aspect).
+- **Candidate 3** (retire the rung) is **the only one of the three that is still
+  correct as originally written** — and is arguably strengthened by this: if nobody
+  builds the missing extraction/CLI capability, the rung stays permanently
+  unreachable from the standard path regardless of which key `persist_mission` reads,
+  which is a stronger case for saying so plainly than the file already made.
+
+**Not touching any of this from here.** This corrects the shape of the decision, it
+does not make it — the missing capability (should `082` be able to carry a structured
+preference at all) is a real design question, not a bug to patch by config. Flagged
+to `theme kits` directly.
+
 ## 7. How to verify a fix
 
 - Re-run §2's writer query: a fixed `persist_mission` should read a key `082` sends.
