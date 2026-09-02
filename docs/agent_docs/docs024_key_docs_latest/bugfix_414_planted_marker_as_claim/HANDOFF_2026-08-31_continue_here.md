@@ -126,7 +126,15 @@ across 36 sites, 3 suppressions**. Before: 1 site, 3 claims.
    SELECT created_at, body FROM doc_notes WHERE source='brief-negation-check'
    ORDER BY created_at DESC LIMIT 1;
    ```
-   - **`N of M sites`** — `M` must be the whole fleet (36 today), and the per-site `scanned_fields`
+   - **`N of M sites` — ⚠ CORRECTED 2026-09-02: SAY WHICH ONE. The report contains TWO
+     `N of M sites` lines and they legitimately differ**, because the two detectors read
+     different surfaces: the negation half (`bugs_open/305`) reports against the WRITER-visible
+     surface (`11 of 34` on 2026-09-02) and the spec-claims half (this one) against the union of
+     every live agent's surface (`0 of 39`). The line to read is the one **under the
+     `# spec_supplies_claim` heading**. As written, this instruction sent a reader to the wrong
+     number — the `copy_quality_two_stage` lane hit exactly that and had to untangle it. Original
+     text kept below.
+   - ~~**`N of M sites`** — `M` must be the whole fleet (36 today)~~, and the per-site `scanned_fields`
      count must be **non-zero**. A zero from a blind scan and a zero from a clean fleet are otherwise
      identical in this report.
    - **`X match(es) suppressed as negative examples`** must be printed. It is expected to be ~3. **A
