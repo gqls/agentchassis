@@ -79,11 +79,34 @@ claimed by the classifier when the hold went in; its plan must be read for the s
 2. **The library deployer checks for a sibling collision** before deploying an existing tool: if
    another site in the same network already serves this component, refuse and file a
    `capability_gap` naming the sibling's URL (the brief's own instruction: link, don't build).
-3. **`structure_floor_unmet` reads the vertical/brief** before counting tools as a floor — or
-   drops `tool` from the universal set.
+3. ~~**`structure_floor_unmet` reads the vertical/brief** before counting tools as a floor — or
+   drops `tool` from the universal set.~~ **STRUCK 2026-09-02 ~22:05Z — refuted by this file's own
+   §2 table** (improvement-loop owner): `structure_floor_unmet` fired at 19:57:01, **46 s AFTER**
+   `evaluate_tools` completed at 19:56:15, so it cannot have caused it; and it is flag-only by
+   construction (one `detected` row, empty handler, refused by triage, excluded by the promoter).
+   It is a COUNT of distinct structures from a rubric of ten, not a checklist — "1 of 6 … : tool"
+   means the site delivered ONE structure and that one was a tool, not that a tool is owed. My §2
+   sentence "the floor that opened the door" and §4's fourth bullet are wrong on the same reading;
+   left in place, struck here. The escape already exists: `maintenance_profile.structure_floor.refusal`.
 4. **`brief-fidelity-audit` dispatches, or at least BLOCKS, on a brand-new site** — a record-mode
    verdict that names a live violation should hold the dispatch loop for that site, not decorate
    the queue.
+
+## 5a. The instrument that already exists — and holds nothing (improvement-loop owner, §7 in-file f6453d7db)
+
+**`sites.settings->maintenance_profile->>growth_posture = 'hold'`** (WDS-020, owner decision 5 of
+2026-08-31, council round 2, `c2349955d`): `GrowthGatedItemTypes` is exactly `evaluate_tools` and
+`add_tool` — the two heads of this cascade — gated in `writeWorkItem`, the seam every filing
+crosses. A held item is filed in the RECORD shape (deferred, no handler), never skipped, releasable
+by a one-UPDATE verb stamped on its spec. **Live** (this lane: `c2349955d` is an ancestor of the
+running stamp `ebf27c60`, control HEAD→stamp NO). **Set on 0 of 39 active sites** before tonight —
+"no site holds until the owner sets one". **Applied to gamedesign.uk 2026-09-02 ~22:10Z**
+(`SEED_2026-09-02e_growth_posture_hold.sql`), on the brief's and GD2's stated intent; unexercised
+on this site until the next loop run files a growth item — that run is the demand test.
+The loop owner's answer to "should record-mode verdicts dispatch": **no** — that hands every model
+seat a write path to the queue (new authority on a shared seam, 08-02 §2 ⇒ opt-in default OFF) to
+reach what one settings key already does. The real question, put to the owner with 447 as evidence:
+**should a brand-new site be born `hold` rather than `open`?** Born open is what 447 looks like.
 
 ## 6. How to verify
 
