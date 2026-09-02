@@ -1506,3 +1506,57 @@ instrument, both read it correctly, and both answered a question adjacent to the
 **The half worth keeping:** both errors were made while being unusually careful — mid-council,
 mid-coordination, writing things down for each other — and **neither was caught by the care. Each was
 caught by the other lane.**
+
+---
+
+# 23. ⚠ LANE CLOSED — 2026-09-02 17:30Z. Everything in §21b is discharged.
+
+**A new chat should read §21 (the cold-start screen) and this section, and nothing else unless it is
+working on a specific claim.** §§1–22 are the record behind them.
+
+## 23a. The three outstanding items, all discharged
+
+| §21b item | state |
+|---|---|
+| **1. Read two council verdicts** | **BOTH APPROVED, all reviewers.** `76231f57` (the roster totality fix) at 2026-08-31 13:50Z after a REVISE round; `32aeebfd` (the deferral trigger) at 2026-09-02 16:49Z, round 1, no objections |
+| **2. Re-home decisions 1 and 2** | **DONE.** Decision 1 → `320`'s lane, as a full CONTRIB in their directory plus a pointer at `bugs_open/320` §16 (`f1b8d5971`, `8639e1f91`). Decision 2 → the `vigilant_designer_offer_analysis` lane, who have confirmed they hold it and will come to this record, not to this session |
+| **3. The RFC author's answer** | **RECEIVED and acted on** — §22, and `RFC_057` §9a/§9b |
+
+## 23b. What this lane produced
+
+- **Rule 3b** (`WII-035`), live since `v1.0.1341`: a finding is no longer routed at a handler that
+  cannot write the field its own criterion names. **48 firings, 33 sites, every one correct.**
+- **The roster made honest**: `title`/`content-gap-planner` corrected from a false claim; the map made
+  TOTAL over the handler universe; an unconsidered handler now answers UNKNOWN rather than "cannot
+  write". Council-approved, live on `v1.0.1352`+.
+- **`RFC_057` answered**, both questions, with Q1's deferral encoded as a **test that fires on a third
+  field** rather than as prose — because a deferral in a document is the exact shape this lane was
+  opened over.
+- **The record**: `bugs_open/395` §9–§11 + CONTRIB · `LANDMINES.md` ×3 · `WRONG_CALLS.md` ×4 (one a
+  joint entry with another lane) · `RFC_057` §8/§9/§9a/§9b · 5 `doc_notes` rows · two CONTRIBs into
+  other lanes · this file.
+
+## 23c. ⚠ The four things that outlive this lane, and where they now live
+
+1. **The drift audit is unbuilt** — deliberately, ruled, with a mechanical trigger.
+   `TestTheDriftAuditDeferralTriggerHasNotFired` fires on a third roster field and carries the ruling,
+   what is owed, and the method into its own failure message. **Delete it when you ship the audit; do
+   not raise its threshold.**
+2. **The corrected verdict has never been exercised.** 0 findings in the mechanism's lifetime have
+   named `title` on the content-gap-planner route. Everything here is verified as **SHIPPED**, never
+   as **verified in production**. Do not let a closing summary quietly upgrade that.
+3. **"Does anything CALL it" beats "is it current"** — the other lane's qualification (§22), earned
+   from their own gate being live and wired to nothing. This roster is **call-wired**, not
+   config-wired, which is why it does not share that exposure; that distinction is the transferable
+   part.
+4. **Decision 1's condition, which the system cannot enforce**: `pages` has no provenance and no
+   human-facing path writes `meta_description`, so "machine-written only" holds today **by absence,
+   not by control**. The mark must ship in the same change as any future editor. Carried to `320`'s
+   lane; the marker design is `bugs_open/403`'s.
+
+## 23d. The honest closing sentence
+
+**The bug this lane was opened for is fixed, reviewed and live; the mechanism it built has fired 48
+times correctly; and the defect it found in its own guard is corrected and approved.** It closes with
+one stated residual — an unexercised correction — and one deliberate omission that has a trigger
+rather than a promise.
