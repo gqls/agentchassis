@@ -1279,3 +1279,53 @@ times today, every one against the publish target, and never once stated why** �
 entirely correct observation looked like a contradiction. **State the target you are probing and
 why, the first time you probe it.** Their 000 failed SAFE; the dangerous direction is the parked
 customer domain that 200s every path including invented ones.
+
+### 2026-09-02 — ANSWERED: "what would ever write an infographic row?" — the planner is OBEYING AN INSTRUCTION, and I verified it at the live prompt
+
+This lane's 2026-08-31 CONTRIB asked the question and could not answer it: the infographic capability
+is built, routed, admitted and rendered end-to-end, and **1 row has ever been planned fleet-wide**.
+The `inline_guide_imagery` lane found the answer in the live `build-site-planner` prompt and routed
+it here. **I read the prompt myself rather than relay it** — all four claims verified verbatim
+against `agent_definitions` id `f263eaa1-…`, 2026-09-02:
+
+1. **The vocabulary is COMPLETE, not missing.** The `kind` field is documented
+   *"one of: `logo`, `hero`, `illustration`, `icon`, `infographic`. No other values permitted"*, and
+   rule 15 repeats the enum. So nothing needed teaching — the word was always there.
+2. **Section-scope imagery is told to be rare, in terms:**
+   > *"**`sections`** — for icons, illustrations, or infographics attached to a specific section.
+   > **Use sparingly in v1 — most plans will have zero section-scope entries.** Only emit a section
+   > entry when a specific section's imagery need is not covered by the page hero."*
+3. **The stated minimum is CHROME ONLY** — verbatim: *"one site-scope `logo` entry, one page-scope
+   `hero` entry under `pages.index`, and one page-scope `hero` entry for every other page whose
+   `sections` array contains a hero-class component"*. **There is no floor for illustration or
+   infographic anywhere.**
+4. **`infographic` occurs exactly THREE times in the whole 34,781-byte config, and all three are
+   rule/schema text** — the field-table enum, the `sections` description, and rule 15's repeat.
+   **It appears nowhere in the worked example**, while the other four kinds do.
+
+**So the census is the prompt working exactly as written.** hero 399 / icon 211 / logo 50 /
+illustration 25 / **infographic 1** — *"most plans will have zero"* produced almost exactly zero.
+The 08-31 finding (*"the capability is built, routed and rendered end-to-end and nothing has ever
+asked"*) was right in every particular; the cause is **one sentence of English that nobody had read
+against the numbers.** And infographic's 1-of-1 has its own explanation: it is the only kind that is
+**permitted, never required, and never exemplified.**
+
+⚠ **A silent mechanism is usually UNDRIVEN, not missing — and this is the sharpest instance this
+lane has seen.** Four layers of working machinery, a complete vocabulary, and a rate of ~0, all
+produced by an instruction telling the model to expect zero.
+
+**NOT TOUCHED, deliberately.** The prompt is read by the build path for every new site, the cost is
+real generated images per section, and 18 remakes are queued behind it — it is the planner owners'
+call, not this lane's. The other lane gave the designblog lane the verbatim quotes so whoever edits
+it argues with the text rather than a summary. **If it is edited, one condition rides with it**
+(their insistence, and it is right): rule 16's *"each entry produces exactly ONE image"* discipline
+must be in the same edit, because under-decomposition is what produces unusable multi-panel images.
+
+**⚠ THE DISTINCTION THAT MUST SURVIVE TO THE OWNER — two asks, not one.** A prompt change lands
+pictures **where there is structure to hold them**, and on article pages there is none:
+`[MEASURED 2026-09-02]` max prose sections on any of **462** article pages is **1**; of the 9 pages
+carrying an illustration-capable section, **8 are landing pages with exactly one and ZERO are
+`blog-post` or `guide`**. So it would improve the landing pages the owner is looking at, and would
+not put a single image inside article text. **Progress on the first must not be reported as progress
+on the second** — that is this lane's one-slab finding (`bugs_open/114`) arriving from the supply
+side.
