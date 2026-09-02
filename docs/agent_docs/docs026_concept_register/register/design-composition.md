@@ -843,3 +843,71 @@ deduplication begins; the "raw extractions" count above and the per-concept
 > correlation of its own, not a footnote. Submitted 2026-08-15 as
 > **`9767969e-92fa-44d0-b416-d7187c869531`**, with the over-credit named in its rationale.
 > **Verdict not yet read — owed.**
+
+### DES-085 — `theme_kits`: a named, listable bundle over the composable-theme system (Phase 1)
+
+- **status:** deployed (Phase 1 only — registry + apply + page structure; nav
+  patterns, voice presets and "create from example" designed but not built,
+  see the plan)
+- **status-evidence:** `docs/agent_docs/sql_for_agents/686_theme_kits.sql`
+  (schema + 4 seed kits + fleet `page_archetypes` rows), `apply_theme_kit_
+  action.go`, `theme_kit_defaults.go`, `page_archetypes_resolver.go`, live
+  since commit `0902039c0`.
+- **what:** a NEW table, `theme_kits`, deliberately NOT named `themes` —
+  `css_themes`/`theme_id`/`needs_theme_review`/`forked_from_theme_id` already
+  mean "one site's CSS composition record" throughout this codebase (DES-003
+  below), and a second table called `themes` would make every `theme_id` in
+  the tree ambiguous. A kit is a thin FK registry over the EXISTING composable
+  system (`layouts`/`palettes`/`typography_sets`/`content_components` chrome)
+  — it adds no new visual-design mechanism, only a named, selectable bundle
+  and a materialize-on-apply action. Applying a kit (`apply_theme_kit`)
+  writes the kit's resolved palette/typography into `design_intent.{palette,
+  typography}.reference_values` (picked up by the EXISTING resolver cascades
+  with zero resolver changes for those two dimensions) plus a
+  `theme_kit_adoption` site_specs lineage row, and queues `needs_composition`
+  — it never installs anything itself (site-design-planner stays the one
+  writer of `sites.style_collection_id`, per the "Choice B" precedent this
+  platform already settled once: `HANDOFF_2026-04-19_..._update4(3).md`
+  narrowed site-design-planner's scope to composition-resolution only, never
+  navigation/structure). Layout is the one dimension needing an actual
+  resolver change (`resolve_composition_layout_action.go`), since layout
+  resolution never consults `design_intent` at all.
+- **the fork idiom continues, not diverges**: applying a kit MATERIALIZES
+  defaults into a site's own rows — never a live FK the site stays bound to.
+  A site can edit any component/palette/section afterward exactly as before;
+  nothing checks "is this site themed" on that path. `page_archetypes`
+  (replacing the hardcoded `defaultSectionsForPage` Go switch,
+  `apply_gap_plan_action.go:995-1042`, kept as a logged last-resort fallback)
+  is three-way scoped (site > theme kit > fleet, `CHECK` mutual-exclusive) so
+  a site can declare its own durable structure default WITHOUT adopting any
+  kit — "sites don't necessarily have to be created from a theme."
+- **landmine avoided, not hit**: `content_components.function` is NOT unique
+  after the canonical-row predicate (measured 2026-09-02, `components`
+  session: 3 collisions of 364 distinct functions, incl. `site-header`/
+  `site-footer`), and `chromePinEligibleSQL` (`component_level IN ('site',
+  'header','footer','head')`) EXCLUDES the confusingly-named `site-header`/
+  `site-footer` rows (`component_level='section'`) entirely — the actually-
+  eligible rows are `header-theme-chrome`/`footer-theme-chrome`. The 686
+  seed hardcodes verified UUIDs rather than a function-name subquery for
+  exactly this reason.
+- **known gap, not yet closed**: a themed site's exact colours can still
+  drift on a LATER `needs_design` pass — `design_intent.palette.
+  reference_values` is correctly consulted at composition-install time but
+  advisory-only at render-merge time. See RFC_059 (DRAFT,
+  `architecture_review/RFC_059_...md`) — filed separately because it changes
+  a shared rendering guarantee (DES-042 below), not bundled into this entry.
+- **relations:** DES-003 (composition pipeline — the system this extends,
+  not replaces), DES-013 (migration 025, the composable-theme lineage),
+  DES-042/DES-052 (the merge-authority rule RFC_059 proposes to extend),
+  `bugs_open/291` (the correct empty-`handler_agent` HITL idiom — noted for
+  Phase 5's "create from example," not yet built, so a future
+  `needs_theme_kit_review` item type does not repeat `fork_theme_from_site`'s
+  existing phantom `theme-review-handler` mistake).
+- **sources:** plan `/home/ant/.claude/plans/please-think-hard-about-starry-
+  locket.md`; diagnosed/reviewed collaboratively with `site_delivery_and_
+  editor`, `components`, `gap planner`, `calendar`, `webdesign-tool-
+  rebuild(s)` the same session (2026-09-02).
+- **verify-later:** once Phase 1 has real adoptions, `SELECT count(*) FROM
+  site_specs WHERE aspect='theme_kit_adoption' AND is_current` — a durable
+  zero would mean the mechanism is built but undriven (a recurring pattern
+  elsewhere in this register), not evidence it works.
