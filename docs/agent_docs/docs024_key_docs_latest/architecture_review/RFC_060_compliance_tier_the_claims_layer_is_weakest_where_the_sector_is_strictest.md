@@ -1,7 +1,9 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
 **Status: OWNER-DECIDED 2026-09-02 on Q1, Q2 and Q4; Q3's AXIS decided (semantic, not sector) with the
-vocabulary proposed below for confirmation. Nothing is built yet. See §3a.**
+vocabulary proposed below for confirmation. §3b ADDENDUM 2026-09-02 (Q5, new, undecided): the
+citation-recognition mechanism the RFC's own precondition fix relies on is finance-only and does not
+generalise to other regulated sectors as built. Nothing is built yet. See §3a, §3b.**
 
 Filed 2026-09-02 by the `bugfix_414_planted_marker_as_claim` lane, out of the owner's question
 *"what can I do about the poisoned register hole, and shouldn't compliance be strong for sites that
@@ -230,10 +232,75 @@ regulatory figures is a candidate for re-posturing — which is cheap to build o
 already exists and would be the natural Phase 2. **Not proposed now**; recorded so it is a decision
 rather than an oversight.
 
+## 3b. ADDENDUM 2026-09-02 (Q5, NEW — undecided): citation recognition is finance-only and does not
+generalise across sectors
+
+Raised by the claims-verification thread, from the owner's direct question: *"vet compliance and
+medical and everything else will all have to be accommodated too"* — asked about `fad209b92`, this
+RFC's own stated precondition for (ii).
+
+**The mechanism is hardcoded to one sector.** `fad209b92` (this morning) added `regulatoryRulebookCodes`
+to `claims.go`:
+
+```go
+const regulatoryRulebookCodes = `(?:CONC|MCOB|ICOBS|BCOBS|COBS|DISP|SYSC|PRIN|CASS|PERG|CREDS|COLL|
+DEPP|GENPRU|MIPRU|BIPRU|IPRU|FEES|SUP|MAR|DTR)`
+```
+
+A single Go constant, compiled fleet-wide, FCA Handbook sourcebooks only — what stops "CONC 5A" reading
+as an unbacked business number. It has no equivalent for RCVS/VMD (veterinary), GMC/MHRA/CQC (medical),
+SRA (legal), or anything else, and cannot get one without a Go change + council review + image roll
+**per sector**.
+
+**Not hypothetical for this estate.** Measured 2026-09-02:
+
+| domain | status | evidence_base |
+|---|---|---|
+| `vetcomparison.uk` | **deployed** | none — 0 facts, absent from the register-coverage table in §1b |
+| `pool-vet-animal.internal` | pool (unbuilt) | — |
+| `pool-health-medical.internal` | pool (unbuilt) | — |
+
+`vetcomparison.uk` is already this RFC's own `relied_upon` worked example (§3a: "carries animal-health
+consequence"). The moment it gets a register and the numeric scan arms under (ii), a genuine RCVS or
+VMD citation on it reproduces §1c's finding exactly — the site convicted for correctly citing its own
+rulebook, on a sector this RFC exists to protect.
+
+**The estate already has the right shape for this — one field is the odd one out.** `BannedClaims` and
+`AllowedEntities` are already per-site DECLARED DATA on `evidence_base`; a site states its own
+vocabulary, no Go change to onboard a new one. `regulatoryRulebookCodes` breaks that pattern — it is
+the one piece of sector vocabulary compiled into the binary. §"Where sector still has a job" above
+already proposes exactly this shape for banned claims ("a shared banned-claim set... additive, needs
+none of this design, can be a separate optional field later"); citation-code recognition is the same
+problem one layer earlier — it decides whether the scan fires at all, not what it forbids.
+
+**Proposed fix (Q5) — data-shaped, additive only, matching logic unchanged:**
+- `evidence_base.citation_codes: []string` — a site's own rulebook prefixes, matched by the SAME rule
+  `fad209b92` shipped (case-sensitive, code immediately followed by a digit).
+- The current hardcoded FCA list stays as the always-on default — no regression, no forced migration
+  for the two finance sites already carrying facts; `citation_codes` unions on top of it.
+- Optionally a small sector-keyed PRESET a site opts into by name (`veterinary` → RCVS/VMD, `medical` →
+  GMC/MHRA/CQC, …) instead of typing codes by hand — the same opt-in shared-vocabulary idea already
+  agreed above for banned claims, extended to cover this too.
+
+**Why Q5 and not silently folded into (ii):** §1c's ordering warning — *"arm the check before the
+sector's false-positive shapes are handled and it produces noise"* — applies per sector, not once.
+**Does not block Q1/Q2/Q3/Q4** — the tier design and build order stand — it constrains WHEN (ii) is
+safe to apply outside finance.
+
+**Classification:** per the 2026-07-29 ruling (§1: a shared vocabulary needs an RFC only when it changes
+what the mechanism GUARANTEES), moving this from code to site-declared data doesn't change the
+guarantee — citations are still excluded from the numeric scan — only widens which strings qualify,
+sourced from data instead of a constant, the same status `BannedClaims`/`AllowedEntities` already hold.
+Read as a normal build, not an RFC-blocking change on its own; recorded here because it gates (ii)'s
+safe scope and because the owner asked the question directly.
+
+---
+
 ## 4. What this lane has already done, so the RFC is not the whole answer
 
-- **`fad209b92`** (council `1dd3d298`): regulatory rule citations no longer read as business numbers.
-  This is a precondition for (ii) and is done.
+- **`fad209b92`** (council `1dd3d298`): regulatory rule citations no longer read as business numbers —
+  **for the FCA Handbook only**; see §3b for why this is a precondition for (ii) on finance sites
+  specifically, not sector-generally.
 - **`bugs_closed/414`**: the claim rules now also read the *instruction* a generator is given, not
   only its output (`CLM-030`).
 - **Not done, and it is content work rather than platform work:** populating registers for the five
@@ -276,3 +343,10 @@ WHERE s.status IN ('active','deployed')
 For §1c, export those sites' components (the RUNBOOK's pod-side recipe, counted three ways) and run
 `cmd/claimscan` with a facts-free register — **that arms the numeric scan without shipping anything**,
 and it is how the 5-findings-all-false result was obtained.
+
+```sql
+-- §3b: other regulated-sector sites the citation-code gap would hit (2026-09-02)
+SELECT domain, status FROM sites
+WHERE domain ~* 'vet|animal|pet|health|medical|clinic|dental|nhs|pharma|law|legal|solicitor'
+ORDER BY domain;
+```
