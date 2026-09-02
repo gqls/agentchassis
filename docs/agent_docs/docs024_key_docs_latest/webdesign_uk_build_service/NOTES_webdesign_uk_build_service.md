@@ -7941,3 +7941,25 @@ lane's per the ownership ruling.
 - **Per-pod probes** (components' recipe, every pod, with controls): running in the background
   — each `grep -a` over `/proc/1/exe` takes ~30 s, and the first attempt timed out at 2 min with
   only `cd2h9 | ListItemExcerpt PRESENT`, `resolvePagesWhereType PRESENT`. Results to follow.
+
+## 2026-09-02 (21:29Z, clock-read) — per-pod probes done (every pod, with controls); index rebuild PREPARED and held for the owner
+
+- **Probes 21:24:32–21:27:58Z** (`grep -a` over `/proc/1/exe`, ~30 s each): agent-chassis
+  `8ddbf8958-cd2h9` AND `-vppjz`: `ListItemExcerpt` PRESENT · invented `ListItemTitleXYZNOTREAL`
+  absent · "must use no shade of magenta or pink" PRESENT — so f57f5ad1f AND b2322a203 are in BOTH
+  running chassis binaries (the components lane's pod-hole is closed for the live defect; they
+  probed the same two independently). image-generator-adapter `588ffc76b9-fddqd` AND `-xkt6n`:
+  provenance `0d2feee2f` on both; `KeyOutBackground` PRESENT; `NOTREALSYMBOLXYZ` absent.
+  **`BorderKeyed` absent on both — UNINFORMATIVE, not a finding:** it is a struct FIELD name, and
+  Go keeps field names only where reflection needs them; the log emits `border_keyed`. A wrong
+  symbol class reads as absence. The function-name control (`KeyOutBackground`) is the probe
+  that means something. Lesson for the RUNBOOK's probe recipes: probe FUNCTION names or literal
+  strings, never field names.
+- **Index rebuild prepared, not fired** — exact INSERT (shape of `7f1f4993`/`bccedf9c`;
+  `pipeline='build'` + `approval_mode='auto'` are the two fields a hand-filed row silently
+  needs), pre-flight and verification in this dir's RUNBOOK. Held because the build path
+  REGENERATES the LLM-written fields (this lane's own 17:3xZ row verification) — on the owner's
+  reviewed home page. The components lane has handed the rebuild to this lane and owns step 2
+  (a `template_changed` rerender on the new baseline; key GONE ⇒ the rerender path rebuilds the
+  array with old code, key SURVIVES ⇒ it never touches `articles`). Owner asked.
+- Waves at 21:29Z: none fired (monitor armed since ~21:10Z; first candidate tick ~21:52Z).
