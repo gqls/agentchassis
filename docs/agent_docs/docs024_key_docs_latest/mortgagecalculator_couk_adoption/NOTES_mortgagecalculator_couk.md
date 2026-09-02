@@ -4869,3 +4869,80 @@ Two corrections to my own reading follow from theirs, and one thing of mine surv
   declares no image-typed field, so `sectionHasImageField` gates the resolver off). Disjoint sets,
   disjoint mechanisms, and 357's constructive adoption fixes only the first. The CONTRIB I filed
   into `bugs_open/114` stands.
+
+## 2026-09-02 (c) — the site divides perfectly in two, and exactly one tool is verifiable today
+
+Continuing after the token expired (see the block below). Two cluster-free measurements, and
+together they are the sharpest statement of where this site stands.
+
+### Every existing fence is VALID — against the pages it was written for
+
+I tested all 48 `#id` selectors in the lane's 9 stored criteria files
+(`acceptance/criteria/*.criteria.json`) against the live pages I had already fetched.
+**0 missing, on all 9.** So the morning assumption that this site's fences are stale is wrong: they
+are correct, and 7 of them are simply never read.
+
+### The reason is one property, and it splits the 18 pages cleanly
+
+`grep`ping the fetched pages for `id="c-tool-…"` versus bare ids:
+
+| shape | pages | eligible for the ladder? | fence state |
+|---|---|---|---|
+| **instance-scoped** (`id="c-tool-…"`) | 8 — bridging-compound, btl-investor, credit-health-check, deposit-tracker, overpayment-priority, rate-scenarios, rate-stress-test, remortgage-savings | **YES** (all have `component_level='tool'`) | **STALE — `bugs_open/441`** |
+| **bare ids** | 10 — affordability, bridging-loan, equity-release, fee-analyser, overpayment, portfolio, rate-forecaster, repayment, simple, stamp-duty | **NO for 9** (multi-component, no tool-level row) | **VALID** |
+
+The two axes are the same axis. The instance-scope conversion only ever touched components with a
+`content_components` row — which is exactly the eligibility criterion — so **every tool that the
+ladder can see has a stale fence, and every tool with a good fence is invisible to the ladder.**
+
+**`tool-simple` is the sole exception**: bare ids (so its fence is valid) *and* eligible (sole
+component on a `page_type='tool'` page, key `simple`). **It is the one tool on this site that can be
+verified today.** [UNMEASURED — needs the cluster] whether its last Tier-2/Tier-4 run actually
+passed; the fence being satisfiable is necessary, not sufficient.
+
+⚠ **And `tool-simple` is migration 701's designated pilot.** 701 gives it a `component_level='tool'`
+row, which moves its ladder key from `simple` to `tool-simple` and orphans the fence — so **the one
+verifiable tool on this site is the one 701 is about to make unverifiable**, and the pilot will look
+completely healthy while it happens. Strengthened the CONTRIB to `bugs_open/357` accordingly; this
+is the concrete case for the re-key `UPDATE` landing in the same transaction.
+
+### The second failure in the two stuck items is now diagnosed from source: `bugs_open/448`
+
+The `improve_tool` items for deposit-tracker and remortgage-savings died at
+`query param path 'input_data.spec.page_id' resolved to nil`. Cause, read at HEAD:
+`JudgeAcceptanceResultsAction` (`tool_acceptance_actions.go:867-874`) **re-derives** `page_id` with
+
+```sql
+LEFT JOIN pages p ON p.id = pc.page_id AND p.site_id = $2::uuid   -- site filter on the JOIN, not the WHERE
+... WHERE cc.function = $1 AND cc.is_active LIMIT 1               -- and no ORDER BY
+```
+
+so a function with rows on more than one site yields `p.id` NULL → `''` → the conditional at :994
+omits `spec.page_id` → the fixer's first step has nothing to read. `tool-deposit-tracker` has
+exactly that shape: two active rows, one of them the loanandmortgagecalculator fork.
+
+**The reliable code already exists 300 lines below** — `routePortedAcceptanceFailure:1213` reads
+`input_data.spec.page_id` from the run item it was handed, which `check_tool_acceptance_due` always
+writes. The file uses the sound path for the PORTED route (a human queue with no automated fixer)
+and the unsound one for the route that feeds `tool-improver`. That is backwards from where
+reliability matters.
+
+⚠ **Filed with the 090 NOT run, and the bug file says so** — the cluster token expired, so no
+dispatch was possible. Two blast-radius queries are left in `448` §5 marked `[UNMEASURED]`. **Do not
+quote a size for 448 until they are run.**
+
+### ⚠ Blocked: kubeconfig token expired mid-session
+
+`kubectl` returns `Unauthorized` fleet-wide (`kubectl version` confirms *"the server has asked for
+the client to provide credentials"*). That is the known 3-day expiry; the owner refreshes it. Work
+that stopped at that line, in the order it should resume:
+
+1. Confirm `tool-simple`'s last acceptance verdict — the one tool that should pass today.
+2. Run `448` §5's two queries and put real numbers in the bug file.
+3. Re-emit fences for the 8 scoped tools from the live pages (`toolgolden.py --emit-criteria`
+   drives the deployed page, so it picks the `c-tool-…` ids up automatically), `verify_criteria.py`
+   to 0 MISMATCH **plus the mutation test exiting 1**, then `install_fences.py --apply` and fire
+   Tier-4 runs. ⚠ This is a *lane-level* workaround, NOT `441`'s fix: it re-breaks at the next
+   conversion and cannot satisfy a split function. None of this site's 8 is split
+   `[UNMEASURED — the query is in the (c) block above, needs the cluster]`, so it is safe here and
+   nowhere in general.

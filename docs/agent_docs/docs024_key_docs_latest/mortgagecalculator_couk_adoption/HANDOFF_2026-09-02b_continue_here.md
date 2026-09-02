@@ -94,6 +94,35 @@ verdicts; (3) the other 9 become eligible only after migration `701`.
 real, still open). The `summary` is the *acceptance* verdict, which ran and failed on a concrete
 selector — and that selector is stale criteria, i.e. `441`.
 
+## 2a. The site divides in two on ONE property, and exactly one tool is verifiable today
+
+Measured after §2 was written, and it is the sharpest way to hold this site in your head. All 48
+`#id` selectors in the lane's 9 stored fences are **present on the live pages** — the fences are
+not stale, they are unread. Why splits perfectly:
+
+| shape | pages | ladder-eligible? | fence |
+|---|---|---|---|
+| **instance-scoped** `id="c-tool-…"` | 8 (bridging-compound, btl-investor, credit-health-check, deposit-tracker, overpayment-priority, rate-scenarios, rate-stress-test, remortgage-savings) | **yes** | **stale — `441`** |
+| **bare ids** | 10 (affordability, bridging-loan, equity-release, fee-analyser, overpayment, portfolio, rate-forecaster, repayment, simple, stamp-duty) | **no, for 9** | **valid** |
+
+The two axes are one axis: the conversion only touched components with a `content_components` row,
+which is exactly the eligibility test. **So every tool the ladder can see has a broken fence, and
+every tool with a good fence is invisible to it.**
+
+**`tool-simple` is the only exception** — bare ids *and* eligible (key `simple`). It is the one tool
+here that can be verified today. ⚠ **And it is migration 701's designated pilot**: 701 moves its key
+to `tool-simple` and orphans its fence, so **the one verifiable tool becomes unverifiable, and the
+pilot looks perfectly healthy while it happens.** That is the concrete case for the re-key `UPDATE`
+in the CONTRIB to `bugs_open/357` — it is no longer a hypothetical.
+
+**Second defect on the two stuck items, diagnosed from source: `bugs_open/448` (new).** Their
+`improve_tool` died at `input_data.spec.page_id resolved to nil`. `JudgeAcceptanceResultsAction`
+re-derives `page_id` with the site filter on a LEFT JOIN and an unordered `LIMIT 1`, so a function
+with rows on two sites yields empty and the key is omitted — while the sound code (read the handed
+`input_data.spec.page_id`) sits 300 lines below in the same file, used only for the ported route.
+**441 and 448 stack on those two tools: 441 makes the acceptance fail spuriously, 448 stops the
+repair it queues from starting.**
+
 ## 3. The images — two mechanisms, both diagnosed, neither ours to apply
 
 All 18 tool pages have an active asset at exactly their `ContentHeroKey`
@@ -142,6 +171,21 @@ re-arming them is still real spend and still the owner's call.
 references live and 0 stored. ⚠ My first control for that was worthless (see `WRONG_CALLS.md`
 2026-09-02) — `snippets.js` returns the same 0 because the assembler injects it. Use
 `mortgage-lender-directory-listing.js`, which returns 1. RUNBOOK **§17**.
+
+## 5a. ⚠ BLOCKED — kubeconfig token expired, and this is the resume list
+
+`kubectl` returns `Unauthorized` fleet-wide (the known 3-day expiry; the owner refreshes). Resume in
+this order:
+
+1. **Confirm `tool-simple`'s last acceptance verdict** — the one tool that should pass today. If it
+   did not, §2a's reasoning needs revisiting before anything else.
+2. **Run `bugs_open/448` §5's two queries** and replace its `[UNMEASURED]` markers with real
+   numbers. Do not quote a size for 448 before that.
+3. **Re-emit fences for the 8 scoped tools** — `toolgolden.py --emit-criteria` drives the deployed
+   page, so it picks up the `c-tool-…` ids by itself; then `verify_criteria.py` to 0 MISMATCH **and
+   the mutation test exiting 1**, `install_fences.py --apply`, fire Tier-4, read the verdicts.
+   ⚠ **Lane workaround, not `441`'s fix** — it re-breaks at the next conversion and cannot satisfy
+   a split function. Check none of the 8 is split first (query in NOTES `## 2026-09-02 (c)`).
 
 ## 6. Files of record
 

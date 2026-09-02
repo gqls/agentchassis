@@ -925,3 +925,26 @@ refuse. Ping us and we will do the enumeration in (2) for our three domains.
 tools fleet-wide (criteria name pre-`bugs_closed/283` bare ids, both checkers match ids exactly) —
 `090` run correlation `7177c2d6-fe22-40c4-b9bc-b53f93ec59c9`. That is upstream of this and does not
 change the advice above.*
+
+### CONTRIB addendum, same day — the pilot case is now concrete, not hypothetical
+
+Measured after the note above, cluster-free, against the live pages: **`tool-simple` is the only
+tool on mortgagecalculator.co.uk that can be verified today**, and it is your designated pilot.
+
+The site splits on one property. All 8 tool pages carrying a `component_level='tool'` component are
+instance-scoped (`id="c-tool-…"`) — ladder-eligible, but their fences name pre-conversion bare ids
+and so are unsatisfiable (`bugs_open/441`). All 10 adopted pages have bare ids and **valid** fences —
+all 48 selectors present on the live pages, checked — but 9 of the 10 are ladder-ineligible.
+`tool-simple` is the single page that is bare-id **and** eligible: valid fence, and the ladder can
+see it.
+
+**701 moves its key from `simple` to `tool-simple` and the fence is orphaned.** So the pilot is the
+one case where the regression is both real and maximally invisible: the page renders identically,
+the calculator behaves identically, `rendered_html` is byte-identical by your own guards, and the
+only thing that changes is that the site's sole working verification stops running. **Nothing in a
+pilot's verification-at-the-DB-row-and-the-served-page will show it** — the check that would is
+"does `simple` still appear in the eligibility query's output under a key that has a current
+`doc_plans` row", and that is the one to add to the pilot's acceptance.
+
+This does not change our advice — ship 701, it makes nine invisible tools verifiable — but the
+re-key `UPDATE` is no longer a tidy-up to schedule afterwards. It belongs in the pilot.
