@@ -1294,3 +1294,12 @@ The one thing only you can do: top up the credits. One gotcha from last time —
 key is not on the org the console shows you by default; pick the right account by checking which
 key shows recent "Last used" activity. I'm watching for the first successful call and will
 confirm the build resumes.
+
+**2026-09-02, after the top-up — your three cluster sites are building.**
+
+You said the three briefs are good, so all three are released and building: website promotion,
+SEO tools, and the design blog. Same machinery as advertise, plus the lessons from this morning
+already applied — their site rows went in complete this time, including contact emails, so they
+won't stall where advertise did. The build queue works them in alongside advertise's remaining
+pages. Your review queue is now down to the two test briefs and that one style-phrase question
+on advertise.

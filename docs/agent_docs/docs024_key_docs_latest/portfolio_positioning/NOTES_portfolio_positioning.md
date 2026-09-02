@@ -3714,3 +3714,18 @@ a fleet-wide LLM outage, not a build defect. Owner push-notified (terminal; no R
   `swi_no_handlerless_promotable` (a check constraint) refuses to re-queue such items, learned
   by a rolled-back attempt. Contact page's own build item was still queued, so it picks the
   datum up naturally.
+
+### (h) Owner: "the 3 new briefs are good" → cluster builds RELEASED (remakes №2–4), ~15:1xZ
+
+Approval unedited, so the briefs stand as fired (websitepromotion 15 / seotools 18 / designblog
+20 plan items). Same recipe as advertise (§ this file, morning): three review items → complete
+(`approved_by='owner'`, instruction quoted in result) · three `research_<domain>` items created
+triaged (Flow A shape) · **emails set BEFORE release** (`<name>@contactforsales.com`) — the
+door the advertise build hit at its contact page, closed proactively this time · three site
+rows `test`+LOCKED → `active`, unlock LAST, one guarded UPDATE asserting exactly 3 rows.
+Dispatcher will interleave them with advertise's remaining drain (selector = oldest eligible
+site first). Compact monitor armed for the trio (state deltas + errors only, exits at 3×
+deployed). Advertise at this point: ~15/18 plan pages done post-outage, imagery nearly done,
+rerenders queued. The owner's review queue now holds only the two TEST briefs
+(indoorplanters, buytoletcalculator) + the advertise negation flag (recommendation standing:
+keep as is).
