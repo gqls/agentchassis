@@ -3640,3 +3640,40 @@ two "verbatim" NDL quotes were WebFetch's paraphrases-formatted-as-quotes — th
 information is completely free for everyone, forever." The bd03c2b3 note carries the visible
 correction; WRONG_CALLS carries the lesson (a summariser's quote is a paraphrase until
 grepped). The trims themselves stand — loanzy read them as right.
+
+---
+
+## 2026-09-02 late — designblog critique decomposed AT THE MARKERS; a new repair-reliability observation
+
+Owner critique on designblog.co.uk (built TODAY, post-roll, routed via their lane with an ACK
+request). Measured, not assumed — the build DID go through the gated writer (75 sections,
+gate ran per-section, repaired plenty, including the same "starting point, not the final
+word" construction on a DIFFERENT page of the same site). The served residues decompose:
+
+1. **`x_not_y` in the feed-index secondary_cta: the gate TARGETED it and the repair model
+   returned NO ANSWER** (`no_answer_for_target`, child `c464393e` iter2) — the action's
+   reconciliation recorded it and shipped the original, as designed. Tonight's markers show
+   several no-answer rejections across children. **NEW OBSERVATION for this lane:
+   `no_answer_for_target` is a measurable repair-miss class with no retry** — candidate small
+   fix: ONE re-ask for unanswered targets (the action already knows exactly which they are).
+   Count the fleet rate before building (the D3 rejection-log discipline).
+2. **`plainly` ×3 in served copy: by construction** — the chassis gate repairs SHAPES; the
+   word arm detects only (nightly CLI, v2). Whether words get a repair arm is a design
+   decision not yet put to anyone — added to the queue behind the wash campaign.
+3. **The urgency tell, the 450-char essay in a BUTTON field, and the zero-content listing
+   manifestos: not register shapes** — the already-queued classes (CQ-032 first-person policy
+   tell; title-promise/empty-room demonstration — designblog's four listing pages are
+   instances THREE through SIX of the boxingonline empty-room class; the guide-rewrite
+   ruling covers the verbosity). The essay-in-a-CTA-field is also a structural mistype kin
+   of CQ-031 (label fields holding body prose — a walker/type question for the same design).
+
+**In-session correction (never left the session):** my first "zero repair calls on designblog"
+read was a FILTER ARTEFACT — repair prompts do not contain the site name, so
+`prompt_rendered LIKE '%designblog%'` excluded every repair row while matching every generate
+row. The markers refuted it in one query. The query answers what you ENCODE.
+
+Birth-mint confirmed live on a day-old site: designblog's newborn content_direction carries
+**16** x_not_y and its briefing **8** `[MEASURED 2026-09-02]` — the briefing agent mints the
+register at birth, which is the brief-wash campaign's justification arriving pre-measured for
+every FUTURE site too (the wash cleans stock; the BIRTH producer needs its own gate — same
+argument as the offer lane's Decision E, one producer along; queued for the owner's list).
