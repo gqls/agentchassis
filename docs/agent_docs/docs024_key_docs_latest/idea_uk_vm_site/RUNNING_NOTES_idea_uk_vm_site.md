@@ -6072,3 +6072,24 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
 >   improver's next audit re-files this same tool_fix, that is a live green no-op loop
 >   (family `bugs_closed/323`) and worth a case.
 > Monitors retired — every watched row is terminal.
+
+## §X.68 — 2026-09-02 ~13:55Z: cross-lane heads-up — guides-index queued for a content-listing card fix (`bugs_open/425`, owner-instructed batch)
+
+- The `components` lane queued **`811dac68`** (`page_rerender`, `triaged`, created 13:48:31,
+  **`spec.reason='template_changed'`** — verified first-hand, the reason that takes the real
+  template path). Part of a 14-item batch across six sites fixing the shared content-listing
+  component: unguarded card slots (category/excerpt/date/read_time) rendered empty-but-present, and
+  our guides-index sits on the producer that neither strips the " | <site>" headline suffix nor
+  projects a deck from `meta_description`. The fix: decks appear (9/9 of our pages have
+  meta_descriptions, avg ~136 chars), headline/alt lose the suffix, unfed slots collapse. Additive;
+  copy untouched; STY-048 pre-flight zero rows (light path, no LLM); shrink guard won't fire
+  (cards fillable). Rollback while unstarted:
+  `docs/agent_docs/sql_for_agents/683_content_listing_rerender_after_roll_HOLD_ROLLBACK.sql`.
+- **Their verification caveat, adopted as this lane's practice for ANY rerender**: a COMPLETED
+  `page_rerender` is not evidence — read `spec->>'reason'` first. An unrecognised or ABSENT reason
+  routes to assemble mode, which re-ships the stored articles byte-for-byte, completes, and stamps a
+  fresh `deployed_at` while changing nothing. Live illustration the same morning: an 11:57 sweep of
+  five reason-less `_assemble` rerenders on this site all "completed" (by design, no content change),
+  and the ab-test page (`fbbf828b`) failed its assemble yet again — owner choice §5.1 still open.
+- Full case: `bugs_open/425`. Verify after it runs: guides-index cards carry decks, no " | idea.uk"
+  in headlines, no empty card elements — at the served page, not the row status.
