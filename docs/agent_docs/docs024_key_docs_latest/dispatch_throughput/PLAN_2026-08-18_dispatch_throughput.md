@@ -284,3 +284,30 @@ A. `model_prices` + `work_class_map` + `governor_config` + `governor_state` + th
 B. Claim-step refusal (Go; opt-in read of governor_state; unit + mutation tests; register
    entry same commit). Inert until `enabled=true` AND budget set.
 C. Flip-on with the owner's budget; observe one shed cycle; then the Option-C round.
+
+## D4 stage B — DESIGN CORRECTION (2026-09-02, found at the code before building)
+
+The §above's "enforcement at the CLAIM step" is WRONG as the primary seam, by this lane's own
+413 lesson (ranker/drainer key disagreement). Under shed level ≥1, a claim-only check makes a
+site whose oldest-loadable work is shed into a selection HOG: 657's selector ranks it by that
+loadable work → picked → loop loads → every claim refuses `spend_governor_shed` → no claimed
+row → busy-skip never engages → picked again next fire. Starvation of NON-shed work, governor
+edition.
+
+**Corrected stage-B shape — the shed filter must live where eligibility is DEFINED, with the
+claim as backstop only:**
+1. **Selector** (config query, 657-style migration): eligibility excludes rows whose
+   (class, llm_bearing) is shed at the CURRENT `governor_state.shed_level` — one join to
+   `governor_work_class_map` + one scalar subquery on state, guarded exactly like 657 (md5
+   preflight; the 657 VERIFY's md5 arm must move in LOCKSTEP — coordinate before applying).
+2. **Loader** (`load_work_item_actions.go`, Go): same predicate, same lockstep — the AST
+   ordering-contract test gains the shed clause; unmapped types default maintenance+bearing
+   HERE (the Go default the PLAN already states).
+3. **Claim** (`claim_work_item_action.go`): the backstop only — a distinct
+   `spend_governor_shed` claim_result reason for races where state moved between load and
+   claim. Never the primary gate.
+All three read `governor_config.enabled` — false short-circuits to today's behaviour
+byte-for-byte (the opt-in). The fire-gate (bugs_open/415) needs NO shed arm: it may fire on
+shed-only backlogs harmlessly (selector then picks nothing — one empty turn, not a hog).
+Build order: Go halves first (inert: enabled=false), image + roll, THEN the selector
+migration (image-before-config), each with the governor-disabled path proven byte-identical.
