@@ -43,15 +43,27 @@ verifies old-text-gone + new-rule-present + flag=true + 433/718 surfaces intact.
 ## Prove the gate is LIVE after a chassis roll (owed to council round 1)
 
 ```bash
-# 1. the binary's own provenance. ⚠ The log line is a STARTUP line and SCROLLS —
-#    on agent-chassis it is typically out of --tail range within hours (measured
-#    2026-08-11; council r3 debug_historian flagged relying on it). An empty grep
-#    means "not in range", never "unstamped". Prefer the binary probe, and ALWAYS
-#    run a control in the same breath (a sha that must be absent):
-kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance' \
-  || kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "<expected-sha>" /proc/1/exe
-kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "<a-sha-that-must-be-absent>" /proc/1/exe && echo "CONTROL FAILED — probe not discriminating"
-git merge-base --is-ancestor 6525b45ae <the stamp>   # exit 0 = the gate shipped
+# 1. the binary. ⚠ BOTH instruments this section used to prescribe are LANDMINED
+#    (corrected 2026-09-02 after running them): the 'build provenance' log line
+#    DOES NOT EXIST on backend services (LANDMINES:18299 — zero source hits; the
+#    "it scrolled" warning absorbs the real failure), and plain BusyBox
+#    `grep -aq` over /proc/1/exe reports FALSE ABSENCES with both controls
+#    passing (LANDMINES:16992). The working instrument is the NUL-split probe,
+#    with BOTH controls through the SAME pipeline, on SYMBOLS of a called path:
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+for lit in enforceListingItemSources "required query source errored" \
+           queryListBelowContract zzz_invented_absent_control; do
+  printf "%-38s " "$lit"
+  kubectl -n ai-persona-system exec "$POD" -- sh -c \
+    "tr '\0' '\n' < /proc/1/exe | grep -Fc \"$lit\"" || echo 0
+done
+# expected once the gate ships: >0 / >0 / >0 / 0. queryListBelowContract is the
+# weeks-old present-control; grep -Fc exits 1 on zero matches (that IS "0").
+# PROVEN LIVE 2026-09-02 ~21:2x BST roll: enforceListingItemSources=2,
+# "required query source errored"=1, controls 1/0 — build ∈ [6525b45ae,
+# c610898d1): the GATE is live; the c610898d1/2ac76f11c refinements (derived
+# vocabularies, optional-error record, shared-writer receipts) ride the NEXT
+# roll (their symbols read 0/0, corroborated pair).
 
 # 2. the config half (live immediately at apply)
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -c \

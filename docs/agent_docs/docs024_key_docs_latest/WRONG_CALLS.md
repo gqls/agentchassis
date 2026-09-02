@@ -59748,3 +59748,26 @@ the instrument answered a narrower question than the one asked.
 - **The cheap check that would have.** `date -u +%H:%MZ` in the same command as any edit that
   writes a time, and paste ITS output — never type a time.
 - **Cost.** Eight labels corrected across two files; no reader had acted on them.
+
+## 2026-09-02 — a verification RECIPE was written into a runbook without grepping LANDMINES for its instruments (session bugs_open/444)
+
+- **The claim.** `RUNBOOK_bugfix_444.md` §"Prove the gate is LIVE" prescribed (1) the
+  `grep -m1 'build provenance'` log check and (2) the plain `grep -aq <sha> /proc/1/exe`
+  binary probe — presented as the deploy proof for this lane's fix.
+- **What caught it.** Running the recipe after the token refresh: the log grep matched only
+  a landmines digest echoed in the pod logs, and that digest itself named BOTH instruments
+  as landmined — the provenance line DOES NOT EXIST on backend services (LANDMINES:18299,
+  measured zero source hits 2026-08-25) and BusyBox grep reports FALSE ABSENCES with
+  passing controls (LANDMINES:16992, measured 2026-08-24).
+- **The mistake, precisely.** The memory index's own rule — "grep LANDMINES for the SYMBOL
+  you are about to trust; the SessionStart hook only matches files already DIRTY" — was not
+  applied to `/proc/1/exe` or `build provenance` when the runbook was WRITTEN. A runbook is
+  exactly where a wrong instrument does compounding damage: it survives the session and is
+  followed verbatim by strangers. A council reviewer (r3 debug_historian) had even flagged
+  the log-grep's fragility — the fix hardened the recipe around the WRONG axis (scrolling)
+  instead of checking whether the line exists at all.
+- **The cheap check that would have.** `grep -n "proc/1/exe\|build provenance" LANDMINES.md`
+  before writing any verification step that names either. Fifteen seconds.
+- **Cost.** ~10 minutes of probe confusion at verification time; zero wrong conclusions
+  shipped (the NUL-split battery from LANDMINES:16992 then proved the gate live with
+  coherent controls: build ∈ [6525b45ae, c610898d1)). The runbook is corrected in place.

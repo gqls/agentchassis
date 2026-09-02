@@ -198,3 +198,34 @@ Fix candidate (1) is DONE as designed, plus the render-layer companion:
   gamedesign, feed lane's WebProNews→advertise news enablement, portfolio_positioning's
   directory decisions for advertise/seotools).
 - Candidate (3), a glossary/showcase producer: still unowned, unchanged.
+
+## LIVENESS PROVEN (2026-09-02 ~22:2x BST, post token-refresh — fixing session)
+
+The per-service proof the close-out block owed, run per the corrected RUNBOOK recipe
+(NUL-split binary probe, both controls through the same pipeline — the two instruments the
+runbook previously prescribed are both LANDMINED; see WRONG_CALLS 2026-09-02):
+
+- **The GATE is LIVE on agent-chassis**: `enforceListingItemSources`=2,
+  `ResolveListingItemSource`=2, defer literal `"required query source errored"`=1;
+  present-control `queryListBelowContract`=1, absent-control=0. Two symbols from
+  `c610898d1` read 0 (corroborated pair) → the running build is ∈ **[`6525b45ae`,
+  `c610898d1`)**: gate + carry/fallback/defer live; the r2 refinements (derived
+  vocabularies, optional-error durable record, shared-writer receipts) ride the NEXT roll
+  — all are refinements of behaviour that is correct in the deployed intermediate.
+- **Config half re-verified**: `enforce_listing_sources` = `true` on the live row.
+- **The defer repair has FIRED in production on the predicted population**: the 21:04:44Z
+  designblog `needs_section_data` row read first-hand from the DB ("Section
+  'featured-content' on index needs: required query source errored: … unknown query name
+  \"featured_post\"") — `featured_post` is one of the five unregistered query bases the
+  round-2 census named. Upgraded from [INFERRED] to PROVEN.
+- **The gate itself is live-but-unexercised, WITH the demand control** (a post-fix zero
+  needs one): **0** `build-site-planner` orchestrations since the roll window (measured),
+  so zero `producer_missing` receipts is the expected no-demand state. The first real plan
+  run (e.g. gamedesign's re-plan, or the next remake brief) is the standing capability
+  probe: a held listing page must produce the capability_gap row AND the
+  `LISTING_PAGE_HELD_NO_ITEM_SOURCE` finding together.
+
+**Class-half status against the fixed-AND-live bar: MET** — the defect is no longer
+reproducible on the planner path (gate live + flag on + prompt narrowed). The bug stays
+OPEN for: the five shipped instances (owned per the routing block), candidate (3) (glossary
+producer, unowned), and the first-fire confirmation above.
