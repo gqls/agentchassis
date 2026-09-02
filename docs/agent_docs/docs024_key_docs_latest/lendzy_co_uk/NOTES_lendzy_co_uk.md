@@ -538,3 +538,23 @@ Also a self-correction on foreseeability: 696's approval advisory NAMED the unre
 fallthrough and I recorded "safe by construction" — true for 696, and then I reused the same prose-
 reason shape in 693 where the fallthrough silently skipped the resolution proof. A fact learned
 about one migration was not carried to its sibling written the same hour.
+
+## 2026-09-02 (s) — the components session struck their urgency claim, and handed back one caveat that upgrades the proof read
+
+They struck the "compliance-shaped and urgent" consequence in the shared ledger (strike-through,
+not quiet softening — the three-way split beneath it: 701 correct by construction, 696 correct
+because the migration wrote the artefact, 693 where the finding holds). Their distilled rule is
+worth carrying: **ask what WROTE the artefact before concluding a no-op cost anything.**
+
+**The caveat that changes how I read the pending proofs:** they hold rows tonight that completed
+TWICE with `reason='template_changed'` and produced pre-fix output both times (their open defect).
+So a recognised reason + completion may still mean the template path silently did not run. For my
+three proofs the output side cannot discriminate anyway — the adopted template IS the stored bytes,
+so "rendered through and produced the same bytes" and "never rendered" are output-identical BY
+DESIGN. The read when they land is therefore layered:
+1. completion vs the historical fatal (primary — this path errored on the pre-693 state);
+2. the item `result` payload's section counts if the action surfaces them (reRendered vs carried
+   names which branch actually ran);
+3. `page_components.updated_at` bumped + served inputs still 3/1/2;
+and if (2) is not surfaced, the honest status is "resolution proven to NOT ERROR; proven to have
+RUN only as far as the result payload discriminates" — recorded as such, not rounded up.
