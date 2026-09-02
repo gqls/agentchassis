@@ -486,3 +486,22 @@ for pattern verification now reads: stored form (695's verify, at apply) → Go 
 Also from their census: **farmerinsurance carries 7 facts and ZERO banned_claims** — a register
 that reads "done" in any facts-count check while enforcing nothing at the build gate. Relayed to
 the loanzy.uk session, which holds that site's lane (correcting the 414 lane's "no lane owns it").
+
+## 2026-09-02 (q) — register programme end-state: every owned seat filled, and the method came back improved again
+
+farmerinsurance's banned set landed (their migration 713, corr cea2a32c at the gate): five
+INSURANCE-SHAPED patterns designed as a sector set rather than the credit set transplanted — the
+first deliberate sector design, which is itself a data point on RFC_060's shared-set question. The
+full ladder ran in order, and step (1)'s count reconciliation caught a REAL defect on their own
+site mid-calibration (the 18th active page, /claims.html, serves 404 — their bugs_open/437).
+
+Two of their structural absences cite this lane's findings, and the second is a NEW pattern-
+authoring rule worth keeping: no literal-rate pattern (§8e's no-citation-exemption), and **no
+local copy of a pattern a fleet-wide check already owns** (first-person FCA-authorisation belongs
+to CGV-033 — a per-site copy would SHADOW the fleet check, splitting one judgement across two
+homes).
+
+**Scoreboard at close `[MEASURED 2026-09-02 evening, per-lane reports]`:** loancalculator 12/8 ·
+lendzy 8/5 · farmerinsurance 7/5 · loanzy 3/5 · **loancash absent — the fleet's only empty seat,
+owned by nobody.** Four sites went from unregistered to citation-backed-and-guarded in one day,
+each lane improving the shared method as it passed through.
