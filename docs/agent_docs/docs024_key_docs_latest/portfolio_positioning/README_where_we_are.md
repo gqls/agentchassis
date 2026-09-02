@@ -1303,3 +1303,20 @@ already applied — their site rows went in complete this time, including contac
 won't stall where advertise did. The build queue works them in alongside advertise's remaining
 pages. Your review queue is now down to the two test briefs and that one style-phrase question
 on advertise.
+
+**2026-09-02, evening — advertise is built and deployed; one step remains before the world sees it, and it's yours.**
+
+The first framework remake went end to end today: brief to research to plan to seven working
+interactive tools to twenty-four pages, through one credit outage and a handful of self-healing
+retries, to a deployed site — verified by reading the actual built pages, not the statuses. The
+homepage reads "Advertise.co.uk — The UK Guide to Advertising", the glossary and news feed from
+your fullness edit are in, and there isn't a "we don't sell advertising" anywhere on it, so the
+door to selling your own network's space stays open.
+
+The catch: advertise.co.uk the domain still points at the old hosting, so visitors still see the
+old Drupal page. The new site sits ready behind the platform's serving worker. To cut over:
+the domain needs a Cloudflare zone, then the nameserver change at Nominet — that second step
+only you can do. The same will be true for the three cluster sites when they finish, so it may
+be worth doing all four domains as one Nominet batch, which is the bulk approach you ruled for
+anyway. If you create the DNS-scoped Cloudflare token the runbook describes (the correction from
+2026-08-18 has the exact permission recipe), I can script everything except the Nominet step.
