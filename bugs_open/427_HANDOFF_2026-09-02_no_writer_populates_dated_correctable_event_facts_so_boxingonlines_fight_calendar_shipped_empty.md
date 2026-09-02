@@ -85,6 +85,27 @@ none":
 
 `boxingonline.com` sits in the thin end: 2 rows, 3 facts total, 0 `allowed_entities`.
 
+> **Correction, 2026-09-02 (resuming session, cross-checked against `boxingonline.com`'s
+> own live re-measurement, identical query shapes).** The 3-facts figure above is now
+> stale — it moved *after* this bug was filed, for a reason worth recording rather than
+> silently re-querying past. `[MEASURED 2026-09-02]`:
+> ```
+> source       | created_by                       | created_at           | is_current | n_facts
+> order_intake | seed_build_queue                 | 2026-08-31 12:21:12  | f          | 2
+> operator     | site_delivery_and_editor-session | 2026-08-31 15:54:48  | t          | 1
+> ```
+> The seeded row was superseded the same day this bug's underlying gap was being
+> diagnosed, by the `site_delivery_and_editor` lane acting on the owner's privacy ruling
+> (`bugs_open/420`): one of the two seeded facts was the text "Enquiries reach
+> aaa@designconsultancy.co.uk" — the owner's own billing address, registered as a
+> publishable business claim — and was removed because the owner ruled his personal
+> address off the site entirely. **This makes the case stronger, not weaker**: of the two
+> facts this site was ever seeded with, one was a misregistered contact detail, not a
+> fact about the fight calendar at all. The live corpus is one fact, about the business
+> name, and it still contains zero dated event facts — the root cause in §3 is unaffected
+> by which of {3, 1} is quoted, but the smaller number is the current one and the larger
+> one should stop circulating.
+
 **The combined figure is the one that actually settles §3's question, and it was derived
 independently twice — once here, once by `boxingonline.com`, matching exactly on
 re-check** `[MEASURED 2026-09-02, both sessions, identical query shapes]`: folding the
@@ -223,10 +244,26 @@ question returns in a month under a different site's name.
   exactly this: *"An event directory — one page per major upcoming fight — gives each bout
   a permanent URL with full details: fighters, date, venue, broadcast, undercard, and a
   brief preview."* The planner emitted neither `entity-directory` nor `entity-page` for
-  this site — under separate, already-running diagnosis, correlation `d6d350ec-e16b-4792-
-  9282-ca5155369791`, asking why the planner drops roles its own strategy names. Do not
-  duplicate that run; read its result before assuming the page-role gap and this bug share
-  one cause.
+  this site — diagnosis correlation `d6d350ec-e16b-4792-9282-ca5155369791` asked why.
+
+  > **Update, 2026-09-02 (resuming session): that diagnosis has since completed —
+  > `status: UNVERIFIABLE`, `stopped_by: iteration-cap`, "no fix proposed."** Read at the
+  > artefact (`site_work_items.result`, not the item's `status='complete'`, which is the
+  > item's lifecycle, not its verdict). What it DID confirm, citation-backed:
+  > boxingonline.com's strategy names both `entity-page` and `entity-directory` with full
+  > per-type reasoning; the site's current plan carries neither role; other sites' current
+  > plans do carry both, so the roles are not globally unproducible; and
+  > `page_role_validator.go`'s `ValidateRoles`/`normaliseRole` actively recognise and
+  > preserve both role names rather than dropping them, so a downstream validation drop is
+  > ruled out. What it did NOT reach before hitting the iteration cap: whether
+  > `recommended_page_types` is wired into the `build-site-planner` plan-writing step's
+  > prompt/input at all — `WriteSitePlanAction` only consumes the LLM's already-produced
+  > plan, never reads `recommended_page_types` itself, so the gap is equally consistent
+  > with the planning LLM never being handed that reasoning in the first place. A sibling
+  > diagnosis on `bugs_open/419` (a planner zero-section page) hit the same iteration cap
+  > the same day. **Fix candidate #3 stays blocked on that gap closing, owned by whoever
+  > takes the planner** — do not duplicate the diagnosis, and do not treat UNVERIFIABLE as
+  > either a confirmation or a refutation.
 - **Dates get corrected, not just added.** The research spec's own `lessons.avoid[]`
   already names this: *"Stale calendar entries — a wrong fight date actively harms
   readers."* Whatever writes a fixture must also be able to revisit and correct it —
