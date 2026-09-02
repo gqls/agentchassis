@@ -60,6 +60,11 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   re-resolves them — batch-verify at the SERVED body after convergence, then close.
 - ⚠ Content validation blockers: the issue detail is in agent_error_log's SECOND row
   (severity `warning`, "see context.issues"), not the CONTENT_VALIDATION_FAILED row.
+- ⚠ Once 444's repair rolls (council corr `c0990eb3`, submitted 2026-09-02 late): a DEFERRED
+  listing section means the item source ERRORED — check the exporter config / kind opt-in,
+  NOT the component. New deferred-section HITL rows where there was silence are genuine
+  findings, not noise; nothing new can FAIL a build that previously completed. (Pre-repair,
+  the same condition built HOLLOW and completed normally — 444's original symptom.)
 
 ## 3. Serve cutover (Cloudflare + Nominet) — ZONE FIRST
 
