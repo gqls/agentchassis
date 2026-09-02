@@ -173,3 +173,83 @@ as a permanent maybe.
 
 ⚠ **advertise.co.uk's PNG has not been looked at.** It is disconfirmation C's second data point and
 the cheapest outstanding action in the lane. The census cannot see lettering; only a person can.
+
+---
+
+## 2026-09-02 (later session) — disconfirmation C closed at 3 for 3, and the census got a THIRD instrument
+
+### The two eye-checks the handoff owed
+
+**advertise.co.uk — CLEAN.** Zero lettering, single composition, a broadcast/signal mark
+(concentric arcs from a mast). No invented brand name. Bytes pulled from the bucket through the
+adapter pod; recipe now in the RUNBOOK.
+
+**boxingonline.com — CLEAN, re-checked independently.** Fist-in-a-square mark, no lettering,
+single composition. Pulled from `boxingonline.ugg2.com` (the only route that existed — see below).
+
+**designblog.co.uk — CLEAN.** Generated 17:03:23Z, mid-session, off the queue. White geometric
+star mark, no lettering, one composition. Carries the clause.
+
+**So: disconfirmation A is 3 for 3, C is 3 for 3, and 421's two-panel shape did not recur.**
+
+### The census instrument the lane was missing: the STORAGE KEY's date directory
+
+The handoff says neither `created_at` nor `updated_at` is a regeneration signal, and points at the
+work-item trail instead. **The work-item trail is also incomplete** — boxingonline's 10:40Z
+regeneration has **no `needs_imagery` row at all** (checked every item type on that site since
+2026-09-01: 22 `page_rerender`, an `owner_critique`, a `chrome_divergence_overwritten` — no imagery
+item). A census keyed on the trail would have reported ONE regeneration today, not two.
+
+The instrument that caught both, and then caught the third:
+```sql
+substring(a.storage_path from 'images/[^/]+/([0-9]{8})/') AS key_date
+```
+**It is sound by construction, not by luck** — `dynamic_adapter.go:717` builds every key as
+`images/<client>/<YYYYMMDD>/<fresh uuid>.png`, so a regeneration can never re-use an old key:
+```
+relojistas.com     updated 09-02  key 20260729  ← updated_at bumped, NOT regenerated
+homegarden.uk      updated 09-02  key 20260825  ← ditto
+idea.uk            updated 09-02  key 20260621  ← ditto
+advertise.co.uk    updated 09-02  key 20260902  ← REAL
+boxingonline.com   updated 09-02  key 20260902  ← REAL (created 08-31 — proof the key is fresh)
+```
+Eight of ten logo rows touched today were not regenerations. Blind spot to state: operator-supplied
+rows (`amend-asset.sh`) have no dated key — gaswholesalers.com returns NULL.
+
+### The check I nearly skipped, and it would have been a WRONG_CALL
+
+I measured 12 of 12 logo source objects to be JPEG and was about to tell the 424 lane that their
+code comment ("banana has returned PNG in every observed case") was refuted. **All 12 samples
+predate their 15:39Z roll.** Checked the roll time before writing — the samples could not speak to
+the matted path. The claim survived only because the adapter's own post-roll log line independently
+says `"source_format":"jpeg"`. *Measuring 12 things does not make the sample the right population.*
+
+### The one I nearly got wrong in the other direction, and it matters more
+
+The first live matte run produced a ground ~74 Euclidean units off the requested `#FF00FF`. The
+424 lane's constants carry a `[UNMEASURED]` note explicitly asking the next session to "tune from
+the first real output and date the change" — so I had exactly the number they asked for, and
+drafted it as the tuning figure.
+
+**It is contaminated and I nearly shipped it as tuning advice.** That run's prompt still carried
+the magenta negative-prompt contradiction the council caught: `b2322a203` was committed at **17:25**
+and the chassis pods (`v1.0.1354`) started **15:39/15:53Z**, so at 17:03 the running build still
+had `logoBackgroundNegatives = {..., "magenta", "#ff00ff"}` while the clause told the model to
+paint the whole ground magenta. The ~74 units are most plausibly that contradiction, not model
+drift. **A number can be correctly measured, correctly dated, and still answer a question nobody
+asked.** Rewrote the CONTRIB to lead with "treat §4 as contaminated".
+
+### What actually matters in that run, and it is not the number
+
+`border_keyed=1` — a perfect pass from the fail-closed guard — on an artefact with **0.0% fully
+transparent pixels** (alpha extrema (57,255); of 4,348 border pixels, 0 keyed out). `BorderKeyed`
+counts flood *membership* (`dist <= outer`), while transparency needs `dist <= inner`. So the guard
+scores 1.000 on a ground it left 98% opaque. **That is structural and survives any threshold or
+prompt fix.** Contributed to 424, not filed as a new bug — their lane, their fix, shipped today.
+
+### Serving: the customer's own domain is usually not ours
+
+advertise.co.uk 404s every path and serves a stranger's Drupal install; only sites with
+`publish_project` set are served by the `*.ugg2.com` worker (2 of them fleet-wide today).
+A `Host:` override against the worker is 403'd by Cloudflare. This is a trap for anyone verifying
+"is the fix live on the site?" — the site may never have been served at all.

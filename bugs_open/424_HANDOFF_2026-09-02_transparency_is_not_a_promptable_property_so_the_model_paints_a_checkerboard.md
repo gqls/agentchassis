@@ -157,3 +157,32 @@ RUNBOOK for the exact commands to re-verify before testing.
 
 Detailed handoff for a fresh session: `docs024_key_docs_latest/bugfix_424_logo_transparency/
 HANDOFF_2026-09-02_continue_here.md`.
+
+---
+
+## 2026-09-02 (contd) — the matte RAN, and the fail-closed guard scored it 1.000 on an artefact with ZERO transparent pixels (contributed by the `bugfix_417_420` lane)
+
+First production run: `designblog.co.uk`, 17:03:23Z, triggered by the **queue**, not by a person
+(three `needs_imagery:site:-:logo` items were dispatched automatically at 16:10–16:15Z — the
+"do not trigger a real logo generation" warning above does not bind the fleet).
+
+Adapter's own log: `source_format":"jpeg","key_hex":"#FF00FF","border_keyed":1,"pixels_keyed":978631`.
+Stored artefact: PNG 1408×768 RGBA, **alpha extrema (57,255), 0.0% fully transparent pixels**, and
+of the 4,348 border-ring pixels **0 keyed out, 0 opaque, 4,348 graded**. The ground is veiled at
+~35–50% opacity, not keyed.
+
+**The structural finding — independent of prompt, build and thresholds:** `stats.BorderKeyed`
+counts border-flood MEMBERSHIP (`dist <= outer`, `keyground.go:104,131,149`), but a pixel only
+becomes transparent at `dist <= inner` (`keyground.go:176`). A ground at `d = 109` therefore scores
+`BorderKeyed = 1.000` and comes out 98% opaque. **The fail-closed guard at `dynamic_adapter.go:683`
+cannot observe the failure mode it exists to catch.** Fix shape: add a border-*transparency*
+statistic (final alpha 0) and gate on that; keep `BorderKeyed` as the "was there a ground at all"
+signal.
+
+**The threshold numbers this run produced are CONTAMINATED — do not tune to them.** The run
+predates `b2322a203` (committed 17:25; chassis `v1.0.1354` pods started 15:39/15:53Z), so its
+prompt still carried the magenta negative-prompt contradiction. The `[UNMEASURED as constants]`
+note on `keyGroundInnerThreshold`/`keyGroundOuterThreshold` is **still unmeasured**.
+
+Full evidence, the recovered per-pixel distances, and the 12-of-12 JPEG census:
+`docs024_key_docs_latest/bugfix_424_logo_transparency/CONTRIB_2026-09-02_from_417_lane_the_matte_ran_for_the_first_time_and_the_guard_scored_it_1000_on_an_artefact_with_zero_transparent_pixels.md`

@@ -88,3 +88,55 @@ One small thing still owed and it takes two minutes: nobody has actually **looke
 advertise.co.uk's new logo. The database can tell me the instruction was sent; only a person can
 tell whether the picture obeyed it. Both times we've caught this bug, it was someone opening an
 image.
+
+---
+
+**2026-09-02, later — the logo fix is holding, and I found a problem in someone else's fix while checking it**
+
+The two eye-checks this lane owed are done, and a third arrived free while I was working.
+
+**All three logos are clean.** advertise.co.uk is a broadcast-signal mark — concentric arcs coming
+off a mast. designblog.co.uk, which generated at five past six this evening while I was mid-check,
+is a geometric star. I re-checked boxingonline's myself rather than take the delivery lane's word
+for it: a fist in a square. **None of them has a single letter in it, and none is a two-panel
+design comp.** That was the whole worry. Three for three.
+
+So the guard is doing what it was built to do, on every logo the fleet has produced since it went
+live. I would still not call the class closed on three, but there is nothing here suggesting a
+fence is needed, and the fence decision can keep waiting for evidence rather than nerves.
+
+**Getting the pictures was the hard part, and worth writing down.** advertise.co.uk's own domain
+is not ours — it serves somebody else's Drupal site and returns "not found" for everything,
+including things that do exist. Only two of our sites are actually published to the open internet
+right now. So for two of the three logos I had to pull the file out of the storage bucket through
+one of the running services, so that no password ever came near this session. That recipe is in
+the runbook now, because the next person will hit exactly the same wall.
+
+**The thing I did not expect.** Another lane shipped a fix today for a different logo problem —
+the background behind a logo should be transparent, and the image model cannot do transparency, so
+they added a step that cuts the background out afterwards. Their fix ran for the first time this
+evening, on the designblog logo, **and it did not work.** The background is still there; it has
+just been made half-see-through, like a veil, rather than removed.
+
+What makes it worth reporting rather than shrugging at is *why it went unnoticed*: they wrote a
+safety check that is supposed to refuse the image if the background was not properly removed, and
+that check **passed with a perfect score.** It turns out it measures whether the tool *found* the
+background, not whether it actually *removed* it. So it cannot detect the one failure it exists to
+catch. That part is a real defect and it will not go away by adjusting settings.
+
+I have written all of it up for their lane rather than touching their code — it is their fix and
+they shipped it hours ago. **Two more logos are queued behind this one and will hit the same
+thing**, so I have flagged that prominently; the queue triggers them automatically, which is worth
+knowing because their own notes say "don't test this yet".
+
+**One thing I nearly got wrong, and it is the more useful lesson.** I measured how far off the
+background colour was, and their code has a comment literally asking the next person to measure
+exactly that and write the number down. I drafted it as the answer. Then I checked the clock:
+the run happened twenty-two minutes *before* they fixed a contradiction in the instructions sent
+to the model, so the number I measured came from a run that was already known to be poisoned.
+Correctly measured, correctly dated, and still the wrong answer to their question. I have marked
+it as contaminated in what I sent them, and said plainly that their number is still unmeasured.
+
+**Nothing here changes what is waiting on you.** The four decisions in the handoff — the identity
+model, the derived-contacts question, the intake chat needing to ask about contact details before
+ordering reopens, and bug 421 still having no owner — are all exactly where they were.

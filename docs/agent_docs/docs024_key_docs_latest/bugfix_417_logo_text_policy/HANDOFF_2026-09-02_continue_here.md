@@ -56,15 +56,23 @@ minted only from the consented address. No schema change, no backfill. Council *
 
 ## 3. WHAT IS PROVEN, AND WHAT IS ONLY EVIDENCE
 
-**Disconfirmation A (did the guard REACH the generation?) — 2 for 2 `[MEASURED 2026-09-02]`.**
-Two logo generations have COMPLETED since the guard went live, and both carry the clause in
-`origin_prompt`: boxingonline.com (10:40Z) and **advertise.co.uk (14:48Z)**. Settled via the
-**work-item trail**, which is insert-per-dispatch — see §6 for why neither timestamp column can be
-trusted.
+**Disconfirmation A (did the guard REACH the generation?) — 3 for 3 `[MEASURED 2026-09-02]`.**
+Three logo generations have COMPLETED since the guard went live, and all three carry the clause in
+`origin_prompt`: boxingonline.com (10:40Z), advertise.co.uk (14:48Z) and **designblog.co.uk
+(17:03Z)**. Neither timestamp column can be trusted (§6) — and **nor can the work-item trail on its
+own**: boxingonline's regeneration filed no work item at all. Settle it on the **storage key's date
+directory**, which caught all three and is sound by construction (§6).
 
-**Disconfirmation C (did the model OBEY it?) — 1 for 1, and the second is UNCHECKED.**
-boxingonline's PNG was eye-checked by the delivery lane: zero lettering, single composition.
-**advertise.co.uk has NOT been looked at.** That is the cheapest outstanding action in this lane.
+**Disconfirmation C (did the model OBEY it?) — 3 for 3 `[MEASURED 2026-09-02, eye-checked]`.**
+All three logos produced since the guard went live have been opened and looked at:
+- **boxingonline.com** — fist-in-a-square mark. Zero lettering, single composition. (Delivery
+  lane's original check, re-done independently this session from `boxingonline.ugg2.com`.)
+- **advertise.co.uk** — broadcast/signal mark, concentric arcs off a mast. Zero lettering, single
+  composition, no invented brand name.
+- **designblog.co.uk** — geometric star mark, generated 17:03:23Z off the queue. Zero lettering,
+  single composition. Carries the clause.
+
+**421's two-panel design-comp shape did not recur on any of them.**
 
 **Disconfirmation D (not over-applied) — holding.** A post-roll `content_hero` carries no policy
 sentinel; heroes are untouched.
@@ -80,12 +88,16 @@ and **0 `unattributed`** rows. Read as: every generation so far supplied a resol
 
 Ordered. Nothing here blocks moving to other bugs; items 1–2 are cheap and time-sensitive.
 
-1. **Eye-check advertise.co.uk's logo** (~2 minutes). It is disconfirmation C's second data point
-   and the fence decision turns on the rate. Download and LOOK — the census cannot see lettering.
-2. **Three more logo generations are QUEUED right now** — `websitepromotion.co.uk`,
-   `seotools.co.uk`, `designblog.co.uk`, all `triaged` as of 16:15Z. **These are the fence
-   trigger's subjects.** As each completes: census `origin_prompt` for the clause, then eye-check
-   the PNG. A lettered logo that CARRIED the clause ⇒ build the fence, re-open 417.
+1. ~~**Eye-check advertise.co.uk's logo.**~~ **DONE 2026-09-02** — clean, see §3. The RUNBOOK now
+   carries the fetch recipe (§"Fetch a generated asset's BYTES and LOOK at it"); it was not a
+   2-minute job, because the customer's own domain is not ours and the bytes had to come out of the
+   bucket through a pod.
+2. **Two of the three queued logos remain** — `websitepromotion.co.uk` and `seotools.co.uk`, both
+   still `triaged` as of 17:10Z. `designblog.co.uk` completed at 17:03Z and is **clean** (§3).
+   As each completes: census `origin_prompt` for the clause, then eye-check the PNG. A lettered
+   logo that CARRIED the clause ⇒ build the fence, re-open 417.
+   ⚠ **Those two will also exercise `bugs_open/424`'s matte, which is currently failing** — see §7.
+   Their result is 417 evidence regardless; do not read a veiled background as a 417 failure.
 3. **The fence decision itself** — recorded in 417 with its grounds and trigger, deliberately NOT
    taken on n=1. See §5.
 4. **417 and 420 stay OPEN** until their classes are bounded, per the fixed-AND-live bar. 420 also
@@ -154,10 +166,21 @@ needed). It needs routing to a lane.
 - **`assets` UPSERTS on regeneration**: `created_at` keeps the ORIGINAL generation's date. A census
   filtered on `created_at > <roll>` returned ZERO logo generations on a day one had completed, and
   I reported that stale zero to two lanes. **LANDMINES entry.**
-- **…and `updated_at` lies the other way** — ANY write bumps it. Five logo rows show
-  `updated_at` today with no regeneration behind them. **Neither timestamp is a regeneration
-  signal.** Use the **work-item trail** (`site_work_items`, insert-per-dispatch) or `origin_prompt`
-  content.
+- **…and `updated_at` lies the other way** — ANY write bumps it. **Measured 2026-09-02: of 10 logo
+  rows with `updated_at` today, only 2 were real regenerations**; the other 8 carried storage keys
+  dated 06-21 to 08-26. **Neither timestamp is a regeneration signal.**
+- **…and the WORK-ITEM TRAIL is incomplete too** — this handoff used to send you there. boxingonline's
+  10:40Z regeneration filed **no `needs_imagery` row at all** (every item type on that site since
+  09-01 checked). A trail-keyed census reports one regeneration on a day there were two.
+- **The instrument that caught all three, sound BY CONSTRUCTION:** the storage key's date directory.
+  `dynamic_adapter.go:717` builds every key as `images/<client>/<YYYYMMDD>/<fresh uuid>.png`, so a
+  regeneration can never re-use an old key:
+  ```sql
+  substring(a.storage_path from 'images/[^/]+/([0-9]{8})/') AS key_date
+  ```
+  Blind spot: operator-supplied rows (`amend-asset.sh`) have no dated generator key and return NULL.
+- **⚠ The `.png` in that key is a LIE — 12 of 12 sampled logo objects are JPEG.** Read the magic
+  bytes before you trust the format; a JPEG cannot hold alpha at all. LANDMINES entry; `bugs_open/433`.
 - **Transparency cannot be verified by looking** — viewers draw a checkerboard FOR real alpha, so
   paint and real alpha are visually identical. Only a PNG chunk scan settles it (`bugs_open/424`).
 - **Two producers' clauses differed by one capital letter** — my Go clause and migration 680's wash
@@ -172,7 +195,7 @@ needed). It needs routing to a lane.
 | item | state |
 |---|---|
 | `bugs_open/421` multi-panel design comp | **filed, UNOWNED** |
-| `bugs_open/424` transparency capability gap | filed by me, **implemented by the 424 lane** (`6440ec968`), council running |
+| `bugs_open/424` transparency capability gap | filed by me, implemented by the 424 lane (`6440ec968`), council APPROVED — **but its matte ran for the first time 2026-09-02 17:03Z and FAILED: zero transparent pixels, and its fail-closed guard scored the run 1.000.** Structural (the guard counts flood *reachability*, not transparency), so it survives any threshold change. Contributed to their lane + bug file; NOT taken over. `CONTRIB_2026-09-02_from_417_lane_…` |
 | `bugs_open/433` empty `mime_type` (910/1,277) | filed by another lane, diagnosis owed |
 | `RFC_058` identity model | **DRAFT, awaiting the owner** |
 | boxingonline pre-delivery | delivery lane; interim solid-ground logo shipped |

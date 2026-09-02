@@ -76,3 +76,54 @@ its next-written rows without a backfill.
 ## Related
 - `bugs_open/424` (the verification that surfaced this — not the cause of that bug's defect; this
   file exists precisely so the two do not get conflated).
+
+---
+
+## 2026-09-02 — the extension question is ANSWERED (no, it is not reliable), and **fix candidate 2 as written would write a WRONG value** (contributed by the `bugfix_417_420` lane)
+
+I hit this censusing logo bytes for 417 and it lands directly on two of your candidates.
+
+### The measurement `[MEASURED 2026-09-02]`
+
+First 4 bytes of **12 of 12** `asset_key='logo'` source objects in `personae-prod-uk001-images`,
+spanning **2026-08-10 → 2026-09-02**: **all `ffd8ffe0` — JPEG.** None `89504e47`. Domains:
+advertise.co.uk, homegarden.uk, boxingonline.com, agritec.uk, webdesign.co.uk, dartsonline.com,
+farmerinsurance.uk, robot-hands.com, loanandmortgagecalculator.co.uk, remortgagecalculator.uk,
+webdesign.uk, gamesdesign.co.uk. Every one is stored under a **`.png`** key with `filename`
+`logo.png` and `url` `/assets/images/logo.png`.
+
+The disconfirming result would have been PNG magic on any row. There was none.
+(Confirmed independently on the live path: the adapter's own log for the 17:03Z `designblog.co.uk`
+generation prints `"source_format":"jpeg"`.)
+
+### Why — three lines, and it is unconditional, not drift
+
+- `internal/adapters/imagegenerator/dynamic_adapter.go:492` — the provider's real MIME is
+  **discarded**: `imageData, _, origin, conditions, err := a.generateImage(...)`.
+- `:717` — the key hard-codes the extension:
+  `fmt.Sprintf("images/%s/%s/%s.png", clientID, timestamp[:8], imageID)`.
+- `:726` — the upload hard-codes the type: `a.storageClient.Upload(ctx, fileName, "image/png", ...)`.
+
+So the object is **named** `.png` and **served by B2 as `image/png`** while the bytes are JPEG.
+
+### What this means for your candidates
+
+- **Candidate 3 (do not backfill from the extension "without checking whether that is reliable"):**
+  checked. **It is not reliable — it is wrong for 12 of 12 logos.** Extension, `filename` and `url`
+  all carry the same false `.png`, so none of the three is usable as a backfill source. The bytes
+  are the only honest source.
+- **⚠ Candidate 2 needs amending before anyone implements it.** It proposes propagating
+  `uploadImage`'s hardcoded `"image/png"` into the `assets` row. **That constant is false for every
+  logo measured**, so the candidate as written would replace an empty column with a *confidently
+  wrong* one — strictly worse, because an empty `mime_type` is at least honest and greppable,
+  whereas 910 rows saying `image/png` would look repaired and be undetectable without re-reading
+  every object. The value to propagate is `result.MimeType` (currently thrown away at `:492`),
+  or a sniff of the actual bytes — not the constant.
+
+Note this is **not** the same defect as 424's, though they meet in the same file: 424 is about the
+image having no alpha; this is about the platform mislabelling what it stored. A logo that IS a
+real PNG after 424's matting will still be written under the same hardcoded constant.
+
+Fetch recipe for the bytes (through a pod, no key in session):
+`docs024_key_docs_latest/bugfix_417_logo_text_policy/RUNBOOK_logo_text_policy.md`,
+§"Fetch a generated asset's BYTES and LOOK at it".

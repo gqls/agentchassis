@@ -65,3 +65,51 @@ One command answers all of it at once:
 ⚠ It prints `FAILED` and **exits 0**, so `&&` chaining will not catch it. HEAD is independently
 red in ~23 places. **Run the bare control** (`./scripts/verify-head-builds.sh --test`) and diff
 the FAIL sets — the claim you can actually make is "every failure in my set is in the control's".
+
+## Fetch a generated asset's BYTES and LOOK at it — no storage key in your session
+The census proves the instruction arrived; only the eye proves it was obeyed, and the eye needs
+the file. Three routes, in order of preference.
+
+**1. The site, if it is published.** Only sites with `publish_project` set are served:
+```sql
+SELECT domain, publish_target, publish_project FROM sites WHERE domain = '<domain>';
+```
+Then `curl https://<publish_project>/assets/images/logo.png`. ⚠ **The customer's own domain is
+usually NOT ours** — advertise.co.uk serves a stranger's Drupal site and 404s every path, which
+reads exactly like a broken deploy. Always run the two controls (invented path must 404, a
+known-good sibling must 200). Overriding `Host:` against the worker does not work — Cloudflare
+403s it.
+
+**2. Otherwise, from the bucket, THROUGH A POD** (owner 2026-08-23: never read a key into the
+session). The B2 **native** API needs no SigV4, so BusyBox `wget` is enough — the S3 endpoint
+would need signing and openssl, which the image does not have:
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=image-generator-adapter \
+        -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec $POD -- sh -c '
+BASIC=$(printf "%s:%s" "$B2_APPLICATION_KEY_ID" "$B2_APPLICATION_KEY" | base64 | tr -d "\n")
+R=$(wget -q -O - --header="Authorization: Basic $BASIC" \
+      "https://api.backblazeb2.com/b2api/v2/b2_authorize_account" 2>/dev/null)
+TOK=$(printf "%s" "$R" | tr "," "\n" | grep authorizationToken | sed "s/.*authorizationToken[\": ]*//; s/\".*//")
+DL=$(printf "%s" "$R" | tr "," "\n" | grep -m1 downloadUrl   | sed "s/.*downloadUrl[\": ]*//; s/\".*//" | sed "s|\\\\/|/|g")
+wget -q -O /tmp/a.bin --header="Authorization: $TOK" "$DL/file/$IMAGE_BUCKET/<key>"
+base64 /tmp/a.bin | tr -d "\n"; rm -f /tmp/a.bin' 2>/dev/null | base64 -d > out.bin
+```
+`<key>` is `storage_path` with the `s3://<bucket>/` prefix stripped. Then `Read` the file.
+- ⚠ **Use `/b2api/v2/`, not `v3`** — v3 nests `downloadUrl` under `apiInfo.storageApi` and the
+  flat parse above silently yields an empty string, which then 401s and looks like a bad key.
+- ⚠ **Always run an invented-object control in the same exec** — a wrong key and a private bucket
+  both return failure, and only the control tells you the recipe works.
+- ⚠ **Never print `$R`, `$TOK` or the key**; print `${#TOK}` if you need to prove it parsed.
+- Clean up `/tmp` in the pod afterwards — it is a production pod.
+
+**3. ⚠ THE EXTENSION LIES. Read the magic bytes before you trust the format.**
+`dynamic_adapter.go:717` hard-codes `.png` in the key and `:726` hard-codes `image/png` as the
+upload Content-Type, while `:492` DISCARDS the provider's real MIME into `_`. **12 of 12 logo
+source objects sampled 2026-09-02 (spanning 2026-08-10 → 09-02) are JPEG** (`ffd8ffe0`), stored
+under `.png` keys and served as `image/png`:
+```bash
+head -c 4 out.bin | od -An -tx1     # 89504e47 = PNG, ffd8ffe0 = JPEG
+file out.bin                        # also gives dimensions and whether alpha is present
+```
+This is why `assets.mime_type` cannot be backfilled from the extension — see `bugs_open/433`.
