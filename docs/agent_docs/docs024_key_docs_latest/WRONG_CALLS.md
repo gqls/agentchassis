@@ -57797,3 +57797,29 @@ lower-bound test that replaced it) and NOTES. LANDMINE filed.
 
 Family: a-post-fix-zero-needs-a-demand-control, a-bound-added-for-a-reviewer-narrows-your-detector,
 your-action-moves-you-to-the-back-of-the-selector, a-closer-census-cannot-see-what-it-succeeded-at.
+
+- **2026-09-02 — vigilant_designer_offer_analysis — I reported a council verdict as "still running"
+  when it had landed 20 minutes after I submitted, and the false status survived two days in a
+  handoff.** Submitted `4054f4d9` at ~17:05Z on 08-31, polled the orchestration five times over the
+  next ~40 minutes, saw `EXECUTING_STEP` every time, and closed the session telling the owner the
+  verdict was pending. **It landed at 17:26:15Z** — REVISE, gated by a high-severity objection — and
+  I had already stopped polling. The handoff I wrote says *"VERDICT NOT READ. That is the first thing
+  you owe"*, which was accurate when written and then sat unread until the owner asked me to check.
+  **Why the wrong result looked right:** every poll I ran returned a real, moving `current_step`
+  (`review_constitution` → `review_prior_art` → `review_tooling_provenance` → `gate_guidelines`), so
+  the run genuinely was progressing each time I looked. Progress observed at T is not absence of a
+  verdict at T+n, and **`orchestration_states` is the wrong table to conclude from** — the verdict is
+  an artefact row, and the run's own `current_step` says nothing about whether the report has been
+  written.
+  **The cheap check that would have:** query `diagnosis_artifacts` (the verdict), not
+  `orchestration_states` (the run), and run it ONCE more before writing a status into a durable doc.
+  A council round is minutes, not hours — measured here at **21 minutes** end to end.
+  **And the reporting rule, which is the transferable half:** *"still running"* is a stronger claim
+  than the evidence supports. What I actually knew was *"not read as of 17:45Z"*. Write the weaker,
+  true one — it dates itself, it tells the next reader exactly what to redo, and it does not decay
+  into a falsehood the moment the run finishes.
+  ⚠ **Compounding factor worth naming:** I had put the correct instruction in the handoff, so the
+  system looked healthy. **A correctly-recorded obligation is not a discharged one**, and a doc that
+  says "you owe this" cannot tell you whether anyone did it.
+  Tally: **progress-observed-is-not-absence-of-a-result** ×1,
+  **status-reported-stronger-than-the-evidence** ×1.
