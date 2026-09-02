@@ -461,3 +461,50 @@ speculatively.
 
 Plan only, nothing implemented — matches `vetcomparison`'s own "plan now,
 write after" framing, and everything still sequences behind 357.
+
+## 2026-09-02 (later still) — 701 closed, unblocked, and this lane EXECUTED the accent batch
+
+`vetcomparison` signalled 701 applied and closed (proven in production —
+survived an organic rebuild byte-identically), design pass unblocked, and
+handed this lane the write: palette values + the amber-fallback fix, batched,
+then a rerender with the load-bearing `reason='template_changed'` (016b §10
+row 404 — the wrong/missing reason silently re-ships stale stored bytes and
+reads as success; checked this row before doing anything).
+
+**Read before write, both rows, confirmed exact current state first:**
+`palettes` (`palette-vetcomparison-uk`, 8 keys, neither `independence_bg` nor
+`independence_border` set — matches the earlier finding) and `content_components`
+(`latest-news`, confirmed **6** occurrences of `#d97706`, not 5 as the earlier
+proposal doc miscounted — corrected here).
+
+**Executed, both writes verified by their own RETURNING clause:**
+1. `palettes.colours` merged (`||`) with `{"independence_bg":"#ecfdf5",
+   "independence_border":"#10b981"}` — additive, nothing else touched.
+2. `content_components.html_template` (`latest-news`): all 6 `#d97706` → `#10b981`,
+   verified 0 remaining amber, 6 accent occurrences post-edit.
+
+**Queued two work items, both status `triaged` (bypassing the
+detected→triaged promotion gap bug 113 already documented), both verified with
+a `DO`/`RAISE` block per the "a SELECT block cannot stop a COMMIT" rule:**
+- `needs_design` → `webdesign-agent`, to regenerate `styles.css` so the
+  `.independence-banner` (confirmed live in the served HTML, 6 occurrences,
+  not just defined in CSS) picks up the new specialised slots.
+- `page_rerender` (`reason='template_changed'`) for the index page, to
+  regenerate the stored `latest-news` section HTML with the corrected fallback.
+
+**One real risk considered and accepted, not ignored:** `needs_design` regenerates
+core palette slots via a fresh per-run LLM guess (bug 113's own documented
+behaviour). Mitigant: `independence_bg`/`independence_border` are SPECIALISED
+slots, which the merge-authority rule gives to composition, not the LLM — and
+this site's `design_intent.palette.reference_values` is explicitly pinned
+("preserved verbatim" per the original brief), which steers the LLM guess back
+to the same core values every time. Flagged explicitly to `vetcomparison`
+rather than assumed silently — they already planned to check "primary
+untouched at 4.94:1" as part of their own verification, which is exactly the
+check that would catch this if the mitigant failed.
+
+Not touched: the 3 grey contrast fixes in the adopted tool component (their
+call, needs a browser-check for runtime-injected rows first per the vigilant-
+designer's caution) and the imagery work (explicitly sequenced after this batch
+lands clean). `vetcomparison` verifies at the artefact; not re-checked from
+here.
