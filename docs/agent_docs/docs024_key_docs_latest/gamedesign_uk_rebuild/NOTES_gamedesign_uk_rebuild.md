@@ -350,3 +350,31 @@ roi-estimator sits in the gap between it and `check_sectionless_pages`. Recorded
 
 **Owner decision surfaced by them, carried here:** `ai-agent-orchestration.com/llm-cost-calculator.html`
 — archived, still serving empty (359's class). Retract, or un-archive and build. Not acted on.
+
+---
+
+## 2026-09-02, 17:38Z — composition resolved: `palette_source = mission_hint`, first time in production
+
+Cascade timings (all `[MEASURED]`): submitter 17:07:55 → classifier 17:09:24 → vertical research
+17:16:47 → strategy → briefing → site plan complete ~17:36 → **composition 17:38:00**. Thirty
+minutes, no queue — the "budget hours" line in the HANDOFF was written for a busy fleet.
+
+**Site plan:** 5 pages — `/index.html` (landing), `/articles/index.html` (section-index),
+`/about.html`, `/contact.html`, `/blog/article.html` (blog-post). Fan-out: `needs_composition`,
+`needs_design`, 5× `needs_page`, 1× `needs_rerender`, 4× `needs_imagery`. Classifier's
+classification: `category: editorial` — *"not a tool platform … does not host tools (those
+live on the sister domain)"*. The positioning constraints held at the plan level.
+
+**Composition (`resolved_composition`, resolved_by site-design-planner):**
+| axis | source | result |
+|---|---|---|
+| palette | **`mission_hint`** — rung 1, **fleet baseline was 30/1/0, now 30/1/1** | `palette-gamedesign-uk-a6a70287`: **byte-for-byte the seed** (#F4F1EA / #FFFFFF / #33302B / #6E6558 / #A6521F / #23211E / #6B655C / #DDD6C9) — NOT the classifier's #F5F0E8/#9B4E2A at rung 2 |
+| typography | `fingerprint_font_family_match` | heading Playfair Display (classifier's design_intent = rung 1 of that cascade, as predicted); body **Libre Baskerville** — serif throughout |
+| layout | `library_match` from 5 candidates | **`magazine-grid`** (editorial, `scheme` empty) — NOT theme kits' `soft-editorial`; my `layout_preference` was in the superseded design_intent row, so the tag-match had only prose |
+
+**438's gate: diagnosis HOLDS.** Nothing populates `mission` on the fresh path; when something
+does, `extractPaletteSignal` reads it. Sent to theme kits with the values.
+
+**Watch for the served stylesheet:** the owner's "reference_values is NOT a pin" ruling means
+the render overlay may move off these; read `--color-*` in the served CSS after deploy and
+report the values, not a complaint.
