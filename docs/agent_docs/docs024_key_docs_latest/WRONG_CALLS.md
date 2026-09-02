@@ -59498,3 +59498,32 @@ one being asked, in both cases.
 
 **Tally:** **a-limit-can-hide-the-rows-that-decide-the-claim** ×1,
 **count-the-unit-your-claim-is-about** ×2 (one each, two lanes, one afternoon).
+
+## 2026-09-02 — designblog_couk lane: "content imagery is absent" — my `<img>` census could not see the estate's hero mechanism
+
+**The claim.** In the lane's critique doc (addendum, same evening) I wrote: *"Content imagery on
+this site is not sparse — it is absent"*, resting on two agreeing measurements: my artefact check
+(the single `<img>` on all 6 designblog pages is the header logo) and the components lane's
+stored-markup census (0 images across 50 slots, with working controls). Two independent
+measurements, both correct, both counting the same wrong unit.
+
+**What was true.** Every one of those pages serves a real hero image — as a CSS
+`background-image: linear-gradient(...), url('/assets/images/hero-*.jpg')`, which is how heroes
+render on this estate. `<img>`-counting misses every hero by construction. The corrected
+statement: designblog serves heroes + icons + a logo and has ZERO illustration/infographic rows
+planned — the owner's complaint survives, the "zero images" number does not. (Bonus from the
+recount: 6 pages share 3 distinct hero files — the feed and the contrast tool reuse the
+homepage's hero — which is its own small sameness finding.)
+
+**What caught it.** The editorial_design_uplift lane, re-verifying my routed claim with a
+one-line grep before acting on it: `grep -o "background-image:[^;}]*url([^)]*)"` on the served
+bytes. I re-ran it on my own downloaded files and it holds on all 6.
+
+**The cheap check that would have.** When the claim is "this page has no images", grep for BOTH
+delivery mechanisms — `<img` AND `background-image:.*url(` — before writing "absent". More
+generally (this family's own standing lesson): two agreeing measurements that share an ENCODING
+are one measurement. The components census and my artefact check both encoded "image = <img>
+tag", so their agreement proved consistency, not truth.
+
+**Tally:** **your-measurement-answers-the-question-you-encoded** ×(n+1);
+**two-agreeing-measurements-sharing-an-encoding-are-one-measurement** ×1 (new).
