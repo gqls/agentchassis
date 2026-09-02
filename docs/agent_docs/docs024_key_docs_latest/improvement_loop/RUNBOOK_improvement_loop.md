@@ -114,3 +114,61 @@ The sweep picks its own site (`ORDER BY s.updated_at ASC NULLS FIRST LIMIT 1`), 
 cannot choose one by waiting. Dispatch directly at the agent instead — and read
 `scripts/kafka-publish-lib.sh` first rather than hand-rolling a `kcat -P`, which exits 0
 having sent nothing.
+
+---
+
+## Before the skip-link re-render wave — the two-stage gate
+
+The Go change is inert until the fleet image rolls, and then inert per page until that
+page re-renders. **Stage 2 must not start until stage 1 is proven at the artefact**, and
+this gate exists because the council's `debug_historian` seat objected (medium, corr
+`3c71ec77`) that the original plan named no such gate. A fan-out fired against a pod that
+is still running the old binary re-renders every page on the estate to exactly the same
+bytes: expensive, green, and indistinguishable from success.
+
+**Stage 1 — is the code actually running?** Ask the service, not git and not the tag:
+
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 5cfd41bc0 <the sha that prints>   # exit 0 = it shipped
+```
+
+⚠ That is a STARTUP line and scrolls off a busy service, so an empty result means "not in
+range", not "not stamped". Fall back to the binary probe, **with both controls in the same
+breath** — a sha that must be present and one that must be absent:
+
+```bash
+kubectl -n ai-persona-system exec <pod> -- grep -aq "<expected-sha>" /proc/1/exe   # must hit
+kubectl -n ai-persona-system exec <pod> -- grep -aq "<a-sha-not-in-the-build>" /proc/1/exe  # must miss
+```
+
+**Stage 1b — does the running code emit the link?** The cheapest positive proof is one
+page, not a census: re-render a single page, fetch it, and check for the pair.
+
+```bash
+curl -s https://<domain>/<page>.html | grep -c 'class="skip-link"'    # expect 1
+curl -s https://<domain>/<page>.html | grep -c 'id="content"'         # expect 1, NOT 2
+curl -s https://<domain>/<page>.html | grep -c 'data-skip-link'       # expect 1 — the CSS
+```
+
+⚠ **All three, not just the first.** The link without the CSS is the failure that a whole
+test suite missed until it was mutated: the page still contains a skip link, and it is
+VISIBLE at the top of a client site.
+
+**Stage 2 — the fan-out**, only once stage 1b has passed on a real page.
+
+## What "it worked" looks like afterwards, and what it does not
+
+The findings retract themselves: `HeadEssentialsMissingCheck` re-probes the live page each
+run and emits a `ResolvedFinding` on `len(missing) == 0`, which `resolveWorkItems` closes
+by `site_id + item_type + item_key`. It does **not** filter on `handler_agent`, so these
+flag-only rows are retractable — verified in code, not assumed.
+
+⚠ **Do not read a flat count as the fix failing.** A row clears only after its page has
+re-rendered AND the structural check has next run over that site (its rotation is hours,
+not minutes). Expect the 867 to drain over days, not on the roll.
+
+⚠ **Expect a residual of exactly 10 rows on 5 sites**, named in NOTES §(gg): pages with no
+`page_components` rows, which this path does not build. `[MEASURED 2026-09-02]` 968 of 978
+rows carry `spec.assembled = true`, so the covered fraction is 99.0%. **If the count
+plateaus near 10, that is the expected floor, not a stall.**
