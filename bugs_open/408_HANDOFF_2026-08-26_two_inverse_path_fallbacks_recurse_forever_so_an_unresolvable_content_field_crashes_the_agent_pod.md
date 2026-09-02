@@ -207,3 +207,13 @@ orders, atop the ~10–14 near-clone dot-path walkers in LANDMINES' dotted-path-
 A concept-register census entry (each walker, its order, its failure signal, dated) is the
 cheap discoverability win; consolidation would change resolution semantics for somebody and is
 RFC-scope if ever actually needed. No lane owns this today.
+
+**Roll-verification instrument (from the webdesign-tool-rebuilds lane, 2026-09-02, baseline
+taken on the running binary):** the chassis rolled 2026-09-02 12:28Z (`v1.0.1352`) BEFORE this
+fix's 13:53Z commit, so `6e2d4a039` is NOT aboard — verified current. Baseline: `paths_tried`
+(a string unique to this fix — single source hit) is **ABSENT** from `/proc/1/exe` on the
+running pods, with the shared `"Field not found in path"` string **PRESENT** as the positive
+control — so the instrument discriminates. **The cheap check at the next roll: probe the
+binary for `paths_tried`, expect PRESENT.** Prefer this capability probe over the provenance
+stamp here: the startup line had rotated out of both pods' logs (~9.5h) and the tag-bump
+commit is not the build stamp (`bugs_open/249`'s straddle).
