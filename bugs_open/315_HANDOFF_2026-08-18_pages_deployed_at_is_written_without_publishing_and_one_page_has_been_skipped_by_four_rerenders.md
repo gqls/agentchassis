@@ -118,6 +118,39 @@ to both.
   post-roll: re-fire a rerender at this page while unbuilt → the ask files/dedups.
   **Inert until an agent-chassis roll; verify at the per-service stamp.**
 
+## llm-cost-calculator (secondary instance) — the retract-vs-rebuild question is MOOT; corrected facts 2026-09-02
+
+The reopen block named `ai-agent-orchestration.com/llm-cost-calculator.html` (archived,
+04-18, serving empty) as a retract-vs-rebuild decision. Owner input relayed via the
+gamedesign.uk session (2026-09-02 ~19:15Z), as a PRINCIPLE not a site-ruling (the peer
+flagged that "this site" in his sentence may have meant gamedesign.uk): *"we don't want
+an llm cost calculator on this site necessarily unless the story is all about using llms
+... in which case it is relevant."*
+
+**Before acting on that principle I checked the artefact, and it changes the question.**
+`[MEASURED 2026-09-02]` ai-agent-orchestration.com has THREE llm-cost-calculator pages:
+- `/tools/tool-llm-cost-calculator.html` — **active, deployed 2026-09-02, 1 component,
+  serves 67,613 B of real content.** The canonical tool ALREADY EXISTS, built today by
+  another process. So the owner's principle ("belongs where the story is about LLMs" —
+  and this site's is) is ALREADY SATISFIED. "Un-archive and build" rests on a false
+  premise; do not.
+- `/llm-cost-calculator.html` — archived, 04-18, 0 components, serves 200/empty. A stale
+  duplicate at the OLD flat URL — **and the homepage AND /tools.html LINK to it.** A
+  naive retract would 404 live navigation.
+- `/guides/tool-llm-cost-calculator-guide.html` — active/needs_rebuild, 04-18, 0
+  components, serves 200/empty. A third stale shell.
+
+**So the real, narrower action** (a nav/duplicate cleanup, NOT a build): repoint the
+homepage + tools-listing links from `/llm-cost-calculator.html` to the built
+`/tools/tool-llm-cost-calculator.html`, then retract the two empty shells. That is a
+content/design decision for the owner or the site's design lane, **not acted on by this
+315-mechanism thread** — recorded here and surfaced. Filing a build for the flat URL
+would only duplicate the tool that already exists.
+
+These two shells are the SAME 04-18 born-empty wave as roi-estimator, so the mechanism
+fix above stops FUTURE rerenders of them churning; the existing shells need the
+nav-repoint+retract, which no mechanism should do automatically.
+
 ## COUNCIL: r1 REVISE (objections right, all answered) -> r2 APPROVED 2026-09-02
 
 Corr `2be8ec34`. Round 1's two HIGH objections (ON CONFLICT convention, prior-art
