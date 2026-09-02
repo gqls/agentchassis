@@ -199,3 +199,14 @@ redirect.
 rather than per-zone redirect rules, because the portfolio token has no ruleset permission
 (`http_request_dynamic_redirect` → `Authentication error`) and no account scope. See the
 DONE section at the top of this file.
+
+## ⚠ Addendum 2026-09-02 — two field lessons from the first four-domain cutover
+
+1. **Order bit us exactly as §Steps warns:** the NS change went in at Nominet BEFORE zones
+   existed → all four domains lame-delegated (registry SERVFAIL "no reachable authority"),
+   old sites dark, for the hours until the owner created the zones. Zone FIRST, always.
+2. **The 404-token's zone list is not evidence.** With all four domains serving through the
+   worker, `GET /zones?name=<domain>` under `CLOUDFLARE_API_404_TOKEN` returned NO ZONE for
+   every one — the token's zone visibility is scoped (or the zones live under a different
+   view). Judge a cutover at the served body (proxy IPs + the page title), never at that
+   token's empty list.

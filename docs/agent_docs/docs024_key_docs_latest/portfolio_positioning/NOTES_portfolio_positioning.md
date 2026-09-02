@@ -3820,3 +3820,15 @@ served meta (contact) + the never-built premium.html title — my earlier "Pro n
 spec" was TRUE of specs but the name lived in pages.title/meta (a lesson: a spec census is not a
 pages census). The paid tier's NAME and HOME stay undecided; owner call at GD2 brief time.
 Their lane docs: docs024_key_docs_latest/gamesdesign_couk/ (dc1764660, bf0dc007d).
+
+### (n) DOMAINS LIVE — all four serve the new sites; verified at the bodies ~19:4xZ
+
+Owner created the zones ("the domains are now live"); all four resolve to Cloudflare proxy IPs
+and serve 200 with the new homepages (advertise 75,562 B "The UK Guide to Advertising" — 0
+negative-identity, 0 Drupal; websitepromotion; seotools; designblog). Advertise deep pages:
+tool 200 91,532 B, glossary 200, news 200. Expected residuals: advertise /sitemap.xml 404
+(642 generates on next rotation selection — verify tomorrow); seotools /guides/index.html 404
+(its convergence + tool sweep still pending). Zone watcher stopped.
+⚠ **The 404-token listed NO zone for any of the four while all four were serving through the
+worker** — its zone visibility is scoped or account-partial; never read that token's empty
+zone list as zone absence. Recorded in the DNS runbook.
