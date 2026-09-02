@@ -19715,3 +19715,34 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/041` (the component naming class) · MEMORY [[a-subagent-report-is-another-doc]] (a key SHAPE is a hypothesis about provenance) · IMG-074 (whose own cohort table was built on `name` and is correct only because it says so) · the `head -8` truncation row in `WRONG_CALLS.md` 2026-09-02 — same family: a confident absence produced by the instrument rather than the world
 - **source:** 2026-09-02, caught by the `designblog.co.uk` lane noticing that two lanes' numbers for the same component could not both be right, and asking before either was quoted onward. **Neither lane had made an error; the disagreement was the only signal that a third reading existed.**
 - **added:** 2026-09-02, vigilant_designer_offer_analysis lane
+
+### A writer replacing `pages.sections` silently DISARMS that page's stored `section_subjects`/`section_facts` — the arrays go inert, the build reads green, and the repeat comes back
+
+- **footprint:** `pages.section_subjects` · `pages.section_facts` · `pages.sections` · `load_page_sections_from_spec_action.go` · every writer that UPDATEs or upserts `pages.sections` (**19 candidate writer files as of 2026-09-02** — `grep -rln "UPDATE pages\|INSERT INTO pages" platform/ internal/ cmd/ --include="*.go" | xargs grep -l sections`; a count that goes stale by ADDITION)
+- **fires when:** anything rewrites a page's `sections` list — adoption upsert, gap plan, prune floor, blog rebuild, a hand UPDATE — without re-aligning the two sibling scoping arrays (bugs_open/443 / PBP-051). The loader's contract is **aligned or absent, never guessed**: a misaligned array is IGNORED with a WARN (kept for the operator, never applied, never auto-deleted). So nothing errors, the build completes, `plan_sections` receives no subjects, and a repeated component type quietly writes near-duplicate sections again — the exact symptom the columns exist to prevent, on a page that LOOKS configured because the arrays are still sitting in the row.
+- **why there is no guard doing this for you, deliberately:** a CHECK constraint would error all 19 writers; a nulling trigger would destroy operator data on every innocent rewrite. The read guard + this entry + the detector are the design (443 §D3).
+- **the check, after ANY write that touches a page's sections:**
+  ```sql
+  SELECT jsonb_array_length(sections)                       AS n_sections,
+         jsonb_array_length(section_subjects)               AS n_subjects,
+         jsonb_array_length(section_facts)                  AS n_facts
+    FROM pages WHERE site_id = :site AND name = :page;
+  -- any non-null count differing from n_sections = this trap: re-align the array
+  -- (or null it on purpose). And the durable tell on the next build:
+  SELECT created_at, context->>'page' FROM agent_error_log
+   WHERE error_code = 'REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT'
+   ORDER BY created_at DESC LIMIT 5;
+  ```
+
+---
+
+### AN ASSET-REFERENCE CENSUS MATCHED ON THE KEY'S STEM FINDS THE COMPONENT NAMED AFTER IT — so "is this generated image used?" returns YES for precisely the images that are orphaned
+
+- **footprint:** `page_components.rendered_html` · `assets.asset_key` · `site_plan_imagery.key` · `storage.DeployedWebPath` · `bugs_open/114` · any `rendered_html LIKE '%<asset_key>%'` / `ILIKE '%hero_about%'` audit · `check_image_url_404.go` · any "planned, generated, deployed — is it referenced?" sweep
+- **fires when:** you audit whether a generated asset actually reaches a page. This is `bugs_open/114`'s central question, several lanes run some form of it, and the natural query is a `LIKE` on the asset key or its kebab form.
+- **the trap:** **the component is named after the same thing its asset is named after.** `hero_about` the asset ⇄ `hero-about` the component; `illustration_team_values` ⇄ the section that shows it. The component's own markup carries `class="hero-about"` and `data-component="hero-about"`, so `rendered_html LIKE '%hero-about%'` matches **the empty frame that was supposed to display the image**. The count comes back non-zero and reads as "referenced, fine". **The false positive is not random — it is systematically the exact case you are investigating**, because the page that should show the asset is the page carrying the identically-named component.
+- **the check:** anchor on something only the artefact has — the **extension** (`LIKE '%hero-about.jpg%'`) or the full path from `storage.DeployedWebPath(asset_key, purpose)`, never the bare stem. **And put a positive control in the same query**: an asset you know is displayed must return non-zero, or the predicate is measuring nothing. Worked instance `[MEASURED 2026-09-02, gamedesign.uk]` — stem match: `hero-about` **1**, `hero-contact` **1** (reads as bound); extension-anchored: **0** and **0**, with `hero-home.jpg` **3** as the control. Both page heroes were generated, active, correctly plan-rowed and referenced nowhere, while both pages rendered the *homepage's* photograph.
+- **why the wrong result looks exactly right:** every other signal agrees. The asset row is `active`, the plan row is present and correctly keyed, the page HAS a hero image on screen, `<img>`-shaped checks pass (it is a CSS `background-image`), a 404 check passes (the URL it does serve is real), and the stem census says "referenced". Nothing anywhere reports that the image being shown belongs to a different page. **A page wearing the WRONG image passes every check written to catch a page wearing NO image.**
+- **relations:** `bugs_open/114` (planned, generated, deployed, referenced by nothing — this is how its census lies to you) · IMG-074 (the `site_assets.image`→hero alias, the other way a section ends up showing the page's own hero) · IMG-075 · `a-client-side-absence-is-not-an-absence` · the `<img>`-census trap (a CSS background is invisible to it — same family, different half)
+- **source:** 2026-09-02, `inline_guide_imagery` lane, answering another lane's question about three generated heroes. My first count said they were referenced; going to look at WHERE the matches were returned the bare words "about" and "contact" — no path, no extension — which is not what a filename reference looks like.
+- **added:** 2026-09-02, `inline_guide_imagery` lane.
