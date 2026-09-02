@@ -101,6 +101,13 @@ Declined to seed a `period-calendar`-carrying archetype now — that would be de
 of PLAN §2's still-open decision. Told them it's the right eventual home for that entry
 once (if) the decision lands, not before.
 
+**Resolved.** `theme kits` checked real section-index pages before picking a case rather
+than guessing: homegarden's month pages mostly serve the bare `hero, generic-text-block`
+fallback (confirming the gap was live, not hypothetical); a few with real listings add
+`content-listing`. Landing on `section-index` → `["hero","content-listing"]` — a real
+improvement over today's served pages, not just a parity port. Nothing further owed from
+this lane; their fix does not touch PLAN §2's still-open page-count question.
+
 > **UPDATE 2026-09-02, later still — staffed.** A fresh session ("feed lane") appeared,
 > independently verified the 427 write-up and the ownership gap (read the bug in full,
 > ran `who-owns.py` on 427/316), and accepted the charter proposed to them: the raw
