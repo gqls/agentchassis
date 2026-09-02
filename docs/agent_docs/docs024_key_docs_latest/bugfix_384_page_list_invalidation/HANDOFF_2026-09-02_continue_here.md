@@ -90,6 +90,16 @@ counts `status IN ('complete','failed')` on a shared `item_key` — **successes 
 gaswholesalers 13/22, boxingonline 3/10 — all still served, because some keys still get through.
 leopardess has none left that do. **[INFERRED]**, and §2 is the test.
 
+**A much better control, supplied by the `dispatch_throughput` lane 2026-09-02** — 21-day daily
+rerender-family completions (live+archive). The discriminator is **post-outage recovery**, which my
+snapshot could not see: 09-01/09-02 dartsonline **268/106**, gaswholesalers **52/139**, relojistas
+**40/72**, leopardess **2/1**. leopardess froze at 08-28 (…89, 179, then 5, 4, 2, 1) and is
+**uniquely unable to recover** while its comparators did. ⚠ **The weekly PERIODICITY is untestable
+in this window** — the 08-28→31 trough is the fleet LLM outage and every site dips, so **do not
+claim a sawtooth**. §2 is the clean test.
+**If it resumes, stamp the resume time into `bugs_open/389`'s evidence** — the peer lane's request,
+and the confirmation that mechanism needs.
+
 ## 5. WHAT IS SOMEONE ELSE'S — do not fix these here
 
 - **The two-strike mechanism belongs to `bugs_open/389`** (owned by the `bugfix_308` lane;
@@ -98,13 +108,16 @@ leopardess has none left that do. **[INFERRED]**, and §2 is the test.
   **two different producers sharing an `item_key` on purpose**, and all six strikes were successes.
   A fix candidate is noted there (`insertWorkItem` already exempts `item.recurrenceExpected`) and
   deliberately **not taken**.
-- **The `detected` backlog belongs to the `dispatch_throughput` lane.** Corresponded with them
-  2026-09-02. Their answers: promotion is `detected-item-promoter` (900s tick, enabled, firing,
-  **independent of site selection**); `sites.build_status` is **inert for dispatch**; they added a
-  zero-eligible starvation census to their runbook (commit `155c36812`). The dig they asked for
-  came back systemic: **1,386 `detected` rows across 35 sites, 100% with an EMPTY `handler_agent`** —
-  so the promoter's handler door parks the whole population by construction. **Theirs to take
-  forward. It does NOT explain the blog listing** (different population, different handlers).
+- **The `detected` backlog: RESOLVED as designed — there is NO bug and nothing to take forward.**
+  Corresponded with the `dispatch_throughput` lane 2026-09-02. Promotion is `detected-item-promoter`
+  (900s tick, enabled, firing, **independent of site selection**); `sites.build_status` is **inert
+  for dispatch**; they added a zero-eligible starvation census to their runbook (`155c36812`).
+  ⚠ **I claimed the handler door "parks 100% of the detected population by construction" and that
+  was WRONG** — verified at `scheduled_tasks.pre_query` (line 51,
+  `AND COALESCE(wi.handler_agent,'') <> ''` inside `scored`): handler-less rows are excluded
+  UPSTREAM and never reach any door. They are **flags** — records with no automated handler, whose
+  permanent home IS `detected`. I had tested rows against my own paraphrase of the door instead of
+  reading the query. **Do not re-open this.**
 
 ## 6. THIS LANE'S OWN SWEEP HAS NEVER RUN — and its watch item is vacuous
 
