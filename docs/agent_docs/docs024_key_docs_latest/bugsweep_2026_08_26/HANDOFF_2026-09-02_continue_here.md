@@ -144,6 +144,48 @@ scripts/audit-archived-still-serving.sh
 # 4. next bug: 338, voice-gate density rules — still unowned
 ```
 
-**338 is still the next one to take** (`bugs_open/338_HANDOFF_2026-08-20_voice_gate_density_rules...`).
-`who-owns.py` prints OWNED for it, but the commits driving that verdict are the 08-26 handoff's own
-and there is no owning workstream directory. Untouched by this session.
+~~**338 is still the next one to take**~~ — **DONE 2026-09-02 (later the same day), see below.**
+`who-owns.py` printed OWNED for it, but the commits driving that verdict were this handoff's own
+and there was no owning workstream directory — the prediction in §1 held exactly.
+
+---
+
+## 7. WHAT THE NEXT SESSION PICKS UP (appended 2026-09-02, after 338)
+
+**Item 1 of §6 is DISCHARGED: 404's round-4 verdict is APPROVED** (`f2e4ac2a-…`, 16:33:30Z,
+*"approved with 3 advisory objection(s) — none high-severity"*; `editquality`, `bug_historian`
+and `debug_historian` objecting, all advisory). The r3/r4 commits carry `Council-Submitted:`,
+so 098 credits them at report time with no amend. **Owed: read those three objections** — both
+this round and 338's approved *while still finding real defects*, which is the case for reading
+them rather than stopping at the verdict.
+
+**338 is FIXED IN CODE and stays OPEN.** `425398a01` — the gate's per-page COUNTS and
+per-sentence SHARES no longer gate a single value; the per-hit patterns and the em-dash RATE
+still do. Council **APPROVED** (`106802fc-…`). Registered **CQ-035**. It is a Go change, so it
+is **inert until the next chassis roll** — the artefact check (the two blank pages on
+`leopardessconsulting.co.uk` and `oufe.com` filling) is owed after that, and is the only thing
+standing between 338 and closure.
+⚠ **Do not "fix" 338 again by raising a site's thresholds** — that disables the rule for the
+site's PAGES too. And ⚠ **`bugs_open/338` §4's own remedy is WRONG and is corrected in the
+file**: it says to drop `em_dash_density` and hand-roll a flat test; the rate already reduces to
+"contains an em dash" below 333 words, and a flat test would re-gate the seven sites that
+switched the rule off.
+
+**NEW: `bugs_open/442`, found by the council reviewing the 338 fix.** A refused meta description
+returns a nil error, so the step COMPLETEs and nothing downstream asserts on it — and the one
+human-facing `result_message` names four refusal reasons while omitting all three copy-gate ones.
+Unowned. Config-only candidate 3 (fix the message) is ~10 minutes and closes the misleading half.
+
+**Still adjacent, still not fixed, verified at HEAD 2026-09-02:**
+- `platform/livespec` red (§5) — **unchanged**.
+- **A SECOND red of the same class:** `TestNoHandSpelledTombstonePredicate` fails at committed
+  HEAD on `check_unrendered_page_imagery.go:156/197/202/207` (`a87746b77`, the 114/IMG-077 lane).
+- `_RELOCK` unclassified migration suffix (§5) — **unchanged**, still WARNed by the 097 trigger.
+- `WII-035` is a **duplicate row id** in the concept index (lines 415/416), predating this work.
+
+**Process notes worth carrying** (full detail in `NOTES_bugsweep.md`): this tree swept my edits
+into other sessions' commits **twice in one session**, both times on the fleet-wide append-only
+ledgers (`LANDMINES.md`, `WRONG_CALLS.md`) — nothing was lost, but it reads as a failed edit, so
+verify with `git show HEAD:<file>` rather than `git log -- <file>`. And a register entry
+committed by pathspec without `000_concept_index.md` lands entry-without-row; the `pattern-check`
+advisory catches it at commit time.
