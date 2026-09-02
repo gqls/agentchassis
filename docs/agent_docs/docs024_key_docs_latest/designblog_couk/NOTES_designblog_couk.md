@@ -512,3 +512,15 @@ version; read 114 first). The transferable lesson, third time tonight: a
 population derived from the reported case is a GUESS; derive it from the
 predicate, then SAMPLE the consequence — one of five samples disproved the
 blanket claim.
+
+## 2026-09-02 (handoff cut) — fresh chassis roll deployed; token expired; handoff written
+
+Owner: fresh chassis build deployed. Two consequences for this lane: the 718
+council run (last seen EXECUTING at ~20:25Z) may have been ROLL-KILLED —
+checking it is the next session's FIRST action — and the kubeconfig token
+expired at exactly this moment (3-day expiry, owner refreshes), so nothing
+cluster-side could be verified at handoff time. 718 itself is DB config and
+survives a roll. COUNCIL_SUBMISSION_718.json preserved in this directory for
+a possible RESUBMIT_CORR resubmission. **COLD-START =
+designblog_couk/HANDOFF_2026-09-02_continue_here.md** (supersedes the
+CRITIQUE-doc-first reading order for a fresh session).
