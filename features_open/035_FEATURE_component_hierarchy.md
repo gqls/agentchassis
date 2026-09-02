@@ -601,6 +601,34 @@ P1–P3 have held on editorial pages for real weeks. The un-owned-page question
    its sibling's digest. A test that only renders non-empty children passes
    whether or not this is handled.
 
+6.9 **`loadStoredSections` HAS NO `parent_instance_id` FILTER, and the flat
+   occurrence counter is what per-section imagery binds on — so a nested walk
+   silently mis-attaches figures.** Contributed by the `inline_guide_imagery`
+   lane (IMG-075) and **verified first-hand here 2026-09-02**: the query selects
+   `COALESCE(parent_instance_id::text, '')` but its WHERE is only
+   `page_id = $1 AND <not removed>` — every row of the page comes back, flat, in
+   `position, id` order. Today that is harmless, because **0 of 2,249 rows carry
+   a `parent_instance_id`**, so the flat list and the top-level list are the same
+   list.
+   **The moment P1's walk renders children in a nested pass, they diverge.**
+   `rerenderFlatSections` counts `sectionOccurrences.NextOccurrence(slotName)`
+   over whatever `loadStoredSections` returned, and that occurrence is the
+   `sectionRef` the per-section imagery map is keyed by
+   (`plan_sections_action.go`, `sectionAssetFor`). If children stay in the flat
+   list while the nested pass also renders them, every later section's occurrence
+   index shifts, and figures attach to the WRONG sections — which renders,
+   deploys and looks correct. It is the same failure the drift guard exists to
+   stand down, arriving by a route the guard does not watch.
+   **The fix is one line INSIDE the composition change** (the flat pass takes
+   top-level rows only; the walk owns the children), and it is archaeology if
+   found afterwards. *Falsifier for P1: compose one page, then assert the
+   occurrence sequence the flat pass computes is unchanged from before
+   composition — not merely that the page renders.*
+   ⚠ Note the ordering trap this creates with §6.x's other work: the guard the
+   other lane relies on is **not yet in the running binary** (their round-2
+   commit missed the 2026-09-02 12:28 roll), so a P1 that lands before their
+   next roll has neither the filter nor the guard.
+
 ## 7. Architecture-scope call — and the honest counterweight
 
 Against RFC_022's three conditions, each measured 2026-08-22: composition is
