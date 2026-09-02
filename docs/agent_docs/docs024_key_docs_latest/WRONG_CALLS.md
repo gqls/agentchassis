@@ -58037,3 +58037,101 @@ just a comment — *a clock we cannot read must not switch a check off.*
 Family: mutate-the-code-to-prove-the-guard, a-mutation-that-passes-may-have-hit-a-guard-in-series,
 a-quiet-test-passes-when-the-rule-is-gone.
 - [2026-09-02, bugfix_357/408 lane] **A fix sketch in a bug file is not a semantics proof — and I carried it into a handoff as if it were.** `bugs_open/408` §5 candidate 1 prescribed the ordered candidate list `[original, stripped, with-response]` and I restated it verbatim in `HANDOFF_2026-08-26b` item 1 as THE fix. Unrolling the actual recursion at plan time showed the old code tried MORE forms before cycling on multi-occurrence and non-first-segment `.response.` shapes (`a.b.response.c` also tries `a.response.b.c` and terminates if it resolves) — the flat list would have silently narrowed resolution while every test on the common shapes passed. What caught it: the plan-preparation trace (fable agent) unrolled the recursion instead of trusting the sketch. The cheap check that would have caught it: before freezing ANY replacement for a recursive fallback, unroll the recursion by hand on one input per branch condition (here: two occurrences; occurrence not after segment one) and list the forms it visits — five minutes, no cluster. Two table rows now pin the routes.
+
+---
+
+## 2026-09-02 — I measured the motivating case, generalised it to the population, and shipped the remedy to a live table (editorial_design_uplift, migration 686)
+
+**The claim.** *"`article-body` cannot display an image by construction, therefore give it an
+optional image field."* Diagnosed from six boxingonline `/blog/` pages whose generated,
+deployed, HTTP-200 content heroes render nowhere. Carried through **two council rounds** (8
+approve / 3 object, then approved), a rehearsed apply-and-rollback round-trip, a 14/14 local
+harness with discriminating controls, and **an apply to live config**.
+
+**What was true.** The mechanism. `article-body` really does have one field and a template whose
+only interpolation is `{{.content}}`; the six heroes really are unreferenced.
+
+**What was false.** That this was the population's defect, and therefore that the remedy fit.
+`[MEASURED 2026-09-02, after the apply]` **292 of the 301 pages carrying `article-body`, across
+31 sites, ALSO carry a `hero` component whose `background_image` reads the SAME
+`site_assets.hero` key.** The new field would have rendered **the same image twice on 97% of the
+population** — a hero at the top and the identical file again inside the article. The six pages I
+measured are the **nine-page minority with no hero component at all**.
+
+**What caught it.** Not my testing, and not the council. A peer lane (`inline_guide_imagery`)
+sent an unrelated finding — two live pages where an aliased image field renders the page's own
+hero, *"the same file twice on one page, immediately under the hero that already shows it"* — and
+I recognised the shape as something my own applied change could cause, and went to count. **The
+catch was 25 minutes after the apply and came from someone else's bug.**
+
+**Why nothing broke.** The field only populates when a page re-resolves, and none did in the
+window: **0 of 301 instances ever carried it.** Rolled back to the exact pre-686 md5. That is
+luck plus a short window, not a control I had built.
+
+**The cheap check, which I had every reason to run and did not:** before adding a field to a
+shared component, ask **what the OTHER instances already do** —
+`SELECT count(DISTINCT page_id) FROM page_components WHERE page_id IN (SELECT page_id FROM
+page_components WHERE component_id='<the component>') AND component_id IN (<components reading
+the same source>)`. One query. I had measured the component, the asset, the resolver arms, the
+llm-dispatch mechanism and the alias map — **every layer except the neighbours.**
+
+**The generalisable half, and it is not "measure more".** I measured a great deal, and the
+council pushed me to measure more, and all of it was about **the change**. Nobody — me or eleven
+reviewer seats — asked *what does the rest of the population look like without this change?*
+**A remedy is fitted to a population, not to a defect.** A defect measured on N cases tells you
+nothing about whether the remedy suits the other N-hundred, and the reviewing seats cannot supply
+that because they only see what the submission describes. **State the population's CURRENT
+behaviour, not just the broken cases', before proposing to change what they all render.**
+Tally: generalised-a-remedy-from-the-motivating-case-to-the-population.
+
+## 2026-09-02 — I built a check to close a "fails green" gap, and the check itself failed green: it read a key my path never writes
+
+**The claim.** A peer lane told me their `bugs_open/408` fix changes a crash into a quiet SKIP, and
+that a skipped rebuild would leave a page untouched while every status read success. I agreed it
+landed on my delivery chain (retire slot → rerender assembles → page serves the new tool), and put a
+discriminator into my serve-grade's staleness refusal so the next reader could tell "not published
+yet" from "silently skipped": `collected_data->'assembled_page'->>'skip_reason'`.
+
+**What was false: that key does not exist on my path, so it would have matched nothing, ever.**
+There are two assembly paths **eleven characters apart** — `AssemblePageAction` (the `assemble_page`
+action) and `assemblePage` (`rerender_single_page_action.go`) — and there is already a LANDMINES entry
+on exactly that confusion. `[MEASURED 2026-09-02]` **2,124 of 2,124** of this site's `page_rerender`
+items dispatch to `handler_agent='page-rerender'`, i.e. the second one, and that file contains **zero**
+occurrences of `skip_reason`, `assembled_page` or `extractFieldValue` (control: those keys *do* appear
+in `owned_page_guard.go`, so the grep discriminates). 408 never touched my path at all.
+
+**So every staleness refusal would have printed a query returning nothing, and read as publish lag.**
+I wrote it to close a gap whose defining property is that failure looks like success, and the thing I
+wrote had that property. **I mutation-tested it too** — I ran the staleness branch, found and fixed a
+quoting bug in it, and watched it print the query. Testing that the branch *executes* is not testing
+that the query *can match*; I never once ran the SQL.
+
+**What caught it.** Not me. The peer re-derived which action my items actually dispatch to — a check
+I had every means to run and did not, because I had accepted their framing ("this lands on your path")
+and moved straight to implementing. **The failure was accepting a premise from someone with more
+context on their half than I had on mine.** They were right about their code and wrong about my
+wiring, and only one of us could check the second.
+
+**The corrected check, proven both ways this time.** `output_field` is `rendered_page`; the skip
+returns `skipped:true` + `reason`. ⚠ **the `skipped` key is ABSENT on normal runs** (36 rows carry it,
+all 36 are skips) so you must test `= 'true'` and never `= 'false'`. Positive control: finds a real
+skip (`brand-detail`, *"page has no component rows"*). Negative control: returns key-absent for our own
+`tool-asset-formatter`, which rendered fine.
+
+**The check that would have caught it in one line, and the general form:**
+`SELECT handler_agent, count(*) FROM site_work_items WHERE item_type='<the type>' GROUP BY 1;`
+— **before reading any action's source, establish which agent actually runs it.** More generally:
+**when you add a check that keys on a field, prove the field can be non-null on YOUR data before
+shipping the check.** A key that never matches is indistinguishable from a condition that never
+occurs, which is the same failure this file records under different names all week.
+
+**The finding underneath, which is worth more than the mistake.** This skip is not new and not 408's:
+it has always existed on our path and fired **36 times in 7 days** fleet-wide, and we had **no check
+for it at all**. It triggers on *"page has no component rows"* — and our retire sets the ported slot to
+`removed`, which the assembler excludes. **Our retire's PRE2 assert ("exactly one live native tool slot
+must exist") is precisely what stops us manufacturing that state**, so it is load-bearing rather than
+belt-and-braces. I did not know that until I was wrong about something else.
+
+Family: a-report-is-not-a-measurement, grep-the-config-key-before-calling-it-a-win,
+a-config-key-that-nothing-reads, writes-the-field-is-not-reads-the-field,
+editing-one-file-is-not-knowing-the-package.
