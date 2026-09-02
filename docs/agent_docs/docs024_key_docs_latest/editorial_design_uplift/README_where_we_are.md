@@ -176,3 +176,39 @@ are the thing to avoid.
 stays, so we design for a light background; and a logo must not have its background baked
 into it. That second one we are treating as a general rule for every site, not a one-off
 repair of the boxing logo — the repair itself is with the delivery thread.
+
+---
+
+## 2026-09-02, later — the fix is written and passed review; it needs your go-ahead to switch on
+
+The change that lets an article page show a picture has been written, tested, put through the
+review council, and **approved on the second round**. It is not switched on: this kind of change
+takes effect on every site the moment it is applied, so that is your call rather than mine.
+
+**What it does.** The building block that every article page is made of gains one optional
+picture slot. If a picture exists for that article it appears at the top of the piece; if not,
+the page renders exactly as it does today. Every one of the 297 existing articles across 30 sites
+is unaffected until a picture is actually available for it.
+
+**Why it is small.** The images already exist and the machinery that finds them already exists —
+it was built for precisely this case and has been sitting unused because the building block had
+nowhere to put a picture. So this is a missing hole, not a missing pipeline.
+
+**The review was worth having, and it caught me twice.** The first round came back "revise" with
+two serious objections, and both were right: I had claimed two things were safe by pointing at
+something similar rather than by checking. One of them mattered a great deal — there is a known
+trap in this system where adding a non-writing field to a component can stop the writer producing
+the article's *text* at all, silently, on every site. It does not apply here, and I can now say
+exactly why rather than "the similar case was fine". The second was the worry that all six boxing
+articles would end up showing the same picture instead of their own; I proved they each resolve
+their own, page by page.
+
+**Two honest caveats, both now written into the change itself.** If a picture is ever deleted, a
+later rewrite of the article would quietly drop it with no error — that is how this system treats
+all such fields, not something new here. And whoever switches it on must use a rebuild route that
+re-reads the picture, not the quick redeploy — otherwise nothing appears and it looks like the
+change did nothing.
+
+**What I need from you:** whether to apply it. The command is ready and it is reversible — the
+undo was rehearsed, not just written. Separately, making the six boxing articles actually show
+their pictures is the delivery thread's job, not mine, and should happen after this is applied.

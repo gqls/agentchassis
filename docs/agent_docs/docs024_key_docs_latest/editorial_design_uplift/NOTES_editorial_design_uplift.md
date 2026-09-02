@@ -1069,3 +1069,54 @@ markdown work, not shell work. **The durable fix is mechanical, not vigilance: w
 messages with `git commit -F <file>`** (or a quoted heredoc into a file), so the shell never
 parses the message at all. Adopted here from now on. The tell is free and I ignored it —
 `command not found` on STDERR, immediately above a successful commit line.
+
+### 2026-09-02 — council round 2: APPROVED, and the two advisories closed with measurements
+
+`4bf6c48f` → **approved**, "approved with 2 advisory objection(s) — none high-severity". Both
+round-1 HIGHs are gone: `editquality` now approves outright ("both round-2 HIGH objections are
+answered with mechanism-level arguments, not analogy"), and `prior_art_librarian` moved from
+HIGH to approve. **The migration is written, reviewed and NOT applied** — `content_components`
+is live config, so it waits on the owner.
+
+Two advisories were worth closing rather than filing:
+
+**1. `render_guardian` MEDIUM — I elided the CSS in the sketch, so they could not check it.**
+Their objection is procedural and correct: the submission wrote `<176 chars of
+.article-body__hero CSS>` as a placeholder, so nobody could verify it against the
+`--section-*`/`--color-*` `var()` fallback-chain contract. The literal, for the record:
+
+```css
+.article-body-section .article-body__hero{margin:0 0 2rem}
+.article-body-section .article-body__hero img{width:100%;height:auto;display:block;border-radius:var(--radius-md,8px)}
+```
+**Zero colour declarations** — no `background`, no `color`, so it cannot bypass the var chain;
+the one variable used carries a fallback. The concern does not bite, but **they could not know
+that, and that is my fault, not theirs. LESSON: never elide the actual bytes in a submission
+sketch — an elision converts a checkable claim into a trust request.**
+
+**2. `prior_art_librarian` MEDIUM — my llm-dispatch defence was "asserted from source reading,
+not verified by execution". Fair, and now MEASURED in live data** `[MEASURED 2026-09-02]`.
+`content-block-about` carries **11 llm fields and 2 non-llm fields** — the exact mixed shape
+686 creates. Across its **15** live instances:
+
+| llm `heading` written | llm `body_text` | llm `eyebrow_text` | non-llm `image_src` resolved |
+|---|---|---|---|
+| 15/15 | 15/15 | 15/15 | 14/15 |
+
+So a component holding non-llm fields demonstrably **still gets its LLM copy written**. The
+landmine's skip-the-LLM branch is not reached where an llm field remains — now shown by data,
+not only by reading `omitempty`.
+
+**MISSTEP 5 — my first attempt at that very probe returned a false zero.** I queried
+`content_data->>'eyebrow'`; the key is **`eyebrow_text`**. I had taken the field name from
+`brief-explanation`'s schema and applied it to `content-block-about`. The result — "0 of 15
+have LLM copy" — was alarming and completely wrong, and it would have read as *evidence for the
+very landmine I was refuting*. **A probe for a key you have not confirmed exists returns
+absence, and absence is indistinguishable from the failure you are looking for.** The fix was
+one query: list `jsonb_object_keys` first, then probe. Same family as every other misstep today
+— asking a question whose encoding I had not checked.
+
+Also carried, from `debug_historian`'s advisories: the 016 back-catalogue has titled cases for
+both "deployed hero images exist but the page renders the fallback" and "two rebuild routes —
+only page-build-handler re-resolves section sources". The second reinforces the rollout note
+already in the header; the first is worth a pointer for whoever revisits this class.
