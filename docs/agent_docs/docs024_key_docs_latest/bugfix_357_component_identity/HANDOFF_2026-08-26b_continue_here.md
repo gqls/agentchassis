@@ -123,6 +123,12 @@ owner; 578 as written is all-22):
    on precondition 4 (Finding 1).
 3. **Put the one-row pilot to the owner, then run it** (Finding 2). If the carry holds at the
    DB row AND the served page is acceptable, precondition 4 is met on the honest evidence.
+   > **ADDED 2026-09-02: a SECOND repair shape is now on the table** — the lendzy lane's
+   > per-tool template-equals-bytes adoption (their migration 693), which makes regeneration
+   > safe BY CONSTRUCTION instead of by the untested Layer 2 carry — i.e. it removes the very
+   > dependency precondition 4 exists to prove. Decision input, with the open question
+   > (does it rewrite `pages.sections` plans?) and transferable gotchas, in NOTES
+   > 2026-09-02 (evening). The owner chooses the shape before any pilot runs.
 4. **Run 578 in full** — §2 of the morning handoff, by hand, never the runner. Verify at the
    served pages per §3; **357 closes at `population = 0` verified at the artefacts.**
 5. **Separately:** `bugs_open/406`'s durable fix (one-entry plan for tool-recreation routing)
