@@ -12,7 +12,12 @@
 
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+)
 
 func TestVisibleSurfaceIsDerivedFromTheLiveConfig(t *testing.T) {
 	cfg := `"prompt_template": "## Content Direction\n{{if .site_specs.specs.content_direction}}{{if .site_specs.specs.content_direction.formatted}}{{.site_specs.specs.content_direction.formatted}}{{end}}{{end}}\n{{if .site_specs.specs.identity.target_audience}}Target Audience: {{.site_specs.specs.identity.target_audience}}{{end}}\n{{if .site_specs.specs.identity.key_differentiators}}Key Differentiators: {{.site_specs.specs.identity.key_differentiators}}{{end}}\n{{if .site_specs.specs.evidence_base.writer_block}}{{.site_specs.specs.evidence_base.writer_block}}{{end}}"`
@@ -239,5 +244,85 @@ func TestItemKeyIsAsGranularAsTheFinding(t *testing.T) {
 	// And it is still per-site.
 	if itemKey(site, a) == itemKey("00000000-0000-0000-0000-00000000000a", a) {
 		t.Error("two sites with the same phrase must not share a key")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The word arm (2026-09-02). BANNED_REGISTER_v1's banned_words had NO reader in
+// this binary — six scan sites, all shapes — so `plainly` and `honest*`, the two
+// words the owner named FIRST, were invisible to the nightly run while every
+// shape was fenced. Same disciplines as the shapes: a handover files, an
+// instruction is counted, and one span yields one finding with the shape taking
+// precedence.
+// ---------------------------------------------------------------------------
+
+func TestWordArmQuotedHandoverFiles(t *testing.T) {
+	specs := []siteSpecs{{
+		Domain: "example.uk", SiteID: "00000000-0000-0000-0000-000000000010", Aspect: "content_direction",
+		Data: map[string]interface{}{
+			"formatted": "Emphasis: use this exact phrase \"We explain your cover plainly and without jargon\" across the site.",
+		},
+	}}
+	a := assess(specs, []string{"content_direction.formatted"})[0]
+	if len(a.Supplied) != 1 {
+		t.Fatalf("a quoted span carrying a banned WORD is a handover and must file: %+v", a.Supplied)
+	}
+	p := a.Supplied[0]
+	if !strings.HasPrefix(p.Shape, "word:") {
+		t.Errorf("word-arm finding must be labelled word:<name>, got %q", p.Shape)
+	}
+	if !p.Mandated {
+		t.Error("'use this exact phrase' is a mandate for the word arm exactly as for shapes")
+	}
+	if !a.Finding() {
+		t.Error("a word handover must produce a finding")
+	}
+}
+
+func TestWordArmInstructionalIsCountedNotFiled(t *testing.T) {
+	specs := []siteSpecs{{
+		Domain: "example.uk", SiteID: "00000000-0000-0000-0000-000000000011", Aspect: "content_direction",
+		Data: map[string]interface{}{
+			"formatted": "Voice: write plainly. Be honest about limitations without ceremony.",
+		},
+	}}
+	a := assess(specs, []string{"content_direction.formatted"})[0]
+	if len(a.Supplied) != 0 {
+		t.Errorf("instructional word use must not file: %+v", a.Supplied)
+	}
+	if a.WordInstructional < 2 {
+		t.Errorf("instructional word hits must be COUNTED, got %d", a.WordInstructional)
+	}
+	if a.Finding() {
+		t.Error("word instruction alone must not produce a finding")
+	}
+}
+
+// One span, both violations: the shape files, the word does not double-count.
+// A double-filed span would perturb the phrase-set item key and churn open items.
+func TestWordArmShapeTakesPrecedenceInOneSpan(t *testing.T) {
+	specs := []siteSpecs{{
+		Domain: "example.uk", SiteID: "00000000-0000-0000-0000-000000000012", Aspect: "content_direction",
+		Data: map[string]interface{}{
+			"formatted": "Emphasis: the tagline \"We say it plainly, not in marketing language\" must appear on every page.",
+		},
+	}}
+	a := assess(specs, []string{"content_direction.formatted"})[0]
+	if len(a.Supplied) != 1 {
+		t.Fatalf("one span must yield exactly one finding, got %d: %+v", len(a.Supplied), a.Supplied)
+	}
+	if strings.HasPrefix(a.Supplied[0].Shape, "word:") {
+		t.Errorf("shape must take precedence over the word arm on one span, got %q", a.Supplied[0].Shape)
+	}
+}
+
+// Control: the word patterns must actually fire on this binary's inputs — a
+// vocabulary drift in the datahelpers mirror would make every word test above
+// pass vacuously if this one did not pin the arm itself.
+func TestWordArmControlFiresOnTheNamedWords(t *testing.T) {
+	for _, s := range []string{"we explain plainly", "an honest assessment"} {
+		if len(datahelpers.ScanBannedRegisterWords(s)) == 0 {
+			t.Errorf("word arm silent on %q — the register mirror lost the owner's named words", s)
+		}
 	}
 }

@@ -227,6 +227,12 @@ type siteAssessment struct {
 	Supplied      []suppliedPhrase `json:"supplied"`
 	Instructional int              `json:"instructional_only"`
 	Regulatory    int              `json:"regulatory_left_alone"`
+	// WordInstructional counts banned-WORD hits (BANNED_REGISTER_v1 word arm:
+	// plainly, honest*) sitting in visible prose outside any handover route.
+	// Added 2026-09-02: the word arm had NO reader anywhere in the estate while
+	// the shapes were fenced — the two words the owner named first were the two
+	// nothing watched. Same discipline as Instructional: reported, never filed.
+	WordInstructional int `json:"word_instructional"`
 }
 
 func (a siteAssessment) Finding() bool { return len(a.Supplied) > 0 }
@@ -286,7 +292,7 @@ func regulatorySupplied(phrase string) bool {
 	return false
 }
 
-func assessValue(field string, v interface{}, mandated bool, out *[]suppliedPhrase, instructional *int, regulatory *int) {
+func assessValue(field string, v interface{}, mandated bool, out *[]suppliedPhrase, instructional *int, regulatory *int, wordInstructional *int) {
 	switch t := v.(type) {
 	case string:
 		// ⚠ MANDATE IS TESTED PER BLOCK, NOT PER FIELD, and the difference is not
@@ -302,6 +308,15 @@ func assessValue(field string, v interface{}, mandated bool, out *[]suppliedPhra
 			for _, q := range quotedSpans(block) {
 				hits := datahelpers.ScanDefineByNegation(q)
 				if len(hits) == 0 {
+					// Word arm (2026-09-02): a quoted span carrying a banned WORD
+					// with no shape is still a handover — same transfer chain,
+					// different violation. Shape takes precedence when both are
+					// present: one finding per span, and the shape is the
+					// stronger, repair-relevant claim.
+					if w := datahelpers.ScanBannedRegisterWords(q); len(w) > 0 {
+						*out = append(*out, suppliedPhrase{Field: field, Route: "quoted",
+							Phrase: strings.TrimSpace(q), Shape: "word:" + w[0].Name, Mandated: m})
+					}
 					continue
 				}
 				if regulatorySupplied(q) {
@@ -315,11 +330,19 @@ func assessValue(field string, v interface{}, mandated bool, out *[]suppliedPhra
 		// Everything else in this string that carries the construction is the
 		// brief instructing, not handing over. Counted, never filed.
 		*instructional += len(datahelpers.ScanDefineByNegation(t)) - countInQuoted(t)
+		*wordInstructional += len(datahelpers.ScanBannedRegisterWords(t)) - wordsInQuoted(t)
 	case []interface{}:
 		for _, e := range t {
 			if s, ok := e.(string); ok {
 				hits := datahelpers.ScanDefineByNegation(s)
 				if len(hits) == 0 {
+					// Word arm: a list element is supplied by construction, so a
+					// banned word in one is a handover exactly as a shape is.
+					if w := datahelpers.ScanBannedRegisterWords(s); len(w) > 0 {
+						*out = append(*out, suppliedPhrase{Field: field, Route: "list_item",
+							Phrase: strings.TrimSpace(s), Shape: "word:" + w[0].Name,
+							Mandated: mandated || mandateRe.MatchString(s)})
+					}
 					continue
 				}
 				if regulatorySupplied(s) {
@@ -331,7 +354,7 @@ func assessValue(field string, v interface{}, mandated bool, out *[]suppliedPhra
 					Mandated: mandated || mandateRe.MatchString(s)})
 				continue
 			}
-			assessValue(field, e, mandated, out, instructional, regulatory)
+			assessValue(field, e, mandated, out, instructional, regulatory, wordInstructional)
 		}
 	case map[string]interface{}:
 		keys := make([]string, 0, len(t))
@@ -340,7 +363,7 @@ func assessValue(field string, v interface{}, mandated bool, out *[]suppliedPhra
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			assessValue(field+"."+k, t[k], mandated, out, instructional, regulatory)
+			assessValue(field+"."+k, t[k], mandated, out, instructional, regulatory, wordInstructional)
 		}
 	}
 }
@@ -349,6 +372,14 @@ func countInQuoted(text string) int {
 	n := 0
 	for _, q := range quotedSpans(text) {
 		n += len(datahelpers.ScanDefineByNegation(q))
+	}
+	return n
+}
+
+func wordsInQuoted(text string) int {
+	n := 0
+	for _, q := range quotedSpans(text) {
+		n += len(datahelpers.ScanBannedRegisterWords(q))
 	}
 	return n
 }
@@ -403,7 +434,7 @@ func assess(rows []siteSpecs, surface []string) []siteAssessment {
 				continue
 			}
 			a.VisibleChars += len(flatten(v))
-			assessValue(path, v, false, &a.Supplied, &a.Instructional, &a.Regulatory)
+			assessValue(path, v, false, &a.Supplied, &a.Instructional, &a.Regulatory, &a.WordInstructional)
 		}
 		out = append(out, a)
 	}
@@ -484,6 +515,7 @@ func fileFinding(db *sql.DB, a siteAssessment) (bool, error) {
 		"supplied":              a.Supplied,
 		"mandated_count":        a.Mandated(),
 		"instructional_only":    a.Instructional,
+		"word_instructional":    a.WordInstructional,
 		"regulatory_left_alone": a.Regulatory,
 		"visible_chars":         a.VisibleChars,
 		"document_chars":        a.DocChars,
@@ -501,7 +533,7 @@ func fileFinding(db *sql.DB, a siteAssessment) (bool, error) {
 		        '', 'needs_human_review', 1, $5, $6)
 		ON CONFLICT DO NOTHING`,
 		a.SiteID, gapItemType,
-		fmt.Sprintf("%s's brief hands the writer %d phrase(s) built on define-by-negation (%d mandated onto pages)",
+		fmt.Sprintf("%s's brief hands the writer %d banned-register phrase(s) — shapes and words (%d mandated onto pages)",
 			a.Domain, len(a.Supplied), a.Mandated()),
 		string(spec), createdBy, itemKey(a.SiteID, a.Supplied))
 	if err != nil {
@@ -596,16 +628,21 @@ func render(assessments []siteAssessment, surface []string, filed, closed []stri
 		b.WriteString("\n> ⚠ READ-ONLY RUN: `PG_CLIENTS_HOST` unset, so this went through `kubectl exec`; no work item, no close-out and no doc_note were written.\n")
 	}
 	findings := 0
-	b.WriteString("\n| site | supplied | mandated | regulatory (left alone) | instructional only | visible chars | document chars |\n")
-	b.WriteString("|---|---|---|---|---|---|---|\n")
+	b.WriteString("\n| site | supplied | mandated | regulatory (left alone) | instructional only | word instr. | visible chars | document chars |\n")
+	b.WriteString("|---|---|---|---|---|---|---|---|\n")
 	for _, a := range assessments {
 		if a.Finding() {
 			findings++
 		}
-		fmt.Fprintf(&b, "| %s | **%d** | %d | %d | %d | %d | %d |\n",
-			a.Domain, len(a.Supplied), a.Mandated(), a.Regulatory, a.Instructional, a.VisibleChars, a.DocChars)
+		fmt.Fprintf(&b, "| %s | **%d** | %d | %d | %d | %d | %d | %d |\n",
+			a.Domain, len(a.Supplied), a.Mandated(), a.Regulatory, a.Instructional, a.WordInstructional, a.VisibleChars, a.DocChars)
 	}
 	fmt.Fprintf(&b, "\n%d of %d sites hand the writer at least one such phrase.\n", findings, len(assessments))
+	b.WriteString("\n> NOTE (word arm, added 2026-09-02): supplied counts now include BANNED WORDS " +
+		"(BANNED_REGISTER_v1: plainly, honest*) handed over in quotes or list items, labelled `word:<name>` " +
+		"per finding, and `word instr.` counts them in instructional prose. The first runs after this build " +
+		"will move N-of-M and per-site numbers upward — that is the NEW ARM arriving, not fleet drift; " +
+		"compare shape-only trends via the finding labels.\n")
 	for _, a := range assessments {
 		if !a.Finding() {
 			continue
