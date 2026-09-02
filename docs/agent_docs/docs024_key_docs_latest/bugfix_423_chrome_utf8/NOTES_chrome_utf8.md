@@ -167,3 +167,29 @@ dissolved four advisories instead of deferring them.
 own DELETED test file back from HEAD (`git status` shows ` D`, and the script treated it
 like any tracked peer file). A deleted file of your own must map to `""`, not to its HEAD
 copy — otherwise you are testing a symbol you just removed.
+
+
+## 2026-09-02 16:21Z — LIVE, and half 2 proven at the artefact
+
+Fresh chassis build `v1.0.1354`. Probed the running binary rather than trusting the tag:
+both added literals present, the DELETED emitter text absent (a removed-string control,
+the strongest available), nonsense absent. `escalate_chrome_store_failure` also present —
+which correctly says the build carries `cccb5ccd6`, the GATED version, and not my
+uncommitted-at-the-time deletion.
+
+Then the behaviour, which is the part a probe cannot tell you: dispatched `rerender-chrome`
+for garden-tools.uk (`af0857d2`, publish receipt asserted via kafka-publish-lib rather than
+hand-rolled kcat). Footer stored at 16:21:32Z — **2,427 bytes after ten days of NULL** —
+digest matching, header and head stored in the same run so it was real work.
+
+**The check that actually proves the mechanism rather than the absence of a crash:** the
+offending label renders intact — `How We Assess Garden Tools — Our Methodology | Garden
+Tools UK` — em-dash preserved, not mangled to U+FFFD and not dropped. A footer that stored
+because the label had been silently discarded would have looked identical in every other
+column.
+
+Census after: unstored footers **2 → 1**, NULL/empty `rendered_html` rows **1 → 0**.
+
+Chose NOT to re-render boxingonline: paid site, mid-delivery by another lane, and the
+re-render replaces a hand-patch that is currently the only definition of its footer. Told
+that lane; it is theirs to fire.

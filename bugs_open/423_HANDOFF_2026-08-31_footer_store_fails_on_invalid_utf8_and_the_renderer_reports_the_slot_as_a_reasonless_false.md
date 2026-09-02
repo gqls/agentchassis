@@ -317,3 +317,32 @@ and bug_historian's own) — a fair sign the simpler design was right.
 Two seats moved me in opposite directions and the **measurement**, not the seniority of
 the objection, decided between them. Round 4 resubmitted so the trailer describes the code
 that exists.
+
+---
+
+## ✅ VERIFIED AT THE ARTEFACT — 2026-09-02 16:21Z, half 2 PROVEN END TO END
+
+Live on `agent-chassis:v1.0.1354`. A `rerender-chrome` run for **garden-tools.uk**
+(correlation `af0857d2-61c5-4cf6-ab82-c7b5001134ad`) settled it:
+
+| check | before | after |
+|---|---|---|
+| `garden-tools.uk` footer `build_status` | `pending` since **2026-08-23** | **`rendered`** 16:21:32Z |
+| `rendered_html` | **NULL** (never stored, 10 days) | **2,427 bytes** |
+| `rendered_html_digest = md5(rendered_html)` | NULL | **true** |
+| footers fleet-wide not `rendered` | **2** | **1** (boxingonline only — untouched by choice) |
+| rows with NULL/empty `rendered_html` | **1** | **0** |
+
+**And the content check, which is the one that actually proves the mechanism** — the very
+label that caused the bug renders intact, em-dash preserved rather than mangled or dropped:
+
+```html
+<li><a href="/how-we-assess.html">How We Assess Garden Tools — Our Methodology | Garden Tools UK</a></li>
+```
+
+Header (2,532 B) and head (54,482 B) stored in the same run, so the render was real work,
+not an idle no-op. **This is the close condition for half 2.**
+
+**boxingonline.com remains `pending` deliberately** — a paid site mid-delivery whose served
+footer is a hand-patch; re-rendering replaces it, and that is the owning lane's call, not
+mine. `bugs_open/423` closes when they run it.
