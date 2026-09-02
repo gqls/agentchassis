@@ -57,6 +57,41 @@
 -- carry path (a rerender that fails and ships stored HTML, the bugs 260 class)
 -- carries the CORRECTED bytes, not the wrong ones.
 --
+-- APPROVED round 1 (corr bb352ee8, 2026-09-02 15:34Z) with advisories, ACTED ON:
+--   * editquality (version-pin concern): VERIFIED INAPPOSITE at the code — the
+--     renderer loads html_template LIVE from content_components
+--     (loadContentComponentsByID, v3_site_actions.go:5247-5252, no
+--     component_versions join); page_components.component_version_id is a
+--     PROVENANCE stamp carried through saves (RFC_046), not a render source. So
+--     the template edit is what a re-render renders, and a rerender cannot
+--     resurrect the stale citation from a snapshot. (The cited "ships NOTHING"
+--     landmine is about a deployment overlay, not SQL template edits.)
+--   * render_guardian (unrecognised rerender reason -> assemble-mode): CORRECT,
+--     and safe BY CONSTRUCTION here — assemble-mode re-embeds stored
+--     rendered_html, which this migration corrects in the same transaction, so
+--     either rerender mode ships corrected bytes.
+--   * debug_historian (no physical backup): backup table added below
+--     (bak_696_citation_surgery — every touched page_components row's prior
+--     content_data/rendered_html, kept like bak_670/bak_farmer_cull).
+--   * debug_historian (artefact acceptance not committed as a step): the
+--     POST-APPLY CHECK below is that step. Run it after the 11 rerenders
+--     complete; do not report this migration done without it.
+--
+-- APPLY: psql -v ON_ERROR_STOP=1 -f <this file>  (single wrapped transaction;
+-- an aborted apply leaves nothing half-done).
+--
+-- POST-APPLY CHECK (the artefact is the acceptance, DB counts are not):
+--   for u in rollover-rules.html cant-pay.html check-your-loan.html \
+--            continuous-payment-authority.html how-to-complain.html \
+--            your-rights.html index.html; do
+--     curl -s "https://lendzy.co.uk/$u" | grep -c 'CONC 6\.7\.17'   # every one: 0
+--   done
+--   curl -s https://lendzy.co.uk/rollover-rules.html | grep -c 'CONC 6\.7\.23'  # >=1
+--   curl -s https://lendzy.co.uk/cant-pay.html       | grep -c 'CONC 7\.6\.12'  # >=1
+--   curl -s https://lendzy.co.uk/tools/rollover-limit-checker/index.html | grep -c 'CONC 6\.7\.23'   # 1, and inputs unchanged (8)
+--   curl -s https://loancash.co.uk/tools/rollover-limit-checker/index.html | grep -c 'CONC 6\.7\.23' # 1
+--   plus the invented-URL 404 control per RUNBOOK 1.
+--
 -- Lane: docs/agent_docs/docs024_key_docs_latest/lendzy_co_uk/ (NOTES (g), PLAN A/B)
 -- Rollback: 696_..._ROLLBACK.sql (enumerated, because after this migration a
 -- blanket reverse replace could not tell a minted 6.7.23 from a CPA one)
@@ -134,6 +169,22 @@ BEGIN
      AND NOT (ss.site_id='8ff093d5-1f19-453b-9439-a10379bbcd76' AND ss.aspect='content_direction');
   IF r <> 0 THEN RAISE EXCEPTION '696 ABORT G7d: % other current spec(s) carry a token — the census said one', r; END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- 0. PHYSICAL BACKUP of every row about to be touched (debug_historian
+-- advisory). Kept after success, like bak_670 / bak_farmer_cull_content_data.
+-- ---------------------------------------------------------------------------
+CREATE TABLE bak_696_citation_surgery AS
+SELECT now() AS backed_up_at, pc.id AS page_component_id, p.name AS page_name,
+       s.domain, pc.content_data, pc.rendered_html
+  FROM pages p JOIN sites s ON s.id=p.site_id JOIN page_components pc ON pc.page_id=p.id
+ WHERE pc.content_data::text LIKE '%CONC 6.7.17%' OR pc.content_data::text LIKE '%CONC 6.7.23%'
+    OR pc.rendered_html    LIKE '%CONC 6.7.17%' OR pc.rendered_html    LIKE '%CONC 6.7.23%';
+
+CREATE TABLE bak_696_component_templates AS
+SELECT now() AS backed_up_at, id, name, html_template
+  FROM content_components
+ WHERE id IN ('1fbbd1da-a467-468d-99dd-7e56cfeb78d9','6525121a-1d06-44b5-bd16-e551d45167b2');
 
 -- ---------------------------------------------------------------------------
 -- 1. CPA FIRST: CONC 6.7.23 -> CONC 7.6.12 (every stored 6.7.23 is the CPA
