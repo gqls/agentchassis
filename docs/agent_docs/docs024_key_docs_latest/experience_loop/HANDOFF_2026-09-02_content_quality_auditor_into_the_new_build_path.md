@@ -9,6 +9,47 @@ one the CONTRIB describes.**
 
 ---
 
+> ## ⛔ GATE RESULT, 2026-09-02 (added by the session that worked this handoff)
+>
+> **§2's gate was run and it FAILED. Do NOT route this seat yet — the routing is now step 3 of 3.**
+>
+> The audit output is articulate and its findings are fair, but it names **none** of the three
+> things the owner complained about, and it structurally cannot. `load_page_content` hardcodes
+> `p.name IN ('index','about','services','contact')` — **3 of 22 pages** on boxingonline,
+> **92 of 1,196 fleet-wide (7.7%)** across 36 sites. The four guides, the articles-index
+> manifesto and the fighter-comparator form are all outside those four names, so no prompt
+> wording could ever have reached them. Three compounding defects in the same query: the
+> 1,000-char cap samples an index page at **4.5%**; `rendered_html` is **42.8% CSS** fleet-wide
+> and on boxingonline's index `<style>` starts at **character 1**, so 999 of 1,000 chars reaching
+> the model were stylesheet; and `string_agg` had **no `ORDER BY`**, so the window drifts across
+> runs on a byte-identical page. Plus a prompt/enum mismatch: dimension 5 is AUDIENCE, the enum
+> offers `content`, and 10 of 210 stored findings emit an out-of-enum `audience`.
+>
+> **Full evidence:** `RUNNING_NOTES_experience_loop.md`, entry 2026-09-02.
+> **Fix:** migration `docs/agent_docs/sql_for_agents/694_content_quality_auditor_can_see_the_site.sql`
+> (+ `_ROLLBACK`), committed `5ff171327`, `Council-Submitted: d52a0e45-5c64-4d32-a1ab-f73532684d37`.
+> **NOT YET APPLIED** — apply after the verdict, then observe one real audit before routing.
+>
+> **§4 is ANSWERED: the owner ruled RECORD ONLY**, asked directly on 2026-09-02. Findings are
+> verdict rows for human approval; nothing auto-regenerates, preserving the 2026-08-25 ruling.
+> **§4's "name the reader" is discharged and needs no build** — it already exists end to end:
+> admin dashboard `recordVerdictsOnly` filter (`frontends/admin-dashboard/src/App.tsx:474`
+> → `GET /admin/work-items?filing_mode=record`) and the per-finding Release button
+> (`App.tsx:737` → `POST /admin/work-items/:item_id/release` → route
+> `internal/core-manager/api/server.go:455` → `HandleReleaseRecordVerdict`).
+>
+> **Two corrections to this handoff's own figures**, both worth carrying forward:
+> - It says **44** auditor runs; today the same query returns **42**. `orchestration_states` is
+>   reaped, so every "N runs since" figure here has a shelf life of days.
+> - §7's open items are unchanged, but the CONTRIB's parting question — *"the 25 FAILED against
+>   49 COMPLETED … is its own question and I have not looked into it"* — **is now answered and
+>   is NOT a code defect.** Lifetime the seat shows 7,915 LLM calls with 5,114 failures (65%),
+>   but 5,013 of those are `"You have reached your specified API usage limits"` and 99 are
+>   `"Your credit balance is too low"`, spanning 2026-04-08 → 2026-08-31. Since 2026-09-01:
+>   **74 calls, 0 failures.** It was billing caps, and they have cleared.
+
+---
+
 ## 1. The premise changed under us. What is true TODAY, all measured 2026-09-02
 
 The originating CONTRIB (`CONTRIB_2026-08-31_from_the_first_paid_build_four_experience_defects_that_every_check_passed.md`,
