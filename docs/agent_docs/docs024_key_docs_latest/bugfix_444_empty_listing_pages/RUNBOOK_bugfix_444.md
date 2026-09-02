@@ -43,9 +43,15 @@ verifies old-text-gone + new-rule-present + flag=true + 433/718 surfaces intact.
 ## Prove the gate is LIVE after a chassis roll (owed to council round 1)
 
 ```bash
-# 1. the binary's own provenance (per SERVICE, startup line scrolls — see CLAUDE.md)
-kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
-git merge-base --is-ancestor <the-444-commit> <the stamp>   # exit 0 = shipped
+# 1. the binary's own provenance. ⚠ The log line is a STARTUP line and SCROLLS —
+#    on agent-chassis it is typically out of --tail range within hours (measured
+#    2026-08-11; council r3 debug_historian flagged relying on it). An empty grep
+#    means "not in range", never "unstamped". Prefer the binary probe, and ALWAYS
+#    run a control in the same breath (a sha that must be absent):
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance' \
+  || kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "<expected-sha>" /proc/1/exe
+kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "<a-sha-that-must-be-absent>" /proc/1/exe && echo "CONTROL FAILED — probe not discriminating"
+git merge-base --is-ancestor 6525b45ae <the stamp>   # exit 0 = the gate shipped
 
 # 2. the config half (live immediately at apply)
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -c \

@@ -166,3 +166,35 @@ exist, AND the one planned was parented nowhere. **Caveat for the record:** this
 re-planned right now (corr `aab87c0c`, brief v2 asking for real articles) BEFORE the gate is live —
 that plan is read by hand against the same predicate, not by the gate.
 
+
+## CLASS FIX: council-APPROVED round 3, migration APPLIED — awaiting the roll (2026-09-02 night, fixing session)
+
+Fix candidate (1) is DONE as designed, plus the render-layer companion:
+
+- **Approved**: `Council-Reviewed: c0990eb3-9f50-4e08-b578-a7e05f786945` (round 3, 3
+  advisories none high; rounds 1–2 REVISE both actioned in code — the rounds found real
+  defects: a replan-drops-built-pages hole, a fallback-ordering widening, a silent
+  optional-error path, and two hand-maintained vocabulary mirrors, all fixed).
+- **Committed**: `6525b45ae` (gate + migration + BLD-028), `c610898d1` (derived
+  vocabularies + optional-error durable record), `2ac76f11c` (shared work-item writer),
+  `41a13dd5c`/`f885042ec` (docs), plus the plan_sections carry/defer hunk in 443's
+  `dbb218a41` (declared same-file passenger).
+- **Migration 720 APPLIED + verified live 2026-09-02** (flag true, new rule present, old
+  rule-3 licence gone): the PROMPT half is live now — the planner is told listing pages
+  need a live item source and glossary/showcase pages need a named producer.
+- **The Go gate is INERT until a chassis roll carrying `6525b45ae`** — by CLAUDE.md's bar
+  this bug therefore stays OPEN until then. Liveness recipe (three parts: binary, flag,
+  capability): `bugfix_444_empty_listing_pages/RUNBOOK_bugfix_444.md`.
+
+**What this closes / what remains:**
+- Closes at the next roll: new plans cannot ship listing pages with unresolvable sources
+  (news / directory / section-index / blog-index / listing components); errored REQUIRED
+  query fields defer loudly instead of building hollow; errored optional fields leave a
+  durable structural-miss record.
+- Stated blind spot (BLD-028, pinned by a test): listing pages typed `content` (both
+  glossaries) — carried by 720's prompt conditionality + the copy lane's title-promise
+  design (split recorded in their NOTES, both sides).
+- INSTANCE work, owned elsewhere: the five shipped empty pages (designblog session ×2 +
+  gamedesign, feed lane's WebProNews→advertise news enablement, portfolio_positioning's
+  directory decisions for advertise/seotools).
+- Candidate (3), a glossary/showcase producer: still unowned, unchanged.

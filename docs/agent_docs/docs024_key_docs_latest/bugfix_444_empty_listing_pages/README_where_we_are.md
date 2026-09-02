@@ -40,3 +40,25 @@ Next: the plan goes to the council for review, then we build it. The other threa
 (portfolio positioning, designblog, the feed lane, the copy lane) are all corresponding —
 each holds a piece of the per-site clean-up, and the WebProNews feed you flagged is the
 proving case for switching a site's news on properly.
+
+## 2026-09-02, late — built, reviewed three times, approved, half live
+
+The fix is built and went through the council three times the same evening. The first two
+rounds sent it back — and both were worth it: reviewers caught that a redesign of an
+existing site could have deleted a page that was already built and live (fixed — built
+pages are never removed, they just get a note filed against them), that a rare error case
+would have quietly demoted a working fallback (fixed), and that I'd copied two lookup
+tables by hand that should be read from their one true source (fixed — they're now derived,
+so future additions can't drift). Third round: approved.
+
+Where that leaves things tonight: the planner's INSTRUCTIONS are already updated live — it
+is now told a listing page may only be planned when the thing that feeds it exists, and to
+record what's missing instead of building around it. The enforcement code — the part that
+actually holds an unfillable page back and writes the "this site still needs X" ticket —
+is committed and rides the next platform release. Until that release, the next 18 site
+briefs are protected by the updated instructions and by the release checklist the
+portfolio thread adopted; after it, the protection is mechanical.
+
+The empty pages already out there (the two sites you critiqued, plus one more we found on
+seotools) still need their per-site fixes — those are with the threads that own each site,
+and the "what to enable" recipe is written down in their release runbook.
