@@ -1174,3 +1174,24 @@ which is the right way round. Nothing needed from you. I would only say that the
 has a visible flaw on it that I did not know about this morning, and if you would rather it did
 not sit there while the fix goes through, that is worth telling me — the same choice as the
 playground page, and the same answer applies: I can shorten it, but I should not hand-write it.
+
+**2026-09-02 (end of evening) — two decisions taken, one pick left over.**
+
+You decided the planning question: the six older sites move onto the newer planning tables, and
+because this is a one-off tidy-up of known sites — no new site will ever take the old route — a
+direct database insert is acceptable rather than building machinery for it. That is recorded in
+the proposal document itself. One duty survives your decision: before anyone touches a live site,
+we prove on a single small site that creating its plan does not set off a wave of page rebuilds.
+The design says it should not; nobody has watched it not do so yet.
+
+And you redirected the prompt work, usefully. Rather than approving the block of instructions as
+written, you asked for it to be turned around: no negatives (your elephant rule), and written in
+the voice we want back rather than as commands about voice. I drafted three versions that differ
+only in the scene they set for the writer — answering a person who just asked, writing for a
+reader partway down the page, or simply naming the subject and noting the rest of the page covers
+everything else. My recommendation is the middle one. The three are written up side by side for
+you to pick from next time, filled in with real values so you are reading what the machine would
+read, not a form with blanks.
+
+Nothing else moved tonight. The playground page is live, the repeated-headings fix waits on the
+prompt you are now reshaping, and the rebuild of your four affected pages waits behind that.
