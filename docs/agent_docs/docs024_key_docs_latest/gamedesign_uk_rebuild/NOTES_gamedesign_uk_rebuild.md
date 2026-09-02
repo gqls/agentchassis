@@ -486,3 +486,27 @@ stylesheet. The SEED file's header comments (§2 "your reliable lever") are now 
 accurate about composition and wrong about the artefact — left as written with this NOTE as the
 correction, since the file is applied history, not guidance. Theme kits' own advice to me was
 wrong the same way and they said so first.
+
+---
+
+## 2026-09-02, ~18:45Z — sibling renamed; one inbound deep link I broke without telling them
+
+**gamesdesign.co.uk session:** rename to **"GamesDesign.co.uk"** executed (owner confirmed
+positioning's recommendation) — 4 specs superseded retire-then-insert with `adopted_from` preserved
+by an in-transaction guard, 22 plan titles, 23 page titles + 1 meta, 30 page_components, backups
+`bak_gdcouk_rename_20260902_*`, 32 rerenders dispatching. 439 stands as filed; they will not claim a
+fleet-wide zero from their manually-renamed rows.
+
+**A miss of mine, surfaced by them:** their `guide-p2p-architecture` page carried a live absolute
+link `https://gamedesign.uk/games/p2p-networking/index.html` ("Launch P2P Simulator"), inherited at
+the June adoption. My 17:05 retraction (`40bd35f19`) removed that path; it has been **404 since**,
+and I had not looked for inbound links before clearing. Censused now: `page_components.rendered_html`
+across their site → **exactly one** absolute link into `gamedesign.uk/` fleet-wide, this one. Their
+own copy of the page is 200 at the same path on their domain; told them to repoint. No redirect
+from my side — the editorial seat does not host games (positioning), and a redirect would put the
+tool kind back on the wrong domain.
+
+**The check I skipped, for the RUNBOOK:** before retracting a domain's tree, census inbound links
+from every OTHER site we control —
+`SELECT s.domain, p.name FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id WHERE pc.rendered_html LIKE '%<domain>/%' AND s.domain <> '<domain>';`
+— and tell the owners before, not after. One query; I ran it 100 minutes late.

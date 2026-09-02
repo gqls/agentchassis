@@ -133,7 +133,18 @@ Verify before trusting the classifier's output:
 **Gotcha:** the classifier queues behind the fleet. Find the run by payload, not by the printed
 id: `SELECT current_step,status FROM orchestration_states WHERE collected_data->'input_data'->>'domain'='gamedesign.uk' ORDER BY created_at DESC LIMIT 3;`
 
-## 8. Verify at the ARTEFACT, never at a status `[UNPROVEN]`
+## 7b. BEFORE retracting a tree: census inbound links from our other sites `[PROVEN — late]`
+
+```sql
+SELECT s.domain, p.name, (regexp_matches(pc.rendered_html, 'https?://<domain>[^"'' <)]*', 'g'))[1]
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE pc.rendered_html LIKE '%<domain>/%' AND s.domain <> '<domain>';
+```
+**Gotcha (2026-09-02):** I cleared gamedesign.uk at 17:05 and found at 18:45, from the sibling's
+message, that ONE of their pages deep-linked into the tree I removed. Adopted sites inherit
+absolute links to their source. Run this first and tell the owning lane BEFORE the push.
+
+## 8. Verify at the ARTEFACT, never at a status `[PROVEN 2026-09-02 ~18:00Z]`
 
 After the cascade reports done:
 ```bash
