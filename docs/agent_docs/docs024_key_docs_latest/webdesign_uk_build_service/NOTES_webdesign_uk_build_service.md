@@ -6989,3 +6989,28 @@ jointly with the 9-taker → then re-mirror, full sweep, review.
   protocol agreed: I download + LOOK when the contact wave's mirror lands
   (text-free · single composition · TRANSPARENT · dimension-at-generator note),
   send verdict + hash; they run the census; closes on both agreeing.
+
+## 2026-09-02 (contd) — LOGO VERDICT: text-free HELD, single-comp HELD, transparency FAILED as a PAINTED CHECKERBOARD
+
+- Served asset (sha 1abcf69c…, 243,080B) verified with the full discipline:
+  changed vs the 08-31 asset · TEXT-FREE (417 closes on this asset — the
+  390-fence still worth building; one generation ≠ a rate) · SINGLE composition
+  (421 clear) · **TRANSPARENCY FAILED**: colour type 2 RGB, chunk scan shows NO
+  tRNS ⇒ zero transparency capability — and the background is a painted
+  grey-and-white CHECKERBOARD: asked for 'transparent background (PNG alpha)',
+  the model rendered the UI representation of transparency as pixels. ⚠ Almost
+  misread twice — viewers draw checkerboards FOR real alpha, so the look alone
+  cannot decide; the CHUNK SCAN is the deciding check.
+- **Class finding: transparency is not a promptable property.** Alpha is a
+  file-format capability — provider request or post-processing — so the owner's
+  no-baked-background ruling cannot be met by prompt revision; it is imagery-
+  PIPELINE work. Routed to the imagery lane via the peers; 417/421-adjacent.
+- **INTERIM PROBLEM: the site now serves the checkerboard on every page**,
+  visibly worse than the dark-ground mark it replaced. 08-31 asset bytes are
+  banked in this session's scratch. Asked the 417 lane for a sanctioned revert
+  seam before considering anything else; NOT hand-uploading, NOT firing a third
+  blind regen.
+- ⚠ Verification trap confirmed live (peer's warning, immediately load-bearing):
+  the asset store UPSERTS — row 20ce80fb keeps created_at 2026-08-31 after
+  today's regeneration, so any check keyed on the row's age reads STALE. Verify
+  regenerations by content hash + work item, never created_at.
