@@ -220,3 +220,45 @@ doing anything — is still open and still unanswered, and it is now the only th
 needs to look at. Nothing here is urgent or damaging: three pages on three sites are showing a
 missing thumbnail. But this bug cannot be closed, and I would rather spend the run on the narrow
 question now that everything around it has been cleared away.
+
+## 2 September, later — the diagnosis run came back "can't confirm", and that turned out to be the useful answer
+
+You said go ahead, so I fired it. It ran five rounds and finished in about a quarter of an hour.
+Its verdict was **not confirmed** — it would not sign off on my explanation.
+
+**It was right not to, and it caught me out.** My whole argument rested on one timestamp: the
+listing's "last changed" time still read an hour before the pictures arrived, so I said the refresh
+jobs had changed nothing. The run pointed out that this timestamp does not actually prove what I
+was using it to prove — it cannot tell "never touched" apart from "touched, wrote the same thing
+back". I had checked afterwards, and it turns out nothing in the database maintains that column
+automatically. I had treated a habit as a guarantee.
+
+**My conclusion did survive**, because there is a proper history table that records genuine changes,
+and it has no entry for either job. So the jobs really did write nothing. But I want to be plain
+that I was right by luck rather than by evidence, and I have written that up where we log this sort
+of thing.
+
+**Chasing the run's objection then found the real thing, and it is bigger.** That history table
+records *which part of the system* made each change. Every change to this listing over the past
+fortnight was made by one component — a blog-listing rebuilder. Across the whole estate, in
+fourteen days, the machinery our fix actually triggers has never once rewritten a listing. Not
+rarely. Zero times. And when I listed out the steps that our refresh job runs, there is indeed no
+rebuild step in it — it re-renders the page and publishes it, which is why it reports success and
+produces a real published version, while the underlying list is untouched.
+
+**Which raises an uncomfortable question about our own evidence.** The report from 26 August said
+the fix had "proven itself four times". I have now checked the first of those four against the
+history table: the repair was made by the blog-listing rebuilder, not by our fix. Our fix files a
+request of a different kind entirely. I have not yet checked the other three, and I have written
+down clearly that they need checking rather than quietly assuming the worst — but if they match,
+then the evidence we closed the book on was crediting our work with somebody else's repairs.
+
+**So the question has changed shape, and it is a better question.** It is no longer "why did the
+refresh skip this one section". It is "does that refresh path rebuild these lists at all, or did we
+aim the fix at the wrong mechanism from the start". That is answerable, and cheaply — the run told
+me exactly what it was missing, and both gaps were in how I set it up rather than anything
+mysterious.
+
+**Nothing here is on fire.** It is still three pages on three sites with a missing thumbnail. But
+this bug is now further from closing than when I picked it up on Sunday, and I would rather tell you
+that plainly than let the earlier "ready to close" stand.
