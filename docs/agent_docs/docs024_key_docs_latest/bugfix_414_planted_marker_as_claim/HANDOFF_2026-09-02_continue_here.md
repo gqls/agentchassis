@@ -69,9 +69,32 @@ You can defer this one indefinitely without blocking anything.
 
 | # | item | owner | blocking? |
 |---|---|---|---|
-| 1 | **Populate registers for the 5 register-less finance sites** — `lendzy.co.uk`, `loanzy.uk`, `loancash.co.uk`, `loancalculator.co.uk`, `farmerinsurance.uk` | the **site lanes** (content work, no RFC, no code) | no — but it is the **highest-value remaining action in the whole thread** |
+| 1 | ~~Populate registers for the 5 register-less finance sites~~ **HANDED OVER 2026-09-02 — see §2a** | the **site lanes** + `claims_verification` | no — off this lane |
 | 2 | RFC_060 Decisions A and B | the **owner** | A blocks any build of the tier |
 | 3 | If A is answered yes → a **new `compliance_tier` delivery lane** | not yet created | — |
+
+### 2a. The hand-over, 2026-09-02 — what was sent and what came out of it
+
+Four messages, each carrying the measurement that makes the ask cheap rather than a chore:
+
+- **`lendzy`, `loanzy.uk`, `loancalculator`** (live lanes) — each told: your site has no register, so the
+  numeric check has never armed on it; **and the cost is near zero, measured — your site asserts ZERO
+  unbacked business numbers today**, so this is switching a check on, not auditing copy. The value is
+  in `banned_claims`, not facts, and `adversecreditmortgage.co.uk` already carries a well-argued
+  six-pattern consumer-credit set to adapt rather than reinvent. Each was warned off the two failure
+  modes: do **not** add `attested_by`-only facts (that is the hole `RFC_060` exists to close), and do
+  **not** arm and walk away.
+- **`claims_verification`** (the register lane) — given the fleet picture and **the two orphans I
+  cannot route**: `loancash.co.uk` (lane dirs exist, no live session) and **`farmerinsurance.uk` (no
+  lane at all** — and the only one of the five with live findings: 3 unbacked numbers, all third-party
+  survey figures in a news listing, which is `RFC_053`'s shape and which a register will not and
+  should not silence).
+
+**A design question surfaced by doing this, and it belongs in RFC_060 rather than here:** five sites
+are about to hand-roll near-identical consumer-credit banned-claim patterns. `globalBannedClaims` is
+fleet-wide and these are **sector-wide** — there is no middle tier today, and copying is how five
+copies drift. RFC_060 currently defers exactly this as "sector's one real job, additive, later". If
+`claims_verification` has a view, that is the file to put it in.
 
 **On (3): do not start a lane yet.** RFC_060 lives in `architecture_review/`, which is where the
 decision belongs and is active. A delivery lane is only worth creating once Decision A is made,
@@ -79,8 +102,10 @@ because the work spans the claims layer, a new spec field and a build-gate chang
 owns that span — `claims_verification` is a register/docs lane (quiet since 08-24) and
 `copy_quality_two_stage` owns copy quality, not the severity model.
 
-**So: this lane can be closed once (1) is handed over and RFC_060 is with the owner.** Its own code
-work is finished and verified. It does not need to stay open waiting for a decision it does not own.
+**So: this lane is CLOSEABLE NOW.** (1) is handed over (§2a), RFC_060 is with the owner, and the
+lane's own code work is finished, council-approved and verified live. It does not need to stay open
+waiting for a decision it does not own or content work it cannot do. **The only reason to reopen it
+is if RFC_060's Decision A comes back yes** — and that starts a `compliance_tier` lane, not this one.
 
 ---
 
