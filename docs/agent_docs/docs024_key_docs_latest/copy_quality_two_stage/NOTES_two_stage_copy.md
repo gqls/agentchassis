@@ -3513,3 +3513,28 @@ findings by design): the deployed v1.0.1352 report carries the first-cycle label
 demand control ("0 of 39 … from 7,198 scanned field(s)"), and filed three items
 (advertise.co.uk, apis.uk, idea.uk — the other 8 finding-sites hold their morning items under
 unchanged phrase-set keys). The daily read is now TWO numbers plus the word column.
+
+---
+
+## 2026-09-02 — loanzy hands two copy findings; both VERIFIED and scoped wider than relayed
+
+From their evidence-register build (their NOTES 09-02 carry the extraction grep; register fact
+SVC-MAPS-GOV, their migration 697, holds the citation):
+
+**(1) MaPS misattribution — 8 pages, not "multiple"** `[MEASURED 2026-09-02, stored
+rendered_html]`: get-help, index, and six tool pages group the Money and Pensions Service
+under "FCA-regulated/authorised services" alongside StepChange. StepChange IS FCA-regulated;
+MaPS is the statutory government body — the attribution is wrong on a finance site's
+signposting. **Editor canary FIRED at get-help** (corr `01e77807`, one invocation, tee'd —
+the WRONG_CALLS lesson applied); proposal will park at needs_human_review per D2. The other
+7 pages join the batch-posture question already with the owner (decision 9).
+
+**(2) The £5,000/9.9%/3yr worked example — the split is TWO LEGITIMATE CONVENTIONS plus one
+error, computed this session:** nominal-rate÷12 gives **£161.10 / £5,799.65 / £799.65**
+(the £161/£5,800 page is exactly right under it); strict effective-APR gives
+**£160.11 / £5,764.02 / £764.02** (their £160/£5,760/£760 sighting matches it); the
+repayment calculator's **£158/£5,688 is wrong under both** (~£688 interest implies ~8.5%).
+Since the pages say "APR", the strict-APR figures are the defensible harmonisation target —
+or drop the false precision entirely. The fix needs ONE stated convention across all pages;
+queued with these numbers so no session re-derives them. Loanzy rightly refused to register
+the inconsistency as facts ("a register must not launder an inconsistency into an authority").
