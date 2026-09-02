@@ -204,3 +204,47 @@ the full reasoning on why it wasn't bundled in.
 **Verification owed to a future thread, not done here:** watch for the job's first
 *scheduled* (not manually triggered) run at 07:45 UTC and confirm it behaves the
 same as the manual triggers did.
+
+---
+
+## CONTRIB 2026-09-02 (editorial_design_uplift) — §8's `[UNMEASURED]` number is **34**, and it is not `Pending (N)`
+
+§8 names the fleet-wide population as the first action for whoever picks this up, and gives
+`run-migrations.sh` as the command. Ran it twice today, either side of the `v1.0.1355` roll:
+
+| | pre-roll (~15:00 BST) | post-roll (~22:20 BST) |
+|---|---|---|
+| `Pending (N)` | **164** | **176** |
+
+**But `Pending` is the wrong number for this bug, and quoting it would overstate the problem by 5×.**
+It counts every appliable file with no ledger row — most of which are genuinely unapplied and
+perfectly safe. The population §2 actually describes — *applied by hand, never recorded, therefore
+replayed by the next `--apply`* — is the subset the runner's own probe flags:
+
+> **34 files** reported `!! <file> — LIKELY ALREADY APPLIED; its own guard raised:`
+
+`[MEASURED 2026-09-02, post-roll]`. First twelve: `234`, `235`, `265`, `272`, `273`, `303`, `343`,
+`345`, `363`, `370`, `433`, `434`. So the seven the `dispatch_throughput` lane found by auditing
+itself were roughly a fifth of it, and the rest have never been looked at.
+
+**Two process findings, both bearing on §5's "nobody runs it" diagnosis:**
+
+1. **The check takes OVER FIVE MINUTES.** My first attempt died on a `timeout 300`. Whatever drives
+   it on a clock needs a generous limit, and a human running it interactively will be tempted to
+   abandon it.
+2. **Piped through `tail` it prints NOTHING until it finishes** — which is indistinguishable from a
+   hang, and is what made me check whether the process was alive. Anyone who tried it once, piped,
+   and gave up would reasonably conclude it was broken. **That is a candidate contributing cause for
+   the attention gap this bug is about**, and it is cheap to fix in the runbook line rather than in
+   the script: run it unpiped, in the background, and read the file.
+
+**Caveat on the 34, stated because this bug is about false confidence in a census:** `LIKELY ALREADY
+APPLIED` is the runner's probe *interpreting a guard's RAISE message*, and §3 already documents that
+this contract is on message vocabulary — migration `672`'s drift arm says *"drifted, investigate"*
+and would be read as a genuine problem rather than as applied-out-of-band. **So 34 is the count of
+files whose guards said something the probe could match, not a proven count of applied-and-unrecorded
+files.** It is a floor, and it is the best available number until §5 candidate 2 (a structured signal
+instead of prose matching) exists.
+
+Not dispatched, nothing recorded, no file `--record-only`'d — the 34 are other lanes' migrations and
+each needs its own verification before anyone records it.
