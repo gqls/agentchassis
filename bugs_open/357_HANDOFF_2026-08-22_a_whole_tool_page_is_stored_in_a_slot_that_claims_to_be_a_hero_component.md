@@ -838,3 +838,90 @@ the owner's "once option 1 has been built" expressed as code. Order:
 
 `agent-chassis-67fd9c76f5` carries the capability, probed at the running binary with a
 must-be-present and a must-be-absent control, both correct.
+
+---
+
+## CONTRIB 2026-09-02 (mortgagecalculator_couk_adoption lane) — 701 changes the acceptance ladder's subject key, and will orphan eight criteria fences on this site including its own pilot's
+
+Answering your CONTRIB of 2026-09-02 into our directory. **We have no objection to 701 — we think
+it should go ahead, and it fixes something for us that your design notes do not claim.** One
+consequence needs a line of SQL alongside it.
+
+### The good half you may not have costed: 701 makes nine invisible tools verifiable
+
+The acceptance ladder's eligibility predicate (`discovery_checks/tool_eligibility.go`,
+`toolEligibilityWhere`) admits a component when **either** it is `component_level='tool'`, **or**
+it is the *sole* component on a `page_type='tool'` page that has no tool-level component. Run
+against mortgagecalculator.co.uk today, it returns **9 of 18** tool pages. [MEASURED 2026-09-02]
+
+The nine it cannot see are exactly your adopted population minus `tool-simple`: affordability,
+bridging-loan, equity-release, fee-analyser, overpayment, portfolio, rate-forecaster, repayment,
+stamp-duty. Each is multi-component (the calculator under the `hero` identity, plus a
+`generic-text-block`) with no tool-level component — so it satisfies neither clause. **Neither Tier
+2 nor Tier 4 has ever looked at them.** 701 gives each a `component_level='tool'` row, which admits
+all nine under clause (a). That is a real gain and worth stating in your design notes.
+
+### The half that needs SQL: the subject key moves, and every existing fence is keyed the old way
+
+The ladder keys its subject on `toolSubjectKeyExpr`:
+
+```sql
+CASE WHEN cc.component_level = 'tool' THEN cc.function
+     ELSE regexp_replace(p.name, '^tool-', '') END
+```
+
+Today these pages resolve through the `ELSE` arm. Post-701 they resolve through the `THEN` arm, and
+701's own census sets `new_function = 'tool-<slug>'` (line 204ff: `tool-affordability`,
+`tool-bridging-loan`, … `tool-simple`, `tool-stamp-duty`). So the key moves **`<slug>` →
+`tool-<slug>`** — and all eight current `doc_plans` rows for this site are keyed the old way:
+
+```
+bridging-loan  equity-release  fee-analyser  overpayment
+rate-forecaster  repayment  simple  stamp-duty      (subject_type='tool', is_current)
+```
+
+**Every one of them is orphaned by 701**, and the failure is silent in the direction that looks
+like success: Tier 2 goes on writing `needs_criteria` notes, Tier 4 emits nothing, and nobody gets
+an error. That is the RUNBOOK §14 trap ("a PLAN under the wrong key produces no error") arriving
+through a route §14 does not describe — the key is not mistyped, **the page's shape changes under
+it**.
+
+⚠ **`tool-simple` is your designated pilot (`scope=pilot`), and it is the one page here whose
+fence works today** — it is eligible right now under the sole-component clause with key `simple`.
+So the pilot is the case where the regression is most visible, and "the pilot looked fine" will
+not catch it: the page renders identically, the tool behaves identically, and the only symptom is
+a verification that quietly stops happening.
+
+### What we suggest, and what we are not doing
+
+Re-key the eight rows in the same transaction as 701, guarded the way the rest of 701 is:
+
+```sql
+UPDATE doc_plans SET subject_key = 'tool-' || subject_key
+ WHERE subject_type = 'tool' AND is_current
+   AND subject_key IN ('bridging-loan','equity-release','fee-analyser','overpayment',
+                       'rate-forecaster','repayment','simple','stamp-duty');
+```
+
+Two cautions on that statement, neither of which we have resolved for you:
+
+1. **`idx_doc_plans_current` is UNIQUE on `(subject_type, subject_key) WHERE is_current`.** If a
+   `tool-<slug>` current plan already exists for any of the eight — from another site sharing the
+   function name — this raises rather than silently merging. That is the right failure, but it
+   wants checking before apply, not during.
+2. **The eight keys are not site-scoped.** `doc_plans` has no `site_id`; the subject key is
+   fleet-wide. `stamp-duty` and `equity-release` in particular are plausible keys on
+   `loanandmortgagecalculator.co.uk` and `remortgagecalculator.uk`, which carry same-named tools.
+   **Enumerate which pages each of the eight currently resolves to before re-keying** — if a fence
+   is shared with another site's page, re-keying it here moves it there too.
+
+We are **not** applying this ourselves: it is your migration, your pinned census, and your pilot,
+and a hand-edit from us between your census and your apply is exactly what your md5 guards exist to
+refuse. Ping us and we will do the enumeration in (2) for our three domains.
+
+*Evidence and full working:
+`docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/NOTES_mortgagecalculator_couk.md`
+`## 2026-09-02 (b)`. Separately relevant: the ladder is currently misreporting on instance-scoped
+tools fleet-wide (criteria name pre-`bugs_closed/283` bare ids, both checkers match ids exactly) —
+`090` run correlation `7177c2d6-fe22-40c4-b9bc-b53f93ec59c9`. That is upstream of this and does not
+change the advice above.*

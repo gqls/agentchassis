@@ -686,9 +686,15 @@ Two traps that cost time here:
 ### The scheduler will not sweep most of these
 
 `check_tool_acceptance_due.go` gates on `PageHasShippedPredicateFor` =
-`NOT (deployed_at IS NULL AND build_status <> 'deployed')`. Seven of this site's
+`NOT (deployed_at IS NULL AND build_status <> 'deployed')`. ~~Seven of this site's
 eight fenced tools have `deployed_at IS NULL` and `build_status='needs_rebuild'`
-**while serving HTTP 200** (`links.go:304-308` records the same nine pages).
+**while serving HTTP 200** (`links.go:304-308` records the same nine pages).~~
+
+> **CORRECTED 2026-09-02 — this paragraph is STALE and now says the opposite of the truth.**
+> Re-run today, **all 18** `page_type='tool'` pages read `build_status='deployed'` and
+> `invisible_to_due_sweep = f`. Nothing here is hidden from the due sweep any more, and the
+> "fire a run by hand" instruction below is no longer a workaround for this cause (it remains
+> a valid way to force a run). **The blocker moved, it did not clear** — see the next block.
 Check before assuming a fence is live:
 
 ```sql
@@ -774,3 +780,74 @@ minute of the publish, after 80+ minutes starved.
 **kcat exit 0 is NOT delivery** (LANDMINES: `kcat -P` can silently drop) — the
 only check is the result: the item flips to `claimed` and an orchestration row
 appears. If nothing moves in ~3 minutes, treat the message as never sent.
+
+## §15 Is the ladder even LOOKING at this tool? (added 2026-09-02)
+
+§14 tells you how to write and install a fence. It does not tell you how to check the ladder can
+reach the tool at all, and on this site **9 of 18 tool pages it cannot** — while seven of those nine
+hold a current PLAN that nothing loads. Run the platform's own predicate, never a paraphrase of it
+(`discovery_checks/tool_eligibility.go`, `toolEligibilityWhere` + `toolSubjectKeyExpr`):
+
+```sql
+SELECT DISTINCT p.name AS page,
+       CASE WHEN cc.component_level='tool' THEN cc.function
+            ELSE regexp_replace(p.name,'^tool-','') END AS ladder_subject_key,
+       cc.component_level
+FROM pages p
+JOIN page_components pc ON pc.page_id=p.id
+JOIN content_components cc ON cc.id=pc.component_id
+WHERE p.site_id='62b5978e-4271-4589-8e00-4baebfc0447c'
+  AND COALESCE(pc.slot_name,'') <> 'removed'
+  AND cc.is_active AND p.status='active'
+  AND ( cc.component_level='tool'
+     OR ( p.page_type='tool'
+          AND NOT EXISTS (SELECT 1 FROM page_components pc_t
+                            JOIN content_components cc_t ON cc_t.id=pc_t.component_id
+                           WHERE pc_t.page_id=p.id AND cc_t.component_level='tool' AND cc_t.is_active)
+          AND (SELECT count(*) FROM page_components pc_n
+                 JOIN content_components cc_n ON cc_n.id=pc_n.component_id
+                WHERE pc_n.page_id=p.id AND cc_n.is_active) = 1 ))
+ORDER BY 1;
+```
+
+**A page drops out of this set by GAINING a component.** The sole-component clause is the one that
+carries our adopted pages, and adding a `generic-text-block` beside the calculator silently ends
+their eligibility — the PLAN keeps its key, the page keeps serving, and the verification just stops.
+That is how seven fences here became orphans. **Cross-check the answer against the fences:**
+
+```sql
+SELECT subject_key, created_at::date FROM doc_plans
+ WHERE subject_type='tool' AND is_current AND body LIKE '%```criteria%' ORDER BY 1;
+```
+Any `subject_key` in the fence list but NOT in the eligibility list is a fence nothing reads.
+
+## §16 Two extractor traps that manufactured false findings here (added 2026-09-02)
+
+Both produced a confident wrong answer in one session; both are one word to avoid.
+
+- **SQL `substring(x from '…')` returns the FIRST match only.** Reading
+  `substring(rendered_html from '<img[^>]+src="([^"]+)"')` per row said `tool-cta` renders the same
+  stamp-duty card on all four pages. It renders **six distinct** cards; the first is stamp-duty
+  every time. Use `regexp_matches(…, 'g')` with `count(*)` **and** `count(DISTINCT …)`, and read the
+  count before you read a value.
+- **`LIKE '%background-image%'` matches the CSS PROPERTY NAME in a `<style>` block.** It reported
+  every `hero-tool` row as carrying a background image; they carry a solid colour. Test for the
+  value, not the property: `rendered_html ~ 'url\(''?/assets'` — or extract the URL and look at it.
+
+## §17 A demand control for "is this asset referenced anywhere?" (added 2026-09-02)
+
+Before recording a zero from a `page_components.rendered_html LIKE '%<file>%'` query, **prove the
+query can return non-zero for that kind of file.** `snippets.js` is referenced by all 42 pages and
+returns **0** from this query — it is injected by the chrome assembler and never stored in a
+component, so it is a *worthless* control that agrees with your target. The working control is a
+script that genuinely lives in a stored component:
+
+```sql
+-- must return 1 — if it returns 0 your query is blind, not your target absent
+SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id
+ WHERE p.site_id='62b5978e-4271-4589-8e00-4baebfc0447c'
+   AND pc.rendered_html LIKE '%mortgage-lender-directory-listing.js%';
+```
+Enumerate what the column actually holds first — `SELECT substring(pc.rendered_html from
+'src="([^"]*\.js)"'), count(*) … GROUP BY 1` — and pick the control from that, not from what the
+live page serves.

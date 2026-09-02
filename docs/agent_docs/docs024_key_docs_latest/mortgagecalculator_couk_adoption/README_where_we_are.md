@@ -1544,3 +1544,109 @@ why — that the page had got too big for my check's time limit — and then cou
 I have withdrawn that explanation rather than leave a tidy-sounding reason in the record. It was a
 one-off failed fetch. What matters is that my checks fail by crying wolf rather than by saying all
 is well when it is not, which is the right way round.
+
+---
+
+## 2026-09-02, later — you asked me to verify the tools and fold in the images. Here is what I actually found.
+
+**Short version.** The tools are all up and none of them is obviously broken, but I cannot honestly
+tell you they work, because the machine we built to check them is currently looking at half of them
+and is being lied to about the other half. The images are all sitting there, correctly made, and
+there are two separate reasons none of them reaches a tool page — neither of which is the reason
+this morning's handover note said it was. I have fixed nothing on the live site yet, on purpose,
+and I explain why below.
+
+**A note on this morning's handover, because it matters.** The session before me wrote a careful
+document saying both of your requests needed re-aiming. It was right that they needed re-aiming and
+wrong about where to aim instead — on both counts. I say this not to score a point but because it
+happened for a reason worth knowing: that session reasoned about the *settings* attached to the
+tool pages without ever looking at what those pages are actually made of. When I looked, the picture
+changed completely. There was also a message from another team sitting unread in our folder that
+would have told them, and I did not read it until after I had worked it out the slow way. **Read the
+incoming post before trusting the outgoing summary** — that is the lesson, and it is mine as much as
+theirs.
+
+### The tools
+
+All eighteen calculators are live and serving. I fetched every one and checked that each button and
+box the page's own code reaches for actually exists on that page — no broken wiring anywhere, and no
+half-finished template text leaking through. That is a genuine result and it is not nothing.
+
+**But it is not a verdict, and I want to be plain about why.** That check can only see code that
+names a thing directly. Two of the eighteen do it a more roundabout way, so for those two my check
+saw nothing at all and reported no problems — which is not the same as there being none. The only
+honest test is to open each calculator in a real browser and use it. We have exactly that machine.
+It is not working, for two separate reasons.
+
+**Reason one: it isn't looking at half of them.** The system has a rule for which tools it is
+allowed to check. Nine of our eighteen pages fail that rule — not because anything is wrong with
+them, but because each one has a second block of text sitting next to the calculator, and the rule
+only admits pages where the calculator is the *only* thing on the page. Seven of those nine still
+have a full set of written tests attached to them, from the middle of August, that nothing has read
+since. The tests are fine. Nobody is running them.
+
+**Reason two: where it is looking, it is being told the wrong thing.** Back in August the platform
+renamed every part inside every interactive tool, to stop two tools on one page clashing. Sensible
+change, done properly. Nothing updated the tests, and nothing taught the checker about the rename.
+So the test says "click the box called X", the box is now called something slightly longer, the
+checker looks for exactly X, doesn't find it, and reports the tool broken.
+
+**This is not just us.** Across the whole estate in the last six weeks there are 187 of these
+"the page is missing a part" failures. I checked each one against the tool's own code: **134 of
+them, across 99 different tools, name a part that is definitely there** — just under its new name.
+Roughly three in four of those alarms are false. And they are not harmless: each one raises a job to
+go and fix the tool, so an automatic repairer goes and edits a calculator that was never broken. I
+watched one of those happen this afternoon on another team's site while I was writing this up.
+
+I have put this into the platform's own diagnosis process rather than just asserting it — it is a
+big claim about shared machinery and it deserves an independent check before anyone acts on it.
+
+### The images
+
+Every one of your eighteen tool pages already has its own picture, made for it, live on the server,
+correct. Fourteen of the eighteen pages show no picture at all. There are two different reasons, and
+this morning's note guessed a third that does not exist.
+
+**Ten of the fourteen have nowhere to put a picture.** This is the thing worth understanding, and it
+is odd. On those ten pages, the slot that is supposed to hold the banner at the top of the page
+actually contains *the entire calculator*. It was filed in the wrong drawer when the site was
+adopted, and it has stayed there working perfectly ever since. So the page has no banner, the
+picture setting attached to that slot does nothing, and — this is the important part — **anyone who
+"fixed" this by making the banner render would delete the calculator and replace it with a title
+strip.** This morning's note pointed the next session at exactly that. Another team has already
+spotted the same thing from their end and has a careful repair ready to run; I have written to them
+about one consequence they had not costed.
+
+**The other four have a banner that structurally cannot show their picture.** This one is a
+genuine, small, fleet-wide defect and I am fairly pleased with it. The banner used on tool pages
+draws a background image, but its settings sheet does not declare that it has an image — and the
+part of the system that goes and finds the right picture for a page only runs for things that
+declare one. So it silently falls back to the generic site picture, for ever. The code even has a
+comment predicting this exact outcome. Across the estate that is **54 pages on 21 sites** whose own
+picture exists and cannot be shown. The fix is four lines of settings, copied from the banner used
+everywhere else, and it cannot make anything worse. I have handed it to the team now working the
+imagery bug rather than applying it myself, because it touches 21 sites that are not ours.
+
+### What I have and have not changed
+
+I closed one stale job — a warning about a missing script that genuinely no longer matters, because
+nothing on the site asks for that script any more. I checked that properly, and my first attempt at
+checking it was worthless in a way I nearly missed: the thing I was comparing against gave the same
+empty answer as the thing I was testing, which proves nothing at all. I redid it with a real
+comparison.
+
+Otherwise **I have changed nothing on the live site.** The two real fixes both belong to other
+teams' territory — one is a shared component across 21 sites, the other is a repair another team has
+already designed and pinned. Barging in would break their work, and in one case would fight a safety
+check they built specifically to stop sessions like me doing exactly that.
+
+### What I need from you
+
+**One decision.** The ten pages whose calculator sits in the banner slot cannot get a picture until
+they are put back in the right drawer. The other team's repair does that, and it is being piloted on
+one of our pages today. After it lands, giving those pages a proper banner and their own picture is
+straightforward. **Do you want me to wait for that, or to hand the whole tool-imagery job to that
+team as part of their repair?** Waiting is my recommendation — it is a few days, and doing it in the
+wrong order means doing it twice.
+
+Everything else on my side is either done or handed to the team that owns it.

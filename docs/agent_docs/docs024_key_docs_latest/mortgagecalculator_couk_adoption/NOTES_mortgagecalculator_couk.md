@@ -4595,3 +4595,236 @@ false-negative on this site in two weeks.)
 `docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/HANDOFF_2026-09-02_continue_here.md`,
 superseding the 08-21 file. Leads with both re-aimings, because a fresh session acting on either
 instruction as stated would spend a day and move nothing.
+
+## 2026-09-02 (b) — "verify the tools, fold in the images": both re-aimings in the 09-02 handoff were themselves wrong
+
+The handoff written this morning (`HANDOFF_2026-09-02_continue_here.md`) re-aimed both of the
+owner's asks. Working them, **both re-aimings turned out to be wrong**, in the same way and for the
+same reason: they reasoned from `content_data` and the `hero` template without ever asking what the
+position-1 row on a tool page actually *is*.
+
+### §2 is refuted: the tool pages do not have a hero that fails to render. They have no hero at all.
+
+The handoff's §2 says the `hero` component renders a background on `tool-*-guide` pages and not on
+`tool-*` pages, "same component, same field, same value shape", and sets the next session to
+diffing the render path. **There is no render-path difference to find.** [MEASURED 2026-09-02]
+
+| page | slot | component | `rendered_html` length | what the bytes actually are |
+|---|---|---|---|---|
+| `tool-simple` | `hero` | `hero` | **9,590 B** | `<div class="tool-page"><div class="tool-header"><h1>Simple Mortgage Calculator</h1>…` — **the calculator** |
+| `tool-equity-release` | `hero` | `hero` | **14,164 B** | the calculator |
+| `tool-equity-release-guide` | `hero` | `hero` | **3,267 B** | `<section class="hero" data-component="hero" style="background-image: …url('/assets/images/hero.jpg')…` |
+
+A hero band is ~3.2 KB. A row of 9.5–22 KB under the `hero` identity is not a hero that failed to
+render an image; it is **a whole working tool stored under the shared `hero` component's identity**.
+`content_data.background_image` sits on those rows because it is the `hero` schema's field, and it
+is inert because **nothing on the page ever renders a hero**. The `rendered_html` was never produced
+by the `hero` template at all.
+
+⚠ **This makes the handoff's suggested next step actively dangerous.** "Diff the render path" leads
+to "make the hero slot render", and re-rendering that slot through the `hero` template would
+**replace a working calculator with a 3 KB title band** on ten pages. That is exactly the damage
+`bugs_open/357` exists to prevent and migration `701` exists to make impossible — the CONTRIB of
+2026-09-02 from the 357 lane, sitting unread in this directory, says so in its first paragraph.
+**I did not read that CONTRIB until after I had measured the row lengths; reading it first would
+have saved the measurement.** Read the inbound CONTRIBs before believing the outbound handoff.
+
+### The real composition census — three generations of tool page on one site
+
+[MEASURED 2026-09-02] 18 tool pages (`page_type='tool'`, excluding the 9 `*-guide` pages):
+
+- **10 "adopted"** — one `hero`-identity row holding the calculator, plus a `generic-text-block`:
+  affordability, bridging-loan, equity-release, fee-analyser, overpayment, portfolio,
+  rate-forecaster, repayment, simple, stamp-duty. **No imagery.**
+- **4 "bare"** — a single tool-level component and nothing else: bridging-compound, rate-scenarios,
+  deposit-tracker, remortgage-savings. **No imagery.** (deposit-tracker and remortgage-savings start
+  at `position=2` — position 1 is absent, not merely different.)
+- **4 "native"** — the generator's four-section shape (`hero-tool` + `tool-guide-intro` + the tool +
+  `tool-cta`): btl-investor, credit-health-check, overpayment-priority, rate-stress-test.
+  **These do carry imagery.**
+
+10 + 4 + 4 = 18, and 14 carry none — which reconciles exactly with the 28-with/14-without page
+census the handoff quotes. The 14 are not a render bug. They are pages whose composition contains
+no component that can hold a picture.
+
+### Two false findings I generated with careless extractors, both caught in the same session
+
+1. **"All four native pages render a background image."** I tested
+   `rendered_html LIKE '%background-image%'` and got `t` for the four `hero-tool` rows. That matched
+   the string `background-image` **inside a `<style>` block**, not an image. The `hero-tool` CSS sets
+   `background:var(--color-primary,#1a1f36)` — a solid colour.
+2. **"`tool-cta` renders the stamp-duty card on every tool page."** I used SQL `substring(… from
+   '<img[^>]+src="([^"]+)"')`, which returns **only the first match**. `tool-cta` renders **6
+   distinct** card thumbnails (it is a list of other tools); the first happens to be stamp-duty on
+   every page. There is no defect.
+
+**The check both needed: count the matches before reading one.** `regexp_matches(…,'g')` with a
+`count(DISTINCT)` would have refused to produce either claim. This is the handoff's own §3 lesson
+(a changed instrument and a changed world are indistinguishable in the number alone) firing twice
+more, one level down — not at the level of "which query", but at the level of "does this regex
+return one row or all of them".
+
+### The images: `hero-tool` has an image in its template and no image field in its schema
+
+`plan_sections_action.go:2846` gates the per-page hero on **`sectionHasImageField(fieldsRaw)`** —
+the component's `input_schema` must declare a field of `type: image` or `image_url`. Only then is
+the resolved page hero written into `resolved_data` under the aliases `hero_url` /
+`background_image`. The comment immediately above says what happens otherwise, in the code's own
+words: *"without it, `{{or .hero_url .background_image}}` picks the site-wide value and **every page
+shows the same image**."*
+
+[MEASURED 2026-09-02, live DB]
+
+| component | declares an image-typed field? | declares `background_image`? |
+|---|---|---|
+| `hero` | **yes** | yes (`type: image`, `source: site_assets.hero`, `fallback: /assets/images/hero.jpg`) |
+| `hero-tool` | **no** | no |
+
+So `hero-tool` emits `url('{{or .hero_url .background_image}}')` in its template while its schema
+switches the resolver that fills those keys off. The fleet-wide consequence, and the control that
+makes it mean something:
+
+| component | instances | carrying a per-page `content-hero-*` image | sites |
+|---|---|---|---|
+| `hero-tool` (no image field) | 69 | **0** | 21 |
+| `hero` (declares the field) | 632 | **72** | 36 |
+
+**0 of 69 versus 72 of 632.** The measurement could have come out otherwise and did not.
+**54 of those 69 pages, across 21 sites, have their own `content_hero_*` asset already generated,
+active, and structurally unshowable.** That is a named mechanism for `bugs_open/114`, contributed
+there rather than filed new (114 is OPEN, owned and actively worked today).
+
+The resolver itself is not at fault and needs no change: `ensureAssets` already prefers, in order,
+the planner's page hero → the Lane B `ContentHeroKey` content hero → the site brand hero. **All 18
+of this site's tool pages have an active asset at exactly their `ContentHeroKey`** (`content_hero_`
++ page name with hyphens underscored) — verified row by row. The resolver would find every one of
+them. `hero-tool` never asks it.
+
+⚠ The one `hero-tool` instance fleet-wide that does show a per-page image
+(`leopardessconsulting.co.uk/tool-automation-savings-estimator`) has `background_image` written
+directly into `content_data`. So the **template** works; only the resolver path is switched off.
+That is a tempting per-page workaround and it is the wrong fix — hand-setting a resolver-owned URL
+is MEMORY `the-framework-writes-the-content-not-you`.
+
+### The tools: 18/18 serve, and 9/18 are outside the verification ladder entirely
+
+`scripts/probe-page-url.sh mortgagecalculator.co.uk <18 tool pages>` — **all 200**, invented-URL
+control 404, known-good sibling 200. Fetched all 18 and checked every literal JS binding against the
+page's own ids: **0 dangling bindings, 0 template residue (`<no value>`, `{{`) on all 18.**
+
+⚠ **That check has a stated blind spot and must not be read as "the tools work":** it only sees
+bindings written as literal strings. `btl-investor` and `fee-analyser` report **0 literal bindings**
+— they bind entirely through variables, which is precisely the class `bugs_closed/324` was filed for
+("reads clean on every id check and every binding through a variable dangles"). A real verdict needs
+a browser, and the platform has one.
+
+**It cannot reach half of them.** Running the platform's own eligibility predicate
+(`discovery_checks/tool_eligibility.go`, `toolEligibilityWhere`) against this site returns **9 of
+18** pages. Eligible: the 8 with a `component_level='tool'` component, plus `tool-simple` under the
+sole-component clause. **Invisible to Tier 2 and Tier 4 alike:** affordability, bridging-loan,
+equity-release, fee-analyser, overpayment, portfolio, rate-forecaster, repayment, stamp-duty — the
+adopted ten minus simple. They are multi-component (the calculator + a `generic-text-block`) with no
+tool-level component, so they satisfy neither clause.
+
+**Seven of those nine still have a current PLAN with a criteria fence** (installed 2026-08-10/11/17
+under keys `bridging-loan`, `equity-release`, `fee-analyser`, `overpayment`, `rate-forecaster`,
+`repayment`, `stamp-duty`). Those fences are orphaned: nothing loads them. The RUNBOOK §14 warning
+"a PLAN under the wrong key produces no error" fired here in a form §14 does not describe — the key
+did not change, **the page's shape did**, when a second component was added.
+
+### Why the two `improve_tool` failures are NOT what the handoff says they are
+
+The handoff records both as failing "on INFRASTRUCTURE, not on the tool", concluding acceptance is
+"unverified, not failed". **That conflates two different runs.** Read the row: the `summary` is the
+*acceptance* verdict, the `error` is the *fixer's* failure.
+
+- `error` (the fixer): `step load_tool failed: … query_database: query param path
+  'input_data.spec.page_id' resolved to nil` — infrastructure, correctly identified.
+- `summary` (the acceptance run that filed the item): `calculate-shows-results@desktop: step 2
+  (select #tracker-deposit-percent) failed: playwright: timeout … waiting for
+  locator('#tracker-deposit-percent')`. **That acceptance ran and failed, on a concrete selector.**
+
+And the selector is real — it is the criteria that are stale:
+
+```
+html_template  : id="{{.InstanceID}}-tracker-deposit-percent"
+rendered_html  : id="c-tool-deposit-tracker-tracker-deposit-percent"
+criteria fence : {"action":"select","selector":"#tracker-deposit-percent"}
+```
+
+`bugs_closed/283` converted every interactive component to instance-scoped ids. Nothing updated the
+acceptance criteria, and **neither checker knows about the prefix**:
+`check_tool_acceptance.go:anchorPresent` tests `strings.Contains(html, 'id="'+id+'"')` — an exact
+match. So the ladder reports a missing anchor for an element that is present.
+
+Fleet-wide, and disconfirmable — it could have shown these were genuinely invented selectors:
+**187 acceptance-fail notes in 45 days name an absent anchor; 134 of them (72%) name an element that
+EXISTS in that tool's own template under the `{{.InstanceID}}-` prefix, across 99 distinct tools.**
+Control: acceptance is not simply broken — 178 passing `acceptance-run` notes over 127 tools in the
+same window.
+
+Filed to the diagnosis loop before asserting the root cause, per CLAUDE.md's cross-cutting rule:
+`090` intake `0c852424`, run correlation **`7177c2d6-fe22-40c4-b9bc-b53f93ec59c9`**, work item
+`f49713ae`. No prior filing: the `needs_diagnosis` queue was empty and neither `/bugs_open/` nor
+`/bugs_closed/` carries the mechanism (283's five CONTINUE_HERE files never mention criteria or
+acceptance at all).
+
+### Migration 701 will orphan eight more fences, including its own pilot's
+
+701 retypes the adopted rows to `component_level='tool'` with `new_function` = `tool-<slug>`. The
+ladder's subject key is `cc.function` when the component is tool-level, so post-701 the key for
+these pages moves from `<slug>` to `tool-<slug>` — and all eight of this site's current PLANs are
+keyed `<slug>`. **`tool-simple`, 701's designated pilot, is the one page whose fence works today.**
+Net, 701 is good for verification (it makes nine invisible tools eligible); it needs the eight
+`doc_plans` rows re-keyed in the same change. CONTRIB written to the 357 lane.
+
+### One stale item closed, with a demand control that first caught my own blind query
+
+Item `a7c5d5ab` (`/tools/assets/tool-btl-investor.js` returns 404) — **cancelled**, condition gone.
+The script is still 404 but nothing references it: 0 of 18 live pages, 0 stored `page_components`.
+
+⚠ **My first control was worthless and I nearly recorded the zero on it.** I controlled with
+`snippets.js` — referenced by all 42 pages — and the stored-component query returned **0 for it
+too**, because `snippets.js` is injected by the chrome assembler and never appears in
+`page_components`. A control that returns the same zero as the target proves nothing. The honest
+demand control is `/tools/assets/mortgage-lender-directory-listing.js`, which **is** stored in a
+component and returns **1**. This is the lane's fourth composed-or-blind-probe near-miss
+(`bugs_open/387`'s family) and the second in this file where the *control*, not the target, was the
+defective half.
+
+### The 090 came back UNVERIFIABLE — and naming its own two gaps is what made the case airtight
+
+`f49713ae` completed **`UNVERIFIABLE`**, `stopped_by: iteration-cap`. **Not a refutation** — it ran
+out of iterations having failed to reach two facts, and it named both precisely:
+
+1. it could not tell **which** component row serves the failing URL
+   (`garden-tools.uk/tools/watch-service-interval-calculator/index.html`), because two rows share the
+   function and the bundle carried no `site_id`/`created_at` to separate them;
+2. **`check_tool_acceptance.go` was not in its bundle at all** — so it had no code evidence that the
+   selector resolution is literal rather than instance-aware.
+
+Both were cheap to close by hand and closing them produced better evidence than the loop would have:
+
+- **Gap 2** — `anchorPresent:565-567` is `strings.Contains(html, 'id="'+id+'"')`. Exact match, no
+  prefix awareness. Read, quoted in the bug file.
+- **Gap 1** — one function, two active rows, ONE criteria fence keyed on `function`. Curled both,
+  200 each: `garden-tools.uk` serves `id="c-tool-watch-service-interval-calculator-calc-btn"`
+  (fence's `#calc-btn` matches **nothing**), `relojistas.com` serves `id="calc-btn"` (matches).
+  **Same fence, opposite verdicts, and the passing site is the positive control** that rules out
+  "the fence is malformed" and "the checker is simply broken".
+
+That second finding is worth more than the confirmation would have been: **a fence keyed on
+`function` cannot be right for a function whose rows differ in scoping.** [MEASURED 2026-09-02]
+**10 tool functions are split** (≥1 converted and ≥1 unconverted active row); **6 of those hold a
+current criteria fence** and are therefore unsatisfiable by construction. So candidate 2 — "re-emit
+the fences from the live pages", which the lane's own `toolgolden.py` does automatically — **cannot
+be the fix**, only a follow-up. Only a scope-aware checker satisfies a split function.
+
+Filed as `bugs_open/441`, which states in §2 that the loop returned UNVERIFIABLE and that the filing
+rests on first-hand verification instead, per the owner ruling of 2026-07-31.
+
+⚠ **Do not read this as "the 090 was useless."** It cost one run and it is the reason the bug file
+carries a quoted function and a two-site control rather than an assertion. **A loop that stops and
+tells you what it could not see is doing its job** — and on this occasion the seeding gap it
+reported (a symptom naming symbols in a file the bundle does not include) is itself worth someone's
+attention.
