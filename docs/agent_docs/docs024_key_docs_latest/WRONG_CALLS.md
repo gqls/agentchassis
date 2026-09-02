@@ -59527,3 +59527,28 @@ tag", so their agreement proved consistency, not truth.
 
 **Tally:** **your-measurement-answers-the-question-you-encoded** ×(n+1);
 **two-agreeing-measurements-sharing-an-encoding-are-one-measurement** ×1 (new).
+
+---
+
+## 2026-09-02b — THREE false absences from my own searches in one week, same root: the instrument could not see the thing, and I wrote the conclusion before checking
+
+**Lane:** vigilant_designer_offer_analysis. Recording these as ONE row because the tally is the point — one is an anecdote, three in a week is a working habit.
+
+| # | the claim | what was true | why my instrument could not see it |
+|---|---|---|---|
+| 1 | *"the banned WORDS have no Go home yet"* | `registerwords.go` had held them since 08-31, better structured | I piped `grep` through **`head -8`**. Real count: **55** |
+| 2 | *"`--color-accent` is never applied to anything"* | applied in **six** rules; one **statically visible** on the served page | my regex required `var(--color-accent)` to **close immediately**; every real usage carries a fallback, `var(--color-accent, #d97706)`. **The only line it matched was the alias definition — the one thing that is not a usage** |
+| 3 | *"the 3 parked contrast failures are the accent ones, supersede them"* | they are **grey `rgb(107,124,133)` at 4.14–4.33:1**, real and standing, nothing to do with the accent | **no instrument at all.** I saw a `palette_contrast` gap that *was* the accent and assumed its neighbours were the same family |
+
+**The shared root, and it is not "greps are hard".** In (1) and (2) the search silently returned a *subset* — capped, or pattern-narrowed — and a subset is indistinguishable from a population when you only read the result. In (3) I skipped the search entirely and inferred from an adjacent fact. **All three then travelled, because I stated them as findings in prose to other lanes.**
+
+**The compounding move each time was writing the conclusion before the check.** (1) had a pre-written `echo "(empty = …)"`. (2) went out as *"never applied to anything"* — an absolute, from a single pattern. (3) went out as *"supersede these"* — an instruction, from an assumption. **A hedge would have cost one word and saved three corrections.**
+
+**The three checks, each one line:**
+- **Count before you read.** If the count equals your cap, you have seen a cap, not a population.
+- **For CSS/JSON/config, assume a FALLBACK or a default form.** `var(--x)` is not the shape; `var(--x, …)` is. Search for the opening, `var\(--x[,)]`, never the closed form. The general rule: **match the prefix, not the whole token.**
+- **A defect's NEIGHBOUR is not a defect's FAMILY.** Two findings on one page, even in the same category, are two findings. Read what each one actually names before proposing a disposition for both.
+
+**What caught all three, and it was not me.** (1) the compiler — `redeclared in this block`. (2) and (3) another lane checking before forwarding. ⚠ **In every case the error was already in someone else's document when it was caught.** The estate's tolerance for this is the reason it costs a re-read rather than a rebuild, and that tolerance is not a licence.
+
+Family: 2026-08-26e above (widen the population before trusting a refutation) · 2026-08-31 (correcting a peer with an instrument blind to the event) · [[a-closer-census-cannot-see-what-it-succeeded-at]] · [[a-css-fallback-is-present-and-inoperative]] — which is (2) inverted, and I had read it.
