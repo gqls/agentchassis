@@ -94,6 +94,38 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   (bugs_open/326) — not gate failure; the findings row still lands.** A replan never drops a
   BUILT listing page (their round-1 preserve rule + test).
 
+- ⚠ **A remake's TOOL URLs will serve 200 as PROSE SHELLS before its tools exist
+  (`bugs_open/450`, seotools 7/7 on 2026-09-02).** The planner names a tool page it cannot yet
+  fill (`hero-tool,generic-text-block`), the `owned_page_review` hold has no consumer, and the
+  phantom-link repair (`unbuilt_internal_link`, one per LINK) builds the target through the
+  generic builder — 2–6 rebuilds per page in 40 min. Tools arrive only when design-discovery's
+  rotation selects the site (≈ one site per 3 h; advertise was reached by luck at plan time,
+  which is why №1 never showed this). So: judge tools at the BODY (§4 form probe), keep the
+  seven-style holds open, expect `dead_internal_link_live` to clear on its own (the shell 200s).
+
+## 2b. Mitigation for №5 onward — fire a one-shot design discovery when the PLAN completes (UNEXERCISED on a remake; №5's third canary duty)
+
+Until 450's platform fix lands, make advertise's lucky ordering deliberate: tools before links.
+The worked shape is `scheduled_tasks` row `oneshot-design-discovery-mcalc-20260814` (owner
+decision 2026-08-14, one-shot not fleet re-enable; disable after first firing):
+
+```sql
+INSERT INTO scheduled_tasks (name, description, interval_seconds, target_agent_type, target_topic,
+        input_data, max_concurrent, enabled, timeout_seconds, fire_message)
+VALUES ('oneshot-design-discovery-<short>-<yyyymmdd>',
+        'One-shot design discovery for <domain> at plan completion (bugs_open/450 mitigation, portfolio_positioning). Disable after first firing.',
+        86400, 'design-discovery-agent', 'system.agent.scheduled.requests',
+        jsonb_build_object('domain','<domain>','site_id','<site_id>'), 1, true, 900, true);
+-- after it fires (last_triggered_at set): UPDATE scheduled_tasks SET enabled=false WHERE name='...';
+```
+- WHEN: the moment `site_plans.is_current` exists for the site and BEFORE any hub page deploys
+  (pages build within ~1 h of release — the window is short; watch the plan item, not the clock).
+- ⚠ Do NOT fire it at a site whose tool pages are ALREADY shells (seotools tonight) until
+  450 §7 is answered — what `tool-deployer` does to a page row that already carries generic
+  components is UNVERIFIED (on advertise it created the rows itself).
+- ⚠ On a P5-pair site the wave it triggers is the seat-blind one (447) — eye it.
+- Read the result at the body (§4), not at `evaluate_tools`/`add_tool` statuses.
+
 ## 3. Serve cutover (Cloudflare + Nominet) — ZONE FIRST
 
 Full detail: `RUNBOOK_dns_pointing_a_domain_at_the_serving_worker.md` + its 2026-09-02

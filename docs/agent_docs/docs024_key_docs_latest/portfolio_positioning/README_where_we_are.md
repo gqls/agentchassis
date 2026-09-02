@@ -1362,3 +1362,29 @@ tools hasn't reached seotools yet, and I couldn't check whether that sweep is ru
 before the key expired. Nothing to decide; just don't judge seotools' tools until they land.
 Sitemaps: two of the four (advertise, seotools) were generated during the hour the domains were
 dark, so they came out empty and will regenerate on their own.
+
+**2026-09-02, later still — access is back, the review piles are worked, and seotools' missing tools turned out to be a real bug, not a wait.**
+
+Your kubeconfig refresh landed and I went through the queues. Eleven of the "unresolved call to
+action" items had fixed themselves as later pages built, and I closed those with the evidence
+from the live pages; twenty-five remain because the secondary button on those pages has no
+sensible destination yet, and the template simply shows no button, so nothing is broken for a
+visitor.
+
+The seotools finding is worth a minute. Its seven tool pages are not "waiting for the sweep" in
+the way I said earlier. When the site was planned, no tools existed yet, so the plan wrote each
+tool page as a headline plus a text block. The pipeline's own hold ("this page needs the tool
+builder, not the generic builder") was filed but nothing acts on it. Then the link checker saw
+the hub linking to seven unbuilt pages and "repaired" each link by building the page — with the
+generic builder, as text — and deployed it. So every tool URL now answers with a proper-looking
+page and no tool on it, and every automatic check is happy. Advertise avoided this by luck: the
+design sweep happened to reach it while its plan was still being written, so the tools existed
+first. I've filed it as bug 450 with the fleet count (sixty-one such pages across ten sites,
+counted tonight), sent it to the diagnosis loop for an independent read, and written a
+mitigation for the next remakes: fire the design sweep the moment the plan completes, so tools
+come before links. That last step is untried, so remake number five is where we prove it.
+
+One advertise page, the regulation map, never built: the writer keeps producing a shape a
+component won't accept. That's an existing bug (437) affecting six sites, owned elsewhere, and
+the site hides links to the missing page in the meantime.
+

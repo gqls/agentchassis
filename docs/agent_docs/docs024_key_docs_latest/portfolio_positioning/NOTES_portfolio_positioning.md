@@ -3980,3 +3980,44 @@ session's — kustomize overlays, 444's bug file, platform tests).
 > the stamp is read. The check I skipped: two commits can ride one roll or not — a symptom that
 > names one of them is evidence for that one only.
 
+### (u) 2026-09-02 ~21:2x–22:2xZ — token back; §1a worked at the artefacts; seotools' shells diagnosed → `bugs_open/450`
+
+- **Access**: owner refreshed the kubeconfig ~21:2xZ (444 session's message); every query below
+  is post-refresh. 444's gate PROVEN LIVE by them (`560a24c07`) — runbook §2 rewritten; the
+  receipt anti-churn rides the NEXT roll; CLAUDE.md's two deploy-proof recipes are landmined
+  (no `build provenance` line on backend services; BusyBox `grep -aq` false-absences) — use
+  their NUL-split probe.
+- **CTA batch**: joined all 36 open `unresolved_cta` on the trio to `page_components.content_data`
+  by (page_name, slot_name=section_name) → 11 had every reported-missing field filled; curled
+  each served page cache-busted and counted `href="<value>"` (1–7 each, ≥1 required). Closed the
+  11 (`closed_by`/`resolution`/`verified_at_artefact` — same shape as (i)); 25 remain with an
+  empty field ("no eligible content hub" for `secondary_cta_url`). Query to re-run: the CTE in
+  this session's transcript — reproduced in RUNBOOK? No: it is one-off; the shape is
+  `spec->'missing'` × `pc.content_data->>m`.
+- **seotools' 7 tool pages**: `page_type='tool'`, `rebuild_policy='generic'`,
+  `sections=[hero-tool, generic-text-block]`; `site_plan_sections` for plan `5895b7ae`
+  (current) says the SAME — the plan asked for a shell. `page_component_history` for all seven:
+  every write's `source_item_id` = an `unbuilt_internal_link` item (20 filed 19:39:49Z, one per
+  link; 26 writes over 6 pages 19:57–20:41Z; robots-txt-tester 4 writes = 2 items × 2 slots).
+  No `evaluate_tools`/`add_tool` ever filed (live + archive); design-discovery has no rotation
+  row for seotools or websitepromotion; rotation selections 09:43/12:43/15:44/18:47Z = ~3 h
+  cadence. Guard: `save_page_sections_action.go:186` → `pageIsOwnedForGuard`
+  (`owned_page_guard.go:176-190`) = `rebuild_policy='owned'` only. **Control**: advertise plan
+  `046c9eee` (13:09:36Z) names `hero-tool,tool-guide-intro,tool-ab-test-calculator,tool-cta` —
+  its tools existed (12:57–13:06Z, design rotation hit advertise 12:43:56Z). Fleet census with
+  the control: 61 deployed tool-type pages without a tool-level component across 10 sites,
+  advertise 0/3. Filed **`bugs_open/450`** (first-hand verification stated + 090 fired: intake
+  `40879ff3`, run `96e97dc4`, `diagnosing` 21:42Z — verdict unread at close); 016b §9 + §10;
+  LANDMINES entry (verifier armed); runbook §2 trap + §2b one-shot-discovery mitigation
+  (UNEXERCISED; №5 canary #3; not for seotools until tool-deployer's behaviour on a
+  pre-existing page row is known).
+- **advertise**: `uk-advertising-regulation-map` never built — `mechanism-flow` `steps[].branches`
+  array-vs-string, 4 failures = `bugs_open/437`'s instance (6 sites, filed today by loanzy).
+  `site_unreachable` left for the availability probe (auto "probe recovered" precedent 21:22Z).
+- **websitepromotion**: `needs_page` d0a5c53f HITL was a placeholder false positive on natural
+  prose ("asking to be added to the relevant page") — re-queued once per (f).
+- **Misstep, recorded**: my first handoff addendum wrote "who built the shells needs the DB" —
+  right — but the (t) reading "design rotation last tick 18:47Z vs 20:15–21:00Z for the others,
+  stall UNVERIFIED" resolved as CADENCE (3 h), i.e. the [UNVERIFIED] marker did its job: it was
+  the first thing checked and it would have been wrong to act on.
+

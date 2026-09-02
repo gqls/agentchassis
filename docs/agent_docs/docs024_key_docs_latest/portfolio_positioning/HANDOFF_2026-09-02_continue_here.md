@@ -161,3 +161,53 @@ verdict~~ **landed APPROVED 20:53Z — runbook §2 carries it, addendum below**)
 - §1b [DB 21:0xZ]: 642 rotation COMPLETED on every selection in the last 12 h, `dropped` 0
   except the two dark-window runs above and leopardessconsulting (1); 622 guard holds (min
   deployed_pages 1, apis.uk). §1c unchanged.
+
+# ADDENDUM 2 — 2026-09-02 ~22:2xZ: token back, §1a worked, one class bug filed (`bugs_open/450`)
+
+The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Everything below is
+[DB] or body-verified after that.
+
+- **§1a CTA batch — DONE for what resolved:** 36 open → **11 closed with evidence** (content_data
+  field filled AND `href` present on the cache-busted served body; result carries page/fields/
+  href counts; two note that both CTAs resolve to the SAME page — websitepromotion `advertise`
+  and `channels-index`, cosmetic). **25 remain** (seotools 15 · websitepromotion 10): every one
+  still has an EMPTY `secondary_cta_url` (or both) because `resolve_internal_links` found "no
+  eligible content hub" — the gated template renders no button, so nothing is broken on the
+  page; they re-resolve only if a hub becomes eligible. Leave them; re-run the join query in
+  NOTES (u) after any hub/rerender wave, close what fills.
+- **seotools' 7 tool holds are TRUE — and now explained: `bugs_open/450`.** The plan named
+  every tool page as `hero-tool,generic-text-block` (no tool existed at 16:13Z); the
+  phantom-link repair built them as prose 19:57–20:41Z (26 writes / 6 pages, `unbuilt_internal_link`
+  → `page-build-handler`); the owned-page guard keys on `rebuild_policy='owned'`, which they are
+  not. Control: advertise's plan (13:09Z) named its real tool components because the design
+  rotation had reached it at 12:43Z. Design-discovery has NEVER selected seotools or
+  websitepromotion (rotation ≈ 1 site / 3 h; last tick 18:47Z — cadence, not a stall). 090 run
+  `96e97dc4` fired at filing, `diagnosing` at 21:42Z — **read its verdict first**
+  (`SELECT body FROM doc_notes WHERE body LIKE '%96e97dc4%' ORDER BY created_at DESC LIMIT 1;`)
+  and fold it into 450. Mitigation recipe for №5+: runbook §2b (one-shot design discovery at
+  plan time) — do NOT point it at seotools until 450 §7 (tool-deployer on a pre-existing page
+  row) is answered. `save_refused_incomplete` 540f5359 closed as a by-product (it was one of
+  those shell writes tripping the component floor). `dead_internal_link_live` ×7 will self-clear.
+- **advertise:** `site_unreachable` 59309883 (17:46Z, DNS "server misbehaving" in the dark
+  window) — LEFT for the probe: the same producer auto-resolves on the next availability pass
+  ("probe recovered", gamedesign.uk 21:22Z precedent); advertise's next pass is hours away.
+  `needs_page` FAILED ×2 = **`uk-advertising-regulation-map` never built**: component
+  `mechanism-flow`, `steps[].branches` declared array got string, 4 failures 17:21–19:07Z —
+  **an instance of `bugs_open/437`** (loanzy lane, 119 failures / 6 sites in 14 d, filed today,
+  no owner yet). Page is `active`, `deployed_at NULL`; LNK-038 suppresses links to it at render
+  so nav stays clean. Nothing to do here until 437's candidate 1 lands; the page then builds
+  on retry (the items are terminal `failed` — a fresh `needs_page` may need minting, read 437
+  first).
+- **websitepromotion:** `needs_page` d0a5c53f re-queued `triaged` — its 18:25Z block was
+  `placeholder_text` "to be added" matched inside natural prose ("asking to be added to the
+  relevant page"), a false positive; fresh writer run per NOTES (f); escalate on recurrence.
+  Its `tool-channel-prioritiser` is the one undeployed page: 450's class, no shell yet (no link
+  repair reached it) — the hold cd2fda11 stays.
+- **designblog** rows (`needs_section_data` featured_post, `capability_gap` deferred,
+  `claims_unverified`) are the designblog session's.
+- **Queue left for the owner (§1c) unchanged** + the two test briefs.
+- **Next session's §1**, in order: 090 verdict on 450 → fold in · advertise sitemap re-check
+  (still 404 → "did any page change after 16:37Z?") · seotools/websitepromotion: has the design
+  rotation reached them yet (`site_discovery_rotation` rows) — when it does, watch what
+  tool-deployer does to the shell rows and record it in 450 §7 · then §1d briefs.
+
