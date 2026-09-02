@@ -48,6 +48,40 @@ REFUSED — "does this page contain the thing its title asserts?"
     stay silent on a specific-sounding essay. Route it to a seat that can read, not to a
     regex. Recorded here so the next reader knows it was considered and declined.
 
+    THE CONCRETE DISPROOF, so nobody re-derives it: that underdog essay names Buster
+    Douglas, Mike Tyson, Andy Ruiz, Anthony Joshua, Tokyo and Madison Square Garden, and
+    dates 1990 and 2019 — nine proper nouns and two dates in an article containing no
+    news. A proper-noun-or-date rule would score it ABOVE a correct, short report of the
+    actual result. The approximation does not merely miss the case; it inverts it.
+
+SUBSTRATE: WHY RULE B READS STORED MARKUP AND NOT THE SERVED PAGE - SETTLED 2026-09-02
+    This looked like an open risk (this estate has a documented stored-vs-served gap: a
+    phantom-link check was caught reading stored html while the served page differed), so
+    it was measured rather than assumed. The boxingonline session probed all five of that
+    site's tool pages, cache-busted, three signals each, stored vs served: four agree, one
+    differs - and THE ONE THAT DIFFERS IS THE ONLY TRUE POSITIVE.
+
+    The served fight-calendar page has exactly one control, `<button class="mobile-menu-
+    toggle">`, inside `<header>`; outside header and footer it has none. Every site carries
+    that toggle - measured 2026-09-02, 30 of 30 sites whose header component mentions it
+    store it as a `<button>` tag. `page_components.rendered_html` excludes chrome (header
+    and footer live in `site_components`), so the stored substrate correctly sees zero
+    controls on that page.
+
+    So reading served bytes would give every page in the estate a control, Rule B would
+    never fire, and the fleet result would be a clean zero - the exact shape this lane
+    keeps writing landmines about. STORED IS THE RIGHT SUBSTRATE, because the question is
+    "does the page BODY offer the reader anything", and chrome is not the page. If a future
+    check does want served bytes, strip the header and footer elements first, or the chrome
+    answers the question for you.
+
+    While confirming that, I first measured "0 of 33 headers carry a control" and nearly
+    wrote it up as a sharper mechanism. It was my own regex: BACKSLASH-b IS BACKSPACE IN
+    POSTGRES, not a word boundary - '<button\b' matches nothing; backslash-y is the word
+    boundary. Every rule in this file runs in Python, where it behaves, so the checks were
+    never affected - but any census written in SQL with backslash-b silently under-matches
+    and reads clean. See LANDMINES.md, 2026-09-02.
+
 CONTROLS (printed on every run; a run without them is not evidence)
     demand   : rule B is only meaningful if tool pages CAN pass it — 126 of 320 carry an
                inline data array and 305 carry an interactive element (measured 2026-09-02),
@@ -269,6 +303,12 @@ def note_body(r):
         lines.append(f"[A] {f['domain']}: nav label {f['label']!r} points at "
                      f"{len(f['destinations'])} different pages: "
                      f"{', '.join(f['destinations'])}")
+    if r["rule_a_two_doors_one_name"]:
+        lines.append("    a rule A finding names two doors; it does NOT say which to "
+                     "close. Read what each page HOLDS before removing either — on the "
+                     "case this rule was built from, the newer duplicate held the site's "
+                     "only real dated sourced results and the older one held disposable "
+                     "essays, so the nav symptom pointed at the wrong page.")
     for f in r["rule_b_nothing_usable"]:
         lines.append(f"[B] {f['domain']}{f['url']}: {f['chars']} chars rendered, no control, "
                      f"no inline data, no runtime fetch — a page about a tool, not a tool.")

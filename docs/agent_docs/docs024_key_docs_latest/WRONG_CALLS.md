@@ -57510,3 +57510,21 @@ assume it informed the filename.
 
 **Tally:** **a-measurement-consumed-in-the-same-breath-is-never-read** ×1,
 **a-number-from-memory-beat-the-census-on-screen** ×1.
+
+- **2026-09-02, experience_loop** — a peer measured that boxingonline's served fight-calendar page
+  carries one control, the `mobile-menu-toggle` **inside `<header>`**, and concluded that Rule B
+  must keep reading STORED markup (which excludes chrome) or it would go blind fleet-wide. I set
+  out to verify the mechanism and ran `... FILTER (WHERE rendered_html ~* '<(button|input|select|
+  textarea)\b') FROM site_components WHERE slot_name='header'` → **0 of 33**. I then reasoned, and
+  began drafting into the concept register, that the toggle "exists in no DB row at all and must
+  be injected by the publish template" — a confident architectural claim, sharper than the peer's,
+  and **entirely false**. `\b` is BACKSPACE in Postgres, not a word boundary; **30 of 30** headers
+  carry the `<button>`. What caught it: a follow-up `ILIKE '%mobile-menu-toggle%'` returned 59
+  rows in the same table my regex had just called empty, and **I chased the contradiction instead
+  of the conclusion I preferred** — the register sentence was already written. Cheap check
+  skipped: a positive control on the first census (one row I had read with my own eyes, asserted
+  to match), which costs nothing and makes "absent" distinguishable from "unmatchable". Tally:
+  **a-zero-from-a-regex-census-read-as-an-absence**, and a second entry in
+  **signal-asserted-without-a-disconfirming-case** — the same family as Sunday's three, which is
+  now five in three days and is the argument for making the positive control reflexive rather
+  than remembered.

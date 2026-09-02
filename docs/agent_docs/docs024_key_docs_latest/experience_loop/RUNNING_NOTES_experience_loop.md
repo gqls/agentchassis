@@ -1217,3 +1217,49 @@ Ask 2 (a zero-item index as a first-class experience failure) is **partly** addr
 catches the tool-page form of it. The listing form — an index whose set is empty and which says
 nothing true about that — is not built. Ask 4 (route `content-quality-auditor` into the new-build
 path) is untouched and is a dispatch question owned elsewhere.
+
+### 2026-09-02, later — the peer answered my stored-vs-served ask, and confirming it caught a fabrication of mine
+
+**The answer inverted my fear.** I had flagged reading STORED markup as rule B's blind spot.
+The boxingonline session probed all five of that site's tool pages, cache-busted, three signals
+each: **four agree, one differs, and the one that differs is rule B's only true positive.** The
+served fight-calendar page's single control is `<button class="mobile-menu-toggle">` inside
+`<header>`; `page_components.rendered_html` excludes chrome, so stored correctly sees zero.
+Switch to served bytes and every page in the estate has a control, rule B never fires, and the
+fleet result is a clean zero. **Stored is right because the question is "does the page BODY offer
+the reader anything", and chrome is not the page.** Recorded in the detector's docstring and in
+SQ-005; the entry's one open risk is now closed rather than carried.
+
+**Confirming it, I nearly registered a fabricated mechanism.** I ran
+`count(*) FILTER (WHERE rendered_html ~* '<(button|input|select|textarea)\b') FROM site_components
+WHERE slot_name='header'` → **0 of 33**, and reasoned that the toggle "exists in no DB row and must
+be injected by the publish template" — sharper than the peer's account, and false. `\b` is
+**backspace** in Postgres, not a word boundary; `\y` is. The truth is **30 of 30**. What caught it
+was an `ILIKE '%mobile-menu-toggle%'` returning **59 rows in the table my regex had just called
+empty**, and choosing to chase the contradiction rather than the conclusion I preferred — the
+register sentence was already drafted. Landmine + WRONG_CALLS entry filed. Both detectors in this
+family run their regexes in Python, so neither check was ever affected; only my design-time
+censuses were, and one of them (`\.json\b` in the fetch probe) is why the SQL census said 6
+runtime-fetch pages while the Python rule says 12.
+
+**Two things the peer added that changed the artefacts, not just the record:**
+- **A rule A finding names two doors and must not imply which to close.** On its own motivating
+  case the newer duplicate (`/news/index.html`) holds the site's only real, dated, sourced boxing
+  results, and the six `/blog/` essays are the disposable half — so the nav symptom points at the
+  page you must NOT delete. That caution is now printed in the check's own `doc_notes` body, where
+  whoever acts on a finding will see it, rather than living in a lane doc they will not read.
+- **The refusal now has a concrete disproof.** The underdog essay names nine proper nouns and two
+  dates while containing no news, so a proper-noun-or-date approximation would score it ABOVE a
+  correct short report of the actual result. It inverts the case rather than missing it. That is
+  worth more than the refusal argument was on its own, and it is in the docstring.
+
+**Rule A's zero was not a fix by the peer's lane:** site_delivery_and_editor pulled `news-index`
+from the header flags as a deliberate INTERIM under the owner's ruling, keeping the page
+reachable, pending structural work. So the rule reported zero because the estate was correct at
+that moment — which is what a detector should do.
+
+**Their `while read` + `kubectl exec -i` trap is ALREADY DETECTED and needs no new entry**:
+`check_stdin_eater` in `scripts/pattern-check.py` (016b §9 #20) fires on exactly that shape, and
+its own comments use `kubectl exec -i pod -- psql` as the worked example. It scans committed
+`.sh`/`.bash` files, so it structurally cannot see an ad-hoc command typed into a session, which
+is where they hit it. Told them rather than filing a duplicate.

@@ -18996,3 +18996,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `a-post-fix-zero-needs-a-demand-control` (the zero this produces is indistinguishable from a quiet fleet) · `a-stale-page-holds-every-improvement-since-it-rendered` · `bugs_open/417` (where it fired) · `bugs_open/235` (logo stored as hero) · `a-repro-regenerated-from-source-is-destroyed-by-the-render`
 - **source:** 2026-09-02, bugfix 417/420 lane, running the post-roll census for 417. The earlier read ("last logo asset: 2026-08-31") was reported to two other lanes as "no logo has been generated since the roll" before the peer lane's message revealed a regeneration had completed that morning.
 - **added:** 2026-09-02, bugfix 417/420 lane.
+
+---
+
+### `\b` is BACKSPACE in a Postgres regex, not a word boundary — a census written with it silently under-matches and reads CLEAN
+
+- **footprint:** any `~` / `~*` / `regexp_match` / `regexp_replace` in psql or in a `.sql` file · `scripts/audit-*.py|sh` census queries · ad-hoc `kubectl exec … psql -c` measurement
+- **fires when:** you write a fleet census in SQL and reach for the regex you would write in Python, grep -P or JavaScript — `'<button\b'`, `'\.json\b'`, `'\bnews\b'`. Most likely on the FIRST query of an investigation, which is the one every later conclusion rests on.
+- **the trap:** Postgres ARE follows Tcl, not PCRE: `\b` inside a bracket expression is backspace, and outside one it is **also** backspace, not a word boundary. **The word boundary is `\y`.** So the pattern matches a literal 0x08 that is never in your data and the query returns **zero rows, no error, no warning**. Proven in one statement:
+  ```sql
+  SELECT ('<button class="x">' ~ '<button\b') AS backslash_b,   -- f  (backspace)
+         ('<button class="x">' ~ '<button\y') AS backslash_y,   -- t  (word boundary)
+         ('<buttonx>'          ~ '<button\y') AS y_discriminates; -- f
+  ```
+- **why the wrong result looks exactly right:** a zero from a regex census is almost always read as "the thing is not there". Measured 2026-09-02: `SELECT count(*) FILTER (WHERE rendered_html ~* '<(button|input|select|textarea)\b') FROM site_components WHERE slot_name='header'` returned **0 of 33** — and the truth is that **30 of 30** site headers carry `<button class="mobile-menu-toggle">`. That zero was about to be written into a concept-register entry as a mechanism ("the toggle exists in no DB row, so it must be injected at publish time"), which is a plausible, confident and entirely fabricated architectural claim built on a regex flag.
+- **the check:** two lines, and do them on the FIRST census, not after a surprise. (1) Run the pattern with `\b` and with `\y` side by side — if they disagree, `\y` is the truth. (2) Run a **positive control** the query must match: pick one row you have read with your own eyes and assert the pattern finds it. A census with no known-positive row cannot tell "absent" from "unmatchable". Safest habit: drop the boundary entirely unless you need it (`'<button'` is right far more often than `'<button\b'` is), because the failure of the boundary is silent while its absence is merely loose.
+- **it is not only `\b`:** the same dialect gap bites `\d`, `\w`, `\s` inside bracket expressions, and lookahead/lookbehind, which Postgres ARE supports only in constrained forms. If a pattern is doing real work, keep the rule in the application language and let SQL move rows — which is why the two detectors in this family run their regexes in Python and were never affected by this.
+- **relations:** `a-post-fix-zero-needs-a-demand-control` (a zero that could not have come out otherwise) · `grep-silent-on-non-utf8` (the grep-side sibling: 0 matches AND no error) · `comm-and-sort-disagree-on-collation` (same family: two tools, one syntax, different semantics) · SQ-005
+- **source:** 2026-09-02, experience_loop lane, while confirming a peer's stored-vs-served finding. The peer was right; my "sharper" mechanism was a regex artefact, caught only because their measurement and mine contradicted each other and I chased the contradiction instead of the conclusion I preferred.
+- **added:** 2026-09-02, experience_loop lane.
