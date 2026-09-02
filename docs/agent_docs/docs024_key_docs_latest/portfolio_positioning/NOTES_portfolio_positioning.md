@@ -3901,3 +3901,14 @@ best-in-vertical + no-omission + fullness + no-negative-identity (standing) · L
 naming a distinct layout, preferring the nine unused · COLOUR referent = nearest estate
 neighbour's actual values · 444 enablement (feed source rows / directory kinds) or listing-page
 holdback · chrome pin data per §5 once the №5 experiment proves the mechanism.
+
+### (r) The platform violated a P5 seat split (bugs_open/447) — recorded on every pair surface
+
+tool-suggester (reads identity+classification only; no positioning vocabulary) proposed SIX of
+gamesdesign.co.uk's tools by name onto gamedesign.uk; the brief-fidelity guard RECORDED the
+violation but dispatches nothing. Held reversibly by their lane. The class ("a dispatch-mode
+agent that never reads the seat cannot honour a seat split") is now on GD1 (mechanism), GD2
+(machine-readable intent: hosts_tools=FALSE, consumer = 447's opt-in build), GDN1b (the
+indoorplanters pair inherits the watch), and RUNBOOK_remake_release §2 (eye every
+evaluate_tools wave on a paired site until 447 lands). Their 446: owner re-ruled gamedesign's
+vertical execution (louder, gamier) — GD2 substance unchanged.
