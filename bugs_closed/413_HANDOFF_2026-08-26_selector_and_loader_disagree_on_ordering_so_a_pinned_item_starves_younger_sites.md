@@ -386,3 +386,33 @@ exist elsewhere — outage- and stuck-claim-discriminated).
   candidate 2's policy territory, flagged to the owner in the lane README.
 
 +6h read due ~19:20Z; bug moves to `bugs_closed/` after it (fixed AND live AND measured).
+
+## CLOSED 2026-09-02 — fixed AND live AND measured
+
+**The bar is met.** Fix live since 2026-08-27 13:18:19Z (migration 657, council `ecf2e542`
+APPROVED, ledger-recorded); measured at the meter this file itself demanded:
+
+- **+2h floor read (15:20:08Z 08-27): PASS, wide margin** — worst unserved-with-old-work
+  6–10h (baselines) → ~68 min; only hits were rank-1 rotation spacing; the 30h-backlog site
+  (loanandmortgagecalculator) drained entirely; stuck-claim discriminator 0; drain at ceiling.
+- **+6h read lost** to the measuring session's credit freeze + kubeconfig expiry — replaced
+  by the stronger **+3.3d long-run read (08-30, throughput lane, committed): PASS trivially**
+  — the ~700-row 08-27 backlog fully drained; 0 pins, 0 stuck claims fleet-wide; daily 584
+  VERIFY all-7 green; lost claims **3.9%** trailing-24h, the best figure recorded on the lane.
+- Independent re-verification at close-out by this session: VERIFY green 2026-08-30 21:13Z
+  (K=8, census 3 sites eligible / **0 pinned**).
+
+**Caveats recorded with the verdict:** the 08-28 clean-window read was lost to
+`orchestration_states` retention; a fleet LLM outage ran from ~08-28 (Fri) with 99%+ failure
+— today's near-empty queue is therefore partly demand-starvation, but the acceptance evidence
+predates and spans it. **Meter caveat for future readers (throughput lane, 08-30):**
+`max(claimed_at)` is BLIND to claim-release cycles (a release clears it) — a site read
+"unserved since 08-28" while taking 9 loops in 2h; **loops are the service meter** (RUNBOOK
+carries the caveat).
+
+**Residuals, live elsewhere by design:** (1) pinned ROWS still age indefinitely within their
+sites — priority-140 means "run last", and bounding the wait is candidate 2, an OWNER policy
+option written up in the lane README with the floor data behind it; (2) the fire-gate's
+narrower eligibility spelling is `bugs_open/415`, untouched. (3) Housekeeping: the migration
+trio dropped its `_HOLD` suffix and was `--record-only`'d on 2026-09-02 (bugs_closed/150
+lifecycle) — historical references to the `_HOLD` names in this file were true when written.

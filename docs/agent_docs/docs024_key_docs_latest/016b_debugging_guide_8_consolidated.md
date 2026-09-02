@@ -6767,7 +6767,14 @@ dispatch, invisibly to every aggregate meter (`[MEASURED 2026-08-26]` finetuning
 zero loops 10+ h at 265–278 fleet claims/h; ~570 rows/13 sites stood ahead, several pinned by
 `audit_tool` @140 attempt 0). Two flavours: never-loaded and fail-bounce. 090 run `250188a7`
 filed with the case. Meter: RUNBOOK per-site starvation floor; fix candidates ranked in the file
-— owned by the dispatch_throughput lane.
+— owned by the dispatch_throughput lane. **CLOSED 2026-09-02 (fixed AND live AND measured):**
+migration `657` (applied 2026-08-27 13:18:19Z, council `ecf2e542` APPROVED) makes the pin
+unrepresentable — the selector ranks sites by min(created_at) over each site's top-K rows under
+the LOADER's ordering, K read live. Measured PASS at +2h (worst wait 6–10h → ~68 min; the 30h
+backlog site drained entirely) and +3.3d (0 pins, 0 stuck claims, lost claims 3.9% best-ever).
+Residuals live elsewhere: pinned ROWS still age within their sites (candidate 2 — an OWNER
+policy option, lane README) and the fire-gate's narrower spelling is `bugs_open/415`. File now
+in `bugs_closed/`.
 
 **`411`** — `check_image_source_unsatisfiable` states a rendering claim it never verifies;
 `[MEASURED 2026-08-26]` 58 of 67 open items name a field that renders fine (all 46 `site_assets.hero`
