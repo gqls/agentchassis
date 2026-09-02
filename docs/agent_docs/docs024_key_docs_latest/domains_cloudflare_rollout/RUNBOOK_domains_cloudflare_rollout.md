@@ -8,7 +8,7 @@
 | Cloudflare **(read-write)** | `~/.config/cloudflare/portfoliotoken` | ⚠ **THIS is the one that can WRITE.** Added 2026-08-18, undocumented until 2026-08-25 |
 | Nominet | `~/.config/nominet/credentials` | `TAG=…` and `EPP_PASSWORD=…` lines. PENDING |
 | Dynadot | `~/.config/dynadot/credentials` | `API_KEY=…` (+ `API_SECRET=…`, unused by API3, kept for the RESTful API). **PRESENT 2026-09-02 — `list_domain` PROVEN (451 domains), writes not yet** |
-| Porkbun | `~/.config/porkbun/credentials` | `API_KEY=…` and `SECRET_API_KEY=…`. PENDING |
+| Porkbun | `~/.config/porkbun/credentials` | `API_KEY=…` and `SECRET_API_KEY=…`. **PRESENT 2026-09-02 — ping + listAll PROVEN (683 domains); per-domain endpoints refused until the account-level API-access opt-in (see Porkbun section), writes not yet** |
 | Spaceship | `~/.config/spaceship/credentials` | `API_KEY=…` and `API_SECRET=…`. **PRESENT 2026-09-02 — read paths PROVEN, writes not yet** |
 
 Gotcha: read the token with `tr -d '[:space:]'` — a trailing newline in the file
@@ -125,9 +125,22 @@ becomes an invalid bearer header.
 - Auth: `X-API-Key` / `X-Secret-API-Key` headers or `apikey`/`secretapikey` in
   the JSON body. Base `https://api.porkbun.com/api/json/v3`.
 - Full endpoint reference: `https://porkbun.com/llms-full.txt`.
-- [ASSUMED] API access may need enabling per-domain (bulk toggle in Domain
+- **Client: `scripts/domains/porkbun.py`** (`ping` / `domains` / `ns` / `set-ns`
+  / `dns` / `dns-create` / `dns-edit` / `dns-delete` / `check` / `raw`) — same
+  family as `spaceship.py` and `dynadot.sh`; reads the credentials file, never
+  prints key material, exits non-zero on any non-SUCCESS response. `domains`
+  paginates `listAll` completely: **683** domains, all ACTIVE, as of 2026-09-02.
+- ~~[ASSUMED] API access may need enabling per-domain (bulk toggle in Domain
   Management) — the docs page didn't confirm; the error on a disabled domain is
-  explicit, so the first listing/update call settles it.
+  explicit, so the first listing/update call settles it.~~ **MEASURED 2026-09-02:
+  CONFIRMED — and the remedy is better than assumed, because there is a GLOBAL
+  opt-in.** `ping`/`listAll` work with no opt-in at all; every per-domain
+  endpoint (proven on `getNs`) refuses with the explicit error *"Domain is not
+  opted in to API access. You can enable API access for all domains globally
+  from your account settings at porkbun.com."* — one account-settings switch
+  covers the whole estate, no per-domain (let alone 683-domain) toggling needed.
+  Writes (`set-ns`, `dns-*`) remain UNEXERCISED until after that switch — a read
+  refusal proves nothing about the write path either way.
 
 ## Spaceship
 

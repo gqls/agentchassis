@@ -622,3 +622,30 @@ once the site serves — no cleanup needed.
   exist in the account (`add_ns` once, first).
 - Registrar-key state after today: Spaceship IN (ef3157cec, other session),
   Dynadot IN (this entry) — **only Porkbun still owed.**
+
+## 2026-09-02 — CONTRIBUTION: Porkbun key IN (third of three — registrar keys COMPLETE); listAll proven, per-domain gated on a global opt-in
+
+- Owner created the key at porkbun.com/account/api (not IP-restricted, per the
+  08-04 ruling) and placed `~/.config/porkbun/credentials` (600/700, RUNBOOK
+  convention: `API_KEY=`/`SECRET_API_KEY=` lines).
+- New client `scripts/domains/porkbun.py` (commit `5af348ef5`): `ping` /
+  `domains` / `ns` / `set-ns` / `dns` / `dns-create` / `dns-edit` /
+  `dns-delete` / `check` / `raw`. Reads the credentials file (whitespace-
+  stripped per the RUNBOOK gotcha), never prints key material, exits 1 on any
+  non-SUCCESS. Placeholder/error path proven before the key existed; base URL
+  proven separately via the no-auth `/pricing/get`.
+- **`ping` + `listAll` PROVEN**: **683** domains as of 2026-09-02, all ACTIVE,
+  all auto-renew on. Egress at verification was IPv6 — the office line really
+  does present both families, so the no-IP-restrict ruling is load-bearing.
+- **The RUNBOOK's [ASSUMED] per-domain toggle: CONFIRMED, and settled better
+  than assumed.** `getNs` on a listed domain refuses with *"Domain is not opted
+  in to API access. You can enable API access for all domains globally from
+  your account settings at porkbun.com."* — so account-wide endpoints need no
+  opt-in, per-domain endpoints need it, and ONE global account-settings switch
+  covers all 683. Owner asked to flip it; per-domain reads and all writes
+  UNEXERCISED until then.
+- Raw inventory snapshot lives in the 09-02 session tool-results only (not
+  committed).
+- Registrar-key state after today: Spaceship IN (ef3157cec), Dynadot IN
+  (8f5961a91), Porkbun IN (this entry) — **none still owed.** Nominet
+  TAG+allowlist remains the separate open item.
