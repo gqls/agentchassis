@@ -90,8 +90,15 @@ with a present-control AND an absent-control in the same breath:
 
 ```bash
 P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
-kubectl -n ai-persona-system exec $P -- grep -ac 'REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT' /proc/1/exe  # >0 = shipped
-kubectl -n ai-persona-system exec $P -- grep -ac 'section_subjects' /proc/1/exe                          # >0 (present control, pre-existing)
+# Discriminating literals for dbb218a41 — verified 2026-09-02 by the finetuning session
+# against the live pod: `subjects_attached` and `facts_attached` are 0 in the pre-fix
+# binary and absent from git at dbb218a41^. Do NOT probe `section_subjects` as the
+# shipped-signal: it is the RAILS literal (born 35905c547, already rolled) and returns 1
+# on a binary that has never seen this fix. Same for `without_subject` (pre-existing in
+# write_site_plan_action.go).
+kubectl -n ai-persona-system exec $P -- grep -ac 'subjects_attached' /proc/1/exe                         # >0 = dbb218a41 shipped
+kubectl -n ai-persona-system exec $P -- grep -ac 'REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT' /proc/1/exe  # >0 = shipped (second discriminator)
+kubectl -n ai-persona-system exec $P -- grep -ac 'section_subjects' /proc/1/exe                          # >0 (present control — RAILS literal, pre-existing by design)
 kubectl -n ai-persona-system exec $P -- grep -ac 'STRING_THAT_MUST_NOT_EXIST_443' /proc/1/exe            # 0 (absent control)
 ```
 
