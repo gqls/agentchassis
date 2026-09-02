@@ -58883,3 +58883,29 @@ Family: a-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-
   Tally: **a-check-anchored-to-a-version-cannot-see-the-next-one** ×1,
   **a-promise-made-to-a-peer-is-a-durable-claim** ×1 (they had recorded it as their contract; a false
   assurance to another lane outlives the conversation that produced it).
+
+- **2026-09-02 — vigilant_designer_offer_analysis — my false-positive CONTROL was a true positive, so
+  it could never have discriminated.** `TestScanBannedRegisterWordsLeavesOrdinaryProseAlone` lists
+  strings that must NOT trip the banned-word scanner, and I chose *"The plain English version is
+  shorter."* as an innocuous use of the word "plain". It is not innocuous: **"plain English" is
+  precisely the self-describing register label the owner banned**, and the moment
+  `copy_quality_two_stage` cut v2 with a `plain_words` rule, my control failed. Their rule is
+  correct; my control was wrong.
+  **The shape, and it is the one this file keeps recording from new angles:** a control only proves
+  something if it *could* have come out the other way. A false-positive control made of strings I
+  believed were clean is only as good as that belief — and here the belief was about the very
+  vocabulary the register exists to police, which is the worst possible place to trust my own ear.
+  **The cheap check:** for each string in a negative control, ask *"under what future rule would this
+  become a TRUE positive?"* If the answer is "a rule this project is plausibly about to write", it is
+  not a control, it is a hostage.
+  ⚠ **And it cost nothing precisely because it failed loudly at the right moment** — the control was
+  wrong from the day I wrote it and only a peer's rule change exposed it. **A wrong control is
+  invisible until something makes it fire.**
+  Related, same session, opposite direction: **I simulated a peer's planned regex widening to check
+  my tests would survive it, and got my simulation wrong** — I anchored the em dash to a preceding
+  LETTER (`[\pL\pN][,—]`) and measured "STILL BLIND, 0 hits" on the live exemplar. The real text is
+  `price point — not a default`, with a SPACE before the dash; their actual pattern (`\s[—–]\s*`) is
+  right and matches it. **I nearly reported a peer's unwritten change as insufficient on the strength
+  of my own guess at it.** Check a peer's change against THEIR spelling of it, or wait for the file.
+  Tally: **a-negative-control-that-is-a-true-positive** ×1,
+  **a-simulation-of-someone-elses-change-tests-your-guess-not-their-change** ×1.
