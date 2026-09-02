@@ -656,7 +656,20 @@ SELECT c.site_id,
        'page-rerender',
        80,
        'bugfix_357_component_identity lane (migration 701)',
-       'Rerender page: ' || c.page_name,
+       -- CORRECTED 2026-09-02, post-apply (components lane's fleet sweep):
+       -- spec.reason is PARSED, not read — page-rerender's check_rerender_mode
+       -- tests it against five literals (image_landed / section_data_resolved /
+       -- cta_links_stale / template_changed / literal_markdown) and routes
+       -- anything else to render_page, a byte-for-byte re-ship of the STORED
+       -- rendered_html. The original prose reason here did exactly that on all
+       -- 16 filed items. For THIS migration the two routes converge (the
+       -- template IS the stored bytes), so the shipped artefacts were correct
+       -- — but the template route went unexercised, which made the "regeneration
+       -- proven in vivo" reading of the pilot VACUOUS. Any future run of this
+       -- file exercises the real route: reason is now the literal, the prose
+       -- lives in summary (free text, read by humans).
+       'Rerender page: ' || c.page_name
+         || ' — component identity repaired by migration 701 (bugs_open/357 Option B): hero mislabel retyped to a per-tool adopted component',
        c.page_id,
        'bugfix_357_component_identity lane (migration 701)',
        jsonb_build_object(
@@ -664,7 +677,7 @@ SELECT c.site_id,
            'page_id',   c.page_id::text,
            'filename',  ltrim(p.url, '/'),
            'page_name', c.page_name,
-           'reason',    'component identity repaired by migration 701 (bugs_open/357 Option B) — hero mislabel retyped to a per-tool adopted component')
+           'reason',    'template_changed')
   FROM census_700 c
   JOIN pages p ON p.id = c.page_id
  WHERE c.is_target AND c.policy_pinned = 'generic';

@@ -1848,3 +1848,32 @@ the vetcomparison design pass (site design planner) is queued to make that edit,
 three item ids stay on vetcomparison's queue for whoever closes them with evidence. Adoption
 = identity repair, not a quality endorsement of the carried bytes; a later deliberate
 template edit diverging template-from-bytes is the normal component-edit flow doing its job.
+
+### 2026-09-02 ~21:30Z — CORRECTION to the pilot record + a token-expiry instrument failure; two items added to the post-refresh checklist
+
+> **CORRECTED 2026-09-02 (components lane's fleet sweep):** the 19:10Z entry's "md5 unchanged
+> through a REAL rerender — the by-construction property proven in a live run" is WRONG on
+> mechanism. All 16 filed rerenders carried a prose `spec.reason`; `check_rerender_mode`
+> parses that field against five literals and routed every one to `render_page` — a
+> byte-for-byte re-ship of STORED html, never the template. For adopted rows the routes
+> converge (template = bytes), so the artefacts shipped correct and the 22/22 served battery
+> + population 0 STAND — the repair is intact; only the "regeneration proven in vivo" claim
+> falls. WRONG_CALLS entry today; the HOLD file's reason is corrected to the literal
+> `template_changed` (prose moved to summary) with a dated comment for any future run.
+
+Also: the kubeconfig token expired mid-verification (~20:xx), and my drain watcher's
+"ALL-TERMINAL" was the dying instrument (stderr swallowed, empty aggregate read as drained) —
+logged as the second half of the same lesson: pair every watcher query with a must-succeed
+control.
+
+**Post-token-refresh checklist (owner refreshes; then):**
+1. Final DB sweep: rows still 1 per page, md5s still = pre_md5 across all 22, population
+   re-run = 0 (the 21:0x sweep predates the rerender drain; the served battery makes drift
+   very unlikely, but the close-out gets the query).
+2. File ONE `template_changed` rerender on the pilot page (the corrected shape) and verify
+   at the `page_components` row (keyed on page_id — `page_component_history.component_id` is
+   NULL on 44,555/45,285 rows, per the components lane) that the TEMPLATE route re-renders
+   byte-identically — the honest in-vivo proof of the regeneration-is-a-no-op property.
+3. Then close 357 at population 0 verified at the artefacts: move the bug file, 016b §10 row,
+   SUMMARY milestone, workstream memory, closing notes to lendzy / vetcomparison /
+   mortgagecalculator CONTRIB.
