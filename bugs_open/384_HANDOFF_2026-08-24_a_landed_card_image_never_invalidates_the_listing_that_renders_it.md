@@ -1364,3 +1364,46 @@ therefore quotable, and it names the exact three pages and the `tool-cta` slot f
 the `section_edit` → `section-editor` route (migration `486`).
 
 Detail query: `scripts/residual_by_policy.sql` in the workstream directory.
+
+## UPDATE 2026-09-03 15:4xZ — the enumerated exception to "every light re-render now delivers", **corrected**: it is 2 rows, not 14, and `component_id IS NULL` is NOT the test
+
+The `components` lane (`bugs_open/425`) flagged a shape my census is **structurally blind to** and
+which would otherwise read as a 384 residual: a `page_components` row whose `component_id` is NULL.
+My census joins `page_components pc JOIN qf ON qf.component_id = pc.component_id`, so such a row is
+**excluded from every figure in this file**. That part of their warning is right and important.
+
+**But the screening rule they offered — "`component_id IS NULL` ⇒ can never be repaired" — over-flags
+by 6×, and I checked the code rather than adopting it.** `resolveComponent`
+(`rerender_page_sections_action.go:361-393`) does NOT give up on an empty `componentID`: it falls
+through to `schemas[s.slotName]`, and `loadComponentSchemas` (`plan_sections_action.go:1981-2002`)
+indexes **by BOTH `name` AND `function`** — *"Index by both name and function for fast lookup in
+the section loop."* So a NULL-id row resolves fine whenever its `slot_name` matches either.
+
+`[MEASURED 2026-09-03 15:4xZ]` all 14 live NULL-`component_id` rows, tested against the map the
+code actually builds (`cc.name = slot_name OR cc.function = slot_name`, `is_active`):
+
+| resolves? | rows | pages | slot names |
+|---|---|---|---|
+| **yes** | **12** | 6 | `blog-listing`, `generic-text-block` ×8, `faq`, `tool-funding-fit`, `tool-loan-vs-savings` |
+| **no — genuinely stranded** | **2** | 2 | `article-grid` (finetuning.uk `/blog`), `section` (gamesdesign.co.uk `/game-jelly-invaders`) |
+
+**The trap in the middle is that `name` and `function` are different columns and the slot names use
+the FUNCTION one.** `blog-listing`, `generic-text-block`, `faq`, `tool-funding-fit` and
+`tool-loan-vs-savings` all have **0 rows** in `content_components` by `name` and ≥1 by `function`.
+A screening query written the obvious way — `WHERE cc.name = pc.slot_name` — therefore returns
+"unresolvable" for every one of them. **I wrote exactly that query first and it said 14 of 14 were
+stranded**; `content-listing` (which I knew resolves, because I had just watched it repair) came
+back false too, which is the only reason I looked again. **Keep a known-good control in any
+resolution census, or this returns a clean, plausible, entirely wrong answer.**
+
+**So the correct screening rule for a stuck page after the 454 fix:**
+```sql
+pc.component_id IS NULL
+AND NOT EXISTS (SELECT 1 FROM content_components cc
+                 WHERE (cc.name = pc.slot_name OR cc.function = pc.slot_name) AND cc.is_active)
+```
+Two pages match today, neither of them a listing this seam feeds. Separately — and this half of the
+lane's report stands unchallenged — boxingonline.com `/articles-index` carries **six** stacked
+`generic-text-block` rows all at `position 3`, which is `bugs_open/457`'s orphan-append and is why
+that page serves 36 cards where there should be 6. Those rows resolve; the defect is that they
+exist, not that they cannot render.
