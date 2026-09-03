@@ -751,6 +751,58 @@ exact expectation; 6 sites, unchanged from the 2026-09-02 census). Two findings:
   safety", passes on retry) — both happened today and they need opposite responses:
   retry the second, hand over the first.
 
+## 2026-09-03 later — the 463 lane unblocked the child-page route, and verifying their claim found a third gap that lands on the route I had recommended
+
+The `463` lane messaged to say it has taken `bugs_open/463` and is fixing the two
+platform defects between "plan a child page" and "a child page exists under the
+prefix". **Verified all three of their factual claims first-hand before acting** (this
+lane's standing practice, and it paid):
+
+| their claim | my check | result |
+|---|---|---|
+| `CanonicalisePage` blog-post arm defaults dir to `blog` | read `page_canonical.go:218-220` | holds — `dir := parent; if dir == "" { dir = "blog" }` |
+| `parent_section` empty on 109 of 109 blog-post plan rows | `site_plan_pages` census | holds exactly |
+| Pass C compares first path segments | `bugs_open/463` §2 + its §5 | holds |
+
+**One number of mine is WIDER than theirs**, worth having in both files: `parent_section`
+is empty on **76 of 76** `section-index` and **4 of 4** `news-index` plan rows too, so the
+column is unpopulated **fleet-wide**, not merely for blog-posts. Nothing anywhere writes
+it. (Misstep on the way: I first queried `spec->>'parent_section'` — it is a real column,
+not jsonb. `\d` first, again.)
+
+**The finding I sent back.** A census of every non-test `CanonicalisePage` call site:
+`write_site_plan_action.go:494` and `site_db_actions.go:314` thread
+`ParentSection: v.ParentSection` — the plan path their fix targets. But
+**`create_blog_posts_action.go:196` passes `Role` and `Slug` only**, a two-field struct
+literal, so `parent` is always `""` and the URL is unconditionally `/blog/<slug>.html` —
+unreachable by config, by LLM output, or by a populated `parent_section`, because the
+field is never read there. `create_blog_posts` is the single action of
+`blog-content-planner`, i.e. **exactly the producer `bugs_open/460` is about and exactly
+the route I had recommended reviving**. With Pass C fixed and the prompt fixed, reviving
+it still writes to `/blog/`. Remedy is one field, precedented by
+`deploy_tool_action.go:736` which hardcodes `ParentSection: "guides"`. Sent to the 463
+lane; not taken here, no file of theirs touched.
+
+**I withdrew my route preference in the designblog CONTRIB, visibly.** Route (1) revive
+`blog-content-planner` now costs three things, one open-ended: an **unowned** four-month
+dormancy (`bugs_open/460`, filed by the gamedesign.uk lane, deliberately asserting no
+cause), the `ParentSection` field, and wiring `content_feed_items` in as an input it does
+not take. Route (2) build a producer needs the Pass C fix plus simply not repeating the
+mistake. **The lesson on myself:** I costed route (1) as "cheapest in new mechanism"
+after reading `create_blog_posts`' doc header and its workflow steps, but not its
+`CanonicalisePage` call — a two-field struct literal was the whole difference between a
+live route and a dead one. Reading what a mechanism DOES is not reading what it PASSES.
+
+**Not asserted, and flagged as such to the peer:** whether Pass C also drops children
+written *directly* into `pages` rather than planned. Those are realised-but-unplanned; I
+expect a different pass governs them and did not read it.
+
+**Also tracking `bugs_open/457`** (`rebuild_blog_listing` appending orphan
+`page_components` rows), owned elsewhere, in flight — the hub-**render** half. A filled
+hub that renders nothing looks identical to an empty one. `746` is unaffected either way:
+advertise's `/news/` is a `news-index` filled by the feed renderer, not a section index
+filled by children.
+
 **The same-file passenger trap fired BOTH WAYS on `LANDMINES.md` today, and the second
 direction is the one I owe an account of.** My commit `276d65655` (my own duplicate
 cross-reference) also carried, unmentioned in its message, the **vigilant designer +

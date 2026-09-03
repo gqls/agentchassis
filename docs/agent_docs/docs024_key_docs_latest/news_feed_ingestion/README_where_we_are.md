@@ -157,6 +157,27 @@ it through, across about eight attempts. None of the three needs any more work; 
 need either your word naming them or two minutes of your time each. The commands are in
 the RUNBOOK, each under a heading saying who runs it.
 
+Later the same day, another session got in touch to say it is fixing two platform
+faults that had been quietly making the designblog approach impossible. Worth
+knowing what they were, because they explain a whole class of empty pages: when
+the framework planned a new article underneath a hub page, one check mistook it
+for a page clashing with the hub and deleted it, reporting success; and when an
+article did survive, its address was rewritten to sit under a generic "blog"
+folder rather than under the hub, so the hub found nothing. Neither had anything
+to do with this lane. Both have been live since May.
+
+I checked their findings against the code rather than taking them on trust, and
+they are right. That check turned up a third fault they had not spotted, in the
+one piece of machinery I had recommended reusing: it cannot be told which folder
+to put an article in at all, so even after their fix it would still file articles
+in the wrong place. I have told them, and I have withdrawn my recommendation in
+writing rather than quietly leaving it standing. The honest reason is that I had
+read what that machinery does without reading what it passes along, and one short
+line of code was the whole difference between a working route and a dead one.
+
+So designblog is still a decision rather than a build, but it is now a live
+decision instead of a blocked one. Nothing about the advertise work changes.
+
 designblog.co.uk I have deliberately not touched. You re-scoped it yesterday
 (keep the page as a section index, fill it from child pages), which means a
 news source on its own would not fill it; I need to agree the mechanism with

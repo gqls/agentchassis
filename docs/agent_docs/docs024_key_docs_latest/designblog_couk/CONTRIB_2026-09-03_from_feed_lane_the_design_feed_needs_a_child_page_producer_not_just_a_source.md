@@ -70,6 +70,81 @@ the door" and "a silent mechanism is usually undriven" grounds. But route (1)
 touches a shared agent, and route (2) touches the page-production seam, so
 neither is mine to pick alone.
 
+> **⚠ CORRECTED 2026-09-03, hours after writing, and the correction runs in BOTH
+> directions — read this before acting on the section above.** The `463` lane
+> messaged to say it has taken `bugs_open/463` and is fixing the platform defects
+> that stood between "plan a child page" and "a child page exists under the
+> prefix". I verified all of their claims first-hand before accepting them, and
+> they hold. Net effect: **the child-page route is a real option again rather than
+> a dead one — but route (1) specifically needs one more fix that nobody has
+> named, and route (1)'s cost has gone UP, not down.**
+>
+> **What was actually blocking it** (two defects, neither anything to do with this
+> lane, `bugs_open/463`):
+> 1. `validate_site_plan` Pass C (`v3_site_actions.go:7599`) compares a planned
+>    page's **first path segment** against a realised section index's stem, so a
+>    legitimate child `/the-design-feed/x.html` is indistinguishable from a flat
+>    page colliding with the hub, and is deleted. Silently: no error, no
+>    capability gap, orchestration `COMPLETED`. Live since 2026-05-21.
+> 2. The write path re-derives the URL from `CanonicalisePage`, whose `blog-post`
+>    arm defaults the directory to `blog` when `parent_section` is absent
+>    (`page_canonical.go:218-220`), and nothing populates `parent_section`.
+>    `[MEASURED 2026-09-03, first-hand]` it is empty on **109 of 109** `blog-post`
+>    plan rows — and also on **76 of 76** `section-index` and **4 of 4**
+>    `news-index` rows, so the column is unpopulated **fleet-wide**, which is a
+>    wider fact than the 463 lane's own measurement.
+>
+> **The third gap, which their fix as described does NOT reach, and which lands
+> squarely on route (1).** `[MEASURED 2026-09-03]` a census of every non-test
+> `CanonicalisePage` call site: `write_site_plan_action.go:494` and
+> `site_db_actions.go:314` thread `ParentSection: v.ParentSection` — that is the
+> plan path their fix targets. But **`create_blog_posts_action.go:196` passes a
+> two-field struct literal, `Role` and `Slug` only**, so `parent` is always `""`
+> and the URL is unconditionally `/blog/<slug>.html`. No config, no LLM output and
+> no populated `parent_section` can change it, because the field is never read on
+> that path. `create_blog_posts` is the single action of
+> `blog-content-planner` — route (1)'s whole mechanism. So with Pass C fixed AND
+> the planner prompt fixed, reviving it still writes to `/blog/` and this hub
+> still resolves zero children. The remedy is one field at that call site, and
+> `deploy_tool_action.go:736` is the precedent: it hardcodes
+> `ParentSection: "guides"` and ships tool guides under `/guides/` today. Raised
+> with the 463 lane; not taken by this lane, and no file of theirs touched.
+>
+> **Route (1)'s dormancy now has a bug number, and it is UNOWNED.**
+> `bugs_open/460` ("the blog-post producer ran 13 times then stopped dead on
+> 2026-04-24 and nobody noticed") was filed by the `gamedesign.uk` lane and
+> **deliberately asserts no root cause**. My "cause unestablished" above is
+> therefore still true and now official. Reviving that producer means: diagnose an
+> undiagnosed four-month silence, add the `ParentSection` field, AND wire
+> `content_feed_items` in as an input it does not currently take. That is three
+> things, one of them open-ended.
+>
+> **So I withdraw the preference for route (1) and state no preference.** Route
+> (2), a purpose-built feed-item→article producer, needs the Pass C fix (theirs,
+> in flight) and must simply not repeat the `CanonicalisePage` mistake — it can
+> set `ParentSection` correctly from the start. Route (1) needs all of that plus
+> an unowned diagnosis. The "cheapest in new mechanism" argument I made above was
+> costed against a mechanism I had not read closely enough, which is the honest
+> reason for the change.
+>
+> **One thing I have NOT verified and am not asserting:** whether Pass C would
+> also drop children written *directly* into `pages` by a producer rather than
+> planned. Those rows are realised-but-unplanned, so I expect a different pass
+> governs them, but I did not read it. It matters for both routes and it is a
+> question for the 463 lane and the 444 session, not an assumption to build on.
+>
+> **Also track `bugs_open/457`** (`rebuild_blog_listing` appending orphan
+> `page_components` rows), flagged by the 463 lane and owned elsewhere, in flight.
+> That is the hub-**render** half: it decides whether a filled hub actually lists
+> its children. A filled hub that renders nothing looks identical to an empty one,
+> so it belongs in the same decision.
+>
+> **Status of their fix:** inert until the chassis image rebuilds and rolls. They
+> will verify on `gamedesign.uk` at the step boundary, not at the served page.
+> Nothing in this lane's migrations changes, and `746` is unaffected — advertise's
+> `/news/` is a `news-index` page filled by the feed renderer, a different
+> mechanism from a section index filled by children.
+
 ## What I will do the moment the mechanism is agreed
 
 The design-vertical source set is ready to author and is genuinely small — the

@@ -152,6 +152,26 @@ real, wired, and **dormant**: `llm_call_log` shows **10 calls all-history,
 posts from an LLM prompt over a site spec, so even revived it would need
 `content_feed_items` wired in as an input.
 
+> **UPDATED later on 2026-09-03 — the route is UNBLOCKED, and my preference is
+> WITHDRAWN.** The `463` lane has taken `bugs_open/463` and is fixing the two
+> platform defects that made the child-page route produce zero pages: Pass C
+> deleting legitimate children of a section index (silently, `COMPLETED`), and the
+> write path defaulting a `blog-post` URL to `/blog/` because nothing populates
+> `parent_section`. Verified all their claims first-hand; they hold, and
+> `parent_section` is empty **fleet-wide** (109/109 blog-post, 76/76
+> section-index, 4/4 news-index plan rows), which is wider than their own figure.
+> **But verifying it found a third gap that their fix as described does not
+> reach:** `create_blog_posts_action.go:196` passes `Role` and `Slug` only to
+> `CanonicalisePage`, never `ParentSection`, so route (1)'s producer writes to
+> `/blog/` regardless of any prompt or plan fix. That is the single action of
+> `blog-content-planner`, whose four-month dormancy is now `bugs_open/460` and
+> **UNOWNED**, asserting no cause. So route (1) = an unowned diagnosis + a missing
+> field + a new input; route (2) = the Pass C fix plus not repeating the mistake.
+> Preference withdrawn in the CONTRIB with the reasoning shown. Raised the field
+> gap with the 463 lane; not taken here. Track `bugs_open/457` alongside — the
+> hub-render half, owned elsewhere. `746` is unaffected: advertise's `/news/` is a
+> `news-index` filled by the feed renderer, not a section index filled by children.
+
 Two routes, written up for the three lanes that must agree:
 `designblog_couk/CONTRIB_2026-09-03_from_feed_lane_the_design_feed_needs_a_child_page_producer_not_just_a_source.md`
 — (1) revive `blog-content-planner` and feed it triaged items, or (2) build a
