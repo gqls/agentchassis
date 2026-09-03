@@ -160,3 +160,33 @@ other in the same search results.
 the domain string) · `DIR-001` · `RFC_022` (accumulated optional surface on shared actions) ·
 `vertical_landscape` / `needs_vertical_research` (the outward-facing precedent to mirror) ·
 `portfolio_positioning/REGISTER_positioning.md` (the data) · the builder-flow decision (§4).
+
+## ADDENDUM 2026-09-03 — the layer BELOW this RFC, and why neither change substitutes for the other
+
+Contributed by the `bugs_open/445` lane (their measurement, their framing, cited with permission).
+
+**RFC_037's fix alone would not deliver differentiation.** This RFC measures seven finance sites
+collapsing to two `category` values because the classifier cannot see its siblings. 445 measures the
+layer below: **of 216 distinct terms the classifier emits across 33 sites, only 28 can match any
+layout — 188 (87%) match nothing.** Four attractor terms decide every site's layout.
+
+So a classifier that reads the register and writes beautifully differentiated tags still funnels
+every site onto the same handful of layouts, because differentiation that lands in the unmatchable
+87% is invisible to layout selection. **The two changes are complementary and neither is sufficient:
+this RFC makes the classifier SAY something different; 445's tag-vocabulary work makes the
+difference REACHABLE.** Worth stating in the round, because "we fed it the register and the sites
+still look the same" is the failure this addendum exists to predict.
+
+**Status of this RFC as of 2026-09-03, measured, because a peer lane needed a binding answer:**
+- **The database half is BUILT.** Migration `511_positioning_register_table.sql` created
+  `positioning_register`; it holds **194 rows / 194 domains** (newest 09:27Z today). Ruling
+  question 1 ("a database") and 2 ("the DB is the source of truth") are satisfied in structure.
+  ⚠ The markdown/DB duality the ruling warned about is still live — `REGISTER_positioning.md` is
+  still hand-edited by some lanes and the two-copies question is unresolved.
+- **The classifier half is UNSTARTED.** `classify_and_extract` still declares exactly the four
+  single-site inputs this RFC measured — `["input_data","search_results","scraped_data","site_specs"]`
+  — with no register input and no sibling vocabulary in the prompt. No migration exists in any tree.
+- **It is blocked on an owner deliverable**, not on engineering: the widened ruling requires a
+  registry for the whole estate, and this RFC records that **no ~2,000-domain inventory exists
+  anywhere** and must come from the owner. That ask is still open.
+
