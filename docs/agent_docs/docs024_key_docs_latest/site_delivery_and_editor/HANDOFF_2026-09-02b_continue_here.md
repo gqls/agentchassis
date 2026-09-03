@@ -555,8 +555,12 @@ are candidates.**
    the site-planner/page-type owners~~ **MISROUTED then corrected the same hour: `site-design-planner`
    is composition resolution only (layout/typography/palette) and reads or writes NO `page_type`.
    Page types are `build-site-planner`'s `plan_site` / `write_site_plan_action.go`, currently owned
-   by the `bugs_open/427` session (they shipped migration 687 today on a related page-type
-   decision). Re-routed there with the split stated.** That lane also warns the
+   by ~~the `bugs_open/427` session (they shipped migration 687 today…)~~ **the session named
+   `428` — CORRECTED AGAIN 15:13Z, second misroute, and this time the error was MINE for relaying
+   an attribution I had not checked. Verified now: migration `687` and commit `05905ebcb` are
+   `428`'s and dated 2026-09-02, not 427's and not today; the 427 lane's work is the RE-RENDER
+   pipeline (`bugs_open/427`/`454`), a different mechanism in the same file family. Routed to
+   `428` with the split stated.** That lane also warns the
    `site-design-planner` / `build-site-planner` name collision misrouted four things in one
    afternoon and is now a LANDMINES entry — read it before routing anything page-shaped. This lane
    is a consumer, not the owner.
@@ -571,3 +575,30 @@ are candidates.**
    "fall back to the orderer" makes B pointless; and which identity becomes the delivery address,
    which must be NAMED in the 651 recipe rather than inherited). Owner of the RFC: the
    `bugfix_417_420` lane. This lane is a named consumer via the delivery chain.
+
+
+## OWNER DECISION — RFC_058, 15:13Z: **Option C**, plus two additions he made himself
+
+**"Option C would be my preference of the original choices."** So FOUR identities: ordering party,
+operating party, published contact, and the SUBJECT the site is about.
+
+Two things he added that are not in the RFC's options, relayed to the owning lane (`bugfix_417_420`)
+verbatim:
+
+1. **A fifth identity, DEFERRED by him:** *"There may in future be an identity as to who or what
+   site is selling the web build service if say we have another site operated by another person"* —
+   the selling party / vendor front, where the platform is sold through more than one site operated
+   by more than one person. He added: *"We don't have to do the first one today if you don't want."*
+   So: name it, do not build it today.
+2. **Multi-valued contacts, NOT deferred:** *"also there may be more than one contact detail for any
+   of these."* **This is a cardinality change and it is the bigger of the two.** No design of the
+   form "one column per identity" satisfies it, and RFC_058's sharpest constraint gets sharper: it
+   is not enough for a FIELD to distinguish "deliberately none" from "not yet known", because with
+   several contacts per identity both the question and the 2026-08-31 consent ruling become
+   PER-CONTACT. [INFERRED, not this lane's to design: that points at a related table with a purpose
+   and a consent state per row rather than columns on `sites`.]
+
+**This lane's contribution stands and is now measured at the code, not relayed** — see the RUNBOOK
+section "The delivery recipient is REFUSED, not inherited": whichever identity becomes the delivery
+address must be NAMED in the 651 recipe, cheap to honour because `send_delivery_email_action.go`
+requires `customer_email` and errors on empty, and nothing in the delivery path reads `sites.email`.

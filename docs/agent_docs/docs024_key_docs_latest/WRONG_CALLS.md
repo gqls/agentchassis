@@ -115,6 +115,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **verify the working tree carries the edit (`git diff --numstat <file>`) BEFORE writing the commit message — a heredoc script that dies on an assertion leaves the message claiming a change that never happened, and `set -e` did not stop the commit** | **3** |
 | **choose a negative control by the PROPERTY it must lack, not by convenience — "my latest commit" is only a not-aboard control if it postdates the stamp; derive it (`git log --format='%H %cI' | awk '$2 > <stamp time>'`)** | **1** |
 | **treat a NEW detector's first run as candidates, not findings — follow each hit to its source (and each zero to its needle) before reporting; one sweep produced 4 false positives and 1 false clean, and every one looked exactly like a real result** | **1** |
+| **verify an ATTRIBUTION before relaying it as fact — a peer's routing advice is a report, and `git log -- <file>` settles authorship in three seconds; relaying "they shipped X" unchecked misrouted an owner ruling twice** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -62646,3 +62647,28 @@ prove it documentarily.
 configuration at all is currently **unknowable from the data**. Filed as a `LANDMINES.md` entry, and the
 fix (call the shared helper, delete both literals) is planned in
 `docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/HANDOFF_2026-09-03_continue_here.md`.
+
+## 2026-09-03 — relayed a peer's attribution as fact and misrouted an owner ruling twice (session site_delivery_and_editor)
+
+- **The claim.** Routing the owner's "guides should be a type of their own" ruling, I told the
+  `bugs_open/427` session it was theirs because they were "the current owner of build-site-planner
+  page-type vocabulary work, having shipped migration 687 today for a related page-type-decision
+  bug".
+- **Why it was false.** Migration `687` and commit `05905ebcb` belong to the session named `428`
+  and are dated **2026-09-02**, not 427's and not today. 427's work is the RE-RENDER pipeline
+  (`bugs_open/427`/`454`) — a different mechanism that happens to live in the same file family.
+  Both halves of my sentence were wrong: the author and the date.
+- **What caught it.** The 427 session checked its own authorship before answering and said so:
+  "Checked before answering rather than accepting the routing: I did not ship migration 687."
+- **The mistake, precisely.** The attribution came from the site-design-planner lane's redirect,
+  which was right about who does NOT own page types and wrong about who does. I repeated it in my
+  own voice, to a third party, with a date attached that I had never looked at. `git log --oneline
+  -- 'docs/agent_docs/sql_for_agents/687*'` answers it in three seconds and I had the repo open.
+  The ruling then bounced through two lanes before reaching `428`.
+- **The cheap check that would have.** Before naming a lane as an owner, resolve the artefact:
+  `git log -1 --format='%h %ci %s' <the commit>` and `git log --oneline -- <the file>`. A peer's
+  routing advice is a REPORT — the same class as "a subagent report is another doc" — and its
+  reliable half (who does not own it) is not its confident half (who does).
+- **Cost.** Two misroutes of an owner ruling, two peers' time reading and correcting it, and a
+  handoff line that had to be struck twice in the same hour. The ruling reached the right lane
+  ~40 minutes after it could have.
