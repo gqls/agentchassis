@@ -1042,6 +1042,35 @@ its own workflow.
 
 ### 19.2 But the seats' INSTINCT was right, for a reason none of them stated
 
+> **CORRECTED 2026-09-03 (later, session "427" on resumption) — the CONCLUSION below is
+> RIGHT and the MECHANISM is WRONG, and the difference changes what you must guard.**
+>
+> `sync_pages` is **not** what reverts these migrations, and a re-plan is **safe**. Before
+> `sync_pages` runs, `ValidateSitePlanAction` → `reconcilePlanWithRealised`
+> (`v3_site_actions.go:7701-7724`) **snaps** a `deployed`/`needs_rebuild` page's realised
+> `pages.sections` back **onto** the plan proposal — so a re-plan launders the cache
+> FORWARD into the next plan's authority. (`realisedPageCompositionIsPreserved`, `:7883`,
+> is the `deployed`/`needs_rebuild` test; the live `load_existing_pages` step supplies
+> `p.sections` and `p.build_status`, confirmed in `agent_definitions`.)
+>
+> What actually reverts is the **page BUILD**: `load_page_sections_from_spec_action.go`
+> reads tier 1 `site_plan_sections` for the current plan (`:142-148`) and **syncs it DOWN
+> over `pages.sections`** (`:558-570`). **No re-plan is required.** This is the trap
+> migration `154`'s own header documents from 2026-07-15, after `153` made exactly the
+> mistake 719/727/728 made.
+>
+> **Why this mattered enough to correct rather than annotate:** "no re-plan is scheduled,
+> so we are safe" is a reasonable inference from the paragraph below, and it is false. It
+> also mis-sized the escalation — §19.3 concluded the fix was blocked on an owner ruling,
+> when the remedy was a single-page migration with a precedent already in the tree.
+>
+> **RESOLVED**: migration `750` (2026-09-03) corrects the current plan's rows to
+> `[hero-tool, event-list]`. Applied, verified, artefact byte-identical. See §21.
+> Logged in `WRONG_CALLS.md`, together with this session repeating the same shape an hour
+> later while correcting it.
+
+
+
 Chasing the real writer found this, and it is the most consequential thing in this bug file:
 
 **`pages.sections` is a CACHE. `site_plan_sections` is the authority — and the plan still names
@@ -1068,6 +1097,29 @@ cache, never `site_plan_sections`, the authority"*) — the 450 lane flagged 443
 reading and they were right for a reason none of us had connected.
 
 ### 19.3 What I did NOT do, and why
+
+> **NARROWED 2026-09-03 (later, session "427") — the premise is real; it does not reach
+> this page, and that is checkable rather than arguable.**
+>
+> Per-plan immutability genuinely does underwrite `decideEmit` — but only for the
+> **plan-to-plan** comparison, and only where a *superseded* plan's rows are involved.
+> For this page none of that applies:
+> - `decideEmit` returns `skip_built` on `BuiltFromPlanVersion == planID`
+>   (`reconcile_site_plan_action.go:612-614`) **before it compares any section list**;
+> - `[MEASURED 2026-09-03]` boxingonline.com has **exactly one** `site_plans` row, which is
+>   both `is_current` and this page's `built_from_plan_version` — there is no superseded
+>   plan whose history could be falsified for a cohort;
+> - `site_plan_sections` is keyed per `(plan_id, page_name)`, so no other page's verdict moves.
+>
+> After the correction `built_from_plan_version` becomes a **true** statement about what was
+> served, where before it was false. So the fourth migration this section declined to write
+> was the right call for the *general* case and the wrong call for *this* one.
+>
+> The general question — may a non-planner action mutate the current plan's rows — remains
+> open and is now going to architecture review on its own merits, with a typed action
+> proposed so no lane hand-writes a three-store correction again.
+
+
 
 **I did not write a fourth migration against `site_plan_sections`.** That table is relied upon as
 **immutable per plan** — `reconcile_site_plan_action.go`'s `decideEmit` comment says
@@ -1175,3 +1227,91 @@ state, not chased — same call as before, and not this lane's job).
   `/tools/fight-calendar/index.html` out of "no calendar mechanism at all". **This is now the
   real remaining closing signal for 427 itself** — everything upstream of it is proven.
 - [ ] `bugs_open/460` (why `blog-content-planner` stopped) — unowned, unrelated to closing 427.
+
+## 21. Status update, 2026-09-03 evening (session "427", lane resumed) — the fix is DURABLE, and the closing signal cannot clear as things stand
+
+Picked up from `HANDOFF_2026-09-03d_continue_here.md` ("final consolidated handoff for a
+new chat"). The prior session was messaged, confirmed it was not still on it, and
+independently re-verified both findings below at the source before agreeing.
+
+### 21.1 The top open item is CLOSED, and its stated mechanism was wrong
+
+§19.2's *"719/727/728 are TRANSIENT"* was right; its `sync_pages` mechanism was not. See the
+CORRECTED block there. The reverting path is the tier-1 loader sync-down on any page
+**build**, which needs no re-plan.
+
+**Migration `750`** (committed, council `b290bef5`) renames the current plan's ordering-1
+row `generic-text-block` → `event-list` and deletes the ordering-2 `advertising` row. Applied
+by hand 2026-09-03 after an **induced-failure run** (a needle no write produces; the verify
+`RAISE`d and the transaction rolled back with tier 1 unchanged).
+
+`[MEASURED 2026-09-03, post-apply]` the loader's own query returns `hero-tool, event-list`;
+its sync-down guard would update 0 rows; and the **artefact is byte-identical** —
+`hero-tool`/3,859 B, `event-list`/2,498 B, `pages.updated_at` still `15:10:36.708975+00`.
+That last is the point: this removes a latent revert and must not change output.
+
+**Shaped as an in-place rename, NOT migration 154's delete-renumber-insert**, because
+`ordering` is a positional join key for four consumers — `assigned_fact_ids` (where `'[]'`
+and `NULL` are *different instructions* to the section writer), `subject`,
+`page_components.position`, and `site_plan_imagery.scope_ref`, which for section scope is
+literally `'<page>:<ordinal>'` (`[MEASURED]` live: `index:1`, `index:2`, `about:2`). 154 is
+the wrong template today and the first one a reader finds; now a `LANDMINES.md` entry.
+
+**Residual, stated:** this defends against the tier-1 loader. It does not make the page
+immune to a genuine re-plan minting a *new* `site_plans` row, which no per-plan migration can
+reach. That is the framework fix's half.
+
+### 21.2 ⚠ The stated closing signal CANNOT clear — the page is still not a tool
+
+§20 named the nightly `experience_loop` reclassification as *"the real remaining closing
+signal for 427 itself"*. **It has already run twice since the fix and still flags the page.**
+
+`[MEASURED 2026-09-03 15:14:47Z]`, i.e. four minutes *after* the deploy:
+> `Rule B (tool page with nothing usable): 1`
+> `[B] boxingonline.com/tools/fight-calendar/index.html: 6358 chars rendered, no control, no inline data, no runtime fetch — a page about a tool, not a tool.`
+
+Verified at the artefact rather than taken from the check: both `page_components` are
+`component_level='section'`, and neither `rendered_html` contains a `<button>`, `<input>`,
+`<select>` or `<script>`. The `event-list` component itself is `render_mode='template'` with
+no script and no control in its `html_template` — **a static section by design**. A static
+`event-list` on a `page_type='tool'` page can never satisfy Rule B.
+
+So the fixture is real and durable, and the page is still not a tool. **Owner decision
+2026-09-03: build a real calendar mechanism** (rather than reclassify the page as the event
+directory §6 discusses). That is now 427's remaining work.
+
+**⚠ ORDERING, and it is load-bearing:** the revert had not fired only because
+`page-build-handler`'s `load_page_record` carries `refuse_owned_page: true` and this page
+satisfies the tool-shell predicate (`page_type='tool'`, **zero** `component_level='tool'`
+components). **That refusal self-clears the moment a real tool component lands.** Building the
+mechanism first would have armed the very revert 750 just removed. 750 shipped first,
+deliberately.
+
+### 21.3 Fleet work done alongside
+
+- **Migration `753`** (committed, council `ca720d44`) cleared the `section_source_drift`
+  backlog — six open items, oldest 2026-07-28. Closed **by predicate re-derived at apply
+  time**, not by an id list, so `apis.uk/index` (a live divergence owned by another lane) was
+  excluded by the data. Every receipt records a `direction`.
+- **`bugs_open/469` filed**: 3 of 4 closed items were `authority_won` — the cache was
+  *overwritten*. `robot-hands.com/gripper-catalog` has lost `gripper-spec-sheet`, **the very
+  component migration 154 was written to rescue in July**, and `idea.uk/guides-index` lost
+  `guide-list`. The loss has completed, twice, unremarked.
+- **`apis.uk` lane notified** and fixed their own page the same hour (their migration `754`),
+  using `750` as the template. They contributed a finding folded in above: IMG-075's section
+  bindings key on `scope_ref` ordinals, so a renumbering correction breaks imagery where a
+  rename cannot. Independently re-verified here before it was written down.
+- Two `LANDMINES.md` entries and a `WRONG_CALLS.md` entry (the wrong-mechanism pair —
+  including this session repeating the same shape an hour later while correcting it).
+
+### 21.4 What is left
+
+- [ ] **Build the calendar mechanism** (owner decision) — through the tool pipeline, never by
+      hand. Closing signal: Rule B stops naming the page, read at `doc_notes`.
+- [ ] **The framework fix** — an RFC plus a typed action so no lane hand-writes a three-store
+      composition correction again. Architecture-scope: it narrows the immutability guarantee
+      `reconcile_site_plan_action.go:596-601` rests on.
+- [ ] `bugs_open/469` — whether the two destroyed components should be restored. Needs a human
+      who knows what those pages are for.
+- [x] ~~719/727/728 are TRANSIENT~~ — **DONE**, migration `750`.
+- [x] ~~the `section_source_drift` backlog~~ — **DONE**, migration `753`.
