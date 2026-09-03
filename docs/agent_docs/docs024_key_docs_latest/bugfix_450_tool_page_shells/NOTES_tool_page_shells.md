@@ -521,3 +521,63 @@ and go read the predicate.**
 ⚠ And a smaller one worth copying from them: they caught themselves stamping a UTC reading
 `~14:00` — BST written as UTC, on the very number they had just corrected. Every timestamp in this
 lane's docs is UTC from the database clock (`now()` returns `+00`), never local.
+
+## (r) 2026-09-03 12:4xZ — the harm metric, properly powered: condition on ACTIVITY, not wall-clock
+
+The portfolio lane reported all 8 tools repaired and added *"your guard has not taken effect yet —
+zero `refusal_class='tool_pending'` rows, and the 19 `unbuilt_internal_link` rows touched since
+12:00Z are all still `triaged`. Either `587666be8` did not ride that roll or the wave has not
+started. Worth checking at the stamp."* Right to say so, and their second branch is the true one:
+**the stamp was already checked** — `d0252fd4d` carries `587666be8` (see (n)) — so the code is
+live and the wave has not reached these pages.
+
+But their observation exposed a hole in my instrument. If items sit `triaged` and nothing
+dispatches, a zero harm reading means "the fleet is idle", not "the guard held". **So measure
+whether the fleet is building at all** `[MEASURED 2026-09-03 12:45Z, 0.63 h after the roll]`:
+
+| | since the roll |
+|---|---|
+| orchestrations started (fleet-wide) | **199** |
+| work items status-changed | 234 |
+| `page_component_history` writes, ALL pages | **63** |
+| ...of those, to a tool-shell page | **0** |
+
+The fleet is busy, so the zero is not idleness. **That converts the test from wall-clock to
+activity, which is the right denominator** — it is robust to the fleet being quiet or frantic,
+where a per-hour rate is not:
+
+- historical share, 10 d before the roll: **275 shell writes / 17,205 total = 1.60%**
+- expected in this window at that share: 63 × 0.0160 = **1.01**
+- observed: **0** → p(0 | λ=1.01) ≈ **0.36. STILL UNINFORMATIVE.**
+- to reach p < 0.05 needs λ ≥ 3, i.e. **188 fleet writes** — about **125 more**, ≈75 min at the
+  current ~100/h.
+
+**So the honest reading is unchanged and the improvement is in the instrument, not the result.**
+The watch is re-armed on the activity-conditioned form: it fires immediately on a falsifying shell
+write, on a `tool_pending` receipt, or when fleet writes pass 188 — at which point a zero finally
+carries information. ⚠ Even then it will read as *"consistent with the guard holding, AND with
+nothing having tried"*, because a quiet window cannot distinguish those two; only a receipt can.
+
+## (s) 2026-09-03 — the sectionless fork repairs CLEANER, which inverts my own argument in its favour
+
+The portfolio lane's 8-of-8 completion produced a finding I did not predict and which is a
+**stronger** case for holding empty-sectioned tool pages than the one I wrote:
+
+- websitepromotion's `tool-channel-prioritiser` — the SECTIONLESS fork, which parked at HITL and
+  never got a shell — now carries **exactly one component: the tool, 29,859 B. No leftover
+  `generic-text-block`, no position-2 collision.**
+- The seven seotools pages — the SHELLED fork — each carry the tool **and** the shell's prose
+  sharing position 2. Debris the repair cannot remove.
+
+> **CORRECTION to my own framing in (m)/PLAN D8.** I argued the sectionless fork is *not*
+> harmless — 7 HITL items plus a `needs_content_page` per remake — and used that to justify the
+> gate holding empty-sectioned tool pages too. That is right about the cost BEFORE repair and
+> wrong about the cost AFTER it. **The variant that looked worse at the time is the one that heals
+> cleanly; the shelled variant serves a lie to the public AND leaves permanent debris.** So the
+> plan-side gate saves cleanup as well as saving face, and the argument for holding sectionless
+> pages is stronger than the one I made — for the opposite reason to the one I gave.
+
+Also from them, and it closes my one open risk: **none of the 8 looks like the `[UNMEASURED]`
+case** — a page wrongly typed `tool` whose generic rebuild was genuinely wanted. All 8 were real
+tools the briefs asked for. The single fleet-wide candidate for that class remains `idea.uk`
+`/report.html`, unchanged.
