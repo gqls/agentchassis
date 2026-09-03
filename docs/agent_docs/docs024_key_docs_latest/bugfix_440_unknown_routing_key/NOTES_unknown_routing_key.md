@@ -365,3 +365,38 @@ disclosed to the council as a risk, in two rounds, and approved both times — c
 no seat can catch it from the submission text. What caught it was the blocker being *written
 down* and then *discharged by execution* rather than by re-reading the code. A stated blocker is
 only worth the run that discharges it.
+
+## 2026-09-03 (late) — phase 2b verdict READ: APPROVED, 2 advisories, both about the same real gap
+
+Corr `3b484a74`, `approved with 2 advisory objection(s) — none high-severity`, 4 abstained,
+14 seats, 9 clean. Dispositions:
+
+- **`editquality` [medium] + `bug_historian` [medium] + both MISSING items — the 11 corpus
+  findings are documented but not remediated or tracked. FAIR, and now answered with numbers**
+  (bug file §2026-09-03 late). Two parts: (a) `_HOLD` files ARE lintable — verified by executing
+  `migration_is_lintable()`, which returns True for both, so the advisory fires when either is
+  touched, and applying one requires touching it; (b) the 9 APPLIED migrations are deliberately
+  not edited — an applied migration is append-only history frozen by checksum, and the defect
+  they left lives in the ITEMS they minted, not the files. Those items are quantified now:
+  **1,803 pending page_rerender items carry an in-vocabulary reason, 12 carry a routing key**, so
+  1,791 would assemble if the gate narrowed today. That number IS the tracking item, and it gates
+  phase 3's narrowing.
+- **`editquality` [low] — the sketch used `reasons`/`has_routing` without showing the extraction.**
+  Conceded; the extraction is two `re.findall` lines and belongs in the sketch. Fifth round where
+  a seat catches submission presentation rather than code. My pre-dispatch check now verifies
+  every NAMED symbol appears; it does not verify that every name USED in a sketch is defined
+  there. Next iteration: flag identifiers a sketch reads but never binds.
+- **`guardian` [low] — pattern-check.py now has an implicit dependency on the Go file's
+  declaration shape.** True, and it is why the unreadable/reshaped path is a LOUD finding rather
+  than an empty set, mutation-proved both ways. The alternative (a copied list) is the defect
+  bugs_open/404 records.
+- **`architecture` MISSING — how many prior council rounds touched this gate?** Noted for phase 3:
+  the flip is the round where that history matters, and the RFC already carries the 404 lane's
+  four rounds plus this lane's five.
+
+**And the phase-2 conversion is LIVE AND PROVEN IN PRODUCTION** `[MEASURED 2026-09-03]`: 12 items
+now carry `routing_reason`, written by `completeness-discovery-agent` — the runner of the very
+check phase 2 converted — from 12:13 today. Data written by the converted path is stronger
+evidence than any binary probe. ⚠ The fleet is straddling two builds (98 pods `d0252fd4dab2`
+which contains the conversion, 43 still on `7bf1ff674021` which does not), so both behaviours are
+live at once — expected, and exactly why the transition clause exists.

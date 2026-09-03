@@ -146,3 +146,41 @@ most as raw JSON string literals that never touch the vocabulary constants — e
 
 The seat was right to press, and the honest reading of phase 1b is: the seam is proven and the
 first producer is converted; the population is still ahead of us.
+
+---
+
+## 2026-09-03 (late) — phase 2 is LIVE AND PROVEN IN PRODUCTION, and the phase-3 precondition now has a number
+
+**Live proof, better than a probe** `[MEASURED 2026-09-03]`: **12 `page_rerender` items now carry
+`spec.routing_reason`**, first seen 12:13, all from `completeness-discovery-agent` — the runner of
+`check_misdirected_cta.go`, one of the sites phase 2 converted. A build containing that conversion
+(`d44644635`) is live and is the fleet majority (`d0252fd4dab2`, 98 pods; the fleet is straddling
+two builds, 43 pods still on `7bf1ff674021`). So the producer conversion is not merely committed —
+it is writing the key into real items. `[UNMEASURED]` which exact build was running at 12:13; the
+claim here is that a build carrying the conversion runs now and the data exists, not that a
+particular pod produced it.
+
+**The phase-3 precondition, quantified — this is the tracking the council's `bug_historian` and
+`editquality` seats asked for** `[MEASURED 2026-09-03]`:
+
+| population | count |
+|---|---|
+| pending `page_rerender` items carrying an in-vocabulary `reason` | **1,803** (unresolved 1,704 · failed 78 · deferred 12 · triaged 9) |
+| …of those, carrying `routing_reason` | **12** |
+
+**So 1,791 pending items would route to assemble the moment the gate narrows to the routing key
+alone.** That is not a reason to hurry the flip — it is the measurement that makes the transition
+clause (accept EITHER key) load-bearing rather than a nicety, and it is the number phase 3's
+narrowing census must drive to zero (or accept as drained) before the compat disjuncts come out.
+
+**On the 11 corpus migrations the phase-2b sweep found (2 unapplied `_HOLD`, 9 applied):**
+- `_HOLD` files ARE lintable — `migration_is_lintable()` returns True for both
+  `683_…_HOLD.sql` and `701_…_HOLD.sql` (verified by executing the predicate, answering
+  `editquality`'s doubt directly), so the advisory fires the moment either is touched, which is
+  what applying one requires.
+- **The 9 applied migrations are deliberately NOT edited.** An applied migration is append-only
+  history frozen by its checksum; editing one to add a routing key would rewrite the record of
+  what was actually run and could break the runner on replay. The defect they left is not in the
+  file, it is in the ITEMS they minted — and those items are inside the 1,803 above, covered by
+  the transition clause and gated by the narrowing census. Recorded here so the absence of a fix
+  is a decision with a reason, not an oversight.
