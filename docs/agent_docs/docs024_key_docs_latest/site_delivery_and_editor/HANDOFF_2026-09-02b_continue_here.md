@@ -290,8 +290,14 @@ EXPECTED pre-convergence shape, not a failure).
    > itself 12:11:05Z; other builds inside it: 0. **At the row: OWNER ITEM 14 FIXED** —
    > content-listing `f01a8669`: 6 articles, 6 excerpt keys, 6 suffix-free titles, 6
    > `article-card__excerpt`, 0 empty fingerprints, 6 `/blog/` links, 0 `/guides/`. The
-   > boxingonline session's pre-registered prediction HELD (a BUILD fixes the cards; the 425
-   > path-split model stands; binary v1.0.1358 stamp `d0252fd4d`, `f57f5ad1f` aboard).
+   > boxingonline session's pre-registered prediction HELD (a BUILD fixes the cards; binary
+   > v1.0.1358 stamp `d0252fd4d`, `f57f5ad1f` aboard). ~~the 425 path-split model stands~~
+   > **CORRECTED 12:14Z by the components lane: the split was refuted on the RERENDER side three
+   > hours earlier by their own measurement — two `section_data_resolved` rerenders produced the
+   > NEW shape (designblog/index 05:25:28Z, websitepromotion/index), a third on this index the OLD.
+   > Correct statement: the BUILD path is reliable; the RERENDER path is INCONSISTENT (same reason,
+   > binary, component row). Their batch 691 (`template_changed` on the rebuilt index, fired
+   > ~12:1xZ) is the discriminator; nothing touches index until it reads.**
    > Sections now content-listing / info-card-grid / call-to-action; featured-content dropped
    > (unknown `featured_post`). **CTA repaired for item 1** (their read: ~207 visible chars vs
    > 1,116; tool walkthrough gone; two imperative labels) **BUT with one defect that should not

@@ -8294,7 +8294,10 @@ lane's per the ownership ruling.
   read 181 vs 1,116 on attempt 1). Six articles: ALL `excerpt` present, ALL titles suffix-free;
   rendered_html 6 × `article-card__excerpt`, 0 empty, 6 `/blog/` links, 0 `/guides/`. **Owner item 14
   fixed at the row; the boxingonline session's pre-registered prediction HELD** (BUILD fixes the
-  cards → the 425 path-split model stands on v1.0.1358 too). featured-content dropped as predicted.
+  cards). ~~→ the 425 path-split model stands on v1.0.1358 too~~ **CORRECTED 12:14Z (components
+  lane): the model was already refuted on the rerender side — two \`section_data_resolved\`
+  rerenders elsewhere produced the NEW shape; ours the OLD; build reliable, rerender INCONSISTENT.**
+  featured-content dropped as predicted.
 - **v1.0.1358 stamp** `[MEASURED 12:11Z]`: `d0252fd4d` on chassis `554857f96f-kx69c` and both adapter
   pods (`57bf7dfcc9-4f696/-w972z`; one chassis pod's startup line already out of range). Ancestry:
   fcbe6071c, b2322a203, f57f5ad1f, 6440ec968 ABOARD; my `d5b8dc293` NOT — controls discriminate.
