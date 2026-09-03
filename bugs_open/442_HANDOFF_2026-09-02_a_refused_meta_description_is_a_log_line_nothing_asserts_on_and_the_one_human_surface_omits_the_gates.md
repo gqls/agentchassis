@@ -139,7 +139,17 @@ this today. Verify at whatever durable surface the fix adds.
 ## 7. Blast radius
 
 `save_page_meta_description` is today the only caller of the copy gates on a single-value
-field, so the silent path is one action wide. **It widens the moment the gates are reused
+field, so the silent path is one action wide.
+
+> ⚖ **MEASURED AND CLOSED 2026-09-03 — this was an assumption when written and is now a finding.**
+> `bugs_closed/464` read **every** copy-gate caller on the tree (whole-tree sweep: `platform/`,
+> `internal/`, `pkg/`, `cmd/`, with a control). Ten call sites. **This action was the only one that
+> returned a refusal as `(map, nil)` with nothing asserting on it.** Every other one errors, blocks
+> to human review, records into a structured `rejected`/verdict list, files a work item, or writes
+> a durable record by design. So the blast-radius claim below is **forward-looking, not realised**:
+> the shape travels with the gate and will bite the next single-value caller, but today there is
+> exactly one and it is fixed. ⚠ 464 §7.1 also corrects that bug's own five-file population, which
+> was wrong in BOTH directions — read the table there, not the population. **It widens the moment the gates are reused
 on a title, nav label or alt text** — which `bugs_open/338` §5 and CQ-035 both expect —
 because the refusal shape travels with the gate, not with the field.
 
