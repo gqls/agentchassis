@@ -409,3 +409,44 @@ built either — that is the next person's job, and it needs the usual code revi
 **Meanwhile designblog still hasn't managed to produce a logo at all** — two more refusals this
 afternoon, with one final attempt due. It is the one site I most want to see a picture from, because
 it is the only one whose instructions still contain the phrase that started bug 417.
+
+---
+
+**2026-09-03 (late) — the test that actually mattered has now run, and we passed it.**
+
+Earlier today I told you the good results were weaker evidence than they looked, because none of
+those sites' instructions still contained the phrase that caused the original problem. The model was
+being praised for not writing text when nothing had asked it to.
+
+**designblog was the exception, and this afternoon it finally produced a logo.**
+
+Its instructions are the worst case we have. They ask for *"an abstract letterform or typographic
+symbol"* — a letterform is a letter shape — and then forbid *"lettering or words of any kind"*, in
+the same sentence. So the model was handed a flat contradiction and had to pick a side. Our
+correction is the thing telling it which side to pick.
+
+**It picked correctly.** What came back is an abstract open box with an arrow coming out of it. No
+letters, no letter-shapes, one clean mark, no invented brand name. It also happens to be the best
+logo produced all day by a distance — properly dark, comfortably visible against its white header,
+with essentially none of the leftover colour fringe that ruined the websitepromotion one.
+
+**What I am not going to claim.** This is one result. It proves the correction *can* win the
+argument, which we genuinely did not know this morning — but one result cannot tell you whether it
+wins reliably or only usually. Twelve other sites still carry that phrase in their instructions and
+none of them has regenerated since the fix. Those are where the real answer comes from, and it will
+arrive gradually as they happen to rebuild.
+
+So the position is: the fix works, we have seen it work on the hard case exactly once, and I have
+left the open question open rather than closing it on a single good day.
+
+**Separately** — the delivery lane tells me you have started asking about the identity question
+(RFC_058). One of the numbers in that document was three days old, so I refreshed the half of it
+that could be refreshed: the four places in the code that *write* a site's email address are still
+four, unchanged. The other half, the fourteen places that *read* it, I have not re-counted and have
+said so rather than let a stale figure look current.
+
+I also left a warning in that document for whoever re-runs it. One of those four writers — the admin
+screen, the one that overwrites without asking — is **invisible to the obvious way of searching**,
+because it assembles the database command at the last moment rather than spelling it out. My own
+first two searches reported it as not existing. Anyone repeating that count would confidently find
+three writers and miss the one that matters most.
