@@ -15318,6 +15318,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **footprint:** `doc_notes`, `categories ? 'council-gate'`, `097_TRIGGER_council_review_v1.sh`, reading any council verdict, `diagnosis_artifacts.kind='council_report'`
 - **fires when:** your council run finishes and you go to read the verdict with the query CLAUDE.md gives: `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
 - **the tell — and there isn't one, which is the whole problem.** What comes back **is** a real council verdict, correctly formatted, minutes old, with a plausible decision and substantive objections. Nothing marks it as someone else's. Hit directly 2026-08-22: a submission approved at 10:48Z read back as *"REVISE — gating objection from editquality"* about `validate_page_content`, `LogActionEntry` and a `writeLinkRepairLog` family — a lane this session had never touched. `ListAgents` showed **42 concurrent sessions**; several submit to this gate.
+- **SECOND SPECIMEN 2026-09-03, and the interesting part is that THIS ENTRY EXISTED AND DID NOT REACH IT.**
+  The `bugfix_329_takeover_claim` lane hit it exactly as described — round 1 came back REVISE, it ran the
+  `LIMIT 1` query, and read back a REVISE about **finetuning.uk's playground page** (a tools-api route
+  group, CORS-by-deployed-site-Origin, an Ollama streaming timeout, a gripper mount-order landmine).
+  Coherent, specific, minutes old, and about a lane it had never touched. It nearly spent a round
+  answering CORS objections.
+  ⚠ **That session had read CLAUDE.md the same morning and was quoting its `SUBMISSION_CORR` rule in its
+  own commit messages.** It used the convenience query anyway, because that is the one `097`'s printout
+  ends with. **So this entry did not fail to be written — it failed to be DELIVERED**, twelve days after
+  it was filed, to a session doing everything else by the book.
+  ⚠ **Why the hook could never have shown it:** the `SessionStart` hook matches entries against files
+  already DIRTY in the tree, and this entry's footprint is `doc_notes` and a QUERY — there is no path to
+  match. It is structurally invisible to the automatic half, which is precisely the case MEMORY's
+  "grep LANDMINES for the SYMBOL you are about to trust" exists to cover, and grepping is the step that
+  gets skipped when you are mid-round and the query is printed in front of you.
+  **Two hits, two sessions, no delivery.** Anyone costing D10 (footprinted delivery) should count this
+  entry as evidence: the prose is not the problem.
 - **⚠ the failure is silent AND it inverts.** You can read a REVISE that belongs to someone else and start "fixing" objections against your own approved plan, or read an APPROVED that belongs to someone else and write `Council-Reviewed:` on an unreviewed commit — which the 098 coverage report buckets as **MISMATCH**, its stated dishonesty surface.
 - **the check — key on YOUR correlation, never on recency:**
   ```bash
@@ -15773,6 +15790,21 @@ code change owed at the next roll, tracked in RFC_015 §5.
 ### `SendMessage` to a peer's bare NAME silently picks ONE of the sessions carrying it — and session names collide constantly, because we name them after the bug
 
 - **footprint:** `SendMessage`, `ListAgents`, any cross-session coordination — claiming a fix, dividing work, forwarding a verdict, "are you on this file?"
+- **SECOND SPECIMEN 2026-09-03, which names the SELECTION RULE and it is worse than "one of them":**
+  a peer addressed `bugs_open/450` and told the recipient how it had chosen — *"two sessions share the
+  name; I picked the more recently active"*. It picked wrong. **Recency actively selects the WRONG
+  session whenever the right one is quiet** — and the right one is quiet exactly when it is mid-council,
+  waiting on a roll, or idle after a handoff, which is most of a lane's life. The session it reached had
+  been committing every few minutes on two *unrelated* bugs and had deliberately left 450 alone because
+  the real lane held it. The message carried a substantive technical retraction (a `::text` verify shape,
+  and a `canonicalCSSTokens` correction about a live high-severity check) that would simply have
+  evaporated had the recipient not said so.
+  **The check:** `ListAgents` prints a `[ref]` on every row for exactly this — send to
+  `bugs_open/450 [6a8285]`, not `bugs_open/450`. And when a name is ambiguous, **disambiguate by what the
+  session has TOUCHED** (its lane dir, its recent commits), never by which one answered last.
+  ⚠ **Do not relay a misrouted correction on the sender's behalf** — a correction repeated second-hand by
+  someone who does not hold the context drops the nuance that made it worth sending. Bounce it.
+
 - **fires when:** you address a peer by the name `ListAgents` prints. Sessions are conventionally named for the bug they work (`bugs_open/307`, `bugs_open/238`), **and two sessions routinely carry one name** — measured live 2026-08-22, `ListAgents` showed 48 peers of which **`bugs_open/307` ×2 and `bugs_open/238` ×2**. A bare-name send resolves to one of them **without warning**; the other never learns a message existed. There is no bounce, no ambiguity error, nothing in the sender's transcript to read differently.
 - **why it is worse than a lost message:** the wrong recipient gets a message written in the second person about work they did not do. Hit directly 2026-08-22 — a `bugs_open/260` session sent to `bugs_open/307` about `bugs_open/354` and `coordinator.go`: *"354 is yours"*, *"your re-measure"*, *"the migration 466 correction is a genuine gap in my §5 and I am folding it in now, credited to you"*. **Every sentence was actionable and none of it belonged to the session that received it.** Acting on any of it — editing §5, accepting the credit, inheriting the candidate ordering — would have put a lane's name on work it had never seen, and the real author would have been told their contribution was already handled.
 - **the check, and it is the sender's to run, not the receiver's:**
@@ -21468,3 +21500,42 @@ END $$;
 - **relations:** MEMORY [[a-submission-is-not-a-review]] (a `Council-Submitted:` trailer asserts nothing — this is its sibling: a verdict row asserts nothing about WHICH round) · [[a-record-goes-stale-faster-than-its-reader-can-tell]] · [[a-revise-round-is-cheaper-than-the-defect-it-finds]] (the reason you will be resubmitting in the first place) · the council-gate runbook `RUNBOOK_council_gate.md`
 - **source:** 2026-09-03, `loancash_couk_fca_validation` lane, resubmitting migration 743 after a REVISE. Caught because the returned objections were word-for-word round 1's, then confirmed: **1** report row, `created_at` 15:09:23, against a resubmission at ~16:47 — `verdicts_after_resubmit` = **0**.
 - **added:** 2026-09-03, `loancash_couk_fca_validation` lane
+
+### A council run KILLED BY A ROLL leaves `Council-Submitted:` resolving for ever as "queued" — `098` never asks whether the run is still alive, and the dead and the pending are the same bucket
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/098_REPORT_unreviewed_commits_v1.sh` (`db_decision`, the `awaiting` bucket) · `Council-Submitted:` trailers · `orchestration_states` where `owner_agent_type='council-gate'` (`current_step`, `status`, `last_activity`) · `diagnosis_artifacts` where `kind='council_report'` · any `make release` / chassis roll while a council round is in flight
+- **fires when:** you submit to the council gate, commit with `Council-Submitted: <corr>` exactly as CLAUDE.md instructs, and then **a fleet roll restarts the chassis mid-round**. You come back later — hours, or a session later — and check coverage the documented way, with `098`.
+- **the tell: none, and the annotation actively says the opposite of the truth.** `098`'s `db_decision` reads **only** `diagnosis_artifacts`. It never joins `orchestration_states`. With no `council_report` row it buckets your commit as **AWAITING** and prints `[submitted: <corr> -> no report yet (queued, or evidence cleared)]`. **"queued" is a guess printed as a finding** — there is no elapsed-time bound and no liveness check, so a run that died at 12:06 still reads "queued" indefinitely. The bucket's own title reassures you further: *"honest, NOT a false claim"*. It is honest about the trailer; it says nothing about whether a verdict is still coming.
+- **[MEASURED 2026-09-03] the two cases are literally indistinguishable in the report's own output.** `098_REPORT … 1` printed **18** AWAITING rows, of which exactly **2** carry `-> no report yet (queued, or evidence cleared)`: `34d57f60` (this lane's — run `FAILED`, dead since 16:07:33Z) and `dda64bd1` (another lane's — `persist_submission`, `EXECUTING_STEP`, submitted 16:38Z and genuinely alive). **Same annotation, same bucket, opposite truths.** One `orchestration_states` query separates them in under a second; the report never makes it.
+- **why the wrong result looks exactly right:** every incentive points at waiting. The gate is advisory, verdicts legitimately take ~30 minutes and queue behind the fleet, and CLAUDE.md explicitly warns that *"a missing orchestration row is almost always latency, not a dropped dispatch — do not retry on that evidence"*. That advice is correct for a **live** run and is precisely wrong here, and nothing in the report distinguishes the two cases. Meanwhile the commit is already on shared HEAD and, after the next roll, live fleet-wide — so the change is in production, unreviewed, and reads as reviewed-pending on the one instrument that exists to catch that.
+- **it is not a rare accident — one roll takes the whole cohort.** `[MEASURED 2026-09-03]` the `v1.0.1358` roll (pods up **12:06:47Z**) killed **seven** runs at once: six `council-gate` plus a `generic-process`, every one with `last_activity` between 12:05:35Z and 12:06:05Z. They sat in `EXECUTING_STEP` for **four hours** and were swept to `FAILED` at 16:07:33Z in a single instant. Three lanes had a later completed run and were covered; **three correlations were left orphaned across three different lanes** (a `layoutmatch` fit change, a `seed_analytics_default.go` submission, and migration 734's round 2), and two of the three were round-2 resubmissions after a REVISE — i.e. the lanes that had done the most work lost the most.
+- **the check — ask the RUN, not the report; a `fix_plan` row is not a verdict:**
+  ```sql
+  SELECT orchestration_name, current_step, status, last_activity
+  FROM orchestration_states
+  WHERE updated_at > now() - interval '12 hours' AND owner_agent_type = 'council-gate'
+    AND collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+  SELECT kind, created_at FROM diagnosis_artifacts WHERE correlation_id = '<SUBMISSION_CORR>';
+  ```
+  `FAILED` (or `EXECUTING_STEP` with `last_activity` older than ~30 minutes) **and no `council_report`** ⇒ the verdict is never coming: **resubmit**. Only `kind='council_report'` is a verdict — a `fix_plan` row is the submission being persisted, and it is present on every dead run, which is what makes the correlation look alive.
+  ⚠ **Bound that query or it times out.** The bare `collected_data->'input_data'->>'fix_correlation_id' = …` predicate is a jsonb path scan over the whole table; it hit a 120s timeout here twice. The `updated_at` + `owner_agent_type` predicates are what make it return.
+  ⚠ **A whole cohort at once is a shape you can search for**: `SELECT count(*) FROM orchestration_states WHERE updated_at = '<the instant>'` — several runs sharing an `updated_at` to the microsecond is a sweep, and their common `last_activity` names the roll that killed them.
+- **the fix nobody has built:** `098` could join `orchestration_states` and split AWAITING into `AWAITING (run alive)` and `DEAD (resubmit)`. Until it does, the report cannot see this class at all, and the only reader who will notice is the submitting lane — which is exactly the reader most likely to have moved on.
+- **relations:** [[a-submission-is-not-a-review]] (a `Council-Submitted:` trailer asserts nothing — this is the case where it will never come to assert anything) · `A RESUBMITTED council round shares its correlation with the round before it` (same table, opposite error: there the stale row is real and misread as new; here there is no row and its absence is misread as pending) · `kubectl scale is undone by the next deploy` / MEMORY [[releases-are-whole-fleet-make-release]] (the roll that kills the round) · the 2026-08-10 entry on an account-level cap making every submission unable to reach a verdict — same consequence, different cause, and its remedy is the right one here too: **record in your lane docs that a fresh submission is owed**
+- **source:** 2026-09-03, `bugfix_445_layout_fit` lane, following the handoff instruction "read the two council verdicts, neither read at handoff" and finding that only one of them had ever existed. Resubmitted as `adfa4d03-67a8-419f-bc22-d0ef125f94ee`.
+- **added:** 2026-09-03, `bugfix_445_layout_fit` lane
+
+---
+
+### A `090` naming a PROMPT comes back `UNVERIFIABLE` blaming your evidence — but the gap is its own retrieval TRUNCATING a body you can read in one query
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh` · `agent_definitions.default_config` · `diagnosis_artifacts` `kind='bundle'` · any symptom naming a `prompt_template`, a `config` blob or another long jsonb value
+- **fires when:** you file a diagnosis whose mechanism lives in prompt or config TEXT rather than in Go — "the prompt does not mention X", "the config does not declare Y". The loop indexes and samples source and rows; a long `prompt_template` is returned CUT.
+- **what actually happens:** the verdict is `UNVERIFIABLE` — *"NOT CONFIRMED (stopped: scope-not-narrowing)"* — and the `still needed` section says your claim "cannot be asserted from what's shown", listing the very evidence you filed the run to have checked. Worked case 2026-09-03, run `6a317110`: *"every prompt/config sample returned in this bundle was cut off before the point where an ink mention would appear, so 'the prompts don't name the ink companions' cannot be asserted."* The prompt was **5,115 characters** and one `psql` query returns all of it.
+- **why the wrong result is invisible, and this is the whole trap:** `UNVERIFIABLE` **is not `REFUTED`**, but it reads like a rebuttal — it is phrased as a deficiency in your evidence, it is specific, and it is often partly right. A session that files the run to be careful and then reads the verdict as "my claim did not hold" retracts a TRUE finding. The failure is in the instrument's reach, not in the hypothesis, and nothing in the output distinguishes the two.
+- **the check, before you believe any part of it:** for every "could not see / was cut off / cannot be asserted" gap, go and read that artefact yourself — `SELECT default_config #>> '{workflow,steps,<step>,config,prompt_template}' FROM agent_definitions WHERE type='<type>' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;` for a prompt, and the SERVED artefact for anything rendered. Then answer each gap in the bug file by name. Only the gaps that SURVIVE first-hand reading are findings.
+- **the half that is worth the run anyway:** the same verdict's *other* objections can be excellent. That run's third point — *"several components already reference `var(--color-primary-ink, …)`, so it's not established that the naive pattern is what's currently being generated versus already-legacy content"* — was a real challenge the filing session had not tested, and measuring it by `created_at` **inverted the loop's own hypothesis** (the ink-using rows are the legacy ones). **So: do not discard the verdict, and do not adopt it. Split it.**
+- **distinct from the sibling landmine** *"a 090 run on a symbol in a file over ~60KB returns bundles and NO verdict"*: that one produces **no verdict at all** and looks like a run still in progress. This one produces a **confident verdict** whose reasoning is shaped by what the retrieval dropped. Both are the body budget; only one announces itself.
+- **relations:** `bugs_open/458` §10 (the worked case, with each gap answered) · the sibling 60KB-bundle landmine · `WRONG_CALLS.md` 2026-09-03
+- **source:** 2026-09-03, `site_ai_agent_orchestration` lane; the second failure mode was named by the `bugs_open/450` lane, which had hit the first on a 199KB `coordinator.go` and stated its substitute rather than omitting it
+- **added:** 2026-09-03, site_ai_agent_orchestration lane

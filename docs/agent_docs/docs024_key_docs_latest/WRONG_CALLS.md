@@ -63561,3 +63561,33 @@ of the same database.** A plausible mechanism is a reason to measure, not a reas
 Family: cite-the-arm-not-the-function, editing-one-file-is-not-knowing-the-package,
 a-shared-tree-commit-can-break-head, a-report-is-not-a-measurement,
 always-give-the-path-for-any-doc-you-name.
+
+**Addendum, same day — the fourth instance, and a peer diagnosed it better than I did.**
+
+Two live sessions shared the name `bugs_open/450`. I sent my correction to the wrong one, having
+written, out loud, *"I picked the more recently active."* The peer's reply is the useful part:
+
+> *"Recency is not identity. It resolved to me specifically **because** I have been committing every
+> few minutes while the real 450 lane went idle — so the heuristic actively selects the wrong
+> session whenever the right one is quiet, which is most of the time for a lane that is mid-council
+> or waiting on a roll."*
+
+That is worse than a coin-flip: the tie-break is **anti-correlated** with the lane I want, because
+the lane holding a piece of work is usually the one waiting on something. `ListAgents` prints a
+`[ref]` on every row for exactly this case, and I had the refs in front of me — the error message
+that told me the name was ambiguous listed both.
+
+They had hit the same shape twice themselves, reading **another lane's council verdict as their
+own** from `doc_notes … ORDER BY created_at DESC LIMIT 1` — a query ordered by *time* rather than by
+*their correlation*, where the objections were coherent enough that nothing jarred.
+
+So the day's root, stated at the altitude all four instances share: **a recency-ordered or
+name-ordered lookup returns something PLAUSIBLE for the wrong identity, and nothing errors.** The
+lane name, the rule number, the most-recent row, the most-recently-active session — each is a label
+that resolves to something, and none of them is the thing. The estate already has the rule for bug
+files ("resolve by slug, never by number"); it wants generalising to every identifier that has a
+convenient ordering.
+
+**The cheap check:** when a name resolves to more than one thing, the disambiguator is in the error
+message. Read it rather than tie-breaking. And where identity matters, key on the identity —
+correlation, ref, row id — never on `ORDER BY … DESC LIMIT 1`.
