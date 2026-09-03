@@ -1640,3 +1640,24 @@ baseline shape (`bugfix_450_tool_page_shells/RUNBOOK_tool_page_shells.md` §10 �
 before-state inside the transaction so a moved baseline cannot false-fail, the same reasoning as
 641's equality census); (4) never record an absolute position/length of that prompt anywhere —
 it moved 32022→32191 within one hour today between two lanes' measurements.
+
+### 2026-09-03 — apis.uk is the FIRST site on growth posture HOLD (WDS-020); verified on the row
+
+Owner instruction executed by the loanzy.uk lane ("go ahead with apis.uk … please tell the
+lane"). Verified here, not just received: `sites.settings->maintenance_profile->>'growth_posture'
+= 'hold'` on our row (`1c6f3424…`), and the held-rows query returns 0 — which means "the
+machinery hasn't wanted to grow us yet", NOT that the switch failed. Mechanism: WDS-020
+(loanzy lane, council `1e735fa2`, live in the binary since the 09-02/03 roll).
+
+What a future session of this lane must not misread: **a `deferred` work item with an EMPTY
+handler and a summary prefixed `[growth held]` on this site is the posture working, not a bug**
+— tool-growth filings (`evaluate_tools`, `add_tool`, any producer, third policy door in
+writeWorkItem) are born held with the release recipe on their spec. Everything else flows:
+improvement/repair, rerenders, audits, in-flight items, and anything `source='owner-request'`
+bypasses entirely. Release is the OWNER's verb. Held-rows query + release recipe: register
+WDS-020, `loanzy_uk_example_site/RUNBOOK` ("Growth posture").
+
+Interaction with our owner gate 3 (tools park, deferred ×9 from 08-25): those PARKED items are
+explicitly unaffected — the posture holds FUTURE filings only. It complements the park: if the
+owner declares the tools refusal, new growth filings can no longer refill the queue behind it.
+The history is closed-loop: our sprouting-pages case was worked example #1 for his decision.
