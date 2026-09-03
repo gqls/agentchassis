@@ -133,6 +133,20 @@ Verify before trusting the classifier's output:
 **Gotcha:** the classifier queues behind the fleet. Find the run by payload, not by the printed
 id: `SELECT current_step,status FROM orchestration_states WHERE collected_data->'input_data'->>'domain'='gamedesign.uk' ORDER BY created_at DESC LIMIT 3;`
 
+## 7a. ⚠ 082 on a DEPLOYED site is a STRATEGY REFRESH, not a rebuild `[PROVEN 2026-09-02/03, the hard way]`
+
+Re-submitting a live site through 082 runs classifier → vertical research → strategist and then
+**stops**: `domain-strategist`'s `gate_next_item` step is `site_state.is_deployed == true →
+complete` ("a deployed site's strategy refresh must NOT enqueue the briefing→site-plan rebuild
+chain; greenfield path unchanged"). No error, no item, COMPLETED. Cascade #2 (corr `aab87c0c`)
+sat there 12 hours while I watched the artefact for a plan that was never going to be written.
+**To rebuild on purpose:** after the strategist completes (strategy spec current), file
+`needs_briefing` in the strategist's own shape — `SEED_2026-09-03_enqueue_briefing_chain.sql` —
+the per-site key `briefing_<domain>` dedups only against non-terminal rows, so a `complete`
+predecessor does not block it. Then briefing → `needs_site_plan` → planner → reconcile → build.
+**Gotcha:** the item keys are per SITE (`strategy_<domain>`, `briefing_<domain>`,
+`site_plan_<domain>`), not per run — read `created_at`, not the key, to tell runs apart.
+
 ## 7b. BEFORE retracting a tree: census inbound links from our other sites `[PROVEN — late]`
 
 ```sql
