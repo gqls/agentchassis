@@ -21079,6 +21079,19 @@ SELECT h.created_at, h.source, h.source_item_id,
 
 ### The `git mv` + pathspec trap also fires on the session that DIDN'T move the file — your commit records a DELETION with no add, and the bug file then exists at NEITHER path
 
+> **⚠ DUPLICATE PAIR — read the entry immediately above this one too, and merge them if you are
+> tidying.** *"A correct pathspec commit can be made WRONG by someone ELSE'S concurrent `git mv`"*
+> is the same trap and the same incident, written independently by the **other** party to it within
+> two minutes of this one (`6653293ee` 16:19, this one `ec0f5b1e2` 16:21 — I grepped `pathspec`
+> before writing and theirs had not landed yet). Neither is wrong; they carry different halves.
+> **Theirs has** the recovery command — `git show <deleting-commit>^:<old-path>` — and the norm
+> stated from the mover's side: if your commit is about to name a path someone else may be moving,
+> stop and flag rather than commit through it. **This one has** the consequence that makes it worse
+> than the documented sibling (the file ends up at NEITHER path, which silently defeats *"grep
+> `bugs_open/` and `bugs_closed/` before you file"*, and no check looks for a bug absent from both)
+> and the prophylactic that actually shortens the exposure window. Two lanes writing one landmine
+> two minutes apart is itself the coordination gap this file records elsewhere.
+
 - **footprint:** `git commit <path>` · `git mv` · `bugs_open/` · `bugs_closed/` · `git ls-tree -r HEAD` · any append to a file another session may be closing · `delete mode` in commit output
 - **fires when:** you edit a file (append a CONTRIB to a bug handoff, say), and between your edit and your commit **another session moves that file** — typically `bugs_open/NNN` → `bugs_closed/NNN` as they close it. You then commit with the explicit pathspec CLAUDE.md mandates, naming the path you edited. **You need do nothing wrong for this to fire**, and the window is minutes.
 - **the mechanism:** a pathspec commit takes the **working tree** at the paths it names and ignores the index. The file is no longer at your path, so "the working tree at that path" is *absent* — and git faithfully records a **deletion**. Their `git mv` staged an add at the new path, but that path is not in your pathspec, so your commit carries the delete with **no corresponding add**. HEAD now has the file at neither path. Measured 2026-09-03: commit `4e14d1b25` recorded `delete mode … 454_HANDOFF_…md`, `1 file changed, 477 deletions(-)`, ~60 seconds after another session ran `git mv` on it.

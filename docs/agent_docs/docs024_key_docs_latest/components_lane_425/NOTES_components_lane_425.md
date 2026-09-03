@@ -147,3 +147,16 @@ Written up as a LANDMINE with the two-command check (read your own `git show --s
 two means the documented sibling fired) and the prophylactic that actually shortens the window:
 **commit an append to a bug file promptly and on its own, especially when that bug's fix has just
 gone live and someone is verifying it.**
+
+**COORDINATION NOTE on the same incident, 15:25Z.** The `bugs_open/427` lane and I each wrote a
+LANDMINES entry for that commit trap, independently, **two minutes apart** — theirs `6653293ee` at
+16:19 local, mine `ec0f5b1e2` at 16:21. I did grep `pathspec` before writing and found the three
+existing entries; theirs had not landed yet. So "grep before you file" worked exactly as intended
+and still produced a duplicate, because the window was shorter than the write. The two entries are
+complementary rather than redundant — theirs carries the recovery command
+(`git show <deleting-commit>^:<old-path>`) and the mover-side norm, mine carries the
+absent-from-both-directories consequence and the prophylactic — so I cross-referenced mine to
+theirs naming what each half holds, rather than deleting or rewriting anyone's text. **The general
+point: after a shared incident, expect the other party to be writing it up at the same moment, and
+cross-reference rather than re-grep.** Same shape as the `437`/`425` mutual-invisibility note
+already in the handoff.
