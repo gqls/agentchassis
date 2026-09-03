@@ -56,6 +56,29 @@ below feed it unchanged; a file with no domain column is refused):
    the day's 429. Reset timezone unstated; the first successful call dates the
    window.
 
+## The appraisal queues (as of 2026-09-03 — 8 windows of work left)
+
+588 of 2,945 owned domains appraised. Two queues, in this order, one 300/day
+window each. **Say in the dynadot lane's channel before starting a window** —
+three lanes share one 300/day account and a collision is only discovered as a
+429.
+
+1. `inbound/appraisal_queue_direct_2026-09-04.csv` — **1,482 rows**, appraise
+   the domain itself (.com/.net/.uk). Ordered financial → home-garden → … →
+   generic-word/misc, so a part-window still finishes whole high-value blocks.
+2. `inbound/appraisal_queue_proxy_2026-09-04.csv` — **875 rows** of
+   .co.uk/.org.uk/.me.uk, which Dynappraisal refuses. Appraise the
+   `proxy_domain` column (the .com string equivalent) and record the value
+   **against `domain`, marked as a proxy** — it measures the keyword in the
+   .com market, not the UK market, and must never be presented as a direct
+   appraisal.
+
+⚠ 12 domains on other TLDs (org, cv, vin, biz, ai, io) are untested — try one
+of each before queueing them.
+
+Rebuild both queues after any window: they are derived from
+`WORKING_table.csv`, so they shrink as coverage grows.
+
 ## Prior-conversation mining
 
 Transcripts live at `~/.claude/projects/-home-ant-projects-agentchassis/*.jsonl`.
