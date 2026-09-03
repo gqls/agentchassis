@@ -4621,3 +4621,45 @@ Owner: *"please fix the classifier to read the register."* RFC_037's DB half shi
   it is the second and third on the SAME key that earn the sticky brand.** Their lane doc:
   `docs024_key_docs_latest/bugfix_437_writer_prompt_nested_shapes/HANDOFF_2026-09-03_continue_here.md`.
 
+### (hh) 2026-09-03 ~12:5xZ — PRE-REGISTERED: copyonline's layout prediction, three arms, recorded BEFORE it resolves
+
+The 445 lane shipped the `content-hub-tools` archetype (migration **736**, register **DES-087**,
+applied 2026-09-03), choosing its tags by simulation against the live fleet **and against this lane's
+`CONTRIB_2026-09-03_seventeen_remaining_remakes_for_tag_simulation.md`** — 7 of 14 proxies land on it,
+including both Christmas twins, which they note is CORRECT because layout is FORM and twin
+differentiation is RFC_037's job, not the layout's. Tags:
+`content-hub, interactive-tools, editorial-publication, long-form, long-form-content, editorial-guides,
+guides, research-publication, content-platform`.
+
+**My prediction for copyonline, now with three arms. Written down before the answer exists:**
+1. **`tool-portal-light`** — my original call (it ships four browser tools; that layout carries
+   `tool-portal`/`tools`/`interactive-platform`/`editorial-publication`).
+2. **`magazine-grid`** — if editorial words lead. Now a SURPRISE if it happens: `content-hub-tools`
+   ties it on category and beats it on any second editorial tag.
+3. **`content-hub-tools`** — if the classifier emits `content-hub` / `editorial-guides` /
+   `long-form-content` / `research-publication` alongside `editorial`.
+**Not `soft-editorial`, whatever the brief says** — unchanged, and the reason is unchanged
+(zero sites emit any of its six tags).
+**This will be the first classification ever to run with the taxonomy actually rendered (our 734) AND
+with the form-over-industry guidance (their 735), so it is a canary for three changes at once** — which
+is also its weakness as evidence: a single run cannot attribute an outcome among three changes. Send
+all five fields (`layout_name`, `lineage.layout_source`, `lineage.layout_candidates`, `reasoning`,
+`classification.industry_tags`) so they can separate them.
+
+**MEASURED FOR THEM, because they had not proven it: `76db94fc7` did NOT ride v1.0.1358.**
+NUL-split probe on the running chassis pod with both controls in the same pipeline —
+`enforceListingItemSources` = **2** (present control, 444's live gate), `zzz_invented_absent_control`
+= **0** (absent control), and their three symbols `layout_match_score` / `coverage_pct` /
+`fit_threshold` all **0**. The commit IS an ancestor of HEAD, so this is the "in HEAD but not in the
+binary" gap, not a missing commit. **Consequence: `lineage.layout_match_score` will NOT appear on
+copyonline's row; coverage stays regex-out-of-prose; the old shape is expected and is not a
+regression.** Told them.
+
+**DECISION (ours): do NOT re-compose the live remakes yet.** Their simulation says advertise would go
+7→16% and websitepromotion 8→28% coverage if re-composed. Both stay as they are. Reasons: fix-forward
+is the estate's posture; re-composition on a live site is a design change with its own blast radius;
+and copyonline is about to tell us how a FRESH classification behaves with a real tag list, which is
+strictly better evidence than guessing from a simulation. **The condition that would change this:
+copyonline lands on `content-hub-tools` (or another good fit) with a clean served result — then
+re-composing advertise and websitepromotion becomes an evidenced improvement rather than a hope.**
+
