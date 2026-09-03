@@ -103,3 +103,78 @@ deliberately kept open, which means it *blocks* the sweep from re-minting, so th
 person to close them. I have told the portfolio-positioning lane, who are holding
 advertise.co.uk ready to test, exactly which of those two situations they are in (the easy
 one) and to wait for the release before firing anything.
+
+## 2026-09-03, early afternoon — it works, and now we know what it doesn't fix
+
+The release went out and the fix is working. I checked it properly this time rather than
+taking the first encouraging sign.
+
+Six pages have been written since the new code started running. All six were given the
+corrected instructions. Four of them have gone all the way through to being built and
+published, on three different sites. Every one of them stored the content in the right
+shape. None stored it in the old broken shape.
+
+I also went and looked at one of the finished pages on the live web — the advertising
+regulation map on advertise.co.uk, which is one of the pages this bug had left stranded.
+It loads, and the decision points that used to be an unusable blob of text are now seven
+properly laid-out branches on the page. I checked a made-up address on the same site at
+the same time to be sure the site wasn't just returning something for every URL, which
+would have made the first result meaningless. It wasn't.
+
+That page is worth singling out for another reason: nobody fired anything at it. It
+repaired itself, on the routine sweep, exactly as predicted.
+
+### The thing I nearly got wrong
+
+My first count said three pages had failed *after* the fix went in. That would have meant
+it was leaking. It hadn't failed at all.
+
+The queue keeps the last error message on a job even after the job has moved on, and any
+later touch of that job updates its timestamp — so an old failure resurfaces looking like
+a new one. The giveaway was that two of the three jobs were marked *complete* while still
+carrying a failure message. Counting the actual build attempts instead of the job records
+gives the true answer: the last real failure was at 12:23 and there have been none since.
+
+I have written that up as a trap for other people, because it will catch anyone checking
+whether a fix worked, and it fails in the direction that makes you distrust a good fix.
+
+### The reviewers approved it, and asked three fair questions
+
+The review council approved the change. It raised four points, none serious, and three of
+them were worth actually answering rather than waving through, so I did:
+
+- *Does this fix one spot in a problem that exists elsewhere?* No. There is exactly one
+  place in the system that builds these instructions, and it is the one fixed.
+- *Does the count of affected components include the per-site copies people make?* Yes —
+  and rather than just say so, I ran the count in a way that showed 27 such copies were in
+  the population being searched. Only the one original component is affected.
+- *You cited a test that wasn't visible in what you submitted.* The test exists; my
+  submission was at fault for not showing it. Fair, and the same lesson as last round.
+
+### The part that isn't finished, and it is bigger than I thought
+
+The fix stops this happening again. It does not go back and rebuild what is already broken,
+and I now know exactly how much that is.
+
+Seventy-three pages' worth of work was hit by this. **Fifty-two of them — just over
+seven in ten — cannot recover on their own, ever.** When a job fails twice it gets branded
+"unresolved", and that brand deliberately keeps the job open, which has the side effect of
+blocking the system from ever trying again. There are 251 of those branded records sitting
+across four sites: remortgagecalculator, farmerinsurance, loanzy and cv1.
+
+This does not improve with time. A related counter I was watching *is* decaying nicely —
+one site dropped from six at-risk pages to two while I was working — but the branded
+records are permanent until somebody clears them.
+
+So the honest position is: the door is shut, and about three in ten of the damaged pages
+will now heal themselves. The other seven in ten need someone to clear the brand.
+
+**I have not done that, and I would like your view before I do.** It means changing 251
+records across four sites that other people are working on. The reason I was waiting was
+that we wanted a real page to build successfully first, before clearing anything — that has
+now happened four times over, so the evidence side is settled. What is left is a judgement
+call about touching other lanes' sites in bulk, and that is yours rather than mine.
+
+Loanzy's three original stranded pages are still stranded, and they are the illustration of
+what leaving it costs: they are linked from live pages, they have never been published, and
+nothing in the system will ever try them again by itself.

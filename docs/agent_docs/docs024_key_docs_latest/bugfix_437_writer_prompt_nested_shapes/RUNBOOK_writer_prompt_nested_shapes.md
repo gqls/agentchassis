@@ -206,3 +206,116 @@ from `bug_historian`, which **approved** — it spotted that the prompt's "or us
 advice rested on the empty-STRING precedent by analogy rather than measurement. The test it
 prompted (`TestStructuredItemShape_EveryOmissionSpellingTheNoteRecommendsPassesTheGate`)
 is now the guard against a prompt that recommends a value the gate would refuse.
+
+## 6. Verifying the fix after a roll — the four queries, and why three obvious ones lie
+
+Added 2026-09-03 14:00Z, after re-censusing on real traffic. Each of these cost an attempt.
+
+### 6.1 The failure census — key it on the ORCHESTRATION, never the work item
+
+⚠ **The obvious query over-reports and will tell you a working fix is leaking.**
+`site_work_items.error` **persists** after the row moves on, and
+`trg_site_work_items_updated_at` bumps `updated_at` on **every** write — so old error text
+resurfaces under a fresh timestamp. On 2026-09-03 this showed **3 failures after the fix**
+when there were **0**; two of the three rows were `complete`. Count the failure's own event:
+
+```sql
+SELECT date_trunc('hour', updated_at) AS hr, count(*) AS failures
+  FROM orchestration_states
+ WHERE error ILIKE '%mechanism-flow%branches%' AND updated_at > now() - interval '24 hours'
+ GROUP BY 1 ORDER BY 1;
+```
+
+**If you must use `site_work_items`, select `status` alongside `error`** — a `complete` row
+carrying a failure message is the tell, and it is invisible if you only project the error.
+
+### 6.2 The demand control — a post-fix zero proves nothing without it
+
+Same window, same grain, counting the *opportunities* to fail:
+
+```sql
+SELECT date_trunc('hour', created_at) AS hr, count(*) AS writer_calls,
+       count(*) FILTER (WHERE prompt_rendered LIKE '%"branches": [{%') AS nested_exemplar,
+       count(*) FILTER (WHERE prompt_rendered LIKE '%"branches": "%')  AS old_flat
+  FROM llm_call_log
+ WHERE agent_type='page-content-writer' AND prompt_rendered LIKE '%mechanism-flow%'
+   AND created_at > now() - interval '24 hours'
+ GROUP BY 1 ORDER BY 1;
+```
+
+Bound the range (§1's warning: this table is the training corpus). `nested_exemplar` and
+`old_flat` in one row make the cutover visible and give the zero its meaning.
+
+### 6.3 The artefact census — and the `jsonb_array_length` trap that kills the query
+
+⚠ **`jsonb_array_length()` on a mixed column aborts the whole query** —
+`ERROR: cannot get array length of a scalar` — *even with* `jsonb_typeof(...)='array'` in
+the same `WHERE`. Postgres does not guarantee predicate evaluation order, and wrapping the
+scan in `AS MATERIALIZED` **does not help**. Only a `CASE` in the projection, or `FILTER`
+over a pre-computed `jsonb_typeof`, is safe. Three attempts were lost to this.
+
+Note also: `page_components` has **no `component_type`** column, and the definitions live in
+`content_components` (`site_components` is a different thing). Identify instances by shape:
+
+```sql
+WITH mf AS MATERIALIZED (
+  SELECT pc.id, pc.page_id, pc.updated_at, pc.build_status, pc.content_data
+    FROM page_components pc
+   WHERE pc.updated_at > now() - interval '30 hours'
+     AND jsonb_typeof(pc.content_data->'steps')='array'
+     AND pc.content_data::text LIKE '%branches%'
+), st AS (
+  SELECT mf.id, jsonb_typeof(e->'branches') AS btype,
+         CASE WHEN jsonb_typeof(e->'branches')='array'
+              THEN jsonb_array_length(e->'branches') ELSE NULL END AS blen
+    FROM mf, LATERAL jsonb_array_elements(mf.content_data->'steps') e
+)
+SELECT s.domain, left(p.url,42) AS url, mf.updated_at, mf.build_status,
+       count(st.*) AS n_steps,
+       count(*) FILTER (WHERE st.btype='array')  AS br_arr,
+       count(*) FILTER (WHERE st.btype='string') AS br_str,
+       count(*) FILTER (WHERE st.blen > 0)       AS br_filled
+  FROM mf JOIN pages p ON p.id=mf.page_id JOIN sites s ON s.id=p.site_id
+  LEFT JOIN st ON st.id=mf.id
+ GROUP BY 1,2,3,4, mf.id ORDER BY mf.updated_at;
+```
+
+**Widen the window past the fix** so a pre-fix row is in the result as a built-in negative
+control (on 2026-09-03, lendzy `/cant-pay.html` from the day before: 3 steps, 3 strings, 0
+arrays). A census that can only return the good answer is not evidence. `br_filled` is the
+over-production watch in the same pass.
+
+### 6.4 The blocked-key census — the number that says whether the damage is over
+
+The failure census going quiet does **not** mean the pages recover. A key branded
+`[unresolved after 2 attempts]` blocks re-minting for ever:
+
+```sql
+WITH fam AS (SELECT DISTINCT site_id, item_key FROM site_work_items
+              WHERE error ILIKE '%mechanism-flow%branches%')
+SELECT s.domain, count(DISTINCT w.item_key) AS blocked_keys, count(*) AS unresolved_rows
+  FROM site_work_items w JOIN fam f ON f.site_id=w.site_id AND f.item_key=w.item_key
+  JOIN sites s ON s.id=w.site_id
+ WHERE w.summary LIKE '[unresolved after%'
+   AND w.status NOT IN ('complete','failed','cancelled','rejected')
+ GROUP BY 1 ORDER BY 2 DESC;
+```
+
+`[MEASURED 2026-09-03 14:00Z]` → 52 blocked keys of 73 in the family, 251 rows.
+**Count DISTINCT keys, not rows** — rows-per-key ranged from 3 to 8 here, so the row count
+overstates the problem by ~5×. The key is what blocks.
+
+### 6.5 Reading a council verdict
+
+The report body is in **`body`**, not `content`:
+
+```sql
+SELECT created_at, kind, metadata->>'decision'
+  FROM diagnosis_artifacts WHERE correlation_id='<SUBMISSION_CORR>' ORDER BY created_at;
+SELECT body FROM diagnosis_artifacts
+ WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report'
+ ORDER BY created_at DESC LIMIT 1;
+```
+
+A commit carrying `Council-Submitted:` needs **no follow-up** once the verdict turns
+approved — `098` resolves the correlation at report time and credits it. Do not amend.

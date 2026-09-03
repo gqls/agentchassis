@@ -382,3 +382,117 @@ output. I ran it only after exhausting eight other hypotheses — and the estate
 (*"before believing a clean grep, ask which pod could have produced the line"*) was one I had
 re-read that morning. **Ask which process produced the row before you audit the artefact you
 happen to know how to reach.**
+
+## 2026-09-03 14:00Z — re-censused on real traffic; the fix holds, and the remaining damage is now a number
+
+Picked the lane back up against the handoff's owed list. Everything owed that was
+measurable is measured; the one thing left is a decision, not an experiment.
+
+**The demand control is no longer thin.** The handoff rested "0 failures after" on exactly
+**1** exercise and said so. Re-censused three hours later:
+
+| `[MEASURED 2026-09-03 14:00Z]` | |
+|---|---|
+| mechanism-flow writer calls since the fresh pods | **6** |
+| carrying the nested exemplar | **6 / 6** |
+| still carrying the old flat exemplar | **0 / 6** |
+| pages built **and deployed** with array `branches` | **4**, on **3 sites** |
+| steps storing `branches` as a string | **0** |
+
+Negative control inside the same query: lendzy.co.uk `/cant-pay.html` (written 09-02
+15:46Z) still shows 3 steps / 3 **strings** / 0 arrays. So the query was capable of
+returning the old shape and did not — the pass is disconfirmable, not tautological.
+
+At the served bytes: `advertise.co.uk/uk-advertising-regulation-map.html` → **HTTP 200,
+85,053 B, 7 `branch-label` + 7 `branch-body`**, with an invented-URL control on the same
+domain returning **404** (per the parked-domain landmine — a 200 on everything would have
+made the first reading worthless). That page is the one the bug named as stuck, its items
+were the `failed` shape, and it re-minted and built **unattended**, which is the
+§Unsticking prediction observed rather than argued.
+
+### The misstep of this session: I nearly reported 3 post-fix failures that never happened
+
+My first census counted `site_work_items` rows with a mechanism-flow/branches `error`,
+grouped by `updated_at`. It returned **3 in the 13:00 hour** — after the fix started
+shipping. That looked like the fix leaking.
+
+It was an artefact of the instrument. `error` **persists** on the row after it moves on,
+and `trg_site_work_items_updated_at` bumps `updated_at` on **every** write, so stale error
+text keeps resurfacing under a fresh timestamp. The tell I nearly missed: **two of the
+three rows were `complete`**. Keying on the failure's own event
+(`orchestration_states.updated_at`) gives the true answer — the last real failure was
+**12:23:58Z**, and there have been none since.
+
+This is the same trigger the estate already has a landmine for (it makes an open item
+unreapable by bumping `updated_at`), but a *different consequence* of it: it also makes a
+**post-fix failure census over-report**. Filed as its own LANDMINE entry, because the
+existing one is about reaping and would not have warned me here. What saved it was reading
+the `status` column I had not asked about — the row said `complete` while its `error` said
+it had failed.
+
+### The council's four objections, answered by census rather than assurance
+
+Round 2 came back **APPROVED** at 10:11:56Z ("4 advisory objections, none high-severity").
+The commit already carries `Council-Submitted:`, so `098` credits it automatically at
+report time — no amend, nothing owed there. But three of the four were real questions
+about whether the fix is complete, and they were cheap to settle:
+
+- **`bug_historian`: is this one call site of a still-generic flaw?** Census: exactly **1**
+  active agent config mentions `item_fields` (`page-content-writer`). The only other Go
+  consumer is `expectedItemFieldsFromComponentSchema` → `reconcileGeneratedItemKeys`
+  (`v3_site_actions.go:8096`, `:2279`), which reconciles key **names** in already-generated
+  content and therefore legitimately wants the flat projection. The mechanism is generic;
+  it has one exemplar-building consumer, and that is the one fixed.
+- **`reuse_agent`: does the blast-radius census miss per-site tool forks?** No — forks are
+  rows in `content_components`, so they were always in the population. Proven with the
+  breakout rather than asserted: **27 active forks** (and 184 non-forks) are in it, and the
+  structured-property census over the whole population still returns **1** row,
+  `mechanism-flow.steps.branches`, not a fork. Had forks been excluded the breakout would
+  have read 0, so this check could have failed.
+- **`editquality`: the cited test isn't in the sketch.** It is in the code —
+  `structured_item_shape_test.go:159`, `TestStructuredItemShape_NestedObjectProperty`, one
+  of 10 tests. The defect was in my submission sketch. Correctly raised: from the seat's
+  side an unshown test and an absent one look identical, which is the whole point of
+  showing sketches verbatim — the same lesson round 1 taught me about the elided anchor.
+- **`guardian`: the duplicate-active-rows trap on `agent_definitions`.** Settled by the
+  event: 724 applied cleanly, and its own `n<>1` guard *is* the check for that trap.
+
+Residual accepted and not actioned: `debug_historian` is right that 724 edited
+`default_config` with no `snapshot_agent()` backup, and that its fail-loud guard makes it
+unsafe to re-run after success. Noted in the bug file for whoever next edits that row.
+
+### The finding that changes what this lane is for: 52 of 73 keys can never recover
+
+`[MEASURED 2026-09-03 14:00Z]` **73** keys have ever carried this error. **52 (71%)** are
+blocked by **251** rows in status `unresolved`, all branded `[unresolved after 2
+attempts]` — remortgagecalculator 19 keys, farmerinsurance 18, loanzy 14, cv1 1.
+
+The re-mint window table I re-measured alongside it decays and moves both ways
+(remortgagecalculator 6 → 2 as siblings aged out; farmerinsurance stuck at 21; advertise
+0 → 0 with its *one-away* count rising 2 → 4 purely from **successful** builds landing as
+terminal siblings — the counter cannot tell success from failure). **The `unresolved` rows
+do not decay at all.** So the honest statement of where this bug stands is: candidate 1
+protects the remaining 21 keys and all future work, and 71% of the keys already damaged
+need a deliberate unsticking that no automatic path will perform.
+
+loanzy's three original stuck pages are still stuck, verified at 14:00Z — `/your-rights.html`
+(`needs_rebuild`), `/guides/index.html` and `/guides/tool-loans-consolidation-guide.html`
+(`planned`), all `deployed_at NULL`. They are the worked example of the cost.
+
+**Not done, deliberately:** closing those 251 rows. §Unsticking set the precondition as "a
+verified build on one page first" and that is now satisfied four times over, so this is no
+longer blocked on evidence — it is a bulk state change on shared live data across four
+sites owned by other lanes, and it wants the owner's word. Put to him rather than taken.
+
+### Query traps worth the runbook (all cost real attempts here)
+
+- `jsonb_array_length()` on a mixed column **fails the whole query** — `cannot get array
+  length of a scalar` — even with `jsonb_typeof(...)='array'` in the same `WHERE`, because
+  Postgres does not guarantee predicate order, and `AS MATERIALIZED` does not save you
+  either. Only a `CASE` in the projection or a `FILTER` over a pre-computed `jsonb_typeof`
+  is safe. Three attempts lost to this.
+- `page_components` has **no** `component_type`; the definitions table is
+  `site_components`/`content_components`, and neither joins the way the obvious guess does.
+  Identify mechanism-flow instances by shape (`content_data->'steps'` is an array
+  containing `branches`) instead.
+- `diagnosis_artifacts` stores the council report in **`body`**, not `content`.

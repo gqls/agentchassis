@@ -1,5 +1,13 @@
 # HANDOFF 2026-09-03 — bugs_open/437, writer prompt nested item shapes
 
+> ⛔ **SUPERSEDED by `HANDOFF_2026-09-03b_continue_here.md` — start there, not here.**
+> Kept for its account of the wrong-pod wrong turn, which is the transferable part.
+> What has changed since: the demand control is **6 exercises, not 1**; four pages have
+> built, deployed and been checked at the served bytes; the council verdict is **APPROVED**
+> and all four objections are answered by census; and the size of what candidate 1 does not
+> reach is now measured — **52 of 73 keys (71%) are permanently blocked**. The "still owed"
+> list at the bottom of this file is DONE except for candidates 2 and 3.
+
 **COLD-START: read this file, then `bugs_open/437` §POST-ROLL, then
 `NOTES_writer_prompt_nested_shapes.md` from the bottom up.**
 

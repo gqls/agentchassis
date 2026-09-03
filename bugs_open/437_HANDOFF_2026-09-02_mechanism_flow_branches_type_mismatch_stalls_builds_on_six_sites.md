@@ -110,31 +110,108 @@ SELECT s.domain, w.item_key, w.status, left(w.summary,80)
  ORDER BY s.domain, w.updated_at DESC;
 ```
 
-## ✅ CANDIDATE 1 IS FIXED AND LIVE — PROVEN AT THE ARTEFACT 2026-09-03 13:25Z
+## ✅ CANDIDATE 1 IS FIXED AND LIVE — PROVEN AT THE SERVED ARTEFACT, ON REAL TRAFFIC
 
-**The writer is now shown the nested shape and produces it.** First mechanism-flow write on a
-post-roll agent pod, `llm_call_log` 13:24:58Z:
+**Council verdict: APPROVED** (round 2, 2026-09-03 10:11:56Z, corr
+`6de0f6f2-4f37-492a-9cbd-1ae886311a9b`) — *"approved with 4 advisory objection(s) — none
+high-severity"*. All four are answered below with censuses rather than assurances.
 
-| check | result |
+**The writer is shown the nested shape and produces it.** First proof was one write at
+13:24:58Z; **re-censused 14:00Z on real traffic, and the demand control is no longer thin:**
+
+| check `[MEASURED 2026-09-03 14:00Z]` | result |
 |---|---|
-| prompt carries `"branches": [{` (nested exemplar) | **true** |
-| prompt still carries `"branches": "..."` (old flat) | **false** |
-| prompt carries the shape note (`must be an array of objects`) | **true** |
-| model's reply — 4 `branches` values | **all four ARRAYS**: one populated with real `{label, body}` objects, three `[]` |
+| mechanism-flow writer calls since the fresh agent pods | **6** (not 1) |
+| …carrying the nested exemplar `"branches": [{` | **6 of 6** |
+| …still carrying the old flat `"branches": "..."` | **0 of 6** |
+| pages built + **deployed** with `branches` stored as an ARRAY | **4**, across **3 sites** |
+| …of which any step stored `branches` as a STRING | **0** |
+| last actual failure of this defect | **12:23:58Z** — none since |
 
-**The three empty arrays are the second half of the result, not a shortfall.** They are the
-omission advice being obeyed: a step with no decision point sends `[]` rather than inventing
-one. That was the accepted over-production risk named in the council submission and in
-PBP-052, and on this first exercise it behaved correctly.
+The four recovered pages, from `page_components.content_data` (steps → branches typing):
 
-**Failures since:** `[MEASURED 2026-09-03]` mechanism-flow/branches failures today: **7
-before** the fresh agent pods (12:52Z), **0 after**. ⚠ **With a demand control, and the
-control is thin:** exactly **1** mechanism-flow writer call has run since, so the zero rests
-on a single exercise. It is a genuine end-to-end pass, not yet a rate. Re-run the §Verify
-census after more traffic before calling the class closed.
+| site | page | steps | branches arrays | strings | populated |
+|---|---|---|---|---|---|
+| cv1.co.uk | `/how-it-works/index.html` | 4 | 4 | 0 | 1 |
+| remortgagecalculator.uk | `/what-your-number-means.html` | 5 | 5 | 0 | 2 |
+| advertise.co.uk | `/uk-advertising-regulation-map.html` | 6 | 6 | 0 | 3 |
+| remortgagecalculator.uk | `/six-month-checklist.html` | 6 | 6 | 0 | 1 |
 
-**This bug stays OPEN** — candidates 2 and 3 below are untouched, and they are what leave the
-already-stuck pages stuck.
+**Negative control, in the same query:** lendzy.co.uk `/cant-pay.html`, written 2026-09-02
+15:46Z, stores **3 steps / 0 arrays / 3 strings** — the pre-fix shape. The query could
+therefore have returned the old shape and did not.
+
+**At the served bytes, with a control:** `advertise.co.uk/uk-advertising-regulation-map.html`
+— the page this bug named as stuck — returns **HTTP 200, 85,053 bytes**, carrying **7
+`branch-label` and 7 `branch-body`** elements. An invented URL on the same domain returns
+**404**, so the domain is not 200-ing every path. This page's items were the `failed` shape,
+and it re-minted and built **on its own**, exactly as §Unsticking predicted.
+
+**Over-production watch — first answer, and it is the reassuring one.** `[MEASURED
+2026-09-03 14:00Z]` **7 of 21** steps across the four pages carry a populated `branches`
+array (**33%**). The empty arrays are the omission advice obeyed, not a shortfall. The
+accepted risk was that a filled exemplar would make the writer invent decision points; on
+this evidence it is being conservative, not over-producing. Re-census as volume grows.
+
+> ⚠ **A trap that nearly cost a wrong verdict, now a landmine.** A failure census keyed on
+> `site_work_items.updated_at` showed **3 failures after the fix**. There were none. The
+> `error` column **persists** after a row moves on, and `trg_site_work_items_updated_at`
+> bumps `updated_at` on **every** write — so old error text resurfaces under a fresh
+> timestamp, and two of those three rows were `complete`. **Key a failure census on the
+> failure's own event** (`orchestration_states.updated_at` where the error lives), never on
+> the work item's `updated_at`.
+
+**This bug stays OPEN** — candidates 2 and 3 are untouched, and §The 52 blocked keys below
+now measures exactly how much of the damage candidate 1 cannot reach.
+
+### The four council objections, answered by measurement
+
+| seat | objection (severity) | answer `[MEASURED 2026-09-03 14:00Z]` |
+|---|---|---|
+| `bug_historian` | single call site of a shared lossy mechanism; other consumers of `item_fields` unaudited (medium) | **Exactly 1** active agent config mentions `item_fields` — `page-content-writer`. The only other Go consumer is `expectedItemFieldsFromComponentSchema` → `reconcileGeneratedItemKeys` (`v3_site_actions.go:8096`, `:2279`), which reconciles key **names** in already-generated content and therefore *wants* the flat projection. No second exemplar-builder exists. |
+| `reuse_agent` | census not scoped to per-site **tool forks** (medium) | Forks live in `content_components` as rows, so they were already in scope — proven, not asserted: the census population holds **27 active forks** (and 184 non-forks), and the structured-property census over that whole population still returns **1 row**, `mechanism-flow.steps.branches`, **not** a fork. |
+| `guardian` | `agent_definitions` duplicate-active-rows trap not checked before apply (medium) | Settled empirically: migration 724 applied cleanly, and its own `GET DIAGNOSTICS n; RAISE IF n<>1` guard is precisely the check for that trap. `page-content-writer` is not one of the duplicated types. |
+| `editquality` | rationale cites `TestStructuredItemShape_NestedObjectProperty`, absent from the sketch (medium) | The test **exists** — `structured_item_shape_test.go:159`, one of 10. The defect was in the submission sketch, not the code. Correctly raised: an unshown test is indistinguishable from an absent one. |
+
+**Residual, accepted, not actioned:** `debug_historian` noted migration 724 edited
+`agent_definitions.default_config` with no `snapshot_agent()` backup row, and that its
+fail-loud re-run guard means it is not safely re-runnable. Both are true. The migration
+carries its own verified rollback and the row was read back after apply; a future editor of
+this row should take the snapshot.
+
+## THE 52 BLOCKED KEYS — what candidate 1 does NOT reach, now measured
+
+**Added 2026-09-03 14:00Z.** The fix stops new occurrences and rebuilds nothing. Until now
+that limit was described; here is its size.
+
+`[MEASURED 2026-09-03 14:00Z]` **73 keys** have ever carried this error. **52 of them (71%)
+are permanently blocked** by **251 rows in status `unresolved`** — every one branded
+`[unresolved after 2 attempts]`, a state deliberately kept in `loadOpenPageItems`' open set
+(`reconcile_site_plan_action.go:751-756`) so that it **blocks re-minting** rather than being
+re-minted past.
+
+| domain | blocked keys | unresolved rows |
+|---|---|---|
+| remortgagecalculator.uk | 19 | 64 |
+| farmerinsurance.uk | 18 | 62 |
+| loanzy.uk | 14 | 113 |
+| cv1.co.uk | 1 | 12 |
+| **total** | **52 of 73 keys** | **251** |
+
+**This does not decay.** The re-mint window table below counts a rolling 7 days and moves in
+both directions; an `unresolved` row, once written, stays open and stays blocking
+indefinitely. So the fix reaches the other **21** keys and everything future, and these 52
+need the deliberate state-changing step this fix deliberately did not smuggle in.
+
+**The precondition for that step is now satisfied.** §Unsticking said closing the branding
+rows "should follow a verified build on one page rather than precede it" — four pages have
+now built and deployed, one of them served and checked at the bytes. What remains is a
+decision, not a dependency: closing 251 rows across four sites belonging to other lanes.
+**Deliberately NOT done here** — it is bulk state change on shared live data and wants the
+owner's word and the owning lanes' knowledge. loanzy's three original stuck pages
+(`/your-rights.html` `needs_rebuild`, `/guides/index.html` and
+`/guides/tool-loans-consolidation-guide.html` `planned`, all `deployed_at NULL`, verified
+still stuck at 14:00Z) are the worked example of the cost of leaving it.
 
 ---
 
@@ -267,13 +344,22 @@ by this defect, by how many terminal siblings they already carry in the rolling 
 
 | domain | keys AT/PAST the brand threshold (≥2) | keys one away (1) | keys touched |
 |---|---|---|---|
-| farmerinsurance.uk | **21** | 3 | 24 |
-| remortgagecalculator.uk | **6** | 13 | 24 |
-| loanzy.uk | **3** | 6 | 15 |
-| advertise.co.uk | 0 | 2 | 4 |
-| cv1.co.uk | 0 | 1 | 3 |
-| mortgagecalculator.co.uk | 0 | 0 | 2 |
-| leopardessconsulting.co.uk | 0 | 1 | 1 |
+| farmerinsurance.uk | **21** → **21** | 3 → 3 | 24 |
+| remortgagecalculator.uk | **6** → **2** | 13 → 17 | 24 |
+| loanzy.uk | **3** → **3** | 6 → 6 | 15 |
+| advertise.co.uk | 0 → 0 | 2 → 4 | 4 |
+| cv1.co.uk | 0 → 0 | 1 → 1 | 3 |
+| mortgagecalculator.co.uk | 0 → 0 | 0 → 0 | 2 |
+| leopardessconsulting.co.uk | 0 → 1 | 1 → 0 | 1 |
+
+> **Second figure = `[RE-MEASURED 2026-09-03 14:00Z]`**, three hours after the first, and it
+> shows the decay working exactly as the warning below predicted — but only where the site
+> got traffic. remortgagecalculator dropped **6 → 2** as siblings aged out and its pages
+> rebuilt; farmerinsurance and loanzy did not move at all. advertise rose 2 → 4 *one-away*,
+> which is its four **successful** builds landing as `complete` terminal siblings — benign,
+> and a reminder that this counter cannot distinguish success from failure.
+> **⚠ This is the counter the fix changes the sign of, not the one that matters.** The
+> figures that matter are the 52 already-`unresolved` keys above, and those do not decay.
 
 **30 keys across three sites are in the window where the next automatic re-mint is born
 branded and stuck.** That is the argument for treating the roll as more urgent than a
@@ -296,6 +382,28 @@ pre-emptive surgery.
 
 ## Verify
 - The error: `SELECT left(error,300) FROM site_work_items WHERE error LIKE '%mechanism-flow%branches%' ORDER BY updated_at DESC LIMIT 1;`
+- ⚠ **The failure census must be keyed on the FAILURE's own event, not on the work item.**
+  `site_work_items.error` persists after the row moves on, and `trg_site_work_items_updated_at`
+  bumps `updated_at` on every write, so old error text keeps resurfacing under a fresh
+  timestamp (on 2026-09-03 this showed 3 post-fix failures where there were **0**, two of
+  them on rows that were `complete`). Count the orchestrations instead:
+```sql
+SELECT date_trunc('hour', updated_at) AS hr, count(*) AS failures
+  FROM orchestration_states
+ WHERE error ILIKE '%mechanism-flow%branches%' AND updated_at > now() - interval '24 hours'
+ GROUP BY 1 ORDER BY 1;
+```
+- **The 52 blocked keys — the number that decides whether this bug's damage is over:**
+```sql
+WITH fam AS (SELECT DISTINCT site_id, item_key FROM site_work_items
+              WHERE error ILIKE '%mechanism-flow%branches%')
+SELECT s.domain, count(DISTINCT w.item_key) AS blocked_keys, count(*) AS unresolved_rows
+  FROM site_work_items w JOIN fam f ON f.site_id=w.site_id AND f.item_key=w.item_key
+  JOIN sites s ON s.id=w.site_id
+ WHERE w.summary LIKE '[unresolved after%'
+   AND w.status NOT IN ('complete','failed','cancelled','rejected')
+ GROUP BY 1 ORDER BY 2 DESC;
+```
 - **The fix, at the prompt** (the honest post-roll check — the served page is downstream of
   three more steps): `SELECT prompt_rendered LIKE '%"branches": [{%' FROM llm_call_log
   WHERE agent_type='page-content-writer' AND prompt_rendered LIKE '%mechanism-flow%'
