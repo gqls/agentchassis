@@ -624,3 +624,29 @@ inline guide imager, three findings (all relayed/recorded):
    wait for content; the CLASS half (register-vs-repoint for all 8 sites)
    is a components + queryresolve-owner call. **Added to the owner-decisions
    list** (handoff §5, item 7).
+
+## 2026-09-03 (morning) — 721 proven mechanically; ONE page improved; the repair wave is UNOWNED
+
+components thread, measured: their migration 721 (six components gained the
+asset-sourced field, 20:15:47Z) WORKS — `content_data.background_image` rows
+5 → 23 overnight — but 22 of the 23 have no page-scope hero asset (fallback,
+correct, invisible) and exactly **ONE page renders its own hero**. The 61
+orphans essentially untouched; "necessary and not sufficient" confirmed with
+numbers. **The one open item is now OWNERSHIP OF THE REPAIR WAVE**: closing
+needs page-scoped reason-carrying rerenders (`section_data_resolved` /
+`image_landed`, the 460/461 vocabulary) across the affected pages + served-
+bytes verification — ordinary re-renders redeploy stored HTML and the GTM
+chrome wave is `stale_chrome`, not re-resolving, so neither ambient wave will
+ever close it. Asked components to claim the wave in 114 or name who should.
+
+Also theirs, recorded: **teaser-reveal-panel was deliberately excluded from
+721 and rightly** — it reads `.image_url`/`.image_alt` PER ITEM inside
+`{{range .items}}` with no per-item vocabulary to declare them: a different
+defect shape, `bugs_open/425` fix-candidate 4, not hero work. And an
+against-themselves correction worth keeping: 721's header figure "5 of 158
+instances carry their own background_image" is now **28** — correct when
+measured, stale by ADDITION within 12 hours, caused by their own migration;
+the conclusion (5 pre-existing anomalies ≠ a generalisable route) survives,
+and the measurement date on the figure is the only reason the staleness is
+visible. Their 23-row count is likewise a count of their fix's footprint, not
+the original defect — the repaired-population hazard from both sides now.
