@@ -104,6 +104,44 @@ live change. In priority order:
    ⚠ For the carousel, the open design question is **where the default lives** (schema default +
    backfill of the 49, or resolution-time) — `carousel` is `source: static`, so **nothing derives it**
    and something must positively set it.
+> **⚠ OWNER RULED BOTH FLIPS 2026-09-03 ("switch the switches"), relayed via `designblog.co.uk`, and
+> the PRE-FLIGHT GATE IS ASSIGNED TO THIS LANE.** Both flips sit at #2 in the order the owner
+> confirmed directly, so they are next — but **the effect of both is UNVERIFIED**, and the carried
+> caveat (editorial design uplift, endorsed by designblog) is: **land them with a before/after read on
+> served BYTES, not config.**
+>
+> **THE BEFORE-READ IS CAPTURED — `[MEASURED 2026-09-03]`, and it comes with its own controls.**
+> `leopardessconsulting.co.uk/services.html` is the **positive control**: it is the ONE instance with
+> `carousel: true` already set, so its served markup is what "on" looks like. `designblog.co.uk/index.html`
+> is a flag-unset comparator.
+>
+> | served signature | flag **ON** (leopardess) | flag **unset** (designblog) |
+> |---|---|---|
+> | `carousel` | **19** | **0** |
+> | `scroll-snap` | **6** | **0** |
+> | `icg-` | **6** | **0** |
+> | `prev` / `next` | **10 / 10** | **0 / 0** |
+> | `overflow-x` | **2** | **2** ← ⚠ **must NOT change** |
+>
+> ⚠ **`overflow-x` is the NEGATIVE CONTROL and it matters**: it reads 2 on both, because it is the
+> wide-table styling this lane already identified as the reason a template grep misclassifies grids as
+> carousels. **A flip that moves `overflow-x` is doing something other than what it says.**
+>
+> **So the acceptance test for the flip is mechanical:** pick a flag-unset site, flip it, re-fetch, and
+> confirm its four discriminating counts move from the right column to the left **while `overflow-x`
+> stays at 2**. ⚠ **Config alone is not evidence** — `carousel` is `source: static`, so nothing derives
+> it and a flip must be positively set per instance.
+>
+> ⚠ **AND IF THE ILLUSTRATED-BLOCK FIX IS A PLANNER-PROMPT CHANGE: migration `718` JUST EDITED THE SAME
+> PROMPT'S IMAGERY BLOCK.** Use anchored replaces on **disjoint** anchors, per the 591/595/598/718
+> discipline — and note this lane's own `723` idempotency defect (§2.1) is exactly what a careless
+> anchored replace produces.
+>
+> **PRE-FLIGHT GATE (assigned):** the two queries live in `designblog.co.uk`'s RUNBOOK with the
+> three-names landmine and the both-greps caveat baked in. **18 remakes are queued, so the payoff shape
+> is wiring it to run per-remake before ship.** ⚠ Post-`721` counts measure a **repaired** population —
+> date everything.
+
 3. **boxingonline cards** — design against image + headline + deck; category/date/read-time collapse
    by default after migration 682. ⚠ **Do not add a short display-headline field**: `nav_label` is
    empty or unusable on ~5 of 6 pages fleet-wide.
