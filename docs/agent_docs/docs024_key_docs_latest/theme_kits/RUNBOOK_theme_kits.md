@@ -111,12 +111,24 @@ SELECT name, function, component_level, is_active, forked_from IS NULL AS unfork
  ORDER BY function, chrome_eligible DESC, name;
 ```
 
-**11 rows as of 2026-09-03, exactly 3 chrome-eligible:** `header-theme-chrome`,
-`footer-theme-chrome`, and **`header-leopardess` — an ACTIVE FORK of one client's
-header**, eligible because the predicate has no `forked_from` filter. The rows *named*
-`site-header`/`site-footer` are `section`-level and ineligible. **So a function-name
-subquery for `site-header` is ambiguous, and the extra row is one client's fork** — which
-is why the seed hardcodes UUIDs.
+⚠⚠ **THERE ARE TWO ELIGIBILITY PREDICATES AND THEY DIFFER BY ONE CLAUSE. Say which one
+you mean, every time** (`component_library.go:336-378`, and `chrome_pin_test.go` goes red
+if you make them equal):
+
+| predicate | clause set | eligible rows for site-header/site-footer |
+|---|---|---|
+| `chromeEligibleSQL` — **pool SELECTION** | `is_active AND forked_from IS NULL AND component_level IN (…)` | **2**: `header-theme-chrome`, `footer-theme-chrome` |
+| `chromePinEligibleSQL` — **a `style_collections` PIN** | `is_active AND component_level IN (…)` — omits `forked_from` **deliberately** | **3**: those two plus `header-leopardess`, an ACTIVE FORK of one client's header |
+
+Both counts are right under their own predicate — the same trap as the collision figure
+above. A pin omits `forked_from IS NULL` because naming a site's own fork is exactly what
+a pin is for; the pool predicate keeps it because a fork carries its parent's `function`,
+so an active fork of one client's header would otherwise become every other site's.
+**`header-leopardess` does NOT win the default** — `ResolveChromeComponent` orders by the
+pool predicate first. The rows *named* `site-header`/`site-footer` are `section`-level and
+ineligible under both. **A function-name subquery for `site-header` is ambiguous under the
+PIN predicate, and the extra row is one client's fork** — which is why the seed hardcodes
+UUIDs.
 
 ⚠ **When a claim in a doc looks false, resolve the ARTEFACT by id before retracting it.**
 Migration 689 names both UUIDs three lines above the comment this lane called wrong, and

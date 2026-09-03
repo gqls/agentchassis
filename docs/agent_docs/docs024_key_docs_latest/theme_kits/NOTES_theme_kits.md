@@ -260,3 +260,38 @@ being cited for it. Go and find where.**
 in its `grounded_in`, so a **round 3 on the same correlation** is owed to withdraw the
 withdrawal. Round 2's verdict had not landed at the time of writing (the only
 `council_report` row is still round 1's, `revise`, 2026-09-02 21:43Z).
+
+### Same afternoon, the fourth predicate lesson in one day — and this time I checked BEFORE asserting
+
+Having established that `header-leopardess` is chrome-eligible and sorts alphabetically
+before `header-theme-chrome`, I was one step from filing "every unpinned site resolves to
+a client's forked header" as a live fleet defect. **I read the resolver instead of
+inferring from the data, and it is already handled and documented in full**
+(`component_library.go:336-378`):
+
+| predicate | clauses | eligible rows for `site-header`/`site-footer` |
+|---|---|---|
+| `chromeEligibleSQL` — **pool SELECTION** | `is_active AND forked_from IS NULL AND component_level IN (…)` | **2** |
+| `chromePinEligibleSQL` — **a PIN** | `is_active AND component_level IN (…)`, omits `forked_from` **on purpose** | **3** (incl. the fork) |
+
+`forked_from IS NULL` is load-bearing in the pool predicate, and the source comment names
+this exact row as why: *"an ACTIVE fork of one site's header is a candidate to become
+every other site's header … `header-leopardess` sorts first among active `site-header`
+rows and is what `link_site_components` would have assigned."* A pin omits it because
+naming a site's own fork is precisely what a pin is for. `chrome_pin_test.go` pins the
+asymmetry and goes red if the two predicates are made equal.
+
+**So my "3 chrome-eligible rows" figure is right for PINS and wrong as a general
+statement** — the fourth time today that a number was true only under a predicate I had
+not named. Corrected in the register and the RUNBOOK with both predicates in a table.
+
+**And the no-op finding is now airtight rather than inferred:** under the pool predicate
+the only eligible row for each chrome function is `header-theme-chrome` /
+`footer-theme-chrome`, which is exactly what all four kits pin. No tiebreak, no
+alphabetical accident, no inference — `ResolveChromeComponent` returns the kits' pick for
+a site with no pin at all.
+
+**The thing I did right, recorded because the rest of this file is misses:** the
+disconfirming read was cheap and I took it before writing the claim down. Three earlier
+errors today came from asserting a mechanism from row data; this one came out differently
+only because I opened the function.

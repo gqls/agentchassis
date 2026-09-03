@@ -985,18 +985,36 @@ deduplication begins; the "raw extractions" count above and the per-concept
   >  WHERE function IN ('site-header','site-footer')
   >  ORDER BY function, chrome_eligible DESC, name;
   > ```
-  > **11 rows as of 2026-09-03; exactly 3 are chrome-eligible:**
-  > `footer-theme-chrome` (unforked), `header-theme-chrome` (unforked) and
-  > **`header-leopardess`, which is an ACTIVE FORK of one client's header** —
-  > eligible because `chromePinEligibleSQL` (`component_library.go:334,375`) is
-  > `is_active AND component_level IN ('site','header','footer','head')` with
-  > **no `forked_from` filter**. The rows named `site-header`/`site-footer` are
-  > `section`-level and ineligible, as originally stated.
+  > **11 rows as of 2026-09-03. "Eligible" then depends on WHICH of the two
+  > predicates you mean, and there are deliberately two** — a third thing I had
+  > to get precise, and the code documents it in full at
+  > `component_library.go:336-378`:
+  > - **`chromeEligibleSQL`** — the POOL SELECTION predicate, `is_active AND
+  >   forked_from IS NULL AND component_level IN (…)`. Under it exactly **2**
+  >   rows qualify: `header-theme-chrome` and `footer-theme-chrome`.
+  > - **`chromePinEligibleSQL`** — the predicate for a
+  >   `style_collections` PIN, which **omits `forked_from IS NULL`
+  >   deliberately**, because naming a site's own fork is exactly what a pin is
+  >   for. Under it **3** rows qualify: those two plus **`header-leopardess`,
+  >   an ACTIVE FORK of one client's header.**
+  >
+  > Both numbers are correct under their own predicate, which is the same trap
+  > as the collision figure below arriving for a third time in one entry.
+  > `forked_from IS NULL` is load-bearing in the pool predicate and the source
+  > comment names this exact row as the reason: *"an ACTIVE fork of one site's
+  > header is a candidate to become every other site's header … header-leopardess
+  > sorts first among active site-header rows and is what link_site_components
+  > would have assigned."* So **no, a client's fork does not win the default** —
+  > `ResolveChromeComponent` orders by the pool predicate first. The rows named
+  > `site-header`/`site-footer` are `section`-level and ineligible under both,
+  > as originally stated.
   >
   > **So the reason to hardcode UUIDs is SHARPER than either version said:** a
-  > function-name subquery for `site-header` returns two eligible rows, and the
-  > extra one is a single client's fork. `bugfix_118`'s PLAN had already flagged
-  > `header-leopardess` as exactly this hazard.
+  > function-name subquery for `site-header` is ambiguous under the PIN
+  > predicate (2 rows) and the extra row is a single client's fork.
+  > `bugs_closed/118` had already found `header-leopardess` as exactly this
+  > hazard, and `chrome_pin_test.go` pins the asymmetry — make the two
+  > predicates equal and it goes red with the reason.
   >
   > The collision figure was true but **unverifiable as written, and its
   > denominator was stale** — that half of the 2026-09-03 correction stands.
@@ -1022,8 +1040,11 @@ deduplication begins; the "raw extractions" count above and the per-concept
   `header-theme-chrome` / `footer-theme-chrome` — **which is exactly the row
   `ResolveChromeComponent` already returns for a site with no pin at all.**
   `ChromeSlotFunction()` (`component_library.go:386`) maps the slot to the
-  FUNCTION `site-header`/`site-footer`, and the eligible unforked row for that
-  function is `header-theme-chrome`/`footer-theme-chrome`. DES/`bugfix_118`
+  FUNCTION `site-header`/`site-footer`, and under the POOL predicate
+  (`chromeEligibleSQL`, which includes `forked_from IS NULL`) the only eligible
+  row for each is `header-theme-chrome`/`footer-theme-chrome` — so
+  `ResolveChromeComponent` returns exactly what the kits pin, with no tiebreak
+  involved. `bugs_closed/118`
   established the same thing independently from the other direction: after
   118's fleet repoint, `GetComponentByFunction` and `ResolveChromeComponent`
   "already returned the same row for both chrome functions". **So the pins are
