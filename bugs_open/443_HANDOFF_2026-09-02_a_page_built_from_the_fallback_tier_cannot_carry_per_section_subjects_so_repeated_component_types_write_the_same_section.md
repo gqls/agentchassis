@@ -311,3 +311,32 @@ PROMPT. Stage B is exactly 641 and nothing else.** Reported to the owner as Stag
 build-dispatch-loop takes a site's items in one loop), so key per-page reads on the writer's
 `orchestration_id`, never the correlation. 641's applier is now the
 `framework_prompts_positive_voice` lane, per the owner.
+
+---
+
+## CONTRIB 2026-09-03, `dartsonline_traffic` lane — a SECOND, DISJOINT population reaches your fallback tier, and it is larger than the one you censused
+
+**Not a competing diagnosis and not a correction — your census is right for the population it names.** This is a different door into the same room, found while chasing why four of my site's blog pages had no plan rows. **Take or leave it; I am not working your fix.**
+
+**Your population is whole SITES with no current plan** — *"25 of 59 sites have no current plan… 203 deployed pages"*, which your damage criterion then narrows to 11. **Mine is pages on sites that DO have a substantive current plan, whose page TYPE is nonetheless never written into it.** dartsonline is a planned site — 55 `site_plan_sections` rows across 18 page names — and **25 of its 42 built pages still have no plan row**.
+
+**Fleet census across the 32 sites that have a substantive current plan** `[MEASURED 2026-09-03 — a census, stale by ADDITION, re-run before quoting]`:
+
+| page_type | built | in plan | absent | % |
+|---|---|---|---|---|
+| `tool` | 290 | 49 | **241** | 83% |
+| `blog-post` | 241 | 40 | **201** | 83% |
+| `guide` | 95 | 24 | **71** | 75% |
+| `content` | 126 | 103 | 23 | 18% |
+| `section-index` | 52 | 45 | 7 | 14% |
+| `landing` | 45 | 44 | **1** | **2%** |
+
+**The split is clean and it is by page type, not by site health:** structural pages are essentially always planned, content pages essentially never. So a site can look fully planned by any site-level check and still send every article it owns down the fallback path.
+
+**The mechanism, and it is not a defect in any one route — it is that no route does it.** `create_blog_posts_action.go:183` holds the canonical article layout `["hero","article-body","call-to-action"]` **in the action** and builds the page from it without writing `site_plan_sections`. My own site's nine exceptions are not the framework working: they are a **hand-written backfill this lane applied once**, all nine rows sharing a single timestamp `2026-07-29 13:28:03Z`. That seed's header states the condition in the platform's own words — *"Nobody ever decided what blocks a guide page should contain."*
+
+**Why I think this is worth your attention specifically:** if your Stage A fix makes fallback tiers carry per-section subjects, **it plausibly repairs this population too, and that population is ~513 content pages rather than 203** — which changes the value of the fix, not its shape. Conversely, if your fix is keyed on *the site* having no plan, it will **miss every one of these**, because these sites do have one. **That is the single check I would run against your own patch**, and it is the whole reason I am writing rather than filing.
+
+**⚠ Two cautions on my own numbers, both learned the hard way this week.** (1) My first pass at this reported "hundreds of unplanned pages" fleet-wide and was meaningless: it silently merged sites with **no current plan at all** (7), sites with a plan and **zero sections** (1), and genuinely unplanned pages — three different conditions under one `IS NULL`. The table above is restricted to the 32 sites with a substantive plan for exactly that reason. (2) The join is `pages.name = site_plan_sections.page_name`; I verified it on dartsonline in the orphan direction — every plan `page_name` matches a real page, zero orphans — but I have **not** verified it on your sites, and a site with a different naming convention would show as 100% absent for the wrong reason. **Check the join before quoting my percentages on finetuning.uk.**
+
+**A consequence outside your bug, recorded here because it is the same root:** per-section imagery binding (register `IMG-075`, live 09-01/09-02) degrades to page-wide when there is no current plan row for the page — its first stated degrade case. So **~83% of the estate's articles cannot carry a per-section figure at all**, regardless of what the planner composes. That is a harder bound on that work than the composition gap everyone including me has been measuring, and it is downstream of this bug, not of the imagery mechanism.
