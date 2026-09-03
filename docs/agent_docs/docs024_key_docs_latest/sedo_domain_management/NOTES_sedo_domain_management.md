@@ -878,3 +878,70 @@ handling a future reversal was.
 
 No sheet action — draft8 already excludes this domain, unaffected by
 any of the three corrections.
+
+## 2026-09-03 (later still) — the pricing gate that was blocking the built-sites listing is REMOVED; draft9 folds live sites into the main sheet; floor policy clarified in two passes
+
+**First pass**: owner, relayed via copy_quality_two_stage — "we can't do
+accurate minimum offers yet and probably don't want to because it sets
+an expectation of ballpark in the buyers mind. We'll just have to bear
+with the low balls for a while." This removed the reason the whole
+"live sites, priced high" track had been held separate from the
+ordinary portfolio: it was waiting on real prices before listing;
+real prices are now explicitly not required. Put the exact mechanics to
+the owner directly (AskUserQuestion: blank Minimum Offer vs a small
+nominal one) — **answer: leave it completely blank, revisit later.**
+
+**Action taken**: since "blank Minimum Offer, MAKE_OFFER, for-sale" is
+literally the SAME row shape the ordinary portfolio sheet already
+defaults to, folded the previously-held live sites straight into the
+main sheet rather than keeping a separate track that no longer has a
+distinct reason to exist. Re-queried `sites` fresh first (42 rows,
+diffed against the committed 50-domain fence — the 8 extra entries in
+the fence are legitimately from the OTHER union sources, Nominet zones
+and NS-based check, not staleness; nothing new to add). Built
+`EXCLUDED_owner_leopardessconsulting_2026-09-03.txt` (a dedicated file,
+since its exclusion reason — owner ruled client-protection standard,
+2026-09-03 — is now wholly separate from "pending pricing," which no
+longer applies to anything) and dropped `EXCLUDED_live_2026-09-03.txt`
+from the build entirely — its sole purpose (hold live sites off pending
+a price) no longer exists. The 18-domain Clook batch (owner-named,
+unrelated to pricing) and the appleby/wykefarm/copyonline
+owner-withdrawals stay exactly as before — this ruling only released
+domains that were held FOR PRICING REASONS.
+
+**Draft9 = 2,943 domains** — the full estate minus only owner-named
+holds (36 total: Clook 18, appleby 7, wykefarm/pasturedegg 8,
+copyonline 1, leopardessconsulting 1 — some overlap in the 39 Clook
+count already resolved). Verified: 2,944 `<row` = header + 2,943;
+relojistas.com, webdesign.uk, webdesign.co.uk all confirmed present as
+MAKE_OFFER/blank; leopardessconsulting.co.uk confirmed still absent;
+zero BUY_NOW/priced rows (the §8 gate was a correct no-op).
+
+**Second pass, same hour, a genuine refinement not a reversal** —
+copy_quality_two_stage relayed the owner's fuller position: *"we can set
+minimum floors in sedo and not have minimum floors on the sites…
+unlink the two."* This does NOT change draft9 (still correctly blank,
+since no concrete number has been given), but it corrects the
+STANDING POLICY going forward:
+- **Sedo's Minimum Offer field MAY carry a real floor** whenever the
+  owner gives a number directly or one is agreed with him in
+  conversation — "blank for now" was never "blank forever," and this
+  lane should set a floor the moment a real number exists, not wait for
+  a blanket policy change.
+- **The on-site display (about-page CTA etc.) must NEVER show a
+  price/floor** — confirmed structurally true already by
+  copy_quality_two_stage (no `price`/`floor`/`minimum`/`offer` token in
+  the template); that constraint is theirs to hold, not this lane's.
+- **A Sedo floor must NEVER be derived from `site_specs.commercial.tier`
+  or any automated appraisal** — floors come from the owner directly or
+  explicit agreement with him, full stop. This severs the same
+  dependency the about_page_commercial and afternic lanes' PLANs had
+  wrongly assumed (their PLAN text named "price-by-tier" as a pricing
+  source; copy_quality_two_stage is notifying the afternic lane
+  directly, not this lane's fix).
+- The valuation lane's appraisal/coverage work is off this lane's
+  critical path a second, independent way: not needed to list (already
+  established) and not needed to price either (a Sedo floor is a
+  direct-owner or agreed number, never a derived one). Their work may
+  still be useful as an INPUT to a conversation with the owner about
+  what number to agree on — just never auto-applied.

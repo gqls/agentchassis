@@ -107,7 +107,18 @@ parking) by Claude sessions, via Sedo's API.
   PERMANENTLY excluded on a prior, named owner precedent (D4) — needs its
   own by-name reconfirmation, not covered by any blanket answer. A real
   cost basis surfaced unprompted (cartoon.co.uk, owner paid £5,000+) —
-  relayed to the valuation lane as a floor.
+  relayed to the valuation lane as a floor. **P4 CLOSED same day**: owner
+  ruled the "real prices before listing" gate off entirely ("we'll bear
+  with the low balls"), then refined to "Sedo floors allowed, site
+  display never floored, unlink the two, never derive a floor from
+  `tier`/appraisal." **Draft9 = 2,943 domains** folds the live-sites
+  track into the main sheet (blank Minimum Offer, same shape as ordinary
+  stock) — the SEPARATE-track design above is superseded; RUNBOOK §9 has
+  the standing floor policy. Only owner-named holds remain excluded (36
+  total): 18 Clook, 7 appleby, 8 wykefarm/pasturedegg, 1 copyonline, 1
+  leopardessconsulting (own dedicated file now, reason reclassified from
+  "pending pricing" to "owner-ruled client-protection standard,
+  permanent").
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call

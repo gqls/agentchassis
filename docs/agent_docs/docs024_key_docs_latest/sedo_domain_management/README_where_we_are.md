@@ -322,3 +322,33 @@ off, and works normally when it's on. Minimum offer amounts (the floor
 under "make an offer," like cartoon.co.uk's £5,000) are unaffected —
 those exist to protect against lowballs, which is the opposite of what
 this is guarding against.
+
+## 2026-09-03 (later still) — the built-site listings are unblocked, and the floor policy is settled
+
+You said you'd rather bear with lowball offers than have a visible
+minimum on the higher-value sites that anchors what buyers think they're
+worth — so the piece that was holding relojistas.com, both webdesign
+domains, and everything else I'd been keeping back purely because it
+didn't have a real price yet is gone. I asked you whether that meant
+truly no minimum or a small nominal one to filter spam, and you said
+truly none for now.
+
+Since "no minimum, make an offer" is exactly the same shape every other
+domain in the sheet already has, I folded all of those sites straight
+into the main sheet rather than keeping a separate list — nothing left
+waiting on a price any more, except the specific ones you've named to
+stay off entirely (the Appleby names, Wyke Farm/pastured egg,
+copyonline.co.uk, and leopardessconsulting.co.uk).
+
+Then you clarified further, and it's a genuinely useful distinction:
+Sedo's own minimum field can carry a real number whenever you give me
+one or we agree one together — that's completely separate from whatever
+the actual website shows, which never displays a price at all. So
+"blank for now" isn't a permanent rule, it's just where things sit until
+a real figure exists — and when one does, it goes straight into Sedo,
+not derived from any automatic scoring, just what you tell me or what we
+agree.
+
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-03_draft9.xlsx` —
+**2,943 domains**. This is essentially the whole estate now, minus only
+what you've specifically asked to keep off.

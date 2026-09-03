@@ -381,3 +381,35 @@ still works.
 **Verified 2026-09-03**: every draft generated in this lane to date (1
 through 8) carries zero BUY_NOW/priced rows, checked directly against
 each CSV, not inferred from "the script defaults to blank."
+
+## §9 Floor policy — Sedo minimum floors are ALLOWED; the site's own display is NEVER floored; the two are UNLINKED (owner ruling, 2026-09-03)
+
+**The live-sites track (relojistas.com, the webdesign pair, and every
+other previously-held-for-pricing domain) no longer waits on real
+prices before listing.** Owner: "we'll just have to bear with the low
+balls for a while" — folded into the main sheet at draft9, blank
+Minimum Offer, same as ordinary stock.
+
+**But "blank for now" is not "blank forever," and the standing rule
+going forward is more specific than that**:
+- **Sedo's `Minimum Price` field MAY carry a real number** whenever the
+  owner states one directly or one is agreed with him in conversation —
+  set it the moment a real figure exists, don't wait for a blanket
+  "pricing is done" signal.
+- **The domain's own site (about-page CTA, or anything else on the
+  live page) must NEVER display a price or floor.** That's a different
+  lane's mechanism (about_page_commercial), already confirmed
+  structurally floor-free — not this lane's to touch, but worth knowing
+  the two systems are DELIBERATELY unlinked: Sedo can show a number
+  while the site shows none, and that's the owner's stated intent, not
+  an inconsistency to fix.
+- **NEVER derive a Sedo floor from `site_specs.commercial.tier`, an
+  automated appraisal, or any other computed source.** A floor is a
+  direct-owner number or an explicitly agreed one, full stop — the
+  valuation lane's pricing work may inform a CONVERSATION with the
+  owner about what number to agree, but must never be auto-applied to
+  the `--prices` file's `min_price` column without that conversation
+  having happened. (This mirrors — and is the same underlying
+  dependency as — the about_page_commercial and afternic lanes' PLANs
+  wrongly naming "price-by-tier" as a source; not this lane's fix, but
+  the same principle applies here.)
