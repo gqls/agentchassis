@@ -522,3 +522,41 @@ three load-bearing claims being asserted rather than shown — and **I had perso
 three earlier the same session**, and had logged the remedy for exactly this fault, myself, hours
 earlier (§9g). The seat cannot tell a verified claim from an unverified one. `WRONG_CALLS.md` now
 carries it as instance four, with the note that **logging a lesson is not adopting it.**
+
+### 10h. ⚠ THE ROLL HAPPENED AND MY CODE IS **NOT** IN IT — measured at the binary, with two controls
+
+`agent-chassis` rolled to **`v1.0.1358`** at **12:06:47Z / 12:07:16Z** on 2026-09-03. Both my
+commits (`776511e70` r1, `356196fe9` r2) were already ancestors of HEAD before the pods restarted.
+**The Go half still did not ship.** The build was cut from an earlier HEAD.
+
+**This is the exact landmine — "a roll is not evidence your fix shipped" — and the inference that
+would have been wrong is the obvious one:** *my commit is in HEAD, a roll happened after it,
+therefore it is live.* It is not.
+
+**How it was measured.** ⚠ The prescribed `grep 'build provenance'` recipe **failed exactly as its
+own landmine says it does**: on this service it matched the chassis's logged landmine corpus
+*about* build provenance and returned pages of unrelated text. The fallback with no shelf life is
+the binary probe of a KNOWN value, and it is only evidence with both controls:
+
+| probe string | meaning | result |
+|---|---|---|
+| `meta_description_refused` | my new item type | **absent** |
+| `meta-description-repair` | my new handler | **absent** |
+| `candidate_looks_internal` | pre-existing, must be present | **PRESENT** |
+| `ZZZ_string_that_cannot_exist_9f3a` | must be absent | absent |
+
+The third row is what makes the first two mean something — it proves the probe is reading the
+right binary and can say yes. The fourth proves it can say no. **A probe with neither control
+returns "absent" for a broken probe and a missing feature identically.**
+
+**So the status lines stay accurate but are now SPECIFIC:** it rides the *next* roll, and
+`v1.0.1358` is measured NOT to carry it. Re-probe with the table above rather than reasoning from
+ancestry: `git merge-base --is-ancestor` answers "is my commit in the source HEAD", which is a
+different question from "is my code in the binary", and this is the case that separates them.
+
+**Knock-on: the roll killed the council round.** Round 2 was at `review_guidelines` when the pods
+were replaced at 12:06 — `[MEASURED]` 7 of 11 in-flight orchestrations fleet-wide froze in the
+same window, so it was the roll and not this submission. Resubmitted under the same correlation
+(`RUN_ORCH_ID=0eed76cd`). ⚠ **A council round is not durable across a roll** — the landmine says
+so and this is a second instance. If a roll is expected, either submit after it or expect to
+resubmit; the correlation survives, the run does not.
