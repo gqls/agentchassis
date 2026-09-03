@@ -8086,3 +8086,8 @@ lane's per the ownership ruling.
 - In-flight items across the roll: `ec92320f` still `triaged` (never claimed → survives),
   `06210ec6` `triaged` (same), diagnosis `0639080d` complete before it. No-dispatch window
   08:56–09:02Z; nothing of ours needed dispatching.
+- Retry (08:59Z) on settled adapter pod: `KeyOutBackground` **PRESENT**, `NOTREALSYMBOLXYZ` absent
+  (exit 1, a real answer). The rollout churned through a further ReplicaSet on the adapter
+  (`985f5f66d`, 08:57:49Z) after my first provenance read; current Running pods and their
+  stamps: agent-chassis-75b987cbd7-mqrnj=7bf1ff674 agent-chassis-75b987cbd7-vzdz9=7bf1ff674 image-generator-adapter-985f5f66d-2tqfn=7bf1ff674 image-generator-adapter-985f5f66d-7rgzz=7bf1ff674 — same stamp, so the ancestry verdict stands. Verdict at the artefact, both
+  services: **424 guard fix LIVE on v1.0.1356.**
