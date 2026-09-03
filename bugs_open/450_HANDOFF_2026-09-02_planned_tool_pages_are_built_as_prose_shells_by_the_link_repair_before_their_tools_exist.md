@@ -410,3 +410,44 @@ Also raised by the same run (normal tool-generator fan-out, not a defect): a com
 `tool-robots-txt-tester-guide` (blog-post, planned), a `nav_drift` rebuild, two
 `needs_content_page` (tool page + guide), three `content_rewrite` cross-links.
 
+
+## REGRESSION AND NARROWING, 2026-09-03 (post-roll) — the door half was too wide at ONE seam
+
+`587666be8` went live on `v1.0.1358` (stamp `d0252fd4d`) and immediately refused something it
+should not have. Reported by the `bugs_open/427`/`454` lane with the measurement.
+
+**What was wrong.** The arm sat at `save_page_sections`, which is shared by two paths that are
+**indistinguishable at that seam**: a generic build authoring prose about a missing tool (this
+bug's harm), and a `page-rerender` writing back components that are **already deployed and
+serving** — no new authorship at all. It caught both.
+
+**The collateral dominated `[MEASURED 2026-09-03, independently after the report]`:** of the **67**
+pages the predicate matches, **54 across 10 sites are already serving deployed components**; only
+**13** are the empty page this bug is about. The arm was refusing roughly **four times more repair
+than harm**, on the sites this file's own Spread section lists (loanandmortgagecalculator 16,
+loanzy, idea.uk incl. `report`, leopardessconsulting, loancash).
+
+**Why it bit now rather than quietly** — the 427 lane's observation, and the transferable part:
+until that morning a re-render on those pages ran, reported success and delivered nothing
+(`bugs_open/454`: `classifyStoredSection` dropped its own plan). So refusing those saves had cost
+nothing OBSERVABLE, because the saves were writing back unchanged bytes anyway. **The guard's
+arrival and the repair vehicle's return to working landed in the same image.** A guard whose harm
+is masked by an unrelated live defect looks free until that defect is fixed.
+
+**The narrowing (`29b40e8bc`, rides the next roll): the tool arm no longer fires at
+`save_page_sections`.** This costs the class nothing, because every generic path is caught EARLIER
+and none reaches that line — `page-build-handler` at `load_page_record`'s `refuse_owned_page` arm,
+`pageflow-builder`/`page-rebuild`/`site-work-orchestrator` at `AssemblePageAction`, any producer at
+the `writeWorkItem` door (at file time, before LLM spend), build selection at
+`genericBuildExclusionSQL` — while `page-rerender` crosses **none** of them and only ever arrives
+at the save. The **owned** arm at that seam is untouched and byte-identical: migration 164 still
+stops anything, re-render included, from delete-and-reinserting a live verbatim tool.
+
+⚠ **Until the next roll the live chassis still refuses those saves.** `DISABLE_TOOL_SHELL_REFUSAL`
+disarms the whole tool arm fleet-wide with no build, scoped so it cannot touch 164's protection —
+an owner call, put to them.
+
+> **CORRECTION to this file's own fix record:** it said "the 61 shells stop receiving generic
+> rebuilds — intended". That was wrong in the direction that mattered. Most of those pages are
+> LIVE, and their re-render is a repair vehicle, not a threat. What is intended is stopping a page
+> BECOMING a shell, not freezing the ones that already are.

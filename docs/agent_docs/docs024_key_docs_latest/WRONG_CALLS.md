@@ -61874,3 +61874,45 @@ a-closer-census-cannot-see-what-it-succeeded-at, a-measured-marker-proves-a-clai
 - **Cost.** Two discarded audits, ~20 minutes. Both were caught by the same reflex and neither by a
   tool, which is the argument for the reflex: **before believing a census, ask what it says about
   the one case you already know the answer to.**
+
+---
+
+## 2026-09-03 — I told a peer lane my guard would not touch their path, having put it on their path, and 54 live pages lost their repair vehicle (`bugs_open/450` lane)
+
+- **The claim** (to the `bugs_open/427`/`454` lane, in writing, unprompted): *"Agreed that
+  re-assembly of existing components is not what your tool-shell arm gates."* I volunteered it as
+  reassurance while telling them what my change did to a function they own.
+- **What was actually true**: the arm sat at `save_page_sections`, and **`page-rerender` carries a
+  `save_page_sections` step**. Their re-render resolved its data correctly and then died at the
+  save. Reach, measured independently after the report: of the 67 pages the predicate matches,
+  **54 across 10 sites are already serving deployed components** and only **13** are the empty page
+  the bug is about — so the arm was refusing roughly **four times more repair than harm**.
+- **The evidence was in my own notes.** The exploration for this very change had listed the six
+  agents carrying a `save_page_sections` step, `page-rerender` among them. I read that, placed the
+  predicate there anyway, and then reasoned about scope from the CONCEPT ("re-assembly is not
+  generic composition") instead of from the CALL GRAPH I had already written down.
+- **What caught it**: the peer lane, within minutes of the arm going live, with the measurement
+  and an explicit "your call, not mine" — not a patch and not a complaint.
+- **The cheap check**: for every seam a guard is placed on, list the agents that CROSS that seam
+  and name what each of them is doing there. I had the list. The check is not "is this seam the
+  right concept?" but **"who else walks through this door?"** — which is the same question
+  `LANDMINES` already poses as *a guard only guards the door you walk through*, read in the
+  opposite direction: a door also stops everyone ELSE who walks through it.
+- **The compounding factor, which is the transferable half**: until that morning, refusing those
+  saves cost nothing observable, because `bugs_open/454` meant every re-render was writing back
+  unchanged bytes anyway. **The guard's arrival and the repair vehicle's return to actually working
+  landed in the same image**, so a latent cost became a real one in a single step. A guard whose
+  harm is masked by an unrelated live defect looks free until that defect is fixed — and nothing in
+  the guard's own tests or review can see the mask.
+- **What it cost and what it did not**: no data was lost and nothing was published wrongly — the
+  refusal is a refusal. What was lost is repair: 54 live pages could not complete a re-render for
+  the length of one image. Fixed by removing the arm from that seam entirely (`29b40e8bc`), which
+  costs the class nothing because every generic path is caught earlier and `page-rerender` crosses
+  none of them.
+- **And the reassurance is the part to distrust in future**: I was not asked whether the arm
+  touched re-render. I offered it. **An unprompted "this won't affect you" is a claim like any
+  other and needs the same check as one I am challenged on** — more, if anything, because the
+  recipient has no reason to test it.
+
+Family: a-guard-only-guards-the-door-you-walk-through, a-doc-comment-is-not-an-enforcement-mechanism,
+your-fix-invalidates-a-peers-pending-test, a-claim-about-behaviour-is-not-the-behaviour.
