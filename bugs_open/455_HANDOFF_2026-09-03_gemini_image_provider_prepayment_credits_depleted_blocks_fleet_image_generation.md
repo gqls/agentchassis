@@ -57,6 +57,15 @@ wait out.** Both of `bugs_open/424`'s remaining remediation retries (`designblog
 `gamedesign.uk`) are currently blocked by this, not by anything in that fix — they will keep
 retrying and keep hitting this same wall until credit is restored.
 
+**UPDATED 10:43 UTC — THIRD independent site, third confirmation.** `boxingonline.com`'s own logo
+run (`d71b7877`, `site_delivery_and_editor`'s lane, unrelated to `bugs_open/424`'s three) was
+picked up 10:43Z and failed with the byte-identical error BEFORE reaching the matte at all.
+`site_delivery_and_editor` is escalating to the owner directly. **Any further failures on
+`designblog.co.uk`/`gamedesign.uk`'s remaining attempts must not be read as `bugs_open/424`'s
+guard refusing them** — until this is resolved, assume every image-generation failure fleet-wide
+is this, not a content problem, and check the error text before attributing a failure to any
+other cause.
+
 ## What this means for `bugs_open/424`'s own remediation
 
 `designblog.co.uk`'s retry hit this, not a matting failure — its `error` column now reads the 429
