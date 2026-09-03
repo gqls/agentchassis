@@ -602,3 +602,31 @@ inherited.
 - **Census now:** generic 5 blanks / 2 pages, **all in-flight** (4.3h and 7.1h old); owned 14 / 3.
 - **What remains** is in the new handoff: one owner decision (close on rotation vs close the
   blog-listing gap), the owned residual, and the never-run sweep pending 389.
+
+## 2026-09-03 ~10:1xZ — OWNER RULING (stays open) and a LIVE reproduction that falsifies two of my claims
+
+- **OWNER RULING:** *"keep it open until those are checked and fixed."* Option B. My Option-A
+  recommendation (close on rotation, with latency measured) is superseded. Recorded in the bug file
+  and the handoff so it is not re-litigated.
+- **First check found the defect LIVE.** `designblog.co.uk/index`: component `content-listing`,
+  source `query.blog_posts`, **`save_page_sections`-maintained**. Seam fired correctly (5 items,
+  `section_data_resolved`, complete, two with matching `consumes`). All four target pages active,
+  `page_type='blog-post'`, four active card assets with `asset_key` and matching `site_id`. Array
+  rewritten 05:06:21 and 05:25:28, **both after all cards existed**, and holds 4 entries / 4 blank.
+- **CARRY HYPOTHESIS REFUTED at the run**, which is still inside `orchestration_states` retention:
+  `section_count=4, rerendered=4, carried=0, escalated=false, skipped=false`. Nothing carried. So
+  `plan.Status != "ready"` (line 509) is dead for this case — **I carried that candidate through two
+  handoffs.** Note how it died: not by reading more code, but because the reproduction was fresh
+  enough that the run record still existed. **Diagnose the youngest instance, not the one you
+  happen to be attached to.**
+- **RETRACTED: "the defect is BLOG-LISTING-specific"** (written yesterday, wrong today).
+- **WEAKENED: "four of five demonstrations are genuine."** I verified the finetuning WRITES
+  happened; I did not verify they produced non-blank images. The 0-blank figure is the 08-26
+  census, a different measurement. **A write is not a repair — the same distinction this lane has
+  now paid for three times** (`complete` is not repaired; a write is not a correct write).
+- **090 fired on the live case** (~10:1xZ), seeding corrected per the 09-02 lessons: whole files,
+  and the live workflow routing quoted in the symptom rather than assumed to be fetched.
+  Slug `query_blog_posts_resolves_empty_image_despite_active_cards`.
+- **Untested hypothesis, recorded so it is not mistaken for a finding:** `query.blog_posts` resolves
+  without populating `articles`, so `plan.ResolvedData` lacks the key and `mergedContent` retains
+  the stored blank array, while the section still counts as `rerendered` because HTML was produced.

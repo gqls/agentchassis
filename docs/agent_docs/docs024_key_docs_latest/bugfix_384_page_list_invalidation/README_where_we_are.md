@@ -379,3 +379,33 @@ Two smaller things stay open regardless: the fourteen missing pictures on pages 
 yourself, which our fix structurally cannot reach and which need their own small piece of work; and
 our safety net, which still has never run because of the other team's problem, and will need
 re-checking once they fix it.
+
+## 3 September, later — you said keep it open, and the first check proved you right
+
+I started working through the remaining items and the first one found the fault happening live, on a
+different site, right now.
+
+**designblog.co.uk.** Four guide pages got their pictures early this morning. The listing that shows
+them refreshed twice afterwards — at six minutes past five and again at twenty-five past — and both
+times the pictures came out blank. All four pictures exist, are active, and are correctly attached
+to their pages. I checked every input the system needs and they are all correct.
+
+**And this matters more than the original case, for two reasons.** First, this is not a blog listing
+— it is the ordinary kind, on the path I told you yesterday was working. So my claim that the
+problem was confined to blog listings was wrong. Second, because it happened four hours ago rather
+than a week ago, the system's own record of what those refresh jobs did still exists, and it says
+plainly that the section *was* rebuilt, not skipped. That kills the explanation I had been carrying
+for two days.
+
+**So I have stopped guessing and sent it to the diagnosis loop**, with the setup corrected for the
+two mistakes I made last time. That is running now.
+
+**One more correction I owe you.** Yesterday I said four of the five earlier successes were genuine.
+What I actually checked was that a write happened — not that the write produced pictures. Those are
+different things, and it is the same distinction that has caught me out repeatedly on this bug: a
+job reporting success is not a repair, and a write is not necessarily a correct write. I have marked
+that claim as needing re-checking rather than leaving it standing.
+
+**Where this leaves us.** Keeping it open was the right call and I would not now argue for closing.
+The fault is live and reproducible, which is the best position we have been in for diagnosing it —
+far better than the six-day-old case I started with.
