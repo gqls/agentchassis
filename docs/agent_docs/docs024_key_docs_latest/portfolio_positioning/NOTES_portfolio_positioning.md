@@ -4131,4 +4131,12 @@ later attempt of its own hits the dedup guard and aborts — the file is idempot
 - **Canary duties at release** (not at brief): §5 chrome pin on the style_collection before the
   release rerender · §5b imagery.sections on the plan · §2b one-shot design discovery the moment
   the plan completes. Recorded here so the release step does all three.
+- **(y) follow-through — first tool landed 09:34:09Z (`tool-robots-txt-tester`), and it ADOPTED
+  the shell**: `page_adopted: true`, page `6feb9797` (born 09-02 16:13Z), URL unchanged, no
+  duplicate row, tool component 20,839 B. Dispatch reached seotools at 09:31Z — far sooner than
+  the 20th-of-21 queue position implied, so the "oldest pending item" ordering is not the whole
+  selector; do not predict ETAs from it. ⚠ **Two components now sit at position 2** (the new tool
+  AND the shell's `generic-text-block`) — `create_tool_component` hardcodes position 2. Recorded
+  in 450; check the served order once the `page_rerender` (4970265d) drains, and decide per page
+  whether the prose block is retired or the tool bumped.
 

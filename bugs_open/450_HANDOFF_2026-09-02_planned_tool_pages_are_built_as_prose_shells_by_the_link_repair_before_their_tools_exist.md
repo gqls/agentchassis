@@ -212,3 +212,37 @@ gate does NOT transfer, and it is the property that made 444's gate safe to arm 
 Offer stands: if the fixing thread wants the extension, it lands naturally as one resolver
 arm + one key + tests in `listing_item_sources.go` — but only after §7 and the 090 verdict
 (`96e97dc4`) are read.
+
+## REPAIR of the 7+1 instances (owner ruling 2026-09-03) — and what the first one proves
+
+The owner ruled BUILD the planned tools (not retire the stubs). Items fired by
+`portfolio_positioning` after the v1.0.1356 roll settled: 7 at 09:05:26Z, the redirect-chain
+checker at 09:13:50Z (ruled a "lesser" browser-only version — no backend provisioning exists for
+generated tools). SQL of record:
+`docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/SQL_2026-09-03_fire_planned_tools_450_instance.sql`
+(+ `…_2026-09-03b_…_redirect_checker_lesser.sql`).
+
+**First completion (09:34:09Z, `tool-robots-txt-tester`) settles two open questions:**
+
+1. **The adopt path works on a SHELL page, and is the repair route.** `create_tool_component`'s
+   `adopt_existing_page: true` (live on tool-generator's `save_tool`; `bugs_closed/286`, TL-044)
+   attached to the EXISTING page `6feb9797` — `page_adopted: true`, same row created 2026-09-02
+   16:13:27Z, same URL `/tools/robots-txt-tester/index.html`, **no duplicate page minted**. So a
+   shell is repairable in place at the already-linked URL; §7's "tool-deployer creates its own
+   rows" holds only when the names differ (the suggester's case), not as a limitation of the
+   machinery.
+2. **The shell's prose components are NOT removed, and the new tool lands at the SAME position.**
+   Page now carries `1:hero-tool(section)`, `2:tool-robots-txt-tester(tool, 20,839 B)` AND
+   `2:generic-text-block(section, 2,422 B)` — **two components at position 2**
+   [MEASURED 2026-09-03 09:36Z]. `create_tool_component` inserts the widget at a hardcoded
+   position 2 ("same as deploy_tool_action") without consulting what the page already holds.
+   Ordering between two rows sharing a position is whatever the renderer's ORDER BY leaves it —
+   not declared anywhere. **Consequence for the class:** repairing a shell in place leaves an
+   orphaned prose block competing for the slot, so the repair needs either a position bump or a
+   deliberate retirement of the shell's `generic-text-block`. Verify at the served body after the
+   page's rerender drains, per site.
+
+Also raised by the same run (normal tool-generator fan-out, not a defect): a companion guide page
+`tool-robots-txt-tester-guide` (blog-post, planned), a `nav_drift` rebuild, two
+`needs_content_page` (tool page + guide), three `content_rewrite` cross-links.
+
