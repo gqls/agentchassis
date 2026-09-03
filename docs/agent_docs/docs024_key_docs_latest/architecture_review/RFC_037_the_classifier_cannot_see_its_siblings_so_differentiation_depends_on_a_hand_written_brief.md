@@ -190,3 +190,25 @@ still look the same" is the failure this addendum exists to predict.
   registry for the whole estate, and this RFC records that **no ~2,000-domain inventory exists
   anywhere** and must come from the owner. That ask is still open.
 
+## BUILT 2026-09-03 — migration `734_classifier_reads_the_positioning_register.sql`, applied 11:39:14Z
+
+Owner instruction the same day: *"please fix the classifier to read the register."* Built against
+the register that EXISTS (194 rows) rather than waiting for the estate-wide inventory, because the
+ruling's own engineering default — inert for a site with no entry, never fail closed — makes the
+missing inventory a COVERAGE limit, not a blocker.
+
+- **Mechanism**: `read_positioning_register` (`query_database`, no Go change) between
+  `read_layout_taxonomy` and `classify_and_extract`; `output_field: positioning_register`; the
+  prompt gains one variable. Advisory prose carrying position, audience, mode, stance, must-nots
+  and each recorded sibling boundary, deferring explicitly to a Pre-Defined Mission (ruling 3).
+- **Inertness** (ruling 4) tested per site before apply: 2 blocks, 4 empties. Also excludes a row
+  that self-declares "direction unassigned" — `L9` sits on 6 domains including `webdesign.uk`.
+- **It also fixed a defect that made this RFC's problem worse**: `layout_taxonomy` was never in
+  `classify_and_extract`'s `input_fields` allow-list, so the classifier was shown a `null` library
+  tag list while being told to match it. Found by this lane, measured at the rendered prompt,
+  verified independently by `bugs_open/445` whose 87%-unmatchable finding it explains.
+- **Council**: `Council-Submitted: f0ad8366-d489-440d-8a3b-59b000de0ff2`.
+- **Still open on this RFC**: the ~2,000-domain inventory (owner); what `REGISTER_positioning.md`
+  becomes now the DB is authoritative; and neighbour SELECTION at scale — today the block uses the
+  entry's own hand-named neighbours, which does not generalise past a few hundred entries.
+

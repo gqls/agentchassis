@@ -4490,3 +4490,53 @@ questions, and the classifier mostly emits shape words.**
 - **Deliverable state 11:06Z, unchanged for 90 min:** 7 rerenders `triaged`, **0 of 7 published**,
   8th build still `triaged` since 09:05Z. Queue advancing (we moved 8 and 6 places), not starving.
 
+### (ee) 2026-09-03 11:39:14Z — OWNER INSTRUCTION EXECUTED: the classifier now reads the register (migration 734), and it carried a bigger fix with it
+
+Owner: *"please fix the classifier to read the register."* RFC_037's DB half shipped long ago
+(511, 194 rows); its classifier half had never been started. Both halves are now live.
+
+- **(A) The larger change, found while wiring the smaller one.**
+  `classify_and_extract.config.input_fields` is a **strict allow-list**
+  (`ai_actions.go` `extractDataForAiAgent` → `datahelpers.ExtractFields`) and **`layout_taxonomy`
+  was never in it** — although `read_layout_taxonomy` runs, populates `collected_data` correctly
+  (verified: the key is present in real runs), and the prompt references it. So the taxonomy was
+  **fetched and dropped at the template boundary**. MEASURED at the rendered artefact
+  (`llm_call_log` `a01d9e76`, 2026-09-02 20:15:25Z) the model was shown:
+  `Current library tags (match these…): null` and `The library currently has <no value> active
+  layouts`, then told to coin a tag if none fits. **That is the mechanical cause of the 445 lane's
+  87%-unmatchable finding: the arithmetic of an empty list, not a vocabulary mismatch.** They
+  verified it independently at the rendered prompt before agreeing, and asked me to carry the fix.
+  **A step built in April has never once delivered its payload — the next classification is NEW
+  behaviour, not a restoration.**
+- **(B) The register input.** New `read_positioning_register` step (`query_database` — reuse, no Go),
+  `output_field: positioning_register`, between `read_layout_taxonomy` and `classify_and_extract`.
+  Emits ADVISORY prose: recorded position, audience, mode, stance, must-nots, and each recorded
+  sibling boundary; defers to a Pre-Defined Mission in its own words (ruling answer 3).
+- **Inert by construction** (ruling answer 4): '' unless the row is not `exclude_from_build`, has a
+  non-empty `proposition`, and does not self-declare `direction unassigned`. **TESTED per site
+  before writing the migration** — copyonline 2,602 B · gamedesign.uk 1,677 B · webdesign.uk,
+  farmerinsurance.uk, advertise.co.uk, seotools.co.uk all EMPTY. The query always returns exactly
+  one row, so the variable can never render `<no value>`.
+  ⚠ **The third guard exists because of a real live case:** entry_code **L9** ("loan brandables
+  (direction unassigned, deliberately)") sits on **6 domains including `webdesign.uk`**, a design
+  site. Without the guard the classifier would have been told a design site is a loan brandable.
+  **That is a register DATA defect this lane owes a fix for, not something to leave to a string
+  match.**
+- **Guards, dry run, rollback**: 17 `RAISE EXCEPTION`s; anchor uniqueness; refuses if already
+  applied; asserts exactly one new template variable and unchanged if/else/end balance; verify
+  block asserts both new inputs, all four originals, the step, the `output_field`, the rewire and
+  three prompt survivals. Dry-run with `COMMIT`→`ROLLBACK` passed before applying. ROLLBACK file
+  includes a **variant that keeps the taxonomy fix**, so reverting does not silently restore a
+  known defect.
+- **Council: `Council-Submitted: f0ad8366-d489-440d-8a3b-59b000de0ff2`** (advisory; migrations are
+  in scope). Applied without waiting per the 2026-07-29 ruling that review here is after the fact.
+- **COVERAGE, stated honestly: 194 register rows, only 17 with a `sites` row, and NONE of the four
+  2026-09-02 remakes has an entry.** So the mechanism is live and mostly inert. **Writing register
+  rows for the built and briefed sites is now this lane's highest-value follow-up** — the estate-wide
+  inventory the widened ruling wants is still an open ask on the owner, but coverage is now a data
+  task rather than an engineering one.
+- **NOT YET PROVEN at a real classification** — nothing has classified since 11:39Z. **copyonline is
+  the canary and it has an entry**: at its release, read the rendered prompt and confirm (1) the
+  library tag list is populated, not `null`, and (2) the register block is present. Told the 445
+  lane the apply time so they can date their before/after boundary.
+
