@@ -236,3 +236,35 @@ session should be able to find.
   and `artifact_check` arms are byte-identical.
 - **`editquality` / `guardian` [low]: the embed-and-shadow decode is subtle.** A comment now
   names both ways a later edit breaks it silently, and points at the test that catches it.
+
+## 10. The diagnosis loop: UNVERIFIABLE, and the reason is MY symptom, not the finding
+
+Run per the 2026-07-31 ruling (a `bugs_open/` file asserting a cross-cutting root cause goes
+through the loop, or the session states plainly what it substituted). Intake correlation
+`6ab3fc01-c743-4cc8-b0c8-7dc6cda3d58d`.
+
+**Verdict as returned, verbatim and not softened:** `status = UNVERIFIABLE`,
+`conclusion = NOT CONFIRMED (stopped: scope-not-narrowing)`, `is_fix = false`. **It is not a
+REFUTED and it is not a CONFIRMED.** It assembled the evidence bundle — `ParseEvidenceBase`,
+`checkAttestationStaleness`, `checkBannedClaimPatterns`, `createStaleAttestationItem`,
+`createInvalidBannedClaimPatternItems`, `composeWriterBlock` — and then stopped without
+grading anything.
+
+**Why, and it is my error.** CLAUDE.md's symptom-authoring rule is *one coherent bug per run*.
+I submitted **two** mechanisms in one symptom: the all-or-nothing decode voiding the register,
+AND the residue arm dropping facts uncounted with the early return in front of every raise.
+Those share a subject and nothing else — different files, different failure modes, different
+evidence. The loop had no single scope to narrow toward, so it burned a full run and returned
+no verdict on either half. **A two-part hypothesis is not gradable, and "they are both about
+the evidence register" is not coherence.**
+
+**What this bug rests on instead, declared as the ruling requires.** Not the loop, and not
+first-hand reading either — a **before/after control on the live registers**: the same binary
+and the same register, with one fact repaired, produces the opposite outcome (§2). That is
+stronger than a code-read for this particular claim, because the claim is about what the
+decoder *does*, and the control could have come out otherwise. What the loop could have added
+— an independent look for a cause I had not considered — is the thing I did not get, and I
+should have got it by splitting the symptom in two.
+
+**If you re-run it, run it twice:** one symptom for the decode-voids-the-register mechanism,
+one for the residue arm and the early return.

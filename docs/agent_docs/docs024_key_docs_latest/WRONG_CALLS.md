@@ -60985,3 +60985,102 @@ upgrade. ⚠ **A line-number citation is the shape most likely to have expired**
 
 **Tally:** **ask-for-provenance-not-just-correctness** ×1,
 **a-relayed-line-number-has-drifted** ×1 (29 lines, five weeks).
+
+## 2026-09-03 — I put two mechanisms in one diagnosis symptom and got UNVERIFIABLE: the loop spent a full run and graded nothing (bugs_open/456 lane)
+
+- **the claim, and what I expected:** I filed a `090` symptom covering (a) `ParseEvidenceBase`
+  decoding facts all-or-nothing so one bad fact voids a whole register, and (b)
+  `refreshOneSiteEvidence`'s residue arm dropping facts uncounted with a `FactsChecked == 0`
+  early return sitting in front of every raise. I expected corroboration on both.
+- **what came back:** `status = UNVERIFIABLE`, `conclusion = NOT CONFIRMED (stopped:
+  scope-not-narrowing)`. Not a refutation — **no verdict at all**, on either half. The run
+  assembled a correct evidence bundle and then had nowhere to converge.
+- **why:** CLAUDE.md's symptom rule is **one coherent bug per run**, and I read "coherent" as
+  "about one subject". These two share a subject and nothing else — different files, different
+  failure modes, different evidence, different fixes. **A hypothesis with an "and" in it has
+  two scopes, and a loop that narrows scope cannot narrow toward two.** The tell was visible
+  in my own symptom text: the word "Separately".
+- **THE CHECK, before you dispatch:** read your symptom for a conjunction. If removing either
+  half would still leave a complete, gradable claim, it is two runs. Splitting costs a second
+  run; not splitting costs the first one entirely, and you find out ~20 minutes later.
+- **what it cost, stated fairly:** one run, and the thing I actually wanted — an independent
+  look for a cause I had not considered. The finding itself was carried by a live before/after
+  control that could have come out otherwise, so the bug file stands on that and says so.
+  **But "my evidence was good anyway" is not a defence of the wasted run**: the loop exists to
+  catch the case where my evidence is good and my conclusion is still wrong, and I bought
+  myself none of that protection.
+- **related:** `bugs_closed/161`'s own loop run (UNVERIFIABLE at the iteration cap, for a
+  different and better reason — it could not read a truncated column) · CLAUDE.md
+  "Symptom-authoring that earns a gradable verdict".
+
+## 2026-09-03 — I proved a producer did not exist by searching the WORK-ITEM vocabulary, when it lived in the ACTION REGISTRY (gamedesign.uk lane)
+
+**The claim.** Diagnosing why `build-site-planner` planned zero article pages, I quoted its own
+reason — "the blog-post type is satisfied by the **blog infrastructure**" — and wrote, in CONTRIBs
+to `bugs_open/444` and `bugs_open/428` and in a message to two other lanes: **"There is no blog
+infrastructure and no later editorial pass."** I called the planner's justification a
+hallucination.
+
+**It is false, and I had framed the check to look rigorous.** A blog-post producer exists and is
+wired: `platform/orchestration/actions/create_blog_posts_action.go` INSERTs into `pages` with
+`page_type` from `CanonicalisePage` on a `blog-post` role, registered at `registry.go:720` and via
+`RegisterActionInputSpec("create_blog_posts", …)`. Exactly one live agent definition names it —
+`blog-content-planner`, `is_active`, non-snapshot, not deleted. **It is DORMANT, not absent:**
+`llm_call_log` for `agent_type='blog-content-planner'` is **10 calls all-history, 2026-04-03 →
+2026-04-24**, none in four months. So the planner named a real, wired, non-running mechanism. That
+is a different defect from an invention — and a more interesting one.
+
+**What caught it.** The `bugs_open/427` lane, taking up the falsification challenge I had written
+into the CONTRIB myself ("name a mechanism that creates `blog-post` page rows without the
+planner"). Inviting the refutation is the only part of this I would repeat. I then verified every
+element first-hand rather than relaying it — the registry line, the sole live caller, the 10-call
+history — which is what let me correct it inside the hour.
+
+**The cheap check that would have caught it, and why mine felt sufficient.** I searched the
+**work-item vocabulary** (30 days of `item_type`, plus `needs_content_page`'s handler) and the
+**plan/page tables**, then generalised to "no producer exists". Both searches were real and both
+were in the wrong namespace: **a producer is an ACTION, and actions live in
+`platform/orchestration/actions/` + `registry.go`, not in `site_work_items.item_type`.** One grep
+— `grep -rn "INSERT INTO pages" platform/orchestration/actions/` — would have returned it. The
+generalisable form: **before asserting a capability does not exist, grep the layer that would
+IMPLEMENT it, not the layer that would REQUEST it.** A census of requests cannot see a capability
+nothing currently requests, and that is exactly the dormant case.
+
+**A second trap the 427 lane avoided and recorded, worth carrying.** Their first instinct was
+`orchestration_states` for `owner_agent_type='blog-content-planner'` → 0 rows. I confirmed the
+hazard independently: that table holds **9,163 rows spanning 2026-09-02 10:41Z → 2026-09-03
+10:59Z** — a **rolling ~24-hour window**. A zero there cannot support an all-history claim. The
+instrument with real memory is `llm_call_log`, kept verbatim as the training corpus.
+
+**What survives unchanged, stated so the correction is not read as a retraction of the finding.**
+The planner did refuse; the reason it gave is false *as applied* (nothing has run the producer in
+four months, so the type is NOT satisfied); 3 of 32 `plan_site` runs in 30 days reason this way;
+migration 687's obligation was met and its output is a false justification; and no per-site lever
+exists (the mission said it in plain words and reached the model). Only the sentence "no producer
+exists" was overreach — but it was quoted into a LIVE migration (`730`, rule 20) by another lane
+within the hour, which is the real cost and the reason this entry exists.
+
+**How to apply.** When you write "X does not exist" about a platform capability, name the layer
+you searched **in the claim itself** — "no `item_type` requests it" is a different and much weaker
+statement than "no action implements it", and only the second licenses "does not exist". And if
+you invite a refutation, expect it to arrive fast and be ready to verify it yourself rather than
+relay it: the 427 lane was right, and I only knew that because I re-ran their three checks.
+
+**Tally:** **grep-the-implementing-layer-not-the-requesting-layer** ×1,
+**a-rolling-window-cannot-prove-never** ×1, **inviting-your-own-refutation-works** ×1.
+
+- **2026-09-03 — mortgagecalculator_couk_adoption — I put backticks in a `git commit -m` message and
+  the shell executed the word inside them.** The message explained that a failed key "lands in
+  `missing`" — bash ran `missing` as a command (`/bin/bash: line 37: missing: command not found`)
+  and substituted its empty output, so the commit at HEAD reads *"lands in , and still sys.exits"*.
+  Forward-only forbids an amend, so the commit is permanently one word short of its own meaning.
+  **This trap is already written down** — LANDMINES/`shell-tool-traps-committing`, "backticks in
+  `-m` execute" — which is the point of logging it again: a documented trap still caught me, in a
+  message that was itself about being careful. **The cheap check:** compose commit messages with no
+  backticks at all (this file and the bug files are where formatting belongs), or single-quote the
+  whole `-m` argument. If you must quote code inline, use plain quotes.
+  ⚠ **And it fails in the most ignorable way possible** — the commit SUCCEEDS, the error goes to
+  stderr among the hook output, and `| tail -N` on the commit is exactly what hides it. I only saw
+  it because the error line happened to survive the tail. **Read back `git log -1 --format=%B` after
+  any message containing punctuation you did not think about.**
+  Tally: **backticks-in-a-commit-message-executed** ×1.
