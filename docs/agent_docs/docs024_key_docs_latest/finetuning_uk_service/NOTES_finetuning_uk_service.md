@@ -2288,3 +2288,49 @@ change-control rules, and a dated census of every live prompt: **141 strings / 6
 674,201 chars / 1,762 negation matches / 1,560 em dashes / 7 reading `{{.voice_style}}`**
 `[MEASURED 2026-09-03]`. The voice row (`agent_default_configs.voice_style_block`) is one place
 and 7 of 141 prompts read it: the first structural fact for that thread.
+
+## 2026-09-03 (09:30Z) — v1.0.1356 is up; Stage A canary DISPATCHED on technical-details (not your-own-model), via page-build-handler; watch armed
+
+The `bugs_open/443` session pinged (fresh pod `agent-chassis-75b987cbd7-mqrnj`, fix verified). Verified
+it myself: two pods on `v1.0.1356`, started 08:57/08:58Z; `subjects_attached` 1,
+`REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` 1, `section_subjects` 3 (present), `zzz_…` 0 (absent).
+Rollout status "successfully rolled out"; `ai_endpoint_health.claude` = t; dispatch at 09:30Z,
+33 min after the pods, so the 300 s spawn-drop window was long past.
+
+**Which rebuild path carries the fix: page-build-handler ONLY.** `load_page_sections_from_spec`
+(where `dbb218a41` attaches `pages.section_subjects`, `load_page_sections_from_spec_action.go:361`)
+appears in exactly one live workflow: `page-build-handler`. The `page-rebuild` agent
+(`apis_uk_bees_homepage/fire_page_rebuild.sh`, the sanctioned path for `needs_rebuild` pages)
+spawns the writer directly with no such step, so it cannot exercise the fix. It would also
+rebuild every `needs_rebuild` page on the domain (finetuning.uk has 7, including the listing
+pages `bugs_open/444` is about), so it was wrong twice over for a canary.
+
+**Rebuilding an already-deployed page through page-build-handler is safe on components:**
+`save_page_sections_action.go:904` `DELETE FROM page_components WHERE page_id=$1 AND <agent-writable>`
+before saving, so the rebuild replaces rather than appends. **Caveat `[UNVERIFIED]`:** the handler
+also runs `load_existing_content` → `load_current_section_content`, which sets
+`existing_content_html` on matched slots (`load_current_section_content_action.go:227,269`) and
+puts the writer into Edit Mode. Irrelevant to Stage A (subject attaches at plan time); may
+preserve repeated h2s at Stage B. Flagged to the 443 session.
+
+**Canary switched to `technical-details`** (page `a32b8822`, "The model and its licence" ×3
+verbatim, same six-slot layout): the owner had asked where to see the £99 page ten minutes
+earlier, and a rebuild of the front door while he looks is bad timing for no Stage A gain.
+`your-own-model` stays for Stage B, where before/after is the point. Queue on the page at
+dispatch: one `page_rerender` triaged 08:25 (assembles from `content_data`, no writer; not a
+conflict) and one `deferred` brief-fidelity `needs_content_page` under a different key.
+
+Dispatch (the transaction is the RUNBOOK's new "rebuild an existing page" recipe): `pages`
+`deployed→planned`; `INSERT` a `triaged` `needs_content_page` copying `spec` from the original
+`gap_plan` item `0e655e8e` with `item_key` unchanged (`gap_plan_new_technical-details_<site>`;
+the dedup index only bites on non-terminal rows and the old one is `complete`); `DO` block asserts
+1 planned page, 1 triaged item, 6 subjects. Result: item **`896bb245`** triaged 09:30:58.
+
+**Position, not eligibility:** oldest triaged page-build-handler item per site puts
+`adversecreditmortgage.co.uk` ahead (22 items, oldest 2026-09-01 16:25), then us. Trigger ticks
+every ~4 min. Watch armed (Monitor `bhs0wb272`, 60 s poll, exits on terminal status).
+
+**Stage A assertions when it completes** (agreed with 443): on the writer's `orchestration_states`
+row for this build, `sections_for_render.sections_ready[].subject` populated for the three
+`generic-text-block` slots; `agent_error_log` has NO `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT`
+row for this page after 09:30Z; served h2s STILL repeat (expected; report as Stage A, not failure).

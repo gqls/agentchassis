@@ -638,3 +638,31 @@ FROM agent_definitions WHERE type='page-content-writer' AND is_active
 
 Run that BEFORE writing `{{.anything}}` into a prompt; if the key is absent the render is silently
 empty (a nil range) rather than an error.
+
+## Rebuild an ALREADY-DEPLOYED page so that `pages.section_subjects` reaches the writer (added 2026-09-03)
+
+Only `page-build-handler` runs `load_page_sections_from_spec`, so only a `needs_content_page`
+item reaches the 443 fix; the `page-rebuild` agent does not, and it takes every `needs_rebuild`
+page on the domain. The handler deletes the page's agent-writable `page_components` before
+saving, so this replaces, never appends. Copy the brief from the page's original `gap_plan`
+item; keep its `item_key` (the dedup index ignores terminal rows).
+
+```sql
+BEGIN;
+UPDATE pages SET build_status='planned', updated_at=NOW()
+ WHERE id=:page_id AND build_status='deployed';
+INSERT INTO site_work_items (site_id, page_id, source, pipeline, item_type, severity, summary,
+                             priority, handler_agent, status, created_by, spec, item_key, batch_id)
+SELECT w.site_id, w.page_id, w.source, w.pipeline, w.item_type, w.severity, :summary,
+       40, 'page-build-handler', 'triaged', 'finetuning_uk_service_lane',
+       w.spec || jsonb_build_object('reason', :reason), w.item_key, gen_random_uuid()
+  FROM site_work_items w WHERE w.id=:original_gap_plan_item
+   AND NOT EXISTS (SELECT 1 FROM site_work_items o WHERE o.site_id=w.site_id AND o.item_key=w.item_key
+                    AND o.status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled'));
+-- assert: 1 planned page, 1 triaged item, section_subjects length = sections length; then COMMIT.
+```
+
+Gotchas: check the page's open items first (a `page_rerender` is harmless, a second
+`needs_content_page` is not); dispatch ≥300 s after any chassis pod start; measure your queue
+POSITION (oldest triaged item per site) rather than eligibility. `[UNVERIFIED]` the handler's
+`load_existing_content` may put the writer into Edit Mode on a page that already has components.
