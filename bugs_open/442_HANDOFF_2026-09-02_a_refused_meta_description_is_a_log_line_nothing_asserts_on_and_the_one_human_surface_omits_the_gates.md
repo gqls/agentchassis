@@ -3,6 +3,12 @@
 **Filed** 2026-09-02 by the `bugsweep_2026_08_26` lane. **Status: OPEN.**
 Needs a config change (and possibly a Go change — two candidates below).
 
+> ⚠ **UPDATED 2026-09-03 — read §9 before acting on §5 or §6.** Candidate 3 is **SHIPPED,
+> applied and live** (migration `728`, commit `5a8728db9`) — do not redo it. §2's attribution
+> of its own zero is **corrected** in §9b, which also retires §6's "do not verify at
+> `orchestration_states`". And §9d records a **second silent path** in this same workflow that
+> candidate 1 does not cover. Candidates 1 and 2 are open; the bug is open.
+
 > **Resolve by SLUG** (`refused_meta_description_is_a_silent_log_line`) — bug numbers
 > collide on this tree, and `git log` the FILE PATH, not the number.
 
@@ -153,3 +159,123 @@ this tree.
 **Related:** `bugs_open/338` (the false-positive trigger, fix committed `425398a01`, inert
 until the next roll) · `bugs_open/320` (SEO-004, the owner requirement that added the
 gates) · CQ-035 (the single-value classification) · 016b §9 silent-fallback family.
+
+---
+
+## 9. CONTRIB 2026-09-03 (same lane) — candidate 3 SHIPPED, one correction to §2, and a second silent path candidate 1 does not cover
+
+### 9a. Candidate 3 is done, applied and live
+Migration `728_meta_description_backfill_result_message_names_the_copy_gates.sql`
+(+ `_ROLLBACK`), commit `5a8728db9`, applied and recorded in `schema_migrations`, council
+`2ed33c57-b49a-4b1b-ad1e-7e23ce6c477a` (`Council-Submitted:`, verdict owed a read).
+
+Verified at the artefact, not at the migration's own verify block — the live row read back
+independently, with a must-be-absent control:
+
+```
+empty_candidate t · candidate_looks_internal t · candidate_too_long t · already_has_description t
+voice_tell t · banned_claim t · voice_gate_unreadable t · THIS_REASON_DOES_NOT_EXIST f
+```
+
+The new message names the seven, **splits them by what they ask of a reader** (four that need
+nothing, three that need a person), and — because enumerating seven fixes today and rots
+tomorrow by exactly the route §4 describes — says the list is a copy, names
+`save_page_meta_description_action.go` + `metaDescriptionFailsCopyGates` as the authoritative
+set, and says finding it takes **two greps, not one**.
+
+Guards proven rather than assumed: rehearsed under `ROLLBACK` against the live row, then three
+mutations proven RED — dropping `voice_tell` from the message, a second `jsonb_set` inside
+`default_config`, and a misspelt `jsonb_set` path. ⚠ A **fourth mutation PASSED**, and it is
+recorded rather than hidden: it wrote a *different column* (`task_workflow`), which the
+positive control is not scoped to. The control compares `default_config` only, which is the
+only column the UPDATE writes, and claims no more than that.
+
+**§5 candidate 3 is CLOSED. Candidates 1 and 2 are not, and this bug stays OPEN.**
+
+### 9b. ⚠ CORRECTION to §2 — the zero had TWO sufficient causes and was attributed to one
+§2 says: *"`orchestration_states` returns **zero rows** carrying a `save_result.reason`
+fleet-wide — the rows age out, so even the field that does exist is not readable after the
+fact."* The zero is real; **the attribution is wrong**, and §6's "do not verify at
+`orchestration_states`" follows from it.
+
+`[MEASURED 2026-09-03]` the field **is** readable, for about 26 hours (oldest row in the whole
+table `2026-09-02 09:41`). Five backfiller runs survive in the window — boxingonline.com,
+finetuning.uk ×2, gamesdesign.co.uk, vetcomparison.uk — and **all five carry a `save_result`**:
+
+| runs in window | carry `save_result` | `updated: true` | carry a `reason` |
+|---|---|---|---|
+| 5 | 5 | 5 | **0** |
+
+So the zero is what **no refusal happened** looks like, not what **unreadable** looks like. The
+action only puts `reason` in the map when it refuses, so a window with no refusal returns zero
+rows either way — two sufficient causes, one measured. The discriminator is one column: ask
+whether `save_result` is present **at all**, which is the demand control §2 never ran.
+
+That does **not** rescue the mechanism — a refusal readable only by someone who queries within
+26 hours and already knows to look is still a surface nobody reads — but it changes what a fix
+must supply. It needs to be **durable past the window, or actively delivered**; it does not need
+to invent the record.
+
+### 9c. The volume objection to candidate 1, measured, and it holds
+`[MEASURED 2026-09-03]`, counting the **archive** as well as the live table (a closer census
+cannot see what it succeeded at — `site_work_items` is a rolling window):
+
+| item_type | needs_human_review | complete | window |
+|---|---|---|---|
+| `voice_tells` | **66** | **5** (3 live + 2 archived) | 2026-07-17 → 2026-08-27 |
+
+Five closed against 66 parked, and nothing filed since 08-27. §5 candidate 1's own caveat was
+right: **filing there relocates the silence.** The route needs a stated reader before it is
+worth taking, which is the open owner question in the lane handoff §0.4.
+
+### 9d. ⚠ NEW — there are TWO silent paths in this workflow, and candidate 1 covers ONE
+Read first-hand from the live `agent_definitions` row, 2026-09-03. The writer step's own prompt
+says, verbatim:
+
+> "Ground it in the content given. If a page's content does not support a specific description,
+> **omit that page entirely** rather than inventing one. **Returning fewer entries than you were
+> given is a correct answer.**"
+
+And the workflow never compares the two counts. `check_has_pages` tests
+`pages_missing_meta.count > 0`; `backfill_loop` iterates `written.result.descriptions`;
+`complete` prints a message. **Nothing anywhere reads both.** So a page the LLM silently drops
+leaves exactly the trace a gate refusal leaves: nothing — no `save_result` at all, not even a
+`reason`, because the loop never reaches it.
+
+**This matters for the route choice.** Candidate 1 files a work item from inside
+`save_page_meta_description`, so it fires only on the pages the writer *did* return. A page
+dropped by the writer never reaches the action and would never file. A fix that reads
+`offered vs written` catches **both** paths and needs no queue: the comparison is two integers
+already sitting in `collected_data`.
+
+⚠ **And the sample cannot tell you whether this fires.** All five surviving runs were
+`offered 1 / written 1` — but five single-page runs is a sample that could only have detected an
+omission rate high enough to hit at least one of five, i.e. it rules out nothing below roughly
+45%. **0 of 5 is not evidence the writer never omits.** It is evidence that nothing in the
+window omitted, on runs of one page each, where the instruction has least occasion to fire.
+
+### 9e. Damage today is ZERO, and that is a demand-controlled measurement, not an absence
+`[MEASURED 2026-09-03]` fleet-wide, active pages:
+
+| | pages | avg visible text | clearing the backfiller's `> 200` gate |
+|---|---|---|---|
+| blank `meta_description` | 37 | 8 chars | **0** |
+| has a description | 1,171 | 4,381 chars | 1,137 |
+
+**Zero pages are both eligible and blank.** Every remaining blank is a near-empty page the
+backfiller structurally cannot select (lane handoff §3), and the owner has ruled those get no
+description. The described-pages row is the demand control that makes the zero mean something:
+the instrument plainly can see eligible pages, it sees 1,137 of them.
+
+So both silent paths are **latent today, not costing a page**. That is an argument about
+priority, not about whether the mechanism is broken — the next refusal on an eligible page is
+silent exactly as described, and §7's blast radius (the shape travels with the gate, not the
+field) is unchanged.
+
+### 9f. What is left, for whoever takes this next
+- **Candidate 1 / Route B** — needs the owner's route decision *and* a stated reader for the
+  queue (9c). If taken, it should also answer 9d, or it fixes half the mechanism.
+- **A fifth candidate, from 9d, not in §5 when it was written:** compare
+  `pages_missing_meta.count` against `jsonb_array_length(written.result.descriptions)` and make
+  the difference visible. Config-shaped rather than Go-shaped, covers both silent paths, files
+  nothing into a queue nobody reads. Not costed here; not this session's to choose.
