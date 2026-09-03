@@ -1475,3 +1475,36 @@ On the tools: five of the eight are through, arriving about every three minutes,
 one proves the approach works. The tool attached to the page that already existed, at the same
 address the site links, rather than making a second page. The pages will show their tools once
 the rerenders run, and I will read each one before calling it done.
+
+**2026-09-03, afternoon — the eight tools are live, copyonline is building, and I broke the classifier for four hours.**
+
+The tools first. All eight are built and serving, on seotools and website promotion. Along the way
+they were rewritten by another part of the system, which turned out to be a good thing: the rewritten
+text now correctly introduces the tool sitting below it, where the original text had promised a tool
+that did not exist. What the rewrite did break was invisible — it kept each tool's HTML but cut the
+page's record of which tool it was, which left them working today and one rebuild away from vanishing.
+I repaired the six affected pages, proving that no page content changed in the process.
+
+Then copyonline. You said carry on, so it was released at ten to four and is building now: five tools
+already drafted, content pages being written, and the directory compilation set up in advance so that
+page cannot be planned against an empty list. Three of the five drafted tools duplicate seotools and
+are still unpublished, so retiring them is cheap while that remains true.
+
+Now the part I got wrong. The change I made this morning so the classifier could read your positioning
+register never worked. It needed to be told which site it was looking at and I never wired that up, so
+every attempt to classify a site failed from twenty to twelve until four o'clock. It stayed invisible
+because no site tried to classify in that window until copyonline was released — which is to say, your
+own build was the thing that found my bug. Two of its attempts were lost. I rolled the change back,
+kept the half that works, and the build recovers on its own.
+
+I had tested that change before shipping it, and the test could not have caught the fault: I ran the
+query by hand with the site filled in, which removed the exact piece that was missing. Every safety
+check I wrote confirmed the configuration looked right; none confirmed it could run. The rule I have
+taken from it is simple enough to be worth stating — make it run once, and read the result, before
+saying it works.
+
+Also corrected today: I had told you the system could not build directories. It can, and has, six
+times. What it refuses is a directory with no source of entries, which is the fault from yesterday
+working as intended. That correction is in the brief, and the plan you asked for, covering directories
+of suppliers and their products, is written for whoever picks it up.
+
