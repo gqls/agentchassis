@@ -63878,3 +63878,33 @@ the site, live for about two hours before `332` corrected it; a fleet-wide defec
 my sweep would have kept reporting clean indefinitely. No repair campaign was missed — `332` measured
 that all 9 affected components are rewritten by the feed cycle within ~19 hours, so the pages
 self-heal after the roll. `332` owns the fix and is adding the `/data/*.json` and `feed.xml` arms.
+
+- **2026-09-03 — mortgagecalculator_couk_adoption — I repaired half of each acceptance fence, and my
+  verification walked the same wrong key, so it certified the half I had broken.** Re-pointing 8
+  fences after a rerender renamed every element id, I transformed `steps[].selector` and a key I
+  called `values`. **The runner's assertion field is `expect_values`** — a map whose KEYS are
+  selectors (`run_checks_action.go:238`). `values` does not exist, so every assertion selector stayed
+  bare. Each fence then filled the right inputs, clicked the right button, and asserted
+  `#monthlyResult` on a page that now calls it `#c-tool-simple-monthlyResult`. **Five Tier-4 runs
+  failed against five correct calculators.**
+  ⚠ **The check could not have caught it, because it was built from the same misunderstanding.** My
+  pre-flight walked selectors with the same `k=="values"` test, so the `expect_values` selectors were
+  **never in the set being tested**. It printed ALL EIGHT SATISFIABLE over a population that excluded
+  the defect — and it had a control, and the control passed too, because the control ran through the
+  same walker. **A `[MEASURED]` marker, a green check and a passing control are all worthless when
+  the instrument and the error share a premise.**
+  **The cheap check, and it is what found it in the end:** verify a structural edit by a route that
+  **cannot share the edit's logic** — I re-verified textually, by regexing `"#..."` out of the raw
+  fence JSON, which never looks at key names and so cannot be fooled by one. And **read the struct**:
+  one look at `ExpectValues map[string]string \`json:"expect_values"\`` would have ended it before
+  the first write.
+  ⚠ **The part I find most worth keeping:** I had filed `bugs_open/441` that same week *about
+  acceptance fences pointing at pre-conversion ids and recording false failures against working
+  tools* — and then produced five more of exactly that, by hand, inside the repair. **Knowing a
+  failure mode intimately gave no protection, because my mistake sat one level below it**: not "I
+  forgot fences go stale" but "I never read where the fence keeps its selectors." Domain knowledge
+  does not substitute for reading the definition of the thing you are editing.
+  Also: `no_auto_fix: true` is the only reason the blast stopped at five recorded failures rather
+  than five automated "repairs" of correct calculators. I set it for an unrelated reason.
+  Tally: **transform-and-its-verifier-shared-a-wrong-key** ×1,
+  **edited-a-format-without-reading-its-struct** ×1.
