@@ -1872,3 +1872,52 @@ The other lane checked my numbers on a different copy of the file and got the sa
 the better half: **the instruction we sent asked for "a stylised boxing glove or ring ropes".** So
 this isn't a taste disagreement or a colour problem — the picture-making step was told the right
 thing and ignored it. They're bringing it to you as a new question.
+
+## Later the same day — I have to take back the price finding
+
+Earlier in this file I told you the tool had found something specific: that our sites answer every
+kind of visitor question except questions about money, and that this was a real gap across eighteen
+sites. **That was wrong, and I want to correct it before you repeat it to anyone.**
+
+The lane I sent it to did the thing I should have done: they opened the instructions I had written
+for the tool and read them. **The answering half of the tool only ever looks at four things about a
+site** — what the reader is trying to achieve, what we offer that others don't, what they need before
+they'll act, and why they'd come back. **Price is not one of the four.** It isn't down-weighted or
+ranked low; the word doesn't appear anywhere in the nine and a half thousand characters of
+instructions. And I had separately told the tool, in bold, never to stretch a point to cover a
+question it doesn't really answer.
+
+So a question about price could never have been answered. The result I got was guaranteed before a
+single site was looked at. I found a pattern in my own instructions and reported it as a fact about
+our work.
+
+**The mistake is worse than a missing field, and it is mine from eight days ago.** The two halves of
+the tool read different things. The half that writes the *questions* is told to use any part of a
+site's strategy. The half that writes the *answers* is told to use those four. So any question drawn
+from outside the four can only ever come back unanswered — and that is exactly the three kinds that
+came back unanswered. I wrote both halves and never read them next to each other.
+
+**What I should have noticed is that the result was too clean.** One category at five-out-of-seven
+and every other category at exactly zero is not the sort of pattern messy editorial writing produces.
+I took the sharpness as proof it was a real discovery. It was the opposite: a correlation that neat
+usually means you are measuring something you built.
+
+**One part does survive, and it is the part worth acting on.** Nothing in the instructions mentions
+price — and the tool raised price questions anyway, on six different sites. *"Why would I pay £29 for
+a report when I can get AI to analyse my idea for free?"* came out of it unprompted. So the tool is
+telling us it thinks price is a real thing a visitor worries about, even while it has no way to
+answer it. That's worth something — it's just evidence about visitors rather than evidence about our
+copy, which is what I claimed it was.
+
+**And there is a decision in it for you, which is the honest reason I am not just quietly fixing it.**
+I can add price to the four things the answering half reads. But the rule for that list is that
+everything in it must be *a benefit to the reader* — something a page should open with. So: is "£29,
+no subscription" the kind of thing one of our sites should lead with? Or is price a doubt we should
+deliberately deal with further down, once someone knows what they're getting? That is a judgement
+about how you want these sites to sell, and I'd rather have your word on it than guess. The fix is a
+few lines either way.
+
+Fourth time this week another lane has caught something I published. The pattern in all four is the
+same and I've written it down properly: **I keep drawing conclusions from a finished artefact without
+reading the thing that made it** — a page without its template, a missing ruling without checking how
+rulings get written down, and now a tool's output without its own instructions.
