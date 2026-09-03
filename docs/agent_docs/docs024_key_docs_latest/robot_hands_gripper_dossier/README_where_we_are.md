@@ -958,3 +958,82 @@ button appears under the explanatory text.
 
 The soft-launch decision — quiet link, or none — is still yours and isn't affected by
 any of this.
+
+---
+
+**2026-09-03, afternoon.** The rebuild went out at ten to two, and the button appeared.
+You loaded the page and sent a screenshot, and that is the proof we'd been waiting for —
+the chat box is there, with its opening message, a place to type, and a Send button. The
+thing that had never once worked now works. That closes the problem we found this
+morning.
+
+Your screenshot immediately showed a second, quite separate problem, which is that the
+text in the chat box is nearly invisible. That's what you said and it's exactly right.
+The cause is simple and a bit embarrassing: the chat box was designed for a white page,
+and the site is black. It sets its own pale grey speech bubbles, but never says what
+colour the writing in them should be — so the writing takes the site's colour, which is
+almost white. Near-white text on a near-white bubble. The small print underneath ("No
+account needed") has the opposite version of the same fault: it was given a dark grey,
+which then sat on the black page.
+
+I measured both rather than eyeballing them. There's a standard readability threshold
+for body text — the contrast between text and its background should be at least 4.5 to
+1. The greeting was at **1.09 to 1**, which is essentially invisible, and the small print
+at **2.6 to 1**. After the fix they're at about **16 to 1** and **7.8 to 1**.
+
+The repair is two lines, and I handled the two cases differently on purpose. For the
+speech bubbles I've simply stated the text colour, because the chat box paints those
+bubbles itself — it owns both the background and the writing, so they can be chosen
+together. For the small print I did the opposite and *removed* the colour it had, letting
+it inherit whatever the page uses and just fading it slightly. That one sits directly on
+the page background, which the chat box doesn't control, so naming any colour there would
+be a guess about the page's design that could go stale. This way it's right on a dark
+page and would still be right on a light one.
+
+There's a size limit on this chat box — it has to stay under 8,192 characters, and the
+last fix used nearly all the remaining room. Worth noting that the fix fitted without
+having to take anything else out: the small-print change happens to be exactly the same
+length as what it replaced, so the whole thing cost eleven characters. We're now eight
+under the limit. It's tight, and worth knowing before anyone adds anything else here.
+
+That's applied, live, and I've checked it on the real served file rather than trusting
+that it worked — including checking that the old broken colour is genuinely gone, and
+that this morning's fix wasn't undone in the process. **It should be readable now. A
+reload will tell you** — you may need a hard refresh, since browsers hang on to that
+file.
+
+One more thing, and it's a mistake of mine rather than a finding. This morning's review
+panel had raised a fair point — that we'd fixed this one chat box while the underlying
+weakness could affect others. I went and investigated it, found eight other snippets
+that looked affected, and wrote it up as a new bug. Then, while updating these notes, I
+discovered the previous session had **already done that exact investigation**, more
+carefully than I had, and written it up. Worse, their write-up specifically warned
+against the shortcut I'd used to count — and my count was wrong in a way that mattered:
+those eight are all switched **off**. Nothing is broken out there. The real risk is that
+switching one of them on would silently produce a dead widget, which is what they'd
+already said.
+
+So I've withdrawn my bug report and my duplicate note, and recorded the misstep in the
+log we keep for exactly this. Nothing was damaged and it cost a couple of hours. The
+honest lesson is that I checked the *mechanism* carefully and never checked *how many
+things it applied to* — and being thorough about the first made me more confident about
+the second, not less. That's a failure worth having written down.
+
+The genuinely open item there is unchanged and isn't ours to fix in passing: the site
+builder could load these snippets in a way that makes this whole class of fault
+impossible, rather than relying on each snippet's author to remember. That's a
+change to shared machinery and wants its own review, which is where it now sits.
+
+Still yours to decide: the soft launch — whether the page gets a quiet link from the
+site, or stays unlinked for now.
+
+---
+
+**Same afternoon, a bit later.** The review panel came back on the readability fix:
+**approved, all twelve reviewers**, including the two that had raised concerns on the
+first round. So that's done — nothing further to check there from my side.
+
+That's everything for this session. The widget works and reads properly, it's been
+independently reviewed and passed, and the only thing left is the one decision that's
+always been yours: whether to link to the page from the site now, or leave it sitting
+there quietly for a while longer.

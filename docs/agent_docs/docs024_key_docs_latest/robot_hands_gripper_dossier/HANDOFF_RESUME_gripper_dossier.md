@@ -1,12 +1,15 @@
 # RESUME HERE — gripper dossier pilot
 
-> # 👉 GO STRAIGHT TO THE BOTTOM: "✅ 2026-09-03 (midday) — THE GUARD IS WRITTEN, APPLIED AND COMMITTED".
-> (It carries TWO CORRECTIONS to the 🔧 block below it — one of them would otherwise abort the seed.)
+> # 👉 GO STRAIGHT TO THE BOTTOM: "🏁🏁 2026-09-03 (afternoon) — THE WIDGET RENDERS AND IS NOW LEGIBLE".
+> (Council round 2 came back **APPROVED**, all 12 seats, 16:27:31Z — read that before
+> anything else, it changes what's owed.)
 > (Supersedes every earlier block, all kept as history.)
-> That block is the current ship state (the fix is committed and applied; the rerender is
-> queued; the owner's browser is the last step), the exact commands to run, and every trap
-> in what remains. Everything between here and there is history, kept for provenance —
-> read it only if the bottom block sends you.
+> The widget mounts (browser-proven) and is legible (contrast fixed, artefact-proven).
+> Both defects the last two blocks were chasing are CLOSED. What remains is one
+> retraction to read (I duplicated an already-closed audit — read it before you
+> re-run any fleet-wide js_snippets check) and the owner's soft-launch call.
+> Everything between here and there is history, kept for provenance — read it only
+> if the bottom block sends you.
 
 **Last updated 2026-08-25 — credentials are ON the island and verified; migration 436 is the next step and needs the owner to run it (this session's classifier refuses production DB mutations).** (body written 07-27; switch positions corrected 07-31
 08:15Z; fixture 4 result 07-31 10:45Z; cleanup complete 07-31 15:42Z; `bugs_open/160`
@@ -743,3 +746,101 @@ passing would be asserting its own bookkeeping.
    ⚠ `grep -c DOMContentLoaded` = 1 means the OLD bundle is still being served —
    the carousel's is the pre-existing one. **2 is the pass, 1 is the fail.**
 3. **Then the owner reloads the page.** That is the only proof a button renders.
+
+---
+
+# 🏁🏁 2026-09-03 (afternoon) — THE WIDGET RENDERS AND IS NOW LEGIBLE. Both defects closed at the artefact. One council verdict owed; nothing else blocking
+
+Supersedes every block above. **The lane's build work is done unless the council says
+otherwise.** What is left is one verdict read and one owner decision.
+
+## The guard: CLOSED, including the browser proof
+
+| step | state | evidence |
+|---|---|---|
+| 4. rerender | **COMPLETE** | item `4486ce39…`, `claimed_at 13:50:24.09162+00`, `attempt_count 0`, `error NULL` |
+| 5. artefact | **PASS** | served bundle: `grep -c DOMContentLoaded` = **2** (1 = old bundle = fail), `grep -c 'function init()'` = **1** |
+| 5b. owner's browser | **PASS** | owner loaded `/gripper-report.html` and the widget renders: greeting bubble, input, Send |
+
+**That closes round 1's gating HIGH objection** (`debug_historian`: *"verification stops at
+the DB row"*) with output rather than argument.
+
+## Then the browser exposed a SECOND defect, now also fixed and live
+
+**The widget was styled for a light page and ships on a dark one.** It sets bubble
+backgrounds but no text colour, so text inherits `--color-text` (`#E2E8F0`) onto its own
+near-white bubbles; `.gri-note` hardcodes `#556` onto the page's `#0F1218`.
+
+Measured (stylesheet 26,141 B — **inside the 25–27 KB band the robot-hands landmine
+requires before trusting any contrast audit**): `.gri-a` **1.09:1**, `.gri-v` **1.13:1**,
+`.gri-note` **2.57:1**, against a 4.5:1 AA floor. After: **16.7 / 15.4 / 7.84**.
+
+Fix, and the two rules are **deliberately different shapes** — do not "tidy" them into one:
+- `.gri-log li` **gains `color:#111`** — safe to pin *because the widget owns those two
+  backgrounds in the same literal*.
+- `.gri-note` **drops its colour for `opacity:.7`** — it sits on the **page** background,
+  which the widget does **not** control, so naming a colour there is a bet on the theme.
+
+Live and verified at the artefact, with both controls: old `color:#556` → **0 hits**, and
+`DOMContentLoaded` still **2** (the round-1 guard survived the re-apply). Commit
+`47d27dbe0`; rerender `d5f5a488…` complete **16:18:10Z**.
+
+## ⚠ BYTE BUDGET IS NOW 8 B, NOT 19
+
+Live row **8184 / 8192**. The 11 B went on `;color:#111`; the `.gri-note` change was free
+because `color:#556` and `opacity:.7` are both exactly 10 B. **Round 1's two paid-for trims
+(deleted header comment, collapsed CSS concat) are still spent and must stay spent** — they
+are not available again. Anything further here needs a real trim first.
+
+**Measure it the way that agrees with the verify:**
+```sql
+SELECT octet_length(js_content) FROM js_snippets WHERE name='gripper-report-intake-widget';
+```
+The file-side equivalent that matches it exactly is
+`perl -0777 -ne 'if (/\$grijs\$(.*?)\$grijs\$/s){print length($1)}' <seed>` — **not** the
+awk recipe an earlier block gave, which under-counts by 72 B by skipping the delimiter line.
+
+## What is actually owed — ONE item, verdict already read
+
+1. ~~READ THE COUNCIL VERDICT for round 2~~ **DONE — APPROVED, all 12 seats, 2026-09-03
+   16:27:31Z, `decided_by: "all reviewers approve"`.** Both round-1 objectors now approve:
+   `bug_historian` (the generic-convention point) and `debug_historian` (the artefact-proof
+   HIGH). Query used:
+   ```sql
+   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+    WHERE correlation_id='5775dc10-c791-4285-9f4c-249a055b5aa3' AND kind='council_report'
+    ORDER BY created_at;
+   -- 2026-09-03 12:02:29 | revise    (round 1)
+   -- 2026-09-03 16:27:31 | approved  (round 2)
+   ```
+   **Do NOT write `Council-Reviewed:` on commit `47d27dbe0`** — it already carries
+   `Council-Submitted:` and CLAUDE.md is explicit that 098 credits it automatically at
+   report time, with no amend (forward-only forbids one). Writing `Council-Reviewed:` now
+   would be a MISMATCH by the coverage report's own rule (the trailer asserts a verdict was
+   read *before* the commit was made, which is false here) — leave the trailer as it is.
+   The false "other sites' served surface" line in the round-2 submission text (see the
+   retraction below) evidently did not change the outcome — no seat objected on it — but it
+   is still corrected in `WRONG_CALLS.md` for anyone reading that submission later.
+2. **The owner's soft-launch call** — `in_footer` + `noindex`, one UPDATE in seed 651's
+   header. Still open, still the owner's, unaffected by any of the above. **Nothing else on
+   this lane's build side is owed.**
+
+## ⚠ DO NOT RE-DO THE FLEET SNIPPET AUDIT — I did, and it was a wrong call
+
+Round 1's `bug_historian` objection (*"you patched one row, the convention is generic"*)
+**was already CLOSED by measurement** by the previous session — audited all 18 rows **by
+execution** under a DOM stub with a negative control, written up in NOTES, in a canonical
+`LANDMINES.md` entry, and in `doc_notes`. **I read the verdict, not the NOTES, and answered
+it again.**
+
+`[MEASURED 2026-09-03]` **ACTIVE 9 rows, 0 exposed. INACTIVE 9 rows, 8 exposed.** The live
+bundles are clean; the exposure fires only when someone flips `is_active`. My filing said
+"8 bind zero listeners **in production**" — false, because **I never put `is_active` in the
+query**, and my census used `js_content LIKE '%DOMContentLoaded%'`, the exact method the
+canonical landmine rejects in bold.
+
+Retracted forward-only (`337262556`): `bugs_closed/465`, landmine entry retracted in place,
+`doc_notes` re-synced, `WRONG_CALLS.md` appended. **If you are here because a council seat
+raises the generic-convention point again: it is answered, in the canonical landmine — cite
+it, do not re-measure it.** The structural fix (emit `defer` at the renderer) is real, open,
+unowned and **architecture-scope**; it does not belong in a bug fix.

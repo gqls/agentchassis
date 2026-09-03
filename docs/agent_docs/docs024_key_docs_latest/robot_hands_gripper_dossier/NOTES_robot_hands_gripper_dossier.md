@@ -2757,3 +2757,167 @@ ASCII-only, so `octet_length = length = 8173`.
 
 Not resubmitting until the served-artefact check can be answered with evidence rather than
 a promise — resubmitting now would draw the same HIGH objection, correctly.
+
+---
+
+## 2026-09-03, afternoon (session: robot hands) — the guard IS live and proven; a SECOND defect the browser exposed; and one retraction of my own
+
+### 1. The DOM-ready guard: DONE, at the artefact and in a browser
+
+The rerender the previous session filed landed while nobody was watching:
+`site_work_items 4486ce39-2b27-4fe5-bd7c-393112fb802d` → `complete`, `claimed_by`
+`build-dispatch-loop`, `claimed_at 2026-09-03 13:50:24.09162+00`, `attempt_count 0`,
+`error NULL`. Served bundle then:
+
+```
+curl -s https://robot-hands.com/assets/js/snippets.js | grep -c DOMContentLoaded   # 2  (pass; 1 = old bundle)
+curl -s https://robot-hands.com/assets/js/snippets.js | grep -c 'function init()'  # 1  (pass)
+```
+
+**That discharges the HIGH objection that gated round 1's REVISE** — `debug_historian`'s
+*"verification stops at the DB row… nothing confirms the change reaches the served
+artifact"*. It is answered with output, not argument.
+
+**And the owner loaded the page.** The widget renders: greeting bubble, text input, Send
+button. That was the one proof this lane said only a browser could give, and it is now
+given. **Handoff steps 5 and 5b are both closed.**
+
+### 2. The browser load immediately exposed a second, independent defect
+
+Owner's report: *"the chat text is unreadable."* Correct, and it is not the same bug —
+the widget mounts fine and then renders illegibly. **The widget was styled for a light
+page and is deployed on a dark one.**
+
+It sets bubble **backgrounds** but never a matching text **colour**, so bubble text
+inherits the site's body colour. Measured off the live stylesheet (26,141 B — inside the
+25–27 KB band the robot-hands landmine requires before any contrast audit is trusted,
+because a clobbered stylesheet fakes PASSES):
+
+`--color-text: #E2E8F0` · `--color-background: #0F1218` · `body { color: var(--color-text) }`
+
+| element | text | on | contrast | AA floor |
+|---|---|---|---|---|
+| `.gri-a` (assistant bubble) | `#E2E8F0` inherited | `#eef1f5` | **1.09:1** | 4.5:1 |
+| `.gri-v` (visitor bubble) | `#E2E8F0` inherited | `#dbe9ff` | **1.13:1** | 4.5:1 |
+| `.gri-note` | `#556` hardcoded | `#0F1218` (page) | **2.57:1** | 4.5:1 |
+
+### 3. The fix — and the two rules are deliberately NOT the same shape
+
+- **`.gri-log li` gains `color:#111`.** Safe to pin *because the widget owns those two
+  backgrounds in the same literal* — colour and background are chosen together and travel
+  together. Fixes both bubbles in one rule: **16.7:1** and **15.4:1**.
+- **`.gri-note` DROPS `color:#556` for `opacity:.7`.** This one sits on the **page**
+  background, which the widget does **not** control, so pinning any colour is a bet on the
+  host theme. Inheriting is not: **7.84:1** here, and still correct on a light page.
+
+**Byte budget honoured without re-spending round 1's savings.** `color:#556` and
+`opacity:.7` are both exactly 10 B, so the note fix is byte-neutral *by construction*; the
+whole change costs the 11 B of `;color:#111`. **8173 → 8184 B against the 8192 B verify.**
+The deleted header comment and the collapsed CSS concat that bought round 1 its headroom
+are untouched — I did not need them and did not spend them.
+
+> **Method note, confirming Correction 1 of the handoff.** Extracting the widget with
+> `perl -0777 … /\$grijs\$(.*?)\$grijs\$/s` gives **8184 B**, matching the live row's
+> `octet_length` **exactly**. That agreement is what makes the file-side count usable at
+> all; the awk recipe it replaced under-counted by 72 B by skipping the delimiter line.
+
+Applied (`NOTICE: 651 verified`), live row re-read: `octet_length 8184`, contains
+`;color:#111}` and `.gri-note{font-size:.85rem;opacity:.7}`, no longer contains
+`color:#556`. Parse-checked with the previous session's goja binary: `parse OK 8184 bytes`,
+**with a deliberately-broken control failing in the same run** so the checker is not
+passing vacuously. Committed `47d27dbe0` (pathspec, one file, 2+/2−).
+
+Rerender `d5f5a488-0df6-4ea8-832f-2ad4ad9b798f` filed 16:0xZ, **`complete` 16:18:10Z** —
+far faster than the "we are 16th of 16" wait Correction 2 predicted; the inter-site
+ordering claim is about position, not latency, and fleet depth was evidently low. Verified
+at the artefact with two controls:
+
+| check | result |
+|---|---|
+| `gri-log li{…;color:#111}` in served bundle | present |
+| `gri-note{font-size:.85rem;opacity:.7}` in served bundle | present |
+| `grep -c "color:#556"` (negative control) | **0** — old rule gone |
+| `grep -c DOMContentLoaded` (regression control) | **2** — round-1 guard survived the re-apply |
+
+Council **round 2 submitted on the same correlation** (`RESUBMIT_CORR=5775dc10-…`), so the
+trail accumulates; commit carries `Council-Submitted:`. `DRY_RUN=1` admission-checked first
+(free). **Verdict not yet read — that is owed.**
+
+### 4. ⚠ MY OWN WRONG CALL, caught while writing these notes: I re-did an audit that was already in this file
+
+Round 1's *other* objection — `bug_historian`, medium, *"this patches ONE row but the
+convention is generic"* — I read in the verdict, took as unanswered, and went and answered
+it. **It had already been closed by measurement, by the previous session, and written up in
+§ "`bug_historian`, MEDIUM — CLOSED by measurement" a few screens above this entry.**
+
+Worse, I answered it badly. I filed `bugs_open/465` claiming **8 snippets bind zero
+listeners "in production"**. `[MEASURED 2026-09-03]` **all 8 are `is_active = f`** — ACTIVE
+9 rows, **0 exposed**; INACTIVE 9 rows, 8 exposed. **The live bundles are clean.** The true
+claim is the one already on record: *activating* a row ships a widget that can never render.
+
+Three errors, each one command from being avoided:
+
+1. **I appended to `LANDMINES.md` without grepping it.** The canonical entry
+   (*"Activating a `js_snippets` row ships a widget that can NEVER render"*) sat **~600
+   lines above** where my duplicate landed.
+2. **My census was `js_content LIKE '%DOMContentLoaded%'`** — the method that entry
+   rejects **in bold**: *"DO NOT USE A SOURCE SCAN FOR THIS — it gives confident wrong
+   answers in BOTH directions."* The previous session had already thrown this exact method
+   away and written down why.
+3. **I never queried `is_active`** — one column, in the table I was already querying, in
+   the query I had already written.
+
+**What makes this worth writing down rather than just fixing:** I *did* verify. I read all
+eight snippet bodies at source and confirmed a top-level `querySelectorAll`. That was real
+evidence — **about the mechanism**, which was never in doubt. It could not possibly have
+surfaced the error, because the discriminating column was not in the query at all. **A
+correct mechanism plus an uncounted population reads exactly like a finding**, and the
+harder you verify the mechanism the firmer the wrong headline feels. The `[MEASURED]`
+marker was honestly applied and the measurement still could not have come out otherwise.
+
+Retracted forward-only (`337262556`): `bugs_open/465` → `bugs_closed/465` as a retraction
+(kept, because the failure is a better worked example than the finding was), my LANDMINES
+entry kept in place with a retraction pointing at the canonical one, `doc_notes` re-synced
+so agents read the retraction, `WRONG_CALLS.md` appended.
+
+**One residual I cannot amend:** council r2's submission text calls those dormant rows
+*"other sites' served surface"*. They are not. The round was already in flight and
+forward-only forbids an amend, so the correction lives here and in `WRONG_CALLS`. It does
+not touch the change under review — r2 is about the contrast fix, which is sound and
+verified at the artefact.
+
+**The structural fix remains open, unowned and architecture-scope**, exactly as the
+canonical landmine routes it: emit `defer` on the bundle `<script>`, or wrap every snippet
+at render time. Not a bug-fix-sized change, and `bugs_open/` is not where it lives.
+
+### 4b. Council round 2 — APPROVED, all 12 seats
+
+```
+2026-09-03 12:02:29 | revise    (round 1)
+2026-09-03 16:27:31 | approved  (round 2, decided_by: "all reviewers approve")
+```
+
+Both round-1 objectors now approve: `bug_historian` (generic-convention scope) and
+`debug_historian` (the artefact-proof HIGH — discharged by the served-bundle greps +
+owner's browser load cited in `grounded_in`). Full reviewer list checked individually,
+all 12 `approve`, none abstained on a re-check.
+
+**Commit `47d27dbe0` keeps its `Council-Submitted:` trailer — do not amend to
+`Council-Reviewed:`.** Per CLAUDE.md, `098` resolves the correlation at report time and
+credits the commit automatically; writing `Council-Reviewed:` now, after the fact, is
+exactly the MISMATCH shape the coverage report exists to catch (it would assert the
+verdict was read before the commit, which is false — the commit predates the verdict by
+~4 hours). Leave it as submitted.
+
+The false "other sites' served surface" line in the round-2 submission (§4 above)
+evidently was not decisive — no seat flagged it, and `bug_historian` approved outright.
+Correction stands regardless, in `WRONG_CALLS.md`.
+
+### 5. Also noted, not chased
+
+`landmines-verify-dispatch.sh` published to **`system.agent.generic.requests`**. This lane's
+own handoff records that topic as *"a topic NOTHING CONSUMES"* — but that landmine is about
+`scheduled_tasks.target_topic`'s column **default**, which is a different producer, and the
+dispatch script is the estate's standard tool. **`[UNVERIFIED]` whether that verifier run
+ever executes.** Flagged only; the entry it was arming has since been retracted, so nothing
+here depends on it.
