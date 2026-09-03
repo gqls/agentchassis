@@ -60,8 +60,11 @@ def main():
             for r in csv.DictReader(fh):
                 d = r['domain'].strip().strip('"').lower()
                 if d in rows:
-                    rows[d]['expiry'] = r.get('expiry', '').strip('"')
-                    rows[d]['ns_class'] = ns_class(r.get('nameservers', ''))
+                    # Nominet's walk yields expiry MONTH only (its list extension
+                    # enumerates by month); retail registrars give a full date.
+                    rows[d]['expiry'] = (r.get('expiry') or r.get('expiry_month', '')).strip('"')
+                    if 'nameservers' in r:
+                        rows[d]['ns_class'] = ns_class(r.get('nameservers', ''))
 
     f = latest(os.path.join(HERE, 'inbound', 'dynadot_valuations_*.csv'))
     if f:

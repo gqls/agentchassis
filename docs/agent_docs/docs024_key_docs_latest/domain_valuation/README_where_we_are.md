@@ -56,3 +56,40 @@ Things only you can do, gathered in one place:
    that dashboard if you want those asks in the comparison.
 4. Porkbun: flip the global API-access toggle (Account Settings → API) —
    needed later for repricing writes, not for the valuation itself.
+
+## 2026-09-03 — the whole estate is finally visible: 2,945 domains
+
+Three things landed today and together they change the picture.
+
+**The Nominet list arrived** — 1,606 .uk domains, the list that had never
+successfully been produced before. Added to the 1,339 at Dynadot, Porkbun and
+Spaceship, and with no overlap at all between them, **your estate is 2,945
+domains**.
+
+**You asked which domains aren't in the registrar lists, expecting them to be
+expired.** Answer: almost none. There were 692 candidates, and 683 of them were
+simply the Nominet names, invisible until this morning. Nine were genuinely
+unaccounted for, and of those, **five are actually gone**: three
+(chicklets.co.uk, demisexual.uk, protecty.co.uk) have lapsed and nobody holds
+them; two (cheapbuild.co.uk, enables.co.uk) lapsed and were picked up by
+somebody else, who is running live sites on them now — those are only
+recoverable by buying them back. Two others sit at registrars we don't ask —
+one at Dynadot but missing from Dynadot's own listing, one at **NameSilo**,
+which may mean an account holding domains this valuation cannot see. Two .co
+names could not be checked (that registry publishes no lookup service we can
+reach). Worth acting on: **the three dead names are still listed for sale on
+Afternic**, advertising domains that can't be delivered.
+
+**Your Afternic prices are confirmed high, and now there's a number on it.**
+Where a name has both an Afternic asking price and an independent appraisal,
+the ask is a median of **5.4 times** the appraisal. Also worth knowing: only
+419 of your 1,634 Afternic entries have an actual asking price at all — the
+rest carry only a minimum-offer floor, and those floors run about 5.8 times
+appraisal too.
+
+On valuations themselves: the appraisal tool turned out to value *any* domain
+name, not just ones you own — which matters because it refuses .co.uk entirely.
+So the .co.uk half of the estate can be valued through its .com equivalent
+instead, clearly labelled as the proxy it is. The daily limit is 300 names, so
+full coverage of 2,945 domains takes roughly a week of windows; today's ran to
+the limit.
