@@ -552,3 +552,32 @@ action is now a standing habit, not a one-off. Also: my earlier safety
 reasoning for the `needs_design` risk (citing a pinned `design_intent` as the
 mitigant) needs a note added — pins can be retired without this lane knowing,
 so "cite the pin" is not durable safety, only what held on THIS run.
+
+## 2026-09-03 — resolved benignly. Thread closed, one small dormant residue left named, not chased
+
+The held item ran (21:51Z) and did no new damage: the guard's design meant
+"nothing was re-archived", the green callout landed in the head chrome (theme_css
+correctly picked up the palette write), and 16 per-page reranders were minted to
+propagate it fleet-side. `vetcomparison` deliberately left the header hand-patch
+decision for the owner rather than solving it as a side effect, and left the
+5-day `unresolved` backlog undiagnosed rather than theorised — both good calls,
+worth naming as the right shape of restraint, not just recording the outcome.
+
+**One dormant residue, offered as optional, declined.** The served styles.css
+(checked directly, regenerated 21:44Z — after both my writes) still carries 6
+`#d97706` occurrences, not 0. So the amber fix I made to `content_components.
+html_template` did not fully propagate into the generated stylesheet at
+generation time — best unconfirmed guess, recorded as a guess: the CSS-bundler
+reads stale per-page `rendered_html` snapshots rather than the live template,
+which would mean full clearance needs all 8 `latest-news`-carrying sites to
+rerender, not just this one. **Not investigated further** — zero live-rendering
+impact (the CSS variable is always defined, so the fallback never fires),
+explicitly framed as low-priority by the other lane, and chasing the
+CSS-bundler's actual read path is a real, separate investigation this session
+chose not to open today. Named precisely so it can be picked up later without
+re-deriving the starting point.
+
+**This closes the vetcomparison design-pass thread for now.** Composition
+stayed untouched throughout (the original recommendation held); the accent got
+real, deliberate use; the imagery work is next, sequenced after this batch,
+not started.
