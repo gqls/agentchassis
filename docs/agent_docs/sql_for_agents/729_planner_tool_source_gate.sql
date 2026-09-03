@@ -141,6 +141,18 @@ BEGIN
   IF position('Content-carrying imagery is EXPECTED' in tpl) = 0 THEN
     RAISE EXCEPTION '729 VERIFY: 718 imagery surface went missing — refuse';
   END IF;
+  -- 640's rule 17 (per-section subjects), added at the bugs_open/443 lane's request
+  -- 2026-09-03 and confirmed against the LIVE row before hardcoding (position 28860 of
+  -- 32022). Owner: the apis.uk lane (PBP-049), which re-derived 640 once after a drift
+  -- refusal. This is not politeness: 443's build-side detector
+  -- REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT is live-firing on plan-carrying sites, and
+  -- reading its fire-rate assumes rule 17 is still in the planner's prompt. A migration
+  -- that silently ate this sentence would make that detector read as planner
+  -- NON-COMPLIANCE instead of a lost rule — a wrong conclusion in someone else's lane,
+  -- caused here and invisible from there.
+  IF position('may also carry a "subject"' in tpl) = 0 THEN
+    RAISE EXCEPTION '729 VERIFY: 640 rule 17 (per-section subjects) went missing — refuse';
+  END IF;
   IF flag IS DISTINCT FROM 'true' THEN
     RAISE EXCEPTION '729 VERIFY: enforce_tool_sources not set (got %)', COALESCE(flag,'NULL');
   END IF;

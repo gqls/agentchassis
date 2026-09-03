@@ -100,6 +100,12 @@ BEGIN
   IF position('records each as a capability gap naming what to enable' in tpl) = 0 THEN
     RAISE EXCEPTION '729 ROLLBACK VERIFY: 720 listing rule went missing — refuse';
   END IF;
+  -- The neighbours matter on the way OUT as well as the way in: an unwind that ate 640's
+  -- rule 17 would break the bugs_open/443 lane's detector interpretation just as surely
+  -- as an apply would.
+  IF position('may also carry a "subject"' in tpl) = 0 THEN
+    RAISE EXCEPTION '729 ROLLBACK VERIFY: 640 rule 17 (per-section subjects) went missing — refuse';
+  END IF;
 END $$;
 
 COMMIT;

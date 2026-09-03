@@ -203,16 +203,40 @@ ignore it); the SENTENCE is not, so both wait.
 **Rehearsing a change to it first** (this is how 720's lane found its own guard arithmetic was
 wrong, and it is worth repeating for any edit):
 
+**Use the SELF-BASELINING form. Do not hardcode a "before" md5** — the first version of this
+recipe did, and within an hour the live template had moved (another lane landed a prompt
+migration), so the recorded value read as a failure when nothing was wrong. Capture the baseline
+inside the same transaction and let the query answer `byte_exact` for you:
+
 ```bash
-sed -e 's/^BEGIN;$//' -e 's/^COMMIT;$//' docs/agent_docs/sql_for_agents/729_planner_tool_source_gate.sql > /tmp/729_body.sql
-{ echo "BEGIN;"; cat /tmp/729_body.sql; echo "ROLLBACK;"; } | \
-  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
+sed -e 's/^BEGIN;$//' -e 's/^COMMIT;$//' docs/agent_docs/sql_for_agents/729_planner_tool_source_gate.sql          > /tmp/729_body.sql
+sed -e 's/^BEGIN;$//' -e 's/^COMMIT;$//' docs/agent_docs/sql_for_agents/729_planner_tool_source_gate_ROLLBACK.sql > /tmp/729_rb_body.sql
+{ echo "BEGIN;"
+  echo "CREATE TEMP TABLE _base AS SELECT md5(default_config #>> '{workflow,steps,plan_site,config,prompt_template}') AS before_md5
+          FROM agent_definitions WHERE type='build-site-planner' AND is_active
+           AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;"
+  cat /tmp/729_body.sql          # apply
+  cat /tmp/729_rb_body.sql       # then unwind
+  echo "SELECT b.before_md5 = md5(a.default_config #>> '{workflow,steps,plan_site,config,prompt_template}') AS byte_exact
+          FROM _base b, agent_definitions a
+         WHERE a.type='build-site-planner' AND a.is_active
+           AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL;"
+  echo "ROLLBACK;"
+} | kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
 ```
 
-Proven 2026-09-03: apply passes every guard and its verify block; the apply→ROLLBACK round trip
-returns the template to md5 **`85b9821d6d75e8142245552c8986d38b`**, byte-identical, with
-`enforce_tool_sources` ABSENT and 720's `enforce_listing_sources` still `true`. **Re-measure that
-md5 before trusting it** — three lanes edit this row, so the "before" value moves.
+Proven 2026-09-03 (twice, at two different baselines): every guard and both verify blocks pass,
+`byte_exact = t`, `enforce_tool_sources` ends ABSENT and 720's `enforce_listing_sources` stays
+`true`. Drop the `_rb_body` line to rehearse the apply alone.
+
+**The neighbour checks are the point of the verify blocks.** 729 refuses if 720's listing
+sentence, 720's flag, 433's directory rule, 718's imagery surface **or 640's rule 17**
+(`may also carry a "subject"`) has gone missing; the ROLLBACK asserts the same. Rule 17 was added
+at the `bugs_open/443` lane's request and confirmed against the live row before hardcoding —
+their `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` detector is live-firing, and its fire-rate is
+only interpretable if that sentence is still in the prompt. **If you add a surface to this row
+worth defending, add its literal here too**: a migration that quietly ate a neighbour's sentence
+would otherwise look like a clean apply and produce a wrong conclusion in someone else's lane.
 
 **Unwinding:** `729_ROLLBACK` first, then `720_ROLLBACK` if you also want the listing gate gone.
 While 729 is applied, 720_ROLLBACK's anchor does not appear verbatim and it refuses by its own
