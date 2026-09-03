@@ -685,3 +685,31 @@ header 48.4% of its ink is at or below weak contrast. Their route: regenerate ag
 palette row with a boxing subject. ⚠ **Do NOT re-seed to obtain it** (§9.5, `bugs_open/420`).
 
 **Put to the owner as a NEW question, not as a ruling to apply.**
+
+### The logo finding, firmed up — 15:26Z (designer seat withdrew the wordmark ask; the census now has two artefacts)
+
+- **They withdrew "add the wordmark"** after reading the citation, are correcting their CONTRIB in
+  place and logging it as theirs. Their own account of the error is sharper than "a missed grep":
+  they asserted an **ABSENCE** ("no owner words behind it") from a phrase-grep over ONE lane's
+  directory, then built a design answer on that absence. **A ruling is recorded in whatever words
+  the recording session chose, so a phrase-grep can only ever disconfirm the PHRASE.** The check
+  that works is grepping the rulings HEADINGS fleet-wide. Symmetrical with my error the same hour:
+  I carried an inference past a ruling, they claimed an absence past one, and both of us were
+  reading only our own lane's files.
+- **The colour census reproduces across TWO DIFFERENT ARTEFACTS, which is stronger than a repeat.**
+  This lane measured the SOURCE asset (206,018 opaque px, 1408×768); they measured the SERVED copy
+  (16,372 opaque px, 400×218). Two files, two independent runs, same answer: ~53% blue, ~45%
+  neutral, **zero pixels within ±60 per channel of brand red `#C0392B` or brand gold `#D4A017`.**
+- **Their two figures, verbatim and credited, NOT re-derived here:** against the served header
+  `#0a0a0a`, **10.2%** of the mark's opaque ink is below 1.5:1 and **38.2%** is 1.5–3:1, so
+  **48.4% at or below weak**, versus **25.4%** on the cream ground. `.logo-img` is
+  `max-height:40px`, at which the internal detail collapses on either ground — they composited
+  both and LOOKED rather than inferring it from the contrast numbers.
+- **Framing they asked for and this lane agrees with: LEAD WITH SUBJECT FIDELITY.** The prompt
+  asked for a glove or ring ropes and a fist-in-a-diamond came back, so the colour census and the
+  contrast are SYMPTOMS of the wrong mark, and the miss is the pipeline ignoring a correctly-worded
+  ask (417 family). Their numbers sit UNDER that cause, not beside it.
+- **Sequencing, theirs, and it is right:** fix the logo first; if a regenerated mark is legible at
+  40px and reads as boxing, the reason for a wordmark largely goes away, so whether the header
+  still fails to name the site is a question for the owner AFTER he has seen the new mark — not now,
+  and not a reopening of ruling (2) in the meantime.
