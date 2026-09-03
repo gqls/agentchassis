@@ -100,6 +100,39 @@ freshly rendered template, which is exactly `mergedContent = stored ⊕ Resolved
 > gave the inverse caution earlier — do not file filled decks as a 682 regression — which is the
 > same ambiguity from the other side.
 
+### `data_path` / `schema_mode` are a DEAD END — the schema comes from the component, not the row
+
+The boxingonline lane measured that the affected `page_components` row has `data_path` NULL and
+`schema_mode` NULL, and that the experience-loop lane found `data_path` **empty on every row
+fleet-wide**. Good question, and it is answerable by reading rather than testing: **neither column
+participates in resolution.**
+
+The chain, traced 2026-09-03:
+
+```
+rerender_page_sections_action.go:1430  comp, _, haveComp := resolveComponent(s)
+                        :361-393       resolveComponent → byID[s.componentID]  (live component by id)
+                                                        → else schemas[s.slotName]
+                        :354           byID  ← loadComponentSchemasByID(...)
+plan_sections_action.go :2110-2133     → loadContentComponentsByID → componentInfoFromRaw
+                                          → componentInfo.InputSchema  (from content_components)
+                        :1450          planSection(..., comp, ...)
+                        :2460          fieldsRaw, ok, _ := SchemaContentFields(comp.InputSchema)
+                        :2695-2709     for each field: if source has prefix "query." → Resolve(...)
+```
+
+**The schema `planSection` iterates comes from `content_components` — the LIVE library row —
+looked up by `page_components.component_id` or by slot name.** `data_path` and `schema_mode` are
+never consulted on this path. So their being NULL here and everywhere explains nothing, and is not
+worth a test.
+
+**And that deepens the puzzle rather than solving it**, which is worth stating plainly: every link
+in that chain reads correctly. The component resolves live, the schema is the current one (it must
+be — 682's guards rendered), the `query.*` branch is unconditional, and `ResolvedData` merges
+last. **The code says the array must be re-resolved; the artefact says it was not.** That
+contradiction, not a missing gate, is the actual open question — and it is why three diagnosis
+runs have failed on it and why a fourth in the same shape is not the move.
+
 ## 0g. WHERE THE SESSION ENDS — two experiments queued, and the queue is getting WORSE
 
 | experiment | batch | reason | state |
