@@ -572,3 +572,63 @@ declarations, one benign startup-only write, setter has no callers), the
 worker pool introduces no package-level shared-state hazard. Remaining
 cross-worker safety = the DB claims (ClaimAwaitedRequest, the intake CAS),
 `UpdateStateWithVersion`, component locks, and CS-1's guard.
+
+---
+
+## CONTRIB 2026-09-03 from the `bugfix_329_takeover_claim` lane — your cross-worker safety inventory has one more entry, and it was a GAP until today
+
+Contributed rather than forked, per CLAUDE.md, and because the owner ruling of 2026-07-29 §3 says a
+shared mechanism's other consumers must be **told**, not merely measured. **Nothing here asks anything
+of this lane** — it is a fact about the seam you inventoried.
+
+This file's pre-enablement audit ends with:
+
+> *"Remaining cross-worker safety = the DB claims (ClaimAwaitedRequest, the intake CAS),
+> `UpdateStateWithVersion`, component locks, and CS-1's guard."*
+
+**There was a hole in that list.** `SagaCoordinator.handleOrchestrationStatus`'s two stale-takeover
+arms (`coordinator.go` `case StatusExecutingStep` / `case StatusRunning`) decided a row was abandoned
+on a **5-minute clock** and resumed it with **nothing claiming it** — `bugs_open/329`. Every write on
+that path *was* version-CAS'd (⚠ contrary to what `bugs_open/329` and `bugs_closed/294` both say:
+`UpdateState` **is** `UpdateStateWithVersion`, `state.go:883-885`), but the CAS answered *"has this
+row changed since I read it?"* while the arm had decided on *"is this row stale?"* — a **check-then-act
+across two reads**. Two takers seconds apart both won, each CAS-ing against the version it had just
+read.
+
+**Fixed and LIVE on `v1.0.1359`** (~2026-09-03 13:28Z, probed at both pod binaries with a control):
+`StateRepository.ClaimStaleOrchestration` re-judges staleness **inside** the version CAS, so the
+write is the claim. **Add to the inventory: "the coordinator's stale-takeover claim
+(`ClaimStaleOrchestration`, WFA-025)".**
+
+### Three things specific to this lane's concerns
+
+1. **Your intake claim was masking it, and only on statically-deployed chassis pods.**
+   `intakeSerialisationKey` keys requests on the orchestration_id and `ClaimSerialisationKey` is a
+   shared-table CAS, so on `agent-chassis` two pods generally could not both be inside the arms for
+   one orchestration. But `intake.go` refuses the mode when `a.spawned` — and `processing_node` over
+   14 d `[MEASURED 2026-09-03]` shows **spawned Job pods are the MAJORITY of orchestration drivers**
+   (`agent-chassis` 3,332 against 4,900+ from `agent-page-rerender` 2,215, `agent-build-dispatch-loop`
+   660, `agent-page-build-handler` 412 and 11 more families, every one absent from `kubectl get deploy`).
+   So the guard covered under 40% of the drivers.
+2. **A finding on YOUR constants that this lane owns and is not attributing to you.**
+   `intakeLeaseDefault = 180 s` (`intake_workers.go:43`) against `StuckOrchestrationTimeout = 300 s`.
+   **180 < 300**, so a serialisation key can change hands *before* the row is old enough to look
+   stuck — the handover and takeover windows are adjacent, not exclusive. And `drainKey` only tests
+   `claimLost` **between events** while `processMessage` takes no context (your own header says so),
+   so after a handover the old holder finishes the event it is inside while the new holder starts the
+   next one on the same orchestration, bounded by the heartbeat period (`lease/3` = 60 s). The
+   `dispatch_throughput` lane was offered this and declined it on the correct ground that they have
+   never measured it, so it lives in `bugs_open/329` §5 attributed to **nobody**. **[UNVERIFIED]**
+   whether the ordering was chosen or defaulted — if this lane knows, that would settle it.
+3. **The residual is now `bugs_open/461`, OPEN and UNOWNED, and it is architecture-scope territory
+   you may care about.** A live driver holds **nothing**, so the 300 s clock can judge a
+   correctly-working orchestration dead (`defaultLocalActionTimeout` is **7200 s** and nothing
+   refreshes `last_activity` during a local action — a 24× gap). Post-329 the bound is **2**
+   concurrent actors, down from unbounded. The fix candidate is a **driver heartbeat**, which would
+   be a *third* guarded mechanism on `orchestration_states` — flagged as needing an RFC, not a bug
+   patch. ⚠ Your `intake_workers.go` already solved this shape one layer up, and **its limitation is
+   the instructive part**: the heartbeat keeps a live-but-stuck holder's claim alive but can only
+   check between events, so a coordinator heartbeat inherits that limit. Whoever takes 461 should
+   read your implementation first.
+
+Full account: `docs024_key_docs_latest/bugfix_329_takeover_claim/HANDOFF_2026-09-03_continue_here.md`.
