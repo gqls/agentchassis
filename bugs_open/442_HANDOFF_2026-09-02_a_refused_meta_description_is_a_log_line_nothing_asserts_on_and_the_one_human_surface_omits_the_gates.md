@@ -560,3 +560,61 @@ same window, so it was the roll and not this submission. Resubmitted under the s
 (`RUN_ORCH_ID=0eed76cd`). ⚠ **A council round is not durable across a roll** — the landmine says
 so and this is a second instance. If a roll is expected, either submit after it or expect to
 resubmit; the correlation survives, the run does not.
+
+### 10i. ⚖ LIVE on `v1.0.1359` — and the round-2 verdict, answered
+
+**The mechanism is fully live as of 2026-09-03 13:28Z.** Config (`728`, `734`) applied earlier;
+the Go shipped on `v1.0.1359`, verified at the binary on **both** pods:
+
+| probe | meaning | v1.0.1358 | **v1.0.1359** |
+|---|---|---|---|
+| `meta_description_refused` | the new item type | absent | **PRESENT** |
+| `meta-description-repair` | the new handler | absent | **PRESENT** |
+| `candidate_looks_internal` | pre-existing, must be present | PRESENT | PRESENT |
+| `ZZZ_string_that_cannot_exist_9f3a` | must be absent | absent | absent |
+
+**Nothing has EXERCISED it.** `[MEASURED 2026-09-03]` zero active pages are both blank and past
+the backfiller's `> 200` gate, so no page can be refused. Read "no rows" with that control.
+
+### Round 2: REVISE (gated by `prior_art_librarian` [HIGH]). Round 3 submitted.
+
+**The gating objection was right about the ambiguity and wrong about the risk — and the fix was
+evidence, not code.** It read: *"Rationale claims the new filing 'uses the shared writeWorkItem
+door' … but the sketch calls `insertWorkItem(...)` directly — a different symbol."* True: round 2
+named one symbol in prose and called another in code, and gave the reviewer no way to connect
+them. **They are not two doors** — `load_work_item_actions.go:1901-1904`, verbatim:
+
+```go
+func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.Logger) (bool, error) {
+	w, err := writeWorkItem(ctx, tx, item, dropOnConflict, logger)
+	return w.Inserted, err
+}
+```
+
+A two-line wrapper with the default conflict policy (`dropOnConflict`, `:1817`). Every probe runs.
+⚠ **This is the same fault in its third consecutive round: citing instead of showing.** Four rows
+in `WRONG_CALLS.md` now. The fault is not being wrong — all three claims were true — it is that a
+reviewer cannot tell a verified claim from an unverified one, and this time it cost a HIGH.
+
+**`editquality` [medium]: `summary` undefined.** A **sketch** defect, not a code defect —
+`summary := fmt.Sprintf(...)` is at line 190 of the real file, and the independent proof is that
+the code is *running*. Sketch corrected in round 3.
+
+**`bug_historian` [medium] + MISSING: the four unread call sites → `bugs_open/464` FILED**
+(`9e72f75b0`), naming `section_editor_regulated_guard.go`, `save_sections_claims_guard.go`,
+`rewrite_negations_action.go` and `validate_page_content.go`, stating they are **unread rather
+than clear**, and recording why the grep intersection was unsound: it keys on four result-key
+spellings, and `rewrite_negations_action.go` returns `{"status": …}, nil` — invisible to it.
+
+**`reuse_agent` [low]: is there a shared item-key convention? MEASURED — no.** Eight item-key
+builders under `platform/orchestration/actions/`, every one package-private with a different
+signature (`silentItemKey(check, siteID)`, `deadURLControlItemKey(pageName, slot, deadFields)`,
+`triageItemKey(itemType, handler, errSig)`, …). Nothing to reuse — same answer as the parkers,
+now measured rather than assumed.
+
+**`prior_art` [low]: attach the SQL for "exactly two callers".** Done in round 3. ⚠ Its
+`sub_workflow` arm is load-bearing: the backfiller's own call is NESTED, so a top-level-only query
+reports ONE caller and misses the incumbent.
+
+**Nine seats approved cleanly** in round 2, including `guardian` and `architecture` — the two that
+objected in round 1 — so the r1 fixes held.
