@@ -5354,3 +5354,61 @@ wrong. The tool-suggester ran blind and five tool pages were built that are not 
 them seotools duplicates on an open owner question. 7 of 23 current briefs lack `.text`. Nothing is
 published. The template defect is real and worth fixing properly at `bugs_open/453` — and is now a
 two-expression change with a proven pattern beside it.
+
+### (ss) 2026-09-03 ~18:10Z — copyonline is now STALLED short of composition and plan, and it is the only one of seven comparable sites with no composition
+
+[MEASURED 2026-09-03 18:08Z] The queue is **empty** — no open work items of any type. The last item to
+move was `needs_strategy`, `complete` at 17:44:37Z; three `page_rerender` children finished by
+17:45:57Z; nothing has been created since. Current spec set is complete except for the two that matter:
+
+```
+have : classification, content_direction, design_intent, identity,
+       mission_brief, strategy, tools, vertical_landscape
+miss : resolved_composition   (never written)
+       plan                   (never written)
+```
+
+**Across seven comparable sites, copyonline is the only one without a composition:**
+
+| domain | `resolved_composition` | `strategy` | `needs_composition` items |
+|---|---|---|---|
+| advertise.co.uk | 1 | 1 | 1 |
+| designblog.co.uk | 1 | 1 | 1 |
+| gamedesign.uk | 1 | 1 | 1 |
+| oxenunity.com | 1 | 1 | **2** |
+| seotools.co.uk | 1 | 1 | 1 |
+| websitepromotion.co.uk | 1 | 1 | 1 |
+| **copyonline.co.uk** | **0** | 1 | 1 |
+
+**The sequence that produced it, and it is a race rather than the brief defect.** `needs_domain_research`
+was created 15:49:09Z and did not complete until 16:54:58Z. `needs_composition` was created **six
+minutes into that hour-long run**, at 15:55:06Z, and completed at 15:56:45Z having found its inputs
+missing:
+
+```json
+{"ready": false, "missing": ["identity", "classification"],
+ "classifier_queued": "a428a8f5-849a-4f7e-aebc-c6fc49e2ae59"}
+```
+
+It queued a backfill classifier and closed itself `complete`. The inputs then arrived — classification
+16:57:10Z, strategy 17:44:34Z — and **nothing has re-filed the composition since.**
+
+**A re-file mechanism demonstrably exists, so this may self-heal.** `oxenunity.com` carries **two**
+`needs_composition` items (2026-09-02 18:47Z and 2026-09-03 01:00Z, ~6h apart) and has a composition,
+which is consistent with a first item bailing and a periodic sweep re-filing it. **I have not read
+that producer and am not asserting its schedule** `[UNMEASURED]` — one observed pair is not a cadence.
+If it is ~6-hourly from copyonline's 15:55Z item, the next attempt would be around 21:55Z.
+
+**Not diagnosed, deliberately.** The shape — a workflow reaching a not-ready terminal and being
+recorded `complete` — resembles `bugs_open/354` (*a workflow that ends at its error terminal is
+recorded COMPLETED with `error` NULL*), and `bugs_open/453`'s file also matched a grep for this
+vocabulary. Whether this is that bug, a deliberate stand-down-and-requeue design, or a third thing, I
+have not established, and per the owner ruling of 2026-07-31 I am not filing a structural root cause
+without either the 090 loop or a stated first-hand substitute. **Recorded as an observation with its
+evidence; the claim here is the stall and the seven-site comparison, nothing about its cause.**
+
+**Why it matters for the decision in front of the owner.** Entry (rr) withdrew my recommendation to
+intervene, on the grounds that the planner would receive the brief's content second-hand through a
+faithful strategy spec. That still holds — **but the planner has not run and currently has nothing
+queued to make it run.** So "wait and judge the plan on its output" now carries an unbounded wait. The
+watch item is whether a `needs_composition` reappears on its own.
