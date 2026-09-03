@@ -454,8 +454,40 @@ live change. In priority order:
 
 | | what | corr | state |
 |---|---|---|---|
-| `740` | `info-card-grid`'s `carousel` defaults ON at resolution time | `2ac895f3-ca82-4dbe-8f4e-3335a04b8925` | **round 3 pending.** r1 REVISE (9/11 approving, `bug_historian` HIGH), r2 REVISE (`editquality`) |
-| `747` | `offer-analyser`: price may LEAD, and the exemplar names it | `aeaf9f88-4348-4453-8c9e-213e7fd548a7` | **round 1 pending** |
+| `740_..._HOLD.sql` | `info-card-grid`'s `carousel` defaults ON at resolution time | `2ac895f3-ca82-4dbe-8f4e-3335a04b8925` | **round 3 pending.** r1 REVISE (9/11 approving, `bug_historian` HIGH), r2 REVISE (`editquality`) |
+| `747_..._HOLD.sql` | `offer-analyser`: price may LEAD, and the exemplar names it | `aeaf9f88-4348-4453-8c9e-213e7fd548a7` | **r1 APPROVED 16:01:45Z — NOT CLAIMED, see below. r2 pending** |
+
+> **⚠ BOTH ARE NOW `_HOLD.sql`, AND THE RENAME IS THE POINT.** An unapplied migration sitting in
+> `sql_for_agents/` is **not held** — any session running `run-migrations.sh --apply` without scoping
+> `MIGRATIONS_DIR` takes EVERY pending file. I was not holding these; I was hoping nobody ran the
+> runner, and a peer lane caught it. Verified in the source, not taken on trust:
+> `run-migrations.sh:65` sets `SIDECAR_RE='_[A-Z][A-Z0-9_]*\.sql$'`, `:284` filters the pending list
+> with `grep -vE`, `:294` still LISTS it. **Control run, because a filter that excluded everything
+> would look identical:** an ordinary migration filename still reads as would-be-applied.
+> **Drop the `_HOLD` suffix at the moment of applying, never before.**
+>
+> **⚠⚠ `747`'s r1 came back APPROVED AND I AM NOT CLAIMING IT — and an APPROVED verdict is the
+> DANGEROUS one here.** It approved *"rank it LAST"*; the file now says *"rank it LAST BY DEFAULT —
+> unless it is genuinely this site's strongest reader benefit, which is rare"*, a semantic softening
+> made after dispatch (the owner said "**mostly**", and as first written a site whose real
+> differentiator IS price would have had its strongest benefit forced to the bottom). So
+> `Council-Reviewed:` on that correlation would be a **MISMATCH**, which is the coverage report's
+> dishonesty surface. **A REVISE would have forced the resubmission anyway; an approval creates both
+> the temptation and the paper trail for "approved, ship it" over text the file no longer contains.**
+> Commits carry `Council-Submitted:` until a verdict approves the text that exists.
+>
+> **`747`'s three r1 advisories are all answered by measurement**, in its header: the multi-row
+> locator guard (`offer-analyser` measured at exactly ONE active row and ONE prompt-carrying step, so
+> the premise is false today and the guard went in anyway, proven by inducing a 9-pair abort); and
+> `723` is still rollbackable after `747` — **answered by running it in a transaction and probing**,
+> not by inspection: 723's anchor still occurs exactly once and both its inserted blocks are intact.
+>
+> **⚠ AND MY OWN VERIFY CAUGHT MY OWN HALF-FINISHED EDIT**, which is the best evidence the guards are
+> controls. I re-worded `repl_a` and left the verify's needle on the old phrase; the `UPDATE` ran, the
+> `NOTICE` printed its confident summary, and only the independent live-row read failed. **A check
+> that shares state with the thing it checks can only confirm the author's intention, never the
+> outcome.** Now a LANDMINE in its own right — and note it surfaced on the CLEAN run after a change,
+> which is exactly when nobody re-runs.
 
 ## ⚠ THE OWNER RULED ON THE PRICE QUESTION, AND IT WENT TO A DIFFERENT LANE
 
