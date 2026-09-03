@@ -4857,4 +4857,25 @@ Owner: *"otherwise the brief is good carry on"* — the release word. Per RUNBOO
   experiment in its RE-SCOPED form (supply the header vocabulary first, then pin — 37 of 39 sites
   supply zero header keys) · §5b check `imagery.sections` on the plan · and the pre-registered
   three-arm layout prediction, with all five fields owed to the 445 lane.
+- **(kk) OWNER DECISION 2026-09-03 ~15:5xZ, DEFERRED BY HIS OWN CONDITION — carry it forward.**
+  *"we can point to organisations in preference to myself, but don't change things if it's already
+  running we can change it another time."*
+  **The decision: the lead route's PRIMARY action is the listed ORGANISATIONS (the directory), and
+  routing the enquiry to the owner becomes the secondary path.** That is a change to the
+  `lead-route` page only; the rest of the brief is unaffected.
+  **NOT APPLIED, and the reason is the interesting part.** At 15:55:30Z nothing on the site had been
+  claimed and no classifier spec existed, so his condition ("if it's already running") was not met
+  and the edit was free. I prepared revision 4 with the condition ENCODED AS A GUARD — refuse if any
+  item is claimed, refuse if a `classification` spec exists — and at 15:56:30Z the guard **fired**:
+  `REFUSED (owner condition): 1 item(s) already claimed`. One item was claimed inside that sixty
+  seconds. **So the brief stands at revision 3 (`d070dca4`) and the build is undisturbed.**
+  The prepared statement is `apply_r4.sql` in this session's scratch; it is one targeted edit to the
+  lead-route page's `what` plus an `open_questions` entry recording the answer, and it re-applies
+  cleanly whenever the change is cheap.
+  **When it is cheap again:** after the build completes and before launch — the lead route was
+  deliberately written so its destination can change without a redesign, so this is a copy edit on
+  one page plus a rerender, not a replan. **Do it then, or hand it to the next session.**
+  **Worth keeping as a practice note:** encoding the owner's condition as a SQL guard rather than as
+  a judgement I make at the keyboard is what made this safe — I checked, believed I was clear, and
+  was wrong by sixty seconds. A guard that refuses is better than a check that passes.
 
