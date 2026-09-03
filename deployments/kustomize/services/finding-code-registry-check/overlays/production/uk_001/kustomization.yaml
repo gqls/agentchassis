@@ -23,4 +23,4 @@ labels:
 # visible rather than silent.
 images:
   - name: docker.io/aqls/finding-code-registry-check
-    newTag: v1.0.1359
+    newTag: v1.0.1360

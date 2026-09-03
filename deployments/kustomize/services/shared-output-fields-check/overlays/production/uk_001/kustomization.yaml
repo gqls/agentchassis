@@ -15,4 +15,4 @@ labels:
 # pipeline depends on it and rebuilding it for every chassis roll would be noise.
 images:
   - name: docker.io/aqls/shared-output-fields-check
-    newTag: v1.0.1359
+    newTag: v1.0.1360

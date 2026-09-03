@@ -15,4 +15,4 @@ labels:
 # ships NOTHING — the pin is what moves the cluster).
 images:
   - name: docker.io/aqls/content-loss-check
-    newTag: v1.0.1359
+    newTag: v1.0.1360

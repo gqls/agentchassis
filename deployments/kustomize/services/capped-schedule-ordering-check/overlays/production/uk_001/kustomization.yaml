@@ -22,4 +22,4 @@ labels:
 # has never executed would look healthy.
 images:
   - name: docker.io/aqls/capped-schedule-ordering-check
-    newTag: v1.0.1359
+    newTag: v1.0.1360
