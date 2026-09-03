@@ -1100,3 +1100,66 @@ read `llm_call_log.prompt_rendered`. On its own that would have walked the next 
 their trap, so it gains a clause: **scope the query by `orchestration_id`, not by a time window you
 chose from when you expected the work to run.** The estate's own runs are the counter-example —
 this page's two writer runs sat 69 minutes apart, and the second was the interesting one.
+
+### 21. The retry gate: ask the AGENT, not the migration number — and the collision is the normal state of the directory, not a rare race
+
+`dartsonline_traffic` checked before recording their retry plan and passed on the answer. **Verified
+independently here, with controls both ways rather than relayed** `[MEASURED 2026-09-03]`:
+
+```
+build-site-planner   section_subject live: f    renders current_section.subject: f
+page-content-writer  section_subject live: f    renders current_section.subject: f
+control on page-content-writer: 'current_section' present = TRUE, 'ZZNOTREALTOKEN' = FALSE
+```
+
+**So `640`/`641` are not live, the writer defect stands, and §18's pre-registered prediction is
+untouched and still resolvable** on whichever page next carries several section-scope figures.
+
+**Their operational finding, which I have promoted into `LANDMINES.md` rather than leaving in a
+message: do NOT gate a retry or a blocker on "is migration NNN applied?"** Both files are `_HOLD`,
+applied by hand rather than by the runner, so the ledger link is broken by design — and this repo's
+migration numbering collides, so a number check can answer *"no"* about a fix that shipped under a
+different number or *"yes"* about a file that never ran. The artefact query above is one line and
+cannot be fooled. **This is the estate's deploy rule in another costume: probe the capability, not
+the record of what was meant to ship.**
+
+⚠ **I measured the collision rather than accepting it as a caution, and it is far more routine than
+their two examples suggested** `[MEASURED 2026-09-03]`: **130 migration numbers name two or more
+unrelated files** — 874 non-sidecar files across 734 distinct numbers, so **about one number in six
+is ambiguous**. (131 numbers repeat; exactly one of those is a deliberate `NNN_<letter>_` sibling.
+Sidecars excluded, `_HOLD` included, because a held file is still a migration that number names.)
+Sampled six to confirm the predicate was not inflating itself: `286`, `453`, `645`, `648`, `736`
+are all genuinely unrelated pairs; `090` is the single deliberate sibling.
+
+**I did not file a new landmine** — the collision already has **four** entries in `LANDMINES.md`
+(the ledger keys on filename; a number is not yours because you named a file; the next free number
+is only free until someone commits; two migrations can carry one number). What none of them carried
+was a **population figure**, so the trap reads as a rare race to watch for when it is the directory's
+normal condition, and their `286`/`415`/`453` examples are three of 130. The count and the retry-gate
+rule are appended **to the existing entry**, dated, with the re-derivation command attached because
+it grows by addition and would otherwise read as current for ever.
+
+**And one correction to pass back:** they reported `645` as the colliding number. `648` collides too
+— `648_enable_archived_page_still_serving.sql` and `648_owner_comparison_rule.sql` — which they had
+noticed on the ledger side but attributed to "a different sequence". It is the same defect twice.
+
+**Their retry is recorded on their side as four steps with this lane's acceptance test as the
+grading criterion** — N sections must show N distinct prompt hashes, scoped by `orchestration_id`,
+keeping the 38/0/38 control — **and they have written it so the next session reports back either
+way, including on failure.** Stage 2 is skippable: the five illustrations are still active assets,
+so a retry is a plan seed plus a rebuild and the expensive half is paid for. **Nothing is owed from
+this lane; the next move is 641's, and 641 is `framework_prompts_positive_voice`'s.**
+
+#### 21a. Their formulation of the bounds lesson is better than mine, and I have taken it
+
+I folded their query-window trap into my corrected memory lesson as *"scope by `orchestration_id`,
+not by a window you chose"*. **Their own tell is sharper and I have adopted it verbatim:**
+
+> *"whether I can say why each bound is where it is, and whether the reason is 'outside this range
+> the rows cannot exist' or 'that is when I expected it'. Only the first is a scope."*
+
+That is the general rule and it covers every filter, not just time — a `LIMIT`, a status predicate,
+a date range, a chosen population. **This lane has now been bitten by three members of that family
+in one day** (a `LIMIT` counting rows while the claim counted pages, §14; a `data-component` census
+counting my predicate rather than the page, §17b; and a step key that could not have held what I was
+testing for, §17b) — and the tell separates all three from a real scope in one question.
