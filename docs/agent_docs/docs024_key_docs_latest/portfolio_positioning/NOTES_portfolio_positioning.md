@@ -5592,3 +5592,24 @@ removed from `gqls/sites`, commit `44da691f8845684a0bec4417f2eb4ef040694d3e`; it
 `3ae2096f…` (serp) and `09fdbca9…` (keyword-intent). If page-build-handler leaves them `unresolved`,
 the honest options are a content regeneration of the two guides or accepting archived-not-retracted
 on an unpublished site — the owner's call, not a hand edit.
+
+### (xx) 2026-09-03 ~19:45Z — verified at the artefacts, three ways
+
+- **Sites repo** (`gh api repos/gqls/sites/contents/…`) `[MEASURED 19:4xZ]`: the four retracted files
+  are **404** — three guides + `tools/title-tag-scorer/index.html`; controls: `tools/serp-snippet-previewer/index.html`
+  (not yet retracted) **present 48,034 B**, `tools/website-brief-starter/index.html` (survivor)
+  **present 51,354 B**. The negative is real because the positives are.
+- **Rebuild deploys respected the archive.** The two `page-build-handler` commits from the (moot)
+  tool-cta items — `cf4f27f4…`, `255d673b…` — each `modified copyonline.co.uk/tools/insight-injector/index.html`
+  and nothing else. `bugs_open/266` (archived pages rebuilt by producers that don't read status) did NOT
+  fire here; `ARCHIVED_PAGE_GUARD` held.
+- **Analytics reached the head chrome immediately.** `site_components.head` regenerated **19:08:54Z**
+  by my chrome refresh carries `GTM-PQ3WCTBD` and the `cc_v1` consent marker — no separate
+  `stale_chrome` drain needed; the c2 note's "expect one stale_chrome item" was pre-empted by the
+  refresh I had already queued for the footer. Header carries the container string too (the noscript
+  half); footer neither, correctly.
+- **Composition:** still one item; `design-discovery-agent`'s rotation row for this site reads
+  **15:55** — it DID select the site once (that is when the first composition item was filed), so the
+  producer is periodic per site and the next selection is the unknown. Untouched.
+- Prose rebuilds: three `article-body` `phantom_internal_link` items still queued behind the tool-cta
+  ones at time of writing; watcher `b14z2xpln` armed.
