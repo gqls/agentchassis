@@ -62502,3 +62502,147 @@ the apply, which is the difference.
 Family: a-complete-work-item-is-not-a-repaired-artefact, a-revise-round-is-cheaper-than-the-defect-it-finds,
 an-objection-naming-one-file-is-naming-a-category, editing-one-file-is-not-knowing-the-package,
 repro-regenerated-from-source-is-destroyed-by-the-render.
+
+---
+
+## 2026-09-03 — `news_feed_ingestion` (feed lane): I quoted a fleet count out of my own lane's RUNBOOK into a peer CONTRIB as if it were current, and it was a day stale
+
+**The claim.** Writing a CONTRIB to the `designblog.co.uk` lane, I stated
+`content_feed_items.published_page_id` is set on **"15 of 14,013"** rows fleet-wide, to
+argue there is no live feed-item→page producer. The 14,013 came from this lane's own
+`RUNBOOK_news_feed_ingestion.md`, where it is correctly marked `[MEASURED 2026-09-02]`.
+
+**What was actually true**, measured first-hand minutes later: **15 of 14,194**. The
+denominator had moved by 181 rows in a day — the table is fed by a 6-hourly trigger, so
+of course it had.
+
+**Why it is worth a line even though the conclusion survived.** The load-bearing number
+(15) was right and the argument was unaffected, which is exactly what makes this the
+easy version of the mistake to leave in. But the CONTRIB carried a
+`[MEASURED 2026-09-03]` marker on that whole paragraph, so I stamped today's date on
+yesterday's figure and sent it to another lane — the marker did the opposite of its job.
+This is the estate's own recorded shape: a census does not go wrong, it goes **stale by
+ADDITION**, and it reads as current for ever. My own lane's doc had the date on it; I
+dropped the date and kept the number.
+
+**What caught it.** Re-running the count before finishing, because the CONTRIB's argument
+turned on it. Nothing structural — one more paragraph and it would have shipped.
+
+**The cheap check that would have prevented it:** any figure you carry from a doc into a
+new claim gets **re-run, or quoted with its original date**. There is no third option, and
+"it was measured recently" is not one — CLAUDE.md's rule is that a count carries the date
+it was counted, and a count you re-date is worse than one you leave undated.
+
+**Second, smaller call the same session:** I guessed `site_specs.version` and
+`scheduled_tasks.is_active` in two queries; neither column exists (`data`/`created_at`
+and `enabled`). Failed loudly, cost one batch. `\d <table>` before writing SQL is a
+CLAUDE.md rule and I skipped it — the same skip is already in this file from another lane
+days ago, which is the argument for reading the tail of this file before starting, not
+after.
+
+Family: a-report-is-not-a-measurement, prior-art-search-goes-stale,
+a-subagent-report-is-another-doc, a-measured-marker-proves-a-measurement-was-claimed.
+
+---
+
+## 2026-09-03 — `components` lane (`bugs_open/425`): I read "the re-render wrote a row carrying the key" as "the re-render produced the key", and it cost a day and sixteen eliminations
+
+**The claim.** That the light re-render path *can* re-resolve a query-sourced list, so the
+difference between working and broken instances must be **per-instance**. Written up as a section
+headed *"⛔ THE PATH-SPLIT MODEL IS REFUTED — a rerender DID produce the new shape"*, with a
+verification attached: *"history row 05:25:28 matching `page_components.updated_at` exactly, item
+`03304c6a`, complete, and the row now carries the key."*
+
+**What was true.** The re-render wrote. The row carries the key. **Neither fact is about where the
+key came from.** `[MEASURED 2026-09-03]` a BUILD (`empty_section` / page-build-handler) had written
+`excerpt` into stored on 09-02 20:51:05, and every later re-render merged `stored ⊕ nil` and
+carried it forward — because `bugs_open/454` meant no light re-render resolved anything at all.
+The re-render produced nothing on that page, ever.
+
+**The cheap check, and it stings: it was one column in the row I was already reading.**
+`page_component_history` archives the state each write REPLACED. So the disconfirming query is the
+same query plus one expression:
+
+```sql
+SELECT h.created_at, h.source_item_id,
+       (h.content_data->'articles'->0 ? 'excerpt') AS present_BEFORE_this_write
+  FROM page_component_history h WHERE h.page_id = $1 ORDER BY h.created_at;
+```
+
+`present_BEFORE_this_write = true` on the row I cited. I had joined that table, on that page, on
+that column, and read the after-state only.
+
+**Why it went unchallenged for a day.** It arrived as a *refutation* — the most credible-looking
+shape a claim can have, because it reads as intellectual honesty rather than as a new assertion.
+It retracted a **correct** model (§2's "build resolves, the re-render does not") and replaced it
+with a hunt for a per-instance difference that does not exist. Sixteen eliminations were then
+measured across all 17 live instances, every one of them individually sound, all of them searching
+a space that could not contain the answer: the real difference was the row's **write history**,
+which is not a column and so cannot appear in a census of columns.
+
+**And I had already written the general form of this error in the same file, two hours earlier**
+(§0c): *"byte-identical output is not evidence about which path ran."* I applied it to my own
+artefact reading and not to my own attribution.
+
+**What caught it.** Firing a re-render at an OLD-shape baseline (batch `…000692`, garden-tools.uk
+`/care`) — the one experiment shape that can fail — and then re-reading the two cited pages'
+history with the before-state included. Also `bugs_open/454`, filed independently by the
+`bugs_open/427` lane from the far end of the same mechanism, which named the cause outright.
+
+**The rules, and the second is the transferable one:**
+1. **To attribute a VALUE to a writer, read the state that writer replaced.** "It wrote" and "the
+   row has X" do not compose into "it wrote X".
+2. **An experiment discriminates only if its baseline LACKS the thing being tested for.** Two
+   dispatches (`…000688`, `…000691`) were spent on new-shape baselines, under hypotheses that both
+   predict "key present" on such a baseline. The second was filed *after* the first had been
+   diagnosed as non-discriminating, justified on the grounds that it ran on the exact page which
+   had reproduced the defect four times. **The page was never the axis; the baseline was.**
+
+Family: a-print-statement-is-not-a-config-row, damage-confirmed-is-not-mechanism-confirmed,
+a-measured-marker-proves-a-measurement-was-claimed-not-complete,
+repro-regenerated-from-source-is-destroyed-by-the-render.
+
+## 2026-09-03 — I nearly blamed a Go literal for four live truncations, and no query I could have run would have told me I was wrong (bugs_open/257)
+
+**The claim.** Re-validating `bugs_open/257`, I found two actions written after the fix that hand-roll
+the budget rule and end `else { options["max_tokens"] = 2000 }`
+(`rewrite_negations_action.go:542`, `repair_ordering_register_action.go:439`). `llm_call_log` then
+showed four `rewrite_negations` calls truncating at exactly `max_tokens=2000, output_tokens=2000,
+stop_reason=max_tokens` (2026-08-21 → 08-23). Literal is 2000; wire value is 2000; the calls were cut.
+I was about to write that the hardcoded fallback had damaged live pages — a clean, live instance of the
+257 class, exactly the kind of finding that justifies a lane.
+
+**What was actually true.** Migration `517` (2026-08-21, the 305 lane) gave that step its own
+`ai_service` block with `max_tokens: 2000`, deliberately small and with a written rationale, and even
+recorded the failure mode it was accepting. Migration `569` (2026-08-23) then raised it to 16000, having
+measured that a page with ten repair targets repaired **zero** of them. The four truncations are the
+**configured** value being too small — a real defect, found and fixed the correct way by the lane that
+owned it — not the literal. `llm_call_log` bears this out in the aggregate: 99 calls at 2000 up to
+08-23, 3,245 at 16000 since, 0 truncations in the second population.
+
+**What caught it.** Grepping `docs/agent_docs/sql_for_agents/` for the step name before writing the
+claim, and reading the two migrations' headers. Not a query — I ran several and they all agreed with the
+wrong answer.
+
+**The cheap check that would have.** There isn't one, and that is the entry. **The configured value and
+the hardcoded fallback were the same number**, so every observable — the value in
+`llm_call_log.max_tokens`, the provider's own `__sent_max_tokens` write-back, the error text, the length
+of the reply — is byte-identical under "the config was read" and "the config was dropped and the literal
+applied". The measurement could not have come out differently, which is this file's own standing test
+for whether a `[MEASURED]` figure is evidence at all. The only route was documentary: read the migration
+that set the number and see whether it names the same value for the same reason.
+
+**Why it generalises, and it is not really about token budgets.** A fallback constant that equals the
+value it stands in for makes the failure it guards against **invisible by construction**, and the
+invisibility looks like a clean pass. Any check of the form "did my configuration actually take effect?"
+is worthless whenever the default and the configured value coincide — and defaults get chosen by copying
+the value someone already had, so coinciding is the *likely* case, not the unlucky one. The discipline:
+before believing a config-arrival check, ask what the reading would be if the config were ignored
+entirely. If it is the same reading, change the configured value to something the default is not, or
+prove it documentarily.
+
+**Still live, unresolved, as of today:** `repair_ordering_register` is in exactly this state right now —
+`offer-analyser` declares 2000, the literal is 2000, 29 calls all at 2000. Whether that step reads its
+configuration at all is currently **unknowable from the data**. Filed as a `LANDMINES.md` entry, and the
+fix (call the shared helper, delete both literals) is planned in
+`docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/HANDOFF_2026-09-03_continue_here.md`.

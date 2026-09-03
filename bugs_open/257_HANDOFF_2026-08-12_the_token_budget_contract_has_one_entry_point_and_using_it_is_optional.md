@@ -526,3 +526,79 @@ wrong. Logged in `WRONG_CALLS.md`.
   rebuild, and would be a synthetic exerciser rather than a real one. The behaviour is proven
   deterministically instead by the mutation-tested wire-shape tests, which assert the request BODY.
   **Do not write "behaviourally verified end to end" in this file without doing that work.**
+
+---
+
+## §2026-09-03 RE-VALIDATED — still OPEN, and the class has RETURNED in a shape that defeats Path A
+
+*This section by the session that picked the bug up on 2026-09-03 after 18 days quiet. It wrote **no
+code**; the fleet build of that day carries nothing from it. Cold-start for the next thread:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/HANDOFF_2026-09-03_continue_here.md`*
+
+**The bug is still valid.** Path A remains live and correct (MDL-041, v1.0.1305). Both items listed as
+"still open after Path A" are untouched. What is new is that the defect class reproduced itself twice in
+code written *after* the fix, exactly as the `architecture` seat said it would — *"any action author who
+reaches for `client.GenerateText` instead of `ExecuteAIStepAction` reproduces this bug by
+construction"*.
+
+### The new sub-class: a hand-rolled literal fallback
+
+| file:line | added | what it does |
+|---|---|---|
+| `rewrite_negations_action.go:537-543` | 2026-08-20, `a5d5d0728` | reads `aiServiceConfig["max_tokens"]` as `float64` only, `else options["max_tokens"] = 2000` |
+| `repair_ordering_register_action.go:436-440` | 2026-08-31, `f7156fb54` | identical block, identical literal |
+
+1. **It defeats Path A.** Path A resolves the budget at the client *when the caller supplies none*.
+   These callers always supply one, so rule 1 wins at the wire (`anthropic.go:307`) and the client's
+   resolution never runs. Passing a literal is now strictly worse than passing `nil`.
+2. **Copies of the precedence rule have gone from three to FIVE** — `ai_actions.go:357-360`,
+   `llmOptionsFromConfig`, `aiservice/max_tokens.go`, plus these two. Neither new copy reads the
+   **step's** config and neither forwards `budget_tokens`, so both are less capable than the helper in
+   their own Go package. `llm_options.go`'s SCOPE note predicted precisely this ("a THIRD caller should
+   be the extraction, not another paste") and was ignored twice.
+3. **⚠ THE LITERAL EQUALS THE CONFIGURED VALUE, SO `llm_call_log` CANNOT DETECT THE DEFECT.**
+   `offer-analyser` declares `ai_service.max_tokens = 2000` on both steps running
+   `repair_ordering_register`; the Go fallback is also 2000. [MEASURED 2026-09-03] 29 calls, all at
+   `max_tokens=2000`, 0 truncations, max output 600. **That reading is equally consistent with the code
+   working and with 257 being live at that call site.** The original defect showed a *wrong* number;
+   this one shows the *right* number for a possibly wrong reason, which is worse.
+
+### The worked example, and a near-miss it caused
+
+[MEASURED 2026-09-03] every `rewrite_negations` call ever logged: **99 at 2000** (2026-08-21 → 08-23,
+**4 truncated**), **3,245 at 16000** (08-23 → today, 0 truncated).
+
+Those four truncations are **NOT** the Go literal biting — I nearly recorded that they were. Migration
+`517` set the step's config to 2000 on 08-21 with a stated rationale; migration `569` raised it to 16000
+on 08-23 after the 305 lane measured a ten-target page repairing zero. The configured value and the Go
+literal were **the same number** for those three days, so no query could have separated the hypotheses.
+Settled by reading the two migrations. Logged in `WRONG_CALLS.md`.
+
+**The residual is real:** 569's repair lives only in configuration. Line 542 still says 2000, so any
+future step or loop body running this action without declaring the key silently inherits 2000 and 569's
+measured fix does not transfer. Migration 517 documents how easily that happens — a loop substep is
+named `process_sections_loop_iter_N_rewrite_negations`, which `resolveAIServiceConfig` cannot resolve at
+all.
+
+### §4's census re-run — it has now been wrong THREE times, do not quote it
+
+[MEASURED 2026-09-03] **twelve** production call sites, not nine. §4 missed the Gemini client, missed a
+tenth site that arrived within days of filing, and predates these two. Grouping and the grep are in the
+handoff §4. Supporting live config census, 208 active agents: **149** steps declare
+`config.ai_service.max_tokens`, 10 agent-level, 3 root, **7** declare a top-level `config.max_tokens`
+outside `ai_service` (possibly a sixth spelling nobody reads), **0** declare a value `<= 0`.
+
+### The fix plan, unsubmitted
+
+In the handoff, §5. Summary: replace both hand-rolled blocks with `llmOptionsFromConfig` (three named
+behaviour changes, all measured inert on today's fleet); then generalise
+`TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap` from two named files to the whole package, so
+the sixth paste cannot merge quietly. ⚠ The test must not land before the fix — on this shared tree it
+would break HEAD for every other session — and must not allow-list the two current violations.
+
+**Candidate 2 (merging `ai_actions.go` with the helper) stays open and stays a human call**; the import
+cycle constraint recorded on 2026-08-16 still holds. Step 1 takes the copies from five to three without
+answering it.
+
+⚠ **When verifying any of this, pick a step whose configured budget DIFFERS from the literal** — or
+§(3) above applies to your own check and it cannot fail.

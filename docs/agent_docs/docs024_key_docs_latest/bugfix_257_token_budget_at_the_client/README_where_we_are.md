@@ -253,3 +253,61 @@ cannot.
 What I could check on real traffic, I did: no step's limit changed across the build boundary, with
 enough calls afterwards to show the check wasn't simply looking at nothing, and no truncations either
 side. That sample is small and early, and I've labelled it that way.
+
+## 2026-09-03 — picked this back up after two and a half weeks, and the same fault has grown back
+
+I went back to this to check whether it was still worth working on, and whether anyone else had it in
+hand. Nobody did — the lane had been quiet since 17 August — so I took it. **I have written no code
+today.** A new build went out while I was working; it is another piece of work and contains nothing of
+mine. Everything below is findings.
+
+**The part that was fixed is still fixed.** The change from August, where the model clients learned to
+read the length limit out of their own configuration, is live and behaving. Nothing here retracts it.
+
+**But the underlying fault has come back twice, in code written after that fix.** Two new pieces of code
+call a model directly, and each one re-implements the length-limit rule by hand, ending with a number
+typed straight into the source: 2000. One was added on 20 August, the other on 31 August.
+
+There is an irony in this that I want to state plainly, because it changes how the remaining work should
+be done. The August fix works by having the client supply the configured limit **when the caller asks
+for nothing**. These two new callers always ask for something — the configured value if they can find
+it, otherwise their typed-in 2000. So the fix can never help them. **Asking for nothing is now safer
+than asking for a specific number**, which is not a rule anyone would guess, and is exactly why this
+needs closing at the call sites rather than explained in a comment.
+
+**The thing I want you to know about, because it nearly caught me.** Our own records show four of these
+calls being cut short at exactly 2000 tokens in late August. The number in the code is 2000. I was one
+sentence away from writing that the typed-in number had damaged live pages.
+
+It had not. Another team had set that step's configured limit to 2000 on 21 August, deliberately and
+with reasons, then measured that it was too small and raised it to 16000 on 23 August. So the cut-short
+calls were the *configured* value being too small — a real problem, already found and already fixed
+properly.
+
+What makes this worth telling you rather than just correcting: **the configured number and the typed-in
+number were the same number.** Every record we keep — the limit sent, the error text, the length of the
+reply — reads identically whether the configuration was being obeyed or completely ignored. There was no
+query I could have run that would have told me which. I only got it right by opening two old change
+files and reading why each was written.
+
+That matters beyond this one mistake, because the other of the two new pieces of code is in the same
+position **right now**. Its configured limit is 2000 and its typed-in fallback is 2000, so we currently
+have no way of knowing whether it is reading its configuration at all. It is not doing any harm — its
+answers are about a third of the limit — but the instrument we would rely on to notice if that changed
+is blind here by construction. I have written that up as a standing trap so the next person checking
+"did the setting take effect?" does not lose the same hour.
+
+**What I have not done, and why.** The fix itself is small and I know exactly what it is: delete both
+hand-written copies and call the shared helper that already exists a few files away. I have not written
+it, for one reason — the guard that would stop this happening a sixth time has to land alongside it, and
+on this shared tree a guard that fails on code already in place would break the build for every other
+session working today. That wants to be one careful change with a review, not a rushed one at the end of
+a session. It is written up in full, with the three behaviour changes it causes and the measurements
+showing each is harmless on today's fleet, ready for whoever picks it up next.
+
+**Two decisions are still yours, unchanged from August:** whether to merge the near-duplicate copies of
+the "which limit wins" rule, and whether making direct model calls visible to our truncation monitoring
+belongs in this bug or a lane of its own. Today's finding pushes on the second one: four of the six
+direct callers inside the main service now do report themselves, which is better than August, but the
+reporting cannot distinguish the two cases described above, so more of it is not automatically more
+truth.

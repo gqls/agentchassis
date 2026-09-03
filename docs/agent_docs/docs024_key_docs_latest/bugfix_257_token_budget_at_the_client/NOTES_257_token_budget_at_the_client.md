@@ -435,3 +435,86 @@ manufacturing the case needs a yaml edit plus a rebuild and would be synthetic. 
 deterministically by the mutation-tested wire-shape tests instead. **The bug file now says explicitly
 not to write "behaviourally verified end to end" without doing that work** — which is a claim the 204
 lane could legitimately make and this one cannot.
+
+---
+
+## 2026-09-03 — lane resumed after 18 days quiet; research only, no code
+
+**Session:** picked up at the owner's request ("check if it already has an active thread, if so leave
+it"). Ownership checked two ways before starting, because one is not enough:
+`scripts/who-owns.py 257` reported this lane `[quiet 14d]` (its VERDICT line still says "OWNED or
+recently active" — read the body, not the verdict, as this file already records), and a grep of the
+live session transcripts modified in the last three days found no other session working it. The two
+hits were a session merely *reading* the bug file and one printing a `who-owns` report. **Resumed.**
+
+**No code was written or committed.** The fleet build `v1.0.1359` that landed during this session is
+another lane's and carries nothing from here.
+
+### The bug is still valid, and the class has come back in a new shape
+
+Path A holds. What is new: two actions written *after* Path A landed each hand-roll the budget rule and
+end in a hardcoded literal —
+`rewrite_negations_action.go:537-543` (`a5d5d0728`, 2026-08-20) and
+`repair_ordering_register_action.go:436-440` (`f7156fb54`, 2026-08-31).
+
+The structural point I did not expect going in: **a literal fallback is strictly worse than passing
+`nil`.** Path A works by having the client fall back to its construction config when the caller supplies
+no budget. These callers always supply one, so `options["max_tokens"]` wins at the wire
+(`anthropic.go:307`) and Path A never runs. The fix cannot reach the callers most likely to need it.
+
+Copies of one precedence rule: **five** as of 2026-09-03, up from the three the bug file records.
+Neither new copy reads the step's own config; neither forwards `budget_tokens`. Both live in the same Go
+package as `llmOptionsFromConfig`, whose own SCOPE note says in writing that a third caller should be
+the extraction rather than another paste.
+
+### MISSTEP 5: I almost attributed four live truncations to the Go literal, and the evidence could not have told me either way
+
+**The claim I nearly wrote.** `llm_call_log` shows four `rewrite_negations` calls truncating at
+`max_tokens=2000, output_tokens=2000, stop_reason=max_tokens` (2026-08-21 → 08-23). The Go literal on
+line 542 is `2000`. That reads as an open-and-shut live instance of 257: the config was dropped, the
+literal applied, the page lost its repair.
+
+**Why it is wrong.** Migration `517` (2026-08-21) gave the step its own `ai_service` block with
+`max_tokens: 2000`, deliberately small and with a written rationale. Migration `569` (2026-08-23) raised
+it to 16000 after the 305 lane measured a page with ten targets repairing **zero**. So the truncations
+are the *configured* value being too small — a real defect, already found and already fixed the correct
+way, by configuration — not the literal.
+
+**The uncomfortable part, and the reason this is a lesson rather than a slip.** The configured value and
+the Go fallback were **the same number**. The wire value, `llm_call_log.max_tokens`, and the error text
+are all identical under both hypotheses. **No query over the fleet's own instrument could have separated
+them.** I settled it by reading two migration files. Had 517 chosen 2048, or the Go literal chosen 1500,
+one query would have answered it.
+
+**What generalises:** when a hardcoded fallback is numerically equal to the configured value it is meant
+to stand in for, the instrument that would detect the defect returns the same reading either way. This
+is not "hard to measure" — it is **unmeasurable by construction**, and it looks like a clean result.
+Logged in `WRONG_CALLS.md` and filed as a `LANDMINES.md` entry, because the next person to check whether
+a budget "arrived" will hit it with no symptom to warn them.
+
+`repair_ordering_register` is the live case: `offer-analyser` declares 2000 on both its steps, the Go
+literal is 2000, [MEASURED 2026-09-03] 29 calls all at 2000, 0 truncations, max output 600. Not burning
+— its answers are nowhere near the cap — but **whether the config is being read at all is currently
+unknowable from the data.**
+
+### Censuses re-run today, because the bug file's are stale by addition
+
+- **Direct call sites: 12**, not the 9 in §4. That census has now been wrong three times (missed the
+  Gemini client, missed a site that arrived within days, predates these two). The grep is in the
+  handoff.
+- **Live config, 208 active agents:** 149 steps declare `config.ai_service.max_tokens`; 10 agent-level;
+  3 root; **7 declare a top-level `config.max_tokens` outside `ai_service`** (`site-adoption-agent` x4,
+  `html-developer-chunked` x3) which may be a sixth spelling nobody reads; 0 declare a value `<= 0`;
+  1 declares `max_tokens_ceiling` (bug 337's seam).
+- **A live config trap with no traffic:** the 10 agent-level entries are all `content-creator-*` agents
+  whose *step* blocks say 8000 while the agent top says 1500–2000. `ai_actions.go:357` gives the
+  agent-level key priority, so the smaller number wins. **None of those ten has ever written an
+  `llm_call_log` row**, so it is latent, not burning. Recorded, not acted on.
+
+### What the next session should do
+
+The plan is in `HANDOFF_2026-09-03_continue_here.md` §5, unsubmitted to the council. Short version:
+replace both hand-rolled blocks with `llmOptionsFromConfig` (three behaviour changes, all measured inert
+on today's fleet), then widen the existing call-site guard from two named files to the whole package.
+⚠ The test must not land before the fix, or HEAD breaks for every other session on this tree, and the
+two current violations must not be allow-listed to make it green.
