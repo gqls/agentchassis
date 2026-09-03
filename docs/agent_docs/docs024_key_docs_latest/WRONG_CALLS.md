@@ -64470,3 +64470,41 @@ mid-flow on something else are independent. The cheap check is to use a heredoc
 - **The compensation, and it only exists because the contradiction was chased:** the same query that
   refuted me identifies the fix. It is two template expressions with a working reference implementation
   beside them, fleet-wide, instead of the seven-site data migration I had been proposing.
+
+## 2026-09-03 — my security fix broke a customer-facing link, and the post-condition I wrote to make it safe could not see it (`bugs_open/472`)
+
+- **The claim.** Migration 758 converts two news scripts from string concatenation to element
+  construction, and adds `safeHref()` so an `href` cannot carry a `javascript:` URL. I wrote a
+  `DO/RAISE` verify block, rehearsed it under `BEGIN/ROLLBACK`, and **induced it to fail** to
+  prove it bites. I then said in the commit message that the guard bites and is not decoration.
+- **What was true.** `safeHref` was `/^https?:\/\//`, and I applied it to **two different kinds
+  of URL**. `item.url` is third-party and absolute — http(s)-only is right. `data.insights_url`
+  is **internal and site-relative**, filled from `pages.url`
+  (`render_news_section_action.go:213-218`). Every live value is `/news.html`,
+  `/news/index.html` or `/noticias/index.html`, none of which match `^https?://`. So the
+  "More insights" footer link would have become `href="#"` **on every site with a news index**.
+  A security fix that breaks a customer-facing link is a worse outcome than the exposure it
+  closes.
+- **What misled me.** One helper name over two URLs that share a *field type* and share nothing
+  else. `href` is `href`, so a single guard felt obviously right — and the trust boundary, not
+  the field type, is what should have split it.
+- **⚠ THE PART THAT MATTERS MORE THAN THE BUG.** My verify asserted
+  `js_content LIKE '%safeHref%'`. **That is PRESENCE, and presence is satisfied perfectly by a
+  helper that breaks every internal link.** I had already added a positive control elsewhere in
+  the same block (the `textContent` helper must be *present*, so an UPDATE writing an empty
+  string cannot pass) — and then wrote the href check to the weaker standard two lines later.
+  **The check I wrote to make the migration safe could not see the defect the migration
+  shipped**, and the induced-failure test I was pleased with induced a *different* failure, so
+  it proved the block ran rather than that it discriminated.
+- **What caught it.** The components lane, on review, before apply. Not any check of mine.
+- **The cheap check that would have.** Assert the **behaviour-bearing literal**, not the symbol
+  name: the post-condition now requires the `^\/(?!\/)` arm to be present, and induces the
+  *actual* regression — collapsing the internal helper back to the strict form **with both
+  helper names still present** — which now aborts and previously passed.
+- **This is the SECOND time today**, which is why it is worth the tally rather than an
+  apology. The first was the sweep's new JSON arm scoring **0** on the very file it was written
+  to catch. Same shape both times: *a check that confirms a thing is THERE, mistaken for a
+  check that confirms it WORKS.* The general form is to name what the check would still pass
+  if the feature were broken, and if the answer is "everything", it is not a check.
+- **Cost.** None shipped — the migration is `_HOLD` and was still unapplied. That was luck in
+  timing and a peer's diligence, not a control of mine.
