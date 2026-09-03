@@ -751,3 +751,30 @@ now should not assume today's two-separate-sites structure is permanent,
 and the about-page-commercial lane's CTA work may care about which
 domain becomes canonical and when. Relayed to both peer lanes — this
 lane does not act on the consolidation itself, only flags it exists.
+
+## 2026-09-03 (later still) — webdesign shopfront claim CORRECTED (by a peer, verified before propagating); merge-vs-sale coupling RULED: quote as a pair
+
+**Correction, caught by copy_quality_two_stage and independently
+verified before accepting it**: this lane's own RUNBOOK claimed
+`webdesign.co.uk` (155 pages) was the shopfront — backwards. Checked
+`CLAUDE.md:716` directly rather than trusting the correction on say-so:
+it quotes the owner's own words, "the webdesign.uk shopfront." So
+`webdesign.uk` (18 pages) is both the shopfront AND the owner's
+seven-figure example — the same domain, not two separate facts. The
+original wrong claim was an inference from page count and domain
+pattern, never checked — same failure class this session has caught
+twice already (the date mixup, the git-mv duplication). RUNBOOK
+corrected with a visible `> **CORRECTED**` marker rather than silently
+edited.
+
+**The coupling copy_quality_two_stage raised — two domains destined to
+merge, both in scope for independent sale — put to the owner directly**
+(AskUserQuestion): quote as a pair / list separately and accept the risk
+/ hold both off the market. **RULED: quote as a pair.** Matches the
+valuation lane's own recommendation exactly (their reasoning: two
+independent prices would systematically under-price the pair and
+over-price the part — consolidation makes one canonical and the other a
+redirect, so selling either alone hands away brand adjacency the
+business needs). Relayed to the valuation lane as the ruling, not a
+recommendation to weigh — their pricing work on this pair should proceed
+on a combined basis, not two independent figures.

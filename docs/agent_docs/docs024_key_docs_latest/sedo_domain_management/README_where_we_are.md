@@ -291,3 +291,16 @@ it matters for pricing and for which one eventually carries the site.
 Nothing for me to act on there myself, just making sure it's on the
 record so nobody prices or plans around the current two-separate-sites
 picture as if it were permanent.
+
+## 2026-09-03 (later still) — a correction, and your call on the webdesign pair
+
+Small correction on my part: I had it backwards earlier — webdesign.uk
+(not .co.uk) is the actual shopfront, and it's the same domain you gave
+as your seven-figure example, not two separate things. Checked it
+properly against the record before telling you, so that's now right.
+
+You said quote them as a pair, which matches what the valuation thread
+independently recommended too — selling either one alone would hand part
+of the eventual merged value to whoever buys it, since the two would no
+longer be under your control together. They'll now price the two as one
+combined figure rather than two separate numbers.
