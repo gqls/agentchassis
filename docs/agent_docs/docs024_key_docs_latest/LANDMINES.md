@@ -21358,3 +21358,35 @@ END $$;
   fixing thread — the council's `bug_historian` seat objected on scope (corr
   `5775dc10-c791-4285-9f4c-249a055b5aa3`, round 1), and the census confirmed the seat.
 - **added:** 2026-09-03, robot_hands_gripper_dossier lane
+
+### A call-site census scoped to one directory returns a COMPLETE-LOOKING population — and `grep -l` for a symbol matches the file that says it does NOT use that symbol
+
+- **footprint:** any `grep -rl`/`-rn` census over `platform/orchestration/actions/*.go`, any
+  "who calls X / how many writers does Y have" population, `checkBannedClaims`,
+  `ScanAllBannedClaims`, `ScanVoice`, `internal/agents/`, `discovery_checks/`, `cmd/`
+- **fires when:** you build a population — writers of a column, callers of a gate, producers of an
+  item type — to size a fix, file a bug, or claim a blast radius. The estate's own norms push you
+  here: "census the write history before designing a guard", "name the consumers", "N writers as
+  of \<date\>". The census is the deliverable, and the grep that produces it is rarely audited.
+- **the tell:** none in the output. Both failure modes look exactly like a correct answer.
+  **(1) TOO NARROW:** `platform/orchestration/actions/*.go` is ONE directory, TOP LEVEL only — it
+  cannot see `discovery_checks/` one level down, `internal/agents/…`, or `cmd/`. Measured
+  2026-09-03: a copy-gate caller census run that way returned **5 files** and the whole-tree
+  re-run returned **10**, including a whole second package (`internal/agents/contentcreator/`).
+  **(2) COMMENTS COUNT AS CALLS:** `-l` prints the filename and hides the line, so a file whose
+  only mention of the symbol is a comment saying *"`checkBannedClaims` … has nothing to do with
+  this change"* enters the population as a caller. That exact file did.
+- **the check:** three things, all seconds long, and the third is the one that makes the other two
+  provable:
+  ```bash
+  # 1. -n, never -l: you must SEE the line to know it is not a comment.
+  # 2. whole tree, then filter — never pre-narrow to where you expect the answer.
+  grep -rnE "checkBannedClaims\(|ScanVoice\(" --include=*.go platform/ internal/ pkg/ cmd/ \
+    | grep -v _test | grep -vE ":[0-9]+:\s*//" | grep -vE "^.*func checkBannedClaims"
+  # 3. A CONTROL THE CENSUS MUST FIND. Name a call site you already know exists;
+  #    if the pattern misses it, the pattern is broken, not the population empty.
+  ```
+  ⚠ Exclude the **definition** as well as the tests, or `func checkBannedClaims(...)` counts itself
+  as a caller — a third way to be one too many.
+- **source:** `bugs_closed/464` §7.1 (a bug whose entire content was a population, filed on an
+  unaudited grep and wrong in BOTH directions); `WRONG_CALLS.md` 2026-09-03

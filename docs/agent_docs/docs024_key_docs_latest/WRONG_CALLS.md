@@ -63281,3 +63281,34 @@ a-correct-predicate-wrapped-in-untested-inferences, prior-art-search-goes-stale.
   (`bugs_open/257` §2026-09-03b, commit `51357cf51`). The cost is that the same lane's census has now
   been wrong four times in three weeks, twice by staleness and twice by method — and it is quoted by
   other documents.
+
+## 2026-09-03 — a call-site census wrong in BOTH directions, and neither error is visible in the grep's own output (session bugsweep 2, `bugs_closed/464` §7.1)
+
+- **The claim.** `bugs_open/464` §2, filed at the council's request, stated the population of
+  copy-gate callers as **five files**, one fixed and four unread, from
+  `grep -rlE "ScanVoiceSingleValue|ScanVoice\(|checkBannedClaims" platform/orchestration/actions/*.go`.
+- **Why it was false, twice over.**
+  **(a) A FALSE POSITIVE from a COMMENT.** `section_editor_regulated_guard.go` is not a caller. It
+  names `checkBannedClaims` on line 12, in prose, explaining what it deliberately does *not* use.
+  **A grep for a symbol matches the document that says it is not using that symbol** — and a
+  file-list grep (`-l`) hides the line, so there is nothing on screen to notice.
+  **(b) FALSE NEGATIVES, and these are the worse half.** The pattern ran over
+  `platform/orchestration/actions/*.go` — **one directory, top level only**. It could not see
+  `internal/agents/contentcreator/claims_guard.go`, two files under `discovery_checks/`,
+  `provocation_gate_action.go`, or two `cmd/` tools. **A directory-scoped census returns a
+  complete-looking population and is structurally silent about what it never looked at.**
+- **What caught it.** Reading the files, which is what the bug existed to do. (a) surfaced on
+  opening file one and finding no call in it; (b) surfaced from asking, before concluding, whether
+  the sweep's own scope could have missed anything — the whole-tree re-run found five more.
+- **The mistake, precisely.** I filed a bug whose entire content was a population, derived from a
+  grep, and did not audit the grep. The file even *said* "grep intersection, not a read" about its
+  other half — so I knew the method was weak and still let it define the scope.
+- **The cheap checks that would have.** Three, all seconds long: **(1)** grep with `-n`, never
+  `-l`, when the question is "does this file CALL it" — you must see the line to see it is a
+  comment. **(2)** Scope any census to the whole tree (`platform/ internal/ pkg/ cmd/`) and let
+  the output be long, rather than pre-narrowing to where you expect the answer. **(3)** Give the
+  census a control that must appear — here, the one known caller — so a broken pattern is
+  distinguishable from a true absence.
+- **Cost.** None escaped: the bug was filed and closed the same day and the corrections are in it.
+  But had nobody read the files, the estate would hold a numbered bug asserting a five-file
+  population that was wrong in both directions, which is worse than no bug at all.
