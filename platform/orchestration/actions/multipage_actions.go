@@ -40,7 +40,7 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 	// an error here would fail the whole workflow and strand every page after this
 	// one. See owned_page_guard.go for why this seam rather than git_commit.
 	if pageID, pageName, ok := resolveGuardedPage(ctx, params.DB, params.CollectedData, params.Logger); ok {
-		owned, checked := pageIsOwnedForGuard(ctx, params.DB, pageID, params.Logger)
+		refused, class, checked := pageRefusesGenericBuild(ctx, params.DB, pageID, params.Logger)
 
 		// The fail-open window, made countable instead of silent (council
 		// `bug_historian`, medium). This page is about to be composed and committed
@@ -51,29 +51,37 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
 				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
 				"assemble_page", "OWNED_PAGE_GUARD_UNCHECKED", "high",
-				fmt.Sprintf("rebuild_policy for page %s (%s) could not be read; generic assembly proceeded without an ownership check",
+				fmt.Sprintf("build policy for page %s (%s) could not be read; generic assembly proceeded without an ownership or tool-shell check",
 					pageName, pageID),
 				map[string]interface{}{"page_id": pageID.String(), "page_name": pageName},
 				params.Logger)
 		}
 
-		if owned {
+		if refused {
 			reason := fmt.Sprintf(
 				"%s: page %s is rebuild_policy=owned (tool/widget-owned); a generic recomposition "+
 					"would be committed over the live page. Use the tool pipeline for rebuilds or "+
 					"apply_section_edit for targeted edits.",
 				ownedPageSkipReasonPrefix, pageName)
+			if class == refusalToolPending {
+				reason = fmt.Sprintf(
+					"%s: page %s is page_type=tool with no tool component; a generic recomposition "+
+						"would commit prose about a tool that is not there. The tool pipeline builds "+
+						"the component and this refusal then lifts by itself.",
+					ownedPageSkipReasonPrefix, pageName)
+			}
 
-			params.Logger.Warn("AssemblePageAction: OWNED PAGE — generic assembly refused before deploy",
+			params.Logger.Warn("AssemblePageAction: PAGE REFUSES GENERIC BUILD — assembly refused before deploy",
 				zap.String("page_name", pageName),
 				zap.String("page_id", pageID.String()),
+				zap.String("refusal_class", class),
 			)
 
 			if siteID, parseErr := uuid.Parse(
 				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
 			); parseErr == nil {
 				emitOwnedPageReviewItem(ctx, params.DB, siteID, pageName,
-					"assemble_page", reason, params.Logger)
+					"assemble_page", reason, class, params.Logger)
 			}
 
 			return map[string]interface{}{

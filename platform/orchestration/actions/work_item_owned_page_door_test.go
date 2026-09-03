@@ -55,14 +55,29 @@ import (
 	"go.uber.org/zap"
 )
 
-// rebuildPolicyReadSQL is the statement readRebuildPolicy runs. It is written
-// here ONCE, as the expectation source for every test in this file.
-const rebuildPolicyReadSQL = `
-		SELECT COALESCE(rebuild_policy, 'generic') FROM pages WHERE id = $1
+// rebuildPolicyReadSQL is the statement readGenericBuildPolicy runs. It is
+// written here ONCE, as the expectation source for every test in this file, and
+// it is RENDERED FROM the shared predicate rather than transcribed — hand-write
+// the shell fragment anywhere else and this expectation stops matching, which is
+// the coupling proof the file's header describes.
+//
+// It reads TWO columns since bugs_open/450: the policy, and whether the page is
+// a tool with no tool component. Both fixture helpers below therefore return two
+// columns, and a one-column fixture will not compile.
+var rebuildPolicyReadSQL = `
+		SELECT COALESCE(pages.rebuild_policy, 'generic'),
+		       ` + toolShellPredicateFor("pages") + `
+		FROM pages WHERE pages.id = $1
 	`
 
+// policyRows builds the door's first-question result: (rebuild_policy, tool_shell).
+func policyRows(policy string, toolShell bool) *sqlmock.Rows {
+	return sqlmock.NewRows([]string{"rebuild_policy", "tool_shell"}).AddRow(policy, toolShell)
+}
+
 // expectOwnedPageDeclarationProbe scripts the door's SECOND question, reached only
-// for an owned page: does this handler declare that it refuses owned pages?
+// for a page the generic builder may not write: does this handler declare that it
+// refuses such pages?
 func expectOwnedPageDeclarationProbe(mock sqlmock.Sqlmock, handler string, declares bool) {
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT " + workItemHandlerRefusesOwnedPagesSQL("$1"))).
 		WithArgs(handler).
@@ -70,11 +85,20 @@ func expectOwnedPageDeclarationProbe(mock sqlmock.Sqlmock, handler string, decla
 }
 
 // expectRebuildPolicyRead scripts the door's FIRST question, run for every
-// page-bearing write: is this page owned?
+// page-bearing write: is this page owned? (Not a tool shell — see
+// expectToolShellPolicyRead for that arm.)
 func expectRebuildPolicyRead(mock sqlmock.Sqlmock, pageID uuid.UUID, policy string) {
 	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow(policy))
+		WillReturnRows(policyRows(policy, false))
+}
+
+// expectToolShellPolicyRead scripts a GENERIC page that is a tool with no tool
+// component — bugs_open/450's population, and the one the old door waved through.
+func expectToolShellPolicyRead(mock sqlmock.Sqlmock, pageID uuid.UUID) {
+	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
+		WithArgs(pageID).
+		WillReturnRows(policyRows("generic", true))
 }
 
 // expectRebuildPolicyReadError scripts a failed policy read.
@@ -106,7 +130,7 @@ func expectRebuildPolicyReadError(mock sqlmock.Sqlmock, pageID uuid.UUID, err er
 // never reached, which is the whole reason the policy read goes first.
 func expectWorkItemDoorStandsDown(mock sqlmock.Sqlmock) {
 	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
+		WillReturnRows(policyRows("generic", false))
 }
 
 // expectWorkItemDoorGenericPage is expectWorkItemDoorStandsDown by another name,
@@ -115,7 +139,7 @@ func expectWorkItemDoorStandsDown(mock sqlmock.Sqlmock) {
 // whatever its handler declares.
 func expectWorkItemDoorGenericPage(mock sqlmock.Sqlmock) {
 	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
+		WillReturnRows(policyRows("generic", false))
 }
 
 // doorItem is a content finding of the shape the producers actually file:
@@ -462,7 +486,7 @@ func TestOwnedPageParkedItem_KeepsIdentityTakesTheSignal(t *testing.T) {
 	orig := doorItem("triaged", "page-build-handler", &pageID)
 	orig.recurrenceExpected = false
 
-	parked, errText := ownedPageParkedItem(orig)
+	parked, errText := ownedPageParkedItem(orig, refusalOwned)
 
 	// THE RETRACTION CONTRACT. resolveWorkItems closes by (item_type, item_key)
 	// and `deferred` is not a closed status, so a row that keeps its identity is
@@ -557,7 +581,7 @@ func TestOwnedPageParkedItem_KeylessItemGetsABoundedKey(t *testing.T) {
 	orig := doorItem("triaged", "page-build-handler", &pageID)
 	orig.itemKey = ""
 
-	parked, _ := ownedPageParkedItem(orig)
+	parked, _ := ownedPageParkedItem(orig, refusalOwned)
 
 	want := "content_rewrite:owned_page:" + pageID.String()
 	if parked.itemKey != want {
@@ -577,7 +601,7 @@ func TestOwnedPageParkedItem_UnparsableSpecIsKept(t *testing.T) {
 	orig := doorItem("triaged", "page-build-handler", &pageID)
 	orig.spec = "not json at all"
 
-	parked, _ := ownedPageParkedItem(orig)
+	parked, _ := ownedPageParkedItem(orig, refusalOwned)
 
 	var spec map[string]interface{}
 	if err := json.Unmarshal([]byte(parked.spec), &spec); err != nil {
@@ -595,7 +619,7 @@ func TestOwnedPageParkedItem_TruncatesWithoutEatingTheMarker(t *testing.T) {
 	orig := doorItem("triaged", "page-build-handler", &pageID)
 	orig.summary = strings.Repeat("x", 400)
 
-	parked, _ := ownedPageParkedItem(orig)
+	parked, _ := ownedPageParkedItem(orig, refusalOwned)
 
 	if !strings.HasPrefix(parked.summary, ownedPageParkedPrefix) {
 		t.Error("the marker must survive truncation")

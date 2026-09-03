@@ -125,7 +125,7 @@ func TestFileBuildAskForEmptyPage(t *testing.T) {
 	// A door/write failure must never fail the skip: false, no panic.
 	db3, mock3, _ := sqlmock.New()
 	mock3.ExpectBegin()
-	mock3.ExpectQuery(`SELECT COALESCE\(rebuild_policy`).
+	mock3.ExpectQuery(`SELECT COALESCE\(pages.rebuild_policy`).
 		WillReturnError(errors.New("boom"))
 	if fileBuildAskForEmptyPage(context.Background(), db3, siteID, pageID, "p", nil, zap.NewNop()) {
 		t.Error("a write error must report filed=false")
@@ -139,9 +139,9 @@ func TestFileBuildAskForEmptyPage(t *testing.T) {
 // dedup conflict swallowed by the policy. If writeWorkItem grows a door that
 // queries before inserting, this helper is the one place to teach it.
 func expectBuildAskWrite(mock sqlmock.Sqlmock, pageID uuid.UUID, rows int64) {
-	mock.ExpectQuery(`SELECT COALESCE\(rebuild_policy`).
+	mock.ExpectQuery(`SELECT COALESCE\(pages.rebuild_policy`).
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow("generic"))
+		WillReturnRows(policyRows("generic", false))
 	mock.ExpectExec(`INSERT INTO site_work_items`).
 		WillReturnResult(sqlmock.NewResult(0, rows))
 }

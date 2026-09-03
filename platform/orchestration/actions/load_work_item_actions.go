@@ -1608,11 +1608,14 @@ const (
 // freed, detector re-files — which is bugs_open/333's own loop wearing a new
 // label. A detector re-raising a defect that genuinely came back is an ACTION
 // REQUEST here, not a third strike against a handler that never ran.
-func ownedPageParkedItem(item workItem) (workItem, string) {
+func ownedPageParkedItem(item workItem, refusalClass string) (workItem, string) {
 	refusedHandler := item.handlerAgent
 	pageID := ""
 	if item.pageID != nil {
 		pageID = item.pageID.String()
+	}
+	if refusalClass == "" {
+		refusalClass = refusalOwned
 	}
 
 	parked := item
@@ -1655,17 +1658,32 @@ func ownedPageParkedItem(item workItem) (workItem, string) {
 	// on an owned-page route" is the evidence bugs_open/277's route question
 	// needs. A per-finding string here would produce N buckets of one.
 	spec["builder_needed"] = "owned-page content route (" + refusedHandler + " declares refuse_owned_page)"
+	if refusalClass == refusalToolPending {
+		// A DIFFERENT bucket on purpose: these findings are not waiting on an
+		// owned-page route at all, they are waiting on a tool to be built. Grouping
+		// them with the owned ones would tell the roadmap sweep that N findings need
+		// a content route that would be the wrong thing to give them.
+		spec["builder_needed"] = "tool-builder (page is page_type=tool with no tool component — bugs_open/450)"
+	}
 	spec["finding_type"] = item.itemType
 	spec["not_dispatchable"] = "status 'deferred' + empty handler_agent — deliberate; " +
 		"promoting this row dispatches work the handler is forbidden to do (bugs_open/333, bugs_closed/077)"
 	spec["owned_page_guard"] = map[string]interface{}{
 		"refused_handler":   refusedHandler,
 		"page_id":           pageID,
+		"refusal_class":     refusalClass,
 		"requested_status":  item.status,
 		"original_priority": item.priority,
 		"filed_by":          "writeWorkItem policy door (bugs_open/333)",
 	}
 	spec["what_to_do"] = ownedPageParkedAdvice(item.itemType)
+	if refusalClass == refusalToolPending {
+		spec["what_to_do"] = "The page is typed 'tool' but carries no tool component, so any generic " +
+			"build of it publishes prose about a tool that is not there (bugs_open/450). Do not " +
+			"promote this row. The tool pipeline creates the component itself; when it does, this " +
+			"refusal lifts on its own and the finding — which keeps its item_key — is dispatchable " +
+			"again. If the page is not really a tool page, correct pages.page_type instead."
+	}
 
 	if encoded, err := json.Marshal(spec); err == nil {
 		parked.spec = string(encoded)
@@ -1680,6 +1698,12 @@ func ownedPageParkedItem(item workItem) (workItem, string) {
 		"%s: %s declares refuse_owned_page and page %s is rebuild_policy=owned — "+
 			"%s finding parked at deferred, not dispatched (bugs_open/333)",
 		ownedPageSkipReasonPrefix, refusedHandler, pageID, item.itemType)
+	if refusalClass == refusalToolPending {
+		parkedError = fmt.Sprintf(
+			"%s: %s declares refuse_owned_page and page %s is page_type=tool with no tool "+
+				"component — %s finding parked at deferred, not dispatched (bugs_open/450)",
+			ownedPageSkipReasonPrefix, refusedHandler, pageID, item.itemType)
+	}
 
 	return parked, parkedError
 }
@@ -1889,7 +1913,8 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 		workItemStatusHeadsForDispatch(item.status) &&
 		os.Getenv("DISABLE_OWNED_PAGE_DOOR_DEMOTION") == "" {
 
-		pagePolicy, policyErr := readRebuildPolicy(ctx, tx, *item.pageID)
+		pagePolicy, pageToolShell, policyErr := readGenericBuildPolicy(ctx, tx, *item.pageID)
+		refused, refusalClass := genericBuildRefusal(pagePolicy, pageToolShell)
 		switch {
 		case errors.Is(policyErr, sql.ErrNoRows):
 			// A page_id that does not resolve is ORDINARY at this seam —
@@ -1906,12 +1931,16 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 			// a log line and not an agent_error_log row: that write would go
 			// through this same transaction, so the one failure mode it must
 			// survive is exactly the one that would break it.
-			logger.Warn("writeWorkItem: OWNED_PAGE_DOOR_PROBE_FAILED rebuild_policy unreadable — "+
+			logger.Warn("writeWorkItem: OWNED_PAGE_DOOR_PROBE_FAILED page build policy unreadable — "+
 				"policy door standing down, handler's own refusal remains the backstop",
 				zap.String("page_id", item.pageID.String()), zap.Error(policyErr))
-		case pagePolicy == ownedRebuildPolicy:
-			// Only now — for an owned page, a small minority of writes — do we run
-			// the novel SQL. See the ordering note above.
+		case refused:
+			// Only now — for a page the generic builder may not write, a small
+			// minority of writes — do we run the novel SQL. See the ordering note
+			// above. The declaration probe is unchanged and asks the same question
+			// of the handler for both refusal classes: refuse_owned_page means "this
+			// handler will not build a page it is not allowed to build", and
+			// page-build-handler is its sole declarer.
 			var refusesOwned bool
 			if probeErr := tx.QueryRowContext(ctx,
 				"SELECT "+workItemHandlerRefusesOwnedPagesSQL("$1"), item.handlerAgent,
@@ -1921,13 +1950,14 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 					zap.String("handler_agent", item.handlerAgent),
 					zap.Error(probeErr))
 			} else if refusesOwned {
-				logger.Warn("writeWorkItem: OWNED PAGE — finding parked, not routed to a handler that refuses it",
+				logger.Warn("writeWorkItem: PAGE REFUSES GENERIC BUILD — finding parked, not routed to a handler that refuses it",
 					zap.String("handler_agent", item.handlerAgent),
 					zap.String("item_type", item.itemType),
 					zap.String("item_key", item.itemKey),
 					zap.String("page_id", item.pageID.String()),
+					zap.String("refusal_class", refusalClass),
 					zap.String("requested_status", item.status))
-				item, ownedParkedError = ownedPageParkedItem(item)
+				item, ownedParkedError = ownedPageParkedItem(item, refusalClass)
 				ownedParked = true
 			}
 		}

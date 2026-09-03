@@ -183,10 +183,11 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// this replaced — the point is that there is one predicate rather than two
 	// drifting copies of "is this page owned".
 	{
-		if owned, _ := pageIsOwnedForGuard(ctx, params.DB, pageID, params.Logger); owned {
-			params.Logger.Warn("SavePageSectionsAction: OWNED PAGE — generic section save refused",
+		if refused, class, _ := pageRefusesGenericBuild(ctx, params.DB, pageID, params.Logger); refused {
+			params.Logger.Warn("SavePageSectionsAction: PAGE REFUSES GENERIC BUILD — section save refused",
 				zap.String("page_name", pageName),
 				zap.String("page_id", pageID.String()),
+				zap.String("refusal_class", class),
 			)
 
 			// bugs_open/295: refusing is right; refusing SILENTLY is not.
@@ -217,13 +218,27 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			// names apply_section_edit as the route that DOES work on an owned page.
 			// Errors inside the emit are swallowed by design: reporting must never be
 			// what breaks a guard.
+			//
+			// bugs_open/450 added the second refusal class. The owned wording is
+			// preserved BYTE FOR BYTE — it is the text a live operator query and a
+			// pinned test both read — and the tool_pending case gets its own, because
+			// telling someone their page is "rebuild_policy=owned" when it is
+			// 'generic' would send them to look at a column that says the opposite.
+			reason := fmt.Sprintf(
+				"%s: page %s is rebuild_policy=owned (tool/widget-owned); a generic "+
+					"section save would clobber it. Use apply_section_edit for targeted "+
+					"edits or the tool pipeline for rebuilds.",
+				ownedPageSkipReasonPrefix, pageName)
+			if class == refusalToolPending {
+				reason = fmt.Sprintf(
+					"%s: page %s is page_type=tool with no tool component; a generic "+
+						"section save would publish prose about a tool that is not there. "+
+						"The tool pipeline builds it (add_tool → tool-deployer), after which "+
+						"this refusal lifts by itself.",
+					ownedPageSkipReasonPrefix, pageName)
+			}
 			emitOwnedPageReviewItem(ctx, params.DB, siteID, pageName, "save_page_sections",
-				fmt.Sprintf(
-					"%s: page %s is rebuild_policy=owned (tool/widget-owned); a generic "+
-						"section save would clobber it. Use apply_section_edit for targeted "+
-						"edits or the tool pipeline for rebuilds.",
-					ownedPageSkipReasonPrefix, pageName),
-				params.Logger)
+				reason, class, params.Logger)
 
 			// The error LEADS with ownedPageSkipReasonPrefix (owner decision 1,
 			// 2026-08-18). routeToErrorStep copies this message verbatim into
@@ -235,6 +250,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			// is what update_work_item_status' owned_page_refusal_status reads.
 			// Without it every save error looks alike at the only place the
 			// item's terminal status is chosen.
+			if class == refusalToolPending {
+				return nil, fmt.Errorf(
+					"%s: page %s is page_type=tool with no tool component: a generic section save "+
+						"would publish prose about a tool that is not there. The tool pipeline "+
+						"builds the component (add_tool → tool-deployer) and this refusal then "+
+						"lifts by itself. Refusing to overwrite.",
+					ownedPageSkipReasonPrefix, pageName)
+			}
 			return nil, fmt.Errorf(
 				"%s: page %s is rebuild_policy=owned (tool/widget-owned): a generic section save "+
 					"would clobber it. Use apply_section_edit for targeted edits or the tool "+

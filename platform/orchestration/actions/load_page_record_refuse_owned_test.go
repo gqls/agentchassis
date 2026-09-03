@@ -47,9 +47,9 @@ func TestLoadPageRecord_RefuseOwnedPageRefusesBeforeTheWriter(t *testing.T) {
 	mock.ExpectQuery(`WHERE site_id = \$1 AND name = \$2`).
 		WithArgs(siteID.String(), "tool-quiz").
 		WillReturnRows(pageRecordRow(pageID.String(), "tool-quiz"))
-	mock.ExpectQuery(`SELECT COALESCE\(rebuild_policy, 'generic'\) FROM pages`).
+	mock.ExpectQuery(`SELECT COALESCE\(pages.rebuild_policy`).
 		WithArgs(pageID.String()).
-		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow("owned"))
+		WillReturnRows(policyRows("owned", false))
 	mock.ExpectExec(`INSERT INTO site_work_items`).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -93,9 +93,9 @@ func TestLoadPageRecord_RefuseOwnedPageGenericProceeds(t *testing.T) {
 	mock.ExpectQuery(`WHERE site_id = \$1 AND name = \$2`).
 		WithArgs(siteID.String(), "about").
 		WillReturnRows(pageRecordRow(pageID.String(), "about"))
-	mock.ExpectQuery(`SELECT COALESCE\(rebuild_policy, 'generic'\) FROM pages`).
+	mock.ExpectQuery(`SELECT COALESCE\(pages.rebuild_policy`).
 		WithArgs(pageID.String()).
-		WillReturnRows(sqlmock.NewRows([]string{"coalesce"}).AddRow("generic"))
+		WillReturnRows(policyRows("generic", false))
 
 	out, err := LoadPageRecordAction(context.Background(), params)
 	if err != nil {
@@ -172,7 +172,7 @@ func TestLoadPageRecord_RefuseOwnedPageFailsOpenOnUnreadablePolicy(t *testing.T)
 	mock.ExpectQuery(`WHERE site_id = \$1 AND name = \$2`).
 		WithArgs(siteID.String(), "tool-quiz").
 		WillReturnRows(pageRecordRow(pageID.String(), "tool-quiz"))
-	mock.ExpectQuery(`SELECT COALESCE\(rebuild_policy, 'generic'\) FROM pages`).
+	mock.ExpectQuery(`SELECT COALESCE\(pages.rebuild_policy`).
 		WithArgs(pageID.String()).
 		WillReturnError(fmt.Errorf("relation scan failed"))
 

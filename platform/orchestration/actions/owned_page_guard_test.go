@@ -157,9 +157,9 @@ func TestAssemblePage_OwnedPageIsSkippedNotAssembled(t *testing.T) {
 	pageID := uuid.New()
 	siteID := uuid.New()
 
-	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+	mock.ExpectQuery("SELECT COALESCE\\(pages.rebuild_policy").
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("owned"))
+		WillReturnRows(policyRows("owned", false))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -214,9 +214,9 @@ func TestAssemblePage_GenericPageStillAssembles(t *testing.T) {
 
 	pageID := uuid.New()
 
-	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+	mock.ExpectQuery("SELECT COALESCE\\(pages.rebuild_policy").
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
+		WillReturnRows(policyRows("generic", false))
 
 	params := assembleParams(db, map[string]interface{}{
 		"current_page": map[string]interface{}{
@@ -259,9 +259,9 @@ func TestAssemblePage_WorkItemShapeIsGuarded(t *testing.T) {
 	siteID := uuid.New()
 
 	// No current_page at all: resolution must fall through to the item spec.
-	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+	mock.ExpectQuery("SELECT COALESCE\\(pages.rebuild_policy").
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("owned"))
+		WillReturnRows(policyRows("owned", false))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -301,7 +301,7 @@ func TestAssemblePage_FailsOpenWhenPolicyUnreadable(t *testing.T) {
 
 	pageID := uuid.New()
 
-	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+	mock.ExpectQuery("SELECT COALESCE\\(pages.rebuild_policy").
 		WithArgs(pageID).
 		WillReturnError(context.DeadlineExceeded)
 
@@ -352,9 +352,9 @@ func TestSavePageSections_RefusesOwnedPage(t *testing.T) {
 	mock.ExpectQuery("SELECT id, url FROM pages").
 		WithArgs(siteID, "tool-gauntlet").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/tools/gauntlet/index.html"))
-	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+	mock.ExpectQuery("SELECT COALESCE\\(pages.rebuild_policy").
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("owned"))
+		WillReturnRows(policyRows("owned", false))
 
 	params := ActionParams{
 		StepConfig: models.Step{Config: map[string]interface{}{}},
@@ -701,9 +701,9 @@ func TestSavePageSections_OrdinarySkipIsNotClaimed(t *testing.T) {
 	mock.ExpectQuery("SELECT id, url FROM pages").
 		WithArgs(siteID, "about").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/about.html"))
-	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+	mock.ExpectQuery("SELECT COALESCE\\(pages.rebuild_policy").
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
+		WillReturnRows(policyRows("generic", false))
 
 	params := ActionParams{
 		StepConfig: models.Step{Config: map[string]interface{}{}},
@@ -763,9 +763,9 @@ func TestSavePageSections_OwnedRefusalEmitsReviewItem(t *testing.T) {
 	mock.ExpectQuery("SELECT id, url FROM pages").
 		WithArgs(siteID, "tool-gauntlet").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/tools/gauntlet/index.html"))
-	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+	mock.ExpectQuery("SELECT COALESCE\\(pages.rebuild_policy").
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("owned"))
+		WillReturnRows(policyRows("owned", false))
 
 	// The record itself. Args are pinned where they carry meaning: the site it
 	// belongs to, the source that refused (the column that tells this row apart

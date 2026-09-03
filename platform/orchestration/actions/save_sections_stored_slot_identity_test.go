@@ -344,9 +344,9 @@ func expectSaveSlotReadsPreloading(mock sqlmock.Sqlmock, siteID, pageID uuid.UUI
 		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/tools/loan-vs-savings.html"))
 
 	// Page-ownership guard (rebuild_policy)
-	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+	mock.ExpectQuery("SELECT COALESCE\\(pages.rebuild_policy").
 		WithArgs(pageID).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
+		WillReturnRows(policyRows("generic", false))
 
 	// Layer 2 interactive-section preload. ⚠ The matcher must track the query's
 	// actual text: when phase 2 added a LEFT JOIN and qualified the columns, the

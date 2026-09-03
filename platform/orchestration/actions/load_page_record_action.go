@@ -256,29 +256,42 @@ func refuseOwnedPageIfConfigured(ctx context.Context, params ActionParams, res i
 	}
 	pageName, _ := m["name"].(string)
 
-	owned, checked := pageIsOwnedForGuard(ctx, params.DB, pageID, logger)
+	refused, class, checked := pageRefusesGenericBuild(ctx, params.DB, pageID, logger)
 	if !checked {
-		logger.Warn("LoadPageRecordAction: rebuild_policy unreadable — early guard standing down, save-path guard remains",
+		logger.Warn("LoadPageRecordAction: page build policy unreadable — early guard standing down, save-path guard remains",
 			zap.String("page_id", pageID.String()),
 			zap.String("page_name", pageName))
 		return res, nil
 	}
-	if !owned {
+	if !refused {
 		return res, nil
 	}
 
+	// This is the seam that matters most for bugs_open/450's BACKLOG. A write-time
+	// door cannot touch the ~339 unbuilt_internal_link items already queued against
+	// shell pages; they arrive here, and refusing at load spends no LLM tokens on a
+	// page whose save would be refused anyway.
 	reason := fmt.Sprintf(
 		"%s: page %s is rebuild_policy=owned (tool/widget-owned); refused at load, before the "+
 			"content writer runs — a generic section save would be refused at save_page_sections "+
 			"anyway, after the LLM work was already spent. Use apply_section_edit for targeted "+
 			"edits or the tool pipeline for rebuilds.",
 		ownedPageSkipReasonPrefix, pageName)
+	if class == refusalToolPending {
+		reason = fmt.Sprintf(
+			"%s: page %s is page_type=tool with no tool component; refused at load, before the "+
+				"content writer runs — building it generically would publish prose about a tool "+
+				"that is not there. The tool pipeline creates the component itself, after which "+
+				"this refusal lifts by itself.",
+			ownedPageSkipReasonPrefix, pageName)
+	}
 
-	logger.Warn("LoadPageRecordAction: OWNED PAGE — generic build refused before the writer",
+	logger.Warn("LoadPageRecordAction: PAGE REFUSES GENERIC BUILD — refused before the writer",
 		zap.String("page_name", pageName),
-		zap.String("page_id", pageID.String()))
+		zap.String("page_id", pageID.String()),
+		zap.String("refusal_class", class))
 
-	emitOwnedPageReviewItem(ctx, params.DB, siteID, pageName, "load_page_record", reason, logger)
+	emitOwnedPageReviewItem(ctx, params.DB, siteID, pageName, "load_page_record", reason, class, logger)
 
 	return nil, fmt.Errorf("%s", reason)
 }

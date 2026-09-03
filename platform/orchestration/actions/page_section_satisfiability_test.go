@@ -64,10 +64,17 @@ func expectPlanMembership(mock sqlmock.Sqlmock, member bool) {
 // which way the guard answers. rebuildPolicyReadSQL is the door test's pin of
 // the same statement — one literal, both guards.
 func expectEscalationOwnershipGuard(mock sqlmock.Sqlmock, policy string) {
+	expectEscalationBuildPolicyGuard(mock, policy, false)
+}
+
+// expectEscalationBuildPolicyGuard is the same fixture with the tool-shell
+// column exposed, so a test can script bugs_open/450's population: a GENERIC
+// tool page carrying no tool component.
+func expectEscalationBuildPolicyGuard(mock sqlmock.Sqlmock, policy string, toolShell bool) {
 	mock.ExpectQuery("SELECT id, url FROM pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(uuid.New(), "/x"))
 	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
-		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow(policy))
+		WillReturnRows(policyRows(policy, toolShell))
 }
 
 // expectNeedsPageInsert covers the statement sequence a needs_page emit

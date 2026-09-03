@@ -87,7 +87,7 @@ func GetPagesToBuildAction(ctx context.Context, params ActionParams) (interface{
 	// told why it never rebuilt.
 	var excludedOwned []string
 	if !includeOwned {
-		excludedOwned = censusExcludedOwnedPages(ctx, params.DB, siteID, statusFilter, includeAll,
+		excludedOwned = censusExcludedRefusedPages(ctx, params.DB, siteID, statusFilter, includeAll,
 			"get_pages_to_build", logger)
 	}
 
@@ -125,7 +125,28 @@ func GetPagesToBuildAction(ctx context.Context, params ActionParams) (interface{
 // 'generic' today (migration 164): a bare `rebuild_policy <> 'owned'` would drop
 // every row with a NULL policy if that default is ever relaxed, which is the same
 // shape of silent-omission bug this predicate exists to prevent.
+//
+// Kept BYTE-IDENTICAL when the tool-shell arm was added (bugs_open/450): the new
+// disjunct is appended by genericBuildExclusionSQL rather than folded in here,
+// so anything pinning this literal keeps matching and the owned arm can be read
+// on its own.
 const ownedPageExclusionSQL = ` AND COALESCE(rebuild_policy, 'generic') <> 'owned'`
+
+// genericBuildExclusionSQL is what the selection actually applies: the ownership
+// exclusion above, plus — while the arm is armed — the tool-shell exclusion from
+// owned_page_guard.go. Together they are the SQL spelling of
+// genericBuildRefusal, and censusExcludedRefusedPages is their exact inverse.
+//
+// A tool page with no tool must not be handed to a generic build loop for the
+// same reason an owned page must not: what comes back is prose where an
+// interactive tool belongs. The difference is only that this one is derived and
+// therefore lifts by itself when the tool arrives.
+func genericBuildExclusionSQL() string {
+	if !toolShellRefusalArmed() {
+		return ownedPageExclusionSQL
+	}
+	return ownedPageExclusionSQL + ` AND NOT ` + toolShellPredicateFor("pages")
+}
 
 // queryPagesForBuild queries pages that need building from the database
 // Returns page maps with fields needed by content writer and HTML builder
@@ -141,7 +162,7 @@ func queryPagesForBuild(ctx context.Context, db interface{}, siteID uuid.UUID, s
 	// this it would sweep every owned page on the site, including the ~189 sitting
 	// at 'deployed' (measured 2026-08-06) — a wider blast radius than the
 	// needs_rebuild case that surfaced the bug.
-	ownershipClause := ownedPageExclusionSQL
+	ownershipClause := genericBuildExclusionSQL()
 	if includeOwned {
 		ownershipClause = ""
 	}
