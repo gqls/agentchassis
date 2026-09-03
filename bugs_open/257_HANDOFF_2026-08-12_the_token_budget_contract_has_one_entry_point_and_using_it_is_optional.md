@@ -718,3 +718,21 @@ is the right subject.
 **Still open and still human calls:** candidate 2 (merging `ai_actions.go`'s inline block with the
 helper — import cycle, different precedence level), the `llm_call_log` blindness of direct callers
 (handoff §5 step 3), and now the four dead `site-adoption-agent` declarations above.
+
+### ✅ COUNCIL APPROVED — round 2, corr `c8660cfb-690d-4dd2-8b1f-25828305133e` (2026-09-03)
+
+`decided_by: "all reviewers approve"`, `gated_by_truncation: false`, no high-severity objection.
+Dispatched 16:21, decided 16:37 — **16 minutes**. Two objections were acted on in commit `54ee2d261`
+(`Council-Reviewed:`), not merely noted:
+
+- **`reuse_agent` MEDIUM** — the new package-wide audit coexists with the older two-file guard with no
+  stated consolidation plan. They differ by one assertion (the old one is a per-FILE "did my subject
+  move" alarm; its empty-map half is redundant), and both files now say so, so the decision to keep it
+  is stated rather than implicit.
+- **`guardian` MEDIUM** — verify Path A rather than assume it, given a landmine that contradicts it.
+  That landmine's heading is half false and its first bullet already says so; the seat read the heading.
+  Verified: `anthropic.go:75` constructs with `resolvedMaxTokens(config)`, `5cafe18ef` is an ancestor of
+  HEAD. **And the blast radius does not depend on Path A** — every live step here declares a budget, so
+  the helper always supplies an explicit `max_tokens`; Path A governs only an unconfigured caller.
+- **`guardian` LOW** — `fetchViaPerplexity` callers enumerated: exactly one, `feed_actions.go:419`,
+  updated in the same commit. It should have been in the submission.

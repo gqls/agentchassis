@@ -630,3 +630,49 @@ answered, and the answer splits:
 
 Not changed here: moving those four under `ai_service` is a live behaviour change with cost
 implications the moment it is applied, and it is the owner's call, not a side effect of a code commit.
+
+### Council verdict: ✅ APPROVED, `c8660cfb-690d-4dd2-8b1f-25828305133e`, 16 minutes after dispatch
+
+`decided_by: "all reviewers approve"`, `gated_by_truncation: false`, 6 seats decided, 6 abstained. Seats
+that spoke: `editquality`, `reuse_agent`, `guidelines`, `guardian`, `adoption_guardian`,
+`llm_reliability`, `debug_historian`. No high-severity objection. Answered in commit `54ee2d261`
+(trailer `Council-Reviewed:`, written only after reading the verdict):
+
+- **`reuse_agent`, MEDIUM — "two mechanisms answering the same question, never unified once both
+  exist".** The new package audit sits beside `TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap`
+  with no stated plan to consolidate. **A fair hit, and the objection is about the missing DECISION, not
+  the code.** They differ by exactly one assertion: the old test fails if EITHER named provocation file
+  stops calling `GenerateText` at all — a per-FILE alarm the package-wide version cannot give among ten
+  call sites. Its empty-map half IS redundant. Both files now say this, in both directions, so the next
+  reader can retire it deliberately rather than find two guards and guess.
+- **`guardian`, MEDIUM — verify the Path A premise; a landmine on record contradicts it.** Answered by
+  reading, not by a change: that landmine's heading is half false **and its own first bullet says so**
+  (*"⚠ CORRECTED 2026-08-16 — THE HEADING ABOVE IS NOW HALF FALSE"*). The seat read the heading.
+  Verified anyway — `platform/aiservice/anthropic.go:75` constructs with
+  `maxTokens: resolvedMaxTokens(config)`, and `git merge-base --is-ancestor 5cafe18ef HEAD` passes.
+  **And the sharper answer: this change's blast radius does not DEPEND on Path A.** Every live step
+  reached by the five call sites declares a budget, so the helper supplies an explicit `max_tokens` in
+  every live case; Path A governs only the hypothetical unconfigured caller.
+  ⚠ **Worth carrying:** a corrected-in-place landmine still misled a reviewer, because the heading is
+  what gets read. I did NOT rewrite that heading — it is the entry's `doc_notes` slug, and changing it
+  orphans the synced row. So the residual is real and belongs to whoever owns the landmine sync, not to
+  a session with an editor.
+- **`guardian`, LOW — enumerate `fetchViaPerplexity`'s callers instead of asserting the widening is
+  safe.** Done, and it should have been in the submission: exactly one, `feed_actions.go:419`, updated
+  in the same commit. The seat was objecting to *"asserted, not shown"*, which is the same objection
+  this lane drew in August and the correct one both times.
+- **`guardian`, LOW** — a future legitimate direct model call now fails the build. Intended; the test
+  now says what to do about it.
+- **`editquality`, LOW x2** — the `feed_actions` sketch did not show the call-site update (true of the
+  sketch; the commit does it), and edit 7 is comment-only (true, and deliberate: it corrects a note
+  whose prediction had been ignored twice).
+
+### One misstep this session, small but exactly the documented kind
+
+I polled the council with the `orchestration_states` jsonb scan **twice**, and both attempts died at
+exit 143 after the 100s timeout — while **this lane's own RUNBOOK, thirty lines above where I later
+appended, says in bold that this query times out and that an empty result from a timed-out query is
+indistinguishable from an empty result from a query that ran.** I read the RUNBOOK for the submission
+schema and not for the polling section. The indexed `diagnosis_artifacts` query answered in under a
+second. Cost: ~4 minutes and one background task. Recorded because the failure mode is *reading the
+document for the thing you came for* — the trap was already written down by this same lane.

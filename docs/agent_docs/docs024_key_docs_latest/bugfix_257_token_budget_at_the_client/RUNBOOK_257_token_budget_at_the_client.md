@@ -241,3 +241,105 @@ SELECT metadata->>'decision', left(body, 6000) FROM diagnosis_artifacts
 WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report'
 ORDER BY created_at DESC LIMIT 1;
 ```
+
+---
+
+## Round 2 (2026-09-03) — the commands this round needed, with their gotchas
+
+### Census: which live steps run an action, and where their budget is declared
+
+⚠ **`default_config->'workflow'->'steps'` walks TOP-LEVEL steps only** and misses anything inside a
+loop's `sub_workflow` — which is exactly where `rewrite_negations` lives. Use `jsonb_path_query` with a
+recursive path, or the census silently omits the case you are investigating.
+
+```sql
+SELECT a.type AS agent, s.key AS step_name, s.value->>'action' AS action,
+       s.value->'config'->>'max_tokens'                  AS step_top_mt,   -- the spelling nothing reads
+       s.value->'config'->'ai_service'->>'max_tokens'    AS ai_mt,         -- the one that works
+       s.value->'config'->'ai_service'->>'budget_tokens' AS ai_bt,
+       a.default_config->'ai_service'->>'max_tokens'     AS root_mt,
+       a.default_config->>'max_tokens'                   AS agent_mt       -- outranks ai_service
+FROM agent_definitions a,
+     LATERAL jsonb_path_query(a.default_config, '$.**.steps') AS steps,
+     LATERAL jsonb_each(steps) AS s
+WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND s.value->>'action' IN ('<action>', '<action>')
+ORDER BY 1,2;
+```
+
+Four columns, not one, because the budget can be declared in four places and only two are read. Drop
+the `action` filter and use `WHERE s.value->'config' ? 'max_tokens'` to find the dead spelling
+fleet-wide — that is how the four `site-adoption-agent` declarations were found.
+
+### Baseline: what a step actually SENT, pinned before a change
+
+```sql
+SELECT agent_type, step_name, max_tokens AS sent, count(*) AS calls,
+       max(output_tokens) AS max_out,
+       count(*) FILTER (WHERE output_tokens >= max_tokens) AS at_ceiling,
+       min(created_at)::date AS first_seen, max(created_at)::date AS last_seen
+FROM llm_call_log
+WHERE step_name LIKE '%<action>%'
+GROUP BY 1,2,3 ORDER BY 1,2,3;
+```
+
+⚠ Two traps in one query. **`step_name LIKE`, not `=`** — a loop substep is
+`process_sections_loop_iter_3_rewrite_negations`, so an equality filter returns zero rows and reads as
+"this never runs". And **`at_ceiling` here is NOT the truncation count** — a truncated call has
+`output_tokens` NULL (see the fleet-wide landmine); count truncations from
+`error_message ILIKE '%stop_reason=max_tokens%'`. Grouping by `sent` is the point of the query: it
+shows a configuration change as a change of group, which is how migration 569's 2000→16000 is visible.
+
+### Verifying a change when the working tree does not compile
+
+The shared tree carries every session's WIP, so `go test ./...` can fail on a file you have never
+opened (on 2026-09-03, another lane's untracked `recommended_type_reconciliation_test.go`). Do not
+touch their file. Overlay yours onto committed HEAD instead:
+
+```bash
+scripts/verify-head-builds.sh --test --with <file> [--with <file> …] ./platform/orchestration/actions/
+scripts/verify-head-builds.sh ./...            # after committing: does HEAD still build?
+```
+
+⚠ **A `FAILED` from `--test` is not necessarily yours.** Read which tests failed, then run the control:
+`git grep -l '<symbol the failure names>' HEAD` — if the symbol lives in files you did not touch, it is
+another lane's. On 2026-09-03 two failures (`TestFindingCodeScanEveryWriteIsRegistered`,
+`TestTemplateExecutorsAreDeclared`) came from committed HEAD and none of the seven files in flight
+mentioned either symbol.
+
+### Proving a new guard can actually fail
+
+`KEEP_TREE=1` leaves the checkout, and the mutations go **there**, never in the shared tree:
+
+```bash
+KEEP_TREE=1 scripts/verify-head-builds.sh --test --with <files…> ./platform/orchestration/actions/
+T=$(ls -dt /home/ant/.claude-scratch/head-verify/*/tree | head -1)
+# edit "$T/<file>" to reinstate the defect, run the one test, restore, repeat
+cd "$T" && go test ./platform/orchestration/actions/ -count=1 -run '<TheGuard>'
+rm -rf "$(dirname "$T")"      # ~450MB per checkout — reap it
+```
+
+One mutation per claim the guard makes. Four claims here → four mutations, each with the expected
+message read, not just a non-zero exit.
+
+### Polling for the council verdict — the WARNING FURTHER UP THIS FILE IS REAL
+
+The `orchestration_states` jsonb-scan poll **timed out twice on 2026-09-03**, despite being documented
+above as timing out at 100s. It presents as a `kubectl` hang and then exit 143, which reads like a
+cluster problem. Use the indexed artifact table from the start:
+
+```sql
+SELECT created_at, kind, metadata->>'decision' AS decision
+FROM diagnosis_artifacts WHERE correlation_id='<SUBMISSION_CORR>' ORDER BY created_at;
+```
+
+A `fix_plan` row appears within a minute of dispatch (the submission landed); the `council_report` row
+carries the decision. Round 2 of this lane: dispatched 16:21, `approved` at 16:37 — **16 minutes**, not
+the ~30 CLAUDE.md budgets for.
+
+### `097` admission: a comment-only sketch is refused client-side
+
+`DRY_RUN=1 097_TRIGGER_council_review_v1.sh <submission.json>` is free and catches it. **Every non-blank
+line of a `sketch` starting `//`, `--` or `#` is refused** — *"a fix plan proposes changes, not
+observations"*. That bites a documentation-only edit, whose sketch is genuinely all comment: write it as
+a **diff**, with `+` prefixes, which is both honest and admissible.
