@@ -781,3 +781,40 @@ once the site serves — no cleanup needed.
 > no separate Nominet step and nothing is waiting on the owner. What caught
 > it: the valuation lane read its own working table against my summary rather
 > than trusting it.
+
+## 2026-09-03 (night) — SECURITY FLAG relayed from owner: "someone else's account details in the listing"
+
+Owner's exact words (via the domain_valuation lane): *"They have someone else's
+account details in the listing and some of them have only just been added."*
+Re. 50 named .co.uk domains, of which 14 are new. Investigated everything
+queryable via the Dynadot API, read-only, no writes:
+
+- **`account_info` confirms the Dynadot account itself is unambiguously the
+  owner's**: Username `dqls`, Contact `Anthony Appleby` / `uk@websy.uk` (matches
+  this session's known user), Super Bulk tier. No sign of API-key or
+  account-level compromise. This also explains the "Anthony Appleby" value the
+  valuation lane's `check_registration.py` reads from RDAP — it is the owner's
+  own registrant name, not a stranger's; **not the flagged issue.**
+- **The 3 sampled `.co.uk` domains have NO Dynadot-native listing at all** —
+  `get_listing_item` returns `"can't find listing for <domain>"` for each.
+  `get_listings` with no domain filter is the PUBLIC marketplace browse
+  (409,875 total, none ours — `0.care`, `0.rich`, etc.), not an
+  account-scoped view; API3 has no "list only mine" filter.
+- **The API exposes NO seller/account/contact/payee field on any listing,
+  ever** — every listing response seen today (5 owned + these probes) carries
+  only `ListingId/Domain/Price/InboundLinks/Age/PendingSaleLocked/
+  RegistrationDate/ExpirationDate/Type`. Whatever "account details" the owner
+  is seeing on a page is UI-only, not reachable via API3 or RESTful v2.
+- **Conclusion: this cannot be Dynadot's own native marketplace** — the
+  domains aren't listed there at all, and even if they were, the API has
+  nothing resembling an account/payee field to leak. The venue is something
+  else: most likely Afternic directly (394/453 owned .com domains already
+  point at Afternic nameservers), a bulk-registration/parking agency's own
+  portal, or the Nominet-side tag relationship for these .co.uk names — none
+  of which this API can see into.
+- **What is needed next, and it can only come from the owner**: which exact
+  site/dashboard/URL showed "someone else's account" — a screenshot or the
+  literal page would settle it in one look. Also worth a precautionary
+  Dynadot account security check (recent login activity, API key age, 2FA) —
+  not because anything found here suggests compromise, but because "someone
+  else's account" is the kind of phrase worth ruling that out on cheaply.
