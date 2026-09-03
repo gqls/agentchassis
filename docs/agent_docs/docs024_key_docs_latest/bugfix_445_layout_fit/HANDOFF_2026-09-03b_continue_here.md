@@ -5,8 +5,9 @@ two of three rows and its prediction 1 has been RETIRED by evidence. Read this, 
 `README_where_we_are.md` (plain prose, owner's), then `NOTES_layout_fit.md` §(l) and §(m) — the
 missteps and the disconfirmation.
 
-**Everything shipped is live. Nothing is blocked. The open work is a sweep, a harness and a guard —
-plus one finding that changes what this lane should be measuring.**
+**Everything shipped is live and BOTH council verdicts are APPROVED. Nothing is blocked. The open
+work is a sweep, a harness, a guard, three advisory objections — plus one finding that changes what
+this lane should be measuring.**
 
 ---
 
@@ -38,19 +39,19 @@ causes stacked: the startup line had rotated (pods 3h old — empty means *out o
 logged by the chassis. Use RUNBOOK **r10** — structural grep first, then the binary probe. Do not
 re-derive this.
 
-## 2. COUNCIL — one approved, one was never produced, one is in flight
+## 2. COUNCIL — both phases APPROVED; the first Phase 1 verdict never existed
 
 | submission | correlation | state |
 |---|---|---|
 | Phase 5, migration 736 | `39942a14-…` | **APPROVED** round 1, "2 advisory objection(s) — none high-severity". Read in full. |
 | Phase 1, commit `76db94fc7` | `34d57f60-…` | **DEAD — no verdict ever existed.** Run stalled at `council_decide` (last activity 12:05:46Z), killed by the `v1.0.1358` roll (pods up 12:06:47Z), swept `FAILED` at 16:07:33Z. `fix_plan` artifact only; **no `council_report`**. |
-| Phase 1, **RESUBMITTED** | **`adfa4d03-67a8-419f-bc22-d0ef125f94ee`** | **In flight — READ IT.** Fired ~16:45Z this session. |
+| Phase 1, **RESUBMITTED** | **`adfa4d03-67a8-419f-bc22-d0ef125f94ee`** | **APPROVED** round 1, 17:02:22Z — "approved with 4 advisory objection(s) — none high-severity". **Read this session.** |
 
-**➤ FIRST ACTION FOR THE NEXT SESSION: read `adfa4d03`'s verdict.** RUNBOOK **r11**. If APPROVED,
-nothing needs re-committing — but `098` resolves `76db94fc7`'s trailer against the *dead*
-correlation `34d57f60`, which will never approve, so **the honest record is a short doc commit
-carrying `Council-Reviewed: adfa4d03-67a8-419f-bc22-d0ef125f94ee`** once you have READ an approved
-verdict. If REVISE, the code is already live fleet-wide — act on it rather than defer.
+**Done this session — Phase 1 is reviewed and approved.** The verdict was read in full before
+anything was written down. ⚠ **`098` will still show `76db94fc7` as AWAITING for ever**, because its
+trailer names the *dead* correlation `34d57f60`, which can never approve; the approval lives under
+`adfa4d03…`, carried by the doc commit that records this. Do not re-commit the code and do not
+amend (forward-only).
 
 ⚠ **The trap that cost this the most time, now a LANDMINE.** `098`'s coverage report reads **only**
 `diagnosis_artifacts`; it never asks whether the run is alive. A dead run buckets as **AWAITING**
@@ -58,6 +59,39 @@ with `no report yet (queued, or evidence cleared)` — *for ever*. `[MEASURED 20
 rows tonight, 2 carrying that annotation: one dead (this lane's), one genuinely executing
 (`dda64bd1`). **Same bucket, opposite truths.** Ask `orchestration_states`, not the report. The roll
 took **seven** runs at once and left **three** orphaned across three lanes.
+
+### Phase 1's four advisory objections — one ANSWERED with evidence, three OWED
+
+**ANSWERED, and it was the one that mattered most.** `editquality` (medium, edit 6) objected that
+"no migration is needed because `validate_resolved_composition_spec` is permissive on unknown keys"
+was *asserted, not verified*, and that **a rejected write would silently drop the new lineage
+fields** — which would make §4's proof unobtainable and look like a bug in the fix. **Checked at the
+live function** (`SELECT prosrc FROM pg_proc WHERE proname='validate_resolved_composition_spec'`):
+it validates *required* fields and the enumerated values of the three `*_source` fields, then
+`RETURN NULL`. **It never enumerates permitted keys and has no unknown-key rejection at all**, and
+`needs_new_layout_candidate` / `theme_kit_default` are already in the `layout_source` enum. So extra
+`lineage` keys (`layout_match_score`, `layout_fit`, `is_scheme_mismatch`) pass untouched. **The
+claim holds; the objection is answered, not deferred.**
+
+**OWED — carry these into the next commit that touches this code:**
+1. **`guidelines` (medium, edit 3) is a process obligation, not an opinion.** The new nested fields
+   (`tag_coverage`, `source`, `matched_terms`, `unmatched_terms`, `runner_up`, `threshold`,
+   `is_scheme_mismatch`) cross a **step boundary** — `install_site_composition_action` reads and
+   acts on them — so the 2026-07-24 output_contract exemption does not apply, and the 2026-08-11
+   nested-field ruling permits additions to an already-declared object input **only if named in the
+   seam's concept-register entry in the same commit**. That register update was not made. **Make
+   it.**
+2. **`guardian` (medium, edit 3): census the consumers of `lineage.layout_source` before relying on
+   the source-preference change.** The install side now prefers the resolver's reported `source`
+   over the old `is_fallback` inference; chrome/style-collection pinning and audit tooling are
+   plausible readers and were never enumerated. This is the estate's standing "measure the blast
+   radius, do not ask the reviewer to" rule.
+3. **`reuse_agent` (medium, edit 6): the three local `read*FromContext` helpers.** `datahelpers`
+   already carries `ExtractNestedField` / `ExtractNestedFieldInt` / `ExtractNestedFieldString` /
+   `ExtractNestedFieldMap` / `GetValueAtExactPath`. Check for a float equivalent before keeping a
+   bespoke one. Its second, low objection is worth a look during Phase 3: whether a shared
+   low-score/threshold-gap abstraction already exists (component menu resolution does a
+   structurally similar job) that `layoutFit` should extend rather than re-implement per domain.
 
 **Advisory objections on 736 — one refuted, two still owed.**
 - **Refuted at the code:** editquality claimed the `editorial`→`editorial-publication`
@@ -135,7 +169,9 @@ tags appear at rate, reword the sentence to describe the shape without naming in
 
 ## 6. WHAT IS NEXT, in order
 
-1. **Read `adfa4d03`'s verdict** (§2, RUNBOOK r11).
+1. ~~Read `adfa4d03`'s verdict~~ **DONE — APPROVED.** Act on its three owed objections (§2), the
+   register entry first: it is a stated obligation under the 2026-08-11 nested-field ruling, not a
+   preference.
 2. **Watch for the first post-roll composition** and confirm `lineage.layout_match_score` is
    present (§4). One query; it is the last unproven link in Phase 1.
 3. **Phase 2 — `internal/cronchecks`** (owner decision: before the sweep, answering the open
