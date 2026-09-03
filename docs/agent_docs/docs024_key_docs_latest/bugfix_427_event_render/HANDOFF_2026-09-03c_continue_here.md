@@ -19,14 +19,16 @@ remaining item is this lane's code.**
 
 ## 1. Decisions/actions that need a person, not a session
 
-1. **`bugs_open/450`'s scope decision on `pageRefusesGenericBuild`.** It refuses
-   `save_page_sections` on `page_type='tool'` pages with no `component_level='tool'` component.
-   `[MEASURED 2026-09-03]` that is **58** active tool pages across **12** sites, **53** of them on
-   **9** sites *already serving deployed components* — so it refuses **re-renders of live pages**,
-   not merely builds of empty ones. Concentrated: loanandmortgagecalculator.co.uk **16**,
-   loanzy.uk **5+**, idea.uk **3**, loancash.co.uk **3**, leopardessconsulting.co.uk **2**.
-   Raised with that lane with the measurement; they had asked to be told. **Their call — do not
-   route around it, and do not fork an account of it into this lane's files.**
+1. **~~`bugs_open/450`'s scope decision~~ — RESOLVED SAME DAY, 13:32 BST. A CHASSIS ROLL IS NOW
+   THE ONLY THING THIS LANE WAITS ON.** That lane removed the tool arm from
+   `save_page_sections` (`29b40e8bc`); verified at the source, line 210 now gates on
+   `refused && class == refusalOwned`, so `refusalToolPending` no longer fires there while the
+   tool arm keeps firing at its other three call sites and migration 164's protection is
+   untouched. **The live chassis (`d0252fd4d`) still carries the refusing version**, so 427's
+   save keeps failing until an image containing `29b40e8bc` ships.
+   ⚠ `DISABLE_TOOL_SHELL_REFUSAL` (`owned_page_guard.go:96`) disarms the arm fleet-wide with no
+   build. **It is the owner's call, already put to them by the 450 lane — not this lane's to
+   pull.**
 2. **A human uses bug 428's release surface** on a real flagged verdict. Live end to end since
    2026-09-02, nobody has clicked it. Worked case: boxingonline's own
    `e3c2b440-c006-40ec-be7a-88d0b689ed1e`.
@@ -59,12 +61,20 @@ the *broken* runs reported for a fortnight. Read `sections_metadata` (query in t
 hero images; that section regained `planSection`'s hero aliasing from an unrelated non-`llm`
 source in the same pass. One line, two sections, two sources.
 
-**The save is refused**, and the predicate genuinely holds — this page is `page_type='tool'` and
-both its components are `component_level='section'`. Not a claim that the guard is wrong.
+**The save was refused** by `OWNED_PAGE_GUARD` — the predicate genuinely held, so this was never
+a claim that the guard was wrong. **Fixed by the 450 lane the same day (`29b40e8bc`), riding the
+next roll.**
 
 ```
 OWNED_PAGE_GUARD: page tool-fight-calendar is page_type=tool with no tool component
 ```
+
+⚠ **The reach census disagreed with the 450 lane's and the difference is ENCODING, not fact.**
+Mine: 58 matched / 53 serving / 9 sites (`status='active'` + a `build_status='deployed'` row).
+Theirs: 67 / 54 / 10. Re-run to locate it: **53 vs 54 is `deployed` versus any non-`removed`
+row** — one page holds a live-but-not-yet-deployed component. The 58-vs-67 and 9-vs-10 gaps are
+**[UNRECONCILED]** from this side. It changed nothing: every encoding says the arm refused
+several times more repair than harm.
 
 **Council:** `075cfedd` (454's fix) **APPROVED** round 1, advisories adjudicated in
 `bugs_open/454` §11. `ff91e666` (427's migrations) — round 1 REVISE, round 2 REVISE (gated by
@@ -90,7 +100,7 @@ indexing exactly onto `hero-tool@1, event-list@2`, armed count 0.
   `function='advertising'`; 3 active pages declare it (all boxingonline); **18** pages on **3**
   sites are armed by `check_unresolved_sections`' predicate.
 
-## 3. The first thing to do when the 450 blocker lifts
+## 3. The first thing to do when a chassis carrying `29b40e8bc` rolls
 
 ```bash
 <scratchpad>/fire-page-rerender.sh 4b74ff1f-455a-4bb2-b81d-e1d0ec824f33 section_data_resolved
@@ -127,6 +137,11 @@ indexing exactly onto `hero-tool@1, event-list@2`, armed count 0.
   because the submission sketched one test where two had been written.
 - **"It will work once X lands" is a prediction about a CHAIN.** This lane wrote that twice today
   and had verified only its own link both times.
+- **A guard whose harm is masked by an unrelated defect looks free until the defect is fixed.**
+  Refusing those 53 saves cost nothing observable while `454` meant they were writing back
+  unchanged bytes anyway. The guard's arrival and the repair vehicle's return to working landed
+  in one image, so a latent cost became a real one in a single step — and neither lane could see
+  it from its own side. The general form is worth more than this instance.
 
 ## 5. Named and deliberately NOT done
 
