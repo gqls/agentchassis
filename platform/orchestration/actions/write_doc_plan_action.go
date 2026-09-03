@@ -194,6 +194,27 @@ func WriteDocPlanAction(ctx context.Context, params ActionParams) (interface{}, 
 	// second, weaker report of it would be noise), while a failed note INSERT is
 	// logged and never returned: the PLAN is the caller's deliverable and an
 	// observation about it must not cost the document.
+	//
+	// ⚠ THE SUBJECT_TYPE PASSED HERE IS "tool", AND THAT IS CHECKED, NOT ASSUMED
+	// (council round 1, editquality, HIGH — the objection was right to demand it
+	// even though the answer came back safe). `doc_plans` and `doc_notes` carry
+	// TWO SEPARATE CHECK constraints with different allowed sets, so a value fine
+	// for one can be refused by the other — and because this INSERT is
+	// deliberately non-fatal, a refusal would make the whole rule a permanent
+	// silent no-op. Measured 2026-09-03 from pg_constraint:
+	//
+	//	doc_plans_subject_type_check: tool, pipeline, experience, action,
+	//	                              experience-pattern, component            (6)
+	//	doc_notes_subject_type_check: those six PLUS landmine, decision        (8)
+	//
+	// So `doc_notes`' set is a strict SUPERSET of `doc_plans`' today, which means
+	// any subject that got a PLAN can carry a note — and this branch is gated on
+	// subjectType == "tool" anyway, which is in both. **The superset relation is
+	// the load-bearing fact and it is not guaranteed to hold**: if someone adds a
+	// type to `doc_plans` alone, this goes quiet. TestWriteDocPlan_RecordsAFence…
+	// pins the value actually passed so a change to it is visible in review; the
+	// constraint drift itself is only visible in the DB, which is why the failure
+	// log below names it rather than saying "insert failed".
 	if subjectType == "tool" {
 		if a := summariseCriteriaValueAssertions(toolCriteria); a.DrivesButAssertsNothing() {
 			author := sourceAgent
@@ -208,8 +229,14 @@ Verified: n/a — an observation about the document, made at the write door
 Categories: fence_asserts_no_value`, subjectKey, author)
 			if _, nerr := insertDocNote(ctx, params.DB, "tool", subjectKey, "", noteBody,
 				`["fence_asserts_no_value"]`, "write-doc-plan", sourceAgent, "", createdBy); nerr != nil {
-				logger.Warn("write_doc_plan: fence_asserts_no_value note insert failed",
-					zap.String("subject_key", subjectKey), zap.Error(nerr))
+				// Named rather than generic BECAUSE the failure is silent by
+				// design: this is the one line that will exist if the rule has
+				// gone quiet, so it says what to check first.
+				logger.Warn("write_doc_plan: fence_asserts_no_value note insert FAILED — this rule is "+
+					"now silently doing nothing; first check doc_notes_subject_type_check still admits "+
+					"'tool' (it and doc_plans_subject_type_check are separate constraints and can drift)",
+					zap.String("subject_key", subjectKey),
+					zap.String("subject_type_sent", "tool"), zap.Error(nerr))
 			} else {
 				logger.Info("write_doc_plan: fence drives inputs but asserts no value (bugs_open/449)",
 					zap.String("subject_key", subjectKey), zap.String("author", sourceAgent))

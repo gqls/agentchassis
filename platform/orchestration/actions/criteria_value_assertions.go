@@ -22,6 +22,38 @@
 // than two, for the reason criteriaFactsFromValue states beside it: two
 // spellings of one rule is the drift class this package keeps catching.
 //
+// WHY A NEW WALK RATHER THAN REUSING AN EXISTING ONE — the search, not the
+// inference (council round 1, reuse_agent, medium: "worth a proof-of-search
+// rather than an inference from naming convention", and it was right to ask).
+// `[MEASURED 2026-09-03]` Exactly THREE Go types decode a criteria fence's
+// `checks` array, and none of them could serve:
+//
+//	discovery_checks/check_tool_acceptance.go:332  criteriaDoc — UNEXPORTED, in
+//	    another package, and it does not decode `expect_values` AT ALL (Tier 2
+//	    skips computed_values as not statically checkable), so it cannot answer
+//	    the one question asked here.
+//	internal/adapters/browserrunner/run_checks_action.go:214  criteriaDoc — the
+//	    only decoder in the tree that reads ExpectValues, and UNEXPORTED, in a
+//	    different top-level tree. Exporting it to reach it from here would make
+//	    the runner's private decode struct a cross-tree contract to serve a
+//	    reporting concern — the wrong direction.
+//	this file.
+//
+// A grep for exported `*Doc`/`*Check` types across both packages returns only
+// the discovery-check registrations (`type XCheck struct{}`), never a fence
+// decoder. Of the two adjacent mechanisms this file's neighbours cite:
+// `criteriaFactsFromValue` reads the fence-level `facts` key and never walks
+// `checks`; and `ValidateExperienceCriteria` is ruled out for the reason
+// write_doc_plan_action.go already records in its own comment — it "judges a
+// whole experience-criteria template and would reject a tool PLAN for absent
+// `checks`/`binding_schema`". So there was nothing to call into.
+//
+// ⚠ The residual is real and is the reuse seat's actual point: this is now a
+// FOURTH place that knows how to read a fence. What keeps it honest is that
+// both consumers here call this one function, and that the test fixtures pin
+// the arms an ad-hoc re-implementation would get wrong (an empty
+// `expect_values` credited by type; `select` not counted as driving).
+//
 // THREE GRADES, NOT TWO, AND THE MIDDLE ONE IS THE POINT.
 //
 //	exact    a `computed_values` check with a non-empty `expect_values` map.

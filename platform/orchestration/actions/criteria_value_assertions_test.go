@@ -329,11 +329,19 @@ func runDoorWithFence(t *testing.T, fence string, expectNote bool) string {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.NewString()))
 	mock.ExpectCommit()
 
-	var note string
+	var note, subjectType, categories string
 	if expectNote {
+		// arg 1 is subject_type and arg 5 is categories — CAPTURED, not AnyArg'd.
+		// Council round 1 (editquality, HIGH): `doc_plans` and `doc_notes` carry
+		// SEPARATE subject_type CHECK constraints, and this INSERT is non-fatal by
+		// design, so a value the notes table refuses would make the whole rule a
+		// permanent silent no-op. sqlmock cannot see a CHECK constraint — it will
+		// accept any string — so the test cannot prove the DB would take it. What
+		// it CAN do, and now does, is pin the value being sent, so a change to it
+		// is visible in review rather than discovered by a rule going quiet.
 		mock.ExpectQuery("doc_notes").
-			WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
-				captureArg{got: &note}, sqlmock.AnyArg(), sqlmock.AnyArg(),
+			WithArgs(captureArg{got: &subjectType}, sqlmock.AnyArg(), sqlmock.AnyArg(),
+				captureArg{got: &note}, captureArg{got: &categories}, sqlmock.AnyArg(),
 				sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("note-1"))
 	}
@@ -343,6 +351,23 @@ func runDoorWithFence(t *testing.T, fence string, expectNote bool) string {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("door behaved unexpectedly (expectNote=%v): %v", expectNote, err)
+	}
+	if expectNote {
+		// MEASURED 2026-09-03 from pg_constraint: doc_notes_subject_type_check
+		// admits {tool, pipeline, experience, action, experience-pattern,
+		// landmine, component, decision} and doc_plans_subject_type_check admits
+		// the first six. "tool" is in both, and this branch only ever runs for a
+		// tool PLAN. If this assertion ever fails, the note is being filed under a
+		// subject the notes table may not accept.
+		if subjectType != "tool" {
+			t.Errorf("doc_notes subject_type = %q, want \"tool\" — see the constraint note in "+
+				"write_doc_plan_action.go; a value doc_notes refuses makes this rule a silent no-op",
+				subjectType)
+		}
+		if categories != `["fence_asserts_no_value"]` {
+			t.Errorf("categories = %q — the sweep finds these notes by category, so a typo here "+
+				"files a note nothing will ever read", categories)
+		}
 	}
 	return note
 }

@@ -1,0 +1,109 @@
+# deployments/kustomize/services/fence-value-assertion-check/base/cronjob.yaml
+#
+# Which tool acceptance fences never assert a NUMBER?
+#
+# WHY THIS EXISTS. `bugs_open/449`. The verification ladder implements one check
+# type that compares a value (`computed_values`) and neither agent that authors
+# fences has ever been told it exists — the `tool-generator` prompt enumerates a
+# closed vocabulary and ends "No other check type exists for interactions". So a
+# generated fence checks that the page loads, logs no console errors, fits a
+# phone, and produces *an element* after a click. A calculator that prints a
+# confidently wrong figure passes every check in its fence, and its record reads
+# PASSED. Measured 2026-09-03: 187 current `tool-generator` fences, 116 asserting
+# no expected value of any kind, 0 using `computed_values`, and 55 that FILL the
+# tool's inputs and then check nothing about what came out.
+#
+# WHY A CRONJOB AND NOT A COMMIT HOOK — the same argument as its siblings, and it
+# is decisive here: the thing this watches changes by a route no commit can
+# carry. A fence is written into `doc_plans` by an agent at build time, many
+# times a day, with no commit in either direction. At commit time there is
+# nothing to look at. On the day this was written the count moved 186 → 187 while
+# the check was being built.
+#
+# WHY THE WINDOW IS THE HEADLINE AND THE TOTAL IS NOT (449 §6). A fix to the
+# AUTHORING side shows up as a fall in NEW fences and leaves the total nearly
+# flat for weeks, because the standing 116 sit there until something rewrites
+# them. A totals-only report would read as "no improvement" for a month after a
+# working fix and be quietly abandoned. So the note this writes leads with the
+# windowed number.
+#
+# WHY PYTHON IN A POSTGRES IMAGE — modelled on listing-class-promise-check: same
+# image, same secret, same doc_notes convention (ONE row per run INCLUDING a
+# clean one, so a MISSING row means the job did not run and can never read as
+# "nothing is wrong"), same direct-Postgres constraint (no pods/exec RBAC for a
+# job in this namespace, so the script's `_psql_argv` picks the direct dial when
+# PG_CLIENTS_HOST/CLIENTS_DB_PASSWORD are set and `kubectl exec` otherwise).
+#
+# ⚠ base/check.py IS A COPY of scripts/audit-fence-value-assertions.py, because a
+# configMapGenerator needs a real file. That is the duplication this estate keeps
+# getting bitten by, so it is PINNED rather than trusted:
+# `scripts/audit-fence-value-assertions.py --self-test` FAILS if the two files
+# differ, and fails if the copy is missing entirely. Edit the script, copy it
+# across, re-apply the overlay — the cluster keeps the old ConfigMap otherwise,
+# and then the repo file looks correct while the clock runs the old one.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fence-value-assertion-check
+  labels:
+    app: fence-value-assertion-check
+    component: experience-integrity
+spec:
+  # Daily, 07:40 UTC — clear of database-backup (02:00), the weekly sweep (06:00),
+  # single-owner-carriers (06:20), discovery-staleness (06:35),
+  # optional-key-budget (06:50), shared-output-fields (07:10) and
+  # listing-class-promise (07:25).
+  schedule: "40 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query returning ~250 fence bodies, then a JSON walk over each.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: fence-value-assertion-check
+            component: experience-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  # Exit 1 means "findings", which is the NORMAL state until the
+                  # authoring fix lands; only 2 (broken query / failed demand
+                  # control) should mark the Job failed.
+                  python3 /scripts/check.py --write-note || [ $? -eq 1 ]
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: fence-value-assertion-check-script
+                defaultMode: 365
