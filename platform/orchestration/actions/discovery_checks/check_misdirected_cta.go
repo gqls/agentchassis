@@ -53,6 +53,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/livespec"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -278,16 +279,20 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			"findings":  agg.misdirects,
 		})
 
-		specJSON, _ := json.Marshal(map[string]interface{}{
+		spec := map[string]interface{}{
 			"check":     "misdirected_cta",
-			"reason":    "cta_links_stale", // page-rerender gates its CTA recompute on this
 			"page_name": pageName,
 			"page_id":   agg.pageID,
 			"findings":  agg.misdirects,
 			"fix": "Link copy names a real page but the href points elsewhere. " +
 				"A cta_links_stale rerender recomputes CTA targets from real pages " +
 				"(interactive pages first) for components in the ctaFieldNames set.",
-		})
+		}
+		// page-rerender gates its CTA recompute on this reason, and the routing
+		// half rides beside it (bugs_open/440 phase 2): one helper writes the
+		// pair so the vocabulary judgement is not copied to another call site.
+		livespec.StampRerenderReason(spec, livespec.ReasonCTALinksStale)
+		specJSON, _ := json.Marshal(spec)
 
 		var pageIDPtr *uuid.UUID
 		if parsed, perr := uuid.Parse(agg.pageID); perr == nil {

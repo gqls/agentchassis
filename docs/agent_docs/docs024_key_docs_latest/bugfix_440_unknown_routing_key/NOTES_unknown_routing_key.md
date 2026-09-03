@@ -200,3 +200,42 @@ builds the test binary and runs nothing (exit 0 iff the test files compile). Wit
 mutation lines remaining. The hardened tests are mutation-proved, not merely passing. Both wrong
 gates are logged in WRONG_CALLS 2026-09-03 — one too weak to see the failure, one too strong to
 see the success.
+
+## 2026-09-03 (evening) — phase 2 part 1: the Go producers, converted through ONE helper (corr `c7dab2c1`)
+
+**Enumeration was the work, and it corrected my own figure from this morning.** "13 Go files
+write an in-vocabulary reason" was true and was NOT the conversion set: reading each site's ITEM
+TYPE found **five** `page_rerender` producers. The other four file `needs_page` (×2),
+`needs_rerender`, and `literal_markdown` — the last matching 404's own finding. A blanket sweep
+would have stamped page-rerender routing decisions onto items no rerender gate reads. Corrected
+visibly in the bug file and RFC_062 rather than quietly.
+
+**The helper, and why it is not a key added at each site.** `livespec.RerenderReasonFields` /
+`StampRerenderReason` / `RerenderReasonJSONPrefix` define the pair once, beside the vocabulary
+they depend on. Adding the key by hand at five sites would restart, one level along, the exact
+drift this lane closes — the vocabulary's own header records the last time a judgement was
+copied to N sites (gate knew five values, Go knew three). The JSON form is DERIVED from the map
+form by marshalling, and a test composes the two and requires agreement.
+
+**A trap found and designed out mid-build.** The first cut returned a comma-free fragment for
+templates written `{%s,"page_name":%q}`. That works only while every caller passes a compile-time
+constant: the day someone passes an empty variable it emits `{,"page_name":…}` — invalid JSON,
+written into a text column, discovered whenever something next parses that spec. Changed to a
+TRAILING-COMMA prefix with templates `{%s"page_name":%q}`, so both states compose validly.
+Proven by EXECUTION, not reading — a scratch program reproducing each converted template printed
+all three cases, including the empty one (`{"page_name":"about"}`).
+
+**One conversion deliberately NOT made, and it is the shared-tree rule doing its job.**
+`refresh_evidence_base_action.go` is the fifth producer; another session has **245 uncommitted
+lines** in it right now (a FactsUnverifiable/attestations feature, two of its own tests currently
+red — which is also what those two unexplained failures in my full-package run were). I wrote the
+two-line conversion, saw the diff, and **reverted it** rather than sweep their half-finished work
+into my commit. Recorded as the one deferred conversion; phase 3's census catches it if forgotten.
+
+**Isolation proven with a control**: `verify-head-builds --with` my six files → actions and
+discovery_checks green; `platform/livespec` FAILs identically **with and without** my files
+(405 lane's `TestNoNewMigrationFileReadersOutsideTheAllowList`), so the RED is theirs — the
+control is what makes that a finding rather than an assumption.
+
+Remaining in phase 2: the raw-SQL migration door (authoring rule + `pattern-check.py` advisory),
+its own round — that file is in council scope (2026-08-24).

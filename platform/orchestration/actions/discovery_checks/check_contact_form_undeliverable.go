@@ -63,6 +63,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/livespec"
 	"go.uber.org/zap"
 )
 
@@ -164,15 +165,18 @@ func (c *ContactFormUndeliverableCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 			// check_rerender_mode WITHOUT the cta_links_stale CTA recompute, and
 			// is the conventional "re-render this page's sections to reflect
 			// resolved data" reason (render_news_section_html, reconcile_section_data).
-			specJSON, _ := json.Marshal(map[string]interface{}{
+			spec := map[string]interface{}{
 				"check":     "contact_form_undeliverable",
-				"reason":    "section_data_resolved",
 				"page_id":   pageID,
 				"page_name": pf[0].PageName,
 				"findings":  pf,
 				"fix": fmt.Sprintf("A section re-render converts the dead form to mailto:%s "+
 					"(built by sanitiseFormAction from the sites.email column).", siteEmail),
-			})
+			}
+			// The reason described in the comment above, stamped with its routing
+			// half by the one helper that defines the pair (bugs_open/440 phase 2).
+			livespec.StampRerenderReason(spec, livespec.ReasonSectionDataResolved)
+			specJSON, _ := json.Marshal(spec)
 			result.WorkItems = append(result.WorkItems, WorkItemSpec{
 				SiteID:   dctx.SiteID,
 				PageID:   pageIDPtr,

@@ -27,6 +27,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/platform/livespec"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 )
 
@@ -137,7 +138,8 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 		// reason-stamped mode can never be dedup-suppressed by an
 		// assemble-only item.
 		spec := fmt.Sprintf(
-			`{"reason":"section_data_resolved","page_name":%q,"page_id":%q,"domain":%q}`,
+			`{%s"page_name":%q,"page_id":%q,"domain":%q}`,
+			livespec.RerenderReasonJSONPrefix(livespec.ReasonSectionDataResolved),
 			page.Name, page.ID.String(), page.Domain)
 		itemKey := pageRerenderItemKey(page.Name, siteID, "section_data_resolved")
 

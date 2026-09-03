@@ -73,6 +73,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/livespec"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -167,7 +168,8 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 	}
 
 	batchID := uuid.New()
-	spec := fmt.Sprintf(`{"reason":"image_landed","page_name":%q}`, pageName)
+	spec := fmt.Sprintf(`{%s"page_name":%q}`,
+		livespec.RerenderReasonJSONPrefix(livespec.ReasonImageLanded), pageName)
 	itemKey := fmt.Sprintf("page_rerender:%s", pageName)
 
 	tx, err := params.DB.BeginTx(ctx, nil)

@@ -53,7 +53,10 @@ values include arbitrary sentences. Splitting is what makes refusal well-defined
      (bugs_open/440)*: the routing key must be stamped by EVERY producer, not just the Go item
      creator. `[MEASURED 2026-09-03]` 13 Go files write an in-vocabulary reason directly, mostly
      as raw `{"reason":"x"}` literals bypassing the vocabulary constants, and agent/migration
-     producers mint the rest; the creator phase 1b converted mints just **1 of 3,172**
+     producers mint the rest — but ⚠ **CORRECTED same day: only FIVE of those 13 are
+     `page_rerender` producers** (the others file `needs_page`, `needs_rerender` or
+     `literal_markdown`, and stamping a routing key on them would put a page-rerender routing
+     decision on an item no rerender gate reads — enumerate item types, never sweep); the creator phase 1b converted mints just **1 of 3,172**
      reason-bearing items. **Narrowing the gate before that conversion completes would route
      ~3,100 items to assemble — this bug's own shape, fleet-wide, inside the change meant to fix
      it.** So the transition clause is LOAD-BEARING, not a drain-window nicety, and phase 3 gains

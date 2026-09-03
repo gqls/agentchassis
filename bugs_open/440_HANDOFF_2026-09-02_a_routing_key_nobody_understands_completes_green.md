@@ -132,7 +132,7 @@ most as raw JSON string literals that never touch the vocabulary constants — e
 `render_news_section_html.go`, `refresh_evidence_base_action.go`, `render_directory_action.go`,
 `reconcile_section_data_action.go`, `flag_page_image_rebuild_action.go`,
 `store_generated_component_action.go`, and three `discovery_checks/*` files
-(`check_misdirected_cta.go`, `check_literal_markdown.go`, `check_contact_form_undeliverable.go`).
+(`check_misdirected_cta.go`, `check_literal_markdown.go`, `check_contact_form_undeliverable.go`). ⚠ **CORRECTED 2026-09-03 (same day, by the phase-2 enumeration):** *13 Go files write an in-vocabulary reason* is true and is NOT the conversion set — reading each site's ITEM TYPE found only **five** are `page_rerender` producers. `render_directory_action.go` and `reconcile_section_data_action.go` file `needs_page`, `store_generated_component_action.go` files `needs_rerender` (its reason is propagated into page_rerender items BY the creator, which stamps there), and `discovery_checks/check_literal_markdown.go` files `literal_markdown` — matching 404's own finding that `literal_markdown` never appears on a `page_rerender` item. A blanket sweep over the 13 would have stamped page-rerender routing decisions onto items no rerender gate reads.
 
 **What this changes (carried into RFC_062):**
 1. **Phase 2 is not "migration authors" — it is a producer conversion programme** across those 13
