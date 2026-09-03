@@ -187,10 +187,16 @@ first-ever scheduled run, 2026-09-03 07:41:01Z, before the owner's critique** �
 visibility/routing was the gap. TWO carried defects survive the repair: (i) **the repair lands
 BESIDE the promising prose, not instead of it** — `create_tool_component` hardcodes position 2
 without consulting the page, so a repaired page serves the tool AND the description in an order
-nothing declares; (ii) **repair written-not-deployed behind `build_status='deployed'`** — all
-seven repairs (components 09:34–09:54Z) sit behind deploys from ~00:08–00:19Z; `build_status`
-records that a deploy once HAPPENED, not that current components shipped (same 7 instances,
-found by the deployed_at-vs-max(updated_at) join + served-bytes confirmation). Class door-closers
+nothing declares; (ii) **repair written but not SERVED, behind `build_status='deployed'`** — 7 confirmed
+instances on seotools 2026-09-03: repairs (components 09:34–09:54Z) behind deploys from
+~00:08–00:19Z; `build_status` records that a deploy once HAPPENED, not that current components
+shipped. **⚠ The DB predicate (`deployed_at` vs `max(page_components.updated_at)`, on
+`build_status='deployed'` with a material gap) is a TRIAGE list at ~7/11 precision and CANNOT be
+tightened further** — ground-truthed 2026-09-03: the 4 false positives' gaps (2h–21h) BRACKET the
+true positives' (~9.5h), so no threshold separates "not served" from "served, but deployed_at was
+never updated". The bare join without the status/gap narrowing over-reports ~5:1 (38 → 11
+fleet-wide; `needs_rebuild` pages are honestly labelled, and same-transaction sub-second gaps are
+noise). **Served-bytes confirmation is not optional — never act on the DB line alone.** Class door-closers
 are 450's candidates 2+3 (make the hold a real control; never route a tool target to the generic
 builder).
 

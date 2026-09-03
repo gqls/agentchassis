@@ -972,3 +972,45 @@ Ops notes: git index.lock collision with another session mid-commit (waited,
 didn't touch it); transient model-classifier outage delayed two sends
 (retried clean); 726 is the THIRD number-collision near-miss this week
 (725 ×2 exist).
+
+## 2026-09-03 (afternoon) — THE ARTICLE REFUSAL: found by gamedesign, fixed here as migration 730
+
+**The shared cause of the empty article hubs** (gamedesign.uk's CONTRIB in
+bugs_open/444, commit `7343ecb01`): **the planner REFUSES to plan blog-post
+pages**, deferring to an editorial pass that DOES NOT EXIST. designblog's own
+plan_site run wrote it into strategy_notes 2026-09-02 16:10:51Z ("posts are
+created editorially"); seotools +3min; gamedesign twice. 3 of 32 runs/30d.
+Every live article page on the estate is an ordinary PLANNED page (52/23/22/13
+across four sites; census framed for falsification, none found;
+needs_content_page only builds planned pages). **No per-site lever**:
+gamedesign's mission v3 demanded launch articles in plain words, verified at
+the RENDERED prompt, planner planned zero anyway.
+
+**Fix executed here** (owner ruling 5's cheap arm — the article producer
+EXISTS, the gap was invocation): **migration 730, applied + verified LIVE**
+— rule 20 appended to plan_site ("THERE IS NO LATER EDITORIAL PASS"): names
+both deferral phrasings, instructs 3-6 launch posts on REAL subjects with the
+working-article shape (populated sections + per-post subject, in_header
+false, nav_order 200+), forbids example-subject copying, states the honest
+alternative (no articles → no hub). **RULE not exemplar** — the
+quoted-exemplar trap means an example subject would ship verbatim onto wrong
+verticals; the mechanical backstop is 720's gate (holds child-less hubs), so
+the rule steers the fork the gate forces. Council corr
+`c1a45c75-a2f1-4465-8266-a86bc9c8c7af` Council-Submitted (VERDICT OWED),
+commit `cda8957d4`, ledgered, 718 discipline throughout (dry-run round 1
+caught a %%-escaping defect in my generator's RAISE strings).
+
+Also: **720 ledgered retroactively** (applied+live but absent from
+schema_migrations per gamedesign's verification — an unscoped --apply re-run
+hazard; retro row inserted with note). **Experience loop hardened the §3.1
+predicate wording** (triage at ~7/11 precision, false-positive gaps BRACKET
+true-positive gaps so no threshold exists, served-bytes confirmation
+non-optional; the bare join over-reports ~5:1) — §3.1 updated to their proven
+form; I never recorded the inflated 38. Their two detector fixes shipped
+same-day (out-of-scope controls → n/a in BOTH directions incl. a vacuously-
+passing negative control; written-not-shipped bucket that states its own
+precision). Max migration is now 730; 729 exists TWICE (collisions continue).
+
+designblog's compounding position: a future re-plan runs under 718 (content
+imagery) + 730 (launch posts) + 720 (listing gate) + page_archetypes — four
+mechanisms that did not exist when it was built two days ago.
