@@ -945,3 +945,20 @@ STANDING POLICY going forward:
   direct-owner or agreed number, never a derived one). Their work may
   still be useful as an INPUT to a conversation with the owner about
   what number to agree on — just never auto-applied.
+
+## 2026-09-03 (later still) — relojistas.com / free.me.uk: owner accepted the cross-marketplace inconsistency rather than match their existing Afternic floors
+
+domain_valuation raised a sharper case than the general blank-minimum
+ruling: `relojistas.com` and `free.me.uk` already carry OWNER-SET
+minimums elsewhere ($12,000 and $50,000, Afternic) — blanking the Sedo
+listing means a buyer could route around a floor the owner already
+decided, on the same domain, via a cheaper door. Different question from
+"names with no agreed number" — these two have one, from him, by name.
+
+**Put to the owner directly** (not inherited from the general ruling):
+match the existing floors on Sedo, or accept the inconsistency and leave
+them blank too. **Answer: leave them blank too.** No sheet change —
+draft9 already has both blank; this closes an open question rather than
+changing anything. Recorded as his deliberate choice, not an oversight —
+worth knowing precisely because a future reader might otherwise "fix"
+the inconsistency assuming it was never asked about.
