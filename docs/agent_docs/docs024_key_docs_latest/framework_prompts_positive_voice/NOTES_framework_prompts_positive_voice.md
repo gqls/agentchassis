@@ -150,3 +150,46 @@ wrote them. Rehearsed under BEGIN/ROLLBACK against the live row: `NOTICE: 641 ap
 two byte-identical copies, because the comment copy is reconstructed line by line and gains a trailing
 newline. Fixed to `rstrip` both sides, with the harness template as the authoritative third comparison.
 A checker that false-alarms is worse than no checker, because it gets ignored.
+
+## 2026-09-03 (~19:35Z) — 641 IS LIVE. Gate 2 cleared, gate 1 re-probed, three lanes landed in the right order by luck as much as planning
+
+**The owner's read (gate 2).** He was shown the exact INSERTED TEXT bytes plus one filled-in render and
+answered, in full: *"yes"*. Recorded verbatim, with the bytes and the round-1 diff, in the apis.uk lane's
+`NOTES_apis_uk_bees_homepage.md` (their file, appended per their convention) and named in 641's APPLIED line.
+
+**Gate 1, re-probed immediately before applying** because there was a roll today. Both replicas, three-way:
+`section_subjects` 3 (the capability), `section_facts` 3 (positive control), `zzz_absent_zzz` 0 (absent
+control). The absent control is the part that matters: without it a probe returning a number proves only
+that grep ran.
+
+> **MISSTEP, mine:** I first tried the documented `logs -l app=agent-chassis --tail=3000 | grep -m1 'build
+> provenance'` route. On this service that streamed megabytes of council-gate orchestration JSON and **timed
+> out at 2 minutes without ever printing a verdict**. CLAUDE.md already says the startup line scrolls; what
+> it does not say is that on a busy chassis the *attempt* is itself expensive. **Go straight to the binary
+> probe, which has no shelf life, and bound it with `timeout`.** Cheap check that would have saved it: the
+> provenance line is a STARTUP line and these pods have been up for hours, so it could not have been in range.
+
+**Applied**, output `NOTICE: 641 applied: block + input_fields in one transaction; em-dash census 10
+(unchanged)`. **Live row verified after COMMIT**, six ways: block present, old frame absent, sibling range
+present, block precedes the Verified Facts block, `input_fields` carries `sections_for_render`, em dashes 10,
+template 14,914 chars.
+
+**The ordering across three lanes, which came out right and should not be assumed next time.** Within about
+an hour: the finetuning lane re-authored and applied all three `section_subjects` arrays to the new spec; the
+apis.uk lane cut and applied the planner nudge (migration 762) carrying the spec's rule-17 text verbatim,
+live but inert to the writer; then this block applied. So the first build after the apply reads new-register
+subjects through a new-register block, with **no intermediate state in which the block prints old-register
+text as a page's opening line**. Nobody sequenced that centrally. It worked because each lane held its half
+until the spec existed, which is the argument for writing the spec before any of the three edits rather than
+after the first.
+
+**Council round 2 (corr 6c92d154) was still open at apply time.** Applied ahead of it on the owner's approval
+of the exact words, which is the binding gate; commit trailer is `Council-Submitted:`. **Still owed: read the
+verdict and act on a REVISE** - the change is LIVE now, not merely on the branch, so a revision is a new
+migration rather than an edit.
+
+**Next, in order:** (1) read the round-2 verdict; (2) the house voice row rewrite - his decision is KEEP every
+prohibition, change the register only, so this is a form rewrite of 16 paragraphs with no rule removed;
+(3) the cache-breakpoint migration on the same writer row, now unblocked since 641 has landed; (4) the model
+arm including the Grok arm he asked for. The first real evidence for (2) will be the opening lines Stage B
+produces, which the finetuning lane is sending.
