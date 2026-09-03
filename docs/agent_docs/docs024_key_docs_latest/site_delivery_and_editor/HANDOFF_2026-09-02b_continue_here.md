@@ -74,7 +74,7 @@ EXPECTED pre-convergence shape, not a failure).
 > A refusal (guard) leaves the interim mark in place — not a failure of this test, a data
 > point. Watcher armed; 424 lane + boxingonline session told. The three portfolio resets
 > (424 lane, 09:23:49Z) run in the same window — read all four.
-   > **ALL FOUR READ, and the incident is CLOSED (14:33Z, the 424 lane reporting their three):** seotools colour type 6 / 92.21% transparent · websitepromotion 87.4% · designblog (final retry) colour type 6 / 88.5%, dark-marked so no light-background legibility risk · boxingonline colour type 6 / 80.10% at the SERVED bytes. Four of four verified at the bytes, none at a guard score. The incident's own cause — a guard that scored a 0%-transparent failure 1.000 — is fixed in `fcbe6071c` and live since v1.0.1356; the mid-incident blocker (Gemini prepayment credits depleted, `bugs_open/455`) was the owner's top-up. Closing `bugs_open/424` is the 424 lane's call, not this lane's.
+   > **ALL FOUR READ, and the incident is CLOSED (14:33Z, the 424 lane reporting their three):** seotools colour type 6 / 92.21% transparent · websitepromotion 87.4% · designblog (final retry) colour type 6 / 88.5%, dark-marked so no light-background legibility risk · boxingonline colour type 6 / 80.10% at the SERVED bytes. Four of four verified at the bytes, none at a guard score. The incident's own cause — a guard that scored a 0%-transparent failure 1.000 — is fixed in `fcbe6071c` and live since v1.0.1356; the mid-incident blocker (Gemini prepayment credits depleted, `bugs_open/455`) was the owner's top-up. Closing `bugs_closed/424` is the 424 lane's call, not this lane's.
    > **RESULT 12:10Z: THE LOGO GENERATED, AND IT IS RIGHT — at the bytes and by eye.**
    > `d71b7877` COMPLETED 12:06:58Z (its `error` column still shows the earlier 429 text; the
    > `result` says `asset_stored: true`). Asset `20ce80fb` now points at
@@ -115,7 +115,7 @@ EXPECTED pre-convergence shape, not a failure).
    > same as the chassis; ancestry of `6440ec968`/`b2322a203`/`b60d66e3c`/`9f6f91325`/
    > `c1178442d` → all ABOARD. What this item did not read: the 417 lane's CONTRIB in
    > the 424 lane dir (rounds 1–3, last 19:45Z, committed `7fc657116` at 19:45Z — ~75
-   > min BEFORE this item was written — and folded into `bugs_open/424` §"the matte
+   > min BEFORE this item was written — and folded into `bugs_closed/424` §"the matte
    > RAN"). The matte's fail-closed guard gates on `stats.BorderKeyed`
    > (`dynamic_adapter.go:683`), which counts border-flood MEMBERSHIP at
    > `dist <= outer` (`keyground.go:104/131/149`); a pixel only reaches alpha 0 at
@@ -137,7 +137,7 @@ EXPECTED pre-convergence shape, not a failure).
    > fleet-wide, two other sites); last logo run here = interim `00aa1796` 10:40Z;
    > asset `20ce80fb` updated 10:40:12Z. CONTRIB r3 also notes the one good run carries
    > a magenta fringe at the mark's edge (despill incomplete) — even a pass wants an
-   > eyeball before it serves. Messaged: boxingonline.com, bugs_open/424, bugs_open/429.
+   > eyeball before it serves. Messaged: boxingonline.com, bugs_closed/424, bugs_open/429.
    > **UPDATE 21:26Z (clock-read):** unblock (a) is now COMMITTED and council-APPROVED —
    > `fcbe6071c` (21:17:18Z, 424 lane: `BorderKeyed` computed from each pixel's FINAL
    > alpha==0, not BFS reachability; mutation-proven regression test), verdict `52bd50a1`

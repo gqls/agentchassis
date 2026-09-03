@@ -250,7 +250,7 @@ the generator output** — a served file may be resized, and then dimension prov
 Invisible on the one surface it is used on, wrong everywhere else. Owner ruling 2026-09-02: *"the
 background behind a logo shouldn't be part of the logo."*
 **Check:** PNG colour type 6 or 4, **or** a `tRNS` chunk — test for both; either alone gives a
-false negative. **Related:** `bugs_open/424`.
+false negative. **Related:** `bugs_closed/424` (CLOSED 2026-09-03: the matte AND its guard are live on v1.0.1356, verified at four sites' served bytes — resolve by slug, the number is shared).
 
 ### 4.6 The imagery plan is chrome-only — and the planner is OBEYING, not failing (added 2026-09-02)
 A site ships with heroes + icons + a logo and nothing that carries content: **zero illustration

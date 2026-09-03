@@ -185,7 +185,7 @@ ok = ct in (4,6) or trns
 print(f"      {w}x{h} depth={bd} colour_type={ct} tRNS={trns} -> {'OK (real alpha)' if ok else '⚠ 4.5 baked background'}")
 raise SystemExit(0 if ok else 3)
 PY
-  [ "$?" = 3 ] && finding "logo has no alpha channel (4.5 / bugs_open/424)"
+  [ "$?" = 3 ] && finding "logo has no alpha channel (4.5 / bugs_closed/424)"
 else blind "logo fetch failed at ${LOGO} — 4.5 not run"; fi
 
 echo "--- 5.1 empty slot elements (a component that renders an empty element cannot tell missing from blank)"
