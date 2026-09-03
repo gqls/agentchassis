@@ -363,3 +363,49 @@ It catches an unbalanced brace, not a missing comma. There is no JS engine on th
 deno, quickjs, or Python parser), so nothing in this chain can prove that script runs. Their
 `_HOLD` and hand-apply-then-look-in-a-browser is the only step that can, and it must not be
 substituted for.
+
+---
+
+## 2026-09-03 17:05Z — "nobody has a browser" was wrong, and I reached it the way this estate keeps reaching wrong things
+
+Two lanes independently concluded that migration `758` could not be verified in a browser because
+neither machine has one. **We were both wrong, and the mechanism has been running the whole time:**
+`browser-runner-adapter-6dd79f974b-42zgz`, up 4h50m, driven by `tool-acceptance-agent` through the
+`run_checks` action — **277 completed `acceptance_run` work items**, so it is in routine use, not
+dormant machinery.
+
+**The error is the one this estate has a landmine for, in a new dress.** I asked *"is there a
+browser"* by running `which node deno bun quickjs` and checking for a Python JS parser. That answers
+*"is there a local interpreter on this box"*, which is a different question. **The browser here is a
+SERVICE, not a binary** — the same shape as grepping a binary for a symbol when the right move is to
+ask the running service what it can do. My peer confirmed the absence on their machine too, which
+felt like corroboration and was actually two instances of the same wrong question. Same trap as the
+morning's `+1/+1`: agreement between two runs of a bad instrument is not evidence.
+
+**What it can check** (`internal/adapters/browserrunner/run_checks_action.go`): `page_status_ok`,
+`selector_exists`, `selector_count`, `has_visible_area`, `no_horizontal_overflow`, `interaction`
+(fill/click/select/reload), `computed_values`, `contrast_ratio`, plus console capture and
+screenshots. **It reads the live DOM after settle** — which is precisely the blind spot the `758`
+landmine describes, where a curl reads server HTML that the script then replaces.
+
+⚠ **A limitation worth carrying: `selector_exists` / `selector_count` pass on `count > 0` and fail
+on zero, with no expect-zero form.** So an assertion must be phrased as the presence of the RIGHT
+state, never the absence of the wrong one — `a.news-more-link[href^="/"]` present, not
+`a.news-more-link[href="#"]` absent, which would fail on a correct page.
+
+⚠ **And read the comment above `has_visible_area` before preferring `selector_exists`.** It exists
+because `selector_exists` passed on three tools the owner reported as unusable: present in the DOM,
+measured 1146x0, collapsed flex children. Present and visible are different questions.
+
+**The find that is worth more than the mechanism.** `runComputedValues` refuses to run when it names
+no expected values: *"a check asserting nothing must never report a pass — that is the vacuity this
+whole type was written to remove."* **The `332` lane's rule from this afternoon — name what your
+check would still pass if the feature were broken — is already encoded in the platform, in the very
+adapter that would verify their migration.** Told them to cite it as prior art rather than as a new
+idea. Three of us reached that rule independently today (their verify block, my near-miss, this
+adapter's author months ago), which says it is a real property of the estate rather than a good
+phrase.
+
+**Recorded as a correction to my own advice:** I told them a screenshot of the resolving link was
+the artefact to capture and that neither of us could take one. The first half stands; the second was
+wrong, and `screenshots.go` is in that same package.
