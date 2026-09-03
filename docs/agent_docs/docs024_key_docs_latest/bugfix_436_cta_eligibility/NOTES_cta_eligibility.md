@@ -176,3 +176,27 @@ Advisory dispositions, so none silently evaporates:
   SELECT column; the wiring tests match on the predicates themselves and pass unchanged.
 - **architecture m / guardian l (shared-seam widening):** acknowledged in the submission, ruled by
   the approval; LNK-041 is the same-commit registration.
+
+## 2026-09-03 — the roll landed; 715 applied after the registration proof
+
+- **Roll proven at the artefact, both controls** `[MEASURED 2026-09-03 ~09:20Z]`:
+  `service_binary_capabilities` kind=`discovery_check` shows `cta_rank_anomaly` on **412 pods**,
+  exactly the positive control `misdirected_cta`'s 412; the negative control `no_such_check_zz`
+  is absent. TWO distinct commits are running (`0d2feee2ff61…`, `7bf1ff674021…` — the
+  bugs_open/249 straddle shape) and **both** are descendants of `24b871535`
+  (`git merge-base --is-ancestor` each), so every pod carries the full change incl. the REVISE
+  fixes.
+- **715_HOLD hand-applied ~09:22Z** per RUNBOOK: snapshot NOTICE seen
+  (source_id `b05773e0-…`), UPDATE 1, DO/RAISE verify passed, COMMIT; post-apply the checks array
+  carries `cta_rank_anomaly` (t) and the newest `agent_definitions_backup` row for
+  `completeness-discovery-agent` holds the PRE-change config (`has_old = t`, snapshot_taken_at
+  2026-09-03 09:22:41Z).
+- ⚠ **`--record-only` REFUSES `_HOLD` files** — "UPPERCASE-suffixed sidecar … never applied by
+  the runner, so recording one is meaningless." So there is deliberately NO ledger row for 715;
+  this NOTES entry + the register status are the application record (same as 643/645). Do not
+  "fix" this by hand-writing an INSERT.
+- **First fleet pass NOT yet observed**: `site_work_items` `cta_rank_anomaly` count = **0** at
+  09:25Z. The discovery rotation must reach sites first. Remember the check's own design: on a
+  HEALTHY site it files nothing and RETRACTS (Resolved/AllOfType) — so "0 items" after passes run
+  is only meaningful alongside evidence the check RAN (the runner logs the enabled/registered
+  arrays per run; or induce one).

@@ -58,3 +58,19 @@ approval reference. What's left is tied to the next software roll: turn the chec
 two-way live test (switch a page off, watch the buttons move — including the header one, which can
 only be checked on the live site; switch it back, watch them return). Then your call on whether
 any current page should be switched off.
+
+## 2026-09-03, morning — the new software is running everywhere, and the alarm is switched on
+
+The fresh build rolled overnight. I proved it the careful way (asked each running service what it
+contains, with a known-present and a known-absent name as controls — 412 machines carry the new
+check, exactly matching the control) and then turned the new automatic check on, taking a backup
+of the configuration first and confirming the backup really holds the old version.
+
+So as of this morning: the switch exists on every page (all set to "eligible" — nothing has
+changed anywhere), the button-chooser respects it fleet-wide, and the fossil-alarm is armed. What
+remains is proving it end-to-end on a real site: flip one page off, watch every button move away
+from it (including the one in the site header, which can only be checked on the live site), flip
+it back, watch it return. Plus watching the alarm's first sweep of the fleet, and your one
+decision — whether any current page should be switched off (probably none needed).
+
+Everything a fresh session needs is in HANDOFF_2026-09-03_continue_here.md in this folder.

@@ -90,9 +90,10 @@ recompute path (KEEP #2 holds any valid stored page — 391's own finding); keep
 untouched; the all-default alphabetical-winner shape (webdesign) is candidate 3, deliberately not
 built. No page is opted out yet — owner decisions.
 
-**Remaining to close:** ~~council verdict~~ (APPROVED r2; round 1 REVISE demanded the near-empty-after-filter case be tested, and it now is) → roll → apply `714` (safe anytime; may go first) → induced
-canary both directions incl. the header button at the served bytes → hand-apply `715` → first fleet
-pass of the check. Then this bug is fixed-and-live.
+**Remaining to close (updated 2026-09-03):** ~~council verdict~~ (APPROVED r2) → ~~roll~~ (2026-09-03, proven at service_binary_capabilities with both controls) → ~~apply `714`~~ (2026-09-02) → ~~hand-apply `715`~~ (2026-09-03, snapshot verified) → induced apply `714` (safe anytime; may go first) → induced
+canary both directions incl. the header button at the served bytes → observe the check's first
+fleet pass (file on a true fossil / stay silent + retract elsewhere). Then this bug is
+fixed-and-live. Full recipe: bugfix_436_cta_eligibility/HANDOFF_2026-09-03_continue_here.md.
 
 ## Relations
 
