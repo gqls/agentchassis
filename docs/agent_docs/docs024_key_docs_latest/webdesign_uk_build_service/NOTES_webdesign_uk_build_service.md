@@ -8311,3 +8311,44 @@ lane's per the ownership ruling.
   Nothing filed on index until their reading lands.
 - Assemble batch `000622a9`: 2/18 complete at 12:11:59Z; `artefact_archive_trigger` rows on those pages
   since 10:47Z: 0 so far (pass shape; final read when all 18 are terminal). Served about.html GTM=0.
+
+## 2026-09-03 (13:56Z, clock-read) — SERVED: logo transparent, decks live, GTM+consent live; assemble-only prediction PASSED with its control; copy fix filed to the owner's queue
+
+- **Publish tick 13:14Z** (reconciler ran 11:08 and 13:14; `published_hash` th2:971985c1bf). Served,
+  cache-busted, invented-path control 404/9 B in the same run:
+  - `/assets/images/logo.png` lm **13:14:09**, 35,254 B, **colour type 6**, 400×218 depth 8,
+    **80.10% fully transparent, border ring 99.84%** → **owner item 5 verified at the SERVED
+    bytes**, not just the stored source (which read 80.82% / 99.91% / fringe 0.038% at 12:11Z).
+  - `/index.html` lm **13:14:20** — **6 decks, 0 title suffixes**, 30 `article-card` control,
+    GTM ×2, `cc_v1` ×1 → **item 14 verified served**.
+  - `/news/index.html`, `/blog/womens-boxing-…` — GTM ×2, `cc_v1` ×1.
+  - ⚠ `/about.html` GTM 0 at lm **13:13:58** — published ~20 s BEFORE its own assemble finished.
+    Pages assembled after 13:14 wait for the next tick (~15:1xZ). NOT a failure; re-probe.
+- **Assemble batch `000622a9` 18/18 complete** (12:11:20→13:47:03Z, 0 failed) and **18/18 pages'
+  `deployed_at` > their own `claimed_at`** (the positive control the components lane asked for).
+  **`page_component_history` rows on those 18 pages since 10:47Z: ZERO, of any source.** So the
+  assemble path wrote no `page_components` while the served HTML changed → **the assemble-only
+  prediction PASSES**, and it is why chrome propagated without disturbing the cards. (Their
+  correction stands: an unconditional `save_page_sections_overwrite` row would prove only that a
+  save ran; the absence here is with the traffic control held.)
+- **`ec92320f` FAILED 3/3** at 13:10Z, same `rebuild_blog_listing` duplicate key (`bugs_open/457`).
+  Chrome slots are current (13:10:2xZ; head GTM + `cc_v1`, header GTM) because
+  `render_site_components` precedes the failing step. **All future chrome propagation on this site
+  is hand-filed until 457's code fix** — RUNBOOK carries the recipe.
+- **Components' `691`** completed 13:47:46Z; index instance replaced (`322ce532`, created = updated
+  13:47:32Z) and **decks SURVIVED (6/6 excerpt keys, 6 rendered)**. "Left `articles` alone" vs
+  "rebuilt correctly" is not decidable from the id change — neither lane claims it. Licence taken
+  for the copy fix ON INDEX ONLY per their caveat.
+- **Copy fix FILED** `needs_copy_edit` **`a930e70c`** 13:53:07Z (pre-flight: no open copy/section
+  item; the deferred RFC_056 verdict row `6776b944` deliberately left alone — its `current_value`
+  describes the OLD CTA). Route read at the live definitions: `copy-editor` → `run_copy_edit` (LLM)
+  → **`request_review`/`checkpoint_for_review` = the owner's admin queue** → `section_edit`
+  (`apply_section_edit`, `content_edit`, `field_updates`) applies ONE slot and deploys the page;
+  no `page_rerender`, no listing re-resolve. Baseline recorded: subheadline 113 chars.
+- **Roll `v1.0.1359`**: adapter stamp **`304388519`** (12:58:16Z) from BOTH adapter pods; targets
+  ABOARD; **negative control `d33ef383c` (13:52:11Z) NOT aboard**. Chassis stamp UNREAD (startup
+  line out of range on both pods) → capability probe instead: `ListItemExcerpt` +
+  `applyLogoBackgroundPolicy` PRESENT, invented absent. Adapter by stamp, chassis by capability.
+- **Corroborates an existing landmine** (`pages.rendered_header/rendered_footer/rendered_head` are
+  VESTIGIAL): all 21 pages read 0 GTM in `rendered_head` while the served heads carry it — the
+  column is not merely empty, it is actively misleading for a "did the tag ship" check.

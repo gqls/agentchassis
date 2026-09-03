@@ -669,3 +669,26 @@ review queue on the admin site for you to approve or send back. Expect that item
 
 The logo is verified at the file itself, transparent, one mark, no lettering; the live site picks
 it up at the same publishing pass.
+
+## 2026-09-03 (early afternoon) — the site now serves all of it
+
+The publishing pass ran at 13:14 and the live site has caught up with everything we fixed today.
+The logo on the page is now the transparent one: I fetched the file the site actually serves and
+measured it, four fifths of it is see-through, all the way to the edges. The home page shows all
+six articles with their one-line summaries, and none of the headlines carry the "| Boxing Online"
+tail any more. The analytics tag and the cookie banner are live on the home page, the news page
+and the articles.
+
+One page, About, was published about twenty seconds before its own rebuild finished, so it does
+not have the tag yet. It will pick it up at the next pass, around 15:15. Nothing is wrong with
+it; it just missed the train by seconds.
+
+The one wrong sentence in the new call-to-action is now in your hands: the copy editor will
+rewrite it and, by design, the proposal stops in your review queue on the admin site for you to
+approve or send back. Nothing changes on the page until you do.
+
+Two things I could not close today, both other threads' code: the refresh that carries header
+and footer changes to this site now fails every time on an unrelated bug in the blog listing
+(bugs_open/457), so I am filing those page rebuilds by hand until that is fixed; and the same
+class of bug parks that refresh for eleven other sites (bugs_open/451). Delivery stays held
+until the pre-delivery sweep, which is the last thing left on my side.

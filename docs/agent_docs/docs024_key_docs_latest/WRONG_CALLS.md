@@ -113,6 +113,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **rank yourself with the SELECTOR's own query, never a proxy census — a proxy's population includes what the selector EXCLUDES (here: locked sites), and a served-site history read as "starvation" is the same proxy one step later** | **1** |
 | **read where the RUNTIME takes its config from before calling an edit "live-immediate" — an orchestration EMBEDS `agent_config` at spawn, so a definition edit reaches future spawns only; `initial_request_data->agent_config` of one live run is the check** | **1** |
 | **verify the working tree carries the edit (`git diff --numstat <file>`) BEFORE writing the commit message — a heredoc script that dies on an assertion leaves the message claiming a change that never happened, and `set -e` did not stop the commit** | **3** |
+| **choose a negative control by the PROPERTY it must lack, not by convenience — "my latest commit" is only a not-aboard control if it postdates the stamp; derive it (`git log --format='%H %cI' | awk '$2 > <stamp time>'`)** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -62259,3 +62260,22 @@ census-the-write-history-not-the-bug-file, a-bound-added-for-a-reviewer-narrows-
   themselves, then retracted their own earlier number to me rather than letting it stand. Corrected
   visibly in NOTES and the HANDOFF (item reopened, not silently edited) the same session.
   Family: two-clean-runs-cannot-establish-stability, a-mixed-batch-is-the-trap.
+
+## 2026-09-03 — an ancestry negative control that came back ABOARD, because I picked it by convenience (session site_delivery_and_editor)
+
+- **The claim.** Verifying roll `v1.0.1359`, I ran the usual ancestry check with `62972e3c4` (my most
+  recent commit) as the must-be-NOT-aboard control. It came back **ABOARD**.
+- **Why it was false.** Not a broken probe — a wrongly chosen control. The stamp `304388519` was
+  committed 12:58:16Z; my "latest" commit was 12:17:46Z, i.e. genuinely an ancestor. Every commit I
+  had made that morning predated the stamp, so none of them could serve as the control.
+- **What caught it.** The control itself, reading ABOARD in the same output as the targets — which is
+  exactly what a control is for. The failure was caught by the method, not despite it.
+- **The mistake, precisely.** I had been using "my newest commit" as shorthand for "a commit the
+  build cannot contain". That shorthand held all morning because the rolls were older than my work,
+  and stopped holding the moment a roll arrived from a commit newer than mine. A control must be
+  chosen by the property it is supposed to lack, and here the property is *committed after the stamp*.
+- **The cheap check that would have.** Derive it instead of picking it:
+  `git log --format='%H %cI' | awk -v s="$(git log -1 --format='%cI' <stamp>)" '$2 > s {print $1}' | head -1`
+  — that returned `d33ef383c` (13:52:11Z), which is correctly NOT aboard.
+- **Cost.** None beyond the re-run: nothing was reported between the bad control and the good one,
+  because a control reading the wrong way is a stop signal and was treated as one.

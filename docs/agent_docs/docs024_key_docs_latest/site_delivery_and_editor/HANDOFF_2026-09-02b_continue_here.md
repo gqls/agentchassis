@@ -38,6 +38,7 @@ EXPECTED pre-convergence shape, not a failure).
 > operator re-file **`ec92320f`** filed 08:35:44Z (watcher armed; queue ~3 h deep per the
 > components lane). Chassis still `v1.0.1355` (no roll overnight) → §1.1 unchanged.
 > `customer_access_tokens` 0. Token valid.
+> **➜ 13:56Z: THREE OF THE FOUR WAVES ARE NOW SERVED — see the dated block at the FOOT of this file ("AFTERNOON RESULT") before re-reading §1; items 1, 3 and 4 are done at the served artefact and §1.2 was already struck.**
 > **⚠ ROLL INBOUND (owner, 08:39Z): a new chassis is being prepared for deployment within the
 > hour.** After it lands: (a) verify at the artefact, per service — image-generator-adapter
 > provenance line + `git merge-base --is-ancestor fcbe6071c <stamp>` (the 424 guard fix) and
@@ -457,3 +458,25 @@ dir) → SITE_DEFECT_CATEGORIES §0 → bugs 424/425/429 handoffs (all
 `../dispatcher_thread/DISPATCHER_README_start_here.md`.
 
 > **Timestamp correction, 21:20Z:** the in-place labels above originally read "~21:2xZ / ~21:4xZ / ~21:5xZ"; they were INFERRED, not read from the clock, and overstated elapsed time by ~30 min (the whole session's work sits between 21:03Z and 21:19Z). Re-anchored to the commit clock (21:14Z, 21:18Z) and `date`. The reconciler tick at ~21:52Z had NOT happened when any of it was written.
+
+---
+
+## AFTERNOON RESULT — 2026-09-03 13:56Z (this lane). Items 1, 3, 4 SERVED and verified; one fix is in the owner's review queue
+
+**All probes cache-busted, with an invented-path control returning 404 (9 bytes) in the same run.**
+
+| owner item | state | evidence at the SERVED artefact |
+|---|---|---|
+| **5 — transparent logo** | **VERIFIED, SERVED** | `/assets/images/logo.png` lm **13:14:09 GMT**, 35,254 B, PNG 400×218 depth 8 **colour type 6**, **80.10% fully transparent**, border ring **99.84%**. Stored source (1408×768) read the same way at 12:11Z: 80.82% / 99.91%, fringe 0.038%. Single text-free composition by eye |
+| **14 — card decks** | **VERIFIED, SERVED** | `/index.html` lm **13:14:20 GMT** — **6 × `article-card__excerpt`**, **0 × "| Boxing Online"**, 30 `article-card` control |
+| **GTM + consent (STY-060)** | **VERIFIED, SERVED** | index, `/news/index.html`, `/blog/womens-boxing-having-a-moment.html`: **GTM-PQ3WCTBD ×2, `cc_v1` ×1** each |
+| **1 — CTA voice** | repaired, ONE defect fixed via the owner's queue | ~207 visible chars vs 1,116; walkthrough gone. `needs_copy_edit` **`a930e70c`** filed 13:53:07Z → `copy-editor` → `checkpoint_for_review` → the owner approves/request_changes → `section_edit` applies one slot |
+
+- **⚠ Pages whose assemble finished AFTER the 13:14 tick are still pre-chrome**: `/about.html` reads GTM 0 at lm **13:13:58** — published ~20 s before its own assemble completed. Queued behind the NEXT publish tick (the reconciler ran 11:08 and 13:14; ~2 h cadence), **not a failure**. Re-probe after ~15:1xZ.
+- **Assemble batch `000622a9`: 18/18 complete** (12:11:20 → 13:47:03Z), 0 failed, and **all 18 pages' `deployed_at` moved past their own claim** (positive control). **ZERO `page_component_history` rows of ANY source on those pages since 10:47Z** — so the assemble path did not write `page_components` at all while the served HTML changed. That is this lane's assemble-only prediction PASSING with its control held, and it is why the chrome could propagate without touching the cards.
+- **`ec92320f` (chrome refresh) is FAILED at 3/3** (13:10Z, same `rebuild_blog_listing` duplicate key). **Chrome propagation on this site is hand-filed until `bugs_open/457`'s code fix** — recipe in the RUNBOOK. Slots themselves are current (13:10:2xZ, head has GTM + `cc_v1`, header GTM).
+- **Components lane's `691` discriminator** (template_changed on the rebuilt index) completed 13:47:46Z: instance replaced (`322ce532`, created = updated 13:47:32Z) and **the decks SURVIVED — 6 items, 6 excerpt keys, 6 rendered decks.** Which of "left `articles` alone" vs "rebuilt correctly" is NOT decidable from the id change; neither lane claims it. Licence taken for the copy fix **on this page only**, per their caveat; re-read the key after the apply.
+- **Roll `v1.0.1359`** (pods 13:28:18/13:28:43Z chassis, 13:28:21/13:28:30Z adapter): adapter stamp **`304388519`** (12:58:16Z) read from BOTH adapter pods; `fcbe6071c`, `f57f5ad1f`, `b2322a203` ABOARD; negative control `d33ef383c` (13:52:11Z, after the stamp) NOT aboard → the probe discriminates. **Chassis stamp NOT READ** — startup line out of range on both pods; capability probe instead on `85c4984f77-nrqf7`: `ListItemExcerpt` PRESENT, `applyLogoBackgroundPolicy` PRESENT, invented symbol absent (exit 1). So: adapter verified by stamp, chassis by capability — do not quote a chassis stamp for 1359.
+- **Measurement trap, corroborating an existing landmine:** `pages.rendered_head` reads **0 GTM on all 21 pages** while the served pages carry it — the served head is composed from `site_components` at assemble time (`rerender_single_page_action.go:361-367`). Never check "did the tag ship" at that column.
+
+**NEXT:** (a) `a930e70c` → the owner's queue, then re-read the CTA subheadline AND the excerpt key; (b) re-probe `/about.html` (and any page assembled after 13:14) after the ~15:1xZ tick; (c) then §1.5's pre-delivery sweep, which is now the only thing between here and the 651 rehearsal; (d) delivery stays HELD (`customer_access_tokens` 0).
