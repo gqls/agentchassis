@@ -350,3 +350,59 @@ failures that are not mine** — `TestFindingCodeScanEveryWriteIsRegistered` and
 pre-date my change** by running `scripts/verify-head-builds.sh --test` against committed
 HEAD `c68932577` before my work was committed: identical two failures. `verify-head-builds.sh`
 on my own HEAD `e48ecbe75`: **OK — HEAD builds.**
+
+---
+
+## 2026-09-03 — council round 1: APPROVED, and acting on it found a defect no test of mine could
+
+`009fabca-71c8-4f7b-9b23-f0b6605eb531` — **APPROVED**, 13 reviewers, 4 advisory objections,
+none high, 4 abstained. Committed with `Council-Reviewed:` on `2cca1b085`.
+
+### The defect I found while answering the objections
+
+**Not one of the objections — it came from asking a blast-radius question none of them
+asked.** *What does the closer do with items that are ALREADY closed?*
+
+`loadOpenDriftItems` carries **no status vocabulary**, following
+`findResolvedEmptySections`, which argues the point explicitly: this package already holds
+two hand-rolled copies of the closed-status list and they disagree, so *"resolveWorkItems
+owns the predicate; this function owns the observation. Reading a few already-closed rows
+costs a **no-op UPDATE and nothing else**."*
+
+**That last clause is true for a retraction with no side effect and false for mine.** My
+retraction writes a receipt, and `resolveWorkItems` writes it BEFORE the UPDATE.
+
+```sql
+-- what would actually have happened on the first pass after the roll
+ idea.uk         | guides-index    | complete | {guide-list}
+ robot-hands.com | gripper-catalog | complete | {gripper-spec-sheet}
+```
+
+Both already settled — `guides-index` **adjudicated a benign rename by its owning lane**,
+`gripper-catalog` documented in 469 and routed. Both would have been re-raised as fresh
+`needs_human_review` items while the retraction they belong to matched no row: **the receipt
+without its retraction.**
+
+Every test passed. All eleven mutations passed. It is not a logic error — it is a
+**precedent whose licence had expired for my case**, and the precedent's own text told me so
+in a clause I read as reassurance rather than as a condition. Fixed with an open-item
+pre-check gating the whole receipt block (and a pre-check ERROR is not read as "nothing to
+close"); both arms mutation-proved. `WRONG_CALLS` entry: **when you cite a precedent, quote
+its stated COST and test that cost against your change.**
+
+### The four objections, and what each cost
+
+| seat | sev | outcome |
+|---|---|---|
+| `reuse_agent` — `Evidence` merges free-form into `result`'s top level, beside two live conventions | med | **CODE CHANGED.** Now nests at `result->'resolution_evidence'`. The seat proposed `revalidation` / `_verification`; **neither fits** and saying why mattered more than picking one — `_verification` = a COMPLETION gate ran, `revalidation` = the revalidator re-asked, this is what a RETRACTION observed. `retraction` unavailable (`write_audit_findings_retraction` owns it: 531 rows, 258 also carrying `resolved_by`). |
+| `guardian` — test the COMBINED Receipt+Evidence path's arg count/order; check the second caller | med ×2 | **CODE CHANGED.** Exact-args test pinning `$7` to the seventh argument (mutation: move it first → fails). `work_item_retraction.go` verified to set neither field, pinned by a source test so the day it starts to is not silent. |
+| `prior_art_librarian` — two load-bearing claims asserted, not shown | med ×2 | **VERIFIED AT SOURCE.** Exactly **2** non-test callers of `resolveWorkItems`. `insertWorkItem`'s false return arises at `:2104`, `:2406`, `:2425` plus ON CONFLICT — **three of the four leave no usable record**, which is exactly why `!inserted` confirms. |
+| `architecture` — `needs_rfc`: a shared contract framed as reusable for nine checks, decided inside a single-symptom fix | med | **`RFC_066` FILED**, quoting the objection. Its §5 gives the blast radius the seat asked for — including that the honest number is **smaller than nine**, because a receipt only means anything where a resolution can be DESTRUCTIVE, and nobody has enumerated which of the nine those are. |
+
+`editquality` (med) wanted the receipt's CONTENT in the sketch, not just its absence being
+refused — a submission-shape gap rather than a code defect; the function exists and is
+tested. `bug_historian` (med) objected that the receipt lands in a queue the estate does not
+drain — already in the stated risks, `bugs_open/033`, and not fixable here.
+
+**Total: 18 mutations run across the change, each killing a named test, sources restored and
+diffed byte-identical every time.**
