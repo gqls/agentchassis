@@ -448,9 +448,11 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 					SET storage_path     = COALESCE(storage_path, split_part(url, '?', 1)),
 					    storage_provider = COALESCE(storage_provider, 'backblaze'),
 					    filename         = $2,
-					    url              = $3
+					    url              = $3,
+					    mime_type        = NULLIF($4, '')
 					WHERE id = $1
-				`, assetUUID, processed.Paths.Filename, processed.Paths.RelativeURL); execErr != nil {
+				`, assetUUID, processed.Paths.Filename, processed.Paths.RelativeURL,
+					processed.ContentType); execErr != nil {
 					logger.Warn("deploy_image_asset: failed to record local url on asset",
 						zap.String("asset_id", assetIDStr),
 						zap.Error(execErr))

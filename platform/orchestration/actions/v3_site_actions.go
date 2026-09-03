@@ -3385,8 +3385,11 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 
 	query := `
 		INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url, origin_type,
-		                    origin_prompt, origin_model, storage_path, storage_provider, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+		                    origin_prompt, origin_model, storage_path, storage_provider, mime_type, created_at)
+		-- mime_type NULL at birth: this action stores the SOURCE object and
+		-- does not read its bytes, so it cannot honestly say what they are.
+		-- deploy_image_asset records the type when it publishes (bugs_open/433).
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL, NOW())
 		ON CONFLICT (site_id, asset_key) WHERE asset_key IS NOT NULL AND status = 'active' DO UPDATE SET
 			purpose = EXCLUDED.purpose,
 			url = EXCLUDED.url,
@@ -3396,6 +3399,15 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 			origin_model = COALESCE(EXCLUDED.origin_model, assets.origin_model),
 			storage_path = COALESCE(EXCLUDED.storage_path, assets.storage_path),
 			storage_provider = COALESCE(EXCLUDED.storage_provider, assets.storage_provider),
+			-- mime_type is deliberately CLEARED here, not carried forward
+			-- (bugs_open/433). This upsert resets url to a fresh presigned
+			-- SOURCE url on every regeneration, while any mime_type already on
+			-- the row describes the previously DEPLOYED artefact. Keeping it
+			-- would leave the row asserting a type for bytes it no longer points
+			-- at. NULL is the honest state until deploy_image_asset publishes
+			-- the artefact and records what it actually stored. Clearing is part
+			-- of the invariant, not an omission from it.
+			mime_type = NULL,
 			updated_at = NOW()
 		WHERE ` + assetAgentWritableSQL("assets.") + `
 		RETURNING id
@@ -3433,8 +3445,9 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 
 		simpleQuery := `
 			INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url, origin_type,
-			                    origin_prompt, origin_model, storage_path, storage_provider, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+			                    origin_prompt, origin_model, storage_path, storage_provider, mime_type, created_at)
+			-- NULL for the same reason as the upsert above (bugs_open/433).
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL, NOW())
 			RETURNING id
 		`
 		err = queryRowScanUUID(ctx, params.DB, simpleQuery, &returnedID,

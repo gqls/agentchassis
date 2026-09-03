@@ -166,11 +166,47 @@ func (c *S3Client) DownloadOptimizeAndPrepare(ctx context.Context, s3URI string,
 		return nil, err
 	}
 
-	// Get config for content type
+	// Get config for the deployed path's extension.
 	_, _, _, extension := GetImageConfig(purpose)
-	contentType := "image/jpeg"
-	if extension == "png" {
-		contentType = "image/png"
+
+	// CONTENT TYPE COMES FROM THE BYTES, NOT FROM THE PURPOSE (bugs_open/433).
+	//
+	// This used to be derived from `extension` alone, which is correct on the
+	// happy path — OptimizeImageForWeb re-encodes to png or jpeg to match — and
+	// WRONG on the fallback directly above: DownloadAndOptimizeImage returns the
+	// ORIGINAL, un-re-encoded bytes when optimisation fails ("Optimization
+	// failed, using original"), and this function then confidently reported the
+	// format the purpose asked for rather than the one it is about to publish.
+	// That value is what deploy_image_asset writes into assets.mime_type, so the
+	// purpose-derived version would have filled ~1,000 empty rows with a
+	// confidently wrong answer — strictly worse than the empty column it
+	// replaced, because an empty mime_type is at least honest and greppable
+	// whereas a wrong one looks repaired.
+	//
+	// A DISAGREEMENT IS LOGGED, NOT REFUSED, and that is deliberate. Refusing
+	// would be the tidier invariant and it would take sites down: nothing in
+	// this repo registers a webp decoder, yet image/webp is a possible provider
+	// response, so today such an image is committed under a .png name and the
+	// browser sniffs it. Turning that into a hard failure removes a site's logo
+	// to fix a metadata field. So: publish what we have, and say plainly that
+	// the name and the bytes disagree.
+	contentType := ""
+	if sniffedExt, sniffedMIME := SniffImageExtAndMIME(data); sniffedMIME != "" {
+		contentType = sniffedMIME
+		if sniffedExt != extension {
+			logger.Warn("image bytes do not match the extension this purpose deploys under — recording the BYTES, not the name",
+				zap.String("purpose", purpose),
+				zap.String("deployed_extension", extension),
+				zap.String("actual_format", sniffedExt),
+				zap.String("content_type", sniffedMIME),
+				zap.Int("size_bytes", len(data)))
+		}
+	} else {
+		// Honest unknown. Callers must write NULL rather than invent a type;
+		// there is no fallback here by design (see SniffImageExtAndMIME).
+		logger.Warn("could not identify the image format from its bytes — content type left empty",
+			zap.String("purpose", purpose),
+			zap.Int("size_bytes", len(data)))
 	}
 
 	// Build paths

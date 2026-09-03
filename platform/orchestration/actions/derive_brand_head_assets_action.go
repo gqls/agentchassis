@@ -160,11 +160,15 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 
 	// ── Derive favicon (square) and OG card (logo on brand background) ──
 	files := map[string]interface{}{}
+	// Captured from the bytes actually committed, so the provenance rows below
+	// record what was stored rather than what the filename claims (bugs_open/433).
+	var faviconMIME, ogCardMIME string
 	if !lockedKeys.Locked("favicon") {
 		faviconPNG, err := encodePNG(composeFavicon(logoImg))
 		if err != nil {
 			return nil, fmt.Errorf("encode favicon: %w", err)
 		}
+		_, faviconMIME = storage.SniffImageExtAndMIME(faviconPNG)
 		files[storage.DefaultAssetBasePath+"/favicon.png"] = map[string]interface{}{
 			"content": base64.StdEncoding.EncodeToString(faviconPNG), "encoding": "base64",
 		}
@@ -174,6 +178,7 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 		if err != nil {
 			return nil, fmt.Errorf("compose og card: %w", err)
 		}
+		_, ogCardMIME = storage.SniffImageExtAndMIME(ogPNG)
 		files[storage.DefaultAssetBasePath+"/og-card.png"] = map[string]interface{}{
 			"content": base64.StdEncoding.EncodeToString(ogPNG), "encoding": "base64",
 		}
@@ -184,10 +189,10 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 
 	// ── Provenance rows (best-effort; derivation, origin = the logo) ──
 	if !lockedKeys.Locked("favicon") {
-		recordDerivedAsset(ctx, params.DB, siteID, "favicon", "/assets/images/favicon.png", logger)
+		recordDerivedAsset(ctx, params.DB, siteID, "favicon", "/assets/images/favicon.png", faviconMIME, logger)
 	}
 	if !lockedKeys.Locked("og_card") {
-		recordDerivedAsset(ctx, params.DB, siteID, "og_card", "/assets/images/og-card.png", logger)
+		recordDerivedAsset(ctx, params.DB, siteID, "og_card", "/assets/images/og-card.png", ogCardMIME, logger)
 	}
 
 	logger.Info("derive_brand_head_assets: committed brand-head assets",
@@ -320,14 +325,19 @@ func parseHexColour(hex string) color.Color {
 // Best-effort: derivation succeeds even if this bookkeeping fails. Uses the
 // same (site_id, asset_key) active-upsert as store_asset; origin_type
 // 'generated', origin_model records the derivation source.
-func recordDerivedAsset(ctx context.Context, db *sql.DB, siteID uuid.UUID, assetKey, webPath string, logger *zap.Logger) {
+// mimeType is read from the bytes the caller actually committed, not assumed
+// from the .png filename (bugs_open/433). These artefacts genuinely ARE PNG —
+// encodePNG produces them a few lines up — so a literal would have been true
+// here; sniffing anyway means all four asset writers obey one rule instead of
+// three plus an exception, and the rule survives someone changing the encoder.
+func recordDerivedAsset(ctx context.Context, db *sql.DB, siteID uuid.UUID, assetKey, webPath, mimeType string, logger *zap.Logger) {
 	_, err := db.ExecContext(ctx, `
-		INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url, origin_type, origin_model, created_at)
-		VALUES (gen_random_uuid(), $1, $2, 'image', $3, $3, $4, 'generated', 'derived-from-logo', NOW())
+		INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url, origin_type, origin_model, mime_type, created_at)
+		VALUES (gen_random_uuid(), $1, $2, 'image', $3, $3, $4, 'generated', 'derived-from-logo', NULLIF($5, ''), NOW())
 		ON CONFLICT (site_id, asset_key) WHERE asset_key IS NOT NULL AND status = 'active' DO UPDATE SET
-			url = EXCLUDED.url, updated_at = NOW()
+			url = EXCLUDED.url, mime_type = EXCLUDED.mime_type, updated_at = NOW()
 		WHERE `+assetAgentWritableSQL("assets.")+`
-	`, siteID, assetKey+" (derived)", assetKey, webPath)
+	`, siteID, assetKey+" (derived)", assetKey, webPath, mimeType)
 	if err != nil {
 		logger.Warn("recordDerivedAsset: provenance upsert failed (non-fatal)",
 			zap.String("asset_key", assetKey), zap.Error(err))

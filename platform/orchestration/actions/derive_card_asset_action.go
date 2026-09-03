@@ -194,6 +194,11 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 		return nil, fmt.Errorf("encode card jpg: %w", err)
 	}
 	cardBytes := buf.Bytes()
+	// Read the type off the bytes we just encoded rather than restating
+	// 'image/jpeg' as a literal (bugs_open/433). Value-identical today —
+	// jpeg.Encode is three lines up — but it cannot drift away from the
+	// encoder the way a literal silently does.
+	_, cardMIME := storage.SniffImageExtAndMIME(cardBytes)
 
 	// ── Commit to the site repo (cardKey resolved and lock-checked above) ──
 	repoPath := storage.DefaultAssetBasePath + "/" + storage.AssetKeyFilename(cardKey, ".jpg")
@@ -217,15 +222,19 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 		                    entity_type, entity_id, mime_type, file_size, dimensions, created_at)
 		VALUES (gen_random_uuid(), $1, $2, 'image', 'card', $3, $4,
 		        'generated', 'derived-from-hero', $5,
-		        $6, $7, 'image/jpeg', $8, $9::jsonb, NOW())
+		        $6, $7, NULLIF($10, ''), $8, $9::jsonb, NOW())
 		ON CONFLICT (site_id, asset_key) WHERE asset_key IS NOT NULL AND status = 'active' DO UPDATE SET
 			url = EXCLUDED.url, origin_asset_id = EXCLUDED.origin_asset_id,
 			entity_type = EXCLUDED.entity_type, entity_id = EXCLUDED.entity_id,
 			file_size = EXCLUDED.file_size, dimensions = EXCLUDED.dimensions,
+			-- mime_type MUST be carried forward too (bugs_open/433): without it an
+			-- upsert onto a row born at store_asset keeps that row's stale (or
+			-- empty) type while every other column is refreshed.
+			mime_type = EXCLUDED.mime_type,
 			updated_at = NOW()
 		WHERE `+assetAgentWritableSQL("assets.")+`
 	`, siteID, cardKey+" (derived card)", cardKey, webPath,
-		sourceAssetID, entityType, entityID, len(cardBytes), string(dims))
+		sourceAssetID, entityType, entityID, len(cardBytes), string(dims), cardMIME)
 	if err != nil {
 		return nil, fmt.Errorf("card asset upsert: %w", err)
 	}
