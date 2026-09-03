@@ -468,3 +468,58 @@ Migration `736` applied 2026-09-03 after approval — `UPDATE 1`, verify block p
 Recorded in the ledger with `--record-only` (hand-applied, so the runner would otherwise not know).
 ⚠ I did **not** use `run-migrations.sh --apply`: it takes EVERY pending file, and other lanes have
 migrations in that directory.
+
+## (l) 2026-09-03 ~16:0xZ — THE FIX IS LIVE, proven at both binaries with a three-way control
+
+`agent-chassis` is now **`v1.0.1359`**, pods ~155 min old. ⚠ The `build provenance` startup line had
+already **scrolled out of reach on both pods** (`--tail=200000` → not found), exactly as the landmine
+says it does on a busy service. **An empty result there means "not in range", not "unstamped"** — so
+I used the binary probe, which has no shelf life.
+
+**Probe the CAPABILITY, not the commit** — and never a bare positive:
+
+| probe | pod `…nrqf7` | pod `…phgh2` | reads as |
+|---|---|---|---|
+| `Orchestration is actively executing` (unchanged by me) | PRESENT | PRESENT | **control** — the probe mechanism works |
+| `STALE_TAKEOVER_CLAIMED` (created by the fix) | **PRESENT** | **PRESENT** | the fix **shipped** |
+| `Found stuck orchestration, taking over` (deleted by the fix) | ABSENT | ABSENT | the old code is **gone** |
+
+Three-way, on **both** pods (one release tag can ship several revisions — `bugs_open/249`). The
+control is what makes it a measurement: a broken `grep -aq` would have returned ABSENT for all three
+and read as "the fix is not there".
+
+**So `bugs_open/329`'s fix is LIVE as of 2026-09-03 ~13:28Z.**
+
+### ⚠ BUT THE OBVIOUS "IS IT WORKING?" METER IS BROKEN HERE, and my first reading of it was worthless
+
+I grepped the pod logs for `STALE_TAKEOVER_CLAIMED` and `STALE_TAKEOVER_LOST`: **0 and 0**. That
+looks like an answer. It is not — **the demand control was also 0**
+(`Orchestration is actively executing`, the arm's own non-stale branch, which must fire constantly).
+
+Checking the instrument instead of the result: `kubectl logs -l app=agent-chassis --since=3h
+--tail=200000` returns **68 LINES TOTAL** `[MEASURED 2026-09-03 ~16:0xZ]`, on a service that created
+**1,588 orchestration rows in the same window**. The log is not a small sample of the traffic; it is
+essentially nothing. **Any zero read from it is uninformative**, and would have been just as zero
+before the fix shipped.
+
+**Use the durable needle instead — which is precisely why the fix writes one:**
+
+```sql
+SELECT count(*) FROM orchestration_states
+WHERE processing_history @> '[{"action":"stale_takeover_claimed"}]';   -- 0 as of 2026-09-03 16:0xZ
+```
+
+That zero **is** trustworthy: `processing_history` is persisted, not windowed. It means **no takeover
+has been claimed since the roll**, which is consistent with everything measured — this was always a
+correctness gap rather than a fire.
+
+### Current population, for whoever picks this up
+
+`[MEASURED 2026-09-03 ~16:0xZ]` — the arms' raw material, and it churns fast:
+
+- Traffic control: **1,588** orchestration rows created in the 150 min since the roll. The chassis is busy.
+- `EXECUTING_STEP` rows: **18**, of which **8** idle > 5 min at first read — and **1** two minutes
+  later (`med-price-collector`, idle 14 min). So stale rows appear and resolve continuously.
+- ⚠ **A stale row is not a takeover.** The arms fire only when a MESSAGE ARRIVES for an orchestration
+  whose row is already stale. That conjunction is rare, which is why the needle is still 0 and why
+  nobody should read 0 as "the fix does not work" — only as "it has not been exercised yet".

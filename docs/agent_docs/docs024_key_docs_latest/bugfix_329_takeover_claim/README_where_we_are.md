@@ -145,3 +145,38 @@ change is not an ancestor of it. I also ran a control — an older change that *
 and is — so the answer is a measurement rather than a command that might simply have been failing.
 The fix rides the build after this one. Until then nothing about this behaviour has changed in
 production, and I will not describe it as fixed.
+
+---
+
+**2026-09-03, late afternoon — it is live. I can show you, and I can also show you what I still cannot claim.**
+
+The new chassis went out and **the fix is in it**. I checked properly rather than inferring it from
+the fact that a build happened: the running program's own startup note about which version of the
+code it came from had already scrolled out of reach — that happens within hours on a busy service —
+so I asked the running program directly, three times over. Once for a phrase my change *created*
+(present), once for a phrase my change *deleted* (absent), and once for a phrase that should be there
+either way (present). That third one is the important one: without it, a broken check would answer
+"not there" to everything and I would have reported the opposite of the truth. I did this on both
+machines, because one release can carry different builds.
+
+**So: as of about half past one this afternoon, the system no longer assumes a job is abandoned. It
+has to claim it, and only one machine can win.**
+
+**What I cannot yet tell you is whether it has actually happened.** No takeover has been claimed
+since the deploy. That is not a worry — this was never a fire; it is a gap that had to be closed
+before it bit us — but it does mean the mechanism is live and untested by reality.
+
+**One thing worth knowing, because it nearly fooled me.** The obvious way to check whether the new
+code is doing anything is to read the machine's log for the messages it prints. I did, found nothing,
+and very nearly wrote that down. Then I checked the instrument rather than the answer: that log
+returns **68 lines for a three-hour window**, on a service that started **1,588 jobs** in the same
+window. It is not a sample of what happened; it is almost nothing. A "nothing found" from it would
+have looked identical before the fix existed. This is exactly why the change also writes a permanent
+record into the database when it acts — that record cannot scroll away, and it is the thing to watch.
+
+**Where it goes next.** The bug stays open, because "the code is running" and "the code has been seen
+to work" are different claims and I will not merge them. I have written a handoff that says exactly
+what to watch, in what order, and — importantly — where **not** to try to test it, because two other
+safety mechanisms sit either side of this one and would make a test look like it passed for the wrong
+reason. The remaining gap, where a machine that is genuinely working can still be judged dead, is now
+its own bug rather than a paragraph in mine.
