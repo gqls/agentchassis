@@ -1201,13 +1201,7 @@ func CleanMarkdownJSON(s string) string {
 
 func RenderPromptTemplate(templateStr string, data map[string]interface{}, logger zap.Logger) (string, error) {
 	// tmpl := template.New("agent_prompt")
-	funcMap := template.FuncMap{
-		"toJSON":      templateToJSON,
-		"placeholder": templatePlaceholder,
-		"rangeStart":  templateRangeStart,
-		"rangeEnd":    templateRangeEnd,
-	}
-	tmpl := template.New("agent_prompt").Funcs(funcMap)
+	tmpl := template.New("agent_prompt").Funcs(PromptTemplateFuncs())
 	parsedTemplate, err := tmpl.Parse(templateStr)
 	logger.Info("DEBUGaa: parsing template in renderTemplate",
 		zap.String("template", templateStr),

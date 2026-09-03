@@ -103,6 +103,18 @@
 //	  on the answer; a MISSING declaration is the finding, either explicit value
 //	  is clean (bugs_open/326).
 //
+//	go run ./cmd/config-key-audit --template-input-fields [--report] < live-workflows-with-prompts.json
+//	  {"templates_checked": N, "parse_failures": [...], "findings": [{"agent": "...",
+//	    "path": "...", "action": "...", "template_tier": "step|agent",
+//	    "kind": "unreachable_root|conditional_root|declared_unread", "roots": [...]}]}
+//	  Which live prompt template names a variable its step's input_fields can
+//	  never supply — so the block renders EMPTY, or "<no value>", with no error
+//	  and no verdict (bugs_open/453)? Parses each template with production's own
+//	  parser and func map, so a {{range}} body's rebound dot is not mistaken for a
+//	  root. Exit 1 ONLY on unreachable_root (input_data absent, so config alone
+//	  decides it); conditional_root and declared_unread are advisory. Needs the
+//	  agent_prompt_template projection and REFUSES an export without it.
+//
 //	go run ./cmd/config-key-audit --loop-sitewide-item-keys [--report] < live-workflows.json
 //	  {"agents_scanned": N, "findings": [{"agent": "...", "path": "...",
 //	    "loop_path": "...", "loop_variable": "...", "item_key_prefix": "...", ...}]}
@@ -182,6 +194,32 @@ import (
 type liveAgent struct {
 	Type     string              `json:"type"`
 	Workflow models.WorkflowPlan `json:"workflow"`
+	// AgentPromptTemplate is default_config.prompt_template — tier 2 of
+	// getPromptWithPriority, the template a step with no prompt_template of its
+	// own actually renders. Read only by --template-input-fields; every other
+	// mode ignores it, and every other mode's export omits it entirely.
+	//
+	// json.RawMessage rather than *string ON PURPOSE: it is the only shape that
+	// distinguishes "the export did not project this key" (nil) from "the agent
+	// has no prompt_template" (the four bytes `null`), because encoding/json
+	// calls RawMessage.UnmarshalJSON even for a JSON null while it would simply
+	// leave a *string nil in both cases. --template-input-fields refuses an
+	// export where no row carries the key, which is a check it could not make
+	// against a pointer. See requireAgentPromptProjection.
+	AgentPromptTemplate json.RawMessage `json:"agent_prompt_template"`
+}
+
+// agentPromptTemplate decodes the tier-2 template, returning "" for an absent
+// key, a JSON null, or a non-string value.
+func (a liveAgent) agentPromptTemplate() string {
+	if len(a.AgentPromptTemplate) == 0 {
+		return ""
+	}
+	var s *string
+	if err := json.Unmarshal(a.AgentPromptTemplate, &s); err != nil || s == nil {
+		return ""
+	}
+	return *s
 }
 
 // decodeLiveAgents parses the stdin export. One undecodable definition costs that
@@ -280,6 +318,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--render-truncation" {
 		emitRenderTruncation(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--template-input-fields" {
+		emitTemplateInputFields(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--removed-keys-in-use" {

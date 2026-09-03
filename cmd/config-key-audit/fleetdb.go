@@ -85,8 +85,18 @@ func dbConn() (*sql.DB, error) {
 // callers all refuse to print a clean report over an empty fleet, and this keeps
 // that refusal on one side of the boundary instead of relying on each of them.
 func loadLiveAgentsFromDB(db *sql.DB, caller string) ([]liveAgent, int, error) {
+	return loadLiveAgentsFromDBWithQuery(db, caller, fleetExportQuery)
+}
+
+// loadLiveAgentsFromDBWithQuery is the same loader for a mode whose export needs
+// a projection the shared query does not carry (--template-input-fields needs
+// the agent-level prompt_template). The NULL guard and the decoder stay on this
+// side of the boundary for every caller — a mode that hand-rolled its own
+// QueryRow would be re-deciding "is an empty fleet clean?" for itself, which is
+// the drift this file's header is about.
+func loadLiveAgentsFromDBWithQuery(db *sql.DB, caller, query string) ([]liveAgent, int, error) {
 	var raw []byte
-	if err := db.QueryRow(fleetExportQuery).Scan(&raw); err != nil {
+	if err := db.QueryRow(query).Scan(&raw); err != nil {
 		return nil, 0, fmt.Errorf("config-key-audit %s: fleet export query failed: %w", caller, err)
 	}
 	if len(raw) == 0 || string(raw) == "null" {

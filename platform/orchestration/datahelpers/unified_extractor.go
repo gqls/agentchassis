@@ -303,17 +303,15 @@ func ExtractFields(
 	// ========================================================================
 	// Track which fields we've already handled specially
 	// ========================================================================
-	speciallyHandled := map[string]bool{
-		"input_data":      true,
-		"reviewed_brief":  true,
-		"site_record":     true,
-		"current_page":    true,
-		"current_section": true,
-	}
+	// The set lives at package level (speciallyHandledInputFields) rather than
+	// here, so an offline check can ask THIS package what the extractor treats
+	// specially instead of keeping its own copy — bugs_open/453 names an
+	// un-sourced copy of exactly this list as the way a lint over the seam
+	// inherits the classifier gap it was written to close.
 
 	// Extract each specific field (skip already handled)
 	for _, fieldName := range fieldNames {
-		if speciallyHandled[fieldName] {
+		if IsSpeciallyHandledInputField(fieldName) {
 			continue // Already handled above
 		}
 
@@ -327,9 +325,11 @@ func ExtractFields(
 			// Safe on already-clean values — returns them unchanged.
 			value = UnwrapDeep(value, logger)
 
-			// Store with simple name (last part of path)
-			parts := strings.Split(fieldName, ".")
-			simpleKey := parts[len(parts)-1]
+			// Store with simple name (last part of path) — the rule itself is
+			// TemplateRootForInputField, so a reader asking "what does this
+			// input_fields entry make available to the template?" gets the same
+			// answer the extractor acts on.
+			simpleKey := TemplateRootForInputField(fieldName)
 			result[simpleKey] = value
 
 			logger.Info("✓ Field extracted",

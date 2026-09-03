@@ -180,7 +180,11 @@ func ExecuteVisionPromptAction(ctx context.Context, params ActionParams) (interf
 
 	// ── Prompt: template + image manifest, so the model can cite pages ─────
 	templateData := extractDataForAiAgent(params).(map[string]interface{})
-	templateData["vision_image_manifest"] = manifest
+	// The constant, not a literal: template_context_contract.go declares this as
+	// a root this action supplies, and an offline check reads that declaration
+	// (bugs_open/453). Sharing the symbol makes a rename a compile error instead
+	// of a silent divergence between what is injected and what is declared.
+	templateData[VisionImageManifestKey] = manifest
 	renderedPrompt, err := datahelpers.RenderPromptTemplate(promptTemplate, templateData, *params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("execute_vision_prompt: render prompt: %w", err)

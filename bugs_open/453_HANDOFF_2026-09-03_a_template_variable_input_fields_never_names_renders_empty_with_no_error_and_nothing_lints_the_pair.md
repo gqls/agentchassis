@@ -166,3 +166,98 @@ read-only and are reproducible from this text.
 *Contributed by the `bugs_open/437` lane, 2026-09-03. Found while confirming that migration
 724 had not introduced `<no value>` into the writer prompt — it had not, and the control is
 what surfaced this.*
+
+---
+
+## CONTRIBUTION 2026-09-03 — CANDIDATE 1 IS BUILT. It closes shape 2 only, and it says so; here is what it found on its first run
+
+Built by the `bugfix_453_template_input_fields_lint` lane
+(`docs/agent_docs/docs024_key_docs_latest/bugfix_453_template_input_fields_lint/`) after
+`scripts/who-owns.py 453` returned **no owning workstream** and both lanes on this file had
+declined the build in writing — the filer (*"a build decision … is a human's call"*) and the
+437 lane (*"I am not proposing to build candidate 1"*). Not a competing fix; the account stays
+here.
+
+### 1. What shipped
+
+`cmd/config-key-audit --template-input-fields [--report]` + `scripts/audit-template-input-fields.sh`.
+
+**Answering the 437 lane's correction directly: the mode names which shapes it closes, in its
+own header and in its finding names.** Shape 2 only.
+
+| shape | closed? |
+|---|---|
+| 1 — no `input_fields` at all (randomised recursive search) | no; carried as `no_input_fields` context on a finding, never convicted |
+| 2 — root missing from `input_fields` | **YES — this is the deliverable** |
+| 3 — root present, sub-field absent in the DATA (`<no value>`, ~65% of writer prompts) | **no, and no check over config can** — the config is correct. Stated in the header as belonging to `RenderPromptTemplate`'s own scan |
+
+Your §Fix candidate 1's condition — *"the extractor's speciallyHandled set must be read from
+ONE place or the lint inherits the classifier-gap problem"* — is met literally: the check holds
+no list. `datahelpers.TemplateRootsFor` and `actions.TemplateRootsAvailableTo` are new exported
+contracts, `ExtractFields` itself now calls the exported rule, and both are pinned to behaviour
+by tests that DRIVE the real functions rather than scanning source.
+
+**That condition earned its keep on this very lane**: the first sizing pass used one global
+injected-roots set and reported both live `execute_vision_prompt` steps as broken — 2 false
+positives in 12 — because `execute_vision_prompt` injects `vision_image_manifest` and does NOT
+inject the platform voice blocks. Per-action, not a union.
+
+### 2. First run `[MEASURED 2026-09-03]` — 202 live agents, 1,474 steps, 139 templates, 0 parse failures
+
+| kind | n | fails the run? |
+|---|---|---|
+| `unreachable_root` | **1** | yes (exit 1) |
+| `conditional_root` (`input_data` promoted → undecidable from config) | 16 | no |
+| `declared_unread` (declared, read by no template) | 19 | no |
+
+§How to verify asked for at least one true positive to regression-pin, and warned that a zero
+would mean a wrong path. Not zero — and the positive is **on the very step this bug was filed
+about**, carrying a DIFFERENT missing root from the one migration 641 fixed:
+
+> `page-content-writer` → `steps.process_sections_loop.sub_workflow.generate_content`
+> wants **`{{.research_result}}`**; `input_fields` is the 10 keys in your §Evidence and
+> `input_data` is not among them, so it resolves on no row, ever. The whole `## Research
+> Findings` block and its `{{range}}` over sources render nothing.
+
+That is the argument for the lint in one line: **a careful hand-fix to this exact step last
+week did not see the one next to it.**
+
+### 3. ⚠ CORRECTING MY OWN FIRST READING — live damage from that finding is ZERO, and I checked rather than assumed
+
+I first wrote this up as expensive (research runs, output discarded). Measuring it says
+otherwise `[MEASURED 2026-09-03]`, `orchestration_states`:
+
+- `research-agent` orchestrations **all time: 0**
+- `page-content-writer` runs last 30 days: **391**; whose `execution_path` mentions
+  `call_researcher`: **0**
+- `needs_research` is written by no Go code and is no table column, so
+  `current_section.component.needs_research == true` is never satisfied
+
+**Two dead halves that hide each other**: the branch never fires so nobody notices the block is
+dead; the block is dead so if the branch ever fired the research would vanish silently. Nothing
+is broken today. What is one word away is not nothing — `needs_research: true` on one component
+buys a 90s `call_agent` per section whose result is dropped at the render, while the prompt
+still says *"Include source citations [0], [1] if research was provided."*
+
+**Not fixed here, deliberately.** Wiring it up is a behaviour change to the fleet's
+highest-volume writer, it is not urgent on this evidence, and it should be a decision rather
+than a side effect of building a detector.
+
+### 4. A latent trap the census settled, now in LANDMINES
+
+`validateTemplateData` (`ai_actions.go`) splits an `input_fields` entry on `.` and takes
+`parts[0]`; `ExtractFields` stores under `parts[len-1]`. A dotted entry that extracts
+**successfully** is therefore logged `TEMPLATE DATA VALIDATION FAILED — Missing fields`.
+`[MEASURED 2026-09-03]` **0 of 1,474** live steps declare a dotted `input_fields`, so it is
+**latent, not firing** — a landmine for the first lane to write `input_fields: ["a.b"]`, which
+is a natural thing to write and also silently makes `{{.a.b}}` unresolvable while `{{.b}}` works.
+
+### 5. What is still open on this file
+
+- **Shape 3** — yours and the 437 lane's, untouched here and correctly out of a config lint's reach.
+- **Shape 1** — reported as context; convicting it needs a rule about when recursive search is
+  acceptable, which is a judgement nobody has made.
+- **Scheduling.** The mode has `--report` (one `doc_notes` row per run, clean runs included) so
+  a CronJob is config-only, but none is wired yet. Until then it is hand-run, and this estate's
+  own record is that detection without dispatch decays.
+- The 16 `conditional_root` and 19 `declared_unread` advisories are unread by anyone.
