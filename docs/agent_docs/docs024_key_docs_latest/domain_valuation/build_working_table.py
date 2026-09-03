@@ -49,6 +49,7 @@ def main():
                 'subcategory': r['subcategory'], 'tld': '.'.join(d.split('.')[1:]),
                 'sld_length': len(sld), 'expiry': '', 'ns_class': '',
                 'dynappraisal': '', 'dynappraisal_date': '',
+                'appraisal_kind': '', 'appraisal_proxy_domain': '',
                 'live_ask_marketplace': '', 'live_ask_price': '', 'live_ask_date': '',
                 'afternic_min_offer': '', 'afternic_price_source': '',
                 'keep_override': '', 'trademark_flag': 'Y' if d in TRADEMARK_FLAGS else '',
@@ -74,6 +75,15 @@ def main():
                 if d in rows:
                     rows[d]['dynappraisal'] = r['valuation']
                     rows[d]['dynappraisal_date'] = r['source'].rsplit('_', 1)[-1]
+                    # A proxy row values the .com STRING EQUIVALENT of a .co.uk
+                    # name, not the name itself. It must stay visibly distinct
+                    # everywhere downstream or it reads as a direct appraisal.
+                    if '_proxy_via_' in r['source']:
+                        rows[d]['appraisal_kind'] = 'proxy'
+                        rows[d]['appraisal_proxy_domain'] = \
+                            r['source'].split('_proxy_via_')[1].rsplit('_', 1)[0]
+                    elif r['valuation']:
+                        rows[d]['appraisal_kind'] = 'direct'
 
     f = latest(os.path.join(HERE, 'inbound', 'dynadot_listings_*.csv'))
     if f:
@@ -153,6 +163,7 @@ def main():
     out = os.path.join(HERE, 'WORKING_table.csv')
     cols = ['domain', 'registrar', 'category', 'subcategory', 'tld', 'sld_length',
             'expiry', 'ns_class', 'dynappraisal', 'dynappraisal_date',
+            'appraisal_kind', 'appraisal_proxy_domain',
             'live_ask_marketplace', 'live_ask_price', 'live_ask_date',
             'afternic_min_offer', 'afternic_price_source',
             'category_comps_median', 'keep_override', 'trademark_flag']

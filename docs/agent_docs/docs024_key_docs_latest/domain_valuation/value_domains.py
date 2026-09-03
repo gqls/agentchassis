@@ -109,7 +109,13 @@ def main():
     out = []
     for r in rows:
         d = r['domain']
-        if d in appr:
+        if d in appr and r.get('appraisal_kind') == 'proxy':
+            # The .com equivalent's value, applied to a UK name. The TLD
+            # multiplier below already discounts it to the UK market, but the
+            # keyword itself may be worth more or less here than in .com, so
+            # this never counts as a direct measurement.
+            anchor, src, conf = appr[d], f'proxy-via-{r.get("appraisal_proxy_domain","?")}', 'medium'
+        elif d in appr:
             anchor, src, conf = appr[d], 'own-appraisal', 'high'
         elif (r['category'], r['subcategory']) in sub_med:
             anchor, src, conf = sub_med[(r['category'], r['subcategory'])], 'subcategory-median', 'medium'
