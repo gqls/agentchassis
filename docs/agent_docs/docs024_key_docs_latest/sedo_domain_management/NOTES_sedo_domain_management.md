@@ -472,3 +472,67 @@ exactly one row removed, nothing else changed. Files:
 fence file across multiple same-day drafts is the actual defect class —
 added to RUNBOOK §7 as a standing instruction to re-query fresh before
 EVERY regenerate, not just the first one of a session.
+
+**copy_quality_two_stage's diagnosis was wrong, and worth recording why
+rather than just noting it was corrected**: they later logged this
+themselves as a wrong call, with a sharp observation — the two possible
+causes (a status-filter gap vs. staleness) "want opposite fixes." Acting
+on their invented cause would have added a redundant intent-check while
+leaving the real 30-minute staleness window wide open, and would have
+LOOKED like a fix while leaving the actual hole live. A correct finding
+(copyonline was the sole overlap) is not evidence for whatever mechanism
+is asserted alongside it.
+
+## 2026-09-03 (later) — owner relaxed copyonline; deliberate call made; D1's CTA is now RULED, exposing relojistas.com has no Sedo listing to point at
+
+**copyonline.co.uk**: owner told copy_quality_two_stage either outcome is
+fine — "we can still sell it, we'll just charge a lot" OR "leave it as
+not for sale, that's fine too" — explicitly delegating the call, asking
+only that it be deliberate, not left ambiguous. **Decision: keep it
+withdrawn.** Reasoning: every other row in the sheet is priced by the
+valuation lane's process, not hand-typed; "a lot" has no number attached,
+and inventing one would be exactly the ad hoc pricing this lane has
+avoided throughout. Withdrawn is also the owner's own stated no-new-
+information-needed fallback. **Durability fix applied regardless of which
+way the call went**: added `EXCLUDED_owner_copyonline_2026-09-03.txt` (1
+domain) alongside the existing live-site fence entry, mirroring the
+wykefarm.co.uk lesson — a live-site fence entry can lapse if the site's
+`sites` row status changes; an owner withdrawal should not. Verified: with
+the new file added, output is byte-identical to draft6 (copyonline was
+already excluded via the live fence) — confirmed by full diff, zero
+changes, no new draft number needed. If a real BUY_NOW figure is ever
+supplied, re-adding it as a priced row is a one-line change.
+
+**D1 is RULED**: owner's exact words, relayed by copy_quality_two_stage,
+in direct answer to their flagging D1 as parked: **"Yes, point to Sedo."**
+The about-page enquiry CTA destination is decided — Sedo, not Afternic —
+independent of whatever marketplace-listing strategy is settled here.
+
+**This exposes a real gap, not a documentation task**: copy_quality_two_stage
+asked for the Sedo listing URL pattern for relojistas.com so the CTA can
+point at it. Checked: **relojistas.com has NO Sedo listing at all** — it
+sits in `EXCLUDED_live_2026-09-03.txt` and has been excluded from every
+sheet built in this lane (`grep` confirms zero rows in draft6). There is
+no URL because there is nothing to link to; composing one from a guessed
+pattern would produce a dead link on a live, Spanish-language, already-
+confirmed-for-sale page ($12k Afternic floor since 2026-07-28) — exactly
+what they asked NOT to receive. Told them plainly rather than guess.
+**No Sedo URL format is documented anywhere in this lane's own research
+either** (checked RUNBOOK/API docs) — the correct address for a real
+listing has to be captured FROM a real listing (API `DomainStatus`/
+`DomainList` response, or the dashboard, once one exists), not composed
+from a template.
+
+**Real decision this surfaces, put to the owner**: relojistas.com is
+already confirmed for-sale elsewhere (Afternic) and is excluded from
+every Sedo sheet only because the fence protects ALL live sites
+uniformly, not because there was doubt about ITS for-sale status
+specifically. Now that the on-site link is set to point at Sedo, that
+link has nothing real to point to until relojistas.com is actually
+listed on Sedo — which cannot happen via the credentialed API yet (§2/§3
+still owed) but COULD happen today via a small, deliberate, one-domain
+web-import upload (exactly the "first writing call, one domain, not a
+batch" principle already stated in PLAN P3). Asked the owner directly
+rather than deciding unilaterally — adding a live site to any for-sale
+listing is not a call this lane makes on its own, even a site already
+confirmed for sale elsewhere.
