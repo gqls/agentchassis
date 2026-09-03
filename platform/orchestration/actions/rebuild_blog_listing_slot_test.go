@@ -206,6 +206,54 @@ func TestBlogListingInsertBindsComponentID(t *testing.T) {
 	}
 }
 
+// The second defect fixed in the same change, and the one the council's
+// editquality seat correctly noted had no test (round 1, corr 13273c8c, medium).
+//
+// `function = 'content-listing'` is not unique: [MEASURED 2026-09-03] two active
+// rows, the shared `content-listing` and a per-site fork
+// `content-listing-guides-boxingonline-com` created a day earlier. With
+// `ORDER BY created_at DESC LIMIT 1` the fork won, so one site's template became
+// every site's. They are byte-identical today, which is why nothing broke — the
+// defect is that the NEXT divergence would propagate silently.
+//
+// ⚠ WHY THIS IS A SOURCE ASSERTION AND NOT A BEHAVIOURAL ONE, stated rather than
+// hidden: the preference is expressed as an ORDER BY and resolved by Postgres
+// under a LIMIT 1. A sqlmock test cannot exercise it — the mock returns whatever
+// rows the test hands it, in the order the test chose, so it would assert the
+// fixture rather than the query. Driving it honestly needs a real database with
+// two seeded rows. Until that exists this pins the clause itself, which at least
+// fails when someone "fixes" it back to newest-wins.
+//
+// Mutation that must kill it: restore `ORDER BY created_at DESC`.
+func TestBlogListingPrefersTheCanonicalListingComponentOverTheNewest(t *testing.T) {
+	src := readActionSource(t, "rebuild_blog_listing_action.go")
+
+	start := strings.Index(src, "func loadContentListingTemplate")
+	if start < 0 {
+		t.Fatal("loadContentListingTemplate not found — if it was renamed, move this pin with it")
+	}
+	block := src[start:]
+	if end := strings.Index(block, "\nfunc "); end > 0 {
+		block = block[:end]
+	}
+
+	if !strings.Contains(block, "ORDER BY (name = function) DESC") {
+		t.Error("the content-listing lookup must prefer the CANONICAL row (name = function) — " +
+			"function='content-listing' is not unique, and ordering by recency alone let one site's " +
+			"fork become every site's listing template (bugs_open/457)")
+	}
+	if regexp.MustCompile(`ORDER BY\s+created_at DESC`).MatchString(block) {
+		t.Error("ordering by created_at DESC alone is the defect: the newest row wins, and the newest " +
+			"row is whichever site forked the component most recently")
+	}
+	// The ambiguity must be visible, not silently resolved — RFC_034 makes several
+	// forks per function the intended future, so refusing is wrong and staying
+	// quiet is worse.
+	if !strings.Contains(block, "count(*) OVER ()") {
+		t.Error("the lookup must count its candidates so an ambiguity can be logged rather than silently resolved")
+	}
+}
+
 func readActionSource(t *testing.T, name string) string {
 	t.Helper()
 	b, err := os.ReadFile(name)
