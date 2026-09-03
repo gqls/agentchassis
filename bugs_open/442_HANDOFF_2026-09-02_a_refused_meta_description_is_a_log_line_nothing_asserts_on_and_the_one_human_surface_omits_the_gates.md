@@ -618,3 +618,52 @@ reports ONE caller and misses the incumbent.
 
 **Nine seats approved cleanly** in round 2, including `guardian` and `architecture` — the two that
 objected in round 1 — so the r1 fixes held.
+
+### 10j. ⚖ COUNCIL **APPROVED** (round 3) — and the three advisories, answered with output
+
+`76288ff9-3cde-46e6-b65a-22564fac8f6d`, round 3: **`approved`** — *"approved with 1 advisory
+objection(s) — none high-severity"*, 5 abstained. Seven seats clean, including `editquality`,
+`architecture`, `debug_historian` and `constitution`.
+
+**Three rounds, and each found something real:** r1 the missing edit declaration **and** the
+silent-failure branches inside the fix; r2 the `insertWorkItem`/`writeWorkItem` ambiguity and the
+unread call sites (→ `bugs_open/464`); r3 only advisories. That is the argument for revising
+rather than defending.
+
+**`guidelines` [low] — `recurrenceExpected` unset. Answered from the code, not from intent.**
+The seat worried a legitimately recurring refusal would be mishandled by the two-strike brake.
+`load_work_item_actions.go:2075-2088`, the brake's own counting query:
+
+```sql
+WHERE site_id = $1 AND item_key = $2
+  AND status IN ('complete', 'failed')          -- ← the strike set
+  AND created_at > NOW() - INTERVAL '7 days'
+```
+
+Two things follow, and both are why leaving it unset is right:
+1. **A parked repair is NOT a strike.** The repair agent's failure path is `fail_work_item` with
+   `status_override: 'needs_human_review'` — not `failed` — so it never enters that count. It is
+   an OPEN row, so it **holds the dedup slot** and the next hour's refusal collapses onto it.
+   One row, one unfixed defect, waiting for a person. Exactly the intent.
+2. **Even a strike does not lose anything now.** The within-cycle arm writes the row `deferred`
+   with `retry_after` and holds the slot ("*the old arm had no legitimate use: no caller wants its
+   request destroyed with nothing recording that it existed*"), and a two-striker "*falls through
+   and is branded — recorded, like every other two-striker, instead of vanishing*".
+
+Setting `recurrenceExpected` would **skip the brake entirely**, which is the opposite of what is
+wanted: an hourly re-refusal of the same page is the SAME unfixed defect, not a fresh request.
+
+**`tooling_provenance` MISSING — a `doc_notes` entry for the action/agent. It already exists**, via
+the sanctioned channel (`landmines-sync.py`), and CLAUDE.md forbids hand-writing landmine rows:
+
+```
+landmine | save_page_meta_description
+landmine | agent_definitions where type='meta-description-repair' or 'meta-description-backfiller'
+landmine | pages.meta_description
+```
+
+**`reuse_agent` [medium] — the real remaining reuse question is `bugs_open/464`.** The seat is
+right that the sharper question is not item-key helpers but whether the four other copy-gate
+callers need the same treatment. ⚠ **Its wording asserts they "already refuse saves silently",
+which is precisely what 464 says is UNKNOWN** — they are unread, not established. That bug is the
+work; this entry does not inherit the seat's assumption.
