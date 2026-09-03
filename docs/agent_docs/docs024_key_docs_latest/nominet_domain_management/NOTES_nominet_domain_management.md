@@ -320,7 +320,12 @@ Cloudflare account from ours; `enables.co.uk` → GoDaddy `ns13/14.domaincontrol
 both with live A records. Reads as lapsed-and-re-registered-by-someone-else,
 not "ours, filed under a forgotten registrar" — told the valuation session
 so, for whatever they pass to the owner. Not a nominet-lane action item;
-recorded because it touches the tag's completeness question directly. Told them the three retail-registrar inventories
+recorded because it touches the tag's completeness question directly.
+
+**Closed out same evening**: valuation session independently re-ran the same
+NS check, agreed, and updated the owner-facing answer from "3 genuinely gone"
+to "5 genuinely gone" — the two orphans are buy-back-only, not
+forgotten-login-recoverable. No further action here. Told them the three retail-registrar inventories
 (Dynadot 451 mostly-.com / Porkbun 683 / Spaceship 203, all measured 09-02)
 live in the domains_cloudflare_rollout lane with proven read clients — .com
 being in scope makes those their next asks, not ours.
