@@ -108,13 +108,34 @@ Three sites serve a logo with **0.0% transparent pixels** — the ground survive
 All three were produced by the pre-fix guard. **A regeneration now should come out right** — which
 is why item 1 above is both the fix and the test.
 
-⚠ **And websitepromotion's "good" one is still not good.** `[MEASURED 2026-09-03]` The mark is pale
-blue/lavender on a white header: **median contrast 1.43:1**, darkest 5% 1.70:1, against a WCAG
-non-text floor of **3.0:1** — present, transparent, and close to invisible. Plus a 0.69% magenta
-halo from despill. **Unfiled, needs an owner.** Nothing in the pipeline asks for a mark that reads
-against the header it will sit on; `request_render_audit` measures contrast against the effective
-background but treats images as broken/not-broken, so a *pale* logo is plausibly outside it
-`[UNVERIFIED — check before filing]`.
+### 4a. A CANDIDATE BUG, fully evidenced and deliberately NOT filed — pick this up or hand it off
+
+**websitepromotion's "good" logo is still not good, and nothing in the estate can see it.**
+
+- `[MEASURED 2026-09-03]` The mark is pale blue/lavender on a white header: **median contrast
+  1.43:1**, darkest 5% **1.70:1**, against the WCAG non-text floor of **3.0:1**. Present,
+  transparent, and close to invisible. Plus a **0.69%** magenta halo from despill.
+- `[MEASURED 2026-09-03 — upgraded from [UNVERIFIED]]` **No check covers this.**
+  `request_render_audit_action.go:4` states its remit as *"text contrast against"* its background;
+  `write_render_audit_findings_action.go:12-13` files a `contrast_failure` keyed
+  `contrast_failure:<page-path>#<class>` and routes it to **`css-patch-agent`** — i.e. an element's
+  CSS, not an image's own luminance. Images are handled **broken / not-broken**
+  (`attributed broken images → undeployed_asset`), and `over_image` findings are *"counted,
+  deliberately not filed"* (`registry.go:1257`). **So a logo that is perfectly rendered, correctly
+  deployed, and illegible passes every gate.**
+- **No prior art.** Nothing in `bugs_open/` or `bugs_closed/` covers logo legibility (the grep hits
+  are 417 itself, 322's head block, 231's spec defaults, 131's og-card — all different).
+- **No owner.** 424's lane has explicitly scoped it out — *"transparency mechanism vs mark
+  legibility against arbitrary backgrounds are genuinely different problems"* — and agreed to hand
+  it off explicitly rather than absorb it.
+
+**Why it is not filed here:** the owner asked for a handoff, not a new bug, and I said I would check
+ownership before filing. The check is done and the answer is "nobody". **Filing it is now a short
+job** — the measurement, the three code citations and the negative prior-art search are all above,
+which satisfies the 2026-07-31 ruling's *"stated equivalent first-hand verification"* escape hatch
+without a `090` run.
+⚠ **Do not let this wait on `bugs_open/424` closing.** That is the exact shape of MEMORY's
+*"closing a bug does NOT retract the deferrals pointing AT it"* — 20 days lost last time.
 
 ---
 
