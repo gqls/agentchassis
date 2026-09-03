@@ -1,5 +1,12 @@
 # HANDOFF — bug sweep lane, 2026-09-03b
 
+> ⚖ **UPDATED LATER THE SAME DAY — THE OWNER RULED ON §2: "yes, make them loud."**
+> Route B is **BUILT**. Config half live (migration `734`), Go half committed `776511e70`,
+> inert until the chassis rolls (a roll was expected within the hour of that commit —
+> **check whether it landed before trusting anything below about the Go half**).
+> §2's three inputs all held and one of them changed the design; see §7, added below.
+> `bugs_open/442` §10 is the full account. **§2 is now history, not a decision.**
+
 **Read this instead of `HANDOFF_2026-09-03_continue_here.md`.** That file is still correct about
 338, 320, 404, 407 and the four owner rulings. What changed is **§5's leftover: `bugs_open/442`
 has been worked.** Where it is now wrong I say so here rather than editing it — except for a
@@ -150,3 +157,61 @@ LANDMINES ×1 · `652f32f74` 016b §9 extension · `699b6e439` NOTES + the lane'
 `README_where_we_are.md` · `75fa195a2` 442 §9g verdict · `6815e3cb0` WRONG_CALLS third instance.
 Council `2ed33c57-b49a-4b1b-ad1e-7e23ce6c477a` **APPROVED**. Landmine verifier dispatched
 (`28364a1b`), verdict not awaited.
+
+---
+
+## 7. ⚖ ADDED 2026-09-03b — the ruling, what was built, and the two things that must not be lost
+
+### 7.1 The measurement that changed the design — the transferable part
+§2.1 said the volume objection held. Before building I asked the question behind it: **is that
+queue a graveyard because of people, or because of the shape of the row?**
+
+`[MEASURED 2026-09-03, site_work_items UNION site_work_items_archive]` items **WITH** a
+`handler_agent`: **56,315 / 83% complete**. Items with **NO** handler: **6,699 / 17% complete**,
+989 parked. `voice_tells`: **69 rows, every one handler-less.**
+
+**It is the row.** A flag-only `needs_human_review` item is not "loud" — it IS the 17%. Any lane
+about to file findings should run that pair before choosing where to file them.
+
+### 7.2 What was built
+`save_page_meta_description` files `meta_description_refused` at **`meta-description-repair`**
+(migration `734`), which re-asks **with the refusal quoted back** and saves through the **same
+gated action**. Second refusal parks at `needs_human_review` carrying both attempts — deliberately,
+because `fail_work_item`'s ladder brands a two-striker `unresolved`, which is silent again.
+Registered **SEO-008** with its index row. Council `76288ff9-3cde-46e6-b65a-22564fac8f6d`.
+
+### 7.3 ⚠ TWO THINGS THE NEXT SESSION MUST NOT LOSE
+1. **`overwrite_existing` is undeclared on that agent and MUST STAY UNDECLARED.**
+   `102_coverage_ratchet.txt` line 105 and `bugs_open/320` §15 record that authority — rewriting
+   published copy on an automated finding — as **explicitly withheld by the owner on 2026-08-21**,
+   granted once for a one-off dispatch and never armed on any agent. Adding that one key is a
+   **one-line, innocuous-looking config edit that crosses an owner ruling.** Verified undeclared
+   2026-09-03 with a control; re-verify before trusting it:
+   ```sql
+   SELECT default_config#>'{workflow,steps,save_description,config}' ? 'overwrite_existing'
+   FROM agent_definitions WHERE type='meta-description-repair' AND is_active AND deleted_at IS NULL;
+   -- must be f
+   ```
+2. **"No rows" is not "it does not work", and needs a demand control.** `[MEASURED 2026-09-03]`
+   ZERO active pages are both blank and clearing the backfiller's `> 200` gate, so **nothing can
+   have filed**. Run this before concluding anything:
+   ```sql
+   SELECT count(*) FROM pages WHERE status='active'
+     AND COALESCE(meta_description,'')='' AND page_visible_text_len(id) > 200;
+   ```
+
+### 7.4 Still open on 442, so the file stays OPEN
+- **No verifier** for `meta_description_refused` — five build guards plus a live
+  claimed-item-timeout migration merged with other lanes' amendments. Named follow-up.
+- **`voice_gate_unreadable` is still silent**, correctly for a rewrite handler (wrong actor) but
+  it still leaves a page blank for ever. Needs an operational surface.
+- **§9d's second silent path** — the writer omitting a page — is unbuilt. The fifth candidate
+  (compare `pages_missing_meta.count` with the length of `written.result.descriptions`) covers it.
+- **Read the `76288ff9` verdict**, and note it did **not** see §7.3.1: I found the withheld-authority
+  ruling after submitting.
+
+### 7.5 ⚠ The working tree does not compile, and it is not this lane's
+Another session has an **untracked** `criteria_value_assertions.go` whose `itoa` collides with the
+one in `provocation_gate_action_test.go` at HEAD. `go test ./platform/orchestration/actions/`
+fails in the tree and proves nothing about HEAD. Everything this lane ran went through
+`scripts/verify-head-builds.sh --test`, and **HEAD 7289af111 was green** including the new code.
