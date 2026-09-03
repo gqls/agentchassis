@@ -344,22 +344,45 @@ SITE=1244516d-014d-421c-88c6-090bb1e9552a
 DOMAIN=idea.uk
 ```
 
-**1 — file the review** (done 2026-09-03, correlation `45e3c679-cecb-45db-9d1e-ec6f9b44d3c3`):
+**1 — file the review.** ✅ **DONE 2026-09-03 18:22:03Z** — item `e370e0bb`, `status =
+needs_human_review`, `spec.checkpoint = true`, `item_key = delivery_review_idea.uk`. First time
+`delivery-review-filer` has ever run on any site.
+
+> ⚠ **THE FIRST ATTEMPT WAS REFUSED, AND THE REFUSAL LOOKED EXACTLY LIKE LATENCY.** I sent the three
+> headers `651`'s header then listed (`message_type`, `action`, `from_agent_type`). `client_id` and
+> `orchestration_id` are ALSO REQUIRED, and without them the message is consumed and rejected —
+> leaving no orchestration row, which is the exact symptom CLAUDE.md tells you not to retry on. I
+> waited 37 minutes on a message that had died in seconds. **Run `kafka_verify_landing` at the FIRST
+> check, not as an escalation** — it names the missing headers. `651`'s recipe is corrected, and the
+> trap is in `LANDMINES.md`. A green `kafka_publish_checked` receipt asserts PUBLICATION, not
+> acceptance; only the second predicts a run.
 
 ```bash
-CORR=$(cat /proc/sys/kernel/random/uuid)
+CORR=$(cat /proc/sys/kernel/random/uuid); ORCH=$(cat /proc/sys/kernel/random/uuid)
 PAYLOAD=$(jq -c -n --arg s "$SITE" --arg d "$DOMAIN" '{action:"orchestrate",
   config:{agent_type:"delivery-review-filer"},
   input_data:{site_id:$s,domain:$d,site_url:("https://"+$d),brief:"…"}}')
 kafka_publish_checked --topic system.agent.generic.requests --payload "$PAYLOAD" \
-  --correlation "$CORR" --header message_type=request --header action=orchestrate \
-  --header from_agent_type=user
-# exit 0 = published AND the receipt was seen. 10 = never published, retry now.
-# 11 = indeterminate, VERIFY — do not retry, a duplicate costs a whole round.
+  --correlation "$CORR" \
+  --header "orchestration_id=$ORCH" \
+  --header "orchestration_name=delivery-review-filer-$(date +%H%M%S)" \
+  --header "client_id=demo_client" \
+  --header "request_id=$(cat /proc/sys/kernel/random/uuid)" \
+  --header "message_id=$(cat /proc/sys/kernel/random/uuid)" \
+  --header "step_name=start" \
+  --header "message_type=request" --header "action=orchestrate" \
+  --header "from_agent_type=user" --header "from_agent_id=cli" \
+  --header "responses_topic=system.agent.generic.responses"
+# 0 = published + receipt seen · 10 = never published, retry now · 11 = indeterminate, verify
+
+kafka_verify_landing "$CORR" 30     # <- ALWAYS, and FIRST
+# 0 = landed · 13 = published not landed (this really is latency, wait)
+# 12 = CONSUMED AND REFUSED — it will never run; the error names what is missing
 ```
 
-Then wait. `[MEASURED 2026-07-20]` publish→run start was **29 minutes** under normal load, so a
-missing orchestration row is latency, not a dropped dispatch.
+**Do not budget the 29-minute latency figure for this dispatch.** That measurement (2026-07-20) was a
+council dispatch under fleet load. This one landed and COMPLETED in **under 25 seconds**. A slow
+dispatch is a reason to verify, not a reason to assume you are inside a known-good window.
 
 **2 — THE OWNER APPROVES** the `needs_delivery_review` item on admin.apis.uk. Not resolve — **approve**;
 resolve writes `resolved_by`, which the gate deliberately ignores. Confirm it landed before step 3:

@@ -905,3 +905,38 @@ Two small changes to that line — either of which a future tidy-up could make w
 have erased your approval silently, and the symptom would have been a delivery refusing weeks later
 for no visible reason. I have closed one of them so it cannot happen at all, and put a test round the
 other. Neither was broken today. Both were one edit away.
+
+---
+
+## 2026-09-03, evening — the review item is in your queue, and a recipe I followed was wrong
+
+**There is an item waiting for you: `idea.uk`, "Pre-delivery review".** Please **approve** it — not
+resolve. That is the second of the four delivery steps and the only one I cannot do.
+
+Getting there took two attempts, and the reason is worth a paragraph because it will bite the next
+person.
+
+I sent the first dispatch using the instructions written in our own delivery seed file. Those
+instructions list three pieces of addressing information to attach to the message. The system
+actually requires five. The message was rejected within seconds.
+
+Here is the part that made it expensive rather than trivial. A rejected message and a merely *slow*
+message look identical from where I was standing: in both cases there is simply no record of the job
+starting. And our standing guidance — which is correct — says that when a job has not started you
+should wait rather than send it again, because sending twice costs a whole wasted round. So I waited,
+and told you twice that we were "inside the normal delay window". We were not. The message was
+already dead.
+
+What broke the deadlock was a one-line check that exists precisely to tell those two situations
+apart, and which I ran only after the wait had gone past the number I was leaning on. It answered
+immediately and named the two missing pieces. With them added, the job ran in **under 25 seconds** —
+so the "usually takes about half an hour" figure I quoted at you did not describe this job at all.
+
+I have corrected the seed file's instructions, written the trap up so nobody repeats it, and recorded
+my own error: **I used a remembered number as a reason not to run a check.** That is the honest
+description. The number felt like knowledge and was actually a way of not looking.
+
+**Where the rehearsal stands.** Step one is done — and that agent had never run once, on any site, in
+the system's history, so we now know it works and files the right thing. Steps three and four are
+mine and ready to go the moment you press approve. I still need an address from you for the delivery
+email.
