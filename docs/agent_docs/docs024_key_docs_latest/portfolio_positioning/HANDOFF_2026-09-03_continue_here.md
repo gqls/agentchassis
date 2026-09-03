@@ -36,6 +36,15 @@ step re-filed. **Read the diagnosis first (1b) before deciding how.**
 SELECT status, spec->>'dispatch_correlation_id', left(result::text,2000) FROM site_work_items
  WHERE item_type='needs_diagnosis' AND spec->>'dispatch_correlation_id'='ef0ec49c-ff6f-4566-a344-db2bf590c619';
 ```
+⚠ **The orchestration row is NOT joinable on `collected_data->'input_data'->>'fix_correlation_id'`**
+for this run type — that query returns rows briefly and then zero, which reads as a dropped dispatch
+and is not one. Find the run by its symptom text instead:
+```sql
+SELECT current_step, status, updated_at FROM orchestration_states
+ WHERE collected_data->'input_data'->>'symptom' ILIKE '%needs_composition%' ORDER BY updated_at DESC;
+```
+Confirmed alive and at step `route` at 18:31:15Z, ~9 minutes after filing.
+
 Symptom filed: a `needs_composition` item whose required specs are absent records
 `validated_inputs.ready=false`, spawns a classifier, reaches terminal `complete`, and nothing files a
 replacement when those specs later arrive. **I deliberately asserted no cause** — if the verdict
