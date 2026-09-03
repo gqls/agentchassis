@@ -287,5 +287,19 @@ control at 2 forms / 40 inputs / 8 scripts.
   `default_config::text LIKE '%may also carry a "subject"%'` = **false** on the same row, same second.
   **Extract the field with `#>>` first, then search it.** 729's verify block already does; a
   hand-run spot check very easily does not, and would report a defended sentence as missing.
+- ⚠ **DISPATCH: "due" is not "will run". A site with ANY claimed item is invisible to
+  `find_dispatchable_site` entirely**, so a newly-due high-priority item waits for the current
+  batch on that site to drain rather than for its own `retry_after`. From the
+  `portfolio_positioning` lane, which lost two predictions to it. **This bears on §1's repair:** if
+  you fire work items on a busy site, do not predict timing from `retry_after`, and do not read a
+  quiet period as "nothing tried" — it may be "the site is not selectable yet". It is also part of
+  why this lane's demand control saw so little dispatch at shell pages.
+- ⚠ **A CLAIM'S STATUS DIES IN THE COMPRESSION.** The rule this lane learned the hard way is that
+  a peer's finding carries a status — *observed* or *reasoned*, *at the rows* or *at the artefact*
+  — and you inherit that status when you adopt it. Their sharper version, worth having verbatim:
+  *"my message said 'two rows share position 2 in the database', and the short version of that is
+  'the tool and the prose collide', which is already a claim about a visitor. **The rewrite is
+  where the qualifier dies.**"* So the dangerous moment is not receiving a finding, it is
+  summarising it — including into a commit message or a handoff line.
 - Timestamps here are **UTC from the database clock**. `agent_error_log` has **no `created_at`** —
   `\d` it before querying.
