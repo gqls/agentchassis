@@ -105,3 +105,39 @@ After the next chassis roll, with NO forcing, within ~2 reconciler ticks:
 `sites.published_hash` flip to `th2:` for both opted-in sites. Then ping the
 site_delivery_and_editor lane (they strike handoff §1.5) and move this file to
 `bugs_closed/` (both paths on the commit; verify at HEAD with `git ls-tree`).
+
+## CLOSED 2026-09-03 — fixed AND live, close criterion met at the served copy
+
+The bar (CLAUDE.md): fixed and live. Both halves verified by two sessions
+independently, no forcing anywhere:
+
+- **The mechanism's own record** `[MEASURED 2026-09-03]`: boxingonline's first
+  post-roll serviced tick (site-publisher orchestration, **2026-09-02
+  22:53:51Z**) reports `deleted: 1, deleted_keys: ["contact.html"],
+  accepted: true, tree_hash th2:b3bf…` — a prefix-only drift (content tail
+  unchanged from the pre-roll th1:b3bf…), which is precisely the designed
+  one-shot converge. Subsequent ticks 00:54/02:55Z: `no drift`. A later REAL
+  content drift (04:56Z, th2:4385…, files 49) published with `deleted: 0` —
+  read the SERIES, not one row: the 04:56 row alone says "deleted 0" and is a
+  red herring.
+- **Served, with controls** (both sessions, cache-busted, status codes only,
+  08:23-08:24Z): `/contact.html` → **404** · `/index.html` → 200 ·
+  invented URL → 404 · three further kept pages (a tools index, a blog post,
+  guides index) → 200. The composed URL `/fight-calendar.html` 404s because it
+  was NEVER a page (`/tools/fight-calendar/index.html` is, and serves 200) —
+  checked against the `pages` rows before reading anything into it.
+- **DB corroboration**: `published_hash` is `th2:` on BOTH opted-in sites —
+  noted.co.uk 21:53:27Z (first in rotation, as the queue predicted),
+  boxingonline 04:57:24Z... the STAMPED published_at is the 04:56 content
+  publish; the converge itself was accepted and recorded at 22:53Z.
+- noted.co.uk's converge doubled as the second live exercise (its own th2
+  republish, 21:52 tick); delivery lane observed a ~20s edge timeout on both
+  probes at exactly 21:52:19Z during that republish, recovered next poll
+  (their served-pair monitor; my 4-min watch did not catch it — single
+  observation, dated, not a wave).
+
+Fixing commits: `b60d66e3c` (the fix, council APPROVED r1 corr `b576bcc6`),
+`1d4594c00` (advisories adjudicated). Lane docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_429_mirror_unpublish/`.
+The owner's contact-deletion ruling is now closed on BOTH halves (links + 404);
+the delivery lane struck their handoff §1.2/§1.5.

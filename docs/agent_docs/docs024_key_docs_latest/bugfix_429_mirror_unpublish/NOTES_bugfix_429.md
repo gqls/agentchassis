@@ -124,3 +124,26 @@ Adjudication of each advisory, with the measurement where one was asked for:
 - My watch: served pair every 4 min (contact + index, cache-busted), exits on
   404/200, alarms on any other non-200/200 shape (over-deletion can't hide).
   Delivery lane runs the same pair and strikes their §1.2 on the 404.
+
+## 2026-09-03 morning — CLOSED: converge proven live, 429 moved to bugs_closed
+
+- The converge happened at boxingonline's FIRST post-roll serviced tick,
+  2026-09-02 22:53:51Z: `deleted:1 ["contact.html"] accepted:true th2:b3bf…`
+  (prefix-only drift — content tail identical to pre-roll th1:b3bf…). noted
+  converged 21:52 tick (first in rotation, as predicted from the queue order).
+- ⚠ MISREAD AVOIDED, worth keeping: my first orchestration query grabbed the
+  LATEST publish row (04:56Z, a real overnight content drift, `deleted:0`) and
+  for a moment it looked like the sweep hadn't fired. The series query
+  (ORDER BY created_at, all rows since the roll) is the correct instrument —
+  one row of a converging system answers a different question than the system.
+  Also: my composed probe URL `/fight-calendar.html` 404ing was MY control
+  being wrong (real page: `/tools/fight-calendar/index.html`, serves 200) —
+  checked against `pages` before reading it as over-deletion, per the
+  probe-page-url memory.
+- Kubeconfig token was refreshed by the owner overnight; th2 read done.
+- Delivery lane's monitor logged a ~20s edge timeout on BOTH probes at exactly
+  21:52:19Z (during noted's republish), recovered next poll. My 4-min-cadence
+  watch saw nothing (and the machine suspended overnight — the watch resumed
+  and caught convergence at 08:23:49Z). Single dated observation, not a wave.
+- Verify at HEAD after the move: `git ls-tree` must show exactly one 429 path,
+  in bugs_closed (done in the closing commit).
