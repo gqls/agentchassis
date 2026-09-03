@@ -103,6 +103,34 @@ property of the path.
 not the reason, not the handler, not the ordering in time. Both the 12:28 and 20:56 rolls predate
 several instances on each side, so it is not the binary either.
 
+### Eliminated since the refutation — three more, and the tightest pair available
+
+**`pages.sections` is a FLAT ARRAY OF SLOT-NAME STRINGS, not objects.** The boxingonline lane
+flagged it as the most obvious unexamined per-instance surface after their `e->>'slot_name'` and
+`e->>'component'` matches returned nothing on every page. That is why: the entries are scalars —
+`["featured-content","content-listing","advertising","info-card-grid","call-to-action"]`. **There
+is no per-section wiring there to differ.** Surface closed, and their query failed for a reason
+rather than by mistake.
+
+**The empty-resolve hypothesis is dead**, and it was the best-shaped one I had:
+`queryListBelowContract` → `handleMissingField` → key never written → stored survives would
+explain the outcome exactly. `[MEASURED 2026-09-03]` every site has a non-zero eligible blog-post
+population, and stored item counts match what the query would return on **both** sides.
+
+**THE TIGHTEST PAIR, and it is the thing to work from:** `garden-tools.uk` carries one instance of
+each — `/index` NEW, `/care` old — with the **same site, same component, same source, same 4
+stored items, same 4 eligible posts.** Everything a census can hold constant is constant. The only
+recorded difference is how each was written: `/index` by `empty_section` (build path), `/care` by
+`page_rerender`/`template_changed`.
+
+> **[UNTESTED OBSERVATION, flagged rather than claimed]** Among **rerender-written** instances
+> only, the two NEW ones were written 09-03 (04:18, 05:25) and every old one 09-02 or earlier
+> (21:30, 13:5x, 03:10, 08-28). That looks chronological — **but the binary did not change in that
+> window**: both pods started 09-02 20:56/20:57 and are still running, so `boxingonline/index` at
+> 21:30 and `designblog/index` at 05:25 ran the same code. If the boundary is real, something
+> other than the binary changed between 21:30 and 04:18. I have not identified it and am not
+> proposing it — recorded so it is neither lost nor believed.
+
 ## 0h. ⭐ THE SHARPEST NARROWING YET — the template renders FRESH while the data stays STALE
 
 `[MEASURED 2026-09-03, verified independently at the stored artefact]` boxingonline
