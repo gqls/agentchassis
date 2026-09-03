@@ -185,3 +185,59 @@ Everything else on this piece of work is finished. The original bug is closed an
 sentence is gone from the live site. The wider design question you ruled on yesterday and this
 morning — all seven parts of it — is settled, and what is left of that is building, not deciding.
 Nothing on this lane is waiting on you.
+
+---
+
+**Thursday 3 September, late morning.** I picked this up again an hour after writing the note above,
+and three things in it had already gone out of date. That is worth telling you about, because two of
+them were good news and one of them was me nearly getting something wrong.
+
+**The deliberate break has already been done — by the team that owns the code, four minutes after we
+told them how.** Yesterday the blocker was that nobody could find a throwaway site to test on. It
+turned out we had been searching the wrong way: we were looking for a site with an obviously fake
+name, when in fact the system marks throwaway sites with a status field, and there are three of
+them, all with perfectly ordinary-looking domain names and no pages at all. I wrote that down as a
+warning note for everyone at about half past ten. At 09:34 the other team planted their bad pattern
+on one of those three sites. So the warning notes we keep do get read, and quickly.
+
+**But I found a trap sitting in their path, and warned them.** They had also added a second small
+change so that the check would leave a trace even when it finds nothing — exactly the right fix for
+the problem I described above. It is not running yet. It was written half an hour after this
+morning's build went out, so it cannot be in it, and I confirmed that by asking both copies of the
+running program directly, with control questions either side. The trap is this: if their test now
+comes back quiet, the natural next move is to go looking for that trace, and they will find nothing
+— not because the check failed, but because the tracing code isn't installed. Silence would mean two
+completely different things and look the same. I have written that to them.
+
+**The one where I was nearly wrong.** One of the sites I had listed as still missing its evidence
+register turned out to have one, created this morning by the automatic daily refresher. I read that
+as the refresher having fixed the gap by itself, which would have been quite interesting. It is
+false. The history shows another team filled that gap on Tuesday evening; the refresher simply
+rewrote the whole record the next morning and stamped its own name on every part of it, including
+parts it has no ability to write at all. **The lesson is a general one and I have written it up for
+everybody: the name on a record tells you who touched it last, not who put the information there.**
+The thing that makes this hard to catch is that the wrong answer is entirely plausible — a real
+program, a sensible date. You only see it by reading the record's history instead of the record.
+
+**Finally, the one job left on this lane is smaller than I said, and the problem behind it is
+bigger.** I said `loancash.co.uk` still had no evidence register. True — but it is now the *last* of
+the five finance sites we listed on Tuesday; the other four are all done. So that piece of work is
+one site, not five, and I have corrected the design document that was still telling people to do all
+five.
+
+The bigger thing is this. Thirteen of our thirty-nine live sites have no evidence register at all.
+Most of those are not a problem today, because your ruling only requires one for finance sites — but
+`vetcomparison.uk` is on that list, and vet is precisely the area you said on Tuesday you want to
+move into next. **The presets you approved would arrive at a site with nothing to apply them to.**
+
+And there is a deeper catch that I think is the most useful thing I found today. The daily check
+that looks after evidence registers builds its list of sites to check by asking *which sites have a
+register*. So a site with no register is not merely low priority — it is **invisible to the check,
+permanently**, and running the check more often would never reach it. A thing that is missing cannot
+be found by a search that starts from the things that are present. Nothing today would ever tell us
+`loancash.co.uk` is missing its register; we only know because a person went looking.
+
+I have written all of that into the design document rather than building anything, because it is the
+other team's area. Nothing here is waiting on a decision from you — but if you want that gap
+covered, the two candidates are `loancash.co.uk` (the last of the five) and a check that starts from
+the list of live sites rather than the list of registers.
