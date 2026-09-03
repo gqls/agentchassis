@@ -403,3 +403,184 @@ what is missing from that population.**
 
 Recorded in RFC_060 rather than built. It is that RFC's build and the `claims-verification` lane's
 seam; this lane measured it and handed it over, which is where §2b's lesson landed.
+
+---
+
+## §(s) 2026-09-03 evening — the D2 restoration APPLIED and verified at the bytes, and D1 (vetcomparison) BUILT
+
+All times UTC. The session clock is BST, one hour ahead — and I got that wrong twice, see §(s6).
+
+### (s1) 743's round-2 verdict was REVISE, and the gating objection was FALSE OF THE FILE
+
+Round 2 landed 17:00:28 — **REVISE**, `decided_by: gating objection from editquality`. Three seats
+(editquality gating, guidelines, guardian) raised the same HIGH objection: the INSERT's last value is
+`'auto'`, so `approval_mode='manual'` — the round's headline safety fix — "is not present in the SQL
+as written".
+
+**It is present.** Lines 157/164/171 of the file each end `'manual'`, and the verify block asserts
+`w.approval_mode = 'manual' AND w.source = 'manual'` on all three rows, so the migration could not
+have applied carrying `'auto'`. What ended `'auto'` was the **submission sketch**, a revision-1
+leftover. Two more seats spent objections on the same staleness (a fourth page described as unhandled
+that the file already covered; a "2 items" verify against a summary saying three).
+
+I checked every other objection against the artefact rather than dismissing them as a set:
+
+| objection | seat | checked | result |
+|---|---|---|---|
+| `approval_mode` is `'auto'` | editquality, guidelines, guardian | read the file + the verify block | **false of the file** — sketch only |
+| `edit_live` may be inert; the landmine says `recreate` | editquality, prior_art_librarian | live `agent_definitions` for `page-build-handler` **and** the Go | `has_step=true has_edit_live=true`; `load_current_section_content_action.go:139` `if inputs.Get("mode") != editLiveMode { return passthrough("not_edit_live") }`, const at :98 — **edit_live is correct** |
+| the fourth page is left to run | bug_historian | read the file | already covered — 743 rev 2 files **three** items |
+| FSMA-2000-S19/S23 may not be in the register | prior_art_librarian | queried the 738 register | **both present** |
+| did 745 file rows that could double-file? | reuse_agent | queried `created_by LIKE '%migration 74%'` | **0 rows** — 745 never applied |
+
+And one check nobody asked for, because this lane's own landmine demands it (*paste, never retype*):
+the three `restore_verbatim` blocks are **genuinely verbatim** from `page_component_history`, proven
+by extracting each block programmatically and asserting `text in history`, with a deliberately-wrong
+control returning False.
+
+### (s2) Applied, and canaried — one page first, because 739 fired four at once
+
+Applied 18:49. All guards passed (`block present on 12 page(s) - convention confirmed`;
+`page-build-handler carries load_current_section_content AND the edit_live literal`), 3 items filed.
+
+`approval_mode='manual'` means the dispatcher will not touch them: `load_work_item_actions.go:802`
+— `AND (COALESCE(wi.approval_mode,'auto')='auto' OR wi.status='approved')`. So a manual item sits at
+`triaged` until someone sets `approved`, and **the 48h reaper would then have flipped it to
+`unresolved`, which reads as processed**. Left alone, the restoration would silently never happen.
+
+I released **one page first** — `check-your-lender-is-authorised`, the simplest spec — because 739's
+damage was four simultaneous items. Claimed 18:52:58, complete 18:55:43.
+
+### (s3) The sentence-identity diff, which is the check 739 taught us to run
+
+`[MEASURED at the component HTML, pre-image from `page_component_history`'s delete row]`
+
+| page | pre | post | kept identical | removed | **orphaned** | added |
+|---|---|---|---|---|---|---|
+| check-your-lender | 35 | 40 | **35/35 (100%)** | 0 | **0** | 5 |
+| loan-sharks | 20 | 30 | 15/20 | 5 | **0** | 15 |
+| price-cap | 23 | 27 | 22/23 | 1 | **0** | 5 |
+
+Compare 739: **36 of 37 sentences replaced** on the price-cap page. `edit_live` works, and the two
+HIGH objections doubting it were answered by the artefact.
+
+> **⚠ AND THE ACCEPTANCE TEST I WROTE WAS THE WRONG TEST.** It says *"ADDITIONS ONLY, no existing
+> sentence removed or reworded"*. On loan-sharks, 5 sentences WERE reworded — and every one is a
+> splice seam where the requested new material was inserted: *"lends money **for profit** without
+> authorisation"*, *"the Illegal Money Lending Team**, which** investigates"*, *"Free**, independent**
+> debt charities"*. Similarity 0.89–0.98, and **0 orphaned** — nothing lost. A restoration that must
+> insert clauses into existing sentences CANNOT satisfy "no sentence reworded", so the literal test
+> would have failed a correct repair. **The right measure is ORPHANED sentences (a removed sentence
+> with no close survivor), not removed ones.** Fixing the test, not the site.
+
+Served bytes, and 739's corrections intact: check-your-lender 62,823→67,856 · loan-sharks
+61,579→62,848 · price-cap 61,601→61,897; the disclaimer markers all 0→1 and the site-wide count is
+back to **15 pages** (12 after the damage, 14 before it — jargon-buster gained one).
+
+> **CORRECTED, minutes after I wrote it:** I first read the price-cap page as having lost 739's
+> correction, because `grep -c cumulativ` returned 0. The correction is fully present and better
+> stated than the brief asked — *"the rules cap what that fee adds up to **across the whole
+> agreement**"*, *"£15 is the ceiling whether one payment is missed or several"*, *"cannot lawfully
+> be charged £45"*. **My needle was wrong, not the page.** A single-word grep for a concept the page
+> may express in other words is not a check.
+
+### (s4) D1 — vetcomparison's register, and the design decision that is the interesting part
+
+Migrations **759** (register), **761** (posture record), **763** (council fix). 21 facts, 6
+banned_claims, `citation_code_presets:["veterinary"]` — the preset already existed in `claims.go`
+(`{"RCVS","VMD"}`), so it is reused, not invented.
+
+**Three live errors found, two of them NEW.** Five lanes have now run this method; five have found
+errors in their own site's live copy.
+
+1. **The CMA final report is dated November 2024 on two guides. It is 24 March 2026.** NEW. The CMA's
+   own case-page timetable says so, and its consultation page says *"In March 2026 we published the
+   final report"* — both verified through the production matcher. November 2024 is the Inquiry
+   Chair's BVA Congress speech, listed on the same page, which is almost certainly the origin.
+2. **The £21 / £12.50 prescription caps are served as settled on seven pages** and are bracketed
+   placeholders. Known to the vetcomparison lane since 08-24, unfixed. Confirmed here by reading the
+   PDF rather than inheriting the claim: *"'Initial Primary Prescription Fee Cap' means [£21
+   inclusive of VAT. This will be adjusted for inflation … before the Order is made]."*
+3. **"36 service categories" is 36 SERVICES in 5 CATEGORIES.** NEW. Draft Schedule 1's own column
+   heading is *"Service, product, treatment or procedure (36 total)"*; the five category counts
+   12+6+6+9+3 sum to 36. The number is right, the noun is not.
+
+**No copy touched** — the 695/699/738 precedent and the content freeze.
+
+**THE PDF PROBLEM, which is the transferable finding.** The CMA's primary sources are PDFs and the
+daily citation re-checker extracts visible text from HTML. `[MEASURED]` through `cmd/fcaquotecheck`:
+`HTTP 200 raw=392144 visible=296699` and **every quote false**, including `"Compliance Date"` — and
+**the absent control false too**, so at a PDF the probe discriminates nothing. A `source.citation`
+there would read as `citation_lost` drift every day for ever. So 8 facts carry `source.attested_by`
++ `source_document` + `no_citation_because`. Verified at the code, not assumed: the re-fetch arm is
+gated on `if _, has := src["citation"]; has` (:576), and `numberSupported` reads `Value`,
+`ContextTerms`, `Tolerance`, `IsSeries()` and **never `Source`** — so an uncited fact arms the scan
+exactly as fully. **Fourth signature for RUNBOOK §8g**, and unlike the three known ones the host is
+fine and the document is right; it is the EXTRACTOR that cannot read the format, so a host-acceptance
+check passes it. Now a LANDMINE.
+
+### (s5) What the register actually arms — including where it arms nothing
+
+`banned_claims`: all 6 compile in the exact consumer form, all 6 **fire on their own positive
+control** through the production scanner, all 6 give **0 hits over the 23 served pages**, and the
+negation guard suppressed **0** — so the zero is the site's, not the guard's. Re-run against the
+**stored** row after apply (§8f's post-apply half): patterns survive the escaping layer intact, no
+double-escape. The inherited finance set was **not** adopted; that lane warned it false-positives
+here in reverse.
+
+> **⚠ I NEARLY RECORDED A VACUOUS ZERO.** With the register loaded, `ScanUnregisteredNumbers`
+> returned 0 on all seven non-editorial pages. A **demand control** — the same register with `facts`
+> emptied — returns **the same 0**. The scan is high-precision (`businessClaimContextRe`) and the
+> £21/£12.50/36 sentences live on `guide`/`blog-post`/`tool` pages that `editorialPageTypes` gates
+> off. Replaced with a disconfirmable test: the control flags *"The threshold is 15 first opinion
+> practice sites"*, the full register **supports** it, and *"We have 4,000 clients"* stays flagged in
+> **both**. So: the facts do real work and do not blanket-support — but **the numeric half is armed
+> and currently unexercised**, and the migration says so rather than implying coverage.
+
+### (s6) Four things I got wrong, beyond those already corrected above
+
+1. **The sketch/file divergence is a class, not an incident.** The council reviews the SUBMISSION.
+   This round failed safe (REVISE on a non-defect); the same staleness pointed the other way draws an
+   **APPROVAL for a file that is wrong**, and nothing downstream compares the two. 759 and 761 have
+   **machine-extracted** sketches with a self-check asserting the file's prefix and suffix match.
+2. **My first mutation of 759's guard PASSED — and the mutation was inert**, not the guard: it edited
+   a different clause of the same field while the needle survived earlier in the sentence. This
+   lane's own rule caught it. A mutation must assert it changed the thing the guard reads (`assert
+   n==1`).
+3. **And minutes later the same discipline caught a REAL defect.** 761's first verify used
+   `IF nfacts <> 21`. The destructive case makes `nfacts` NULL, `NULL <> 21` is NULL not TRUE, so it
+   printed **`761 OK … register intact at <NULL> facts`** having wiped everything. `IS DISTINCT FROM`
+   now, carried into 763, and a LANDMINE.
+4. **I stamped two migration notes "UTC" off the BST clock** (20:20/20:35 for 19:16/19:19) — the trap
+   the handoff opens by naming. `applied_at` was right; the notes are corrected in place.
+
+### (s7) 759's verdict: APPROVED round 1 — and one advisory objection was real
+
+**APPROVED**, `approved with 2 advisory objection(s) — none high-severity`. editquality's medium was
+correct and is fixed forward by **763**: six ids matched `CMA-DRAFT-%` while only five carried
+`draft_status`, and 759's verify passed only because it required **both** conditions, so it counted 5
+and never saw the sixth. Substance was right (the consultation fact records a settled event and
+correctly needs no tag); the **name** misled. Renamed so the prefix means exactly "provisional", and
+**the new verify asserts the prefix/tag EQUIVALENCE rather than a count** — a count is precisely what
+cannot notice an extra member of the set it is counting a subset of.
+
+`prior_art_librarian`'s two were answerable with measurements already taken (the absence was queried
+before writing, not only guarded at apply; 743's objection was verified resolved at the file, the
+live config and the Go, per the table in §(s1)).
+
+### (s8) State, and what is open
+
+- **D2: DONE.** 3 pages restored, verified at the served bytes, 0 orphaned sentences, disclaimer back
+  on 15 pages, 739's corrections intact.
+- **D1: DONE.** Register live, `posture.rung=relied_upon` recorded with declarer/date/basis, the
+  `missing_evidence_register` item **closed** with its acceptance test run verbatim through a JOIN on
+  `sites` and its evidence in `result`.
+- **OPEN:** 761's verdict (`5d54f835-152a-4c6d-a4d1-b3ce289adbd1`) — **read it**; it proposes the
+  `posture` key as a shape for RFC_060's Q4 record, which has no built home (0 Go consumers, 0
+  existing users, both measured), and that is the claims-verification lane's call, not this lane's.
+- **OPEN:** 742 still owes its RESUBMIT (`RESUBMIT_CORR=0d730d51-…`), unchanged from `-03c` §0b(ii).
+- **OPEN, and larger than this lane:** nothing enforces `spec.mode` on `content_rewrite` at the
+  producer, so the next item minted fleet-wide without it hits the identical destructive
+  regeneration. `bugs_open/178`. Named in 743's header as the top follow-up; still true.
+- **OPEN:** the three vetcomparison copy errors are RECORDED, not REPAIRED. Owner's call.
+- **The 10 remaining registers** in D3's queue.

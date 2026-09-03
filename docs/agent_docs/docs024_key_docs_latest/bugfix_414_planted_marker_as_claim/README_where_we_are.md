@@ -282,3 +282,90 @@ because the nightly check builds its list from the sites that already have one. 
 is to build the missing check first, then populate; but the scoping question inside that is genuinely
 yours, because most of those twelve are not finance sites and your ruling only required registers
 there.
+
+--
+
+## 2026-09-03, evening — the loancash pages are repaired, and vetcomparison has its register
+
+Two jobs this session: put back what yesterday's repair accidentally deleted, and build the
+vetcomparison register you asked for. Both are done and both are checked at the actual live pages
+rather than at a status somewhere saying they worked.
+
+**The loancash repair.** Three guide pages had lost their "we are not a lender, this is not advice,
+we are not the FCA" block when an earlier fix rewrote them wholesale instead of editing them. The
+repair for that was written yesterday and deliberately held back, waiting for a review verdict —
+because applying before reading a verdict is exactly what caused the damage in the first place.
+
+The verdict came back "revise", and the main objection turned out to be **wrong about the actual
+file**. The reviewers were told the repair left the items on automatic dispatch; the file plainly
+sets them to manual, and the file's own self-check would have refused to run otherwise. What had
+gone stale was the *summary* sent to the reviewers, not the migration. Five reviewers spent their
+objections on a defect that did not exist. I checked every other objection against the real code and
+the live system before acting — one of them was about whether the repair would even work, and the
+answer is in the code and in the running configuration, so that is now settled rather than argued.
+
+So I applied it, and released **one page first** rather than all three, because firing four at once
+is what went wrong last time. That page came back clean, so I released the other two.
+
+**The result, measured sentence by sentence.** Last time, 36 of 37 sentences on a page were silently
+replaced while the page kept 84% of its length — which is why I no longer trust a length check. This
+time I compared the actual sentences before and after. On the first page **all 35 original sentences
+survived word for word** and 5 were added. On the other two, a handful of sentences changed — and
+every one of them is a seam where new material was spliced in ("lends money **for profit** without
+authorisation"). Nothing was lost on any page. The disclaimer is back, and the regulatory corrections
+from yesterday are all still there and correct.
+
+One honest note: the pass/fail test I wrote for this said "additions only, nothing reworded". That
+test was **too strict to be right** — a repair that has to insert a clause into an existing sentence
+can never satisfy it. The measure that actually matters is whether any sentence *disappeared without
+a trace*, and none did. I have fixed the test rather than pretending the repair failed.
+
+**The vetcomparison register.** This is the "list of every figure the site is allowed to assert, with
+where each one comes from" that stops a page inventing numbers. It did not have one, and a site with
+no register has the checking switched off entirely — so this closes a real hole.
+
+**It found three errors in the live site, two of which nobody knew about.**
+
+- The site says the competition regulator published its final report **in November 2024**. It was
+  **March 2026** — out by about sixteen months, on two pages. November 2024 is when the inquiry chair
+  gave a *speech*, which is listed on the same official page and is almost certainly where the slip
+  came from.
+- The site states the **£21 and £12.50 prescription fee caps as settled facts**. They are not settled:
+  the draft order carries them in square brackets, to be adjusted for inflation before the order is
+  made. The vetcomparison team spotted this on 24 August and nobody acted on it; it is on seven pages.
+- The site says practices must publish prices across **"36 service categories"**. The official schedule
+  defines **36 services grouped into 5 categories**. The number is right; the word after it is not.
+
+I have **not changed any of the site's wording** — that is your call, and the standing rule is that a
+register records what is true rather than rewriting pages. All three are now written down where the
+daily checks can see them.
+
+**The part I want to flag, because it is a trap the whole estate can walk into.** The regulator
+publishes its rules as **PDFs**, and our daily "is this citation still accurate?" checker can only read
+web pages. When I tested it against the PDF it returned "not found" for every quote — *including a
+phrase that is unquestionably in the document* — and also "not found" for a deliberately fake control
+phrase. That last part is the dangerous bit: when the checker fails to find both the real quote and the
+fake one, it is telling you it cannot see anything at all, but it looks exactly like "you typed the
+quote wrong". Had I linked those facts to the PDF, the site would have reported a false alarm every
+single day, for ever. So those eight facts record *who read the document and when* instead, which the
+system deliberately does not re-check nightly. It costs nothing in protection. This is now written into
+the estate's trap list.
+
+**And something I nearly got wrong myself.** I ran the number-checking scan against the site with the
+new register loaded and got a clean zero. That looked like success. Then I ran it again with the facts
+**deleted** — and got exactly the same zero. The scan simply does not reach those pages, so my clean
+result proved nothing at all. I have replaced it with a test that can actually fail, and the register
+now says plainly that this half of the protection is *switched on but not yet exercised* on this site,
+rather than implying a coverage it does not have.
+
+**One more.** A self-check I wrote to prevent a migration destroying the register **passed while the
+register was being destroyed** — a subtlety of how databases compare a value against nothing. It
+printed the word "intact" next to a blank. Found by deliberately trying to break my own guard, fixed,
+and written up so nobody else ships that shape.
+
+**Where it stands.** The three loancash pages are correct and live. Vetcomparison has a register of 21
+facts, six banned phrases (including the one the site was remediated for last July), and a recorded
+judgement about how strictly it should be held. The review board approved it first time, with one fair
+objection that I have already fixed. Ten more sites are waiting for the same treatment, and the three
+vetcomparison wording errors are sitting there recorded, waiting on your decision about whether to
+correct the pages.

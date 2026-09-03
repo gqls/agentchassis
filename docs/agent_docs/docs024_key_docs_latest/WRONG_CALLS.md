@@ -64936,3 +64936,95 @@ where confidence is highest and scrutiny lowest.
   the aggregate's own precision**, and a `::date` in the SELECT list is the tell.
 - **Cost.** One peer round. Nothing shipped on it; the NOTES entry is corrected in place with
   the correction visible rather than edited away.
+
+## 2026-09-03 — the council reviewed a SKETCH that no longer matched its file, and five reviewers objected to a defect that did not exist
+
+- **The claim.** Migration 743's round-2 submission asserted `approval_mode='manual' (was auto)` as its
+  key safety fix. Its sketch's INSERT tuple ended `'auto'`.
+- **What was true.** The **file** carried `'manual'` on all three rows, and its own verify block
+  asserted `approval_mode='manual' AND source='manual'` on all three — so the migration could not have
+  applied with `'auto'` even if it had tried. The sketch was a revision-1 leftover: the file was updated
+  for round 2 and the sketch was not.
+- **What it cost, and it is not nothing.** **Three seats — editquality (gating), guidelines and
+  guardian — independently raised it as HIGH**, and two more (bug_historian, prior_art_librarian) spent
+  their objections on other stale-sketch artefacts: a fourth page described as "left to run" that the
+  file already covered, and a "2 items" verify against a summary saying three. The round returned
+  **REVISE on a defect that did not exist in the artefact**, and the seats that could have been reading
+  the real migration spent themselves on a document. The reviewers were not wrong — they were *right
+  about what they were shown*.
+- **What caught it.** Reading the file before acting on the verdict, rather than after. The tell was
+  cheap: the verify block asserts the very value the objection said was wrong, so both could not be true.
+- **The cheap check that would have.** **Generate the sketch from the file; never hand-write it.** For
+  759 and 761 the sketch is machine-extracted — the SQL verbatim with only the jsonb payload replaced by
+  a census of itself, plus every fact id and every banned pattern reproduced — and a self-check asserts
+  `file.startswith(sketch_prefix)` and `file.endswith(sketch_suffix)` before submitting. That is ~15
+  lines and it makes the class impossible.
+- **The general form, which is the transferable part.** **The council reviews the SUBMISSION, not the
+  tree.** Every seat's verdict is about the document. A stale sketch does not merely waste a round in
+  the direction that happened here — it can also draw an **APPROVAL for a file that is wrong**, and
+  nothing downstream would catch that, because `098` joins on the trailer and never compares the
+  submission to the commit. This round failed safe. The same defect pointed the other way does not.
+- **Cost.** One council round (~30 min, ~10 seats), and a session-hour re-deriving objections that were
+  already answered.
+
+## 2026-09-03 — my mutation test "passed" and I nearly recorded the guard as proven; the mutation was inert
+
+- **The claim.** Migration 759's verify asserts that the November-2024 finding is recorded. I mutated the
+  text to remove it, the migration ran clean, and for a moment that read as *the guard does not work*.
+- **What was true.** The guard was fine. My mutation replaced one clause — `"is wrong by about sixteen
+  months. November 2024 is when"` — while the same field carried `"published its final report in
+  November 2024"` earlier in the sentence. The needle `LIKE '%November 2024%'` was still there. **I had
+  mutated a different part of the string from the one the guard reads.**
+- **What caught it.** This lane's own rule, written the same day in 743's header: *"If a mutation passes,
+  suspect the mutation."* Re-doing it as a targeted `replace('November 2024', …)` over the whole field,
+  with an `assert n==1` proving the needle was actually removed, made it abort correctly.
+- **The cheap check that would have.** **Make the mutation assert its own effect before you run it.** A
+  mutation that does not verify it changed the thing the guard reads tests nothing, and it fails in the
+  reassuring direction. `assert n==1` cost one line.
+- **And it paid for itself minutes later, in the opposite direction.** On migration 761 the same
+  discipline caught a **real** defect: `IF nfacts <> 21` is inert against the destructive case, because
+  that case makes `nfacts` NULL and `NULL <> 21` is NULL, not TRUE. The migration printed
+  `761 OK … register intact at <NULL> facts` after wiping 21 facts. Now `IS DISTINCT FROM`; now a
+  LANDMINE. **Two mutation tests, one lying and one true, in the same hour** — which is the argument for
+  running them at all, and for reading their OUTPUT rather than their exit status.
+- **Cost.** Minutes. The second one saved a silently destructive migration shape from being carried
+  forward into 763.
+
+## 2026-09-03 — I reported "0 unregistered numbers" as if the register had done it; the same zero came back with the register emptied
+
+- **The claim.** With vetcomparison's new register loaded, `ScanUnregisteredNumbers` returned **0
+  findings on all seven non-editorial pages**. I was about to record that as the register arming the
+  numeric scan.
+- **What was true.** A demand control — the identical register with `facts` emptied — returns **the same
+  0 on the same seven pages**. The zero was not my facts doing work; the scan finds nothing there either
+  way, because it is deliberately high-precision (`businessClaimContextRe`: it fires only on a number in
+  a business-claim context) and the site's `£21` / `£12.50` / `36` sentences live on `guide`,
+  `blog-post` and `tool` pages that `editorialPageTypes` gates off. **The measurement could not have come
+  out otherwise, so it was evidence of nothing.**
+- **What caught it.** Running the control before writing the claim down — [[a-post-fix-zero-needs-a-demand-control]],
+  applied to my own result rather than to someone else's.
+- **What replaced it.** A disconfirmable test: the control register flags *"The threshold is 15 first
+  opinion practice sites"*, the full register **supports** it, and an unrelated *"We have 4,000 clients"*
+  stays flagged in **both** — so the facts do real work AND are not blanket-supporting. That is three
+  outcomes where the first test had one. The migration and its submission now state plainly that the
+  numeric half is **armed but currently unexercised**, instead of implying coverage.
+- **The cheap check that would have.** For any "the check now returns zero" claim, **run the check with
+  the thing you added removed.** If the zero survives, you have measured the check's blindness, not your
+  fix.
+- **Cost.** Ten minutes, and it changed what the deliverable claims about itself.
+
+## 2026-09-03 — I stamped two migration records "UTC" off the session's BST clock
+
+- **The claim.** The `schema_migrations` notes for 759 and 761 said *"applied 2026-09-03 20:20 UTC"* and
+  *"20:35 UTC"*.
+- **What was true.** 19:16 and 19:19 UTC. I used the session's local clock, which is **BST, one hour
+  ahead** — the exact trap the lane's own handoff opens by naming (*"The session clock is BST, one hour
+  ahead; every figure below is stamped UTC"*). The `applied_at` column beside my note was right the whole
+  time, so each row contradicted itself.
+- **What caught it.** A `now()` from the database disagreeing with a timestamp I had just typed, while
+  closing the work item.
+- **The cheap check that would have.** `date -u`, which I used correctly for 743's note an hour earlier
+  and then stopped using. Better: never type a timestamp a column already holds — the note should say
+  "applied" and let `applied_at` say when.
+- **Cost.** Two corrected rows. No decision rested on it, but a note that disagrees with its own row's
+  timestamp is exactly the thing a later forensic read trips over.

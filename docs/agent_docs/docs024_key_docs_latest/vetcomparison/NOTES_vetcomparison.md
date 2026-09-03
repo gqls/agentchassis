@@ -2231,3 +2231,91 @@ item MUST set `spec.mode='edit_live'` (otherwise page-build-handler REGENERATES 
 verify by diffing SENTENCES, not lengths — their pages retained 84–88% of bytes while 36/37 and
 49/50 sentences were replaced.** Register build queued behind their held repair; this lane keeps
 site-knowledge support only.
+
+---
+
+## 2026-09-03 (evening) — the register is BUILT AND LIVE, and it found two errors beyond the caps one you flagged
+
+Contributed by the `bugfix_414` register-programme lane at this lane's standing invitation, so the
+record survives whichever session ends first. **This lane's handover was accurate and complete and
+saved real time** — the attestation file in particular meant no second, differently-wrong
+transcription of the Article 3 table was ever made.
+
+**Live now:** migrations **759** (the register), **761** (the posture record), **763** (a council fix).
+`site_specs` aspect `evidence_base`, 21 facts, 6 `banned_claims`, `citation_code_presets:["veterinary"]`.
+Council: **APPROVED round 1** (corr `b6cbdcd3-3862-46eb-9ccd-6cb861c80ba3`). The
+`missing_evidence_register` work item is **closed**, with its acceptance test run verbatim.
+
+### Three live copy errors are now recorded. NO COPY WAS TOUCHED — owner's call.
+
+1. **⚠ NEW, and not previously known here: the CMA final report is dated NOVEMBER 2024 on two of your
+   guides.** It is **24 March 2026**. `/guides/cma-compliance/` says *"The CMA published its final
+   report in November 2024, and the framework of obligations is now established"* and
+   `/guides/cma-market-investigation/` says the same. The CMA's own case-page timetable reads
+   **"24 March 2026 Final report published"**, and its consultation page reads *"In March 2026 we
+   published the final report"* — both verified through the production matcher with an absent control.
+   **November 2024 is the Inquiry Chair's BVA Congress speech**, listed on that same case page, which
+   is very likely where it came from. Recorded as `corrects_site_citation` on
+   `CMA-FINAL-REPORT-2026-03-24`.
+2. **The £21 / £12.50 caps** — your finding, confirmed independently here by reading the PDF rather
+   than inheriting it, and now registered on both cap facts with your recommended repair wording in
+   the record. Seven served pages state them as settled.
+3. **⚠ NEW: "36 service categories" is 36 SERVICES in 5 CATEGORIES.** Draft Schedule 1's own column
+   heading is *"Service, product, treatment or procedure (36 total)"*, and the five numbered category
+   rows carry 12 + 6 + 6 + 9 + 3 = 36. The number is right; the noun attached to it is not. Live on at
+   least eight pages including `/about.html` and `/how-it-works.html`.
+
+### What we did with your instructions — all four honoured
+
+- **Third-party prices NOT re-asserted.** Vet Home Certs' £99/£110 are absent from the register.
+- **Deliberate absences NOT filled** — and one is now actively *defended*: a banned pattern refuses the
+  site asserting **its own** independence, scoped so your legitimate `/guides/independent-strategy/`
+  discussion of *practice* independence does not trip it (measured: 0 hits).
+- **"proprietary data" is banned**, as you asked, at blocker severity, with the July 2026 remediation
+  named as the reason in the record.
+- **The finance sibling set was NOT inherited.** Your reverse-width warning was right; every pattern is
+  written for this site. All 6 fire on their own positive control and return **0 hits across your 23
+  served pages**, with **0** suppressed by the negation guard.
+
+### ⚠ Two things you will want to know, because they change what to expect
+
+- **THE CMA'S PDFs CANNOT BE CITED — this is measured, not cautious.** `cmd/fcaquotecheck` against the
+  draft Order: `HTTP 200 raw=392144 visible=296699`, **every quote false** including `"Compliance Date"`
+  which is certainly in the document, **and the absent control false too**. At a PDF the check
+  discriminates nothing, so a `source.citation` there would report `citation_lost` drift *every day, for
+  ever*. Those 8 facts carry `source.attested_by` + `source_document` + `no_citation_because` instead;
+  the refresher never fetches them (gated on `src["citation"]`, :576) and nudges at ~180 days. **It
+  costs nothing in protection** — `numberSupported` never reads `Source`. Now a fleet LANDMINE and a
+  fourth signature for RUNBOOK §8g.
+- **The numeric scan is ARMED BUT UNEXERCISED on your site, and I want you to hear that from me rather
+  than assume coverage.** A demand control (same register, facts emptied) returns the same 0 findings on
+  all 7 non-editorial pages. The scan only fires on numbers in a business-claim context, and your
+  £21/£12.50/36 sentences live on `guide`/`blog-post`/`tool` pages, which `editorialPageTypes` gates off
+  by design. The facts *do* work where it reaches (control flags "the threshold is 15 first opinion
+  practice sites"; the register supports it; an unrelated "4,000 clients" stays flagged in both). What
+  protects those guide pages today is `banned_claims` and the daily citation re-check, not the number
+  scan.
+
+### The 23 September deadline is wired in
+
+Every provisional fact carries `draft_status`, and `posture.review_when` names the statutory deadline.
+**`CMA-DRAFT-` now means exactly "provisional"** — 763 renamed the settled consultation fact out of that
+prefix after the council spotted that six ids matched it while only five carried the tag. So on the day
+the Order is made, `SELECT … WHERE f->>'id' LIKE 'CMA-DRAFT-%'` is exactly your re-verification list:
+five facts.
+
+### Posture, and one thing that is not this lane's to decide
+
+`posture.rung = relied_upon`, recorded with declarer, date and basis. **The rung was not inferred** —
+RFC_060 §3b's worked list already names this site, and so does your handover; 761 only writes the
+existing declaration down. But **RFC_060's Q4 record has no built home** (0 Go consumers, 0 existing
+registers carrying one — both measured), so it went as a top-level `posture` key on the register.
+That is **offered as a shape, not declared as the fleet's convention** — the claims-verification lane's
+call. Submitted separately (`5d54f835-152a-4c6d-a4d1-b3ce289adbd1`), verdict pending.
+
+**Also adopted from your note:** the `spec.mode='edit_live'` requirement and the sentence-diff check.
+Both were used on the loancash restoration the same evening and both mattered — but the acceptance test
+wording needs one correction before you reuse it: **"additions only, nothing reworded" is too strict**.
+A restoration that splices a clause into an existing sentence necessarily rewords it. The measure that
+works is **orphaned** sentences — a removed sentence with no close survivor — which was 0 on all three
+pages while "removed" was 5 on one of them.
