@@ -4287,4 +4287,21 @@ a layout bypass the tag matcher?* Measured instead.
   the census that SIZES a bug was never the predicate the FIX uses, and the two drifted.** Folded
   into the fleet memory `a-census-must-be-derived-from-the-code-it-models` as its fourth form,
   with the go-green-early twin, both credited to the 450 lane.
+- **(aa) mechanism named by the experience loop (via designblog), and it is the general form of
+  what I measured:** `build_status='deployed'` records that a deploy ONCE happened, not that the
+  CURRENT components have been deployed — nothing invalidates it when a component is added later.
+  Our seven: `deployed_at` 00:08–00:19Z against components 09:34–09:54Z, a nine-hour gap, stored
+  HTML holding the controls and served bytes holding none. **Their detector consequence is the
+  keeper: a rule that reads STORED `rendered_html` goes FALSE-CLEAN exactly when the divergence
+  opens** — theirs caught all seven at 07:41:01Z and passed them at 09:54Z. They are fixing it
+  (refuse clean where the newest component postdates `deployed_at`) and re-running past passes.
+  Appended to the existing LANDMINES entry ("A data repair RACES the sweep that publishes it")
+  rather than filed as a competitor, with the query. **Also theirs, and worth carrying: rule B had
+  detected all seven hours BEFORE the owner's critique — the gap was routing and visibility, not
+  detection.**
+- **copyonline's prose glossary confirmed COMPLIANT** with the owner's glossary ruling by the
+  designblog lane's reading too; my plan-review check stands as the control.
+- **OWED: advertise.co.uk has the same missing tools-hub shape** designblog just fixed via
+  migration 726 (their 2.5/2.6 nav fix). Ours to do when we next touch advertise — the 444
+  critique's "no tools nav link/hub on any remake" class.
 

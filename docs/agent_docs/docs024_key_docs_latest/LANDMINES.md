@@ -1767,6 +1767,31 @@ source document and the entry points at it.
   route to `rerender_sections` (regenerate), anything else routes to `render_page`
   ("assemble stored HTML"), which republishes bytes you have already fixed and cannot
   regress an interactive tool
+- **⚠ APPENDED 2026-09-03 (`portfolio_positioning` + `experience loop`) — THE CRISP STATEMENT OF
+  WHY, AND THE DETECTOR CONSEQUENCE NOBODY HAD WRITTEN DOWN.** The tell above ("`deployed_at` is
+  OLDER than your `page_components.updated_at`") has a one-line mechanism:
+  **`build_status='deployed'` records that a deploy ONCE HAPPENED, not that the CURRENT components
+  have been deployed.** Nothing invalidates it when a component is added afterwards, so a page
+  reads `deployed` for ever while serving bytes that predate its newest component.
+  **Worked case, 2026-09-03:** seven `seotools.co.uk` tool pages had real tool components attached
+  09:34–09:54Z by a repair wave; all seven still carried `build_status='deployed'` with
+  `deployed_at` **00:08–00:19Z — nine hours earlier**. Stored `rendered_html` held the controls;
+  the SERVED bytes held none. Every DB-shaped check called the repair done while visitors got the
+  old page.
+  **The consequence for CHECKERS, which is the part that bites:** a detector that reads STORED
+  `rendered_html` goes **FALSE-CLEAN at exactly the moment the divergence opens** — the
+  experience-loop's tool-page rule had correctly caught all seven at 07:41:01Z and then passed
+  them at 09:54Z, the instant they became most misleading to a visitor. Same shape as *your own
+  action silences your own detector*, one seam over. **The fix to any such rule: refuse to report
+  clean when the newest `page_components.created_at` POSTDATES `pages.deployed_at`** — and re-run
+  it over everything the blind version cleared.
+  ```sql
+  -- pages whose served bytes cannot contain their newest component
+  SELECT p.name, p.deployed_at, max(pc.created_at) AS newest_component
+    FROM pages p JOIN page_components pc ON pc.page_id = p.id AND pc.build_status <> 'removed'
+   WHERE p.site_id = :site GROUP BY p.id, p.name, p.deployed_at
+  HAVING max(pc.created_at) > p.deployed_at;
+  ```
 - **⚠ APPENDED 2026-09-03 (`inline_guide_imagery`) — THE THREE-VALUE LIST ABOVE IS STALE, AND THE DRIFT INVERTS THIS ENTRY'S OWN SAFETY ADVICE.** The remedy says to force a republish by firing a `reason` **not in** (`image_landed`, `section_data_resolved`, `cta_links_stale`), on the grounds that anything else takes the assemble path and "cannot regress an interactive tool". `[MEASURED 2026-09-03]` the live `check_rerender_mode` condition on the `page-rerender` agent has **FIVE** values: those three **plus `template_changed` plus `literal_markdown`**. So a reader picking either of those two as a deliberately "safe" out-of-list reason gets the **regenerate** path — precisely the outcome this entry exists to help them avoid. **Read the row, not any list written down here:** `SELECT s.key, s.value->'config'->>'condition' FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s WHERE a.type='page-rerender' AND a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL AND s.value->>'action'='conditional';` The sibling entry on the same condition (footprint `check_rerender_mode`) was corrected the same way on 2026-09-02 by the components lane; **this one is a second copy nobody had swept**, found because a third lane asked how far one wrong sentence had travelled.
 - **source:** 2026-07-31, bugfix lane, `bugs_open/161` step 2
 - **added:** 2026-07-31, bugfix lane
