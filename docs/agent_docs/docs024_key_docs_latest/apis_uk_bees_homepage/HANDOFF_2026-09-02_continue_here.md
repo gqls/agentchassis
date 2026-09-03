@@ -106,6 +106,18 @@ grep -o 'src="[^"]*illustration[^"]*"' … | sort -u | wc -l   # PASS: 6 distinc
    > all three candidates enumerate SIBLING subjects and that range render is UNTESTED — prove
    > it against real loop CollectedData (empties must drop out, not render blank). Seed header
    > stamped with the same. Full record: NOTES 2026-09-02 ~21:00 UTC.
+   > **UPDATE 2026-09-03: the SQL is WRITTEN and rehearsed — gate 2 is now "owner reads the
+   > EXACT block in the seed file".** Owner picked framing C 2026-09-02 late ("go with C");
+   > finetuning test-rendered 5 real-row fixtures first (their fixture E discharged the
+   > sibling-range obligation; fixture D found a blocker the SQL now fixes: `sections_for_render`
+   > must join `generate_content.config.input_fields` or the range renders EMPTY silently).
+   > 641 now ships block + input_fields atomically, verify asserts BOTH plus an em-dash census by
+   > pre/post EQUALITY — the old literal (5) was wrong from birth (live was 9 since mig 595,
+   > 08-24; WRONG_CALLS 2026-09-03). Full apply rehearsed under BEGIN/ROLLBACK on the live row,
+   > induced input_fields failure RAISEs. Council `Council-Submitted: 6c92d154`. NEW OWNER
+   > QUESTION (do not absorb into C's words): tier-1 planner subjects can read awkwardly in
+   > "You'll want to know ___" — recommended fix is a planner-prompt nudge, separate small
+   > migration (CONTRIB §3).
 2. **The footer** (08-26 handoff §5b): fallback shell reappears on every chrome refresh; no
    suppress mechanism exists. Accept the shell, or commission opt-in `chrome.footer_disabled`.
 3. **The tools park** (08-26 handoff §5c): nine items `deferred` — held all week, dedup keys
@@ -118,7 +130,7 @@ grep -o 'src="[^"]*illustration[^"]*"' … | sort -u | wc -l   # PASS: 6 distinc
 |---|---|
 | planner rule 17 + example (640) | **LIVE** — next replan of any fact-listed site emits subjects; REQUIRED on repeated components |
 | `validate_plan` normalise + carry · `site_plan_sections.subject` (638) · loader · `plan_sections` (639 wiring) · `sectionPlanItem.Subject` | **LIVE end to end** (binary probed; config verified) |
-| writer prompt (641) | **HELD — gate 2 returned REDRAFT 2026-09-02: do NOT apply as written; redraft in flight (§3.1 correction)** |
+| writer prompt (641) | **HELD — redraft WRITTEN + rehearsed 2026-09-03 (owner pick C + input_fields fix); gate: owner reads the EXACT block in the seed (§3.1)** |
 | structural detector `SUBJECT_MISSING_ON_REPEATED_COMPONENT` | **LIVE** (binary probed); zero rows until subject-carrying plans exist — that is the gate working, not silence |
 
 Adoption query (also the copy_quality lane's experiment control):

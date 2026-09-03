@@ -1510,3 +1510,61 @@ in the file it is about to apply); handoff §3.1 corrected + chain-status row up
 status line gains the outcome. FYI also relayed: **RFC_063 DECIDED tonight — option B**, the six
 plan-less sites converge into the plan tables (hand-insert permitted, closed backfill); 443's
 Stage B re-points at the redrafted 641, their Stage A unaffected.
+
+### 2026-09-03 ~09:50 UTC — 641 rewritten to the owner's pick, rehearsed under ROLLBACK, council-submitted; the old census literal was never true; imagery thread resolved to "refused at save, resolver NOT implicated"
+
+Session start: read the lane's CONTRIBs FIRST (last session's lesson) — and the new
+`CONTRIB_2026-09-02_from_finetuning_owner_picked_C_and_the_test_render_found_two_things.md` was
+the whole brief. Owner rejected the first three candidates ("they all sound a bit AI"), picked C
+from a plainer set ("go with C"); the finetuning lane test-rendered five fixtures from REAL
+orchestration_states rows BEFORE handing over (their `render_test_641/` harness). Fixture E
+discharged the sibling-range obligation I recorded yesterday (subjectless siblings drop out
+cleanly). Fixture D found the real blocker: the prompt renders against
+`ExtractFields(CollectedData, input_fields)` — a SUBSET the step names — and live
+`generate_content.config.input_fields` has no `sections_for_render`, so the sibling range
+renders an EMPTY list, silently. My yesterday line "the data is reachable" was true of
+CollectedData and WRONG-BY-OMISSION about the template context; the draft file logged its own
+version of that in WRONG_CALLS 2026-09-02(d).
+
+What I verified before writing SQL (not taken from the CONTRIB): live row — exactly 1 active
+writer, `input_fields` verbatim as quoted (no sections_for_render), `iterate_over` =
+`sections_for_render.sections_ready`; extractor code — the speciallyHandled promotion + named-
+field loop at `unified_extractor.go`; template bytes — my E-string decodes BYTE-IDENTICAL to the
+tested harness `const block` (programmatic check, anchor swapped), so what the owner reads is
+what was rendered in the fixtures.
+
+**The census discovery.** The dry pre-flight printed the live em-dash count: **9, not 5**. From
+`agent_definitions_backup`: 3 before mig 595 (rules 9+10, applied 08-24 16:57Z), 9 after — TWO
+DAYS before the first 641 asserted 5. The literal was wrong from birth, matched no adjacent
+state, and would have RAISEd on a correct apply at the worst possible moment. → WRONG_CALLS
+2026-09-03 entry; the rewrite replaces the literal with pre/post EQUALITY in one plpgsql block
+(the true invariant: this insertion adds zero em dashes). Also observed, unexplained, not
+chased: the writer row was UPDATEd 2026-09-03 08:56:53Z with NO agent_snapshots row (latest
+snapshot is 599's, 08-24) and no em-dash change — whoever owns snapshot discipline may care.
+
+**Proof, both directions:** full DO block rehearsed under BEGIN/ROLLBACK against the live row —
+pre-flight clean, both halves applied, census 9 unchanged, and the post-ROLLBACK control shows
+the row untouched (subject block absent, no sections_for_render). Induced failure: the same
+block with the input_fields append stripped RAISEs "input_fields does not contain
+sections_for_render" — the fixture-D check can actually fire. Council: corr
+`6c92d154-e527-4f9d-8262-9fd0c22858f1` submitted (DRY_RUN admission first), commit carries
+`Council-Submitted:`.
+
+**Gate state now:** gate 1 clear (unchanged); gate 2 = the owner reads the EXACT block in the
+seed file — the finetuning lane carries it to him (told via CONTRIB in their dir). Open owner
+question recorded, NOT absorbed into C's words: tier-1 planner subjects ("Brief description of
+the sister-site relationship…") read awkwardly in "You'll want to know ___"; recommended fix is
+a planner-prompt nudge, separate small migration, this lane's side.
+
+**Imagery thread (inline guide imager, two messages):** their measurement — our reasoned
+rerender 73ad8c56 FAILED with result={} and the morning's completed 5a1740be was reasonless
+(assemble-only, exercised nothing). I supplied the why from last night's NOTES: REFUSED by
+save_sections' overwrite guard (prune_floor), never reached the write — so our case is OUT of
+the bugs_open/425 "sections path doesn't write resolver-sourced values" hypothesis (theirs to
+record; they did, in 114, citing our NOTES). Their point, adopted here as the standing line:
+**the 08-24 site-level fan-out served this page WITH the locks in place, so the locks are
+proven survivable and `prune_floor` is the one blocker** — a reader seeing "permanent locks" +
+"refused rerender" side by side must not conclude the locks did it. IMG-075 status stands as
+"armed; its one attempted test was refused at save". They get the six image_url results when a
+reasoned rerender lands. Their observability point (refusal reason existed in pod logs, never
+reached the item) is recorded in 114, greppable before anyone re-files it.
