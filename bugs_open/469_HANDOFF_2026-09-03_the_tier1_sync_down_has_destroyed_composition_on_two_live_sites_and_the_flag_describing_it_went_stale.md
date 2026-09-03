@@ -79,6 +79,25 @@ loss without looking.**
 
 Three properties compound:
 
+> **CORRECTED 2026-09-03 (later) — "nothing ever closes an item" is FALSE, and the way I got
+> it wrong is the more useful finding.** `[MEASURED 2026-09-03]` **two** `section_source_drift`
+> items were closed, both **on the day they were filed**, in July 2026:
+> `section_source_drift:contact` (filed and closed 2026-07-16) and
+> `section_source_drift:who-we-help` (2026-07-17). Both carry hand-written narrative receipts.
+>
+> **I could not see them because they are in `site_work_items_archive`, and my census queried
+> only the live table** — which returns 6. A closed row leaves the table you are counting in,
+> so *a census of open items cannot observe the successes*, and the absence of closures is
+> exactly what it will report. That is MEMORY's own *"a closer census cannot see what it
+> SUCCEEDED at"*, which was in my index while I wrote the opposite.
+>
+> **The accurate claim is narrower and still damning:** there is **no automated closer and no
+> handler** — `CheckResult.Resolved` is never populated — so closure depends entirely on a
+> human noticing *at the time*. Two people did, in July, same-day. The six that accumulated
+> afterwards did not get that attention, and the oldest sat 37 days. The defect is not that
+> closure is impossible; it is that it is **manual, undriven, and invisible once it happens**.
+> Query `site_work_items` **UNION** its archive, or you will re-derive my mistake.
+
 - **The check is flag-only and nothing ever closes an item.** Six were open when this
   session looked, the oldest 37 days.
 - **The item's `spec` is frozen at filing time.** `spec.authoritative` and

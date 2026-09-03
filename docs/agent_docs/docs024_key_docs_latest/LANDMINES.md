@@ -21785,8 +21785,16 @@ END $$;
   currently drifted — or from the absence of a NEW item that a page is fine
 - **the trap:** three properties compound.
   1. The check is **flag-only** (`HandlerAgent: ""`, `Status: "needs_human_review"`) and
-     never populates `CheckResult.Resolved`, so **nothing ever closes an item**.
+     never populates `CheckResult.Resolved`, so **no AUTOMATED path closes an item**.
      `[MEASURED 2026-09-03]` six were open, the oldest filed **2026-07-28** — 37 days.
+     ⚠ **CORRECTED 2026-09-03 (this entry's own author): the heading's "nothing ever closes
+     one" is TOO STRONG.** Two WERE closed, both on the day they were filed —
+     `section_source_drift:contact` (2026-07-16) and `:who-we-help` (2026-07-17) — with
+     hand-written narrative receipts. **They sit in `site_work_items_archive`, so a census of
+     the live table cannot see them**, and that is exactly how the overstated claim was made.
+     The true defect is narrower and still real: closure is **manual, undriven, and invisible
+     once it happens**. Two people caught one same-day in July; the six that followed did not
+     get that attention.
   2. `spec.authoritative` and `spec.pages_sections` are captured at **filing** time and read
      as current. Four of those six described a drift that no longer existed.
   3. `idx_swi_dedup` is `UNIQUE (site_id, item_key)` over **non-terminal** statuses, so an
@@ -21794,6 +21802,10 @@ END $$;
      behind the old one. The detector blinds itself on exactly the pages it has flagged.
 - **the tell:** the item reads as a live problem and the page looks fine, or vice versa.
   Neither reading is safe, and the item cannot tell you which you have.
+- **query `site_work_items` UNION `site_work_items_archive`.** A closed row LEAVES the live
+  table, so any question shaped "does anything ever resolve these?" answered against
+  `site_work_items` alone returns the answer you feared, not the answer that is true — this is
+  `MEMORY[a-closer-census-cannot-see-what-it-succeeded-at]` on a second item type.
 - **the check:** **never act on the `spec`.** Re-derive both sides live, mirroring the
   check's own precedence — `COALESCE(tier1, tier2)` vs `pages.sections`, ordered, where tier
   1 is `site_plan_sections` for the `is_current` plan and tier 2 is the

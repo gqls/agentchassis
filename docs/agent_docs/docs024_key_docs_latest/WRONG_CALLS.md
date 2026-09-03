@@ -65123,3 +65123,34 @@ and would have made the question moot.
 precedent, quote its stated COST and test that cost against your change.* Mine is the
 narrower sibling: **on a shared column, `jsonb_build_object` is a destructive write. Merge
 unless you have read the row and intend the replacement.**
+
+**Third addendum, same session — "nothing ever closes one of these items", written into a bug
+file, a LANDMINES entry and a commit message. Two had been closed, in July.**
+
+`[MEASURED 2026-09-03]` `section_source_drift:contact` was filed AND closed 2026-07-16;
+`:who-we-help` filed AND closed 2026-07-17. Both carry hand-written narrative receipts
+(`resolution`, `evidence`, `intended_component`, `verified_2026_07_19`).
+
+**Why I could not see them: they are in `site_work_items_archive`.** My census queried
+`site_work_items`, which returns 6. A closed row leaves the live table — so **a census of open
+items structurally cannot observe the closures**, and "nothing ever closes these" is the answer
+it will always give, whatever the truth. The instrument produced the finding.
+
+This is `MEMORY[a-closer-census-cannot-see-what-it-succeeded-at]` — *"`site_work_items` is a
+ROLLING WINDOW; closing a row archives it out of the table you queried"* — a lesson **already
+in my index, about this exact table**, while I wrote its negation into three artefacts.
+
+**What caught it.** The `bugs_open/469` lane quoted the two archived receipts back to me while
+explaining why it would NOT align its vocabulary to them. I had told it those rows were worth
+reading; it read them properly and the contents refuted a claim of mine that neither of us was
+looking at.
+
+**The cheap check.** `UNION` the archive whenever the question is "does anything ever X?" —
+absence-of-X questions are precisely the ones a rolling window answers wrongly.
+
+**The correction is narrower and still real**, and worth keeping distinct from the overstatement:
+there is no automated closer and no handler, so closure depends on a human noticing *at the
+time*. Two people did, same-day, in July. The six that accumulated afterwards did not, and the
+oldest sat 37 days. **"Manual, undriven, and invisible once it happens"** is the true claim;
+"nothing ever closes one" was the seductive one, and it was seductive because it made the
+finding bigger.
