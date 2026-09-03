@@ -1699,3 +1699,25 @@ literal containing a double quote** — `::text` is the JSON serialisation, embe
 `\"`; extract with `#>>` first, then search. Directly relevant to OUR anchor, which embeds
 double quotes — a naive LIKE check would report rule 17 missing on a row where it is present.
 (2) their 729 blocker update, folded in above.
+
+### 2026-09-03 ~16:00 UTC — HOLD the index subject backfill: the phrasing decision is live with the owner
+
+From the prompts lane: the owner blind-read the candidates and leaned toward R — which IS the
+committed C, re-picked without knowing it ("I think R because it is a bit more verbose and
+friendly, but not sure"). Their harness made the "not sure" concrete with two REAL renders:
+R's frame only fits short lower-case what/how clauses — our gamedesign planner subject renders
+as "You'll want to know Brief description of the sister-site relationship…", and his OWN example
+sentence in R's frame renders with a doubled full stop that nothing catches. So the decision
+with him now is binary: keep R's frame (subjects constrained to that shape for ever, every site)
+or drop to A4 (R's second half unchanged, subject printed VERBATIM — clean on every fixture).
+
+**Consequence for this lane, effective now: our six index subjects are NOT to be authored until
+the phrasing spec lands.** The prompts lane owes the spec (it ships the moment he answers);
+finetuning's backfill arrays are under the same hold. The 443 CONTRIB's "must complete 'You'll
+want to know ___'" rule stays stale-do-not-follow. When the spec arrives, the backfill follows
+it directly — the Stage B basket item now carries this precondition.
+
+Housekeeping from their side: all four of our technical points (double-copy byte-compare first,
+probe re-key rule, 450/anchor terms incl. the LIKE trap, no absolutes) are in their RUNBOOK as
+checks, not prose. Guards stay byte-for-byte; every option-A candidate keeps the opening
+`{{if .current_section.subject}}` literal, so the applied probe still discriminates.
