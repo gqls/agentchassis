@@ -2024,3 +2024,14 @@ debug_historian "fleet-wide claimed-vs-cap unenumerated" → ENUMERATED: vetcomp
 site fleet-wide with a directory export config AND claimed rows (51 claimed / 2,350 eligible,
 cap 60); (4) debug_historian "post-roll pod verification" → done (the binary probe above).
 One rerender now ships the complete accent outcome: chips + the 51 claimed listings at the front.
+
+**Chip rerender discriminator (2026-09-03): SNAPSHOT-AFFIRMED — the guardian advisory CONFIRMED.**
+The template_changed rerender completed and redeployed (bytes changed) rendering the NEW template
+over the OLD build-time snapshot: 0 chips (all 60 stored rows unclaimed — consistent), 0 VHC,
+alphabetical order intact. **Fleet-transferable finding, credited to the guardian seat's advisory
++ the planner's clean experiment: `template_changed` re-renders a section but does NOT re-resolve
+`query.*`-backed data — the snapshot persists. A template edit to a query-backed section needs a
+RESOLVE-MODE REBUILD (needs_page → its builder), not a rerender.** Fallback driving: needs_page
+item e6fa9979 → directory-build-handler (the route that resolves at build). Candidate for 016b §9
+/ LANDMINES once verified end-to-end — the wrong result (new template, stale data, reads as
+success) is exactly the looks-right-is-wrong shape.
