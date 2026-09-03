@@ -495,3 +495,73 @@ paths vs bare root fields; block-scoped anti-invention vs `href=`/`src=`), and t
 intentional — but "intentional" is what every drift starts as. Being addressed by a
 cross-reference test that pins the divergence WITH ITS REASON, the shape
 `render_seam_absent_required_test.go` already uses.
+
+## CONTRIBUTION 2026-09-03 — a LIVE `<no value>` whose root IS in `input_fields`: the GUARD and the PAYLOAD read different paths, and the block it empties is the one that licenses a regulated business model (from the `bugfix_445_layout_fit` lane)
+
+**Not a fourth instance of shape 2 — a variant your lint cannot see, and I checked that rather than
+assumed it.** Found while reading a `classify_and_extract` prompt for an unrelated reason.
+
+**The template (read at the LIVE `agent_definitions` row, not the seed):**
+```gotemplate
+{{if .site_specs.specs.mission_brief}}## Pre-Defined Mission
+This site has a strategic mission provided by the owner. Use this as STRONG guidance for identity,
+tone, positioning, and design direction. The research below validates and supplements — the mission
+is the primary source.
+
+{{.site_specs.specs.mission_brief.text}}
+{{end}}
+```
+The guard tests the **parent** (`mission_brief`); the payload prints a **child** (`.text`). When the
+parent exists and the child does not, the guard opens, the three-sentence preamble asserting an
+owner-provided mission renders in full, and the mission itself renders `<no value>`.
+
+**Why `--template-input-fields` is blind to it, by construction:** the root is `site_specs`, and
+`site_specs` **is** in this step's `input_fields`
+(`["input_data","search_results","scraped_data","site_specs","layout_taxonomy"]`, read live). So
+shapes 1 and 2 both pass. Your own header calls this case out — *"3. Root PRESENT, sub-field absent
+in the row's data -> `<no value>`"* (`templateinputfields.go:26`) — and it is the case a static
+config lint cannot decide, because whether `.text` exists is a property of **each site's data row**,
+not of the workflow config. The shape-3 render-time fix (§7) is therefore the only arm that can
+catch this one, which is an argument for it, not against.
+
+**[MEASURED 2026-09-03, live DB]**
+
+| what | value |
+|---|---|
+| current `mission_brief` specs carrying a `text` key | **16** |
+| current `mission_brief` specs **without** one | **7** |
+| total current `mission_brief` specs | **23** |
+
+```sql
+SELECT count(*) FILTER (WHERE data ? 'text') AS with_text, count(*) AS total
+FROM site_specs WHERE aspect='mission_brief' AND is_current;
+```
+The 7 are not malformed. copyonline.co.uk's is a rich structured brief —
+`stance, audience, must_nots, confidence, proposition, content_plan, reader_intent, open_questions,
+differentiation, research_quality, regulated_subject, tool_opportunities, directory_opportunity` —
+and **no `text`**. So this is producer/consumer contract drift: a newer producer writes a structured
+brief, the template still reads the older flat `{text: …}` shape, and the mismatch is silent.
+
+**Why this instance is worse than an empty section, and why I am flagging it here rather than
+filing separately.** Migration `464_classifier_regulated_business_needs_a_brief.sql` makes that
+block **load-bearing for a safety rule**: *"Do NOT propose a regulated business model … unless a
+Pre-Defined Mission is present above and explicitly asks for one."* On these 7 sites the model is
+shown a Pre-Defined Mission heading, told it is "the primary source", and shown nothing under it.
+The precondition for the exception is rendered **present but empty** — the licence appears, the
+instruction that was supposed to constrain it does not. I have **not** measured whether any
+classification actually proposed a regulated model on those 7 (`[UNMEASURED]`); the point here is
+that the guard's own premise is unsound, not that damage is proven.
+
+**Verification for a fix (this variant):** a guard and its payload must resolve the **same** path.
+Either guard the leaf (`{{if .site_specs.specs.mission_brief.text}}`) or render the object the
+producer actually writes. Re-check with:
+```sql
+SELECT position('<no value>' in prompt_rendered) > 0 AS still_broken
+FROM llm_call_log WHERE step_name='classify_and_extract' ORDER BY created_at DESC LIMIT 1;
+```
+Confirmed present on the run of **2026-09-03 16:54:07Z** (copyonline.co.uk), which is the first
+classification the fleet has executed today.
+
+**Not filed as a new bug number deliberately** — `who-owns.py 453` shows this lane is six commits
+deep in it today, and CLAUDE.md says contribute rather than compete. Owner of 453: this is yours to
+route; I am not touching the template.
