@@ -1,7 +1,9 @@
 # 338 — the voice gate's DENSITY rules are applied to a single sentence, where they are not measurements
 
 **Filed** 2026-08-20 by the `meta_description_never_backfilled` lane. **Status: OPEN —
-FIX COMMITTED 2026-09-02 (`425398a01`), INERT UNTIL THE NEXT CHASSIS ROLL.**
+FIX COMMITTED 2026-09-02 (`425398a01`) AND SHIPPED ON `v1.0.1356` 2026-09-03 08:58Z.
+⚠ CLOSURE IS BLOCKED ON AN OWNER DECISION, NOT ON WORK: §6's acceptance test can never
+pass, and the reason is not the fix (§9).**
 
 > **UPDATE 2026-09-02** (`bugsweep_2026_08_26` lane, continuing
 > `docs024_key_docs_latest/bugsweep_2026_08_26/HANDOFF_2026-09-02_continue_here.md`).
@@ -177,6 +179,69 @@ a flat "contains an em dash" test in its place rather than losing the rule.~~
 > 2026-09-02. That is why the fix does not hand-keep a list: `voiceCheckKinds` is
 > exhaustive and `TestEveryVoiceCheckIsClassified` reads the `Check:` emission sites out
 > of `voicetells.go`, failing on any unclassified check **or** any stale map entry.
+
+## 9. ⚠ THE ROLL LANDED — AND §6's ACCEPTANCE TEST IS UNFALSIFIABLE (2026-09-03)
+
+**The fix is shipped.** `agent-chassis` pods run `v1.0.1356`, started 2026-09-03 08:58:07Z.
+
+⚠ **Neither sanctioned provenance route can confirm the commit, and both failed for
+recorded reasons — do not read that as a doubt about the fix.**
+1. The log stamp is out of range. LANDMINES' own precheck: pods started 08:58Z; at 09:16Z
+   `kubectl logs <pod> | head -1` showed **09:10Z** and **09:16Z**, so the startup line had
+   already rotated. This is that entry's time-limited case, not "unstamped".
+   ⚠ Worse, `grep 'build provenance'` on this service now matches **LANDMINE TEXT ABOUT
+   build provenance** — the chassis logs whole council/diagnosis payloads, so the recipe
+   greps up its own documentation. Already a landmine; confirmed live today.
+2. **The release was applied from an UNCOMMITTED overlay bump.** `git show HEAD:` on the
+   chassis overlay says `newTag: v1.0.1353`; the working tree and the running pods say
+   `v1.0.1356`. So the build point is **not in git history** and no ancestry check is
+   available. ⚠ I first ran `git merge-base --is-ancestor` against an empty variable, and
+   it "passed" its own control by ERRORING — a false green. Logged in `WRONG_CALLS.md`.
+
+**AND THE ACCEPTANCE TEST CANNOT COME OUT EITHER WAY.** §6 says to watch the two blank
+pages on `leopardessconsulting.co.uk` and `oufe.com` fill. They cannot:
+
+| page | visible text | eligible components | passes the backfiller's `> 200` gate |
+|---|---|---|---|
+| `leopardess…/case-study-automated-intelligence-pipeline` | **0** | **0** | ✗ |
+| `oufe.com/contact` | **124** | 2 | ✗ |
+
+`load_pages_missing_meta` requires `page_visible_text_len(p.id) > 200`. **Both pages fail
+it, so the backfiller never selects them, so the gate is never consulted, so the voice-gate
+fix cannot change their state — ever.** A reader running §6 after the roll would see "still
+blank" and reasonably conclude the fix did not work.
+
+**Fleet-wide, `[MEASURED 2026-09-03]`, with a demand control:** all **37** remaining blank
+active pages (11 sites) fail the gate — **zero** are selectable. The control that makes
+that meaningful rather than a broken instrument: pages that DO have a description number
+**1,164**, average **4,401** chars of visible text, and **1,137 (97.7%)** clear the gate.
+The blanks average **8** characters. So the function works, and every remaining blank is a
+near-empty page.
+
+**Why §6 looked right when written.** On 2026-08-20 the blanks WERE gate refusals. Those
+pages have since been filled — migration `501`'s ≤20-word instruction (§7) keeps candidates
+under the trip. What is left is a different population, blank for a different reason. §6
+was correct when written and is now measuring something that no longer exists.
+
+### What could actually close this bug — an OWNER DECISION, not more work
+
+⚠ **And note `501` makes the fix largely inert for THIS caller**: it asks the writer for
+≤20 words, which clears the default trip of 22 anyway. The fix's value is (a) the seam, for
+the short-field callers §5 expects, and (b) removing the trap for any site that sets a
+lower `mean_sentence_words`. Neither produces a natural live exercise.
+
+1. **Close on the code proof.** Unit tests induce both arms against the LIVE leopardess gate
+   config, every corpus-only case is control-first, and four mutations were proven red. The
+   image is shipped. *Recommended* — with the caveat stated in the closing note.
+2. **Induce a live exercise deliberately** — a page with >200 chars of content and a
+   >22-word candidate on a default-threshold site. Decisive, but it is a manufactured case,
+   and manufacturing it means writing copy the house style would reject.
+3. **Leave OPEN indefinitely.** Honest, but it will not resolve on its own: `501` prevents
+   the natural case, so this waits for a caller that does not exist yet.
+
+**A live exercise is decisive only if the written description has a mean sentence length
+> 22 words (or any sentence > 25).** Below that the old gate would have accepted it too and
+the observation proves nothing — the same "induce both arms" trap as §6, one level up.
 
 ## 5. Blast radius
 

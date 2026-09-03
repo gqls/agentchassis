@@ -19,6 +19,25 @@ the blog-listing component shows as each card's blurb. It lives in one place: th
 sites are affected. Three have none on any page at all: `loancalculator.co.uk` (43/43),
 `adversecreditmortgage.co.uk` (19/19), `loanzy.uk` (13/13).
 
+> **RE-MEASURED 2026-09-03 — the headline figure above is now badly stale, and the residual
+> has changed KIND.** `[MEASURED 2026-09-03]` **37 of 1,201 active pages — 3.1% — have
+> none**, across 11 sites. The backfiller has done its job on everything it can see.
+>
+> **⚠ AND ALL 37 ARE PERMANENTLY OUT OF ITS REACH.** `load_pages_missing_meta` requires
+> `page_visible_text_len(p.id) > 200`; **zero** of the 37 clear it. They average **8**
+> characters of visible text (max 166). Demand control, so this is not a broken instrument:
+> the 1,164 pages that DO have a description average **4,401** characters and **1,137
+> (97.7%)** clear the gate.
+>
+> **So what remains of this bug is a COVERAGE FLOOR, not a writing failure.** The 37 are
+> near-empty pages, and arguably should not carry a description until they carry content —
+> which makes "is this a bug or the correct refusal?" an owner question rather than a
+> backlog. Whoever picks this up: **re-measure before quoting 55.7% anywhere**, and decide
+> the floor question before treating the 37 as work.
+>
+> Found while verifying `bugs_open/338`'s fix after the 2026-09-03 roll — 338 §9 has the
+> full table and the reason its own acceptance test can no longer pass.
+
 There are **two independent mechanisms**, and both are still live. Neither is a backlog.
 
 ## 2. Mechanism 1 — pages are born empty because the planner is never asked
