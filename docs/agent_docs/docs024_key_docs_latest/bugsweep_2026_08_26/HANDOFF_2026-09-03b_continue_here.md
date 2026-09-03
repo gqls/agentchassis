@@ -200,6 +200,21 @@ Registered **SEO-008** with its index row. Council `76288ff9-3cde-46e6-b65a-2256
      AND COALESCE(meta_description,'')='' AND page_visible_text_len(id) > 200;
    ```
 
+### 7.3b ⚖ COUNCIL ROUND 1 = REVISE (gated, guardian HIGH). Round 2 resubmitted, verdict OWED A READ
+The gating objection was correct: the edit list omitted the shared action file the plan admitted
+editing. **And one objection changed the code** — `bug_historian` [medium] found that the filing's
+own six failure branches were bare `logger.Warn`s, so a failed write of the LOUD RECORD put the
+refusal back to being a log line, *"the exact defect this plan exists to close, now one hop deeper
+and harder to notice because the design narrative says it's already fixed"*. The filing now
+returns `(filed, fileError)` and the action reports both (`356196fe9`). Two asserted claims were
+measured in response — callers of the action are **exactly two, both this lane's** (control: the
+same query for `ensure_site_record` returns 50), and there is **no shared refusal-parking helper**
+to reuse (all three prior instances are package-private with no common signature). Full account:
+`bugs_open/442` §10g.
+⚠ **Both `776511e70` (r1) and `356196fe9` (r2) are ancestors of HEAD**, and the chassis was still
+on `v1.0.1356` (pods 08:57Z) as of this writing — so the pending build carries BOTH. Verify at the
+artefact, not the clock: `git merge-base --is-ancestor 356196fe9 <the chassis build-provenance stamp>`.
+
 ### 7.4 Still open on 442, so the file stays OPEN
 - **No verifier** for `meta_description_refused` — five build guards plus a live
   claimed-item-timeout migration merged with other lanes' amendments. Named follow-up.

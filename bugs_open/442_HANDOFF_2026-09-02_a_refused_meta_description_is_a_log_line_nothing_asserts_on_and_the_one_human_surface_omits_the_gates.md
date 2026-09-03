@@ -464,3 +464,61 @@ control: jsonb_build_object('overwrite_existing',true) ? 'overwrite_existing' ->
    `bugs_open/320` §15 or the ratchet line, because I found them afterwards. Whatever that round
    returns, it did not weigh this, and the verdict should be read with that gap named rather than
    as having cleared it. The constraint itself is verified above, independently of any seat.
+
+### 10g. Council round 1 = REVISE, and the objection that changed the code
+
+`76288ff9`, round 1: **revise**, gated by a **guardian [HIGH]**. Round 2 resubmitted under the
+same correlation. **The gating objection was correct and so were most of the rest** — this is the
+second time this week a round found a real defect, and the first cut of this very change is what
+it found it in.
+
+**The gating objection (guardian [HIGH]).** *"A shared action is being silently modified outside
+the reviewed edit list — that is a scope-enumeration gap, not a budget trim."* Round 1 declared
+only the NEW file and showed the wiring to `save_page_meta_description_action.go` inside a sketch;
+my own "files not in the edit list" section justified three omissions and never mentioned this
+one. `editquality` raised it independently at [medium]. Fixed: the action file is now edit 1.
+
+**⚠ THE ONE THAT CHANGED THE CODE, and it is the sharpest thing either round produced.**
+`bug_historian` [medium]:
+
+> "`fileMetaDescriptionRefusal` itself has ~5 silent early-return branches … that only
+> `logger.Warn` and return … If the DB write of the 'loud' record fails, the refusal is right back
+> to being a log line, **i.e. the exact defect this plan exists to close, now one hop deeper and
+> harder to notice because the design narrative says it's already fixed.**"
+
+It named `bugs_closed/034` (validation errors dropped with no durable record) as the same shape.
+**It is right, and I had reintroduced the defect inside its own fix.** The filing now returns
+`(filed bool, fileError string)`; the action puts both in its result map, which is the surface
+migration `728`'s operator message already tells a reader to read. Control flow unchanged — a
+bookkeeping fault must never fail a correct refusal. `inserted:false` (dedup key already holds an
+open row) counts as **filed**: the question is whether the refusal is RECORDED, not whether this
+call wrote a new row. Mutation proven RED, and it kills **only** the new test — nothing else in
+the suite can see it.
+
+**Two claims I had asserted, now measured** (both were fair hits):
+- **guardian [medium], other callers.** Round 1 said "single-producer" without measuring.
+  `[MEASURED 2026-09-03, live config, top-level AND `sub_workflow` steps]` **exactly two callers,
+  both this lane's** — `meta-description-backfiller` and `meta-description-repair`. Control: the
+  same query for `ensure_site_record` returns **50**, so it can see many callers. No third-party
+  pipeline gains a side effect.
+- **reuse_agent [medium], a fourth bespoke refusal-parker.** Audited the three it named:
+  `emitOwnedPageReviewItem` (`owned_page_guard.go:393`), `parkPageBuildFailure`
+  (`page_build_failure_guard.go:162`), `emitRequiredFieldsMissing` (`work_items_common.go:705`).
+  **All package-private, none exported, no common signature** — one takes a page name and a class,
+  one a strike count, one a page context. A grep for an exported work-item refusal helper finds
+  none. So: **there is nothing to reuse at that level**, and what IS shared is used —
+  `insertWorkItem`/`writeWorkItem`, the door carrying the policy probe, registration probe,
+  anti-churn and `idx_swi_dedup`. The seat's underlying point stands and is recorded in **SEO-008**
+  as an extraction candidate: this shape has now been independently reinvented **four** times.
+
+**Answered honestly rather than claimed clear** (`bug_historian` [medium]): do sibling gated-save
+actions share the `(map, nil)`-on-refusal shape? Five files call the copy gates; cross-referenced
+against files with refusal-shaped returns, **only this action is in both sets** — but that is a
+**grep intersection, not a read**, and a differently-named result key would be invisible to it.
+**Not claiming the class is clear.** Reading the other four is its own piece of work.
+
+**⚠ And the fourth instance of my own worst habit.** `prior_art_librarian` objected [medium] to
+three load-bearing claims being asserted rather than shown — and **I had personally verified all
+three earlier the same session**, and had logged the remedy for exactly this fault, myself, hours
+earlier (§9g). The seat cannot tell a verified claim from an unverified one. `WRONG_CALLS.md` now
+carries it as instance four, with the note that **logging a lesson is not adopting it.**
