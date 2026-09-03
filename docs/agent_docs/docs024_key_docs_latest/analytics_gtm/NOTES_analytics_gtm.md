@@ -576,3 +576,15 @@ predicate in the same hour (`90c787355`). **Go half INERT until the next fleet r
 the §6.3 detector (config-key-audit fleet — manual form is `check_gtm_state.sh --db`), and the
 policy pages. Verdict to read: find the run by payload
 (`collected_data->'input_data'->>'fix_correlation_id' = '45ae3ad3-…'`), budget ~30 min.
+
+**31.** `[~12:00 BST]` Council round 1: **REVISE** (constitution gate) — the objection was
+evidential and RIGHT to gate: I asserted a scalar write without evidencing that no consumer
+declares an array type (the landmine class). Census run: **8 `config.analytics.*` consumers
+fleet-wide, all `gtm_container_id`, all scalar (`text`×7, `string`×1), zero arrays** — and the
+council's own read-only check had returned 5 of the 8, so the round cost minutes and bought a
+COMPLETE census plus one real improvement: the reviewers' population check showed the re-ensure
+backfill is **17 pool + 1 system + 1 test, zero live sites**, and system.internal would have
+acquired an analytics row — now excluded by predicate (`status NOT IN ('system','test')`,
+round-2 commit). Resubmitted on the same correlation; **733 apply held until the verdict** (read
+by nothing until the roll, so waiting is free). The revise-is-cheaper-than-the-defect memory
+earns another tally.
