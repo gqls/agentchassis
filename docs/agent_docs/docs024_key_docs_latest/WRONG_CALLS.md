@@ -63655,3 +63655,76 @@ as applying it; what applies it is looking at the rows.
   splits the evidence in two.
   Tally: **a documented landmine repeated because the hook cannot match a non-path footprint** ×1,
   **WRONG_CALLS row filed without grepping LANDMINES first** ×1.
+
+## 2026-09-03 — I designed a gate measurement to be disconfirmable, ran it, reported it PASSED, and it could not have detected the thing it was for (`bugs_open/451` planning lane)
+
+- **The claim.** Planning the `bugs_open/451` fix, I wrote that a `stale_chrome` detection may be
+  exempted from the two-strike brake because *"a successful handler run provably clears its own
+  predicate"* — the handler restamps `site_components.render_inputs` at
+  `render_site_components_action.go:1403`, in the same statement as the HTML. I flagged this as the
+  one conjunct no test pinned, **named the disconfirming result in advance** ("a mass of re-files
+  within the 3-hour window after a completion"), measured it over every `stale_chrome` that reached
+  `complete`, got **0 rows in the disconfirming bucket** out of 65, and recorded "the gate PASSED,
+  the flag ships".
+- **What actually happened.** Both halves were wrong.
+  1. **A `complete` does not imply a restamp.** `render_site_components_action.go` returns success
+     without rewriting the stamp on at least three paths: the *"degraded success"* return at
+     :376-385 (whose own comment says *"the slot's stored chrome is STALE-BUT-SERVING"*),
+     `ResolveChromeComponent`'s error arm at :961-968, and the "no row matched" swallow at
+     :1446-1448. Each leaves a `complete` row with the drift still present — which is
+     **persistence, the exact population the brake exists for.** With the flag set that becomes an
+     unbounded daily full-site rerender instead of a bounded park.
+  2. **The measurement was structurally blind to it.** The check runs on a daily cadence, so a
+     persistent unrestampable row re-files once per tick — **identical in the time domain to
+     genuine daily drift.** I picked a time-gap discriminator for a question that is not about
+     time, so the disconfirming bucket could only ever have been populated by a mechanism nobody
+     proposed.
+- **Why it mattered.** The measurement is what licensed the whole exemption, and it was reported to
+  the owner as evidence in an approved plan. Nothing else in the plan would have caught it.
+- **What caught it.** An adversarial review pass over the finished plan, which read the *handler's*
+  success paths rather than the one line that writes the stamp. Confirmed first-hand afterwards at
+  all three line ranges.
+- **The cheap check that would have.** **Name the mechanism your measurement discriminates, then
+  ask what ELSE produces the same reading.** "0 re-files under 3h" is consistent with "no
+  unrestampable rows" *and* with "unrestampable rows that re-file on the daily tick like everything
+  else" — two hypotheses, one number. The honest discriminator was in the data all along and is not
+  temporal: diff `spec->'drifted'` between consecutive rows (`check_integrity.go:403` records which
+  keys moved) — **same keys twice is persistence, different keys is drift** — cross-referenced with
+  open `chrome_render_failed` items per site.
+- **The general form, and it is the sharpening this file is for:** the estate already rules that a
+  `[MEASURED]` figure is only evidence if it could have come out otherwise. **That is necessary and
+  not sufficient.** This one *could* have come out otherwise — a fleet with fast re-files would have
+  filled the bucket — but not *for the reason under test*. Between "could this number have differed?"
+  and "could it have differed **because the hypothesis is false**?" there is a gap, and it is where
+  a disconfirmable-looking measurement goes wrong.
+- **Cost.** None — caught before any code. It would have shipped a daily unbounded full-site
+  rerender across the affected sites, presented as an owner-approved fix.
+
+## 2026-09-03 — two smaller ones from the same lane, both "I relayed a citation I had not opened"
+
+- **The claims.** (a) That `bugs_open/451`'s fix candidate 1 was *"RFC_048's option A, refused by
+  the owner on 2026-08-24"* — and I drafted a fleet-wide WRONG_CALLS entry **about another lane** on
+  that basis. (b) That the `undeployed_asset` population is *"exactly `bugs_open/352`'s, and
+  LANDMINES records its remedy cannot reach the state it fired on"*.
+- **What actually happened.** (a) RFC_048's options A–E are deferral / opt-in / census shapes;
+  **none of them is "count only `failed` as a strike"**. §6b's *reasoning* bears on the candidate,
+  but "refused exactly it" is an overclaim — so my entry accusing another lane of ignoring a ruling
+  was itself the wrong call. (b) `bugs_open/352` is
+  `contrast_findings_name_a_selector_that_matches_nothing` — a different population, and not even in
+  `bugs_open/`; and LANDMINES has no such entry for `undeployed_asset`. The conclusion (do not flag
+  it — it is a detected defect) still holds; both cited pieces of evidence were fabricated by
+  relay.
+- **And a third, in the same plan:** I cited `improve_tool` (205 rows, zero completed strikes) as
+  the control proving *"the ladder behaves correctly there"*. RFC_048:260-262 says the opposite in
+  terms — of arm B's 661 rows, **431 are action requests that should never have been braked (a
+  classification failure: 205 historical `improve_tool`, 212 ongoing `page_rerender`)**. My
+  discriminating control was the owner-documented counterexample.
+- **What caught it.** The same review, running `ls bugs_open | grep ^352_` and `grep -n improve_tool
+  RFC_048…md` — two commands, both of which I could have run and did not.
+- **The cheap check.** **A citation you did not open is a claim, not a citation** — the estate
+  already has this as "a CITATION is not a READ — quote the deciding ARM". The addition worth
+  recording: it applies with *more* force to evidence arriving from a subagent's report, because it
+  reads as already-checked. And **never file a WRONG_CALLS entry about another lane from a citation
+  you have not opened** — the ledger's value is that its rows are true.
+- **Cost.** None — caught before commit. Three false citations would otherwise have entered a bug
+  file, a council submission and this ledger.
