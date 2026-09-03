@@ -6475,6 +6475,21 @@ claiming it works — and never tune the census until it reads zero, which hides
 Cross-refs: `bugs_closed/305` §26–§29, `LANDMINES.md` (the `llm_call_log` step-name entry),
 `bugs_open/110` (why the census must pin `provider`).
 
+> **EXTENDED 2026-09-03 — the second cause of the same symptom, and it is not a ceiling.**
+> `bugs_open/442` §9d found this shape where nothing was truncated at all: the
+> `meta-description-backfiller`'s writer prompt **instructs** the omission, verbatim — *"omit that
+> page entirely rather than inventing one. Returning fewer entries than you were given is a correct
+> answer."* The loop then ranges over `written.result.descriptions` and nothing compares that count
+> against `pages_missing_meta.count`, so a dropped page leaves no trace at all — **not even the
+> per-item result the loop writes**, because the loop never reaches the action for it. So the
+> `max_tokens` half of the diagnosis above will come back CLEAN and the class still applies:
+> **check (1) is the load-bearing one and check (2) is not a screen for it.** Two consequences
+> worth carrying: a legitimate, prompt-sanctioned omission is indistinguishable from a truncated
+> one at every downstream surface; and a fix that files from **inside** the per-item action can
+> only ever see the items the answer DID contain — which is why 442's candidate 1 covers one of
+> its two silent paths. ⚠ And a small clean sample proves nothing here: five surviving runs were
+> all `offered 1 / written 1`, which rules out no omission rate below roughly 45%.
+
 
 ### FIVE of six closure checks written for ONE bug could not produce the disconfirming answer — validate every check against a KNOWN-FAIL population before you trust a pass (2026-08-24, `bugs_open/206`, two lanes)
 
