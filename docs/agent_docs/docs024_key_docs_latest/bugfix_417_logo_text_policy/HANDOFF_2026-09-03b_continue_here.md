@@ -41,10 +41,20 @@ not this one; another roll has been announced since.** Use ancestry, never dates
    must run **after** matting, and must measure against **the header**, not the keyed ground — a
    pre-matte check sees high-contrast white-on-magenta and passes happily.
 2. **⭐ websitepromotion is serving a logo WORSE than the one it replaced, and there is no undo.**
-   Regeneration UPSERTs the row; the previous artefact is deleted. **The only surviving copy is the
-   bytes this session fetched first** — md5 `c80adffc9b23`, 41,062 B, 84.3% transparent, median
-   1.43:1. Restoring it is possible **and needs the owner's word**. Regenerating again is a coin
-   toss, not a fix: nothing asks for a mark that reads on a white header.
+   Regeneration UPSERTs the row; the previous artefact is deleted and **its old storage key is
+   unrecoverable** — nobody recorded the full `storage_path` before the overwrite, only its date
+   directory, so the bucket object cannot be located even if it survives.
+   **Both versions are PRESERVED IN THIS DIRECTORY and committed, so the option outlives the
+   session that made it:**
+   - `PRESERVED_websitepromotion_logo_pre_regeneration_2026-09-03.png` — md5 `c80adffc9b23`,
+     41,062 B, 84.3% transparent, median 1.43:1, max 2.55:1
+   - `PRESERVED_websitepromotion_logo_post_regeneration_2026-09-03.png` — md5 `055e34066110`,
+     11,637 B, 93.4% transparent, median 1.01:1 — **what is live now**
+
+   Restoring the previous one is possible **and needs the owner's word** — and it is a choice between
+   two poor logos, not a repair: the old one was already too faint at 1.43:1, which is what opened
+   462. Regenerating a third time is a coin toss, not a fix: nothing in the pipeline asks for a mark
+   that reads on a white header.
 3. **Wait for `designblog.co.uk`.** The 424 lane reset it again (owner-authorised) and it was on
    attempt 2 of 3 at ~12:56Z, `retry_after` 13:24:20Z. **It is worth more than the other eight runs
    combined for 417**, because it is the ONLY site whose current plan still carries a permitting
