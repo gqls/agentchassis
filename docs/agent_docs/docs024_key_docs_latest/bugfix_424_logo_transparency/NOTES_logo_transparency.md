@@ -680,3 +680,16 @@ but a render-audit-anchored version is probably the more durable long-term home,
 token snapshotted at check time can go stale the same way every other cached artefact in this
 estate has (a site's header colour can change after the check runs). Not this lane's decision;
 recorded for completeness, not as a ruling.
+
+**`417` went and checked the staleness point rather than taking it on trust, and it hardened
+into the deciding argument for 462 §7a** (their commit `a45684acf`): the `generic_theme`
+colour-churn landmine and `bugs_open/396` (a design run rewriting a theme row byte-for-byte) are
+concrete, documented events that invalidate a cached theme token, not a hypothetical — so a
+render-audit-anchored check is needed even in an estate where every header happens to be a plain
+solid colour, because staleness bites regardless of coverage. Two concrete constraints followed
+that this lane would not have written down unprompted: keep the measurement/threshold logic in one
+place so both the sweep and the render version can share it, and **record the theme value each
+finding was measured against**, so a later reader can distinguish "passed" from "passed against a
+palette that no longer exists." Recorded here because it's a second instance, same day, of this
+lane's own reasoning changing a decision outside it — the first being the retry-ladder ruling
+above.
