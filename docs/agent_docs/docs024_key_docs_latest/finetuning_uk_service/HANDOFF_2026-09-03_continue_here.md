@@ -151,7 +151,28 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    `adopt_existing_page` (TL-044; step config, default OFF) or the build mints `/tools/…`. First probe
    the route is still up (`curl … -H 'Origin: https://finetuning.uk'` → 200 text/event-stream) — the
    demo box's ufw rule and the island's compose are the two things that can silently take it down.
-0a-0. ~~OWNER DECISION PENDING~~ **DECIDED 22:05 BST: improve the model first** ("I don't have enough of my
+0a-00. **STATE AT 22:20 BST — read this first.** The owner, in order tonight: (1) *"it looks ok"* on the
+   live page; wants practical steps, an input/output example or two, a clearer explanation of what the
+   model does; the language "sounds ok, good in parts even". (2) Cost: none per use (answered by
+   measurement). (3) GPU: no, 100% CPU at the box. (4) *"I will need to train it better… someone else's
+   [writing] that has a defined character"* — Phase 1 reshaped (PLAN, NOTES 21:05Z). (5) THEN: *"it can
+   still go up. We can explain it away for now, this is just 5 articles and a handful of short emails.
+   and as you'd expect you get not much change"* → **the widget is being regenerated IN PLACE**
+   (`playground_widget_replace_dispatch.sql`, item `e1b2bcf8`, triaged 21:10:27Z, TL-047
+   replace_existing) with his framing, three prompts to try, and Pair A verbatim (prompt / untrained /
+   fine-tuned / what the person wrote) UNDER the box; the box's contract byte-identical. **When it lands:**
+   cancel the stock `needs_content_page` twin the generator queues (watcher armed; last time it appeared
+   at completion), wait for the `page_rerender`, then verify: six section hashes unchanged
+   (snapshot in NOTES 21:10Z), Pair A text present verbatim in the served page, `cdp_chat_probe.py`
+   still PASS. (6) **Homepage design request (22:15 BST, verbatim):** *"the copy on the home page is
+   much better now. Can we ask one of the design related or experience or component agents to tidy up
+   the components and use more interesting ones for the cards, probably different carousel like
+   structures. Please ask them to be imaginative, research good alternatives and apply them."* Routed:
+   see NOTES 21:20Z (the editorial_design_uplift lane / design-critique-agent — whichever took it).
+   Homepage today: hero, features, differentiators-section, case-studies-grid (17.7 KB), departments-grid,
+   call-to-action; library carousel-like sections: hero-card-carousel, swipeable-insight-carousel,
+   image-hover-card-grid, teaser-reveal-panel, info-card-grid (carousel defaults ON at resolution).
+0a-0. ~~OWNER DECISION PENDING~~ **DECIDED 22:05 BST: improve the model first** — then REVERSED at 22:10 to "it can still go up, explain it away" (see 0a-00); the training plan stands, the publication happens now with the honest framing. ("I don't have enough of my
    own writing so I will try and find someone else's that has a defined character"). Comparison NOT
    published; page copy untouched until the new model. The next run's checklist (rights, pairs at
    volume, echo fix, held-out eval, THEN publish) is in NOTES 21:05Z and PLAN. Waiting on the corpus. The measured truth
