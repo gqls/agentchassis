@@ -409,8 +409,17 @@ robust to the overall rate moving. Read as a ratio the test survives; read as a 
 it does not. (Totals confirmed: 74 dated entries against **870** `###` entries in `LANDMINES.md` —
 the peer's 869 is same-day drift, entries are being appended hourly, including four today.)
 
-⚠ **And the surge is fleet-wide, not these two lanes inflating their own instrument** — only **3**
-of the 41 September entries name either lane. So the throughput is real and broad, which is good for
+⚠ **And the surge is fleet-wide, not these two lanes inflating their own instrument** — **3, 4 or 5**
+of the 41 September entries name either lane, **depending on what "naming a lane" means, and all three
+figures are correct for their own predicate** (recorded so nobody later reads them as a contradiction):
+**3** matching the exact slugs on the entry's *dated opening line only*; **4** matching the exact slugs
+*anywhere in the entry*; **5** on a broader match adding bare `dartsonline` and `grip-styles`.
+⚠ **The 3 was mine and it is the narrowest for a familiar reason — my predicate was scoped to the
+opening line while my claim was about entries, so it missed one entry that names a lane in a
+continuation line.** That is the fifth instance in two days of a predicate answering a different
+question from the claim it supports, and it surfaced only because the other lane's number differed
+from mine and neither of us assumed the other had slipped. **Whichever figure you take, ~88–90% is
+other lanes** and the conclusion is unchanged. So the throughput is real and broad, which is good for
 detecting a change. But it introduces the **mirror of caution two**: a hook that raises landmine
 awareness generally could increase logging (better noticing) at the same time as it prevents traps,
 and those two effects move the covered-class count in **opposite** directions. The uncovered-class

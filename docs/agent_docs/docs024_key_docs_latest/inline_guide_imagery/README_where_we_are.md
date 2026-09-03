@@ -485,3 +485,37 @@ caused the error. It only breaks when someone with the same question and a diffe
 arrives at a different number. **Which is an argument for us cross-checking each other's figures far
 more routinely than we do** — and for writing the exact command down next to any number, so the
 second person can disagree with it cheaply. That part we have already started doing.
+
+## 2026-09-03 (end of day) — the one thing I would take from today
+
+A short closing note, because the other thread said something at the end that I think is the most
+useful sentence either of us produced, and I want it in front of you in plain terms.
+
+**Everything durable that came out of these two days came from one of us re-running the other's
+query and getting a different answer.** The proposal now in front of you, a success test I proposed
+and then had to withdraw as unusable, four corrected numbers, and two lessons about how we measure
+things. Every one of them started with a disagreement.
+
+**None of it came from either of us checking our own work more carefully.** We both did that
+throughout, and it caught none of them. That is not carelessness on either side — it is structural.
+The way you phrase a query *is* your understanding of the problem, so re-reading your own query just
+re-applies the assumption that caused the mistake. Checking it twice gets you the same answer twice,
+and two agreeing answers from one person are one answer.
+
+Today alone that pattern caught: a figure I published that was one too many; a command I published
+alongside it that gave the right answer for the wrong reason and was blind to a case that does not
+currently exist; their count that was inflated by three; my claim that a durability test had not run
+when it had; and, half an hour ago, my own count of how often these lanes appear in a log, which was
+narrower than theirs because I searched the first line of each entry while claiming something about
+whole entries. Five, if you count that last one, and I do.
+
+**What I would change on the strength of it.** Two things, both cheap and neither needing your
+ruling. Write the exact command next to any number, so the next person can disagree with it in one
+paste rather than having to reconstruct what you did — we have both started doing this and it is
+what resolved every one of the above. And when someone else's figure differs from yours, do not
+work out whose mistake it was; chase it down to the two predicates. Twice today the answer was that
+both of us were wrong, in different directions, and we would have missed that by settling on whose
+error it was.
+
+The imagery work itself is unchanged from what I told you earlier: the mechanism is proved, the page
+is reverted, and the words beside the pictures need a prompt change that belongs to a third thread.
