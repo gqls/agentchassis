@@ -140,6 +140,33 @@ is parked for the same reconciliation. Feed semantics confirmed applied:
 buy_now → their live_ask, min_offer kept as a floor-like column, all figures
 dated 2026-09-03.
 
+## 2026-09-03 (later) — 6 listings queued for removal (owner ruling on NameSilo, relayed via valuation lane)
+
+Owner ruling, relayed: *"namesilo exists but has nothing interesting in it,
+we can ignore them. Any domains still listed there were probably lost."*
+NameSilo is out of scope; anything traced there counts as LOST, not stock.
+Combined with the valuation lane's registry sweep, that names **6 Afternic
+listings advertising domains the owner cannot deliver** — verified present
+in the 2026-09-03 export (all Listed, Min-Offer-only):
+- `chicklets.co.uk` ($10,000), `demisexual.uk` ($10,000),
+  `protecty.co.uk` ($30,000) — RDAP 404, registered to nobody
+- `cheapbuild.co.uk` ($10,000, → Voove), `enables.co.uk` ($50,000, →
+  123-Reg) — registered to someone else, live sites on infra we don't run
+- `qlp.us` ($50,000) — at NameSilo per today's ruling
+
+**QUEUED for the next bulk change (P4), not a special trip** — no removal
+mechanism exists yet (P4's generate half is unbuilt). Do NOT remove via a
+one-off dashboard action either; let it ride the same bulk-XLSX run as the
+repricing so it's one auditable file, not a silent edit.
+
+**NOT for removal** (peer's own caveat, keep it attached): `pocketvaginas.com`
+(genuinely at Dynadot, just absent from their inventory listing — ours,
+unexplained but not lost), `healthinsuranceconsultant.co` /
+`studentloandebtsettlement.co` (UNDETERMINED — .co publishes no RDAP and
+whois egress is blocked here). None of the three are Afternic listings
+anyway (checked: not in the 2026-09-03 export) — the caveat is about a
+different sweep, kept here only so nobody in this lane conflates it.
+
 **Spec CONFIRMED by the valuation session (same day)**, with one refinement
 adopted: the currency ASSUMPTION must travel in the cell, not sit silently
 in our docs — so the default currency value is now the literal
