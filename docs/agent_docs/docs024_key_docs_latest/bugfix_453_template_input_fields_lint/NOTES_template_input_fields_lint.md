@@ -99,6 +99,26 @@ line.
 > which is the exact failure the `[INFERRED]` marker exists to prevent. What caught it: going
 > to measure the damage and finding there was none.
 
+> **⚠ CORRECTED 2026-09-03, same day, by the author.** This section said
+> `research-agent` orchestrations **ALL TIME = 0**. That is FALSE, and the error was
+> reading a rolling window as a ledger: `orchestration_states` retains only
+> **2026-09-02 .. 2026-09-03**. My query carried no date predicate, so the absence of a
+> `WHERE` read as "all time" when the TABLE was the window.
+>
+> **The corrected evidence is stronger than the claim it replaces.** `research_results`
+> shows `research-agent` wrote **92** rows between **2026-01-14 and 2026-01-18** and
+> nothing since — **7.5 months** — and **none of the 92** carries a `page_id` or a
+> `component_instance_id`, so none was per-section. Independently, `llm_call_log` spans
+> **2026-03-25 .. 2026-09-03** across **87,822** calls, is the training corpus rather
+> than a pruned log, and contains **ZERO** `research-agent` rows; the agent has two
+> `execute_llm_prompt` steps, so any run must appear there.
+>
+> **The conclusion survives unchanged** — the per-section research path has never
+> delivered into a page section, and live damage from the `research_result` finding is
+> still zero (its gate, `needs_research`, is carried by **0 of 554** `content_components`).
+> What did not survive is the evidence I first gave for it. `WRONG_CALLS.md` carries the
+> check that would have caught it: ask a table its own span before reading a zero as history.
+
 `[MEASURED 2026-09-03]`, live `orchestration_states`:
 
 | | |

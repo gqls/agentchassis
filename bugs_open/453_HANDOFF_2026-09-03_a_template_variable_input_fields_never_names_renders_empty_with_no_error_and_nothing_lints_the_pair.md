@@ -225,12 +225,29 @@ week did not see the one next to it.**
 ### 3. ⚠ CORRECTING MY OWN FIRST READING — live damage from that finding is ZERO, and I checked rather than assumed
 
 I first wrote this up as expensive (research runs, output discarded). Measuring it says
+> **⚠ CORRECTED 2026-09-03, same day, by the author of this section.** The line below reading
+> "`research-agent` orchestrations **all time: 0**" is FALSE. `orchestration_states` retains only
+> **2026-09-02 .. 2026-09-03** — a rolling window read as a ledger, because my query carried no
+> date predicate and the absence of a `WHERE` felt like "all time" when the TABLE was the window.
+>
+> **The corrected evidence is stronger than what it replaces.** `research_results`: `research-agent`
+> wrote **92** rows between **2026-01-14 and 2026-01-18** and nothing since (**7.5 months**), and
+> **none of the 92** carries a `page_id` or `component_instance_id`, so none was per-section.
+> Independently `llm_call_log` — the training corpus, not a pruned log — spans **2026-03-25 ..
+> 2026-09-03** across **87,822** calls and holds **ZERO** `research-agent` rows, and the agent has
+> two `execute_llm_prompt` steps, so any run must appear there.
+>
+> **The conclusion is unchanged**: the per-section path has never delivered into a page section, and
+> live damage is still zero — the gate `needs_research` is carried by **0 of 554** `content_components`
+> rows. Only the evidence changed. Check that would have caught it, now in `WRONG_CALLS.md`: ask a
+> table its own span before reading a zero as history.
+
 otherwise `[MEASURED 2026-09-03]`, `orchestration_states`:
 
 - `research-agent` orchestrations **all time: 0**
 - `page-content-writer` runs last 30 days: **391**; whose `execution_path` mentions
   `call_researcher`: **0**
-- `needs_research` is written by no Go code and is no table column, so
+- `needs_research` is carried by **0 of 554** `content_components` rows, is written by no Go code and is no table column, so
   `current_section.component.needs_research == true` is never satisfied
 
 **Two dead halves that hide each other**: the branch never fires so nobody notices the block is

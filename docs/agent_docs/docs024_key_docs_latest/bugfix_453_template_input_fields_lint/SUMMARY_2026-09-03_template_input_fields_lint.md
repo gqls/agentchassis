@@ -52,8 +52,11 @@ Shipped, registered, submitted for review, and honest about its limits.
 The one finding is real but **causes no damage today**, and we know that because we measured
 it rather than assumed it. The template has a whole "Research Findings" section that can never
 fill. There is a research step wired up to feed it — so our first read was that we were paying
-for research and throwing it away. We weren't. The research agent has never run, not once; the
-switch that would turn it on is never set. Two things are dead and each one hides the other.
+for research and throwing it away. We weren't. The research agent has not run since 18 January —
+I first wrote "never, not once" here, which was wrong and read off a table that only keeps two
+days; corrected the same day against a five-month log of every model call we make, where it
+appears zero times. The switch that would turn it on is carried by none of our 554 component
+definitions. Two things are dead and each one hides the other.
 Nothing is broken now, and the first person to turn the research on will pay for it and get
 silence, with the prompt still telling the model to cite sources it never received.
 

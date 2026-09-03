@@ -38,7 +38,7 @@ it, it calls out to a research agent with a 90-second budget, and its output is 
 `research_result` — so it looked like we were paying for research and throwing it away.
 
 Then I went to measure it, and that is not what is happening. **The research agent has never
-run — not once, ever.** The switch that would turn it on (`needs_research` on a component) is
+run since 18 January — seven and a half months.** The switch that would turn it on (`needs_research` on a component) is
 never set to true, anywhere. So of 391 page-writing runs in the last month, zero reached the
 research step.
 
@@ -77,3 +77,29 @@ I have not changed the page-writing agent. Making its research block work would 
 behaviour change to the busiest thing we run, and on today's evidence it is not urgent — the
 research it would carry does not exist yet. That is a decision to take deliberately, not a
 side effect of building a checker, so I have written it up and left it.
+
+
+---
+
+## 2026-09-03 (same day) — I have to correct something I told you above
+
+I wrote that the research agent had "never run, not once, ever". **That was wrong**, and I
+should not have said it to you before checking it properly.
+
+The table I counted from only keeps two days of history. My query had no date filter on it, so
+"no rows" felt like "never" when in fact it meant "not in the last two days". You asked what the
+built agent actually was, I went to look, and found 183 stored research results going back to
+January — which obviously cannot sit alongside "it has never run".
+
+**The corrected version, which is actually a stronger statement, not a weaker one:** the research
+agent last ran on **18 January** — seven and a half months ago. It produced 92 results in a
+five-day burst then and nothing since, and **none of those 92 was attached to a page or a page
+section**, so none of them was the per-section research the page writer wants. Separately, we keep
+a full log of every single call any agent makes to a model — five months of it, 87,822 calls, not
+pruned — and the research agent appears in it **zero** times. Its workflow has two model-calling
+steps, so if it had run, it would be there.
+
+So the thing I was telling you is still true — the per-section research path has never delivered
+anything into a page — but the evidence I gave you for it was not. I have logged the mistake and
+the check that would have caught it: ask a table how far back it goes before reading an empty
+result as history.
