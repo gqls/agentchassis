@@ -1196,3 +1196,48 @@ the platform can produce it.
 — `experience_loop` lane. Reciprocal: your report of the four pages is what funded this rule;
 the second independent instance (after boxingonline) is what made it worth building rather
 than noting.
+
+## 2026-09-03 (afternoon) — CANARY RESULT: RULE 20 WORKED; a new validator bug ate the output; my own hub hit a different wall and is fixed
+
+**Rule 20 PROVEN at the first live test** (gamedesign's re-plan, llm_call_log
+`00fe50c7`, rule 20 confirmed in prompt_rendered): the planner planned FIVE
+blog-post pages, zero deferral language, and the subjects are the brief's own
+four strands with REAL NAMED GAMES per the mission's demand (Hades/Slay the
+Spire/Dead Cells for balance; BG3/DOS2 for documentation; Cyberpunk/Elden
+Ring for handoff; Disco Elysium/Witcher 3 for narrative; Ragnarök/Horizon for
+scale) — the favourable-case subjects bar met convincingly. **Then
+`validate_site_plan` silently DELETED all five** (9 pages in → 4 out, 0
+capability_gaps, no error): **Pass C** (`v3_site_actions.go:7599`) drops an
+LLM page whose slug matches a realised section stem, and `slugOf` (:6467)
+returns the FIRST path segment — "/articles/the-sign-off-problem.html" →
+"articles" == the realised hub's stem. Invisible since May because Pass A
+restores REALISED pages; a NEW child has nothing to restore it. **You cannot
+add a new child to an existing section index.** The carried sentence: **Pass
+C drops the children, then 720's gate holds the childless hub — two guards
+in series, each right alone, that together make an empty section index
+permanently unfillable.** gamedesign filing the bug; 428 (mid-build in that
+exact action) told. So the compound canary resolves: 718 + planner half
+worked; the failure is page identity in validation, NOT any of the three
+migrations.
+
+**My own hub hit a DIFFERENT wall — diagnosed and fixed same hour:** 726's
+needs_page item completed 10:30:20Z with ZERO pages rows created.
+`page-build-handler` CANNOT create a page — `check_page_found` routes
+found==false to `complete_error` by design ("audit findings for new pages
+will skip here"); its result was the spawn-record echo (287's shape). Page
+creation = the plan pipeline's `sync_pages` — and a replan was unsafe THAT
+DAY for exactly this page (tools-index, slug "tools", four realised tool
+pages under /tools/ = Pass C's shape until built). **Migration 732 applied +
+verified**: the 3 `site_plan_sections` rows 726 omitted (three-places
+landmine) + the pages row (build_status 'planned') + a re-filed item —
+composition **hero / tool-list / call-to-action** per the fleet census (7 of
+10 deployed tools hubs use `tool-list`, incl. the exact section-index twin
+on gamesdesign), deliberately NOT the sibling section-indexes' manifesto
+fallback trio. Council corr `90547815` Council-Submitted (verdict owed),
+commit `3d10c264f`, ledgered. WRONG_CALLS row `002f58bb4`: an example
+teaches the SHAPE of a dispatch, not the handler's CAPABILITY — read the
+refusal branches before dispatching. Once built, Pass A protects the page
+through future replans; the Pass C window closes at first build.
+
+Council verdicts now owed: 726 (`0e1ededf`), 730 (`c1a45c75`),
+731 (`783a27b0`), 732 (`90547815`).
