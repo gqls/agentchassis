@@ -478,10 +478,28 @@ as of 2026-09-03, and the live agent config confirms it: `page-content-writer` a
 re-run yet.
 
 **Do NOT gate the retry on "is 641 applied?".** Both are `_HOLD` files — excluded from the runner
-and applied by hand — and **this repo's migration numbering collides** (`645` names two unrelated
-files today, and `schema_migrations` holds a `645`/`648` from a different sequence). A filename
-check can therefore answer "no" about a fix that shipped under another number, or "yes" about a
-file that never ran. **Ask the running agent instead:**
+and applied by hand — and **this repo's migration numbering collides as its NORMAL condition, not
+as a rare race.** A filename check can therefore answer "no" about a fix that shipped under another
+number, or "yes" about a file that never ran.
+
+> **⚠ CORRECTED 2026-09-03 by `inline_guide_imagery`, and the correction makes the point stronger.**
+> I first wrote that `645` was the colliding number and put `645`/`648` in `schema_migrations` down
+> to "a different sequence". **`648` is a genuine collision too** —
+> `648_enable_archived_page_still_serving.sql` and `648_owner_comparison_rule.sql`, unrelated, each
+> with its own `_ROLLBACK`. Same defect twice, not one defect plus a ledger artefact.
+> **And two examples badly understated it.** `[MEASURED 2026-09-03, re-derive before quoting —
+> this grows by ADDITION]` **130 of 731 migration numbers name two or more unrelated files across
+> 874 non-sidecar files — roughly one number in six.**
+> ```bash
+> ls docs/agent_docs/sql_for_agents/*.sql | grep -vE '_(ROLLBACK|VERIFY|SUPERSEDED)\.sql$' \
+>   | sed -E 's|.*/([0-9]{3}[a-z]?)_.*|\1|' | sort | uniq -c | awk '$1>1' | wc -l
+> ```
+> **The `[a-z]?` in that regex is load-bearing**: four files use a deliberate `NNNb_` sibling form
+> (`042b`, `062b`, `063b`, `219b`). Collapsing them onto the base number manufactures three false
+> collisions and returns **133** — which is what my own first count did. Count credited to
+> `inline_guide_imagery`; I reproduced it only after finding why mine disagreed.
+
+**Ask the running agent instead:**
 
 ```sql
 SELECT type, default_config::text ILIKE '%section_subject%' AS rule_is_live
