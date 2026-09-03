@@ -112,6 +112,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **write the `[MEASURED]` marker only AFTER the tool result is on screen — never batch a claim with its own check; a tool failure (here a classifier outage) lets the claim land without the measurement, and the file then asserts a check that never ran** | **1** |
 | **rank yourself with the SELECTOR's own query, never a proxy census — a proxy's population includes what the selector EXCLUDES (here: locked sites), and a served-site history read as "starvation" is the same proxy one step later** | **1** |
 | **read where the RUNTIME takes its config from before calling an edit "live-immediate" — an orchestration EMBEDS `agent_config` at spawn, so a definition edit reaches future spawns only; `initial_request_data->agent_config` of one live run is the check** | **1** |
+| **verify the working tree carries the edit (`git diff --numstat <file>`) BEFORE writing the commit message — a heredoc script that dies on an assertion leaves the message claiming a change that never happened, and `set -e` did not stop the commit** | **3** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -61703,3 +61704,24 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   Mine now returns five.
   Tally: **a success-shaped tool line about somebody else's work read as confirmation of mine** ×1,
   **format rule read, then not followed, in the file that documents its own silent-skip** ×1.
+
+## 2026-09-03 — three commit messages that described edits a failed script never made (session site_delivery_and_editor)
+
+- **The claim.** Commits `e6e887765` ("wording corrected" in bugs_open/451), `36b1c207d` ("LANDMINES
+  addendum + WRONG_CALLS row") and `87a420911` ("handoff §1.1 RESULT") each named an edit to a file
+  that the commit did not contain.
+- **Why it was false.** Each edit was a `python3 - <<'PY'` block that died on an anchor assertion
+  (an f-string brace, a wrong anchor count, a wrong indentation guess) BEFORE writing; the shell
+  then ran `git commit <paths>` anyway — `set -e` at the top of the script did not stop it (the
+  heredoc'd python's exit status did not abort the sequence in this harness), and the pathspec
+  commit happily committed the OTHER files while the message described all of them.
+- **What caught it.** The commit's own "N files changed" line being one short, each time; corrected
+  by the next commit within minutes. No reader acted on the false messages.
+- **The mistake, precisely.** Writing the commit message from the INTENT (what the script was told
+  to do) rather than from the TREE (what `git diff --numstat` shows). The shared-tree rules already
+  say a commit takes what is in the working tree, not the index; the same applies to the message.
+- **The cheap check that would have.** `git diff --numstat <every path in the commit>` immediately
+  before `git commit`, and refuse to commit a path with `0 0`; chain the edit and the commit with
+  `&&`, not `set -e`. Also: locate anchors by `grep -n` first, not by memory of indentation.
+- **Cost.** Three corrective commits and three misleading messages in `git log` for the day; the
+  content itself was never lost.
