@@ -2771,3 +2771,29 @@ reuse_agent (medium) and guardian (high + low).
 - Lows: config validation shown in the sketch; `NewRouter` callers enumerated (main.go:92 + 3
   test files); rollback line already in the header; directory question answered by the suffix.
 Round 3 submitted on the same correlation. Submission: `council_submission_playground_route_r3.json`.
+
+## 2026-09-03 (13:00–14:10Z) — council round 3: REVISE (editquality gating on a documentation gap); round 4 submitted with a real refactor; the 641 block is now the prompts lane's OPTION A
+
+**Round 3** (verdict 12:57Z): revise, 6 abstained; approve from bug_historian, render_guardian,
+llm_reliability, debug_historian, constitution, mission, prior_art_librarian, architecture.
+| seat | objection | round-4 answer |
+|---|---|---|
+| editquality (gating) | the LANDMINES entry was narrated, not an edit | it is edit 8 now; the shadow test merged into `server_playground_test.go` to stay at 8 files |
+| reuse_agent (med) | third hand-copied CORS→cap→band block | **`mountBrowserGroup(r, pool, prefix, maxBodyBytes)`** extracted; gripper AND playground call it; bands stay per route; gauntlet (flat RPS bucket) left alone |
+| reuse_agent (low) | why not `platform/aiservice`? | checked: `OllamaClient.GenerateText` posts `/api/chat` with `"stream": false` (ollama.go:72/78/130), one string back, no streaming method on the type; extending a chassis-shared package for one island consumer is the wider blast radius |
+| guardian (med) | is tools-api also deployed in the cluster? | measured: `kubectl get deploy,sts,ds -A \| grep -c tools-api` = **0**; the island compose is the only host; `PLAYGROUND_*` absent from `/opt/island/.env` (keys read by name) |
+| guardian (low) | ordering shown by description only | now one function; both mounts quoted |
+All tools-api packages green after the refactor (`go test ./internal/tools-api/...`). Round 4 run orch
+`a505c422`. Four rounds on one correlation is more than the ~80% first-round rate suggests; each round
+found something real (input_fields-style silent gaps aside): the third-tool landmine, the 198 misapply,
+the duplicated mount block. Recording that as the cost of a first tool on a service this lane had
+never touched, not as council noise.
+
+**641 / prompts lane (13:05Z):** the owner picked **option A** with them (one field, the subject
+authored in the voice, printed verbatim; sibling list by subject equality). The "You'll want to know
+___" rule is RETIRED; our three arrays stay valid as clause-form leads. **Do not carry the seed's
+current INSERTED TEXT block to him** — its bytes change. The prompts lane owns the 641 apply end to
+end (edit only the block, keep apis.uk's pre-flight/verify/equality census, resubmit on 6c92d154,
+bring him the exact bytes, apply by hand, tell 443 and us). Their CONTRIB:
+`CONTRIB_2026-09-03_from_framework_prompts_the_lead_sentence_options.md`. Planner nudge follows as
+its own migration. Stage B here waits on their apply.
