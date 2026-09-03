@@ -18,8 +18,8 @@ now wrong I say so here rather than editing them.
 | item | state 2026-09-03c |
 |---|---|
 | **442** silent refusal | ⚖ **BOTH HALVES LIVE.** Config `728`+`734`; Go on **`v1.0.1359`** (pods 13:28Z), verified at the binary on both pods. **Never yet exercised** — see §3 |
-| **442** council | **round 3 submitted**, `76288ff9-3cde-46e6-b65a-22564fac8f6d`. r1 REVISE, r2 REVISE, both gated, **both found real things**. ⏳ **OWED: read r3** |
-| **464** four unread call sites *(new)* | **FILED, UNOWNED** — the council asked for it by name. Nobody has read those four files |
+| **442** council | ⚖ **APPROVED at round 3** (`76288ff9-…`, 1 advisory, none high). r1 REVISE, r2 REVISE, r3 approved — **each round found something real**. Verdict READ, advisories answered (§10j) |
+| **464** unread call sites | ⚖ **FILED AND CLOSED the same day** → `bugs_closed/464`. Every copy-gate caller READ; **442's shape has no second instance**. ⚠ Its own population was wrong in both directions — §7.1 |
 | **SEO-008** register | LIVE, with its index row. SEO-004 corrected (it held a 4th copy of the stale reason list) |
 | 338 / 320 / 407 / 359 | unchanged — see the 09-03 handoff §0 |
 | **404** r4 objections | still owed a read. Not this lane's |
@@ -139,10 +139,11 @@ takes a **repo-relative** path; an absolute one exits **2** ("could not run"), a
 
 ## 5. WHAT IS LEFT
 
-**Owed on 442, small:**
-- **Read the round-3 verdict** (`76288ff9-…`). r1 and r2 both approved-with-revision and **both
-  found real defects** — r1's found one *inside the fix itself*. That is the argument.
-- If r3 approves, `098` credits every `Council-Submitted:` commit automatically. No amend.
+**Owed on 442: nothing.** Round 3 **APPROVED** (1 advisory, none high-severity; 7 seats clean).
+All three advisories answered from the code in §10j — including `recurrenceExpected`, where the
+brake's own counting query (`status IN ('complete','failed')`) shows a parked repair is **not** a
+strike, so it holds the dedup slot and the next refusal coalesces onto it. `098` credits the
+`Council-Submitted:` commits automatically now the correlation is approved; no amend.
 
 **Open on 442, so the file stays OPEN:**
 - **No verifier** for `meta_description_refused`. Registering one fails **five** build guards and
@@ -157,12 +158,17 @@ takes a **repo-relative** path; an absolute one exits **2** ("could not run"), a
   filed here cannot see that path** — it fires from inside the action, and a dropped page never
   reaches it. Fifth candidate: compare the two integers already in `collected_data`.
 
-**Unowned, and the council asked for it:**
-- **`bugs_open/464`** — four copy-gate call sites (`section_editor_regulated_guard.go`,
-  `save_sections_claims_guard.go`, `rewrite_negations_action.go`, `validate_page_content.go`) are
-  **unread**, and may share the silent `(map, nil)` refusal 442 just fixed. ⚠ **Do not re-run the
-  grep intersection and call it done** — it keys on four result-key spellings, and
-  `rewrite_negations_action.go` demonstrably returns `{"status": …}, nil`.
+**`bugs_closed/464` — DONE, and the result is worth knowing before you touch this area:**
+Every copy-gate caller on the tree was read (ten call sites across `platform/ internal/ pkg/ cmd/`,
+with a control). **`save_page_meta_description` was the ONLY one that returned a refusal as
+`(map, nil)` with nothing asserting on it.** The others error, block to human review, record into a
+structured `rejected`/verdict list, file a work item, or write a durable record by design. So
+442's blast-radius claim is **forward-looking, not realised** — the shape travels with the gate and
+will bite the next single-value caller.
+⚠ **And 464's own population was wrong in BOTH directions**, which is now a landmine: a false
+positive from `grep -l` matching a **comment** that said the file does *not* use the symbol, and
+false negatives from scoping the census to **one directory's top level** (5 files that way, 10
+whole-tree, including a whole second package under `internal/`).
 
 **Adjacent, other lanes' (carried forward, not re-verified today):**
 `platform/livespec` RED at HEAD (405 lane) · `TestNoHandSpelledTombstonePredicate` RED at HEAD
