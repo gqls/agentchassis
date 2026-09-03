@@ -617,3 +617,48 @@ component`) and named it another (`mislabelled`, then `prose about a tool that i
 predicate was right; every sentence I wrapped around it was an inference I had not tested. What
 caught it was a peer asking what else could produce the same reading — which is the cheapest
 possible form of the check and the one I keep not running on my own claims.
+
+## (u) 2026-09-03 13:3xZ — FALSIFIED. The guard did not refuse a generic write, and I am handing it off undiagnosed.
+
+The watch fired exactly as it was built to. **36 `page_component_history` writes across six of the
+seven canonical seotools shells, 13:05:14Z–13:24:36Z**, producer `needs_content_page` →
+`page-build-handler`, on pages with `tool rows ever: 0` and `policy: generic`. **Zero
+`owned_page_review` rows of any class in that window.** The guard was live: those pods were
+`v1.0.1358` / stamp `d0252fd4d`, which carries `587666be8`.
+
+**I checked whether my own metric had gone stale before believing it, and it had not.** After
+`29b40e8bc` a re-render write to a shell page is *expected*, so "writes to a shell page" could
+have been measuring the wrong thing. It was not: the producer is a generic content builder, not a
+re-render, and these are the exact pages this bug exists for. **This is the real thing.**
+
+**What I established, and where I stopped:**
+
+- `page-build-handler` **does** declare `refuse_owned_page: true` — the arm is configured.
+- The items were minted **2026-09-03 by `rerender_single_page_action` and `tool-generator`** — a
+  producer this lane never accounted for, and NOT `tool-deployer`.
+- The writes split **18 with a resolvable `source_item_id` / 18 without**, so there are probably
+  **two write paths**, and I have identified neither.
+
+**I did not diagnose it, deliberately.** Both the `load_page_record` arm and the (then-live)
+`save_page_sections` arm should have refused; either standing down implies a fail-open I have not
+located. Guessing between "the page lookup returned Nil", "the policy read errored", "the write
+never crosses `save_page_sections`" and "the claim path skips `load_page_record`" would be exactly
+the untested-inference habit that has cost this lane six WRONG_CALLS entries today. **The handoff
+states all four candidates as candidates.**
+
+**The consequence that matters most, and it is uncomfortable:** `29b40e8bc` removed the tool arm
+from `save_page_sections` on the argument that *every generic path is caught earlier*. §1 is
+evidence that argument may be false. If the earlier seams did not catch a `needs_content_page`
+build, then I have just removed the backstop that would have. **That is the first thing the next
+session must settle, and it is a self-inflicted risk, not an inherited one.**
+
+⚠ Also of note: a new chassis **`v1.0.1359`, stamp `3043885191…`**, rolled at 13:28Z and carries
+everything through `b1a3107e6` — including the narrowing. So the window in §1 is the LAST image,
+and the current one behaves differently. Re-measure against the current stamp; do not reuse the
+13:05Z reading as a statement about what is running now.
+
+## (v) 2026-09-03 — handoff written
+
+`HANDOFF_2026-09-03_continue_here.md` in this directory. §1 is the falsification and leads the
+document; §2 is what is live/committed/blocked; §3 separates the numbers that can be trusted from
+the ones that cannot; §4 the peer dependencies; §5 the ordered open list; §6 the traps.
