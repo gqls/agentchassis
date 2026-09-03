@@ -1568,3 +1568,10 @@ proven survivable and `prune_floor` is the one blocker** — a reader seeing "pe
 "armed; its one attempted test was refused at save". They get the six image_url results when a
 reasoned rerender lands. Their observability point (refusal reason existed in pod logs, never
 reached the item) is recorded in 114, greppable before anyone re-files it.
+
+**Postscript ~10:05 UTC — where two of the six files actually landed:** my WRONG_CALLS census
+entry and the PBP-049 register addendum were taken as SAME-FILE PASSENGERS by other lanes'
+commits in the minutes before `7da6c6a46` (`293936bea` carries the WRONG_CALLS entry; the 437
+lane's register commit carries the addendum). Both verified complete in HEAD; nothing lost,
+nothing owed — recorded so an auditor of council corr `6c92d154` looking for the register
+change in this lane's commit finds this line instead of a puzzle.
