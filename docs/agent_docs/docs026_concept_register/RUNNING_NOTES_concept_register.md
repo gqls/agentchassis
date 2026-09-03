@@ -2786,3 +2786,50 @@ commit, not about the file** — re-deriving it at HEAD would have made a correc
 
 **Not done:** the `_RELOCK` migration-suffix warning `scripts/council-scope.sh` prints is
 another lane's (`bugs_open/314`), left alone.
+
+### 2026-09-03 — council APPROVED; both objections verified before acting; and the roll makes item 1's point for it
+
+**Verdict read** (owed since 08-31): **APPROVED round 1**, 2026-08-31 13:08, 2 advisory
+objections, none high-severity. `Council-Reviewed: 37b0bec4-f503-4b9a-8fc4-688ba29aa2bc`.
+The `Council-Submitted:` trailers on the earlier commits are credited automatically by `098`,
+so no amend was needed — which forward-only forbids anyway.
+
+⚠ **The orchestration row was GONE** (terminal rows reap at 24h; it had been three days). The
+verdict lives in `doc_notes` / `diagnosis_artifacts`, which is where to look after a day.
+And my first two attempts to read the objections returned *nothing at all* because I piped a
+`column "content" does not exist` error through `grep` — **a hard SQL failure and "no
+objections found" are the same output through a pipe.** `\d diagnosis_artifacts` first, as the
+rules say; the column is `body`.
+
+**Both objections were verified before acting, and they landed differently.**
+
+- **`guardian` (medium): harden the `git cat-file` subprocess. Right conclusion, WRONG REASON.**
+  Its ground was that a throw could abort the shared pre-commit run *"fleet-wide, every
+  session"*. It cannot — `.githooks/pre-commit:49` runs `pattern-check.py || true`, and the
+  seat's own `missing` block admits it never confirmed this and was inferring from landmine
+  text. What a throw *does* do is abort the script mid-run so **the other 23 checks report
+  silence**. That is a real degradation, so the hardening went in (`7dbe5b8fd`) on the
+  corrected rationale: `try/except` + `timeout=5` + an 8-token cap that **fails OPEN**.
+  **Proven by inducing the failure** — `PATH` stripped so git is unfindable → returns False
+  instead of throwing. An untested `except` is not a guard.
+- **`prior_art_librarian` (medium): BLD-019 says provenance is "INOPERATIVE on agent-chassis",
+  so the payoff is overstated. A MISREADING, and I checked rather than believed it.** BLD-019
+  says the opposite — LIVE and READ BACK on agent-chassis **both replicas**, all 14 backend
+  services stamped. The *"unsafe as written"* text it quoted is about the `strings` recipe on
+  debian-slim images, not the stamp. BLD-019 states this check's **exact premise**: *"The stamp
+  only settles an entry that NAMES a commit — 13 of 29 surveyed entries cite none."* Recorded
+  in the `OPP-011` entry so nobody re-opens it.
+- **Three seats independently objected that the submission asserted sibling helpers
+  (`REGISTER_ROOT`, `raw_diff`, `committed_content`) without citing them.** A fair hit on the
+  SUBMISSION, not the code — the helpers exist and the check was built and fire-tested before
+  I submitted. **The evidence existed and I simply did not put it in `grounded_in`.** Next
+  submission: name the symbols you are reusing, the same way you name the concepts.
+
+**The roll (owner, 2026-09-03, `v1.0.1356`) makes item 1's case better than any argument.**
+Verified at the artefact, not from the statement: the tag CHANGED (`v1.0.1317` → `v1.0.1356`),
+so the same-tag-cached-image trap does not apply, and chassis pods were 17–18m old. Post-roll
+census: **136 roll-conditional statuses, 26 withdrawn, 110 live, 29 undated (26%).** So 110
+entries assert they are waiting for a roll that has now happened; **81 can be settled with one
+command each and 29 cannot be settled at all.** That is the population `OPP-011` stops growing
+and does not shrink — it is now item 1 of the new handoff,
+`docs026_concept_register/HANDOFF_2026-09-03_continue_here.md`.

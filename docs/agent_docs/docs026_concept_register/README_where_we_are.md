@@ -1097,3 +1097,36 @@ The work is committed, it is registered so other lanes can find it, and it has g
 review council — which it now needs, because that file came into the council's remit a week
 ago. I have not held the code back waiting for the verdict; the estate has a specific marker
 for "submitted, not yet judged" precisely so nobody sits on work.
+
+---
+
+**2026-09-03.** The review council approved the check from last week, first time round, with two
+comments. Both were worth reading and neither was quite right, which is itself the useful part.
+
+The first asked me to make the check safer, on the grounds that if it ever crashed it would stop
+everyone in the building from committing anything. That would be serious if true. It is not — the
+script is deliberately run in a way that ignores its failures, and the reviewer said in its own
+notes that it had not checked and was going on a hunch. But it was still worth doing, for a
+different reason: a crash would silently switch off the twenty-three *other* checks that run
+alongside it, and they would report nothing rather than reporting a problem. So I made the change
+and wrote down that the reason given was wrong, so nobody argues it again from the wrong end.
+
+The second said one of my supporting facts was contradicted by our own records. I went and read
+them. They say the opposite of what the reviewer quoted — it had picked up a warning about an
+unrelated *technique* and read it as a warning about the *thing*. Our records in fact state my
+argument almost word for word. So I have noted that in the register too, because an objection
+left lying around gets re-made.
+
+Three of the reviewers made the same fair criticism: I told them my change plugged into existing
+machinery without showing them that the machinery was there. I had checked — I built and tested
+the thing before submitting — I just did not put the evidence in front of them. Cheap lesson.
+
+**Your roll is the interesting part.** Now that a fresh build has gone out, a hundred and ten
+entries in the register still say "this is built but won't work until the next deploy". The next
+deploy has happened. Eighty-one of them say which change they mean, so each can be settled in one
+command — in or out, no judgement required. **Twenty-nine do not say, and those cannot be settled
+at all.** That is exactly the gap last week's check now prevents growing, and it is the clearest
+demonstration I could have asked for of why it was worth doing.
+
+Clearing those is the first job in the new handoff. It is reading work rather than clever work,
+and it is bounded — which makes it a good one to pick up cold.
