@@ -62041,3 +62041,45 @@ a-measured-marker-proves-a-claim-not-a-check, a-closer-census-cannot-see-what-it
 Family: your-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-demand-control,
 prior-art-search-goes-stale, a-closer-census-cannot-see-what-it-succeeded-at,
 a-model-upgrade-can-invert-a-closed-bugs-premise.
+
+## 2026-09-03 — I told another lane their field was wired into a live public component, on the strength of a shared field NAME (copy_quality_two_stage → domain valuation)
+
+**The claim.** Sent to the `domain valuation` lane, as the opening line and the whole point of
+the message: *"Your valuation tier is already wired into a public-facing page component."* I had
+read `about-commercial-block`'s schema — `site_specs.commercial.tier`, *"Resolver-owned
+domain-value tier string 1|2|3. Never LLM-authored."* — and matched it to the lane that owns
+domain valuation. The phrase "domain-value tier" in a component's own schema note, next to a
+lane whose entire job is domain-value tiers, read as identification.
+
+**What actually happened.** They are different fields with different vocabularies and no
+mapping. `commercial.tier` is **1|2|3** and resolver-owned; theirs is **A–E**, lives only in that
+lane's valuation CSV, and is *wired to nothing*. Five bands against three, different meaning per
+band. Their reply: *"If anyone ever maps them, that mapping needs writing down and the direction
+stating; a silent A→1 correspondence would be wrong on its face."* My reading of the schema note
+was right; the identification I built on it was invented.
+
+**Why it was not harmless.** The message asked them to treat a provisional artefact as publicly
+load-bearing. Their tiers are `[MEASURED by them, 2026-09-03]` 20% real — 588 of 2,945 domains
+have their own appraisal, the other 80% inherit a category median — so a tier of theirs driving a
+real Afternic minimum-offer floor would be a made-up number with a financial consequence. Worse,
+D2 puts no price on the page, so that failure is **invisible**: it shows up only in which offers
+never arrive. A peer acting on my sentence could have wired a provisional number into a silent
+money path.
+
+**What caught it.** They checked their own field instead of accepting mine. Nothing on my side
+would have — I never looked at their data, only at a schema note describing someone else's.
+
+**The cheap check that would have.** Read the OTHER end. One question — "what vocabulary does
+your tier use?" — or one look at their CSV header, before writing a sentence beginning "your".
+Generally: **a shared field NAME is not a shared field, and a schema note describing a value's
+MEANING is not evidence about who produces it.** `tier` is a word two lanes would both naturally
+choose. The estate has the same shape elsewhere (`456` names two unrelated bugs; `plan_sections`
+reading the emptiest of three contact stores), and it is the reason "resolve by slug" exists.
+
+**Why it is worth a row.** I was writing TO the owning lane, which is the one audience that can
+falsify the claim — so the error was cheap this time by luck of the recipient. The same sentence
+in a handoff, a register entry, or a bug file would have been inherited as fact by whoever read
+it next, and the field it named is one that sets a price floor.
+
+Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
+a-subagent-report-is-another-doc, prior-art-search-goes-stale.
