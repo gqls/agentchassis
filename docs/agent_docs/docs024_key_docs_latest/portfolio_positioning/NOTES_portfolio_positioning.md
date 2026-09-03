@@ -5234,3 +5234,45 @@ decided by the classifier and the tool-suggester, both of which have already run
 `SQL_2026-09-03c_make_briefs_visible_to_the_classifier_and_planner_HOLD.sql` and is NOT applied. The
 owner's standing instruction is not to change a running build, and he has not answered. What has
 changed since I last asked is only the evidence, not the permission.
+
+### (qq) 2026-09-03 ~18:10Z — correction to (pp): I called the ten pages "live" and nothing is published
+
+Entry (pp) says the ten tool/guide pages are "built, deployed and live". **"Live" is wrong and was my
+word, not the system's.** [MEASURED 2026-09-03 18:03Z]
+
+```
+https://copyonline.co.uk/                                       200  Drupal 7, <title>Copywriters
+https://copyonline.co.uk/tools/title-tag-scorer/index.html      404   <- the recorded pages.url
+   …/tools/title-tag-scorer/  …/tools/title-tag-scorer          404   <- other URL forms
+   …/guides/tool-title-tag-scorer-guide.html                    404
+   …/tools/website-brief-starter/index.html                     404
+https://copyonline.co.uk/this-page-does-not-exist-<epoch>.html  404   <- invented-URL control
+```
+
+Control 404s, so the domain is not parked and these 404s mean what they say. `x-generator: Drupal 7`,
+`server: LiteSpeed` at the root — the previous installation, still serving, which is also what the
+blind classifier read to conclude the site is a marketplace.
+
+`sites` row: `publish_target` NULL · `publish_project` NULL · `published_at` NULL ·
+`last_deployed_at` NULL · `build_status` `pending`. **The site has never been published anywhere.**
+
+**The mistake.** `pages.deployed_at` is populated on all ten and `pages.status='active'`. That is a
+page-level flag about rendering; it carries no claim about the site having a publication target. I
+read a page-level status as site-level publication, and then wrote a stronger word than either
+supports into an owner-facing message.
+
+**Why it slipped past the usual guard.** The estate's rule *trust the rendered artefact, not the
+status* is one I applied this morning to the tool components — the whole repair was driven by fetching
+pages rather than reading `page_components`. I dropped it in the afternoon because the status I was
+reading agreed with the conclusion I had already reached from six other measurements. **A status that
+confirms a well-evidenced conclusion is the one least likely to be checked**, and the error ran the
+safe direction (over-stating damage), which invites action rather than scrutiny.
+
+Corrected in: `PLAN_2026-09-03_copyonline_remediation_options_and_cost.md` §7, `README_where_we_are.md`,
+a WRONG_CALLS row, and a new LANDMINES entry distinguishing this from the neighbouring
+deploy-window entries (there `deployed_at` is fresh and the bytes are stale, so the remedy is to wait;
+here there is nothing to wait for, and the two are indistinguishable from the `pages` table alone).
+
+**What does not change:** the brief reaches nothing, six derived specs were written blind, the site is
+being designed as a marketplace, `needs_strategy` is queued and the plan has not run. What changes is
+the cost of option A, which is now internal rework with no public exposure.
