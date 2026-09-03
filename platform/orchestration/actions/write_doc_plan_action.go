@@ -88,9 +88,15 @@ func WriteDocPlanAction(ctx context.Context, params ActionParams) (interface{}, 
 	// other PLAN write is byte-identical to before. Refusing rather than
 	// logging, because the whole defect being closed is that a declaration
 	// nobody can read looked exactly like a document that declared nothing.
+	// The fence is extracted ONCE and shared by both rules below. Two
+	// extractions would be two chances to disagree about which ```criteria
+	// block is the fence, and extractCriteriaBlock has a documented landmine of
+	// its own (prose naming the fence in backticks hijacks the FIRST match).
+	toolCriteria := ""
 	if subjectType == "tool" {
-		if criteria := extractCriteriaBlock(body); factsKeyMentioned(criteria) {
-			if _, issues := parseCriteriaFacts(criteria); len(issues) > 0 {
+		toolCriteria = extractCriteriaBlock(body)
+		if factsKeyMentioned(toolCriteria) {
+			if _, issues := parseCriteriaFacts(toolCriteria); len(issues) > 0 {
 				return nil, fmt.Errorf(
 					"write_doc_plan: refusing PLAN for tool %q — its criteria fence declares facts that cannot be read: %s",
 					subjectKey, strings.Join(issues, "; "))
@@ -152,6 +158,64 @@ func WriteDocPlanAction(ctx context.Context, params ActionParams) (interface{}, 
 		zap.String("plan_id", planID),
 		zap.Int64("superseded", superseded),
 		zap.String("orchestration_id", orchID))
+
+	// THE DOOR SEES A BLIND FENCE BEING BORN (bugs_open/449).
+	//
+	// This action is the ONLY production writer of a PLAN body — verified by
+	// enumerating every Go INSERT/UPDATE against doc_plans — and exactly three
+	// live agents reach it (tool-generator, experience-planner,
+	// experience-register-writer). So it is the one place that sees every
+	// GENERATED fence at the moment it is written. (Operator scripts write
+	// doc_plans over psql and bypass this entirely; that is the right way round
+	// — the hand-installed fences are the ones that already assert values — but
+	// it means this is not a total guarantee and must not be described as one.)
+	//
+	// Measured 2026-09-03: tool-generator had written 186 current fences, 115
+	// asserting no expected value of any kind, newest that same day. Nothing
+	// anywhere said so, so the only way to know was to run the census by hand.
+	//
+	// RECORDED, NOT REFUSED, and that is a considered choice rather than
+	// timidity. A tool with NO PLAN is inert at BOTH tiers — Tier 2 writes a
+	// needs_criteria note and stops, Tier 4 emits nothing — which is strictly
+	// worse than a weak fence. Refusing becomes correct only once the authoring
+	// prompts can satisfy the rule; until then a refusal here would trade a
+	// blind check for no check at all.
+	//
+	// The trigger is read off the FENCE, never off a classifier: a check
+	// carrying a `fill` or `select` step has declared that the tool takes input,
+	// so a document that drives inputs and then asserts nothing about what came
+	// out is incomplete on its own terms, with no outside judgement about what
+	// kind of tool this is. 55 of the 186 met it on the day this was written.
+	//
+	// AFTER the commit, deliberately: a note about a PLAN that failed to write
+	// would be a record of a document that does not exist. And non-fatal in both
+	// directions — an unreadable fence yields Parsed=false and no note (Tier 2
+	// already reports that case separately as criteria_unparseable, and a
+	// second, weaker report of it would be noise), while a failed note INSERT is
+	// logged and never returned: the PLAN is the caller's deliverable and an
+	// observation about it must not cost the document.
+	if subjectType == "tool" {
+		if a := summariseCriteriaValueAssertions(toolCriteria); a.DrivesButAssertsNothing() {
+			author := sourceAgent
+			if author == "" {
+				author = "an unidentified caller"
+			}
+			noteBody := fmt.Sprintf(`## Fence asserts no value — %s
+Observed: the criteria fence just written for this tool DRIVES its inputs (a fill or select step) and then asserts no expected value anywhere — no computed_values expect_values, no interaction expect.text_matches. A Tier-4 PASS on this fence means the page loaded and something appeared once the inputs were filled; it says NOTHING about whether any number the tool printed is correct.
+Root cause: the fence-authoring prompt enumerates a closed vocabulary of liveness checks and never names computed_values, so the correctness check is never a candidate (bugs_open/449 §3). Written by %s.
+Fix: none applied — this is a record, not a refusal. A tool with no PLAN at all is inert at BOTH tiers, so a blind fence is still better than none and the document is accepted as written. To close it, assert at least one worked example whose expected value did not come from this tool's own output.
+Verified: n/a — an observation about the document, made at the write door
+Categories: fence_asserts_no_value`, subjectKey, author)
+			if _, nerr := insertDocNote(ctx, params.DB, "tool", subjectKey, "", noteBody,
+				`["fence_asserts_no_value"]`, "write-doc-plan", sourceAgent, "", createdBy); nerr != nil {
+				logger.Warn("write_doc_plan: fence_asserts_no_value note insert failed",
+					zap.String("subject_key", subjectKey), zap.Error(nerr))
+			} else {
+				logger.Info("write_doc_plan: fence drives inputs but asserts no value (bugs_open/449)",
+					zap.String("subject_key", subjectKey), zap.String("author", sourceAgent))
+			}
+		}
+	}
 
 	return map[string]interface{}{
 		"plan_id":      planID,

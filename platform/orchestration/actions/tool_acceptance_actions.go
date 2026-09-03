@@ -775,6 +775,28 @@ func JudgeAcceptanceResultsAction(ctx context.Context, params ActionParams) (int
 
 	allPassed := len(v.Failed) == 0
 	if allPassed {
+		// WHAT DID THIS PASS ACTUALLY COVER? (bugs_open/449.)
+		//
+		// A verdict is only as strong as its fence, and the two families of check
+		// in this estate make opposite promises: the generated ones assert that
+		// the tool is ALIVE, the operator-written ones that its numbers are RIGHT,
+		// and measured 2026-09-03 not one tool anywhere was covered by both. 115
+		// of `tool-generator`'s 186 current fences assert no expected value of any
+		// kind, so "Tier-4 PASSED" on one of them means the page loaded and
+		// something appeared when we clicked — and it is read as "the calculator
+		// works". Nothing in the record distinguished the two, which is the whole
+		// damage: the weak fence is only the cause.
+		//
+		// So the verdict now states its own scope. This changes no outcome — a
+		// pass still passes — it removes the overclaim, which is the part that
+		// can be fixed for all 186 at once, today, with no author cooperation and
+		// no backfill. It cannot go stale either: the grade is derived from the
+		// fence at run time, so a fence that gets weaker gets a weaker verdict
+		// with nobody remembering to do anything.
+		passCriteria := datahelpers.ExtractNestedFieldString(params.CollectedData,
+			datahelpers.GetStringField(config, "criteria_field", "doc_context.criteria_json"))
+		assertions := summariseCriteriaValueAssertions(passCriteria)
+
 		// The TOOL passed. The page may still carry a site-chrome defect — say so
 		// plainly rather than let "PASSED" imply the page is clean.
 		rootCause := "not-applicable"
@@ -790,6 +812,7 @@ func JudgeAcceptanceResultsAction(ctx context.Context, params ActionParams) (int
 		// it is the only artefact of this run a human can actually look at.
 		body := fmt.Sprintf(`## Tier-4 acceptance PASSED — %s
 Observed: all %d of the tool's own checks passed in headless Chromium%s (%d skipped: %s).%s%s
+Scope of this verdict: %s
 Root cause: %s
 Fix: %s
 Verified: browser-runner-adapter run; checks (id@profile): %s
@@ -797,6 +820,7 @@ Categories: acceptance-run`,
 			function, len(v.Passed), profilesPhrase(v.Profiles),
 			len(v.SkipList), strings.Join(orNone(v.SkipList), ", "),
 			evidenceLine(v.Shots), renderLine(v.Renders),
+			criteriaAssertionPhrase(assertions),
 			rootCause, fix,
 			strings.Join(v.Passed, ", "))
 		if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
@@ -805,11 +829,26 @@ Categories: acceptance-run`,
 		}
 		logger.Info("judge: acceptance PASSED",
 			zap.String("function", function), zap.Int("passed", len(v.Passed)),
-			zap.Int("site_chrome_items", chromeRouted))
-		return map[string]interface{}{
+			zap.Int("site_chrome_items", chromeRouted),
+			zap.String("assertion_grade", assertions.Grade()),
+			zap.Int("value_assertions", assertions.Total()))
+		out := map[string]interface{}{
 			"all_passed": true, "passed": len(v.Passed), "failed": 0, "skipped_checks": v.SkipList,
 			"site_chrome_failures": len(v.Chrome), "site_chrome_items_created": chromeRouted,
-		}, nil
+			// bugs_open/449. `assertion_grade` is none | pattern | exact and is
+			// the field to read before quoting a PASS: `none` means the tool
+			// responded and nothing was checked about what it computed.
+			"assertion_grade":        assertions.Grade(),
+			"value_assertions":       assertions.Total(),
+			"exact_value_assertions": assertions.Exact,
+		}
+		// Present ONLY in the state worth acting on, so a consumer can branch on
+		// the key's presence rather than parse a grade string — and so a fence
+		// that DOES assert values carries no extra keys at all.
+		if assertions.AssertsNoValue() {
+			out["verdict_scope"] = "liveness_only"
+		}
+		return out, nil
 	}
 
 	// Failures: one acceptance-fail note + ONE improve_tool item carrying the
