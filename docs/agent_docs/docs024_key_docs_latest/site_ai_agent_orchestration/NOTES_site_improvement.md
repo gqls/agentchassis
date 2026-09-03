@@ -2026,3 +2026,57 @@ rather than a match.
 
 ⚠ **None of this repairs a single existing page.** 148 tool components and this lane's four live
 failures persist until a regeneration pass. A still-failing page is NOT evidence this did not land.
+
+### 9. The council rounds — two of the three found defects in the shipped work, not the paperwork
+
+**Round 1 → REVISE (gated by `editquality`).** Five seats objected to the *same* thing: the
+tool-improver half of the migration was "a comment, not code". **They were right about the sketch
+and the sketch was wrong** — the file has always carried both halves; I elided one behind
+`-- the same shape again for tool-improver` to keep the submission short. `debug_historian`'s HIGH
+was the same shape: my `replace()` anchor written `'..., var(--color-border)'` was shorthand, and it
+warned the ellipsis would silently no-op if literal. **Reviewers judge the sketch; it is the only
+view of the code they get, and I gave them a false one.** Round 2's sketches are generated FROM THE
+FILES, which is the only version of this that cannot drift.
+
+⚠ **The round-1 objection I did not expect found a red HEAD.** `guardian` asked whether
+`canonicalCSSTokens` had any consumer beyond the audit function. I had checked the *function* and
+mistaken that for checking the *map*. One `grep -rn` found `rendererGuaranteedTokens` in
+`check_stylesheet_gutted.go`, kept in lockstep by a parity test that parses the `actions` source —
+and **my round-1 commit had left it red for ~2 hours**. `go build ./platform/...` passes on a
+failing test and `go test` on the edited package misses a break one package over.
+
+⚠⚠ **And the fix the test named would have been worse than the bug.** It demands set equality, so
+the obvious move is to add all four tokens to the other list. That puts `--color-cta-bg-ink` — which
+`buildLegibleInkDefaults` emits only when `solidCTAFill` is non-empty, present in **1 of 7** served
+stylesheets against **7 of 7** for the other three — into a **live, registered, severity-high**
+check, filing 6 of those 7 sites as gutted. **A green test would have certified a fleet-wide
+false-positive generator.** Measuring the four at the artefact rather than satisfying the test is
+what separated them. In `016b` §9.
+
+**Round 2 → REVISE again**, and both gating objections were real:
+
+- `editquality` + `guardian` HIGH: my edit named ONE file and changed TWO. The irony is exact — the
+  round's own thesis is *"I broke a parity test by not touching the paired file"*, and I shipped the
+  fix for that as a single-file edit needing two. Split.
+- **`bug_historian`, and this is the best objection anyone made:** after this lands, a
+  tool-generator run that *ignores* the new prompt sentence produces the identical defect with
+  **zero detection anywhere**. `check_stylesheet_gutted` sees a token's ABSENCE; the wrong pairing
+  uses valid, PRESENT vars. I had conceded "a prompt rule is taught, not enforced" in the submission
+  **and stopped at the concession.** Built in round 3: `scripts/audit-fill-ink-pairing.sh`
+  (**STY-062**). First run — **25 findings in 7 days across 5 sites**, 6 of them same-day.
+
+`reuse_agent` asked why I added a third parity mechanism instead of extending the existing one.
+Answer: `actions` imports `discovery_checks` (75 refs), so the reverse is an import cycle — which is
+*why* the existing test parses source as text — and `buildLegibleInkDefaults` is unexported. Six
+`*_lockstep_test.go` files already sit in `actions` in this direction. **Structurally impossible, and
+I should have said so unprompted rather than leaving it to be asked.**
+
+`guardian` asked for the expected fleet-wide finding count from arming a live detector. **Zero** —
+13 of 13 genuinely-served stylesheets carry all three. ⚠ **Measuring it caught a fault in my own
+instrument:** a 14th domain read as missing all three, and it was a **404** at the conventional
+stylesheet path — I was grepping an error page. The check itself refuses on any non-2xx fetch (its
+comment cites 63 false findings that refusal avoided), so it could not file there anyway.
+
+**Standing tally for this lane: three council rounds, four real defects found** (a hidden half, a
+red HEAD, a two-file edit, and a missing detector) — none of them cosmetic, and the last two changed
+what shipped.
