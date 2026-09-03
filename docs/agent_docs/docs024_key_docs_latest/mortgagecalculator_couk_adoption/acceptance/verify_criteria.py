@@ -134,8 +134,25 @@ def load_register_bands():
         sys.exit((r.stderr or r.stdout).strip()[:600])
     facts = {}
     for line in r.stdout.strip().splitlines():
-        k, v = line.split("\t")
-        facts[k] = float(v)
+        # A fact whose `value` is JSON null makes `->>` return SQL NULL, and
+        # psql -tA prints that row with NO trailing separator at all — so this
+        # MUST tolerate a one-field line. `split("\t")` unpacked into two names
+        # and raised "not enough values to unpack" on exactly such a row
+        # (CIT-8a9ee77ad646fd10, 2026-09-03).
+        parts = line.split("\t", 1)
+        k, v = parts[0], (parts[1] if len(parts) > 1 else "")
+        # Only SCALAR facts belong in the band table. The register also carries
+        # value-less kinds — as of 2026-09-03 this site holds 5 `CIT-*` citation
+        # facts with an empty `value`, and float("") raised ValueError here,
+        # which killed install_fences.py outright (it calls this at import time).
+        # Skipping a non-numeric is SAFE and does not weaken the guarantee
+        # below: any of the 13 `need` keys that failed to parse is simply absent
+        # from `facts`, lands in `missing`, and still stops the script. A silent
+        # fall-through to oracles.py's hard-coded bands remains impossible.
+        try:
+            facts[k] = float(v)
+        except ValueError:
+            continue
     need = ["sdlt-standard-nil-band-upper", "sdlt-standard-band-250k-upper",
             "sdlt-standard-band-925k-upper", "sdlt-standard-band-1500k-upper",
             "sdlt-standard-rate-125k-250k", "sdlt-standard-rate-250k-925k",
