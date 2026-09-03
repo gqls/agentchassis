@@ -190,7 +190,33 @@ still look the same" is the failure this addendum exists to predict.
   registry for the whole estate, and this RFC records that **no ~2,000-domain inventory exists
   anywhere** and must come from the owner. That ask is still open.
 
-## BUILT 2026-09-03 — migration `734_classifier_reads_the_positioning_register.sql`, applied 11:39:14Z
+## ~~BUILT 2026-09-03~~ — **ATTEMPTED AND ROLLED BACK. THE CLASSIFIER STILL DOES NOT READ THE REGISTER.**
+
+> **⚠ CORRECTION 2026-09-03 16:01:39Z, before anyone builds on this section.** Migration `734` was
+> applied at 11:39:14Z and **never worked**. Its `read_positioning_register` step used `$1` in the
+> query while the step config carried **no `params` array**, which is how `query_database` binds
+> parameters (`offer-analyser.load_premise`: `"params": ["site_record.site_id"]`). Every classifier
+> run after 11:39Z failed with `query failed: expected 1 arguments, got 0`. It was invisible for four
+> hours because no site attempted a classification until copyonline was released at 15:49Z; two of
+> its runs then failed. **Rolled back 16:01:39Z.**
+>
+> **What survives, and it is the more valuable half:** `layout_taxonomy` remains in
+> `classify_and_extract`'s `input_fields`. That fixes a defect predating this RFC — the classifier
+> was shown `null` where the library tag list should be while being told to match it, which is the
+> mechanical cause of `bugs_open/445`'s finding that 188 of 216 emitted terms match no layout.
+>
+> **What is still NOT built:** the register input itself. **RFC_037's classifier half remains
+> unstarted in effect**, and the owner's instruction of 2026-09-03 is not yet satisfied.
+>
+> **To fix forward:** add `"params": ["<path to site_id>"]` to the step config — but the path must be
+> PROVEN in this agent first. The classifier has no `ensure_site_record` step, so it does not carry
+> offer-analyser's `site_record.site_id`; the candidate is `input_data.site_id`, unverified.
+> **And then MAKE IT RUN ONCE before claiming it works:** fire one classification and read
+> `orchestration_states.current_step/status`. Every guard in 734 asserted the config was well-formed;
+> not one asserted the step could execute, and a `COMMIT`→`ROLLBACK` dry run proves only that the
+> migration applies. That is what turned a four-hour outage into something nobody noticed.
+
+## What the attempt did establish (the design below is sound; only the wiring was wrong)
 
 Owner instruction the same day: *"please fix the classifier to read the register."* Built against
 the register that EXISTS (194 rows) rather than waiting for the estate-wide inventory, because the
@@ -207,7 +233,7 @@ missing inventory a COVERAGE limit, not a blocker.
   `classify_and_extract`'s `input_fields` allow-list, so the classifier was shown a `null` library
   tag list while being told to match it. Found by this lane, measured at the rendered prompt,
   verified independently by `bugs_open/445` whose 87%-unmatchable finding it explains.
-- **Council**: `Council-Submitted: f0ad8366-d489-440d-8a3b-59b000de0ff2`.
+- **Council**: `Council-Submitted: f0ad8366-d489-440d-8a3b-59b000de0ff2` — round 1 REVISE (the sketch omitted the prompt edit), round 2 submitted. ⚠ **Round 2 describes a change that has since been rolled back; whoever reads the verdict must not treat approval as evidence it worked.**
 - **Still open on this RFC**: the ~2,000-domain inventory (owner); what `REGISTER_positioning.md`
   becomes now the DB is authoritative; and neighbour SELECTION at scale — today the block uses the
   entry's own hand-named neighbours, which does not generalise past a few hundred entries.
