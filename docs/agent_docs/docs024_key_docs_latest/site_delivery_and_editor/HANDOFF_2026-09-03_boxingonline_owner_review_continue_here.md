@@ -290,3 +290,94 @@ unrewritten, **8** imagery logo-only on every page but the two listings.
 3. **Get a session onto `bugs_open/427`** — root of items 7, 9, 10; restate the title first.
 4. **`/about.html` GTM** — confirm on the next publish tick.
 5. **Nobody re-seeds this site** until `420`'s class fix rolls.
+
+---
+
+# UPDATE 2 — 2026-09-03 17:08Z. Supersedes §4.1 entirely, and adds a NEW site defect.
+
+## Served state now — measured 17:08Z, cache-busted, control non-zero on every row
+
+| page | cards | decks | empty deck | empty category | suffix | GTM |
+|---|---|---|---|---|---|---|
+| `/index.html` | 6 | 6 | 0 | 0 | 0 | 2 |
+| `/articles/index.html` | **36** | 36 | **2** | **14** | 0 | 2 |
+| `/guides/index.html` | 4 | 4 | 0 | 0 | 0 | 2 |
+| `/news/index.html` | 0 | 0 | 0 | 0 | 0 | 2 |
+| `/about.html` | 0 | 0 | 0 | 0 | 0 | 2 |
+
+`/about.html` GTM has caught up — the whole site now carries the tag.
+
+## §4.1 IS CLOSED. The cause was ONE MISSING ASSIGNMENT.
+
+`bugs_open/454`: when a long function was split on 2026-09-02, `classifyStoredSection` computed a
+section plan and **never assigned it to the struct it returns**, so `renderPlannedSection` read a
+zero value and the render composed `base ⊕ stored content_data ⊕ nil`. For a fortnight **every
+light re-render on the estate rendered each page's own stored data back at itself and reported
+success** — no errors, healthy counts, nothing blanked. One assignment (`9831e9ab4`), live in
+v1.0.1358 since 12:18Z. Filed by the `bugs_open/427` lane from a completely unrelated symptom.
+
+**Do not re-open the per-instance hunt in §4.1.** Its sixteen eliminations are individually true
+and its `garden-tools.uk` pair is what answered the bug — but the difference it was hunting **does
+not exist.**
+
+⚠ **Two corrections that must not be inherited backwards:**
+- **This thread's original framing was RIGHT** — "the rerender path does not resolve", and "a
+  correct reason is necessary and NOT sufficient" (rows completed twice with `template_changed` and
+  produced the old shape).
+- **The components lane's refutation of it was WRONG, and they have logged it against themselves.**
+  The two rerenders said to have "produced" the new shape on designblog/websitepromotion had not: a
+  **BUILD** wrote `excerpt` into stored on 09-02 20:51 and 23:02, and every later re-render merged
+  `stored ⊕ nil` and carried it forward. The disconfirming column was in the same
+  `page_component_history` rows already being read — archived `content_data` states what each write
+  REPLACED.
+
+Deck class is draining on its own — **10 new / 7 old of 17** at 15:15Z, from 5/12 the day before,
+because any re-render for any reason now fixes it. **No repair wave is needed or filed.**
+
+## NEW DEFECT ON THIS SITE — `/articles/index.html` serves the six articles SIX TIMES
+
+**36 cards where there should be 6.** Six distinct `/blog/` URLs, 36 link occurrences. And because
+each duplicate is frozen at the template of the day it was created, they are not even alike: **34
+carry decks, 2 are empty, 14 are missing their category label.**
+
+At the source — `page_components` for `articles-index`:
+
+```
+position  component_id  slot                 rendered_html  created_at
+   1      set           hero                     3,658      08-31 14:30:43
+   2      set           generic-text-block         NULL     08-31 14:30:43
+   3      set           call-to-action           3,049      08-31 14:30:43
+   3      NULL          generic-text-block       4,429      08-31 16:29:47   <- orphan
+   3      NULL          generic-text-block       4,638      08-31 18:14:32   <- orphan
+   3      NULL          generic-text-block       5,195      09-01 01:31:57   <- orphan
+   3      NULL          generic-text-block       6,335      09-01 01:58:36   <- orphan
+   3      NULL          generic-text-block       6,334      09-01 02:34:51   <- orphan
+   3      NULL          generic-text-block       6,070      09-02 16:28:02   <- orphan
+```
+
+**Six orphan rows stacked at position 3, `component_id` NULL, each holding its own frozen
+`rendered_html`, all six assembled into one page.**
+
+**`bugs_open/457`. NO RE-RENDER WILL FIX IT** — `component_id` NULL means `resolveComponent` misses
+and the carry branch runs, so 454's fix cannot reach these rows. **It needs 457's code fix and a
+rebuild.** Nothing has been touched: paid site, wrong instrument.
+
+## `bugs_open/424` is CLOSED and MOVED
+
+→ `bugs_closed/424_HANDOFF_2026-09-02_transparency_is_not_a_promptable_property_so_the_model_paints_a_checkerboard.md`
+(verified at HEAD with `git ls-tree`: exactly one path, so a complete move, not a pathspec copy).
+**Matte AND guard live on v1.0.1356, not merely committed.** All four regenerated sites carry PNG
+colour type 6 at the served bytes: seotools 92.21%, designblog 88.5%, websitepromotion 87.4%,
+boxingonline 80.10%. §3's row is re-pointed.
+
+## Revised immediate next actions
+
+1. **The owner's admin queue** — `needs_copy_edit a930e70c`, the "calendar below" rewrite, awaits
+   his approve / request-changes. Re-run the seven checks after it lands.
+2. **`bugs_open/457`** — the 36-card duplication on `/articles/index.html`. Unstaffed, code fix +
+   rebuild, and it is the most visible remaining defect on the site.
+3. **`bugs_open/427`** — root of items 7, 9, 10. Session ENDED. **Restate the title first:** its
+   writer half now works here (`evidence_base` 1 → 7 cited facts incl. a dated forward fixture) and
+   nothing consumes them.
+4. **`bugs_open/332`** — news feed residue (5 md links / 12 truncations / 11 UFC). Unstaffed.
+5. **Nobody re-seeds this site** until `420`'s class fix rolls.
