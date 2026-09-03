@@ -149,3 +149,101 @@ alone. Yesterday's `744`/CLM-033 ruling established that the estate's liveness c
 `IN ('active','deployed')`, and that a narrower predicate re-creates a blind spot one status value
 over. Today that is **latent, not live** — 39 `deployed`, 0 `active` — so it is a note, not a
 finding, and the new middleware will use the wider predicate rather than inherit the narrower one.
+
+---
+
+## 2026-09-03 (later) — MY OWN WRONG CALL: I applied the schema to the wrong database
+
+**I said `tools-api` runs in the cluster and reads `clients_db`. It does not.** Migration 756 is
+applied to `clients_db`, and the public receiver cannot see it.
+
+### What I assumed, and what is actually true
+
+I found `deployments/kustomize/services/tools-api/` — a `ClusterIP` Deployment on :8083 with a
+`DATABASE_URL` from `tools-api-secret` — and treated that as *the* tools-api. It is **a** tools-api.
+The one serving `tools.apis.uk`, the one I probed and got 204s from, is a **different deployment on
+a different machine with a different database**:
+
+```yaml
+# gauntlet_dead_cta/infra/island/docker-compose.yml — Mythic Beasts VM toolsapisuk
+postgres:
+  environment: { POSTGRES_DB: tools_api, POSTGRES_USER: tools_api }
+  ports: ["127.0.0.1:5432:5432"]   # host-local only (pg_dump/debugging); never public
+```
+
+and, in the same file, the line that names the consequence exactly:
+
+> CORS comes from **the island DB's minimal sites table**, NOT an env allowlist
+
+Migration `436`'s header says it in capitals — *"**TARGET**: the ISLAND Postgres, **NOT**
+clients_db"* — and ledgers into the island's own `island_migrations`. The island's `sites` table is
+a **hand-seeded mirror**: `RUNBOOK_island.md` records that it "currently holds only `vonc.com`",
+that `robot-hands.com` is absent until 436 runs, and that until then "CORS answers 403 to the
+widget". Confirmed in `clients_db` too: `gripper_chat_sessions` and `gripper_report_requests` do
+not exist there.
+
+### What caught it
+
+Reading `internal/tools-api/store/gripper.go`'s package comment on the way to copying its shape —
+*"three tables created by migration 436 … **on the ISLAND Postgres**, beside gauntlet_rounds"*.
+Not a check I ran; a sentence I happened to read while doing something else.
+
+**The check that would have caught it deliberately, and which I skipped:** I probed the endpoint
+over HTTP and confirmed it was live, then reasoned about its database from the *kustomize
+manifest*. Those are two different artefacts describing two different processes, and nothing
+forced me to notice. **The cheap check is to ask the artefact you actually probed what it is
+connected to** — the deployment manifest is a claim about a deployment, not about the process
+answering your request. I had already written the "prove it at the artefact, per service" rule into
+my own plan and then applied it to liveness only, not to identity.
+
+> This is the second census-shaped error in this lane in one day, and it has the same shape as the
+> first: **an answer taken from the layer that was convenient rather than the layer that decides.**
+> The pre-plan read `content_data` where the visitor reads `rendered_html`; I read a kustomize
+> manifest where the request reads a `DATABASE_URL` on another machine.
+
+### What this costs, and what it does not
+
+Migration 756 is **not wasted and not wrong** — `site_form_routes` and `form_submissions` belong in
+`clients_db`, because that is where the render seam and the mailer live. What was wrong is the
+assumption that the *receiver* could read them. Nothing is broken: both tables are inert and empty,
+and no code references them.
+
+What it does change is the architecture, and for the better.
+
+### The design this forces, which is the estate's own proven shape
+
+The two readers cannot share one database, so **stop trying to make them**:
+
+| where | what it holds | why there |
+|---|---|---|
+| **island** (`tools_api`) | `form_submissions_inbox` — whatever the browser posted, plus the token as *presented* | it is the only database the public receiver can reach |
+| **cluster** (`clients_db`) | `site_form_routes` (756) — token → site, intent, recipient, enabled | the render seam stamps the token and the mailer reads the recipient; neither runs on the island |
+| **cluster** (`clients_db`) | `form_submissions` (756) — the durable record | the lead is a business record and belongs where the business data is |
+
+and a **collector** pulls island → cluster, exactly as `GET /api/v1/tools/gripper/requests` +
+its poller already does, and as `order-intake-collector` does for the shopfront.
+
+**This is what the seam reviewer told us to carry across whatever D1 decided**, and I did not
+recognise it as load-bearing until the database split forced it:
+
+> the shopfront's **poll-collector** shape (receiver stores; `order-intake-collector` pulls) means
+> the cluster exposes no inbound surface for submissions and receipt survives cluster downtime. A
+> (b) receiver that stores-and-is-polled keeps that property while shedding (a)'s single-box
+> coupling.
+
+**And it makes the security property stronger than the design I submitted to council.** The island
+never decides whose submission it is: it records the token it was handed. **Identity is resolved in
+`clients_db`, against a table the island cannot see**, at ingest. So a forged token cannot reach a
+mailbox — it is stored on the island, fails to resolve, and is discarded. That materially answers
+risk (3) of `submission_756_form_endpoint_storage.json` (a bearer token published in page markup):
+holding a site's token lets you inject into that site's own queue, which is what its form does
+anyway, and nothing else.
+
+### The consequence I cannot engineer away
+
+**The island is deployed by hand and I cannot reach it.** `docker save | ssh load` onto a Mythic
+Beasts VM, with secrets in a root-only `/opt/island/.env` that is not in this repo. So this lane
+can write the receiver, the inbox migration, the collector and the render-seam branch, and can get
+all of them committed and reviewed — and **"live" is a step only the owner or the gauntlet lane can
+take.** Committed and live are separate facts here in a stronger sense than usual, and no amount of
+care on my side collapses them.

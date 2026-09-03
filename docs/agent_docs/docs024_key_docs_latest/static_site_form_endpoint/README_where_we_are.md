@@ -70,3 +70,43 @@ the new table behaves exactly as it does today.
 One thing to know for later: committing this and it being *live* are two separate events. That
 endpoint runs on a separate machine that doesn't pick up our normal releases automatically, so I'll
 confirm how it gets updated before I tell you it's working.
+
+## 2026-09-03, later — I got something wrong, and being wrong improved the design
+
+I built the database tables and put them in the wrong database. Worth explaining, because the
+correction changes the shape of the thing and makes it better.
+
+I had said the public endpoint at tools.apis.uk was part of our normal cluster. It isn't. There are
+two copies of that service: one inside our cluster that nothing public can reach, and the one
+actually answering the internet, which runs on a separate rented machine with **its own separate
+database**. I checked that the endpoint was alive by asking it over the network — which was correct
+— and then worked out which database it used by reading a deployment file for the *other* copy.
+Two different things, and nothing made me notice.
+
+What caught it was a comment I happened to read in passing while copying some code. That's luck,
+not method, so I've written down the check that would have caught it deliberately: ask the thing
+you actually probed what it's connected to, rather than reading a config file that describes
+something with the same name.
+
+The cost was small — two empty tables that turn out to belong where I put them anyway, and about an
+hour. No code had been written against the wrong idea.
+
+**Here's why it ends up better.** Because the public machine can't see our main database, it *can't*
+work out which site a submission belongs to. At first that looked like a problem. It's actually the
+right security arrangement. The public machine now just records what it was handed, and our own
+cluster decides — afterwards, privately — whether that submission is genuine, by checking the token
+against a table the public machine has no access to. So if someone forges a submission, it gets
+written down on the public machine and then quietly thrown away. **It can never reach anyone's
+inbox.** The version I had designed an hour earlier would have made that decision out on the public
+machine, which is a weaker place to make it.
+
+It also means submissions arrive by our cluster fetching them every so often, rather than the public
+machine pushing them to us. That's the same pattern the webdesign.uk shop orders already use, so
+it's proven, and it has a nice property: if our cluster is down, nothing is lost — the submissions
+wait on the other machine until we come back.
+
+The practical consequence you should know about: **I can't switch this on myself.** That separate
+machine is updated by hand over SSH, with passwords that quite rightly aren't in our code. So I can
+write all of it, get it reviewed and committed — but the last step, putting it on the machine, is
+yours or the team that owns that box. I'll make sure what I hand over is a short, checkable list
+rather than a description.

@@ -63818,6 +63818,51 @@ is the point of recording them.
   public endpoint beside a live one, and reversed the owner's 2026-07-17 `mailto:` ruling on 21
   working forms in the belief they were dead.
 
+## 2026-09-03 — `static_site_form_endpoint`, same lane, same shape, an hour later: I read the manifest where the request reads a DATABASE_URL
+
+Recorded immediately after the entry above, and the pairing is the point: I wrote that one up, named
+its lesson, and then made it again in a different layer within the hour.
+
+- **The claim.** That `tools-api` reads `clients_db`, and therefore that migration 756's two tables
+  would be visible to the form receiver. Acted on, not just written: I applied 756 to `clients_db`
+  and submitted it to the council describing it as the endpoint's storage.
+- **What actually happened.** There are **two** tools-api deployments. The one in
+  `deployments/kustomize/services/tools-api/` is a `ClusterIP` on :8083 with a `DATABASE_URL` from
+  a cluster secret. The one actually serving `tools.apis.uk` — the one I had probed and got 204s
+  from — runs on a Mythic Beasts VM from `gauntlet_dead_cta/infra/island/docker-compose.yml`, with
+  **its own Postgres** (`POSTGRES_DB: tools_api`, published `127.0.0.1:5432` only) and a
+  **hand-seeded minimal `sites` mirror**. Migration `436`'s header says so in capitals — "TARGET:
+  the ISLAND Postgres, NOT clients_db" — and `gripper_chat_sessions` is absent from `clients_db`,
+  which is checkable in one query.
+- **What caught it.** Reading `internal/tools-api/store/gripper.go`'s package comment on the way to
+  copying its handler shape: "three tables created by migration 436 … on the ISLAND Postgres". Not
+  a check I ran. A sentence I happened to pass on my way somewhere else — which is the least
+  reliable way to catch anything.
+- **The cheap check.** **Ask the artefact you actually probed what it is connected to.** I proved
+  the endpoint was live over HTTP and then sourced its database from a kustomize manifest: two
+  artefacts describing two different processes, with nothing forcing me to notice they were
+  different. One query would have done it — `SELECT to_regclass('public.gripper_chat_sessions')`
+  against the database I was about to write to, which returns NULL and is unambiguous.
+  The general form, and the reason this rhymes with the entry above: **an answer taken from the
+  layer that is convenient rather than the layer that decides.** The pre-plan read `content_data`
+  where the visitor reads `rendered_html`; I read a deployment manifest where the request reads a
+  `DATABASE_URL` on another machine. Both were "measured". Neither was measured at the deciding
+  layer. **"Prove it at the artefact, per service" has to cover identity and connection, not just
+  liveness** — I had already written that rule into my own plan that morning and applied it to
+  liveness only.
+- **Cost.** Two inert empty tables in `clients_db` that turn out to belong there anyway, and about
+  an hour. No code was written against the wrong assumption, and the council round it went out
+  under still reviews the right schema. **The real cost was nearly conceptual rather than
+  material:** I was one file away from writing a receiver that resolved site identity by querying a
+  table its process cannot see, which would have failed on the island in a way that reads as a
+  config error rather than a design error.
+- **The redeeming half, recorded because it is the useful part.** Being forced apart made the
+  design better: with two databases the receiver can no longer resolve identity, so it stores what
+  it is handed and the CLUSTER resolves the token at ingest, against a table the island cannot see.
+  A forged token therefore can never reach a mailbox. That is strictly stronger than the version I
+  had submitted, and I would not have got there by reasoning — only by being wrong in a way that
+  closed the easy door.
+
 - **2026-09-03, `inline_guide_imagery`. I published "to ask what a model was told, read the agent config" — naming the second-best instrument and implicitly denying the best one exists.** Chasing why five sections with five distinct subjects wrote the same thing, I proved it by enumerating `current_section.*` references in the live `page-content-writer` `agent_definitions` row (13 paths, `subject` not among them). That is sound and it is inferential: it shows what the template *references*, not what was *sent*. **`llm_call_log.prompt_rendered` stores the actual rendered prompt for every call**, and I neither used nor mentioned it — in the same breath as correcting myself for reading a step's output instead of its prompt, which is how I convinced myself I had found the right artefact. The `dartsonline_traffic` lane used it on the same page and got a decisive result where mine was an argument: `md5(prompt_rendered)` grouped by `orchestration_id` is **byte-identical across four of the five same-component sections**, so four sections given four different subjects provably received ONE prompt. **What caught it:** that lane reporting their own run rather than my re-checking anything. **The cheap check I skipped:** `\d llm_call_log` — one command, and the column is called `prompt_rendered`. **The transferable half:** when a claim is about what a model saw, look for a table that stores what was sent before reasoning from the template; and when you have just corrected yourself about an artefact, that is the moment to ask whether the replacement is merely *better* rather than *right*. Corrected in `memory/measurement-discipline-index.md` and in the lane NOTES §19.
 
 ## 2026-09-03 — I claimed 52 pages were "permanently blocked and can never recover on their own", committed it, and put a surgery decision to the owner on it. They were draining automatically the whole time.
