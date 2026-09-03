@@ -159,3 +159,114 @@ than building a second archive.
 - `bugs_open/443` — the adjacent class: pages born with a layout in the cache and
   nothing in the authority (`create_blog_posts`).
 - `LANDMINES.md`, "`pages.sections` is a materialised CACHE" — the standing entry.
+
+---
+
+## 7. Session 2 (lane `bugfix_469_drift_closer`), 2026-09-03 evening — what changed
+
+Picked up by a session that read this file's "OPEN, unowned" and confirmed the split with
+the `427` session directly: **this lane owns §5.2 (the closer); `427` keeps RFC_064 and the
+write path.** Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_469_drift_closer/`.
+
+### 7.1 The bug is still valid, and the backlog is currently empty [MEASURED 2026-09-03]
+
+Fleet-wide drift is **zero**, with demand controls: **398** tier-1 page comparisons all
+equal, **34** tier-2 aspect comparisons all equal. All six `section_source_drift` items are
+`complete`. The zero is **conservative** — the raw comparison omits the locked-row merge,
+which can only turn a mismatch into agreement, never the reverse, so a raw zero implies a
+merged zero.
+
+⚠ **Do not read "six items complete" as health** (the `427` lane's caveat, and it is right):
+closing them freed their dedup keys, so a still-broken page re-files on its next sweep.
+Until each of those six sites has had a discovery pass, part of the quiet is "not yet
+re-asked". This does **not** weaken the store measurement above, which never consults the
+item table.
+
+So: **the damage is historical, the safety net is still missing.** That is what §5.2 fixes.
+
+### 7.2 §5.1 is ANSWERED on the fact, and BLOCKED on the execution
+
+The `robot hands` lane replied with provenance this file did not have:
+`docs/agent_docs/docs024_key_docs_latest/robot_hands/SQL_2026-07-24_r9_gripper_catalog_real_grid.sql`
+("R9") put `gripper-spec-sheet` on `gripper-catalog` at position 3 on 2026-07-24,
+deliberately **instead of** `product-grid` — whose empty e-commerce fields would "invite
+fabrication", where spec cards are "the honest fit". Framed in that lane's HANDOFF as an
+owner call. No later reversal exists.
+
+**So it is damage, not an intended removal.** §5.1's first question is closed.
+
+The repair is written and **held**: `docs/agent_docs/sql_for_agents/760_restore_gripper_spec_sheet_to_gripper_catalog_HOLD.sql`
+(+ `_ROLLBACK`), dry-run proven against the live database in a rolled-back transaction, with
+an induced failure showing the pre-check actually aborts. It is held on **three** owner
+questions, and the third would moot it:
+
+1. **RFC_064 §7 q2.** The page is `built_from_plan_version = <current plan>` and
+   `build_status = 'deployed'`, so `decideEmit` returns `skip_built` **before** comparing any
+   section list. A corrected plan would sit there and **never render**. This is where q2 stops
+   being about provenance and becomes load-bearing: without the ruling the repair does not
+   merely lose history, *it does not happen*.
+2. **Does the build path reach an archived page at all?** Unknown; not assumed either way.
+3. **Should the page be serving at all?** See 7.3.
+
+Migration `750`'s template does **not** transfer: rename vs INSERT-with-shift; an
+already-correct page vs both stores wrong; **1** `site_plans` row vs **5**; artefact unchanged
+vs a rebuild required.
+
+### 7.3 The page is `archived` — and it serves 200
+
+```
+./scripts/probe-page-url.sh robot-hands.com gripper-catalog gripper-catalog-index
+gripper-catalog        /gripper-catalog.html        200 SERVING
+gripper-catalog-index  /gripper-catalog/index.html  200 SERVING
+controls: invented=404 (want non-200)  sibling=200 (want 200)
+```
+
+`pages.status = 'archived'`, last built **2026-08-11**, while every *active* page on that site
+rebuilt on 2026-09-03. `gripper-catalog-index` is **not** a replacement — it carries a single
+`news-listing`.
+
+This was **already known** and I initially overclaimed it as new: `bugs_closed/359` names this
+page by exact byte count on 2026-08-26, and its detector (migration `648`) fired. What nobody
+had connected is that **the page carrying 469's composition loss is the same page carrying an
+un-triaged serving flag**. Nine `archived_page_still_serving` items exist fleet-wide — eight
+filed 2026-08-26/27 in per-site pairs, one on **2026-09-02** — and **all nine are still
+`detected`**, none triaged, `handler_agent = ''`.
+
+**Answering q1 alone implicitly un-retires this page.** The three questions go to the owner
+together or the serving flag stays orphaned even after a composition fix lands.
+
+### 7.4 A correction to this file's implied premise: the BYTES are not lost
+
+§5.1 leaves the restore decision to a human partly on the implication that the content is
+gone. **It is not.** Migration `357`'s trigger pair archives every deleted `page_components`
+row with `slot_name`, `position` and `rendered_html` — `SELECT count(*) FROM
+page_component_history WHERE slot_name ILIKE '%gripper-spec%'` returns **24** (on
+`product-detail` and `gripper-detail`, ~12.4 KB each; it was never lost from those pages).
+
+**What is NOT recoverable is the LIST** — that the page had five sections in that order —
+because `DELETE`+`INSERT` is the rebuild lifecycle, so the archive holds a delete for *every*
+section on *every* build, and "which one was dropped" is only derivable by diffing consecutive
+builds. That distinction is what the closer's receipt has to carry, and it is why this lane
+points at the existing rows rather than building a second archive. (I was one query from
+proposing exactly that; logged in `WRONG_CALLS.md`.)
+
+### 7.5 The class, measured — and a distinction that will mislead a backlog sweep
+
+71 discovery checks; **19** can retract via `CheckResult.Resolved`; **18** file flag-only
+items and **10 of those have no closer at all**. Handler-less open items fleet-wide include
+`needs_section_data` at **172 days**.
+
+But "an old flag-only item" is **not one defect**, and the two shapes want opposite remedies:
+
+| | `archived_page_still_serving` | `section_source_drift` (this bug) |
+|---|---|---|
+| has a `Resolved` arm | **yes** | **no** |
+| why still open | the finding is **still true** | nothing could ever close it |
+| what it says today | accurate | describes a state that **no longer exists** |
+| blocking anything? | no | **yes** — the dedup key |
+| remedy | triage / routing | a closer that **cannot ratify the loss it observed** |
+
+A check with a working arm and a real unfixed defect produces the same backlog row as a check
+with no arm and a defect that completed weeks ago. **The discriminator is whether the item's
+own predicate still holds** — which nothing re-derives today, and which the closer must
+re-derive before it touches anything.
