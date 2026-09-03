@@ -5256,3 +5256,36 @@ that the rendering, not the template, is the thing to measure.
 ⚠ **The general check, which is the transferable part:** before dispatching a verification run, look
 at what else is queued **ahead of it on the same page**. A rerender in front of an acceptance run
 invalidates the fence it is about to be judged by, and neither item knows about the other.
+
+### ⚠ CORRECTION, same day: the id rewriting was the instance-scope SWEEP, not migration 701
+
+Everything above in the 2026-09-03 entries attributes the instance-scoped templates to `701`. **That
+is wrong, and I had written it into six documents before catching it** — this file, the 09-03
+handoff, `bugs_open/441`'s update, the CONTRIB into `bugs_closed/357`, the CONTRIB handing imagery to
+the 114 lane, and the owner's README.
+
+**What actually happened, measured:**
+
+| when | actor | what |
+|---|---|---|
+| 09-02 19:03 / 21:06 | **701** | adopted the tool bodies **verbatim — BARE ids**, md5-verified. Exactly as designed. |
+| 09-03 **07:40:15** | **instance-scope sweep** | filed **11 `instance_scope_conversion` items**, each *"uses getElementById without `{{.InstanceID}}`"* — it found them unconverted, which they were |
+| 09-03 **08:36–08:46** | those items | **rewrote the templates.** Every 701-born row's `content_components.updated_at` moves off its `created_at` of `2026-09-02 21:06:35` into this window |
+| 09-03 08:39–08:46 | each conversion | filed a `page_rerender`, `reason: template_changed` |
+| 09-03 08:46–08:49 | 5 of those | ran and published the new ids. **6 are still queued.** |
+
+**The consequence I described is unchanged** — half-converted estate, fences broken by a render,
+`441` as a live generator rather than a backlog. **Only the cause moves, and it moves somewhere more
+useful:** three actions, each correct in isolation — adopt a body verbatim, convert an unconverted
+component (the sweep's whole job, `bugs_closed/283`'s flow half), publish the result — **composed
+into broken verification that none of the three could see.** That is a sequence every future
+adoption will meet, which makes it predictable rather than freak.
+
+⚠ **It also means I told the 357 lane their "bytes unchanged, md5-verified" guarantee had expired.
+It had not.** Retracted in their file, in full, with the evidence.
+
+**What caught it:** looking at *why* the eight acceptance runs were queued, which surfaced the site's
+completed work items — and `instance_scope_conversion` rows sitting there at 08:45. **They were
+visible the whole time and I never looked.** I inferred the cause from which migration had run most
+recently. That is coincidence in time read as mechanism, and it is the second time today I have done
+it (see the fleet-outage near-miss above). Both logged in `WRONG_CALLS.md`.

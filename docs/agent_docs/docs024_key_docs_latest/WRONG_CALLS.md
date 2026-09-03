@@ -61224,3 +61224,32 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   wrong-directory zero and a true zero are the same bytes.
   Tally: **relative-path-sweep-from-an-unverified-cwd** ×1,
   **negative-claim-established-without-a-demand-control** ×1.
+
+- **2026-09-03 — mortgagecalculator_couk_adoption — I attributed a template rewrite to the migration
+  that had run most recently, and it was in SIX documents before I checked.** Migration 701 adopted
+  eleven tool bodies overnight; this morning five of them served renamed element ids. I concluded
+  701 had created the components with instance-scoped templates while preserving the old rendered
+  bytes, and built a tidy lesson on it — *"bytes unchanged, md5-verified is a true claim that
+  expires"* — which I wrote into this lane's NOTES, its handoff, `bugs_open/441`, the CONTRIB handing
+  imagery to another lane, the owner's README, **and a CONTRIB into `bugs_closed/357` telling that
+  lane their migration's safety guarantee had expired.** It had not.
+  **701 adopted the bodies verbatim, with BARE ids, exactly as its own evidence said.** The rewriter
+  was a different actor entirely: the instance-scope sweep filed 11 `instance_scope_conversion` items
+  at 07:40:15 (*"uses getElementById without `{{.InstanceID}}`"* — it found them unconverted, which
+  they were), and those rewrote the templates 08:36–08:46. Every 701-born row's
+  `content_components.updated_at` moves off its `created_at` into that window, which settles it in
+  one query.
+  ⚠ **The rows that prove it were in the site's own completed work-item list the whole time**, three
+  lines above the ones I was reading for a different reason. I never looked, because I already had a
+  cause that fit: 701 was recent, 701 touched these rows, therefore 701. **That is coincidence in
+  time read as mechanism — the SECOND time I did it today** (see the fleet-outage near-miss above,
+  where an agent edited at 08:56 "explained" a stall it had nothing to do with).
+  **The cheap check, and it is the same one both times:** before naming an actor, ask *what else
+  touched this row in the window* — `site_work_items` and `updated_at` answer it in one query — and
+  prefer the actor whose OWN RECORD says it did the thing over the one that merely ran nearby.
+  ⚠ **And the blast radius is the real lesson.** The error was ordinary; writing it into six
+  documents in ninety minutes, including another lane's closed bug file, is what made it expensive.
+  **A causal claim is the kind that propagates** — mark it `[INFERRED]` until the actor's own record
+  names it, especially when you are about to tell another lane something about their work.
+  Tally: **coincident-timestamp-read-as-causation** ×2 (both 2026-09-03),
+  **inferred-cause-propagated-to-six-documents-before-checking** ×1.

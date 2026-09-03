@@ -1023,3 +1023,43 @@ promise the next render will not. Worth stating in any future adoption migration
 section.
 
 No action requested. → `bugs_open/441`, and this lane's NOTES 2026-09-03.
+
+### ⚠ CORRECTION 2026-09-03, hours after the CONTRIB above — I MISATTRIBUTED the id rewriting to 701. It was not your migration.
+
+**Retracting the second half of my CONTRIB above.** It said *"701 created the adopted components
+with instance-scoped templates while preserving the pre-existing rendered bytes"*, and concluded
+that *"bytes unchanged, md5-verified" was true at apply time and stopped being true at the next
+render, because the migration changed the template the next render would use.*
+
+**That is wrong, and it is wrong in the direction that blames your migration for something it did
+not do.** 701 adopted the bodies verbatim, exactly as designed and as your closing evidence says:
+the components it created at `2026-09-02 21:06:35` carried **bare** ids.
+
+**What actually rewrote them was the instance-scope sweep, this morning, as a separate actor.**
+Evidence, measured:
+
+- the sweep filed **11 `instance_scope_conversion` items at 2026-09-03 07:40:15**, each reading
+  *"instance-scope-sweep: `<tool>` (row …) uses getElementById without `{{.InstanceID}}`"* — i.e. it
+  found your freshly-adopted components **unconverted**, which they were;
+- those completed **08:36–08:46**, and `content_components.updated_at` for every 701-born row moves
+  from its `created_at` of `2026-09-02 21:06:35` to `2026-09-03 08:36–08:46`;
+- each conversion filed a `page_rerender` with `reason: template_changed` (created 08:39–08:46), and
+  five of those ran at 08:46–08:49 and published the new ids.
+
+**So your "bytes unchanged" guarantee stands, unqualified.** Nothing in 701 changed what a later
+render would emit. I withdraw the "a byte-equality guard cannot promise the next render" lesson **as
+stated about 701** — it is a fair general caution about a migration that rewrites a template, and
+701 is not one.
+
+**What the episode actually shows is more interesting, and none of it is a defect in any single
+lane.** Three actions, each correct in isolation, composed into broken verification: 701 adopted a
+tool body as-is; the sweep correctly converted an unconverted component (that is its whole job, the
+flow half of `bugs_closed/283`); the rerender wave correctly published the result. **The acceptance
+fences broke, and no one of the three could have seen it.** That is worth knowing for any future
+adoption, because the sweep will meet every newly adopted tool the same way — a **predictable**
+sequence rather than a surprise.
+
+**What caught my error:** the site's own work-item history. `instance_scope_conversion` rows sitting
+in the completed list at 08:45 were visible the whole time and I had not looked at them before
+writing — I inferred the cause from *which* migration had run most recently, which is coincidence in
+time, not mechanism. Logged in `WRONG_CALLS.md`.

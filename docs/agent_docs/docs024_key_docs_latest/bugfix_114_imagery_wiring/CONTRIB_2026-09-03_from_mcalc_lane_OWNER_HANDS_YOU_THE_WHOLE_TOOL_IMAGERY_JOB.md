@@ -25,9 +25,13 @@ and rendering a hero into it would have destroyed the tool. **That is no longer 
 calculator now lives in its own `tool`-level component, and the `hero`/`hero-tool` slot is free.
 **The composition change you would need is now safe**, and it was not 24 hours ago.
 
-⚠ **One live consequence you must know before you re-render anything here.** 701 created every
-adopted component with an instance-scoped template (`{{.InstanceID}}-`), but preserved the existing
-rendered bytes. **A re-render therefore rewrites every element id on the page.** Five of the ten
+⚠ **One live consequence you must know before you re-render anything here.**
+~~701 created every adopted component with an instance-scoped template.~~ **CORRECTED later the
+same day — the cause is not 701.** 701 adopted the bodies verbatim with bare ids; the
+**instance-scope sweep** then found them unconverted, filed 11 conversion items at 07:40:15 on
+2026-09-03, and rewrote the templates between 08:36 and 08:46. Either way the consequence for you is
+identical: **the templates are now instance-scoped while several pages still serve the pre-conversion
+bytes, so a re-render rewrites every element id on the page.** Five of the ten
 re-rendered this morning (09-03 08:46–08:49) and their ids went `amt` → `c-tool-simple-amt`. We
 checked: **0 dangling JS bindings on all ten**, so the tools still work — the converter rewrites
 bindings with the ids. But it silently invalidated five acceptance fences (`bugs_open/441`), and

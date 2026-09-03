@@ -82,7 +82,26 @@ sdlt-ftb-relief-cap=625000 stamp-duty` still reports 1 MISMATCH and **exits 1**.
 ## 4. ⚠ THE LIVE HAZARD — read before you re-render anything here
 
 `701` created every adopted component with an **instance-scoped template** (`{{.InstanceID}}-`) while
-preserving the old rendered bytes. Those two agree only until something renders. This morning's
+preserving the old rendered bytes.
+
+> **⚠ CORRECTED 2026-09-03 (later the same day): the id rewriting was NOT 701.** This section says
+> 701 created the adopted components with instance-scoped templates. It did not — 701 adopted the
+> bodies verbatim, with **bare** ids, exactly as its own md5 evidence says. The rewriting was a
+> **separate actor**: the instance-scope sweep filed 11 `instance_scope_conversion` items at
+> **07:40:15** on 2026-09-03 (*"uses getElementById without `{{.InstanceID}}`"* — it found them
+> unconverted, which they were), those completed **08:36–08:46**, and every 701-born row's
+> `content_components.updated_at` moves from its `created_at` of `2026-09-02 21:06:35` to that
+> window. Each conversion then filed a `page_rerender` (`reason: template_changed`), and five ran at
+> 08:46–08:49.
+> **Everything below about the CONSEQUENCE stands** — half-converted estate, fences broken by a
+> render, 441 as a live generator. Only the cause changes, and it changes for the better: **three
+> actions, each correct in isolation** (adopt verbatim → convert an unconverted component → publish
+> it), composed into broken verification that none of them could see. That is a predictable sequence
+> every future adoption will meet, not a defect in anyone's migration.
+> **What caught it:** the site's own completed work items, which were visible all along. I inferred
+> cause from which migration had run most recently — coincidence in time, not mechanism.
+
+ Those two agree only until something renders. This morning's
 rebuild wave re-rendered **5 of 10** at 08:46–08:49Z and their ids changed (`amt` →
 `c-tool-simple-amt`).
 

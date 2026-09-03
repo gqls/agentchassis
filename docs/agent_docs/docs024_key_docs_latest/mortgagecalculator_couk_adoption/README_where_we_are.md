@@ -1802,3 +1802,46 @@ the migration landed**. There is now. It is their call.
 
 **Nothing is waiting on you.** The copy-quality question from last week still needs an answer when
 you have a moment, but nothing is blocked on it.
+
+---
+
+## 2026-09-03, later — I got the cause wrong this morning, and I want to correct it plainly
+
+**The correction.** In my note earlier today I told you the overnight migration had given each
+calculator a new internal template that renames every element, and that this was why five
+calculators changed and five did not. **The migration did not do that.** It copied each calculator
+across exactly as it was, which is what its own checks said and what its team claimed. I checked
+which migration had run most recently and assumed it was responsible. That is a guess dressed as a
+finding.
+
+**What actually did it** was a separate automatic sweep, which runs across the whole estate looking
+for interactive tools whose internal element names could clash if two appeared on one page. At
+twenty to eight this morning it found the eleven freshly-copied calculators, correctly noticed they
+had not been through that renaming, and converted them between about half past eight and a quarter
+to nine. Each conversion then asked for the page to be rebuilt, and five of those rebuilds ran.
+
+**Why I am making a point of this rather than quietly fixing it.** I had written the wrong version
+into six different documents, including a note to the migration's own team telling them their safety
+check had expired. It had not. I have retracted that in full, in their file, with the evidence.
+Getting a cause wrong is ordinary; letting it spread to five other places and to another team's
+record is the part worth flagging.
+
+**And the true version is more useful than mine was.** Three separate automatic actions, each
+completely correct on its own — copy the calculator across as-is, rename elements that needed
+renaming, publish the result — combined to switch off the testing on those calculators. **No one did
+anything wrong, and nothing in the system could have seen it coming**, because each step only knows
+about its own job. That will happen again on the next site that gets the same treatment, which makes
+it predictable rather than freakish, and that is worth far more than a culprit.
+
+**Where things stand right now.** I caught something before it did damage: six page rebuilds are
+queued, and they target the five calculators that have not yet been converted. When they run, three
+of the tests I repaired this morning stop matching their pages — and I had test runs queued directly
+behind those rebuilds, which would have recorded three failures against calculators that work
+perfectly. **I have held those three back.** The order is: let the rebuilds happen, re-point the
+three tests at what the pages actually serve, then run them.
+
+**The five safe test runs are still waiting in the queue.** Not stuck — waiting. This site was last
+served by the job scheduler at ten to nine this morning, and there are eighteen sites sharing it. I
+also spent a while convinced the whole testing system had broken estate-wide, because the numbers
+looked exactly like that; it had not, and I have written down what talked me out of it. **Nothing is
+broken and nothing needs your attention** — I will report the results when the queue reaches us.
