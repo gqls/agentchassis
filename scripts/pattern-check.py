@@ -1879,9 +1879,28 @@ def _dates_its_claim(text):
     """
     if VERSION_TAG_RE.search(text):
         return True
-    for tok in SHA_TOKEN_RE.findall(text):
-        r = subprocess.run(["git", "cat-file", "-e", f"{tok}^{{commit}}"],
-                           capture_output=True, text=True)
+    # ⚠ HARDENED after the council round (corr 37b0bec4, guardian, medium). Two
+    # bounds, and the reason for the first is NOT the one the objection gave.
+    #
+    # The objection was that a throw here could abort the shared pre-commit run
+    # "fleet-wide, every session". It cannot: `.githooks/pre-commit:49` invokes
+    # this script as `pattern-check.py || true`, so a crash never blocks a commit
+    # — the seat's own `missing` block says it never confirmed that, and it was
+    # inferred. What a throw DOES do is abort this script mid-run, so the other
+    # 23 checks produce nothing for that commit and report it as silence. That is
+    # a real degradation and worth the four lines, on the corrected rationale.
+    #
+    # The token cap is the second bound (same round, low): one subprocess per
+    # hex-looking token is unbounded in principle on a status line quoting many
+    # correlation ids. Eight is far above the observed maximum (2) and turns an
+    # unbounded spawn count into a constant. Exceeding it fails OPEN — the claim
+    # reads as undated and the check fires, which is the safe direction.
+    for tok in SHA_TOKEN_RE.findall(text)[:8]:
+        try:
+            r = subprocess.run(["git", "cat-file", "-e", f"{tok}^{{commit}}"],
+                               capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError):
+            continue            # no git, or it hung: treat as "not a commit", never throw
         if r.returncode == 0:
             return True
     return False
