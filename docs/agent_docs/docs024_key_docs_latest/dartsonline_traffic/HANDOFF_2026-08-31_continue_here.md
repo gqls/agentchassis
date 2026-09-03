@@ -267,9 +267,28 @@ a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants e
 > > should contain."* Every article created since — **14** of them, the four from 08-20 plus ten
 > > tool guides — has no plan rows, which is simply the estate default.
 > >
-> > **The real mechanism:** `create_blog_posts_action.go:183` encodes the canonical article layout
-> > `["hero","article-body","call-to-action"]` **in the action**, and builds the page from it
-> > without writing `site_plan_sections`. So the layout is real and the plan is empty.
+> > **The real mechanism — READ FIRST-HAND 2026-09-03, having first relayed it from a five-week-old
+> > doc comment and stated it too loosely.** In `platform/orchestration/actions/create_blog_posts_action.go`:
+> > `sections := post.Sections; if len(sections) == 0 { sections = []string{"hero","article-body","call-to-action"} }`,
+> > and that list is marshalled into the `INSERT INTO pages (… sections …)`. **The string
+> > `site_plan_sections` does not appear anywhere in the file.**
+> >
+> > Three corrections to how I first put it:
+> > 1. **Cite the literal, not the line.** The `SQL_2026-07-29d` header cites `:183`; that was right
+> >    on 07-29 and the assignment is at **:212** today — 29 lines of drift in five weeks. §6's own
+> >    rule, which I broke while quoting a file I had not opened.
+> > 2. **The triple is a FALLBACK, not a hardcoded layout.** The caller may supply `post.Sections`;
+> >    the three-section default applies only when it supplies none.
+> > 3. **The load-bearing half is the WRITE TARGET, and it is what I had inferred rather than
+> >    checked.** The action writes into **`pages.sections`** — tier 3, which
+> >    `load_page_sections_from_spec_action.go` documents as the *materialised cache* — and never
+> >    into **`site_plan_sections`**, tier 1, *the authority*. Articles are therefore born with a
+> >    layout in the cache and nothing in the authority.
+> >
+> > **⚠ The consequence that matters for the fix, and it only becomes visible once (2) and (3) are
+> > separated: "just pass richer `post.Sections`" does NOT unlock per-section binding.** It would
+> > change what the page is composed of and still leave the plan empty, so the ordinal has nothing
+> > to name and the binding stands down exactly as before. **Any fix has to write the authority.**
 > >
 > > **Why this matters far beyond tidiness: every mechanism keyed on the plan is structurally
 > > unavailable to those pages.** Per-section imagery binding degrades to page-wide when there is
