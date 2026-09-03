@@ -63728,3 +63728,107 @@ as applying it; what applies it is looking at the rows.
   you have not opened** — the ledger's value is that its rows are true.
 - **Cost.** None — caught before commit. Three false citations would otherwise have entered a bug
   file, a council submission and this ledger.
+
+## 2026-09-03 — `static_site_form_endpoint`: a census one layer above the repair, and a search whose vocabulary could not match what exists
+
+Two wrong calls in one document — this lane's own pre-plan of 2026-09-02, caught the next day by
+the session picking the thread up. Both were marked, dated and had their queries written out. That
+is the point of recording them.
+
+- **Claim (a).** *"22 components fleet-wide carry `form_action = '#contact'`, and it is the ONLY
+  value any of them has… **Every form the estate has ever built is a decoration.**"* Query given in
+  full, `[MEASURED 2026-09-02]`.
+- **What actually happened.** The query read `page_components.content_data` — the value the content
+  LLM *wrote*. The render seam rewrites it on the way out: `deliverableFormAction`
+  (`component_library.go:1495`) substitutes `mailto:<sites.email>`, the pattern the owner chose on
+  2026-07-17, and has done since `cc2cff79b` (2026-07-24). Re-measured at **both** layers on
+  2026-09-03: `content_data` holds `#contact` ×27, but **21 of them serve a real `mailto:`** and
+  only **6 components on 6 sites** still serve `#contact` — precisely the address-less sites the
+  seam refuses to guess for. The class is real and roughly a quarter of the claimed size, and the
+  true problem is different in kind: not "forms deliver nowhere" but "forms deliver by `mailto:`,
+  which cannot carry a structured payload, cannot route to a changeable recipient, and cannot be
+  measured."
+- **Claim (b).** *"No form-handling machinery in the platform… No form endpoint in the Go tree."*
+  Search terms listed: `form_submission`, `FormSubmission`, `contact_submission`, `/api/contact`,
+  `form-submit`.
+- **What actually happened.** `platform/httpguard` (2026-07-28) is a **form intake gate** —
+  `CheckIntake(honeypot, elapsedMillis, minFill)` plus a banded limiter and a proxy-trust model —
+  and is the whole of the pre-plan's D4. `platform/mailer` (2026-07-28) is D2, and its own header
+  names *"contact forms after that"* as its third intended caller. `tools-api` imports both and
+  serves a **live public** endpoint (`tools.apis.uk/api/v1/tools/*`, probed with controls) whose
+  `GripperSubmitHandler` is already a browser-facing form intake. Not one of the five search terms
+  can match any of them.
+- **What caught it.** (a) Re-running the pre-plan's own query against `rendered_html` as well as
+  `content_data` before quoting the figure. (b) Grepping `OPEN_THREADS_RESTART_LIST.md` for the
+  *workstream* rather than for a symbol, which surfaced the consolidation programme's
+  *"build `platform/mailer` (item A2), then `platform/httpguard` (A3)"* — both since landed.
+- **The cheap checks.**
+  1. **For any claim about what a visitor gets, query the SERVED column, and quote that one.** The
+     estate already knows "the seed is not the system"; this is its render-path twin —
+     `content_data` is to `rendered_html` what a seed is to `agent_definitions`. Whenever a
+     sanitiser, defaulter or repair sits between the two, a census on the authored value **cannot
+     come out any other way**, so it fails the disconfirmability rule while passing the marker
+     rule in full.
+  2. **A symbol search cannot find a package whose name you did not guess — so search the estate's
+     own index of what it is building, not just its identifiers.** `OPEN_THREADS_RESTART_LIST.md`,
+     `features_open/`, and the concept register each answer "does this exist?" in a vocabulary
+     nobody had to guess. An absence established only by grep is an absence of *those strings*.
+- **Cost.** None so far — caught before any code, and before the pre-plan was extended. Had it not
+  been, the lane would have rebuilt `platform/httpguard` and `platform/mailer`, stood up a second
+  public endpoint beside a live one, and reversed the owner's 2026-07-17 `mailto:` ruling on 21
+  working forms in the belief they were dead.
+
+- **2026-09-03, `inline_guide_imagery`. I published "to ask what a model was told, read the agent config" — naming the second-best instrument and implicitly denying the best one exists.** Chasing why five sections with five distinct subjects wrote the same thing, I proved it by enumerating `current_section.*` references in the live `page-content-writer` `agent_definitions` row (13 paths, `subject` not among them). That is sound and it is inferential: it shows what the template *references*, not what was *sent*. **`llm_call_log.prompt_rendered` stores the actual rendered prompt for every call**, and I neither used nor mentioned it — in the same breath as correcting myself for reading a step's output instead of its prompt, which is how I convinced myself I had found the right artefact. The `dartsonline_traffic` lane used it on the same page and got a decisive result where mine was an argument: `md5(prompt_rendered)` grouped by `orchestration_id` is **byte-identical across four of the five same-component sections**, so four sections given four different subjects provably received ONE prompt. **What caught it:** that lane reporting their own run rather than my re-checking anything. **The cheap check I skipped:** `\d llm_call_log` — one command, and the column is called `prompt_rendered`. **The transferable half:** when a claim is about what a model saw, look for a table that stores what was sent before reasoning from the template; and when you have just corrected yourself about an artefact, that is the moment to ask whether the replacement is merely *better* rather than *right*. Corrected in `memory/measurement-discipline-index.md` and in the lane NOTES §19.
+
+## 2026-09-03 — I claimed 52 pages were "permanently blocked and can never recover on their own", committed it, and put a surgery decision to the owner on it. They were draining automatically the whole time.
+
+- **The claim.** Verifying `bugs_open/437`'s fix, I censused the damage the fix does not reach
+  and wrote, in the bug file, NOTES, README, a new SUMMARY and a new HANDOFF: *"73 keys ever
+  carried this error. 52 (71%) are permanently blocked by 251 rows in status `unresolved` …
+  This does not decay … those stay open, and stay blocking, indefinitely."* I then asked the
+  owner to decide whether to clear 251 rows across four live sites.
+- **What was true.** The counts. 251 rows / 52 keys was correct at 14:00Z, and the re-mint
+  window table beside it was correct too.
+- **What was false.** The mechanism, and therefore the entire consequence. Those rows blocked
+  **nothing**. By 17:08Z, **20 of the 52 keys (76 rows) had closed themselves** —
+  `resolution_path='auto:revalidated'`, cv1.co.uk and remortgagecalculator.uk fully drained,
+  at 16:08Z, with no human action. The estate already has a working automatic repair path for
+  exactly these items (`revalidate_unbuilt_link.go`, drained via
+  `revalidate_review_queue_action.go:324`): once the link's target page builds, it closes the
+  item. The fix made the targets buildable, and the drain did the rest.
+- **The error, precisely.** I carried the bug file's own §Unsticking framing — *"an
+  `unresolved` row DOES block re-minting"*, correctly cited to `loadOpenPageItems`
+  (`reconcile_site_plan_action.go:751-756`) — across to rows of a **different item type**
+  without checking. `loadOpenPageItems` governs exactly three types:
+  `needs_page`, `owned_page_review`, `page_build_failed`. **Every one of the rows I counted is
+  `unbuilt_internal_link`**, which that function never looks at. The mechanism that governs
+  *it* is `idx_swi_dedup`, whose partial predicate lists `'unresolved'` among the statuses
+  that **free** the slot. So the status I called permanently blocking is, for these rows,
+  explicitly non-blocking — in an index definition one query away.
+- **Why it read as solid.** Every ingredient was genuine: a real citation to real code, a
+  correctly-scoped census, a figure that matched on re-measurement, and an inherited framing
+  from the bug file that had been right in its own context. The mechanism and the population
+  were each verified — but never against **each other**. Nothing in the census output showed
+  the item type, so the mismatch had nowhere to surface.
+- **What caught it.** The owner choosing the **canary** option — "clear one site first" — over
+  "clear all four". Acting on one site meant reading that site's rows before touching them,
+  and the first `SELECT` showed cv1's blocked set had already emptied. Had the answer been
+  "all four in one go", I would have run the surgery: pointless at best, and on 2 of 4 sites it
+  would have been surgery on rows that had already resolved themselves.
+- **The cheap check.** **Project `item_type` in the census.** One column. All 175 rows are a
+  single type, and that type is absent from the three-item list in the function I was citing —
+  the contradiction would have been on screen in the same output as the number. Generally:
+  **when you inherit a mechanism claim and apply it to a population you selected yourself,
+  the join between them is the unchecked step.** A citation can be real, and a census can be
+  right, and the sentence built from both still false.
+- **The second-order lesson.** I wrote "**this does not decay**" as the emphatic contrast to a
+  table I had *correctly* warned decays. It was the one clause in the paragraph with no
+  measurement behind it — an inference stated in the same voice as the findings either side of
+  it, which is exactly the failure mode `MEMORY[a-report-is-not-a-measurement]` describes. The
+  disconfirming observation was cheap and obvious in hindsight: **re-run the census.** I had
+  run it twice three hours apart and read the second as confirmation, because I compared the
+  fleet-wide total and not the per-site split.
+- **Cost.** Five documents committed with the false claim (`3c80b97d5`), corrected in
+  `HEAD` the same session; one owner decision taken on a false premise and withdrawn before
+  any row was touched. No data changed. **Nothing was done that had to be undone** — the canary
+  is the only reason that sentence can be written.
