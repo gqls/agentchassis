@@ -207,3 +207,83 @@ lower-threshold case, both real, neither observable today.
 Updated in place with today's dated figures. What is left there is a **coverage floor**, not
 a writing failure — and whether a near-empty page should carry a description at all is an
 owner question, not a backlog.
+
+---
+
+## 2026-09-03 (later) — `bugs_open/442`, the unowned item the handoff left: candidate 3 shipped, and two things the bug file had wrong or missing
+
+Picked up 442 because §5 of `HANDOFF_2026-09-03_continue_here.md` names it as the lane's only
+unowned leftover. `scripts/who-owns.py 442` returns this lane, so there was nobody to collide with.
+
+### What shipped
+Migration `728_meta_description_backfill_result_message_names_the_copy_gates.sql` (+ `_ROLLBACK`),
+commit `5a8728db9`, **applied and recorded**, council `2ed33c57-b49a-4b1b-ad1e-7e23ce6c477a`
+submitted (`Council-Submitted:`, verdict owed a read). Config-only: no image, no roll.
+
+The old `result_message` told a reader that a refusal *"carries a named reason (empty_candidate /
+candidate_looks_internal / candidate_too_long / already_has_description)"*. Seven exist. The three
+missing are the copy-gate ones. Verified at the live row afterwards, independently of the
+migration's own verify block, with a must-be-absent control (`THIS_REASON_DOES_NOT_EXIST` → `f`).
+
+I did **not** just extend the list to seven. §4 of the bug file points out that these lists rot by
+ADDITION and that the 2026-08-22 date-your-counts ruling has no equivalent for enumerations — so a
+seven-item list is the same defect one birthday later. The new message names the seven, splits them
+by what they ask of a reader, and then says it is a copy, where the authoritative set lives, and
+that finding it takes two greps.
+
+### MISSTEP 6 — a mutation that "should have failed" passed, and my first reading was wrong
+Rehearsing 728 I mutated the `UPDATE` to also write `task_workflow`, expected the positive control
+to abort, and it committed. I briefly took that as the control being broken. It is not: the control
+compares `default_config`, which is the only column the `UPDATE` writes. The mutation was outside
+what the control claims. Corrected mutation (a second `jsonb_set` **inside** `default_config`)
+aborted at once. The trap worth naming is the next move I nearly made — widening the control until
+the out-of-scope mutation fails, which would have the migration assert things its own `UPDATE`
+cannot cause. `WRONG_CALLS.md` row written.
+
+### MISSTEP 7 — and this one was in the bug file, in my own hand, for a day
+442 §2 said `orchestration_states` *"returns zero rows carrying a `save_result.reason` fleet-wide —
+the rows age out, so even the field that does exist is not readable after the fact"*, and §6 turned
+that into *"do not verify at `orchestration_states`"*.
+
+The zero is real. The reason is invented. `[MEASURED 2026-09-03]` the table holds 9,277 rows over a
+**~26-hour** window (oldest `2026-09-02 09:41`); five backfiller runs survive in it; **all five
+carry a `save_result`** — 5/5 `updated:true`, **0/5** carrying a `reason`. The action only writes
+`reason` when it refuses, so a window with no refusal returns zero either way. **Two sufficient
+causes, one measured.** The predicate NAMES the event, so it cannot separate "no record" from "no
+event"; the demand control is one column — is `save_result` present at all.
+
+So §6 was telling the next session not to look in the only place the evidence is. Corrected in
+§9b; landmine written, footprinted on `orchestration_states`/`save_result`/`__step_error`, because
+there is no tell — both answers are `(0 rows)` and the retention story is the more interesting one,
+so it is the one that gets written down.
+
+### The finding that resizes candidate 1 — there are TWO silent paths, not one
+The writer step's own prompt says, live and verbatim: *"omit that page entirely rather than
+inventing one. Returning fewer entries than you were given is a correct answer."* And nothing
+compares `pages_missing_meta.count` with `jsonb_array_length(written.result.descriptions)` —
+`check_has_pages` reads one, `backfill_loop` reads the other, `complete` prints a message.
+
+A page the model drops therefore leaves **less** trace than a gate refusal: no `save_result` at
+all, because the loop never reaches the action for it. Candidate 1 files from **inside** that
+action, so it structurally cannot see this path. Recorded as a fifth candidate (compare the two
+counts) which covers both and files nothing into a queue.
+
+⚠ And I cannot say whether it fires: all five surviving runs were `offered 1 / written 1`, and five
+single-page runs rule out **no** omission rate below roughly 45%. `0 of 5` is not evidence.
+
+This is 016b §9's 2026-08-24 entry (*"a loop over the model's ANSWER cannot account for what the
+answer OMITS"*) with a **second cause** — the prompt instructing the omission rather than a
+`max_tokens` ceiling causing it — so that entry's `max_tokens` census comes back clean while the
+class still applies. Extended in place rather than filed again (`652f32f74`).
+
+### The volume objection to candidate 1, measured, and it holds
+`voice_tells` work items, counting the archive as well as the live table: **66** in
+`needs_human_review` against **5** ever complete (3 live + 2 archived), nothing filed since
+2026-08-27. Filing gate refusals there relocates the silence. That is the open owner question in
+handoff §0.4 and I have not pre-empted it.
+
+### Damage today is ZERO, demand-controlled
+Active pages: **37** blank (avg 8 chars visible text), **0** of them clearing the backfiller's
+`page_visible_text_len > 200` gate; **1,171** described (avg 4,381), **1,137** clearing it. So no
+page is currently both eligible and blank — both silent paths are latent, not costing anything.
+That is an argument about priority, not about whether the mechanism is broken.
