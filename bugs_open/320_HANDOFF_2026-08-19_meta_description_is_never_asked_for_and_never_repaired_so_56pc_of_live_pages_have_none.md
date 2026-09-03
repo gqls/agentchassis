@@ -605,3 +605,41 @@ UPDATE"*, which oversizes this job.
 
 **The originating lane is CLOSING; do not route questions at it.** Everything is in `bugs_open/395`
 and in that lane's handoff (§2, §12, §19, §21), both of which outlive the session.
+
+---
+
+## §17 — CONTRIB 2026-09-03 (`bugsweep_2026_08_26` lane): ⚖ OWNER RULING — a near-empty page does NOT get a description, so THIS axis of 320 is at zero
+
+**Contributed, not closed.** This lane owns `bugs_open/338`, not 320; several lanes are
+active here (§16 is a week old). The ruling below settles one axis and is recorded so
+whoever closes 320 does not have to re-derive it. **Read §1's re-measurement first** — the
+55.7% headline is now **3.1%**.
+
+**The question put to the owner, and the answer.** *Should a near-empty page carry a meta
+description at all?* — **NO** (2026-09-03).
+
+**What that settles.** `[MEASURED 2026-09-03]` the residual is **37** blank active pages
+across 11 sites, and **every one of them fails** the backfiller's own selection gate,
+`page_visible_text_len(p.id) > 200` in `load_pages_missing_meta`. **Zero are selectable.**
+They average **8** characters of visible text (max 166). With the demand control that makes
+that a finding rather than a broken instrument: the **1,164** pages that DO have a
+description average **4,401** characters and **1,137 (97.7%)** clear the gate.
+
+So the 37 are not a backlog the mechanism is failing to reach — **they are pages with
+essentially no content, and the gate refusing them is the ruling being obeyed.** The
+coverage floor is correct behaviour, not a defect.
+
+**What this does NOT settle.** Mechanism 1 (§2, the planner is never asked) and mechanism 2
+(§3, the unguarded upsert blanks existing descriptions) are separate questions and are not
+touched by this ruling. **Do not read "the residual is zero" as "320 is closable"** — it is
+closable on *this* axis only. Whoever holds §2/§3 still owns those.
+
+⚠ **And do not re-open the 37 as work later without re-reading this.** They will keep
+showing up in any `COALESCE(meta_description,'')=''` census, look like an unfilled backlog,
+and invite exactly the repair the owner has ruled against. The discriminator is one column:
+`page_visible_text_len(id)`.
+
+**Provenance.** Found while verifying `bugs_open/338`'s fix after the 2026-09-03 roll;
+`bugs_closed/338` §9 carries the full table and the reason 338's own acceptance test could
+no longer fire. First-hand: the selection query read from the live `agent_definitions` row,
+the census and its control run against `clients_db`.
