@@ -741,3 +741,54 @@ in my own runbook claimed a recording step works that in fact refuses. Both are 
 the error named. And last night's failed rebuild of the savings-estimator page, which another team routed
 to me for judgement, is the same known fault as before — I've left it visible rather than hiding it,
 because it is the one thing still genuinely wrong on this site.
+
+---
+
+**Thursday 3 September — we stopped fixing the pages and fixed the thing that keeps breaking them.**
+
+The note I picked up this morning said something uncomfortable: we have fixed this same colour fault
+on this site four separate times, and it keeps coming back on pages that did not exist the week
+before. Fixing instances was not working. So the job today was to find where they come from.
+
+It comes from a single line in the instructions we give the machine that writes our interactive
+tools. That line lists the eight colours it may use. It does not say which colour to write text in
+when the text sits on top of a coloured button. So the machine guesses, and its guess is the
+sensible-looking one: use the page's own background colour. On almost every site that is right and
+looks smart. On this site it is invisible, because our brand colour and our page colour are very
+nearly the same shade of near-black.
+
+Here is the part that makes it a real finding rather than a theory. There is a *second* set of
+instructions, the one used for ordinary page sections rather than tools, and **it already explains
+the rule properly**. So I could check: if the instructions are the cause, the fault should appear in
+things built by the tool instructions and not in things built by the other ones. It does, and the
+split is total. Of 151 ordinary components, **none** has the fault. Of 261 tool components, **148**
+do. That test could easily have come back mixed, which is why it was worth running.
+
+The fix is small, and the nicest thing about it is that we did not have to invent anything. The
+system already works out a correct, readable colour for exactly this situation and publishes it on
+every site, including this one. Nobody had ever told the tool-writing instructions that it exists.
+So the button that scores 1.04 today — where 1.0 means literally invisible — would score 18.9 using
+a colour this site is already serving. I have added the missing sentence to the instructions, and
+separately fixed an audit that was reporting the correct fix as an unknown mistake, which cannot
+have helped anyone find it.
+
+I also checked how far this reaches. Nine of our fifty-nine colour schemes are close enough for
+this to bite, seven of them badly. That is a list to go and look at, not nine confirmed problems, and
+I have written it down that way.
+
+Two honest caveats, both in the record. **This repairs nothing that is already broken.** It stops new
+ones arriving. The four faults on this site are still there and still need a rebuild pass, and if
+someone looks tomorrow and sees them, that is expected and not a sign the fix failed. And one figure
+in yesterday's note, a 1.14 reading, I could not tie to any actual rule in the page — the fault is
+real and measured, but I could not reproduce that particular number and I have said so rather than
+quietly rounding it into the story.
+
+One mistake of my own, caught within the hour: I looked at the diagnostic job running in the
+background, saw no verdict, and announced it had stalled. It had not — I had compared the database's
+clock to my own. When I asked the database how old the results actually were, the newest was
+thirty-five seconds old and it was working normally. The lesson is small and general: ask the system
+for the age of a thing, do not work it out against a clock you did not get from the same place.
+
+The change is committed and has gone to the review council. The instruction change itself is written
+but deliberately **not yet switched on** — I am waiting for the diagnostic job to finish first, in
+case it disagrees with me.

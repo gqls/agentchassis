@@ -1906,3 +1906,123 @@ Nothing hit it (verified: 12 inputs, 22,732 bytes, unchanged). **Restored to `ow
 anything else**, then re-ran the script in the BACKGROUND so no harness timeout applies. LANDMINE
 filed. **The check is one query and it belongs immediately after every run of that script,
 successful or not.**
+
+---
+
+## 2026-09-03 — going upstream: the tool prompt never learned what the component prompt already teaches
+
+Picked up from `HANDOFF_2026-09-02_continue_here.md` §7.1, which said per-page fixes were not
+converging and the next useful move was upstream. It was, and the upstream turned out to be one
+prompt line.
+
+### 1. Re-enumerated first, as this lane's §9 requires
+
+45 active pages (47 rows, 6 `owned`) — the handoff's denominator held for today. Site
+`2a8ebf9c-20a2-4c39-b191-840b012371da`.
+
+### 2. What the renderer already offers, and nobody asked for
+
+`buildLegibleInkDefaults` (`platform/orchestration/actions/palette_specialised_slots.go`) emits
+**paired ink tokens**, and its own header comment is emphatic about the distinction:
+
+> `--color-<x>-text`   the ink that goes **ON** an `<x>` fill
+> `--color-<x>-ink`    `<x>` ITSELF, made legible as an ink **on the page**
+> *"TWO DIRECTIONS, AND CONFLATING THEM IS THE MISTAKE THIS COMMENT EXISTS TO STOP."*
+
+Served on this site `[MEASURED 2026-09-03, https://ai-agent-orchestration.com/assets/css/styles.css]`:
+`--color-primary-text: #ffffff`, `--color-primary-ink: #768eb2`, `--color-accent-ink: #F0A500`,
+`--color-accent-text: #294155`. **All four already there.** Also there:
+`--color-primary: #0D1117` and `--color-surface: #0D1117`, byte-identical, with
+`--color-background: #080B10`.
+
+### 3. The failing rules, read rather than inferred
+
+| component | rule | ratio |
+|---|---|---|
+| `tool-model-approach-selector` | `.submit-btn { background: var(--color-primary); color: var(--color-background) }` | **1.04** |
+| `tool-token-calculator` | `.stat-value { color: var(--color-primary) }` inside `.stat-box { background: var(--color-surface) }` | **1.00** |
+| `tool-model-approach-selector` | `.error-msg { color: var(--color-primary); background: var(--color-surface) }` | **1.00** |
+
+1.04 reproduces the handoff's reported button figure exactly, independently, from the CSS.
+
+⚠ **`.error-msg` was reported by NO audit.** It only paints in an error state, and a render-time
+probe measures the states the page actually renders. **So the audit's count is a floor, not a
+census** — do not size this class from audit findings. This generalises to hover, `:focus`,
+`:checked` and anything behind a JS branch.
+
+⚠ **The `<TD> 1.14` the handoff recorded for `token-calculator` is not a rule I could find.** The
+`.stat-value` rule measures 1.00. I could not reconcile 1.14 to a declaration and am not going to
+pretend I did; the mechanism is the same either way, but the specific figure is unexplained.
+
+### 4. The measurement that could have come out otherwise
+
+If the producing prompt is the cause, the shape should sit in the tool population and not the
+component one — `component-creator`'s prompt teaches
+`--section-text: var(--color-primary-text, var(--color-background));` and lists
+`--color-primary-text`, while `tool-generator`'s whole colour vocabulary is eight tokens with no
+pairing rule.
+
+```
+[MEASURED 2026-09-03] active unforked content_components
+                                        non-tool     tool
+components                                   151      261
+fills with --color-primary                    31      174
+uses --color-primary-text                     59       31
+primary fill inked with the page ground        0      148
+```
+
+**Zero and 148.** A 40/60 split would have refuted the prompt theory. It did not. This is the
+single most load-bearing number of the day, and it is disconfirmable, which is why I ran it.
+
+Fleet blast radius `[MEASURED 2026-09-03]`: **9 of 59** palettes score under 3.0:1 for that
+pairing, **7 under 1.25:1** — loancash 1.00, aiao 1.04, agritec 1.11, dartsonline 1.11,
+robot-hands 1.14, loanandmortgagecalculator 1.18, oufe 1.21. ⚠ **Stored palette, not served
+stylesheet** — the overlay may serve something else and is allowed to, so that is a population to
+check, not nine confirmed sites. Only aiao was confirmed at the artefact.
+
+That table also **refreshes a stale census inside the code**: `warnUnusablePrimary` still says
+*"Measured fleet-wide 2026-07-27: 4 of 31 palettes … below 1.25:1"* and names a membership that has
+since changed. Grew by addition, read as current for five weeks — the owner's dating rule exactly.
+
+### 5. The second half — the audit calls the correct repair "unknown"
+
+`canonicalCSSTokens` (`component_validation.go`) carried `--hero-ink` and **none** of
+`--color-primary-ink`, `--color-accent-ink`, `--color-cta-bg-ink`. So a component that opted into
+the renderer's documented repair was reported as unknown drift. Warn-only —
+`AuditTemplateTokens` *"NEVER rejects a template"* — so nothing was blocked. It is still worth
+fixing because it points the signal backwards while adoption sits at **15 of 412**.
+
+### 6. What I did NOT do, and why
+
+**Did not touch the palette.** Making primary differ from surface is `RFC_059`, which the owner
+**withdrew** on 2026-09-02: the overlay must keep full authority over its own colours. Anyone
+planning to "stop the churn" here is re-proposing a withdrawn RFC. The paired-ink route was chosen
+because it is palette-agnostic — it stays correct whatever the overlay picks.
+
+### 7. Misstep: I called the diagnosis run stalled when it was running fine
+
+Saw four bundles and no verdict, matched it against the LANDMINE *"a 090 run on a symbol in a file
+over ~60KB returns bundles and NO verdict"* (my symptom named a 45KB file and a 9.5KB one), and
+said the last bundle was "over an hour ago". **Wrong.** I compared the DB's UTC timestamps against
+my own assumed wall-clock. `SELECT now()-created_at` showed the newest bundle was **35 seconds
+old**, arriving every ~4.5 minutes. The run was healthy.
+
+**The check is one column.** Never age a DB timestamp by subtracting it from a clock you did not
+read out of the same database — ask the database for the age. The landmine was real and my file
+sizes did sit near the budget, which is exactly why a plausible mechanism deserved a measurement
+rather than a match.
+
+### 8. Shipped
+
+- `bugs_open/458` — the filing, with the nine-palette table and the verification recipe.
+- `docs/agent_docs/sql_for_agents/732` (+ ROLLBACK) — appends the pairing rule to `tool-generator`
+  and `tool-improver`, anchored verbatim, **aborts if either anchor moved**. The abort was
+  **induced** (exit 3, no COMMIT), not merely written.
+- `component_validation.go` — the three ink companions plus `--color-accent-text` made canonical.
+- `component_validation_ink_lockstep_test.go` — derives its expectation **from the emitter**, so
+  the next companion fails a test instead of silently becoming unknown drift. **Mutation-proven:**
+  removing `--color-primary-ink` fails it; restoring passes.
+- Commit `0325ddebb`, `Council-Submitted: 0fd2ca6b-f400-4452-8cac-25399f7d55ea`.
+
+⚠ **None of this repairs a single existing page.** 148 tool components and this lane's four live
+failures persist until a regeneration pass. A still-failing page is NOT evidence this did not land.
