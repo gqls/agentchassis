@@ -228,3 +228,12 @@
   from input_fields → silent empty sibling list; exclusion by subject); redraft now owned by
   the new framework_prompts_positive_voice lane. They also independently re-probed both
   v1.0.1355/1356 pods — my probe corroborated.
+- **Canary dispatched — identifiers for Stage A** (finetuning, 09:35Z, their `59c27e9c5`):
+  item `896bb245`, spec verified mode-less by BOTH lanes independently (keys: title, reason,
+  source, purpose, sections, page_name, page_type, suggestion) ⇒ full regeneration. Queue
+  position: behind adversecreditmortgage.co.uk's 22 triaged page-build items (09-01 16:25),
+  ~4 min/tick — expect ~1.5h, that is fairness working (their lane's own landmine). THEY hold
+  the watch and run the Stage A reads at terminal; if this lane gets there first, the writer
+  orchestration row is `input_data.current_page.name = 'technical-details'`, created_at >
+  09:30Z. Their RUNBOOK now carries "assert NOT (spec ? 'mode') before dispatching" as a
+  standing line. Channel closed pending the build.
