@@ -499,3 +499,63 @@ func TestApproveFanOutFromEmptyArrayFilesNothingAndSaysSo(t *testing.T) {
 		t.Errorf("fan_out_note = %q, want it to name the empty array — filing zero items silently IS the bug", note)
 	}
 }
+
+// THE CROSS-PACKAGE INVARIANT, and the reason this test exists in a file about
+// fan-out: this handler's `result` write is the DELIVERY GATE's only evidence.
+// platform/delivery.Reviewed() asks `status = 'complete' AND result ?
+// 'approved_by'`, so anything that removes or shadows that key silently converts
+// an approved site into an unreviewed one — and the failure surfaces days later,
+// at a delivery that refuses for no visible reason.
+//
+// The fan-out change appends a second jsonb object to that write (`|| …`), which
+// puts the key one refactor away from a right-hand-side collision. Found while
+// preparing the delivery rehearsal, not by the council.
+func TestApproveResultAlwaysCarriesTheKeyTheDeliveryGateReads(t *testing.T) {
+	h, mock, db := newApproveMock(t)
+	defer db.Close()
+
+	// Capture the UPDATE's own argument list so the assertion is on what the
+	// database is actually told, not on what the handler intended.
+	detail := &capture{}
+	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("INSERT INTO site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("99999999-9999-9999-9999-999999999999"))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("INSERT INTO site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("aaaaaaaa-9999-9999-9999-999999999999"))
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), detail).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	code, body, _ := doApprove(t, h, twoEditReviewData)
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, body = %v", code, body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+	if len(detail.got) != 1 {
+		t.Fatalf("captured %d UPDATE payloads, want 1", len(detail.got))
+	}
+
+	// The right-hand object must never contain approved_by: `||` lets the RIGHT
+	// side win, so a key of that name here would overwrite the gate's evidence.
+	var rhs map[string]interface{}
+	if err := json.Unmarshal([]byte(detail.got[0]), &rhs); err != nil {
+		t.Fatalf("the merged detail is not JSON: %v (%s)", err, detail.got[0])
+	}
+	if _, clash := rhs["approved_by"]; clash {
+		t.Errorf("the appended object carries approved_by (%v) — `||` lets it win and the delivery gate would read the site as UNREVIEWED", rhs["approved_by"])
+	}
+	// And it must never be empty-as-in-absent: `jsonb || NULL` is NULL, which
+	// would erase the whole result. COALESCE in the SQL closes that, but the
+	// payload being a real object is what makes the COALESCE unnecessary in
+	// practice — assert both halves rather than trusting either alone.
+	if detail.got[0] == "" || detail.got[0] == "null" {
+		t.Errorf("the appended object is %q — jsonb || NULL is NULL, which erases approved_by", detail.got[0])
+	}
+	if _, ok := rhs["follow_on_items"]; !ok {
+		t.Errorf("the appended object does not carry follow_on_items: %v", rhs)
+	}
+}

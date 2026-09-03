@@ -1586,6 +1586,21 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 	}
 	followOnDetailJSON, _ := json.Marshal(followOnDetail)
 
+	// ⚠ THIS WRITE IS THE DELIVERY GATE'S ONLY EVIDENCE. platform/delivery's
+	// Reviewed() asks `status = 'complete' AND result ? 'approved_by'` — a
+	// KEY-PRESENCE test on this exact column. Two ways to break it from here,
+	// both silent, and both would read downstream as "the owner never approved
+	// this site" rather than as an error:
+	//
+	//   * a key named `approved_by` appearing in the right-hand object, since
+	//     `||` lets the RIGHT side win a conflict;
+	//   * the right-hand side arriving as SQL NULL, because `jsonb || NULL` is
+	//     NULL in Postgres — which would erase `approved_by`, `resolution` and
+	//     `follow_on_item` in one go.
+	//
+	// COALESCE closes the second by construction rather than by argument, so it
+	// cannot be reopened by a refactor upstream of this line. The first is
+	// covered by a test, because no SQL can guard it.
 	_, err = h.db.ExecContext(ctx, `
 		UPDATE site_work_items
 		SET status = 'complete',
@@ -1594,7 +1609,7 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 		        'resolution', $2,
 		        'approved_by', 'admin',
 		        'follow_on_item', $3
-		    ) || $4::jsonb,
+		    ) || COALESCE($4::jsonb, '{}'::jsonb),
 		    updated_at = NOW()
 		WHERE id = $1
 	`, itemID, resolution, followOnID, string(followOnDetailJSON))
