@@ -62382,3 +62382,52 @@ a-mutation-that-passes-may-have-hit-a-guard-in-series, a-report-is-not-a-measure
   in the script, and the false-positive arms carry the measured reason beside them.
 - **Cost.** None released — the sweep's write-up was composed after the follow-through, so no false
   finding reached a handoff, a bug file or the owner. The cost was the extra runs.
+
+## 2026-09-03 — TWICE IN ONE SESSION I diagnosed another lane's mechanism from its OUTPUT instead of reading it, and both times the lane refuted me from its own data (copy_quality_two_stage)
+
+**The claims.** Two, hours apart, same shape.
+
+1. To the `domain valuation` lane: *"Your valuation tier is already wired into a public-facing
+   page component."* Built from a shared field NAME (`commercial.tier`) plus a schema note reading
+   "domain-value tier". Their field is A–E, lives in their CSV, wired to nothing;
+   `commercial.tier` is 1|2|3 and resolver-owned. (Logged separately above.)
+2. To the `sedo` lane, about how `copyonline.co.uk` reached a for-sale sheet: I asserted a
+   **definitional hole** — "a fence keyed on 'is this a live/built site' cannot protect a keeper
+   that has not been built yet; build status is not ownership intent" — and offered it as a
+   landmine, with copyonline as the worked example.
+
+**What actually happened for (2).** Their filter was **already** `status IN ('deployed','test')`,
+and copyonline is `status=test` — so the fence's *definition* would have caught it. The real cause
+was **staleness**: their live-site fence file was built once at 08:57Z and reused unchanged across
+drafts 4 and 5, while copyonline's `sites` row was created at **09:27Z**. They confirmed by
+re-running the identical query fresh — it returned copyonline plus the same 41 originals, nothing
+else missed. So the fence was right and the *input* was 30 minutes old. My mechanism was invented,
+and it was invented on top of a correct observation: I did find the one real overlap in 2,879 rows.
+
+**What caught it.** Both times, the owning lane checked its own internals against my sentence.
+Nothing on my side would have, because in both cases I never looked at the thing I was describing
+— I described it from what came out of it.
+
+**The cheap check that would have.** Ask, or read the query. For (2), one question — "what does
+your fence filter on?" — before writing a paragraph about what it cannot see. Note the specific
+trap: **an effect is consistent with many mechanisms, and the one you can imagine is not evidence.**
+"An unbuilt keeper slipped through" is equally explained by a definitional hole and by a stale
+input, and those want opposite fixes — mine would have added a redundant intent-check while
+leaving a 30-minute staleness window open, so acting on it would have hardened the wrong thing
+and read as a fix.
+
+**Why the PAIR is worth its own row.** One is an anecdote. Two in a session, hours apart, on two
+different lanes, is a habit: when I hold a measurement of another lane's OUTPUT, I reach for a
+mechanism to explain it and state that mechanism with the same confidence as the measurement.
+The measurement was sound both times — the tier field really is 1|2|3, copyonline really was the
+sole overlap — which is precisely what made the invented half credible. **A correct finding is the
+most dangerous carrier for a wrong cause**, and writing TO the owning lane is the only reason
+neither survived; in a handoff or a landmine both would have been inherited as fact. Standing rule
+for myself: when the mechanism belongs to another lane, state the finding and ASK for the cause.
+
+Part of the residual was real and they kept it: a domain with **no `sites` row at all** defeats
+even a fresh re-query, because no signal exists — only an owner statement closes that, and it is
+in their RUNBOOK as a residual distinct from the staleness bug.
+
+Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
+damage-confirmed-is-not-mechanism-confirmed, a-plausible-external-cause-is-when-to-doubt-your-instrument.
