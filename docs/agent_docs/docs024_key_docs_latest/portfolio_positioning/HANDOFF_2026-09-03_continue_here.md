@@ -59,7 +59,8 @@ cannot read the brief directly.** It also renders the WRONG classification, so c
 
 ## 1y. ⚠ ADDED ~20:35Z — RETIREMENT IS DONE; §1z's re-fire task is CLOSED. What is live now:
 
-- **Migration 764 is council-APPROVED (round 2, `888e7319…`, 4 advisory/none high; `Council-Reviewed:` on `a5dbbffab`) and HELD — NOT applied. THE OWNER SAYS WHEN.**
+- **Migration 764 was APPLIED at 20:55:27Z (DB clock) on the owner's "It is quiet now" — the HOLD file's guard now REFUSES with "already applied"; do not re-run it.** Run-once proof item `17bac4d6…` filed 20:56:06Z; its pass/fail is the NEW `classification.reasoning` for copyonline and the rendered `## Pre-Defined Mission` block. If this handoff is read before NOTES (ccc) exists, the proof had not landed — check the item and the artefact before believing 764 works; the ROLLBACK file is beside it.
+- ~~**Migration 764 is council-APPROVED (round 2, `888e7319…`, 4 advisory/none high; `Council-Reviewed:` on `a5dbbffab`) and HELD — NOT applied. THE OWNER SAYS WHEN.**~~
   Apply: `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/764_classifier_and_planner_render_the_brief_object_when_it_has_no_text_HOLD.sql`
   (refuses on md5 drift — re-pin if either template moved). Then MAKE IT RUN ONCE before claiming
   anything (header steps); the classification.reasoning sentence is the pass/fail. Rollback file beside it.

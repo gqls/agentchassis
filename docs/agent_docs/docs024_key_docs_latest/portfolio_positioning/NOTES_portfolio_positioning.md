@@ -5717,3 +5717,29 @@ moment. When he does: apply the HOLD file by hand → make it run once (header s
 classification for a `.text`-less brief, confirm COMPLETED, read the rendered `## Pre-Defined Mission`
 block for the JSON object, confirm the new `classification.reasoning` no longer says the brief was
 missing) → only then call it live. Owner notified.
+
+### (bbb) 2026-09-03 20:55Z (DB clock) — owner: "It is quiet now." Migration 764 APPLIED. Run-once in flight.
+
+Read as the moment he had been asked to pick. Pre-checks `[MEASURED]`: 0 classifier/planner
+orchestrations in flight (in-flight runs carry their own snapshot anyway); copyonline's current brief
+(rev 5) has no `text` key — the failing shape; baseline classification `18b8307b…` (16:57:10Z) reasoning
+opens *"The site's core proposition is a two-sided marketplace…"*.
+
+**Applied** via the HOLD file, `ON_ERROR_STOP`: both `snapshot_agent` NOTICEs (source_version=1, the
+two ids), all three DO blocks, COMMIT. Verified at the rows: both templates carry both fallbacks;
+new md5s planner `3cf66428…`, classifier `52e16b79…`; `updated_at` **20:55:27Z**; two rows in
+`agent_definitions_backup` with reason `764_…: pre-update`. ⚠ The DB clock reads ~20:55Z where my
+own stamps in (zz)/(aaa) said ~21:xxZ — the DB is authoritative; my earlier "~21:0xZ" stamps are
+wall-clock guesses and should be read as such.
+
+**Run-once filed** 20:56:06Z: `needs_domain_research` item `17bac4d6-57ba-4deb-909a-8f0c52f6a83f`,
+handler `domain-research-classifier`, key `migration_764_run_once_3d965325_2026-09-03`, mirroring the
+shape of the site's earlier backfill item. **Pass/fail, stated before the result:** the NEW
+`classification.reasoning` must not say the brief was missing, and the rendered
+`## Pre-Defined Mission` block in `llm_call_log` must carry the JSON object. Fail → rollback file,
+immediately. Watcher `bspmruymu` prints all three at the artefact.
+
+**Side-effects to expect if it passes:** a sighted re-classification supersedes the blind one in
+place; the classifier may re-write identity/content_direction/design_intent (it did at 16:57) and may
+re-file `needs_vertical_research`. That is the pipeline doing with the brief what it should have done
+at 16:57 — not an intervention beyond what the run-once requires.
