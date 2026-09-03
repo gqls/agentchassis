@@ -108,3 +108,61 @@ negative control is this file's own evidence: item `e370e0bb` as originally file
   parenthesis quoted above.
 - `docs/agent_docs/sql_for_agents/651_delivery_review_and_email_agents_HOLD.sql` — the seed, whose
   dispatch recipe was separately found incomplete the same hour.
+
+---
+
+## SECOND DEFECT, found the same hour: the item is also in a pipeline the dashboard does not offer
+
+The owner, told where to click, still could not find it. **He was right and the directions were
+wrong** — with the dashboard's default settings the row is never sent to his browser at all.
+
+- `App.tsx:417` — `const [pipelineFilter, setPipelineFilter] = useState("build")`. The Work Items
+  view **defaults to the build pipeline**.
+- `App.tsx:470` — the filter is applied **server-side**: `/work-items?pipeline=build&…`. So this is
+  not a row he could scroll past; it is a row the API is never asked for.
+- `App.tsx:1091-1093` — the dropdown's entire option set is **`build` · `content` · `all`**.
+- The item is `pipeline = 'delivery'` (`delivery-review-filer`'s step config sets
+  `item_pipeline: 'delivery'`, and it is right to).
+
+So the only route to it is the unlabelled catch-all, **"all pipelines"**, which a person has no
+reason to select and no hint that they must.
+
+> **[MEASURED 2026-09-03, all history]** `site_work_items` by pipeline:
+> `build` 24,887 · `content` 3,204 · **`design` 1,933** · `diagnose` 42 · `experience` 3 ·
+> `reports` 3 · **`delivery` 2** · `maintenance` 1.
+>
+> **Five of the eight pipelines have no dropdown option**, and they hold **1,984** items between
+> them. `design` alone has 1,933 rows reachable only by choosing "all". The measurement could have
+> come out otherwise — if `delivery` were the sole orphan this would be a one-off rather than a
+> class.
+
+**Why this is the same bug as the one above and not a separate inconvenience.** Both are the delivery
+pipeline's only item type meeting a consumer that does not know it exists: the approve handler wanted
+a `review_data` key the producer never wrote; the list view offers a pipeline vocabulary the producer
+is not in. In both cases the machinery reports success — the item is filed, the page renders — and the
+person is simply never shown the thing they are being asked to act on. **A filter defaulting to a
+subset is an absence-of-evidence generator**, which is the same shape as `bugs_open/033` (a capped
+read path whose truncation read as "no items exist") and the reason `HandleListWorkItems` counts
+without the status predicate.
+
+### Fix candidates
+
+1. **Derive the pipeline options from the data rather than hardcoding three** — the list endpoint
+   already computes `statusCounts` and `typeCounts` server-side; a `pipelineCounts` beside them makes
+   the dropdown self-maintaining, and a new pipeline can never again be invisible by omission.
+   Strongest, and it closes the door for `design` too.
+2. **Default the filter to `all`** rather than `build`. One character, removes the trap for every
+   pipeline at once, and costs a larger default result set on a view that already pages server-side.
+3. Add a `delivery` option to the hardcoded list. Fixes today's case and leaves the other four
+   orphaned pipelines exactly as they are — the shape that produced this.
+4. Weakest: document the workaround. Rejected: the person who needs it is the one who does not know
+   the pipeline exists.
+
+**None taken yet** — all three real candidates are frontend changes needing a build, and the owner is
+unblocked today by selecting "all pipelines". Candidate 1 or 2 is the one worth doing.
+
+### How to verify
+
+File a `needs_delivery_review` item, open Work Items with **default** settings, and confirm it is
+visible without touching the pipeline dropdown. Today's negative control: item `e370e0bb`, invisible
+under the default and visible the instant the filter is switched to "all pipelines".
