@@ -11,6 +11,10 @@ this file does not restate them:**
   §9 is the post-roll verification for this lane's code.** Read it rather than
   re-probing; its probe hazards are inherited below.
 
+- **`ARCHITECTURE_2026-09-03_who_owns_composition.md`** (this directory) answers the
+  owner's "does composition need its own loop" question with measurements. §7 below
+  summarises it; do not re-derive it.
+
 Everything is measured 2026-09-03 unless marked. `IMAGE_TAG` is `v1.0.1357`.
 
 ---
@@ -99,11 +103,12 @@ nothing to add an arm to and adding one routes nothing. `deriveRenderMode`'s thi
 value is inert in a STRONGER sense than earlier files claim: not "inert until a slots
 block exists" but inert even then.
 
-**RECOMMENDED SCOPING, for the owner:** move the routing arm from P1 to **P2**, where
-generation happens and a composite would actually need routing. **P1's own acceptance
-does not need it** — recompose one page by hand, prove byte-equivalence, rewrite one
-child, prove siblings untouched. All hand-made rows and the edit path. That shrinks P1
-to exactly what its name says and lets it finish. Not yet ruled on.
+**✅ RULED 2026-09-03 (owner): the routing arm MOVES FROM P1 TO P2.** P1's own
+acceptance never needed it — recompose one page by hand, prove byte-equivalence,
+rewrite one child, prove siblings untouched: all hand-made rows and the edit path. P1
+is therefore exactly what its name says, the READ path, and it can finish. **P2 owns
+the routing, and its precondition is a consumer for `render_mode` (or a different
+signal).** Do not re-open this in P1.
 
 Also verified live: `jsonb_set(doc, path, NULL || jsonb_build_array(...))` returns
 **NULL for the whole document**. Any future edit to that step must guard the array
@@ -137,7 +142,7 @@ the byte-identity TEST.** The flag now guards only whether the walk composes chi
 byte-identity test never shown to fail proves nothing. Say this plainly in round 4;
 the seats were told otherwise.
 
-## 6. G6 — Fable's draft is written and awaits four owner decisions
+## 6. G6 — Fable's draft is written and its four decisions are RULED
 
 `features_open/035_G6_DRAFT_stored_pattern_library.md` (`30d161249`), written by Fable
 at the owner's direction. 035 itself untouched. **A pattern is a promoted
@@ -149,9 +154,29 @@ The **loops clause is satisfied compositionally** — parts scored at their grai
 whole ruled by the experience council because a promotion IS a design decision — with
 **no third loop**, and Fable flagged that as a **weakening for the owner to overrule**.
 
-Four decisions in its §7: the clause's meaning (the substantive one), library scope
-(global vs new schema for per-site), version binding on application, and whether
-auto-apply is ever revisited.
+**✅ RULED 2026-09-03 (owner): Fable's route is ACCEPTED.** The owner read §7.1 and
+§3 verbatim before ruling, having asked not to decide against Fable without the full
+reasoning. What was accepted, and what the next session should treat as settled:
+
+1. **The clause's meaning — COMPOSITIONAL NOW, instrument later if wanted.** The
+   component loop vouches for the PARTS at the grain it already emits; the experience
+   council vouches for the WHOLE, because a promotion IS a design decision and that is
+   the object class it already rules on; live service is evidence and is recorded WITH
+   its demand control. **No third loop.** The decisive property is that this is
+   REVERSIBLE — an arrangement-grain instrument can be commissioned later **without
+   changing the stored object**.
+   ⚠ Note precisely what this extends: the council's **subject-matter** (it has never
+   ruled on anything editorial), **not its grain, machinery or roster**.
+2. **Library scope** — advisory scoping via the existing `suitable_site_types` /
+   `suitable_page_types`; no new schema for hard per-site scoping.
+3. **Version binding** — record the judged versions in provenance, follow the library
+   on application, pin nothing.
+4. **Auto-apply** — not shipped; revisit only on a measured approval rate.
+
+**⚠ THE READING TO CORRECT IF WRONG:** the owner said "I accept fable's route" after
+being shown §7.1 specifically. This file records all four as accepted, because they are
+Fable's four recommendations and form one coherent route. **If only §7.1 was meant,
+items 2–4 revert to open** — they are cheap to re-decide and none of them blocks P1.
 
 **⚠ 035 hazard 10 blocks G6's gate.** Verified by probe 2026-09-02:
 `extractTemplateVariables` returns deduplicated FIELD ROOTS, so
@@ -161,7 +186,7 @@ score rather than an error. G6's promotion gate requires a non-NULL `quality_sco
 per child family, so it would gate on a number computed wrongly. **This is P1/P2's to
 fix, not G6's.**
 
-## 7. OPEN ARCHITECTURE QUESTION — asked by the owner 2026-09-03, unanswered
+## 7. ARCHITECTURE — asked and ANSWERED 2026-09-03; the answer awaits a ruling
 
 > *"Do we need another loop like the experience loop that sorts out this component
 > composition? we have theme kits and page composition and experience loop and visual
@@ -170,21 +195,45 @@ fix, not G6's.**
 > decide on it should act like the components — it can have defaults and sites or
 > pages can fork as they want."*
 
-**Not yet answered.** The design principle in the last sentence is the operative part
-and should constrain whatever is decided: **composition should carry defaults and be
-forkable per site or page, exactly as components are** (`content_components` +
-`forked_from`).
+**ANSWERED in full: `ARCHITECTURE_2026-09-03_who_owns_composition.md`** (this
+directory, `3964691b9`). Measured against the live DB and tree. **Read that rather than
+re-deriving it.** The four load-bearing findings:
 
-Live agents in that space, measured 2026-09-03: `brand-designer`,
-`design-audit-agent`, `design-critique-agent`, `design-discovery-agent`,
-`experience-approval-council`, `experience-planner`, `experience-register-writer`,
-`feature-designer`, `reader-experience-auditor`, `site-design-planner`,
-`visual-design-auditor`, `visual-designer`, `webdesign-agent`.
+1. **"Composition" is TWO things and the word is doing double duty.** **Grain A** is
+   WITHIN a section — 035's parent/child, 0 of 3,035 rows. **Grain B** is ACROSS a page
+   — which sections in what order — which **already exists and is fully live** as
+   `site_plan_sections` (54 plans, 34 sites). A THIRD thing wears the same word and is
+   neither: `site-design-planner` "resolves composition (palette, layout, typography)",
+   i.e. THEME composition. Almost every downstream question resolves differently
+   depending on which is meant.
+2. **The owner's defaults-and-fork principle is ALREADY SATISFIED at grain A**, by
+   construction: a composite is a `content_components` row, so it inherits the library
+   default (`forked_from IS NULL`), the live fork mechanism (**412 library / 85 forks /
+   88 page rows across 25 sites**), `component_versions`, and the quality sweep.
+   **Grain A needs a decision NOT to build.**
+3. **The gap the principle names is at grain B.** `site_plans.site_id` is `NOT NULL` —
+   no library plan, no template, no fork. Every site's arrangement is generated from
+   scratch. ⚠ And the cautionary measurement: `layouts` HAS a defaults-and-fork
+   mechanism (`forked_from_layout_id`) and it is **18 library, 0 forked — never once
+   used.** This estate has already built one such mechanism for structure and not
+   driven it.
+4. **NO NEW LOOP.** A loop needs a driver; the judgement already has a home at the
+   right grain (a promotion IS a design decision); the parts already have a scorer; and
+   a new loop would have nothing to score.
 
-Fable's G6 draft already argues AGAINST a third loop (§3 of the draft: an
-arrangement-scorer would join §3's dormant mechanisms the day it shipped). That answer
-was given for G6's promotion gate specifically and **is not the same question** as the
-owner's — his is about the whole composition remit, not just pattern promotion.
+**Recommended remits, NOT YET RULED:** grain A → the component library, no new owner.
+Grain B → **`site-design-planner` extended**, because it already does the analogous job
+one layer down (match a library default, fork when the site differs, HITL item carrying
+the reasoning). The one genuine schema question is grain B's: an arrangement library
+needs plan rows not owned by a site. Five other candidate owners are named in the
+document with the reason each is wrong.
+
+**⚠ A CORRECTION THIS LANE OWES ITSELF.** An earlier version of this file, and my note
+to the owner, implied the grain A/B split undercut Fable's G6 §7.1. **It does not** —
+neither loop judges arrangements at EITHER grain, so §7.1's answer is unchanged by the
+split. The grain question bears on §7.2 (a plan-level library is a different schema
+question from a component-level one) and on WHICH OBJECT gets stored. It is orthogonal
+to the loops clause, not a refutation of it.
 
 ## 8. Coordination — four lanes, all answered, nothing owed
 
@@ -238,3 +287,8 @@ All of the above are in `WRONG_CALLS.md` with their cheap checks.
 - Do not answer 035 §6.1's completeness floor by lowering `prune_floor_ratio`.
 - Do not treat the guides as a P2 consumer without NEW evidence — their answer was
   scoped to eleven guides on one site, judged from rendered structure.
+- **Do not re-open the routing arm inside P1** — ruled into P2 on 2026-09-03 (§3).
+- **Do not commission an arrangement-scoring loop** — ruled against on 2026-09-03
+  (§6.1). The alternative stays open and costs no migration if it is ever wanted.
+- **Do not build anything to give grain A defaults or forking** — it already has both
+  (§7.2). Building it again is the drift class D3 retired.
