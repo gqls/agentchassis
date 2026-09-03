@@ -307,3 +307,59 @@ that produced it. If D10 wants a measure of what actually catches this class tod
 answer is a second party with the same question and a different encoding — which argues for making
 the corpus **cheap to re-derive from** (commands and controls in the entry, as the newer entries
 carry) at least as strongly as it argues for better delivery.
+
+#### 6b (i). SHARPENED, and it corrects §6b's own framing: the two axes are NOT collapsed by accident — the verb axis has a mechanism, and its trigger condition is SELF-SUSPICION
+
+`dartsonline_traffic` read the hook's source, which states the design more plainly than either
+lane's write-up did. **Verified at the file here rather than relayed**, `scripts/landmines-session-start.py`,
+`matches()` — the guard at **:69–70** and the docstring at **:58–65**:
+
+```python
+    Substring both ways: a footprint may be a directory ('cmd/') that a path sits
+    under, or a full path that equals it. Bare table/command footprints
+    ('agent_definitions', 'git commit') will not match a path and are deliberately
+    NOT reported here — a session start is about files. Those are found by grep,
+    which is what the standing discipline in CLAUDE.md is for.
+    """
+    hits = []
+    for e in entries:
+        for fp in e["footprints"]:
+            if "/" not in fp and not fp.endswith(".go") and not fp.endswith(".py"):
+                continue                      # not a path-shaped footprint
+```
+
+And the discipline it hands off to, `CLAUDE.md:566-568` verbatim: *"**Still grep it yourself for
+table, command and symbol footprints**, which cannot match a path."*
+
+**So §6b's "collapsing them is what produced the failure" was wrong, and this is the correction.**
+The two axes are not conflated. The hook serves the artefact axis **by design, with its reason
+written down**, and hands the verb axis to a documented manual step. Nothing here is an oversight.
+
+**Which makes the gap much more precise, and worse.** The verb axis is not unmechanised — it is
+mechanised as *a human remembering to grep*, and **its trigger condition is self-suspicion**:
+"before touching anything **unfamiliar**". `[MEASURED 2026-09-03]` neither session was doing
+anything unfamiliar when it fired. One was checking a diff it had just produced; the other was
+editing a style guide it had written itself an hour earlier. **A discipline conditioned on doubt
+cannot catch confident competence, and confident competence is precisely the state in which these
+traps fire** — that is the same shape as this corpus's recurring finding that a right conclusion
+propped up by a count nobody took survives every review.
+
+**The coincidence claim now has two independent instances, one per lane.** In this lane the
+`grep '^-[^-]'` entry was delivered because a `.tmp_check` file in `docs026_concept_register/` was
+dirty. In theirs, the *same entry* was delivered because a **deleted bug file left dirty by a lane
+rename** matched its `bugs_open/` footprint. **Neither had anything to do with diffs or markdown
+bullets.** Two sessions, two unrelated paths, the same entry, both delivered hours early and both
+ignored at the moment it mattered. That is the artefact axis working exactly as specified and
+being orthogonal to the firing moment, observed twice.
+
+**What this does to §6a's costed option.** It strengthens it and narrows what it must do: the hook
+is not a replacement for a missing mechanism, it is **the automation of the manual step whose
+trigger condition is known to be unsatisfiable** — a `PreToolUse` matcher does not need the session
+to suspect anything, which is the whole of the difference. Match on command shape as well as on
+table tokens, and the two known misses plus both of today's share one mechanism.
+
+**Still not built, and still not ours to build.** Unchanged from §6a and §6b: a harness change
+touching every session on this machine, and a peer session asking is not authority. Both lanes have
+routed it to their owners. **What we would flag to whoever rules on it:** the success test in §5
+should be run against *unsuspecting* sessions specifically, because a warning evaluated by someone
+who already knows to look for it measures the wrong population.
