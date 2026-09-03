@@ -2493,3 +2493,11 @@ before `dbb218a41`. The disconfirming result would have been `(none)` on the tex
 `sections_for_render.sections_ready[].subject`; detector quiet (`agent_error_log`
 `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` for this page after 10:34Z = 0); served h2s (expected to
 STILL repeat: 641 not applied). Correlation sent to the 443 lane and the copy lane.
+
+**10:40Z — 443 lane corroborated first-hand and closed the detector check early** (`bugs_open/443` §9,
+commit `506d40e59`): their own read of row `28610ba3` matches (tier `pages_table`, 6 subjects, all
+distinct); and because `plan_sections` has already executed, the detector-quiet read is answerable
+now: **0** `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` rows for technical-details post-dispatch,
+against a fleet **demand control of 7** rows since the roll, so quiet means covered, not blind.
+Stage A's plan-time half is closed on both ledgers; the one Stage A read left is the writer row's
+carry when the watch fires. After that, this lane's 443 work is 641-gated (Stage B).
