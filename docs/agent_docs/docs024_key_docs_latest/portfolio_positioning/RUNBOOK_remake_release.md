@@ -424,3 +424,12 @@ was 189 complete against 33 failed.
 
 **Before concluding anything from a filtered status query, group by status with no filter at all** —
 and remember `site_work_items` is a rolling window, so union `site_work_items_archive` for "ever".
+
+## §10 — Proving a prompt-template edit BEFORE applying it (added 2026-09-03; the 734 lesson)
+
+Never assert template shape and call it verified. Pull the live template, apply the edit in memory,
+parse and execute it with `text/template` under contexts that include the failing shape, and assert on
+the DELTA against the unmodified template with a control that reproduces the defect. Worked harness:
+`tplproof/` in this directory (README has the two-line pull + `go run .`). ~20 lines of Go, seconds to
+run, and it catches a parse error, a wrong funcmap name, a guard that never opens, or an assertion that
+cannot fail — 734 had all of those chances and took none.
