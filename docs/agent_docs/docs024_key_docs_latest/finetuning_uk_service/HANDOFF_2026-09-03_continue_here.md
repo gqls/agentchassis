@@ -193,6 +193,10 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    explanation is written only after his answer, because the framing sentence is his. Base model
    `smollm2:1.7b` is on the in-cluster ollama-adapter for comparisons. The echo behaviour goes to the
    training side before any further run (data-boundary suspect; RESULTS 08-15 never measured held-out).
+0c. **A chassis roll was announced by the owner at 23:10 BST 09-03 ("in the next hour").** Before any
+   dispatch: pods older than 300 s (`kubectl get pods -l app=agent-chassis`), and read the site's
+   `page_rerender` queue (the 20:17Z fan-out) for an item the roll interrupted. Nothing of this lane's
+   rides the roll.
 0d. **HOMEPAGE CARD CANARY — the next session's FIRST item, on the owner's nod** (critique in
    `DESIGN_CRITIQUE_2026-09-03_finetuning_uk.md`; mechanism in NOTES 22:05Z). Slot `case-studies-grid`
    (four cards → 3+1 orphan) → `swipeable-insight-carousel` (agent-rendered; contract `cards,

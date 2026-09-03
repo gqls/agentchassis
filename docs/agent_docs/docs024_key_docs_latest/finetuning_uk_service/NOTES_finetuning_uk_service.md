@@ -3592,3 +3592,11 @@ not one grid. How-we-work's step row + numbered list is "the most confident layo
 **Not done tonight (23:05 BST): a first-of-its-kind swap on the live homepage with a copy-drift risk,
 invented live, is the wrong thing to do at this hour.** Written as the next session's first item; the
 owner asked to "apply", so it goes ahead on his nod to the canary (or to the 3/6 alternative).
+
+**22:10Z — owner: "A fresh chassis is being built and will be deployed in the next hour."** Nothing of
+this lane's is in flight (replace `e1b2bcf8`, rerender `d4f151bc`, critique `204f1ff7` all complete);
+the island tools-api and the Hetzner demo box are outside the chassis; no Go change from this lane is
+waiting on the roll. After it lands: no dispatch within ~300 s of the pod start; re-check the site's
+`page_rerender` fan-out from 20:17Z (a roll can interrupt the item being processed — it retries, but
+read the queue rather than assume); the card canary and any Stage B follow-up wait for the pods to be
+older than five minutes anyway.
