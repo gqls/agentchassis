@@ -33,7 +33,50 @@ type Config struct {
 	// self-hosted model). Same opt-in shape: nil unless PLAYGROUND_OLLAMA_URL
 	// is set, and then every field is validated at start.
 	Playground *PlaygroundConfig
+
+	// Forms is the fourth group: the static-site form receiver. Same opt-in
+	// shape again — nil unless FORMS_PULL_KEY is set.
+	//
+	// It is the only group with NO LLM key and NO SMTP identity, and that is
+	// the design rather than an omission. This process cannot see clients_db,
+	// so it cannot resolve which site a submission belongs to, cannot read a
+	// recipient, and must not send anything. It records what it was handed;
+	// the cluster pulls, resolves the token against site_form_routes, and
+	// notifies. A forged token therefore reaches an inbox row and never a
+	// mailbox.
+	Forms *FormsConfig
 }
+
+// FormsConfig is the form receiver's configuration. Two fields, because the
+// group deliberately does almost nothing: it needs a key for the cluster's
+// pull, and a body cap of its own (a lead form's payload is larger than the
+// gauntlet's 2000-byte MAX_INPUT_CHARS and smaller than a chat turn).
+type FormsConfig struct {
+	// PullKey is what the cluster sends as X-Internal-Key on GET /requests.
+	PullKey string
+	// MaxBodyBytes caps a submission body.
+	MaxBodyBytes int
+	// MaxPullBatch bounds one GET /requests page.
+	MaxPullBatch int
+}
+
+// Env var names for the forms group, in one place so the compose file, the
+// runbook and this loader cannot drift apart silently.
+const (
+	FormsPullKeyEnv      = "FORMS_PULL_KEY"
+	FormsMaxBodyBytesEnv = "FORMS_MAX_BODY_BYTES"
+	FormsMaxPullBatchEnv = "FORMS_MAX_PULL_BATCH"
+
+	// A lead form with a long "what do you need writing" free-text answer, plus
+	// headroom. Deliberately well under the island Caddy's 1 MB request cap, so
+	// this is the binding limit and the refusal is ours (a JSON 413 the widget
+	// can show) rather than Caddy's.
+	FormsDefaultMaxBodyBytes = 32768
+	FormsDefaultMaxPullBatch = 100
+	// formsMinPullKeyLen mirrors gripperMinPullKeyLen so both pull keys mean
+	// the same thing by the same rule.
+	formsMinPullKeyLen = 24
+)
 
 // GripperConfig is the gripper-dossier route group's own configuration. It is
 // deliberately separate from the gauntlet fields above: its own spend-capped
@@ -127,6 +170,12 @@ func Load() (*Config, error) {
 	}
 	cfg.Playground = p
 
+	f, err := loadForms()
+	if err != nil {
+		return nil, err
+	}
+	cfg.Forms = f
+
 	return cfg, nil
 }
 
@@ -196,6 +245,30 @@ func positiveIntEnv(key string, def int) (int, error) {
 		return 0, fmt.Errorf("%s must be a positive integer", key)
 	}
 	return v, nil
+}
+
+// loadForms returns nil, nil when the feature is not opted in. The pull key is
+// the switch: without a way for the cluster to collect, a receiver that stores
+// and never delivers is worse than no receiver, because the visitor is told
+// their message was sent.
+func loadForms() (*FormsConfig, error) {
+	key := os.Getenv(FormsPullKeyEnv)
+	if key == "" {
+		return nil, nil
+	}
+	if len(key) < formsMinPullKeyLen {
+		return nil, fmt.Errorf("%s must be at least %d chars", FormsPullKeyEnv, formsMinPullKeyLen)
+	}
+	f := &FormsConfig{PullKey: key}
+
+	var err error
+	if f.MaxBodyBytes, err = positiveIntEnv(FormsMaxBodyBytesEnv, FormsDefaultMaxBodyBytes); err != nil {
+		return nil, err
+	}
+	if f.MaxPullBatch, err = positiveIntEnv(FormsMaxPullBatchEnv, FormsDefaultMaxPullBatch); err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 // loadGripper returns nil, nil when the feature is not opted in.

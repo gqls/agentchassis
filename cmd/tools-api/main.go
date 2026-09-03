@@ -89,6 +89,35 @@ func main() {
 		log.Printf("playground route group NOT mounted (%s unset)", config.PlaygroundOllamaURLEnv)
 	}
 
+	// The forms group is the only one with no LLM key and no mailer: it stores
+	// what a static site's form posted and nothing else. The cluster's collector
+	// pulls via GET /requests, resolves the token against site_form_routes in
+	// clients_db — which this process cannot reach — and notifies. Opt-in on
+	// FORMS_PULL_KEY, because a receiver nobody collects from is worse than no
+	// receiver: the visitor is told their message was sent.
+	if cfg.Forms != nil {
+		fdeps := api.NewFormsDeps(pool)
+		ropts = append(ropts, api.WithForms(fdeps))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			t := time.NewTicker(time.Hour)
+			defer t.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-t.C:
+					fdeps.Limiters.Sweep()
+				}
+			}
+		}()
+		log.Printf("forms route group mounted (max_body=%d, max_pull_batch=%d)",
+			cfg.Forms.MaxBodyBytes, cfg.Forms.MaxPullBatch)
+	} else {
+		log.Printf("forms route group NOT mounted (%s unset)", config.FormsPullKeyEnv)
+	}
+
 	r := api.NewRouter(pool, cfg, gdeps, ropts...)
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
