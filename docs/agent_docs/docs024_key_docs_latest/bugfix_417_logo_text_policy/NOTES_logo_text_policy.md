@@ -445,3 +445,30 @@ back depends on that local copy.
 
 ⚠ **It also constrains 462's fix candidate 1:** a contrast check must run **after** matting and
 measure against **the header**. Pre-matte it would see high-contrast white-on-magenta and pass.
+
+### OWNER RULINGS 2026-09-03 — 462 fix shape, and no restore
+
+**462 → fix candidate 2 (report afterwards), not candidate 1 (fail-closed at store time).** Full
+text and consequences in `bugs_open/462` §7. Recorded emphatically because §3 of that file ranked
+candidate 1 **first**, on the estate's own "make the bad state unrepresentable" criterion — so a
+later reader could easily mistake the ruling for an oversight. It is not: the owner ruled against my
+ordering with the measurements in front of him.
+
+**A point for the ruling that I had underweighted when I ranked them.** Candidate 1's cost is not
+zero and is not merely theoretical: it adds a *second* fail-closed statistic to a retry ladder that
+already exhausts. Today's evidence — seotools needed 2 of 3, gamedesign 3 of 3, designblog has now
+failed **five** attempts across two rounds and still has no artefact. Refusing more artefacts on
+that ladder means more sites with no logo at all. My ranking treated "unrepresentable" as dominant
+and did not price the interaction.
+
+**No restore for websitepromotion** — it keeps the white/magenta mark, so **the estate knowingly
+serves one illegible logo by decision.** Marked settled in the handoff so it is not re-raised as an
+outstanding repair. The two `PRESERVED_*.png` files are reclassified: **evidence, not a rollback
+option.**
+
+**What is still open is 462 §7a**, and it is a real design fork rather than paperwork: the render
+audit (browser, true rendered backdrop, needs its remit widened) versus a standalone check over
+stored assets + the theme token (no browser, sweeps all 30 stored logos, but trusts the declaration
+over the render — the very thing §1b warns about, mitigated only by having *measured* that the token
+is genuinely consumed on this one site). Routing is unsettled too: `css-patch-agent` cannot fix a
+pale PNG. Recommendation recorded as input, not taken.

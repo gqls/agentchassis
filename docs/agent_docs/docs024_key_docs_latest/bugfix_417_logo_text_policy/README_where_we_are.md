@@ -368,3 +368,44 @@ I also got a count wrong three times in one hour today and each time in a slight
 detail is in the technical notes, but the short version is that I kept measuring a rule by searching
 for a word that the rule itself contains. What fixed it was looking in a different table, not writing
 a cleverer search.
+
+---
+
+**2026-09-03 — your two decisions, written down.**
+
+**On the invisible-logo problem (462): report it afterwards, not refuse it up front.** So the system
+will measure whether a logo can be seen against its header, and raise it as a fault to be fixed —
+rather than refusing to save a logo that fails. Recorded properly, including the thing it costs:
+under this shape a hard-to-see logo *does* go live, and gets repaired once the check spots it. There
+is a gap in between.
+
+I had ranked the other option first, so I have written down clearly that you ruled against my
+ordering on purpose, with the facts in front of you. That is so nobody later "discovers" the
+ranking and re-opens it as an oversight. And for what it is worth, your call has a point in its
+favour I had underweighted: refusing logos up front spends attempts, and we ran out of attempts on
+designblog twice today, so refusing more things is not free.
+
+**On websitepromotion: the old logo is not coming back.** The site keeps the new white-and-magenta
+mark. Which means — and I want this said out loud rather than buried — **we are now knowingly
+serving one logo that a visitor essentially cannot see.** That is a decision, not an oversight, and
+I have marked it as settled so the next person doesn't treat it as an outstanding repair.
+
+The useful side effect: it gives the new check a real test case. When someone builds it, it has to
+flag websitepromotion, because we already know the answer there. A check that passes that site is
+broken.
+
+I kept both copies of the logo in the project files. They are no longer a way back — they are the
+evidence that shows what happened, and the before-and-after pair is the clearest explanation of the
+problem we have.
+
+**One thing still genuinely undecided, and it is a real fork, not paperwork.** "Report it
+afterwards" doesn't say *where the measuring happens*. Either we do it in the browser, which sees
+exactly what a visitor sees, or we do it by reading the stored image and the site's own header
+colour, which is much cheaper and could check every existing logo tonight rather than only pages
+that happen to get audited. I lean towards the cheap one first, because right now nobody can answer
+"how many of our sites have this problem?" and that version would answer it immediately. I have not
+built either — that is the next person's job, and it needs the usual code review.
+
+**Meanwhile designblog still hasn't managed to produce a logo at all** — two more refusals this
+afternoon, with one final attempt due. It is the one site I most want to see a picture from, because
+it is the only one whose instructions still contain the phrase that started bug 417.

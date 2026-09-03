@@ -263,3 +263,63 @@ to come from that copy.**
 
 **Contributed to `bugs_open/424`** as a light-mark/key-colour interaction their guard cannot see —
 it is their mechanism, not their bug, and it is not a reason to revert their fix, which is working.
+
+---
+
+## 7. OWNER RULING 2026-09-03 — **candidate 2: report it afterwards.** Candidate 1 is parked, not pending
+
+**The ruling is fix candidate 2**: a post-hoc finding that measures the mark's luminance against its
+header and files it at a handler that can act on an image. **Not** candidate 1 (a fail-closed
+statistic at store time). Recorded here so nobody re-opens the ranking as an open question — §3
+ranked candidate 1 first on "what makes the bad state unrepresentable", and **the owner has ruled
+against that ordering with the facts in front of him.** That is a decision, not an oversight.
+
+**What the ruling accepts, stated plainly so it is not rediscovered as a surprise.** Under
+candidate 2 an illegible logo **still ships**, is **still served**, and is repaired only after a
+detection pass runs. There is a window in which a live site carries an invisible mark. The estate is
+choosing visibility-of-the-problem over prevention, which is a coherent trade — a fail-closed
+statistic on this ladder would also have refused artefacts, and the ladder already exhausts (three
+of today's five logo runs needed 2, 3 and >3 attempts; `designblog` has now failed five in total).
+**Candidate 1's cost was never zero, and the retry interaction is the reason.**
+
+**Companion ruling, same day: `websitepromotion.co.uk`'s previous logo is NOT to be restored.** It
+keeps the white-and-magenta mark described in §6. So **the estate is knowingly serving one illegible
+logo**, by decision. Two consequences worth carrying:
+- **This is the check's natural first test case.** When candidate 2 is built, it must fire on
+  websitepromotion — a live, known-bad, measured artefact (median 1.01:1, max 20.87:1, 85.4%
+  near-white). A detector that does not flag it is not working, and this is the motivating case, so
+  re-run it there rather than only on fresh output.
+- The two preserved PNGs in the working-docs directory are now **evidence, not a rollback option**.
+  Keep them: they are the only copy of the pre-regeneration artefact, and the before/after pair is
+  what makes §6's mechanism legible to a reader who was not here.
+
+### 7a. The one design fork left, and it is a real choice — not settled by the ruling
+
+"Report it afterwards" does not say **where the measurement lives**, and there are two viable homes
+with different truthfulness/cost profiles:
+
+- **(a) Extend the render audit** (`request_render_audit_action.go` → browser-runner adapter). It
+  measures what a visitor actually sees, so it gets the header's *rendered* backdrop including any
+  cascade surprise. Most truthful. Cost: it is a browser pass, and §2's remit line has to widen from
+  *"text contrast against the effective background"* to include image luminance.
+- **(b) A standalone check over stored assets + the site's theme** — no browser. Fetch the asset,
+  read the header background token, compute contrast. **Measured viable this session:** the declared
+  `--color-header-bg` is genuinely what the header consumes (four `background: var(...)` usages, and
+  the one fallback path also resolves `#FFFFFF`), so the cheap operand is the real one *on this
+  site*. Cheaper, runs on a schedule like the rest of the check fleet, and can sweep every existing
+  logo rather than only pages that get audited.
+  ⚠ Its assumption is exactly what §1b warns about — it trusts the declaration over the render. It
+  would be wrong on any site where the cascade overrides the token, and it cannot see a logo sitting
+  on an image or gradient header.
+
+**Recommendation, offered as input rather than a decision:** **(b) first**, because it can sweep the
+whole existing population immediately (30 stored logo assets) and answer "how many sites are
+affected right now?", which nothing can currently answer; then **(a)** if the population turns out to
+include non-solid headers. Whichever is chosen, §6's constraint is binding: **measure after matting,
+against the header, never against the keyed ground.**
+
+⚠ **Routing is NOT settled either.** §2's existing path files `contrast_failure` at
+`css-patch-agent`, which repaints a CSS class and **cannot fix a pale PNG**. A logo finding needs a
+handler that can regenerate or replace an image. Naming that handler is part of building this, and
+per the 2026-08-02 ruling on shared vocabularies, a new work-item type needs its producer set and
+`item_key` shape stated in the concept-register entry in the same commit that ships it.

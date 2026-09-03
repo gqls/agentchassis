@@ -35,26 +35,25 @@ not this one; another roll has been announced since.** Use ancestry, never dates
 
 ## 2. WHAT IS LEFT, ORDERED
 
-1. **⭐ THE DECISION ON 462, and it is the owner's.** Fix an illegible logo by **refusing it at store
-   time** (the only option that prevents it) or by **filing a finding afterwards** (sees it, ships it
-   anyway). §3 of the bug ranks them. ⚠ Two constraints discovered live, both in 462 §6: the check
-   must run **after** matting, and must measure against **the header**, not the keyed ground — a
-   pre-matte check sees high-contrast white-on-magenta and passes happily.
-2. **⭐ websitepromotion is serving a logo WORSE than the one it replaced, and there is no undo.**
-   Regeneration UPSERTs the row; the previous artefact is deleted and **its old storage key is
-   unrecoverable** — nobody recorded the full `storage_path` before the overwrite, only its date
-   directory, so the bucket object cannot be located even if it survives.
-   **Both versions are PRESERVED IN THIS DIRECTORY and committed, so the option outlives the
-   session that made it:**
-   - `PRESERVED_websitepromotion_logo_pre_regeneration_2026-09-03.png` — md5 `c80adffc9b23`,
-     41,062 B, 84.3% transparent, median 1.43:1, max 2.55:1
-   - `PRESERVED_websitepromotion_logo_post_regeneration_2026-09-03.png` — md5 `055e34066110`,
-     11,637 B, 93.4% transparent, median 1.01:1 — **what is live now**
-
-   Restoring the previous one is possible **and needs the owner's word** — and it is a choice between
-   two poor logos, not a repair: the old one was already too faint at 1.43:1, which is what opened
-   462. Regenerating a third time is a coin toss, not a fix: nothing in the pipeline asks for a mark
-   that reads on a white header.
+1. **~~THE DECISION ON 462~~ — RULED 2026-09-03: candidate 2, report it afterwards.** A post-hoc
+   finding, NOT a fail-closed refusal at store time. Recorded in `bugs_open/462` §7 with what the
+   ruling accepts: an illegible logo still ships and is repaired after detection. **Do not re-open
+   the ranking** — §3 ranked candidate 1 first and the owner ruled against that ordering knowingly.
+   **What is left is 462 §7a, and it is a genuine choice**: does the measurement live in the render
+   audit (browser, sees the real rendered backdrop) or in a standalone check over stored assets +
+   the theme token (cheaper, sweeps all 30 existing logos, but trusts the declaration over the
+   render)? Lane recommends the standalone check first, because it can answer "how many sites are
+   affected right now?", which nothing currently can. **Routing is also unsettled** —
+   `css-patch-agent` repaints a CSS class and cannot fix a pale PNG.
+   ⚠ Binding constraint from §6: **measure after matting, against the header, never the keyed
+   ground.** A pre-matte check sees high-contrast white-on-magenta and passes happily.
+   ⚠ Build it against **websitepromotion**, the motivating case: median 1.01:1, 85.4% near-white,
+   live. A detector that does not flag it is not working.
+2. **~~websitepromotion's logo~~ — RULED 2026-09-03: do NOT restore.** It keeps the
+   white-and-magenta mark. **So the estate is knowingly serving one illegible logo, by decision** —
+   this is not an outstanding repair and should not be re-raised as one. The two `PRESERVED_*.png`
+   files in this directory are now **evidence, not a rollback option**; keep them, they are the only
+   copy of the pre-regeneration artefact and the pair is what makes §6's mechanism legible.
 3. **Wait for `designblog.co.uk`.** The 424 lane reset it again (owner-authorised) and it was on
    attempt 2 of 3 at ~12:56Z, `retry_after` 13:24:20Z. **It is worth more than the other eight runs
    combined for 417**, because it is the ONLY site whose current plan still carries a permitting
@@ -142,8 +141,10 @@ itself. That is the disconfirmation control all three earlier attempts lacked. E
 2. **The 420 §C residual** — does the narrow ruling extend to *derived* contacts? 28 specs carry one.
 3. **Ordering cannot reopen until the intake chat asks the contact question** — box-side.
 4. **`bugs_open/421` still has no owner.**
-5. **NEW: 462's fix shape** (item 1) and **whether to restore websitepromotion's previous logo**
-   (item 2).
+5. ~~**462's fix shape** and **whether to restore websitepromotion's previous logo**~~ — **BOTH
+   RULED 2026-09-03**: report-afterwards, and do not restore. See §2 items 1–2 and `bugs_open/462`
+   §7. **NEW and open:** 462 §7a — where the measurement lives (render audit vs standalone check),
+   and which handler a logo-legibility finding routes to.
 
 ## 7. IF YOU READ ONE THING
 
