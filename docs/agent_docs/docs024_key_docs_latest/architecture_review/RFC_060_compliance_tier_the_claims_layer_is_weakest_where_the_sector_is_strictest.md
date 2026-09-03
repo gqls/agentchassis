@@ -426,7 +426,7 @@ is simultaneously "quotes external rules" and "readers act on it", and a single 
 
 | rung | means | requires |
 |---|---|---|
-| **`standard`** (absent — the default) | the site's claims are about its own offering | today's behaviour, unchanged |
+| **`standard`** (absent — the default) | the site's claims are about its own offering | ~~today's behaviour, unchanged~~ → **AMENDED by the owner ruling of 2026-09-03 (§3g): a register IS required, at the ATTESTED bar — `value` + `context_terms`, no citation** |
 | **`sourced`** | the site asserts **external** facts, rules or figures as true | a scannable register (§2b(ii)) |
 | **`relied_upon`** | a reader may act on those assertions to their **financial, legal, medical or safety detriment** | everything in `sourced`, plus the fact-quality floor (iii) and raised practice severity (i) |
 
@@ -841,6 +841,114 @@ Evidence: `lendzy_co_uk/RUNBOOK_lendzy_co_uk.md` §8b (host traps), §8c (near-i
 instrument numbers as a related mis-citation source — SI 1983/1569 vs 1564, caught by
 loancalculator's own schedule read; and gov.uk keeps organisation pages at FOUNDING-name slugs, e.g.
 MaPS at `single-financial-guidance-body`, so name-guessed URLs 404 rather than warn).
+
+---
+
+## 3g. OWNER RULINGS 2026-09-03 (afternoon) — FOUR decisions, one of which AMENDS the Q3 ladder
+
+Given in response to the register-absence finding at §1d/§1e. Recorded verbatim in substance because
+one of them changes a previously-ruled table row, and a silent change there would be re-derived
+wrongly by whoever builds the twelve registers.
+
+**D1 — `vetcomparison.uk` gets a register.** *"we'd want a register for vetcomparison."* It is this
+RFC's own `relied_upon` worked example (§3a, §3b) and the sector Q5's presets name, so the full
+`sourced`/`relied_upon` bar applies: primary-source citations, quotes verified through the production
+matcher. **Not the attested bar below.**
+
+**D2 — loancash.co.uk's three wrong sentences are to be REPAIRED.** *"fix the loancash wrong
+sentences."* This lifts the standing hold from the 695 precedent / `bugs_open/320` §15, under which
+`corrects_site_citation` recorded a finding and the served copy was deliberately left alone pending
+the owner. **The hold is lifted for these three findings on this site only** — it is not a general
+licence to rewrite published prose on an automated finding, and the repair goes through the framework
+(the owner ruling of 2026-08-04: every site goes through the framework; and 2026-08-06: the framework
+writes the content, not the session).
+
+**D3 — build the absence detector AND populate the missing registers.** *"build the missing check and
+fill the missing data for the sites."* Both halves, not one. §1d's structural finding stands as the
+reason the detector is not optional: the daily sweep's target list is drawn from the sites that HAVE
+a register, so absence is permanently invisible and no cadence change reaches it.
+
+**D4 — A REGISTER FOR EVERY SITE, WITH A LOWER BAR FOR NORMAL ONES.** *"I think we should do a
+register for each site to avoid AI slop but the bar can be lower for compliance for normal sites
+somehow."*
+
+This is the one that amends Q3. The ladder above gave `standard` "today's behaviour, unchanged" —
+i.e. **no register**. D4 says every site gets one. The rung stays; its *requirement* changes.
+
+### 3g(i). What the lower bar IS, derived from the code rather than invented
+
+The owner's "somehow" has a mechanical answer, and it is better than a reduced version of the
+`sourced` bar. **The two rungs' registers do different jobs, and only one of them needs a source.**
+
+`ScanUnregisteredNumbers` (`datahelpers/claims.go:1341`) is the anti-slop mechanism D4 is reaching
+for — it flags a number in the copy that no registered fact supports. Two facts about it decide the
+design:
+
+1. **It is disarmed entirely by an absent register**: `if eb == nil … return nil` (`:1342`). That is
+   the hole D4 names. A site with no register can have any figure invented into its copy and nothing
+   notices.
+2. **It does not read citations.** `numberSupported` (`:~1395`) consults only `f.Value`,
+   `f.ContextTerms` and `f.Tolerance` — **never `f.Source`**. So a fact carrying a value and no URL
+   arms the scan *exactly as fully* as one carrying a verified quote.
+
+**Therefore the `standard` bar is the ATTESTED register:**
+
+| | `standard` (attested) | `sourced` / `relied_upon` (cited) |
+|---|---|---|
+| facts carry | `value` + `context_terms` (+ `tolerance`) | that, **plus** `source.citation{url, quote, title, publisher, accessed}` |
+| what it arms | `ScanUnregisteredNumbers` — fully | that, **plus** the nightly quote re-check |
+| nightly fetch | **none — so no `citation_lost` drift risk at all** | every citation URL re-fetched and re-matched |
+| who vouches | an attestation: who stated the figure, when (the Q4 "record, not flag" shape) | the primary source |
+| `banned_claims` | yes — the sector set applies at both rungs | yes |
+| cost | **hours**: the figures are the site's own, there is nothing external to read | ~half a day: the expensive half is reading the primary source |
+
+The asymmetry is not a concession, it is the correct shape: **a `standard` site's claims are about
+itself, so there IS no external authority to cite.** "We have built 40 sites" cannot be verified
+against a URL; it can only be attested. Requiring a citation there would either produce fabricated
+sources or an empty register — and an empty register disarms the scan, which is the failure D4 exists
+to prevent.
+
+### 3g(ii). ⚠ The bound on D4's benefit, stated now rather than discovered after twelve registers
+
+`ScanUnregisteredNumbers` is gated on `surface.ProseNumbersAreClaims()`, which returns **false** for
+`editorialPageTypes` — `guide`, `blog-post`, `tool`, `game`, `news-index` — and for
+`thirdPartyDataComponents`. **So an attested register does NOT arm the numeric scan over guide,
+blog-post or tool bodies.** On a site that is mostly editorial, coverage falls on `content`,
+`landing`, `section-index`, `entity-page`, `report` and the like.
+
+**This bound is deliberate and measured, not a defect to route around.** Each membership was earned
+by counted false positives on live copy against a real register (`blog-post` 46, `tool` 7, `game` 4,
+`guide` 1+15, `news-index` 1 — `cmd/claimscan`, 2026-07-28), and that map's own comment sets the bar
+for adding one: *"a measured false positive on live copy, AND a body that is never marketing. Do not
+widen this from intuition."* `section-index` was measured and **rejected**; `blog-index` was never
+measured and deliberately left out.
+
+So D4 delivers: **numeric-claim coverage on the marketing surfaces of every site**, plus
+`banned_claims` at both rungs, plus the absence of the disarming-by-emptiness hole. It does **not**
+deliver number-checking inside guides and blog posts, and nothing in this ruling should be read as
+promising that. Whether the editorial exclusion should narrow (per-component rather than per-page, as
+RFC_053 Phase 2 already did for the tracker/directory three) is a **separate question with its own
+measured bar** — it is not part of D4 and must not be bundled into it.
+
+### 3g(iii). What D4 changes about the twelve
+
+§1d's twelve register-less `deployed` sites are no longer "mostly not violations". Under D4 **all
+twelve need a register** — but only the ones asserting external facts need the expensive one. First
+pass at the split, `[INFERRED from domain and category — NOT yet measured per site, and the posture is
+a Q4 RECORD that a human signs, not a guess a session makes]`:
+
+- **`relied_upon` / `sourced` (cited bar):** `vetcomparison.uk` (D1, animal-health claims).
+- **likely `sourced`:** `seotools.co.uk`, `cv1.co.uk`, `idea.uk`, `cookly.uk`, `lampenkap.com`,
+  `garden-tools.uk`, `homegarden.uk` — each turns on whether its figures are about the world or about
+  itself, which is exactly the question the ladder asks and which must be **read at the pages**, not
+  assumed from the domain.
+- **likely `standard` (attested bar):** `advertise.co.uk`, `designblog.co.uk`, `websitepromotion.co.uk`,
+  `oxenunity.com`.
+
+**Do not build to this list.** It is the shape of the work, not its scope: the rung is a Q4 record
+carrying who declared it and on what basis, so each site's posture is a decision with a signature,
+taken after reading what the site actually asserts. The absence detector (D3) is what produces the
+queue; this list is only an estimate of how much of that queue is cheap.
 
 ---
 
