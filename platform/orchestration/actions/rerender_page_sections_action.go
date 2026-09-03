@@ -1616,7 +1616,11 @@ func renderPlannedSection(
 	// the heading strip removes only the `#… ` prefix — so the only input
 	// that strips to "" had no letter or digit to begin with
 	// (datahelpers/literal_markdown_test.go pins the property). A bare
-	// image token `![alt](url)` strips to `!alt`, not to nothing. And the
+	// image token `![alt](url)` strips to `alt`, not to nothing — CORRECTED
+	// 2026-09-03, bugs_open/332: it used to strip to `!alt`, because the
+	// link rule ran before any image rule and left the `!` behind. The
+	// property the seat asked for (visible text survives) is unchanged and
+	// still holds; only the stray marker went. And the
 	// stored-content strip above runs BEFORE the required-field pre-check,
 	// whose test is isEmptyContentValue, so an emptied required LLM field
 	// would escalate, not render blank.

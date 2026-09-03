@@ -53,6 +53,23 @@ var (
 	// markers, bullet and ordered list markers. Stripped so the assertion text
 	// reads as prose; the LINE BREAK is what carries the block boundary, so
 	// removing the marker cannot fuse anything.
+	// ⚠ THIS PACKAGE HOLDS TWO MARKDOWN VOCABULARIES, DELIBERATELY. This one is
+	// looser than literal_markdown.go's (it covers blockquotes and ordered-list
+	// markers, which that file has no pattern for, and mdEmphasisRe below unwraps
+	// `_italic_` and `*single*` which MDBoldRe does not). Do NOT unify them
+	// without reading the WHY TWO TIERS block in literal_markdown.go first.
+	//
+	// The asymmetry is one of CONSEQUENCE, not taste. This splitter's output is
+	// never served — it feeds a scanner, so a wrong strip here costs a missed or
+	// an extra finding. literal_markdown.go's output IS served, through a
+	// text/template pipe that escapes nothing, so a wrong strip there is a visible
+	// mutation of a customer's page. The looser vocabulary is right for the first
+	// job and would be reckless for the second.
+	//
+	// And where they genuinely overlap they disagree ON PURPOSE: this file KEEPS
+	// markdown link URLs (see below — they are the citation evidence
+	// ScanAttributedUncitedStats reads), where literal_markdown.go deletes them.
+	// That is the strongest single argument against merging the two.
 	mdLinePrefixRe = regexp.MustCompile(`^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+|\d{1,3}[.)]\s+)`)
 
 	// Emphasis runs, unwrapped to their content. Deliberately conservative: it
