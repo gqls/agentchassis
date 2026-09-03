@@ -147,3 +147,46 @@ that both deserve a description and lack one, so there is nothing to refuse. The
 only starts working after the next chassis deployment. I have written down the check to run before
 anyone concludes it's broken — because "no records" and "not working" look identical, which is the
 same trap I fell into yesterday reading a different empty result.
+
+---
+
+## 2026-09-03, mid-afternoon — it's live, on the second attempt
+
+The rewrite-on-refusal work is now running in production. It went out with the chassis you
+deployed at half past one.
+
+**One thing worth knowing, because I got it wrong in front of you earlier.** When the first new
+chassis went out at ten past twelve, I told you it would contain my change. It didn't — that build
+had been cut from a slightly older snapshot of the code. My change was sitting in the shared
+codebase, a deployment happened after it, and it still wasn't in the deployed program. Those are
+two different questions and I had treated them as one.
+
+I only knew because I asked the running program directly rather than reasoning about it: I searched
+the live binary for two words that only exist in my change, alongside a word that was already there
+(to prove the search was looking at the right thing) and a nonsense word (to prove it could say
+no). First build: absent. Second build: present, on both machines. That's the check to trust, and
+it's written into the handoff.
+
+**What's actually working now.** If the writing rules reject a description, the system no longer
+shrugs. It files a job for a small agent whose only task is to write it again, this time *told what
+it got wrong*. That goes back through the same rules. Only if the second attempt is also rejected
+does it reach a person — and then with the original sentence, the rule that rejected it, and the
+failed retry all attached.
+
+**The reviewers found one more thing, and it was a fair hit.** I had checked whether four other
+parts of the system share the same silent-failure problem, and my check was a keyword search rather
+than actually reading them. I said so in my write-up — but a reviewer pointed out that an admission
+buried in a submission is invisible six months later, and asked me to file it as a proper numbered
+bug so somebody can finish the job. That's now `bugs_open/464`. It says plainly that those four
+files are *unread*, not *cleared*.
+
+**And one habit I keep repeating.** Three review rounds in a row have told me the same thing:
+I state that I checked something instead of showing what the check returned. Every one of those
+claims turned out to be true, which is exactly why it keeps happening — and exactly why it doesn't
+help. A reviewer can't tell a checked claim from an unchecked one. I had written that lesson down
+myself yesterday morning and then not applied it twice. It's logged.
+
+**Is it doing anything yet?** No, and it can't be. There are still no pages that both deserve a
+description and lack one, so nothing has been refused and no job has been filed. The first one that
+appears is the real proof. Until then it's live and untested, and I'd rather say that than let it
+read as finished.

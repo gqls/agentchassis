@@ -354,3 +354,60 @@ migration merged with other lanes — a named follow-up). `voice_gate_unreadable
 correctly so for a rewrite handler, but it is a residual. §9d's writer-omission path still open.
 And nothing has exercised any of it: zero pages are currently both blank and eligible, so there is
 no page to refuse — read "no rows" with that demand control or it reads as failure.
+
+---
+
+## 2026-09-03 (post-roll) — it shipped on the SECOND roll, and the council found one more thing
+
+### The Go is live, and the near-miss is the lesson
+`v1.0.1359`, pods 13:28:18Z / 13:28:43Z. Verified at the binary on **both** pods with a
+present-control (`candidate_looks_internal`) and an absent-control.
+
+⚠ **It did NOT ship in `v1.0.1358`**, which rolled at 12:06Z — *after* both my commits were
+already ancestors of HEAD. The build was cut from an earlier HEAD. I had told the owner the
+pending build would carry it; it did not, and I only knew because I probed instead of inferring.
+**`git merge-base --is-ancestor` answers "is my commit in the source", not "is my code in the
+binary".** Two rolls, one negative and one positive, both measured with the same controls — which
+is as close to a clean experiment as this ever gets.
+
+⚠ And the prescribed `kubectl logs | grep 'build provenance'` **failed exactly as its own landmine
+predicts on this service** — it matched the chassis's logged landmine corpus *about* build
+provenance and returned pages of unrelated text. Second confirmation in one day.
+
+### The roll killed the council round, and the tell was fleet-wide
+Round 2 was at `review_guidelines` at 12:05:35Z; pods replaced 12:06:47Z. `[MEASURED]` **7 of 11**
+in-flight orchestrations idle >15 min in the same window, worst 24m52s — so it was the roll, not
+my submission. That distinction is the runbook's own discriminator (one sick run vs a sick fleet)
+and it stopped me editing a submission that had nothing wrong with it.
+
+### Round 2 verdict: REVISE, gated by prior_art [HIGH] — and it was a documentation defect
+*"Rationale claims the new filing 'uses the shared writeWorkItem door' … but the sketch calls
+`insertWorkItem(...)` — a different symbol."* Right that I had given the reviewer no way to connect
+them. Wrong that they differ: `insertWorkItem` is a **two-line wrapper** over `writeWorkItem` with
+`dropOnConflict`. Every probe runs.
+
+**This is the same fault in its THIRD consecutive round.** r1's prior_art asked for the greps'
+output; r2's asked for three symbols; r3's gating objection is the same shape again. Four
+`WRONG_CALLS` rows. **The claims were all TRUE every time** — which is precisely why it keeps
+happening and why it matters: a reviewer cannot distinguish a verified claim from an unverified
+one, so "I checked" is worth nothing unless the output is on the page. I had written that exact
+remedy into `WRONG_CALLS.md` myself that morning and then not applied it to the next two
+submissions.
+
+### What the round produced besides the objection
+- **`bugs_open/464` FILED** — `bug_historian`'s `MISSING` asked, by name, that the four unread
+  copy-gate call sites become a numbered bug before the register entry closes as done. Right: my
+  audit was a grep intersection and I had said so, but a stated limitation inside a submission is
+  invisible six months later. A bug file is not.
+- **`reuse_agent` [low], measured:** eight `*ItemKey(` builders in the actions package, all
+  package-private, all different signatures. No shared convention to reuse — the same answer as
+  the parkers, and I had assumed it rather than checked it.
+- **Nine seats approved cleanly**, including `guardian` and `architecture` — the two that objected
+  in round 1 — so r1's fixes held.
+
+### Where it stands
+Round 3 submitted with every answer as OUTPUT rather than assertion. Config and Go both live.
+**Nothing has exercised any of it**: zero pages are both blank and past the `>200` gate, so no page
+can be refused. The first `meta_description_refused` row is the acceptance evidence, and until one
+exists this is live-and-unproven — which is exactly what `bugs_open/338` taught this lane not to
+paper over.
