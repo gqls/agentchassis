@@ -168,3 +168,58 @@ warning applies exactly: **do not retry the trigger on that evidence** — it co
 round. Poll in the background instead of blocking, and find the run by payload
 (`collected_data->'input_data'->>'fix_correlation_id'`), never by the printed `RUN_ORCH_ID`,
 which is not the id the chassis assigns.
+
+## (i) 2026-09-03 ~12:3xZ — council APPROVED round 1, and the four mediums were all worth answering
+
+Corr `2b236e83-ffd1-4911-b73f-1c17249064c1`: **APPROVED, 4 advisory objections, none high**, 16
+seats, 3 abstained. Approval does not make the objections wrong, and three of the four named a
+check I had ASSERTED rather than run. All are now measured. **This is the "a REVISE round is
+cheaper than the defect it finds" lesson arriving on an APPROVED verdict.**
+
+**1. `prior_art_librarian` (medium) — and it caught a FALSE CLAIM of mine.** It objected that
+"nothing in this estate has ever UPDATEd `rebuild_policy`" rested on my own grep, and that if an
+UPDATE existed the design argument collapses. It was right to ask. **SIX hand-run migrations SET
+that column** — 164 (the seed backfill), 195, 367, 377, 667, 668 — two of them (667/668, terms
+and privacy locking) more recent than anything I had looked at. What is true is the narrower
+claim: **zero Go UPDATEs, so no AUTOMATED transition** `[MEASURED 2026-09-03]`. The design
+conclusion survives and is arguably stronger — a per-page lifecycle whose only clearing event is
+a human writing a migration is not one a planner can rely on — but **the claim as written was
+false and is corrected in the code comment**, not just here. WRONG_CALLS logged.
+
+**2. `debug_historian` (medium) — "settle risk #1 before merge, not after".** The mislabelled
+-`page_type` population I had carried as `[UNMEASURED]`. Now measured, and it reframes the whole
+change: of the **67 pages** the predicate matches, **48 are ALREADY `rebuild_policy='owned'`** and
+were refused by the old guard too. The genuinely NEW refusals are **19 pages** — 18 under
+`/tools/`, and **exactly ONE elsewhere: `idea.uk` `/report.html`**, typed `tool`, six components,
+no tool. That is the entire mislabelled-suspect population: one page, failing loud. My submission's
+risk section implied a possible unmeasured class; it is a single row.
+
+**3. `guardian` (medium) — the cost on the universal insert path was "asserted, not measured".**
+`EXPLAIN (ANALYZE)` on the door's read: for a non-tool page the EXISTS subplan reads
+**`(never executed)`** — Postgres short-circuits on the `page_type` test, exactly as the comment
+claimed — with the whole read at **~2.2 ms**, in line with the ~2.7 ms the 333 door already
+documents for the plain policy read it replaces. On a tool page the subplan adds ~2.3 ms, on a
+small minority of writes. Both figures are now in the code.
+
+**4. `reuse_agent` (medium) — does `check_missing_tools.go` already watch these pages?** Read it:
+**no overlap.** It counts tool COMPONENTS site-wide and files one per-SITE `evaluate_tools` item
+at `tool-suggester` ("should this site get tools?"). Ours is per-PAGE, different item_type,
+different handler, different question. There is no second disposition path for one defect — the
+seat's founding failure mode does not apply, but the question was the right one to ask.
+
+**5. `architecture` (medium) — do parked `tool_pending` items reactivate, or pile up?** Honest
+answer, and it is a real limitation rather than a clean pass: `deferred` is in **neither**
+`workItemTerminalStatuses` nor `workItemClosedStatuses`, so a parked row **holds its dedup slot**
+(re-finds collapse onto it instead of stacking) and is **retracted normally** when its detector
+stops reproducing it. But nothing PROMOTES it back to dispatch when the tool arrives — by design,
+since promoting it would dispatch work the handler refuses. So the row waits for its detector's
+next pass to retract it. That is the same mechanism the owned-page door has used since `333`, and
+it is **not** the "hold with no consumer" this bug complains about (those never dedup or retract),
+but the distinction is thinner than I would like and is worth stating rather than glossing.
+
+**6. `editquality` (medium) — a submission-quality miss, not a code one.** My sketch narrated
+`emitOwnedPageReviewItem`'s signature change and the `censusExcludedOwnedPages` rename in a
+trailing comment instead of showing them as edits. The code is correct; the SUBMISSION was
+under-specified, and the seat could not see the change it was being asked to approve. **Reviewers
+judge the sketch — the RUNBOOK's own warning, which I read and then did exactly this.** Next
+submission: every signature change gets its own diffed edit.

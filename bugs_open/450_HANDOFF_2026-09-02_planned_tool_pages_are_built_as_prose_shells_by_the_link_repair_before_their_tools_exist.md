@@ -145,9 +145,33 @@ live before its tools will fill its tool URLs with prose, and every 200 hides it
 the bar is fixed AND live.
 
 **Commit `587666be8`** — `pageIsOwnedForGuard` → **`pageRefusesGenericBuild`**, a two-class
-verdict (`owned` | `tool_pending`), register entry **PBP-053**, council corr
-**`2b236e83-ffd1-4911-b73f-1c17249064c1`** (submitted after the commit; see the process note
-below). Consulted at the `writeWorkItem` policy door, `load_page_record`'s `refuse_owned_page`
+verdict (`owned` | `tool_pending`), register entry **PBP-053**, council
+**APPROVED round 1**, corr **`2b236e83-ffd1-4911-b73f-1c17249064c1`** (submitted after the
+commit; see the process note below).
+
+**⚠ THE APPROVAL IS THE LEAST USEFUL PART OF THE VERDICT — read the four mediums.** Each named a
+claim this file made that had been ASSERTED rather than measured, and answering them changed two
+of the numbers in it:
+
+- **The blast radius is far narrower than the census suggests `[MEASURED 2026-09-03]`.** The
+  predicate matches 67 pages, but **48 are already `rebuild_policy='owned'`** and were refused by
+  the old guard too. **The genuinely NEW refusals are 19 pages** — 18 under `/tools/`, and
+  **exactly ONE elsewhere: `idea.uk` `/report.html`** (typed `tool`, six components, no tool).
+  That single row is the entire measured population of the mislabelled-`page_type` misfire class
+  that the fix-candidate discussion treated as an open risk.
+- **A claim in this file's fix record was FALSE and is corrected:** "nothing in this estate has
+  ever UPDATEd `rebuild_policy`". **Six hand-run migrations do** — 164, 195, 367, 377, 667, 668.
+  The true claim is **zero Go UPDATEs → no AUTOMATED transition**, which supports the derived
+  design just as well. Caught by the council's prior-art seat asking for the query rather than
+  the assertion; logged in `WRONG_CALLS.md`.
+- **Hot-path cost, measured not argued:** the added EXISTS reads `(never executed)` for a
+  non-tool page (Postgres short-circuits on `page_type`); ~2.2 ms whole read, against the ~2.7 ms
+  the `333` door already documents.
+- **No competing detector:** `check_missing_tools.go` files one per-SITE `evaluate_tools` item at
+  `tool-suggester`; ours is per-PAGE. Different question, no second disposition path.
+- **Limitation, stated rather than glossed:** a parked `tool_pending` item holds its dedup slot
+  and retracts normally (`deferred` is in neither the terminal nor the closed set), but **nothing
+  promotes it back to dispatch** when the tool lands — it waits for its detector's next pass. Consulted at the `writeWorkItem` policy door, `load_page_record`'s `refuse_owned_page`
 arm, `save_page_sections`, `AssemblePageAction`, the rerender escalation and the build-selection
 exclusion. Kill switch `DISABLE_TOOL_SHELL_REFUSAL`, armed, scoped to the new arm only.
 

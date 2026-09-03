@@ -60661,3 +60661,38 @@ a-report-is-not-a-measurement.
   something your change never writes, it is not a mutation of your change.
 - **Cost.** One extra rehearsal round, ~2 minutes, and no wrong claim escaped — logged because
   the near-miss (widening a control to chase an out-of-scope mutation) is the expensive half.
+
+---
+
+## 2026-09-03 — "nothing in this estate has ever UPDATEd this column" was false; SIX migrations do, and a council seat asked for the query I had only asserted (`bugs_open/450` lane)
+
+- **The claim**: *"NOTHING in this estate has ever UPDATEd `rebuild_policy` — two INSERT-time
+  writers, no transition in any handler, check or scheduler, in either direction."* Written into
+  a code comment, the register entry **PBP-053**, the bug file, and council submission
+  `2b236e83` — where it was the **load-bearing justification** for deriving the new predicate
+  rather than storing a flag.
+- **What was actually true**: **six hand-run migrations SET that column** — `164` (the seed
+  backfill), `195`, `367`, `377`, `667`, `668` — the last two (terms/privacy page locking) more
+  recent than anything I had looked at. The column transitions; what it has never had is an
+  **automated** transition. `[MEASURED 2026-09-03: 0 Go UPDATEs, 6 migrations.]`
+- **What caught it**: the council gate's `prior_art_librarian` seat, whose entire remit is
+  asserted absences — *"verified, per the plan's own text, only by the author's own grep. This is
+  exactly the ASSERTED-ABSENCE pattern this seat exists to catch even when self-reported. If an
+  UPDATE of rebuild_policy exists anywhere the whole design argument collapses."* It objected on
+  a verdict that was otherwise APPROVED, and it was right.
+- **The cheap check**: I grepped `platform/` for `UPDATE ... rebuild_policy` and generalised the
+  answer to "this estate". **The estate is not the Go tree.** `grep -rln "SET rebuild_policy"
+  docs/agent_docs/sql_for_agents/` takes two seconds and returns six files. A claim scoped to
+  "nothing, ever, anywhere" needs every writer surface searched, and on this platform that is
+  always at least Go **and** the migration corpus — because migrations here ARE the running
+  system.
+- **Why it mattered even though the design survives**: the narrower claim (no automated
+  transition) supports the design at least as well, so nothing was rebuilt. But I had put the
+  broad version in a **code comment**, which is where the next reader will meet it, and a false
+  absence in a comment is worse than in a doc: it reads as something the author checked.
+- **The generalisable half**: an absence claim is only as wide as the surfaces you searched, and
+  the honest form states the surface — "no Go code path updates it" is checkable and was true;
+  "nothing in this estate ever has" was neither. **Say where you looked, in the claim itself.**
+
+Family: prior-art-search-goes-stale, a-report-is-not-a-measurement,
+your-measurement-answers-the-question-you-encoded, a-doc-comment-is-not-an-enforcement-mechanism.

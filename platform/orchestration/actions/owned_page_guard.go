@@ -109,14 +109,45 @@ const disableToolShellRefusalEnv = "DISABLE_TOOL_SHELL_REFUSAL"
 // tool actually occupies the page, so that is what this asks.
 //
 // DERIVED, NEVER STORED — and that is the whole design. The obvious fix is to
-// mark the page (rebuild_policy, or a new 'tool-pending' value), but NOTHING in
-// this estate has ever UPDATEd rebuild_policy: there are two INSERT-time writers
-// and no transition anywhere, so a mark set at plan time is a mark nobody clears
-// and the page would be protected for ever. A derived predicate self-clears the
+// mark the page (rebuild_policy, or a new 'tool-pending' value), but NO CODE
+// PATH IN THIS ESTATE UPDATES rebuild_policy: there are two INSERT-time writers
+// (adopt_verbatim.go, create_report_page_action.go) and zero `UPDATE pages SET
+// rebuild_policy` statements in Go, so a mark set at plan time is a mark nobody clears
+// and the page would be protected for ever.
+//
+// ⚠ BE PRECISE ABOUT THAT CLAIM — an earlier version of this comment said
+// "nothing in this estate has ever UPDATEd rebuild_policy", which is FALSE and
+// was caught by the council's prior-art seat asking for the query rather than the
+// assertion (corr 2b236e83). SIX hand-run migrations SET it — 164 (the seed
+// backfill), 195, 367, 377, 667, 668 — so the column does transition; what it
+// has never had is an AUTOMATED transition. That is the property the design
+// rests on, and it is the stronger one: a per-page lifecycle whose only
+// clearing event is a human writing a migration is not a lifecycle a planner can
+// rely on. [MEASURED 2026-09-03: 0 Go UPDATEs, 6 migrations.]
+//
+// A derived predicate self-clears the
 // instant tool-deployer inserts the tool component — verified ordering, and it
 // matters for a live lane: deploy_tool_action.go INSERTs the component (step 5)
 // BEFORE it raises the companion needs_content_page (step 6), so the tool
 // pipeline's own follow-up work is never refused by this.
+//
+// BLAST RADIUS, measured after the council asked for it rather than asserted
+// [MEASURED 2026-09-03]: 67 pages / 16 sites match this predicate, but **48 of
+// them are ALREADY rebuild_policy='owned'** and were refused by the old guard
+// too. The genuinely NEW refusals are **19 pages**: 18 under /tools/ (450's
+// shells proper) and exactly ONE elsewhere — idea.uk `/report.html`, typed
+// 'tool' with six components and no tool, which is the mislabelled-page_type
+// case this predicate's misfire class predicts. It is ONE page, it fails LOUD
+// (a deduped owned_page_review naming the retype remedy), and it is the whole
+// measured population of that risk — which had been carried as [UNMEASURED]
+// until the council's debug_historian seat said settle it before merge.
+//
+// COST, also measured rather than argued (the guardian seat's objection: this
+// rides the seam EVERY work-item write crosses). On a non-tool page the EXISTS
+// subplan reads `(never executed)` in EXPLAIN ANALYZE — Postgres short-circuits
+// on the page_type test — and the whole read is ~2.2 ms, in line with the ~2.7 ms
+// the 333 door already documents for the plain policy read it replaces. On a
+// tool page the subplan costs ~2.3 ms more, on the small minority of writes.
 //
 // DELIBERATELY NOT discovery_checks.toolEligibilityWhere, which looks similar.
 // That fragment also requires the page to carry exactly ONE component, because
