@@ -1,4 +1,4 @@
-# HANDOFF — 2026-09-03 — `bugs_closed/394`: CLOSED. Three open QUESTIONS for the owner.
+# HANDOFF — 2026-09-03 — `bugs_closed/394`: CLOSED, and all three questions RULED.
 
 **Supersedes every earlier handoff in this directory** (08-26, 09-02, 09-02b — all stamped).
 
@@ -8,12 +8,14 @@
 
 ---
 
-## 1. Nothing is left to DO. Three things are left to DECIDE.
+## 1. Nothing is left. The lane is DONE.
 
-The lane is closed on the estate's own bar — fixed AND live — and both halves are proven at the
-artefact, not inferred. What remains are three **product/judgement questions** I deliberately did
-not answer alone. They are laid out in §4. None of them blocks anything; all three are cheap to act
-on later, and each is cheaper to answer now while the evidence is fresh.
+Closed on the estate's own bar — fixed AND live — with both halves proven at the artefact rather
+than inferred. The three product/judgement questions I did not answer alone were **put to the owner
+and ruled on 2026-09-03** (§4). Nothing on this lane is outstanding.
+
+The one thing that survives it is `bugs_open/452`, spun out and unowned — a dead config key, LOW,
+and ruling A narrows which of its fix candidates is live.
 
 ## 2. What was wrong, and what is true now
 
@@ -47,71 +49,51 @@ scheduled reader that alarms when the rotation regresses.
   remove. The protected population is not the site but the pages awaiting a grade: 3 of 151. Cost:
   3 of 60 slots.
 
-## 4. ⚠ THE THREE DECISIONS
+## 4. THE THREE DECISIONS — ALL RULED BY THE OWNER, 2026-09-03
 
-### Decision A — should the design critic rotate, or keep looking at the same 8 pages?
+Recorded here AND in `bugs_closed/394`'s close-out, because a ruling that lives only in a chat log
+is a ruling the next session re-opens. The durable copy is the bug file; this is the pointer.
 
-**What the thing is.** `design-critique-agent` opens 8 pages of a site in a real browser and asks a
-vision model for a design opinion. It picks the first 8 in navigation order — the same 8 every run.
+### A — `design-critique-agent` KEEPS ITS PREFIX. Ruled: *"leave it"*.
 
-**The rule that governs it.** For a *coverage* sweep, always taking the same pages is precisely the
-bug just fixed. For a *sample*, taking the same pages may be the point: you want the pages that
-matter most, and you want two critiques to be comparable.
+It stays a **taste instrument, not a coverage instrument**. It is manual-only, so it accrues no
+debt between runs, and comparability across critiques is worth more than eventual coverage of an
+8-page sample.
 
-**How this case measures against it.** `[MEASURED 2026-09-03]` it is **manual-only — no schedule**,
-so it accrues no debt between runs; at cap 8, **25 sites** truncate; its 8 are the nav pages plus
-the top tools alphabetically. It is a taste instrument, not a coverage instrument.
+**Reversible by design:** `rotate_coverage: true` on its `audit` step is a one-line migration.
+**The operative control is the acks entry** in
+`docs/agent_docs/docs024_key_docs_latest/architecture_review/render_truncation_acks.json`, now
+stamped with this ruling — so the watchdog's arm (c) treats its prefix rows as a reviewed exception
+rather than an oversight, and any THIRD caller still pages.
 
-**The options.** (i) Leave it — the machinery exists, flipping `rotate_coverage: true` on its step
-is a one-line migration whenever you want it. (ii) Rotate it — sees the whole site eventually, but
-each critique sees a different slice and run-to-run comparison gets noisier. (iii) Curate it —
-name the pages deliberately, which needs `bugs_open/452` implemented first.
+⚠ **The ruling does NOT cover the cadence case, and the ack says so.** If this agent ever gains a
+schedule, re-open it: a scheduled sampler that never revisits IS a coverage debt, and that is not
+what was ruled on.
 
-**My recommendation: leave it (i)**, unless you want design critique to become a coverage
-instrument. Its prefix is currently acknowledged by name in the reader's acks file, so it is a
-reviewed exception rather than an oversight.
+### B — the detection-latency trade is ACCEPTED. Ruled: *"accept it"*.
 
-### Decision B — accept webdesign's new-defect detection latency, or buy it back?
+Stated precisely, because the two clocks are easy to conflate:
 
-**What the thing is.** Two different latencies. *Confirmation* latency is "a repair shipped today,
-how long until the audit re-measures the page and withdraws the work item". *Detection* latency is
-"a NEW defect appeared today, how long until anything looks at that page".
+- **Confirmation latency stays at 3 days** — a repair ships, the audit re-measures, the item is
+  withdrawn. That is what migration 469's owner instruction bought and what the union window exists
+  to protect. **Unchanged.**
+- **Detection latency moved** on webdesign.co.uk — a NEW defect on the first 60 pages now waits up
+  to one cycle (~9 days) instead of 3, and the other 91 pages went from **never** to one cycle.
 
-**The rule.** Migration 469 is your instruction of 2026-08-18: seven days to confirm a repair was
-unacceptable, cut to three.
+Accepted on that basis. `max_pages` is now a pure latency dial with no coverage cliff behind it, so
+buying head-page latency back is a config change rather than a redesign — the number to watch is
+site growth, and the watchdog reports it.
 
-**How this case measures against it.** **Confirmation latency is preserved at 3 days** — that is
-what the union window is for; every page with an open finding is in every run. **Detection latency
-moved**: for webdesign's first 60 pages it went from 3 days to one cycle (~9 days), and for the
-other 91 it went from **never** to ~9 days. So it is a strict improvement for 91 pages and a
-regression for at most 60, and the regression is in discovery, not confirmation.
+### C — the 14-day dormancy window is ACCEPTED. Ruled: *"accept it"*.
 
-**The options.** (i) Accept it. (ii) Raise `max_pages` for `render-audit-agent` — now a pure latency
-dial with no coverage cliff behind it — at the cost of render-audit pod minutes, which is the
-dedicated pod's whole purpose. (iii) Shorten that site's rotation interval, which takes capacity
-from the other 30 sites.
+Accepted **as a judgement rather than a measurement**, which is how it was put: ~4 missed
+opportunities at the 3-day per-site cadence. One constant (`dormantAfterDays`,
+`cmd/config-key-audit/rendertruncation.go`), one line to change.
 
-**My recommendation: accept (i) for now**, and let the reader tell you if it stops being true. The
-number to watch is site growth, not the cap.
-
-### Decision C — is a 14-day dormancy window right?
-
-**What the thing is.** The new watchdog stops judging a site that has gone quiet. `[MEASURED
-2026-09-03]` exactly one site is dormant: `loancalculator.co.uk`, whose only truncation row is from
-2026-08-11 and which now has 28 live pages against a cap of 60 — it can never truncate again.
-
-**The rule.** A check that alarms on frozen history is a check people stop reading, and the first
-wire test proved this one would have: it reported a config regression that had not happened.
-
-**How this case measures against it.** 14 days ≈ 4 missed opportunities at the 3-day per-site
-cadence, so a genuine regression still produces recent rows and still alarms. The stated blind spot:
-a regression on a site that *also* stops truncating would go unseen — bounded, because a site stops
-writing these rows when it fits inside its cap, and a site inside its cap has no coverage debt.
-
-**The options.** Accept 14, or name another number. It is one constant, one line.
-
-**My recommendation: accept.** This is the lowest-stakes of the three; I raise it only because it is
-a judgement wearing the costume of a measurement, and you should know which it is.
+Its stated blind spot is unchanged and is not a defect: a regression on a site that ALSO stops
+truncating goes unseen — bounded, because a site stops writing these rows when it fits inside its
+cap, and a site inside its cap has no coverage debt to detect. Dormant groups are counted and NAMED
+in every run, so the blind spot stays legible rather than implicit.
 
 ## 5. Traps this lane paid for — read before touching these
 
@@ -138,11 +120,16 @@ Another session has **uncommitted** work adding a 5th optional key (`max_image_d
 hit that guard — that is the guard working. Confirm with
 `git status --short -- platform/orchestration/actions/ | grep -i vision`.
 
-## 7. Spun out, still open
+## 7. Spun out, still open — and ruling A changed its shape
 
 `bugs_open/452` — `page_names` is declared in `request_render_audit`'s spec and read by nothing.
-LOW; no live carrier sets it, so nothing is broken. It costs a false affordance (Decision A option
-(iii) would reach for exactly that key) and a slot of the N=10 optional-key budget.
+LOW; no live carrier sets it, so nothing is broken today. It costs a false affordance and a slot of
+the N=10 optional-key budget (reads as 7, really 6).
+
+**Ruling A narrows it.** The "curate the design critique's sample" motive — which was the only live
+reason to IMPLEMENT the key — is off the table. So 452's candidate **1 (delete the declaration)** is
+now the live one and candidate 2 (implement it) is parked. Whoever takes 452 should read A first
+rather than re-deriving the choice.
 
 ## 8. Commit trail
 

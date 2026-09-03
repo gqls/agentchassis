@@ -41,12 +41,40 @@
 >   silently kept a separate cursor per dispatch path. No unit test could see it — the fixture set
 >   both identities to one literal.
 >
-> ### Deliberately NOT done, and each is a question rather than a defect
+> ### OWNER RULINGS, 2026-09-03 — all three open questions are now DECIDED
 >
-> `design-critique-agent` still takes a prefix (manual sampler; rotate-vs-curate is a product
-> decision, not a bug) · webdesign's NEW-defect detection latency moved 3d → ~1 cycle in exchange
-> for 91 pages going from never to one cycle · the dormancy window is 14 days, a judgement · and
-> `page_names` is declared in the action's spec and read by nothing (`bugs_open/452`).
+> Put here rather than left in a chat log, because the next reader of this file is the one who
+> would otherwise re-open them.
+>
+> **A. `design-critique-agent` KEEPS ITS PREFIX — "leave it".** It stays a taste instrument, not a
+> coverage instrument: it is manual-only, accrues no debt between runs, and comparability across
+> critiques is worth more than eventual coverage of its 8-page sample. The machinery to change this
+> exists — `rotate_coverage: true` on its `audit` step is a one-line migration — so this is a
+> reversible ruling, not a closed door. **The operative control is the entry for that agent in
+> `render_truncation_acks.json`, which is now stamped with this ruling.** ⚠ That ack's own
+> precondition still stands: **if this agent ever gains a cadence, re-open the question** — a
+> SCHEDULED sampler that never revisits IS a coverage debt, which is not what was ruled on here.
+>
+> **B. THE DETECTION-LATENCY TRADE IS ACCEPTED — "accept it".** To be precise about what was
+> accepted, because the two clocks are easy to conflate: *confirmation* latency (a repair ships →
+> the audit re-measures and withdraws the item) stays at **3 days**, which is what migration 469's
+> owner instruction bought and what the union window exists to protect. *Detection* latency (a NEW
+> defect appears → anything looks at that page) moved on webdesign.co.uk: the first 60 pages from
+> 3 days to one cycle (~9 days), and the other 91 from **never** to one cycle. Accepted on that
+> basis. `max_pages` is now a pure latency dial with no coverage cliff behind it, so buying the
+> head-page latency back later is a config change, not a redesign.
+>
+> **C. THE 14-DAY DORMANCY WINDOW IS ACCEPTED — "accept it".** Accepted as a judgement rather than
+> a measurement, which is how it was put: ~4 missed opportunities at the 3-day per-site cadence.
+> One constant, one line, in `cmd/config-key-audit/rendertruncation.go`. Its stated blind spot is
+> unchanged and is not a defect: a regression on a site that ALSO stops truncating goes unseen,
+> bounded because a site inside its cap has no coverage debt to detect.
+>
+> ### Still open, and NOT covered by the above
+>
+> `page_names` is declared in the action's spec and read by nothing — `bugs_open/452`. Ruling A
+> narrows it: the "curate the critique's sample" motive is off the table for now, so 452's candidate
+> **1 (delete the declaration)** is the live one and candidate 2 (implement it) is parked.
 >
 > ---
 >
