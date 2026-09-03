@@ -492,3 +492,51 @@ that creates `blog-post` page rows without the planner.
 Cross-refs: `bugs_open/444` CONTRIB same day (the articles-hub symptom and 444's gate behaviour);
 lane docs `docs/agent_docs/docs024_key_docs_latest/gamedesign_uk_rebuild/` (NOTES 2026-09-03
 ~10:40–10:55Z entry).
+
+## ADDENDUM to the CONTRIB, 2026-09-03 (this lane) — the "blog infrastructure" the planner cited is a REAL, WIRED mechanism that has not run since April
+
+The CONTRIB's own invited refutation was: *"name a mechanism that creates blog-post page rows
+without the planner."* There is one, and it changes what a follow-up should aim at — without
+overturning anything the CONTRIB measured.
+
+**`platform/orchestration/actions/create_blog_posts_action.go:238`** does
+`INSERT INTO pages (site_id, name, url, title, page_type, build_status, …) VALUES (…, 'planned', …)
+ON CONFLICT (site_id, name) DO UPDATE`, with `page_type` coming from
+`datahelpers.CanonicalisePage` on a `blog-post` role. It is registered
+(`RegisterActionInputSpec("create_blog_posts", …)`) and it is **not orphaned**: exactly one live
+agent definition names it — `blog-content-planner`, `is_active=true`, not a snapshot, not
+deleted. So *"`needs_content_page` only BUILDS pages already planned"* is true and is not the
+whole picture: a second producer both plans and creates them, and it is wired.
+
+**It is dormant — and how that was established matters, because the first instrument was
+worthless.** `orchestration_states` for `owner_agent_type='blog-content-planner'` returns **0**,
+and that number says nothing: `[MEASURED 2026-09-03]` that table spans **24 hours**
+(2026-09-02 10:41Z → 2026-09-03 10:58Z, 9,155 rows). A rolling window cannot establish that a
+thing never happened — the same trap this estate has logged repeatedly. The instrument with a
+real memory is `llm_call_log`, which keeps replies verbatim as the training corpus:
+`[MEASURED 2026-09-03]` **10 calls for `agent_type='blog-content-planner'`, all between
+2026-04-03 and 2026-04-24, none since.** So: it ran in April, has shown no LLM activity in four
+months, and **why it stopped is NOT established** — nobody has read that yet.
+
+**Why this sharpens the residual rather than blunting it.** The CONTRIB's measured claim stands
+in full: the planner refused, the sites have nothing, and the reason it gave does not describe
+anything that is running. What the second producer changes is the *shape* of the fix:
+
+- **If `blog-content-planner` were driven**, the planner's refusal would cost those sites
+  nothing — the posts would arrive by the other route — and the false justification would be a
+  truth-telling defect rather than an outage.
+- **If it stays dormant**, then "the blog infrastructure" is not a pure invention. It is a real,
+  named, wired mechanism that is not running, which is a different and more interesting failure
+  than a hallucination — and one this estate has a name for: a silent mechanism is usually
+  UNDRIVEN, not missing.
+
+`[NOT ESTABLISHED]` which of those it is. Do not assert either without reading why the April
+runs stopped.
+
+**And a third mechanism in the same neighbourhood, also blind to the other two.**
+`listing_item_sources.go:445` is where 444's `builder_needed=blog_posts` comes from —
+`"query.blog_posts resolves to zero (no blog-post pages planned or realised)"` — with `:443`
+counting blog-post pages to satisfy it. So the gate and the dormant producer are describing the
+same population from opposite ends, alongside the planner's own contradicting claim. That is
+**three** mechanisms with a view on whether this site should have blog posts, and no two of them
+can see each other.
