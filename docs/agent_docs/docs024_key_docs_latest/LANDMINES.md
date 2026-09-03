@@ -21272,9 +21272,37 @@ END $$;
   cannot show the thing you are asking about.**
 - **added:** 2026-09-03, copy_quality_two_stage lane
 
-### A `js_snippets` snippet that finds its mount with `querySelectorAll` binds ZERO listeners and reports nothing — the bundle is a SYNCHRONOUS `<head>` script, and self-guarding is a per-snippet convention nothing enforces
+### ~~A `js_snippets` snippet that finds its mount with `querySelectorAll` binds ZERO listeners and reports nothing~~ **RETRACTED SAME DAY — DUPLICATE, AND ITS CENSUS USED THE METHOD THE REAL ENTRY FORBIDS**
 
-- **footprint:** `js_snippets` (`js_content`) · `render_js_snippets_for_site` · `/assets/js/snippets.js` · any new site snippet or widget · `docs/agent_docs/sql_for_agents/651_robot_hands_gripper_report_page.sql` · `document.querySelector` / `querySelectorAll` at IIFE top level · `bugs_open/465`
+> **⚠ RETRACTED 2026-09-03 by the session that wrote it (robot hands), ~2 hours after
+> appending it. Do not use this entry. The canonical one is
+> "Activating a `js_snippets` row ships a widget that can NEVER render" — ~600 lines
+> ABOVE this, filed the same day by the same lane's earlier session.** It is better on
+> every axis and its census was done BY EXECUTION.
+>
+> **This entry is kept, per append-only, as a worked example of the trap it failed.**
+> Three errors, all avoidable in one command each:
+> 1. **I did not grep `LANDMINES.md` before appending to it** — CLAUDE.md says to grep it
+>    by footprint before touching anything unfamiliar. `grep -n js_snippets LANDMINES.md`
+>    would have returned the canonical entry. I appended to the file without reading it.
+> 2. **My census was `js_content LIKE '%DOMContentLoaded%'` — the exact method the
+>    canonical entry warns against in bold**, three lines long, in the same file: *"DO NOT
+>    USE A SOURCE SCAN FOR THIS — it gives confident wrong answers in BOTH directions."*
+>    I reproduced a refuted method and got a plausible table, which is why it felt right.
+> 3. **I never checked `is_active`, so I called a dormant exposure a live one.** All 8
+>    unguarded DOM-querying rows are `is_active = f` `[MEASURED 2026-09-03]`; the ACTIVE
+>    bundles are clean, 0 of 9 exposed. The mechanism claim was right and the severity
+>    claim was wrong — the defect fires **when someone flips `is_active`**, not now.
+>
+> What I got right does not rescue it: reading all 8 bodies at source and confirming a
+> top-level `querySelectorAll` was real work, and it still produced a wrong headline,
+> because the missing column was never in the query at all. **A correct mechanism plus an
+> uncounted population reads exactly like a finding.**
+>
+> `bugs_open/465` was filed off this entry and is RETRACTED with it — see
+> `bugs_closed/465`. Logged in `WRONG_CALLS.md`, 2026-09-03.
+
+- **footprint:** *(superseded — see the canonical entry above; footprint kept only so the sync keeps this row addressable)* `js_snippets` · `bugs_closed/465`
 - **the trap:** the site chrome includes the snippet bundle as a **plain synchronous
   `<script>` inside `<head>`** — no `defer`, no `async` (measured on
   `/gripper-report.html`: tag at line 2219, `</head>` at 2238). So every snippet runs

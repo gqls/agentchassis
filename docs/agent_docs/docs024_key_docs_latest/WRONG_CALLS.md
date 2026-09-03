@@ -63156,3 +63156,49 @@ declaring-a-key-silences-your-own-detector.
   damage, because the load-bearing half was true. **The pattern is the cost:** this is the
   seventh claim of the day where the conclusion survived and the reason did not, and the second
   where I borrowed authority I had not earned (a retraction, then a precedent).
+
+## 2026-09-03 — I re-ran an audit that was already done, using the method its own LANDMINES entry forbids in bold, and filed a "production" bug about 8 rows that are all INACTIVE (session robot hands)
+
+- **The claim.** `bugs_open/465`, filed and titled *"Eight `js_snippets` rows bind ZERO listeners
+  **in production**"* — that 8 of 18 snippets silently bind nothing because the bundle is a
+  synchronous `<head>` script. Plus a new `LANDMINES.md` entry saying the same.
+- **What was actually true.** The **mechanism** was right. The **headline** was false and the
+  **finding was already on record** — filed the same day, by the previous session on this same
+  lane. `[MEASURED 2026-09-03]` all 8 unguarded DOM-querying rows are `is_active = f`: ACTIVE 9
+  rows, **0 exposed**; INACTIVE 9 rows, 8 exposed. The live bundles are clean. The real claim is
+  *"activating a row ships a widget that can never render"* — a different severity and a
+  different reader.
+- **How it happened.** The council's `bug_historian` seat objected (corr `5775dc10`, r1) that the
+  fix patched one call site of a generic convention. I read that objection in the verdict, treated
+  it as unanswered, and went and answered it. **It had already been closed by measurement** — the
+  previous session audited all 18 rows *by execution* under a DOM stub with a negative control,
+  and wrote the result into the lane NOTES, a LANDMINES entry and `doc_notes`. I read the handoff's
+  bottom block (as its banner instructs) and the council verdict, but **not the lane's own NOTES
+  to the end**, which is where the answer was.
+- **Three errors, each one command from being avoided.**
+  1. **Appended to `LANDMINES.md` without grepping it.** `grep -n js_snippets LANDMINES.md` returns
+     the canonical entry; my duplicate landed ~600 lines below it.
+  2. **Census was `js_content LIKE '%DOMContentLoaded%'`** — the method that entry rejects in bold
+     (*"DO NOT USE A SOURCE SCAN FOR THIS — it gives confident wrong answers in BOTH directions"*),
+     having been thrown away once already the same day.
+  3. **Never queried `is_active`** — one column, in the table I was already querying, in the query
+     I had already written.
+- **What caught it.** Reading the lane's `NOTES` tail while updating the standing five — i.e. the
+  routine doc work, *after* the bug was filed and committed. Nothing in my own verification caught
+  it, and nothing could have: see below.
+- **The mistake, precisely.** I *did* verify — I read all eight snippet bodies at source and
+  confirmed a top-level `querySelectorAll`. That was real work and it was real evidence **about the
+  mechanism**. It could never have surfaced the error, because the discriminating column was not in
+  the query at all. **A correct mechanism plus an uncounted population reads exactly like a
+  finding**, and the more carefully you verify the mechanism the more solid the wrong headline
+  feels. This is the `[MEASURED]`-marker trap one step out: my census returned the same 8 rows
+  whether or not any of them were live, so it could not have come out otherwise.
+- **The cheap check that would have.** Before filing any "N things are broken" claim: **name the
+  population the claim is about and put it in the `WHERE` clause** — here, `is_active`. And before
+  appending to a fleet-wide append-only file, grep it for your own footprint; the odds that a
+  same-day lane already wrote your finding are not small on this tree.
+- **Cost.** ~2 hours, one retracted bug (`bugs_closed/465`), one retracted LANDMINES entry kept in
+  place with its correction, and a false claim in a live council submission (r2 on corr `5775dc10`
+  says the dormant rows are *"other sites' served surface"* — they are not; the round was in flight
+  and forward-only forbids an amend, so it is corrected in the lane NOTES and here). No production
+  damage: the contrast fix the round is actually about is sound and verified at the artefact.
