@@ -6156,3 +6156,14 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
   (DO/RAISE guards + induced failure), and the discipline is **rename in place at the same
   `ordering`** — ordering is a positional join key for `assigned_fact_ids`, `subject`,
   `page_components.position` AND `site_plan_imagery.scope_ref`.
+
+> **§X.69 addendum, 2026-09-03 (469 lane, second session):** their new drift self-closer would have
+> re-raised our settled guides-index rename as a fresh `section_composition_lost` receipt — caught
+> BEFORE the roll (`2cca1b085`): the closer read already-`complete` rows on the "a no-op UPDATE costs
+> nothing" precedent, which is false once the close carries a side-effecting receipt; now gated on an
+> actually-open item, mutation-proved both ways, their WRONG_CALLS row. **So: nothing arrives from
+> this — if a `section_composition_lost` item EVER appears on guides-index, treat it as REAL.**
+> Future real drift items improve: they lead with the consequence ("Next build will DROP [x] …") and
+> carry severity `high` when the section is live on the page. And this lane's artefact answer (rename
+> benign, human-judged) is now a table-driven case in `check_section_source_drift_test.go` — the
+> example proving the receipt must route to a person and can never carry a verifier.
