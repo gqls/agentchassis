@@ -137,6 +137,88 @@ live before its tools will fill its tool URLs with prose, and every 200 hides it
    made deliberate. Recipe: `portfolio_positioning/RUNBOOK_remake_release.md` §2b. UNEXERCISED
    on a remake; answer §7 above before pointing it at seotools.
 
+## FIX IN FLIGHT — the door half is COMMITTED, INERT until the next roll (2026-09-03, `bugfix_450_tool_page_shells` lane)
+
+**Owner from 2026-09-03: `docs/agent_docs/docs024_key_docs_latest/bugfix_450_tool_page_shells/`**
+(standing five there; the `portfolio_positioning` lane keeps the INSTANCE work — owner ruling
+2026-09-03, build the 8 planned tools). Bug stays OPEN: the fix is committed but not live, and
+the bar is fixed AND live.
+
+**Commit `587666be8`** — `pageIsOwnedForGuard` → **`pageRefusesGenericBuild`**, a two-class
+verdict (`owned` | `tool_pending`), register entry **PBP-053**, council corr
+**`2b236e83-ffd1-4911-b73f-1c17249064c1`** (submitted after the commit; see the process note
+below). Consulted at the `writeWorkItem` policy door, `load_page_record`'s `refuse_owned_page`
+arm, `save_page_sections`, `AssemblePageAction`, the rerender escalation and the build-selection
+exclusion. Kill switch `DISABLE_TOOL_SHELL_REFUSAL`, armed, scoped to the new arm only.
+
+**Which candidate this is, and which it is NOT.** It is candidate **2's intent** — make the hold
+a real control — reached by a different mechanism, and it achieves candidate **3's effect** for
+all five producers without editing the detector:
+
+- **Candidate 2 as written (set `pages.rebuild_policy`) was NOT taken, on a measurement.** The
+  column is CHECK-constrained to `'generic'|'owned'` (migration 164) and **nothing in this estate
+  has ever UPDATEd it** — two INSERT-time writers, no transition in any handler, check or
+  scheduler, in either direction. A flag set at plan time is a flag **nobody clears**; the page
+  would be protected for ever, and `'owned'` already means verbatim/adopted to ~12 other readers.
+  So the second class is **DERIVED** (`page_type='tool'` AND no live `component_level='tool'`
+  row), which **lifts by itself** when the tool arrives. Proven at the ordering:
+  `deploy_tool_action.go` inserts the tool component (`:517`) **before** raising its companion
+  content item (`:564`), so the tool pipeline is never refused by this — checked precisely
+  because the portfolio lane was about to fire 8 `add_tool` items at these same pages.
+- **Candidate 3 (never route a tool target to `page-build-handler`) was NOT implemented at the
+  detector, deliberately.** §"Two vocabularies" already measured four more producers writing
+  these pages (`empty_section` 3/67, `page_rerender` 3/20, `needs_page` 3/14,
+  `needs_content_page` 2/8). A guard on `check_phantom_internal_links` is a guard on one door;
+  the two seams chosen are crossed by all five. Independently, `availableBuilders` is unreachable
+  from `discovery_checks` (import direction) — which is why `bugs_open/220` deferred the same
+  idea, and 220's "no demand signal" ledger note is now answered, though not by its own route.
+- **Candidate 1 (plan-side hold) is the REMAINING half** — sibling key `enforce_tool_sources`,
+  default OFF, on 444's gate frame, plus a migration arming `build-site-planner`. Designed, not
+  yet written. It cuts the SUPPLY of stubs; the committed half stops them being filled. Neither
+  depends on the other having landed.
+- **Candidate 4 (one target, one build)** — untouched, still 220's.
+- **Candidate 5** — the filing lane's interim, unaffected.
+
+**What is still true after this lands, so nobody reads it as more than it is:** the 61 existing
+shells are not repaired or removed (realised pages; instance work), the planner still names tool
+pages until candidate 1 lands, **the `owned_page_review` hold still has no consumer** (this makes
+the SAVE side see the case the hold complains about; it does not join the two vocabularies), and
+`rerender_single_page`'s re-assembly of existing components is not gated — migration 164 calls
+that the sanctioned owned-page deploy path and gating it is the `bugs_open/210` family.
+
+> **CORRECTION 2026-09-03 (this lane, at the code): §2 above attributes the `owned_page_review`
+> hold to `validate_site_plan`. The action that writes that exact summary is
+> `ReconcileSitePlanAction` (`reconcile_site_plan_action.go:270-300`)** — a later step of the same
+> `build-site-planner` workflow, with `sync_pages` minting the `pages` rows between the two. It
+> matters because it explains why the hold carries no page id: at `validate_plan` the row does not
+> exist yet. Caught by reading the emitter instead of trusting the attribution.
+
+> **PROCESS NOTE, declared rather than hidden.** The commit landed BEFORE its council submission
+> and its register entry, which is not the practice. Another lane's correct pathspec commit took a
+> half-finished hunk of this rename as a same-file passenger while the rest was still dirty, so
+> HEAD called three uncommitted symbols and `make build-*` was broken fleet-wide; that could not
+> wait ~30 minutes for a verdict. The commit carries **no `Council-Reviewed:` trailer** and makes
+> no review claim. The underlying misstep was mine — holding a shared-package RENAME dirty across
+> a long design phase — and is logged in `WRONG_CALLS.md`.
+
+**Where the committed guard hands over to the REPAIR section above — they compose exactly.** The
+repair's first completion proves the adopt path attaches the tool to the EXISTING shell row
+(`page_adopted: true`, same URL, no duplicate). That insert is the precise moment the derived
+predicate goes false: from then on the page is an ordinary tool page, generic producers reach it
+again, and it is the save path's own tool-preservation machinery (the Layer-2 reappend/splice
+arms) that protects the widget — which is the correct division, because those arms exist to keep
+a REAL tool and mine exists only to stop a page pretending to have one. So a repaired shell needs
+nothing switched off, and the fleet census in §Spread should shrink by one per repair rather than
+needing a separate unblocking step. ⚠ The corollary for the repair lane: a repaired page still
+carries the shell's leftover `generic-text-block` at the same position, and it is now
+**re-buildable**, so the two-rows-at-position-2 question in the repair section is not something my
+guard will hold still for you.
+
+⚠ **Do NOT verify this (or anything) with a re-render until `9831e9ab4` rolls.** Since 2026-09-02
+a light re-render renders a page's own stored `content_data` back at itself: clean run, healthy
+`rerendered` count, nothing delivered (`bugs_open/454`). Verify at work-item terminal status, the
+`owned_page_review` receipt (`spec->>'refusal_class' = 'tool_pending'`) and the served body.
+
 ## Related / owners
 
 `bugs_open/220` (unbuilt-link dispatch, same producer) · `bugs_open/282` (validate resolver
