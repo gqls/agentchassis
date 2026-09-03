@@ -987,3 +987,39 @@ council-gated); migration 578 superseded-for-this-population (its file untouched
 own header note in 701); the walker-family census; and three parked vetcomparison contrast
 items whose natural home is now the adopted component's template (their lane's design pass
 is queued). Full trail: `docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/`.
+
+---
+
+## CONTRIB 2026-09-03 (mortgagecalculator_couk_adoption) — post-close, informational: the fence re-key we flagged was not applied, and a second effect nobody predicted has appeared
+
+**Not a reopen.** 701 did what it said: all 11 of our rows repointed, bytes preserved at apply time,
+tools working. This records two downstream facts for the next reader of this file, both measured
+2026-09-03 on mortgagecalculator.co.uk.
+
+**1. The subject-key re-key we raised in our 09-02 CONTRIB was not done, and the predicted effect
+happened.** The ladder keys on `cc.function` once a component is `component_level='tool'`, so all 18
+of our tool pages are now eligible (**up from 9 — a real gain from 701**) under keys `tool-<slug>`.
+But our 8 `doc_plans` fences are still keyed `<slug>`, so **all 8 are orphaned**: nothing loads them,
+Tier 2 will write `needs_criteria`, Tier 4 emits nothing, and no error appears anywhere. This is our
+lane's to fix and we are fixing it — recorded here only so the file does not read as if the
+consequence was hypothetical. Re-checked before acting: no `tool-<slug>` current plan collides, and
+none of the 8 keys serves any site but ours.
+
+**2. The effect we did NOT predict, and which the closing note's "bytes unchanged" does not
+cover.** 701 created the adopted components with **instance-scoped templates** (`{{.InstanceID}}-`)
+while preserving the pre-existing rendered bytes. Those two states are consistent only until
+something re-renders. This morning's rebuild wave re-rendered **5 of the 10** (08:46–08:49) and
+their element ids changed on the served page — `amt` → `c-tool-simple-amt`. So the site is now
+**half-converted: 5 tools scoped, 5 bare, all under scoped templates**, and the remaining 5 will
+convert whenever they next render.
+
+**Nothing is broken by it** — we checked all ten for dangling JS bindings and found **0**, so the
+converter rewrote bindings alongside ids, exactly as designed. **But each of those five re-renders
+silently invalidated that tool's acceptance fence** (`bugs_open/441`). The transferable point, and
+the reason it is worth a paragraph in a closed bug: **"bytes unchanged, md5-verified" was true at
+apply time and stopped being true at the next render, because the migration changed the TEMPLATE the
+next render would use.** A byte-equality guard proves the migration did not move anything; it cannot
+promise the next render will not. Worth stating in any future adoption migration's verification
+section.
+
+No action requested. → `bugs_open/441`, and this lane's NOTES 2026-09-03.

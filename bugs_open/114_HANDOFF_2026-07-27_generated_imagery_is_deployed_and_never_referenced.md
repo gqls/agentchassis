@@ -1202,3 +1202,24 @@ reader after the pod logs rotate gets the second one.
 > where the census predicts (a fleet-wide silence would be an unexercised detector, not
 > a clean fleet). Cold-start for the closing session:
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_114_imagery_wiring/HANDOFF_2026-09-03_continue_here.md`.
+
+### Addendum 2026-09-03 (mcalc lane) — the owner has handed this lane's whole tool-imagery job to `bugfix_114_imagery_wiring`, and the blocker we named is gone
+
+Owner instruction, 2026-09-03: *"hand that lane the whole job."* mortgagecalculator.co.uk's tool
+imagery is now the 114 lane's, including the spend decision. Full handover, with the traps and the
+measured state: `docs/agent_docs/docs024_key_docs_latest/bugfix_114_imagery_wiring/CONTRIB_2026-09-03_from_mcalc_lane_OWNER_HANDS_YOU_THE_WHOLE_TOOL_IMAGERY_JOB.md`.
+
+**One correction to our CONTRIB above that matters to whoever picks this up.** It said ten of this
+site's tool pages *"have nowhere to put a picture"* — the `hero` slot held the whole calculator, so
+rendering a hero into it would have destroyed the tool. **Migration `701` landed overnight
+(`bugs_closed/357`, population 0) and that is no longer true**: each calculator now has its own
+`component_level='tool'` component and the hero slot is free. **The composition change is safe as of
+2026-09-03 and was not on 2026-09-02.** The `hero-tool` schema finding in our CONTRIB is unaffected
+and still stands.
+
+⚠ **New hazard for anyone re-rendering these pages:** 701 created the adopted components with
+instance-scoped templates while preserving the old rendered bytes, so **a re-render rewrites every
+element id** (`amt` → `c-tool-simple-amt`). Five re-rendered this morning; **0 dangling JS bindings
+on all ten**, so the tools survive it — but each one silently invalidates that tool's acceptance
+fence (`bugs_open/441`). Re-render freely; just say which pages, and the mcalc lane re-points the
+fences.

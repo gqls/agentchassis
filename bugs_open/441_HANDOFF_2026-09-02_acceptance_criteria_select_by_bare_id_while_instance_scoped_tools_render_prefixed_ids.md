@@ -202,3 +202,65 @@ rather than the false alarm, and `bugs_open/084` is what happens when a ladder s
   the ladder's subject key from `<slug>` to `tool-<slug>` and orphans existing fences. Independent of
   this bug, but the same fences are involved; CONTRIB filed there 2026-09-02.
 - `bugs_open/126` — gated-tool acceptance; the `acceptance_stuck` human path.
+
+---
+
+## UPDATE 2026-09-03 — this is not a backlog of stale fences. It is a LIVE GENERATOR of them, and it fired five times in four minutes.
+
+Filed yesterday, this bug reads as damage left behind by `bugs_closed/283`'s August conversion — a
+fixed population of 99 tools to repair once. **That framing is wrong and understates it.**
+
+### What happened overnight, on one site, without anyone intending it
+
+Migration `701` (owner-applied 2026-09-02 ~22:00Z, `bugs_closed/357`) retyped
+mortgagecalculator.co.uk's 11 adopted tool rows to `component_level='tool'`. It created each new
+component with an **instance-scoped template** (`{{.InstanceID}}-`) while **preserving the existing
+rendered bytes** — and verified exactly that, by md5, per row. Correct, and green.
+
+Those two states agree only until something renders. The routine rebuild wave of **2026-09-03
+08:46–08:49Z re-rendered 5 of the 10**, and their served element ids changed:
+
+```
+tool-simple      id="amt"          ->  id="c-tool-simple-amt"
+tool-repayment   id="calculateBtn" ->  id="c-tool-repayment-calculateBtn"
+```
+
+**Five acceptance fences went from satisfiable to unsatisfiable in four minutes**, as a side effect
+of a rebuild nobody connected to acceptance. Measured immediately after: template scoped **10 of
+10**, rendering scoped **5**, rendering still bare **5** — and those 5 will convert whenever they
+next render.
+
+**Nothing was broken by the conversion itself.** All ten checked for dangling JS bindings: **0**.
+The converter rewrites bindings alongside ids, as designed. The tools work. Only the *checks* broke.
+
+### Why this changes the fix, not just the size
+
+- **Candidate 2 (re-emit the fences) is now clearly insufficient**, not merely a follow-up. A fence
+  regenerated today is invalidated by the next render of its own page. There is no point at which
+  the estate is "converted" and the fences can be brought into line once — **every re-render of an
+  adopted-then-scoped tool is another instance.**
+- **Candidate 1 (scope-aware checker) is the only stable option**, because it is the only one whose
+  correctness does not depend on when a page last rendered.
+- **The half-rendered state is normal and will persist.** 5 of 10 tools on this one site are mid-
+  conversion right now. Any fix that assumes a page is either "converted" or "not" will be wrong for
+  whichever half it did not expect — which is exactly the split-function case in §4, arriving by a
+  second route.
+
+### A general lesson for adoption migrations, worth taking beyond this bug
+
+**"Bytes unchanged, md5-verified" is a true claim that expires.** It proves the migration moved
+nothing. It cannot promise the *next render* will not, when the migration has changed the template
+that render will use. `701`'s verification was sound and its closing evidence was green; the
+divergence appeared eleven hours later on a rebuild that had nothing to do with it. **An adoption
+migration that rewrites a template should either state that the next render will change the served
+bytes, or render one page itself and check.** Contributed to `bugs_closed/357` post-close as
+information, not as a reopen — the migration did what it said.
+
+### This lane's own fences are repaired, and that is NOT a fix for this bug
+
+All 8 mortgagecalculator fences were re-addressed today (subject key `<slug>` → `tool-<slug>`, forced
+by 701; selectors re-pointed to the `c-tool-<slug>-` prefix on the 5 already-rendered pages), each
+verified present in the live page first, with the old fences re-tested as the control (4/4/5/7/6
+anchors absent — so the transform did real work). **That is candidate 2 applied by hand to one site,
+and it will rot the moment the other five pages render.** It buys this lane working verification
+today; it is not evidence the bug is smaller.

@@ -5107,3 +5107,100 @@ not this tool, and out of scope here, but someone should decide.
 on the site (9 checks, both profiles, boot + status + console + overflow + interaction) and it
 **still asserts no number**. It proves the calculator responds; it does not prove the calculator is
 right.
+
+## 2026-09-03 — 701 landed overnight; both predictions came true, and one effect nobody predicted
+
+Migration `701` was applied by the owner ~22:00Z on 09-02 (`bugs_closed/357`, population 0).
+Owner instruction this morning: **hand the imagery job to the 114 lane and carry on.** Done — see
+§"Imagery handed over" below. This section is the tools half.
+
+### Prediction 1 confirmed: eligibility jumped 9 → 18
+
+Every tool page now carries a `component_level='tool'` component, so all **18** satisfy the ladder's
+eligibility predicate (was 9). That is 701's real gift to this lane and it is bigger than the
+migration's own notes claim.
+
+### Prediction 2 confirmed: all 8 fences were orphaned, and nobody re-keyed them
+
+The ladder keys on `cc.function` for a tool-level component, so the keys moved `<slug>` →
+`tool-<slug>`. The 8 `doc_plans` fences were still at the old keys — **addressing nothing**, with no
+error anywhere: Tier 2 writes `needs_criteria`, Tier 4 emits nothing. Exactly what the CONTRIB to the
+357 lane warned, including that `tool-simple` — the site's only working verification the day before
+— would be the most invisible casualty.
+
+### The effect I did NOT predict, and it is the interesting one
+
+**701 created every adopted component with an instance-scoped template (`{{.InstanceID}}-`) while
+preserving the pre-existing rendered bytes.** Those two states agree only until something renders.
+This morning's rebuild wave re-rendered **5 of the 10** (08:46–08:49Z) and their served ids changed:
+`amt` → `c-tool-simple-amt`. So as of today the site is **half-converted — 5 tools scoped, 5 bare,
+all under scoped templates** — and the remaining 5 convert whenever they next render.
+
+| | tools |
+|---|---|
+| template scoped | **10 of 10** |
+| rendering scoped | **5** — equity-release, fee-analyser, rate-forecaster, repayment, simple (re-rendered 09-03 08:46–08:49) |
+| rendering still bare | **5** — affordability, bridging-loan, overpayment, portfolio, stamp-duty (untouched since the 701 transaction, all at `2026-09-02 21:06:35`) |
+
+**Nothing is broken by it.** I checked all ten for dangling JS bindings: **0**. The converter
+rewrites bindings alongside ids, as designed. **But each of those five re-renders silently
+invalidated that tool's acceptance fence.**
+
+⚠ **This is the sharp form of `bugs_open/441`, and it changes what that bug IS.** I had it as a
+backlog of stale fences left by an August conversion. It is not a backlog — **it is a live generator
+of stale fences.** Every re-render of an adopted-then-scoped tool breaks its fence, and five fired in
+four minutes this morning without anyone intending it. Candidate 2 (re-emit the fences) would have to
+run after every render, for ever. Only the scope-aware checker is stable.
+
+⚠ **And it retires "bytes unchanged, md5-verified" as a sufficient guarantee for an adoption
+migration.** That claim was TRUE at apply time and stopped being true at the next render, because the
+migration changed the *template the next render would use*. A byte-equality guard proves the
+migration moved nothing; it cannot promise the next render will not. Contributed to
+`bugs_closed/357` post-close, not as a reopen.
+
+### What I did: re-addressed all 8 fences, verified at the artefact both sides
+
+Supersede-and-insert, one guarded transaction, `doc_plans`:
+
+- **subject key** `<slug>` → `tool-<slug>` for all 8.
+- **selectors re-pointed** with the `c-tool-<slug>-` prefix for the 5 whose pages are already
+  scoped (16, 16, 20, 28 and 24 selectors respectively); the 3 bare ones' selectors untouched.
+- **no expected value changed** — the arithmetic is the same; only the addresses moved.
+
+Checks run BEFORE writing, each of which could have stopped it:
+
+1. **No key collision** — none of the 8 `tool-<slug>` keys had a current plan
+   (`idx_doc_plans_current` is UNIQUE on `(subject_type,subject_key) WHERE is_current`).
+2. **No other consumer** — each old key resolved to mortgagecalculator.co.uk and no sibling domain,
+   so re-keying moves nothing for another lane. (`doc_plans` keys are fleet-wide; this was the
+   caution I gave the 357 lane and then owed myself.)
+3. **Every new selector present in the live page** — all 8 fences SATISFIABLE, 0 absent anchors,
+   tested with a verbatim reimplementation of `selectorAnchor` + `anchorPresent`.
+4. **The control that proves the transform did work:** the OLD fences re-tested against the 5 scoped
+   pages come back 4, 4, 5, 7 and 6 anchors **absent**. Had the transform been a no-op, this reads 0.
+5. **In-transaction assertion** — `RAISE EXCEPTION` unless exactly 8 new current and 0 old current.
+   It returned `OK: 8 new current fences, 0 old remaining`.
+
+⚠ These 8 fences carry **`no_auto_fix: true`**, and it matters here: a failing arithmetic verdict
+reaches a human, not `tool-improver`. So re-keying could not dispatch a rewriter at a working
+calculator — *"the only way an automated rewriter can turn a red arithmetic fence green is by
+changing the numbers"*, as the fence's own reason field puts it. I checked that before dispatching,
+not after.
+
+**Result: 13 of 18 tool pages now resolve to a live fence** (6 before). The 5 without one are
+`tool-affordability`, `tool-btl-investor`, `tool-credit-health-check`, `tool-portfolio`,
+`tool-rate-stress-test` — writing those is real work needing a non-page source per expected value,
+and is the next job here.
+
+**8 Tier-4 runs dispatched** (`879ee87a` simple, `076377ba` bridging-loan, `a570b486` rate-forecaster,
+`36db5755` repayment, `b1bdb777` stamp-duty, `2efd13f7` fee-analyser, `89a3cc7a` overpayment,
+`d9d4dce0` equity-release). Verdicts land as `doc_notes`, not on the work item.
+
+### Imagery handed over
+
+Owner: *"hand that lane the whole job."* Written to
+`bugfix_114_imagery_wiring/CONTRIB_2026-09-03_from_mcalc_lane_OWNER_HANDS_YOU_THE_WHOLE_TOOL_IMAGERY_JOB.md`,
+with a pointer + correction appended to `bugs_open/114`. **The correction matters:** our 09-02 claim
+that ten pages *"have nowhere to put a picture"* is **no longer true** — 701 freed the hero slot, so
+the composition change they need is safe as of today and was not yesterday. We keep the tools as
+product (fences, Tier-4, `441`/`448`/`449`); they own imagery and the spend.
