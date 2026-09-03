@@ -6122,3 +6122,15 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
 > never re-resolved**, contradicting the citation that answered the council's render_guardian
 > objection; that contradiction is going through the diagnosis loop (theirs). So the refusal on our
 > page was the guard being RIGHT: it stopped a collapse that carried no compensating deck.
+
+> **NARROWING 2026-09-03 (components lane, measured):** yesterday's correction above is too strong in
+> one clause. The floors ARE scopeable — **per agent-step, not globally**: each agent's
+> `agent_definitions` row carries its own `save_sections` step config (measured: page-build-handler
+> runs `section_shrink_floor=0.1` today via migration 725, a time-boxed owner-ruled override, while
+> page-rerender's is unset; separate rows, one does not touch the other). What STANDS: on
+> page-rerender's step it reaches the fleet's highest-volume pipeline, so cancelling our item rather
+> than lowering that floor was still right. The honest rule, theirs: **scope it to the agent that
+> needs it, time-box it, pair it with a monitored rollback at the item's terminal state — not
+> "never", and not "reach for it to get past a refusal you have not read".** Our guides-index refusal
+> itself is unaffected: the cards are mostly unfed, and the real fix remains the producer filling
+> the slots (their 425 diagnosis, in progress).
