@@ -1757,3 +1757,27 @@ decision. The subject backfill for these six rows (now illustrated-text-block, s
 still subjectless) stays HELD pending the phrasing spec. A future genuine re-plan minting a NEW
 plan row is out of any per-plan migration's reach — that is the 427 lane's framework fix (typed
 action, architecture review), with our case as one of its two live customers.
+
+### 2026-09-03 — post-754 standing obligation: verify the NEXT index rebuild at the ARTEFACT; and where the findings landed
+
+From the 427 lane's close-out (they independently re-verified our scope_ref finding before
+recording it — "a peer report is another doc" working in both directions):
+
+- **VERIFY-LATER, falsifier stated:** our index remains `needs_rebuild` with a NULL plan stamp,
+  so decideEmit says stale and a rebuild WILL fire — and post-754 that is now the RIGHT outcome
+  (tier 1 finally says what the page is). When it happens, confirm AT THE ARTEFACT, not the item
+  status: the served page must still carry the six illustrations and the 7 locked components'
+  content. The disconfirming result is lost/blank sections — which would mean the SAVE side did
+  something the pairing analysis could not see (that half is still untraced; prune_floor has
+  refused our saves before and is NOT resolved). Do not let "rebuild completed" stand in for
+  this check.
+- **Ordering now has FOUR known positional consumers** (their independent re-verification):
+  assigned_fact_ids, subject, page_components.position, and site_plan_imagery.scope_ref —
+  so rename-in-place is a structural requirement, not a preference; renumbering silently
+  re-points every section figure. New LANDMINES entry (renumbering), with 754 cited.
+- **RFC_064** (committed today): the typed composition-correction action; its owner question 2
+  (what must such an action do to built_from_plan_version) is exactly our deliberately-left-open
+  lifecycle question — our case is the RFC's second live customer, so the answer arrives there,
+  not here.
+- **bugs_open/469**: the same revert mechanism already COMPLETED on robot-hands
+  (gripper-spec-sheet lost) and idea.uk (guide-list lost). Our page was one build away.
