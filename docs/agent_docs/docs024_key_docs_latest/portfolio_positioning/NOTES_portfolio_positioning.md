@@ -4035,3 +4035,25 @@ session's — kustomize overlays, 444's bug file, platform tests).
   verdict when the item leaves `diagnosing`; if this session ends first, the query in the
   handoff addendum 2 is the pickup.
 
+### (v) 2026-09-03 08:2x–08:4xZ — overnight read: 450 CONFIRMED + §7 answered at the rows; tools arrived under other names; cluster duplication surfaced
+
+- 090 run `96e97dc4` → **CONFIRMED** 22:11:33Z (grounded on `owned_page_guard.go`'s constant and
+  the seotools rows; it pulled `check_phantom_internal_links.go` by content first). The verdict
+  is in `site_work_items.result` of the `needs_diagnosis` item — my handoff's `doc_notes`
+  pointer was wrong (0 rows); corrected in 450 and addendum 3. My background watch was killed
+  at 21:52Z with the item mid-run, so this was read cold this morning.
+- Design rotation reached seotools 21:48:01Z — 12 min after my (u) reading "never selected" —
+  and websitepromotion 03:49Z. `tool-deployer` created its OWN rows (8 + 7 tools, real
+  `component_level='tool'` rows, 15–22 KB); planned names vs suggester names: 0/7 and 0/1
+  matched. Shells re-deployed 00:07–00:09Z by a rerender wave, 0 forms at 08:2xZ. wp's
+  sectionless planned tool page took the other fork (`mark_no_ready_sections` ×7 HITL +
+  `needs_content_page`). 450 §7 answered; 444's deadlock branch refuted; runbook §2/§2b refined.
+- Cluster duplication [MEASURED at component names, which carry the source site]: CPM/CPC on
+  all three marketing-cluster sites; five more tools pairwise. Appended to `bugs_open/447` as
+  a cluster-scale instance; owner question in README.
+- Sitemaps: advertise 22 urls 05:52Z, seotools 35 urls 06:53Z — the change-and-quiet arm did
+  re-select both within ~10 h, as the runbook §3 trap predicted. `site_unreachable` auto-closed
+  21:50Z. Neither needed a hand.
+- Not ours, noted: `capability_gap handler_missing: affiliate-link-manager` on both cluster
+  siblings (revenue_shape findings with no registered agent) — a fleet registration gap.
+

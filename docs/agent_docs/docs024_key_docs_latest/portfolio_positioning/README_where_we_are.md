@@ -1388,3 +1388,32 @@ One advertise page, the regulation map, never built: the writer keeps producing 
 component won't accept. That's an existing bug (437) affecting six sites, owned elsewhere, and
 the site hides links to the missing page in the meantime.
 
+**2026-09-03, morning — the tools arrived overnight, but not the ones the briefs asked for. One decision for you.**
+
+Good news first: both missing sitemaps regenerated on their own, the "site unreachable" left
+over from the dark hour cleared itself, and the discovery sweep reached seotools and website
+promotion during the night and built real tools on both — eight on seotools, seven on website
+promotion, all working, all live.
+
+The catch. The sweep picks its own tools from the tool library, and its names never match the
+tool pages the plan wrote from your brief. So seotools now has eight working tools AND seven
+public pages still promising a robots.txt tester, a Core Web Vitals checker, a title-tag
+scorer and so on, each with nothing on it but text. Website promotion's planned "channel
+prioritiser" was never built at all. The independent diagnosis confirmed the mechanism last
+night (bug 450). I need your call, and my recommendation is the first option:
+
+1. Build the eight tools the briefs named, so those pages become real under the addresses the
+   sites already link. I can queue that today.
+2. Retire the eight empty pages and accept the sweep's choice of tools.
+3. Both: build what the brief named, keep the sweep's too.
+
+Leaving it as it is means seven pages on a site whose whole product is tools, each promising a
+tool that is not there.
+
+A second, smaller question. The sweep reused tools across the cluster: the CPM/CPC benchmark
+comparator from advertise is now on seotools and on website promotion as well, and five other
+tools appear on two of the three sites. The briefs told each site to defer to advertise as the
+flagship, but the tool picker cannot see that instruction (that is the known bug 447, now with
+a cluster-sized example). Do you want the duplicates pruned from the two smaller sites, kept,
+or is reuse inside a cluster acceptable as policy?
+

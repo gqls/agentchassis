@@ -217,3 +217,52 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   rotation reached them yet (`site_discovery_rotation` rows) — when it does, watch what
   tool-deployer does to the shell rows and record it in 450 §7 · then §1d briefs.
 
+# ADDENDUM 3 — 2026-09-03 08:3xZ: overnight convergence read; 450 CONFIRMED + §7 answered; ONE OWNER DECISION
+
+- **Self-healed as predicted:** advertise `/sitemap.xml` 200 (22 urls, 05:52Z selection, dropped
+  0) · seotools 200 (35 urls, 06:53Z) · advertise `site_unreachable` auto-resolved 21:50Z ("probe
+  recovered"). Nothing was touched by hand. §1a's sitemap and unreachable items are DONE.
+- **Tools landed — under OTHER names.** Design rotation: seotools 21:48Z → 8 `add_tool`
+  complete (SEO Schema, Social Card, HTML Head Architect, A/B Test, Keyword Intent, Robots.txt
+  GENERATOR, Canonical URL Checker, CPM/CPC Comparator); websitepromotion 03:49Z → 7 (Ad Budget,
+  CPM/CPC, Keyword Intent, Launch Checklist Scorer, Organic Traffic Estimator, Robots.txt
+  Generator, SEO Schema). All with real tool components, deployed by 06:36Z. **The planner's 7
+  seotools stubs are still prose shells (0 forms at 08:2xZ, re-deployed 00:0xZ) and
+  websitepromotion's `tool-channel-prioritiser` is still unbuilt (0 components; 7
+  `unbuilt_internal_link` parked at HITL + `needs_content_page` 3fa95b60).** `bugs_open/450` §7
+  answered at the rows; 090 run `96e97dc4` **CONFIRMED** 22:11Z (verdict in the item `result`,
+  not `doc_notes`). Runbook §2/§2b refined: fire discovery BEFORE the plan; shells outlive the wave.
+- **⚑ OWNER DECISION (README 2026-09-03):** what to do with the 8 planned-never-built tool pages
+  (seotools ×7 shells, websitepromotion ×1 unbuilt). Options, my recommendation first:
+  (a) **build the planned tools** — they are what the briefs asked for (robots.txt TESTER, Core
+  Web Vitals checker, title-tag scorer, SERP snippet previewer, redirect-chain checker, keyword
+  difficulty estimator, meta-tag checker; channel prioritiser) — by minting `add_tool` items for
+  those names (shape: the completed rows on seotools; 447 lane held such a wave reversibly, so
+  the shape is known) — then the stubs get real components under the SAME urls the hub already
+  links; (b) retire the 8 stubs (archive + nav/sitemap + repo file) and accept the suggester's
+  set; (c) both: build what the brief named, retire nothing. Do NOT leave as is: 7 public URLs
+  promising tools that are not there, on the site whose product is tools.
+- **⚑ OWNER QUESTION (same README entry):** cluster duplication. CPM/CPC comparator is now on
+  advertise AND seotools AND websitepromotion; A/B test, ad-budget, keyword-intent, robots-txt
+  generator, SEO schema each on two of them. The briefs' flagship deference did not reach the
+  suggester (447, instance appended). Keep, prune the copies from the siblings, or accept
+  library reuse inside a cluster as policy?
+- **websitepromotion HITL rows (new overnight, read before acting):** `needs_section_data`
+  593f4805 — index `featured-content` "required query source errored … featured_post" = 444's
+  live defer-half firing on the same unregistered query base as designblog (class = 444
+  session's; instance = ours: the index renders without that section until the base is
+  registered or the section dropped) · `save_refused_incomplete` c0ff4e18 on
+  `tool-robots-txt-generator-guide` (253 shrink floor, tool-wave by-product) · `empty_section`
+  FAILED ×1 · `page_content_divergence` DETECTED ×1 · `image_url_404` DETECTED ×3 (also ×3 on
+  seotools, ×3 designblog — the 424 imagery lane's class; check at the body before touching).
+- **seotools:** `unbuilt_internal_link` 9c56c7ce FAILED (3× component-floor refusal on the
+  serp-snippet shell — 450 by-product, leave) · `spec_supplies_claim` HITL ×1 (owner-class,
+  like the negation flag) · `capability_gap` ×2 = `palette_contrast` (theme) and
+  `handler_missing: affiliate-link-manager` (revenue_shape findings need an unregistered agent
+  — FLEET gap, also on websitepromotion; not ours, worth one line to whoever owns
+  revenue_shape) · CTA 15 open (unchanged).
+- **Landmine verifier:** my 450 entry verified `STILL_VALID` 21:45Z.
+- **Order of work now:** owner decision (a)/(b)/(c) → then §1d briefs with runbook §2b applied
+  (discovery at plan time) → №5 carries three canary duties (chrome pin, imagery prompt,
+  discovery-before-plan).
+

@@ -102,6 +102,11 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   rotation selects the site (≈ one site per 3 h; advertise was reached by luck at plan time,
   which is why №1 never showed this). So: judge tools at the BODY (§4 form probe), keep the
   seven-style holds open, expect `dead_internal_link_live` to clear on its own (the shell 200s).
+  **The shells OUTLIVE the tool wave** (seotools 2026-09-03: 8 real tools landed under other
+  names; the 7 shells re-deployed at 00:0xZ and still serve prose). A planned tool page with NO
+  plan sections takes the other fork: the repair parks at `mark_no_ready_sections` (HITL ×N
+  links) and a `needs_content_page` "0 component rows — build it" follows (websitepromotion's
+  `tool-channel-prioritiser`). Neither fork builds the planned tool.
 
 ## 2b. Mitigation for №5 onward — fire a one-shot design discovery when the PLAN completes (UNEXERCISED on a remake; №5's third canary duty)
 
@@ -120,9 +125,19 @@ VALUES ('oneshot-design-discovery-<short>-<yyyymmdd>',
 ```
 - WHEN: the moment `site_plans.is_current` exists for the site and BEFORE any hub page deploys
   (pages build within ~1 h of release — the window is short; watch the plan item, not the clock).
-- ⚠ Do NOT fire it at a site whose tool pages are ALREADY shells (seotools tonight) until
-  450 §7 is answered — what `tool-deployer` does to a page row that already carries generic
-  components is UNVERIFIED (on advertise it created the rows itself).
+- ~~⚠ Do NOT fire it at a site whose tool pages are ALREADY shells until 450 §7 is answered~~
+  **450 §7 ANSWERED 2026-09-03: `tool-deployer` never touches a planned tool page — it creates
+  its OWN page rows under the suggester's names, which never coincide with the planner's (0/7
+  on seotools). So firing it is safe for existing shells (they are simply left standing) and
+  the point of firing it EARLY is that the plan then NAMES the suggester's tools (advertise) —
+  a plan written before the sweep names tools nobody will ever build.** After the sweep: the
+  planner's own tool stubs are dead weight to retire (instance work, every remake until 450
+  lands).
+- ⚠ **The suggester is CLUSTER-blind as well as seat-blind (447, instance 2026-09-03):** it
+  copied advertise's CPM/CPC comparator onto BOTH cluster siblings, and five more tools are
+  duplicated pairwise across advertise/seotools/websitepromotion. The brief's flagship-deference
+  clause lives in `site_specs`, which it does not read. Eye every `add_tool` wave against the
+  cluster, not only against a P5 pair; the auditor holds nothing.
 - ⚠ On a P5-pair site the wave it triggers is the seat-blind one (447) — eye it.
 - Read the result at the body (§4), not at `evaluate_tools`/`add_tool` statuses.
 
