@@ -795,3 +795,38 @@ argument because route 2 is plan-independent. The 443 lane anchored the qualific
 into the RFC's top-down path. **For whoever runs the wiring's round 2: the plan-less arm
 now depends on the RFC_063 ruling — option B gives it for free, option A means route 2
 stays the plan-less path and the round-2 submission says so as scope.**
+
+---
+
+## 2026-09-03 morning — the roll landed, both migrations discharged, and the detector FIRED on its first sweep
+
+**Roll verified at the artefact** (never the tag): chassis `v1.0.1356`, pods born
+08:57Z. Capability probe with controls: `unrendered_page_imagery` on **79 pods =
+undeployed_assets on 79** (positive control), `_NOTREAL` 0 (negative control). Wiring
+literal in `/proc/1/exe`: present=1, absent-control=0 — IMG-078 is aboard and inert
+(opt-in OFF, 710 still deliberately HELD pending the GAP-4 canary).
+
+**709 APPLIED** 09:1xZ: `removed icon=16 content_hero=6 illustration=4 sprite_sheet=1`,
+18 rows in `bak_site_dead_purpose_urls_20260902` — byte-identical to the dry run. The
+last poisoned `content_data` surface is gone.
+
+**708 APPLIED** per its own runbook: preflight n=1 (duplicate-active-rows), UPDATE 1,
+array 24→25, post-apply what-did-I-break clean. `_HOLD` suffixes discharged on both
+files (git mv, both paths named on the commit, verified at HEAD — exactly one path
+each); `liveConfiguredChecks` gained the name in the SAME commit (`8c4a5789e`,
+`Council-Reviewed: 3b568104`).
+
+**FIRST NATURAL FIRING, ~10 minutes after the apply:** idea.uk swept 09:25:32 → ONE
+rollup, `unrendered_page_imagery:no_image_slot`, count **6**, `measured_at 2026-09-03`
+— plausible against idea.uk's census (16 content-hero assets, 9 wired on 08-22) — and
+the design-discovery orchestration **COMPLETED**, so the check ran alongside its 24
+siblings without failing the step. Closing-bar item 4 is now exercised, not merely
+built.
+
+**What closure still WAITS ON, and it is observation, not work:** one sweep is one
+site. Before moving 114 to `bugs_closed/`, let the rotation cover the fleet (~a day at
+the >4h-stale floor) and confirm: rollups appear on the sites the census predicts
+(webdesign.co.uk's unwired population, gamesdesign, the 16 fragment_slot tool pages),
+at plausible counts, with the orchestrations completing. A fleet-wide pattern of
+plausible rollups = bar met; a fleet-wide silence after full rotation = an unexercised
+detector and a bug, not a clean fleet.

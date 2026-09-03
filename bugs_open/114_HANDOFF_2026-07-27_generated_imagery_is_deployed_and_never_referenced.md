@@ -1190,3 +1190,15 @@ here at their suggestion so it is greppable before anyone files it as new): **th
 existed in the pod logs and never reached the work item** — `result = {}`. A failed item that
 carries no reason looks identical to a failed item whose reason nobody looked for, and every
 reader after the pod logs rotate gets the second one.
+
+> **UPDATE 2026-09-03 morning — ALL FOUR CLOSING-BAR ITEMS NOW SATISFIED; closure waits
+> only on fleet-wide sweep observation.** Chassis `v1.0.1356` rolled (capability-probed
+> 79/79 with controls); migration **709 applied** (16/6/4/1 dead keys removed, 18 rows
+> backed up); migration **708 applied and its HOLD discharged** (checks array 24→25,
+> preflight + verify clean); and the detector **fired correctly on its first sweep** —
+> idea.uk 09:25Z, one `no_image_slot` rollup, count 6 dated 2026-09-03, the
+> design-discovery orchestration COMPLETED. Remaining before this file moves to
+> `bugs_closed/`: let the rotation cover the fleet (~a day) and confirm rollups appear
+> where the census predicts (a fleet-wide silence would be an unexercised detector, not
+> a clean fleet). Cold-start for the closing session:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_114_imagery_wiring/HANDOFF_2026-09-03_continue_here.md`.

@@ -178,3 +178,29 @@ review never actually ran (lost in dispatch, not rejected) — resubmitting it p
 And four more dead site-wide defaults (icon, content-hero, illustration, sprite-sheet
 paths that point at files which have never existed) get the same careful deletion the
 hero one got, now that the thing that kept re-creating them is gone.
+
+---
+
+**2026-09-03 morning — the new build went out, and the missing smoke alarm is now live
+and has already rung once, correctly.**
+
+This morning's build carries yesterday's work. I checked the running services really
+carry it (asked the services themselves, with a decoy check to prove the question
+works), then switched on the two held pieces: the clean-up that deletes the four dead
+site-wide image addresses nobody reads (done — 27 removals across 18 sites, every row
+backed up first), and the new detector that notices "this page has its own picture and
+shows the generic one instead".
+
+Within ten minutes the detector produced its first real report, on idea.uk: six pages
+that hold a generated picture no part of the page can display — filed as one tidy
+summary card, not six separate nags, with the date on the count and the right owner
+named. The sweep that runs it completed normally, so it broke nothing on the way.
+
+What I'd like before we call this bug closed: let the daily sweep visit the rest of
+the sites (about a day) and check the reports appear where we already know they
+should. If they do, the bug file moves to the closed pile — everything it names is
+then either fixed and live, or handed to the specific bug file that owns the
+remainder. The delivery mechanism itself (actually putting those orphaned pictures ON
+their pages) is deliberately switched off until one careful test run on a quiet site
+tells us why the old delivery sometimes missed — that test is written up and waiting,
+and your ruling last night on the six plan-less sites gave it a clear runway.
