@@ -21557,3 +21557,50 @@ END $$;
 - **relations:** the entry above (the primary) · `bugs_open/458` §10, where each gap is answered · `WRONG_CALLS.md` 2026-09-03
 - **source:** 2026-09-03, `site_ai_agent_orchestration` lane; the second failure mode was named by the `bugs_open/450` lane, which had hit the sibling 60KB variant on a 199KB `coordinator.go`
 - **added:** 2026-09-03, site_ai_agent_orchestration lane; **merged into the entry above the same day**
+
+---
+
+### Comparing pages by their FIRST PATH SEGMENT cannot tell a section's CHILD from a page COLLIDING with it — and the union downstream hides the damage on every site except the one that needs it
+
+- **footprint:** `platform/orchestration/actions/v3_site_actions.go` · `slugOf` · `sectionStemOf` · `sectionPathKey` · `reconcilePlanWithRealised` · `site_plan_pages` · `datahelpers.CanonicalisePage` · `datahelpers.ValidateRoles`
+- **the trap.** `/articles.html` (a flat page colliding with a realised `/articles/index.html`
+  hub) and `/articles/the-sign-off-problem.html` (a legitimate child of it) both reduce to
+  `"articles"` under a first-segment comparison. Pass C used that comparison for three months and
+  deleted every newly planned child of every section index, silently: no error, no
+  `capability_gap`, orchestration `COMPLETED`, and the only trace a count nothing compares.
+- **why it stayed invisible, which is the part that will fool you too.** Pass A's union runs
+  *after* the drop and restores REALISED pages. So on an established site a child is
+  dropped-then-restored and nothing is observable — you can read the code, run a re-plan on a
+  healthy site, and see a correct plan come out. The damage appears **only** where there is no
+  realised counterpart: a hub that is empty *today* can never be filled, for ever. Any test or
+  census you run against a site that already has children will tell you the code is fine.
+- **the check, before you touch either function.** Compare the full path each side CLAIMS, via
+  `datahelpers.PagePathKey` — `/news.html` and `/news/index.html` both claim `/news`, while
+  `/news/x.html` claims `/news/x`. That is complementary by construction to
+  `countSectionChildren` in `listing_item_sources.go`, which counts a hub's children with
+  `strings.HasPrefix(url, sectionPrefixOf(hub))`: "claims the hub's path" and "lives under the
+  hub" partition the space. If your change makes those two disagree about one page, you have
+  rebuilt the interlock that made `bugs_open/463` and `bugs_open/444` each look like a reason
+  for the other. **Test per URL FORM** — `/x.html`, `/x/y.html`, `/x/y/index.html`, `/x/` and a
+  url with no leading slash all take different paths through these helpers, and a table missing
+  one of them passes.
+- **the second half, and it is the one that makes a "fix" look like it worked.** Keeping the
+  child in the plan is not enough. `WriteSitePlanAction` and `SyncPagesToDBAction` both DISCARD
+  the planner's url and re-derive it from `CanonicalisePage`, whose leaf-role arms are
+  `dir := parent; if dir == "" { dir = "<role default>" }` — `blog` for a blog-post, `entities`
+  for an entity-page. `[MEASURED 2026-09-03]` the live `plan_site` prompt (32,191 chars) never
+  contains the string `parent_section` and **109 of 109** `blog-post` rows in `site_plan_pages`
+  carry none, so the default always won. A child kept by a fixed Pass C still landed in `/blog/`,
+  the hub still resolved zero children, and the hub was still held — the same empty page with a
+  different cause. **`ValidateRoles` rule 5 (`nestedRoleFromURL`) rescues `/tools/`, `/guides/`
+  and `/games/` and nothing else**, which is exactly why a `/guides/` site looks healthy and an
+  `/articles/` site does not; do not take a working `/guides/` hub as evidence the path works.
+- **relations:** `bugs_open/463` (both halves, fixed `9b540c2e6`) · `bugs_open/444` (the gate in
+  series) · `bugs_open/467` (the same silent-shrink signature at `truncatePreservingRealised`) ·
+  `bugs_closed/141` (which ratified the drop this narrowing must preserve) · `bugs_open/215` and
+  `bugs_open/241` (why the `parent_section` derivation is gated to non-realised entries) ·
+  `WRONG_CALLS.md` 2026-09-03 (modelling `sectionStemOf`'s two branches with a one-branch SQL predicate)
+- **source:** 2026-09-03. Filed as a bug by the `gamedesign.uk` lane after three rebuilds of an
+  articles hub that stayed empty; the second half found by session `463` while fixing the first,
+  and it contradicts the bug file's own §5.
+- **added:** 2026-09-03, session `463`
