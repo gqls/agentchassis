@@ -27,7 +27,21 @@ import csv, os, re, statistics, collections
 HERE = os.path.dirname(os.path.abspath(__file__))
 FLOOR_GBP = 150            # owner's transfer-away fee, 2026-08-17
 GBP_USD = 1.27             # [ASSUMED] owner to confirm
-FLOOR_USD = round(FLOOR_GBP * GBP_USD)
+# OWNER RULING 2026-09-03: "keep USD, round it up." Prices round UP only, so
+# rounding can move a price away from the floor but never through it.
+# £150 x 1.27 = $190.50, rounded up to a clean $200.
+FLOOR_USD = 200
+
+
+def round_up_clean(x):
+    """Round UP to the next tidy marketable figure. The step widens with size
+    so a $215 name is not rounded to $500, and a $12,000 one does not carry a
+    spurious $12,050."""
+    import math
+    for limit, step in ((500, 25), (2000, 50), (10000, 250), (50000, 1000)):
+        if x <= limit:
+            return int(math.ceil(x / step) * step)
+    return int(math.ceil(x / 5000) * 5000)
 
 # Tier bands on adjusted value (USD). Keen price = the fraction of the anchor
 # we would actually ask to move it, by tier: better names hold value, tail
@@ -164,6 +178,12 @@ def main():
             keen_out, sell = '', r['registrar']
         elif is_single_word(d) and not r['dynappraisal']:
             keen_out, sell = '', 'PREMIUM-REVIEW:single-word'
+        elif int(r['sld_length']) <= 3 and not r['dynappraisal']:
+            # Short names are a SCARCITY class the model cannot see: it was
+            # pricing 2w.uk / 4l.uk / 5s.uk at the $200 floor, against realised
+            # .uk sales of tp.uk £5,200, fpp.uk £3,500, va.uk £3,300, egg.uk
+            # £2,000 (COMPARABLES §1.3c). Held out like the dictionary words.
+            keen_out, sell = '', 'PREMIUM-REVIEW:short-name'
         elif r.get('quote_with'):
             # Owner-ruled quote-together group: a standalone price for one of
             # these is the exact mistake the ruling exists to prevent, so the
@@ -177,7 +197,7 @@ def main():
         for tier, floor, keen_frac in TIERS:
             if value >= floor:
                 break
-        keen = keen_out if keen_out == '' else max(round(value * keen_frac), FLOOR_USD)
+        keen = keen_out if keen_out == '' else max(round_up_clean(value * keen_frac), FLOOR_USD)
 
         ask = float(r['live_ask_price']) if r['live_ask_price'] else None
         floor_now = float(r['afternic_min_offer']) if r['afternic_min_offer'] else None
