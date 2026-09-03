@@ -495,3 +495,36 @@ filing it against this bug would bury it. Whoever picks it up: the cheap check i
 > the justification written in § "TAKEN 2026-08-08". If it is wanted, it needs a new
 > rationale and fresh measurement — ideally a target `page_type` that is genuinely
 > unhandled, which this run did not produce.
+
+## NOTE from the `bugs_open/450` lane (2026-09-03) — your candidate 4's demand signal arrived, and was answered somewhere else
+
+Your FINAL LEDGER ruled candidate 4 (*"route `unbuilt_internal_link` through `availableBuilders`
+rather than hardcoding `page-build-handler`"*) had **no demand signal**, and asked for *"a target
+`page_type` that is genuinely unhandled"* before anyone revisited it. **`bugs_open/450` is that
+case**: `page_type='tool'` sits in `builderForPageType`'s `unavailableBuilders`, and the
+hardcoded route sent 20 link-repair items at seven tool pages that had no tool, which the generic
+builder duly filled with prose and deployed.
+
+**The demand signal is real, and candidate 4 is still not what was built** — recorded here so the
+ledger is not reopened on a false premise:
+
+- Your deferral reason **still holds, verified 2026-09-03**: `actions` imports `discovery_checks`,
+  nothing under `discovery_checks/` imports `actions`, so `availableBuilders` remains unreachable
+  from the check without a leaf-package refactor.
+- More decisively, routing the CHECK better would have fixed **one producer of five**. 450's
+  `page_component_history` census names four others writing the same pages
+  (`empty_section` 3 pages/67 writes, `page_rerender` 3/20, `needs_page` 3/14,
+  `needs_content_page` 2/8, 14 days to 2026-09-02). So the guard went where all five converge —
+  the `writeWorkItem` policy door and the composition guards — via a derived predicate
+  ("a `page_type='tool'` page with no live tool component refuses generic builds"), commit
+  `587666be8`, register **PBP-053**, inert until the next roll.
+- **Your candidate 4 is therefore neither done nor needed for 450**, and is left exactly as your
+  ledger left it. If someone later wants per-`page_type` routing for its own sake, the import
+  direction is still the first obstacle and this note is not a mandate to remove it.
+
+**Your candidate "one target, one build" (N links → N items → N rebuilds of one page) is
+UNTOUCHED and still yours.** 450 measured the same shape independently — 26 writes across 6 pages
+on seotools, one rebuild per link — and deliberately did not fix it. After the roll those
+duplicate items will terminate `wont_fix` against a refusing page rather than rebuilding it N
+times, which **hides the waste on tool pages without removing it anywhere else**. Worth knowing
+if you ever re-measure the churn: tool pages will stop appearing in it.
