@@ -399,3 +399,72 @@ behaviour has changed in production. ⚠ Do not read `processing_history @> '[{"
 service it scrolls out of reach within hours. It was still in range here only because the pods were
 minutes old. Later, the binary probe with a present-and-absent control pair is the check with no
 shelf life.
+
+## (k) 2026-09-03 ~14:0xZ — council round 2: APPROVED, and the two advisories were both worth acting on
+
+**APPROVED** — *"approved with 2 advisory objection(s) — none high-severity"*, corr `3beb3f54`
+(read from `diagnosis_artifacts` by MY correlation, not the `doc_notes` LIMIT 1 that burned me in
+(i)). 9 of 11 approve; `prior_art_librarian` moved from its **high** objection to **approve**, so the
+citation answered it. `architecture` approved in both rounds.
+
+### `reuse_agent [medium]` — two "takeover" methods with overlapping names, ACTED ON
+
+> *"`TakeOverOrchestration` … a doc comment describing exactly the concept this plan is naming
+> `ClaimStaleOrchestration` … never explains … why a second, differently-named, differently-behaving
+> 'takeover' method is being added instead of extending it. Two takeover mechanisms with overlapping
+> names and different version semantics … is precisely the pattern this platform has already been
+> burned by … This needs to be resolved or explicitly distinguished before the edit ships, not left
+> implicit in a citation."*
+
+**Right, and the last clause is the bit I had got wrong** — the distinction existed only inside a
+submission nobody will read again. Fixed **in the code, at BOTH sites**, so whichever one a reader
+meets first tells them about the other: `TakeOverOrchestration` = ownership **bookkeeping**, records
+WHO is driving, leaves version/last_activity alone, callers proceed win or lose, excludes nothing;
+`ClaimStaleOrchestration` = **mutual exclusion**, decides WHETHER YOU MAY drive, and losing means do
+not act. Plus why they must not be merged (the two guarded mechanisms must never govern one column).
+
+Not renamed: `TakeOverOrchestration` is pre-existing, has a live caller and its own council history
+(`bugs_open/075`), so a rename is a bigger blast radius than the objection warrants.
+
+### `guardian [low]` — "run the symbol census against the code index" — **THE INSTRUMENT CANNOT DO IT**
+
+The guardian wanted the `ClearExecutingStep` removal checked against the code index rather than
+re-asserted from grep, noting that my `.go`-only grep *"already missed one non-Go reference"* (true —
+the vocabulary row). I went to run it, and checked the instrument first.
+
+`SELECT count(*) FROM code_symbols WHERE content ILIKE '%ClearExecutingStep%'` → **1**. Looks like a
+clean census. **Controls, run in the same breath** `[MEASURED 2026-09-03]`:
+
+| symbol | index content hits | reality |
+|---|---|---|
+| `ClearExecutingStep` | 1 | declaration only |
+| `NewStateRepository` | **1** | **20 files** in the tree contain it |
+| `UpdateStateWithVersion` | **1** | many callers |
+| `handleOrchestrationStatus` | **1** | called at coordinator.go:165 |
+
+`content` holds each symbol's **own body**, so the only row matching a name is the declaration.
+**The query returns 1 for everything and cannot come out otherwise** — it is not evidence, and a
+"clean" answer from it would have been the same answer as for a symbol with twenty callers. Filed as
+a LANDMINE (footprint `code_symbols`, `code_symbols.content`, `index_code_symbols`).
+
+**So the honest answer to the guardian is that the census it asked for cannot be run there**, and the
+evidence stands as: `go build ./...` clean with the function deleted (complete for compiled callers
+**by construction** — no index can match that), plus greps for what the compiler cannot see, which is
+exactly how the vocabulary row was found in the first place.
+
+### `guardian [low]` on migration 736's prose-matching verify — accepted, not fixed
+
+The verify RAISEs on `written_by LIKE '%ClearExecutingStep%'`. The seat is right that a prose pointer
+rots; it is also right that this is one-shot and documentation-only. Left as written and **recorded
+as a residual**: `orchestration_status_vocabulary.written_by` is a prose column with no guard, and
+nothing will notice the next time a rename makes it false. That is a real (small) class and it is
+named here rather than silently accepted.
+
+### Applied
+
+Migration `736` applied 2026-09-03 after approval — `UPDATE 1`, verify block printed
+`NOTICE: 736 OK`, and the live row now reads
+`StateRepository.ClaimStaleOrchestration (state.go, the EXECUTING_STEP arm of the claim)`.
+Recorded in the ledger with `--record-only` (hand-applied, so the runner would otherwise not know).
+⚠ I did **not** use `run-migrations.sh --apply`: it takes EVERY pending file, and other lanes have
+migrations in that directory.

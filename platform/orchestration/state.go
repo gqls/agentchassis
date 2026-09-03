@@ -1365,6 +1365,28 @@ func (r *StateRepository) SetExecutingStep(ctx context.Context, orchestrationID 
 // TakeOverOrchestration re-stamps processing_node from a named previous holder
 // to this pod, returning whether the handover was won (bugs_open/075).
 //
+// ⚠ TWO METHODS ON THIS TYPE HAVE "TAKEOVER" IN THE NAME AND THEY ARE NOT
+// ALTERNATIVES. Council objection, reuse_agent [medium], corr 3beb3f54 — recorded
+// here rather than in a submission nobody will read again:
+//
+//	TakeOverOrchestration (this one) — OWNERSHIP BOOKKEEPING. CASes
+//	  processing_node from an observed previous holder to this pod, so the log can
+//	  name who it was taken from. Leaves version and last_activity ALONE, on
+//	  purpose. Callers proceed WHETHER OR NOT THEY WIN. It excludes nothing and is
+//	  not a lock: where a row already carries the acting pod's own name, two
+//	  callers in that pod both match and both report rowsAffected = 1.
+//
+//	ClaimStaleOrchestration — MUTUAL EXCLUSION for the stale-takeover arms
+//	  (bugs_open/329, WFA-025). Re-judges the staleness predicate inside the
+//	  VERSION CAS and bumps version + last_activity as the claim itself. Losing
+//	  means you must not act.
+//
+// Use this one to record WHO is driving. Use the other to decide WHETHER YOU MAY
+// drive. Do not merge them, and do not extend this one to do the other's job: the
+// two guarded-update mechanisms on orchestration_states must never govern the same
+// column (state_locks_test.go, corr 4a227ed9), and this one's whole contract is
+// that it does not touch the version lock.
+//
 // WHY. The stamp is written once at row creation and never refreshed (see
 // SetExecutingStep above), so an orchestration whose creating pod has died
 // carries a dead pod's name for ever and no living consumer can ever match it.
@@ -1463,6 +1485,10 @@ func (r *StateRepository) ExecuteWithOptimisticLocking(ctx context.Context, orch
 
 // ClaimStaleOrchestration is the check-and-claim behind handleOrchestrationStatus's
 // two takeover arms (bugs_open/329).
+//
+// ⚠ NOT TakeOverOrchestration, despite the near-identical name — see the block on
+// that method for the split. In one line: that one records WHO is driving and
+// excludes nobody; this one decides WHETHER YOU MAY drive and is the exclusion.
 //
 // THE DEFECT IT CLOSES is not a missing lock — it is a CHECK-THEN-ACT ACROSS TWO
 // READS. The arm judged "stuck" from the caller's SNAPSHOT; the write that used to
