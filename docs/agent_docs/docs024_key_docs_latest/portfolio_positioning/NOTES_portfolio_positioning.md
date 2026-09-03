@@ -5021,4 +5021,23 @@ is wrong and something else is holding it.**
 **Practice note for this lane:** after a failed item's `retry_after` passes, the retry is not due
 "in 30 minutes" but "at the next SELECTION of that site", which on a busy site is a different and
 longer thing. Do not promise the owner a retry time from `retry_after` alone — I did, twice.
+- **(mm) WATCH ITEM for №5's plan — `bugs_open/463` × `bugs_open/444` interlock, relayed by the 463
+  lane (misrouted to us; they thought this lane owned the 444 gate — it does not, that is the
+  `bugs_open/444` session, dir `bugfix_444_empty_listing_pages/`; told them).**
+  Mechanism, in their words: inside `ValidateSitePlanAction`, `reconcilePlanWithRealised` runs first
+  and its **Pass C drops any planned page whose FIRST PATH SEGMENT equals a realised section index's
+  stem** — which cannot tell a child (`/articles/x.html`) from a flat page colliding with the hub
+  (`/articles.html`), so it deletes every NEW child of a section index. 444's gate then runs ~350
+  lines later, `countSectionChildren` finds zero, and holds the hub with
+  `builder_needed=section_children:<page>`. **Each guard is defensible alone; together they make an
+  empty section index permanently unfillable, and each one's evidence reads as a reason for the
+  other.** Worked case: gamedesign.uk 2026-09-03 — capability_gap 10:40:18Z, five children dropped
+  14:15Z.
+  **Why it is ours to watch:** copyonline's brief plans a guides section and a directory, so a
+  section-index hub with children is likely, and **its plan does not exist yet**. If a
+  `section_children` capability_gap appears on copyonline, it is probably this pair and NOT the 444
+  gate misfiring — send the instance to the 463 lane rather than filing it.
+  They are fixing the Pass C side, deliberately NOT taking 463's candidate 3 (flat article URLs
+  outside the section prefix) because it would trade a dropped page for an orphaned one and break the
+  `section_children` resolver.
 
