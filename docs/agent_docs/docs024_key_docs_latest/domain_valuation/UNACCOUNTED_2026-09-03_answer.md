@@ -61,6 +61,18 @@ domain.
 4. **Two .co names cannot be checked from here.** Low value, but they can be
    resolved by looking them up in a browser if it matters.
 
+## Confirmed by a full sweep, not just spot checks
+
+The RDAP sweep over all 692 completed `[MEASURED 2026-09-03]`:
+
+- **687 registered**, of which **683 to Anthony Appleby** via the DESIGNCONSULT
+  tag — the same 683 that reconcile against the Nominet CSV. Two independent
+  methods (registry-by-registrar-field, and set-membership against a registry
+  walk) agree exactly, which is the strongest evidence available here.
+- **3 not registered** — the three dead names above, no others.
+- **4 registered to someone else** — Voove, 123-Reg, Dynadot, NameSilo.
+- **2 unsupported TLD** — the two .co names.
+
 ## Marked
 
 - [MEASURED 2026-09-03] every registry status above, individually re-queried.
