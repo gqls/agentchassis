@@ -607,3 +607,52 @@ exactly the row `ResolveChromeComponent` returns for a site with no pin at all �
 chrome is a no-op too. Combined with §6a-ter's palette finding and the 94.4% page-structure
 measurement, **layout is the only dimension where adopting a kit changes anything.** Full
 account: `docs024_key_docs_latest/theme_kits/NOTES_theme_kits.md` and register DES-085.
+
+### 6d-bis. UPDATE 2026-09-03, same afternoon — candidate 3 IS BUILT. §6d's "not fixed, deliberately" is superseded.
+
+**Read this before quoting §6d's deferral.** Council round 3 (`bug_historian`, gating)
+objected that I had diagnosed the mechanism, accepted it, and shipped nothing. That is a
+fair reading, and two rounds gating on the same missing guard is the council saying the
+deferral *was* the defect. **Candidate 3 is now committed as `b18091066`.**
+
+**What it does — it REPORTS, it does not refuse.** `classifierDesignIntentState()` asks
+whether `domain-research-classifier` has EVER written this site's `design_intent` (current
+row or superseded). If it has not, a classifier write is still ahead and will overwrite the
+kit's values. The apply then records `design_intent_supersede_risk` in **three** places:
+
+- a **WARN** naming the mechanism, what survives and what is lost, and stating explicitly
+  that `design_intent.<dim>.locked` is *not* a remedy;
+- the **`theme_kit_adoption` spec**, so it is durable and queryable — a reader later asking
+  *"why does this themed site not have the kit's fonts?"* finds the answer on the adoption
+  row instead of re-deriving the mechanism;
+- the **action's result**, so a caller that reads only the result sees it.
+
+**It deliberately does not refuse**, and that is the judgement most open to challenge:
+layout rides aspect `theme_kit_adoption`, which the classifier never writes, so it survives
+— and layout is the one dimension where a kit changes anything at all. Refusing the whole
+apply would throw away the part that works to protect the part that does not.
+
+**A three-state STRING, not a bool** (`at_risk_no_classifier_write_yet` /
+`classifier_already_wrote` / `unknown`). A read failure must not be recorded as "no risk";
+inventing a `false` for an unknown is the same false-structured-fact class this lane fixed
+twice in one submission.
+
+**Proven, not asserted.** Two mutations, both red with the right message, restored green,
+evidence in the test header: the at-risk arm always returning `already_wrote` (the guard
+going blind), and the `err != nil` arm returning `already_wrote` instead of `unknown` (a
+confident wrong answer). A second test pins the three constants distinct and
+self-describing, which the state tests cannot — a copy-paste collapsing two of them leaves
+every one of them green. **The predicate is checked against live data in a way that could
+have come out otherwise:** `[MEASURED 2026-09-03]` of **39** sites carrying a
+`design_intent`, **38** have one written by `domain-research-classifier`, so it is true on
+an established site and false on a fresh one. Had it been 39 or 0 the predicate would not
+discriminate and the guard would be decoration.
+
+**What is STILL NOT fixed, and stays this bug's:** the ordering itself. The classifier still
+supersedes; the kit's typography is still lost on the fresh path; the guard only makes the
+loss **visible and queryable** instead of silent. **Candidates 1 and 2 remain open and
+remain 438's**, not the theme-kit lane's — candidate 1 (make the classifier respect
+`locked`) is architecture-scope because it changes the classifier's write authority over a
+shared aspect, and candidate 2 (write `mission.preferred_typography`) would build on this
+bug's own defect. **The guard is inert today**: adoption is 0, so nothing has ever taken
+this path.
