@@ -456,3 +456,73 @@ from three different seats, and **every one was right**: a claim my sketch did n
 then a real defect in live code, then my deferral of its fix. CLAUDE.md's line that "a
 REVISE round is cheaper than the defect it finds" was paid out three times on one
 correlation. **Do not read a repeated revise as the loop spinning without reading it.**
+
+### Round 4: APPROVED — with 27 objections, and three of them were answerable in minutes
+
+Verdict `approved` at 2026-09-03 16:19:31Z, *"approved with 7 advisory objection(s) — none
+high-severity"*, 3 abstained. **Four rounds on one correlation: revise, revise, revise,
+approved.** Every revise found something real, which is the whole argument for the gate.
+
+**The trailer is now legitimate** — `Council-Reviewed: bed139b2-f512-436a-9ba8-ff2fbfade8ef`
+— because an approved verdict has been READ. The earlier commits carry
+`Council-Submitted:` and are credited automatically by 098 now the correlation has
+approved; forward-only forbids amending them and none is needed.
+
+**Three objections were cheap to answer and I answered them rather than filing them.**
+
+**(1) `debug_historian`, medium — "verified only by unit-test mutation, no pod
+verification".** They were right, and the answer is decisive against me:
+
+| needle | in the running binary |
+|---|---|
+| `classifierDesignIntentState` (the round-4 guard) | **absent** |
+| `at_risk_no_classifier_write_yet` | **absent** |
+| `apply_theme_kit` (positive control — Phase 1) | **PRESENT** |
+| `zzz_not_a_real_symbol_zzz` (negative control) | absent — *the probe discriminates* |
+
+Pods are **174 minutes old**, started well before the 16:03 commit. **So the guard is
+COMMITTED AND NOT LIVE.** Phase 1 is live; the guard rides the next roll. I had written
+"inert today because adoption is 0" — true, and it was inert for a second and stronger
+reason I had not checked. **This lane's own memory index carries "live and committed are
+independent facts"; the seat had to remind me anyway.**
+
+**(2) `prior_art_librarian`, medium — "per the Choice-B precedent" is an uncited
+existence claim.** Right, and **the claim is false**: there are **two** Go writers of
+`sites.style_collection_id`, not one — `install_site_composition_action.go` and
+`SelectStyleCollectionAction` in `v3_site_actions.go`. Logged in `WRONG_CALLS.md`; the
+narrower claim that was the actual point (a kit installs nothing, it queues
+`needs_composition`) is unaffected. **The seat predicted the class of error from my own
+track record inside this correlation** and was right.
+
+**(3) `prior_art_librarian`, low — "nothing makes the classifier respect `locked`" is an
+asserted absence.** Also right that it was asserted rather than shown. **Now shown:**
+`designIntentLocked` has readers at exactly three call sites, all in
+`apply_theme_kit_action.go` (lines 464, 465, 469), and nothing else in `platform/`,
+`internal/` or `cmd/` reads a `design_intent.<dim>.locked` key. The other `"locked"` hits
+are unrelated mechanisms — the section-editor lock, the component lock guard, adopt
+fidelity. The claim holds; it just had no evidence attached.
+
+**The objections that are NOT answerable and should shape Phase 2** — the architecture
+seat, both medium, and they read as a gate rather than a note:
+
+- *"All four seeded kits pin chrome identical to the unpinned default — the chrome
+  dimension of a kit is currently a no-op. **Shipping more kits or adopters before this is
+  addressed overstates what a kit does.**"*
+- *"Palette cannot reach the served stylesheet under the current render-overlay precedence
+  — `theme_kits.palette_id` is **structurally decorative**. This is an architecture gap,
+  not a bug in this plan, but it **should block further palette-bearing kit adoption**
+  until the precedence is fixed or the capability is explicitly dropped from the
+  contract."*
+
+That is the council independently reaching this handoff's §2 conclusion and going one step
+further: **do not adopt kits until the contract says what a kit actually delivers.** Taken
+into the handoff as a gate on Phase 2.
+
+Others worth carrying, not acted on: `reuse_agent` asks why a new bundling table rather
+than extending `style_collections` (fair — `style_collections` already bundles per site);
+`constitution` objects that `apply_theme_kit` re-implements supersede-then-insert instead
+of reusing `WriteSiteSpecAction`, which my own risk (5) admitted; `bug_historian` notes the
+guard detects and does not prevent, *"a recorded user decision with no enforcement point is
+decorative"*; and `constitution` also objects to my rationale's tone — all-caps headers and
+"dramatized process narrative" where plain engineering prose was called for. That last one
+is fair and I would write it flatter next time.

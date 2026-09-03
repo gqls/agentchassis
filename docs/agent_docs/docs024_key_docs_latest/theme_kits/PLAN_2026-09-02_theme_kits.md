@@ -44,9 +44,26 @@ it.**
   absorbs their write paths.** This follows the "Choice B" precedent: when
   `site-design-planner` was first designed, an early draft gave it ownership of
   navigation and layout outright, and that was walked back within 24 hours and restated
-  twice as policy. `site-design-planner` stays the one writer of
-  `sites.style_collection_id`; nothing about applying a kit changes who owns
+  twice as policy. Nothing about applying a kit changes who owns
   `site_nav_groups`, `content_direction` or `page_components`.
+  > **CORRECTED 2026-09-03, and the correction was PREDICTED by the reviewer who
+  > asked for it.** This read *"`site-design-planner` stays the ONE writer of
+  > `sites.style_collection_id`"*, and I put the same phrase in the council
+  > submission. **There are TWO Go writers** —
+  > `install_site_composition_action.go` (site-design-planner's, the one I meant)
+  > and **`SelectStyleCollectionAction` in `v3_site_actions.go`**, which persists
+  > the column so downstream agents can find it by DB lookup, treating a failure
+  > as non-fatal. The check is one command:
+  > ```bash
+  > grep -rln "UPDATE sites SET[^;]*style_collection_id" platform/ internal/ --include=*.go
+  > ```
+  > The council's `prior_art_librarian` seat flagged it as an uncited
+  > existence/precedent claim **and named why it distrusted it: this same
+  > submission had already produced two false absence claims in earlier rounds.**
+  > It was right on all three counts. **What survives is the narrower claim that
+  > was the actual point:** applying a kit installs nothing — it queues
+  > `needs_composition` and lets site-design-planner do the install. That is what
+  > the Choice-B precedent governs, and it is unaffected.
 - **`page_archetypes` replaces the hardcoded `defaultSectionsForPage` Go switch**, and
   keeps it as a logged last-resort fallback rather than deleting it. Three-way scoped
   (site row > theme-kit row > fleet row, CHECK-enforced) so a site can declare its own

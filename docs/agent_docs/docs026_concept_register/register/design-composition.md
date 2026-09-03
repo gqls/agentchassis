@@ -881,13 +881,30 @@ deduplication begins; the "raw extractions" count above and the per-concept
   predicate-dependent figure carrying a runnable query, and one of round 1's
   own evidence claims retracted as false — **that retraction was itself wrong
   and is withdrawn; see the landmine bullet below.**
-  **ROUND 2 VERDICT READ: `revise` again, 2026-09-03 15:32:59Z, and it found a
-  REAL DEFECT — the most useful output of this whole review.** See the ordering
-  bullet immediately below. Round 3 submitted on the same correlation
-  (accepting the objection, withdrawing the false retraction, and correcting a
-  second evidence claim that round 2's own reviewer check contradicted); its
-  verdict was unread at the time of writing, so **do not record this work as
-  approved.**
+  **FOUR ROUNDS, ALL READ: `revise` (21:43Z 09-02) → `revise` (15:32Z 09-03,
+  which found a REAL DEFECT) → `revise` (15:56Z, gating on my having deferred
+  its fix) → `approved` (16:19Z, "approved with 7 advisory objection(s) — none
+  high-severity", 3 abstained).** So `Council-Reviewed:` is legitimate on this
+  work from 2026-09-03; the earlier commits carry `Council-Submitted:` and 098
+  credits them automatically now the correlation has approved.
+  **⚠ THE APPROVAL IS NOT A CLEAN BILL, and the architecture seat's two
+  objections read as a GATE on adoption rather than a note. Both are quoted
+  because a reader of this entry is exactly who they are addressed to:**
+  - *"All four seeded kits pin chrome identical to the unpinned default — the
+    chrome dimension of a kit is currently a no-op. **Shipping more kits or
+    adopters before this is addressed overstates what a kit does.**"*
+  - *"Palette cannot reach the served stylesheet under the current
+    render-overlay precedence — `theme_kits.palette_id` is **structurally
+    decorative**. This is an architecture gap, not a bug in this plan, but it
+    should **block further palette-bearing kit adoption** until the precedence
+    is fixed or the capability is explicitly dropped from the contract."*
+  **So: do not adopt a kit onto a site until the contract states what a kit
+  actually delivers.** Other advisory objections worth knowing before extending
+  this: `reuse_agent` asks why a NEW bundling table rather than extending
+  `style_collections` (which already bundles per site); `constitution` objects
+  that `apply_theme_kit` re-implements supersede-then-insert instead of reusing
+  `WriteSiteSpecAction`; `bug_historian` notes the round-4 guard detects and
+  does not prevent.
 - **⚠⚠ THE DEFECT THAT MATTERS MOST, AND IT IS UNFIXED: A KIT APPLIED BEFORE
   CLASSIFICATION SILENTLY LOSES PALETTE AND TYPOGRAPHY, SO KITS ARE DEFEATED ON
   EXACTLY THE PATH THE OWNER ASKED FOR.** Found by the council gate, round 2,
@@ -936,7 +953,21 @@ deduplication begins; the "raw extractions" count above and the per-concept
   classifier still supersedes and the kit's typography is still lost on the
   fresh path. The guard makes the loss visible, not impossible. The other two
   candidates remain architecture-scope (make the classifier respect `locked`) or
-  build on 438's own defect. **Inert today: adoption is 0.**
+  build on 438's own defect.
+  ⚠⚠ **AND THE GUARD IS COMMITTED, NOT LIVE — do not cite this bullet as a
+  protection that is in force.** `[VERIFIED 2026-09-03 at the pod, with both
+  controls]` `classifierDesignIntentState` and `at_risk_no_classifier_write_yet`
+  are **absent** from the running `agent-chassis` binary; `apply_theme_kit` is
+  PRESENT (positive control) and a nonsense needle is absent (negative control);
+  the pods predate the commit by hours. It rides the next roll. It is therefore
+  inert for TWO reasons, not one — adoption is 0 **and** the code is not in the
+  image. The council's `debug_historian` seat asked for this check, and this
+  entry had recorded only the weaker reason.
+  ⚠ **`design_intent.<dim>.locked` is read at exactly THREE call sites, all in
+  `apply_theme_kit_action.go`** (464, 465, 469) — `[VERIFIED 2026-09-03]` nothing
+  else in `platform/`, `internal/` or `cmd/` reads it. So "nothing makes the
+  classifier respect it" now has evidence rather than being asserted, which is
+  what the `prior_art_librarian` seat objected to.
   > **CORRECTED 2026-09-02, same day as filing.** This entry first read
   > "deployed … live since commit `0902039c0`". **Both halves were false and
   > the check took one command each**, which is exactly the shape this

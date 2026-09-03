@@ -94,6 +94,14 @@ action's result. Three-state string, never a bool, so a read failure cannot be r
 "no risk". Proven by two mutations, both red with the right message, restored green,
 evidence in the test header; the predicate discriminates 38 of 39 live sites.
 
+⚠ **THE GUARD IS COMMITTED AND NOT LIVE.** `[VERIFIED 2026-09-03 at the pod, both
+controls]` `classifierDesignIntentState` and `at_risk_no_classifier_write_yet` are
+**absent** from the running `agent-chassis` binary, while `apply_theme_kit` is PRESENT
+(positive control) and a nonsense needle is absent (negative control). Pods are 174
+minutes old, started before the commit. **It rides the next roll.** The council's
+`debug_historian` seat asked for this check and was right to: I had recorded the guard as
+"inert because adoption is 0", which was true and hid a second, stronger reason.
+
 **It REPORTS, it does not REFUSE, and that is the judgement most open to challenge.**
 Layout survives on a different aspect and is the only dimension a kit moves, so refusing
 the whole apply would throw away the part that works to protect the part that does not.
@@ -117,7 +125,27 @@ artefacts are written under).
 | 1 | `revise` 2026-09-02 21:43Z | the rationale claimed a typography guard the sketch never showed. Correct: a reviewer judges the submission, not the repository. |
 | 2 | `revise` 2026-09-03 15:32Z | **the §3 defect.** The best output of the whole review. |
 | 3 | `revise` 2026-09-03 15:56Z | gated by **`bug_historian`**: I had diagnosed the defect, accepted it and shipped nothing. Fair. **This is what caused the guard to be built.** |
-| 4 | **UNREAD — in flight** | carries the guard (`b18091066`) with its mutation evidence. Run correlation `425d4365-3342-490a-b32f-cbd1ec5d014c`. |
+| 4 | **`approved`** 2026-09-03 16:19Z | *"approved with 7 advisory objection(s) — none high-severity"*, 3 abstained. Carried the guard. |
+
+**So `Council-Reviewed: bed139b2-f512-436a-9ba8-ff2fbfade8ef` is now legitimate — an
+approved verdict has been read.** Earlier commits carry `Council-Submitted:` and 098
+credits them automatically now the correlation has approved; forward-only forbids amending
+them and none is needed.
+
+⚠ **THE APPROVAL IS NOT A CLEAN BILL. Two architecture-seat objections read as a GATE on
+Phase 2, and this lane agrees with both:**
+
+- *"All four seeded kits pin chrome identical to the unpinned default — the chrome
+  dimension of a kit is currently a no-op. **Shipping more kits or adopters before this is
+  addressed overstates what a kit does.**"*
+- *"Palette cannot reach the served stylesheet under the current render-overlay precedence
+  — `theme_kits.palette_id` is **structurally decorative** … it should **block further
+  palette-bearing kit adoption** until the precedence is fixed or the capability is
+  explicitly dropped from the contract."*
+
+**So: do not adopt a kit onto any site until the contract states what a kit actually
+delivers.** That is the council reaching §2's conclusion independently and turning it into
+a precondition.
 
 Every commit carries `Council-Submitted:`, which asserts nothing and is credited
 automatically if the correlation approves. **Do NOT write `Council-Reviewed:` until you
@@ -209,11 +237,14 @@ documented.** Three earlier errors that day came from asserting a mechanism from
    and the owner withdrew it, so reopening it as an RFC would relitigate a settled decision.
 
 **Owed by this lane:**
-- **Read round 4's verdict** and act on it. Nothing may be recorded as approved until then.
-  Rounds 1–3 all came back `revise`, and **each found something real** — the missing
-  typography sketch, then the supersede defect, then the fact that I had deferred its fix.
-  If round 4 revises again, read it before assuming the loop is spinning: on this
-  correlation the gate has been right every time.
+- ~~Read round 4's verdict~~ **DONE — `approved` 16:19Z.** Four rounds on one
+  correlation: revise, revise, revise, approved, and **every revise found something real**
+  — the missing typography sketch, then the supersede defect, then the fact that I had
+  deferred its fix. Three of the approval's own objections were answered on the spot (pod
+  verification, the false "one writer" precedent, the unevidenced `locked` claim); the
+  rest are in `NOTES_theme_kits.md`.
+- **Roll the binary** so the round-4 guard is actually live, then re-probe the pod for
+  `classifierDesignIntentState`. Until then the guard exists only in git.
 - ~~**The §3 remedy**, as its own council round.~~ **DONE** — built as `b18091066` and
   carried in round 4. What remains is 438's, not this lane's: the ordering itself.
 - **A ping to `portfolio_positioning` and `vetcomparison`** with the chrome experiment's
