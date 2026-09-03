@@ -33,22 +33,26 @@ try:
     call("Page.enable"); call("Runtime.enable")
     call("Page.navigate", url=URL); time.sleep(6)
     print("title:", js("document.title"))
-    print("widget form:", js("!!document.querySelector('.playground-chat-tool form, [class*=playground] form')"))
-    sel = js("""(function(){var f=document.querySelector('.playground-chat-tool form, [class*=playground] form'); if(!f) return null;
+    print("widget form:", js("!!document.querySelector('form.playground-form, form[id*=playground]')"))
+    sel = js("""(function(){var f=document.querySelector('form.playground-form, form[id*=playground]'); if(!f) return null;
       var i=f.querySelector('textarea, input[type=text], input:not([type])'); var b=f.querySelector('button[type=submit], button'); return {input: !!i, button: !!b, btnText: b && b.textContent.trim()}})()""")
     print("controls:", sel)
     if not sel or not sel.get("input"): print("FAIL: no input in the widget"); sys.exit(1)
-    js("""(function(){var f=document.querySelector('.playground-chat-tool form, [class*=playground] form'); var i=f.querySelector('textarea, input[type=text], input:not([type])');
+    js("""(function(){var f=document.querySelector('form.playground-form, form[id*=playground]'); var i=f.querySelector('textarea, input[type=text], input:not([type])');
       var setter = Object.getOwnPropertyDescriptor(i.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set; setter.call(i, %s);
       i.dispatchEvent(new Event('input',{bubbles:true})); var b=f.querySelector('button[type=submit], button'); b.click(); return true})()""" % json.dumps(MSG))
     got = None
     for t in range(40):
         time.sleep(1)
-        got = js("""(function(){var root=document.querySelector('.playground-chat-tool, [class*=playground]'); if(!root) return null;
-           var bubbles=[].slice.call(root.querySelectorAll('[class*=msg], [class*=bubble], [class*=message], li, p')).map(function(e){return e.textContent.trim()}).filter(Boolean);
-           var status=(root.querySelector('[role=status], [aria-live]')||{}).textContent||''; return {n:bubbles.length, last:bubbles.slice(-3), status:status.trim().slice(0,160)}})()""")
+        got = js("""(function(){var tr=document.querySelector('[id$=-transcript], .playground-transcript'); if(!tr) return null;
+           var bubbles=[].slice.call(tr.children).map(function(e){return e.textContent.trim()}).filter(Boolean);
+           var err=(document.querySelector('[id$=-input-error]')||{}).textContent||''; var btn=document.querySelector('form[id*=playground] button[type=submit]');
+           return {n:bubbles.length, last:bubbles.slice(-3), error:err.trim().slice(0,200), sendDisabled: btn?btn.disabled:null, text: tr.innerText.slice(-500)}})()""")
         if got and got.get("last") and len(got["last"]) >= 2 and len(got["last"][-1]) > 40 and MSG not in got["last"][-1]: break
+    print("location after send:", js("location.href"))
+    print("form still present:", js("!!document.querySelector('form.playground-form, form[id*=playground]')"))
     print("transcript tail:", json.dumps(got, ensure_ascii=False)[:900])
+    print("transcript text tail:", (got or {}).get("text"))
     ok = bool(got and got.get("last") and len(got["last"][-1]) > 40 and MSG not in got["last"][-1])
     print("RESULT:", "PASS (assistant reply rendered in the page)" if ok else "FAIL (no assistant reply rendered)")
     sys.exit(0 if ok else 1)
