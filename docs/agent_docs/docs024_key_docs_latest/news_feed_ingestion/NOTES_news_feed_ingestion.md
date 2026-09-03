@@ -891,6 +891,18 @@ about to commit (`git diff --numstat` then `git diff <file> | grep '^-' | grep -
 *before* committing, not after the hook tells you — a `| tail -N` on the commit output
 also cuts the hook's advisory, because the hook prints FIRST and git's summary LAST.
 
+**Frequency note, worth more than any single instance: the shared-ledger passenger
+happened THREE times in this one session** — my LANDMINES entries taken by `6653293ee`,
+another lane's LANDMINES correction taken by my `276d65655`, and my WRONG_CALLS entry
+taken by `002f58bb4`. Two ledgers, three collisions, one afternoon. That is not bad luck,
+it is what `LANDMINES.md` and `WRONG_CALLS.md` being fleet-wide append-only files under
+~30 writers actually costs, and it means **attribution in `git log` on these two files is
+unreliable by design** — read the entry's own `source:`/`added:` line, never the commit
+that carried it. **The check works and I used it on the third:** `git status` reading
+CLEAN on a file you just edited is the tell, and `git show HEAD:<file> | grep -c "<your
+own text>"` distinguishes "someone committed it for me" from "my edit was lost" in one
+command. Do that before re-adding anything, or you append a duplicate.
+
 **My three LANDMINES entries were swept into ANOTHER session's commit before I could
 commit them — and nothing is lost.** `git status` reported `LANDMINES.md` **clean**
 while my edits were plainly on disk, which is the tell. They are at HEAD inside
