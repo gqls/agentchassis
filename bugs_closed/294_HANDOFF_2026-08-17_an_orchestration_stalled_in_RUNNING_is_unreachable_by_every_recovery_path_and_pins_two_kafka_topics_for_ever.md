@@ -683,3 +683,61 @@ and there is no CHECK constraint. Adding a status today means finding every enum
 which is the shape that produced `294` and `310` in the first place, one level up. The architecture
 seat's suggestion (a status-metadata table SQL can join, or a generated shared list) would close it
 properly.
+
+---
+
+## CORRECTION 2026-09-03, from the `bugfix_329_takeover_claim` lane — the premise this file used to answer the guardian is false, and it propagated
+
+Contributed into this file rather than forked into a second account, per CLAUDE.md. **This does not
+reopen 294** — its fix is live and its close-out stands. What is wrong is one supporting claim, and
+it travelled.
+
+> **CORRECTED.** In "Council on the class fix — APPROVED (`1c212b15`)", answering the `guardian`
+> seat's medium objection that the `StatusRunning` resume is gated by a heuristic rather than a
+> lock, this file says:
+>
+> *"There is no CAS on this path: `SetExecutingStep` ends in `r.UpdateState(...)`, not
+> `UpdateStateWithVersion`. … `ClearExecutingStep`, the pre-existing takeover arm directly above
+> mine, ends in the same unversioned `UpdateState`."*
+>
+> **`UpdateState` IS `UpdateStateWithVersion`.** `state.go:883-885`:
+>
+> ```go
+> // UpdateState updates an existing orchestration state with optimistic locking
+> func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationState) error {
+> 	return r.UpdateStateWithVersion(ctx, state, state.Version)
+> }
+> ```
+>
+> There was always a CAS on that path. It was answering a different question.
+
+**Where it travelled.** The same sentence was carried into `bugs_open/329` (filed two days later by
+the same lane) as its `[MEASURED 2026-08-19]` mechanism, and became that file's **fix candidate
+(2)** — "have `SetExecutingStep`/`ClearExecutingStep` use `UpdateStateWithVersion`" — which was a
+**no-op** that would have changed nothing. It stood for fifteen days.
+
+**What the defect actually is,** now fixed in `b55f837ef`: a **check-then-act across two reads**. The
+arm judges staleness on the caller's **snapshot**; the write that follows does its own **fresh**
+`GetState` → mutate → CAS and **never re-tests the predicate**. Two takers seconds apart both win,
+each CASing against the version it has just read.
+
+⚠ **Two things in this file's own reasoning are worth revisiting in that light, because both are
+better than they looked:**
+
+1. **The guardian was even more right than the answer conceded.** The reply argued the risk was
+   "not new" because the pre-existing arm shared the shape — true, and it is now closed for both
+   arms rather than neither.
+2. **The recommended fix in that reply is superseded.** It says *"A real fix is to give BOTH arms a
+   compare-and-swap — `TakeOverOrchestration` already exists as a guarded CAS for exactly this
+   shape."* **That primitive is the wrong one here**, and 329 rejected it on inspection: its CAS is
+   `WHERE processing_node = $3` from the **observed** value and deliberately leaves `version` and
+   `last_activity` alone (its own doc comment: *"bookkeeping, not a state transition"*). Where a row
+   already carries the acting pod's own name, two callers in that pod both match and both report
+   `rowsAffected = 1` — no exclusion at all. And sequential takers both win regardless. The version
+   CAS that this file believed was absent is the one that actually closes it.
+
+⚠ **And the check that would have caught it, for anyone reading this file for its method:** the
+claim rested on "it calls X, not Y". **A one-line delegating wrapper is exactly where a name stops
+describing behaviour** — when an argument turns on which function is called, open it.
+
+Logged in `WRONG_CALLS.md`. Full account: `docs024_key_docs_latest/bugfix_329_takeover_claim/`.

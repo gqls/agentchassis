@@ -51,3 +51,54 @@ out within the hour. I will only commit this in time for that build if it is gen
 tested — a half-verified change to the part of the system that decides who runs what is not
 something to hurry into a release. If it is not ready, it waits for the next one, and I will say so
 rather than implying it made it.
+
+---
+
+**2026-09-03, early afternoon — the fix is written, tested and committed. Not live yet, and I will not say it is until I can show you.**
+
+The change is in. Where the code used to say "this job has been quiet for five minutes, so I will
+take it over", it now says "this job has been quiet for five minutes, so I will *try* to take it
+over" — and the taking is a single atomic step that only succeeds if the job is still quiet at the
+instant it happens. Whoever wins refreshes the timestamp, so everybody else who was about to pounce
+looks again, sees a job that is being worked on, and walks away. Committed as `b55f837ef`, so it
+rides the next chassis build.
+
+**The most useful thing I found was that the bug report was wrong about why.** It said the code was
+missing a safety check on the database write. It was not — the check was there all along, and the
+report's own suggested fix would have changed nothing at all. The real problem was subtler: the code
+*asked* the question ("is this job stale?") and then *acted* on the answer in two separate steps,
+with a gap in between. Nobody was missing a lock; they were checking one thing and then doing
+something slightly later, which is a different bug with a different fix. That false explanation had
+been sitting in the file since 19 August, and I traced where it came from — an earlier, closed bug
+where the same team used it to answer a reviewer's challenge. I have corrected both files rather
+than just the one I am working on, because the wrong explanation was the part that travelled.
+
+**I also got something wrong myself and have retracted it.** Earlier I told you, and told another
+session, that this bug affected eight of our services. It affects one. I had seen that the relevant
+machinery is built in a shared library and inferred that every service using that library runs it —
+without checking which services actually include it. Only the main chassis does. What made my
+mistake convincing, and this is the part worth knowing, is that I *had* gone and measured something
+real at the live system just beforehand; having a genuine measurement in the paragraph made the
+unchecked sentence next to it look measured too. The conclusion I drew survives for a different
+reason (the short-lived worker pods that do most of the work run without the protection), but the
+reason I gave was wrong, and a right answer with a wrong reason is worse than a visible mistake
+because it survives review.
+
+**How I proved the fix works, which is the part I would want to see if I were you.** I wrote the
+tests so they could run against the *old* code, and ran them there first. All four failed — and the
+failure messages caught the old code in the act, writing to a job record that another machine had
+already claimed a moment earlier. Then I ran them against the new code and they passed. A test that
+has never been seen to fail is not evidence of anything.
+
+**Two honest limits.** First, this is not a fire. I ran a census of the busiest path over 24 hours —
+three thousand jobs — and found zero cases of the double-run this bug predicts, because two other
+safety mechanisms happen to catch it there. What the fix buys is that we stop depending on
+protections that were built for other purposes, are absent on the machines doing most of the work,
+and could be removed by someone who never knew we were relying on them. Second, the fix does not
+close everything: if a machine is genuinely alive but working on a single long task, nothing it holds
+tells anyone else it is alive, so it can still be judged dead. Closing that needs the workers to
+check in periodically, which is a separate piece of work and I have not smuggled it in here.
+
+**Still to come:** the automated reviewers have the design and have not reported back yet, and the
+fix cannot be confirmed working in production until it is built and rolled out. I will check both
+rather than assume either.
