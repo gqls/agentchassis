@@ -1087,3 +1087,43 @@ a hand-applied migration.
   `jsonb_agg(DISTINCT)` anti-pattern still has only a LANDMINES entry and no lint (four seats);
   `bug_historian`'s point that 18 pages carry the identical `advertising` arming condition and
   this lane filed the number without filing the work.
+
+### 19.4 The `sync_pages` write has a GUARD, and stating it changes the severity — correction from the `bugs_open/384` lane
+
+§19.2 said `sync_pages` *"writes `sections = EXCLUDED.sections` whenever the incoming plan's
+proposal is non-empty"*. That is true and incomplete, and the missing half changes what a reader
+should do about it. The write is a four-arm `CASE` (`site_db_actions.go:1277-1283`), confirmed
+here against the source:
+
+```sql
+sections = CASE
+  WHEN $13::bool THEN EXCLUDED.sections                                  -- allow_empty_sections
+  WHEN COALESCE(jsonb_array_length(EXCLUDED.sections), 0) > 0 THEN EXCLUDED.sections
+  WHEN COALESCE(jsonb_array_length(pages.sections), 0) = 0 THEN EXCLUDED.sections
+  ELSE pages.sections
+END
+```
+
+**The non-empty → empty transition is intercepted** unless the caller passes
+`allow_empty_sections`. That guard is `bugs_open/204`'s, added after a measured incident in which
+one replan emptied **41 of 45 live pages** and queued 20 `needs_page` items against them;
+deliberate emptying now travels through the `recompose_pages` release instead.
+
+**So the severity of §19.2 is "your write is lost", NOT "a live page is silently emptied"** — and
+those are different things a reader would act on differently. My migrations still lose, because a
+non-empty plan proposal takes arm 2; that conclusion is unchanged. But nobody reading this should
+conclude that `sync_pages` can blank a populated page's section list.
+
+**Two further nuances worth carrying:**
+
+- **Arm 3 protects populated pages only.** A page whose `sections` is ALREADY empty takes the
+  incoming proposal unconditionally. The guard is not "the plan can never win", it is "the plan
+  cannot win by emptying something that has content".
+- **The read side has a real dependency on this column being non-empty**, which is why the guard
+  matters beyond bookkeeping: `query.blog_posts` resolves through `resolvePagesWhereType(...,
+  listedOnly=true)`, whose floor (`ListedPageEligibilitySQL`, `queryresolve.go:469`) requires
+  `p.deployed_at IS NOT NULL AND jsonb_typeof(p.sections)='array' AND jsonb_array_length(p.sections) > 0`.
+  The same literal is shared with `discovery_checks.ContentImageMissingCheck`, so an emptied
+  array would drop a page out of its listing AND stop the imagery sweep giving it a card — silent
+  in both directions at once. (Established by the `384` lane, checked both directions; recorded
+  here because it is the reason the guard is load-bearing rather than tidy.)
