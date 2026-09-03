@@ -1732,3 +1732,73 @@ hand-written tests on this site already do.
 I still haven't touched the images, for the reasons in my last note — both fixes belong to other
 teams and one of them is mid-flight. **The question I asked you earlier still stands**: wait for
 their repair, or hand them the whole imagery job. Nothing else is waiting on you.
+
+---
+
+## 2026-09-03 — the big repair landed overnight, and it quietly switched off the site's own testing
+
+**What happened while we were away.** You applied the migration another team had prepared — the one
+that puts each calculator into its own properly-labelled box instead of leaving it filed under
+"page banner". It worked. All eleven moved, the pages look and behave exactly as before, and that
+team has closed their bug.
+
+**The good news is bigger than they claimed.** Before it, the automated checking system could only
+see nine of our eighteen calculators; the rest failed its "is this really a tool?" test because of
+how they were filed. **It can now see all eighteen.** That is a real gain and it was not in their
+notes.
+
+**The bad news is the thing I warned them about yesterday, and it happened exactly as described.**
+The checking system finds each calculator's test by name, and the migration changed the names. All
+eight of our tests were left pointing at names that no longer exist. Nothing errors when this
+happens — the system just quietly finds no test and moves on. **Including the one calculator that
+was the only properly-tested thing on the site the day before.**
+
+I have repaired all eight. Before changing anything I checked five things that could each have
+stopped me — that no other name was already taken, that no other website shares these tests, that
+every part each test looks for is genuinely on the live page, and, as a control, that the *old*
+tests really do fail now (they do). The last check ran inside the change itself and would have
+undone the whole thing if the count came out wrong. No expected figure was altered; only the
+addresses.
+
+**And a thing nobody predicted, which I think is the most useful finding of the day.** The migration
+gave each calculator a new internal template that renames every element on the page — but left the
+already-published pages alone. Those two states agree only until something rebuilds the page. At
+around a quarter to nine this morning a routine rebuild wave rebuilt five of the ten, and their
+element names changed. **So right now the site is half-converted: five calculators renamed, five
+not.** The calculators themselves are fine — I checked every one for broken internal links and found
+none — but each of those five rebuilds silently broke that calculator's test, and the other five
+will do the same whenever they next rebuild.
+
+That reframes the fault I filed yesterday. I had it as a pile of stale tests to fix once. **It is
+not a pile — it is a tap that is still running.** Five broke in four minutes this morning with
+nobody intending it. I have said so in the bug, because it changes which fix is worth doing: the
+only stable one is teaching the checker to accept both naming styles.
+
+It also retires a reassurance that sounded solid. That team verified "the bytes are unchanged", and
+they were — at the moment they ran it. It stopped being true eleven hours later, because the
+migration had changed *the template the next rebuild would use*. **A check that nothing moved cannot
+promise that nothing will move.** I have written that into their closed bug as information, not as a
+complaint — the migration did what it said it would.
+
+**One more repair, unglamorous but it had stopped the whole toolkit.** The script this lane uses to
+check its own test figures had died. It reads the site's register of verified facts and expects
+every one to be a number; five new citation entries have no number, and it crashed on the first.
+That took the installer down with it. Fixed, and — importantly — I proved it still *fails* when it
+should: I deliberately fed it a wrong stamp-duty figure and it caught it and refused. A checker that
+only ever passes is worth nothing.
+
+**Where the calculators stand.** Four are confirmed working by a real browser. Eight more now have
+live tests again and I have queued fresh runs for them; those are still waiting in the fleet queue,
+which is normal and slow, so the results will land after this note. Two are genuinely blocked by the
+two faults I filed yesterday. Five have no test at all — and one of those, the portfolio calculator,
+**must not get one yet**: our own tooling told me its expected figures have never been independently
+worked out, only copied from what the page prints. Pinning those would enshrine whatever it does
+today, right or wrong. That is the tooling refusing me, and it was right to.
+
+**Your instruction on the images is done.** The whole job is handed to the team working that bug,
+with everything we found and a correction they needed: the reason I gave you yesterday for not
+touching ten of those pages — that there was nowhere to put a picture — **stopped being true when
+the migration landed**. There is now. It is their call.
+
+**Nothing is waiting on you.** The copy-quality question from last week still needs an answer when
+you have a moment, but nothing is blocked on it.
