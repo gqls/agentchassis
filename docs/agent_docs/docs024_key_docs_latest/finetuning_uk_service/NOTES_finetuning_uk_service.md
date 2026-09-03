@@ -2546,3 +2546,26 @@ the visible effect is a bold run-on in one paragraph, and Stage B rewrites the p
 applies; revisit if 641 stalls past a day. (2) the page **lost a third of its copy** (1,826 →
 1,214 words; the gate removed 36; the writer wrote a shorter page; the 422 shrink floor did not
 trip) — recorded in 456 §4 as an observation for the 422 file, not a claim.
+
+## 2026-09-03 (10:48Z) — homepage rebuild COMPLETE and deployed (item `1513b86a`, writer `6e7b0529`)
+
+`[MEASURED 2026-09-03 10:50Z]` HTTP 200, 66,887 bytes, no malformed closing tags (every `</x>` on
+the page is a known element). **The owner's sentence now serves as "We're not tied to one
+provider."** — full stop, nothing after it. Not a gate truncation: no `copy_gate_N` rewrite names
+it, so the writer wrote it that way from the brief's line ("keep 'We're not tied to one provider'
+and drop what followed it"). Nine h2s, all distinct (no repeated component type on this page).
+
+Gate's own per-section report (`copy_gate_N` on the writer row): **9 hits in, 3 out.** Sections
+3 and 4 clean (2→0, 2→0). Section 1: 3→1, two rather_than truncated, **one REJECTED as "gutted"**
+("We pick the tool suited to each task rather than pushing one platform across everything you
+need" → "We pick the tool suited to each task." judged to have lost too much). Section 2: 2→2,
+**one x_not_y rejected "no_answer_for_target"**, one untouched. So the surviving tells are all
+rejections, none exemptions, none "never ran" — the three-way read the copy lane asked for.
+Served visible text (chrome included, crude case-insensitive counts): instead of 1 · rather than
+1 · not just 1 · ", not " 2 · "Nothing" 2 · "unless" 2 · **", so " 14**. The "so" shape the
+owner named is the one the register does not carry (held as a judgement class), and it is the
+one the page still has most of.
+
+Case-studies-grid cards are unnamed illustrations ("A financial services team needed…"), as
+rule 15/17 of the writer prompt requires; the 04-23 audit wanted real ones. Same as before the
+rebuild; flagged to the owner in one line, not acted on.

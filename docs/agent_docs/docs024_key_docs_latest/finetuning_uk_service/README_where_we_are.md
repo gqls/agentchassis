@@ -1263,3 +1263,16 @@ notes, and my first attempt copied one of those. It was rewritten as a plain bri
 queue picked it up. The technical-details rebuild is still queued too, behind another site's
 backlog. I'll report both when they land. The copy lane has the exact "before" for
 technical-details pinned, so the "after" can be measured rather than eyeballed.
+
+2026-09-03, 10:50. Both rebuilds have landed. The homepage now says "We're not tied to one
+provider." and stops there, which is what you asked for. Of the nine negation shapes the check
+found while writing, six were repaired and three were left because the repair would have gutted
+the sentence or the model had no rewrite to offer, and it is built to leave a sentence alone
+rather than damage it. The one shape you named that the check does not yet look for is the
+"so" clause, and the page still has plenty of those; the copy lane is treating that as a
+judgement call rather than a pattern, and it is the next thing to decide with them.
+
+The technical-details page came back with every section knowing its own subject, which proves
+the fix that lets sites like this one carry subjects at all. Its headings still repeat because
+the prompt change is waiting on your read. It also came back with one misspelt closing tag,
+which I've filed rather than patched, and a third shorter than before.
