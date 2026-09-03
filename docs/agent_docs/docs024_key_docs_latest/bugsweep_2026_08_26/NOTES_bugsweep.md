@@ -411,3 +411,48 @@ Round 3 submitted with every answer as OUTPUT rather than assertion. Config and 
 can be refused. The first `meta_description_refused` row is the acceptance evidence, and until one
 exists this is live-and-unproven — which is exactly what `bugs_open/338` taught this lane not to
 paper over.
+
+---
+
+## 2026-09-03 (late) — council APPROVED, and 464 answered in forty minutes with a better result than expected
+
+### 442 is done
+Round 3 **approved** (1 advisory, none high). Three rounds, each finding something real: r1 the
+undeclared edit **and** the silent branches inside my own fix; r2 the wrapper ambiguity and the
+unread call sites; r3 advisories only. `Council-Reviewed:` written on §10j's commit.
+
+`guidelines`' `recurrenceExpected` [low] answered from the brake's counting query rather than from
+intent: it counts `status IN ('complete','failed')`, and the repair agent parks at
+`needs_human_review` — **not a strike**. So the row stays open, holds the dedup slot, and the next
+hour's refusal coalesces onto it. Setting `recurrenceExpected` would *skip* the brake, which is
+the opposite of wanted. I had asserted this in r2 from intent; now it is from the code.
+
+### 464: the answer is "no second instance", and getting there corrected the bug twice
+Read every copy-gate caller. **`save_page_meta_description` was the only one returning a refusal as
+`(map, nil)` with nothing asserting on it.** The rest error, block to human review, record into a
+structured `rejected`/verdict list, file a work item, or write a durable record by design — one of
+them (`contentcreator/claims_guard.go`) with a comment citing the very principle 442 is about.
+
+### MISSTEP 10 — I filed a bug whose entire content was a population, and did not audit the grep
+464 §2 said **five files**. Both directions were wrong and **neither error is visible in a grep's
+output**:
+- **False positive:** `section_editor_regulated_guard.go` is not a caller. Its only mention of
+  `checkBannedClaims` is a **comment saying it deliberately does not use it**. `grep -l` prints the
+  filename and hides the line, so there was nothing on screen to notice.
+- **False negatives, worse:** the pattern ran over `platform/orchestration/actions/*.go` — **one
+  directory, top level**. It could not see `discovery_checks/` one level down,
+  `internal/agents/contentcreator/`, `provocation_gate_action.go`, or `cmd/`. **5 files that way,
+  10 whole-tree**, including an entire second package.
+
+The file itself *said* "grep intersection, not a read" about its other half — so I knew the method
+was weak and still let it define the scope. Now a LANDMINE footprinted on the census pattern, not
+on any one file, because this estate's own norms actively push sessions to build these populations
+("census the write history", "name the consumers", "N writers as of \<date\>") and the grep behind
+them is rarely audited. Check: `-n` never `-l`, whole tree before filtering, exclude the definition
+as well as the tests, and **give the census a control it must find**.
+
+### And one to carry
+The council's `reuse_agent` seat asserted in round 3 that the four other callers *"already refuse
+saves silently"*. **They do not** — that was an inference from 464's own pre-investigation wording,
+restated with confidence by a reader who had not read them either. A file's provisional sentence
+becomes somebody else's fact within a day. Worth remembering when writing the provisional sentence.
