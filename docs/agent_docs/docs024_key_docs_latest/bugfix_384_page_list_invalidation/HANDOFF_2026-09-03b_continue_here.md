@@ -157,7 +157,7 @@ Status below is checked, with the query or commit that checked it.
 | # | item | status as of 16:1xZ | whose |
 |---|---|---|---|
 | 1 | post-fix proof | ✅ **DONE** (§5) | this lane |
-| 2 | owned-page residual, 14/14 | ✅ **CONTRIB filed into `bugs_open/389` 16:4xZ** | 389's call now |
+| 2 | owned-page residual, 14/14 | ✅ **CONTRIB + remedy-safety addendum in `bugs_open/389`** | 389's call now |
 | 3 | this lane's sweep | ⚠ **NO LONGER "never run" — it worked today** | this lane |
 | 4 | `bugs_open/404` | ⚠ **NOT unclaimed — taken 2026-08-26** | another lane |
 | 5 | re-run the census | ✅ **DONE 16:4xZ — post-fix era is 9/9/0, first-hand** | this lane |
@@ -203,6 +203,27 @@ that would change it should re-open it jointly rather than underneath us.
 
 ⚠ **No live session holds 389 or 308** (checked 16:4xZ) — the bug file is the channel, as it was for
 this lane's 09-02 contribution. Do not wait for a reply.
+
+**Addendum filed 17:0xZ — the remedy-safety checks, and they matter more than the measurement.**
+Prompted by the `finetuning` site lane verifying their own page rather than taking this lane's
+report. Two landmines bear on the route I proposed, and I ran both checks rather than leave the
+inference for 389 to inherit:
+
+1. **`LANDMINES.md`, the `bugfix_277` entry: *"'owned pages cannot be repaired' is the WRONG
+   diagnosis … ownership is the correlate; the operative property is whether the content is
+   reachable from `content_data`. Three separate routes were proposed and measured against the wrong
+   property in two days."*** My phrase "structurally out of this seam's reach" is exactly the framing
+   it warns invites "so route around ownership". **Ran its check: `can_regenerate = true` on all
+   three pages**, `items` present with 5/4/5 entries (reconciling with the 14 blanks). So the content
+   IS reachable and routing around ownership would repair something — the *opposite* of 277's case,
+   and the fact that makes the route worth costing.
+2. **The tool-fork `section_edit` landmine does NOT apply to the slot 389 would edit** —
+   `tool-cta` is `component_level='section'` on all three. It **would** apply to slot 1
+   (`tool-<name>`, level `tool`, a `{{.field}}` template), which sits on the same page and comes
+   first. Say so in whichever candidate is taken.
+3. **Visitor impact, verified at the served page:** finetuning.uk `/tools/llm-cost-calculator.html`
+   returns 200 / 70,875 B with **one `<img>` (the logo) and zero `src=""`** — cards render without
+   images, not as broken image boxes. Wrong for three weeks, but it ranks differently than it sounds.
 
 ### 3. The sweep — ⚠ **IT RAN TODAY. The "never run" line is retired.**
 
