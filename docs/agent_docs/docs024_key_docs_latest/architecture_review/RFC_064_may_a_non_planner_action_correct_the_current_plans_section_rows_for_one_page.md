@@ -203,6 +203,13 @@ a fait accompli.
 
 - `bugs_open/427` §19–§21 — the case, and the corrected mechanism
 - `bugs_open/469` — the two losses that have already completed
+- **`RFC_066`** — *"may a retraction be made CONDITIONAL on a receipt, and who decides that
+  receipt's shape before a second consumer arrives?"* (filed 2026-09-03 by the `bugs_open/469`
+  lane, on a `needs_rfc` from the same architecture seat). **Read the pair together: 066 is the
+  RECORD half of this bug and 064 is the WRITE half.** 066 asks what a closer must record when
+  a composition loss is resolved; 064 asks who may correct the composition in the first place.
+  Neither answer makes sense alone — a write path with no receipt repeats `bugs_open/469`
+  silently, and a receipt with no sanctioned write path records losses nobody may repair.
 - `bugs_open/443` — the adjacent class: pages born with a layout in the cache and nothing in
   the authority
 - **`RFC_063`** — DECIDED (option B). Its *composition half* is unassigned and needs exactly
