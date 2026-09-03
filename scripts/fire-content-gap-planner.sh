@@ -138,7 +138,7 @@ Do NOT re-fire on an absent row — check agent_error_log first:
 The canary this exists for — did {{.build_standard}} render? (opt-ins 677/678/679):
 
   SELECT agent_type, created_at,
-         position('BUILD STANDARD (applies to every site, regardless of inputs). Aim'
+         position('BUILD STANDARD (applies to every site'
                   IN prompt_rendered)>0 AS has_standard,
          position('{{.build_standard}}' IN prompt_rendered)>0 AS unrendered
     FROM llm_call_log WHERE correlation_id='$CORR';

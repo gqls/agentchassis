@@ -39,16 +39,27 @@ is the most dangerous carrier for an invented cause.
   10:40:15Z and 14:15:16Z, `has_standard=t`, `unrendered=f`, read at the artefact. `678`
   (content-gap-planner) unobserved; `679` (visual-designer) **never will be — the row is dead**:
   zero `llm_call_log` rows all-history, zero live configs name it, the one Go hit is a storage
-  env-var list. ⚠ Needle is the carrier-only form `BUILD STANDARD (applies to every site,
-  regardless of inputs). Aim` — NOT `stands comparison with the strongest sites`, which also
-  matches `domain-research-classifier`'s hard-coded copy. ⚠ `diagnose-agent` carries the form
+  env-var list. ⚠ Needle is the CAPS title `BUILD STANDARD (applies to every site`, matched
+  **case-sensitively** (`position()`/`LIKE`, never `ILIKE`) — NOT `stands comparison with the
+  strongest sites`, which also matches `domain-research-classifier`'s hard-coded copy; that copy
+  is sentence-case (`## Build standard`), measured 0 hits on the caps form. Moved from the run-on
+  `…inputs). Aim` form when `748` restored the line break (2026-09-03 ~17:30Z); backward-compatible,
+  both carrier forms begin with the same caps string, so canary history is preserved. ⚠ `diagnose-agent` carries the form
   without being a consumer. ⚠ A "zero rows since T" here can turn non-zero LATER (rows arrive
   after the `created_at` they carry) — two false "still open" readings today.
 - **BANNED_REGISTER v2** live end-to-end (unchanged from the morning file).
 
 ## Waiting on the OWNER (explained plainly in chat 2026-09-03 ~16:00Z; raise, don't re-derive)
 
-1. **Carrier 675 dropped the build standard's SCOPE paragraph** while asserting "verbatim,
+1. ✅ **DONE 2026-09-03 ~17:30Z — items 1 AND 2 applied together as migration `748`** (recorded
+   under its `_HOLD` name, matching 677/678/679; council corr `e7e0ae76`). The paragraph is in the
+   OWNER'S wording — one negation kept where the contrast carries the scope distinction, three
+   positive sentences, his "real evidence" and "is responsible for" edits — measured **1 tell in
+   57 words** against this lane's own detector (my first draft measured 4, which he caught by
+   ear: *"written in exactly the style we don't like"*). Carrier now `version 2`, 1,227 chars,
+   heading restored. He said he will revisit the copy another day. The two entries below are
+   kept as the record of what was decided and why.
+   **Carrier 675 dropped the build standard's SCOPE paragraph** while asserting "verbatim,
    byte-identical, ONE trim". The missing text is the counterweight — *"This standard governs
    QUALITY and FIT, not scope. Do not invent services, pages, features, or facts beyond what the
    evidence supports…"* — and the three opted-in rows are exactly the agents that decide what

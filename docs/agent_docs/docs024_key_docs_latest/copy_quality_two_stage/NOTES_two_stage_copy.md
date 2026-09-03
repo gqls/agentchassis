@@ -4490,3 +4490,44 @@ prompt is the offer lane's agent, so the edit is theirs; the diagnosis was ours 
 > exist" is a very clean number, and cleanness is the tell they taught me this morning. They did
 > hand-read the two co-occurring pairs rather than quote the zero — but that is n=2 carrying the
 > mechanism. Hold it strong-but-thin; the post-migration re-run is what converts it.
+
+**2026-09-03 ~17:30Z — 748 APPLIED on the owner's word; the restored paragraph is HIS wording;
+the canary needle has MOVED.** Carrier `build_standard_block` is now `version 2`, 1,227 chars:
+title/body line break restored (so `## {{.build_standard}}` renders a heading, not an 897-char
+H2), scope paragraph restored. Verified at the live row independently of the migration's own
+verify. Council corr `e7e0ae76` on this exact wording.
+
+**The paragraph, as applied:**
+> This standard is responsible for the quality and fit of what gets built, not for how much. Every
+> service, page, feature and fact in the plan comes from real evidence; thin evidence means a small
+> plan. Aspirations set the direction. The first build carries what the evidence supports today,
+> and the rest arrives as the evidence does.
+
+**How it got there, because the first draft was a wrong call this lane should not repeat.** My
+draft — a light generalisation of the source — measured **4 negation tells in 54 words** against
+this lane's own detector: two `x_not_y`, a `rather than`, a `do not`. I was about to inject the
+register this lane exists to remove into every planner prompt, and 675's own header had trimmed
+ONE "rather than" from the same block for precisely that reason. The owner caught it by ear —
+*"It's all very ai and negative… written in exactly the style we don't like"* — before any
+detector did, because I had not run one on my own draft. A fully positive rewrite measured 0; he
+asked for the middle: *"sometimes the negation makes it easier to understand. It is just that AI
+overuses it."* One negation kept, in the first sentence, where the contrast carries the
+load-bearing distinction; the rest positive. His two edits: *"real evidence"* on the first,
+weight-bearing use of the word ("we don't quite know what it means or refers to"), and *"is
+responsible for"* replacing *"governs"* ("a dense word"). **1 tell in 57 words.** He will revisit
+another day. **Standing rule: run the detector on any prose bound for a prompt BEFORE showing it
+to anyone.** The lane's own instrument was one python call away and I showed him the draft first.
+
+**⚠ THE NEEDLE HAS MOVED — every 2026-09-03 entry above that quotes the run-on form is now
+historical.** Old: `BUILD STANDARD (applies to every site, regardless of inputs). Aim`. New:
+**`BUILD STANDARD (applies to every site`**, matched **case-sensitively** (`position()`/`LIKE`,
+never `ILIKE`). The classifier's copy is sentence-case (`## Build standard`), measured 0 hits on
+the caps form, so it still discriminates. Backward-compatible: both carrier forms begin with the
+same caps string, so the two prior build-site-planner renders (10:40Z, 14:15Z) still match and
+canary history is preserved. Moved in `scripts/fire-content-gap-planner.sh` and
+`HANDOFF_2026-09-03b` in the same commit as this note.
+
+**Also ruled in the same minutes, on leopardess:** *"we can work as if leopardess is a paying
+client if that helps, I do pay through the nose for these tokens."* So D4's example stands by
+ruling: his own consultancy, treated with paying-client care. Nothing operational changes;
+the D4 note now carries both the fact and the ruling.

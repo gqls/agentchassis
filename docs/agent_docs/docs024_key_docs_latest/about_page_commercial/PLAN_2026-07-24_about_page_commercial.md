@@ -33,11 +33,16 @@ written strategy, now implemented.
 > leopardessconsulting need not be listed"*) — so the site's exclusion now rests on his word, not
 > on D4's reasoning. **What DOES change:** three lanes (`copy_quality_two_stage`, `sedo`,
 > `domain valuation`) had recorded leopardess as a paying client on the strength of this row and
-> have corrected. **Owner, 2026-09-03, verbatim: "there are no paying clients yet."** So D4's
-> worked example was not protecting anyone — the relationship-breach case is a future one, and the
-> row should be read as "when a paying client's site exists". The RUNBOOK's "keepers/clients
-> (leopardess)" inherits the same error. Corrected visibly rather than rewritten: the row below is
-> the ruling as made, and this note is the fact as found.
+> have corrected. **Owner, 2026-09-03, verbatim: "there are no paying clients yet"** — and then,
+> minutes later, the RULING that settles it: **"we can work as if leopardess is a paying client
+> if that helps, I do pay through the nose for these tokens."** So D4's example stands **by
+> ruling rather than by fact**: leopardess is his own consultancy AND is to be treated with
+> paying-client care, which gives the relationship-breach reasoning a live case to attach to
+> instead of a fictional one. Every lane's operational state (permanently excluded from listing;
+> fenced; fence runs read-only) was already correct under this ruling; only the recorded REASON
+> changes. The RUNBOOK's "keepers/clients (leopardess)" is therefore right after all, by the same
+> ruling. Corrected visibly rather than rewritten: the row below is the ruling as made, this
+> note is the fact as found, and the sentence above is the fact as ruled.
 
 | # | Decision | Reason |
 |---|---|---|
