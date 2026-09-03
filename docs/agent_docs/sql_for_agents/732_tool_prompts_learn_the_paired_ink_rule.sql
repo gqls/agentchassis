@@ -58,6 +58,19 @@ BEGIN
 END
 $guard$;
 
+-- Pre-mutation backup (council round 1, debug_historian, corr 0fd2ca6b): a
+-- guard/verify sandwich is not a backup, and these two rows govern every tool
+-- generated fleet-wide. TWO-ARG overload deliberately -- it writes
+-- agent_definitions_backup; the one-arg form writes an is_snapshot row into
+-- agent_definitions itself (LANDMINES, "snapshot_agent has TWO overloads").
+-- Verify the snapshot holds the PRE-change config, not merely that one exists:
+--   SELECT type, snapshot_taken_at,
+--          NOT (default_config::text LIKE '%--color-primary-ink%') AS has_old
+--   FROM agent_definitions_backup WHERE type IN ('tool-generator','tool-improver')
+--   ORDER BY snapshot_taken_at DESC LIMIT 2;   -- has_old must be true for both
+SELECT snapshot_agent('tool-generator', '732_tool_prompts_learn_the_paired_ink_rule.sql: pre-update');
+SELECT snapshot_agent('tool-improver',  '732_tool_prompts_learn_the_paired_ink_rule.sql: pre-update');
+
 -- ------------------------------------------------------------ tool-generator
 UPDATE agent_definitions
 SET default_config = jsonb_set(
@@ -92,14 +105,19 @@ DECLARE
     ok_gen boolean;
     ok_imp boolean;
 BEGIN
-    SELECT default_config::text LIKE '%--color-primary-ink%'
-           AND default_config::text LIKE '%--color-primary-text, #fff%'
+    -- #>> not ::text: ::text is the JSON SERIALISATION, so an embedded quote is
+    -- stored escaped and a LIKE against it returns a clean FALSE rather than an
+    -- error (raised by the bugs_open/450 lane, 2026-09-03). These two needles
+    -- carry no quotes, so both forms agree today -- the extraction is used
+    -- because the shape is wrong, not because this needle is.
+    SELECT default_config #>> '{workflow,steps,generate_tool_html,config,prompt_template}' LIKE '%--color-primary-ink%'
+           AND default_config #>> '{workflow,steps,generate_tool_html,config,prompt_template}' LIKE '%--color-primary-text, #fff%'
       INTO ok_gen
       FROM agent_definitions
      WHERE type = 'tool-generator' AND is_active
        AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
-    SELECT default_config::text LIKE '%--color-primary-ink%'
+    SELECT default_config #>> '{workflow,steps,improve_tool,config,prompt_template}' LIKE '%--color-primary-ink%'
       INTO ok_imp
       FROM agent_definitions
      WHERE type = 'tool-improver' AND is_active

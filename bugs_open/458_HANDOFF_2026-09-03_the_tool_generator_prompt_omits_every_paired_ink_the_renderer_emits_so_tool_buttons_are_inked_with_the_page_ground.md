@@ -158,6 +158,37 @@ allowed to persist"* — so this blocks nothing today. **It is filed because it 
 wrong way**: the mechanism is discouraged at the consuming end while being unmentioned at the
 producing end, which is a fair part of why adoption is **15 of 412** active unforked components.
 
+> **⚠ CORRECTED 2026-09-03, same day, after a council question — the paragraph above understates
+> one half and overstates the other, and the difference matters to anyone acting on it.**
+>
+> **Overstated: `AuditTemplateTokens` is not merely advisory, it is INERT.** It has **zero**
+> production callers `[MEASURED 2026-09-03]` — a tree-wide grep for `AuditTemplateTokens(` returns
+> its own definition and its own test file, nothing else. So no component has ever actually been
+> "audited as unknown drift" by it. Written the way it was, that sentence describes a live signal
+> that does not run. (This is the *a helper with NO callers looks like a finished refactor* shape.)
+>
+> **Understated: `canonicalCSSTokens` has a SECOND consumer, and that one is live.**
+> `check_stylesheet_gutted.go` holds `rendererGuaranteedTokens`, which its own comment calls
+> *"the same vocabulary … KEPT IN SYNC BY A TEST, not by discipline"* — a parity test that parses
+> the `actions` source and fails on drift. That check is registered (`func init() {
+> Register(&StylesheetGuttedCheck{}) }`), live, and files at **severity high**.
+>
+> **The practical consequence: adding tokens to `canonicalCSSTokens` is NOT a no-op, and the
+> obvious fix is a trap.** Making the two lists equal would put `--color-cta-bg-ink` into a live
+> high-severity check that fires on tokens a page references but the stylesheet lacks — and that
+> token is emitted only when `solidCTAFill` is non-empty, present in **1 of 7** served stylesheets
+> `[MEASURED 2026-09-03]` against **7 of 7** for the other three. It would file 6 of those 7 sites
+> as gutted. The correct split is: the three guaranteed companions join
+> `rendererGuaranteedTokens`; `--color-cta-bg-ink` stays referenceable but unpoliced, exempted in
+> the parity test with the measurement beside it.
+>
+> **How this was caught, because it is the transferable part:** the `guardian` seat asked whether
+> `canonicalCSSTokens` had any consumer beyond the audit function. I had checked the function and
+> not the file. Chasing the question found the second list, and running that package's tests found
+> that **my own round-1 commit had left it red** — `go build ./platform/...` passed and
+> `go test ./platform/orchestration/actions/` passed, because the break was one package over.
+> Fixed in `7491c6d21`.
+
 ## 7. What the fix may NOT be
 
 **Do not repair this by separating primary from surface in the palette.** `RFC_059` proposed making

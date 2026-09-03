@@ -63500,3 +63500,64 @@ the neighbouring domain. Sitting next to a fact is not knowing it.
 
 Family: cite-the-arm-not-the-function, a-report-is-not-a-measurement,
 prior-art-search-goes-stale, always-give-the-path-for-any-doc-you-name.
+
+---
+
+## 2026-09-03 — "no behaviour change, it's warn-only": I shipped a red HEAD by checking the FUNCTION and not the FILE
+
+**The claim.** In a council submission I described adding four tokens to `canonicalCSSTokens`
+(`platform/orchestration/actions/component_validation.go`) as *"warn-only … changes no control flow
+and cannot reject a template"*, grounded in a real quote from `AuditTemplateTokens`: *"This audit is
+a DETECTION NET, not a gate … NEVER rejects a template."*
+
+**Why it was wrong, in both directions at once.** The quote is accurate and the conclusion did not
+follow, because I established what the *function* does and never asked what else reads the *map*.
+
+- `AuditTemplateTokens` has **zero production callers** — the grep returns its own definition and
+  its own tests. So that consumer is not advisory, it is **inert**; I described a live signal that
+  does not run.
+- `canonicalCSSTokens` has a **second** consumer I never looked for:
+  `discovery_checks/check_stylesheet_gutted.go` holds `rendererGuaranteedTokens`, kept in lockstep
+  by a parity test that **parses the actions source**. That check is registered, live, and files at
+  **severity high**.
+
+**The damage, which was not hypothetical.** The parity test went red on my commit and I did not
+know. `go build ./platform/...` passed. `go test ./platform/orchestration/actions/` passed. The
+break was one package over, and **HEAD's `discovery_checks` tests were failing for the ~2 hours
+between `0325ddebb` and `7491c6d21`** — on a tree many sessions build from.
+
+**What caught it.** Not a test I ran — the council's `guardian` seat, asking whether
+`canonicalCSSTokens` had *"any OTHER consumer that treats unknown-token as a hard failure"*. I had
+answered that question about the function and mistaken it for an answer about the map. Chasing the
+seat's version of it took one grep and found both the second list and my own red test.
+
+**The cheap check that would have.** `grep -rn "canonicalCSSTokens" --include=*.go .` — five
+seconds, and the fifth hit is a file in another package whose comment literally says *"KEPT IN SYNC
+BY A TEST, not by discipline."* Then `go test ./...` on the packages that grep names, not the one
+package I happened to be editing.
+
+**And the fix the objection would have led me to was itself a trap**, which is the part worth
+keeping: the test demands set equality, so the obvious move is to add all four names to the other
+list. That would have put `--color-cta-bg-ink` — emitted only when the CTA fill is solid, present in
+**1 of 7** served stylesheets against **7 of 7** for the other three — into a live high-severity
+check, filing 6 of those 7 sites as gutted. **A green test would have certified a fleet-wide
+false-positive generator.** Measuring the four tokens at the artefact, rather than satisfying the
+test, is what separated them.
+
+**Second row, same session, same root.** I told a peer lane we were editing the same prompt row and
+that they should re-anchor around me. We were not: their migration touches `build-site-planner`, not
+`tool-generator`. I had inferred it from their lane directory being named `..._tool_page_shells` and
+a commit subject mentioning "rule 17", and **never opened their migration to see which agent row it
+names**. They bounced it. A lane's NAME is not its FOOTPRINT, and a rule number means nothing
+without the row it sits in — the same "resolve by slug, never by number" lesson this estate already
+has for bug files, applied to prompts.
+
+**Third, smaller, and caught within the hour.** I called a running `090` diagnosis stalled — four
+bundles, no verdict — matching it against a real landmine about the body budget. I had aged the
+DB's UTC timestamps against my own assumed wall clock. `SELECT now()-created_at` showed the newest
+bundle was **35 seconds** old. **Never age a database timestamp against a clock you did not read out
+of the same database.** A plausible mechanism is a reason to measure, not a reason to conclude.
+
+Family: cite-the-arm-not-the-function, editing-one-file-is-not-knowing-the-package,
+a-shared-tree-commit-can-break-head, a-report-is-not-a-measurement,
+always-give-the-path-for-any-doc-you-name.
