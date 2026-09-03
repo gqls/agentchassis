@@ -1022,3 +1022,49 @@ edit the words yourself without waiting for a release. Changing it needs no rebu
 
 Filed as `bugs_open/475` with four options costed. Nothing is going out to a customer meanwhile —
 boxingonline's delivery is still held where you left it.
+
+---
+
+## 2026-09-03, late — your follow-up email idea, and the thing it turned up
+
+You asked how the Netlify instructions get to you, and suggested repeating them in the first
+follow-up email that would normally go out a week or so later.
+
+**There is no follow-up email.** Nothing in the system sends a second message to a customer, ever.
+One agent can send mail at all, it is the delivery one, and nothing is scheduled to run it again.
+
+That would just be a gap, except for what sits next to it.
+
+The page the customer lands on when they click "confirm you have moved" says, in two places:
+**"You will not get any more reminders about it."** They press the button on the strength of that. The
+button records a timestamp. **Nothing anywhere reads that timestamp.** So we ask them to do something,
+tell them what it prevents, and neither the reminders nor any consequence of confirming exists.
+
+Nobody has hit it yet, for the simple reason that exactly one site has ever been delivered and that
+was tonight.
+
+**Your idea and this defect are the same piece of work**, which is the useful part. A follow-up that
+exists is a reminder that exists, and the confirm button is exactly the right thing to switch it off.
+Build the follow-up and the button becomes true. Build neither and it stays untrue. There is no
+version where the button is worth having on its own.
+
+I would do it in this order. Today, change the confirm page to say only what it actually does, so
+nothing false is live while the rest gets built. Then build the follow-up, with the same
+send-once discipline the delivery email already has — a scheduled thing that emails customers is the
+one you want to get wrong quietly, and a glitch that mails somebody every night is worse than no
+follow-up at all. Then put the stronger wording back, because by then it will be true.
+
+**On how the instructions reach you right now: they do not, and I should be straight about that.**
+They are a draft in the repository. The delivery email's words are settings I can change, so that
+part is easy. The page they would link to does not exist yet. The file inside the zip needs a change
+to the zipper. And idea.uk's delivery is stamped once-only, so I cannot re-send you that email even
+if the words were right.
+
+So for tonight, the instructions are the draft, and your Netlify run is what tells me which parts of
+it are wrong.
+
+That is now **three** things in one evening where our own words promised something the machinery
+does not do: the instructions in the zip, opening the site by double-click, and this. All three were
+found by a person reading the words and asking whether they were true. Nothing automatic found any of
+them, and nothing automatic could have — we have no check anywhere that compares a promise to what
+the code actually does. I think that is the real finding of the whole rehearsal.
