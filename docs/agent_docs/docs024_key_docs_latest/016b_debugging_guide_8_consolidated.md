@@ -412,6 +412,58 @@ case as of 2026-08-14: `plan_sections_action.go:1004-1027`, `append_doc_note_act
 Cross-refs: `bugs_closed/272`, `bugs_closed/150`, `bugs_closed/264` (the same step's
 other silent default, one field over).
 
+### A prompt's exemplar is GENERATED from a schema, so where the projection is lossy the prompt states the wrong TYPE — and the model's obedience is what the census counts as its failure
+
+**Symptom.** A component's writer "keeps getting the shape wrong" for one field, at a
+rate that looks like an unreliable model but is really far too consistent for one: every
+attempt, on every site, with no lucky passes. The refusal names the model's output
+(`steps[0].branches: declared array (items: object), got string`), the component's
+`input_schema` is visibly correct when you read it, and retries reproduce it exactly.
+Worked case: `bugs_open/437` — **119 failed builds in 14 days across six sites**, pages
+left `active` and never deployed for weeks while live pages linked them.
+
+**Diagnose.** Read the instruction the model was actually SENT, not the schema you
+believe it was sent. On this estate the prompt and the obedient reply sit in one row,
+because `llm_call_log` keeps replies verbatim:
+
+```sql
+SELECT prompt_rendered, response_text FROM llm_call_log
+ WHERE agent_type = '<the writer>' AND prompt_rendered LIKE '%<component>%'
+ ORDER BY created_at DESC LIMIT 1;
+```
+
+Find the field inside the prompt's `Return a JSON object with exactly these keys` block
+and compare its DEMONSTRATED shape against `content_components.input_schema`. If they
+disagree, the model is obeying and the projection is the defect. This is the whole
+diagnosis and it is two minutes; the reason it gets skipped is that every other artefact
+points confidently at the model.
+
+**Root cause.** The prompt does not contain the schema — it contains an exemplar
+*generated* from it, via `plan_sections`' `llm_field_specs`. That projection carried
+element field NAMES only (`extractArrayItemFields` returns `[]string`), so a property
+that is itself a collection flattened to a bare name and rendered as a scalar:
+mechanism-flow's `steps[].branches`, declared an array of objects `{body,label}`, was
+shown as `"branches": "..."`. The same projection dropped every nested `description`, so
+the schema author's guidance never reached the writer either. The type gate
+(`bugs_closed/260` / STY-057) then refused correctly — **a correct guard downstream of a
+wrong instruction makes a bad instruction look like bad output**, and it is what makes
+the failure count so high and so clean.
+
+**Fix.** For 437: `datahelpers.StructuredItemShape` renders the nested shape as a JSON
+skeleton plus one sentence per structured property, placed in the same package as
+`ContentTypeViolations` so the prompt promises exactly what the gate enforces; carried on
+`llm_field_specs` as `omitempty` keys; migration 724 teaches the prompt to use them
+(register **PBP-052**, extending **PBP-004**). Transferable checks: (1) **anywhere a
+prompt is BUILT from structured data** — field lists, JSON skeletons, worked examples,
+enum vocabularies — the narrower the projection, the more confidently the prompt lies, so
+render one and read it before blaming a model for a shape; (2) when you add a nested
+field to any schema a writer fills, check the generated exemplar shows it, because
+nothing else will tell you it was flattened; (3) a failure census over model output
+measures the INSTRUCTION as well as the model, and cannot separate them — only the
+rendered prompt can. Cross-refs: `bugs_open/437`, register PBP-052/PBP-004,
+`bugs_closed/260`, LANDMINES ("a writer prompt's JSON exemplar is GENERATED from the
+component schema", and "a quoted exemplar in a prompt is copied verbatim").
+
 ### A guard written for the INNER case leaves the OUTER one — and the file's own comment explaining the hazard reads as proof it was handled
 
 **Shape.** A function defends against a known hazard at one level and reproduces it at

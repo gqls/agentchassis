@@ -60233,3 +60233,45 @@ the wrong instrument is not progress.
 
 Family: a-post-fix-zero-needs-a-demand-control, logs-deploy-reads-one-pod-of-n,
 a-plausible-external-cause-is-when-to-doubt-your-instrument, a-report-is-not-a-measurement.
+
+---
+
+## 2026-09-03 — I wrote a migration guard whose arithmetic was wrong, and the guard would have refused my own correct splice
+
+**Lane:** `bugs_open/437` (writer prompt nested item shapes, migration 724).
+
+**The claim, written into the migration as an assertion:** that splicing the two prompt
+edits would raise the `{{if ` count by **+2** — one for the new `{{if .item_notes}}` guard,
+one for the new `{{if $f.value_shape}}`.
+
+**What was actually true: +1.** The second edit does not ADD an `{{if `; it converts the
+existing `{{if $f.item_fields}}` into `{{else if $f.item_fields}}`, which consumes one.
+Net zero for that edit. I had reasoned about what the replacement TEXT contains and never
+about what the anchor text it replaces STOPS containing.
+
+**What caught it:** rehearsing the splice against the live template before running it —
+first as string algebra in Python, then as the real SQL inside a transaction I rolled
+back. The Python rehearsal printed `'{{if ' delta +1 expected +2 MISMATCH` in the same
+breath as five other checks that passed.
+
+**What it would have cost:** nothing catastrophic and that is the point — the guard would
+have RAISEd and the migration would have refused itself, so the failure mode was a
+confusing self-refusal on a correct change, at the moment of applying to a live row that
+two other lanes also edit. The natural next move on seeing a guard fire is to doubt the
+splice, not the guard.
+
+**The cheap check, which is now the practice:** for any anchored `replace()` migration,
+**rehearse the string algebra before writing the guard's expected numbers, and derive the
+numbers from the rehearsal rather than from reading the replacement text.** A replacement
+that rewrites a token is a deletion as well as an insertion, and only counting both ends
+gets it right. Then rehearse the SQL itself in a rolled-back transaction — the same run
+also proves the `_ROLLBACK` sidecar restores the object byte-exactly (md5 either side),
+which no amount of reading can.
+
+**The general shape:** *an assertion about a diff is a claim about what LEAVES as well as
+what arrives.* I have written this class of guard several times reasoning only about the
+added text; it was right every previous time by luck, because those edits appended rather
+than rewrote.
+
+Family: a-baseline-that-reads-head-expires-when-you-commit, mutate-the-code-to-prove-the-guard,
+state-the-expected-shape-before-you-run-the-check.
