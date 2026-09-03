@@ -74,17 +74,29 @@ warning did not prevent the repeat because authors copy sibling dockerfiles, not
 
 ## 5. What is OWED (small, in order)
 
-1. **When the kubeconfig token returns**: run `./scripts/landmines-verify-dispatch.sh` for
-   the new LANDMINES entry — it was attempted this session and could not reach the cluster
-   (result recorded below in §6). Do **not** run `landmines-sync.py --apply` first; it
-   consumes the "new entry" status and the verifier then never checks the entry (that trap
-   is already in LANDMINES). Fallback if something half-ran:
-   `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#a-new-ack-shipping-checks-image-fails-at-release-time'`.
-2. **Optionally confirm the check is live** — but note this belongs to the 394 lane, who
-   were told in their bug file; do not race them:
-   `kubectl -n ai-persona-system get cronjob | grep -i render-truncation` and, after its
-   first scheduled run, one `doc_notes` row per run (clean or not — a MISSING row means it
-   did not run).
+> **ALL CLOSED 2026-09-03 (token reset; same session).** Nothing here remains for a
+> successor. Detail per item below; evidence in §7.
+
+1. ~~**When the kubeconfig token returns**: run `./scripts/landmines-verify-dispatch.sh`~~
+   **CLOSED 2026-09-03 — and NOT by this session's re-run.** Another dispatch (another
+   session's run or the schedule) synced the entry and fired the verifier at 21:32Z on
+   2026-09-02, minutes after the entry was committed — so this session's morning re-run
+   correctly reported "already in sync / nothing needs verification", which here meant
+   ALREADY DONE, not consumed-and-lost. Verdict (doc_notes, `landmine-verification`,
+   subject `LANDMINES.md#a-new-ack-shipping-check-s-image-fails-at-release-time-…`):
+   **UNVERIFIABLE** — the footprint is entirely non-Go (.dockerignore, dockerfiles, JSON)
+   and the verifier's mechanical check is a Go-symbol code index, so no mechanical check was
+   possible; "entry text internally consistent, requires human or filesystem-level
+   verification". That verification exists first-hand: the authoring session watched the
+   build fail without the line and pass with it (§2). No further action.
+2. ~~**Optionally confirm the check is live**~~ **CLOSED 2026-09-03, verified first-hand:**
+   CronJob `render-truncation-check` live (`50 7 * * *` UTC, not suspended, image
+   `v1.0.1356`), this morning's job Complete 1/1 in 19s, and the per-run `doc_notes` row is
+   present for BOTH runs so far (2026-09-02 16:17Z and 2026-09-03 07:50Z scheduled — each
+   "0 findings, 1 dormant group"). ⚠ Probe with `categories ? 'render-truncation'` — the
+   category is NOT the service name `render-truncation-check` (`rendertruncation.go:499`);
+   this session's first probe guessed the service name, read zero rows, and briefly held a
+   false "ran but wrote nothing" — the source, not the guess, settles the category.
 3. Nothing else. The fix itself needs no further action.
 
 ## 6. Session-local facts a successor should know
@@ -99,3 +111,23 @@ warning did not prevent the repeat because authors copy sibling dockerfiles, not
   (`platform/`, `internal/`, `pkg/`, migrations, `cmd/config-key-audit/`,
   `scripts/pattern-check.py`), and the fix is self-evidencing (watched fail → change →
   watched pass).
+
+## 7. Close-out, 2026-09-03 (token reset) — the lane is DONE
+
+Evidence for the §5 closures, all read first-hand this morning:
+
+- **Deploy, first-hand now (was ancestry-via-another-lane's-read in §3):**
+  `service_binary_capabilities` shows two chassis replica sets live — `0d2feee2ff61` (the
+  2026-09-02 21:00Z roll) and a newer `7bf1ff674021` — and `ebf27c603` is an ancestor of
+  BOTH (`git merge-base --is-ancestor`, checked 2026-09-03).
+- **The check the fix unblocked is alive and healthy:** CronJob present at `v1.0.1356`,
+  job `render-truncation-check-29807030` Complete 1/1 (19s), doc_notes rows
+  (`categories ? 'render-truncation'`) for both runs to date, 0 findings each. Grading
+  what the rows SAY is the 394 lane's job, not this one's.
+- **Landmine verifier verdict** landed 2026-09-02 21:32Z, UNVERIFIABLE for index-scope
+  reasons only (Go-only index vs an all-non-Go footprint); entry judged internally
+  consistent; filesystem-level verification is §2's build repro. Nothing to re-run.
+
+Nothing remains. This directory should not grow unless the trap fires a third time — in
+which case the pre-commit lockstep guard named in `102_coverage_ratchet.txt`'s line for
+this dir becomes due, and THAT is register material.
