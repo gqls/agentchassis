@@ -357,3 +357,76 @@ git merge-base --is-ancestor <your-commit> <the commit they agree on>   # exit 0
 Two standing pods reporting the same commit is the signal; one row from an unfiltered query is
 not. `kubectl logs … | grep 'build provenance'` is the other route, but on a busy pod the line
 has already scrolled and an empty result means "not in range", not "unstamped".
+
+---
+
+## Recovering from HEAD holding zero copies of a file (the 454-close race)
+
+If `git ls-tree -r --name-only HEAD -- <dir1>/ <dir2>/ | grep <file>` returns **nothing** for a
+file you know exists (you were just editing it, or a peer said they were):
+
+1. **Do not re-create the content from memory or a stale local copy.** Find the commit that
+   deleted it: `git log --diff-filter=D --oneline -- '<old-path>'`. The content is in its
+   **parent**: `git show <that-commit>^:'<old-path>' > /tmp/recovered.md`.
+2. **Check whether your OWN index already holds the current version staged** —
+   `git status --porcelain -- '<new-path>'`. If it shows `new file:` or `AM`, your working tree
+   is more current than the deleted commit's parent; prefer it.
+3. **Commit the restoration naming only the path that still matches something git knows.** The
+   deleted path errors (`did not match any file(s) known to git`) — that is expected, not a
+   retry signal; drop it from the pathspec.
+4. **Verify at HEAD, not the tree, before telling anyone it is fixed**:
+   `git ls-tree -r --name-only HEAD -- <dir>/ | grep <file>` should return exactly one row.
+
+Full mechanism and the general trap: LANDMINES, "a correct pathspec commit made WRONG by
+someone else's concurrent `git mv`".
+
+## Verifying a fix at the SERVED page, not just the DB row
+
+`curl` to a live customer domain may hang or `ETIMEOUT` from this environment even when the
+domain is genuinely resolvable elsewhere — not necessarily a sandbox restriction (a
+pre-handover site is legitimately not DNS-live at all, see below). `WebFetch` succeeded where
+`curl` failed on the same URL this session:
+
+```
+WebFetch(url="https://<domain>/<path>", prompt="does section X show <specific content>?")
+```
+
+Ask a **specific, falsifiable question** ("does the image src attribute have a real path or is
+it empty?"), not "does this page look right?" — a vague prompt gets a vague, unfalsifiable
+answer back from the summarising model.
+
+## Checking a site's real served origin before concluding a fix "isn't showing"
+
+```sql
+SELECT domain, publish_target, publish_project, handed_over_at FROM sites WHERE domain='<domain>';
+```
+
+`handed_over_at IS NULL` means the site is **pre-handover and not DNS-live at its own domain at
+all** — `getaddrinfo`/`WebFetch` failing on `https://<domain>/...` is the EXPECTED result, not
+evidence the fix failed. The real deploy target is `portfolio-sites/<domain>` in the `sites`
+repo (verify via the GitHub Actions "Sync to B2" log, see below), which is what a handover would
+eventually point real DNS at. The `.ugg2.com`-style preview subdomain is a THIRD, separate
+target with its own reconciliation pipeline (`site-publisher`) and its own tick — checking it and
+finding the old content is not evidence either, unless you have separately triggered that
+pipeline.
+
+## Confirming a chassis roll actually shipped the fix you need (do this before re-testing anything)
+
+```bash
+RS=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}' | sed 's/-[^-]*$//')
+kubectl -n ai-persona-system get pods -l app=agent-chassis -o custom-columns='NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image'
+```
+```sql
+SELECT pod_name, git_commit, max(last_seen_at)
+FROM service_binary_capabilities
+WHERE service='agent-chassis' AND pod_name LIKE '<RS>-%'
+GROUP BY pod_name, git_commit ORDER BY 3 DESC;
+```
+Then `git merge-base --is-ancestor <your fix's commit> <the commit they agree on>` — exit 0 is
+the only thing that counts. **A dozen freshly-started pods on the SAME image is not a roll** —
+check for spawned agents first (`kubectl get pods --sort-by=.status.startTime` and look at
+whether the NAME matches the standing chassis replicaset or a spawned `agent-<type>-<uuid>`
+pattern); this session was fooled by exactly that shape once today before catching it. A "fresh
+build reported" claim that turns out to be the SAME standing pods, SAME commit, started BEFORE
+your fix's own commit timestamp is a real, common failure mode — record it as a dated negative
+(with the four checks and their readings) rather than silently re-checking later and hoping.
