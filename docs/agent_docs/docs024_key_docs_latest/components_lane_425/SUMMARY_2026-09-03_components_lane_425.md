@@ -75,9 +75,16 @@ one line, and the other session's evidence shows a heading component recovering 
 single re-render.
 
 What remains genuinely open is bug 457, the duplicate rows on the boxing articles page. It needs a
-code fix and a rebuild; no re-render can touch it, because those rows have no component attached to
-refresh from. We have deliberately not deleted them by hand — it is a live paid site, and a code
-fix is the right instrument.
+code fix and a rebuild. We have deliberately not deleted them by hand — it is a live paid site, and
+a code fix is the right instrument.
+
+One correction belongs in this read-out because it changes what that fix has to do. We first said no
+re-render could touch those rows, on the grounds that they have no component attached. A second
+session challenged it and was right: the re-render code falls back to matching on the slot name,
+which these rows do match. So a re-render would refresh their content and clear the empty boxes,
+and what it cannot fix is that six of them exist — the page would serve six current copies rather
+than six stale ones. Deletion remains the remedy, for the duplication rather than the emptiness.
+Estate-wide, only two rows are genuinely beyond a re-render, and neither is on that site.
 
 ## Where we're going
 

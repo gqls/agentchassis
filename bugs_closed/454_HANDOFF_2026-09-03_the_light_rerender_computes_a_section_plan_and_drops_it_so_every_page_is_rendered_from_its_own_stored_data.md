@@ -561,6 +561,33 @@ drain as the fleet re-renders them, and two canaries are queued to confirm on un
 every row a re-render can resolve, and it structurally **cannot** reach a `page_components` row
 with `component_id` NULL — `resolveComponent` misses, the row takes a carry branch, and its stored
 HTML re-ships verbatim. `[MEASURED 2026-09-03]` 8 such rows on 3 pages, all from `bugs_open/457`.
+
+> **⚠ CORRECTED 2026-09-03 15:45Z by the author of this CONTRIB — the rule above over-flags by 6×,
+> and the figure was not mine to quote.** Challenged by the `bugs_open/384` lane and checked rather
+> than adopted; their correction holds at the code and at the data. `resolveComponent`
+> (`rerender_page_sections_action.go:361-393`) does **not** give up on an empty `componentID` — it
+> falls through to `schemas[s.slotName]`, and `loadComponentSchemas`
+> (`plan_sections_action.go:1981-2002`) indexes **by both `Name` and `Function`**. So a NULL-id row
+> resolves whenever its `slot_name` matches either column.
+>
+> `[MEASURED 2026-09-03 15:45Z]` **14** NULL-`component_id` rows on **7** pages fleet-wide: **12
+> RESOLVE** (all by `function`), **2 stranded** — finetuning.uk `/blog` (`article-grid`) and
+> gamesdesign.co.uk `/game-jelly-invaders` (`section`). So the enumerated exception to "every light
+> re-render now delivers" is **2 rows on 2 pages, neither from `457`**, not 8 on 3 from `457`.
+> ⚠ **§15's closure note quotes my wrong version** — it is the contributor's error, not the
+> closer's, and the owning lane has been told.
+>
+> Correct screening predicate, and the trap inside it: slot names match `function`, not `name` —
+> **zero** of the 14 match by `name`, so the obvious `cc.name = pc.slot_name` screen returns 14 of
+> 14 stranded, which is what I effectively asserted.
+> ```sql
+> pc.component_id IS NULL
+>   AND NOT EXISTS (SELECT 1 FROM content_components cc
+>                    WHERE (cc.name = pc.slot_name OR cc.function = pc.slot_name) AND cc.is_active)
+> ```
+> **Two errors, not one:** the rule was over-wide, and "8 such rows on 3 pages" was inherited from
+> `457`'s own earlier census and repeated as if I had measured it. A `[MEASURED]` marker on a
+> number I did not take is the worse half.
 So "every light re-render now delivers" is true with one enumerated exception, and it is someone
 else's bug.
 

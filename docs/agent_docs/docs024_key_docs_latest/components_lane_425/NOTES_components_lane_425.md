@@ -160,3 +160,72 @@ theirs naming what each half holds, rather than deleting or rewriting anyone's t
 point: after a shared incident, expect the other party to be writing it up at the same moment, and
 cross-reference rather than re-grep.** Same shape as the `437`/`425` mutual-invisibility note
 already in the handoff.
+
+---
+
+## 2026-09-03 15:45Z — CLASS COMPLETE (17/17), and a rule of mine over-flagged by 6×
+
+**Batch `…000694` drained in six minutes and the class is finished.** All six repaired, each with
+`excerpt` absent → present confirmed from the archiving write, all with 0 empty elements:
+
+| page | complete | items | html |
+|---|---|---|---|
+| idea.uk `/guides-index` | 15:23:02 | 7 → **9** | 6,987 B |
+| homegarden `/this-month-index` | 15:23:50 | 3 | 3,062 B |
+| homegarden `/home-maintenance-index` | 15:24:26 | 3 | 3,127 B |
+| homegarden `/garden-index` | 15:25:14 | 3 | 3,205 B |
+| homegarden `/january-index` | 15:26:00 | 3 | 3,060 B |
+| homegarden `/shed-and-outbuildings-index` | 15:26:41 | 3 | 2,709 B |
+
+`[MEASURED 2026-09-03 15:27Z]` **17 new / 0 old.** The deck class is closed: 5/12 yesterday, 9/8 at
+15:05Z, 11/6 at 15:18Z, **17/0 at 15:27Z**. idea.uk picked up two extra items on the way (7 → 9) —
+the resolver returned more eligible posts than the stale snapshot held, which is the mechanism
+working rather than a discrepancy.
+
+### MISSTEP — "an orphan row is unrepairable" over-flags by 6×, and I quoted a count I never took
+
+I told **four** lanes that a `page_components` row with `component_id` NULL can never be repaired
+by a re-render, because `resolveComponent` misses and the row takes a carry branch — and I attached
+`[MEASURED 2026-09-03] 8 such rows on 3 pages`. The `bugs_open/384` lane challenged it. I checked
+rather than adopted, and **they are right on both counts.**
+
+`resolveComponent` (`rerender_page_sections_action.go:361-393`) does not give up on an empty
+`componentID`; it falls through to `schemas[s.slotName]`. And `loadComponentSchemas`
+(`plan_sections_action.go:1981-2002`) indexes **by both `Name` and `Function`** — its own comment
+says so. So a NULL-id row resolves whenever its slot name matches either column.
+
+`[MEASURED 2026-09-03 15:45Z]` **14** such rows on **7** pages: **12 resolve** (every one by
+`function`), **2 stranded** — finetuning.uk `/blog` (`article-grid`) and gamesdesign.co.uk
+`/game-jelly-invaders` (`section`). **Neither is on boxingonline**, so the six rows I built the
+whole argument on do resolve: a re-render would refresh them and clear the empty elements, and what
+it cannot fix is that six of them exist. Deletion remains the remedy — for the duplication, not for
+the emptiness. That is a materially different instruction than the one I gave.
+
+**Two errors, and the second is the worse one.** The rule was over-wide *and* the figure "8 such
+rows on 3 pages" was **inherited from `bugs_open/457`'s own earlier census and repeated as though I
+had measured it**, complete with a `[MEASURED]` marker and today's date. The estate's rule is that
+a marker proves a measurement was *claimed*, not *complete*; this is the sharper form — a marker on
+a number I never took, which reads as first-hand and is not. The plain predicate gives 14 on 7.
+
+**The trap inside the correct predicate, which is the transferable part.** Slot names match
+`function`, **not** `name`. **Zero** of the 14 rows match by `name`, so the obvious screen
+`WHERE cc.name = pc.slot_name` returns **14 of 14 stranded** — clean, plausible, and exactly the
+wrong answer I had asserted from reasoning. The 384 lane caught it only because a **known-good
+control** (`content-listing`) also came back false, twenty minutes after they had watched that same
+component repair. Nothing in the result would have shown it. Correct form:
+
+```sql
+pc.component_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM content_components cc
+                   WHERE (cc.name = pc.slot_name OR cc.function = pc.slot_name) AND cc.is_active)
+```
+
+**Corrected in five places** — `bugs_open/457`, `bugs_open/425`'s §0q source, the lane handoff, my
+CONTRIB in `bugs_closed/454`, and both prose docs — as visible dated blocks, not silent fixes. The
+`427` lane folded my wrong version into `454`'s **closure note**, so that one is theirs to amend and
+they have been told; a contributor's error that reaches a closure note is the contributor's to chase.
+
+**What I did right, and it is the only reason this was cheap:** I verified the challenge at the code
+and re-ran the census before changing anything, exactly as I had asked the `384` lane to do with my
+correction to them an hour earlier. Adopting a peer's correction on assertion is the same failure as
+asserting it yourself.

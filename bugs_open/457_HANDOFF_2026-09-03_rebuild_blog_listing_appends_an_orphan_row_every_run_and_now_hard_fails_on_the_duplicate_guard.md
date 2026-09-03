@@ -201,6 +201,44 @@ page is `457`.
 > component, and every class-count you take from them is a mixture of eras. `[MEASURED 2026-09-03]`
 > 8 such rows on 3 pages fleet-wide.
 
+> **⚠ CORRECTED 2026-09-03 15:45Z — THIS RULE OVER-FLAGS BY 6×, and the count above was never mine
+> to quote.** Checked (not adopted) after the `bugs_open/384` lane challenged it, and their
+> correction holds at the code and at the data. `resolveComponent`
+> (`rerender_page_sections_action.go:361-393`) does **not** give up on an empty `componentID` — it
+> falls through to `schemas[s.slotName]`, and `loadComponentSchemas`
+> (`plan_sections_action.go:1981-2002`) indexes **by both `Name` and `Function`**. So a NULL-id row
+> resolves whenever its `slot_name` matches either column.
+>
+> `[MEASURED 2026-09-03 15:45Z]` **14** NULL-`component_id` rows on **7** pages fleet-wide, of which
+> **12 RESOLVE** (all by `function`) and only **2 are genuinely stranded** — finetuning.uk `/blog`
+> (`article-grid`) and gamesdesign.co.uk `/game-jelly-invaders` (`section`). **Neither is on
+> boxingonline.** The six orphan rows on `/articles/index.html` resolve by function, so a re-render
+> WOULD refresh their content and clear the empty elements; what it cannot fix is that six of them
+> exist, so the page would serve six *fresh* decks instead of six stale ones. **Deletion is still
+> the remedy — for the duplication, not for the emptiness.**
+>
+> The screening predicate that is actually correct:
+> ```sql
+> pc.component_id IS NULL
+>   AND NOT EXISTS (SELECT 1 FROM content_components cc
+>                    WHERE (cc.name = pc.slot_name OR cc.function = pc.slot_name) AND cc.is_active)
+> ```
+> ⚠ **And the trap inside the fix:** slot names match `function`, not `name`. **Zero** of the 14 rows
+> match by `name`, so the obvious `WHERE cc.name = pc.slot_name` screen returns **14 of 14
+> stranded** — clean, plausible and entirely wrong. The 384 lane caught it only because a
+> known-good control (`content-listing`) came back false too. Put a control in the census.
+>
+> **Two errors of mine, not one.** The rule was over-wide, and the figure "8 such rows on 3 pages"
+> was **inherited from `bugs_open/457`'s own earlier census and repeated as though I had measured
+> it** — it is 14 on 7 by the plain predicate. `[MEASURED]` next to a number I did not take is the
+> worse half of this.
+>
+> `[INFERRED, untested]` a re-render of that page may still fail at the save: migration 316's
+> `uq_page_components_no_byte_identical_duplicate` refuses a row byte-identical to one already
+> there, and six rows rendering the same deck from the same data is exactly that shape — which is
+> `457`'s own reported failure mode.
+
+
 **Not fixed by me and not touched:** the six rows stay. The site is paid, the fix is a code fix,
 and deleting rows by hand on someone else's live page is the wrong instrument — the `457` fix plus
 one rebuild is the right one. Flagged to the owning lane rather than actioned.

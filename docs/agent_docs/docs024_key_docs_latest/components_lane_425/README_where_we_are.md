@@ -61,8 +61,15 @@ listing page. We traced it: a piece of code has been quietly appending a duplica
 that page every time it runs, and the page is now serving **six** stacked copies of the same list
 of six articles — thirty-six cards where there should be six. Each copy is frozen with whatever the
 template looked like on the day it was created, which is why some of them still show the old empty
-boxes. That is bug 457, already filed from this lane, and no re-render can fix it because those
-rows have no component attached to refresh from. It needs the code fix and a rebuild. We have not
+boxes. That is bug 457, already filed from this lane. It needs the code fix and a rebuild.
+
+**Correction, same afternoon, and it was mine to make.** I first wrote that no re-render could fix
+those rows at all, because they have no component attached. Another session challenged it and was
+right: the re-render code falls back to matching on the slot name, and these rows do match, so a
+re-render would refresh their content and clear the empty boxes. What it cannot fix is that six of
+them exist — the page would then serve six up-to-date copies instead of six stale ones. Deletion is
+still the answer, for the duplication rather than for the emptiness. Across the whole estate only
+two rows anywhere are genuinely beyond a re-render, and neither is on the boxing site. We have not
 touched the rows by hand — it is a paid site and that is the wrong instrument.
 
 One correction to own: I told the delivery session that the card fix had "not reached" that
