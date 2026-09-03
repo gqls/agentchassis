@@ -56,9 +56,14 @@ Illegal Money Lending Team's anonymity/free detail also went.
 **→ THE REPAIRS ARE WRITTEN, TESTED, COMMITTED AND DELIBERATELY NOT APPLIED.** Migrations **743**
 (two pages) and **745** (the third), both carrying `mode='edit_live'`, the anti-fabrication
 constraint bound to the 738 register, `source='manual'`, and `page_id`/`affected_url` derived by
-SELECT. Both dry-run clean with mutations killed. **Held pending 743's verdict
-(`4718725c-7d23-41ca-a320-17ebbbfb5e02`) because applying before reading a verdict is precisely
-what caused this.** Applying is one command each:
+SELECT. Both dry-run clean with mutations killed. **Held pending 743's verdict (`4718725c-7d23-41ca-a320-17ebbbfb5e02`) because applying before
+reading a verdict is precisely what caused this.** Round 1 returned **REVISE**; **revision 2 is
+written, dry-run clean, mutation-tested, committed and resubmitted (~16:47 UTC) — verdict NOT YET
+IN.** ⚠ **Do not poll it with the query the trigger prints.** `RESUBMIT_CORR` reuses the
+correlation on purpose, so `ORDER BY created_at DESC LIMIT 1` returns **round 1's** verdict until
+round 2 lands, and it reads as your revision being rejected — I did exactly that and pulled
+objections I had already fixed. Bound it: `AND created_at > '2026-09-03 16:47'`, or count rows
+(**1** = round 2 has not landed). Now a LANDMINE. Applying is one command each:
 
 ```bash
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
