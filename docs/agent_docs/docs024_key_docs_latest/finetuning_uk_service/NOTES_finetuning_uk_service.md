@@ -3244,3 +3244,33 @@ class). page-build-handler / page-rebuild do not branch on it.
 **Run 2, item `15287da8`, 20:00:12Z**, same brief (G1/G2/G3 all passed: page named playground active,
 no tool-playground component, no open add_tool, adopt flag on). Watcher armed. Verify at the served
 page against the brief's ACCEPTANCE list, then a real chat from a browser.
+
+## 2026-09-03 (20:09–20:14Z) — widget run 2 LANDED in the DB; the generator's two side items: one CANCELLED (it would have rewritten the page), one left to run
+
+**Run 2, item `15287da8` → complete 20:11:25Z.** `[MEASURED at the rows]` component
+`tool-playground-finetuning-uk` (`b19eabe6`, level tool, 15,653 chars, `js_content` NULL — the script
+is inline in `html_template`), linked as a SEVENTH slot `tool-playground` on `/playground.html`
+(rendered_html 15,693; the six booking sections untouched). Contract read in the code: the ONLY URL in
+it is `https://tools.apis.uk/api/v1/tools/playground/chat`; `fetch(API_URL, {method:'POST',
+mode:'cors', credentials:'omit', headers:{'Content-Type':'application/json'}, body:{messages},
+signal})` with an `AbortController` timeout; `response.body.getReader()` streaming; event names
+token/done/error handled; `truncated` handled; 12-message and 1000-char caps present; "Try the demo
+model", the disclosure and "Start again" present; no em dash. One step failed inside the run without
+failing it: `suggest_related_pages` hit `max_tokens=300` (0 chars recovered) — the spec's own
+`related_pages` served as the fallback; noted, not chased (it is the tool-generator lane's).
+**The served page did NOT yet carry the widget at 20:12Z** (`deployed_at` still 14:04:43): the
+generator queued `page_rerender` `50c2a394` (triaged 20:11:24; watcher armed) — the page ships the
+slot when that completes. "Complete" on the add_tool item was again not the artefact.
+
+**Two side items the generator filed at 20:11:06 on the same page, read BEFORE they could run:**
+- `needs_content_page` `19b74d62` (page-build-handler, priority 50): the generator's stock tool-page
+  brief — "hero with the tool name… an educational guide section explaining what it calculates… a
+  CTA" — which, through page-build-handler (deletes agent-writable slots, full regeneration, no
+  `mode`), would have REPLACED the six owner-approved booking sections with three generic ones.
+  **CANCELLED 20:13Z** (still unclaimed; reason in `result`). A merged brief (the tool at the centre +
+  the booking copy, per the owner's direction) is a later rebuild he reads first. Lesson for the
+  record: **`add_tool` on an EXISTING content page queues a page rewrite as a side effect** — the
+  adopt path keeps the page "as it stands" only until that item runs.
+- `nav_drift` `ec17b214` (nav-updater): "nav membership declared (in_header true)"; the adopt kept
+  the page row's `in_header=false`, and nav-updater rebuilds `site_nav_items` FROM `pages`, so the
+  effect is a chrome re-render reflecting the row as it is. Left to run.
