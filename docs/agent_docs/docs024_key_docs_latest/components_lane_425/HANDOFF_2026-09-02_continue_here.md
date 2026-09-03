@@ -88,6 +88,23 @@ items** so attribution cannot be muddied. Baseline recorded before it runs: inst
 `4e681d76`, `hero-about`, **no `background_image` key at all**, `updated_at` 09-02 17:02:11.
 Its own hero asset is `hero_about`.
 
+> **CHECKED BEFORE READING THE TEST — every post-721 rerender on this class was ASSEMBLE MODE.**
+> `[MEASURED 2026-09-03]` **66** completed `page_rerender` items since 20:15:47Z on pages carrying
+> one of the six hero components with their own hero asset. **All 66 carry `reason = (none)`.
+> Zero qualifying reasons. Not one routed to the sections path.**
+>
+> So the "nine re-rendered since 721, none recovered" evidence **proves nothing about the sections
+> path** — it was never exercised. That makes the one-page test *necessary* rather than
+> confirmatory: batch `689` will be the **first** time the sections path runs against this class
+> since the field became declarable.
+>
+> ⚠ **And beware the word RECOVERED in that sweep.** Ten rows read as recovered, all on
+> `leopardessconsulting.co.uk` and `garden-tools.uk/contact` — but those are the pages that were
+> ALREADY correct before 721 (the pre-existing 5) plus the one the build path fixed. Assemble mode
+> preserved bytes that were already right. **"Currently correct" is a STATE; it is not evidence of
+> a transition**, and a column labelled RECOVERED invites reading it as one. **No page has been
+> fixed by a re-render. Zero.**
+
 | result | conclusion |
 |---|---|
 | `background_image` appears **and matches `hero_about`** | the wave is viable → prepare the other 56 as a HELD migration in the 683 shape, hand firing to the site owners |
