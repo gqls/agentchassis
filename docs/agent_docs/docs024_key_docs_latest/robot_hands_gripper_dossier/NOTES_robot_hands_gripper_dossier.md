@@ -2541,3 +2541,137 @@ aborts):
 `awk 'BEGIN{c=0} /\$grijs\$/{c++; if(c==1){f=1; next} if(c==2){f=0}} f{print}' docs/agent_docs/sql_for_agents/651_robot_hands_gripper_report_page.sql | wc -c`
 Current: 8103 B. The DOM-ready wrapper adds ~128 B → trim ~40+ B in the same edit
 (header comment is the cheapest).
+
+## 2026-09-03 (later) — the guard is BUILT, APPLIED and PROVEN BY EXECUTION; the byte budget in the entry above was wrong by 72 B
+
+Picked up the 🔧 block. Confirmed the diagnosis first-hand before editing anything —
+the previous entry was written by the diagnosing session and I did not want to
+inherit it unchecked. All `[MEASURED 2026-09-03]`:
+
+- served `/gripper-report.html`: HTTP 200, 73,220 B. `<script src="/assets/js/snippets.js">`
+  at line **2219**, `</head>` at **2238**, `<div data-gri-root …>` at **2324**. Confirmed.
+- served `/assets/js/snippets.js`: HTTP 200, **15,387 B**, `grep -c data-gri-root` = 1,
+  `grep -c DOMContentLoaded` = **1**, and the single match is the carousel's, at
+  bundle line 331 — so the widget was the only interactive snippet not self-guarding.
+  Confirmed.
+
+### ⚠ MY PREDECESSOR'S BYTE-COUNT COMMAND UNDERSTATES BY 72 B — and it is the one command the 🔧 block tells you to trust before applying
+
+The awk recipe in the entry above does `if(c==1){f=1; next}` — `next` skips the
+**whole** `$grijs$…` line, and on line 110 the widget's first line of content
+(`// gripper-report-intake widget 2026-08-26. textContent-only rendering.`) sits on
+that same line as the opening delimiter. So the header comment is never counted.
+
+- awk recipe said: **8103 B**
+- true dollar-quoted content: **8175 B** (extracted by index, not by line)
+- live row: `SELECT octet_length(js_content) …` = **8175 B** — the DB agrees with the
+  file, and both disagree with the awk.
+
+That matters because the seed's verify aborts on `octet_length > 8192`, i.e. it
+measures the value the awk was mis-measuring. **Real headroom was 17 B, not 89 B**,
+and the 🔧 block's plan ("trim ~40+ B, cheapest is the header comment") would have
+landed at ~8231 B and aborted the seed. Cheap check that would have caught it, and
+which I used instead: ask the DB, not the file —
+`SELECT octet_length(js_content) FROM js_snippets WHERE name='gripper-report-intake-widget';`
+
+Logged in WRONG_CALLS.
+
+### What I changed (one edit, seed 651, committed `991cf8b8b`)
+
+Guard, copying the carousel's convention verbatim:
+```
+  function init() {          <- opens right after 'use strict'
+  …unchanged body…
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+```
+Body deliberately **not** reindented: ~190 lines × 2 B = ~380 B against a 19 B budget.
+
+Paid for the guard's 133 B with two value-neutral trims:
+- **deleted the widget's own first-line comment (−72 B).** Not a byte-shaving hack —
+  the bundle renderer already emits `/* --- gripper-report-intake-widget — <description> --- */`
+  immediately above it (seen in the served bundle at line 8), so the line duplicated
+  the snippet name and "textContent-only rendering", both already in `description`.
+- **collapsed the CSS literal's 8 `+`-joins to 1 (−63 B).** Adjacent string-literal
+  concatenation; the value cannot change, and I proved it rather than asserting it.
+
+8175 → **8173 B**, 19 B under. Seed re-applied clean: `NOTICE: 651 verified`. Live
+row now `octet_length=8173`, `js_content LIKE '%function init() {%'` = t,
+`LIKE '%DOMContentLoaded%'` = t.
+
+### Proven by EXECUTION, because "in the bundle" is exactly the altitude that fooled us last time
+
+Built a goja runner (`scratchpad/jscheck`, `-run` mode; the module cache has goja but
+it needs `GOTOOLCHAIN=go1.25.12` — the repo's Go 1.24.4 is too old, and the cache has
+the newer toolchain already) plus a DOM stub that reproduces the real load order:
+`querySelector('[data-gri-root]')` returns null while `readyState === 'loading'`, and
+`fireDOMContentLoaded()` flips readyState and runs the registered handlers.
+
+| run | ready-listeners at head-parse | Start button after DOMContentLoaded |
+|---|---|---|
+| **OLD widget** (negative control) | 0 | **false** — the live defect, reproduced |
+| **NEW widget** | 1 | **true** |
+| **NEW, readyState='complete'** (control) | 0 | **true** — the `else init()` branch |
+
+The OLD run is the load-bearing half: a harness that only ever showed the new code
+passing would be a mock asserting its own bookkeeping. This one fails on the old code
+in the same way the live page fails, which is what makes the new result mean anything.
+
+Second control, for the CSS collapse: evaluated the `css` expression from both
+versions — **length 890, identical rolling hash, both**. Value-neutral, measured.
+
+Parse check: `jscheck widget_new.js` → `parse OK 8173 bytes`; ASCII-only (zero
+non-ASCII bytes in the dollar-quoted content).
+
+### ⚠ THE 🔧 BLOCK'S "priority 5" ADVICE RESTS ON A WRONG READING OF THE SELECTOR
+
+The 🔧 block says *"the selector is `created_at ASC` MAJOR — a priority-99 item is
+starved behind the day's fleet queue. File it low"*. Right about the starvation,
+wrong about the mechanism, and the remedy it prescribes does nothing. There are
+**two** orderings and they are not the same one:
+
+- **Within a site** — `platform/orchestration/actions/load_work_item_actions.go:814`:
+  `ORDER BY wi.priority ASC, wi.created_at ASC`, filtered `WHERE wi.site_id = $1`.
+  **Priority IS the major key here.** So priority 5 does order you ahead of the
+  priority-99 improvement-loop rerenders *for your own site*.
+- **Between sites** — the `find_dispatchable_site` step of `build-pipeline-trigger`
+  (config in the DB, not in Go):
+  `… ORDER BY MIN(w.created_at) ASC, w.site_id ASC LIMIT 1`.
+  **No priority term at all.** The site key is the `MIN(created_at)` of that site's
+  top-n eligible items, so a freshly-filed item — at ANY priority — puts its site at
+  the **back** of the fleet order.
+
+So the starvation is real but **inter-site**, and **priority cannot fix it**.
+Measured 11:51Z: robot-hands.com was **16th of 16** eligible sites, our 11:51:13
+timestamp being the newest of all 16 site keys. Filing "low" buys nothing; filing
+early does.
+
+Other silent blockers, each checked rather than assumed:
+- `governor_admits('needs_rerender')` → **t**
+- `sites.locked_at` for robot-hands.com → **NULL** (a lock would need our id in
+  `lock_except_item_ids`)
+- competing claimable items for this site → **none**; ours was the only row in
+  `('triaged','approved')`, so it heads its own site's queue on both keys
+- `build-pipeline-trigger`: enabled, 30 s interval, last fired 11:51:58Z
+
+And verified the item shape actually drives the bundle rebuild rather than taking the
+🔧 block's word for it — `rerender-pages`' live workflow chains
+`check_refresh_components` (condition `input_data.spec.refresh_site_components == true`)
+→ `render_site_components` → `render_js_snippets` (`render_js_snippets_for_site`)
+→ `deploy_js_snippets` (`git_commit` of `assets/js/snippets.js`). So
+`{"refresh_site_components": true}` is the only spec that reships the bundle; the
+`false` variant used by `createRerenderWorkItem` would NOT have.
+
+Item filed: `4486ce39-2b27-4fe5-bd7c-393112fb802d`, priority 5, status `triaged`,
+`item_key='gripper_widget_domready_rerender_20260903'`.
+
+Council gate: `DRY_RUN=1` admission passed (seed 651 is in scope — an appliable
+migration), submitted as **`5775dc10-c791-4285-9f4c-249a055b5aa3`**, reached
+`review_editquality` within ~4 minutes. Commit carries `Council-Submitted:`, not
+`Council-Reviewed:` — the verdict is not read yet.
+
+**Still owed, and NOT closed by this entry: the owner's browser.** Everything above
+is a DOM simulation plus a byte count. The artefact that settles it is a Start button
+on the real page, in a real browser, after the rerender ships — precisely the loop the
+misstep entry above says I cannot close myself.

@@ -900,3 +900,61 @@ race fell our way, and the lesson is written where the next session will read it
 The milestone summary you can read aloud to someone is
 SUMMARY_2026-08-26_gripper_dossier.md in this folder. Next build item: the widget on
 robot-hands.com. The soft-launch call — quiet link or none — remains yours.
+
+---
+
+**2026-09-03, midday — the missing button, and why it was missing**
+
+You were right that the page looked incomplete. The widget was never broken; it was
+never given a chance to run.
+
+The site puts its shared JavaScript file in the page's `<head>`, and the browser runs
+that file the moment it reaches it — before it has read the rest of the page. Our
+widget's first act was to look for the spot on the page where it should draw itself.
+At that moment that spot didn't exist yet, because the browser hadn't got to it. The
+widget was written to quietly give up if it can't find its spot, so it did. No error,
+no warning, nothing in any log — just no button, for a week.
+
+The fix is four lines: instead of looking immediately, the widget now waits until the
+browser says the page is fully read, and only then draws itself. The site's own image
+carousel has done exactly this for a long time; ours was the only interactive piece on
+the site that didn't, which is a fair sign it was an oversight rather than a design
+choice.
+
+One awkward detail worth telling you, because it nearly bit. We cap this widget at 8KB
+— it's downloaded on every page of the site, so it earns its size. The fix pushed it
+over. The note the previous session left me said there was plenty of room; when I
+measured it myself there was almost none, because the command that note recommended
+had a flaw that made it skip the very line it was measuring. Had I trusted it, the
+update would have been rejected. I've corrected the note and written the mistake up,
+because the lesson is more useful than the incident: measure a limit where the limit
+is actually enforced, not with a convenient approximation of it.
+
+To get the room back I removed a comment line that was pure duplication — the system
+already prints the widget's name and description directly above it — and joined up the
+styling text, which changes how it reads in the source but not one character of what
+it does. I checked that second point rather than assuming it: I ran both versions and
+compared the result, character for character.
+
+And I did not just read the fix and declare it correct. That is the exact mistake that
+led to last week's false "it's live" — the code was present in the right file, the
+page had the right placeholder, and neither fact meant a button appeared. So this time
+I built a small simulator of a browser's page-loading order and ran both versions
+through it. The old widget draws nothing, before or after loading finishes — the real
+failure, reproduced. The new one waits, then draws its Start button. That old-version
+run is the important half: a test that only ever shows the new code succeeding proves
+nothing.
+
+Where it stands: the fix is written, applied to the live database and committed, and
+it has been sent through the reviewer council. The last mechanical step is a rebuild
+of the site's JavaScript file, which is sitting in a queue — our site is currently last
+in line, because that queue is ordered by which site has been waiting longest, and ours
+only joined at lunchtime. Nothing is wrong; it just waits its turn.
+
+Then it needs you. A button on a real page in a real browser is the only proof that
+counts here, and it is the one thing I can't check myself. When the rebuild has gone
+out I'll tell you, and the ask is simply: reload the page and see whether a Start
+button appears under the explanatory text.
+
+The soft-launch decision — quiet link, or none — is still yours and isn't affected by
+any of this.

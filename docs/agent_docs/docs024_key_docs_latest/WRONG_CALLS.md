@@ -61619,3 +61619,62 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   rule.
 - **Cost.** One damaged sentence in `356196fe9`, unfixable forward-only. The code comment it
   paraphrases says it correctly, so nothing is lost but clarity.
+
+## 2026-09-03 — a byte-count recipe that skipped the line it was measuring, handed on as the one command to trust (session "AI page 3", gripper dossier lane)
+
+- **The claim.** A handoff and a NOTES entry both stated *"Current: 8103 B"* for the
+  `gripper-report-intake-widget` snippet, against a hard bound of 8192, and both gave an awk
+  one-liner as the command to re-check it with before applying the fix. On that arithmetic
+  there was **89 B of headroom** and the prescribed plan — "the wrapper adds ~128 B, trim ~40+ B,
+  cheapest is the header comment" — fits.
+- **What was actually true.** The real value is **8175 B**, so headroom was **17 B**. The
+  prescribed plan lands at **~8231 B** and the seed's own verify (`octet_length > 8192 →
+  RAISE EXCEPTION`) would have aborted the transaction.
+- **The mechanism.** The awk was `/\$grijs\$/{c++; if(c==1){f=1; next} …}`. `next` skips the
+  **entire** line carrying the opening `$grijs$` delimiter — and the widget's first line of
+  content (a 71-char header comment) sits on that same line. So the recipe silently omitted
+  exactly the 72 bytes the plan then proposed to delete. **The measurement excluded the thing
+  the plan was about.**
+- **Why it survived.** It looks like a measurement, it is reproducible, and it is stable — run it
+  ten times and it says 8103 every time. Nothing about it reads as broken. It had also been
+  copied from NOTES into the handoff, so it arrived with two documents' worth of apparent
+  corroboration; both were the same measurement.
+- **The cheap check that would have caught it.** **Measure what the CHECKER measures.** The bound
+  is enforced by `octet_length(js_content)` on a DB column, so the one-line check is
+  `SELECT octet_length(js_content) FROM js_snippets WHERE name='gripper-report-intake-widget';`
+  — no parsing, no delimiter edge case, and it is the number that will actually abort the seed.
+  Two independent extractions agreeing (file-by-byte-index = 8175, DB = 8175) is what settled it.
+- **The general shape.** A file-parsing proxy for a value the system stores directly is a
+  hypothesis about parsing, not a measurement of the value. When a bound is enforced somewhere,
+  read the quantity **at the point of enforcement**.
+- **Cost.** None, caught before applying — but only because the fix's byte arithmetic was
+  re-derived rather than inherited. Following the handoff as written aborts the seed, which at
+  least fails loudly; the worse branch is a session that then "fixes" the bound to 8448 to make
+  its own edit fit.
+
+## 2026-09-03 — "the selector is created_at ASC MAJOR": one of two orderings, reported as the only one (same session, same lane)
+
+- **The claim, handed forward in the handoff.** *"⚠ the selector is `created_at ASC` MAJOR — a
+  priority-99 item is starved behind the day's fleet queue. File it low and it still waits its
+  created_at turn."*
+- **What is actually there.** Two different orderings, in two different layers:
+  **within a site**, `load_work_item_actions.go:814` is
+  `ORDER BY wi.priority ASC, wi.created_at ASC` — **priority is the MAJOR key**, the opposite of
+  the claim; **between sites**, `find_dispatchable_site` (DB config on `build-pipeline-trigger`)
+  is `ORDER BY MIN(w.created_at) ASC, w.site_id ASC LIMIT 1` — **no priority term at all**.
+- **Why it matters.** The observed symptom (a fresh item waits behind the fleet) is real and the
+  handoff was right to warn about it — but attributing it to the item selector makes the wrong
+  remedy look right. Priority **does** order you within your own site; it does **nothing** for
+  fleet position, because the inter-site key is a `MIN(created_at)` a fresh item can only make
+  worse. A session that files at priority 5 expecting fleet priority has bought nothing and will
+  read the ensuing wait as a fault.
+- **Why it survived.** The prediction it makes ("your item will wait") comes true either way, so
+  the claim is confirmed by the outcome regardless of whether its mechanism is right. **A wrong
+  mechanism that predicts the observed symptom is the hardest kind to notice.**
+- **The cheap check that would have caught it.** Grep for `ORDER BY` in the loader **and** read
+  the dispatching agent's own step config — the ordering that decides which SITE runs is not in
+  Go at all, so a Go-only search finds one ordering and stops. `SELECT jsonb_pretty(…->'steps'->
+  'find_dispatchable_site') FROM agent_definitions WHERE type='build-pipeline-trigger'`.
+- **Cost.** None here — the item was filed correctly by accident (priority 5 is right for the
+  within-site ordering) — but the corrected mechanism is now in the handoff and NOTES, because
+  the next lane to hit a slow queue will otherwise re-derive the wrong lesson.

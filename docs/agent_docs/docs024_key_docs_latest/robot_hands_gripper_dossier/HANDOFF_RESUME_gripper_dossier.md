@@ -1,10 +1,12 @@
 # RESUME HERE — gripper dossier pilot
 
-> # 👉 GO STRAIGHT TO THE BOTTOM: "🔧 2026-09-03 — THE WIDGET IS INERT (load-order), one-block fix inside".
+> # 👉 GO STRAIGHT TO THE BOTTOM: "✅ 2026-09-03 (midday) — THE GUARD IS WRITTEN, APPLIED AND COMMITTED".
+> (It carries TWO CORRECTIONS to the 🔧 block below it — one of them would otherwise abort the seed.)
 > (Supersedes every earlier block, all kept as history.)
-> That block is the current ship state (2 of 7 steps done, step 1 next and owner-blocked),
-> the exact command to run, and every trap in the remaining steps. Everything between here
-> and there is history, kept for provenance — read it only if the START HERE block sends you.
+> That block is the current ship state (the fix is committed and applied; the rerender is
+> queued; the owner's browser is the last step), the exact commands to run, and every trap
+> in what remains. Everything between here and there is history, kept for provenance —
+> read it only if the bottom block sends you.
 
 **Last updated 2026-08-25 — credentials are ON the island and verified; migration 436 is the next step and needs the owner to run it (this session's classifier refuses production DB mutations).** (body written 07-27; switch positions corrected 07-31
 08:15Z; fixture 4 result 07-31 10:45Z; cleanup complete 07-31 15:42Z; `bugs_open/160`
@@ -629,3 +631,115 @@ UPDATE in seed 651's header) is the owner's call.
 build asks) is fixed + council-APPROVED, inert until the next agent-chassis roll;
 its roi-estimator plan is filed and routing; the llm-cost-calculator cleanup is an
 owner/design decision recorded in 315. None of that blocks the widget fix.
+
+---
+
+# ✅ 2026-09-03 (midday) — THE GUARD IS WRITTEN, APPLIED AND COMMITTED. Waiting on the rerender queue, then the OWNER'S BROWSER
+
+Supersedes the 🔧 block above, which is kept as the diagnosis of record. Its
+**root cause is confirmed** (I re-measured it first-hand before touching anything);
+**two of its instructions are wrong** and are corrected below — read those two before
+you do anything, because one of them would have aborted the seed.
+
+## Done, with the evidence
+
+| step | state | evidence |
+|---|---|---|
+| 1. edit the widget | **DONE** | commit `991cf8b8b`, seed 651 only, pathspec |
+| 2. parse check | **DONE** | goja: `parse OK 8173 bytes`, ASCII-only |
+| 3. re-apply the seed | **DONE** | `NOTICE: 651 verified`; live row `octet_length=8173`, has `function init() {` and `DOMContentLoaded` |
+| 4. rerender | **FILED, QUEUED** | item `4486ce39-2b27-4fe5-bd7c-393112fb802d`, `triaged`, priority 5 |
+| 5. verify at the artefact | **BLOCKED on 4** | commands below |
+| 5b. owner verifies in a browser | **OWED — the only proof that counts** | reload `https://robot-hands.com/gripper-report.html`, expect a **Start** button below the copy |
+
+Council: submitted `5775dc10-c791-4285-9f4c-249a055b5aa3` (seed 651 is in scope —
+an appliable migration). Commit carries `Council-Submitted:`. **Verdict not yet read —
+whoever picks this up owes that read**, and a REVISE/REJECTED must be acted on, because
+the change is already live on the shared branch and in the live DB.
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+ WHERE correlation_id='5775dc10-c791-4285-9f4c-249a055b5aa3' AND kind='council_report' ORDER BY created_at;
+```
+⚠ A chassis roll was announced while this round was mid-flight (it was at
+`review_editquality`). **A roll kills an in-flight council run.** If the row is stuck,
+resubmit: `RESUBMIT_CORR=5775dc10-c791-4285-9f4c-249a055b5aa3 ./097_TRIGGER… <json>`
+(submission JSON kept at `scratchpad/council_651_domready.json`).
+
+## ⚠ CORRECTION 1 — the 🔧 block's byte-count command UNDERSTATES BY 72 B, and following its plan would have ABORTED the seed
+
+Its awk recipe skips the whole `$grijs$…` line, and the widget's first line of content
+sits on that same line — so the header comment is never counted.
+
+- awk said **8103 B** · true content **8175 B** · live row `octet_length` **8175 B**.
+- The verify aborts above **8192**, so real headroom was **17 B, not 89 B**. The 🔧
+  block's "trim ~40+ B" would have landed at ~8231 B and raised the exception.
+
+**Ask the DB, not the file** — it measures the same thing the verify measures:
+```sql
+SELECT octet_length(js_content) FROM js_snippets WHERE name='gripper-report-intake-widget';
+```
+
+## ⚠ CORRECTION 2 — "file it at priority 5" does not do what the 🔧 block thinks, because there are TWO orderings
+
+- **Within a site** (`load_work_item_actions.go:814`):
+  `ORDER BY wi.priority ASC, wi.created_at ASC` — **priority IS the major key**, and
+  it is scoped `WHERE wi.site_id = $1`. The 🔧 block has this backwards.
+- **Between sites** (`find_dispatchable_site` in `build-pipeline-trigger`, DB config):
+  `ORDER BY MIN(w.created_at) ASC, w.site_id ASC LIMIT 1` — **no priority term at all.**
+
+So the starvation is real but **inter-site**, and **priority cannot fix it**: a
+freshly-filed item puts its site at the BACK whatever its priority. Measured 11:51Z,
+robot-hands.com was **16th of 16** eligible sites. Priority 5 is still worth setting
+(it orders you within your own site) — just do not expect it to buy fleet position.
+
+## How the bytes were paid for (so nobody "tidies" them back)
+
+The guard costs 133 B against 17 B of headroom. Two **value-neutral** trims paid for it:
+
+- **the widget's first-line comment is DELETED (−72 B).** The bundle renderer already
+  emits `/* --- gripper-report-intake-widget — <description> --- */` immediately above
+  it (visible in the served bundle), so the line was pure duplication. **Do not put it
+  back** — there is no room for it.
+- **the CSS literal's 8 `+`-joins collapse to 1 (−63 B).** Adjacent string-literal
+  concatenation; proven identical (length 890, same hash, both versions). **Do not
+  re-split it into one-rule-per-line** — that is what the budget was spent on.
+
+Result **8173 B**, 19 B under. The IIFE body is **deliberately not reindented** inside
+`init()` — reindenting ~190 lines costs ~380 B against a 19 B budget.
+
+## Proven by EXECUTION, not by grep — because grep is what fooled us on 08-26
+
+A goja runner + a DOM stub reproducing the real load order (`querySelector` returns
+null while `readyState === 'loading'`). Kept in this session's scratchpad; rebuild with
+`GOTOOLCHAIN=go1.25.12` (repo Go 1.24.4 is too old for the cached goja).
+
+| run | listeners at head-parse | Start button after DOMContentLoaded |
+|---|---|---|
+| OLD widget (negative control) | 0 | **false** — live defect reproduced |
+| NEW widget | 1 | **true** |
+| NEW, `readyState='complete'` | 0 | **true** (`else init()` branch) |
+
+The OLD row is the load-bearing one. A harness that only ever showed the new code
+passing would be asserting its own bookkeeping.
+
+## What is left — the exact commands
+
+1. **Wait for the item.** It is `triaged` and its site sorts last; expect a wait, not
+   a failure. If it goes `claimed` and stops, that is the hung-spawn shape — check
+   `handler_spawned` in `collected_data`, not `current_step`:
+   ```sql
+   SELECT status, claimed_by, claimed_at, attempt_count, error
+     FROM site_work_items WHERE id='4486ce39-2b27-4fe5-bd7c-393112fb802d';
+   ```
+   ⚠ A chassis roll was announced 2026-09-03 midday. **No orchestration dispatch
+   lands within ~300 s of a chassis (re)start — the spawn is silently dropped.** If the
+   item was claimed in that window, reset it: `claimed_by=NULL, claimed_at=NULL,
+   attempt_count=0`, and it re-claims next tick.
+2. **Verify at the artefact** (not at the status — `complete` is not fetchability):
+   ```bash
+   curl -s https://robot-hands.com/assets/js/snippets.js | grep -c DOMContentLoaded   # want >= 2
+   curl -s https://robot-hands.com/assets/js/snippets.js | grep -c 'function init()'  # want 1
+   ```
+   ⚠ `grep -c DOMContentLoaded` = 1 means the OLD bundle is still being served —
+   the carousel's is the pre-existing one. **2 is the pass, 1 is the fail.**
+3. **Then the owner reloads the page.** That is the only proof a button renders.
