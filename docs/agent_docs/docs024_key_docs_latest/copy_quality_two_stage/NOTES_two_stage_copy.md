@@ -4216,3 +4216,40 @@ completes. The boundary is per-spawn, not per-instant. My submission's wording o
 **Resubmitted** with all three answered (`RESUBMIT_CORR`), no change to the migration itself —
 every objection was about what the plan failed to STATE, not about what the SQL does. The
 migration stays applied; nothing here argues for reverting it.
+
+**2026-09-03 ~12:15Z — the render_context diagnosis came back UNVERIFIABLE, which is NOT a
+refutation and NOT a confirmation.** Verbatim from the work item's result:
+`{"status": "UNVERIFIABLE", "summary": "Diagnosis NOT confirmed (stopped: iteration-cap).
+Best-effort trail attached for a human; no fix proposed."}` — corr `fbe2be91`, five `bundle`
+artifacts, no `diagnosis_report`, no verdict field.
+
+**Read it precisely, because the three outcomes want three different responses.** CONFIRMED would
+license the claim; REFUTED would be the cheap place to be wrong and would retract it; **an
+iteration-cap stop licenses neither** — the loop ran out of budget before reaching a conclusion.
+So the independent check on "build_render_context never merges site_specs, so the identity aspect
+never reaches the writer" **did not happen**, and nothing about my hypothesis has been
+corroborated by it.
+
+What DOES stand is the first-hand chain, each link read rather than inferred: the live
+`build_render_context` config lists five sources and `site_specs` is not among them · the Company
+Context block reads `.render_context.company_name` · `sites.company_name` is empty for all six
+sampled sites while `site_specs` aspect `identity` carries "Design Blog", "Farmer Insurance UK",
+"SEO Tools" etc. · `render_context` IS in `generate_content.input_fields`, which rules out
+`bugs_open/453`'s missing-root mechanism · 41% of 6,931 writer calls over 7 days render an empty
+`Company:`. That is evidence, not a verdict, and it is not enough to file a cross-cutting root
+cause under the 2026-07-31 ruling without saying plainly that the loop was run and returned
+UNVERIFIABLE.
+
+One thing the run did establish for free: the symptom authoring was right. It pulled exactly the
+symbols the hypothesis named — `BuildRenderContextAction`, `mergeIntoRenderContextEnhanced`,
+`setRenderContextScalarsFromData`, `renderContextScalarFields`, `ExtractNestedField` — so pointing
+at tables/symbols rather than asserting counts got the loop to the right code. It also pulled
+`deployed_image_read_audit.go`, which is unrelated, so the bundle is wider than the hypothesis.
+
+**And the priority is lower than when I filed it**, which is the more important correction. The
+owner reframed the whole finding: feeding the company name to a writer that has no facts produces
+CONFIDENT vacuity rather than good copy, so the plumbing repair would have made the emptiness
+harder to see rather than less present. It is still worth fixing for the sites that DO have an
+identity to deliver, but it is not the vacuity cause, and rule 18 (migration `739`) is the part
+that addresses what he actually objected to. Re-running the loop with a higher cap is optional,
+not owed.
