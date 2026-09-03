@@ -20435,3 +20435,40 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/449` (the bug, with the census and the fix ordering) · register **TP-009** (`summariseCriteriaValueAssertions`, the grading this now rests on) · `bugs_open/224` + `bugs_closed/225` (what a pinned-at-birth value costs) · `bugs_open/441` (fences naming stale ids — a value assertion on a stale selector fails for the WRONG reason, which is why the authoring fix is sequenced after it) · the *criteria fence is read by BOTH tiers, and Tier 2 ignores `no_auto_fix`* entry · MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]] — closed files quote a blind pass as "the page is fine", which is this trap's downstream form
 - **source:** 2026-09-03, `bugfix_449_fences_assert_no_number` lane, resuming the bug the `mortgagecalculator_couk_adoption` lane filed the previous evening; the census was re-run rather than inherited and had grown by 16 fences and 9 blind ones in 24 hours, with the newest created that same day
 - **added:** 2026-09-03, `bugfix_449_fences_assert_no_number` lane
+
+### Adding `overwrite_existing: true` to a meta-description agent is ONE innocuous config key that crosses an OWNER RULING — and the diff looks like every other tuning change
+
+- **footprint:** `agent_definitions` where `type='meta-description-repair'` or
+  `'meta-description-backfiller'`, `save_page_meta_description`, `overwrite_existing`,
+  `pages.meta_description`, `docs026_concept_register/102_coverage_ratchet.txt`
+- **fires when:** you are making an automated route to `save_page_meta_description` do more —
+  repairing a page whose description is wrong rather than missing, widening a backfill, or simply
+  "making the repair agent actually fix things". The key is a one-line addition to a step's
+  `config`, it reads as a tuning flag, and **nothing in the migration diff says it is governed.**
+- **the tell:** there is none in the code. The governance lives in prose:
+  `102_coverage_ratchet.txt` line 105 names *"a work-item-driven route to
+  `save_page_meta_description`"* as **new standing authority to rewrite PUBLISHED copy on an
+  automated finding — the authority the owner explicitly withheld on 2026-08-21"* and calls it
+  architecture-scope. `bugs_open/320` §15 records how it was handled the one time it was granted:
+  **inline on a one-off dispatch script**, and *"the seeded agent was never armed"*, verified
+  afterwards by probing the step config. So the default — the key ABSENT, meaning `false`,
+  meaning fill-a-blank-only — is not an oversight anybody should tidy up. It is the ruling.
+- **the check:** before adding it, and after any migration that touches these agents:
+  ```sql
+  -- must be f (or absent) on BOTH; and run the control, or a probe that always says
+  -- "not declared" is indistinguishable from a probe that works
+  SELECT type, default_config#>'{workflow,steps,save_description,config}' ? 'overwrite_existing'
+    FROM agent_definitions
+   WHERE type IN ('meta-description-repair','meta-description-backfiller')
+     AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  SELECT (jsonb_build_object('overwrite_existing',true) ? 'overwrite_existing') AS must_be_true,
+         (jsonb_build_object('other',true)             ? 'overwrite_existing') AS must_be_false;
+  ```
+  ⚠ **The backfiller's own save step is NESTED** (`backfill_loop.sub_workflow.steps.save_description`),
+  so the top-level path above returns NULL for it — **NULL is not `f`**, and reading it as "not
+  declared" is the same class of mistake as the ruling it is guarding. Probe the nested path for
+  that agent. If you genuinely need the authority, it is an owner decision plus a council round,
+  not a config edit.
+- **source:** `bugs_open/442` §10f (found while registering **SEO-008**, AFTER the council round
+  had been submitted — so that round never weighed it); `bugs_open/320` §15; verified live
+  2026-09-03 with the control above
