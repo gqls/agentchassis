@@ -1,5 +1,11 @@
 # HANDOFF 2026-09-03 — continue here
 
+> **⚠ SUPERSEDED 2026-09-03 ~16:40Z by `HANDOFF_2026-09-03b_continue_here.md` — read that
+> one.** This file is the morning cold-start with six correction blocks stacked on it across the
+> day; it is kept for the trail (each correction names what it caught and when) and is NOT the
+> current state. In particular: the canary is ANSWERED, both owner rulings are LIVE, and the
+> Sedo/about-page picture below is superseded in every detail.
+
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-09-02_continue_here.md`.**
 First reads: this file → `OWNER_RULINGS_2026-08-25_six_decisions_on_the_copy_machinery.md`
 (THE LEDGER — ten direct rulings on 09-02, all executed or queued) → `NOTES_two_stage_copy.md`
