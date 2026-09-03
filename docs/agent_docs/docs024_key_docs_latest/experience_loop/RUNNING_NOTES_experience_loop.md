@@ -1873,3 +1873,105 @@ has a cronjob twin, run `--self-test` *before* claiming it is shipped, and then 
 Fixed: mirrored, self-test all pass including parity, applied
 (`listing-class-promise-check-script-mfk2kd6hdc`, `cronjob configured`), triggered job
 **exitCode=0**, fleet result unchanged at 187 instances / 2 mismatches with **both controls PASS**.
+
+---
+
+## 2026-09-03 ~13:00–16:20Z — RULE D is built, ground-truthed and LIVE, and the ground truth is what changed it
+
+The empty-index rule owed to the `designblog.co.uk` lane (§5a of the 09-03 handoff) is
+shipped: `SQ-005 rule D`, commit `95f891a84`, ConfigMap
+`experience-promise-check-script-fh4ck725kb`, triggered job **exitCode=0**, receipt written
+15:14:47Z. **Fleet: 126 candidates — 71 list something, 28 bare section-indexes skipped, 18
+rule D, 8 never built, 1 divergence.**
+
+### What the rule is, in one paragraph
+
+Rule C asks "does this index list things from OUTSIDE its own directory?", which presupposes
+it lists something; both its corpus filters (an `articles`/`items` key that is a NON-EMPTY
+array) drop an empty index before the rule runs. Rule D counts items instead. A page is a
+**collection candidate** if the planner typed it a listing role, OR its name / own url
+segment / title-with-the-site-name-stripped names a collection, OR its directory holds
+active pages. It **lists something** if a body component carries a non-empty array AND
+renders an item tag; or it fills at runtime; or it links into its own directory; or it
+carries >=5 `<dt>` or >=10 `<h3>/<h4>`. Otherwise it is empty.
+
+### The part worth keeping: I nearly shipped three false positives, and only the curl caught them
+
+My own 09-03 10:55Z lesson said to sample ground truth **away from the case that inspired
+the rule**. I did, and it changed what shipped three times. None of these was visible by
+reading the rule.
+
+1. **The inner join.** I joined `page_components` to `content_components` to get each
+   component's name and category — the natural join, because that is where the taxonomy
+   lives. It is **silently exclusive**: `rebuild_blog_listing` INSERTs its row with
+   `component_id` NULL, discovering the slot by name. So finetuning.uk `/blog.html` (22
+   articles) and ai-agent-orchestration.com `/blog.html` (18 articles) — **two pages working
+   perfectly** — were reported as EMPTY. 12 rows fleet-wide carry a NULL `component_id`.
+   The wrong answer was the ALARMING one, which is why it would have survived review: it
+   does not read as a blind spot, it reads as a finding. LEFT JOIN + `COALESCE(cc.name,
+   pc.slot_name)`. **LANDMINE filed.**
+2. **The URL path.** Matching collection nouns against the whole path made every page under
+   `/guides/` a guides index — idea.uk's guide at `/guides/feedback-loops/index.html`.
+   Caught by the SELF-TEST, not the curl: I wrote the fixture before the corpus was final.
+   Match the page's OWN segment.
+3. **The title.** garden-tools.uk titles its pages `"Contact Us — Garden Tools UK"`, so the
+   noun *tools* admitted its contact page and its affiliate disclosure. **`split_part(title,
+   '|', 1)` does not fix it** — that site separates with an em-dash — and splitting on
+   em-dashes truncates legitimate titles (`"Farm Insurance Glossary — Insurance Terms in
+   Plain Farming Language"` loses its glossary). The fix strips the SITE NAME by matching
+   letters against the domain, so no separator is ever guessed. **LANDMINE filed.**
+
+### The finding I did not expect: a page that is NEITHER empty NOR clean
+
+`farmerinsurance.uk/guides/index.html` was the one of 19 whose served body disagreed with my
+rule. It **renders guide cards** — titles, descriptions, a "Read guide" label — while
+`content_data.items` is `[]` and carries an `empty_state_text` ("More guides are being
+added") that is **never shown, because the markup predates the data**. Measured: **stored 4
+cards, served 3, and ZERO anchors in either** — every card is a `<span>`, so a reader sees
+four guides and can click none.
+
+Calling it a rule D finding would be false (it renders items). Calling it clean would be
+false too. So it gets **its own bucket**, `render_data_divergence`, reported separately and
+never counted clean — the same treatment `never_built` and `repair_not_served` already get.
+I measured the discriminator across all 126 candidates **before** encoding it: pages with
+>=2 repeated item-class tokens and an all-empty array set number **exactly one**; every
+other such candidate repeats an item class 0 or 1 times. The classes separate cleanly, which
+is why a threshold of 2 is defensible rather than tuned.
+
+### The clean direction was controlled too, and one control needed a second step
+
+18 of 18 findings confirmed EMPTY at the served body, each with a per-domain invented-URL
+control (a parked domain 200s every path). Then the other direction: **11 of 12 CLEARED
+pages confirmed to SERVE items.** The 12th, vonc.com `/provocations/index.html`, serves an
+honest empty state and fills at runtime — **a static probe cannot judge it**, so its escape
+would have been an assumption. Checked at the source instead:
+`https://vonc.com/data/provocations.json` serves **21 entries**, generated that morning. The
+escape is measured, not assumed.
+
+### Two smaller things, both recorded because they are the kind that rot
+
+- **The prose escape (>=5 `<dt>` or >=10 headings) is passed by ZERO live pages** —
+  loanandmortgagecalculator's 13-heading guides index reaches step 3 first. It is held by
+  its fixture alone. Stated rather than removed, because an unexercised escape that nobody
+  knows is unexercised is the worse of the two.
+- **The scoped demand-control lines in rules B and D printed `FAIL` where they meant `n/a`**
+  — a `--site` run whose every candidate is a finding (designblog: 4 of 4) has no clean page
+  to demonstrate the check can pass. That is **exactly the SQ-004 control-scope bug I fixed
+  this morning, in a new coat**: I fixed it in one script and wrote the same shape into
+  another within hours. Both now say so under `--site`.
+
+### Known miss, stated so nobody re-derives it
+
+designblog's `/criticism/index.html` ("Criticism & Commentary", 0 pieces) is the same defect
+and is NOT reported: no collection noun, empty directory, no listing component — nothing
+structural separates it from an article misfiled as an index. Widening the nouns to catch it
+would catch homegarden.uk's twelve month pages ("April — Garden and Home Jobs for This
+Month"), which are articles, not indexes. Left as a stated gap rather than bought with 12
+false positives.
+
+### Not council scope
+
+`scripts/audit-experience-promises.py` and the kustomize twin are neither platform code, nor
+a migration, nor `scripts/pattern-check.py` — the only in-scope script. `council-scope.sh`
+read directly rather than assumed. No submission; recorded here so the absence does not read
+as a skipped gate.

@@ -807,7 +807,7 @@ an ID prefix, or a status word.
 | SQ-002 | Site-chrome gap hypothesis (relay path lacks chrome rendering) | partial | Hypothesis: relay build path never renders nav/header/footer chrome | site-quality.md |
 | SQ-003 | design-critique-agent (018 taste critic, Phase 1) | built | One render-audit sweep: deterministic findings auto-file, vision taste report for the owner; manual only | site-quality.md |
 | SQ-004 | listing-class promise check | built+live | Does a listing show the CLASS its heading promises? Daily CronJob; page_type is NOT the signal (guides are typed blog-post 246/30 sites) | site-quality.md |
-| SQ-005 | experience-promise-check | built+live | Two header entries with one label pointing at different pages; a tool page serving no control, no data and no fetch | site-quality.md |
+| SQ-005 | experience-promise-check | built+live | Two header entries with one label pointing at different pages; a tool page serving no control, no data and no fetch; an index listing none of its own directory; **a collection page with nothing in it (rule D, 2026-09-03)** | site-quality.md |
 | TRF-018 | Global bot-IP blocklist (Thread D) | aspirational | Idea to block illegitimate-crawler IPs globally across all boxes from the access-digest rollup | traffic-analytics.md |
 | ADP-007 | git-adapter new actions (create_branch, create_pull_request) | deployed | Idempotent branch creation and PR-as-human-review-terminal actions | adapters.md |
 | SYS-051 | Sites contact-identity denormalisation | deployed | Identity/contact fields promoted from content_data JSONB to first-class columns | system-architecture.md |

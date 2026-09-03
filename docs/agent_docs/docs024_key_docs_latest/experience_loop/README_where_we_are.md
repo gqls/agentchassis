@@ -453,3 +453,57 @@ designer and the editorial design uplift lane — and they have all acknowledged
 last step of the original job — putting the auditor into the build sequence — which I am
 deliberately holding until I have watched one real audit run on a freshly built site, because
 wiring in a checker before you have seen it work is how we got here.
+
+---
+
+**2026-09-03, later.** The empty-listing check is built and running on the estate.
+
+You'll remember the problem: the design blog was serving a glossary with no terms and a
+directory with no studios, each carrying a few paragraphs about what the page was going to
+contain, and my checks said nothing was wrong. The reason was embarrassing but simple — the
+check I had asked "is this page listing the wrong sort of thing?", and that question quietly
+assumes it is listing something. A page listing nothing slipped underneath it.
+
+The new check counts instead. **Across the estate it looked at 126 pages that promise a list
+of things. Seventy-one of them list something. Eighteen list nothing at all.** Those eighteen
+include all four of the design blog pages you complained about, and they are spread across
+nine sites, so this was never one site having a bad day.
+
+**What I want to flag is how nearly I shipped it wrong, because it says something about how
+we should test these.** The rule looked right, passed its own tests, and produced a tidy list
+of findings. Then I opened the actual pages in a browser, deliberately choosing sites that
+had nothing to do with the problem that prompted the work — and three of the findings were
+wrong. Two blog pages that are working perfectly, listing twenty-two and eighteen articles
+between them, were reported as empty, because of a quirk in how one part of the system saves
+its work that made those listings invisible to my query. A contact page and a legal disclosure
+page on another site were reported as empty listings because that site's *name* is "Garden
+Tools UK", and my check was reading the site's name as if it were the page's subject.
+
+None of that was visible from reading the rule. It was only visible from looking at the
+pages. The lesson I keep relearning is that a check tested against the case that inspired it
+is tested against the one example guaranteed to agree with it.
+
+**One page turned out to be neither right nor wrong, and it is the most interesting thing I
+found.** A farm insurance site has a guides page that displays four guide cards — proper
+titles, proper descriptions, a "Read guide" prompt under each. Underneath, the site's records
+say it has no guides at all, and it is holding a message ready that says "More guides are
+being added" which never gets shown. The page is displaying an older version of itself. And
+not one of those four cards is a link, so a visitor can see four guides and click on none of
+them. I have given that its own category rather than calling it a pass or a failure, because
+it is genuinely both.
+
+I also went the other way and checked twelve pages the tool said were fine, to make sure a
+clean result actually means something. Eleven were verifiably listing real things. The
+twelfth loads its contents after the page opens, which my checker can't see, so I went and
+read the file it loads from — twenty-one entries, refreshed this morning. Fine, and now
+proven fine rather than assumed.
+
+**What this doesn't fix.** Most of these eighteen pages cannot fill themselves. There is no
+mechanism anywhere in the estate that produces glossary terms or studio listings, and the
+sites with empty news pages have no news sources configured. Another thread has built the
+proper fix — the system now refuses to *plan* a listing page when it can see there is nothing
+to put in it — and my check sits behind that as the thing that notices if one gets through
+anyway. So expect this number to fall as those pages get fixed or removed, not to fix itself.
+
+**Still on my list:** the last piece of the original job, putting the content auditor into the
+build sequence so a newly built site gets read before it is called finished.
