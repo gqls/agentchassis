@@ -179,7 +179,37 @@ fail-loud re-run guard means it is not safely re-runnable. Both are true. The mi
 carries its own verified rollback and the row was read back after apply; a future editor of
 this row should take the snapshot.
 
-## THE 52 BLOCKED KEYS — what candidate 1 does NOT reach, now measured
+## ~~THE 52 BLOCKED KEYS~~ — the fix's reach, and the claim this section got WRONG
+
+> ⛔ **CORRECTED 2026-09-03 17:10Z, by the session that wrote it three hours earlier. The
+> counts below are right; the word "blocked" is WRONG, and so is everything built on it.**
+>
+> **These rows block nothing, and 20 of the 52 keys closed themselves while this section
+> sat in the repo saying they never would.** By 17:08Z, cv1.co.uk (1 key / 12 rows) and
+> remortgagecalculator.uk (19 keys / 64 rows) had **fully drained** —
+> `resolution_path='auto:revalidated'`, closed 16:08Z, **no human action**. The estate
+> already has the repair path for exactly these items (`revalidate_unbuilt_link.go`, drained
+> via `revalidate_review_queue_action.go:324`): once the link's target page builds, it closes
+> the item. Candidate 1 made the targets buildable; the drain did the rest.
+>
+> **The mechanism error, precisely.** §Unsticking's claim that *"an `unresolved` row DOES
+> block re-minting"* is correct **for the item types `loadOpenPageItems` governs** —
+> `needs_page`, `owned_page_review`, `page_build_failed`. **Every row counted below is
+> `unbuilt_internal_link`**, which that function never reads. What governs *it* is
+> `idx_swi_dedup`, whose partial predicate lists `'unresolved'` among the statuses that
+> **free** the dedup slot: `WHERE item_key IS NOT NULL AND status <> ALL (ARRAY['complete',
+> 'verified','rejected','wont_fix','failed','unresolved','cancelled'])`. So for these rows
+> the status is explicitly **non**-blocking.
+>
+> **The cheap check that would have caught it: project `item_type` in the census.** One
+> column — all 175 rows are one type, and that type is absent from the three-item list in the
+> function being cited. Full account: `WRONG_CALLS.md`, 2026-09-03.
+>
+> **What is still true:** loanzy.uk (14 keys) and farmerinsurance.uk (18 keys) have not
+> drained, and loanzy's three pages remain unbuilt and untouched since August. But the reason
+> is **not** a blocking row — it is that nothing has rebuilt their target pages, so the drain
+> has nothing to revalidate. **The remedy is a build, not row surgery.** Clearing these rows
+> would accomplish nothing; it was proposed to the owner and withdrawn.
 
 **Added 2026-09-03 14:00Z.** The fix stops new occurrences and rebuilds nothing. Until now
 that limit was described; here is its size.
@@ -198,20 +228,32 @@ re-minted past.
 | cv1.co.uk | 1 | 12 |
 | **total** | **52 of 73 keys** | **251** |
 
-**This does not decay.** The re-mint window table below counts a rolling 7 days and moves in
-both directions; an `unresolved` row, once written, stays open and stays blocking
-indefinitely. So the fix reaches the other **21** keys and everything future, and these 52
-need the deliberate state-changing step this fix deliberately did not smuggle in.
+~~**This does not decay.**~~ **FALSE — and this was the one clause in the paragraph with no
+measurement behind it.** It decayed within three hours: 20 of the 52 keys closed themselves.
+See the correction banner at the head of this section.
 
-**The precondition for that step is now satisfied.** §Unsticking said closing the branding
-rows "should follow a verified build on one page rather than precede it" — four pages have
-now built and deployed, one of them served and checked at the bytes. What remains is a
-decision, not a dependency: closing 251 rows across four sites belonging to other lanes.
-**Deliberately NOT done here** — it is bulk state change on shared live data and wants the
-owner's word and the owning lanes' knowledge. loanzy's three original stuck pages
-(`/your-rights.html` `needs_rebuild`, `/guides/index.html` and
-`/guides/tool-loans-consolidation-guide.html` `planned`, all `deployed_at NULL`, verified
-still stuck at 14:00Z) are the worked example of the cost of leaving it.
+**What replaced it `[MEASURED 2026-09-03 17:08Z]`:**
+
+| domain | keys 14:00Z | keys 17:08Z | how they closed |
+|---|---|---|---|
+| remortgagecalculator.uk | 19 | **0** | `auto:revalidated`, 16:08Z |
+| cv1.co.uk | 1 | **0** | `auto:revalidated`, 16:08Z |
+| farmerinsurance.uk | 18 | 18 | — target pages not rebuilt |
+| loanzy.uk | 14 | 14 | — target pages not rebuilt |
+
+**So the honest statement of reach is the opposite of the one this section made.** Candidate
+1 plus the existing revalidation drain is repairing the backlog unattended, at roughly
+20 keys in the first three hours, gated only by whether a site's target pages get rebuilt.
+
+**What loanzy and farmerinsurance actually need is a page BUILD**, which lets the drain do
+its work — not row surgery. loanzy's three pages (`/your-rights.html` `needs_rebuild`,
+`/guides/index.html` and `/guides/tool-loans-consolidation-guide.html` `planned`, all
+`deployed_at NULL`) have not been touched since 2026-08-18/27 and are the worked example:
+nothing is retrying them, and no row is stopping it.
+
+⚠ **The demand control has also grown well past what the table above rests on:**
+`[MEASURED 2026-09-03 17:08Z]` **29** mechanism-flow writer calls since the fix
+(6 + 9 + 11 + 3 across the 13:00–16:00 hours), against the **6** recorded earlier.
 
 ---
 

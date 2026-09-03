@@ -178,3 +178,55 @@ call about touching other lanes' sites in bulk, and that is yours rather than mi
 Loanzy's three original stranded pages are still stranded, and they are the illustration of
 what leaving it costs: they are linked from live pages, they have never been published, and
 nothing in the system will ever try them again by itself.
+
+## 2026-09-03, late afternoon — I was wrong about the stuck pages, and they fixed themselves
+
+I need to correct what I wrote a few hours ago, because you made a decision based on it.
+
+I said 52 pages were permanently stuck behind a brand that only a person could clear, and
+asked whether you wanted them cleared. You said to do one site first and then the rest.
+
+When I went to do that, I looked at the first site's records before touching them — which is
+the point of doing one first — and there was nothing there. They had already cleared. So had
+the second site's, all 19 of them. Both happened at 16:08 this afternoon, automatically,
+with nobody involved.
+
+**Twenty of the fifty-two repaired themselves while the document saying they never would was
+sitting in the repository.**
+
+### What I got wrong
+
+The brand does not block anything for these particular records. I took a rule that is true
+for one kind of job and applied it to a different kind without checking they were the same
+kind. They were not. For the kind actually involved here, the system treats that brand as
+"finished" and is free to try again whenever it likes.
+
+There is also, it turns out, already an automatic repair for exactly this situation: when a
+page that other pages were linking to finally gets built, the system goes back and closes
+those link complaints by itself. That is precisely what happened. The fix made the pages
+buildable, and the existing machinery did the rest.
+
+So the honest position is better than the one I gave you: the repair is happening on its own,
+at roughly twenty pages in three hours, and it needs no intervention.
+
+### What is actually left
+
+Two sites have not repaired — loanzy and farmerinsurance, 32 pages between them. But not
+because anything is blocking them. It is that nothing has rebuilt their pages yet, so the
+automatic repair has nothing to act on. Loanzy's three pages have not been touched since
+August. What they need is a build, not record-clearing.
+
+**Nothing was changed and nothing needs undoing.** I have not touched a single record.
+
+### The thing I want to flag, because it is the useful part
+
+Your choice to do one site first is the only reason this was caught. If we had done all four
+at once I would have run the whole operation — pointless everywhere, and on two of the four
+sites it would have been surgery on records that had already sorted themselves out.
+
+That is worth remembering as a general point: doing the small version first was not just
+about limiting damage. It was that it forced me to actually look at the thing before acting,
+and looking is what showed the reasoning was wrong.
+
+I have written the mistake up properly in the shared log of wrong calls, including the
+one-column check that would have caught it in the first place.

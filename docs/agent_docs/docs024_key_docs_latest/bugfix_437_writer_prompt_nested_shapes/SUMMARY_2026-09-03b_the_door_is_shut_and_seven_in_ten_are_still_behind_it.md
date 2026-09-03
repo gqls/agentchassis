@@ -1,5 +1,24 @@
 # SUMMARY 2026-09-03b — the door is shut, and seven in ten are still behind it
 
+> ⛔ **CORRECTED 2026-09-03 17:10Z, three hours after writing, by the same session. The
+> title is wrong and so is this summary's central finding.** The pages behind the door were
+> not stuck: **twenty of the fifty-two cleared themselves that same afternoon**, automatically,
+> while this file sat in the repo saying they never would. Two of the four sites are now fully
+> repaired with nobody having touched them. What I mistook for a permanent block is a state
+> the system explicitly treats as finished, and there was already an automatic repair path
+> doing exactly this job.
+>
+> **The parts of this summary that hold:** everything about the fix itself — it works, it is
+> proven at the served page, the reviewers approved it, and the writer is not over-producing.
+> **The part that does not:** "where we are now", and the whole of the first item under
+> "where we're going". The remaining two sites are waiting on their pages to be rebuilt, not
+> on anyone clearing anything.
+>
+> Kept unedited below, per the never-overwrite rule — a summary that turned out to be wrong
+> is evidence about how we get things wrong. The correction is in `bugs_open/437`; the full
+> account of the error is in `WRONG_CALLS.md`, 2026-09-03; the next summary in this series
+> will state the corrected position.
+
 *Second summary of the day. The first was written before the release; it ended with "after
 the next release, confirm at the artefact". This is that confirmation, and one finding the
 first summary could not have contained.*

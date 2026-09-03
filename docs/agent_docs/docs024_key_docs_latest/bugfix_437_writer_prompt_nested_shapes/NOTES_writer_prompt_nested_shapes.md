@@ -496,3 +496,91 @@ sites owned by other lanes, and it wants the owner's word. Put to him rather tha
   Identify mechanism-flow instances by shape (`content_data->'steps'` is an array
   containing `branches`) instead.
 - `diagnosis_artifacts` stores the council report in **`body`**, not `content`.
+
+## 2026-09-03 17:10Z — CORRECTION: the "52 permanently blocked keys" claim was wrong, and I had already committed it
+
+**Retracting the central finding of the entry above.** The counts were right; the mechanism
+was wrong, and with it the consequence, the recommendation and a decision I put to the owner.
+
+### What happened
+
+I went to act on the owner's answer (canary one site first: cv1, 1 key / 12 rows). Reading
+those rows before touching them — the whole point of a canary — showed **cv1's blocked set
+was empty**. So was remortgagecalculator's, which had held 19 keys / 64 rows three hours
+earlier. Both closed at 16:08Z with `resolution_path='auto:revalidated'`. **No human action.**
+
+`[MEASURED 2026-09-03 17:08Z]`
+
+| domain | keys 14:00Z | keys 17:08Z |
+|---|---|---|
+| remortgagecalculator.uk | 19 | **0** |
+| cv1.co.uk | 1 | **0** |
+| farmerinsurance.uk | 18 | 18 |
+| loanzy.uk | 14 | 14 |
+
+### The error, precisely
+
+I inherited §Unsticking's claim — *"an `unresolved` row DOES block re-minting"*, correctly
+cited to `loadOpenPageItems` (`reconcile_site_plan_action.go:751-756`) — and applied it to a
+population I had selected myself, without checking that the two matched.
+
+`loadOpenPageItems` governs exactly three item types: `needs_page`, `owned_page_review`,
+`page_build_failed`. **Every row I counted is `unbuilt_internal_link`**, which it never
+reads. That type is governed by `idx_swi_dedup`:
+
+```
+WHERE item_key IS NOT NULL AND status <> ALL (ARRAY['complete','verified','rejected',
+                                                    'wont_fix','failed','unresolved','cancelled'])
+```
+
+`'unresolved'` is in the list, so for these rows the status **frees** the dedup slot. The
+state I called permanently blocking is explicitly non-blocking, in an index definition one
+query away. And the repair path I said did not exist (candidate 2, "nothing re-plans or
+regenerates") **exists for this item type** — `revalidate_unbuilt_link.go`, drained via
+`revalidate_review_queue_action.go:324`: when the link's target page builds, it closes the
+item. Candidate 1 made the targets buildable and the drain did the rest, at ~20 keys in three
+hours.
+
+### Why it read as solid, which is the part worth keeping
+
+Every ingredient was genuine. A real citation to real code. A correctly-scoped census. A
+figure that survived re-measurement. An inherited framing that was *true in its own context*.
+The mechanism was verified and the population was verified — **but never against each
+other**, and the census output contained nothing that could have surfaced the mismatch,
+because I never projected `item_type`.
+
+**The cheap check is one column.** All 175 rows are a single type, and that type is absent
+from the three-item list in the function I was citing; the contradiction would have been in
+the same output as the number.
+
+And the clause that should have warned me: I wrote "**this does not decay**" as the emphatic
+contrast to a table I had just correctly warned *does* decay. It was the only sentence in
+that paragraph with no measurement behind it, sitting in the same voice as the findings on
+either side. That is the marker rule failing in the direction it always fails — not a wrong
+`[MEASURED]`, but an unmarked inference wearing the same clothes as the measurements around
+it. **I re-ran that census twice, three hours apart, and read the second as confirmation
+because I compared the fleet-wide total instead of the per-site split.**
+
+### What caught it, and it was not me
+
+**The owner choosing the canary option over "all four sites at once".** Doing one site meant
+reading one site's rows first; that read is what showed the premise had collapsed. Had the
+answer been the bulk option, I would have run surgery on 251 rows — pointless on all four
+sites, and on two of them surgery against rows that had already resolved themselves.
+
+The generalisable form, and it is not "be careful": **an action plan that forces you to look
+at the target before touching it is a different class of safe from one that does not.** The
+canary's value here was not that it limited blast radius. It was that it made a false premise
+*visible* before any state changed.
+
+### Where this leaves the lane
+
+- loanzy (14 keys) and farmerinsurance (18) genuinely have not drained, and loanzy's three
+  pages are untouched since 2026-08-18/27. **But no row is stopping them** — nothing has
+  rebuilt the target pages, so the drain has nothing to revalidate. The remedy is a build.
+- Candidate 2 ("no repair path") needs re-stating rather than restating: for
+  `unbuilt_internal_link` a repair path exists and works. Whether the gap is real for other
+  item types is now an open question, not a settled finding.
+- Demand control, re-measured: **29** mechanism-flow writer calls since the fix
+  (6/9/11/3 across 13:00–16:00), against the 6 recorded at 14:00Z. Candidate 1 is unaffected
+  by any of this and is in better shape than when it was written up.

@@ -28,7 +28,20 @@ the owner's** — see §The one thing to decide.
 | council | **APPROVED** round 2, corr `6de0f6f2-4f37-492a-9cbd-1ae886311a9b`, 4 advisory objections, none high-severity — **all four answered by census in `bugs_open/437`** |
 | the trailer | commit `a0044e73b` carries `Council-Submitted:`; `098` credits it automatically now the verdict is approved. **Nothing owed, do not amend** (forward-only) |
 
-## THE ONE THING TO DECIDE — and it is not a technical question
+> ⛔ **CORRECTED 2026-09-03 17:10Z, same session. THE SECTION BELOW IS WRONG AND THE ACTION
+> IT ASKS FOR MUST NOT BE TAKEN.** The rows block nothing. **20 of the 52 keys closed
+> themselves by 17:08Z** (`resolution_path='auto:revalidated'`, 16:08Z, no human action):
+> cv1.co.uk and remortgagecalculator.uk are fully drained. `loadOpenPageItems` — which the
+> "blocks re-minting" claim cites — governs only `needs_page`, `owned_page_review`,
+> `page_build_failed`; **every row counted is `unbuilt_internal_link`**, governed instead by
+> `idx_swi_dedup`, which lists `'unresolved'` among the statuses that **free** the slot.
+> **Do not clear any rows.** loanzy (14 keys) and farmerinsurance (18) have not drained
+> because their target pages have not been rebuilt — the remedy is a **build**, which lets
+> the existing drain (`revalidate_unbuilt_link.go`) close the items, as it already did for
+> the other two sites. Correction in `bugs_open/437`; full account in `WRONG_CALLS.md`.
+> Kept below unedited because the reasoning is the transferable part.
+
+## ~~THE ONE THING TO DECIDE~~ ⛔ WITHDRAWN — and it is not a technical question
 
 `[MEASURED 2026-09-03 14:00Z]` **73 keys** ever carried this error. **52 (71%) are blocked
 for ever** by **251 rows** in status `unresolved`, branded `[unresolved after 2 attempts]` —
