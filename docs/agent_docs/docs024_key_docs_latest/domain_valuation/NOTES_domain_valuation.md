@@ -395,3 +395,22 @@ Sedo blank puts one domain on two marketplaces with contradictory terms and
 makes the Afternic floor meaningless the moment a cheaper door exists. That is a
 different question from lowball tolerance — those two ARE agreed owner numbers,
 which his own ruling says outrank derived ones.
+
+## 2026-09-03 (night, closing) — the cross-marketplace floor gap is DELIBERATE
+
+Put to the owner directly: match the Afternic floors on Sedo, or accept the
+inconsistency. **He chose BLANK on Sedo for both** `relojistas.com` ($12,000
+Afternic floor) and `free.me.uk` ($50,000). So the same domain now carries a
+floor on one marketplace and none on another **by his decision**.
+
+⚠ **A future session will see this and read it as a defect. It is not.** It is
+recorded against both rows in `OWNER_FIGURES.csv` so the correction cannot be
+made by accident. This is the shape worth watching for generally: a deliberate
+decision that looks exactly like an oversight, and which any diligent reader
+would "fix".
+
+**Keep as the citable case for why an appraisal cannot source a floor:**
+`healthcare.uk` (£40,000 paid) and `healthcarecareers.uk` were given the
+**identical $149** by this model, because both inherit the same subcategory
+median. If the severance of appraisal from pricing is ever questioned, that one
+pair answers it without argument.
