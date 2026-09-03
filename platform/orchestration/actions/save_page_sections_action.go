@@ -182,8 +182,32 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// read. Same SQL, same fail-open-on-scan-error behaviour as the inline version
 	// this replaced — the point is that there is one predicate rather than two
 	// drifting copies of "is this page owned".
+	// ⚠ THE OWNED ARM ONLY — the tool_pending arm is deliberately NOT honoured here,
+	// and this narrowing is a REGRESSION FIX, not a weakening (bugs_open/450,
+	// reported by the bugs_open/427 lane 2026-09-03 with the measurement).
+	//
+	// This seam is shared by two paths that are INDISTINGUISHABLE at this point: a
+	// generic build authoring new prose about a tool that is not there (450's harm),
+	// and a page-rerender writing back components that are ALREADY DEPLOYED AND
+	// SERVING (no new authorship — the re-render's whole job). Refusing here caught
+	// both. [MEASURED 2026-09-03, immediately after the arm went live: of the 67
+	// pages the predicate matches, 54 across 10 sites are already serving deployed
+	// components and only 13 are the empty page 450 is actually about.] So the arm
+	// was refusing four times more repair than harm, and it broke the repair vehicle
+	// for those 54 the same morning bugs_open/454 restored it to actually working.
+	//
+	// Removing it here costs the class NOTHING, because every generic path is caught
+	// EARLIER and none of them reaches this line:
+	//   page-build-handler          -> load_page_record's refuse_owned_page arm
+	//   pageflow-builder/page-rebuild/site-work-orchestrator -> AssemblePageAction
+	//   any producer filing an item -> the writeWorkItem policy door, at file time
+	//   build selection             -> genericBuildExclusionSQL
+	// while page-rerender crosses NONE of them and only ever arrives here.
+	//
+	// The OWNED arm stays exactly as migration 164 left it: an owned page's verbatim
+	// components must not be deleted-and-reinserted by anything, re-render included.
 	{
-		if refused, class, _ := pageRefusesGenericBuild(ctx, params.DB, pageID, params.Logger); refused {
+		if refused, class, _ := pageRefusesGenericBuild(ctx, params.DB, pageID, params.Logger); refused && class == refusalOwned {
 			params.Logger.Warn("SavePageSectionsAction: PAGE REFUSES GENERIC BUILD — section save refused",
 				zap.String("page_name", pageName),
 				zap.String("page_id", pageID.String()),
@@ -219,24 +243,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			// Errors inside the emit are swallowed by design: reporting must never be
 			// what breaks a guard.
 			//
-			// bugs_open/450 added the second refusal class. The owned wording is
-			// preserved BYTE FOR BYTE — it is the text a live operator query and a
-			// pinned test both read — and the tool_pending case gets its own, because
-			// telling someone their page is "rebuild_policy=owned" when it is
-			// 'generic' would send them to look at a column that says the opposite.
+			// Only the OWNED class reaches here (see the narrowing note above), so this
+			// wording is migration 164's, preserved BYTE FOR BYTE — it is the text a
+			// live operator query and a pinned test both read.
 			reason := fmt.Sprintf(
 				"%s: page %s is rebuild_policy=owned (tool/widget-owned); a generic "+
 					"section save would clobber it. Use apply_section_edit for targeted "+
 					"edits or the tool pipeline for rebuilds.",
 				ownedPageSkipReasonPrefix, pageName)
-			if class == refusalToolPending {
-				reason = fmt.Sprintf(
-					"%s: page %s is page_type=tool with no tool component; a generic "+
-						"section save would publish prose about a tool that is not there. "+
-						"The tool pipeline builds it (add_tool → tool-deployer), after which "+
-						"this refusal lifts by itself.",
-					ownedPageSkipReasonPrefix, pageName)
-			}
 			emitOwnedPageReviewItem(ctx, params.DB, siteID, pageName, "save_page_sections",
 				reason, class, params.Logger)
 
@@ -250,14 +264,6 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			// is what update_work_item_status' owned_page_refusal_status reads.
 			// Without it every save error looks alike at the only place the
 			// item's terminal status is chosen.
-			if class == refusalToolPending {
-				return nil, fmt.Errorf(
-					"%s: page %s is page_type=tool with no tool component: a generic section save "+
-						"would publish prose about a tool that is not there. The tool pipeline "+
-						"builds the component (add_tool → tool-deployer) and this refusal then "+
-						"lifts by itself. Refusing to overwrite.",
-					ownedPageSkipReasonPrefix, pageName)
-			}
 			return nil, fmt.Errorf(
 				"%s: page %s is rebuild_policy=owned (tool/widget-owned): a generic section save "+
 					"would clobber it. Use apply_section_edit for targeted edits or the tool "+

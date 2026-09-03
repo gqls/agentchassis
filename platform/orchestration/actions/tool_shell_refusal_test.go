@@ -406,12 +406,26 @@ func TestAssemblePage_ToolShellIsSkippedNotAssembled(t *testing.T) {
 	}
 }
 
-// TestSavePageSections_RefusesToolShell covers the backstop: page-build-handler
-// has no assemble step, so a work item reaches the save directly. The refusal
-// must be an ERROR here (the save genuinely did not happen) leading with the
-// marker, which is what UpdateWorkItemStatusAction reads to choose wont_fix over
-// failed.
-func TestSavePageSections_RefusesToolShell(t *testing.T) {
+// TestSavePageSections_DoesNotRefuseToolShell pins the NARROWING, and it is the
+// inverse of what this test asserted when first written.
+//
+// ⚠ THIS IS A REGRESSION FIX, reported by the bugs_open/427 lane within minutes of
+// the arm going live. save_page_sections is shared by two paths that are
+// indistinguishable at that seam: a generic build authoring prose about a missing
+// tool (450's harm), and a page-rerender writing back components that are ALREADY
+// DEPLOYED AND SERVING. Refusing here caught both — and the collateral dominated:
+// of the 67 pages the predicate matches, 54 across 10 sites are already serving
+// and only 13 are the empty page 450 is about [MEASURED 2026-09-03]. It broke the
+// repair vehicle for those 54 on the same morning bugs_open/454 restored it.
+//
+// The class loses nothing, because every generic path is caught EARLIER — the
+// writeWorkItem door at file time, load_page_record's refuse_owned_page arm,
+// AssemblePageAction, and the build-selection exclusion — and page-rerender
+// crosses none of them. See the narrowing note in save_page_sections_action.go.
+//
+// No receipt is scripted: emitting one here would be the old behaviour, so an
+// unexpected INSERT fails this test.
+func TestSavePageSections_DoesNotRefuseToolShell(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
@@ -421,34 +435,70 @@ func TestSavePageSections_RefusesToolShell(t *testing.T) {
 	siteID, pageID := uuid.New(), uuid.New()
 
 	mock.ExpectQuery("SELECT id, url FROM pages").
-		WithArgs(siteID, "tool-robots-txt-tester").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/tools/robots-txt-tester/index.html"))
+		WithArgs(siteID, "tool-fight-calendar").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/tools/fight-calendar/index.html"))
 	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
 		WithArgs(pageID).
-		WillReturnRows(policyRows("generic", true))
+		WillReturnRows(policyRows("generic", true)) // a tool shell — the 427 lane's page
+	// Everything after this point is the ordinary save path. We do not script it:
+	// the assertion is only that the guard did NOT refuse, which the error text
+	// below distinguishes from any downstream failure.
+
+	_, err = SavePageSectionsAction(context.Background(),
+		saveSlotParams(db, siteID, "tool-fight-calendar", []interface{}{
+			map[string]interface{}{
+				"rendered_html":  "<section><p>Re-rendered event list, already deployed</p></section>",
+				"component_name": "event-list",
+			},
+		}))
+	if err != nil && strings.HasPrefix(err.Error(), ownedPageSkipReasonPrefix) {
+		t.Fatalf("the tool-shell arm still refuses at save_page_sections — this is the "+
+			"bugs_open/427 regression: it blocks re-renders on 54 already-serving pages "+
+			"while every generic path is already caught earlier: %v", err)
+	}
+}
+
+// TestSavePageSections_StillRefusesOwnedPage is the guard-in-series control that
+// stops the test above passing for the wrong reason. Narrowing the tool arm must
+// not have disarmed migration 164's ownership refusal at the same seam — that one
+// protects live verbatim tools from delete-and-reinsert and is unchanged.
+func TestSavePageSections_StillRefusesOwnedPage(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID, pageID := uuid.New(), uuid.New()
+
+	mock.ExpectQuery("SELECT id, url FROM pages").
+		WithArgs(siteID, "tool-gauntlet").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/tools/gauntlet/index.html"))
+	mock.ExpectQuery(regexp.QuoteMeta(rebuildPolicyReadSQL)).
+		WithArgs(pageID).
+		WillReturnRows(policyRows("owned", false))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	_, err = SavePageSectionsAction(context.Background(),
-		saveSlotParams(db, siteID, "tool-robots-txt-tester", []interface{}{
+		saveSlotParams(db, siteID, "tool-gauntlet", []interface{}{
 			map[string]interface{}{
-				"rendered_html":  "<section><p>Prose about a robots.txt tester</p></section>",
+				"rendered_html":  "<section><p>generic prose</p></section>",
 				"component_name": "generic-text-block",
 			},
 		}))
 	if err == nil {
-		t.Fatal("a tool page with no tool was SAVED — the generic builder just published " +
-			"prose where the tool belongs")
+		t.Fatal("an OWNED page was saved — narrowing the tool arm disarmed migration 164's " +
+			"refusal, which is the one protecting live verbatim tools")
 	}
 	if !strings.HasPrefix(err.Error(), ownedPageSkipReasonPrefix) {
-		t.Errorf("the refusal error must LEAD with %s so update_work_item_status can tell it "+
-			"from a genuine save failure: %q", ownedPageSkipReasonPrefix, err.Error())
+		t.Errorf("the owned refusal must still LEAD with %s: %q", ownedPageSkipReasonPrefix, err.Error())
 	}
-	if strings.Contains(err.Error(), "rebuild_policy=owned") {
-		t.Errorf("the error claims the page is owned; it is 'generic': %q", err.Error())
+	if !strings.Contains(err.Error(), "rebuild_policy=owned") {
+		t.Errorf("the owned wording must be preserved byte-for-byte: %q", err.Error())
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("the refusal must leave its owned_page_review receipt: %v", err)
+		t.Errorf("the owned refusal must still leave its receipt: %v", err)
 	}
 }
 
