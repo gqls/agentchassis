@@ -2580,3 +2580,30 @@ one platform across everything you need." → "We pick the tool suited to each t
 the judge disagree on how much a truncation may remove; (2) the **"so" consequence clause**, the
 one shape both pages still carry that the register does not see. The `no_answer_for_target`
 rejection is a live instance of a class already sized at 13.6% of 1,849 targets (their re-ask work).
+
+## 2026-09-03 (11:05Z) — TWO OWNER RULINGS on the negation gate's line, relayed to the copy lane
+
+Put as a pair at the copy lane's request, with three real homepage sentences. He chose from options:
+
+1. **The "gutted" rejection → "Accept cuts like this."** Option text he accepted: *"Keeping the
+   first clause and cutting at the comparison is the norm you set. Loosen the judge so a
+   truncation to a complete, true first clause is accepted."* **He ruled no number.** The copy
+   lane established (after the question went out) that `gutted` is a **length ratio**, not a
+   meaning judgement: `negationtells.go:571` `if len(to) < len(from)*2/5 { return false, "gutted" }`.
+   Against that 40% floor: his own ruled sentence = **29.5% (would be REFUSED)**, the live
+   homepage rejection = 38.1%, the two accepted technical-details cuts = 75.0% / 74.4%. So the
+   homepage reads correctly only because the BRIEF told the writer; the gate itself is built to
+   refuse his worked example. Whoever changes the constant does it as a Go change in council
+   scope with the policy tests re-pinned; the copy lane takes it. Nobody lowers it on a session's
+   judgement.
+2. **The "so" clause → "Repair only when it follows a definition."** Option text: *"fire when the
+   'so' clause is bolted onto a sentence that already explained a term (like 1 and 2), leave plain
+   cause-and-effect (like 3)."* Exemplars ruled: IN (1) "We train open-weight models on your own
+   documents, a technique called fine-tuning, so the AI answers the way your best person would."
+   IN (2) "It learns from your own documents, so it picks up how your industry actually talks and
+   what a good answer looks like, and once trained it belongs to you." OUT (3) "Every agent's
+   output stays visible, so you can see what it decided and why." Encoding is the copy lane's
+   register work (v3).
+
+Also recorded from their reply (commit `4b1f51647`): the gate did NOT produce his homepage
+sentence, the brief did — "the gate implements his ruling on every page" is not established.

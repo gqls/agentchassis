@@ -1276,3 +1276,12 @@ The technical-details page came back with every section knowing its own subject,
 the fix that lets sites like this one carry subjects at all. Its headings still repeat because
 the prompt change is waiting on your read. It also came back with one misspelt closing tag,
 which I've filed rather than patched, and a third shorter than before.
+
+2026-09-03, 11:05. You ruled on the two "where is the line" questions. Cuts like the one the
+check refused are to be accepted, and the "so" clause is to be repaired only when it is bolted
+on to a sentence that has just explained a term. Both have gone to the copy quality lane, who
+own the check. One thing they found after I'd asked: the check's idea of "gutted" is a length
+rule, anything under forty percent of the original is refused, and your own sentence is at
+thirty. So the homepage reads right today because the brief told the writer, and the check
+itself would have refused that cut. Changing that number is a code change through review, and
+they'll do it on your ruling rather than on a guess.
