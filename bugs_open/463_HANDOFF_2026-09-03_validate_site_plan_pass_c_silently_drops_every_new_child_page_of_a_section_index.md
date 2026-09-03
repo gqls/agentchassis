@@ -235,8 +235,13 @@ stands — not a claim that Pass C emptied all 53.)
 - **`create_blog_posts_action.go`, `apply_gap_plan_action.go`, `apply_adoption_plan_action.go`**
   call `CanonicalisePage` without threading `ParentSection` at all, so they still write
   blog-posts to `/blog/` whatever the plan says. Found by the `feed lane` and verified here.
-  Unaffected by this fix because there is no url at those call sites to derive from — a
-  different fix, in a producer dormant since 2026-04-24 (`bugs_open/460`).
+  Unaffected by this fix because there is no url at those call sites to derive from (the url is
+  the OUTPUT of canonicalisation there, not an input) — a different fix, in a producer dormant
+  since 2026-04-24 (`bugs_open/460`). **Now filed as `bugs_open/468`**, at the finder's
+  insistence and on a good argument: a residual recorded inside another bug stops being read the
+  day that bug closes, and this estate already carries a landmine for a closed blocker still
+  being obeyed. 468 and this entry point at each other, which is the arrangement that survives
+  either lane going away.
 - **`bugs_open/457`** (`rebuild_blog_listing` appending orphan `page_components` rows) is the
   hub-RENDER path and is owned and in flight. It decides whether a filled hub actually *lists*
   its children, so it gates the end-to-end verification of this fix, not the fix itself.
