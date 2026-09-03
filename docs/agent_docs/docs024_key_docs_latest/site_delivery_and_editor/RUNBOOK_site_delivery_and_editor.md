@@ -359,9 +359,14 @@ needs_human_review`, `spec.checkpoint = true`, `item_key = delivery_review_idea.
 
 ```bash
 CORR=$(cat /proc/sys/kernel/random/uuid); ORCH=$(cat /proc/sys/kernel/random/uuid)
-PAYLOAD=$(jq -c -n --arg s "$SITE" --arg d "$DOMAIN" '{action:"orchestrate",
+PAYLOAD=$(jq -c -n --arg s "$SITE" --arg d "$DOMAIN" --arg b "<one paragraph>" '{action:"orchestrate",
   config:{agent_type:"delivery-review-filer"},
-  input_data:{site_id:$s,domain:$d,site_url:("https://"+$d),brief:"…"}}')
+  input_data:{site_id:$s,domain:$d,site_url:("https://"+$d),brief:$b,
+    # review_data is what the OWNER is shown on the approve screen, and it is
+    # composed HERE on purpose (migration 752, bugs_open/474). Omit it and
+    # create_work_item REFUSES the item outright — a loud failure in front of
+    # you now, instead of a silent one in front of him later.
+    review_data:{domain:$d, site_url:("https://"+$d), brief:$b}}}')
 kafka_publish_checked --topic system.agent.generic.requests --payload "$PAYLOAD" \
   --correlation "$CORR" \
   --header "orchestration_id=$ORCH" \
@@ -436,3 +441,59 @@ double-send guard working, not a fault. Recovery for stamped-but-unemailed is in
 | the four agents | all `is_active`; `zip-deliverable-dispatch` and `zip-deliverer` are `status: experimental` |
 | `links.webdesign.uk` | verified — see the section above |
 | DKIM/DMARC at the mail host | **still unchecked from here** (absent as of 2026-08-26). This is the one that decides whether the message lands in an inbox or a junk folder |
+
+### ✅ THE REHEARSAL RAN END TO END — 2026-09-03, idea.uk. All four agents, first time ever.
+
+| step | agent | result |
+|---|---|---|
+| 1 | `delivery-review-filer` | item `e370e0bb` filed 18:22:03Z (after a refused first attempt — §the envelope) |
+| 2 | **the owner's APPROVE** | 19:20:58Z. `status=complete`, `result.approved_by='admin'`, `resolved_by` absent — the gate's own predicate, read back independently |
+| 3 | `zip-deliverable-dispatch` → `zip-deliverer` | 19:23:14Z. **45 files**, 2,394,857 B zipped from 2,846,881 B, `deliverables/idea.uk/idea.uk-af9039a61dbd.zip`, presign **10080 min (7 days)** |
+| 4 | `delivery-email-sender` | 19:30:31Z. `send_email => {"to":"aaa@…","sent":true,"zip_link":true,"advertised_days":30}` |
+
+**The first handover stamp in the estate's history**: `sites.handed_over_at = 2026-09-03 19:30:31Z`,
+`live_link_expires_at = 2026-10-15` (six weeks). Was 0 of 60 sites all day. **Two tokens minted**
+(`confirm_transfer`, `zip_download`), both to 2026-10-15, the zip one carrying a `stored_url` — the
+first `customer_access_tokens` rows ever.
+
+**The zip link was proved live BEFORE the email went, with two negative controls** — because a 200
+on its own cannot tell a working signature from an open bucket:
+
+```
+ranged GET (Range: bytes=0-0)          -> 206, application/zip, 1 byte
+same URL, last signature char altered  -> 403     <- the signature is doing work
+the object path with no signature      -> 401     <- the bucket is not open
+```
+
+`https://idea.uk` also probed 200 with an invented path 404ing, so the live-site link in the email is
+not a parked catch-all.
+
+### ⚠ THE STANDING FINDING: three different lifetimes, and the longest one rests on a mechanism that has never run
+
+| what | lifetime |
+|---|---|
+| the presigned S3 URL inside the zip link | **7 days** |
+| what the email tells the customer | **30 days** |
+| the tokens themselves | **42 days** (to 2026-10-15) |
+
+This is **not** a broken link at day 8, and the code is careful about exactly that: `HandleZipDownload`
+refuses to redirect to a stale presign — *"an expired presign answers 403 SignatureDoesNotMatch, which
+reads as broken credentials, not an old link"* — and renders a refresh page instead
+(`ErrZipURLStale` → `RecordStaleZipLink`). The 30-day promise is therefore kept by
+`zip-link-refresher` re-signing `stored_url` before the presign lapses.
+
+**That refresher is scheduled (`scheduled_tasks.zip-link-refresh`, enabled, every 21600s, last
+triggered 2026-09-03 15:04:32Z) and has never refreshed anything, because until 19:30 today there
+were ZERO `zip_download` tokens fleet-wide for it to act on.** `enabled` plus a fresh tick is not
+evidence of work — the scheduler firing an agent that finds nothing to do looks identical to one
+doing its job.
+
+> **THE CHECK, and it is the rehearsal's real deliverable:** between now and **2026-09-10** (presign
+> lapse), confirm the refresher has moved this token's presign forward:
+> ```sql
+> SELECT purpose, stored_url_expires_at, expires_at
+>   FROM customer_access_tokens WHERE purpose='zip_download';
+> ```
+> `stored_url_expires_at` advancing past 2026-09-10 is the proof. If it does not move, the email's
+> 30-day promise is good for 7, and the customer meets a refresh page — which is the honest failure,
+> but still a failure of the thing we told them.
