@@ -972,3 +972,53 @@ need a front-end rebuild, so none is done yet, and you are unblocked in the mean
 the approve button that could not read its own payload, the item filed in a shape the screen refuses,
 and now the screen not showing the item at all. Every one of them was found on our own site instead
 of a customer's, which is exactly what you paid for by choosing the full rehearsal.
+
+---
+
+## 2026-09-03, night — the email works, and it tells the customer something untrue
+
+You got the email, the zip opened, the links worked. That is the whole delivery chain proved end to
+end, on our own site, before a customer ever depended on it. Four pieces of machinery that had never
+run once between them.
+
+Then you read it the way a customer would, and found the thing none of our checks could.
+
+**The email says: "The ZIP comes with instructions that walk you through putting it on free
+hosting."** I downloaded the zip we actually sent you and listed it. Forty-five files: thirty-one
+pictures, ten pages, three scripts, one stylesheet. The site, and nothing else. No instructions of
+any kind.
+
+I want to be plain about why that is worse than a missing file rather than the same thing.
+
+It is a false statement, in an email we send someone who has paid us. And it sits on the one line
+that matters most to them: the next paragraph tells them they have to host the site themselves after
+thirty days, and the promised instructions are the only thing that would tell them how. So a
+customer opens the zip looking for the instructions we told them were there, doesn't find them, and
+the reasonable conclusion is that the download is broken. The first thing this produces is somebody
+asking us to re-send a file that was perfectly fine.
+
+And every check we have said it was fine. The chain reported the email sent. The zip verified — right
+number of files, good checksum. The link fetched. **Nothing anywhere compares what the email says to
+what is actually in the box.** That gap is the finding, more than the missing file is.
+
+**Your instinct that they should be separate is recorded as a ruling, and I think it is right** — for
+one reason above the others: a page can be corrected after a customer already has the email, and a
+file inside a zip cannot. If we get the hosting advice slightly wrong, or a free host changes its
+signup, the page is a five-minute fix for everyone including people who were sent the email last
+month.
+
+The one thing I would put back the other way: the zip outlives the email. Somebody who downloads
+their files and comes back in a year has the folder and no message. So my recommendation is a short
+plain text file inside the zip that says what this is and where the full instructions live, with the
+real instructions on the page.
+
+**What I need from you before I write anything.** Are the instructions the same for every customer,
+or do they mention their own domain and their own hosting? A general "here is how to put a folder of
+web pages on free hosting" is one page, written once, and I can draft it. Anything naming their
+domain has to be generated per customer, which is a different piece of work.
+
+The good news is that the email copy is settings rather than program code — deliberately, so you can
+edit the words yourself without waiting for a release. Changing it needs no rebuild.
+
+Filed as `bugs_open/475` with four options costed. Nothing is going out to a customer meanwhile —
+boxingonline's delivery is still held where you left it.
