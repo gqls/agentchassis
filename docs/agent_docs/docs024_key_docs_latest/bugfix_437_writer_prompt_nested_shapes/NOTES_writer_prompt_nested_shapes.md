@@ -222,3 +222,50 @@ highest-volume one. The cheap cover already exists: `RenderPromptTemplate` detec
 **Nothing about 437 changed.** My two new directives are inside `{{if}}` guards and neither
 prints a bare key; none of the three observed calls was a mechanism-flow page, so the nested
 exemplar has still not been exercised in production. That remains owed after the roll.
+
+## 2026-09-03 — two lanes ask whether the legacy `items` dialect is my defect: it is not, and the check strengthened my own claim
+
+The `components` lane (routed via `bugs_open/427`, independently re-derived and relayed by
+`bugsweep4`) reported that `mechanism-flow` still carries the LEGACY JSON-Schema `items`
+dialect — the `bugs_open/240` shape — and asked, without proposing a mechanism, whether that
+is the same defect as 437 or two in one place.
+
+**Settled: two, in the same place, fixed sequentially.**
+
+- **240 was the DIALECT being misread.** A JSON-Schema `items` block read naively as a flat
+  name→type map yields the JSON-Schema KEYWORDS, so `mechanism-flow` once shipped `steps`
+  keyed `properties`/`required`/`type` and rendered empty. Fixed: `extractArrayItemFields`
+  discriminates on `items["properties"]` being a map, and names this very component in its
+  own doc comment.
+- **437 is one layer past it.** The dialect is read CORRECTLY; the per-item NAMES come out
+  right. What is lost is the nested TYPE.
+
+**The proof they are distinct was already in my evidence and I had not noticed it as
+proof:** the failing prompt listed `body, branches, marker, note, title` — the real per-item
+names. Had the dialect been mishandled, it would have listed `properties, required, type`.
+So dialect handling was working correctly throughout all 119 failures. My fix neither
+depends on it nor changes it, and re-declares no component schema.
+
+**The valuable part was the cross-check, and it could have gone against me.** Their census
+named a population I did not choose: **5** components carry the legacy dialect (`checklist`,
+`comparison-table`, `evidence-timeseries`, `mechanism-flow`, `period-calendar`). If any of
+the other four had a nested structured item property, my "exactly 1 qualifying component"
+blast-radius claim — which the council submission, the register entry and the commit message
+all rest on — would have been wrong and the fix would have silently under-covered. Re-ran
+the structured-property test over exactly those five: **1 of 21** item properties is
+structured (`mechanism-flow.steps.branches`, `array`); the other 20 are `string`/`number`.
+Same answer, someone else's population. That is a better form of the claim than my own sweep
+alone and it is now recorded in PBP-052 with its provenance.
+
+**Also inherited, a query trap worth more than the finding** (from `bugsweep4`, having cost
+two lanes real time): `jsonb_typeof(def->'items'->'properties') = 'object'` is **NULL** on a
+flat component, so `WHERE NOT (…)` discards every flat row under three-valued logic and
+returns 43 flat components as ZERO — a wrong answer shaped exactly like a finding. My own
+censuses happen to be safe because they use a POSITIVE test rather than a negation, but that
+was luck rather than care. Written into the RUNBOOK beside the census it protects.
+
+Their stated negative is worth preserving too: `bugsweep4` checked the dialect against
+`bugs_open/361`'s render-check findings and reports **no intersection** — none of the 18
+regressions sits on a legacy-dialect component, and the 3 of 460 unbaselined that do are
+field-level (`.section_title empty_heading`), not per-item. Recorded so nobody later infers
+a link that both lanes explicitly looked for and did not find.

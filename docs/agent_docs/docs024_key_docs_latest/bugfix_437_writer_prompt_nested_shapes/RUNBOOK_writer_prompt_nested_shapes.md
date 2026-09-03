@@ -56,6 +56,30 @@ queries over the flat-`items` dialect (values are type NAMES, so test `ival #>> 
 only the JSON-Schema dialect would have been correct and incomplete; the flat dialect is
 the majority of the library.
 
+⚠ **`jsonb_typeof(def->'items'->'properties') = 'object'` is NULL on a flat component**, so
+`WHERE NOT (…)` over it discards every flat row under three-valued logic and reports 43 flat
+components as ZERO — a wrong answer that reads like a finding. Use `def->'items' ?
+'properties'`, which is false rather than NULL for a missing key. (Contributed by the
+`bugsweep4` lane, 2026-09-03, having cost two lanes real time. The censuses above are safe
+because they use `?` or a POSITIVE `jsonb_typeof` test — the hazard is the negation.)
+
+**Cross-check the count against a population you did not choose.** The `components` and
+`bugsweep4` lanes independently measured the legacy JSON-Schema `items` population at **5**
+components (`checklist`, `comparison-table`, `evidence-timeseries`, `mechanism-flow`,
+`period-calendar`; 57 active `{{range}}` components, 43 flat, 0 `item_schema`). Re-running
+the structured-property test over exactly those five returns **1 of 21** item properties
+structured — the same answer as my own sweep, on someone else's population:
+
+```sql
+SELECT c.function, f.key AS field, p.key AS item_prop, p.value->>'type' AS item_prop_type
+  FROM content_components c,
+       jsonb_each(c.input_schema->'fields') f,
+       jsonb_each(f.value->'items'->'properties') p
+ WHERE COALESCE(c.is_active,true) AND c.input_schema ? 'fields'
+   AND f.value->>'type' IN ('array','list') AND f.value->'items' ? 'properties'
+ ORDER BY (p.value->>'type' IN ('array','object')) DESC;
+```
+
 ## 3. Rehearse a prompt-template migration BEFORE writing its guard numbers
 
 Two rehearsals, both cheap, and the first one caught a real defect in my own guard.
