@@ -20787,3 +20787,59 @@ successes pads an evidence base with runs that never exercised the thing under t
 - **the generalisation worth carrying:** whenever you consume another lane's file by pattern, you have taken a dependency on their **naming**, which is not an interface either side agreed to and which nobody will think to tell you about when it changes. Either agree the stem explicitly with them, or read wide and print. Ask also which direction the harm runs: for anything whose job is to STOP an action, prefer the reading that stops more.
 - **source:** 2026-09-03, domain_valuation lane, found while re-deriving an owner instruction ("remove anything like wyke…") independently instead of taking a supplied list — the extra names surfaced two domains that should have been in a fence I was reading, which is what exposed the fence itself as stale. Filing prompted by the copy_quality_two_stage lane.
 - **added:** 2026-09-03, domain_valuation lane.
+
+## A CSS property you pick as the "must not change" control may live INSIDE the block your change emits — so a correct change moves it and reads as a defect
+
+- **footprint:** `content_components.html_template` · `info-card-grid` · `{{if $.carousel}}` · `overflow-x` · any acceptance test that counts a CSS property or class name in served HTML · any before/after comparison taken across two different pages
+
+**the trap:** you are about to flip a component flag, so you take a before-read of the served bytes
+on a flag-ON page and a flag-unset page, and you look for a signature that is **equal on both** to
+use as your negative control. Equality looks like exactly what a control should look like — the
+number is real, it is taken at the served bytes, and it reproduces. **But a total summed over a
+whole document tells you nothing about what each occurrence IS.** Two unrelated components can
+contribute the same count by coincidence, and the property you picked can also be emitted by the
+very block your flag gates.
+
+Measured 2026-09-03 on `info-card-grid`: `overflow-x` read **2** on
+`leopardessconsulting.co.uk/services.html` (flag ON) and **2** on `designblog.co.uk/index.html`
+(flag unset), and was written into a cold-start handoff as *"must NOT change — a flip that moves
+`overflow-x` is doing something other than what it says."* In fact the template's **only**
+`overflow-x` (line 204) sits **inside** the `{{if $.carousel}}` style block (165–298), so a correct
+flip **adds one**. The two 2s had nothing in common: leopardess = 1 from another component's
+`--trp-track-gap` + 1 from the carousel block itself; designblog = 2 from `.category-strip`,
+emitted twice.
+
+⚠ **This fails in the expensive direction.** A useless control wastes a check; an **inverted** one
+converts a success into an apparent failure, and the documented remedy for the "failure" is to
+revert a change that had just worked.
+
+**the check, before you promote any number to a control:**
+```bash
+# 1. WHERE does each occurrence live? Never just how many.
+psql -At -c "SELECT html_template FROM content_components WHERE name='<component>' AND is_active" > /tmp/tpl
+grep -n '<your-signature>' /tmp/tpl
+grep -n '{{if \$\.<your-flag>}}\|{{end}}' /tmp/tpl   # is your signature between them?
+
+# 2. On the SERVED page, read the selector each occurrence belongs to — not the total.
+grep -n '<your-signature>' page.html   # then sed -n '<line-8>,<line>p' to see the rule
+```
+- **the rule:** a negative control must be something your change **cannot** touch. Ask "which
+  occurrences are these, and can my change produce one?", not "did the number move?". For a layout
+  flag the sound control is the **content**: the count of card/article elements and their titles
+  must be byte-stable, because a layout change that alters them is the one misbehaving.
+- **and:** a before/after taken across **two different pages of two different sites** is not a
+  control at all — it compares two populations. Take it on the SAME page, before and after.
+- **source:** 2026-09-03, vigilant designer + offer/benefit analyser lane, caught while writing
+  migration `740` (the carousel default) by reading the template before running the lane's own
+  handed-down test. Full incident: `WRONG_CALLS.md`, "my acceptance test's negative control was
+  INVERTED". Corrected in place in
+  `docs/agent_docs/docs024_key_docs_latest/vigilant_designer_offer_analysis/HANDOFF_2026-09-03_continue_here.md` §3.2.
+- **added:** 2026-09-03, vigilant designer + offer/benefit analyser lane.
+
+### A `template_changed` rerender of a query-backed section renders the NEW template over the STALE snapshot — and reads as success
+- **footprint:** site_work_items, page_rerender, spec.reason, template_changed, content_components.html_template, platform/orchestration/actions/queryresolve/, directory-listing, query.business_directory, page_components.content_data
+- **fires when:** you edit a component's `html_template` where any field resolves from a `query.*` source, then ship it with a `page_rerender` reason `template_changed` (the documented literal for template edits). The rerender completes, the page redeploys, bytes change — and the section renders your new template over the data snapshot resolved at BUILD time. Rows added/changed since the build never appear; conditional branches keyed on fresh data ({{if .is_claimed}}) evaluate against the stale rows and can emit nothing at all.
+- **why the wrong result looks right:** everything reports success (item complete, deploy commit, page bytes changed, your new markup demonstrably present in the template), and the served page differs from the previous render — so "did my edit ship?" checks pass. What never happened is the RE-RESOLVE. Proven in production 2026-09-03 on vetcomparison.uk/directory: a chip branch shipped via template_changed rendered 0 chips over a 60-row snapshot that predated the 51 rows the chip existed for; the follow-up resolve-mode rebuild (`needs_page` → the page's builder) rendered all 51. Predicted by the council guardian seat as an advisory on corr 09cf68c2 before it happened.
+- **the check:** if the edited template touches a section whose content_data came from `queryresolve` (grep the component's fields for `query.` sources, or the page's builder for `resolveBusiness*`), ship via a RESOLVE-MODE REBUILD — a `needs_page` item routed to the page's own builder — not a rerender. After shipping, verify a row that only exists in FRESH data appears on the served page; "my new markup is present" is not the check, because the new template renders happily over old rows.
+- **source:** vetcomparison lane 2026-09-03; guardian advisory on council corr 09cf68c2; the clean negative experiment by the site-design-planner session
+- **added:** 2026-09-03, vetcomparison lane
