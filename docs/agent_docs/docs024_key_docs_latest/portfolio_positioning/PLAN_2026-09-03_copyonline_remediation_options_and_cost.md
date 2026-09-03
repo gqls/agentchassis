@@ -116,3 +116,53 @@ build that is already running and he has not answered since; silence is not perm
 What I got wrong and have corrected in place: I told him this was "one well-evidenced change". It was,
 before the consumers ran. They have now run and persisted their blind reads, so it is a sequence, not
 a change. The correction is at the foot of the SQL file and in `NOTES` entry (pp).
+
+---
+
+## 7. ⚠ CORRECTION, 2026-09-03 ~18:05Z — NOTHING IS PUBLIC, AND THIS CHANGES SECTION 5
+
+I wrote "ten pages, all `active` and deployed" in §4, and in §5 I gave as a cost of option A that it
+"puts a wrong-shaped site briefly in front of anyone who looks". **That last clause is refuted, and
+the word "live" in §4 was mine, not the system's.**
+
+**What is actually true** [MEASURED 2026-09-03 18:03Z, at the served bytes and at the `sites` row]:
+
+```
+https://copyonline.co.uk/                                HTTP 200   Drupal 7  <title>Copywriters
+https://copyonline.co.uk/tools/title-tag-scorer/index.html   HTTP 404   (the recorded pages.url)
+https://copyonline.co.uk/tools/title-tag-scorer/             HTTP 404
+https://copyonline.co.uk/tools/title-tag-scorer              HTTP 404
+https://copyonline.co.uk/guides/tool-title-tag-scorer-guide.html  HTTP 404
+https://copyonline.co.uk/tools/website-brief-starter/index.html   HTTP 404
+https://copyonline.co.uk/this-page-does-not-exist-<epoch>.html    HTTP 404   <- invented-URL control
+```
+
+The control 404s, so the domain is not parked and a 404 here means what it says. The root still
+serves the **old Drupal 7 installation** (`x-generator: Drupal 7`, `server: LiteSpeed`) — the very
+site the classifier read to conclude this was a marketplace.
+
+And the `sites` row agrees: **`publish_target` NULL · `publish_project` NULL · `published_at` NULL ·
+`last_deployed_at` NULL · `build_status` `pending`**. The site has never been published anywhere.
+
+**The trap I fell into.** `pages.deployed_at` is a **page-level** timestamp and it is set on all ten.
+It does not mean the site is published, and I read it as though it did. The site-level facts are on
+the `sites` row, and the only fact that settles it is the served bytes. This is the estate's standing
+rule — *trust the rendered artefact, not the status* — and I applied it to the tool components this
+morning and then forgot it this afternoon on the pages.
+
+**What it changes.**
+
+- **Option A gets substantially cheaper and safer.** Nothing wrong is in front of anybody. There is no
+  reputational cost to letting the build finish, and no urgency created by exposure. The only cost is
+  rework, which is internal.
+- **The ten pages are database rows, not published artefacts.** Retiring them is a cheap internal
+  operation, not an un-publishing.
+- **§5's option B is unchanged** and remains the clean route, but the pressure behind it is lower than
+  I implied. The real deadline is still `needs_strategy` → plan, because that is what commits the page
+  set, not any public exposure.
+- **The three seotools duplicates are less costly than I said.** They shipped past an open owner
+  question, which is still a process failure worth recording, but they are not on the internet.
+
+**What does NOT change.** The brief still reaches nothing; six derived specs were still written blind;
+the site is still being designed as a marketplace against a brief describing an authority site; and
+the window still closes when the planner runs.
