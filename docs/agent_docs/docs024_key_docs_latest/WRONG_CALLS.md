@@ -62787,3 +62787,58 @@ central claim. Read them together; the one above stays as written, per append-on
   `function`. **When the conclusion keeps surviving while the reasons keep failing, the
   conclusion is probably coming from somewhere other than the evidence you are citing for
   it — go and find where.**
+
+## 2026-09-03 — I asserted an owner ruling did not exist, from a phrase-grep over one lane's directory, and handed a peer a design answer that depended on the absence (vigilant designer / offer-benefit analyser lane) — FOURTH false absence from my own grep in a week
+
+**The claim.** Asked by `site_delivery_and_editor` for a designer-seat call on whether
+boxingonline.com's site name should appear beside the header logo, I answered yes, and wrote into a
+CONTRIB in their own directory:
+
+> ⚠ **This contradicts your §8 ruling 4 ("Header is logo-only — no wordmark beside the mark"), so
+> check it before acting.** I traced it: the only two occurrences in the repo are your own
+> `APPROVAL_READOUT_2026-09-02…md:21` and your handoff §8. **I can find no owner words behind it** —
+> unlike the palette ruling, which has a dated quote and a commit. … **If nobody can produce owner
+> words for item 2, it is still open, and my answer above is the seat's answer.**
+
+**What is actually true.** The owner ruled it, five days before I said he had not:
+`docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/NOTES_webdesign_uk_build_service.md:6905`,
+block headed **"Rulings (owner, via boxingonline thread)"**, 2026-09-02: **"(2) header stays
+LOGO-ONLY. Closed."** The same block carries the palette ruling I had just cited approvingly — in
+different words again ("the cream/off-white STANDS — no flip"). So both rulings were in one place, in
+a third lane's NOTES, and I found neither by grepping for the phrases I expected.
+
+**What caught it.** The peer, within the hour, by grepping for **ruling HEADINGS** across lanes
+instead of for the wording. Not me.
+
+**The cheap check that would have.** `grep -rn "Rulings\? (owner" docs/agent_docs/` — one command,
+fleet-wide, keyed on the thing sessions actually write when they record a ruling. Generally:
+**a phrase-grep can only ever disconfirm the PHRASE. It cannot establish an absence, because a
+ruling is recorded in whatever words the recording session chose** — and on this estate a ruling is
+routinely relayed into the NOTES of a lane that is neither the owner's nor the asker's.
+
+**Why it is worse than a missed grep, and why this row is not just "grep wider".** I did not merely
+fail to find the ruling — **I published the absence as a finding and then built an instruction on top
+of it**, in a document written into someone else's directory, on the first paid build, while they
+were composing something for the owner. A false absence is not a neutral gap: it **licenses** the
+action the absent rule would have forbidden. And I dressed it in the very rigour that should have
+warned me off — I contrasted it explicitly with the palette ruling, which "has a dated quote and a
+commit", so the reader is told the absence was *checked against a positive control*. It was not; the
+control only showed that my method works when the phrase happens to match.
+
+**THE TALLY IS THE POINT. This is the FOURTH in a week, and the family is already in my own memory
+index** (`a-report-is-not-a-measurement`, and the three logged on 2026-09-02): (a) `grep | head -8`
+read as an absence when the real count was 55; (b) a regex requiring `var(--x)` to close immediately,
+so every usage carrying a fallback was invisible — "the accent is never applied" when it is applied
+six times; (c) no instrument at all, three parked contrast defects assumed to share a cause; (d) this
+one. **All four were caught by other lanes, none by me.** Three of the four were absence claims about
+things that existed. A rule I keep writing down and keep not applying is not a knowledge problem, so
+the remedy is not another paragraph: **before any sentence of the form "there is no X", name the
+instrument and say what it could not have seen.** Typing that clause is what forces the second grep.
+
+**Symmetry worth recording, because the peer hit the mirror image the same day.** They carried an
+08-31 *inference* ("he has effectively already made it by praising the near-black page") past a 09-02
+*ruling* that superseded it; I claimed an *absence* past the same 09-02 ruling block. Both of us were
+reading only our own lane's files, and the two errors met in the middle over one site.
+
+Family: prior-art-search-goes-stale, a-report-is-not-a-measurement, measurement-discipline-index,
+an-objection-naming-one-file-is-naming-a-category, a-closer-census-cannot-see-what-it-succeeded-at.

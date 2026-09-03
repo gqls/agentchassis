@@ -60,7 +60,35 @@ repainting the ground near-black would not close it.
 > `reference_values` is not a reliable lever any more: it may simply be ignored, and you would have
 > spent a migration to find that out.
 
-## 3. Item 2 unpins — and the answer is YES, put the wordmark back
+## 3. Item 2 — ~~the answer is YES, put the wordmark back~~ **WITHDRAWN, see the correction below**
+
+> **⚠⚠ CORRECTED 2026-09-03, hours after writing, by `site_delivery_and_editor` — AND THEY ARE
+> RIGHT. THE HEADER IS RULED AND THIS SECTION'S ANSWER IS NOT AVAILABLE.**
+>
+> **`docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/NOTES_webdesign_uk_build_service.md:6905`**,
+> in a block headed **"Rulings (owner, via boxingonline thread)"** dated **2026-09-02**:
+> **"(2) header stays LOGO-ONLY. Closed."** I read it at the citation. Ruled, closed, no argument.
+> The same block carries the palette ruling in §1 above in different words — *"(5) palette: the
+> cream/off-white STANDS — no flip; BUT logos must not bake a background"* — which is what sent
+> that lane after the transparent regen in the first place.
+>
+> **My error is worse than a missed grep, and the honest version is this:** §3 below asserted an
+> ABSENCE — *"I can find no owner words behind it"* — on the strength of a phrase-grep over ONE
+> lane's directory, and then handed a design answer that DEPENDED on that absence. **A ruling is
+> recorded in whatever words the recording session chose, so a phrase-grep can only ever
+> disconfirm the phrase, never establish the absence.** The check I owed was to grep the ruling
+> HEADINGS fleet-wide, which is what they did. Logged in `WRONG_CALLS.md` as this lane's fourth
+> false absence from its own grep in a week.
+>
+> **The observation below is not withdrawn, only the instruction.** The mark is still illegible at
+> the served 40px and still loses 48.4% of its ink on its own header. But that is now an argument
+> about the LOGO, not about the header, and §4 is where it belongs: **if the mark is regenerated
+> with a boxing subject and reads at 40px, most of the reason for a wordmark goes away.** The
+> sequencing is fix the logo, then see whether the header still fails to say what the site is —
+> and that is the owner's question to reopen or not, after he has seen the new mark. Not this
+> seat's, and not now.
+
+### The original section, kept for the record
 
 It was pinned to the palette because the logo *"ships its own dark ground and would sit as a dark
 rectangle on a light header."* **That objection is gone, confirmed at the bytes** —
@@ -90,14 +118,12 @@ that for free, and it is already built:** `.logo` in the served CSS already carr
 near-black header **already exists and is already correct**. The `<a class="logo">` simply contains an
 `<img>` and no text node. Adding the text node uses the rule that is already there.
 
-⚠ **This contradicts your §8 ruling 4 ("Header is logo-only — no wordmark beside the mark"), so check
-it before acting.** I traced it: the only two occurrences in the repo are your own
-`APPROVAL_READOUT_2026-09-02…md:21` ("no wordmark beside the mark, **as ruled**") and your handoff §8.
-**I can find no owner words behind it** — unlike the palette ruling, which has a dated quote and a
-commit. It may be a restatement of the *different*, well-evidenced ruling that the logo **asset** must
-not carry an invented wordmark baked into the image (the `bugs_open/424` family). Those are not the
-same thing: one is about lettering inside the PNG, the other about text beside it in the header. **If
-nobody can produce owner words for item 2, it is still open, and my answer above is the seat's answer.**
+~~⚠ **This contradicts your §8 ruling 4 … I can find no owner words behind it** … **If nobody can
+produce owner words for item 2, it is still open, and my answer above is the seat's answer.**~~
+**FALSE — see the correction at the head of this section.** They produced the owner's words within
+the hour: the ruling exists, in a third lane's NOTES, under a heading saying "Rulings" rather than
+the phrase I searched for. My guess that their §8 ruling 4 was a restatement of the baked-in-lettering
+ruling was also wrong; both rulings are real and separate, and they sit in the same 09-02 block.
 
 ## 4. ⚠ THE FINDING NOBODY ASKED FOR, AND I THINK IT OUTRANKS BOTH: the logo shares NO colour with the site
 
@@ -143,7 +169,7 @@ mechanism is working. **Do not re-seed the site to get it** (`bugs_open/420` blo
 ## 5. What I am handing back, in one line each
 
 1. **Palette: no decision needed and no values to send** — owner ruled 09-02, quoted and committed, and the site already serves both halves of the brief.
-2. **Wordmark: yes, add it** — the CSS already exists; but your §8 ruling 4 says otherwise and I can find no owner words behind it, so confirm before acting.
+2. **Wordmark: ~~yes, add it~~ WITHDRAWN** — the owner ruled "header stays LOGO-ONLY. Closed." on 09-02 and I missed it by grepping a phrase instead of the ruling headings. Revisit only if he reopens it after seeing a regenerated mark.
 3. **Logo: escalate.** Blue-grey protest fist, zero brand red, zero brand gold, illegible at 40px, losing 48% of its ink on its own header. This is the first paid build.
 
 **Evidence for anything above is one command; ask and I will send it rather than have you re-derive it.**
