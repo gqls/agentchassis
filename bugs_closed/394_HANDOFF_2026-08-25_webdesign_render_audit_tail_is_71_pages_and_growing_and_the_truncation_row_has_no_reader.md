@@ -46,7 +46,7 @@
 > `design-critique-agent` still takes a prefix (manual sampler; rotate-vs-curate is a product
 > decision, not a bug) · webdesign's NEW-defect detection latency moved 3d → ~1 cycle in exchange
 > for 91 pages going from never to one cycle · the dormancy window is 14 days, a judgement · and
-> `page_names` is declared in the action's spec and read by nothing (`bugs_open/412`).
+> `page_names` is declared in the action's spec and read by nothing (`bugs_open/452`).
 >
 > ---
 >
