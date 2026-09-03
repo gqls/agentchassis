@@ -1506,3 +1506,14 @@ right to use it (public domain is the safe class), whether it is the kind of wri
 much of it there is (we want a couple of hundred short pieces, not twenty). The repeating fault in the
 last run gets fixed before the next one, and this time the run measures the model on writing it has
 never seen before anyone calls it a success.
+
+**2026-09-03, 22:30 BST, the homepage cards and infographics.** Two things are now in motion, both
+through the framework. First, the design critic is looking at the site: it screenshots the pages at two
+widths and writes a senior designer's report, and its brief already asks the questions you asked, about
+card and grid composition, cards that restate their neighbour, and whether the site could be mistaken
+for a template. Second, the request in your words, with the page's section list, the library's
+carousel-like alternatives and the rule that your approved copy must not be regenerated, has gone to
+the editorial-design-uplift lane, whose whole job is making page families look far better with imagery,
+graphic treatments and charts. No single agent does "research, choose and apply" in one go, and the
+choice of components is not something I should make by hand, so that lane is where the imaginative part
+lives. They will write to you here or in their own log.

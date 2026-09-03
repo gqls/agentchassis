@@ -3424,3 +3424,37 @@ What the next training run needs before it starts (the lane's checklist, from to
    Hetzner box (`ollama create` from the new GGUF; RUNBOOK "To add another model"), and the page brief
    (steps + what it does + one verbatim pair) for the owner to read.
 Base model `smollm2:1.7b` stays on the in-cluster ollama-adapter for the next comparison.
+
+## 2026-09-03 (21:15–21:20Z) — the owner's HOMEPAGE DESIGN request, routed through the framework and to the lane that owns "how a page family looks"
+
+Owner, verbatim (22:15 BST): *"the copy on the home page is much better now. Can we ask one of the design
+related or experience or component agents to tidy up the components and use more interesting ones for
+the cards, probably different carousel like structures. Please ask them to be imaginative, research good
+alternatives and apply them."* Then (22:25): *"including infographics wherever they will help the
+understanding of the concepts"*.
+
+**What the framework has for this `[MEASURED 21:18Z]`:** `design-critique-agent` (`design_critique_run`:
+screenshots at two viewports, a taste critique whose prompt explicitly covers "card and grid composition…
+cards restating their neighbour's point… distinctiveness… template", measured findings filed, report
+in `doc_notes` `design-report`); `component-creator` (`needs_new_component` from a section-type
+description); `site-design-planner` (palette/layout/typography, not per-section components);
+`experience-planner` (interactive experiences, not cards). **No item type swaps a page's section types
+and rebuilds**; a slot's component lives in three places (MEMORY_workstreams landmine). So "research,
+choose, apply" is a small plan, not one dispatch — and the lane whose PLAN (2026-08-20) is exactly
+"make the page family look far better: imagery, graphic treatments, typography, charts, timelines,
+corresponding with the experience loop, the component loop and the visual designer" is
+`editorial_design_uplift` (live session, idle).
+
+**Done:** (1) `design_critique_run` fired at finetuning.uk by the proper dispatcher
+(`docs/leopardessconsulting/scripts/design_critique_run.sh`; item `204f1ff7`, label
+`owner_request_homepage_cards_and_infographics`; a SPAWNED pod, because inline runs have no storage
+client for the screenshots — the script's header). Watcher armed; report lands in `doc_notes`. (2) The
+full brief to the uplift lane: `editorial_design_uplift/CONTRIB_2026-09-03_from_finetuning_owner_asks_
+for_more_imaginative_card_structures_on_the_homepage.md` (+ infographics addendum) and two messages to
+their session — page inventory (hero, features, differentiators-section, case-studies-grid 17.7 KB,
+departments-grid, call-to-action; three card grids), the library's card-shaped alternatives
+(hero-card-carousel, swipeable-insight-carousel, image-hover-card-grid, teaser-reveal-panel,
+info-card-grid), and the constraints: the copy is his and approved tonight, so components change by
+rerender/edit_live, never a full build; case-studies-grid renders registered facts; infographic figures
+resolve through facts; `/playground.html` out of scope. Asked them to say if it is not theirs.
+Homepage components hand-picked by this lane: none, on purpose.
