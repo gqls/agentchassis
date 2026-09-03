@@ -4253,3 +4253,33 @@ harder to see rather than less present. It is still worth fixing for the sites t
 identity to deliver, but it is not the vacuity cause, and rule 18 (migration `739`) is the part
 that addresses what he actually objected to. Re-running the loop with a higher cap is optional,
 not owed.
+
+**2026-09-03 ~13:30Z — BOTH halves of the owner's copy ruling are now LIVE, and the deploy is
+verified at the artefact rather than at the tag.**
+
+- **Rule 18 ("say less or leave it out")** — DB config, live since 12:34Z, verified by reading the
+  loaded `agent_definitions` row. Council **round 2 APPROVED** (13:06:49Z, corr `498080d9`) after
+  round 1's REVISE was answered by measurement; the `Council-Submitted:` trailer on `256e376f9`
+  is credited automatically by `098` now the correlation is approved, with no amend.
+- **The `gutted` floor (his truncation ruling)** — Go, so it needed the roll: chassis
+  **v1.0.1359**, pods 13:28Z. **Probed PRESENT in the running binary:** `datahelpers.wordCount`,
+  the helper this change introduced and which did not exist in the package before it
+  (`grep -n "func wordCount"` returned nothing pre-change — that absence is what makes it a valid
+  capability literal).
+
+⚠ **Probe practice, and the two traps it avoided.** The `build provenance` startup line returned
+EMPTY on `--tail=3000` even though the pods were four minutes old, so the ancestry route
+(`git merge-base --is-ancestor <my commit> <stamp>`) was unavailable — the landmine's "an empty
+result means NOT IN RANGE, not unstamped" held, and the binary probe is the one with no shelf
+life. And the probe must NOT look for my own commit sha: the stamp is the build HEAD, not an
+ancestry list, so `7cc16a5d0` would be absent from a binary that nonetheless contains the change.
+**Both controls ran in the same breath and both behaved** — `AcceptNegationRewrite` PRESENT (a
+pre-existing symbol, proving the probe can find things) and `zzNotARealSymbol_deadbeef` absent
+(proving it can return false). A capability probe with only the positive half cannot distinguish
+"present" from "grep matches everything".
+
+So the estate now both **accepts** the truncations he ruled for (gate) and **prefers saying less
+to being general** when there is nothing verified (writer). The remaining gap is unchanged and
+stated: a section can now carry less text, but it still cannot be handed back EMPTY without
+tripping floors built to catch lost content — making "declined" distinguishable from "lost" is
+the next piece, and it is not started.
