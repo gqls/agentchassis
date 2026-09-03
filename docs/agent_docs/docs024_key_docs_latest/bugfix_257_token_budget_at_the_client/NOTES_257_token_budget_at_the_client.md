@@ -518,3 +518,115 @@ replace both hand-rolled blocks with `llmOptionsFromConfig` (three behaviour cha
 on today's fleet), then widen the existing call-site guard from two named files to the whole package.
 ⚠ The test must not land before the fix, or HEAD breaks for every other session on this tree, and the
 two current violations must not be allow-listed to make it green.
+
+---
+
+## 2026-09-03 (later the same day) — round 2 SHIPPED: the fix, the guard, and three sites the census could not see
+
+**Session:** picked up `docs/agent_docs/docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/HANDOFF_2026-09-03_continue_here.md`
+and implemented its §5 steps 1 and 2 in one commit. **Commit `51357cf51`.** Council submission
+`c8660cfb-690d-4dd2-8b1f-25828305133e` (trailer `Council-Submitted:`, verdict pending at the time of
+writing).
+
+### What shipped
+
+All five direct model callers in `platform/orchestration/actions` now resolve their budget through
+`llmOptionsFromConfig`:
+
+| file | before | after |
+|---|---|---|
+| `rewrite_negations_action.go` | hand-rolled block + literal `2000` | resolver |
+| `repair_ordering_register_action.go` | hand-rolled block + literal `2000` | resolver |
+| `companies_house_llm_review_action.go` | `map[string]interface{}{}` — an EMPTY map | resolver |
+| `execute_vision_prompt_action.go` | float64-only read, **no `> 0` guard** | resolver |
+| `feed_actions.go` (Perplexity) | `"max_tokens": 4096` in a raw HTTP body | `source_config`, 4096 as default |
+
+Plus `llm_budget_call_sites_test.go` (new, package-wide AST audit) and a dated in-place correction to
+`llm_options.go`'s SCOPE note, whose prediction — *"a THIRD caller should be the extraction, not another
+paste"* — was ignored twice.
+
+### ⚠ THE CENSUS IN THE HANDOFF'S §4 WAS WRONG IN THREE PLACES, AND THE TEST IS WHAT FOUND IT
+
+This is the misstep worth recording, and it is mine as much as the handoff's — I set out to implement a
+plan whose §4 table I had read and believed.
+
+1. **`companies_house_llm_review_action.go:133` was filed as "reads config, no literal — acceptable".**
+   It does not read config for the budget at all: it passed a literal **empty options map**. Not a burn
+   since Path A, but the classification was wrong, and had I only implemented "step 1 as written" it
+   would have stayed wrong.
+2. **`execute_vision_prompt_action.go:212` was filed the same way.** It reads `max_tokens` float64-only
+   **with no `> 0` guard**, so a configured `max_tokens: 0` would be sent verbatim — a hard 400 from
+   Anthropic, per `platform/aiservice/max_tokens.go`. Latent, not live ([MEASURED] no active agent
+   declares a non-positive budget), but it is a defect the census recorded as acceptable.
+3. **`feed_actions.go:607` was not in the census at all**, in any of its four runs. `fetchViaPerplexity`
+   builds a raw HTTP chat-completions body and never touches `platform/aiservice`, so **every census
+   this bug has ever run was structurally blind to it** — they all grep `\.GenerateText(`. It carried
+   `"max_tokens": 4096`.
+
+**What generalises, and it is now a `LANDMINES.md` entry:** a census of "who hardcodes a budget" that is
+keyed on the client interface can only find callers who use the client. A provider reached over raw HTTP
+is invisible to it, and the census reads as complete. The AST audit found it in the first run because it
+asks a different question — *is a numeric literal written to a budget key anywhere in this package* —
+which does not care how the request is transported.
+
+### The guard, and why it is not an allow-list
+
+`TestEveryModelCallResolvesItsBudgetFromConfig` / `TestNoHardcodedTokenBudget` /
+`TestTheCanonicalBuilderStillResolvesFromConfig`, in
+`platform/orchestration/actions/llm_budget_call_sites_test.go`.
+
+- **AST, not source text** (`go/parser` asked for no comments at all). A source scan would make this
+  package's comments load-bearing — the documented failure shape where a needle matches your own prose
+  and the test passes vacuously.
+- **`ai_actions.go` is the ONE exemption**, because it *is* the canonical resolver and cannot call the
+  helper (import cycle + different precedence level; that is candidate 2). The exemption is not blind:
+  the third test asserts `ai_actions.go` still assigns a budget from something that is not a literal,
+  so the moment it stops resolving from config the exemption stops being granted.
+- **The two live violations were FIXED in the same commit, never allow-listed.** Allow-listing a
+  detector's own motivating case is a documented failure shape here.
+- **Non-vacuity counters**: the tests `t.Fatal` if they see zero model calls or zero budget-key writes.
+  Today they log `audited 10 model call sites` and `audited 8 budget-key writes`.
+
+### [MEASURED 2026-09-03] Mutation proof — four mutations, in an isolated HEAD checkout, never in the tree
+
+| mutation | result |
+|---|---|
+| reinstate `options["max_tokens"] = 2000` in `rewrite_negations_action.go` | FAIL — *"rewrite_negations_action.go:553 assigns a hardcoded number to a token budget"* |
+| replace the resolver call with a hand-built map in `repair_ordering_register_action.go` | FAIL — *"called from runRegisterRepair, which never calls llmOptionsFromConfig"* |
+| pass `nil` options at `companies_house_llm_review_action.go` | FAIL — *"is handed a nil options map"* |
+| rename the exempt file constant to `ai_actions_renamed.go` | FAIL on all four `ai_actions.go` call sites **and** the exemption's own repoint message |
+
+A guard that has never been seen to fail is a guard nobody has tested. All four restored, all green.
+
+### Verification route used, and one trap avoided
+
+`go test` in the working tree **could not build**: another session's untracked
+`recommended_type_reconciliation_test.go` does not compile. That is not a reason to touch their file —
+`scripts/verify-head-builds.sh --with <each file> --test` builds committed HEAD with my files overlaid,
+which is exactly the question. After committing, `scripts/verify-head-builds.sh ./...` → **OK, HEAD
+496be18c1 builds** (HEAD moved four times during the session; other lanes are committing fast).
+
+⚠ **HEAD does not currently pass its own tests, and it is not this change.** Two failures in
+`platform/orchestration/actions` come from another lane's committed work:
+`TestFindingCodeScanEveryWriteIsRegistered` (undeclared error code
+`FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK`) and `TestTemplateExecutorsAreDeclared` (undeclared
+`renderFailWorkItemMessage`). Control run: `git grep` puts both symbols in
+`fail_work_item_message_template.go` at HEAD, and zero of the seven files I touched mention either.
+Left for that lane — the fix is a registration decision, not a typo.
+
+### One more live finding, recorded and NOT acted on
+
+[MEASURED 2026-09-03] The handoff's open question about the 7 top-level `config.max_tokens` entries is
+answered, and the answer splits:
+
+- **`html-developer-chunked` x3 ARE read** — by `getMaxTokens(config, 16000)` in `html_actions.go:27`,
+  which then synthesises a whole `ai_service` block. (That block also hardcodes model and provider,
+  which is a separate smell for another day.)
+- **`site-adoption-agent` x4 are DEAD CONFIG.** `analyze_site` 32000, `derive_content_direction` 6000,
+  `classify_archetype` 4000, `generate_design_intent` 4000 — and **every logged call from all four runs
+  at 16000**, the root `ai_service` value. `ai_actions.go:357` reads the AGENT's config then
+  `ai_service`; nothing looks at the step's top level. So an operator asked for double on `analyze_site`
+  and got half. Max observed output 7,708, so nothing is truncating today.
+
+Not changed here: moving those four under `ai_service` is a live behaviour change with cost
+implications the moment it is applied, and it is the owner's call, not a side effect of a code commit.

@@ -63239,3 +63239,45 @@ best reading available at the time.
 
 Family: a-report-is-not-a-measurement, your-measurement-answers-the-question-you-encoded,
 a-correct-predicate-wrapped-in-untested-inferences, prior-art-search-goes-stale.
+
+---
+
+## 2026-09-03 — bugfix_257 lane: a census table classified two call sites as "acceptable" without either function being opened, and a third was structurally unreachable by the method
+
+- **The claim.** `docs/agent_docs/docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/HANDOFF_2026-09-03_continue_here.md` §4,
+  written this morning, tabulated "twelve production call sites" grouped by budget behaviour and put
+  `companies_house_llm_review_action.go:133` and `execute_vision_prompt_action.go:212` in a group
+  labelled *"reads config, no literal — acceptable"*. It also stated the census was now correct after
+  having been wrong three times.
+- **What was actually true.** `companies_house_llm_review_action.go` **does not read config for the
+  budget at all** — it passed `map[string]interface{}{}`, a literal empty options map, once per batch.
+  `execute_vision_prompt_action.go` reads it float64-only **with no `> 0` guard**, so a configured
+  `max_tokens: 0` would be sent verbatim, which is a hard 400 from Anthropic and is the exact case
+  `platform/aiservice/max_tokens.go` documents. And a **thirteenth** site existed —
+  `feed_actions.go:607`, `"max_tokens": 4096` in a raw HTTP body to Perplexity — which no run of that
+  census could ever have returned, because all four runs grep `\.GenerateText(` and that path never
+  touches `platform/aiservice`.
+- **What caught it.** Writing the guard, not reading the code. The package-wide AST audit
+  (`platform/orchestration/actions/llm_budget_call_sites_test.go`) flagged all three on its first run,
+  because it asks a transport-agnostic question — *is a numeric literal written to a budget key
+  anywhere in this package, and does every model call's function resolve from config* — rather than
+  *who calls our client*.
+- **The mistake, precisely.** The census was **grouped before it was read**. Grouping is the step that
+  feels like analysis: each row got a verdict in a table cell, and the two mis-grouped rows were the
+  only two whose functions were never opened. The "twelve, not nine" correction in the same section
+  made the table look freshly verified — it had been re-run, so it read as re-checked, and re-running a
+  grep re-derives the same blind spot exactly. **A census can be simultaneously up to date and wrong
+  in kind**, and the update is what makes the wrongness invisible.
+- **The cheap check that would have.** Two, both under a minute:
+  1. **Open every site you are about to classify as acceptable.** A verdict cell is a claim about a
+     function's behaviour; six `sed -n` calls is the whole cost, and it is the difference between a
+     census and a table of guesses.
+  2. **Before trusting any "who calls X" census, ask what it cannot see.** Here: *is there a provider
+     we talk to without our own client?* — `grep -rn 'api.openai.com\|api.perplexity.ai\|api.x.ai\|generativelanguage.googleapis.com'`
+     answers it by endpoint, which a bypassing caller cannot hide. Filed as a `LANDMINES.md` entry
+     (*"A budget census keyed on the CLIENT INTERFACE is blind to a provider called over raw HTTP"*).
+- **Cost.** None to production, and arguably negative: the three sites were found before the fix
+  shipped rather than after, and all five callers are now on one resolver
+  (`bugs_open/257` §2026-09-03b, commit `51357cf51`). The cost is that the same lane's census has now
+  been wrong four times in three weeks, twice by staleness and twice by method — and it is quoted by
+  other documents.

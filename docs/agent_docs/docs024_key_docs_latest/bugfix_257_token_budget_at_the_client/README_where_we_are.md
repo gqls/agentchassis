@@ -311,3 +311,50 @@ belongs in this bug or a lane of its own. Today's finding pushes on the second o
 direct callers inside the main service now do report themselves, which is better than August, but the
 reporting cannot distinguish the two cases described above, so more of it is not automatically more
 truth.
+
+---
+
+**2026-09-03, later the same day — the fix is written, and it found three more problems on the way**
+
+Picking up from the note above: the plan was to delete the two hand-written copies of the "how long may
+the answer be" rule and call the shared helper instead, and to add a check that stops it happening a
+sixth time. Both are done and committed. It has gone to the review council; the verdict usually takes
+about half an hour and I will act on it when it lands.
+
+The interesting part is what happened while writing the check.
+
+The plan was based on a list of every place in that part of the system that talks to a language model.
+That list has been compiled four times over the last three weeks and has been wrong every time. It was
+wrong again. Two entries were marked "fine" and were not: one was handing the model an empty settings
+object, so the step's own limit could never reach it, and the other would have passed a limit of zero
+straight through if anyone ever typed one, which the provider rejects outright. And one place was
+missing altogether — the news-fetching code talks to a different supplier over plain web requests
+rather than through our usual client, so **every list we have ever made was structurally incapable of
+seeing it.** It had a limit of 4,096 typed into it.
+
+The reason the check found what four hand-compiled lists did not is that it asks a different question.
+The lists asked "who calls our model client?" The check asks "is there a number typed in anywhere near a
+word that means *how long may the answer be*?" — which does not care how the request leaves the
+building. All five places now read the limit from configuration; the news fetcher keeps 4,096, but as a
+default someone can override rather than a number nobody can reach.
+
+**Does anything change for the sites we build today?** No, and I measured that rather than assuming it.
+Every step affected already states its limit in configuration, and each will send exactly the number it
+sends now. What changes is that the numbers are now genuinely under your control, and that the next
+person who writes one into the code will be told, by a failing build, on the day they do it — not three
+weeks later by someone reading the logs.
+
+**I also proved the check can fail.** A check that has never been seen to go red is not evidence of
+anything. I put each of the four mistakes back in, one at a time, in a throwaway copy of the code, and
+confirmed each one is caught with a message that says what to do about it. Then I put it all back.
+
+**One new thing I found and deliberately did not change.** Four steps of the site-adoption agent state a
+limit — one of them asks for 32,000 — in a place nothing reads. All four are actually running at 16,000,
+which is the general default for that agent. Nothing is being cut off today, so this is not urgent, but
+somebody once asked for double and quietly got half. Moving those settings to where they would be read
+is a live change that takes effect the instant it is applied and would raise what we spend on those
+steps, so that is your call rather than mine, and I have written it up rather than acting on it.
+
+**The two decisions from August are still open and unchanged** — whether to merge the two near-duplicate
+copies of the "which limit wins" rule, and whether making direct model calls visible to our
+truncation monitoring belongs in this bug or a lane of its own.

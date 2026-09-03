@@ -602,3 +602,119 @@ answering it.
 
 ⚠ **When verifying any of this, pick a step whose configured budget DIFFERS from the literal** — or
 §(3) above applies to your own check and it cannot fail.
+
+---
+
+## §2026-09-03b — ROUND 2 FIX COMMITTED (`51357cf51`), guard bound at the package, three MORE sites found
+
+Written by the session that implemented the plan in the section above. **Still OPEN**: the code is
+committed but not yet rolled, and this file's own bar is *fixed AND live*.
+
+**Council:** submission `c8660cfb-690d-4dd2-8b1f-25828305133e`, committed with `Council-Submitted:`.
+Submission JSON:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/COUNCIL_SUBMISSION_2026-09-03_257_round2_no_hardcoded_budgets.json`
+
+### What shipped
+
+All five direct model callers in `platform/orchestration/actions` now resolve their budget through
+`llmOptionsFromConfig`, and no numeric literal reaches a budget key anywhere in the package.
+
+| file | before | after |
+|---|---|---|
+| `rewrite_negations_action.go` | hand-rolled block + literal `2000` | resolver |
+| `repair_ordering_register_action.go` | hand-rolled block + literal `2000` | resolver |
+| `companies_house_llm_review_action.go` | `map[string]interface{}{}` — an EMPTY map | resolver |
+| `execute_vision_prompt_action.go` | float64-only read, **no `> 0` guard** | resolver |
+| `feed_actions.go` (`fetchViaPerplexity`) | `"max_tokens": 4096` in a raw HTTP body | `source_config["max_tokens"]`, 4096 as default |
+
+New: `platform/orchestration/actions/llm_budget_call_sites_test.go` (package-wide AST audit, three
+tests). Corrected in place: `llm_options.go`'s SCOPE note, whose prediction *"a THIRD caller should be
+the extraction, not another paste"* was ignored twice.
+
+### ⚠ FOURTH CORRECTION TO §4's CENSUS — and this time the census was not merely stale, it was WRONG
+
+The section above says the census "has now been wrong THREE times". Four. And the two new errors are a
+different kind from the first three, which were staleness by addition:
+
+1. **`companies_house_llm_review_action.go` was classified "reads config, no literal — acceptable".** It
+   does not read config for the budget at all; it passed an **empty options map**. Since Path A that is
+   not a burn — the client resolves from its construction config — but the step's own `max_tokens` and
+   `budget_tokens` never reached the wire, and no client constructor is ever shown a step config.
+2. **`execute_vision_prompt_action.go` was classified the same way.** It read the key float64-only with
+   **no `> 0` guard**, so a configured `max_tokens: 0` would be sent verbatim — a hard 400, per
+   `platform/aiservice/max_tokens.go`. Latent ([MEASURED 2026-09-03] no active agent declares a
+   non-positive budget), but recorded as acceptable when it was not.
+3. **`feed_actions.go:607` was never in the census at all, in any of its four runs.** `fetchViaPerplexity`
+   builds a raw HTTP chat-completions body and never touches `platform/aiservice`. **Every census this
+   bug has run greps `\.GenerateText(`, so all four were structurally blind to it.** It carried
+   `"max_tokens": 4096`.
+
+**The transferable point** (now a `LANDMINES.md` entry): a census of "who hardcodes a budget" keyed on
+the client interface can only see callers who use the client. A provider reached over raw HTTP is
+invisible to it and the census reads complete. The AST audit found it on its first run because it asks
+"is a numeric literal written to a budget key anywhere in this package", which is transport-agnostic.
+
+### The guard, and why it is not an allow-list
+
+- **AST, not source text** (`go/parser` asked for no comments), so this package's prose cannot become a
+  needle for its own test.
+- **`ai_actions.go` is the ONE exemption** — it *is* the canonical resolver, and cannot call the helper
+  (import cycle + agent-level vs step-level precedence: candidate 2). `TestTheCanonicalBuilderStillResolvesFromConfig`
+  asserts it still assigns a budget from a non-literal, so the exemption cannot outlive its reason.
+- **The two live violations were fixed in the same commit, never allow-listed.**
+- **Non-vacuity counters** `t.Fatal` on zero model calls or zero budget writes. Today: `audited 10 model
+  call sites`, `audited 8 budget-key writes`.
+- **[MEASURED 2026-09-03] Mutation-proven, four mutations in an isolated HEAD checkout** (never in the
+  shared tree): reinstating the literal → FAIL at `rewrite_negations_action.go:553`; hand-rolling the
+  map → FAIL *"called from runRegisterRepair, which never calls llmOptionsFromConfig"*; passing `nil` →
+  FAIL *"is handed a nil options map"*; renaming the exempt file → FAIL on all four `ai_actions.go`
+  sites plus the exemption's own repoint message.
+
+### Blast radius — measured, not asserted: ZERO requests change today
+
+[MEASURED 2026-09-03, live `agent_definitions`, 208 active] Every step reached by these five call sites
+declares its budget under `ai_service` and none at step top level; no active agent declares
+`budget_tokens` anywhere. `offer-analyser.repair_ordering_register` 2000 ·
+`offer-analyser.repair_hierarchy_register` 2000 · `page-content-writer.rewrite_negations` 16000 ·
+`design-critique-agent.critique` 16000 · `tool-acceptance-agent.look` 4000 · `ch-llm-reviewer.review`
+2000. So the helper's two extra capabilities (step-level precedence, `budget_tokens` forwarding) are
+inert on today's fleet, and each step sends exactly the number it sends now.
+
+**Pinned pre-change baseline from `llm_call_log`, for the post-roll comparison:**
+`repair_ordering_register` 29 @2000 (max out 600) · `repair_hierarchy_register` 6 @2000 ·
+`rewrite_negations` (loop substeps) 99 @2000 with 4 truncations 2026-08-21..23, then 3,245 @16000 with
+none · `critique` 5 @6000 + 1 @16000 · `look` 91 @4000 · `ch_llm_review` no rows.
+
+**The one residual behaviour change, stated:** an UNCONFIGURED call at these sites now reaches
+`aiservice.DefaultMaxOutputTokens` (2048) via Path A instead of a private `2000`. No live step is
+unconfigured, so this changes nothing today; it is the right direction regardless, because 2048 is the
+estate's single documented floor and 2000 was one action's opinion.
+
+### §4's OTHER open question — ANSWERED, and it splits
+
+[MEASURED 2026-09-03] The **7** steps declaring a top-level `config.max_tokens`:
+
+- **`html-developer-chunked` x3 ARE read** — `getMaxTokens(config, 16000)` at `html_actions.go:27`,
+  which then synthesises an entire `ai_service` block (hardcoding model and provider too — a separate
+  smell, not touched).
+- **`site-adoption-agent` x4 are DEAD CONFIG.** `analyze_site` 32000, `derive_content_direction` 6000,
+  `classify_archetype` 4000, `generate_design_intent` 4000 — and **every logged call from all four runs
+  at 16000**, the root `ai_service` value, because `ai_actions.go:357` reads the AGENT's config then
+  `ai_service` and nothing looks at a step's top level. An operator asked for double on `analyze_site`
+  and got half. Max observed output 7,708, so nothing truncates today.
+
+**NOT changed here.** Moving those four under `ai_service` is live the instant it applies and raises
+spend on those steps. Owner's call — this is the original 257 defect from the configuration end, and it
+wants its own decision, not a side effect of a code commit.
+
+### To close this bug
+
+Unchanged bar: **fixed AND live**. Needs a fleet roll, then §6's verification route — prove it at the
+binary with a negative control, then show a step whose declared budget **differs from 2000** sending the
+larger number from `llm_call_log.max_tokens`. ⚠ Picking a 2000 step for that check reproduces §(3)'s
+blindness in your own verification and it cannot fail. `page-content-writer.rewrite_negations` at 16000
+is the right subject.
+
+**Still open and still human calls:** candidate 2 (merging `ai_actions.go`'s inline block with the
+helper — import cycle, different precedence level), the `llm_call_log` blindness of direct callers
+(handoff §5 step 3), and now the four dead `site-adoption-agent` declarations above.
