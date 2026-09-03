@@ -3854,3 +3854,43 @@ yet, so this is fixable before it has ever influenced a plan. NOT fixed unilater
 dropped paragraph is partly classifier-specific (`confidence fields`, `adopted sites`) so it
 needs generalising, and rewording a live block three planners read is the owner's call. Raised
 as an owner item; proposed generalisation drafted with the classifier-only nouns removed.
+
+> **CORRECTED 2026-09-03, same session, ~1h later — the entry above says "FILE the dispatch bug".
+> I did draft it, then deleted it unfiled. THERE IS NO DISPATCH BUG.** All three planner-canary
+> fires were **rejected at intake, durably, within seconds of publish**, and the reason names
+> itself:
+> ```
+> error_code:    INCOMING_MESSAGE_REJECTED
+> error_message: incoming message rejected: missing required header(s): client_id, orchestration_id
+> ```
+> `agent_error_log`, `agent_type='generic'`. The correspondence is exact — `gap_msg.json`
+> published 20:14Z → rejected **20:15:21Z**; `gap_msg2.json` 08:23Z → **08:23:50Z**;
+> `gap_msg3.json` 09:14Z → **09:14:10Z**. Nine such rejections since 09-02, all ours.
+>
+> **The cause is our envelope, not the platform.** `client_id` and `orchestration_id` are
+> required as **Kafka headers**; our envelope carried them only inside the payload's `headers`
+> OBJECT, which intake does not read. `scripts/fire-copy-editor.sh` passes them as separate
+> `--header` flags — so hand-copying its *envelope* while not calling the *script* reproduces
+> the JSON perfectly and drops the load-bearing part. That is the whole of the
+> "family-specific dispatch" mystery: `cli-copyedit-canary` minted 16 times because its script
+> sends the headers; `cli-gapplanner-canary` never minted because our one-off did not.
+> **It was SCRIPT-specific, and it read as AGENT-specific.**
+>
+> **What caught it: `016b` §9, which prescribes exactly this.** Its "I dispatched it and no
+> orchestration row appeared" entry lists three causes and says *"Ask `agent_error_log` FIRST"*
+> — case 3, CONSUMED AND REFUSED, durable ~30 days while `orchestration_states` retains ~2.
+> Three fires and two handoffs went past that line. I went to pod logs instead, and CLAUDE.md's
+> "before debugging, read the guide" is the rule I skipped. The blind-grep finding in the entry
+> above is real and worth keeping, but note what it cost: it was an hour spent hardening the
+> wrong instrument when the right one was named in the guide and answered in one query.
+>
+> **Consequences for the lane.** (1) The planner canary is STILL unanswered, and the reason is
+> now trivial and fixable rather than mysterious. (2) The `[UNMEASURED]` "receipted publish"
+> claim in the handoff should be read as unverifiable — no publish log was ever saved; what the
+> record actually shows is *published and refused*, which is a different case with a different
+> remedy. (3) The 28h-unclaimed queue item is NOT corroborating evidence of a dispatch gap and
+> should stop being cited as such; it now reads `[unresolved after 2 attempts]`. (4) The
+> standing "do NOT keep re-firing" instruction was sound while the drops were unexplained; the
+> rationale is now void, but firing `content-gap-planner` at a live site runs `apply_plan`, so
+> the decision to spend a run is the owner's, not a session's. `scripts/fire-content-gap-planner.sh`
+> is written and NOT run — it sends the headers and refuses rather than dropping.

@@ -60182,3 +60182,54 @@ which is luck about timing, not about the check.
 
 Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
 a-justification-in-an-evidence-column-reads-as-evidence, damage-confirmed-is-not-mechanism-confirmed.
+
+## 2026-09-03 — "family-specific dispatch drop" was OUR envelope missing two Kafka headers, and three sessions walked past the one table that says so (copy_quality_two_stage lane)
+
+**The claim.** Carried in this lane's handoff as the top open item: three `content-gap-planner`
+canary fires produced *"receipted publish, zero mint, zero consumer trace"* while *"16
+cli-copyedit envelopes minted through the same topic the same day"* — framed as UNDIAGNOSED,
+family-specific dispatch behaviour, with a standing instruction to file a bug and a `090`
+candidacy if the third fire also dropped. It did drop. I drafted the bug file.
+
+**What actually happened.** All three were **published, consumed, and REFUSED at intake**,
+each within seconds, each recorded:
+
+```
+error_code:    INCOMING_MESSAGE_REJECTED
+error_message: incoming message rejected: missing required header(s): client_id, orchestration_id
+```
+
+`client_id` and `orchestration_id` are required as **Kafka headers**. Our envelope carried them
+in the payload's `headers` object, which intake does not read. `scripts/fire-copy-editor.sh`
+passes them as `--header` flags — so hand-copying its *envelope* while not calling the *script*
+reproduces the JSON exactly and loses the only part that mattered. The whole "family-specific"
+signature — one `cli-*` client minting 16 times, another never — was **script-specific**, and
+the two look identical from `orchestration_states`.
+
+**What caught it.** `016b` §9, *"I dispatched it and no orchestration row appeared"*, which
+enumerates three causes and says **"Ask `agent_error_log` FIRST"** — case 3, CONSUMED AND
+REFUSED, durable ~30 days against `orchestration_states`' ~2. It is the first discriminator in
+the entry. One query answered a day-old mystery.
+
+**The cheap check that would have.** The query in the guide, before the theory. `CLAUDE.md`
+says *"before debugging, read the guide"* and `016b` says *"most stalled investigations skipped
+an invariant already written down there"*; this is one, verbatim. Instead I spent an hour
+grepping pod logs — and the sting is that I ran a **correct demand control** on that grep,
+proved my own instrument blind (0 hits for a correlation that had provably landed, because
+`-l app=agent-chassis` matches 2 pods while 93 `app=dynamic-agent` pods do the work), and
+**still did not go to the guide** — I went on to harden the blind instrument. A good control on
+the wrong instrument is not progress.
+
+**Why it is worth a row.** Three things stack, and each is reusable:
+1. **A "no trace" claim is only as good as its demand control**, and the handoff's third clause
+   ("zero consumer trace") had none — it was the load-bearing evidence for the platform theory
+   and it was unmeasurable by the method used.
+2. **The absence of a row in the table you know is not evidence about a table you forgot.**
+   `orchestration_states` was empty *because* the message was refused; the refusal had its own
+   durable home with 15× the retention.
+3. **"Undiagnosed" in a handoff is a claim about the world that is really a claim about what
+   the author checked.** It gets inherited as a property of the bug, and the next session
+   budgets for a `090` run rather than a `SELECT`. Say which discriminators were run.
+
+Family: a-post-fix-zero-needs-a-demand-control, logs-deploy-reads-one-pod-of-n,
+a-plausible-external-cause-is-when-to-doubt-your-instrument, a-report-is-not-a-measurement.

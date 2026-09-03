@@ -14713,6 +14713,29 @@ unprompted within two days of it existing.
 every *warning about* the hazard — including the comment each fix adds — so the count does not move
 as the work is done. `[MEASURED 2026-08-24]` 18 files matched on comments alone.
 
+**⚠ Case 3's commonest concrete form: the required fields are KAFKA HEADERS, not payload keys —
+and a hand-adapted envelope keeps the JSON while losing the `--header` flags.** `[MEASURED
+2026-09-03]` three `content-gap-planner` canary fires were rejected within **6-70 seconds** of
+publish with `INCOMING_MESSAGE_REJECTED — missing required header(s): client_id,
+orchestration_id`, while the envelope's own `headers` OBJECT carried both. The payload's
+`headers` key is not what intake reads. `scripts/fire-copy-editor.sh` passes them separately
+(`--header "client_id=…" --header "orchestration_id=…"`), so a session copying the *envelope*
+from a working script — rather than calling the script — reproduces the JSON perfectly and drops
+the part that matters. **The tell is the shape of the evidence, and it is diagnostic on its own:
+one agent family mints freely through the same topic while another never mints at all.** That
+reads as agent-specific dispatch and is really SCRIPT-specific. Before theorising about the
+platform, diff what your publish COMMAND sends against a script whose family does mint —
+`orchestration_states` cannot see the difference, and `agent_error_log` names it outright.
+
+**⚠ Do not test "was it consumed?" by grepping `-l app=<service>` pod logs.** `[MEASURED
+2026-09-03]` that grep found **0** occurrences of a correlation that had been consumed, rejected
+and durably logged — because the work runs on **93 `app=dynamic-agent`** pods (204 in the
+namespace) and the deployment label matches **2**. The demand control is one line and it is not
+optional: grep the same logs for a correlation you KNOW landed; on this estate it also returns 0,
+which tells you the instrument is blind rather than the message missing. A lane recorded "zero
+consumer trace" from this grep and it became the load-bearing evidence for a platform-drop theory
+that `agent_error_log` refuted in a single query.
+
 **Related:** `bugs_closed/327b` (the worked case, and note two unrelated bugs were filed as 327 —
 resolve by slug) · `bugs_open/326` (the sibling: a re-submission dedups on `item_key` in any status
 and reports COMPLETED having queued nothing, so "retry" can also silently do nothing) ·
