@@ -44,6 +44,19 @@ written strategy, now implemented.
 > ruling. Corrected visibly rather than rewritten: the row below is the ruling as made, this
 > note is the fact as found, and the sentence above is the fact as ruled.
 
+> **⚠ D2 AMENDED BY OWNER RULING 2026-09-03 — the tier→floor link is SEVERED.** D2 below reads
+> *"per-site tier + Afternic minimum-offer floor"*, i.e. the site's `commercial.tier` was to drive
+> the marketplace floor. Owner, verbatim: **"we can set minimum floors in sedo and not have minimum
+> floors on the sites. I think that is what I want, it is what I want. unlink the two."** So:
+> **marketplace floors are set in the marketplace directly** (Sedo/Afternic, by him or the listing
+> lane), independent of any site-side value; **no floor, price or offer amount ever appears on a
+> site** (unchanged — the block's template carries no `price`/`floor`/`minimum`/`offer` token,
+> verified 2026-09-03); and **`commercial.tier` is a WORDING selector only** (tier 1 brokerage
+> phrasing vs tier 2/3 offer-flow phrasing) — it is not a price input and nothing may derive a
+> floor from it. `[MEASURED 2026-09-03]` no Go code ever did; the link existed only here and in the
+> afternic lane's PLAN (`:77-78`, "price-by-tier"), both now told. D2's *"no price on any page"*
+> half stands; its *"per-site tier + floor"* half is retired.
+
 | # | Decision | Reason |
 |---|---|---|
 | D1 | Sell the **domain** (Afternic), not site-as-business | The asset is the name; no revenue/traffic to price a business on. Multi-route (Flippa/Sedo/brokers/direct) **deferred — owner will revisit**; doc 010 posed the question and never picked |

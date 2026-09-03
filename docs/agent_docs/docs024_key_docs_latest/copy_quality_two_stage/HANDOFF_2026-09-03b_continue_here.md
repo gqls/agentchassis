@@ -105,6 +105,13 @@ is the most dangerous carrier for an invented cause.
   CTA half). **Blocked**: relojistas has never been listed on Sedo (zero rows in every sheet), so
   there is no URL to point at; **no Sedo URL pattern is documented anywhere — do not compose one.**
   relojistas keeps its working GoDaddy/Afternic lander meanwhile.
+- **Floors — owner ruling 2026-09-03 ~18:30Z, verbatim: "we can set minimum floors in sedo and not
+  have minimum floors on the sites… unlink the two."** Marketplace floors are set in the
+  marketplace (sedo lane's sheet), not derived from `site_specs.commercial.tier`; no price/floor
+  ever appears on a site (the block renders none — verified); `commercial.tier` is a wording
+  selector only. This supersedes the earlier "don't wait for minimums" relay and severs D2's
+  tier→floor half (amended in the about_page_commercial PLAN) and the afternic lane's
+  "price-by-tier" source (told). The valuation lane is off the listing critical path twice over.
 - **`leopardessconsulting.co.uk` is PERMANENTLY excluded** — owner verbatim *"no
   leopardessconsulting need not be listed"*. The sedo lane holds it in a durable owner-withdrawal
   file. ⚠ **CORRECTED 2026-09-03 ~17:10Z: it is the owner's OWN consultancy, not a paying
