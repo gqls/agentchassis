@@ -60130,3 +60130,55 @@ only reachable once I stopped believing the control.
 
 Family: mutate-the-code-to-prove-the-guard, a-post-fix-zero-needs-a-demand-control,
 a-plausible-external-cause-is-when-to-doubt-your-instrument, a-quiet-test-passes-when-the-rule-is-gone.
+
+## 2026-09-03 — migration 675 asserted "verbatim, byte-identical, ONE deliberate trim" of a block it had silently cut a PARAGRAPH from (copy_quality_two_stage lane)
+
+**The claim.** `675_build_standard_carrier_row.sql`'s header, written by this lane on
+2026-08-31, states the carrier row's wording is *"verbatim from the classifier's 'Build
+standard' block (049_domain_research_classifier.sql:2593, **confirmed byte-identical in the
+live rendered prompt 2026-08-31**) with **ONE deliberate trim, recorded here**"* — naming the
+four-word `rather than copying them` clause, with a paragraph of reasoning for cutting it. The
+row's own `source` field repeats it: `one trim recorded in the header`.
+
+**What actually happened.** The source block is **two** paragraphs. The carrier took the first
+and dropped the second — ~70 words — with no mention anywhere: *"This standard governs QUALITY
+and FIT, not scope. Do not invent services, pages, features, or facts beyond what the evidence
+supports; where research is thin, say so honestly… Treat aspirational ideas as direction to be
+realised at the pace the site's fidelity allows… not as things to force into the first build."*
+So the claim was wrong three times over — not verbatim, not byte-identical, and two omissions
+rather than one — and the **undocumented** cut was seventeen times larger than the documented
+one. The consequence is not cosmetic: the three rows that opted in
+(`build-site-planner/plan_site`, `content-gap-planner/plan_gaps`, `visual-designer/design`) are
+the agents that decide **what pages and sections exist**, and they now get "aim best-in-class /
+favour interactive elements / do what is most useful and interesting" **without** "do not invent
+services, pages, features, or facts beyond what the evidence supports". The aspiration shipped;
+its scope limit did not.
+
+**What caught it.** Nothing that was looking for it. I was chasing an unrelated anomaly — a
+phrase from the block appearing in an agent that never opted in — and read 675's provenance
+header only to explain that. The header's own citation (`049…:2593`) is what made the check one
+command. Had the anomaly not appeared, the omission would have stayed invisible indefinitely,
+because **every artefact that could have revealed it was written by the same session that made
+the cut** and all of them agree with each other.
+
+**The cheap check that would have.** Diff the two texts instead of describing the difference in
+prose: `diff <(carrier text) <(source block)`, or simply assert the arithmetic the claim
+implies — *byte-identical minus one 24-char clause* means
+`length(source_block) - length(carrier) = 24`. It is 24 + ~70 words. **A quoted trim is a
+claim about what you REMOVED; it says nothing about what you FAILED TO COPY.** The two are
+different operations and only the first leaves a trace in your own reasoning: I remembered
+deciding to cut the clause, so the header recorded a decision, and a decision I never made
+left no memory to record. **"Verbatim with one exception" is a completeness claim, and a
+completeness claim can only be discharged by comparing WHOLE against WHOLE — never by
+enumerating the exceptions you can recall.**
+
+**Why it is worth a row.** The estate's provenance discipline assumes a recorded trim list is
+exhaustive; downstream readers (this lane's ledger among them) then describe the block by
+quoting the missing sentence back — our own handoff calls it the block that "governs QUALITY
+and FIT, not scope", a sentence that is **not in the carrier**. A single-source carrier row is
+supposed to END drift, and this one was born already diverged from the text it names as its
+source, while asserting it was not. Caught before any planner consumed it (canary: 0 renders),
+which is luck about timing, not about the check.
+
+Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
+a-justification-in-an-evidence-column-reads-as-evidence, damage-confirmed-is-not-mechanism-confirmed.

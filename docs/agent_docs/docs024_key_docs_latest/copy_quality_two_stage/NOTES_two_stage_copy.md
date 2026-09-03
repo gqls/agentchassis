@@ -3792,3 +3792,65 @@ Fire 3 of the planner canary (corr `5dcc3476`) was ~6 min old and unminted at cl
 `bfn4yet8k` held the read; the superseding cold-start is
 **HANDOFF_2026-09-03_continue_here.md** with the canary query, the drop taxonomy, and the
 file-don't-refire instruction at the top.
+
+**2026-09-03 late morning — fire 3 DROPPED; the canary instrument was BLIND; and the carrier
+row is MISSING A PARAGRAPH IT CLAIMS TO CARRY VERBATIM.** Three findings, in the order they
+came, because the second is what exposed the third.
+
+*Fire 3 dropped.* `5dcc3476` never minted: zero rows in `orchestration_states` for all three
+hand-fire correlations (`f7dcbe80` / `c1a52052` / `5dcc3476`), against a live fleet minting
+freely all morning (30 orchestrations 07:00–09:31Z). It published ~09:20Z, outside the 08:58Z
+roll's ~300s window, so drop 2's excuse does not cover it. Per the handoff's standing
+instruction: FILE, do not re-fire. Corroborating census unchanged —
+`cli-copyedit-canary` 16 mints (max 09-02 17:45Z) vs `cli-brief-writer` 4 (max 09-03 09:28Z)
+through the same topic; the planner-envelope family is the one that never mints.
+
+*The canary instrument was blind, and I nearly recorded a PASS off it.* The handoff's query
+filters `agent_type IN ('content-gap-planner','build-site-planner','visual-designer')` and
+returned 0 rows, so I widened it to search every agent for the phrase `stands comparison with
+the strongest sites` — and got 2 hits on **`domain-research-classifier`**, an agent nobody
+opted in. That looked like injector over-reach. It is not, and the widened query was worthless:
+the classifier's template carries that text as a **hard literal** (`has_placeholder=f`,
+`has_literal_block=t`), seeded `2026-06-21` (`a2f350c7f`, `049_domain_research_classifier.sql:2593`)
+— **ten weeks BEFORE carrier 675 existed**. Causality runs the other way: 675's own `source`
+field says `wording from 049_domain_research_classifier.sql`. So the phrase lives in two places
+independently and CANNOT discriminate injection from pre-existing text. [MEASURED 2026-09-03]
+The discriminating needle is the carrier's own distinctive form, which only the carrier can
+produce — 675 rewrote the heading into a run-on all-caps label:
+`BUILD STANDARD (applies to every site, regardless of inputs). Aim` vs the classifier's
+`## Build standard (applies to every site, regardless of inputs)\nAim`. Against that needle,
+since the opt-ins (09-02 18:38Z): **0 rows, all agent types.** The injection has still never
+been observed rendering. **The canary remains OPEN** — and note it is now open on a sound
+instrument, where before it was open on one that would have read PASS off unrelated text.
+Clean sub-result: `{{.build_standard}}` unrendered = **0 rows** fleet-wide, so no template is
+shipping the raw placeholder. (Do NOT read the 846 `<no value>` rows as related — I first ran
+those two needles as one OR and the result was uninterpretable; split, the placeholder is 0 and
+the `<no value>` rows are a pre-existing generic template-miss across 8 agents incl. 734
+page-content-writer. Different signal, not this lane's, but somebody's.)
+
+*The carrier dropped the scope guard — undocumented.* Reading 675 to understand the provenance
+turned up the real defect. Its header asserts the wording is **"verbatim"**, **"confirmed
+byte-identical in the live rendered prompt 2026-08-31"**, with **"ONE deliberate trim, recorded
+here"** (the `rather than copying them` clause). That is false. The classifier's
+`## Build standard` block is **two** paragraphs — heading at line 1, next heading `## Regulated
+business models` at line 6, nothing between — and the carrier took only the first. The missing
+~70 words are the counterweight:
+> This standard governs QUALITY and FIT, not scope. Do not invent services, pages, features, or
+> facts beyond what the evidence supports; where research is thin, say so honestly in the
+> confidence fields rather than fabricating detail. Treat aspirational ideas as direction to be
+> realised at the pace the site's fidelity allows — adopted sites stay faithful to their source
+> at first — not as things to force into the first build.
+So there are TWO omissions, not one, and the larger went unrecorded while the header claimed
+completeness. **Why it matters more than a provenance slip:** the three rows that opted in are
+`build-site-planner/plan_site`, `content-gap-planner/plan_gaps`, `visual-designer/design` —
+precisely the agents that decide **what pages and sections exist**. They now receive "aim
+best-in-class", "favour interactive or visual elements", "do what is most useful and
+interesting" **stripped of "do not invent services, pages, features, or facts beyond what the
+evidence supports"**. That is an aspiration without its scope limit, on the scope-deciding
+agents. The irony is exact: this lane's own ledger describes the block as one that "governs
+QUALITY and FIT, not scope" — quoting a sentence that is **not in the carrier**.
+**Timing is the one piece of luck:** the canary above proves no planner has consumed the block
+yet, so this is fixable before it has ever influenced a plan. NOT fixed unilaterally — the
+dropped paragraph is partly classifier-specific (`confidence fields`, `adopted sites`) so it
+needs generalising, and rewording a live block three planners read is the owner's call. Raised
+as an owner item; proposed generalisation drafted with the classifier-only nouns removed.
