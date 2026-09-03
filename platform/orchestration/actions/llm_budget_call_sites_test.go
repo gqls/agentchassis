@@ -51,6 +51,28 @@
 //     (32000/4000/6000/4000) and every one of them runs at the root 16000,
 //     because no reader looks there. That is the same defect from the config
 //     end, and no Go test can see it.
+//
+// WHY THE NARROWER GUARD STAYS — asked on the record by the council's
+// `reuse_agent` seat (corr `c8660cfb`, MEDIUM: "two mechanisms answering the
+// same question, never unified once both exist"). It is a fair objection and
+// the answer is that they do NOT answer the same question, by exactly one
+// assertion. `TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap` fails if
+// EITHER named provocation file stops calling `GenerateText` — a per-FILE alarm
+// that its subject has moved. The audit here has the same alarm at PACKAGE
+// granularity, which with ten call sites is much weaker protection for any one
+// file. So: the literal-empty-map half of the old test is subsumed and
+// redundant; the repoint alarm is not, and it is the reason it is kept rather
+// than retired. If a later reader disagrees, retire it deliberately and say so —
+// what the seat objected to was an unstated decision, not this one.
+//
+// IF YOU HAVE A LEGITIMATE NEW DIRECT MODEL CALL — flagged by the `guardian`
+// seat in the same round — the answer is almost always to call
+// `llmOptionsFromConfig` and pass its result; that is a two-line cost and it is
+// what makes your budget an operator's lever. Only if a call genuinely cannot
+// resolve from config (no step config, no ai_service block) should the exemption
+// list be touched, and then it needs its own reason written here, next to
+// `canonicalBudgetBuilder`'s. A build failure here is this file working, not a
+// bug in your change.
 package actions
 
 import (

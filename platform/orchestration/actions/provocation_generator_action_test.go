@@ -457,6 +457,16 @@ func TestGeneratorPromptCarriesTheExemplarsVerbatim(t *testing.T) {
 // call GenerateText, only in the two provocation actions, matching the literal
 // empty map. Prose about empty options maps lives on its own lines and in
 // llm_options.go, neither of which is scanned.
+//
+// > **NOTE 2026-09-03 — this test is now PARTLY subsumed, and kept on purpose.**
+// > `llm_budget_call_sites_test.go` enforces the same rule across the whole
+// > package, on the AST, and additionally refuses a hardcoded budget literal. It
+// > exists because the two-named-files scope here could not see two callers
+// > written in August that each hardcoded 2000 (`bugs_open/257` §2026-09-03b).
+// > What this test still adds is the per-FILE alarm below: it fails if EITHER of
+// > these two files stops calling GenerateText at all, which the package-wide
+// > version cannot notice among ten call sites. The empty-map half is redundant.
+// > Retire this deliberately if you disagree — do not let it rot silently.
 func TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap(t *testing.T) {
 	for _, file := range []string{
 		"provocation_generator_action.go",
