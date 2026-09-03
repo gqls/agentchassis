@@ -104,10 +104,20 @@ two-line read. **Both UNTESTED — do not build a fix on either.**
 
 **A `090` was fired on this live case 2026-09-03 09:41:56Z** with the seeding corrected (whole
 files, not symbols; the live workflow routing quoted in the symptom).
-**RUN CORRELATION `198a7b12-f465-4cc0-a414-cec69e5f3392`** (claimed ~10:3xZ after ~50 min of queue
-latency — that is normal, do NOT re-fire). Intake slug
-`query_blog_posts_resolves_empty_image_despite_active_cards`, `RUNTIME_SITE=designblog.co.uk`.
-**Read its verdict before re-diagnosing anything.** If it returned UNVERIFIABLE again, read its "still needed" list:
+**RUN CORRELATION `198a7b12-f465-4cc0-a414-cec69e5f3392` — it FAILED, do not go looking for a
+verdict.** It completed all 5 iterations and then died at the `verdict` step:
+`stop_reason=max_tokens (output_tokens=32000 reached the configured cap, 3440 chars recovered)`.
+**A truncated verdict costs the WHOLE RUN**, not a short answer. That is `LANDMINES.md`'s documented
+`output_tokens = NULL` trap (reconfirmed 2026-09-03: the natural census sees 4 of 74 truncations,
+~5%); `council-gate review_debug_historian` has been truncated 17× at cap 8000 — flagged, not this
+lane's to fix.
+
+⚠ **A third `090` of the same shape is NOT the right next move.** This question has now produced
+UNVERIFIABLE once and FAILED once. What is left is small enough to read: **compare `planSection`
+on a FAILING run against a SUCCEEDING one.** designblog has 5 failing runs (09-02 20:51 → 09-03
+05:25, the last two still inside `orchestration_states` retention) and boxingonline has a success
+(09-01 01:34, now aged out). Start from the first run's missing-evidence list plus the two
+narrowings below. If it returned UNVERIFIABLE again, read its "still needed" list:
 last time that list was what actually cracked the case.
 
 ### Three corrections this forces to my own earlier claims
