@@ -274,9 +274,21 @@ description-bonus strings, not the category bonus). The 12-site census stands as
 as a cause.** What actually happens: seven sites match `magazine-grid` on ONE tag
 (`editorial-publication`, score 3.05, **7–10% coverage of their declared identity**), and four sites
 are recorded `tags 0.00` with `layout_source: library_match`. So name the layout AND **verify at
-composition** — `SELECT data->>'layout_name', data->'lineage'->>'layout_source', data->>'reasoning'
-FROM site_specs WHERE site_id=:id AND aspect='resolved_composition' AND is_current;` (also
-`sites.style_collection_id` → `style_collections.css_theme_id` → `css_themes.layout_id`). The only
+composition**, capturing FOUR fields — the SCORE is what separates a real fit from a near-miss
+(`tool-portal-light` at 8.31 on three tags ≈ 23% coverage vs `magazine-grid` at 3.05 on one ≈ 7%
+are very different outcomes, even though both are "not the layout we asked for"):
+```sql
+SELECT data->>'layout_name'                 AS layout,
+       data->'lineage'->>'layout_source'    AS source,
+       data->'lineage'->'layout_candidates' AS candidates,
+       data->>'reasoning'                   AS reasoning   -- carries the score
+  FROM site_specs WHERE site_id = :id AND aspect='resolved_composition' AND is_current;
+```
+(also `sites.style_collection_id` → `style_collections.css_theme_id` → `css_themes.layout_id`).
+⚠ **`layout_match_score` does NOT exist** — migration `103_site_design_planner.sql` specified it as
+a normalised 0–1 tag-overlap score with a 0.5 threshold in April 2026 and it was never built
+(0 of 33 rows carry the key), which is why coverage must be read out of the `reasoning` prose.
+**Send all four to the `445` lane.** The only
 hard lever is a theme kit · COLOUR referent = nearest
 estate neighbour's actual served values · grep the plan for `contact-hero` ·
 **444 pre-enablement, per the fixing thread's recipe (2026-09-02)** — fire direction needs NO

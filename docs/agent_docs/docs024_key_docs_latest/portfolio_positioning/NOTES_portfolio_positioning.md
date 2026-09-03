@@ -4386,4 +4386,35 @@ questions, and the classifier mostly emits shape words.**
    `magazine-grid` the alternative if the classifier leads with editorial words. **Not
    `soft-editorial`, whatever the brief says.** Read `site_specs` `aspect='resolved_composition'`
    the moment composition runs and record which way it went — either outcome is evidence for 445.
+- **(cc) closed by the 445 lane: the fix was SPECIFIED IN APRIL 2026 AND NEVER BUILT.** Migration
+  `103_site_design_planner.sql` (lines 175–215) defines the `resolved_composition` lineage contract
+  and specifies three things that do not exist: **`layout_match_score` "(float 0-1) — tag-overlap
+  score for chosen layout"** — a NORMALISED score, i.e. exactly the coverage measure they rebuilt,
+  and **0 of 33 rows carry the key**; a **threshold** (its own worked example reads *"scored
+  utility-tool=0.82 above threshold 0.5"*) — absent from the code; and
+  `layout_source: "needs_new_layout_candidate"` as a recordable value — **never written once**
+  (31 `library_match`, 2 `library_fallback`). So the gap signal was left firing on the only
+  condition available, total score zero, which the category/description/scheme bonuses lift above
+  zero unaided — hence the four sites recorded `tags 0.00` as a successful `library_match`.
+- **And the classifier's live prompt promises a mechanism the code cannot keep**, verbatim: *"If no
+  existing tag fits this site well, coin a new one using the same style — an unmatched tag will
+  trigger a library-growth review work item rather than silently fail."* It does not.
+  **[MEASURED 2026-09-03, theirs] 188 of 216 distinct terms the classifier emits across 33 sites
+  (87%) match no layout.** The model obeys its instruction perfectly and its coined tags vanish;
+  four terms decide everything. **Fleet lesson: a prompt that tells a model its output will be
+  HANDLED is a promise the CODE must honour, or the model's compliant work disappears silently and
+  at scale.** Written to memory.
+- They adopt the **"industry dialect vs FORM"** framing with attribution, and it gives the archetype
+  a hard acceptance test rather than a taste judgement: **a new layout is only real if the classifier
+  ALREADY emits tags it can match** — `content-hub` (4 sites, matched by nothing) is a candidate
+  anchor; `long-form` sits in magazine-grid's tags and is matched by nobody.
+- **Their correction, which this lane must heed too:** a subagent report told them migration 689 was
+  never applied and the theme-kit branch was dead code. They checked instead of repeating: **689 IS
+  applied**, `theme_kits` and `page_archetypes` exist, 4 kits seeded; the branch is inert for a DATA
+  reason (0 adoptions), not a schema one. The report had read a **concept-register entry written
+  before the migration was applied and never updated** — the exact landmine this tree already
+  carries. **We cite the register too: verify a register status against the mechanism before
+  repeating it.**
+- **№5 composition check upgraded** to capture `layout_candidates` + the `reasoning` score, per
+  their request — a "not soft-editorial" outcome is not enough; the score decides what it means.
 
