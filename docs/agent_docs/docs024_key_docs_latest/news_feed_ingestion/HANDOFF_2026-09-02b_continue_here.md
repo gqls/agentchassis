@@ -166,12 +166,26 @@ gap (source enablement for sites with zero `content_sources` rows):
    editorial treatment (triage/scoring/extraction), not a straight copy.
 2. **`designblog.co.uk`**: `/the-design-feed/` serves zero items — 0
    `content_sources` rows for that site. Wants a DESIGN-vertical source
-   (explicitly NOT WebProNews, which reads as marketing/business-adjacent)
-   when sources get wired up for it. Asked for an ACK — send one via
-   SendMessage before or as you start this (their address/session should
-   still be reachable via ListAgents, or reply to
-   `docs/agent_docs/docs024_key_docs_latest/designblog_couk/` if the
-   session itself has since ended).
+   (explicitly NOT WebProNews, which reads as marketing/business-adjacent).
+   ACK sent this session. **RE-SCOPED (owner ruling 2026-09-03, relayed by
+   `designblog.co.uk` after this handoff was first written) — read this
+   before doing anything for this site.** The page KEEPS `page_type
+   section-index` and is meant to fill via CHILD PAGES under the
+   `/the-design-feed/` prefix, NOT a replan to a news-index page type. The
+   `bugs_open/444` resolver confirms a section-index page resolves by child
+   pages, not by `content_sources` directly — **so wiring a design-vertical
+   source alone, the way this lane wired candidate #1/§3 above, will NOT
+   fill this page.** The design-vertical source is still wanted, but as the
+   INPUT that generates child pages/articles under the feed section (the
+   editorial shape the page promises: foundry releases, studio rebrands,
+   tooling notes) — not as a directly-bound feed. **How source→child-pages
+   composes mechanically is explicitly left as this lane's own call, to be
+   worked out WITH `portfolio_positioning` (owns the site's plan shape) and
+   the `bugs_open/444` session (whose gate holds the page until children
+   exist)** — do not build this one solo the way `advertise`'s plain
+   news-index page can be. Coordinate before writing any code or spec for
+   designblog.co.uk specifically; `advertise`/WebProNews (item 3 below) is
+   the more direct, page_type-uncomplicated case and can proceed first.
 3. **`bugs_open/444`** (empty listing pages): diagnosed that `advertise`'s
    empty `/news/` page needs BOTH: `content_features.news_feed` authored in
    its classification spec (no key exists there at all today —
@@ -191,13 +205,15 @@ gap (source enablement for sites with zero `content_sources` rows):
    `bugfix_444_empty_listing_pages/PLAN_2026-09-02_listing_source_gate.md`.
 
 **Suggested order once §3 is verified**: read `idea.uk`'s 2026-08-25
-classification-spec entry as the template, then decide site-by-site
-(`advertise`, `designblog.co.uk`, and any other zero-source site
-`bugs_open/444` names) whether WebProNews or a design-vertical source
-fits, author the spec entry + seed the `content_sources` row per site, and
-confirm each site's `/news/`-shaped page fills on the next `feed-triage`
-cycle. Grep `bugs_open/444` in full before starting — it may have moved
-since this note.
+classification-spec entry as the template. **`advertise` first** — a plain
+`news-index`-shaped page, WebProNews as the source, author the spec entry +
+seed the `content_sources` row, confirm `/news/index.html` fills on the
+next `feed-triage` cycle. **`designblog.co.uk` NOT solo** — per item 2's
+re-scope, message `portfolio_positioning` and the `bugs_open/444` session
+to agree the source→child-pages mechanism before writing anything for that
+site; do not just reuse the `advertise` recipe there, it's a different
+page_type with a different fill mechanism. Grep `bugs_open/444` in full
+before starting either — it may have moved since this note.
 
 ## 5. Standing practices this lane has been following (keep doing these)
 
