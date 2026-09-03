@@ -351,10 +351,31 @@ asserted as deployed that wasn't checked), but a gap in what got checked.
   `bugs_open/427` §10.2, not a code task.
 - [ ] **Watch for the next council verdict** on anything resubmitted from this bug — none
   outstanding as of this update (both verdicts are in).
-- [ ] **Not this lane's job, tracked elsewhere:** the follow-up sample bug 428 §4 itself
-  named — checking, once real `plan_site` calls accumulate against the tightened prompt,
-  whether `strategy_notes` actually names omitted roles individually now (no automated
-  check for this; a manual `llm_call_log` sample in a future session). `bugs_open/206`'s
+- [x] **~~The follow-up sample §4 named~~ — DONE, by the `gamedesign.uk` lane, and it found
+  more than the check was looking for.** See the CONTRIB at the foot of this file (added
+  2026-09-03 ~11:00Z; relayed to this lane a second time via the `site-design-planner`
+  session, whose inbox it reached through the `site-design-planner`/`build-site-planner`
+  name collision). The answer to the question as posed is **yes**: 687's rule reached the
+  model (verified in `llm_call_log.prompt_rendered`, not in the agent row) and the planner
+  **complied** — it named the omitted type and gave a per-type reason. **The residual is
+  that the reason is false.** It deferred `blog-post` to "the blog infrastructure", which
+  does not exist; six sites serve 13–52 ordinary planned `blog-post` pages built by the
+  normal pipeline, and 444's own gate filed `capability_gap builder_needed=blog_posts`
+  against the same plan **three seconds later**. Two mechanisms in one validation pass
+  reached opposite conclusions about the same page type and neither saw the other.
+  **So the shape §4 asked about is confirmed live and post-fix: the "note why" obligation
+  is satisfiable with a hallucinated justification, and nothing checks the reason against
+  the estate.** `[MEASURED 2026-09-03]` 3 of 32 `plan_site` runs in 30 days.
+  **ADJUDICATION (this lane, 2026-09-03): this is a NEW residual of 687, not a reopening
+  of 428.** 428's own defect — a planner deferring a role by citing an authority it does
+  not have — is the same *shape*, and 687's audit surface is what made this case visible
+  at all, which is the fix working. What it exposes is the next rung: an auditable reason
+  is not a true reason. Whoever takes it should read the CONTRIB's own closing hypothesis
+  first (migration 720's rule 3 naming `blog-post` as a legitimately-empty-`sections` type,
+  alongside the preserve block's "`sections: []` means rendered by another part of the
+  system") — marked `[INFERRED, not tested]` by its author and worth testing before any
+  prompt edit is worded.
+- [ ] **Not this lane's job, tracked elsewhere:**  `bugs_open/206`'s
   data-coverage gap (3 verticals only). Candidate #2 as originally worded (an automated
   dispatcher) stays refused pending an actual owner ruling on RFC_056, not a future
   session's unilateral call.
