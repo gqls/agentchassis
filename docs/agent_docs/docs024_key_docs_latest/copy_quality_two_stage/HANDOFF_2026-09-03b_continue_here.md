@@ -82,8 +82,12 @@ is the most dangerous carrier for an invented cause.
   there is no URL to point at; **no Sedo URL pattern is documented anywhere — do not compose one.**
   relojistas keeps its working GoDaddy/Afternic lander meanwhile.
 - **`leopardessconsulting.co.uk` is PERMANENTLY excluded** — owner verbatim *"no
-  leopardessconsulting need not be listed"*, confirming D4's paying-client case by name. The sedo
-  lane holds it in a durable owner-withdrawal file. Also `copyonline.co.uk` withdrawn (owner's own,
+  leopardessconsulting need not be listed"*. The sedo lane holds it in a durable owner-withdrawal
+  file. ⚠ **CORRECTED 2026-09-03 ~17:10Z: it is the owner's OWN consultancy, not a paying
+  client's site.** D4's worked example (*"a paying client's site (leopardess)"*) is wrong on the
+  facts — found by the valuation lane from the live site's own copy and confirmed by the owner to
+  them. I relayed D4's gloss to three lanes as fact; D4 is now corrected at source. The exclusion
+  stands on his word, not on a relationship-breach argument that cannot apply to his own site. Also `copyonline.co.uk` withdrawn (owner's own,
   possibly his wife's; either outcome was acceptable to him).
 - **Both webdesign domains are in scope for sale and "will be the same endpoint one day."**
   ⚠ **`webdesign.uk` (18 pages) is the SHOPFRONT** — `CLAUDE.md:716` — and the one he valued at

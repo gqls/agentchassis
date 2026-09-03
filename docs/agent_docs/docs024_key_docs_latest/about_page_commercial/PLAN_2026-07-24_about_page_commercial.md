@@ -20,6 +20,24 @@ written strategy, now implemented.
 
 ## Decisions and their reasons (all owner-ruled 2026-07-24)
 
+> **⚠ CORRECTED 2026-09-03 — D4's WORKED EXAMPLE IS WRONG ON THE FACTS; THE RULING STANDS.**
+> D4 below names *"a paying client's site (leopardess)"* as the relationship-breach case.
+> **`leopardessconsulting.co.uk` is the owner's OWN consultancy**, not a client's site. Found by the
+> `domain valuation` lane 2026-09-03: the live site reads *"Leopardess Consulting | AI systems that
+> do one defined job, and keep doing it"* and its copy says *"We run 22 of our own sites on
+> Kubernetes, Kafka and Postgres… before we build anything for you"* — this platform sold as a
+> service — and the owner confirmed it directly to them as *"a representation of my own services"*.
+> A relationship cannot be breached with oneself, so the example does not illustrate the harm D4
+> guards against. **What does NOT change:** fail-closed, confirm-per-site is right regardless of
+> the example, and the owner has separately ruled by name (2026-09-03, verbatim: *"no
+> leopardessconsulting need not be listed"*) — so the site's exclusion now rests on his word, not
+> on D4's reasoning. **What DOES change:** three lanes (`copy_quality_two_stage`, `sedo`,
+> `domain valuation`) had recorded leopardess as a paying client on the strength of this row and
+> have corrected. **If a real paying client's site exists, its name is the one that belongs here** —
+> that is the case that would actually cost a relationship, and the RUNBOOK's "keepers/clients
+> (leopardess)" inherits the same error. Corrected visibly rather than rewritten: the row below is
+> the ruling as made, and this note is the fact as found.
+
 | # | Decision | Reason |
 |---|---|---|
 | D1 | Sell the **domain** (Afternic), not site-as-business | The asset is the name; no revenue/traffic to price a business on. Multi-route (Flippa/Sedo/brokers/direct) **deferred — owner will revisit**; doc 010 posed the question and never picked |
