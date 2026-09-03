@@ -465,3 +465,32 @@ the VERTICAL's temperature. Proposed in `bugs_open/446` §6.7: a flag-only revie
 classifier's vertical and the served bytes; the owner's two critiques tonight (designblog,
 gamedesign.uk) are its first two training cases. Until it exists, **a human reads the site** — which
 is how both were found.
+
+---
+
+## 11. A GUARD THAT PRESERVES THE DEFECT
+
+### 11.1 A shrink refusal protecting the padding it cannot distinguish from content
+*Added 2026-09-03, from boxingonline.*
+
+The section-shrink guard refuses a re-render that drops a section's visible text below roughly
+half. On boxingonline the **correct repair of the owner's headline complaint** was a cut from
+**1,116 → 167 visible characters** (15%) on the home page's call-to-action — a 1,347-character
+block that describes the news feed and then walks the reader through four tools one at a time in
+full sentences, which is item 1 of his critique verbatim ("telling the user what the site is doing
+rather than talking to the user"). **Refused three times; the build route on that page closed.**
+
+**The guard is right and the refusal is wrong, and both at once.** A proportion cannot tell
+padding from substance, and the two cases it must separate — a writer silently gutting a section,
+and an authorised concision — are *identical by proportion*. There is no threshold that admits one
+and refuses the other.
+
+**Check:** when a shrink refusal blocks a change, **read the text it is protecting before doing
+anything else.** If the protected text is itself the defect, the answer is a named, auditable,
+per-run override or a different write route — **never a lower floor**, which admits the silent
+gutting too. A refusal is evidence about proportion, never about value.
+
+**Generalises past this guard:** any percentage-based safety rule inverts on a deliberate,
+authorised reduction. The same shape applies to token caps, prune floors and diff-size gates.
+The tell is that the mechanism is working exactly as designed and the outcome is wrong anyway —
+so nobody looks for a bug, and the defect is preserved indefinitely by something nobody suspects.
