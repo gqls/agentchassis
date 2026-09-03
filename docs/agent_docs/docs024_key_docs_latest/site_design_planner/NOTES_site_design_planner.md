@@ -673,3 +673,15 @@ row, ever, across 38 resolved sites, and it's the zero-tags case (bug 431's own
 territory), not a weak-match case. If confirmed, this is the better fix to
 prioritise over 445's one-archetype proposal — routed there now, not chased
 here.
+
+## 2026-09-03 — misrouted `build-site-planner` finding, redirected
+
+`gamedesign.uk` sent a genuinely good finding (the planner declining to plan
+blog-post pages, citing a nonexistent "editorial producer") to this lane by
+name-collision — the exact `site-design-planner`/`build-site-planner` mix-up
+this thread flagged with `bugs_open/427` on day one and has held the line on
+since. Not this mechanism, no code overlap. Redirected to `gamedesign.uk`
+plainly, and forwarded the finding directly to the live `bugs_open/427`
+session rather than leaving it to be found — it reads as the same shape as
+their own `428` (the planner inventing authority to decline a page type),
+just a different page type. Not investigated further here.
