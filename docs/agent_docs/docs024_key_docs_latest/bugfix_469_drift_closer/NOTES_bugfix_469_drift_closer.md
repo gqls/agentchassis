@@ -251,3 +251,102 @@ real un-fixed defect produces exactly the same backlog row as a check with no ar
 a defect that completed weeks ago. The discriminator is whether the item's own predicate
 still holds — which is precisely what nothing re-derives today, and precisely what a
 direction-aware closer must re-derive before it touches anything.
+
+---
+
+## 2026-09-03 — session 1, the build
+
+### The design, and the two places the plan changed under scrutiny
+
+Fable drafted the plan against the grounding above. Two of its refinements were better
+than my brief and both are now the design:
+
+1. **`lost` is the predicate; `direction` is only the label.** I had proposed classifying
+   by migration `753`'s three-way equality. That cannot separate `oufe.com/contact` (the
+   authority **restored** a section the cache had dropped) from `gripper-catalog` (the
+   authority **deleted** one). Both are `authority_won`. Anything keying on the label
+   grades a repair and a destruction identically.
+2. **The receipt coupling belongs in `resolveWorkItems`, not in the check.** I had it in
+   the check. `resolveWorkItems` has two callers (`discovery_checks.go:274`,
+   `work_item_retraction.go:230`), so a control in the check protects one path and every
+   future caller inherits nothing.
+
+### Two of Fable's `[UNVERIFIED]` items, measured
+
+```sql
+SELECT COALESCE(build_status,'(null)'), count(*), count(*) FILTER (WHERE slot_name IS NULL)
+FROM page_components GROUP BY 1;
+--  deployed 3219 | removed 56 | pending 32 | approved 26   — null_slot: 0 in every group
+```
+
+- **NULL `slot_name` — REFUTED.** Zero of 3,333 rows. The name match has no silent
+  under-report, which was Fable's stated worry.
+- **`removed` rows — 56 of 3,333 (1.7%).** The projection carries no `build_status`, so a
+  removed row still matches and over-grades to `high`. Safe direction, small population —
+  but it is why the spec key is `would_drop_present` and **not** `would_drop_deployed`:
+  the check has not measured deployment and must not say it has.
+
+### Three things the estate's own guards caught, all kept
+
+1. **A constant is invisible to the coverage sensor.** I wrote `ItemType:
+   sectionDriftItemType` and `verifier_coverage_test.go` demanded the file be declared in
+   `computedItemTypeSites`. Taking that escape hatch would have made **both** of this
+   file's item types invisible to CLASSIFICATION — a hole in the guard exactly where it
+   claims coverage. So the field sites spell their strings and a pin test stops them
+   drifting from the constants.
+2. **My own comment poisoned that scanner.** The comment explaining the above quoted the
+   pattern it described, and the guard duly reported that this file produces an item type
+   called `"literal"`. The landmine "a source-scanning test makes your COMMENTS
+   load-bearing", experienced rather than read. The comment now describes the pattern
+   instead of spelling it, and carries a warning not to re-spell it.
+3. **`pattern-check` caught a roll-claim with no commit** on my own register entries —
+   `WII-039`/`WII-040` said "inert until the next roll" and named no sha. Fixed in
+   `e48ecbe75`.
+
+### The mutation table — and the one that SURVIVED
+
+Fifteen mutations, each applied by script, the named test run, the source restored and
+`diff`ed byte-identical. **Eleven on the check, four on the seam. Fourteen killed on the
+first pass. One survived, and it is the most useful line in this file:**
+
+> Deleting the receipt-insert error return left `TestReceiptFailureWithholdsTheRetraction`
+> **green**. Not because the guard was redundant — because the flow fell through to the
+> `!inserted` arm, whose presence `SELECT` is unmocked and errors too. **A guard in SERIES
+> did the work.** The safety property held throughout; the test's *claim to pin that line*
+> did not.
+
+The wrong reading is "the mutation passed, so the line is fine". The test now asserts the
+specific message (`could not be written`) and the mutation is killed. The survival is
+recorded in the test file's own header, because the next person to run that table needs to
+know it happened once.
+
+### What I did NOT build, and why each
+
+- **No `pages.sections` history table** — refuted for one `count(*)`, above.
+- **No writer to `site_plan_sections`** — RFC_064, the `427` lane's, open with the owner.
+  Coordinated directly with that session, which narrowed its RFC to reference this work
+  rather than duplicate it.
+- **No refresh of the frozen spec**, although `refreshOnConflict` exists on the write
+  seam. Those frozen lists **are** the baseline `lost` is computed from; refreshing them
+  would erase the only surviving record of the destroyed composition. The dedup blindness
+  is fixed by FREEING the slot, not by updating the row.
+- **No changes to the other nine flag-only checks with no closer.** The seam is reusable;
+  each predicate is its own, and a shallow arm on nine checks is how a naive closer gets
+  written nine times.
+- **An exported predicate for RFC_064.** The `427` lane asked for
+  `SectionSourceStateForPage` exported behind a querier interface. I did the interface
+  (both `*sql.DB` and `*sql.Tx` satisfy it, which is what lets their writer re-run the
+  drift predicate inside its own transaction) but kept everything **unexported**: an
+  exported helper with no caller reads as a finished refactor. Their commit is what
+  exports it, at which point it has one. They agreed, unprompted, that this was the better
+  call.
+
+### Test state at commit
+
+`go build ./...` clean; `./platform/orchestration/...` green **except two pre-existing
+failures that are not mine** — `TestFindingCodeScanEveryWriteIsRegistered` and
+`TestTemplateExecutorsAreDeclared`, both about `FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK`
+/ `renderFailWorkItemMessage` from commit `83407cd37` (the 440 lane). **Verified they
+pre-date my change** by running `scripts/verify-head-builds.sh --test` against committed
+HEAD `c68932577` before my work was committed: identical two failures. `verify-head-builds.sh`
+on my own HEAD `e48ecbe75`: **OK — HEAD builds.**
