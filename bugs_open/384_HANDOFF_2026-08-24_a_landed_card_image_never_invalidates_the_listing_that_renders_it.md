@@ -918,3 +918,66 @@ restart does not un-brand anything.
 oxenunity.com/tool-take-strength-scorer are `rebuild_blog_listing`-maintained (slow rotation path)
 or `save_page_sections`-maintained (the seam repairs them). If the former, they are a live second
 instance of the gap in item 1 and should be re-read in a few hours. The query is in the handoff.
+
+## UPDATE 2026-09-03 10:0xZ — **OWNER RULING: STAYS OPEN.** And a LIVE REPRODUCTION on the seam's own path — the defect is NOT blog-listing-specific
+
+**OWNER RULING (2026-09-03):** *"keep it open until those are checked and fixed."* So the §2
+decision in the 09-03 handoff is settled as **Option B** — 384 does not close on "recovers by
+rotation". The remaining items are to be checked AND fixed, not accepted. My Option-A
+recommendation is superseded; recorded here so no later session re-opens the question.
+
+The first check found the defect live, and it **falsifies my own 09-03 §2 framing.**
+
+### designblog.co.uk/index — reproducing NOW, on the current build, on a `save_page_sections` page
+
+`[ALL MEASURED 2026-09-03 09:3x–10:0xZ]`
+
+- **Not a blog listing.** Component is `content-listing` (`query.blog_posts` array field), page
+  `index`, and the page is **`save_page_sections`-maintained** — the path where I said the seam
+  "repairs correctly".
+- **The seam fired correctly:** 5 `page_rerender` items from `derive_card_asset`,
+  `reason=section_data_resolved`, `cause=card_landed:tool-aspect-ratio-guide`, created 04:56:39,
+  **all complete** by 05:25:51. Two carry `consumes: ["query.blog_posts"]` — scoping matches the
+  component's own field source exactly.
+- **The projection inputs are all present and correct:** four target pages `status=active`,
+  `page_type='blog-post'`; four card assets `status=active`, `asset_key` set
+  (`card_tool_aspect_ratio_guide` etc.), `site_id` matching. Cards landed 04:56:39–05:05:10.
+- **The array was rewritten twice AFTER all four cards existed** (05:06:21 and 05:25:28) and holds
+  **4 entries, 4 blank**. Pre-image at each write: also 4 blank. So the re-resolve ran and produced
+  the same empty images each time.
+
+### THE CARRY HYPOTHESIS IS DEAD — the run says the section WAS re-rendered
+
+`orchestration_states` still holds these runs (they are hours old, not days — the retention problem
+that defeated the leopardess diagnosis does not apply):
+
+| run | section_count | rerendered | carried | escalated | skipped |
+|---|---|---|---|---|---|
+| 2026-09-03 05:06:19 | 4 | **4** | **0** | false | false |
+| 2026-09-03 05:08:24 | 4 | 4 | 0 | false | false |
+| 2026-09-03 05:09:01 | 4 | 4 | 0 | false | false |
+
+**Nothing was carried.** So `plan.Status != "ready"` (`rerender_page_sections_action.go:509`) — the
+candidate I have carried since 09-02 and put in the last two handoffs — **is refuted for this case.**
+The section re-rendered and the image field still resolved empty.
+
+**Remaining hypothesis, UNTESTED and stated as such:** the `query.blog_posts` resolve returns without
+populating `articles` (error, or an empty/short-circuited result), so `plan.ResolvedData` lacks the
+key, `mergedContent` keeps the stored blank array, and the section still counts as `rerendered`
+because it DID render HTML. That would also explain `content_data` unchanged while `rendered_html`
+changed (only the html archive trigger fired). **Do not write this into a fix until it is tested.**
+
+### What this does to the lane's state — three corrections to my own recent claims
+
+1. **RETRACTED: "the defect is BLOG-LISTING-specific."** It is not. designblog/index is a
+   `content-listing` on the `save_page_sections` path and it is broken right now.
+2. **WEAKENED: "four of five demonstrations are genuine."** I verified that a `save_page_sections`
+   **write happened** at 19:13/19:14/19:15 on finetuning — **I did not verify those writes produced
+   non-blank images.** The 0-blank figure for them comes from the 08-26 census, not from checking
+   those writes. **Re-verify before quoting §4 again.**
+3. **The 09-03 handoff's §2 decision framing is superseded** by the owner ruling above AND by this
+   reproduction — the choice was never "close on rotation vs fix blog listings"; the seam does not
+   reliably repair its own path either.
+
+**This is the best diagnostic opportunity this lane has had:** a live, reproducing case with the
+orchestration runs still inside retention, correct inputs, and a falsified leading hypothesis.
