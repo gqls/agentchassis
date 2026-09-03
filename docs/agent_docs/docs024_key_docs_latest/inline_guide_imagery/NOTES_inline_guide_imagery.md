@@ -1163,3 +1163,55 @@ a date range, a chosen population. **This lane has now been bitten by three memb
 in one day** (a `LIMIT` counting rows while the claim counted pages, §14; a `data-component` census
 counting my predicate rather than the page, §17b; and a step key that could not have held what I was
 testing for, §17b) — and the tell separates all three from a real scope in one question.
+
+### 22. CORRECTION to §21's collision figure — 129, not 130, and my published re-derivation command had a latent blind spot
+
+`dartsonline_traffic` re-derived the count independently, got **133** against my **130**, and rather
+than either of us assuming the other had slipped, the disagreement located a defect in **both**
+predicates. Worth recording in full because it is the third member of one family in a day.
+
+**The corrected figures** `[MEASURED 2026-09-03, re-run clean]`: **874** non-sidecar files, **735**
+distinct numbers, **130** numbers repeating, of which exactly one (`090`) is a deliberate sibling —
+so **129 genuine collisions of unrelated migrations**, about **one number in six**.
+
+**Their error, which they found and reported:** `s/^([0-9]{3}).*/\1/` collapses the `042b_` sibling
+form onto the base number. `042`, `062` and `063` all exist as well, so the predicate manufactured
+**three false collisions** and returned 133. Their words: *"my predicate encoded 'a migration number
+is three digits', which is true of almost every file and false of exactly the four that matter."*
+
+**My error, which theirs exposed and which is the worse of the two, because I had PUBLISHED the
+command in a landmine telling people to re-derive with it.** Mine was `s/^([0-9]+)_.*/\1/`. It
+requires digits *immediately followed by an underscore*, so it never matches `042b_…` at all — and
+`sed` passes a non-matching line through unchanged. That is why I got the right answer: each
+letter-suffixed file became its own unique long string and simply fell out of the collision set.
+**Right number, wrong mechanism, and it carries a blind spot theirs does not: it would MISS a
+genuine collision between two `042b_` files**, because those two would also be distinct full
+filenames. None exists today, which is exactly why the flaw was invisible. The landmine now carries
+the `[a-z]?` form with the reasoning attached.
+
+⚠ **And my 130 was additionally an artefact of arithmetic across two different predicates.** I ran
+`[0-9]+_` (got 131 repeating), then detected deliberate siblings with `^${n}_[a-z]_` — a pattern
+matching only the **underscore** convention — and subtracted 1. But **two sibling conventions
+exist**, `042b_` (4 files) and `090_b_` (2 files), and my sibling detector was blind to the first.
+The subtraction happened to land on the right answer because the `042b_` files had already fallen
+out of the numerator. **Two blind spots cancelling is not a measurement.**
+
+**The part I would keep if I kept only one line:** ⚠ **the count moved while we were measuring it.**
+Mid-exchange a third lane committed `b196bd576` — *"renumber the acknowledgement migration
+750 → 755 and APPLY it — 750 was taken twice under me while I wrote it"* — and an untracked
+`756_*.sql` appeared in the tree in the same window. **The trap fired on a fourth session during
+the hour two sessions spent quantifying it.** That is a stronger argument for the rule than any
+number, and it is now the closing bullet of the landmine.
+
+**The three members of the family this lane hit today, which is what makes the peer's test worth
+adopting:**
+
+| # | what I did | why it looked complete |
+|---|---|---|
+| §17b | read the **wrong artefact** — a step's output, testing for a string that could never be there | the absence was real, just uninformative |
+| §21/§22 | published a **predicate encoding a format assumption** (`[0-9]+_`) | it returned the right number, for the wrong reason |
+| (theirs) | read the **right artefact through a bound sized to expectation** (`12:45–13:05`) | the result looked complete and matched the prediction |
+
+Their one question separates all three: *"can I say why each bound is where it is, and is the reason
+'outside this range the rows cannot exist' or 'that is when I expected it'?"* Adopted verbatim in
+`memory/measurement-discipline-index.md`.
