@@ -440,6 +440,16 @@ rolling now. What that build DOES carry is `e5b1a0f01` — after which the patte
 the next daily `evidence-freshness` pass, and **its first findings are the thing to read**, not the
 roll.
 
+**Q6 BUILT 2026-09-03 (`ac670badf`), Council-Submitted: `57a9939f`.**
+`datahelpers.CitationRuleSpan` (pure) + `actions.verifyCitationLiveForRule` (new function, doesn't
+touch `verifyCitationLive`'s three other call sites) wired into `refreshCitationFact`, reading
+`fact["rule"]` off the raw map. Ten tests total (six pure, four httptest/offline), the load-bearing
+one carrying its own control (whole-page verification is asserted to PASS the same quote first,
+proving the rule-scoped rejection is `CitationRuleSpan`'s doing, not a broken fixture).
+Mutation-verified in an isolated worktree: disabling the span check fails exactly the tests it
+should. Not yet deployed — same two gates as Q7's `banned_claims` half (build+roll, then next daily
+tick).
+
 > **CONFIRMED 2026-09-03, and it is a caveat rather than a green light.** The build deployed
 > (replicaset `75b987cbd7`) and the detector **is in the running binary** — probed at `/proc/1/exe`
 > for `invalid_banned_claim_pattern` with **both** controls (target **6**, must-be-absent **0**
