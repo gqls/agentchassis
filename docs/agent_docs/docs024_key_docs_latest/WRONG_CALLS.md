@@ -64716,3 +64716,35 @@ had asserted the receipt — the thing OPP-009 exists to make me do — and read
 No wasted dispatch (I did not retry, which was right for the wrong reason) and nothing broken. The
 recipe in `651`'s header is now corrected and the trap is filed in `LANDMINES.md` — it would have hit
 anyone dispatching either delivery agent from that seed.
+
+## 2026-09-03 — I resubmitted a corrected plan whose SKETCH still showed the defect, and quoted a blast radius half the true size (`bugs_open/472`)
+
+- **The claim.** Council round 2 for migration 758. My rationale described the two-helper fix
+  in detail, named the round-1 regression, and explained the strengthened post-condition.
+- **What was true.** I had updated the prose and **not the artefact**. The edit's `sketch` still
+  showed the single `safeHref()` — the exact form that caused the regression. The `editquality`
+  seat objected HIGH, correctly: *"If the sketch reflects what actually shipped, the regression
+  this whole resubmission exists to fix is still live... the sketch is the only artefact this
+  review can judge, and as written it contradicts the rationale it accompanies."*
+- **Why it mattered.** A stale sketch beside a corrected rationale is **indistinguishable from
+  a false claim**, and the reviewer has no way to break the tie. It cost a full round — and the
+  round it cost was the one that would otherwise have surfaced the guardian's fork question a
+  cycle earlier.
+- **The cheap check that would have.** On any resubmission, **diff the sketch against the file
+  it describes** before sending. I re-read my rationale three times and never re-read the
+  sketch, because I had written the rationale *last* and it felt like the live document.
+- **AND THE SECOND ONE, from the same round, which nobody would have caught but me.** The
+  guardian asked whether the components are forked per site. Answering it required a query I
+  had never run — and the query also showed that **`news-listing` is bound on TEN sites and
+  `latest-news` on EIGHT**. I had said "five customer sites" all session, in the migration
+  header, in the bug file, in three peer messages and to the owner. Five is the count of sites
+  currently **serving the published JS asset**; ten is the count **bound to the component**.
+  Both are true; I quoted the smaller while describing a **blast radius**, which is the wrong
+  one for that purpose.
+- **The cheap check.** When a number describes *how much this change touches*, derive it from
+  the thing the change edits — here `page_components.component_id` — not from a downstream
+  artefact that happens to be easy to curl. I had the convenient number because I had been
+  probing served assets all day, and I never asked whether it answered the question I was
+  putting it to.
+- **Cost.** One council round, and a figure repeated to four audiences before it was corrected.
+  Nothing shipped on it: the migration is still held.
