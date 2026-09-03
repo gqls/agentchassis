@@ -621,3 +621,53 @@ first-seen clock for the two unstamped holds).
 > the artefacts (`schema_migrations.applied_at`, `orchestration_states.created_at`) for the
 > handoff rather than my own prose. Same family as the 12:48Z/17:03Z split at the top of this
 > section: **a time I did not read off a clock is a time I made up.**
+
+**(xx) PLAN ITEM 4'S INPUT, MEASURED — the eleven producers, read.** A read-only census of the
+code that files each of the 13 flag-only `item_type`s (subagent sweep, then I re-verified the
+three claims below that would change what we build). `[MEASURED 2026-09-03 17:3xZ]`:
+
+| group | item_types (rows) | what the code says, verbatim |
+|---|---|---|
+| **DEFERRED HANDLER** (5 types, **~813 rows**) | head_essentials_missing 703, canonical_mismatch 49, dead_internal_link_live 30, page_content_divergence 23, sitemap_entry_dead_live 8 | *"FLAG-ONLY, THIS PASS … No auto-repair agent is wired in this pass"* (structural_validity header); *"future work GATED on bugs_open/251's own fix"* (canonical); *"per D5 ('no handler agent in v1') … accepted here for one release"* (divergence) |
+| **HUMAN JUDGEMENT** (7 types, **~270 rows**) | heading_promise_unmet 148, image_url_404 87, prerequisite_missing 71, structure_floor_unmet 27, archived_page_still_serving 9, asset_reference_404 4, site_unreachable 2 | *"the repair is a planner/writer judgement"*; *"removing or repointing it, which no image generator can decide"*; *"the difference is intent, which lives in a human"*; *"nothing can repair Cloudflare routing today"* |
+| **ORPHAN** (1 row) | needs_content_planning 1 | no producer files this type handler-less at `detected`; the row was a **hand INSERT** (`created_by = gripper_dossier_ai_page_3_315_reopen`, `source = manual`, 09-02 17:17Z) — another lane's, not the loop's |
+
+Three facts that change the design, each re-verified by me in the file:
+
+1. **`image_url_404` CAN NEVER CLOSE.** `check_image_url_404.go` contains **zero**
+   `ResolvedFinding` emissions (the one "resolved" match is a comment at :68); the control,
+   `check_site_structural_validity.go`, has 5. So a repaired image leaves its row at `detected`
+   for ever. **87 rows across 34 sites, oldest week 2026-07-20; 8 `complete` + 3 `cancelled` ever,
+   live+archive, none by the check.** `asset_reference_404` has the same hole for its
+   `empty_src` key (one retraction site at :339, keyed on `unresolvable_reference` only). This is
+   a defect distinct from "nobody drains the pile": these rows are wrong even after the page is
+   fixed. Candidate for its own `bugs_open/` file — **prior-art grep first** (printed above this
+   entry in the session log; not yet done at the time of writing).
+2. **There is no shared flag-only constructor.** The mechanism is `HandlerAgent` left
+   zero-valued on `WorkItemSpec` (`registry.go:66`) and a copy-pasted comment — *"HandlerAgent
+   intentionally empty — flag-only, see the header"* — at **11 sites** (`grep -c` confirms).
+   Every one of these rows crosses ONE seam (`discovery_checks.go:249` → `insertWorkItem` →
+   `writeWorkItem`), which neither validates nor annotates an empty handler on a `detected`
+   row. That seam is where a change lands once, not eleven times — the same "door, not the
+   producers" argument WDS-020's council round made.
+3. **Exactly one consumer, and it only counts.** `countUnroutableDetected`
+   (`work_items_common.go:359`) feeds `not_promotable` in the triage output; nothing reads it
+   beyond a log line. Every other reader of handler-less rows filters on `deferred` or
+   `capability_gap`. And `livespec/unarmed_completers.go:85` declares a live
+   `image-url-404-handler` that the detector deliberately never routes to — *"3 rows ever
+   reached this agent, by hand, and it escalated all three back to needs_human_review"* — so
+   the human-judgement classification has been tested once, by the agent itself.
+
+`triage_hint`: only `archived_page_still_serving` writes the literal key; three others write a
+`not_dispatchable` sentence into `spec`; the remaining nine write nothing a human could act on.
+The handoff's "9 of 1,385 carry a triage_hint" was the first group.
+
+**What this does to item 4.** It is now two changes, not one, and neither is "a queue":
+(a) a **retraction contract** — a flag-only finding must be able to close itself, and
+`image_url_404` / `asset_reference_404.empty_src` violate it today; (b) at the shared seam, a
+handler-less `detected` row from a HUMAN_JUDGEMENT producer files at `needs_human_review` with
+its `not_dispatchable`/`triage_hint` text as the brief (912 peers already live there visibly),
+while a DEFERRED_HANDLER producer's rows stay `detected` and are counted per type by the
+daily check family, so "this pass" has a number and a date. Both are shared-seam changes →
+`090` for the root-cause claim, then the council. **Not started; the skip-link drain is not at
+its floor and the 458 still need reading at the row level, not just the producer level.**

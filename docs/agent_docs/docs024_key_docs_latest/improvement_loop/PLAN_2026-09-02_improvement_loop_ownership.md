@@ -164,3 +164,30 @@ Nothing below is started; this section is the plan, not a status.
 - **(D2) boxingonline.com is parked.** Is that deliberate (a domain we hold but do not
   serve), or has it come unpointed? The answer decides whether the 20 rows are damage
   or noise.
+
+---
+
+## ADDITION 2026-09-03 — item 4 has its evidence, and it is two changes
+
+Census of the producers (NOTES §(xx)). §5 item 4 said *"either the producers should file at
+`needs_human_review` … or the guard should demote rather than hold"* — the code answers that
+the producers are **two populations that were never one**:
+
+- **5 types (~813 rows) are DEFERRED HANDLERS** — the code says *"THIS PASS"*, *"v1"*, *"gated
+  on 251"*. These are not human decisions; they are handlers nobody built. The right consumer
+  is a **count with a date** (the daily check family), not a review queue — and a ruling per
+  type on whether the handler is coming.
+- **7 types (~270 rows) are HUMAN JUDGEMENTS** by the code's own words. These belong at
+  `needs_human_review` beside their 912 peers, carrying the brief three of them already write.
+- **A retraction contract is missing**: `image_url_404` never emits a `ResolvedFinding` (87
+  rows, oldest 07-20, 0 ever closed by the check), nor does `asset_reference_404` for
+  `empty_src`. A finding that cannot clear when it stops being true is a defect independent of
+  who reads it — fix it first, it is local and self-evidencing per file.
+
+Order, revised: **(4a)** the retraction gaps — two files, own tests, mutation-proven, council;
+**(4b)** the seam change (`discovery_checks.go:249` → `writeWorkItem`) routing by producer
+class — `090` first for the durable claim, then its own council round, with the 11 producers
+named as consumers and told. Item 3's residual (the 458 non-skip-link rows, read at row
+level) stays ahead of both: a producer-level census is not a row-level one.
+
+Item 1 (the held-longer-than-N report) — BUILT 2026-09-03, council pending; see the handoff.
