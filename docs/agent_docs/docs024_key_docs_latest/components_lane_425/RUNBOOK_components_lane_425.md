@@ -128,3 +128,21 @@ not "unstamped"; fall back to the binary probe, which has no shelf life.
 ⚠ **Run all three shas.** The all-zero control returns PRESENT on every pod (it matches Go's
 internal digit table), which is exactly why a bare discovery grep for "some 40-hex string" gives
 the same wrong answer everywhere.
+
+## The demand control for any "this path wrote nothing" claim
+
+A same-site positive (another re-render that *did* write) narrows the explanation. It does not
+retire *"the table was quiet that hour"*. Take the **fleet-wide** count over the **exact** window
+instead — one line, and it removes a whole class of alternative:
+
+```sql
+SELECT count(*) AS rows_fleetwide, count(DISTINCT page_id) AS pages, count(DISTINCT source) AS sources
+  FROM page_component_history
+ WHERE created_at >= '<window start>' AND created_at <= '<window end>';
+```
+`[MEASURED 2026-09-03 16:05Z]` for 14:21:30–15:13:36Z: **174 rows / 27 pages / 2 sources**
+fleet-wide while robot-hands.com wrote **0**. That is "the path wrote nothing while the table was
+busy" — not an idle hour, an outage, or a stalled queue.
+⚠ **Bound the window by the ITEMS, not by round numbers** — first claim to last completion of the
+run you are controlling for — or a quiet minute either side does the work your control was meant to.
+Credit: the `bugs_open/384` lane, who pointed out the weaker form and supplied this one.

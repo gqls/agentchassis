@@ -971,6 +971,15 @@ cannot be confused with these because the assemble path writes **no** `page_comp
 > hour, same table — one path writes, the other does not. Three further `section_data_resolved`
 > re-renders on other robot-hands pages (15:18:51, 15:19:44, 15:20:54) each wrote, as the demand
 > control that the absence was not simply an idle table.
+>
+> **⭐ AND A STRICTLY STRONGER DEMAND CONTROL, offered by the `bugs_open/384` lane and re-measured
+> here.** Three same-site re-renders that wrote is a narrowing; it still leaves *"was the table
+> simply quiet that hour?"* answerable only by inference. `[MEASURED 2026-09-03 16:05Z]` inside the
+> **exact** window 14:21:30–15:13:36Z, `page_component_history` took **174 rows across 27 pages
+> from 2 distinct sources fleet-wide**, while **robot-hands.com wrote 0**. So the absence is that
+> path writing nothing *while the table was busy* — not an idle hour, not an outage, not a stalled
+> queue. **That retires a class of alternative explanation rather than narrowing one**, which is
+> what a demand control is supposed to do.
 
 ### What this retires
 
