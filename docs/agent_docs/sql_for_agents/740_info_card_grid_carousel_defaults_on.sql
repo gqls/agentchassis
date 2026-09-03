@@ -76,6 +76,120 @@
 --                      must be byte-stable. A flip that changes the card count
 --                      is doing something other than what it says.
 --
+-- ══ ROUND 2 — THE COUNCIL RETURNED REVISE, AND THE GATING OBJECTION WAS RIGHT ════
+-- Corr `2ac895f3-ca82-4dbe-8f4e-3335a04b8925`, r1: 9 seats approve, gated by
+-- `bug_historian` (HIGH). Its objection, fairly: this migration's whole safety claim is
+-- "a stored value beats the fallback", and the LANDMINES register carries an entry keyed
+-- to the IDENTICAL call site saying the opposite —
+--
+--   "A `static`-source field in a component's `input_schema` OVERWRITES your stored
+--    `content_data` on every section resolve … footprint: rerender_page_sections /
+--    the section-planner resolve pass"
+--
+-- I had asserted the precedence from a code read and a code comment and never reconciled
+-- it against the register. If the landmine were current, an instance that later stored an
+-- explicit `carousel: false` would be silently flipped BACK to true — not "made inert",
+-- which is what my risk section assumed. That is a materially worse failure and the seat
+-- was right to gate on it.
+--
+-- ⚠ THE RECONCILIATION: THE LANDMINE IS HALF STALE, AND THE HALF THAT BEARS ON THIS
+-- MIGRATION IS THE STALE HALF. Both were true when written; the code moved underneath it.
+--   * The landmine was measured and added **2026-08-03** (brochure lane, tool-cta
+--     `secondary_cta_label`).
+--   * `carryStored` entered `plan_sections_action.go` on **2026-08-11** (`d26c26a9a`,
+--     bugs_open/238) — but NOT yet on the static branch.
+--   * The renderer/**static** branch got its `carryStored()` call on **2026-08-14**
+--     (`8f899cc8d`, "fix(268): renderer/static fields now reach the 238 carry"), i.e.
+--     ELEVEN DAYS AFTER the landmine was written. `git log -S 'if !carryStored() &&
+--     fallback != nil'` returns exactly that one commit.
+--   * So for `source: static` the landmine describes pre-268 behaviour and is stale.
+--     ⚠ **Its `query.*` half is STILL LIVE** — a query that resolves writes
+--     `resolvedData[field]` directly and beats the stored value. Do not read this
+--     reconciliation as retiring the whole entry.
+--
+-- AND NOT ONLY FROM GIT — the surviving values are visible in live data. [MEASURED
+-- 2026-09-03] 11 live instances across 6 sites store a value for a `source: static` field
+-- that DIFFERS from that field's schema fallback and is still there. The load-bearing ones
+-- are the POST-FIX rows, because a pre-08-14 row proves nothing:
+--     mortgagecalculator.co.uk/index  tool-list.card_link_label
+--         schema fallback "Open tool" → stored "Work it out", updated_at 2026-09-01 02:44Z
+--     mortgagecalculator.co.uk/index  tool-list.eyebrow_label
+--         schema fallback "Our Tools" → stored "Calculators",  updated_at 2026-09-01 02:44Z
+--     cookly.uk/index                 testimonials-modern.cta_url
+--         schema fallback "/contact"  → stored "/contact.html", updated_at 2026-08-26 12:36Z
+-- Rows written after the fix, carrying authored values against a live fallback. The
+-- oufe.com rows in the same result are 2026-07-29 and prove nothing either way; they are
+-- excluded from the claim rather than counted toward it.
+--
+-- ⚠ THE LANDMINE ITSELF IS BEING CORRECTED IN THE SAME COMMIT AS THIS REVISION. A stale
+-- register entry that contradicts live behaviour is worse than no entry: it gated a
+-- correct change here, and next time it will license a wrong one.
+--
+-- ── `bug_historian` MEDIUM (the string-vs-boolean footgun is a SHARED property, and this
+--    migration guards only its own call site) — MEASURED, and the class is currently EMPTY.
+-- [MEASURED 2026-09-03] fleet-wide, active components, fields declaring a `fallback`:
+--     fallback JSON type | declared type | fields | components
+--     string             | text          |  1893  | 131
+--     string             | number        |    87  |  23
+--     string             | image         |     8  |   8
+--     string             | url           |     6  |   5
+--     boolean            | boolean       |     2  |   2   ← the whole boolean population
+--     string             | string / html |     2  |   2
+-- Fields declaring `type: boolean` whose fallback is NOT a JSON boolean: **ZERO**. So the
+-- footgun is real as a shape and has no live instance, across a population of two. A CHECK
+-- constraint or an authoring lint over ~2,000 fields to guard 2 is disproportionate today.
+-- What would change that: the boolean population growing past a handful, or a first
+-- non-boolean fallback appearing. The query above is the detector; it is one statement and
+-- it is recorded here so the next author can re-run it rather than re-derive it.
+--
+-- ── `editquality` MEDIUM (the UPDATE predicate was LOOSER than the drift guard's) — FIXED
+--    below. The guard validated `source='static' AND type='boolean'`; the UPDATE matched on
+--    name alone. Now identical, so no row can be written that the guard did not validate.
+--
+-- ── `debug_historian` LOW (no real pre-image, only derived counts) — FIXED: `_pre_740` now
+--    stores the whole `input_schema`, so the exact prior value is recoverable within the
+--    transaction and the rollback has something to be checked against.
+--
+-- ── `guardian` LOW (state HOW the fleet actually re-renders) — it is the existing
+--    `page_rerender` queue, and it is busy: [MEASURED 2026-09-03 15:27Z] 9,723 complete
+--    (latest 15:26:59Z today), 1,751 unresolved, 51 triaged. No new trigger is created or
+--    needed. ⚠ But the fleet WILL sit in a mixed state — some instances carousel, some
+--    grid — until each page's turn comes, and that is a visible-to-visitors interim, not a
+--    silent one. A lane wanting a site sooner files `page_rerender` items for it. ⚠ And a
+--    `complete` rerender is NOT evidence the layout moved (standing landmine): read the
+--    served bytes with the corrected acceptance test above.
+--
+-- ── `tooling_provenance` MISSING (no evidence the author consulted the travelling docs for
+--    this component) — CORRECT, I had not, and doing so found something the whole council
+--    missed:
+--
+-- ⚠⚠ `info-card-grid` HAS A TRAVELLING PLAN WITH AN ACCEPTANCE FENCE, AND ONE OF ITS SIX
+--    CHECKS IS `no_horizontal_overflow`, ON DESKTOP AND MOBILE.
+--    `doc_plans`, subject_type=`component`, subject_key=`info-card-grid`, authored
+--    2026-08-05 by lane `staged_component_build`. A carousel is by construction a
+--    horizontally overflowing track, so the obvious worry is that this default fails the
+--    component's own fence on every placement.
+--    IT DOES NOT, and the reason is explicit in the checker rather than inferred:
+--    `internal/adapters/browserrunner/run_checks_action.go:1094-1104`, the `cut` predicate,
+--    verbatim —
+--        for (let n = el.parentElement; n; n = n.parentElement) {
+--            const o = getComputedStyle(n).overflowX;
+--            if (o === 'auto' || o === 'scroll') return false;
+--        }
+--    with the comment "a scroll container makes the width reachable, and is the standard
+--    fix for wide tables, which must then pass this very check." The carousel sets
+--    `overflow-x: auto` on `.info-card-grid__grid--carousel`, the DIRECT parent of every
+--    `.info-card-grid__card`, so the cards are exempt; and the track is width-constrained
+--    inside `.info-card-grid__inner`, so the document itself does not scroll (the check's
+--    other clause). The arrows are `position: absolute`, which the same predicate exempts.
+--    ⚠ **STATED AS A MECHANISM READ, NOT A RUN.** The recorded acceptance pass for this
+--    component (`doc_notes`, categories `acceptance-run`, 2026-08-05, 10 of 10 across both
+--    profiles) was taken on ai-agent-orchestration.com/services.html — a **flag-unset,
+--    grid** placement. **The fence has never run against a carousel-enabled instance.**
+--    So the honest position is that the mechanism says it passes and nothing has tested it.
+--    ⚠ WHOEVER APPLIES THIS: re-run the component fence against a flipped placement and
+--    record the result. That is the one check this migration cannot make for itself.
+--
 -- ══ WHAT CHANGES, AND WHEN ═══════════════════════════════════════════════════
 -- Config: live on apply, no image build. But nothing on a served page moves
 -- until that page re-renders. The re-render path DOES apply this —
@@ -135,8 +249,12 @@ END $$;
 -- Pre-image: the schema must gain exactly ONE key, inside the carousel
 -- descriptor, and the `fields` set itself must NOT change. jsonb_set on the
 -- wrong path satisfies every named assertion below while destroying the schema.
+-- Pre-image. `schema_before` is the WHOLE prior input_schema, not just derived counts
+-- (debug_historian r1, low: the needle-gate convention calls for a real pre-image). The
+-- counts are kept alongside it because they are what the assertions read.
 CREATE TEMP TABLE _pre_740 ON COMMIT DROP AS
 SELECT id,
+       input_schema AS schema_before,
        (SELECT count(*) FROM jsonb_object_keys(input_schema->'fields')) AS n_fields,
        (SELECT count(*) FROM jsonb_object_keys(input_schema->'fields'->'carousel')) AS n_carousel_keys,
        input_schema->'fields'->'carousel'->>'llm_guidance' AS guidance
@@ -152,7 +270,12 @@ UPDATE content_components
                                 -- truthy, so "false" would render a carousel too.
            true),
        updated_at = now()
- WHERE is_active AND name = 'info-card-grid';
+ -- PREDICATE MIRRORS THE DRIFT GUARD EXACTLY (editquality r1, medium). It used to
+ -- match on name alone, which is LOOSER than what the guard validated — so a row
+ -- the guard never inspected could have been written.
+ WHERE is_active AND name = 'info-card-grid'
+   AND input_schema->'fields'->'carousel'->>'source' = 'static'
+   AND input_schema->'fields'->'carousel'->>'type'   = 'boolean';
 
 -- VERIFY. DO/RAISE, not SELECTs: ON_ERROR_STOP does not fire on a non-empty
 -- result set, so a block of SELECTs cannot stop the COMMIT.
@@ -164,6 +287,7 @@ DECLARE
     bad_fields int;
     bad_keys   int;
     lost_guid  int;
+    drifted    int;
 BEGIN
     SELECT count(*) INTO rows_seen
       FROM content_components WHERE is_active AND name = 'info-card-grid';
@@ -215,6 +339,17 @@ BEGIN
     END IF;
     IF lost_guid > 0 THEN
         RAISE EXCEPTION 'ABORT: the carousel llm_guidance did not survive the write';
+    END IF;
+    -- Whole-schema equality against the real pre-image: removing the one key we added
+    -- must reproduce the prior schema BYTE-FOR-BYTE. This is the assertion the derived
+    -- counts above cannot make — a same-count swap anywhere else in the document would
+    -- satisfy every check so far and fail this one.
+    SELECT count(*) INTO drifted
+      FROM content_components cc JOIN _pre_740 pre ON pre.id = cc.id
+     WHERE (cc.input_schema #- '{fields,carousel,fallback}') IS DISTINCT FROM pre.schema_before;
+    IF drifted > 0 THEN
+        RAISE EXCEPTION 'ABORT: the schema differs from its pre-image by more than the one '
+                        'added fallback key — something else in the document changed';
     END IF;
 
     RAISE NOTICE '740: info-card-grid carousel now defaults ON at resolution time. '
