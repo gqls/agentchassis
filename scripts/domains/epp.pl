@@ -77,7 +77,8 @@ qq{<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <options><version>1.0</version><lang>en</lang></options>
 <svcs><objURI>urn:ietf:params:xml:ns:domain-1.0</objURI>
 <objURI>urn:ietf:params:xml:ns:contact-1.0</objURI>
-<objURI>urn:ietf:params:xml:ns:host-1.0</objURI></svcs>
+<objURI>urn:ietf:params:xml:ns:host-1.0</objURI>
+<svcExtension><extURI>http://www.nominet.org.uk/epp/xml/std-list-1.0</extURI></svcExtension></svcs>
 </login><clTRID>login-1</clTRID></command></epp>}
 );
 
@@ -98,8 +99,18 @@ qq{<?xml version="1.0" encoding="UTF-8" standalone="no"?>
     my $resp = rd() // '';
     my ($lc) = $resp =~ /<result code="(\d+)"/;
     print "LIST_CODE=" . ($lc // '?') . "\n";
-    print "DOMAIN\t$_\n" for ($resp =~ /<domain:name>([^<]+)<\/domain:name>/g);
-    unless ($resp =~ /<domain:name>/) {
+    # std-list-1.0's own element is <list:domainName>, NOT <domain:name>
+    # (that belongs to the unrelated domain-1.0 schema) - the wrong tag
+    # matched zero names on every real response with no error for two
+    # weeks (2026-09-03). noDomains is the schema's own count; cross-check
+    # against it so a future shape drift is loud, not a silent empty list.
+    my @names = ($resp =~ /<list:domainName>([^<]+)<\/list:domainName>/g);
+    print "DOMAIN\t$_\n" for @names;
+    my ($claimed) = $resp =~ /noDomains="(\d+)"/;
+    if (defined $claimed && $claimed != scalar(@names)) {
+        print "PARSER_MISMATCH claimed=$claimed parsed=" . scalar(@names) . "\n";
+    }
+    unless (@names) {
         my ($m2) = $resp =~ /<msg[^>]*>([^<]*)</;
         print "LIST_MSG=" . ($m2 // '?') . "\n";
     }

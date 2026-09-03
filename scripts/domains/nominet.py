@@ -152,16 +152,32 @@ def result_code(resp):
 
 
 def result_msg(resp):
+    # the top-level <msg> is often generic ("Command syntax error"); Nominet's
+    # own diagnosis lives in <extValue><reason> and was invisible here until a
+    # raw-response dump caught "V274 Schema std-list- not specified at login"
+    # underneath a <msg> that said nothing of the kind (2026-09-03).
     m = re.search(r"<msg[^>]*>(.*?)</msg>", resp, re.S)
-    return (m.group(1).strip() if m else resp[:300]).replace("\n", " ")
+    msg = (m.group(1).strip() if m else resp[:300]).replace("\n", " ")
+    r = re.search(r"<reason[^>]*>(.*?)</reason>", resp, re.S)
+    if r:
+        msg += " | reason: " + r.group(1).strip().replace("\n", " ")
+    return msg
 
 
 # ---------------------------------------------------------------- XML builders
+LIST_EXT = LST  # the std-list-1.0 extension must be DECLARED at login, not
+                 # just used in a command — its absence draws "V274 Schema
+                 # std-list- not specified at login" (2001), a check that only
+                 # fires AFTER the command XML itself validates (measured
+                 # 2026-09-03: the nested-<list:month> bug masked this one).
+
+
 def login_xml(tag, pw):
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <epp xmlns="{EPP}"><command><login><clID>{esc(tag)}</clID><pw>{esc(pw)}</pw>
 <options><version>1.0</version><lang>en</lang></options>
-<svcs><objURI>{DOM}</objURI><objURI>{CON}</objURI><objURI>{HOS}</objURI></svcs>
+<svcs><objURI>{DOM}</objURI><objURI>{CON}</objURI><objURI>{HOS}</objURI>
+<svcExtension><extURI>{LIST_EXT}</extURI></svcExtension></svcs>
 </login><clTRID>nominet-py-login</clTRID></command></epp>"""
 
 
@@ -221,8 +237,34 @@ def parse_check(resp):
         yield m.group(2).strip(), m.group(1) == "1", (reason.group(1).strip() if reason else "")
 
 
+def no_domains_claimed(resp):
+    m = re.search(r'noDomains="(\d+)"', resp)
+    return int(m.group(1)) if m else None
+
+
+def assert_list_parse_matches(resp, parsed, month):
+    """The server's own noDomains count is a built-in cross-check on the
+    parser — if it ever disagrees with what parse_domains found, that is
+    schema drift or a regex bug, and it must be LOUD, not a quietly short
+    list (this exact silent failure was live for two weeks; see the comment
+    on parse_domains)."""
+    claimed = no_domains_claimed(resp)
+    if claimed is not None and claimed != len(parsed):
+        raise SystemExit(
+            f"PARSER MISMATCH for {month}: server claims noDomains={claimed}, "
+            f"parsed {len(parsed)} — the response shape has likely changed; "
+            f"do not trust this walk's output until parse_domains is fixed")
+
+
 def parse_domains(resp):
-    return re.findall(r"<domain:name>([^<]+)</domain:name>", resp)
+    # std-list-1.0's own element is <list:domainName> — NOT <domain:name>,
+    # which belongs to the unrelated domain-1.0 schema used by check/info/
+    # update. The wrong tag matches ZERO names on every real response and
+    # raises nothing: a list command can return 1000 + noDomains="N" (N>0)
+    # while this returned [] for every month, silently reporting an empty
+    # estate (caught 2026-09-03 by printing noDomains and finding N>0 with
+    # zero parsed names — never trust a parser that has never seen a hit).
+    return re.findall(r"<list:domainName>([^<]+)</list:domainName>", resp)
 
 
 def current_ns(resp):
@@ -295,7 +337,9 @@ def v_list(a):
         raise SystemExit("month must be YYYY-MM")
     s = open_session(a)
     resp = s.cmd(list_xml(a.month), f"list {a.month}")
-    for d in parse_domains(resp):
+    parsed = parse_domains(resp)
+    assert_list_parse_matches(resp, parsed, a.month)
+    for d in parsed:
         print(f"DOMAIN\t{d}")
     s.close()
 
@@ -310,7 +354,9 @@ def v_walk(a):
     seen = {}
     for month in months_from(datetime.date.today(), a.months):
         resp = s.cmd(list_xml(month), f"list {month}")
-        for d in parse_domains(resp):
+        parsed = parse_domains(resp)
+        assert_list_parse_matches(resp, parsed, month)
+        for d in parsed:
             seen.setdefault(d, month)
     s.close()
     for d in sorted(seen):
@@ -422,6 +468,24 @@ def self_test():
         except Exception as e:
             t(f"{name}: {e}", False)
     t("password escaping", "&amp;" in login_xml("T", "a&b") and "p&<" not in login_xml("T", "p&<w"))
+    t("login declares the std-list extension",
+      f"<svcExtension><extURI>{LST}</extURI></svcExtension>" in login_xml("T", "p"))
+    # the REAL response shape (2026-09-03, one live domain): std-list-1.0 uses
+    # <list:domainName>, NOT <domain:name> — the bug that returned [] for
+    # every month with no error for two weeks.
+    list_resp = ('<epp><response><result code="1000"><msg>ok</msg></result>'
+                 '<resData><list:listData '
+                 'xmlns:list="http://www.nominet.org.uk/epp/xml/std-list-1.0" '
+                 'noDomains="1"><list:domainName>vending-machine.co.uk'
+                 '</list:domainName></list:listData></resData></response></epp>')
+    t("parse_domains reads list:domainName", parse_domains(list_resp) == ["vending-machine.co.uk"])
+    assert_list_parse_matches(list_resp, parse_domains(list_resp), "2026-11")  # must not raise
+    t("assert_list_parse_matches accepts an honest match", True)
+    try:
+        assert_list_parse_matches(list_resp, [], "2026-11")
+        t("assert_list_parse_matches catches a mismatch", False)
+    except SystemExit:
+        t("assert_list_parse_matches catches a mismatch", True)
     canned = ('<epp><response><result code="1000"><msg>ok</msg></result>'
               '<resData><domain:chkData><domain:cd>'
               '<domain:name avail="1">free.uk</domain:name></domain:cd><domain:cd>'
