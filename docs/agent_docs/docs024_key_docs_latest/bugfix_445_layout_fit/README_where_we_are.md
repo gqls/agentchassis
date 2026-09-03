@@ -93,3 +93,40 @@ who remains badly served, and until today we could not.
 The archetype itself is still owed, and I'd want to choose its tags by simulation against the
 sites you haven't built yet as well as the ones you have — the other lane has given me the
 seventeen remaining remakes for exactly that. That is the next piece of work.
+
+## 2026-09-03 (evening) — the missing layout is built and live
+
+You said go ahead with the archetype. It is done and live — but nobody's site has moved onto
+it, deliberately, because you chose "fix forward only" earlier today.
+
+The new layout is called `content-hub-tools`. It is what those three sites actually are: a
+reading-first content site whose real product is a set of interactive tools. Structurally it
+is a single editorial column, narrower than either of the two layouts it sits between, with
+full-width "tool shelves" that interrupt the reading flow — the tools live inside the
+publication rather than on a separate index page or in a sidebar — and a way to drop one tool
+straight into the middle of an article at reading width.
+
+**Its tags were chosen by simulation, not taste.** I tried four candidate tag sets against every
+built site with the scorer that reproduces the system's own numbers. The first — just the
+words from the bug's title — fixed four of the seven sites and left designblog.co.uk, the one
+you complained about, no better off. The one I used adds the words those sites already use
+about themselves ("editorial guides", "long-form content", "research publication", "content
+platform"), and it fixes six of the seven. designblog goes from 7% to 16% of its identity
+addressed; apis.uk from 9% to 19%. Two other sites would also move to it — a design-practice
+publication, and a farm insurance guide that was sitting on a directory layout matching
+literally nothing about itself — and I checked both rather than just letting the simulation
+have them. One site, oufe.com, does not move under any tag set; its own description leads with
+"interactive platform", so the tools layout keeps it, which is fair.
+
+**The migration refuses to create a layout no site can reach.** Nine of our eighteen existing
+layouts are unreachable — nobody's tags match theirs — and the guard I built in makes it
+impossible to add a tenth by accident. Fourteen current sites can reach this one.
+
+**What happens next, without anyone doing anything:** the next site to be built and classified
+will see these tags in its list (that list was invisible to the classifier until this morning),
+and if it is this shape, the matcher will pick this layout. The other lane's copyonline.co.uk
+is the first candidate and they have promised to tell me what it does.
+
+**What is still owed:** the fleet-wide sweep that checks every site's fit daily (it needs the
+shared cron harness first, as you decided), the reusable "is this layout reachable" guard as a
+function rather than a block inside one migration, and reading the two council verdicts.

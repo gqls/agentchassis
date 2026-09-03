@@ -22,8 +22,8 @@ none of a site's tags still scored above zero. Full evidence in `bugs_open/445` 
 | 1 | Measure fit, record it, fire the signal on it | **DONE** — commit `76db94fc7`, inert until the next chassis roll |
 | 2 | `internal/cronchecks` — the shared harness `RFC_024` asks for | not started |
 | 3 | `cmd/layout-fit-check` — fleet sweep, clusters not sites | not started |
-| 4 | Reachability guard for new layouts | not started |
-| 5 | The archetype itself (owner ruling: this thread's) | not started |
+| 4 | Reachability guard for new layouts | **PARTIAL** — inline DO-block guard + verify in migration 736; the reusable `assert_layout_reachable()` + `pattern-check.py` rule still owed |
+| 5 | The archetype itself (owner ruling: this thread's) | **DONE** — migration 736 `content-hub-tools`, applied + verified 2026-09-03; tags by simulation (candidate B); no site moved (fix forward) |
 
 **Decisions taken (owner, 2026-09-03):** fix forward only — no re-composition of the seven live
 `magazine-grid` sites; build `internal/cronchecks` first rather than adding a tenth un-harnessed

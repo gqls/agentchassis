@@ -105,3 +105,53 @@ risks breaking HEAD for every other session.
 candidate 1** — four of seven sites improve, but designblog (the site that started this) and
 apis.uk still win on a single tag at 6-8%. Recorded in 445 §8g so the bug cannot be closed on
 "archetype drawn, problem solved".
+
+## 2026-09-03 (j) — the archetype: tags by simulation, seeded behind a guard
+
+**Grammar read first.** Dumped `magazine-grid` and `tool-portal-light` `css_template`s; the
+renderer contract is in tool-portal-light's header (no `--section-*` defaults; five surface
+classes must be surface-coloured; `var(--section-*, var(--color-*))`). Components mostly carry
+inline `<style>` — `tool-list`, `guide-list`, `hero`, `article-body`, `header-with-categories`,
+`call-to-action`, `features` do; **`faq`, `featured-content`, `category-listing` do NOT**, so
+the layout frames those three fully. The sibling layouts style `.tool-card`/`.tools-grid` but
+the live `tool-list` component emits `tl-card`/`tl-grid` — so the new template covers BOTH
+vocabularies rather than guessing which one renders.
+
+**Four candidate tag sets, simulated** (`scratchpad/simulate2.py`, scorer validated 29/30):
+A (445's title words) rescued 4 of 7 and left designblog at 6%. **B** (A + the form words the
+sites already emit: `editorial-guides, long-form-content, research-publication,
+content-platform, guides`) rescued 6 of 7 — designblog 7→16%, apis 9→19% — and pulled in
+gamedesign.uk and farmerinsurance.uk. C/D added nothing over B live. → **B.**
+
+**Judging the pull-ins rather than waving them through.** gamedesign.uk: a design-practice
+publication with `interactive-illustration`, `long-form-content` — the shape, not a steal.
+farmerinsurance.uk: self-described `insurance-guidance, editorial-guides, content-platform,
+interactive-calculators`, sitting on `industry-hub` at `tags 0.00` — moving from a bonus-only
+pick to a two-tag match is what DES-086 exists to surface; its two industry-hub siblings
+(garden-tools, vetcomparison) do NOT move. **oufe.com not rescued** under any candidate: its own
+tags lead `interactive-platform`, so tool-portal wins it. Recorded rather than tuned away.
+
+**Proxy for the 17 unbuilt remakes — `[ASSUMED]` tags, and the twins.** 7 of 14 proxies land on
+the new layout; both Christmas twins land on it. That is correct: layout is about FORM, and
+twin differentiation is `RFC_037`'s job (positioning), not the layout's. Written into the
+register so nobody reads "both twins on one layout" as a defect.
+
+**Live reachability, the guard's number:** 14 current classification specs emit at least one
+candidate-B tag (raw). Per tag: `editorial` 5, `content-hub` 4, `editorial-guides` 3,
+`research-publication` 2, `content-platform` 2, `interactive-tools` 2, `long-form-content` 2,
+`editorial-publication` 1, **`long-form` 0, `guides` 0** — those two are in the set for the
+vocabulary 735 now steers toward, not for today.
+
+**Migration 736 applied** — `content-hub-tools`, category editorial, scheme light, 9 tags,
+30,303 chars CSS. Verified at the live row with controls: 19 active layouts; the seven new
+terms present in the DISTINCT list `read_layout_taxonomy` hands the classifier; **the seven
+cluster sites verified UNMOVED**; 0 sites composed onto it. **Re-ran the simulation against the
+real 19-layout dump: identical to the hypothetical** — 8 sites would move, oufe.com would not.
+
+**Phase 4 in its minimal form.** The migration's own DO block refuses to seed a layout fewer
+than 2 current specs can reach, and the verify block re-checks reachability against the seeded
+row's own `industry_tags` (not a copy of the list). The reusable `assert_layout_reachable()` +
+`pattern-check.py` rule is still owed.
+
+**Not done, deliberately:** no site re-composed (owner: fix forward only); `layoutmatch`
+extraction; `internal/cronchecks`; `cmd/layout-fit-check`.
