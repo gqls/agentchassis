@@ -29,19 +29,23 @@ Gotcha: `build_status='deployed'` is a strict subset of `deployed_at IS NOT NULL
 ## Which tier serves a page (per PAGE, not per site)
 
 Site-level "does an aspect exist" MISLEADS — the aspect must name the page WITH sections.
-Guard every jsonb length/elements call with `jsonb_typeof(...)='array'` or a scalar row errors
-the whole query:
+⚠ A `jsonb_typeof(...)='array'` guard in the SAME WHERE clause does NOT protect the
+length/elements call — SQL `AND` does not short-circuit, so a scalar row still errors the
+whole query (hit live 2026-09-03). Put the guard INSIDE a CASE, and CASE-wrap the
+`jsonb_array_elements` argument too:
 
 ```sql
 SELECT CASE WHEN EXISTS (
   SELECT 1 FROM site_specs ss
-  CROSS JOIN LATERAL jsonb_array_elements(ss.data->'pages') pg
+  CROSS JOIN LATERAL jsonb_array_elements(
+    CASE WHEN jsonb_typeof(ss.data->'pages')='array' THEN ss.data->'pages' ELSE '[]'::jsonb END) pg
   WHERE ss.site_id = :site_id AND ss.aspect='site_plan' AND ss.is_current
-    AND jsonb_typeof(ss.data->'pages')='array'
     AND pg->>'name' = :page_name
-    AND jsonb_typeof(pg->'sections')='array' AND jsonb_array_length(pg->'sections') > 0
+    AND CASE WHEN jsonb_typeof(pg->'sections')='array'
+             THEN jsonb_array_length(pg->'sections') ELSE 0 END > 0
 ) THEN 'TIER2' ELSE 'TIER3-or-4' END;
--- tier 1 first, separately: site_plan_sections rows for the current plan + page_name.
+-- tier 1 first, separately: site_plan_sections rows for the current plan + page_name
+-- (FK column is plan_id, not site_plan_id — \d before writing the join).
 ```
 
 ## Serve check (invented-URL control per domain — a parked domain 200s everything)

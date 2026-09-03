@@ -72,3 +72,35 @@ rewritten writer-prompt (the positive-prompting redraft you asked for) lands via
 lane once you pick a framing; then we rebuild the test page and check the headings really
 differ; then the same treatment for the seven pages on gaswholesalers and
 ai-agent-orchestration. The full checklist is in HANDOFF_2026-09-03_continue_here.md.
+
+## 2026-09-03 afternoon — the alarm's first catches are all explained, and they widen the clean-up list, not the bug
+
+The quiet alarm we switched on with the fix caught seven events in its first two hours, and
+they were a surprise at first: none of them were on the six unplanned sites. They were on
+sites that DO have a plan. Today I chased all of them down, and the answer is reassuring —
+there is no new defect anywhere.
+
+What happened is simply that those sites' plans were written before Tuesday's new planning
+rule (the one that makes the planner give each repeated block its own topic) existed. The
+closest case was seotools.co.uk, whose plan was written 34 minutes before the rule went in —
+bad luck, nothing more. Old plans have no topics, so any page rebuilt from one still gets
+the repeated-heading problem, and the alarm rightly says so. The rule itself is working:
+the only plans written since it landed (gamedesign.uk, two of them) carry topics properly.
+
+I checked the live pages too. Four more pages really do show the repeated headings to
+visitors today (three on seotools, one on vetcomparison) — same disease, so they join the
+clean-up list for after your prompt read lands. One page that looked alarming
+(leopardessconsulting) turns out never to have been published at all: its rebuild keeps
+failing for an unrelated reason, which that site's own lane should look at.
+
+I also sized how much of this is still out there: only six pages fleet-wide sit in old plans
+with the dangerous repeated-block shape (one of them is apis.uk's own home page — I've left
+their team a note), and six more on planned sites fall through to the fallback path we just
+fixed. Another lane (dartsonline) independently found that most article-type pages across
+the estate use that same fallback path — which means the fix we shipped covers far more
+pages than the eleven we started with. Good news dressed as bad.
+
+Where this leaves us, unchanged from yesterday: everything now waits on your read of the
+writer prompt (seed 641 — it was redrafted to your wording and approved by the council
+today; your read of the exact text is the one remaining gate). After that: the
+before/after proof on one page, then the clean-up of the wider list above.

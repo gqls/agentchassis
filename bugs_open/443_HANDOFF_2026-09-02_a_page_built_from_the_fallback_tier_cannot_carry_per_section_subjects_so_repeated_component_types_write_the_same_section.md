@@ -340,3 +340,76 @@ build-dispatch-loop takes a site's items in one loop), so key per-page reads on 
 **⚠ Two cautions on my own numbers, both learned the hard way this week.** (1) My first pass at this reported "hundreds of unplanned pages" fleet-wide and was meaningless: it silently merged sites with **no current plan at all** (7), sites with a plan and **zero sections** (1), and genuinely unplanned pages — three different conditions under one `IS NULL`. The table above is restricted to the 32 sites with a substantive plan for exactly that reason. (2) The join is `pages.name = site_plan_sections.page_name`; I verified it on dartsonline in the orphan direction — every plan `page_name` matches a real page, zero orphans — but I have **not** verified it on your sites, and a site with a different naming convention would show as 100% absent for the wrong reason. **Check the join before quoting my percentages on finetuning.uk.**
 
 **A consequence outside your bug, recorded here because it is the same root:** per-section imagery binding (register `IMG-075`, live 09-01/09-02) degrades to page-wide when there is no current plan row for the page — its first stated degrade case. So **~83% of the estate's articles cannot carry a per-section figure at all**, regardless of what the planner composes. That is a harder bound on that work than the composition gap everyone including me has been measuring, and it is downstream of this bug, not of the imagery mechanism.
+
+---
+
+## 10. The first detector cohort diagnosed: pre-640 plans, two tiers, no new mechanism (2026-09-03, first-hand)
+
+The 7 rows / 4 pages / 3 sites the detector produced in its first ~2h (23:24Z–01:18Z; the
+cohort has not grown since — re-read 2026-09-03 afternoon) are **all explained by plans that
+predate migration 640**, and split across two provenance tiers. No planner defect, no
+detector defect, no new mechanism. Evidence, all first-hand today:
+
+**Plan ages.** leopardessconsulting.co.uk current plan 2026-07-16; vetcomparison.uk
+2026-07-17; seotools.co.uk **2026-09-02 16:13Z** — and 640 was applied ~16:47Z that day
+(APPLIED-line commit `380c3f234` 17:47:56+0100, apply commit `8079f7671` 17:47:31+0100), so
+the closest call in the cohort is still **pre-640 by ~34 minutes**. seotools is the
+portfolio_positioning lane's remake №3, planned at build time that afternoon.
+
+**Tier split.** seotools' two firing pages are **tier 1**: the plan itself carries
+`generic-text-block` ×2 per compared-page with **0 of 61 rows carrying a subject**.
+vetcomparison `how-it-works` and leopardess `case-study-automated-intelligence-pipeline` are
+**tier 3**: no `site_plan_sections` rows for those page names, no tier-2 `site_plan` aspect
+naming them (both checked with the per-page queries; scalar-safe CASE variant now in the
+RUNBOOK). Tier selection is per PAGE, not per site — `load_page_sections_from_spec_action.go:146`
+(`sps.page_name = $2`), falling through to `pages_table` at `:330` — which is what lets a
+planned site's page reach the fallback tier at all.
+
+**Serve state** (per-domain invented-URL controls, all controls 404):
+- seotools `keyword-research-tools-compared`, `technical-seo-crawlers-compared`,
+  `ai-search-visibility-tools-compared`: 200, **verbatim h2 repeats** (the third had not yet
+  re-fired the detector — it simply hasn't rebuilt since the roll; damage predates it).
+- seotools `rank-trackers-compared`: 200, same mechanism, **varied wording** ("actually
+  measures" / "actually tells you") — the writer sometimes varies unprompted, as Stage A
+  also showed; the defect is present but softer.
+- vetcomparison `how-it-works`: 200, verbatim repeat.
+- leopardess `case-study-…`: **404, never deployed** (`build_status='planned'`,
+  `deployed_at` NULL) — no served damage. Its 3 rebuilds in 2h are one `needs_content_page`
+  item retrying and then **failing** at
+  `process_sections_loop_iter_2_render_section` — `render_component: component
+  "mechanism-flow": content does not match the declared field type(s)` (orchestrations
+  `5d9c8bfd`/`913d16ed`/`4167c578`, all FAILED). **Unrelated to this bug**; belongs to the
+  leopardess lane.
+
+**Non-events that are consistent, not suspicious.** vetcomparison redeployed 11:25Z with no
+new detector row: that was a `page_rerender`/`section_edit` wave — rerenders regenerate from
+`content_data` and never run `plan_sections`, so the detector is structurally out of that
+path. Planner-side `SUBJECT_MISSING_ON_REPEATED_COMPONENT`: **0 rows ever, correctly** — it
+is gated on the plan carrying ≥1 subject precisely so pre-640 plans stay silent (commit
+`fa98a1961`). Note the gate's known residual: a post-640 planner run that ignored rule 17
+*wholesale* (zero subjects) would also be silent. That case is currently disproven in the
+wild: the only post-640 plans are gamedesign.uk 2026-09-02 17:33Z (**10/13** rows with
+subjects) and 2026-09-03 10:40Z (**13/13**) — rule 17 is complying where exercised.
+
+**Exposure censuses** `[MEASURED 2026-09-03 — stale by ADDITION, re-run before quoting]`:
+- Tier-1 exposed (current pre-640 plan carries a repeated component with zero subjects —
+  will mint a subjectless repeat on every rebuild): **6 pages / 3 sites** — apis.uk `index`
+  (gtb ×6), seotools ×4 compared-pages (gtb ×2 each), webdesign.co.uk `domains` (gtb ×4).
+- Tier-3 on plan-carrying sites (deployed, repeated type in `pages.sections`, no plan row,
+  `section_subjects` NULL): **6 pages / 2 sites** — leopardess ×5, vetcomparison ×1.
+  Serve-state of the leopardess five `[UNVERIFIED]` (wording may vary, as rank-trackers shows).
+- The remaining 18 portfolio remakes need nothing: post-640 replans carry subjects
+  (gamedesign is the proof).
+
+**Answer to the §CONTRIB above (dartsonline_traffic).** Your single check passes: the fix
+keys on the PAGE's provenance, not the site's plan-lessness (code cites above), so your
+~513-page population is covered — backfill `pages.section_subjects` on those pages and the
+fallback attaches them; this cohort is the live demonstration that planned sites' pages do
+exercise that path (the detector fired there). Your population enters the remediation
+account, not a separate bug.
+
+**Remediation** joins §8/handoff item 4, per tier, after Stage B: tier-1 pages need subjects
+written into their `site_plan_sections` rows (or a post-640 replan); tier-3 pages take the
+RUNBOOK D8 `pages.section_subjects` backfill. Owning lanes to hand to: portfolio_positioning
+(seotools), the vetcomparison and leopardess lanes (the latter also owns the failing
+`mechanism-flow` build), apis.uk (their own index), the webdesign lane (`domains`).

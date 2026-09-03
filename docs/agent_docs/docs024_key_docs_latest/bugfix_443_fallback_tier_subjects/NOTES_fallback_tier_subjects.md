@@ -266,3 +266,40 @@
   rehearsals) → self-baselining rehearsal recipe now in bugfix_450_tool_page_shells/RUNBOOK
   §10 — the pointer if this lane ever stages a prompt migration. No further literals asked of
   them: rule 17 is the one load-bearing sentence for our detector's interpretation.
+
+## 2026-09-03 afternoon — detector cohort DIAGNOSED (pre-640 plans, two tiers, nothing new); 641 redraft APPROVED and one owner-read from applying
+
+- **The handoff's three-way `[UNVERIFIED]` is resolved: it is "pages from pre-640 plans" on
+  every count** (bug file §10 has the full evidence). The deciding measurement was 640's
+  apply TIME, not date: apply commit `8079f7671` at 17:47:31+0100 ⇒ ~16:47Z, and seotools'
+  plan (remake №3, built by portfolio_positioning that afternoon) is 16:13Z — pre-640 by
+  ~34 min. leopardess/vetcomparison plans are July. Rule 17 NOT failing: the only two
+  post-640 plans (gamedesign.uk) carry 10/13 then 13/13 subjects.
+- **Planner detector's 0-rows-ever is its designed gate** (fires only when the plan carries
+  ≥1 subject — `fa98a1961`), so silence over zero-subject plans is correct, and its blind
+  arm (post-640 planner writing zero subjects) is currently disproven by gamedesign. NOT a
+  640 defect to hand apis.uk.
+- **Serve check with controls**: 3 seotools pages + vetcomparison how-it-works = verbatim
+  repeats served; seotools rank-trackers = same mechanism, varied wording; leopardess
+  case-study = 404 NEVER deployed — its 3× rebuild was one `needs_content_page` item
+  retrying then FAILING on `mechanism-flow` content-type mismatch (orchestrations
+  `5d9c8bfd`/`913d16ed`/`4167c578`) — unrelated failure, leopardess lane's.
+  vetcomparison's 11:25Z redeploy with no detector row = page_rerender wave; rerenders
+  never run plan_sections. Detector not in question.
+- **Two exposure censuses** `[MEASURED 2026-09-03]` in §10: tier-1 exposed 6 pages / 3
+  sites (incl. apis.uk index gtb×6 — CONTRIB filed in their dir; webdesign.co.uk domains
+  gtb×4); tier-3-on-planned-sites 6 pages / 2 sites (leopardess ×5 serve-state UNVERIFIED,
+  vetcomparison ×1).
+- **dartsonline CONTRIB answered in §10**: their ~513-page population IS covered — tier
+  selection is per PAGE (`load_page_sections_from_spec_action.go:146`, fallthrough `:330`);
+  read at the deciding arm, not inferred from the doc comment. Their population and this
+  cohort merge into the item-4 remediation account; no new bug file (both bug dirs grepped —
+  nothing covers this cohort; the site-name hits are unrelated bugs).
+- **641 state re-read at the live row, not the seed**: redraft to framing C committed
+  (`7da6c6a46`) and council-APPROVED r1 (`6e8d04b6b`, today); framing-C literal NOT in the
+  live writer row ⇒ not applied; gate 2 (owner reads the exact block in the seed) is the
+  only remaining gate. Nothing for this lane to do or nudge yet — redraft landed today.
+- Gotchas hit: `site_plan_sections` FK is `plan_id` (not site_plan_id — `\d` first, again);
+  the RUNBOOK's tier-2 query errors on scalar `sections` even with the typeof guard in
+  WHERE (AND does not short-circuit) — CASE-wrapped variant added to the RUNBOOK;
+  `orchestration_states` has no `id` column (`orchestration_id`).

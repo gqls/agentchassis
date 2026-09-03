@@ -14,7 +14,7 @@ bottom — read the 09-03 entry). Owner prose: `README_where_we_are.md`.
 | mig 717 (pages.section_subjects/facts) | applied + ledger-recorded 09-02 | information_schema check in RUNBOOK |
 | 639 wiring (plan_sections config) | live | live `agent_definitions` query in RUNBOOK — NOT the seed file, NOT schema_migrations (LANDMINES: `_HOLD` filename/ledger trap) |
 | 640 (planner rule 17) | applied 09-02 | APPLIED line in seed header |
-| **641 (writer prompt v5)** | **VOIDED as written — owner returned gate 2 as a REDRAFT** | DO-NOT-APPLY stamp in the seed header itself (apis.uk `c9c9b75ec`). Redraft pipeline: owner picks framing → finetuning test-renders (candidates in `finetuning_uk_service/DRAFT_2026-09-02_641_positive_prompt_candidates.md`) → apis.uk writes final SQL → owner reads exact final words |
+| **641 (writer prompt v5)** | **REDRAFTED to framing C + council APPROVED r1 (09-03); held on ONE gate: the owner's read of the exact block in the seed** | commits `7da6c6a46` (rewrite: subject block + `sections_for_render` input_fields append in one transaction) and `6e8d04b6b` (APPROVED `6c92d154`); live writer row does NOT yet carry the framing-C literal (checked 09-03 afternoon) — not applied, correctly |
 | build detector | **LIVE and firing** | 7 rows in ~2h — see "new finding" below |
 | council | APPROVED r1, `Council-Reviewed: b7c59309-…` on the commit | verdict + 11 advisory answers in NOTES 09-02 |
 | RFC_063 | **DECIDED: option B** (converge the 6 plan-less sites; hand-insert permitted, closed backfill). Imagery seeding CLAIMED by 114 lane; **composition half + reconciler-skip measurement UNASSIGNED** | RFC appendix `01a3b96ac`, status header current |
@@ -73,6 +73,20 @@ redrafted 641 applies. So served h2s still repeat everywhere. That is expected, 
    page) + rebuild, or hand to the sites' next lanes explicitly. finetuning's remaining 3 are
    theirs. Alternative: if RFC_063's composition half converges these sites first, subjects
    can go into plan rows instead — do NOT do both.
+   **WIDENED 09-03 (bug file §10 — the detector cohort, diagnosed):** add, per tier, with
+   owning lanes to hand to after Stage B —
+   - tier-1 (subjects belong in `site_plan_sections` rows, or a post-640 replan): seotools ×4
+     compared-pages (portfolio_positioning's remake №3; 3 serve verbatim repeats, 1 varied),
+     apis.uk `index` gtb×6 (CONTRIB filed in their dir 09-03), webdesign.co.uk `domains`
+     gtb×4 (webdesign lane).
+   - tier-3 on planned sites (D8 `pages.section_subjects` backfill): vetcomparison
+     `how-it-works` (serves verbatim repeat; their lane), leopardess ×5 deployed pages
+     (serve-state `[UNVERIFIED]`; their lane — who also own the unrelated failing
+     `mechanism-flow` build on case-study).
+   - the dartsonline CONTRIB population (~513 content pages on planned sites, their census
+     09-03) is the same tier-3 class at scale — covered by the fix (per-PAGE tier selection,
+     verified at `load_page_sections_from_spec_action.go:146`), remediated by the same
+     backfill; sequencing/ownership is an item-4 decision, not a new bug.
 5. **Close-out:** re-curl all 11 pages distinct (per-domain invented-URL controls), update
    §8 + register PBP-051 status, move 443 to `bugs_closed/` (one sequence, never renumber),
    drop the workstream memory line's OPEN state.
@@ -81,18 +95,16 @@ redrafted 641 applies. So served h2s still repeat everywhere. That is expected, 
 either outcome — but see the coordination note below), the new-finding cohort below (separate
 filing decision).
 
-## ⚠ NEW FINDING from the first 2h of detector rows — read before assuming the cohort is the 11
+## Detector cohort — RESOLVED 09-03 (was "⚠ NEW FINDING"; full evidence in bug file §10)
 
-7 rows / 4 pages / 3 sites, **none in the plan-less six**: leopardessconsulting.co.uk
-(`case-study-automated-intelligence-pipeline` — rebuilt 3× in 2h, itself unexplained),
-seotools.co.uk (2 pages), vetcomparison.uk (`how-it-works`). Plan-CARRYING sites are minting
-subjectless repeats on fresh builds. `[UNVERIFIED]` whether that is: pages from pre-640 plans
-(likely — rule 17 only binds NEW plans), tier-2/3 pages on planned sites, or rule 17 failing.
-Next session: (a) curl the 4 pages with controls before calling them damage; (b) check
-whether the PLANNER-side code (`SUBJECT_MISSING_ON_REPEATED_COMPONENT`) fired for the same
-pages — if plans postdate 640 and it did NOT, that is an apis.uk/640 defect to hand them;
-(c) decide whether this cohort goes into 443's account or a new bug file (grep both bug dirs
-first). The read-back query (CORRECTED — `occurred_at`, not `created_at`) is in the RUNBOOK.
+All three of (a)/(b)/(c) done. Verdict: **pre-640 plans, two tiers, no new mechanism, no
+new bug file.** seotools' plan was written 34 min before 640 applied (16:13Z vs ~16:47Z);
+leopardess/vetcomparison plans are July. Rule 17 complies where exercised (gamedesign
+post-640 plans 10/13 then 13/13 subjects); planner-detector silence is its designed
+≥1-subject gate, not a 640 defect — nothing to hand apis.uk on that. Cohort damage and the
+two exposure censuses (tier-1: 6 pages/3 sites; tier-3-on-planned: 6 pages/2 sites) are
+folded into item 4 above. leopardess's 3× rebuild = one `needs_content_page` item retrying
+then failing on an unrelated `mechanism-flow` type mismatch; their page serves nothing.
 
 ## Coordination state (who owes whom)
 
