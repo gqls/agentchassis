@@ -88,3 +88,62 @@ them is a near-empty page the job deliberately will not touch — which you have
 should stay that way. Not one page is both worth describing and undescribed. So both of these
 silent paths are real, and neither is costing us anything today. That is an argument about how
 urgent this is, not about whether it is worth fixing.
+
+---
+
+## 2026-09-03, early afternoon — you said make them loud, so I did, and one query changed how
+
+You read the earlier note and said: **"yes, make them loud."** That is built. Here is what it
+actually does and the one thing I had to check first.
+
+**The check first, because it changed the design.** I had told you the obvious place to send these
+refusals — the review queue — holds sixty-six items and has cleared five. What I had not asked was
+*why*. I had been quietly assuming it was about people being busy. It isn't.
+
+Every work item on this platform either names an agent that will act on it, or names nobody and
+waits for a human. I counted both, across the live table and the archive. Items that name an
+agent: fifty-six thousand of them, and **83% get finished**. Items that name nobody: six and a
+half thousand, and **17% get finished**. And the queue I nearly used holds sixty-nine items of
+which **every single one names nobody**.
+
+So the graveyard is not a fact about your team's attention. It is a fact about the shape of the
+row. Sending refusals there would have looked exactly like a fix and been one more row in the 17%.
+
+**What it does now.** When the writing rules refuse a description, the system files a job for a
+small new agent whose only task is to try again — this time being *told what it got wrong last
+time*. That sounds obvious and it is the whole point: the hourly job has been re-offering the same
+page every hour with the same instructions and no idea why the last sentence was rejected. The
+rewrite goes back through exactly the same rules, so nothing sneaks past them. If it is refused a
+second time, only then does it go to a person — and it goes with the original sentence, the rule
+that rejected it, and the failed rewrite attached, which is a far more useful thing to hand
+someone than "this page has no description".
+
+**What I deliberately left alone.** One of the seven refusal reasons means "the rules themselves
+could not be loaded" — a plumbing fault, not a judgement about the writing. Sending that to a
+rewriting agent would be asking the wrong thing to fix it: it would write a new sentence, the
+rules still wouldn't load, and it would spin. That one stays quiet for now and I have written it
+down as an unfinished edge rather than folding it in to look complete.
+
+**One thing I got wrong, and it is worth telling you because it is the kind that hides.** I wrote
+a test to prove that the *harmless* refusals stay silent — that we don't start filing jobs for
+things nobody needs to look at. The test passed. I then deliberately broke the code to check the
+test would notice, and **it still passed**. The test had been checking nothing at all: I had asked
+it "did anything unexpected fail?" when nothing had been set up that *could* fail. My own comment
+above it said it couldn't possibly pass by accident. It could. Rewritten so it now asserts a fact
+that can come out either way, and it correctly fails when I break the code. Only running the
+break-it check found this — reading the test never would have, and I had read it twice.
+
+**And one boundary I nearly walked past.** While filing the paperwork I found a note from a
+fortnight ago recording that you had explicitly *withheld* permission for automated jobs to
+rewrite descriptions that already exist — you allowed it once, for a one-off cleanup, and no
+standing mechanism was ever given that power. What I have just built is exactly the shape that
+note warns about. It does **not** have that power: it can fill an empty description and nothing
+else, and I verified that against the live configuration rather than trusting my own reading of
+it. I have flagged it in two places, because turning that power on later would be a single
+innocuous-looking line in a config file, and it should be your decision, not a config edit.
+
+**Is any of this doing anything yet?** No, and honestly it can't be. There are currently no pages
+that both deserve a description and lack one, so there is nothing to refuse. The code half also
+only starts working after the next chassis deployment. I have written down the check to run before
+anyone concludes it's broken — because "no records" and "not working" look identical, which is the
+same trap I fell into yesterday reading a different empty result.
