@@ -1506,3 +1506,34 @@ whose slot is named after the tool. That belongs to whoever owns the tool-page b
 
 **And the three-era table's "after" column is still moving** — quote it as **18/18 as of 15:27Z**,
 not as a settled figure. Three of those repairs were dispatched by nobody at either bug.
+
+## UPDATE 2026-09-03 16:0xZ — the census's DENOMINATOR is now verified, not assumed: the assemble path writes nothing at all
+
+Relayed by the `components` lane and **re-measured here before recording**, per the lesson two
+sections up — this is a claim I agreed with, which is exactly why it needed grading.
+
+`[MEASURED 2026-09-03 16:0xZ]` robot-hands.com, over the window in which **39 assemble-mode
+`page_rerender` items completed** (14:21:30 → 15:13:36): **zero `page_component_history` rows, any
+source.** The first row is **15:14:34**, `save_page_sections_overwrite` on `learning-center-hub` —
+their `template_changed` canary. So one page, one hour, two paths, opposite results: an assemble
+re-render on `learning-center-hub` at 14:27:36 left no trace; the re-resolving re-render on the
+same page 47 minutes later wrote six rows.
+
+**The demand control, and mine is stronger than the one they used.** They controlled with three
+later same-site re-renders that did write. Better: the table processed **174 rows fleet-wide inside
+that same window** while robot-hands wrote zero. So the absence is not an idle table, an outage, or
+a quiet hour — it is that path writing nothing while the table was busy.
+
+**What this does for every figure in this file.** My census counts rows in
+`page_component_history`, so its denominator is **exclusively the re-resolving modes**
+(`image_landed`, `section_data_resolved`, `cta_links_stale`, `template_changed`,
+`literal_markdown` → `rerender_page_sections`). Assemble-mode re-renders re-ship stored HTML and
+are **structurally absent**. That is the CORRECT population for the question this lane asks — "when
+a re-resolve ran over a blank listing, did it repair it?" — and it is now verified rather than
+assumed, on a site neither lane chose for the purpose.
+
+⚠ **But do not read "132 writes in 10 days" as "the seam ran 132 times."** It ran far more often;
+132 is the count of *re-resolving* runs that landed on a real deficit **and moved some bytes**. Two
+things are invisible: the assemble path (by design, it cannot repair) and any byte-identical no-op
+(the archive triggers fire only on a change). The first is correctly excluded; the second is the
+lower bound already stated at 12:4xZ.
