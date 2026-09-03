@@ -56,8 +56,9 @@ repair path behind it. `bugs_open/348` is the adjacent-but-different arm (refusa
 report complete).
 
 ## Fix candidates (ordered by what closes the door)
-1. ~~Make the bad state unwritable at the WRITER~~ **BUILT 2026-09-03, inert until the next
-   chassis roll. Register entry `PBP-052`; council corr
+1. ~~Make the bad state unwritable at the WRITER~~ **BUILT 2026-09-03 — AND IT IS LIVE AND NOT
+   WORKING. See §POST-ROLL below before doing anything with this candidate.** ~~inert until the next
+   chassis roll.~~ Register entry `PBP-052`; council corr
    `6de0f6f2-4f37-492a-9cbd-1ae886311a9b` (submitted alongside the commit).**
    The remedy is narrower than this line guessed: nothing needed to change about
    mechanism-flow, and no coercion was added. `datahelpers.StructuredItemShape` renders the
@@ -108,6 +109,80 @@ SELECT s.domain, w.item_key, w.status, left(w.summary,80)
     OR w.summary LIKE '[unresolved after%'
  ORDER BY s.domain, w.updated_at DESC;
 ```
+
+## ⛔ POST-ROLL 2026-09-03 13:xx — THE FIX IS DEPLOYED AND DOES NOT TAKE EFFECT. CANDIDATE 1 IS NOT CLOSED.
+
+**Read this before trusting any earlier line in this file about candidate 1.** The chassis
+rolled to `v1.0.1358` at 12:06Z. The fix is provably present and the defect is unchanged:
+builds are still failing with the identical error, and the writer prompt still carries the
+OLD flat exemplar.
+
+**What IS confirmed live (each with a control, so none of these is the gap):**
+- Image `v1.0.1358`, revision `d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85`.
+  `git merge-base --is-ancestor a0044e73b d0252fd4d` → **PASS**; negative control (current
+  HEAD) correctly ABSENT.
+- **Binary probe on the running pod:** the helper's literal `never a sentence of prose` is
+  PRESENT in `/proc/1/exe`; long-lived control present; nonsense control absent. The struct
+  tag `value_shape` is present (3×, same count as the long-standing `item_fields`).
+- **The built revision's own tree** contains both the helper (`func StructuredItemShape`) and
+  **2** references to it in `plan_sections_action.go`, at the single `llmFieldSpecs = append`
+  site (line 2723).
+- **No service skew:** all three deployments running the chassis image (`agent-chassis`,
+  `business-intel`, `vet-intel`) are on `v1.0.1358` at the same revision.
+- **Migration 724 is intact in the live row** — nested exemplar 1, item_notes tail 1,
+  pre-437 spelling 0, flat arm 1. Not reverted.
+- **The helper works on the EXACT live schema bytes.** Dumped `input_schema` from the live
+  `mechanism-flow` row, ran it through `SchemaContentFields` → `StructuredItemShape` in a
+  throwaway test: returns the correct skeleton
+  `[{ "body": "...", "branches": [{ "body": "...", "label": "..." }], … }]` and the correct
+  note. So the helper logic is NOT the defect.
+- **The live schema is unchanged** (one active `mechanism-flow` row; `branches` still
+  `type: array` with `items.properties`; `steps.source = llm`).
+- **Timing is not the explanation.** Five post-roll orchestrations (12:07:57 → 12:20:25Z),
+  all started AFTER the pods came up. One of them (`29a88d1e`, 12:20:01Z) ran the
+  `plan_sections` action itself.
+
+**The observed failure, stated precisely:** in `29a88d1e`'s own `section_plan` output (the
+step's real `output_field` — NOT the `plan_sections` key, which is a different thing and
+cost me a wrong turn), the **mechanism-flow** section's `steps` spec is:
+
+```json
+{"name":"steps","type":"array","required":true,"on_missing":"skip_field",
+ "item_fields":["body","branches","marker","note","title"]}
+```
+
+`item_fields` is correct and `value_shape` / `item_notes` are **absent**. Since both are
+`omitempty`, absence means `StructuredItemShape` returned empty at runtime — on a field
+where the same helper, given the same schema out of the same DB row, returns a shape.
+
+**So the contradiction to resolve is exactly this:** the deployed binary contains the call
+and the helper; the helper works on that schema; the call site is the only one; and the
+emitted spec has no shape. One of those four is false in production and I could not
+determine which by inspection.
+
+**Ranked hypotheses for whoever picks this up:**
+1. **`comp.InputSchema` at runtime is not the schema I probed with.** The one concrete
+   anomaly found: the component payload carried in the plan serialises
+   `component.input_schema` as a **JSON STRING**, not an object (`jsonb_typeof` = `string`,
+   `? 'fields'` = false). If the loader hands `plan_sections` a differently-shaped schema
+   than the raw DB row, `extractArrayItemFields` could still succeed (it only needs
+   `items.properties`) while `StructuredItemShape`'s first guard —
+   `declaresArray(fieldDef["type"])` — fails. **Start here.** Note this guard is STRICTER
+   than `extractArrayItemFields`' entry condition, which is a real asymmetry in my design
+   regardless of whether it is the cause.
+2. The `section_plan` being read was not produced by that step's execution (carried from a
+   parent, or a cached/echoed result).
+3. Something between the action's return and serialisation drops the keys.
+
+**The next experiment, because inspection is exhausted:** add a temporary `logger.Warn` in
+the `source == "llm"` branch printing `fieldName`, `fmt.Sprintf("%T/%v", fieldDef["type"],
+fieldDef["type"])` and whether `fieldDef["items"]` is a map — or run `plan_sections`'
+resolver locally against the live DB row. Either answers hypothesis 1 in one run. **Do not
+add more queries against `orchestration_states`; that avenue is spent.**
+
+**Status of the two halves:** migration 724 is applied, verified, and HARMLESS while the Go
+side emits nothing (the `{{if}}` guards render exactly the old prompt — which is precisely
+what post-roll observation confirms). No rollback is needed or advised.
 
 ## ⚠ THE RE-MINT WINDOW IS A HAZARD, AND IT IS NOT GATED BY ANYONE'S RESTRAINT (added 2026-09-03)
 

@@ -269,3 +269,55 @@ Their stated negative is worth preserving too: `bugsweep4` checked the dialect a
 regressions sits on a legacy-dialect component, and the 3 of 460 unbaselined that do are
 field-level (`.section_title empty_heading`), not per-item. Recorded so nobody later infers
 a link that both lanes explicitly looked for and did not find.
+
+## 2026-09-03 post-roll — THE FIX IS LIVE AND DOES NOT WORK, and I could not explain it
+
+`v1.0.1358` rolled at 12:06Z carrying `a0044e73b`. Builds still fail with the identical
+error; the writer prompt still shows the old flat exemplar. **Candidate 1 is not closed.**
+
+**Every "is it really deployed?" answer came back YES, with controls** — ancestry against
+the image revision label (negative control behaved), the helper's literal and the
+`value_shape` struct tag both in `/proc/1/exe`, the call present twice in the built
+revision's own tree at the single append site, no service skew across the three chassis
+deployments, migration 724 intact in the live row, and the helper returning the correct
+skeleton when fed the exact live schema bytes. And yet the emitted spec for mechanism-flow's
+`steps` carries `item_fields` and no `value_shape`, which under `omitempty` means the helper
+returned empty at runtime on a field where it demonstrably does not.
+
+**Wrong turns, recorded because they cost real time:**
+
+- **I read the wrong collected_data key for an hour.** The step's `output_field` is
+  **`section_plan`**; I kept querying `plan_sections`. Both keys exist and they are not the
+  same object. (The answer turned out identical either way, which is luck, not vindication.)
+- **I concluded "plan ran on the new binary" from the WRITER CALL time.** `plan_sections`
+  runs earlier in the same orchestration, so a writer call after the roll proves nothing
+  about when the plan was built. I had to go back for the orchestration `created_at`. It
+  happened to hold, but the inference was unsound when I made it.
+- **`collected_data::text LIKE '%value_shape%'` returned TRUE and I briefly believed it.**
+  It was matching the TEMPLATE TEXT (`{{if $f.value_shape}}`) echoed in the config, not
+  data. A substring test over a blob that contains your own needle as source code is not a
+  measurement — exactly the class this lane has been writing landmines about all day, and I
+  walked into it on my own change.
+- **I searched `$.**.llm_field_specs[*] ? (@.name == "steps")` and got 12 specs with zero
+  shapes, and nearly reported that as the finding.** `steps` is a common field name; those
+  were mostly other components, correctly emitting nothing. The question only became
+  meaningful once filtered to `function = 'mechanism-flow'`.
+
+**The one concrete anomaly, and the top hypothesis:** the component payload carried in the
+plan serialises `component.input_schema` as a **JSON STRING**, not an object. If the loader
+hands `plan_sections` a differently-shaped schema than the raw DB row,
+`extractArrayItemFields` still succeeds (it needs only `items.properties`) while
+`StructuredItemShape` returns early — because its first guard,
+`declaresArray(fieldDef["type"])`, is **stricter than `extractArrayItemFields`' entry
+condition**. That asymmetry is mine and is worth removing whether or not it is the cause:
+two readers of the same field disagreeing about whether they can read it is the shape of
+this bug one level up.
+
+**Next session: instrument, do not query.** A temporary Warn in the `source == "llm"` branch
+printing the runtime `%T` and value of `fieldDef["type"]` settles it in one run. Full
+elimination list and ranked hypotheses: `bugs_open/437` §POST-ROLL and
+`HANDOFF_2026-09-03_continue_here.md`.
+
+**Docs corrected rather than left optimistic:** `bugs_open/437` candidate 1 and register
+PBP-052 both now lead with the post-roll failure, because as written they would have told
+the next reader this mechanism works.
