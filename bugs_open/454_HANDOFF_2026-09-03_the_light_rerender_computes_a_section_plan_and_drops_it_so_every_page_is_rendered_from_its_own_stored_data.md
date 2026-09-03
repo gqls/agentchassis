@@ -397,3 +397,22 @@ scope decision is theirs and **this file does not fork an account of it.**
 is fixed AND live *at the artefact*, and the served page cannot change until the save completes.
 Whoever picks this up: the re-render half needs no further work — re-read this section before
 re-testing it.
+
+## 13. The save blocker is fixed in code, 2026-09-03 — 454 can close on the next roll
+
+`bugs_open/450` removed the tool arm from `save_page_sections` (`29b40e8bc`). Verified at the
+source: `save_page_sections_action.go:210` now gates on `refused && class == refusalOwned`, so
+`refusalToolPending` no longer fires at that seam while the tool arm keeps firing at its other
+three call sites and the owned arm is byte-identical.
+
+**So the only thing between 454 and closure is a chassis roll carrying `29b40e8bc`.** The fix
+itself is already proven (§12); what was missing was permission to persist the proven result.
+When that image ships: re-dispatch, confirm `save_sections` did not fail, then read the served
+page. Recipe in `bugfix_427_event_render/RUNBOOK_bugfix_427_event_render.md`.
+
+**One general hazard is worth taking out of this instance**, and the 450 lane has recorded it in
+their file too: **a guard whose harm is masked by an unrelated defect looks free until the defect
+is fixed.** Refusing those saves cost nothing observable while 454 meant the saves were writing
+back unchanged bytes anyway. The guard's arrival and the repair vehicle's return to working
+landed in the same image, so a latent cost became a real one in a single step — and neither lane
+could have seen it from its own side.

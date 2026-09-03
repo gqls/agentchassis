@@ -930,3 +930,44 @@ artefact refuses. The remaining work is not this lane's code.
 - [ ] `ff91e666` **round 3** in flight (dispatch `b1a2cf68`) — verdict not yet landed.
 - [ ] Re-verify `experience_loop`'s nightly reclassification once the page actually changes.
   Still the real closing signal, and still gated on the save.
+
+## 18. Status update, 2026-09-03 — the blocker has a committed fix; it rides the next roll
+
+**`bugs_open/450` removed the tool arm from `save_page_sections` (`29b40e8bc`, 13:32 BST).**
+Verified at the source rather than taken on report: `save_page_sections_action.go:210` now reads
+
+```go
+if refused, class, _ := pageRefusesGenericBuild(...); refused && class == refusalOwned {
+```
+
+so only the **owned** arm fires at that seam and `refusalToolPending` no longer does. Surgical —
+one condition, not a removed guard. The tool arm still fires at its other three call sites
+(`load_page_record_action.go:259`, `multipage_actions.go:43`,
+`rerender_page_sections_action.go:1205`), so 450's own protection is intact, and migration 164's
+verbatim-tool protection is untouched.
+
+**This unblocks 427's last step — but not until the next chassis roll.** The live chassis
+(`d0252fd4d`) still carries the refusing version, so the fight-calendar save will keep failing
+until an image containing `29b40e8bc` ships. Nothing further to do here before then.
+
+**A lever exists and is NOT this lane's to pull:** `DISABLE_TOOL_SHELL_REFUSAL`
+(`owned_page_guard.go:96`) disarms the arm fleet-wide with no build. The 450 lane has put it to
+the owner as their decision. Recorded here so nobody in this lane reaches for it.
+
+**Census reconciliation, because their number and mine disagree and the difference is
+instructive.** They measured 67 matched / 54 serving / 10 sites; I measured 58 / 53 / 9. Re-run
+today to find the encoding difference rather than assert one of us was right:
+
+| predicate | pages | sites |
+|---|---|---|
+| `status='active'` + a `build_status='deployed'` row (mine) | **53** | 9 |
+| `status='active'` + any non-`removed` row (theirs) | **54** | 9 |
+| any status + any non-`removed` row | 56 | **10** |
+| `status='active'` matched at all (mine) | 58 | 12 |
+| any status matched at all | 64 | — |
+
+So **53 vs 54 is `deployed` versus any-non-`removed`** — one page holds a live component row that
+is not yet `deployed`. The 58-vs-67 and 9-vs-10 gaps I could **not** reconcile from here; their
+figure may use a different status filter again, or a later snapshot. **[UNRECONCILED]**, and it
+changes nothing: every encoding says the arm refused several times more repair than harm, which
+is the finding that mattered and the one they acted on.
