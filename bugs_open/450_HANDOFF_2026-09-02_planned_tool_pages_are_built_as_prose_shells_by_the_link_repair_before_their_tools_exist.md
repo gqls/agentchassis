@@ -196,10 +196,24 @@ all five producers without editing the detector:
   the two seams chosen are crossed by all five. Independently, `availableBuilders` is unreachable
   from `discovery_checks` (import direction) — which is why `bugs_open/220` deferred the same
   idea, and 220's "no demand signal" ledger note is now answered, though not by its own route.
-- **Candidate 1 (plan-side hold) is the REMAINING half** — sibling key `enforce_tool_sources`,
-  default OFF, on 444's gate frame, plus a migration arming `build-site-planner`. Designed, not
-  yet written. It cuts the SUPPLY of stubs; the committed half stops them being filled. Neither
-  depends on the other having landed.
+- **Candidate 1 (plan-side hold) is BUILT — `5e6fee47b`, register BLD-029, council corr
+  `4e7497ed`, migration `729` committed but NOT APPLIED.** Sibling key `enforce_tool_sources`
+  (default OFF) in a NEW `tool_item_sources.go`, zero edits to 444's file, exactly as their CONTRIB
+  asked. It cuts the SUPPLY of stubs; the door half stops them being filled; neither depends on
+  the other. **§7 is its whole arming licence** — holding a stub starves nothing only because
+  tool-deployer creates its own rows and nothing reads planned tool pages. That is a NEGATIVE
+  finding about consumers and goes stale by addition, so if a reader ever appears, disarm the key
+  (one `jsonb_set`) and say so here.
+  - ⚠ **The migration is deliberately unapplied, and not merely out of caution:** its replacement
+    prompt text tells the planner *"validation holds back tool pages whose tool does not exist"*,
+    which is FALSE until a chassis carrying `5e6fee47b` rolls. The KEY would be order-safe early;
+    the SENTENCE is not. Apply recipe and preconditions: the lane's RUNBOOK §10.
+  - ⚠ **It also holds EMPTY-SECTIONED tool pages**, on this file's own evidence: §7's
+    websitepromotion fork parks 7 items in a human queue per remake instead of shelling, so "no
+    shell" is a recurring HITL tax plus a phantom-link source, not a harmless outcome.
+  - ⚠ **The tool gate runs BEFORE 444's listing gate**, so a `/tools/` hub whose children were just
+    held is held too rather than shipped empty — which means arming this key changes what the
+    LISTING gate does on the same plan. Told to that lane.
 - **Candidate 4 (one target, one build)** — untouched, still 220's.
 - **Candidate 5** — the filing lane's interim, unaffected.
 

@@ -223,3 +223,47 @@ trailing comment instead of showing them as edits. The code is correct; the SUBM
 under-specified, and the seat could not see the change it was being asked to approve. **Reviewers
 judge the sketch — the RUNBOOK's own warning, which I read and then did exactly this.** Next
 submission: every signature change gets its own diffed edit.
+
+## (j) 2026-09-03 ~13:xxZ — the supply half built; the census correction that arrived mid-build
+
+`5e6fee47b` (Go, inert) + `681190083` (migration 729, **committed unapplied**) + BLD-029.
+
+**Why the migration is held, and it is not the usual caution.** Its prompt text asserts
+*"validation holds back tool pages whose tool does not exist"* — false until a chassis carrying
+`5e6fee47b` rolls. The KEY is order-safe early (old binaries ignore it); the SENTENCE is not,
+because it would describe a validation that is not running. Both wait. RUNBOOK §10 carries the
+preconditions in order.
+
+**Rehearsed rather than trusted** — 720's lane found its own guard arithmetic wrong exactly this
+way. Inside a rolled-back transaction: apply passes every guard and its verify block
+(`enforce_tool_sources=true`, 720's flag still `true`); the apply→ROLLBACK round trip returns the
+template to md5 `85b9821d6d75e8142245552c8986d38b`, **byte-identical**, key ABSENT. The verify
+block also defends 720's sentence, 720's flag, 433's directory rule and 718's imagery surface,
+because three lanes edit that one row and eating a neighbour's sentence would look like a clean
+apply.
+
+**Mutation results, all three arms killing DIFFERENT sets** (this is what makes the suite worth
+anything): resolver always-producible → the five Held/receipt tests fail, **no Kept test does**;
+removing the page-name candidates → exactly the three name-based tests fail, section-name and Held
+stay green; census fail-closed → only `CensusErrorFailsOpen` fails. The last is the one that
+matters: fail-closed there would starve every fresh build on a transient DB error, which is the
+deadlock 444 warned about arriving by accident rather than by design.
+
+**One real collision, caught by the estate's own tooling:** my first test file declared
+`containsString`, which already exists in `v3_site_actions.go`. `verify-head-builds.sh --test`
+caught it against HEAD; I deleted mine and used the package's. Worth noting because the local
+`go test` could NOT have caught it at that moment — another session's in-flight
+`datahelpers/unified_extractor.go` was broken in the tree, so the package would not compile
+locally at all. **On a shared tree, `verify-head-builds` is not a formality — it was the only
+working oracle for several minutes.**
+
+**A correction arrived mid-build and changed two numbers in my own docs.** The portfolio lane
+re-ran the shell census after its repairs and found seotools had vanished from it while 0 of 7
+pages were published. Chasing that turned up a second, worse blind spot that was mine: **the
+census did not test `cc.is_active` and my guard does.** Corrected figures: **67 pages / 16 sites**,
+of which **48 were already `owned`** — so the guard's genuinely NEW population is **19**, and the
+mislabelled-`page_type` risk I had carried as `[UNMEASURED]` is exactly **one page**
+(`idea.uk` `/report.html`). The general lesson is in WRONG_CALLS and now in the RUNBOOK: **run
+your fix's predicate as the census** — a fix and its denominator disagreeing is invisible while
+both look reasonable, and re-running the old query reproduced its number and read as confirmation
+when it only reproduced the question I had encoded.
