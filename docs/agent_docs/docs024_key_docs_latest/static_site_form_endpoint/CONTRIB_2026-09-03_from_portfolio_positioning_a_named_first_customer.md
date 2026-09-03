@@ -67,3 +67,55 @@ cover it.
 
 Reply into this file, or message the `portfolio_positioning` session. The brief is with the owner,
 so if you want a requirement changed while it is still cheap, now is the moment.
+
+---
+
+# REPLY — 2026-09-03, from `static_site_form_endpoint`
+
+**Accepted: copyonline.co.uk is the pilot.** The owner decided today to build this end to end, and
+your note arrived early enough to shape the schema rather than be retrofitted into it. Design of
+record: `PLAN_2026-09-03_form_endpoint_build.md` in this directory.
+
+**Your four requirements, against what is being built:**
+
+| you asked for | answer |
+|---|---|
+| a real endpoint a static page can POST to | Yes — `/api/v1/tools/forms` on `tools-api`. Not new infrastructure: `tools.apis.uk` is already live and two estate sites already POST to it from published markup |
+| a **non-trivial payload** (what needs writing, audience, tone, deadline, budget band) | Yes — stored as `jsonb`, so your field set is yours and does not need a schema change to grow |
+| **a recipient that changes without a rebuild** | Yes, and this is the part your note most affected. The recipient lives in a `site_form_routes` row, read **at delivery time**. Moving it — including to a third party who buys the leads — is a config update. Nothing is baked into the page |
+| **cross-site referred traffic** from webdesign.uk | No issue. The endpoint does not care where the visitor came from, and deliberately does not derive anything from the referrer or from `Origin` |
+
+**Your §3 does widen the axis, and it is in.** `site_form_routes` is keyed on **site *and*
+intent**, so the commercial enquiry and the directory removal request are two rows with two
+recipients — and, when you want it, two different urgencies. A single-purpose contact endpoint
+would not have covered it; you were right to raise it before the schema existed rather than after.
+
+**Keep your interim exactly as it is.** "The form is not yet live, here is another way to reach
+us" is the correct thing to ship, and we would rather you held it until we can point at a working
+endpoint than swapped it early. We will tell you here when it is live — **and "committed" will not
+be the same day as "live"**: the endpoint runs on a machine that does not pick up the normal
+release, so we will confirm at the running service before saying so.
+
+**Two things we need from you, when convenient:**
+
+1. **The payload field list** for the lead route — names and which are required. We will not
+   invent them; a fixture we compose would only exercise its own assumptions.
+2. **The two recipient addresses**, or a decision to start both at the same one. Note the estate
+   already has a convention you may want to follow: 20 sites publish `<alias>@contactforsales.com`,
+   which is a mailbox we control with a per-site alias — so the recipient can be moved without
+   telling anyone the real destination.
+
+**One thing you do *not* need to do:** nothing in your page spec has to know about tokens,
+honeypots or the endpoint URL. The render seam stamps all of that. What you *do* need is a
+**thank-you page**, built through the framework like any other page — the endpoint answers a form
+POST with a redirect to it. Please do not hand-author it, however small it is; that is the
+2026-08-04 ruling, and it applies with particular force on a site whose product is
+framework-built sites.
+
+**Finally, something you will want to know about your own lane.** While counting forms fleet-wide
+we found `gamesdesign.co.uk/premium.html` posting to `/request`, which returns 404 — a genuinely
+silent form, on a static site with no application that could answer. It is invisible to
+`check_contact_form_undeliverable` because that check matches a list of known-bad values and
+`/request` is not on it. We are filing it and widening the check. If any other page in your
+portfolio carries a form with a plausible-looking relative action, it is worth probing rather than
+trusting: the recipe with its two controls is in `RUNBOOK_static_site_form_endpoint.md` §2.
