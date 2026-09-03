@@ -64190,3 +64190,51 @@ open on the grounds that it was divergent.
 - **Cost.** None — caught before it was written anywhere durable. Logged because the tally is the
   point, and because "a log line said it worked" is this estate's most-repeated failure and it very
   nearly got me on the very change that existed to satisfy a provenance objection.
+
+## 2026-09-03 — I built a prompt-render harness to prove an agent could not see its input, while the agent's own `reasoning` field said so in plain English (`portfolio_positioning` / `bugs_open/453`)
+
+- **The claim, which was correct but expensively arrived at.** To show that a brief-writer
+  `mission_brief` never reaches the classifier or the planner, I read `llm_call_log.prompt_rendered`
+  for four sites, located the `## Pre-Defined Mission` and `## Mission` blocks, and demonstrated
+  `<no value>` beneath each, with a positive control (gamedesign.uk, whose brief has the key) and a
+  negative control (boxingonline.com, which has no brief). Sound, and it took most of an afternoon —
+  including one wrong turn where I searched the planner's prompts for the classifier's heading and
+  briefly reported the two as separate defects.
+- **What was sitting in the output the whole time.** The classifier writes a `reasoning` field into
+  `site_specs.classification`, and it says, unprompted: *"Confidence is moderate because **no mission
+  brief was supplied** and the existing site content is sparse — the strategic direction has been
+  inferred from the site's own stated rules and the domain."* The tool-suggester's spec says the same
+  thing about itself: *"**Without existing pages loaded, I'm inferring from the domain**…"* One
+  `SELECT` each, no controls needed, no heading to guess wrong.
+- **Why the harness is the tempting move.** The prompt is the *input*, so it feels like the rigorous
+  place to measure — you are looking at the cause rather than at an effect. But an LLM step narrates
+  its own inputs into its output for free, and that narration is **testimony from the consumer about
+  what it actually received**, which is the fact in dispute. The rendered prompt proves what was sent;
+  the reasoning field proves what arrived and how the agent handled the gap.
+- **The cheap check that would have.** When the defect is "agent X cannot see input Y", read X's own
+  free-text output field first — `reasoning`, `rationale`, `notes`, `confidence`. Sub-second, and it is
+  the only evidence class that cannot be argued down to an instrument fault. Escalate to rendering the
+  prompt only when the output is silent about its inputs.
+- **Cost.** No wrong claim reached a durable document — the harness's conclusion was right. What it
+  cost was an afternoon, one publicly-retracted "they fail differently" claim, and the delay itself:
+  while I was measuring inputs, the blind classifier and the blind tool-suggester both ran and
+  committed the site to the wrong shape.
+
+## 2026-09-03 — "the pages are undeployed, so the decision is still cheap" — written as though asking a human pauses the pipeline (same lane)
+
+- **The claim.** Handing the owner the retire-or-keep decision on three tools that duplicate seotools,
+  I wrote that the pages "exist as `planned`, undeployed", to convey that acting on his answer would be
+  cheap whenever it came.
+- **What was true.** It was accurate at the moment of writing and **stopped being accurate about four
+  hours later**, unattended: all three deployed (16:22:43Z, 16:34:42Z, 16:39:58Z) while the question
+  sat unanswered. `serp-snippet-previewer`, `title-tag-scorer`, `keyword-intent-classifier`, now
+  `active` on copyonline.co.uk.
+- **Why it mattered.** The status was doing rhetorical work — it was the reason the reader could take
+  their time. A perishable fact used to justify delay **expires in the direction that makes the delay
+  costly**, and nothing re-reads the sentence when it does.
+- **The cheap check that would have.** Do not put a live-state fact in a question to a human without
+  saying what will change it and when: *"undeployed as of 13:40Z, but the deployer runs unattended and
+  will ship these within hours unless held."* Better, where the state is genuinely load-bearing, hold
+  it mechanically rather than describing it — a `planned` page has no lock on it, and asking is not one.
+- **Cost.** Three unwanted tool pages live on a site whose brief plans four different tools, plus the
+  rework of retiring pages rather than declining to build them.
