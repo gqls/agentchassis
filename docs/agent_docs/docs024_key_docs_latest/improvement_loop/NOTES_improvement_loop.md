@@ -613,3 +613,11 @@ kubectl-applied until the verdict, as 722 was. On APPROVED: apply by hand, `--re
 the same motion, `git mv` the `_HOLD` off naming BOTH paths on the commit, `kubectl apply -k`,
 then `scripts/audit-growth-posture-hold.sh --write` for the first row (that starts the
 first-seen clock for the two unstamped holds).
+
+> **CORRECTED 2026-09-03 17:2xZ (same session), two clock-times above are wrong — I read a BST
+> wall clock as UTC.** §(pp) "Recorded at 17:1xZ" → the ledger row says **17:03:25Z**. §(ww)
+> "submitted ~18:2xZ" → the submission file's mtime is **17:13:44Z** and the council run for
+> `a9ac3bd5` was created at **17:13:50Z** (six seconds; no queue this time). Caught by reading
+> the artefacts (`schema_migrations.applied_at`, `orchestration_states.created_at`) for the
+> handoff rather than my own prose. Same family as the 12:48Z/17:03Z split at the top of this
+> section: **a time I did not read off a clock is a time I made up.**

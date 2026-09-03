@@ -23,7 +23,7 @@ Depth: `PLAN` §5 for the ordered work · `NOTES` for the missteps — §(w), §
 >   ruling and not held by it. Not touched (that lane is building tools on it); put to the
 >   owner. The demand test is STILL UNRUN. NOTES §(qq), RUNBOOK "Growth posture".
 > - **722 was applied by hand and NEVER RECORDED in `schema_migrations`** (718–728 all had rows).
->   Recorded 17:1xZ. Its ARM 4 now RAISEs (2 postures), so an unrecorded 722 would have HALTED
+>   Recorded 17:03Z (ledger `applied_at`). Its ARM 4 now RAISEs (2 postures), so an unrecorded 722 would have HALTED
 >   any lane's blanket `--apply`. NOTES §(pp), WRONG_CALLS.
 > - **§2a drain** `[MEASURED 17:04Z]`: 626 open (from 704), 343 post-roll retractions (from
 >   265) — and they land as `status='complete'`, not `retracted`. **§4 item 2's "~390 other
