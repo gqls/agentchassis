@@ -1778,3 +1778,65 @@ Better still is to compare served bytes, but the predicate is free and catches t
 stored and served agree. That includes **the vetcomparison pass I sent 09-02** — its promise ledger
 came back clean and I must re-check it against served bytes when I re-run post-701, and correct it
 to that lane if it moves. Told the designblog lane the same in the same message.
+
+---
+
+## 2026-09-03 10:55Z — both "my clean result is untrustworthy" bugs FIXED and LIVE; and the new arm had to be narrowed twice by ground truth
+
+Acted on the two items the handoff listed as 5b and 5b-bis rather than leaving them for the next
+session, because two peer lanes are actively quoting my clean results.
+
+### SQ-004 — an out-of-scope control now says N/A, not FAIL
+`--site <other-domain>` used to print `positive_leopardess: FAIL — classifier drifted or site
+changed`. Not a failure and not a finding: `--site` had filtered the control's own page out of the
+corpus. The NEGATIVE control needed the same treatment for the opposite reason — out of scope it
+passed **vacuously**, since a page never fetched can hardly be reported. Both now report
+`n/a (control case not in --site scope)`.
+Verified three ways: `--site seotools` → both n/a; `--site leopardessconsulting` → positive PASS
+and still finds the real 7/13 mismatch; **unscoped fleet run unchanged** at 187 instances /
+2 mismatches / both PASS.
+
+### SQ-005 rule B — a written-not-shipped repair is no longer counted clean
+Query now carries `repair_not_served`; such pages go to a new bucket instead of `ok`, printed in
+the terminal and in the `doc_notes` receipt.
+
+**And then ground truth narrowed it twice, which is the part worth recording.**
+
+- **First cut** — `max(page_components.updated_at) > deployed_at`. Fleet result: **38** pages.
+  I curled 5 at random from other sites: **5 of 5 were serving controls perfectly well.** So the
+  bare predicate over-reported badly, and shipping it would have put ~31 healthy pages into a daily
+  receipt other lanes read — the exact "an audit that over-reports is worse than none, because its
+  findings get *fixed* into real regressions" trap.
+- **The discriminator, found by comparing a true positive against the false ones:** two benign
+  classes were riding along. `build_status='needs_rebuild'` pages are **honestly labelled** as
+  pending (gaps of 13–44 days) and their previously-deployed copy serves fine; and sub-second gaps
+  are the component write landing microseconds after the deploy in the same transaction
+  (finetuning.uk: **0.047s**). The real defect is a page **claiming** to be current — seotools
+  serp-snippet-previewer, `build_status='deployed'`, deployed 00:08:16, newest component 09:43:18,
+  serving 0 controls.
+- **Second cut** — `build_status='deployed' AND gap > 1 minute`. Fleet: **38 → 11**. seotools keeps
+  all **7** true positives; gamesdesign drops all its false ones (19 tool pages, 19 fine).
+- **Then I ground-truthed the 11**, and the four non-seotools survivors **all serve fine**. So the
+  narrowed predicate is **7/11**, and there is **no further DB discriminator**: the gaps of the
+  false positives (2h17m, 16h19m, 21h30m, 21h33m) *bracket* the true ones (9h25m–9h45m), so no
+  threshold separates them. **The database cannot tell "not served" from "served, but `deployed_at`
+  was never updated." Only the served bytes can** — which is exactly what I told the designblog
+  lane, now confirmed by measurement rather than asserted.
+
+**So the arm ships as a TRIAGE list that states its own precision**, in the terminal and in the
+receipt: *"7 of 11 were genuinely serving 0 controls; the other 4 served fine … CURL THE PAGE
+before acting, and never 'fix' one of these on the strength of this line alone."* A suspicion
+bucket that admits its false-positive rate is honest; one that reads as findings is not.
+
+**The generalisable bit:** I nearly shipped the first cut. It "worked" on the motivating case, and
+the motivating case is the one input guaranteed not to disconfirm it. **The five random curls from
+*other* sites are what turned a plausible predicate into a measured one**, and they cost about a
+minute. A new detector arm needs its ground truth sampled away from the case that inspired it.
+
+### Shipping
+Both `scripts/` copies and the cronjob copy mirrored (the self-test's parity arm caught that I had
+edited only `scripts/` — the cluster runs `deployments/.../experience-promise-check/base/check.py`).
+Applied to production three times as the predicate tightened; final ConfigMap
+**`experience-promise-check-script-4t95f4hmm7`**, `cronjob configured`, and a triggered job ran
+**exitCode=0** with the caveat visible in both the pod output and the `doc_notes` receipt.
+Fleet-wide now: 354 tool pages, **338 fine**, rule B 1, rule C 1, never-built 4, triage 11.

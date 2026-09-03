@@ -239,8 +239,20 @@ SELECT COALESCE(jsonb_agg(jsonb_build_object(
          -- — it records that a deploy once happened, not that THESE components were in
          -- it. Measured on seotools: 7 pages rebuilt 09:34-09:54 behind a 00:08 deploy,
          -- all serving 0 controls while stored html carried them.
-         (p.deployed_at IS NULL OR (SELECT max(pc2.updated_at) FROM page_components pc2
-            WHERE pc2.page_id = p.id) > p.deployed_at) AS repair_not_served
+         -- Narrowed 2026-09-03 after ground-truthing: the bare
+         -- max(updated_at) > deployed_at flagged 38 pages and 5 of 5 sampled from
+         -- other sites were serving fine. Two false-positive classes, both benign:
+         --   * build_status='needs_rebuild' — the page is HONESTLY labelled pending
+         --     (gaps of 13-44 days), and the previously deployed copy serves fine;
+         --   * sub-second gaps — the component write lands microseconds after the
+         --     deploy in the same transaction (finetuning.uk: 0.047s).
+         -- The real defect is a page CLAIMING to be current while carrying newer
+         -- components (seotools serp-snippet-previewer: build_status='deployed',
+         -- deployed_at 00:08:16, newest component 09:43:18, serving 0 controls).
+         (p.build_status = 'deployed' AND p.deployed_at IS NOT NULL
+          AND (SELECT max(pc2.updated_at) FROM page_components pc2
+                WHERE pc2.page_id = p.id) > p.deployed_at + interval '1 minute'
+         ) AS repair_not_served
   FROM pages p JOIN sites s ON s.id = p.site_id
   WHERE p.status = 'active' AND p.page_type = 'tool' __SITE__
   ORDER BY s.domain, p.url LIMIT __LIMIT__ OFFSET __OFFSET__) t;
@@ -392,7 +404,9 @@ def note_body(r):
              f"{len(r['tool_pages_never_built'])}",
              f"Tool pages whose repair is written but NOT SERVED (stored html has a "
              f"control, newest component postdates deployed_at): "
-             f"{len(r['tool_pages_repair_not_served'])} — NOT counted clean",
+             f"{len(r['tool_pages_repair_not_served'])} — NOT counted clean. TRIAGE ONLY: "
+             f"ground-truthed 2026-09-03, 7 of 11 were genuinely unserved and 4 served fine; "
+             f"no DB column separates them, so curl the page before acting.",
              ""]
     for f in r["rule_a_two_doors_one_name"]:
         lines.append(f"[A] {f['domain']}: nav label {f['label']!r} points at "
@@ -466,7 +480,11 @@ def run(args):
     if r["tool_pages_repair_not_served"]:
         print(f"\n  ⚠ REPAIR WRITTEN BUT MAYBE NOT SERVED "
               f"({len(r['tool_pages_repair_not_served'])}) — NOT counted clean; this rule "
-              f"reads STORED html and these pages' newest component postdates their deploy:")
+              f"reads STORED html and these pages' newest component postdates their deploy.\n"
+              f"    TRIAGE LIST, NOT A FINDINGS LIST: ground-truthed 2026-09-03, 7 of 11 were "
+              f"genuinely serving 0 controls; the other 4 served fine (deployed_at simply was\n"
+              f"    not updated). No DB column separates the two — CURL THE PAGE before acting, "
+              f"and never 'fix' one of these on the strength of this line alone:")
         for f in r["tool_pages_repair_not_served"]:
             print(f"    {f['domain']}{f['url']}")
     print(f"\n  RULE B — a tool page with nothing usable: {len(r['rule_b_nothing_usable'])}")
