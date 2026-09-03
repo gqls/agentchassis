@@ -708,3 +708,23 @@ Their principle — carry the owner's own figure labelled AS HIS ESTIMATE,
 never silently substitute the appraisal for it — applies equally to
 cartoon.co.uk's £5k floor. wpx.uk confirmed never-list by both lanes
 independently, for the same reason (owner's own email address).
+
+## 2026-09-03 (later still) — leopardessconsulting.co.uk CLOSED: owner's explicit word, via a different thread
+
+copy_quality_two_stage relayed the owner's direct answer to the
+sharpened question this lane raised: **"no leopardessconsulting need not
+be listed."** The permanent exclusion (D4 precedent) is now confirmed by
+his explicit word, not merely inferred from the documented ruling —
+nothing to wait on further here. **Worth recording the mechanism, not
+just the result**: he answered a different thread than the one that
+asked, same shape as the copyonline.co.uk latitude earlier — his replies
+land wherever he happens to be, not necessarily the lane that posed the
+question. Practical consequence: don't assume silence on a question this
+lane raised means it's unanswered; check whether a peer thread has
+already relayed the answer before re-asking or continuing to wait.
+
+Still genuinely open, both confirmed unaddressed by any thread as of
+this entry: **2v.uk** (Clook batch, neither excluded nor released) and
+**which webdesign** (webdesign.uk vs webdesign.co.uk) the owner meant —
+copy_quality_two_stage deliberately left the second one to this lane
+rather than duplicate the question.
