@@ -89,3 +89,127 @@ WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report' ORDER BY crea
 Correlations from this bug's two submissions:
 - `d0442d50-e383-477f-9ed8-19eaaeea3d93` — composeWriterBlock event-token fix.
 - `08f56b7e-61e4-42d1-a3b6-13d700dd833c` — query.upcoming_events resolver + producer hook.
+- `ff91e666-608d-4b26-9c41-d97d23a21437` — event-list component (migration 712). REVISE as of
+  2026-09-03 (prior_art_librarian, HIGH, gating). Not yet resubmitted — see the 2026-09-03
+  NOTES/HANDOFF for the answer to fold in (component_swap, not the full-rebuild path).
+
+## Reading a full council report body (not just the decision)
+
+`diagnosis_artifacts.body` is ONE JSON VALUE, not text — `psql -x -t` on a bare
+`SELECT body` wraps it and can read as truncated/two-line. Pipe to a file and Read it:
+```
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT body FROM diagnosis_artifacts
+WHERE correlation_id='<CORR>' AND kind='council_report' ORDER BY created_at;" -x -t > /tmp/report.txt
+```
+Then `Read /tmp/report.txt` — every reviewer's `verdict`/`objections`/`notes` is in there,
+not just the top-level `decision`.
+
+## Dispatching a single action directly (bypassing the work-item queue)
+
+`build-dispatch-loop` is a stateless, cron-burst poller — a hand-inserted work item can sit
+for hours (LANDMINES/RUNNING_NOTES). To prove or ship something NOW, build the kafka
+envelope by hand, fetching the target agent's OWN live workflow from `agent_definitions` so
+it carries every guard that agent's normal callers get (do NOT hand-write a workflow).
+`scripts/fire-section-edit.sh` is the proven, committed template (content_edit only); this
+session's variants (component_swap, and a page-rerender/section_data_resolved dispatcher)
+are scratch, not committed, but the pattern is:
+
+```bash
+WF=$(mktemp)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc \
+  "SELECT default_config->'workflow' FROM agent_definitions
+   WHERE type='<agent-type>' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;" > "$WF"
+# build the envelope: headers (correlation/orchestration/request/message ids, action=process,
+# client_id=demo_client — NOT hyphenated, spawn_actions.go interpolates it unquoted into a
+# schema name), config.workflow=<contents of $WF>, input_data=<whatever that workflow's first
+# step reads>. See fire-section-edit.sh for the exact python3 json.dumps shape.
+. scripts/kafka-publish-lib.sh
+kafka_publish_checked --topic system.agent.generic.requests --correlation "$CORR" \
+  --payload "$(cat "$MSG_F")" --header "orchestration_id=$ORCH" ... # full header list in fire-section-edit.sh
+```
+Watch it:
+```sql
+SELECT orchestration_id, status, current_step, collected_data->>'__step_error'
+FROM orchestration_states WHERE correlation_id='<CORR>' ORDER BY created_at;
+```
+**Delivery latency is NOT predictable** — one dispatch this session sat ~6 minutes before its
+`orchestration_states` row even appeared; another completed in under 10 seconds. Poll with an
+until-loop, don't sleep-and-check-once.
+
+## Catching a fast-completing dispatch's OWN business-logic log lines
+
+`kubectl logs -l app=agent-chassis --since=Nm` after the fact frequently shows NOTHING for a
+run that completed in under 10 seconds — the ring buffer / your own multi-minute detour
+between dispatch and check rotates it out, and infra-level logs (`coordinator.go`,
+`processor.go`) still show while the ACTION's own `logger.Info`/`logger.Warn` calls do not
+(seen three times this session, never resolved — may be sampling, may be something else).
+The closest to a reliable capture: start `kubectl logs -f` FIRST, in the background, THEN
+dispatch:
+```bash
+(timeout 25 kubectl -n ai-persona-system logs -l app=agent-chassis -f --since=1s > /tmp/live.log 2>&1 &)
+./your-dispatch-script.sh   # fires immediately after the follower attaches
+until grep -q "$CORR" /tmp/live.log; do sleep 1; done; sleep 3
+grep "$CORR" /tmp/live.log | python3 -c 'import json,sys
+for l in sys.stdin:
+    d=json.loads(l); print(d.get("ts"),"|",d.get("msg"),"| step=",d.get("step_name",""))'
+```
+Even this did not surface the business-logic lines for `query.upcoming_events` — see NOTES
+2026-09-03 for the open finding this was chasing. Prefer checking the DB row's
+`content_data`/`rendered_html` directly over trusting log presence/absence either way.
+
+## Checking a page's ACTUAL served origin, not its customer-facing domain
+
+A site pre-handover (`sites.handed_over_at IS NULL`) is not DNS-live at its own domain —
+`getent hosts <domain>` returning nothing is normal, not a sandbox restriction. The real
+served copy is at `sites.publish_project` (a `.ugg2.com`-style preview subdomain):
+```sql
+SELECT domain, publish_target, publish_project, handed_over_at FROM sites WHERE domain='<domain>';
+```
+```bash
+curl -s -m 15 "https://<publish_project>/<pages.url>" -o /tmp/page.html   # NOT https://<domain>/...
+```
+
+## Tracing a deploy past the DB row, to the actual GitHub Actions run
+
+`pages.deployed_at`/`build_status='deployed'` is not proof the served bytes changed
+(LANDMINES has several entries on this). `gh` was authenticated in this session
+(`gh auth status`) — use it to find and read the REAL deploy job:
+```bash
+gh run list --repo gqls/sites --limit 100 | grep "<your commit message text>"
+gh run view <run-id> --repo gqls/sites --log | grep -E "upload |delete .*old version"
+```
+The "Sync to B2" step's own `upload <path>` / `delete <path> (old version)` lines are the
+actual evidence; a green "Job deploy completed with result: Succeeded" one-liner from
+`kubectl logs -l app=github-actions-runner` is not — that log stream interleaves EVERY
+site's deploy jobs fleet-wide with no per-job body, across (in this case) three separate
+runner pods (`app=github-actions-runner` ×2, `app=github-actions-runner-vmsites` ×1), so a
+`kubectl logs -l app=...` read is systematically the "one pod of N" trap.
+
+## Applying ONE migration by hand without sweeping the pending directory
+
+```bash
+cat docs/agent_docs/sql_for_agents/<N>_name.sql | \
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 --single-transaction
+# then record it (the file's own BEGIN/COMMIT already applied it — this just updates the ledger):
+MIGRATIONS_DIR=/home/ant/projects/agentchassis/docs/agent_docs/sql_for_agents \
+  ./scripts/migration/run-migrations.sh --record-only <N>_name.sql --note "applied by hand <date>; <what you verified>"
+```
+`--single-transaction` plus the file's own explicit `BEGIN`/`COMMIT` prints two harmless
+`WARNING: there is already/no transaction in progress` lines — not errors, ignore them.
+Never `--apply` on a directory with other sessions' pending files in it (this tree had at
+least one concurrently, evidenced by interleaved GH Actions runs from an unrelated site).
+
+## Building and verifying a frontend image actually contains the expected change
+
+`make build-dashboard IMAGE_TAG=<tag>` builds from the WORKING TREE (frontends are exempt
+from the git-archive-from-HEAD rule) via Docker — no local node/npm needed. "All layers
+CACHED" in the build output does NOT mean the change is missing (a clean working tree
+reusing prior layers is expected) — but verify inside the image before pushing, not after:
+```bash
+docker run --rm --entrypoint sh docker.io/aqls/admin-dashboard:<tag> -c \
+  "grep -c '<a string unique to your change>' /usr/share/nginx/html/assets/*.js"
+```
+`docker push` is a production action and this session's own auto-mode classifier refused it
+without confirmation — correct behaviour, not a bug; surface it to the user rather than
+finding a workaround.

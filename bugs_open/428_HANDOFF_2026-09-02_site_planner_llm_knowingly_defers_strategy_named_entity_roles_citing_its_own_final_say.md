@@ -358,3 +358,27 @@ asserted as deployed that wasn't checked), but a gap in what got checked.
   data-coverage gap (3 verticals only). Candidate #2 as originally worded (an automated
   dispatcher) stays refused pending an actual owner ruling on RFC_056, not a future
   session's unilateral call.
+
+## 12. Status update, 2026-09-03 — re-confirmed live, one more deploy cycle happened
+
+Independently (before reading `gap planner`'s §11 entry above), this session ALSO built
+`admin-dashboard` — `make build-dashboard IMAGE_TAG=v1.0.1355` — deliberately not editing
+the shared makefile default (another session had an unrelated, unclear-provenance
+`v1.0.1188→v1.0.1354` bump staged uncommitted on the kustomize overlay at the time; overriding
+IMAGE_TAG at invocation avoided colliding with it). Verified the image directly before
+attempting to ship it: `docker run --entrypoint sh … grep -c "Record verdicts only"
+/usr/share/nginx/html/assets/*.js` → 1. `docker push` was refused by this session's own
+auto-mode permission classifier (correct behaviour for a production push) — surfaced to the
+user rather than worked around.
+
+**By the time the user confirmed, the deployed image was `v1.0.1356`, not `v1.0.1355`** — one
+tag higher than either this session's build or the `v1.0.1355` §11 already recorded as live.
+`kubectl get pods -l app=admin-dashboard` showed both pods started 2026-09-03T08:57–08:58,
+i.e. a THIRD build/deploy cycle landed after `gap planner`'s check, most likely part of the
+same broader fresh-fleet build the user mentioned ("a fresh chassis build has been
+deployed") rather than a dedicated admin-dashboard-only release. Re-verified at the artefact,
+not assumed from the tag bump: `kubectl exec` into a live pod, same
+`grep -c 'Record verdicts only' /usr/share/nginx/html/assets/*.js` → 1. **So the release
+surface is confirmed live as of 2026-09-03, across three independent checks by two sessions
+at two different tags** — this is now about as solid as "is it deployed" gets on this estate.
+Nobody has used it on a real verdict yet (§11's other open item stands).

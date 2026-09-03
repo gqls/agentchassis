@@ -40,3 +40,21 @@ before) and choose, one at a time, to act on one.
 All three changes are live or on the shared codebase, and sitting in the
 platform's automatic review queue — I'll know within the hour if anything comes
 back with concerns.
+
+---
+
+2026-09-03 update. The review queue came back clean on both the backend release
+tool and the prompt fix — approved, no concerns. The backend has been live for a
+while. The missing piece was the admin webpage itself: it hadn't been rebuilt and
+redeployed since before this ticket started, so the button existed in the code
+but nobody could actually see or click it.
+
+A later session (continuing this same thread) built and checked that webpage
+update, then had to stop and ask you to approve actually publishing it, since
+that's a real production action. It's live now — I independently confirmed the
+running page really does contain the new button, not just that the deploy
+reported success.
+
+So: the release surface is fully live, front and back. Nobody has actually used
+it on a real flagged item yet — that's still a genuine human decision, not a
+code task, same as before.

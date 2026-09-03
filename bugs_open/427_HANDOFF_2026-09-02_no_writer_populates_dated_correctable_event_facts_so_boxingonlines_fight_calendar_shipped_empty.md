@@ -517,3 +517,57 @@ Neither was decided unilaterally this session.
 **Also held back this session, same reasoning**: deploying the admin-dashboard frontend
 for `bugs_open/428`'s release surface (`make admin-dashboard`) — low risk, but a real
 production deploy action, flagged rather than run on a generic "carry on" instruction.
+
+## 13. Status update, 2026-09-03 — component attached and deployed; one open defect found
+
+**Owner said to continue.** Resolved decision #1 above WITHOUT needing to answer the
+carry-forward question at all: re-read `08f56b7e`'s pending council round first and found
+`prior_art_librarian` had raised a HIGH gating objection pointing at exactly the narrower
+mechanism (`apply_section_edit`, `component_swap`) migration 712's own rationale had asserted
+didn't exist. Verified the objection was right by reading the actual Go — `component_swap`
+repoints ONE existing `page_components` row, touches no other section, and never goes near
+`check_unresolved_sections`/`needs_rebuild`/the full replan pipeline. Used it: dispatched
+directly (kafka envelope carrying section-editor's own live workflow), repointing the
+`generic-text-block` row (never actually served — confirmed by curling the live preview
+first) onto `event-list`. **Deployed and confirmed at the artefact**: git commit `007b3a7a1`,
+GitHub Actions "Sync to B2" run `33672753667` shows the real `upload
+tools/fight-calendar/index.html` + Cloudflare cache purge, not just a green job status.
+Fixed the `pages.sections` drift this left (migration `719`, applied by hand + recorded,
+verified before/after) — otherwise `check_unresolved_sections`'s next sweep would have
+re-marked the page `needs_rebuild` and reopened the exact risk this whole approach avoided.
+
+**One real defect found, not fixed: `query.upcoming_events`'s `items` field never
+populates.** Reproduced 3× (including once under a chassis build 650 commits newer than
+this bug's own fix, confirmed by `git merge-base --is-ancestor`, ruling out a stale-binary
+explanation). One evidence_base fact genuinely qualifies (Canelo Alvarez vs Christian Mbilli,
+2026-10-31, citation complete) — the resolver's own future-date filter correctly excludes the
+other five (past results/historic), that part works. Each light-rerender (`page-rerender`,
+`reason=section_data_resolved`) reports success with `escalated=false` and a real `rerendered`
+count, yet `page_components.content_data` for the event-list row comes back byte-identical to
+before every time — still the OLD `generic-text-block` fields, never `items`/`headline`/
+`empty_text`. Could not catch either `plan_sections_action.go`'s query.* branch or
+`queryresolve/upcoming_events.go`'s own logging firing, across three careful live-log
+captures (one with `kubectl logs -f` started BEFORE dispatch). **Root cause not established
+— full reproduction recipe and two untried next steps (distinguish carry-vs-fresh-render;
+control-test against a known-working query-sourced component) are in
+`docs024_key_docs_latest/bugfix_427_event_render/NOTES_bugfix_427_event_render.md`'s
+2026-09-03 entry.** This is exactly the class CLAUDE.md's diagnosis-before-debugging section
+says should go through `090_TRIGGER_needs_diagnosis` rather than get one more guess from a
+session that has already spent a long time on it.
+
+**Admin-dashboard (bug 428's item) — also done this session, cross-referenced there.**
+Built, verified the image content, `docker push` correctly refused by the auto-mode
+classifier and handed to the user; live now at `v1.0.1356`, re-verified at the artefact. Full
+account: `bugs_open/428` §12.
+
+**What's left before this lane can close, updated:**
+- [ ] Diagnose and fix the `query.upcoming_events` items-not-populating defect (above).
+- [ ] Resubmit the `ff91e666` council round (still REVISE) with the `component_swap` answer
+  to `prior_art_librarian`'s objection — the migration itself doesn't need new code, the
+  submission text needs updating to say what was actually done and why it satisfies the
+  objection.
+- [ ] Once items populate: re-verify `experience_loop`'s nightly check reclassifies
+  `/tools/fight-calendar/index.html` out of "no control, no inline data, no runtime
+  fetch" — this bug's own original measurement instrument and the real closing signal.
+- Not this lane's job, tracked elsewhere: bug 428's own remaining item (a human uses the
+  release surface on a real verdict).
