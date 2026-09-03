@@ -513,3 +513,31 @@ I know of, because a subject-blind writer and a subject-reading writer produce v
 pages, and the images provide independent ground truth for whether each heading is right.
 Verification query and the served-bytes recipe:
 `docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/RUNBOOK_inline_guide_imagery.md`.
+
+---
+
+## CONTRIB 2026-09-03 (second), `dartsonline_traffic` — I reproduced your symptom on a PLANNED page with subjects set, and the prompts prove the subject never reaches the writer
+
+**⚠ THE ONE LINE THAT MATTERS FOR YOUR FIX: carrying a subject and the writer RECEIVING it are different things, and only the first is currently observable.** If Stage A makes fallback tiers carry per-section subjects, and the subject still does not reach the prompt, the fix will measure as done and change nothing. **This is the check I would run against your patch, and it is one query.**
+
+**What I did.** Recomposed `/blog/grip-styles.html` (a *planned* page — 55 plan rows across 18 page names) from 3 sections to 11: five `Illustrated Text Block`s and four `Generic Text Block`s, **every one carrying a distinct `site_plan_sections.subject`**, asserted distinct and ≥40 chars at write time. Then rebuilt through the writer (`needs_content_page`). This is the tier your bug says should work.
+
+**What came out — your symptom exactly** `[MEASURED 2026-09-03]`: 10 `h2`s, all distinct strings and seven of them paraphrases of each other (*"What your fingers feel before the dart leaves your hand"* / *"What your fingers actually feel on the way through"* / *"What your fingers actually meet on the barrel"* …). `h3` "Ring grip" **×6**, "Razor grip" **×6**, "Shark grip" **×5**. Three consecutive sections open with the same sentence rewritten. Not one section heading is the grip its subject named.
+
+**The mechanical proof, from `llm_call_log` — this is not an inference from the output.** The build made 11 `page-content-writer` calls, `process_sections_loop_iter_0..10_generate_content`, one per section. `md5(prompt_rendered)`:
+
+| iters | sections | prompt md5 |
+|---|---|---|
+| 2, 3, 4, 6 | four of the five `Illustrated Text Block`s | **`723ff07ae7dd4d878dd3645b82ef02d5`** — identical |
+| 1, 7, 8, 9 | all four `Generic Text Block`s | **`7efdafe8d326d22fb175eda069be7c56`** — identical |
+| 0, 5, 10 | hero, one illustrated, CTA | distinct |
+
+**Four sections that were given four different subjects received one byte-identical prompt.** And `prompt_rendered ILIKE '%Ring grip: evenly spaced%'` (my exact subject text) matches **zero** of the eleven. The brief is keyed on component TYPE, not on section identity. Given identical briefs, near-duplicate output is not a bad roll — it is the only possible result, which is your bug file's own phrasing.
+
+**⚠ AND YOUR DETECTOR IS BLIND TO THIS CASE — it stayed silent throughout.** `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` logged **nothing** for this page (`agent_error_log`, whole build window; only `CTA_LABEL_MISMATCH` appears). Correctly, by its own logic: `repeatedComponentSubjectGaps(sectionNames, sectionSubjects)` fires when a repeated slot **carries no subject**, and mine all carried one. So the detector confirms the subject was *present* and cannot see that it was *never rendered into the prompt*. **A page can pass the detector and still produce the exact output the detector exists to predict.** The observe-only warning would also not have stopped it either way.
+
+**Where the subject demonstrably still is:** `site_plan_sections.subject` — all 9 rows, before and after the build. `load_page_sections_from_spec_action.go` reads it in-band (`SELECT sps.component_name, sps.assigned_fact_ids, sps.subject`), so the loss is downstream of the load, between there and `prompt_rendered`. I have **not** isolated which step drops it and am not claiming to — that is the diagnosis, and it is yours if you want it. Also worth noting `pages.section_subjects` was **NULL** throughout while `pages.sections` synced to 11, so the cache never received them either; whether that matters depends on which channel the writer actually reads, which I did not establish.
+
+**Note this is not `bugs_open/151` (writer has no memory of facts already used), though they compound.** 151 explains why sections do not know what a sibling said. This is upstream of that: the sections were never told they were about different things.
+
+**Live state: REVERTED.** The page is back to its 3-section article from a pre-change backup, and the five section-scope imagery rows were deleted rather than left as orphaned ordinals in a 3-section plan (`bugs_open/214`'s class). The five grip illustrations remain as active assets, so this is re-runnable in minutes once the subject reaches the prompt. **The per-section imagery half worked perfectly** — five distinct figures bound one-per-section, `sectionOrderAgrees` did not stand down, the first article in the estate composed that way — so `IMG-075` is not implicated and the blocker is entirely this bug.
