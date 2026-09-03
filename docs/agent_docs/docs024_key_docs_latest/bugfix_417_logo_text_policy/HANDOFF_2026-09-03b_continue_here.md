@@ -171,6 +171,17 @@ itself. That is the disconfirmation control all three earlier attempts lacked. E
    **Unblocked now; what is still owed is §5.4's reader census** (writers refreshed today, still 4;
    the 14 readers remain dated 2026-08-31 and every one must learn which identity it reads).
 2. **The 420 §C residual** — does the narrow ruling extend to *derived* contacts? 28 specs carry one.
+   **Re-framed by the 2026-09-03 RFC_058 ruling and arguably subsumed by it:** a derived contact is
+   just a contact row, so the live question becomes **what CONSENT STATE a classifier may write on
+   one**. ⚠ Do not let that be answered in two states — under Option C the honest answer for a
+   derived contact is likely a third (*recorded, not published, never asked*), and a two-state
+   answer designs the fill-only-if-empty inversion back in at row level, which is the very defect
+   §C exists to record.
+   **Timing agreed with `site_delivery_and_editor` 2026-09-03: they will carry it when the owner
+   next has a DELIVERY decision in front of him** — the question is abstract standalone and concrete
+   when "who may we email, on whose say-so" is already live — and hand the answer back verbatim.
+   **It stays on THIS lane's record**; they are not taking ownership, and the answer lands in
+   `bugs_open/420` and RFC_058.
 3. **Ordering cannot reopen until the intake chat asks the contact question** — box-side.
 4. **`bugs_open/421` still has no owner.**
 5. ~~**462's fix shape** and **whether to restore websitepromotion's previous logo**~~ — **BOTH
