@@ -44,10 +44,13 @@ decision, not a code task.
 2. **A human uses bug 428's release surface** on a real flagged verdict — the tool has been
    live end to end since yesterday and nobody has clicked it. Worked case ready to hand:
    boxingonline's own `e3c2b440-c006-40ec-be7a-88d0b689ed1e`.
-3. **Why did `blog-content-planner` stop running on 2026-04-24?** Open, unowned, and now the
-   load-bearing unknown in the 687 residual area — it decides whether that residual is an
-   outage or a truth-telling defect. Evidence and framing in `bugs_open/428`'s addendum.
-   `[NOT ESTABLISHED]`; do not assert either way.
+3. **Why did `blog-content-planner` stop running on 2026-04-24?** **Now filed as
+   `bugs_open/460`** (2026-09-03, `787283cc9`) — still unowned, no root cause asserted. It
+   decides whether the 687 residual is an outage or a truth-telling defect. Since this handoff
+   was first written the producer has been shown **DRIVEN, not merely wired**: 14
+   `needs_blog_posts` items (13 complete), 2026-03-14 → 2026-04-24, agreeing to the day with
+   the `llm_call_log` window — so the planner's citation is STALE, not invented.
+   `[NOT ESTABLISHED]` why it stopped; do not assert.
 4. **Same open decisions as the previous handoff, still open**: whether `news_feed_ingestion`
    extraction should run beyond boxingonline.com; arming `event_fixture_completeness` in a live
    `run_checks.config.checks` array.
@@ -89,17 +92,22 @@ delivered.
   not `'tool'`; `query.*`-sourced components **33 total / 30 active**.
 - **`pages.sections` is order-bearing by INDEX** and 719 had lost that order; `727` restored it
   and the live array now indexes exactly onto `hero-tool@1, event-list@2`.
-- **`create_blog_posts_action.go:238` creates `blog-post` pages without the planner**, driven by
-  a live `blog-content-planner` row, **dormant since 2026-04-24** (10 `llm_call_log` calls
-  all-history, none since).
+- **`create_blog_posts_action.go:238` creates `blog-post` pages without the planner**, routed to
+  by `discovery_checks/check_empty_blog.go` and handled by a live `blog-content-planner` row.
+  **Driven 14 times, then stopped dead**: items 2026-03-14 → 2026-04-24, `llm_call_log` 10 calls
+  over the same window and none since. Both re-verified first-hand. Now `bugs_open/460`.
 - **Migration 730's rule 20 is live in the reworded form** (`updated_at 11:03:58Z`), naming the
   dormant mechanism rather than asserting no pass exists.
 
 ## 4. Three traps this session hit, so the next one doesn't
 
-- **`orchestration_states` spans ~24 HOURS.** `[MEASURED 2026-09-03]` 9,155 rows,
-  2026-09-02 10:41Z → 2026-09-03 10:58Z. A zero there cannot support an all-history claim. Use
-  `llm_call_log`, which keeps replies verbatim as the training corpus.
+- **Two rolling windows that both read as "this never happened".** `orchestration_states`
+  spans ~24 HOURS (`[MEASURED 2026-09-03]` 9,155 rows, 2026-09-02 10:41Z → 2026-09-03 10:58Z),
+  so a zero there cannot support an all-history claim — use `llm_call_log`, which keeps replies
+  verbatim as the training corpus. And **`site_work_items` is not the population**: a
+  `needs_blog_posts` census over it returns **ZERO fleet-wide across every status** while all
+  14 rows sit in `site_work_items_archive`. Closing a row archives it out of the table you
+  queried, so a *successful* mechanism erases its own evidence from the live table. Query both.
 - **A pathspec commit takes a same-file passenger.** This session's one-line fix carried the
   `bugs_open/450` lane's uncommitted rework of the same file into HEAD and broke the build.
   Their closure landed as `587666be8`. Cheap warning sign: `git status --porcelain <the file>`
