@@ -85,7 +85,19 @@ is the most dangerous carrier for an invented cause.
    The build standard already reaches design work through `build-site-planner`, which IS opted in
    and IS rendering it; a second delivery to a row nothing loads adds nothing and keeps the
    propagation reading three-for-three when it is two.
-4. **Which built sites are for sale** (the one that BLOCKS work): the about-commercial-block
+4. ✅ **ANSWERED 2026-09-03 ~18:45Z — all built sites are for sale except the two he named.**
+   `[MEASURED]` Sedo `draft9` (2,943 domains) contains **38 of 42** built live sites; the four
+   absent are `leopardessconsulting.co.uk` and `copyonline.co.uk` (owner holds) and two
+   `.internal` pool placeholders (not domains). relojistas is in as `MAKE_OFFER, yes` with price
+   and minimum **completely blank** (owner-confirmed, not nominal). So the per-site confirmation
+   D4 asks for is satisfied by his blanket "list all live sites" plus the two named holds.
+   **The next concrete step in THIS lane, gated on the import:** once Sedo returns a per-domain
+   listing URL, write `site_specs.commercial` rows for the 38 — `class: portfolio`,
+   `for_sale_requested: true`, `marketplace_url: <Sedo URL>` — and the about-block renders on all
+   of them. **Do not write the rows before the URLs exist**: `marketplace_url` absent →
+   `skip_field` → a block saying "available for acquisition" with nowhere to enquire. The sedo
+   lane sends URLs when the import returns them; no Sedo URL pattern is documented, do not compose.
+   *(Original framing kept below for the record.)* The about-commercial-block
    renders on nothing until each site has a `site_specs.commercial` row, and today **exactly one**
    site fleet-wide has `for_sale_requested=true` (relojistas.com). He said built sites "should be
    in sedo now" — `[MEASURED 16:20Z]` **0 of 42 built sites are in draft8** (the latest Sedo sheet,
