@@ -60455,3 +60455,23 @@ a-pathspec-commit-still-takes-a-same-file-passenger, your-fix-invalidates-a-peer
   reached a brief but no build, and the pin was never applied. Had №5 released before either
   question was asked, it would have shipped a broken header and a layout nobody chose, and the
   recipe was written to be repeated 17 more times.
+
+## 2026-09-03 — gripper widget: I reported "serving" from the bundle + mount div, but the artefact is a RENDERED BUTTON and it never appeared
+
+- **The claim** (08-26 and 09-02): "the widget is now serving in the live bundle" —
+  evidenced by `grep -c 'data-gri-root'` = 1 in snippets.js AND the `<div data-gri-root>`
+  mount point present in the served page.
+- **What was actually true**: the widget rendered NOTHING. `snippets.js` loads
+  synchronously in `<head>` before `<body>` parses, so the IIFE's
+  `querySelector('[data-gri-root]')` returned null and it bailed. The page served a
+  heading, copy, and footer — no Start button — for a week.
+- **What caught it**: the owner opened the page in a browser and saw nothing clickable.
+- **The cheap check I skipped**: for a CLIENT-RENDERED widget, "code is in the bundle"
+  and "mount point is in the DOM" are two proxies that BOTH read green while the thing
+  renders nothing — load order, a JS error, a failed guard all sit in the gap between
+  them and the rendered artefact. The artefact is the rendered, interactive element,
+  and confirming it needs a real DOM (a headless browser, or the owner's eyes). "In the
+  bundle + mount present" must be reported as "deployed, rendering UNVERIFIED (no
+  browser here)", never as "serving/live". Same family as "trust the rendered artefact,
+  not the status" — one level further out: trust the rendered PIXELS, not the rendered
+  HTML, for anything a script has to build after load.

@@ -1,6 +1,6 @@
 # RESUME HERE — gripper dossier pilot
 
-> # 👉 GO STRAIGHT TO THE BOTTOM: "🏁 2026-08-26 — LIVE END TO END, both branches proven in production. Next: fix 409, then the site widget".
+> # 👉 GO STRAIGHT TO THE BOTTOM: "🔧 2026-09-03 — THE WIDGET IS INERT (load-order), one-block fix inside".
 > (Supersedes every earlier block, all kept as history.)
 > That block is the current ship state (2 of 7 steps done, step 1 next and owner-blocked),
 > the exact command to run, and every trap in the remaining steps. Everything between here
@@ -524,3 +524,108 @@ milestone read-out.
 - The Kafka stall mechanism (topic-cleanup window vs in-flight job topics) is
   `[INFERRED]`, single occurrence, self-healed — NOT filed; file it if it recurs,
   citing NOTES 2026-08-26.
+
+
+---
+
+# 🔧 2026-09-03 — /gripper-report.html renders NO clickable widget. Root cause found; exact fix below; NOT deployed (owner wants a fresh session, and the proof is a browser only they have)
+
+Owner opened `https://robot-hands.com/gripper-report.html` and reported "nothing
+clickable, page looks incomplete" — correct. Heading + explainer copy + footer
+render; the chat widget's **Start** button does not.
+
+## Root cause — DIAGNOSED AT THE ARTEFACT, not guessed (all `[MEASURED 2026-09-03]`)
+
+The widget code is correct, is in the served bundle, and the mount div is in the
+page. The bug is **script load order**:
+- `/gripper-report.html` includes `<script src="/assets/js/snippets.js"></script>`
+  at **line 2219, inside `<head>`** (head closes 2238); it is a plain SYNCHRONOUS
+  script — no `defer`, no `async`. The site chrome template puts it there; that is
+  not ours to move.
+- The mount div `<div data-gri-root …>` is in `<body>` at **line 2324**.
+- The widget IIFE runs `document.querySelector('[data-gri-root]')` the instant it
+  executes — during `<head>` parse, **before `<body>` exists** — gets null, and
+  `if (!root) return;` bails silently. No button is ever created.
+- **The bundle's own convention proves it**: the carousel snippet (line 331)
+  guards with `if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initAll);`.
+  Ours is the only interactive snippet that does NOT self-guard.
+
+So the earlier "widget is serving" claims were true at the wrong altitude — the
+CODE was in the bundle and the MOUNT DIV in the page, but the artefact that matters
+(a rendered button) never appeared. Logged in WRONG_CALLS 2026-09-03.
+
+## The fix — wrap the widget IIFE body behind a DOM-ready guard
+
+It lives in the `js_snippets` row `gripper-report-intake-widget`, embedded in
+`docs/agent_docs/sql_for_agents/651_robot_hands_gripper_report_page.sql` (the
+`$grijs$…$grijs$` block). Change the OPENING from:
+```
+(function () {
+  'use strict';
+  var root = document.querySelector('[data-gri-root]');
+  if (!root) return;
+```
+to (introduce an `init()` and call it on DOM-ready):
+```
+(function () {
+  'use strict';
+  function init() {
+  var root = document.querySelector('[data-gri-root]');
+  if (!root) return;
+```
+and change the CLOSING from:
+```
+  startBtn.addEventListener('click', start);
+})();
+```
+to:
+```
+  startBtn.addEventListener('click', start);
+  }
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }
+})();
+```
+Everything between stays as-is (it is already one function scope, so no
+reindent is required for correctness).
+
+⚠ **BYTE BUDGET**: the widget is **8,103 B** in the seed; seed 651's own verify
+aborts if `octet_length > 8192`. The wrapper adds ~128 B → ~8,231 B, OVER by ~40.
+Trim ~40+ B in the same edit — cheapest is the header comment
+`// gripper-report-intake widget 2026-08-26. textContent-only rendering.` →
+`// gripper-report-intake widget` (saves ~38 B); if still over, shorten the intro
+string. Re-check with the awk byte-count in NOTES 2026-09-03 before applying.
+
+## Deploy + verify (the new session)
+
+1. Edit the widget in seed 651 (above), keep it ASCII, confirm ≤ 8192 B.
+2. Parse-check: the goja scratch checker in
+   `~/.claude-scratch/.../jscheck` (NOTES 08-26) — or trust `gofmt`-free JS and
+   the live smoke.
+3. Re-apply the seed (it UPSERTs the js_snippets row on name; the page/component
+   INSERTs are NOT EXISTS-guarded so they no-op):
+   `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/651_robot_hands_gripper_report_page.sql`
+   Expect the `651 verified` NOTICE.
+4. Re-render the bundle via `rerender-pages` with `refresh_site_components=true`,
+   **priority 5** (⚠ the selector is `created_at ASC` MAJOR — a priority-99 item is
+   starved behind the day's fleet queue; NOTES 08-26 night. File it low and it
+   still waits its created_at turn, ~fleet depth). The item shape that worked:
+   `site_work_items` row, `item_type='needs_rerender'`, spec
+   `{"refresh_site_components": true}`, handler `rerender-pages`, status `triaged`,
+   priority 5, a fresh `item_key`.
+5. Verify at the artefact, THEN the owner verifies in a browser (the only place the
+   button proof exists):
+   - `curl -s https://robot-hands.com/assets/js/snippets.js | grep -c DOMContentLoaded` ≥ 2 (carousel + widget)
+   - the served bundle's widget block now contains the `init()`+readyState guard
+   - **owner: reload the page — a "Start" button appears below the copy.**
+
+## Everything else on this lane is DONE (unchanged)
+
+Pilot live end to end; `bugs_open/409` CLOSED (both branches proven in production);
+seed 208 + `report-request-pull` ON; page + bundle deployed. The ONLY defect is the
+load-order guard above. After it: the soft-launch flip (in_footer + noindex, one
+UPDATE in seed 651's header) is the owner's call.
+
+**Separate lane, not this fix:** `bugs_open/315` reopen (empty-page rerenders →
+build asks) is fixed + council-APPROVED, inert until the next agent-chassis roll;
+its roi-estimator plan is filed and routing; the llm-cost-calculator cleanup is an
+owner/design decision recorded in 315. None of that blocks the widget fix.

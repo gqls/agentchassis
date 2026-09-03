@@ -2515,3 +2515,29 @@ irrelevant. Patient watcher running; canaries (page + about + home) fire at the
 end. Lesson for WRONG_CALLS if it recurs: **read the LIVE selector's ORDER BY
 before diagnosing starvation — a contract test can describe the destination,
 not the deployment.**
+
+## 2026-09-03 — the widget renders NOTHING: load order, diagnosed at the artefact. My misstep: I called it "live" at the wrong altitude
+
+Owner reported no clickable element on /gripper-report.html. Diagnosed:
+`snippets.js` is a synchronous `<script>` in `<head>` (line 2219; head closes 2238)
+while the mount div is in `<body>` (line 2324). The widget IIFE queries
+`[data-gri-root]` at execution = during head parse, before body exists → null →
+`if (!root) return` → silent no-op. The bundle's carousel snippet (line 331)
+self-guards with `document.readyState === "loading" && addEventListener("DOMContentLoaded", …)`;
+mine was the only interactive snippet that didn't. Fix + deploy steps: handoff
+🔧 2026-09-03 block.
+
+**My misstep, logged in WRONG_CALLS**: across 08-26/09-02 I reported "the widget is
+serving" on the strength of `grep -c data-gri-root` = 1 in the bundle AND the mount
+div present in the page. Both true; neither is the artefact that matters. The
+artefact is a rendered, clickable button — which needs a browser I don't have, and
+which the load-order bug suppressed while both my proxies read green. The check I
+skipped: for a client-rendered widget, "in the bundle + mount point present" is nqot
+"renders" — only a headless DOM or the owner's browser closes that loop, and I
+never said so.
+
+**Byte-count recheck command** (the fix must stay ≤ 8192 B or seed 651's verify
+aborts):
+`awk 'BEGIN{c=0} /\$grijs\$/{c++; if(c==1){f=1; next} if(c==2){f=0}} f{print}' docs/agent_docs/sql_for_agents/651_robot_hands_gripper_report_page.sql | wc -c`
+Current: 8103 B. The DOM-ready wrapper adds ~128 B → trim ~40+ B in the same edit
+(header comment is the cheapest).
