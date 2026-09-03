@@ -394,3 +394,65 @@ typed.
 prints BAD for ever. I read that as a real failure for one turn. **Gate on `| wc -l`**, and
 prove the gate discriminates with a deliberately malformed control file — which is what
 finally distinguished "the file is dirty" from "my check cannot fail".
+
+### Round 3: `revise` again — and the objection was that I had DEFERRED the fix
+
+Verdict 15:56:39Z, gated by **`bug_historian`** this time, a different seat from rounds 1
+and 2. The architecture seat also ran, which it rarely does. The objection, in substance:
+the rationale itself confirms the fresh-path supersede for both palette and typography,
+with typography the one dimension that renders; it is a diagnosed, accepted mechanism with
+no guard anywhere in the file; and the plan explicitly ships without one.
+
+**That is fair, and two rounds gating on the same missing guard is the council saying the
+deferral was itself the defect.** My round-3 position — "the remedy owes its own council
+round" — was defensible in isolation and looks like avoidance across three rounds. **So I
+built it.**
+
+**`b18091066`.** `classifierDesignIntentState()` asks whether
+`domain-research-classifier` has EVER written this site's `design_intent` (current row or
+superseded). If not, a classifier write is still ahead of us, and the apply records
+`design_intent_supersede_risk` in **three** places: a WARN naming the mechanism, what
+survives and what is lost and stating that `locked` is not a remedy; the
+`theme_kit_adoption` spec, so it is durable and queryable rather than scrolling; and the
+action's result, for a caller that reads only the result.
+
+**It reports and does not refuse**, and I flagged that in the submission as the judgement I
+most want challenged. Layout rides a different aspect, survives, and is the only dimension
+a kit moves — refusing the whole apply would throw away the working part to protect the
+broken one.
+
+**A three-state string, never a bool.** `at_risk_no_classifier_write_yet` /
+`classifier_already_wrote` / `unknown`. A read failure must not be recorded as "no risk".
+Inventing a `false` for an unknown is the **same false-structured-fact class this very
+submission already fixed twice** — a kit layout recorded as `library_match`, and a
+candidate list of one that was never scored. Third time in one lane; at least this time it
+was designed out rather than found.
+
+**Proven by mutation, because a passing test is not evidence until it is shown it can
+fail.** Two mutations, both red with the right message, restored green, results in the test
+header:
+
+| mutation | result |
+|---|---|
+| the at-risk arm always returns `already_wrote` (guard goes blind) | FAIL, "want `at_risk_…`" |
+| the `err != nil` arm returns `already_wrote` not `unknown` (confident wrong answer) | FAIL, "want `unknown`" |
+| restored | PASS |
+
+A second test pins the three constants distinct and self-describing — a copy-paste
+collapsing two of them leaves every state assertion green, so nothing else could catch it.
+
+**And the predicate was chosen so it could come out otherwise:** `[MEASURED 2026-09-03]`
+of **39** sites carrying a `design_intent`, **38** have one written by the classifier — true
+on an established site, false on a fresh one. Had it been 39 or 0 it would not discriminate
+and the guard would be decoration. The same query settled the column question:
+`source_agent` is nullable and eleven other writers appear, hence
+`COALESCE(source_agent, source)`.
+
+**Round 4 submitted** carrying the guard. Run correlation
+`425d4365-3342-490a-b32f-cbd1ec5d014c`.
+
+**The thing to carry forward about this gate.** Rounds 1, 2 and 3 all returned `revise`,
+from three different seats, and **every one was right**: a claim my sketch did not support,
+then a real defect in live code, then my deferral of its fix. CLAUDE.md's line that "a
+REVISE round is cheaper than the defect it finds" was paid out three times on one
+correlation. **Do not read a repeated revise as the loop spinning without reading it.**
