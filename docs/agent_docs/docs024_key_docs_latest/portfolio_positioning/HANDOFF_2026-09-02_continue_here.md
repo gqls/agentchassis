@@ -1,4 +1,22 @@
-# HANDOFF — portfolio_positioning — 2026-09-02 (night). **START HERE.**
+> # ⚠ SUPERSEDED 2026-09-03 ~18:35Z — **DO NOT START A FRESH THREAD ON THIS FILE.**
+> **Current cold-start: `HANDOFF_2026-09-03_continue_here.md` in this directory.**
+>
+> Its §1 tasks are DONE: the eight planned tool pages were built and are serving, six severed
+> `component_id` links were restored, and copyonline.co.uk (remake №5) was briefed, approved and
+> released. Owner read-out for what happened after that:
+> `SUMMARY_2026-09-03_the_brief_that_two_agents_could_not_read.md`.
+>
+> **Two things in the text below are now known to be wrong or incomplete** — the successor explains
+> both, and they are the reason a fresh reader must not act on this file:
+> 1. It treats the approved brief as reaching the build. Two of the three agents that read a brief
+>    cannot see a brief-writer one (`bugs_open/453`); the third can, which is why copyonline's
+>    direction survived.
+> 2. Its retire-or-keep question on three seotools-duplicating tools describes them as unbuilt and
+>    therefore cheap to cancel. They deployed on 2026-09-03 while that question sat unanswered.
+>
+> Original text preserved below, wrong turns included.
+
+# HANDOFF — portfolio_positioning — 2026-09-02 (night). ~~START HERE.~~ (superseded — see banner)
 
 Supersedes `HANDOFF_2026-08-31_continue_here.md` + its three addenda. Owner read-out:
 `SUMMARY_2026-09-02_first_four_remakes_live.md` (new tonight). Counts carry their dates.
