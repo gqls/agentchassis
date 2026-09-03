@@ -858,3 +858,47 @@ bug's own title asks for — *"nothing lints the pair"* — and the pair it shou
 - My held per-site SQL stays unapplied and I now recommend against applying it at all if (a) or (b)
   ships. Path:
   `docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/SQL_2026-09-03c_make_briefs_visible_to_the_classifier_and_planner_HOLD.sql`
+
+### CONTRIB (3) — closing the `roadmap_brief` lead, and the COMPLETE blast radius
+
+CONTRIB (3) §3 flagged `roadmap_brief` as "likely the same bug" and explicitly marked it unmeasured.
+Measured now, and the answer bounds your fix exactly.
+
+**Every `.text`-child reference in every active agent, fleet-wide** [MEASURED 2026-09-03 18:22Z]:
+
+```sql
+SELECT DISTINCT ad.type, m[1]
+  FROM agent_definitions ad, jsonb_each_text(ad.default_config->'workflow'->'steps') AS s(k,v),
+       regexp_matches(v, '(\{\{[^{}]*\.specs\.[a-z_]+\.text[^{}]*\}\})', 'g') AS m
+ WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL;
+```
+
+| agent | expression |
+|---|---|
+| `build-site-planner` | `{{.site_specs.specs.mission_brief.text}}` |
+| `build-site-planner` | `{{.site_specs.specs.roadmap_brief.text}}` |
+| `domain-research-classifier` | `{{.site_specs.specs.mission_brief.text}}` |
+| `domain-research-classifier` | `{{.site_specs.specs.roadmap_brief.text}}` |
+
+**Four expressions, two agents, two aspects. That is the whole of it** — no other active agent reaches
+for a `.text` child of any spec. So the fix is bounded and complete at four edits, not an open-ended
+sweep.
+
+**`roadmap_brief` is a LATENT trap, not a live defect** [MEASURED 2026-09-03 18:22Z]: **4 of 4** current
+`roadmap_brief` specs carry `text`; none is affected today. **Control, in the same query shape and
+returning non-zero:** the identical predicate over `mission_brief` returns **7 of 23 without**. So
+`ss.data ? 'text'` demonstrably discriminates, and the zero is a real zero rather than a blind
+predicate — worth stating because this is an absence claim and an absence from a blind query looks
+identical to a true one.
+
+**Why fix it anyway, in the same change.** The two aspects differ only in which producers happen to
+have filled the key so far. `mission_brief` has three independent producers and five of seven current
+failures came from the agent that writes most of them; `roadmap_brief` has had luckier authors. **The
+trap is armed identically** and the next roadmap-brief author gets the same silent `<no value>` with
+the same guard opening on the parent. Fixing two expressions and leaving two identical ones is the
+shape that produces a puzzling regression in three months.
+
+**Suggested ordering, since one pair is live damage and one is prophylactic:** fix all four together,
+but verify at `mission_brief` — it has failing rows today, so a re-run there can actually come out
+different. A `roadmap_brief` test would pass before and after and prove nothing, which is the
+vacuous-assertion shape this estate keeps paying for.
