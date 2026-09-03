@@ -773,3 +773,88 @@ object with no `text` key, because **nothing anywhere declares that `.text` is w
 read**. A missing contract reproduces itself through whoever touches it next. That is the argument for
 fixing this at the template/contract seam you already own, and it is a stronger argument than the one
 I gave you first.
+
+---
+
+## CONTRIB (3) — `portfolio_positioning`, 2026-09-03 ~18:00Z: THE FIX, and a working reference implementation that has been in the estate all along
+
+This supersedes the framing of my first two contributions in one important respect. **The data is not
+missing and never was.** I had been treating this as "the brief does not reach the agent". It reaches
+all of them. The defect is two template expressions.
+
+### 1. Three agents, one field, two spellings — measured at the live `agent_definitions` rows
+
+```
+domain-research-classifier : {{if .site_specs.specs.mission_brief}} … {{.site_specs.specs.mission_brief.text}}
+build-site-planner         : {{if .site_specs.specs.mission_brief}} … {{.site_specs.specs.mission_brief.text}}
+domain-strategist          : {{.site_specs}}          <- no mission-brief reference at all
+```
+
+`site_specs` is present in all three cases — it is in `plan_site.input_fields` and it reaches the
+classifier too. The two broken agents open a guard on the **parent** (which exists, so the block
+renders) and then print a **child** that brief-writer output does not carry. The strategist renders
+the whole specs blob and the model reads the structured brief without difficulty.
+
+### 2. The proof that the working spelling works, on the same site, the same afternoon
+
+copyonline.co.uk's classifier ran blind at 16:57Z and recorded *"no mission brief was supplied"*,
+producing `category: hub`, tags marketplace / community-platform / tool-portal. Its
+**`domain-strategist` ran at 17:44:34Z on the identical spec set** and produced:
+
+- `site_type: "authority-portal"` — not the marketplace
+- the brief's four tools by name (headline scorer, readability checker, CTA tester, length counter)
+  plus its fifth aspirational one
+- the lead route as *"its single converting page"*
+- the copywriter directory, the Copy Clinic, the glossary, the AI-first opening
+- **two instructions the owner gave in chat and which exist only inside the brief object**: randomised
+  directory listings at launch, and routing webdesign.uk leads to this site
+
+Same data, same moment, same site. One agent could not see the brief and the other reproduced it in
+detail. That is as clean a controlled comparison as this estate is likely to hand you, and it isolates
+the template as the whole of the cause.
+
+### 3. What I therefore recommend, and why it is better than what I offered you first
+
+**Change the two expressions; do not migrate seven sites' data.** My first contribution pointed at a
+per-site data workaround (add a `text` key), and my own held SQL does exactly that. It is now clearly
+the worse option: it repairs one site at a time, leaves the trap armed for the next author, and — as
+CONTRIB (2)'s correction records — **three independent producers have already reproduced the broken
+shape, including me, twice, while diagnosing this bug.** A template that renders the object cannot be
+reproduced wrongly by anyone.
+
+Two candidate spellings, and I have not implemented either — this is your seam:
+
+- **(a) render the object.** Replace `{{.site_specs.specs.mission_brief.text}}` with a whole-object
+  render (`{{toJSON .site_specs.specs.mission_brief}}`, the spelling the planner already uses for
+  `strategy`). Smallest change, no data migration, and the planner is proof the estate is comfortable
+  handing a model a JSON spec object.
+- **(b) fall back.** Render `.text` when present and the object otherwise. Preserves any hand-written
+  prose brief that deliberately uses `.text` while covering the structured case.
+
+**`roadmap_brief` has the identical shape and is likely the same bug** — the planner carries
+`{{if .site_specs.specs.roadmap_brief}}` … `{{.site_specs.specs.roadmap_brief.text}}`. I have **not**
+measured whether any current `roadmap_brief` lacks `.text`, so treat that as a lead, not a finding.
+
+### 4. The detector this suggests, which is stronger than the one I gave you in CONTRIB (2)
+
+CONTRIB (2) offered a `reasoning`-field sweep and CONTRIB (2)'s correction measured its recall at
+roughly one in seven. **This is better and it is static:** for every active agent, extract every
+`{{...}}` referencing a spec child path, and check that the child is actually present in the current
+rows of that aspect. It needs no LLM run, it finds the defect before an agent executes, and it would
+have caught `mission_brief.text` and would flag `roadmap_brief.text` today. It is also the lint this
+bug's own title asks for — *"nothing lints the pair"* — and the pair it should lint is
+**template path against live spec shape**, not template path against `input_fields`.
+
+### 5. Withdrawn from my earlier contributions
+
+- CONTRIB (1) and (2) frame this as the brief not reaching its consumers. **It reaches them.** Only
+  the two named templates cannot address it.
+- CONTRIB (2)'s blast-radius paragraph says restoring visibility "does not repair a site that has
+  already been classified", and gives copyonline as a site committed to the wrong shape. The first
+  clause stands — the blind classification is persisted and is wrong. **The conclusion does not**: the
+  strategist recovered the site's direction without any intervention, and the planner renders the
+  strategy whole, so the brief's content reaches it second-hand. I over-stated the downstream damage
+  by assuming every agent read the brief the same way the two broken ones do.
+- My held per-site SQL stays unapplied and I now recommend against applying it at all if (a) or (b)
+  ships. Path:
+  `docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/SQL_2026-09-03c_make_briefs_visible_to_the_classifier_and_planner_HOLD.sql`
