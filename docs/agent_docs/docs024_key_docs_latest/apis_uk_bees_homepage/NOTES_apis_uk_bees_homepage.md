@@ -1626,3 +1626,17 @@ read — is redirected to notify PROMPTS as applier when his words land. The rea
 goes in THIS file (dated, quoted; prompts may append it directly). This lane retains: the Stage B
 acceptance follow-ups (443 cohort + our two deferred content_rewrite items), the tier-1
 planner-subject phrasing owner question, and PBP-049 stewardship.
+
+### 2026-09-03 — if this lane ever writes the planner-nudge migration, the terms for touching that row are settled
+
+Closing state from the 450 lane exchange (rule-17 anchor): their 729 check is kept, presence-only;
+640's header carries the EXTERNAL READERS contract (`1eb927893`). What matters FORWARD: the
+recommended planner-subject-phrasing nudge (the open owner question) would edit the SAME
+`build_site_planner.plan_site.prompt_template` row that three lanes already edit. If we write it:
+(1) keep `may also carry a "subject"` verbatim (640's header note — 729 and 640 both key on it);
+(2) tell the 450 lane — until a chassis carrying `5e6fee47b` rolls, 729 is committed-unapplied
+and THEY re-anchor on top of our change, not the reverse; (3) rehearse with their temp-table
+baseline shape (`bugfix_450_tool_page_shells/RUNBOOK_tool_page_shells.md` §10 — captures the
+before-state inside the transaction so a moved baseline cannot false-fail, the same reasoning as
+641's equality census); (4) never record an absolute position/length of that prompt anywhere —
+it moved 32022→32191 within one hour today between two lanes' measurements.
