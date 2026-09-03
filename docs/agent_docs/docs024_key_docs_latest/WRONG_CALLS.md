@@ -62236,3 +62236,26 @@ hour by then.
 
 Family: a-measured-marker-proves-a-measurement-was-claimed-not-complete,
 census-the-write-history-not-the-bug-file, a-bound-added-for-a-reviewer-narrows-your-detector.
+
+- **2026-09-03 — bugfix_424_logo_transparency — I wrote "the despill fringe is EFFECTIVELY CLOSED,
+  not by a fix" into the HANDOFF from n=2, and both samples happened to share the one property that
+  made the number look small.** A peer's measurement gave two post-fix successes at 0.01%/0.05%
+  magenta-fringe pixels, against 0.62% pre-fix — a real order-of-magnitude improvement, and I closed
+  the open item on it, in the owner-facing handoff, with no caveat about sample size or composition.
+  **Both of those two samples had DARK marks.** A third real generation (a LIGHT mark on the same
+  magenta key) landed with the fringe percentage barely moved (0.48%) but became **63% of everything
+  a viewer could actually see**, because a light mark's own interior is near-white and melts into a
+  white header — so severity was never really about the fringe percentage at all, it was gated on a
+  variable (mark lightness) that two dark-marked samples could not vary and therefore could not
+  reveal. **The wrong number looked right because I had, without deciding to, sampled only one branch
+  of a bimodal population.**
+  **The cheap check that would have caught it:** ask "what property do these samples share that a
+  DIFFERENT real generation might not?" before generalising from n=2 to a closed item — the same
+  question `two-clean-runs-cannot-establish-stability` already names, applied here to image *content*
+  variance rather than a pass/fail rate. Two successes is not a population; it is two points, and a
+  closed item asserts the space between them is flat.
+  **Blast radius: caught same day, before anyone acted on the "closed" call** — the reporting peer
+  regenerated a third real site for unrelated reasons (their own override test) and caught it
+  themselves, then retracted their own earlier number to me rather than letting it stand. Corrected
+  visibly in NOTES and the HANDOFF (item reopened, not silently edited) the same session.
+  Family: two-clean-runs-cannot-establish-stability, a-mixed-batch-is-the-trap.
