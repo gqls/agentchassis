@@ -41,6 +41,16 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 go run ./cmd/regcheck -evidence eb.json -claim "Your notes are end-to-end encrypted and we are fully GDPR compliant."
 ```
 
+> **⚠ CORRECTED 2026-09-03, by the council's `debug_historian` seat (corr `c2d1d570`), and it
+> was my overclaim.** The before/after runs below are an **offline reproduction against a copy
+> of the live register**, using a locally built `cmd/regcheck`. They are NOT a post-deploy
+> observation: at the time of writing, `3f221f99f` is committed and **inert until the next
+> chassis roll**. The distinction matters because this repo has a standing failure mode of
+> reading "confirmed live" into exactly this shape of evidence. What the runs DO establish is
+> the causal claim — same register, same binary, one fact repaired, opposite outcome — which
+> is what a control is for. What they do not establish is that anything has changed in
+> production yet. **The post-roll check is in §8.**
+
 **Before `3f221f99f`** — the guard is not merely quiet, it is absent:
 
 ```
@@ -63,7 +73,7 @@ claim REFUSED: "Your notes are end-to-end encrypted and we are fully GDPR compli
   reason:  Compliance postures are attestations with auditors and dates behind them.
 ```
 
-`finetuning.uk`'s inert bans are the same shape — its own owner's ruling:
+`finetuning.uk`'s inert bans are the same shape — its own owner's ruling (same offline repro):
 
 ```
 claim REFUSED: "We cut 80% of quote preparation time and saved 40 hours."
@@ -160,3 +170,69 @@ and JSON-LD are outside it, per the LANDMINES entry on prose-only sweeps.
   The new item goes there deliberately: the architecture seat asked, on 288's round, that no
   further bespoke `doc_notes` bypasses be invented.
 - `CLM-003` / `CLM-007` / `CLM-014` — concept register, `claims-verification.md`.
+
+## 8. Post-deploy verification — owed, and NOT yet done
+
+Named because the council's `debug_historian` seat pointed out the submission had no
+post-roll step, and `ParseEvidenceBase` runs inside the **agent-chassis binary**
+(`validate_page_content`, `check_unverified_claims`), not in any tool a session runs by hand.
+Per CLAUDE.md, ask the artefact, not git and not the tag:
+
+```bash
+# 1. which commit is the running chassis built from (per SERVICE, and it is a STARTUP line)
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 3f221f99f <that sha> && echo "the parse fix is in the running build"
+git merge-base --is-ancestor e5b41dc31 <that sha> && echo "the reporting half is in too"
+
+# 2. the demand control: the two registers must move from FAILING to PARSING.
+#    Re-run the 27-register census in §2 — 25 must be unchanged, 2 must flip.
+#    A census that shows 27 OK proves nothing on its own unless you know it
+#    showed 25 before (and see the stdin trap in the §2 recipe).
+
+# 3. the finding must SURFACE, which is the half no unit test can prove:
+#    two malformed_evidence_fact items, one per site, naming the fact.
+SELECT s.domain, swi.item_key, swi.spec->>'fact_id', swi.spec->>'bans_at_stake'
+FROM site_work_items swi JOIN sites s ON s.id = swi.site_id
+WHERE swi.item_type = 'malformed_evidence_fact';
+
+# 4. and the counter, on a site with NO malformed facts, as the positive control:
+#    relojistas.com must report facts_unverifiable = 12, gamesdesign 1, oufe absent.
+```
+
+**A second sweep must REFRESH, not duplicate.** The key is per fact, so a second daily pass
+over an unrepaired register must not add rows.
+
+## 9. Answers to the council's advisory objections (corr `c2d1d570`, APPROVED round 1)
+
+Recorded here rather than left in the verdict, because two of them are open questions a later
+session should be able to find.
+
+- **`reuse_agent`: "no evidence you searched for an existing tolerant-decode helper, or an
+  existing malformed-data item_type."** Fair — the submission asserted novelty without showing
+  the search. Both were then run. **No tolerant/partial array-decode helper exists** anywhere
+  in `platform/`, `internal/` or `pkg/` (searched for the shape and for the naming). The two
+  candidate item types are **not** substitutes: `required_fields_missing` is a
+  content-completion item with its own **automated handler** (`required-fields-missing-handler`,
+  `platform/livespec/unarmed_completers.go`) that auto-closes on convert/resolve/stale, so
+  routing a broken register through it would hand the finding to a completer that cannot fix it;
+  `cta_tel_malformed` is specific to CTA phone numbers.
+- **`bug_historian` [medium]: the same all-or-nothing decode shape may exist at other
+  `site_specs` aspects** (`content_direction`, `design_intent`, `imagery_style_guide`), and this
+  fix is bespoke to `EvidenceBase` rather than a shared helper. **Genuinely open, and not
+  closed here.** A first look found no equivalent named typed parser for those aspects, so the
+  defect is not obviously present — but that is an absence I did not prove, and the seat is
+  right that the *mechanism* (a Go typed decode of a jsonb array voided by one bad element) is
+  generic. **Follow-up sweep owed; do not read this bullet as clearance.**
+- **`architecture` [low]: `malformed_evidence_fact` has no retirement condition.** Correct, and
+  the seat named the trigger precisely: this item type converts a silent total failure into a
+  recurring manual queue for a capability the schema still cannot express. `EvidenceFact.Value`
+  is a `*float64`; a typed union (string or number) would close it for good. **The stated
+  trigger: when this item type's volume is next measured, if it is still growing, that is an
+  RFC, not another sweep tweak.** Today's expected volume is 2.
+- **`guardian` [medium]: heavy concurrent edit activity on `refresh_evidence_base_action.go`.**
+  Real, and it bit: at commit time that file carried an uncommitted `livespec` call site from
+  another lane, so the reporting half was **held out of the first commit** and landed
+  separately (`e5b41dc31`) once their helper was committed (`1802359a6`). The `sql`, `citation`
+  and `artifact_check` arms are byte-identical.
+- **`editquality` / `guardian` [low]: the embed-and-shadow decode is subtle.** A comment now
+  names both ways a later edit breaks it silently, and points at the test that catches it.

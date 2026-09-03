@@ -410,6 +410,18 @@ func ParseEvidenceBase(data []byte) (*EvidenceBase, error) {
 	// There is no input for which it returns an error that the old code
 	// accepted: the top-level decode below is the same call on the same
 	// bytes, minus the facts array.
+	// ⚠ THE SHADOWING IS LOAD-BEARING AND IT IS NOT SELF-EVIDENT (council
+	// c2d1d570, editquality + guardian seats, both asked for this comment).
+	// `Facts` here is at depth 0 and EvidenceBase.Facts at depth 1, so
+	// encoding/json picks THIS one. Two ways a later edit breaks it silently,
+	// with no compile error and every existing test still green:
+	//   - changing EvidenceBase.Facts's json tag so the two names no longer
+	//     collide: both fields then decode, and the typed one wins the value
+	//     this loop is trying to guard;
+	//   - promoting another same-named field to depth 0 by accident.
+	// If you need to change either field, assert the guard directly: a
+	// register with one bad fact must still parse (see
+	// TestMalformedFactDoesNotVoidTheBannedClaims).
 	type evidenceBaseWire struct {
 		EvidenceBase
 		Facts []json.RawMessage `json:"facts"`
