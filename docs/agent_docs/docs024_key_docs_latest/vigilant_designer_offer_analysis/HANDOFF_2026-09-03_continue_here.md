@@ -97,6 +97,48 @@ live change. In priority order:
    demand side first. ⚠⚠ **AND A MOSTLY-`unanswered` TOP IS THE PRE-REGISTERED RESULT, NOT A
    FAILURE** — it restates the 19-of-186 measurement per site. **A pass that answers everything means
    the model stretched points to cover questions**, which is the failure mode.
+
+   > **✅ DONE 2026-09-03 — IT LANDED, AND THE PRE-REGISTERED CRITERION WAS REFUTED. Full read and
+   > every figure: `NOTES_vigilant_designer_offer_analysis.md`, entry "DECISION D HAS LANDED".**
+   > `[MEASURED 2026-09-03 12:38:58Z, pinned in one query]` **18 sites, 93 questions**, first row
+   > 09-02 23:03Z. **It is a MOVING population** — 15 sites at 12:19Z, 18 at 12:36Z, and 19 of the 37
+   > current `offer_ordering` rows are still un-re-analysed. Re-take before quoting.
+   >
+   > **The join is mechanically sound:** zero dangling `answered_by`, zero `unanswered`/`answered_by`
+   > contradictions, and `from_field` is the **strategy** register (`trust_threshold` 28,
+   > `satisfaction_condition` 22, …) not the offer points — so the questions are not
+   > reverse-engineered from the answers.
+   >
+   > **But 86 of 93 (92%) came back ANSWERED**, which by the letter of the criterion above IS the
+   > failure mode. **So I read pairs instead of quoting the count:** 36 of the 93 questions across 7
+   > of the 18 sites, question text against the text of the point claimed to answer it.
+   > **Verdict: the joins are mostly real** — on `garden-tools.uk` and `farmerinsurance.uk` all ten
+   > pairs are tight and one-to-one. **The prediction was wrong, not the mechanism.**
+   >
+   > **⚠ THE FAILURE MODE IS REAL BUT NARROW, AND IT HAS A ONE-LINE SCREEN.** It shows up as **one
+   > point claimed twice**, not as a site answering everything:
+   > `count(answered_by) > count(DISTINCT answered_by)` per site. `[MEASURED 2026-09-03]` it fires on
+   > **4 of 18 sites / 5 of 86 refs**, and **4 of those 5 reuses are stretches or half-answers**
+   > (`idea.uk` offers a privacy point as the answer to "do I have to sign up?"), while **1 of 5 is
+   > honest** (`relojistas.com` — two ways of asking about cadence). **Of the 21 single-use joins I
+   > read, none was a stretch.** So it is a screen, not a verdict — but it turns a 93-pair editorial
+   > job into a 5-pair one.
+   >
+   > **⚠⚠ THE FINDING THAT MATTERS: THE ABSENCE IS *PRICE*, NOT "EFFORT/PRACTICALITY".**
+   > `[MEASURED 2026-09-03 12:38:58Z]` **5 of 7 `money_flow` questions are unanswered. Every other
+   > source field is a clean ZERO** (`trust_threshold` 0/28, `satisfaction_condition` 0/22,
+   > `recurring_value` 0/15, `value_proposition` 0/9, `competitive_position` 0/8). The register
+   > answers trust, differentiation and satisfaction on every site and does not answer *what this
+   > costs me*. **And the model ranks the price question LAST** — mean rank **4.6** against 2.3–2.9
+   > for trust and satisfaction. For `idea.uk`, a £29 product whose competitor is free, *"why would I
+   > pay £29 when AI is free"* at rank 5 is **an ordering judgement to reject**, and ordering is
+   > `copy_quality_two_stage`'s half of the seam. **That is the first thing the hierarchy has produced
+   > that is worth sending them, and it is unsent.**
+   >
+   > This also sharpens H4 honestly: H4's "19 of 186 points address effort or practicality" was a
+   > regex proxy, and the entry above it in NOTES records this lane nearly reporting a **widened**
+   > regex as an improvement. `idea.uk` and `remortgagecalculator.uk`'s effort questions **were**
+   > answered (by the stretched joins), so effort-in-general is not the gap. **Price is.**
 2. **The two switched-off things — ruled, built, unstarted, and mine.**
    `[MEASURED 2026-09-02]` `info-card-grid`'s `carousel` flag is ON for **1 of 49** instances while
    the owner has **ruled it default-on**; and `Illustrated Text Block` is still chosen on **one site**
@@ -121,16 +163,50 @@ live change. In priority order:
 > | `scroll-snap` | **6** | **0** |
 > | `icg-` | **6** | **0** |
 > | `prev` / `next` | **10 / 10** | **0 / 0** |
-> | `overflow-x` | **2** | **2** ← ⚠ **must NOT change** |
+> | `overflow-x` | **2** | **2** | ~~must NOT change~~ **← WRONG, see below** |
 >
-> ⚠ **`overflow-x` is the NEGATIVE CONTROL and it matters**: it reads 2 on both, because it is the
-> wide-table styling this lane already identified as the reason a template grep misclassifies grids as
-> carousels. **A flip that moves `overflow-x` is doing something other than what it says.**
+> > **⚠⚠ CORRECTED 2026-09-03 — THE `overflow-x` NEGATIVE CONTROL IS FALSE, AND FOLLOWING IT WOULD
+> > MAKE A CORRECT FLIP READ AS A DEFECT.** The struck text said *"it reads 2 on both, because it is
+> > the wide-table styling … a flip that moves `overflow-x` is doing something other than what it
+> > says."* Both halves are wrong.
+> >
+> > **The template's ONLY `overflow-x` is INSIDE the flag's own gated block.** `info-card-grid`'s
+> > `html_template` line 204 sits between `{{if $.carousel}}<style>` (line 165) and its `{{end}}`
+> > (line 298), alongside `--icg-track-gap` and `scroll-snap-type: x mandatory`. **So a correct flip
+> > ADDS ONE `overflow-x` per flipped instance.**
+> >
+> > **The equal 2 was a coincidence of unrelated CSS on two different pages of two different sites** —
+> > which is what made it look like a control. `[MEASURED 2026-09-03, at the served bytes]`:
+> > `leopardess/services.html` = 1 from another component's `--trp-track-gap` + **1 from the
+> > info-card-grid carousel block itself**; `designblog/index.html` = **2 from `.category-strip`**,
+> > an unrelated component whose CSS is emitted twice. Neither number is the wide-table styling the
+> > struck text names, and the two 2s have nothing in common.
+> >
+> > **THE CORRECTED ACCEPTANCE TEST — before/after on the SAME page, never across two pages:**
+> > * **POSITIVE, must move 0 → n:** `data-hcc-track`, `data-hcc-prev`, `data-hcc-next`,
+> >   `data-hcc-slide`, `info-card-grid__grid--carousel`, `scroll-snap-type`.
+> > * **EXPECTED TO MOVE:** `overflow-x`, **+1 per flipped instance**. A flip that leaves it
+> >   unchanged has NOT emitted the carousel stylesheet.
+> > * **NEGATIVE, must NOT move:** the count of `info-card-grid__card` articles, and the card titles.
+> >   This is a **layout** change; the content must be byte-stable. **A flip that changes the card
+> >   count is the one doing something other than what it says.**
+> >
+> > What caught it: reading the template before running the test, because the flip was mine to make.
+> > The general form is in `WRONG_CALLS.md` — **a count summed over a whole document is not a control
+> > unless you know what each occurrence IS**, and two documents agreeing on a total is not agreement.
 >
-> **So the acceptance test for the flip is mechanical:** pick a flag-unset site, flip it, re-fetch, and
-> confirm its four discriminating counts move from the right column to the left **while `overflow-x`
-> stays at 2**. ⚠ **Config alone is not evidence** — `carousel` is `source: static`, so nothing derives
-> it and a flip must be positively set per instance.
+> **The rest of the acceptance test stands:** pick a flag-unset site, flip it, re-fetch, and confirm
+> the four discriminating counts move from the right column to the left. ⚠ **Config alone is not
+> evidence.**
+>
+> > **⚠ AND THE "must be positively set per instance" CLAUSE IS ALSO RETIRED — CORRECTED 2026-09-03.**
+> > It said `carousel` is `source: static` "so nothing derives it and a flip must be positively set per
+> > instance". **A `source: static` field with a declared `fallback` IS derived, at resolution time**:
+> > `plan_sections_action.go:2886` reads `if !carryStored() && fallback != nil { resolvedData[field] =
+> > fallback }`, and the re-render path runs the same `planSection`
+> > (`rerender_page_sections_action.go:1450`). **So no per-instance backfill is needed** — that is what
+> > migration `740` does, and the design question §3.2 left open ("schema default + backfill, or
+> > resolution-time?") is answered: **resolution-time, with the mechanism that already exists.**
 >
 > ⚠ **AND IF THE ILLUSTRATED-BLOCK FIX IS A PLANNER-PROMPT CHANGE: migration `718` JUST EDITED THE SAME
 > PROMPT'S IMAGERY BLOCK.** Use anchored replaces on **disjoint** anchors, per the 591/595/598/718
@@ -141,6 +217,31 @@ live change. In priority order:
 > three-names landmine and the both-greps caveat baked in. **18 remakes are queued, so the payoff shape
 > is wiring it to run per-remake before ship.** ⚠ Post-`721` counts measure a **repaired** population —
 > date everything.
+>
+> > **⚡ STATE 2026-09-03 — THE CAROUSEL HALF IS WRITTEN, SUBMITTED AND *NOT YET APPLIED*.**
+> > `docs/agent_docs/sql_for_agents/740_info_card_grid_carousel_defaults_on.sql` (+ `_ROLLBACK`),
+> > committed `e14fff5a0`, council corr **`2ac895f3-ca82-4dbe-8f4e-3335a04b8925`** — verdict pending,
+> > `Council-Submitted:` trailer, so `098` credits it automatically on approval.
+> > **WHAT THE NEXT SESSION OWES: read the verdict, then APPLY it, then re-render one page and run the
+> > CORRECTED acceptance test above.**
+> >
+> > **Re-take the census first** — `[MEASURED 2026-09-03 12:41:06Z]` it is **40** live instances across
+> > **21** sites, not the 49 in the paragraph above (that figure was taken 09-02 on a different filter;
+> > the pairing here is `build_status='deployed' AND status='active'`, both arms, per the standing
+> > landmine). **1 stores `carousel: true`, ZERO store `false`, 39 carry no key.**
+> > ⚠ **That zero is load-bearing:** `IsEmptyContentValue`'s default arm makes a bool `false`
+> > NON-empty, so a stored `false` is carried and **beats** the fallback. Had the 39 stored an explicit
+> > false, `740` would apply cleanly, verify green, and change nothing.
+> >
+> > **The pre-flight gate for THIS flip is measured and GREEN, at the artefact:** `[MEASURED
+> > 2026-09-03]` all **21/21** carrier sites serve `/assets/js/snippets.js` at HTTP 200 with **15**
+> > `data-hcc` occurrences, so the arrows will not be inert. **NEGATIVE CONTROL** (a constant 15 could
+> > mean the grep matches something always present): **6/6 non-carrier sites serve 0**, one of them
+> > `fundamentallyai.com` with a **10,928-byte** bundle — so it is not "small bundle = zero". The
+> > bundle follows the COMPONENT, not the flag: `js_snippets` has one active row whose `applies_to`
+> > is `["hero-card-carousel", "info-card-grid"]`.
+> >
+> > **The Illustrated Text Block half is NOT started.**
 
 3. **boxingonline cards** — design against image + headline + deck; category/date/read-time collapse
    by default after migration 682. ⚠ **Do not add a short display-headline field**: `nav_label` is
