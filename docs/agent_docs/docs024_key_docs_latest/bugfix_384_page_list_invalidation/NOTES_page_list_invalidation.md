@@ -580,3 +580,25 @@ intended, no action needed — but when the 440 split lands you'll want `listing
 added to the vocabulary (a migration pasting `CheckRerenderModeConditionClause()`) or kept as a
 pure annotation deliberately. Your call, your lane; flagged so the choice is made rather than
 inherited.
+
+## 2026-09-03 ~09:30Z — RESOLVED at the artefact: 13/13, chain confirmed by the brand, my date wrong by 21h
+
+- **Repaired.** 13 of 13 card images (42,483 bytes). Repairing write `2026-09-02 23:20:15`,
+  `action:rebuild_blog_listing`, pre-image 13 articles / 2 blank.
+- **Chain CONFIRMED by the state discriminator, not the timing one.** Three items filed 23:12–23:22
+  (`deactivated_head`, `stale_chrome`, `improvement_rerender_…`) were **unbranded**, dispatched and
+  completed, after six days in which every one was born `unresolved`. Growth door parked nothing.
+- **MISSTEP: my predicted date was 21h late because I aged out the WRONG KEY.** I used the
+  blog-listing key (second-newest strike 08-27 22:37 ⇒ 09-03 22:37). The keys that gate
+  `rerender-pages` service are `deactivated_head` (08-26 01:57:58, 21:21:48 ⇒ lifts 09-02 01:57:58)
+  and `improvement_rerender_…` (08-26 02:02:26, 22:01:22 ⇒ 09-02 02:02:26). **The key carrying the
+  symptom and the key gating the repair were different objects.** Worse, I had written "still broken
+  on 09-04 ⇒ chain REFUTED" into the handoff — that would have discarded a correct mechanism. The
+  brand test saved it. **Enumerate the keys before dating anything; prefer a STATE discriminator to
+  a TIMING one, and say which decides.** In `WRONG_CALLS.md`.
+- **The roll is not the cause** — the brand lifted ~02:00 on 09-02, 19h before the 21:00Z roll. But
+  the filing happened post-roll and I cannot prove the latency was rotation rather than a restart.
+  `[UNRESOLVED, immaterial]`: a pod restart does not un-brand a row, so the brand evidence decides.
+- **Census now:** generic 5 blanks / 2 pages, **all in-flight** (4.3h and 7.1h old); owned 14 / 3.
+- **What remains** is in the new handoff: one owner decision (close on rotation vs close the
+  blog-listing gap), the owned residual, and the never-run sweep pending 389.

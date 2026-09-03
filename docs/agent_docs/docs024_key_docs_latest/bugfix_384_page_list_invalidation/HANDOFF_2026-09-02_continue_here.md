@@ -1,5 +1,13 @@
 # HANDOFF — bugs_open/384 page-list invalidation · continue here
 
+> **⚠ SUPERSEDED 2026-09-03 — cold-start from `HANDOFF_2026-09-03_continue_here.md`.**
+> §2's experiment RESOLVED: the page repaired at 2026-09-02 23:20:15 and the chain is CONFIRMED by
+> the brand. **My predicted date in §2 was wrong by ~21 hours** (I aged out the blog-listing key,
+> not the keys gating `rerender-pages` service), and its "still broken on 09-04 ⇒ REFUTED" line
+> would have been actively misleading. Kept for its §7 traps, which still apply in full.
+
+
+
 **Written 2026-09-02 ~18:45Z. SUPERSEDES `HANDOFF_2026-08-26_continue_here.md`**, which said the bug
 was ready to close. It is not. Read the 08-26 file only for history, and note it now carries a
 CORRECTED block at its head.
