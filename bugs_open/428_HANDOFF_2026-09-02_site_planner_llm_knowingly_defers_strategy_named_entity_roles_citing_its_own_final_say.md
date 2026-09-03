@@ -599,9 +599,42 @@ by reading the rendered `prompt_template`, not by matching the migration's liter
 that "recorded in `schema_migrations`" and "live in the row the model reads" are two facts,
 not one.
 
-**OPEN, UNOWNED, and now the load-bearing unknown in this area: why did `blog-content-planner`
-stop running on 2026-04-24?** Neither this lane nor `gamedesign.uk` has investigated it and
-neither is taking it. It matters because it decides which problem the 687 residual actually is:
-if the producer were driven, the planner's refusal would cost those sites nothing and the false
-justification would be a truth-telling defect; if it stays dormant, the refusal is an outage
-with a stale citation attached. `[NOT ESTABLISHED]` — do not assert either.
+**FILED AS `bugs_open/460` (2026-09-03, commit `787283cc9`) — do not carry it inline from
+here.** *"The blog-post producer ran 13 times, then stopped dead on 2026-04-24 and nobody
+noticed for four months."* Unowned; no root cause asserted. Written by the `gamedesign.uk` lane
+at the owner's request, off this addendum's evidence.
+
+**It upgrades the finding above, and the correction belongs here rather than only there: the
+producer was DRIVEN, not merely wired.** `[MEASURED 2026-09-03, re-verified first-hand by this
+lane rather than accepted on report]` — `discovery_checks/check_empty_blog.go:81-87` files
+`item_type='needs_blog_posts'` with `HandlerAgent: "blog-content-planner"`, and it fired **14
+times** (13 complete, 1 `wont_fix`), **first 2026-03-14 11:51Z, last 2026-04-24 03:03Z**. That
+last date agrees to the day with the `llm_call_log` window above. So this is
+**driven-then-stopped**, which is a different investigation from never-driven — and it makes the
+planner's "blog infrastructure" citation a **stale** reference rather than an invention.
+
+⚠ **A THIRD rolling-window trap, in the same family as the two this session already hit, and it
+is the sharpest of them.** `[MEASURED 2026-09-03]` querying `site_work_items` alone for
+`needs_blog_posts` returns **ZERO fleet-wide, across every status** — which reads as "this
+mechanism was never used" and is the exact opposite of the truth. All 14 rows are in
+**`site_work_items_archive`**. Closing a row archives it out of the table you queried, so a
+*successful* mechanism erases its own evidence from the live table. Verified both halves here:
+`site_work_items` 0 rows; `site_work_items_archive` 14 rows, 2026-03-14 → 2026-04-24.
+
+**What 460 deliberately does NOT claim**, and is worth repeating because it would have made the
+tidier story: that this producer is where the fleet's article archives came from.
+webdesign.co.uk (52 posts, first created 2026-08-05) and dartsonline.com (23, from 2026-07-06)
+have no `needs_blog_posts` row ever, so the planner route is demonstrably alive and producing.
+Two sites' first blog-post is dated exactly 2026-03-14 — suggestive, and 460 says not to write
+that claim without joining individual pages to individual runs.
+
+**And its §6 leads with the benign explanation rather than the interesting one:** if every site
+that had a blog page got its posts in March/April, `check_empty_blog` would go quiet
+legitimately and there is no bug. Cheapest test named there — sites with a blog or section index
+and zero posts today, and why no item was filed for them. It also records that `RFC_056`
+postdates the stop by four months and therefore cannot be the cause, so nobody spends an hour on
+it.
+
+**Read `bugs_open/443` before touching that file:** a different defect in `create_blog_posts`
+(it writes `pages.sections`, the cache, and never `site_plan_sections`, the authority). 460 says
+not to conflate them.
