@@ -349,3 +349,78 @@ SELECT item_key, spec->>'builder_needed', summary FROM site_work_items
    AND spec->>'gap_kind'='producer_missing'
    AND status NOT IN ('complete','cancelled','rejected');
 ```
+
+---
+
+## §7 — Asking which agents actually read a spec (added 2026-09-03; this is the instrument that decided the day)
+
+**The question you think you are asking is "does the brief reach agent X". The question you must
+actually ask is "how does every agent SPELL its reference to this spec", because a whole-object render
+and a dotted path behave completely differently and only one of them fails silently.**
+
+```sql
+SELECT DISTINCT ad.type, m[1]
+  FROM agent_definitions ad,
+       jsonb_each_text(ad.default_config->'workflow'->'steps') AS s(k,v),
+       regexp_matches(v, '(\{\{[^{}]*site_specs[^{}]*\}\})', 'g') AS m
+ WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+ ORDER BY 1, 2;
+```
+
+**Gotchas, all of which bit:**
+
+- **Wrap the WHOLE pattern in a capture group.** `regexp_matches(v, '\{\{[^}]*(site_specs|strategy)[^}]*\}\}', 'g')`
+  returns `m[1]` = the **alternation group** — so you get `site_specs`, `strategy` as bare words and
+  none of the surrounding template. Looks like an answer, tells you nothing. Use one outer group and
+  `[^{}]` rather than `[^}]` so a `}}` cannot be swallowed.
+- **`jsonb_each_text` over the steps object**, not a `::text` of the whole config — you want the step
+  name available and you avoid matching prompt text quoted inside unrelated keys.
+- **The three-clause active filter is not optional.** `is_active AND NOT is_snapshot AND deleted_at IS
+  NULL` — snapshots carry old prompt spellings and will show you a defect that was fixed months ago,
+  or hide one that was introduced yesterday.
+- **Run it for the WHOLE table, not for the agents you suspect.** Filtering to the two agents you
+  already doubt is how this lane spent an afternoon believing a brief reached nobody: `domain-strategist`
+  renders `{{.site_specs}}` and reads it perfectly, and it was never in the `WHERE` clause. **Enumerating
+  the readers of a FIELD is not enumerating the readers of the INFORMATION.**
+
+**The narrowed form, for "which templates reach for a child that may not exist":**
+
+```sql
+regexp_matches(v, '(\{\{[^{}]*\.specs\.[a-z_]+\.text[^{}]*\}\})', 'g')
+```
+[MEASURED 2026-09-03] returns exactly four rows fleet-wide — `mission_brief.text` and
+`roadmap_brief.text`, in `build-site-planner` and `domain-research-classifier`. That is a complete,
+bounded blast radius, which is a far better thing to hand a fixing lane than "and there may be more".
+
+## §8 — Is a site actually published? (added 2026-09-03)
+
+**`pages.deployed_at` is page-level and says nothing about publication.** Read the served bytes and the
+site row, never the page rows.
+
+```bash
+for u in "" "<the exact pages.url>" "this-page-does-not-exist-$(date +%s).html"; do
+  printf '%-50s ' "/$u"
+  curl -s -o /dev/null -w 'HTTP %{http_code} %{size_download}B\n' --max-time 20 "https://<domain>/$u?v=$(date +%s)"
+done
+curl -sI --max-time 20 "https://<domain>/?v=$(date +%s)" | grep -iE 'last-modified|server|x-generator'
+```
+```sql
+SELECT publish_target, publish_project, published_at, last_deployed_at, build_status
+  FROM sites WHERE domain='<domain>';
+```
+
+- **The invented-URL control is mandatory** — a parked domain 200s every path, so a bare 404 proves
+  nothing on its own.
+- **Read the root's `x-generator`**: a foreign one means the customer's PREVIOUS site is still serving,
+  which is also what any classifier researching that domain will read and believe.
+- All-NULL site-level columns with `build_status='pending'` is conclusive: nothing has been published.
+
+## §9 — Counting work items by status (added 2026-09-03)
+
+**`failed` is NOT in `workItemTerminalStatuses`.** So the standard open-work predicate
+`status NOT IN ('complete','cancelled','rejected')` **silently selects only the failures** on any item
+type where nothing else is pending. Five-of-five `failed` read as a fleet-wide outage; the true rate
+was 189 complete against 33 failed.
+
+**Before concluding anything from a filtered status query, group by status with no filter at all** —
+and remember `site_work_items` is a rolling window, so union `site_work_items_archive` for "ever".
