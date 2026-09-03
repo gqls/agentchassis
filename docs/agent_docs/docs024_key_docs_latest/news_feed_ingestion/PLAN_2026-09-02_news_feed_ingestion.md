@@ -220,7 +220,7 @@ submission itself*. All were independently re-verified true here regardless —
 but the next submission should quote the evidence inline rather than making
 the council re-derive it.
 
-## UK-news default for `.uk`/`.co.uk` sites — STATUS: built, council-approved, image shipped by owner; verification PENDING (kubectl down)
+## UK-news default for `.uk`/`.co.uk` sites — STATUS: code LIVE and binary-verified (v1.0.1358, 2026-09-03); migration 691 + the live `.uk` dispatch PENDING the owner's apply
 
 Code, tests and migration 691 (+ROLLBACK+VERIFY) built and committed
 (`0a408f8db`), council-APPROVED round 1 (`8842fe96-9a71-4ea5-9993-2483f10712cb`,
@@ -237,6 +237,18 @@ so no binary sha grep was possible), whether migration 691 has actually
 been applied, and the live `.uk`-site dispatch this design's own
 verification plan calls for. **All four are the next session's first job**;
 see `HANDOFF_2026-09-02b_continue_here.md`.
+
+> **UPDATE 2026-09-03 (session "feed lane"):** steps 1–2 PASSED — fleet on
+> `v1.0.1358` (not the 1355 the handoff expected; the owner rolled again), adapter
+> stamp `d0252fd4d` is a descendant of `0a408f8db`, stamp sha PRESENT in all three
+> binaries with a post-build sha ABSENT as control. Step 3: **691 NOT applied** —
+> 26 rows pending (= guard), and the apply was refused by this session's auto-mode
+> classifier (live DB write the user did not name). Not worked around; commands in
+> the RUNBOOK for the owner. **Step 4 is therefore blocked** — the existing rows
+> carry no `region` until 691 lands, so a dispatch today proves nothing. ⚠ Number
+> 691 is now shared with another lane's `691_per_site_palettes…`; refer by slug.
+> Baseline for step 4 is in NOTES; judge UK-skew at the adapter's `region` log
+> field, not at `source_url` hosts (56% are Google News redirects).
 
 ## UK-news default for `.uk`/`.co.uk` sites — design (2026-09-02, resumed after session switch)
 
@@ -375,3 +387,62 @@ confirm the request actually reaching Firecrawl carries `country: "UK"`
   build (bug 427 §3, `[UNMEASURED, left to the fixing thread]`) — worth checking
   once instrumented, though it doesn't change the fix: the action exists and is
   opportunistic-only either way.
+
+## advertise.co.uk news enablement — migration 746 (2026-09-03) — STATUS: written, dry-run clean, council pending, apply pending the owner
+
+Routed here by three peers (portfolio_positioning's WebProNews relay, the 444
+session's diagnosis, the 444 plan's enablement contract). Design decisions and
+their reasons, evidence in NOTES 2026-09-03:
+
+1. **Both halves in ONE migration** (spec flag + six `content_sources` rows), because
+   `seed_content_sources_action.go` skips `rss` and returns early once any active
+   source exists — done separately, whichever half lands first makes the other
+   unreachable through the framework. Correction to the peer diagnosis: it is not
+   "spec AND a row", it is "spec AND every row, by hand".
+2. **Hand-authored spec, not `evaluate_news_feed`**: `matchVerticalNews` has no
+   advertising/marketing/media key and reads only industry/site_type/category/domain
+   substrings; this site's are `''`/editorial/editorial/advertise.co.uk → nil → nothing
+   written. idea.uk's 2026-08-25 precedent, same wall.
+3. **Sources**: rss `WebProNews` (owner's ask, feed re-verified 2026-09-03: 100 items,
+   multiple/hour) + five `news_search` rows with `region=uk`, anchored on the
+   institutions the site's own `vertical_landscape` names (ASA rulings, CAP Code,
+   IAB UK ad spend, AA/WARC expenditure report, UK advertising industry news). No
+   `api_news` (mission_brief: plain honest explanation). This is a lane decision
+   beyond the peers' "one rss row" — stated in the file header and the submission so
+   it can be reversed; the reason is that the spec must name `source_types` and
+   naming `news_search` without creating the rows would be a lie, and that a UK
+   advertising site fed only WebProNews gets US tech.
+4. **Editorial caution is mechanical, not promised**: `feed-triage` scores every item
+   against the spec (≥50 relevant / 20–49 review / <20 rejected). The first cycle's
+   split is the number to read (`_VERIFY.sql` reports it); the lever if `review`
+   piles up is `maintenance_profile.content_feed.relevance_threshold`, not the source.
+5. **Guards that could have come out otherwise**: classifier row pinned by id
+   (`ec005136`) so a re-run of the classifier refuses; zero rows for the site and zero
+   `webpronews` rows fleet-wide; the live trigger predicate reproduced and asserted;
+   fleet before/after counts +6/+1 exactly. The hand dry-run caught `min(uuid)` — the
+   runner's probe had declined the file on a comment that named the sidecar.
+6. **Watch point, not a risk I can retire**: `git_commit` resolves the news-JSON repo
+   as step config → `sites.github_repo` → default `"sites"`; advertise's is EMPTY
+   (idea.uk's says `vm-sites`). Its 22 deployed pages say the default works. The page
+   fill itself rides `page_rerender`, independent of that commit.
+
+**Verification plan**: apply → `_VERIFY.sql` → next 6-hourly tick (or a direct
+`content-feed-orchestrator` dispatch, RUNBOOK) → `_VERIFY.sql` again for the
+fetched/error/split NOTICE → `/data/news-archive.json` no longer 404 → served
+`/news/index.html` item count > 0 (444's own bar: judge at the served body).
+
+## designblog.co.uk `/the-design-feed/` — RE-SCOPED by the owner 2026-09-03; coordination owed before any build
+
+The page keeps `page_type section-index` and fills from CHILD PAGES under the
+prefix; a source alone cannot fill it (444 resolver). So the shape is
+source → items → **a producer that writes child pages** → the section index
+resolves. `[MEASURED 2026-09-03]` no Go code writes `content_feed_items.published_page_id`
+(repo-wide grep, non-test), and the only page-producing mechanism in this
+territory is `create_blog_posts` via `blog-content-planner` — real, wired, and
+**DORMANT** (444's own correction: 10 LLM calls all-history, 2026-04-03 → 04-24,
+none since). Proposal to `portfolio_positioning` + the 444 session — NOT built:
+this lane wires a design-vertical source set (not WebProNews) exactly as for
+advertise, and the child-page producer question is decided with them, either by
+reviving `blog-content-planner` on triaged `relevant` items or by a new
+feed-item→article producer. Written to their dirs as a CONTRIB when this session
+closes; nothing for designblog is in 746.

@@ -481,3 +481,59 @@ on `validate_site_plan`, equally invisible to WFA-013's budget. No cron literal 
 > the layer that would IMPLEMENT a capability (`platform/orchestration/actions/`, `registry.go`),
 > not the layer that would REQUEST it (`site_work_items.item_type`) — `grep -rn "INSERT INTO pages"
 > platform/orchestration/actions/` returns it in one command. `WRONG_CALLS.md` 2026-09-03 entry.
+
+## CONTRIB 2026-09-03 — the feed lane: advertise's enablement is BUILT, and the recipe in §"How to verify a fix" is INCOMPLETE
+
+From `news_feed_ingestion` (the feed lane), taking the `advertise`/news half this bug
+routed to us. **Not a competing account** — the class fix and the plan-time gate stay
+yours; this is the instance work plus one correction to a recipe this file and the
+enablement contract both state.
+
+**Built:** `docs/agent_docs/sql_for_agents/746_advertise_news_feed_enablement.sql`
+(+`_ROLLBACK`+`_VERIFY`), one transaction: authors `content_features.news_feed` into
+advertise.co.uk's current classification spec **and** creates six `content_sources`
+rows (the owner's WebProNews rss feed + five `news_search` rows with `region:"uk"`
+anchored on ASA/CAP/IAB UK/AA-WARC, from the site's own `vertical_landscape`). Dry-run
+clean against the live DB in a rolled-back transaction; council submission is
+`news_feed_ingestion/COUNCIL_SUBMISSION_746.json`. **NOT applied** — this session's
+auto-mode classifier refused live-DB writes the owner had not named, so the apply is
+his; commands in `news_feed_ingestion/RUNBOOK_news_feed_ingestion.md` §"Migration 746".
+
+**The correction, and it matters for every future instance.** This file's fix candidate 2
+and the plan's enablement contract both say *author the spec key **and/or** seed
+`content_sources`*. Neither half alone works, and "and/or" is the part that misleads —
+from `seed_content_sources_action.go`, read this session:
+1. the seeder **skips `source_type: rss` outright** ("requires manual URL config"), so
+   any rss source — including the owner's WebProNews feed — can only ever arrive by hand;
+2. the seeder **returns early when the site has ANY active source**
+   (`if existingCount > 0 { … "sources already exist, skipping seed" … return }`).
+
+So the two halves are **order-dependent and mutually blocking**: add the rss row first
+and the `news_search` rows the spec names are never created; author the spec first and
+the seeder creates the `news_search` rows but never the rss one. A spec naming
+`source_types` the site will never get reads as enabled and is not. **The recipe is:
+author the spec key AND create every source row it names, in one transaction, by hand.**
+Worth folding into the contract, since the next lane to enable a feed will hit it.
+
+**Your gate is unaffected and this does not test it.** advertise's `/news/index.html`
+(`b1cd8ffb`, `news-index`, deployed) was planned before migration 720, so no
+`capability_gap` receipt exists for it — advertise's three `capability_gap` rows are all
+`handler_missing`/`handler_remit` from other lanes, none `producer_missing`. Confirmed
+live 2026-09-03 12:3xZ, still your standing repro: 200, 65,198 B, **zero items**,
+`/data/news-archive.json` **404**, zero Drupal markers (the DNS has cut over). After the
+apply, judged at the served body per your own bar: the archive JSON stops 404-ing and
+the item count goes above zero.
+
+**Independently confirmed for you, since your correction above invites it:** the
+`create_blog_posts` producer is real, wired and dormant — `[MEASURED 2026-09-03]`
+`llm_call_log` for `agent_type=blog-content-planner` = **10 calls all-history,
+2026-04-03 → 2026-04-24**, re-run first-hand here, not quoted from your file. Adding one
+measurement of our own: **no Go code in the repo writes
+`content_feed_items.published_page_id`** (repo-wide non-test grep, zero hits) and the
+column is set on **15 of 14,194** rows fleet-wide — so there is no live feed-item→page
+producer at all. That is the load-bearing fact for **designblog's** `/the-design-feed/`,
+which the owner re-scoped 2026-09-03 to fill from child pages: a source alone cannot
+fill it, so nothing for that site is in 746. Proposal (revive `blog-content-planner` on
+triaged items vs. build a feed-item→article producer) is in
+`designblog_couk/CONTRIB_2026-09-03_from_feed_lane_the_design_feed_needs_a_child_page_producer_not_just_a_source.md`
+— it needs your gate's owner in the room, so it is a decision, not a plan.

@@ -573,3 +573,168 @@ All three land in this lane's existing priority #3 gap (source enablement
 for sites with zero `content_sources` rows) — genuinely new work, not
 started this session, written into the new HANDOFF's own priority list
 rather than actioned here given the owner's ask to wrap up now.
+
+## 2026-09-03 — session "feed lane": §3 verified at the binary; 691 stopped at the apply; advertise enablement built as migration 746
+
+**kubectl is back** (the owner refreshed the token). Picked up
+`HANDOFF_2026-09-02b_continue_here.md` §3 in the order it prescribes.
+
+**Step 1, rollout — PASSED.** Both deployments read
+`docker.io/aqls/agent-chassis:v1.0.1358` / `web-search-adapter:v1.0.1358`; pods
+`Running`, ~30 min old at 12:4xZ. The overlay + makefile bumps to 1358 are already
+COMMITTED (the handoff's "uncommitted 1355" note is stale — HEAD moved on again and
+the owner committed the roll). Note the tag: the handoff expected 1355; the fleet
+is on 1358. Read the running image, not the handoff.
+
+**Step 2, binary — PASSED, with controls.** The adapter's own startup line:
+`"msg":"build provenance","git_commit":"d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85"`.
+`git merge-base --is-ancestor 0a408f8db d0252fd4d` → YES (this lane's commit is in
+the build). Binary probe on all three pods (`grep -aq <sha> /proc/1/exe`):
+`d0252fd4d…` PRESENT on both chassis pods and the adapter; negative control = HEAD
+(`e9274c1fa…`, 147 commits AFTER the stamp, `--is-ancestor HEAD stamp` → NO) ABSENT
+on all three. So both services carry the UK-region code.
+- **Misstep, caught in the same minute:** `logs -l app=agent-chassis --tail=3000 |
+  grep -m1 'build provenance'` returned a **5 MB** line — a council-payload debug
+  line that happened to contain those two words — not the startup stamp. Use the
+  exact JSON key (`"msg":"build provenance"`), and on a chassis pod the stamp had
+  already scrolled out of `--since=60m` on a 30-minute-old pod anyway. The binary
+  probe is the instrument with no shelf life; the log grep is a convenience.
+
+**Step 3, migration 691 — NOT APPLIED, and this session could not apply it.**
+Pre-check: **26** `.uk` `news_search` rows without a `region` key (= the guard's
+exact expectation; 6 sites, unchanged from the 2026-09-02 census). Two findings:
+1. **The number 691 is now SHARED.** `691_per_site_palettes_for_three_sites_on_a_shared_library_row.sql`
+   (another lane) was applied 2026-09-02 21:26Z. LANDMINES already records the class
+   ("the ledger keys on FILENAME, so nothing collides, nothing warns, and 'migration
+   453' becomes ambiguous for ever"). Nothing to fix — `schema_migrations.filename`
+   is the PK — but **refer to this one by slug**, and the `--record-only` note says so.
+2. **The apply was REFUSED by this session's auto-mode permission classifier**
+   ("applies migration 691 (an UPDATE to content_sources) to the shared live
+   clients_db … the user's only message was a handoff doc path and never named this
+   database or this migration"). Not worked around — that is the harness doing its
+   job. The exact commands are in the RUNBOOK for the owner to run (or to authorise
+   by name). **Consequence: step 4 is blocked**, because the 26 existing rows carry
+   no `region` until 691 lands; a `.uk` dispatch today would exercise the
+   absent-key → Firecrawl-defaults-to-US path and prove nothing about the fix.
+- Baseline captured for step 4 (idea.uk, the site with the ready dispatch script):
+  5 `news_search` sources, all fetched 2026-09-03 09:06Z with `next_fetch_at`
+  2026-09-04 09:06Z, error_count 0; 73 items all-time; host mix led by
+  `www.google.com` **41** (Google News redirect URLs — the publisher is behind the
+  redirect, so a host census is NOT a UK/US measurement — see below), then
+  eu-startups.com 4, insidermedia.com 3, dealroom 2, gov.uk 2, uktech.news 2.
+  **Design note for step 4:** because ~56% of stored URLs are `news.google.com`
+  redirects, "results skew UK" must be judged on resolved publishers or on the
+  adapter's own log line (`region: uk` on the Firecrawl call), not on `source_url`
+  hosts. The RUNBOOK says so now.
+- **Misstep:** guessed `site_specs.version` and `scheduled_tasks.is_active` in two
+  queries — both columns do not exist. `\d` first (CLAUDE.md), which I then did.
+  Cost: one wasted batch.
+
+**§4 item 3 → advertise.co.uk, built.** Read everything first:
+- `advertise.co.uk` (site `d991a5b8-428f-44c1-b3eb-e50f44326fd9`): current
+  classification row `ec005136` (domain-research-classifier, 2026-09-02) has **no
+  `content_features` key at all**; **0** `content_sources`; **22** pages
+  `build_status=deployed` incl. `/news/index.html` (`b1cd8ffb`, page_type
+  `news-index`, deployed). Live: `https://advertise.co.uk/news/index.html` → 200,
+  65,198 B, title "UK Advertising News | Advertise.co.uk", 0 Drupal markers (so DNS
+  HAS cut over to the framework build), `/data/news-archive.json` → **404**.
+  Exactly 444's diagnosis.
+- **Why the framework never wrote the key** (read, not assumed): `matchVerticalNews`
+  reads `industry`/`site_type`/`category` + domain substrings; this site's signals
+  are `''`/`editorial`/`editorial`/`advertise.co.uk`, and `verticalNewsMap` has no
+  advertising/marketing/media key → nil → the action writes nothing. Same wall as
+  idea.uk 2026-08-25 (`idea_uk_vm_site/sql/SQL_2026-08-25_arm_news_feed.sql`, the
+  worked example I followed).
+- **Why the sources go in by hand, not via the seeder** (`seed_content_sources_action.go`):
+  it SKIPS `rss` ("requires manual URL config") and it RETURNS EARLY when the site
+  has any active source. So the owner's rss row can only arrive by hand, and once it
+  exists the seeder would never create the `news_search` rows the spec names. The
+  migration creates all six itself, in the seeder's exact shape (`News Search: <kw>`,
+  `{query, num_results:10, region:"uk"}`).
+- **Trigger predicate** (read from the live `content-feed-trigger` row): recommended
+  = true AND a deployed page AND (no active sources OR one with `next_fetch_at`
+  NULL/due within 3 h). New rows have NULL → selected on the next 6-hourly tick
+  (`content-feed-refresh`, last completed 09:10Z; next ~15:0xZ).
+- **Fill path**: `render_news_section` produces `data/news-archive.json` (only when
+  a `news-index` page exists — it does) and, when item_count > 0, queues a
+  `page_rerender` for the news page; the `news-listing` component re-resolves
+  `query.news_archive` from `content_feed_items` and re-renders from content_data,
+  no LLM (bugs_open/027). The JSON commit resolves its repo as step config →
+  `sites.github_repo` → default `"sites"`; advertise's `github_repo` is EMPTY (idea.uk's
+  is `vm-sites`) — its 22 deployed pages say the default works, flagged as a watch
+  point in the submission's risks.
+- **Editorial caution honoured mechanically**: WebProNews re-verified 12:3xZ — 200,
+  1,076,370 B, 100 items, newest 12:12Z; sampled titles are Anthropic / FCC / Gemini
+  / C# — broad US tech, not UK advertising. `feed-triage` scores every item against
+  the site spec (≥50 relevant, 20–49 review, <20 rejected, flagged→rejected), so the
+  off-topic majority never displays. That is "normal editorial treatment", not a
+  copy. **Lane decision, stated so it can be reversed:** five UK-region `news_search`
+  queries were added alongside the rss row — ASA rulings, CAP Code, IAB UK ad spend,
+  AA/WARC expenditure report, UK advertising industry news — anchored on the
+  institutions the site's OWN `vertical_landscape` names ("ASA rulings, platform
+  policy changes, and IAB UK data releases provide a real news stream"). Reason: the
+  spec must name `source_types` for the seeder's contract, and naming `news_search`
+  without creating the rows would be a lie; and the owner's feed alone would give a
+  UK advertising site a US tech feed. No `api_news` (mission_brief: plain honest
+  explanation; same reasoning as idea.uk). This is also the **first UK site enabled
+  since the region fix rolled** — its five rows are the first live exercise of it.
+- **Written:** `docs/agent_docs/sql_for_agents/746_advertise_news_feed_enablement.sql`
+  + `_ROLLBACK` + `_VERIFY`; `COUNCIL_SUBMISSION_746.json` in this dir.
+- **The migration-number landmine fired on ME, inside one session, and this is the
+  cheapest possible demonstration of it.** Authored as **740** — free in both the
+  directory (highest file 739) and the ledger at that moment. Re-checked before
+  commit, as LANDMINES tells you to: **740 was gone**, taken by
+  `740_info_card_grid_carousel_defaults_on.sql`, and 741–745 had been claimed too
+  (`741`/`742` rerender-routing `_HOLD` files, `742`/`744` evidence-register, `743`/`745`
+  loancash restores). Five numbers consumed by other lanes while I wrote one file.
+  Renumbered to **746**, verified free in the directory AND the ledger by the same
+  two checks, and every reference rewritten — the three SQL files, the submission
+  JSON, this lane's five docs, both peer CONTRIBs, the `bugs_open/444` CONTRIB and
+  my own LANDMINES entries. **The check that matters is the one at commit time, not
+  the one at authoring time**; had I trusted the first, the estate would carry a
+  fourth duplicate number (691 is already shared).
+- **Dry-run — and the FIRST attempt tested nothing.** The runner's probe DECLINED the
+  file: "contains its own ROLLBACK/ABORT — would escape the doomed transaction". The
+  only occurrence was the **header comment naming the `_ROLLBACK.sql` sidecar** — the
+  match is on the word, case-insensitive, and `sed 's/--.*//'` does not save you.
+  "not probed" prints like a status line and reads as a property of the SQL, so the
+  natural next step is `--apply` on a file that has never been executed. Ran it by
+  hand instead (`COMMIT;` → `ROLLBACK;`), which executes every guard: it failed
+  immediately on **`min(uuid)` — no such function in Postgres** — inside the
+  precondition block. Fixed to `(array_agg(id))[1]`; header reworded to name the
+  sidecar by suffix so the probe stays usable. Both traps are now LANDMINES entries.
+  Result of the re-run below.
+
+- **Dry-run result, after the `min(uuid)` fix — PASSED against live data.**
+  `BEGIN / SELECT 1 / DO / INSERT 0 1 / INSERT 0 6 / DO / ROLLBACK` and the
+  post-check NOTICE fired verbatim: *"746 POST-CHECK PASSED: advertise.co.uk
+  recommended=true, 6 sources (1 rss WebProNews + 5 news_search region=uk), trigger
+  predicate selects it, fleet +6/+1 only."* So all four post-check arms executed
+  against real rows — including the reproduced `content-feed-trigger` predicate and
+  the fleet-count negative control. Then proved nothing persisted with the same
+  census the preconditions read: **0** sources for the site, `content_features`
+  **false**, **1** classification row. The guards are exercised, not merely written.
+- **Still NOT applied.** Same refusal as 691 — a live-DB write the owner had not
+  named. Commands in the RUNBOOK; nothing was worked around.
+
+**My three LANDMINES entries were swept into ANOTHER session's commit before I could
+commit them — and nothing is lost.** `git status` reported `LANDMINES.md` **clean**
+while my edits were plainly on disk, which is the tell. They are at HEAD inside
+`6653293ee` ("LANDMINES: a correct pathspec commit made WRONG by someone ELSE'S
+concurrent git mv…"), verified one header at a time: all three entries present exactly
+once, and both `746_` references carried through, so the renumber travelled with them.
+This is CLAUDE.md's stated same-file-passenger case — *"if two sessions edit one file,
+whoever commits takes both edits, and no hook can prevent that"* — and it is the
+correct outcome for an append-only shared file, not damage. Forward-only holds: my own
+commit therefore does NOT name `LANDMINES.md`, because there is nothing left to commit
+there. **The check worth keeping:** on a shared append-only file, `git status` reading
+clean does not mean your append failed — grep HEAD for your own text before re-adding
+it, or you will append a duplicate. (Faintly funny that the commit which took my
+entries is itself about a pathspec commit being made wrong by another session.)
+
+**§4 item 1 (WebProNews) is answered by the same migration** — the owner's feed is
+the rss row. **§4 item 2 (designblog.co.uk) — NOT started, by design**: the owner
+re-scoped it 2026-09-03 (keep `section-index`, fill via child pages; a source alone
+cannot fill that shape). Coordination with `portfolio_positioning` and the 444
+session is owed before any code; see the README entry for what this lane will
+propose.

@@ -110,3 +110,48 @@ working on the new design-focused site asking for a source once we're
 wiring these up, and one that traced a different site's empty news page
 back to it never having been given any news sources at all. None of them
 needed action from me tonight — they're queued up as the next things to do.
+
+## 2026-09-03 — the UK-news fix is genuinely running; the data half is waiting on you; advertise's news page has its enablement written
+
+Cluster access came back, so I did the four checks the last session left. The
+first two pass: both services are on the build you rolled (v1.0.1358), and I
+checked the running programs themselves rather than the deploy status — the
+search adapter says which commit it was built from, my change is an ancestor of
+that commit, and the same commit string is physically inside all three running
+binaries while a commit made after the build is not. So the code that sends
+"country: UK" to the search provider is live.
+
+The third check stopped. The small database update that stamps the existing 26
+UK news sources with the "uk" region has not been applied, and this session is
+not allowed to apply it: the safety layer on my side refused a write to the live
+database that you had not named in your message. I have not tried to get round
+that. The exact command is in the RUNBOOK (section "Migration 691 — apply by
+hand"). Until it runs, the fourth check — a real UK news search proving the
+results come back British — cannot mean anything, because the existing sources
+still carry no region and would take the provider's American default. One thing
+worth knowing before you run it: the number 691 now belongs to two different
+migrations (another lane used it the same afternoon). Nothing breaks — the
+ledger keys on the full filename — but say the slug, not the number.
+
+While that waits, I built the advertise.co.uk piece. Its news page is live at
+advertise.co.uk/news (the DNS has cut over to the framework build) and shows
+nothing, because the site has no news sources and its classification never got
+the "this site should have news" flag — the framework's automatic rule has no
+entry for an advertising site, the same gap idea.uk hit last month. Migration
+746 does both halves in one go: it sets the flag, adds the WebProNews feed you
+liked, and adds five UK-region searches anchored on the ASA, the CAP Code, IAB
+UK and the AA/WARC spend report — the institutions the site's own landscape
+document says its news should come from. Your WebProNews endorsement was for
+the feed, not for the old site's habit of copying it wholesale, and the
+pipeline honours that mechanically: every item is scored against the site's
+own spec and anything off-topic is rejected before it can show. Today's feed
+is mostly American tech stories, so I expect most of it to be rejected and the
+UK searches to carry the page; the verify script reports the split so we can
+see. Nothing is applied yet — the migration is dry-run clean, going to the
+council, and needs the same apply-by-hand from you as 691.
+
+designblog.co.uk I have deliberately not touched. You re-scoped it yesterday
+(keep the page as a section index, fill it from child pages), which means a
+news source on its own would not fill it; I need to agree the mechanism with
+the positioning lane and the 444 session first, and I will write that proposal
+to them rather than build anything solo.
