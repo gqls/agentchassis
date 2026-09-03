@@ -664,7 +664,7 @@ Rules that make them worth the effort:
   committed but inert until the next roll stays OPEN, because the defect is still
   reproducible until it ships. **Grep BOTH directories before filing.** Numbering
   is one sequence across both dirs, never reassigned, and **several numbers name
-  two unrelated cases** (016, 017, 083, 112, 131, **146** as of 2026-07-29, **410** as of 2026-08-26, **420** as of 2026-08-31 — two lanes filed within hours, and BOTH fired on the same day's canary/paid-build work, and the list grows)
+  two unrelated cases** (016, 017, 083, 112, 131, **146** as of 2026-07-29, **410** as of 2026-08-26, **420** as of 2026-08-31 — two lanes filed within hours, and BOTH fired on the same day's canary/paid-build work, **456** as of 2026-09-03 — two lanes again within hours (`one_undecodable_fact_disarms_a_whole_evidence_register` and `writer_emitted_a_malformed_closing_tag`), and the second lane's own commit message already says a bare "456 §4" meaning the other one — and the list grows)
   — so a bare number is ambiguous and most commit messages saying "083" mean the
   *other* one. **Resolve by slug, and `git log` the FILE PATH, not the number.**
 - **Before routing work AT an existing bug, check who owns it:**

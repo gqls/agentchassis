@@ -1,5 +1,13 @@
 # 456 — one undecodable fact disarms a whole evidence register, banned claims included
 
+> ⚠ **THE NUMBER 456 IS AMBIGUOUS — RESOLVE THIS FILE BY SLUG.** A second, unrelated bug was
+> filed as 456 the same day by the `finetuning_uk_service` lane
+> (`456_HANDOFF_2026-09-03_writer_emitted_a_malformed_closing_tag_and_it_reached_the_served_page_unchecked.md`).
+> Numbers are never reassigned, so both stand. **A bare "456" in a commit message is more
+> likely to mean theirs than this one** — their own commit already says "456 §4" meaning theirs.
+> This file is `one_undecodable_fact_disarms_a_whole_evidence_register`; `git log` the PATH,
+> never the number. Added to CLAUDE.md's collision list 2026-09-03.
+
 **Filed 2026-09-03** while resuming `bugs_closed/161`'s residual. **Two live sites are
 affected today and both were found by audit, not by any signal the platform emits.**
 
@@ -268,3 +276,48 @@ should have got it by splitting the symptom in two.
 
 **If you re-run it, run it twice:** one symptom for the decode-voids-the-register mechanism,
 one for the residue arm and the early return.
+
+## 11. INDEPENDENT CORROBORATION, same day, different consumer — and it raises the typed-union case from "tidy" to "owed"
+
+Found while checking whether anything had moved under this lane. **The `mortgagecalculator.co.uk`
+adoption lane hit the same root cause on 2026-09-03, in a completely different reader, with no
+knowledge of this bug** (commit `7991c3191`):
+
+> `verify_criteria.py`'s `load_register_bands()` read EVERY fact in the site's `evidence_base`
+> and `float()`'d it. The register now holds 18 facts, of which 5 are `CIT-*` citations with no
+> scalar value, so the loader raised `ValueError` at import time and **`install_fences.py` could
+> not run at all.**
+
+That is this bug's mechanism one consumer over: **a reader assuming every fact carries a
+number, meeting a fact that legitimately does not, and taking a whole tool down with it.** They
+also hit a second shape worth knowing — *"a fact whose value is JSON null makes `->>` return SQL
+NULL, and `psql -tA` prints that row with NO trailing separator"*, so a `split('\t')` unpacked
+into the wrong arity.
+
+**Why this matters here, and it changes the argument.** §7.3 and RFC_025 §12.5 record the
+text-valued fact shape as an *open option* — the honest end state, not urgent, deliberately
+deferred. Two independent consumers breaking on the same assumption within one day is a
+different claim from "one register is malformed":
+
+| | this bug | the mcalc lane, same day |
+|---|---|---|
+| consumer | `ParseEvidenceBase` (Go, every claims gate) | `verify_criteria.py` (Python, the acceptance fences) |
+| trigger | a **text** value (`"MIT"`, `"30 days"`) | a **value-less** citation fact, and a **null** one |
+| blast radius | the site's whole register, bans included | the tool could not start |
+| found by | an audit of all 27 registers | the tool falling over |
+
+**`EvidenceFact.Value` being a bare `*float64` is not a local wart; it is a seam that every
+reader of the register has to defend itself against, separately, and two of them did not.**
+Neither lane's fix generalises: mine makes one bad fact survivable inside the Go parser, theirs
+skips unparseable facts inside one Python loader. The next reader starts from zero again.
+
+**So the retirement condition in §9 is met sooner than I expected.** The architecture seat's
+trigger was "if the item type's volume is still growing when next measured". A second, wholly
+independent consumer failing on the same assumption is stronger evidence than volume would have
+been, because it shows the defect is in the **contract**, not in the data. Recorded rather than
+acted on — promoting it is an RFC and belongs to whoever owns the vocabulary — but a future
+session should not have to rediscover that this happened twice in one day.
+
+**Told to:** the `finetuning` lane (asked for their view, since 8 of their 10 facts want the
+shape) and `register_guards_code_phase_b` (owner of RFC_025 stage 2). The mcalc lane's own fix
+stands and is not affected by anything here.
