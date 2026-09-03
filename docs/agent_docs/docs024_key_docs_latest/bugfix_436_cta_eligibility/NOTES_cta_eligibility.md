@@ -375,3 +375,79 @@ better button than one called "example" — but it is an unintended live change 
 and it is not the owner's decision. **The fix is one more dispatch of the same command**, which also
 completes the two-way at the same artefact (stored chrome `example` → `job-search-readiness-checker`
 → `example`). Until that runs, this is an open loose end, not a finished canary.
+
+## 2026-09-03, 12:20–12:26Z — OWNER RULING: fix the fossil sites. Three applied, one held back
+
+Owner instruction (chat, 2026-09-03): *"go ahead and fix all the fossil sites"*. This is Phase 3 of
+the PLAN — the usage decision the lane had deliberately left to him.
+
+### First, a CORRECTION to a figure this lane published and told the owner
+
+The 10:0xZ entry above says **7 of 10** stored CTA fields on cv1.co.uk point at `tool-example`. **It is
+5 of 10.** I miscounted from the listing; the query was right and I read it wrong, then repeated the
+figure in the bug file, the handoff and to the owner in chat. Re-run at 12:15Z, the ten rows are
+byte-identical to the 10:0xZ listing — so this is a miscount, **not** a change over time.
+
+The re-run is worth something anyway: it is an unplanned demonstration of the documented limit. Two
+full `rerender-pages` cycles ran over cv1.co.uk between the two readings (11:25Z opted-out, 11:58Z
+restored) and **not one stored CTA field moved** — `applyCTARecompute` KEEP #2 held every valid stored
+destination across both, exactly as the PLAN says it does. That limit is no longer a claim in a
+document; it is measured on a live site across two rerenders.
+
+### The check that changed what I did — an opt-out hands the button to the NEXT accident
+
+Before applying anything, I read what each site's rank-1 *becomes* after the opt-out. The lever
+removes a page from candidacy; it does not choose a good replacement, and the replacement is picked by
+the same `(nav_order, name)` ordering that caused the problem. `[MEASURED 2026-09-03 12:18Z]`
+
+| site | fossil rank-1 | becomes | reading |
+|---|---|---|---|
+| cv1.co.uk | Example Job Prep Checklist (2) | **Job Search Readiness Checker** (200) | clear win |
+| gamesdesign.co.uk | TTK Calculator (20) | **Auto-Battler Prototype** (100) | better showcase |
+| vetcomparison.uk | CMA Compliance Deadline Calculator (4) | **CMA Obligation Self-Assessment** (200) | lateral — both are CMA tools |
+| boxingonline.com | Fight Calendar (3) | **Boxing Quiz** (200) | **worse** |
+
+**boxingonline.com was NOT opted out**, and the reason is not caution — it is that the remedy makes
+the site worse. A fight calendar is a defensible primary button for a boxing site; a trivia quiz is
+not. This is precisely the branch the check's own `fix` text names first — *"If deliberate, dismiss
+this"* — and the honest fix there is to record the choice as deliberate, which needs the owner, not a
+column. Raised in chat; item left `needs_human_review`.
+
+### Applied, and verified at the detector with a positive control
+
+`UPDATE pages SET eligible_as_cta_target=false` on the three, one statement, `UPDATE 3`, fleet-wide
+opted-out **0 → 3**. The prediction census then names **only** boxingonline.com, and the new rank-1s
+are exactly the table above.
+
+Discovery induced on all four (the fresh chassis had rolled at 12:06Z; **re-probed
+`service_binary_capabilities` first — 392 pods carry `cta_rank_anomaly`, equal to the
+`misdirected_cta` control, negative control absent** — a roll is not permission to assume the check
+survived):
+
+| site | `checks_run` | inserted | resolved | anomaly finding |
+|---|---|---|---|---|
+| cv1.co.uk | ran | 0 | **1** | silent → item `complete`, *"only 2 eligible interactive candidate(s)"* |
+| vetcomparison.uk | ran | 2 | **1** | silent → item `complete`, *"rank-1 'tool-cma-obligation-checker' …"* |
+| gamesdesign.co.uk | ran | 1 | 0 | silent (never had an item — nothing to retract) |
+| **boxingonline.com** | ran | 7 | 0 | **FIRES** — *"'tool-fight-calendar' nav_order 3 vs runner-up 'tool-boxing-trivia-quiz' at 200, among 5 candidates"* |
+
+**boxingonline.com is the control that makes the other three readable.** Three sites going quiet
+immediately after I changed them is exactly what a broken check also looks like — and the check had
+just been through a fleet roll, which is when "it stopped filing" is most plausible. The fourth site
+filing, in the same batch, on the same binary, rules that out.
+
+### ⚠ What the fix does NOT change today — say this before anyone reads "fixed" as "visibly fixed"
+
+1. **Stored in-page CTA buttons are untouched** — KEEP #2, demonstrated twice above. `[MEASURED
+   2026-09-03 12:18Z]` still pointing at the now-ineligible page: cv1.co.uk **5** of 10 fields,
+   vetcomparison.uk **9** of 39, gamesdesign.co.uk **6** of 65. These need a full page rebuild
+   (regenerates copy) or 391's rewrite-and-relink recipe. The opt-out is what stops them coming BACK.
+2. **The header button only moves after a chrome re-render.** On gamesdesign.co.uk and
+   vetcomparison.uk this is moot — a footer nav item labelled `contact` wins before the ranking is
+   consulted, so their headers were never the fossil. On **cv1.co.uk it is not moot**: its stored
+   chrome currently reads `/tools/example/index.html` (restored at 11:58:42Z, before the opt-out), and
+   needs one `rerender-pages … refresh_site_components:true` dispatch to pick up the change. **That
+   dispatch is refused by this session's permission classifier** — it is the owner's to run.
+
+So the accurate statement is: **the cause is fixed on three sites; the residue is not.** Anyone
+quoting this entry as "three sites fixed" should carry the two sentences above with it.

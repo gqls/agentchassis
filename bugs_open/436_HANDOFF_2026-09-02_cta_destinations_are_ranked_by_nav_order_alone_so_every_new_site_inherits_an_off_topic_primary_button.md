@@ -147,9 +147,35 @@ showed no change. `rerender-pages` re-renders chrome synchronously but only QUEU
 **21** such items completed fleet-wide in the same window, so the handler is draining and mine are
 merely not at the front.
 
-**Open loose end:** cv1.co.uk's `tool-example` is restored to `eligible=true` (fleet opted-out = 0)
-but its stored chrome still holds the opted-out render's pick, so chrome and data disagree until one
-more render runs. That render also completes the two-way at the same artefact.
+**6. OWNER RULING 2026-09-03 — "fix all the fossil sites". Three applied, one held back.**
+`eligible_as_cta_target=false` on `cv1.co.uk/tool-example`, `gamesdesign.co.uk/tool-ttk-calculator`,
+`vetcomparison.uk/tool-compliance-deadline-calculator` (fleet opted-out 0 → 3). The prediction census
+then names only boxingonline.com; both retractable items went `complete` with their reasons.
+
+**`boxingonline.com` was NOT opted out, and that is a finding rather than caution.** An opt-out hands
+the button to the next page in the SAME `(nav_order, name)` ordering, so it removes an accident
+without choosing a replacement — and there the replacement is *Boxing Quiz* in place of *Fight
+Calendar*, which is worse. That is the check's own first remedy branch ("If deliberate, dismiss
+this"), which needs a person. Item left `needs_human_review`; raised with the owner.
+
+**The control that makes the three silences mean anything:** boxingonline.com FIRED in the same batch,
+on the same binary, minutes after a fleet roll — so "three sites went quiet" is not "the check
+stopped filing". The roll itself was re-probed first (392 pods carry the check, equal to the
+`misdirected_cta` control, negative control absent).
+
+> **CORRECTION — a figure this file published.** §3 above said **7 of 10** stored CTA fields on
+> cv1.co.uk point at `tool-example`. It is **5 of 10**; I miscounted a listing and repeated it here,
+> in the handoff and to the owner. The ten rows are byte-identical across a 2-hour gap spanning two
+> full rerenders — which incidentally MEASURES the KEEP #2 limit on a live site rather than asserting
+> it from the PLAN.
+
+**⚠ Fixed ≠ visibly fixed, and the difference must travel with this entry.** Stored in-page CTAs are
+untouched by design (KEEP #2): cv1.co.uk **5**/10, vetcomparison.uk **9**/39, gamesdesign.co.uk
+**6**/65 still point at the now-ineligible page and need a full rebuild or 391's rewrite-and-relink.
+The opt-out is what stops them returning. And cv1.co.uk's header still reads
+`/tools/example/index.html` until one `rerender-pages … refresh_site_components:true` runs — a
+dispatch this session's permission classifier refuses. gamesdesign/vetcomparison headers are the
+contact page and were never the fossil.
 
 **A wrong prediction of mine, recorded so it is not re-derived:** I expected the flip-back to file
 nothing, because `bugs_open/326` dedups item keys in any status and the resolve had just left that key
