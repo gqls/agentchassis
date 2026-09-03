@@ -65,9 +65,10 @@ carries the shape is the finding, and it reopens `458` against the generator rat
 
 ## 3. The council: three rounds, four real defects — READ THIS BEFORE SUBMITTING ANYTHING
 
-Corr `0fd2ca6b-f400-4452-8cac-25399f7d55ea`. **Round 3 was in flight when this was written — read
-the verdict before assuming.** Rounds 1 and 2 both returned REVISE, and both gated on defects in the
-*work*, not the paperwork:
+Corr `0fd2ca6b-f400-4452-8cac-25399f7d55ea`. **Rounds 1 and 2 REVISE; ROUND 3 APPROVED** — "approved
+with 4 advisory objection(s) — none high-severity". The advisories are recorded in `458` §11 and
+**two of them are owed work, not paperwork** (see §5). Both REVISE rounds gated on defects in the
+*work*:
 
 - **Rounds 1 & 2 gated because MY SKETCH misrepresented MY FILE.** I elided the tool-improver half
   behind a comment, and later named one file in an edit that changed two. **Reviewers judge the
@@ -120,7 +121,25 @@ not rounded it into the story.
    that lane must be told first (owner ruling 2026-07-29 §3).
 5. **The 2 unmeasurable pages** (`ai-readiness-quiz`, `tool-ai-agent-roi-estimator`) — still
    *"probe produced no result"*, both HTTP 200. File against `render_audit.py`.
-6. **Cron-wire STY-062** — deliberately not done; it is the stated follow-up.
+6. **Cron-wire STY-062** — deliberately not done, and the council's sharpest advisory:
+   `bug_historian` notes that between manual runs a detector is *"indistinguishable from 'no new
+   instances'"* (`016b` §9, *"an unscraped counter reads exactly like a fixed bug"*). ⚠ **A manual
+   detector satisfies the objection that created it only while someone remembers to run it.**
+   `reuse_agent` would have it be a `discovery_checks` entry rather than a `scripts/audit-*`; that
+   route gets scheduling for free and closes both advisories at once — the counter-argument is that
+   this defect is fleet-wide over `content_components` while discovery checks run per site. **Not
+   decided.**
+7. **Corroborate the "zero new findings" claim at fleet scale** before trusting it — arming three
+   tokens in a live severity-high check was justified on a **13-site manual sample**, not coverage
+   (`guardian`, `improvement_guardian`). A DB-derivable proxy is the ask.
+8. **Audit the other two prompts that name `--color-primary` and no ink companion** —
+   `color-variable-fixer` and `visual-design-auditor`. `732` patched only the two this round
+   measured; the fleet census found five such agents and `component-creator` is the only one that
+   already teaches the rule (`bug_historian`).
+9. ⚠ **`architecture`'s advisory, which this lane has no answer to:** the pairing sentence is now
+   duplicated verbatim across two prompts with no shared source and **no test that would catch an
+   edit to only one of them** — the same drift class this round fixed for token lists, recurring in
+   prose form.
 
 ## 6. ⚠ Traps this lane paid for today
 
