@@ -1840,3 +1840,36 @@ Applied to production three times as the predicate tightened; final ConfigMap
 **`experience-promise-check-script-4t95f4hmm7`**, `cronjob configured`, and a triggered job ran
 **exitCode=0** with the caveat visible in both the pod output and the `doc_notes` receipt.
 Fleet-wide now: 354 tool pages, **338 fine**, rule B 1, rule C 1, never-built 4, triage 11.
+
+---
+
+## 2026-09-03 10:58Z — I hit the SAME parity trap twice in one hour, and the second time nothing caught me
+
+Closing check on the tree turned up that **SQ-004's fix was committed but never deployed.** The
+live ConfigMap `listing-class-promise-check-script-b674b5mbmd` contained **0** occurrences of the
+new `n/a (control case not in --site scope)` string. Tomorrow's 07:25 cron would have printed the
+false `FAIL` I had just spent the morning fixing, and the git history would have said it was fixed.
+
+**Both detectors keep their live copy under `deployments/kustomize/services/<check>/base/check.py`;
+editing `scripts/` alone changes nothing in the cluster.** I knew this an hour earlier — the
+SQ-005 self-test's parity arm caught exactly this for `audit-experience-promises.py` and I fixed
+it there. Then I edited `audit-listing-class-promise.py`, tested it three ways (scoped, control's
+own site, unscoped fleet), committed it, told two peer lanes it was shipped — and **never ran its
+self-test**, which has the same parity arm and would have failed instantly.
+
+**Why the second one got through when the first did not:** for SQ-005 I ran `--self-test` because
+I was changing *logic* and wanted the fixtures. For SQ-004 I judged the change too small to need
+fixtures — it is a display fix, and I had verified the display directly. That reasoning is exactly
+wrong: **the parity arm is not about the size of your change, it is about WHERE you made it**, and
+a one-character edit in `scripts/` is as undeployed as a rewrite. I substituted "I have tested the
+behaviour" for "I have shipped the behaviour", which is the same live-vs-committed confusion as
+this morning's uncommitted migration, one layer along.
+
+**The check, and it is now three-for-three today:** after editing anything under `scripts/` that
+has a cronjob twin, run `--self-test` *before* claiming it is shipped, and then read the ARTEFACT —
+`kubectl get configmap <the one the cronjob mounts> -o jsonpath='{.data.check\.py}' | grep -c
+'<a string only your change introduces>'`. A `0` there is the whole answer.
+
+Fixed: mirrored, self-test all pass including parity, applied
+(`listing-class-promise-check-script-mfk2kd6hdc`, `cronjob configured`), triggered job
+**exitCode=0**, fleet result unchanged at 187 instances / 2 mismatches with **both controls PASS**.

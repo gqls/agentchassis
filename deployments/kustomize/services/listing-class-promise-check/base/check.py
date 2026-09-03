@@ -363,12 +363,28 @@ def run(args):
             na += 1  # heading named no class
 
     found = {f"{f['domain']}{f['host_page']}" for f in findings}
+
+    # A control whose own case is outside --site's corpus cannot be evaluated, and must
+    # say so rather than resolve to a boolean (2026-09-03). Before this, every scoped run
+    # against another domain printed "positive_leopardess: FAIL — classifier drifted",
+    # which is not a failure and not a finding: --site had simply filtered the control's
+    # page away. It trained the reader to ignore the CONTROLS block, which is the only
+    # thing telling them whether a zero is trustworthy. The negative control needs the
+    # same treatment for the opposite reason — out of scope it passes VACUOUSLY, since a
+    # page that was never fetched can hardly be reported.
+    def _scoped_out(domain):
+        return "n/a (control case not in --site scope)" if (
+            args.site and args.site != domain) else None
+
+    _leo = _scoped_out("leopardessconsulting.co.uk")
+    _rh = _scoped_out("robot-hands.com")
     controls = {
         # LIVE positive control. It has a shelf life: see HISTORIC_FIXED below.
-        "positive_leopardess": "leopardessconsulting.co.uk/blog.html" in found,
+        "positive_leopardess":
+            _leo if _leo else "leopardessconsulting.co.uk/blog.html" in found,
         # ESCAPE-CLAUSE control: a heading that names guides must never be reported.
         "negative_robot_hands_escape":
-            "robot-hands.com/learning-center-hub.html" not in found,
+            _rh if _rh else "robot-hands.com/learning-center-hub.html" not in found,
         # The refuted rule, re-run every time so its zero is a measurement, not a memory.
         "naive_page_type_rule_hits": naive_page_type_arm(instances),
     }
@@ -414,6 +430,8 @@ def run(args):
     for k, v in controls.items():
         if k == "naive_page_type_rule_hits":
             print(f"    refuted page_type rule would find: {len(v)} {v}")
+        elif isinstance(v, str):
+            print(f"    {k}: {v}")
         else:
             print(f"    {k}: {'PASS' if v else 'FAIL — classifier drifted or site changed'}")
     print("  " + HISTORIC_FIXED)
