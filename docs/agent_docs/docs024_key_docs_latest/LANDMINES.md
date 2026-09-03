@@ -22197,3 +22197,39 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **the reading trap AFTER PRC-003 rolls (`681b0ee65`):** `RenderPromptTemplate` will STRIP `<no value>` before send, so a census at `llm_call_log.prompt_rendered` reads clean for the wrong reason. Measure a hole with `datahelpers.ScanMissingValues` on the raw execution parsed with `PromptTemplateFuncs()` — `portfolio_positioning/tplproof/` is the worked harness.
 - **relations:** the original entry and its first correction above · `bugs_open/453` CONTRIB (3)–(5) · `sql_for_agents/764_*` · register PRC-003, WFA-024
 - **added:** 2026-09-03 ~21:35Z, portfolio_positioning lane
+
+### `psql … | tail -N` turns a display convenience into a PREDICATE — and `ORDER BY` decides which rows it eats, so the row you sorted to find is the first one deleted
+
+- **footprint:** `site_specs`, `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql`,
+  `evidence_base`, `tail`, `head`, `information_schema.columns`, `site_work_items`,
+  `content_components`
+- **fires when:** you run any listing query through this repo's standard psql-through-exec recipe and
+  pipe it to `tail -N` / `head -N` to keep the output readable — which is the normal, sensible thing
+  to do with a kubectl exec that prints connection noise, and is what most examples in these docs
+  show.
+- **the tell — there isn't one, and that is the entry.** A truncated list looks exactly like a
+  complete one. `[MEASURED 2026-09-03]` `SELECT aspect FROM site_specs WHERE site_id=… AND is_current
+  ORDER BY 1` piped through `| tail -12` returned twelve plausible aspect names. The site has **26**.
+  The fourteen it dropped included `evidence_base` — the single row the query existed to look for —
+  because `ORDER BY 1` sorts it to the TOP and `tail` eats the top. **The truncation is not random:
+  it is biased against exactly the row your `ORDER BY` was chosen to surface.** The result was
+  confident enough to be sent to a peer as a correction to their brief.
+- **the check:** **count first, then list — a count cannot be truncated by a pipe.**
+  ```sql
+  SELECT 'n='||count(*) FROM <table> WHERE <predicate>;   -- then, and only then, list
+  ```
+  and `grep` for the count's label rather than `tail`-ing the output, so the number cannot be cut off
+  either. For a single-row question, **ask for the row, never for the list it lives in**
+  (`WHERE aspect='evidence_base'` beats reading 26 aspects). If you must bound output, bound it
+  **in SQL** (`LIMIT`), where the truncation is part of the result and visible in it, not in the pipe.
+- **⚠ the sibling that makes this worse: `head`/`tail` also cut the parts of a run that carry the
+  verdict.** The pre-commit scope block prints FIRST and git's summary prints LAST, so `| tail -N`
+  keeps the summary and silently drops the advisory (the harness says so explicitly). Same shape:
+  the pipe decides what you are allowed to notice.
+- **relations:** WRONG_CALLS 2026-09-03 (`told-a-peer-their-brief-was-wrong-on-a-tail-manufactured-absence`)
+  · MEMORY [[measurement-discipline-index]] — *a measurement answers the question you ENCODED*, of
+  which this is the crudest possible form: the pipe, not the SQL, was the predicate ·
+  [[a-post-fix-zero-needs-a-demand-control]] — the same night, two `data-fact` probes returned a
+  false absence and WERE caught, because those had a positive control and this query had none
+- **source:** finetuning.uk homepage imagery scoping, `editorial_design_uplift` ↔ `finetuning` lanes
+- **added:** 2026-09-03, editorial_design_uplift lane
