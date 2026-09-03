@@ -316,5 +316,12 @@ control at 2 forms / 40 inputs / 8 scripts.
   short to send.* Worked both ways between two lanes in one afternoon: a database reading became
   "the tool and the prose collide" (a claim about a visitor), and it took a `curl` three hours
   later to retract it.
+- ⚠ **TWO LIVE SESSIONS CARRIED THE NAME `bugs_open/450` on 2026-09-03**, and a peer's message to
+  this lane was delivered to the other one and bounced. **A bare name is not an address when it is
+  ambiguous** — `ListAgents` prints a `[ref]` per row; use it. More generally, addressing "the most
+  recently active session with that name" **actively selects the wrong one when the right one is
+  quiet**, which is the normal state for a lane mid-council or blocked on a permission decision.
+  Full pattern (four instances, three lanes, one day): `016b` §9, *a recency-ordered lookup returns
+  something plausible for the wrong identity*.
 - Timestamps here are **UTC from the database clock**. `agent_error_log` has **no `created_at`** —
   `\d` it before querying.

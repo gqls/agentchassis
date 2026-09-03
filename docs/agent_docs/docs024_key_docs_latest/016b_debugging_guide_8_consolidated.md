@@ -15625,3 +15625,54 @@ underlying detection is working perfectly.
 Cases: `bugs_open/450` (the guard, the receipt, the test that pinned the falsehood), and the
 companion measurement entry above — same lane, same day, same root: **the predicate was right, and
 every sentence wrapped around it was an untested inference.**
+
+### A RECENCY-ORDERED LOOKUP RETURNS SOMETHING PLAUSIBLE FOR THE WRONG IDENTITY, AND NOTHING ERRORS — and it selects wrongly precisely when the right target is quiet (2026-09-03, four instances across three lanes in one day)
+
+`ORDER BY created_at DESC LIMIT 1`, "the most recently active session", "the socket I was just
+talking to", "the commit subject next to this directory". All four are **recency standing in for
+identity**. Each returns a well-formed, plausible answer for something that is not what you asked
+about, and **none of them errors** — so the mistake is invisible from the asking side and is
+caught, if at all, by the wrongly-selected party noticing.
+
+**Four instances, one day, three lanes** — the reason this is a pattern entry and not an anecdote:
+
+1. **`doc_notes … ORDER BY created_at DESC LIMIT 1`** to read a council verdict returns **another
+   lane's verdict** whenever they submitted more recently. The correct read is keyed on the
+   correlation (`bugs_open/450`'s own file warns about this shape for its 090 verdict, which lives
+   in the work item's `result` and not in `doc_notes` at all).
+2. **A reply addressed to "the socket I was most recently corresponding with"** instead of to the
+   lane named *in the filename of the document being answered* — the document said
+   `…_from_the_aiao_lane_…` and the reply went to `apis.uk`.
+3. **A message addressed to "the most recently active session with that name"** — and **two live
+   sessions can carry the same name** (two were named `bugs_open/450` on this date). `ListAgents`
+   prints a `[ref]` on every row for exactly this reason; a bare name is not an address when it is
+   ambiguous.
+4. **A commit subject read next to a directory name**, concluding which agent row a migration
+   anchored on — *"rule 17's anchor confirmed by its OWNER"* beside `bugfix_450_tool_page_shells`
+   read as "the anchor is in the tool prompt". **The migration was never opened**; it names its
+   row in plain SQL on line one.
+
+**THE PROPERTY THAT MAKES IT DANGEROUS, and it is not "sometimes wrong":** the heuristic
+**actively selects the wrong target when the right one is quiet** — and quiet is the normal state
+for a lane mid-council, waiting on a roll, or blocked on a permission decision. So it fails most
+reliably against exactly the lanes whose work is at a delicate point.
+
+**The check, per lookup kind:**
+
+- **Verdicts, artefacts, notes:** key on the **correlation id** or the row's own identifier. Never
+  `ORDER BY … DESC LIMIT 1` to identify *whose* something is — that ordering answers "what is
+  newest", which is a different question that happens to share a shape.
+- **Messages:** address from the **artefact in front of you** (the filename, the `from=` attribute
+  you are replying to), not from memory of who you were last talking to. `ListAgents` first when
+  replying to a *document* rather than to a message, and append the `[ref]` when two rows share a
+  name.
+- **Code and migrations:** open the file. A migration names its target row in its own SQL; a
+  directory name and a commit subject are both *about* the work and neither is *the* work.
+- **Generally:** ask whether your selector encodes **identity** or merely **order**. If it is
+  order, the right answer is only ever a coincidence of timing — and it will stop being right at
+  the moment the correct target goes quiet.
+
+Cases: `bugs_open/450` lane (instances 1–3, two of them its own, both in `WRONG_CALLS.md`),
+`bugs_open/458` / `ai-agent-orchestration` lane (instances 3–4, `2dd007e20`), and the companion
+entries above on measuring a mechanism and on untested inferences — same root, different surface:
+**a plausible answer to a question you did not ask.**
