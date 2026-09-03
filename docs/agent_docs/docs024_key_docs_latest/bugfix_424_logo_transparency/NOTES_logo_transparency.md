@@ -739,3 +739,27 @@ landmine), verified exactly one copy exists at HEAD via `git ls-tree`. `bugs_ope
 This workstream's own docs (`PLAN`, `NOTES` — this file, `RUNBOOK`, `README_where_we_are`,
 `HANDOFF`) stay in `docs024_key_docs_latest/bugfix_424_logo_transparency/` regardless of the bug
 file's directory — the standing five track the WORKSTREAM, not the bug's open/closed status.
+
+## 2026-09-03 — final confirmation: designblog.co.uk independently verified as the cleanest result of the incident
+
+`bugfix 417` eye-checked designblog's final artefact (abstract open-cube with an emerging arrow,
+zero lettering, one composition) and independently re-measured it, going further than this lane's
+own check: **min contrast 5.83:1, median 11.05:1 against the site's confirmed `#ffffff` header —
+every pixel clears the 3:1 WCAG floor**, magenta fringe 0.022% (smaller again than this lane's own
+0.088% reading — method variance, not disagreement). The best-verified result of the whole
+incident on every axis measured.
+
+Paired against `websitepromotion.co.uk` — same code, same day, median contrast 1.01:1, 85.4%
+near-white, fringe 63% of visible pixels — this is now the clearest evidence in `bugs_open/462`
+that the light-mark legibility failure is per-generation variance, not a systematic defect: two
+opposite outcomes from the identical pipeline, hours apart. Neither result implicates this fix —
+transparency mechanics were correct on both.
+
+Also confirmed independently: designblog was genuinely the one site in the estate whose plan still
+carried a `417` licence clause self-contradicting in the same sentence ("abstract letterform...
+forbids lettering... in the same sentence") — so this retry round, run for `424`'s own reasons, was
+also the first real adjudication of that specific `417` mechanism (n=0 → n=1, passed, still not
+statistically bounding but refutes what would have forced a redesign). A genuinely unplanned
+cross-lane benefit of pushing the retry through.
+
+Nothing further expected on this bug. Closed above; this entry is confirmation, not new work.
