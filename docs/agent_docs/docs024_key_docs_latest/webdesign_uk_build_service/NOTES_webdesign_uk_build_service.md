@@ -8229,3 +8229,27 @@ lane's per the ownership ruling.
   `2d1f9c51`'s `retry_after` 11:15:25Z. New guard `bn600im8h` with `'…T12:00:00Z'`, deadline
   printed on arm. Claim-gated monitor `bpphsj4ji` still closes at terminal. LANDMINES addendum under
   the kubectl/git timezone entry; WRONG_CALLS row (clock/zone tally 3→4).
+
+## 2026-09-03 (11:41Z, clock-read) — window guard extended to 13:00Z; exposure measured at the one other build; credits reportedly topped up
+
+- **Position 4 at 11:39Z** (vetcomparison 06:57, finetuning 08:25, ai-agent-orchestration 08:32 ahead;
+  the first two keep being re-served as their retry cycles re-expose older items; ~4 min/run).
+  `2d1f9c51` eligible since 11:15:25Z, unclaimed. The 12:00Z guard would likely have closed the
+  window before its turn → **guard re-armed with deadline 13:00:00Z** (`b5fiis0p1`; deadline
+  printed on arm; the claim-gated monitor still closes at terminal).
+- **Exposure, measured `[11:41Z]`:** across the three open intervals (09:53:26–10:26:44, 10:43:57–
+  11:02:05, 11:02:38→) exactly ONE other `needs_page` completed: `e6fa9979` vetcomparison.uk
+  `directory-index`, 11:15:13→11:19:10Z. Per-slot visible text, archived-before vs current-after:
+  directory-listing 10,754→9,476 (**0.88**), hero 674→600 (**0.89**) — both above the 0.5 default,
+  so **the 0.1 floor changed nothing for it**. Disconfirming result would have been a ratio < 0.5.
+  1 other `needs_page` open fleet-wide now.
+- **Owner topped up the Gemini/AI Studio credits** (relayed by the boxingonline session, his words
+  "it has been topped up"; NOT read at the console). `d71b7877` is `triaged`/attempt 0 with
+  `retry_after` passed, so it runs on boxingonline's next turn without a re-fire — in the same run
+  as the rebuild retry and the 18 assembles (order 8 → 10 → 10 → 80). Proof = a stored PNG with
+  colour type 4/6 or tRNS and a real transparent fraction; a second 429 WITH credit present reads
+  as the wrong-account shape (memory: the fleet key is not on the default console org), not a
+  fresh exhaustion — say so to the owner in those terms rather than asking for a second top-up.
+- The boxingonline session is writing the joint handoff at
+  `site_delivery_and_editor/HANDOFF_2026-09-03_boxingonline_owner_review_continue_here.md`; the
+  09-02b file will point at it at close rather than compete.
