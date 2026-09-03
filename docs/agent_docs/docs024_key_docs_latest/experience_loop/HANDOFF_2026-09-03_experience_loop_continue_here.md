@@ -162,6 +162,29 @@ Constraints you must not lose:
   detector for over-reporting.
 - This is the CONTRIB's open **ask 2 listing half**; boxingonline then designblog is what funded it.
 
+> ## ✅ 5b AND 5b-bis ARE DONE AND LIVE — 2026-09-03 10:55Z (commits `ce8d5096a`, `e535fc4f0`)
+> Both shipped and verified in-cluster; the sections below are kept for the reasoning, not as work.
+> - **SQ-004 control:** an out-of-scope control now reports `n/a (control case not in --site scope)`
+>   instead of FAIL. The NEGATIVE control got the same treatment — out of scope it passed
+>   **vacuously**. Fleet run unchanged (187 instances / 2 mismatches / both PASS).
+> - **SQ-005 rule B:** `repair_not_served` bucket added; such pages no longer count as `ok`.
+>   **Narrowed twice by ground truth** — the first cut flagged **38** and 5 of 5 random curls from
+>   other sites were serving fine. Discriminators: `build_status='needs_rebuild'` is honestly
+>   labelled (13–44 day gaps, previous copy serves), and sub-second gaps are same-transaction noise
+>   (0.047s). Narrowed to `build_status='deployed' AND gap > 1 minute` → **38 → 11**.
+> - **It ships as a TRIAGE list stating its own precision (7/11)**, because ground-truthing the 11
+>   showed the four non-seotools survivors all serve fine and **no DB column separates them** —
+>   the false positives' gaps (2h17m–21h33m) *bracket* the true ones (9h25m–9h45m). Only served
+>   bytes can tell. The receipt says so, and says curl before acting.
+> - **Live:** ConfigMap `experience-promise-check-script-4t95f4hmm7`, `cronjob configured`,
+>   triggered job **exitCode=0**. Fleet: 354 tool pages, **338 fine**, rule B 1, rule C 1,
+>   never-built 4, triage 11.
+> - **Remaining debt from this:** the vetcomparison promise-ledger pass of 09-02 still needs
+>   re-checking against served bytes on the post-701 re-run (§6).
+> - **The lesson, if you build a detector arm:** the first cut "worked" on the motivating case —
+>   the one input guaranteed not to disconfirm it. **Sample your ground truth away from the case
+>   that inspired the rule.** Five random curls cost a minute and changed what shipped.
+
 ### 5b. SQ-004's `--site` control bug — cheap, and it poisons every scoped run until fixed
 
 `scripts/audit-listing-class-promise.py --site <anything-but-leopardess>` prints
