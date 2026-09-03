@@ -60696,3 +60696,121 @@ a-report-is-not-a-measurement.
 
 Family: prior-art-search-goes-stale, a-report-is-not-a-measurement,
 your-measurement-answers-the-question-you-encoded, a-doc-comment-is-not-an-enforcement-mechanism.
+
+## 2026-09-03 — my fleet census processed 1 of 27 sites and printed "FAILED: 0", because `kubectl exec -i` ate the loop's stdin (bugs_open/456 lane)
+
+- **the claim, and how close it came to shipping:** I was censusing all 27 live evidence
+  registers for parse failures — the measurement the whole of `bugs_open/456` rests on. The
+  loop printed `---- parsed OK: 1  FAILED: 0  (of 27, 2026-09-03)`. **A clean fleet.** Had I
+  quoted it, I would have filed "the two broken registers are the only ones, and there are
+  none" off a run that looked at ONE domain.
+- **the mechanism:** `while read -r d; do kubectl -n ai-persona-system exec -i ... ; done <
+  domains.txt`. `kubectl exec -i` forwards **stdin** to the pod, so it consumed the rest of
+  `domains.txt` on the first iteration. The loop then had nothing to read and exited after
+  one pass. Exit status 0, no error, no warning — the failure is INVISIBLE in the output.
+- **why the wrong result looks exactly like the right one:** "0 failures" is the answer you
+  hope for. The count of *successes* was the only tell, and it was sitting right there
+  reading `1` — but `ok`/`FAIL` lines were only printed for failures in that first draft, so
+  there was no per-domain output to notice was missing. **A summary line cannot show you the
+  rows it never saw.**
+- **THE CHECK, and it is one line:** **print the size of the population you actually
+  iterated, and assert it against the size you meant to.** `mapfile -t DOMS < file; echo
+  "domains loaded: ${#DOMS[@]}"` — then a 1 next to an expected 27 is unmissable. The fix for
+  the cause is `< /dev/null` on any `kubectl exec -i` inside a loop, or read the list into an
+  array first and loop over that (I did both).
+- **the general form, which is the reason this is worth an entry:** **any command inside a
+  `while read` loop that consumes stdin silently truncates the loop.** `ssh`, `psql`,
+  `kubectl exec -i`, `docker exec -i`, `ffmpeg` all do it. The loop does not error; it
+  quietly does less work and reports success on the subset.
+- **what caught it:** disbelief at the shape of the answer, not any check. I had already
+  proven two registers broken by hand, so "FAILED: 0" contradicted something I knew. **If the
+  broken sites had happened to sort first, the count would have looked plausible and I would
+  have believed it.** That is luck, not method, which is why the loaded-count assertion is
+  now the standing habit.
+- **related:** MEMORY [[a-post-fix-zero-needs-a-demand-control]] (a zero from a blind
+  instrument reads identically to a zero from a working one) · the `grep-silent-on-non-utf8`
+  and `kcat-publish-silently-drops` entries in LANDMINES (same class: exit 0, no output, less
+  work done than you asked for).
+
+## 2026-09-03 — I composed seven page URLs by hand, got 404 on every one INCLUDING the control, and nearly read it as damage (bugs_open/456 lane)
+
+- **the claim:** re-verifying `bugs_closed/161`'s step 6, I curled
+  `https://gamesdesign.co.uk/<pages.name>/` for all six repaired pages plus the spared one.
+  **All seven returned 404, and so did my invented-URL control.**
+- **why it was wrong:** `pages.name` is not the served path. The real ones are
+  `/guides/skinner-box/index.html`, `/guides/tool-spawn-rate-balancer-guide.html`,
+  `/games/auto-battler/index.html` — three different URL FORMS on one site, none derivable
+  from the name. Read from `pages.url`, all seven serve 200.
+- **the thing that saved me, and it was nearly not enough:** the control 404'd too. Because
+  my invented URL shared the broken form, a uniform 404 was ambiguous between "the pages are
+  gone" and "my URL shape is wrong" — and the alarming reading was the one that fitted the
+  bug I was re-checking. **A control built the same wrong way as the test proves nothing**;
+  this is exactly the gap `bugs_open/387`'s filing had.
+- **THE CHECK:** `scripts/probe-page-url.sh <domain> <page-name>...` exists precisely for
+  this, reads `pages.url` from the DB, and runs both controls (an invented URL that must be
+  non-200, and a known-good sibling that must be 200). **It is the fifth recorded occurrence
+  of this trap** (2026-07-27, 2026-08-09, 2026-08-24, 2026-08-25, and now) — two written
+  warnings and a purpose-built script did not stop it, because I did not think of myself as
+  composing a URL; I thought of myself as visiting a page.
+- **related:** MEMORY [[a-parked-domain-200s-every-path]] · LANDMINES "A page's served URL is
+  NOT derivable from pages.name" · `bugs_open/387`.
+
+## 2026-09-03 — "gofmt ok" printed while the file was unformatted, because my echo did not read the exit code (bugs_open/456 lane)
+
+- **the claim:** I ran `gofmt -l <file>; echo "fmt ok"` and recorded the file as formatted.
+  `gofmt -l` had in fact **printed the filename** — its way of saying "this is NOT formatted"
+  — and my unconditional `echo` sat on the next line saying the opposite.
+- **why it hides:** `gofmt -l` reports by PRINTING A PATH and exits 0 either way, so the
+  signal is the presence of output, not the status. A trailing `echo` in the same command
+  reads, in the transcript, as the verdict on the line above it.
+- **THE CHECK:** label the emptiness, never assert the outcome — `gofmt -l <path>; echo
+  "(empty above = clean)"` — or make it assertable: `test -z "$(gofmt -l <path>)"`. The same
+  applies to every "prints the offenders, exits 0" tool: `git status --short`,
+  `grep -l`, `kubectl get ... --ignore-not-found`.
+- **what caught it:** running `gofmt -l` over the whole directory a minute later and seeing
+  my file listed. It cost nothing this time because the next step compiled anyway — recorded
+  because the *habit* (a cheerful unconditional echo after a quiet-means-pass command) is the
+  same one that produced the census entry above, an hour apart.
+
+## 2026-09-03 — I pinned two baselines and armed a watcher to measure a repair, on a pair that cannot see it: the step under test REGENERATES the artefact (copy_quality_two_stage lane)
+
+**The claim.** That a before/after of `page_components.content_data` would measure whether the
+copy gate repaired the finetuning.uk pages. I acted on it hard: pinned two pre-gate baselines
+(one minutes ahead of a rebuild that would have destroyed it), wrote the surface caveat, settled
+the pass criteria from the code in advance, and armed a monitor with the whole read baked in. All
+of that care went into an instrument that could not answer the question.
+
+**What actually happened.** The rebuild is a **content rebuild** — it re-runs `page-content-writer`,
+which regenerates every section from scratch. So the "before" page and the "after" page share no
+sentence, and the pair measures *old copy vs new copy*, of which the gate's repair is one small
+term. The numbers looked like a triumph — 8 hits down to 1 — and the true figures, read from the
+right place, were 9 down to 0 with the surviving 1 being a shape not yet in the register. Close
+enough to feel confirmed, arrived at by an instrument that would have shown much the same had the
+gate been switched off entirely, because the writer wrote a different page either way.
+
+**What caught it.** Two controls I ran for other reasons. A **volume** control (was the drop just
+less copy? — the page had lost 33.5% of its words) and a **displacement** control (was the one
+survivor the same sentence? — it was not). Neither was aimed at the instrument; both are only
+explicable if the copy had been rewritten wholesale, and that is what exposed the pair as blind.
+
+**The cheap check that would have.** Ask what the step under test DOES to the artefact before
+choosing where to measure. If it regenerates, a before/after of the artefact cannot isolate it,
+and the measurement has to move inside the run — here `generated_content_N` (pre-repair) vs
+`copy_gate_N` (post-repair), same copy, same section, the gate the only difference. **And the
+data already existed**: `copy_gate_N` carries `hits_before`, `hits_after`, `rewritten`,
+`rejected` and `exempt_reasons` — the component under test had been reporting its own before/after
+all along, and I built an external proxy for it without looking.
+
+**Why it is worth a row.** The estate's discipline is "run a control so the result could have come
+out otherwise", and I ran several — the parked-domain control, the demand control, the volume
+control — while the *instrument itself* was never in question. **A control tests whether your
+reading of the instrument is right; it does not test whether the instrument can see the thing.**
+The generalisation is not about copy: any "did X help?" measured across a step that REBUILDS the
+artefact — a re-render, a regeneration, a re-import, a fresh deploy — has the same hole, and the
+fix is always the same, move the measurement inside the run or find the component's own report.
+Note the shape of the near-miss: the wrong instrument agreed with the right one to within one
+hit. **An instrument that cannot see the mechanism can still return the right answer, and then
+you trust it next time.**
+
+Family: a-report-is-not-a-measurement, repro-regenerated-from-source-is-destroyed-by-the-render,
+a-post-fix-zero-needs-a-demand-control, a-bound-added-for-a-reviewer-narrows-your-detector.
