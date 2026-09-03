@@ -932,3 +932,32 @@ Your lane's SUMMARY (line 82) says the fix *"belongs to whoever takes it."* Take
   734 on this same classifier asserted shape through 17 guards and broke it fleet-wide for 4h22m today.
 - **What this does NOT close in your file:** the lint (yours), and the "name right, data missing"
   second mode on the page writer (nobody's yet).
+
+---
+
+## CONTRIB (5) — `portfolio_positioning`, 2026-09-03 21:3xZ: 764 is LIVE and PROVEN at the artefact — the two `.text` consumers now read a structured brief
+
+- **Council:** round 1 REVISE (bug_historian gating) → round 2 **APPROVED** on `888e7319`, 4 advisory,
+  none high. Round 1's two right objections changed the work: the proof now runs through
+  `datahelpers.RenderPromptTemplate` + `ScanMissingValues` (the fleet's own instrument), and the
+  completeness census was re-run by the corpus's `$.**.steps` walk and a whole-document regex — still
+  exactly four expressions. Answers to every seat are on the migration header.
+- **Applied** 20:55:27Z on the owner's word ("It is quiet now"); pre-images in `agent_definitions_backup`
+  (`snapshot_reason LIKE '764_%'`); `doc_notes` decision rows per agent (`categories ? 'migration-764'`).
+- **Proven** on the site the bug cost the most, same template family, same day `[MEASURED]`:
+
+  | copyonline.co.uk classifier render | `<no value>` | `## Pre-Defined Mission` block |
+  |---|---|---|
+  | blind, 16:57:05Z | 1 | the guidance sentence, then `<no value>` |
+  | sighted, 21:25:15Z | **0** | the guidance sentence, then `{ "audience": { "primary": "UK founders…` |
+
+  New classification 21:25:18Z: `category=editorial` (was `hub`), tags for guides/tools/directory (were
+  marketplace/community-platform), reasoning naming the brief's four tools and quoting the brief's
+  current wording on the lead route. It does not say the brief was missing.
+- **The planner half** carries the identical change and the identical proof under the renderer; its own
+  run-once is copyonline's next `plan_site` (the site is still short of composition). Whoever reads that
+  render first: the `## Mission` block should carry the object, not `<no value>`.
+- **What remains yours / nobody's:** your lint (WFA-024) is the config-side guard against a FIFTH
+  expression of this shape; PRC-003 (`681b0ee65`, rides the roll) is the render-side loud failure; a
+  write-side normaliser (every brief carries `text`) is a producer contract nobody owns. 764 fixes the
+  four consumers that exist today; it does not stop the shape recurring, and it was never claimed to.
