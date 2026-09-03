@@ -39,7 +39,9 @@ carry the exact apply time was missing until this afternoon (my lane's omission,
 
 ```sql
 UPDATE sites SET settings = jsonb_set(jsonb_set(jsonb_set(jsonb_set(
-    COALESCE(settings,'{}'::jsonb) || '{"maintenance_profile":{}}'::jsonb,   -- materialise the parent first: jsonb_set no-ops on a missing one
+    -- materialise the parent first, SAFELY: keeps an existing maintenance_profile, creates a missing one
+    jsonb_set(COALESCE(settings,'{}'::jsonb), '{maintenance_profile}',
+              COALESCE(settings->'maintenance_profile','{}'::jsonb), true),
     '{maintenance_profile,growth_posture}', '"hold"'),
     '{maintenance_profile,growth_posture_reason}', to_jsonb('<why>'::text)),
     '{maintenance_profile,growth_posture_set_by}', to_jsonb('portfolio_positioning lane 2026-09-03'::text)),
@@ -47,9 +49,10 @@ UPDATE sites SET settings = jsonb_set(jsonb_set(jsonb_set(jsonb_set(
  WHERE domain = 'copyonline.co.uk';
 ```
 
-⚠ The `||` on the first line is deliberate and only safe on a row whose `maintenance_profile`
-is absent — on a row that already has one it would EMPTY it. copyonline's is absent today
-(`settings = {}`); check before you paste.
+⚠ The inner `jsonb_set(..., '{maintenance_profile}', COALESCE(...))` line is not decoration:
+`jsonb_set` silently no-ops on a missing parent (722's header, 291's before it), and
+copyonline's `settings` is `{}` today. The `COALESCE` keeps an existing profile intact — the
+earlier draft of this note used `||`, which would have EMPTIED one; corrected before commit.
 
 ## One thing for your RUNBOOK's site-row recipe
 

@@ -243,12 +243,13 @@ separate register files).
   reports those as age UNKNOWN, bounded below by the first day it saw them (its own earlier
   rows, anchored on the `HELD <domain> ` line), and self-corrects the day the lane stamps
   the row. **Hand-hold recipe, now three lines longer** (the gamedesign.uk lane's key
-  names, kept): `settings = jsonb_set(jsonb_set(jsonb_set(jsonb_set(COALESCE(settings,'{}'),
+  names, kept): `settings = jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+  jsonb_set(COALESCE(settings,'{}'), '{maintenance_profile}', COALESCE(settings->'maintenance_profile','{}'), true),
   '{maintenance_profile,growth_posture}','"hold"'), '{maintenance_profile,growth_posture_reason}',
   to_jsonb('<why>'::text)), '{maintenance_profile,growth_posture_set_by}', to_jsonb('<lane> <date>'::text)),
-  '{maintenance_profile,growth_posture_set_at}', to_jsonb(now()))` — ⚠ and only if
-  `maintenance_profile` already exists on the row; `jsonb_set` silently no-ops on a missing
-  parent (722's header, 291's before it), so materialise it first on a bare `{}`.
+  '{maintenance_profile,growth_posture_set_at}', to_jsonb(now()))` — the innermost `jsonb_set`
+  materialises the parent SAFELY (keeps an existing `maintenance_profile`, creates a missing
+  one), because `jsonb_set` silently no-ops on a missing parent (722's header, 291's before it).
 - **what:** `sites.settings->'maintenance_profile'->>'growth_posture' = 'hold'` makes the
   two HEADS of the tool growth chain file their items in the RECORD SHAPE — born
   `status='deferred'`, `handler_agent=''` (the promoter excludes a handler-less row from its
