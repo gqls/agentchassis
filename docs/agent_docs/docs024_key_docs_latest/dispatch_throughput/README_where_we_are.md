@@ -606,3 +606,11 @@ Nothing is switched on yet, and I've kept it that way deliberately: the reviewer
 answered before anything is armed. Same question as before — last (95% of budget, my
 conservative default) or first (biggest saving, review absent for roughly the second half of
 each month)? One word decides it.
+
+2026-09-03 night — the second half of the extension is written and tested, and I've stopped
+short of switching it on. It's now a small configuration change inside the review council's
+own workflow (the reviewers' better idea), it's been proven six different ways against the
+live database without changing anything, and it's gone to the reviewers for a final look.
+It stays switched off until you answer the one question that's still open: **should council
+reviews be the LAST thing held back (at 95% of budget — my conservative setting) or the
+FIRST?** One word and I'll apply it. September stands at about $571 of your $2,000.

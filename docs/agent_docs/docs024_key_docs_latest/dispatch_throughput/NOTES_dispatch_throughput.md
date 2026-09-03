@@ -1870,3 +1870,39 @@ design for the better, two dissolve under it, and every "missing" was a check I 
 `complete_withheld` (complete_workflow, message: *withheld by the spend governor at level N —
 not queued, do not retry*). Plus the drop, the parity check, the runbook line. **Not armed until
 the owner answers the level question.** This NOTES commit carries `Council-Reviewed:`.
+
+### 2026-09-03 18:4x–19:0xZ — D4b STAGE B written as the guardian's config-only design, proven six ways, HELD (mig 752), submitted (corr c400d333)
+
+Built exactly as RFC_065 §4 describes — four steps prepended to council-gate's own workflow —
+after reading the live row's anchors `[MEASURED 2026-09-03]`: version 2, whole-workflow md5
+`8dd74a5b042a7376a1e26fbf5db6ba00`, start_step `load_schema_hint`, 44 steps, none of the four
+new names present, exactly one active row, `snapshot_agent(type, reason)`. Two engine facts
+checked before writing, not assumed: **`error_step` resolves from the STEP-level field first,
+then config** (`coordinator.go:3672–3675`) — so the gate's fail-open is a step field; and the
+`$ctx.` namespace's documented usage is `params: ['$ctx.correlation_id']`, with an unknown key
+being an ERROR (which the step-level error_step turns into "run the review", never "drop it").
+
+**Proofs, all against the live DB, all rolled back, live row byte-untouched after each:**
+- apply dry-run → `752 OK` (48 steps, load_schema_hint untouched, gate SQL flips at a forced
+  L3 with the bound correlation in the body, fail-open set, fleet control 0, table dropped);
+- chained apply→rollback → `752 ROLLBACK OK … workflow md5 byte-identical to pre-752`;
+- **three mutations, each caught at its own arm**: then_step retargeted → `route_spend_governor
+  is mis-wired`; error_step removed → `gate_spend_governor is mis-wired`; `admitted` hardcoded
+  true → `at L3 the gate should refuse and say so; got admitted=t level=3 …`;
+- the **daily VERIFY** (guardian's 099 hazard, six arms) **FAILS BY DESIGN on today's row**
+  (`1/6: start_step is load_schema_hint … the council is UNGOVERNED`) and **PASSES inside a
+  transaction where 752 is applied** (`class=research, admitted now=t, level=0`). Arm 6 is the
+  one worth remembering: a deleted map row makes a live gate a silent no-op, because unmapped =
+  admitted.
+
+**HELD, deliberately.** Applying is arming — at the 'research' seed, council runs are refused
+at shed level 3. The architecture seat and this lane both said: not until the owner confirms the
+level. Asked three times today; unanswered. Committed `HOLD` + `ROLLBACK` + `VERIFY`; submitted
+the lighter round editquality asked for — **corr `c400d333-b117-4861-93bf-cb8dc71504fe`**, six
+edits with every guard and verify pasted verbatim and every proof output in `grounded_in`.
+Stated plainly in the submission what the round CANNOT see: the `$ctx` binding and the
+conditional's evaluation are runtime Go; the first live run is the canary and an induced L3 is
+the end-to-end proof — both in the RUNBOOK's apply procedure.
+
+Governor at close of this entry: enabled, level 0, **~$571 MTD** (28.5%), heartbeat live,
+alarm still dead (459). Nothing sheds council work yet.

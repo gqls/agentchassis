@@ -551,3 +551,33 @@ SELECT proname FROM pg_proc WHERE proname LIKE 'governor_admits%';   -- expect e
 ```
 ⚠ `--record-only` takes `--note`, not `--notes` (silent "unknown argument", nothing recorded).
 ⚠ `date -d '2026-09-03 17:12:21'` parses LOCAL time — pass `+00` or `Z`, or your "minutes since" is off by the offset.
+
+### D4b stage B — mig 752 (HELD): apply procedure, the daily check, the induced-L3 probe (added 2026-09-03)
+
+**Preconditions, both owner-shaped:** (1) the owner has confirmed council-gate's shed LEVEL
+(`UPDATE governor_agent_class_map SET class='<maintenance|build|research>' WHERE agent_type='council-gate';`
+— 'research' = L3 is the seed); (2) council corr `c400d333` has returned APPROVED (or its REVISE
+is acted on). Applying IS arming.
+
+```bash
+# 1. apply (refusal-first on the live row's whole-workflow md5 8dd74a5b…; snapshot; verify EXECUTEs the gate at L0 and a forced L3)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/752_d4b_governor_council_gate_stage_b_HOLD.sql
+# 2. the daily check must now PASS (it FAILS BY DESIGN before apply — do not widen it)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/752_d4b_governor_council_gate_stage_b_VERIFY.sql
+# 3. drop the suffix + record in ONE motion (bugs_closed/150): git mv …_HOLD.sql …stage_b.sql; both paths on the commit; then
+./scripts/migration/run-migrations.sh --record-only docs/agent_docs/sql_for_agents/752_d4b_governor_council_gate_stage_b.sql --note "…"   # --note, NOT --notes
+# 4. CANARY: the next real council submission must route gate -> load_schema_hint and run as before
+#    (a $ctx binding failure fails OPEN via error_step — so a wrong key looks like 'ran normally'; check the orchestration's step trail for gate_spend_governor -> route_spend_governor -> load_schema_hint)
+# 5. END-TO-END PROOF, exactly as D4's induced shed: drop the budget so shed_level reaches council-gate's class threshold,
+#    submit a probe (DRY_RUN=0 097 with a trivial in-scope plan), then read:
+#      SELECT current_step, status FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '<probe corr>';   -- expect complete_withheld / COMPLETED
+#      SELECT created_at, left(body,160) FROM doc_notes WHERE categories ? 'withheld-run' ORDER BY created_at DESC LIMIT 3;
+#    restore the budget; wait a full ~250 s cadence; confirm the next submission runs.
+```
+**Daily habit gains a fourth line:** 584 VERIFY · 657 VERIFY · governor wiring check · **752 VERIFY**
+(6 arms; arm 6 catches a deleted `governor_agent_class_map` row, which would make the live gate a
+silent no-op because unmapped = admitted).
+**Rollback:** `752_..._HOLD_ROLLBACK.sql` — refuses unless the row is in 752's shape; restores
+`load_schema_hint` / 44 steps BYTE-IDENTICAL (md5 asserted) and recreates `governor_withheld_runs`.

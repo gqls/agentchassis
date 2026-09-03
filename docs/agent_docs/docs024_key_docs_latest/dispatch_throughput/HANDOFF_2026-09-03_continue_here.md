@@ -181,3 +181,14 @@ verdict · (3) the two owner questions · (4) 459 fix + round · (5) option C ·
 **Revised NEXT:** (1) owner's level answer · (2) stage B config migration per RFC_065 §4, its
 round, then apply · (3) `bugs_open/459` fix + round · (4) option C · (5) standing queue. The
 mortgagecalculator CONTRIB (ordering) stays parked against the no-reorder ruling's trigger.
+
+## UPDATE 2026-09-03 ~19:0xZ — stage B WRITTEN + PROVEN + HELD (mig 752); round c400d333 in flight
+
+- **752 HOLD / ROLLBACK / VERIFY committed; NOT applied.** Six proofs in NOTES (18:4x entry).
+- **Council corr `c400d333-b117-4861-93bf-cb8dc71504fe`** — the lighter round. Watcher armed.
+- **APPLY GATE = two owner facts:** the LEVEL answer (still open) AND an APPROVED verdict.
+  Procedure: RUNBOOK §"D4b stage B — mig 752". After apply: daily 752 VERIFY joins the habit;
+  first live submission is the canary; an induced L3 probe is the end-to-end proof.
+- If the verdict is REVISE, revise 752 and resubmit with `RESUBMIT_CORR=c400d333…`.
+**NEXT:** (1) c400d333 verdict · (2) owner's level → apply 752 → suffix drop + record → canary
+→ induced-L3 proof · (3) `bugs_open/459` · (4) option C · (5) standing queue.
