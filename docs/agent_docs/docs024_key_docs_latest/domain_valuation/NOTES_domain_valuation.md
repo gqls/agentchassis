@@ -262,3 +262,34 @@ domains still listed there were probably lost."*
   is "all PORTFOLIO domains", and the fence + withdrawal list are the
   definition of the difference. Flagged to the copy-quality lane, whose D4
   fail-closed rule is the right protection.
+
+## 2026-09-03 (late) — estate grew 78 in a day; the wrong-account listings located
+
+- **Owner supplied 50 .co.uk** to add. **36 already held** (Nominet walk);
+  14 new, all registry-verified as his (DESIGNCONSULT tag), 4 in the
+  post-registration add period, 2 registered that day.
+- **WRONG-ACCOUNT LISTINGS LOCATED = SPACESHIP** (`LISTING_ACCOUNT_2026-09-03_
+  finding.md`). 44/50 delegate to NamePros NS (`ns1.namepros-dns.com` +
+  `ns2.<random>.ns.namepros-dns.is`), 2 to `launch*.spaceship.net`; the lander
+  reads *"for sale on Spaceship"*, **$4,999**. **Absent from the SellerHub
+  export of the account we hold a key for** — and that export carries 795 rows
+  for domains registered elsewhere, so Nominet registration does NOT explain the
+  absence. Dynadot ruled out at the API level (no seller/payee field exists in
+  their listing schema at all). ⚠ **The $4,999 is the owner's OWN standard band**
+  (250 of his 419 Afternic buy-now asks are that identical figure), so whoever
+  listed them used his pricing convention — consistent with him or an agent,
+  inconsistent with a stranger. Payout fields are dashboard-only everywhere.
+  **THOSE 50 ARE FROZEN — no pricing, no re-listing, until he names the account.**
+- **Acquisition costs: ASKED AND ANSWERED — unavailable** (*"I can't readily
+  gather the prices I paid"*). Three mitigations recorded in
+  `OWNER_STATED_PRICES.md` that need no such data (floor already covers a
+  hand-reg many times; FLAG rather than price anything SHAPED like a bought
+  name; sell in tranches so the first is a measurement). Accepted bounded risk.
+- **Estate 2,945 → 3,023 owned in ONE DAY** (+14 .co.uk, +19 Dynadot .com,
+  +44 Spaceship .com, +enables.uk). The Spaceship 44 are European-language
+  generics unlike that account's UK-trade-keyword norm — every technical signal
+  says bulk acquisition, flagged for owner confirmation. **This is the
+  re-pull-at-finalise rule earning itself: a 2.6% estate change in a day.**
+- **Afternic: the owner removed all 6 dead listings himself** in the dashboard;
+  the afternic lane has no fresh export to confirm, so they are "gone, unconfirmed".
+  He re-registered `enables.uk` (distinct from the lost `enables.co.uk`) — added.
