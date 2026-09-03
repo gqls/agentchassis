@@ -2,11 +2,18 @@
 --
 -- improvement_loop lane. Evidence: bugs_open/447 §7.
 --
--- ⚠ _HOLD SUFFIX, DELIBERATE. Not applied, and held OUT of the migration runner
--- (SIDECAR_RE excludes _HOLD; it still lists it), because `run-migrations.sh --apply`
--- takes EVERY pending file and this must not go live before its verdict is read.
--- Drop the suffix ONLY after reading an APPROVED verdict on trail
--- 070347dd-c410-4cf2-b5e6-8c87e568a792.
+-- ✅ APPLIED 2026-09-03 09:2xZ by hand (the _HOLD suffix is dropped as the record of
+-- application, per the naming landmine — one file, one history). Council trail
+-- 070347dd-c410-4cf2-b5e6-8c87e568a792: APPROVED at round 5, after four REVISE rounds
+-- that each found something real — a verify block that could not catch its own defect
+-- class, a false coverage claim that invalidated the column-default design, an
+-- overclaim about BEFORE INSERT under an UPSERT, and a verify arm that wrote to a
+-- production row.
+--
+-- VERIFIED AT THE ARTEFACT, not at this file's own NOTICE: pg_trigger shows
+-- trg_sites_born_holding_growth enabled; exactly 1 site carries a posture
+-- (gamedesign.uk, set by hand 2026-09-02, i.e. no existing row moved); 39 active sites
+-- unchanged.
 --
 -- WHAT THE OWNER DECIDED, narrowly: a brand-new site should be born with
 -- growth_posture='hold' and released by a human when it is ready. He was asked in
