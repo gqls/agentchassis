@@ -73,8 +73,12 @@ first-hand, not taken on report:**
   argument, demonstrated a third time.
 
 **One enumerated exception survives the close**: `page_components` rows with `component_id
-NULL` structurally miss `resolveComponent` and take a carry branch forever — 8 rows / 3 pages,
-filed as `bugs_open/457`, someone else's bug.
+NULL` AND no `content_components` match on `name` OR `function` structurally miss
+`resolveComponent` and take a carry branch forever. `[MEASURED 2026-09-03, verified
+independently at the source]` **2 rows on 2 pages** (`finetuning.uk /blog`,
+`gamesdesign.co.uk /game-jelly-invaders`) — smaller than first reported (8/3, wrongly
+attributed to `bugs_open/457`) because `resolveComponent` falls through to a name-OR-function
+index that a naive name-only screen overcounts. Neither row is `457`'s.
 
 **A new LANDMINES class was found and documented** during the close itself: a THIRD PARTY's
 ordinary, correctly-formed `git commit -- <path>` was turned into a silent deletion by a
@@ -113,6 +117,11 @@ traps, below).
   succeeded where `curl` failed on the same resolvable-elsewhere URL.
 - **A guard whose harm is masked by an unrelated defect looks free until the defect is fixed.**
   The general hazard both lanes converged on today.
+- **A `[MEASURED]` marker on a number you did not measure yourself reads as first-hand and is
+  not.** A figure inherited from another bug's census and re-stamped with today's date and
+  marker, twice removed from this session's own error class — caught by the ORIGINATOR checking
+  their own claim at the source after a third lane challenged it, corrected here a second time
+  by independent re-verification rather than accepted on report.
 
 ## 4. Where everything lives
 
