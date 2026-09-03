@@ -3708,6 +3708,16 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("pages must be non-empty array")
 	}
 
+	// The planner's OWN output, snapshotted before any pass below can touch it
+	// (bugs_open/428, recommended_type_reconciliation.go). Taken here rather
+	// than derived later because every pass from this point mutates the page
+	// maps in place, so there is no way to recover what the planner proposed
+	// once they have run — which is exactly why a type the planner planned and
+	// this action then deleted has been indistinguishable from one the planner
+	// never proposed. Measured on gamedesign.uk 2026-09-03: 9 pages in, 4 out,
+	// five blog-posts gone, nothing durable written.
+	proposedPageViews := planPageViewsOf(pages)
+
 	// ── Deterministic convergence with realised pages ───────────────────────
 	// existing_pages is loaded by the load_existing_pages workflow step and
 	// carries site_has_no_current_plan and build_status per page. reconcilePlanWithRealised
@@ -4123,6 +4133,14 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	// with TestListingGateFirstWouldKeepTheEmptyHub as the control that stops that
 	// test passing for any order. (Both were written AFTER this comment first
 	// claimed them — the council's guardian seat caught the claim, corr 4e7497ed.)
+	// Snapshot 2 of 3 (bugs_open/428): the page set as it stands after this
+	// action's own identity, truncation and component passes and BEFORE either
+	// source gate. Diffing it against the planner's proposal isolates what THIS
+	// action removed; diffing it against the final set isolates what the gates
+	// held. Without the split, a gate's deliberate, already-recorded hold and a
+	// silent identity-collision drop are the same evidence.
+	preGatePageViews := planPageViewsOf(pages)
+
 	if enforce, _ := config["enforce_tool_sources"].(bool); enforce {
 		pages = enforceToolItemSources(ctx, params, pages, existingPages)
 		plan["pages"] = pages
@@ -4138,6 +4156,14 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		pages = enforceListingItemSources(ctx, params, pages, existingPages)
 		plan["pages"] = pages
 	}
+
+	// ── Every strategy-recommended page_type is accounted for (bugs_open/428) ─
+	// Record-only and fail-open: it changes no page, adds none, drops none, and
+	// cannot fail this step. Runs LAST so `pages` is what the plan writer will
+	// receive. Unconditional by design — no tenth optional config key on an
+	// action that has no ActionInputSpec — with a fleet-wide env kill switch;
+	// see the file header for why that is the arming choice here.
+	reconcileRecommendedPageTypes(ctx, params, plan, proposedPageViews, preGatePageViews, planPageViewsOf(pages))
 
 	params.Logger.Info("ValidateSitePlanAction: Complete", zap.Int("pages", len(pages)))
 	return plan, nil

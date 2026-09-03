@@ -396,5 +396,45 @@
   "owner_lane": "bugfix_450_tool_page_shells",
   "why": "The durable record that validate_site_plan's TOOL-source gate (opt-in key enforce_tool_sources, sibling of enforce_listing_sources) HELD a tool page out of a plan because no active component_level='tool' component exists on the site under any of the page's candidate function names. Without it, 'the gate held three tool pages' and 'the planner proposed no tool pages' are the same evidence. bugs_open/450: the planner names tool pages BEFORE their tools exist — tools arrive from the ~3h design rotation, later, under names the planner never saw (seotools.co.uk: 0 of 7 planned names matched what tool-deployer built) — so the planned page is one nothing will ever fill, and generic producers publish prose about the missing tool at a URL that serves 200. The ACTIONABLE artefact is the paired capability_gap work item (item_key capability_gap:tool:<page_name>, spec.builder_needed='tool-builder'), which deliberately co-dedups with builderForPageType's own unavailable-builder arm so one page yields one gap. This row is the gate's audit trail; losing one costs nothing operational.",
   "note": "One row per held page per plan run. ⚠ A hold is NOT a defect report about the tool pipeline: holding a planner tool stub starves nothing, because tool-deployer creates its own page rows under its own names and never reads planned tool pages (bugs_open/450 §7, measured at the rows 2026-09-03) — that measurement is the gate's licence to exist, and if it is ever falsified this gate is the thing to switch off. Sibling code LISTING_PAGE_HELD_NO_ITEM_SOURCE; sibling guard PBP-053, which stops such a page being FILLED where this stops it being PLANNED."
+ },
+ "RECOMMENDED_TYPE_RECONCILED": {
+  "disposition": "instrumented",
+  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+  "reader_sink": "agent_error_log",
+  "owner_lane": "bugfix_428_planner_deferral",
+  "why": "The row EVERY reconciled plan writes, clean ones included — the always-on audit half of bugs_open/428's strategy-to-plan check. Without it, 'every strategy-recommended page_type reached the plan' and 'the reconciliation never ran' are the same evidence, which is the exact failure the check exists to remove, reproduced one level up. Context carries recommended_types, omitted_count, by_class and family_substitutions, so a fleet census of how often the planner diverges from strategy is one query rather than a re-derivation from llm_call_log.",
+  "note": "info severity, sanctioned by agenterrors.Finding's own contract for always-written audit rows. One row per plan_site validation on a site whose strategy names recommended_page_types; sites with no strategy aspect write nothing at all and are deliberately NOT counted as reconciled."
+ },
+ "RECOMMENDED_TYPE_DROPPED_IN_VALIDATION": {
+  "disposition": "human-evidence",
+  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+  "reader_sink": "agent_error_log",
+  "owner_lane": "bugfix_428_planner_deferral",
+  "why": "The planner PLANNED pages of a strategy-recommended page_type and ValidateSitePlanAction's own identity/truncation passes deleted them before any source gate ran. Measured on gamedesign.uk 2026-09-03 (orchestration correlation 9fe9660e-7272-4f51-b968-2ff769738086): 9 pages in, 4 out, five blog-post pages gone, capability_gaps_emitted 0, no agent_error_log row, no error — the count landed in counts.DroppedCollision, which is logged and nowhere else. This code exists so that a platform defect on the plan and a planner decision stop producing identical evidence. The ACTIONABLE artefact is the paired parked capability_gap (item_key recommended_type_gap:<page_type>, spec.builder_needed='plan_page_identity').",
+  "note": "Severity warning. Context carries proposed_pages — the page names that carried the type before it was removed — which is what makes the drop traceable to a pass. This code says WHICH STAGE, never WHICH PASS: attributing it to Pass C specifically is the fixing lane's job, not this detector's."
+ },
+ "RECOMMENDED_TYPE_HELD_BY_GATE": {
+  "disposition": "human-evidence",
+  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+  "reader_sink": "agent_error_log",
+  "owner_lane": "bugfix_428_planner_deferral",
+  "why": "A strategy-recommended page_type reached the source gates (bugs_open/444's listing arm, bugs_open/450's tool arm) and was held there. Recorded so the reconciliation's own census is complete, and DELIBERATELY files no work item: the gate has already filed a capability_gap naming the enablement, and a second row for one fact is the duplicate-producer shape this estate keeps paying for.",
+  "note": "info severity — this is not a defect report, it is the reconciliation saying 'accounted for, by a mechanism that already recorded it'. Pinned by TestHeldByGateIsRecordedButFilesNoSecondItem, whose mutation (actionable() always true) is what stops the no-second-item rule being quietly dropped."
+ },
+ "RECOMMENDED_TYPE_PLANNER_OMITTED": {
+  "disposition": "human-evidence",
+  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+  "reader_sink": "agent_error_log",
+  "owner_lane": "bugfix_428_planner_deferral",
+  "why": "A strategy-recommended page_type is absent from the planner's own output AND no running producer can supply it. This is bugs_open/428's residual made checkable: migration 687 obliged the planner to name each omitted type with a per-type reason and it complied, but the reason it gave was false as applied — gamedesign.uk deferred blog-post to 'the blog infrastructure', i.e. blog-content-planner, which has not run since 2026-04-24 (bugs_open/460). The obligation was met into a channel nothing read. This row is that check's output. ACTIONABLE artefact: the paired parked capability_gap (item_key recommended_type_gap:<page_type>).",
+  "note": "Severity warning. Context carries claimed_producer (the planner's own structured page_type_decisions claim, when present), registered_producer, producer_verdict and liveness_tracking_since. The tracking window travels with every verdict because agent_run_stats is FORWARD-ONLY: 'never_since_tracking' cannot support an all-history 'never ran'."
+ },
+ "RECOMMENDED_TYPE_DEFERRED_TO_LIVE_PRODUCER": {
+  "disposition": "instrumented",
+  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+  "reader_sink": "agent_error_log",
+  "owner_lane": "bugfix_428_planner_deferral",
+  "why": "A strategy-recommended page_type is absent from the plan and the planner deferred it to a producer this estate can see RUNNING — a sound decision, recorded rather than flagged. THIS CODE IS THE DISCRIMINATING CONTROL for RECOMMENDED_TYPE_PLANNER_OMITTED: without it the check would fire on every deferral, including the correct ones, and a queue that cries wolf is a queue nobody reads. The planner keeps the licensed final say migration 687 deliberately preserved; what is checked is only whether the mechanism it named is running.",
+  "note": "info severity, no work item filed. Pinned by TestDeferralToLiveProducerFilesNoItem, which stays GREEN under the Live()-always-true mutation that kills its dormant-producer twin — that asymmetry is what makes the pair discriminating rather than two assertions about one branch."
  }
 }
