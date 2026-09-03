@@ -111,28 +111,38 @@ methods agree.
 
 ## What's left before this lane can close
 
-1. ~~Read the three reset runs at the artefact~~ — **DONE.** All three read at the served bytes;
-   readings sent to `site_delivery_and_editor` for `seotools.co.uk` and `gamedesign.uk`.
-2. **Resolve decision #3** (`designblog.co.uk` — reset again or leave it) — the one genuinely open
-   item.
-3. **Date-stamp the threshold constants** (`inner=48`, `outer=110`, `minBorderKeyed=0.95`,
-   `dynamic_adapter.go`) from this batch of real runs — three more real generations now exist
-   beyond the original five (`seotools` ×2, `gamedesign` ×3 counting the billing-blocked ones),
-   consistently landing well clear of the thresholds on success and well short on failure. Not
-   done this session; currently still `[UNMEASURED]` as constants despite the extra evidence.
-4. **Look at the despill fringe** — now three data points (`websitepromotion` 0.69%, `seotools`
-   0.085%, `gamedesign` 0.174%), all small, none zero. Recorded, not fixed, and probably low
-   priority given how small it is in practice.
+1. ~~Read the three reset runs at the artefact~~ — **DONE.**
+2. **`designblog.co.uk` retry round 2 IN PROGRESS** — owner authorised, reset with a fresh
+   3-attempt budget at `12:50:50 UTC`, currently running. This is the last genuinely open action
+   item; check "Live status" (below, once updated) or `NOTES` for the outcome.
+3. ~~Date-stamp the threshold constants~~ — **EFFECTIVELY SETTLED, not by tuning.** Independent
+   read by the `bugfix 417` lane across every run so far: every refusal is `border_keyed` exactly
+   `0.000`, a clean bimodal split with nothing landing near `0.95` on either side. **The threshold
+   is not the binding factor — the model either keys the ground correctly or does not key it at
+   all, and retuning `inner`/`outer` would not have saved any observed failure.** Retry budget
+   (attempts), not the constants, is the real lever — feeds decision #3-below directly. Constants
+   themselves still carry `[UNMEASURED]` in the code comment; a future session could update that
+   comment to reflect this finding, but there is no evidence left to gather by regenerating more.
+4. ~~Look at the despill fringe~~ — **EFFECTIVELY CLOSED, not by a fix.** Measured by the `417`
+   lane: 0.01%–0.05% magenta-ish pixels on post-fix successes vs 0.62% on the pre-fix good result —
+   an order of magnitude improvement, "diagnosed and not worth fixing" at this size. Their
+   independent read.
 5. **Confirm `bugs_open/421`'s status independently** — this fix does not verify single-composition
    and must not be treated as having cleared it.
-6. **Consider whether `bugs_open/455` (the billing outage) warrants a prevention conversation** —
+6. **Decide whether the retry-ladder policy (original decision #3) needs revisiting now that
+   `bugs_open/462` exists** (mark legibility, formally filed, owner-approved). Its own fix
+   candidate 1 is a second fail-closed statistic on the SAME retry ladder as this fix's
+   `BorderKeyed` guard — a real interaction the `417` lane flagged, not a hypothetical: two
+   fail-closed checks sharing one exhausting ladder compounds the exhaustion risk. Worth deciding
+   together rather than each lane tuning its own ladder interaction independently.
+7. **Consider whether `bugs_open/455` (the billing outage) warrants a prevention conversation** —
    third instance of provider-credit/quota exhaustion counting `202` and `243`, all resolved
    same-day by adding credit, none of them prevented from recurring. Not this lane's call to make
    unilaterally, just worth surfacing given the pattern.
-7. **Low-priority, not blocking**: whether `platform/colour.ParseHex` was the best-fit existing
+8. **Low-priority, not blocking**: whether `platform/colour.ParseHex` was the best-fit existing
    helper (a council aside, premise didn't hold); clearer `grounded_in` citations next council
    submission.
-8. **Separately filed, unowned**: `bugs_open/433` (mime_type gap + the JPEG-under-a-.png-name
+9. **Separately filed, unowned**: `bugs_open/433` (mime_type gap + the JPEG-under-a-.png-name
    finding) — not blocking this lane.
 
 ## Where everything lives
