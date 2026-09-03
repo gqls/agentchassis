@@ -956,3 +956,43 @@ silence prove itself.**
 
 **Where the site stands:** still four pages, still no articles. Nothing further this lane can do
 about the articles until 463 is fixed — a fourth re-plan would be deleted by the same pass.
+
+## 2026-09-03, ~16:30Z — the contact address took THREE surfaces, and my own census said "done" twice while the live page was wrong
+
+**Verified at the served bytes, not at the status.** All three `section_edit` items completed
+15:32–15:36Z, and the stored `content_data` read **3 new / 0 old**. The live page still served the
+OLD address — `curl` 16:2xZ: **3 occurrences on contact.html, 2 on about.html**.
+
+**Why my check said done when it wasn't: I filtered on the column I was fixing.** The census was
+`pc.content_data::text LIKE '%contactforsales%'`. Two surfaces are invisible to that predicate:
+- `contact-form` carries the address ONLY in `rendered_html` (nothing in `content_data`);
+- the **site footer is not a page component at all** — it is chrome (`site_components`, slot
+  `footer`), so no query over `page_components` can ever see it.
+
+**The real source of truth for chrome is `sites.email`** — the footer renders `ctx.Email`
+(`component_library.go:1989`, `<div class="footer-contact">`), loaded from `sites.email` at
+`rerender_pages_actions.go:796`. **No spec update touches that column.** `SEED_2026-09-03c`
+updated `submission.email` and `briefing.contact.contact_email`; the `sites` row was untouched and
+still held the old address.
+
+**The tell that should have caught it sooner:** the footer chrome row was re-rendered at
+**15:02:39Z — AFTER my 11:42Z spec change — and still emitted the old address.** A *fresh* render
+carrying a *stale* value means the renderer is not reading the thing you changed. That is a
+stronger signal than "it hasn't re-rendered yet", and it points at the source, not the schedule.
+
+**Fixed by `SEED_2026-09-03f`:** `sites.email` corrected (guarded on the old value), plus four
+`page_rerender` items. One value feeds BOTH remaining symptoms (footer chrome and the
+contact-form's `rendered_html`, which also renders `ctx.Email` and holds nothing in
+`content_data`), so it is one fix, not two.
+
+⚠ **The rerenders carry `reason='section_data_resolved'` AND `spec.page_name`, both deliberately.**
+A rerender with NO reason takes **assemble mode** and re-ships stored bytes — which is exactly what
+the four completed `_assemble` rerenders on this site did, and why they changed nothing. And a
+REASONED rerender **without `spec.page_name`** makes `save_page_sections` skip with "no page name",
+report success, and deploy stale sections (LANDMINES). Both traps are live on this path.
+
+**THE LESSON, and it is the same one three times today:** *my measurement answered the question I
+encoded.* Filtering on `content_data` when the address also lives in `rendered_html` and in chrome
+is the same error as filtering on `url NOT LIKE '%/index.html'` when the children use the directory
+form, and the same as reading `site_plan_pages` when the drop happened at a step boundary.
+**Only the served bytes are ground truth for "is this fixed".** Verify there, then work backwards.
