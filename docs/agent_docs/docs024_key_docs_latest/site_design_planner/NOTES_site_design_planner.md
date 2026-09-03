@@ -685,3 +685,29 @@ plainly, and forwarded the finding directly to the live `bugs_open/427`
 session rather than leaving it to be found — it reads as the same shape as
 their own `428` (the planner inventing authority to decline a page type),
 just a different page type. Not investigated further here.
+
+## 2026-09-03 — discriminator read: `template_changed` does NOT re-resolve query-backed sections
+
+`vetcomparison`'s clean experiment answered the guardian's council advisory
+from earlier: the claimed-chip rerender completed, redeployed, bytes changed
+— and served **0 chips**, alphabetical order, 60 unclaimed. The NEW template
+rendered over the OLD, build-time-resolved snapshot. **Confirmed: a
+`page_rerender` with `reason='template_changed'` regenerates a page's HTML
+from its component templates, but a QUERY-BACKED section (`directory-listing`
+resolves `query.business_directory` at BUILD time into stored `content_data`)
+keeps whatever it resolved at the last real build — a template edit alone
+cannot refresh the underlying data, only how it's painted.** My template fix
+itself is correct and shipped fine; the visible fix needs the OTHER route
+(`needs_page` → `directory-build-handler`, which re-resolves at build), now
+in flight on their side.
+
+**Worth carrying here, not just in their lane**, because `directory-listing`
+now exists on multiple sites and any future site-design-planner-adjacent
+component edit could hit the identical trap: **before recommending a
+`template_changed` rerender for a component fix, check whether the
+component's template reads from a `query.*` source — if it does, the reason
+you want is whatever triggers a real rebuild/resolve, not a template-only
+rerender, however correct the template edit itself is.** This is the query-
+backed-section analogue of the earlier lesson in this file about the AMBER
+fallback needing all instances to REBUILD, not just re-render — same shape,
+one level more specific.
