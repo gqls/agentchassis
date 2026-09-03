@@ -302,3 +302,44 @@ five live customer sites, and the usual verification **cannot see the result** �
 reads the server HTML, which this very script replaces on load. Every check available to an
 automated apply would pass on a page that renders empty. My own LANDMINES entry says so, which
 is exactly the kind of moment an entry is for. Council `17a61f16-852d-47bd-947f-b0046e565abf`.
+
+## 2026-09-03 ~20:00Z — the council APPROVED the version with the regression, and that is my fault rather than the gate's
+
+Timeline, which is the point:
+
+```
+18:02:32  758 round 1 submitted
+18:06:57  council_report — APPROVED
+~18:30    components lane, on review, finds a LIVE REGRESSION in the approved version
+18:13:54  round 2 submitted with the fix
+```
+
+The approved plan would have turned the "More insights" footer link into `href="#"` on every
+site with a news index. Five seats read it and none saw it.
+
+**That is not a failure of the gate, and it would be a comfortable mistake to record it as
+one.** The council reviews a plan **against the evidence the plan supplies**. My submission's
+sketch showed `safeHref(item.url)` and `safeHref(data.insights_url)` side by side — the defect
+is visible there *in principle* — but nothing in my rationale said what shape `insights_url`
+has. Without knowing it is filled from `pages.url` and is `/news.html` on every live site, the
+two call sites look identical and the guard looks correct. **The gate cannot discover evidence
+you did not give it.**
+
+The components lane found it because they **ran the query**. They read
+`render_news_section_action.go:213-218`, then went and looked at the live values. That is not a
+better review process, it is a different one: seats reason over a submission, a peer reasons
+over the system.
+
+**What I actually owe from this, and it is a submission-writing rule rather than a code rule:**
+when a plan applies ONE transform to TWO inputs, the submission must state the **shape and
+provenance of each input**, not just name them. "item.url and data.insights_url" is a list.
+"item.url is third-party and absolute; insights_url is internal and site-relative, from
+pages.url, `/news.html` on every live site" is a submission a seat could have objected to.
+
+Round 2 states it, and states this failure, in the rationale.
+
+**The wider version, which is worth carrying past this lane:** an APPROVED verdict certifies
+that the reviewers found no objection in what you showed them. It is not a second opinion on
+the system. My round-1 risks block even named the wrong risk — I flagged "a typo in a class
+name would silently unstyle the list" as the thing needing a reviewer, the class names were
+clean, and the defect was elsewhere entirely.
