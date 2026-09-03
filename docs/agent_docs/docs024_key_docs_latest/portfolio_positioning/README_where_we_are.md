@@ -1661,3 +1661,49 @@ strategy despite the brief problem, and the build has quietly run out of road on
 plan. I am not going to prod it, because prodding a running build is the thing you asked me not to do
 and because I have already been wrong once today about how much intervention this needed. But if it is
 still sitting like this tomorrow, restarting the composition step is a small and obvious thing to do.
+
+**Evening, about twenty past seven — your three instructions, done, with one of them half-done on purpose.**
+
+**The duplicate tools.** You asked me to check properly before retiring, because good pages have been
+retired by mistake before. The mistake you were thinking of was loanzy, where four tool pages were
+archived that the site should have kept, and you had them put back. So the test I ran was not "are
+these duplicates" but "does this site want them". I searched the approved brief and the strategy
+document for any mention of a SERP previewer, a title-tag scorer or a keyword-intent classifier.
+Nothing, in either. I searched for "headline scorer" in the same breath, and it appeared in both, so I
+know the search was looking properly. I also confirmed all three are live on seotools right now, and
+that nothing on copyonline is published. Then I retired them, along with the three "understanding
+this tool" guides that were built alongside them, since a guide to a tool that no longer exists is not
+worth keeping. The other two tools and their guides are untouched.
+
+The system's own retraction step then did exactly what it is designed to do. The three guides had
+nothing linking to them, so their files were removed cleanly. The three tools were refused, because
+the two surviving pages and the site footer still link to them. That refusal is the safety mechanism
+working, not a failure. I have queued the repairs through the normal routes, ten small jobs, and once
+they finish I will run the retraction again. The sweep that would have found and filed these itself
+visited one site in the last four hours across forty, so I did not wait for it.
+
+**The lead route.** The choice was between pointing the page at you, at a named individual, or at a
+list. You said a list of companies, so that is what the brief now says: the page's main action is a
+randomised list of copywriting companies drawn from the directory, and the enquiry form is the
+secondary path with its destination still yours to decide. The directory itself now lists companies
+first, with sole traders only where they trade under a business name. That also answers the worry I
+raised earlier about real people being listed off someone else's marketplace profile.
+
+One honest caveat. The two agents that cannot read your brief still cannot, and the one that can has
+already run. So tonight this revision is your record of intent, and it reaches the build when that
+bug is fixed or the strategy step runs again.
+
+**Measuring it.** copyonline turned out to be the one site in the whole fleet without Google attached.
+It was born after the last fleet-wide tagging pass and the automatic tagging of new sites is not yet
+live. I have attached it, using the same guarded recipe the fleet used, so every page it builds from
+now on reports to the same Google Analytics property as the other sites. Page visits to the lead route
+will show there. One thing to know: the cookie consent banner means visits are counted without cookies
+until someone clicks accept, so the numbers will be an undercount. Fine for "is anyone arriving". If
+you later want to count clicks on the company links rather than visits, that is a small analytics
+event, not a page change.
+
+**The stall.** The diagnosis came back without a firm verdict, but it corrected me on one point: a
+replacement composition job does get filed, about six hours later, on at least one other site. I then
+found the mechanism myself. A check fires whenever a site has no style collection assigned, and
+copyonline still has none, so the job will be re-filed when that check next visits the site. I have
+not prodded it.
