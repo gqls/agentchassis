@@ -45,6 +45,14 @@
             "statusMessage": "Checking landmines for files in flight"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/governor-session-start.py\" 2>/dev/null || true"
+          }
+        ]
       }
     ]
   }
