@@ -1801,3 +1801,37 @@ Exemplar risk is now HIGHER, flagged by them and seconded: the planner is being 
 and any example in rule 17 ships verbatim into its prompt — replacement examples must stay
 deliberately generic (the quoted-exemplar trap, one level up). Our due diligence unchanged:
 grep for other readers of 640's applied example strings before the swap.
+
+### 2026-09-03 ~19:00 UTC — the planner nudge is CUT AND LIVE (762); six index subjects are the next discrete task
+
+The phrasing spec landed (`CONTRIB_2026-09-03b...` — a subject is now THE LINE THE SECTION OPENS
+ON, one sentence, to the reader, in the site's voice, different per section, no em dashes,
+sentence case; it prints VERBATIM under A4, so a subject IS copy now, and rule 5 is load-bearing:
+write only what you would publish). Migration **762** applied on 640's lineage: the two
+subject-description sentences and both example strings swapped for the spec text; 380's sentence
+untouched; the shared anchor preserved and post-asserted; examples deliberately generic with NO
+numbers. Verify was byte-exact expected-value computed from the live row in-transaction —
+no census, no absolutes; the planner prompt had moved 32022→32191→32434 within the day across
+three lanes, so anything literal would have lied. Rehearsed under ROLLBACK first; council
+`901aca93` submitted (Council-Submitted on the commit); `--record-only` in the ledger; 450
+notified with the exact delta (+243) for their 729 re-anchor; prompts lane told.
+
+Due diligence ran and is recorded in the migration header: ZERO code/script/migration readers of
+the old example strings ("What the platform does" / "How a team adopts it") — only prose docs
+describing this very swap.
+
+**Next discrete task for this lane — the six index subjects.** Now genuinely unblocked. The
+recipe, so it is done once and carefully: read the six illustrated sections' live content
+(`page_components` rows, locked), read the style prompt
+(`travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md` — subjects are
+outward-facing prose now), author six DISTINCT opening-line sentences per the spec, and write
+them by pinned-id UPDATE (subject column ONLY, same ids as 754, never delete+insert — four
+positional consumers). They are inert to the served page until A4-641 applies AND the rebuild
+question resolves (RFC_064 q2), so there is no urgency pressure — correctness of voice over
+speed, and they are worth showing the owner in README/where-we-are before or after writing,
+since under A4 they are his flagship page's future opening lines.
+
+641 state: A4 redraft rehearsed green by the prompts lane, resubmitted round 2 on `6c92d154`;
+gate 2 (owner reads the A4 bytes) is the only gate. Their checker note adopted for our own
+rituals: a line-by-line reconstruction gains a trailing newline — strip both sides before
+byte-compare, or the checker cries wolf.
