@@ -977,9 +977,21 @@ is not yet `deployed`. They adopted that split; the more inclusive form is the h
 > 9 pages across 5 sites** that hold a tool component which is INACTIVE — ai-agent-orchestration
 > ×2, finetuning.uk ×3, gaswholesalers ×1, leopardessconsulting ×1, robot-hands ×2. Running the
 > guard's exact predicate (`status='active'`, `page_type='tool'`, `NOT EXISTS` a not-removed
-> `component_level='tool'` row with `is_active`) reads **66 pages / 15 sites** at 2026-09-03
-> ~14:00, against **57 / 11** for my looser form — the same 9-page gap, one page and a couple of
-> sites drifted since their snapshot.
+> `component_level='tool'` row with `is_active`) reads **66 pages / 15 sites**, against **57 /
+> 11** for my looser form — the same 9-page gap.
+>
+> ⚠ **THAT FIGURE IS A SNAPSHOT OF A DRAINING POPULATION, not a constant, and my first
+> annotation of it was wrong twice.** It was stamped "~14:00" when the database clock read
+> **12:00–12:40 UTC** — I wrote BST as though it were UTC, on a number I had just finished
+> logging a wrong call about. Corrected: `[MEASURED 2026-09-03 12:00–12:40 UTC]`, **stable at
+> 66/15 across two readings 40 minutes apart**. And the set is being actively drained: the
+> portfolio lane's repairs attach tool components as they land — `[MEASURED 2026-09-03]` **50 in
+> the trailing 12 hours**, 13 in the 12:00 UTC hour alone — and each one that lands on a
+> refused page removes it. The 450 lane read **67/16** slightly earlier and watched a page leave
+> between two of their own readings. **So expect this number to fall, and re-read it rather than
+> quoting it.** My two readings did not move, which bounds the drain rate over that window
+> without disproving it — most of those 50 attachments are landing on pages that already had a
+> tool, or on pages that are not `page_type='tool'`.
 >
 > **Theirs is the operative number and mine answered a different question.** "How many pages does
 > this guard act on" is 66-67; "how many pages have a tool component of any kind" is 57-58. The

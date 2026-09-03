@@ -69,8 +69,10 @@ next roll.**
 OWNED_PAGE_GUARD: page tool-fight-calendar is page_type=tool with no tool component
 ```
 
-⚠ **The reach census: use the 450 lane's number, not this lane's first one.** The guard refuses
-`[MEASURED 2026-09-03 ~14:00, using the guard's OWN predicate]` **66 pages / 15 sites**. This
+⚠ **The reach census: use the guard's own predicate, and re-read it — the population DRAINS.**
+`[MEASURED 2026-09-03 12:00–12:40 UTC, stable across two readings]` **66 pages / 15 sites**;
+the 450 lane read 67/16 slightly earlier and watched a page leave between two of their own.
+Tool attachments run at ~50 per 12 hours, and each landing on a refused page removes it. This
 lane first reported **58 / 12**, which was a **floor read as a total**: `toolShellPredicateFor`
 (`owned_page_guard.go:160-168`) carries `AND cc_g.is_active = true` and my census asked only
 whether a `component_level='tool'` row existed at all, so it missed **exactly 9 pages on 5
