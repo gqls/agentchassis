@@ -382,3 +382,92 @@ not assumed from the tag bump: `kubectl exec` into a live pod, same
 surface is confirmed live as of 2026-09-03, across three independent checks by two sessions
 at two different tags** — this is now about as solid as "is it deployed" gets on this estate.
 Nobody has used it on a real verdict yet (§11's other open item stands).
+
+## CONTRIB 2026-09-03 ~11:00Z (gamedesign.uk lane) — the FIRST POST-687 instance: the obligation was MET, and the reason it produced is FALSE
+
+Routed here by the `site-design-planner` session, which correctly pointed out I had first filed
+this against the wrong agent (that lane is composition resolution — `resolve_composition_layout_action.go`
+and siblings; this is `build-site-planner`/`plan_site`, no code overlap). The finding below was
+originally appended to `bugs_open/444` (commit `7343ecb01`) as an articles-hub cause; it is
+better read as **an instance of THIS bug in a page type §3 did not sample**, and as the first
+audit of 687's output.
+
+**Why this one matters more than "another site does it too": it is POST-fix, and 687 worked.**
+§3's sample runs 2026-05-14 → 2026-08-31, i.e. entirely before migration 687. This call is
+2026-09-03 10:40:15Z, and I confirmed 687's rule reached it by grepping the RENDERED prompt
+(`llm_call_log.prompt_rendered`, call `7b3bffdd-64dc-4a97-bb00-7633aa7271f8`), not the agent row:
+
+> "omitted named type with no per-type reason in `strategy_notes` is a gap, not a decision."
+
+**The planner COMPLIED with that obligation.** It named the omitted type and gave a per-type
+reason — which is precisely what 687 asked for, and it is now auditable because of 687. Verbatim
+from its `strategy_notes` (not truncated: 4,072 output tokens against `max_tokens` 16,000):
+
+> "The strategy recommends index, blog-index, blog-post, and content pages. **All four types are
+> present.** … The blog-post type is **satisfied by the blog infrastructure**; individual posts
+> are not planned as static pages here."
+
+**Two defects live in that quote, and 687 catches neither:**
+
+1. **The stated reason is factually false.** There is no blog infrastructure and no later
+   editorial pass. `[MEASURED 2026-09-03 ~10:48Z]` active `page_type='blog-post'` pages with a
+   non-empty `sections` array: webdesign.co.uk **52**, dartsonline.com **23**, finetuning.uk
+   **22**, ai-agent-orchestration.com **18**, seotools.co.uk **14**, **gamesdesign.co.uk 13**
+   (the omitting site's own sibling) — every one an ordinary planned page built by the normal
+   page pipeline, and the planner plans them directly elsewhere (farmerinsurance.uk 13,
+   loancalculator.co.uk 14, dartsonline.com 9 `blog-post`-role rows in the CURRENT plan).
+   `needs_content_page` only BUILDS pages already planned. So the deferral names a producer that
+   does not exist.
+2. **It asserts presence and explains absence in the same paragraph.** "All four types are
+   present" is false on its own output — the plan has zero `blog-post` pages. A checker keyed on
+   the *presence of a reason* reads this call as compliant.
+
+**So the residual after 687 is: the "note why" obligation is satisfiable with a hallucinated
+justification, and nothing checks the reason against the estate.** 687 deliberately stopped short
+of a `validate_site_plan` hard failure to preserve the model's licensed final say — that judgement
+still looks right to me, and I am not arguing for reversing it. What this case adds is that the
+audit surface 687 created has **no truth check on the artefact it points at**, and the falsehood
+is mechanically checkable: "blog_posts resolves to zero" is already computed a few lines away by
+444's gate, which filed `capability_gap` `builder_needed=blog_posts` on this very plan, at
+10:40:18Z — three seconds after the planner said the type was satisfied. **Two mechanisms in the
+same validation pass reached opposite conclusions about the same page type and neither saw the
+other.**
+
+**Not site-specific, and the fleet count is small but the sites are pointed.** `[MEASURED
+2026-09-03 ~10:47Z]` **3 of 32** `plan_site` runs in the trailing 30 days carry this
+blog-post-deferral reasoning: designblog.co.uk (2026-09-02 16:10:51Z, "no individual posts are
+planned in this architecture pass — posts are created editorially"), seotools.co.uk (2026-09-02
+16:13:24Z, "not planned as static pages … planning placeholder blog-posts with no verified
+content would be dishonest"), gamedesign.uk (above). Note seotools.co.uk appears in BOTH lists —
+it refused on 09-02 and still serves 14 posts — so the refusal only costs a site when there is
+nothing already there, i.e. the remake/rebuild case, which is where §3's cluster lives too.
+
+**The finding that constrains any fix: there is NO per-site lever.** gamedesign.uk's mission was
+seeded 09:45:50Z, 55 minutes before this run, saying in plain words "The site launches with real
+articles, not a description of what the articles will be like. A page that lists articles must
+list articles." I verified those exact words reached the model by reading the rendered prompt
+(line 110). **It planned zero anyway.** `site_plan_directives` is not an alternative either:
+`[MEASURED 2026-09-03 ~10:49Z]` all 1,922 rows are written BY `build-site-planner`/`write_site_plan`,
+and the string "directive" appears **0 times** in the rendered prompt — output, never input. So
+this cannot be answered by briefing; it lands where 687 landed.
+
+**One interaction worth checking before anyone words a follow-up**, offered as a hypothesis and
+marked as such: `[INFERRED, not tested]` migration 720's rule 3 still opens "Pages with page_type
+entity-page, tool, blog-index, **blog-post** may have empty sections arrays", while the
+already-built-site preserve block separately tells the planner that a page shown with
+`"sections": []` is "rendered by another part of the system". Those two sentences together are a
+plausible route to exactly the inference above. I have not tested it and it may be coincidence —
+but if a prompt edit is made, it is the pair I would read first.
+
+**No `090` run behind this (CLAUDE.md 2026-07-31 — stating the substitution, as it permits).** The
+claim rests on primary output: the planner's own recorded reasoning, the rendered prompt proving
+both 687's rule and the contrary mission instruction reached it, and a fleet census of the
+artefact it defers to. The one inferential step ("the producer does not exist") is that census,
+framed so a non-plan source of `blog-post` pages would have falsified it; I also checked the
+30-day `item_type` vocabulary for a producer and found only `needs_content_page`, which builds
+pages already planned. Cheapest refutation if this lane reads it differently: name a mechanism
+that creates `blog-post` page rows without the planner.
+
+Cross-refs: `bugs_open/444` CONTRIB same day (the articles-hub symptom and 444's gate behaviour);
+lane docs `docs/agent_docs/docs024_key_docs_latest/gamedesign_uk_rebuild/` (NOTES 2026-09-03
+~10:40–10:55Z entry).

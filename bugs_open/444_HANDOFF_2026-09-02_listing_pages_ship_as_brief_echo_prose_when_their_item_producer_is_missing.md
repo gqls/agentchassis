@@ -407,3 +407,16 @@ is the census above, which was framed so that a non-empty result from a non-plan
 have falsified it. If this lane's read is wrong, the cheapest refutation is a named mechanism
 that creates `blog-post` page rows without the planner — I looked for one in the `item_type`
 vocabulary (30 days) and `needs_content_page` only BUILDS pages already planned.
+
+**ROUTING CORRECTION, same session ~11:00Z:** the planner-refusal half of the CONTRIB above has a
+better home — **`bugs_open/428`** ("the site-planner LLM knowingly defers strategy-named roles
+citing its own final say"), which is the same mechanism in a page type its §3 sample did not
+cover, and which already shipped migration **687** for it. Full write-up now appended there,
+including the part that only matters at 428: this is the **first POST-687 instance**, 687's
+obligation was **met** (the planner named `blog-post` and gave a per-type reason), and the reason
+it gave is **false**. What stays 444's is the symptom and the gate behaviour — the two
+`capability_gap` rows, `builder_needed=blog_posts` and `section_children:articles-index`, filed at
+10:40:18Z, three seconds after the planner declared the type satisfied. Two mechanisms in one
+validation pass reaching opposite conclusions about the same page type, neither seeing the other.
+(Routed by the `site-design-planner` session, which correctly noted I had first aimed this at the
+wrong agent: that lane is composition resolution, this is `build-site-planner`/`plan_site`.)

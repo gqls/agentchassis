@@ -737,3 +737,28 @@ Neither page dropped, rightly: both are realised, so the 001 preserve guard kept
 live from rebuild #1, so finishing the build adds no new defect and does deliver the game imagery,
 the 721 hero test and the palette. It cannot add articles. **Do not report rebuild #2 as fixing
 the owner's articles complaint — it does not.**
+
+## 2026-09-03, ~11:00Z — MISROUTE corrected, and the finding got sharper for it
+
+**I filed the planner-refusal finding at the wrong lane first.** Messaged `site design planner`
+as the owner of the planner; that session replied that it owns **composition resolution only**
+(`resolve_composition_layout_action.go` + siblings — layout/typography/palette), while what I
+found is `build-site-planner`/`plan_site` page planning. **Different agent, no code overlap; the
+names collide.** They also said they had confirmed the same split with the `bugs_open/427` lane on
+day one for this exact reason. Correct route: **`bugs_open/428`**, actively owned.
+
+**Cheap check that would have caught it:** before messaging a lane named after a mechanism, grep
+the agent `type` string it actually owns (`build-site-planner` vs `site-design-planner`) rather
+than matching on the English words. The two names differ by one hyphenated token.
+
+**The reroute made the finding better, which is the useful part.** 428 already shipped migration
+**687**: the planner must now name each omitted `recommended_page_types` entry in `strategy_notes`
+with a per-type reason. I confirmed 687's rule reached our 10:40:15Z call by grepping the RENDERED
+prompt ("omitted named type with no per-type reason in strategy_notes is a gap, not a decision").
+**So our call is the first POST-687 instance, and 687 WORKED** — the planner named `blog-post` and
+gave a reason. **The reason is false** ("satisfied by the blog infrastructure"), and it asserts
+"All four types are present" in the same paragraph as explaining the absence of one. 428's §3
+sample is entirely pre-687 (2026-05-14 → 2026-08-31), so nobody had audited 687's output yet.
+Residual for that lane: the "note why" obligation is satisfiable with a hallucinated justification
+and nothing checks it against the estate — while 444's gate computed the contradicting fact three
+seconds later in the same validation pass. CONTRIB appended to 428; pointer left in 444.
