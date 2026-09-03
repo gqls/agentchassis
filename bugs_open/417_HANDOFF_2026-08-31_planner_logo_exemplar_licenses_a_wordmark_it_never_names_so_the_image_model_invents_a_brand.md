@@ -706,10 +706,43 @@ matters does not exist yet**, and the 424 lane's next `designblog` retry is the 
 produce it. ⚠ **When it lands, eye-check it before anything overwrites it** — a regeneration UPSERTs
 the row and the artefact is gone.
 
-**The cheap intermediate the fence section asked for still stands, with a correct detector**: count
-prompts carrying a licence *after* removing the override sentence, and do not key on `wordmark`
-alone — `letterform`, `typographic`, `monogram`, `initial` and `lettering` are all the same licence
-in different clothes. Currently **1 of 5** `[MEASURED 2026-09-03]`.
+**The cheap intermediate the fence section asked for still stands, with a correct detector** — and
+the correct detector is a **different table**, which is the third thing I got wrong here.
+
+> **CORRECTED AGAIN, 2026-09-03, ~30 min after the correction above. "1 of 5" was also wrong** —
+> not unfalsifiable this time, just a 5-site sample generalised to a fleet. Fleet-wide,
+> `assets.origin_prompt` has **25 of 30** carrying a licence, so "0 of 5 outside the override" was an
+> artefact of having sampled only the five most recently regenerated sites.
+
+**The table matters more than the regex, and this is the durable lesson.** Two different questions
+were being conflated:
+
+- **`assets.origin_prompt`** — what a *past* generation actually received. Right for "did the
+  override reach this artefact?" (disconfirmation A). **Useless for exposure**, because it is a
+  historical record: 30 rows, **25 carry a licence, 19 of those carry NO override at all** — they
+  predate it. Counting those as exposure counts artefacts that can never be regenerated under the
+  old prompt again.
+- **`site_plan_imagery.prompt` + `sp.is_current`** — what the *next* generation will be composed
+  from. This is the RUNBOOK's own census table and I should have used it from the start.
+
+**The forward-looking exposure figure `[MEASURED 2026-09-03]`: 13 of 33 current logo specs carry a
+licence-shaped term** (`wordmark` 10, `letterform` 5, `typographic` 4, overlapping) — robot-hands,
+relojistas, vetcomparison, dartsonline, oufe, lendzy, webdesign, noted, loanzy, cv1,
+farmerinsurance, boxingonline, designblog.
+
+⚠ **Why this instrument is clean where the other two were not: `plan_contains_override = 0` of 33.**
+The override is appended at composition time and is absent from the plan text, so a licence-word hit
+there cannot be the prohibition quoting itself. That is the check that was missing from both earlier
+attempts, and it is one query.
+⚠ Still a floor in the other direction: each of the 13 needs an eye-read to separate a genuine
+licence (*"no text outside the wordmark itself"*) from a prohibition (*"no lettering"*). I excluded
+`lettering` from the regex for exactly that reason — including it took the count from 13 to 28 by
+matching prohibitions.
+
+**So the honest exposure statement is: roughly 13 of 33 sites will compose a logo prompt that relies
+on the override winning an argument.** Not 100% (that was the prohibition counting itself), and not
+1 in 5 (that was five sites). And `designblog` remains the only one of the 13 to have been generated
+since the override shipped — and it has never yielded an artefact.
 
 **See also `bugs_open/462`** — a separate gap found while eye-checking these: the marks are text-free
 and correctly matted, and nothing in the estate checks whether one is legible against its header.

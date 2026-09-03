@@ -384,3 +384,64 @@ against the **new** adapter stamp `d0252fd4d` rather than carrying `7bf1ff674` f
 `b2322a203`, `fcbe6071c` and `6440ec968` all ancestors, with HEAD as a negative control (correctly
 not an ancestor). Ancestry, not dates: `kubectl` prints UTC and `git log --date=format:` prints
 `+01:00` with no visible offset.
+
+### The census, third attempt — and the lesson is the TABLE, not the regex
+
+Having corrected "5 of 5" to "1 of 5" above, I then checked the fleet and **"1 of 5" was wrong too**
+— a five-site sample generalised, where those five happened to be the most recently regenerated
+sites. Fleet-wide `assets.origin_prompt`: **25 of 30 carry a licence**, 19 of them with no override
+at all (they predate it).
+
+Then a third error surfaced in my own re-measurement: I widened the regex to
+`(wordmark|letterform|typograph|monogram|lettering)` and got 28 of 33 — **because the override text
+itself says *"no lettering, words, letters, numerals or typography of any kind"***. So `typograph`
+and `lettering` match the prohibition. **The same trap, three times in one hour, in three different
+disguises.**
+
+**What finally settled it was changing TABLE, not tightening the pattern:**
+- `assets.origin_prompt` = what a past generation received. Right for "did the override arrive?".
+  Wrong for exposure — it is a historical record including artefacts that can never be regenerated
+  under their old prompt.
+- `site_plan_imagery.prompt` + `sp.is_current` = what the next generation will be composed from.
+  **The RUNBOOK's own census table, which I should have used from the start.**
+
+**And it comes with a free self-check I had been missing: `plan_contains_override = 0` of 33.** The
+override is appended at composition time, so it is absent from plan text — meaning a licence hit
+there *cannot* be the prohibition quoting itself. One query, and it is the disconfirmation control
+all three earlier attempts lacked.
+
+**Forward-looking exposure `[MEASURED 2026-09-03]`: 13 of 33 current logo specs** carry a
+licence-shaped term. Excluded `lettering` deliberately — including it inflates 13 → 28 by matching
+prohibitions.
+
+### websitepromotion regenerated — and it got WORSE, which is 462 reproducing live
+
+Landed 13:08:44Z on **attempt 2**, fresh `20260903/` key, guard PASSED, artefact stored and served.
+
+| | before | after |
+|---|---|---|
+| transparent | 84.3% | **93.4%** |
+| median contrast | 1.43:1 | **1.01:1** |
+| max contrast | 2.55:1 | 20.87:1 |
+
+**Every transparency signal improved; visibility went down.** It is a chevron drawn in white and
+outlined in magenta: **85.4% of the mark is near-white** (invisible on a white header, median 1.01
+is white-on-white), and **of the 669 pixels actually visible, 420 (62.8%) are magenta**, 244 of them
+near-exact `#FF00FF`. The key colour the matte exists to remove is the majority of the visible logo.
+
+Mechanism: the model painted a **light** mark on the magenta ground. Matting removed the ground
+correctly — hence 93.4% and a passing `BorderKeyed` — but a white/magenta boundary despills to
+magenta, and with the interior also white that fringe is all that has contrast.
+
+⚠ **This retracts a figure I sent the 424 lane this morning.** I gave them despill at 0.01% /
+0.05% and called it closed. Both samples had **dark** strokes, where a thin fringe is cosmetic. The
+magenta fraction here barely moved (0.62% → 0.48%) — what changed is that nothing else is visible.
+**Despill severity depends on mark lightness and my two samples were both dark.** Told them, and
+asked them not to close the item on my numbers.
+
+⚠ **The previous artefact is GONE** — the UPSERT mints a new key and there is no rollback. The old
+bytes survive only because I fetched them first (md5 `c80adffc9b23`, 41,062 B). Any decision to go
+back depends on that local copy.
+
+⚠ **It also constrains 462's fix candidate 1:** a contrast check must run **after** matting and
+measure against **the header**. Pre-matte it would see high-contrast white-on-magenta and pass.

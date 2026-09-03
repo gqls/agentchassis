@@ -212,3 +212,54 @@ unrelated commit about prose composition. Resolve by **slug**, per CLAUDE.md, no
 
 **So: this paragraph is the ownership record.** The 417 lane owns 462. Do not conclude from
 `who-owns.py` that it is unowned and available to route work at.
+
+---
+
+## 6. A LIVE REPRODUCTION, hours after filing — and the regeneration made it WORSE `[MEASURED 2026-09-03 13:10Z]`
+
+The owner authorised regenerating `websitepromotion.co.uk`'s logo now the matting fix is live. It
+succeeded on attempt 2 (13:08:44Z, fresh `20260903/` key, item `complete`). **Every transparency
+signal improved and the mark became less visible, not more.** This is §1's defect reproducing on a
+brand-new artefact under a fully-fixed pipeline, and it closes the question of whether §1 was a
+one-off bad draw.
+
+| | before (pre-fix) | **after (post-fix)** |
+|---|---|---|
+| bytes | 41,062 | 11,637 |
+| fully transparent | 84.3% | **93.4%** ✅ better |
+| **median contrast vs the white header** | 1.43:1 | **1.01:1** ❌ worse |
+| darkest 5% | 1.70:1 | 3.16:1 |
+| max contrast anywhere | 2.55:1 | 20.87:1 |
+| guard verdict | (pre-fix) | **PASSED — artefact stored** |
+
+**What it actually looks like: a chevron drawn in white, outlined in magenta.** The numbers say why
+the max/median split is so violent:
+
+- **85.4% of the mark (3,928 of 4,597 opaque pixels) is near-white** — on a white header that is
+  invisible. Median contrast 1.01:1 is white-on-white.
+- Of the **669 pixels a viewer can actually see, 420 (62.8%) are magenta** — and 244 are near-exact
+  `#FF00FF`. **The key colour the matte exists to remove is the majority of the visible logo.**
+
+**The mechanism, and it is a genuine interaction rather than a bad roll.** The model painted a
+**light** mark on the `#FF00FF` keyed ground. Matting then removed the ground correctly — hence
+93.4% transparency and a passing `BorderKeyed` — but the anti-aliased boundary between a white mark
+and a magenta ground despills to *magenta*, and with the mark's interior also white, **that fringe
+is the only thing left with any contrast.** The result is a magenta wireframe of an invisible shape.
+
+**This is the §2a argument arriving as a fact.** Every gate passed: generated, matted, guard-checked,
+stored, deployed, served, referenced on all pages. The one property nobody measures — can a person
+see it — went *down* while every measured property went up. A fail-closed transparency statistic
+cannot catch this **by construction**, because a perfectly keyed ground is exactly what produced it.
+
+⚠ **It also raises the bar for fix candidate 1.** A contrast check at store time must measure the
+mark against **the header**, not against the keyed ground, and must run **after** matting — a
+pre-matte check would have seen a high-contrast white-on-magenta image and passed it happily.
+
+⚠ **Consequence to know before regenerating anything else: the previous artefact is GONE.** A
+regeneration UPSERTs the asset row and mints a fresh storage key, so there is no rollback. The
+pre-regeneration bytes survive only because this session fetched them first
+(md5 `c80adffc9b23`, 41,062 B, 84.3% transparent). **If a decision needs the old logo back, it has
+to come from that copy.**
+
+**Contributed to `bugs_open/424`** as a light-mark/key-colour interaction their guard cannot see —
+it is their mechanism, not their bug, and it is not a reason to revert their fix, which is working.

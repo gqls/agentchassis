@@ -314,3 +314,57 @@ it only inspects the outer edge. I was about to pass it to the other team as a f
 it first and it was simply false: those areas are see-through, and they look white because the page
 behind them is white. One command, and it saved someone a wasted investigation. A picture cannot
 tell you what is transparent when everything behind it is white.
+
+---
+
+**2026-09-03 (end of session) — the regeneration you approved made the logo worse, and I want to be
+plain about that.**
+
+`websitepromotion.co.uk` generated a new logo on its second attempt and it is now live on the site.
+**It is worse than the one it replaced.** I would not have predicted this and I am not going to
+dress it up.
+
+What is on the page now is a chevron shape drawn in **white**, with a thin **magenta** outline. On a
+white header, the white part is simply not there to the eye — I measured the contrast at **1.01 to
+1**, where 1.0 means identical. The previous logo was 1.43 to 1, which was already too faint. So the
+mark got fainter, not clearer.
+
+And the only part you *can* see is the wrong part. Of the pixels that are actually visible, **63% are
+magenta** — and magenta is the temporary background colour the system paints behind a logo purely so
+it can be cut out afterwards. It is meant to disappear entirely.
+
+**Why this happened, and why it is nobody's mistake exactly.** The background removal worked
+*perfectly* — better than before, 93% of the image is now properly see-through. But the picture the
+model drew was a white shape on that magenta background. When you cut magenta away from white, the
+soft edge between them turns magenta, and if the shape itself is also white, that coloured edge is
+the only thing with any colour left in it. So you get a magenta outline of an invisible shape.
+
+**Every automatic check passed.** It was generated, cut out, inspected by the safety check, stored,
+published and put on all 25 pages. The one thing nothing measures — whether a person can see it —
+is the one thing that got worse. That is precisely the bug I filed this morning as 462, and it has
+now happened in front of us on a brand new file, which settles any question of whether the first
+case was bad luck.
+
+**Two things you should know before deciding anything.**
+
+First, **there is no undo.** Regenerating replaces the stored logo and the old one is deleted. The
+only surviving copy of the previous logo is the one I happened to download before firing, and I still
+have it. If you want it put back, that is possible, but it has to come from my copy and it needs your
+say-so.
+
+Second, **regenerating again is a coin toss, not a fix.** Nothing in the pipeline asks for a mark
+that reads against a white header, so the next attempt could be pale again. Two of the four sites
+that regenerated today came out genuinely good and legible; this one and one other did not. Until
+462 is fixed, this is luck.
+
+**I also have to correct something I told you and another team this morning.** I reported the
+leftover magenta fringe as tiny — 0.01% on one logo, 0.05% on another — and said it was not worth
+chasing. That was true of those two logos, and both of them happened to have **dark** strokes, where
+a thin coloured edge is just cosmetic. On this new white one the same fringe is 63% of everything
+visible. So the fringe matters far more than I said, and it depends on how light the logo is. I have
+told the other team not to close that item on my numbers.
+
+I also got a count wrong three times in one hour today and each time in a slightly different way; the
+detail is in the technical notes, but the short version is that I kept measuring a rule by searching
+for a word that the rule itself contains. What fixed it was looking in a different table, not writing
+a cleverer search.
