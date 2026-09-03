@@ -644,3 +644,39 @@ md5 `34d6e40d8e4792eed3350cad130c5558`, saved to this session's scratchpad. If a
 something similarly bad (a light mark against a magenta key producing the same invisibility as
 websitepromotion's), at least the immediately-prior state is not lost to this session, even though
 there is still no PLATFORM-level revert seam.
+
+## 2026-09-03 — the owner has ruled on 462, and the ruling settles this lane's own open decision #3
+
+`bugfix 417`: the owner chose `bugs_open/462`'s fix candidate 2 (a post-hoc finding/sweep) over
+candidate 1 (a second fail-closed contrast statistic at store time, on the SAME retry ladder as
+this lane's `BorderKeyed` guard) — **and the deciding argument was this lane's own round-1 LOW
+council objection**, that the retry ladder can exhaust before landing a good result. `417` had
+ranked candidate 1 first on the estate's usual "make the bad state unrepresentable" instinct; the
+owner ruled against that ordering specifically because a second fail-closed check compounds
+exhaustion risk — more sites ending up with NO logo at all, not a merely-imperfect one. **Today's
+own numbers made the case concretely**: `seotools` needed 2 of 3, `gamedesign` needed 3 of 3,
+`designblog` has now failed FIVE attempts across two reset rounds with nothing ever stored.
+
+**This resolves this lane's own decision #3** (below in HANDOFF, being updated) — not by this lane
+ruling on it, but because the owner has already ruled on the identical tension one bug over, using
+this lane's own evidence as the deciding argument. No further fail-closed complexity is being added
+to this guard's own ladder; the retry-budget-exhaustion risk is accepted as-is, weighed against the
+alternative (silently shipping something illegible), and the owner came down on "accept exhaustion,
+don't add a second gate."
+
+**Also ruled, same day: `websitepromotion.co.uk`'s illegible white-and-magenta logo is NOT being
+restored or reverted.** The estate is knowingly serving it — median contrast 1.01:1 against its
+white header, 85.4% of the mark near-white — as a **deliberate decision**, and it becomes 462's own
+motivating test case rather than an open repair. **Recorded here so a future sweep from this lane
+never flags it as a regression to fix**: it is correct-per-424 (matting genuinely worked, every
+transparency signal improved) and known-bad-per-462, on purpose, by owner ruling.
+
+**Asked for a view on where 462's legibility check should live** (browser render audit vs a
+standalone check over stored assets + the site's theme token) — genuinely their call, offered
+as informed input since it touches this lane's own storage mechanism: a standalone check over
+stored `assets` bytes is the natural first step (cheap, can sweep all ~30 logo assets immediately,
+and sits at the same layer `BorderKeyed` already operates at — stored bytes, not a live render),
+but a render-audit-anchored version is probably the more durable long-term home, since a theme
+token snapshotted at check time can go stale the same way every other cached artefact in this
+estate has (a site's header colour can change after the check runs). Not this lane's decision;
+recorded for completeness, not as a ruling.

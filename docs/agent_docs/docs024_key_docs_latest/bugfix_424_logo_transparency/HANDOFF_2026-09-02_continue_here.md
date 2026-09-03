@@ -142,15 +142,21 @@ methods agree.
    design, but a real gap this design cannot close on its own — squarely `bugs_open/462`'s
    territory (mark legibility), with a concrete architectural note for it: a contrast check must
    run AFTER matting and against the real deployment background, never pre-matte (pre-matte a
-   white-mark-on-magenta image reads as high-contrast and would pass happily).
+   white-mark-on-magenta image reads as high-contrast and would pass happily). **Owner ruling,
+   same day: `websitepromotion.co.uk`'s illegible logo is NOT being restored** — it's a deliberate
+   decision, kept live as 462's own motivating test case. Do not read it as an outstanding repair
+   or a regression if it surfaces in a future sweep from this lane; it is correct-per-424 (matting
+   genuinely worked) and known-bad-per-462, on purpose.
 5. **Confirm `bugs_open/421`'s status independently** — this fix does not verify single-composition
    and must not be treated as having cleared it.
-6. **Decide whether the retry-ladder policy (original decision #3) needs revisiting now that
-   `bugs_open/462` exists** (mark legibility, formally filed, owner-approved). Its own fix
-   candidate 1 is a second fail-closed statistic on the SAME retry ladder as this fix's
-   `BorderKeyed` guard — a real interaction the `417` lane flagged, not a hypothetical: two
-   fail-closed checks sharing one exhausting ladder compounds the exhaustion risk. Worth deciding
-   together rather than each lane tuning its own ladder interaction independently.
+6. ~~Decide whether the retry-ladder policy needs revisiting now that `bugs_open/462` exists~~ —
+   **RESOLVED, by the owner, in 462.** The owner chose 462's fix candidate 2 (a post-hoc sweep)
+   over candidate 1 (a second fail-closed statistic on this SAME retry ladder) **specifically
+   because of this lane's own round-1 LOW council objection** — a second fail-closed check
+   compounds exhaustion risk (more sites with NO logo, not just an imperfect one), and today's
+   numbers (`seotools` 2/3, `gamedesign` 3/3, `designblog` five attempts across two rounds with
+   nothing stored) made that concrete rather than hypothetical. No second gate is being added
+   beside `BorderKeyed`. Nothing for this lane to decide further here.
 7. **Consider whether `bugs_open/455` (the billing outage) warrants a prevention conversation** —
    third instance of provider-credit/quota exhaustion counting `202` and `243`, all resolved
    same-day by adding credit, none of them prevented from recurring. Not this lane's call to make
