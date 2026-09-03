@@ -4945,4 +4945,30 @@ Owner: *"otherwise the brief is good carry on"* — the release word. Per RUNBOO
   build. **Flagged to him with a recommendation rather than cancelled** — the cost is positioning
   dilution, not breakage, and the decision is his. If he wants the three dropped, cancelling three
   `triaged` `add_tool` rows before they build is cheap; after they build it is a page retirement.
+- **(ll) №5's tool wave landed: 5 of 6 built, 1 LOST SILENTLY, and the cancel window is narrower than
+  I told the owner.**
+  - **Built (pages exist, `build_status='planned'`, NOT deployed):** `insight-injector`,
+    `website-brief-starter`, **`keyword-intent-classifier`, `serp-snippet-previewer`,
+    `title-tag-scorer`** — each with 1 tool component, plus a companion guide page each (10 pages).
+    All five came from the LIBRARY (`library_source` set) and went through `tool-deployer`
+    `deploy_tool` 16:06:23–16:08:15Z.
+  - **⚠ LOST: `Copy Brief Builder`** (`tool-copy-brief-builder`, item `807779e4`). It is the ONLY one
+    with `library_source: null` — a custom generation. Its item reads **`complete` at 16:05:54Z and
+    its `result` contains the full `generated_html`** (styled fieldsets, labels, inputs — a real
+    tool). **No page exists for it. No component. No error row.** The tool's HTML lives in a work
+    item's result column and nowhere else.
+  - **That is `bugs_open/218`'s shape** — *"tool-recreation's failure path discards the finished tool
+    while the item reads `complete`"*, whose defect B is UNFIXED — but via a different producer
+    (`add_tool` → `tool-generator`, not `needs_tool_recreation`). **Not filed as new; routed as a
+    second instance.** The estate-level lesson is the one already in memory: a `complete` work item
+    is not a produced artefact, and here the artefact is sitting in the row that says complete.
+  - **CORRECTION to what the owner was told 10 minutes earlier.** I said cancelling the three
+    seotools duplicates was "cheap now, a page retirement later". The `add_tool` items are already
+    `complete`, so cancellation is off the table — but **all ten pages are `planned` and NOT
+    deployed**, so the honest position is: retiring them now is cheap *because nothing is public*,
+    and it becomes expensive at deploy, not at build. Told him.
+  - Also logged by `tool-deployer`, five times: *"suggestion carried no related_pages, so no
+    cross-links were emitted"* — the suggester ran with no classification, so it produced no
+    related-page hints and the tools land uncross-linked. Cosmetic today; worth knowing that a
+    pre-classification sweep costs cross-links.
 
