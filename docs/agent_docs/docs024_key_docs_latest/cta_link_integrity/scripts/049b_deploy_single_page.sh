@@ -29,8 +29,21 @@ TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # me a full queue round on 2026-07-25; verified against the live step config:
 #   default_config->'workflow'->'steps'->'check_rerender_mode'->'config'->>'condition'
 #   = "input_data.spec.reason == 'image_landed' OR ... 'section_data_resolved' ...")
+# A REASONED dispatch must ALSO carry spec.page_name, or save_page_sections
+# SKIPS with {"success":true,"sections_saved":0,"reason":"no page name"} — its
+# config reads page_name_field=input_data.spec.page_name — and the pipeline
+# then assembles + deploys the STALE stored rows with every step green
+# (proven live 2026-09-03, corr 7487f8fa: rerendered=4, saved=0, deploy
+# success, rows untouched; re-fired with page_name → saved=4 and the change
+# actually shipped). Derived here from page_id so the caller cannot omit it.
 REASON_JSON=""
-[ -n "$REASON" ] && REASON_JSON=",\"spec\":{\"reason\":\"$REASON\"}"
+if [ -n "$REASON" ]; then
+  PAGE_NAME=$(kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -t -A \
+    -c "SELECT name FROM pages WHERE id='$PAGE_ID'")
+  [ -n "$PAGE_NAME" ] || { echo "049b: no pages row for $PAGE_ID — refusing a reasoned dispatch whose save would silently skip" >&2; exit 2; }
+  REASON_JSON=",\"spec\":{\"reason\":\"$REASON\",\"page_name\":\"$PAGE_NAME\"}"
+fi
 echo "corr=$CORR page=$PAGE_ID domain=$DOMAIN reason=${REASON:-<assemble-only>}"
 kubectl -n kafka run -i --rm "kcat-legal-$(date +%s)" \
   --image=edenhill/kcat:1.7.1 --restart=Never -- \
