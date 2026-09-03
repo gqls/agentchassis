@@ -81,6 +81,53 @@ them in the ack. Self-test now 17/17 PASS (4 new cases); one test fix on the
 way in was the TEST's own newline handling (`read_text()` translates the
 csv module's `\r\n`), not the writer.
 
+## 2026-09-03 — first real export ingested; headers LOCKED; feed delivered
+
+Owner dropped `inbound/domains-1788424049.csv` (378 KB, **1,634 domains**,
+UTF-8 with BOM — `utf-8-sig` handled it) and quoted three dashboard values:
+veterinarypractice.co.uk $50k, redesign.co.uk $120k,
+mortgagecalculator.co.uk $100k.
+
+**Header set (LOCKED, real export):** Domain, Buy Now Price, Floor Price,
+Min Offer, Lease to Own, Max Lease Period, Sale Lander, Show Buy Now
+Option, Show Lease to Own Option, Show Make Offer Option, Hidden, TLD,
+Date Added (UTC), Listing Status, Fast Transfer, Views, Leads, 30/90/365-day
+Unique/Total Searches, GoDaddy NS. All price/status/lander/views/leads
+columns mapped by existing aliases; one alias added (`dateaddedutc`);
+13 columns deliberately unmapped → extras (search stats are
+"Members-only feature" strings anyway).
+
+**Semantics finding: `0` in a price column means NOT SET** (Afternic's own
+bulk vocabulary; the quoted domains have Buy Now=0, Floor=0 and the quoted
+value in **Min Offer**). Parser updated (0 → None, price fields only);
+self-test 18/18 incl. the new case. Without this fix the valuation feed
+would have carried a $0 asking for every BIN-less domain.
+
+**Controls 3/3 PASS** on `min_offer` — with one discrepancy flagged to the
+owner: the export has **veterinarypractice.uk**, not `.co.uk`; the `.uk`
+row carries exactly the quoted $50k, and no `.co.uk` variant exists in the
+file.
+
+**Portfolio shape (export dated 2026-09-03, 1,634 rows):** all status
+Listed; Buy Now set on **419**, Floor on **420**, Min Offer on **1,634**;
+leads on 12 domains (top: kilocars.com 4, makeitaquote.com 4,
+nanangmrk.com 4). Estate cross-check: **26/41** estate site domains present;
+missing 15: cookly.uk, designblog.co.uk, farmerinsurance.uk, finetuning.uk,
+lendzy.co.uk, leopardessconsulting.co.uk, loancalculator.co.uk,
+loancash.co.uk, loanzy.uk, oxenunity.com, robot-hands.com, vetcomparison.uk,
+vonc.com, webdesign.co.uk, webdesign.uk.
+
+**relojistas.com observation:** today BIN 45000 / floor 28000 / min_offer
+12000. The 07-28 owner statement "floor = $12,000" matches today's
+MIN OFFER — either repriced since July, or the July label was Min Offer.
+Not relitigated; recorded so the next reader doesn't treat the two as a
+contradiction.
+
+**Valuation feed delivered:** `domain_valuation/inbound/afternic_listings_2026-09-03.csv`
+— 1,634 rows; price_source: buy_now 419, floor 3, min_offer 1,212;
+currency cell `USD-assumed` throughout (the export carries no currency
+marking — the assumption stands).
+
 **Spec CONFIRMED by the valuation session (same day)**, with one refinement
 adopted: the currency ASSUMPTION must travel in the cell, not sit silently
 in our docs — so the default currency value is now the literal

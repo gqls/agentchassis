@@ -69,7 +69,8 @@ ALIASES = {
                      "30dsearches"},
     "verified":     {"verified", "ownershipverified", "verification",
                      "verificationstatus"},
-    "date_listed":  {"datelisted", "listeddate", "dateadded", "added"},
+    "date_listed":  {"datelisted", "listeddate", "dateadded", "added",
+                     "dateaddedutc"},
 }
 PRICE_FIELDS = {"buy_now", "floor", "min_offer"}
 COUNT_FIELDS = {"views", "leads", "searches_30d"}
@@ -99,13 +100,20 @@ def map_headers(headers):
 
 
 def parse_price(raw):
-    """'$12,000' -> 12000.0; ''/None/'-' -> None; junk -> ValueError."""
+    """'$12,000' -> 12000.0; ''/None/'-'/0 -> None; junk -> ValueError.
+
+    0 -> None is Afternic's own vocabulary, confirmed against the real
+    export 2026-09-03: their bulk instructions say "set to 0 to not have a
+    reserve/asking price", and the export echoes 0 for unset Buy Now/Floor
+    (rows whose only real price is Min Offer). A genuine $0 price is not
+    representable on Afternic, so nothing is lost."""
     if raw is None:
         return None
     s = raw.strip().replace("$", "").replace(",", "").replace("£", "")
     if s in ("", "-", "—", "N/A", "n/a"):
         return None
-    return float(s)
+    v = float(s)
+    return None if v == 0 else v
 
 
 def parse_export(path):
@@ -344,6 +352,13 @@ def self_test():
         t("domain lowercased", rows[0]["domain"] == "relojistas.com")
         t("floor $12,000 -> 12000.0", rows[0]["floor"] == 12000.0)
         t("empty price -> None", rows[1]["buy_now"] is None)
+        zero = td / "zero.csv"
+        zero.write_text("Domain,Buy Now Price,Floor Price,Min Offer\n"
+                        "x.uk,0,0,50000\n")
+        rz, _, _ = parse_export(zero)
+        t("0 price -> None (Afternic: 0 = not set)",
+          rz[0]["buy_now"] is None and rz[0]["floor"] is None
+          and rz[0]["min_offer"] == 50000.0)
         t("unknown header reported not guessed",
           any("Mystery" in u for u in unmapped))
         t("extras keep unmapped cell", rows[0]["extras"].get("Mystery Column") == "huh")

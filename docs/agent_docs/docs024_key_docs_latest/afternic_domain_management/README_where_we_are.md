@@ -38,3 +38,22 @@ it, so nothing new was needed there.
 Also worth checking while you're in there: whether the dashboard has a
 separate sales or leads export. If it does, grab one and I'll build the
 reader for it.
+
+## 2026-09-03 — your export is in and parsed
+
+Your domain list parsed cleanly: 1,634 domains, every one of them listed.
+The three prices you quoted all checked out, which proves the reading is
+right — they sit in Afternic's "Min Offer" column. One small thing: your
+list has veterinarypractice**.uk**, not .co.uk — the .uk one carries your
+$50,000.
+
+The shape of the portfolio: only about a quarter (419) have a Buy Now
+price; nearly everything else is offers-only with a minimum. Twelve
+domains have live leads. Fifteen of the forty-one websites we run are NOT
+in the Afternic list at all — including webdesign.co.uk, finetuning.uk
+and vonc.com — worth a look at whether that's deliberate.
+
+The valuation session has been sent its copy of the prices, as agreed,
+marked with today's date and "USD-assumed" until an export ever states
+the currency. Next step on this lane is still the bulk-change template
+(`bulk_upload_sample_v3.xlsx`) when you want prices changed.
