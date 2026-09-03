@@ -316,7 +316,9 @@ func (eb *EvidenceBase) ScanStatClaims(claims []StatClaim) []ClaimFinding {
 		}
 		// Reuse the structural exclusions: years, currency, versions, dates,
 		// ratios, measurements. "£29" and "2019" are not business counts.
-		if isExcludedNumber(c.Value, loc[0], loc[1]) {
+		// eb.citationPrefixPattern(): RFC_060 Q5, this site's own declared
+		// citation codes union onto the fleet default.
+		if isExcludedNumber(c.Value, loc[0], loc[1], eb.citationPrefixPattern()) {
 			continue
 		}
 		val, ok := parseClaimNumber(c.Value[loc[0]:loc[1]], c.Value[loc[1]:])

@@ -314,6 +314,34 @@ type EvidenceBase struct {
 	// legitimate way for a site to state that it tests, buys, measures or is
 	// sent products. Absent or incomplete means NOT exempt (bugs_open/380).
 	OperatingHistory *OperatingHistoryAttestation `json:"operating_history,omitempty"`
+
+	// CitationCodes (RFC_060 Q5, owner-ruled 2026-09-03) names ad hoc
+	// regulatory rulebook codes this site cites, ADDITIVE over the
+	// fleet-wide default (regulatoryRulebookCodesBase) — never a
+	// replacement, so an absent field regresses nobody. Same purpose and
+	// same shape as BannedClaims/AllowedEntities: site-declared data, no Go
+	// change to onboard a new one. A code of two characters or fewer is
+	// silently dropped at compile time (compileCitationCodeRegexes) — even
+	// site-declared, it is "too collidable" per fad209b92's own reasoning
+	// for excluding bare two-letter codes fleet-wide.
+	CitationCodes []string `json:"citation_codes,omitempty"`
+
+	// CitationCodePresets opts this site into a NAMED sector's rulebook
+	// codes (KnownCitationCodePresets lists the valid names) instead of
+	// typing them out via CitationCodes. RFC_060 Q5: the owner named
+	// veterinary and legal as imminent second/third consumers, which is
+	// what turned the sector-preset half of the design from "hold it back"
+	// to "build it now, with those two in mind".
+	CitationCodePresets []string `json:"citation_code_presets,omitempty"`
+
+	// citationPrefixRe and citationContextRe are this site's OWN compiled
+	// citation-recognition regexes — regulatoryRulebookCodesBase unioned
+	// with CitationCodePresets (expanded) and CitationCodes — compiled once
+	// at parse time (compileCitationCodeRegexes) exactly as BannedClaims[i].re
+	// is. A site with neither field set compiles to patterns BYTE IDENTICAL
+	// to fad209b92's fleet-wide default.
+	citationPrefixRe  *regexp.Regexp
+	citationContextRe *regexp.Regexp
 }
 
 // ParseEvidenceBase decodes the site_specs data JSONB into an EvidenceBase and
@@ -349,6 +377,7 @@ func ParseEvidenceBase(data []byte) (*EvidenceBase, error) {
 		}
 		eb.BannedClaims[i].re = re
 	}
+	eb.compileCitationCodeRegexes()
 	return &eb, nil
 }
 
@@ -824,10 +853,103 @@ var labelPrefixRe = regexp.MustCompile(`(?i)\b(band|tier|step|phase|part|stage|l
 //     "We processed 12 conc records last year." is still CAUGHT. If a forced
 //     (?i) ever reaches these patterns, that fixture starts passing silently
 //     and that test starts failing loudly.
-const regulatoryRulebookCodes = `(?:CONC|MCOB|ICOBS|BCOBS|COBS|DISP|SYSC|PRIN|CASS|PERG|CREDS|COLL|DEPP|GENPRU|MIPRU|BIPRU|IPRU|FEES|SUP|MAR|DTR)`
+// regulatoryRulebookCodesBase is the fleet-wide default vocabulary —
+// unchanged from fad209b92, still authored here in Go, still the codes
+// EVERY site gets whether or not it declares anything of its own.
+var regulatoryRulebookCodesBase = []string{
+	"CONC", "MCOB", "ICOBS", "BCOBS", "COBS", "DISP", "SYSC", "PRIN", "CASS",
+	"PERG", "CREDS", "COLL", "DEPP", "GENPRU", "MIPRU", "BIPRU", "IPRU",
+	"FEES", "SUP", "MAR", "DTR",
+}
+
+// regulatoryRulebookCodes is regulatoryRulebookCodesBase as the exact regex
+// alternation string fad209b92 shipped — kept as a derived value, not
+// retyped, so there is no way for the fleet-wide default to drift from the
+// per-site-capable version below. A `var` rather than the original `const`
+// only because building it from the slice needs a function call; every
+// existing use (string concatenation into a regexp) works identically
+// either way.
+var regulatoryRulebookCodes = "(?:" + strings.Join(regulatoryRulebookCodesBase, "|") + ")"
+
+// citationCodePresets maps a named sector to the rulebook codes a site in
+// that sector may cite. RFC_060 Q5 (owner-ruled 2026-09-03): "I will be
+// extending to vet and legal quite soon so let's fix it with those in
+// mind" — the second and third consumers this estate's own "don't design
+// ahead of one" instinct had been withholding presets for. An unrecognised
+// preset name contributes nothing silently (ParseEvidenceBase is a pure
+// parse with no logger to warn through); KnownCitationCodePresets exists so
+// a future validator can flag a typo without this file needing one.
+var citationCodePresets = map[string][]string{
+	"veterinary": {"RCVS", "VMD"},
+	"legal":      {"SRA"},
+	"medical":    {"GMC", "MHRA", "CQC"},
+}
+
+// KnownCitationCodePresets lists the preset names citation_code_presets may
+// name. Exported so a discovery check or admin-door validator can flag an
+// unrecognised preset without this file growing one itself.
+func KnownCitationCodePresets() []string {
+	names := make([]string, 0, len(citationCodePresets))
+	for name := range citationCodePresets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// compileCitationCodeRegexes builds THIS site's own citation-recognition
+// regexes: regulatoryRulebookCodesBase unioned with eb.CitationCodePresets
+// (expanded) and eb.CitationCodes (literal, ad hoc) — additive only, never
+// a replacement, so a site declaring nothing compiles to patterns BYTE
+// IDENTICAL to the fleet default. RFC_060 §3f constraint 1: the matching
+// RULE does not change — case-sensitive (no `(?i)`, load-bearing per the
+// comment on the base patterns below), code immediately followed by a
+// digit, two-letter codes excluded (silently dropped here, not stored,
+// because even a site-declared two-letter code is "too collidable" per
+// fad209b92's own measurement — FCA said the same about bare `FCA`/`PRA`).
+func (eb *EvidenceBase) compileCitationCodeRegexes() {
+	codes := append([]string{}, regulatoryRulebookCodesBase...)
+	for _, preset := range eb.CitationCodePresets {
+		codes = append(codes, citationCodePresets[preset]...)
+	}
+	for _, c := range eb.CitationCodes {
+		if len(c) <= 2 {
+			continue
+		}
+		codes = append(codes, c)
+	}
+	pattern := "(?:" + strings.Join(codes, "|") + ")"
+	eb.citationPrefixRe = regexp.MustCompile(`\b` + pattern + `\s*$`)
+	eb.citationContextRe = regexp.MustCompile(`\b` + pattern + `\s*\d`)
+}
+
+// citationContextPattern and citationPrefixPattern return this site's own
+// compiled regexes, falling back to the fleet-wide default when eb was
+// constructed directly (a struct literal, as every existing test in this
+// package does) rather than through ParseEvidenceBase — the only place
+// compileCitationCodeRegexes runs. The fallback is exactly the pattern a
+// direct construction already got before this file existed, so no existing
+// test's expectations change.
+func (eb *EvidenceBase) citationContextPattern() *regexp.Regexp {
+	if eb != nil && eb.citationContextRe != nil {
+		return eb.citationContextRe
+	}
+	return regulatoryCitationContextRe
+}
+
+func (eb *EvidenceBase) citationPrefixPattern() *regexp.Regexp {
+	if eb != nil && eb.citationPrefixRe != nil {
+		return eb.citationPrefixRe
+	}
+	return rulebookCitationPrefixRe
+}
 
 // Shape 1 — the number IS the citation: "CONC 5A", "MCOB 4.1". The digits are
 // part of the rule's name, exactly as "Tier 2" is handled by labelPrefixRe.
+// The FLEET-WIDE default, used only as isExcludedNumber's fallback for a nil
+// eb; every parsed EvidenceBase carries its own site-specific version on
+// eb.citationPrefixRe (compileCitationCodeRegexes), which a site with no
+// CitationCodes/CitationCodePresets compiles byte-identical to this.
 var rulebookCitationPrefixRe = regexp.MustCompile(`\b` + regulatoryRulebookCodes + `\s*$`)
 
 // Shape 2 — a REGULATORY FIGURE quoted WITH its rule: "0.8% per day under
@@ -841,6 +963,9 @@ var rulebookCitationPrefixRe = regexp.MustCompile(`\b` + regulatoryRulebookCodes
 // nearly every paragraph and would have switched the numeric scan off for the
 // whole sector — the opposite of what this change is for. A code followed by a
 // digit is a citation; "the FCA" is a subject.
+//
+// FLEET-WIDE DEFAULT ONLY — see rulebookCitationPrefixRe's comment above;
+// ScanUnregisteredNumbers uses eb.citationContextRe instead.
 var regulatoryCitationContextRe = regexp.MustCompile(`\b` + regulatoryRulebookCodes + `\s*\d`)
 
 // A day number in a written-out date: "28 July 2026", "1 January", "3rd March".
@@ -1113,7 +1238,7 @@ func (eb *EvidenceBase) ScanUnregisteredNumbers(blocks []string, surface ClaimSu
 	for _, block := range blocks {
 		for _, loc := range numberCandidateRe.FindAllStringIndex(block, -1) {
 			token := block[loc[0]:loc[1]]
-			if isExcludedNumber(block, loc[0], loc[1]) {
+			if isExcludedNumber(block, loc[0], loc[1], eb.citationPrefixPattern()) {
 				continue
 			}
 			window := claimWindow(block, loc[0], loc[1])
@@ -1125,8 +1250,10 @@ func (eb *EvidenceBase) ScanUnregisteredNumbers(blocks []string, surface ClaimSu
 			}
 			// A figure quoted beside its rule is the REGULATOR'S number, not a
 			// claim about this business — and quoting it that way is what the
-			// finance sites' own briefs require of them.
-			if regulatoryCitationContextRe.MatchString(window) {
+			// finance sites' own briefs require of them. eb's OWN pattern (RFC_060
+			// Q5): a site's declared CitationCodes/CitationCodePresets union onto
+			// the fleet default here, not just at isExcludedNumber's prefix check.
+			if eb.citationContextPattern().MatchString(window) {
 				continue
 			}
 			val, ok := parseClaimNumber(token, block[loc[1]:])
@@ -1162,7 +1289,11 @@ func (eb *EvidenceBase) ScanUnregisteredNumbers(blocks []string, surface ClaimSu
 // isExcludedNumber applies the structural false-positive exclusions from the
 // spec's landmine list: years, dates/times/versions/phone fragments (composite
 // digit tokens), list ordinals, measurements, and currency amounts.
-func isExcludedNumber(block string, start, end int) bool {
+// prefixRe is the rulebook-citation-prefix pattern to test against — the
+// caller's eb.citationPrefixPattern() (RFC_060 Q5: a site's own declared
+// codes union onto the fleet default) or the package-level default directly
+// when no EvidenceBase is in scope (claims_stats.go's fleet-wide caller).
+func isExcludedNumber(block string, start, end int, prefixRe *regexp.Regexp) bool {
 	token := block[start:end]
 
 	// A digit with a LETTER on BOTH sides is inside an identifier, not a
@@ -1263,7 +1394,7 @@ func isExcludedNumber(block string, start, end int) bool {
 	}
 
 	// Rulebook citation: the digits of "CONC 5A" are the rule's name.
-	if rulebookCitationPrefixRe.MatchString(block[:start]) {
+	if prefixRe.MatchString(block[:start]) {
 		return true
 	}
 
