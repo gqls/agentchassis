@@ -622,3 +622,39 @@ then typed it `category=hub` with tags `marketplace, directory, community-platfo
 object, or the templates rendering the object — a decision that belongs with this class, not with one
 lane. `copyonline.co.uk` is mid-build with its plan not yet made, so there is a live window; that
 call is the owner's.
+
+### ⚠ CORRECTION to the CONTRIB above, same session, 2026-09-03 17:2xZ — it is ONE failure mode, not two, and one fix repairs both
+
+**My point 2 was wrong and the error was mine.** I reported that the planner's guard "never opened"
+because no `## Pre-Defined Mission` heading appeared in its prompts. **The planner's heading is
+`## Mission`.** That string is only the classifier's. I searched for the wrong needle and read its
+absence as a different mechanism.
+
+Re-measured at `llm_call_log`, `plan_site` prompts, searching for the heading the planner actually
+emits:
+
+| plan_site prompt for | `## Mission` block | rendered as |
+|---|---|---|
+| advertise.co.uk (2026-09-02 13:09) | present | **`<no value>`** |
+| designblog.co.uk (16:10) | present | **`<no value>`** |
+| seotools.co.uk (16:13) | present | **`<no value>`** |
+| websitepromotion.co.uk (16:15) | present | **`<no value>`** |
+| gamedesign.uk (17:33, brief HAS `.text`) | present | *"gamedesign.uk is about the practice of game desig…"* ✔ working control |
+| boxingonline.com (08-31, no `mission_brief` at all) | absent | ✔ negative control — the guard correctly stays shut |
+
+**So both consumers behave identically: guard opens on the parent, prints the missing child, renders
+`<no value>`.** `plan_site.input_fields` does include `site_specs`
+(`["input_data","site_specs","available_components","available_styles","existing_pages"]`), so the
+brief reaches the step and only the child key is absent.
+
+**Consequences of the correction, and they are good ones:**
+- **There is no second sub-case.** Both are the parent-guard / child-print variant. A lint on
+  top-level roots passes both; a lint that resolves the full dotted path catches both.
+- **ONE data fix repairs BOTH steps** — give a `mission_brief` a `text` key and the classifier and
+  the planner both render it. That is a materially cheaper fix than the two-sided one my earlier
+  paragraph implied.
+- The controls make it airtight: a brief WITH `.text` renders; a site with NO brief correctly renders
+  no block at all.
+
+Apologies for the noise; the corrected version is the one to build on.
+

@@ -5145,4 +5145,18 @@ superseded by a stronger one that is measured: the brief was not there at all.**
   ⚠ **Do not use "contains `<no value>`" as the tell** — every `plan_site` prompt sampled contains one
   somewhere, including gamedesign's working one. The heading's presence is the discriminating check.
   **Net: for all four live remakes, both the classification and the plan were made without the brief.**
+- **(oo) ⚠ I WAS WRONG ABOUT THE PLANNER, and caught it myself 20 minutes later.** I wrote that the
+  two consumers "fail DIFFERENTLY" and that the planner's guard "never opened". **False.** I searched
+  planner prompts for `## Pre-Defined Mission` — a heading only the CLASSIFIER emits. **The planner's
+  heading is `## Mission`.** Re-measured with the right needle: advertise, designblog, seotools and
+  websitepromotion all render `## Mission` followed by **`<no value>`**, exactly like the classifier;
+  gamedesign.uk (whose brief HAS `.text`) renders its real mission text as a working control; and
+  boxingonline.com, with no `mission_brief` at all, correctly renders no block — a negative control.
+  `plan_site.input_fields` DOES include `site_specs`, so the brief reaches the step.
+  **It is ONE failure mode in both consumers, and therefore ONE data fix — a `text` key — repairs
+  both.** Corrected in the `bugs_open/453` CONTRIB too, where the false sub-case would have sent the
+  fixer looking for a second mechanism that does not exist.
+  **The lesson is the day's own, turned on me twice now: I encoded the wrong question.** "Absence of
+  a heading" is only evidence if you searched for the heading that artefact actually emits. The check
+  that saved it was reading the planner's template rather than trusting my own earlier query.
 
