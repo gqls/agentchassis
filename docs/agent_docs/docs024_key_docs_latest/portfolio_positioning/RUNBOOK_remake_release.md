@@ -283,6 +283,11 @@ SELECT data->>'layout_name'                 AS layout,
        data->'lineage'->'layout_candidates' AS candidates,
        data->>'reasoning'                   AS reasoning   -- carries the score
   FROM site_specs WHERE site_id = :id AND aspect='resolved_composition' AND is_current;
+-- FIFTH field, asked for by 445 2026-09-03 and worth the column: the site's own tags decide
+-- everything upstream of the brief, and whether a future content-hub archetype would RESCUE this
+-- site (emits content-hub / interactive-tools) or leave it at ~7% coverage.
+SELECT data->'industry_tags' FROM site_specs
+ WHERE site_id = :id AND aspect='classification' AND is_current;
 ```
 (also `sites.style_collection_id` → `style_collections.css_theme_id` → `css_themes.layout_id`).
 ⚠ **`layout_match_score` does NOT exist** — migration `103_site_design_planner.sql` specified it as

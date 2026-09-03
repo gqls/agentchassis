@@ -4438,3 +4438,30 @@ questions, and the classifier mostly emits shape words.**
   one a real archive) versus `site_specs`, which archives nothing and versions in place. A census
   that names neither is a census of the present tense.
 
+### (dd) 2026-09-03 ~11:0xZ — a discovery sweep re-minted advertise's stuck page ahead of 437's fix, and the queue is advancing not starving
+
+- **Queue check, because 90 min with no publication deserved evidence rather than patience:**
+  pending sites **21 → 16**; websitepromotion **19th → 11th**, seotools **20th → 14th**. We are
+  advancing. Still 7 rerenders `triaged`, 0 of 7 pages published, 8th build unclaimed since 09:05Z.
+  Sites ahead carry big backlogs (finetuning 53, idea.uk 45, relojistas 33). **Not intervening.**
+- **advertise gained ~57 items 10:22–10:36Z** — a full `discovery` sweep (rerenders 23, content_rewrite
+  13, needs_content_planning 10, needs_content_page 7, imagery/assets/acceptance the rest).
+- **⚠ The stuck regulation-map page was RE-MINTED AUTOMATICALLY at 10:34:50Z** — `e75f5880`
+  `needs_content_page`, `triaged`, source **`page-rerender-empty-skip`** ("Page … has 0 component
+  rows — a rerender cannot help; build it"). **This is the re-mint 437 predicted, by a DIFFERENT
+  route than the one they named (not `reconcile_site_plan`), and it has arrived BEFORE their Go
+  half `a0044e73b` is live** (cluster still v1.0.1356). It will dispatch on its own and, on their
+  account, fail the same way. **Told them, did not touch it.** The general point handed over: the
+  window between an automatic re-mint and their roll is a hazard the other five sites share and it
+  is gated by nobody's restraint — which makes their roll more urgent than a normal fix.
+- 445's simulation of a `content-hub-tools` archetype against the live fleet **partly disconfirms
+  their own remedy**: it breaks the seven-site cluster up (websitepromotion 8%→28%, advertise
+  7%→16%, relojistas 10%→22%, homegarden 8%→17%) but **designblog stays at 6% and apis.uk at 8% —
+  still winning on a single tag**. So an archetype fixes the SAMENESS and not the FIT for all of it,
+  and which of our sites benefits is decided by the classifier's tags, upstream of any brief we
+  write. Their tag set was invented, so they are moving to choosing it by simulation against the
+  fleet rather than by taste — one artefact serving both halves of 445.
+- **Our composition read gains a fifth field** at their request: the site's own
+  `classification.industry_tags`, which decides whether a future archetype would rescue copyonline
+  or leave it at ~7%.
+
