@@ -63,6 +63,41 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0f. ⚠ A RETRACTED FINDING — "33 of 57 are version-pinned and unreachable" WAS WRONG
+
+`[MEASURED 2026-09-03]` I found that 33 of the 57 repairable hero instances carry a
+`component_version_id` pinned to a version predating migration 721, and that those pinned
+versions lack the `background_image` field. I reported that as **33 instances unreachable by any
+rerender**, proposed it as a distinct repair needing its own owner, and a peer lane was routing an
+ownership decision to the owner on it.
+
+**It is wrong. `page_components.component_version_id` is WRITE-ONLY.**
+`save_sections_component_version.go:40`, verbatim:
+
+> *"THIS FILE ONLY WRITES. Nothing reads component_version_id, so this change is inert by
+> construction: it cannot alter what any page serves."*
+
+Its header adds, measured 2026-08-22: *"0 of 1,930 rows populated, no Go code writing it, no Go
+code reading it — dormant machinery."* The only reader is `loadStoredSections`, which SELECTs it
+to carry the stamp forward, **not** to resolve a schema. Component resolution keys on
+`component_id` against the **live** `content_components` row, so a pinned page resolves exactly
+like an unpinned one.
+
+**What that costs and returns:**
+- there is **no unreachable category** — the split is 57 repairable, full stop;
+- batch `689`'s cancellation was for a wrong reason (the page was always a valid test). The row's
+  error now carries a dated correction; `690` supersedes it and is equally valid;
+- **the dartsonline result returns to its face value** — a `section_data_resolved` rerender,
+  sections path, attributed by `source_item_id`, that did **not** resolve the newly-declared
+  field. I had explained it away. It is unexplained again, and it is a **second** data point
+  pointing where §2 points, on a *different source type* (`site_assets.*`, not `query.*`).
+
+> **The error, because it is the seventh on this thread and the pattern has not varied:** I found
+> a **correlation** — pinned AND missing field — and reported **causation**, without checking that
+> the mechanism exists. Two greps would have caught it, and I only ran them because the estate's
+> landmine list pointed me at the pin, which made me ask what the pin actually does. **Before
+> attributing an outcome to a mechanism, confirm something READS the thing you are blaming.**
+
 ## 0e. THE HERO CLASS AND THE DECK CLASS MAY SHARE ONE ROOT CAUSE — one-page test filed
 
 `[MEASURED 2026-09-03]` **57 instances across 24 sites** have their own page-scope hero and are not
