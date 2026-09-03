@@ -1648,3 +1648,38 @@ discriminator. Independent re-run of the RUNBOOK census by a lane with no stake 
 > after the window closed instead of reporting the first read — the same right-truncation trap
 > this lane logged at 10:50Z for handler counts, walked into again within the hour.
 > Final state read 11:45Z: enabled t, budget 2000, level 0, MTD $405.45, withheld 0, heartbeat 114 s.
+
+### 2026-09-03 ~11:5xZ — provenance note on the cross-lane census above, after that lane retracted a different claim
+
+The `bugs_open/329` lane retracted, unprompted, the exposure list it had sent earlier the same
+hour (eight Deployments said to run the takeover arms unguarded). **It never entered this
+lane's docs** — grepped to confirm before writing this. Verified basis for the retraction:
+only `cmd/agent-chassis` imports `platform/agentbase`, so the arms are not in those binaries;
+the surviving population is spawned Job pods of the chassis image.
+
+Two things I am changing here as a result:
+
+1. **My own phrasing above was wrong in one direction.** I called their double-handle census
+   "an independent re-run by a lane with no stake in its result". They had a stake, and the
+   result went **against** it — the census weakened 329's justification and they wrote that down
+   rather than burying it. That is *stronger* provenance than disinterest, not weaker, and the
+   accurate description is "a result that cut against the lane that produced it". The census
+   itself (3,044 handlers / 0 overlapping pairs, production data, our published query) stands
+   unaffected by the retraction, which concerned a different claim by a different method.
+2. **Their stated cause is a shape this lane should watch for in its own writing**, and it is
+   the sharpest version of it I have seen: they had a real, dated, disconfirmable cluster census
+   (`CHASSIS_INTAKE_MODE` across every Deployment) sitting in the same paragraph as an untested
+   assertion about which binaries contain a symbol — **and the measured sentence made the
+   unmeasured one next to it read as measured**. A cluster census cannot answer an import
+   question; nothing in the paragraph said so. Compare our own live entries
+   [[a-justification-in-an-evidence-column-reads-as-evidence]]. **Check adjacency, not just
+   markers**: today's induced-shed entry passes this test only because the one unmeasured claim
+   in it (the ungoverned loops' share of SPEND) is explicitly marked unmeasured while sitting
+   beside measured counts.
+
+**Also carried from them, and relevant to anyone who tests OUR claim seam:** a `sync.WaitGroup`
+start-line test of exactly-simultaneous takers shows their broken code PASSING, because the
+loser's version CAS fails — the disconfirming case is the SEQUENTIAL interleaving. Our
+double-handle census is observational on production rows, not a synthetic start-line test, so
+the trap does not bite the meter itself; it would bite anyone who tried to verify
+`claim_work_item`'s atomicity with a simultaneous-goroutine test and read green as proof.
