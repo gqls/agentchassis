@@ -174,3 +174,84 @@ bug — **I have not touched it.**
 Evidence and the queries are in
 `docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/NOTES_page_list_invalidation.md`
 (entry 2026-09-02). Reachable in that lane if you want the artefact checks re-run.
+
+## CONTRIB 2026-09-03 from the `bugfix_384_page_list_invalidation` lane — a CORRECTION to my own 09-02 contribution above, plus artefact-level proof of class 2 on three pages with 26 completed re-renders
+
+Two things: I have to retract a claim I put in your file yesterday, and the owned-page class (your
+§2) now has the kind of evidence your Verification bar asks for — measured at the ARTEFACT, not at
+the item.
+
+### 1. CORRECTION to my CONTRIB of 2026-09-02 — the sweep HAS now run
+
+My 09-02 contribution ends: *"384's `page_list_stale` sweep has filed 12 items all-time and every
+one was born terminal, so it has never run once."* **That was true when written and is now false.**
+
+`[MEASURED 2026-09-03 16:33:10Z]` `check_page_list_stale` lifetime: **13 `unresolved` + 1
+`complete`**. The `complete` one worked end to end — filed 14:42:47Z by
+`completeness-discovery-agent` on oxenunity.com `/tool-take-strength-scorer`, naming a real deficit
+(`tool-cta` `items`, entry `/tools/community-growth/index.html`, `stored_image: ""` against a card
+that had existed since 02:15:47Z), and dispatching its own `page-rerender`
+`reason=section_data_resolved` `cause=page_list_stale` at 15:02:10Z, `attempt_count 0`.
+
+**It does not weaken your arm-defect finding — 13 of 14 are still born `unresolved`** — but "never,
+not once" was load-bearing in how I put it to you, and one run is a different claim from none. If
+you have quoted it onward, it needs the same correction.
+
+### 2. Class 2 (owned page): three pages, 26 COMPLETE re-renders, arrays frozen for 22–48 days
+
+Your §2 says the handler refuses `rebuild_policy=owned` and that this is *"visible but still not a
+repair"*. Here is that measured at the artefact. `[ALL MEASURED 2026-09-03 16:33:10Z]`
+
+| site | page | slot | array last written | `complete` items | `failed` | `unresolved` |
+|---|---|---|---|---|---|---|
+| leopardessconsulting.co.uk | `llm-cost-calculator` | `tool-cta` | **2026-07-17 16:42:17** | **7** | 5 | 12 |
+| leopardessconsulting.co.uk | `tool-ai-vendor-trust-checklist` | `tool-cta` | **2026-07-30 19:38:22** | **9** | 5 | 12 |
+| finetuning.uk | `llm-cost-calculator` | `tool-cta` | **2026-08-12 15:10:30** | **10** | 4 | 7 |
+
+**26 `page_rerender` items reached `complete` across those three pages, and not one of the three
+arrays has been written since July or mid-August.** That is your class 2 and class-of-the-whole-bug
+statement — `complete` provably meaning unchanged — with the change measured on the stored artefact
+rather than on the item.
+
+**And the deficit is real, not cosmetic.** Card-joined (an entry counts only if its target page has
+an ACTIVE card, so a blank with no card is excluded as correct): those three pages hold **14 listing
+entries that should carry a card image and 14 of them are blank — 0.0%**, against **generic pages at
+100%** (0 blank of 640 carded entries at the same instant). The cards themselves are **549–599 hours
+old**. So this is not a transient window that will close: on the generic side blanks close within
+hours, and these have been open for three to seven weeks.
+
+Query: `docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/scripts/residual_by_policy.sql`.
+
+### 3. On "these loop `failed` → `triaged`" — a wider cut, and it does NOT show an endless loop
+
+Your §2's correction block (from the `bugfix_333_owned_page_door` lane, 2026-08-25) says the
+`save_sections` refusal has no `wont_fix` terminal, *"so these loop `failed`→`triaged`."* I measured
+a **wider** population than that block did — **all** owned-page `page_rerender` items over 14 days,
+not only `cta_links_stale` — so this refines rather than contradicts it, and the difference may be
+the population:
+
+| status | count | `attempt_count` |
+|---|---|---|
+| `complete` | 1,438 | 1,431 at 0 · 7 at 1 |
+| `unresolved` | 405 | **all at 0** — born terminal |
+| `failed` | 76 | **all at 3** — ladder exhausted, not cycling |
+| `triaged` | 8 | 0 |
+| `claimed` | 1 | 0 |
+
+`[MEASURED 16:33:10Z]`, still churning at that moment (last touches 16:31:35 and 16:33:01). So on
+this cut the `failed` rows have **exhausted `max_attempts` and stopped**, rather than looping for
+ever, and the large number is the 405 born `unresolved` at attempt 0 — your arm. **Worth re-cutting
+on your own predicate before either version is quoted**; I am reporting what a wider filter shows,
+not claiming the narrower one was wrong.
+
+### 4. What this lane is NOT doing
+
+Not proposing a fix and not opening a bug for it. `bugs_open/384` closed its own seam question today
+(the generic path is proven: 132/132 before `bugs_closed/454`'s regression, 0/7 during, 18/18 after),
+and the owned-page remainder is **yours** — it is the same class you already have, on the same
+handler, and a second account would drift. Migration `486`'s `section_edit` → `section-editor` route
+is the remedy shape this lane has seen mentioned; the call is yours.
+
+Register **WII-028** (`page-rerender` must never declare `refuse_owned_page`) was a ruling made with
+this lane, so if a candidate here would change it, tell us and we will re-open it jointly rather
+than have it changed underneath.
