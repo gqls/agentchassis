@@ -3274,3 +3274,30 @@ slot when that completes. "Complete" on the add_tool item was again not the arte
 - `nav_drift` `ec17b214` (nav-updater): "nav membership declared (in_header true)"; the adopt kept
   the page row's `in_header=false`, and nav-updater rebuilds `site_nav_items` FROM `pages`, so the
   effect is a chrome re-render reflecting the row as it is. Left to run.
+
+## 2026-09-03 (20:17–20:25Z) — your-own-model Stage B LANDED on attempt 2; SAME SHAPE as technical-details, which makes the mechanism a two-page fact
+
+Item `11e1e8ed` retried 20:17Z (dispatcher retook it after `retry_after`), complete 20:22:05Z, page
+deployed. **The floor was not touched:** the second hero came out at **338** visible chars vs the old
+520 (65% kept; attempt 1's was 212 = 41%), so the 178 guard passed on writer variance alone. Read at
+the served page (`stage_b_assert.sh`, RESULT PASS on the mechanised checks): A1 five h2s DISTINCT
+("From your writing to your own model, in three steps | From your documents to an hour with your own
+model | From your examples to your own model | A short glossary | Still weighing fine-tuning against
+the alternatives?"); A3 em dashes 4 → 4, 0 inside `<main>`; A4 no `</strom>`; controls byte-identical.
+The hero opens on its subject VERBATIM ("Your company's voice, in a model you own."), the FAQ on its
+glossary subject, the CTA on its own.
+
+**A2, read by eye (the script only PRINTS it — the sibling-subject test is not mechanised, so PASS
+above means A1/A3/A4/controls, not A2):** sections 2, 3, 4 (subjects "how it works" / "what you get,
+exactly" / "what makes the price possible") open on *"The process runs in three steps…"* / *"The
+process runs over two sessions…"* / *"Training your own model happens in three steps…"* — three
+how-it-works sections under three different headings. **Identical failure shape to technical-details,
+on a page whose brief was NOT rewritten today** (the 2026-08-24 brief, copied whole). So: the h2
+symptom of 443 is fixed on both pages by 641/A4; the body convergence is a second, structural cause
+(the whole brief rendered as this section's Rewrite Guidance, confirmed first-hand by the prompts
+lane, diagnosis run filed) that reproduces page after page. Sent to the prompts lane 20:26Z with the
+six opening lines they asked for.
+
+Housekeeping: `nav_drift` `ec17b214` completed (chrome re-rendered site-wide, page row flags unchanged);
+the playground `page_rerender` `50c2a394` is STILL triaged at 20:25Z (priority 80; the site's dispatch
+loop was busy with your-own-model until 20:22) — the widget is not served until it runs.
