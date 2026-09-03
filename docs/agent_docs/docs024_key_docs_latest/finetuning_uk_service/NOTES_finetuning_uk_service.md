@@ -2607,3 +2607,21 @@ Put as a pair at the copy lane's request, with three real homepage sentences. He
 
 Also recorded from their reply (commit `4b1f51647`): the gate did NOT produce his homepage
 sentence, the brief did — "the gate implements his ruling on every page" is not established.
+
+## 2026-09-03 (11:15Z) — owner: playground = BOTH public demo and booked hours; cost basis for the demo
+
+Question: *"what is that public demo going to cost me in llm fees?"* Answer, grounded:
+- **LLM fees: £0.** The demo serves the Phase 0 fine-tune (`SmolLM2-1.7B-Instruct`, Apache 2.0,
+  GGUF q4_k_m 1.06 GB, `finetuning/artefacts/phase0-20260815-1621/`) from the in-cluster
+  `ollama-adapter` pod; no paid API is in the path. `[MEASURED 2026-09-03]` that pod requests
+  2 CPU / 20 Gi (limit 8 CPU), currently 1m CPU / 327 Mi, holding `mistral-small3.1` (15 GB) and
+  `nomic-embed-text`.
+- **Compute:** CPU time on a node already paid for; bounded by the pod limit; worst case under
+  load is slow replies, not a bill. `[UNMEASURED]` 1.7B q4 tok/s on this CPU.
+- **GPU is booked hours only:** a6000 **$0.35/hr real** (vendor invoice 2026-08-18, per-minute
+  billing), ≈$0.75 per 2-hour window; always-on would be ≈$8.40/day, which is why the demo stays
+  on CPU. Re-training the demo model ≈$0.30 (Phase 0: ~50 min).
+- **Abuse:** `tools-api`'s per-IP token bucket (`internal/tools-api/middleware/ratelimit.go`) and
+  `httpguard` body cap sit in front of the route.
+PLAN Phase P written with the build order. First step: load the Phase 0 GGUF into the in-cluster
+ollama and measure tok/s.

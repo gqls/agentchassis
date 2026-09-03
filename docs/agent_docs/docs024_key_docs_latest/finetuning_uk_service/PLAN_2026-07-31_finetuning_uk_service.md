@@ -320,3 +320,31 @@ explicitly deferred: CPU Ollama serving with stated limitations.
 3. **Playground booking shape** — customer-named hours vs offered slots; Phase 0's cold-start
    measurement decides.
 4. **Sample datasets** — which 3–4, and are they ours to publish? They are the shop window.
+
+## Phase P — the playground TOOL (owner decision 2026-09-03: BOTH a public demo and booked hours)
+
+**Owner, 2026-09-03:** *"both public demo and booked hours - what is that public demo going to
+cost me in llm fees?"* Decision recorded; the cost basis is below and in NOTES.
+
+**Shape (from § "A GPU playground in named hours", now split in two):**
+- **Public demo, always on, CPU, in-cluster.** The Phase 0 fine-tune
+  (`SmolLM2-1.7B-Instruct`, Apache 2.0, GGUF q4_k_m 1.06 GB in B2) loaded into the existing
+  `ollama-adapter` pod (requests 2 CPU / 20 Gi, limits 8 CPU; idle today at 1m CPU / 327 Mi).
+  **LLM API fees: £0** — no Anthropic/OpenAI call anywhere in the demo path; the marginal cost
+  is CPU time on a node already paid for, bounded by the pod's limit. `[UNMEASURED]` tokens/s of
+  a 1.7B q4 model on this node's CPU; measure before deciding the demo's reply-length cap.
+- **Booked hours, GPU, on demand.** The Phase 0 path (a6000 at **$0.35/hr real, billed per
+  minute**; ≈$0.75 per 2-hour window incl. warm-up; dispatch→first token 3 m 23 s), provisioned
+  per booking through the thunder actions that already exist for training runs and
+  decommissioned after. Never used for the public demo: an always-on a6000 is ≈$8.40/day.
+- **One route for both:** `tools-api` `/api/v1/tools/playground/chat` behind `httpguard`
+  (per-IP token bucket, body cap, CORS), proxying to the demo model by default and to the booked
+  box during a session. **One widget:** fork the library's `chat-input-box` (requires-backend) onto
+  `/playground.html`; `deploy_config.capabilities += backend` on the site row so TL-043's gate
+  admits it.
+
+**Order:** (1) demo model into the in-cluster ollama, measure tok/s; (2) tools-api route +
+tests, council; (3) capability on the site row, fork the widget through the tool pipeline, rebuild
+`/playground.html` through the framework (never hand-authored); (4) booked-hour provisioning as
+a workflow, reusing the training-run actions; (5) the booking → session handoff. Each step
+verified at the artefact (curl the route; chat on the served page).

@@ -1285,3 +1285,11 @@ rule, anything under forty percent of the original is refused, and your own sent
 thirty. So the homepage reads right today because the brief told the writer, and the check
 itself would have refused that cut. Changing that number is a code change through review, and
 they'll do it on your ruling rather than on a guess.
+
+2026-09-03, 11:15. You chose both: a public demo anyone can try, and booked hours on a GPU with
+the customer's own model. Your question was what the demo costs in model fees, and the answer
+is nothing: it runs our own small fine-tuned model on a machine we already pay for in the
+cluster, with no call to Anthropic or anyone else. The only thing that costs real money by the
+hour is the GPU box, and that is reserved for booked sessions at about thirty-five cents an
+hour, billed by the minute. The plan for building the playground is now written, in five steps,
+starting with getting the demo model loaded and timed.
