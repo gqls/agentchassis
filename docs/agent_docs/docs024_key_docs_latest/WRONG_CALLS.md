@@ -63978,3 +63978,157 @@ cannot receive): **a dispatch lands only where a branch exists to catch it.**
 
 **Tally:** **an-example-teaches-the-shape-not-the-capability** ×1 (new);
 **a-complete-work-item-is-not-a-changed-artefact** ×(n+1) — this time as the safety net that worked.
+
+## 2026-09-03 — the improvement_loop lane applied migration 722 by hand, wrote "APPLIED" in three places, and never wrote the one row that the runner reads
+
+**The claim.** Migration `722` (born-held trigger) "APPLIED 2026-09-03 09:2xZ" — in the file's
+own header, in the register (WDS-020), and in the lane handoff. All three were true. None of
+them is where `run-migrations.sh` looks.
+
+**What was actually the case.** `[MEASURED 2026-09-03 17:0xZ]` `schema_migrations` had rows
+for 718, 719, 720, 721, 723, 724, 726, 727 and both 728s. **No row for 722.** The trigger was
+live in `pg_trigger` the whole time. So for eight hours the runner listed 722 as pending, and
+its probe — which executes the file in a doomed transaction — reported it `ok`, because a
+`CREATE OR REPLACE` + `DROP TRIGGER IF EXISTS` body has no guard that RAISEs `already` and
+replays without complaint. Then the loanzy lane held a second site by hand, 722's ARM 4
+(`at most 1 site carries a posture`, hard-coded) started RAISEing, and from that moment a
+blanket `--apply` by ANY lane would have **halted on 722 and attempted nothing after it** —
+an unrecorded file whose verify arm had rotted into a queue-blocker.
+
+**What caught it.** The next session in the same lane, re-grounding the handoff's "722 is
+applied" against the ledger instead of against the header — one query, no symptom.
+
+**The cheap check that would have.** `SELECT filename FROM schema_migrations WHERE filename
+LIKE '722%'` immediately after the hand-apply. The auto-memory note for the runner
+(`migration-runner-practice.md`) says *"Recording is part of applying — do both in one
+motion"* and names this exact file shape as the one the probe cannot see. The lane had read
+that note. Reading a rule is not the same as running its check.
+
+**Two generalisable shapes.** (1) **"Applied" written in prose is a claim about the DB; only
+the ledger row is the fact the tooling reads** — the same family as "a `[VERIFIED]` off an
+echo vouches for the error". (2) **A verify arm with a hard-coded threshold is correct on the
+day and a trap by the afternoon**: 722's "at most 1" was measured true at 09:2xZ and false
+by ~12:00Z, through no defect in 722. Migration 752 (same lane, same day) measures
+before/after inside the block instead, and carries an already-applied guard so the same
+omission would at least read as LIKELY ALREADY APPLIED.
+
+**Cost.** None realised — no lane ran a blanket `--apply` in the window. Potential: every
+pending file after 722 in any lane's queue, silently not attempted, plus the "halted" reading
+as a defect in 722 rather than a missing row.
+
+**Smaller, same session, same lane:** the handoff quoted "~390 rows of other types" for the
+non-skip-link half of the flag-only pile. Its own two figures were 1,162 and 704; the
+difference is 458. Nobody subtracted. The cheap check is the subtraction.
+
+---
+
+## 2026-09-03 — `bugfix_114_imagery_wiring`: I spent a day waiting for a detector state that had been cured the night before, and said so in four separate updates
+
+**The claim.** `bugs_open/114`'s closure gate required observing all three states of the new
+`unrendered_page_imagery` detector fire live. Four updates through 09-03 — the handoff banner,
+three NOTES entries and the owner-facing README — all recorded "still outstanding: one
+`fragment_slot` observation", predicted on "the 16 tool-page rows (mcalc has 10)". Each update
+re-measured the *other* things it reported (capability probes, roll tags, orchestration counts)
+and **carried the `fragment_slot` prediction forward untouched**.
+
+**What was true.** The state was already **extinct and unreachable**. `[MEASURED 2026-09-03]`
+fleet-wide: **800** pages carry an image-capable component, **45** carry a fragment marker,
+**0** carry both on the same component row — and that conjunction *is* the state. Migration
+**701** plus the instance-scope sweep (another lane, overnight 09-02→09-03) had split the tool
+shell out of the image-capable component — the exact condition the state detects — roughly
+**11 hours before the detector went live**. The detector shipped to catch a thing that had just
+been fixed.
+
+**What caught it.** Re-running the census instead of quoting it, prompted by nothing more than
+noticing that the sibling CONTRIB in the lane's own directory said 701 had retyped those very
+rows. The CONTRIB had been sitting in the directory unread all day.
+
+**The cheap check that would have.** The number carried its own date: `[MEASURED 2026-09-02]`.
+This repo's own owner ruling (2026-08-22) exists for exactly this — *"a census does not go
+wrong; it goes STALE, and it reads as current for ever"* — and its stated remedy is mechanical:
+the date is what makes staleness checkable. Re-running one `count(*)` before repeating the
+prediction was ~20 seconds. **The rule was followed in full when the number was WRITTEN (it was
+dated and marked) and that did nothing, because the rule protects the reader of a stale figure
+only if the reader actually re-runs it.** Dating a number is necessary and is not sufficient.
+
+**The generalisable shape, and it is not the staleness one.**
+**A prediction about a DETECTOR can be invalidated by the fix the detector was built to find —
+and then the detector's silence looks exactly like blindness.** Every instinct here points the
+wrong way: 708's own runbook step 3 says *"a fleet-wide silence after full rotation is an
+unexercised detector — a bug, not a clean fleet"*, which is sound for a live population and
+**actively wrong** for a cured one. Obeying it would have filed a bug against a working check.
+Before reading a detector's zero as blindness, **measure the population it is looking for**;
+"nothing fired" is a statement about the estate, not about the code, until you check which.
+
+**A second, opposite error in the same file.** The rotation was quoted as "sites >4h stale
+every 300s… ~5 sites/3h… fleet completes within ~a day". The live task is `LIMIT 1`,
+`interval_seconds=10800`, behind a **7-day** staleness gate — days, not a day. Those figures
+belong to a *different* rotation task and were transcribed across. Cheap check: read
+`pre_query` and `interval_seconds` off `scheduled_tasks`, which is one query and is the fact.
+
+**Cost.** No damage — the lane's work was correct throughout and the detector is proven
+(15/15 sites, 7 true negatives). What was spent: a day of a closure gate that could not close,
+and four documents telling the next session to keep waiting for it.
+
+## 2026-09-03 — the `bugs_open/427` lane named `sync_pages` as the mechanism reverting its three migrations, and I repeated the same shape one file later
+
+Two wrong calls, the same shape, an hour apart, by two different sessions on the same lane.
+Recording them together because the pair is the lesson: the second happened *while
+correcting the first*.
+
+**Call 1 (the original lane, `427` §19.2).** *"the next `sync_pages` run for
+boxingonline.com overwrites `pages.sections` back to `["hero-tool","generic-text-block",
+"advertising"]` in one write — undoing 719, 727 AND 728 together."* Written into the bug
+file, the handoff, and the owner-facing README as the reason the migrations were transient,
+and escalated as the lane's top open item needing "a person, not a session".
+
+**What is actually true.** The CONCLUSION was right — the migrations were transient. The
+MECHANISM was wrong, and in the direction that matters. `sync_pages` writes from a
+`site_plan` payload in collected data, and it is *preceded* by `reconcilePlanWithRealised`
+(`v3_site_actions.go:7701-7724`), which SNAPS a `deployed`/`needs_rebuild` page's realised
+`pages.sections` back **onto** the plan proposal. So a re-plan launders the cache forward
+and is **safe**. What actually reverts is `load_page_sections_from_spec_action.go` — tier 1
+reads `site_plan_sections` (`:142-148`) and syncs it **down** over `pages.sections`
+(`:558-570`) — and it fires on **any page build, with no re-plan at all**.
+
+**Why it mattered.** It points the reader at the wrong guard. "No re-plan is scheduled, so
+we are safe" is a reasonable inference from §19.2 and a false one. It also mis-sized the
+escalation: the lane concluded the fix was blocked on an owner ruling about
+`site_plan_sections` immutability, when the actual remedy was a single-page migration with
+a precedent already in the tree (`154`, 2026-07-15, same trap, documented in its own header).
+
+**Call 2 (mine, correcting call 1).** I read the re-plan path, found the snap, and told the
+user *"This settles it"* — that `decideEmit` is inert and the migrations were safe. That was
+the same error one file along: I had read the *writer* I was chasing and had not yet read
+the *reader* of the table that was left stale. I was wrong for about ten minutes and said so
+in the same conversation, but I had already stated it as a conclusion.
+
+**What caught both.** Reading `check_section_source_drift.go`'s file header, which states the
+whole trap in six lines and names migration 153/154 as the worked case. It was in the tree the
+entire time, and it is the header of the detector that had *already filed a work item about
+this exact page* on the morning of the same day.
+
+**The cheap check that would have caught both.** **Ask which code path READS the store you
+left stale, and grep for it** — `grep -rn "FROM site_plan_sections" --include=*.go platform/`
+returns a handful of readers, exactly one of which writes back down. Both calls reasoned from
+a *writer* they happened to be looking at instead of from the *reader* of the store they had
+failed to correct. Note this is the same shape as §19.1's own correction three paragraphs
+earlier in the same document, where a file was cited without being grepped — the lane logged
+that lesson and then made its structural cousin in the next section.
+
+**Third, smaller, mine, same session.** My first triage query for the `section_source_drift`
+backlog joined only tier 1 (`site_plan_sections`) and reported
+`leopardessconsulting.co.uk/index` as a LIVE DIVERGENCE. It is not: it is served by **tier 2**
+(the `site_specs.site_plan` aspect) and agrees. My query encoded "authority = tier 1" when the
+check's own precedence is `COALESCE(tier1, tier2)`, so a NULL tier-1 read as a divergence
+rather than as "look one tier down". Caught by noticing the `live_authority` column was NULL
+rather than a list — i.e. by the shape of the output, not by the number. **The cheap check:
+when you re-implement a detector's predicate in SQL to triage its own backlog, copy its tier
+walk from the source, do not paraphrase it** — the same "copy a mechanism's predicate; never
+paraphrase it" lesson this lane logged yesterday, on a different mechanism.
+
+**Cost.** Call 1: an escalation to the owner that did not need to be one, and a top open item
+that blocked the lane's closure overnight. Call 2: none realised — caught in-session before
+anything was written or committed. Call 3: none realised — caught before the migration that
+acts on the triage was written; had it not been, migration 753 would have left a resolved item
+open on the grounds that it was divergent.

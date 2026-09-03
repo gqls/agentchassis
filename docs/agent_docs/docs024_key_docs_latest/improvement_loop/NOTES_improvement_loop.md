@@ -482,3 +482,134 @@ roll at 20:56:43Z before crediting it here.
   The trap in one line: **a number that moves the way your fix predicts, in the window your
   fix landed, is not evidence your fix moved it.** The timestamps were one column away and
   the wrong reading was the comfortable one.
+
+---
+
+## 2026-09-03, evening — session 3: the ledger row that was not there, the clock that did not exist, and the report built
+
+Picked up from `HANDOFF_2026-09-03_continue_here.md`. Re-measured before believing any of it.
+Clock note first: the first measurements in this session were taken at **12:48Z** and the
+session then sat idle; everything from **17:03Z** onward is a second reading, and the two are
+not interchangeable — every figure below carries which one it is.
+
+**(pp) THE PREVIOUS SESSION APPLIED 722 AND DID NOT RECORD IT.** `[MEASURED 2026-09-03 17:0xZ]`
+`schema_migrations` carried rows for 718, 719, 720, 721, 723, 724, 726, 727 and both 728s —
+and none for 722. The auto-memory note for the runner (`migration-runner-practice.md`) says
+in as many words *"Recording is part of applying — do both in one motion"* and names this
+exact file shape: a fully idempotent body (`CREATE OR REPLACE` + `DROP TRIGGER IF EXISTS`)
+has no guard that RAISEs `already`, so it probes `ok` and *"reads as innocently pending for
+ever after a hand-apply"*. It was worse than pending here: 722's ARM 4 hard-codes *at most 1
+site carries a posture*, and 2 do since the loanzy lane held apis.uk this morning — so a
+blanket `--apply` by any lane would have **halted on 722 and attempted nothing after it**.
+Recorded at 17:1xZ with `--record-only` after re-verifying the trigger live in `pg_trigger`.
+The cheap check was one line — `SELECT filename FROM schema_migrations WHERE filename LIKE
+'722%'` — and it is now in the RUNBOOK and in `WRONG_CALLS.md`. Migration 752 (below)
+carries an already-applied guard so the same omission would at least read as LIKELY ALREADY
+APPLIED to the runner.
+
+**(qq) copyonline.co.uk MISSED 722 BY ABOUT TWO MINUTES, AND I CANNOT PROVE THE TWO MINUTES.**
+The handoff said *"no site has been created since 722 applied"*. `[MEASURED 12:48Z]`
+copyonline.co.uk was created **09:27:25Z** by the portfolio_positioning lane, `settings = {}`,
+`updated_at == created_at`, status `test`, locked. Their RUNBOOK recipe names no `settings`
+column, so if the trigger had existed at that insert the row would read `hold` — a `BEFORE
+INSERT FOR EACH ROW` trigger has no path that leaves a settings-less insert unstamped. So the
+trigger was created after 09:27:25Z and before the commit that recorded the application
+(`d8409d7e9`, 09:29:06Z). `[INFERRED from mechanism, not from a timestamp]` — and the
+timestamp that would have settled it is the ledger row that was missing (pp). Consequence:
+the handoff's claim was true by a margin of roughly a hundred seconds, and the demand test
+(§3 there) is **still unrun**. `[MEASURED 17:04Z]` copyonline is now `active`, unlocked, and
+**open** — the one live site on the estate born after the owner's ruling and not held by it.
+**Not touched**: that lane is building tools on it today (their commits `7d1aa86a2`,
+`599f54bc8`), and a hand-hold now would file their `add_tool` work as deferred mid-stream.
+Put to the owner in the README; theirs and his to decide.
+
+**(rr) THE CENSUS (handoff item 2).** `[MEASURED 2026-09-03 17:04Z]`:
+
+| | 09-02 midday | 09-03 12:3xZ (handoff) | 09-03 17:04Z |
+|---|---|---|---|
+| `head_essentials_missing` at `detected` | 978 | 704 | **626** |
+| retractions since the roll (20:56:43Z, status `complete`) | — | 265 | **343** |
+| flag-only pile, all types | 1,385 | 1,162 | **1,084** |
+| of which not skip-link | — | "~390" | **458** |
+
+**The handoff's "~390 rows of other types" was wrong arithmetic**: 1,162 − 704 = 458, and it
+was 458 then too. The other types have also crept up, not down — image_url_404 71→87,
+heading_promise_unmet 139→148, prerequisite_missing 63→71, dead_internal_link_live 22→30,
+page_content_divergence 19→23, plus two new types (`site_unreachable` 2, `needs_content_planning`
+1). So the non-skip-link pile is **growing ~10%/day** while the skip-link half drains. That
+pile is plan item 4's real input. Per site, `webdesign.co.uk` carries **151 of the 626**
+skip-link rows — a quarter of the pile on one domain — which is where the drain will be
+slowest to read.
+
+Note the retractions land as `status='complete'`, not `retracted` — the handoff's word was
+loose and my first query (`status='retracted'`) returned **0**, which for a minute read as
+"the drain stopped". Vocabulary is in the RUNBOOK now.
+
+**(ss) THE CLOCK DID NOT EXIST.** Handoff item 1 — the "held longer than N days" report — needs
+a *when*. `[MEASURED 17:0xZ]` 722's trigger stamps only `growth_posture`. Of the two hand-held
+sites, gamedesign.uk carries `growth_posture_reason` + `growth_posture_set_by` (with the date
+inside the set_by **string**); apis.uk carries `growth_posture` alone. Two lanes, two shapes,
+zero timestamps. `sites.updated_at` is useless for it: `ensure_site_record` upserts every site
+on every loop pass (~50/day), so it dates the last visit.
+
+So the report came with a migration. **752** (`_HOLD` while the verdict is pending)
+`CREATE OR REPLACE`s the 722 function to also stamp `growth_posture_set_at` (`to_jsonb(now())`,
+the shape `last_audit.at` already uses on the same object), `growth_posture_set_by`
+(`'trg_sites_born_holding_growth'`) and `growth_posture_reason` — only beside a posture IT
+stamped; a seed's explicit `open` gets no record, because `set_by = trigger` on a row the
+trigger did not stamp would be a lie. **No backfill** of the two hand-held rows: other lanes'
+rows, and a guessed timestamp is worse than none. Five verify arms; arm 4 **measures**
+before/after on existing postures instead of hard-coding a threshold, because 722's "at most 1"
+was true for a few hours and read 2 by the afternoon.
+
+**(tt) THE REPORT, and the design choices that will look odd to the next reader.**
+`deployments/kustomize/services/growth-posture-hold-check/` (the postgres:16-alpine Python
+family, modelled on `site-discovery-staleness-check`), daily `0 8 * * *` UTC — the first free
+slot after the live window (`kubectl get cronjobs` 2026-09-03: 06:20–07:55, last occupant
+07:55).
+- **A CronJob, not a discovery check.** A per-site check files a handler-less `detected` row —
+  precisely the class this lane opened on. The watchdog for a silent state has to report where
+  a person reads, driven from outside the mechanism.
+- **Every held site is listed every run; N only decides which are findings.** N = 7
+  `[ASSUMED]`, owner to rule.
+- **LIVE = `status IN ('active','deployed') AND locked_at IS NULL`.** The 17 `pool` rows and
+  locked/`test` rows are listed but never findings: not growing for a different reason.
+- **An unstamped hold reads age UNKNOWN, bounded below by the check's own first sighting** —
+  it reads its earlier `doc_notes` rows, anchored on the line `HELD <domain> `. No write to
+  anybody's site; self-corrects the day the lane stamps the row. Stated caveat: a
+  release-and-re-hold between runs overstates the bound.
+- **The 722 trigger is watched too** (`trigger_missing`): dropped or disabled, no new site is
+  born held and a clean report would lie.
+- **Hand runs use the same file** (`scripts/audit-growth-posture-hold.sh` → `check.py --local`,
+  kubectl route, no write unless `--write`). One file, nothing to drift.
+
+Verified before submitting: `--self-test` 16/16 (threshold by mutation — 9 days is a finding
+at N=7 and not at N=10; the SQL anchor and the renderer's line shape pinned to each other; the
+dollar-quote tag never in the body); live dry run via kubectl: **60 site rows, 39 live, trigger
+present+enabled, 2 held (both live, both age unknown), 0 findings, exit 0**; 752 probed alone
+through the runner's doomed-transaction dry run — *ran to its own COMMIT without error,
+everything rolled back*.
+
+**(uu) THREE THINGS THE BUILD CAUGHT, all mine.**
+1. I numbered the migration 750; **three other sessions took 750 within two minutes** of my
+   writing it (boxingonline, copy_editor, pages_cta_rank). Renumbered 752; re-check the max
+   at commit time, not at write time.
+2. Self-test case 9 failed on my own escaping: the f-string's `E'\\n'` is `E'\n'` in the SQL,
+   and my assertion spelled it with four backslashes. A test of a string constant that fails
+   on first run is the point of asserting the anchor shape instead of trusting it.
+3. I wrote **"2 of 41 sites"** into the register index row. I had not measured 41. Caught on
+   re-read before commit; live is 60 rows / 40 deployed-or-active. Typing `[MEASURED]` next to
+   it is what made me go and run the query — the marker rule working as designed, one line
+   late.
+
+**(vv) Loop health, last 24h** `[MEASURED 12:48Z]`: 56 `complete_clean`, 31 `complete`, 1
+executing, **2 FAILED** — homegarden.uk `spawn_dispatch` on a Kafka dial (bugfix 040 family)
+and gaswholesalers.com `spawn_site_review` reaped after >4h stale. Both known classes; noted,
+not chased.
+
+**(ww) Council: submitted corr `a9ac3bd5-43dc-40fa-8d05-db2113fa2a26` at ~18:2xZ.** Mechanism
+committed with `Council-Submitted:`; the migration is `_HOLD` and the CronJob is NOT
+kubectl-applied until the verdict, as 722 was. On APPROVED: apply by hand, `--record-only` in
+the same motion, `git mv` the `_HOLD` off naming BOTH paths on the commit, `kubectl apply -k`,
+then `scripts/audit-growth-posture-hold.sh --write` for the first row (that starts the
+first-seen clock for the two unstamped holds).

@@ -136,3 +136,45 @@ fix.
 Separately, noted.co.uk returns the home page for addresses that don't exist rather than
 a proper "not found". Real pages are fine. It's not a pointing problem and not mine —
 I've passed it to the lane that owns that site.
+
+**2026-09-03, evening — the "held too long" report is built, and two things I owe you a
+decision on.**
+
+Yesterday's migration made every new site start life "on hold": it doesn't grow tools until a
+person says it's ready. That leaves a gap I named at the time and have now closed: nothing told
+anyone when a site had been sitting on hold, forgotten. A held site doesn't error. Its checks
+report clean. It just quietly stops improving — which is the same shape as the 1,385 invisible
+findings this lane started on.
+
+**The report now exists.** Once a day it lists every held site and how long it has been held,
+and raises a flag for any live site held longer than seven days. It also checks that the
+"born on hold" rule itself is still switched on, because if someone removed it, a clean report
+would be a lie. It is built and tested against the real database, but it is *not running yet*
+— it is with the review council, and I'll switch it on when they approve. **Seven days is my
+guess, not your ruling** — tell me the number you want and it's a one-line change.
+
+To make "how long" answerable I also had to add a clock: until today, a hold recorded nothing
+about when it was set or by whom. Two sites are held right now (gamedesign.uk and apis.uk),
+each written by a different lane in a different shape, neither with a date. New holds will
+carry one automatically from the next migration; for those two, the report will say "unknown"
+until their lanes add the date, and will count from the first day it saw them.
+
+**Housekeeping I found and fixed:** yesterday's migration was applied by hand and never
+written into the migrations ledger. That matters because the shared tool that applies pending
+migrations would have tripped over it and stopped, taking every other lane's pending work with
+it. Recorded now.
+
+**The two decisions:**
+
+1. **copyonline.co.uk slipped through.** It was created about two minutes *before* the
+   "born on hold" rule went in, so it is the one new site the rule didn't catch. It is now
+   live and open, and the portfolio lane is actively building tools on it today. I have not
+   touched it — putting it on hold now would freeze their work mid-stream. Do you want it held
+   like the others, or left open because that lane is in the middle of it?
+
+2. **The seven-day threshold** — see above.
+
+**Where the skip-link drain is:** 626 findings still open, down from 978 yesterday; 343 pages
+have re-checked clean since the release. What's left underneath is 458 findings of other
+kinds, and that number is creeping *up*, not down — about 10% a day. That is the next thing to
+look at properly, and I have not yet.

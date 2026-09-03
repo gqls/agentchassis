@@ -8,6 +8,29 @@ Depth: `PLAN` §5 for the ordered work · `NOTES` for the missteps — §(w), §
 
 ---
 
+> **UPDATE 2026-09-03 evening (session 3) — read before §3 and §4.**
+> - **§4 item 1 is BUILT, not yet live.** `growth-posture-hold-check` (daily 08:00 UTC) +
+>   migration **752_HOLD** (a born hold now records `set_at/_set_by/_reason` — the clock did
+>   not exist: two hand-holds, two shapes, zero timestamps). Council corr
+>   `a9ac3bd5-43dc-40fa-8d05-db2113fa2a26`, committed `cc7358256` with `Council-Submitted:`.
+>   **On APPROVED**: apply 752 by hand, `--record-only` in the same motion, `git mv` the
+>   `_HOLD` off naming BOTH paths on the commit, `kubectl apply -k deployments/kustomize/services/growth-posture-hold-check/base`,
+>   then `scripts/audit-growth-posture-hold.sh --write` for the first row. N = 7 days is
+>   `[ASSUMED]` — owner to rule. NOTES §(ss)–(tt).
+> - **§3's "no site has been created since 722 applied" was true by ~100 seconds and is
+>   unprovable.** `copyonline.co.uk` was created 09:27:25Z (portfolio_positioning lane), reads
+>   `settings = {}`, and is now **active, unlocked and OPEN** — the one live site born after the
+>   ruling and not held by it. Not touched (that lane is building tools on it); put to the
+>   owner. The demand test is STILL UNRUN. NOTES §(qq), RUNBOOK "Growth posture".
+> - **722 was applied by hand and NEVER RECORDED in `schema_migrations`** (718–728 all had rows).
+>   Recorded 17:1xZ. Its ARM 4 now RAISEs (2 postures), so an unrecorded 722 would have HALTED
+>   any lane's blanket `--apply`. NOTES §(pp), WRONG_CALLS.
+> - **§2a drain** `[MEASURED 17:04Z]`: 626 open (from 704), 343 post-roll retractions (from
+>   265) — and they land as `status='complete'`, not `retracted`. **§4 item 2's "~390 other
+>   rows" was wrong arithmetic: 458**, and that half is creeping UP ~10%/day. NOTES §(rr).
+
+---
+
 ## 1. The four things that will mislead you in the first ten minutes
 
 Unchanged from 09-02 and all still live:

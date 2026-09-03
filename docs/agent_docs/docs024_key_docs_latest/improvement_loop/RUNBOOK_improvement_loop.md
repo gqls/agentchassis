@@ -172,3 +172,67 @@ not minutes). Expect the 867 to drain over days, not on the roll.
 `page_components` rows, which this path does not build. `[MEASURED 2026-09-02]` 968 of 978
 rows carry `spec.assembled = true`, so the covered fraction is 99.0%. **If the count
 plateaus near 10, that is the expected floor, not a stall.**
+
+---
+
+## Migration ledger — is a file you APPLIED actually RECORDED?
+
+```sql
+SELECT filename, applied_at, applied_by FROM schema_migrations WHERE filename LIKE '722%';
+```
+
+⚠ **Empty means unrecorded, not unapplied — and the artefact tells you which.** 722 was
+applied by hand on 09-03 and this returned nothing all day; `pg_trigger` said the trigger was
+live. A hand-apply and a `--record-only` are ONE motion:
+
+```bash
+./scripts/migration/run-migrations.sh --record-only <file.sql> --note '<what you verified live>'
+```
+
+⚠ **The full dry run (`run-migrations.sh` with no flags) probes every pending file and took
+>300s on 2026-09-03** (14 pending, some from July). `--no-probe` lists in seconds. To probe
+ONE file, copy it alone into a scratch dir and point the runner at it:
+`MIGRATIONS_DIR=<dir> ./scripts/migration/run-migrations.sh` — the probe executes it verbatim
+in a doomed transaction and reports `ok … ran to its own COMMIT` or the error.
+
+## Retractions — the vocabulary
+
+A `head_essentials_missing` row the check re-probes clean goes to **`status='complete'`**,
+not `retracted`. `[MEASURED 2026-09-03]` there is no `retracted` status on this type at all;
+a query for one returns 0 and reads exactly like "the drain stopped".
+
+```sql
+SELECT count(*) FILTER (WHERE status='detected') AS open,
+       count(*) FILTER (WHERE status='complete' AND completed_at > '2026-09-02 20:56:43Z') AS retracted_post_roll
+  FROM site_work_items WHERE item_type='head_essentials_missing';
+```
+
+## Growth posture — who is held, for how long, and is the born-held rule still on
+
+```bash
+scripts/audit-growth-posture-hold.sh              # the daily report, by hand; no doc_notes row
+scripts/audit-growth-posture-hold.sh --days 14    # a different threshold for this run
+scripts/audit-growth-posture-hold.sh --write      # also record the row, as the CronJob does
+scripts/audit-growth-posture-hold.sh --self-test  # fixtures only, no cluster
+```
+
+Exit 0 clean, 1 findings, 2 refused to look. It is THE SAME `check.py` the CronJob runs.
+
+⚠ **"age=unknown" on a hand-held site is expected, not broken.** The row has no
+`growth_posture_set_at`; the check bounds the age below by the first day it saw the hold and
+says so. The fix is the lane stamping the row (three-line recipe in register WDS-020), not a
+smarter guess.
+
+⚠ **The 722 demand test is still unrun** — no site has been created through the trigger.
+When one is, check it directly, and check the RECORD too now that 752 is in:
+
+```sql
+SELECT domain, created_at,
+       settings->'maintenance_profile'->>'growth_posture'        AS posture,   -- must read hold
+       settings->'maintenance_profile'->>'growth_posture_set_by' AS set_by,    -- trg_sites_born_holding_growth
+       settings->'maintenance_profile'->>'growth_posture_set_at' AS set_at     -- ≈ created_at
+  FROM sites ORDER BY created_at DESC LIMIT 3;
+```
+
+⚠ **copyonline.co.uk will read open in that query and it is not the trigger failing** — it
+was created ~100s before 722 applied (NOTES §(qq)).
