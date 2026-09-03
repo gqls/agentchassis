@@ -271,3 +271,61 @@ reads and no writes is the defect, and it takes one command:
 ```bash
 grep -n '\.plan\b' <file>     # one hit: a read. No assignment anywhere.
 ```
+
+## 11. Council verdict — APPROVED, 2026-09-03, and the three advisories adjudicated
+
+`075cfedd-aef0-4230-b4f1-909ecf68959d`, **APPROVED** at 2026-09-03 10:05:35Z, round 1.
+`decided_by: "approved with 1 advisory objection(s) — none high-severity"`; 12 seats
+reviewed, 5 abstained, `gated_by_truncation: false`. Twelve of thirteen verdicts were
+approve. The three advisories are all about the SUBMISSION's sketch rather than the code, and
+none of them changes it — but "no action needed" is a conclusion that has to be shown, so
+each is answered here rather than waved past.
+
+**1. `editquality`, MEDIUM — "the rationale promises two tests, the sketch contains only the
+second."** Correct about the submission and wrong about the artefact, entirely my fault for
+sketching one test where I had written two. The committed file
+(`rerender_page_sections_resolved_data_test.go`, commit `9831e9ab4`) carries **both**, and
+both are named in the `symbol` field the seat quoted:
+
+- `TestClassifyStoredSection_ReturnsTheResolvedDataItComputed` — the classification-level
+  assertion the seat was worried was missing. It fails today with
+  *"classifyStoredSection computed a plan and threw its ResolvedData away"*.
+- `TestRerenderFlatSections_FreshResolvedDataReachesHTMLAndPersistedRow` — the user-visible
+  one, the only body the sketch showed.
+
+The seat's reasoning — that without the classification-level assertion a future refactor could
+re-break `classifyStoredSection` while leaving the merge intact — is exactly why the first test
+was written, so the objection is right on the merits and wrong only about what shipped. **The
+lesson is the runbook's own, and I did not follow it: reviewers judge the SKETCH; it is the only
+view of the code they get.** A second sketch block would have cost four lines and saved a
+MEDIUM.
+
+**2. `editquality`, LOW — "the sketch assumes `plan` is already a local in scope."** It is:
+`plan := planSection(ctx, s.slotName, thisSection, comp, resolver, logger)` is in the same
+function body, twenty lines above, and the `plan.Status != "ready"` guard between them is what
+the sketch's `@@` header elided. Settled by compilation rather than by argument — the fix and
+both tests pass against committed HEAD (`verify-head-builds.sh --test`, HEAD `13aac933f`, "ok …
+7.215s").
+
+**3. `reuse_agent`, LOW — "this test belongs in the action's existing test file rather than a
+freshly split-off one."** A reasonable default, and measurably not this package's convention.
+`[MEASURED 2026-09-03]` there is **no** `rerender_page_sections_action_test.go`. What exists is
+one file per concern, and this action already has four:
+`rerender_page_sections_base_data_test.go`, `_removed_test.go`, `_resolve_test.go`,
+`_scan_completeness_test.go`, plus `rerender_strip_gate_test.go` alongside. A fifth, named for
+its concern, follows the established pattern; folding it into a monolith would be the departure.
+**No change.**
+
+**4. `bug_historian`, MISSING (not an objection) — "no prior council precedent check possible
+without a code_checks/SQL round-trip on `classifyStoredSection`; flagging for a human, since
+`bugs_open/044`, `054`, `087` are close cousins by shape."** Fair, and named here so it is not
+lost. `044` (on_missing policy drift between the generic and `query.*` paths), `054` (a
+query-sourced list resolving empty and being stored as an empty slice) and `087` are all about
+`plan_sections` data reaching or failing to reach a page — which is the same neighbourhood,
+though none of them is about the plan being computed and discarded. Anyone extending this file
+should read them before assuming this was the only way for resolved data to go missing.
+
+**No `Council-Reviewed:` trailer exists on `9831e9ab4`**, and there will not be one: the commit
+predates the verdict and carries `Council-Submitted: 075cfedd…`, which the 098 report resolves
+to the approval at report time with no amend (forward-only forbids one). That is the designed
+path, not an omission.
