@@ -365,3 +365,33 @@ domains still listed there were probably lost."*
   source by the copy_quality lane; the error was in the ruling as written, not
   added downstream, and had passed through three lanes because **nobody read the
   live site — a quoted ruling is the thing nobody re-checks.**
+
+## 2026-09-03 (night, later) — OWNER RULING: appraisals are an INPUT, never a pricing source
+
+Two rulings via the sedo lane, both scoping this lane rather than blocking it:
+
+1. **Pricing gate removed from the built-sites track.** *"We'll bear with the
+   low balls for a while"* — Sedo Minimum Offer stays **completely blank**, not
+   a small nominal number, confirmed by direct question. Everything previously
+   held for pricing folded into the main sheet (draft9, 2,943 domains) including
+   relojistas.com and both webdesign domains. `leopardessconsulting.co.uk` stays
+   permanently excluded on his client-protection ruling, unrelated to pricing.
+2. **⚠ A FLOOR IS A DIRECT-OWNER NUMBER OR AN EXPLICITLY AGREED ONE, FULL STOP.**
+   Sedo's Minimum Price may carry a real number only where he or this lane has
+   **agreed it with him directly** — it must NEVER be derived from
+   `site_specs.commercial.tier` or any automated appraisal.
+
+**This ruling is correct on today's evidence and worth not resenting.** The model
+valued `healthcare.uk` at $149 against £40,000 paid, and gave it the identical
+figure to `healthcarecareers.uk`. An instrument that cannot separate those two
+should not set a floor unattended. **What the lane is FOR is unchanged**: rank
+the estate, find the bottom ~500, flag the names no algorithm can price, and
+inform a conversation about what number to agree. What it must not do is emit a
+number that lands in a live price field without that conversation.
+
+**Raised back to him (not overridden):** `relojistas.com` carries a $12,000
+min-offer HE set at Afternic and `free.me.uk` a $50,000 one. Listing those on
+Sedo blank puts one domain on two marketplaces with contradictory terms and
+makes the Afternic floor meaningless the moment a cheaper door exists. That is a
+different question from lowball tolerance — those two ARE agreed owner numbers,
+which his own ruling says outrank derived ones.
