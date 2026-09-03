@@ -133,7 +133,40 @@ both rungs, plus the end of disarming-by-emptiness. It does not promise number-c
 
 ---
 
-## 2. D1 — vetcomparison: ASKED, NO REPLY. Do not start blind.
+## 2. D1 — vetcomparison: **REPLIED. UNOWNED AND ACCEPTED.** Ready to build.
+
+**The lane answered in full (16:30) and the answer is yes.** The register is **unowned**, that lane
+never started one, and they welcomed it — *"your resolveEvidenceSites point means nothing else will
+ever surface this."* Their whole handover is recorded in
+`docs024_key_docs_latest/vetcomparison/NOTES_vetcomparison.md` (2026-09-03 entry), contributed at
+their invitation so it survives whichever session ends first. **Read that before starting.** The
+headlines:
+
+- **Rung: the CITED bar.** vetcomparison is RFC_060's own `relied_upon` worked example. Full method,
+  quotes verified through the production matcher. ~20 served pages. Half a day.
+- **⚠ A LIVE ERROR IS ALREADY IDENTIFIED AND UNFIXED SINCE 08-24:** the guides state the
+  **£21 / £12.50 prescription caps as SETTLED FIGURES**; the draft Order carries them as bracketed
+  placeholders *"adjusted for inflation before the Order is made"*. That lane fetched the draft and
+  flagged it internally; nobody acted. **Same shape as the loancash findings — a provisional figure
+  served as settled.**
+- **Facts are ready-made, take them verbatim** (calculator item spec `d5163ed3` + their NOTES): the
+  draft Order Article 3 compliance table (17 obligations × Large/Small), and three gov.uk pet-travel
+  pages attested 08-26.
+- **⚠ TAG EVERY CMA FACT DRAFT-VS-FINAL.** Statutory deadline for the substantive Order is
+  **23 September**; the day it is made, all of it needs re-verification.
+- **Do NOT re-assert third-party prices** (already handled structurally in `business_intel`, with
+  consent snapshots), and **do NOT fill the deliberate absences** — no independence claims, no
+  unclaimed practice prices, the OV-qualification claim held unpublished on purpose. A register that
+  "completes" those publishes something a person chose not to publish.
+- **For the vet preset: BAN "proprietary data"** — the site was remediated 2026-07-14 for fabricated
+  prices, a false "proprietary data" notice and a fabricated CMA quote
+  (`LEGAL_2026-07-15_vetcomparison_factual_record.md`). Their words: *that exact phrase is this
+  site's original sin.*
+- **And the width warning applies in reverse:** the finance sibling patterns will false-positive
+  here (the site legitimately says "we publish no prices yet"). Run every inherited pattern over its
+  own served pages, require 0 hits, with a positive control proving it is not inert.
+
+### (superseded) what was asked before the reply arrived
 
 I messaged the live `vetcomparison [0d8f85]` session at ~13:50 with two questions:
 
