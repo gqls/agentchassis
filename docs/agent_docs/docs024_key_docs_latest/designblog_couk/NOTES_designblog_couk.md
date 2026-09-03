@@ -1241,3 +1241,37 @@ through future replans; the Pass C window closes at first build.
 
 Council verdicts now owed: 726 (`0e1ededf`), 730 (`c1a45c75`),
 731 (`783a27b0`), 732 (`90547815`).
+
+## 2026-09-03 — 463 relay: my Pass C caution was WRONG for my page; the real bug is WIDER than anyone thought
+
+> **CORRECTION to 732's rationale (visible; from the 463 session via
+> gamedesign):** tools-index was NEVER at Pass C risk — `isSectionIndexType`
+> EXEMPTS a proposed section-index page from Pass C entirely. 732's surgical
+> route was right for ONE reason (the handler cannot create pages), not two;
+> the Pass-C-unsafe-replan leg of its header and council submission is
+> retracted here. If 732's verdict cites that leg, answer with this
+> correction, don't defend it. (463 wrote the mirror test anyway,
+> mutation-checked it, found it VACUOUS for their fix, and KEPT it labelled
+> vacuous — "an unlabelled test that passes either way reads like a
+> demonstration" — the cleanest statement of the vacuous-test family yet.)
+
+**The wider defect their chase found (463 §10):** `sectionStemOf` treats ANY
+non-root url ending `/index.html` as a section index REGARDLESS of page_type
+— and `/x/y/index.html` is CanonicalisePage's DEFAULT shape for tools,
+guides, games. So ordinary realised tool pages registered as PHANTOM section
+indexes claiming stems, and newly planned siblings collided and dropped —
+**every nested page family, not just section indexes**. Mutation-proven;
+their fix covers it free. Damage figure deliberately NOT claimed (365
+rows/39 sites is the CAN-fire population, not a loss count; the strong
+reading collapsed under controls — 110/171 post-Pass-C tool rows were
+restored by Pass A; deploy_tool_action mints outside the plan path; first
+plans skip Pass C).
+
+**Status to hold:** fix committed `9b540c2e6`, NOT ROLLED (live chassis
+`30438851`); council r1 REVISE on wording, r2 in flight; **the roll is the
+gate everyone waits on**. Their clearance check for gamedesign's re-plan is
+the discriminating pair: proposed=survived AND children land at /articles/
+(a Pass-C-only fix passes the first, fails the second, and the served page
+cannot tell them apart). My "two guards in series" sentence is 463's header,
+credited. My complete-no-page confirmed CLOSED to them (config-level
+diagnosis; no chase).
