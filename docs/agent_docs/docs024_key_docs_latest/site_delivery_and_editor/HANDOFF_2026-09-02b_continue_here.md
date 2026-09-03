@@ -73,6 +73,21 @@ EXPECTED pre-convergence shape, not a failure).
 > A refusal (guard) leaves the interim mark in place — not a failure of this test, a data
 > point. Watcher armed; 424 lane + boxingonline session told. The three portfolio resets
 > (424 lane, 09:23:49Z) run in the same window — read all four.
+   > **RESULT 12:10Z: THE LOGO GENERATED, AND IT IS RIGHT — at the bytes and by eye.**
+   > `d71b7877` COMPLETED 12:06:58Z (its `error` column still shows the earlier 429 text; the
+   > `result` says `asset_stored: true`). Asset `20ce80fb` now points at
+   > `images/system/20260903/e11e1b95-….png` (`updated_at` 12:06:48Z). Stored bytes fetched
+   > through the adapter pod (B2 native, 417 RUNBOOK; 252,510 B asserted both ends; invented-key
+   > control refused): **PNG 1408×768, depth 8, colour type 6 (RGBA); 80.82% fully transparent;
+   > border ring 99.91% transparent; partial-alpha 0.14%; magenta-ish fringe 0.038% of the
+   > image.** Eyeball (Read): ONE composition — a raised fist inside a shield with blue/grey
+   > stripes — NO lettering; a faint pink edge, as the numbers say. The adapter's own
+   > `border_keyed` line for this run is LOST — the pod that ran it was replaced by the
+   > v1.0.1358 roll at 12:06:56Z — so this verdict rests on the bytes alone, which is the
+   > primary instrument anyway (the guard was the blind part). **Served copy still the
+   > interim** (sha `4aff0f99`, 139,777 B, last-mod 11:09:06 GMT) until the mirror tick;
+   > monitor armed to chunk-scan the served file when it changes. Owner's item 5 moves from
+   > built-but-inert to VERIFIED-at-the-artefact once the served copy matches.
 > Binary control probe on the new adapter pod: first attempt KILLED by the rollout (exit 137
 > / "container not found") — inconclusive, not "absent"; retried on a settled pod (NOTES).
 > **~21:18Z (yesterday):** two of §1's four premises are corrected below in place — §1.1 (logo
