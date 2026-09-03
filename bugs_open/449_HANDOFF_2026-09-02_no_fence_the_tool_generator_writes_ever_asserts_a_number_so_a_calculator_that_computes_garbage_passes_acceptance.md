@@ -119,6 +119,17 @@ of any site whose fences came from `tool-generator`.
 until the next chassis roll** — they are Go. The *cause* (neither authoring agent knows the type)
 is unchanged, so this bug is still reproducible and does not move to `bugs_closed/`.
 
+> ⚠ **A ROLL HAS SINCE HAPPENED AND DID NOT CARRY THEM — do not read the tag as the answer.**
+> `agent-chassis` went **v1.0.1356 → v1.0.1358** with pods restarting ~13:07 BST on 2026-09-03,
+> after the 12:47 commit, and `0b9a5c9e1` *is* an ancestor of HEAD. All three facts held and the
+> binary still does not carry the change: probed at `/proc/1/exe`, `fence_asserts_no_value` and
+> `liveness_only` both **absent**, with a positive control (`Tier-4 acceptance PASSED`) **present**
+> and an invented negative control absent — so the probe could discriminate. 1358 was cut from an
+> earlier commit. **P1+P2 need the NEXT roll**, and whoever builds must bump `IMAGE_TAG` (a same-tag
+> rebuild serves the node's cached binary). ⚠ And do NOT use CLAUDE.md's `grep 'build provenance'`
+> to check: that line does not exist in the Go source and its documented failure mode absorbs the
+> real one — see `LANDMINES.md`, footprint `pkg/buildinfo`.
+
 Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_449_fences_assert_no_number/`
 (PLAN / NOTES / RUNBOOK / README). Ownership: the mcalc lane keeps the **site** half (its 8 fences,
 `441`, `448`, `install_fences.py`, `verify_criteria.py`); this lane took the **framework** half.
