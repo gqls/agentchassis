@@ -279,5 +279,13 @@ control at 2 forms / 40 inputs / 8 scripts.
   sees it because every test asserts the predicate).
 - **`WRONG_CALLS.md`** — six entries from this lane today, all under my own name. The recurring
   one: *the predicate was right, and every sentence I wrapped around it was an untested inference.*
+- ⚠ **`default_config::text LIKE '%…"…"…%'` WILL NOT FIND A LITERAL CONTAINING DOUBLE QUOTES**,
+  and it fails as a clean `false` rather than an error. `::text` is the JSON *serialisation*, so an
+  embedded `"` is stored escaped as `\"`. Measured 2026-09-03 on the very literal 729 defends:
+  `position('may also carry a "subject"' in (default_config #>> '{workflow,steps,plan_site,config,prompt_template}'))`
+  = **28860** (present), while
+  `default_config::text LIKE '%may also carry a "subject"%'` = **false** on the same row, same second.
+  **Extract the field with `#>>` first, then search it.** 729's verify block already does; a
+  hand-run spot check very easily does not, and would report a defended sentence as missing.
 - Timestamps here are **UTC from the database clock**. `agent_error_log` has **no `created_at`** —
   `\d` it before querying.
