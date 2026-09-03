@@ -1,3 +1,5 @@
+> **⚠ SUPERSEDED 2026-09-03 ~16:2x by `HANDOFF_2026-09-03b_continue_here.md`.** P1 is now PROVEN in production; the mcalc lane HAD already answered all three questions (two blockers dissolved, P4 unblocked); and the roll time here is wrong — it was **13:28Z**, not ~13:55Z. Read the 09-03b file instead. Kept unedited below as the record of what was believed at the time.
+
 # HANDOFF — `bugs_open/449`, continue here (2026-09-03, ~14:1x BST)
 
 **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_449_fences_assert_no_number/`

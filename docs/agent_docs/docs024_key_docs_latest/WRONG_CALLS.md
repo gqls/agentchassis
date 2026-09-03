@@ -63039,3 +63039,59 @@ declaring-a-key-silences-your-own-detector.
 - **Cost.** None — caught before it left the session. Logged because the tally is the point, and
   because this is the second entry from this lane today in the same family: measuring the
   instrument rather than the thing (the other was counting a query that ends in `LIMIT 1`).
+
+## 2026-09-03 — a demand control that counts the WRITER'S OUTPUT cannot see attempts that died UPSTREAM of the writer (`bugs_open/449` lane)
+
+- **The claim, written into a handoff for the next session.** I shipped a rule that writes a
+  `doc_notes` row whenever a blind test fence is authored, could not yet observe it firing, and left
+  a §3 discriminator saying an empty result has **two** causes needing opposite actions: nothing has
+  been authored yet (**wait**), or the mechanism is broken (**investigate**). The control I gave for
+  telling them apart was `SELECT max(created_at) FROM doc_plans WHERE subject_type='tool'` — "has
+  anything at all been written through those paths since the roll?"
+- **What it actually measured.** Only the writer's **output**. A generator run *had* happened after
+  the roll (16:04:42Z) and produced no PLAN because it was refused four steps earlier, at
+  `save_tool` (`tool birth refused (instance scope)`) — and the live step chain is
+  `… → suggest_related_pages → save_tool → compose_plan → write_plan → …`, so **the refusal is
+  upstream of the PLAN write**. Zero PLANs is therefore consistent with "nothing was attempted"
+  *and* with "attempts are being made and dying before they reach the door I am watching". Those
+  need opposite actions and my control returned the same number for both.
+- **Why it mattered.** The handoff's own "if you only do one thing" pointed at that check, so the
+  next session would have read zero, matched it to branch one, and waited — while the visible
+  evidence for branch three sat one query away in `orchestration_states`. It also hid the
+  bugfix-099 trap on the way: the refused run reads `status=COMPLETED` with `error` **NULL**, and
+  the real message is only in `collected_data->>'__step_error'`.
+- **What caught it.** Not the control. Asking the separate question "did anything *try*?" —
+  `SELECT current_step, status FROM orchestration_states` for the generator — which is a different
+  table from the one the control queries, which is precisely why the control could not have found it.
+- **The cheap check that would have.** **Count ATTEMPTS, not just outputs, and put both in the
+  control.** For any "has my rule fired yet?" discriminator, pair the count of the artefact with the
+  count of *runs that should have produced one*, and — the load-bearing half — **read the step order
+  and name what sits upstream of your write**. A rule wired behind step N is unobservable whenever
+  steps 1..N−1 fail, and that is a third state, not a variant of "wait".
+- **Cost.** None yet — caught on picking the lane back up, before acting on it. The conclusion
+  ("unexercised, not broken") survived; the *reasoning* offered for it did not, and a right answer
+  reached by a blind check is the shape this file exists to record.
+
+## 2026-09-03 — a CONTRIB you sent is a file the other lane can APPEND TO, so their reply has no new filename and no notification (`bugs_open/449` lane)
+
+- **The claim.** I wrote in the handoff, twice, that the `mortgagecalculator_couk_adoption` lane's
+  **3 questions were unanswered**, and repeated it in the owner-facing README as "I've asked the two
+  teams who own those pieces and neither has answered yet."
+- **What actually happened.** They had answered **hours earlier**, in full, on all three — by
+  appending a `# REPLY, 2026-09-03` section to the bottom of the CONTRIB *I* had put in their
+  directory, and their own handoff pointed at it (`HANDOFF_2026-09-03_continue_here.md:20`:
+  *"Reply and the full division: `CONTRIB_2026-09-03_from_the_449_lane_…`"*). One of the answers
+  dissolved a blocker I was holding an entire phase behind.
+- **Why it mattered.** It was not a missing detail — it inverted the lane's next action. The plan
+  said "wait for `441`"; their answer was *"Treat '441 lands first' as unavailable"*, i.e. waiting is
+  waiting for nothing. I also told the **owner** the questions were unanswered, which is the version
+  of this that is expensive.
+- **What caught it.** Noticing their handoff was written **one minute after** my CONTRIB landed
+  (12:45 vs 12:44) and asking whether they had read it, then grepping their handoff for `449`.
+- **The cheap check that would have.** **Re-read the CONTRIB you sent — do not look for a new
+  file.** My check was `ls -lt <their dir>` for new filenames, and an in-place append is invisible to
+  it: the reply lives inside a file whose name and position I already knew, and `ls -lt` sorts on an
+  mtime I read as *mine*. `grep -l '^# REPLY' <their dir>/CONTRIB_*from_the_<my>_lane_*` costs
+  nothing, and "did they answer?" is a question about **content**, not about directory listings.
+- **Cost.** A handoff and an owner-facing README both stating a blocker that was already resolved;
+  corrected in the same session, in both files.

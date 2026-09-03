@@ -214,3 +214,86 @@ Everything is written up for whoever picks it up next, and the handoff leads wit
 above rather than burying it.
 
 ---
+## 2026-09-03, later afternoon — the honesty label is working on real pages, and the thing I said was blocked isn't
+
+Two pieces of news, and the second one is the useful one.
+
+**First: the label works.** Last time I told you I'd installed a warning label on the test results
+but hadn't seen it appear on anything real, and that I'd rather hand that over as an open question
+than tell you it worked because it was installed. It has now appeared. A calculator called
+`tool-idea-stage-identifier` was tested at 14:00 today and its record now carries the line saying, in
+plain terms, that the test only proves the page loads and responds and says **nothing** about whether
+what it computes is correct. Everything tested before this morning's release has no such line. So
+that half is done and I'm not hedging it any more.
+
+I did make a point of checking it isn't just printing the same warning on everything, because that
+would look identical from the outside and would be worthless. It has four different things it can
+say depending on what the test actually checks, and on this page it picked the right one of the four
+— including the finer distinction between a calculator whose boxes get filled in and one that's only
+loaded. That was the correct choice for this page.
+
+**The second half — a note recording when a blind test plan gets written — still hasn't fired, and
+this is the bit worth reading.** It hasn't fired because no test plan has been written since the
+release, which is exactly the innocent explanation, and I'd left instructions saying that an empty
+result here means either "nothing has happened yet, wait" or "it's broken, investigate".
+
+It turns out there was a third possibility I hadn't thought of, and it's the one we're in. A
+calculator *was* built after the release, at 16:04. It never got as far as writing a test plan,
+because it was rejected earlier in the process for an unrelated reason — the generated code didn't
+meet a safety rule another team added a fortnight ago. The steps run in a fixed order, and the
+rejection happens **before** the test plan is written. So the run produced no test plan and no note,
+and my "has anything been written?" check counted zero and would have told the next person to keep
+waiting.
+
+That's a flaw in how I wrote the check rather than a flaw in the system: I was counting what came out
+of the door instead of counting how many people tried to walk through it. Those give the same answer
+— zero — for two situations needing opposite responses. I've written it down where we keep that kind
+of mistake so it isn't made again.
+
+The good news is it isn't a blockage. I checked whether that rejection is a new problem swallowing
+every build, and it isn't: nineteen out of nineteen calculators built in the previous three days got
+through the same rule without trouble, and this one was turned down for something specific to its own
+code. So the note will appear on the next ordinary build, and nothing needs fixing to make that
+happen.
+
+**And the real news: the work I told you was blocked is largely unblocked.** I said I'd asked two
+teams questions and neither had answered. One of them had in fact answered hours before I said that —
+they'd written their reply into the bottom of the letter I sent them, rather than sending a new one,
+so it arrived with no new filename and I looked straight past it. Entirely my error, and a cheap one
+to avoid in future: re-read the letter you sent.
+
+Their answers settle two of the three things I was waiting on:
+
+- **Don't wait for the other bug to be fixed.** I'd been holding off because a related known problem
+  could make correct calculators fail loudly. They've confirmed that problem is not scheduled and
+  nobody is working on it, so waiting is waiting for nothing — and more importantly they showed that
+  it only affects *existing* calculators, not newly built ones. A test written the moment a
+  calculator is born is looking at the very page it was just built from, so the two can't disagree.
+  That splits my job neatly in two: teach the system to write number-checks for new calculators now,
+  and leave the fifty-five existing blind ones alone for the moment.
+- **My worry about an automated fixer being pointed at shared page components was unfounded.** I
+  checked this in the code myself rather than take it on trust, because the whole risk of the change
+  rested on it. The earlier, cheaper test stage simply ignores number-checks — it skips anything it
+  can't evaluate without a browser — so adding one can't set that fixer loose. There *is* a real
+  exposure of that kind, but it comes from three built-in checks that already run on every page
+  regardless, so my change doesn't widen it at all.
+
+The third question — where a genuinely independent expected answer is allowed to come from — hasn't
+been answered by the team I asked, but I no longer think it's holding anything up, because the code
+itself answers it clearly enough. The number-check was designed to *defend* a figure captured from a
+calculator while it was known to be working, and its own documentation says in as many words that a
+figure captured from an already-broken calculator just pins the wrong answer. That is precisely why I
+wouldn't let the system simply record whatever a brand-new calculator prints.
+
+So the design is now settled: when the system writes a test for a new calculator, it must either
+derive the expected number from something that is **not** the calculator it was just handed — a
+published formula, or a fact the site itself has already cited — or write no number-check at all and
+say plainly that it couldn't. A guessed expected answer is worse than none, because it turns today's
+bug into tomorrow's official specification. The other team's tooling already behaves exactly this way
+and refused them on one calculator for that reason, which is a good sign the rule is workable rather
+than just principled.
+
+**Where that leaves us.** The honesty work is done and proven. The cause — teaching the system to
+write number-checks — is now the next real piece of work and no longer blocked. The main open
+judgement is how well the "where may an expected number come from" rule generalises beyond mortgages
+and stamp duty, where there happen to be published formulae and a legal register to check against.

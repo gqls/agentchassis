@@ -499,3 +499,210 @@ implementations.
 line: the thing it watches changes by a route no commit can carry.
 
 ---
+## 2026-09-03 (~16:10Z) — P1 IS PROVEN IN PRODUCTION; P2 is unexercised for a reason no one had looked at
+
+Picked the lane up from `HANDOFF_2026-09-03_continue_here.md` and ran its §3 first-fire checks. The
+answer is good, and getting it raised one correction and one genuinely new structural finding.
+
+### P1 — PROVEN, and proven on the discriminating arm, not just on a string match
+
+`[MEASURED 2026-09-03 16:04Z]` The newest `acceptance-run` note is
+**`tool-idea-stage-identifier`, 14:00:07.683828+00**, and it carries:
+
+> `Scope of this verdict: ⚠ LIVENESS ONLY — this fence asserts no value of any kind, so the verdict
+> says the page loads and responds and says NOTHING about what it computes (bugs_open/449)`
+
+The four notes below it (08:47Z and earlier, all pre-roll) carry `carries_scope = f`. So the line
+arrived with the roll and is firing.
+
+⚠ **A printed line is not a working classifier, and this is exactly the `[MEASURED]`-but-not-
+disconfirmable shape** the index warns about — if `criteriaAssertionPhrase` always returned
+`LIVENESS ONLY`, the note above would look identical. So I checked the arm could have come out
+otherwise, at two levels:
+
+- **In source**, `criteriaAssertionPhrase` (`criteria_value_assertions.go:226-258`) has four
+  outcomes — `exact`, `pattern`, `none`+`DrivesInputs`, `none` — and the unit tests already pin the
+  negative direction (`criteria_value_assertions_test.go:179` asserts an `exact` fence does **not**
+  contain `LIVENESS ONLY`).
+- **On this subject**, the sub-branch was the right one. The note printed the *"page loads and
+  responds"* variant, which is the **not**-`DrivesInputs` arm; so the fence must have no `fill` and
+  no `select`. It does not:
+
+```
+subject_key=tool-idea-stage-identifier  created_by=tool-generator  created_at=2026-08-05
+has_fill=f  has_select=f  has_expect_values=f  has_text_matches=f
+```
+
+Grade `none`, drives nothing → the *"page loads and responds"* wording is correct on every axis.
+**P1 is live, exercised, and right.** (Note the fence itself dates from 2026-08-05 — this is a
+standing-stock fence re-run today, not a new one.)
+
+### CORRECTION — the roll was 13:28Z, not "~13:55Z"
+
+The handoff's §3 said *"expect carries_scope = t on anything created after ~2026-09-03 13:55Z"*.
+Measured at the pods, both `agent-chassis` replicas started **13:28:18Z / 13:28:43Z** on
+`v1.0.1359`. The conclusion is unchanged either way, but the figure was wrong and every later
+"pre-roll / post-roll" cut in this lane keys on it.
+
+### P2 — zero notes, and the handoff's two-state discriminator could not see why
+
+`[MEASURED 2026-09-03 16:04Z]` `fence_asserts_no_value` notes: **0 rows**. Demand control: **0**
+tool PLANs written since 13:28:18Z (newest anywhere is 12:35:59Z, pre-roll). So by the handoff's
+rule this is "not yet exercised, nothing is wrong" — and that is the right conclusion.
+
+⚠ **But the handoff's §3 offered TWO states ("wait" / "the rule is broken") and there is a THIRD,
+which is the one we are actually in.** A post-roll generator run *did* happen —
+`3f5cb558-…` created **16:04:42Z** — and it wrote no PLAN because it died upstream:
+
+```
+step save_tool failed: failed to execute action create_tool_component:
+tool birth refused (instance scope): script is not mechanically provable —
+it declares into global scope and/or 7 binding(s) would dangle
+```
+
+(read from `collected_data->>'__step_error'`; the `error` column is **NULL** and `execution_path`
+is `[]` — the bugfix-099 trap, a failed step presenting as `COMPLETED`.)
+
+**The step order is the mechanism, and it is load-bearing for how P2 ever gets proven.** From the
+live `tool-generator` row, the chain is:
+
+```
+ensure_site_record → load_brand_context → generate_tool_html → load_site_page_names
+  → suggest_related_pages → save_tool → compose_plan → write_plan → index_plan → enqueue_rerender
+```
+
+`save_tool` runs **before** `compose_plan → write_plan`. So **every generator run refused at birth
+writes no PLAN at all, and P2 cannot fire on it** — no note, and no PLAN for the demand control to
+count either. A control that counts only the *writer's output* cannot tell "nothing was attempted"
+from "attempts died upstream of the writer". Logged in `WRONG_CALLS.md`.
+
+**Is that a standing blocker? No — measured, not assumed.** The refusal is not new: the gate landed
+in `tool_birth_instance_scope.go` on **2026-08-21/23** (`e186a2bd3`, `2817f6661`, `b1a9fe7d4`,
+`0e6c62168` — the RFC_032 lane), eleven days before the roll, and **19 of 19** generator runs in the
+preceding 72 h cleared it and completed. Exactly one run has been refused, and it is script-specific
+(that tool's generated script declared into global scope). **So P2 is unexercised, not broken, and
+not blocked** — the next generator run that produces a provable script will exercise the door,
+provided its fence drives inputs.
+
+⚠ **And P2 needs a narrower first fire than P1 did.** The door is gated on
+`DrivesButAssertsNothing()` (`write_doc_plan_action.go:219`) — the fence must drive inputs **and**
+assert nothing. P1's first-fire subject drives nothing, so it could never have tripped P2. On the
+refreshed census the qualifying rate is **55 / 187** of `tool-generator`'s fences, so roughly one
+run in three should do it.
+
+### The census, re-run (the handoff says not to trust the old one, and it had moved again)
+
+`[MEASURED 2026-09-03 16:04Z]`, `is_current` fences, per author:
+
+| created_by | fences | assert_no_value | uses_computed_values | drives_inputs | drives_but_asserts_nothing |
+|---|---|---|---|---|---|
+| `tool-generator` | **187** | 116 | **0** | 91 | **55** |
+| `operator:bugfix224-session` | 16 | 0 | 16 | 16 | 0 |
+| `webdesign_couk_thread` | 14 | 4 | 0 | 6 | 0 |
+| `operator:mortgagecalculator-…-701-rekey` | 8 | 0 | 8 | 8 | 0 |
+| `operator:staged_component_build` | 8 | 0 | 6 | 7 | 0 |
+| (7 smaller authors) | 8 | 4 | 0 | 4 | 3 |
+
+**The sharpest single line in this lane, and it is now exact: `tool-generator` has authored 187
+fences and `uses_computed_values` = ZERO.** Every one of the estate's 38 value-asserting fences was
+written by an operator or a lane, never by the agent. That is the bug stated as a census rather than
+as an argument, and it is what P4 exists to change.
+
+`max(created_at)` for `tool-generator` is **12:35:59Z today** — still a live intake, not a backlog.
+
+## 2026-09-03 (~16:15Z) — P4's blockers: TWO DISSOLVED. The mcalc lane had already answered; the handoff said "unanswered" because nobody re-read the file
+
+The handoff's §5/§6 record three questions to the `mortgagecalculator_couk_adoption` lane and three
+to `loancalculator`, all **unanswered**. That was true when written and is **wrong now for mcalc**:
+they replied *in place*, by appending a `# REPLY, 2026-09-03` section to the bottom of the CONTRIB
+this lane put in their directory —
+`docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/CONTRIB_2026-09-03_from_the_449_lane_I_am_taking_the_FRAMEWORK_half_you_keep_the_site_half.md`
+(the reply starts at line 113). Their own `HANDOFF_2026-09-03_continue_here.md:20` points at it:
+*"Reply and the full division: `CONTRIB_2026-09-03_from_the_449_lane_…`"*.
+
+⚠ **The lesson, and it is cheap: a CONTRIB you send is a file someone else can APPEND TO, so the
+reply arrives with no notification and no new filename.** This lane checked for *new* files in their
+directory (`ls -lt`) and the reply was invisible to that, because the file it lives in kept its
+original 12:44 mtime relative to their 12:45 handoff. **Re-read the CONTRIB you sent; do not look
+for a new one.** Logged in `WRONG_CALLS.md`.
+
+### Blocker 1 — 441's landing order: DISSOLVED, and the answer inverts the plan's caution
+
+Their answer, quoted: **"`441`'s fix is not imminent and nothing is scheduled. I filed it; I am not
+building it. … Treat '441 lands first' as unavailable."** And then the part that matters:
+
+- **A fence written AT BIRTH is safe.** The generator emits selectors from the template it has just
+  written, and the tool renders from that same template — `ScopeToolBirthTemplate`'s contract is that
+  a tool carries its template verbatim as `rendered_html`. There is no window in which they disagree.
+- **Backfilling existing tools is where the 441 risk lives** — and they verified the mechanism this
+  lane described rather than repeating it: `runComputedValues` does `page.Count(sel) == 0` →
+  `problems` → **fail**, it does not skip.
+
+So: **ship the authoring fix for NEW fences (P4); do NOT backfill the 55 standing blind ones.** That
+splits what this lane had been treating as one blocked change into one unblocked half and one
+deferred half.
+
+⚠ **Their caveat, which is worth carrying:** a fence correct at birth is **not** safe for ever — on
+their own site, migration 701 adopted 11 tools with bare ids, the instance-scope sweep converted them
+at 07:40 today, and five re-renders published new ids at 08:46–08:49, **breaking five fences**. That
+is 441's problem, not 449's, and it does not change the shipping order — but P4 will make 441 *more*
+visible, which they read as a feature and so do I.
+
+### Blocker 3 — `no_auto_fix`: DISSOLVED. Tier 2 never evaluates `computed_values`
+
+**I did not take this on their word — the whole risk of P4 turns on it, so I read the arm.**
+`evaluateStaticCriteria` (`platform/orchestration/actions/discovery_checks/check_tool_acceptance.go`)
+switches on `ch.Type` with arms for exactly `selector_exists`, `selector_count`, `interaction`,
+`asset_loads`, `page_status_ok`, `attribute_absent`, `attribute_matches` — and its outer arm is:
+
+```go
+default:
+    skip(ch.ID, ch.Type+" is not statically checkable (Tier 4)")
+```
+
+`computed_values` is not an arm, so it **falls to that default and is SKIPPED at Tier 2**. A skip is
+neither a pass nor a fail, so adding a value assertion to a fence **cannot** arm Tier 2 to dispatch
+`tool-improver`. The LANDMINE's other half is confirmed too, in the very next line of that file
+(`:94`): *"Built-in shell checks — always run, independent of the criteria."* Those three fire
+regardless of fence content, so the shared-component exposure of `bugs_closed/285` is **pre-existing
+and orthogonal** — installing any PLAN at all switches it on, and `computed_values` widens it by
+nothing.
+
+**Action anyway, and their reason is better than the risk argument:** set `no_auto_fix: true` on any
+generated fence carrying a value assertion — not to close the Tier-2 path, which it cannot, but
+because *"the only way an automated rewriter can turn a red arithmetic fence green is by changing the
+numbers on a page quoting tax and consumer credit."* An arithmetic failure means the maths or the law
+moved; that is a human's call.
+
+### Blocker 2 — where an expected value may COME FROM: still open at `loancalculator`, but no longer the thing holding P4 up
+
+No reply from that lane (its newest file is this lane's own CONTRIB at 14:41). But the answer is
+already legible from two sources this lane can read directly:
+
+1. **`runComputedValues`' own contract**, which I read in full rather than citing
+   (`internal/adapters/browserrunner/run_checks_action.go:790-808`) — and it is unambiguous that
+   this type is a **regression** check, not a birth check:
+
+   > *"The values are not authored by hand and are not judged for correctness here. They are CAPTURED
+   > from the tool while it is known good (`toolgolden.py --emit-criteria`) and then defended: this
+   > check's claim is 'the arithmetic has not moved since it was captured' … It follows that a golden
+   > captured from an already-wrong tool pins the wrong answer — **the capture script therefore
+   > refuses to emit for a tool whose outputs do not react to its inputs**, and the capture is only as
+   > good as the state it was taken in."*
+
+   It also states why the fail-not-skip design is safe there and would not be at Tier 2: *"this runs
+   post-settle in a real browser, so 'no element matches' means the element genuinely is not there."*
+
+2. **The mcalc lane's inherited warning**, which lands in the same place: *"a generated
+   `computed_values` check must not pin whatever the tool printed at birth … the expectation needs a
+   source other than the tool — otherwise the fix pins today's bugs as tomorrow's specification."*
+   Their `verify_criteria.py` re-derives at three labelled strengths (DEFINITION / REGISTER /
+   CONVENTION), and it **refused them** on exactly this: it reports *"NOT VERIFIED (no independent
+   model): fact-finder, portfolio"*, which is why `tool-portfolio` still has no fence.
+
+**So the design conclusion for P4 is settled even without `loancalculator`'s reply, and it is the
+handoff's own §5 sentence, now evidenced twice over: the REFUSAL ARM IS THE LOAD-BEARING HALF.** If
+the generator cannot derive an expectation from something that is not the tool it was just shown, it
+must emit **no** `computed_values` check and say so in Dependencies. What is still genuinely open —
+and is a question about generalisability, not a blocker — is whether the three-strength taxonomy
+survives outside a domain with published formulae (mortgages) or a legal register (SDLT).

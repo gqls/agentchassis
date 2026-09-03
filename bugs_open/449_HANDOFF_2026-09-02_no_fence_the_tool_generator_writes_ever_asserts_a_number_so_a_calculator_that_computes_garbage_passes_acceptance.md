@@ -248,3 +248,96 @@ grade rather than strengthen — so that induction belongs to the authoring phas
    shell failures *outside* the criteria loop, so `computed_values` beside the four existing health
    checks is exactly the combination that lets Tier 2 aim `tool-improver` at a **shared** component.
    The authoring phase must answer this. The mcalc lane has been asked for its judgement.
+
+## 9. UPDATE 2026-09-03 (~16:2x) — P1 PROVEN in production; §8e's blockers 1, 2 and 4 all RESOLVE
+
+Same lane (`bugfix_449_fences_assert_no_number`). Three corrections to §8, two of them to claims §8
+makes about what is blocked.
+
+### 9a. P1 is no longer "shipped but unexercised" — it FIRED, and on the discriminating arm
+
+`[MEASURED 2026-09-03 16:04Z]` The newest `acceptance-run` note — **`tool-idea-stage-identifier`,
+14:00:07.683828+00** — carries `Scope of this verdict: ⚠ LIVENESS ONLY — this fence asserts no value
+of any kind …`. Every pre-roll note lacks the line. The roll was **13:28Z** (both `agent-chassis`
+pods, `v1.0.1359`); §8's "~13:55Z" was wrong.
+
+**Checked for disconfirmability, because a line that always prints proves nothing:**
+`criteriaAssertionPhrase` has four outcomes, the unit tests pin the negative direction
+(`criteria_value_assertions_test.go:179`), and on this subject the *sub*-branch was also correct —
+the note used the not-`DrivesInputs` wording and that fence has `has_fill=f, has_select=f`.
+
+**P2 remains unexercised** — 0 notes, 0 post-roll tool PLANs — and that is benign. A post-roll
+generator run died **upstream** of the PLAN write, at `save_tool` (`tool birth refused (instance
+scope)`); the chain is `… → save_tool → compose_plan → write_plan → …`. The gate is the RFC_032
+lane's, landed 2026-08-21/23, and **19 of 19** runs in the prior 72 h cleared it — so this is one
+script-specific refusal, not a blocker.
+
+### 9b. §8e.4 is WRONG on its load-bearing half: Tier 2 SKIPS `computed_values`
+
+§8e.4 says *"Tier 2 ignores `no_auto_fix` entirely and appends three built-in shell failures outside
+the criteria loop, so `computed_values` beside the four existing health checks is exactly the
+combination that lets Tier 2 aim `tool-improver` at a shared component."* **The first clause is true;
+the conclusion does not follow.** Read in source (`discovery_checks/check_tool_acceptance.go`):
+`evaluateStaticCriteria` switches on `ch.Type` with arms only for `selector_exists`,
+`selector_count`, `interaction`, `asset_loads`, `page_status_ok`, `attribute_absent`,
+`attribute_matches`, and its outer arm is
+
+```go
+default:
+    skip(ch.ID, ch.Type+" is not statically checkable (Tier 4)")
+```
+
+`computed_values` is not an arm, so **Tier 2 never evaluates it** and a skip is neither pass nor
+fail. Adding a value assertion therefore **cannot** arm Tier 2 to dispatch `tool-improver`. The
+shared-component exposure is real but **pre-existing and orthogonal** — the three built-in shell
+checks run *"always … independent of the criteria"* (same file, `:94`), so installing any PLAN at all
+switches it on and `computed_values` widens it by zero rows.
+
+**Still set `no_auto_fix: true` on generated value-asserting fences** — not to close a path it cannot
+close, but because the only way an automated rewriter turns a red arithmetic fence green is by
+changing numbers on a page quoting tax and consumer credit. That is a human's call.
+
+### 9c. §8e.1's "sequenced after 441" is RETRACTED — 441 is not coming, and birth-time fences do not need it
+
+The `mortgagecalculator_couk_adoption` lane (which filed this bug and owns `441`) answered:
+**"441's fix is not imminent and nothing is scheduled. I filed it; I am not building it … Treat
+'441 lands first' as unavailable."** And the ordering concern dissolves once the two populations are
+separated:
+
+- **At birth there is no window for staleness.** The generator emits selectors from the template it
+  has just written and the tool renders from that same template — `ScopeToolBirthTemplate`'s contract
+  is that a tool carries its template verbatim as `rendered_html`.
+- **Backfill is where the 441 risk actually lives**, because `runComputedValues` **fails rather than
+  skips** on a missing element (`page.Count(sel) == 0 → problems`; verified in source, and the
+  docstring says *"FAILING IS THE POINT"*). That is §5 candidate 3, still deferred — correctly.
+
+⚠ Their caveat, worth carrying: a birth-correct fence is **not** safe for ever. On their site,
+migration 701 adopted 11 tools with bare ids, the instance-scope sweep converted them at 07:40, and
+five re-renders published new ids at 08:46–08:49, **breaking five fences.** That is 441's problem,
+not this bug's, and P4 will make 441 *more* visible.
+
+**So candidates 1 and 2 are unblocked and can ship now; candidate 3 stays deferred.**
+
+### 9d. §8e.2 — the answer was in the code all along, and it settles the refusal arm
+
+`runComputedValues`' own contract (`internal/adapters/browserrunner/run_checks_action.go:790-808`)
+states that this type is a **regression** check, not a birth check:
+
+> *"The values are not authored by hand and are not judged for correctness here. They are CAPTURED
+> from the tool while it is known good (`toolgolden.py --emit-criteria`) and then defended … It
+> follows that a golden captured from an already-wrong tool pins the wrong answer — **the capture
+> script therefore refuses to emit for a tool whose outputs do not react to its inputs**."*
+
+That is the same discipline as `verify_criteria.py`'s three strengths, and it is stated by the
+platform rather than by one lane — so **the refusal arm is confirmed as the load-bearing half of the
+authoring fix**, independently of whether the `loancalculator` lane replies (it has not). The
+generator must derive an expectation from something that is **not** the tool it was just handed, or
+emit no `computed_values` check and say so in Dependencies. A guessed expectation is worse than none,
+because it makes today's bug tomorrow's specification.
+
+### 9e. The census, re-run — do not quote §2's figures
+
+`[MEASURED 2026-09-03 16:04Z]`, `is_current` tool fences: **`tool-generator` 187 fences, 116
+asserting no value, `uses_computed_values` = 0, 91 driving inputs, 55 driving-and-blind.** All **38**
+value-asserting fences in the estate were authored by an operator or a lane, never by the agent.
+`max(created_at)` = 12:35:59Z **today** — a live intake. §2 counted 170, then 186; it moves daily.
