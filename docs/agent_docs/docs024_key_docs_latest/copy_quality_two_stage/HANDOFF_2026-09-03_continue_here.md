@@ -19,6 +19,23 @@ tail (09-02/09-03 entries are the full trail). The owner does NOT want this lane
   **⚠ THE ONE OWED READ — the planner prompt canary — is STILL OPEN, and it is the first
   thing to check:** no planner/designer has produced an LLM call since the opt-ins.
 
+  > **⚠ IT IS TWO READS, NOT THREE — `679` OPTED IN A DEAD AGENT (measured 2026-09-03 10:45Z).**
+  > `visual-designer` has **zero** `llm_call_log` rows in ALL history, has never appeared in
+  > `orchestration_states`, and — the decisive one, since both tables have retention limits —
+  > **zero live agent configs name it** (`default_config::text LIKE '%visual-designer%'` → 0
+  > rows). Its only surviving references are the original website-builder migrations
+  > (`003`/`005`/`007`), an `unused/` test seed, `348`'s capping sweep, and our own `679`; the
+  > single Go hit (`spawn_actions.go:3053`) is a `storageAgents` env-var list, not a dispatch
+  > path. So no organic run will EVER answer the canary for it, and the standard reaches
+  > nothing through that row. The other two are alive and will answer in the ordinary course:
+  > `content-gap-planner` 2,812 calls (last 09-02 11:09Z), `build-site-planner` 86 calls (last
+  > 09-02 17:33Z, fires on new site builds). **Owner question:** should `679` be rolled back, or
+  > the row revived? Neither is a session's call. **The lesson, for the next opt-in:** a
+  > migration's verify block checks properties of the ROW (exists, unique, took the placeholder)
+  > and every one of those is true of a dead row — *whether anything LOADS it* is a different
+  > question in a different table, and nothing in the plan asked it. Census the consumer first;
+  > both queries are one-liners.
+
   > **CORRECTED 2026-09-03 ~10:30Z — the drop taxonomy below was WRONG, and so was the
   > canary's needle. There is NO dispatch bug; do not file one.** All three fires were
   > published, consumed and **REFUSED AT INTAKE** within seconds, durably recorded:
