@@ -62279,3 +62279,44 @@ census-the-write-history-not-the-bug-file, a-bound-added-for-a-reviewer-narrows-
   — that returned `d33ef383c` (13:52:11Z), which is correctly NOT aboard.
 - **Cost.** None beyond the re-run: nothing was reported between the bad control and the good one,
   because a control reading the wrong way is a stop signal and was treated as one.
+
+---
+
+## 2026-09-03 — I put "THE GUARD DID NOT REFUSE A GENERIC WRITE" at the top of a handoff, from post-write state, and the guard had behaved correctly (`bugs_open/450` lane)
+
+The day's recurring error in its most expensive form: not a wrong number in a doc, but a wrong
+**conclusion at the top of the document the next session was going to act on.**
+
+- **The claim**: 36 generic writes reached six canonical shell pages while the guard was live, with
+  no refusal and no receipt — therefore the guard failed. Written as §1 of the handoff, echoed into
+  the bug file, and sent to three peer lanes.
+- **What was actually true**: those six pages had **real, active tool components** attached at
+  09:34–09:54Z by another lane's repair. At 13:05Z they were **not shells**. The guard correctly
+  allowed the write. The real defect was elsewhere and worse: `save_page_sections`'
+  delete-and-reinsert kept the tool slot's `rendered_html` and **set its `component_id` to NULL**.
+- **How the artefact fooled me, exactly**: every census in the lane — and the guard's own predicate
+  — joins `page_components` to `content_components` **on `component_id`** and filters
+  `component_level='tool'`. With the id NULL the join drops the row, so a page serving a real
+  20 KB tool reads as *no tool component, ever*. **The zero I measured was created by the very
+  write I was trying to explain.** I then reasoned from it as though it described the state
+  BEFORE the write.
+- **What caught it**: the `portfolio_positioning` lane probing the served bodies and finding
+  working tools on pages my metric called empty shells — and then reading `component_id` rather
+  than trusting either of our joins.
+- **The cheap check, and I had every piece of it**: the pages' tool components have a `created_at`
+  (09:34–09:54Z) and the writes have one (13:05Z). **Two timestamps, one comparison, and the
+  causal direction falls out.** I had already used `created_at` comparisons twice that hour for
+  other questions. Asking *"what did this page look like BEFORE the event I am explaining?"* is
+  one query, and it is the whole difference between a guard bug and a data-integrity bug.
+- **The compounding rule I broke**: I had written the shape into `016b` §9 that same morning —
+  *a correct predicate wrapped in untested inferences* — and this is that pattern with the
+  predicate being **my own census**, one field along. Writing a rule down does not install it;
+  the third violation inside a day says so.
+- **Why the blast radius was real rather than notional**: a handoff's §1 is the one section a fresh
+  session acts on before it has context. Left standing it would have sent someone hunting a guard
+  bug that does not exist, while the actual defect — six live pages one rerender away from losing
+  their tools with nothing in their appearance to warn anyone — sat unnamed. Corrected in place
+  with the wrong reading kept visible, both in the handoff and the bug file.
+
+Family: your-measurement-answers-the-question-you-encoded, a-correct-predicate-wrapped-in-untested-inferences,
+pin-the-clock-to-before-the-failure, a-closer-census-cannot-see-what-it-succeeded-at.
