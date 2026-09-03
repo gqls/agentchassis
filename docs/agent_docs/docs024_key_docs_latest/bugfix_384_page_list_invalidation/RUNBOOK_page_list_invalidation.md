@@ -290,3 +290,73 @@ SELECT created_at, source, op, application_name,
 `application_name` on each row NAMES THE WRITER (`action:rebuild_blog_listing`, `psql`, …). That is
 how "which action actually maintains this array" became a query instead of an argument — and it is
 the check that showed `rerender_page_sections` has written a listing array **zero times in 14 days**.
+
+## Did a write REPAIR the listing? (the corrected census — added 2026-09-03 after the first one was published wrong)
+
+Answers "of the writes that landed on a listing with a real image deficit, how many fixed it".
+Full SQL: `scripts/census_repair_rate.sql` in this directory. Four gotchas, all paid for:
+
+1. **JOIN THE CARD. Do not count `image=''`.** An entry whose target page has no active card is
+   *correctly* blank — the resolver has nothing to project. Counting bare empties scored the
+   resolver's correct behaviour as failure and produced a published "~37% success" where the true
+   figure was 132/132. Same rows, same window: bare = 19 writes/5 repaired, card-joined = 8/6.
+   The card must also have existed **before the write** (`ca.created_at < write.created_at`), or
+   you are asking a write to have used data that did not exist yet.
+2. **`PARTITION BY (page_id, slot_name)`, never `component_id`** — it is NULL on trigger rows, so
+   partitioning by it collapses every slot on the page into one series and `LEAD` returns a
+   different component's `content_data`. (Carried over from the 11:0x attempt; still true.)
+3. **Trigger rows only** (`source='artefact_archive_trigger'`). Each write is recorded twice — an
+   explicit `save_page_sections_overwrite` audit row and a trigger row ~42 ms later; only the
+   trigger row carries `slot_name`, and counting both double-counts.
+4. **`WITH … AS MATERIALIZED` at every stage.** PostgreSQL does not guarantee `AND` evaluation
+   order, so an unmaterialised `jsonb_typeof(x)='array'` guard gets reordered behind
+   `jsonb_array_length(x)` and the whole census dies with `cannot get array length of a scalar` —
+   which reads like a data problem and is a planner one.
+
+⚠ **The census sees only writes that MOVED BYTES.** The archive triggers fire on
+`UPDATE OF rendered_html` when it changes, or `UPDATE OF content_data` when it changes and
+`rendered_html` does not. A write that changed **neither** leaves no row — and a byte-identical
+no-op is exactly what `bugs_open/454` produced. Every failure count from this census is a
+**lower bound**, and must be quoted as one.
+
+⚠ **You cannot attribute a write older than ~25 hours to a code path.** `orchestration_states`
+held **25.0 hours** of history `[MEASURED 2026-09-03 12:4xZ]` (`SELECT min(created_at) FROM
+orchestration_states` — re-measure, do not trust this figure). Beyond that the runs are gone and
+the census gives you an OUTCOME only. To attribute, join each write to the last orchestration on
+its page within 20 minutes:
+```sql
+LEFT JOIN LATERAL (
+  SELECT o.owner_agent_type, o.collected_data->'input_data'->'spec'->>'reason' AS reason
+    FROM orchestration_states o
+   WHERE coalesce(o.collected_data->'input_data'->'spec'->>'page_id',
+                  o.collected_data->'input_data'->>'page_id') = w.page_id::text
+     AND o.created_at <= w.created_at AND o.created_at > w.created_at - interval '20 minutes'
+   ORDER BY o.created_at DESC LIMIT 1) o ON true
+```
+
+## Reading which commit is actually running (the startup line had already scrolled)
+
+```sql
+SELECT service, git_commit, min(started_at), max(last_seen_at), count(*) AS pods
+  FROM service_binary_capabilities WHERE kind='build' AND name='provenance'
+ GROUP BY 1,2 ORDER BY 3;
+```
+then `git merge-base --is-ancestor <your commit> <git_commit>`. This has no shelf life, unlike
+`kubectl logs | grep 'build provenance'` — on this fleet that line was out of range within half an
+hour, and grepping the busy log for `provenance` returns **matches inside JSON payloads** that look
+like hits and are not.
+⚠ **GROUP the commits; do not take the newest row.** Ephemeral job pods spawn constantly, and the
+427 lane hit a newest-first read returning a job pod still on the OLD commit. Group by commit and
+read the standing Deployment's pods, or read the pod type that will actually run your work.
+
+## Filing a page_rerender by hand (production's own row, not a kcat envelope)
+
+Copy `insertPageRerenderItem` (`platform/orchestration/actions/create_rerender_items_action.go:240`)
+— it is THE one INSERT for these: `pipeline='build'`, `priority=80`, `handler_agent='page-rerender'`,
+`status='triaged'`, `created_by = source`. Give it a distinct `item_key` suffix so it cannot collide
+with a real in-flight seam item (`idx_swi_dedup` is unique on `(site_id, item_key)` for
+non-terminal rows only, so a `complete` predecessor does not block you).
+⚠ **Check `bugs_open/450`'s guard before reading a null result as a 384 failure**: `save_page_sections`
+refuses a page whose `rebuild_policy='owned'` OR that is a pending tool shell
+(`genericBuildRefusal`, `owned_page_guard.go:175`). Confirm your target's `page_type` and
+`rebuild_policy` first — a refusal and a failed re-resolve look identical at the array.

@@ -409,3 +409,59 @@ that claim as needing re-checking rather than leaving it standing.
 **Where this leaves us.** Keeping it open was the right call and I would not now argue for closing.
 The fault is live and reproducible, which is the best position we have been in for diagnosing it —
 far better than the six-day-old case I started with.
+
+---
+
+**2026-09-03, early afternoon. The answer arrived — from someone else's desk — and it means two of
+the things I told you this morning were wrong.**
+
+**First, what the fault actually was.** Another session, working a completely different bug about
+an events calendar, read the same piece of code I was circling and found a one-line mistake in it.
+Someone had reorganised that code yesterday lunchtime, splitting one long function into two. In the
+split, one value stopped being handed across: the code works out the fresh, correct data for a
+section, and then quietly forgets to pass it on. So the page gets rebuilt from its own old stored
+copy of itself. Nothing errors. Every counter reads exactly as it does on a healthy run. The only
+way to notice is to know what the page *should* now say and find that it doesn't.
+
+That is why the pictures came out blank on designblog: the system looked up the four pictures
+correctly, and then threw the answer away before drawing the page.
+
+It was filed at eleven this morning, fixed, reviewed, and the fix went live at about five past one.
+So it was already solved while I was still measuring it. The theory I had reached by half past
+twelve was right, and it had been written down and fixed ninety minutes earlier — I did not look.
+
+**Second, and this is the part I need to correct properly: my "37%" number was wrong, and it was my
+own mistake, not an inherited one.**
+
+Yesterday I told you the repair mechanism only works about a third of the time. That number came
+from counting every listing entry with no picture as a failure. But an entry with no picture is
+often *correct* — plenty of pages simply have no picture attached, and the system is right to leave
+those blank. I was counting the system doing the right thing as the system failing.
+
+When I count only the entries that genuinely should have had a picture — where the picture exists
+and existed before the page was rebuilt — the real figure is this: **132 rebuilds out of 132
+repaired the listing correctly, up until yesterday lunchtime. After yesterday lunchtime, 7 out of
+11 failed.** Every one of the failures is the light rebuild affected by that one-line mistake.
+Every rebuild that went the heavier route kept working throughout.
+
+So the mechanism this whole workstream built is not unreliable. It has a clean record. It was
+broken for nineteen hours by an unrelated change, and it is fixed.
+
+**The annoying part is that I had written down the check that would have caught this.** In August I
+made the same mistake, worked out why, and wrote the fix into this workstream's own instructions:
+"join the picture, don't count blanks". I then wrote a fresh version of the same measurement six
+days later and didn't re-read my own note. I have logged that.
+
+**I also owe you a correction on this morning's bigger claim.** At half past ten I told you this
+workstream had been crediting itself with repairs it hadn't performed. I based that on two cases.
+Both of them turned out to fall inside the nineteen hours when that other bug was live — so they
+could not tell me anything about the mechanism's own record. I generalised from a sample that was
+entirely someone else's fresh breakage, and I said it in strong terms. That was too fast.
+
+**Where we are now.** The fault that was making pages blank is fixed and live. I have asked the
+system to rebuild the designblog listing on the repaired code, and I am waiting to see the pictures
+appear — that is the one thing left to prove before I would say this seam is demonstrably sound.
+
+The other items you asked to stay open are unchanged: three pages under customer ownership that
+this mechanism deliberately cannot touch, and a nightly sweep that has still never run because it
+is blocked behind a different bug. Neither is affected by today.

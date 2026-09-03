@@ -61993,3 +61993,51 @@ somebody else.
 
 Family: your-measurement-answers-the-question-you-encoded, a-report-is-not-a-measurement,
 a-measured-marker-proves-a-claim-not-a-check, a-closer-census-cannot-see-what-it-succeeded-at.
+
+## 2026-09-03 — I published "the seam is UNRELIABLE, ~37%" from a census that scored the resolver's CORRECT behaviour as failure, and the real cause was another lane's 19-hour-old regression (`bugs_open/384` lane)
+
+- **The claim.** `bugs_open/384` §"THE DEFECT, MEASURED" (11:0xZ): *"24 writes landed on a blank
+  array. 9 repaired it. 15 left it blank … the re-resolve is UNRELIABLE, not absent — ~37% success."*
+  Written up as *"the sharpest statement of the defect the lane has produced"*, promoted into the
+  handoff, and used to frame the whole remaining question.
+- **What was wrong.** The census counted an entry as a failure whenever its `image` was `''`.
+  **An entry whose target page has no card asset is correctly blank** — the resolver has nothing to
+  project into it. So every un-carded entry was scored as the seam failing, and un-carded entries
+  are not evenly distributed in time, which manufactured the "temporal pattern" I then flagged as a
+  possible regression.
+- **What caught it.** Re-running the identical rows with the card joined. Same window, same field,
+  same LEAD method: bare `image=''` gives **19 writes / 5 repaired**; card-joined gives
+  **8 / 6**. Widened to 10 days and split at the regression commit, the real figure is
+  **132 of 132 repaired before it, 7 of 11 failed after** — a seam with a perfect record, not a
+  37% one.
+- **The cheap check that would have caught it, and it was in MY OWN RUNBOOK, one section above the
+  query I wrote:** *"a first cut keyed `empty image` over ALL sources and showed news/directory
+  arrays as '20/20 empty' — those entries have no `image` key at all. **Join the card, don't count
+  empties.**"* I wrote that gotcha in August after making the same mistake, applied it to the pair
+  census it was written for, and did not carry it to a new census of the same quantity six days
+  later. **A gotcha recorded against one query does not transfer itself to the next one that
+  measures the same thing** — when you write a new census of a quantity you have measured before,
+  re-read the old one's gotchas before running, not after publishing.
+- **The second error, and it is the more expensive one.** At 10:3xZ I published that the lane had
+  an *"ATTRIBUTION defect — it credits the seam with repairs it did not perform"*, from **two**
+  closely-examined cases. Both lay inside `bugs_open/454`'s regression window, which had opened
+  **19 hours earlier** and which I did not know existed. I generalised from a two-case sample to a
+  verdict on the lane's entire evidence base, and the sample was drawn entirely from someone else's
+  fresh bug.
+  **The check: before concluding that a long-standing mechanism has always been broken, date your
+  sample against the code.** Every case I had was younger than the newest commit touching the
+  render path — `git log --since=<oldest case> -- <the path>` is one command and would have shown
+  `94f81cc60` sitting between my successes and my failures. A defect that "has been there all
+  along" whose every instance is 19 hours old is a regression wearing a chronic disease's clothes.
+- **What did work, and is worth keeping.** The 11:2x narrowing — exonerating the resolver SQL by
+  rebuilding it verbatim and running it live — was sound, and its surviving hypothesis
+  (*"`plan.ResolvedData` does not contain `articles` on the failing runs"*) was **exactly right**.
+  454 had been filed 90 minutes before I wrote it. **A correct hypothesis and a grep of
+  `bugs_open/` for the mechanism would have closed this in minutes**; CLAUDE.md says to grep
+  `/bugs_open/` before filing, and I was not filing, so I did not — but the same grep is what tells
+  you someone has already answered the question you are still measuring. **Grep the bug dirs when
+  you form a hypothesis, not only when you file one.**
+
+Family: your-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-demand-control,
+prior-art-search-goes-stale, a-closer-census-cannot-see-what-it-succeeded-at,
+a-model-upgrade-can-invert-a-closed-bugs-premise.

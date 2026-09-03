@@ -630,3 +630,70 @@ inherited.
 - **Untested hypothesis, recorded so it is not mistaken for a finding:** `query.blog_posts` resolves
   without populating `articles`, so `plan.ResolvedData` lacks the key and `mergedContent` retains
   the stored blank array, while the section still counts as `rerendered` because HTML was produced.
+
+---
+
+## 2026-09-03 12:0x–12:5xZ — the ~37% is retracted; the cause was `bugs_open/454`, filed 90 minutes before I theorised it
+
+Picked up from `HANDOFF_2026-09-03_continue_here.md`, whose instruction was: *"compare `planSection`
+on a FAILING run against a SUCCEEDING one … a code read, not a loop."* That was the right
+instruction. What it did not say — because the handoff's author did not know — is that another lane
+had already done the read and filed the answer.
+
+**What I did, in order:**
+
+1. Read `planSection` (`plan_sections_action.go:2438`) and the `query.*` branch. Nothing there is
+   conditional in a way that would populate `articles` on some runs and not others.
+2. Read `rerender_page_sections_action.go` around `classifyStoredSection` — and its doc comment
+   already named the bug, citing `bugs_open/454`, because the fix commit had landed at 10:00:40Z
+   and I was reading the fixed tree. **The comment was the finding.** Had I read this file first
+   instead of `planSection` I would have got there in one step.
+3. `DeployedWebPath` → `DeployedAssetPath` (`platform/storage/url_helpers.go:317`): cannot return
+   "" for a non-empty asset key. The other surviving candidate is dead, as predicted, in two lines.
+
+**Then the part I got wrong, and had to find myself.**
+
+I set out to check whether 454 explains my 7-day ~37% figure or only the recent cluster. It should
+not have: `boxingonline.com/index` failed 4 writes on 08-31, two days before `94f81cc60` existed.
+So I expected a residual. Instead, re-running the census with the **card joined** — which my own
+RUNBOOK told me to do in August and which the 11:0x census did not — the boxingonline "failures"
+evaporated, along with most of the others. They were entries whose target pages had no card, i.e.
+correctly blank, scored as the seam failing.
+
+Corrected: **132 of 132 writes over a real deficit repaired before `94f81cc60`; 7 of 11 failed
+after it, every one of them a light re-render.** The split at the commit is total.
+
+**Missteps, in the order I made them:**
+
+- **I inherited "~37%" from the handoff as a fact and set out to explain it, not to check it.** It
+  was `[MEASURED]` and dated, so it read as settled. It was measured; it was measuring the wrong
+  thing. The marker did its job and the job is not enough — a `[MEASURED]` figure still needs its
+  denominator read before it is built on.
+- **My first census was WIDER than the one I was correcting**, not narrower: I included every array
+  of objects with an `image` key, which swept in `tool-cta`/`tool-list` `items` fields whose blanks
+  are frequently legitimate. It produced a page of "left blank" rows that looked like a catastrophe.
+  I nearly wrote it up. The card join is what turned it back into 132/132.
+- **Two dead ends on the SQL itself, both the same trap.** `cannot get array length of a scalar`,
+  twice, from a `jsonb_typeof(x)='array'` guard in the same `WHERE` as `jsonb_array_length(x)`.
+  PostgreSQL does not promise `AND` evaluation order. Fixed with `AS MATERIALIZED` at every stage.
+  It reads as a data problem and it is a planner one.
+- **I did not grep `bugs_open/` when I formed the hypothesis.** CLAUDE.md says to grep before you
+  *file*; I was not filing, so I did not. The previous session's surviving hypothesis was already
+  correct and already answered in a bug file that had existed for 90 minutes.
+
+**Two limits I am recording because the numbers above will be quoted:**
+
+- `orchestration_states` holds **25.0 hours** (oldest run 2026-09-02 11:44Z) `[MEASURED 12:4xZ]`.
+  So the 132 pre-regression writes cannot be attributed to a code path — that figure is an OUTCOME
+  over whatever mix was running, and it is the 12-write post-regression table that discriminates by
+  path. `[INFERRED]`, not measured: that the pre-regression mix was similar to the post-regression
+  one. I have no way to check it at this distance.
+- The census only sees writes that moved bytes (the archive triggers fire on a *change*). A
+  byte-identical no-op — exactly what 454 produces — leaves no row. **Every failure count from this
+  census is a lower bound.**
+
+**In flight at writing:** a `section_data_resolved` re-resolve filed at designblog.co.uk/index
+12:35:51Z (`created_by='bugs_open/384_postfix_verify'`) to prove the seam's own path repairs on the
+fixed binary. Checked first that 450's `pageRefusesGenericBuild` does not fire on it
+(`page_type='landing'`, `rebuild_policy='generic'`) — a refusal and a failed re-resolve are
+indistinguishable at the array, and I would have read one as the other.

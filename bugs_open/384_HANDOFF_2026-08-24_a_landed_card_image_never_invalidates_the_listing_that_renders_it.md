@@ -1149,3 +1149,135 @@ not be a re-fire of the same shape.** The first run's own missing-evidence list,
 two narrowings (the query is exonerated; `ResolvedData` is the suspect), are a better starting point
 than another cold run — and the remaining question is now small enough to answer by reading
 `planSection` against a failing and a succeeding run, which is a code read, not a loop.
+
+## UPDATE 2026-09-03 12:4xZ — **THE ~37% FIGURE IS RETRACTED.** The suspect was right, the cause is `bugs_open/454`, and the seam's own path repaired **132 of 132** before that regression landed
+
+This supersedes every framing published earlier today, including my own 11:0x "the re-resolve is
+UNRELIABLE (~37%)" and the 10:3x "ATTRIBUTION defect". Both were wrong, in different ways, and the
+corrections are below with the measurements that caught them.
+
+### 1. The surviving hypothesis was RIGHT, and someone else had already found the mechanism
+
+11:2x left exactly one hypothesis standing: *"`plan.ResolvedData` does not contain `articles` on the
+failing runs, so `mergedContent` keeps the STORED blank array while the section still counts as
+`rerendered`."* That is **correct, and it is `bugs_open/454`** — filed 2026-09-03 10:00Z by the
+`bugs_open/427` lane, ~90 minutes before I wrote that paragraph, while I was measuring.
+
+`classifyStoredSection` computes `plan := planSection(...)`, branches on `plan.Status`, and returns
+**without assigning `c.plan`**. `renderPlannedSection` reads `cls.plan` and gets the zero value, so
+`plan.ResolvedData` is nil for *every* section of *every* light re-render. Not conditional, not
+`articles`-specific, and not a query-path bug — which is why my exoneration of the resolver SQL at
+11:2x was sound and led nowhere on its own.
+
+- **Introduced by `94f81cc60`, 2026-09-02 11:27:53Z** ("035 P1: extract classifyStoredSection").
+- **Fixed by `9831e9ab4`, 2026-09-03 10:00:40Z.** Council APPROVED (`075cfedd`), round 1.
+- **LIVE since ~12:05Z today** in chassis `d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85` (v1.0.1358)
+  `[MEASURED 2026-09-03 12:33Z]` — read from `service_binary_capabilities` (kind='build',
+  name='provenance'), not from the startup log line, which had already scrolled. The 427 lane
+  proved it live independently at the artefact (`6f3116af0`).
+- **`WebPath()` is exonerated too** — the other survivor, and a two-line read as predicted:
+  `DeployedWebPath` → `DeployedAssetPath` returns a `RelativeURL` built from the asset key, and
+  **cannot return "" for a non-empty `CardKey`** (`platform/storage/url_helpers.go:317-347`).
+
+**Do not fix any of this here.** 454 is owned by the `bugfix_427_event_render` lane, fixed,
+approved and live. 384's job was to say whether the seam is sound underneath it.
+
+### 2. The `~37%` was a MEASUREMENT ARTEFACT — I did not join the card
+
+`[MEASURED 2026-09-03 12:1x–12:3xZ]` The 11:0x census counted an entry as a failure whenever
+`image` was `''`. **An entry whose target page has no card asset is *correctly* blank** — the
+resolver has nothing to project. So the census scored the resolver's correct behaviour as failure,
+and did it more often in the later window because that is where the un-carded pages were.
+
+This is my own RUNBOOK's documented gotcha, one section above the query I wrote:
+*"a first cut keyed `empty image` over ALL sources and showed news/directory arrays as '20/20
+empty' … **Join the card, don't count empties**."* I applied it to the pair census in August and
+not to this one.
+
+**Both shapes, over the identical rows, same 7-day window, `articles` only:**
+
+| measure | writes over a blank array | repaired | left blank |
+|---|---|---|---|
+| bare `image=''` (the 11:0x shape) | 19 | 5 | 14 |
+| card-joined (entry's page had an active card **before** the write) | **8** | **6** | **2** |
+
+### 3. What the corrected census actually says — and it splits cleanly at the regression
+
+Same method as 11:0x (archive-TRIGGER rows only, `PARTITION BY (page_id, slot_name)`, `LEAD` for
+the value each write PRODUCED), plus two fixes: restricted to `query.*`-sourced array fields, and
+an entry counts as a deficit only if its target page had an **active card created before that
+write**. 10-day window. `[MEASURED 2026-09-03 12:2xZ]`
+
+| era | writer | writes over a real deficit | repaired | left blank |
+|---|---|---|---|---|
+| **before** `94f81cc60` | `save_page_sections` | **131** | **131** | **0** |
+| **before** `94f81cc60` | `action:rebuild_blog_listing` | 1 | 1 | 0 |
+| **after** `94f81cc60` | `save_page_sections` | 11 | 4 | **7** |
+| **after** `94f81cc60` | `action:rebuild_blog_listing` | 1 | 1 | 0 |
+
+**132 of 132 before the regression. Zero failures.** And in the post-regression window the
+attribution is total `[MEASURED 2026-09-03 12:3xZ]` — each write joined to the last orchestration
+on its page within 20 minutes:
+
+| attributed to | writes | repaired | left blank |
+|---|---|---|---|
+| `page-rerender`, `reason=section_data_resolved` (**the light re-render**) | 7 | **0** | **7** |
+| `page-build-handler` (**a full build**) | 1 | 1 | 0 |
+| no run found in window (full-build chains, keyed differently) | 4 | 4 | 0 |
+
+**Every light re-render failed. Everything else repaired.** That is 454 exactly: the full build
+goes through `plan_sections` normally and is untouched, the light re-render drops its plan.
+designblog/index sat blank for 7 hours because it is a listing page that only ever receives the
+LIGHT re-render — no image lands on `index` itself, so no full build ever came to rescue it, unlike
+its three sibling `tool-cta` slots which failed at 05:08–05:09 and were repaired at 05:42–05:50 by
+`page-build-handler` runs (`reason=image_landed`) 5 minutes earlier.
+
+### 4. Three corrections to today's earlier claims, and what each of them cost
+
+1. **RETRACTED: "the re-resolve repairs a blank listing only ~37% of the time" (11:0x).** The
+   figure came from an uncarded denominator. Corrected figure: **100% (132/132) before 454's
+   regression; 0% (0/7) after it, for a reason that is not this bug.**
+2. **RETRACTED: "the defect is an ATTRIBUTION defect — this lane credits the seam with repairs it
+   did not perform" (10:3x).** That framing rested on exactly **two** closely-examined cases,
+   leopardess (09-02 23:20) and designblog (09-03 05:06–05:25). **Both lie inside 454's regression
+   window**, which opened 09-02 11:27Z. A two-case sample drawn entirely from another lane's
+   19-hour-old regression cannot say anything about the seam's own record, and I published a
+   conclusion about the lane's whole evidence base from it. §4's "proven four times" is **not**
+   falsified; it is un-recheckable at this distance (see the limit below), and nothing now
+   contradicts it.
+3. **STANDS: the leopardess starvation (08-26 → 09-02) and its resume.** That is `bugs_open/389`'s
+   two-strike arm, is pre-regression, and is unaffected by any of this. The seam was never given
+   an item to run; it was not failing.
+
+### 5. Two limits on the above — state them wherever these numbers are quoted
+
+- **The pre-regression 132 cannot be attributed to a code path.** `orchestration_states` holds
+  **25.0 hours** of history (oldest run 2026-09-02 11:44Z) `[MEASURED 2026-09-03 12:4xZ]`, so every
+  pre-regression write's run is aged out. "132/132 repaired" is an OUTCOME over whatever mix of
+  light re-renders and full builds was operating. It is strong evidence of **no standing failure**;
+  it is **not** proof the light re-render did the repairing. The post-regression attribution table
+  is the one that discriminates by path, and it only covers 12 writes.
+- **The post-regression failure count is a LOWER BOUND.** The archive triggers fire only when
+  `rendered_html` changes, or when `content_data` changes and `rendered_html` does not
+  (`trg_page_component_artefact_archive_upd` / `trg_page_component_content_archive_upd`). A write
+  that changed **neither** leaves no history row at all — and a byte-identical no-op is precisely
+  what 454 produces. So this census can only see the 454 failures that happened to move some
+  bytes; it cannot see the ones that moved none.
+
+### 6. What this does to 384's remaining work
+
+The owner ruling of 2026-09-03 ("keep it open until those are checked and fixed") stands, and the
+list in §3 of `HANDOFF_2026-09-03_continue_here.md` is unchanged by any of this — **except** that
+the item that looked biggest this morning, "the seam repairs only ~37% of the time", was not a 384
+item at all. What remains genuinely owed:
+
+1. **Prove the seam repairs on its own path, post-fix.** A `section_data_resolved` re-resolve at
+   designblog.co.uk/index, filed 12:35:51Z as `created_by='bugs_open/384_postfix_verify'`
+   (item `80a1c536-b75f-416d-ac72-952177229b5c`, item_key `…_section_data_resolved_384verify`).
+   The page is `page_type='landing'`, `rebuild_policy='generic'`, so **450's `pageRefusesGenericBuild`
+   does not fire on it** — checked before filing, because a refusal would have read as a 384 failure.
+   Success = the `content-listing` `articles` array goes 4-blank → 0-blank.
+2. **The owned-page residual (14 blanks / 3 pages)** — unchanged, still structurally out of this
+   seam's reach, still must not close inside 384.
+3. **The sweep (`check_page_list_stale`, migration 603) has still never run** — unchanged, still
+   blocked behind 389's arm.
