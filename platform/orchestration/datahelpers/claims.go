@@ -853,6 +853,7 @@ var labelPrefixRe = regexp.MustCompile(`(?i)\b(band|tier|step|phase|part|stage|l
 //     "We processed 12 conc records last year." is still CAUGHT. If a forced
 //     (?i) ever reaches these patterns, that fixture starts passing silently
 //     and that test starts failing loudly.
+//
 // regulatoryRulebookCodesBase is the fleet-wide default vocabulary —
 // unchanged from fad209b92, still authored here in Go, still the codes
 // EVERY site gets whether or not it declares anything of its own.
