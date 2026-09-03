@@ -1117,3 +1117,35 @@ other survivor and is a two-line read.
 
 This is the input the `090` (`198a7b12-f465-4cc0-a414-cec69e5f3392`, at its verdict step) most
 needed and did not have when it was seeded.
+
+### 2026-09-03 11:4xZ — the `090` FAILED (truncation), and that is a known landmine, not a new finding
+
+`198a7b12-f465-4cc0-a414-cec69e5f3392` did **not** return a verdict. It **FAILED** at the `verdict`
+step after all 5 iterations of evidence-gathering:
+
+```
+step verdict failed: execute_llm_prompt: AI call failed with unhandled error:
+response truncated: stop_reason=max_tokens (output_tokens=32000 reached the
+configured cap, 3440 chars recovered)
+```
+
+**So the cost of a truncated verdict is the WHOLE RUN** — five iterations of bundles, ~30 minutes
+and the credits, discarded for a cut answer. Worth knowing before anyone re-fires: this failure mode
+is not "a shorter answer", it is "no answer".
+
+**This is `LANDMINES.md`'s documented trap, already there since 2026-07-31** — *"A TRUNCATED LLM
+call has `output_tokens = NULL`…"*. I re-derived it from scratch before finding it (logged in
+`WRONG_CALLS.md`: the `SessionStart` hook cannot match a **table** footprint, so it never surfaced,
+and I did not grep). **Reconfirmed and appended there rather than filed as new**
+`[MEASURED 2026-09-03]`: the documented `output_tokens >= max_tokens` census returns **4** while
+`error_message ILIKE '%stop_reason=max_tokens%'` returns **74** over 14 days — still ~5% visibility.
+Today's offenders include **`council-gate` `review_debug_historian`, truncated 17 times at cap 8000**,
+which is a gate seat silently losing its review on the mechanism CLAUDE.md tells every session to use.
+**Not this lane's to fix; flagged where it belongs.**
+
+**For this bug it changes nothing about the diagnosis and one thing about the plan:** the `090`
+route has now produced UNVERIFIABLE once and FAILED once on this question. **A third attempt should
+not be a re-fire of the same shape.** The first run's own missing-evidence list, plus this session's
+two narrowings (the query is exonerated; `ResolvedData` is the suspect), are a better starting point
+than another cold run — and the remaining question is now small enough to answer by reading
+`planSection` against a failing and a succeeding run, which is a code read, not a loop.
