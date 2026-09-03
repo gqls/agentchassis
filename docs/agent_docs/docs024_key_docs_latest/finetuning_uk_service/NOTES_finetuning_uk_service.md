@@ -2644,3 +2644,21 @@ session, who are also the applier. Relayed with the mechanics (message `382b1042
   lead and list item (what our three arrays already do).
 This lane's part unchanged: test-render whatever they draft (`render_test_641/`), carry the
 exact bytes to the owner, then Stage B rebuilds.
+
+**11:35Z — copy lane on the two gate rulings (their commits `7cc16a5d0`, `29ce6f091`):**
+1. **"gutted" SHIPPED** (`Council-Submitted: b9b5fdf8`, Go, inert until the next roll). Not a
+   number: the old guard was a PROPORTION, which is backwards for a truncation repair (the wordier
+   the discarded tail, the more certainly a correct cut is refused). Replaced with a test on the
+   SURVIVOR: a 5-word floor plus a slackened 25% backstop. "It shows." (2 words) still fails —
+   and grammatical completeness alone would not have caught it. Mutation-proven. Constants fitted
+   to 17 real rewrites from one day: flagged as the residual risk.
+2. **"so" NOT encoded as ruled.** They tested "repair only when it follows a definition" against
+   his own three sentences: (1) IN has a gloss ✓; **(2) IN has NO gloss ✗** ("It learns from your
+   own documents, so it picks up…"); (3) OUT ✓. A definition-detector + `, so` anchor would
+   classify one of his two positives as OUT, silently. What separates (2) from (3) is what the
+   clause DOES (elaborates the product's merit vs states a plain consequence for the reader): a
+   judgement, not a shape. So "so" goes in as a `banned_classes_no_regex` entry with his three
+   sentences as labelled exemplars (2 positive, 1 negative). Their guard-rail request, carried:
+   if he asks for "more specific", the honest answer is his exemplars, not a widened regex
+   (6.60% base rate of `, so <pronoun>` in live copy).
+Carried to the owner 11:35Z; no re-ask unless he overrules.
