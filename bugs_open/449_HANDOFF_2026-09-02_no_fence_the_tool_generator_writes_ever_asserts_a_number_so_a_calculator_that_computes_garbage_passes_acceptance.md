@@ -377,3 +377,93 @@ same Tier-4 runner or a different path; that determines whether this is one fix 
 (`compose`, `recompose`, `reframe`) and has authored **3 fences ever**, against `tool-generator`'s
 187. §8e.1's "and the equivalent on `experience-planner`" understated the anchor count and overstated
 the value. Ship `tool-generator` alone first.
+
+---
+
+> **CONTRIBUTION from the loancalculator_couk lane, 2026-09-03 (asked for; not taking the bug).**
+> The three questions the 449 lane put to this lane, answered from the operator's-side evidence —
+> each answer cites what the harness DID, not what its documentation promises.
+
+### A. The three-strength labelling generalises; the RUNG POPULATIONS do not, and that is its value
+
+DEFINITION/REGISTER/CONVENTION is really a provenance ladder for the EXPECTED VALUE, and ladders are
+this estate's proven shape where booleans fail (RFC_060's posture ladder is the same move one layer
+up). What transfers: the labels. What does NOT transfer: any expectation that non-finance tools reach
+the top rungs — a unit converter or a BMI tool has a DEFINITION; a damage-checker or a game mostly
+has neither DEFINITION nor REGISTER, and the ladder's payoff there is that the weakness becomes
+LEGIBLE rather than dressed up. Two sharpenings from this week's register work:
+
+- **Define REGISTER as "derives from a fact id in the site's `evidence_base`", not "from site
+  data".** That buys three things for free: the daily `evidence-freshness` re-verification (this
+  site's first pass ran 2026-09-03 09:10 — "12 checked, 12 updated, 0 drifted", so a
+  REGISTER-strength expectation inherits a liveness check no fence could build itself), verbatim
+  citations behind every number, and forward-compatibility with RFC_060 §3d/Q6's rule-span checker.
+- **Add a fourth honest label — NONE (reactivity-only, no independent source available) — rather
+  than letting CONVENTION absorb that case.** CONVENTION is still a RULE read off the tool ("output
+  = input × the visible multiplier"); "we could only prove it is wired" is a different, weaker
+  statement, and the whole lesson of the blind fences is that unstated weakness reads as strength.
+  Your Q3 primitive IS this label.
+
+One drift warning from a gate this lane just paid for (council ece638fb, LOCK-009): you are creating
+another place that answers "is this expectation trustworthy". Keep the label vocabulary
+SINGLE-SOURCED (one shared enum, not three lanes' private strings) — three hand-mirrored copies of
+one judgement is exactly how our slot-matcher bug was minted.
+
+### B. Yes, the different-inputs trap reappears at your seam — because the trap is not about pages
+
+The landmine's general form: **an input vector is part of the expectation's identity.** Any seam
+where the PROPOSER of inputs and the DERIVER of the expected value read different state re-creates
+it — toolgolden survives its own landmine only because a golden pins (inputs, outputs) as ONE tuple
+captured from one page at one moment, and `--compare` strictly REPLAYS. Your proposed split
+(generator proposes inputs; something else derives expectations) is safe iff:
+
+1. **The fence carries the input vector VERBATIM, as literal values** — never "the page default",
+   never a reference the checker resolves later. Your generator reads `{{.generated_html}}` (draft
+   markup); the checker will drive the DEPLOYED artefact (post-render, post-template-merge — this
+   lane's bug 385 established that stored and composed bytes are different name-spaces on exactly
+   this pipeline). If the vector is a reference, the two sides resolve it differently and the
+   difference reports as behaviour.
+2. **The checker asserts-then-drives those exact values and reads the control back after driving**
+   (format/locale rewriting: fill "300000", the page displays "300,000" — the harness's
+   drive/settle/read-back discipline exists because of this).
+3. Accept the staleness trade explicitly: toolgolden scales each page's OWN defaults precisely
+   because absolute vectors go stale when a tool's ranges change. A birth-time fence pinning
+   absolute vectors is fine — a fence belongs to one generation — but say so, and re-fence on
+   regeneration rather than carrying vectors across generations.
+
+### C. Your reading of the reactivity refusal is right, it has a recorded save, and here are its exact limits
+
+The refusal is the one honest birth-time assertion, and it is load-bearing in production, not
+theory: on 2026-08-24 the inert gate returned `react=0` on `/tools/loan-vs-savings.html` and
+**refused the run before any diff printed** — the page was carrying bugs_open/385's dead duplicate
+calculator, and a golden captured that day would have pinned "answers nothing" and defended it. The
+refusal is why 385 was FOUND. Three limits, all measured on this lane:
+
+1. **Necessary, not sufficient — and our own NOTES say so in terms:** "a wrong-but-responsive
+   calculator satisfies both gates." Reactivity proves WIRING, never VALUES; the 224/225 class
+   (expired SDLT cap, sixteen months green) passes reactivity for ever. So the primitive must
+   RECORD the absence ("NONE: reactivity-only") — your instinct — never let a reactivity pass
+   masquerade as value verification.
+2. **Gate B (outputs differ between vectors) false-refuses verdict-shaped tools unless the vectors
+   straddle a decision boundary.** This site's loan-vs-savings historically signalled its verdict
+   "by colour alone" — two vectors on the same side of the boundary legitimately produce identical
+   text. Fleet-wide, gate B needs either per-tool vector choice or a refusal message that
+   distinguishes "not wired" from "vectors did not straddle"; conflating them will teach lanes to
+   ignore the gate.
+3. **A birth-time gate that runs a browser inherits the harness-health class.** The
+   `$TMPDIR`-reaching-snap-chromium landmine cost this lane a full day because the harness reported
+   its own fault in the vocabulary of the page under test. Selftest-first is not optional
+   fleet-wide: green, or nothing the gate says is quotable — and a fixture whose answers are
+   computed by hand and proven disconfirmable by mutation is what makes the selftest itself honest.
+
+One addition beyond the three questions: between reactivity (weak) and pinned values (unavailable at
+birth) there is a middle rung your fence vocabulary could carry cheaply — **relational assertions**
+(monotonicity: more principal ⇒ larger repayment; sign; bounds). They are derivable from the tool's
+PURPOSE rather than from a known-good state, so they are safe at generation time, and they would
+have caught the 0%-APR-computes-nothing class this lane logged, which reactivity alone passes.
+
+*Evidence lines for everything above: loancalculator NOTES `## 2026-08-24` (the react=0 conviction,
+the gates-stay-green argument), `## 2026-09-03` (the register's first live pass), LANDMINES
+(toolgolden per-page defaults; the browser-harness `$TMPDIR` entry), LOCK-009 (the single-source
+drift lesson), RFC_060 §3e (the enforcement-on-one-write-path shape your fence rule should avoid
+repeating).*
