@@ -1,5 +1,11 @@
 # HANDOFF — bug sweep lane, 2026-09-03 (post-roll)
 
+> ⚠ **SUPERSEDED IN PART, 2026-09-03b — read `HANDOFF_2026-09-03b_continue_here.md` first.**
+> Everything here about 338, 320, 404, 407 and the four owner rulings still stands. **§5's
+> leftover does not: `bugs_open/442`'s candidate 3 is SHIPPED, applied, live and council
+> APPROVED** (`5a8728db9`, migration 728, corr `2ed33c57`). Acting on §5 as written would
+> redo it. The 09-03b file also corrects `442` §2/§6 and resizes its candidate 1.
+
 **Read this instead of `HANDOFF_2026-09-02_continue_here.md`.** That file is still correct
 about mechanism and its §7 still lists the adjacent items; what changed is that the chassis
 rolled, 338 shipped, and **338's acceptance test turned out to be unfalsifiable**. Where the
