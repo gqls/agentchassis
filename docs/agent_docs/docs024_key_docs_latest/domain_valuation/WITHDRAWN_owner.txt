@@ -36,3 +36,7 @@ thepasturedegg.com
 thepasturedeggcompany.co.uk
 thepasturedeggcompany.com
 thepasturedeggcompany.uk
+
+# 2026-09-03 — copyonline.co.uk: owner says personal-use keeper, not stock
+# (relayed via the sedo lane from a peer thread).
+copyonline.co.uk
