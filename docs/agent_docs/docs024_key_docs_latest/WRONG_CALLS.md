@@ -65091,3 +65091,35 @@ where confidence is highest and scrutiny lowest.
   quietly stopped applying.
 - **Cost.** None shipped — caught between the commit and the roll, fixed in a follow-up with
   an open-item pre-check gating the whole block, plus two mutations proving it fires.
+
+**Addendum, 2026-09-03, near miss on the same day — I wrote `result = jsonb_build_object(…)` on
+six shared work items without first checking whether the column held anything.**
+
+Migrations `750` and `753` each close `section_source_drift` items and stamp a receipt. Both
+used `SET result = jsonb_build_object(...)`, which **replaces the whole column**, on rows I
+did not own and had not read.
+
+Prompted to check by the `bugs_open/469` lane, whose `reuse_agent` seat had flagged
+`site_work_items.result` as a **crowded namespace** — live keys include `revalidation` (1,822
+rows), `commit_sha` (12,909), `response`/`retry_payload`/`agent_type` (~15,400), and
+`retraction`, already owned by `write_audit_findings_retraction` (531 rows).
+
+`[MEASURED 2026-09-03]` the evidence says I destroyed nothing, and it is worth writing down
+*why* rather than just the conclusion: flag-only `needs_human_review` items normally DO carry a
+result (171/171 `owned_page_review`, 107/107 `cta_names_unknown_destination`, …), so "it was
+probably empty" was not available as an assumption. But `check_section_source_drift`'s creation
+path writes `SpecJSON` and never `result`; nothing ever closed one of these items (that is
+`bugs_open/469`'s whole finding); and the only `section_source_drift` results in evidence are
+two rows in `site_work_items_archive`, both `complete`, both carrying narrative fields
+(`evidence`, `resolution`, `intended_component`, `verified_2026_07_19`) of the kind a **human**
+writes when resolving one by hand. So the six open ones were near-certainly NULL.
+
+**But I cannot now PROVE that, because I overwrote them before looking** — and that is the
+whole entry. The check costs one query. The fix costs one operator:
+`result = COALESCE(result, '{}'::jsonb) || jsonb_build_object(…)` merges instead of replacing,
+and would have made the question moot.
+
+**The generalisable rule, which is the 469 lane's and is better than mine:** *when you cite a
+precedent, quote its stated COST and test that cost against your change.* Mine is the
+narrower sibling: **on a shared column, `jsonb_build_object` is a destructive write. Merge
+unless you have read the row and intend the replacement.**
