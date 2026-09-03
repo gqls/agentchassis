@@ -181,10 +181,17 @@ needs the composition half.
   > `literal_markdown`. The comment has drifted from the config it describes. **And the deeper
   > claim is UNDER TEST:** whether the sections path re-resolves `site_assets.*` at all is
   > unsettled (`bugs_open/425` §2 reports it does not for `query.*`, four reproductions; the one
-  > page traced as recovering did so via the BUILD path). More reasons re-resolving makes "nine
-  > re-rendered, none recovered" MORE surprising, not less. The components thread owns the
-  > discriminating experiment (one `page_rerender` with `reason='image_landed'`); it is unaffected,
-  > because that reason is in the list either way.
+  > page traced as recovering did so via the BUILD path). **AND I have since RETRACTED the "nine
+  > re-rendered, none recovered" evidence itself (2026-09-03):** ten of the twelve pages whose
+  > `updated_at` moved are `seotools.co.uk` tool pages with **no `page_rerender` item near the
+  > write** — BUILD-path writes on a site being built out, not re-renders. `updated_at` moved ≠ a
+  > re-render happened ≠ the resolver was asked. The sections path has essentially never been
+  > exercised against this class, so **nothing measured so far says whether it re-resolves
+  > `site_assets.*`** — the components thread's `image_landed` batch is the first real test.
+  > ⚠ Their trap worth carrying: **"currently correct" is a STATE, not evidence of a transition**
+  > (10 of 66 read as recovered in a naive sweep; all were already-correct pages).
+  > One free data point to check first: `dartsonline.com/tool-brand-comparator` moved at 00:40Z
+  > with a `section_data_resolved` beside it — the only qualifying reason in the set.
 - **A mechanical section-compatibility guard is ROUTED HERE and NOT BUILT** (718's `bug_historian`
   advisory, architecture concurring as a monitoring item). Verdict on feasibility: **sound** —
   `component_expresses`' predicate is `source LIKE 'site_assets.%' AND type IN ('url','image','image_url')`,
