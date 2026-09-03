@@ -380,3 +380,28 @@ Both leave a failed item with no artefact. Read `site_work_items.error`:
 Then compare the failure timestamp with the pod start (`kubectl get pods -o custom-columns=...
 START:.status.startTime`). Reporting a roll-kill as a refusal puts a false black mark against
 whoever owns the guard.
+
+## Replacing a logo needs NO page re-assembly — adding one for the first time does
+A distinction worth knowing, because getting it wrong costs 11 hand-filed work items.
+
+- **First-time logo** (header was emitting `<span class="logo-text">`): the header component must be
+  rebuilt AND every already-published page re-assembled, because published pages keep serving until
+  each is rebuilt. That is the 2026-09-02 exercise — chrome rebuild plus **11** `page_rerender`
+  items to reach 25 served pages.
+- **Replacing an existing logo**: **nothing.** The deployed asset path is stable
+  (`/assets/images/logo.png`) and the regeneration overwrites the file in place, so every page picks
+  up the new bytes with no rerender at all.
+
+Verified 2026-09-03 either side of websitepromotion's regeneration — same three non-index pages,
+`logo-img=3 / logo-text=0` before and after, while the served file changed 41,062 → 11,637 bytes:
+```bash
+# read the RECORDED urls; do NOT compose them (a composed URL's 404 filed bugs_open/387)
+psql -tAc "SELECT p.url FROM pages p JOIN sites s ON s.id=p.site_id
+           WHERE s.domain='<domain>' AND p.url<>'' ORDER BY p.url LIMIT 3;"
+curl -sS -o pg.html -w '%{http_code}' "https://<domain><url>"; grep -c 'logo-img\|logo-text' pg.html
+curl -sS -o /dev/null -w '%{http_code}\n' "https://<domain>/assets/images/zzz-nope.png"   # must 404
+```
+⚠ The corollary is the trap: because the URL is stable and pages need no rebuild, **a regeneration
+reaches every page instantly and irreversibly.** There is no staging step in which to look at the
+new logo before visitors do, and the previous artefact is already gone (the UPSERT mints a fresh
+key). **Fetch the current bytes BEFORE you fire.**
