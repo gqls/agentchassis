@@ -1,7 +1,8 @@
 # HANDOFF — bugfix_424_logo_transparency, continue here
 
-Updated 2026-09-03 ~10:40 BST (supersedes the ~10:25 version — one of the three resets is now
-confirmed fixed at the served bytes). Read this file first — it's "what to do next", not "how we
+Updated 2026-09-03 ~12:45 BST (supersedes the ~10:40 version — all three resets have now reached a
+final state: 2 confirmed fixed, 1 exhausted awaiting an owner decision; an unrelated billing outage
+was found, filed as `bugs_open/455`, and resolved same-day). Read this file first — it's "what to do next", not "how we
 got here". For history: `NOTES_logo_transparency.md` (full chronology, every correction), the bug
 file's own tail (a peer lane's CONTRIB, verbatim, with the production evidence tables),
 `PLAN_2026-09-02_logo_background_transparency.md` (the design).
@@ -30,42 +31,49 @@ WHERE w.id IN ('24dff15c-1989-4332-aeaa-62b0929a8a88', -- designblog.co.uk
                '2a4408aa-800b-443d-aa2e-32e919978ecb'); -- gamedesign.uk
 ```
 
-**As of the last check in this session (~09:40 UTC, ~35 min after the reset): one confirmed
-success, two still retrying.**
+**As of ~11:45 UTC, final state for all three original resets: 2 confirmed fixed, 1 exhausted,
+awaiting an owner decision.**
 
-- **`seotools.co.uk`: SUCCESS, verified at the served bytes, not just the log.** Attempt 1 refused
-  (09:28:17Z, `border_keyed=0.000`, correctly nothing stored); attempt 2 succeeded (09:30:13Z,
-  `border_keyed=0.9993`). Fetched `https://seotools.co.uk/assets/images/logo.png` directly (200,
-  26,975 bytes, fresh key `20260903/fe09592e-...`): PNG colour type 6 (RGBA — the exact chunk-scan
-  signal absent when this bug was found), 92.21% of all pixels fully transparent, 99.92% of the
-  border ring transparent, 0.085% residual magenta-fringe pixels (smaller than the earlier
-  known-good example). This is the first end-to-end artefact-verified confirmation the fixed
-  pipeline works on a real, unplanned, fleet-triggered generation — not a synthetic test, not a
-  replay against old bytes.
-- **`designblog.co.uk` and `gamedesign.uk`: both refused on their first retry attempt** (same
-  `border_keyed=0.000` shape as seotools' own first try), **now on attempt 2 of 3, waiting out an
-  approximately ONE-HOUR cooldown** before the queue will try again (`retry_after` ~10:28 and
-  ~10:35 UTC respectively, checked at 09:39 UTC — this is longer than expected; not investigated
-  further this session, just observed and worth knowing before assuming a "stuck" item needs
-  intervention). A background watch (Monitor) was re-armed for up to an hour to catch the next
-  attempt; if this session ended before it reported, the query above plus the read-outs below tell
-  you what to do next:
+- **`seotools.co.uk`: FIXED, verified at the served bytes.** Refused once (`border_keyed=0.000`,
+  correctly nothing stored), succeeded on attempt 2 (`border_keyed=0.9993`). Served bytes: colour
+  type 6 (RGBA), 92.21% fully transparent overall, 99.92% of the border ring transparent, 0.085%
+  residual magenta fringe. First end-to-end artefact-verified confirmation the fixed pipeline
+  works on a real, unplanned, fleet-triggered generation.
+- **`gamedesign.uk`: FIXED, verified at the served bytes.** Refused twice — once on content
+  (`border_keyed=0.000`), then several times against an UNRELATED billing outage (`bugs_open/455`,
+  below) — succeeded on the 3rd counted attempt once the outage cleared. Served bytes: colour
+  type 6, 100% of the border ring transparent, 61.98% fully transparent overall (a 400×400 square
+  logo has less empty margin than seotools' 400×218 rectangle — not a quality difference), 0.174%
+  residual fringe.
+- **`designblog.co.uk`: EXHAUSTED (3 of 3 attempts), NOT fixed, awaiting an owner decision on
+  whether to reset it a second time.** Its final counted attempt was a genuine content refusal
+  (`border_keyed=0.000`), not the billing outage — the retry ladder's accounting worked correctly
+  (infra failures didn't count against it). **Nothing worse happened**: verified its asset row is
+  untouched (`key_date` still `20260902`), so it is still serving yesterday's original broken logo,
+  not a new bad one. **This session asked the owner whether to reset it again** (same low-risk
+  operation as the original three, but a new action beyond that original authorisation) — check
+  whether that question was answered before assuming this is closed out.
 
-- **If a site is `complete`**: don't trust the DB status alone — verify at the served bytes
-  (`https://<domain>/assets/images/logo.png`, chunk-scan for colour type 6 or `tRNS`, RUNBOOK has
-  the snippet; sample corner alpha; check `substring(storage_path from '.../([0-9]{8})/')` is
-  TODAY's date, not a stale key — `assets.updated_at` can be bumped with no regeneration behind it,
-  caught live this session on `gamedesign.uk`'s own row). Send `site_delivery_and_editor` the
-  reading in the same shape as the seotools message above — they asked for it explicitly, it feeds
-  the owner's boxingonline decision.
-- **If a site is `failed`** (exhausted `max_attempts=3`): the guard refusing IS correct, designed
-  behaviour — not itself a new problem. But three refusals with nothing ever stored means the
-  guardian's LOW council objection from round 1 (the retry ladder can exhaust before landing a good
-  result) has become a concrete, real outcome for that site, not just a theoretical risk — see
-  "Decisions" below, item 3.
-- **If still `triaged` after its `retry_after` has passed**: the dispatch lane may just be busy
-  (no stable drain rate, observed throughout this incident — runs have landed anywhere from
-  minutes to under an hour after becoming eligible). Not itself a problem.
+**An unrelated billing outage was found and resolved mid-watch — `bugs_open/455`.** The Gemini
+image provider returned "prepayment credits are depleted" for ~37–70 minutes (`10:31Z`–`~11:08Z`,
+confirmed cleared by `11:41Z`), blocking `designblog.co.uk`'s and `gamedesign.uk`'s retries (and
+`boxingonline.com`'s, a different lane's item) — nothing to do with the 424 fix itself. Resolved
+same-day, matching `bugs_open/243`'s prior pattern; filed but not yet closed (no direct
+confirmation of a deliberate top-up, only inferred from the traffic gap). If more image-generation
+failures show `429`/`prepayment credits` in the error text, it may have recurred — check `455`
+before assuming it's this fix's guard.
+
+**The verification method that held up across all three, if `designblog.co.uk` gets reset and you
+need to check it again**: don't trust the DB `status` column alone — fetch the served bytes
+(`https://<domain>/assets/images/logo.png`), chunk-scan for colour type 6 or `tRNS` (RUNBOOK has
+the snippet), sample corner alpha, and confirm `substring(storage_path from '.../([0-9]{8})/')` is
+TODAY's date, not a stale key (`assets.updated_at` can be bumped with no regeneration behind it —
+caught live this session on `gamedesign.uk`'s own row before it mattered). Send
+`site_delivery_and_editor` the reading in the same shape as the seotools/gamedesign messages in
+NOTES — they've been asking for it explicitly, it feeds the owner's boxingonline decision. The
+dispatch lane has no stable drain rate (runs landed anywhere from minutes to over an hour after
+becoming eligible throughout this incident) — a `triaged` item past its `retry_after` is not
+necessarily stuck.
 
 ## What's actually live — verified 2026-09-03 ~10:00 BST, not assumed
 
@@ -81,18 +89,20 @@ negative control binary probe (agent-chassis), AND by `git merge-base --is-ances
 commits against the stamp with a negative control (current HEAD, correctly absent). Two independent
 methods agree.
 
-## Decisions for the owner — most are now answered; two remain live
+## Decisions for the owner — one still genuinely open
 
 1. ~~When to roll~~ — **DONE.** v1.0.1356 carries everything.
-2. ~~What to do about the three broken sites~~ — **IN PROGRESS, ONE CONFIRMED FIXED.**
-   `seotools.co.uk` verified good at the served bytes. `designblog.co.uk` and `gamedesign.uk` each
-   had a first retry correctly refused and are waiting out a ~1hr cooldown for attempt 2 (see "Live
-   status" for the exact `retry_after` times and what to check).
-3. **If any of the three exhausts its retry budget (`max_attempts=3`) without a good result**, does
-   logo generation need a longer leash, or is "fail loud, go wherever the retry ladder's terminal
-   state already goes" the right outcome? Still open — was a council LOW objection in round 1;
-   seotools needing 2 of 3 attempts to land a good result is a live data point toward it being a
-   real, not merely theoretical, constraint.
+2. ~~What to do about the three broken sites~~ — **DONE for 2 of 3.** `seotools.co.uk` and
+   `gamedesign.uk` both confirmed fixed at the served bytes.
+3. **`designblog.co.uk` exhausted its 3 attempts without a good result — reset it again, or leave
+   it on the original (broken) logo for now?** This session asked the owner directly and had not
+   received an answer as of this handoff being written. A reset is the same low-risk operation as
+   the original three (a bad result still cannot get stored, only refused), so the honest framing
+   is "is it worth another cycle" rather than "is it safe" — but it's a new action, not covered by
+   the original three-site authorisation, so don't do it without asking again if picking this up
+   fresh. This is also the concrete instance of the council's round-1 LOW objection (the retry
+   ladder can exhaust before landing a good result) — worth deciding on its own merits now that
+   there's a real case, not a hypothetical one.
 4. ~~Whether boxingonline.com is the next deliberate test~~ — **OVERTAKEN.** The owner separately
    authorised it (via `site_delivery_and_editor`) before the three portfolio resets had even
    finished — `needs_imagery` item `d71b7877-b42a-4019-9ede-74be363209ff`, fired 09:24:42 UTC, base
@@ -101,21 +111,28 @@ methods agree.
 
 ## What's left before this lane can close
 
-1. **Read the three reset runs at the artefact** once they land — not just the DB row status, the
-   served PNG bytes (RUNBOOK has the exact commands). Send readings to `site_delivery_and_editor`.
-2. **Feed those readings into decision #4** (boxingonline timing) and #3 (retry-ladder policy) —
-   both are now answerable with real data rather than hypotheticals.
+1. ~~Read the three reset runs at the artefact~~ — **DONE.** All three read at the served bytes;
+   readings sent to `site_delivery_and_editor` for `seotools.co.uk` and `gamedesign.uk`.
+2. **Resolve decision #3** (`designblog.co.uk` — reset again or leave it) — the one genuinely open
+   item.
 3. **Date-stamp the threshold constants** (`inner=48`, `outer=110`, `minBorderKeyed=0.95`,
-   `dynamic_adapter.go`) from whatever this batch of real runs shows, if they show anything the
-   original five didn't already establish. Currently `[UNMEASURED]` as constants.
-4. **Look at the despill fringe** on a genuinely good result, if one of the three (or
-   websitepromotion, already known-good) shows it clearly enough to diagnose. Recorded, not fixed.
+   `dynamic_adapter.go`) from this batch of real runs — three more real generations now exist
+   beyond the original five (`seotools` ×2, `gamedesign` ×3 counting the billing-blocked ones),
+   consistently landing well clear of the thresholds on success and well short on failure. Not
+   done this session; currently still `[UNMEASURED]` as constants despite the extra evidence.
+4. **Look at the despill fringe** — now three data points (`websitepromotion` 0.69%, `seotools`
+   0.085%, `gamedesign` 0.174%), all small, none zero. Recorded, not fixed, and probably low
+   priority given how small it is in practice.
 5. **Confirm `bugs_open/421`'s status independently** — this fix does not verify single-composition
    and must not be treated as having cleared it.
-6. **Low-priority, not blocking**: whether `platform/colour.ParseHex` was the best-fit existing
+6. **Consider whether `bugs_open/455` (the billing outage) warrants a prevention conversation** —
+   third instance of provider-credit/quota exhaustion counting `202` and `243`, all resolved
+   same-day by adding credit, none of them prevented from recurring. Not this lane's call to make
+   unilaterally, just worth surfacing given the pattern.
+7. **Low-priority, not blocking**: whether `platform/colour.ParseHex` was the best-fit existing
    helper (a council aside, premise didn't hold); clearer `grounded_in` citations next council
    submission.
-7. **Separately filed, unowned**: `bugs_open/433` (mime_type gap + the JPEG-under-a-.png-name
+8. **Separately filed, unowned**: `bugs_open/433` (mime_type gap + the JPEG-under-a-.png-name
    finding) — not blocking this lane.
 
 ## Where everything lives
