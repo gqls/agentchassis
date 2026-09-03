@@ -394,6 +394,73 @@ durability are open.
 
 ---
 
+## 3.3 GRIP-STYLES RECOMPOSE — DISPATCHED 2026-09-03, WAITING ON THE QUEUE. Verify, do not re-file.
+
+**Everything is applied and queued. Nothing here needs redoing, and re-filing would duplicate.**
+The owner's ask of 08-31 is now composed and dispatched; what remains is the framework working
+through a real backlog, and then grading it.
+
+**What is applied (all committed):**
+- `SEED_2026-09-03` — the plan. `grip-styles` went from 3 sections to **11**: hero, one prose
+  block, **five `Illustrated Text Block`s** (ring / razor / shark / smooth / combination) each
+  bound to its own figure by `scope_ref` ordinal, three prose blocks, call-to-action. All nine
+  repeated-component sections carry a **distinct subject**. Also closed a gap in the 08-31
+  style-guide fix: `kind='illustration'` has no override so it reads GUIDE-LEVEL avoid — the one
+  place the anatomy clauses were missing. Verified reachable after applying.
+- `SEED_2026-09-03b` — the rebuild, `needs_content_page` **`d5edd37b-9b69-4aef-9c50-ee6d7000f51b`**.
+- 5 imagery items, `created_by='dartsonline-grip-styles-2026-09-03'`.
+
+**Why it has not landed, measured rather than assumed** `[MEASURED 2026-09-03 12:25Z]`:
+
+| | |
+|---|---|
+| fleet items completed in the last 30 min | **60** — dispatch is healthy, not stalled |
+| zombie claims blocking the queue | **0** |
+| `image-build-handler` | last completion 12:06Z; **12** triaged; ~5/hr |
+| `page-build-handler` | last completion 12:10Z; **95** triaged; **1** in the last hour |
+
+**So the items are correctly formed and queued behind real work, not broken.** Their spec keys
+match a `needs_imagery` item that completed today on another site. The imagery runbook's own line
+is the governing one: *"Dispatch is one site at a time against a fleet-wide pool — priority 5 orders
+WITHIN a site, it does not jump the queue ahead of other sites. Items sitting `triaged` for ten
+minutes are usually waiting, not broken."* **Do not bump priority expecting it to help across
+sites, and do not fire a site-wide build to force it** — that is disproportionate to one page.
+
+**⚠ `triaged` on an operator-inserted item is not self-draining.** `emit_imagery_items_action` is
+*"the build-time emitter, invoked as a build-site-planner workflow step"* and its comment defines
+`triaged` as **"build path auto-dispatch"** — the status a build gives items it is about to handle.
+An item inserted by hand with no build in flight is simply waiting for the shared handler.
+Corroboration: `boxingonline.com` has had one imagery item triaged since **09:24Z**.
+
+### How to grade it when it lands — and the failure that looks like success
+
+1. `curl -s https://dartsonline.com/blog/grip-styles.html | grep -oE '<h[23][^>]*>[^<]{1,70}'` —
+   expect the five grip headings as **section headings**, not as `h3`s inside one article body.
+2. **Count DISTINCT image urls on the page.** The whole point is five *different* figures.
+   **⚠ FIVE SECTIONS SHARING ONE IMAGE IS THE FAILURE MODE, AND IT RAISES NO ERROR** — it is what
+   `sectionOrderAgrees` standing the binding down looks like, and the page renders perfectly.
+   If you see it, compare `pages.sections` against `site_plan_sections` for the page: a length or
+   order disagreement is the cause.
+3. Sections with no figure yet render as **plain prose** (`image_url` is
+   `required:false, on_missing:skip_field`) — that is correct, not a defect. The asset landing
+   files `image_landed`, one of only two re-render reasons that re-resolve.
+4. Check the prose is not near-duplicate across the five grip blocks. That is `bugs_open/443`'s
+   symptom and the reason every section was given a subject; the detector for it
+   (`REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT`) is **observe-only** and will not stop it.
+
+### If it goes wrong — restore points taken 2026-09-03 before any change
+`bak_20260903_gripstyles_components` (3 rows, `article-body` `content_data` **8,401 bytes**) ·
+`bak_20260903_gripstyles_plan` (the 3 original plan rows) ·
+`scratchpad/grip-styles-BEFORE.html` (**88,509 bytes** as served).
+
+**This is the first article in the estate composed this way** — `[MEASURED 2026-09-02]` zero pages
+fleet-wide carry more than one illustrated section except apis.uk's hand-built index. So report
+what it actually does, to `inline_guide_imagery` as well: they asked specifically to hear whether
+the figures survive the first `content_rewrite`, which is the property their mechanism exists for
+and which nothing in the estate has yet exercised.
+
+---
+
 ## 4. Affiliates — unchanged, and unblocked
 
 Apply where the gate is **not** traffic: **Awin → Red Dragon** (10%, 60-day, £5 refundable deposit),
