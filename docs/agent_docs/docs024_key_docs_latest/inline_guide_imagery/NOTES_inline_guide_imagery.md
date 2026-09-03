@@ -708,3 +708,39 @@ not this lane's; I have given them the three quotes and the numbers rather than 
 **The one thing I would insist on if it is done:** rule 16 and the "each entry produces exactly
 ONE image" paragraph exist because under-decomposition produces unusable multi-panel images, so a
 change that raises section-scope volume must keep that discipline in the same edit.
+
+### 16. 2026-09-03 midday — the mechanism has real consumers for the first time, and one is the owner's page
+
+Re-measured while rewriting the handoff. `[MEASURED 2026-09-03 12:2xZ]`
+
+**Fleet section-scope `illustration`/`infographic` rows: 5 → 20 in two days.** Both new sets arrived
+today:
+
+```
+dartsonline.com  grip-styles:2..6   5 rows  source=manual  2/5 assets active   11:39Z
+gamedesign.uk    index:1, index:2×3 4 rows  source=llm     3/4 assets active   10:40Z
+```
+
+**dartsonline/grip-styles is the owner's own case and it is half-built.** Its CURRENT PLAN has been
+recomposed to 11 sections — `hero`, `Generic Text Block`, **5× `Illustrated Text Block` at ordinals
+2–6**, 3× `Generic Text Block`, `call-to-action` — matching the five imagery rows exactly. **The
+page has not been rebuilt**: `page_components` is still `hero`/`article-body`/`call-to-action` from
+2026-09-01.
+
+⚠ **So the binding stands down on that page right now, correctly** — plan 11 vs live 3, they
+disagree, and the ordinals name a composition the page does not yet have. This is the guard doing
+its job and **must not be read as the mechanism failing**. They are between "seed" and "rebuild" in
+the sequence I gave them.
+
+**gamedesign.uk/index is the first PLANNER-WRITTEN section imagery I have seen** — `source='llm'`,
+created hours after migration 718 flipped the "use sparingly — most plans will have zero"
+instruction. So 718 is producing requests, which is the thing three lanes had been waiting to see.
+
+⚠ **And its shape is not the one this binding optimises for, which is worth knowing early.** Three
+of its four rows sit at the **same ordinal** (`index:2`), because 718's own decomposition rule
+tells the planner to emit one entry per image for a card grid. `sectionAssets[ref]` is
+**kind-first-wins within an ordinal**, so that section resolves ONE of the three through
+`site_assets.illustration`; the other two are reachable only by **literal asset key**, which the
+resolver supports but which needs per-key fields on the component. Not a defect in either — the
+binding is per-SECTION and this is a per-CARD need — but the first real-world shape 718 produces is
+one my mechanism only half-serves, and somebody will hit that before I do.
