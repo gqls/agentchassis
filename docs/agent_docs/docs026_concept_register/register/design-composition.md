@@ -951,35 +951,61 @@ deduplication begins; the "raw extractions" count above and the per-concept
   is three-way scoped (site > theme kit > fleet, `CHECK` mutual-exclusive) so
   a site can declare its own durable structure default WITHOUT adopting any
   kit — "sites don't necessarily have to be created from a theme."
-- **landmine avoided, and the reason given for it was WRONG — corrected
-  2026-09-03 by re-measuring.** The CONCLUSION stands: the seed (migration
-  **689**, not 686 — it was renumbered after the collision noted above)
-  hardcodes verified chrome UUIDs rather than a function-name subquery. Two of
-  the three claims supporting it did not survive a check.
-  > **~~`chromePinEligibleSQL` EXCLUDES the confusingly-named `site-header`/
-  > `site-footer` rows (`component_level='section'`) entirely — the
-  > actually-eligible rows are `header-theme-chrome`/`footer-theme-chrome`.~~**
-  > **FALSE, both halves.** `site-header` has a `section` row AND active
-  > `component_level='site'` rows, so it is chrome-eligible; and
-  > `header-theme-chrome`/`footer-theme-chrome` **do not exist in any state**
-  > (`SELECT … WHERE function LIKE '%theme-chrome%'` → 0 rows). The entry
-  > named non-existent components as the eligible ones.
+- **landmine avoided, and it is CORRECT AS ORIGINALLY WRITTEN. A 2026-09-03
+  attempt to retract it was itself wrong and is withdrawn — see the nested
+  block; read that before quoting either version.** The CONCLUSION and the
+  reasons both stand: the seed (migration **689**, not 686 — renumbered after
+  the collision noted above) hardcodes verified chrome UUIDs rather than a
+  function-name subquery. `content_components.function` is not unique after
+  the canonical predicate, the rows **named** `site-header`/`site-footer` are
+  `component_level='section'` and are NOT chrome-eligible despite the matching
+  function, and the eligible rows for those functions are the ones **named**
+  `header-theme-chrome` / `footer-theme-chrome`.
+  > **⚠ WITHDRAWN CORRECTION, 2026-09-03 — I retracted a TRUE claim by
+  > querying the wrong column, and the retraction stood in this entry and in a
+  > council submission for part of a day.** I ran
+  > `WHERE function LIKE '%theme-chrome%'`, got 0 rows, and concluded that
+  > `header-theme-chrome`/`footer-theme-chrome` "do not exist in any state".
+  > **`content_components` has BOTH `name` AND `function`.** Those two strings
+  > are `name` values; their `function` values are `site-header`/`site-footer`,
+  > which is exactly the distinction the original entry was drawing. Verified
+  > by id — the two UUIDs migration 689 pins resolve to
+  > `header-theme-chrome`/`footer-theme-chrome`, `component_level='site'`,
+  > `is_active`, unforked. **70 files in this tree name these components and
+  > migration 339 has `RAISE EXCEPTION` drift guards on updating them**, which
+  > is what made me look again.
   >
-  > What is actually true, under the predicate as written
-  > (`chromePinEligibleSQL` = `is_active AND component_level IN ('site',
-  > 'header','footer','head')`, with **no `forked_from` filter** —
-  > `component_library.go:334,375`):
+  > **The check that settles it, and the one to use — select BOTH columns, never
+  > filter on one and conclude about the other:**
   > ```sql
-  > SELECT function, count(*) FROM content_components
-  >  WHERE is_active AND component_level IN ('site','header','footer','head')
-  >  GROUP BY function ORDER BY 2 DESC;
+  > SELECT name, function, component_level, is_active,
+  >        forked_from IS NULL AS unforked,
+  >        (is_active AND component_level IN ('site','header','footer','head')) AS chrome_eligible
+  >   FROM content_components
+  >  WHERE function IN ('site-header','site-footer')
+  >  ORDER BY function, chrome_eligible DESC, name;
   > ```
-  > **10 chrome-eligible functions as of 2026-09-03**, of which `site-header`
-  > is the ONLY ambiguous one (**2** rows — one forked, one not, and the
-  > predicate filters neither); the other nine return exactly 1. So a
-  > function-name subquery is ambiguous **precisely for the chrome function
-  > the seed most needs**, which supports hardcoding UUIDs better than the
-  > false reason did.
+  > **11 rows as of 2026-09-03; exactly 3 are chrome-eligible:**
+  > `footer-theme-chrome` (unforked), `header-theme-chrome` (unforked) and
+  > **`header-leopardess`, which is an ACTIVE FORK of one client's header** —
+  > eligible because `chromePinEligibleSQL` (`component_library.go:334,375`) is
+  > `is_active AND component_level IN ('site','header','footer','head')` with
+  > **no `forked_from` filter**. The rows named `site-header`/`site-footer` are
+  > `section`-level and ineligible, as originally stated.
+  >
+  > **So the reason to hardcode UUIDs is SHARPER than either version said:** a
+  > function-name subquery for `site-header` returns two eligible rows, and the
+  > extra one is a single client's fork. `bugfix_118`'s PLAN had already flagged
+  > `header-leopardess` as exactly this hazard.
+  >
+  > The collision figure was true but **unverifiable as written, and its
+  > denominator was stale** — that half of the 2026-09-03 correction stands.
+  > "3 collisions of 364" holds only under `is_active AND forked_from IS NULL`;
+  > raw it is **84**, and distinct `function` values are **425 raw / 410
+  > canonical as of 2026-09-03**, not 364. A council reviewer reconstructed the
+  > predicate from prose, got a different number, and reviewed that instead.
+  > **A figure that is only true under a predicate must carry the predicate as
+  > a RUNNABLE query in the same breath.**
   >
   > The collision figure was true but **unverifiable as written and its
   > denominator was stale**: "3 collisions of 364" is right only under
@@ -992,11 +1018,21 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **⚠ ALL FOUR SEEDED KITS PIN THE CHROME THE DEFAULT ALREADY PICKS, so a kit
   delivers NO chrome differentiation** [MEASURED 2026-09-03, and it is the
   third dimension to fall the same way]. Every kit's
-  `header_component_id`/`footer_component_id` resolves to
-  `site-header`/`site-footer` at `component_level='site'` — and
-  `ChromeSlotFunction()` (`component_library.go:386`) hardcodes
-  `header → "site-header"`, `footer → "site-footer"`, so that is exactly what
-  a site with no pin gets. The pins are no-ops. This is the same
+  `header_component_id`/`footer_component_id` points at
+  `header-theme-chrome` / `footer-theme-chrome` — **which is exactly the row
+  `ResolveChromeComponent` already returns for a site with no pin at all.**
+  `ChromeSlotFunction()` (`component_library.go:386`) maps the slot to the
+  FUNCTION `site-header`/`site-footer`, and the eligible unforked row for that
+  function is `header-theme-chrome`/`footer-theme-chrome`. DES/`bugfix_118`
+  established the same thing independently from the other direction: after
+  118's fleet repoint, `GetComponentByFunction` and `ResolveChromeComponent`
+  "already returned the same row for both chrome functions". **So the pins are
+  no-ops.**
+  > **The reason first written here was sloppy in the same way as the
+  > withdrawn correction above** — it said the pins "resolve to
+  > `site-header`/`site-footer`", conflating the row's `name` with its
+  > `function`. The finding is unchanged; state it as row identity, not as a
+  > function string. This is the same
   indistinguishability already recorded for the six pre-existing
   `style_collections.header_component_id` pins (all six point at the
   default's own pick); the kits add four more.

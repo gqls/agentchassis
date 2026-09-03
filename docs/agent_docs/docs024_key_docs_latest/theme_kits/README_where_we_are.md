@@ -91,3 +91,37 @@ it is built, live and harmless — but I would rather ask now than build a Phase
 kit, an unused kit does nothing, and every site can still override every value at any
 time. The three sites we did touch on 2 September were checked colour-by-colour before
 and after and look exactly as they did.
+
+---
+
+## 2026-09-03, later the same afternoon — I have to correct the entry above
+
+The paragraph above says I "named two components as the right ones when they don't exist
+at all". **That was wrong, and it is the most instructive thing that happened today.**
+
+The two components exist. What happened is that this table has two columns holding almost
+the same set of words — one is the component's name, the other is the job it does — and I
+searched the wrong one, found nothing, and concluded the components were fictional. So I
+retracted a statement that was correct, and the retraction went into an internal reference
+document and into a live review submission before I noticed.
+
+What caught it was not a check. I was about to tell another team that a claim they might
+have inherited was false, and grepped the codebase first to see where it had spread. It
+had not spread. Instead I found seventy files naming those components, and a database
+migration carrying explicit guards against overwriting them. **A thing that does not exist
+does not need guards against being overwritten.**
+
+Everything is now corrected forward in the internal documents, with the wrong version left
+visible next to the right one, because the mistake is more useful than the fact.
+
+The reason I am writing this to you rather than burying it in the technical log is that it
+changes the count and the character of today's errors. It is four, not three. And a
+retraction is the expensive direction to be wrong in, because it reads as "someone went and
+checked" — so it carries more weight than the original claim, and the next reader stops
+there.
+
+**Nothing about the substance changes.** The finding that matters — that all four of our
+looks point at the same header and footer a site gets anyway, so that part of a kit changes
+nothing — is still true, and I have now double-checked it from two directions. So is
+everything above about colours not reaching the page and page shapes barely applying. The
+two questions I asked you for a decision on stand exactly as written.

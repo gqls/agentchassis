@@ -62739,3 +62739,51 @@ fix (call the shared helper, delete both literals) is planned in
 - **Cost.** A false "waiting on you" put to the owner, a peer lane sent to answer a question that
   was already answered, and their reply had to correct my lane rather than help it. Recovered
   within the hour, and their own mis-grep of the header ruling shows the trap is symmetrical.
+
+## 2026-09-03 — I retracted a TRUE claim by querying the wrong column, WHILE writing up the previous entry about being wrong (session theme kits)
+
+**This is a correction to the entry immediately above, which is itself wrong in its
+central claim. Read them together; the one above stays as written, per append-only.**
+
+- **The claim.** In the entry above, in concept-register entry DES-085, and in a council
+  resubmission's `grounded_in`, I "corrected" an earlier true statement by asserting that
+  `header-theme-chrome` / `footer-theme-chrome` **"do not exist in any state"** and that
+  `site-header` is chrome-eligible after all.
+- **Why it was false.** `content_components` has **BOTH a `name` and a `function`
+  column.** I ran `WHERE function LIKE '%theme-chrome%'`, got 0 rows, and concluded the
+  components did not exist. Those two strings are `name` values; their `function` values
+  are `site-header`/`site-footer`. Verified by id: the two UUIDs migration 689 pins
+  resolve to exactly those names, `component_level='site'`, `is_active`, unforked. **The
+  original claim was correct in both halves** — the rows *named* `site-header`/
+  `site-footer` are `section`-level and ineligible, and the eligible rows are the ones
+  *named* `*-theme-chrome`. My retraction was the error.
+- **What caught it.** Not a reviewer, and not the query. Before pinging another lane I
+  grepped the tree for the propagation of "my" false claim and found **70 files naming
+  these components, with UUIDs, and migration 339 carrying `RAISE EXCEPTION` drift guards
+  on updating them.** A component that does not exist does not have drift guards. **The
+  corroboration I should have sought was already sitting in the repo I was about to
+  correct.**
+- **The mistake, precisely.** I filtered on one column and drew a conclusion about
+  another, in a table where the two columns hold near-identical vocabularies by design —
+  which is the exact confusion the claim I was retracting had been written to warn about.
+  Then I graded my own conflation as someone else's false claim. **Worse than the first
+  error, because a retraction carries more authority than an assertion: it reads as
+  "someone checked".**
+- **The cheap check that would have.** `SELECT name, function, component_level FROM …`
+  — **select both columns, never filter on one and conclude about the other** — and when
+  a claim looks false, resolve the ARTEFACT by id before retracting it: the seed named
+  two UUIDs three lines above the comment I was calling wrong, and
+  `WHERE id IN (…)` would have shown me the names in one query. A `LIKE` existence probe
+  that returns 0 rows is evidence about the column you queried, nothing else.
+- **Cost.** A true claim was retracted in the register and in a live council submission
+  (round 2, in flight when this was found), so a round 3 is now owed to withdraw the
+  withdrawal. Two of the three "corrections" I shipped today were themselves correct; this
+  one was not.
+- **The durable half, and it is the fourth instance today of one shape.** Every error in
+  this lane's day was a **right conclusion with a wrong reason** — and this one inverted
+  it into a wrong conclusion drawn from a right suspicion. The finding that survived all
+  of it (**all four seeded kits pin the chrome an unpinned site already gets, so the pins
+  are no-ops**) is TRUE, and both reasons I gave for it were sloppy about `name` versus
+  `function`. **When the conclusion keeps surviving while the reasons keep failing, the
+  conclusion is probably coming from somewhere other than the evidence you are citing for
+  it — go and find where.**

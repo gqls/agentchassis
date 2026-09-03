@@ -189,3 +189,74 @@ anything, so `gofmt -l f && echo BAD || echo OK` prints BAD forever — I read t
 real failure for one turn before checking. Gate on `| wc -l`. And a comment placed
 INSIDE a Go map literal breaks the alignment group, so gofmt rewrites every neighbouring
 key; putting it above the `return` kept the diff to the one line that changed.
+
+---
+
+## 2026-09-03 (later the same day) — the retraction above was WRONG. `name` is not `function`.
+
+**Correcting my own entry from an hour earlier.** The block above headed "MISSTEP FOUND
+WHILE RE-MEASURING" says `header-theme-chrome`/`footer-theme-chrome` "do not exist" and
+that the register's claim was false. **That is wrong. The register's original claim was
+TRUE in both halves, and my retraction was the error.**
+
+`content_components` has **both** a `name` and a `function` column, holding near-identical
+vocabularies by design. I ran `WHERE function LIKE '%theme-chrome%'`, got 0 rows, and
+concluded the components did not exist. They are `name` values whose `function` values are
+`site-header`/`site-footer` — which is precisely the distinction the original claim was
+drawing.
+
+Resolved by id, which is what I should have done first (migration 689 names both UUIDs
+three lines above the comment I was calling wrong):
+
+```
+ 58fde68f-…-ea21cf27a9af | header-theme-chrome | site-header | site | t | unforked
+ e6347680-…-1cea509159d1 | footer-theme-chrome | site-footer | site | t | unforked
+```
+
+**The full picture, and the query to use — select BOTH columns:**
+
+```sql
+SELECT name, function, component_level, is_active, forked_from IS NULL AS unforked,
+       (is_active AND component_level IN ('site','header','footer','head')) AS chrome_eligible
+  FROM content_components WHERE function IN ('site-header','site-footer')
+ ORDER BY function, chrome_eligible DESC, name;
+```
+
+11 rows as of 2026-09-03, exactly **3** chrome-eligible: `header-theme-chrome`,
+`footer-theme-chrome`, and **`header-leopardess` — an ACTIVE FORK of one client's
+header**, eligible because `chromePinEligibleSQL` has no `forked_from` filter. The rows
+named `site-header`/`site-footer` are `section`-level and ineligible, exactly as
+originally written.
+
+**So the reason to hardcode UUIDs in the seed is SHARPER than either version of the claim
+said:** a function-name subquery for `site-header` returns two eligible rows and the
+extra one is one client's fork. `bugfix_118`'s PLAN had already flagged `header-leopardess`
+as this hazard.
+
+**What caught it — not a query and not a reviewer.** Before pinging another lane about
+"my" false claim, I grepped the tree for its propagation and found **70 files naming these
+components, with UUIDs, and migration 339 carrying `RAISE EXCEPTION` drift guards on
+updating them.** A component that does not exist does not have drift guards. The
+corroboration was sitting in the repo I was about to correct.
+
+**The chrome no-op finding SURVIVES, and its reason needed restating too.** All four kits
+pin `header-theme-chrome`/`footer-theme-chrome`, and that is exactly the row
+`ResolveChromeComponent` already returns for an unpinned site — established independently
+by `bugfix_118`, whose register note records that after its fleet repoint
+`GetComponentByFunction` and `ResolveChromeComponent` "already returned the same row for
+both chrome functions". My first write-up said the pins "resolve to
+`site-header`/`site-footer`", conflating `name` with `function` in the same way as the bad
+retraction. **The finding is about row identity, not about a function string.**
+
+**The pattern, stated for whoever picks this up.** Four write-ups today, four times a
+conclusion that survived while the reason for it failed — and this one inverted into a
+wrong conclusion from a right suspicion. A retraction reads as "someone checked", so it
+carries more authority than the assertion it replaces, which makes a wrong retraction the
+more expensive direction to fail in. **When the conclusion keeps surviving while the
+reasons keep failing, the conclusion is coming from somewhere other than the evidence
+being cited for it. Go and find where.**
+
+**Owed as a result:** council round 2 was already in flight carrying the false retraction
+in its `grounded_in`, so a **round 3 on the same correlation** is owed to withdraw the
+withdrawal. Round 2's verdict had not landed at the time of writing (the only
+`council_report` row is still round 1's, `revise`, 2026-09-02 21:43Z).

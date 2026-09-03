@@ -87,6 +87,24 @@ swept them up. That is the calibration lesson from this phase, and it is worth m
 the code: **a conclusion you already believe is where you stop checking the evidence for
 it.**
 
+> **CORRECTED the same afternoon, and left visible because the error is the point.** The
+> sentence above is itself wrong. The two components DO exist. I had filtered a table on
+> its `function` column and drawn a conclusion about its `name` column, in a table where
+> those two hold near-identical vocabularies — so I retracted a claim that was true. What
+> caught it was grepping the repository before telling another team: seventy files name
+> those components and a migration carries guards against overwriting them, and a thing
+> that does not exist does not need guards.
+>
+> So the count is four errors, not three, and the fourth is the worst kind — a retraction
+> reads as "someone checked", which makes it more authoritative than the claim it
+> replaces. The real lesson is one rung further along than the sentence above: when the
+> conclusion keeps surviving while your reasons for it keep failing, the conclusion is
+> coming from somewhere other than the evidence you are citing. Go and find where.
+>
+> The substance of this summary is unaffected. The finding that all four kits pin a
+> header and footer an unpinned site already gets still holds, and so does everything in
+> the section above about what a kit can and cannot move.
+
 Nothing here is dangerous. No site uses a kit, an unused kit is inert, and every value
 stays overridable. The three sites we did touch were verified colour-by-colour before and
 after and are unchanged.

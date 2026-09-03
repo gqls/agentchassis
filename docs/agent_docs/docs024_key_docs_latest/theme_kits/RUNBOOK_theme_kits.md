@@ -96,12 +96,34 @@ SELECT function, count(*) AS eligible_rows
  GROUP BY function ORDER BY 2 DESC;
 ```
 
-⚠ **10 eligible functions as of 2026-09-03**; `site-header` is the only ambiguous one (2
-rows). Do NOT infer a row's `component_level` from its name — this lane asserted
-`site-header` was section-level and therefore ineligible, and it has active `site` rows
-too. And probe for existence before naming a component as the answer:
-`SELECT … WHERE function LIKE '%theme-chrome%'` returns **0 rows**, after two documents
-had named `header-theme-chrome` as the eligible row.
+⚠⚠ **`content_components` has BOTH a `name` AND a `function` column, holding
+near-identical vocabularies by design. SELECT BOTH. Never filter on one and conclude
+about the other** — that is how this lane retracted a true claim, having read
+`WHERE function LIKE '%theme-chrome%'` → 0 rows as "these components do not exist" when
+`header-theme-chrome`/`footer-theme-chrome` are `name` values whose `function` is
+`site-header`/`site-footer`. **A `LIKE` probe returning 0 rows is evidence about the
+column you queried and nothing else.** The query that actually answers it:
+
+```sql
+SELECT name, function, component_level, is_active, forked_from IS NULL AS unforked,
+       (is_active AND component_level IN ('site','header','footer','head')) AS chrome_eligible
+  FROM content_components WHERE function IN ('site-header','site-footer')
+ ORDER BY function, chrome_eligible DESC, name;
+```
+
+**11 rows as of 2026-09-03, exactly 3 chrome-eligible:** `header-theme-chrome`,
+`footer-theme-chrome`, and **`header-leopardess` — an ACTIVE FORK of one client's
+header**, eligible because the predicate has no `forked_from` filter. The rows *named*
+`site-header`/`site-footer` are `section`-level and ineligible. **So a function-name
+subquery for `site-header` is ambiguous, and the extra row is one client's fork** — which
+is why the seed hardcodes UUIDs.
+
+⚠ **When a claim in a doc looks false, resolve the ARTEFACT by id before retracting it.**
+Migration 689 names both UUIDs three lines above the comment this lane called wrong, and
+`WHERE id IN (…)` would have settled it in one query. Grepping for the propagation is
+also cheap and was what finally caught it: **70 files name these components and migration
+339 has `RAISE EXCEPTION` drift guards on updating them.** A component that does not
+exist does not have drift guards.
 
 **Component function collisions — the number is meaningless without the predicate.**
 
