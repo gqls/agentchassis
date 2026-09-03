@@ -26,7 +26,7 @@ forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-0
 | D4 | **NO policing of `spec.reason`** — the annotation stays free prose forever |
 | D5 | phase 1b's courtesy gate on the 404 lane **LIFTED** (acted on: 1b shipped same day) |
 | **D6 (new, 2026-09-03 eve)** | **D1's message: use the OPT-IN TEMPLATE, not a static literal.** `fail_work_item`'s `error_message` is a config literal with no interpolation, so a static message can name the FIELD and the vocabulary but never the offending VALUE |
-| **D7 (new, 2026-09-03 eve)** | **D2's co-sign: BUILD IT ALL, STOP BEFORE APPLYING.** The 404 lane is dormant since 2026-08-26 and the co-sign CONTRIB is unanswered. Nothing goes live without it |
+| **D7 (new, 2026-09-03 eve)** | **D2's co-sign: BUILD IT ALL, STOP BEFORE APPLYING.** Nothing goes live without it. ⚠ The reason given at the time — "the 404 lane is dormant since 2026-08-26" — was **FALSE and is corrected below**; their last own commit is 2026-09-02 16:24Z and their r4 is APPROVED-BUT-UNREAD |
 
 ## State
 
@@ -57,11 +57,25 @@ forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-0
    narrowing; (c) leave it, with `_VERIFY` section C counting it. All three re-phase or accept a
    gap in a RULED RFC, which is why it did not get decided by a session. **Do not action this
    without the owner.**
-2. **Get the 404 co-sign (D2/D7).** That is the only release condition on 741. The lane is
-   `docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/`, dormant since 2026-08-26; a
-   CONTRIB asking for the co-sign has sat in their NOTES since 2026-09-02. If it stays dormant,
-   this is the owner's call, not a session's — and note the premise has WEAKENED: their two
-   Declarations turn out not to need editing at all (below).
+2. **Get the 404 co-sign (D2/D7)** — the only release condition on 741 and 742.
+   Lane: `docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/` (NOTES + README only; it
+   does not keep the standing five, so there is no HANDOFF to read — their NOTES tail is the state).
+   > **⚠ CORRECTED 2026-09-03 (night): earlier revisions of this file, RFC_062, both migration
+   > headers and the phase-3 submission said this lane was "dormant since 2026-08-26". FALSE.**
+   > `git log` on their lane: last own commit `281c08bbe`, **2026-09-02 16:24Z**. And their round-4
+   > verdict is **APPROVED — 2026-09-02 16:33:30Z, nine minutes after that commit — AND STILL
+   > UNREAD** (corr `f2e4ac2a-2bfc-4c82-ac99-d5fd7616edef`; the run is `COMPLETED` at
+   > `complete_approved`). The only write to their lane since is this lane's CONTRIB `5b5c669dd`.
+   > I judged dormancy from `ls -la` file mtimes, where the newest file was one I had written
+   > myself, leaving their 08-26 README as the only timestamp that looked like theirs.
+   **So the useful nudge is not "please co-sign" on its own — it is "your r4 was APPROVED at
+   16:33Z on 2026-09-02 and nobody has read it", with the co-sign request attached.** A lane one
+   day idle with unread good news is far likelier to resume than one abandoned for eight.
+   Two further facts for whoever asks: the premise D2 rests on has WEAKENED — their two livespec
+   Declarations turn out not to need editing at all (below) — and `scripts/who-owns.py 404` names
+   **`bugfix_384_page_list_invalidation`** as the most-engaged workstream (ACTIVE, 51 commits/14d,
+   three commits today), which is also already a named consumer of this change via their
+   `listing_stale` key. If a live thread has to be asked, that is the one that is awake.
 3. **Apply 741 THEN 742 — AND COMMIT THE LIVESPEC DECLARATION EDITS IN THE SAME COMMIT.** The
    five specific edits are enumerated in 741's own header (and (d) is owed only once 742 has
    applied). Both intermediate states are safe and stated in the files; each migration is

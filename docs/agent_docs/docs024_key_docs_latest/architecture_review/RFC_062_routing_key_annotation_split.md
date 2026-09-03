@@ -103,9 +103,21 @@ mechanism that reaches a door Go cannot see).
 The flip is written, executed against the live database inside a transaction and rolled back
 (twice, then a full apply → VERIFY → ROLLBACK → compare round trip). It ships as
 `docs/agent_docs/sql_for_agents/741_refuse_unknown_rerender_routing_key_HOLD.sql` with `_ROLLBACK`
-and `_VERIFY` companions. `_HOLD` because of D2 and nothing else: the 404 lane has been dormant
-since 2026-08-26 and the CONTRIB asking for the co-sign is unanswered, so the owner's decision of
-2026-09-03 was **build it all, stop before applying**.
+and `_VERIFY` companions. `_HOLD` because of D2 and nothing else, and the owner's decision of 2026-09-03 was **build it
+all, stop before applying**.
+
+> **CORRECTED 2026-09-03 (night) — this section, the lane handoff, both migration headers and the
+> phase-3 council submission all said "the 404 lane has been dormant since 2026-08-26". THAT WAS
+> FALSE.** Measured from `git log` on their lane rather than from the directory's file mtimes:
+> their last own commit is `281c08bbe`, **2026-09-02 16:24Z** — yesterday — and their round-4
+> verdict came back **APPROVED at 16:33:30Z, nine minutes after that commit, and is STILL UNREAD**
+> (correlation `f2e4ac2a-2bfc-4c82-ac99-d5fd7616edef`: revise, revise, revise, approved). The only
+> write to their lane since is this lane's own CONTRIB. **The distinction matters to the decision
+> D2 rests on:** we are not waiting on a lane abandoned eight days ago, we are waiting on one that
+> was working yesterday and stopped nine minutes short of its own good news. How the error was
+> made: `ls -la` on their directory showed README 2026-08-26 and NOTES 2026-09-02, but the NOTES
+> write was MINE — so the only timestamp that looked like theirs was the README's, and I read it
+> as the lane's last activity. `git log -- <lane dir>` answers it in one command and disagrees.
 
 What it does: a new start step `check_routing_key_known` ahead of the gate (absent / empty / known
 → on to the gate; present-but-unknown → refusal); `refuse_unknown_routing_key` parking the item at

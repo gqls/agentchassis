@@ -3,6 +3,9 @@
 -- RFC_062 PHASE 3, THE WRITE DOOR (OWNER RULING D3). The other half of 741.
 --
 -- ⚠⚠ _HOLD — same release condition as 741: the 404 lane's co-sign (OWNER RULING D2).
+-- ⚠ That lane is NOT abandoned, whatever earlier revisions of these files said: last own
+-- commit 2026-09-02 16:24Z, and its own r4 verdict is APPROVED-BUT-UNREAD since 16:33Z the
+-- same day. Corrected 2026-09-03 (night) — the claim came from directory mtimes, not git log.
 -- APPLY ORDER: 741 (the read door) THEN this file. Both intermediate states are safe —
 -- read door alone REFUSES a bad key at the gate; write door alone REJECTS the INSERT —
 -- but stopping after either one leaves the pair half-built, and the producer class this

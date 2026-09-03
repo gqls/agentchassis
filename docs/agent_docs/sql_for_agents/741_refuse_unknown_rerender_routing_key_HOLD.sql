@@ -7,10 +7,13 @@
 -- ⚠⚠ _HOLD — DO NOT APPLY WITHOUT THE 404 LANE'S CO-SIGN (OWNER RULING D2). ⚠⚠
 -- The livespec Declarations this migration's shape is asserted by belong to
 -- bugs_open/404's lane, and D2 says they co-sign rather than being told afterwards.
--- The lane has been dormant since 2026-08-26 and the CONTRIB asking for the co-sign
--- (posted in their NOTES 2026-09-02) is unanswered. Owner decision 2026-09-03:
--- build it all, hold the apply. The release condition is the co-sign, nothing else —
--- the council round on this file is APPROVED/PENDING per the lane NOTES.
+-- Owner decision 2026-09-03: build it all, hold the apply. The release condition is the
+-- co-sign, nothing else. Council round on this file: APPROVED r1, corr 56047b18.
+-- ⚠ CORRECTED 2026-09-03 (night): this header used to say the 404 lane "has been dormant
+-- since 2026-08-26". FALSE — their last own commit is 281c08bbe, 2026-09-02 16:24Z, and
+-- their r4 verdict is APPROVED (2026-09-02 16:33:30Z) AND STILL UNREAD. Judged from
+-- `ls -la` mtimes instead of `git log`; the newest file in their directory was one this
+-- lane had written. See the lane handoff item 2 for the nudge that follows from it.
 --
 -- ── WHAT IT DOES ──────────────────────────────────────────────────────────────
 --

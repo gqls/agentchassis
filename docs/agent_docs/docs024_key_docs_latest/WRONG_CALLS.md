@@ -63396,3 +63396,39 @@ side: the message reports success, and the lane that needed it simply never hear
 
 Family: a-report-is-not-a-measurement, always-give-the-path-for-any-doc-you-name,
 your-measurement-answers-the-question-you-encoded.
+
+## 2026-09-03 — "the 404 lane has been dormant since 2026-08-26": false in five places, and the newest file in their directory was one I had written myself
+
+- **The claim**: that the lane whose co-sign gates `bugs_open/440`'s fix had been inactive for
+  eight days. I wrote it into `RFC_062`, the lane HANDOFF, **both migration headers**, and the
+  phase-3 **council submission** — where sixteen seats read it as the justification for shipping
+  a migration `_HOLD`. It also went to the owner in chat, twice, as the reason a decision was theirs.
+- **The truth, from `git log` on their lane**: their last own commit is `281c08bbe`,
+  **2026-09-02 16:24Z — the previous day.** Better: their round-4 council verdict came back
+  **APPROVED at 16:33:30Z, nine minutes after that commit, and is still unread**
+  (corr `f2e4ac2a-2bfc-4c82-ac99-d5fd7616edef`, four rounds: revise, revise, revise, approved;
+  the run is `COMPLETED` at `complete_approved`). They stopped nine minutes short of their own
+  good news.
+- **How the error was made, and it is a nastier shape than a stale figure**: I judged activity from
+  `ls -la` on their lane directory. It showed `README 2026-08-26` and `NOTES 2026-09-02` — and
+  **the 09-02 NOTES write was MINE**, this lane's CONTRIB `5b5c669dd`. So the only timestamp that
+  looked like *theirs* was the 08-26 README, and I read the directory's mtimes as a record of their
+  work. **My own write to their file made their lane look deader than it was.** An ownership check
+  that includes your own edits is not measuring the other lane; it is measuring you.
+- **The cheap check**: `git log -- <their lane dir>` (or `--author`/`%h` filtering out your own
+  commits) answers it in one command and disagrees. `who-owns.py` exists for exactly this and I
+  ran it — for the OWNING workstream, which it answered correctly — and then never asked it, or
+  git, the simpler question "when did they last commit?". **`ls -la` is not an activity log on a
+  tree many sessions write to.**
+- **Why it mattered rather than being a tidy-up**: "abandoned eight days ago" and "working
+  yesterday, with an unread approval" imply *opposite* next actions. The first says escalate to the
+  owner because nobody is coming. The second says send them one line — "your r4 was approved at
+  16:33Z and nobody has read it" — which is both a favour and the natural moment to ask for the
+  co-sign. I recommended the first to the owner on a false premise.
+- **Family resemblance I should have felt**: this is [a closer census cannot see what it succeeded
+  at] in social form — the act of looking (writing into their NOTES) altered the thing being
+  measured. My memory index already carries "EVERY ownership check is LAGGING — re-run at each
+  phase boundary"; the missing clause is **"and exclude your own writes."**
+
+Family: who-owns-is-blind-to-uncommitted-sessions, a-closer-census-cannot-see-what-it-succeeded-at,
+your-action-moves-you-to-the-back-of-the-selector, a-count-of-things-must-carry-the-date-it-was-counted.
