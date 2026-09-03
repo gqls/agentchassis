@@ -3627,3 +3627,20 @@ invented-URL control **404**. CANCELLED with the probe as the reason; `image_url
 never re-verifies or closes its rows — a month-old detection reads like this morning's.
 **Comparison graphic shape agreed with the uplift lane:** lives WITH the orange-left-border device;
 crisp £99 (exact) against a BANDED ~$5,000 (approximate) — the asymmetry is the honesty.
+
+**22:40Z — CORRECTION to the "four unwired heroes" line above, from the uplift lane, measured:** do
+NOT hand-wire them, and the owner's question is not "wire four pages". (1) The fix is BUILT and in the
+fleet: `wirePageHeroOnLanding` is present in the running `v1.0.1359` binary (probed at the pod with
+controls), called from `flag_page_image_rebuild_action.go:210`, gated behind the opt-in
+`wire_hero_on_landing` — which **zero** live `agent_definitions` rows name. Arming it is one config
+change plus a REVISE outstanding on its council round (`bd78490d`). (2) Ownership was settled in
+`bugs_open/412` §10 on 2026-09-02: the **`bugfix_114_imagery_wiring` lane builds candidate 1** — not the
+uplift lane, not this one, not 412's own lane. (3) **A hand-wire of these exact pages already happened —
+migration 664, 2026-08-26, whose verify ASSERTED 9 of 9 hero_urls — and today 3 of 9 survive** (about,
+careers, services keep theirs; approach, case-studies, contact, model-approach-selector,
+tool-ai-readiness-checker, use-cases lost the key within eight days), exactly as 412 §10 predicted
+("if imagery is generated for these pages again it will orphan again"). So the owner's choice is: arm
+the built mechanism (the 114 lane's), or a declared STOP-GAP on the four that says so in its commit and
+counts as the second hand-repair of the same nine pages. Their write-up is in the owning lane's dir:
+`bugfix_114_imagery_wiring/CONTRIB_2026-09-03_from_editorial_design_uplift_664_has_decayed_9_to_3_in_eight_days.md`
+(`c816aa28a`). Same disease as the stale 404 rows: a state proven once and never re-checked.

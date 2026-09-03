@@ -208,8 +208,10 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    (the site's strongest device; the uplift lane's infographic sits with it). Site-wide monotony and the
    hero image reused on five pages are composition/imagery questions, not this lane's card swap.
 0e. **Imagery (uplift lane's half, owner's yes needed):** 35 of 38 heroes are `hero.jpg`; IMG-077 items
-   `6db67bde` (4 pages `unwired`: use-cases, case-studies, approach, contact — wiring is `bugs_open/412`
-   fix candidate 1, NOT a rerender: their hero slots' content_data lacks the path, measured) and
+   `6db67bde` (4 pages `unwired`: use-cases, case-studies, approach, contact — **do NOT hand-wire**: the
+   mechanism `wirePageHeroOnLanding` is BUILT and in v1.0.1359 behind opt-in `wire_hero_on_landing`,
+   named by zero live rows; arming it is the `bugfix_114_imagery_wiring` lane's (412 §10); migration 664
+   hand-wired these pages 08-26 and decayed 9 → 3 in eight days — their CONTRIB in the 114 lane's dir) and
    `d280a6fd` (6 `no_image_slot` tool/guide pages — leave; the 686 double-image trap). Ten stale
    `image_url_404` rows on the case-study cards CANCELLED after a probe with a control; `empty-src` left.
 0a. **Playground follow-ups, in order:** (i) a criteria fence for `tool-playground` so TL-013's

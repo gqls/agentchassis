@@ -1581,3 +1581,13 @@ change that has already been tried once fleet-wide and rolled back because it sh
 twice; leave those. And the ten "broken image" alarms that have sat on your case-study cards since July
 were stale: every image returns fine, checked against a deliberately invented one that does not, so I
 closed them and told the lane that owns the detector.
+
+**2026-09-03, 23:40 BST, a correction to the hero images.** I said the fix for the four pages was
+wiring. More precisely: the wiring mechanism is already built and running in the fleet, switched off
+behind a setting that no agent yet turns on, and the lane that owns turning it on is the imagery-wiring
+lane, by a decision recorded on 2 September. The reason this matters: those same pages were wired by
+hand once already, on 26 August, nine of nine proven at the time, and today only three of the nine
+still have their image. Hand-wiring decays within a week when images are regenerated. So the honest
+question for you is not "wire four pages" but "arm the built mechanism", which is that lane's to carry
+and now has the nine-to-three evidence attached. A stop-gap on the four is a legitimate choice too, as
+long as it is called one.
