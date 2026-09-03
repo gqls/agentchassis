@@ -2730,3 +2730,19 @@ runes, last from user), fixed system prompt, Ollama `/api/chat` streamed → SSE
 (`aqls/tools-api:<tag>` in `/opt/island/docker-compose.yml`) + the five env keys in
 `/opt/island/.env` + the island `sites` row; none done — waits on the placement decision, the
 council verdict and the owner. Submission file: `council_submission_playground_route_r1.json`.
+
+## 2026-09-03 (12:15–12:55Z) — council round 1 on the playground route: REVISE (guardian, gating); round 2 submitted
+
+Round 1 (corr `63be72d1`, 12:03Z): **revise**, 7 abstained; approve from reuse_agent, render_guardian,
+debug_historian, constitution, mission, prior_art_librarian, architecture ("point_fix; RFC_022
+opt-in exception is the closer fit"). Objections and what changed:
+| seat | objection | answer (commit `Council-Submitted: 63be72d1`, round 2) |
+|---|---|---|
+| guardian (HIGH, gating) | the third-tool LANDMINE ("any third tool added under /api/v1/tools/<name>") not addressed; show the group registration; "no internal-key group" unverified | `server_playground_shadow_test.go`: gripper + playground mounted, /playground/chat refused by CORS not the key (never 401), the gripper key does not bypass CORS on it, gripper /requests still 401, no playground path under other prefixes, every route in one of three static prefixes |
+| editquality (med) | 90 s timeout asserted, not shown | it is the request context on `NewRequestWithContext`; made a var; `TestPlaygroundChatStalledStreamTimesOut` proves a one-token-then-silence stream ends with `event: error` inside a 300 ms deadline |
+| editquality (med) + guardian (low) | CORS row on the island not shipped | migration **737** (island target, `id` supplied — no default there). **Round 1's own check read the CLUSTER's `sites`** (finetuning.uk deployed) and called the prerequisite met; the island's table (measured) has robot-hands.com + vonc.com only. Wrong table, right-looking answer |
+| llm_reliability (med) | length-capped reply streams like a complete one | `done` event carries `truncated: done_reason=="length"`; tested both ways |
+| editquality (low) | per-IP band behind Cloudflare | inherited from gripper unchanged (`clientip.From` reads the island's proxy chain); the demo spends our CPU, not GPU hours |
+| debug_historian (note) | post-ship verification | added to risks: probe the island container binary for the route literal with controls; curl with a good and a bad Origin |
+Round 2 first attempt was refused by the trigger at **9 edits > 8** (the two new test files as separate
+edits); folded into the existing test edits (7) and resubmitted on the same correlation.

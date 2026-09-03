@@ -31,32 +31,18 @@
         "symbol": "main"
       },
       {
-        "file": "internal/tools-api/handlers/playground_test.go",
+        "file": "internal/tools-api/handlers/playground_test.go (+ playground_more_test.go)",
         "operation": "add",
-        "rationale": "Fake Ollama (httptest) streaming NDJSON: tokens reassemble, done carries counts, system prompt first + caps forwarded; 7 bad-input cases 400 and never reach the model; upstream 500 -> 503; unreachable -> 503; truncated stream -> 200 with trailing event: error.",
-        "sketch": "TestPlaygroundChatStreamsTokensThenDone / RejectsBadInput / UpstreamFailureIs503 / UnreachableModelIs503 / TruncatedStreamReportsInBand",
+        "rationale": "Fake Ollama (httptest) streaming NDJSON: tokens reassemble, done carries counts, system prompt first + caps forwarded; 7 bad-input cases 400 and never reach the model; upstream 500 -> 503; unreachable -> 503; truncated stream -> 200 with trailing event: error. ROUND 2, playground_more_test.go: Round-1 answers as tests: the deadline bounds a stalled stream (one token then silence, 300 ms deadline, trailing event: error, returns in <5 s); done_reason length → truncated:true, stop → false; a visitor cannot supply a system role.",
+        "sketch": "TestPlaygroundChatStreamsTokensThenDone / RejectsBadInput / UpstreamFailureIs503 / UnreachableModelIs503 / TruncatedStreamReportsInBand | playgroundCallTimeout = 300*time.Millisecond; fake server sends one token then blocks until r.Context().Done(); assert events[0]==token and last==error and elapsed < 5s",
         "symbol": "TestPlaygroundChat*"
       },
       {
-        "file": "internal/tools-api/api/server_playground_test.go",
+        "file": "internal/tools-api/api/server_playground_test.go (+ server_playground_shadow_test.go)",
         "operation": "add",
-        "rationale": "Routes mount only when config AND deps are both present (4 combinations), gauntlet untouched, no pull route; the group's own body cap refuses an oversized body before any model call.",
-        "sketch": "TestPlaygroundRoutesMountOnlyWhenConfiguredAndWired / TestPlaygroundBodyCapIsItsOwn",
+        "rationale": "Routes mount only when config AND deps are both present (4 combinations), gauntlet untouched, no pull route; the group's own body cap refuses an oversized body before any model call. ROUND 2, server_playground_shadow_test.go: The landmine's own check, executed: with gripper AND playground mounted, /playground/chat is refused by CORS not the internal key (never 401), the gripper's key does not bypass CORS on it, gripper /requests still 401, no playground path under other prefixes, and every route belongs to one of the three static prefixes.",
+        "sketch": "TestPlaygroundRoutesMountOnlyWhenConfiguredAndWired / TestPlaygroundBodyCapIsItsOwn | r := NewRouter(nil, &cfg, &GripperDeps{Limiters: NewGripperLimiters()}, WithPlayground(NewPlaygroundDeps())); assert do(POST /api/v1/tools/playground/chat) ∉ {401,503,200}; do(GET /api/v1/tools/gripper/requests)==401; ...",
         "symbol": "TestPlayground*"
-      },
-      {
-        "file": "internal/tools-api/handlers/playground_more_test.go",
-        "symbol": "TestPlaygroundChatStalledStreamTimesOut/LengthCapIsSurfaced/SystemRoleIsNotAcceptedFromVisitors",
-        "operation": "add",
-        "rationale": "Round-1 answers as tests: the deadline bounds a stalled stream (one token then silence, 300 ms deadline, trailing event: error, returns in <5 s); done_reason length → truncated:true, stop → false; a visitor cannot supply a system role.",
-        "sketch": "playgroundCallTimeout = 300*time.Millisecond; fake server sends one token then blocks until r.Context().Done(); assert events[0]==token and last==error and elapsed < 5s"
-      },
-      {
-        "file": "internal/tools-api/api/server_playground_shadow_test.go",
-        "symbol": "TestPlaygroundDoesNotShareOrShadowTheGripperGroups",
-        "operation": "add",
-        "rationale": "The landmine's own check, executed: with gripper AND playground mounted, /playground/chat is refused by CORS not the internal key (never 401), the gripper's key does not bypass CORS on it, gripper /requests still 401, no playground path under other prefixes, and every route belongs to one of the three static prefixes.",
-        "sketch": "r := NewRouter(nil, &cfg, &GripperDeps{Limiters: NewGripperLimiters()}, WithPlayground(NewPlaygroundDeps())); assert do(POST /api/v1/tools/playground/chat) ∉ {401,503,200}; do(GET /api/v1/tools/gripper/requests)==401; ..."
       },
       {
         "file": "docs/agent_docs/sql_for_agents/737_tools_api_island_sites_finetuning_uk.sql",
