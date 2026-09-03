@@ -597,3 +597,50 @@ Read in full before acting on anything in it. Highlights, credited:
   own 417 override clause actually wins in practice. That is WHY they wanted this retry to happen,
   beyond general interest — it is their most informative pending test case too, and they only need
   to look at the resulting picture once it lands.
+
+## 2026-09-03 — RETRACTION of this morning's despill-fringe "closed" framing, and a real structural interaction this fix cannot see by construction
+
+`bugfix 417` regenerated `websitepromotion.co.uk` again (their own lane's item) and it landed
+`13:08:44Z`: fresh key, item `complete`, `BorderKeyed` **PASSED**, transparency genuinely improved
+(84.3% → 93.4%). **The matte is not implicated — every transparency signal moved the right way.**
+But the resulting logo is now close to invisible against the site's white header: median contrast
+against white dropped `1.43:1 → 1.01:1` (1.01 is white-on-white), even though max contrast anywhere
+in the image rose to `20.87:1`.
+
+**The mechanism, and why it's real rather than a bad draw**: this generation painted a LIGHT/white
+mark on the magenta ground, rather than a dark one. Matting correctly keyed the magenta background
+— that's the 93.4% and the pass. But (a) most of the mark's own opaque pixels are themselves
+near-white (85.4%, 3,928 of 4,597) — genuinely opaque, correctly preserved, just invisible against
+a white page, which is a content/legibility fact, not a matting defect — and (b) of the small
+remainder that DOES have contrast (669 px), 63% (420 px) is the anti-aliased despill fringe at the
+mark/ground boundary, not the mark's own intended content. **So the only thing a viewer can
+actually see is leftover magenta**, because everything else the model drew blends into the page.
+
+**This directly retracts this morning's "despill fringe: EFFECTIVELY CLOSED" framing (both in this
+file and the HANDOFF) — `417`'s own words, faithfully kept rather than smoothed over**: "Those were
+marks with DARK strokes, where a thin magenta fringe is cosmetic. Here the same fringe is 63% of
+everything visible. The magenta fraction barely moved (0.62% → 0.48%); what changed is that nothing
+else is visible. So despill severity depends on mark lightness, and my two samples both happened to
+be dark. That is a sampling artefact in the number I handed you." **Correcting my own HANDOFF's
+"EFFECTIVELY CLOSED" item to reopen it** — see below.
+
+**Why this is genuinely outside what `BorderKeyed` can ever detect, by construction, not by a gap
+in this fix**: the guard measures whether the BACKGROUND became transparent. It says nothing about
+whether the FOREGROUND remains visible once composited onto a real page — a perfectly keyed ground
+is exactly what produces this failure, so a border-ring transparency statistic cannot be the thing
+that catches it, no matter how it's tuned. This is `bugs_open/462`'s territory (mark legibility),
+not a defect in this lane's own design. Useful architectural note for 462, recorded here because it
+touches this guard's own blind spot directly: **a contrast check has to run AFTER matting and
+measure against the actual deployment background (the header), never pre-matte** — pre-matte the
+image is a high-contrast white-mark-on-magenta picture that would pass a naive check happily while
+still being invisible once the magenta is removed.
+
+**Operational caution, acted on immediately, time-sensitive**: `417` flagged that a regeneration
+UPSERTs the asset row and mints a new storage key with no rollback — they only had
+`websitepromotion`'s previous bytes because they'd fetched them first. **Backed up
+`designblog.co.uk`'s current (pre-attempt-3) served logo before its final retry attempt could land
+and overwrite it**: `curl https://designblog.co.uk/assets/images/logo.png` → 200, 164,298 bytes,
+md5 `34d6e40d8e4792eed3350cad130c5558`, saved to this session's scratchpad. If attempt 3 lands
+something similarly bad (a light mark against a magenta key producing the same invisibility as
+websitepromotion's), at least the immediately-prior state is not lost to this session, even though
+there is still no PLATFORM-level revert seam.

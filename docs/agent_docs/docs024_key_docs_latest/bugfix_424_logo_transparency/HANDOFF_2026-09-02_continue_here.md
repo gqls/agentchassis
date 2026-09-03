@@ -1,8 +1,10 @@
 # HANDOFF — bugfix_424_logo_transparency, continue here
 
-Updated 2026-09-03 ~12:45 BST (supersedes the ~10:40 version — all three resets have now reached a
-final state: 2 confirmed fixed, 1 exhausted awaiting an owner decision; an unrelated billing outage
-was found, filed as `bugs_open/455`, and resolved same-day). Read this file first — it's "what to do next", not "how we
+Updated 2026-09-03 ~14:30 BST (supersedes the ~12:45 version — owner authorised a second retry
+round for `designblog.co.uk`, now mid-ladder; `boxingonline.com` separately confirmed fixed too;
+**and a real mark-legibility interaction reopened the despill-fringe item this file previously
+called closed** — read that item again if you read the earlier version). Read this file first —
+it's "what to do next", not "how we
 got here". For history: `NOTES_logo_transparency.md` (full chronology, every correction), the bug
 file's own tail (a peer lane's CONTRIB, verbatim, with the production evidence tables),
 `PLAN_2026-09-02_logo_background_transparency.md` (the design).
@@ -123,10 +125,24 @@ methods agree.
    (attempts), not the constants, is the real lever — feeds decision #3-below directly. Constants
    themselves still carry `[UNMEASURED]` in the code comment; a future session could update that
    comment to reflect this finding, but there is no evidence left to gather by regenerating more.
-4. ~~Look at the despill fringe~~ — **EFFECTIVELY CLOSED, not by a fix.** Measured by the `417`
-   lane: 0.01%–0.05% magenta-ish pixels on post-fix successes vs 0.62% on the pre-fix good result —
-   an order of magnitude improvement, "diagnosed and not worth fixing" at this size. Their
-   independent read.
+4. **REOPENED — the despill fringe is a real, potentially serious problem, not a cosmetic one.**
+   This morning's "effectively closed" call (0.01%–0.05% on two dark-marked examples) was
+   **retracted by the same reporting session** after a third real generation: a LIGHT-marked
+   result (`websitepromotion.co.uk`'s second regeneration) passed the guard cleanly (transparency
+   84.3%→93.4%, genuinely correct matting) but is now close to invisible against a white header
+   (median contrast `1.43:1 → 1.01:1`) — because most of a light mark's own opaque pixels are
+   themselves near-white (content, not a matte defect) and the small remainder that has any
+   contrast is 63% leftover magenta despill fringe. **The fringe percentage barely changed
+   (0.62%→0.48%); what changed is that a light mark has nothing else visible to dilute it with.**
+   So severity depends on the mark's own lightness, which this fix's prompt never constrains —
+   only "no magenta/pink in the artwork" is asked for, not "avoid near-white". **This is
+   structurally invisible to `BorderKeyed` by construction** — the guard measures whether the
+   BACKGROUND became transparent, not whether the FOREGROUND remains legible once composited; a
+   perfectly keyed ground is exactly what produces this failure. Not a defect in this lane's own
+   design, but a real gap this design cannot close on its own — squarely `bugs_open/462`'s
+   territory (mark legibility), with a concrete architectural note for it: a contrast check must
+   run AFTER matting and against the real deployment background, never pre-matte (pre-matte a
+   white-mark-on-magenta image reads as high-contrast and would pass happily).
 5. **Confirm `bugs_open/421`'s status independently** — this fix does not verify single-composition
    and must not be treated as having cleared it.
 6. **Decide whether the retry-ladder policy (original decision #3) needs revisiting now that
