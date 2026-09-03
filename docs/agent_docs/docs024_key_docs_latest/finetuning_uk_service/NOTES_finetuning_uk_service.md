@@ -3085,3 +3085,29 @@ starts with a capital (else the re-authoring has not reached the page).
 Also from the prompts lane, for anyone quoting the writer prompt: it grew ~510 chars during their
 session from another lane's edit and its em-dash count moved 9 → 10; any absolute length or offset
 for that prompt in this lane's docs is stale.
+
+## 2026-09-03 (19:26–19:30Z) — 641/A4 LIVE; **STAGE B DISPATCHED on both pages**
+
+Prompts lane: 641 applied ~19:35Z by their clock; **verified here at the writer row, not taken on
+report** `[MEASURED 19:28Z]`: `updated_at 19:26:46Z`, template contains `current_section.subject`
+(G1), the old "You'll want to know" frame ABSENT, `generate_content.config.input_fields` carries
+`sections_for_render` (the half that makes the sibling list render). The owner read the exact A4
+bytes and said yes (recorded in apis.uk NOTES). Chassis pods 6 h old (≥300 s rule); 0 triaged items
+on the site (queue position: first); no open `needs_content_page` on either page.
+
+Both dispatch files rehearsed under ROLLBACK to their NOTICE (technical-details' G1 passed for real
+this time), post-rollback control clean, then applied:
+- `d630f6df` `/technical-details.html` — the REWRITTEN brief (no family listing), `required_links`
+  now `[/your-own-model, /contact, /playground]`, page → planned. 19:29:13Z.
+- `11e1e8ed` `/your-own-model.html` — the ORIGINAL 2026-08-24 brief copied whole + `reason`
+  (`your_own_model_stage_b_dispatch.sql`, RUNBOOK recipe), page → planned. 19:29:14Z.
+Both carry the A4 subjects applied at 19:20:58Z, so the first build after 641 reads subjects already
+in the new register (the prompts lane noted the ordering came out right across three lanes).
+
+**Before-snapshot** (for the assertions): served h2s technical-details = "The model, and the licence
+it comes with | The model underneath, and who owns it | The model itself, and the licence it comes
+with | Questions… | Not sure…" (3 repeats); your-own-model = "How it works ×3 | A short glossary |
+Want to see…". Controls `index` (hash `8cd98688…`, deployed 13:53Z) and `about` (`a6be4283…`, 13:56Z)
+saved as served bytes. Acceptance script: `stage_b_assert.sh <before-dir>` (A1 distinct h2s, A2
+opening line tracks own subject not a sibling's, A3 no em dash, A4 no `</strom>`, A5 no family
+listing on technical-details, controls unchanged). Watcher armed on both items (60 s poll, 60 min cap).
