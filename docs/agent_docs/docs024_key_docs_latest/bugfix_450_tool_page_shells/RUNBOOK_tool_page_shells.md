@@ -5,20 +5,49 @@ changes.
 
 ## 1. The shell census (is the bug still live, and where)
 
+**Use the GUARD'S OWN predicate, split by publication state.** The version first written here (and
+in the bug file) was a floor twice over — see the warning below.
+
 ```bash
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA <<'EOF'
-SELECT s.domain, count(*) FROM pages p JOIN sites s ON s.id=p.site_id
- WHERE p.page_type='tool' AND p.status='active' AND p.deployed_at IS NOT NULL
+SELECT s.domain,
+       count(*) FILTER (WHERE p.deployed_at IS NOT NULL) AS shipped,
+       count(*) FILTER (WHERE p.deployed_at IS NULL)     AS never_shipped
+  FROM pages p JOIN sites s ON s.id=p.site_id
+ WHERE p.page_type='tool' AND p.status='active'
    AND NOT EXISTS (SELECT 1 FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id
-                   WHERE pc.page_id=p.id AND pc.build_status<>'removed' AND cc.component_level='tool')
- GROUP BY 1 ORDER BY 2 DESC;
+                   WHERE pc.page_id=p.id AND pc.build_status<>'removed'
+                     AND cc.component_level='tool' AND cc.is_active)
+ GROUP BY 1 ORDER BY 2 DESC, 3 DESC;
 EOF
 ```
 
-⚠ **This is an upper bound, not a defect count.** On an adopted site a ported tool can live inline
-in a non-tool-level component, so it counts as a shell here and is not one. The seotools mechanism
-is proven only where `page_component_history` names the writer (query 2). 61 pages / 10 sites as of
-2026-09-03.
+**67 pages / 16 sites `[MEASURED 2026-09-03 ~12:0xZ]`** — of which **48 are already
+`rebuild_policy='owned'`** and were refused before this lane existed, so the guard's genuinely NEW
+population is **19**.
+
+⚠ **THE FIRST VERSION OF THIS QUERY WAS WRONG IN TWO DIRECTIONS, and both are general traps:**
+
+1. **`deployed_at IS NOT NULL` cannot see a page that never shipped** — which is the sectionless
+   fork (bugs_open/450 §7), i.e. the census excluded the very variant it exists to measure. +4.
+2. **It did not test `cc.is_active` while the FIX does.** A page whose only tool component is
+   inactive read as "has a tool" to the census and as a shell to the guard. +9, across four sites
+   that did not appear in the old census at all.
+
+**The lesson, not the numbers: run your FIX's predicate as the census.** A fix and its denominator
+disagreeing is invisible while both look reasonable. Re-running the old query reproduced its
+number and read as confirmation — a census reproduces the *question you encoded*, so a repeat
+certifies nothing.
+
+⚠ **It is a repair-INITIATED count, not repair-COMPLETED** (portfolio_positioning lane, 2026-09-03).
+Attaching a tool component removes a page immediately, while the public keeps seeing prose until
+the rerender drains — seotools left the census at 10:27Z with **0 of 7** pages published. A later
+reader will see "seotools: clean" on a site serving seven prose pages. **Acceptance is the served
+body (§3), never this census.**
+
+⚠ Still an upper bound for the adopted estate: a ported tool can live inline in a non-tool-level
+component, so it counts as a shell here and is not one. The mechanism is proven only where
+`page_component_history` names the writer (query 2).
 
 ## 2. Who wrote a suspected shell
 
@@ -149,3 +178,66 @@ SELECT current_step, status FROM orchestration_states
 ```
 
 ⚠ Do not submit within ~300 s of a chassis roll, and expect a roll to kill an in-flight council run.
+
+## 10. Applying migration 729 (the plan-side gate) — NOT YET, and the precondition is not the usual one
+
+**Do not apply it because the guards pass.** They do; that is not the gate on applying it. The
+replacement prompt text tells the planner *"validation holds back tool pages whose tool does not
+exist"*, and that is **FALSE until a chassis carrying `5e6fee47b` rolls**. Applying early ships a
+prompt asserting a validation that is not running. The KEY alone would be order-safe (old binaries
+ignore it); the SENTENCE is not, so both wait.
+
+**Preconditions, in order:**
+
+1. Council verdict on corr `4e7497ed-62ed-4426-a814-8361754c2352` read (REVISE → revise first).
+2. A chassis image carrying `5e6fee47b` is LIVE — checked at the artefact, per §7 above:
+   `git merge-base --is-ancestor 5e6fee47b <the service's build-provenance stamp>`.
+3. Then, and only then:
+   ```bash
+   kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+     psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
+     < docs/agent_docs/sql_for_agents/729_planner_tool_source_gate.sql
+   ```
+   ⚠ **This file only.** Never an unscoped migration-runner `--apply`: it takes EVERY pending file.
+
+**Rehearsing a change to it first** (this is how 720's lane found its own guard arithmetic was
+wrong, and it is worth repeating for any edit):
+
+```bash
+sed -e 's/^BEGIN;$//' -e 's/^COMMIT;$//' docs/agent_docs/sql_for_agents/729_planner_tool_source_gate.sql > /tmp/729_body.sql
+{ echo "BEGIN;"; cat /tmp/729_body.sql; echo "ROLLBACK;"; } | \
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
+```
+
+Proven 2026-09-03: apply passes every guard and its verify block; the apply→ROLLBACK round trip
+returns the template to md5 **`85b9821d6d75e8142245552c8986d38b`**, byte-identical, with
+`enforce_tool_sources` ABSENT and 720's `enforce_listing_sources` still `true`. **Re-measure that
+md5 before trusting it** — three lanes edit this row, so the "before" value moves.
+
+**Unwinding:** `729_ROLLBACK` first, then `720_ROLLBACK` if you also want the listing gate gone.
+While 729 is applied, 720_ROLLBACK's anchor does not appear verbatim and it refuses by its own
+design — that is correct behaviour, not a broken file.
+
+## 11. Proving the plan-side gate actually fired (after it is applied)
+
+The gate's positive signal, not the absence of shells:
+
+```sql
+-- held pages: one deferred capability_gap per held tool page
+SELECT s.domain, w.summary, w.spec->>'builder_needed', w.created_at
+  FROM site_work_items w JOIN sites s ON s.id = w.site_id
+ WHERE w.item_type='capability_gap' AND w.item_key LIKE 'capability_gap:tool:%'
+ ORDER BY w.created_at DESC LIMIT 20;
+-- and its durable audit row
+SELECT created_at, message FROM agent_error_log
+ WHERE error_code='TOOL_PAGE_HELD_NO_TOOL_SOURCE' ORDER BY created_at DESC LIMIT 10;
+```
+
+⚠ **A capability_gap here is NOT a defect report about the tool pipeline.** Holding a planner tool
+stub starves nothing (bugs_open/450 §7). Treat a rising count as the gate working, and only
+investigate if a HELD page's tool later turns out to have existed — which would mean the census or
+the candidate-name list is wrong, and is the failure mode to watch for.
+
+**The control that makes the above mean something:** a site whose tools DO exist must plan its tool
+pages normally and file NO gap. Without that in the same window, zero gaps is indistinguishable
+from the gate never running.
