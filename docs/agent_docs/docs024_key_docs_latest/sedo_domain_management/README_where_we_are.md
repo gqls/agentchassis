@@ -79,10 +79,15 @@ for every domain you add — that changes nothing at Afternic unless
 nameservers move (which nobody is doing), but you'll see them all as
 "parked" in your Sedo dashboard.
 
+Your three remaining moves, whenever suits: upload the sheet (or wait for
+the priced version), run the Nominet walk, and send the API-access email
+(RUNBOOK §2) so future changes don't need manual uploads at all.
+
 Small update, same evening: the Dynadot count was double-checked against
 your control panel — complete, and grew to 453 with the two domains you
 added today (overhead-cranes.com, paper-cups.com). The sheet now holds
-1,320.
+1,320. Since you add domains from time to time, we'll re-pull all the
+registrar lists right before any version you actually upload.
 
 ## 2026-09-03 — the full portfolio is in: 2,895 domains, live sites double-checked
 
@@ -108,8 +113,7 @@ sheet, not 19.
 Spaceship and Nominet, minus those 50 live sites. Still all set to "make
 offer, for sale, no price" until the valuations land.
 
-Your three remaining moves, whenever suits: upload the sheet (or wait for
-the priced version), send the API-access email (RUNBOOK §2), and — if you
-want to double-check my live-site list before uploading — it's
-`EXCLUDED_live_2026-09-03.txt` next to the sheet, one domain per line. Since you add domains from time to time, we'll re-pull all the
-registrar lists right before any version you actually upload.
+Your remaining moves, whenever suits: upload the sheet (or wait for the
+priced version), send the API-access email (RUNBOOK §2), and — if you want
+to double-check my live-site list before uploading — it's
+`EXCLUDED_live_2026-09-03.txt` next to the sheet, one domain per line.
