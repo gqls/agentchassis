@@ -1835,3 +1835,36 @@ since under A4 they are his flagship page's future opening lines.
 gate 2 (owner reads the A4 bytes) is the only gate. Their checker note adopted for our own
 rituals: a line-by-line reconstruction gains a trailing newline — strip both sides before
 byte-compare, or the checker cries wolf.
+
+## 2026-09-03 (19:2xZ) — GATE 2 CLEARED: the owner read the A4 block and approved it (recorded by the framework-prompts lane, which holds the 641 apply)
+
+The owner was shown the **exact template bytes** from this seed's INSERTED TEXT block, plus one filled-in
+render on the finetuning.uk playground page using a subject written to the new phrasing spec. The question
+put to him was, in full: *"Your read of the exact text. Approval attaches to these bytes, so this is what
+would apply, verbatim from the migration"* followed by the block and the render, and *"Say yes to that and
+it applies today."*
+
+**His answer, verbatim and complete: "yes".**
+
+The bytes he approved:
+
+    {{if .current_section.subject}}## This section
+
+    {{.current_section.subject}}
+
+    {{.current_page.title}} also covers, each in its own section:
+    {{range $s := .sections_for_render.sections_ready}}{{if and $s.subject (ne $s.subject $.current_section.subject)}}- {{$s.subject}}
+    {{end}}{{end}}
+    {{end}}
+
+How this differs from what he approved at round 1 and why: C's opening frame ("You'll want to know ___.
+That's what this section is for.") is gone; everything else is byte-identical. He had picked C again in a
+blind read of four candidates on 2026-09-03, then was shown two harness renders of what its frame does to
+real data - the live gamedesign.uk planner subjects, and his own proposed opening line - and directed
+*"drop it and use fuller sentences/phrases"*. Subjects are now authored as the section's opening line;
+the spec is `framework_prompts_positive_voice/SPEC_2026-09-03_section_subject_phrasing.md`, copied into
+this directory as `CONTRIB_2026-09-03b_from_framework_prompts_subject_phrasing_spec.md`.
+
+Gate 1 re-verified at the pod immediately before applying, both replicas, three-way probe:
+`section_subjects` 3 (capability, must be >0), `section_facts` 3 (positive control), `zzz_absent_zzz` 0
+(absent control, proving the probe discriminates).
