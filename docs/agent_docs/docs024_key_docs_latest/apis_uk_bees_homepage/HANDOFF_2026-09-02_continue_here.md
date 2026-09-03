@@ -130,7 +130,7 @@ grep -o 'src="[^"]*illustration[^"]*"' … | sort -u | wc -l   # PASS: 6 distinc
 |---|---|
 | planner rule 17 + example (640) | **LIVE** — next replan of any fact-listed site emits subjects; REQUIRED on repeated components |
 | `validate_plan` normalise + carry · `site_plan_sections.subject` (638) · loader · `plan_sections` (639 wiring) · `sectionPlanItem.Subject` | **LIVE end to end** (binary probed; config verified) |
-| writer prompt (641) | **HELD — redraft WRITTEN + rehearsed 2026-09-03 (owner pick C + input_fields fix); gate: owner reads the EXACT block in the seed (§3.1)** |
+| writer prompt (641) | **LIVE 2026-09-03 ~19:35Z** — A4 block, owner read the exact bytes ("yes"), applied by the prompts lane; NOTES holds the read |
 | structural detector `SUBJECT_MISSING_ON_REPEATED_COMPONENT` | **LIVE** (binary probed); zero rows until subject-carrying plans exist — that is the gate working, not silence |
 
 Adoption query (also the copy_quality lane's experiment control):

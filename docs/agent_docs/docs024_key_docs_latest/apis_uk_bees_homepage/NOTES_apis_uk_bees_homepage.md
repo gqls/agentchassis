@@ -1868,3 +1868,29 @@ this directory as `CONTRIB_2026-09-03b_from_framework_prompts_subject_phrasing_s
 Gate 1 re-verified at the pod immediately before applying, both replicas, three-way probe:
 `section_subjects` 3 (capability, must be >0), `section_facts` 3 (positive control), `zzz_absent_zzz` 0
 (absent control, proving the probe discriminates).
+
+### 2026-09-03 ~19:50 UTC — receipt of the apply; the chain is LIVE end to end; what remains is data
+
+The prompts lane's apply record (above, their append) verified from here: the APPLIED line is in
+the seed, the read carries the exact bytes and his verbatim "yes", and the six-way post-commit
+check ran at the live row. Register and handoff updated: **the per-section-subjects chain this
+lane started on 08-26 is now LIVE END TO END** — planner rule 17 (640, re-worded by 762),
+validate/persist/loader/plan_sections (roll + 638/639), writer block (641, A4).
+
+Worth recording, at their suggestion, because it is the thing that made a rollback unnecessary:
+the ORDERING across three lanes in one afternoon — 762 live-but-inert first, the finetuning
+arrays re-authored second, the block last — means the first build after the apply reads
+new-register subjects through a new-register block with no intermediate state. That was as much
+luck as planning; a lane sequencing this deliberately next time should sequence it exactly so.
+
+Remaining, all DATA or acceptance:
+- **Our six index subjects** (queued, recipe at ~19:00) — when written, the live block renders
+  them on the next build. Still worth the owner's eyes; still pinned-id UPDATE only.
+- **Stage B acceptance** — population: our two deferred content_rewrite items + the 443 cohort.
+  ⚠ The deferred items' written unblock condition ("this chain live") is NOW MET; their un-defer
+  still requires the plan-surgery-or-replan decision on a locked page (handoff §4 — an owner
+  decision, not mechanical).
+- **Post-rebuild artefact verify** (standing, from the 427 episode) — first index rebuild gets
+  checked at the served page, not the item.
+- Council round 2 on `6c92d154` — prompts lane reads the verdict and acts on REVISE (the change
+  is live; the owner's read was the binding gate).
