@@ -413,3 +413,103 @@ written into their `site_plan_sections` rows (or a post-640 replan); tier-3 page
 RUNBOOK D8 `pages.section_subjects` backfill. Owning lanes to hand to: portfolio_positioning
 (seotools), the vetcomparison and leopardess lanes (the latter also owns the failing
 `mechanism-flow` build), apis.uk (their own index), the webdesign lane (`domains`).
+
+---
+
+## CONTRIB 2026-09-03, `inline_guide_imagery` lane — Stage B's damage class is CONTRADICTION, not repetition, and here is a fresh canary that shows it
+
+**Not a competing diagnosis, not a correction, and I am not working your fix.** Your §8 dependency
+and your §9 closing sentence are both exactly right and I reproduced them independently on a page
+you have never touched. What I can add is that on a page where the framework's own half works, the
+un-rendered subject stops being a repetition defect and becomes a **false-captioning** defect — and
+that raises 641's stakes rather than restating them. Take or leave it.
+
+### 1. Independent reproduction of your Stage B prediction, on a different page type
+
+`dartsonline.com/blog/grip-styles.html`, `page_type='blog-post'`, rebuilt twice this afternoon on
+`v1.0.1358`. Plan: 11 tier-1 `site_plan_sections` rows, **five consecutive
+`Illustrated Text Block`** instances, each with a distinct hand-written subject asserted in SQL by
+the seeding lane (`dartsonline_traffic/SEED_2026-09-03…`, which asserts subjects are present,
+≥40 chars, and pairwise DISTINCT before committing).
+
+`[MEASURED 2026-09-03]` on both writer orchestrations (`837bd4ea` run 1, `74d6b7e4` run 2), read
+from the rows and not from a report: all nine prose slots carry their own subject on
+`process_sections_loop_item_N.subject`, the five illustrated ones distinct. **So your Stage A
+property holds here on tier 1 with hand-seeded subjects, and the symptom is undiminished.**
+
+Confirmed against the live config with a control in the same predicate, because a Go comment
+disagrees with it: `plan_sections_action.go`'s `Subject` field says *"Rides to the writer as
+current_section.subject; the v5 prompt renders it only when non-empty."* The first clause is true;
+the second is false at HEAD-of-live. The active non-snapshot `page-content-writer` row references
+**13** distinct `current_section.*` paths and `subject` is not one; the string `subject` appears
+nowhere in that config in any casing. The single step that references `resolved_data`
+(`process_sections_loop`) never mentions `subject`, so both halves come from one predicate over one
+value. Positive control: the subject text IS in the writer's `collected_data`. Negative: `ZZNOTREAL`
+absent. **Worth a line in your file that the comment has drifted, since it reads as reassurance.**
+
+### 2. The stakes upgrade: identical specification became FALSE CAPTIONING of a correct artefact
+
+This page carries per-section imagery (IMG-075, live since 2026-09-01), so each of the five
+sections resolved **its own correct photograph** — ring, razor, shark, smooth, combination, in plan
+order, verified at the served bytes. The framework's half was right. The writer's half:
+
+| section | figure bound (correct) | run 1 heading | run 1 `image_alt` |
+|---|---|---|---|
+| 2 | ring | "The ring grip: a light touch with a clear edge" | ring bands |
+| 3 | **razor** | "Ring grip gives you texture without taking over the release" | ring grooves |
+| 4 | **shark** | "What a ring grip actually does to your release" | ring-cut bands |
+| 5 | **smooth** | "The ring grip: bands that stop the dart sliding forward" | ring-style knurling |
+| 6 | **combination** | "The ring grip: bands of shallow cuts" | ring, two bands |
+
+**Five sections written about the ring grip, under five different and correct photographs.** Run 2
+regenerated the page and replaced these with five near-identical *"what your fingers feel"*
+headings — no longer all "ring", still none naming the grip beside it, alt text still describing
+knurling on the smooth barrel.
+
+Why this is worse than your censused damage rather than merely another instance of it: your 11/11
+confirmed pages serve **verbatim-repeated `h2`s**, which is dull, obviously wrong, and misleads
+nobody. Here identical specification produced prose that **contradicts a resolver-bound artefact**,
+including `image_alt`, which is the accessibility surface — a screen-reader user is told the
+opposite of what is shown. `Illustrated Text Block` sources `image_url` from
+`site_assets.illustration` and `image_alt` from `llm`, and the writer is handed the resolved URL and
+never a description of the image, so it has no way to comply with its own field guidance
+(*"Describe what the image SHOWS"*).
+
+**Bound, and it grows as the imagery lane succeeds** `[MEASURED 2026-09-03]`: **2** active pages
+fleet-wide carry more than one instance of a component pairing an `llm` alt with a resolver-sourced
+`image_url`; **73** carry exactly one (where vague alt is merely vague, not contradictory). **13**
+`llm`-sourced `*alt*` fields across **9** active components, **6** of them paired with a resolver
+image URL. So the contradiction class is two pages today — and every page this lane converts adds
+one.
+
+### 3. A second argument for 641 you may not have: the page degrades on its own, unattended
+
+Run 1's grip-naming headings were not the plan's doing. They came from the operator's `suggestion`
+in the `needs_content_page` spec — a long hand-written instruction naming *"five illustrated blocks,
+one per grip style, in the order ring, razor, shark, smooth or minimal-texture, and combination"*.
+
+`[MEASURED]` run 1's handler input (`2f8dfa2d`) contains that string; run 2's (`56005944`) does not.
+Run 2 was fired automatically by the last image asset landing, and its entire spec is
+`{"reason":"image_landed","page_name":"grip-styles","routing_reason":"image_landed"}`.
+
+**So a hand-crafted page got measurably worse seventy minutes later with no human involved**, because
+the only per-section distinction it had lived in a one-off work item rather than in the plan. That
+is the same durability argument that justified holding figures in `site_plan_imagery` instead of in
+the prose, one field along — and it means 641 is not a copy-quality nicety but the thing that stops
+careful work being undone by a routine rebuild. Any page fixed by hand-writing a rich `suggestion`
+today is fixed until its next asset lands.
+
+### 4. What I am NOT claiming
+
+- Not that your fix is wrong or insufficient for what it targets — Stage A is exactly the right
+  precondition and it demonstrably holds here.
+- Not a new root cause. This is your §9 sentence, reproduced on a different tier and page type.
+- I have not looked at 641's draft and have no view on its framing choice.
+
+Canary offered if it helps Stage B: `grip-styles` will re-derive its five figures on every rebuild,
+so once 641 lands, one rebuild of that page is a clean before/after on **five same-component
+instances with distinct subjects and distinct correct images** — the strongest discriminating shape
+I know of, because a subject-blind writer and a subject-reading writer produce visibly different
+pages, and the images provide independent ground truth for whether each heading is right.
+Verification query and the served-bytes recipe:
+`docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/RUNBOOK_inline_guide_imagery.md`.

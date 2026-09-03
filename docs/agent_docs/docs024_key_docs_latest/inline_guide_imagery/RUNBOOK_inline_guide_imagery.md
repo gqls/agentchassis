@@ -234,3 +234,89 @@ SELECT cc.function, f.k, f.v->>'source', f.v->>'on_missing'
 FROM content_components cc, jsonb_each(cc.input_schema->'fields') AS f(k,v)
 WHERE cc.is_active AND cc.function = :section_component AND (f.k ILIKE '%image%' OR f.v->>'source' LIKE 'site_assets%');
 ```
+
+## Did the binding ENGAGE on a build, before the page is even saved? (added 2026-09-03)
+
+The served bytes are the final word, but they arrive last — after the writer, the save, the
+compile and the deploy. The build path records what each section RESOLVED as soon as `plan_sections`
+runs, in the writer's own orchestration row, so you can grade the binding while the LLM is still
+writing prose. Find the writer by its parent handler's work item:
+
+```sql
+-- 1. the handler for your work item, then its child writer (created a second or so later)
+SELECT orchestration_id, owner_agent_type, status, current_step, created_at
+  FROM orchestration_states
+ WHERE site_id = :site_id AND created_at > :since
+   AND owner_agent_type IN ('page-build-handler','page-content-writer')
+ ORDER BY created_at;
+
+-- 2. what every section resolved — one line per plan slot, in order
+SELECT i || '  ' || COALESCE(it->>'name','?') || '  '
+       || COALESCE((it->'resolved_data')::text, '(no resolved_data)')
+  FROM orchestration_states,
+       generate_series(0, 20) i,
+       LATERAL (SELECT collected_data->('process_sections_loop_item_'||i) AS it) x
+ WHERE orchestration_id = :writer_orchestration_id AND it IS NOT NULL;
+
+-- 3. and what each RENDERED section actually carries (fills in as the loop advances)
+SELECT i || '  ' || COALESCE((SELECT string_agg(DISTINCT m[1], ' | ')
+                                FROM regexp_matches(so::text, '(/assets/images/[a-z0-9_./-]+)', 'g') m),
+                              '(no image ref)')
+  FROM orchestration_states, generate_series(0, 20) i,
+       LATERAL (SELECT collected_data->('section_output_'||i) AS so) x
+ WHERE orchestration_id = :writer_orchestration_id AND so IS NOT NULL;
+```
+
+`[MEASURED 2026-09-03 12:5xZ]` on the grip-styles rebuild (writer `837bd4ea`): items 2–6, all
+`Illustrated Text Block`, resolved `illustration-ring-grip`, `-razor-grip`, `-shark-grip`,
+`-smooth-barrel`, `-combination-grip` respectively — five distinct URLs, in plan order. **That is
+the binding engaging.** The pre-IMG-075 result would have been the ring-grip URL five times
+(kind-first-wins), and a stand-down would look the same as pre-IMG-075 — so a run of five
+IDENTICAL URLs is the failure shape to look for, not an error.
+
+⚠ **Two psql traps in these queries, both silent-looking.** `left(jsonb, int)` does not exist —
+cast `::text` first. And `COALESCE(x->>'a', y)` where `y` is jsonb fails with *"types text and
+jsonb cannot be matched"*; keep every branch `::text`.
+
+⚠ **Query 2's `/assets/images/illustration-x.jpg.` (note the trailing dot) is NOT a resolution.**
+It is the field's `llm_field_specs` guidance text quoted into the item. Read `resolved_data`, not
+a regex over the whole item, when the question is what resolved.
+
+⚠ **This proves the BUILD path. The re-render path is a separate test** — it takes its live
+section list from the stored `page_components` slots, not `pages.sections`, and it must be
+graded on its own run (an `image_landed` / `section_data_resolved` item on the same page).
+
+## Censusing a SERVED page's sections — and the two traps that made me miscount (added 2026-09-03)
+
+```bash
+curl -s https://<domain>/<path> -o /tmp/p.html
+grep -o 'class="section[^"]*"' /tmp/p.html | sort | uniq -c   # the reliable census
+grep -o 'data-component="[^"]*"' /tmp/p.html | sort | uniq -c  # UNDERCOUNTS — see below
+```
+
+⚠ **`generic-text-block` emits NO `data-component` attribute.** It renders
+`<section class="section section--generic">`. So a `data-component` census of grip-styles returned
+**7** on a page serving **11** sections, and I briefly had "the four Generic Text Blocks never
+rendered" as a defect. Count the `class="section` families instead (there, 5
+`section--generic illustrated-text-block-section` + 4 `section--generic` + hero + cta = 11).
+**The count was of my predicate, not of the page.**
+
+⚠ **`alt` text is NOT evidence of what an image shows.** On these components `image_url` is
+resolver-sourced and `image_alt` is `source: llm`, so the alt is written by a model that has never
+seen the file — and it reads as a careful description. Grading figures by their alt text will
+confirm whatever the prose already says. **Open the image.** Fetch it and look:
+
+```bash
+for f in $(grep -o 'src="/assets/images/illustration-[^"]*"' /tmp/p.html | sed 's/src="//;s/"//' | sort -u); do
+  printf "%s  " "$f"; curl -s -o "/tmp/$(basename $f)" -w "%{http_code} %{size_download}B %{content_type}\n" "https://<domain>$f"
+done
+curl -s -o /dev/null -w "control -> %{http_code}\n" https://<domain>/assets/images/illustration-NOTREAL.jpg
+```
+
+The invented-sibling control is not optional — a parked or catch-all domain 200s every path.
+`[MEASURED 2026-09-03]` grip-styles: five distinct files, all 200, all 1071×800, control 404.
+
+⚠ **A section's HEADING is not evidence either, and on this page it contradicted the figure.** Run 1
+wrote five headings all about the ring grip beneath five different correct photographs. Read the
+figure and the heading as independent facts and expect them to disagree until `bugs_open/443`'s
+seed 641 lands (the writer's prompt does not render the section subject).

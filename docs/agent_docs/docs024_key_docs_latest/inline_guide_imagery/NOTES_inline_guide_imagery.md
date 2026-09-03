@@ -744,3 +744,156 @@ tells the planner to emit one entry per image for a card grid. `sectionAssets[re
 resolver supports but which needs per-key fields on the component. Not a defect in either — the
 binding is per-SECTION and this is a per-CARD need — but the first real-world shape 718 produces is
 one my mechanism only half-serves, and somebody will hit that before I do.
+
+### 17. 2026-09-03 afternoon — IMG-075 IS PROVEN END TO END, and the same page shows that the OTHER half of the ask is not delivered
+
+The `verify-later` item this register entry has carried since 2026-09-01 — *"whether a guide page
+composed of several illustrated sections resolves one figure per section end-to-end at the served
+bytes … and whether the figures then survive a `content_rewrite`"* — is **DISCHARGED**. It happened
+on `dartsonline.com/blog/grip-styles.html`, the owner's own motivating page, while I watched.
+
+**Sequence, all first-hand, all on `v1.0.1358`** (chassis probe re-run at session start: the four
+round-2/3 symbols PRESENT on **both** replicas, `sectionOrderAgreesNOTREAL` ABSENT, `kubectl` errors
+left unsuppressed so a failed exec could not read as "absent"):
+
+| time (UTC) | what | item |
+|---|---|---|
+| 11:39 | darts lane recomposed the plan to 11 sections + seeded 5 figures | `SEED_2026-09-03` |
+| 12:41–12:47 | the 5 illustrations generated and went `active` | 5 `needs_imagery` |
+| 12:47→13:02 | **rebuild through the writer** | `d5edd37b` `needs_content_page` |
+| 14:00→14:11 | **a second full regeneration**, fired automatically by the last asset landing | `8bd71ef8` `needs_page` `reason=image_landed` |
+
+**Run 1 — the binding engaged, and I could see it before the page deployed.** Writer orchestration
+`837bd4ea`, `process_sections_loop_item_N.resolved_data` `[MEASURED 2026-09-03 12:5xZ]`:
+
+```
+item 2  Illustrated Text Block  {"image_url": "/assets/images/illustration-ring-grip.jpg"}
+item 3  Illustrated Text Block  {"image_url": "/assets/images/illustration-razor-grip.jpg"}
+item 4  Illustrated Text Block  {"image_url": "/assets/images/illustration-shark-grip.jpg"}
+item 5  Illustrated Text Block  {"image_url": "/assets/images/illustration-smooth-barrel.jpg"}
+item 6  Illustrated Text Block  {"image_url": "/assets/images/illustration-combination-grip.jpg"}
+```
+
+Five ordinals, five distinct URLs, in plan order. **The pre-IMG-075 result would have been the
+ring-grip URL five times** (kind-first-wins), and a stand-down would have produced the same five
+identical URLs — so *the failure shape here is a run of identical URLs, not an error*. Recorded in
+the RUNBOOK, because it grades the binding minutes before the deploy and needs no served bytes.
+
+**Run 2 is the decisive test, and it passed.** The `image_landed` item routed to
+`page-build-handler`, which spawned a **second** `page-content-writer` (`74d6b7e4`) and regenerated
+every heading and paragraph on the page. Measured on the two runs' own `section_output_2`:
+
+```
+prose identical between the runs?  NO — the body was rewritten
+run1 heading s2: "The ring grip: a light touch with a clear edge"
+run2 heading s2: "Every groove in the barrel changes what your fingers feel"
+run1 s2 image:   illustration-ring-grip.jpg
+run2 s2 image:   illustration-ring-grip.jpg      <- unchanged across a full rewrite
+```
+
+**That is the whole point of the lane, observed rather than argued.** The page's previous
+incarnation kept prose and any figure in one LLM-owned `article-body.content` field; a rewrite of
+that field is exactly what the PLAN said would destroy an inline figure. A rewrite happened, and the
+figures were untouched, because they are no longer in the prose — they re-derive from
+`site_plan_imagery` on every build. Served bytes at 14:11:46Z: 11 sections, five `<figure>` blocks,
+five distinct files, each 200 at 1071×800, invented sibling `illustration-NOTREAL.jpg` → 404. I
+also opened all five images: ring shows circular grooves, razor sharp close-spaced cuts, shark
+raked directional cuts, smooth a polished untextured barrel, combination two distinct zones. No
+feathered flights, no screw threads — the anatomy clauses the darts lane added at guide level held.
+
+#### 17a. ⚠ And on the same page, the WORDS next to those figures are wrong — five times over
+
+This is not this lane's code and it is the more important finding of the day, because it means the
+owner's ask is **half** delivered on the very page it was asked about.
+
+`Illustrated Text Block` sources `image_url` from `site_assets.illustration` (resolver) and
+`image_alt`, `heading` and `content` from `llm`. The writer therefore captions a picture it has
+never seen. What it wrote:
+
+| section | figure bound (correct) | run 1 heading | run 1 alt |
+|---|---|---|---|
+| 2 | ring | "The ring grip: a light touch with a clear edge" | ring bands |
+| 3 | **razor** | "Ring grip gives you texture without taking over the release" | ring grooves |
+| 4 | **shark** | "What a ring grip actually does to your release" | ring-cut bands |
+| 5 | **smooth** | "The ring grip: bands that stop the dart sliding forward" | ring-style knurling |
+| 6 | **combination** | "The ring grip: bands of shallow cuts" | ring, two bands |
+
+**All five sections were written about the ring grip, under five different and correct
+photographs.** A reader of section 5 sees a deliberately smooth, polished barrel beneath a heading
+about bands of cuts, with alt text describing knurling. Run 2's regeneration replaced this with
+five near-identical *"what your fingers feel"* headings — no longer all "ring", still none naming
+its own grip, and the alt text still describing texture on the smooth barrel.
+
+**Root cause, measured against the live config rather than inferred — and it is `bugs_open/443`'s
+Stage B, which that lane predicted in writing.** `plan_sections_action.go`'s `Subject` field carries
+the doc comment *"Rides to the writer as current_section.subject; the v5 prompt renders it only when
+non-empty."* Half of that is true and half has drifted:
+
+- **Rides:** TRUE. All nine prose slots carry their distinct subject in
+  `process_sections_loop_item_N.subject` on both runs.
+- **The prompt renders it:** FALSE on the live row. The active non-snapshot `page-content-writer`
+  config references **13 distinct `current_section.*` paths** and `subject` is not among them; the
+  string `subject` does not appear anywhere in the config in any casing. The one step that
+  references `resolved_data` — `process_sections_loop` — never mentions `subject`, so both halves
+  come from one predicate over one value. Controls: the subject text IS present in the writer's
+  `collected_data` (positive), `ZZNOTREAL` is absent (negative).
+
+So the writer is shown the resolved image **URL** and never told what the section is about. 443 §8
+states the dependency exactly — *"the writer prompt is v4; seed 641 (v5, renders the subject) is
+owner-read gated and NOT applied, so subjects are stamped on `sections_ready[].subject` and
+writer-inert"* — and §9 closed Stage A with *"the subject reaches the writer's DATA and not yet its
+PROMPT. Stage B is exactly 641 and nothing else."* **641's applier is the
+`framework_prompts_positive_voice` lane, per the owner.** I am not working it; CONTRIB filed.
+
+**What this page adds to 443, and it is a stakes upgrade rather than a new diagnosis.**
+1. **The damage class is CONTRADICTION, not repetition.** 443's censused damage is verbatim-repeated
+   `h2`s — dull, obviously fixable. Here the framework got its half right, so identical prose became
+   **false captioning of a correct artefact**, including alt text, which is the accessibility
+   surface. Worse than three paragraphs saying the same thing.
+2. **A hand-crafted page degrades on its own, with nobody touching it.** Run 1's five grip-naming
+   headings came from the operator's `suggestion` in the `needs_content_page` spec (`[MEASURED]`
+   run 1's handler input contains *"five illustrated blocks"*, run 2's does not — its whole spec is
+   `{"reason":"image_landed","page_name":"grip-styles","routing_reason":"image_landed"}`). The
+   automatic asset-landing rebuild 70 minutes later regenerated the page **without** that
+   suggestion. So the only per-section distinction that survives an automatic rebuild is the one
+   living in the PLAN — which is precisely IMG-075's own durability argument, one field along.
+3. **The two mechanisms are coupled, and only one shipped.** Per-section imagery is worth exactly
+   as much as per-section subjects. `[MEASURED 2026-09-03]` **2** pages fleet-wide carry more than
+   one instance of a component pairing an `llm` alt with a resolver-sourced `image_url`, and **73**
+   carry exactly one; on a one-instance page vague alt is merely vague. So the contradiction class
+   is 2 pages today **and it grows exactly as this lane succeeds.**
+4. `[MEASURED 2026-09-03]` **13 llm-sourced `*alt*` fields across 9 active components** — unchanged
+   from the register's 2026-08-26 figure, so that count is still current. **6 of the 9** pair it
+   with a resolver-sourced image URL. The register named this residual when migration 644 landed
+   (*"llm-authored alt for a server-resolved image is a hallucination surface … is the settled
+   convention, and is NOT solved here"*). It was reasoned then; it is measured now.
+
+#### 17b. Two missteps of my own, both caught in-session, both by a control
+
+- **I nearly recorded "the subject never reaches the writer's prompt" off a key that holds no
+  prompt.** I tested `collected_data->'process_sections_loop_iter_2_generate_content'` for the
+  subject string, got ABSENT, and it was about to become a finding. That key holds
+  `{result, type}` — the LLM's **output**, 2,345 chars — so the subject could not have been there
+  whatever the truth was. **A step's collected value is its RESULT, not its prompt; to ask what a
+  model was told, read the agent config.** The conclusion survived; the evidence I first reached
+  for could not have discriminated. This is the lane's own recurring shape — my measurement
+  answered the question I encoded.
+- **I read the served page as 7 sections when it serves 11**, and briefly had "the four
+  `Generic Text Block`s never rendered" as a defect. My census was
+  `grep -o 'data-component="[^"]*"'`, and **`generic-text-block` emits no `data-component`
+  attribute** — it renders `<section class="section section--generic">`. The count was of my
+  predicate, not of the page. Fixed by counting the `class="section` families:
+  5 illustrated + 4 generic + hero + cta = 11. **Census a served page on the class attribute, or on
+  `<section`, never on `data-component` alone.** Now a RUNBOOK trap.
+
+#### 17c. What is still unproven, stated so nobody reads this as more than it is
+
+- **The RE-RENDER path has NOT been exercised on a multi-figure page.** Both grip-styles runs were
+  the build/save path (`page-build-handler` → `page-content-writer`). `rerender_page_sections` takes
+  its live section list from the stored `page_components` slots rather than `pages.sections`, so it
+  is a genuinely separate arm of `sectionOrderAgrees` and it remains untested at the artefact. The
+  four `page-rerender` runs on this site at 13:55–13:58 were **other pages** (guides-index, index,
+  tool-brand-comparator, tool-setup-builder), fired by the page-list invalidation.
+- **`bugs_open/114`'s §5 risk did not bite here, and that is one observation, not a clearance.** A
+  newly-declared `site_assets.*` field DID get written on this page's sections path. Their
+  discriminating test (batch 690) still owns the question.

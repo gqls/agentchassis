@@ -322,3 +322,61 @@ change to how articles are created, not a backfill) → compose them into small 
 (the other imagery thread) → attach a picture to each section (mine, finished and live). I would
 rather you had the honest shape of it than a report that the part I own is done — which it is, and
 which on its own changes nothing you can see.
+
+## 2026-09-03 (afternoon) — the pictures work, and now you can see the next problem clearly
+
+Your grip-styles page rebuilt itself this afternoon and I watched the whole thing. **The part I
+built works, end to end, on your own page.** That is the first time I can say that without
+qualification, so it is worth being precise about what was proved.
+
+The page now has eleven sections instead of three, and five of them carry a different photograph:
+ring grip, razor grip, shark grip, smooth barrel, combination grip. Each one is the right
+photograph in the right place. I opened all five and checked them by eye — correct dart anatomy,
+proper flights, no archery feathers, no screw threads. All five load on the live page.
+
+**The important bit is what happened next, by accident.** Just over an hour after the page was
+built, the last of the five images finished generating, and that automatically triggered the whole
+page to be rewritten from scratch — every heading, every paragraph, new words throughout. **The
+five photographs stayed exactly where they were.** That is the entire thing I was asked to fix in
+August. The old page kept its words and any picture in one single field, so rewriting the words
+destroyed the picture. Now the pictures are held separately, in the site's plan, and they are
+re-attached every single time the page is built. A rewrite happened and cost us nothing.
+
+**And now the bad news, which is on the same page and is not my code.**
+
+The photographs are right. The words next to them are wrong. On the first build, all five sections
+were written about the *ring* grip — five times, under five different and correct photographs. So
+the section showing a deliberately smooth, polished barrel had a heading about bands of cuts. The
+rewrite an hour later replaced that with five near-identical headings all saying some version of
+"what your fingers feel", none of which names the grip it is sitting next to. The hidden
+descriptions that screen readers announce are wrong in the same way.
+
+**Why.** When the framework asks the writer to produce a section, it hands over a note saying what
+that specific section is about — "ring grip: evenly spaced circular grooves", "shark grip: angled
+directional cuts", and so on. The darts thread wrote those notes carefully and checked they were
+all different. I confirmed today that every one of them reaches the writer. **And then the writer
+is never shown them.** The instructions the writer actually receives do not include that note at
+all. So it gets five requests that look identical, and writes the same section five times. It is
+also never told what is in the photograph, only the file's address.
+
+This is already a known, actively-worked problem — another thread found it independently last week,
+predicted in writing that exactly this would happen, and the fix is one prompt change that is
+sitting waiting for you to read it. I have added what this page shows to their file rather than
+starting a competing account. **What is new is how much worse it is than it looked.** Their examples
+were pages where the same paragraph appeared three times: repetitive, obviously fixable, nobody
+misled. Here the framework did its half correctly, so identical words became *false captions on
+correct pictures*, and the better my half gets, the worse that becomes. Right now two pages in the
+estate can suffer it. That number goes up every time this lane succeeds.
+
+**There is a second, quieter lesson in it.** The good first version — where the headings did name
+each grip — only happened because the darts thread hand-wrote a long instruction into the rebuild
+request. The automatic rebuild an hour later did not have that instruction and had no way to get
+it. So a page someone crafted by hand silently got worse, with nobody touching it, in seventy
+minutes. The only per-section detail that survives an automatic rebuild is the kind that lives in
+the plan — which is the same argument that made the pictures durable, applied to the words.
+
+**Where that leaves your original ask.** You asked for an accurate picture inside each small
+section of a guide. The pictures are accurate, they are inside the sections, and they survive
+rewrites. The words beside them will be right when that one prompt change lands, and that is not
+mine to land. I would rather tell you it is half done and say which half than report success on
+the picture and let you find the caption yourself.

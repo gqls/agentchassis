@@ -1,12 +1,13 @@
-# HANDOFF — inline_guide_imagery. START HERE. Written 2026-09-02, rewritten 2026-09-03 12:30Z.
+# HANDOFF — inline_guide_imagery. START HERE. Written 2026-09-02, rewritten 2026-09-03 15:15Z.
 
-**Status in one line:** the per-section imagery binding (**IMG-075**) is built, council-APPROVED at
-round 3, and **verified live on `v1.0.1358`** — and for the first time it has two real consumers,
-one of them the owner's own page, **both mid-transition and neither yet exercised.**
+**Status in one line:** the per-section imagery binding (**IMG-075**) is **PROVED END TO END on the
+owner's own page**, including the decisive save-path test — and the same page shows that the WORDS
+beside those figures are wrong, for a reason that is not this lane's code and has another owner.
 
-**Lane docs:** `docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/` — `PLAN_2026-08-14…`,
-`NOTES_…` (technical log, newest at the bottom), `RUNBOOK_…` (the queries, with their traps),
-`README_where_we_are.md` (owner's plain-prose log), this file.
+**Lane docs:** `docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/` —
+`PLAN_2026-08-14…`, `NOTES_…` (technical log, newest at the bottom; today is **§17**),
+`RUNBOOK_…` (the queries, with their traps), `README_where_we_are.md` (owner's plain-prose log),
+`SUMMARY_2026-09-03_inline_guide_imagery.md` (**first summary — the milestone read-out**), this file.
 **Register:** `docs026_concept_register/register/imagery.md` → **IMG-075** (also IMG-074, corrected).
 
 ---
@@ -24,38 +25,36 @@ instead of living in the prose.
 
 ## 2. THE LIVE STATE, and the one thing to do first
 
-⚠ **Re-probe before trusting anything below.** The fleet has rolled four times in two days
-(`1351 → 1352 → 1354 → 1355 → 1358`), and every artefact claim expires with the next roll.
+⚠ **Re-probe before trusting anything below.** Every artefact claim expires with the next roll.
+`[MEASURED 2026-09-03 12:2xZ and re-run at session start]` on **`v1.0.1358`**: all four symbols
+PRESENT on **both** replicas, controls clean.
 
 ```bash
-POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis --no-headers \
-        -o custom-columns=NAME:.metadata.name | head -1)
-for sym in PlanSectionsAction sectionRefForOrdinal sectionOrderAgrees sectionScopeRefOrdinal \
-           newSectionRef sectionOrderAgreesNOTREAL; do
-  kubectl -n ai-persona-system exec $POD -- grep -aq "$sym" /proc/1/exe && echo "PRESENT $sym" || echo "absent  $sym"
-done
+PODS=$(kubectl -n ai-persona-system get pods -l app=agent-chassis --no-headers -o custom-columns=NAME:.metadata.name)
+for POD in $PODS; do echo "== $POD =="; for sym in PlanSectionsAction sectionRefForOrdinal \
+    sectionOrderAgrees sectionScopeRefOrdinal newSectionRef sectionOrderAgreesNOTREAL; do
+  timeout 40 kubectl -n ai-persona-system exec $POD -- grep -aq "$sym" /proc/1/exe \
+    && echo "PRESENT $sym" || echo "absent  $sym"; done; done
 ```
 
 **Read it like this:** `PlanSectionsAction` **PRESENT** and `sectionOrderAgreesNOTREAL` **ABSENT**
-means the instrument works — only then are the middle four meaningful. **Run it on BOTH replicas.**
-`[MEASURED 2026-09-03 12:2xZ]` on `v1.0.1358`: all four present on both, controls clean.
+means the instrument works — only then are the middle four meaningful. **Run it on BOTH replicas**,
+and use the per-exec `timeout`: without it the loop over two pods exceeds a 2-minute tool limit and
+you get a partial answer that looks like a partial deploy.
 
 ⚠ **Do NOT suppress stderr.** On 2026-09-02 the identical probe returned "absent" for all six
-*including the must-be-present control*, and I nearly recorded a regression. `kubectl` was
-returning `Unauthorized` (token expires ~3 days; the owner refreshes it) and `2>/dev/null` had
-turned a failed exec into the word "absent". **A failing command and a missing symbol are the same
-output; only the control separates them** — the visible `command terminated with exit code 1` on
-the negative control is what proves the exec ran.
+*including the must-be-present control*, and I nearly recorded a regression. `kubectl` was returning
+`Unauthorized` (token expires ~3 days; the owner refreshes it) and `2>/dev/null` had turned a failed
+exec into the word "absent". **A failing command and a missing symbol are the same output; only the
+control separates them.**
 
 ⚠ **`kubectl logs … | grep 'build provenance'` does not work on this service** — the phrase appears
-in LLM prompt text the chassis logs, so it returns a hit shaped exactly like a stamp. Already a
-LANDMINE; don't re-derive it.
+in LLM prompt text the chassis logs. Already a LANDMINE; don't re-derive it.
 
 ⚠ **A second cause of "absent with clean controls":** Go's linker strips uncalled functions, so a
 genuinely INERT symbol probes absent on a build that contains the commit (LANDMINE, 2026-09-02).
-Not a risk for these four — `sectionOrderAgrees` is reached by every section render — but for an
-inert symbol verify by ANCESTRY instead (pod's `git_commit` from `service_binary_capabilities`,
-then `git merge-base --is-ancestor`).
+Not a risk for these four. For an inert symbol verify by ANCESTRY instead (pod's `git_commit` from
+`service_binary_capabilities`, then `git merge-base --is-ancestor`).
 
 ---
 
@@ -84,115 +83,167 @@ mis-binding — when the plan's order and the live order disagree.
 
 ---
 
-## 4. ⚠ TWO LIVE CONSUMERS, BOTH MID-TRANSITION — this is the new news
+## 4. ✅ THE MECHANISM IS PROVED — this is the new news, and it happened on the owner's page
 
-`[MEASURED 2026-09-03 12:2xZ]` section-scope illustration/infographic rows fleet-wide have gone
-**5 → 20** in two days. The interesting ones are both from today:
+`dartsonline.com/blog/grip-styles.html`, 2026-09-03, on `v1.0.1358`. Full account: **NOTES §17**.
 
-**(a) `dartsonline.com/grip-styles` — the owner's own case, and it is half-built.**
-- **Plan RE-COMPOSED:** 11 sections — `hero`, `Generic Text Block`, **5× `Illustrated Text Block`
-  (ordinals 2–6)**, 3× `Generic Text Block`, `call-to-action`.
-- **5 imagery rows seeded** `source='manual'` at exactly `grip-styles:2 … :6` —
-  `illustration_ring_grip`, `_razor_grip`, `_shark_grip`, `_smooth_barrel`, `_combination_grip`.
-  **2 of 5 assets active**; three still generating.
-- **The page has NOT been rebuilt** — `page_components` still the old three (`hero`,
-  `article-body`, `call-to-action`, updated 2026-09-01).
+| time (UTC) | what | item |
+|---|---|---|
+| 11:39 | darts lane recomposed the plan to 11 sections + seeded 5 figures | `SEED_2026-09-03` |
+| 12:41–12:47 | the five illustrations generated, went `active` | 5× `needs_imagery` |
+| 12:47→13:02 | **rebuild through the writer** | `d5edd37b` `needs_content_page` |
+| 14:00→14:11 | **a SECOND full regeneration**, fired automatically by the last asset landing | `8bd71ef8` `needs_page` `reason=image_landed` |
 
-⚠ **So the binding correctly STANDS DOWN right now**: plan says 11 sections, live says 3, they
-disagree. That is the designed behaviour and **it is not a failure** — the ordinals name a
-composition the page does not have yet. **Sequence: recompose → seed → REBUILD → verify → then
-re-render freely.** They are between steps 2 and 3.
+**Run 1 — the binding engaged, visible before the page deployed.** Writer `837bd4ea`,
+`process_sections_loop_item_N.resolved_data`: items 2–6 resolved
+`illustration-ring-grip` / `-razor-grip` / `-shark-grip` / `-smooth-barrel` / `-combination-grip`
+— five ordinals, five distinct URLs, in plan order. ⚠ **The pre-IMG-075 result AND a stand-down
+both look like five IDENTICAL URLs**, so the failure shape is a run of identical URLs, not an error.
+The query is in the RUNBOOK; it grades the binding minutes before the deploy.
 
-**(b) `gamedesign.uk/index` — the first PLANNER-WRITTEN section imagery, i.e. 718 working.**
-4 rows `source='llm'`, created 2026-09-03 10:40Z, hours after migration **718** flipped the
-planner's "use sparingly — most plans will have zero" instruction. 3 of 4 assets active.
-⚠ **But note the SHAPE, which is not the one this binding optimises for:** three of the four sit at
-the **same ordinal** (`index:2`), because 718's decomposition rule tells the planner to emit one
-entry per image for a card grid. The per-section map is **kind-first-wins within an ordinal**, so
-that section gets ONE of the three through `site_assets.illustration`; the other two are reachable
-only by **literal asset key** (`site_assets.illustration_article_card_balance`), which the resolver
-does support but which needs per-key schema fields on the component. **Worth watching as the first
-real-world shape 718 produces.**
+**Run 2 is the decisive test and it PASSED.** The `image_landed` item routed to `page-build-handler`,
+which spawned a second `page-content-writer` (`74d6b7e4`) and rewrote every heading and paragraph.
+Measured on the two runs' own `section_output_2`: **prose differs, `illustration-ring-grip.jpg` is
+unchanged.** A full body rewrite happened and the figures were untouched — the durability property
+this lane exists for, observed rather than argued.
 
-**(c) `apis.uk/index` — the original driver. Armed since 16:47Z 09-02, and its one attempted test
-was REFUSED AT SAVE.** Six rows seeded; the lane filed a `section_data_resolved` rerender in the
-same transaction and it **failed** — that lane supplied the reason I could not see (`result` is
-`{}`): the **save guard** refused it, *"re-confirmed too little of what is stored (prune_floor…)"*.
-**Not the resolver, and not the locks per se.** All seven rows are also `lock_type='permanent'`.
-⚠ **Do NOT bin apis.uk with the `bugs_open/425` evidence** — it never reached the write, whereas
-the dartsonline hero case did. Different failure stages; folding them together inflates a
-hypothesis three lanes are building.
+**At the served bytes, 14:11:46Z:** 11 sections, five `<figure>` blocks, five distinct files, each
+**200 at 1071×800**, invented sibling → **404**. All five opened and visually correct (ring grooves,
+razor cuts, raked shark cuts, a smooth polished barrel, two distinct zones); no feathered flights,
+no screw threads — the darts lane's guide-level anatomy clauses held.
+
+⚠ **STILL UNPROVEN: the RE-RENDER path on a multi-figure page.** Both grip-styles runs were the
+build/save path. `rerender_page_sections` takes its live section list from stored `page_components`
+slots rather than `pages.sections`, so it feeds `sectionOrderAgrees` a **different list** and is a
+genuinely separate arm. The four `page-rerender` runs on that site at 13:55–13:58 were **other
+pages** (guides-index, index, tool-brand-comparator, tool-setup-builder).
+
+⚠ **apis.uk/index is still armed and still unexercised** — six rows since 2026-09-02 16:47Z, its
+`page_components` had not re-resolved. **grip-styles proving the mechanism says nothing about that
+page**; the register bullet is fenced accordingly.
 
 ---
 
-## 5. ⚠ THE OPEN RISK TO THIS MECHANISM, and it is not in the binding code
+## 5. ⚠ THE FIGURES ARE RIGHT AND THE WORDS BESIDE THEM ARE WRONG — and it is not our code
 
-A genuine sections-path run on `dartsonline.com/tool-brand-comparator` (`section_data_resolved`,
-attributed by `source_item_id`, 2026-09-03 00:40:40Z) **did not write a newly-declared
-`site_assets.hero` field**, on a page that HAS a resolvable hero (arm 2, `content_hero_…`, active).
-**I tried to dissolve it with the obvious mundane explanation and it survived** (`bugs_open/114`,
-this date).
+**This is the half of the owner's ask that is NOT delivered, on the page he asked about.**
 
-**IMG-075 resolves `site_assets.illustration` on that same path.** So a seeded page may fail to
-bind **for a reason unrelated to this lane's code**, and the natural reading on the day would be
-"IMG-075 does not work". `[UNVERIFIED]` — one instance on `site_assets.*`, one on `query.*`
-(`bugs_open/425` §2, four reproductions). **The components lane owns the discriminating test
-(batch 690).** Its result decides whether this lane has a problem at all.
+| section | figure bound (correct) | run 1 heading | run 1 `image_alt` |
+|---|---|---|---|
+| 2 | ring | "The ring grip: a light touch with a clear edge" | ring bands |
+| 3 | **razor** | "Ring grip gives you texture without taking over the release" | ring grooves |
+| 4 | **shark** | "What a ring grip actually does to your release" | ring-cut bands |
+| 5 | **smooth** | "The ring grip: bands that stop the dart sliding forward" | ring-style knurling |
+| 6 | **combination** | "The ring grip: bands of shallow cuts" | ring, two bands |
+
+Five sections written about the ring grip under five different **correct** photographs. Run 2
+replaced them with five near-identical *"what your fingers feel"* headings, none naming its own
+grip, alt text still describing knurling on the smooth barrel.
+
+**Cause, measured against the live config with controls in one predicate.**
+`plan_sections_action.go`'s `Subject` doc comment says *"Rides to the writer as
+current_section.subject; the v5 prompt renders it only when non-empty."* **First clause TRUE** (all
+nine slots carry distinct subjects on both runs). **Second clause FALSE at HEAD-of-live:** the active
+non-snapshot `page-content-writer` references **13** distinct `current_section.*` paths, `subject` is
+not one, and the string `subject` appears nowhere in that config in any casing — the single step
+that references `resolved_data` never mentions it. So the writer is handed the resolved **URL** and
+never told what the section is about, nor what is in the picture.
+
+**This is `bugs_open/443` Stage B, which that lane predicted in writing** (§8: *"the writer prompt is
+v4; seed 641 (v5, renders the subject) is owner-read gated and NOT applied"*; §9: *"the subject
+reaches the writer's DATA and not yet its PROMPT. Stage B is exactly 641 and nothing else."*).
+**641's applier is the `framework_prompts_positive_voice` lane, per the owner. DO NOT work it.**
+CONTRIB filed into the 443 file 2026-09-03 with three things they did not have:
+
+1. **The damage class is CONTRADICTION, not repetition.** Their censused damage is verbatim-repeated
+   `h2`s — dull, misleads nobody. Here the framework's half worked, so identical specification became
+   **false captioning of a correct artefact**, `image_alt` included, which is the accessibility
+   surface.
+2. **The page degraded UNATTENDED.** Run 1's grip-naming headings came from the operator's
+   `suggestion` in the `needs_content_page` spec, not from the plan (`[MEASURED]` run 1's handler
+   input contains *"five illustrated blocks"*; run 2's whole spec is
+   `{"reason":"image_landed",…}`). A routine asset landing undid hand-crafted copy in 70 minutes.
+   **That is IMG-075's own durability argument, one field along.**
+3. **The two mechanisms are COUPLED and only one shipped.** `[MEASURED 2026-09-03]` **2** active
+   pages fleet-wide carry >1 instance of a component pairing an `llm` alt with a resolver
+   `image_url`; **73** carry exactly one; **13** `llm` `*alt*` fields across **9** active components
+   (unchanged from 2026-08-26), **6** paired with a resolver URL. **The contradiction class grows
+   with every page this lane converts.**
+
+**A LANDMINE was filed for the transferable half:** *alt text is written by a model that has never
+seen the image, so grading a figure by its alt confirms the prose, not the picture.* Verified
+dispatch run.
 
 ---
 
 ## 6. Where the ask really stands: THREE layers, and this lane owns only the top
 
-1. **Can a figure survive regeneration?** ✅ Done, reviewed, live.
-2. **Does anything compose an article out of illustrated sections?** Until today, no — 1 page in
-   442, hand-made. **dartsonline just did it by hand for grip-styles**, and 718 has started the
-   planner doing it for landing pages. `editorial_design_uplift` owns this.
+1. **Can a figure survive regeneration?** ✅ **Done, reviewed, live, and now PROVED at the artefact.**
+2. **Does anything compose an article out of illustrated sections?** grip-styles is the first, done
+   by hand 2026-09-03; 718 has started the planner doing it for landing pages.
+   `editorial_design_uplift` owns this.
 3. **Are articles even IN THE PLAN?** ⚠ **Mostly not — and this is the floor.**
    `[MEASURED 2026-09-03]` on the 33 sites with a current plan: **tool 83%, blog-post 85%,
    guide 74%** have NO `site_plan_sections` row, against **landing 2%**, content 15%. The split is
    by page TYPE, not site health. **No plan row → `planSectionOrder` returns nil → binding
-   disabled.** This lane's own first stated degrade case, and nobody owns fixing it.
+   disabled.** Nobody owns fixing it.
 
 **Mechanism, read first-hand:** `create_blog_posts_action.go:212` — the article layout triple is a
 **fallback** (`post.Sections` may be supplied), and the action writes `pages.sections` (**tier 3,
 the cache**) and never `site_plan_sections` (**tier 1, the authority**).
 
-**Who can write the authority** `[MEASURED 2026-09-03]` — three populations, because a Go-only
-grep sees one and I published that mistake once:
+**Who can write the authority** `[MEASURED 2026-09-03]` — three populations, because a Go-only grep
+sees one and I published that mistake once:
 
 | population | count | writes? |
 |---|---|---|
 | Go | **2** (`write_site_plan_action.go:668`, `apply_gap_plan_action.go:1067`) | yes; **neither on the article path** |
-| live `agent_definitions` config SQL | 2 rows | **reads only** (negative control that could have broken it) |
+| live `agent_definitions` config SQL | 2 rows | **reads only** |
 | **operator SQL in the repo** | **15 files** | **yes — a real third path** |
 
 ⚠ **The third is the trap.** Backfilling by hand fixes the pages that exist and nothing about the
-route — dartsonline's nine July plan rows all share ONE timestamp (`2026-07-29 13:28:03.58521Z`),
-and the 14 articles created there since have none. **It is a cheap unblocker for a canary, not
-phase one**, and "just pass richer `post.Sections`" is not a fix either — it fills the cache and
-leaves the authority empty, so the ordinal still has nothing to name.
+route — dartsonline's nine July plan rows share ONE timestamp, and the 14 articles created since
+have none. **A cheap unblocker for a canary, not phase one**, and "just pass richer `post.Sections`"
+fills the cache and leaves the authority empty, so the ordinal still has nothing to name.
 
 ---
 
 ## 7. What I would do next, in order
 
-1. **Re-probe the current build** (§2). Everything else here assumes it.
-2. **Watch `dartsonline.com/grip-styles` through its REBUILD.** It is the owner's own case, it is
-   two steps from finished, and it will be **IMG-075's first real test**. Read the served bytes,
-   not the rows; expect the binding to stand down until the page is rebuilt to match its plan.
-3. **Watch `gamedesign.uk/index`** as 718's first planner-written set, and specifically whether the
-   three-rows-at-one-ordinal shape needs per-key component fields.
-4. **Do not build the Phase-4 detector** (`check_unrendered_section_imagery`) yet. The PLAN's
-   "discovery has no driver" blocker is **stale** (corrected there — discovery runs daily now), and
-   the RUNBOOK's hand query already does the job. `bugfix_114` has offered a section-scope arm on
-   their `check_unrendered_page_imagery` (IMG-077), which is cheaper than a new mechanism.
-5. **Leave phase 3 (article planning) where it is** — nobody owns it, it is not this lane's, and it
+1. **Re-probe the current build** (§2). Everything else assumes it.
+2. **Exercise the RE-RENDER path on grip-styles** — the one arm the proof did not cover (§4). File a
+   `section_data_resolved` item (or wait for one) and read `resolved_data` on the rerender run, not
+   the served bytes: an assemble-only re-render produces identical bytes whether the binding
+   engaged or did nothing.
+3. **Offer grip-styles to the 443/641 lane as Stage B's canary.** Five same-component instances,
+   distinct subjects, distinct **correct** images — the images are independent ground truth for
+   whether each heading is right, which no other page in the estate provides. Offer made in the
+   CONTRIB; theirs to take.
+4. **Watch `gamedesign.uk/index`** as 718's first planner-written set (4 rows `source='llm'`, three
+   at the SAME ordinal `index:2` because 718's decomposition rule emits one entry per card image).
+   The per-section map is **kind-first-wins within an ordinal**, so that section gets ONE of the
+   three; the others are reachable only by literal asset key, which needs per-key component fields.
+   ⚠ Its plan (`hero`, `featured-content`, `content-listing`, `generic-text-block`) and its live page
+   (2 components) **disagree**, so the binding correctly stands down there today.
+5. **Do not build the Phase-4 detector** (`check_unrendered_section_imagery`). The PLAN's "discovery
+   has no driver" blocker is stale, the RUNBOOK's hand query does the job, and `bugfix_114` has
+   offered a section-scope arm on `check_unrendered_page_imagery` (IMG-077) — cheaper than a new
+   mechanism.
+6. **Leave phase 3 (article planning) where it is** — nobody owns it, it is not this lane's, and it
    should not be closed by a backfill.
 
 ---
 
 ## 8. Traps this lane paid for — read before trusting a number
 
+- **A step's collected value is its RESULT, not its prompt.** I tested
+  `…_iter_2_generate_content` for the subject string, got ABSENT, and nearly filed it. That key
+  holds `{result, type}` — the model's output — so the subject could not have been there whatever
+  the truth was. **To ask what a model was told, read the agent config.** (2026-09-03)
+- **A served-page census on `data-component` UNDERCOUNTS** — `generic-text-block` emits no such
+  attribute. I read 7 sections on a page serving 11 and briefly had a defect. Count `class="section`
+  families. (2026-09-03)
+- **`alt` text is not evidence of image content** — LANDMINE, §5. Open the image.
 - **A count of a population says nothing about whether it is GROWING** — I read "9 of 442" as
   "nothing selects it"; the refutation was `created_at`, in the table I had already queried.
 - **A `LIMIT` counted section ROWS while my claim counted PAGES** — one page contributed 6 of 12.
@@ -202,8 +253,8 @@ leaves the authority empty, so the ordinal still has nothing to name.
 - **Filed ≠ ran** — an item can exist, be quoted as evidence, and have FAILED with `result = {}`.
 - **A Go-only grep is not a fleet-wide census** — config SQL and operator SQL are two more writer
   populations.
-- **I quoted a Go COMMENT as live config** — it said two re-render reasons; `agent_definitions`
-  says five. **Cite the row.**
+- **I quoted a Go COMMENT as live config** — twice now: the re-render reason list (five, not two)
+  and today the `Subject` field's "the v5 prompt renders it". **Cite the row.**
 - **Ask for PROVENANCE, not just correctness** — *"have you read it, or is it relayed?"* caught a
   29-line-drifted citation, an overstatement and an unchecked inference inside a claim that was
   true. Keep your own `[UNVERIFIED BY ME]` until **you** have read it.
