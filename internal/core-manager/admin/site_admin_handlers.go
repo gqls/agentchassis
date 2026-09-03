@@ -1209,8 +1209,37 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 			zap.String("aspect", specAspect))
 	}
 
-	// ── Step 2: Create follow-on work item if on_approve is set ──────────
+	// ── Step 2: Create follow-on work item(s) if on_approve is set ───────
+	//
+	// bugs_open/466 — two independent defects, met here on the FIRST real
+	// approval (2026-09-03, boxingonline, the first paid site):
+	//
+	//  1. `include_fields` named fields the review item's spec CANNOT hold.
+	//     checkpoint_for_review — the only producer of these items — writes a
+	//     fixed key set (review_data, checkpoint, source_agent, correlation_id,
+	//     domain?, spec_aspect?, on_approve), so a lookup in `spec` can only
+	//     ever yield null. [MEASURED 2026-09-03] 42 field mentions across 21
+	//     items, all history since 2026-08-24: ZERO present at spec top level.
+	//     The approved content lives in the body the admin submitted, so that
+	//     is now the FALLBACK source. `spec` is still consulted FIRST, so no
+	//     resolution that works today can change.
+	//
+	//  2. The shapes did not match even once the fields were plumbed:
+	//     copy-editor proposes N edits, each with its own page_component_id and
+	//     field_updates; section-editor applies ONE, and a two-edit proposal has
+	//     no single target. `fan_out_from` names the array in the approved data
+	//     and files one follow-on per element — the shape two lanes had already
+	//     hand-built by the time this was found (this site 2026-09-03;
+	//     copy_quality_two_stage on review be23d897, 2026-09-02).
+	//
+	// Both new keys default ABSENT: an on_approve naming neither behaves
+	// exactly as it did before (owner ruling 2026-08-02 §2 — new authority on a
+	// shared seam ships opt-in, with the unsafe side OFF).
 	var followOnID *string
+	followOnIDs := []string{}
+	skippedEdits := []map[string]interface{}{}
+	var fanOutNote string
+
 	if onApprove, ok := spec["on_approve"].(map[string]interface{}); ok {
 		followItemType, _ := onApprove["item_type"].(string)
 		followHandler, _ := onApprove["handler_agent"].(string)
@@ -1222,51 +1251,174 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 			followHandler = "page-build-handler"
 		}
 
-		// Build follow-on spec with the approved data and any include_fields
-		followSpec := map[string]interface{}{
-			"approved_data":     json.RawMessage(body.ReviewData),
-			"approved_by":       "admin",
-			"source_item_id":    itemID.String(),
-			"original_pipeline": "build",
-		}
-		if specAspect != "" {
-			followSpec["spec_aspect"] = specAspect
-		}
+		// The admin's submitted body as an object, for include_fields and
+		// fan_out_from lookups. A non-object body simply yields no lookups.
+		var approvedMap map[string]interface{}
+		_ = json.Unmarshal(body.ReviewData, &approvedMap)
 
-		// Copy include_fields from on_approve config
-		if includeFields, ok := onApprove["include_fields"].([]interface{}); ok {
+		// include_fields lookup: the review item's own spec first (documented
+		// semantics, preserved), then the approved body (the repair, note 1).
+		resolveIncluded := func(dst map[string]interface{}) {
+			includeFields, ok := onApprove["include_fields"].([]interface{})
+			if !ok {
+				return
+			}
 			for _, f := range includeFields {
-				if fieldName, ok := f.(string); ok {
-					followSpec[fieldName] = spec[fieldName]
+				fieldName, ok := f.(string)
+				if !ok {
+					continue
+				}
+				if v, present := spec[fieldName]; present && v != nil {
+					dst[fieldName] = v
+					continue
+				}
+				if v, present := approvedMap[fieldName]; present {
+					dst[fieldName] = v
 				}
 			}
 		}
 
-		followSpecJSON, _ := json.Marshal(followSpec)
+		// Applied LAST, so a fanned-out element cannot overwrite its own
+		// provenance with a field of the same name.
+		applyIdentity := func(dst map[string]interface{}) {
+			dst["approved_by"] = "admin"
+			dst["source_item_id"] = itemID.String()
+			dst["original_pipeline"] = "build"
+			if specAspect != "" {
+				dst["spec_aspect"] = specAspect
+			}
+		}
 
-		var newID uuid.UUID
-		err = h.db.QueryRowContext(ctx, `
-			INSERT INTO site_work_items (
-				site_id, source, pipeline, item_type, severity, summary,
-				spec, priority, handler_agent, status, created_by
-			) VALUES ($1, 'admin-approved', 'build', $2, 'high', $3, $4::jsonb, 10, $5, 'triaged', 'admin')
-			RETURNING id
-		`, siteID, followItemType,
-			fmt.Sprintf("Approved: %s", followItemType),
-			string(followSpecJSON), followHandler).Scan(&newID)
+		createFollowOn := func(followSpec map[string]interface{}, label string) {
+			followSpecJSON, mErr := json.Marshal(followSpec)
+			if mErr != nil {
+				h.logger.Warn("Failed to marshal follow-on work item spec",
+					zap.String("item_id", itemID.String()),
+					zap.String("label", label),
+					zap.Error(mErr))
+				return
+			}
 
-		if err != nil {
-			h.logger.Warn("Failed to create follow-on work item",
-				zap.String("item_id", itemID.String()),
-				zap.Error(err))
-			// Non-fatal — the spec is already saved
-		} else {
+			var newID uuid.UUID
+			iErr := h.db.QueryRowContext(ctx, `
+				INSERT INTO site_work_items (
+					site_id, source, pipeline, item_type, severity, summary,
+					spec, priority, handler_agent, status, created_by
+				) VALUES ($1, 'admin-approved', 'build', $2, 'high', $3, $4::jsonb, 10, $5, 'triaged', 'admin')
+				RETURNING id
+			`, siteID, followItemType,
+				fmt.Sprintf("Approved: %s%s", followItemType, label),
+				string(followSpecJSON), followHandler).Scan(&newID)
+
+			if iErr != nil {
+				h.logger.Warn("Failed to create follow-on work item",
+					zap.String("item_id", itemID.String()),
+					zap.String("label", label),
+					zap.Error(iErr))
+				// Non-fatal — the spec is already saved
+				return
+			}
 			id := newID.String()
-			followOnID = &id
+			followOnIDs = append(followOnIDs, id)
 			h.logger.Info("Follow-on work item created",
 				zap.String("follow_on_id", id),
 				zap.String("item_type", followItemType),
-				zap.String("handler", followHandler))
+				zap.String("handler", followHandler),
+				zap.String("label", label))
+		}
+
+		// ── fan_out_from: one follow-on per element of the named array ──
+		fanOutFrom, _ := onApprove["fan_out_from"].(string)
+		fanOutDefaults, _ := onApprove["defaults"].(map[string]interface{})
+		var elements []interface{}
+		fannedOut := false
+		if fanOutFrom != "" {
+			raw, present := approvedMap[fanOutFrom]
+			switch {
+			case !present:
+				fanOutNote = fmt.Sprintf("fan_out_from %q is not present in the approved data; filed one follow-on carrying the whole payload instead", fanOutFrom)
+			default:
+				if arr, isArr := raw.([]interface{}); isArr {
+					elements = arr
+					fannedOut = true
+					if len(arr) == 0 {
+						fanOutNote = fmt.Sprintf("fan_out_from %q is an EMPTY array — nothing was filed", fanOutFrom)
+					}
+				} else {
+					fanOutNote = fmt.Sprintf("fan_out_from %q is not an array; filed one follow-on carrying the whole payload instead", fanOutFrom)
+				}
+			}
+		}
+
+		if fannedOut {
+			for i, raw := range elements {
+				el, isObj := raw.(map[string]interface{})
+				if !isObj {
+					skippedEdits = append(skippedEdits, map[string]interface{}{
+						"index":  i,
+						"reason": "element is not an object",
+					})
+					continue
+				}
+
+				// A parked proposal's address goes stale by DELETION as well as
+				// by drift: a rerender REPLACES the component row with a new id
+				// (LANDMINES, copy_quality_two_stage 2026-08-18). [MEASURED
+				// 2026-09-03] 3 of 31 edits parked in needs_human_review already
+				// point at a row that is gone. Filing a section_edit at a dead
+				// address yields an item that dies at load_edit_context and tells
+				// the approver nothing — the very shape 466 is about. Refuse it
+				// here and report it back instead.
+				if pcID, _ := el["page_component_id"].(string); pcID != "" {
+					var exists bool
+					qErr := h.db.QueryRowContext(ctx, `
+						SELECT EXISTS (
+							SELECT 1 FROM page_components pc
+							JOIN pages p ON p.id = pc.page_id
+							WHERE pc.id = $1::uuid AND p.site_id = $2
+						)
+					`, pcID, siteID).Scan(&exists)
+					if qErr != nil || !exists {
+						reason := "page_component_id no longer exists on this site — a rerender replaces the row with a new id"
+						if qErr != nil {
+							reason = "could not verify page_component_id: " + qErr.Error()
+						}
+						skippedEdits = append(skippedEdits, map[string]interface{}{
+							"index":             i,
+							"page_component_id": pcID,
+							"slot_name":         el["slot_name"],
+							"reason":            reason,
+						})
+						continue
+					}
+				}
+
+				followSpec := map[string]interface{}{}
+				for k, v := range fanOutDefaults {
+					followSpec[k] = v
+				}
+				resolveIncluded(followSpec)
+				for k, v := range el {
+					followSpec[k] = v
+				}
+				applyIdentity(followSpec)
+				followSpec["fan_out_index"] = i
+				createFollowOn(followSpec, fmt.Sprintf(" (%d of %d)", i+1, len(elements)))
+			}
+		} else {
+			followSpec := map[string]interface{}{
+				"approved_data": json.RawMessage(body.ReviewData),
+			}
+			for k, v := range fanOutDefaults {
+				followSpec[k] = v
+			}
+			resolveIncluded(followSpec)
+			applyIdentity(followSpec)
+			createFollowOn(followSpec, "")
+		}
+
+		if len(followOnIDs) > 0 {
+			followOnID = &followOnIDs[0]
 		}
 	}
 
@@ -1276,6 +1428,23 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 		resolution = body.Notes
 	}
 
+	// The review row's result must record what the approval actually PRODUCED —
+	// bugs_open/466 candidate 3. A row reading `complete` while its spawned work
+	// died is the estate's "a complete work item is not a repaired artefact"
+	// shape aimed at a person: the approver has no other way to learn that his
+	// decision did not land. `follow_on_item` is kept for existing readers and
+	// now names the first of possibly several.
+	followOnDetail := map[string]interface{}{
+		"follow_on_items": followOnIDs,
+	}
+	if len(skippedEdits) > 0 {
+		followOnDetail["skipped_edits"] = skippedEdits
+	}
+	if fanOutNote != "" {
+		followOnDetail["fan_out_note"] = fanOutNote
+	}
+	followOnDetailJSON, _ := json.Marshal(followOnDetail)
+
 	_, err = h.db.ExecContext(ctx, `
 		UPDATE site_work_items
 		SET status = 'complete',
@@ -1284,10 +1453,10 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 		        'resolution', $2,
 		        'approved_by', 'admin',
 		        'follow_on_item', $3
-		    ),
+		    ) || $4::jsonb,
 		    updated_at = NOW()
 		WHERE id = $1
-	`, itemID, resolution, followOnID)
+	`, itemID, resolution, followOnID, string(followOnDetailJSON))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1303,6 +1472,15 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 	}
 	if followOnID != nil {
 		result["follow_on_item_id"] = *followOnID
+	}
+	// Always present, so "nothing was filed" is a visible [] rather than an
+	// absent key that reads as success.
+	result["follow_on_item_ids"] = followOnIDs
+	if len(skippedEdits) > 0 {
+		result["skipped_edits"] = skippedEdits
+	}
+	if fanOutNote != "" {
+		result["fan_out_note"] = fanOutNote
 	}
 
 	c.JSON(http.StatusOK, result)

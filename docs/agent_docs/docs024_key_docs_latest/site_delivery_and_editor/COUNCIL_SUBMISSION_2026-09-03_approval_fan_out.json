@@ -1,0 +1,63 @@
+{
+  "submitter": "site_delivery_and_editor lane, fixing bugs_open/466 — the approve-to-apply path, met for the first time on the first paid site (boxingonline, 2026-09-03).",
+  "rationale": "The owner pressed APPROVE on a copy edit in the admin queue at 16:21:13Z. The review row went `complete`, the work item it spawned died 17 seconds later at `load_edit_context`, the page never changed, and nothing told him. Two independent defects, either alone fatal.\n\nDEFECT 1 is worse than the bug file first stated, and the measurement is what sharpened it. `include_fields` resolved its names against the REVIEW ITEM'S SPEC (`followSpec[fieldName] = spec[fieldName]`). But `checkpoint_for_review` — the only producer of these items — builds that spec from a FIXED key set: review_data, checkpoint, source_agent, correlation_id, and optionally domain / spec_aspect / on_approve. No arbitrary field can ever be there. [MEASURED 2026-09-03, all history] 21 checkpoint items naming 42 include_fields entries between them since 2026-08-24; ZERO of the 42 present at spec top level, ZERO non-null. This is not two halves disagreeing about where content lives — the lookup is structurally incapable of copying anything, for every consumer, and always has been. The measurement could have come out otherwise: a producer writing the named field at spec top level would show as present_at_spec_top > 0.\n\nDEFECT 2 is a shape mismatch no key-renaming fixes. copy-editor proposes N edits, each with its own page_component_id, slot_name and field_updates; section-editor applies ONE (load_edit_context wants page_component_id OR page_name+slot_name; apply_section_edit takes one field_updates). A two-edit proposal has no single target. Two lanes had already hand-built the fan-out by the time this was found — this lane on 2026-09-03 (items fa49b1bc, 94835c97, both reached complete and both changed the row), and copy_quality_two_stage on review be23d897 on 2026-09-02, whose own resolution text says it was 'replicating the dashboard on_approve contract'. The fix is to make the handler do what two humans independently did by hand.\n\nWHY IT MATTERS BEYOND ONE SITE: this path is the estate's only human-in-the-loop route for copy changes, and the approval is the exact signal it exists to carry. 16 copy_edit_proposed items are parked in needs_human_review right now, carrying 31 proposed edits between them, none of which can currently be applied by pressing the button.\n\nSCOPE, stated rather than assumed: both new keys default ABSENT, so an on_approve naming neither behaves byte-identically to today — the 2026-08-02 §2 shape (new authority on a shared seam ships opt-in with the unsafe side OFF). I do NOT claim the RFC_022 exemption, because this change wires a live consumer in the same commit (migration 750, copy-editor). The other consumers of on_approve are named below and there is exactly one other, which does not use this handler at all.",
+  "plan": {
+    "summary": "Repair `include_fields` (fall back to the approved body when the review spec cannot hold the name — which, measured, is always), and add two opt-in keys to `on_approve`: `fan_out_from` (file one follow-on per element of a named array in the approved data, merging that element's fields at the top of the child spec) and `defaults` (fields the proposal does not carry). Refuse and REPORT a fanned-out element whose page_component_id no longer exists, rather than filing an item guaranteed to die. Record what the approval actually produced on the review row, so `complete` stops being the only thing the approver sees.",
+    "edits": [
+      {
+        "file": "internal/core-manager/admin/site_admin_handlers.go",
+        "symbol": "HandleApproveWorkItem — Step 2",
+        "operation": "modify",
+        "rationale": "include_fields consults `spec` FIRST (documented semantics preserved exactly — nothing that resolves today can change) and the admin's submitted body second. A name absent from both is now ABSENT from the child spec rather than written as an explicit null; the observed damage was `copy_edit: null, page_target: null`, a shape that reads as real, empty content.",
+        "sketch": "resolveIncluded := func(dst map[string]interface{}) {\n\tfor _, f := range includeFields {\n\t\tif v, present := spec[fieldName]; present && v != nil { dst[fieldName] = v; continue }\n\t\tif v, present := approvedMap[fieldName]; present { dst[fieldName] = v }\n\t}\n}"
+      },
+      {
+        "file": "internal/core-manager/admin/site_admin_handlers.go",
+        "symbol": "HandleApproveWorkItem — fan_out_from / defaults",
+        "operation": "modify",
+        "rationale": "One follow-on per element. Merge order is defaults, then include_fields, then the element's own fields, then the provenance fields LAST — so an element carrying its own `approved_by` or `source_item_id` cannot overwrite who approved it. Children do not duplicate the whole approved payload; `source_item_id` points at the review row, which holds it.",
+        "sketch": "fanOutFrom, _ := onApprove[\"fan_out_from\"].(string)\nfanOutDefaults, _ := onApprove[\"defaults\"].(map[string]interface{})\nif fannedOut {\n\tfor i, raw := range elements {\n\t\tfollowSpec := map[string]interface{}{}\n\t\tfor k, v := range fanOutDefaults { followSpec[k] = v }\n\t\tresolveIncluded(followSpec)\n\t\tfor k, v := range el { followSpec[k] = v }\n\t\tapplyIdentity(followSpec)   // last: provenance is not overwritable\n\t\tcreateFollowOn(followSpec, fmt.Sprintf(\" (%d of %d)\", i+1, len(elements)))\n\t}\n} else { /* exactly today's single item, carrying approved_data */ }"
+      },
+      {
+        "file": "internal/core-manager/admin/site_admin_handlers.go",
+        "symbol": "HandleApproveWorkItem — dead-address refusal",
+        "operation": "modify",
+        "rationale": "A parked proposal's address rots by DELETION, not only by drift: a rerender REPLACES the page_components row with a new id (LANDMINES, copy_quality_two_stage 2026-08-18). [MEASURED 2026-09-03] 3 of the 31 edits parked in needs_human_review already point at a row that is gone. Filing one produces an item that dies at load_edit_context and tells the approver nothing — the very shape 466 is about, so the fan-out must not manufacture more of it. Scoped to the fan-out path only, so no existing consumer's behaviour changes.",
+        "sketch": "SELECT EXISTS (SELECT 1 FROM page_components pc JOIN pages p ON p.id = pc.page_id\n               WHERE pc.id = $1::uuid AND p.site_id = $2)\n// !exists -> append {index, page_component_id, slot_name, reason} to skippedEdits; never file"
+      },
+      {
+        "file": "internal/core-manager/admin/site_admin_handlers.go",
+        "symbol": "HandleApproveWorkItem — Step 3 result + response",
+        "operation": "modify",
+        "rationale": "466 candidate 3. A review row reading `complete` while its spawned work failed is 'a complete work item is not a repaired artefact' aimed at a PERSON. The row's result now carries follow_on_items[], skipped_edits[] and fan_out_note; `follow_on_item` is kept for existing readers and names the first. follow_on_item_ids is ALWAYS present in the response, so 'nothing was filed' is a visible [] rather than an absent key that reads as success.",
+        "sketch": "result = jsonb_build_object('resolution',$2,'approved_by','admin','follow_on_item',$3) || $4::jsonb"
+      },
+      {
+        "file": "internal/core-manager/admin/approve_fan_out_test.go",
+        "symbol": "TestApprove* (5 tests)",
+        "operation": "add",
+        "rationale": "Five tests, and all four load-bearing arms were MUTATION-TESTED rather than merely observed green: removing the dead-address guard, removing the approved-body fallback, making fan-out the default, and dropping the element-field merge each kill exactly the test that names them. The test asserting the opt-in default is the one that matters most to a reviewer — it is what stops a later tidy-up making fan-out unconditional for every checkpoint consumer.",
+        "sketch": "TestApproveFansOutOnePerEdit / TestApproveSkipsDeadComponentAddressAndSaysSo /\nTestApproveIncludeFieldsFallsBackToTheApprovedBody /\nTestApproveWithoutFanOutIsUnchanged / TestApproveFanOutFromMissingKeyFallsBackAndReports"
+      },
+      {
+        "file": "docs/agent_docs/sql_for_agents/750_copy_editor_approval_fans_out_one_section_edit_per_edit.sql",
+        "symbol": "copy-editor request_review.config.on_approve",
+        "operation": "add",
+        "rationale": "The config half. Replaces the two names that can never resolve with `domain` (a key the review spec genuinely holds, and what the two proven hand-filed items carried), adds fan_out_from='edits' and defaults={edit_type:'content_edit'}. [MEASURED 2026-09-03] of the 41 proposed edits across those 21 items, 41 carry page_component_id, ZERO carry edit_type, ZERO carry page_name — so edit_type must be defaulted and page_name must NOT be, because every edit is addressed by page_component_id and a defaulted page_name would be a guess applied to every page. Snapshot table, anchor guard that aborts if the step has drifted or fan_out_from is already present, and a DO/RAISE verify (a verify block of bare SELECTs cannot stop the COMMIT).",
+        "sketch": "jsonb_set(default_config, '{workflow,steps,request_review,config,on_approve}',\n  jsonb_build_object('item_type','section_edit','handler_agent','section-editor',\n                     'fan_out_from','edits',\n                     'defaults', jsonb_build_object('edit_type','content_edit'),\n                     'include_fields', jsonb_build_array('domain')))"
+      }
+    ],
+    "grounded_in": [
+      "checkpoint_for_review_action.go:157-180 — the review item spec is a FIXED key set: review_data, checkpoint, source_agent, correlation_id, then optionally domain, spec_aspect, on_approve. No arbitrary field can reach it.",
+      "site_admin_handlers.go (pre-change) :1240 — `followSpec[fieldName] = spec[fieldName]`, the lookup that could never resolve.",
+      "[MEASURED 2026-09-03, all history] 42 include_fields mentions across 21 items since 2026-08-24; present_at_spec_top = 0, non_null = 0. Query: jsonb_array_elements_text(spec->'on_approve'->'include_fields') joined back against `spec ? fld`.",
+      "[MEASURED 2026-09-03] 41 proposed edits across those items: 41 with page_component_id, 0 with edit_type, 0 with page_name.",
+      "[MEASURED 2026-09-03] of the 31 edits parked in needs_human_review, 3 point at a page_components row that no longer exists, 0 are stale by the updated_at test. (The `complete` bucket's 4-of-4 'stale' reading is artefactual — applying an edit is what bumps updated_at — so that arm of the test discriminates only for unapplied items.)",
+      "The other on_approve producer is fork_theme_from_site_action.go:329-337, whose on_approve is {update_theme, update_collection}: no item_type, no include_fields, no `checkpoint: true` — so HandleApproveWorkItem 400s it and it never reaches this code. It is unaffected, and it is the whole of the rest of the population.",
+      "Live rows fa49b1bc / 94835c97 (2026-09-03, boxingonline) are the proven target shape this fan-out reproduces: domain, edit_type, page_name, slot_name, field_updates, source_item_id, page_component_id — both reached complete and both changed page_components.",
+      "site_work_items be23d897 result text, 2026-09-02, copy_quality_two_stage: 'Released ... as two section_edit items ... replicating the dashboard on_approve contract in the proven section_edit spec shape' — a second lane hand-building the same fan-out, independently.",
+      "LANDMINES.md, copy_quality_two_stage 2026-08-18: 'A rerender does not update the component row — it REPLACES it with a new id', which is why the dead-address refusal exists.",
+      "verify-head-builds.sh --with (both Go files) --test ./internal/core-manager/... : OK against HEAD 96ae07e24."
+    ]
+  }
+}
