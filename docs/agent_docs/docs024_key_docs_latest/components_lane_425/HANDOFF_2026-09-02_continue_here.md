@@ -63,6 +63,33 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0m. A SWEEP OF MY OWN COUNTS — the decorative ones had already drifted
+
+Prompted by the `bugsweep4` lane's diagnosis of why three of my figures reached a shared record
+unchallenged: **the wrong numbers survived precisely because nothing in the argument depended on
+them.** Their suggested first pass — *"the counts you would not notice changing"* — run against
+this lane's own documents:
+
+| recorded here | re-run 2026-09-03 |
+|---|---|
+| `check_card_slot_guards.py`: 77 slots / 46 wrappers / **47 of 55** | **79 / 48 / 48 of 57** |
+| `check_list_empty_states.py` docstring: 29 of 72 across **55** | **30 of 74 across 57** |
+
+**Every figure drifted inside 24 hours, by addition, and I would not have noticed any of them.**
+The library grew 55 → 57 range components; nothing in either document loads the numbers, so
+nothing tested them. The lint's figure was the worse case — it sat in the **tool's own docstring**,
+where a reader takes it as current.
+
+**Fixed by dating it and saying it drifts**, not by updating it: an updated number is stale again
+next week. The command is the answer, the figure is an illustration.
+
+> **The rule, sharper than the one I had:** `[MEASURED <date>]` makes a count **re-derivable, not
+> correct**. The estate already records that a marker proves a measurement was *claimed*, not
+> *complete*, and that the deeper test is whether it could have come out otherwise. This adds the
+> part that was missing: **whether any inference in the document ever LOADS it.** A figure nothing
+> rests on is never tested by the argument carrying it, however carefully taken and however well
+> marked — so it is simultaneously the most likely to be wrong and the least likely to be caught.
+
 ## 0l. NEW BUG FILED FROM THIS LANE — `bugs_open/457`, and it is live
 
 `rebuild_blog_listing_action.go:403-407` appends an orphan `page_components` row on **every run**

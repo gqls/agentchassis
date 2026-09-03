@@ -17,8 +17,15 @@ and cta_link_integrity/RUNBOOK R16 for context.
 > component was checked or not according to what its author named a variable,
 > and `content-listing` — the component behind bugs_open/425 — had never been
 > looked at once. On the day of the widening the check reported **1 unguarded
-> component of the 8 it could see**; it now reports **29 unguarded {{range}}
-> blocks of 72, across 55 active components**. Nothing regressed. The other 28
+> component of the 8 it could see**; it then reported **29 unguarded {{range}}
+> blocks of 72, across 55 active components** `[MEASURED 2026-09-02]`.
+>
+> ⚠ **THAT FIGURE IS DECORATIVE AND IT DRIFTS — re-run rather than quote it.** By
+> 2026-09-03 it was **30 of 74 across 57**, one day later, purely because the
+> library grew. Nothing in this file depends on the number, which is exactly why
+> nobody would notice it going stale: *a count no inference loads is never tested
+> by the argument carrying it.* The command is the answer, not the figure:
+> `python3 scripts/check_list_empty_states.py`. Nothing regressed. The other 28
 > were always there and the check could not see them. (The denominator changed
 > too: it now counts every {{range}} BLOCK, because a component may carry more
 > than one and the old per-component reading hid the second.)
