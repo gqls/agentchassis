@@ -1773,3 +1773,102 @@ updated the file. If I had trusted the file, my change would have quietly discon
 check while reporting success, and every test would still have passed. I caught it only because a
 number did not add up. It is written into the traps file now, because that one will bite somebody
 else.
+
+---
+
+## 2026-09-03, later — the question hierarchy landed, and it found something specific
+
+The thing we built last week went live and has now run on eighteen sites. It works: for each site
+it writes down the five or six questions a visitor arrives with, ranked, and then says which of our
+selling points answers each one.
+
+I had predicted, in writing, that most of those questions would come back with no answer — that our
+sites talk about themselves and don't answer what people actually want to know. **That prediction
+was wrong.** Ninety-two per cent came back answered.
+
+So rather than repeat the number I read the pairs by hand, thirty-six of them across seven sites:
+the question, next to the words of the point claimed to answer it. Most of the joins are honest. On
+two sites in particular every question has a real, matching answer. Our sites are better at this
+than I said they were.
+
+**But there is one thing they are consistently bad at, and the tool found it cleanly.** Of the
+questions about money — what does this cost, why would I pay when the alternative is free, what does
+paying actually unlock — **five of seven have no answer anywhere in our copy.** Every other kind of
+question comes back with a clean zero unanswered: trust, credibility, what you get, whether it's
+worth coming back. It is only price.
+
+And the model ranks the price question **last**, on average. For idea.uk — which sells a £29 report
+and whose competitor is free AI — the question *"why would I pay £29 for this?"* is sitting at rank
+five out of five. I don't accept that ordering, and I've said so to the lane that owns ordering.
+
+That is a much more useful finding than the one I expected, and it is the first thing this machinery
+has produced that changes what someone should write.
+
+## The carousel switch, and the check that would have made a correct change look broken
+
+You ruled that the card grids should default to carousels. Writing that turned out to be four lines;
+the useful part was everything around it.
+
+**The instruction I had left for whoever did this work was wrong, and would have caused them to undo
+a change that had just worked.** I had written down a "control" — a number that must not move when
+the switch is flipped, as proof nothing unexpected happened. It reads 2 on a page with the carousel
+on and 2 on a page with it off, which looks exactly like a control should look. But the two 2s had
+nothing to do with each other; they were unrelated bits of styling on two different pages, and the
+number is one the carousel itself adds. So a correct flip moves it from 2 to 3, and my own note
+would have told the next person that meant something was wrong.
+
+I only caught it because the job came back to me and I read the template before running my own test.
+It is corrected, and written up as a trap, because the general form is worth having: **a count added
+up over a whole page is not a control unless you know what each occurrence actually is, and two
+pages agreeing on a total is not agreement.**
+
+## The review caught something real, and it was not in my change
+
+The change went to the reviewer council. Nine of eleven seats approved; one blocked it, and it was
+right to.
+
+Its objection: my whole safety argument rested on a claim about how the system behaves, and **our own
+traps file contains an entry saying the exact opposite about the exact same piece of code.** I had
+never looked. If that entry were still true, this change could have overwritten someone's deliberate
+choice rather than merely doing nothing.
+
+It turns out the entry is out of date. It was written on 3 August; the code it describes was fixed on
+14 August, eleven days later. I checked it in the live data too, not just the history — there are
+eleven places on the live sites right now where someone's own wording has survived exactly where that
+entry says it would have been wiped.
+
+**The wider point is the one I've written into the file.** A trap note describes a defect, and a
+defect is precisely the thing most likely to get fixed — so these notes go stale in the one way their
+own advice can't catch, and they go on reading like a live warning indefinitely. This one was right
+for eleven days and misleading for twenty. It has now cost one review round; left alone it would
+eventually have licensed a genuinely wrong change.
+
+One more seat objected that I had not read the existing notes attached to this component. Fair, I
+hadn't — and doing so found something none of the eleven reviewers had spotted: **the component has
+its own automated acceptance test, and one of its checks is "nothing overflows sideways".** A
+carousel is a thing that overflows sideways. Reading the checker's code says it should still pass,
+because it deliberately exempts anything you can scroll. But that test has never actually been run
+against a carousel. So it is now written down as owed before this ships, rather than assumed.
+
+## boxingonline — asked one thing, found another
+
+The lane holding your first paid build asked me for a design decision on its colours, and whether the
+site name should sit next to the logo.
+
+**Neither question needed me, and on the second one I was wrong.** You had already ruled on both, on
+2 September. On the colours I found your ruling and told them; on the header I searched for the wrong
+words, concluded you had never ruled, and told them so — and they found your words within the hour in
+a third lane's notes. That is the fourth time in a week I have announced that something doesn't exist
+when it does, and every one of those was caught by somebody else. It is logged.
+
+**What I did find, and it stands:** the logo shares no colour at all with the site. The site is deep
+red, gold and near-black. The logo is 52% blue and 45% grey, with exactly one red pixel out of
+sixteen thousand — nothing anywhere near either of the site's own colours. It's a raised fist inside
+a diamond, which is a protest symbol rather than a boxing one, and at the size it actually appears in
+the header it's an unreadable smudge losing nearly half of itself against the dark background behind
+it.
+
+The other lane checked my numbers on a different copy of the file and got the same answer, then found
+the better half: **the instruction we sent asked for "a stylised boxing glove or ring ropes".** So
+this isn't a taste disagreement or a colour problem — the picture-making step was told the right
+thing and ignored it. They're bringing it to you as a new question.
