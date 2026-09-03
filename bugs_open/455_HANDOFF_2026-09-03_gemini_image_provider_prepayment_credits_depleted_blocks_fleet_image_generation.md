@@ -66,6 +66,23 @@ guard refusing them** — until this is resolved, assume every image-generation 
 is this, not a content problem, and check the error text before attributing a failure to any
 other cause.
 
+## RESOLVED same day, ~11:08–11:41 UTC — matches the `bugs_open/243` pattern exactly
+
+`[MEASURED 2026-09-03 11:45 UTC]` `agent_error_log` now shows **30** `prepayment credits` rows
+total (up from 3 at first measurement), **last occurrence `11:08:06Z`, none since.**
+`gamedesign.uk`'s `bugs_open/424` remediation retry reached the model and genuinely SUCCEEDED at
+`11:41:02Z` — a real generation, verified independently at the served bytes (fresh key date,
+colour type 6, 100% of the border ring transparent) — which could not have happened while credits
+were still depleted. **Outage window: `10:31:01Z` (first observed) → `11:08:06Z` (last observed) →
+confirmed cleared by `11:41:02Z`, roughly 37–70 minutes**, resolved without this session's
+intervention (no billing action available from here) — matches `bugs_open/243`'s own pattern
+exactly: the owner (or someone with account access) topped up credit rather than it resetting on
+a quota clock, most likely prompted by `site_delivery_and_editor`'s direct escalation at ~10:43Z.
+Leaving this file OPEN rather than closing it: unlike `243`, no one has yet confirmed IN THIS FILE
+that a deliberate top-up happened (only inferred from the traffic gap) — close once that's
+confirmed, and consider whether this warrants the same prevention discussion `243`'s own residual
+raised (recurring provider-credit exhaustion, third instance counting `202` and `243`).
+
 ## What this means for `bugs_open/424`'s own remediation
 
 `designblog.co.uk`'s retry hit this, not a matting failure — its `error` column now reads the 429

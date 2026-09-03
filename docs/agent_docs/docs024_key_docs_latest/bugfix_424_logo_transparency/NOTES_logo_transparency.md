@@ -458,3 +458,44 @@ correct result on a real, unplanned, fleet-triggered generation** — not a synt
 statistic replay against old bytes, an actual new image, decoded and measured. `designblog.co.uk`
 is on its second attempt (first refused, same shape as seotools' first); `gamedesign.uk` not yet
 claimed. Sent to `site_delivery_and_editor` as requested — feeds the boxingonline timing decision.
+
+## 2026-09-03, later — an unrelated billing outage discovered mid-watch (bugs_open/455), and gamedesign.uk's second confirmed success once it cleared
+
+While watching the remaining two retries, `designblog.co.uk`'s attempt hit a completely different
+failure: the Gemini image provider returned 429 "Your prepayment credits are depleted." **Filed
+`bugs_open/455` immediately** — distinct from `bugs_open/202` (a text-model daily quota) and `243`
+(the Anthropic account, resolved by the owner adding credit) — verified as a real, ongoing outage,
+not a blip, by three independent sites hitting the byte-identical error over ~12 minutes
+(`designblog.co.uk` 10:31Z, `gamedesign.uk` 10:41Z, `boxingonline.com` 10:43Z via
+`site_delivery_and_editor`, who escalated to the owner directly). **Both of this lane's remaining
+retries were blocked by this, not by anything in the 424 fix** — recorded clearly so the next
+failures weren't misread as the matting guard.
+
+**`designblog.co.uk` exhausted its retry budget (3 of 3) while the outage was still live** — its
+final counted attempt was a genuine content refusal (`border_keyed=0.000`, not the billing error),
+so the ladder's accounting is working as designed (infra failures didn't count against it; a real
+refusal did). Verified nothing worse happened: its asset row is untouched (`key_date` still
+`20260902`), so it's still serving yesterday's original broken logo, not a new bad one — the
+fail-closed guard held even under pressure. **Asked the owner whether to reset it again rather
+than doing so unilaterally** — a second reset is the same low-risk operation as before, but it's a
+new action beyond the original three-site authorisation, and the billing situation was still
+unresolved at the time of asking.
+
+**`gamedesign.uk` succeeded on its third attempt, `11:41:02Z`, after the outage cleared.**
+Verified independently at the served bytes, same rigour as seotools: fresh key date (`20260903`,
+confirming a genuine new object), `https://gamedesign.uk/assets/images/logo.png` → 200, 76,830
+bytes, colour type 6 (RGBA), **100% of the border ring fully transparent**, 61.98% of all pixels
+transparent overall (lower than seotools' 92% — a 400×400 square logo naturally has less empty
+margin than a 400×218 rectangle, not a quality difference), 0.174% residual magenta fringe (small,
+consistent with the despill-fringe finding already on record).
+
+**`bugs_open/455` updated to RESOLVED (not yet closed — no direct confirmation in the file that a
+deliberate top-up happened, only inferred from the traffic gap)**: last `prepayment credits` error
+fleet-wide at `11:08:06Z`, none since; gamedesign's success at `11:41:02Z` could not have happened
+otherwise. Outage window ~37–70 minutes, same-day resolution matching `bugs_open/243`'s pattern
+exactly — third instance of this general class (`202`, `243`, now this), worth a prevention
+conversation at some point, not opened here.
+
+**Running total: 2 of 3 original sites confirmed genuinely fixed (`seotools.co.uk`,
+`gamedesign.uk`), 1 exhausted and awaiting an owner decision on a further retry
+(`designblog.co.uk`).**
