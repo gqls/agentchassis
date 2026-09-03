@@ -63,6 +63,43 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0h. ⭐ THE SHARPEST NARROWING YET — the template renders FRESH while the data stays STALE
+
+`[MEASURED 2026-09-03, verified independently at the stored artefact]` boxingonline
+`/index.html`, content-listing slot, rendered 09-02 21:30:07 by a `section_data_resolved`
+rerender:
+
+| | count | means |
+|---|---|---|
+| `article-card__excerpt` elements | **0** | 682's guard **took** — the slot collapsed |
+| `article-card__date` elements | **0** | 682's guard **took** |
+| `article-card__title` elements | 6 | six cards, so the section rendered |
+| `" \| Boxing Online"` occurrences | **12** | 6 headlines + 6 alt texts — the producer did **NOT** take |
+
+**Through ONE render, the config half applied and the code half did not.** So the rerender path
+is not inert and is not "emitting the old shape wholesale": it **re-renders the current template**
+against **stale data**.
+
+**AND THAT RULES OUT THE 'WRONG PROJECTION' READING** — including the one the boxingonline lane
+proposed when they found this. Their framing was *"the divergence is not at re-resolution, it is
+at which projection the resolved items are passed through."* It cannot be, because **there is no
+old projection left to pass through**: commit `f57f5ad1f` fixed *both* producers of this shape,
+so any re-resolution — through `resolvePagesWhereType` or through `scanBlogArticles` — would
+necessarily emit `excerpt` and a stripped title. The items carry neither.
+
+**Therefore the array was never resolved at all.** These are the STORED items passing through a
+freshly rendered template, which is exactly `mergedContent = stored ⊕ ResolvedData` with
+`ResolvedData` lacking the `articles` key. The hunt narrows to: **why is `articles` absent from
+`ResolvedData` on a path that demonstrably rendered the template it belongs to?**
+
+> **⚠ A MEASUREMENT CAUTION THAT CUTS BOTH WAYS — theirs, and it is a good one.** Counting
+> `article-card__excerpt"></p>` (the EMPTY element) returns **0** both when the slot collapsed and
+> when the deck is filled. Post-682 those are indistinguishable on that predicate. Count the
+> **element itself** and measure its **inner length** separately: `0 elements` = collapsed,
+> `6 elements with content` = filled, `6 elements empty` = the pre-682 defect. The delivery lane
+> gave the inverse caution earlier — do not file filled decks as a 682 regression — which is the
+> same ambiguity from the other side.
+
 ## 0g. WHERE THE SESSION ENDS — two experiments queued, and the queue is getting WORSE
 
 | experiment | batch | reason | state |
