@@ -45,7 +45,45 @@ and under the owner's 2026-09-02 ruling those hints would be advisory — the pl
 ignore them. So even built, structure differentiation via kits is a nudge, not a lever.
 Plan for the prompt.
 
-## 2. Chrome: the strongest available lever — and it is UNPROVEN for differentiation
+## 2. Chrome — ⚠ THIS SECTION IS SUPERSEDED. Read the correction first.
+
+> **RETRACTED 2026-09-03, the day after writing it.** The measurements below are all
+> still true. **The conclusion drawn from them was wrong, and the recipe at the end of
+> this section is WITHDRAWN.**
+>
+> I framed chrome as "variety the estate has never selected", i.e. a *selection*
+> problem a pin could solve. **A pin SELECTS a component; nothing POPULATES it** — and
+> no site holds the data any alternative needs.
+>
+> [MEASURED 2026-09-03, independently by this lane and by `portfolio_positioning`,
+> figures identical]:
+>
+> | header `content_data` keys supplied | sites |
+> |---|---|
+> | **0** | **37** |
+> | 4 | 1 |
+> | 5 | 1 |
+>
+> against candidates requiring **11–16 distinct `{{.var}}` each** — `header-minimal-tool`
+> 16, `header-with-categories` 16, `header-with-search` 12, `header-with-cart-or-nav` 11.
+> `header-with-categories`'s search form is literally `action="{{.search_action_url}}"`.
+>
+> **The default `site-header` wins everywhere because it is the only header that needs
+> no data.** Every alternative is unusable on 37 of 39 sites — not unchosen, *unusable*.
+> An unsupplied variable renders blank: a form action posting to the current page, empty
+> aria-labels, missing nav. Worse than the sameness it was meant to cure.
+>
+> **This is a data-authoring job, per component per site — not a per-site UPDATE.** Size
+> the 18 remakes on that. RUNBOOK §5 has been rewritten accordingly (`6f6e6f5a7`): the
+> pre-flight comparing supplied keys against required variables is mandatory, the
+> experiment supplies the vocabulary FIRST and then pins, and the third branch now reads
+> *"empty or broken → the pin WAS honoured and the data is missing"* — the expected
+> outcome on 37 of 39 sites, and not a verdict on pinning.
+>
+> Caught an hour before `designblog.co.uk` pinned `header-with-categories` onto a live
+> site whose header `content_data` is empty. **What made the original conclusion wrong:
+> I measured the library and the pins and never measured the DATA** — I counted what
+> existed and what was selected, and never what any of it needed in order to work.
 
 The measurement that started this is solid:
 
@@ -106,10 +144,17 @@ sites. If it does not, chrome differentiation needs a code change** (the hardcod
 I would run this myself but it changes a live site, so it is the owner's call or yours —
 and it should be a site you are about to remake anyway, so the rerender is not extra.
 
-### If the experiment passes — recommendation shape
+### ~~If the experiment passes — recommendation shape~~ WITHDRAWN 2026-09-03
 
-Per site, three fields, applied **after the site row and its style_collection exist,
-before the release rerender**:
+**Do not use the table below as written.** It describes pinning three fields and says
+nothing about supplying the component's vocabulary, which is the part that actually
+determines whether the header renders. On 37 of 39 sites this recipe would produce a
+degraded header. RUNBOOK §5 (`6f6e6f5a7`) supersedes it. Kept, struck, because the
+omission is the instructive part: every field in it is correct and the set is
+incomplete.
+
+~~Per site, three fields, applied **after the site row and its style_collection exist,
+before the release rerender**:~~
 
 | field | where | note |
 |---|---|---|
