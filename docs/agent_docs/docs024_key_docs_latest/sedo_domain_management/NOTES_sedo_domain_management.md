@@ -602,3 +602,56 @@ other edge case this session. copy_quality_two_stage's D4 rule (for-sale
 needs per-site confirmation, precisely to prevent a client relationship
 breach) is their lane's mechanism to protect exactly this case; this
 lane's job is to not route around it by accident.
+
+## 2026-09-03 (later still) — a NAMED, DOCUMENTED owner precedent found: leopardessconsulting.co.uk must not be swept into "list all live sites"; webdesign.uk ≠ webdesign.co.uk
+
+copy_quality_two_stage caught something more severe than the two adjacent
+`leopardess.*` domains from the Clook batch: **the client site itself,
+`leopardessconsulting.co.uk`**, is a paying client's site, and the owner
+has an EXISTING, DOCUMENTED, NAMED ruling about it —
+`about_page_commercial/PLAN_2026-07-24_about_page_commercial.md`, D4,
+verbatim: *"'buy this site'/ads/built-by on a paying client's site
+(leopardess) is a relationship breach"* — the exact case D4 exists to
+prevent, and the owner's own words name this domain specifically.
+
+**Verified**: `leopardessconsulting.co.uk` is `status=deployed`, 55
+pages — squarely inside today's "list all live sites" instruction if
+read literally, and it is currently correctly fenced (in
+`EXCLUDED_live_2026-09-03.txt`, absent from draft7). The risk is not
+today's sheet — it's the FUTURE live-sites track: nothing currently
+distinguishes "fenced because nobody's decided yet" from "fenced because
+listing this one for sale would breach a client relationship and the
+owner already said so in writing." Those need different treatment when
+the live-sites track gets built, or this one quietly rides along with
+the rest once prices exist.
+
+**Reasoning for treating this differently from wpx.uk/
+designconsultancy.co.uk/leopardess.co.uk/.uk**: those four are held
+pending a first confirmation; this one has an EXISTING, prior, specific,
+documented owner ruling that predates and outranks today's broad
+instruction (D4, 2026-07-24, six weeks old, names the site by name). A
+broad "yes, all of them" answered in a conversation about relojistas.com
+should not be read as silently overriding a specific, written, named
+precedent about a different domain — the peer's own framing: "that
+deserves an explicit yes, not an inferred one." Applying the same
+standard I've used all session: when in doubt, hold out and ask by name.
+
+**Action**: recording `leopardessconsulting.co.uk` as PERMANENTLY EXCLUDED
+from any live-sites-for-sale effort unless the owner reconfirms BY NAME,
+citing D4, not folded into a general "all live sites" sweep. This is
+distinct from the live-site fence (which could in principle lapse or be
+regenerated) — like the copyonline.co.uk and wykefarm.co.uk precedents,
+a client-protection decision needs to survive independent of build
+status. No new exclude file needed today (already fenced, not in any
+sheet) — the durable record is this NOTES entry plus the sharpened
+question put to the owner.
+
+**Second catch, smaller but real**: `webdesign.uk` (18 pages) and
+`webdesign.co.uk` (155 pages, the actual shopfront/store-window for the
+webdesign business) are two DIFFERENT domains. The owner's 7-figure
+example was specifically `webdesign.uk`. Checked: both are tracked as
+distinct entries throughout this lane's fence files and sheets — no
+conflation found — but the owner's own intent needs the same precision:
+his example named one, and it matters which one a live-sites pricing
+effort actually prices and lists. Flagging to the valuation lane and the
+owner rather than assuming his answer covers both identically.

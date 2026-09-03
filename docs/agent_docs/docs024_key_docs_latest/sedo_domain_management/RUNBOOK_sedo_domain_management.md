@@ -232,6 +232,40 @@ Gotchas, each earned:
   states an intent, nobody has run a command yet) defeats even a fresh
   re-query — no DB signal exists to find. No mechanical fix for that one;
   it is why an owner statement can still override a clean automated check.
+- **The live-site fence is ALSO structurally blind to any hosting stack
+  outside the framework's own tracking** (measured 2026-09-03): it is
+  derived from Cloudflare delegation + the `sites` table, so a domain
+  hosted anywhere else (this estate's older "Clook" stack,
+  `dns*.uk-noc.com`, predating the Cloudflare rollout) is invisible to it
+  regardless of query freshness. 33 such domains were found live and
+  unfenced in one sweep, including the owner's own email and company
+  domains. There is no single-source fix — a second, independent
+  delegation sweep is required, not a faster re-query of the first
+  source. `EXCLUDED_live_clook_2026-09-03.txt` is the current one-off
+  patch; the domain_valuation lane has offered to own an ongoing
+  delegation-plus-`sites` derivation going forward.
+- **`leopardessconsulting.co.uk` is PERMANENTLY EXCLUDED from any
+  live-sites-for-sale effort, by a NAMED, DOCUMENTED, PRIOR owner ruling
+  — not merely "currently fenced."** Source:
+  `about_page_commercial/PLAN_2026-07-24_about_page_commercial.md`, D4:
+  *"'buy this site'/ads/built-by on a paying client's site (leopardess)
+  is a relationship breach."* A later, broader instruction ("list all
+  live sites") does not override this without the owner reconfirming BY
+  NAME — a general answer to a specific question about a different
+  domain (relojistas.com) is not evidence he had this client relationship
+  in view. If the live-site fence is ever regenerated from source and
+  this domain's exclusion depends only on that regeneration, that is a
+  latent risk: treat this domain's exclusion as independent of the fence
+  mechanism, the same class of durability already applied to copyonline
+  and wykefarm.
+- **`webdesign.uk` and `webdesign.co.uk` are two different domains — do
+  not conflate them, ever, in pricing or docs.** `webdesign.uk` (18
+  pages) was the owner's own example of a domain that "could be worth
+  over a million." `webdesign.co.uk` (155 pages) is the webdesign
+  business's own shopfront. A pricing or listing action landing on the
+  wrong one is an expensive, easy mistake — always use the full domain
+  string, never "webdesign" as shorthand, in any cross-lane message or
+  generated file.
 - **An owner-requested withdrawal (e.g. "take out the X family of
   domains") is a SEPARATE fence, not an addition to the live-site one**
   (added 2026-09-03, `--exclude-file` accepts multiple and unions them —

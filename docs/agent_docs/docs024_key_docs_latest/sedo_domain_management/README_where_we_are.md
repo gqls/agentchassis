@@ -236,3 +236,24 @@ all live sites" really mean ALL of them, including your own email domain
 and company site, and the client's neighbouring names? My working
 assumption is no — those specific ones stay off the list until you say
 otherwise — but I'd rather have that confirmed than guessed.
+
+## 2026-09-03 (later still) — one more site held out, and please double-check which webdesign you meant
+
+Two more things before any live sites go anywhere.
+
+**leopardessconsulting.co.uk — I want your explicit yes on this one
+specifically, not folded into "all live sites."** This is your client's
+actual site, and it's the exact case you wrote down back on 24 July when
+you said "buy this site" on a paying client's site would be a
+relationship breach. I don't think your "list all live sites" answer had
+that specific site in mind — you were answering a question about
+relojistas.com — so I've kept it off the list and I'd like you to say
+this one's name specifically if you do want it included, rather than me
+assuming a broad answer covers it.
+
+**webdesign.uk and webdesign.co.uk are two different domains.** Your
+example — "could be worth over a million" — was webdesign.uk, an
+18-page site. webdesign.co.uk is a different, much bigger site (155
+pages) — it's your actual webdesign business's shopfront. Worth
+confirming which one (or both) you meant, since pricing or listing the
+wrong one would be an expensive mix-up.
