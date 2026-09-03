@@ -1,8 +1,19 @@
 # HANDOFF — inline_guide_imagery. START HERE. Written 2026-09-02, rewritten 2026-09-03 15:15Z.
 
-**Status in one line:** the per-section imagery binding (**IMG-075**) is **PROVED END TO END on the
-owner's own page**, including the decisive save-path test — and the same page shows that the WORDS
-beside those figures are wrong, for a reason that is not this lane's code and has another owner.
+**Status in one line:** the per-section imagery binding (**IMG-075**) was **PROVED END TO END on the
+owner's own page** — and **that page was REVERTED the same evening** because the WORDS beside the
+figures were wrong, for a reason that is not this lane's code and has another owner.
+
+> ⚠ **READ THIS BEFORE ANYTHING BELOW (2026-09-03 evening).** `dartsonline_traffic` reverted
+> `grip-styles`: **3** plan sections, **0** section-scope imagery rows, `page_components` back to
+> hero/article-body/call-to-action. **The five illustration assets are still `active`, so it is
+> re-runnable in minutes.** Their call and the right one — that lane wins search traffic for
+> affiliate approval and seven near-identical sections work against it; their message says the
+> imagery was the only part that behaved. **§4's measurements stand as measurements — they happened
+> and were read at the artefact — but nothing in §4 or §5 describes a page you can go and look at
+> today.** The re-render pre-registration (§7.2) is now **void on that page**, neither confirmed nor
+> refuted. **apis.uk is again the only armed page.** Full account + the one disputed fact:
+> **NOTES §19**.
 
 **Lane docs:** `docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/` —
 `PLAN_2026-08-14…`, `NOTES_…` (technical log, newest at the bottom; today is **§17**),
@@ -83,7 +94,7 @@ mis-binding — when the plan's order and the live order disagree.
 
 ---
 
-## 4. ✅ THE MECHANISM IS PROVED — this is the new news, and it happened on the owner's page
+## 4. ✅ THE MECHANISM WAS PROVED — on the owner's page, on 2026-09-03, on a page since REVERTED (see the banner)
 
 `dartsonline.com/blog/grip-styles.html`, 2026-09-03, on `v1.0.1358`. Full account: **NOTES §17**.
 
@@ -112,8 +123,8 @@ this lane exists for, observed rather than argued.
 razor cuts, raked shark cuts, a smooth polished barrel, two distinct zones); no feathered flights,
 no screw threads — the darts lane's guide-level anatomy clauses held.
 
-⚠ **STILL UNPROVEN: the RE-RENDER path on a multi-figure page.** Both grip-styles runs were the
-build/save path. `rerender_page_sections` takes its live section list from stored `page_components`
+⚠ **STILL UNPROVEN: the RE-RENDER path on a multi-figure page — and now UNRUNNABLE on this page.**
+Both grip-styles runs were the build/save path. `rerender_page_sections` takes its live section list from stored `page_components`
 slots rather than `pages.sections`, so it feeds `sectionOrderAgrees` a **different list** and is a
 genuinely separate arm. The four `page-rerender` runs on that site at 13:55–13:58 were **other
 pages** (guides-index, index, tool-brand-comparator, tool-setup-builder).
@@ -211,17 +222,15 @@ fills the cache and leaves the authority empty, so the ordinal still has nothing
 ## 7. What I would do next, in order
 
 1. **Re-probe the current build** (§2). Everything else assumes it.
-2. **The RE-RENDER arm is PRE-REGISTERED, not fired — grade the next natural re-render against the
-   prediction, do not fire your own.** `[MEASURED 2026-09-03 15:1xZ]` pre-flight on grip-styles: the
-   plan's 11 site-level-filtered names and the 11 stored `slot_name`s **agree at every position**,
-   0 locked slots, so **the prediction on record is that it BINDS per-section**; the disconfirming
-   result is **all five sections showing ONE image**. Reasons I did not fire one, and they still
-   hold: it is `dartsonline_traffic`'s freshly-finished page, the decisive save-path test has
-   already passed, that page carries **12** `unresolved` `cta_links_stale` rerender items (all
-   predating the 11:39Z replan), and `item_key='page_rerender:grip-styles'` was a live
-   `idx_swi_dedup` collision risk. **NOTES §18** has the full reasoning. ⚠ Grade on the run's
-   `resolved_data`, never the served bytes — an assemble-only re-render produces identical bytes
-   whether the binding engaged or did nothing.
+2. ⚠ **The RE-RENDER pre-registration is VOID on grip-styles — carry it to the next page, do not
+   quietly drop it.** The prediction (it BINDS per-section; disconfirming result = all five sections
+   showing ONE image) was recorded on a clean pre-flight (plan and stored lists agreed 11/11, 0
+   locked slots). **The revert deleted the imagery rows and returned the plan to 3 sections, so it
+   can no longer be resolved there** — void, not refuted. It transfers unchanged to whichever page
+   next carries several section-scope figures (**apis.uk is the only armed one today**), and the
+   pre-flight query that generated it is in the RUNBOOK. ⚠ Grade on the run's `resolved_data`, never
+   the served bytes — an assemble-only re-render produces identical bytes whether the binding
+   engaged or did nothing. **Still do not fire one at another lane's live page to satisfy this.**
 3. **Offer grip-styles to the 443/641 lane as Stage B's canary.** Five same-component instances,
    distinct subjects, distinct **correct** images — the images are independent ground truth for
    whether each heading is right, which no other page in the estate provides. Offer made in the

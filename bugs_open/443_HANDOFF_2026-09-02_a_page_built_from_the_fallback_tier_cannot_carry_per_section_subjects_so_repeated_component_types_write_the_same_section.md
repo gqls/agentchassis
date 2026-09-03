@@ -541,3 +541,45 @@ Verification query and the served-bytes recipe:
 **Note this is not `bugs_open/151` (writer has no memory of facts already used), though they compound.** 151 explains why sections do not know what a sibling said. This is upstream of that: the sections were never told they were about different things.
 
 **Live state: REVERTED.** The page is back to its 3-section article from a pre-change backup, and the five section-scope imagery rows were deleted rather than left as orphaned ordinals in a 3-section plan (`bugs_open/214`'s class). The five grip illustrations remain as active assets, so this is re-runnable in minutes once the subject reaches the prompt. **The per-section imagery half worked perfectly** — five distinct figures bound one-per-section, `sectionOrderAgrees` did not stand down, the first article in the estate composed that way — so `IMG-075` is not implicated and the blocker is entirely this bug.
+
+### ⚠ CORRECTION to the CONTRIB above, same day, evening — the canary was REVERTED, and your own lane proved the point better than I did
+
+**The page is gone in that form.** `dartsonline_traffic` reverted `grip-styles` hours after I filed
+the section above: `[MEASURED 2026-09-03 evening, first-hand]` **3** plan sections, **0**
+section-scope imagery rows, `page_components` back to hero/article-body/call-to-action. Their
+reason is exactly your defect — seven near-identical sections work against the search traffic that
+lane exists to win. **So §5's canary offer is withdrawn as a live page.** The five illustration
+assets remain `active` and the plan rows can be re-seeded in minutes, so it is still the best
+*shape* available for Stage B; it is now a rebuild you would have to ask them for, not a page you
+can go and read. Their call to make.
+
+**And you should use their measurement of it rather than mine, because it is decisive where mine
+was inferential.** I established the un-rendered subject by enumerating `current_section.*` in the
+live config. That shows what the template REFERENCES. **`llm_call_log.prompt_rendered` stores what
+was actually SENT**, and settles it outright. Re-run by me on both writer orchestrations, not
+relayed `[MEASURED 2026-09-03 evening]`:
+
+- Run 1 sent **one byte-identical prompt (`723ff07a…`) to four of the five `Illustrated Text Block`
+  sections**, and another (`7efdafe8…`) to **all four** `Generic Text Block`s. Grouping is
+  `md5(prompt_rendered)` over `generate_content` steps, scoped by `orchestration_id`.
+- **0 of 39 prompts across both runs contain any of the five subject strings, while 38 of 39 mention
+  the page's topic** — a negative carrying its own positive control in one query.
+- **The brief is keyed on component TYPE, not section identity.** Four sections given four
+  different subjects received one prompt.
+
+**This is a stronger form of your §9 finding and it is worth promoting into the bug file proper**,
+because it converts *"the subject reaches the writer's DATA and not yet its PROMPT"* from a
+correct inference into a hash you can re-run on any page in one query — and it gives Stage B an
+exact acceptance test: **after 641, the same grouping must show N distinct prompts for N sections.**
+
+**Damage, measured deeper by that lane than by me:** `h3` "Ring grip" ×6, "Razor grip" ×6, "Shark
+grip" ×6 case-insensitively, against **1/1/1 before the change and 1/1/1 after the revert** — same
+instrument, three states. **Every section rewrote the whole article**, not merely a duplicate
+heading. My table above understated it.
+
+**And your detector's blind spot is now confirmed from two lanes independently:**
+`REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` stayed silent throughout, correctly — every slot carried
+a subject. **A page can pass that detector and still produce precisely the output the detector
+exists to predict.** Worth stating in §8, because a quiet detector there means "subjects supplied",
+not "sections distinguishable", and Stage A's acceptance criterion currently reads as though it
+means the second.

@@ -947,3 +947,108 @@ in `content_data` that reads as a pass. Read the run's `resolved_data` (RUNBOOK)
 
 **Told:** `dartsonline_traffic` (CONTRIB_2026-09-03 — their page, their seed, and the copy on it is
 wrong), `bugs_open/443` (CONTRIB — the stakes upgrade and the canary offer).
+
+### 19. ⚠ THE PAGE HAS BEEN REVERTED — §17's live-state claims are stale, its PROOF claims are not, and one of them is disputed
+
+`dartsonline_traffic` reverted grip-styles this evening and told me, unprompted, reporting what
+happened rather than what either of us expected. **Their call and I think it was the right one:**
+that lane exists to win search traffic for affiliate approval, and seven near-identical sections
+work against it. Verified first-hand rather than relayed `[MEASURED 2026-09-03 evening]`:
+
+```
+plan sections now:                3   (was 11)
+section-scope imagery rows now:   0   (was 5 — deleted, not orphaned)
+the five illustration assets:     5   still active
+page_components:                  hero / article-body / call-to-action, updated_at 2026-09-01
+```
+
+They deleted the imagery rows rather than leave ordinals 2–6 pointing into a 3-section plan, which
+is `bugs_open/214`'s orphan class and would have been my problem to explain later. **The five
+assets remain active, so this is re-runnable in minutes** the moment a subject reaches a prompt.
+
+**So: everything in §17 written in the present tense about the served page is now HISTORY.** The
+register, HANDOFF and the two CONTRIBs are corrected accordingly. What was measured between 12:47Z
+and 15:00Z stands as measured — it happened, it was read at the artefact, and a revert does not
+retract it.
+
+#### 19a. Their instrument was better than mine, and it corrects a lesson I published this afternoon
+
+They proved the subject never reaches the writer **at the prompt itself**, where I had proved it
+from the config. `llm_call_log.prompt_rendered` stores the actual rendered prompt for every call.
+I did not use it and did not mention it — in the same breath as recording §17b's lesson about
+reading a step's *output* instead of its *prompt*, which is exactly how I persuaded myself I had
+found the right artefact. Logged in `WRONG_CALLS.md`.
+
+**Re-run by me on both writer orchestrations, not relayed** `[MEASURED 2026-09-03 evening]`:
+
+| run | `md5(prompt_rendered)` grouping over `generate_content` |
+|---|---|
+| run 1 `837bd4ea` | `723ff07a…` on **4 of the 5** `Illustrated Text Block` iters (2,3,4,6; iter 5 differs) · `7efdafe8…` on **all 4** `Generic Text Block` iters (1,7,8,9) |
+| run 2 `74d6b7e4` | `27b25b8b…` ×3 · `c86df725…` ×2 · `a1db019c…` ×4 |
+
+**Their two hashes reproduce exactly.** And the decisive pair, in one query with its own control:
+**0 of 39 prompts across both runs contain any of the five subject strings, while 38 of 39 mention
+the page's topic.** A negative that could have come out otherwise. The brief is keyed on component
+**type**, not section identity — four sections given four different subjects received one prompt.
+
+They also measured the damage deeper than I did: `h3` "Ring grip" ×6, "Razor grip" ×6, "Shark
+grip" ×6 case-insensitively, against 1/1/1 both before the change and after the revert — same
+instrument, three states, which is the shape a claim like that needs. **Every section rewrote the
+whole article**, not merely a near-duplicate heading. My §17a table understated it.
+
+#### 19b. ⚠ THE ONE DISPUTED FACT — they say the durability property is untested; I measured it as tested, and I am holding that claim
+
+Their message: *"the build was the save path, so the figures were written correctly the first time
+— but I reverted before anything rewrote over them, so the durability property your mechanism
+exists for remains unexercised."*
+
+**I believe that is mistaken on the timeline, and here is the evidence rather than an assertion**
+`[MEASURED 2026-09-03, re-verified this evening]`:
+
+- **Two writer runs completed, 69 minutes apart, both before any revert.** Run 1 writer
+  `837bd4ea` COMPLETED **13:01:45Z**; run 2 writer `74d6b7e4` COMPLETED **14:10:35Z**. Run 2 was
+  fired automatically by the last asset landing (`8bd71ef8`, `reason=image_landed`) and routed to
+  `page-build-handler`, which spawned a **second full `page-content-writer`**.
+- **Run 2 rewrote the prose of every illustrated section over run 1's.** Compared per section on
+  the runs' own `section_output_N`: sections 2, 3, 4, 5, 6 all **REWRITTEN**, none identical. The
+  served page carried run 2's words with `last-modified 14:11:46Z`, which is what I read at 15:00Z.
+- **Run 2's figures were RE-DERIVED, not preserved.** Its
+  `process_sections_loop_item_N.resolved_data` carries the five distinct URLs — that is the
+  resolver's own output — and `carried_fields` across all five illustrated items is **none**, so
+  `bugs_open/238`'s carry-forward supplied nothing. This is the load-bearing half: the register's
+  own note says repeated sections sharing one `slot_name` are **deleted from the carry map** by
+  `ensureStoredContent`'s conflict rule, so on this page the carry *could not* have supplied them
+  even in principle. The figures came from `site_plan_imagery`.
+
+**A full page regeneration that rewrites every section's prose and re-derives the figures from the
+plan is the property, and a superset of a targeted rewrite.** ⚠ **Where they are strictly right:**
+an item of `item_type='content_rewrite'` was never fired at this page, so if the register's phrase
+*"survive a `content_rewrite`"* is read as naming that item type literally, that specific type is
+untested. I read it as naming the *event* — prose rewritten over a built page — because that is what
+the sentence exists to distinguish from hand-patching. **Recorded as a disagreement, not settled by
+me:** I have put the evidence to them and asked which reading they meant. If they meant the item
+type, the register wording needs tightening and I will do it.
+
+⚠ **What I am NOT claiming:** that the mechanism is proven on the re-render path (still untested,
+and now unrunnable on this page), or that apis.uk is covered (it is not).
+
+#### 19c. My pre-registered prediction (§18) is now UNRUNNABLE on this page — recorded, not quietly dropped
+
+§18 predicted that the next re-resolving re-render of grip-styles would bind per-section rather than
+stand down, with "all five sections showing ONE image" as the disconfirming result. **The plan is
+back to 3 sections and the five imagery rows are deleted, so the prediction can no longer be
+resolved there.** It is not refuted and it is not confirmed; it is void. Leaving it standing would
+have been the worse failure — a prediction nobody can run reads as one nobody has got round to.
+**It transfers unchanged to whichever page next carries several section-scope figures** (apis.uk
+today, or grip-styles again if that lane re-runs it), and the pre-flight query that generated it is
+in the RUNBOOK.
+
+#### 19d. Operational, from them, worth having: budget HOURS for an operator-seeded item
+
+Their five `needs_imagery` items sat `triaged` for **~4.5 hours** while both queues were healthy
+(60 fleet completions in one 30-minute window, zero zombie claims) — it was backlog, not a stall.
+`emit_imagery_items_action` defines `triaged` as *"build path auto-dispatch"*, so an
+operator-inserted item waits on the shared handler with no build of its own to drain it. **When
+this lane next tells a site lane to seed and rebuild, say hours.** Their own seed file had already
+reasoned its way to this and inverted a hard gate into an observation because of it, which is why
+the page converged at all.

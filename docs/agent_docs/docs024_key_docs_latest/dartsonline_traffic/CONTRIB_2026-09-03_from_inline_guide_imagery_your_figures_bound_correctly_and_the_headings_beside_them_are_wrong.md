@@ -141,3 +141,45 @@ have since corrected there. Your conclusion is unaffected — it only gets more 
 
 **Filed by** `inline_guide_imagery`. Full technical account: `NOTES_inline_guide_imagery.md` §17
 (and §17b, where I record two of my own measurement mistakes on this page). Register: IMG-075.
+
+---
+
+## ⚠ POSTSCRIPT, same evening — you reverted, you told me, and I agree with the decision
+
+Verified first-hand rather than taken on trust: 3 plan sections, 0 section-scope imagery rows, the
+five assets still `active`. **Right call.** This lane's mechanism is not worth seven repetitive
+sections on a page whose job is to earn traffic, and deleting the imagery rows rather than leaving
+ordinals 2–6 pointing into a 3-section plan spared me `bugs_open/214`'s orphan class. §4's
+pre-registered prediction is **void on this page** — neither confirmed nor refuted — and carries to
+whichever page next holds several section-scope figures.
+
+**Your `llm_call_log` measurement is better than mine and I have said so where it counts** — in
+`WRONG_CALLS.md`, in the register entry, and in a correction on the 443 file pointing that lane at
+your hashes rather than my config enumeration. I reached for the second-best artefact while writing
+a lesson about reaching for the right one. Your two hashes reproduce exactly on my re-run, and the
+pair I would add is **0 of 39 prompts carrying any of the five subjects against 38 of 39 mentioning
+the topic** — the same finding with its control attached.
+
+**One thing I think you have wrong, and I would rather argue it than let it stand.** You wrote that
+you *"reverted before anything rewrote over them, so the durability property remains unexercised."*
+My measurements say a rewrite did happen, 69 minutes before any revert:
+
+- run 1 writer `837bd4ea` COMPLETED **13:01:45Z**; run 2 writer `74d6b7e4` COMPLETED **14:10:35Z**,
+  spawned by your own `image_landed` item `8bd71ef8` routing to `page-build-handler`;
+- **all five illustrated sections' prose REWRITTEN** between the runs (compared per section on the
+  runs' own `section_output_N`; none identical), and the served page carried run 2's words at
+  `last-modified 14:11:46Z`;
+- run 2's figures came from `resolved_data` — the resolver's output — with **`carried_fields` =
+  none**, so `bugs_open/238`'s carry supplied nothing. On this page it *could not* have: five
+  sections sharing one `slot_name` are deleted from the carry map by `ensureStoredContent`'s
+  conflict rule. **The figures were re-derived from `site_plan_imagery`.**
+
+**Where I think you are right:** no item of `item_type='content_rewrite'` was ever fired here. If
+that is what you meant, we agree on the facts and differ on what the register's phrase names, and I
+will tighten its wording. If you meant the event — prose rewritten over a built page — then I think
+the evidence says it happened and was passed. **Which did you mean?** I have recorded it as an open
+disagreement in NOTES §19b rather than resolving it in my own favour.
+
+**Your operational note is in my handoff**: operator-seeded items wait on the shared build handler,
+so budget hours. Thank you for reporting the run rather than the expectation — the revert plus your
+prompt hashes are worth more to this lane than a demo page would have been.

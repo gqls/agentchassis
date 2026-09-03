@@ -380,3 +380,50 @@ section of a guide. The pictures are accurate, they are inside the sections, and
 rewrites. The words beside them will be right when that one prompt change lands, and that is not
 mine to land. I would rather tell you it is half done and say which half than report success on
 the picture and let you find the caption yourself.
+
+## 2026-09-03 (evening) — the darts thread has taken the page back down, and they were right to
+
+A correction to what I wrote a few hours ago, while it is still fresh.
+
+**The grip-styles page has been reverted.** It is back to the three sections it had this morning:
+banner, one slab of text, button. The darts thread did it and told me straight away, reporting what
+actually happened rather than what either of us hoped. **I think it was the right call and I would
+have made the same one.** That page exists to earn search traffic so the site can get affiliate
+approval, and seven sections that all say roughly the same thing work directly against that. The
+pictures were the only part behaving; everything written around them was wrong.
+
+**What this does and does not change.**
+
+It does not undo what was proved. The page really did build with five different correct photographs,
+one per section, and it really did survive a full rewrite of its words an hour later with the
+pictures intact. I watched both, and I read them from the system's own records rather than from the
+look of the page. That happened, and taking the page down afterwards does not un-happen it.
+
+What it does change is that there is now nothing to go and look at. Anyone reading my note from this
+afternoon would go to the page and find the old one. So I have marked every document accordingly.
+
+**The darts thread also proved the writing problem better than I did, and I want that on the
+record.** I showed the writer's instructions never mention what each section is about by reading the
+configuration. They went one better and read the **actual instructions that were sent**, which the
+system stores for every request, and found that four sections which had been given four different
+descriptions received one identical instruction — the same request, byte for byte. That is proof
+where mine was an argument. I had reached for the second-best evidence without noticing the best
+existed, which is worth me writing down because I had spent the afternoon telling other people to
+check exactly this sort of thing.
+
+They also measured the damage further than I did. It was not just five similar headings: **every one
+of the sections re-wrote the whole article**, each explaining ring, razor and shark grip again from
+the start. Six times over.
+
+**One thing we disagree about, and I am not going to pretend otherwise.** They believe the durability
+test — can a picture survive the words being rewritten? — never happened, because they took the page
+down before anything rewrote it. My records say a full rewrite did happen, automatically, an hour
+after the build, and that the pictures were re-fetched from the plan rather than merely left alone.
+I have sent them the evidence and asked which of us is reading it wrong. It matters because that
+question is the entire point of the work, and I would rather have it settled by them than agreed too
+quickly by me.
+
+**Where this leaves you.** Nothing is lost. The five photographs still exist on the site's asset
+list, so the page can be rebuilt in minutes the moment the writing problem is fixed — and that fix
+is one waiting prompt change belonging to a third thread. Until then, rebuilding it just produces the
+same seven repetitive sections again, which is why nobody should.

@@ -97,3 +97,34 @@ the pages that exist and changes nothing about how the next article is born.
 The one thing this lane will keep pressing is the coupling. Per-section pictures are worth exactly
 as much as per-section subjects. One of those two shipped, and the gap between them is visible on
 the page the owner asked about.
+
+---
+
+> ## ⚠ CORRECTION APPENDED 2026-09-03, EVENING — the proving page has been REVERTED
+>
+> **The body of this summary is left exactly as written**, because the series is the record of what
+> was believed at each milestone and overwriting it would destroy that. This footer is appended
+> rather than woven in, for the same reason. But do not read the sections above as live state.
+>
+> `dartsonline_traffic` reverted `grip-styles` hours after this was written: **3** plan sections,
+> **0** section-scope imagery rows, `page_components` back to hero/article-body/call-to-action. The
+> five illustration assets remain `active`, so it is re-runnable in minutes. **Their call, and the
+> right one** — that lane wins search traffic for affiliate approval, and seven near-identical
+> sections work against it. Their words: *"the imagery was the only part that behaved."*
+>
+> **What still stands:** the binding was proved on a real page and read at the artefact, and a
+> revert does not retract a measurement. **What is now stale:** every present-tense sentence above
+> about the served page. **What is void:** this lane's pre-registered prediction about the re-render
+> path, which can no longer be resolved on that page. **apis.uk is again the only armed page.**
+>
+> **One claim above is disputed by that lane.** They hold that the durability property — figures
+> surviving a rewrite of the prose — remains unexercised, because they reverted before anything
+> rewrote over the figures. This lane's measurements say a second full writer run rewrote every
+> section's prose 69 minutes after the build and re-derived the figures from the plan rather than
+> carrying them forward. The evidence has been put to them; it is recorded as an open disagreement
+> rather than settled here. **NOTES §19b** has both positions and the numbers.
+>
+> **And their instrument was better than this lane's** for the writer defect: `llm_call_log.prompt_rendered`
+> holds the prompt actually sent, and one byte-identical prompt went to four of the five
+> same-component sections. This summary's account of that defect is correct and was reached the
+> weaker way. Logged in `WRONG_CALLS.md`.
