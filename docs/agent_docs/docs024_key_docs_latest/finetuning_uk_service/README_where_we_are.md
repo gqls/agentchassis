@@ -1254,3 +1254,12 @@ I'd do both. The demo can run on the small server we already have in the cluster
 
 Separately, the prompt change is written, reviewed and rehearsed by the apis.uk lane, and is
 waiting only on you reading the final words. They are in my message.
+
+2026-09-03, 10:15. You said rebuild the homepage now, and keep "We're not tied to one provider"
+with the rest of that sentence cut. Both are done as instructions: the homepage is queued for a
+full rewrite through the writer, which is the only route that runs the negation check. One slip
+on my side, caught before it mattered: the homepage never had a proper brief on file, only audit
+notes, and my first attempt copied one of those. It was rewritten as a plain brief before the
+queue picked it up. The technical-details rebuild is still queued too, behind another site's
+backlog. I'll report both when they land. The copy lane has the exact "before" for
+technical-details pinned, so the "after" can be measured rather than eyeballed.

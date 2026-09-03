@@ -2407,3 +2407,34 @@ questions raised: rebuild the homepage now (23/26 go; 3 new-shape survive until 
 which reading of *"We only need the first bit, not the 'not'"*: (a) truncate at the comma, keeping
 "We're not tied to one provider"; (b) the "not" out of the first bit too (positive form). Put to the
 owner 2026-09-03; awaiting his word.
+
+## 2026-09-03 (10:13Z) — owner: rebuild the homepage now, keep "We're not tied to one provider"; homepage content rebuild DISPATCHED (item `1513b86a`); a misstep in the dispatch, fixed before claim
+
+Owner's answers (AskUserQuestion, verbatim labels): **"Rebuild now"**; **"Keep 'We're not tied to
+one provider'"** (cut at the comma, over the positive-rewrite reading). Relayed to the copy lane.
+
+Dispatch: index page `a716cacc` `deployed→planned`; triaged `needs_content_page` for
+page-build-handler. **Misstep:** the recipe says "copy `spec` from the page's original gap_plan
+item", and the index page HAS no gap_plan item (it was born from the site build). Its only
+complete `needs_content_page` rows are `content-quality-audit` **verdict rows** (RFC_056
+`filing_mode=record`, `not_dispatchable` set, `routed_status`, a narrow "add an audience
+statement" suggestion). My INSERT copied one of those, so the item carried `not_dispatchable`
+and a brief that was not a page brief. Caught on the read-back of the spec keys, rewritten in
+place (`claimed_by IS NULL` guard) with a clean `gap_plan_new_page` spec: six sections as they
+stand, direction only (same purpose; `content_direction` + house voice govern; facts from
+`evidence_base`; the owner's one-sentence ruling), `item_key` `gap_plan_new_index_<site>`,
+`source='gap_plan'`. **The check that catches it:** after any spec copy, assert
+`NOT (spec ? 'not_dispatchable') AND NOT (spec ? 'mode') AND spec ? 'sections'`; added to the
+RUNBOOK recipe. `[UNMEASURED]` whether the dispatcher actually honours `not_dispatchable` on a
+`triaged` row; the rewrite made the question moot for this item.
+
+Copy lane, same hour: cleared the "silent no-op" landmine for both pages (every component on
+index and technical-details declares `llm` fields, so `check_render_mode` will call the model);
+pinned the technical-details **pre-gate baseline on `content_data`** (8 shape hits: x_not_y 2,
+rather_than 5, one "so"; `copy_quality_two_stage/BASELINE_2026-09-03_technical_details_pre_gate.md`,
+commit `41fef2367`); and set the pass test: **non-zero `rewrite_negations` rows in `llm_call_log`
+for the rebuild's correlation plus a lower `content_data` count** — the total CAN go up because
+the writer produces "rather than" freely (71% of gate rewrites), so "is it zero" is the wrong
+test. Compare on `content_data` only; served HTML carries chrome no component owns (7 vs 5).
+Correlations for both items owed to them when the trigger claims (watches armed: `bhs0wb272`
+for `896bb245`, `be12xyk5h` for `1513b86a`).

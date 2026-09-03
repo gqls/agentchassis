@@ -659,7 +659,11 @@ SELECT w.site_id, w.page_id, w.source, w.pipeline, w.item_type, w.severity, :sum
   FROM site_work_items w WHERE w.id=:original_gap_plan_item
    AND NOT EXISTS (SELECT 1 FROM site_work_items o WHERE o.site_id=w.site_id AND o.item_key=w.item_key
                     AND o.status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled'));
--- assert: 1 planned page, 1 triaged item, section_subjects length = sections length; then COMMIT.
+-- assert: 1 planned page, 1 triaged item, section_subjects length = sections length,
+-- AND on the new row: NOT (spec ? 'not_dispatchable') AND NOT (spec ? 'mode') AND spec ? 'sections';
+-- a page born from the site build has NO gap_plan item, and its only complete needs_content_page
+-- rows may be audit VERDICT rows (filing_mode=record, not_dispatchable) - copying one ships a
+-- non-brief with a do-not-dispatch marker (2026-09-03, homepage). Write a clean gap_plan spec instead.
 ```
 
 Gotchas: check the page's open items first (a `page_rerender` is harmless, a second
