@@ -5613,3 +5613,36 @@ on an unpublished site — the owner's call, not a hand edit.
   producer is periodic per site and the next selection is the unknown. Untouched.
 - Prose rebuilds: three `article-body` `phantom_internal_link` items still queued behind the tool-cta
   ones at time of writing; watcher `b14z2xpln` armed.
+
+### (yy) 2026-09-03 ~20:30Z — retirement COMPLETE on every axis; the brief fix written, proven and with the council
+
+**Retirement, closed.** The two prose rebuilds landed (`page-build-handler`, deploys `5e62b835…` 19:33:15Z
+and `6a2d63cd…` 19:38:51Z) and **both guides' `article-body` `content_data` read 0 refs** to the retired
+tools `[MEASURED 20:1xZ]` — the stored prose, which is what the retraction checks, not just the render.
+Re-audit (body incl. content_data / chrome / nav) for the two remaining URLs: **- / 0 / 1** each, with
+`website-brief-starter` as the control still showing 7 body + 2 chrome + 1 nav. Fired retraction
+`170a30c9`: **RETRACTED 2 of 2**, commit `f14a638e7a6b5def8c1ccd78790d1e4b8b4f3347`; nav rows SERP + Keyword
+Intent → `inactive`. Repo verified: both files **404**, control `tools/insight-injector/index.html`
+**present 53,510 B**. Final state: six archived, six retracted (repo commits `1b0c148…`, `44da691f…`,
+`f14a638e…`), three nav rows inactive, survivors' nav active, `content_components` untouched. The third
+`article-body` phantom item (a second href on an already-clean page) is still `triaged` and will
+resolve as a no-op. Six archived rows still carry `pages.deployed_at` (315/359 shape; recorded).
+
+**Cost of the owner's caution, for the record:** ~90 minutes wall-clock, all of it the estate's own
+machinery — zero hand edits to any content, and the retraction guard refused exactly when it should.
+
+**The brief fix (bugs_open/453), taken.** The 453 lane's SUMMARY says the fix "belongs to whoever takes
+it". Written as `sql_for_agents/764_…_HOLD.sql` (+ `_ROLLBACK`): four expressions →
+`{{if .x.text}}{{.x.text}}{{else}}{{toJSON .x}}{{end}}` in `classify_and_extract` and `plan_site`;
+md5-pinned (classifier `7d8494ed…`, planner `a73e9d49…`), snapshot pre-images, balance asserted
++2/+2/+2/+0. **Proven 8/8 under the real `text/template` engine BEFORE writing** (harness `tplproof/`
+in this dir): whole-render `<no value>` delta 0 / **−1** / 0 per context, sentinel only in the fixed
+object case, control reproduces the defect. Two of my own harness assertions were wrong first
+(absolute zero in the Mission block — the classifier's block also carries `Search Results` /
+`Scraped Website Content` / the library line, which a thin harness leaves empty) and were replaced by
+the delta; recorded in the harness README so nobody "fixes" it back. **Council-Submitted
+`888e7319-01ae-4371-846d-76fe227a1ebc`** (trailer on `f187ff842`). **NOT applied** — two shared agents,
+owner's moment, and the header mandates a make-it-run-once at the artefact, because 734 today.
+
+**Still untouched, deliberately:** copyonline's composition (re-files on its next design-discovery
+selection; `style_collection_id` still NULL) and the plan.

@@ -1715,3 +1715,24 @@ pointing at it, so I ran its retraction again and it went through cleanly this t
 and its menu entry switched off. The other two are waiting on three links inside the body text of two
 guides. Those are handled by rebuilding the guide pages, which is in progress. That route works most
 of the time but not always, so if it stalls I will tell you rather than edit the text by hand.
+
+**Half past eight — the retirement is finished, and the brief fix is ready for you.**
+
+All six pages are gone from the sites repository now, their menu entries are switched off, and the
+two tools you kept are untouched. The last step took longest because two guides mentioned the retired
+tools in their body text, and the only honest way to remove that was to have the system rewrite those
+two pages, which it did. Nothing was edited by hand at any point, and the safety check refused exactly
+when it should have and passed exactly when the links were gone.
+
+The other thing: the fault that stopped your brief reaching the classifier and the planner. I have
+written the fix. It is two agents, four lines of template, and it makes them read a structured brief
+the way the strategist already does, while leaving a hand-written brief exactly as it was. I did not
+just check that it looked right. I pulled both live templates, applied the change, and ran them
+through the real template engine under three situations each, including a control that reproduces
+the fault so the test could fail. It passed eight of eight. It is with the review council now.
+
+I have not applied it. It changes what two shared agents see on every run across the whole fleet, so
+that is your moment to pick, and the file itself says what to check afterwards: run one
+classification for copyonline and read what the classifier says about the brief. This morning a
+change to the same classifier passed every shape check and still broke it for four hours, which is
+why I am not calling this done until it has run once.
