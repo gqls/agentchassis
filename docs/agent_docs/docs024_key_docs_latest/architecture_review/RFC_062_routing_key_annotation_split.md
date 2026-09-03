@@ -1,6 +1,6 @@
 # RFC_062 — split `spec.reason` into routing key + annotation, then refuse a routing key nobody understands
 
-**Status: DRAFT 2026-09-02** · raised by `bugs_open/440` (spun out of 410's candidate 1, owner
+**Status: DESIGN RULED BY THE OWNER 2026-09-03 — open questions closed, see §Rulings; implementation phased** · raised by `bugs_open/440` (spun out of 410's candidate 1, owner
 decision 2026-09-02) · owning lane `docs024_key_docs_latest/bugfix_440_unknown_routing_key/` ·
 prior art: `bugs_open/404` (whose livespec header names this split as "the real repair" and
 defers it here), owner rulings 2026-08-02 §2 (opt-in shape) and 2026-07-29 §1 (the RFC trigger).
@@ -76,7 +76,21 @@ mechanism that reaches a door Go cannot see).
   a runtime dependency and a second source of truth beside livespec; the paste idiom is already
   established and declaration-audited. Rejected for now; revisit if vocabulary churn accelerates.
 
-## Open questions for the seats / owner
+## Rulings — OWNER, 2026-09-03 (these close the questions below; kept for the trail)
+
+| # | question | RULING |
+|---|---|---|
+| D1 | refusal destination | **Route the item to `needs_human_review`**, never a silent assemble and not a blunt orchestration failure — consistent with the 2026-07-31 never-silently-dropped precedent. The message must name the offending key AND the vocabulary. |
+| D2 | who signs the phase-3 gate migration | **The 404 lane CO-SIGNS.** The declarations it rewrites are theirs and the daily auditor holds them; do not ship it unilaterally. |
+| D3 | the write door | **YES — add the CHECK constraint** (NOT VALID first, validated after the census). This is the layer raw-SQL migration authors cannot bypass, which the census showed is the dominant unguarded producer. Every vocabulary change updates it in the same migration, exactly as the gate condition already requires. |
+| D4 | policing the annotation | **NO.** `spec.reason` stays free prose forever; the authoring advisory nudges, nothing forbids. |
+| D5 | phase 1b's courtesy gate on the 404 lane | **LIFTED** — proceed. (Their round is approved and they have been told; the wait was this lane's courtesy, not a rule.) |
+
+Consequences already carried into the plan: phase 3 ships the CHECK (D3) and the review-routing
+refusal (D1) together, co-signed (D2); nothing validates `spec.reason` (D4); phase 1b shipped
+2026-09-03 (D5).
+
+## Open questions for the seats / owner — ANSWERED ABOVE, retained for the trail
 
 1. Refusal destination: fail the orchestration (loud, blunt) vs route the item to
    `needs_human_review` (the 2026-07-31 never-silently-dropped precedent)? Lane recommends

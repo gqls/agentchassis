@@ -129,7 +129,21 @@ type rerenderMode struct {
 	StampReason   bool
 	KeyReason     string // exactly what the spec will carry; "" means assemble-only
 	UnknownReason string // non-empty when the caller passed a reason nobody declared
-	Warnings      []string
+
+	// RoutingKey is the value for spec.routing_reason — the ROUTING half of the
+	// spec.reason split (bugs_open/440, RFC_062, REB-008). This action is the
+	// FIRST sanctioned producer of that key; REB-008 forbids a second before the
+	// RFC lands.
+	//
+	// ⚠ IT IS SET EXACTLY WHEN KeyReason IS, AND THAT IS THE WHOLE CARE OF THIS
+	// CHANGE. Stamping it whenever the reason is merely KNOWN would be a
+	// behaviour change disguised as a foundation: image_landed WITHOUT a
+	// component_id deliberately stamps nothing (REB-001's designed degrade to
+	// assemble), so a routing key there would make the phase-3 gate route a page
+	// that assembles today. Keeping the two fields in lockstep is what makes the
+	// flip provably byte-neutral for every reason that works correctly now.
+	RoutingKey string
+	Warnings   []string
 }
 
 // rerenderModeFor resolves a (reason, component_id) pair against the ONE
@@ -176,6 +190,12 @@ func rerenderModeFor(reason, componentID string) rerenderMode {
 	m.StampReason = m.Scoped || r.StampAlways
 	if m.StampReason {
 		m.KeyReason = reason
+		// In lockstep, deliberately — see RoutingKey's doc. `reason` is
+		// in-vocabulary on this branch by construction (the !known branch
+		// returned above), so an unknown value can never reach the routing key:
+		// that is REB-008's no-bad-producer constraint enforced by control flow
+		// rather than by a check that could be edited away.
+		m.RoutingKey = reason
 	}
 
 	if r.StampAlways && r.ComponentScoped && componentID == "" {
@@ -439,6 +459,17 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 		if stampReason {
 			// page-rerender gates the section re-render on this reason.
 			spec["reason"] = reason
+			// And the routing half beside it (bugs_open/440 phase 1b). The gate
+			// still reads `reason` today — this key is INERT until RFC_062's
+			// phase-3 migration, and is written now so that when the gate flips
+			// there is a populated key to flip TO, rather than a drain window in
+			// which every in-flight item routes to assemble.
+			//
+			// ⚠ NOT part of the dedup key: pageRerenderItemKey still takes
+			// keyReason alone, so this addition cannot change which items
+			// dedupe against which (idx_swi_dedup) — the one way a "just add a
+			// field" change could have altered live behaviour.
+			spec[livespec.RoutingReasonSpecKey] = mode.RoutingKey
 		}
 		specJSON, _ := json.Marshal(spec)
 

@@ -107,3 +107,38 @@ Fresh chassis roll (ReplicaSet `8ddbf8958`). Verification `[MEASURED 2026-09-02]
   and 315 lanes.
 - 404 lane docs: still no verdict-recording commit. Phase 1b stays gated (unless the owner
   lifts the courtesy gate — put to them as decision D5 today).
+
+## 2026-09-03 (later) — OWNER RULED D1–D5; phase 1b BUILT and submitted (corr `934327db`)
+
+Rulings as recommended: **D1** refusal routes to `needs_human_review` · **D2** 404 lane co-signs
+the gate migration · **D3** the write-door CHECK is IN scope · **D4** `spec.reason` is never
+validated · **D5** phase 1b's courtesy gate LIFTED. Recorded in RFC_062 §Rulings (status flipped
+from DRAFT to DESIGN RULED), the lane PLAN's phase table, and REB-008.
+
+**Phase 1b, and the one decision inside it that mattered.** The naive implementation stamps
+`routing_reason` whenever the reason is KNOWN. That would have been a behaviour change wearing a
+foundation's clothes: `image_landed` WITHOUT a `component_id` deliberately stamps nothing
+(REB-001's designed degrade to assemble), so a routing key there would make the phase-3 gate
+route a page that assembles today — and it would have surfaced weeks later, at the flip, as
+"the flip broke image_landed". The shipped form sets `RoutingKey` **in lockstep with
+`KeyReason`**, inside the existing `StampReason` guard, which makes the flip provably
+byte-neutral for every reason that works correctly now. Found by reading the vocabulary's own
+comment (`RerenderSectionReasons`, the StampAlways doc) rather than by testing after the fact.
+
+Invariants pinned, each mutation-proved:
+- lockstep across the whole (reason × component_id) matrix — mutation A (hoist the assignment
+  out of the guard) → red;
+- an unknown reason yields NO routing key, by control flow (the `!known` branch returns before
+  the assignment), so phase 3 can never refuse an item this action minted — mutation B (assign
+  in the `!known` branch) → red, two tests;
+- producer/consumer round trip against `livespec.ResolveRoutingReason` (the drift this
+  vocabulary already suffered once);
+- the dedup key is untouched (`pageRerenderItemKey` takes `keyReason` alone) — the one way an
+  additive field could have changed live behaviour.
+
+Green in isolation against HEAD `e663a1d06` (`verify-head-builds --with`, both files). Submitted
+with the 404-r4 discipline applied to my own submission: a scripted check that every sketch
+contains what its rationale claims — 5 PASS, before dispatch, not after a REVISE.
+
+⚠ Shared file: three lanes in eight days (404 `ef4236b4d`, 384 `9a00a1ee9`, 315-reopen
+`8eca969cb` TODAY). Read fresh, diff confined to three hunks (32+/1-), pathspec commit.
