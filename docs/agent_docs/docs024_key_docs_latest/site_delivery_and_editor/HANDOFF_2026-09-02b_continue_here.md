@@ -285,6 +285,25 @@ EXPECTED pre-convergence shape, not a failure).
    > bypass no-ops under bare orchestrate; direct-handler has the 029 hang). **If you find the
    > floor at 0.1 with `2d1f9c51` terminal, run the ROLLBACK; if you find it 0.1 with the item
    > `claimed`, that is the monitor working — leave it.** The logo `d71b7877`, the chrome
+   > **RESULT 12:13Z: `2d1f9c51` COMPLETE 12:10:41Z on attempt 2** — handler spawned 12:07:28Z with
+   > `section_shrink_floor = 0.1` EMBEDDED (verified at `initial_request_data`); the window closed
+   > itself 12:11:05Z; other builds inside it: 0. **At the row: OWNER ITEM 14 FIXED** —
+   > content-listing `f01a8669`: 6 articles, 6 excerpt keys, 6 suffix-free titles, 6
+   > `article-card__excerpt`, 0 empty fingerprints, 6 `/blog/` links, 0 `/guides/`. The
+   > boxingonline session's pre-registered prediction HELD (a BUILD fixes the cards; the 425
+   > path-split model stands; binary v1.0.1358 stamp `d0252fd4d`, `f57f5ad1f` aboard).
+   > Sections now content-listing / info-card-grid / call-to-action; featured-content dropped
+   > (unknown `featured_post`). **CTA repaired for item 1** (their read: ~207 visible chars vs
+   > 1,116; tool walkthrough gone; two imperative labels) **BUT with one defect that should not
+   > ship: the subheadline says "the calendar below tells you what's coming up next" and the CTA
+   > is the LAST section — nothing is below it, and the calendar is `/tools/fight-calendar/`.**
+   > Also: the primary CTA now targets `/news/index.html` (the 332 residue page). **Fix route:
+   > framework only (`section_edit`/`content_rewrite` on that field), and GATED on the
+   > components lane's step-2 rerender discriminator on index — a copy fix ends in a rerender,
+   > which is the path that stripped the decks; key SURVIVES ⇒ file it; key GONE ⇒ it rides a
+   > BUILD or waits for 425's code fix.** Served /index.html still the 21:30 render until the
+   > mirror tick (`deploy_result` success, files [index.html]; `pages.deployed_at` unchanged —
+   > the 315 shape); monitor `b83oh2rij` reports decks + GTM on the served page.
    > refresh `ec92320f` and the components' `06210ec6` wait on the same turn and will load in
    > the same run (max 8), expected order 8 → 10 → 10 → 80.
    > **CORRECTED 10:31Z: "hours away" was WRONG — boxingonline is POSITION 2.** The

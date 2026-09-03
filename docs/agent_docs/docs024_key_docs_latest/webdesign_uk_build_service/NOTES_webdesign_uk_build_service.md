@@ -8280,3 +8280,31 @@ lane's per the ownership ruling.
   (pods 12:05:23/45) and was NOT dropped. At `spawn_content_writer` 12:07:39Z; save expected
   ~12:12–12:15Z; claim-gated monitor closes the window at terminal and prints the row.
 - Assemble batch `000622a9`: 18 triaged (loaded behind the prio-10 items; next boxingonline run).
+
+## 2026-09-03 (12:13Z, clock-read) — REBUILD COMPLETE: item 14 fixed at the row; window closed itself; CTA repaired with one false spatial claim; v1.0.1358 stamp read
+
+- **`2d1f9c51` COMPLETE 12:10:41Z** (attempt 2; handler spawn 12:07:28Z carried `section_shrink_floor=0.1`
+  `[MEASURED at initial_request_data]`; `deploy_result` success, files [index.html], commit
+  `b81788bcc`). Window closed by the claim-gated monitor 12:11:05Z (NOTICE; snapshot); hard-close
+  guard exited on terminal. **Other builds inside the final window (11:02:38→12:11:05): 0.**
+  Total exposure across all windows today: ONE build (vetcomparison directory-index, kept 0.88/0.89,
+  outcome unchanged).
+- **At the row `[MEASURED 12:11Z]`:** instances created 12:09:49–50Z — content-listing `f01a8669`
+  (2,237 visible chars), info-card-grid (1,763), call-to-action (333 by my regex; the guard's axis
+  read 181 vs 1,116 on attempt 1). Six articles: ALL `excerpt` present, ALL titles suffix-free;
+  rendered_html 6 × `article-card__excerpt`, 0 empty, 6 `/blog/` links, 0 `/guides/`. **Owner item 14
+  fixed at the row; the boxingonline session's pre-registered prediction HELD** (BUILD fixes the
+  cards → the 425 path-split model stands on v1.0.1358 too). featured-content dropped as predicted.
+- **v1.0.1358 stamp** `[MEASURED 12:11Z]`: `d0252fd4d` on chassis `554857f96f-kx69c` and both adapter
+  pods (`57bf7dfcc9-4f696/-w972z`; one chassis pod's startup line already out of range). Ancestry:
+  fcbe6071c, b2322a203, f57f5ad1f, 6440ec968 ABOARD; my `d5b8dc293` NOT — controls discriminate.
+- **CTA (boxingonline session's read, credited):** headline 39 / subheadline 113 / primary 28 /
+  secondary 27 chars — the walkthrough is gone, labels are imperatives: item 1 REPAIRED on length and
+  register. **Defect:** "…the calendar below tells you what's coming up next" — the CTA is the LAST
+  section; no calendar on the page (it is /tools/fight-calendar/, which the secondary CTA links).
+  A falsifiable spatial claim of the very class the repair was for. Primary CTA now → /news/index.html
+  (332 residue). **Fix route: framework only; GATED on the components lane's step-2 rerender on
+  index** (a copy fix ends in a rerender; if that strips the decks, the fix rides a BUILD instead).
+  Nothing filed on index until their reading lands.
+- Assemble batch `000622a9`: 2/18 complete at 12:11:59Z; `artefact_archive_trigger` rows on those pages
+  since 10:47Z: 0 so far (pass shape; final read when all 18 are terminal). Served about.html GTM=0.
