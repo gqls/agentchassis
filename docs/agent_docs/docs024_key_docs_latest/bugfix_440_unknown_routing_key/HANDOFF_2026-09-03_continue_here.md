@@ -65,12 +65,31 @@ early would route ~3,100 items to assemble: this bug's own shape, fleet-wide, in
    advisory (⚠ that file is IN council scope, 2026-08-24), its own round.
    ⚠ Config door measured EMPTY 2026-09-03 (no live `agent_definitions` stamps an in-vocabulary
    reason via `spec_literal`) — a snapshot, re-run it at phase 3.
+   **PART 2 DONE 2026-09-03** (council `3b484a74`, APPROVED): `check_rerender_routing_key` in
+   `scripts/pattern-check.py` reads the vocabulary FROM the Go constants (never a copy) and
+   refuses to run blind if it cannot — both blind modes mutation-proved; 11 findings across 844
+   migrations, so not noisy; ⚠ it only sees files a commit TOUCHES. Authoring rule = the
+   LANDMINES entry (synced). **Live findings carried forward**: two UNAPPLIED `_HOLD` migrations
+   (683, 701) mint `reason` with no routing key — `_HOLD` files ARE lintable, so the advisory
+   fires when they are touched, which applying one requires. The 9 applied migrations are
+   deliberately NOT edited (append-only history); their defect lives in the ITEMS, inside the
+   1,803 above.
+   **PHASE 2 IS LIVE AND PROVEN IN PRODUCTION**: 12 items carry `routing_reason`, written by
+   `completeness-discovery-agent` (the converted `check_misdirected_cta.go`) from 12:13 on
+   2026-09-03. ⚠ The fleet straddles two builds — `d0252fd4dab2` (98 pods) carries the
+   conversion, `7bf1ff674021` (43 pods) does not — so both behaviours are live at once.
 2. **Phase 3 — the flip** (RFC_062, co-signed per D2): gate reads the transition clause
    (`TransitionRerenderModeConditionClause()`), refusal branch routes to `needs_human_review`
    (D1) via `CheckRoutingKnownConditionClause()`, plus the CHECK constraint (D3). **Blockers:**
-   (a) **confirm the conditional evaluator's behaviour on a MISSING key vs `''`** — inverting it
-   refuses every legacy item (flagged in module header, RFC, both approved submissions);
-   (b) the unconverted-producer census reads zero; (c) 404 co-sign obtained.
+   (a) ~~confirm the evaluator's MISSING-key vs `''` behaviour~~ **DISCHARGED 2026-09-03 BY
+   EXECUTION — and the assumption was FALSE**: a missing key does NOT match `== ''`, so the
+   renderer (approved, shipped) would have routed every pre-phase-2 item to human review. Fixed:
+   the clause now emits `== null` AND `== ''`; four-state table pinned in
+   `rerender_routing_gate_clause_test.go`; general trap in LANDMINES. ⚠ **That fix is committed
+   but has NOT been through council** — it rides phase 3's round (it is inert until the migration
+   pastes the clause). (b) the drain census — `[MEASURED 2026-09-03]` **1,803 pending items carry
+   an in-vocabulary reason and only 12 carry a routing key**, so the transition clause is
+   load-bearing and narrowing must wait; (c) 404 co-sign obtained.
 3. **Close 440** when refusal is **fixed AND live**: induce an unknown routing key → it lands in
    `needs_human_review`; annotation-only prose still assembles unwarned; census clean. Then
    `git mv` to `bugs_closed` naming BOTH paths on the commit, verify at HEAD.
@@ -104,4 +123,4 @@ early would route ~3,100 items to assemble: this bug's own shape, fleet-wide, in
 | lane docs | this directory — PLAN (phases, consumers) · NOTES (evidence, dispositions, missteps; newest at bottom) · RUNBOOK (census, emission-counting, inert-verification) · README (owner-facing prose) |
 | code | `platform/livespec/rerender_routing_key{,_test}.go` · `platform/orchestration/actions/create_rerender_items_action.go` (`rerenderMode.RoutingKey`) + `…_routing_key_test.go` |
 | commits | `ec2efc06e` `a3758c399` `0600eb6b3` `5b5c669dd` `544de50e0` `35de364dd` `624d3d2e8` `ec66ed12b` `8657c3cb4` `4e9d25caf` `866bba283` + phase 2 part 1 (this session's last) |
-| council | `55def842` (1a) · `934327db` (1b) — both APPROVED r1 · `c7dab2c1` (phase 2 part 1) — verdict pending at handoff time, READ IT |
+| council | `55def842` (1a) · `934327db` (1b) · `c7dab2c1` (phase 2 part 1) · `3b484a74` (phase 2 part 2) — **ALL FOUR APPROVED r1**, all verdicts read and dispositioned in NOTES. ⚠ The evaluator fix (`== null`) is committed WITHOUT a round — it rides phase 3's |
