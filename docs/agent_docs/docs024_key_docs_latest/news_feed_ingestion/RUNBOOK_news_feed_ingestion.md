@@ -210,6 +210,55 @@ Record the correlation in NOTES when it lands. The commit deliberately carries *
 list it as un-reviewed until a later commit carries the trailer. That is accurate, not a
 gap to paper over: never write `Council-Reviewed:` on a verdict you have not read.
 
+## ⚠ After the 332 lane's display projection rolls, the SERVED feed surfaces stop being evidence about STORED data
+
+The `332` lane has shipped one display projection (`queryresolve/feed_display_text.go`)
+called by the news page resolver, `loadNewsItems` (the `/data/*.json` files) and
+`loadRSSItems`, with `DISABLE_NEWS_MARKDOWN_STRIP` moved into it. Inert until a chassis
+roll. **This changes what this lane's own verifications mean, in a direction that reads
+as success:**
+
+- **Before the roll**, a clean `/data/news-archive.json` meant the stored
+  `source_summary` was clean.
+- **After the roll**, it means the strip ran. Stored rows can be full of raw markdown and
+  the JSON will look perfect.
+
+So **do not** judge feed-data health at a served surface once that is live. For "is the
+visitor seeing markdown?", the served page is still exactly right. For "is my ingestion
+clean?", read the column:
+
+```sql
+-- stored truth, unaffected by any display-time strip
+SELECT count(*) FILTER (WHERE source_summary ~ '\]\([^)]*$') AS unclosed_link_tail,
+       count(*) FILTER (WHERE source_summary LIKE '%'||U&'\FFFD'||'%')  AS replacement_char,
+       count(*)                                                          AS rows
+  FROM content_feed_items cfi JOIN content_sources cs ON cs.id = cfi.source_id
+ WHERE cs.site_id = :site AND cfi.created_at > now() - interval '30 days';
+```
+
+**This applies to migration 746's own verification.** advertise.co.uk's
+`/data/news-archive.json` going from 404 to populated still proves the pipeline ran and
+the page can fill. It does **not** prove the ingested summaries are clean. Both are worth
+knowing and they are different questions.
+
+## Retiring the 332 lane's truncated-link pattern — the check, and why a double zero is the wrong result
+
+Their `MDLinkTruncatedRe` repairs at read what this lane's `6f0a246de` stops producing at
+write. Both are needed while the **288 rows already on disk** carry the shape. The check
+for whether their tier-1 pattern can be retired, which they specified and this lane owes:
+
+```sql
+-- rows created AFTER the web-search-adapter roll carrying 6f0a246de
+SELECT count(*) FROM content_feed_items
+ WHERE created_at > :roll_time AND source_summary ~ '\]\([^)]*$';
+-- and the SAME query over rows created BEFORE it
+```
+
+**A zero on new rows WITH a non-zero on old rows is the evidence.** A zero on **both** is
+not a better result — it is the tell that the census is wrong, because 288 old rows are
+known to carry it. That is a demand control in the shape this estate keeps re-learning:
+a post-fix zero means nothing without proof the query could have found a non-zero.
+
 ## Dry-running a migration WITHOUT the runner's probe
 
 The runner's probe refuses any file whose flattened text contains the WORD
