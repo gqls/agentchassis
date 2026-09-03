@@ -3101,3 +3101,20 @@ should rule on: cap=50 with quota=50 means one max file fills a free
 account, and his 52.8 MB test file needs either a quota raise or his
 account's overrides (which would also first-exercise the chunked path).
 Awaiting his run/word; /api/me remains the truth either way.
+
+### Limits ruling APPLIED and verified: 50 MB per file, 150 MB free quota
+
+Owner ruled free quota 150 MB ("2 videos and a few other things") and ran the
+env block (after two instructive failures: my first sed assumed a line the
+env file never had — grep exited 1 silently, NOTHING ran; then terminal
+wrapping split the retry mid-command, executing the env file as a command
+(Permission denied ×2) and the bare binary in the ssh shell, which refused
+loudly on missing NOTED_DATABASE_URL — no service impact, final grep shows
+no duplicate keys). Verified at the artefact via self-cleaning throwaway:
+`/api/me` = max_upload 52428800, media_quota 157286400, small_upload_max
+52428800. No live page hardcodes either figure (meter reads /api/me); the
+HELD tier copy must say 150 when it ships (its free-quota sentence was
+already excluded from the approved draft). Note: files ≤50 MB now travel
+single-shot (small cap = 50); chunking begins only above override-raised
+caps. The owner's 52.8 MB test file is still over the ruled cap — needs an
+account override (and would first-exercise chunking) if he wants it in.
