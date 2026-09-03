@@ -204,6 +204,46 @@ row; it does not `UPDATE` it.
    trigger, not an update trigger — **and why `page_id` is the only sane join**: it survives the
    replacement, and `component_id` is NULL on 44,555 of 45,285 rows.
 
+### STATUS 2026-09-03 ~08:35Z — the experiment is FILED AND QUEUED, not run
+
+Item batch `…000688`, `reason='template_changed'`, on **`guides-index`** (page `2e738efd`) — the
+lane's own new-shape baseline, built 17:23:02Z, `articles[0]` carrying `excerpt`, suffix-free,
+untouched since. Filed 08:26:24Z, **still `triaged`**.
+
+`[MEASURED 2026-09-03 08:35Z]` it is behind a backlog: **192 `page_rerender` triaged, 164 of them
+older than mine**, draining ~29 per 30 minutes. So it is roughly **three hours out** on FIFO. It
+is queued, not stuck.
+
+> ⚠ **A TIMED-OUT WATCHER PRINTS THE CURRENT STATE, WHICH READS EXACTLY LIKE A RESULT.** My first
+> watcher expired after 8 minutes and printed
+> `e6b51597 | t | f | 4 | 17:22:27` under the heading "THE DISCRIMINATOR RESULT". That is the
+> **unchanged baseline** — the item had not run. Nothing in the output says so. **Always print the
+> terminal status alongside the reading, and treat an unchanged `updated_at` as "did not run"
+> rather than "no change".** Here `17:22:27` is the give-away: it predates the dispatch by fifteen
+> hours.
+
+**Attribution does NOT depend on running this before or after anything else** — which is why the
+delivery lane's chrome wave was released rather than held for three hours.
+`page_component_history` carries `source_item_id` on **1,169 of 1,196** `save_page_sections_overwrite`
+rows in 24h, so a sections-path write names the item that caused it. Read the chain, do not police
+the order:
+
+```sql
+SELECT h.created_at, h.source, h.source_item_id,
+       (h.content_data->'articles'->0 ? 'excerpt') AS had_excerpt_BEFORE_this_write
+  FROM page_component_history h JOIN pages p ON p.id = h.page_id
+ WHERE p.id = '2e738efd-...' AND h.created_at > now() - interval '12 hours'
+ ORDER BY h.created_at;
+```
+
+That table archives **the state being REPLACED**, so each row says what the page looked like
+immediately *before* that write — a per-write before/after chain, already attributed.
+
+⚠ Assemble-path writes may arrive as `artefact_archive_trigger` rows with **no** `source_item_id`.
+For the delivery lane's own prediction that is cleaner, not worse: a byte-identical re-ship trips
+**neither** trigger (both test `IS DISTINCT FROM`), so **an absent row is their pass and a present
+row is their finding**.
+
 ### ⭐ THE EXPERIMENT TO RUN FIRST — it breaks the ambiguity that blocked this all evening
 
 Proposed by the `site_delivery_and_editor` lane as a question ("would a rebuild of boxingonline
