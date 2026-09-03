@@ -202,9 +202,7 @@ func NewRouter(pool *pgxpool.Pool, cfg *config.Config, gripper *GripperDeps, opt
 func mountGripper(r *gin.Engine, pool *pgxpool.Pool, g *config.GripperConfig, deps *GripperDeps) {
 	const prefix = "/api/v1/tools/gripper"
 
-	pub := r.Group(prefix)
-	pub.Use(middleware.CORSMiddleware(pool))
-	pub.Use(middleware.InputCapMiddleware(g.MaxBodyBytes))
+	pub := mountBrowserGroup(r, pool, prefix, g.MaxBodyBytes)
 
 	pub.POST("/session", middleware.BandedRateLimit(deps.Limiters.Session), handlers.GripperSessionHandler(deps.Store))
 	pub.OPTIONS("/session", func(c *gin.Context) {})
@@ -220,17 +218,34 @@ func mountGripper(r *gin.Engine, pool *pgxpool.Pool, g *config.GripperConfig, de
 	internal.GET("/requests", handlers.GripperRequestsHandler(deps.Store))
 }
 
+// mountBrowserGroup is the one way a BROWSER-facing route group is built in
+// this service: the group, then CORS (deployed-site Origin allowlist) so a
+// preflight is answered before anything else runs, then the group's own body
+// cap. The per-route band is applied at each route, because the bands differ
+// per route (DESIGN §2) while these two layers never do. Both the gripper and
+// the playground mount through it (council 63be72d1 round 3, reuse_agent: a
+// third hand-copied CORS→cap→band block is the platform's own "two paths
+// diverge quietly" case starting over). The gauntlet group predates it and
+// keeps its flat RPS bucket; it is not a browser-band group of this shape.
+//
+// Cluster-facing routes (the gripper's /requests) never come through here:
+// they need the internal-key group instead, and putting one behind CORS is
+// the landmine on this file. A caller that needs both builds both.
+func mountBrowserGroup(r *gin.Engine, pool *pgxpool.Pool, prefix string, maxBodyBytes int) *gin.RouterGroup {
+	g := r.Group(prefix)
+	g.Use(middleware.CORSMiddleware(pool))
+	g.Use(middleware.InputCapMiddleware(maxBodyBytes))
+	return g
+}
+
 // mountPlayground adds the third tool: finetuning.uk's public demo chat. One
 // browser group only — there is no cluster-side pull here, so no internal-key
-// group — in the gauntlet/gripper order: CORS (deployed-site Origin allowlist)
-// first so a preflight never spends a band token or reads a body, then the
-// body cap, then the per-route band on the one route. The model server itself
-// is reached only from inside the cluster; this group is the only public door.
+// group — built by mountBrowserGroup like the gripper's, with the per-route
+// band on the one route. The model server is reached only from the host
+// tools-api runs on, by the configured URL; this group is the only public door.
 func mountPlayground(r *gin.Engine, pool *pgxpool.Pool, p *config.PlaygroundConfig, deps *PlaygroundDeps) {
 	const prefix = "/api/v1/tools/playground"
-	pub := r.Group(prefix)
-	pub.Use(middleware.CORSMiddleware(pool))
-	pub.Use(middleware.InputCapMiddleware(p.MaxBodyBytes))
+	pub := mountBrowserGroup(r, pool, prefix, p.MaxBodyBytes)
 	pub.POST("/chat", middleware.BandedRateLimit(deps.Limiters.Chat), handlers.PlaygroundChatHandler(p, deps.Client))
 	pub.OPTIONS("/chat", func(c *gin.Context) {})
 }
