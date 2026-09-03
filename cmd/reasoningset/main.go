@@ -27,6 +27,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/gqls/agentchassis/platform/aiservice"
 )
 
 // ── the record we emit ──────────────────────────────────────────────────────
@@ -681,14 +683,66 @@ func commonExclusions(text string, p Provenance) (bool, string) {
 			return false, "blinded_docs"
 		}
 	}
-	if p.OutputTokens != nil && p.MaxTokens != nil && *p.MaxTokens > 0 && *p.OutputTokens >= *p.MaxTokens {
-		return false, "truncated"
+	if ok, why := judgeTruncation(p); !ok {
+		return false, why
 	}
 	if p.Success != nil && !*p.Success {
 		if strings.HasPrefix(p.ErrorMessage, "response truncated") {
 			return false, "truncated"
 		}
 		return false, "call_failed"
+	}
+	return true, ""
+}
+
+// judgeTruncation decides what the usage counts say about a completion, through
+// aiservice.ClassifyTruncation rather than a hand-rolled comparison (MDL-043 —
+// and this file's own rule, one line above commonExclusions: a new lane must call
+// the shared thing, not reimplement it).
+//
+// THE DEFECT THIS CLOSES (bugs_open/366). The old form was
+// `p.OutputTokens != nil && p.MaxTokens != nil && *p.MaxTokens > 0 && *p.OutputTokens >= *p.MaxTokens`.
+// The nil-guards, not the arithmetic, were the hole: when usage was never reported
+// the check was SKIPPED, so "the provider told us nothing about this call" was
+// silently handled as "this call finished normally". Those are different claims.
+//
+// ⚠ TruncationUnknown HAS TWO CAUSES AND ONLY ONE IS SUSPICIOUS — this is the
+// judgement bugs_open/366 reserved, and it is taken here on measured evidence
+// rather than by picking a side:
+//
+//   - a ceiling WAS recorded and the provider still reported no output usage.
+//     Anomalous: the ceiling proves the call went through the configured path, so
+//     usage should have come back. Excluded. [MEASURED 2026-09-03: ZERO such rows
+//     in the corpus — this is a latent hazard being closed, not live damage, which
+//     is the outcome 366 §4 said would be "a fine outcome to record".]
+//   - NO ceiling was recorded at all. The question was never answerable and there
+//     is no truncation signal either way. NOT excluded. [MEASURED 2026-09-03: 161
+//     such rows, 8% of the corpus's 2,013 successful rows — every one a
+//     score_relevance call from the Mar–May logging regime that did not record
+//     max_tokens, averaging 3,092 output tokens with no empty responses.]
+//
+// Collapsing those two into "exclude everything Unknown" would have deleted 161
+// substantial rows to guard a population of zero. That is why the ceiling is
+// tested separately rather than leaning on ClassifyTruncation's verdict alone:
+// the shared classifier answers "was it cut?", and it is right that it cannot
+// distinguish these, because the distinction is about LOGGING provenance, not
+// about the completion.
+func judgeTruncation(p Provenance) (bool, string) {
+	out, max := 0, 0
+	if p.OutputTokens != nil {
+		out = *p.OutputTokens
+	}
+	if p.MaxTokens != nil {
+		max = *p.MaxTokens
+	}
+	switch aiservice.ClassifyTruncation(out, max) {
+	case aiservice.TruncationAtCeiling:
+		return false, "truncated"
+	case aiservice.TruncationUnknown:
+		if max > 0 {
+			return false, "usage_unreported"
+		}
+		return true, ""
 	}
 	return true, ""
 }
@@ -701,29 +755,20 @@ func judgeInput(s inRow) (bool, string) {
 	if strings.Contains(s.InputState, "<no value>") {
 		return false, "no_value_injection"
 	}
-	// CLAUDE.md: output_tokens == max_tokens means the completion was CUT.
-	p := s.Provenance
-	if p.OutputTokens != nil && p.MaxTokens != nil && *p.MaxTokens > 0 && *p.OutputTokens >= *p.MaxTokens {
-		return false, "truncated"
-	}
-	// The fixloop docs are deliberately excluded from the loop's own input so
-	// the benchmark stays honest. They reach the corpus anyway via council-gate
-	// submissions that legitimately propose changes TO those scripts. Flag such
-	// rows so an eval consumer can drop them; a training-only consumer may keep
-	// them. Flag, don't drop — the distinction is the consumer's to make.
-	for _, marker := range blindedMarkers {
-		if strings.Contains(s.InputState, marker) {
-			return false, "blinded_docs"
-		}
-	}
-	// New-regime truncation surfaces as an error, with usage unset.
-	if p.Success != nil && !*p.Success {
-		if strings.HasPrefix(p.ErrorMessage, "response truncated") {
-			return false, "truncated"
-		}
-		return false, "call_failed"
-	}
-	return true, ""
+	// EVERYTHING ELSE IS THE SHARED RULE SET (bugs_open/366). This function used to
+	// carry its own copy of the truncation guard, the blinded-marker scan and the
+	// failure check — three rules, hand-maintained twice, in a file whose comment on
+	// commonExclusions says "a new lane must call this, not reimplement it" and
+	// records that the lanes had already drifted once. The copy here is why the
+	// nil-check defect had to be fixed in two places to be fixed at all.
+	//
+	// The blinded-marker scan runs over InputState, which is what the old copy
+	// scanned, so the same rows trip it. Ordering note, since it is the one visible
+	// difference: blinded_docs is now tested before truncation, so a row that is BOTH
+	// reports "blinded_docs" where it used to report "truncated". The exclusion
+	// decision is identical — rows are flagged, not dropped — and only the reason
+	// label moves. Pinned by TestJudgeInputDelegatesToCommonExclusions.
+	return commonExclusions(s.InputState, s.Provenance)
 }
 
 func runStartedBeforeFix(ts string) bool {
