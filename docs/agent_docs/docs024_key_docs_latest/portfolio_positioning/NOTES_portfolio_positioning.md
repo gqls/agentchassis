@@ -4259,4 +4259,19 @@ a layout bypass the tag matcher?* Measured instead.
   a wave of new failures**, so do not count terminal statuses and panic. They want to hear if our
   repairs turn up a shell their predicate misjudges (their [UNMEASURED] case: a page wrongly typed
   `tool` whose generic rebuild is genuinely wanted).
+- **(aa) follow-on — the 450 shell census goes GREEN at component-attach, not at publication, and
+  I nearly had it as my success metric.** Their correction, verified here 10:27Z: the census
+  predicate asks whether a live `component_level='tool'` row exists on the page. **seotools has
+  vanished from the census entirely** (61 → 54 shells fleet-wide) while **7 components attached /
+  0 pages published** — every one of the seven still serves prose to the public. So the census is
+  a repair-INITIATED count, not a repair-COMPLETED one, and the gap is an unbounded queue delay.
+  Same family as *a `complete` work item is not a repaired artefact* — and a nastier instance,
+  because here the green reading is a fleet-wide census a future session would quote as evidence.
+  **Our acceptance test stays the served body (form/inputs), never the census.**
+- **And the census cannot see the variant that matters most to the class.** It requires
+  `p.deployed_at IS NOT NULL`. websitepromotion's `tool-channel-prioritiser` — the SECTIONLESS
+  fork, which the fixing lane says is their best evidence for holding empty-sectioned tool pages —
+  was never deployed, so it is **excluded from the census that measures its own class**. A count
+  of shells cannot see a page that never shipped; the parked-HITL variant needs its own predicate.
+  Sent to them.
 
