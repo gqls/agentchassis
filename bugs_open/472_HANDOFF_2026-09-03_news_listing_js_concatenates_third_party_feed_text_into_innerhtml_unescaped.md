@@ -61,6 +61,32 @@ They also checked a surface a script-level review would miss: whether any `js_co
 Go template placeholders, which would bake DB text into the script body rather than fetching
 it. One component has one (`contact-block`) and it has **no `innerHTML` at all**.
 
+## Two different counts, and they answer different questions
+
+**[ADDED 2026-09-03, correcting a conflation of mine.]** I quoted "five sites" for most of this
+lane. That is the count of hosts currently **serving the published JS asset**. The count of
+sites **bound to the component** — which is what a `js_content` fix actually changes — is
+**ten** for `news-listing` and **eight** for `latest-news`:
+
+```sql
+SELECT cc.function, count(DISTINCT pc.component_id) AS distinct_components_in_use,
+       count(DISTINCT p.site_id) AS sites_using
+  FROM page_components pc JOIN content_components cc ON cc.id = pc.component_id
+  JOIN pages p ON p.id = pc.page_id
+ WHERE cc.function IN ('news-listing','latest-news') GROUP BY 1;
+-- 2026-09-03: latest-news 1 component / 8 sites · news-listing 1 component / 10 sites
+```
+
+Both numbers are true. **Use the binding count for blast radius and the asset count for "who is
+affected today"** — I had the smaller one to hand because I had spent the day probing served
+assets, and never asked whether it answered the question I was putting it to.
+
+That query also settles the question the council's guardian seat raised and I had never asked:
+`content_components` carries `forked_from`, and **103 of 561 rows across 67 distinct functions
+are forked**. Had either of these two been forked per site, a `WHERE function = '...'` UPDATE
+would have patched one site and left the defect live on the rest. Both are shared and single-row
+— and migration 758's verify block now **asserts** that rather than trusting it.
+
 ## Where it is live
 
 `/tools/assets/news-listing.js` is a published **200** on boxingonline.ugg2.com, idea.uk,
