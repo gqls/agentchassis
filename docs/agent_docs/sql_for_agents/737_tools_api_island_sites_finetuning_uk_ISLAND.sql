@@ -1,5 +1,15 @@
 -- 737 — tools-api on the ISLAND: allow finetuning.uk through CORSMiddleware.
 --
+-- WHY THE `_ISLAND` SUFFIX (council 63be72d1 round 2, guardian, gating). scripts/migration/
+-- run-migrations.sh sweeps this directory against clients_db and treats any file with an
+-- UPPERCASE suffix as a sidecar it reports and never applies (SIDECAR_RE='_[A-Z][A-Z0-9_]*\.sql$').
+-- A plain-named island file IS picked up: 198_tools_api_gauntlet_rounds.sql is in clients_db's
+-- schema_migrations (applied_by run-migrations.sh, 2026-08-08 18:14:54) and `gauntlet_rounds`
+-- exists in clients_db as a result [MEASURED 2026-09-03]. This file's INSERT would have SUCCEEDED
+-- there too (the core `sites` table has no NOT NULL column without a default beyond id/domain/
+-- status), leaving a garbage core site row. The suffix is the only thing that keeps the runner off.
+-- ROLLBACK (island): DELETE FROM sites WHERE domain = 'finetuning.uk';
+--
 -- TARGET    : the ISLAND Postgres (toolsapisuk.vs.mythic-beasts.com), NOT clients_db.
 --             Same target and ledger as 198 / 276 / 436:
 --   cd /opt/island && docker compose exec -T postgres psql -U tools_api -d tools_api -v ON_ERROR_STOP=1 < this_file.sql
