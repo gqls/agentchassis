@@ -188,3 +188,77 @@ HEAD: `TOOL_PAGE_HELD_NO_TOOL_SOURCE`'s `why` does not name the retention window
 disposition rule requires (`bugfix_450`'s entry). Proven not-mine on a clean extract of
 `cc572ea14` via `scripts/verify-head-builds.sh --test`, with none of this lane's files present.
 Scope your `-run` or you will chase it.
+
+---
+
+## 2026-09-03 — council `54abc24b` **APPROVED r1**, 2 objecting seats / 5 advisory objections, all answered
+
+`approved with 2 advisory objection(s) — none high-severity`; 12 reviews, 5 abstained,
+`gated_by_truncation: false`, `unreadable: null`. Read before any trailer was written.
+
+**Two of the five changed the code.** Recording all five with what was actually done, because
+an objection answered only in prose is the thing this lane's own finding is about.
+
+### bug_historian, MEDIUM (edit 2) — ACCEPTED AND FIXED, not filed
+
+> *"the plan surfaces a live contract mismatch … and explicitly chooses to file it only as
+> prose … a generic latent mismatch measured at 0 live occurrences today is precisely the kind
+> that fires silently once a future author adds one dotted `input_fields` entry"*
+
+Right, and the "0 live occurrences" framing was mine, so the objection is against my own
+reasoning rather than against the code. **Fixed rather than filed**, because the fix is one
+line in a function that only logs: `validateTemplateData` now asks
+`datahelpers.TemplateRootForInputField(field)` instead of `strings.Split(field, ".")[0]`.
+
+- **Byte-identical for an undotted entry** (leaf == whole), which is every live step today —
+  so no log the fleet emits changes, and the roll that carries it changes no behaviour.
+- Pinned by `validate_template_data_test.go`, which drives the **real** `ExtractFields` rather
+  than a hand-built map (a fixture agreeing with the old bug would have passed), asserts the
+  extractor's leaf-storage as an explicit **precondition**, and asserts the other direction —
+  a genuine absence must still be reported, or the fix could have been achieved by blinding
+  the check.
+- **Mutation M8: reverting to `parts[0]` turns it RED.**
+- ⚠ **the landmine's FIRST half is untouched and still bites**: `ExtractFields` stores under the
+  LAST segment, so `{{.a.b}}` is dead while `{{.b}}` works. That is the extractor's property
+  and no validator fix reaches it. LANDMINES and WFA-024 both updated to say exactly which
+  half moved.
+
+### guardian, MEDIUM (edit 2) — `ExtractFields`' 23 call sites deserve a look at the DIFF, not the intent
+
+Fair, and the honest answer is that the diff is small enough to read in full. `git diff` on the
+two extractor files is **11 added / 11 removed**, and every changed line is one of three
+mechanical substitutions:
+
+| before | after |
+|---|---|
+| `speciallyHandled := map[string]bool{…}` (inline literal) then `speciallyHandled[fieldName]` | `IsSpeciallyHandledInputField(fieldName)` over the same map, moved to package level |
+| `parts := strings.Split(fieldName, "."); simpleKey := parts[len(parts)-1]` | `simpleKey := TemplateRootForInputField(fieldName)` — the same expression, named |
+| `funcMap := template.FuncMap{…}` (inline literal) | `PromptTemplateFuncs()` returning the same four entries |
+
+No call site changed, no signature changed, no key-selection rule changed. All pre-existing
+`datahelpers` and `actions` tests pass unchanged, and `TestDottedInputFieldIsStoredUnderItsLeaf`
+now pins the key-selection behaviour that had no test at all before this lane.
+
+### guardian, LOW (edit 4) — confirm the vision constant ships in the SAME build as its contract
+
+**Confirmed, and now concretely:** both are in commit `4aaf64aee`, and the owner has a fresh
+chassis building today which takes committed HEAD. There is no window in which the constant and
+its declaration are in different images.
+
+### guardian, LOW (edit 5) — the plan listed one new file twice (`add` then `modify`)
+
+Correct; that was an authoring artifact of mine, not two files. `templateinputfields.go` is a
+single new file. Worth noting because the seat is right that it means reviewers saw two sketch
+fragments rather than one whole file — a resubmission would consolidate.
+
+### bug_historian, LOW (edit 5) — nobody triages the 16 `conditional_root` findings
+
+Accepted as a real gap, and it is the same gap as "not scheduled" rather than a second one.
+**Stated disposition, now written into the RUNBOOK and `bugs_open/453` §5 rather than left
+implied:** `conditional_root` is **context read at the moment you are already looking at a
+step**, not a queue anybody owns. It exists so that a reader chasing a real finding is not
+told a neighbouring template is clean when the check simply cannot decide. If it ever needs an
+owner, the honest move is to make it decidable — which means narrowing `input_data` promotion,
+a change to `ExtractFields`' contract and a different lane's work — not to open a triage rota
+over an undecidable class. `bugs_open/083`/`077`, which the seat cites, are exactly what an
+unowned queue becomes.

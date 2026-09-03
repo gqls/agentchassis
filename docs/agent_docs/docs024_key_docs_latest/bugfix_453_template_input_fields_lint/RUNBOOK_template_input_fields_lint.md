@@ -48,6 +48,13 @@ Three kinds, and **only `unreachable_root` exits 1**:
 | `conditional_root` | `input_data` IS in `input_fields`, so ExtractFields also promotes every key of the runtime `input_data` map to the root — undecidable from config | read it, don't chase it |
 | `declared_unread` | an `input_fields` entry no template variable reads; costs a whole-tree extraction every run | usually a template that lost a reference |
 
+**`conditional_root` is not a queue and nobody owns it — that is deliberate.** It is context for
+a reader who is *already* looking at a step, so that a real finding next door is not surrounded
+by templates reported clean when the check simply could not decide. Do not open a triage rota
+over it (council `54abc24b`, bug_historian LOW, citing `bugs_open/083`/`077` on what an unowned
+queue becomes). If it ever needs to be actionable, the move is to make it DECIDABLE — narrow
+`input_data`'s root promotion in `ExtractFields` — not to assign the undecidable class an owner.
+
 ## Gotchas that cost time here
 
 - **A dotted `input_fields` entry supplies its LAST segment.** `["a.b"]` makes `{{.b}}` work

@@ -1157,12 +1157,25 @@ func validateTemplateData(templateData map[string]interface{}, stepConfig map[st
 		zap.Strings("available_fields", getTemplateDataKeys(templateData)),
 	)
 
-	// Check each expected field
+	// Check each expected field.
+	//
+	// The key to look for is the LAST dotted segment, not the first. ExtractFields
+	// stores an entry under datahelpers.TemplateRootForInputField(field) — its leaf
+	// — so `reviewed_brief.company_name` arrives as `company_name` and nothing named
+	// `reviewed_brief` is written by that entry at all. Splitting on parts[0] here
+	// meant a dotted entry that extracted SUCCESSFULLY was reported as missing, and
+	// a genuine absence looked identical to it: the one cross-check the runtime has
+	// over this pair was answering about a key the extractor never writes.
+	//
+	// Byte-identical for an undotted entry (leaf == whole), which is every live step
+	// as of 2026-09-03 (0 of 1,474 declare a dotted entry) — so this corrects the
+	// latent case without changing any log the fleet emits today. Called out by the
+	// council's bug_historian seat on corr 54abc24b as the shape 016b §9 keeps
+	// recording: two halves of one contract, each green in isolation, meeting for
+	// the first time in production. bugs_open/453.
 	missingFields := []string{}
 	for _, field := range inputFields {
-		// Handle dot notation (e.g., "reviewed_brief.company_name")
-		parts := strings.Split(field, ".")
-		rootField := parts[0]
+		rootField := datahelpers.TemplateRootForInputField(field)
 
 		if _, ok := templateData[rootField]; !ok {
 			missingFields = append(missingFields, field)

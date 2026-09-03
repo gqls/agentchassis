@@ -261,3 +261,29 @@ is a natural thing to write and also silently makes `{{.a.b}}` unresolvable whil
   a CronJob is config-only, but none is wired yet. Until then it is hand-run, and this estate's
   own record is that detection without dispatch decays.
 - The 16 `conditional_root` and 19 `declared_unread` advisories are unread by anyone.
+
+### 6. Council `54abc24b` APPROVED r1 — and one of its objections changed §4 above
+
+`approved with 2 advisory objection(s) — none high-severity` (12 reviews, 5 abstained, no
+truncation, nothing unreadable). Full answers to all five objections:
+`bugfix_453_template_input_fields_lint/NOTES_template_input_fields_lint.md`.
+
+**§4's `validateTemplateData` mismatch is now FIXED, not merely recorded.** The
+`bug_historian` seat objected (MEDIUM) that filing a real-but-latent contract mismatch as prose
+gives the next author no signal, and that a mismatch measured at 0 live occurrences is exactly
+the shape that fires the moment someone adds one dotted entry. It was right, and the fix is one
+line in a log-only function: `validateTemplateData` now asks
+`datahelpers.TemplateRootForInputField(field)`. Byte-identical for an undotted entry — every
+live step today — so no log the fleet emits changes. Pinned by a test driving the REAL
+extractor, with the leaf-storage asserted as a precondition and the genuine-absence direction
+asserted too; mutation back to `parts[0]` turns it red.
+
+⚠ **Only the validator half moved.** `ExtractFields` still stores a dotted entry under its LAST
+segment, so `{{.a.b}}` is dead while `{{.b}}` works — a property of the extractor that no
+validator fix reaches. The LANDMINES entry and WFA-024 both now say which half is which.
+
+**On §5's advisories:** `conditional_root` is deliberately not a queue and has no owner. It is
+context for someone already reading a step, so a real finding is not surrounded by templates
+reported clean when the check could not decide. Making it actionable means making it
+DECIDABLE — narrowing `input_data`'s root promotion in `ExtractFields`, a different lane's
+change — not assigning a rota to an undecidable class.
