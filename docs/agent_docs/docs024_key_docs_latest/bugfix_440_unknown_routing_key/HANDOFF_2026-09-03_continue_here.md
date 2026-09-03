@@ -39,17 +39,34 @@ forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-0
 
 ## WHAT TO DO FIRST, in this order
 
-1. **Dispatch the council round for phase 3.** It was deliberately NOT dispatched: the owner said
-   a new chassis was about to be deployed, and **a roll kills an in-flight council**, wasting the
-   round. Submit once the roll has settled (and never within ~300s of a chassis pod restart — the
-   spawn is silently dropped). The submission JSON is not yet written; the material for it is in
-   RFC_062 §"Phase 3 as built" and the NOTES entry of the same date.
-   ⚠ **Everything in this commit that is IN council scope**: the three `741_*` files
-   (`_HOLD` IS in scope; `_ROLLBACK` and `_VERIFY` are refused client-side), plus
-   `platform/orchestration/actions/fail_work_item_message_template{,_test}.go`,
-   `load_work_item_actions.go`, `work_items_common.go`, `platform/livespec/rerender_routing_key.go`.
-   List EVERY one — this lane has been objected-to five rounds running on what the submission
-   SHOWED, never on what the code did.
+1. ~~**Dispatch the council round for phase 3.**~~ **DONE 2026-09-03 14:1xZ, after the chassis
+   roll landed** (`v1.0.1359`, replicaset `85c4984f77` 2/2 ready, pods 38 min old — well past the
+   ~300s window in which a spawn is silently dropped, and after the roll rather than before it,
+   because a roll KILLS an in-flight council).
+   **`SUBMISSION_CORR = 56047b18-9e0a-4107-a781-007df8ff59bd`** — submission
+   `submission_440_phase3_r1.json` (6 edits, 10 `grounded_in` quotes, 7 stated risks).
+   **READ THE VERDICT FIRST, before anything else in this list:**
+   ```sql
+   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+   WHERE correlation_id='56047b18-9e0a-4107-a781-007df8ff59bd' AND kind='council_report'
+   ORDER BY created_at;
+   SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+   ```
+   Budget ~30 minutes, not ~2 — the council itself takes 2–5 min but the dispatch queues behind
+   the fleet. A missing orchestration row is almost always latency, not a dropped dispatch; do not
+   retry on that evidence. REVISE → resubmit with `RESUBMIT_CORR=56047b18-…`.
+   ⚠ **The code commit `83407cd37` carries NO trailer and will list as un-reviewed in the `098`
+   report.** That is accurate rather than an oversight: the round was dispatched *after* the
+   commit, deliberately, because a chassis roll was imminent and forward-only forbids an amend.
+   The `Council-Submitted:` trailer is on the follow-up commit that carries the submission JSON,
+   so the correlation is in the git record. Do NOT write `Council-Reviewed:` anywhere until you
+   have read an approved verdict — `098` buckets that as MISMATCH, its dishonesty surface.
+   ⚠ Two things that already cost this lane something, for the resubmit if there is one: the
+   pre-dispatch self-check (every symbol named in `symbol` must appear in its sketch, and every
+   symbol NAMED must be visibly defined or explained) caught
+   `TestErrorMessageTemplateIsAbsentFromEveryLiveStep` named but shown only as a comment — the
+   exact class that drew a medium at round `c7dab2c1`. And `DRY_RUN=1` caught `operation:
+   "create"`, which is not in `allowedFixOperations` (a new file is `add`) — free, before credits.
 2. **Get the 404 co-sign (D2/D7).** That is the only release condition on 741. The lane is
    `docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/`, dormant since 2026-08-26; a
    CONTRIB asking for the co-sign has sat in their NOTES since 2026-09-02. If it stays dormant,

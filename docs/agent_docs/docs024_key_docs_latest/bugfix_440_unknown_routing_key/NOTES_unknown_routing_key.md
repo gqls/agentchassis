@@ -522,3 +522,39 @@ Per the lane PLAN those readers move to `routing_reason` when the gate NARROWS; 
 companion counts `keys_disagree` so the state cannot arrive unnoticed. Flagged to the council
 as a known risk rather than fixed here — inventing a new constraint now would be re-deciding a
 ruled design.
+
+### Phase 3's council round dispatched — corr `56047b18-9e0a-4107-a781-007df8ff59bd`
+
+Held until the chassis roll landed, then dispatched: `v1.0.1359`, replicaset `85c4984f77` 2/2
+ready, `rollout status` clean, pods 38 minutes old. Both timing rules respected — never within
+~300s of a pod restart (the spawn is silently dropped) and never *before* a roll (a roll kills an
+in-flight council, wasting the round).
+
+**Ancestry re-read against the new build, with a negative control** (`3043885191b2`): phases 1a
+(`a3758c399`), 1b (`ec66ed12b`) and 2b (`a75747e62`) ABOARD; `d0252fd4dab2` — which carried the
+phase-2 conversion — is an ancestor, so **`[MEASURED 2026-09-03]` THE TWO-BUILD STRADDLE IS
+RESOLVED**: the whole fleet now carries the conversion, superseding this file's earlier "98 pods
+`d0252fd4dab2` / 43 pods `7bf1ff674021`, both behaviours live at once". My phase-3 commit
+`83407cd37` is NOT aboard (it postdates the build) and the control behaves (HEAD not aboard) —
+which costs nothing, because the Go half is opt-in with zero live consumers.
+
+**Two pre-dispatch checks each caught something, and both were free:**
+
+- The **self-check I widened after round `3b484a74`** — "flag identifiers a sketch reads but never
+  binds" — found `TestErrorMessageTemplateIsAbsentFromEveryLiveStep` named in `symbol` but present
+  in the sketch only as a *comment describing it*. That is precisely the gap that drew
+  `editquality`'s medium at round `c7dab2c1` (`StampRerenderReason` named, body never shown), one
+  round after I promised to catch it. Body now shown. It also flagged three cross-edit references
+  (`renderFailWorkItemMessage`, `failWorkItemTemplateFallbackCode`, `LogActionEntry`) which are
+  legitimately defined in sibling edits — answered by saying so in the rationale rather than
+  duplicating them, since a seat reading ONE edit is the reader who gets stranded.
+- **`DRY_RUN=1` refused the submission before it cost anything**: `operation: "create"` is not in
+  `allowedFixOperations` (`modify|add|remove|config_change`) — a new file is `add`. Three of six
+  edits were wrong. **Always dry-run; it is free and it validates the scope admission too.**
+
+**Trailer position, stated because it is a real gap and not an oversight:** `83407cd37` carries no
+trailer and will list as un-reviewed in the `098` coverage report, because the round was dispatched
+*after* the commit (the roll forced that order) and forward-only forbids an amend. The
+`Council-Submitted:` trailer rides the follow-up commit carrying the submission JSON, so the
+correlation is in the git record either way. `Council-Reviewed:` stays unwritten until an approved
+verdict is actually read — writing it earlier is the `098` report's MISMATCH bucket.
