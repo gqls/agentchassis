@@ -4393,7 +4393,11 @@ questions, and the classifier mostly emits shape words.**
   and **0 of 33 rows carry the key**; a **threshold** (its own worked example reads *"scored
   utility-tool=0.82 above threshold 0.5"*) — absent from the code; and
   `layout_source: "needs_new_layout_candidate"` as a recordable value — **never written once**
-  (31 `library_match`, 2 `library_fallback`). So the gap signal was left firing on the only
+  (31 `library_match`, 2 `library_fallback` — ⚠ **their current-rows figure; re-derived here over
+  ALL rows including superseded, 2026-09-03: 36 rows, 34 `library_match` + 2 `library_fallback`,
+  and `needs_new_layout_candidate` STILL never written.** `site_specs` retains superseded versions
+  in-table under `is_current=false` rather than moving them to an archive, so `is_current` is this
+  table's rolling-window trap; the claim strengthens rather than breaks). So the gap signal was left firing on the only
   condition available, total score zero, which the category/description/scheme bonuses lift above
   zero unaided — hence the four sites recorded `tags 0.00` as a successful `library_match`.
 - **And the classifier's live prompt promises a mechanism the code cannot keep**, verbatim: *"If no
@@ -4417,4 +4421,20 @@ questions, and the classifier mostly emits shape words.**
   repeating it.**
 - **№5 composition check upgraded** to capture `layout_candidates` + the `reasoning` score, per
   their request — a "not soft-editorial" outcome is not enough; the score decides what it means.
+- **(cc) a correction OFFERED and a check that paid off sideways.** The 445 lane corrected its own
+  "one `needs_new_layout_candidate` row fleet-wide, ever" to **2** — it had queried only
+  `site_work_items` and missed `site_work_items_archive` (33,350 rows since 2026-02-22; corrected
+  denominator **63,007 work items ever**). Both rows are the same degenerate arm
+  (`"fallback — no classification tags"`), so their conclusion is unchanged and sharper: the number
+  of times this mechanism has ASSESSED THE LIBRARY and reported it short is still **zero**, now
+  zero of two. **I had not carried that figure** — what I carried was the different `layout_source`
+  claim above — so nothing of mine needed retracting. **But their check applies to my claim one
+  table over, and running it improved mine:** `site_specs` keeps superseded rows in-table
+  (`is_current=false`), so my "33 rows" was the current-rows count; over all 36 rows the answer is
+  the same and the population is bigger.
+  **The generalised check, worth more than either instance: before quoting an ALL-TIME count, ask
+  where the closed/superseded copies went.** Two different answers on this estate —
+  `SELECT table_name FROM information_schema.tables WHERE table_name LIKE '%work_item%'` (4 tables,
+  one a real archive) versus `site_specs`, which archives nothing and versions in place. A census
+  that names neither is a census of the present tense.
 
