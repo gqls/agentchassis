@@ -1517,3 +1517,20 @@ the editorial-design-uplift lane, whose whole job is making page families look f
 graphic treatments and charts. No single agent does "research, choose and apply" in one go, and the
 choice of components is not something I should make by hand, so that lane is where the imaginative part
 lives. They will write to you here or in their own log.
+
+**2026-09-03, 22:35 BST.** The explanation and the example pair are in the chat box's component now,
+under the box, with your sentence as the framing, and the six sections of the page are untouched
+(checked by hash). It reaches the live page when the queued re-render runs; I'll test it again in the
+browser then.
+
+On the homepage: the design-uplift lane answered quickly and honestly. The card and carousel choice is
+not theirs (their remit is the editorial feature pages) and it turns out nobody owns "swap a page's
+components", so I will do it, after the design critic's report lands, one slot at a time starting with
+the case studies, and checking your words are byte-for-byte unchanged each time. They will do the
+infographics. One thing you should know: the framework's site planner is currently instructed to
+produce almost no infographics ("use sparingly, most plans will have zero"), and across every site ever
+built it has produced exactly one. Making it produce them everywhere is a change to that instruction,
+with eighteen site rebuilds queued behind it, and is the planner owners' call, so I have not touched
+it. The narrow route for this page is to author its infographic entries by hand, which is what the
+uplift lane will do. Words and figures in those graphics will be real HTML text over real facts, not
+pictures of text, because the claims checks cannot read text inside an image.

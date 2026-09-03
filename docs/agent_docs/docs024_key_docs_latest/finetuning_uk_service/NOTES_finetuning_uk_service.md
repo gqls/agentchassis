@@ -3458,3 +3458,42 @@ info-card-grid), and the constraints: the copy is his and approved tonight, so c
 rerender/edit_live, never a full build; case-studies-grid renders registered facts; infographic figures
 resolve through facts; `/playground.html` out of scope. Asked them to say if it is not theirs.
 Homepage components hand-picked by this lane: none, on purpose.
+
+## 2026-09-03 (21:18–21:30Z) — widget regeneration LANDED in the DB and verified; the design-uplift lane's answer: a split, an infographic finding, and three construction constraints
+
+**Replace run `e1b2bcf8` complete 21:18:37Z (TL-047 in place).** `[MEASURED at the rows]`: ONE active
+`tool-playground-finetuning-uk` (`b19eabe6`, updated 21:17:33, 20,808 chars, was 15,653); present
+verbatim: the owner's framing ("five articles and a handful of short emails"), "What to try" + the
+three prompts, the labels, the target text ("I just can't just yet!"), the fine-tune text ("Grateful for
+a Moment of Closure"), the base text ("Feedback on [Domain Broker's Site]"), the closing sentence; the
+endpoint and `getReader` unchanged; no em dash. **The six sections' rendered_html hashes are IDENTICAL to
+the 21:10Z snapshot** (only the tool slot changed, 15,693 → 20,838). No stock `needs_content_page` twin
+this time (replace does not mint one); `page_rerender` `d4f151bc` queued 21:17:51 — served when it runs.
+
+**The `editorial_design_uplift` lane answered (their CONTRIB in this dir,
+`CONTRIB_2026-09-03_from_editorial_design_uplift_answer_on_the_homepage_cards_and_infographics.md`,
+commit `a85bcedea`):**
+- **Routing:** their scope is the EDITORIAL page family, not a marketing homepage; but nothing else owns
+  a component swap either (their live census of 80+ item types: nothing swaps a slot's component;
+  nearest `needs_new_component` / `needs_component_regeneration` / `needs_design_review` 165 /
+  `needs_new_layout_candidate` 1 ever). **Split accepted 21:28Z: this lane chooses and applies the
+  card/carousel components on `/index.html`; they take the infographics and the missing swap mechanism.**
+- **Infographics — do not ask the framework, it will produce none, by instruction:** the
+  build-site-planner prompt (`f263eaa1`) allows `kind='infographic'` but says "Use sparingly in v1 —
+  most plans will have zero section-scope entries"; fleet census all history: hero 399 · icon 211 ·
+  logo 50 · illustration 25 · **infographic 1**. Changing that is a fleet-wide PROMPT CHANGE (planner
+  owners' call; 18 site remakes queued behind it). **Narrow route, one site, reversible:** hand-author
+  this page's `site_plan_imagery` rows at `kind='infographic'` scoped to the concept-explaining sections.
+- **Three constraints on what an infographic may be MADE of (VIZ-007/009/011):** (1) NO arithmetic in
+  the render funcmap — a template that computes a coordinate renders NOTHING (parse error); pass values
+  into CSS custom properties and let the browser divide. (2) Text inside `<svg>` is INVISIBLE to the
+  claims gate — HTML text with CSS-drawn furniture, never words or figures in SVG. (3) Chart furniture is
+  a graphical object → WCAG non-text contrast; `--color-border` is usually the failing token; measure in
+  the same run.
+- **Library traps for the card swap:** `section_type` ≠ function on all seven (hero-card-carousel →
+  `hero-carousel`, swipeable-insight-carousel → `insight-carousel`, image-hover-card-grid →
+  `image-hover-cards`, info-card-grid → `info-card`); resolve the FUNCTION, count the three placement rows
+  (035 §6.9; a by-name match was bugs_closed/044); six of seven are `render_mode='agent'` → canary the
+  case-studies slot ALONE, words byte-identical at the served artefact.
+- Their `design_critique_run` advice: file it now — already filed (`204f1ff7`); its report is the
+  research input; the swap does not start before it is read.
