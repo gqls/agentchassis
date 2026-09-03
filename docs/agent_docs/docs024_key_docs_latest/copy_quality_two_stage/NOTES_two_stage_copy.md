@@ -3772,3 +3772,16 @@ pages is exactly the transfer question the supplied class exists to put in front
 the filed item carries it; if the read says format-descriptors are a distinct non-defect
 class, that's a v3 treatment note, NOT an in-place v2 change (the usage rule). First-cycle
 label printed as designed; N-of-M movement reads as the arm arriving.
+
+**2026-09-03 mid-morning — the canary saga + v2 skew CLOSED:** the fleet rolled AGAIN
+(v1.0.1356, pods 08:58Z) and the binary probes PRESENT for both `plain_words` and
+`injectPlatformBlocks` — **the page gate now scans em-dash x_not_y fleet-wide; the
+conservative CLI-ahead skew is closed after one nightly cycle.** The planner canary's two
+drops now have distinct explanations: drop 1 (20:00Z, receipted publish, zero mint, zero
+consumer trace, while 16 copy-editor envelopes minted the same path hours earlier that day) is
+UNDIAGNOSED envelope-family-specific behaviour; drop 2 (~09:0xZ) landed inside the documented
+~300s post-restart spawn-drop window of the 08:58Z roll — the landmine, exactly. Fire 3
+(corr `5dcc3476`) went out on a verified-stable rollout. If IT drops, the family-specific
+question hardens into a filing (symptom + the cli-mint census as evidence, cause marked
+undiagnosed, 090 candidate); the gap-planner's 28h-unclaimed queue item remains corroborating
+evidence of a dispatch gap for this agent either way.
