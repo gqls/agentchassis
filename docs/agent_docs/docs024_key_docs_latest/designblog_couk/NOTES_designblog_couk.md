@@ -650,3 +650,29 @@ the conclusion (5 pre-existing anomalies ≠ a generalisable route) survives,
 and the measurement date on the figure is the only reason the staleness is
 visible. Their 23-row count is likewise a count of their fix's footprint, not
 the original defect — the repaired-population hazard from both sides now.
+
+## 2026-09-03 — components STOPPED the wave, rightly: the closing premise was a hypothesis in a fact's voice
+
+> **CORRECTION to the two entries above:** "closing = re-resolving re-renders"
+> was INHERITED (from the 114 mechanism read) and relayed by me as settled.
+> **It is untested for `site_assets.*`** — components traced the ONE page that
+> visibly improved post-721 (garden-tools.uk/contact, 09-02 23:18) via
+> `page_component_history.source_item_id` and it arrived through the **BUILD
+> path** (item `726aa1e5`, type `unbuilt_internal_link`, handler
+> page-build-handler, reason NONE) — not a re-render, no reason. Combined with
+> 425 §2 (rerender path does NOT re-resolve `query.*` sources; reproduced 4×,
+> 8 branches eliminated), the single data point leans AGAINST the premise.
+
+State now: **components owns the discriminating one-page test** (one
+`page_rerender` with `reason='image_landed'` on a page with its own unrendered
+hero; artefact read; attribution by `source_item_id` keyed on page_id). Wave
+CONTINGENT: if it lands → HELD migration (683 shape: owned-page exclusion,
+NOT EXISTS dedup, induced guards), firing handed to the 24 sites' owners; if
+not → hero class + deck class share the 425 §2 root cause and **the fix is
+the rerender path itself**, not a wave at it. Their independent population:
+**57 instances / 24 sites** (vs the census's 61 — same class, separately
+derived, both dated). Queue constraint said out loud: `page_rerender` 192
+triaged, draining ~29/half-hour — 57 more would sit most of a day and slow
+everyone's, incl. this site's GTM wave. Asked them to pick a NON-designblog
+test page (GTM chrome wave would muddy attribution here). Counter-evidence
+relayed to inline guide imager so 114 doesn't carry the premise as fact.
