@@ -126,3 +126,39 @@
   packaging = 0 marketplace-wide** — thin-demand signal for those categories,
   usable in the keep/sell call. Porkbun lane's valuation involvement COMPLETE
   (API toggle = repricing writes only).
+
+## 2026-09-03 — cross-registrar YES; Afternic export in; overpriced MEASURED
+
+- **Dynappraisal accepts non-Dynadot domains — MEASURED**: aakn.com (Porkbun)
+  → $4,554, HTTP 200, first call of the 09-03 window. Whole estate appraisable
+  at 300/day. Day's walk running (inventory 153 then priority list): this
+  session, background task, started ~09-03 morning.
+- **Dynadot inventory 451→453** (owner panel read 452, fresh pull 453, diff =
+  2 pure additions overhead-cranes.com/paper-cups.com, 0 drops — the estate
+  grows between snapshots). Both categorised manually; walker appraises them
+  in the inventory pass.
+- **Afternic export DELIVERED** (owner's export dated 09-03; their commit
+  `a48e37340`): 1,634 rows. price_source split: **buy_now 419 / floor 3 /
+  min_offer 1,212** — so ~74% has NO ask, only a floor; "generally overpriced"
+  is testable ONLY against the 419. Currency USD-assumed (export carries no
+  marking). 0 never appears (empty = not set). Identity flag: owner quoted
+  veterinarypractice.co.uk, export holds veterinarypractice.uk. Full snapshot
+  (floors/landers/leads/fast-transfer) at
+  afternic_domain_management/snapshots/portfolio_2026-09-03.json.
+- **689 Afternic rows not in the retail estate = Nominet preview**: 340 .uk +
+  337 .co.uk + 10 org.uk + 1 me.uk + 1 .us (`AFTERNIC_unmatched_2026-09-03.txt`)
+  — ~half the ~1,500 Nominet estate, with floors, before the walk has run.
+  Deterministic pass: 355/689 placed (financial 98, web-digital 85 — the UK
+  estate is finance/web-heavy as expected); 334 to LLM second pass (running).
+  Registrar = 'afternic-preview', reconcile against the real walk.
+- **WORKING_table.csv builder live** (`build_working_table.py`, re-runnable):
+  1,339 rows; expiry+NS 100%; live asks 422 (417 afternic buy_now + 5 dynadot);
+  afternic floors 532; appraisals 326-and-climbing; comps medians 267;
+  19 keep overrides; 3 trademark flags.
+- **"Generally overpriced" MEASURED 09-03** (early sample, 80 domains with
+  both buy_now ask and appraisal): ask/appraisal median **5.4×**, p25 1.78,
+  p75 13.7; 63/80 above 1.5×; extremes ask $25k vs appr $193
+  (free-credit-report-check.com). Even min_offer floors run median **5.8×**
+  appraisal (n=181). The owner's judgement CONFIRMED and now has a scale:
+  keen pricing near appraisal ≈ a ~5× cut from current asks. [Sample is the
+  first 326 appraisals — re-run at walk completion.]
