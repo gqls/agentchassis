@@ -242,6 +242,48 @@ live change. In priority order:
 > > is `["hero-card-carousel", "info-card-grid"]`.
 > >
 > > **The Illustrated Text Block half is NOT started.**
+> >
+> > **⚡ COUNCIL r1 = REVISE (9 of 11 seats approving), r2 SUBMITTED 15:30Z, verdict pending on the
+> > SAME corr `2ac895f3-ca82-4dbe-8f4e-3335a04b8925`.** The gating objection from `bug_historian` was
+> > **right**, and answering it changed something in the estate rather than just in the file:
+> >
+> > **The LANDMINES entry "a `source: static` field OVERWRITES your stored `content_data` on every
+> > section resolve" is HALF STALE, and I have corrected it in place.** It says the opposite of this
+> > migration's central claim, at the identical call site. The dates settle it: the entry was
+> > measured **2026-08-03**; `carryStored` entered `plan_sections_action.go` **2026-08-11**
+> > (`d26c26a9a`); the renderer/**static** branch got it **2026-08-14** (`8f899cc8d`, `fix(268)`) —
+> > **eleven days after the entry was written.** Corroborated in live data, not just git: 11
+> > instances across 6 sites store a static-source value differing from its fallback, the
+> > load-bearing ones written *after* the fix (`mortgagecalculator.co.uk` `tool-list.card_link_label`
+> > = "Work it out" vs fallback "Open tool", `updated_at` 2026-09-01 02:44Z).
+> > ⚠ **The entry's `query.*` half is STILL LIVE and is NOT retired.**
+> > ⚠ **The generalisation is worth more than the entry:** a landmine is a snapshot of a DEFECT, and
+> > a defect is the thing most likely to be FIXED — so **a landmine goes stale in exactly the way its
+> > own advice cannot detect**, and reads as a live warning for ever. This one was right for 11 days
+> > and misleading for 20. Before acting on any entry: `git log --since=<its added date> -S '<the
+> > symbol it names>' -- <the file>`.
+> > (⚠ My LANDMINES edit was swept into another session's commit `276d65655` before I could commit
+> > it. Verified intact in HEAD; nothing lost. Forward-only holds.)
+> >
+> > **⚠⚠ AND THE THING THE WHOLE COUNCIL MISSED, found only because `tooling_provenance` objected
+> > that I had not read the travelling docs: `info-card-grid` HAS AN ACCEPTANCE FENCE, and one of its
+> > six checks is `no_horizontal_overflow`, desktop AND mobile** (`doc_plans`,
+> > subject_type=`component`, subject_key=`info-card-grid`, 2026-08-05). A carousel is by
+> > construction a horizontally overflowing track. **It should pass** — the checker exempts any
+> > element with a scrollable ancestor
+> > (`internal/adapters/browserrunner/run_checks_action.go:1094-1104`, "a scroll container makes the
+> > width reachable"), and the carousel puts `overflow-x: auto` on the cards' direct parent.
+> > **BUT THAT IS A MECHANISM READ, NOT A RUN:** the recorded acceptance pass (2026-08-05, 10 of 10)
+> > was taken on `ai-agent-orchestration.com/services.html`, a **flag-unset GRID** placement, so
+> > **the fence has never run against a carousel.** ⚠ **WHOEVER APPLIES 740 OWES ONE FENCE RUN
+> > AGAINST A FLIPPED PLACEMENT.** It is the one check the migration cannot make for itself.
+> >
+> > Also answered in r2: the boolean-fallback footgun is measured fleet-wide and the class is
+> > **EMPTY** (2 boolean fields, both correct, zero non-boolean) so the platform guard is declined
+> > with its threshold stated; the UPDATE predicate now mirrors the drift guard; a real whole-schema
+> > pre-image with an assertion mutation-proven by a mutant that passes every count check; and the
+> > landing mechanism is the existing `page_rerender` queue (9,723 complete, latest 15:26:59Z today)
+> > with the **mixed-state interim named as a real visible cost**.
 
 3. **boxingonline cards** — design against image + headline + deck; category/date/read-time collapse
    by default after migration 682. ⚠ **Do not add a short display-headline field**: `nav_label` is
@@ -292,6 +334,24 @@ live change. In priority order:
   separate** — ⚠ **my bundling them with the accent was an over-reach and the sharper of my two
   errors**; only `d6da17b4` is superseded; **the primary at 4.94:1 is the sharpest finding** (static,
   load-bearing, 0.44 headroom).
+- **`site_delivery_and_editor` (boxingonline.com, first paid build)** — NEW 2026-09-03. They asked
+  this seat for the palette values and the pinned logo/wordmark call; **neither answer was the one
+  asked for, and one of mine was WRONG.** Full record:
+  `docs/agent_docs/docs024_key_docs_latest/site_delivery_and_editor/CONTRIB_2026-09-03_from_the_designer_seat_the_palette_is_already_ruled_and_the_logo_is_the_real_defect.md`.
+  · **Palette: no decision needed** — owner ruled 09-02, *"the cream off white decision is fine — no
+  design churn"*, and the site already serves BOTH halves of the "self-contradicting" brief
+  (`#0a0a0a` header AND footer, red, gold, on the off-white ground). They accepted and logged it.
+  · **Wordmark: I said yes and I was WRONG** — the owner ruled *"(2) header stays LOGO-ONLY. Closed."*
+  on 09-02, at `docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/NOTES_webdesign_uk_build_service.md:6905`.
+  I asserted an absence from a phrase-grep over one lane's directory. **Fourth false absence from my
+  own grep in a week**; logged in `WRONG_CALLS.md`, CONTRIB corrected in place.
+  · **The finding that stands: the logo shares NO colour with the site.** 52.4% blue, 45.3% neutral,
+  ONE red pixel of 16,372; zero within ±60 of brand red `#C0392B` or gold `#D4A017`. A raised
+  protest fist in a diamond, illegible at the served 40px, losing 48.4% of its ink on its own
+  near-black header. **They reproduced the census independently on a different artefact** (206,018
+  opaque px, 53.2%/45.0%, same zeros) **and found the sharper half: their prompt asked for "a
+  stylised boxing glove or ring ropes", so it is a subject-fidelity miss (the 417 family), not a
+  palette or transparency one.** Going to the owner as a new question; nothing owed back here.
 - **`designblog.co.uk`** — owner's fleet-sameness directive. The visual auditor **exists, is live, and
   scores coherence not impact**: zero mentions of imagery/infographic/visual-impact/distinct, never
   sees the rendered page, single-site by construction. Cohort sameness **is** cheaply measurable and
