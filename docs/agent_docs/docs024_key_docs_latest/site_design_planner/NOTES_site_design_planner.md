@@ -649,3 +649,27 @@ like the wrong kind of intervention for a genuinely harmless collision.
 
 Reported to `vetcomparison` for their artefact verification, as agreed
 throughout this thread.
+
+## 2026-09-03 — `bugs_open/445` handed off cleanly to a new owner
+
+A new session ("bugs_open/445") picked up the layout-library-gap bug, checked
+ownership first rather than assuming, and confirmed 445 is parked here (my own
+NOTES/commits already said so). Handed off with two honest answers rather than
+guesses: confirmed `git status`/`log` clean on both files they're about to
+touch (`resolve_composition_layout_action.go`, `fork_theme_composition.go`) —
+nothing of mine in flight; and on whether the weak-positive-match case was
+DELIBERATELY excluded from `queueLayoutCandidateReview`'s trigger — said
+plainly **I don't know**, having actually checked (grepped the register and
+the code comments near `IsFallback`/`IsSchemeMismatch`, found nothing), rather
+than assert an answer to sound useful.
+
+**Their reframe is worth naming here since it's stronger than my own bug's fix
+candidate 1**: `queueLayoutCandidateReview` only fires on total mismatch or a
+scheme gap — a positive-but-weak match (which is what produced 445's
+convergence on `magazine-grid`) trips neither condition, so the mechanism that
+exists specifically to surface "library is missing something" cannot see the
+shape of gap 445 found. `[their MEASURED, 2026-09-03]`: one `needs_new_layout_candidate`
+row, ever, across 38 resolved sites, and it's the zero-tags case (bug 431's own
+territory), not a weak-match case. If confirmed, this is the better fix to
+prioritise over 445's one-archetype proposal — routed there now, not chased
+here.
