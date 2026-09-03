@@ -84,13 +84,26 @@ predicate.
 **So a kit works on an ALREADY-CLASSIFIED site and is defeated on a new one — the inverse
 of the owner's *"by default it can start with a theme."***
 
-**My recommended remedy, and why it is not done:** refuse or warn when the site has no
-classifier-written `design_intent` yet. It changes no cascade and converts a silent loss
-into a reported one. It is still a behaviour change to a live shared action, so it owes its
-own council round rather than a same-day commit. The other two candidates are
-architecture-scope (make the classifier respect `locked` — it changes the classifier's
-write authority over a shared aspect) or build on 438's own defect (write
-`mission.preferred_typography`, which survives that path only by accident).
+**THE GUARD IS BUILT — `b18091066`, and this paragraph used to say it was deferred.**
+Council round 3 gated on exactly that deferral, and two rounds gating on the same missing
+guard is the council saying the deferral *was* the defect. `classifierDesignIntentState()`
+asks whether `domain-research-classifier` has ever written this site's `design_intent`; if
+not, the apply records `design_intent_supersede_risk` in **three** places — a WARN naming
+the mechanism, the `theme_kit_adoption` spec so it is durable and queryable, and the
+action's result. Three-state string, never a bool, so a read failure cannot be recorded as
+"no risk". Proven by two mutations, both red with the right message, restored green,
+evidence in the test header; the predicate discriminates 38 of 39 live sites.
+
+**It REPORTS, it does not REFUSE, and that is the judgement most open to challenge.**
+Layout survives on a different aspect and is the only dimension a kit moves, so refusing
+the whole apply would throw away the part that works to protect the part that does not.
+
+**What is still NOT fixed, and stays `bugs_open/438`'s:** the ordering itself. The
+classifier still supersedes and the kit's typography is still lost on the fresh path — the
+guard only makes the loss visible instead of silent. The other two candidates are
+architecture-scope (make the classifier respect `locked`, which changes its write authority
+over a shared aspect) or build on 438's own defect (write `mission.preferred_typography`,
+which survives that path only by accident). **The guard is inert today: adoption is 0.**
 
 ---
 
@@ -103,7 +116,8 @@ artefacts are written under).
 |---|---|---|
 | 1 | `revise` 2026-09-02 21:43Z | the rationale claimed a typography guard the sketch never showed. Correct: a reviewer judges the submission, not the repository. |
 | 2 | `revise` 2026-09-03 15:32Z | **the §3 defect.** The best output of the whole review. |
-| 3 | **UNREAD — in flight** | accepts the objection, withdraws a false retraction, corrects a second evidence claim. Run correlation `8e6f2aa8-ceae-4d22-a543-a47196f57193`. |
+| 3 | `revise` 2026-09-03 15:56Z | gated by **`bug_historian`**: I had diagnosed the defect, accepted it and shipped nothing. Fair. **This is what caused the guard to be built.** |
+| 4 | **UNREAD — in flight** | carries the guard (`b18091066`) with its mutation evidence. Run correlation `425d4365-3342-490a-b32f-cbd1ec5d014c`. |
 
 Every commit carries `Council-Submitted:`, which asserts nothing and is credited
 automatically if the correlation approves. **Do NOT write `Council-Reviewed:` until you
@@ -178,8 +192,13 @@ documented.** Three earlier errors that day came from asserting a mechanism from
    and the owner withdrew it, so reopening it as an RFC would relitigate a settled decision.
 
 **Owed by this lane:**
-- **Read round 3's verdict** and act on it. Nothing may be recorded as approved until then.
-- **The §3 remedy**, as its own council round.
+- **Read round 4's verdict** and act on it. Nothing may be recorded as approved until then.
+  Rounds 1–3 all came back `revise`, and **each found something real** — the missing
+  typography sketch, then the supersede defect, then the fact that I had deferred its fix.
+  If round 4 revises again, read it before assuming the loop is spinning: on this
+  correlation the gate has been right every time.
+- ~~**The §3 remedy**, as its own council round.~~ **DONE** — built as `b18091066` and
+  carried in round 4. What remains is 438's, not this lane's: the ordering itself.
 - **A ping to `portfolio_positioning` and `vetcomparison`** with the chrome experiment's
   outcome — **not yet due**: that experiment runs at their remake №5, held behind
   `bugs_open/444`. Their recipe is §5 of
