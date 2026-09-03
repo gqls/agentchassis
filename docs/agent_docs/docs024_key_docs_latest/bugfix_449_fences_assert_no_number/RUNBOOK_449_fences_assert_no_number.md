@@ -239,3 +239,60 @@ read exactly like "the fix did not ship" whether or not it did.
 `[MEASURED 2026-09-03 13:3x]` v1.0.1358: both under-test literals **absent**, positive control
 **present**, negative control absent ⇒ the roll did **not** carry P1/P2, even though the tag advanced,
 the pods restarted, and the commit was an ancestor of HEAD. **Those three facts jointly imply nothing.**
+
+---
+
+## 8. Testing a prompt migration against the LIVE row without applying it (P4, migration 748)
+
+**The whole pair — apply, re-apply, reverse — inside one transaction that is rolled back.** This is
+the check that earns its place: it exercises the real anchors against the real row, so it fails for
+the reasons production would, and it commits nothing.
+
+```bash
+cd docs/agent_docs/sql_for_agents
+{
+  echo "BEGIN;"
+  echo "SELECT length(default_config #>> '{workflow,steps,compose_plan,config,prompt_template}') FROM agent_definitions WHERE type='tool-generator' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;"
+  grep -vE '^(BEGIN|COMMIT);[[:space:]]*$' 748_*.sql          # apply
+  grep -vE '^(BEGIN|COMMIT);[[:space:]]*$' 748_*.sql          # AGAIN — idempotency
+  grep -vE '^(BEGIN|COMMIT);[[:space:]]*$' 748_*_ROLLBACK.sql  # reverse
+  echo "SELECT length(default_config #>> '{workflow,steps,compose_plan,config,prompt_template}') FROM agent_definitions WHERE ...;"
+  echo "ROLLBACK;"
+} > /tmp/test.sql   # use your scratchpad, not /tmp — it is a 16 GB tmpfs
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < /path/to/test.sql
+```
+
+**Read it as a round trip: the closing length MUST equal the opening one.** For 748 that is
+`2766 → 5046 → 2766`. A reverse that "succeeds" while leaving the length changed has half-matched.
+
+⚠ **GOTCHA — strip `BEGIN;`/`COMMIT;` by ANCHORED pattern.** `grep -vE '^(BEGIN|COMMIT);[[:space:]]*$'`
+is deliberately anchored: an unanchored `grep -v COMMIT` also deletes every comment line containing
+the word, including the ones explaining why the verify must raise rather than SELECT.
+
+⚠ **GOTCHA — the second apply must print the "already applied" NOTICE and then still pass its
+post-verify.** If the pre-guard `RETURN`s, the two `UPDATE`s report `UPDATE 0` (their `WHERE` clauses
+exclude the applied state) and the post-verify runs against the already-correct row. **All three
+signals matter**: a guard that returns but whose UPDATE still reports `UPDATE 1` is rewriting text it
+believes it already wrote.
+
+⚠ **GOTCHA — do NOT reverse a multi-line prompt insertion with a regexp. Swap the LITERALS.** The
+first cut of `748_..._ROLLBACK.sql` used `regexp_replace` with `.*?` and flags `'ns'`, and failed
+twice over: `n` makes `.` stop at a newline (the insertion spans five), and the pattern's tail had
+silently dropped the apostrophe in `...not a rewriter's".`. It reported `UPDATE 1` — the `WHERE`
+clause matched, the substitution did not — so **only the post-verify caught it**, which is the
+argument for writing that verify as a `DO` block that raises. The fix is to `replace()` the exact
+inserted literal with the exact original, both dollar-quoted; generate the rollback FROM the
+migration so the two literals are byte-identical by construction rather than by transcription:
+
+```python
+anchor = re.search(r"\$anchor\$(.*?)\$anchor\$", src, re.S).group(1)
+new    = re.search(r"\$new\$(.*?)\$new\$", src, re.S).group(1)
+assert new.startswith(anchor)   # the insertion OPENS with the sentence it replaced
+```
+
+⚠ **GOTCHA — `length()` is CHARACTERS, `octet_length()` is BYTES, and the cap 748 moves is stated in
+characters.** This prompt is 2,766 characters but 2,782 bytes (8 em-dashes). `wc -c` on a `psql -At`
+dump reads 2,783 — the extra byte is psql's trailing newline. A PLAN document is full of em-dashes,
+`£` and `⚠`, so **check cap compliance with `length()`**; bytes read ~10% high and will condemn a
+document that was never over.

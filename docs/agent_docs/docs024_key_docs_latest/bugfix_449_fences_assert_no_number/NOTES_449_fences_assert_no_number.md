@@ -722,7 +722,7 @@ Read everything P4 has to edit before writing any of it. Four findings, two of w
 
 ### The cause, now quotable verbatim rather than described
 
-`tool-generator`'s `{workflow,steps,compose_plan,config,prompt_template}` is **2,783 bytes, 45
+`tool-generator`'s `{workflow,steps,compose_plan,config,prompt_template}` is **2,766 characters / 2,782 bytes, 45
 lines** `[MEASURED 16:2xZ]`. The whole fence vocabulary is one paragraph (line 34), and it is a
 **closed enumeration**: four mandatory checks (`selector_exists`, `no_console_errors`,
 `page_status_ok`, `no_horizontal_overflow`), then *"Add ONE interaction check ONLY if you can copy
@@ -826,3 +826,13 @@ formula**, applied to inputs it chooses. That splits the tools cleanly:
 be shown in `## Dependencies` so a reviewer can see which of the two cases the generator thought it
 was in. That is the refusal arm the council and both peer lanes converged on, expressed in the only
 terms this prompt actually has available.
+
+> **CORRECTED 2026-09-03 ~17:0x — "2,783 bytes" above was two errors in one small figure, and the
+> units one is the transferable half.** The live value is **2,766 characters / 2,782 bytes**
+> (`length()` vs `octet_length()`; the prompt carries **8** em-dashes, 3 bytes each, so bytes exceed
+> characters by 16). My 2,783 came from `wc -c` on a `psql -At` dump, which also counts the trailing
+> newline psql adds. **Why it is worth correcting rather than shrugging at: the cap this migration
+> moves is stated in CHARACTERS** ("under 3600 characters"), and a PLAN document is full of em-dashes,
+> £ signs and ⚠ — so anyone checking cap compliance in bytes will read ~10% high and "fix" a document
+> that was never over. This is `MEMORY.md`'s own byte-vs-char trap arriving in a new place. Caught by
+> the round-trip test printing `length()` = 2766 against my published 2783.

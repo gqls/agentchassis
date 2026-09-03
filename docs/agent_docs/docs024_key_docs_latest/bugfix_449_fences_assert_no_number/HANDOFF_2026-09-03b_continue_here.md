@@ -28,7 +28,7 @@ the two blockers this lane was holding it behind have been answered and dissolve
 | **P1** verdict states its scope | **LIVE and PROVEN in production** | `acceptance-run` note, `tool-idea-stage-identifier`, **14:00:07.683828+00**, carries the `Scope of this verdict: ⚠ LIVENESS ONLY` line; all pre-roll notes do not |
 | **P2** door records a blind fence | **live in binary, NOT yet exercised — and NOT blocked** | 0 notes; 0 post-roll tool PLANs. See §3 — the reason is upstream, benign, and measured |
 | **P3** daily sweep | **LIVE and PROVEN** | CronJob `fence-value-assertion-check` @ `40 7 * * *`; note written (241 fences, 58 driving-and-blind, 13 new) |
-| **P4** teach both prompts | **UNBLOCKED — this is the next real work** | §4 |
+| **P4** teach the prompt | **WRITTEN + ROUND-TRIP TESTED, NOT APPLIED** — migration `749`, council-submitted | §4d |
 | **P5** door refuses | **deferred, trigger written down** | PLAN §P5 |
 | council | **APPROVED** round 2 | `Council-Reviewed: 8745ad9e-1802-4e08-a9b0-eb493cd11243` |
 
@@ -157,10 +157,61 @@ insensitive, everything else exact**, so currency symbol, separators and 2dp mus
 *"No other check type exists for interactions — never emit `"type":"click"` or `"type":"fill"` as a
 check type."*
 
-**Budget:** `compose_plan` is `claude-sonnet-5`, **`max_tokens: 4000`**; the prompt is 2,783 B / 45
+**Budget:** `compose_plan` is `claude-sonnet-5`, **`max_tokens: 4000`**; the prompt is **2,766 characters / 2,782 bytes** (~~2,783 B~~ — `wc -c` counted psql's trailing newline) / 45
 lines; a `computed_values` check costs ~350-450 chars of the output document. **Raise the instructed
 "under 3000 characters" cap to ~3,500** — there is ample token headroom, and leaving it makes the
 model trade the new assertion against prose it was also told to write.
+
+### 4d. STATE: migration 749 is written and tested. It is NOT applied.
+
+**Files** (both committed):
+`docs/agent_docs/sql_for_agents/749_tool_generator_learns_the_value_assertion_and_when_to_refuse_it.sql`
+and its `_ROLLBACK` sidecar.
+
+**Tested against the LIVE row inside a rolled-back transaction** — recipe and its four gotchas are
+`RUNBOOK` §8:
+
+```
+2766 chars --> apply --> 5046 --> apply AGAIN (UPDATE 0, "already applied") --> reverse --> 2766
+```
+
+Byte-identical round trip; nothing was committed to the database.
+
+**Council: SUBMITTED, verdict not yet read.**
+`Council-Submitted: dda64bd1-2d34-4ee5-b903-c5bb2644733a`. Budget ~30 minutes, not ~2 — the dispatch
+queues behind the fleet. Read it with:
+
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+ WHERE correlation_id='dda64bd1-2d34-4ee5-b903-c5bb2644733a' AND kind='council_report' ORDER BY created_at;
+SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+```
+
+⚠ **Do NOT write `Council-Reviewed:` until you have READ an approved verdict** — `098` buckets an
+unread claim as MISMATCH, which is the coverage report's dishonesty surface.
+
+**THE APPLY IS THE LIVE STEP AND IT IS DELIBERATELY NOT DONE.** A migration is live the moment it
+applies, with no image tag to roll back, and this one changes what **every tool built from now on**
+puts in its PLAN. Two things should happen first: the verdict, and the owner's call. The two
+questions I most want a human on are in the submission's `risks` and are worth repeating:
+
+1. **Is a prompt-level refusal arm sufficient?** An LLM handed a working calculator may find it easy
+   to believe it *derived* a figure it in fact read off the page. The mitigation is that the rule and
+   the working must appear in `## Dependencies`, so a reviewer sees the claimed derivation and not
+   just its output — but nothing in SQL enforces that.
+2. **Should statutory rates be excluded from the licensed sources?** A model's "known" VAT band or
+   threshold can be superseded, and a wrong one would pin a wrong expectation confidently — which is
+   `bugs_open/224`'s failure mode arriving by another route. Formulae and conversions are safer than
+   rates.
+
+**If the verdict is REVISE**, the objections come back with the reviewers' own read-only checks
+answered; revise and resubmit with `RESUBMIT_CORR=dda64bd1-2d34-4ee5-b903-c5bb2644733a` so the trail
+accumulates.
+
+⚠ **Migration numbering collided once already**: another session claimed `748`
+(`748_planner_states_its_page_type_decisions_structurally_HOLD.sql`) while this was being written, so
+it was renumbered to `749`. **Re-check the highest number immediately before applying** — the same
+thing can happen again, and the guards are numbered in their own error strings.
 
 ## 5. The census, refreshed — quote THIS one
 
