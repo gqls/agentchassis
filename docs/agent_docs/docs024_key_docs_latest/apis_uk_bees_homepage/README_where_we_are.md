@@ -203,3 +203,28 @@ specific tells you named are on the banned list.
 Then I handed it back to the framework to rewrite the prose. I am not writing the copy
 myself — that is the rule, and it is the right one. That rebuild is running now, and I
 will check the result by reading it.
+
+## 2026-09-03 (evening) — the subjects feature is switched on, and the home page survived a near miss
+
+A big day, told plainly. The per-section subjects work — the thing that stops a page with six
+similar sections writing the same section six times — is now fully switched on. It took three
+tries to get the wording right: you rejected the first drafts as sounding like AI, picked one,
+then when we showed you what its fixed opening sentence did to real data ("You'll want to know
+Brief description of the sister-site relationship…") you dropped the frame and chose the simple
+version: whatever line we write for a section is printed exactly as written, and every other
+section on the page is told about it. You read the final text and said "yes", and it went live
+this evening. The planner's instructions were updated to match: from now on it writes each
+section's brief as the actual opening line a reader would see, in the site's voice.
+
+Separately, the home page had a near miss. The site's internal plan still described the page as
+it was BEFORE the illustrated redesign, and an ordinary rebuild would have quietly put the old
+version back — two other sites' pages have already lost pieces this exact way. Another session
+spotted it, we double-checked everything, and corrected the plan to match the real page. The
+illustrations and locked sections were never at risk of being edited; the risk was the page's
+own table of contents flipping back, and that door is now closed.
+
+What's left on this: writing the six actual opening lines for the home page's six illustrated
+sections (they're your page's future first sentences, so we'll take care over them and you may
+want to see them), and your two paused rewrite requests (the swarm and pollination sections) can
+now go ahead whenever you decide how to add sections to a locked page. Nothing needs your
+attention urgently; the decisions list from this afternoon still stands.
