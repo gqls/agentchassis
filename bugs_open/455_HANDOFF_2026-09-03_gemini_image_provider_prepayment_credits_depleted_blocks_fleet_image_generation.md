@@ -40,14 +40,22 @@ a per-pod state).
 SELECT count(*), domain, max(occurred_at) FROM agent_error_log
 WHERE error_message ILIKE '%prepayment credits%' GROUP BY domain;
 ```
-**3 rows total, fleet-wide, all within `10:31:02.871Z`–`10:31:04.255Z`, all `designblog.co.uk`**
-(one row unattributed to a domain). So as of this measurement it is a single incident on a single
-site, not (yet) proven to be blocking the rest of the fleet — nothing else has hit the same wall
-in the ~3 minutes since. **Whether it is a momentary blip or an ongoing depletion is still open**:
-`gamedesign.uk`'s own next retry is due `~10:35:34Z` (`bugs_open/424`'s other pending remediation)
-and will be a second, independent data point within minutes — check `agent_error_log` again then
-before concluding either way. If it recurs there or anywhere else, treat as ongoing and escalate
-to the owner immediately rather than waiting for more data.
+**UPDATED 10:41 UTC — CONFIRMED ONGOING, not a blip.** `gamedesign.uk` (a second, fully
+independent site — different work item, different request, ten minutes after `designblog.co.uk`'s
+first hit) failed with the byte-identical error at `10:41:27Z`. Two independent sites, ten minutes
+apart, same wall:
+```sql
+SELECT count(*), domain, max(occurred_at) FROM agent_error_log
+WHERE error_message ILIKE '%prepayment credits%' GROUP BY domain;
+--   1 | gamedesign.uk    | 2026-09-03 10:41:27Z
+--   4 | (unattributed)   | 2026-09-03 10:41:27Z
+--   1 | designblog.co.uk | 2026-09-03 10:31:04Z
+```
+**This is not resetting on its own between attempts. Treat as a live outage of Gemini image
+generation fleet-wide, needing owner action (add credit at AI Studio), not a transient blip to
+wait out.** Both of `bugs_open/424`'s remaining remediation retries (`designblog.co.uk`,
+`gamedesign.uk`) are currently blocked by this, not by anything in that fix — they will keep
+retrying and keep hitting this same wall until credit is restored.
 
 ## What this means for `bugs_open/424`'s own remediation
 
