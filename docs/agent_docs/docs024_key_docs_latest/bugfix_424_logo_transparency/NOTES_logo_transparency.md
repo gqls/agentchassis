@@ -499,3 +499,33 @@ conversation at some point, not opened here.
 **Running total: 2 of 3 original sites confirmed genuinely fixed (`seotools.co.uk`,
 `gamedesign.uk`), 1 exhausted and awaiting an owner decision on a further retry
 (`designblog.co.uk`).**
+
+## 2026-09-03, later — boxingonline.com succeeds too: third real-world confirmation, first on a paying customer's site
+
+`site_delivery_and_editor` reports `d71b7877` (their own lane's item, the boxingonline regeneration
+authorised separately by the owner — not this lane's to own or claim credit for) completed
+`12:06:58Z` under the same topped-up credits that unblocked `gamedesign.uk`. Verified by them at
+the served bytes, same rigour as this lane's own checks: PNG 1408×768, colour type 6, no `tRNS`,
+80.82% fully transparent, **99.91% of the border ring transparent** (4,352 px), only **0.038%**
+magenta-ish among the partial-alpha pixels — smaller than either `seotools` (0.085%) or
+`websitepromotion` (0.69%), so the despill fringe is not getting worse with more real runs, if
+anything the opposite. Eyeballed: single composition, no lettering, "faint pink edge" (their
+words, matching the small measured fringe).
+
+**They could not recover the adapter's own `border_keyed`/`pixels_keyed` log line for this
+specific run** — a fleet roll to `v1.0.1358` replaced the adapter pods at `12:05:29`/`12:05:40Z`,
+mid-generation, and the pod that actually served this request is gone along with its logs (the new
+pods' logs start `12:06:56Z`, eight seconds after this generation's own completion). Not a gap in
+their diligence — the artefact-level check (the served bytes) is the authoritative one this whole
+incident has been built on precisely because logs can vanish and statuses can lie; this is simply
+a case where only the log-level corroboration is unavailable, not the thing that actually matters.
+
+**Note for anyone re-verifying "what's live" after this file**: the fleet is now on `v1.0.1358`,
+not the `v1.0.1356` this lane verified earlier in the day. Everything committed by this lane predates
+both rolls and should still be aboard (forward-only), but re-verify at the artefact rather than
+assuming — the whole discipline of this incident has been not trusting a stamp without checking it.
+
+**Updated running total: 3 real-world successes now confirmed at the served bytes
+(`seotools.co.uk`, `gamedesign.uk`, `boxingonline.com`), 1 exhausted (`designblog.co.uk`) —
+and boxingonline is the first of these on an actual paying customer's site**, which is a
+meaningful proof point beyond the portfolio sites this lane's own remediation covered.
