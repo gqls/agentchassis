@@ -5385,3 +5385,39 @@ pre-conversion ids and recording false failures against working tools — and th
 of exactly that, by hand, in the repair. **Knowing the failure mode in detail did not protect me from
 committing it**, because my error was one level down: not "I forgot fences go stale" but "I did not
 read the struct that defines where selectors live."
+
+### VERDICTS: 8 of 8 PASS — the repair holds and the five earlier failures are confirmed mine
+
+Re-fired 17:12Z, all eight terminal by 17:21:52 (each run ~50s; the site was in rotation this time).
+
+| tool | verdict | | tool | verdict |
+|---|---|---|---|---|
+| `tool-simple` | **PASS** 17:15 | | `tool-stamp-duty` | **PASS** 17:18 |
+| `tool-bridging-loan` | **PASS** 17:16 | | `tool-fee-analyser` | **PASS** 17:19 |
+| `tool-rate-forecaster` | **PASS** 17:16 | | `tool-overpayment` | **PASS** 17:20 |
+| `tool-repayment` | **PASS** 17:17 | | `tool-equity-release` | **PASS** 17:21 |
+
+**Eight for eight, on fences whose predecessors failed 1–9 selectors an hour earlier.** That closes
+the loop three ways: the calculators were correct throughout, the re-point is right, and the
+12:18–13:46 failures were mine and are now positively — not just plausibly — explained. Nothing
+about the tools changed between the two runs; only the addresses in the fences did.
+
+**What a PASS here means, in the verdict's own words:** *"Scope of this verdict: this fence compares
+4 exact values"* — arithmetic, desktop only. For `tool-stamp-duty` those four are re-derived from
+this site's 13 registered SDLT facts (REGISTER strength, GOV.UK-cited, re-verified daily), which is
+the strongest evidence class this lane has. **It still asserts nothing about boot, console errors,
+HTTP status or mobile layout** — that is `bugs_open/449`, and the generator fences are the exact
+mirror image. Quote the scope line, not the word PASS.
+
+### Site scoreboard, close of play 2026-09-03
+
+| state | tools | n |
+|---|---|---|
+| **PASSING on a verdict from today, arithmetic** | simple, repayment, equity-release, fee-analyser, rate-forecaster, bridging-loan, overpayment, stamp-duty | **8** |
+| **PASSING on a verdict from 08-26/27, liveness** | overpayment-priority, rate-scenarios, bridging-compound | 3 |
+| FAILING for real — `441` stale fence, fixer blocked by `448` | deposit-tracker, remortgage-savings | 2 |
+| no fence at all | affordability, btl-investor, credit-health-check, portfolio, rate-stress-test | 5 |
+
+**11 of 18 tools now hold a passing Tier-4 verdict** (was 4 this morning, 1 usable yesterday). ⚠ And
+still **not one is verified for both correctness and liveness** — the two fence families remain
+disjoint.

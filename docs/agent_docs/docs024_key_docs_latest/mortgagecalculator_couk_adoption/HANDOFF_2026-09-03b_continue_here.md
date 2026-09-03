@@ -69,9 +69,16 @@ note to the 357 lane telling them their md5 guarantee had expired. It had not; r
 
 ## 3. What is in flight right now
 
-**8 Tier-4 runs**, dispatched ~17:2xZ, one per fenced lane tool:
-`f4ca8c2f` simple · `ccec6115` repayment · `afc70eb2` equity-release · `ab5b74c1` fee-analyser ·
-`c06dd0a9` rate-forecaster · `768502e7` bridging-loan · `c635e599` overpayment · `1c902ef1` stamp-duty.
+**LANDED — 8 of 8 PASS**, all terminal by 17:21:52Z, each run ~50s. simple, repayment,
+equity-release, fee-analyser, rate-forecaster, bridging-loan, overpayment, stamp-duty.
+
+That closes the loop three ways: the calculators were correct throughout, the re-point is right, and
+the 12:18–13:46 failures are now positively explained as mine — nothing about the tools changed
+between the two runs, only the fence addresses.
+
+⚠ **Quote the scope line, not the word PASS.** The verdict says it itself: *"Scope of this verdict:
+this fence compares 4 exact values"* — arithmetic, desktop only, nothing about boot, console, status
+or mobile.
 
 **Read the verdict in `doc_notes`, not on the work item.** These fences carry `no_auto_fix: true`, so
 a failure reaches a human and never `tool-improver` — verified: `parseNoAutoFix` is honoured at
@@ -88,7 +95,7 @@ governor admits the type, we ranked 5th and eligible). Contributed as data to th
 | state | tools |
 |---|---|
 | **PASSING** on a verdict that predates today's fence churn | `tool-overpayment-priority`, `tool-rate-scenarios`, `tool-bridging-compound` |
-| **awaiting the in-flight run** | the 8 in §3 |
+| **PASSING on today's arithmetic verdict** | `tool-simple`, `tool-repayment`, `tool-equity-release`, `tool-fee-analyser`, `tool-rate-forecaster`, `tool-bridging-loan`, `tool-overpayment`, `tool-stamp-duty` |
 | **FAILING for real** — `441` stale fence, fixer blocked by `448` | `tool-deposit-tracker`, `tool-remortgage-savings` |
 | **no fence at all** | `tool-affordability`, `tool-btl-investor`, `tool-credit-health-check`, `tool-portfolio`, `tool-rate-stress-test` |
 
@@ -99,9 +106,10 @@ all. **No tool on this site is verified for both.** Say which kind when you repo
 
 ## 5. Next, in order
 
-1. **Read the 8 verdicts.** If any fails, check the named selector against the served page **before**
-   believing it — today's lesson is that a fence can be wrong in a way that looks exactly like a
-   broken tool.
+1. ~~Read the 8 verdicts.~~ **Done — 8 of 8 PASS.** 11 of 18 tools now hold a passing Tier-4
+   verdict (4 this morning, 1 usable yesterday). If a future run fails, check the named selector
+   against the served page **before** believing it — a fence can be wrong in a way that looks exactly
+   like a broken tool, and did today.
 2. **`bugs_open/441`** — the platform fix (`anchorPresent` + the Tier-4 selector path accept both
    spellings). Council gate; **nobody holds it**, and today is the argument for it: five fences broke
    by rerender at 08:46 and three more by 16:08, none of it intended by anyone.
