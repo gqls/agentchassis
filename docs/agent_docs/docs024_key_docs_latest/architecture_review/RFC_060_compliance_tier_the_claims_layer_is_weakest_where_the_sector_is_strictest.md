@@ -450,6 +450,23 @@ Mutation-verified in an isolated worktree: disabling the span check fails exactl
 should. Not yet deployed — same two gates as Q7's `banned_claims` half (build+roll, then next daily
 tick).
 
+**Q7 FACTS HALF BUILT 2026-09-03 (`6ec879212`), Council-Submitted: `17fb9105`.**
+`botChallengeReason` detects the loanzy lane's exact Cloudflare interstitial (title, the
+`_cf_chl_opt` JS variable, the noscript fallback id — all three confirmed live against
+`maps.org.uk` by curl before writing the detector, not guessed) from the RAW html inside
+`fetchCitationDocument`, since every marker lives in `<head>`/`<script>`/`<noscript>`, all excluded
+from visible-text extraction by design. Turns a challenge page into a `fetch_error` (the same
+"unknown, never drift" bucket a 403 already gets) instead of the wrong `citation_lost` the loanzy
+lane found live. One shared choke point protects both effective write paths: registration already
+refuses any `!outcome.Found` candidate, and the daily refresh now classifies migration-written
+facts correctly too — migrations are raw SQL and cannot be gated by Go at insert time, so this is
+the same "one loop, two guarantees" shape as the `banned_claims` half. Mutation-verified: disabling
+the detector reproduces the exact originally-reported bug. Not yet deployed.
+
+**Q7's `banned_claims` half is separately already LIVE** (`e5b1a0f01`, confirmed running
+2026-09-02 21:30 — see the top status line). The `facts` half above is new, unrelated to that
+deployment, and needs its own build+roll+tick before it does anything.
+
 > **CONFIRMED 2026-09-03, and it is a caveat rather than a green light.** The build deployed
 > (replicaset `75b987cbd7`) and the detector **is in the running binary** — probed at `/proc/1/exe`
 > for `invalid_banned_claim_pattern` with **both** controls (target **6**, must-be-absent **0**
