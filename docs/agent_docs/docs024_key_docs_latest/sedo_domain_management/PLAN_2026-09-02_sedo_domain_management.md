@@ -77,8 +77,28 @@ parking) by Claude sessions, via Sedo's API.
   one-time build by 30 minutes and was never re-caught because the fence
   file was reused across drafts 4–5 instead of re-queried (RUNBOOK §7 now
   states: re-query fresh before EVERY draft). `outbound/SEDO_IMPORT_2026-09-03_draft6.{xlsx,csv}`.
-  Sheet-generation work is effectively done pending only the priced
-  re-import.
+  **Superseded same day by draft7: 2,839 domains** — domain_valuation's
+  nameserver sweep found a structural blind spot: the fence is derived
+  ONLY from the framework's own Cloudflare/`sites` sources, and is
+  therefore blind to the estate's OTHER hosting stack (Clook,
+  `dns*.uk-noc.com`, the pre-Cloudflare-rollout sites). 33 confirmed-live
+  + 6 ambiguous domains fenced, incl. the owner's own email domain
+  (wpx.uk), his own company domain (designconsultancy.co.uk), and a
+  client relationship (leopardess.co.uk/.uk, adjacent to the already-
+  fenced leopardessconsulting.co.uk) — held pending owner confirmation,
+  not assumed. `outbound/SEDO_IMPORT_2026-09-03_draft7.{xlsx,csv}`.
+  Sheet-generation work on the ORIGINAL (non-live) portfolio is
+  effectively done pending only the priced re-import.
+- **P4 widened same day, OWNER RULING**: not merely "decide what to
+  automate" — the owner has ruled **live sites should ALSO be listed on
+  Sedo, priced high** (his example: webdesign.uk potentially worth
+  £1M+ within a year), reversing the fence's original "protect live sites
+  from listing" premise. Now a SEPARATE track from the portfolio sheet:
+  live sites need real per-domain valuations from the domain_valuation
+  lane before anything ships (never a blank-price bulk add), and the
+  handful of domains that are the owner's own operating infrastructure or
+  an active client relationship stay held out pending his explicit
+  confirmation that "all live sites" was meant to include them too.
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call

@@ -536,3 +536,69 @@ batch" principle already stated in PLAN P3). Asked the owner directly
 rather than deciding unilaterally — adding a live site to any for-sale
 listing is not a call this lane makes on its own, even a site already
 confirmed for sale elsewhere.
+
+## 2026-09-03 (urgent) — a structural blind spot found: a WHOLE HOSTING STACK was invisible to the fence; 39 domains pulled, incl. the owner's own email + a client relationship
+
+**domain_valuation's Nominet nameserver sweep found something bigger than
+a missing name**: my live-site fence is derived entirely from the
+framework's OWN sites/zone list (Cloudflare delegation + `sites` table).
+The estate has a SECOND hosting stack — Clook (`dns*.uk-noc.com`), the
+older sites that predate the Cloudflare rollout — and the fence is
+structurally blind to it, not just incomplete. Their probe found **33
+Clook-hosted domains serving real HTTP 200 content**, zero of them in any
+fence file, all 33 currently sitting in draft6's no-price sheet. Six more
+are Clook-delegated but currently serve nothing (ambiguous — ownership
+intent unclear from an HTTP probe alone).
+
+**This is not a "re-query more often" fix** — re-querying `sites`/zones
+faster would never have caught this, because the source itself never
+covered this stack. The fix has to be a second, independent source
+(delegation sweep across BOTH hosting stacks), which domain_valuation has
+offered to own and derive fresh each time — accepted (see reply).
+
+**Two of the 33 are not "portfolio stock with a site" at all**:
+`wpx.uk` carries the owner's own registered email address, and
+`designconsultancy.co.uk` is the company behind the very Nominet tag this
+whole estate is registered under — the operator's own infrastructure, not
+inventory. Two more, `leopardess.co.uk`/`leopardess.uk`, sit directly
+adjacent to `leopardessconsulting.co.uk` — already fenced specifically
+because it is the client relationship copy_quality_two_stage named as the
+worked example for "buy this site" being a relationship breach (D4). These
+four did not go anywhere near the sheet without a second look — see the
+question put to the owner.
+
+**Immediate action, before any of that gets resolved**: fenced all 39 (33
+confirmed-live + 6 ambiguous, leaning cautious on the ambiguous set —
+"serves nothing today" is not the same as "abandoned") into
+`EXCLUDED_live_clook_2026-09-03.txt`, regenerated as **draft7 = 2,839**.
+Verified: 2,840 `<row` = header + 2,839; the four sensitive domains
+individually confirmed absent by direct grep.
+
+## 2026-09-03 (later still) — OWNER RULING: list live sites too, priced high — a new track, not a blank-price bulk add
+
+Put to the owner directly: relojistas.com has no Sedo listing, does he
+want it listed now. **His answer went further than the question**: "yes,
+list all live sites, we can price them quite high e.g. webdesign.uk can
+be over 1 million because it's probably going to be worth that in a year
+or so." This reverses the fence's original premise — live sites are not
+protected-by-default any more, they are a HIGH-VALUE TIER that has been
+sitting unpriced this whole session, not excluded stock.
+
+**This is NOT being implemented as "unfence everything and ship at
+blank/no-price"** — that would misrepresent domains the owner values at
+seven figures as a plain make-offer with nothing behind it, which is a
+worse error than the withholding this replaces. Live sites need their
+OWN pricing track from the valuation lane before anything ships — relayed
+to them as a new, distinct workstream (see reply), not folded into the
+existing MAKE_OFFER/no-price portfolio sheet.
+
+**The four sensitive domains are a separate, narrower question, held out
+even under this ruling pending explicit confirmation**: "list all live
+sites" almost certainly was not meant to include the owner's own email
+domain (wpx.uk), his own company's domain (designconsultancy.co.uk), or
+an active client relationship (leopardess.co.uk/.uk) — asking rather than
+assuming, per the same principle applied to copyonline.co.uk and every
+other edge case this session. copy_quality_two_stage's D4 rule (for-sale
+needs per-site confirmation, precisely to prevent a client relationship
+breach) is their lane's mechanism to protect exactly this case; this
+lane's job is to not route around it by accident.

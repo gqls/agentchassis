@@ -195,3 +195,44 @@ window — nothing had; copyonline.co.uk was the only one.
 **Current sheet**: `outbound/SEDO_IMPORT_2026-09-03_draft6.xlsx` —
 **2,878 domains**, everything else unchanged from before, this one domain
 removed. This is now the one to upload.
+
+## 2026-09-03 (urgent) — found a whole second group of live sites that weren't being protected
+
+The valuation thread swept the domains more carefully and found something
+important: some of your older sites — built before the current
+Cloudflare setup — sit on a different hosting system entirely (the older
+"Clook" nameservers), and my checks had only ever looked at the newer
+system. So 33 of them were sitting in the sheet as ordinary for-sale
+stock, completely unprotected. Two in particular I want you to know about
+by name before anything moves further: **wpx.uk**, which carries your own
+email address, and **designconsultancy.co.uk**, your own company's
+domain. Two more, **leopardess.co.uk** and **leopardess.uk**, sit right
+next to a client's domain I'd already kept off the list for exactly the
+reason you'd expect — I don't think "all live sites" was meant to include
+your own email or a client relationship, so I've held those out rather
+than assume, alongside the rest of the 33.
+
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-03_draft7.xlsx` —
+**2,839 domains**. Everything above about pricing and withdrawals still
+applies; this just removes those 39 newly-found domains too.
+
+## 2026-09-03 (later still) — you said list live sites too, priced high: that's now its own separate piece of work
+
+You told me: list the live sites as well, and price them high —
+webdesign.uk could be worth over a million within a year. I've taken that
+seriously, but I haven't just dumped them into the current sheet, because
+the current sheet has every price left blank — putting a domain you think
+is worth seven figures into a sheet with "make an offer, no price" would
+undersell it badly, arguably worse than not listing it at all.
+
+So: live-site listings are now their own piece of work, separate from the
+portfolio sheet. The valuation thread needs to work out real asking
+prices for each one before anything goes anywhere — I've asked them to
+take that on. Once real prices exist, building that sheet (or the
+individual Sedo listings) is quick.
+
+One thing I still need from you, whenever you have a moment: does "list
+all live sites" really mean ALL of them, including your own email domain
+and company site, and the client's neighbouring names? My working
+assumption is no — those specific ones stay off the list until you say
+otherwise — but I'd rather have that confirmed than guessed.
