@@ -279,3 +279,51 @@ field) is unchanged.
   `pages_missing_meta.count` against `jsonb_array_length(written.result.descriptions)` and make
   the difference visible. Config-shaped rather than Go-shaped, covers both silent paths, files
   nothing into a queue nobody reads. Not costed here; not this session's to choose.
+
+### 9g. Council verdict on the 728 submission: APPROVED — and the one thing a seat asked for, answered
+
+`2ed33c57-b49a-4b1b-ad1e-7e23ce6c477a`, 2026-09-03 10:42Z. **`approved`, `decided_by: all
+reviewers approve`**, 10 seats fired, 7 abstained, `gated_by_truncation: false`. No objections.
+
+One seat (`prior_art_librarian`) filed a `missing` item rather than an objection, and it is right:
+
+> "Verification that `metaDescriptionFailsCopyGates` exists and actually returns bare strings for
+> voice_tell/banned_claim/voice_gate_unreadable, as opposed to the four literal result-map reasons
+> — the plan's whole justification for 'this took two greps not one' rests on that asymmetry
+> existing in code today, not just in the rationale."
+
+**This is §4's own footnote one step along, for the third time in this file's life:** §4 already
+records that I wrote a grep into this file whose output I had not read (`WRONG_CALLS.md`, *"a
+citation of a command is not its output"*), and the submission then carried the resulting line
+numbers as if the numbers were the evidence. They are a citation. Answered here at **committed
+HEAD**, not the working tree, with the output and a control:
+
+```
+$ git show HEAD:…/save_page_meta_description_action.go | grep -n "func metaDescriptionFailsCopyGates"
+301:func metaDescriptionFailsCopyGates(ctx context.Context, params ActionParams, candidate string, logger *zap.Logger) (reason, detail string) {
+
+$ … | grep -nE '"reason": *"[a-z_]+"'          # grep 1 — literal reasons in the result maps
+161: empty_candidate   175: candidate_looks_internal   182: candidate_too_long   233: already_has_description
+
+$ … | grep -nE 'return "[a-z_]+",'             # grep 2 — bare returns from the gate helper
+316: voice_gate_unreadable   334: voice_tell   341: banned_claim
+
+$ … | grep -E '"reason": *"(voice_tell|banned_claim|voice_gate_unreadable)"'   # CONTROL
+(empty — the asymmetry is real)
+```
+
+**And the mechanism of the asymmetry, which is sharper than "two greps".** The gate path does not
+omit the `"reason"` key — it writes it with a **variable**, at `:192-199`:
+
+```go
+if reason, detail := metaDescriptionFailsCopyGates(...); reason != "" {
+    return map[string]interface{}{"updated": false, "reason": reason, "detail": detail}, nil
+}
+```
+
+`"reason":  reason` is invisible to any grep shaped for `"reason": "<literal>"`. So grep 1 does not
+merely *miss* three cases — it matches every place a reason is written **as a literal**, which is
+exactly the set already documented, and returns a complete-looking list. **A grep keyed on the
+literal form of a value cannot see the call site that passes it through a variable**, and that is
+the transferable form: it is not about this file, it is about auditing a vocabulary by grepping its
+members instead of its writers.
