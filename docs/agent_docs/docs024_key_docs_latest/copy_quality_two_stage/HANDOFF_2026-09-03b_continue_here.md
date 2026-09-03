@@ -70,7 +70,12 @@ is the most dangerous carrier for an invented cause.
    correct against the source (title · newline · body) but 675 replaced the line break with a full
    stop. Low severity. **Fold into (1)**: both change the carrier text, and the fix moves the canary
    needle in `NOTES`, this file and `scripts/fire-content-gap-planner.sh` in the SAME commit.
-3. **`679` opted a dead agent in.** Roll back, revive, or leave recorded. Recommended: roll back
+3. ✅ **RULED 2026-09-03 ~19:00Z — LEAVE IT.** Owner: *"leave the opt-in as you suggest."* (I had
+   recommended rolling back; leaving is the zero-cost, reversible option and he chose the verb
+   "leave", so no rollback.) The row stays opted in and stays dead; **count propagation as TWO
+   live consumers, not three**, and do not re-raise this. If a design agent is ever revived, it
+   inherits the standard for free.
+   **`679` opted a dead agent in.** Roll back, revive, or leave recorded. Recommended: roll back
    unless a design agent is meant to exist.
    **WHY it is dead (owner asked; read, not inferred, 2026-09-03 ~18:00Z):** `visual-designer`
    is a **first-generation agent from 2025-08-10** (website-builder group, migrations
