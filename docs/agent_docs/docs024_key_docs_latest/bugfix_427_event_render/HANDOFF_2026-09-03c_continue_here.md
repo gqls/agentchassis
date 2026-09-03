@@ -14,7 +14,7 @@ remaining item is this lane's code.**
 | bug | state | why it is not closed |
 |---|---|---|
 | **454** | **Fixed, live, PROVEN at the artefact** | The *save* of the proven re-render is refused (see §2). CLAUDE.md's bar is fixed AND live at the artefact; the served page has not changed. |
-| **427** | Its own defect **closed and verified**; everything the lane built is confirmed correct | Same blocker. Plus `ff91e666` round 3 verdict not yet landed. |
+| **427** | Its own defect **closed and verified**; everything the lane built is confirmed correct | Same blocker — **and `719`/`727`/`728` turn out to be TRANSIENT** (§below). `ff91e666` round 3 **APPROVED**. |
 | **428** | Unchanged in substance | One item is a human decision (§1.2); its 687 residual spun out to `bugs_open/460`, unowned. |
 
 ## 1. Decisions/actions that need a person, not a session
@@ -81,9 +81,29 @@ non-`removed`, worth one page. Full account and the WRONG_CALLS entry: `bugs_ope
 **The check: when the thing you are measuring IS a mechanism, copy its predicate — do not
 paraphrase it.** The direction was never in doubt, but nobody should quote 58.
 
-**Council:** `075cfedd` (454's fix) **APPROVED** round 1, advisories adjudicated in
-`bugs_open/454` §11. `ff91e666` (427's migrations) — round 1 REVISE, round 2 REVISE (gated by
-`guardian` HIGH), **round 3 in flight, dispatch `b1a2cf68`, no verdict yet.**
+**Council: both correlations APPROVED.** `075cfedd` (454's fix) round 1, advisories adjudicated
+in `bugs_open/454` §11. `ff91e666` (427's migrations) **round 3 APPROVED** 12:41:09Z, "6 advisory
+objection(s) — none high-severity"; adjudicated in `bugs_open/427` §19.
+
+**⚠ THE TOP OPEN ITEM, found while answering those advisories: `719`/`727`/`728` ARE TRANSIENT.**
+`pages.sections` is a CACHE; `site_plan_sections` is the authority. `sync_pages`
+(`site_db_actions.go:1276`) writes `sections = EXCLUDED.sections` on any non-empty plan proposal,
+and `[MEASURED 2026-09-03]` the current plan (`site_plans bba66eda`) still names
+`generic-text-block` at ordering 1 and `advertising` at 2 for this page. **The next sync
+overwrites all three migrations in one write and re-arms `check_unresolved_sections`.** NOT
+fixed: `site_plan_sections` is relied on as per-plan **immutable** by
+`reconcile_site_plan_action.go`'s `decideEmit`, so correcting it is a council/owner decision, not
+a migration. Same class as `bugs_open/443`. **Do not close 427 believing the array is durable.**
+
+**⚠ And a premise five council seats repeated is FALSE, so do not concede it again.**
+`save_page_sections_action.go` is *not* the typed writer for `pages.sections` — it contains no
+`UPDATE pages` and its own first line says it saves to **`page_components`**.
+`ReconcileSitePlanAction` is site-scoped and its own comment says the comparison is "deliberately
+NOT plan-to-`pages.sections`". The real writers are `apply_gap_plan_action.go` (×2),
+`load_page_sections_from_spec_action.go`, `ensure_page_section_layout_action.go` and
+`site_db_actions.go`'s upsert, none of which takes an arbitrary array for one page. This lane
+quoted the objection into a submission **without grepping it** and four more seats then objected
+on that quotation — see `bugs_open/427` §19.1.
 
 **Migrations applied this session**, all by hand + `--record-only`, each rehearsed under
 `BEGIN`/`ROLLBACK` **and** induced-failure-proven: `727` (restores the `pages.sections` position
@@ -142,6 +162,13 @@ indexing exactly onto `hero-tool@1, event-list@2`, armed count 0.
   because the submission sketched one test where two had been written.
 - **"It will work once X lands" is a prediction about a CHAIN.** This lane wrote that twice today
   and had verified only its own link both times.
+- **A CITATION IS NOT A READ — and quoting an objection propagates it.** This lane conceded
+  "you should have used the typed writer" twice, then quoted it into a council submission, and
+  four further seats objected on that quotation. One grep refuted the premise. Check a named file
+  before you concede to it, and before you repeat it.
+- **Grep `/bugs_open/` when you FORM a hypothesis, not when you file.** Two lanes reached 454's
+  mechanism from opposite ends 90 minutes apart. CLAUDE.md's rule is aimed one step too late —
+  at filing time the duplicate work is already spent.
 - **Copy a mechanism's predicate; never paraphrase it.** This lane sized another lane's guard
   with a query about "pages with a tool component" while the question was "pages this guard
   refuses" — a floor, reported in the same units as a total, sent to that lane as the basis for a
