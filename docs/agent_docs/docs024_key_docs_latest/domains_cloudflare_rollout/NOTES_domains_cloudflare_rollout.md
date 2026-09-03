@@ -818,3 +818,22 @@ queryable via the Dynadot API, read-only, no writes:
   Dynadot account security check (recent login activity, API key age, 2FA) —
   not because anything found here suggests compromise, but because "someone
   else's account" is the kind of phrase worth ruling that out on cheaply.
+
+## 2026-09-03 (night, cont.) — fresh listings CSV delivered; sixth listing found; auto-renew holding
+
+- Fresh `download_all_listings` (361.5 MB, 7,177,225 rows) grepped against the
+  CURRENT 472-domain inventory (up from 453 — 19 new `.com` registrations
+  since yesterday, unrelated to the owner's 14 flagged `.co.uk` names). **6
+  matches**, not 5: the same 5 from 2026-09-02 (unchanged `ListingId`s — no
+  price/status drift) plus **`preciousmetalsrecovery.com`** ($1,235, Buy Now,
+  `ListingId 25621920`) — one of the 19 new registrations, listed at
+  registration time. All 6 confirmed authoritatively via `get_listing_item`.
+  `inbound/dynadot_listings_2026-09-03.csv` written (6 rows).
+- `inbound/dynadot_domains_2026-09-02.csv` refreshed to 472 rows (filename
+  kept per the directory's dating-by-production-date convention — content is
+  2026-09-03's pull).
+- **Auto-renew sweep re-run clean: all 472 domains still `auto-renew`**,
+  including the 19 new arrivals — the account default set 2026-09-03 appears
+  to be holding for fresh `.com` registrations (still unproven for a
+  marketplace-acquired or transferred-in domain, which is the case that
+  actually failed before).
