@@ -17,6 +17,27 @@ const conc67Fixture = `CONC 6.7 Post contract: business practices ` +
 	`CONC 6.7.18 01/04/2014 R A firm must not exercise forbearance in a way that disguises problem debt. ` +
 	`CONC 6.7.23 01/04/2014 R A firm must not refinance high-cost short-term credit (other than by exercising forbearance) on more than two occasions.`
 
+// TestCitationRuleSpanRecognisesMarkerLettersBeyondRAndG answers a council
+// editquality objection (57a9939f, 2026-09-03): an earlier version of the
+// heading pattern hard-coded `[RG]`, and the FCA Handbook is known to use
+// other provision-type letters (E for evidential provisions, D for
+// directions) this class would have missed — live-checked against CONC 6.7
+// and COBS 2.1 (2026-09-03) found only R/G, so no counter-example was in
+// hand, but the marker letter itself is not load-bearing (the date before
+// it is), so this pins the widened `[A-Z]` deliberately rather than leaving
+// the robustness gap the objection named.
+func TestCitationRuleSpanRecognisesMarkerLettersBeyondRAndG(t *testing.T) {
+	fixture := `COBS 2.1 Client's best interests ` +
+		`COBS 2.1.4 01/11/2007 E A firm making a personal recommendation must consider the alternatives.`
+	found, applicable := CitationRuleSpan(fixture, "COBS 2.1.4", "A firm making a personal recommendation must consider the alternatives")
+	if !applicable {
+		t.Fatalf("expected applicable=true — the fixture carries an E-marked heading")
+	}
+	if !found {
+		t.Fatalf("an E-marked rule's own citation must verify — the marker letter must not gate recognition")
+	}
+}
+
 func TestCitationRuleSpanFindsQuoteInItsOwnRulesSpan(t *testing.T) {
 	found, applicable := CitationRuleSpan(conc67Fixture, "CONC 6.7.23",
 		"must not refinance high-cost short-term credit (other than by exercising forbearance) on more than two occasions")

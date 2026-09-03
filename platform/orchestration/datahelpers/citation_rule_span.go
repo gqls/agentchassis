@@ -36,8 +36,22 @@ import (
 // case-sensitive by the same reasoning fad209b92 already established: a
 // real citation is capitalised, and case-insensitivity would let short codes
 // like SUP or MAR swallow ordinary prose.
+//
+// The status marker is `[A-Z]`, not the narrower `[RG]` an earlier version
+// of this file used — a council editquality objection (57a9939f, 2026-09-03)
+// correctly flagged that FCA Handbook pages carry other provision-type
+// letters (E for evidential provisions, D for directions) that a
+// two-letter class would miss. Live-checked against CONC 6.7 and COBS 2.1
+// (2026-09-03): both show only R/G, so no counter-example was in hand — but
+// the letter ITSELF is not load-bearing to this check; the DATE immediately
+// before it is what discriminates a rule's own heading from a mention of it
+// elsewhere (see the file header). Widening to any single capital letter
+// costs nothing and removes a real, if unencountered, failure mode: a
+// mis-recognised marker would have made an E/D-marked rule's own citation
+// report as WRONGLY attributed, the opposite of what this file exists to
+// prevent.
 var ruleHeadingRe = regexp.MustCompile(
-	`\b(` + regulatoryRulebookCodes + `\s+\d+[A-Z]?\.\d+\.\d+)\s+\d{2}/\d{2}/\d{4}\s+[RG]\b`)
+	`\b(` + regulatoryRulebookCodes + `\s+\d+[A-Z]?\.\d+\.\d+)\s+\d{2}/\d{2}/\d{4}\s+[A-Z]\b`)
 
 // normaliseRuleID collapses whitespace and uppercases so "CONC  6.7.23",
 // "conc 6.7.23" and "CONC 6.7.23" all compare equal. Folding case HERE is
