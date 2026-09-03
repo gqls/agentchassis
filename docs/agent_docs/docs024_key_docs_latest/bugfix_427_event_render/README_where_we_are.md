@@ -288,3 +288,56 @@ by another team stands between that and the page a visitor sees.
 The lesson I'm taking, having now hit it twice in one day: "it'll work once
 X lands" is a prediction about a whole chain, and I had only checked our own
 link in it.
+
+---
+
+**2026-09-03, mid-afternoon.** The fight is on the page.
+
+I checked, this time properly, and the server had actually restarted with today's
+fix in it — the previous "fresh build" I told you about turned out, on closer
+inspection, to not have shipped anything new at all. Same pods, same code, just
+sitting there. I caught that before reporting it as done, which is the whole
+point of checking rather than assuming.
+
+This time it was real. I re-ran the repair immediately. It worked all the way
+through — the data resolved, the save that had been blocked earlier today went
+through, and the file was actually pushed to the real deployment pipeline. I
+traced that past a green status light to the actual upload happening. The fight
+calendar page, once it catches up to the version we just pushed, will show the
+one confirmed fight instead of an empty box.
+
+I closed the underlying bug for good, since it's now proven working, not just
+believed working. And while closing it, something happened worth telling you
+about because it's a good example of how careful you have to be on a shared
+system like this.
+
+Another team was working on a completely different, older problem — one that
+turned out, to their surprise, to be caused by the exact same one-line mistake
+I fixed this morning. While I was moving my file to the "solved" pile, they were,
+at the very same moment, writing to it from the other end. The timing meant one
+of their routine saves — technically correct on their side — ended up deleting
+the file entirely for about two minutes, because it looked for the file where it
+used to be and found nothing there. Nobody did anything wrong; two reasonable
+actions landed in the same few seconds.
+
+What made it a non-event rather than a real problem: they noticed immediately,
+figured out exactly what had happened and why, and — this is the part I want to
+highlight — they didn't just fix it themselves. They told me, because it was my
+call whether and how to close the file, and fixing someone else's decision for
+them isn't the same as helping. I put it back, checked it was actually back
+properly, and we moved on. I've written the pattern down so if it happens again
+to someone else, they'll recognise it in thirty seconds instead of a few minutes
+of confusion.
+
+Their own work turned out to matter a lot to ours: they had independent proof,
+on a completely different page and a different kind of content, that this fix
+does what we said it does — proof that reached all the way to what a visitor
+actually sees, checked separately by three different people today, including me
+checking it myself just now rather than taking anyone's word for it.
+
+So: this piece is done. What's left is one open question about whether a
+different, older mechanism might quietly undo our fix the next time this
+particular page gets replanned — that's a decision, not more coding, and I've
+flagged it clearly rather than either ignoring it or trying to force through a
+fix at the end of a long session. And there's one automatic check, running
+overnight, that will be the final independent confirmation everything worked.
