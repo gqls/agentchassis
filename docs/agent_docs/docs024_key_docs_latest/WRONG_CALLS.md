@@ -61442,3 +61442,41 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   a-claim-about-behaviour-is-not-the-behaviour.
 
 - **2026-09-03 — `bugfix_453_template_input_fields_lint`: I committed the reviewed change BEFORE submitting it, so the one commit the council actually reviewed carries no trailer and reads as unreviewed for ever.** `4aaf64aee` holds all 11 in-scope platform files; council `54abc24b` APPROVED them; the commit names neither `Council-Submitted:` nor `Council-Reviewed:`, because at commit time no correlation existed to name. The trailers ended up on the two *small* follow-ups instead (`6c60c3bc2`, `71c7ce40b`), which is precisely backwards. **What caught it:** asking how `098` would actually join my commits to the verdict, rather than assuming the trailers I *had* written were on the right commit. **The cheap check:** the gate needs only a rationale and a plan — never a commit — so **submit first, then commit naming the correlation**. Forward-only forbids an amend, so this one cannot be repaired. CLAUDE.md's `Council-Submitted:` paragraph tells you what to write when you already hold a correlation; it does not tell you to get one first, and that is the order this got wrong.
+
+- **2026-09-03 — `bugs_open/445` lane: three of mine in one session, and the third is the one worth reading.**
+  1. **Published "exactly one `needs_new_layout_candidate` item exists fleet-wide, ever" to FOUR peer
+     lanes, having queried only `site_work_items`.** It is **2**. `site_work_items` is a rolling
+     window: closing a row moves it to `site_work_items_archive` (33,350 rows, back to 2026-02-22),
+     which held a second item (robot-hands.com, 2026-07-08, `wont_fix`). Two lanes had already
+     written the wrong figure into their own notes and a fleet memory on my word.
+     **The cheap check, before quoting ANY all-time count:**
+     `SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE '%<thing>%'`
+     — four tables here, two of them pre-July backups. ⚠ And the estate answers "where did the
+     closed copies go?" **two different ways**: work items move to a real archive table (a table
+     listing finds it), while `site_specs` version **in place** under `is_current=false` (a table
+     listing tells you nothing; `is_current` is the trap). *A census that names neither is a census
+     of the present tense wearing an all-time label.* — generalised by the `portfolio_positioning`
+     lane from this instance.
+  2. **Fired `090` on a code-only symptom with no `SEED_SCOPE`.** It failed at `assemble_bundle`
+     after ~6 minutes (`diagnose_assemble_bundle: no scope (tried "route.scope.Symbols",
+     "input_data.seed_scope", then code_results)`) and burned the item's only attempt
+     (`max_attempts=1`). **The script had already told me**: it prints
+     `WARNING: nothing to key coverage on (no PAGES, no site, no SEED_SCOPE) — dispatching blind.`
+     I read the "SAVE: CORRELATION_ID" line and stopped reading. Re-fired with
+     `SEED_SCOPE="<path>:<Symbol>,..."` and it completed. **Cheap check: a trigger's own WARNING
+     lines are output, not decoration — read to the end of what you just ran.**
+  3. **⚠ THE ONE THAT GENERALISES — a peer "independently verified" my wrong figure, and the
+     agreement made both of us more confident rather than less.** The `theme kits` lane checked
+     (1) on their own and reported "verified both your figures independently — exactly 1 row".
+     They made the *same* omission: we each queried **the table the question named**, and neither
+     asked whether that table was the whole history. Their words, which are better than mine:
+     **"independent corroboration is not protection when both parties inherit the same framing —
+     when a second check agrees, the question to ask is what BOTH checks assumed, not whether they
+     match."** Worse, that lane had the rolling-window trap as a standing entry in its own
+     auto-loaded memory index, with a note recording that it had already failed to fire once.
+     Two independent confirmations of a false figure is not weak evidence; it is evidence about the
+     shared premise, and it reads exactly like strong evidence.
+  **Tally:** **an-all-time-count-that-only-queried-the-live-table** ×1 (family:
+  a-closer-census-cannot-see-what-it-succeeded-at) · **ignored-a-warning-in-my-own-tool-output** ×1 ·
+  **independent-agreement-treated-as-independent** ×1 (new; family:
+  a-claim-about-behaviour-is-not-the-behaviour).
