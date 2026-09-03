@@ -4305,3 +4305,46 @@ a layout bypass the tag matcher?* Measured instead.
   migration 726 (their 2.5/2.6 nav fix). Ours to do when we next touch advertise — the 444
   critique's "no tools nav link/hub on any remake" class.
 
+### (bb) 2026-09-03 ~10:4xZ — my layout-name-in-tags CAUSE is REFUTED by the 445 lane; the census survives, the causation does not
+
+I claimed in (z), in the runbook and in a WRONG_CALLS entry that the three remakes landed on
+`magazine-grid` **because** the classifier wrote `magazine-grid` into `industry_tags` and the
+matcher scored it. **That is wrong, and they disproved it three ways** (all re-runnable, and they
+rebuilt the scorer to check their reading — the replica reproduces the system's own recorded score
+EXACTLY on 29 of 30 sites):
+- not via tags — magazine-grid's own `industry_tags` are `publication,news,blog,opinion,long-form,editorial`, **no self-name**;
+- **not via the description bonus** — the path I never checked and my best shot: the bonus tests for
+  `" magazine-grid "` / `" magazine grid "` inside the description, and the description opens
+  *"Publication layout with featured article, main 2/3 + 1/3 sidebar grid…"*. Neither string present.
+  Same for `affiliate-hub`, whose description says "affiliate CTA", never "affiliate hub";
+- not via category — that bonus fires on `editorial`, which those sites carry independently.
+**So the tag is INERT in the scorer.** My census (12 sites carrying a layout name in `industry_tags`)
+stands as a fact and as a prompt-hygiene problem; it is not the cause of anything.
+
+**What is actually happening, and it is worse.** Seven sites resolved to `magazine-grid` on
+**exactly one matched tag** — `editorial-publication` — at the identical score 3.05 (tags 2.30),
+addressing **7–10% of each site's declared identity** while the other nine or ten tags matched
+nothing: advertise, apis.uk, designblog, homegarden, oufe, relojistas, websitepromotion. Eight more
+sit on `tool-portal-light` on three tags, score 8.31, ~23% coverage — **seotools is one**. And four
+sites are recorded BY THE SYSTEM as `tags 0.00` with `layout_source: library_match` (webdesign.uk on
+brochure-bold; farmerinsurance / garden-tools / vetcomparison on industry-hub) — a layout matching
+NONE of the site's tags, recorded as a successful match, because `IsFallback` requires the TOTAL to
+be zero and the category/description bonuses lift it above zero unaided.
+**The right instrument is COVERAGE — the fraction of a site's own identity its layout addresses —
+not the score, which mostly measures how many tags a site happens to have.** Our three sites are at
+7–8%: not a compromise, a near-miss dressed as a match.
+
+**Two things this lane gains:**
+1. **Where the resolved layout lives** (I looked and failed): `sites.style_collection_id` →
+   `style_collections.css_theme_id` → `css_themes.layout_id` → `layouts`. Better still,
+   `site_specs` `aspect='resolved_composition'` records `layout_name`, `lineage.layout_source`,
+   `lineage.layout_candidates` and the matcher's own score in a `reasoning` string — 33 sites have
+   one. **That is how we verify №5's layout, and it retires the "unverifiable" note in §5.**
+2. **⚠ WATCH FOR №5: copyonline could become the EIGHTH member of the `editorial-publication`
+   cluster.** It is a content/editorial site; if its classification lands that tag it goes to
+   magazine-grid at ~7% coverage, i.e. exactly the sameness the brief's `soft-editorial` direction
+   was meant to avoid — and the direction cannot prevent it, because a brief cannot name a layout
+   (z). **Read `resolved_composition` the moment composition runs, before the release rerender.**
+   Their design point, adopted: the unit of a library gap is a CLUSTER, not a site — seven per-site
+   items are a queue nobody drains.
+

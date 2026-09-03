@@ -60864,3 +60864,56 @@ a-post-fix-zero-needs-a-demand-control, a-bound-added-for-a-reviewer-narrows-you
   same embedded `agent_config`).
 - **Cost.** One wasted attempt of three on the rebuild (attempt 2 at ≥11:15Z now runs with the
   window open), and a window left open ~35 min longer than the design promised.
+
+- **⚠ CORRECTION to the entry above, same day, and it is the same error one level down.** That entry
+  says the three remakes landed on one layout because *"the CLASSIFIER wrote the layout name into
+  `industry_tags`"*. **REFUTED 2026-09-03 by the `bugs_open/445` lane**, three ways: the layout's own
+  `industry_tags` carry no self-name; the description bonus tests for `" magazine-grid "` /
+  `" magazine grid "` and the description contains neither; the category bonus fires on `editorial`,
+  which those sites carry independently. The tag is **inert in the scorer**. They rebuilt the scorer
+  to check, and the replica reproduces the system's recorded score exactly on 29 of 30 sites.
+  **The real cause is coverage, not naming:** seven sites match `magazine-grid` on exactly ONE tag
+  (`editorial-publication`, identical score 3.05), addressing 7–10% of each site's declared identity
+  — and four sites are recorded by the system as `tags 0.00` with `layout_source: library_match`,
+  because `IsFallback` requires the TOTAL to be zero while the category/description bonuses lift it
+  above zero with no tag matching at all.
+  **The lesson is uncomfortable and exact: the entry above scolds me for building on a peer's
+  finding without reading the mechanism, and in writing it I asserted a NEW mechanism from a
+  correlation without reading the scorer.** I had the census (a layout name sits in the tags) and a
+  matching outcome (that layout was chosen), and I published the join between them. I never opened
+  the function that does the scoring. **A correlation between a name and an outcome is not a
+  scoring path; the only way to know is to read the scorer, and I was one grep away.** My census
+  survives as prompt hygiene; my causation did not survive contact with the code.
+
+## 2026-09-03 — I built a four-level experiment on a query ending in `LIMIT 1`, so every level returned 1 and "the governor changes nothing" was unfalsifiable (dispatch_throughput lane)
+
+- **The claim, as my own probe printed it.** Proving the D4 spend governor's shed staircase on
+  the live selector, at synthetic levels 0/1/2/3 inside a rolled-back transaction:
+  `selector_candidate_sites = 1` at **every** level. Four rows, no error, the authoritative
+  query — and completely empty. The selector's last two tokens are `LIMIT 1` (it returns the
+  ONE site to dispatch next), so the count was the limit, not the candidate set.
+- **Why it matters.** The reading points the wrong way in both directions. As printed it reads
+  "the governor's clause has no effect", which would have been a false alarm on a mechanism
+  enabled 30 minutes earlier. Had the clause been genuinely broken, the identical four `1`s
+  would have read as a PASS. **A meter that returns the same number whether the thing works or
+  not is not weak evidence, it is none** — and it arrived looking like a completed measurement.
+- **What caught it.** Me, at the read, on the "could this have come out otherwise?" test — the
+  suspicious part was the *uniformity*, not any single value. That test is the only thing that
+  fired; the query was right, the transaction was right, the controls were right.
+- **The cheap check that would have.** Read the last line of a query before you count its rows.
+  Then make the strip assertable rather than assumed:
+  `qn := regexp_replace(q,'LIMIT\s+1\s*$',''); IF qn = q THEN RAISE EXCEPTION …` — so a selector
+  that stops ending in `LIMIT 1` aborts the probe instead of silently returning to the trap.
+  Stripped, the same probe discriminated immediately: 14 sites at L0, 13 at L1–L3, with the
+  item-level meter (0 / 51 / 112 / 112 withheld) carrying the real signal.
+- **The same hour, same lane, the twin of it.** I read "does the selector carry the governor
+  clause?" off `scheduled_tasks.pre_query` and got a confident `false` plus an md5 matching
+  neither the pre- nor post-migration value — i.e. *another session has reverted your
+  migration*. Wrong object: the clause lives in `agent_definitions`
+  (`find_dispatchable_site`), and `pre_query` is a different query owned by another lane.
+  **"The selector" named two live objects and I never asked which.** Both are now one
+  LANDMINES entry, because the tell is identical — a confident number off an object nobody
+  named precisely.
+- **Cost.** None beyond two minutes; nothing durable was written from either. Logged because
+  the tally is the point, and because both are the same fault at different altitudes: I checked
+  the *provenance* of my query (the authoritative one) and never the *shape* of what it returns.

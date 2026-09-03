@@ -261,8 +261,16 @@ LAYOUT intent naming a distinct layout (prefer the nine unused) — ⚠ **an INF
 (NOTES (z), 2026-09-03)**: the resolver scores `classification.category` + `industry_tags` only,
 and takes just the light/dark SCHEME from `design_intent.style_direction`; it *"never consults
 design_intent"* for the layout itself. A named layout reaches it only if the CLASSIFIER copies the
-name into `industry_tags` — which it demonstrably does (12 sites carry a layout name there as of
-2026-09-03). So name the layout AND verify at composition; the only hard lever is a theme kit · COLOUR referent = nearest
+name into `industry_tags` — ~~which is how three remakes landed on magazine-grid~~ **REFUTED by the
+445 lane 2026-09-03: that tag is INERT in the scorer (not in the layout's own tags, not in the
+description-bonus strings, not the category bonus). The 12-site census stands as prompt hygiene, not
+as a cause.** What actually happens: seven sites match `magazine-grid` on ONE tag
+(`editorial-publication`, score 3.05, **7–10% coverage of their declared identity**), and four sites
+are recorded `tags 0.00` with `layout_source: library_match`. So name the layout AND **verify at
+composition** — `SELECT data->>'layout_name', data->'lineage'->>'layout_source', data->>'reasoning'
+FROM site_specs WHERE site_id=:id AND aspect='resolved_composition' AND is_current;` (also
+`sites.style_collection_id` → `style_collections.css_theme_id` → `css_themes.layout_id`). The only
+hard lever is a theme kit · COLOUR referent = nearest
 estate neighbour's actual served values · grep the plan for `contact-hero` ·
 **444 pre-enablement, per the fixing thread's recipe (2026-09-02)** — fire direction needs NO
 new field; instead, BEFORE firing a brief that wants listing pages:
