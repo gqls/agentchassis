@@ -1552,3 +1552,21 @@ articles and a handful of short emails, three prompts to try, and the same email
 untrained model, by yours, and what the person actually wrote, names removed. I tested it again in a real
 browser with one of the page's own suggested prompts and the reply streamed in, a generic business
 email, exactly as the page now says to expect. The design critic has started on the site.
+
+**2026-09-03, 23:05 BST, the design critic's verdict and what I propose.** The critic looked at eight
+pages at two widths. Site-wide it found the same thing you did: every page runs the same beat, navy
+hero, cream three-column cards, navy CTA, then a huge footer, with the same card icon treatment and the
+same hero picture on five pages, so the site reads as templated. On the homepage itself it liked the
+hierarchy, called the six-card grid solid and the orange-edged blocks the strongest section of the
+whole site, and faulted exactly one thing: the case studies, four cards that fall into three plus one
+orphan. The full report is in the lane folder.
+
+So the first card change I propose is that one: the case studies become a swipeable carousel, which
+removes the orphan by construction and is the structure you asked for. It is not a simple switch,
+because the carousel component takes its cards in a different shape and is rendered by an agent, so the
+words could drift; I would copy your four cards' text across verbatim and check every title and excerpt
+byte-for-byte on the live page afterwards, with a rollback ready. It is the first time anyone has
+swapped a slot's component on a live page here, so I have written the steps down rather than doing it
+at eleven at night. The simpler alternative the critic itself suggests is a card count that divides by
+three, so three or six case studies instead of four, which is a content decision for you. Say "carousel"
+or "three" or "six" and it happens first thing.

@@ -3558,3 +3558,37 @@ business email ("Dear [Customer], Thank you for your message regarding the deliv
 Small thing seen, not fixed: the page carries "What to try" twice — once as the widget's heading and
 once as an `<h3>` inside the third booking section — a duplicate heading string, harmless, worth a look
 when the merged playground brief is written.
+
+## 2026-09-03 (21:38–22:05Z) — the design critique's report, and why the card canary is a PLAN, not tonight's change
+
+Report `[204f1ff7, 21:38Z]`, verbatim + reading in `DESIGN_CRITIQUE_2026-09-03_finetuning_uk.md`. For the
+homepage: the ONE slot it faults is `case-studies-grid` (four cards → 3+1, an orphan in a large gutter);
+the six-card grid is "solid"; the `differentiators` orange-left-border blocks are "the strongest section
+of the site"; the monotony (navy hero / cream 3-column cards / navy CTA / mega-footer, identical
+icon-in-circle card headers, the same hero image on five pages) is SITE-WIDE — composition and imagery,
+not one grid. How-we-work's step row + numbered list is "the most confident layout".
+
+**The canary, measured, and why it is not a re-render `[MEASURED 21:58Z]`:**
+- The slot: `page_components.slot_name='case-studies-grid'`, component `case-studies-grid`
+  (`render_mode='template'`, function `case-studies-grid`), `content_data` is a FLAT field set of
+  4,558 chars — `card1_title … card5_title`, `_excerpt`, `_link_url`, `_image_url/_alt`,
+  `_stat_label/_value`, `_client_name`, `_category_label`, plus `section_headline/_intro`, `eyebrow_label`,
+  filter labels, CTA fields; no `items` array.
+- Both carousel candidates are **`render_mode='agent'`** with a DIFFERENT contract: `swipeable-insight-
+  carousel` (`cards, section_title, section_eyebrow`), `hero-card-carousel` (`cards, autoplay, …`). So a
+  swap = (1) a DETERMINISTIC mapping of the four cards' title/excerpt/link/category into `cards[]` with
+  the text copied verbatim (a script, not an LLM); (2) the three placement rows (`page_components`:
+  component_id + slot_name → the carousel's FUNCTION + content_data; `pages.sections`;
+  `site_plan_sections`) — count them first, resolve by function; (3) a render — and an agent-rendered
+  component regenerates its HTML from content_data through an LLM, which is where the approved words
+  can drift. Acceptance therefore = every title/excerpt string byte-identical at the SERVED page against
+  the pre-swap `content_data`, plus the orphan gone, plus the probe that the carousel swipes. Rollback =
+  the archived `page_components` row (archive trigger) + a rerender.
+- 035 §6.9 is the `loadStoredSections` / `parent_instance_id` filter, i.e. the by-name landmine's worked
+  case, NOT a swap recipe — there is none in the estate (the uplift lane's census agrees).
+- **An alternative that is not a swap:** the critic's own remedy for the orphan is a card count divisible
+  by three — three or six case studies instead of four — a CONTENT decision (which study to drop, or
+  which to add), the owner's.
+**Not done tonight (23:05 BST): a first-of-its-kind swap on the live homepage with a copy-drift risk,
+invented live, is the wrong thing to do at this hour.** Written as the next session's first item; the
+owner asked to "apply", so it goes ahead on his nod to the canary (or to the 3/6 alternative).

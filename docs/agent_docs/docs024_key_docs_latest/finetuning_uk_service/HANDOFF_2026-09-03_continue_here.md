@@ -193,6 +193,16 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    explanation is written only after his answer, because the framing sentence is his. Base model
    `smollm2:1.7b` is on the in-cluster ollama-adapter for comparisons. The echo behaviour goes to the
    training side before any further run (data-boundary suspect; RESULTS 08-15 never measured held-out).
+0d. **HOMEPAGE CARD CANARY — the next session's FIRST item, on the owner's nod** (critique in
+   `DESIGN_CRITIQUE_2026-09-03_finetuning_uk.md`; mechanism in NOTES 22:05Z). Slot `case-studies-grid`
+   (four cards → 3+1 orphan) → `swipeable-insight-carousel` (agent-rendered; contract `cards,
+   section_title, section_eyebrow`). Steps: snapshot the slot's `content_data` + rendered_html; write a
+   deterministic mapper (flat `cardN_*` → `cards[]`, verbatim); count and update the THREE placement rows
+   by FUNCTION; render; assert every title/excerpt byte-identical at the served page + orphan gone +
+   swipe works (CDP); rollback = archived row + rerender. Alternative the owner may prefer: three or
+   six case studies (content decision), no swap. Do NOT touch `features` (solid) or `differentiators`
+   (the site's strongest device; the uplift lane's infographic sits with it). Site-wide monotony and the
+   hero image reused on five pages are composition/imagery questions, not this lane's card swap.
 0a. **Playground follow-ups, in order:** (i) a criteria fence for `tool-playground` so TL-013's
    ladder grades it (the brief's ACCEPTANCE list is the fence's content); (ii) a multi-turn probe
    run (the CDP probe sends one message; the route and widget are multi-turn); (iii) the owner's read
