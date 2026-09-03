@@ -542,3 +542,58 @@ stored, only refused).
 exhausted value), `triaged_at`/`retry_after` cleared: `2026-09-03 12:50:50 UTC`. Same
 transaction shape as the original three-site reset, `RETURNING` confirmed the write. Watching via
 Monitor for the outcome.
+
+## 2026-09-03 — a thorough independent CONTRIB from the 417 lane closes out two open items and adds real threshold evidence
+
+`bugfix 417`'s own read of all four runs (`gamedesign.uk`, `designblog.co.uk`, plus their own
+`websitepromotion.co.uk` and `seotools.co.uk` from this lane's handoff), committed in full at
+`CONTRIB_2026-09-03_from_417_lane_gamedesign_landed_designblog_exhausted_and_the_despill_fringe_on_two_good_results.md`.
+Read in full before acting on anything in it. Highlights, credited:
+
+- **Confirmed `designblog.co.uk`'s exhaustion was a genuine refusal, not an artefact of the
+  `12:06:47Z` chassis roll killing the run mid-flight.** They specifically checked for this
+  (timestamp of the terminal refusal, `11:36:58Z`, predates the roll; the row carries the guard's
+  own statistic, which a killed run cannot fabricate) and wrote it up as a landmine
+  (`site_work_items.error` footprint) — a real trap this lane could otherwise have walked into when
+  attributing the first exhaustion.
+- **Open item 4 (despill fringe) effectively closed, not by a fix but by measurement**: magenta-ish
+  opaque-pixel fraction is 0.01% on `gamedesign.uk` (8 px) and 0.05% on `seotools.co.uk` (42 px)
+  post-fix, against 0.62% (542 px) on `websitepromotion.co.uk`'s PRE-fix good result — an order of
+  magnitude improvement, not a regression to chase further. Their own assessment, endorsed here:
+  "diagnosed and not worth fixing" at this size.
+- **A hypothesis they formed and then REFUTED before reporting it — worth keeping as a method, not
+  just a result.** Enclosed white regions inside `gamedesign.uk`'s mark looked opaque by eye, which
+  would have meant `BorderKeyed`'s outer-ring-only measurement structurally misses enclosed ground
+  surviving the matte. Measured directly (near-white opaque pixel count) before sending it: **zero**
+  on both post-fix artefacts — those regions are genuinely transparent, showing white only because
+  the page behind them is white. General lesson recorded: over a white page, opaque white and full
+  transparency are visually identical, so a look can produce a confident, wrong structural claim
+  that one alpha-channel measurement settles.
+- **Strong, population-level evidence on the threshold-constants item (open item 3)**: every
+  refusal read so far (`designblog.co.uk`'s terminal attempt, `websitepromotion.co.uk`'s attempt 1,
+  and this lane's own first-attempt refusals on `seotools`/`gamedesign`) is `border_keyed` **exactly
+  0.000** — not a near-miss, a clean bimodal split with nothing landing anywhere near the 0.95
+  threshold on either side. **This means the threshold constant is not the binding factor and
+  retuning it would not have saved any observed failure** — attempts (retry budget), not the
+  constant, is the real lever, matching this lane's own earlier read of the round-3 CONTRIB.
+  Caveated correctly: `site_work_items.error` holds only the LAST attempt's message, so this is
+  read first-hand on some runs and taken from this lane's own handoff for the rest, not claimed
+  as exhaustive.
+- **`bugs_open/462` now formally filed** (owner-approved) for the mark-legibility gap this lane
+  deliberately left with the 417 lane rather than absorbing — no longer "candidate, unfiled" per
+  the earlier NOTES entry; update that framing. Sharp, concrete point folded in: their fix
+  candidate 1 (a contrast statistic, fail-closed, on the SAME retry ladder as `BorderKeyed`) is a
+  real interaction with this lane's own open decision #3, not a hypothetical one — two fail-closed
+  checks sharing one exhausting ladder compounds the exhaustion risk 462 and 424 would otherwise
+  discuss separately.
+- **Context for the current retry**: `websitepromotion.co.uk` (their own lane's item) is mid-ladder
+  on the identical guard right now, attempt 1 refused, retry due `13:02:24Z` — two logo generations
+  may be in flight concurrently; not a collision, just worth knowing if adapter logs look busier
+  than expected.
+- **Designblog's prompt is structurally unique among the five studied** (`gamedesign`, `seotools`,
+  `websitepromotion`, `boxingonline`, `designblog`): it asks for "abstract letterform or typographic
+  symbol" in the same sentence that forbids "lettering or words of any kind" — the sharpest
+  self-contradiction in the population, and per the 417 lane the only live test of whether their
+  own 417 override clause actually wins in practice. That is WHY they wanted this retry to happen,
+  beyond general interest — it is their most informative pending test case too, and they only need
+  to look at the resulting picture once it lands.
