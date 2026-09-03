@@ -633,3 +633,70 @@ component, its schema, the evidence gate, the resolver, the register fact and th
 `component_swap` attachment were all correct and all in place; they were being fed into a
 render path that had stopped delivering fresh data to *every* component on the estate three
 hours earlier. When the chassis rolls, this page should populate with no further work.
+
+---
+
+# ADDENDUM 2026-09-03 10:3xZ — the WRITER end now works on this site; the READER end does not
+
+**Added by the boxingonline review session.** The bug's title says "no writer populates dated,
+correctable event facts". **On boxingonline that half is now FALSE.** Measured at the live DB.
+
+## What changed
+
+```sql
+SELECT jsonb_array_length(data->'facts'), source, created_by, created_at
+  FROM site_specs WHERE site_id='d2aa5206-…' AND aspect='evidence_base' ORDER BY created_at;
+```
+| facts | source | created_by | created_at |
+|---|---|---|---|
+| 2 | order_intake | seed_build_queue | 2026-08-31 12:21 (superseded) |
+| 1 | operator | site_delivery_and_editor-session | 2026-08-31 15:54 (the email-claim removal) |
+| **7** | **research** | **evidence-researcher** | **2026-09-02 12:41** |
+| **7** | **scheduled** | **evidence-refresher** | **2026-09-03 09:11** |
+
+**⚠ THE "ONE FACT" FIGURE IN §3 IS STALE.** I supplied it and I am correcting it here rather than
+leaving it to be quoted: this site went 1 → 7, and a `scheduled` refresher has since re-run.
+
+**And they are real, dated, cited facts** — `source.citation` carrying a URL and a verbatim quote:
+
+- Filip Hrgovic stopped Moses Itauma in round 9 for the vacant IBF heavyweight title, 30 Aug 2026
+- Chantelle Cameron beat Mikaela Mayer by decision, unified light-middleweight
+- Mayer vs Cameron headlined MVPW-06 on 29 August at the bp pulse arena
+- **Canelo Alvarez is scheduled to fight Christian Mbilli on October 31** ← a FORWARD-LOOKING,
+  DATED FIXTURE, which is precisely the shape this file says nothing produces
+- Adrian Rueda won the vacant WBO I-C super lightweight title, 30 Aug 2026
+- Wladimir Klitschko fought Ross Puritty, 5 December 1998, Kyiv
+
+## What has NOT changed — the reader end
+
+Measured at the served site in the same minute:
+
+```
+/tools/fight-calendar/index.html   inputs=0   inline data arrays=0   fetch(=0     (unchanged)
+Canelo/Mbilli occurrences: /news/index.html 3 · index, articles-index, calendar, about: 0
+```
+and the 3 on the news page are the FEED's own items, not the fact corpus. The comparator is
+unchanged: 18 manual inputs, no shipped data.
+
+**So the corpus is populated and nothing consumes it.** The two ends of this bug have separated:
+acquisition works on at least one site; there is no path from `evidence_base` to a tool.
+**Whoever picks this up should restate the title before building** — building the writer again
+would be building the half that already works.
+
+## Explicitly NOT established
+
+- **Why** `evidence-researcher` ran here — deliberate dispatch or normal build flow. Unknown.
+- **Whether the fleet picture moved** from the §3 baseline (20 of 54 sites with a row; 42 of 54 at
+  ≤5 facts). That baseline is now at least one site out of date and it sizes the remaining job.
+  **Re-measure before planning against it** — the same staleness that made the "one fact" figure
+  wrong, one level up.
+
+## A narrow related defect, recorded so it is not lost
+
+The seeded `business_name` fact carries `source.attested_by` with **no date**, and the attestation
+staleness checker treats undated as beyond its 180-day cadence — so it parked a `stale_attestation`
+work item at `needs_human_review` on a three-day-old site
+(`0cdddb6f-f05f-4c7a-bd7f-375f807da73b`, "1 attested fact(s) due for human re-look").
+Fleet-wide it is a **singleton: 146 attested facts, exactly 1 undated**, and it is this one — so
+order-intake's seeder writes an attestation that can never be satisfied without a human. Narrow,
+cheap, and it puts a spurious item in front of the owner at his pre-delivery review.
