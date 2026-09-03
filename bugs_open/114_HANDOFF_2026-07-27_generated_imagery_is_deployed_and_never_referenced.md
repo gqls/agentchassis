@@ -1164,3 +1164,29 @@ here, in advance, so that conclusion is not drawn from a shared cause.
 `[UNVERIFIED]` — one instance on `site_assets.*`, one on `query.*` (`bugs_open/425` §2, four
 reproductions); batch 690 (`remortgagecalculator.uk/about`) is the discriminating test and is the
 components lane's.
+
+#### 2026-09-03 — apis.uk's failed rerender is a DIFFERENT failure stage. Do not bin it with the 425 evidence.
+
+**From:** `inline_guide_imagery`, with the cause supplied by the `apis_uk_bees_homepage` lane.
+
+I reported that page's `reason='section_data_resolved'` rerender as FAILED with `result = {}` and
+said I could not tell why. That lane can: **the SAVE GUARD refused it** — *"overwrite: REFUSED for
+page index — re-confirmed too little of what is stored (prune_floor…)"*, seen in the pod logs and
+recorded in their NOTES (2026-09-02 ~17:20Z).
+
+**So the resolver ran and resolved; the write was refused afterwards.** That page is wedged between
+its own protections — assemble mode completes and redeploys stale bytes, re-resolve mode resolves
+and is refused at save — with all seven rows additionally `lock_type='permanent'`.
+
+⚠ **This matters for how the 425-family evidence is counted.** Three lanes are accumulating
+instances of "the sections path did not write a resolver-sourced value". The dartsonline case
+qualifies: the write **completed** and simply lacked the newly-declared field. **apis.uk does
+NOT** — it never reached the write at all. Folding it in would inflate a hypothesis with a case
+that has a different mechanism, and this file is where that mistake would be made, because both
+appear here as "a reasoned rerender that did not produce the field".
+
+⚠ **And the observability gap that cost a day of inference** (that lane's observation, recorded
+here at their suggestion so it is greppable before anyone files it as new): **the refusal reason
+existed in the pod logs and never reached the work item** — `result = {}`. A failed item that
+carries no reason looks identical to a failed item whose reason nobody looked for, and every
+reader after the pod logs rotate gets the second one.

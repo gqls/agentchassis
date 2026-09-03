@@ -178,10 +178,18 @@ needs the composition half.
   imagery rows (16:47:03.788197Z — one transaction, exactly right) and **it FAILED** at 18:21:41Z
   with `result = {}` and no detail recorded. A second item completed 09-03 07:06 carrying **no
   reason**, i.e. the assemble path, which asks the resolver for nothing. Rows still
-  `updated_at = 2026-08-24`. ⚠ **And all seven rows are `lock_type='permanent'`,
-  `locked_by='apis-uk-bees-lane'`** — so the failure may be the locks working as designed, and
-  that page cannot serve as a control without a protection being lifted that its owner put there
-  deliberately. **I withdrew my own offer of it as the "existing declared field" control and told
+  `updated_at = 2026-08-24`. ⚠ **WHY it failed, supplied by that lane 2026-09-03 (I could not see it — `result` is `{}`):
+  the SAVE GUARD refused it** — *"overwrite: REFUSED for page index — re-confirmed too little of
+  what is stored (prune_floor…)"*, observed in the pod logs and recorded in
+  `apis_uk_bees_homepage/NOTES`. **So it is NOT the resolver and NOT the locks per se.** The page
+  is wedged between its own protections: assemble mode completes and redeploys stale bytes;
+  re-resolve mode **resolves successfully and is then refused at save**. All seven rows are also
+  `lock_type='permanent'`, `locked_by='apis-uk-bees-lane'`.
+  ⚠⚠ **THEREFORE DO NOT COUNT apis.uk TOWARD THE 425 SHARED-ROOT-CAUSE PILE.** It fails at a
+  *different stage* from the dartsonline case (where the write completed and simply lacked the
+  field). Binning it with the others would corrupt a hypothesis three lanes are accumulating
+  evidence for. Their open route is the site-level `rerender-pages` fan-out, which served this
+  page successfully on 08-24 with the locks in place. **I withdrew my own offer of it as the "existing declared field" control and told
   that lane their test had failed** (nothing about the failure is visible on the item).
   **The existing-field half of the experiment therefore has NO VENUE yet** — any page with a
   resolver-sourced field declared *before* its last build, with values stored, would serve.
