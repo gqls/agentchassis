@@ -4283,3 +4283,51 @@ to being general** when there is nothing verified (writer). The remaining gap is
 stated: a section can now carry less text, but it still cannot be handed back EMPTY without
 tripping floors built to catch lost content — making "declined" distinguishable from "lost" is
 the next piece, and it is not started.
+
+**2026-09-03 ~14:20Z — THE PLANNER CANARY IS ANSWERED, POSITIVE — and the render exposes a second
+structural loss in carrier 675.**
+
+**Answered.** `build-site-planner` has now rendered the block twice: `2026-09-03 10:40:15Z`
+(planning gamedesign.uk) and `14:15:16Z`. Both `has_standard = t`, `unrendered = f`. Read at the
+artefact, not off a flag — the prompt literally contains *"Plan a website for gamedesign.uk.\n\n##
+BUILD STANDARD (applies to every site, regardless of inputs). Aim for best-in-class quality in
+this site's field…"*. So opt-in `677` works end-to-end: carrier row → injector → live planner
+prompt. **The owed read from the handoff is CLOSED for `build-site-planner`.** `678`
+(content-gap-planner) is still unobserved — that agent has not run since the opt-ins — and `679`
+(visual-designer) never will, being the dead row.
+
+⚠ **Only two agents carry the carrier form fleet-wide, and one of them is not a consumer:**
+`build-site-planner` (2) and **`diagnose-agent` (1, 14:01:55Z)** — a diagnostic reading agent
+configs, i.e. our own investigative traffic showing up in the corpus. Do not count it as a third
+consumer; the census question is "who RENDERS it", and a diagnoser quoting a config is not that.
+
+**⚠ THE DEFECT: the entire 897-character block renders as ONE MARKDOWN H2.** `[MEASURED
+2026-09-03]` from `##` to the next newline is **897 chars**, and there is no newline after
+"regardless of inputs)". Mechanism, and it is the other half of this morning's finding: the opt-in
+migrations insert `## {{.build_standard}}`, which was correct against the SOURCE block's shape —
+`## Build standard (applies to every site, regardless of inputs)` **newline** `Aim for
+best-in-class…`. But carrier `675` rewrote that into a run-on sentence, `BUILD STANDARD (applies
+to every site, regardless of inputs). Aim for…`, replacing the line break with a full stop. So
+`##` now spans the whole standard instead of its title.
+
+**So 675's transcription lost TWO structural things, not one**, and this morning I only caught the
+first: (a) the entire second paragraph — the scope guard, the "governs QUALITY and FIT, not scope"
+counterweight; (b) the heading/body line break, which turns the block into a heading with no body.
+Both came from the same act — rewriting the source's shape while the header asserted "verbatim …
+byte-identical". A diff would have shown both; the prose trim note showed neither.
+
+**Severity: low but real.** Every word is present and legible, so no instruction is lost. What is
+lost is the structural signal — a heading exists to separate a block from its surroundings, and a
+heading that IS the block separates nothing. It also makes the injected text visually unlike every
+other `##` section in the same prompt.
+
+**NOT fixed here, and the fix has a coupling.** The clean repair is to restore the source's line
+break in the carrier (`Build standard (…)\nAim for…`), which makes `## {{.build_standard}}` yield
+a proper heading plus body on all three opted-in templates at once. But the carrier's run-on
+all-caps form is exactly what makes the canary needle discriminating — `BUILD STANDARD (applies to
+every site, regardless of inputs). Aim` is the string that distinguishes carrier output from
+`domain-research-classifier`'s own hard-coded copy. **Change the carrier and that needle breaks**,
+so the needle in this file, in `HANDOFF_2026-09-03_continue_here.md` and in
+`scripts/fire-content-gap-planner.sh` must move in the same commit. Same lockstep shape as rules
+18/19. Raised rather than applied: it is a live fleet-wide prompt change and the owner has been
+ruling on prompt shape all day.
