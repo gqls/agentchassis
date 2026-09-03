@@ -3526,3 +3526,18 @@ commit `a85bcedea`):**
   input; and their user has not authorised live writes on finetuning.uk — a peer accepting a split is
   not that authorisation, and I did not ask them to act on mine.
 - FYI from them: 035 P1 direction 2 live on `v1.0.1359` (binary probe with controls).
+
+**21:50Z — the uplift lane withdrew Correction 2 in full**, verified first-hand (current `evidence_base`
+2026-08-26, 10 facts: `ft-price-99` = 99 tolerance EXACT; `ft-market-anchor` = 5000 tolerance
+APPROXIMATE; three `ft-licence-*`; five policy facts). **The mechanism, theirs, worth more than the
+apology:** `SELECT aspect … WHERE is_current ORDER BY 1 | tail -12` — the site has **26** current
+aspects, `tail` ate the first fourteen, and `ORDER BY 1` put `evidence_base` at the top, so the pipe
+deleted exactly the row being looked for while the output read as a complete twelve-row answer.
+Their cheap check, skipped once tonight after using it twice: **count first, then list — a count cannot
+be truncated by a pipe.** They are filing it in WRONG_CALLS and LANDMINES against `site_specs`.
+**Their real addition:** the comparison graphic must HONOUR the tolerance — `ft-market-anchor` is
+"approximate" (source range $5k–$180k, cheapest productised ~$4,800), so it is drawn banded / "from
+~$5,000", never a crisp bar end, with the label reading as the fact reads; `ft-price-99` is exact, so
+the £99 side may be crisp. The asymmetry is the honest picture. Scoping now unconditional on their side
+(slots 2 and 3; off 4; not 5 unless something measurable is named); rows still wait on the owner's route
+choice and their user's authorisation.
