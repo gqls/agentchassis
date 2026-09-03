@@ -60550,3 +60550,35 @@ a-report-is-not-a-measurement, editing-one-file-is-not-knowing-the-package.
 Family: your-measurement-answers-the-question-you-encoded,
 a-closer-census-cannot-see-what-it-succeeded-at, a-measured-marker-proves-a-claim-not-a-check,
 a-count-of-things-must-carry-the-date-it-was-counted.
+
+## 2026-09-03 — I re-derived a documented LANDMINE from scratch because I never grepped it by TABLE footprint (bugfix_384 lane)
+
+**What happened.** A `090` run of mine died on `stop_reason=max_tokens`. I measured the blast
+radius, found that truncation FAILURES carry `output_tokens = NULL` so the natural
+`output_tokens >= max_tokens` census cannot see them (4 visible vs 74 real, 14 days), judged it a
+significant cross-cutting finding, and was about to write it up as new.
+
+**It is already in `LANDMINES.md`**, in full, with the same shape and a better measurement —
+*"A TRUNCATED LLM call has `output_tokens = NULL` …"*, footprint `llm_call_log`, measured
+2026-07-31: the predicate returned **4** where the truth was **94**. It even supplies the correct
+check and the headroom formula. I spent ~20 minutes rebuilding it.
+
+**Why I missed it, and this is the transferable part.** The `SessionStart` hook surfaces landmines
+whose footprint matches a file already DIRTY in my tree. This entry's footprint is a **table**
+(`llm_call_log`) and a **predicate shape** — neither can ever match a path, so the hook was never
+going to show it. CLAUDE.md says exactly this: *"Still grep it yourself for table, command and
+symbol footprints, which cannot match a path."* **I had read that line in this very session** and
+still opened a new investigation against a table without grepping for it.
+
+**The cheap check I skipped.** One command, before the first query against an unfamiliar table:
+`grep -n "llm_call_log" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`. **The hook's silence
+is not evidence of no landmine — it is evidence of no PATH match.** Treat any investigation whose
+subject is a table, a command, or a symbol as unprotected by the hook by construction.
+
+**What survived.** The re-measurement is still worth something: it reconfirms the landmine holds
+five weeks on (4 vs 74, same ~5% visibility) and names today's offenders, including `council-gate`
+`review_debug_historian` truncated 17 times. That is appended to the existing entry, not filed as
+new — but the value came from confirming someone else's finding, not from mine.
+
+Family: prior-art-search-goes-stale, grep-landmines-for-your-symbols,
+a-report-is-not-a-measurement.
