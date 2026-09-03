@@ -469,6 +469,45 @@ and **the five section-scope imagery rows DELETED** — left in place they would
 approval, and seven near-identical sections on one page work directly against that. The imagery
 was the owner's ask and it was delivered — but not at the price of the prose.
 
+### ⚠ THE RETRY TRIGGER — test the ARTEFACT, not the migration number (checked 2026-09-03)
+
+`640_build_site_planner_prompt_subject_rule_HOLD.sql` and
+`641_page_content_writer_prompt_v5_section_subject_HOLD.sql` are the fix. **Neither is applied**
+as of 2026-09-03, and the live agent config confirms it: `page-content-writer` and
+`build-site-planner` both return **"no mention"** for `section_subject`. So there is nothing to
+re-run yet.
+
+**Do NOT gate the retry on "is 641 applied?".** Both are `_HOLD` files — excluded from the runner
+and applied by hand — and **this repo's migration numbering collides** (`645` names two unrelated
+files today, and `schema_migrations` holds a `645`/`648` from a different sequence). A filename
+check can therefore answer "no" about a fix that shipped under another number, or "yes" about a
+file that never ran. **Ask the running agent instead:**
+
+```sql
+SELECT type, default_config::text ILIKE '%section_subject%' AS rule_is_live
+FROM agent_definitions
+WHERE type IN ('page-content-writer','build-site-planner')
+  AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+**When `rule_is_live` is true for `page-content-writer`, the retry is four steps:**
+1. Re-apply `SEED_2026-09-03` (plan + subjects + the five imagery rows). The five grip
+   illustrations are already active assets, so **stage 2 can be skipped entirely**.
+2. Re-apply `SEED_2026-09-03b` (the rebuild). Budget **hours**, not minutes — operator-seeded
+   items wait on the shared build handler; last time they sat ~4.5h on a healthy queue.
+3. **Grade on the prompts, not on the page.** The acceptance test `inline_guide_imagery` proposed
+   and I agree with: **N sections must show N distinct prompt hashes.** Scope by
+   `orchestration_id`, **never by a time window** — that is how I missed a whole second writer run:
+   ```sql
+   SELECT step_name, md5(prompt_rendered) FROM llm_call_log
+   WHERE agent_type='page-content-writer' AND orchestration_id='<the run>' ORDER BY created_at;
+   ```
+   Keep the control that makes the negative meaningful: count prompts containing a subject string
+   AND prompts mentioning the page topic. Last time: **38 / 0 / 38**.
+4. **Report the outcome to `inline_guide_imagery` either way** — they have a pre-registered
+   prediction that is still live for this page specifically, and they asked to hear it. Report the
+   run, not the expectation.
+
 ### To retry — the precondition, and it is not ours
 **Do not re-run this until a section's subject demonstrably reaches its writer prompt.** A re-run
 today reproduces the same page; the defect is upstream of anything this lane controls. The check is
