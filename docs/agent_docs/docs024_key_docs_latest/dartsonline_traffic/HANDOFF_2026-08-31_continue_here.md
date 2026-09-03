@@ -488,16 +488,32 @@ number, or "yes" about a file that never ran.
 > `648_enable_archived_page_still_serving.sql` and `648_owner_comparison_rule.sql`, unrelated, each
 > with its own `_ROLLBACK`. Same defect twice, not one defect plus a ledger artefact.
 > **And two examples badly understated it.** `[MEASURED 2026-09-03, re-derive before quoting —
-> this grows by ADDITION]` **130 of 731 migration numbers name two or more unrelated files across
-> 874 non-sidecar files — roughly one number in six.**
+> this grows by ADDITION, and it demonstrably did so DURING the measurement: see below]`
+> **129 of 735 migration numbers name two or more UNRELATED files, across 874 non-sidecar files —
+> roughly one number in six.** 130 numbers repeat; exactly one of those, `090`, is the deliberate
+> `NNN_<letter>_` sibling convention (`090_b_content_feed_trigger.sql` /
+> `090_content_feed_orchestrator.sql`), so **130 repeating, 129 genuine.**
 > ```bash
 > ls docs/agent_docs/sql_for_agents/*.sql | grep -vE '_(ROLLBACK|VERIFY|SUPERSEDED)\.sql$' \
 >   | sed -E 's|.*/([0-9]{3}[a-z]?)_.*|\1|' | sort | uniq -c | awk '$1>1' | wc -l
 > ```
-> **The `[a-z]?` in that regex is load-bearing**: four files use a deliberate `NNNb_` sibling form
-> (`042b`, `062b`, `063b`, `219b`). Collapsing them onto the base number manufactures three false
-> collisions and returns **133** — which is what my own first count did. Count credited to
-> `inline_guide_imagery`; I reproduced it only after finding why mine disagreed.
+> **The `[a-z]?` is load-bearing, and so is subtracting `090` afterwards.** Four files use a
+> deliberate `NNNb_` sibling form (`042b`, `062b`, `063b`, `219b`). Collapsing them onto the base
+> number manufactures three false collisions and returns **133** — my own first count.
+> ⚠ **But the obvious repair, `^([0-9]+)_`, is worse while looking right.** It requires the digits
+> to be *immediately* followed by `_`, so it never matches `042b_` at all and `sed` passes the line
+> through unchanged; each letter-suffixed file becomes its own unique string and drops out of the
+> collision set. **Right number, wrong mechanism — and blind to a genuine collision between two
+> `042b_` files**, which is invisible today only because none exists.
+> **Two lanes, two predicates, both wrong in different directions**: mine over-counted by 3
+> (`133`), theirs under-counted the sibling exclusion by using a pattern that only sees
+> `NNN_<letter>_` and cannot see `NNNb_`. Neither figure was reliable until the disagreement was
+> chased. Count credited to `inline_guide_imagery`; the `090` subtraction is theirs too.
+>
+> **⚠ AND IT MOVED WHILE WE WERE COUNTING IT.** Mid-exchange a third lane committed `b196bd576` —
+> *"renumber the acknowledgement migration 750 to 755 and APPLY it, 750 was taken twice under me
+> while I wrote it"* — and an untracked `756_*.sql` appeared in the same window. **The trap fired
+> on a fourth session during the hour two sessions spent quantifying it.** Re-derive; do not quote.
 
 **Ask the running agent instead:**
 
