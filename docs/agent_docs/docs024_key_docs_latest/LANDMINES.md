@@ -20339,3 +20339,10 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/428` (the `plan_site` omission mechanism this misroute was about; its migration `687` is on `build-site-planner`) · `bugs_open/444` (`validate_plan`'s listing gate, same agent) · MEMORY [[seed-sql-is-history-live-row-is-fact]] (read the live row — this is one step earlier: read the live row *of the right agent*) · MEMORY [[editing-one-file-is-not-knowing-the-package]]
 - **source:** 2026-09-03, gamedesign.uk lane — misrouted a `build-site-planner` finding to the `site design planner` session; rerouted to `bugs_open/428` (commits `7343ecb01`, `217aa4e52`). Lane NOTES 2026-09-03 ~11:00Z entry.
 - **added:** 2026-09-03, gamedesign.uk lane
+- **⚠ DUPLICATE, noted 2026-09-03 ~11:20Z:** the `site design planner` lane filed the same trap
+  independently and minutes earlier (entry *"`site-design-planner` and `build-site-planner` are two
+  different agents, one hyphenated token apart…"*, ~8 lines above this one). Two lanes hit it in the
+  same hour and each wrote it up without seeing the other — which is itself evidence the trap is
+  real, and a small instance of the append-only corpus's own failure mode. **Read the earlier entry
+  as primary**; this one adds the live step-set evidence (disjoint step lists, queried 11:05Z) and
+  the migration/`snapshot_agent` failure mode. Neither is being deleted: the file is append-only.

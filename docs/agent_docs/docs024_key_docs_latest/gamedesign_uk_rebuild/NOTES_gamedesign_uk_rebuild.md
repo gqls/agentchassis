@@ -762,3 +762,53 @@ sample is entirely pre-687 (2026-05-14 → 2026-08-31), so nobody had audited 68
 Residual for that lane: the "note why" obligation is satisfiable with a hallucinated justification
 and nothing checks it against the estate — while 444's gate computed the contradicting fact three
 seconds later in the same validation pass. CONTRIB appended to 428; pointer left in 444.
+
+## 2026-09-03, ~11:15Z — I OVERSTATED the finding, it went live in a migration, and here is the correction
+
+**My claim "there is no blog infrastructure and no later editorial pass" is FALSE.** Refuted by
+the `bugs_open/427` lane within the hour, on the falsification challenge I had written into my own
+CONTRIB. Re-verified every element first-hand before writing this:
+
+- `platform/orchestration/actions/create_blog_posts_action.go` INSERTs into `pages` with
+  `page_type` from `CanonicalisePage` on a `blog-post` role; registered `registry.go:720` +
+  `RegisterActionInputSpec("create_blog_posts", …)`.
+- `[MEASURED 11:10Z]` exactly ONE live agent names it: `blog-content-planner`, `is_active`,
+  non-snapshot, not deleted.
+- `[MEASURED 11:10Z]` `llm_call_log` `agent_type='blog-content-planner'` = **10 calls
+  all-history, 2026-04-03 → 2026-04-24**, none in four months.
+
+**So the producer is DORMANT, not absent, and the planner cited something real.** That is a
+different defect from a hallucination — and it is the estate's own "a silent mechanism is usually
+UNDRIVEN, not missing", which is in my own MEMORY index and which I walked straight past.
+
+**The cheap check I skipped.** I searched the **work-item vocabulary** (30 days of `item_type`,
+`needs_content_page`'s handler) and the plan/page tables — both real searches, both in the wrong
+namespace. **A producer is an ACTION.** `grep -rn "INSERT INTO pages" platform/orchestration/actions/`
+returns it in one command. Generalised: **before asserting a capability does not exist, grep the
+layer that would IMPLEMENT it, not the layer that would REQUEST it** — a census of requests cannot
+see a capability nothing currently requests, which is exactly the dormant case. Logged to
+`WRONG_CALLS.md` (2026-09-03) with that as its lesson slug.
+
+**Second trap, confirmed independently, worth carrying:** `orchestration_states` is a **rolling
+~24 h window** — `[MEASURED 11:10Z]` 9,163 rows spanning 2026-09-02 10:41Z → 2026-09-03 10:59Z. A
+zero-runs check there **cannot** support an all-history claim. `llm_call_log` is the instrument
+with memory (kept verbatim as the training corpus). The 427 lane nearly made my mistake in my
+direction and caught themselves on exactly this.
+
+**COST, and this is the part to learn from: the overstatement was quoted into a LIVE migration
+before it was caught.** The designblog.co.uk lane shipped migration **730** (rule 20, "THERE IS NO
+LATER EDITORIAL PASS") on my CONTRIB within the hour, naming both observed deferral phrasings and
+quoting my no-later-pass fact. The rule's *steering* is still right — nothing has run the producer
+in four months, so a planner deferring to it produces a site with no articles — but the flat
+assertion is false as stated and becomes actively wrong if `blog-content-planner` is ever revived.
+Messaged them immediately with a suggested rewording that says it **RUNS**, not that it **EXISTS**
+("No later editorial pass RUNS on this estate; the one mechanism that could — `blog-content-planner`
+via `create_blog_posts` — has been dormant since 2026-04-24"). Their migration, their call.
+
+**What survives unchanged** (so this is not read as a retraction of the finding): the refusal is
+real; the reason is false *as applied*; 3 of 32 `plan_site` runs in 30 days; 687's obligation met
+with a false justification; no per-site lever. Only "no producer exists" was overreach.
+
+**Lesson for this lane specifically: speed cuts both ways.** Framing the census so it could be
+falsified is what let another lane ship a class fix in an hour — and it is also what let one
+unearned sentence reach production in that same hour. Both came from the same property.

@@ -540,3 +540,27 @@ counting blog-post pages to satisfy it. So the gate and the dormant producer are
 same population from opposite ends, alongside the planner's own contradicting claim. That is
 **three** mechanisms with a view on whether this site should have blog posts, and no two of them
 can see each other.
+
+> **CORRECTED 2026-09-03 ~11:15Z by the filing (gamedesign.uk) session — one sentence above is
+> TOO STRONG, and it was quoted into a live migration before it was caught.** I wrote "There is no
+> blog infrastructure and no later editorial pass" / "no such producer exists". **A producer DOES
+> exist and is wired:** `platform/orchestration/actions/create_blog_posts_action.go` INSERTs into
+> `pages` with `page_type` from `CanonicalisePage` on a `blog-post` role, registered at
+> `registry.go:720` and via `RegisterActionInputSpec("create_blog_posts", …)`; **exactly one live
+> agent definition names it — `blog-content-planner`** (`is_active`, non-snapshot, not deleted).
+> **It is DORMANT, not absent:** `[MEASURED 2026-09-03 ~11:10Z]` `llm_call_log` for
+> `agent_type=blog-content-planner` = **10 calls all-history, 2026-04-03 → 2026-04-24**, none in
+> four months; nobody has established why it stopped. So the planner cited a **real, wired,
+> non-running** mechanism, not an invention — a different defect, and closer to the estate's own
+> "a silent mechanism is usually UNDRIVEN, not missing".
+> **Caught by the `bugs_open/427` lane**, taking up the falsification challenge written into this
+> CONTRIB; every element re-verified first-hand here before this correction was written.
+> ⚠ **Their second warning, confirmed independently:** `orchestration_states` is a **rolling ~24 h
+> window** (9,163 rows, 2026-09-02 10:41Z → 2026-09-03 10:59Z), so a zero-runs check there cannot
+> support an all-history claim — `llm_call_log` is the instrument with memory.
+> **What still stands:** the refusal, the false-as-applied justification (nothing has run the
+> producer in four months, so the type is NOT satisfied), 3 of 32 runs in 30 days, 687's
+> obligation met with a false reason, and no per-site lever. **The cheap check I skipped:** grep
+> the layer that would IMPLEMENT a capability (`platform/orchestration/actions/`, `registry.go`),
+> not the layer that would REQUEST it (`site_work_items.item_type`) — `grep -rn "INSERT INTO pages"
+> platform/orchestration/actions/` returns it in one command. `WRONG_CALLS.md` 2026-09-03 entry.
