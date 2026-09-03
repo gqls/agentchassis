@@ -221,3 +221,31 @@ Running it by hand proves the job *works*. It does not prove the job *runs* — 
 nothing else is competing for that slot. Those are different claims, and this piece of work has
 turned up two things already that only showed up when something ran on its own schedule rather than
 when I ran it. So: one more morning, one query, and then I will close it.
+
+---
+
+**2026-09-03.**
+
+Finished. The watchdog started by itself yesterday morning at 07:50 and filed a clean report, which
+was the last thing I was waiting for. I have closed the bug.
+
+Worth being clear about why I waited for that rather than closing it the day before. I had already
+run the watchdog by hand and it worked perfectly. But running something by hand proves it *works*;
+it does not prove it *runs* — the timing, and that nothing else is competing for that slot. Twice on
+this piece of work something only showed up when a job ran on its own schedule rather than when I
+triggered it. So it was worth one more morning.
+
+Thank you for the three answers. I have written all three down in four places — the bug file, the
+handoff, the concept register, and, for the design-critique one, into the configuration file the
+watchdog actually reads. That last one matters more than it sounds: it means the decision now lives
+where the code looks, not only in prose someone has to find and believe.
+
+One caveat I want to flag on your first answer, because it is the kind of thing that quietly stops
+being true. Leaving the design critic looking at the same eight pages is right *while it is run by
+hand*. If it ever gets put on a schedule, the same behaviour becomes the very problem we just spent
+two weeks fixing — a thing that looks at the same pages for ever. I have written that condition into
+the configuration file itself, so whoever gives it a schedule will meet the warning at the moment
+they do it rather than a year later.
+
+The final count, for the record: the audit went from covering 60 pages of our largest site, for
+ever, to covering all 151 — verified over three of its own scheduled runs, with nothing missed.

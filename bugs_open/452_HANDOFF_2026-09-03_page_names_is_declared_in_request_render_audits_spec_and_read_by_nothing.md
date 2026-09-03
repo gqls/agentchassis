@@ -60,8 +60,16 @@ So a step config that sets `page_names` is accepted, ignored, and audits the who
    different selection policies and one must win, stated rather than implied.
 3. Leave it and document it. Weakest: the next author still reads a spec that lies.
 
-**Candidates 1 and 2 are mutually exclusive and the choice is a product question, not an
-engineering one** — see `bugs_closed/394`'s "deliberately NOT done" list.
+> **⚠ THE PRODUCT QUESTION IS ALREADY ANSWERED — OWNER RULING 2026-09-03.** Candidates 1 and 2 are
+> mutually exclusive, and the only live reason to IMPLEMENT the key was to curate
+> `design-critique-agent`'s 8-page sample. The owner ruled *"leave it"* on that: the critic keeps
+> its nav-order prefix and stays a taste instrument rather than a coverage one
+> (`bugs_closed/394`, ruling A; the operative control is that agent's entry in
+> `render_truncation_acks.json`).
+>
+> **So candidate 1 — delete the declaration — is the LIVE one, and candidate 2 is PARKED.** Do not
+> re-derive this choice; if you think it should be reopened, the thing that would reopen it is
+> ruling A's own stated precondition: `design-critique-agent` gaining a cadence.
 
 ## How to verify a fix
 
