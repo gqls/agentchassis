@@ -292,3 +292,33 @@ person's tidying-up, not the system working, and I should not have presented it 
 in order: the articles have to be *planned*, then *composed* into small sections, then the pictures
 *attached*. The third is mine and is finished. The second belongs to the other imagery thread. The
 first does not appear to belong to anyone, and it is the one that blocks the rest.
+
+## 2026-09-03 (later) — the shape of the missing first step, and the cheap fix that would fool us
+
+Following the third layer I described this morning — most articles never get an entry in their
+site's plan — the darts thread and I have now pinned down *why*, and what fixing it would actually
+mean. Worth a short note because there is an obvious cheap answer here that would look like
+success and quietly stop being true.
+
+**Why articles have no plan entry.** The routine that creates an article writes the page and its
+layout into a *cache*, and never into the plan itself. That is not a bug in the sense of something
+broken — it simply was never asked to. Only two pieces of code in the whole system write the plan,
+and neither of them runs when an article is created. So an article can only ever get a plan entry
+if some later, larger re-planning run happens to sweep it up.
+
+**The cheap fix, and why I do not want it presented to you as the fix.** There is a third route:
+writing the plan entries by hand, in SQL. It has been used fifteen times across the estate, and
+one of those occasions in July is the *entire reason* the darts guides looked ready when I reported
+on them yesterday. Doing that again would repair the pages that exist today, in an afternoon, and
+change nothing about how the next article is born — the fourteen articles written on that site
+since July have no entries, and the fifteenth would not either.
+
+So: **hand-backfilling is a reasonable way to unblock one canary page, and it is not the first
+phase.** If it ever reaches you described as "articles are planned now", the right question is
+"planned by what, and what happens to the next one?"
+
+**Where that leaves the three steps.** Get articles into the plan (nobody owns this; it needs a
+change to how articles are created, not a backfill) → compose them into small illustrated sections
+(the other imagery thread) → attach a picture to each section (mine, finished and live). I would
+rather you had the honest shape of it than a report that the part I own is done — which it is, and
+which on its own changes nothing you can see.
