@@ -61571,3 +61571,51 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   Tally: **relayed-a-peer-figure-into-the-register-unverified** ×1,
   **decorative-figure-nothing-depended-on** ×2 (both 2026-09-03),
   **sql-three-valued-logic-silently-dropped-every-row** ×1.
+
+## 2026-09-03 — FOURTH instance of "a citation is not its output", caught by the same seat family on a REVISE round (session bugsweep 2, `bugs_open/442` r1)
+
+- **The claim.** Round 1 of the `76288ff9` submission asserted three load-bearing facts about
+  existing code: that `metaDescriptionFailsCopyGates` exists as a named helper; that
+  `writeWorkItem` demotes an item with an unregistered handler to `deferred`; and that the live
+  backfiller workflow has no conditional on `save_result`. **All three are true and I had
+  personally verified all three earlier the same session.** I stated them.
+- **Why it still counts.** `prior_art_librarian` objected at [medium] to each: *"a specific,
+  load-bearing claim about existing behaviour that should be checked against the symbol, not
+  taken on faith."* The seat cannot tell a verified claim from an unverified one, because the
+  submission shows the same thing either way — **and one of the three was the justification for
+  the whole config-before-code ordering.**
+- **What caught it.** The council, again. Earlier the same day the same seat family caught the
+  same fault on the previous submission, and I logged it as the third instance with the fix
+  ("paste the OUTPUT, from `git show HEAD:<file>`, with a must-be-empty control"). **I then did
+  not apply that fix to the next submission I wrote.**
+- **The mistake, precisely.** Logging a lesson is not adopting it. The three rows above this one
+  describe the same fault at three altitudes; this is a fourth, and its distinguishing feature is
+  that the remedy was already written down, by me, hours earlier. **The tally is the point of this
+  file and the tally is now four.**
+- **The cheap check that would have.** A mechanical pre-flight on every submission: for each
+  factual claim about existing code, paste the command AND its output. Round 2 does this and it
+  cost about ten minutes, against a REVISE round.
+- **Cost.** One REVISE round — though that round also found a real defect (the loud record's own
+  write could fail silently), so the round paid for itself several times over. That is the
+  argument for revising rather than defending.
+
+## 2026-09-03 — backticks in a `git commit -m` string executed, and ate the subject of a sentence (session bugsweep 2)
+
+- **The claim.** A commit message containing `` `inserted:false` `` (markdown code span, the way
+  every other doc on this tree is written).
+- **What happened.** Bash ran it as a command substitution. `/bin/bash: line 40: inserted:false:
+  command not found` went to stderr, the substitution produced empty, and the committed message
+  reads *"…fails quietly.  (the dedup key already holds an open row) still counts as filed"* —
+  **the subject of the sentence is gone** and the sentence now asserts something about nothing.
+- **Why it survived.** The commit SUCCEEDED. Git reported the new sha and the hook advisories ran
+  normally; the only signal was one stderr line among the hook output, and `forward-only` forbids
+  the amend that would fix it.
+- **The mistake, precisely.** This is a documented landmine in `MEMORY.md` ("backticks in `-m`
+  execute") and I walked into it while writing a commit message ABOUT being careful. Markdown
+  habits do not survive a shell string.
+- **The cheap check that would have.** Single-quote the heredoc or use `'…'` around code spans in
+  `-m`; or simply never use backticks in a commit message — this tree's convention is bare
+  identifiers there, and every other commit in this session did that by accident rather than by
+  rule.
+- **Cost.** One damaged sentence in `356196fe9`, unfixable forward-only. The code comment it
+  paraphrases says it correctly, so nothing is lost but clarity.
