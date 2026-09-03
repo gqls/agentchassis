@@ -21604,3 +21604,48 @@ END $$;
   articles hub that stayed empty; the second half found by session `463` while fixing the first,
   and it contradicts the bug file's own §5.
 - **added:** 2026-09-03, session `463`
+
+## `checkpoint_for_review` writes a FIXED key set, so `on_approve.include_fields` can only ever copy nulls — the mechanism is named in the config, documented in a header comment, and has never once worked
+
+- **footprint:** `platform/orchestration/actions/checkpoint_for_review_action.go` (the `spec :=`
+  literal at :157-180) · `internal/core-manager/admin/site_admin_handlers.go`
+  (`HandleApproveWorkItem`) · `on_approve` · `include_fields` · `site_work_items.spec` on any
+  `checkpoint: true` row
+- **fires when:** you wire a NEW human-review checkpoint and reach for `include_fields` to carry
+  something into the follow-on item — the obvious thing to do, because the action's own header
+  comment shows exactly that (`"include_fields": ["reviewed_brief", "site_record"]`). The
+  follow-on is created, the endpoint returns 200, the review row goes `complete`, and every named
+  field arrives as **`null`**. Nothing errors, at either end.
+- **why it cannot work:** `checkpoint_for_review` is the only producer of these items and it
+  builds the spec from a **fixed literal** — `review_data`, `checkpoint`, `source_agent`,
+  `correlation_id`, then optionally `domain`, `spec_aspect`, `on_approve`. Your field is inside
+  `review_data`. The approve handler looked its names up in the spec *object*, so the lookup and
+  the writer could never meet. `[MEASURED 2026-09-03, all history]` **42** `include_fields`
+  mentions across **21** items since 2026-08-24: **0** present at spec top level, **0** non-null.
+- **the check, before you trust ANY field you asked to be carried across an approval:** read the
+  child item, not the endpoint's 200.
+  ```sql
+  -- every include_fields name, and whether it could possibly have resolved
+  WITH ck AS (SELECT id, spec, jsonb_array_elements_text(spec->'on_approve'->'include_fields') AS fld
+              FROM site_work_items WHERE spec->'on_approve' ? 'include_fields')
+  SELECT fld, count(*) AS named, count(*) FILTER (WHERE spec ? fld) AS resolvable
+  FROM ck GROUP BY 1;   -- resolvable = 0 means the name is decorative
+  ```
+  A `null` in the child's spec is the tell, and it is easy to misread as "the reviewer left it
+  empty" rather than "the copy never happened".
+- **FIXED 2026-09-03 (`33dfeed3a`), and the entry stays because the SHAPE stays.** The handler now
+  falls back to the approved body, and a name absent from both sources is written **absent**
+  rather than `null`. But `checkpoint_for_review` still writes a fixed key set: **anything you
+  want in the follow-on must be inside `review_data`, or supplied by `on_approve.defaults`.**
+  There is still no way to put an arbitrary field at the top of a review item's spec, so the
+  instinct this entry is about is still the wrong instinct.
+- **⚠ INERT UNTIL A ROLL.** The fix is Go. Until an image carrying `33dfeed3a` is live, the old
+  behaviour is what you will observe, and migration `750` (which names the new keys) is silently
+  ignored by the old binary. Check before concluding the fix does not work:
+  `git merge-base --is-ancestor 33dfeed3a <the admin-dashboard build stamp>`
+- **relations:** `bugs_open/466` (the case, first met on the first paid site) · `bugs_open/033`
+  (why nobody found it — the path had never been exercised) ·
+  `MEMORY[grep-the-config-key-before-calling-it-a-win]` (a dead config key looks like a live one)
+- **source:** 2026-09-03, `site_delivery_and_editor`, on the first real approve-to-apply. The
+  owner pressed APPROVE, the review row read `complete`, and the work item died 17 seconds later.
+- **added:** 2026-09-03, `site_delivery_and_editor` lane

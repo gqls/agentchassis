@@ -63832,3 +63832,49 @@ is the point of recording them.
   `HEAD` the same session; one owner decision taken on a false premise and withdrawn before
   any row was touched. No data changed. **Nothing was done that had to be undone** — the canary
   is the only reason that sentence can be written.
+
+## 2026-09-03 — `site_delivery_and_editor`: I graded a page by grepping the HTML it serves, on a page whose JavaScript overwrites that HTML on load
+
+**The claim.** `sweep_site_defects.sh` §1.4 ("raw feed residue") greps the **served page HTML** for
+`](http` and reports a count. I ran it over all 20 boxingonline pages, got 8 findings none of which
+were this, and wrote in the 2026-09-03 handoff that the sweep found *"nothing the owner's review had
+not already caught"*.
+
+**What was actually true.** Session `332` measured the same site from the other end.
+`/data/news-archive.json` is a public 200 carrying **7 ATX headings, 4 complete markdown links, 5
+truncated links**, a list marker, an image and a bold marker, entirely unstripped — and every news
+page ships `<script src="/tools/assets/news-listing.js">`, which fetches that JSON and runs
+`container.innerHTML = html` **unconditionally** on a successful fetch (its `hasServerRenderedItems`
+guard covers only the empty-feed and fetch-failed branches). So for any visitor with JavaScript, the
+JSON wins and the served HTML I was grepping is discarded before it is read. It is fleet-wide: five
+news pages across five hosts, each confirmed against its own per-host 404 control.
+
+**What caught it.** Another session, measuring the artefact I had not thought to fetch. Not a check
+of mine.
+
+**The cheap check that would have caught it.** Their control is the one I should have run and it is
+one query: **the same needle, both artefacts.** Server HTML has **0** headings; the JSON has **7**.
+A grep of a rendered page is only evidence about what a visitor reads if nothing overwrites that
+page after load — so before grading any served artefact, ask what else can replace it: a `<script
+src=…>` the page ships, a feed it fetches, a `innerHTML =` in that script. `grep -l "innerHTML" `
+over the page's own JS assets is seconds, and it converts "the HTML is clean" into "the HTML is
+clean **and** nothing supersedes it".
+
+**The generalisable shape, and it is not about markdown.** My §1.4 encodes an assumption in its
+choice of *where to look*, and a measurement can only ever answer the question you encoded. Nothing
+about a clean grep announces that it was pointed at the wrong artefact — the count is a real count.
+This is the same family as `MEMORY[a-css-fallback-is-present-and-inoperative]` (the literal is in the
+source and never applied) approached from the opposite side: there, source presence did not mean
+runtime effect; here, source **absence** did not mean runtime absence.
+
+**Second failure in the same file, and it is the one I should be more embarrassed by.** The script
+already has the discipline this needed — `blind()` prints AND makes the exit non-zero — and I wrote
+the §1.4 arm without asking what would make it blind. Its own header says *"a blind check always
+prints and always makes the exit non-zero"*. A check I did not know could be blind is one I never
+gave the option of declaring itself so.
+
+**Cost.** One handoff sentence ("nothing the sweep found") that was true of the sweep and false of
+the site, live for about two hours before `332` corrected it; a fleet-wide defect on five hosts that
+my sweep would have kept reporting clean indefinitely. No repair campaign was missed — `332` measured
+that all 9 affected components are rewritten by the feed cycle within ~19 hours, so the pages
+self-heal after the roll. `332` owns the fix and is adding the `/data/*.json` and `feed.xml` arms.
