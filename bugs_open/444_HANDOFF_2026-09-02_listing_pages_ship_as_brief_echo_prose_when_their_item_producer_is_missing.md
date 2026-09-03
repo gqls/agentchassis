@@ -320,3 +320,90 @@ commit. **Your BLD-028 verify-later (2) gets stronger either way**: `enforce_too
 NINTH optional key on an action with no `ActionInputSpec`, so it is equally invisible to WFA-013's
 budget. No cron literal to keep in step (verified — `cmd/config-key-audit` has no reference to
 `validate_site_plan`); the duty is declarative and is stated in our council submission.
+
+## CONTRIB 2026-09-03 ~10:50Z (gamedesign.uk lane) — the FOURTH mechanism's CAUSE: the planner REFUSES to plan posts, and an explicit mission clause does not override it
+
+My 09-02 CONTRIB (§"a FIFTH site and a FOURTH mechanism") recorded **that** no content pages
+existed and read it as an accident of parenting (one `article` page, 0 sections, parented
+nowhere). **That was incomplete. Rebuild #2 ran today and the planner said why, in its own
+words** — this is a REFUSAL, not an accident, and it is not specific to this site.
+
+**The evidence is the planner's own `strategy_notes`, verbatim** (`llm_call_log`, `agent_type=
+build-site-planner`, `step_name=plan_site`; not truncated — 4,072 output tokens against
+`max_tokens` 16,000):
+
+| when | site | the planner's own words |
+|---|---|---|
+| 2026-09-02 16:10:51Z | **designblog.co.uk** | "blog-post: planned as a page type but **no individual posts are planned in this architecture pass** — posts are created editorially" |
+| 2026-09-02 16:13:24Z | seotools.co.uk | "blog-post: **not planned as static pages** — individual posts will be created editorially once the blog-index framework is live; planning placeholder blog-posts with no verified content would be dishonest" |
+| 2026-09-03 10:40:15Z | gamedesign.uk (call `7b3bffdd`) | "The blog-post type is **satisfied by the blog infrastructure**; individual posts are not planned as static pages here" |
+
+`[MEASURED 2026-09-03 ~10:47Z]` **3 of 32** `plan_site` runs in the trailing 30 days carry this
+reasoning (`response_text ILIKE '%individual posts%'`). It is a minority behaviour and a
+recurring one — and **the first row is designblog.co.uk**, i.e. the owner's own "it suffers from
+the same problems that designblog.co.uk etc suffered with" has a single measured mechanism
+underneath it for the article case.
+
+**The producer it defers to DOES NOT EXIST — and here is the check that could have said
+otherwise.** If a separate editorial pipeline made posts, article pages would arrive from
+somewhere other than the plan. They do not: `[MEASURED 2026-09-03 ~10:48Z]` `page_type='blog-post'
+AND status='active'` with a non-empty `sections` array — webdesign.co.uk **52**, dartsonline.com
+**23**, finetuning.uk **22**, ai-agent-orchestration.com **18**, seotools.co.uk **14**, and
+**gamesdesign.co.uk 13** (this site's own sibling). Every one is an ordinary planned page with
+sections, built by the normal page pipeline; the planner plans them directly (farmerinsurance.uk
+13, loancalculator.co.uk 14, dartsonline.com 9 `blog-post`-role rows in the CURRENT plan). **There
+is no "blog infrastructure" and no later editorial pass.** Note seotools.co.uk is in BOTH lists —
+it refused on 09-02 and still serves 14 posts, so the refusal does not always cost a site its
+archive; it costs it when there is nothing already there, which is exactly the remake case.
+
+**The finding that decides the fix shape: there is NO per-site lever.** Mission v3 for
+gamedesign.uk was seeded at 09:45:50Z, 55 minutes before the planner ran, and says in plain
+words — I read it in the RENDERED prompt (line 110 of the rendered text), so the planner
+demonstrably received it:
+
+> "The site launches with real articles, not a description of what the articles will be like. A
+> page that lists articles must list articles; a page must never explain its own brief, describe
+> what it will contain, or say what it avoids."
+
+**The planner read that and planned zero article pages anyway.** So no amount of brief- or
+mission-writing closes this: it needs a change where the planner's own rules live.
+`site_plan_directives` is not an alternative lever either — `[MEASURED 2026-09-03 ~10:49Z]` all
+1,922 rows are written BY `build-site-planner`/`write_site_plan`, and the string "directive"
+appears **0 times** in the rendered planner prompt. It is an output, never an input.
+
+**What this means for OWNER RULING 1 (`producer = BOTH`).** For the glossary/directory/feed cases
+the producer genuinely has to be built. **For the article/blog-post case it already exists** — the
+planner plus the writer — and the gap is an *invocation refusal*, not a missing producer. That
+makes the article arm of ruling 1 much cheaper than the others: a rule in the planner prompt
+saying blog-post pages are planned as pages here and no later editorial pass will create them,
+rather than a new producer. I am NOT taking that build — this lane owns the site, 444 owns the
+class, and the prompt lives in `build-site-planner`'s row (a migration, council-in-scope since
+2026-08-19). Flagging it as the cheapest arm on the owner's sanctioned list, with the measurement
+above as its grounding.
+
+**Two notes for this lane's own bookkeeping, both first-hand today:**
+
+1. **Migration 720 IS applied and live, but is NOT recorded in `schema_migrations`.** The 09-03
+   handoff carried it as "NOT verified". Verified now at the live row, both halves:
+   `default_config#>'{workflow,steps,validate_plan,config}'` carries
+   `"enforce_listing_sources": true`, and the narrowed rule 3 text ("A LISTING page — news-index…")
+   is present in `plan_site.config.prompt_template` at position 25019. But
+   `SELECT … FROM schema_migrations WHERE filename LIKE '%72%'` returns 721, 723, 724, 726, 727,
+   728 — **no 720 row**. So the gate's own migration is invisible to any drift/coverage check
+   keyed on that table. Worth a record-only row.
+2. **The gate's FIRST live run on a rebuild worked exactly as designed** (gamedesign.uk, plan
+   `c920da7a`, 10:40:18Z): two `capability_gap` rows filed, `gap_kind=producer_missing` —
+   `index` → `builder_needed=blog_posts` ("query.blog_posts resolves to zero"), `articles-index` →
+   `builder_needed=section_children:articles-index` ("no child pages under /articles/"). **Neither
+   page was dropped**, and correctly so: both are realised, so the bugs_open/001 preserve guard
+   kept them and `drops` was empty. Your predicate called it right on a plan it had never seen.
+
+**Why no `090` run behind a structural claim (CLAUDE.md's 2026-07-31 ruling — stating the
+substitution plainly, as it permits).** The claim rests on primary output, not inference: the
+planner's own recorded reasoning in three runs, the rendered prompt proving it received the
+contrary instruction, and a fleet census of the artefact it says it is deferring to. There is no
+inference chain for the loop to refute; the one inferential step ("the producer does not exist")
+is the census above, which was framed so that a non-empty result from a non-plan source would
+have falsified it. If this lane's read is wrong, the cheapest refutation is a named mechanism
+that creates `blog-post` page rows without the planner — I looked for one in the `item_type`
+vocabulary (30 days) and `needs_content_page` only BUILDS pages already planned.

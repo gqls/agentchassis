@@ -161,3 +161,57 @@ eba9c3bb6 … 749277337 (first build + close) · ad874e303/381529d5a (LANDMINES 
 f661f3cbc (sibling link miss) · 22d05a59e (446) · 830aef0e8/940a262b7 (444) · 7064e7502 (categories
 §10) · a4c0791f9/f8cc139da/156b52baf (446 updates) · e422a1d21 (447) · 0d2feee2f (447 hold) ·
 089beb128 (447 §7) · 769d9f410 (token) · cfc3cd01c (chain enqueued) · this handoff.
+
+---
+
+## UPDATE BLOCK 1 — 2026-09-03 ~10:55Z (same lane, next session). §0 IS NOW STALE; read this first.
+
+**The chain unblocked itself ~1 h after the handoff was written. Nothing was hand-spawned.**
+`needs_briefing` `95d834f8` claimed 09:33:16Z → complete 09:34:35Z; `needs_site_plan` `173744d7`
+claimed 10:38:06Z → complete 10:40:40Z. §0's "still `triaged`/unclaimed, starving" line and its
+"First thing to check" are both **spent** — the answer was yes, it was claimed.
+
+**§6's first check FAILS, and this is the headline: the new plan has ZERO article pages.**
+Plan `c920da7a` (10:40:21Z) = `index` (landing) · `articles-index` (section-index) · `about` ·
+`contact`. Same four as rebuild #1. **The gate did not drop them — the planner never proposed
+them** (`llm_call_log` `7b3bffdd`, 4,072/16,000 out, not truncated).
+
+**CAUSE — a planner REFUSAL, not an accident, and not site-specific.** Its own `strategy_notes`:
+"The blog-post type is satisfied by the **blog infrastructure**; individual posts are not planned
+as static pages here." No such infrastructure exists (`[MEASURED 10:48Z]` active `blog-post` pages
+with sections: webdesign.co.uk 52, dartsonline.com 23, finetuning.uk 22, **gamesdesign.co.uk 13** —
+all ordinary planned pages). `[MEASURED 10:47Z]` **3 of 32** `plan_site` runs in 30 days reason
+this way; the other two are **designblog.co.uk** (09-02) and seotools.co.uk (09-02). Full evidence:
+**CONTRIB appended to `bugs_open/444` today** — that is the durable copy, read it there.
+
+**There is NO per-site lever, and this is the load-bearing finding.** Mission v3 (seeded 09:45:50Z,
+55 min before the planner ran) says "The site launches with real articles…"; I verified those words
+reached the model by reading the RENDERED prompt (line 110), not the seed. It planned none anyway.
+`site_plan_directives` is not a lever either: all 1,922 rows are WRITTEN BY the planner, and
+"directive" appears 0× in its rendered prompt. **So do not answer this by rewriting the brief
+again — that has now failed twice, at increasing explicitness.** The fix lives in
+`build-site-planner`'s prompt row (migration; council-in-scope), and belongs to 444's lane, which
+holds the owner's `producer=BOTH` ruling. Contributed there, not taken here.
+
+**§0's ⚠ on migration 720 is RESOLVED: it is APPLIED and LIVE** — `enforce_listing_sources: true`
+on `validate_plan`, narrowed rule 3 at position 25019 of `plan_site.prompt_template`. **But it is
+absent from `schema_migrations`** (which carries 721/723/724/726/727/728). Told 444.
+
+**The gate's first live rebuild run was CORRECT** — 2 `capability_gap` rows,
+`gap_kind=producer_missing`: `index`→`blog_posts`, `articles-index`→`section_children:articles-index`.
+Neither dropped, rightly (both realised → 001 preserve guard).
+
+**STILL IN FLIGHT at 10:45Z** (all `triaged`, unclaimed): `needs_page` (index) · 5× `needs_imagery`
+(`hero_articles`; `illustration_featured_article`; `illustration_article_card_pipeline` /
+`_balance` / `_leadership`) · `needs_rerender`. **Let them run** — the realised `index` already
+carries `["hero","featured-content","content-listing","generic-text-block"]`, so the article-grid
+shape is live from rebuild #1 and finishing adds no new defect while delivering the game imagery,
+the 721 hero test and the palette. **§6 is still the right checklist for what lands** — heroes
+(721's first live test, owed to `components`), imagery temperature, copy. Two of its expectations
+are now known to fail before you look: article pages (zero) and a hub listing real articles.
+
+**One more thing §5 should carry:** the plan keeps a `contact` page with a `contact-form` section
+while mission v3 says "There is no contact page, no contact form and no email address anywhere on
+the site". The planner said so itself and preserved it because it is already built. So owner
+decision #1 (the `contactforsales.com` address) is now a **three-way** choice — keep, replace, or
+remove the page entirely as v3 asks — and the preserve rule means it will not go on its own.

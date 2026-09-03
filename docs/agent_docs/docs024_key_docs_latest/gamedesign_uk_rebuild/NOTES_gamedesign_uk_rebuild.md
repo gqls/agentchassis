@@ -675,3 +675,65 @@ gaswholesalers every ~4 min — `dispatch_throughput/RUNBOOK` (bug 413: a pinned
 site's age; younger sites starve; "hours" is normal). Not hand-spawned; recorded. New cold-start
 doc: `HANDOFF_2026-09-03_continue_here.md`; third SUMMARY. Artefact monitor timed out 09:16Z;
 re-arm in the next session.
+
+## 2026-09-03, ~10:40–10:55Z — rebuild #2 PLANNED, and it has ZERO articles again. Cause found: a planner refusal
+
+**The chain moved while the last session was writing the handoff.** `needs_briefing`
+`95d834f8` claimed 09:33:16Z, complete 09:34:35Z; `needs_site_plan` `173744d7` claimed
+10:38:06Z, complete 10:40:40Z. So the "still `triaged` at 09:16Z, starving" state in the
+handoff's §0 table was ~1 hour from resolving itself. **Nothing was hand-spawned.**
+
+**The new plan `c920da7a` (10:40:21Z) has FOUR pages and ZERO article pages** — `index`
+(landing), `articles-index` (section-index), `about`, `contact`. Identical page set to rebuild
+#1. §6's first check therefore FAILS: "expect N article-role pages parented under the articles
+section" → N = 0.
+
+**This was NOT the gate dropping them.** I read the planner's raw output
+(`llm_call_log` `7b3bffdd-64dc-4a97-bb00-7633aa7271f8`, 25,400 in / 4,072 out against
+`max_tokens` 16,000 — **not truncated**, so the CLAUDE.md `output_tokens == max_tokens` trap does
+not apply): the planner PROPOSED exactly those four pages. The gate's `drops` list was empty.
+
+**Cause, in the planner's own `strategy_notes`:**
+
+> "The blog-post type is satisfied by the **blog infrastructure**; individual posts are not
+> planned as static pages here."
+
+There is no blog infrastructure. `[MEASURED 10:48Z]` active `blog-post` pages with non-empty
+`sections`: webdesign.co.uk 52, dartsonline.com 23, finetuning.uk 22, seotools.co.uk 14,
+**gamesdesign.co.uk 13** (our own sibling) — all ordinary planned pages built by the normal
+pipeline. `[MEASURED 10:47Z]` the same reasoning appears in **3 of 32** `plan_site` runs in 30
+days, and the other two are **designblog.co.uk** (09-02 16:10Z) and seotools.co.uk (09-02
+16:13Z). Full evidence + the falsification framing: CONTRIB appended to `bugs_open/444` today.
+
+**MISTAKE THIS LANE MADE, corrected here.** My 09-02 CONTRIB into 444 called this "the plan
+created ONE article page with ZERO sections… so the type has no producer because no content pages
+exist at all" and read it as a parenting accident. **It is a refusal, and it is not site-specific.**
+The 09-02 reading would have had us fix parenting and re-run — which is exactly what we did, and
+it reproduced the defect. What caught it: reading the planner's own reasoning instead of only its
+output. **Cheap check that would have caught it on 09-02: `SELECT response_text` for the plan_site
+call, not just the resulting `site_plan_pages` rows.** The rows tell you WHAT was planned; only
+the response tells you WHY the rest was not.
+
+**And the mission could not have been clearer.** Mission v3 (seeded 09:45:50Z by the previous
+session, 55 min before the planner ran) says "The site launches with real articles, not a
+description of what the articles will be like. A page that lists articles must list articles". I
+confirmed it reached the model by reading the RENDERED prompt (line 110), not the seed file.
+**The planner received that instruction and overrode it.** So there is no per-site lever here:
+`site_plan_directives` is not one either — all 1,922 rows are written BY the planner
+(`write_site_plan`) and "directive" appears 0 times in the rendered prompt. Input never, output
+always.
+
+**720 resolved (the handoff's open ⚠).** APPLIED and LIVE — `enforce_listing_sources: true` on
+`validate_plan`, and rule 3's narrowed text at position 25019 of `plan_site.prompt_template`. But
+**absent from `schema_migrations`** (which holds 721/723/724/726/727/728 and no 720). Told 444.
+
+**The gate's first live rebuild run was CORRECT**: 2 `capability_gap` rows,
+`gap_kind=producer_missing` — `index`→`blog_posts`, `articles-index`→`section_children:articles-index`.
+Neither page dropped, rightly: both are realised, so the 001 preserve guard kept them.
+
+**Decision: let the chain run.** The remaining items (`needs_page` index, 5× `needs_imagery`,
+`needs_rerender`) were still `triaged`/unclaimed at 10:45Z. The realised `index` ALREADY carries
+`["hero","featured-content","content-listing","generic-text-block"]` — the article-grid shape is
+live from rebuild #1, so finishing the build adds no new defect and does deliver the game imagery,
+the 721 hero test and the palette. It cannot add articles. **Do not report rebuild #2 as fixing
+the owner's articles complaint — it does not.**

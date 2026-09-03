@@ -230,3 +230,44 @@ The handoff is written for a new chat: docs/agent_docs/docs024_key_docs_latest/g
 Your three questions from last night still stand, plus one from the improvement-loop lane: should
 a brand-new site start on "hold" so the machinery can't plant things on it before anyone has read
 a page?
+
+## 2026-09-03, late morning — the rebuild ran, and I found out why the articles keep not appearing
+
+The rebuild you were waiting for did get picked up, about an hour after the last note was
+written. It wrote a new brief and a new plan. **The plan has four pages and no articles — the
+same as before.** So the thing you called a major error is not fixed, and I want to be straight
+about that rather than let the imagery improvements make it look fixed.
+
+**Correction to what I wrote last night.** I said the fresh build "carries the fix that stops an
+articles page shipping with no articles". That was too strong. What shipped is a *detector*: it
+notices an articles page with nothing to list, writes down what is missing, and — because those
+pages already exist on your site — deliberately leaves them alone. It records the debt. It does
+not create articles. Both of those things happened today exactly as designed.
+
+**The cause, and it is not really a mystery any more.** The planner is the part that decides what
+pages the site will have. I read what it actually wrote down while deciding, and it says: the
+articles "are satisfied by the blog infrastructure; individual posts are not planned as static
+pages here." In plain terms: it assumed some other part of the system writes the articles later,
+so it did not plan any. **There is no other part.** Articles on every other site here are just
+ordinary pages that the planner planned — your sister site gamesdesign.co.uk has thirteen of them
+that were made exactly that way.
+
+**Two things make this worth your attention rather than just mine.** The first is that it is not
+only this site: the same planner wrote almost the same sentence about designblog.co.uk the day
+before, which is the site you told me suffers from the same problems. So that instinct of yours
+was right, and this looks like the shared cause for the articles half of it. The second is that I
+cannot fix it by writing a better brief. The brief already told it, in plain words, "the site
+launches with real articles, not a description of what the articles will be like" — I checked
+that those exact words reached the planner — and it planned none anyway. So the fix has to be
+made where the planner's own instructions live, which affects every site, not just this one. I
+have written all of it up for the thread that owns that area rather than changing it myself,
+because a change there touches all forty sites.
+
+**What I have let happen meanwhile.** The rest of the rebuild is still running — the new game
+imagery, the corrected hero pictures, the lighter look. I have let it finish, because the page
+layout it is filling in is the one your site already has, so it makes things better and nothing
+worse. It just cannot add articles. When it lands I will read the pages and tell you how they
+look; the imagery and the wrong-hero problem should both be genuinely fixed.
+
+Your five open questions from last night are all still open. Nothing today needed a decision from
+you, and none of them is blocking.
