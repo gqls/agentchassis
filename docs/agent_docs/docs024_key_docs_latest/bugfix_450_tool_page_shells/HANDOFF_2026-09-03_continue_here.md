@@ -8,87 +8,98 @@ Standing five in this directory: PLAN · RUNBOOK · NOTES (a)–(t) · README_wh
 
 ---
 
-## §1 ⚠ THE GUARD DID NOT STOP A GENERIC WRITE — measured, undiagnosed, do this first
+## §1 ⚠ CORRECTED — THE GUARD DID NOT FAIL. A DIFFERENT AND WORSE BUG IS LIVE: `save_page_sections` KEEPS A TOOL'S HTML AND DROPS ITS `component_id`
 
-**What happened `[MEASURED 2026-09-03 ~13:3xZ]`.** Between **13:05:14Z and 13:24:36Z**, six of the
-seven canonical seotools planner shells received **6 writes each (36 `page_component_history` rows
-total)**:
+> **This section said "THE GUARD DID NOT STOP A GENERIC WRITE" for about twenty minutes and that
+> was WRONG.** Corrected 2026-09-03 ~13:5xZ after the `portfolio_positioning` lane measured the
+> artefact and I verified it. The error was mine and it is the day's recurring one, in its most
+> consequential form: **I measured POST-write state and inferred PRE-write state.** Left uncorrected
+> it would have sent the next session hunting a guard bug that does not exist. Kept visible rather
+> than deleted, because the shape is the lesson.
+
+### What actually happened
+
+The `portfolio_positioning` lane's repair wave attached real tool components to these six pages at
+**09:34:09, 09:37:24, 09:40:35, 09:46:14, 09:49:05 and 09:54:14Z** — one library component each
+(`tool-robots-txt-tester-seotools-co-uk` etc., `component_level='tool'`, `is_active=true`, still
+present and untouched).
+
+So at **13:05–13:24Z**, when `needs_content_page` → `page-build-handler` wrote to them, **these
+pages were NOT shells. They carried live tools.** The guard therefore **correctly allowed** the
+write, and its silence was right rather than a failure.
+
+**`save_page_sections` then deleted all three rows and re-inserted them ~80 ms later, preserving
+the tool slot's `rendered_html` (17,938–23,953 bytes) and setting its `component_id` to NULL.**
+Verified directly:
 
 ```
-seotools.co.uk  tool-core-web-vitals-checker        6 writes   tool rows ever: 0   policy: generic
-seotools.co.uk  tool-keyword-difficulty-estimator   6 writes   tool rows ever: 0   policy: generic
-seotools.co.uk  tool-meta-tag-checker               6 writes   tool rows ever: 0   policy: generic
-seotools.co.uk  tool-redirect-chain-checker         6 writes   tool rows ever: 0   policy: generic
-seotools.co.uk  tool-robots-txt-tester              6 writes   tool rows ever: 0   policy: generic
-seotools.co.uk  tool-title-tag-scorer               6 writes   tool rows ever: 0   policy: generic
+tool-robots-txt-tester        hero-tool           cid=set    3,500 B   13:05:15
+tool-robots-txt-tester        generic-text-block  cid=set    3,142 B   13:05:15
+tool-robots-txt-tester        tool-robots-txt-…   cid=NULL  20,839 B   13:05:15   <-- reference gone
 ```
 
-These are **exactly the pages this bug is about** — `page_type='tool'`, `rebuild_policy='generic'`,
-**never** a `component_level='tool'` row. The producer was **`needs_content_page` →
-`page-build-handler`**, the generic builder. **Zero `owned_page_review` rows of any class were
-created in that window.** So the guard neither refused nor left a receipt.
+`page_component_history` for that slot shows six writes at 13:05:14, **every one already
+`cid=NULL`**.
 
-**The guard WAS live at the time.** The pods running 13:05–13:24Z were the 12:06Z set,
-`v1.0.1359`'s predecessor `v1.0.1358`, stamped `d0252fd4d`, and
-`git merge-base --is-ancestor 587666be8 d0252fd4d` passes. (A newer chassis, **`v1.0.1359`, stamp
-`3043885191b20a0e9b83594b2002e8805fbe95ec`**, rolled at **13:28Z** and carries everything through
-`b1a3107e6`, including the `29b40e8bc` narrowing.)
+### Why my "0 tool rows ever" reading was an artefact
 
-**What is established:**
+`toolShellPredicateFor` — and every census in this lane, and the query I used to declare the
+falsification — joins `page_components` to `content_components` **on `component_id`** and filters
+`component_level='tool'`. **With the id NULL the join drops the row**, so a page serving a real
+20 KB tool reads as having *no tool component, ever*. The zero I measured was created by the very
+write I was trying to explain.
 
-- `page-build-handler` **does** declare `refuse_owned_page: true` on its `load_page_record` step,
-  so the early-refusal arm is configured, not missing.
-- The `needs_content_page` items in play were created **2026-09-03** by
-  **`rerender_single_page_action`** and by **`tool-generator`** — *not* by the link repair, and
-  **not by `tool-deployer`**.
-- Statuses seen on them: `claimed`, `complete`, `triaged`, `deferred`.
-- The write set splits **18 rows with a resolvable `source_item_id`** and **18 with none**, which
-  suggests **two write paths**, not one.
+**Consequences, and (2) is the one that bites this lane's own instruments:**
 
-**What is NOT established — do not assert any of it without checking:**
+1. **Serving is correct today.** All six serve working tool controls with instance-scoped ids
+   (`id="c-tool-robots-txt-tester-fetch-domain-input"`), 78–85 KB bodies, 6 scripts. A visitor sees
+   a working tool. So the writes landed and the outcome was survivable.
+2. **⚠ THE CENSUS AND THE GUARD NOW BOTH OVER-REPORT BY SIX.** These six count as shells in the
+   66/67 population and are not. The guard will also now *refuse* future generic writes to them —
+   which is accidentally protective, given (3), but for a reason that has nothing to do with what
+   the predicate is meant to express. **This is the census-versus-predicate divergence written up
+   in `016b` §9 this morning, reappearing inside my own instrument one field along.**
+3. **THE REAL EXPOSURE IS THE NEXT REBUILD.** Anything that regenerates from `component_id` rather
+   than from stored HTML has nothing to regenerate. **These six pages are one rerender away from
+   losing their tools for real, and nothing about their current appearance would warn anyone.**
 
-1. **Why neither refusal fired.** At that image, BOTH `load_page_record`'s arm AND the
-   `save_page_sections` arm were active (`29b40e8bc` removes only the save arm and was not yet
-   aboard). Either should have refused. Candidate explanations, untested: the guard's page lookup
-   returned `uuid.Nil` and it stood down (`checked=false` fail-open); the policy read errored
-   (also fail-open, logged at ERROR); the write path does not cross `save_page_sections` at all;
-   or the items were claimed by a path that skips `load_page_record`.
-2. **Whether `29b40e8bc` widened this.** It removed the tool arm from `save_page_sections`
-   *deliberately*, on the argument that every generic path is caught earlier. **§1 is evidence
-   that argument may be wrong** — if the earlier seams did not catch a `needs_content_page` build,
-   then removing the save backstop makes this failure permanent rather than incidental. **This is
-   the single most important thing to settle.**
-3. **`rerender_single_page_action` as a producer of `needs_content_page`.** This lane never
-   accounted for it. The bug's own census listed `page_rerender` as a writer of shell pages
-   (3 pages / 20 writes) but treated it as a *rerender* path, not as a *minter of generic build
-   items*. If it raw-INSERTs (as `deploy_tool_action.go:674` does for guide pages) it bypasses the
-   `writeWorkItem` door entirely.
+### What this means for `29b40e8bc` — the worry is RETIRED
 
-**First moves, in order:**
+The previous version of this section warned that removing the tool arm from `save_page_sections`
+may have removed a needed backstop. **It did not, and could not have:** the pages were not shells
+at write time, so neither the narrowed nor the un-narrowed guard would have refused. The narrowing
+is irrelevant to this incident in both directions. (It is also not the cause: `29b40e8bc` was NOT
+aboard `v1.0.1358`, the image running at 13:05Z, and it changes only the guard condition, not the
+delete-and-reinsert.)
+
+### The actual open bug — likely deserves its own `bugs_open/` file
+
+**`save_page_sections`' delete-and-reinsert preserves the `rendered_html` of a slot it does not
+recognise as one of its own planned sections, and drops the `component_id`.** The plan for these
+pages names `hero-tool` and `generic-text-block`; the tool slot is not in it, so the save carries
+the bytes forward without the reference.
+
+First moves:
 
 ```bash
-# 1. Which action actually wrote those rows? Check the two write paths.
-#    (18 rows carry a source item, 18 do not — find the second writer.)
+# 1. Scope it — how many pages fleet-wide have a tool-level slot with a NULL component_id?
+#    (This cannot use the component_level join — that is the whole point. Match on slot_name.)
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
-SELECT h.source_item_id IS NULL AS no_source, h.change_reason, count(*)
-  FROM page_component_history h JOIN pages p ON p.id=h.page_id
- WHERE h.created_at BETWEEN '2026-09-03 13:00:00+00' AND '2026-09-03 13:30:00+00'
-   AND p.name LIKE 'tool-%' GROUP BY 1,2;"
+SELECT s.domain, p.name, pc.slot_name, length(pc.rendered_html) AS bytes
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ WHERE pc.component_id IS NULL AND pc.build_status<>'removed'
+   AND pc.slot_name LIKE 'tool-%' ORDER BY 1,2;"
 
-# 2. Did the guard stand down (fail-open) rather than pass the page?
-#    agent_error_log has NO created_at column — use its own timestamp column (\d it first).
-kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "\d agent_error_log"
-# then count error_code='OWNED_PAGE_GUARD_UNCHECKED' in the window.
+# 2. Read the re-insert in save_page_sections_action.go: which branch omits component_id for a
+#    slot that is not in the plan's section list, and is the omission deliberate anywhere?
 
-# 3. Reproduce deliberately, on ONE page, and watch the new image refuse or not.
-#    v1.0.1359 is live and carries the narrowing, so this also tests point (2) above.
+# 3. Decide the repair: re-point component_id from content_components by matching slot_name to
+#    cc.function (the acceptance coupling — pages.name == cc.function, sanitiseFunction guarantees
+#    the tool- prefix). Cheap and reversible. Do this BEFORE any rerender touches these six.
 ```
 
-⚠ **Do NOT verify by re-rendering** — see RUNBOOK §8b. And note the narrowing means a re-render
-write to a shell page is now *expected*; §1's writes are **not** that case, because their producer
-is `needs_content_page` at the generic builder.
-
----
+⚠ **`page_type='tool'` is not the only exposure.** Any page whose plan omits a slot that was
+inserted by another producer can lose that slot's reference the same way.
 
 ## §2 What is live, what is committed, what is blocked
 
