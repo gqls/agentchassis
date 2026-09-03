@@ -4109,6 +4109,22 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// ── Tool pages must have a tool that could fill them (bugs_open/450) ────
+	// Opt-in via step config; default false = exactly the prior behaviour. A
+	// SIBLING key of enforce_listing_sources below, not a widening of it — the
+	// 444 session asked for that in terms, so a tool-arm misfire is switchable
+	// without losing the live listing gate.
+	//
+	// ⚠ RUNS BEFORE THE LISTING GATE, AND THE ORDER IS LOAD-BEARING. Held tool
+	// children make a /tools/ hub resolve zero children, so the listing gate
+	// below then holds the hub too and no phantom /tools/ URL is planned at all.
+	// The reverse order plans an empty hub — a 444-class page — from a plan whose
+	// tool pages were just removed. Pinned by TestToolGateRunsBeforeListingGate.
+	if enforce, _ := config["enforce_tool_sources"].(bool); enforce {
+		pages = enforceToolItemSources(ctx, params, pages, existingPages)
+		plan["pages"] = pages
+	}
+
 	// ── Listing pages must have a resolvable item source (bugs_open/444) ────
 	// Opt-in via step config; default false = exactly the prior behaviour.
 	// A listing-family page (news-index, entity-directory, section-index,
