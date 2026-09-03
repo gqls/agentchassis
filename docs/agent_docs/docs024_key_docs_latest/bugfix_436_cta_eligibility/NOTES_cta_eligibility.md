@@ -304,3 +304,74 @@ test. Do not write this up as verified until someone dispatches the render.
 would not have shown it anyway — `applyCTARecompute` KEEP #2 holds any valid stored destination, as
 the PLAN states. Moving a stored field needs a full page rebuild, which regenerates copy. The 7 stored
 `tool-example` destinations on cv1.co.uk are that limit, live and measurable.
+
+## 2026-09-03, 11:25–11:45Z — the header render, and a CORRECTION to this lane's own premise
+
+The owner dispatched the blocked render (`rerender-pages`, `refresh_site_components:true`, corr
+`461a822b`, COMPLETED 11:25:38Z). Two findings, and the second one matters more than the first.
+
+### The header button moved — observed at the artefact
+
+`site_components.rendered_html`, slot `header`, cv1.co.uk, immediately after the render with
+`tool-example` opted out:
+
+```
+<a href="/tools/job-search-readiness-checker/index.html" class="header-cta">   updated_at 11:25:20.499Z
+```
+
+It had been `/tools/example/index.html` (the served copy of the previous chrome render, fetched
+09:5x and again at 11:27 with an invented-URL control at 404). So the header fallback's own output
+moved when the lever moved. That is the third and last `chooseCTATargets` caller.
+
+> **CORRECTED — this lane has been carrying a claim that is too strong, and I repeated it to the
+> owner before checking it.** The handoff, the bug file and the council round-2 disposition all say
+> the header's pick is *"never persisted — no DB check can see it"*. **Half right, and the wrong half
+> was load-bearing.** What is not persisted is the *decision as a field*: `site_components` holds
+> **0** rows with a `cta_url` or `header_cta_url` key `[MEASURED 2026-09-03 11:32Z]`, so
+> `cta_positional.go`'s package comment is accurate as written, and its argument — that policy in a
+> loader's WHERE clause would move every site's header with no `content_data` diff to show it —
+> **still stands unchanged**. What IS persisted is the *rendered anchor*: **36** rows fleet-wide carry
+> a `header-cta` href in `rendered_html`. So the outcome was readable in the database all along, and
+> the round-2 advisory ("header outcome unverifiable in DB") was accepted by this lane without anyone
+> testing it. **Read `site_components.rendered_html`; do not schedule a render-and-curl cycle to learn
+> something one query answers.**
+
+**What the correction immediately bought** — a fleet census that was supposedly impossible. Of the four
+fossil sites, the header button points at the fossil on **two**:
+
+| domain | fossil rank-1 | stored header CTA | header IS the fossil |
+|---|---|---|---|
+| cv1.co.uk | `tool-example` (nav 2) | `/tools/example/index.html` | **yes** |
+| boxingonline.com | `tool-fight-calendar` (nav 3) | `/tools/fight-calendar/index.html` | **yes** |
+| gamesdesign.co.uk | `tool-ttk-calculator` (nav 20) | `/contact/index.html` | no |
+| vetcomparison.uk | `tool-compliance-deadline-calculator` (nav 4) | `/contact.html` | no |
+
+The two "no" rows are the Contact-nav gate (new LANDMINES entry): a footer-group nav item labelled
+`contact` wins before the ranking is consulted, so on those sites the fossil reaches only the STORED
+page CTAs, not the header. ⚠ `boxingonline.com` returned curl `000` (transport failure) on
+2026-09-03 — its chrome is stored but do not assume it serves.
+
+### The SERVED bytes did not move, and that is queue latency, not the lever
+
+20 fetches over 13 minutes (11:29–11:42Z, cache-busted, `Cache-Control: no-cache`): still
+`/tools/example/index.html` throughout. **The reason is structural and worth knowing before anyone
+plans another canary:** `rerender-pages` re-renders the chrome *synchronously*
+(`site_components_result: rendered {header: true, footer: true, head: true}`) but only **queues** the
+page reassembly — it filed **7** `page_rerender` items (`items_result.items_created: 7`, batch
+`8cb0b925`), all still `triaged`, behind **170** triaged items fleet-wide.
+
+**The demand control that makes this a diagnosis rather than an excuse:** `page_rerender` items
+completed fleet-wide since 11:25Z = **21**. The handler is alive and draining; my seven are simply
+not at the front. Without that number, "they are queued" and "the handler is dead" produce the
+identical observation — an unmoved page — and only one of them is a lever question.
+
+### ⚠ STATE LEFT BEHIND — cv1.co.uk's chrome is ahead of its data until the second render runs
+
+`tool-example` is back to `eligible=true` (fleet-wide opted-out = **0**; no data decision taken), but
+the stored chrome still carries the opted-out render's pick. So the site's header button and its
+eligibility column currently disagree, and if the 7 queued items drain first, cv1.co.uk deploys with
+`/tools/job-search-readiness-checker/index.html`. Not damage — it is a valid page, and arguably a
+better button than one called "example" — but it is an unintended live change produced by a canary,
+and it is not the owner's decision. **The fix is one more dispatch of the same command**, which also
+completes the two-way at the same artefact (stored chrome `example` → `job-search-readiness-checker`
+→ `example`). Until that runs, this is an open loose end, not a finished canary.

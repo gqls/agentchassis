@@ -121,12 +121,35 @@ opt-out decision (usage, not a close blocker).
    function all three callers share. Control: vetcomparison.uk's item untouched across all four runs.
    Site restored to `eligible=true`; fleet-wide opted-out back to **0** — no data decision taken.
 
-**⛔ The one gap, and it is a harness block, not a technical one.** Verifying the header button
-requires `rerender-pages` with `refresh_site_components: true`; the session's permission classifier
-refused that dispatch in every form. Nothing was published. What remains unproven is only that the
-header *caller* re-reads the ranking — the ranking's response to the lever is proven above, the
-header's pick is observable on the wire, and the call shape is unit-pinned. **Do not record this bug
-as verified-in-full until that render is dispatched by someone who can.**
+**5. The HEADER caller — VERIFIED at the artefact 2026-09-03 11:25Z** (owner dispatched the render
+this session could not). After `rerender-pages` with `refresh_site_components:true` and
+`tool-example` opted out, cv1.co.uk's stored chrome carries
+`<a href="/tools/job-search-readiness-checker/index.html" class="header-cta">` (`updated_at`
+11:25:20.499Z), where the previously-deployed chrome served `/tools/example/index.html`. That is the
+third and last `chooseCTATargets` caller, moving with the lever.
+
+> **CORRECTION — this file, the handoff and the round-2 disposition all said the header's pick is
+> "never persisted — no DB check can see it". Too strong, and unverified when accepted.** Not
+> persisted: the decision *as a field* — `site_components` holds **0** `cta_url`/`header_cta_url`
+> keys `[MEASURED 2026-09-03 11:32Z]`, so `cta_positional.go`'s package comment and its
+> bind-at-the-ranking argument are accurate and unchanged. Persisted: the *rendered anchor* — **36**
+> rows fleet-wide carry a `header-cta` href in `rendered_html`. The outcome was one query away the
+> whole time.
+
+**What that correction bought:** the header census the lane thought impossible. Of the four fossil
+sites the header points at the fossil on **two** — cv1.co.uk and boxingonline.com. On
+gamesdesign.co.uk and vetcomparison.uk a footer-group nav item labelled `contact` wins before the
+ranking is consulted, so the fossil reaches only their STORED page CTAs.
+
+**Still not on the wire, and it is NOT a lever question.** 20 cache-busted fetches over 13 minutes
+showed no change. `rerender-pages` re-renders chrome synchronously but only QUEUES page reassembly —
+7 `page_rerender` items filed, all `triaged`, behind **170** fleet-wide. Demand control:
+**21** such items completed fleet-wide in the same window, so the handler is draining and mine are
+merely not at the front.
+
+**Open loose end:** cv1.co.uk's `tool-example` is restored to `eligible=true` (fleet opted-out = 0)
+but its stored chrome still holds the opted-out render's pick, so chrome and data disagree until one
+more render runs. That render also completes the two-way at the same artefact.
 
 **A wrong prediction of mine, recorded so it is not re-derived:** I expected the flip-back to file
 nothing, because `bugs_open/326` dedups item keys in any status and the resolve had just left that key
