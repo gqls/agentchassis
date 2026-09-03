@@ -3,6 +3,50 @@
 -- bugs_open/453 (the 453 lane's SUMMARY: "the fix lives at the opposite end of the system and belongs
 -- to whoever takes it" — taken by portfolio_positioning, 2026-09-03 evening).
 --
+-- COUNCIL ROUND 1 (888e7319, 2026-09-03 19:47Z): REVISE — gating objection from bug_historian. Every
+-- objection answered below with evidence, and the file revised; resubmitted on the SAME correlation.
+--
+--  * editquality (funcmap per action): classify_and_extract, plan_site AND domain-strategist's
+--    analyze_strategy ALL run under `execute_llm_prompt` [MEASURED at agent_definitions]. That action
+--    renders through datahelpers.RenderPromptTemplate (ai_actions.go:328), which parses with
+--    datahelpers.PromptTemplateFuncs() — the funcmap that registers toJSON (template_context_contract.go);
+--    promptTemplateRenderingActions["execute_llm_prompt"] = nil, i.e. no per-action root differences.
+--    The proof was REWRITTEN to import the real package and call RenderPromptTemplate + ScanMissingValues
+--    (PRC-003's own scan): portfolio_positioning/tplproof/proof_test.go, `go test -tags tplproof`.
+--    Result: object case ScanMissingValues occurrences planner 3→2, classifier 4→3, the ORIGINAL report
+--    attributing `site_specs.specs.mission_brief.text` and the fixed one not; prose case byte-identical;
+--    no-brief case unchanged. PASS.
+--  * editquality + prior_art (dual active rows): every UPDATE/SELECT here is scoped
+--    `is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL` and the guard REFUSES unless
+--    exactly 1 row matches per type; the reviewers' own check read 1 active row, version {1}, for both.
+--  * bug_historian (completeness census walked only top-level steps): re-run BOTH ways — the corpus's
+--    prescribed nested walk `jsonb_path_query(default_config,'$.**.steps')` over every active agent, and a
+--    regex over the WHOLE default_config::text at any depth. Both return exactly the four expressions in
+--    the two steps named here; the classifier's third prompt_template (review_mission_alignment) carries
+--    none; 49 other `{{…\.text}}` reads fleet-wide sit under different roots (schema_hint, decisions,
+--    experience_*) written by their own producers — a different class. Re-verify with the query in the
+--    council submission's grounded_in.
+--  * bug_historian (per-call-site patch; loud failure; write-side guard): the read-side loud failure the
+--    seat asks for is BUILT — PRC-003 (681b0ee65, 2026-09-03 17:33Z, NOT live till the roll) names,
+--    strips and escalates <no value> inside RenderPromptTemplate. It makes the hole VISIBLE; it cannot
+--    make the brief visible. 764 is its complement: once both are live, a brief renders as its object and
+--    any remaining hole is named in the log. The config-side guard is WFA-024 (453's lint). A write-side
+--    normaliser (every brief carries `text`) is a producer contract and is deliberately not bundled here.
+--    Why not domain-strategist's whole-blob shape: these two templates render classification, identity,
+--    briefing and strategy SEPARATELY under headings; `{{.site_specs}}` would duplicate all of it. The
+--    fallback applies the same principle — toJSON of the object — at the aspect level.
+--  * guardian (two pipelines in one edit; in-flight runs): the council plan now carries one edit per
+--    agent (classification/onboarding pipeline; build/planning pipeline). In-flight orchestrations are
+--    unaffected by construction — LANDMINES "Editing a live agent's config CANNOT reach an in-flight
+--    orchestration — it carries its own snapshot (orchestration_states.workflow_plan)"; the change
+--    reaches the NEXT spawn of each agent.
+--  * prior_art (the same-day LANDMINES correction): that correction — written by this lane — NARROWED the
+--    mechanism (a third consumer, domain-strategist, DOES read the structured brief, via a whole-blob
+--    render) and left the premise intact: these two templates render <no value> for a keyless brief,
+--    measured at llm_call_log with gamedesign.uk (has text) as positive and boxingonline.com (no brief)
+--    as negative control. The strategist's success is the reference implementation this fix mirrors.
+--  * reuse_agent: the harness now reuses the production renderer rather than re-implementing it.
+--
 -- COUNCIL: submitted 2026-09-03 ~20:1xZ, SUBMISSION_CORR 888e7319-01ae-4371-846d-76fe227a1ebc (run orch 33a3f8e0…).
 --   Verdict: SELECT body FROM doc_notes WHERE categories ? 'council-gate' AND body LIKE '%888e7319%' ORDER BY created_at DESC LIMIT 1;
 -- _HOLD: applied BY HAND after the council verdict and at a moment of the owner's choosing — it changes
