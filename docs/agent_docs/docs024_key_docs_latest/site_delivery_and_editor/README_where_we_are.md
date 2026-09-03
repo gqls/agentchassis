@@ -633,3 +633,18 @@ by ten seconds: the platform copies an agent's settings into a run at the moment
 my floor change landed ten seconds after that moment. The floor is now in place for the second
 attempt at about 11:15, with an automatic reset at noon if nothing else closes it. That
 ten-second lesson is written down where the next person will meet it.
+
+## 2026-09-03 (midday) — the logo came back right
+
+Your top-up worked: boxingonline's logo regenerated at 12:06 and I have checked the actual
+file, not the system's own score of it. It is a proper transparent image: four fifths of the
+canvas is fully see-through, the edge of the canvas is see-through all the way round, and there
+is only a whisper of pink at the outline of the mark, which is the known small residue of the
+technique and not visible at the size it is served. By eye it is one clean mark, a raised fist
+inside a shield with blue and grey stripes, and no lettering, which is exactly your ruling. The
+live site still shows the old solid version until the next publishing pass copies the new one
+across; I am watching for that and will check the served file the same way.
+
+The home-page rebuild is running at last, and this time the relaxed guard was in place when the
+job started, so the call-to-action should be allowed to shrink. I will have the result within
+a few minutes and the boxingonline thread will read the new copy against your review.

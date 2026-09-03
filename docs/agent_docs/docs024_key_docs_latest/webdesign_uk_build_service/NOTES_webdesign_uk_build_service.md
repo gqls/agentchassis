@@ -8253,3 +8253,30 @@ lane's per the ownership ruling.
 - The boxingonline session is writing the joint handoff at
   `site_delivery_and_editor/HANDOFF_2026-09-03_boxingonline_owner_review_continue_here.md`; the
   09-02b file will point at it at close rather than compete.
+
+## 2026-09-03 (12:10Z, clock-read) — boxingonline's turn 12:04Z: THE LOGO IS TRANSPARENT (at the bytes); rebuild attempt 2 spawned WITH the floor; another roll (v1.0.1358) mid-run
+
+- **Roll v1.0.1358** landed 12:05:23–12:05:45Z (chassis) / 12:05:29–12:05:40Z (adapter) — DURING
+  boxingonline's loop run `62d96cbb` (12:04:49Z). The run survived: iter_0 chrome refresh
+  `ec92320f` re-rendered slots 12:05Z then failed at `rebuild_blog_listing` (attempt 2, as
+  predicted; `retry_after` 13:05); iter_1 logo; iter_2 rebuild. Stamp for 1358 not yet read —
+  owed (per service) before any claim about what it carries.
+- **Logo `d71b7877` COMPLETE 12:06:58Z** under the topped-up credits (image-build-handler
+  12:05:44→12:06:59Z). Asset `20ce80fb` → key `…/20260903/e11e1b95-a93d-422d-9413-1bb04db9ad77.png`,
+  `updated_at` 12:06:48Z. **Stored bytes `[MEASURED 12:10Z]`** via the adapter pod (B2 native v2;
+  `tok_len=77 dl_len=28`; 252,510 B in the pod = 252,510 B local; invented-key control refused):
+  PNG 1408×768, depth 8, **colour type 6**, no tRNS (RGBA proper); **80.82% fully transparent,
+  19.04% fully opaque; border ring 99.91% transparent (4,352 px); partial-alpha 0.14%; magenta-ish
+  among partials 0.038% of image**. Eyeball: single composition (fist in a shield, blue/grey
+  stripes), zero lettering, faint pink edge. The disconfirming results — colour type 2, or
+  transparent fraction ≈ 0 with a high guard score — did not occur. `border_keyed` for this run
+  is UNRECOVERABLE: the adapter pod that ran it was replaced at 12:06:56Z and its logs went with
+  it; verdict rests on the bytes, which is the primary instrument. Served copy still interim
+  (sha 4aff0f99; served last-mod moved to 11:09:06 GMT at the 11:0x tick with identical bytes);
+  monitor `bsesmneqz` chunk-scans the served file when it changes.
+- **Rebuild `2d1f9c51` attempt 2**: claimed 12:07:00Z; page-build-handler spawned 12:07:28Z with
+  **embedded `section_shrink_floor = 0.1`** `[MEASURED at initial_request_data]` — the window
+  was open at the spawn instant this time. Spawn fell inside the ~300 s post-roll window
+  (pods 12:05:23/45) and was NOT dropped. At `spawn_content_writer` 12:07:39Z; save expected
+  ~12:12–12:15Z; claim-gated monitor closes the window at terminal and prints the row.
+- Assemble batch `000622a9`: 18 triaged (loaded behind the prio-10 items; next boxingonline run).
