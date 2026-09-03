@@ -394,70 +394,67 @@ durability are open.
 
 ---
 
-## 3.3 GRIP-STYLES RECOMPOSE — DISPATCHED 2026-09-03, WAITING ON THE QUEUE. Verify, do not re-file.
+## 3.3 GRIP-STYLES RECOMPOSE — RAN 2026-09-03, HALF WORKED, **REVERTED**. Read before retrying.
 
-**Everything is applied and queued. Nothing here needs redoing, and re-filing would duplicate.**
-The owner's ask of 08-31 is now composed and dispatched; what remains is the framework working
-through a real backlog, and then grading it.
+**Outcome in one line: the imagery mechanism worked perfectly and the WRITER could not tell the
+sections apart, so the page was reverted and the blocker is `bugs_open/443`, not `IMG-075`.**
 
-**What is applied (all committed):**
-- `SEED_2026-09-03` — the plan. `grip-styles` went from 3 sections to **11**: hero, one prose
-  block, **five `Illustrated Text Block`s** (ring / razor / shark / smooth / combination) each
-  bound to its own figure by `scope_ref` ordinal, three prose blocks, call-to-action. All nine
-  repeated-component sections carry a **distinct subject**. Also closed a gap in the 08-31
-  style-guide fix: `kind='illustration'` has no override so it reads GUIDE-LEVEL avoid — the one
-  place the anatomy clauses were missing. Verified reachable after applying.
-- `SEED_2026-09-03b` — the rebuild, `needs_content_page` **`d5edd37b-9b69-4aef-9c50-ee6d7000f51b`**.
-- 5 imagery items, `created_by='dartsonline-grip-styles-2026-09-03'`.
+### What worked — and it is a first for the estate
+The page built as all 11 planned sections, and **five distinct illustrations bound one-per-section**
+(`illustration-ring-grip.jpg`, `-razor-grip`, `-shark-grip`, `-smooth-barrel`, `-combination-grip`,
+each in its own `Illustrated Text Block`). `sectionOrderAgrees` did **not** stand down. So the
+failure mode §3.2 warned about — five sections sharing one image — **did not happen**, and
+`IMG-075`'s per-section binding is proven on a real page for the first time. That half is done and
+is re-runnable in minutes: **the five grip illustrations remain as active assets.**
 
-**Why it has not landed, measured rather than assumed** `[MEASURED 2026-09-03 12:25Z]`:
+### What failed — `bugs_open/443`'s symptom on a PLANNED page with subjects set
+`[MEASURED 2026-09-03]` 10 `h2`s, seven of them paraphrases of one another; `h3` **"Ring grip" ×6,
+"Razor grip" ×6, "Shark grip" ×5**; three consecutive sections opening with the same sentence
+reworded. Not one section heading was the grip its subject named. Each section wrote the whole
+article again.
 
-| | |
-|---|---|
-| fleet items completed in the last 30 min | **60** — dispatch is healthy, not stalled |
-| zombie claims blocking the queue | **0** |
-| `image-build-handler` | last completion 12:06Z; **12** triaged; ~5/hr |
-| `page-build-handler` | last completion 12:10Z; **95** triaged; **1** in the last hour |
+**The cause is proven mechanically, not inferred from the output.** `llm_call_log` holds 11
+`page-content-writer` calls, one per section. `md5(prompt_rendered)` is **byte-identical** across
+four of the five `Illustrated Text Block`s (`723ff07a…`) and across all four `Generic Text Block`s
+(`7efdafe8…`), and my exact subject string matches **zero** of the eleven prompts. **The brief is
+keyed on component TYPE, not section identity.** Given identical briefs, near-duplicate output is
+the only possible result.
 
-**So the items are correctly formed and queued behind real work, not broken.** Their spec keys
-match a `needs_imagery` item that completed today on another site. The imagery runbook's own line
-is the governing one: *"Dispatch is one site at a time against a fleet-wide pool — priority 5 orders
-WITHIN a site, it does not jump the queue ahead of other sites. Items sitting `triaged` for ten
-minutes are usually waiting, not broken."* **Do not bump priority expecting it to help across
-sites, and do not fire a site-wide build to force it** — that is disproportionate to one page.
+**⚠ AND THE PLATFORM'S DETECTOR FOR THIS IS BLIND TO IT.**
+`REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` logged nothing — correctly by its own logic, since it
+fires on repeated slots carrying **no** subject and mine all carried one. **A page can pass that
+detector and still produce the exact output it exists to predict.** So do not read its silence as
+a pass. Full evidence filed as a CONTRIB on `bugs_open/443` (that lane is active — contribute,
+do not compete).
 
-**⚠ `triaged` on an operator-inserted item is not self-draining.** `emit_imagery_items_action` is
-*"the build-time emitter, invoked as a build-site-planner workflow step"* and its comment defines
-`triaged` as **"build path auto-dispatch"** — the status a build gives items it is about to handle.
-An item inserted by hand with no build in flight is simply waiting for the shared handler.
-Corroboration: `boxingonline.com` has had one imagery item triaged since **09:24Z**.
+### What I did about the live page
+**Reverted from the backups taken before any change**: `page_components` back to the 3 originals
+(article body 8,326 chars), the plan back to its 3 rows, `pages.sections` back to the cached three,
+and **the five section-scope imagery rows DELETED** — left in place they would have been ordinals
+2–6 in a 3-section plan, i.e. `bugs_open/214`'s orphan class. Redeploy filed as
+`c79bb535-9974-456e-bb7f-fbe5836c6169`.
+**Why revert rather than leave it:** this lane exists to win search traffic for affiliate
+approval, and seven near-identical sections on one page work directly against that. The imagery
+was the owner's ask and it was delivered — but not at the price of the prose.
 
-### How to grade it when it lands — and the failure that looks like success
+### To retry — the precondition, and it is not ours
+**Do not re-run this until a section's subject demonstrably reaches its writer prompt.** A re-run
+today reproduces the same page; the defect is upstream of anything this lane controls. The check is
+one query and it is the honest test of any fix, including 443's Stage A:
+```sql
+SELECT step_name, md5(prompt_rendered)
+FROM llm_call_log WHERE agent_type='page-content-writer' AND <build window>
+ORDER BY created_at;   -- distinct hashes per section, or the fix changed nothing
+```
+Everything else is banked and re-appliable: `SEED_2026-09-03` (plan + subjects + imagery rows +
+the guide-level anatomy fix) and `SEED_2026-09-03b` (the rebuild). The five illustrations are
+already generated.
 
-1. `curl -s https://dartsonline.com/blog/grip-styles.html | grep -oE '<h[23][^>]*>[^<]{1,70}'` —
-   expect the five grip headings as **section headings**, not as `h3`s inside one article body.
-2. **Count DISTINCT image urls on the page.** The whole point is five *different* figures.
-   **⚠ FIVE SECTIONS SHARING ONE IMAGE IS THE FAILURE MODE, AND IT RAISES NO ERROR** — it is what
-   `sectionOrderAgrees` standing the binding down looks like, and the page renders perfectly.
-   If you see it, compare `pages.sections` against `site_plan_sections` for the page: a length or
-   order disagreement is the cause.
-3. Sections with no figure yet render as **plain prose** (`image_url` is
-   `required:false, on_missing:skip_field`) — that is correct, not a defect. The asset landing
-   files `image_landed`, one of only two re-render reasons that re-resolve.
-4. Check the prose is not near-duplicate across the five grip blocks. That is `bugs_open/443`'s
-   symptom and the reason every section was given a subject; the detector for it
-   (`REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT`) is **observe-only** and will not stop it.
-
-### If it goes wrong — restore points taken 2026-09-03 before any change
-`bak_20260903_gripstyles_components` (3 rows, `article-body` `content_data` **8,401 bytes**) ·
-`bak_20260903_gripstyles_plan` (the 3 original plan rows) ·
-`scratchpad/grip-styles-BEFORE.html` (**88,509 bytes** as served).
-
-**This is the first article in the estate composed this way** — `[MEASURED 2026-09-02]` zero pages
-fleet-wide carry more than one illustrated section except apis.uk's hand-built index. So report
-what it actually does, to `inline_guide_imagery` as well: they asked specifically to hear whether
-the figures survive the first `content_rewrite`, which is the property their mechanism exists for
-and which nothing in the estate has yet exercised.
+**Also worth carrying: `triaged` is not self-draining for an operator-inserted item.** These sat
+~4.5 hours. `emit_imagery_items_action` defines `triaged` as *"build path auto-dispatch"* — the
+status a build gives items it is about to handle — and the imagery runbook adds that dispatch is
+one site at a time against a fleet-wide pool, with priority ordering only *within* a site. Both
+queues were healthy throughout; it was backlog, not breakage. Budget hours, not minutes.
 
 ---
 
