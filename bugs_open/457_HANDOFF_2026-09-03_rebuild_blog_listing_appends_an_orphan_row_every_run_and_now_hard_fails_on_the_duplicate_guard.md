@@ -144,3 +144,63 @@ attempt 3), so chrome NEVER propagates through the workflow on this site; the 10
 Interim taken: the 18 per-page `_assemble` items hand-filed 10:47:56Z (batch `000622a9`), the
 shape `create_rerender_items` would have produced. Not touching the six orphan rows (your
 candidate 4: futile before the code fix, and a data change on the paid site).
+
+## ⭐ THE ORPHANS ARE SERVED DAMAGE, NOT CLUTTER — and they account for the empty card slots on `/articles/index.html` exactly
+
+`[MEASURED 2026-09-03 15:00Z]` Raised by `site_delivery_and_editor`'s pre-delivery sweep, which
+found boxingonline `/articles/index.html` serving **14 empty `article-card__category`** and **2
+empty `article-card__excerpt`** elements, and asked whether that was a second listing component,
+an unguarded template, or a data gap on `category`. **It is none of those. It is this bug.**
+
+The six orphan rows on page `6bb3b9a6` each carry their own `articles` array **and their own
+`rendered_html`**, frozen at whatever the template said when that row was written. The page
+assembles all six. Per row:
+
+| instance | written | `category` total / **empty** | `excerpt` total / **empty** | html |
+|---|---|---|---|---|
+| `cf6f06a9` | 08-31 16:29 | 0 / 0 | 6 / **2** | 4,429 B |
+| `dbb4f217` | 08-31 18:14 | 0 / 0 | 6 / 0 | 4,638 B |
+| `b14358a8` | 09-01 01:31 | 2 / **2** | 6 / 0 | 5,195 B |
+| `99160af4` | 09-01 01:58 | 6 / **6** | 6 / 0 | 6,335 B |
+| `b1f9cd4e` | 09-01 02:34 | 6 / **6** | 6 / 0 | 6,334 B |
+| `1ef994d5` | 09-02 16:28 | 0 / 0 | 6 / 0 | 6,070 B |
+| **sum** | | **14 / 14** | 36 / **2** | |
+
+**14 and 2. Both axes match the served counts exactly**, from two instruments that share no code:
+their `curl` of the origin and my `regexp_matches` over `page_components.rendered_html`. That
+agreement is the attribution.
+
+**Three consequences that change how this bug should be fixed:**
+
+1. **A re-render cannot repair these rows.** They have `component_id` NULL and no live component to
+   resolve, so `resolveComponent` misses and every one of them takes a **carry** branch — their
+   stored HTML is re-shipped verbatim, for ever. `bugs_open/454`'s fix, which repaired the deck
+   class everywhere else on the estate today, **cannot reach them**. The only remedy is deletion
+   (fix candidate 4), which is why candidate 4 should be re-read as a repair rather than a tidy-up.
+2. **The empties are a FOSSIL RECORD of migration 682 landing.** Read the table top to bottom: 2
+   empty excerpts on 08-31, then `category` appearing empty 2 → 6 → 6 as the pre-682 template
+   spread, then 0 on the row written 09-02 16:28 after 682 applied. Each orphan preserves the
+   template of its own birthday. So `425`'s class is not "still live on this page" in the sense of
+   a template that renders wrong — **the guarded template is fine here too; the page is serving
+   archaeology.**
+3. **It inflates the page sixfold.** Six copies of the same six-item deck = 36 cards where the
+   page should show 6, plus a legitimate `call-to-action` sharing position 3. That is the reader-
+   visible defect, and it is larger than the empty slots that led us to it.
+
+**Corrected here, because it was mine:** I told the sweep's owner that `425`'s empty-slot class had
+"not reached articles-index". It never will — the class was never on that page. What is on that
+page is `457`.
+
+> ⚠ **Do not use this page as a `425` or `682` test target, in either direction.** A guarded
+> template will read as unguarded here, and a repair will read as no-op, because the bytes come
+> from rows nothing re-renders. This page is a `457` fixture and nothing else.
+>
+> ⚠ **And do not read the served page as evidence about the live template on ANY page with an
+> orphan row.** The check is one query: `SELECT count(*) FROM page_components WHERE page_id=$1
+> AND component_id IS NULL` — non-zero means the served bytes are partly unattributable to any
+> component, and every class-count you take from them is a mixture of eras. `[MEASURED 2026-09-03]`
+> 8 such rows on 3 pages fleet-wide.
+
+**Not fixed by me and not touched:** the six rows stay. The site is paid, the fix is a code fix,
+and deleting rows by hand on someone else's live page is the wrong instrument — the `457` fix plus
+one rebuild is the right one. Flagged to the owning lane rather than actioned.

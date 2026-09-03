@@ -860,3 +860,113 @@ mechanism given nothing to say, saying something anyway.
 - `bugs_open/309` — cards rendered unclickable. The reason `check_card_slot_guards.py`
   deliberately does **not** report `<a href="{{.url}}">{{.title}}</a>`: a missing `url` makes
   a card broken, not blank, and that is 309's class with its own detector.
+
+---
+
+## ⭐ ANSWERED AND FIXED, 2026-09-03 — the open defect was `bugs_open/454`, and the deck class now repairs on the light re-render
+
+**The producer half of this bug is no longer open.** The section above it — "the producer fix does
+not execute on the rerender path" — was a correct observation of a real behaviour whose cause lives
+in a different file and belongs to a different bug. The cause is
+[`bugs_open/454`](454_HANDOFF_2026-09-03_the_light_rerender_computes_a_section_plan_and_drops_it_so_every_page_is_rendered_from_its_own_stored_data.md):
+`classifyStoredSection` computed a section plan and dropped it, so `plan.ResolvedData` reached the
+render as `nil` and `mergedContent = stored ⊕ nil` — **the array was never resolved on that path at
+all**, for any component, on any page. Fixed by one assignment (`9831e9ab4`), live in `v1.0.1358`.
+
+That is exactly what §0h concluded from the markup and could not explain: *"the code says the array
+must be re-resolved; the artefact says it was not."* Both halves were true. The missing line was in
+`rerender_page_sections_action.go`, not in the resolver and not in the producer.
+
+### The discriminating test, and why the two before it could not discriminate
+
+`[MEASURED 2026-09-03]` batch `…000692`, filed 12:58:42Z, claimed 14:04:32Z, complete 14:05:11Z —
+a `template_changed` re-render on **garden-tools.uk `/care`**, chosen because it is §0j's own
+"tightest pair" partner and because its stored deck was **OLD shape**:
+
+| | before (archived by this write, item `7c63783a`) | after |
+|---|---|---|
+| `articles[0].excerpt` | **absent** | **present** |
+| `articles[0].title` | `Understanding Brand Comparison Selector \| Guide` | `Understanding Brand Comparison Selector` |
+| `article-card__excerpt` elements | 0 | **4, none empty** |
+| `content_data` keys on item 0 | — | `excerpt,image,meta_description,name,nav_label,title,url` |
+| `rendered_html` | 2,832 B | 3,472 B |
+
+**Both halves of the producer fix executed** — the key landed *and* the site-name suffix was
+stripped, which is `queryresolve.ListItemExcerpt` and `ListItemTitle` running on the sections path
+for the first time. **Verified at the served bytes**, not only in the row:
+`https://garden-tools.uk/care.html` serves 4 `article-card__excerpt` elements, **0 empty**, 4
+suffix-free deck titles, `deployed_at` 14:05:05Z. (Control: the one `| Garden Tools UK` occurrence
+left on that page is an unrelated `<li>` link label, not a deck title — so the suffix count
+discriminates rather than merely being low.)
+
+> **Why `688` and `691` both came back uninformative, stated as a rule because it cost two
+> experiments and most of a day.** Both were fired on a baseline that **already carried the
+> `excerpt` key**. Under the two live hypotheses — *re-resolved through the fixed projection* and
+> *never touched, stored survived* — a new-shape baseline yields `excerpt` present **either way**.
+> §0k noticed this after `688` ran and named it; `691` was then filed with the same flaw, on the
+> reasoning that it ran on the exact page that had reproduced the old shape four times. That was
+> the wrong axis: what makes an experiment discriminate is not which page it runs on, it is
+> **whether the baseline lacks the thing being tested for**. `692` differs from both in exactly
+> that respect and answered on the first run.
+
+### Four independent confirmations, three of them not from this lane
+
+`[MEASURED 2026-09-03 15:05Z]` every write to a `content-listing`/`articles` row since the fix
+rolled at 12:18Z, attributed via `page_component_history.source_item_id` joined on `page_id`:
+
+| wrote at | page | shape before → after | route | filed by |
+|---|---|---|---|---|
+| 12:54:42 | designblog.co.uk `/index` | new → new, **`image` populated**, html 2,494 → 3,327 B | `page_rerender` · `section_data_resolved` | `bugs_open/384_postfix_verify` |
+| 13:47:32 | boxingonline.com `/index` | new → new, html 4,760 → 5,026 B | `page_rerender` · `template_changed` | this lane (`691`) |
+| **13:55:46** | **dartsonline.com `/guides-index`** | **old → NEW** | `page_rerender` · `section_data_resolved` | `image-build-handler` |
+| **13:56:32** | **dartsonline.com `/index`** | **old → NEW** | `page_rerender` · `section_data_resolved` | `image-build-handler` |
+| **14:04:55** | **garden-tools.uk `/care`** | **old → NEW** | `page_rerender` · `template_changed` | this lane (`692`) |
+| 14:58:15 | advertise.co.uk `/index` | new → new | `page_rerender` · `section_data_resolved` | `derive_card_asset` |
+
+The two dartsonline rows are the strongest evidence in this file, because **nobody dispatched them
+at this bug.** They are ordinary fleet traffic from `image-build-handler`, and they carried an
+old-shape deck to the new shape on the path that could not do it yesterday. **The population is
+draining on its own.**
+
+### Current state of the class, dated
+
+`[MEASURED 2026-09-03 15:05Z]` `content-listing` instances carrying an `articles` array:
+**9 new shape, 8 old shape** (17 total). It was 5/12 yesterday. **This count is falling while you
+read it** — re-derive it, do not quote it:
+
+```sql
+SELECT (pc.content_data->'articles'->0 ? 'excerpt') AS new_shape, count(*)
+  FROM page_components pc
+ WHERE pc.slot_name='content-listing' AND pc.content_data ? 'articles' GROUP BY 1;
+```
+
+**So the repair does not need a wave.** Any re-render carrying a re-resolving reason now fixes the
+instance it touches, and the fleet's ordinary traffic is doing it. Two further canaries are queued
+(batch `…000693`, filed 15:04:58Z) on the two populations deliberately unlike the first — a
+different site with no competing work items, and the oldest instance on the estate:
+
+| item | target | baseline recorded before firing |
+|---|---|---|
+| `75424e19` | homegarden.uk `/comparisons-index` (`section-index`) | 3 articles, no `excerpt`, suffix intact, untouched since 09-02 13:53 |
+| `26be9662` | robot-hands.com `/learning-center-hub` (`content`) | 8 articles, no `excerpt`, suffix `\| Robot-Hands.com` intact, untouched since **08-25** 22:36 |
+
+Two canaries rather than one because this lane's own record says canaries disagree. `homegarden`
+has no competing items; `robot-hands` has nine assemble-mode re-renders filed by another lane at
+13:50, which cannot be confused with these because the assemble path writes **no**
+`page_components` rows at all (measured independently over 18 pages by
+`site_delivery_and_editor`).
+
+### What this retires
+
+- **§2's framing was right and was abandoned for a wrong reason.** "Build resolves, the light
+  re-render does not" is precisely what `454` describes. See the correction to §0i in the handoff.
+- **The sixteen eliminations in §0j were each individually correct** and were looking for a
+  per-instance difference that did not exist. What actually differed between an old-shape and a
+  new-shape instance was **whether a BUILD had already written the new shape into stored** — a
+  property of the row's history, which is not a column and so was not in the census.
+- **The hero class is the same root cause**, as §0e proposed. `454` §12 proved it independently:
+  on one re-render, `hero-tool` regained `hero_url` **and** `background_image` — the authoritative
+  hero aliasing `planSection` writes — at the same time as an `event-list` query field populated.
+  Batch `…000690` (still queued) is now a third confirmation rather than the deciding test, and
+  **its decision table inverts**: a matching `background_image` confirms what is already
+  established, while an ABSENT key would be a **new** hero-specific finding beyond `454`.

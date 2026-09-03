@@ -9,19 +9,170 @@
 > after reaching other lanes, and the corrections are more useful to you than a tidy account would
 > be. Where a section is wrong, it says so and says what replaced it.
 
-## STATUS AT A GLANCE (2026-09-03)
+## STATUS AT A GLANCE (2026-09-03 15:05Z)
 
 | | |
 |---|---|
-| **Do first** | read batches `…000691` then `…000690` (§0o) — both queued, **do not re-file** |
-| **Blocked on you** | `691` gates another lane's copy fix; `/index` must have **no second writer** until it reads |
+| **THE OPEN DEFECT IS ANSWERED** | it was `bugs_open/454` — the light re-render computed a section plan and dropped it, so nothing was ever resolved on that path. Fixed `9831e9ab4`, live `v1.0.1358`. **Read §0p first** |
+| **Proven** | batch `…000692` carried an OLD-shape deck to the new shape end-to-end to the served bytes (garden-tools.uk `/care`, 14:05Z), and **two dartsonline decks repaired themselves on ordinary fleet traffic** |
+| **Do next** | read canaries `…000693` (two, queued 15:04:58Z) · then nothing on the producer half — the population drains as the fleet re-renders |
 | **Delivered + verified** | migration `682` (card slots), migration `721` (six hero components), two detectors, a widened lint |
-| **Open, well-posed** | the producer fix does not execute on *some* rerenders — 16 candidates eliminated (§0j), model refuted (§0i) |
-| **Filed from here** | `bugs_open/425`, `bugs_open/457` (live), register `PBP-050` |
-| **Council** | `84b51f16` REVISE r3 — two objections actioned, round 4 unsubmitted · `cf3a052c` (721) REVISE r1 |
-| **Not mine** | the component birth-gate (`bugsweep4` holds it), `bugs_open/437`, the 57-instance hero repair wave (needs §0o `690` first) |
+| **Filed from here** | `bugs_open/425`, `bugs_open/457` (live, and now shown to be SERVED damage — §0q), register `PBP-050` |
+| **Council** | `84b51f16` REVISE r3 — two objections actioned, round 4 unsubmitted · `cf3a052c` (721) REVISE r1. **No new code from 09-03 afternoon: docs only, so nothing new to submit** |
+| **Superseded** | §0i's refutation is itself REFUTED (§0p) · §0j's sixteen eliminations were correct and were hunting a difference that does not exist · §0o's two experiments could not discriminate |
+| **Not mine** | the component birth-gate (`bugsweep4`), `bugs_open/437`, `bugs_open/454` itself, the hero repair wave |
 
-## 0o. ⭐ THE TWO QUEUED EXPERIMENTS — read these first, do NOT re-file them
+## 0p. ⭐⭐ THE ANSWER — the cause was `bugs_open/454`, and §0i's refutation was itself wrong
+
+**Read this instead of §2, §0h, §0i and §0j. They are kept because the corrections are the record.**
+
+`classifyStoredSection` (`rerender_page_sections_action.go`) called `planSection`, branched on the
+result, and **threw the plan away**. `renderPlannedSection` read it back out of the struct and got
+a zero value, so the render context was `base ⊕ stored content_data ⊕ nil` and the persisted
+`content_data` was the stored map unchanged. **No light re-render resolved anything, for any
+component, on any page, from 2026-09-02 until 12:18Z today.** Filed as `bugs_open/454` by the
+`bugs_open/427` session, fixed by one assignment (`9831e9ab4`), live in `v1.0.1358`.
+
+That is exactly what §0h measured and could not explain — *"the code says the array must be
+re-resolved; the artefact says it was not"* — and it is exactly the shape §2 originally proposed
+before §0i talked this lane out of it.
+
+### THE PROOF — batch `…000692`, the first experiment on this bug with a baseline that could fail
+
+`garden-tools.uk /care`, `template_changed`, filed 12:58:42Z, complete 14:05:11Z. Chosen because
+its stored deck was **OLD shape**, which is the one property `688` and `691` both lacked.
+
+| | before (archived by this write, item `7c63783a`) | after | served |
+|---|---|---|---|
+| `articles[0].excerpt` | **absent** | **present** | 4 `article-card__excerpt`, **0 empty** |
+| `articles[0].title` | `… \| Guide` | suffix **stripped** | 4 suffix-free titles |
+| `rendered_html` | 2,832 B | 3,472 B | `deployed_at` 14:05:05Z |
+
+Both halves of the producer fix executed. Verified at the served page, with a control: the one
+remaining `| Garden Tools UK` string on it is an unrelated `<li>` link label, so the suffix count
+discriminates rather than merely being low.
+
+### ⛔ §0i IS REFUTED — those two re-renders did not PRODUCE the new shape, they PRESERVED it
+
+§0i is the load-bearing error of this lane, so it gets stated plainly. It concluded *"the rerender
+path CAN re-resolve"* from two `page_rerender` writes on new-shape instances, and that conclusion
+sent the lane into a per-instance hunt that consumed sixteen eliminations and most of a day.
+
+`[MEASURED 2026-09-03]` the archived state each of those writes REPLACED, from the same table the
+original claim was built on:
+
+| page | first new-shape write | by | every later `page_rerender` |
+|---|---|---|---|
+| designblog.co.uk `/index` | 09-02 20:51:05 | `empty_section` · **page-build-handler** | 05:06, 05:25, 12:54 — `excerpt` already present **before** each |
+| websitepromotion.co.uk `/index` | 09-02 23:02:20 | `empty_section` · **page-build-handler** | 04:18 — `excerpt` already present before it |
+
+**A BUILD put the key there. The re-renders inherited it through `stored ⊕ nil`.** §0i's own
+verification — *"history row 05:25:28 matching `page_components.updated_at` exactly, item
+`03304c6a`, complete, and the row now carries the key"* — establishes that the re-render **wrote**
+and that the row **carries** the key. It does not establish that the re-render **produced** it, and
+the distinguishing datum was one column away in the row already being read.
+
+**So the path split in §2 was real all along.** Build resolves; the light re-render did not. It was
+abandoned on a misattribution, and the misattribution was of exactly the kind §0c had written down
+in this same file two hours earlier: *"byte-identical output is not evidence about which path ran."*
+
+### Four confirmations, three of them not from this lane
+
+`[MEASURED 2026-09-03 15:05Z]` every deck write since the fix rolled at 12:18Z, attributed by
+`page_component_history.source_item_id` joined on `page_id`:
+
+| wrote at | page | before → after | reason | filed by |
+|---|---|---|---|---|
+| 12:54:42 | designblog `/index` | new → new, `image` populated, 2,494 → 3,327 B | `section_data_resolved` | `bugs_open/384_postfix_verify` |
+| 13:47:32 | boxingonline `/index` | new → new, 4,760 → 5,026 B | `template_changed` | this lane (`691`) |
+| **13:55:46** | **dartsonline `/guides-index`** | **old → NEW** | `section_data_resolved` | `image-build-handler` |
+| **13:56:32** | **dartsonline `/index`** | **old → NEW** | `section_data_resolved` | `image-build-handler` |
+| **14:04:55** | **garden-tools `/care`** | **old → NEW** | `template_changed` | this lane (`692`) |
+| 14:58:15 | advertise.co.uk `/index` | new → new | `section_data_resolved` | `derive_card_asset` |
+
+**The two dartsonline rows are the best evidence in the file, because nobody aimed them at this
+bug.** Ordinary `image-build-handler` traffic carried old-shape decks to the new shape on the path
+that could not do it yesterday.
+
+### The class is draining on its own — do NOT file a wave
+
+`[MEASURED 2026-09-03 15:05Z]` **9 new shape, 8 old shape** of 17 `content-listing`/`articles`
+instances. Yesterday it was 5/12. **Re-derive before quoting; this number is falling as you read:**
+
+```sql
+SELECT (pc.content_data->'articles'->0 ? 'excerpt') AS new_shape, count(*)
+  FROM page_components pc
+ WHERE pc.slot_name='content-listing' AND pc.content_data ? 'articles' GROUP BY 1;
+```
+
+Two canaries are queued rather than a wave, batch `…000693` filed 15:04:58Z, on the populations
+least like the first: `75424e19` homegarden.uk `/comparisons-index` (`section-index`, no competing
+work items) and `26be9662` robot-hands.com `/learning-center-hub` (`content` page type, 8 items,
+untouched since **08-25**). Two, not one, because this lane's own record is that canaries disagree.
+
+### The hero class is the same root cause — `690`'s decision table INVERTS
+
+§0e proposed that the hero class and the deck class share one cause. They do, and `454` §12 proved
+it before this lane got there: on one re-render, `hero-tool` regained `hero_url` **and**
+`background_image` — the authoritative hero aliasing `planSection` writes — while an `event-list`
+`query.upcoming_events` field populated in the same run. **So batch `…000690` is now a third
+confirmation, not the deciding test, and reading it changes meaning:** a matching
+`background_image` confirms what is established, while an ABSENT key would be a **new**
+hero-specific finding beyond `454`. Update the expectation before you read it, not after.
+
+### The rule this cost, and it is not "test more carefully"
+
+**An experiment discriminates only if its baseline LACKS the thing being tested for.** `688` was
+fired on a new-shape baseline; §0k caught that after it ran and said so; `691` was then filed with
+the identical flaw, justified on the grounds that it ran on the page which had reproduced the
+defect four times. **The page was never the axis.** Under *re-resolved-correctly* and
+*never-touched-so-stored-survived*, a baseline that already carries the key yields "key present"
+under both — so the result is predetermined and the dispatch is spent. `692` differed in that one
+respect and answered on the first run.
+
+## 0q. `457`'S ORPHAN ROWS ARE SERVED DAMAGE — and they account for `/articles/index.html` exactly
+
+`site_delivery_and_editor`'s pre-delivery sweep found boxingonline `/articles/index.html` serving
+**14 empty `article-card__category`** and **2 empty `article-card__excerpt`** elements, and asked
+whether that was a second listing component, an unguarded template, or a data gap. **None of the
+three — it is `bugs_open/457`.** `[MEASURED 2026-09-03 15:00Z]` the six orphan rows on that page
+each hold their own `articles` array and their own `rendered_html`, frozen at the template of their
+birthday, and the page assembles all six. Summing the per-row element counts gives **14 empty
+category and 2 empty excerpt** — matching the served figures on both axes, from two instruments
+sharing no code.
+
+**Three things follow, and the full table is in `bugs_open/457`:**
+
+1. **`454`'s fix structurally cannot reach those rows.** `component_id` is NULL, so
+   `resolveComponent` misses and each row takes a **carry** branch — stored HTML re-shipped
+   verbatim, for ever. Deletion is the only remedy, which promotes `457` fix candidate 4 from
+   tidy-up to repair.
+2. **The empties are a fossil record of `682` landing** — 2 empty excerpts on 08-31, `category`
+   empty 2 → 6 → 6 as the pre-682 template spread, then 0 on the row written after 682 applied.
+   The guarded template is fine on this page too; **the page is serving archaeology.**
+3. **Corrected, because it was mine:** I told that lane `425`'s class had "not reached
+   articles-index". It never will — the class was never on that page.
+
+⚠ **Never take a template-class count from a page carrying an orphan row.** One query settles it:
+`SELECT count(*) FROM page_components WHERE page_id=$1 AND component_id IS NULL`. Non-zero means
+the served bytes are a mixture of template eras that no re-render can normalise. `[MEASURED
+2026-09-03]` 8 such rows on 3 pages fleet-wide.
+
+## 0o. ⚠ SUPERSEDED — THE TWO QUEUED EXPERIMENTS (kept for the baselines and the reading recipe)
+
+> **CORRECTED 2026-09-03 15:05Z — do not act on this section's decision tables.** `691` completed
+> 13:47:46Z and **could not discriminate**: its baseline already carried `excerpt`, so both
+> hypotheses predicted "key present" (the flaw §0k had already identified in `688`). Read by
+> `site_delivery_and_editor` independently and by this lane — new instance `322ce532`, n=6,
+> `excerpt` present, 6 excerpt elements, html 4,760 → 5,026 B. `690` is still queued and its
+> meaning has **inverted** — see §0p. The question both were filed to answer is settled by
+> `bugs_open/454` and by batch `…000692` (§0p). **Nothing here needs re-firing.**
+>
+> The one thing in this section still worth having is the **reading recipe** at the end (print the
+> item status beside the artefact; attribute by `source_item_id` joined on `page_id`; expect the
+> instance id to change). It held up.
+
+### The original section follows
 
 Both `triaged` as of 2026-09-03 ~12:30Z. **Find them by batch id; a long silence is the queue, not
 a lost item.**
@@ -50,7 +201,14 @@ everything a census can hold constant held constant.
 a baseline as a result), attribute the write by `source_item_id` joined on **`page_id`**, and expect
 the instance id to change — the sections path DELETE/re-INSERTs, so a new id is not evidence.
 
-## 0j. ⭐ START HERE — the consolidated elimination list and the one pair to work from
+## 0j. ⚠ SUPERSEDED — the elimination list (every entry still TRUE, and all of it hunting a difference that does not exist)
+
+> **CORRECTED 2026-09-03 15:05Z.** All sixteen eliminations below hold. They were searching for a
+> per-INSTANCE difference between old-shape and new-shape rows, and there was none: the difference
+> was **whether a BUILD had already written the new shape into stored** — a fact about the row's
+> write history, which is not a column and so could not appear in any census of columns. Cause and
+> proof: §0p. The `garden-tools.uk` pair named below was the right pair, and firing a re-render at
+> its OLD-shape half (`/care`) is what answered the bug.
 
 **The open question, stated exactly:** two `page_rerender` items with `reason='section_data_resolved'`
 produced the NEW item shape and a third produced the OLD one. Same code path, same reason, same
@@ -101,7 +259,13 @@ perfectly. It died at n=4 and would have died at n=17 immediately. **Go to the w
 first and theorise second** — a story that fits everything and forbids nothing feels like
 understanding and is the most expensive thing to carry into a handoff.
 
-## 2. THE OPEN DEFECT — the producer fix does not execute on the rerender path
+## 2. ⚠ CLOSED — "the producer fix does not execute on the rerender path" (and this framing was RIGHT)
+
+> **ANSWERED 2026-09-03: the cause is `bugs_open/454`, fixed and live — see §0p.** Read this
+> section as the evidence file it is; every measurement in it stands. Note the irony recorded in
+> §0p: the "per PATH" framing this section leads with, and which the banner below retracts on
+> §0i's authority, was **correct**. Build resolved; the light re-render dropped its plan and
+> resolved nothing. The retraction was the error, not the framing.
 
 > ⚠ **THIS SECTION'S FRAMING IS SUPERSEDED — read §0i first.** It is written as though the split
 > were *per PATH* (build works, rerender does not). **It is not.** Two `page_rerender` items with
@@ -285,7 +449,16 @@ phrasing. **A fourth run in the same shape is probably not the move.**
 
 ---
 
-## 0i. ⛔ THE PATH-SPLIT MODEL IS REFUTED — a rerender DID produce the new shape
+## 0i. ⛔⛔ THIS SECTION IS ITSELF REFUTED — the re-renders PRESERVED the new shape, they did not produce it
+
+> **REFUTED 2026-09-03 15:05Z, and it was the most expensive claim this lane made.** The two
+> `page_rerender` writes cited below happened on instances where a **BUILD** had already written
+> `excerpt` into stored (designblog 09-02 20:51:05, websitepromotion 09-02 23:02:20, both
+> `empty_section` / page-build-handler). Under `bugs_open/454` the re-render merged
+> `stored ⊕ nil`, so it carried the key forward without resolving anything. The check that would
+> have caught it was one column in the row already being read — the archived `content_data` states
+> what the write REPLACED. Full correction, with the table: §0p. **Kept in place because the
+> per-instance hunt this section launched is the record of how the lane went wrong.**
 
 **Read this before §2 and §0h; both are framed on a model this refutes.**
 
