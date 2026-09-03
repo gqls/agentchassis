@@ -325,7 +325,35 @@ recorded because it touches the tag's completeness question directly.
 **Closed out same evening**: valuation session independently re-ran the same
 NS check, agreed, and updated the owner-facing answer from "3 genuinely gone"
 to "5 genuinely gone" — the two orphans are buy-back-only, not
-forgotten-login-recoverable. No further action here. Told them the three retail-registrar inventories
+forgotten-login-recoverable. No further action here.
+
+## 2026-09-03 — owner asked for a "release to DESIGNCONSULT" on 50 domains; the registry said they were already there
+
+Owner asked whether the API could release 50 named domains to his tag,
+having failed via the web UI. Before touching anything: ran a read-only
+`domain:info` on all 50 (one session, `ok=(1000,1001,2201,2303,2400)` so a
+genuine refusal would still surface) — **all 50 already show
+`clID=DESIGNCONSULT`**, `status=ok`, no pending/hold flags. Cross-checked
+against last night's `walk` CSV: all 50 already present. Two independent
+reads, minutes apart, agreeing — nothing for a tag-release to do.
+
+DNS on all 50 pointed at third-party nameservers (`namepros-dns.com/.is`,
+`launch1/2.spaceship.net`) — consistent with recently-acquired
+marketplace/backorder domains where registry sponsorship completes
+automatically but DNS is left on the seller's parking servers. Reported this
+plainly and asked what "release" meant given the contradiction, rather than
+guess at a real, external, hard-to-reverse registry action. **Owner
+clarified: he meant TRANSFER (registrant/ownership), not the tag-release I'd
+checked for — a different Nominet operation entirely — and has now done it
+himself.** No API action was taken by this lane; the read-only check was the
+right call given the premise conflicted with measured registry state.
+
+Worth remembering: "release" and "transfer" are NOT interchangeable Nominet
+terms even though the owner used them so in conversation — release =
+sponsoring-tag change (what I checked), transfer = REGISTRANT change (the
+2026-08-21 ruling's "two operations", `458affaf7`). A future ask using either
+word should be confirmed against which registry field is actually meant
+before any write. Told them the three retail-registrar inventories
 (Dynadot 451 mostly-.com / Porkbun 683 / Spaceship 203, all measured 09-02)
 live in the domains_cloudflare_rollout lane with proven read clients — .com
 being in scope makes those their next asks, not ours.
