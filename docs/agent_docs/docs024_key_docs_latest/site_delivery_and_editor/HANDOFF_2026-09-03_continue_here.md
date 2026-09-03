@@ -17,7 +17,9 @@ serves at **https://boxingonline.ugg2.com**. Today four of the owner's fourteen 
 **at the served artefact, not at a status**: the transparent logo, the card decks, the contact-page
 404, and the analytics tag with its consent banner. His approved copy edit is applied at the source
 and awaiting the next publish tick. **Delivery remains HELD** on his own cut-line
-(*"build and fix everything before approval"*), and `customer_access_tokens` is **0**. The four
+(*"build and fix everything before approval"*), and `customer_access_tokens` is **0**.
+**UPDATE 17:32Z: his approved copy edits are now LIVE at the served page** (§1 item 1), so five of
+the fourteen are closed at the artefact rather than four. The four
 remaining review points are other lanes' code, and he ruled today: *"carry on fixing the tools that
 make these work properly."* Chassis and adapter both on **v1.0.1359**.
 
@@ -25,13 +27,22 @@ make these work properly."* Chassis and adapter both on **v1.0.1359**.
 
 ## 1. NEXT, in order
 
-1. **Verify the owner's approved copy edit at the SERVED page.** Both edits are applied at the row
-   and committed (`43c4f41f9`, `9cd5a738a`); the publisher runs ~2-hourly and last ran 15:15:39Z,
-   so ~17:15Z. Monitor `bw8thrkta` is watching and checks FOUR things, because three of them are
-   ways it could look right and be wrong: your line present · the false *"calendar below"* gone ·
-   **zero `cta-subtitle` elements** (an empty `<p>` would be checklist 5.1) · **decks still 6**.
-   Row state now: subtitle = *"News, previews and results from across the sport."* (the owner's
-   verbatim line), CTA subheadline = `''`, articles n=6 excerpt=true, 6 rendered decks.
+1. ~~**Verify the owner's approved copy edit at the SERVED page.**~~ **DONE 2026-09-03 17:32:30Z —
+   ALL FOUR CHECKS PASS at the served artefact.** Published lm `Thu, 03 Sep 2026 17:32:30 GMT`
+   (the tick ran ~17 min later than the ~17:15Z estimate; the publisher job was mid-run at 17:24Z).
+   Owner's line present ×1, old subtitle gone, `calendar below` = 0, rendered `cta-subtitle`
+   elements = 0 with no empty `<p>`, excerpts = 6, `| Boxing Online` = 0.
+
+   > ⚠ **CHECK 3 AS WRITTEN ABOVE CANNOT BE EXECUTED AS A BARE GREP, and doing so reads as a
+   > FAILURE.** The served page carries **two** things called `cta-subtitle` and they are different:
+   > the rendered `<p class="cta-subtitle">` **and** the CSS rule `.cta-subtitle { margin-bottom:
+   > 2rem; }` inside the page's own `<style>` block. The CSS rule survives the edit, so a bare
+   > `grep -c cta-subtitle` reads **1** for ever. The check is `class="cta-subtitle"` = 0, with the
+   > bare count ≥1 kept as the **liveness control** that the section rendered at all. An older
+   > monitor reported `cta-subtitle els=1` on this very publish; that is the bare-string count, and
+   > it is a false alarm — re-measured both ways at 17:33Z, the single remaining occurrence is the
+   > CSS rule. No checklist-5.1 empty `<p>` is possible here either: the template gates the element
+   > on `{{if .subheadline}}` and Go treats `""` as false, so an empty value omits it entirely.
 2. **The logo question is with the OWNER and is the only open ask on this site.** New today, and
    NOT covered by any prior ruling: the mark carries **zero pixels within ±60 of brand red
    `#C0392B` or gold `#D4A017`** (53% blue / 45% neutral), and the prompt asked for *"a stylised
