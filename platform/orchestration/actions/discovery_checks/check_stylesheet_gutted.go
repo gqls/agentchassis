@@ -315,6 +315,13 @@ var rendererGuaranteedTokens = map[string]bool{
 	"--container-max-width": true, "--primary-color": true, "--secondary-color": true,
 	"--accent-color": true, "--color-heading": true, "--color-white": true,
 	"--color-error": true, "--hero-ink": true,
+	// renderer-owned legible-ink companions (buildLegibleInkDefaults). These
+	// three ARE unconditionally emitted: primary/accent always have a source
+	// colour and a ground to measure against. Present in 7 of 7 served
+	// stylesheets sampled `[MEASURED 2026-09-03]`.
+	// --color-cta-bg-ink is DELIBERATELY ABSENT — see inkCompanionsNotGuaranteed
+	// in the parity test for why policing it would be an over-reach.
+	"--color-primary-ink": true, "--color-accent-ink": true, "--color-accent-text": true,
 }
 
 func stripCSSComments(css string) string {

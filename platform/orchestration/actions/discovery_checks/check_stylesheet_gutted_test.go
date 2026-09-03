@@ -707,9 +707,31 @@ func TestStylesheetGutted_TokenSetMatchesCanonicalCSSTokens(t *testing.T) {
 		t.Fatalf("parsed only %d tokens from canonicalCSSTokens — the literal's shape changed and this guard is no longer reading it", len(canonical))
 	}
 
+	// inkCompanionsNotGuaranteed: tokens a component may legitimately REFERENCE
+	// but which the renderer does NOT always emit, so this check must not police
+	// them. The two lists are not the same question — canonicalCSSTokens is the
+	// authoring vocabulary ("may a template name this?"), rendererGuaranteedTokens
+	// is the contract ("is this always defined?") — and they diverge exactly where
+	// a token is emitted conditionally.
+	//
+	// --color-cta-bg-ink is emitted by buildLegibleInkDefaults ONLY when
+	// solidCTAFill(palette) is non-empty, i.e. when cta_bg holds a solid colour
+	// rather than a gradient; 10 fleet themes hold a gradient there
+	// (bugs_open/398). Measured over served stylesheets `[MEASURED 2026-09-03]`
+	// it is present on 1 of 7 sampled sites, while --color-primary-ink,
+	// --color-accent-ink and --color-accent-text are present on 7 of 7. Policing
+	// it would report 6 of those 7 as gutted — the over-reaching false-positive
+	// class this test's own extraHere message names.
+	//
+	// Components reference it the two-level way, var(--color-cta-bg-ink, …), so
+	// its absence is a working fallback and not a defect.
+	inkCompanionsNotGuaranteed := map[string]bool{
+		"--color-cta-bg-ink": true,
+	}
+
 	var missingHere, extraHere []string
 	for tok := range canonical {
-		if !rendererGuaranteedTokens[tok] {
+		if !rendererGuaranteedTokens[tok] && !inkCompanionsNotGuaranteed[tok] {
 			missingHere = append(missingHere, tok)
 		}
 	}
