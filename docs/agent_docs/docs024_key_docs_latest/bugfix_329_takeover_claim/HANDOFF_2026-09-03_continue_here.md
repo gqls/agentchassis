@@ -175,8 +175,13 @@ advisories actioned) · plus the lane docs, register, landmines and `WRONG_CALLS
   I retracted a false exposure claim to them. They declined the 180 s-lease-vs-300 s-timeout finding
   on the correct ground that they have never measured it, so **it lives in `bugs_open/329` §5, cited
   to nobody**. Do not attribute it to them.
-- **`chassis_replica_scaling`** (dormant) — their cross-worker safety inventory ("the DB claims,
-  `UpdateStateWithVersion`, component locks, CS-1's guard") should now list this claim. Not yet told.
+- **`chassis_replica_scaling`** (dormant) — **TOLD 2026-09-03** (CONTRIB in their
+  `NOTES_chassis_replica_scaling.md`): their cross-worker safety inventory ("the DB claims,
+  `UpdateStateWithVersion`, component locks, CS-1's guard") had this arm missing, and it was a real
+  hole. The CONTRIB also puts the 180 s-vs-300 s ordering question to them (they may know whether it
+  was chosen or defaulted) and points whoever takes `bugs_open/461` at their worker-pool heartbeat as
+  the prior art — including its limitation, that it can only check BETWEEN events, which a
+  coordinator heartbeat would inherit.
 - **`orchestration_status_lifecycle`** (dormant) — filed 329 and disclaimed it; owns the RUNNING arm
   (commit `e34d44f26`, **not** "migration 465" — a migration cannot add Go, and 465 is an ambiguous
   number). Their `bugs_closed/294` carries my correction.
