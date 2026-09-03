@@ -80,3 +80,36 @@ served-page check cannot tell the two apart.
 this session (HTTP 429), so the two adversarial-review agents I launched on it never returned.
 The adversarial work was done by hand instead — a side-by-side simulation of the old and new
 Pass C rules across every URL form, the branch-count census above, and the mutation tests.
+
+## 2026-09-03, later — council round 1: REVISE, and the objection was about my submission, not my code
+
+Verdict `revise`, gating objection from `editquality` on edit 1, 16 minutes after dispatch
+(submitted 16:51:29Z, report 17:07:05Z — the ~30-minute budget in CLAUDE.md was about right).
+
+> *"Correctness of the narrowed collision test rests entirely on `datahelpers.PagePathKey`'s
+> semantics, which are never shown or evidenced. For the fix to both (a) preserve the ratified
+> `bugs_closed/141` collision (flat `/news.html` vs `/news/index.html` must still be dropped)
+> and (b) NOT collide a child (`/articles/foo.html` vs hub `/articles/index.html`),
+> PagePathKey must fold trailing `/index.html`-style hub …"*
+
+**Accepted in full, and it is a fair hit.** The code is right and I had the evidence — the
+behaviour table, the tests, the mutation run — but I put a *call* to `PagePathKey` in the sketch
+and its *semantics* in prose. The runbook's own rule is that reviewers judge the sketch and a
+claim in the rationale is not inspectable, and I broke it on the single function the entire
+correctness argument rests on. The reviewer could not verify (a) or (b) without leaving the
+submission.
+
+Round 2 puts `PagePathKey`'s verbatim body in the sketch, and adds to `grounded_in`: its own doc
+comment, its pre-existing test, both halves of the objection computed on both sides, the full
+old-vs-new table across every URL form, and the argument that the table is exhaustive rather
+than illustrative (the two predicates partition the space). Nothing else in the plan changed —
+resubmitted on the same correlation so the trail accumulates.
+
+**The lesson, which is not "write more prose":** when a fix's correctness reduces to one
+helper's behaviour, that helper's BODY belongs in the sketch even though the diff does not touch
+it. The diff and the evidence are not the same set of lines.
+
+Worth noting the round cost about fifteen minutes and produced a materially better submission,
+which is the standing argument for revising rather than defending. It also did something I did
+not expect: the seats ran their own read-only checks and independently reproduced my
+109-of-109 `parent_section` measurement, so that figure now has a second, non-me source.
