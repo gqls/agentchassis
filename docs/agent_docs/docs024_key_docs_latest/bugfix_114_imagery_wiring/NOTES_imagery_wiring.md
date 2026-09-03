@@ -865,3 +865,145 @@ Capability on the new pods: 61/61, controls clean. New rollup: loancash.co.uk
 `no_image_slot` **7** (plausible — a plan-less RFC_063 site holding 9 content-hero
 assets; its pages cannot render them and the check says so). Still outstanding:
 `fragment_slot` (tool-page sites) and webdesign.co.uk's big `unwired` population.
+
+### 2026-09-03 evening — `fragment_slot` is EXTINCT, not pending: the closure gate as written was unsatisfiable
+
+> **CORRECTION to every 09-03 entry above, and to the handoff's §What closes 114.** All of
+> them list "one `fragment_slot` observation" as an outstanding item that the rotation would
+> deliver. **It will not, because no page on the estate is in that state, or can be.** The
+> gate item was waiting on something that had already been cured — about eleven hours before
+> the detector went live. Caught by re-running the census instead of quoting it; the number
+> was `[MEASURED 2026-09-02]` and I had been repeating it as current all day.
+
+**1. The measurement, with its controls.** `fragment_slot` needs a page where an
+image-capable component exists AND every image-capable component on that page carries a
+fragment marker. Fleet-wide, `[MEASURED 2026-09-03]`, over `pages.status='active'` joined to
+non-removed `page_components`:
+
+| | pages |
+|---|---|
+| carry an image-capable component (`html_template` LIKE `%hero_url%` / `%background_image%`) | **800** |
+| carry a fragment marker (`<canvas` / `game-container` / `tool-page` / `data-tool` in `rendered_html`) | **45** |
+| **both, on the SAME component row** — the `fragment_slot` precondition | **0** |
+
+**Both halves are visible and the conjunction is empty** — that is the disconfirming control
+this repo's own rule asks for. A zero from a query that also returned 0 for the two halves
+would have proved nothing; these returned 800 and 45.
+
+**2. Like-for-like against this file's own 09-02 tool-page census**, same predicate, dated:
+
+| census | tool pages | no image-capable component | **fragment-poisoned slot** | genuinely capable |
+|---|---|---|---|---|
+| `[MEASURED 2026-09-02]` (bugs_open/114) | 335 | 231 | **16** | 88 |
+| `[MEASURED 2026-09-03]` (this entry) | 359 | 246 | **0** | 113 |
+
+The 16 did not go missing — they moved into *capable* (+25 capable against +24 tool pages).
+
+**3. Why, and this is evidenced rather than inferred.** Migration **701** (owner-applied
+~22:00Z 09-02, `bugs_closed/357`) retyped mortgagecalculator.co.uk's 11 adopted rows to
+`component_level='tool'`, and the instance-scope sweep rewrote their templates 08:36–08:46Z
+on 09-03. That split the tool shell OUT of the image-capable component — which is exactly and
+only the condition `fragment_slot` detects. Read directly off mcalc today:
+
+```
+tool-affordability       | Generic Text Block  | section | img_capable=f | frag_marker=f
+tool-affordability       | tool-affordability… | tool    | img_capable=f | frag_marker=t   <- shell, not image-capable
+tool-btl-investor        | hero-tool           | section | img_capable=t | frag_marker=f   <- image-capable, not a fragment
+tool-btl-investor        | tool-btl-investor…  | tool    | img_capable=f | frag_marker=f
+```
+
+The two properties now sit on *different component rows*, so the AND can never be satisfied.
+Pre-701 they sat on one row (`hero` declaring itself while holding the calculator — RFC_046).
+The mcalc lane's own CONTRIB of 09-03 in this directory describes the same retyping
+independently, which is the second source. ⚠ **The pre-701 state is no longer directly
+re-measurable**, so the attribution rests on those two records plus the arithmetic in §2 — not
+on a before/after I ran myself. That is the one soft joint in this entry; the extinction in §1
+is hard.
+
+**4. What this means for the detector — it is NOT blind, and the runbook's own rule misfires
+here.** 708's runbook step 3 says "a fleet-wide silence after full rotation is an unexercised
+detector — a bug, not a clean fleet". **For `fragment_slot` that instruction is now WRONG**: the
+silence is the correct answer, and a session obeying step 3 would file a bug against a working
+check. Landmine appended. The other two states are exercised and accurate (§5).
+
+**5. The detector graded properly — 15/15 sites, including 7 TRUE NEGATIVES.** I mirrored the
+check's own SQL as a census and compared it against what actually fired. `checks_run` in
+`collected_data->'run_checks'` is the proof a sweep ran it (not the absence of a finding,
+which is ambiguous): **16 sweeps on 09-03 from 09:25:32Z, `unrendered_page_imagery` present in
+both `checks_requested` and `checks_run` on all 16, `checks_failed=[]`, `checks_unregistered=[]`.**
+
+| swept 09-03 | census says | filed | verdict |
+|---|---|---|---|
+| idea.uk | no_image_slot 6 | no_image_slot 6 | ✓ |
+| garden-tools.uk | no_image_slot 3 | no_image_slot 3 | ✓ |
+| advertise.co.uk | **all 5 fulfilled** | *nothing* | ✓ true negative |
+| remortgagecalculator.uk | no_image_slot 1 | no_image_slot 1 | ✓ |
+| noted.co.uk | **no candidates** | *nothing* | ✓ true negative |
+| fundamentallyai.com | unwired 3 · no_image_slot 1 | both | ✓ |
+| apis.uk | **no candidates** | *nothing* | ✓ true negative |
+| adversecreditmortgage.co.uk | **no candidates** | *nothing* | ✓ true negative |
+| loancash.co.uk | no_image_slot 7 | no_image_slot 7 | ✓ |
+| lendzy.co.uk | no_image_slot 8 | no_image_slot 8 | ✓ |
+| oxenunity.com | **all 3 fulfilled** | *nothing* | ✓ true negative |
+| gaswholesalers.com | **no candidates** | *nothing* | ✓ true negative |
+| copyonline.co.uk | **no candidates** | *nothing* | ✓ true negative |
+| leopardessconsulting.co.uk | unwired 2 · no_image_slot 6 | both | ✓ |
+| finetuning.uk | unwired 4 · no_image_slot 6 | both | ✓ |
+
+The true negatives are the load-bearing half: two of them (advertise, oxenunity) have real
+candidate populations that are **entirely fulfilled**, so the check computed a census and
+correctly filed nothing. A detector that only ever fires cannot be distinguished from one that
+always fires; these can.
+
+**6. The rotation arithmetic in the handoff is WRONG, and it matters for the remaining gate.**
+The handoff says "`site_discovery_rotation` picks sites >4h stale every 300s" and "at ~5
+sites/3h the fleet completes within ~a day". The live task says otherwise:
+
+```
+name=site-discovery-rotation-design  interval_seconds=10800 (3h)  max_concurrent=1  enabled=t
+pre_query: ... COALESCE(r.last_selected_at,'-infinity') < now() - interval '7 days' ... LIMIT 1
+```
+
+**`LIMIT 1` every 3 hours, behind a 7-DAY staleness gate** — so ~8 stamps/day and each site is
+revisited on a ~7–8 day cycle, not a daily one. (The 300s/4h figures belong to a different
+rotation task; this one is 10800s/7d.) Additional design-discovery runs arrive from a second
+dispatcher that does *not* stamp the rotation table — 47 runs in 30h against ~10 rotation
+stamps — which is why coverage is faster than 8/day but still uneven: garden-tools.uk was swept
+4× in 32h while mortgagecalculator.co.uk has not been swept since 08-30.
+
+**7. Falsifiable predictions for the sites still unswept, so the next session grades in one
+query rather than re-deriving.** `[MEASURED 2026-09-03]`, same mirrored census:
+
+| site (not yet swept with the check) | unwired | no_image_slot |
+|---|---|---|
+| webdesign.co.uk | 3 | **62** |
+| loanzy.uk | 3 | 0 |
+| ai-agent-orchestration.com | 1 | 3 |
+| vonc.com | 1 | 6 |
+| gamesdesign.co.uk | 0 | 17 |
+| loanandmortgagecalculator.co.uk | 0 | 17 |
+| mortgagecalculator.co.uk | 0 | 14 |
+| robot-hands.com | 0 | 7 |
+| dartsonline.com | 0 | 7 |
+| boxingonline.com · lampenkap.com | 0 | 6 each |
+| agritec.uk | 0 | 5 |
+| webdesign.uk | 0 | 1 |
+| designblog.co.uk · homegarden.uk | 0 | 0 (expect silence) |
+
+⚠ **Two more stale predictions retired here.** The handoff predicted `unwired` on
+**gamesdesign.co.uk** and **loanandmortgagecalculator.co.uk**; both are `unwired` **0** today
+(17 `no_image_slot` each). Today's entire `unwired` population is 17 pages over 7 sites, and 3
+of those sites have already fired correctly. So the only `unwired` observations still to come
+are webdesign.co.uk (3), loanzy.uk (3), ai-agent-orchestration.com (1) and vonc.com (1).
+
+**8. One unexplained-but-benign observation, recorded rather than swallowed.**
+`agent_definitions.updated_at` for `design-discovery-agent` reads **2026-09-03 13:27:33Z**,
+four hours AFTER our first firing at 09:25:32Z — so it is a later edit by another lane, not
+708. Checked before trusting the agent: the checks array is intact at **25** names with
+`unrendered_page_imagery` appended last, and all 16 sweeps ran it. No action; noted so the next
+reader does not mistake that timestamp for our enablement time (which was ≤09:25Z).
+
+**Method note for whoever repeats this.** `checks_run` — not "no finding appeared" — is what
+proves a check executed. The findings array only carries checks that found something, so a
+silent sweep and a skipped sweep look identical there. That distinction is the whole reason the
+true-negative column above is trustworthy.

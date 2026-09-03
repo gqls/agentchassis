@@ -1,5 +1,47 @@
 # HANDOFF 2026-09-03 — bugs_open/114 imagery wiring: continue here
 
+> ## ⚠ READ THIS FIRST — 2026-09-03 evening. The closure gate below is WRONG in two ways.
+>
+> **1. `fragment_slot` will NEVER be observed. Stop waiting for it.** Every update below
+> lists "one `fragment_slot` observation" as outstanding. The state is **EXTINCT and
+> currently unreachable** — `[MEASURED 2026-09-03]`, fleet-wide: **800** pages carry an
+> image-capable component, **45** carry a fragment marker, and **0** carry both on the same
+> component row (that conjunction IS the state). Cause, evidenced: migration **701** +
+> the instance-scope sweep (mcalc lane, overnight 09-02→09-03) split the tool shell out of
+> the image-capable component — the exact condition the state detects — about **11 hours
+> before** the detector went live. Like-for-like on this file's own census: the 09-02
+> "16 fragment-poisoned tool slots" reads **0** today, with "genuinely capable" up 88→113.
+> ⚠ **708's runbook step 3 ("a fleet-wide silence is an unexercised detector — a bug, not a
+> clean fleet") MISFIRES on this state**: here the silence is correct, and obeying step 3
+> would file a bug against a working check. Full working: NOTES 2026-09-03 evening.
+>
+> **2. The rotation arithmetic below is wrong.** Not "sites >4h stale every 300s / ~5
+> sites per 3h / fleet in ~a day". The live task is
+> `site-discovery-rotation-design`: **`LIMIT 1`, `interval_seconds=10800` (3h), behind a
+> 7-DAY staleness gate** — ~8 stamps/day, each site revisited on a ~7–8 day cycle. A second
+> dispatcher adds runs without stamping the table (47 runs/30h vs ~10 stamps), so coverage
+> is faster but UNEVEN: garden-tools.uk was swept 4× in 32h while mortgagecalculator.co.uk
+> has not been swept since 08-30. **Budget days, not hours.**
+>
+> **What is actually left before closing 114 — one item, and it is automatic.** The
+> detector is proven: **16 sweeps on 09-03 ran it** (`checks_run`, not the absence of a
+> finding — the findings array omits silent checks, so silence and skipped look identical
+> there), **0 failed, 0 unregistered**, and it agreed with an independent mirrored census on
+> **15/15 sites including 7 TRUE NEGATIVES** (advertise.co.uk and oxenunity.com have real
+> candidate populations that are entirely fulfilled — it computed a census and correctly
+> filed nothing). Remaining: four unswept sites owe an `unwired` rollup —
+> **webdesign.co.uk 3 (+62 `no_image_slot`), loanzy.uk 3, ai-agent-orchestration.com 1,
+> vonc.com 1**. Per-site predictions for every unswept site are tabled in NOTES §7; grade
+> them with the one query in §What closes 114 and close if they match.
+> ⚠ Two more stale predictions retired: the handoff predicted `unwired` on
+> **gamesdesign.co.uk** and **loanandmortgagecalculator.co.uk** — both are `unwired` **0**
+> today (17 `no_image_slot` each).
+>
+> **New scope arrived, not started:** `CONTRIB_2026-09-03_from_mcalc_lane_OWNER_HANDS_YOU_THE_WHOLE_TOOL_IMAGERY_JOB.md`
+> in this directory — the owner handed this lane mortgagecalculator.co.uk's whole tool-imagery
+> job (18 tool pages, both mechanisms, and the spend decision). 701 removed the blocker that
+> made it unsafe. Does NOT block closing 114.
+
 > **UPDATE 2026-09-03 ~13:30Z — THIRD roll of the day, `v1.0.1359` (pods born 13:28Z),
 > check survived again: capability 61/61 with clean controls.** Coverage now **5 sites,
 > 6 rollups, 9/9 orchestrations COMPLETED** — loancash.co.uk joined (`no_image_slot` 7,
@@ -71,12 +113,35 @@ diagnosis-first protocol.
    FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
    WHERE wi.item_type='unrendered_page_imagery' ORDER BY wi.created_at DESC;
    ```
-   Predicted `[MEASURED 2026-09-02]`: `unwired` on webdesign.co.uk (largest, 66
-   candidates), gamesdesign, loanandmortgagecalculator; `fragment_slot` on the 16
-   tool-page rows (mcalc has 10); `no_image_slot` widely (tool 231, blog-post 7 pages).
-   ⚠ **A fleet-wide silence after full rotation is an unexercised detector — a bug, not
-   a clean fleet** (708's runbook step 3). Also check the design orchestrations keep
-   completing.
+   > **⚠ SUPERSEDED 2026-09-03 evening — the predictions in this step are STALE and two of
+   > them are now known false.** Use NOTES §7's dated table instead. Retired here:
+   > `fragment_slot` on the 16 tool-page rows (**extinct — 0 fleet-wide**, see the banner);
+   > `unwired` on gamesdesign and loanandmortgagecalculator (**both 0 today**). The
+   > "webdesign.co.uk, 66 candidates" figure was the CANDIDATE count, not the unwired one —
+   > it splits 3 `unwired` / 62 `no_image_slot` / 1 fulfilled.
+   >
+   > **Prove a sweep RAN the check — never infer it from an absent finding.** The findings
+   > array carries only checks that found something, so a silent run and a skipped run look
+   > identical there. `checks_run` is the evidence:
+   > ```sql
+   > SELECT collected_data->'input_data'->>'domain' AS domain, created_at::time(0),
+   >        collected_data->'run_checks'->'checks_run' @> '["unrendered_page_imagery"]'::jsonb AS ran,
+   >        collected_data->'run_checks'->>'checks_failed' AS failed,
+   >        collected_data->'run_checks'->>'items_inserted' AS ins
+   > FROM orchestration_states
+   > WHERE owner_agent_type='design-discovery-agent' AND created_at > '2026-09-03 09:00'
+   > ORDER BY created_at;
+   > ```
+   > A site that ran the check and filed nothing is a **true negative**, not a miss —
+   > confirm it against the census mirror before reading it as a gap.
+
+   Original (kept for the record) — predicted `[MEASURED 2026-09-02]`: `unwired` on
+   webdesign.co.uk (largest, 66 candidates), gamesdesign, loanandmortgagecalculator;
+   `fragment_slot` on the 16 tool-page rows (mcalc has 10); `no_image_slot` widely (tool
+   231, blog-post 7 pages). ⚠ **A fleet-wide silence after full rotation is an unexercised
+   detector — a bug, not a clean fleet** (708's runbook step 3) — **but see the banner: that
+   rule MISFIRES on `fragment_slot`, where silence is the correct answer.** Also check the
+   design orchestrations keep completing.
 2. **Move the file**: `git mv bugs_open/114_… bugs_closed/114_…` with a closing appendix
    pointing the residual states at their owners (unwired → 412; fragment_slot → 357;
    no_image_slot → RFC_063 execution + the composition question). Name BOTH paths on the

@@ -204,3 +204,52 @@ remainder. The delivery mechanism itself (actually putting those orphaned pictur
 their pages) is deliberately switched off until one careful test run on a quiet site
 tells us why the old delivery sometimes missed — that test is written up and waiting,
 and your ruling last night on the six plan-less sites gave it a clear runway.
+
+---
+
+**2026-09-03 evening — the detector is working better than I could prove this morning,
+and one of the three things I said we were waiting for turns out to be impossible.**
+
+Short version: the new detector has now run on fifteen sites and got every single one
+right. I was wrong about what we were still waiting for.
+
+The detector sorts each neglected picture into one of three situations. This morning I
+said we needed to see all three happen live before closing the bug. Two have happened.
+The third — the case where a page has a picture slot but a calculator is sitting in it —
+**cannot happen any more**, because it was fixed the night before the detector switched
+on. Your migration on the mortgage calculator site moved the calculators out of the
+picture slots. That was the only place on the estate in that situation. So I have been
+waiting all day for a report that will never come, and saying so in every update.
+
+I checked this properly rather than assuming. Across the whole estate: 800 pages have a
+picture slot, 45 pages have a calculator or game embedded, and **zero** have both in the
+same place. I also re-ran the exact count from yesterday's notes: it said sixteen pages
+were in that broken state, and today it says none — and the "healthy" number went up by
+almost exactly the same amount, which is what you'd expect if they were repaired rather
+than deleted.
+
+**The good news is much bigger than that correction.** I found a way to prove the
+detector actually ran on each site, rather than assuming silence meant it looked and
+found nothing. It ran on sixteen sweeps today, never failed once, and on all fifteen
+sites it agreed exactly with an independent count I did by hand. Seven of those fifteen
+were sites where the right answer was to say nothing at all — and it correctly said
+nothing. That matters more than the reports it did file: anything can raise an alarm,
+but a thing that knows when to stay quiet is actually working.
+
+**One practical correction.** I had told you the sweep would visit every site in about a
+day. It won't — the schedule turns out to be one site every three hours, and only sites
+it hasn't touched in a week. So full coverage is more like a few days. Nothing is broken;
+my arithmetic was wrong.
+
+**Where that leaves the bug.** I'm not closing it tonight, but only one thing is left,
+and it's automatic: four sites that should produce a report haven't been visited yet, the
+biggest being webdesign.co.uk. I've written down exactly what each of them should say
+when its turn comes — so whoever picks this up can check it in one query instead of
+working it out again. If they match, the file moves to the closed pile.
+
+**Something new landed for us today that isn't part of this bug.** The mortgage
+calculator lane has handed us the whole picture job for that site — eighteen tool pages
+whose images are all generated and paid for and simply not shown. Their note says the
+change that used to be unsafe is now safe, thanks to that same migration. That is real
+work with a spend decision attached, and I've not started it; flagging it so it doesn't
+get lost between the two lanes.

@@ -935,6 +935,16 @@ The lane was idle 11 days. Full evidence with queries:
   (blog-post: 312 of 319 capable). The mcalc lane's fresh 09-02 handoff §2 ("same
   component, renders on guides, not on tools — diff the render path") is answered by 357,
   not by a render-path divergence; told them in their lane's CONTRIB.
+  > **CORRECTED `[MEASURED 2026-09-03]` — the "16 fragment-poisoned" half is now ZERO, and
+  > this is the census that retired a closure-gate item.** Same predicate, one day later:
+  > **359 tool pages, 246 with no image-capable component, 0 fragment-poisoned, 113
+  > genuinely capable.** The 16 were not deleted — they moved into *capable* (+25 capable
+  > against +24 tool pages). Cause: migration **701** + the instance-scope sweep (overnight
+  > 09-02→09-03) split the tool shell out of the image-capable component. Fleet-wide control
+  > for the state's precondition: **800** pages carry an image-capable component, **45**
+  > carry a fragment marker, **0** carry both on the same component row. Consequence for
+  > this file: the `fragment_slot` state is **extinct and unreachable**, so it cannot be
+  > observed live — see the closing bar below. Working: lane NOTES, 2026-09-03 evening.
 - **A near-miss detector is making the class WORSE**: `check_undeployed_assets` half 1
   (purpose-prefix site-wide evidence, deploy remedy) + the recurrence brake have parked
   **1,651** `undeployed_asset` rows born at `unresolved` (`created_at=updated_at`,
@@ -942,6 +952,32 @@ The lane was idle 11 days. Full evidence with queries:
   is an owner decision, flagged not taken.
 
 ### What still stands between this file and `bugs_closed/`
+
+> **UPDATE 2026-09-03 evening — three of the four bullets below are now MET, and the first
+> one's "observe all three states" reading is retired as unsatisfiable.** Current bar:
+>
+> - **Detector proven live — MET.** `[MEASURED 2026-09-03]` **16 sweeps** ran
+>   `unrendered_page_imagery` (evidence is `collected_data->'run_checks'->'checks_run'`, NOT
+>   an absent finding — the findings array omits silent checks, so silence and skipped are
+>   indistinguishable there), **`checks_failed=[]`, `checks_unregistered=[]`** on all 16.
+>   Against an independent census mirroring the check's own SQL it agreed on **15/15 sites,
+>   including 7 true negatives** — two of which (advertise.co.uk, oxenunity.com) hold real
+>   candidate populations that are entirely fulfilled, so the check computed a census and
+>   correctly filed nothing. A detector that only ever fires cannot be told from one that
+>   always fires; these can.
+> - **`no_image_slot` observed — MET** (8 sites). **`unwired` observed — MET** (3 sites:
+>   fundamentallyai 3, leopardessconsulting 2, finetuning 4; each exact against census).
+> - **`fragment_slot` observed — RETIRED, NOT MET AND NOT MEETABLE.** The state is extinct
+>   fleet-wide (0 pages, against controls of 800 image-capable and 45 fragment-marked) — see
+>   the corrected census above. Its arm is covered by unit tests and by the retraction path
+>   that runs on every sweep. ⚠ **708's runbook step 3 ("a fleet-wide zero = unexercised
+>   detector") MISFIRES on this state**: silence here is the correct answer.
+> - **REMAINING, and it is automatic:** four unswept sites owe an `unwired` rollup —
+>   **webdesign.co.uk 3 (+62 `no_image_slot`, the largest rollup the check will file),
+>   loanzy.uk 3, ai-agent-orchestration.com 1, vonc.com 1.** Full per-site predictions:
+>   lane NOTES 2026-09-03 §7. ⚠ Coverage is **days, not hours** — the rotation is `LIMIT 1`
+>   every 3h behind a 7-day staleness gate, not "5 sites/3h". Grade the four against the
+>   table and close.
 
 - The chassis roll carrying `a87746b77`, then migration 708 applied per its own runbook,
   then rollups observed with plausible counts (a fleet-wide zero = unexercised detector).
