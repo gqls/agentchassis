@@ -1845,3 +1845,52 @@ served by the job scheduler at ten to nine this morning, and there are eighteen 
 also spent a while convinced the whole testing system had broken estate-wide, because the numbers
 looked exactly like that; it had not, and I have written down what talked me out of it. **Nothing is
 broken and nothing needs your attention** — I will report the results when the queue reaches us.
+
+---
+
+## 2026-09-03, evening — I broke the tests this morning and did not notice until they failed
+
+**What happened.** The queue finally moved this afternoon. All the page rebuilds went through, every
+one of the eighteen calculators is now on the new naming scheme, and the five tests I had queued came
+back. **All five failed — and all five failures were mine, not the calculators'.**
+
+**The mistake.** A test has two halves: the boxes it fills in, and the answers it checks. This
+morning, when I repointed the tests at the renamed elements, I fixed the first half and missed the
+second. So each test filled in the right boxes, pressed the right button, and then went looking for
+an answer field under a name that no longer existed. From the outside that looks exactly like a
+broken calculator. **The calculators were fine throughout.**
+
+**The part that actually worries me** is not the slip — it is that my own check said everything was
+fine. I had verified the repair before shipping it, with a control, and both passed. They passed
+because the check was written from the same wrong assumption as the repair: it looked for the answer
+fields under the same name I had got wrong, so it never examined them at all. **A check built on the
+same misunderstanding as the thing it is checking will always agree with it.** I have written that up
+properly, because it is the most useful thing to come out of today.
+
+**How I fixed it, and why I think it holds this time.** I repointed all eight tests — the five I had
+half-repaired, plus three I had deliberately held back this morning and which had gone stale in the
+meantime exactly as I predicted. Then I verified a completely different way: instead of looking for
+particular named fields, I read every element reference out of the raw test text, so no naming
+mistake can hide from it. I also checked the old versions fail that same test — they do, on between
+one and nine references each — which proves the repair actually changed something rather than
+agreeing with itself. And I read the finished tests back out of the database rather than trusting the
+files on my disk, because "the file I wrote is right" and "the record is right" are two different
+claims and I had just been caught conflating two things that looked identical.
+
+**No expected figure was altered at any point today**, in either pass. Only the addresses.
+
+**One piece of luck worth naming.** These tests carry a flag meaning "if this fails, tell a human,
+never send the automatic repair robot". I set that months ago for an unrelated reason — because an
+automatic repairer can only turn a failing sums-test green by changing the sums. **That flag is the
+only reason this stopped at five wrong entries in a log** instead of five working calculators being
+"repaired" into agreement with a broken test.
+
+**Where it stands.** Eight fresh test runs are in flight. I will report them when they land. The
+calculators have been working correctly all day and were never at risk; what was broken, and is now
+fixed, was our ability to tell.
+
+**A small irony I have recorded rather than buried.** Earlier this week I filed a fault report about
+exactly this: tests pointing at old element names and recording false failures against working tools.
+Then I produced five more of them by hand, inside the repair for it. Knowing the trap did not help,
+because my error was a level below it — I never checked where the test format actually keeps those
+references.
