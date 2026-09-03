@@ -26,9 +26,30 @@ never purchase price. This is a real hole in the bottom-500 exercise: "keen"
 assumes the alternative is holding a cheap renewal, and that assumption is false
 for any domain bought at auction or aftermarket.
 
-**Ask the owner before the tail is priced**, not after: which domains did he pay
-significantly for? Even a partial list — "anything from an auction", a handful
-of names, a rough cutoff year — converts an unbounded risk into a bounded one.
+~~**Ask the owner before the tail is priced**~~ — **ASKED AND ANSWERED
+2026-09-03: *"I can't readily gather the prices I paid."*** The data does not
+exist in a form he can retrieve, so the tail cannot be protected by knowing
+cost bases and waiting for them would stall the work indefinitely.
+
+**What to do instead — three mitigations, none of which needs the missing data:**
+
+1. **Raise the floor above the plausible cost of a bought name.** A
+   hand-registered .co.uk costs a few pounds a year; an aftermarket purchase
+   starts around £50 (Domainlore's minimum) and cartoon.co.uk shows the top end
+   is four figures. A floor at the current £150 already covers a hand-reg many
+   times over, so the exposure is concentrated in the *aftermarket* names.
+2. **Flag, don't price, anything that looks bought.** A name that is short,
+   one-word, or a clean exact-match generic is far likelier to have been paid
+   for than a five-word hyphenated string. Those get held out of the keen tail
+   for the owner's eye rather than auto-priced — a much smaller list than 2,874,
+   and it is the same shape as the cartoon.co.uk case (a one-word .co.uk).
+3. **Sell in tranches and read the results.** The first tranche is also a
+   measurement: if names sell instantly at the keen price, the price is too low
+   and later tranches move up. This is the only feedback loop available in an
+   estate with no realised-sale history of its own.
+
+**Record this as an accepted, bounded risk, not a solved one.** Some names will
+sell below what they cost. The mitigations shrink that set; they do not empty it.
 
 ## Never-sell (permanent, by name)
 
