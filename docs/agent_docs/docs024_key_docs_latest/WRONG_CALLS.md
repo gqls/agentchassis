@@ -65330,3 +65330,33 @@ against a test that replaced a seven-day wait — the owner's idea, and a good o
   exercise. Done that way in 753 the same hour.
 - **The transferable rule.** A verify that mutates live state must restore it in a way that is
   itself asserted, because the only run that exercises the restore is the one you cannot rehearse.
+
+## 2026-09-03 — "752 is live and governing": it was live and FALLING OPEN on every run, because my verify spliced a literal where the runtime binds a parameter (dispatch_throughput lane)
+
+- **The claim.** After applying 752 at 21:24Z I reported to the owner that council reviews
+  now shed at L1 and that the gate was live — supported by `752 OK`, a green daily VERIFY, and
+  the row's `start_step`. All true. All beside the point.
+- **What the first live run said** (the canary I had set precisely for this): `step
+  gate_spend_governor failed: … could not determine data type of parameter $1 (SQLSTATE
+  42P18)` → `error_step` → `load_schema_hint` → the review ran. **Fail-open worked exactly as
+  designed, which is why the failure was invisible**: no output, no refusal, a normal round.
+  Every council run in that window was ungoverned while the row said otherwise.
+- **Why the verify could not see it.** It EXECUTEd the gate SQL with `'752-verify-corr'`
+  spliced in for `$1`. A literal has a type. A bound parameter used only inside
+  `format(VARIADIC "any")` has none, and Postgres refuses to guess. The verify rehearsed the
+  SQL and never the BINDING — the one runtime piece its own risks section named as
+  unrehearsable and then did not rehearse.
+- **It was rehearsable.** `PREPARE p AS <text>` with unspecified parameter types forces the
+  identical server-side inference the driver triggers. Reproduced in one statement; the fix
+  (`$1::text`) proven the same way; the arm is now in 754's verify and 752's daily VERIFY.
+- **The second slip in the same hour.** My first probe of the fix reported "STILL FAILS":
+  its `replace()` anchor named text that the c400d333 revision had wrapped in `COALESCE`, so
+  the replacement was a no-op and the probe tested the unchanged query. A `replace()` that
+  matches nothing is a silent success. 754's guard counts the anchor exactly once before
+  writing; the probe had no such guard.
+- **What caught it.** Reading the run's `__step_error` and `processing_history` instead of its
+  status — the RUNBOOK line I had written that afternoon ("check the step trail, not the
+  outcome") turned out to be the only thing between "gate live" and "gate never fired".
+- **The cheap checks that would have.** (1) Any query_database text with `$n`: PREPARE it in
+  the verify. (2) Any `replace()`: assert the anchor count first. (3) A fail-open design's
+  canary must read the FAILURE field, because success is what a broken fail-open looks like.
