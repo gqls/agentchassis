@@ -72,11 +72,21 @@ pricing, sales + leads, verification + NS state.**
   `domain,price,currency,status,price_source`) — committed by pathspec,
   their session notified. RUNBOOK §3 has the commands.
 - **P4 — generate half.** Writer that fills `bulk_upload_sample_v3.xlsx`
-  (or its CSV equivalent) from a desired-state source. Source is an OWNER
-  decision: for the ~40 estate sites, `site_specs` aspect `commercial`
-  (price-by-tier, about_page_commercial lane — only 2 rows exist today, so
-  most tier calls are still owed); for the wider ~1,500, a prices file he
-  edits. Every generated file lists its own diff before he uploads it.
+  (or its CSV equivalent) from a desired-state source.
+  ~~Source is an OWNER decision: for the ~40 estate sites, `site_specs`
+  aspect `commercial` (price-by-tier, about_page_commercial lane — only 2
+  rows exist today, so most tier calls are still owed);~~ **CORRECTED
+  2026-09-03 (owner ruling, relayed via the copy-quality-two-stage lane):
+  "we can set minimum floors in sedo and not have minimum floors on the
+  sites … unlink the two." `site_specs.commercial.tier` is NOT a pricing
+  input — nothing in Go ever derived a floor from it (verified by that
+  lane before relaying), and it stays a resolver-owned 1|2|3 selecting
+  about-page WORDING only. Marketplace floors are set in the marketplace
+  directly. The "tier calls owed" line above is retracted for pricing
+  purposes — tier may still matter to about-page copy, not to this lane.**
+  Source for ALL ~1,634 domains (estate sites included) is therefore one
+  prices file the owner edits — no site-derived tier lookup. Every
+  generated file lists its own diff before he uploads it.
   **First named customer (2026-09-02): the domain_valuation lane's
   bottom-~500 repricing** — the owner considers current Afternic prices
   generally overpriced; the valuation lane produces the new prices, this

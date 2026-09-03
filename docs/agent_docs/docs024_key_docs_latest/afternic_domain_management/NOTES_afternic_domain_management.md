@@ -187,6 +187,24 @@ PLAN's queued-removal item is now DONE (struck there, not deleted, per the
 correction convention). Told the valuation session (they asked to be kept
 informed) so their provisional/unaccounted-for bookkeeping updates too.
 
+## 2026-09-03 (later still) — owner ruling retracts the tier→floor link (relayed via copy-quality-two-stage lane)
+
+Owner ruling, verbatim (relayed): *"we can set minimum floors in sedo and
+not have minimum floors on the sites … unlink the two."* This corrects
+PLAN P4's stated pricing source — `site_specs.commercial.tier` was never
+actually wired to a marketplace floor in Go (verified by the relaying lane
+before they wrote to me), so the link this PLAN assumed was plan-level
+intent only (about_page_commercial D2), not a built mechanism. `tier`
+stays a resolver-owned 1|2|3 selecting about-page WORDING; it renders no
+number and is not a pricing input for this lane. **PLAN P4 corrected in
+place** (struck, not deleted) — desired-state pricing for ALL ~1,634
+domains, estate sites included, is one prices file the owner edits; no
+per-site tier lookup.
+
+Also noted from the same message, not this lane's to verify: the valuation
+lane's own A–E tier (a CSV column, unwired) is a different vocabulary from
+`commercial.tier` — do not conflate the two if either is mentioned again.
+
 **Spec CONFIRMED by the valuation session (same day)**, with one refinement
 adopted: the currency ASSUMPTION must travel in the cell, not sit silently
 in our docs — so the default currency value is now the literal
