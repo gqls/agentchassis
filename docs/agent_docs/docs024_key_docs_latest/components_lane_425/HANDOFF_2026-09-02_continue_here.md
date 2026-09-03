@@ -63,6 +63,42 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0e. THE HERO CLASS AND THE DECK CLASS MAY SHARE ONE ROOT CAUSE — one-page test filed
+
+`[MEASURED 2026-09-03]` **57 instances across 24 sites** have their own page-scope hero and are not
+rendering it (5 already correct, 104 with no own hero — nothing to repair). Derived independently;
+the `bugs_open/114` census says 61, same class.
+
+**The proposed repair — "re-renders carrying a re-resolving reason" — is an UNTESTED premise, and
+my one data point contradicts it.** I traced the single page that has visibly improved since 721
+(`garden-tools.uk/contact`, 09-02 23:18) via `page_component_history.source_item_id`:
+
+```
+item 726aa1e5 · type unbuilt_internal_link · handler page-build-handler · reason (NONE)
+```
+
+**The BUILD path.** Not a re-render, and carrying no reason at all. So the route we were about to
+dispatch 57 items down has **zero** confirmed successes, while the one success came via the route
+nobody proposed. The delivery lane has marked its own relayed condition `[UNTESTED → under test]`
+— it was a hypothesis wearing the voice of a fact.
+
+**ONE DISPATCH, NOT 57.** Filed batch `00000000-0000-0000-0000-000000000689`:
+`advertise.co.uk/about`, `reason='image_landed'`, chosen because that site has **0 open work
+items** so attribution cannot be muddied. Baseline recorded before it runs: instance
+`4e681d76`, `hero-about`, **no `background_image` key at all**, `updated_at` 09-02 17:02:11.
+Its own hero asset is `hero_about`.
+
+| result | conclusion |
+|---|---|
+| `background_image` appears **and matches `hero_about`** | the wave is viable → prepare the other 56 as a HELD migration in the 683 shape, hand firing to the site owners |
+| **no key, or the site hero instead** | **the hero class and the deck class share one root cause — `425` §2** — and the fix is the rerender path itself, not a wave |
+
+**The second outcome is the more valuable one**, because it unifies two classes worked separately
+by three lanes, and it means a 57-item wave would have completed, stamped fresh timestamps and
+changed nothing.
+
+⚠ Queue: 192 triaged, 164 older than my 08:26 item, draining ~29 per half-hour. Expect hours.
+
 ## 0c. A FLEET FINDING made while measuring this bug — 30 rerenders carrying PROSE as their reason
 
 `[MEASURED 2026-09-02]` completed `page_rerender` items over 24 hours, by reason:
