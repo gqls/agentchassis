@@ -4227,3 +4227,36 @@ a layout bypass the tag matcher?* Measured instead.
   data is missing*. For copyonline, `header-minimal-tool`'s tool vocabulary is the fillable one
   (it ships four tools); search needs a real endpoint, cart and docs are wrong for it.
 
+### (aa) 2026-09-03 10:2xZ — the repair wave is BUILT but not PUBLISHED, and that is a queue, not a fault
+
+- **State**: 7 of 8 tools built (09:30–09:54Z, no retries, every one adopting its existing page at
+  the existing URL). **All 7 `page_rerender` items still `triaged`**, oldest since 09:34Z; the 8th
+  build (`tool-channel-prioritiser`, websitepromotion) still `triaged` since 09:05Z. Nothing on
+  either site is claimed; neither site is locked.
+- **Checked rather than assumed** (memory: *detection works; schedule and dispatch do not*): the
+  `build-pipeline-trigger` ticks (10:21:20Z), the dispatch loop is EXECUTING, and **22 page_rerenders
+  completed fleet-wide in the last 15 min** — the machinery is healthy. It has simply not returned
+  to our two sites: since 09:52Z it has picked gaswholesalers, gamesdesign and robot-hands only.
+- **Why**: the selector takes the site whose OLDEST pending item is oldest. Our items were created
+  09:05–09:54Z, so every site with an older backlog outranks us; seotools/websitepromotion are
+  ~13th–15th. Sites ARE draining (gamesdesign 36 → 0, gaswholesalers 30 → 6 within the hour), so
+  this resolves itself. ⚠ Not purely FIFO though: `vetcomparison.uk` has held position 1 since
+  06:57Z with 28 items and is not being picked — [UNVERIFIED] why, not ours, but it means "oldest
+  first" is not the whole selector and ETAs from it are unreliable (I already got this wrong once
+  today, predicting 20th-of-21 and being served in 26 minutes).
+- **Not intervening.** Jumping a shared queue for this lane would be the wrong act on a fleet where
+  every other site's work is equally real. The URL watcher reports the moment each tool serves.
+- **`bugs_open/450` class fix taken by a fixing lane** (`bugfix_450_tool_page_shells/`, their
+  `587666be8`, inert until the next roll). They verified BEFORE writing it that our wave cannot
+  deadlock on their guard: `deploy_tool_action.go` inserts the tool `page_components` row (:517)
+  *before* raising its companion `needs_content_page` (:564), so the page already has a tool when
+  the follow-up work is filed and their derived predicate is already false. Our 09:34Z completion
+  is recorded in their file as the handover case. **Two consequences that are OURS:** (1) a repaired
+  page is generically re-buildable again, so the position-2 leftover `generic-text-block` is not
+  held still for us — decide it at the body; (2) from the next roll, the remaining unrepaired shells'
+  `unbuilt_internal_link` items terminate **`wont_fix`** with an `owned_page_review` receipt
+  (`spec->>'refusal_class'='tool_pending'`) instead of rebuilding — **that is the guard working, not
+  a wave of new failures**, so do not count terminal statuses and panic. They want to hear if our
+  repairs turn up a shell their predicate misjudges (their [UNMEASURED] case: a page wrongly typed
+  `tool` whose generic rebuild is genuinely wanted).
+
