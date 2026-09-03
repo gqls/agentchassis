@@ -228,10 +228,19 @@ WHERE p.in_header AND p.status = 'active' AND COALESCE(p.nav_label,'') <> '' __S
 # gets fixed instead.
 TOOLS_SQL = r"""
 SELECT COALESCE(jsonb_agg(jsonb_build_object(
-         'domain', domain, 'url', url, 'html', html)), '[]'::jsonb) FROM (
+         'domain', domain, 'url', url, 'html', html,
+         'repair_not_served', repair_not_served)), '[]'::jsonb) FROM (
   SELECT s.domain, p.url,
          (SELECT string_agg(pc.rendered_html, ' ') FROM page_components pc
-           WHERE pc.page_id = p.id) AS html
+           WHERE pc.page_id = p.id) AS html,
+         -- WRITTEN-NOT-SHIPPED (2026-09-03): this rule reads STORED rendered_html, so a
+         -- repair that has landed in the DB and has NOT been deployed makes it report
+         -- clean while the visitor still gets the broken page. p.build_status is no help
+         -- — it records that a deploy once happened, not that THESE components were in
+         -- it. Measured on seotools: 7 pages rebuilt 09:34-09:54 behind a 00:08 deploy,
+         -- all serving 0 controls while stored html carried them.
+         (p.deployed_at IS NULL OR (SELECT max(pc2.updated_at) FROM page_components pc2
+            WHERE pc2.page_id = p.id) > p.deployed_at) AS repair_not_served
   FROM pages p JOIN sites s ON s.id = p.site_id
   WHERE p.status = 'active' AND p.page_type = 'tool' __SITE__
   ORDER BY s.domain, p.url LIMIT __LIMIT__ OFFSET __OFFSET__) t;
@@ -323,7 +332,7 @@ def analyse(data):
         for f in judge_nav(entries):
             nav_findings.append({"domain": domain, **f})
 
-    tool_findings, not_built, ok = [], [], 0
+    tool_findings, not_built, unserved, ok = [], [], [], 0
     demand = {"interactive": 0, "inline_data": 0, "runtime_fetch": 0}
     for page in data.get("tools", []):
         verdict, detail = judge_tool(page)
@@ -334,6 +343,11 @@ def analyse(data):
             tool_findings.append({"domain": page["domain"], "url": page["url"], **detail})
         elif verdict == "not_built":
             not_built.append({"domain": page["domain"], "url": page["url"]})
+        elif page.get("repair_not_served"):
+            # It LOOKS usable in the database and may not be on the site. Refusing to
+            # call this clean is the whole point: the window where a repair is written
+            # and not shipped is exactly when a clean result is most misleading.
+            unserved.append({"domain": page["domain"], "url": page["url"], **detail})
         else:
             ok += 1
 
@@ -354,6 +368,7 @@ def analyse(data):
         "rule_a_two_doors_one_name": nav_findings,
         "rule_b_nothing_usable": tool_findings,
         "tool_pages_never_built": not_built,
+        "tool_pages_repair_not_served": unserved,
         "tool_pages_ok": ok,
         "index_pages_scanned": len(data.get("indexes", [])),
         "rule_c_ignores_own_section": index_findings,
@@ -375,6 +390,9 @@ def note_body(r):
              f"{len(r.get('rule_c_ignores_own_section', []))}",
              f"Separately, tool pages never built (no rendered html): "
              f"{len(r['tool_pages_never_built'])}",
+             f"Tool pages whose repair is written but NOT SERVED (stored html has a "
+             f"control, newest component postdates deployed_at): "
+             f"{len(r['tool_pages_repair_not_served'])} — NOT counted clean",
              ""]
     for f in r["rule_a_two_doors_one_name"]:
         lines.append(f"[A] {f['domain']}: nav label {f['label']!r} points at "
@@ -389,6 +407,10 @@ def note_body(r):
     for f in r["rule_b_nothing_usable"]:
         lines.append(f"[B] {f['domain']}{f['url']}: {f['chars']} chars rendered, no control, "
                      f"no inline data, no runtime fetch — a page about a tool, not a tool.")
+    for f in r["tool_pages_repair_not_served"]:
+        lines.append(f"[!] {f['domain']}{f['url']}: stored html looks usable but its newest "
+                     f"component postdates the page's deployed_at — the repair may not be "
+                     f"served. This rule reads STORED html; do not read it as clean.")
     for f in r["tool_pages_never_built"]:
         lines.append(f"[--] {f['domain']}{f['url']}: no rendered html at all (never built; "
                      f"a different defect from rule B, not mixed into it)")
@@ -441,6 +463,12 @@ def run(args):
         print(f"    {f['domain']}: {f['label']!r} ->")
         for e in f["entries"]:
             print(f"        {e['url']}  ({e['page_type']}, nav_order {e['nav_order']})")
+    if r["tool_pages_repair_not_served"]:
+        print(f"\n  ⚠ REPAIR WRITTEN BUT MAYBE NOT SERVED "
+              f"({len(r['tool_pages_repair_not_served'])}) — NOT counted clean; this rule "
+              f"reads STORED html and these pages' newest component postdates their deploy:")
+        for f in r["tool_pages_repair_not_served"]:
+            print(f"    {f['domain']}{f['url']}")
     print(f"\n  RULE B — a tool page with nothing usable: {len(r['rule_b_nothing_usable'])}")
     for f in r["rule_b_nothing_usable"]:
         print(f"    {f['domain']}{f['url']}  — {f['chars']} chars, no control, "
