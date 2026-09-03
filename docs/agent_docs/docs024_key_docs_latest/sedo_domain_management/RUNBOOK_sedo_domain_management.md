@@ -244,20 +244,29 @@ Gotchas, each earned:
   source. `EXCLUDED_live_clook_2026-09-03.txt` is the current one-off
   patch; the domain_valuation lane has offered to own an ongoing
   delegation-plus-`sites` derivation going forward.
-- **`leopardessconsulting.co.uk` is PERMANENTLY EXCLUDED from any
-  live-sites-for-sale effort, by a NAMED, DOCUMENTED, PRIOR owner ruling
-  — not merely "currently fenced."** Source:
-  `about_page_commercial/PLAN_2026-07-24_about_page_commercial.md`, D4:
-  *"'buy this site'/ads/built-by on a paying client's site (leopardess)
-  is a relationship breach."* A later, broader instruction ("list all
-  live sites") does not override this without the owner reconfirming BY
-  NAME — a general answer to a specific question about a different
-  domain (relojistas.com) is not evidence he had this client relationship
-  in view. If the live-site fence is ever regenerated from source and
-  this domain's exclusion depends only on that regeneration, that is a
-  latent risk: treat this domain's exclusion as independent of the fence
-  mechanism, the same class of durability already applied to copyonline
-  and wykefarm.
+- **`leopardessconsulting.co.uk` is PERMANENTLY EXCLUDED — confirmed by
+  the owner's own explicit word, 2026-09-03 ("no, leopardessconsulting
+  need not be listed").** Treat this exclusion as independent of the
+  fence mechanism (same durability class as copyonline and wykefarm),
+  regardless of the reasoning below.
+  > **CORRECTED 2026-09-03**, caught by the valuation lane: it is
+  > **NOT a third-party client's site** — it is the owner's OWN
+  > consultancy (live copy: "we run 22 of our own sites… before we build
+  > anything for you"; owner confirmed directly, "a representation of my
+  > own services"). The claim below, that D4 names it as a paying
+  > client, was taken from D4's own wording and repeated here unverified
+  > — check with `about_page_commercial` before citing D4's "client"
+  > framing as fact; this lane cannot confirm whether that text is wrong
+  > or the framing was added downstream. The correct standard for this
+  > domain is the ORDINARY live-site one (same as webdesign.co.uk,
+  > idea.uk) — his call alone, no third-party-harm weight. This does not
+  > change the exclusion, only why it holds.
+  >
+  > Original (uncorrected) claim, kept for the record: "PRIOR owner
+  > ruling — not merely 'currently fenced.' Source:
+  > `about_page_commercial/PLAN_2026-07-24_about_page_commercial.md`,
+  > D4: 'buy this site/ads/built-by on a paying client's site
+  > (leopardess) is a relationship breach.'"
 - **`webdesign.uk` and `webdesign.co.uk` are two different domains — do
   not conflate them, ever, in pricing or docs.** `webdesign.uk` (18
   pages) was the owner's own example of a domain that "could be worth

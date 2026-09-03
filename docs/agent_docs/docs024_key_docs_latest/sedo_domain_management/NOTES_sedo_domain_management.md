@@ -817,3 +817,37 @@ domains** the registrar CSVs have picked up since draft8 was built
 earlier today (other lanes refresh those files independently; not a
 gate issue, not acted on — draft8 stays the official current sheet,
 noted for whoever next regenerates from fresh exports).
+
+## 2026-09-03 (later still) — CORRECTION: leopardessconsulting.co.uk is the owner's OWN business, not a third-party client
+
+> **CORRECTED 2026-09-03**, caught by the valuation lane, not by this
+> lane: every earlier entry in this file describing
+> `leopardessconsulting.co.uk` as "a paying client's site" is WRONG. It
+> is the owner's own consultancy — its live copy reads *"Leopardess
+> Consulting | AI systems that do one defined job… We run 22 of our own
+> sites on Kubernetes, Kafka and Postgres"* (this platform, sold as a
+> service), and the owner confirmed directly, describing it as "a
+> representation of my own services" while asking for a second domain
+> for the same purpose. Neither this lane nor copy_quality_two_stage
+> verified the "client" framing against the live site before repeating
+> it — it was taken from D4's own wording and never checked, exactly the
+> failure class this session has caught in itself twice already (the
+> date mixup, the webdesign shopfront claim).
+
+**What this changes**: the "extra scrutiny on any future yes" reasoning
+recorded earlier was premised on third-party relationship harm — that
+premise is false. The correct standard is the ordinary live-site one
+(same as webdesign.co.uk, idea.uk): his call alone, no special
+third-party-harm weight to it.
+
+**What this does NOT change**: the exclusion itself. Independent of the
+reasoning, the owner ALREADY gave an explicit "no, leopardessconsulting
+need not be listed" (relayed 2026-09-03, logged above) — that answer
+stands on its own regardless of which justification was attached to the
+question that produced it. No sheet action needed.
+
+**Not this lane's fix**: whether D4's own text (`about_page_commercial`
+PLAN) actually says "client" or whether that framing was added
+downstream is for the owning lane to check — domain_valuation flagged it
+to them directly. This lane's job was only to correct its own record,
+which is done.
