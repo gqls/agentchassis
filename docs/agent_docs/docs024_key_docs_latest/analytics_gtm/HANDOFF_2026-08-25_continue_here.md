@@ -1,3 +1,5 @@
+> **SUPERSEDED 2026-09-03 → `HANDOFF_2026-09-03_continue_here.md`** (this file kept as the arc history — its banner stack is the chronology).
+
 # HANDOFF — analytics / GTM / GA4 · continue here (supersedes HANDOFF_2026-07-31b)
 
 **Written 2026-08-25 16:40 BST, session "google".** This lane is the home for fleet Google tracking

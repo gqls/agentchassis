@@ -588,3 +588,10 @@ acquired an analytics row — now excluded by predicate (`status NOT IN ('system
 round-2 commit). Resubmitted on the same correlation; **733 apply held until the verdict** (read
 by nothing until the roll, so waiting is free). The revise-is-cheaper-than-the-defect memory
 earns another tally.
+
+**32.** `[~17:15 BST]` Round 2 **FAILED SILENTLY** at `review_architecture` (16:07:33Z, no
+`__step_error` — the spawn→call handshake class; row NOT cancelled per practice); **round 3
+dispatched** on the same correlation (`RUN_ORCH_ID dc6d0538…`). Owner asked for the handoff update:
+cut `HANDOFF_2026-09-03_continue_here.md` (state re-measured 16:45–17:10: GA4 PUBLISHED, consent
+25/38, 733 unapplied-by-design, per-verdict instructions in §0), superseded pointer prepended to
+the 08-25 file, memory pointers repointed.
