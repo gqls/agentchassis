@@ -7,13 +7,16 @@
 //
 // What it writes, each independently, each a DEFAULT not a constraint:
 //   1. site_specs aspect 'theme_kit_adoption' — lineage record (always).
-//   2. site_specs aspect 'design_intent' — merges the kit's resolved
+//   2. site_specs aspect 'design_intent' — writes the kit's resolved
 //      palette/typography colours into .palette.reference_values /
-//      .typography.reference_values, ONLY if the site has none there yet,
-//      or mode="reapply". This is the field resolve_composition_palette_
-//      action.go / resolve_composition_typography_action.go already read
-//      (see extractPaletteSignal / extractTypographySignal) — writing here
-//      needs NO change to either resolver.
+//      .typography.reference_values. In the DEFAULT mode ("start") this
+//      SUPERSEDES what is already there; see the mode block below, and note
+//      that this comment used to say "ONLY if the site has none there yet",
+//      which was the pre-ruling behaviour and the opposite of what ships.
+//      This is the field resolve_composition_palette_action.go /
+//      resolve_composition_typography_action.go already read (see
+//      extractPaletteSignal / extractTypographySignal) — writing here needs
+//      NO change to either resolver.
 //   3. Queues needs_composition (site-design-planner) — composition install
 //      stays owned by site-design-planner (the "Choice B" precedent this
 //      platform already settled once: a composition-adjacent mechanism
@@ -28,12 +31,49 @@
 // it works however the resolver was invoked (not just via this action).
 //
 // mode:
-//   "fill_gaps" (default) — never overwrites anything the site already has.
-//   "reapply"              — overwrites design_intent's reference_values too;
-//                             the downstream needs_composition item still
-//                             needs its own allow_reinstall approval before
-//                             install_site_composition will replace a live
-//                             composition (unchanged existing guard).
+//   "start" (DEFAULT)      — WRITES the kit's palette/typography, superseding
+//                             what is there. Per OWNER RULING 2026-09-02:
+//                             "by default it can start with a theme and change
+//                             it if it wishes, but it must have full authority
+//                             to ignore our set of themes if it chooses." It
+//                             first shipped defaulting to "fill_gaps", which
+//                             was a no-op on the 33 of 57 sites the classifier
+//                             had already touched — a theme that never started
+//                             anything.
+//   "fill_gaps"            — never overwrites anything the site already has.
+//   "reapply"              — like "start", and also replaces an INSTALLED
+//                             composition; the downstream needs_composition
+//                             item still needs its own allow_reinstall
+//                             approval before install_site_composition will
+//                             replace a live composition (unchanged guard).
+//
+// Written values are marked reference_source: "theme_kit:<name>" and
+// reference_is_default: true, so a later reader can tell a kit's default from
+// a decision. The ONE thing no mode overwrites is design_intent.<dim>.locked
+// (see designIntentLocked) — a deliberate human pin nothing sets automatically.
+//
+// ⚠ ORDERING HAZARD — A KIT APPLIED BEFORE CLASSIFICATION LOSES PALETTE AND
+// TYPOGRAPHY, SILENTLY. There is no guard here, by omission not by design.
+// On the FRESH path (082 with no --from) domain-research-classifier writes
+// design_intent AFTER this action runs, and write_site_spec supersedes the
+// current row after a deep merge in which SCALAR KEYS ARE OVERWRITTEN BY THE
+// INCOMING VALUE. So the classifier discards the kit's reference_values.
+// Measured on gamedesign.uk: a manual design_intent at 17:04:35 with pinned=t
+// was is_current=f by 17:11:32, carrying a different hex.
+//   · layout SURVIVES — it is read from aspect 'theme_kit_adoption', which the
+//     classifier does not write.
+//   · palette is discarded, but that is moot for APPEARANCE: no design_intent
+//     palette reaches the 8 core slots anyway (bugs_open/438 §6a-ter).
+//   · TYPOGRAPHY is discarded AND typography is the dimension that renders —
+//     this is the one that actually costs something.
+//   · `locked: true` does NOT protect you. It is read when THIS action writes;
+//     nothing makes the classifier respect it. Worse, the key survives the
+//     merge while the values do not, so the row ends up claiming a human pin
+//     over a classifier's values.
+// So a kit works on an ALREADY-CLASSIFIED site and is defeated on a new one —
+// the inverse of the ruling's framing. Found by the council gate, correlation
+// bed139b2-f512-436a-9ba8-ff2fbfade8ef round 2; candidates and why none is
+// applied here: bugs_open/438 §6d.
 //
 // A kit with needs_review=true or is_active=false is refused outright — not
 // selectable until reviewed/published.

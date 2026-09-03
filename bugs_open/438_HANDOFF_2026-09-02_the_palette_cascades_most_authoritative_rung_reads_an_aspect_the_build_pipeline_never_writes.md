@@ -535,3 +535,75 @@ to `theme kits` directly.
 - Cross-check `bugs_open/113` (same family, different mechanism: that one is about
   generated palettes inheriting the layout's light literals) so the two are not closed
   against each other's evidence.
+
+## 6d. CONTRIB from the `theme kits` lane, 2026-09-03 — `apply_theme_kit` is a NEWLY EXPOSED consumer of this mechanism, and it defeats kits on exactly the path the owner asked for
+
+**Found by the council gate, not by me** (correlation `bed139b2-f512-436a-9ba8-ff2fbfade8ef`,
+round 2, `editquality` objecting on edit 2). It cited this bug's own landmines back at me.
+I confirmed it by reading the code. **The objection is correct and I am recording it here
+rather than restating the bug.**
+
+**The mechanism is exactly §6a-bis's, with a new caller.** `apply_theme_kit` writes the
+kit's palette and typography into `design_intent.{palette,typography}.reference_values`.
+`write_site_spec` supersedes the current row after a deep merge, and **scalar keys are
+overwritten by the incoming value**. So on the FRESH path, where
+`domain-research-classifier` runs after the kit is applied, the classifier's
+`design_intent` write **silently discards the kit's palette and typography**. Measured
+first-hand by the gamedesign.uk lane and recorded in the landmine: manual `design_intent`
+at 17:04:35 with `pinned=t` → `is_current=f` at 17:11:32, the classifier's row carrying a
+different hex and `layout_preference` simply gone.
+
+**There is NO guard.** `[VERIFIED 2026-09-03 by reading the file]`
+`apply_theme_kit_action.go` contains no check on classification state, no ordering
+assertion and no warning — `grep -n "classifier\|domain-research"` finds only comments
+about the ruling, never a predicate. Nothing tells an operator the write will be discarded.
+
+**My `design_intent.<dim>.locked: true` guard does NOT cover this, and it is important not
+to think it does.** `locked` is read by `apply_theme_kit` when *it* writes. **Nothing makes
+the CLASSIFIER respect it.** The key itself survives the deep merge (the classifier does
+not send it), so afterwards the row says `locked: true` while carrying the classifier's
+values — **the most misleading possible end state**, because the marker that is supposed to
+mean "a human chose this" sits on top of values a human did not choose.
+
+**Which dimensions actually lose, and this is the part that matters:**
+
+| dimension | fresh path (kit applied before classification) | existing classified site |
+|---|---|---|
+| layout | **SURVIVES** — read from aspect `theme_kit_adoption`, which the classifier does not write | survives |
+| palette | discarded by the classifier — **but moot for appearance**, since §6a-ter established no `design_intent` palette reaches the 8 core slots anyway | kit wins (mode `start`) |
+| **typography** | **DISCARDED, AND THIS ONE RENDERED** — §6a-ter: `design_intent.typography.reference_values` wins and IS what renders | kit wins, and renders |
+| chrome | unaffected (own columns) — though separately a no-op, see below | unaffected |
+
+**So the defect inverts the owner's framing.** His ruling was *"by default it can start with
+a theme and change it if it wishes"* — a kit as a **starting point for a new site**. As
+built, a kit works on a site that has **already** been classified, and is silently defeated
+on a **new** one. The one dimension that both renders and can be lost is typography.
+
+**Not fixed, deliberately, and here is why rather than as an omission.** The candidate fixes
+all touch a shared seam and one of them is a withdrawn RFC:
+
+1. **Make the classifier respect `design_intent.<dim>.locked`.** Correct in spirit and it is
+   a change to the classifier's write authority over a shared aspect — architecture-scope
+   under the 2026-07-28 ruling, and it is really this bug's fix candidate list, not a
+   theme-kit patch.
+2. **Have `apply_theme_kit` also write `mission.preferred_typography`.** Tempting because
+   `mission` survives the fresh path — but §6a-bis is explicit that this is **durability by
+   accident** (nothing writes `mission` on that path because `persist_mission` reads a key
+   082 never sends, i.e. *this bug*), so it would be building on the defect. And it collides
+   with my own typography guard, which treats a mission hint as a reason NOT to write.
+3. **Refuse or warn when the site has no classifier-written `design_intent` yet.** The
+   cheapest honest option and the one I would take: it changes no cascade, and it converts a
+   silent loss into a reported one. Still a behaviour change to a live shared action, so it
+   wants its own council round rather than a same-day commit at the end of a session.
+
+**What I did do:** corrected `apply_theme_kit_action.go`'s file header, which documented
+`fill_gaps` as the default and never mentioned `start` — the pre-ruling behaviour, i.e. the
+file's own comment stated the opposite of what it does — and documented this ordering hazard
+there, where the next person to call the action will read it.
+
+**A separate finding from the same day, for whoever picks up the "can a kit differentiate"
+question:** all four seeded kits pin `header-theme-chrome`/`footer-theme-chrome`, which is
+exactly the row `ResolveChromeComponent` returns for a site with no pin at all — so a kit's
+chrome is a no-op too. Combined with §6a-ter's palette finding and the 94.4% page-structure
+measurement, **layout is the only dimension where adopting a kit changes anything.** Full
+account: `docs024_key_docs_latest/theme_kits/NOTES_theme_kits.md` and register DES-085.
