@@ -440,3 +440,39 @@ noun** — "open" is not `NOT IN (five statuses)`, it is "a handler will pick th
 So the honest statement right now is **"the guard is live and has not yet been exercised"**, not
 "the guard did not fire". The watch continues on receipts, which remains the right signal; if the
 6 claimable items are picked up and rebuild their pages without a receipt, THAT is falsification.
+
+## (p) 2026-09-03 — the census gap reconciled, and `cc.is_active` found TWICE from opposite directions
+
+The 427 lane verified the narrowing at the source (`save_page_sections_action.go`: one added
+condition, `refused && class == refusalOwned`, and the tool arm still live at `load_page_record`,
+`multipage_actions` and the rerender escalation), then reported a census disagreement — theirs
+58/53/9, mine 67/54/10 — and marked it `[UNRECONCILED]` rather than adopting either. Reconciled
+here rather than left standing, because it was my number:
+
+| encoding | pages | sites |
+|---|---|---|
+| guard predicate, **WITH `cc.is_active`** (mine, and the guard's) | **67** | 16 |
+| same, **WITHOUT `cc.is_active`** (theirs) | 58 | 12 |
+| **the gap: a tool component EXISTS but is INACTIVE** | **9** | 5 |
+
+58 + 9 = 67, closed exactly. The nine each hold one tool row with `is_active=false`:
+ai-agent-orchestration.com ×2, finetuning.uk ×3, gaswholesalers.com ×1,
+leopardessconsulting.co.uk ×1, robot-hands.com ×2.
+
+**Which number is right depends on the question, and only one of them is about the guard.**
+`toolShellPredicateFor` carries `cc.is_active = true`, so those nine ARE pages the guard refuses;
+their predicate would have predicted no refusal for them. For "how many pages does this guard act
+on", 67. For "how many pages carry a tool component of any kind", 58.
+
+**The part worth keeping: this same distinction was found twice today, from opposite directions,
+by two different lanes.** This morning the portfolio lane's report exposed that my ORIGINAL census
+lacked `is_active` while the fix had it — a floor, corrected to match the fix. This afternoon the
+427 lane bumped into the corrected version from the other side. Two independent arrivals at one
+seam is the strongest evidence available that the guard should keep `is_active` — and it is also
+the predicate `create_tool_component` uses for its own "does this site already have this tool"
+probe, so the gate and the tool writer agree about what *having a tool* means. Nothing changed on
+the strength of it; the point is that the encoding is now corroborated rather than merely chosen.
+
+Their 53-vs-54 half I DID adopt: `build_status='deployed'` versus any non-`removed` row, and the
+more inclusive reading is the honest one for "would be refused a repair", since a live-but-not-yet
+-deployed row is a page mid-maintenance.
