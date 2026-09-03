@@ -142,9 +142,19 @@ BEGIN
     RAISE EXCEPTION '729 VERIFY: 718 imagery surface went missing — refuse';
   END IF;
   -- 640's rule 17 (per-section subjects), added at the bugs_open/443 lane's request
-  -- 2026-09-03 and confirmed against the LIVE row before hardcoding (position 28860 of
-  -- 32022). Owner: the apis.uk lane (PBP-049), which re-derived 640 once after a drift
-  -- refusal. This is not politeness: 443's build-side detector
+  -- 2026-09-03 and confirmed against the LIVE row before hardcoding. Owner: the apis.uk
+  -- lane (PBP-049), which re-derived 640 once after a drift refusal and confirms this is
+  -- the same anchor 640's own file keys on TWICE (its idempotence probe and its post-apply
+  -- verify) — and that it sits in the clause which SURVIVED that drift (bugs_open/380
+  -- rewrote rule 17's TAIL; the head sentences were kept verbatim). So it is the most
+  -- stable substring available, not merely a convenient one.
+  --
+  -- ⚠ PRESENCE ONLY — this check must never assert a POSITION or a LENGTH, and nothing in
+  -- this migration does (every other guard above is a relative delta or an occurrence
+  -- count computed from `tpl` at apply time). Why it matters concretely: the template's
+  -- length moved 32022 -> 32191 within an hour on 2026-09-03, between two lanes' readings
+  -- of it. Three lanes edit this row; any absolute recorded here would be wrong by the
+  -- time someone relied on it. This is not politeness: 443's build-side detector
   -- REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT is live-firing on plan-carrying sites, and
   -- reading its fire-rate assumes rule 17 is still in the planner's prompt. A migration
   -- that silently ate this sentence would make that detector read as planner
