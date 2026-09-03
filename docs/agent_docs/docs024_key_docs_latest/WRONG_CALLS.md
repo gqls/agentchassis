@@ -62672,3 +62672,42 @@ fix (call the shared helper, delete both literals) is planned in
 - **Cost.** Two misroutes of an owner ruling, two peers' time reading and correcting it, and a
   handoff line that had to be struck twice in the same hour. The ruling reached the right lane
   ~40 minutes after it could have.
+
+## 2026-09-03 — a right conclusion resting on two false claims, carried into a council submission and a register entry (session theme kits)
+
+- **The claim.** In a council submission's `grounded_in` and in concept-register entry DES-085, I
+  supported "the seed hardcodes verified chrome UUIDs rather than a function-name subquery" with:
+  (a) `chromePinEligibleSQL` "EXCLUDES the confusingly-named `site-header`/`site-footer` rows
+  (`component_level='section'`) entirely", and (b) "the actually-eligible rows are
+  `header-theme-chrome`/`footer-theme-chrome`".
+- **Why it was false — both halves.** `site-header` has a `section` row **and** active
+  `component_level='site'` rows, so it is chrome-eligible; and `header-theme-chrome` /
+  `footer-theme-chrome` **do not exist in any state** (`WHERE function LIKE '%theme-chrome%'` →
+  0 rows). I named non-existent components as the eligible ones. Under the predicate as actually
+  written, `site-header` is the ONLY one of ten chrome-eligible functions that a name subquery
+  resolves ambiguously (2 rows), which supports the conclusion **better** than my reason did.
+- **What caught it.** Nothing external. I was re-measuring for an unrelated reason — a council
+  REVISE verdict told me to make a *different* figure carry a runnable predicate, and running the
+  queries for that swept these up. Had the reviewer not objected to the other claim, both would
+  still be in the register being read by council seats as ground truth.
+- **The mistake, precisely.** This is the THIRD entry this lane has logged of the same shape: a
+  conclusion that is correct while the reason given for it is false (the seed-set defect, corrected
+  by `bugs_open/445`; the chrome bottleneck, diagnosed from the library instead of the data; now
+  this). Being right that something is wrong is not understanding why, and the wrong reason
+  produces the wrong fix — here it would have sent anyone hunting for `header-theme-chrome`.
+  **A conclusion I already believe is exactly where I stop checking the evidence for it.**
+- **The cheap check that would have.** Never assert a row's properties from its NAME or from one
+  row of several: `SELECT function, component_level, is_active FROM content_components WHERE
+  function IN (…)` shows the whole set, and a `LIKE '%<name>%'` existence probe costs one second
+  before naming a component as the answer. Both were one query.
+- **Cost.** A false claim shipped in a council submission (round 1) and sat in the register for a
+  day. Retracting it in round 2 was cheap; the register correction was not, because the entry had
+  to be re-verified end to end — which then found a THIRD thing wrong (all four kits pin chrome the
+  default already picks, so the pins are no-ops). That finding is the most decision-relevant thing
+  in the entry and only surfaced because a reviewer objected to an unrelated sentence.
+- **The durable half.** A `[MEASURED]`-marked figure whose predicate lives only in prose is not
+  reviewable: round 1 said "3 collisions after the canonical predicate", the reviewer reconstructed
+  a different query, got 84, and reviewed **that**. Both numbers were right under their own
+  predicate. **Put the predicate in the submission as a query the reader can run, in the same
+  breath as the number** — and re-check the denominator, which had also gone stale (364 → 425 raw /
+  410 canonical) by simple addition, exactly as the count-needs-a-date rule warns.
