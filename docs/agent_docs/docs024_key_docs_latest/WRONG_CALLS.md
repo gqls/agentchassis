@@ -64627,3 +64627,54 @@ comm-and-sort-disagree-on-collation, grep-silent-on-non-utf8.
   type an "open work" filter silently selects the failures: the same trap is waiting on
   `needs_composition`, `page_rerender` and everything else.
 - **Cost.** None. Caught before it reached the owner or any document.
+
+## 2026-09-03 — I told another lane to FILE a landmine on the strength of a gap I never grepped for (`bugs_open/332`)
+
+- **The claim.** The feed lane told me `grep -m1 'build provenance'` can match a ~5 MB council
+  payload before reaching the startup line. I replied that this was significant and fleet-wide,
+  that it was CLAUDE.md's own prescribed deploy check, and — the part that was mine and wrong —
+  that *"the LANDMINES entry on that footprint does not cover it"*, urging them to file it.
+- **What was true.** It is covered **three times**, and one entry (LANDMINES:12677, the 293
+  lane, 2026-08-17) covers precisely the payload-echo case in its own words: the chassis logs
+  whole council and diagnosis envelopes, *"so the phrase is data as well as a log message"*.
+  `grep -c "build provenance"` over that file returns **57**. The lane had also independently
+  found they had written a third entry that morning before discovering the earlier two.
+- **What misled me.** Nothing did. **I asserted an absence without running the grep**, in a
+  message telling someone else to do work on the strength of it. The estate's own rule — *an
+  absence is only true when you looked* — is in my memory index and I did not apply it, in the
+  one direction where the cost lands on somebody else.
+- **Why it mattered.** A fourth duplicate entry in a fleet-wide append-only file, and the
+  duplicate would have been *worse* than the originals: 12677's remedy is better than the one
+  I was implicitly endorsing (read `buildinfo.GitCommit=` off `/proc/1/exe` and take the value
+  NEXT TO the marker, with the absent-control first — rather than grepping for a sha you
+  already believe). Only the recipient's own grep stopped it.
+- **The cheap check that would have.** `grep -c "<the footprint>" LANDMINES.md` — three seconds,
+  and it is the same command I would have run before filing one myself. **The asymmetry is the
+  lesson: I applied "grep before you file" to my own filings all day and dropped it the moment
+  the filing was someone else's.** Advice to file is a filing.
+- **What survived.** The general form I proposed *was* useful and they took it — an index entry
+  saying that on a service logging whole agent payloads, every log-message literal is data as
+  well as a log line, pointing at 12677 as authoritative. So the right contribution was
+  generalising an existing entry, not adding a new one — which is only visible once you have
+  read the existing ones.
+
+## 2026-09-03 — a `grep -c` of 6 nearly told me a link was server-rendered when all six matches were CSS (`bugs_open/472`)
+
+- **The claim, nearly made.** Checking whether the "More insights" link my `safeHref` regression
+  would have killed is visible to a static fetch, I ran `grep -c 'news-more-link'` over three
+  served homepages and got **6, 4, 6**. The reading queued up in my head was *"it is
+  server-rendered after all, so a curl could have caught this"*.
+- **What was true.** Every match is a **CSS rule** — `.news-more-link {`, `.news-more-link:hover`,
+  and a duplicate block. There are **zero** rendered anchors. `grep -oE '<a[^>]*news-more-link[^>]*>'`
+  returns nothing on all three. The link exists **only** in the client-built DOM, which makes
+  the regression invisible to every static check and the browser check essential rather than
+  optional.
+- **What caught it.** Printing the matches instead of the count, which took one command and
+  which I only did because the number disagreed with what I expected from the code.
+- **The cheap check.** **A count answers "how many strings", never "how many elements".** For any
+  DOM question, match the element shape (`<a[^>]*class...`) rather than the class name, or the
+  stylesheet will vote. This one is already in my memory index as *"a grep occurrence-count
+  conflates a CSS rule with a rendered element"* — read that morning, and it still needed the
+  disagreement to trigger it.
+- **Cost.** None. Recorded because it went the right way for the wrong reason: the number
+  happened to conflict with my model, and had it agreed I would not have looked.
